@@ -1,56 +1,46 @@
 """
-Tier 1 EXPERIMENTAL: Quantum ECC harness — parameter search.
+Tier 1 EXPERIMENTAL: Quantum ECC harness — parallel parameter search.
 
 Explores the env-var parameter space of the ecdsa.fail circuit without modifying Rust code.
-The circuit uses Dialog-GCD with dozens of tunable parameters; improvements come from
-finding "Fiat-Shamir islands" — parameter combinations where the random test vectors
-happen to align with the circuit's branching structure.
+Each combination runs build_circuit → eval_circuit in an isolated temp directory.
+Uses concurrent.futures for parallel execution across available CPU cores.
 
 Baseline: 2,630,999,274 (1,688,703 avg Toffoli × 1,558 peak qubits)
 
 Status: ACTIVE (started 2026-06-02). Delete by 2026-07-02 if not promoted.
 
 Usage:
-  python3 search.py --repo ./ecdsafail-challenge --mode reroll2d [--dry-run]
+  python3 search.py --repo ./ecdsafail-challenge --mode reroll2d [--workers 12]
+  python3 search.py --repo ./ecdsafail-challenge --mode reroll2d --dry-run
   python3 search.py --repo ./ecdsafail-challenge --mode compare_bits
-  python3 search.py --repo ./ecdsafail-challenge --mode width_margin
 """
 import argparse
 import itertools
 import json
 import logging
+import os
+import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
-logging.basicConfig(level=logging.INFO, stream=sys.stdout,
-                    format="%(asctime)s %(levelname)s %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stdout,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
 
 STATE_FILE = Path(__file__).parent / "search_state.json"
 
-# Current submission route defaults (from configure_ecdsafail_submission_route)
-BASELINE_PARAMS: dict[str, str] = {
-    "DIALOG_REROLL": "13",
-    "DIALOG_POST_SUB_REROLL": "14",
-    "DIALOG_GCD_COMPARE_BITS": "59",
-    "DIALOG_GCD_APPLY_CLEAN_COMPARE_BITS": "19",
-    "DIALOG_GCD_WIDTH_MARGIN": "27",
-    "DIALOG_GCD_ACTIVE_ITERATIONS": "399",
-    "DIALOG_GCD_APPLY_WINDOW_BLOCKS": "2",
-    "DIALOG_GCD_APPLY_CHUNKED_F_BLOCKS": "2",
-    "DIALOG_GCD_APPLY_CHUNKED_F_CUT": "70",
-    "KAL_DOUBLE_CARRY_TRUNC_W": "20",
-    "KAL_FOLD_CARRY_TRUNC_W": "20",
-    "KARA_SOL_SHIFT22_DOUBLES": "1",
-    "ROUND84_XTAIL_KARATSUBA": "1",
-}
-
 
 @dataclass
-class SearchResult:
+class EvalResult:
     params: dict[str, str]
     toffoli: int
     qubits: int
@@ -65,8 +55,9 @@ class SearchState:
     best_params: dict[str, str] = field(default_factory=dict)
     best_toffoli: int = 1_688_703
     best_qubits: int = 1_558
-    tried: list[dict[str, Any]] = field(default_factory=list)
+    tried_keys: list[str] = field(default_factory=list)
     improvements: list[dict[str, Any]] = field(default_factory=list)
+    total_run: int = 0
 
 
 def load_state() -> SearchState:
@@ -85,188 +76,241 @@ def save_state(s: SearchState) -> None:
     tmp.replace(STATE_FILE)
 
 
-def run_eval(repo_dir: Path, extra_env: dict[str, str]) -> Optional[SearchResult]:
-    """Run eval_circuit with env overrides. Returns None on compile error."""
-    import os
-    env = os.environ.copy()
-    env.update(extra_env)
-
-    t0 = time.monotonic()
-    proc = subprocess.run(
-        ["cargo", "run", "--release", "--bin", "eval_circuit"],
-        cwd=repo_dir,
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    duration = time.monotonic() - t0
-
-    if proc.returncode != 0:
-        logging.warning("eval failed (rc=%d): %s", proc.returncode, proc.stderr[-200:])
-        return None
-
-    import re
-    def extract(pattern: str) -> Optional[float]:
-        m = re.search(pattern, proc.stdout, re.MULTILINE)
-        return float(m.group(1)) if m else None
-
-    toffoli_f = extract(r"avg executed Toffoli\s*:\s*([\d.]+)")
-    qubits_f = extract(r"qubits\s*:\s*([\d.]+)")
-    if toffoli_f is None or qubits_f is None:
-        logging.warning("could not parse eval output: %s", proc.stdout[-300:])
-        return None
-
-    toffoli = int(toffoli_f)
-    qubits = int(qubits_f)
-    score = toffoli * qubits
-    correctness = "experiment OK" in proc.stdout
-
-    return SearchResult(
-        params=dict(extra_env),
-        toffoli=toffoli,
-        qubits=qubits,
-        score=score,
-        correctness=correctness,
-        duration_s=duration,
-    )
-
-
 def params_key(params: dict[str, str]) -> str:
     return json.dumps(sorted(params.items()))
 
 
-def already_tried(state: SearchState, params: dict[str, str]) -> bool:
-    key = params_key(params)
-    return any(params_key(t.get("params", {})) == key for t in state.tried)
+def run_one(
+    build_bin: str,
+    eval_bin: str,
+    extra_env: dict[str, str],
+) -> Optional[EvalResult]:
+    """Run build_circuit + eval_circuit in a temp dir with env overrides."""
+    env = os.environ.copy()
+    env.update(extra_env)
+
+    tmpdir = tempfile.mkdtemp(prefix="qecc_")
+    try:
+        t0 = time.monotonic()
+
+        # Step 1: build_circuit → ops.bin
+        build_proc = subprocess.run(
+            [build_bin],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if build_proc.returncode != 0:
+            return None
+
+        # Step 2: eval_circuit → reads ops.bin, outputs metrics
+        eval_proc = subprocess.run(
+            [eval_bin],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        duration = time.monotonic() - t0
+
+        if eval_proc.returncode != 0:
+            return None
+
+        output = eval_proc.stdout
+
+        def extract(pattern: str) -> Optional[float]:
+            m = re.search(pattern, output, re.MULTILINE)
+            return float(m.group(1)) if m else None
+
+        toffoli_f = extract(r"avg executed Toffoli\s*:\s*([\d.]+)")
+        qubits_f = extract(r"qubits\s*:\s*([\d.]+)")
+        if toffoli_f is None or qubits_f is None:
+            return None
+
+        toffoli = int(toffoli_f)
+        qubits = int(qubits_f)
+
+        return EvalResult(
+            params=dict(extra_env),
+            toffoli=toffoli,
+            qubits=qubits,
+            score=toffoli * qubits,
+            correctness="experiment OK" in output,
+            duration_s=duration,
+        )
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
-def reroll_2d_search(
-    r_range: range, post_range: range
-) -> Iterator[dict[str, str]]:
-    """2D grid over (DIALOG_REROLL, DIALOG_POST_SUB_REROLL)."""
-    for r, p in itertools.product(r_range, post_range):
-        yield {"DIALOG_REROLL": str(r), "DIALOG_POST_SUB_REROLL": str(p)}
+def reroll_2d_search(r_max: int, p_max: int) -> list[dict[str, str]]:
+    return [
+        {"DIALOG_REROLL": str(r), "DIALOG_POST_SUB_REROLL": str(p)}
+        for r, p in itertools.product(range(r_max), range(p_max))
+    ]
 
 
-def compare_bits_search(cb_range: range) -> Iterator[dict[str, str]]:
-    """1D sweep over DIALOG_GCD_COMPARE_BITS with matched reroll scan."""
-    for cb in cb_range:
-        for r in range(0, 20):
-            for p in range(0, 20):
-                yield {
-                    "DIALOG_GCD_COMPARE_BITS": str(cb),
-                    "DIALOG_REROLL": str(r),
-                    "DIALOG_POST_SUB_REROLL": str(p),
-                }
+def compare_bits_search(cb_range: range, r_max: int, p_max: int) -> list[dict[str, str]]:
+    return [
+        {
+            "DIALOG_GCD_COMPARE_BITS": str(cb),
+            "DIALOG_REROLL": str(r),
+            "DIALOG_POST_SUB_REROLL": str(p),
+        }
+        for cb, r, p in itertools.product(cb_range, range(r_max), range(p_max))
+    ]
 
 
-def width_margin_search(margin_range: range) -> Iterator[dict[str, str]]:
-    """Sweep DIALOG_GCD_WIDTH_MARGIN with reroll scan."""
-    for margin in margin_range:
-        for r in range(0, 20):
-            for p in range(0, 20):
-                yield {
-                    "DIALOG_GCD_WIDTH_MARGIN": str(margin),
-                    "DIALOG_REROLL": str(r),
-                    "DIALOG_POST_SUB_REROLL": str(p),
-                }
+def width_margin_search(margin_range: range, r_max: int, p_max: int) -> list[dict[str, str]]:
+    return [
+        {
+            "DIALOG_GCD_WIDTH_MARGIN": str(m),
+            "DIALOG_REROLL": str(r),
+            "DIALOG_POST_SUB_REROLL": str(p),
+        }
+        for m, r, p in itertools.product(margin_range, range(r_max), range(p_max))
+    ]
 
 
 def run_search(
     repo_dir: Path,
-    param_iter: Iterator[dict[str, str]],
-    dry_run: bool = False,
+    combos: list[dict[str, str]],
+    workers: int,
+    dry_run: bool,
+    build_bin: Optional[str] = None,
+    eval_bin: Optional[str] = None,
 ) -> None:
+    build_bin = build_bin or str(repo_dir / "target" / "release" / "build_circuit")
+    eval_bin = eval_bin or str(repo_dir / "target" / "release" / "eval_circuit")
+
     state = load_state()
 
-    for extra_params in param_iter:
-        if already_tried(state, extra_params):
-            logging.info("skip (already tried): %s", extra_params)
-            continue
+    # Filter already-tried
+    pending = [c for c in combos if params_key(c) not in set(state.tried_keys)]
+    logging.info(
+        "search_start: %d combos total, %d pending, %d already tried, workers=%d",
+        len(combos), len(pending), len(combos) - len(pending), workers,
+    )
 
-        logging.info("trying: %s", extra_params)
+    if dry_run:
+        for c in pending[:5]:
+            logging.info("[DRY RUN] would try: %s", c)
+        logging.info("[DRY RUN] %d combos total — not running", len(pending))
+        return
 
-        if dry_run:
-            logging.info("[DRY RUN] would run eval with %s", extra_params)
-            state.tried.append({"params": extra_params, "dry_run": True})
-            save_state(state)
-            continue
+    eta_s = len(pending) * 25 / workers
+    logging.info(
+        "ETA: ~%dm%ds at ~25s/combo with %d workers",
+        int(eta_s // 60), int(eta_s % 60), workers,
+    )
 
-        result = run_eval(repo_dir, extra_params)
-        record: dict[str, Any] = {
-            "params": extra_params,
-            "result": asdict(result) if result else None,
+    completed = 0
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(run_one, build_bin, eval_bin, c): c
+            for c in pending
         }
-        state.tried.append(record)
 
-        if result is None:
-            save_state(state)
-            continue
+        for future in as_completed(futures):
+            c = futures[future]
+            key = params_key(c)
+            state.tried_keys.append(key)
+            state.total_run += 1
+            completed += 1
 
-        logging.info(
-            "score=%d toffoli=%d qubits=%d correct=%s (%.1fs)",
-            result.score, result.toffoli, result.qubits,
-            result.correctness, result.duration_s,
-        )
+            try:
+                result = future.result()
+            except Exception as e:
+                logging.warning("worker error params=%s: %s", c, e)
+                save_state(state)
+                continue
 
-        if result.correctness and result.score < state.best_score:
-            delta = state.best_score - result.score
+            if result is None:
+                logging.warning("eval returned None for params=%s", c)
+                save_state(state)
+                continue
+
+            status = "OK" if result.correctness else "FAIL"
             logging.info(
-                "*** NEW BEST: %d (delta -%d, %.1f%%) params=%s",
-                result.score, delta, 100 * delta / state.best_score, extra_params,
+                "[%d/%d] score=%d toffoli=%d qubits=%d %s params=%s (%.1fs)",
+                completed, len(pending),
+                result.score, result.toffoli, result.qubits,
+                status, c, result.duration_s,
             )
-            state.best_score = result.score
-            state.best_toffoli = result.toffoli
-            state.best_qubits = result.qubits
-            state.best_params = extra_params
-            state.improvements.append(record)
+
+            if result.correctness and result.score < state.best_score:
+                delta = state.best_score - result.score
+                logging.info(
+                    "*** NEW BEST: %d (delta -%d, -%.2f%%) params=%s",
+                    result.score, delta, 100 * delta / state.best_score, c,
+                )
+                state.best_score = result.score
+                state.best_toffoli = result.toffoli
+                state.best_qubits = result.qubits
+                state.best_params = c
+                state.improvements.append(asdict(result))
+
             save_state(state)
-        else:
-            save_state(state)
+
+    state = load_state()
+    logging.info(
+        "search_complete: best_score=%d best_params=%s improvements=%d total_run=%d",
+        state.best_score, state.best_params,
+        len(state.improvements), state.total_run,
+    )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Quantum ECC parameter search")
-    parser.add_argument("--repo", required=True)
-    parser.add_argument(
-        "--mode",
-        choices=["reroll2d", "compare_bits", "width_margin"],
-        default="reroll2d",
-    )
+    parser = argparse.ArgumentParser(description="Quantum ECC parallel parameter search")
+    parser.add_argument("--repo", default=None,
+                        help="Repo dir (expects target/release/ inside). "
+                             "Ignored if --build-bin and --eval-bin are set.")
+    parser.add_argument("--build-bin", default=None, help="Path to build_circuit binary")
+    parser.add_argument("--eval-bin", default=None, help="Path to eval_circuit binary")
+    parser.add_argument("--mode", choices=["reroll2d", "compare_bits", "width_margin"],
+                        default="reroll2d")
+    parser.add_argument("--workers", type=int, default=12)
+    parser.add_argument("--r-min", type=int, default=0)
+    parser.add_argument("--r-max", type=int, default=20)
+    parser.add_argument("--p-max", type=int, default=25)
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--r-max", type=int, default=20,
-                        help="DIALOG_REROLL range [0, r-max)")
-    parser.add_argument("--p-max", type=int, default=25,
-                        help="DIALOG_POST_SUB_REROLL range [0, p-max)")
     args = parser.parse_args()
 
-    repo_dir = Path(args.repo).resolve()
+    # Resolve binary paths
+    build_bin: Optional[str] = args.build_bin
+    eval_bin: Optional[str] = args.eval_bin
 
-    state = load_state()
-    logging.info(
-        "search_start: best_score=%d tried=%d",
-        state.best_score, len(state.tried),
-    )
+    if build_bin is None or eval_bin is None:
+        if args.repo is None:
+            print("ERROR: provide --repo or both --build-bin and --eval-bin")
+            sys.exit(1)
+        repo_dir = Path(args.repo).resolve()
+        build_bin = build_bin or str(repo_dir / "target" / "release" / "build_circuit")
+        eval_bin = eval_bin or str(repo_dir / "target" / "release" / "eval_circuit")
+    else:
+        repo_dir = Path(args.build_bin).parent  # used only for label
+
+    for b in (build_bin, eval_bin):
+        if not Path(b).exists():
+            print(f"ERROR: binary not found: {b}")
+            sys.exit(1)
 
     if args.mode == "reroll2d":
-        # ~500 combinations × ~30s each ≈ 4h (run overnight)
+        combos = reroll_2d_search(args.r_max, args.p_max)
+        # Filter to r_min..r_max range
+        combos = [c for c in combos if int(c["DIALOG_REROLL"]) >= args.r_min]
         logging.info(
-            "2D reroll search: DIALOG_REROLL [0,%d) × DIALOG_POST_SUB_REROLL [0,%d) = %d combos",
-            args.r_max, args.p_max, args.r_max * args.p_max,
+            "mode=reroll2d: REROLL [%d,%d) × POST_SUB [0,%d) = %d combos",
+            args.r_min, args.r_max, args.p_max, len(combos),
         )
-        it = reroll_2d_search(range(args.r_max), range(args.p_max))
     elif args.mode == "compare_bits":
-        # sweep COMPARE_BITS 55-64 × reroll 2D
-        it = compare_bits_search(range(55, 65))
+        combos = compare_bits_search(range(55, 65), args.r_max, args.p_max)
     else:
-        it = width_margin_search(range(22, 33))
+        combos = width_margin_search(range(22, 33), args.r_max, args.p_max)
 
-    run_search(repo_dir, it, dry_run=args.dry_run)
-
-    state = load_state()
-    logging.info(
-        "search_complete: best_score=%d best_params=%s improvements=%d",
-        state.best_score, state.best_params, len(state.improvements),
+    run_search(
+        repo_dir, combos, workers=args.workers, dry_run=args.dry_run,
+        build_bin=build_bin, eval_bin=eval_bin,
     )
 
 
