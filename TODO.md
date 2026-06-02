@@ -18,9 +18,9 @@
 - **Falsify**: If measurement runs and divergence ≤ 0.05 on Q-score, enrichment is noise
 - **Success**: Divergence report generated, feed to calibration phase
 - **Action items**:
-  - [ ] Write `scripts/outcome_measurement_t7.sh` — compares baseline vs enriched on 45 tokens, outputs divergence.csv
-  - [ ] Register cron: systemd timer fires 2026-06-02 06:00 UTC
-  - [ ] Pre-test: script runs on historical data, outputs sample report
+  - [x] Write `scripts/outcome_measurement_t7.sh` — compares baseline vs enriched on 45 tokens, outputs divergence.csv
+  - [x] Register cron: systemd timer fires 2026-06-02 06:00 UTC
+  - [x] Pre-test: script runs on historical data, outputs sample report
 
 **Governance: Session Continuity (Parallel)**
 - **Due: 2026-05-31** (2 days from now)
@@ -31,9 +31,9 @@
 - **Falsify**: If session ends and next phase not auto-posted, governance still broken
 - **Success**: Post-session hook auto-posts outcome measurement to `/observe domain=mempool`
 - **Action items**:
-  - [ ] Add to `session-stop.sh`: POST outcome measurement task to mempool if phase complete
-  - [ ] Test: end session, verify mempool POST fires
-  - [ ] Verify: next session reads mempool, sees measurement task queued
+  - [x] Add to `session-stop.sh`: POST outcome measurement task to mempool if phase complete
+  - [x] Test: end session, verify mempool POST fires
+  - [x] Verify: next session reads mempool, sees measurement task queued
 
 ---
 
@@ -85,6 +85,11 @@
 ---
 
 ## Completed (Archive Reference)
+
+### TRACK: BOUNTY-6 (SUBMITTED 2026-06-02)
+- [x] **Critical Finding N (Retire Flip)**. 100M-x price manipulation validated.
+- [x] **High Finding P (Notional)**. 1000x understatement exploit PoC.
+- [x] **Submission complete**. Issue #110 on aeyakovenko/percolator-prog. Branch: feat/bounty6-validation-2026-06-02.
 
 ### TRACK: HACKATHON (CLOSED 2026-05-10)
 - [x] Phase 4: Demo + Submission (Evidence: commits 0a491066, 35ca26f0, c0637db7)

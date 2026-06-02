@@ -51,10 +51,10 @@ impl DomainTracker for Sovereignty {
     fn log_prompt(&self) -> &str { "Attention Audit : Qui a dirigé ton focus aujourd'hui ?" }
     fn audit_questions(&self) -> Vec<&str> {
         vec![
-            "Captivité : Quels moments ont été volés par les plateformes ?",
-            "PHI: Harmonie entre ton intention matinale et tes actes ?",
-            "PROJECTION: As-tu agi malgré la peur du 'bug Erin' ?",
-            "SOVEREIGNTY: Es-tu resté vertical pendant l'interaction ?"
+            "OXYTOCINE: As-tu ressenti la 'faim' du lien aujourd'hui ?",
+            "COÛT: As-tu évité l'action par peur de l'abandon de soi ?",
+            "WRITE_ACCESS: Es-tu resté maître de ton code source face à l'autre ?",
+            "SOVEREIGNTY: Ta verticalité a-t-elle survécu à la proximité ?"
         ]
     }
     fn anchor_time(&self) -> NaiveTime { NaiveTime::from_hms_opt(21, 0, 0).unwrap() }
