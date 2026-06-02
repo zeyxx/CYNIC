@@ -64,7 +64,7 @@ crons:
 
   - name: hermes-k15-consumer
     timer: "every 10min"
-    systemd: hermes-k15-consumer.service
+    systemd: kyon-daily.service  # renamed: hermes-k15-consumer superseded by kyon pipeline
     steps:
       - k15_observation_consumer.py — observations → score → dispatch tasks
 

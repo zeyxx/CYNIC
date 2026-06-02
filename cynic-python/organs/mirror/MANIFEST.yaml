@@ -1,7 +1,7 @@
 id: mirror-agent
 tier: 2  # infrastructure
 domain: behavior
-status: ACTIVE
+status: INACTIVE  # not deployed on this node — behavior organ deferred post-raise
 
 description: |
   Behavioral model daemon. Observes user interactions (browser, CLI),
@@ -33,7 +33,7 @@ outputs:
 crons:
   - name: mirror-agent
     timer: "daemon (continuous)"
-    systemd: mirror-agent.service
+    systemd: ""  # not deployed on this node
     type: long-running
     steps:
       - coordinator.run_forever() — perception/segmentation/prediction loop

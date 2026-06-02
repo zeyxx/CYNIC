@@ -67,6 +67,15 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/branch-guard.sh"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/coord-claim.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -86,6 +95,15 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/heartbeat-tool.sh",
             "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/observe-tool.sh"
           }
         ]
       }

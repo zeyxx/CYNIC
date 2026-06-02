@@ -91,8 +91,10 @@ if [ -f "$GATE_MARKER" ]; then
     GATE_TIME=$(stat -c '%Y' "$GATE_MARKER" 2>/dev/null || echo 0)
 
     # Ignore auto-generated files that `make gate` produces (they don't invalidate the marker)
-    AUTO_GENERATED="TOPOLOGY.md target/ .gate-passed"
-    MODIFIED_REAL=$(git status --porcelain 2>/dev/null | grep -v '^ D' | awk '{print $NF}' | grep -v -E "^($AUTO_GENERATED|external/CultScreener)" || true)
+    # curation/ files are data written by hermes services — not source code,
+    # don't invalidate the gate (commit separately with curation update PRs)
+    # Filter: exclude deletions, untracked files (?? prefix), auto-generated and live-data paths
+    MODIFIED_REAL=$(git status --porcelain 2>/dev/null | grep -v '^ D' | grep -v '^??' | awk '{print $NF}' | grep -v -E "^(TOPOLOGY\.md|target/|\.gate-passed|cynic-python/curation/|external/CultScreener)" || true)
 
     if [ -z "$MODIFIED_REAL" ]; then
         # No real source changes since last commit — gate marker freshness is what matters

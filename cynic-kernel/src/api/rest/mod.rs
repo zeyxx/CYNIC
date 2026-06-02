@@ -87,7 +87,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         );
     }
     let cors = CorsLayer::new()
-        .allow_origin(origins)
+        // Allow Any origin so local browser extensions (chrome-extension://...) can connect
+        .allow_origin(tower_http::cors::Any)
         .allow_methods([
             axum::http::Method::GET,
             axum::http::Method::POST,

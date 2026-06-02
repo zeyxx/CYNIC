@@ -1,11 +1,11 @@
-# CYNIC Organism Topology (auto-generated 2026-05-29 09:47 UTC)
+# CYNIC Organism Topology (auto-generated 2026-06-02 13:14 UTC)
 
 ## Active Modules
 
 | Module | Domain | Tier | Status | Crons | Key Outputs |
 |--------|--------|------|--------|-------|-------------|
 | cynic-kernel | core | 1 | ACTIVE | cynic-kernel (daemon), kairos-health (every 15min), kairos-backfill (every 1h), kairos-archive (daily at 03:00), surrealdb-backup (daily at 00:00), surreal-watchdog (every 1min), cynic-telemetry-digest (daily at 07:00) | REST /health, REST /verdicts, REST /crystals (+4) |
-| mirror-agent | behavior | 2 | ACTIVE | mirror-agent (daemon) | profiles, segments, kernel /observe (domain=mirror-lifecycle) |
+| mirror-agent | behavior | 2 | INACTIVE | mirror-agent (daemon) | profiles, segments, kernel /observe (domain=mirror-lifecycle) |
 | hermes-github-organ | social | 2 | ACTIVE | none | kernel /observe (domain=github), github |
 | hermes-x-organ | social | 2 | ACTIVE | hermes-data-organism (hourly at :17) | reflections, kernel /observe (domain=hermes-x) |
 | hermes-x-scripts | social | 2 | ACTIVE | hermes-x-ingest (daemon), hermes-curation (every 30min at :03/:33), hermes-search-generator (every 15min at :02/:17/:32/:47), hermes-feedback-loop (every 1h), hermes-k15-consumer (every 10min), hermes-gemini-briefing (every 4h) | kernel /observe (domain=twitter), domain signals, SKILL (+1) |
@@ -37,11 +37,9 @@
 - [warning] token-data-store: no files match data/token_profiles.jsonl
 - [warning] token-data-store: no files match data/calibration_results_real.json
 - [warning] token-data-store: no files match data/population_stats.json
+- [warning] hermes-github-organ: no files match ~/.cynic/organs/hermes/github/
 - [warning] hermes-x-organ: no files match ~/.cynic/organs/hermes/x/reflections/
-- [warning] mirror-agent: no files match ~/.cynic/organs/mirror/profiles/
-- [warning] mirror-agent: no files match ~/.cynic/organs/mirror/segments/
 - [warning] telegram-organ: no files match ~/.cynic/organs/telegram/data.db
-- [error] hermes-x-scripts: timer hermes-k15-consumer.timer not found in list-timers
 - [warning] hermes-x-scripts: no files match ~/.cynic/organs/hermes/x/domain_signals/
 
 ## Experiments

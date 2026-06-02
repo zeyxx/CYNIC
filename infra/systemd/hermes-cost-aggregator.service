@@ -1,0 +1,15 @@
+[Unit]
+Description=CYNIC Metabolic Cost Aggregator — flush cost ledger to kernel
+After=cynic-kernel.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Bureau/CYNIC/cynic-python
+ExecStart=/usr/bin/python3 metabolism/cost_aggregator.py
+EnvironmentFile=-%h/.config/cynic/env
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
