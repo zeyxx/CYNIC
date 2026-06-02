@@ -102,3 +102,41 @@ def test_emit_appends_multiple_events():
         assert len(lines) == 3
     finally:
         Path(ledger).unlink(missing_ok=True)
+
+
+def test_spike_detector_emits_on_fetch(monkeypatch, tmp_path):
+    """Verify spike_detector.fetch_trending_pools emits a cost event."""
+    import sys
+    import importlib
+    import urllib.request
+    from unittest.mock import MagicMock
+
+    ledger = str(tmp_path / "cost_ledger.jsonl")
+    os.environ["CYNIC_COST_LEDGER"] = ledger
+    os.environ.setdefault("CYNIC_SESSION_ID", "test-spike")
+
+    # Mock urllib to avoid real network call
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = json.dumps({"data": []}).encode()
+    mock_resp.__enter__ = lambda s: s
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: mock_resp)
+
+    # Load spike_detector from file directly
+    spike_path = str(Path(__file__).parent.parent / "sensors" / "spike_detector.py")
+    spec = importlib.util.spec_from_file_location("spike_detector_test", spike_path)
+    sd = importlib.util.module_from_spec(spec)
+    # Inject the mocked urllib into the module's namespace before exec
+    import urllib as _urllib
+    sd.urllib = _urllib
+    spec.loader.exec_module(sd)
+
+    sd.fetch_trending_pools()
+
+    lines = Path(ledger).read_text().strip().splitlines()
+    assert len(lines) == 1, f"Expected 1 event, got {len(lines)}: {lines}"
+    event = json.loads(lines[0])
+    assert event["feature_id"] == "spike_detector"
+    assert event["compute_class"] == "external_api"
+    assert event["provider"] == "geckoterminal"
+    assert event["operation"] == "fetch_trending_pools"

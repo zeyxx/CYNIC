@@ -162,13 +162,34 @@ def fetch_trending_pools() -> list[dict]:  # type: ignore[type-arg]
     """Fetch trending Solana pools from GeckoTerminal (free tier).
 
     Returns list of pool objects, or raises on network/parse error.
+    Emits a metabolic cost event after each successful fetch.
     """
+    import time as _time
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).parent.parent))
+    try:
+        from metabolism.cost_tracker import emit as _cost_emit
+    except ImportError:
+        _cost_emit = None  # type: ignore[assignment]
+
     req = urllib.request.Request(
         GECKO_URL,
         headers={"Accept": "application/json", "User-Agent": "cynic-spike-detector/1.0"},
     )
+    _t0 = _time.monotonic()
     with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
         body = json.loads(resp.read().decode())
+    _latency_ms = int((_time.monotonic() - _t0) * 1000)
+
+    if _cost_emit is not None:
+        _cost_emit(
+            feature_id="spike_detector",
+            operation="fetch_trending_pools",
+            compute_class="external_api",
+            provider="geckoterminal",
+            latency_ms=_latency_ms,
+        )
+
     pools: list[dict] = body.get("data", [])  # type: ignore[type-arg]
     return pools
 
