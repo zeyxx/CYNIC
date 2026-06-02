@@ -287,16 +287,24 @@ DONE_RECENT=$(git -C "$PROJECT_DIR" log --oneline -7 \
     --pretty=format:'{"sha":"%h","msg":"%s","date":"%as"}' 2>/dev/null \
     | jq -s '.' 2>/dev/null || echo "[]")
 
-# Split mempool by tags: BLOCKED tagged items are stuck, everything else is RIPE
+# Dedup by target (latest per target wins). Filter: dispatch noise, agent-ID targets, MINED items.
 if [[ -n "$MEMPOOL_OBS" ]] && echo "$MEMPOOL_OBS" | jq -e 'type == "array"' >/dev/null 2>&1; then
-    AGENDA_RIPE=$(echo "$MEMPOOL_OBS" | jq -c \
-        '[.[] | select((.tags // []) | contains(["BLOCKED"]) | not) |
-          {id: (.id // .target), context: (.context // "" | .[0:120]), tags: (.tags // []), age_hours: 0}]' \
-        2>/dev/null || echo "[]")
-    AGENDA_BLOCKED=$(echo "$MEMPOOL_OBS" | jq -c \
-        '[.[] | select((.tags // []) | contains(["BLOCKED"])) |
-          {id: (.id // .target), context: (.context // "" | .[0:120]), tags: (.tags // [])}]' \
-        2>/dev/null || echo "[]")
+    AGENDA_RIPE=$(echo "$MEMPOOL_OBS" | jq -c '
+      group_by(.target) | map(sort_by(.created_at) | last) |
+      map(select(
+        ((.tags // []) | (contains(["MINED"]) or contains(["BLOCKED"]) or contains(["dispatch"])) | not) and
+        (.target | startswith("claude-") | not)
+      )) |
+      map({id: (.id // .target), context: (.context // "" | .[0:120]), tags: (.tags // []), age_hours: 0})
+    ' 2>/dev/null || echo "[]")
+    AGENDA_BLOCKED=$(echo "$MEMPOOL_OBS" | jq -c '
+      group_by(.target) | map(sort_by(.created_at) | last) |
+      map(select(
+        ((.tags // []) | contains(["BLOCKED"])) and
+        (.target | startswith("claude-") | not)
+      )) |
+      map({id: (.id // .target), context: (.context // "" | .[0:120]), tags: (.tags // [])})
+    ' 2>/dev/null || echo "[]")
 else
     AGENDA_RIPE="[]"
     AGENDA_BLOCKED="[]"

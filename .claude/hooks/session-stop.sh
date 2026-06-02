@@ -263,11 +263,45 @@ if [[ -f "$TODO_FILE" ]] && [[ "$KERNEL_STATUS" != "down" ]]; then
     fi
 fi
 
-# ── TODO staleness check (continuity: did this session update the TODO?) ──
-if [[ -f "$TODO_FILE" ]]; then
-    TODO_CHANGED=$(git -C "$PROJECT_DIR" diff --name-only -- TODO.md 2>/dev/null || true)
-    if [[ -z "$TODO_CHANGED" ]]; then
-        echo "NOTE: TODO.md not updated this session. Review if any items were completed or discovered."
+# ── Agenda MINED detection: auto-close mempool items matched in session commits ──
+# When a commit message contains a mempool target slug, mark it MINED.
+# Only applies to properly-slugged targets (not agent IDs, not dispatch items).
+# Uses substring match: commit msg ⊇ target slug → MINED.
+if [[ "$KERNEL_STATUS" != "down" ]] && [[ "${COMMITS_THIS_SESSION:-0}" -gt 0 ]]; then
+    # Fetch current RIPE mempool items (limit=50 to cover more)
+    MEMPOOL_NOW=$(curl -s --connect-timeout 2 --max-time 5 \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        "http://${KERNEL_ADDR}/observations?domain=mempool&limit=50" 2>/dev/null || echo "[]")
+
+    # Extract non-agent-ID, non-dispatch targets that are RIPE (latest per target)
+    RIPE_TARGETS=$(echo "$MEMPOOL_NOW" | jq -r '
+      group_by(.target) | map(sort_by(.created_at) | last) |
+      .[] | select(
+        ((.tags // []) | (contains(["MINED"]) or contains(["dispatch"])) | not) and
+        (.target | startswith("claude-") | not) and
+        (.target | length > 3)
+      ) | .target
+    ' 2>/dev/null || true)
+
+    if [[ -n "$RIPE_TARGETS" ]]; then
+        # Get commit messages from this session
+        SESSION_START_TS="${session_start:-0}"
+        COMMIT_MSGS=$(git -C "$PROJECT_DIR" log --oneline --since="@${SESSION_START_TS}" \
+            --pretty=format:"%s" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+
+        while IFS= read -r TARGET; do
+            [[ -z "$TARGET" ]] && continue
+            TARGET_LOWER=$(echo "$TARGET" | tr '[:upper:]' '[:lower:]' | tr '-' ' ')
+            # Check if any commit message contains the target slug (word-level match)
+            if echo "$COMMIT_MSGS" | grep -qi "$TARGET_LOWER" 2>/dev/null; then
+                curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+                    -H "Content-Type: application/json" \
+                    ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+                    -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"agenda_mined\",\"target\":\"${TARGET}\",\"domain\":\"mempool\",\"tags\":[\"MINED\"],\"context\":\"Auto-closed: matched in session commits (${HEAD_SHA:-?})\"}" \
+                    > /dev/null 2>&1 || true
+                echo "  ✓ MINED: ${TARGET}"
+            fi
+        done <<< "$RIPE_TARGETS"
     fi
 fi
 
