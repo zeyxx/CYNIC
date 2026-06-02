@@ -43,7 +43,7 @@ enabled = true
 [dog.qwen25-7b-core]
 kind = "inference"
 provider = "sovereign"
-model = "Qwen2.5-7B-Instruct-Q4_K_M"
+model = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M"  # switched 2026-06-02, llama-server.env updated
 failure_rate_threshold = 0.40        # 40% — above observed 50.1%, but CPU is slow
 collapse_threshold = 10
 api_error_threshold = 200
@@ -135,8 +135,8 @@ cooldown_secs = 120
 
 [backend.qwen25-7b-core]
 base_url = "http://<TAILSCALE_CORE>:8080/v1"
-model = "Qwen2.5-7B-Instruct-Q4_K_M.gguf"
-context_size = 4096
+model = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf"  # switched 2026-06-02
+context_size = 8192  # llama-server LLAMA_CTX_SIZE=8192 (was 4096 → caused context overflow on token-analysis)
 json_mode = false
 disable_thinking = true
 timeout_secs = 120
