@@ -91,7 +91,7 @@ OPEN_BRANCHES=$(git -C "$PROJECT_DIR" branch --list 2>/dev/null | grep -v '^\*' 
 # Collect open PRs (if gh is available)
 OPEN_PRS="[]"
 if command -v gh &>/dev/null && [[ "$KERNEL_STATUS" != "down" ]]; then
-    OPEN_PRS=$(gh pr list --json number,title,headRefName 2>/dev/null | jq -c '.' || echo "[]")
+    OPEN_PRS=$(gh pr list --json number,title,headRefName,isDraft,state 2>/dev/null | jq -c '.' || echo "[]")
 fi
 
 # Collect stashes
@@ -279,6 +279,45 @@ if [[ "$KERNEL_STATUS" != "down" ]]; then
     fi
 fi
 
+# ── Generate session-agenda.json (versioned, timestamped — replaces TODO.md tactical layer) ──
+# Schema v1: ripe (actionable), blocked, in_flight (PRs), done_recent (git log)
+# Source of truth: mempool API + gh pr + git log — never hand-edited.
+AGENDA_FILE="${PROJECT_DIR}/.claude/session-agenda.json"
+DONE_RECENT=$(git -C "$PROJECT_DIR" log --oneline -7 \
+    --pretty=format:'{"sha":"%h","msg":"%s","date":"%as"}' 2>/dev/null \
+    | jq -s '.' 2>/dev/null || echo "[]")
+
+# Split mempool by tags: BLOCKED tagged items are stuck, everything else is RIPE
+if [[ -n "$MEMPOOL_OBS" ]] && echo "$MEMPOOL_OBS" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    AGENDA_RIPE=$(echo "$MEMPOOL_OBS" | jq -c \
+        '[.[] | select((.tags // []) | contains(["BLOCKED"]) | not) |
+          {id: (.id // .target), context: (.context // "" | .[0:120]), tags: (.tags // []), age_hours: 0}]' \
+        2>/dev/null || echo "[]")
+    AGENDA_BLOCKED=$(echo "$MEMPOOL_OBS" | jq -c \
+        '[.[] | select((.tags // []) | contains(["BLOCKED"])) |
+          {id: (.id // .target), context: (.context // "" | .[0:120]), tags: (.tags // [])}]' \
+        2>/dev/null || echo "[]")
+else
+    AGENDA_RIPE="[]"
+    AGENDA_BLOCKED="[]"
+fi
+
+IN_FLIGHT=$(echo "$OPEN_PRS" | jq -c \
+    '[.[] | {pr: .number, title: .title, branch: .headRefName, draft: (.isDraft // false)}]' \
+    2>/dev/null || echo "[]")
+
+cat > "$AGENDA_FILE" << AGENDA_EOF
+{
+  "v": 1,
+  "generated_at": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+  "ripe": ${AGENDA_RIPE},
+  "blocked": ${AGENDA_BLOCKED},
+  "in_flight": ${IN_FLIGHT},
+  "done_recent": ${DONE_RECENT},
+  "strategy_ref": "TODO.md (phases/milestones only — not tactical)"
+}
+AGENDA_EOF
+
 # ── Output context (injected into conversation) ──
 cat <<EOF
 CYNIC SESSION — Pipeline initialized.
@@ -375,19 +414,28 @@ if [[ -f "$HANDOFF_FILE" ]]; then
     fi
 fi
 
-# ── TODO injection (continuity: the Dog knows what needs doing) ──
-TODO_FILE="${PROJECT_DIR}/TODO.md"
-if [[ -f "$TODO_FILE" ]]; then
-    # Extract P1 items (unchecked only)
-    P1_ITEMS=$(grep -A1 '## P1' "$TODO_FILE" | grep '^\- \[ \]' | head -5 || true)
-    if [[ -n "$P1_ITEMS" ]]; then
+# ── Agenda injection (from session-agenda.json — live sources, not TODO.md) ──
+if [[ -f "$AGENDA_FILE" ]]; then
+    RIPE_COUNT=$(jq '.ripe | length' "$AGENDA_FILE" 2>/dev/null || echo 0)
+    BLOCKED_COUNT=$(jq '.blocked | length' "$AGENDA_FILE" 2>/dev/null || echo 0)
+    IN_FLIGHT_COUNT=$(jq '.in_flight | length' "$AGENDA_FILE" 2>/dev/null || echo 0)
+
+    if [[ "$RIPE_COUNT" -gt 0 || "$IN_FLIGHT_COUNT" -gt 0 ]]; then
         echo ""
-        echo "TODO (P1 — do first):"
-        echo "$P1_ITEMS"
-    fi
-    TODO_AGE_DAYS=$(( ( $(date +%s) - $(stat -c %Y "$TODO_FILE") ) / 86400 ))
-    if [[ "$TODO_AGE_DAYS" -gt 3 ]]; then
-        echo "WARNING: TODO.md last updated ${TODO_AGE_DAYS} days ago — review and update."
+        echo "AGENDA (generated from mempool + PRs + git — see .claude/session-agenda.json):"
+        if [[ "$RIPE_COUNT" -gt 0 ]]; then
+            echo "  RIPE (${RIPE_COUNT}):"
+            jq -r '.ripe[] | "    → \(.context | .[0:100])"' "$AGENDA_FILE" 2>/dev/null | head -5
+        fi
+        if [[ "$IN_FLIGHT_COUNT" -gt 0 ]]; then
+            echo "  IN FLIGHT (${IN_FLIGHT_COUNT} PRs):"
+            jq -r '.in_flight[] | "    PR#\(.pr) \(if .draft then "[draft] " else "" end)\(.title | .[0:70])"' \
+                "$AGENDA_FILE" 2>/dev/null | head -5
+        fi
+        if [[ "$BLOCKED_COUNT" -gt 0 ]]; then
+            echo "  BLOCKED (${BLOCKED_COUNT}):"
+            jq -r '.blocked[] | "    ⊘ \(.context | .[0:100])"' "$AGENDA_FILE" 2>/dev/null | head -3
+        fi
     fi
 fi
 
