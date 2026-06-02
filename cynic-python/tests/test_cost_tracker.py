@@ -18,6 +18,8 @@ def _import_tracker(ledger_path: str):
             del sys.modules[key]
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from metabolism import cost_tracker
+    # Re-register in sys.modules so importlib.reload() can find it
+    sys.modules["metabolism.cost_tracker"] = cost_tracker
     importlib.reload(cost_tracker)
     return cost_tracker
 
