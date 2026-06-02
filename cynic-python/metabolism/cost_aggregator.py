@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
-import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -103,10 +103,9 @@ def compute_summary(
             latencies.append(lat)
 
     latencies_sorted = sorted(latencies)
-    n = len(latencies_sorted)
-    p50 = latencies_sorted[n // 2] if n > 0 else 0
-    import math as _math
-    p99 = latencies_sorted[min(_math.ceil(n * 0.99) - 1, n - 1)] if n > 0 else 0
+    from metabolism.cost_tracker import percentile as _pct
+    p50 = _pct(latencies_sorted, 0.50)
+    p99 = _pct(latencies_sorted, 0.99)
 
     return {
         "tokens_in": tokens_in,

@@ -10,3 +10,6 @@ EnvironmentFile=-%h/.config/cynic/env
 Environment=PYTHONUNBUFFERED=1
 StandardOutput=journal
 StandardError=journal
+
+[Install]
+WantedBy=default.target
