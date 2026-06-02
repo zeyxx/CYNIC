@@ -21,6 +21,16 @@ _created_dirs: set[Path] = set()
 
 VALID_COMPUTE_CLASSES = frozenset({"local_gpu", "local_cpu", "tailnet", "external_api"})
 
+def percentile(sorted_values: list[int], p: float) -> int:
+    """Nearest-rank percentile. sorted_values must be pre-sorted ascending."""
+    import math
+    n = len(sorted_values)
+    if n == 0:
+        return 0
+    idx = min(math.ceil(n * p) - 1, n - 1)
+    return sorted_values[idx]
+
+
 
 def emit(
     feature_id: str,

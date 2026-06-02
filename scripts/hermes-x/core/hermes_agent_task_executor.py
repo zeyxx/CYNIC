@@ -472,8 +472,8 @@ Use the browser and code execution tools to complete this task.
                 latency_ms=_latency_ms,
                 trace_id=task_id,
             )
-        except Exception:
-            pass
+        except Exception as _exc:
+            logger.debug("cost emit skipped: %s", _exc)
 
         if result.returncode == 0:
             logger.info("task %s completed", task_id)
@@ -502,8 +502,8 @@ Use the browser and code execution tools to complete this task.
                 latency_ms=_latency_ms,
                 trace_id=task_id,
             )
-        except Exception:
-            pass
+        except Exception as _exc:
+            logger.debug("cost emit skipped: %s", _exc)
         error = "task execution timed out (10 min)"
         logger.error(error)
         return None, error
