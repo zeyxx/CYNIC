@@ -432,6 +432,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // ─── Routing calculator — dynamic Dog selection based on observed latencies ──
+    // Constructed here (before health loop) so health_loop can call reset_dog on recovery.
+    // Consumes dog_performance observations and adapts routing in real-time.
+    let routing_calc = Arc::new(infra::routing_calc::RoutingCalculator::with_storage(
+        Arc::clone(&storage_port),
+    ));
+
     // ─── RING 2: Spawn health loop + remediation watcher ──────
     let all_breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> =
         judge.breakers().iter().map(Arc::clone).collect();
@@ -477,6 +484,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 dog_to_fleet_node.clone(),
                 Arc::clone(&slot_tracker),
                 Arc::clone(&slot_semaphores),
+                Arc::clone(&routing_calc),
                 shutdown.clone(),
             );
             klog!(
@@ -739,13 +747,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialized from backend_configs. Maps domain → suitable Dogs.
     let domain_router = Arc::new(infra::domain_router::DomainRouter::from_backends(
         &backend_configs,
-    ));
-
-    // ─── Routing calculator — dynamic Dog selection based on observed latencies ──
-    // Consumes dog_performance observations and adapts routing in real-time.
-    // Data-centric: routing reflects current performance, not static config.
-    let routing_calc = Arc::new(infra::routing_calc::RoutingCalculator::with_storage(
-        Arc::clone(&storage_port),
     ));
 
     // ─── Dog performance collector — K15 seam 3 producer ──
