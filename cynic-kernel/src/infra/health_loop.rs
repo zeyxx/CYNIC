@@ -172,8 +172,8 @@ async fn probe_slots(
 /// `configs` and `breakers` are parallel — index `i` in configs corresponds
 /// to index `i` in breakers (same dog).
 #[allow(clippy::too_many_arguments)]
-// WHY: 9 args (2 over limit). Each is a distinct Arc/Vec with no natural grouping.
-// A HealthLoopConfig struct would just move the problem — callers still pass 9 values.
+// WHY: 10 args (3 over limit). Each is a distinct Arc/Vec with no natural grouping.
+// A HealthLoopConfig struct would just move the problem — callers still pass 10 values.
 pub fn spawn_health_loop(
     configs: Vec<DogProbeConfig>,
     breakers: Vec<Arc<dyn HealthGate>>,
@@ -183,6 +183,7 @@ pub fn spawn_health_loop(
     dog_to_fleet_node: HashMap<String, String>,
     slot_tracker: Arc<SlotTracker>,
     slot_semaphores: Arc<SlotSemaphoreMap>,
+    routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
@@ -239,6 +240,11 @@ pub fn spawn_health_loop(
                         let was_healthy = prev_healthy.get(dog_id).copied();
                         if was_healthy.is_some() && was_healthy != Some(*ok) {
                             let transition = if *ok { "recovered" } else { "degraded" };
+                            // Option A: reset routing data on recovery → benefit of doubt restored (K22)
+                            // Prevents stale failure history from permanently excluding a recovered dog.
+                            if *ok {
+                                routing_calc.reset_dog(dog_id);
+                            }
                             let context = format!(
                                 "{{\"transition\":\"{transition}\",\"dog_id\":\"{dog_id}\",\"healthy\":{ok},\"dogs_healthy\":{dogs_healthy},\"dogs_total\":{dogs_total}}}"
                             );
