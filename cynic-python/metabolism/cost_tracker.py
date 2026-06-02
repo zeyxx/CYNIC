@@ -17,12 +17,7 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-_LEDGER_PATH: Path = Path(
-    os.environ.get(
-        "CYNIC_COST_LEDGER",
-        str(Path.home() / ".cynic" / "metabolism" / "cost_ledger.jsonl"),
-    )
-)
+_created_dirs: set[Path] = set()
 
 VALID_COMPUTE_CLASSES = frozenset({"local_gpu", "local_cpu", "tailnet", "external_api"})
 
@@ -59,6 +54,19 @@ def _emit(
         log.warning("unknown compute_class %r — defaulting to external_api", compute_class)
         compute_class = "external_api"
 
+    ledger = Path(
+        os.environ.get("CYNIC_COST_LEDGER")
+        or str(Path.home() / ".cynic" / "metabolism" / "cost_ledger.jsonl")
+    )
+    # flock is advisory; correct for local filesystems (not NFS/overlayfs)
+    if ledger.parent not in _created_dirs:
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        _created_dirs.add(ledger.parent)
+
+    latency_ms = max(0, latency_ms)
+    tokens_in = max(0, tokens_in)
+    tokens_out = max(0, tokens_out)
+
     event = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "session_id": os.environ.get("CYNIC_SESSION_ID", "unknown"),
@@ -72,9 +80,6 @@ def _emit(
         "latency_ms": latency_ms,
         "provider": provider,
     }
-
-    ledger = Path(os.environ.get("CYNIC_COST_LEDGER", str(_LEDGER_PATH)))
-    ledger.parent.mkdir(parents=True, exist_ok=True)
 
     with open(ledger, "a") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
