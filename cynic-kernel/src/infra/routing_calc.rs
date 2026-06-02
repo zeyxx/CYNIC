@@ -131,6 +131,24 @@ impl RoutingCalculator {
             cache.insert(domain.to_string(), dogs);
         }
     }
+
+    /// Reset all performance data for a specific dog — used when a dog recovers from a
+    /// circuit-open state. Sets sample_count=0 (benefit of doubt, K22) so the dog is
+    /// treated as new rather than proven-unreliable.
+    pub fn reset_dog(&self, dog_id: &str) {
+        let Ok(mut cache) = self.cache.write() else {
+            return;
+        };
+        for dogs in cache.values_mut() {
+            for perf in dogs.iter_mut() {
+                if perf.dog_id == dog_id {
+                    perf.sample_count = 0;
+                    perf.success_rate = 1.0;
+                }
+            }
+        }
+        tracing::info!(dog_id = %dog_id, "RoutingCalculator reset — benefit of doubt restored after circuit recovery");
+    }
 }
 
 impl Default for RoutingCalculator {
@@ -249,6 +267,42 @@ mod tests {
     fn test_reliable_dogs_none_for_unknown_domain() {
         let calc = RoutingCalculator::new();
         assert!(calc.reliable_dogs("never-seen").is_none());
+    }
+
+    #[test]
+    fn reset_dog_restores_benefit_of_doubt() {
+        let calc = RoutingCalculator::new();
+        // Dog starts with proven-unreliable data
+        calc.update_domain_routing(
+            "governance",
+            vec![
+                DogPerformance {
+                    dog_id: "qwen36".into(),
+                    sample_count: 20,
+                    success_rate: 0.40,
+                    avg_latency_ms: 4000,
+                },
+                DogPerformance {
+                    dog_id: "deterministic".into(),
+                    sample_count: 100,
+                    success_rate: 0.99,
+                    avg_latency_ms: 0,
+                },
+            ],
+        );
+        // Before reset: qwen36 excluded (proven unreliable)
+        let reliable = calc.reliable_dogs("governance").unwrap();
+        assert!(
+            !reliable.contains(&"qwen36".to_string()),
+            "qwen36 should be excluded before reset"
+        );
+        // After reset: qwen36 gets benefit of doubt (sample_count=0 < 10)
+        calc.reset_dog("qwen36");
+        let reliable = calc.reliable_dogs("governance").unwrap();
+        assert!(
+            reliable.contains(&"qwen36".to_string()),
+            "qwen36 should be included after reset"
+        );
     }
 
     #[test]
