@@ -139,3 +139,7 @@ cynic-python/heuristics/data/webhook_id.txt
 # School deliverables (personal, not infrastructure)
 docs/ydays/
 cynic-python/heuristics/webhook_data/
+
+# Quantum ECC harness — cloned challenge repo + runtime state
+cynic-python/lab/quantum-ecc/ecdsafail-challenge/
+cynic-python/lab/quantum-ecc/state.json

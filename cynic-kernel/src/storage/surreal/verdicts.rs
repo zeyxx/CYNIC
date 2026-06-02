@@ -239,6 +239,8 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
                     .ok()
             })
             .unwrap_or_default(),
+        failed_dog_error_kinds: Default::default(),
+        excluded_dogs: Vec::new(),
         target: row["target"]
             .as_str()
             .filter(|s| !s.is_empty())
@@ -292,6 +294,8 @@ mod tests {
             voter_count: 0,
             failed_dogs: Vec::new(),
             failed_dog_errors: Default::default(),
+            failed_dog_error_kinds: Default::default(),
+            excluded_dogs: Vec::new(),
             target: None,
             integrity_hash: Some("deadbeef".into()),
             prev_hash: None,

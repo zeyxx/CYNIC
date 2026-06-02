@@ -586,6 +586,14 @@ pub struct JudgeResponse {
     /// Error reason per failed Dog (dog_id → error string).
     #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub failed_dog_errors: std::collections::BTreeMap<String, String>,
+    /// Structured error kind per failed Dog (dog_id → error code).
+    /// Codes: api_error | parse_error | rate_limited | timeout | slot_unavailable
+    ///        network_unreachable | circuit_open | quality_gate_excluded
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub failed_dog_error_kinds: std::collections::BTreeMap<String, String>,
+    /// Dogs excluded before evaluation by circuit breaker or quality gate (not attempted).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub excluded_dogs: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
