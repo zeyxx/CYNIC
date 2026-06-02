@@ -487,6 +487,8 @@ mod tests {
                 stimulus_content: None,
                 failed_dogs: Vec::new(),
                 failed_dog_errors: Default::default(),
+                failed_dog_error_kinds: Default::default(),
+                excluded_dogs: Vec::new(),
             },
         );
         let snapshot = store.get("req-3").unwrap();
