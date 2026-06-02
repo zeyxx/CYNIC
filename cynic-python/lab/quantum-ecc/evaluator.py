@@ -21,26 +21,35 @@ class EvalResult:
 
 
 def parse_eval_output(output: str) -> EvalResult:
-    """Parse cargo eval stdout into EvalResult. Raises ValueError on missing fields."""
+    """Parse cargo eval_circuit stdout + score.json into EvalResult.
 
-    def extract(field: str) -> str:
-        match = re.search(rf"^{field}:\s*(\S+)", output, re.MULTILINE)
+    The benchmark scores as avg_toffoli × peak_qubits and writes score.json.
+    Raises ValueError if required fields are missing.
+    """
+
+    def extract_float(pattern: str) -> float:
+        match = re.search(pattern, output, re.MULTILINE)
         if not match:
-            raise ValueError(f"Field '{field}' not found in eval output: {output!r}")
-        return match.group(1)
+            raise ValueError(f"Pattern '{pattern}' not found in eval output: {output[:300]!r}")
+        return float(match.group(1))
+
+    toffoli = int(extract_float(r"avg executed Toffoli\s*:\s*([\d.]+)"))
+    qubits = int(extract_float(r"qubits\s*:\s*([\d.]+)"))
+    product = toffoli * qubits
+    correctness = "experiment OK" in output
 
     return EvalResult(
-        gate_count=int(extract("gates")),
-        qubit_count=int(extract("qubits")),
-        product=int(extract("product")),
-        correctness=extract("correctness").upper() == "PASS",
+        gate_count=toffoli,
+        qubit_count=qubits,
+        product=product,
+        correctness=correctness,
         raw_output=output,
     )
 
 
 def run_eval(repo_dir: Path) -> EvalResult:
-    """Run cargo build then cargo eval in repo_dir. Raises RuntimeError on compile failure."""
-    for step in ("build", "eval"):
+    """Run cargo build_circuit then eval_circuit. Raises RuntimeError on compile failure."""
+    for step in ("build_circuit", "eval_circuit"):
         proc = subprocess.run(
             ["cargo", "run", "--release", "--bin", step],
             cwd=repo_dir,
@@ -60,8 +69,8 @@ def run_eval(repo_dir: Path) -> EvalResult:
     logging.info(
         "eval_complete",
         extra={
-            "gate_count": result.gate_count,
-            "qubit_count": result.qubit_count,
+            "toffoli": result.gate_count,
+            "qubits": result.qubit_count,
             "product": result.product,
             "correctness": result.correctness,
         },

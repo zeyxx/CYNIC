@@ -14,7 +14,7 @@ if ! command -v git &>/dev/null; then
     echo "ERROR: git not found."; exit 1
 fi
 if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
-    echo "ERROR: ANTHROPIC_API_KEY not set."; exit 1
+    echo "WARNING: ANTHROPIC_API_KEY not set — needed by harness.py, not by bootstrap."
 fi
 
 echo "cargo $(cargo --version | cut -d' ' -f2), git $(git --version | cut -d' ' -f3)"
@@ -31,8 +31,8 @@ echo "Challenge repo at $REPO_DIR"
 echo "Running baseline evaluation (2-5 min first time)..."
 cd "$REPO_DIR"
 cargo build --release 2>&1 | tail -3
-cargo run --release --bin build 2>&1 | tail -2
-EVAL_OUTPUT=$(cargo run --release --bin eval 2>&1)
+cargo run --release --bin build_circuit 2>&1 | tail -2
+EVAL_OUTPUT=$(cargo run --release --bin eval_circuit 2>&1)
 echo "$EVAL_OUTPUT"
 
 STATE_FILE="$SCRIPT_DIR/state.json"
@@ -42,16 +42,17 @@ from pathlib import Path
 
 output = """$EVAL_OUTPUT"""
 
-def extract(field):
-    m = re.search(rf"^{field}:\s*(\S+)", output, re.MULTILINE)
+def extract_float(pattern):
+    m = re.search(pattern, output, re.MULTILINE)
     if not m:
-        print(f"WARNING: field '{field}' not found in eval output", file=sys.stderr)
+        print(f"WARNING: pattern '{pattern}' not found in eval output", file=sys.stderr)
         return 0
-    return int(m.group(1))
+    return float(m.group(1))
 
-gates   = extract("gates")
-qubits  = extract("qubits")
-product = extract("product")
+toffoli = int(extract_float(r"avg executed Toffoli\s*:\s*([\d.]+)"))
+qubits  = int(extract_float(r"qubits\s*:\s*([\d.]+)"))
+product = toffoli * qubits
+gates   = toffoli
 
 state_path = Path("$STATE_FILE")
 if not state_path.exists():
