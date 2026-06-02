@@ -46,6 +46,7 @@ pub fn semantic_slug(domain: &str, content: &str) -> String {
         "trading" => slug_trading(content),
         "D2" => slug_inference(content),
         "chess" => return format!("chess:{content}"), // chess: keep exact (already repetitive)
+        "governance" => slug_governance(content),
         _ => slug_general(content),
     };
     format!("{domain}:{slug}")
@@ -295,6 +296,59 @@ fn slug_inference(content: &str) -> String {
 /// Kernel self-observations have pattern `[kernel] event_type target: context`.
 ///
 /// Everything else falls back to first_n_words (semantic content).
+/// Governance proposals: slug by action-type + subject.
+/// "Should MetaDAO hire Robin Hanson..." → "hire:adviser"
+/// Crystals accumulate on PATTERNS not individual proposals.
+fn slug_governance(content: &str) -> String {
+    let lower = content.to_lowercase();
+    let action = if lower.contains("hire") || lower.contains("appoint") || lower.contains("elect") {
+        "hire"
+    } else if lower.contains("fire") || lower.contains("remove") || lower.contains("terminate") {
+        "remove"
+    } else if lower.contains("fund")
+        || lower.contains("grant")
+        || lower.contains("allocat")
+        || lower.contains("budget")
+        || lower.contains("spend")
+    {
+        "spend"
+    } else if lower.contains("upgrade") || lower.contains("deploy") || lower.contains("migrate") {
+        "upgrade"
+    } else if lower.contains("change")
+        || lower.contains("update")
+        || lower.contains("modify")
+        || lower.contains("parameter")
+    {
+        "param"
+    } else if lower.contains("partner")
+        || lower.contains("integrat")
+        || lower.contains("collaborat")
+    {
+        "partner"
+    } else {
+        "propose"
+    };
+    let subject = if lower.contains("adviser")
+        || lower.contains("advisor")
+        || lower.contains("consultant")
+    {
+        "adviser"
+    } else if lower.contains("treasury") || lower.contains("usdc") {
+        "treasury"
+    } else if lower.contains("developer") || lower.contains("engineer") || lower.contains("team") {
+        "team"
+    } else if lower.contains("protocol") || lower.contains("contract") || lower.contains("program")
+    {
+        "protocol"
+    } else if lower.contains("parameter") || lower.contains("threshold") || lower.contains("quorum")
+    {
+        "param"
+    } else {
+        "general"
+    };
+    format!("{action}:{subject}")
+}
+
 fn slug_general(content: &str) -> String {
     // Tool observations: "[agent_id] ToolName ..."
     // The agent_id is in brackets, followed by a known tool name.
