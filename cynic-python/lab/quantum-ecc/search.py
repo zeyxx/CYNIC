@@ -71,7 +71,8 @@ def load_state() -> SearchState:
 
 
 def save_state(s: SearchState) -> None:
-    tmp = STATE_FILE.with_suffix(".tmp")
+    import uuid
+    tmp = STATE_FILE.parent / f".search_state_{uuid.uuid4().hex[:8]}.tmp"
     tmp.write_text(json.dumps(asdict(s), indent=2))
     tmp.replace(STATE_FILE)
 
