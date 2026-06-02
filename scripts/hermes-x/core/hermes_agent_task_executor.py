@@ -440,6 +440,8 @@ Use the browser and code execution tools to complete this task.
             return None, f"GPU saturated after {max_soma_retries} retries — task requeued"
 
     # Spawn hermes agent
+    import time as _time
+    _t0 = _time.monotonic()
     try:
         # Run hermes with the task prompt
         # -q: single query (non-interactive)
@@ -451,10 +453,26 @@ Use the browser and code execution tools to complete this task.
             text=True,
             timeout=600,  # 10 min timeout per task (hermes setup + git can be slow)
         )
+        _latency_ms = int((_time.monotonic() - _t0) * 1000)
+
+        # Emit cost — hermes calls Qwen 27B on cynic-gpu via tailnet
+        try:
+            import sys as _sys
+            _sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "cynic-python"))
+            from metabolism.cost_tracker import emit as _cost_emit
+            _cost_emit(
+                feature_id="hermes_agent",
+                operation="chat",
+                compute_class="tailnet",
+                provider="qwen36-27b-gpu",
+                latency_ms=_latency_ms,
+                trace_id=task_id,
+            )
+        except Exception:
+            pass
 
         if result.returncode == 0:
             logger.info("task %s completed", task_id)
-            # Capture output for logging
             output = result.stdout[:500] if result.stdout else "(no output)"
             return output, None
         else:
@@ -467,6 +485,21 @@ Use the browser and code execution tools to complete this task.
         logger.error(error)
         return None, error
     except subprocess.TimeoutExpired:
+        _latency_ms = int((_time.monotonic() - _t0) * 1000)
+        try:
+            import sys as _sys
+            _sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "cynic-python"))
+            from metabolism.cost_tracker import emit as _cost_emit
+            _cost_emit(
+                feature_id="hermes_agent",
+                operation="chat",
+                compute_class="tailnet",
+                provider="qwen36-27b-gpu",
+                latency_ms=_latency_ms,
+                trace_id=task_id,
+            )
+        except Exception:
+            pass
         error = "task execution timed out (10 min)"
         logger.error(error)
         return None, error
