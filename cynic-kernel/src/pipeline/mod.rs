@@ -271,6 +271,8 @@ async fn pipeline_inner(
                 anomaly_axiom: None,
                 failed_dogs: vec![],
                 failed_dog_errors: std::collections::BTreeMap::new(),
+                failed_dog_error_kinds: std::collections::BTreeMap::new(),
+                excluded_dogs: Vec::new(),
                 target: Some(td.mint.clone()),
                 integrity_hash: None,
                 prev_hash: None,
