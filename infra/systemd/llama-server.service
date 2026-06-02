@@ -1,19 +1,21 @@
 [Unit]
-Description=llama-server — CYNIC sovereign inference backend
-After=network.target
+Description=llama-server — Qwen2.5-7B Q4 (qwen25-7b-core, sovereign inference)
+After=network-online.target
+Wants=network-online.target
 
 [Service]
+# SYS1: user-level service — NO User=/Group= directives (would fail 216/GROUP)
 Type=simple
 EnvironmentFile=%h/.config/cynic/llama-server.env
-ExecStart=/bin/bash -lc 'exec "${LLAMA_SERVER_BIN:?Set LLAMA_SERVER_BIN in ~/.config/cynic/llama-server.env}" -m "${LLAMA_MODEL_PATH:?Set LLAMA_MODEL_PATH in ~/.config/cynic/llama-server.env}" --host "${LLAMA_HOST:-127.0.0.1}" --port "${LLAMA_PORT:-8080}" --ctx-size "${LLAMA_CTX_SIZE:-8192}" ${LLAMA_EXTRA_ARGS:-}'
-# Keep this user unit minimally sandboxed until a compatible hardening
-# profile is proven; the stricter profile currently fails with 218/CAPABILITIES.
+ExecStart=/bin/bash -lc 'cd /usr/local/lib/llama && exec "${LLAMA_SERVER_BIN:?}" -m "${LLAMA_MODEL_PATH:?}" --host "${LLAMA_HOST:-127.0.0.1}" --port "${LLAMA_PORT:-8080}" --ctx-size "${LLAMA_CTX_SIZE:-4096}" ${LLAMA_EXTRA_ARGS:-}'
 Restart=on-failure
-RestartSec=3
+RestartSec=5
+WorkingDirectory=%h
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30
-# Cgroup limits — observed: 5.1GB (model + KV cache). Headroom for ctx-size variance.
+# llama.cpp b9444+: backends are plugins loaded from the binary's directory
+# cd /usr/local/lib/llama is required before exec — see infra notes
 MemoryMax=8G
 CPUQuota=400%
 
