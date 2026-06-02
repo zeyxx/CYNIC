@@ -73,7 +73,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/coord-claim.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/coord-claim.sh"
           }
         ]
       }
@@ -103,7 +103,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/observe-tool.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/observe-tool.sh"
           }
         ]
       }
