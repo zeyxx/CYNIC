@@ -277,9 +277,9 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    # Resolve binary paths
-    build_bin: Optional[str] = args.build_bin
-    eval_bin: Optional[str] = args.eval_bin
+    # Resolve binary paths to absolute (workers run from tmpdir — relative paths break)
+    build_bin: Optional[str] = str(Path(args.build_bin).resolve()) if args.build_bin else None
+    eval_bin: Optional[str] = str(Path(args.eval_bin).resolve()) if args.eval_bin else None
 
     if build_bin is None or eval_bin is None:
         if args.repo is None:
@@ -289,7 +289,7 @@ def main() -> None:
         build_bin = build_bin or str(repo_dir / "target" / "release" / "build_circuit")
         eval_bin = eval_bin or str(repo_dir / "target" / "release" / "eval_circuit")
     else:
-        repo_dir = Path(args.build_bin).parent  # used only for label
+        repo_dir = Path(build_bin).parent  # used only for label
 
     for b in (build_bin, eval_bin):
         if not Path(b).exists():
