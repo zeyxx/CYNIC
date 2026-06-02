@@ -1,4 +1,7 @@
-"""Tests for metabolism.cost_tracker emitter."""
+"""Tests for metabolism.cost_tracker emitter.
+
+Tier 1 EXPERIMENTAL: unit tests for cost_tracker module.
+"""
 import json
 import os
 import tempfile

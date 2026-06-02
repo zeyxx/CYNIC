@@ -2,6 +2,10 @@
 """
 Hermes Agent Task Executor — Phase 2 real execution (kernel-integrated).
 
+Tier 2 INFRASTRUCTURE: executes agent tasks dispatched by the kernel via /agent-tasks.
+K15 Consumer: GET /agent-tasks → spawn Hermes agent → POST /agent-tasks/{id}/result
+Systemd: hermes-agent-tasks.service
+
 Unlike hermes_task_runner.py (Phase 1 stub), this spawns a Hermes Agent instance
 to actually execute tasks: browse X, analyze signals, post observations.
 

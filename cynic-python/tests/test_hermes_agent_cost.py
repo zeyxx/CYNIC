@@ -1,4 +1,7 @@
-"""Test that hermes_agent_task_executor emits cost on subprocess call."""
+"""Test that hermes_agent_task_executor emits cost on subprocess call.
+
+Tier 1 EXPERIMENTAL: integration test for agent cost emission.
+"""
 import json
 import os
 import sys
