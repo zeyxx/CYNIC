@@ -414,6 +414,15 @@ pub trait StoragePort: Send + Sync {
         Ok(vec![])
     }
 
+    /// List completed agent tasks for a given kind.
+    async fn list_completed_agent_tasks(
+        &self,
+        _kind: &str,
+        _limit: u32,
+    ) -> Result<Vec<AgentTask>, StorageError> {
+        Ok(vec![])
+    }
+
     /// Update agent task result. Sets status to "completed" or "failed" + result/error.
     async fn update_agent_task_result(
         &self,

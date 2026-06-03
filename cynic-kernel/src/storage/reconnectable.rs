@@ -386,6 +386,13 @@ impl StoragePort for ReconnectableStorage {
     ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
         self.current().list_pending_agent_tasks(kind, limit).await
     }
+    async fn list_completed_agent_tasks(
+        &self,
+        kind: &str,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
+        self.current().list_completed_agent_tasks(kind, limit).await
+    }
     async fn update_agent_task_result(
         &self,
         task_id: &str,

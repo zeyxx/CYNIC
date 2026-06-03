@@ -1,0 +1,44 @@
+# cynic-node config — cynic-gpu (RTX 4060 Ti, Windows)
+# Deployed to C:\cynic-node\config.toml on cynic-gpu
+
+[kernel]
+url = "http://100.64.0.1:3030"
+heartbeat_interval_secs = 40
+api_key_env = "CYNIC_API_KEY"
+
+[dog]
+name = "qwen36-27b-gpu"
+model = "Qwen3.6-27B-IQ3_XXS.gguf"
+base_url = "http://127.0.0.1:8080/v1"
+api_key_env = "CYNIC_LLAMA_API_KEY"
+context_size = 65536
+dog_timeout_secs = 60
+
+[process]
+command = [
+  "C:\\llama.cpp\\llama-server.exe",
+  "-m", "C:\\llama.cpp\\Qwen3.6-27B-IQ3_XXS.gguf",
+  "-ngl", "999",
+  "-t", "6",
+  "-c", "65536",
+  "--parallel", "1",
+  "-ctk", "q4_0",
+  "-ctv", "q4_0",
+  "--reasoning-budget", "0",
+  "--port", "8080",
+  "--host", "0.0.0.0",
+  "--api-key", "GX7qO4nlG1DrQF0KuDBNxLeKxh7H_5EhWmHiucvwVAk"
+]
+working_dir = "C:\\llama.cpp"
+startup_timeout_secs = 180
+
+[restart]
+max_attempts = 5
+initial_delay_secs = 5
+max_delay_secs = 120
+min_uptime_secs = 30
+
+[health]
+interval_secs = 15
+verify_interval_secs = 60
+health_timeout_secs = 5

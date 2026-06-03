@@ -75,19 +75,40 @@ record() {
     fi
 }
 
-# Authenticated health check — returns full details + correct HTTP status
-if curl -sf --max-time 10 \
+# Single call: capture body to tmpfile + HTTP code
+BODY_FILE=$(mktemp)
+trap 'rm -f "$BODY_FILE"' EXIT
+HTTP_CODE=$(curl -s -o "$BODY_FILE" -w '%{http_code}' --max-time 10 \
     ${CYNIC_API_KEY:+-H "Authorization: Bearer ${CYNIC_API_KEY}"} \
-    "http://${ADDR}/health" > /dev/null 2>&1; then
-    record "PASS" "healthy"
-else
-    HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
-        ${CYNIC_API_KEY:+-H "Authorization: Bearer ${CYNIC_API_KEY}"} \
-        "http://${ADDR}/health" 2>/dev/null || echo "000")
-    case "$HTTP_CODE" in
-        503) record "DEGRADED" "FAIL: DEGRADED (503)" ;;
-        000) record "UNREACHABLE" "FAIL: UNREACHABLE" ;;
-        *)   record "ERROR" "FAIL: HTTP $HTTP_CODE" ;;
-    esac
-    exit 1
-fi
+    "http://${ADDR}/health" 2>/dev/null || echo "000")
+
+# Extract alert messages from body (severity: critical/warning)
+ALERTS=$(python3 -c "
+import sys, json
+try:
+    d = json.load(open(sys.argv[1]))
+    lines = [f\"{a['severity'].upper()}: {a['message']}\" for a in d.get('alerts', [])]
+    print(' | '.join(lines) if lines else '', end='')
+except Exception:
+    pass
+" "$BODY_FILE" 2>/dev/null) || true
+
+case "$HTTP_CODE" in
+    200)
+        record "PASS" "healthy"
+        ;;
+    503)
+        MSG="DEGRADED (503)"
+        [ -n "$ALERTS" ] && MSG="${MSG} — ${ALERTS}"
+        record "DEGRADED" "$MSG"
+        exit 1
+        ;;
+    000)
+        record "UNREACHABLE" "FAIL: UNREACHABLE (no response)"
+        exit 1
+        ;;
+    *)
+        record "ERROR" "FAIL: HTTP ${HTTP_CODE}"
+        exit 1
+        ;;
+esac

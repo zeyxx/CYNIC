@@ -68,10 +68,10 @@ Inter-community tournaments: "$TOKEN_A DESTROYED $TOKEN_B 7-3" — self-propagat
 
 | Metric | Value |
 |--------|-------|
-| Verdicts rendered | 1,874+ |
-| Observations processed | 56,000+ |
-| Tests (CYNIC + B&C) | 2,000+ |
-| Commits (CYNIC + B&C) | 1,400+ |
+| Verdicts rendered | 2,195 |
+| Observations processed | 57,000+ |
+| Tests (CYNIC + B&C) | 2,045 |
+| Commits (CYNIC + B&C) | 1,404 |
 | Cloud dependency (AI engine) | 0% |
 
 ## Token Utility
@@ -81,13 +81,13 @@ Inter-community tournaments: "$TOKEN_A DESTROYED $TOKEN_B 7-3" — self-propagat
 
 ## Use of Funds
 
-Monthly burn: $6,050/month × 6 months = $36,300 (73% of raise)
+Funds sit in a futarchy-governed treasury. The team requests a **monthly allowance** ($6,050/month, market-approved) — not a salary. Unspent USDC stays in the treasury, not a private reserve.
 
-- T. — CYNIC kernel, judgment API: $3,000/month
-- S. — Blitz & Chill, community: $3,000/month
+- T. — CYNIC kernel, judgment API: $3,000/month allowance
+- S. — Blitz & Chill, community: $3,000/month allowance
 - Infrastructure (sovereign hardware, electricity): $50/month
 
-Reserve: $13,700 (27%) — contingency + future hiring
+At $6,050/month, 6 months of runway draws ~$36,300 — 73% of a $50K raise. The rest stays treasury-controlled, releasable only by market vote.
 
 ## Roadmap
 
@@ -99,58 +99,60 @@ Reserve: $13,700 (27%) — contingency + future hiring
 
 Talaria — the winged sandals of Hermes. Speed, trust, and the messenger who never lies.
 
-Built in the open: github.com/zeyxx/CYNIC
+Built in the open:
+- CYNIC: github.com/zeyxx/CYNIC
+- Blitz & Chill: github.com/Ragnar-no-sleep/blitz-and-chill
 ```
 
 ---
 
 ## Étape 4 — Paramètres de la raise
 
+Ce qu'on saisit réellement (le reste est imposé par le protocole MetaDAO) :
+
 | Champ | Valeur |
 |-------|--------|
 | **Raise goal** | $50,000 USDC |
-| **FDV** | $90,000 |
-| **Supply** | 18,000,000 $TALARIA |
 | **ICO duration** | 7 days |
-| **Prix ICO** | $0.005 / $TALARIA |
+
+Dérivés (non saisis — fixés par le protocole) :
+
+| Dérivé | Valeur | D'où |
+|--------|--------|------|
+| Tokens ICO | 10,000,000 | standard MetaDAO |
+| Prix ICO | $0.005 / $TALARIA | $50,000 ÷ 10,000,000 |
+| LP auto-seeded | 2,900,000 | apparié à 20% de l'USDC levé |
+| Float au TGE | 12,900,000 | ICO + LP (le team package est verrouillé) |
+
+> ⚠️ On ne saisit PAS le supply total ni le FDV. Le FDV émerge du marché (raise discrétionnaire MetaDAO : on peut capper et rembourser le surplus).
 
 ---
 
-## Étape 5 — Plan de dépenses mensuelles
+## Étape 5 — Monthly spending limit (allowance)
+
+C'est le **plafond d'allowance mensuelle** soumis au vote du marché — pas un salaire garanti, pas un budget qu'on contrôle directement.
 
 | Champ | Valeur |
 |-------|--------|
-| **Monthly spend** | $6,050 |
+| **Monthly spending limit** | $6,050 |
 
-### Détail du plan
+### Détail de l'allowance demandée
 
 ```
-Month 1–2: $6,050/month
-- T. (CYNIC kernel, API): $3,000
-- S. (B&C, community): $3,000
-- Infrastructure (électricité ~180 kWh/mois @ €0.25/kWh): $50
+Allowance mensuelle: $6,050/mois (plafond, votable)
+- T. (CYNIC kernel, API)         : $3,000  ← ⚠️ à justifier (voir note)
+- S. (B&C, community)            : $3,000  ← ⚠️ à justifier (voir note)
+- Infrastructure (élec ~180 kWh/mois @ €0.25) : $50  (mesuré ≈ €45 ≈ $50)
 
-Month 3–4: $6,050/month
-- Même split
-- On-chain deployment costs: couvert sur budget opérationnel
-
-Month 5–6: $6,050/month
-- Même split
-- SDK + Season 1 prize pool: financé sur protocol fees
-
-Total 6 mois : $36,300 (73% de la raise)
-Réserve      : $13,700 (27%) — contingency + future hiring
+Sur 6 mois: ~$36,300 tirés (73% d'un raise $50K).
+Le reste NON dépensé reste dans la treasury futarchy (pas une "réserve" privée).
 ```
 
-### Breakdown % raise
-
-| Poste | Montant | % |
-|-------|---------|---|
-| T. salaire (6m) | $18,000 | 36% |
-| S. salaire (6m) | $18,000 | 36% |
-| Infra électricité (6m) | $300 | 1% |
-| Réserve | $13,700 | 27% |
-| **Total** | **$50,000** | **100%** |
+> ⚠️ **Le $3,000/personne n'est PAS dérivé** — c'est un montant rond posé, aucune base documentée. À justifier avant submit :
+> - coût de la vie réel (Paris) ? full-time vs stage Caplogy en parallèle ?
+> - comparable Futardio (ex: Umbra $34K/mois — on est 5× en dessous = "lean", défendable)
+> - **compatibilité stage Caplogy** : toucher une allowance Talaria en plus du stage rémunéré ?
+> L'allowance étant votée par le marché, un montant injustifié peut être rejeté.
 
 ---
 
@@ -178,15 +180,28 @@ Réserve      : $13,700 (27%) — contingency + future hiring
 
 ---
 
-## Tokenomics (Option A — finalisée)
+## Tokenomics (modèle MetaDAO — imposé par le protocole)
 
-| Bucket | Tokens | % | Valeur @ FDV |
-|--------|--------|---|--------------|
-| ICO (public raise) | 9,900,000 | 55% | $49,500 |
-| T. (vesting 6m cliff + 18m linéaire) | 3,600,000 | 20% | $18,000 |
-| S. (vesting 6m cliff + 18m linéaire) | 3,600,000 | 20% | $18,000 |
-| Protocol treasury | 900,000 | 5% | $4,500 |
-| **Total** | **18,000,000** | **100%** | **$90,000** |
+Le supply n'est pas un champ : il découle des règles MetaDAO. On contrôle uniquement le raise, la durée, et si on prend un team package.
+
+**Liquide au launch (fixé par le protocole) :**
+
+| Bucket | Tokens | Unlock |
+|--------|--------|--------|
+| ICO (public raise) | 10,000,000 | 100% liquide au TGE |
+| LP pool (auto-seeded) | 2,900,000 | seedé à la clôture (apparié à 20% de l'USDC) |
+
+**Team performance package (optionnel, price-based, verrouillé) :**
+
+| Titulaire | Tokens | Unlock |
+|-----------|--------|--------|
+| T. | 3,600,000 | 5 tranches à 2× / 4× / 8× / 16× / 32× prix ICO · cliff 18 mois |
+| S. | 3,600,000 | 5 tranches à 2× / 4× / 8× / 16× / 32× prix ICO · cliff 18 mois |
+
+> Plafond protocole : team package ≤ 12,900,000 (50% du supply initial). Aucun token team au TGE — déblocage uniquement sur performance prix soutenue (TWAP 3 mois).
+> ⚠️ **DÉCISION EN ATTENTE (appel S.) :** prendre le team package ou non, et le montant exact. Les 3,6M + 3,6M ci-dessus sont la structure envisagée, pas figée.
+
+**Trésorerie & fonds :** pas de bucket "treasury tokens" — l'USDC levé va dans une treasury gouvernée par futarchy. Les fondateurs tirent une allowance mensuelle votée par le marché (≠ versement direct).
 
 ---
 
@@ -200,7 +215,8 @@ Réserve      : $13,700 (27%) — contingency + future hiring
 - [x] Token image live (étape 2)
 - [x] Banner live (étape 2)
 - [x] Description finalisée (étape 3)
-- [x] Tokenomics finalisée (option A)
+- [x] Tokenomics ancrée au modèle MetaDAO réel (supply imposé, pas saisi)
+- [ ] Décision team package (oui/non + montant) ← **avec S.**
 - [ ] Adresse wallet S. (étape 6) ← **BLOQUEUR**
 - [ ] 3ème adresse Solana (étape 6) ← **BLOQUEUR**
 - [ ] Cayman entity MetaLeX (étape 7, en live)

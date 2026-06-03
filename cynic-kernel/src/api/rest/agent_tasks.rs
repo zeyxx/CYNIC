@@ -109,6 +109,37 @@ pub async fn list_tasks_handler(
     })))
 }
 
+/// GET /agent-tasks/completed?kind=hermes&limit=10 — poll completed tasks.
+pub async fn list_completed_tasks_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let kind = params.get("kind").map(|s| s.as_str()).unwrap_or("hermes");
+    let limit: u32 = params
+        .get("limit")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10);
+
+    let tasks = state
+        .storage
+        .list_completed_agent_tasks(kind, limit)
+        .await
+        .map_err(|e| {
+            tracing::warn!(error = %e, "list_completed_tasks failed");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "Failed to list completed tasks".into(),
+                }),
+            )
+        })?;
+
+    Ok(Json(serde_json::json!({
+        "tasks": tasks,
+        "count": tasks.len(),
+    })))
+}
+
 /// POST /agent-tasks/{id}/result — mark task complete with result or error.
 pub async fn complete_task_handler(
     State(state): State<Arc<AppState>>,
