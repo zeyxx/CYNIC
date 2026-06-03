@@ -3,7 +3,7 @@
   "nodes": [
     {
       "name": "cynic-forge",
-      "role": "proxmox_host",
+      "role": "proxmox_host_kernel",
       "network": {
         "local": "192.168.0.37",
         "tailscale": "100.64.0.x"
