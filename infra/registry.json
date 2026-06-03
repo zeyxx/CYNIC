@@ -1,0 +1,36 @@
+{
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "name": "cynic-forge",
+      "role": "proxmox_host",
+      "network": {
+        "local": "192.168.0.37",
+        "tailscale": "100.64.0.x"
+      },
+      "status": "active"
+    },
+    {
+      "name": "cynic-gpu",
+      "role": "inference_node",
+      "network": {
+        "local": "192.168.0.67",
+        "tailscale": "100.64.0.5"
+      },
+      "status": "active"
+    },
+    {
+      "name": "ubuntu",
+      "role": "cortex_host",
+      "network": {
+        "local": "192.168.0.12",
+        "tailscale": "100.64.0.1"
+      },
+      "status": "active"
+    }
+  ],
+  "routing_rules": {
+    "primary_tunnel": "tailscale_100_64_0_0_24",
+    "management_fallback": "local_192_168_0_0_24"
+  }
+}
