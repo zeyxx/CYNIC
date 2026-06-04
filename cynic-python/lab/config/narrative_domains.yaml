@@ -22,11 +22,15 @@ narrative_mappings:
     - "open_weights"
     - "ai_crypto"
 
-  # D3: Sovereignty
+  # D3: Sovereignty + Prediction markets / MetaDAO / B&C
   D3:
     - "self_custody"
     - "sovereignty"
     - "decentralization"
+    - "prediction_market"
+    - "futarchy"
+    - "p2p_wager"
+    - "sports_betting"
 
   # D4: Security/Exploits
   D4:

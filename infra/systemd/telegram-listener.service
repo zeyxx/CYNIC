@@ -1,6 +1,8 @@
 [Unit]
 Description=CYNIC Telegram Listener
 After=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -8,8 +10,6 @@ WorkingDirectory=%h/Bureau/CYNIC/cynic-python
 ExecStart=%h/.cynic/organs/telegram/.venv/bin/python -m organs.telegram.listener
 Restart=on-failure
 RestartSec=30
-StartLimitIntervalSec=600
-StartLimitBurst=3
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=%h/.config/cynic/env
 EnvironmentFile=%h/.cynic/organs/telegram/env
