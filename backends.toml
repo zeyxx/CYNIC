@@ -36,20 +36,22 @@ api_error_threshold = 50
 evaluation_timeout_secs = 60         # GPU models: longer timeout
 enabled = true
 
-# Qwen 2.5 7B CPU (sovereign, APU — RADV RENOIR Vulkan)
+# Qwen3-4B-Instruct-2507 CPU (sovereign, APU — RADV RENOIR Vulkan)
+# 2026-06-02: switched from Qwen2.5 7B to Qwen3-4B-Instruct-2507 Q4_K_M
+#   ~15 tok/s CPU (vs 8 tok/s for 7B), better JSON instruction following
+#   context_size 4096→8192: production stimuli were 4500-5500 tokens
+#   priority=backup removed: qwen36-gpu offline, need this dog to meet quorum=2
 # --parallel 1 only (--parallel 2 SEGVs on RADV RENOIR, observed 2026-05-08)
-# Observed (2026-05-07): 1,259 calls, 615 success, 631 api_error
-# Renamed from qwen-9b-core → qwen25-7b-core (2026-05-16). Old DB records archived.
 [dog.qwen25-7b-core]
 kind = "inference"
 provider = "sovereign"
 model = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M"  # switched 2026-06-02, llama-server.env updated
-failure_rate_threshold = 0.40        # 40% — above observed 50.1%, but CPU is slow
+failure_rate_threshold = 0.40        # 40% — CPU is slow, allow higher error rate
 collapse_threshold = 10
 api_error_threshold = 200
-evaluation_timeout_secs = 60
+evaluation_timeout_secs = 120        # 4B at ~15 tok/s: 120s for long completions
 enabled = true
-priority = "backup"                  # Only use if other Dogs exhausted
+# priority = "backup" removed 2026-06-02: sole LLM dog while qwen36-gpu is offline
 
 # Gemini CLI (human subscription, free tier)
 # Observed (2026-05-07): 4,774 calls, 1,636 success, 2,808 api_error, quota exhausted
@@ -137,7 +139,7 @@ cooldown_secs = 120
 base_url = "http://<TAILSCALE_CORE>:8080/v1"
 model = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf"  # switched 2026-06-02
 context_size = 8192  # llama-server LLAMA_CTX_SIZE=8192 (was 4096 → caused context overflow on token-analysis)
-json_mode = false
+json_mode = true        # Critical for crystal formation
 disable_thinking = true
 timeout_secs = 120
 api_key_env = "CYNIC_SOVEREIGN_KEY"

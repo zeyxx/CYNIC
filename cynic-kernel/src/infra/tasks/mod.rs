@@ -6,7 +6,9 @@
 //! All `.await` inside spawns are wrapped in `tokio::time::timeout()` (Rule #10).
 
 mod convergence_consumer;
+mod governance;
 mod nightshift;
+mod organ_remediation;
 mod runtime_loops;
 mod state_log;
 mod submission_queue;
@@ -26,6 +28,8 @@ use crate::infra::config::BackendRemediation;
 use crate::infra::task_health::TaskHealth;
 
 pub use convergence_consumer::{ConvergencePipelineDeps, spawn_convergence_consumer};
+pub use governance::spawn_governance_queue;
+pub use organ_remediation::spawn_organ_remediation;
 // DORMANT: nightshift (K15 violation — no consumer for dev domain crystals)
 // Re-enable in Phase 2+ when temporal compounding has an acting consumer.
 pub use runtime_loops::{
@@ -36,10 +40,6 @@ pub use runtime_loops::{
 pub use state_log::spawn_state_log;
 // DORMANT: pinocchio submission queue disabled 2026-05-19 (0 verdicts onchain).
 // Rewire when onchain anchoring is needed.
-
-pub use self::organ_remediation::spawn_organ_remediation;
-
-mod organ_remediation;
 
 // ── Shutdown flush — used by both REST and MCP exit paths ────
 

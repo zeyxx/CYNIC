@@ -19,14 +19,17 @@ pub(super) async fn store_crystal(
 
     let escape = |s: &str| escape_surreal(s);
     let safe_id = sanitize_id(&crystal.id)?;
+    let relations_json = serde_json::to_string(&crystal.relations).unwrap_or_else(|_| "{}".into());
     let sql = format!(
-        "UPSERT crystal:`{}` SET content = '{}', domain = '{}', confidence = {}, observations = {}, state = '{}', created_at = '{}', updated_at = '{}'",
+        "UPSERT crystal:`{}` SET content = '{}', domain = '{}', confidence = {}, observations = {}, source_diversity = {}, state = '{}', relations = {}, created_at = '{}', updated_at = '{}'",
         safe_id,
         escape(&crystal.content),
         escape(&crystal.domain),
         crystal.confidence,
         crystal.observations,
+        crystal.source_diversity,
         crystal.state,
+        relations_json,
         escape(&crystal.created_at),
         escape(&crystal.updated_at)
     );
@@ -84,6 +87,18 @@ pub(super) async fn delete_crystal(
 ) -> Result<(), StorageError> {
     let safe_id = sanitize_id(id)?;
     let sql = format!("DELETE crystal:`{safe_id}`");
+    storage.query_one(&sql).await?;
+    Ok(())
+}
+
+pub(super) async fn update_crystal_relations(
+    storage: &SurrealHttpStorage,
+    id: &str,
+    relations: std::collections::BTreeMap<String, String>,
+) -> Result<(), StorageError> {
+    let safe_id = sanitize_id(id)?;
+    let relations_json = serde_json::to_string(&relations).unwrap_or_else(|_| "{}".into());
+    let sql = format!("UPDATE crystal:`{safe_id}` SET relations = {relations_json}");
     storage.query_one(&sql).await?;
     Ok(())
 }
@@ -146,6 +161,8 @@ pub(super) async fn observe_crystal(
          LET $prev_conf = (SELECT VALUE confidence FROM crystal:`{id}`)[0] ?? 0.0; \
          LET $prev_m2 = (SELECT VALUE variance_m2 FROM crystal:`{id}`)[0] ?? 0.0; \
          LET $prev_quorum = (SELECT VALUE mean_quorum FROM crystal:`{id}`)[0] ?? 0.0; \
+         LET $sources = (SELECT VALUE contributing_sources FROM crystal:`{id}`)[0] ?? {{}}; \
+         LET $diversity = count($sources); \
          LET $new_obs = $prev_obs + 1; \
          LET $new_conf = IF $prev_obs > 0 THEN ($prev_conf * $prev_obs + {score}) / $new_obs ELSE {score} END; \
          LET $delta = {score} - $prev_conf; \
@@ -155,12 +172,15 @@ pub(super) async fn observe_crystal(
          LET $stddev = IF $new_obs > 1 THEN math::sqrt($new_m2 / ($new_obs - 1)) ELSE 0.0 END; \
          LET $ratio = $stddev / {phi_inv3}; \
          LET $concordance = 1.0 / (1.0 + $ratio * $ratio); \
-         LET $volume = IF $new_obs >= {t_cryst} THEN 1.0 ELSE <float> $new_obs / {t_cryst}.0 END; \
+         LET $consensus_bonus = 1.0 + (0.618 * $concordance); \
+         LET $diversity_bonus = 1.0 + math::min(0.618, (0.618 * math::max(0.0, <float>$diversity - 1.0)) / 5.0); \
+         LET $effective_obs = <float>$new_obs * {rel_weight} * $consensus_bonus * $diversity_bonus; \
+         LET $volume = math::min(1.0, $effective_obs / <float>{t_cryst}); \
          LET $certainty = $concordance * $volume; \
-         LET $new_state = IF $new_obs >= {t_canon} AND $certainty >= {c_high} THEN 'canonical' \
-             ELSE IF $new_obs >= {t_cryst} AND $certainty >= {c_high} THEN 'crystallized' \
-             ELSE IF $new_obs >= {t_cryst} AND $certainty < {c_low} THEN 'decaying' \
-             ELSE 'forming' END; \
+         LET $new_state = IF $certainty >= {c_high} THEN \
+             IF $new_obs >= {t_canon} THEN 'canonical' ELSE 'crystallized' END \
+         ELSE IF $new_obs >= {t_cryst} AND $certainty < {c_low} THEN 'decaying' \
+         ELSE 'forming' END; \
          UPSERT crystal:`{id}` SET \
              content = IF {score} > $prev_conf OR content IS NONE THEN '{content}' ELSE content END, \
              domain = domain ?? '{domain}', \
@@ -169,6 +189,7 @@ pub(super) async fn observe_crystal(
              certainty = $certainty, \
              variance_m2 = $new_m2, \
              mean_quorum = $new_quorum, \
+             source_diversity = $diversity, \
              {polarity_field} = ({polarity_field} ?? 0) + 1, \
              state = $new_state, \
              contributing_verdicts = IF array::len(contributing_verdicts ?? []) < 500 THEN array::union(contributing_verdicts ?? [], ['{vid}']) ELSE contributing_verdicts ?? [] END, \
@@ -188,6 +209,7 @@ pub(super) async fn observe_crystal(
         c_high = PHI_INV,
         c_low = PHI_INV2,
         ts = escape_surreal(timestamp),
+        rel_weight = 1.0,
     );
     storage.query(&sql).await?;
     Ok(())
@@ -223,6 +245,10 @@ pub(super) async fn observe_crystal_hypha(
          LET $prev_obs = (SELECT VALUE observations FROM crystal:`{id}`)[0] ?? 0; \
          LET $prev_conf = (SELECT VALUE confidence FROM crystal:`{id}`)[0] ?? 0.0; \
          LET $prev_m2 = (SELECT VALUE variance_m2 FROM crystal:`{id}`)[0] ?? 0.0; \
+         LET $sources = (SELECT VALUE contributing_sources FROM crystal:`{id}`)[0] ?? {{}}; \
+         LET $new_sources = $sources; \
+         $new_sources.`{source}` = ($new_sources.`{source}` ?? 0) + 1; \
+         LET $diversity = count($new_sources); \
          LET $new_obs = $prev_obs + 1; \
          LET $new_conf = IF $prev_obs > 0 THEN ($prev_conf * $prev_obs + {score}) / $new_obs ELSE {score} END; \
          LET $delta = {score} - $prev_conf; \
@@ -231,12 +257,15 @@ pub(super) async fn observe_crystal_hypha(
          LET $stddev = IF $new_obs > 1 THEN math::sqrt($new_m2 / ($new_obs - 1)) ELSE 0.0 END; \
          LET $ratio = $stddev / {phi_inv3}; \
          LET $concordance = 1.0 / (1.0 + $ratio * $ratio); \
-         LET $volume = IF $new_obs >= {t_cryst} THEN 1.0 ELSE <float> $new_obs / {t_cryst}.0 END; \
+         LET $consensus_bonus = 1.0 + (0.618 * $concordance); \
+         LET $diversity_bonus = 1.0 + math::min(0.618, (0.618 * math::max(0.0, <float>$diversity - 1.0)) / 5.0); \
+         LET $effective_obs = <float>$new_obs * {rel_weight} * $consensus_bonus * $diversity_bonus; \
+         LET $volume = math::min(1.0, $effective_obs / <float>{t_cryst}); \
          LET $certainty = $concordance * $volume; \
-         LET $new_state = IF $new_obs >= {t_canon} AND $certainty >= {c_high} THEN 'canonical' \
-             ELSE IF $new_obs >= {t_cryst} AND $certainty >= {c_high} THEN 'crystallized' \
-             ELSE IF $new_obs >= {t_cryst} AND $certainty < {c_low} THEN 'decaying' \
-             ELSE 'forming' END; \
+         LET $new_state = IF $certainty >= {c_high} THEN \
+             IF $new_obs >= {t_canon} THEN 'canonical' ELSE 'crystallized' END \
+         ELSE IF $new_obs >= {t_cryst} AND $certainty < {c_low} THEN 'decaying' \
+         ELSE 'forming' END; \
          UPSERT crystal:`{id}` SET \
              content = IF {score} > $prev_conf OR content IS NONE THEN '{content}' ELSE content END, \
              domain = domain ?? '{domain}', \
@@ -244,8 +273,9 @@ pub(super) async fn observe_crystal_hypha(
              confidence = $new_conf, \
              certainty = $certainty, \
              variance_m2 = $new_m2, \
+             source_diversity = $diversity, \
              {polarity_increment} \
-             contributing_sources.`{source}` = (contributing_sources.`{source}` ?? 0) + 1, \
+             contributing_sources = $new_sources, \
              state = $new_state, \
              created_at = created_at ?? '{ts}', \
              updated_at = '{ts}'; \
@@ -261,7 +291,8 @@ pub(super) async fn observe_crystal_hypha(
         t_cryst = MIN_CRYSTALLIZATION_CYCLES,
         c_high = PHI_INV,
         c_low = PHI_INV2,
-        ts = crate::storage::escape_surreal(timestamp),
+        ts = escape_surreal(timestamp),
+        rel_weight = 1.0,
     );
     storage.query(&sql).await?;
     Ok(())
@@ -391,6 +422,19 @@ pub(super) fn row_to_crystal(row: &serde_json::Value) -> Crystal {
                 .collect()
         })
         .unwrap_or_default();
+    let relations = row["relations"]
+        .as_object()
+        .map(|obj| {
+            obj.iter()
+                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                .collect()
+        })
+        .unwrap_or_default();
+    let embedding = row["embedding"].as_array().map(|arr| {
+        arr.iter()
+            .filter_map(|v| v.as_f64().map(|f| f as f32))
+            .collect::<Vec<f32>>()
+    });
     Crystal {
         id,
         content: row["content"].as_str().unwrap_or("").to_string(),
@@ -408,6 +452,9 @@ pub(super) fn row_to_crystal(row: &serde_json::Value) -> Crystal {
         wag_count: row["wag_count"].as_u64().unwrap_or(0) as u32,
         growl_count: row["growl_count"].as_u64().unwrap_or(0) as u32,
         bark_count: row["bark_count"].as_u64().unwrap_or(0) as u32,
+        source_diversity: row["source_diversity"].as_u64().unwrap_or(0) as u32,
+        relations,
+        embedding,
         contributing_sources,
         shattered_at: row["shattered_at"].as_str().map(String::from),
         shatter_reason: row["shatter_reason"].as_str().map(String::from),

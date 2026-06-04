@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TALARIA — The trust layer for Solana governance</title>
+  <meta name="description" content="Is the proposal sound? Are the voters human? We answer both.">
+  <meta property="og:title" content="TALARIA ($TALARIA)">
+  <meta property="og:description" content="Is the proposal sound? Are the voters human? We answer both. The trust layer for Solana governance.">
+  <meta property="og:type" content="website">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'JetBrains Mono', monospace; }
+    .glow { text-shadow: 0 0 30px rgba(251, 191, 36, 0.4); }
+    .border-glow { box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.2); }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-300 antialiased">
+
+  <!-- NAV -->
+  <nav class="border-b border-zinc-800 px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
+    <span class="text-amber-400 font-bold text-lg tracking-widest">$TALARIA</span>
+    <div class="flex gap-6 text-sm text-zinc-500">
+      <a href="https://github.com/zeyxx/CYNIC" target="_blank" class="hover:text-zinc-200 transition-colors">GitHub</a>
+      <a href="#tokenomics" class="hover:text-zinc-200 transition-colors">Tokenomics</a>
+      <a href="#team" class="hover:text-zinc-200 transition-colors">Team</a>
+      <a href="https://futard.io" target="_blank" class="text-amber-400 hover:text-amber-300 transition-colors font-medium">→ Invest on Futardio</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="max-w-6xl mx-auto px-6 pt-24 pb-20 text-center">
+    <!-- Token image -->
+    <div class="flex justify-center mb-8">
+      <img src="/talaria-token.svg" alt="$TALARIA token" width="120" height="120" class="rounded-full" style="box-shadow: 0 0 40px rgba(251,191,36,0.25)"/>
+    </div>
+    <div class="inline-block text-xs text-amber-400 border border-amber-400/30 rounded px-3 py-1 mb-8 tracking-widest uppercase">
+      Solana · Futardio · Live on mainnet
+    </div>
+    <h1 class="text-5xl md:text-6xl font-bold text-white glow leading-tight mb-6">
+      Is the proposal sound?<br>Are the voters human?
+    </h1>
+    <p class="text-2xl md:text-3xl text-amber-400 font-medium mb-4">We answer both.</p>
+    <p class="text-zinc-400 text-lg mb-12 max-w-2xl mx-auto">
+      The trust layer for Solana governance — AI judgment + game-based Proof of Humanity, built and running.
+    </p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <a href="https://futard.io" target="_blank"
+         class="bg-amber-400 text-zinc-950 font-bold px-8 py-4 rounded hover:bg-amber-300 transition-colors text-sm tracking-wide uppercase">
+        Invest on Futardio →
+      </a>
+      <a href="https://github.com/zeyxx/CYNIC" target="_blank"
+         class="border border-zinc-700 text-zinc-300 font-medium px-8 py-4 rounded hover:border-zinc-500 transition-colors text-sm">
+        View the code
+      </a>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section class="max-w-6xl mx-auto px-6 py-20 border-t border-zinc-800">
+    <div class="max-w-3xl mx-auto">
+      <p class="text-xs text-zinc-500 uppercase tracking-widest mb-4">The Problem</p>
+      <h2 class="text-3xl font-bold text-white mb-8">Futarchy lets markets decide.<br>But who's in the market?</h2>
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-6 border-glow">
+          <div class="text-red-400 text-2xl mb-3">⚠</div>
+          <h3 class="text-white font-semibold mb-2">Bots &amp; Sybils</h3>
+          <p class="text-zinc-400 text-sm">Nobody verifies that governance participants are real humans. One wallet = one vote, until it isn't.</p>
+        </div>
+        <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-6 border-glow">
+          <div class="text-red-400 text-2xl mb-3">⚠</div>
+          <h3 class="text-white font-semibold mb-2">Unsound proposals</h3>
+          <p class="text-zinc-400 text-sm">Markets can efficiently price bad ideas. Nobody checks if the proposal itself is coherent before the vote.</p>
+        </div>
+        <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-6 border-glow">
+          <div class="text-red-400 text-2xl mb-3">⚠</div>
+          <h3 class="text-white font-semibold mb-2">Governance theater</h3>
+          <p class="text-zinc-400 text-sm">Complex infrastructure, broken inputs. The mechanism is sound; the data going in isn't.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SOLUTION -->
+  <section class="max-w-6xl mx-auto px-6 py-20 border-t border-zinc-800">
+    <p class="text-xs text-zinc-500 uppercase tracking-widest mb-4">The Solution</p>
+    <h2 class="text-3xl font-bold text-white mb-4">Two live products. One trust layer.</h2>
+    <p class="text-zinc-400 mb-12">Not a whitepaper. Not a roadmap. Running in production today.</p>
+
+    <div class="grid md:grid-cols-2 gap-8">
+
+      <!-- CYNIC -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 bg-amber-400/10 border border-amber-400/30 rounded-lg flex items-center justify-center text-amber-400 font-bold text-sm">AI</div>
+          <div>
+            <h3 class="text-white font-bold text-lg">CYNIC</h3>
+            <p class="text-zinc-500 text-xs">AI Judgment Engine</p>
+          </div>
+        </div>
+        <p class="text-zinc-300 text-sm mb-6">
+          4 independent AI validators evaluate proposals on 6 axioms. Confidence capped at φ⁻¹ = 61.8% — the architecture refuses to be more certain than the evidence allows.
+        </p>
+        <div class="space-y-3 text-sm font-mono">
+          <div class="flex justify-between items-center py-2 border-b border-zinc-800">
+            <span class="text-zinc-500">Validators</span>
+            <span class="text-white">4 independent Dogs</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-zinc-800">
+            <span class="text-zinc-500">Axioms</span>
+            <span class="text-white">6 (Fidelity, Phi, Verify…)</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-zinc-800">
+            <span class="text-zinc-500">Max confidence</span>
+            <span class="text-amber-400">61.8% (φ⁻¹)</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-zinc-800">
+            <span class="text-zinc-500">Latency</span>
+            <span class="text-white">&lt; 2s</span>
+          </div>
+          <div class="flex justify-between items-center py-2">
+            <span class="text-zinc-500">Cloud</span>
+            <span class="text-green-400">0% — own hardware</span>
+          </div>
+        </div>
+        <div class="mt-6 bg-zinc-950 rounded-lg p-4 text-xs font-mono">
+          <div class="text-zinc-500 mb-2"># Verdict output</div>
+          <div><span class="text-green-400">HOWL</span> <span class="text-zinc-400">— proposal is sound (q=0.74)</span></div>
+          <div><span class="text-red-400">BARK</span> <span class="text-zinc-400">— suspicious signal detected</span></div>
+          <div><span class="text-slate-400">EPOCHÉ</span> <span class="text-zinc-400">— judges disagree, suspend</span></div>
+        </div>
+      </div>
+
+      <!-- B&C -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 bg-amber-400/10 border border-amber-400/30 rounded-lg flex items-center justify-center text-amber-400 font-bold text-sm">♟</div>
+          <div>
+            <h3 class="text-white font-bold text-lg">Blitz &amp; Chill</h3>
+            <p class="text-zinc-500 text-xs">Game-based Proof of Humanity</p>
+          </div>
+        </div>
+        <p class="text-zinc-300 text-sm mb-6">
+          Play chess. Prove you're human. No KYC, no biometrics — your game behavior is your identity. QR code → verified in 60 seconds.
+        </p>
+        <div class="space-y-3 text-sm font-mono">
+          <div class="flex justify-between items-center py-2 border-b border-zinc-800">
+            <span class="text-zinc-500">Games</span>
+            <span class="text-white">Chess (dames + Go next)</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-zinc-800">
+            <span class="text-zinc-500">Onboarding</span>
+            <span class="text-white">QR code, 60 seconds</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-zinc-800">
+            <span class="text-zinc-500">Identity</span>
+            <span class="text-white">Soulbound NFT mint</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-zinc-800">
+            <span class="text-zinc-500">Communities</span>
+            <span class="text-white">Tribes + tournaments</span>
+          </div>
+          <div class="flex justify-between items-center py-2">
+            <span class="text-zinc-500">Engine</span>
+            <span class="text-green-400">Stockfish 18 WASM</span>
+          </div>
+        </div>
+        <div class="mt-6 bg-zinc-950 rounded-lg p-4 text-xs font-mono">
+          <div class="text-zinc-500 mb-2"># Community play</div>
+          <div class="text-green-400">$ASDFASDFA DESTROYED $BONK 7-3</div>
+          <div class="text-zinc-400">inter-community chess tournament</div>
+          <div class="text-zinc-400">→ zero ad spend. communities self-onboard.</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- METRICS -->
+  <section class="max-w-6xl mx-auto px-6 py-20 border-t border-zinc-800">
+    <p class="text-xs text-zinc-500 uppercase tracking-widest mb-4">By the numbers</p>
+    <h2 class="text-3xl font-bold text-white mb-12">Built, not pitched.</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div class="text-center">
+        <div class="text-4xl font-bold text-amber-400 mb-2">1,874</div>
+        <div class="text-zinc-400 text-sm">Verdicts rendered</div>
+      </div>
+      <div class="text-center">
+        <div class="text-4xl font-bold text-amber-400 mb-2">50K+</div>
+        <div class="text-zinc-400 text-sm">Observations ingested</div>
+      </div>
+      <div class="text-center">
+        <div class="text-4xl font-bold text-amber-400 mb-2">1K+</div>
+        <div class="text-zinc-400 text-sm">Commits (CYNIC)</div>
+      </div>
+      <div class="text-center">
+        <div class="text-4xl font-bold text-amber-400 mb-2">0%</div>
+        <div class="text-zinc-400 text-sm">Cloud (AI engine)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOKENOMICS -->
+  <section id="tokenomics" class="max-w-6xl mx-auto px-6 py-20 border-t border-zinc-800">
+    <p class="text-xs text-zinc-500 uppercase tracking-widest mb-4">Tokenomics</p>
+    <h2 class="text-3xl font-bold text-white mb-12">Simple. Frugal. Aligned.</h2>
+    <div class="grid md:grid-cols-2 gap-12">
+      <div class="space-y-4">
+        <div class="flex justify-between items-center py-4 border-b border-zinc-800">
+          <span class="text-zinc-400">Ticker</span>
+          <span class="text-amber-400 font-bold text-lg">$TALARIA</span>
+        </div>
+        <div class="flex justify-between items-center py-4 border-b border-zinc-800">
+          <span class="text-zinc-400">Raise goal</span>
+          <span class="text-white font-medium">$50,000 USDC</span>
+        </div>
+        <div class="flex justify-between items-center py-4 border-b border-zinc-800">
+          <span class="text-zinc-400">FDV</span>
+          <span class="text-white font-medium">~$90,000</span>
+        </div>
+        <div class="flex justify-between items-center py-4 border-b border-zinc-800">
+          <span class="text-zinc-400">Supply</span>
+          <span class="text-white font-medium">~18,000,000 $TALARIA</span>
+        </div>
+        <div class="flex justify-between items-center py-4 border-b border-zinc-800">
+          <span class="text-zinc-400">ICO duration</span>
+          <span class="text-white font-medium">7 days</span>
+        </div>
+        <div class="flex justify-between items-center py-4 border-b border-zinc-800">
+          <span class="text-zinc-400">Monthly burn</span>
+          <span class="text-white font-medium">$6,000 ($3K × 2 + infra)</span>
+        </div>
+        <div class="flex justify-between items-center py-4">
+          <span class="text-zinc-400">Treasury</span>
+          <span class="text-white font-medium">Multisig 2/2</span>
+        </div>
+      </div>
+      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-8">
+        <h3 class="text-white font-semibold mb-6">What the raise funds</h3>
+        <div class="space-y-4 text-sm">
+          <div class="flex gap-4">
+            <span class="text-amber-400 font-bold shrink-0">M1–2</span>
+            <span class="text-zinc-300">Public judgment API · server-side PoH verification · first inter-community tournament</span>
+          </div>
+          <div class="flex gap-4">
+            <span class="text-amber-400 font-bold shrink-0">M3–4</span>
+            <span class="text-zinc-300">PoH on-chain mainnet · burn-as-a-service deploy · checkers/dames · first external client</span>
+          </div>
+          <div class="flex gap-4">
+            <span class="text-amber-400 font-bold shrink-0">M5–6</span>
+            <span class="text-zinc-300">sBPF optimization · Go support · SDK · Season 1 tournaments</span>
+          </div>
+        </div>
+        <div class="mt-8 pt-6 border-t border-zinc-800 text-xs text-zinc-500">
+          Everything open source. Moat = 1,874 verdicts + 50K+ observations accumulated, unique social dataset, and operational knowledge.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEAM -->
+  <section id="team" class="max-w-6xl mx-auto px-6 py-20 border-t border-zinc-800">
+    <p class="text-xs text-zinc-500 uppercase tracking-widest mb-4">Team</p>
+    <h2 class="text-3xl font-bold text-white mb-12">Two builders. Two live products.</h2>
+    <div class="grid md:grid-cols-2 gap-8">
+      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-8">
+        <div class="flex items-center gap-4 mb-6">
+          <div class="w-12 h-12 bg-amber-400/10 border border-amber-400/30 rounded-full flex items-center justify-center text-amber-400 font-bold">T.</div>
+          <div>
+            <h3 class="text-white font-bold">T.</h3>
+            <p class="text-zinc-500 text-sm">Kernel, architecture, vision</p>
+          </div>
+        </div>
+        <p class="text-zinc-300 text-sm mb-4">Built CYNIC from scratch — 1,000+ commits, Rust kernel, multi-model judgment engine, Crystal Coherence Machine, KAIROS data pipeline.</p>
+        <div class="text-xs text-zinc-500 space-y-1">
+          <div>→ CYNIC (Rust kernel, Python pipeline)</div>
+          <div>→ GASdf, HolDex</div>
+          <div>→ github.com/zeyxx</div>
+        </div>
+      </div>
+      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-8">
+        <div class="flex items-center gap-4 mb-6">
+          <div class="w-12 h-12 bg-amber-400/10 border border-amber-400/30 rounded-full flex items-center justify-center text-amber-400 font-bold">S.</div>
+          <div>
+            <h3 class="text-white font-bold">S.</h3>
+            <p class="text-zinc-500 text-sm">B&amp;C, community, business dev</p>
+          </div>
+        </div>
+        <p class="text-zinc-300 text-sm mb-4">Built Blitz &amp; Chill — chess-based PoH with 775+ tests. Puzzles, tribes, coaching, soulbound mint, Stockfish 18 WASM. Community architect for $ASDFASDFA.</p>
+        <div class="text-xs text-zinc-500 space-y-1">
+          <div>→ Blitz &amp; Chill (TypeScript, Next.js)</div>
+          <div>→ ASDF-Web, ASDF-Mobile</div>
+          <div>→ github.com/ragnar-no-sleep</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA FINAL -->
+  <section class="max-w-6xl mx-auto px-6 py-24 border-t border-zinc-800 text-center">
+    <h2 class="text-4xl font-bold text-white mb-4">The trust layer is live.<br>The raise is now.</h2>
+    <p class="text-zinc-400 mb-10 max-w-xl mx-auto">
+      $50K goal. 7 days. Two products already running. Join the raise on Futardio before June 2.
+    </p>
+    <a href="https://futard.io" target="_blank"
+       class="inline-block bg-amber-400 text-zinc-950 font-bold px-10 py-5 rounded hover:bg-amber-300 transition-colors text-sm tracking-wide uppercase">
+      Invest on Futardio →
+    </a>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-zinc-800 px-6 py-10 max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-zinc-500">
+    <div class="flex gap-6">
+      <a href="https://github.com/zeyxx/CYNIC" target="_blank" class="hover:text-zinc-300 transition-colors">GitHub</a>
+      <a href="mailto:cynic@agentmail.to" class="hover:text-zinc-300 transition-colors">Contact</a>
+      <a href="#" class="hover:text-zinc-300 transition-colors">Terms of Service</a>
+    </div>
+    <div class="text-zinc-600 text-xs">
+      $TALARIA is not financial advice. Max confidence: 61.8%.
+    </div>
+  </footer>
+
+</body>
+</html>

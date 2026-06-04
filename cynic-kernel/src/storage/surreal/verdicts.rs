@@ -260,7 +260,7 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
 #[allow(clippy::print_stderr)] // WHY: integration tests use eprintln! for diagnostic output visible in `cargo test -- --nocapture`
 mod tests {
     use super::*;
-    use crate::domain::storage::StoragePort;
+    use crate::domain::storage::VerdictStorage;
 
     fn test_verdict() -> Verdict {
         Verdict {
@@ -478,7 +478,7 @@ mod tests {
             }
         };
 
-        let verdict_id = format!("test-{}", uuid::Uuid::new_v4());
+        let verdict_id = format!("test-{}", crate::infra::crypto::generate_secure_id());
         let mut v = test_verdict();
         v.id = verdict_id.clone();
         storage.store_verdict(&v).await.expect("store must succeed");
