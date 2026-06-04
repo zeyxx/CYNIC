@@ -174,7 +174,7 @@ pub(super) async fn observe_crystal(
          LET $concordance = 1.0 / (1.0 + $ratio * $ratio); \
          LET $consensus_bonus = 1.0 + (0.618 * $concordance); \
          LET $diversity_bonus = 1.0 + math::min(0.618, (0.618 * math::max(0.0, <float>$diversity - 1.0)) / 5.0); \
-         LET $effective_obs = <float>$new_obs * $consensus_bonus * $diversity_bonus; \
+         LET $effective_obs = <float>$new_obs * {rel_weight} * $consensus_bonus * $diversity_bonus; \
          LET $volume = math::min(1.0, $effective_obs / <float>{t_cryst}); \
          LET $certainty = $concordance * $volume; \
          LET $new_state = IF $certainty >= {c_high} THEN \
@@ -209,6 +209,7 @@ pub(super) async fn observe_crystal(
         c_high = PHI_INV,
         c_low = PHI_INV2,
         ts = escape_surreal(timestamp),
+        rel_weight = 1.0,
     );
     storage.query(&sql).await?;
     Ok(())
@@ -258,7 +259,7 @@ pub(super) async fn observe_crystal_hypha(
          LET $concordance = 1.0 / (1.0 + $ratio * $ratio); \
          LET $consensus_bonus = 1.0 + (0.618 * $concordance); \
          LET $diversity_bonus = 1.0 + math::min(0.618, (0.618 * math::max(0.0, <float>$diversity - 1.0)) / 5.0); \
-         LET $effective_obs = <float>$new_obs * $consensus_bonus * $diversity_bonus; \
+         LET $effective_obs = <float>$new_obs * {rel_weight} * $consensus_bonus * $diversity_bonus; \
          LET $volume = math::min(1.0, $effective_obs / <float>{t_cryst}); \
          LET $certainty = $concordance * $volume; \
          LET $new_state = IF $certainty >= {c_high} THEN \
@@ -290,7 +291,8 @@ pub(super) async fn observe_crystal_hypha(
         t_cryst = MIN_CRYSTALLIZATION_CYCLES,
         c_high = PHI_INV,
         c_low = PHI_INV2,
-        ts = crate::storage::escape_surreal(timestamp),
+        ts = escape_surreal(timestamp),
+        rel_weight = 1.0,
     );
     storage.query(&sql).await?;
     Ok(())

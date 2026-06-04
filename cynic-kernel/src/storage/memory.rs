@@ -326,6 +326,7 @@ impl CrystalStorage for InMemoryStorage {
             crystal.variance_m2,
             crystal.observations,
             crystal.source_diversity,
+            1.0,
         );
         crystal.state = crate::domain::ccm::classify(crystal.certainty, crystal.observations);
 
@@ -426,6 +427,7 @@ impl CrystalStorage for InMemoryStorage {
             crystal.variance_m2,
             crystal.observations,
             crystal.source_diversity,
+            1.0,
         );
         crystal.state = crate::domain::ccm::classify(crystal.certainty, crystal.observations);
 

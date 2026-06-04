@@ -23,7 +23,15 @@ use super::crystal::{CANONICAL_CYCLES, CrystalState, MIN_CRYSTALLIZATION_CYCLES,
 ///
 /// Crystallization (certainty >= phi-inverse) can now occur at ~13 observations if
 /// consensus is perfect, or 21 if consensus is marginal.
-pub fn compute_certainty(variance_m2: f64, observations: u32, source_diversity: u32) -> f64 {
+/// Compute certainty from Welford stats + observation count.
+/// Formula: `concordance * volume`
+/// Volume is modulated by consensus, diversity, and source reliability.
+pub fn compute_certainty(
+    variance_m2: f64,
+    observations: u32,
+    source_diversity: u32,
+    reliability_weight: f64,
+) -> f64 {
     let stddev = if observations > 1 {
         (variance_m2 / (observations as f64 - 1.0)).sqrt()
     } else {
@@ -32,13 +40,11 @@ pub fn compute_certainty(variance_m2: f64, observations: u32, source_diversity: 
     let ratio = stddev / PHI_INV3;
     let concordance = 1.0 / (1.0 + ratio * ratio);
 
-    // Epistemic Fast-Track: high consensus + diversity accelerates memory formation.
-    // Bonus factor for consensus (concordance) weighted by phi.
     let consensus_bonus = 1.0 + (0.618 * concordance);
-    // Diversity bonus factor between 1.0 and 1.618 (phi).
     let diversity_bonus = 1.0 + (0.618 * (source_diversity as f64 - 1.0).max(0.0) / 5.0).min(0.618);
 
-    let effective_obs = observations as f64 * consensus_bonus * diversity_bonus;
+    let effective_obs =
+        observations as f64 * reliability_weight * consensus_bonus * diversity_bonus;
 
     let volume = (effective_obs / MIN_CRYSTALLIZATION_CYCLES as f64).min(1.0);
     concordance * volume
@@ -70,7 +76,7 @@ pub fn observe(crystal: &Crystal, new_score: f64) -> CrystalState {
     let delta = new_score - old_mean;
     let delta2 = new_score - new_mean;
     let new_m2 = crystal.variance_m2 + delta * delta2;
-    let certainty = compute_certainty(new_m2, next_obs, crystal.source_diversity);
+    let certainty = compute_certainty(new_m2, next_obs, crystal.source_diversity, 1.0);
     classify(certainty, next_obs)
 }
 
@@ -85,7 +91,7 @@ pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Cry
     let delta2 = new_score - confidence;
     let variance_m2 = crystal.variance_m2 + delta * delta2;
     let source_diversity = crystal.contributing_sources.len() as u32;
-    let certainty = compute_certainty(variance_m2, observations, source_diversity);
+    let certainty = compute_certainty(variance_m2, observations, source_diversity, 1.0);
     let state = classify(certainty, observations);
 
     Crystal {
