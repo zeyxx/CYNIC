@@ -37,7 +37,7 @@ You are one of THREE cortex agents in the CYNIC organism. The others are Claude 
 
 ```
 cynic-kernel/    → T. ONLY. Backend Rust.
-cynic-ui/        → S. ONLY. Frontend React+TS.
+packages/        → S. ONLY. Frontend Human Interfaces (Monorepo).
 ```
 
 Never modify files outside your assigned zone.
@@ -59,6 +59,7 @@ Never modify files outside your assigned zone.
 
 ```bash
 make check   # build + test + clippy (--release) — use this, not raw cargo
+npm run build # build all human interfaces (cortex, landing, demo)
 ```
 
 For individual stages when debugging:
@@ -91,6 +92,15 @@ Every session follows this lifecycle:
 | Before edit | Claim explicitly when in doubt | `cynic_coord_claim(agent_id, target-file)` |
 | During | Record discoveries, decisions, blockers | `cynic_observe(...)` |
 | End | Append handoff, release all claims, seal session | `cynic_handoff(action="append", ...)` → `cynic_coord_release(agent_id)` → `SessionEnd` Hook (Askesis) |
+
+## Git Workflow: Branch-per-Session (L3)
+
+1. **Isolation :** Gemini MUST work exclusively on a branch dedicated to the current session.
+   - Format : `session/YYYY-MM-DD-cortex-<id>`
+   - Command : `git checkout -b session/$(date +%Y-%m-%d)-gemini-$(uuidgen | cut -c1-8)`
+   - This prevents branch collision and ensures a clean audit trail.
+2. **Commit :** Commits must be atomic, conventional (`type(scope): description`), and focused on the session's specific goal.
+3. **Main :** The `main` branch is immutable for agents. No commit direct, no push direct. All work merges via PR.
 
 ## The 3rd Pillar — Askesis (Human Augmentation)
 

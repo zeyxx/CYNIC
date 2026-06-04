@@ -32,6 +32,8 @@ fn crystal_to_json(c: &Crystal) -> serde_json::Value {
         "wag_count": c.wag_count,
         "growl_count": c.growl_count,
         "bark_count": c.bark_count,
+        "source_diversity": c.source_diversity,
+        "relations": c.relations,
         "contributing_sources": c.contributing_sources,
         "shattered_at": c.shattered_at,
         "shatter_reason": c.shatter_reason,
@@ -194,6 +196,9 @@ pub async fn create_crystal_handler(
         wag_count: 0,
         growl_count: 0,
         bark_count: 0,
+        source_diversity: 0,
+        relations: std::collections::BTreeMap::new(),
+        embedding: None,
         contributing_sources: std::collections::BTreeMap::new(),
         shattered_at: None,
         shatter_reason: None,
@@ -573,6 +578,9 @@ mod tests {
             wag_count: 3,
             growl_count: 2,
             bark_count: 1,
+            source_diversity: 2,
+            relations: std::collections::BTreeMap::new(),
+            embedding: None,
             contributing_sources: std::collections::BTreeMap::new(),
             shattered_at: None,
             shatter_reason: None,
@@ -584,8 +592,8 @@ mod tests {
             .expect("crystal_to_json must return object");
         assert_eq!(
             obj.len(),
-            20,
-            "crystal_to_json must serialize all 20 Crystal fields"
+            22,
+            "crystal_to_json must serialize all 22 Crystal fields"
         );
         assert_eq!(json["id"], "test-id");
         assert_eq!(json["content"], "test");

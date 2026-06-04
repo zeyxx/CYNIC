@@ -129,6 +129,103 @@ pub async fn summarize_pending_sessions(
     count
 }
 
+// ── CRYSTAL RELATION CURATION ─────────────────────────────
+
+/// Discover and persist semantic relations between crystals.
+/// This is the "Graph Curation" phase of GraphRAG.
+/// It builds a structural memory model by linking similar patterns.
+pub async fn curate_crystal_relations(storage: &dyn StoragePort, _metrics: &Metrics) -> u32 {
+    let crystals = match storage.list_crystals(500).await {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!(error = %e, "curate: failed to list crystals");
+            return 0;
+        }
+    };
+
+    let mature = ccm::filter_mature(crystals);
+    if mature.is_empty() {
+        return 0;
+    }
+
+    tracing::info!(
+        phase = "curate",
+        count = mature.len(),
+        "starting crystal relation curation"
+    );
+
+    let mut updated_count = 0u32;
+    for crystal in &mature {
+        let Some(ref vector) = crystal.crystal().embedding else {
+            continue;
+        };
+
+        // Find similar mature crystals
+        let similar = match storage.search_crystals_semantic(vector, 10).await {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!(crystal_id = %crystal.id(), error = %e, "curate: semantic search failed");
+                continue;
+            }
+        };
+
+        let mut relations = std::collections::BTreeMap::new();
+        for s in similar {
+            if s.id == crystal.id() {
+                continue;
+            }
+            // Threshold for structural relation (high similarity)
+            // We use 0.90 for SUPPORTS and 0.85 for RELATED
+            // NOTE: search_crystals_semantic should return similarity in a field if possible,
+            // but the Crystal struct doesn't have it.
+            // Wait, search_crystals_semantic in surreal/crystals.rs uses 'AS similarity'.
+            // But row_to_crystal doesn't populate it into the struct.
+            // However, we can compute it manually here using Embedding::cosine_similarity
+            // if we turn the vector into an Embedding.
+
+            if let Some(ref s_vector) = s.embedding {
+                let sim = cosine_similarity(vector, s_vector);
+                if sim >= 0.95 {
+                    relations.insert(s.id.clone(), "equivalent".to_string());
+                } else if sim >= 0.85 {
+                    relations.insert(s.id.clone(), "related".to_string());
+                }
+            }
+        }
+
+        if !relations.is_empty() {
+            if let Err(e) = storage
+                .update_crystal_relations(crystal.id(), relations)
+                .await
+            {
+                tracing::warn!(crystal_id = %crystal.id(), error = %e, "curate: failed to update relations");
+            } else {
+                updated_count += 1;
+            }
+        }
+    }
+
+    tracing::info!(
+        phase = "curate",
+        updated = updated_count,
+        "crystal relation curation complete"
+    );
+    updated_count
+}
+
+fn cosine_similarity(a: &[f32], b: &[f32]) -> f64 {
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
+    let dot: f64 = a.iter().zip(b).map(|(x, y)| *x as f64 * *y as f64).sum();
+    let norm_a: f64 = a.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
+    let norm_b: f64 = b.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
+    if norm_a == 0.0 || norm_b == 0.0 {
+        return 0.0;
+    }
+    dot / (norm_a * norm_b)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

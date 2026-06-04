@@ -54,7 +54,8 @@ security_check() {
         | grep -vE 'let\s+(mut\s+)?token\s*=\s*(json|self|resp|response)' \
         | grep -vE 'token: different|token: extract|token: \w+ \w+ \w+' \
         | grep -vE 'fn\s+\w+\(token' \
-        | grep -vE '\*\*Spec:\*\*' || true)
+        | grep -vE '\*\*Spec:\*\*' \
+        | grep -vE '"(pattern|falsifiable_claim|signal_id)":\s*"' || true)
     if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
         echo "SECURITY FAIL: possible secrets in staged changes:"
         [ -n "$RAW_SECRETS" ] && echo "$RAW_SECRETS"

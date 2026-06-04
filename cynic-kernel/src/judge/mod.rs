@@ -24,7 +24,6 @@ use futures_util::StreamExt;
 use math::trimmed_mean;
 use math::{aggregate_scores, chain_hash, detect_residuals};
 use std::sync::{Arc, Mutex};
-use uuid::Uuid;
 
 pub struct Judge {
     dogs: Vec<Arc<dyn Dog>>,
@@ -865,6 +864,8 @@ impl Judge {
         let mut failures: Vec<DogFailure> = Vec::new();
         let mut failed_dogs: Vec<String> = Vec::new();
         let mut failed_dog_errors: std::collections::BTreeMap<String, String> = Default::default();
+        let mut failed_dog_error_kinds: std::collections::BTreeMap<String, String> =
+            Default::default();
 
         // Process Dogs as they arrive (progressive) instead of waiting for all (join_all).
         // O5: Return early once quorum_count Dogs have completed successfully.
@@ -902,6 +903,7 @@ impl Judge {
                         cb(&id, false, elapsed_ms, None, Some(failure.detail.clone()));
                     }
                     failed_dog_errors.insert(id.clone(), failure.detail.clone());
+                    failed_dog_error_kinds.insert(id.clone(), failure.kind.as_str().to_string());
                     failed_dogs.push(id.clone());
                     failures.push(failure);
                     // Don't exit on failure — keep waiting for more Dogs to reach quorum
@@ -969,7 +971,7 @@ impl Judge {
         let mut dog_ids: Vec<&str> = dog_scores.iter().map(|s| s.dog_id.as_str()).collect();
         dog_ids.sort_unstable(); // Canonical order — deterministic regardless of response timing
 
-        let id = Uuid::new_v4().to_string();
+        let id = crate::infra::crypto::generate_secure_id();
         let timestamp = Utc::now().to_rfc3339();
         // KC10: 300 chars gives crystals enough signal to be meaningful knowledge.
         // Previous 100 chars truncated most domain prompts to noise.
@@ -1009,6 +1011,8 @@ impl Judge {
             anomaly_axiom,
             failed_dogs,
             failed_dog_errors,
+            failed_dog_error_kinds,
+            excluded_dogs: Vec::new(),
             target: extract_target(stimulus),
             integrity_hash: Some(hash),
             prev_hash,
@@ -1543,7 +1547,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn verdict_has_valid_uuid_and_timestamp() {
+    async fn verdict_has_valid_secure_id_and_timestamp() {
         let judge = test_judge(vec![Arc::new(FixedDog {
             name: "t".into(),
             scores: AxiomScores {
@@ -1562,9 +1566,9 @@ mod tests {
             .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
-        // UUID v4 format: 8-4-4-4-12
-        assert_eq!(verdict.id.len(), 36);
-        assert_eq!(verdict.id.chars().filter(|c| *c == '-').count(), 4);
+        // Secure ID format: 32 chars hex
+        assert_eq!(verdict.id.len(), 32);
+        assert!(verdict.id.chars().all(|c| c.is_ascii_hexdigit()));
         // RFC3339 timestamp
         assert!(verdict.timestamp.contains('T'));
         assert!(verdict.timestamp.ends_with("+00:00") || verdict.timestamp.ends_with('Z'));
@@ -1881,6 +1885,8 @@ mod tests {
             voter_count: 1,
             failed_dogs: vec![],
             failed_dog_errors: Default::default(),
+            failed_dog_error_kinds: Default::default(),
+            excluded_dogs: vec![],
             target: None,
             integrity_hash: None, // no hash
             prev_hash: None,

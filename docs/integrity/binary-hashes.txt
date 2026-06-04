@@ -1,0 +1,11 @@
+# CYNIC Binary Integrity Baseline
+# Generated: 2026-05-31T23:26:17+02:00
+# Purpose: Reference for tamper detection. Compare at session start.
+
+96b71dd5794723b8812e559e39657e3cb1acfb699ebe52938717c32143212b04  /usr/local/bin/llama-server
+5ea36acd6e3f4c5585ee02796a19773b417d13bc715a3e609bc6f375ce50b4ae  /home/user/bin/cynic-kernel
+135c57b168bd86aac3cfce72d3fafbd3a7b91f9063f00cd00cdb4f874afec50f  /usr/local/bin/surreal
+
+# Verify:
+#   sha256sum /usr/local/bin/llama-server ~/bin/cynic-kernel /usr/local/bin/surreal
+#   diff <(sha256sum ...) docs/integrity/binary-hashes.txt

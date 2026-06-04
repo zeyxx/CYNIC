@@ -239,6 +239,8 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
                     .ok()
             })
             .unwrap_or_default(),
+        failed_dog_error_kinds: Default::default(),
+        excluded_dogs: Vec::new(),
         target: row["target"]
             .as_str()
             .filter(|s| !s.is_empty())
@@ -258,7 +260,7 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
 #[allow(clippy::print_stderr)] // WHY: integration tests use eprintln! for diagnostic output visible in `cargo test -- --nocapture`
 mod tests {
     use super::*;
-    use crate::domain::storage::StoragePort;
+    use crate::domain::storage::VerdictStorage;
 
     fn test_verdict() -> Verdict {
         Verdict {
@@ -292,6 +294,8 @@ mod tests {
             voter_count: 0,
             failed_dogs: Vec::new(),
             failed_dog_errors: Default::default(),
+            failed_dog_error_kinds: Default::default(),
+            excluded_dogs: Vec::new(),
             target: None,
             integrity_hash: Some("deadbeef".into()),
             prev_hash: None,
@@ -474,7 +478,7 @@ mod tests {
             }
         };
 
-        let verdict_id = format!("test-{}", uuid::Uuid::new_v4());
+        let verdict_id = format!("test-{}", crate::infra::crypto::generate_secure_id());
         let mut v = test_verdict();
         v.id = verdict_id.clone();
         storage.store_verdict(&v).await.expect("store must succeed");

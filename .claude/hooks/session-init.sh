@@ -259,11 +259,11 @@ else
     GAP_HOURS="unknown"
 fi
 
-# Known deadlines (hardcoded for now — will be mempool-derived later)
-HACKATHON_DEADLINE="2026-05-10"
-DAYS_TO_HACKATHON=$(( ( $(date -d "$HACKATHON_DEADLINE" +%s 2>/dev/null || echo "$NOW_TS") - NOW_TS ) / 86400 ))
-if [[ "$DAYS_TO_HACKATHON" -lt 0 ]]; then
-    DAYS_TO_HACKATHON="past"
+# Known deadlines
+TALARIA_ICO_CLOSE="2026-06-09"
+DAYS_TO_ICO=$(( ( $(date -d "$TALARIA_ICO_CLOSE" +%s 2>/dev/null || echo "$NOW_TS") - NOW_TS ) / 86400 ))
+if [[ "$DAYS_TO_ICO" -lt 0 ]]; then
+    DAYS_TO_ICO="past"
 fi
 
 # ── Mempool scan: query items from kernel observations ──
@@ -290,7 +290,7 @@ Agent: ${AGENT_ID} (${REGISTER_STATUS})
 WORKFLOW: Use /build after edits, /deploy for production, /status for full dashboard.
 COORD: Agent auto-registered. Claim → cynic_coord_who + cynic_coord_claim | Release → cynic_coord_release
 RULES: Public repo — no secrets, no real IPs, no names. Use skills before acting.
-TEMPORAL: ${CURRENT_DATE} ${CURRENT_DAY} ${CURRENT_HOUR}h | Gap: ${GAP_HOURS}h | Peak: ${PEAK_HOURS} | Hackathon: J-${DAYS_TO_HACKATHON}
+TEMPORAL: ${CURRENT_DATE} ${CURRENT_DAY} ${CURRENT_HOUR}h | Gap: ${GAP_HOURS}h | Peak: ${PEAK_HOURS} | Talaria ICO close: J-${DAYS_TO_ICO}
 EOF
 
 # ── Mempool injection (temporal consciousness) ──
@@ -439,11 +439,26 @@ fi
 if [[ "$KERNEL_STATUS" != "down" ]]; then
     SESSION_OBS=$(curl -s --max-time 3 \
         ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-        "http://${KERNEL_ADDR}/observations?domain=session&limit=3" 2>/dev/null)
+        "http://${KERNEL_ADDR}/observations?domain=session&limit=20" 2>/dev/null)
     if [[ -n "$SESSION_OBS" ]] && echo "$SESSION_OBS" | jq -e 'type == "array" and length > 0' >/dev/null 2>&1; then
-        echo ""
-        echo "RECENT SESSIONS (inter-agent bus):"
-        echo "$SESSION_OBS" | jq -r '.[] | "  [\(.agent_id // "?")] \(.context // "no context") (\(.created_at // "?" | split("T")[0] // "?"))"' 2>/dev/null | head -5 || true
+        # Extract NEXT + BLOCKED from the most recent session_distill (target=handover)
+        LAST_CTX=$(echo "$SESSION_OBS" | jq -r '[.[] | select(.target == "handover")] | .[0].context // ""' 2>/dev/null)
+        LAST_TS=$(echo "$SESSION_OBS" | jq -r '[.[] | select(.target == "handover")] | .[0].created_at // ""' 2>/dev/null)
+        if [[ -n "$LAST_CTX" && -n "$LAST_TS" ]]; then
+            LAST_EPOCH=$(date -d "$LAST_TS" +%s 2>/dev/null || echo 0)
+            HANDOFF_AGE_H=$(( (NOW_TS - LAST_EPOCH) / 3600 ))
+            if [[ "$HANDOFF_AGE_H" -ge 48 ]]; then
+                HANDOFF_LABEL="${LAST_TS:0:10} — $(( HANDOFF_AGE_H / 24 ))d ago ⚠ may be stale"
+            elif [[ "$HANDOFF_AGE_H" -ge 1 ]]; then
+                HANDOFF_LABEL="${HANDOFF_AGE_H}h ago"
+            else
+                HANDOFF_LABEL="this session"
+            fi
+            echo ""
+            echo "LAST SESSION HANDOFF (${HANDOFF_LABEL}):"
+            echo "$LAST_CTX" | grep -oP '(?<=NEXT: ).*?(?= BLOCKED:|$)' | fold -s -w 100 | sed 's/^/  NEXT: /' || true
+            echo "$LAST_CTX" | grep -oP '(?<=BLOCKED: ).*' | fold -s -w 100 | sed 's/^/  BLOCKED: /' || true
+        fi
     fi
 fi
 
