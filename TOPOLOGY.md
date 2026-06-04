@@ -1,4 +1,4 @@
-# CYNIC Organism Topology (auto-generated 2026-06-04 14:40 UTC)
+# CYNIC Organism Topology (auto-generated 2026-06-04 20:32 UTC)
 
 ## Active Modules
 
@@ -31,6 +31,7 @@
 
 ## Verification Issues
 
+- [error] cynic-kernel: daemon cynic-kernel.service not active
 - [warning] cynic-kernel: no files match SurrealDB tables
 - [warning] token-data-store: no files match data/snapshots/
 - [warning] token-data-store: no files match data/market_snapshots/
