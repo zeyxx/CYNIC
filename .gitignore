@@ -147,5 +147,11 @@ cynic-python/heuristics/data/webhook_id.txt
 docs/ydays/
 cynic-python/heuristics/webhook_data/
 
+<<<<<<< HEAD
+# Quantum ECC harness — cloned challenge repo + runtime state
+cynic-python/lab/quantum-ecc/ecdsafail-challenge/
+cynic-python/lab/quantum-ecc/state.json
+=======
 # MetaLeX legal signature templates — personal PII, never in public repo
 docs/internal/metalex-exhibit-a-*.md
+>>>>>>> origin/main
