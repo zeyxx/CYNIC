@@ -30,11 +30,11 @@ impl HeliusEnricher {
                 tracing::warn!(
                     method = "getAsset",
                     mint = %mint,
-                    error = %e,
+                    error = %super::redact_secrets(&e),
                     latency_ms = start.elapsed().as_millis(),
                     "Helius RPC call failed"
                 );
-                EnrichmentError::RequestFailed(e.to_string())
+                EnrichmentError::RequestFailed(super::redact_secrets(&e))
             })?;
 
         let status_code = resp.status().as_u16();
@@ -56,11 +56,11 @@ impl HeliusEnricher {
             tracing::warn!(
                 method = "getAsset",
                 mint = %mint,
-                error = %e,
+                error = %super::redact_secrets(&e),
                 latency_ms = start.elapsed().as_millis(),
                 "Helius response deserialize failed"
             );
-            EnrichmentError::RequestFailed(e.to_string())
+            EnrichmentError::RequestFailed(super::redact_secrets(&e))
         })?;
 
         let latency = start.elapsed().as_millis();
@@ -113,12 +113,12 @@ impl HeliusEnricher {
                     tracing::warn!(
                         method = "getTokenLargestAccounts",
                         mint = %mint,
-                        error = %e,
+                        error = %super::redact_secrets(&e),
                         attempt,
                         latency_ms = start.elapsed().as_millis(),
                         "Helius RPC call failed"
                     );
-                    EnrichmentError::RequestFailed(e.to_string())
+                    EnrichmentError::RequestFailed(super::redact_secrets(&e))
                 })?;
 
             let status_code = resp.status().as_u16();
@@ -138,12 +138,12 @@ impl HeliusEnricher {
                 tracing::warn!(
                     method = "getTokenLargestAccounts",
                     mint = %mint,
-                    error = %e,
+                    error = %super::redact_secrets(&e),
                     attempt,
                     latency_ms = start.elapsed().as_millis(),
                     "Helius response deserialize failed"
                 );
-                EnrichmentError::RequestFailed(e.to_string())
+                EnrichmentError::RequestFailed(super::redact_secrets(&e))
             })?;
 
             // Check for JSON-RPC error (returned with HTTP 200)
@@ -276,7 +276,9 @@ impl HeliusEnricher {
             .json(&body)
             .send()
             .await
-            .inspect_err(|e| tracing::warn!(error = %e, "Helius request failed"))
+            .inspect_err(
+                |e| tracing::warn!(error = %super::redact_secrets(&e), "Helius request failed"),
+            )
             .ok()?;
         if !resp.status().is_success() {
             return None;
@@ -285,7 +287,9 @@ impl HeliusEnricher {
         let rpc: serde_json::Value = resp
             .json()
             .await
-            .inspect_err(|e| tracing::warn!(error = %e, "Helius JSON parse failed"))
+            .inspect_err(
+                |e| tracing::warn!(error = %super::redact_secrets(&e), "Helius JSON parse failed"),
+            )
             .ok()?;
         self.credits
             .record_call(start.elapsed().as_millis(), true, 10);
@@ -445,7 +449,7 @@ impl HeliusEnricher {
                 .json(&body)
                 .send()
                 .await
-                .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+                .map_err(|e| EnrichmentError::RequestFailed(super::redact_secrets(&e)))?;
 
             if !resp.status().is_success() {
                 break;
@@ -454,7 +458,7 @@ impl HeliusEnricher {
             let rpc: RpcResponse<Vec<SignatureInfo>> = resp
                 .json()
                 .await
-                .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+                .map_err(|e| EnrichmentError::RequestFailed(super::redact_secrets(&e)))?;
 
             let Some(sigs) = rpc.result else { break };
             let batch_len = sigs.len();
@@ -531,7 +535,7 @@ impl HeliusEnricher {
             .send()
             .await
             .inspect_err(
-                |e| tracing::debug!(token_account, error = %e, "resolve_owner request failed"),
+                |e| tracing::debug!(token_account, error = %super::redact_secrets(&e), "resolve_owner request failed"),
             )
             .ok()?;
         if !resp.status().is_success() {
@@ -541,7 +545,7 @@ impl HeliusEnricher {
             .json()
             .await
             .inspect_err(
-                |e| tracing::debug!(token_account, error = %e, "resolve_owner parse failed"),
+                |e| tracing::debug!(token_account, error = %super::redact_secrets(&e), "resolve_owner parse failed"),
             )
             .ok()?;
         self.credits.record_call(0, true, 1);

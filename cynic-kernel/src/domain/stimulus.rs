@@ -361,7 +361,7 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
 /// The WalletProfile contains on-chain game history: games played, archetype consistency,
 /// temporal distribution, and Sybil risk markers.
 pub fn build_wallet_stimulus(profile: &crate::domain::wallet_judgment::WalletProfile) -> String {
-    let mut s = String::with_capacity(800);
+    let mut s = String::with_capacity(1000);
     s.push_str("[DOMAIN: wallet-judgment]\n\n");
     s.push_str("[METRICS]\n");
     s.push_str(&format!("wallet: {}\n", profile.wallet_address));
@@ -384,21 +384,48 @@ pub fn build_wallet_stimulus(profile: &crate::domain::wallet_judgment::WalletPro
         profile.suspicious_cluster
     ));
     s.push_str(&format!("replay_risk: {}\n", profile.replay_risk));
+
+    s.push_str("\n[PERSONALITY SIGNALS]\n");
+    s.push_str(&format!(
+        "tactical_complexity: {:.2} (High = tactical risk-taker)\n",
+        profile.tactical_complexity
+    ));
+    s.push_str(&format!(
+        "engine_adherence: {:.2} (High = precise, potential engine; Low = intuitive/blunderer)\n",
+        profile.engine_adherence
+    ));
+    s.push_str(&format!(
+        "opening_theory_depth: {:.2} (High = studied/Culture-aware)\n",
+        profile.opening_theory_depth
+    ));
+    s.push_str(&format!(
+        "blitz_speed_ratio: {:.2} (High = efficient/fast decisions)\n",
+        profile.blitz_speed_ratio
+    ));
+    s.push_str(&format!(
+        "endgame_accuracy: {:.2} (High = structural precision/Phi)\n",
+        profile.endgame_accuracy
+    ));
+
     s.push_str("\n[GATES]\n");
     s.push_str("gate_1_min_games: 5 games required\n");
     s.push_str("gate_2_sybil: suspicious_cluster=false AND replay_risk=false required\n");
     s.push_str("\n[AXIOM EVIDENCE]\n");
     s.push_str(
-        "FIDELITY: Is the archetype consistent? Does the wallet play one authentic style?\n",
+        "FIDELITY: Is the archetype consistent? Does engine_adherence suggest human play (0.4-0.8) or bot ( >0.9)?\n",
     );
-    s.push_str("PHI: Is time distribution harmonious? Low variance + temporal spread over days?\n");
-    s.push_str("VERIFY: Are timestamps verifiable on-chain? Is move history authentic?\n");
-    s.push_str("CULTURE: Does the wallet engage with gameplay culture? Multiple games, consistent patterns?\n");
-    s.push_str("BURN: Is the wallet active without waste? Age-adjusted commitment?\n");
-    s.push_str("SOVEREIGNTY: Does the wallet make autonomous decisions? No replay or clustering evidence?\n");
+    s.push_str("PHI: Structural harmony in time and endgame_accuracy? Positional coherence?\n");
+    s.push_str("VERIFY: Are timestamps verifiable on-chain? Does opening_theory_depth match known books?\n");
+    s.push_str(
+        "CULTURE: Does the wallet honor chess traditions (theory depth)? Depth of engagement?\n",
+    );
+    s.push_str("BURN: Is play efficient? blitz_speed_ratio vs accuracy? No time wasted?\n");
+    s.push_str(
+        "SOVEREIGNTY: Decision autonomy? Tactical complexity indicates high agency choices.\n",
+    );
     s.push_str("\n[QUESTION]\n");
     s.push_str(
-        "Evaluate this chess wallet for authentic human play. Score each axiom 0.05-0.618.\n",
+        "Evaluate this chess wallet for authentic human play and crystallize its personality signature. Score each axiom 0.05-0.618.\n",
     );
     s
 }

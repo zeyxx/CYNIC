@@ -215,6 +215,7 @@ def run() -> None:
 
         seen[obs_id] = now
         judged += 1
+        save_seen(seen)  # incremental: persist after each success so timeout kill doesn't lose progress
 
     save_seen(seen)
     log.info(

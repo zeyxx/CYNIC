@@ -176,9 +176,16 @@ pub struct Verdict {
     #[serde(default)]
     pub failed_dogs: Vec<String>,
     /// Error details per failed Dog (dog_id → error description). Ephemeral, not persisted.
-    /// Used by event bus to emit DogFailed events with the actual failure reason.
     #[serde(default)]
     pub failed_dog_errors: BTreeMap<String, String>,
+    /// Structured error kind per failed Dog (dog_id → error code string).
+    /// Codes: api_error | parse_error | rate_limited | timeout | slot_unavailable
+    ///        network_unreachable | circuit_open | quality_gate_excluded
+    #[serde(default)]
+    pub failed_dog_error_kinds: BTreeMap<String, String>,
+    /// Dogs excluded before evaluation by circuit breaker or quality gate (not attempted).
+    #[serde(default)]
+    pub excluded_dogs: Vec<String>,
     /// Target identifier — the original content before enrichment.
     /// For token-analysis: the mint address. For wallet-judgment: the wallet address.
     /// For other domains: None (stimulus_summary is sufficient).

@@ -6,7 +6,7 @@ on:
 
 jobs:
   auto-approve-and-merge:
-    if: github.actor == 'zeyxx'
+    if: github.actor == 'zeyxx' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write

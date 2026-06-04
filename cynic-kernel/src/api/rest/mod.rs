@@ -1,6 +1,7 @@
 //! REST API — JSON interface for external clients (React, curl, etc.)
 
 pub mod agent_tasks;
+pub mod auth;
 pub mod coord;
 pub mod data;
 pub mod dispatch;
@@ -33,6 +34,7 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
+use self::auth::{auth_input_handler, auth_verify_handler};
 use self::coord::{
     coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
     coord_register_handler, coord_release_handler, coord_scope_handler, coord_who_handler,
@@ -110,6 +112,8 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/node/ws", axum::routing::get(ws_handler))
         .route("/health", get(health_handler))
+        .route("/auth/input", get(auth_input_handler))
+        .route("/auth/verify", post(auth_verify_handler))
         .route("/live", get(liveness_handler))
         .route("/ready", get(readiness_handler))
         .route("/metrics", get(metrics_handler))
@@ -142,6 +146,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/state-history", get(state_history_handler))
         .route("/agent-tasks", post(agent_tasks::dispatch_task_handler))
         .route("/agent-tasks", get(agent_tasks::list_tasks_handler))
+        .route(
+            "/agent-tasks/completed",
+            get(agent_tasks::list_completed_tasks_handler),
+        )
         .route(
             "/agent-tasks/{id}/result",
             post(agent_tasks::complete_task_handler),
