@@ -11,6 +11,10 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 // ============================================================
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load environment variables from .env file
+    let _env_loaded = dotenvy::dotenv().ok();
+    tracing::trace!("env loaded from .env (if present)");
+
     // Parse flags early — MCP mode needs stderr-only logging from the start.
     let force_reprobe = std::env::args().any(|a| a == "--reset");
     let mcp_mode = std::env::args().any(|a| a == "--mcp");
@@ -1080,6 +1084,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             shutdown.clone(),
         );
         klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
+
+        // ─── Governance (Auto-Submission) ────────────────────────
+        let _governance_handle = infra::tasks::spawn_governance_queue(
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Governance submission queue started");
 
         // ─── Storage metrics emitter (every 60s, CHAOS→MATRIX data-centric measurement) ────
         let _storage_metrics_handle = infra::tasks::spawn_storage_metrics_emitter(

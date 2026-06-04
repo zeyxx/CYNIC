@@ -1,11 +1,18 @@
 # Build artifacts
 target/
 .gate-passed
+.gate-0
+.gate-1
+.gate-2
+.gate_marker
 *.exe
 *.dll
 *.pdb
 *.zip
 *.bin
+
+# Leeroy Jenkins bypass log (audit trail, not source)
+.leeroy-jenkins/
 
 # Dependencies
 node_modules/
@@ -140,6 +147,5 @@ cynic-python/heuristics/data/webhook_id.txt
 docs/ydays/
 cynic-python/heuristics/webhook_data/
 
-# Quantum ECC harness — cloned challenge repo + runtime state
-cynic-python/lab/quantum-ecc/ecdsafail-challenge/
-cynic-python/lab/quantum-ecc/state.json
+# MetaLeX legal signature templates — personal PII, never in public repo
+docs/internal/metalex-exhibit-a-*.md

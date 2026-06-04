@@ -176,6 +176,9 @@ while IFS=$'\t' read -r baseline_mint baseline_q baseline_kind baseline_ts \
 
     echo -ne "\r[outcome_measurement_t7] Token $((total+1))/${baseline_count}                "
 
+    # K25: yield between iterations — no sleep = slot semaphore exhaustion after ~10 calls
+    sleep 1
+
     # Measure enriched verdict using reconstructed stimulus from baseline fields
     IFS=$'\t' read -r enriched_verdict_id enriched_q enriched_kind dogs_voted < <(judge_token \
         "$baseline_mint" \

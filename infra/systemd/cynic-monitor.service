@@ -1,0 +1,9 @@
+[Unit]
+Description=CYNIC Proxmox Monitoring Sonde
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /home/user/Bureau/CYNIC/infra/monitoring/monitor_vms.sh
+User=user
+Group=user
+WorkingDirectory=/home/user/Bureau/CYNIC

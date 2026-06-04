@@ -1,6 +1,6 @@
 Frontend development helper for cynic-ui. Use when building or modifying the CYNIC dashboard.
 
-IMPORTANT: Read `cynic-ui/CLAUDE.md` first — it has the full context, real score ranges, and color scheme.
+IMPORTANT: Read `packages/cynic-ui/CLAUDE.md` first — it has the full context, real score ranges, and color scheme.
 Also read `API.md` for the complete REST contract with TypeScript interfaces.
 
 Context:
@@ -19,7 +19,7 @@ Key data structures:
 CYNIC judges SUBSTANCE not FORM — in chess, it judges the strategy quality, not the text.
 Real scores: Sicilian Defense → Howl (high scores), Fool's Mate → Bark (all zeros).
 
-Frontend stack: React 18 + TypeScript + Vite (cynic-ui/)
+Frontend stack: React 18 + TypeScript + Vite (packages/cynic-ui/)
 - react-chessboard + chess.js for interactive board
 - Recharts or similar for axiom radar/bar chart
 - Dark theme, golden accents (#C9A84C)

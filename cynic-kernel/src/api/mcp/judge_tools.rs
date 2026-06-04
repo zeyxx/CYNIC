@@ -125,7 +125,7 @@ impl CynicMcp {
             verdict_cache: &self.verdict_cache,
             metrics: &self.metrics,
             event_tx: self.event_tx.as_ref(),
-            request_id: Some(uuid::Uuid::new_v4().to_string()),
+            request_id: Some(crate::infra::crypto::generate_secure_id()),
             on_dog: Some(Box::new(move |dog_id, success, elapsed_ms, _, _| {
                 rc.record_observation(dog_id, &domain_for_callback, elapsed_ms as u32, success);
                 dpc.observe(&domain_for_callback, dog_id, elapsed_ms, success);

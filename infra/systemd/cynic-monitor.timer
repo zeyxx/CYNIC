@@ -1,0 +1,9 @@
+[Unit]
+Description=Run CYNIC Proxmox Monitoring every minute
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target

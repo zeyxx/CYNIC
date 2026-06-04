@@ -225,8 +225,12 @@ class SearchExecutor:
             logger.info("searching: %s (%s) [agent=%s]", query, domain, agent)
             await page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
 
-            # Wait for dynamic content to load
-            await page.wait_for_timeout(2000)
+            # Wait for dynamic content to load — 5s needed for new tab with authenticated context
+            try:
+                await page.wait_for_selector('[role="article"]', timeout=8000)
+            except Exception:
+                pass
+            await page.wait_for_timeout(1000)
 
             # Count visible tweet articles
             results = await page.locator('[role="article"]').count()

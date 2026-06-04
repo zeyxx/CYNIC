@@ -1,0 +1,15 @@
+[Unit]
+Description=CYNIC Node — Embedding Supervisor (Forge)
+After=network.target tailscaled.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+WorkingDirectory=/home/user/dev/CYNIC
+EnvironmentFile=/home/user/.config/cynic/env
+ExecStart=/home/user/.cargo/bin/cargo run -p cynic-node --release -- --config cynic-node/node-qwen3-embed-forge.toml
+
+[Install]
+WantedBy=default.target

@@ -10,31 +10,35 @@
 
 | Champ | Valeur |
 |-------|--------|
-| **Project name** | TALARIA |
-| **Token name** | TALARIA |
+| **Project name** | Talaria |
+| **Token name** | Talaria |
 | **Ticker symbol** | $TALARIA |
+
+> ⚠️ Utiliser "Talaria" (pas "TALARIA" en majuscules) — Futardio formate lui-même.
 
 ---
 
-## Étape 2 — Token image
+## Étape 2 — Token image & Banner
 
-- **Fichier :** `docs/internal/talaria-token.svg`
-- **URL Vercel :** https://talaria-deploy.vercel.app/talaria-token.svg
-- **Format :** SVG 400×400px ✓
-- **Action :** télécharger le fichier ou faire une capture en PNG depuis le browser (requis si Futardio n'accepte pas SVG)
+| Champ | Valeur |
+|-------|--------|
+| **Token image** | https://talaria-deploy.vercel.app/talaria-token.svg ✅ |
+| **Banner (optional, 16:9)** | https://talaria-deploy.vercel.app/banner.svg ✅ |
+| **Fichier local token** | `docs/internal/talaria-token.svg` (400×400px) |
+| **Fichier local banner** | `/tmp/talaria-deploy/banner.svg` (1200×630px) |
 
-> ⚠️ Si Futardio demande un PNG : ouvrir le SVG dans le browser, zoom à 100%, screenshot + recadrer en 400×400.
+> ⚠️ Si Futardio n'accepte pas SVG : ouvrir dans browser, screenshot + recadrer en PNG.
 
 ---
 
 ## Étape 3 — Description
 
-### Tagline (court)
+### Short Description (tagline onchain)
 ```
 Is the proposal sound? Are the voters human? We answer both.
 ```
 
-### Description détaillée (markdown)
+### Project Description (markdown)
 
 ```markdown
 ## The Problem
@@ -49,7 +53,7 @@ Two live products. One trust layer.
 - 4 independent AI validators evaluate proposals on 6 axioms
 - Confidence capped at φ⁻¹ = 61.8% — the architecture refuses certainty beyond the evidence
 - EPOCHÉ: judgment suspended when models disagree (no forced verdicts)
-- < 2s latency · Rust kernel · zero cloud dependency · own hardware
+- < 2s latency · Rust kernel · sovereign hardware · zero cloud
 
 **Blitz & Chill — Game-based Proof of Humanity**
 - Play chess. Prove you're human. No KYC, no biometrics.
@@ -58,16 +62,32 @@ Two live products. One trust layer.
 - Stockfish 18 WASM engine
 
 **The community flywheel**
-Inter-community tournaments: "$ASDFASDFA DESTROYED $BONK 7-3" — self-propagating content, zero ad spend. Communities onboard each other through rivalry.
+Inter-community tournaments: "$TOKEN_A DESTROYED $TOKEN_B 7-3" — self-propagating content, zero ad spend. Communities onboard each other through rivalry.
 
 ## By the Numbers
 
 | Metric | Value |
 |--------|-------|
-| Verdicts rendered | 20,000+ |
-| Tests (CYNIC + B&C) | 2,600+ |
-| Commits combined | 5,000+ |
-| Cloud dependency | 0% |
+| Verdicts rendered | 1,874+ |
+| Observations processed | 56,000+ |
+| Tests (CYNIC + B&C) | 2,000+ |
+| Commits (CYNIC + B&C) | 1,400+ |
+| Cloud dependency (AI engine) | 0% |
+
+## Token Utility
+
+**Access token:** hold $TALARIA to unlock judgment API tiers beyond free quota.
+**Burn:** tournament entry burns $TALARIA — inter-community events = deflationary pressure at scale.
+
+## Use of Funds
+
+Monthly burn: $6,050/month × 6 months = $36,300 (73% of raise)
+
+- T. — CYNIC kernel, judgment API: $3,000/month
+- S. — Blitz & Chill, community: $3,000/month
+- Infrastructure (sovereign hardware, electricity): $50/month
+
+Reserve: $13,700 (27%) — contingency + future hiring
 
 ## Roadmap
 
@@ -89,9 +109,10 @@ Built in the open: github.com/zeyxx/CYNIC
 | Champ | Valeur |
 |-------|--------|
 | **Raise goal** | $50,000 USDC |
-| **FDV** | ~$90,000 |
-| **Supply** | ~18,000,000 $TALARIA |
+| **FDV** | $90,000 |
+| **Supply** | 18,000,000 $TALARIA |
 | **ICO duration** | 7 days |
+| **Prix ICO** | $0.005 / $TALARIA |
 
 ---
 
@@ -99,41 +120,49 @@ Built in the open: github.com/zeyxx/CYNIC
 
 | Champ | Valeur |
 |-------|--------|
-| **Monthly spend** | $6,000 |
+| **Monthly spend** | $6,050 |
 
 ### Détail du plan
 
 ```
-Month 1-2: $6,000/month
+Month 1–2: $6,050/month
 - T. (CYNIC kernel, API): $3,000
 - S. (B&C, community): $3,000
-- Infrastructure (hardware, connectivity): included
+- Infrastructure (électricité ~180 kWh/mois @ €0.25/kWh): $50
 
-Month 3-4: $6,000/month
-- Same split
-- On-chain deployment costs: covered from operational budget
+Month 3–4: $6,050/month
+- Même split
+- On-chain deployment costs: couvert sur budget opérationnel
 
-Month 5-6: $6,000/month
-- Same split
-- SDK development + Season 1 tournament prize pool: from protocol fees
+Month 5–6: $6,050/month
+- Même split
+- SDK + Season 1 prize pool: financé sur protocol fees
 
-Total 6-month runway: $36,000 (72% of raise)
-Reserve: $14,000 (28%) — contingency + future hiring
+Total 6 mois : $36,300 (73% de la raise)
+Réserve      : $13,700 (27%) — contingency + future hiring
 ```
+
+### Breakdown % raise
+
+| Poste | Montant | % |
+|-------|---------|---|
+| T. salaire (6m) | $18,000 | 36% |
+| S. salaire (6m) | $18,000 | 36% |
+| Infra électricité (6m) | $300 | 1% |
+| Réserve | $13,700 | 27% |
+| **Total** | **$50,000** | **100%** |
 
 ---
 
 ## Étape 6 — Treasury wallets (3+ adresses Solana)
 
-> ⚠️ **À REMPLIR** — besoin des adresses wallet
-
 | # | Titulaire | Adresse |
 |---|-----------|---------|
-| 1 | **T.** | `À REMPLIR — ton adresse Solana principale` |
-| 2 | **S.** | `À REMPLIR — adresse Solana de ragnar-no-sleep` |
-| 3 | **Backup / multi** | `À REMPLIR — 3ème adresse (cold wallet T. ou GCRtrd)` |
+| 1 | **T.** | `dcW5uy7wKdKFxkhyBfPv3MyvrCkDcv1rWucoat13KH4` ✅ |
+| 2 | **S.** | `⚠️ À REMPLIR — adresse Solana de ragnar-no-sleep` |
+| 3 | **Backup** | `⚠️ À REMPLIR — cold wallet T. ou GCRtrd` |
 
-> Multisig 2/2 minimum entre T. et S. pour tout mouvement de trésorerie.
+> Multisig 2/3 recommandé pour tout mouvement de trésorerie.
 
 ---
 
@@ -141,24 +170,41 @@ Reserve: $14,000 (28%) — contingency + future hiring
 
 | Champ | Valeur |
 |-------|--------|
-| **Website URL** | https://talaria-deploy.vercel.app |
+| **Website URL** | https://talaria-deploy.vercel.app ✅ |
 | **Terms of Service URL** | https://talaria-deploy.vercel.app/tos ✅ |
 | **Token image URL** | https://talaria-deploy.vercel.app/talaria-token.svg ✅ |
-| **Ethereum wallet** | `À REMPLIR — n'importe quel wallet ETH-compatible (MetaMask, etc.) — pas besoin d'ETH` |
+| **Ethereum wallet** | `0xfD0759E929447c53143Df13278d822BE12dF9670` ✅ |
 | **Cayman entity** | Créer via MetaLeX pendant le submit (~5 min) |
+
+---
+
+## Tokenomics (Option A — finalisée)
+
+| Bucket | Tokens | % | Valeur @ FDV |
+|--------|--------|---|--------------|
+| ICO (public raise) | 9,900,000 | 55% | $49,500 |
+| T. (vesting 6m cliff + 18m linéaire) | 3,600,000 | 20% | $18,000 |
+| S. (vesting 6m cliff + 18m linéaire) | 3,600,000 | 20% | $18,000 |
+| Protocol treasury | 900,000 | 5% | $4,500 |
+| **Total** | **18,000,000** | **100%** | **$90,000** |
 
 ---
 
 ## Checklist finale avant de payer le 0.5 SOL
 
-- [ ] GCRtrd confirme le SOL
-- [ ] Adresse wallet T. prête (étape 6)
-- [ ] Adresse wallet S. prête (étape 6)
-- [ ] 3ème adresse décidée (étape 6)
-- [ ] ETH wallet prêt (étape 7)
-- [ ] ToS URL live (étape 7)
-- [ ] Token image en PNG si SVG non accepté (étape 2)
+- [x] SOL reçu (GCRtrd)
+- [x] Adresse wallet T. (étape 6)
+- [x] ETH wallet prêt (étape 7)
+- [x] Website live (étape 7)
+- [x] ToS URL live (étape 7)
+- [x] Token image live (étape 2)
+- [x] Banner live (étape 2)
+- [x] Description finalisée (étape 3)
+- [x] Tokenomics finalisée (option A)
+- [ ] Adresse wallet S. (étape 6) ← **BLOQUEUR**
+- [ ] 3ème adresse Solana (étape 6) ← **BLOQUEUR**
+- [ ] Cayman entity MetaLeX (étape 7, en live)
 
 ---
 
-*Préparé le 2026-05-30 — prêt pour submit dimanche*
+*Mis à jour le 2026-05-31 — en attente wallets S. + backup*
