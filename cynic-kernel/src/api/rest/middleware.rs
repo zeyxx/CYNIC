@@ -34,13 +34,14 @@ pub async fn auth_middleware(
     next: Next,
 ) -> Response {
     let path = request.uri().path();
-    if path == "/live" 
-        || path == "/ready" 
-        || path == "/auth/input" 
-        || path == "/auth/verify" 
-        || path == "/state-history" 
-        || path == "/observations" 
-        || path == "/health" {
+    if path == "/live"
+        || path == "/ready"
+        || path == "/auth/input"
+        || path == "/auth/verify"
+        || path == "/state-history"
+        || path == "/observations"
+        || path == "/health"
+    {
         return next.run(request).await;
     }
 
