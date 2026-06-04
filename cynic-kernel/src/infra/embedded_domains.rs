@@ -29,7 +29,6 @@ pub fn load_embedded_domain_prompts() -> HashMap<String, String> {
         ),
         ("D2", include_str!("../../domains/D2.md")),
         ("governance", include_str!("../../domains/governance.md")),
-        ("elections", include_str!("../../domains/elections.md")),
     ];
 
     for (domain_name, content) in &domains {
@@ -95,10 +94,6 @@ mod tests {
         assert!(
             prompts.contains_key("phone-number"),
             "phone-number domain prompt missing"
-        );
-        assert!(
-            prompts.contains_key("elections"),
-            "elections domain prompt missing"
         );
     }
 

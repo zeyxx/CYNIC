@@ -18,7 +18,11 @@ impl DomainTracker for Body {
         ]
     }
     fn anchor_time(&self) -> NaiveTime {
+<<<<<<< HEAD
+        NaiveTime::from_hms_opt(19, 0, 0).unwrap()
+=======
         NaiveTime::from_hms_opt(19, 0, 0).unwrap_or_default()
+>>>>>>> origin/main
     }
 }
 
@@ -39,7 +43,11 @@ impl DomainTracker for Solana {
         ]
     }
     fn anchor_time(&self) -> NaiveTime {
+<<<<<<< HEAD
+        NaiveTime::from_hms_opt(18, 30, 0).unwrap()
+=======
         NaiveTime::from_hms_opt(18, 30, 0).unwrap_or_default()
+>>>>>>> origin/main
     }
 }
 
@@ -59,7 +67,11 @@ impl DomainTracker for Reading {
         ]
     }
     fn anchor_time(&self) -> NaiveTime {
+<<<<<<< HEAD
+        NaiveTime::from_hms_opt(22, 0, 0).unwrap()
+=======
         NaiveTime::from_hms_opt(22, 0, 0).unwrap_or_default()
+>>>>>>> origin/main
     }
 }
 
@@ -80,6 +92,10 @@ impl DomainTracker for Sovereignty {
         ]
     }
     fn anchor_time(&self) -> NaiveTime {
+<<<<<<< HEAD
+        NaiveTime::from_hms_opt(21, 0, 0).unwrap()
+=======
         NaiveTime::from_hms_opt(21, 0, 0).unwrap_or_default()
+>>>>>>> origin/main
     }
 }

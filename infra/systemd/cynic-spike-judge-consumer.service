@@ -9,7 +9,7 @@ EnvironmentFile=%h/.config/cynic/env
 Type=oneshot
 WorkingDirectory=%h/Bureau/CYNIC/cynic-python/sensors
 ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/cynic-python/sensors/spike_judge_consumer.py
-TimeoutStartSec=300
+TimeoutStartSec=120
 TimeoutStopSec=10
 MemoryMax=64M
 
