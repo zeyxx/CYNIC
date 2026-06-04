@@ -127,15 +127,55 @@ FOR_OTHER_AGENT: specific messages
 
 ## Organism Taxonomy
 
-Three species of intelligence + supporting infrastructure:
+**Five species of intelligence + supporting infrastructure.**
 
 | Type | Where | Lifecycle | State | Naming |
 |------|-------|-----------|-------|--------|
-| **Cortex** | Claude Code / Gemini CLI | Session (episodic) | None — memory via `.claude/memory/` or AGENTS.md | Derived from task, written to `.cortex-session` |
+| **Cortex** | Claude Code / Gemini CLI / Codex CLI | Session (episodic) | None — memory via `.claude/memory/` or AGENTS.md | Derived from task, written to `.cortex-session` |
 | **Agent (organic)** | Autonomous framework (e.g., Hermes Agent, organism observer) | Persistent | Owns SOUL.md + SKILL.md, self-improving loop | Named in infrastructure registry (e.g., `hermes-x-organ`, `meta-cortex-observer`) |
 | **Dog** | In-kernel validator | Persistent | Stateless inference; state via crystals | Named in `backends.toml` Dogs array (e.g., `qwen-7b-hf`, `gemini-cli`) |
-| **Organ** | Infrastructure subsystem (passive or active) | Persistent | Stateful (logs, datasets, cache) | Hierarchical: `organ-X` (family) → `organ-X-hermes-agent` (agent) → `organ-X-mitmproxy` (daemon) |
+| **Organ** | Infrastructure subsystem (sensorial + reactive) | Persistent | Stateful (logs, datasets, cache) | Hierarchical: `organ-{role}` (family) → `organ-{role}-hermes-agent` (instance) → `organ-{role}-{tool}` (daemon) |
 | **Infra** | Scripts, MCP servers, hooks | Persistent | Tooling | Namespaced: `cynic-skills:*`, `mcp-coord/*`, `scripts/*` |
+
+### Organ Naming Convention
+
+1. **Role-based naming** — not arbitrary
+   - `organ-anvil` — Repo lifecycle manager (perception + reactive)
+   - `organ-keep` — Backup + persistence (durability)
+   - `organ-x` — Twitter/X data pipeline (collection)
+   - `organ-{role}` — Reflects the organ's function in the organism
+
+2. **Instance naming** — agent + tool
+   - `organ-anvil-hermes-agent` — The Hermes instance running anvil
+   - `organ-anvil-cron` — The cron job scheduling anvil
+   - `organ-keep-systemd` — The systemd service running keep
+
+3. **Registry entry** — `infra/registry.json`
+   ```json
+   {
+     "organs": [
+       {
+         "name": "organ-anvil",
+         "instance": "organ-anvil-hermes-agent",
+         "role": "repo_lifecycle_manager",
+         "status": "active"
+       }
+     ]
+   }
+   ```
+
+### Organ Architecture (Data-Centric)
+
+Organs are not scripts — they are **sensorial organs** that perceive the repo/system and react adaptively:
+
+1. **Perception** — Sensors detect state (git status, PRs, dirty trees, divergences)
+2. **Transformation** — Raw state → decision signal (rules adapt to organism scale)
+3. **Structuration** — State stored in registry, handoff, gate state
+4. **Analysis** — Patterns emerge (coordination needs, bottlenecks, health)
+5. **Reliability** — ACID principles applied to repo lifecycle
+6. **Adaptation** — Gates intensity scales with organism activity
+
+**See** `docs/organ-anvil.md` for full architecture.
 
 ### Cortex Naming Convention
 
