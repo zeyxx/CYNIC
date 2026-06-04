@@ -5,6 +5,7 @@ mod announce;
 mod config;
 mod config_watch;
 mod supervise;
+mod system_probe;
 mod verify;
 mod websocket;
 
@@ -543,6 +544,15 @@ async fn run_node(
             (rx, None)
         }
     };
+
+    // Phase 3.5: Spawn background system probe to report node hardware specs to kernel.
+    tokio::spawn(crate::system_probe::run_system_probe(
+        client.clone(),
+        cfg.kernel.url.clone(),
+        cfg.kernel.api_key.clone(),
+        cfg.dog.name.clone(),
+        60, // 1 minute interval
+    ));
 
     let mut state = NodeState {
         needs_spawn: true,

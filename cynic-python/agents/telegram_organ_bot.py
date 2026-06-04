@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CYNIC Telegram Bot (@CynicOracle)
+Tier 2 AGENTS: CYNIC Telegram Bot (@CynicOracle)
 
 MVP: /observe <domain>, /status
 
@@ -86,6 +86,7 @@ async def kernel_get(path: str) -> Dict[str, Any]:
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start handler."""
+    logger.info(f"Received /start from user {update.effective_user.id} (@{update.effective_user.username}) in chat {update.effective_chat.id}")
     msg = """🔮 **CYNIC Telegram Organ**
 
 I am the voice of the CYNIC Oracle.
@@ -100,7 +101,16 @@ Example:
   /judge token bonk
   /ask Why is confidence capped at 61.8%?
 """
+<<<<<<< HEAD
     await update.message.reply_text(msg, parse_mode="Markdown")
+=======
+    try:
+        await update.message.reply_text(msg, parse_mode="Markdown")
+        logger.info("Successfully sent start message.")
+    except Exception as e:
+        logger.error(f"Failed to send start message: {e}")
+    
+>>>>>>> origin/main
     await post_observation("start", update, "success")
 
 async def judge(update: Update, context: ContextTypes.DEFAULT_TYPE):

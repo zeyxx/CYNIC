@@ -15,8 +15,9 @@ use super::{SurrealHttpStorage, safe_limit};
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
 use crate::domain::storage::{
-    AgentDispatch, AgentTask, Event, Observation, RawEvent, RawObservation, StorageError,
-    StoragePort, UsageRow,
+    ActivityStorage, AgentDispatch, AgentTask, CrystalStorage, DispatchStorage, Event, Observation,
+    RawEvent, RawObservation, StateLogStorage, StorageError, StoragePort, SubmissionStorage,
+    TaskStorage, UsageRow, VerdictStorage,
 };
 use crate::domain::verdict_queue::QueuedVerdict;
 
@@ -55,47 +56,22 @@ fn sanitize_record_id(s: &str) -> String {
     out
 }
 
-// ── STORAGE PORT IMPLEMENTATION ──────────────────────────────
+// ── SUB-TRAIT IMPLEMENTATIONS ────────────────────────────────
 
 #[async_trait::async_trait]
-impl StoragePort for SurrealHttpStorage {
-    #[tracing::instrument(skip(self), err)]
-    async fn ping(&self) -> Result<(), StorageError> {
-        self.query("INFO FOR DB;").await?;
-        Ok(())
-    }
-
-    fn metrics(&self) -> Option<crate::domain::storage::StorageMetrics> {
-        let snap = self.metrics.snapshot();
-        Some(crate::domain::storage::StorageMetrics {
-            queries: snap.queries,
-            errors: snap.errors,
-            slow_queries: snap.slow_queries,
-            avg_latency_ms: snap.avg_latency_ms,
-            uptime_secs: snap.uptime_secs,
-        })
-    }
-
-    #[tracing::instrument(skip(self), err)]
+impl VerdictStorage for SurrealHttpStorage {
     async fn store_verdict(&self, verdict: &Verdict) -> Result<(), StorageError> {
         verdicts::store_verdict(self, verdict).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError> {
         verdicts::get_verdict(self, id).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError> {
         verdicts::list_verdicts(self, limit).await
     }
-
     async fn recent_max_disagreements(&self, limit: usize) -> Result<Vec<f64>, StorageError> {
         verdicts::recent_max_disagreements(self, limit).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn list_verdicts_by_domain(
         &self,
         domain: &str,
@@ -103,23 +79,30 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<Verdict>, StorageError> {
         verdicts::list_verdicts_by_domain(self, domain, limit).await
     }
+    async fn last_integrity_hash(&self) -> Result<Option<String>, StorageError> {
+        maintenance::last_integrity_hash(self).await
+    }
+    async fn count_verdicts(&self) -> Result<u64, StorageError> {
+        maintenance::count_verdicts(self).await
+    }
+    async fn count_verdicts_by_kind(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u64>, StorageError> {
+        maintenance::count_verdicts_by_kind(self).await
+    }
+}
 
-    #[tracing::instrument(skip(self), err)]
+#[async_trait::async_trait]
+impl CrystalStorage for SurrealHttpStorage {
     async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError> {
         crystals::store_crystal(self, crystal).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError> {
         crystals::get_crystal(self, id).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError> {
         crystals::list_crystals(self, limit).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn list_crystals_filtered(
         &self,
         limit: u32,
@@ -128,13 +111,16 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<Crystal>, StorageError> {
         crystals::list_crystals_filtered(self, limit, domain, state).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn delete_crystal(&self, id: &str) -> Result<(), StorageError> {
         crystals::delete_crystal(self, id).await
     }
-
-    #[tracing::instrument(skip(self), err)]
+    async fn update_crystal_relations(
+        &self,
+        id: &str,
+        relations: std::collections::BTreeMap<String, String>,
+    ) -> Result<(), StorageError> {
+        crystals::update_crystal_relations(self, id, relations).await
+    }
     async fn list_crystals_for_domain(
         &self,
         domain: &str,
@@ -142,8 +128,9 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<Crystal>, StorageError> {
         crystals::list_crystals_for_domain(self, domain, limit).await
     }
-
-    #[tracing::instrument(skip(self), err)]
+    async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
+        maintenance::count_crystal_observations(self).await
+    }
     async fn observe_crystal(
         &self,
         id: &str,
@@ -168,8 +155,6 @@ impl StoragePort for SurrealHttpStorage {
         )
         .await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn observe_crystal_hypha(
         &self,
         id: &str,
@@ -185,8 +170,6 @@ impl StoragePort for SurrealHttpStorage {
         )
         .await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn shatter_crystal(
         &self,
         id: &str,
@@ -196,8 +179,6 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<(), StorageError> {
         crystals::shatter_crystal(self, id, reason, source, timestamp).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn store_crystal_embedding(
         &self,
         id: &str,
@@ -205,8 +186,6 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<(), StorageError> {
         crystals::store_crystal_embedding(self, id, embedding).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn search_crystals_semantic(
         &self,
         query_embedding: &[f32],
@@ -214,8 +193,6 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<Crystal>, StorageError> {
         crystals::search_crystals_semantic(self, query_embedding, limit).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn find_similar_crystal(
         &self,
         embedding: &[f32],
@@ -224,18 +201,25 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Option<(String, f64)>, StorageError> {
         crystals::find_similar_crystal(self, embedding, domain, threshold).await
     }
+    async fn list_crystals_missing_embedding(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<Crystal>, StorageError> {
+        maintenance::list_crystals_missing_embedding(self, limit).await
+    }
+    async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
+        maintenance::consolidate_duplicate_crystals(self).await
+    }
+}
 
-    #[tracing::instrument(skip(self), err)]
+#[async_trait::async_trait]
+impl ActivityStorage for SurrealHttpStorage {
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
         activity::store_observation(self, obs).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn store_event(&self, event: &Event) -> Result<(), StorageError> {
         activity::store_event(self, event).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn fleet_stats(
         &self,
         window_secs: u64,
@@ -243,17 +227,6 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<(String, u64, f64, u64, String)>, StorageError> {
         activity::fleet_stats(self, window_secs, limit).await
     }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn list_degraded_nodes(
-        &self,
-        window_secs: u64,
-        fatal_threshold: f64,
-    ) -> Result<Vec<(String, String, u64, u64)>, StorageError> {
-        activity::list_degraded_nodes(self, window_secs, fatal_threshold).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
     async fn list_events(
         &self,
         node: Option<&str>,
@@ -262,125 +235,13 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<RawEvent>, StorageError> {
         activity::list_events(self, node, tool, limit).await
     }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn store_session_summary(
+    async fn list_degraded_nodes(
         &self,
-        summary: &crate::domain::ccm::SessionSummary,
-    ) -> Result<(), StorageError> {
-        activity::store_session_summary(self, summary).await
+        window_secs: u64,
+        fatal_threshold: f64,
+    ) -> Result<Vec<(String, String, u64, u64)>, StorageError> {
+        activity::list_degraded_nodes(self, window_secs, fatal_threshold).await
     }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn list_session_summaries(
-        &self,
-        limit: u32,
-    ) -> Result<Vec<crate::domain::ccm::SessionSummary>, StorageError> {
-        activity::list_session_summaries(self, limit).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn get_unsummarized_sessions(
-        &self,
-        min_observations: u32,
-        limit: u32,
-    ) -> Result<Vec<(String, String, u32)>, StorageError> {
-        activity::get_unsummarized_sessions(self, min_observations, limit).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn get_session_observations(
-        &self,
-        session_id: &str,
-    ) -> Result<Vec<RawObservation>, StorageError> {
-        activity::get_session_observations(self, session_id).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn store_session_compliance(
-        &self,
-        c: &crate::domain::compliance::SessionCompliance,
-    ) -> Result<(), StorageError> {
-        activity::store_session_compliance(self, c).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn list_session_compliance(
-        &self,
-        limit: u32,
-    ) -> Result<Vec<crate::domain::compliance::SessionCompliance>, StorageError> {
-        activity::list_session_compliance(self, limit).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn flush_usage(
-        &self,
-        snapshot: &[(String, crate::domain::usage::DogUsage)],
-    ) -> Result<(), StorageError> {
-        ops::flush_usage(self, snapshot).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn cleanup_ttl(&self) -> Result<(), StorageError> {
-        maintenance::cleanup_ttl(self).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn last_integrity_hash(&self) -> Result<Option<String>, StorageError> {
-        maintenance::last_integrity_hash(self).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
-        ops::load_usage_history(self).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn flush_dog_stats(
-        &self,
-        stats: &[(String, crate::domain::dog_health::DogStats)],
-    ) -> Result<(), StorageError> {
-        ops::flush_dog_stats(self, stats).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn load_dog_stats(
-        &self,
-    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
-        ops::load_dog_stats(self).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn list_crystals_missing_embedding(
-        &self,
-        limit: u32,
-    ) -> Result<Vec<Crystal>, StorageError> {
-        maintenance::list_crystals_missing_embedding(self, limit).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn count_verdicts(&self) -> Result<u64, StorageError> {
-        maintenance::count_verdicts(self).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
-        maintenance::count_crystal_observations(self).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn count_observations(&self) -> Result<u64, StorageError> {
-        maintenance::count_observations(self).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn count_verdicts_by_kind(
-        &self,
-    ) -> Result<std::collections::HashMap<String, u64>, StorageError> {
-        maintenance::count_verdicts_by_kind(self).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
     async fn list_observations_raw(
         &self,
         domain: Option<&str>,
@@ -389,8 +250,6 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<RawObservation>, StorageError> {
         activity::list_observations_raw(self, domain, agent_id, limit).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn list_observations_by_target(
         &self,
         domain: &str,
@@ -399,7 +258,6 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<RawObservation>, StorageError> {
         activity::list_observations_by_target(self, domain, target, limit).await
     }
-
     async fn list_observations_by_tag(
         &self,
         domain: &str,
@@ -408,24 +266,66 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<RawObservation>, StorageError> {
         activity::list_observations_by_tag(self, domain, tag, limit).await
     }
-
     async fn last_observation_per_source(
         &self,
     ) -> Result<Vec<(String, String, u64)>, StorageError> {
         activity::last_observation_per_source(self).await
     }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
-        maintenance::consolidate_duplicate_crystals(self).await
+    async fn count_observations(&self) -> Result<u64, StorageError> {
+        maintenance::count_observations(self).await
     }
+    async fn store_session_summary(
+        &self,
+        summary: &crate::domain::ccm::SessionSummary,
+    ) -> Result<(), StorageError> {
+        activity::store_session_summary(self, summary).await
+    }
+    async fn list_session_summaries(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::ccm::SessionSummary>, StorageError> {
+        activity::list_session_summaries(self, limit).await
+    }
+    async fn get_unsummarized_sessions(
+        &self,
+        min_observations: u32,
+        limit: u32,
+    ) -> Result<Vec<(String, String, u32)>, StorageError> {
+        activity::get_unsummarized_sessions(self, min_observations, limit).await
+    }
+    async fn get_session_observations(
+        &self,
+        session_id: &str,
+    ) -> Result<Vec<RawObservation>, StorageError> {
+        activity::get_session_observations(self, session_id).await
+    }
+    async fn store_session_compliance(
+        &self,
+        compliance: &crate::domain::compliance::SessionCompliance,
+    ) -> Result<(), StorageError> {
+        activity::store_session_compliance(self, compliance).await
+    }
+    async fn list_session_compliance(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::compliance::SessionCompliance>, StorageError> {
+        activity::list_session_compliance(self, limit).await
+    }
+    async fn zone_activity(
+        &self,
+        path_prefixes: &[String],
+        exclude_agent: &str,
+        project_root: &str,
+    ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
+        activity::zone_activity(self, path_prefixes, exclude_agent, project_root).await
+    }
+}
 
-    #[tracing::instrument(skip(self), err)]
+#[async_trait::async_trait]
+impl TaskStorage for SurrealHttpStorage {
     async fn store_agent_task(&self, task: &AgentTask) -> Result<String, StorageError> {
         agent_tasks::store_agent_task(self, task).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn list_pending_agent_tasks(
         &self,
         kind: &str,
@@ -433,8 +333,11 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<AgentTask>, StorageError> {
         agent_tasks::list_pending_agent_tasks(self, kind, limit).await
     }
+<<<<<<< HEAD
 
     #[tracing::instrument(skip(self), err)]
+=======
+>>>>>>> origin/main
     async fn list_completed_agent_tasks(
         &self,
         kind: &str,
@@ -442,13 +345,14 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<AgentTask>, StorageError> {
         agent_tasks::list_completed_agent_tasks(self, kind, limit).await
     }
+<<<<<<< HEAD
 
     #[tracing::instrument(skip(self), err)]
+=======
+>>>>>>> origin/main
     async fn mark_agent_task_processing(&self, task_id: &str) -> Result<(), StorageError> {
         agent_tasks::mark_agent_task_processing(self, task_id).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn update_agent_task_result(
         &self,
         task_id: &str,
@@ -459,36 +363,28 @@ impl StoragePort for SurrealHttpStorage {
         let error_ref = error.as_deref();
         agent_tasks::update_agent_task_result(self, task_id, result_ref, error_ref).await
     }
+}
 
-    // ── Agent Dispatch (multi-cortex coordination) ──────────
-
-    #[tracing::instrument(skip(self, dispatch), err)]
+#[async_trait::async_trait]
+impl DispatchStorage for SurrealHttpStorage {
     async fn store_agent_dispatch(&self, dispatch: &AgentDispatch) -> Result<String, StorageError> {
         dispatch::store_agent_dispatch(self, dispatch).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn get_active_dispatch_for_scope(
         &self,
         scope: &str,
     ) -> Result<Option<AgentDispatch>, StorageError> {
         dispatch::get_active_dispatch_for_scope(self, scope).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn get_dispatch(&self, dispatch_id: &str) -> Result<Option<AgentDispatch>, StorageError> {
         dispatch::get_dispatch(self, dispatch_id).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn get_active_dispatches_for_agent(
         &self,
         agent_id: &str,
     ) -> Result<Vec<AgentDispatch>, StorageError> {
         dispatch::get_active_dispatches_for_agent(self, agent_id).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn update_dispatch_status(
         &self,
         dispatch_id: &str,
@@ -496,8 +392,6 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<(), StorageError> {
         dispatch::update_dispatch_status(self, dispatch_id, new_status).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn update_dispatch_pr(
         &self,
         dispatch_id: &str,
@@ -505,33 +399,21 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<(), StorageError> {
         dispatch::update_dispatch_pr(self, dispatch_id, pr_number).await
     }
+}
 
-    // ── Zone Activity (dispatch visibility) ──────────────────────
-
-    async fn zone_activity(
-        &self,
-        path_prefixes: &[String],
-        exclude_agent: &str,
-        project_root: &str,
-    ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
-        activity::zone_activity(self, path_prefixes, exclude_agent, project_root).await
-    }
-
-    // ── State Log ──────────────────────────────────
-
+#[async_trait::async_trait]
+impl StateLogStorage for SurrealHttpStorage {
     async fn store_state_block(
         &self,
         block: &crate::domain::state_log::StateBlock,
     ) -> Result<(), StorageError> {
         state_log::store_state_block(self, block).await
     }
-
     async fn last_state_block(
         &self,
     ) -> Result<Option<crate::domain::state_log::StateBlock>, StorageError> {
         state_log::last_state_block(self).await
     }
-
     async fn list_state_blocks(
         &self,
         since: &str,
@@ -539,17 +421,16 @@ impl StoragePort for SurrealHttpStorage {
     ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
         state_log::list_state_blocks(self, since, limit).await
     }
-
     async fn latest_state_blocks(
         &self,
         n: u32,
     ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
         state_log::latest_state_blocks(self, n).await
     }
+}
 
-    // ── Verdict Submission Queue ──────────────────────────────
-
-    #[tracing::instrument(skip(self), err)]
+#[async_trait::async_trait]
+impl SubmissionStorage for SurrealHttpStorage {
     async fn enqueue_verdict(
         &self,
         verdict_id: &str,
@@ -580,50 +461,36 @@ impl StoragePort for SurrealHttpStorage {
         )
         .await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn list_pending_verdicts(&self, limit: u32) -> Result<Vec<QueuedVerdict>, StorageError> {
         verdict_queue::list_pending_verdicts(self, limit).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn list_submitted_verdicts(
         &self,
         limit: u32,
     ) -> Result<Vec<QueuedVerdict>, StorageError> {
         verdict_queue::list_submitted_verdicts(self, limit).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn get_queued_verdict(
         &self,
         verdict_id: &str,
     ) -> Result<Option<QueuedVerdict>, StorageError> {
         verdict_queue::get_queued_verdict(self, verdict_id).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn update_verdict_submitted(
         &self,
         verdict_id: &str,
         tx_signature: &str,
     ) -> Result<(), StorageError> {
-        // Default: no verdict PDA at submission time, only after confirmation
         verdict_queue::update_verdict_submitted(self, verdict_id, tx_signature, "").await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn update_verdict_confirmed(&self, verdict_id: &str) -> Result<(), StorageError> {
         verdict_queue::update_verdict_confirmed(self, verdict_id).await
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn update_verdict_failed(
         &self,
         verdict_id: &str,
         error_reason: &str,
     ) -> Result<(), StorageError> {
-        // Fetch current retry_count and increment
         if let Some(verdict) = verdict_queue::get_queued_verdict(self, verdict_id).await? {
             let new_count = verdict.retry_count + 1;
             verdict_queue::update_verdict_failed(self, verdict_id, error_reason, new_count).await
@@ -633,8 +500,6 @@ impl StoragePort for SurrealHttpStorage {
             )))
         }
     }
-
-    #[tracing::instrument(skip(self), err)]
     async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError> {
         let (pending, submitted, confirmed, failed) =
             verdict_queue::queue_status_counts(self).await?;
@@ -645,12 +510,74 @@ impl StoragePort for SurrealHttpStorage {
             failed as u32,
         ))
     }
+}
+
+// ── COMPOSITE STORAGE PORT ──────────────────────────────────
+
+#[async_trait::async_trait]
+impl StoragePort for SurrealHttpStorage {
+    #[tracing::instrument(skip(self), err)]
+    async fn ping(&self) -> Result<(), StorageError> {
+        self.query("INFO FOR DB;").await?;
+        Ok(())
+    }
+
+    fn metrics(&self) -> Option<crate::domain::storage::StorageMetrics> {
+        let snap = self.metrics.snapshot();
+        Some(crate::domain::storage::StorageMetrics {
+            queries: snap.queries,
+            errors: snap.errors,
+            slow_queries: snap.slow_queries,
+            avg_latency_ms: snap.avg_latency_ms,
+            uptime_secs: snap.uptime_secs,
+        })
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn flush_usage(
+        &self,
+        snapshot: &[(String, crate::domain::usage::DogUsage)],
+    ) -> Result<(), StorageError> {
+        ops::flush_usage(self, snapshot).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
+        ops::load_usage_history(self).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn flush_dog_stats(
+        &self,
+        stats: &[(String, crate::domain::dog_health::DogStats)],
+    ) -> Result<(), StorageError> {
+        ops::flush_dog_stats(self, stats).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn load_dog_stats(
+        &self,
+    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
+        ops::load_dog_stats(self).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn load_dog_stat(
+        &self,
+        dog_id: &str,
+    ) -> Result<Option<crate::domain::dog_health::DogStats>, StorageError> {
+        ops::load_dog_stat(self, dog_id).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn cleanup_ttl(&self) -> Result<(), StorageError> {
+        maintenance::cleanup_ttl(self).await
+    }
 
     #[tracing::instrument(skip(self))]
     async fn get_table_op_metrics(
         &self,
     ) -> Result<Vec<crate::storage::TableOpMetrics>, StorageError> {
-        // Return per-table metrics snapshot for data-centric measurement
         Ok(self.metrics.snapshot_table_ops())
     }
 }

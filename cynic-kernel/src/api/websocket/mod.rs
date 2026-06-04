@@ -55,7 +55,7 @@ impl NodeRegistry {
         let node_id = format!(
             "{}-{}",
             node_identity,
-            &uuid::Uuid::new_v4().to_string()[..8]
+            &crate::infra::crypto::generate_secure_id()[..8]
         );
 
         let record = NodeRecord {
@@ -356,7 +356,7 @@ async fn handle_node_connection(
                                     // Verify signature and store verdict
                                     // TODO: Implement Ed25519 signature verification
                                     // For now, just acknowledge
-                                    let verdict_id = uuid::Uuid::new_v4().to_string();
+                                    let verdict_id = crate::infra::crypto::generate_secure_id();
                                     let ack = NodeMessage::Ack {
                                         stimulus_id,
                                         status: "received".to_string(),

@@ -2,7 +2,7 @@ use super::*;
 use crate::domain::dog::*;
 use crate::domain::embedding::NullEmbedding;
 use crate::domain::health_gate::HealthGate;
-use crate::domain::storage::NullStorage;
+use crate::domain::storage::{CrystalStorage, NullStorage};
 use std::sync::Arc;
 
 struct FixedDog {
@@ -320,6 +320,11 @@ async fn wallet_judgment_returns_verdict_from_deterministic_dog() {
         move_sequence_hash: "hash2".to_string(),
         suspicious_cluster: false,
         replay_risk: false,
+        tactical_complexity: 0.50,
+        engine_adherence: 0.60,
+        opening_theory_depth: 0.50,
+        blitz_speed_ratio: 0.50,
+        endgame_accuracy: 0.50,
     };
     let ctx = serde_json::to_string(&profile).unwrap();
 
@@ -391,6 +396,11 @@ async fn wallet_judgment_bark_on_insufficient_games() {
         move_sequence_hash: "hash2".to_string(),
         suspicious_cluster: false,
         replay_risk: false,
+        tactical_complexity: 0.50,
+        engine_adherence: 0.60,
+        opening_theory_depth: 0.50,
+        blitz_speed_ratio: 0.50,
+        endgame_accuracy: 0.50,
     };
     let ctx = serde_json::to_string(&profile).unwrap();
 

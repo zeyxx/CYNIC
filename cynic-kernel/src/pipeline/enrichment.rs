@@ -74,13 +74,40 @@ pub(super) async fn load_crystals(
     let mut cached: Vec<ccm::MatureCrystal> = Vec::new();
 
     let found = if let Some(emb) = stimulus_embedding {
-        deps.storage
+        let mut results = deps.storage
             .search_crystals_semantic(&emb.vector, 10)
             .await
             .inspect_err(|e| {
                 tracing::warn!(error = %e, "semantic crystal search failed — fallback to domain list")
             })
-            .unwrap_or_default()
+            .unwrap_or_default();
+
+        // ── GraphRAG: Semantic Neighborhood Expansion ────────
+        // Follow relations of the top-1 result to find structurally related context
+        // that might have lower embedding similarity but high conceptual relevance.
+        if let Some(top) = results.first()
+            && !top.relations.is_empty()
+        {
+            let mut expansion = Vec::new();
+            for (rel_id, _rel_type) in top.relations.iter().take(3) {
+                if results.iter().any(|c| &c.id == rel_id) {
+                    continue;
+                }
+                if let Ok(Some(rel_crystal)) = deps.storage.get_crystal(rel_id).await {
+                    expansion.push(rel_crystal);
+                }
+            }
+            if !expansion.is_empty() {
+                tracing::info!(
+                    phase = "crystals",
+                    top_id = %top.id,
+                    expansion = expansion.len(),
+                    "expanded semantic neighborhood via relations"
+                );
+                results.extend(expansion);
+            }
+        }
+        results
     } else {
         Vec::new()
     };
