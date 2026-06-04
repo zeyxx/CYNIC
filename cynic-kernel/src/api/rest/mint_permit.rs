@@ -100,7 +100,7 @@ pub async fn mint_permit_handler(
             q_score: q_score_val,
             verdict_kind: kind_str.clone(),
             approved: true,
-            verdict_id: uuid::Uuid::new_v4().to_string(),
+            verdict_id: crate::infra::crypto::generate_secure_id(),
             // Integrity chain not yet wired (Task 7+). Empty string is honest.
             verdict_hash: String::new(),
             evaluated_at: chrono::Utc::now().to_rfc3339(),

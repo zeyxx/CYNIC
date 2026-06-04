@@ -23,7 +23,7 @@ impl HeliusEnricher {
             .json(&body)
             .send()
             .await
-            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+            .map_err(|e| EnrichmentError::RequestFailed(super::redact_secrets(&e)))?;
 
         if !resp.status().is_success() {
             return Ok(None);
@@ -32,7 +32,7 @@ impl HeliusEnricher {
         let data: Vec<serde_json::Value> = resp
             .json()
             .await
-            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+            .map_err(|e| EnrichmentError::RequestFailed(super::redact_secrets(&e)))?;
 
         let desc = data
             .first()
@@ -67,7 +67,7 @@ impl HeliusEnricher {
             .timeout(HELIUS_BEHAVIORAL_TIMEOUT)
             .send()
             .await
-            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+            .map_err(|e| EnrichmentError::RequestFailed(super::redact_secrets(&e)))?;
 
         if !resp.status().is_success() {
             return Ok((0.0, 0, None));
@@ -78,7 +78,7 @@ impl HeliusEnricher {
         let txs: Vec<serde_json::Value> = resp
             .json()
             .await
-            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+            .map_err(|e| EnrichmentError::RequestFailed(super::redact_secrets(&e)))?;
 
         let mut total_bought = 0.0_f64;
         let mut swap_count = 0_u32;
@@ -160,7 +160,7 @@ impl HeliusEnricher {
                 return vec![];
             }
             Err(e) => {
-                tracing::warn!(error = %e, "batch-identity request failed");
+                tracing::warn!(error = %super::redact_secrets(&e), "batch-identity request failed");
                 return vec![];
             }
         };
@@ -168,7 +168,7 @@ impl HeliusEnricher {
         let items: Vec<serde_json::Value> = match resp.json().await {
             Ok(v) => v,
             Err(e) => {
-                tracing::warn!(error = %e, "batch-identity deserialize failed");
+                tracing::warn!(error = %super::redact_secrets(&e), "batch-identity deserialize failed");
                 return vec![];
             }
         };

@@ -132,7 +132,7 @@ impl HeliusEnricher {
             .send()
             .await
             .inspect_err(
-                |e| tracing::debug!(error = %e, "classify_holders_batch phase1 request failed"),
+                |e| tracing::debug!(error = %super::redact_secrets(&e), "classify_holders_batch phase1 request failed"),
             )
             .ok()?;
         if !resp.status().is_success() {
@@ -142,7 +142,7 @@ impl HeliusEnricher {
             .json()
             .await
             .inspect_err(
-                |e| tracing::debug!(error = %e, "classify_holders_batch phase1 parse failed"),
+                |e| tracing::debug!(error = %super::redact_secrets(&e), "classify_holders_batch phase1 parse failed"),
             )
             .ok()?;
         let start = std::time::Instant::now();

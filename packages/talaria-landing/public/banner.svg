@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" width="1500" height="500">
+
+  <!-- Background -->
+  <rect width="1500" height="500" fill="#09090b"/>
+
+  <!-- Bottom gold line -->
+  <line x1="0" y1="497" x2="1500" y2="497" stroke="#fbbf24" stroke-width="3" opacity="0.6"/>
+
+  <!-- Left vertical accent -->
+  <line x1="320" y1="120" x2="320" y2="420" stroke="#fbbf24" stroke-width="1" opacity="0.25"/>
+
+  <!-- Dog icon — left block, 200px tall -->
+  <g transform="translate(60, 130) scale(0.52)">
+    <path d="M175 198 C150 178 112 168 72 173 C96 185 126 192 156 202Z" fill="#fbbf24"/>
+    <path d="M172 213 C144 200 106 200 68 213 C94 220 126 222 158 217Z" fill="#fbbf24" opacity="0.4"/>
+    <path d="M225 198 C250 178 288 168 328 173 C304 185 274 192 244 202Z" fill="#fbbf24"/>
+    <path d="M228 213 C256 200 294 200 332 213 C306 220 274 222 242 217Z" fill="#fbbf24" opacity="0.4"/>
+    <path d="M182 162 C174 145 180 130 196 134 C205 136 208 148 204 162 C198 158 190 157 182 162Z" fill="#f59e0b"/>
+    <ellipse cx="202" cy="186" rx="36" ry="28" fill="#fef3c7"/>
+    <path d="M224 192 C240 190 252 196 251 207 C250 215 236 217 222 213 C216 208 218 197 224 192Z" fill="#fef3c7"/>
+    <path d="M224 213 C230 217 240 217 248 213" stroke="#e5c88a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <path d="M246 202 C242 199 250 199 254 202 C254 206 250 208 246 208 C242 208 238 206 238 203 C240 200 244 200 246 202Z" fill="#1c1917"/>
+    <circle cx="220" cy="184" r="5.5" fill="#09090b"/>
+    <circle cx="221.5" cy="182.5" r="1.8" fill="#fbbf24"/>
+    <path d="M172 210 C168 224 173 237 182 242 C192 247 216 247 226 242 C234 237 237 224 232 210Z" fill="#fef3c7"/>
+    <path d="M200 282 C196 263 187 253 191 238 C194 228 200 222 200 222 C200 222 206 228 209 238 C213 253 204 263 200 282Z" fill="#fbbf24"/>
+    <path d="M181 288 C178 273 172 265 175 253 C177 245 181 240 181 240 C181 240 185 245 186 253 C189 265 183 273 181 288Z" fill="#f97316" opacity="0.7"/>
+    <path d="M219 288 C222 273 228 265 225 253 C223 245 219 240 219 240 C219 240 215 245 214 253 C211 265 217 273 219 288Z" fill="#f97316" opacity="0.7"/>
+  </g>
+
+  <!-- TALARIA — textLength forces exact width, no letter-spacing surprise -->
+  <text
+    x="344"
+    y="235"
+    font-family="Georgia, serif"
+    font-size="116"
+    font-weight="700"
+    fill="#fbbf24"
+    textLength="620"
+    lengthAdjust="spacingAndGlyphs"
+  >TALARIA</text>
+
+  <!-- Tagline -->
+  <text
+    x="346"
+    y="283"
+    font-family="Courier, monospace"
+    font-size="21"
+    fill="#fef3c7"
+    opacity="0.6"
+    textLength="560"
+    lengthAdjust="spacingAndGlyphs"
+  >Is the proposal sound? Are the voters human?</text>
+
+  <!-- Separator -->
+  <line x1="346" y1="308" x2="980" y2="308" stroke="#fbbf24" stroke-width="1" opacity="0.2"/>
+
+  <!-- Product line 1 -->
+  <text x="346" y="340" font-family="Courier, monospace" font-size="17" fill="#fbbf24" opacity="0.55">CYNIC</text>
+  <text x="408" y="340" font-family="Courier, monospace" font-size="17" fill="#fef3c7" opacity="0.35">  AI judgment engine  sovereign hardware  zero cloud</text>
+
+  <!-- Product line 2 -->
+  <text x="346" y="368" font-family="Courier, monospace" font-size="17" fill="#fbbf24" opacity="0.55">Blitz &amp; Chill</text>
+  <text x="494" y="368" font-family="Courier, monospace" font-size="17" fill="#fef3c7" opacity="0.35">  Chess proof of humanity  no KYC</text>
+
+  <!-- ICO LIVE badge — far right -->
+  <rect x="1255" y="185" width="210" height="68" rx="2" fill="none" stroke="#fbbf24" stroke-width="1.5" opacity="0.65"/>
+  <text
+    x="1360"
+    y="226"
+    font-family="Courier, monospace"
+    font-size="20"
+    font-weight="700"
+    fill="#fbbf24"
+    text-anchor="middle"
+    textLength="120"
+    lengthAdjust="spacingAndGlyphs"
+  >ICO LIVE</text>
+  <text x="1360" y="246" font-family="Courier, monospace" font-size="13" fill="#fef3c7" opacity="0.45" text-anchor="middle">futard.io</text>
+
+  <!-- φ watermark -->
+  <text x="1492" y="492" font-family="serif" font-size="11" fill="#fbbf24" opacity="0.15" text-anchor="end">phi=0.618</text>
+
+</svg>

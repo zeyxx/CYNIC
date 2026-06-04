@@ -421,15 +421,15 @@ mod tests {
     use crate::dogs::deterministic::DeterministicDog;
     use crate::domain::coord::NullCoord;
     use crate::domain::dog::PHI_INV;
-    use crate::domain::storage::{NullStorage, StorageError};
+    use crate::domain::storage::{
+        ActivityStorage, CrystalStorage, DispatchStorage, NullStorage, StateLogStorage,
+        StorageError, SubmissionStorage, TaskStorage, VerdictStorage,
+    };
 
     struct DownStorage;
 
     #[async_trait::async_trait]
-    impl StoragePort for DownStorage {
-        async fn ping(&self) -> Result<(), StorageError> {
-            Err(StorageError::ConnectionFailed("test: storage down".into()))
-        }
+    impl VerdictStorage for DownStorage {
         async fn store_verdict(&self, _: &crate::domain::dog::Verdict) -> Result<(), StorageError> {
             Ok(())
         }
@@ -445,6 +445,31 @@ mod tests {
         ) -> Result<Vec<crate::domain::dog::Verdict>, StorageError> {
             Err(StorageError::ConnectionFailed("down".into()))
         }
+        async fn recent_max_disagreements(&self, _: usize) -> Result<Vec<f64>, StorageError> {
+            Ok(vec![])
+        }
+        async fn list_verdicts_by_domain(
+            &self,
+            _: &str,
+            _: u32,
+        ) -> Result<Vec<crate::domain::dog::Verdict>, StorageError> {
+            Ok(vec![])
+        }
+        async fn last_integrity_hash(&self) -> Result<Option<String>, StorageError> {
+            Ok(None)
+        }
+        async fn count_verdicts(&self) -> Result<u64, StorageError> {
+            Ok(0)
+        }
+        async fn count_verdicts_by_kind(
+            &self,
+        ) -> Result<std::collections::HashMap<String, u64>, StorageError> {
+            Ok(std::collections::HashMap::new())
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl CrystalStorage for DownStorage {
         async fn store_crystal(&self, _: &crate::domain::ccm::Crystal) -> Result<(), StorageError> {
             Ok(())
         }
@@ -460,8 +485,33 @@ mod tests {
         ) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> {
             Ok(vec![])
         }
+        async fn list_crystals_filtered(
+            &self,
+            _: u32,
+            _: Option<&str>,
+            _: Option<&str>,
+        ) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> {
+            Ok(vec![])
+        }
         async fn delete_crystal(&self, _: &str) -> Result<(), StorageError> {
             Ok(())
+        }
+        async fn update_crystal_relations(
+            &self,
+            _: &str,
+            _: std::collections::BTreeMap<String, String>,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn list_crystals_for_domain(
+            &self,
+            _: &str,
+            _: u32,
+        ) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> {
+            Ok(vec![])
+        }
+        async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
+            Ok(0)
         }
         async fn observe_crystal(
             &self,
@@ -473,12 +523,6 @@ mod tests {
             _: usize,
             _: &str,
             _: &str,
-        ) -> Result<(), StorageError> {
-            Ok(())
-        }
-        async fn store_observation(
-            &self,
-            _: &crate::domain::storage::Observation,
         ) -> Result<(), StorageError> {
             Ok(())
         }
@@ -502,6 +546,299 @@ mod tests {
             _: &str,
         ) -> Result<(), StorageError> {
             Ok(())
+        }
+        async fn store_crystal_embedding(&self, _: &str, _: &[f32]) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn search_crystals_semantic(
+            &self,
+            _: &[f32],
+            _: u32,
+        ) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> {
+            Ok(vec![])
+        }
+        async fn find_similar_crystal(
+            &self,
+            _: &[f32],
+            _: &str,
+            _: f64,
+        ) -> Result<Option<(String, f64)>, StorageError> {
+            Ok(None)
+        }
+        async fn list_crystals_missing_embedding(
+            &self,
+            _: u32,
+        ) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> {
+            Ok(vec![])
+        }
+        async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
+            Ok(0)
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl ActivityStorage for DownStorage {
+        async fn store_observation(
+            &self,
+            _: &crate::domain::storage::Observation,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn store_event(&self, _: &crate::domain::storage::Event) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn fleet_stats(
+            &self,
+            _: u64,
+            _: u32,
+        ) -> Result<Vec<(String, u64, f64, u64, String)>, StorageError> {
+            Ok(vec![])
+        }
+        async fn list_events(
+            &self,
+            _: Option<&str>,
+            _: Option<&str>,
+            _: u32,
+        ) -> Result<Vec<crate::domain::storage::RawEvent>, StorageError> {
+            Ok(vec![])
+        }
+        async fn list_degraded_nodes(
+            &self,
+            _: u64,
+            _: f64,
+        ) -> Result<Vec<(String, String, u64, u64)>, StorageError> {
+            Ok(vec![])
+        }
+        async fn list_observations_raw(
+            &self,
+            _: Option<&str>,
+            _: Option<&str>,
+            _: u32,
+        ) -> Result<Vec<crate::domain::storage::RawObservation>, StorageError> {
+            Ok(vec![])
+        }
+        async fn list_observations_by_target(
+            &self,
+            _: &str,
+            _: &str,
+            _: u32,
+        ) -> Result<Vec<crate::domain::storage::RawObservation>, StorageError> {
+            Ok(vec![])
+        }
+        async fn list_observations_by_tag(
+            &self,
+            _: &str,
+            _: &str,
+            _: u32,
+        ) -> Result<Vec<crate::domain::storage::RawObservation>, StorageError> {
+            Ok(vec![])
+        }
+        async fn last_observation_per_source(
+            &self,
+        ) -> Result<Vec<(String, String, u64)>, StorageError> {
+            Ok(vec![])
+        }
+        async fn count_observations(&self) -> Result<u64, StorageError> {
+            Ok(0)
+        }
+        async fn store_session_summary(
+            &self,
+            _: &crate::domain::ccm::SessionSummary,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn list_session_summaries(
+            &self,
+            _: u32,
+        ) -> Result<Vec<crate::domain::ccm::SessionSummary>, StorageError> {
+            Ok(vec![])
+        }
+        async fn get_unsummarized_sessions(
+            &self,
+            _: u32,
+            _: u32,
+        ) -> Result<Vec<(String, String, u32)>, StorageError> {
+            Ok(vec![])
+        }
+        async fn get_session_observations(
+            &self,
+            _: &str,
+        ) -> Result<Vec<crate::domain::storage::RawObservation>, StorageError> {
+            Ok(vec![])
+        }
+        async fn store_session_compliance(
+            &self,
+            _: &crate::domain::compliance::SessionCompliance,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn list_session_compliance(
+            &self,
+            _: u32,
+        ) -> Result<Vec<crate::domain::compliance::SessionCompliance>, StorageError> {
+            Ok(vec![])
+        }
+        async fn zone_activity(
+            &self,
+            _: &[String],
+            _: &str,
+            _: &str,
+        ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
+            Ok(vec![])
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl TaskStorage for DownStorage {
+        async fn store_agent_task(
+            &self,
+            _: &crate::domain::storage::AgentTask,
+        ) -> Result<String, StorageError> {
+            Ok("".into())
+        }
+        async fn list_pending_agent_tasks(
+            &self,
+            _: &str,
+            _: u32,
+        ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
+            Ok(vec![])
+        }
+        async fn list_completed_agent_tasks(
+            &self,
+            _: &str,
+            _: u32,
+        ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
+            Ok(vec![])
+        }
+        async fn mark_agent_task_processing(&self, _: &str) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn update_agent_task_result(
+            &self,
+            _: &str,
+            _: Option<String>,
+            _: Option<String>,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl DispatchStorage for DownStorage {
+        async fn store_agent_dispatch(
+            &self,
+            _: &crate::domain::storage::AgentDispatch,
+        ) -> Result<String, StorageError> {
+            Ok("".into())
+        }
+        async fn get_active_dispatch_for_scope(
+            &self,
+            _: &str,
+        ) -> Result<Option<crate::domain::storage::AgentDispatch>, StorageError> {
+            Ok(None)
+        }
+        async fn get_dispatch(
+            &self,
+            _: &str,
+        ) -> Result<Option<crate::domain::storage::AgentDispatch>, StorageError> {
+            Ok(None)
+        }
+        async fn get_active_dispatches_for_agent(
+            &self,
+            _: &str,
+        ) -> Result<Vec<crate::domain::storage::AgentDispatch>, StorageError> {
+            Ok(vec![])
+        }
+        async fn update_dispatch_status(&self, _: &str, _: &str) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn update_dispatch_pr(&self, _: &str, _: u32) -> Result<(), StorageError> {
+            Ok(())
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl StateLogStorage for DownStorage {
+        async fn store_state_block(
+            &self,
+            _: &crate::domain::state_log::StateBlock,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn last_state_block(
+            &self,
+        ) -> Result<Option<crate::domain::state_log::StateBlock>, StorageError> {
+            Ok(None)
+        }
+        async fn list_state_blocks(
+            &self,
+            _: &str,
+            _: u32,
+        ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
+            Ok(vec![])
+        }
+        async fn latest_state_blocks(
+            &self,
+            _: u32,
+        ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
+            Ok(vec![])
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl SubmissionStorage for DownStorage {
+        async fn enqueue_verdict(
+            &self,
+            _: &str,
+            _: &str,
+            _: f64,
+            _: f64,
+            _: f64,
+            _: f64,
+            _: f64,
+            _: f64,
+            _: f64,
+            _: u32,
+            _: &str,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn list_pending_verdicts(
+            &self,
+            _: u32,
+        ) -> Result<Vec<crate::domain::verdict_queue::QueuedVerdict>, StorageError> {
+            Ok(vec![])
+        }
+        async fn list_submitted_verdicts(
+            &self,
+            _: u32,
+        ) -> Result<Vec<crate::domain::verdict_queue::QueuedVerdict>, StorageError> {
+            Ok(vec![])
+        }
+        async fn get_queued_verdict(
+            &self,
+            _: &str,
+        ) -> Result<Option<crate::domain::verdict_queue::QueuedVerdict>, StorageError> {
+            Ok(None)
+        }
+        async fn update_verdict_submitted(&self, _: &str, _: &str) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn update_verdict_confirmed(&self, _: &str) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn update_verdict_failed(&self, _: &str, _: &str) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError> {
+            Ok((0, 0, 0, 0))
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl StoragePort for DownStorage {
+        async fn ping(&self) -> Result<(), StorageError> {
+            Err(StorageError::ConnectionFailed("test: storage down".into()))
         }
         async fn flush_usage(
             &self,

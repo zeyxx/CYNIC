@@ -51,8 +51,8 @@ async fn deterministic_dog_produces_valid_verdict() {
     // Must have reasoning
     assert!(!verdict.reasoning.fidelity.is_empty());
 
-    // ID must be a valid UUID
-    assert_eq!(verdict.id.len(), 36);
+    // ID must be a valid secure ID (hex-encoded 16 bytes = 32 chars)
+    assert_eq!(verdict.id.len(), 32);
 
     println!(
         "Verdict: {:?} | Q-Score: {:.3} | F:{:.3} Phi:{:.3} V:{:.3}",
