@@ -68,7 +68,8 @@ logging.basicConfig(
     format="%(asctime)s %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
-from hermes_paths import HERMES_X_DIR
+from hermes_paths import HERMES_X_DIR, PENDING_DIR, PROCESSED_DIR
+from notification_poller import build_interaction_entry, is_already_seen, write_pending
 
 logger = logging.getLogger("search-executor")
 
@@ -76,6 +77,29 @@ DEFAULT_ORGAN_DIR = HERMES_X_DIR
 SEARCH_TASKS_FILE = "search_tasks.jsonl"
 SEARCH_EXECUTION_LOG = "search_execution_log.jsonl"
 BEHAVIOR_LOG = "behavior_log.jsonl"
+
+_TALARIA_LABELS = {"talaria-mention", "talaria-token", "talaria-cashtag", "metadao-ico"}
+
+
+def _route_to_pending_if_talaria(task: dict, tweet_id: str, author: str, text: str, url: str) -> None:
+    """If the search task has a talaria/metadao label, also write to pending/."""
+    label = task.get("label", "")
+    if label not in _TALARIA_LABELS:
+        return
+    if is_already_seen(tweet_id, PENDING_DIR, PROCESSED_DIR):
+        return
+    PENDING_DIR.mkdir(parents=True, exist_ok=True)
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    entry = build_interaction_entry(
+        tweet_id=tweet_id,
+        notif_type="mention",
+        author=author,
+        text=text,
+        source="search_sweep",
+        keywords=[task.get("query", "")],
+    )
+    entry["url"] = url
+    write_pending(entry, PENDING_DIR)
 
 
 class SearchExecutor:
@@ -210,6 +234,36 @@ class SearchExecutor:
 
             # Count visible tweet articles
             results = await page.locator('[role="article"]').count()
+
+            # Route to pending/ for talaria-labeled tasks
+            label = task.get("label", "")
+            if label in _TALARIA_LABELS and results > 0:
+                articles = page.locator('[role="article"]')
+                count = await articles.count()
+                for idx in range(count):
+                    try:
+                        article = articles.nth(idx)
+                        # Extract tweet URL to derive tweet_id and author
+                        link = article.locator('a[href*="/status/"]').first
+                        href = await link.get_attribute("href") if await link.count() > 0 else ""
+                        tweet_id = ""
+                        author = "unknown"
+                        if href and "/status/" in href:
+                            parts = href.rstrip("/").split("/")
+                            tweet_id = parts[-1]
+                            # Author is the path segment before /status/
+                            status_idx = parts.index("status") if "status" in parts else -1
+                            if status_idx > 0:
+                                author = parts[status_idx - 1]
+                        if not tweet_id:
+                            continue
+                        # Extract text content
+                        text_el = article.locator('[data-testid="tweetText"]').first
+                        text = await text_el.inner_text() if await text_el.count() > 0 else query
+                        tweet_url = f"https://x.com/{author}/status/{tweet_id}"
+                        _route_to_pending_if_talaria(task, tweet_id, author, text, tweet_url)
+                    except Exception as _e:
+                        logger.debug("failed to extract tweet %d: %s", idx, str(_e)[:80])
 
             result = {
                 "query": query,

@@ -47,7 +47,7 @@ pub async fn dispatch_task_handler(
         ));
     }
 
-    let task_id = format!("agent-task:{}", uuid::Uuid::new_v4());
+    let task_id = format!("agent-task:{}", crate::infra::crypto::generate_secure_id());
     let now = chrono::Utc::now().to_rfc3339();
     let task = AgentTask {
         id: task_id.clone(),

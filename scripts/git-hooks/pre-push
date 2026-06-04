@@ -17,12 +17,16 @@ set -euo pipefail
 # Read all lines, check for main pushes, detect deletions.
 ZERO_SHA="0000000000000000000000000000000000000000"
 IS_DELETE=true  # assume delete until we see a non-zero local SHA
+PUSH_LOCAL_SHA=""
+PUSH_REMOTE_SHA=""
 while IFS= read -r line; do
     local_sha=$(printf '%s\n' "$line" | awk '{print $2}')
     remote_ref=$(printf '%s\n' "$line" | awk '{print $3}')
-    # If any ref has a non-zero local SHA, it's not a pure delete
+    remote_sha=$(printf '%s\n' "$line" | awk '{print $4}')
     if [ "$local_sha" != "$ZERO_SHA" ]; then
         IS_DELETE=false
+        PUSH_LOCAL_SHA="$local_sha"
+        PUSH_REMOTE_SHA="$remote_sha"
     fi
     if [ "$remote_ref" = "refs/heads/main" ]; then
         echo ""
@@ -41,6 +45,27 @@ done
 # Skip CI gate for branch deletions (git push --delete)
 if [ "$IS_DELETE" = "true" ]; then
     exit 0
+fi
+
+# ── Skip gate for non-Rust pushes ──────────────────────────────────────────
+# make gate covers Rust: build + test + clippy + lint-rules + lint-drift + audit.
+# Python, docs, configs, systemd → no Rust toolchain needed.
+if [ -n "$PUSH_LOCAL_SHA" ]; then
+    if [ "$PUSH_REMOTE_SHA" = "$ZERO_SHA" ] || [ -z "$PUSH_REMOTE_SHA" ]; then
+        # New branch — compare against origin/main
+        RUST_FILES=$(git diff --name-only "origin/main...${PUSH_LOCAL_SHA}" 2>/dev/null \
+            | grep -E '(^cynic-kernel/.*\.rs$|^Cargo\.(toml|lock)$)' || true)
+    else
+        RUST_FILES=$(git diff --name-only "${PUSH_REMOTE_SHA}..${PUSH_LOCAL_SHA}" 2>/dev/null \
+            | grep -E '(^cynic-kernel/.*\.rs$|^Cargo\.(toml|lock)$)' || true)
+    fi
+    if [ -z "$RUST_FILES" ]; then
+        echo "══════════════════════════════════════════"
+        echo "  ⚡ No Rust changes — gate skipped"
+        echo "  (Python / docs / config only)"
+        echo "══════════════════════════════════════════"
+        exit 0
+    fi
 fi
 
 source ~/.cargo/env 2>/dev/null || true
