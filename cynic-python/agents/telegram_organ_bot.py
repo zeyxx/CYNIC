@@ -101,12 +101,16 @@ Example:
   /judge token bonk
   /ask Why is confidence capped at 61.8%?
 """
+<<<<<<< HEAD
+    await update.message.reply_text(msg, parse_mode="Markdown")
+=======
     try:
         await update.message.reply_text(msg, parse_mode="Markdown")
         logger.info("Successfully sent start message.")
     except Exception as e:
         logger.error(f"Failed to send start message: {e}")
     
+>>>>>>> origin/main
     await post_observation("start", update, "success")
 
 async def judge(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -35,14 +35,6 @@ from typing import Optional
 import urllib.request
 import urllib.error
 
-# Metabolic cost tracking — imported at module level to avoid repeated sys.path mutation
-import sys as _sys
-_sys.path.insert(0, str(Path(__file__).parent.parent))
-try:
-    from metabolism.cost_tracker import emit as _cost_emit
-except ImportError:
-    _cost_emit = None  # type: ignore[assignment]
-
 # ---------------------------------------------------------------------------
 # Configuration (overridable via environment variables)
 # ---------------------------------------------------------------------------
@@ -57,10 +49,7 @@ STATE_FILE: Path = Path(os.environ.get(
     str(Path.home() / ".cynic" / "spike_detector_seen.json"),
 ))
 
-_raw_addr: str = os.environ.get("CYNIC_REST_ADDR", "")
-CYNIC_REST_ADDR: str = (
-    f"http://{_raw_addr}" if _raw_addr and not _raw_addr.startswith("http") else _raw_addr
-)
+CYNIC_REST_ADDR: str = os.environ.get("CYNIC_REST_ADDR", "")
 CYNIC_API_KEY: str = os.environ.get("CYNIC_API_KEY", "")
 
 # ---------------------------------------------------------------------------
@@ -170,27 +159,13 @@ def fetch_trending_pools() -> list[dict]:  # type: ignore[type-arg]
     """Fetch trending Solana pools from GeckoTerminal (free tier).
 
     Returns list of pool objects, or raises on network/parse error.
-    Emits a metabolic cost event after each successful fetch.
     """
-    import time as _time
     req = urllib.request.Request(
         GECKO_URL,
         headers={"Accept": "application/json", "User-Agent": "cynic-spike-detector/1.0"},
     )
-    _t0 = _time.monotonic()
     with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
         body = json.loads(resp.read().decode())
-    _latency_ms = int((_time.monotonic() - _t0) * 1000)
-
-    if _cost_emit is not None:
-        _cost_emit(
-            feature_id="spike_detector",
-            operation="fetch_trending_pools",
-            compute_class="external_api",
-            provider="geckoterminal",
-            latency_ms=_latency_ms,
-        )
-
     pools: list[dict] = body.get("data", [])  # type: ignore[type-arg]
     return pools
 
