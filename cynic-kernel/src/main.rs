@@ -11,6 +11,10 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 // ============================================================
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load environment variables from .env file
+    let _env_loaded = dotenvy::dotenv().ok();
+    tracing::trace!("env loaded from .env (if present)");
+
     // Parse flags early — MCP mode needs stderr-only logging from the start.
     let force_reprobe = std::env::args().any(|a| a == "--reset");
     let mcp_mode = std::env::args().any(|a| a == "--mcp");
