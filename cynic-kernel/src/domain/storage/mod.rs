@@ -9,8 +9,8 @@ mod types;
 
 pub use null::NullStorage;
 pub use types::{
-    AgentDispatch, AgentTask, Event, Observation, RawEvent, RawObservation, StorageError,
-    StorageMetrics, UsageRow,
+    AgentDispatch, AgentTask, AuditContext, Event, Observation, PRMetadata, RawEvent,
+    RawObservation, StorageError, StorageMetrics, SubmissionTaskContent, UsageRow,
 };
 
 use crate::domain::ccm::Crystal;
