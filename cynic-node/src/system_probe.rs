@@ -60,22 +60,21 @@ pub(crate) async fn run_system_probe(
             if let Ok(output) = std::process::Command::new("zpool")
                 .args(["list", "-H", "-o", "name,health"])
                 .output()
+                && output.status.success()
             {
-                if output.status.success() {
-                    let text = String::from_utf8_lossy(&output.stdout);
-                    let pools: Vec<_> = text
-                        .lines()
-                        .filter_map(|l| {
-                            let parts: Vec<&str> = l.split_whitespace().collect();
-                            if parts.len() >= 2 {
-                                Some(json!({ "name": parts[0], "health": parts[1] }))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    zfs_health = json!(pools);
-                }
+                let text = String::from_utf8_lossy(&output.stdout);
+                let pools: Vec<_> = text
+                    .lines()
+                    .filter_map(|l| {
+                        let parts: Vec<&str> = l.split_whitespace().collect();
+                        if parts.len() >= 2 {
+                            Some(json!({ "name": parts[0], "health": parts[1] }))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                zfs_health = json!(pools);
             }
         }
 

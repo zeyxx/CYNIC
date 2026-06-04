@@ -817,6 +817,7 @@ mod tests {
             crystal.variance_m2,
             crystal.observations,
             crystal.source_diversity,
+            1.0,
         );
         let state = classify(certainty, crystal.observations);
 
