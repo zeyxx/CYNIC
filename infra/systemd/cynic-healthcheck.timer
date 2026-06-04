@@ -1,6 +1,5 @@
-# DORMANT: See cynic-healthcheck.service for context.
 [Unit]
-Description=DORMANT — CYNIC Health Check timer (superseded by kernel-native monitoring)
+Description=CYNIC Health Check timer — runs every 5 minutes
 
 [Timer]
 OnCalendar=*:0/5

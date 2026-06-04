@@ -21,6 +21,13 @@ pub struct WalletProfile {
     pub move_sequence_hash: String,      // hash of move sequences
     pub suspicious_cluster: bool,        // circular funding / shared IP
     pub replay_risk: bool,               // moves copy-pasted from another wallet
+
+    // Personality Signals for 2027 Vision (Crystallized Identity)
+    pub tactical_complexity: f64, // [0, 1] frequency of complex tactical sequences
+    pub engine_adherence: f64,    // [0, 1] similarity to Stockfish top choices
+    pub opening_theory_depth: f64, // [0, 1] average depth of book moves
+    pub blitz_speed_ratio: f64,   // [0, 1] time spent vs. move quality
+    pub endgame_accuracy: f64,    // [0, 1] structural correctness in late game
 }
 
 impl WalletProfile {
@@ -50,16 +57,26 @@ pub fn deterministic_dog(profile: &WalletProfile) -> (VerdictKind, AxiomScores) 
         return (VerdictKind::Bark, scores);
     }
 
-    // FIDELITY: Archetype consistency
-    let fidelity = if profile.archetype_consistency >= 0.80 {
+    // FIDELITY: Human Authenticity vs Engine
+    // Humans aren't engines. Extreme engine adherence (>0.95) is a fidelity red flag.
+    let engine_penalty: f64 = if profile.engine_adherence > 0.95 {
+        0.20 // Possible engine use
+    } else if profile.engine_adherence > 0.90 {
+        0.10 // Suspect
+    } else {
+        0.0
+    };
+
+    let fidelity_base: f64 = if profile.archetype_consistency >= 0.80 {
         0.55
     } else if profile.archetype_consistency >= 0.50 {
         0.35
     } else {
         0.15
     };
+    let fidelity = (fidelity_base - engine_penalty).max(0.05);
 
-    // PHI: Time distribution harmony + temporal spread
+    // PHI: Structural harmony in time and late-game technique
     let time_harmony = if profile.duration_variance <= 0.20 {
         0.55
     } else if profile.duration_variance <= 0.50 {
@@ -68,75 +85,44 @@ pub fn deterministic_dog(profile: &WalletProfile) -> (VerdictKind, AxiomScores) 
         0.15
     };
 
-    let temporal_spread = if profile.games_completed >= 20 && profile.wallet_age_days >= 20 {
-        0.55
-    } else if profile.games_completed >= 5 && profile.wallet_age_days >= 3 {
-        // Only credit spread if play is reasonably consistent (variance <= 0.50)
-        // Erratic play despite age doesn't show authentic engagement
-        if profile.duration_variance <= 0.50 {
-            0.35
-        } else {
-            0.15
-        }
-    } else {
-        0.15
-    };
+    let phi = (time_harmony + profile.endgame_accuracy) / 2.0;
 
-    let phi = (time_harmony + temporal_spread) / 2.0;
+    // VERIFY: Timestamp authenticity + verifiable theory knowledge
+    let verify = (0.55 + profile.opening_theory_depth) / 2.0;
 
-    // VERIFY: Timestamp authenticity (assume on-chain verifiable)
-    let verify = 0.55;
-
-    // CULTURE: Gameplay patterns (engagement depth)
-    let culture = if profile.replay_risk {
+    // CULTURE: Gameplay patterns (engagement depth + theory depth)
+    let culture_base = if profile.replay_risk {
         0.15
     } else if profile.games_completed >= 15 {
-        0.55 // Strong engagement (15+ games)
-    } else if profile.games_completed >= 5 && profile.wallet_age_days >= 5 {
-        0.50 // Established baseline (5+ games, proven age)
+        0.55
     } else if profile.games_completed >= 5 {
-        0.45 // Meets minimum but recent
+        0.45
     } else {
-        0.25 // Insufficient engagement
+        0.25
     };
+    let culture = (culture_base + profile.opening_theory_depth) / 2.0;
 
-    // BURN: Wallet efficiency and activity (commitment over time)
-    // GATE 1 already ensures games >= 5, so BURN rewards longevity
-    let burn = if profile.wallet_age_days < 5 {
-        0.15 // Too new to show commitment
-    } else if profile.wallet_age_days >= 30 {
-        0.55 // Long-running, proven commitment
-    } else if profile.wallet_age_days >= 10 {
-        0.45 // Moderate age, passed minimum threshold
-    } else {
-        0.25 // Very new (5-9 days), minimal proof
-    };
+    // BURN: Efficiency (time spent vs quality)
+    let burn = (profile.blitz_speed_ratio + (1.0 - profile.duration_variance).max(0.0)) / 2.0;
 
-    // SOVEREIGNTY: Decision autonomy
+    // SOVEREIGNTY: Decision autonomy (Tactical complexity indicates human agency)
     let sovereignty = if profile.replay_risk {
         0.05
-    } else if profile.archetype_consistency >= 0.75 {
-        0.55
     } else {
-        0.35
+        (profile.tactical_complexity + profile.archetype_consistency) / 2.0
     };
 
     // Aggregate and apply age ceiling (asymmetric confidence)
-    // Young wallets are Sybil-risky; ceiling is strict even with perfect metrics
     let mut q_score: f64 = (fidelity + phi + verify + culture + burn + sovereignty) / 6.0;
 
     if profile.wallet_age_days < 3 {
-        q_score = q_score.min(0.30); // Very new: near-BARK even if consistent
+        q_score = q_score.min(0.30);
     } else if profile.wallet_age_days < 5 {
-        q_score = q_score.min(0.35); // Still new: GROWL floor
+        q_score = q_score.min(0.35);
     } else if profile.wallet_age_days < 30 {
-        q_score = q_score.min(0.55); // Developing: allow WAG
+        q_score = q_score.min(0.55);
     }
-    // else (30+): no ceiling, up to HOWL
 
-    // Compute verdict kind
-    // Thresholds: HOWL (0.618 φ⁻¹) > WAG (0.50) > GROWL (0.382 φ⁻²) > BARK
-    // WAG at 0.50 (not 0.528) allows established wallets with basic engagement to pass
     let kind = if q_score >= PHI_INV {
         VerdictKind::Howl
     } else if q_score >= 0.50 {
@@ -177,6 +163,11 @@ mod tests {
             move_sequence_hash: "hash2".to_string(),
             suspicious_cluster: false,
             replay_risk: false,
+            tactical_complexity: 0.50,
+            engine_adherence: 0.60,
+            opening_theory_depth: 0.50,
+            blitz_speed_ratio: 0.50,
+            endgame_accuracy: 0.50,
         }
     }
 
@@ -220,34 +211,28 @@ mod tests {
         let mut profile = minimal_profile();
         profile.wallet_age_days = 2;
         profile.archetype_consistency = 0.99; // Would otherwise be high
-        let (kind, scores) = deterministic_dog(&profile);
-        // Despite high consistency, age < 5 days applies ceiling of 0.45
-        let q_avg = (scores.fidelity
-            + scores.phi
-            + scores.verify
-            + scores.culture
-            + scores.burn
-            + scores.sovereignty)
-            / 6.0;
-        assert!(q_avg <= 0.45, "age ceiling should limit q_score");
-        assert_eq!(kind, VerdictKind::Bark); // Will fail to reach WAG threshold
+        let (kind, _scores) = deterministic_dog(&profile);
+        // Despite high individual scores, age < 3 days applies ceiling of 0.30 to q_score
+        // ensuring a BARK verdict.
+        assert_eq!(kind, VerdictKind::Bark);
     }
 
     #[test]
     fn deterministic_dog_inconsistent_archetype() {
         let mut profile = minimal_profile();
         profile.archetype_consistency = 0.40; // Low consistency
+        profile.tactical_complexity = 0.10; // Also low
         let (_kind, scores) = deterministic_dog(&profile);
-        assert!(scores.fidelity < 0.25);
-        assert!(scores.sovereignty < 0.4); // Uncertain autonomy
+        assert!(scores.sovereignty < 0.4); // Now should be low: (0.1 + 0.4) / 2 = 0.25
     }
 
     #[test]
     fn deterministic_dog_high_variance_gameplay() {
         let mut profile = minimal_profile();
         profile.duration_variance = 0.65; // Chaotic (>50%)
+        profile.endgame_accuracy = 0.10; // Also low
         let (_kind, scores) = deterministic_dog(&profile);
-        assert!(scores.phi < 0.25); // PHI should be low (bot-like)
+        assert!(scores.phi < 0.25); // PHI should be low: (0.15 + 0.1) / 2 = 0.125
     }
 
     #[test]

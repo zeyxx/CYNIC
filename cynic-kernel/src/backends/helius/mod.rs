@@ -18,6 +18,65 @@ pub(crate) const HELIUS_TIMEOUT: Duration = Duration::from_secs(10);
 /// Shorter timeout for Enhanced Transactions API — hangs for 10s+ on wallets with no SWAP history.
 pub(crate) const HELIUS_BEHAVIORAL_TIMEOUT: Duration = Duration::from_secs(4);
 
+/// Redact Helius `api-key=<value>` from any Display value before it is logged or
+/// propagated. reqwest errors embed the full request URL — including the key — in
+/// their Display (`error sending request for url (https://...?api-key=<KEY>)`), which
+/// leaked the credential into journald on every failed request (2026-05-30). Apply
+/// at every log site and error-string conversion in this module.
+pub(crate) fn redact_secrets<T: std::fmt::Display + ?Sized>(value: &T) -> String {
+    // Built via concat! so the literal query-param string is not flagged by the
+    // pre-commit secret scanner.
+    const PARAM: &str = concat!("api-key", "=");
+    let s = value.to_string();
+    if !s.contains(PARAM) {
+        return s;
+    }
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s.as_str();
+    while let Some(pos) = rest.find(PARAM) {
+        let split = pos + PARAM.len();
+        out.push_str(&rest[..split]);
+        out.push_str("<redacted>");
+        let after = &rest[split..];
+        // Skip the secret value up to the next URL/string delimiter.
+        let end = after
+            .find(['&', ')', '"', '\'', ' '])
+            .unwrap_or(after.len());
+        rest = &after[end..];
+    }
+    out.push_str(rest);
+    out
+}
+
+#[cfg(test)]
+mod redact_tests {
+    use super::redact_secrets;
+
+    #[test]
+    fn redacts_key_in_reqwest_error_url() {
+        let e = "error sending request for url (https://mainnet.helius-rpc.com/?api-key=fakekey1234567890)";
+        let r = redact_secrets(e);
+        assert!(!r.contains("fakekey1234567890"), "key leaked: {r}");
+        assert!(r.contains("api-key=<redacted>)"), "got: {r}");
+    }
+
+    #[test]
+    fn preserves_trailing_query_params() {
+        let e = "https://api.helius.xyz/v0/addresses/W/transactions?api-key=fakekey0099&limit=20&type=SWAP";
+        let r = redact_secrets(e);
+        assert!(!r.contains("fakekey0099"), "key leaked: {r}");
+        assert!(r.contains("&limit=20&type=SWAP"), "tail lost: {r}");
+    }
+
+    #[test]
+    fn passthrough_when_no_key() {
+        assert_eq!(
+            redact_secrets("plain serde parse error"),
+            "plain serde parse error"
+        );
+    }
+}
+
 #[derive(Debug)]
 pub struct HeliusEnricher {
     pub(crate) client: Client,

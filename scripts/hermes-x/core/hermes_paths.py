@@ -97,3 +97,8 @@ CRON_REPORTS_DIR = HERMES_X_DIR / "cron_reports"
 MIRROR_DIR = HERMES_DIR.parent / "mirror"
 MIRROR_PROFILE = MIRROR_DIR / "behavioral_profile.json"
 MIRROR_PREDICTIONS = MIRROR_DIR / "predictions.jsonl"
+
+# Talaria engagement pipeline
+TALARIA_DIR = HERMES_X_DIR / "talaria"
+PENDING_DIR = TALARIA_DIR / "pending"
+PROCESSED_DIR = TALARIA_DIR / "processed"
