@@ -1,0 +1,81 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Warm dark substrate */
+  --bg:        #0c0b09;
+  --bg-raised: #141210;
+  --bg-card:   #111009;
+  --bg-hover:  #1a1814;
+
+  /* Gold spectrum */
+  --gold:      #c9a84c;
+  --gold-dim:  #8a7030;
+  --gold-glow: rgba(201,168,76,0.12);
+
+  /* Text */
+  --cream:     #e8dfd0;
+  --muted:     rgba(232,223,208,0.5);
+  --faint:     rgba(232,223,208,0.28);
+
+  /* Borders */
+  --border:    rgba(201,168,76,0.14);
+  --border-strong: rgba(201,168,76,0.28);
+
+  /* Verdict colors */
+  --howl:   #4ade80;
+  --wag:    #86efac;
+  --growl:  #fbbf24;
+  --bark:   #fb923c;
+  --epoche: #a78bfa;
+
+  /* Fonts */
+  --serif:  'EB Garamond', Georgia, serif;
+  --mono:   'JetBrains Mono', 'Courier New', monospace;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--cream);
+  font-family: var(--mono);
+  font-size: 15px; /* WCAG minimum — monospace reads smaller, 15px is conservative */
+  line-height: 1.7;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(201,168,76,0.06) 0%, transparent 60%);
+}
+
+/* Desktop: full readable sizes */
+@media (min-width: 768px) {
+  body                 { font-size: 16px; }
+  .verdict-desc-line   { font-size: 16px; }
+  .verdict-human-note  { font-size: 15px; }
+  .reasoning-text      { font-size: 15px; }
+  .reasoning-ax        { font-size: 15px; }
+  .source-extract      { font-size: 15px; }
+  .sources-note        { font-size: 13px; }
+  .axiom-val           { font-size: 15px; }
+  .axiom-name          { font-size: 14px; }
+  .onchain-link        { font-size: 14px; }
+  .verdict-footer      { font-size: 13px; }
+  .input-meta          { font-size: 13px; }
+  .section-label       { font-size: 12px; }
+  .dog-id              { font-size: 13px; }
+  .source-title        { font-size: 15px; }
+  .share-btn-x         { font-size: 14px; }
+  .share-btn-copy      { font-size: 13px; }
+  .proposal-input      { font-size: 15px; }
+  .judge-btn           { font-size: 14px; }
+}
+
+#root { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 2px; }
+
+/* Selection */
+::selection { background: rgba(201,168,76,0.25); color: var(--cream); }

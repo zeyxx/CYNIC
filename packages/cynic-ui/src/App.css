@@ -1,0 +1,16 @@
+:root {
+  --gold: #C9A84C;
+  --bg: #080808;
+  --text: #e2dfd8;
+  --text-dim: #7a7570;
+  --text-muted: #333030;
+  --border: #1a1a1a;
+  --border-bright: #2a2a2a;
+  --surface: #0d0d0d;
+}
+
+body { margin: 0; background: var(--bg); color: var(--text); font-family: monospace; }
+.app-container { min-height: 100vh; display: flex; flex-direction: column; }
+.header { display: flex; align-items: center; padding: 0 28px; height: 56px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.nav-btn { background: none; border: none; cursor: pointer; color: var(--text-dim); padding: 0 18px; font-size: 11px; }
+.nav-btn.active { color: var(--gold); border-bottom: 2px solid var(--gold); }

@@ -65,7 +65,10 @@ DOMAIN_KEYWORDS = {
     ],
     "D3": [
         "self custody", "self-custody", "sovereign", "censorship resist",
-        "decentraliz", "permissionless", "trustless", "own your keys"
+        "decentraliz", "permissionless", "trustless", "own your keys",
+        "metadao", "futarchy", "futardio", "prediction market", "polymarket",
+        "kalshi", "forecast market", "p2p wager", "sports bet", "sportsfi",
+        "chess solana", "talaria", "skill game", "player vs player",
     ],
     "D4": [
         "security", "exploit", "vulnerability", "hack", "phishing", "malware",
@@ -165,8 +168,14 @@ def extract_falsifiable_claim(text: str, domain: str) -> str:
         # Generic D2 fallback
         return "If verified: performance claim is testable"
 
-    # D3: Sovereignty — self-custody, decentralization claims
+    # D3: Sovereignty + Prediction markets / MetaDAO / B&C
     if domain == "D3":
+        if any(kw in text_lower for kw in ["prediction market", "polymarket", "kalshi", "forecast market"]):
+            return "If measured: prediction market resolves at stated probability within stated timeframe"
+        if any(kw in text_lower for kw in ["metadao", "futarchy", "futardio"]):
+            return "If verified: futarchy governance outcome matches market-forecasted decision"
+        if any(kw in text_lower for kw in ["p2p wager", "player vs player", "chess", "skill game"]):
+            return "If tested: P2P wager mechanism settles correctly on verified skill outcome"
         if any(kw in text_lower for kw in ["self custody", "self-custody", "own your keys"]):
             return "If verified: self-custody mechanism works as described"
         return "If verified: sovereignty claim holds under examination"

@@ -86,6 +86,20 @@ pub(super) async fn list_pending_agent_tasks(
     Ok(rows.iter().filter_map(row_to_agent_task).collect())
 }
 
+/// List completed tasks of a specific kind.
+pub(super) async fn list_completed_agent_tasks(
+    storage: &SurrealHttpStorage,
+    kind: &str,
+    limit: u32,
+) -> Result<Vec<AgentTask>, StorageError> {
+    let escaped_kind = crate::storage::escape_surreal(kind);
+    let query = format!(
+        "SELECT * FROM agent_tasks WHERE kind = '{escaped_kind}' AND status = 'completed' ORDER BY completed_at DESC LIMIT {limit};"
+    );
+    let rows = storage.query_one(&query).await?;
+    Ok(rows.iter().filter_map(row_to_agent_task).collect())
+}
+
 /// Get a single agent task by ID.
 pub(super) async fn get_agent_task(
     storage: &SurrealHttpStorage,

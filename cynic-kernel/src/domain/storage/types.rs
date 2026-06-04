@@ -132,13 +132,46 @@ pub struct StorageMetrics {
     pub uptime_secs: u64,
 }
 
+/// Content payload for a governance:submission task.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubmissionTaskContent {
+    pub branch: String,
+    pub commit_message: String,
+    pub pr_metadata: PRMetadata,
+    pub audit_context: AuditContext,
+    #[serde(default = "default_true")]
+    pub pre_submission_check: bool,
+    #[serde(default = "default_three")]
+    pub max_retries: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PRMetadata {
+    pub title: String,
+    pub body: String,
+    pub target_branch: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditContext {
+    pub session_id: String,
+    pub compliance_score: f64,
+}
+
+fn default_true() -> bool {
+    true
+}
+fn default_three() -> u32 {
+    3
+}
+
 /// Agent task — submitted to queue for execution by specialized agents (Hermes, future agents).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentTask {
     pub id: String,
-    pub kind: String,           // "hermes" | "nightshift" | "future-agent"
-    pub domain: String,         // "twitter" | "token" | "on-chain"
-    pub content: String,        // task payload (tweet, token_address, etc)
+    pub kind: String,           // "submission" | "hermes" | "nightshift" | ...
+    pub domain: String,         // "governance:submission" | "twitter" | ...
+    pub content: String,        // JSON serialized SubmissionTaskContent or other payload
     pub status: String,         // "pending" | "processing" | "completed" | "failed"
     pub result: Option<String>, // agent result (verdict summary, action taken)
     pub created_at: String,

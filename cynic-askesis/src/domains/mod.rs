@@ -2,6 +2,8 @@
 //!
 //! Phase 1: registry is deliberately empty. Body DomainTracker ships in Phase 2.
 
+mod instances;
+
 use chrono::NaiveTime;
 
 pub trait DomainTracker: Send + Sync {
@@ -11,9 +13,14 @@ pub trait DomainTracker: Send + Sync {
     fn anchor_time(&self) -> NaiveTime;
 }
 
-/// Registry of domain trackers. Phase 1 returns an empty vector — intentional.
+/// Registry of domain trackers for June 2026.
 pub fn registry() -> Vec<Box<dyn DomainTracker>> {
-    Vec::new()
+    vec![
+        Box::new(instances::Body),
+        Box::new(instances::Solana),
+        Box::new(instances::Reading),
+        Box::new(instances::Sovereignty),
+    ]
 }
 
 #[cfg(test)]
