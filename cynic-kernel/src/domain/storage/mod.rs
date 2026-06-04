@@ -473,22 +473,8 @@ pub trait StoragePort:
         Ok(vec![])
     }
 
-<<<<<<< HEAD
-    /// List completed agent tasks for a given kind.
-    async fn list_completed_agent_tasks(
-        &self,
-        _kind: &str,
-        _limit: u32,
-    ) -> Result<Vec<AgentTask>, StorageError> {
-        Ok(vec![])
-    }
-
-    /// Update agent task result. Sets status to "completed" or "failed" + result/error.
-    async fn update_agent_task_result(
-=======
     /// Load persisted DogStats for a specific Dog.
     async fn load_dog_stat(
->>>>>>> origin/main
         &self,
         _dog_id: &str,
     ) -> Result<Option<crate::domain::dog_health::DogStats>, StorageError> {
