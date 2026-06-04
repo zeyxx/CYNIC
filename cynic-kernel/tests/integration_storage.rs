@@ -6,7 +6,9 @@ mod common;
 
 use cynic_kernel::domain::coord::{ClaimResult, CoordPort};
 use cynic_kernel::domain::dog::{AxiomReasoning, DogScore, QScore, Verdict, VerdictKind};
-use cynic_kernel::domain::storage::{Observation, StoragePort};
+use cynic_kernel::domain::storage::{
+    ActivityStorage, CrystalStorage, Observation, StoragePort, VerdictStorage,
+};
 use cynic_kernel::domain::usage::DogUsageTracker;
 
 // ── Test helpers ──────────────────────────────────────────
@@ -56,6 +58,8 @@ fn test_verdict(id: &str) -> Verdict {
         voter_count: 1,
         failed_dogs: vec![],
         failed_dog_errors: Default::default(),
+        failed_dog_error_kinds: Default::default(),
+        excluded_dogs: vec![],
         target: None,
         integrity_hash: Some("test-hash".to_string()),
         prev_hash: None,

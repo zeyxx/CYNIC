@@ -132,7 +132,7 @@ pub async fn judge_handler(
         verdict_cache: &state.verdict_cache,
         metrics: &state.metrics,
         event_tx: Some(&state.event_tx),
-        request_id: Some(uuid::Uuid::new_v4().to_string()),
+        request_id: Some(crate::infra::crypto::generate_secure_id()),
         on_dog: Some(Box::new(move |dog_id, success, elapsed_ms, _, _| {
             rc.record_observation(dog_id, &domain_for_callback, elapsed_ms as u32, success);
             dpc.observe(&domain_for_callback, dog_id, elapsed_ms, success);

@@ -30,6 +30,24 @@ Rate limit: 30 req/min global, 10 req/min on `/judge`. `/health` exempt. 429 on 
 
 ---
 
+## Authentication
+
+### GET /auth/input
+
+Get authentication challenge (nonce, statement, domain). No auth.
+
+**Response (200):** `{ "nonce": "...", "statement": "...", "domain": "..." }`
+
+### POST /auth/verify
+
+Verify authentication signature and receive session token. No auth.
+
+**Request body:** `{ "address": "...", "signature": "...", "nonce": "..." }`
+
+**Response (200):** `{ "role": "...", "expires_at": N }`
+
+---
+
 ## Public Endpoints
 
 ### GET /health
@@ -1034,5 +1052,7 @@ interface Crystal {
   state: 'forming' | 'crystallized' | 'canonical' | 'decaying' | 'dissolved';
   created_at: string;
   updated_at: string;
+  source_diversity: number;
+  relations: Record<string, string>;
 }
 ```

@@ -1,0 +1,44 @@
+# cynic-node: qwen3-embed on cynic-forge (Proxmox host)
+# Supervised by cynic-node.
+# Dedicated embedding server using Qwen3-Embedding-0.6B (or 4B fallback).
+
+[kernel]
+url = "http://100.64.0.1:3030"
+api_key_env = "CYNIC_API_KEY"
+
+[dog]
+name = "qwen3-embed"
+model = "qwen3-embed"
+base_url = "http://192.168.0.37:8081/v1"
+context_size = 8192
+timeout_secs = 30
+
+[process]
+# Run llama-server with --embedding and --pooling last.
+# ctx-size 8192 for long document embeddings.
+# parallel 4 to handle burst backfill requests.
+command = [
+    "/home/user/bin/llama-server",
+    "-m", "/home/user/.cache/llama.cpp/Qwen3-4B-Q4_K_M.gguf",
+    "--host", "0.0.0.0",
+    "--port", "8081",
+    "--ctx-size", "8192",
+    "--parallel", "4",
+    "--n-gpu-layers", "0",
+    "--embedding",
+    "--pooling", "last"
+]
+stop_timeout_secs = 10
+
+[restart]
+max_attempts = 5
+initial_delay_secs = 2
+max_delay_secs = 120
+min_uptime_secs = 30
+
+[health]
+interval_secs = 15
+verify_interval_secs = 60
+timeout_secs = 5
+max_failures = 3
+startup_timeout_secs = 180

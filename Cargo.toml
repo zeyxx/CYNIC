@@ -5,6 +5,9 @@ members = [
     "cynic-askesis",
     "cynic-mcp",
 ]
+exclude = [
+    "cynic-python/lab/quantum-ecc/ecdsafail-challenge",
+]
 resolver = "2"
 
 # ── Industrial lint configuration (Axum/Embark Studios baseline) ──

@@ -1,0 +1,21 @@
+[Unit]
+Description=CYNIC Spike Judge Consumer — routes spike_detector observations to /judge
+After=cynic-kernel.service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+EnvironmentFile=%h/.config/cynic/env
+Type=oneshot
+WorkingDirectory=%h/Bureau/CYNIC/cynic-python/sensors
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/cynic-python/sensors/spike_judge_consumer.py
+TimeoutStartSec=300
+TimeoutStopSec=10
+MemoryMax=64M
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cynic-spike-judge-consumer
+
+[Install]
+WantedBy=timers.target

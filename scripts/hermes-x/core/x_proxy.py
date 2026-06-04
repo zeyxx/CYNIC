@@ -100,6 +100,11 @@ _NARRATIVES = [
     (re.compile(r"self[- ](?:custody|hosted|sovereign)|own\s+your\s+(?:data|keys)", re.I), "self_custody"),
     (re.compile(r"sovereign(?:ty)?|censorship[- ]resist", re.I), "sovereignty"),
     (re.compile(r"decentraliz(?:ed|ation)|permissionless|trustless", re.I), "decentralization"),
+    # D3 extended: Prediction markets / MetaDAO / B&C
+    (re.compile(r"polymarket|kalshi|prediction\s+market|forecast\s+market", re.I), "prediction_market"),
+    (re.compile(r"metadao|futarchy|futardio", re.I), "futarchy"),
+    (re.compile(r"p2p\s+wager|player\s+vs\.?\s+player\s+(?:bet|stake)|skill\s+wager", re.I), "p2p_wager"),
+    (re.compile(r"sportsfi|sports?\s*(?:betting|prediction|wager)|sportsbetting", re.I), "sports_betting"),
     # D6: Epistemology
     (re.compile(r"falsif(?:y|iable)|verif(?:y|iable)|calibrat(?:e|ion)|epistemic", re.I), "epistemology"),
     (re.compile(r"bounded\s+judgment|signal\s+vs\s+noise|ground\s+truth", re.I), "bounded_judgment"),
