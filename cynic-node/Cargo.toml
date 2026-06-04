@@ -28,6 +28,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 notify = { version = "7", default-features = false, features = ["macos_kqueue"] }
 chrono = "0.4"
+sysinfo = "0.33"
 cynic-mcp = { path = "../cynic-mcp", optional = true }
 rmcp = { version = "1.2", features = ["server", "transport-io"], optional = true }
 

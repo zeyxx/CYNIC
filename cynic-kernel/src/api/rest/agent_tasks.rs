@@ -47,7 +47,7 @@ pub async fn dispatch_task_handler(
         ));
     }
 
-    let task_id = format!("agent-task:{}", uuid::Uuid::new_v4());
+    let task_id = format!("agent-task:{}", crate::infra::crypto::generate_secure_id());
     let now = chrono::Utc::now().to_rfc3339();
     let task = AgentTask {
         id: task_id.clone(),
@@ -99,6 +99,37 @@ pub async fn list_tasks_handler(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
                     error: "Failed to list tasks".into(),
+                }),
+            )
+        })?;
+
+    Ok(Json(serde_json::json!({
+        "tasks": tasks,
+        "count": tasks.len(),
+    })))
+}
+
+/// GET /agent-tasks/completed?kind=hermes&limit=10 — poll completed tasks.
+pub async fn list_completed_tasks_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let kind = params.get("kind").map(|s| s.as_str()).unwrap_or("hermes");
+    let limit: u32 = params
+        .get("limit")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10);
+
+    let tasks = state
+        .storage
+        .list_completed_agent_tasks(kind, limit)
+        .await
+        .map_err(|e| {
+            tracing::warn!(error = %e, "list_completed_tasks failed");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "Failed to list completed tasks".into(),
                 }),
             )
         })?;

@@ -143,3 +143,30 @@ pub(super) async fn load_dog_stats(
         })
         .collect())
 }
+
+pub(super) async fn load_dog_stat(
+    storage: &SurrealHttpStorage,
+    dog_id: &str,
+) -> Result<Option<DogStats>, StorageError> {
+    let id_key = super::sanitize_record_id(dog_id);
+    let sql = format!("SELECT * FROM dog_stats:`{id_key}`;");
+    let rows = storage.query_one(&sql).await?;
+    Ok(rows.first().map(|r| DogStats {
+        total_calls: r["total_calls"].as_u64().unwrap_or(0),
+        success_count: r["success_count"].as_u64().unwrap_or(0),
+        zero_flood_count: r["zero_flood_count"].as_u64().unwrap_or(0),
+        collapse_count: r["collapse_count"].as_u64().unwrap_or(0),
+        parse_error_count: r["parse_error_count"].as_u64().unwrap_or(0),
+        timeout_count: r["timeout_count"].as_u64().unwrap_or(0),
+        api_error_count: r["api_error_count"].as_u64().unwrap_or(0),
+        last_success: r["last_success"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()),
+        total_latency_ms: r["total_latency_ms"].as_u64().unwrap_or(0),
+        total_completion_tokens: r["total_completion_tokens"].as_u64().unwrap_or(0),
+        max_completion_tokens: r["max_completion_tokens"].as_u64().unwrap_or(0) as u32,
+        max_content_tokens: r["max_content_tokens"].as_u64().unwrap_or(0) as u32,
+        max_thinking_tokens: r["max_thinking_tokens"].as_u64().unwrap_or(0) as u32,
+    }))
+}
