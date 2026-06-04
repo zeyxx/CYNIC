@@ -188,6 +188,13 @@ const STORAGE_METRICS: TaskContract = TaskContract {
     consumer: "data-centric storage bottleneck detection",
     failure_effect: "per-table latency metrics stop flowing, storage slowness invisible",
 };
+const GOVERNANCE: TaskContract = TaskContract {
+    name: "governance",
+    expected_interval: 60, // 60s interval + grace
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "session submission",
+    failure_effect: "automated session submission queue backs up",
+};
 
 fn task_contract(name: &str) -> TaskContract {
     match name {
@@ -212,6 +219,7 @@ fn task_contract(name: &str) -> TaskContract {
         "auto_remediation" => AUTO_REMEDIATION,
         "pattern_analyzer" => PATTERN_ANALYZER,
         "storage_metrics" => STORAGE_METRICS,
+        "governance" => GOVERNANCE,
         other => panic!("task contract missing for '{other}'"),
     }
 }
@@ -249,6 +257,7 @@ pub struct TaskHealth {
     pattern_analyzer: AtomicU64,
     pattern_healing_alerter: AtomicU64,
     storage_metrics: AtomicU64,
+    governance: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -285,6 +294,7 @@ impl TaskHealth {
             pattern_analyzer: AtomicU64::new(0),
             pattern_healing_alerter: AtomicU64::new(0),
             storage_metrics: AtomicU64::new(0),
+            governance: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -360,6 +370,9 @@ impl TaskHealth {
     pub fn touch_storage_metrics(&self) {
         self.storage_metrics
             .store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_governance(&self) {
+        self.governance.store(Self::now_secs(), Ordering::Relaxed);
     }
     pub fn touch_pattern_analyzer(&self) {
         self.pattern_analyzer
@@ -535,6 +548,12 @@ impl TaskHealth {
             TaskSnapshot::new(
                 STORAGE_METRICS,
                 self.storage_metrics.load(Ordering::Relaxed),
+                now,
+                None,
+            ),
+            TaskSnapshot::new(
+                GOVERNANCE,
+                self.governance.load(Ordering::Relaxed),
                 now,
                 None,
             ),

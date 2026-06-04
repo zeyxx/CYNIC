@@ -30,7 +30,7 @@ pub(super) async fn wallet_judgment_fast_path(
     let (_, axiom_scores) = crate::domain::wallet_judgment::deterministic_dog(profile);
     let q_score = compute_qscore(&axiom_scores);
     let kind = verdict_kind(q_score.total);
-    let id = uuid::Uuid::new_v4().to_string();
+    let id = crate::infra::crypto::generate_secure_id();
     let timestamp = chrono::Utc::now().to_rfc3339();
     let stimulus_summary: String = stimulus.content.chars().take(300).collect();
     let dog_score = DogScore {

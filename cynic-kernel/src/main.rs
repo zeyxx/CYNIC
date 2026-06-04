@@ -1081,6 +1081,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
 
+        // ─── Governance (Auto-Submission) ────────────────────────
+        let _governance_handle = infra::tasks::spawn_governance_queue(
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Governance submission queue started");
+
         // ─── Storage metrics emitter (every 60s, CHAOS→MATRIX data-centric measurement) ────
         let _storage_metrics_handle = infra::tasks::spawn_storage_metrics_emitter(
             Arc::clone(&storage_port),

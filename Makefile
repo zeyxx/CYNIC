@@ -832,6 +832,10 @@ clean:
 	cargo clean -p cynic-kernel
 	@echo "✓ Cleaned cynic-kernel build artifacts"
 
+.PHONY: monitor-vm
+monitor-vm: ## Monitor VMs on Proxmox
+	@bash infra/monitoring/monitor_vms.sh
+
 # ── Standalone: End-to-end test ──────────────────────────────
 .PHONY: e2e
 e2e:
