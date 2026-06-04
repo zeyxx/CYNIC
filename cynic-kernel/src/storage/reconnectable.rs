@@ -573,6 +573,12 @@ impl StoragePort for ReconnectableStorage {
     ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
         self.current().load_dog_stats().await
     }
+    async fn load_dog_stat(
+        &self,
+        dog_id: &str,
+    ) -> Result<Option<crate::domain::dog_health::DogStats>, StorageError> {
+        self.current().load_dog_stat(dog_id).await
+    }
     async fn cleanup_ttl(&self) -> Result<(), StorageError> {
         self.current().cleanup_ttl().await
     }

@@ -939,12 +939,22 @@ impl StoragePort for InMemoryStorage {
         Ok(())
     }
 
-    async fn load_dog_stats(&self) -> Result<Vec<(String, DogStats)>, StorageError> {
+    async fn load_dog_stats(
+        &self,
+    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
         let s = self.state.lock().await;
         Ok(s.dog_stats
             .iter()
             .map(|(id, stat)| (id.clone(), stat.clone()))
             .collect())
+    }
+
+    async fn load_dog_stat(
+        &self,
+        dog_id: &str,
+    ) -> Result<Option<crate::domain::dog_health::DogStats>, StorageError> {
+        let s = self.state.lock().await;
+        Ok(s.dog_stats.get(dog_id).cloned())
     }
 }
 

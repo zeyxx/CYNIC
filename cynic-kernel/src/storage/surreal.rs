@@ -552,6 +552,14 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     #[tracing::instrument(skip(self), err)]
+    async fn load_dog_stat(
+        &self,
+        dog_id: &str,
+    ) -> Result<Option<crate::domain::dog_health::DogStats>, StorageError> {
+        ops::load_dog_stat(self, dog_id).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
     async fn cleanup_ttl(&self) -> Result<(), StorageError> {
         maintenance::cleanup_ttl(self).await
     }

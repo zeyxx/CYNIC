@@ -473,6 +473,14 @@ pub trait StoragePort:
         Ok(vec![])
     }
 
+    /// Load persisted DogStats for a specific Dog.
+    async fn load_dog_stat(
+        &self,
+        _dog_id: &str,
+    ) -> Result<Option<crate::domain::dog_health::DogStats>, StorageError> {
+        Ok(None)
+    }
+
     /// TTL cleanup — remove stale observations and audit entries.
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
