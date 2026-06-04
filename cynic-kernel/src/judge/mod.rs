@@ -24,7 +24,6 @@ use futures_util::StreamExt;
 use math::trimmed_mean;
 use math::{aggregate_scores, chain_hash, detect_residuals};
 use std::sync::{Arc, Mutex};
-use uuid::Uuid;
 
 pub struct Judge {
     dogs: Vec<Arc<dyn Dog>>,
@@ -972,7 +971,7 @@ impl Judge {
         let mut dog_ids: Vec<&str> = dog_scores.iter().map(|s| s.dog_id.as_str()).collect();
         dog_ids.sort_unstable(); // Canonical order — deterministic regardless of response timing
 
-        let id = Uuid::new_v4().to_string();
+        let id = crate::infra::crypto::generate_secure_id();
         let timestamp = Utc::now().to_rfc3339();
         // KC10: 300 chars gives crystals enough signal to be meaningful knowledge.
         // Previous 100 chars truncated most domain prompts to noise.
@@ -1548,7 +1547,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn verdict_has_valid_uuid_and_timestamp() {
+    async fn verdict_has_valid_secure_id_and_timestamp() {
         let judge = test_judge(vec![Arc::new(FixedDog {
             name: "t".into(),
             scores: AxiomScores {
@@ -1567,9 +1566,9 @@ mod tests {
             .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
-        // UUID v4 format: 8-4-4-4-12
-        assert_eq!(verdict.id.len(), 36);
-        assert_eq!(verdict.id.chars().filter(|c| *c == '-').count(), 4);
+        // Secure ID format: 32 chars hex
+        assert_eq!(verdict.id.len(), 32);
+        assert!(verdict.id.chars().all(|c| c.is_ascii_hexdigit()));
         // RFC3339 timestamp
         assert!(verdict.timestamp.contains('T'));
         assert!(verdict.timestamp.ends_with("+00:00") || verdict.timestamp.ends_with('Z'));

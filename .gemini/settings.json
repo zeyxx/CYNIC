@@ -7,6 +7,17 @@
       "command": "/home/user/bin/tailscale-mcp"
     }
   },
+  "agents": {
+    "codebase_investigator": {
+      "enabled": true
+    },
+    "cli_help": {
+      "enabled": true
+    },
+    "generalist": {
+      "enabled": true
+    }
+  },
   "hooks": {
     "SessionStart": [
       {

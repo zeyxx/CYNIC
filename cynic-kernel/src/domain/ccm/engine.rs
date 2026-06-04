@@ -17,12 +17,13 @@ use super::crystal::{CANONICAL_CYCLES, CrystalState, MIN_CRYSTALLIZATION_CYCLES,
 ///
 /// Formula: `concordance * volume` where:
 /// - `concordance = 1 / (1 + (stddev / phi-cubed-inverse)^2)` — quadratic decay, phi-calibrated
-/// - `volume = min(obs / 21, 1.0)` — linear ramp to crystallization threshold
+/// - `volume` is dynamic:
+///   - High consensus (concordance > phi-inverse) allows fast-track crystallization.
+///   - Baseline ramp to 21 observations.
 ///
-/// Crystallization (certainty >= phi-inverse) requires stddev <= 0.186 at 21+ obs.
-/// Decay (certainty < phi-inverse-squared) requires stddev > 0.300 — maximally disagreeing.
-/// All thresholds self-derive from phi constants.
-pub fn compute_certainty(variance_m2: f64, observations: u32) -> f64 {
+/// Crystallization (certainty >= phi-inverse) can now occur at ~13 observations if
+/// consensus is perfect, or 21 if consensus is marginal.
+pub fn compute_certainty(variance_m2: f64, observations: u32, source_diversity: u32) -> f64 {
     let stddev = if observations > 1 {
         (variance_m2 / (observations as f64 - 1.0)).sqrt()
     } else {
@@ -30,17 +31,28 @@ pub fn compute_certainty(variance_m2: f64, observations: u32) -> f64 {
     };
     let ratio = stddev / PHI_INV3;
     let concordance = 1.0 / (1.0 + ratio * ratio);
-    let volume = (observations as f64 / MIN_CRYSTALLIZATION_CYCLES as f64).min(1.0);
+
+    // Epistemic Fast-Track: high consensus + diversity accelerates memory formation.
+    // Bonus factor for consensus (concordance) weighted by phi.
+    let consensus_bonus = 1.0 + (0.618 * concordance);
+    // Diversity bonus factor between 1.0 and 1.618 (phi).
+    let diversity_bonus = 1.0 + (0.618 * (source_diversity as f64 - 1.0).max(0.0) / 5.0).min(0.618);
+
+    let effective_obs = observations as f64 * consensus_bonus * diversity_bonus;
+
+    let volume = (effective_obs / MIN_CRYSTALLIZATION_CYCLES as f64).min(1.0);
     concordance * volume
 }
 
 /// Classify a crystal based on its certainty and observation count.
 /// Used by InMemoryStorage and tests. SurrealDB does this in SQL.
 pub fn classify(certainty: f64, observations: u32) -> CrystalState {
-    if observations >= CANONICAL_CYCLES && certainty >= PHI_INV {
-        CrystalState::Canonical
-    } else if observations >= MIN_CRYSTALLIZATION_CYCLES && certainty >= PHI_INV {
-        CrystalState::Crystallized
+    if certainty >= PHI_INV {
+        if observations >= CANONICAL_CYCLES {
+            CrystalState::Canonical
+        } else {
+            CrystalState::Crystallized
+        }
     } else if observations >= MIN_CRYSTALLIZATION_CYCLES && certainty < PHI_INV2 {
         CrystalState::Decaying
     } else {
@@ -58,7 +70,7 @@ pub fn observe(crystal: &Crystal, new_score: f64) -> CrystalState {
     let delta = new_score - old_mean;
     let delta2 = new_score - new_mean;
     let new_m2 = crystal.variance_m2 + delta * delta2;
-    let certainty = compute_certainty(new_m2, next_obs);
+    let certainty = compute_certainty(new_m2, next_obs, crystal.source_diversity);
     classify(certainty, next_obs)
 }
 
@@ -72,7 +84,8 @@ pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Cry
     let delta = new_score - crystal.confidence;
     let delta2 = new_score - confidence;
     let variance_m2 = crystal.variance_m2 + delta * delta2;
-    let certainty = compute_certainty(variance_m2, observations);
+    let source_diversity = crystal.contributing_sources.len() as u32;
+    let certainty = compute_certainty(variance_m2, observations, source_diversity);
     let state = classify(certainty, observations);
 
     Crystal {
@@ -92,6 +105,9 @@ pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Cry
         wag_count: crystal.wag_count,
         growl_count: crystal.growl_count,
         bark_count: crystal.bark_count,
+        source_diversity,
+        relations: crystal.relations.clone(),
+        embedding: crystal.embedding.clone(),
         contributing_sources: crystal.contributing_sources.clone(),
         shattered_at: crystal.shattered_at.clone(),
         shatter_reason: crystal.shatter_reason.clone(),
@@ -126,6 +142,9 @@ pub fn new_crystal(
         wag_count: 0,
         growl_count: 0,
         bark_count: 0,
+        source_diversity: 0,
+        relations: std::collections::BTreeMap::new(),
+        embedding: None,
         contributing_sources: std::collections::BTreeMap::new(),
         shattered_at: None,
         shatter_reason: None,
@@ -344,6 +363,9 @@ mod tests {
             wag_count: 0,
             growl_count: 0,
             bark_count: 0,
+            source_diversity: 0,
+            relations: std::collections::BTreeMap::new(),
+            embedding: None,
             contributing_sources: std::collections::BTreeMap::new(),
             shattered_at: None,
             shatter_reason: None,
@@ -745,6 +767,57 @@ mod tests {
             state,
             CrystalState::Crystallized,
             "4D: concordant raw Q-Score {good_qscore:.3} MUST crystallize"
+        );
+    }
+
+    #[test]
+    fn epistemic_fast_track_allows_early_crystallization() {
+        // High signal: perfect consensus (stddev=0, concordance=1.0)
+        // across 5 different sources.
+        let crystal = Crystal {
+            id: "fast-track".into(),
+            content: "high signal".into(),
+            domain: "test".into(),
+            confidence: 1.0,
+            observations: 8,
+            state: CrystalState::Forming,
+            created_at: "2026-06-03T10:00:00Z".into(),
+            updated_at: "2026-06-03T10:00:00Z".into(),
+            contributing_verdicts: vec![],
+            certainty: 0.0,
+            variance_m2: 0.0, // perfect consensus
+            mean_quorum: 5.0,
+            howl_count: 8,
+            wag_count: 0,
+            growl_count: 0,
+            bark_count: 0,
+            source_diversity: 5, // High diversity
+            relations: std::collections::BTreeMap::new(),
+            embedding: None,
+            contributing_sources: std::collections::BTreeMap::from([
+                ("dog-1".into(), 2),
+                ("dog-2".into(), 2),
+                ("dog-3".into(), 2),
+                ("dog-4".into(), 1),
+                ("dog-5".into(), 1),
+            ]),
+            shattered_at: None,
+            shatter_reason: None,
+            shatter_source: None,
+        };
+
+        // Current certainty should already be high
+        let certainty = compute_certainty(
+            crystal.variance_m2,
+            crystal.observations,
+            crystal.source_diversity,
+        );
+        let state = classify(certainty, crystal.observations);
+
+        assert_eq!(
+            state,
+            CrystalState::Crystallized,
+            "High signal (8 obs, perfect consensus, 5 sources) MUST crystallize early"
         );
     }
 }

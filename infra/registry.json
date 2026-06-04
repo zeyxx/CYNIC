@@ -4,10 +4,23 @@
     {
       "name": "cynic-forge",
       "role": "proxmox_host_kernel",
+      "os": "Proxmox VE 8.2",
       "network": {
         "local": "192.168.0.37",
-        "tailscale": "100.64.0.x"
+        "tailscale": "<TAILSCALE_FORGE>"
       },
+      "services": [
+        {
+          "name": "llama-embed",
+          "port": 8081,
+          "description": "Sovereign embedding backend (Qwen3-Embed)"
+        },
+        {
+          "name": "surrealdb-replica",
+          "port": 8001,
+          "description": "Failover storage node"
+        }
+      ],
       "status": "active"
     },
     {

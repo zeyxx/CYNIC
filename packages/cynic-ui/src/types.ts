@@ -128,4 +128,29 @@ export interface AsyncJudgeStatus {
   error: string | null;
 }
 
+export interface Observation {
+  tool: string;
+  target?: string;
+  domain?: string;
+  status: string;
+  context: string;
+  project: string;
+  agent_id: string;
+  session_id?: string;
+  timestamp?: string;
+  value?: any;
+}
+
+export interface AgentTask {
+  id: string;
+  kind: string;
+  domain: string;
+  content: string;
+  agent_id?: string;
+  status: 'pending' | 'completed' | 'failed';
+  result?: string;
+  error?: string;
+  created_at?: string;
+}
+
 export const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3030';

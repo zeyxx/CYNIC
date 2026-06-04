@@ -1,8 +1,18 @@
 {
+  "name": "cynic-organism",
+  "private": true,
+  "description": "CYNIC Epistemic Immune System - Human Interfaces Monorepo",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:cortex": "npm run dev -w packages/cynic-ui",
+    "dev:landing": "npm run dev -w packages/talaria-landing",
+    "dev:demo": "npm run dev -w packages/talaria-demo",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
   "devDependencies": {
-    "@solana/web3.js": "^1.98.4",
-    "@types/node": "^25.6.0",
-    "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }
 }

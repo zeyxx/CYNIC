@@ -1,24 +1,90 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSelectedWalletAccount } from '@solana/react';
+import { getAuthInput, verifyAuth } from './api';
 import { ChessJudge } from './components/ChessJudge';
 import { TokenScreener } from './components/TokenScreener';
 import { VerdictHistory } from './components/VerdictHistory';
 import { HealthIndicator } from './components/HealthIndicator';
 import { KernelSettings } from './components/KernelSettings';
 import { LearnedPatterns } from './components/LearnedPatterns';
+import { OracleView } from './components/OracleView';
+import { ChainExplorer } from './components/ChainExplorer';
+import { TopologyView } from './components/TopologyView';
 import './App.css';
 
-type Tab = 'screen' | 'chess' | 'history' | 'patterns';
+type Tab = 'screen' | 'chess' | 'history' | 'patterns' | 'oracle' | 'explorer' | 'topology';
 
 const TAB_LABELS: Record<Tab, string> = {
   screen: 'SCREEN',
   chess: 'CHESS',
   history: 'HISTORY',
   patterns: 'PATTERNS',
+  oracle: 'ORACLE',
+  explorer: 'EXPLORER',
+  topology: 'TOPOLOGY',
 };
 
 function App() {
   const [tab, setTab] = useState<Tab>('screen');
   const [showSettings, setShowSettings] = useState(false);
+  const [selectedAccount, setSelectedAccount, wallets] = useSelectedWalletAccount();
+  const [authenticatedRole, setAuthenticatedRole] = useState<string | null>(null);
+  
+  const isAdmin = authenticatedRole === 'cortex' || !!(localStorage.getItem('cynic_api_key') || import.meta.env.VITE_API_KEY);
+
+  const handleConnect = async (wallet: any) => {
+    try {
+      // 1. Basic connection
+      await wallet.connect();
+      const account = wallet.accounts[0];
+      if (!account) return;
+
+      // 2. SIWS Flow
+      const { nonce, statement } = await getAuthInput();
+      
+      // Standard message format for SIWS
+      const message = `${statement}\nNonce: ${nonce}`;
+      const encodedMessage = new TextEncoder().encode(message);
+
+      let signatureHex = '';
+      
+      // Try official SIWS signIn if supported by wallet, fallback to signMessage
+      if (wallet.features['solana:signIn']) {
+        const input = {
+          domain: window.location.host,
+          address: account.address,
+          statement,
+          nonce,
+        };
+        const output = await wallet.features['solana:signIn'].signIn(input);
+        signatureHex = Array.from(output.signature as Uint8Array).map(b => b.toString(16).padStart(2, '0')).join('');
+      } else if (wallet.features['solana:signMessage']) {
+        const { signature } = await wallet.features['solana:signMessage'].signMessage({
+          account,
+          message: encodedMessage
+        });
+        signatureHex = Array.from(signature as Uint8Array).map(b => b.toString(16).padStart(2, '0')).join('');
+      } else {
+        throw new Error('Wallet does not support signing');
+      }
+
+      // 3. Verify on backend
+      const { role } = await verifyAuth(account.address, signatureHex, nonce);
+      
+      setSelectedAccount(account);
+      setAuthenticatedRole(role);
+      console.log(`Authenticated as ${role}`);
+    } catch (e) {
+      console.error('SIWS failed', e);
+      alert(`Authentication failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedAccount) {
+      setAuthenticatedRole(null);
+    }
+  }, [selectedAccount]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
@@ -50,7 +116,7 @@ function App() {
             <div style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 8,
-              color: 'var(--text-muted)',
+              color: 'var(--text-dim)',
               letterSpacing: 3,
               marginTop: 3,
               textTransform: 'uppercase',
@@ -88,7 +154,7 @@ function App() {
           ))}
         </nav>
 
-        {/* Right — phi constant + settings */}
+        {/* Right — phi constant + wallet */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '0 0 auto' }}>
           <span style={{
             fontFamily: 'var(--font-mono)',
@@ -99,6 +165,46 @@ function App() {
           }}>
             φ⁻¹ = 0.618034
           </span>
+          
+          {selectedAccount ? (
+            <button 
+              onClick={() => setSelectedAccount(undefined)}
+              style={{
+                background: 'var(--gold-glow)',
+                border: '1px solid var(--gold)',
+                borderRadius: 4,
+                color: 'var(--gold)',
+                padding: '4px 12px',
+                fontSize: 11,
+                fontFamily: 'var(--font-mono)',
+                cursor: 'pointer'
+              }}
+            >
+              {selectedAccount.address.slice(0, 4)}...{selectedAccount.address.slice(-4)}
+            </button>
+          ) : (
+            <div style={{ display: 'flex', gap: 4 }}>
+              {wallets.slice(0, 2).map((w: any) => (
+                <button 
+                  key={w.name}
+                  onClick={() => handleConnect(w)}
+                  title={`Connect ${w.name}`}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--border-bright)',
+                    borderRadius: 4,
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <img src={w.icon} alt={w.name} width={14} height={14} />
+                </button>
+              ))}
+            </div>
+          )}
+
           <button
             onClick={() => setShowSettings(true)}
             title="Kernel settings"
@@ -162,6 +268,33 @@ function App() {
               sub="Knowledge crystallized through multi-agent consensus."
             />
             <LearnedPatterns />
+          </div>
+        )}
+        {tab === 'oracle' && (
+          <div style={{ animation: 'slide-up 0.25s ease' }}>
+            <PageHeading
+              title="ORACLE SUPERVISION"
+              sub={isAdmin ? "Real-time social interactions. Approve or edit drafts to align the organism." : "Real-time feed of the organism's social interactions and reasoning."}
+            />
+            <OracleView isAdmin={isAdmin} />
+          </div>
+        )}
+        {tab === 'explorer' && (
+          <div style={{ animation: 'slide-up 0.25s ease' }}>
+            <PageHeading
+              title="CYNIC CHAIN EXPLORER"
+              sub="Immutable Proof-of-History. Browse hash-chained organism state blocks."
+            />
+            <ChainExplorer />
+          </div>
+        )}
+        {tab === 'topology' && (
+          <div style={{ animation: 'slide-up 0.25s ease' }}>
+            <PageHeading
+              title="ORGANISM TOPOLOGY"
+              sub="Hardware-as-Law. Mapping the native infrastructure and the Five Dogs of Vigilance."
+            />
+            <TopologyView />
           </div>
         )}
       </main>
