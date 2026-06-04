@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "nodes": [
     {
       "name": "cynic-forge",
@@ -9,6 +9,23 @@
         "local": "192.168.0.37",
         "tailscale": "<TAILSCALE_FORGE>"
       },
+      "vms": [
+        {
+          "id": "lxc/100",
+          "name": "headscale",
+          "ip": "192.168.0.40"
+        },
+        {
+          "id": "lxc/101",
+          "name": "forgejo",
+          "ip": "192.168.0.41"
+        },
+        {
+          "id": "qemu/102",
+          "name": "cynic-node-forge",
+          "ip": "192.168.0.42"
+        }
+      ],
       "services": [
         {
           "name": "llama-embed",
@@ -45,5 +62,18 @@
   "routing_rules": {
     "primary_tunnel": "tailscale_100_64_0_0_24",
     "management_fallback": "local_192_168_0_0_24"
-  }
+  },
+  "organs": [
+    {
+      "name": "organ-anvil",
+      "instance": "organ-anvil-hermes-agent",
+      "role": "repo_lifecycle_manager",
+      "description": "Git repo hygiene — branches, PRs, dirty trees, sync enforcement",
+      "scope": "github+forgejo",
+      "cron": "every 30min",
+      "status": "active",
+      "depends_on": ["cynic-kernel"],
+      "coord": "cynic_coord_register/release"
+    }
+  ]
 }

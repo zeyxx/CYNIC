@@ -83,3 +83,4 @@ body {
   70% { transform: translate(0, -1%); }
   90% { transform: translate(1%, 1%); }
 }
+:root { --howl: #4cd964; --wag: #5ac8fa; --growl: #ff9500; --bark: #ff3b30; --epoche: #8e8e93; }

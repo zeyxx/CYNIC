@@ -4,7 +4,9 @@ import type { HealthResponse, JudgeRequest, Verdict, Crystal, AsyncJudgeResponse
 import { getKernelUrl } from './utils';
 
 function base(): string {
-  return getKernelUrl().replace(/\/$/, '');
+  // En développement, on utilise le proxy Vite (/api)
+  // En production, on utilise VITE_API_BASE
+  return import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_BASE ?? '');
 }
 
 /**
