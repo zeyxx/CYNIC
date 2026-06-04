@@ -50,6 +50,7 @@ ssh -o ConnectTimeout=5 "$REMOTE_IP" << EOF
     # Here we assume it exists or is managed via Tailscale-locked transfer.
 
     echo "▶ Building cynic-node..."
+    export RUST_MIN_STACK=8388608
     cargo build -p cynic-node --release
 
     echo "▶ Installing systemd units..."
