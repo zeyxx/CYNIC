@@ -1,12 +1,7 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-# CYNIC Organism Topology (auto-generated 2026-06-03 11:59 UTC)
-=======
-# CYNIC Organism Topology (auto-generated 2026-06-02 16:57 UTC)
->>>>>>> origin/main
-=======
 # CYNIC Organism Topology (auto-generated 2026-06-04 20:32 UTC)
->>>>>>> origin/main
+# CYNIC Organism Topology (auto-generated 2026-06-03 11:59 UTC)
+# CYNIC Organism Topology (auto-generated 2026-06-02 16:57 UTC)
+# CYNIC Organism Topology (auto-generated 2026-06-04 20:32 UTC)
 
 ## Active Modules
 
