@@ -231,7 +231,7 @@ pub async fn judge_async_handler(
 ) -> Result<(StatusCode, Json<JudgeAsyncAcceptedResponse>), (StatusCode, Json<ErrorResponse>)> {
     let req = validate_judge_request(req)?;
 
-    let request_id = uuid::Uuid::new_v4().to_string();
+    let request_id = crate::infra::crypto::generate_secure_id();
     let judge = state.judge.load_full();
     // Use registered dog count, not runnable_dog_count (which checks transient slot state).
     // Slot state is stale by the time the pipeline runs — the pipeline re-checks at dispatch.
@@ -487,6 +487,8 @@ mod tests {
                 stimulus_content: None,
                 failed_dogs: Vec::new(),
                 failed_dog_errors: Default::default(),
+                failed_dog_error_kinds: Default::default(),
+                excluded_dogs: Vec::new(),
             },
         );
         let snapshot = store.get("req-3").unwrap();

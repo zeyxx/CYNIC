@@ -132,7 +132,7 @@ pub async fn run(
     let request_id = deps
         .request_id
         .clone()
-        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        .unwrap_or_else(crate::infra::crypto::generate_secure_id);
     let pipeline_span = tracing::info_span!("judge_pipeline",
         request_id = %request_id,
         domain = %domain_hint,
@@ -256,7 +256,7 @@ async fn pipeline_inner(
                 abstentions: vec![],
             };
             let prefilter_verdict = crate::domain::dog::Verdict {
-                id: uuid::Uuid::new_v4().to_string(),
+                id: crate::infra::crypto::generate_secure_id(),
                 domain: domain_hint.to_string(),
                 kind: crate::domain::dog::VerdictKind::Bark,
                 q_score,
@@ -271,6 +271,8 @@ async fn pipeline_inner(
                 anomaly_axiom: None,
                 failed_dogs: vec![],
                 failed_dog_errors: std::collections::BTreeMap::new(),
+                failed_dog_error_kinds: std::collections::BTreeMap::new(),
+                excluded_dogs: Vec::new(),
                 target: Some(td.mint.clone()),
                 integrity_hash: None,
                 prev_hash: None,

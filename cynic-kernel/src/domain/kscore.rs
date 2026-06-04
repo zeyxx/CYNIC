@@ -86,7 +86,7 @@ pub fn compute_kscore(
         None
     } else {
         let mid = hold_times.len() / 2;
-        if hold_times.len() % 2 == 0 && hold_times.len() >= 2 {
+        if hold_times.len().is_multiple_of(2) && hold_times.len() >= 2 {
             Some((hold_times[mid - 1] + hold_times[mid]) / 2.0)
         } else {
             Some(hold_times[mid])

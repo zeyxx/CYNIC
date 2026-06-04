@@ -133,7 +133,11 @@ freeze_authority: ${freeze_auth_label}"
             --arg domain "token-analysis" \
             '{content: $content, context: $context, domain: $domain}')" 2>/dev/null)
 
-    echo "$response" | jq -r '.verdict_id, .q_score.total, .verdict_kind, (.dog_scores | length)' 2>/dev/null || echo "null null null 0"
+    # Single TAB-separated line so the caller's `read` captures all 4 fields.
+    # (jq with comma emits 4 newlines; `read` only consumes the first line → 3 fields lost.)
+    # verdict KIND lives in top-level `.verdict` ("Growl"/"Wag"/"Epoche"); `.verdict_kind` does not exist.
+    echo "$response" | jq -r '[.verdict_id, (.q_score.total | tostring), .verdict, (.dog_scores | length | tostring)] | @tsv' 2>/dev/null \
+        || printf 'null\tnull\tnull\t0\n'
 }
 
 # ── Main measurement loop ──
@@ -158,6 +162,7 @@ fi
 total=0
 divergence_sum=0.0
 verdict_changes=0
+error_count=0
 
 echo "[outcome_measurement_t7] Measuring enriched verdicts..."
 
@@ -171,19 +176,33 @@ while IFS=$'\t' read -r baseline_mint baseline_q baseline_kind baseline_ts \
 
     echo -ne "\r[outcome_measurement_t7] Token $((total+1))/${baseline_count}                "
 
+    # K25: yield between iterations — no sleep = slot semaphore exhaustion after ~10 calls
+    sleep 1
+
     # Measure enriched verdict using reconstructed stimulus from baseline fields
-    read enriched_verdict_id enriched_q enriched_kind dogs_voted < <(judge_token \
+    IFS=$'\t' read -r enriched_verdict_id enriched_q enriched_kind dogs_voted < <(judge_token \
         "$baseline_mint" \
         "${baseline_holders:-0}" \
         "${baseline_concentration:-0}" \
         "${baseline_mint_auth:-false}" \
         "${baseline_freeze_auth:-false}")
 
+    # GUARD: enriched side must be a real number. A missing/null enriched Q-score is a
+    # measurement ERROR (judge failed or parsing broke), NOT a divergence. Without this guard,
+    # an empty enriched_q makes `bc "$enriched_q - $baseline_q"` evaluate " - baseline" (unary
+    # minus) → delta == -baseline → fake maximal divergence → false PASS. (Root cause, 2026-05-29.)
+    if ! [[ "$enriched_q" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
+        echo "${baseline_mint},N/A,${baseline_q},${baseline_kind},${enriched_verdict_id:-null},ERROR,ERROR,ERROR,ERROR,${dogs_voted:-0}" >> "${DIVERGENCE_CSV}"
+        ((error_count++)) || true
+        ((total++)) || true
+        continue
+    fi
+
     # Compute divergence (absolute change in Q-score)
     q_delta=$(echo "$enriched_q - $baseline_q" | bc -l 2>/dev/null || echo "0")
     q_delta_abs=$(echo "scale=6; if ($q_delta < 0) -1 * $q_delta else $q_delta" | bc -l 2>/dev/null || echo "0")
 
-    # Check verdict change (comparing verdict_kind strings)
+    # Check verdict change (top-level `.verdict` vs baseline kind)
     verdict_changed=0
     if [ "$baseline_kind" != "$enriched_kind" ] && [ "$baseline_kind" != "null" ]; then
         verdict_changed=1
@@ -204,8 +223,15 @@ echo "[outcome_measurement_t7] Measurement complete. ${total} tokens measured."
 
 # ── Summary statistics ──
 
-mean_divergence=$(echo "scale=6; $divergence_sum / $total" | bc -l 2>/dev/null || echo "0")
-verdict_change_pct=$(echo "scale=2; $verdict_changes * 100 / $total" | bc -l 2>/dev/null || echo "0")
+# Divergence is meaningful only over tokens that produced a real enriched verdict.
+measured=$(( total - error_count ))
+if [ "$measured" -le 0 ]; then
+    mean_divergence="0"
+    verdict_change_pct="0"
+else
+    mean_divergence=$(echo "scale=6; $divergence_sum / $measured" | bc -l 2>/dev/null || echo "0")
+    verdict_change_pct=$(echo "scale=2; $verdict_changes * 100 / $measured" | bc -l 2>/dev/null || echo "0")
+fi
 
 # ── Generate markdown report ──
 
@@ -218,20 +244,26 @@ cat > "${REPORT_MD}" << EOF
 
 | Metric | Value |
 |--------|-------|
-| Tokens Measured | ${total} |
+| Tokens In Set | ${total} |
+| Successfully Measured | ${measured} |
+| Measurement Errors | ${error_count} |
 | Mean Q-Score Divergence | ${mean_divergence} |
-| Verdict Changes | ${verdict_changes}/${total} (${verdict_change_pct}%) |
+| Verdict Changes | ${verdict_changes}/${measured} (${verdict_change_pct}%) |
 | Baseline Count | ${baseline_count} |
 
 ## Falsification Test
 
-**Hypothesis**: Token enrichment (post-processor + class-aware caps) improves verdict quality.
+**Hypothesis**: Token enrichment (post-processor + class-aware caps) changes verdicts measurably.
+(NOTE: this detects *change*, not *improvement* — a large divergence with no ground truth
+cannot tell better from worse. Improvement requires labelled outcomes, not just divergence.)
 
 **Test**: If mean Q-score divergence ≤ 0.05, enrichment has no effect (is dead code).
+**Validity guard**: if >50% of tokens error out, the measurement itself is invalid → ERROR, not PASS.
 
 **Result**:
+- Successfully measured: **${measured}/${total}** (${error_count} errors)
 - Mean divergence: **${mean_divergence}**
-- **Status**: $(if (( $(echo "$mean_divergence > 0.05" | bc -l) )); then echo "PASS — enrichment shows effect"; else echo "FAIL — enrichment is noise"; fi)
+- **Status**: $(if [ "$measured" -le 0 ] || [ "$error_count" -gt $(( total / 2 )) ]; then echo "ERROR — measurement invalid (${error_count}/${total} tokens failed); fix before interpreting"; elif (( $(echo "$mean_divergence > 0.05" | bc -l) )); then echo "PASS — enrichment shows effect"; else echo "FAIL — enrichment is noise"; fi)
 
 ## Data
 

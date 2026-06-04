@@ -36,6 +36,7 @@ fn is_crystallizable_domain(domain: &str) -> bool {
             | "D8"
             | "D9"
             | "hermes"
+            | "governance"
     )
 }
 

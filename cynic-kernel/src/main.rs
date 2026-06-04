@@ -11,6 +11,10 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 // ============================================================
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load environment variables from .env file
+    let _env_loaded = dotenvy::dotenv().ok();
+    tracing::trace!("env loaded from .env (if present)");
+
     // Parse flags early — MCP mode needs stderr-only logging from the start.
     let force_reprobe = std::env::args().any(|a| a == "--reset");
     let mcp_mode = std::env::args().any(|a| a == "--mcp");
@@ -432,6 +436,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // ─── Routing calculator — dynamic Dog selection based on observed latencies ──
+    // Constructed here (before health loop) so health_loop can call reset_dog on recovery.
+    // Consumes dog_performance observations and adapts routing in real-time.
+    let routing_calc = Arc::new(infra::routing_calc::RoutingCalculator::with_storage(
+        Arc::clone(&storage_port),
+    ));
+
     // ─── RING 2: Spawn health loop + remediation watcher ──────
     let all_breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> =
         judge.breakers().iter().map(Arc::clone).collect();
@@ -477,6 +488,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 dog_to_fleet_node.clone(),
                 Arc::clone(&slot_tracker),
                 Arc::clone(&slot_semaphores),
+                Arc::clone(&routing_calc),
                 shutdown.clone(),
             );
             klog!(
@@ -739,13 +751,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialized from backend_configs. Maps domain → suitable Dogs.
     let domain_router = Arc::new(infra::domain_router::DomainRouter::from_backends(
         &backend_configs,
-    ));
-
-    // ─── Routing calculator — dynamic Dog selection based on observed latencies ──
-    // Consumes dog_performance observations and adapts routing in real-time.
-    // Data-centric: routing reflects current performance, not static config.
-    let routing_calc = Arc::new(infra::routing_calc::RoutingCalculator::with_storage(
-        Arc::clone(&storage_port),
     ));
 
     // ─── Dog performance collector — K15 seam 3 producer ──
@@ -1079,6 +1084,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             shutdown.clone(),
         );
         klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
+
+        // ─── Governance (Auto-Submission) ────────────────────────
+        let _governance_handle = infra::tasks::spawn_governance_queue(
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Governance submission queue started");
 
         // ─── Storage metrics emitter (every 60s, CHAOS→MATRIX data-centric measurement) ────
         let _storage_metrics_handle = infra::tasks::spawn_storage_metrics_emitter(

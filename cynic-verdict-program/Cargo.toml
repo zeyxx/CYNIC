@@ -1,0 +1,26 @@
+[workspace]
+
+[package]
+name = "cynic-verdict-program"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "cynic_verdict_program"
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+solana-program = "2.2"
+bytemuck = { version = "1.14", features = ["derive"] }
+
+[dev-dependencies]
+solana-program-test = "2.2"
+solana-sdk = "2.2"
+tokio = { version = "1", features = ["full"] }
+
+[profile.release]
+overflow-checks = true
+lto = "thin"

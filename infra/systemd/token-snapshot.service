@@ -1,5 +1,5 @@
 [Unit]
-Description=Token Snapshot — daily holder + market + trajectory + outcomes + unify
+Description=Token Snapshot — daily holder + market + trajectory + unify
 After=network-online.target
 
 [Service]
@@ -9,7 +9,9 @@ WorkingDirectory=%h/Bureau/CYNIC
 ExecStart=/usr/bin/python3 cynic-python/heuristics/collection/daily_snapshot.py
 ExecStartPost=/usr/bin/python3 cynic-python/heuristics/collection/daily_snapshot.py --market
 ExecStartPost=/usr/bin/python3 cynic-python/heuristics/collection/daily_snapshot.py --trajectory
-ExecStartPost=/usr/bin/python3 cynic-python/heuristics/collection/outcome_collector.py
+# outcome_collector.py extracted to its own unit (cynic-outcome-collector.{service,timer})
+# 2026-05-30: as the 4th of 5 bundled stages it never completed within the 900s budget —
+# 0 outcomes ever persisted. A rate-limited T+7/14/30 sweep needs its own cadence + timeout.
 ExecStartPost=/usr/bin/python3 cynic-python/heuristics/collection/unify.py
 StandardOutput=journal
 StandardError=journal

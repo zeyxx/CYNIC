@@ -16,8 +16,11 @@ use crate::domain::coord::{
     AuditEntry, BatchClaimResult, ClaimResult, CoordError, CoordPort, CoordSnapshot,
 };
 use crate::domain::storage::{
-    Observation, RawObservation, StorageError, StorageMetrics, StoragePort, UsageRow,
+    ActivityStorage, CrystalStorage, DispatchStorage, Observation, RawObservation, StateLogStorage,
+    StorageError, StorageMetrics, StoragePort, SubmissionStorage, TaskStorage, UsageRow,
+    VerdictStorage,
 };
+use crate::domain::verdict_queue::QueuedVerdict;
 use crate::infra::config::StorageConfig;
 
 // ── ReconnectableStorage ────────────────────────────────────
@@ -54,13 +57,7 @@ impl std::fmt::Debug for ReconnectableStorage {
 }
 
 #[async_trait]
-impl StoragePort for ReconnectableStorage {
-    async fn ping(&self) -> Result<(), StorageError> {
-        self.current().ping().await
-    }
-    fn metrics(&self) -> Option<StorageMetrics> {
-        self.current().metrics()
-    }
+impl VerdictStorage for ReconnectableStorage {
     async fn store_verdict(
         &self,
         verdict: &crate::domain::dog::Verdict,
@@ -89,6 +86,21 @@ impl StoragePort for ReconnectableStorage {
     ) -> Result<Vec<crate::domain::dog::Verdict>, StorageError> {
         self.current().list_verdicts_by_domain(domain, limit).await
     }
+    async fn last_integrity_hash(&self) -> Result<Option<String>, StorageError> {
+        self.current().last_integrity_hash().await
+    }
+    async fn count_verdicts(&self) -> Result<u64, StorageError> {
+        self.current().count_verdicts().await
+    }
+    async fn count_verdicts_by_kind(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u64>, StorageError> {
+        self.current().count_verdicts_by_kind().await
+    }
+}
+
+#[async_trait]
+impl CrystalStorage for ReconnectableStorage {
     async fn store_crystal(
         &self,
         crystal: &crate::domain::ccm::Crystal,
@@ -120,12 +132,24 @@ impl StoragePort for ReconnectableStorage {
     async fn delete_crystal(&self, id: &str) -> Result<(), StorageError> {
         self.current().delete_crystal(id).await
     }
+
+    async fn update_crystal_relations(
+        &self,
+        id: &str,
+        relations: std::collections::BTreeMap<String, String>,
+    ) -> Result<(), StorageError> {
+        self.current().update_crystal_relations(id, relations).await
+    }
+
     async fn list_crystals_for_domain(
         &self,
         domain: &str,
         limit: u32,
     ) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> {
         self.current().list_crystals_for_domain(domain, limit).await
+    }
+    async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
+        self.current().count_crystal_observations().await
     }
     async fn observe_crystal(
         &self,
@@ -176,8 +200,31 @@ impl StoragePort for ReconnectableStorage {
             .shatter_crystal(id, reason, source, timestamp)
             .await
     }
-    async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
-        self.current().store_observation(obs).await
+    async fn store_crystal_embedding(
+        &self,
+        id: &str,
+        embedding: &[f32],
+    ) -> Result<(), StorageError> {
+        self.current().store_crystal_embedding(id, embedding).await
+    }
+    async fn search_crystals_semantic(
+        &self,
+        query_embedding: &[f32],
+        limit: u32,
+    ) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> {
+        self.current()
+            .search_crystals_semantic(query_embedding, limit)
+            .await
+    }
+    async fn find_similar_crystal(
+        &self,
+        embedding: &[f32],
+        domain: &str,
+        threshold: f64,
+    ) -> Result<Option<(String, f64)>, StorageError> {
+        self.current()
+            .find_similar_crystal(embedding, domain, threshold)
+            .await
     }
     async fn list_crystals_missing_embedding(
         &self,
@@ -185,24 +232,42 @@ impl StoragePort for ReconnectableStorage {
     ) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> {
         self.current().list_crystals_missing_embedding(limit).await
     }
-    async fn count_verdicts(&self) -> Result<u64, StorageError> {
-        self.current().count_verdicts().await
+    async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
+        self.current().consolidate_duplicate_crystals().await
     }
-    async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
-        self.current().count_crystal_observations().await
+}
+
+#[async_trait]
+impl ActivityStorage for ReconnectableStorage {
+    async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
+        self.current().store_observation(obs).await
     }
-    async fn count_observations(&self) -> Result<u64, StorageError> {
-        self.current().count_observations().await
+    async fn store_event(&self, event: &crate::domain::storage::Event) -> Result<(), StorageError> {
+        self.current().store_event(event).await
     }
-    async fn get_table_op_metrics(
+    async fn fleet_stats(
         &self,
-    ) -> Result<Vec<crate::storage::TableOpMetrics>, StorageError> {
-        self.current().get_table_op_metrics().await
+        window_secs: u64,
+        limit: u32,
+    ) -> Result<Vec<(String, u64, f64, u64, String)>, StorageError> {
+        self.current().fleet_stats(window_secs, limit).await
     }
-    async fn count_verdicts_by_kind(
+    async fn list_degraded_nodes(
         &self,
-    ) -> Result<std::collections::HashMap<String, u64>, StorageError> {
-        self.current().count_verdicts_by_kind().await
+        window_secs: u64,
+        fatal_threshold: f64,
+    ) -> Result<Vec<(String, String, u64, u64)>, StorageError> {
+        self.current()
+            .list_degraded_nodes(window_secs, fatal_threshold)
+            .await
+    }
+    async fn list_events(
+        &self,
+        node: Option<&str>,
+        tool: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::storage::RawEvent>, StorageError> {
+        self.current().list_events(node, tool, limit).await
     }
     async fn list_observations_raw(
         &self,
@@ -234,31 +299,13 @@ impl StoragePort for ReconnectableStorage {
             .list_observations_by_tag(domain, tag, limit)
             .await
     }
-    async fn store_crystal_embedding(
+    async fn last_observation_per_source(
         &self,
-        id: &str,
-        embedding: &[f32],
-    ) -> Result<(), StorageError> {
-        self.current().store_crystal_embedding(id, embedding).await
+    ) -> Result<Vec<(String, String, u64)>, StorageError> {
+        self.current().last_observation_per_source().await
     }
-    async fn search_crystals_semantic(
-        &self,
-        query_embedding: &[f32],
-        limit: u32,
-    ) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> {
-        self.current()
-            .search_crystals_semantic(query_embedding, limit)
-            .await
-    }
-    async fn find_similar_crystal(
-        &self,
-        embedding: &[f32],
-        domain: &str,
-        threshold: f64,
-    ) -> Result<Option<(String, f64)>, StorageError> {
-        self.current()
-            .find_similar_crystal(embedding, domain, threshold)
-            .await
+    async fn count_observations(&self) -> Result<u64, StorageError> {
+        self.current().count_observations().await
     }
     async fn store_session_summary(
         &self,
@@ -299,42 +346,6 @@ impl StoragePort for ReconnectableStorage {
     ) -> Result<Vec<crate::domain::compliance::SessionCompliance>, StorageError> {
         self.current().list_session_compliance(limit).await
     }
-    async fn flush_usage(
-        &self,
-        snapshot: &[(String, crate::domain::usage::DogUsage)],
-    ) -> Result<(), StorageError> {
-        self.current().flush_usage(snapshot).await
-    }
-    async fn cleanup_ttl(&self) -> Result<(), StorageError> {
-        self.current().cleanup_ttl().await
-    }
-    async fn last_integrity_hash(&self) -> Result<Option<String>, StorageError> {
-        self.current().last_integrity_hash().await
-    }
-    async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
-        self.current().load_usage_history().await
-    }
-    async fn flush_dog_stats(
-        &self,
-        stats: &[(String, crate::domain::dog_health::DogStats)],
-    ) -> Result<(), StorageError> {
-        self.current().flush_dog_stats(stats).await
-    }
-    async fn load_dog_stats(
-        &self,
-    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
-        self.current().load_dog_stats().await
-    }
-    async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
-        self.current().consolidate_duplicate_crystals().await
-    }
-    async fn last_observation_per_source(
-        &self,
-    ) -> Result<Vec<(String, String, u64)>, StorageError> {
-        self.current().last_observation_per_source().await
-    }
-
-    // ── Zone Activity ──────────────────────────────────
     async fn zone_activity(
         &self,
         path_prefixes: &[String],
@@ -345,34 +356,10 @@ impl StoragePort for ReconnectableStorage {
             .zone_activity(path_prefixes, exclude_agent, project_root)
             .await
     }
+}
 
-    // ── State Log ──────────────────────────────────
-    async fn store_state_block(
-        &self,
-        block: &crate::domain::state_log::StateBlock,
-    ) -> Result<(), StorageError> {
-        self.current().store_state_block(block).await
-    }
-    async fn last_state_block(
-        &self,
-    ) -> Result<Option<crate::domain::state_log::StateBlock>, StorageError> {
-        self.current().last_state_block().await
-    }
-    async fn list_state_blocks(
-        &self,
-        since: &str,
-        limit: u32,
-    ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
-        self.current().list_state_blocks(since, limit).await
-    }
-    async fn latest_state_blocks(
-        &self,
-        n: u32,
-    ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
-        self.current().latest_state_blocks(n).await
-    }
-
-    // ── Agent Tasks (pre-existing, was missing from reconnectable) ──
+#[async_trait]
+impl TaskStorage for ReconnectableStorage {
     async fn store_agent_task(
         &self,
         task: &crate::domain::storage::AgentTask,
@@ -385,6 +372,13 @@ impl StoragePort for ReconnectableStorage {
         limit: u32,
     ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
         self.current().list_pending_agent_tasks(kind, limit).await
+    }
+    async fn list_completed_agent_tasks(
+        &self,
+        kind: &str,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
+        self.current().list_completed_agent_tasks(kind, limit).await
     }
     async fn update_agent_task_result(
         &self,
@@ -399,110 +393,10 @@ impl StoragePort for ReconnectableStorage {
     async fn mark_agent_task_processing(&self, task_id: &str) -> Result<(), StorageError> {
         self.current().mark_agent_task_processing(task_id).await
     }
-    async fn enqueue_verdict(
-        &self,
-        verdict_id: &str,
-        content_hash: &str,
-        q_score: f64,
-        score_fidelity: f64,
-        score_phi: f64,
-        score_verify: f64,
-        score_culture: f64,
-        score_burn: f64,
-        score_sovereignty: f64,
-        dog_count: u32,
-        verdict_type: &str,
-    ) -> Result<(), StorageError> {
-        self.current()
-            .enqueue_verdict(
-                verdict_id,
-                content_hash,
-                q_score,
-                score_fidelity,
-                score_phi,
-                score_verify,
-                score_culture,
-                score_burn,
-                score_sovereignty,
-                dog_count,
-                verdict_type,
-            )
-            .await
-    }
-    async fn list_pending_verdicts(
-        &self,
-        limit: u32,
-    ) -> Result<Vec<crate::domain::verdict_queue::QueuedVerdict>, StorageError> {
-        self.current().list_pending_verdicts(limit).await
-    }
-    async fn list_submitted_verdicts(
-        &self,
-        limit: u32,
-    ) -> Result<Vec<crate::domain::verdict_queue::QueuedVerdict>, StorageError> {
-        self.current().list_submitted_verdicts(limit).await
-    }
-    async fn get_queued_verdict(
-        &self,
-        verdict_id: &str,
-    ) -> Result<Option<crate::domain::verdict_queue::QueuedVerdict>, StorageError> {
-        self.current().get_queued_verdict(verdict_id).await
-    }
-    async fn update_verdict_submitted(
-        &self,
-        verdict_id: &str,
-        tx_signature: &str,
-    ) -> Result<(), StorageError> {
-        self.current()
-            .update_verdict_submitted(verdict_id, tx_signature)
-            .await
-    }
-    async fn update_verdict_confirmed(&self, verdict_id: &str) -> Result<(), StorageError> {
-        self.current().update_verdict_confirmed(verdict_id).await
-    }
-    async fn update_verdict_failed(
-        &self,
-        verdict_id: &str,
-        error_reason: &str,
-    ) -> Result<(), StorageError> {
-        self.current()
-            .update_verdict_failed(verdict_id, error_reason)
-            .await
-    }
-    async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError> {
-        let (p, s, c, f) = self.current().queue_status_counts().await?;
-        Ok((p, s, c, f))
-    }
+}
 
-    // ── Events (infrastructure observability) ──────────────────
-    async fn store_event(&self, event: &crate::domain::storage::Event) -> Result<(), StorageError> {
-        self.current().store_event(event).await
-    }
-    async fn fleet_stats(
-        &self,
-        window_secs: u64,
-        limit: u32,
-    ) -> Result<Vec<(String, u64, f64, u64, String)>, StorageError> {
-        self.current().fleet_stats(window_secs, limit).await
-    }
-    async fn list_degraded_nodes(
-        &self,
-        window_secs: u64,
-        fatal_threshold: f64,
-    ) -> Result<Vec<(String, String, u64, u64)>, StorageError> {
-        self.current()
-            .list_degraded_nodes(window_secs, fatal_threshold)
-            .await
-    }
-    async fn list_events(
-        &self,
-        node: Option<&str>,
-        tool: Option<&str>,
-        limit: u32,
-    ) -> Result<Vec<crate::domain::storage::RawEvent>, StorageError> {
-        self.current().list_events(node, tool, limit).await
-    }
-
-    // ── Agent Dispatch (K17: every StoragePort method forwarded) ──
+#[async_trait]
+impl DispatchStorage for ReconnectableStorage {
     async fn store_agent_dispatch(
         &self,
         dispatch: &crate::domain::storage::AgentDispatch,
@@ -546,6 +440,152 @@ impl StoragePort for ReconnectableStorage {
         self.current()
             .update_dispatch_pr(dispatch_id, pr_number)
             .await
+    }
+}
+
+#[async_trait]
+impl StateLogStorage for ReconnectableStorage {
+    async fn store_state_block(
+        &self,
+        block: &crate::domain::state_log::StateBlock,
+    ) -> Result<(), StorageError> {
+        self.current().store_state_block(block).await
+    }
+    async fn last_state_block(
+        &self,
+    ) -> Result<Option<crate::domain::state_log::StateBlock>, StorageError> {
+        self.current().last_state_block().await
+    }
+    async fn list_state_blocks(
+        &self,
+        since: &str,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
+        self.current().list_state_blocks(since, limit).await
+    }
+    async fn latest_state_blocks(
+        &self,
+        n: u32,
+    ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
+        self.current().latest_state_blocks(n).await
+    }
+}
+
+#[async_trait]
+impl SubmissionStorage for ReconnectableStorage {
+    async fn enqueue_verdict(
+        &self,
+        verdict_id: &str,
+        content_hash: &str,
+        q_score: f64,
+        score_fidelity: f64,
+        score_phi: f64,
+        score_verify: f64,
+        score_culture: f64,
+        score_burn: f64,
+        score_sovereignty: f64,
+        dog_count: u32,
+        verdict_type: &str,
+    ) -> Result<(), StorageError> {
+        self.current()
+            .enqueue_verdict(
+                verdict_id,
+                content_hash,
+                q_score,
+                score_fidelity,
+                score_phi,
+                score_verify,
+                score_culture,
+                score_burn,
+                score_sovereignty,
+                dog_count,
+                verdict_type,
+            )
+            .await
+    }
+    async fn list_pending_verdicts(&self, limit: u32) -> Result<Vec<QueuedVerdict>, StorageError> {
+        self.current().list_pending_verdicts(limit).await
+    }
+    async fn list_submitted_verdicts(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<QueuedVerdict>, StorageError> {
+        self.current().list_submitted_verdicts(limit).await
+    }
+    async fn get_queued_verdict(
+        &self,
+        verdict_id: &str,
+    ) -> Result<Option<QueuedVerdict>, StorageError> {
+        self.current().get_queued_verdict(verdict_id).await
+    }
+    async fn update_verdict_submitted(
+        &self,
+        verdict_id: &str,
+        tx_signature: &str,
+    ) -> Result<(), StorageError> {
+        self.current()
+            .update_verdict_submitted(verdict_id, tx_signature)
+            .await
+    }
+    async fn update_verdict_confirmed(&self, verdict_id: &str) -> Result<(), StorageError> {
+        self.current().update_verdict_confirmed(verdict_id).await
+    }
+    async fn update_verdict_failed(
+        &self,
+        verdict_id: &str,
+        error_reason: &str,
+    ) -> Result<(), StorageError> {
+        self.current()
+            .update_verdict_failed(verdict_id, error_reason)
+            .await
+    }
+    async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError> {
+        let (p, s, c, f) = self.current().queue_status_counts().await?;
+        Ok((p, s, c, f))
+    }
+}
+
+#[async_trait]
+impl StoragePort for ReconnectableStorage {
+    async fn ping(&self) -> Result<(), StorageError> {
+        self.current().ping().await
+    }
+    fn metrics(&self) -> Option<StorageMetrics> {
+        self.current().metrics()
+    }
+    async fn flush_usage(
+        &self,
+        snapshot: &[(String, crate::domain::usage::DogUsage)],
+    ) -> Result<(), StorageError> {
+        self.current().flush_usage(snapshot).await
+    }
+    async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
+        self.current().load_usage_history().await
+    }
+    async fn flush_dog_stats(
+        &self,
+        stats: &[(String, crate::domain::dog_health::DogStats)],
+    ) -> Result<(), StorageError> {
+        self.current().flush_dog_stats(stats).await
+    }
+    async fn load_dog_stats(
+        &self,
+    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
+        self.current().load_dog_stats().await
+    }
+    async fn load_dog_stat(
+        &self,
+        dog_id: &str,
+    ) -> Result<Option<crate::domain::dog_health::DogStats>, StorageError> {
+        self.current().load_dog_stat(dog_id).await
+    }
+    async fn cleanup_ttl(&self) -> Result<(), StorageError> {
+        self.current().cleanup_ttl().await
+    }
+    async fn get_table_op_metrics(
+        &self,
+    ) -> Result<Vec<crate::storage::TableOpMetrics>, StorageError> {
+        self.current().get_table_op_metrics().await
     }
 }
 

@@ -3,7 +3,6 @@
 use rmcp::{
     ErrorData as McpError, handler::server::wrapper::Parameters, model::*, tool, tool_router,
 };
-use uuid::Uuid;
 
 use crate::domain::storage::AgentTask;
 
@@ -46,7 +45,7 @@ impl CynicMcp {
             ));
         }
 
-        let task_id = format!("agent-task:{}", Uuid::new_v4());
+        let task_id = format!("agent-task:{}", crate::infra::crypto::generate_secure_id());
         let now = chrono::Utc::now().to_rfc3339();
         let task = AgentTask {
             id: task_id.clone(),
