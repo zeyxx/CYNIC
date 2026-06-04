@@ -77,6 +77,77 @@ All agents have these tools via MCP:
 
 L2 is the safety net. Even if an agent skips L1 and L3, the commit will be rejected if another agent holds the file.
 
+## Gate System (3-Level Sovereign CI)
+
+No cloud CI, no GitHub Actions, no external dependency. The machine that pushes is the machine that verifies.
+
+### Levels
+
+| Level | Time | When | Contents |
+|-------|------|------|----------|
+| **Level 0** | <2s | Every push | `cargo fmt --check` + 6 lint targets (grep) + security scan |
+| **Level 1** | ~25s | Once per session | `cargo clippy --workspace` — marker invalidated only by Rust source changes |
+| **Level 2** | ~1m30s | Before deploy only | `cargo test --lib --release` + `cargo audit` + integration tests |
+
+### Markers
+
+Each level writes its own marker on success :
+- `.gate-0` — Level 0 passed
+- `.gate-1` — Level 1 passed (clippy fresh)
+- `.gate-2` — Level 2 passed (tests fresh)
+
+Markers are in `.gitignore` — they are not committed. They persist on disk between pushes.
+
+### Typical Workflow
+
+```
+# Light change (.md or config) → push
+git push
+# → Level 0 (<2s) + Level 1 skip = ~2s
+
+# Rust source change → push (first time)
+git push
+# → Level 0 (<2s) + Level 1 (~25s) = ~27s
+
+# Next push without Rust changes
+git push
+# → Level 0 (<2s) + Level 1 skip = ~2s
+
+# Deploy → requires Level 2
+make gate-2    # ~1m30s
+make deploy    # verifies gate-2 fresh → ship → restart → healthcheck
+```
+
+### Makefile Targets
+
+```
+make gate-0    # Level 0 only
+make gate-1    # Level 1 only (clippy)
+make gate-2    # Level 2 only (tests + audit + integration)
+make check     # All 3 levels (backward compatible)
+make gate      # All 3 levels + markers written
+make deploy    # Verifies gate-2 fresh → ship → backup → deploy → verify
+```
+
+### Leeroy Jenkins Fallback
+
+When the gate itself is broken (SSH timeout, pipe broken, Makefile corruption) :
+
+```
+PUSH_FORCE=1 git push
+```
+
+Bypasses all gates. Every bypass is logged to `.leeroy-jenkins/log.txt` for post-mortem. Use only for gate infrastructure failures — not to skip legitimate validation failures.
+
+### Pre-Push vs Pre-Commit
+
+| Hook | Runs when | What it does |
+|------|-----------|-------------|
+| **Pre-commit** | `git commit` | Coord conflict check + security scan + Cargo.lock coherence + `cargo fmt --check` |
+| **Pre-push** | `git push` | Level 0 (always) + Level 1 (if Rust changed) + notes Level 2 status |
+
+Pre-commit blocks bad commits. Pre-push blocks bad pushes. They complement each other — pre-commit is fast (<2s), pre-push is smarter (markers).
+
 ## Codex CLI — Specific Instructions
 
 ### Environment
