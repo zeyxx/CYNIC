@@ -232,9 +232,21 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
                 ctx.locker_pct
             ));
         }
+        if ctx.oracle_pct > 0.0 {
+            s.push_str(&format!(
+                "  oracles: {:.1}% — tokens held by oracle programs (Pyth, Switchboard)\n",
+                ctx.oracle_pct
+            ));
+        }
+        if ctx.infra_pct > 0.0 {
+            s.push_str(&format!(
+                "  infra: {:.1}% — tokens held by infrastructure programs (Jito, Compute Budget)\n",
+                ctx.infra_pct
+            ));
+        }
         if ctx.contract_pct > 0.0 {
             s.push_str(&format!(
-                "  contracts: {:.1}% — tokens held by smart contracts (vesting, DAO, protocol), not freely tradeable\n",
+                "  contracts: {:.1}% — tokens held by other smart contracts (DAO, protocol, unknown), not freely tradeable\n",
                 ctx.contract_pct
             ));
         }
@@ -249,7 +261,8 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
             ctx.effective_concentration
         ));
         // Contextual note when institutional holdings are significant
-        let institutional = ctx.locker_pct + ctx.contract_pct + ctx.lp_pct + ctx.burn_pct;
+        let institutional =
+            ctx.locker_pct + ctx.contract_pct + ctx.lp_pct + ctx.burn_pct + ctx.oracle_pct + ctx.infra_pct;
         if institutional > 30.0 {
             s.push_str(&format!(
                 "note: High raw concentration ({:.0}%) driven by institutional/programmatic holdings ({:.0}%). Effective retail concentration is {:.1}%.\n",
@@ -743,7 +756,9 @@ mod tests {
                 lp_pct: 15.2,
                 burn_pct: 0.0,
                 locker_pct: 0.0,
-                contract_pct: 60.1,
+                oracle_pct: 5.0,
+                infra_pct: 1.0,
+                contract_pct: 54.1,
                 wallet_pct: 9.7,
                 effective_concentration: 9.7,
             }),
@@ -761,8 +776,16 @@ mod tests {
             "stimulus should show effective concentration"
         );
         assert!(
-            stimulus.contains("contracts: 60.1%"),
+            stimulus.contains("contracts: 54.1%"),
             "stimulus should show contract percentage"
+        );
+        assert!(
+            stimulus.contains("oracles: 5.0%"),
+            "stimulus should show oracle percentage"
+        );
+        assert!(
+            stimulus.contains("infra: 1.0%"),
+            "stimulus should show infra percentage"
         );
         assert!(
             stimulus.contains("institutional"),

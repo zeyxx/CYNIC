@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 """
-Tier 2 INFRASTRUCTURE: @CynicOracle strategy consumer — aggregates post metrics → /judge → editorial crystals.
+Tier 2 INFRASTRUCTURE: @TalariaBuild strategy consumer — aggregates post metrics → /judge → editorial crystals.
 
-K15 Consumer: reads dataset.jsonl for @cynicoracle posts → POST /judge domain=general
-Systemd: cynic-cynicoracle-strategy.timer (daily at 08:00)
-Promotion date: 2026-05-29
+K15 Consumer: reads dataset.jsonl for @talariabuild posts → POST /judge domain=general
+Systemd: talaria-strategy.timer (daily at 08:00)
+Promotion date: 2026-06-05 (migrated from @cynicoracle to @TalariaBuild)
 Stability: new
 
 Design:
-  - Reads dataset.jsonl, filters @cynicoracle posts
+  - Reads dataset.jsonl, filters @talariabuild posts
   - Aggregates engagement metrics by post_type (original/reply/qrt)
   - Builds a structured editorial analysis prompt
   - POSTs to /judge — Dogs produce strategic verdict → crystal
   - Min 5 new posts since last judgment (avoid judging noise)
 
 K15 Falsification: run with MIN_NEW_POSTS=1, verify /verdicts shows
-  a verdict with domain=general and agent_id=cynicoracle-strategy.
+  a verdict with domain=general and agent_id=talaria-strategy.
 
 Environment:
     CYNIC_REST_ADDR          — kernel address
     CYNIC_API_KEY            — kernel auth token
     HERMES_DATASET           — path to dataset.jsonl
-    CYNICORACLE_HANDLE       — X handle to track (default: cynicoracle)
+    TALARIA_HANDLE           — X handle to track (default: talariabuild)
     STRATEGY_MIN_NEW_POSTS   — min new posts before judging (default: 5)
     STRATEGY_STATE_FILE      — path to state file
     STRATEGY_REQUEST_TIMEOUT — /judge timeout seconds (default: 45)
@@ -49,19 +49,19 @@ CYNIC_REST_ADDR: str = (
     f"http://{_raw_addr}" if _raw_addr and not _raw_addr.startswith("http") else _raw_addr
 )
 CYNIC_API_KEY: str = os.environ.get("CYNIC_API_KEY", "")
-HANDLE: str = os.environ.get("CYNICORACLE_HANDLE", "cynicoracle").lower()
+HANDLE: str = os.environ.get("TALARIA_HANDLE", "talariabuild").lower()
 DEFAULT_DATASET = Path.home() / ".cynic" / "organs" / "hermes" / "x" / "dataset.jsonl"
 DATASET: Path = Path(os.environ.get("HERMES_DATASET", str(DEFAULT_DATASET)))
 MIN_NEW_POSTS: int = int(os.environ.get("STRATEGY_MIN_NEW_POSTS", "5"))
 REQUEST_TIMEOUT: int = int(os.environ.get("STRATEGY_REQUEST_TIMEOUT", "45"))
 STATE_FILE: Path = Path(os.environ.get(
     "STRATEGY_STATE_FILE",
-    str(Path.home() / ".cynic" / "cynicoracle_strategy_state.json"),
+    str(Path.home() / ".cynic" / "talaria_strategy_state.json"),
 ))
-AGENT_ID = "cynicoracle-strategy"
+AGENT_ID = "talaria-strategy"
 
 logging.basicConfig(
-    format="%(asctime)s cynicoracle-strategy %(levelname)s %(message)s",
+    format="%(asctime)s talaria-strategy %(levelname)s %(message)s",
     level=logging.INFO,
     stream=sys.stdout,
 )
@@ -108,7 +108,7 @@ def post_type(row: dict) -> str:
 # ---------------------------------------------------------------------------
 
 def load_own_posts() -> list[dict]:
-    """Read all @cynicoracle posts from dataset.jsonl (skip retweets)."""
+    """Read all @talariabuild posts from dataset.jsonl (skip retweets)."""
     if not DATASET.exists():
         log.error("dataset not found: %s", DATASET)
         return []
@@ -182,7 +182,7 @@ def _top_post(items: list[dict]) -> dict:
 def build_prompt(posts: list[dict], summary: dict, new_count: int) -> str:
     total = len(posts)
     lines = [
-        f"@cynicoracle editorial performance analysis — {total} total posts, {new_count} new since last judgment.",
+        f"@talariabuild editorial performance analysis — {total} total posts, {new_count} new since last judgment.",
         "",
         "POST TYPE BREAKDOWN:",
     ]
@@ -200,7 +200,7 @@ def build_prompt(posts: list[dict], summary: dict, new_count: int) -> str:
 
     lines += [
         "",
-        "QUESTION: Based on this data, what editorial strategy should @cynicoracle follow?",
+        "QUESTION: Based on this data, what editorial strategy should @talariabuild follow?",
         "Consider: which post type maximizes reach, which format drives replies/discussion,",
         "and whether the cynical/aphoristic style is working. Be specific and falsifiable.",
     ]
@@ -252,7 +252,7 @@ def judge_strategy(prompt: str) -> dict | None:
 # ---------------------------------------------------------------------------
 
 def run() -> int:
-    log.info("cynicoracle_strategy_consumer starting (min_new=%d, timeout=%ds)", MIN_NEW_POSTS, REQUEST_TIMEOUT)
+    log.info("talaria_strategy_consumer starting (min_new=%d, timeout=%ds)", MIN_NEW_POSTS, REQUEST_TIMEOUT)
 
     if not CYNIC_REST_ADDR or not CYNIC_API_KEY:
         log.error("CYNIC_REST_ADDR or CYNIC_API_KEY not set")

@@ -41,3 +41,4 @@ pub mod pipeline;
 pub mod probe;
 pub mod senses;
 pub mod storage;
+pub mod vercel;

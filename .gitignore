@@ -94,7 +94,8 @@ scripts/x-interceptor.py
 # Binary artifacts & scratch
 cynic-kernel/cynic-kernel.bin
 scripts/openclaude.sh
-apps/
+/apps/*
+!/apps/kyon-mobile/
 /data/
 .venv/
 plan-test.json
@@ -155,3 +156,10 @@ cynic-python/lab/quantum-ecc/state.json
 # MetaLeX legal signature templates — personal PII, never in public repo
 docs/internal/metalex-exhibit-a-*.md
 >>>>>>> origin/main
+
+# Déploiement et polluants
+reports/
+cynic-python/heuristics/data/
+__pycache__/
+*.pyc
+.env

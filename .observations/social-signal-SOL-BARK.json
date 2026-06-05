@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-06-05T11:11:36Z",
+  "tool": "social_signal_analysis",
+  "target": "SOL",
+  "domain": "social-signal",
+  "status": "bark_confirmed",
+  "signal_score": 4.0,
+  "verdict": "BARK",
+  "q_score": 0.334,
+  "context": "Verified BARK verdict q=0.334 for SOL signal. Live data: @info_guy_ tweet (May 30 2026) - generic holder claim with 8 views, 0 engagement. Pattern matches: coordination_score=0.0, has_spam=True, neutral sentiment, no LP discussion, emoji-only sentiment decoration. 6 authors all low-signal. Signal Score 4.0/10 confirmed as noise.",
+  "tags": ["bark", "noise_pattern", "generic_holder", "zero_engagement", "live_verified", "skill_updated"]
+}

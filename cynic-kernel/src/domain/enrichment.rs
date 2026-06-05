@@ -99,6 +99,10 @@ pub enum HolderType {
     Burn,
     /// Token lock or vesting contract
     Locker,
+    /// Oracle program (Pyth, Switchboard) — epistemic anchor
+    Oracle,
+    /// Infrastructure program (Jito, Compute Budget) — technical pillar
+    Infra,
     /// Other smart contract (DAO treasury, protocol, unknown program)
     Contract,
 }
@@ -110,6 +114,8 @@ impl std::fmt::Display for HolderType {
             Self::LpPool => write!(f, "lp_pool"),
             Self::Burn => write!(f, "burn"),
             Self::Locker => write!(f, "locker"),
+            Self::Oracle => write!(f, "oracle"),
+            Self::Infra => write!(f, "infra"),
             Self::Contract => write!(f, "contract"),
         }
     }
@@ -128,6 +134,10 @@ pub struct HolderContext {
     pub burn_pct: f64,
     /// Percentage held by lock/vesting contracts
     pub locker_pct: f64,
+    /// Percentage held by oracle programs
+    pub oracle_pct: f64,
+    /// Percentage held by infrastructure programs
+    pub infra_pct: f64,
     /// Percentage held by other smart contracts (DAO, protocol, unknown)
     pub contract_pct: f64,
     /// Percentage held by regular wallets

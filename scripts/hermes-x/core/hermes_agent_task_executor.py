@@ -368,9 +368,21 @@ def execute_task(task: dict, organ_dir: str) -> tuple[str | None, str | None]:
     Returns (result, error).
     """
     task_id = task.get("id", "?")
-    objective = task.get("objective", "")
-    actions = task.get("actions", [])
     domain = task.get("domain", "unknown")
+
+    # If content is JSON, parse and merge it into the task dict
+    content = task.get("content", "")
+    if content.strip().startswith("{") and content.strip().endswith("}"):
+        try:
+            merged = json.loads(content)
+            if isinstance(merged, dict):
+                task.update(merged)
+                logger.debug("merged JSON content into task %s", task_id)
+        except json.JSONDecodeError:
+            pass
+
+    objective = task.get("objective", task.get("content", ""))
+    actions = task.get("actions", [])
 
     logger.info("executing task %s: domain=%s objective=%s", task_id, domain, objective[:60])
 

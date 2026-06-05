@@ -67,7 +67,9 @@ impl HeliusEnricher {
     /// Known AMM/DEX programs → "lp_pool". Burn addresses → "burn". Lockers → "locker".
     /// Everything else → "wallet". Cost: 1 credit (getAccountInfo).
     pub(super) async fn classify_holder(&self, token_account: &str) -> String {
-        use crate::domain::solana_constants::{AMM_PROGRAMS, BURN_ADDRESSES, LOCKER_PROGRAMS};
+        use crate::domain::solana_constants::{
+            AMM_PROGRAMS, BURN_ADDRESSES, INFRA_PROGRAMS, LOCKER_PROGRAMS, ORACLE_PROGRAMS,
+        };
 
         let Some(owner) = self.resolve_owner(token_account).await else {
             return "unknown".into();
@@ -83,6 +85,14 @@ impl HeliusEnricher {
 
         if LOCKER_PROGRAMS.contains(&owner.as_str()) {
             return "locker".into();
+        }
+
+        if ORACLE_PROGRAMS.contains(&owner.as_str()) {
+            return "oracle".into();
+        }
+
+        if INFRA_PROGRAMS.contains(&owner.as_str()) {
+            return "infra".into();
         }
 
         "wallet".into()
@@ -106,7 +116,8 @@ impl HeliusEnricher {
         use crate::domain::enrichment::HolderType;
         use crate::domain::solana_constants::{
             AMM_PROGRAMS as AMM_AUTHORITIES, BURN_ADDRESSES as BURN_AUTHORITIES,
-            LOCKER_PROGRAMS as LOCKER_AUTHORITIES, SYSTEM_PROGRAM,
+            INFRA_PROGRAMS as INFRA_AUTHORITIES, LOCKER_PROGRAMS as LOCKER_AUTHORITIES,
+            ORACLE_PROGRAMS as ORACLE_AUTHORITIES, SYSTEM_PROGRAM,
         };
 
         let count = holder_addresses.len().min(20);
@@ -171,6 +182,12 @@ impl HeliusEnricher {
                 Some(auth) if LOCKER_AUTHORITIES.contains(&auth) => {
                     classifications.push(HolderType::Locker);
                 }
+                Some(auth) if ORACLE_AUTHORITIES.contains(&auth) => {
+                    classifications.push(HolderType::Oracle);
+                }
+                Some(auth) if INFRA_AUTHORITIES.contains(&auth) => {
+                    classifications.push(HolderType::Infra);
+                }
                 Some(auth) => {
                     // Unknown authority — need phase 2 to check its program owner
                     classifications.push(HolderType::Wallet); // placeholder
@@ -226,8 +243,13 @@ impl HeliusEnricher {
                             .get(auth.as_str())
                             .copied()
                             .unwrap_or(SYSTEM_PROGRAM);
+
                         classifications[*idx] = if program == SYSTEM_PROGRAM {
                             HolderType::Wallet
+                        } else if ORACLE_AUTHORITIES.contains(&program) {
+                            HolderType::Oracle
+                        } else if INFRA_AUTHORITIES.contains(&program) {
+                            HolderType::Infra
                         } else {
                             // Non-system program = smart contract (vesting, DAO, protocol)
                             HolderType::Contract
@@ -241,6 +263,8 @@ impl HeliusEnricher {
         let mut lp_sum = 0.0_f64;
         let mut burn_sum = 0.0_f64;
         let mut locker_sum = 0.0_f64;
+        let mut oracle_sum = 0.0_f64;
+        let mut infra_sum = 0.0_f64;
         let mut contract_sum = 0.0_f64;
         let mut wallet_sum = 0.0_f64;
         let mut classified = 0_u32;
@@ -252,6 +276,8 @@ impl HeliusEnricher {
                 HolderType::LpPool => lp_sum += balance,
                 HolderType::Burn => burn_sum += balance,
                 HolderType::Locker => locker_sum += balance,
+                HolderType::Oracle => oracle_sum += balance,
+                HolderType::Infra => infra_sum += balance,
                 HolderType::Contract => contract_sum += balance,
                 HolderType::Wallet => wallet_sum += balance,
             }
@@ -268,6 +294,8 @@ impl HeliusEnricher {
         let lp_pct = to_pct(lp_sum);
         let burn_pct = to_pct(burn_sum);
         let locker_pct = to_pct(locker_sum);
+        let oracle_pct = to_pct(oracle_sum);
+        let infra_pct = to_pct(infra_sum);
         let contract_pct = to_pct(contract_sum);
         let wallet_pct = to_pct(wallet_sum);
 
@@ -276,6 +304,8 @@ impl HeliusEnricher {
             lp_pct,
             burn_pct,
             locker_pct,
+            oracle_pct,
+            infra_pct,
             contract_pct,
             wallet_pct,
             effective_concentration: wallet_pct,
@@ -285,6 +315,8 @@ impl HeliusEnricher {
             classified = ctx.classified,
             wallet = format!("{:.1}%", ctx.wallet_pct),
             contract = format!("{:.1}%", ctx.contract_pct),
+            oracle = format!("{:.1}%", ctx.oracle_pct),
+            infra = format!("{:.1}%", ctx.infra_pct),
             lp = format!("{:.1}%", ctx.lp_pct),
             locker = format!("{:.1}%", ctx.locker_pct),
             burn = format!("{:.1}%", ctx.burn_pct),

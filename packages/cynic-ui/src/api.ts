@@ -1,7 +1,7 @@
 import * as ed from '@noble/ed25519';
 import type { HealthResponse, JudgeRequest, Verdict, Crystal, AsyncJudgeResponse, AsyncJudgeStatus, Observation, AgentTask } from './types';
 
-import { getKernelUrl } from './utils';
+// import { getKernelUrl } from './utils';
 
 function base(): string {
   // En développement, on utilise le proxy Vite (/api)

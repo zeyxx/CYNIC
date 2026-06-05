@@ -1,0 +1,382 @@
+{
+  "date": "2026-06-05",
+  "tokens": [
+    {
+      "mint": "6MQpbiTC2YcogidTmKqMLK82qvE9z5QEm7EP3AEDpump",
+      "symbol": "MASK",
+      "date": "2026-06-05",
+      "price_usd": 0.001112077471,
+      "volume_24h": 11497.4953384541,
+      "reserve_usd": 183521.1329,
+      "fdv_usd": 1111490.31173803,
+      "market_cap_usd": 1112048.36058175
+    },
+    {
+      "mint": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+      "symbol": "Fartcoin",
+      "date": "2026-06-05",
+      "price_usd": 0.1219776695,
+      "volume_24h": 626865.748458003,
+      "reserve_usd": 5286601.6417,
+      "fdv_usd": 121974661.756359,
+      "market_cap_usd": 121974661.84548
+    },
+    {
+      "mint": "GPwwihLa1w9Qsz27SmNrj7aLVnE7pr2cAvHe6aVVpump",
+      "symbol": "DANK",
+      "date": "2026-06-05",
+      "price_usd": 0.0001918452462,
+      "volume_24h": 182.7724581919,
+      "reserve_usd": 45859.1265,
+      "fdv_usd": 183998.426463824,
+      "market_cap_usd": 183998.426463824
+    },
+    {
+      "mint": "8DKgjd6zAYuP9fVmMHBBtygPqkJ111LrMCT7tDyPhE55",
+      "symbol": "Domo",
+      "date": "2026-06-05",
+      "price_usd": 2.853997665e-05,
+      "volume_24h": 16.4551583157,
+      "reserve_usd": 17782.0331,
+      "fdv_usd": 28505.6016003319,
+      "market_cap_usd": 0.0
+    },
+    {
+      "mint": "9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump",
+      "symbol": "asdfasdfa",
+      "date": "2026-06-05",
+      "price_usd": 7.331003448e-05,
+      "volume_24h": 1018.6515437506,
+      "reserve_usd": 24340.1943,
+      "fdv_usd": 69870.1226883679,
+      "market_cap_usd": 0.0
+    },
+    {
+      "mint": "38PgzpJYu2HkiYvV8qePFakB8tuobPdGm2FFEn7Dpump",
+      "symbol": "gork",
+      "date": "2026-06-05",
+      "price_usd": 0.0009996918155,
+      "volume_24h": 62478.1246901099,
+      "reserve_usd": 269228.3086,
+      "fdv_usd": 999446.786028429,
+      "market_cap_usd": 999446.786028429
+    },
+    {
+      "mint": "3WPep4ufaToK1aS5s8BL9inzeUrt4DYaQCiic6ZkkC1U",
+      "symbol": "GIKO",
+      "date": "2026-06-05",
+      "price_usd": 0.04197839471,
+      "volume_24h": 10549.9211234114,
+      "reserve_usd": 88670.862,
+      "fdv_usd": 419711.078800276,
+      "market_cap_usd": 419711.078800276
+    },
+    {
+      "mint": "zGh48JtNHVBb5evgoZLXwgPD2Qu4MhkWdJLGDAupump",
+      "symbol": "retire",
+      "date": "2026-06-05",
+      "price_usd": 0.002463128495,
+      "volume_24h": 37072.3106013621,
+      "reserve_usd": 406014.0375,
+      "fdv_usd": 2462659.93034885,
+      "market_cap_usd": 2462659.93034885
+    },
+    {
+      "mint": "69G8CpUVZAxbPMiEBrfCCCH445NwFxH6PzVL693Xpump",
+      "symbol": "xavier",
+      "date": "2026-06-05",
+      "price_usd": 0.0006133706485,
+      "volume_24h": 14826.0764694969,
+      "reserve_usd": 96623.7352,
+      "fdv_usd": 613287.863221648,
+      "market_cap_usd": 613301.9947943
+    },
+    {
+      "mint": "463SK47VkB7uE7XenTHKiVcMtxRsfNE2X4Q9wByaURVA",
+      "symbol": "TSUKI",
+      "date": "2026-06-05",
+      "price_usd": 0.006041185569,
+      "volume_24h": 137570.811700141,
+      "reserve_usd": 310832.3758,
+      "fdv_usd": 5734567.40514321,
+      "market_cap_usd": 5734567.40514321
+    },
+    {
+      "mint": "NV2RYH954cTJ3ckFUpvfqaQXU4ARqqDH3562nFSpump",
+      "symbol": "Punch",
+      "date": "2026-06-05",
+      "price_usd": 0.001397389227,
+      "volume_24h": 90255.9718341556,
+      "reserve_usd": 229729.5947,
+      "fdv_usd": 1397150.81673505,
+      "market_cap_usd": 1397150.81673505
+    },
+    {
+      "mint": "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump",
+      "symbol": "neet",
+      "date": "2026-06-05",
+      "price_usd": 0.02443410104,
+      "volume_24h": 773974.006635249,
+      "reserve_usd": 1178618.3589,
+      "fdv_usd": 24428370.9466052,
+      "market_cap_usd": 24428370.9466052
+    },
+    {
+      "mint": "CFYhdWXsYfS7swnJgHRwb5toTHMEQD7Ljd5gGwKLpump",
+      "symbol": "KILROY",
+      "date": "2026-06-05",
+      "price_usd": 0.0002105324403,
+      "volume_24h": 6621.596825252,
+      "reserve_usd": 44253.7045,
+      "fdv_usd": 206454.39836461,
+      "market_cap_usd": 206454.39836461
+    },
+    {
+      "mint": "8J69rbLTzWWgUJziFY8jeu5tDwEPBwUz4pKBMr5rpump",
+      "symbol": "WOJAK",
+      "date": "2026-06-05",
+      "price_usd": 0.003774505091,
+      "volume_24h": 183893.361295769,
+      "reserve_usd": 334629.1391,
+      "fdv_usd": 3774058.42923861,
+      "market_cap_usd": 3774058.42923861
+    },
+    {
+      "mint": "5UUH9RTDiSpq6HKS6bp4NdU9PNJpXRXuiw6ShBTBhgH2",
+      "symbol": "TROLL",
+      "date": "2026-06-05",
+      "price_usd": 0.0609567939,
+      "volume_24h": 1931003.4506815,
+      "reserve_usd": 2677516.9172,
+      "fdv_usd": 60881937.3607457,
+      "market_cap_usd": 60881937.3607457
+    },
+    {
+      "mint": "4yDSFNMitxy6waXPTkPyyVvbbQSiqe7zD1VxnzEypump",
+      "symbol": "motion",
+      "date": "2026-06-05",
+      "price_usd": 0.0001043516887,
+      "volume_24h": 6374.457075372,
+      "reserve_usd": 25599.0454,
+      "fdv_usd": 104351.6887,
+      "market_cap_usd": 0.0
+    },
+    {
+      "mint": "6iA73gWCKkLWKbVr8rgibV57MMRxzsaqS9cWpgKBpump",
+      "symbol": "\u6211\u7684\u5200\u76fe",
+      "date": "2026-06-05",
+      "price_usd": 0.0003952634117,
+      "volume_24h": 27585.1203397553,
+      "reserve_usd": 80686.0867,
+      "fdv_usd": 395235.310406537,
+      "market_cap_usd": 395235.310406537
+    },
+    {
+      "mint": "89S7oVB4hui8ceJqhHreWB7fcxdthfvoB7z2pfJtpump",
+      "symbol": "abcdefg",
+      "date": "2026-06-05",
+      "price_usd": 3.667232015e-05,
+      "volume_24h": 1543.5566457328,
+      "reserve_usd": 22520.7762,
+      "fdv_usd": 36672.32015,
+      "market_cap_usd": 0.0
+    },
+    {
+      "mint": "J8PSdNP3QewKq2Z1JJJFDMaqF7KcaiJhR7gbr5KZpump",
+      "symbol": "TripleT",
+      "date": "2026-06-05",
+      "price_usd": 0.005232931182,
+      "volume_24h": 526377.392743734,
+      "reserve_usd": 312473.0843,
+      "fdv_usd": 5232592.21520982,
+      "market_cap_usd": 5232592.21520982
+    },
+    {
+      "mint": "32CdQdBUxbCsLy5AUHWmyidfwhgGUr9N573NBUrDpump",
+      "symbol": "maxxing",
+      "date": "2026-06-05",
+      "price_usd": 0.001028714811,
+      "volume_24h": 101309.954240736,
+      "reserve_usd": 145248.4861,
+      "fdv_usd": 1028316.48610025,
+      "market_cap_usd": 1028316.4865152
+    },
+    {
+      "mint": "CGEDT9QZDvvH5GmVkWJH2BXiMJqMJySC9ihWyr7Spump",
+      "symbol": "BURNIE",
+      "date": "2026-06-05",
+      "price_usd": 0.002804097325,
+      "volume_24h": 535813.620743167,
+      "reserve_usd": 228232.3919,
+      "fdv_usd": 2719873.2996964,
+      "market_cap_usd": 2719873.2996964
+    },
+    {
+      "mint": "ACtfUWtgvaXrQGNMiohTusi5jcx5RJf5zwu9aAxkpump",
+      "symbol": "unc",
+      "date": "2026-06-05",
+      "price_usd": 0.001241063832,
+      "volume_24h": 245943.7940127,
+      "reserve_usd": 132034.6279,
+      "fdv_usd": 1240904.06335005,
+      "market_cap_usd": 1240904.07614314
+    },
+    {
+      "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "symbol": "JUP",
+      "date": "2026-06-05",
+      "price_usd": 0.1713084542,
+      "volume_24h": 1227219.91337682,
+      "reserve_usd": 990212.153,
+      "fdv_usd": 1175593154.85333,
+      "market_cap_usd": 568797682.021999
+    },
+    {
+      "mint": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+      "symbol": "WIF",
+      "date": "2026-06-05",
+      "price_usd": 0.1609654445,
+      "volume_24h": 604175.062008778,
+      "reserve_usd": 4028265.7604,
+      "fdv_usd": 160778577.676097,
+      "market_cap_usd": 160792630.711061
+    },
+    {
+      "mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+      "symbol": "BONK",
+      "date": "2026-06-05",
+      "price_usd": 4.606786005e-06,
+      "volume_24h": 968924.106571828,
+      "reserve_usd": 335833.0854,
+      "fdv_usd": 406871928.560551,
+      "market_cap_usd": 406871928.560551
+    },
+    {
+      "mint": "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof",
+      "symbol": "RNDR",
+      "date": "2026-06-05",
+      "price_usd": 1.7923976914,
+      "volume_24h": 779100.499268446,
+      "reserve_usd": 482040.2355,
+      "fdv_usd": 866735786.497283,
+      "market_cap_usd": 929794223.470934
+    },
+    {
+      "mint": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "symbol": "RAY",
+      "date": "2026-06-05",
+      "price_usd": 0.6022273008,
+      "volume_24h": 6641818.95899612,
+      "reserve_usd": 1202988.2971,
+      "fdv_usd": 334234764.795456,
+      "market_cap_usd": 161985866.198721
+    },
+    {
+      "mint": "ukHH6c7mMyiWCf1b9pnWe25TSpkDDt3H5pQZgZ74J82",
+      "symbol": "BOME",
+      "date": "2026-06-05",
+      "price_usd": 0.0004249433338,
+      "volume_24h": 533253.169866926,
+      "reserve_usd": 8515866.392,
+      "fdv_usd": 29264513.3011073,
+      "market_cap_usd": 29320945.3683159
+    },
+    {
+      "mint": "nosXBVoaCTtYdLvKY6Csb4AC8JCdQKKAaWYtx2ZMoo7",
+      "symbol": "NOS",
+      "date": "2026-06-05",
+      "price_usd": 0.3191638948,
+      "volume_24h": 116958.962605998,
+      "reserve_usd": 467872.1793,
+      "fdv_usd": 31916301.8814827,
+      "market_cap_usd": 31916301.8814827
+    },
+    {
+      "mint": "HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC",
+      "symbol": "AI16Z",
+      "date": "2026-06-05",
+      "price_usd": 0.000457990731,
+      "volume_24h": 5127.5393163087,
+      "reserve_usd": 41760.8461,
+      "fdv_usd": 503744.264917169,
+      "market_cap_usd": 503744.271539703
+    }
+  ],
+  "errors": [
+    {
+      "symbol": "GIGA",
+      "mint": "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "TRENCHER",
+      "mint": "8ncucXv6U6epZKHPbgaEBcEK399TpHGKCquSt4RnmX4f",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "House",
+      "mint": "DitHyRMQiSDhn5cnKMJV2CDDt6sVct96YrECiM49pump",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "gork",
+      "mint": "76EDL5qNcte2ZH29quTaFzagXjWAEY83CATEjyA6pump",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "CHILLHOUSE",
+      "mint": "GkyPYa7NnCFbduLknCfBfP7p8564X1VZhwZYJ6CZpump",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "Buttcoin",
+      "mint": "Cm6fNnMk7NfzStP9CZpsQA2v3jjzbcYGAxdJySmHpump",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "BP",
+      "mint": "3B1ijcocM5EDga6XxQ7JLW7weocQPWWjuhBYG8Vepump",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "PUMPCADE",
+      "mint": "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "USDUC",
+      "mint": "CB9dDufT3ZuQXqqSfa1c5kY935TEreyBw9XJXxHKpump",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "Twin",
+      "mint": "EsLb2XdNWVezNnhEsRVKYZ7BymiKUabzh4tdVhz4pump",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "MOJO",
+      "mint": "sGzragYKDrmRgCGvJUn9WKwrmnUZwfmkNQLTSPfdMNq",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "PENGU",
+      "mint": "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "ORCA",
+      "mint": "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "JTO",
+      "mint": "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "symbol": "SHDW",
+      "mint": "SHDWyBxihqiCj6YekG2GUr7wqKLeLAMK1gHZck9pL6y",
+      "error": "HTTP Error 429: Too Many Requests"
+    }
+  ]
+}

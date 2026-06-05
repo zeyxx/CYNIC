@@ -30,6 +30,21 @@ pub const LOCKER_PROGRAMS: &[&str] = &[
     "2r5VekMNiWPzi1pWwvJczrdPaZnJG59u91unSrTunwJg", // Team.finance / Uncx
 ];
 
+/// Oracle programs — sources of truth for price and external data.
+pub const ORACLE_PROGRAMS: &[&str] = &[
+    "rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ", // Pyth Solana Receiver (Pull-based)
+    "SBondMDrcV3K4kxZR1HNVT7osZxAHVHgYXL5Ze1oMUv", // Switchboard On-Demand (V3)
+    "pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT", // Pyth Price Feed
+    "FsJ3A3u2vn5cTVofAjvy6y5kwABJAqYWpe4975bi2KPt", // Pyth Legacy
+    "orac1eFjzWL5R3RbbdMV68K9H6TaCVVcL6LjvQQWAbz", // Switchboard Quote Program
+];
+
+/// Infrastructure and System programs.
+pub const INFRA_PROGRAMS: &[&str] = &[
+    "ComputeBudget111111111111111111111111111111", // Compute Budget Program
+    "JitoTiPevE9D2x6pkA7P6CYnATWzjtneQLhbK7Yv3uS",  // Jito Tip Payment
+];
+
 /// System Program — owner of regular wallets.
 pub const SYSTEM_PROGRAM: &str = "11111111111111111111111111111111";
 
@@ -54,6 +69,26 @@ mod tests {
     }
 
     #[test]
+    fn oracle_programs_are_valid_base58() {
+        for addr in ORACLE_PROGRAMS {
+            assert!(
+                is_valid_base58(addr),
+                "invalid base58 in ORACLE_PROGRAMS: {addr}"
+            );
+        }
+    }
+
+    #[test]
+    fn infra_programs_are_valid_base58() {
+        for addr in INFRA_PROGRAMS {
+            assert!(
+                is_valid_base58(addr),
+                "invalid base58 in INFRA_PROGRAMS: {addr}"
+            );
+        }
+    }
+
+    #[test]
     fn burn_addresses_valid_length() {
         for addr in BURN_ADDRESSES {
             assert!((32..=44).contains(&addr.len()), "wrong length: {addr}");
@@ -62,15 +97,23 @@ mod tests {
 
     #[test]
     fn no_address_in_multiple_categories() {
-        for amm in AMM_PROGRAMS {
-            assert!(!BURN_ADDRESSES.contains(amm), "AMM addr in BURN: {amm}");
-            assert!(!LOCKER_PROGRAMS.contains(amm), "AMM addr in LOCKER: {amm}");
-        }
-        for burn in BURN_ADDRESSES {
-            assert!(
-                !LOCKER_PROGRAMS.contains(burn),
-                "BURN addr in LOCKER: {burn}"
-            );
+        let all_cats = [
+            ("AMM", AMM_PROGRAMS),
+            ("BURN", BURN_ADDRESSES),
+            ("LOCKER", LOCKER_PROGRAMS),
+            ("ORACLE", ORACLE_PROGRAMS),
+            ("INFRA", INFRA_PROGRAMS),
+        ];
+
+        for (i, (name1, cat1)) in all_cats.iter().enumerate() {
+            for (name2, cat2) in all_cats.iter().skip(i + 1) {
+                for addr in *cat1 {
+                    assert!(
+                        !cat2.contains(addr),
+                        "Address {addr} found in both {name1} and {name2}"
+                    );
+                }
+            }
         }
     }
 }

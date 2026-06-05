@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-06-05T07:25:00Z",
+  "audit_type": "Sovereignty Debt",
+  "score": 0.42,
+  "verdict": "GROWL",
+  "debt_items": {
+    "context_window": {
+      "proprietary": "1M+",
+      "sovereign": "128k",
+      "gap": "8.0x",
+      "mitigation": "RAG / Summarization"
+    },
+    "web_grounding": {
+      "proprietary": "Native",
+      "sovereign": "Disconnected",
+      "gap": "Infinite",
+      "mitigation": "Hermes-X / Local Search"
+    },
+    "structured_output": {
+      "proprietary": "Reliable",
+      "sovereign": "Flaky",
+      "gap": "High",
+      "mitigation": "Guided Decoding (Outlines)"
+    }
+  },
+  "technical_bridges": [
+    "Ubuntu 24.04 Migration",
+    "vLLM PagedAttention",
+    "Mempool Coordination Loop",
+    "Axiomatic Fine-tuning"
+  ],
+  "axiomatic_impact": {
+    "sovereignty": 1.0,
+    "fidelity": 0.45,
+    "phi": 0.38
+  }
+}

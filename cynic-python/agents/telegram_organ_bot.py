@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tier 2 AGENTS: CYNIC Telegram Bot (@CynicOracle)
+Tier 2 AGENTS: CYNIC Telegram Bot (@TalariaBuild)
 
 MVP: /observe <domain>, /status
 

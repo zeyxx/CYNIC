@@ -70,27 +70,7 @@ def get_blocks(
     channel_id: Optional[int] = None,
     limit: Optional[int] = None,
 ) -> list[dict]:
-    """Get message blocks not yet extracted, grouped by block_id or individual messages."""
-    where = "WHERE m.text IS NOT NULL AND length(m.text) > 20"
-    params: list = []
-
-    if channel_id:
-        where += " AND m.channel_id = ?"
-        params.append(channel_id)
-
-    # Get individual messages, we'll window them in Python
-    query = f"""
-        SELECT m.channel_id, m.message_id, m.date, m.text,
-               m.author_name, m.block_id
-        FROM messages m
-        {where}
-        ORDER BY m.channel_id, m.date ASC
-    """
-
-    cursor = conn.execute(query, params)
-    rows = cursor.fetchall()
-
-    # Group into windows of ~12 messages (fits in 4K context)
+    """Get message blocks not yet extracted, using native block_id."""
     # Skip blocks already extracted
     extracted_blocks: set[str] = set()
     try:
@@ -99,41 +79,37 @@ def get_blocks(
     except sqlite3.OperationalError:
         pass  # extractions table may not exist yet
 
-    window_size = 12
-    blocks: list[dict] = []
-    current_channel = None
-    window: list[tuple] = []
+    where = "WHERE m.text IS NOT NULL AND length(m.text) > 5"
+    params: list = []
+    if channel_id:
+        where += " AND m.channel_id = ?"
+        params.append(channel_id)
 
-    def flush_window() -> None:
-        if not window:
-            return
-        ch = window[0][0]
-        first_date = window[0][2]
-        bid = f"{ch}_batch_{first_date}"
-        if bid in extracted_blocks:
-            return
-        text = "\n".join(
-            f"{r[2]} | {r[4] or 'anon'}: {r[3]}" for r in window
-        )
+    # Use native block_id from messages table
+    query = f"""
+        SELECT m.channel_id, m.block_id,
+               GROUP_CONCAT(m.date || ' | ' || COALESCE(m.author_name, 'anon') || ': ' || m.text, '\n') as full_text,
+               COUNT(*) as msg_count
+        FROM messages m
+        {where}
+        GROUP BY m.channel_id, m.block_id
+        ORDER BY m.date ASC
+    """
+
+    rows = conn.execute(query, params).fetchall()
+
+    blocks: list[dict] = []
+    for row in rows:
+        ch_id, bid, text, count = row
+        if not bid or bid in extracted_blocks:
+            continue
+        
         blocks.append({
-            "channel_id": ch,
+            "channel_id": ch_id,
             "block_id": bid,
             "text": text,
-            "msg_count": len(window),
+            "msg_count": count,
         })
-
-    for row in rows:
-        ch = row[0]
-        if ch != current_channel:
-            flush_window()
-            window = []
-            current_channel = ch
-        window.append(row)
-        if len(window) >= window_size:
-            flush_window()
-            window = []
-
-    flush_window()
 
     if limit:
         blocks = blocks[:limit]
