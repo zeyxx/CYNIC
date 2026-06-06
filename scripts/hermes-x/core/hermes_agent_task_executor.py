@@ -16,10 +16,11 @@ V0.4.0 (2026-05-02): Integrated with kernel /agent-tasks API.
 Workflow:
   1. Poll kernel /agent-tasks?status=pending
   2. Claim task (local lock file, kernel tracks via API)
-  3. Spawn `hermes chat` with task prompt + SKILL.md context
-  4. Agent executes actions via its tools
-  5. Capture observations posted to /observe
-  6. Release task when done (delete local lock, kernel marks done)
+  3. Register Hermes Agent with coord and claim declared repo targets
+  4. Spawn `hermes chat` with task prompt + SKILL.md context
+  5. Agent executes actions via its tools
+  6. Capture observations posted to /observe
+  7. Release repo claims and task lock when done
 
 Usage:
     python3 hermes_agent_task_executor.py --organ-dir ~/.cynic/organs/hermes/x --interval 30
@@ -30,7 +31,7 @@ Environment:
     X_ORGAN_DIR     — organ directory (fallback)
 """
 
-__version__ = "0.4.0"  # Kernel-integrated variant
+__version__ = "0.4.1"  # Kernel-integrated + repo coordination variant
 
 import argparse
 import json
@@ -74,6 +75,171 @@ def load_env():
     else:
         KERNEL_ADDR = f"http://{raw_addr}"
     KERNEL_API_KEY = os.environ.get("CYNIC_API_KEY", "")
+
+
+def kernel_headers() -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {KERNEL_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+def normalize_task_content(task: dict) -> dict:
+    """Merge JSON task.content into task once so coordination sees declared targets."""
+    content = task.get("content", "")
+    if not isinstance(content, str):
+        return task
+    stripped = content.strip()
+    if not (stripped.startswith("{") and stripped.endswith("}")):
+        return task
+    try:
+        merged = json.loads(stripped)
+    except json.JSONDecodeError:
+        return task
+    if isinstance(merged, dict):
+        for key, value in merged.items():
+            task.setdefault(key, value)
+    return task
+
+
+def _safe_agent_component(value: str, fallback: str) -> str:
+    clean = "".join(c if c.isalnum() or c in "-_" else "-" for c in value.strip())
+    clean = "-".join(part for part in clean.split("-") if part)
+    return clean or fallback
+
+
+def hermes_coord_agent_id(task: dict) -> str:
+    domain = _safe_agent_component(str(task.get("domain", "unknown")), "unknown")
+    task_id = _safe_agent_component(str(task.get("id", "task")), "task")
+    agent_id = f"hermes-agent-{domain}-{task_id}"
+    return agent_id[:64]
+
+
+def task_targets(task: dict) -> list[str]:
+    raw = (
+        task.get("targets")
+        or task.get("repo_targets")
+        or task.get("coord_targets")
+        or task.get("files")
+        or []
+    )
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, list):
+        return []
+    targets = []
+    seen = set()
+    for item in raw:
+        target = str(item).strip()
+        if not target or target in seen:
+            continue
+        seen.add(target)
+        targets.append(target)
+    return targets[:20]
+
+
+def task_requires_repo_claims(task: dict) -> bool:
+    for key in ("requires_repo_claims", "repo_write", "repo_mutation", "edits_repo"):
+        if task.get(key) is True:
+            return True
+    if task_targets(task):
+        return True
+
+    actions = task.get("actions", [])
+    if isinstance(actions, list):
+        action_text = " ".join(str(a) for a in actions)
+    else:
+        action_text = str(actions)
+    objective = str(task.get("objective", task.get("content", "")))
+    haystack = f"{task.get('domain', '')} {objective} {action_text}".lower()
+    repo_words = ("repo", "file", "files", "commit", "push", "patch", "edit", "write", "modify", "anvil")
+    return any(word in haystack for word in repo_words)
+
+
+def coord_register(agent_id: str, task: dict) -> bool:
+    if not KERNEL_ADDR or not KERNEL_API_KEY:
+        logger.warning("coord register skipped: kernel not configured")
+        return False
+    payload = {
+        "agent_id": agent_id,
+        "agent_type": "hermes-agent",
+        "intent": str(task.get("objective", task.get("content", "hermes agent task")))[:500],
+    }
+    try:
+        response = requests.post(
+            f"{KERNEL_ADDR}/coord/register",
+            headers=kernel_headers(),
+            json=payload,
+            timeout=5,
+        )
+        if response.status_code >= 400:
+            logger.warning("coord register failed for %s: HTTP %d %s", agent_id, response.status_code, response.text[:200])
+            return False
+        return True
+    except requests.RequestException as e:
+        logger.warning("coord register unreachable for %s: %s", agent_id, e)
+        return False
+
+
+def coord_claim_targets(agent_id: str, targets: list[str]) -> tuple[bool, str]:
+    if not targets:
+        return True, "no repo targets declared"
+    if not KERNEL_ADDR or not KERNEL_API_KEY:
+        return False, "coord unavailable: CYNIC_REST_ADDR/CYNIC_API_KEY missing"
+    payload = {"agent_id": agent_id, "targets": targets, "claim_type": "file"}
+    try:
+        response = requests.post(
+            f"{KERNEL_ADDR}/coord/claim-batch",
+            headers=kernel_headers(),
+            json=payload,
+            timeout=5,
+        )
+    except requests.RequestException as e:
+        return False, f"coord claim unreachable: {e}"
+
+    if response.status_code >= 400:
+        return False, f"coord claim failed: HTTP {response.status_code} {response.text[:200]}"
+
+    data = response.json()
+    conflicts = data.get("conflicts", []) if isinstance(data, dict) else []
+    if conflicts:
+        return False, f"coord conflicts: {json.dumps(conflicts, separators=(',', ':'))}"
+    return True, f"claimed {len(targets)} repo target(s)"
+
+
+def coord_release(agent_id: str):
+    if not KERNEL_ADDR or not KERNEL_API_KEY:
+        return
+    try:
+        response = requests.post(
+            f"{KERNEL_ADDR}/coord/release",
+            headers=kernel_headers(),
+            json={"agent_id": agent_id},
+            timeout=5,
+        )
+        if response.status_code >= 400:
+            logger.warning("coord release failed for %s: HTTP %d", agent_id, response.status_code)
+    except requests.RequestException as e:
+        logger.warning("coord release unreachable for %s: %s", agent_id, e)
+
+
+def prepare_repo_coordination(task: dict) -> tuple[str, list[str], str | None]:
+    """Register and claim repo targets. Returns (agent_id, targets, error)."""
+    task = normalize_task_content(task)
+    agent_id = hermes_coord_agent_id(task)
+    targets = task_targets(task)
+
+    if task_requires_repo_claims(task) and not targets:
+        return agent_id, targets, "repo-affecting Hermes task must declare targets/repo_targets before execution"
+
+    if targets:
+        if not coord_register(agent_id, task):
+            return agent_id, targets, "coord register failed before repo target claim"
+        ok, detail = coord_claim_targets(agent_id, targets)
+        if not ok:
+            return agent_id, targets, detail
+        logger.info("coord claimed for %s: %s", agent_id, detail)
+    return agent_id, targets, None
 
 
 def poll_tasks(organ_dir: str, limit: int = 1) -> list[dict]:
@@ -370,17 +536,7 @@ def execute_task(task: dict, organ_dir: str) -> tuple[str | None, str | None]:
     task_id = task.get("id", "?")
     domain = task.get("domain", "unknown")
 
-    # If content is JSON, parse and merge it into the task dict
-    content = task.get("content", "")
-    if content.strip().startswith("{") and content.strip().endswith("}"):
-        try:
-            merged = json.loads(content)
-            if isinstance(merged, dict):
-                task.update(merged)
-                logger.debug("merged JSON content into task %s", task_id)
-        except json.JSONDecodeError:
-            pass
-
+    normalize_task_content(task)
     objective = task.get("objective", task.get("content", ""))
     actions = task.get("actions", [])
 
@@ -405,6 +561,7 @@ Success criteria:
 - Complete the actions listed above
 - Post observations to /observe endpoint
 - Include narratives and signal_score in observations
+- If editing this repo, only touch the repo targets already claimed by the executor
 
 GUIDANCE:
 - Focus your exploration on the domain specified above
@@ -554,22 +711,35 @@ def run(organ_dir: str, interval: float):
                 logger.warning("task without id, skipping")
                 continue
 
+            normalize_task_content(task)
+
             # Claim task
             if not claim_task(task, organ_dir):
                 logger.warning("failed to claim task %s, skipping", task_id)
                 continue
 
-            # Execute task
-            result, error = execute_task(task, organ_dir)
-
-            if error:
-                logger.error("task %s failed: %s", task_id, error)
+            coord_agent_id, repo_targets, coord_error = prepare_repo_coordination(task)
+            if coord_error:
+                logger.error("task %s blocked by repo coordination: %s", task_id, coord_error)
                 release_task(task, organ_dir, success=False)
                 tasks_failed += 1
-            else:
-                logger.info("task %s completed successfully", task_id)
-                release_task(task, organ_dir, success=True)
-                tasks_executed += 1
+                continue
+
+            try:
+                # Execute task
+                result, error = execute_task(task, organ_dir)
+
+                if error:
+                    logger.error("task %s failed: %s", task_id, error)
+                    release_task(task, organ_dir, success=False)
+                    tasks_failed += 1
+                else:
+                    logger.info("task %s completed successfully", task_id)
+                    release_task(task, organ_dir, success=True)
+                    tasks_executed += 1
+            finally:
+                if repo_targets:
+                    coord_release(coord_agent_id)
 
         time.sleep(interval)
 
