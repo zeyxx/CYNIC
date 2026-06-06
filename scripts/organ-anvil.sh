@@ -551,14 +551,17 @@ repo_health() {
           {severity:$severity, kind:$kind, target:$target, action:$action};
 
         ($open_prs | map(.headRefName)) as $pr_heads |
+        ($remote_branches | map(.name)) as $remote_names |
         ($remote_branches | map(select(.name | startswith("origin/feat/")) | .name | strip_origin)) as $remote_feat |
         ($remote_feat - $pr_heads) as $remote_feat_without_pr |
+        ($local_branches | map(select((.upstream // "") != "" and ((.upstream as $u | $remote_names | index($u)) | not)))) as $stale_upstreams |
         ($open_prs | group_by(.title) | map(select(length > 1) | {title:.[0].title, prs:map({number, headRefName, url})})) as $duplicate_titles |
         ($status_lines | split("\n") | map(select(length > 0)) | map({status:.[0:2], path:.[3:]})) as $dirty_entries |
         [
           (if $dirty_count > 0 then rec("warning"; "dirty_worktree"; ($dirty_count | tostring); "run organ-anvil triage, then commit or stash by scope") else empty end),
           (if ($stashes | length) > 0 then rec("warning"; "pending_stashes"; (($stashes | length) | tostring); "review stash scopes before merge") else empty end),
           ($remote_feat_without_pr[]? | rec("warning"; "remote_feat_without_open_pr"; .; "inspect branch; create PR or delete remote after owner confirms")),
+          ($stale_upstreams[]? | rec("warning"; "local_branch_stale_upstream"; (.name + " -> " + .upstream); "unset upstream, retarget to an active remote, or delete local branch after stashes are safe")),
           ($duplicate_titles[]? | rec("warning"; "duplicate_open_pr_title"; .title; "pick canonical PR and mark older PR superseded")),
           (if (($gates.gate_0.present // false) and (($gates.gate_1.present // false) | not)) then rec("warning"; "gate_1_missing"; ".gate-1"; "run or debug gate-1 before merge") else empty end),
           (if (($coord.available // false) | not) then rec("warning"; "coord_unavailable"; "kernel"; "do not trust coordination state alone") else empty end),
@@ -575,7 +578,8 @@ repo_health() {
           branches:{
             local:$local_branches,
             remote:$remote_branches,
-            remote_feat_without_open_pr:$remote_feat_without_pr
+            remote_feat_without_open_pr:$remote_feat_without_pr,
+            stale_upstreams:$stale_upstreams
           },
           prs:{
             open_count:($open_prs | length),
