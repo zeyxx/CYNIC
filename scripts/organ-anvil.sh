@@ -1,6 +1,6 @@
 #!/bin/bash
 # Organ Anvil - Repo Perception & State Manager
-# Usage: organ-anvil.sh [perceive|state|audit|signal|triage|repo-health]
+# Usage: organ-anvil.sh [perceive|state|audit|signal|triage|repo-health|branch-report]
 
 set -euo pipefail
 
@@ -15,6 +15,7 @@ AUDIT_FILE="$INFRA_DIR/audit.jsonl"
 SCHEMA_FILE="$INFRA_DIR/schema.json"
 POH_FILE="$INFRA_DIR/poh.json"
 DASHBOARD_FILE="$INFRA_DIR/dashboard.html"
+REPORTS_FILE="$INFRA_DIR/reports.jsonl"
 
 # Ensure infra directory exists
 mkdir -p "$INFRA_DIR"
@@ -628,6 +629,81 @@ coord_snapshot_json() {
     printf '%s' "$payload" | jq '{available:true,agents:(.agents // []),claims:(.claims // [])}'
 }
 
+
+# ============================================================
+# REPORTS - Immutable JSONL reports for audit/training datasets
+# ============================================================
+append_report() {
+    local report="$1"
+    printf '%s\n' "$report" >> "$REPORTS_FILE"
+}
+
+branch_report() {
+    cd "$PROJECT_DIR"
+
+    local branch="${1:-}"
+    local save="${2:-}"
+    if [ -z "$branch" ]; then
+        echo "Usage: organ-anvil.sh branch-report <branch> [--save]" >&2
+        return 1
+    fi
+
+    if ! git rev-parse --verify "$branch" >/dev/null 2>&1; then
+        jq -n \
+            --arg timestamp "$TIMESTAMP" \
+            --arg branch "$branch" \
+            '{version:"1.0.0",source:"organ-anvil",mode:"branch-report",timestamp:$timestamp,branch:$branch,error:"branch_not_found"}'
+        return 1
+    fi
+
+    local commits files diff_stat remote_branch open_prs report
+    commits=$(git log --format='%H%x09%h%x09%ct%x09%s' "origin/main..$branch" 2>/dev/null |
+        jq -R 'split("\t") | select(length >= 4) | {oid:.[0], short:.[1], authored_unix:(.[2] | tonumber), subject:.[3]}' |
+        jq -s '.')
+    files=$(git diff --name-only "origin/main..$branch" 2>/dev/null |
+        jq -R 'select(length > 0) | {path:., family:(if startswith("apps/kyon-mobile/") then "kyon-mobile" elif startswith("cynic-python/curation/") then "curation" elif startswith("cynic-python/organs/telegram/") or startswith("cynic-python/agents/telegram") then "telegram" elif startswith("cynic-kernel/src/vercel/") or contains("/vercel") then "vercel" elif startswith("infra/organ-anvil/") or . == "scripts/organ-anvil.sh" then "organ-anvil" elif startswith("reports/") then "reports" elif startswith("docs/") then "docs" elif startswith("packages/cynic-ui/") then "cynic-ui" elif startswith(".observations") then "observations" elif startswith(".codex/") or startswith(".claude/") or startswith(".gemini/") or . == "AGENTS.md" or . == "CLAUDE.md" or . == "GEMINI.md" or . == "CODEX.md" or . == "HERMES_AGENT.md" then "coord-adapters" else "other" end)}' |
+        jq -s '.')
+    diff_stat=$(git diff --shortstat "origin/main..$branch" 2>/dev/null || true)
+    remote_branch="${branch#origin/}"
+    open_prs=$(gh pr list --state open --head "$remote_branch" --json number,title,url,isDraft,mergeStateStatus 2>/dev/null || echo '[]')
+
+    report=$(jq -c -n \
+        --arg timestamp "$TIMESTAMP" \
+        --arg branch "$branch" \
+        --arg base "origin/main" \
+        --arg diff_stat "$diff_stat" \
+        --argjson commits "$commits" \
+        --argjson files "$files" \
+        --argjson open_prs "$open_prs" \
+        '{
+          version:"1.0.0",
+          source:"organ-anvil",
+          mode:"branch-report",
+          mutating:false,
+          timestamp:$timestamp,
+          branch:$branch,
+          base:$base,
+          diff_stat:$diff_stat,
+          commit_count:($commits | length),
+          file_count:($files | length),
+          families:($files | group_by(.family) | map({family:.[0].family,count:length,paths:map(.path)})),
+          commits:$commits,
+          open_prs:$open_prs,
+          recommendations:(
+            [
+              (if ($open_prs | length) == 0 then {severity:"warning",kind:"branch_without_open_pr",target:$branch,action:"open a scoped PR, split branch, or delete after archive"} else empty end),
+              (if ($files | group_by(.family) | length) > 3 then {severity:"warning",kind:"multi_scope_branch",target:$branch,action:"split into narrower branches before merge"} else empty end),
+              (if any($files[]; .family == "curation") then {severity:"warning",kind:"live_dataset_changes",target:"cynic-python/curation",action:"treat as dataset lineage, not incidental code diff"} else empty end)
+            ]
+          )
+        }')
+
+    if [ "$save" = "--save" ]; then
+        append_report "$report"
+    fi
+    printf '%s\n' "$report" | jq '.'
+}
+
 # ============================================================
 # MAIN - Execute selon le mode
 # ============================================================
@@ -655,8 +731,11 @@ case "$mode" in
     repo-health)
         repo_health
         ;;
+    branch-report)
+        branch_report "${2:-}" "${3:-}"
+        ;;
     *)
-        echo "Usage: organ-anvil.sh [perceive|state|audit|signal|triage|repo-health]"
+        echo "Usage: organ-anvil.sh [perceive|state|audit|signal|triage|repo-health|branch-report]"
         exit 1
         ;;
 esac

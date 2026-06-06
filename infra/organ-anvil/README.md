@@ -16,6 +16,7 @@ infra/organ-anvil/
 ### Atomicité
 - `state.json` est écris en entier ou pas du tout (pas de partial write)
 - `audit.jsonl` chaque ligne est un événement atomique
+- `reports.jsonl` chaque ligne est un rapport JSON complet append-only
 
 ### Cohérence
 - Schema versionné dans `schema.json`
@@ -24,6 +25,7 @@ infra/organ-anvil/
 ### Isolation
 - Un seul processus écrit `state.json` à la fois (pas de concurrence)
 - `audit.jsonl` est append-only (pas de conflit d'écriture)
+- `reports.jsonl` est append-only; aucun rapport JSON ne doit être réécrit en place
 
 ### Durabilité
 - Les fichiers sont persistés sur disque après chaque run
@@ -43,6 +45,7 @@ infra/organ-anvil/
 
 ### Audit Evolution
 - `audit.jsonl` est immutable - jamais modifié
+- `reports.jsonl` est immutable - chaque rapport JSON devient une ligne de dataset historique
 - Nouveau format d'entry → Nouvelle version dans le champ `details`
 - Anciennes entries restent lisibles (backward compatible)
 
@@ -88,7 +91,8 @@ infra/organ-anvil/
 5. **Signal** → `bash scripts/organ-anvil.sh signal` emits compact JSON for cortices/Hermes consumers
 6. **Triage** → `bash scripts/organ-anvil.sh triage` emits non-mutating scope diagnosis for dirty worktrees
 7. **Repo Health** → `bash scripts/organ-anvil.sh repo-health` emits non-mutating JSON radar for branches/PRs/stashes/gates/coord
-8. **Rapport** → Dashboard HTML + handoff.md
+8. **Branch Report** → `bash scripts/organ-anvil.sh branch-report <branch> --save` appends an immutable JSON report to `reports.jsonl`
+9. **Rapport** → Dashboard HTML + handoff.md
 
 ## Évolutivité
 
