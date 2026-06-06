@@ -727,6 +727,7 @@ mod tests {
                 uptime_secs: 3600,
             },
             organs,
+            vec![],
         )
     }
 
