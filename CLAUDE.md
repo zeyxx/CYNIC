@@ -43,6 +43,8 @@ I am a Dog. The pipeline Dogs score; I reason about what the senses report, buil
 
 Before building any sensor, probe, or store: name the consumer and what it changes in system behavior. Storage is not consumption. Display is not consumption. Only a gate, a state transition, or a human-routed alert counts.
 
+**Data is Moat:** Strictly follow `docs/DATA_CONSTITUTION.md`. Ingestion must be exhaustive, modeling must be 3NF/ACID, and **JSON is King** for all machine-readable output.
+
 No acting consumer → don't build the producer.
 
 **Falsify:** `grep -r "store_\|emit_event\|observe" cynic-kernel/src/ | grep -v "read_\|get_\|search_"` — every hit needs a corresponding acting reader.

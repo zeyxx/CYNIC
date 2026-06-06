@@ -48,12 +48,12 @@ All agents have these tools via MCP:
 | `cynic_observe` | Record a discovery/decision/blocker | When something material happens |
 | `cynic_health` | Check kernel health | When in doubt |
 | `cynic_handoff` | Read/write `.handoff.md` | Session start (read) and end (append) |
-
 ### Coordination Protocol
 
-```
-1. SESSION START
+1. **JSON is King:** All machine-readable reports, handoffs (within JSON fields), and signal extractions MUST be in JSON/JSONL.
+2. **SESSION START**
    → cynic_coord_register(agent_id, intent, agent_type)
+
    → cynic_handoff(action="read")  — load context from previous sessions
    → cynic_coord_who()             — see who else is working
 
@@ -258,14 +258,16 @@ FOR_OTHER_AGENT: specific messages
 
 ### Organ Architecture (Data-Centric)
 
-Organs are not scripts — they are **sensorial organs** that perceive the repo/system and react adaptively:
+Organs are not scripts — they are **sensorial organs** that perceive the repo/system and react adaptively, following `docs/DATA_CONSTITUTION.md`:
 
-1. **Perception** — Sensors detect state (git status, PRs, dirty trees, divergences)
-2. **Transformation** — Raw state → decision signal (rules adapt to organism scale)
-3. **Structuration** — State stored in registry, handoff, gate state
-4. **Analysis** — Patterns emerge (coordination needs, bottlenecks, health)
-5. **Reliability** — ACID principles applied to repo lifecycle
-6. **Adaptation** — Gates intensity scales with organism activity
+1. **Perception** — Sensors detect state (CSV, hooks, sessions, git status).
+2. **Transformation** — Raw state → decision signal (Cleaning, grouping, summarizing).
+3. **Structuration** — Data modeled via 3NF, stored in registry, handoff, or database (ACID).
+4. **Analysis** — Patterns emerge (Statistics, Visualization, Distributions).
+5. **Apprentissage** — Discovery of hidden structures (Clustering, K-Means).
+6. **Reliability** — Sovereignty through durability and security (COMMIT/ROLLBACK).
+7. **Adaptation** — Gates intensity scales with organism activity.
+
 
 **See** `docs/organ-anvil.md` for full architecture.
 
