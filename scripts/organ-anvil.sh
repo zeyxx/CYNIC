@@ -7,7 +7,8 @@ set -euo pipefail
 # Force C locale to avoid comma decimals in awk/jq
 export LC_ALL=C
 
-PROJECT_DIR="${CYNIC_PROJECT_DIR:-/home/user/Bureau/CYNIC}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="${CYNIC_PROJECT_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 INFRA_DIR="$PROJECT_DIR/infra/organ-anvil"
 STATE_FILE="$INFRA_DIR/state.json"
 AUDIT_FILE="$INFRA_DIR/audit.jsonl"

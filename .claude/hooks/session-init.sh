@@ -256,7 +256,7 @@ LATEST_STATE=$(ls -t "${SESSION_STATE_DIR}"/*.state 2>/dev/null | head -1 || tru
 if [[ -n "$LATEST_STATE" && -f "$LATEST_STATE" ]]; then
     LAST_SESSION_TS=$(grep '^session_start=' "$LATEST_STATE" | cut -d= -f2 || echo 0)
 fi
-NOW_TS=$(date +%s)
+# NOW_TS already defined earlier (line ~115)
 if [[ "$LAST_SESSION_TS" -gt 0 ]]; then
     GAP_HOURS=$(( (NOW_TS - LAST_SESSION_TS) / 3600 ))
 else
