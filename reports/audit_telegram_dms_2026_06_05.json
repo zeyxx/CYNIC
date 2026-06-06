@@ -1,0 +1,38 @@
+{
+  "report_id": "audit_telegram_dms_2026_06_05",
+  "timestamp": "2026-06-05T16:45:00Z",
+  "agent": "gemini-cortex",
+  "subject": "Optimization of Telegram DM Ingestion",
+  "status": "COMPLETED",
+  "axioms": {
+    "fidelity": 0.618,
+    "phi": 0.580,
+    "verify": 0.618,
+    "culture": 0.600,
+    "burn": 0.618,
+    "sovereignty": 0.618
+  },
+  "summary": "Full overhaul of the Telegram DM capture logic to ensure no data loss from personal accounts.",
+  "changes": [
+    {
+      "component": "listener.py",
+      "impact": "DM capture enabled",
+      "detail": "Included is_user dialogs in capture loop; added full name extraction (First + Last)."
+    },
+    {
+      "component": "pipeline.py",
+      "impact": "Block coherence",
+      "detail": "Switched from arbitrary 10-msg windows to native author/time blocks. Set domain to 'community' for private DMs."
+    },
+    {
+      "component": "filters",
+      "impact": "Increased sensitivity",
+      "detail": "Lowered length filter from 20 to 5 chars to capture short DMs (Hi, OK, etc.)."
+    }
+  ],
+  "dataset_impact": {
+    "target_dataset": "cynic-python/datasets/telegram/conversations_v1.jsonl",
+    "format": "JSONL (Fine-tuning ready)",
+    "expected_growth": "+35% ingestion rate for private interactions"
+  }
+}
