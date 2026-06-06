@@ -39,8 +39,9 @@ pub(super) async fn recent_max_disagreements(
     limit: usize,
 ) -> Result<Vec<f64>, StorageError> {
     let capped = limit.min(10_000);
-    let sql =
-        format!("SELECT max_disagreement, created_at FROM verdict ORDER BY created_at DESC LIMIT {capped}");
+    let sql = format!(
+        "SELECT max_disagreement, created_at FROM verdict ORDER BY created_at DESC LIMIT {capped}"
+    );
     let rows = storage.query_one(&sql).await?;
     Ok(rows
         .iter()

@@ -261,8 +261,12 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
             ctx.effective_concentration
         ));
         // Contextual note when institutional holdings are significant
-        let institutional =
-            ctx.locker_pct + ctx.contract_pct + ctx.lp_pct + ctx.burn_pct + ctx.oracle_pct + ctx.infra_pct;
+        let institutional = ctx.locker_pct
+            + ctx.contract_pct
+            + ctx.lp_pct
+            + ctx.burn_pct
+            + ctx.oracle_pct
+            + ctx.infra_pct;
         if institutional > 30.0 {
             s.push_str(&format!(
                 "note: High raw concentration ({:.0}%) driven by institutional/programmatic holdings ({:.0}%). Effective retail concentration is {:.1}%.\n",

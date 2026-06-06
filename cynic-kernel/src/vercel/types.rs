@@ -1,7 +1,7 @@
 //! Vercel API data structures.
 
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct VercelDeployment {
@@ -22,7 +22,7 @@ pub struct CreateDeploymentRequest {
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct GitSource {
     pub r#type: String, // "github" | "gitlab" | "bitbucket"
-    pub r#ref: String,    // branch name
+    pub r#ref: String,  // branch name
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]

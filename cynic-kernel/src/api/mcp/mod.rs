@@ -369,20 +369,26 @@ impl CynicMcp {
             )),
             project_root,
             tool_router: Self::tool_router_judge()
-            + Self::tool_router_coord()
-            + Self::tool_router_observe()
-            + Self::tool_router_agent()
-            + Self::tool_router_vercel(),
-            }
-            }
+                + Self::tool_router_coord()
+                + Self::tool_router_observe()
+                + Self::tool_router_agent()
+                + Self::tool_router_vercel(),
+        }
+    }
 
-            fn tool_router_vercel() -> ToolRouter<Self> {
-            ToolRouter::new()
-            .tool("cynic_vercel_list_deployments", vercel_tools::cynic_vercel_list_deployments)
-            .tool("cynic_vercel_create_deployment", vercel_tools::cynic_vercel_create_deployment)
-            }
+    fn tool_router_vercel() -> ToolRouter<Self> {
+        ToolRouter::new()
+            .tool(
+                "cynic_vercel_list_deployments",
+                vercel_tools::cynic_vercel_list_deployments,
+            )
+            .tool(
+                "cynic_vercel_create_deployment",
+                vercel_tools::cynic_vercel_create_deployment,
+            )
+    }
 
-            pub(crate) fn require_auth(&self) -> Result<(), McpError> {
+    pub(crate) fn require_auth(&self) -> Result<(), McpError> {
         if !self.authenticated.load(Ordering::Relaxed) {
             return Err(McpError::new(
                 rmcp::model::ErrorCode(-32000),

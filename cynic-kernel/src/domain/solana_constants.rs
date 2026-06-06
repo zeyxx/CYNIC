@@ -42,7 +42,7 @@ pub const ORACLE_PROGRAMS: &[&str] = &[
 /// Infrastructure and System programs.
 pub const INFRA_PROGRAMS: &[&str] = &[
     "ComputeBudget111111111111111111111111111111", // Compute Budget Program
-    "JitoTiPevE9D2x6pkA7P6CYnATWzjtneQLhbK7Yv3uS",  // Jito Tip Payment
+    "JitoTiPevE9D2x6pkA7P6CYnATWzjtneQLhbK7Yv3uS", // Jito Tip Payment
 ];
 
 /// System Program — owner of regular wallets.
