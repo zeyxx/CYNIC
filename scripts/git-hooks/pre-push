@@ -47,6 +47,28 @@ if [ "$IS_DELETE" = "true" ]; then
     exit 0
 fi
 
+# ── Leeroy Jenkins fallback ───────────────────────────────────────────────
+# AGENTS.md documents PUSH_FORCE=1 as the emergency bypass for gate
+# infrastructure failures. Keep branch discipline above, then bypass only
+# the CI gates and record every use for post-mortem.
+if [ "${PUSH_FORCE:-}" = "1" ]; then
+    PROJECT_DIR="$(git rev-parse --show-toplevel)"
+    LOG_DIR="$PROJECT_DIR/.leeroy-jenkins"
+    mkdir -p "$LOG_DIR"
+    BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+    SHA="$(git rev-parse HEAD)"
+    TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    REASON="${PUSH_FORCE_REASON:-gate infrastructure failure}"
+    printf '{"timestamp":"%s","branch":"%s","sha":"%s","reason":"%s"}
+' \
+        "$TS" "$BRANCH" "$SHA" "$REASON" >> "$LOG_DIR/log.txt"
+    echo "══════════════════════════════════════════"
+    echo "  LEEROY JENKINS: PUSH_FORCE=1 gate bypass"
+    echo "  Logged to .leeroy-jenkins/log.txt"
+    echo "══════════════════════════════════════════"
+    exit 0
+fi
+
 # ── Skip gate for non-Rust pushes ──────────────────────────────────────────
 # make gate covers Rust: build + test + clippy + lint-rules + lint-drift + audit.
 # Python, docs, configs, systemd → no Rust toolchain needed.

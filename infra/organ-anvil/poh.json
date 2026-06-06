@@ -172,5 +172,52 @@
         "action_needed": "teach hook the fallback or update AGENTS.md"
       }
     ]
+  },
+  {
+    "run": 8,
+    "timestamp": "2026-06-06T10:26:50Z",
+    "repo_health_score": 0.70,
+    "dirty_tree": true,
+    "branches_local": [
+      "feat/llm-engineering-roadmap-2026-06-05",
+      "feat/observatory-unification-v2",
+      "feat/poh-vercel-integration"
+    ],
+    "branches_remote": [
+      "  feat/observatory-unification-v2",
+      "  feat/organ-x-audit-2026-06-06",
+      "  main"
+    ],
+    "prs_open": 1,
+    "worktrees": [
+      "/home/user/Bureau/CYNIC 72b6f70 [feat/organ-x-audit-2026-06-06]"
+    ],
+    "stashes": 0,
+    "gate_markers": {
+      "gate_0": {
+        "present": true,
+        "mtime": "2026-06-06T10:02:04Z"
+      },
+      "gate_1": {
+        "present": true,
+        "mtime": "2026-06-04T20:09:01Z"
+      },
+      "gate_2": {
+        "present": true,
+        "mtime": "2026-06-04T17:59:14Z"
+      },
+      "gate_passed": {
+        "present": true,
+        "mtime": "2026-06-04T21:44:30Z"
+      }
+    },
+    "push_force_supported": true,
+    "alerts": [
+      {
+        "severity": "warning",
+        "message": "worktree dirty",
+        "action_needed": "commit, stash, or intentionally leave scoped dirty state"
+      }
+    ]
   }
 ]
