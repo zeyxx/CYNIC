@@ -526,7 +526,7 @@ repo_health() {
     open_prs=$(gh pr list --state open --json number,title,headRefName,baseRefName,isDraft,url,mergeStateStatus 2>/dev/null || echo '[]')
     stashes=$(
         git stash list --format='%gd%x09%gs' 2>/dev/null |
-        jq -R 'split("\t") | {name:.[0], message:(.[1] // "")}' |
+        jq -R 'split("\t") | {name:.[0], message:(.[1] // "")} | . + ((.message | capture("^On (?<branch>[^:]+): (?<scope>.+)$"))? // {branch:null,scope:null})' |
         jq -s '.'
     )
     gates=$(gate_markers_json)
@@ -556,6 +556,8 @@ repo_health() {
         ($remote_feat - $pr_heads) as $remote_feat_without_pr |
         ($local_branches | map(select((.upstream // "") != "" and ((.upstream as $u | $remote_names | index($u)) | not)))) as $stale_upstreams |
         ($open_prs | group_by(.title) | map(select(length > 1) | {title:.[0].title, prs:map({number, headRefName, url})})) as $duplicate_titles |
+        ($stashes | group_by(.branch // "unknown") | map({branch:(.[0].branch // "unknown"), count:length, scopes:map(.scope // .message), entries:map({name, scope:(.scope // .message)})})) as $stashes_by_branch |
+        ($stashes | group_by(.scope // .message) | map({scope:(.[0].scope // .[0].message), count:length, branches:(map(.branch // "unknown") | unique), entries:map(.name)})) as $stashes_by_scope |
         ($status_lines | split("\n") | map(select(length > 0)) | map({status:.[0:2], path:.[3:]})) as $dirty_entries |
         [
           (if $dirty_count > 0 then rec("warning"; "dirty_worktree"; ($dirty_count | tostring); "run organ-anvil triage, then commit or stash by scope") else empty end),
@@ -586,7 +588,7 @@ repo_health() {
             open:$open_prs,
             duplicate_titles:$duplicate_titles
           },
-          stashes:{count:($stashes | length), entries:$stashes},
+          stashes:{count:($stashes | length), entries:$stashes, by_branch:$stashes_by_branch, by_scope:$stashes_by_scope},
           gates:$gates,
           coord:$coord,
           recommendations:$recommendations
