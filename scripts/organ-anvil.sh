@@ -1,0 +1,333 @@
+#!/bin/bash
+# Organ Anvil - Repo Perception & State Manager
+# Usage: organ-anvil.sh [percept|state|audit|poh]
+
+set -euo pipefail
+
+PROJECT_DIR="${CYNIC_PROJECT_DIR:-/home/user/Bureau/CYNIC}"
+INFRA_DIR="$PROJECT_DIR/infra/organ-anvil"
+STATE_FILE="$INFRA_DIR/state.json"
+AUDIT_FILE="$INFRA_DIR/audit.jsonl"
+SCHEMA_FILE="$INFRA_DIR/schema.json"
+POH_FILE="$INFRA_DIR/poh.json"
+DASHBOARD_FILE="$INFRA_DIR/dashboard.html"
+
+# Ensure infra directory exists
+mkdir -p "$INFRA_DIR"
+
+# Default schema if missing
+if [ ! -f "$SCHEMA_FILE" ]; then
+    cat > "$SCHEMA_FILE" << 'SCHEMAEOF'
+{
+  "version": "1.0.0",
+  "updated": "2026-06-06T00:00:00Z",
+  "state_fields": {
+    "repo_health_score": "float 0-1",
+    "dirty_tree": "boolean",
+    "branches_local": "array of objects",
+    "branches_remote": "array of objects",
+    "prs_open": "number",
+    "worktrees": "array of objects",
+    "stashes": "number",
+    "gate_markers": "object: .gate-0/.gate-1/.gate-2/.gate-passed presence and mtime",
+    "push_force_supported": "boolean",
+    "last_perception": "ISO timestamp",
+    "last_run": "ISO timestamp",
+    "run_count": "number",
+    "alerts": "array of objects"
+  },
+  "audit_fields": {
+    "timestamp": "ISO timestamp",
+    "action": "string: perception|decision|action|alert",
+    "details": "object",
+    "outcome": "string: success|failed|partial|pending"
+  },
+  "poh_fields": {
+    "run": "number - incremental run id",
+    "timestamp": "ISO timestamp",
+    "repo_health_score": "float 0-1",
+    "dirty_tree": "boolean",
+    "branches_local": "array of objects",
+    "branches_remote": "array of objects",
+    "prs_open": "number",
+    "worktrees": "array of objects",
+    "stashes": "number",
+    "gate_markers": "object",
+    "push_force_supported": "boolean",
+    "alerts": "array of objects"
+  }
+}
+SCHEMAEOF
+fi
+
+TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+atomic_write() {
+    local target="$1"
+    local tmp
+    tmp=$(mktemp "${target}.tmp.XXXXXX")
+    cat > "$tmp"
+    mv "$tmp" "$target"
+}
+
+marker_json() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        local mtime
+        mtime=$(date -u -d "@$(stat -c '%Y' "$file")" +%Y-%m-%dT%H:%M:%SZ)
+        jq -n --arg mtime "$mtime" '{present:true,mtime:$mtime}'
+    else
+        jq -n '{present:false,mtime:null}'
+    fi
+}
+
+push_force_supported() {
+    if grep -q 'PUSH_FORCE' .git/hooks/pre-push 2>/dev/null; then
+        echo true
+    else
+        echo false
+    fi
+}
+
+gate_markers_json() {
+    jq -n \
+        --argjson gate0 "$(marker_json .gate-0)" \
+        --argjson gate1 "$(marker_json .gate-1)" \
+        --argjson gate2 "$(marker_json .gate-2)" \
+        --argjson gate_passed "$(marker_json .gate-passed)" \
+        '{gate_0:$gate0,gate_1:$gate1,gate_2:$gate2,gate_passed:$gate_passed}'
+}
+
+build_alerts() {
+    local dirty="$1"
+    local stashes="$2"
+    local push_force="$3"
+    local gate_markers="$4"
+
+    jq -n \
+        --argjson dirty "$dirty" \
+        --argjson stashes "$stashes" \
+        --argjson push_force "$push_force" \
+        --argjson gates "$gate_markers" \
+        '[
+          (if $dirty > 0 then {severity:"warning",message:"worktree dirty",action_needed:"commit, stash, or intentionally leave scoped dirty state"} else empty end),
+          (if $stashes > 0 then {severity:"warning",message:"stashes pending",action_needed:"restore, branch, or drop stashes after backup"} else empty end),
+          (if ($push_force | not) then {severity:"critical",message:"documented PUSH_FORCE fallback missing from pre-push hook",action_needed:"teach hook the fallback or update AGENTS.md"} else empty end),
+          (if (($gates.gate_0.present == true) and ($gates.gate_1.present == false)) then {severity:"warning",message:"gate-0 passed but gate-1 marker missing",action_needed:"inspect clippy/gate-1 failure before merge"} else empty end)
+        ]'
+}
+
+# ============================================================
+# PERCEPTION - Capteurs du repo
+# ============================================================
+perceive() {
+    echo "Perception: $TIMESTAMP"
+
+    cd "$PROJECT_DIR"
+
+    # 1. Dirty tree
+    DIRTY_TREE=$(git status --porcelain | wc -l | tr -d ' ')
+
+    # 2. Branches locales (exclut main)
+    BRANCHES_LOCAL=$(git branch | grep -v "^*" | grep -v "^  main$" | sed 's/^[* ]*//' | jq -R '.' | jq -s '.')
+
+    # 3. Branches remote
+    BRANCHES_REMOTE=$(git branch -r | grep origin/ | grep -v HEAD | sed 's|origin/||' | jq -R '.' | jq -s '.')
+
+    # 4. PRs ouverts (via gh CLI si dispo)
+    PRS_OPEN=$(gh pr list --state open --json number 2>/dev/null | jq '. | length' 2>/dev/null || echo "0")
+
+    # 5. Worktrees
+    WORKTREES=$(git worktree list | awk '{print $1, $2, $3}' | jq -R '.' | jq -s '.')
+
+    # 6. Stashes
+    STASHES=$(git stash list | wc -l | tr -d ' ')
+
+    # 7. Gate/fallback perception
+    GATE_MARKERS=$(gate_markers_json)
+    PUSH_FORCE_SUPPORTED=$(push_force_supported)
+
+    # Calcul du health score (0-1)
+    HEALTH_SCORE=$(calculate_health_score "$DIRTY_TREE" "$BRANCHES_LOCAL" "$BRANCHES_REMOTE" "$PRS_OPEN" "$WORKTREES" "$STASHES")
+
+    echo "Health: $HEALTH_SCORE"
+    echo "Dirty: $DIRTY_TREE"
+
+    local local_count=$(echo "$BRANCHES_LOCAL" | jq 'length')
+    local remote_count=$(echo "$BRANCHES_REMOTE" | jq 'length')
+    echo "Branches: $((local_count + remote_count)) (local: $local_count, remote: $remote_count)"
+    echo "Stashes: $STASHES"
+    echo "PUSH_FORCE fallback: $PUSH_FORCE_SUPPORTED"
+    echo "Gate markers: $(echo "$GATE_MARKERS" | jq -c '.')"
+}
+
+# ============================================================
+# STATE - Écrit l'état dans state.json
+# ============================================================
+write_state() {
+    DIRTY_TREE=$(git status --porcelain | wc -l | tr -d ' ')
+    BRANCHES_LOCAL=$(git branch | grep -v "^*" | grep -v "^  main$" | sed 's/^[* ]*//' | jq -R '.' | jq -s '.')
+    BRANCHES_REMOTE=$(git branch -r | grep origin/ | grep -v HEAD | sed 's|origin/||' | jq -R '.' | jq -s '.')
+    PRS_OPEN=$(gh pr list --state open --json number 2>/dev/null | jq '. | length' 2>/dev/null || echo "0")
+    WORKTREES=$(git worktree list | awk '{print $1, $2, $3}' | jq -R '.' | jq -s '.')
+    STASHES=$(git stash list | wc -l | tr -d ' ')
+    GATE_MARKERS=$(gate_markers_json)
+    PUSH_FORCE_SUPPORTED=$(push_force_supported)
+
+    # Lecture du state précédent pour incrementer run_count
+    if [ -f "$STATE_FILE" ]; then
+        PREV_COUNT=$(jq '.run_count // 0' "$STATE_FILE")
+        PREV_ALERTS=$(jq '.alerts // []' "$STATE_FILE" 2>/dev/null || echo '[]')
+    else
+        PREV_COUNT=0
+        PREV_ALERTS='[]'
+    fi
+
+    # Calcul health score and live alerts
+    HEALTH_SCORE=$(calculate_health_score "$DIRTY_TREE" "$BRANCHES_LOCAL" "$BRANCHES_REMOTE" "$PRS_OPEN" "$WORKTREES" "$STASHES")
+    ALERTS=$(build_alerts "$DIRTY_TREE" "$STASHES" "$PUSH_FORCE_SUPPORTED" "$GATE_MARKERS")
+
+    # Écriture atomique du state
+    jq -n \
+        --arg timestamp "$TIMESTAMP" \
+        --argjson health "$HEALTH_SCORE" \
+        --argjson dirty "$( [ "$DIRTY_TREE" -gt 0 ] && echo true || echo false )" \
+        --argjson branches_local "$BRANCHES_LOCAL" \
+        --argjson branches_remote "$BRANCHES_REMOTE" \
+        --argjson prs_open "$PRS_OPEN" \
+        --argjson worktrees "$WORKTREES" \
+        --argjson stashes "$STASHES" \
+        --argjson gate_markers "$GATE_MARKERS" \
+        --argjson push_force_supported "$PUSH_FORCE_SUPPORTED" \
+        --argjson run_count "$((PREV_COUNT + 1))" \
+        --argjson alerts "$ALERTS" \
+        '{version:"1.1.0",updated:$timestamp,repo_health_score:$health,dirty_tree:$dirty,branches_local:$branches_local,branches_remote:$branches_remote,prs_open:$prs_open,worktrees:$worktrees,stashes:$stashes,gate_markers:$gate_markers,push_force_supported:$push_force_supported,last_perception:$timestamp,last_run:$timestamp,run_count:$run_count,alerts:$alerts}' \
+        | atomic_write "$STATE_FILE"
+
+    echo "State written: $STATE_FILE (run #$(($PREV_COUNT + 1)))"
+
+    # Append snapshot to proof-of-history (poh.json)
+    append_poh
+}
+
+# ============================================================
+# POH - Append snapshot to proof-of-history (poh.json)
+# ============================================================
+append_poh() {
+    # Read current state.json and append to poh.json array
+    if [ ! -f "$POH_FILE" ]; then
+        echo "[]" > "$POH_FILE"
+    fi
+
+    local current_state=$(cat "$STATE_FILE")
+    local run=$(echo "$current_state" | jq '.run_count')
+    local timestamp=$(echo "$current_state" | jq -r '.updated')
+    local health=$(echo "$current_state" | jq '.repo_health_score')
+    local dirty=$(echo "$current_state" | jq '.dirty_tree')
+    local branches_local=$(echo "$current_state" | jq '.branches_local')
+    local branches_remote=$(echo "$current_state" | jq '.branches_remote')
+    local prs=$(echo "$current_state" | jq '.prs_open')
+    local worktrees=$(echo "$current_state" | jq '.worktrees')
+    local stashes=$(echo "$current_state" | jq '.stashes')
+    local alerts=$(echo "$current_state" | jq '.alerts')
+    local gate_markers=$(echo "$current_state" | jq '.gate_markers')
+    local push_force_supported=$(echo "$current_state" | jq '.push_force_supported')
+
+    # Build snapshot object
+    local snapshot=$(jq -n \
+        --argjson run "$run" \
+        --arg timestamp "$timestamp" \
+        --argjson health "$health" \
+        --argjson dirty "$dirty" \
+        --argjson branches_local "$branches_local" \
+        --argjson branches_remote "$branches_remote" \
+        --argjson prs "$prs" \
+        --argjson worktrees "$worktrees" \
+        --argjson stashes "$stashes" \
+        --argjson alerts "$alerts" \
+        --argjson gate_markers "$gate_markers" \
+        --argjson push_force_supported "$push_force_supported" \
+        '{run:$run,timestamp:$timestamp,repo_health_score:$health,dirty_tree:$dirty,branches_local:$branches_local,branches_remote:$branches_remote,prs_open:$prs,worktrees:$worktrees,stashes:$stashes,gate_markers:$gate_markers,push_force_supported:$push_force_supported,alerts:$alerts}'
+    )
+
+    # Append to array
+    local poh=$(cat "$POH_FILE")
+    echo "$poh" | jq --argjson snap "$snapshot" '. += [$snap]' | atomic_write "$POH_FILE"
+
+    echo "POH updated: $POH_FILE (snapshot #$(jq 'length' "$POH_FILE"))"
+}
+
+# ============================================================
+# AUDIT - Append dans audit.jsonl
+# ============================================================
+audit() {
+    local action="$1"
+    local details="$2"
+    local outcome="$3"
+
+    jq -c -n --arg timestamp "$TIMESTAMP" --arg action "$action" --argjson details "$details" --arg outcome "$outcome" \
+        '{timestamp:$timestamp,action:$action,details:$details,outcome:$outcome}' >> "$AUDIT_FILE"
+}
+
+# ============================================================
+# HEALTH SCORE - Calcul adaptatif
+# ============================================================
+calculate_health_score() {
+    local dirty=$1
+    local branches_local=$2
+    local branches_remote=$3
+    local prs=$4
+    local worktrees=$5
+    local stashes=$6
+
+    # Score de base = 100 (scale 0-100)
+    local score=100
+
+    # Penalty dirty tree (-30)
+    if [ "$dirty" -gt 0 ]; then
+        score=$((score - 30))
+    fi
+
+    # Penalty branches (>3 = -20, >5 = -40)
+    local local_count=$(echo "$branches_local" | jq 'length')
+    if [ "$local_count" -gt 5 ]; then
+        score=$((score - 40))
+    elif [ "$local_count" -gt 3 ]; then
+        score=$((score - 20))
+    fi
+
+    # Penalty stashes (>2 = -20)
+    if [ "$stashes" -gt 2 ]; then
+        score=$((score - 20))
+    fi
+
+    # Clamp entre 0 et 100, puis convertir en float
+    if [ $score -lt 0 ]; then score=0; fi
+    if [ $score -gt 100 ]; then score=100; fi
+
+    # Convert to strict JSON number (0.00-1.00). bc emits .70, which is not valid JSON.
+    awk -v score="$score" 'BEGIN { printf "%.2f", score / 100 }'
+}
+
+# ============================================================
+# MAIN - Execute selon le mode
+# ============================================================
+mode="${1:-state}"
+
+case "$mode" in
+    perceive)
+        cd "$PROJECT_DIR"
+        perceive
+        ;;
+    state)
+        cd "$PROJECT_DIR"
+        write_state
+        ;;
+    audit)
+        audit "$2" "$3" "$4"
+        ;;
+    *)
+        echo "Usage: organ-anvil.sh [percept|state|audit]"
+        exit 1
+        ;;
+esac
