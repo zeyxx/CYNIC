@@ -21,6 +21,7 @@ pub mod phone_numbers;
 pub mod response;
 pub mod soma;
 pub mod types;
+pub mod vercel;
 
 pub use types::*;
 
@@ -64,6 +65,7 @@ use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware}
 use self::mint_permit::mint_permit_handler;
 use self::observe::observe_handler;
 use self::soma::soma_request_handler;
+use self::vercel::{create_deployment_handler, list_deployments_handler};
 use crate::api::websocket::ws_handler;
 
 // ── ROUTER ─────────────────────────────────────────────────
@@ -144,6 +146,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/compliance", get(compliance_trend_handler))
         .route("/audit", get(audit_handler))
         .route("/state-history", get(state_history_handler))
+        .route("/vercel/deployments", get(list_deployments_handler))
+        .route("/vercel/deploy", post(create_deployment_handler))
         .route("/agent-tasks", post(agent_tasks::dispatch_task_handler))
         .route("/agent-tasks", get(agent_tasks::list_tasks_handler))
         .route(
