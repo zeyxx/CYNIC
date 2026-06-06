@@ -234,6 +234,9 @@ write_state() {
 
     # Append snapshot to proof-of-history (poh.json)
     append_poh
+
+    # Send observations to kernel
+    observe_kernel "$HEALTH_SCORE" "$ALERTS"
 }
 
 # ============================================================
@@ -336,6 +339,68 @@ calculate_health_score() {
 }
 
 # ============================================================
+# OBSERVE - Envoyer alertes au kernel via cynic_observe
+# ============================================================
+observe_kernel() {
+    local health_score="$1"
+    local alerts="$2"
+
+    # Source env for kernel address
+    source ~/.cynic-env 2>/dev/null || return 0
+
+    local kernel_addr="${CYNIC_REST_ADDR:-}"
+    local api_key="${CYNIC_API_KEY:-}"
+    [[ -n "$kernel_addr" ]] || return 0
+
+    local auth_header=""
+    [[ -n "$api_key" ]] && auth_header="Authorization: Bearer $api_key"
+
+    # Check if kernel is reachable
+    local health_code
+    health_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 \
+        -H "$auth_header" \
+        "http://${kernel_addr}/health" 2>/dev/null || echo "000")
+
+    [[ "$health_code" == "200" ]] || [[ "$health_code" == "503" ]] || return 0
+
+    # Send each alert as a separate observation
+    local count
+    count=$(echo "$alerts" | jq 'length')
+    for ((i=0; i<count; i++)); do
+        local severity message action_needed
+        severity=$(echo "$alerts" | jq -r ".[$i].severity")
+        message=$(echo "$alerts" | jq -r ".[$i].message")
+        action_needed=$(echo "$alerts" | jq -r ".[$i].action_needed")
+
+        # POST to /observe
+        curl -s --max-time 3 -X POST "http://${kernel_addr}/observe" \
+            -H "Content-Type: application/json" \
+            -H "$auth_header" \
+            -d "{
+                \"agent_id\": \"organ-anvil\",
+                \"tool\": \"repo_perception\",
+                \"target\": \"$message\",
+                \"domain\": \"repo-health\",
+                \"context\": \"severity=$severity health_score=$health_score action=$action_needed\",
+                \"tags\": [\"organ-anvil\", \"repo-health\", \"$severity\"]
+            }" > /dev/null 2>&1 || true
+    done
+
+    # Also send health score as a heartbeat observation
+    curl -s --max-time 3 -X POST "http://${kernel_addr}/observe" \
+        -H "Content-Type: application/json" \
+        -H "$auth_header" \
+        -d "{
+            \"agent_id\": \"organ-anvil\",
+            \"tool\": \"repo_health_pulse\",
+            \"target\": \"health_pulse\",
+            \"domain\": \"repo-health\",
+            \"context\": \"health_score=$health_score run_count=$(json_uint_or_zero \"$STATE_FILE\" '.run_count' 2>/dev/null || echo 0)\",
+            \"tags\": [\"organ-anvil\", \"health-pulse\"]
+        }" > /dev/null 2>&1 || true
+}
+
+# ============================================================
 # SIGNAL - Consumer JSON for cortices/Hermes
 # ============================================================
 signal() {
@@ -367,6 +432,67 @@ signal() {
 }
 
 # ============================================================
+# TRIAGE - Non-mutating scope diagnosis for dirty worktrees
+# ============================================================
+triage() {
+    cd "$PROJECT_DIR"
+
+    local status_lines conflict_lines
+    status_lines=$(git status --porcelain=v1 -uall)
+    conflict_lines=$(grep -RInE '^(<<<<<<<|=======$|>>>>>>>)' .claude AGENTS.md CODEX.md HERMES_AGENT.md infra scripts cynic-kernel 2>/dev/null || true)
+
+    jq -n \
+        --arg timestamp "$TIMESTAMP" \
+        --arg status_lines "$status_lines" \
+        --arg conflict_lines "$conflict_lines" \
+        '
+        def scope_for($p):
+          if ($p | startswith("infra/organ-anvil/")) or $p == "scripts/organ-anvil.sh" then "organ-anvil"
+          elif ($p | startswith("cynic-python/curation/")) then "hermes-curation"
+          elif ($p | startswith(".claude/")) or $p == "CLAUDE.md" then "claude-adapter"
+          elif ($p | startswith(".gemini/")) or $p == "GEMINI.md" then "gemini-adapter"
+          elif ($p | startswith(".codex/")) or $p == "CODEX.md" then "codex-adapter"
+          elif $p == "AGENTS.md" or $p == "HERMES_AGENT.md" then "coord-protocol"
+          elif ($p | startswith("cynic-kernel/src/llm/")) then "llm-roadmap"
+          elif ($p | startswith("cynic-kernel/src/domains/poh/")) or $p == "cynic-kernel/src/api/rest/poh.rs" then "poh-stub"
+          elif $p == "cynic-kernel/src/lib.rs" then "kernel-module-wiring"
+          elif ($p | startswith("infra/systemd/")) or ($p | endswith(".service")) then "systemd-runtime"
+          elif $p == "TOPOLOGY.md" then "generated-topology"
+          else "other"
+          end;
+        def action_for($scope):
+          if $scope == "organ-anvil" then "review/commit with Anvil PR or park as organ-anvil stash"
+          elif $scope == "hermes-curation" then "park as live-data stash unless this PR is about curation"
+          elif $scope == "generated-topology" then "park or regenerate in its owning workflow"
+          elif $scope == "poh-stub" or $scope == "llm-roadmap" or $scope == "kernel-module-wiring" then "move to dedicated branch before merge"
+          elif $scope == "systemd-runtime" then "template or park; do not mix with audit PR"
+          elif ($scope | endswith("adapter")) or $scope == "coord-protocol" then "commit only in coordination-scope PR"
+          else "inspect manually"
+          end;
+        ($status_lines | split("\n") | map(select(length > 0)) | map({status: .[0:2], path: .[3:]})) as $entries |
+        ($conflict_lines | split("\n") | map(select(length > 0))) as $conflicts |
+        ($entries | group_by(.path | scope_for(.)) | map({
+          scope: (.[0].path | scope_for(.)),
+          count: length,
+          paths: map(.path),
+          statuses: map(.status) | unique,
+          recommended_action: action_for(.[0].path | scope_for(.))
+        })) as $scopes |
+        {
+          version:"1.0.0",
+          source:"organ-anvil",
+          mode:"triage",
+          timestamp:$timestamp,
+          dirty_count:($entries | length),
+          scope_count:($scopes | length),
+          conflict_marker_count:($conflicts | length),
+          conflict_markers:$conflicts,
+          scopes:$scopes,
+          recommendation:(if ($conflicts | length) > 0 then "fix conflict markers before stashing or committing" elif ($scopes | length) > 1 then "split dirty worktree by scope before merge" elif ($scopes | length) == 1 then "single scope dirty; commit, stash, or continue intentionally" else "clean" end)
+        }'
+}
+
+# ============================================================
 # MAIN - Execute selon le mode
 # ============================================================
 mode="${1:-state}"
@@ -387,8 +513,11 @@ case "$mode" in
         cd "$PROJECT_DIR"
         signal
         ;;
+    triage)
+        triage
+        ;;
     *)
-        echo "Usage: organ-anvil.sh [perceive|state|audit|signal]"
+        echo "Usage: organ-anvil.sh [perceive|state|audit|signal|triage]"
         exit 1
         ;;
 esac
