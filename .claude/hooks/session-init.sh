@@ -102,6 +102,18 @@ STASHES=$(git -C "$PROJECT_DIR" stash list 2>/dev/null | jq -R -s -c 'split("\n"
 # Branch isolation at session-init replaces edit-time claim checking.
 CLAIMED_MODULES="[]"
 
+# Agent ID from Claude session_id (stable across compactions) ──
+# MUST be computed early — used in PROOF_FILE heredoc below.
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+if [[ -n "$SESSION_ID" ]]; then
+    AGENT_ID="claude-${SESSION_ID:0:12}"
+else
+    AGENT_ID="claude-$(date +%s)"
+fi
+
+# NOW_TS — used in stash age calculation below
+NOW_TS=$(date +%s)
+
 # Write AT_START proof (includes coordination state for MC4 blocking)
 cat > "$PROOF_FILE" << PROOF_EOF
 {
@@ -173,14 +185,6 @@ fi
 # V3: Stale stashes → incomplete work from previous session
 if [[ $(echo "$STASHES" | jq 'length') -gt 0 ]]; then
     GIT_VIOLATIONS="${GIT_VIOLATIONS:+$GIT_VIOLATIONS; }$(echo "$STASHES" | jq 'length') stashes exist (previous session work not completed)"
-fi
-
-# Agent ID from Claude session_id (stable across compactions) ──
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
-if [[ -n "$SESSION_ID" ]]; then
-    AGENT_ID="claude-${SESSION_ID:0:12}"
-else
-    AGENT_ID="claude-$(date +%s)"
 fi
 
 # ── Git Hygiene Sense: POST to /observe (fire-and-forget, non-blocking) ──
