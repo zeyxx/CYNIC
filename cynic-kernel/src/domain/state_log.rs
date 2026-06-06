@@ -53,6 +53,27 @@ pub struct OrganSnapshot {
     pub silence_secs: u64,
 }
 
+/// Read-only sensory organ audit at snapshot time.
+///
+/// Unlike `OrganSnapshot`, which is derived from pushed observations, this is
+/// pulled directly from each registered `OrganPort`. It proves whether the
+/// kernel can still perceive the organ's own data store.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrganAuditSnapshot {
+    pub organ: String,
+    pub health: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub health_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub freshness_secs: Option<u64>,
+    pub metric_count: usize,
+    pub counter_count: usize,
+    pub gauge_count: usize,
+    pub metrics_hash: String,
+    #[serde(default)]
+    pub anomalies: Vec<String>,
+}
+
 /// Full organism state snapshot — one block in the chain.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateBlock {
@@ -64,6 +85,8 @@ pub struct StateBlock {
     pub resource: ResourceSnapshot,
     #[serde(default)]
     pub organs: Vec<OrganSnapshot>,
+    #[serde(default)]
+    pub organ_audits: Vec<OrganAuditSnapshot>,
     pub hash: String,
 }
 
@@ -79,6 +102,7 @@ impl StateBlock {
         system: SystemSnapshot,
         resource: ResourceSnapshot,
         organs: Vec<OrganSnapshot>,
+        organ_audits: Vec<OrganAuditSnapshot>,
     ) -> Self {
         let timestamp = chrono::Utc::now().to_rfc3339();
         let mut block = Self {
@@ -89,6 +113,7 @@ impl StateBlock {
             system,
             resource,
             organs,
+            organ_audits,
             hash: String::new(),
         };
         block.hash = block.compute_hash();
@@ -105,6 +130,7 @@ impl StateBlock {
             "system": self.system,
             "resource": self.resource,
             "organs": self.organs,
+            "organ_audits": self.organ_audits,
         });
         let mut hasher = Sha256::new();
         hasher.update(self.prev_hash.as_bytes());
@@ -151,6 +177,7 @@ mod tests {
                 uptime_secs: 3600,
             },
             vec![],
+            vec![],
         )
     }
 
@@ -181,6 +208,26 @@ mod tests {
     }
 
     #[test]
+    fn organ_audit_tamper_detection() {
+        let mut block = sample_block(0, GENESIS_HASH);
+        block.organ_audits.push(OrganAuditSnapshot {
+            organ: "hermes-x".into(),
+            health: "alive".into(),
+            health_reason: None,
+            freshness_secs: Some(30),
+            metric_count: 6,
+            counter_count: 3,
+            gauge_count: 3,
+            metrics_hash: "abc".into(),
+            anomalies: vec![],
+        });
+        block.hash = block.compute_hash();
+
+        block.organ_audits[0].anomalies.push("stale".into());
+        assert!(!block.verify());
+    }
+
+    #[test]
     fn different_data_different_hash() {
         let b1 = sample_block(0, GENESIS_HASH);
         let b2 = StateBlock::new(
@@ -196,6 +243,7 @@ mod tests {
             }],
             b1.system.clone(),
             b1.resource.clone(),
+            vec![],
             vec![],
         );
         assert_ne!(b1.hash, b2.hash);
