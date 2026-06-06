@@ -26,6 +26,7 @@ mod coord_tools;
 mod judge_tools;
 mod observe_tools;
 pub mod proxy;
+mod vercel_tools;
 
 use crate::domain::coord::CoordPort;
 use crate::domain::events::KernelEvent;
@@ -370,7 +371,8 @@ impl CynicMcp {
             tool_router: Self::tool_router_judge()
                 + Self::tool_router_coord()
                 + Self::tool_router_observe()
-                + Self::tool_router_agent(),
+                + Self::tool_router_agent()
+                + Self::tool_router_vercel(),
         }
     }
 

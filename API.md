@@ -88,6 +88,30 @@ SSE event stream. No auth. Events: `verdict`, `crystal`, `dog_failed`, `session`
 
 ---
 
+## Vercel
+
+### GET /vercel/deployments
+
+List Vercel deployments for an application. Auth required. Requires `VERCEL_API_TOKEN` in the kernel environment.
+
+**Query/body field:** `app_name` (string) — Vercel application name.
+
+**Response (200):** `VercelDeployment[]`.
+
+**Errors:** `500` if `VERCEL_API_TOKEN` is missing or the Vercel API request fails.
+
+### POST /vercel/deploy
+
+Create a Vercel deployment. Auth required. Requires `VERCEL_API_TOKEN` in the kernel environment.
+
+**Request body:** `CreateDeploymentRequest` with deployment name, project id, and git source.
+
+**Response (200):** `VercelDeployment`.
+
+**Errors:** `500` if `VERCEL_API_TOKEN` is missing or the Vercel API request fails.
+
+---
+
 ## Judge
 
 ### POST /judge
