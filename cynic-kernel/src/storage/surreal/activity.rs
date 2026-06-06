@@ -74,10 +74,41 @@ pub(super) async fn store_observation(
         format!("[{}]", escaped.join(", "))
     };
 
+    let depends_on_sql = if obs.depends_on.is_empty() {
+        "[]".to_string()
+    } else {
+        let escaped: Vec<String> = obs
+            .depends_on
+            .iter()
+            .map(|d| format!("'{}'", escape_surreal(d)))
+            .collect();
+        format!("[{}]", escaped.join(", "))
+    };
+
+    let observers_sql = if obs.observers.is_empty() {
+        "[]".to_string()
+    } else {
+        let escaped: Vec<String> = obs
+            .observers
+            .iter()
+            .map(|o| format!("'{}'", escape_surreal(o)))
+            .collect();
+        format!("[{}]", escaped.join(", "))
+    };
+
+    let value_json = match &obs.value {
+        Some(v) => serde_json::to_string(v).unwrap_or_else(|_| "null".into()),
+        None => "null".into(),
+    };
+
     let sql = format!(
         "CREATE observation SET project = '{}', agent_id = '{}', tool = '{}', target = '{}', \
          domain = '{}', status = '{}', context = '{}', session_id = '{}', timestamp = '{}', \
-         tags = {}, source_tier = '{}', created_at = time::now();",
+         tags = {}, source_tier = '{}', \
+         value = {}, confidence = {}, consumer = {}, action = {}, \
+         depends_on = {}, maturity = {}, hash = '{}', prev_hash = '{}', \
+         observers = {}, consensus_score = {}, \
+         created_at = time::now();",
         escape_surreal(&obs.project),
         escape_surreal(&obs.agent_id),
         escape_surreal(&obs.tool),
@@ -89,6 +120,29 @@ pub(super) async fn store_observation(
         escape_surreal(&obs.timestamp),
         tags_sql,
         escape_surreal(&obs.source_tier),
+        value_json,
+        obs.confidence
+            .as_ref()
+            .map(|c| format!("'{}'", escape_surreal(c)))
+            .unwrap_or_else(|| "null".into()),
+        obs.consumer
+            .as_ref()
+            .map(|c| format!("'{}'", escape_surreal(c)))
+            .unwrap_or_else(|| "null".into()),
+        obs.action
+            .as_ref()
+            .map(|a| format!("'{}'", escape_surreal(a)))
+            .unwrap_or_else(|| "null".into()),
+        depends_on_sql,
+        obs.maturity
+            .map(|m| m.to_string())
+            .unwrap_or_else(|| "null".into()),
+        escape_surreal(&obs.hash),
+        escape_surreal(&obs.prev_hash),
+        observers_sql,
+        obs.consensus_score
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "null".into()),
     );
     storage.query(&sql).await?;
     Ok(())
