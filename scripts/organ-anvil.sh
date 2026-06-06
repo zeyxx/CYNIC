@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+# Force C locale to avoid comma decimals in awk/jq
+export LC_ALL=C
+
 PROJECT_DIR="${CYNIC_PROJECT_DIR:-/home/user/Bureau/CYNIC}"
 INFRA_DIR="$PROJECT_DIR/infra/organ-anvil"
 STATE_FILE="$INFRA_DIR/state.json"
@@ -70,31 +73,47 @@ atomic_write() {
     mv "$tmp" "$target"
 }
 
+json_uint_or_zero() {
+    local file="$1"
+    local filter="$2"
+    local value
+    value=$(jq -r "$filter" "$file" 2>/dev/null || echo 0)
+    case "$value" in
+        ''|*[!0-9]*) echo 0 ;;
+        *) echo "$value" ;;
+    esac
+}
+
 marker_json() {
     local file="$1"
     if [ -f "$file" ]; then
         local mtime
-        mtime=$(date -u -d "@$(stat -c '%Y' "$file")" +%Y-%m-%dT%H:%M:%SZ)
+        mtime=$(date -u -d "@$(stat -c '%Y' "$file")" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
         jq -n --arg mtime "$mtime" '{present:true,mtime:$mtime}'
     else
-        jq -n '{present:false,mtime:null}'
+        echo '{"present":false,"mtime":null}'
     fi
 }
 
 push_force_supported() {
-    if grep -q 'PUSH_FORCE' .git/hooks/pre-push 2>/dev/null; then
-        echo true
+    if grep -q 'PUSH_FORCE' "$PROJECT_DIR/.git/hooks/pre-push" 2>/dev/null; then
+        echo 'true'
     else
-        echo false
+        echo 'false'
     fi
 }
 
 gate_markers_json() {
+    local g0 g1 g2 gp
+    g0=$(marker_json "$PROJECT_DIR/.gate-0")
+    g1=$(marker_json "$PROJECT_DIR/.gate-1")
+    g2=$(marker_json "$PROJECT_DIR/.gate-2")
+    gp=$(marker_json "$PROJECT_DIR/.gate-passed")
     jq -n \
-        --argjson gate0 "$(marker_json .gate-0)" \
-        --argjson gate1 "$(marker_json .gate-1)" \
-        --argjson gate2 "$(marker_json .gate-2)" \
-        --argjson gate_passed "$(marker_json .gate-passed)" \
+        --argjson gate0 "$g0" \
+        --argjson gate1 "$g1" \
+        --argjson gate2 "$g2" \
+        --argjson gate_passed "$gp" \
         '{gate_0:$gate0,gate_1:$gate1,gate_2:$gate2,gate_passed:$gate_passed}'
 }
 
@@ -174,14 +193,21 @@ write_state() {
     GATE_MARKERS=$(gate_markers_json)
     PUSH_FORCE_SUPPORTED=$(push_force_supported)
 
-    # Lecture du state précédent pour incrementer run_count
+    # Use the highest observed run across state and PoH so the sequence stays
+    # monotonic even if state.json is regenerated or temporarily corrupted.
     if [ -f "$STATE_FILE" ]; then
-        PREV_COUNT=$(jq '.run_count // 0' "$STATE_FILE")
         PREV_ALERTS=$(jq '.alerts // []' "$STATE_FILE" 2>/dev/null || echo '[]')
     else
-        PREV_COUNT=0
         PREV_ALERTS='[]'
     fi
+    PREV_STATE_COUNT=$(json_uint_or_zero "$STATE_FILE" '.run_count // 0')
+    PREV_POH_COUNT=$(json_uint_or_zero "$POH_FILE" 'map(.run // 0) | max // 0')
+    if [ "$PREV_POH_COUNT" -gt "$PREV_STATE_COUNT" ]; then
+        PREV_COUNT="$PREV_POH_COUNT"
+    else
+        PREV_COUNT="$PREV_STATE_COUNT"
+    fi
+    NEXT_COUNT=$((PREV_COUNT + 1))
 
     # Calcul health score and live alerts
     HEALTH_SCORE=$(calculate_health_score "$DIRTY_TREE" "$BRANCHES_LOCAL" "$BRANCHES_REMOTE" "$PRS_OPEN" "$WORKTREES" "$STASHES")
@@ -199,12 +225,12 @@ write_state() {
         --argjson stashes "$STASHES" \
         --argjson gate_markers "$GATE_MARKERS" \
         --argjson push_force_supported "$PUSH_FORCE_SUPPORTED" \
-        --argjson run_count "$((PREV_COUNT + 1))" \
+        --argjson run_count "$NEXT_COUNT" \
         --argjson alerts "$ALERTS" \
         '{version:"1.1.0",updated:$timestamp,repo_health_score:$health,dirty_tree:$dirty,branches_local:$branches_local,branches_remote:$branches_remote,prs_open:$prs_open,worktrees:$worktrees,stashes:$stashes,gate_markers:$gate_markers,push_force_supported:$push_force_supported,last_perception:$timestamp,last_run:$timestamp,run_count:$run_count,alerts:$alerts}' \
         | atomic_write "$STATE_FILE"
 
-    echo "State written: $STATE_FILE (run #$(($PREV_COUNT + 1)))"
+    echo "State written: $STATE_FILE (run #$NEXT_COUNT)"
 
     # Append snapshot to proof-of-history (poh.json)
     append_poh
@@ -305,8 +331,8 @@ calculate_health_score() {
     if [ $score -lt 0 ]; then score=0; fi
     if [ $score -gt 100 ]; then score=100; fi
 
-    # Convert to strict JSON number (0.00-1.00). bc emits .70, which is not valid JSON.
-    awk -v score="$score" 'BEGIN { printf "%.2f", score / 100 }'
+    # Convert to strict JSON number (0.00-1.00). Force C locale to avoid comma decimals.
+    LC_ALL=C awk -v score="$score" 'BEGIN { printf "%.2f", score / 100 }'
 }
 
 # ============================================================
