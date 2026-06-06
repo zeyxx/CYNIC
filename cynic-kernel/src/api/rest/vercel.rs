@@ -56,15 +56,12 @@ pub async fn create_deployment_handler(
 ) -> impl IntoResponse {
     info!(name = %payload.name, "Vercel handler: creating deployment");
 
-    let token = match std::env::var("VERCEL_API_TOKEN") {
-        Ok(t) => t,
-        Err(_) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "VERCEL_API_TOKEN not set",
-            )
-                .into_response();
-        }
+    let Ok(token) = std::env::var("VERCEL_API_TOKEN") else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "VERCEL_API_TOKEN not set",
+        )
+            .into_response();
     };
 
     let client = VercelClient::new(token);

@@ -37,7 +37,7 @@ impl CynicMcp {
         params: Parameters<ListDeployParams>,
     ) -> Result<CallToolResult, McpError> {
         let token = std::env::var("VERCEL_API_TOKEN")
-            .map_err(|_| McpError::internal_error("VERCEL_API_TOKEN not set", None))?;
+            .map_err(|_err| McpError::internal_error("VERCEL_API_TOKEN not set", None))?;
         let client = VercelClient::new(token);
 
         match client.list_deployments(&params.0.app_name).await {
@@ -49,7 +49,7 @@ impl CynicMcp {
                 )]))
             }
             Err(e) => Err(McpError::internal_error(
-                format!("Vercel API error: {:?}", e),
+                format!("Vercel API error: {e:?}"),
                 None,
             )),
         }
@@ -64,7 +64,7 @@ impl CynicMcp {
         params: Parameters<DeployParams>,
     ) -> Result<CallToolResult, McpError> {
         let token = std::env::var("VERCEL_API_TOKEN")
-            .map_err(|_| McpError::internal_error("VERCEL_API_TOKEN not set", None))?;
+            .map_err(|_err| McpError::internal_error("VERCEL_API_TOKEN not set", None))?;
         let client = VercelClient::new(token);
 
         let request = CreateDeploymentRequest {
@@ -82,7 +82,7 @@ impl CynicMcp {
                 )]))
             }
             Err(e) => Err(McpError::internal_error(
-                format!("Vercel API error: {:?}", e),
+                format!("Vercel API error: {e:?}"),
                 None,
             )),
         }

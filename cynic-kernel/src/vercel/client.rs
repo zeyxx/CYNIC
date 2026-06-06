@@ -23,7 +23,7 @@ impl VercelClient {
         &self,
         app_name: &str,
     ) -> Result<Vec<VercelDeployment>, VercelError> {
-        let url = format!("{}/v6/deployments?app={}", API_BASE, app_name);
+        let url = format!("{API_BASE}/v6/deployments?app={app_name}");
         let res = self
             .client
             .get(&url)
@@ -60,7 +60,7 @@ impl VercelClient {
         &self,
         request: CreateDeploymentRequest,
     ) -> Result<VercelDeployment, VercelError> {
-        let url = format!("{}/v13/deployments", API_BASE);
+        let url = format!("{API_BASE}/v13/deployments");
         let res = self
             .client
             .post(&url)
