@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Tier 2 INFRASTRUCTURE: @CynicOracle post tracker — dataset.jsonl filter → /observe.
+Tier 2 INFRASTRUCTURE: @TalariaBuild post tracker — dataset.jsonl filter → /observe.
 
-K15 Consumer: cynicoracle_strategy_consumer.py aggregates metrics → /judge → editorial strategy crystals
+K15 Consumer: talaria_strategy_consumer.py aggregates metrics → /judge → editorial strategy crystals
 
-Systemd: cynicoracle-tracker.service (timer, every 15min)
-Promotion: 2026-05-29 (new, paired with organic_navigator @cynicoracle target)
+Systemd: talaria-tracker.service (timer, every 15min)
+Promotion: 2026-06-05 (migrated from @cynicoracle to @TalariaBuild)
 Stability: 0 days
 
-Reads the hermes-x dataset.jsonl, filters posts from @cynicoracle,
-and stores them in /observe domain=cynicoracle with engagement metrics.
+Reads the hermes-x dataset.jsonl, filters posts from @talariabuild,
+and stores them in /observe domain=talaria with engagement metrics.
 Maintains a cursor to avoid reprocessing.
 
 Metrics tracked per post:
@@ -20,7 +20,7 @@ Environment:
     CYNIC_REST_ADDR — kernel address (no scheme, normalized at read)
     CYNIC_API_KEY   — kernel auth token
     HERMES_DATASET  — path to dataset.jsonl (default: ~/.cynic/organs/hermes/x/dataset.jsonl)
-    CYNICORACLE_HANDLE — X handle to track (default: cynicoracle)
+    TALARIA_HANDLE  — X handle to track (default: talariabuild)
 """
 
 import json
@@ -36,11 +36,11 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
-logger = logging.getLogger("cynicoracle-tracker")
+logger = logging.getLogger("talaria-tracker")
 
-AGENT_ID = "cynicoracle-tracker"
-DOMAIN = "cynicoracle"
-CURSOR_FILE = Path.home() / ".cynic" / "cynicoracle_tracker_cursor.json"
+AGENT_ID = "talaria-tracker"
+DOMAIN = "talaria"
+CURSOR_FILE = Path.home() / ".cynic" / "talaria_tracker_cursor.json"
 DEFAULT_DATASET = Path.home() / ".cynic" / "organs" / "hermes" / "x" / "dataset.jsonl"
 
 
@@ -103,7 +103,7 @@ def _post_type(row: dict) -> str:
 
 
 def _post_observe(row: dict, addr: str, key: str) -> bool:
-    """POST a @cynicoracle tweet to /observe domain=cynicoracle."""
+    """POST a @talariabuild tweet to /observe domain=talaria."""
     tweet_id = row.get("tweet_id", "")
     text = row.get("text", "")[:280]
     ptype = _post_type(row)
@@ -162,13 +162,13 @@ def _post_observe(row: dict, addr: str, key: str) -> bool:
 
 
 def run() -> int:
-    """Scan dataset.jsonl for @cynicoracle tweets, POST new ones to /observe."""
+    """Scan dataset.jsonl for @talariabuild tweets, POST new ones to /observe."""
     addr, key = _load_env()
     if not addr or not key:
         logger.error("CYNIC_REST_ADDR or CYNIC_API_KEY not set")
         return 1
 
-    handle = os.environ.get("CYNICORACLE_HANDLE", "cynicoracle").lower()
+    handle = os.environ.get("TALARIA_HANDLE", "talariabuild").lower()
     dataset = Path(os.environ.get("HERMES_DATASET", str(DEFAULT_DATASET)))
 
     if not dataset.exists():
