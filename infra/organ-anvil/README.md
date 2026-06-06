@@ -77,6 +77,7 @@ infra/organ-anvil/
 - `stashes`: Stashes en attente
 - `gate_markers`: Présence + mtime de `.gate-0`, `.gate-1`, `.gate-2`, `.gate-passed`
 - `push_force_supported`: Vérifie si le hook pre-push implémente le fallback documenté
+- `repo-health`: Diagnostic JSON non-mutant qui croise branches locales/remotes, PR ouvertes, stashes, worktree, gates et bus de coordination
 
 ## Workflow
 
@@ -86,7 +87,8 @@ infra/organ-anvil/
 4. **Audit** → `bash scripts/organ-anvil.sh audit "action" '{"details":...}' "outcome"`
 5. **Signal** → `bash scripts/organ-anvil.sh signal` emits compact JSON for cortices/Hermes consumers
 6. **Triage** → `bash scripts/organ-anvil.sh triage` emits non-mutating scope diagnosis for dirty worktrees
-7. **Rapport** → Dashboard HTML + handoff.md
+7. **Repo Health** → `bash scripts/organ-anvil.sh repo-health` emits non-mutating JSON radar for branches/PRs/stashes/gates/coord
+8. **Rapport** → Dashboard HTML + handoff.md
 
 ## Évolutivité
 
