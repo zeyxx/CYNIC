@@ -376,18 +376,6 @@ impl CynicMcp {
         }
     }
 
-    fn tool_router_vercel() -> ToolRouter<Self> {
-        ToolRouter::new()
-            .tool(
-                "cynic_vercel_list_deployments",
-                vercel_tools::cynic_vercel_list_deployments,
-            )
-            .tool(
-                "cynic_vercel_create_deployment",
-                vercel_tools::cynic_vercel_create_deployment,
-            )
-    }
-
     pub(crate) fn require_auth(&self) -> Result<(), McpError> {
         if !self.authenticated.load(Ordering::Relaxed) {
             return Err(McpError::new(
