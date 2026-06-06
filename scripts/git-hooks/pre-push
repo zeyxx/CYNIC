@@ -19,7 +19,10 @@ ZERO_SHA="0000000000000000000000000000000000000000"
 IS_DELETE=true  # assume delete until we see a non-zero local SHA
 PUSH_LOCAL_SHA=""
 PUSH_REMOTE_SHA=""
+PUSH_REMOTE_REF=""
+PUSH_BRANCH_NAME=""
 while IFS= read -r line; do
+    local_ref=$(printf '%s\n' "$line" | awk '{print $1}')
     local_sha=$(printf '%s\n' "$line" | awk '{print $2}')
     remote_ref=$(printf '%s\n' "$line" | awk '{print $3}')
     remote_sha=$(printf '%s\n' "$line" | awk '{print $4}')
@@ -27,6 +30,15 @@ while IFS= read -r line; do
         IS_DELETE=false
         PUSH_LOCAL_SHA="$local_sha"
         PUSH_REMOTE_SHA="$remote_sha"
+        PUSH_REMOTE_REF="$remote_ref"
+        case "$local_ref" in
+            refs/heads/*)
+                PUSH_BRANCH_NAME="${local_ref#refs/heads/}"
+                ;;
+            *)
+                PUSH_BRANCH_NAME="$local_ref"
+                ;;
+        esac
     fi
     if [ "$remote_ref" = "refs/heads/main" ]; then
         echo ""
@@ -55,7 +67,7 @@ if [ "${PUSH_FORCE:-}" = "1" ]; then
     PROJECT_DIR="$(git rev-parse --show-toplevel)"
     LOG_DIR="$PROJECT_DIR/.leeroy-jenkins"
     mkdir -p "$LOG_DIR"
-    BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+    BRANCH="${PUSH_BRANCH_NAME:-$(git rev-parse --abbrev-ref HEAD)}"
     SHA="$(git rev-parse HEAD)"
     TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     REASON="${PUSH_FORCE_REASON:-gate infrastructure failure}"
@@ -185,7 +197,7 @@ fi
 echo ""
 echo "▶ Agent Protocol checks (local)..."
 
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
+BRANCH="${PUSH_BRANCH_NAME:-$(git rev-parse --abbrev-ref HEAD)}"
 
 # Local check: branch must not be a stale merged branch (uses local refs only)
 if git log --oneline origin/main..HEAD 2>/dev/null | head -1 | grep -q '^$'; then
