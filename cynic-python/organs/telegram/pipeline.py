@@ -101,9 +101,10 @@ class ClassifiedBlock:
     block_id: str
     text: str
     msg_count: int
-    message_type: str  # buy-bot | shill | raid | ops | signal
+    message_type: str  # buy-bot | shill | raid | ops | signal | private
     domain: str        # kernel domain slug or "drop"
     mints: list[str]
+    channel_type: str = "channel"
 
 
 def classify_block(
@@ -111,13 +112,21 @@ def classify_block(
     block_id: str,
     text: str,
     msg_count: int,
+    channel_type: str = "channel",
 ) -> ClassifiedBlock:
     """Classify a message block and determine routing."""
-    hint = CHANNEL_DOMAIN_HINTS.get(channel_id, "twitter")
+    hint = CHANNEL_DOMAIN_HINTS.get(channel_id)
+
+    # If it's a DM, default to community unless hinted otherwise
+    if channel_type == "private" and not hint:
+        hint = "community"
+    
+    if not hint:
+        hint = "twitter"
 
     # Ops channels — observe only, never judge
     if hint == "ops":
-        return ClassifiedBlock(channel_id, block_id, text, msg_count, "ops", "ops", [])
+        return ClassifiedBlock(channel_id, block_id, text, msg_count, "ops", "ops", [], channel_type)
 
     # Detect buy-bot pattern
     bot_matches = sum(1 for p in _BUY_BOT_SIGNALS if p.search(text))
@@ -126,18 +135,18 @@ def classify_block(
         if not mints:
             mints = _SOLANA_ADDR.findall(text)[:3]
         return ClassifiedBlock(
-            channel_id, block_id, text, msg_count, "buy-bot", "token-analysis", mints
+            channel_id, block_id, text, msg_count, "buy-bot", "token-analysis", mints, channel_type
         )
 
     # Shill/spam — structural BARK, drop
     shill_matches = sum(1 for p in _SHILL_SIGNALS if p.search(text))
     if shill_matches >= 2:
-        return ClassifiedBlock(channel_id, block_id, text, msg_count, "shill", "drop", [])
+        return ClassifiedBlock(channel_id, block_id, text, msg_count, "shill", "drop", [], channel_type)
 
     # Raid coordination — drop
     raid_matches = sum(1 for p in _RAID_SIGNALS if p.search(text))
     if raid_matches >= 2:
-        return ClassifiedBlock(channel_id, block_id, text, msg_count, "raid", "drop", [])
+        return ClassifiedBlock(channel_id, block_id, text, msg_count, "raid", "drop", [], channel_type)
 
     # Map hint to kernel domain
     domain_map = {
@@ -147,6 +156,8 @@ def classify_block(
         "dev":        "dev",
         "twitter":    "twitter",
         "mixed":      "twitter",
+        "community":  "community",
+        "askesis":    "askesis",
     }
     domain = domain_map.get(hint, "twitter")
 
@@ -154,7 +165,7 @@ def classify_block(
     mints = _MINT_PATTERN.findall(text)
 
     return ClassifiedBlock(
-        channel_id, block_id, text, msg_count, "signal", domain, mints
+        channel_id, block_id, text, msg_count, "signal", domain, mints, channel_type
     )
 
 
@@ -275,51 +286,39 @@ def get_unprocessed_blocks(
         ).fetchall()
     }
 
-    where = "WHERE m.text IS NOT NULL AND length(m.text) > 30"
+    where = "WHERE m.text IS NOT NULL AND length(m.text) > 5"
     params: list = []
     if channel_id:
         where += " AND m.channel_id = ?"
         params.append(channel_id)
 
-    rows = conn.execute(
-        f"SELECT m.channel_id, m.message_id, m.date, m.text, m.author_name, m.block_id "
-        f"FROM messages m {where} ORDER BY m.channel_id, m.date ASC",
-        params,
-    ).fetchall()
+    # Use native block_id from messages table and join with channels
+    query = f"""
+        SELECT m.channel_id, m.block_id, c.channel_type,
+               GROUP_CONCAT(m.date || ' | ' || COALESCE(m.author_name, 'anon') || ': ' || m.text, '\n') as full_text,
+               COUNT(*) as msg_count
+        FROM messages m
+        LEFT JOIN channels c ON m.channel_id = c.channel_id
+        {where}
+        GROUP BY m.channel_id, m.block_id
+        ORDER BY m.date ASC
+    """
 
-    # Window into blocks of 10 messages per channel
-    window_size = 10
+    rows = conn.execute(query, params).fetchall()
+
     blocks: list[dict] = []
-    current_ch: Optional[int] = None
-    window: list = []
-
-    def flush() -> None:
-        if not window:
-            return
-        ch = window[0][0]
-        bid = f"{ch}_pipe_{window[0][2]}"
-        if bid in processed:
-            return
-        blocks.append({
-            "channel_id": ch,
-            "block_id": bid,
-            "text": "\n".join(
-                f"{r[2]} | {r[4] or 'anon'}: {r[3]}" for r in window
-            ),
-            "msg_count": len(window),
-        })
-
     for row in rows:
-        ch = row[0]
-        if ch != current_ch:
-            flush()
-            window = []
-            current_ch = ch
-        window.append(row)
-        if len(window) >= window_size:
-            flush()
-            window = []
-    flush()
+        ch_id, bid, ch_type, text, count = row
+        if bid in processed or not bid:
+            continue
+        
+        blocks.append({
+            "channel_id": ch_id,
+            "block_id": bid,
+            "channel_type": ch_type or "channel",
+            "text": text,
+            "msg_count": count,
+        })
 
     if limit:
         blocks = blocks[:limit]
@@ -346,6 +345,7 @@ def run_pipeline(
         classified = classify_block(
             block["channel_id"], block["block_id"],
             block["text"], block["msg_count"],
+            channel_type=block["channel_type"],
         )
 
         if classified.domain == "drop":

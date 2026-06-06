@@ -207,7 +207,9 @@ def telethon_to_raw(message: Any) -> RawMessage:
     author_name: Optional[str] = None
     if message.sender:
         author_id = message.sender_id
-        author_name = (getattr(message.sender, "first_name", None)
+        first = getattr(message.sender, "first_name", "") or ""
+        last = getattr(message.sender, "last_name", "") or ""
+        author_name = (f"{first} {last}".strip()
                        or getattr(message.sender, "title", None))
 
     forward_from: Optional[int] = None
@@ -261,13 +263,16 @@ async def listen_loop(cfg: TelegramConfig) -> None:
     Path(cfg.media_dir).mkdir(parents=True, exist_ok=True)
 
     async for dialog in client.iter_dialogs():
-        if dialog.is_channel or dialog.is_group:
-            ch_type = "channel" if dialog.is_channel else "group"
+        if dialog.is_channel or dialog.is_group or dialog.is_user:
+            if dialog.is_user:
+                ch_type = "private"
+            else:
+                ch_type = "channel" if dialog.is_channel else "group"
             upsert_channel(
                 conn, dialog.id, dialog.name,
                 getattr(dialog.entity, "username", None), ch_type,
             )
-    logger.info("channels registered")
+    logger.info("channels/users registered")
 
     stats = {"messages": 0, "blocks": 0, "media": 0}
     last_heartbeat = time.monotonic()
@@ -291,10 +296,18 @@ async def listen_loop(cfg: TelegramConfig) -> None:
         stats["messages"] += 1
 
         if msg.chat:
-            ch_type = "channel" if getattr(msg.chat, "broadcast", False) else "group"
+            if msg.is_private:
+                ch_type = "private"
+                first = getattr(msg.chat, "first_name", "") or ""
+                last = getattr(msg.chat, "last_name", "") or ""
+                title = f"{first} {last}".strip()
+            else:
+                ch_type = "channel" if getattr(msg.chat, "broadcast", False) else "group"
+                title = getattr(msg.chat, "title", "")
+
             upsert_channel(
                 conn, msg.chat_id,
-                getattr(msg.chat, "title", ""),
+                title,
                 getattr(msg.chat, "username", None), ch_type,
             )
 
@@ -313,7 +326,7 @@ async def listen_loop(cfg: TelegramConfig) -> None:
                 dialogs_count = 0
                 try:
                     async for d in client.iter_dialogs():
-                        if d.is_channel or d.is_group:
+                        if d.is_channel or d.is_group or d.is_user:
                             dialogs_count += 1
                 except FloodWaitError as e:
                     logger.warning("FloodWait on iter_dialogs: %ds", e.seconds)

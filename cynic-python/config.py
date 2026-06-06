@@ -141,7 +141,7 @@ class Config:
     @property
     def helius_api_key(self) -> Optional[str]:
         """Helius API key for on-chain data."""
-        return self._config.get("helius_api_key")
+        return os.getenv("HELIUS_API_KEY")
 
     @property
     def gemini_api_key(self) -> Optional[str]:
