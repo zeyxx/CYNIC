@@ -336,6 +336,37 @@ calculate_health_score() {
 }
 
 # ============================================================
+# SIGNAL - Consumer JSON for cortices/Hermes
+# ============================================================
+signal() {
+    if [ ! -f "$STATE_FILE" ]; then
+        write_state >/dev/null
+    fi
+
+    jq -c \
+        --arg timestamp "$TIMESTAMP" \
+        '{
+          version:"1.0.0",
+          source:"organ-anvil",
+          timestamp:$timestamp,
+          observed_run:(.run_count // 0),
+          repo_health_score:(.repo_health_score // 0),
+          dirty_tree:(.dirty_tree // false),
+          stashes:(.stashes // 0),
+          prs_open:(.prs_open // 0),
+          push_force_supported:(.push_force_supported // false),
+          gate_readiness:{
+            gate_0:(.gate_markers.gate_0.present // false),
+            gate_1:(.gate_markers.gate_1.present // false),
+            gate_2:(.gate_markers.gate_2.present // false),
+            gate_passed:(.gate_markers.gate_passed.present // false)
+          },
+          max_severity:(if any((.alerts // [])[]; .severity == "critical") then "critical" elif any((.alerts // [])[]; .severity == "warning") then "warning" else "ok" end),
+          actions:((.alerts // []) | map(.action_needed) | unique)
+        }' "$STATE_FILE"
+}
+
+# ============================================================
 # MAIN - Execute selon le mode
 # ============================================================
 mode="${1:-state}"
@@ -352,8 +383,12 @@ case "$mode" in
     audit)
         audit "$2" "$3" "$4"
         ;;
+    signal)
+        cd "$PROJECT_DIR"
+        signal
+        ;;
     *)
-        echo "Usage: organ-anvil.sh [percept|state|audit]"
+        echo "Usage: organ-anvil.sh [perceive|state|audit|signal]"
         exit 1
         ;;
 esac

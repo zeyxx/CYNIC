@@ -84,7 +84,8 @@ infra/organ-anvil/
 2. **Décision** → Hermes Agent lit state.json et décide
 3. **Action** → Scripts ou MCP tools
 4. **Audit** → `bash scripts/organ-anvil.sh audit "action" '{"details":...}' "outcome"`
-5. **Rapport** → Dashboard HTML + handoff.md
+5. **Signal** → `bash scripts/organ-anvil.sh signal` emits compact JSON for cortices/Hermes consumers
+6. **Rapport** → Dashboard HTML + handoff.md
 
 ## Évolutivité
 
