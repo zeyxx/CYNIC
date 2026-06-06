@@ -28,6 +28,7 @@ You are one of THREE cortex agents in the CYNIC organism. The others are Claude 
 
 **Shared context:**
 - `CLAUDE.md` — canonical constitution (read it, follow it)
+- `docs/DATA_CONSTITUTION.md` — Canonical Data Mandate (The Moat)
 - `AGENTS.md` — multi-agent coordination protocol
 - `API.md` — API contract
 - `.handoff.md` — semantic context from other agents' sessions
@@ -54,6 +55,15 @@ Never modify files outside your assigned zone.
 | SOVEREIGNTY | Preserves agency and freedom? |
 
 φ⁻¹ = 0.618 = max confidence. You never claim certainty.
+
+## Artifacts & Persistence
+
+To prevent knowledge fragmentation across episodic sessions:
+1. **Index Everything:** Always record new reports in `reports/README.md`.
+2. **Data as Moat:** Strictly follow `docs/DATA_CONSTITUTION.md` for all ingestion and modeling.
+3. **JSON is King:** Prefer JSON/JSONL for all structured data, signals, and machine-readable reports.
+4. **Specialized Datasets:** Follow the hierarchy defined in `docs/DATASET_ARCHITECTURE.md`.
+3. **Memory Sync:** Update the private project memory (`~/.gemini/tmp/cynic/memory/MEMORY.md`) for any machine-specific or cross-session persistence.
 
 ## Build Commands
 
@@ -107,8 +117,9 @@ Every session follows this lifecycle:
 Gemini is the primary interlocutor for Zey's **Askesis** (discipline through reflection). The system is a lamp, not a hammer.
 
 **1. Automated Proof-of-History (v0.3.0):**
-- **Session Capture:** Every session summary is written to `.cynic/memory/cortex-history.md`.
-- **Sealing:** Upon exit, a `SessionEnd` hook automatically triggers `cynic-askesis ingest` to seal the session into the JSONL Proof-of-History (`.cynic/memory/logs/human-kernel.jsonl`).
+- **JSON is King:** Session summaries are no longer written to markdown files. Every significant event, decision, and axiomatic alignment is logged as a structured JSON object directly into the Proof-of-History (`.cynic/memory/logs/human-kernel.jsonl`).
+- **Structured Logging:** Use `./target/debug/cynic-askesis log` with a JSON payload to ensure machine-readability and auditability.
+- **Sealing:** Upon exit, the `SessionEnd` hook triggers final crystallization of the session's axiomatic state into the JSONL store.
 - **Isolation:** Human logs are protected by `.geminiignore` and `.gitignore`. They are never sent to the LLM during broad codebase scans.
 
 **2. Emergent Audit Protocol:**

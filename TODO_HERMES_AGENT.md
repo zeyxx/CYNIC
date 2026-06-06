@@ -157,3 +157,21 @@ New approach: Behavioral reasoning agent.
 - **Outcome:** Real measurement of "can an agent learn to find signal?"
 
 This is NOT automating T. This is building something that **thinks** about what T. cares about, then amplifies signal by navigating with that intent.
+
+## Phase 4: Telegram Integration (NEW - 2026-06-05)
+
+**Goal:** Bridge the Telegram Organ (ingestion) with Hermes reasoning loop.
+
+1. **Extraction Daemon (4h)**
+   - Convert `organs/telegram/extract_batch.py` into a continuous service.
+   - Target: Automated signal extraction from 40+ channels using sovereign Qwen 7B.
+
+2. **Cross-Domain Learning (6h)**
+   - Update `learned_weights.json` to include keywords and entities discovered on Telegram.
+   - Correlation: Compare high-signal Telegram tokens with X.com trends.
+
+3. **Active Telegram Agent (8h)**
+   - Implement `agents/hermes_telegram.py` (or extend `telegram_organ_bot.py`).
+   - Decision loop: Should Hermes alert T. via the bot when a specific threshold is hit?
+   - Integration with `/judge`: Auto-submit high-confidence Telegram signals to kernel Dogs.
+

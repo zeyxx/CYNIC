@@ -1,10 +1,9 @@
 # CYNIC — Codex CLI configuration
 # Instructions: AGENTS.md (project root)
-# Coordination: via cynic-coord MCP proxy → kernel REST API
+# Coordination: via CYNIC kernel MCP proxy -> kernel REST API
 
 [mcp.cynic-coord]
 type = "stdio"
-command = ["./mcp-coord/cynic-coord"]
-# Env vars sourced from ~/.cynic-env before launching codex
-# Or set here (replace placeholders):
-# env = { CYNIC_REST_ADDR = "<TAILSCALE_CORE>:3030", CYNIC_API_KEY = "..." }
+command = ["./.codex/run-cynic-mcp.sh"]
+# Wrapper sources ~/.cynic-env locally, then execs /home/user/bin/cynic-kernel-mcp.
+# Do not put real CYNIC_REST_ADDR or CYNIC_API_KEY values in this repo.
