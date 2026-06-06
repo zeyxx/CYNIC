@@ -1,0 +1,5 @@
+<resources>
+    <style name="KyonTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
