@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-
-const API_BASE = 'https://api.talaria.build/demo';
+import { asArray, fetchJson } from './api';
 
 export function MetricsPanel({ lang = 'en' }) {
   const [metrics, setMetrics] = useState(null);
@@ -9,11 +8,36 @@ export function MetricsPanel({ lang = 'en' }) {
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
-        const res = await fetch(`${API_BASE}/health`);
-        const data = await res.json();
-        setMetrics(data);
+        const [dogs, verdicts, history] = await Promise.all([
+          fetchJson('/dogs'),
+          fetchJson('/verdicts'),
+          fetchJson('/state-history?limit=1').catch(() => null),
+        ]);
+        const latestBlock = asArray(history?.blocks)[0] ?? null;
+        const recent = asArray(verdicts);
+        const now = Date.now();
+        const latestVerdictAge = recent[0]?.timestamp
+          ? Math.max(0, Math.floor((now - new Date(recent[0].timestamp).getTime()) / 1000))
+          : null;
+        const latestBlockAge = latestBlock?.timestamp
+          ? Math.max(0, Math.floor((now - new Date(latestBlock.timestamp).getTime()) / 1000))
+          : null;
+        setMetrics({
+          ok: true,
+          dogs: asArray(dogs),
+          verdicts: recent,
+          latestBlock,
+          latestVerdictAge,
+          latestBlockAge,
+          checkedAt: new Date().toISOString(),
+        });
       } catch (e) {
         console.error('Failed to load metrics', e);
+        setMetrics({
+          ok: false,
+          error: e.message,
+          checkedAt: new Date().toISOString(),
+        });
       } finally {
         setLoading(false);
       }
@@ -27,39 +51,40 @@ export function MetricsPanel({ lang = 'en' }) {
     return <div className="metrics-loading">Loading telemetry...</div>;
   }
 
-  const uptime = metrics?.uptime_secs ?? 0;
-  const days = Math.floor(uptime / 86400);
-  const hours = Math.floor((uptime % 86400) / 3600);
-  const mins = Math.floor((uptime % 3600) / 60);
+  const verdicts = metrics?.verdicts ?? [];
+  const latestBlockAge = metrics?.latestBlockAge ?? null;
+  const latestVerdictAge = metrics?.latestVerdictAge ?? null;
 
   return (
     <div className="metrics-grid">
-      <MetricCard 
-        label={lang === 'fr' ? 'UPTIME KERNEL' : 'KERNEL UPTIME'} 
-        value={`${days}d ${hours}h ${mins}m`} 
-        status="healthy" 
+      <MetricCard
+        label={lang === 'fr' ? 'API BACKEND' : 'BACKEND API'}
+        value={metrics?.ok ? 'online' : 'offline'}
+        status={metrics?.ok ? 'healthy' : 'offline'}
       />
-      <MetricCard 
-        label={lang === 'fr' ? 'DOGS ACTIFS' : 'ACTIVE DOGS'} 
-        value={metrics?.dogs?.length ?? 5} 
-        status="active" 
+      <MetricCard
+        label={lang === 'fr' ? 'DOGS ACTIFS' : 'ACTIVE DOGS'}
+        value={metrics?.ok ? metrics.dogs.length : 'n/a'}
+        status={metrics?.dogs?.length > 0 ? 'active' : 'offline'}
       />
-      <MetricCard 
-        label={lang === 'fr' ? 'VERDICTS TOTAUX' : 'TOTAL VERDICTS'} 
-        value="2,195" 
-        status="neutral" 
+      <MetricCard
+        label={lang === 'fr' ? 'VERDICTS RECENTS' : 'RECENT VERDICTS'}
+        value={metrics?.ok ? verdicts.length : 'n/a'}
+        status={verdicts.length > 0 ? 'active' : 'neutral'}
       />
-      <MetricCard 
-        label={lang === 'fr' ? 'TOKENS ANALYSÉS' : 'TOKENS SCREENED'} 
-        value="14,028" 
-        status="neutral" 
+      <MetricCard
+        label={lang === 'fr' ? 'DERNIER SIGNAL' : 'LATEST SIGNAL'}
+        value={latestVerdictAge != null
+          ? `${latestVerdictAge}s`
+          : latestBlockAge != null ? `${latestBlockAge}s` : 'n/a'}
+        status={latestVerdictAge != null && latestVerdictAge < 120 ? 'active' : 'neutral'}
       />
     </div>
   );
 }
 
 function MetricCard({ label, value, status }) {
-  const statusColor = status === 'healthy' ? '#4CAF50' : status === 'active' ? 'var(--gold)' : '#888';
+  const statusColor = status === 'healthy' ? '#4CAF50' : status === 'active' ? 'var(--gold)' : status === 'offline' ? '#d64a3a' : '#888';
   return (
     <div className="metric-card">
       <div className="metric-label">{label}</div>
