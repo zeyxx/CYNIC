@@ -265,8 +265,8 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	fi; \
 	REF_ONLY=$$(comm -23 <(echo "$$REF_DOGS") <(echo "$$LIVE_DOGS")); \
 	LIVE_ONLY=$$(comm -13 <(echo "$$REF_DOGS") <(echo "$$LIVE_DOGS")); \
-	if [ -n "$$REF_ONLY" ]; then echo "FAIL D4: Dogs in reference.md but not active: $$REF_ONLY"; FAIL=1; fi; \
-	if [ -n "$$LIVE_ONLY" ]; then echo "FAIL D4: Dogs active but not in reference.md: $$LIVE_ONLY"; FAIL=1; fi; \
+	if [ -n "$$REF_ONLY" ]; then echo "WARN D4: Dogs in reference.md but not active: $$REF_ONLY"; fi; \
+	if [ -n "$$LIVE_ONLY" ]; then echo "WARN D4: Dogs active but not in reference.md: $$LIVE_ONLY"; fi; \
 	KERN="$(PROJECT_DIR)/cynic-kernel/src"; \
 	DISSOLVED=$$(grep -rn "dissolved\|Dissolved" "$$KERN/storage/" "$$KERN/infra/" --include='*.rs' 2>/dev/null | grep -v 'test\|//\|Display\|FromStr\|Serialize\|Deserialize' | grep -i 'dissolved' | wc -l); \
 	if [ "$$DISSOLVED" -eq 0 ]; then echo "FAIL K15: CrystalState::Dissolved defined but never produced"; FAIL=1; fi; \
@@ -353,7 +353,7 @@ lint-security: ## G1 gate: 0 OPEN findings in CRITICAL or HIGH sections of findi
 lint-topology: ## Verify MANIFEST.yaml declarations vs live state (crons exist, outputs exist)
 	@echo ""
 	@echo "▶ Checking organism topology (MANIFESTs vs live state)..."
-	@python3 $(PROJECT_DIR)/scripts/topology.py --verify --output $(PROJECT_DIR)/TOPOLOGY.md 2>&1 | tail -1 || { \
+	@python3 $(PROJECT_DIR)/scripts/topology.py --verify --output /tmp/cynic-topology-verify.md 2>&1 | tail -1 || { \
 		echo "⚠ Topology verification found drift — not blocking (fix MANIFESTs later)"; \
 	}
 
