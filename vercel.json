@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm run build -w packages/cynic-ui",
+  "outputDirectory": "packages/cynic-ui/dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
