@@ -1,0 +1,199 @@
+{
+  "schema": "talaria.runtime_surfaces.v1",
+  "captured_at": "2026-06-07T12:00:00Z",
+  "principles": [
+    "Talaria is the public product/entity; CYNIC is the sovereign judgment and observation engine.",
+    "B&C owns chess gameplay and PoH evidence production; Talaria consumes selected B&C signals.",
+    "Telegram Public, Telegram Ops, Telegram Listener, X, B&C, CYNIC, and Vercel are separate surfaces.",
+    "Markdown files are historical projections, not runtime sources of truth."
+  ],
+  "surfaces": [
+    {
+      "id": "talaria-landing",
+      "kind": "frontend",
+      "package": "packages/talaria-landing",
+      "intended_domain": "www.talaria.build",
+      "runtime_status": "broken",
+      "observed_status": "HTTP 404 DEPLOYMENT_NOT_FOUND on 2026-06-07",
+      "canonical_role": "Public Talaria homepage: product, trust layer, routes to demo, Telegram, B&C, and MetaDAO context.",
+      "must_not_own": [
+        "CYNIC operational dashboard",
+        "Telegram permission state",
+        "B&C chess identity",
+        "MetaDAO factual truth"
+      ]
+    },
+    {
+      "id": "talaria-demo",
+      "kind": "frontend",
+      "package": "packages/talaria-demo",
+      "intended_domain": "demo.talaria.build",
+      "runtime_status": "broken",
+      "observed_status": "HTTP 404 DEPLOYMENT_NOT_FOUND on 2026-06-07",
+      "canonical_role": "Interactive proposal judgment experience backed by CYNIC.",
+      "must_not_own": [
+        "Marketing landing copy",
+        "PoH enforcement",
+        "Ops moderation"
+      ]
+    },
+    {
+      "id": "talaria-api",
+      "kind": "public_api",
+      "intended_domain": "api.talaria.build",
+      "runtime_status": "broken",
+      "observed_status": "HTTP 502 for /demo/health on 2026-06-07",
+      "canonical_role": "Public API facade for Talaria demo and externally consumable judgment endpoints.",
+      "must_not_own": [
+        "Kernel-internal coordination",
+        "Secrets",
+        "Direct mutable Talaria state outside CYNIC"
+      ]
+    },
+    {
+      "id": "cynic-kernel",
+      "kind": "sovereign_backend",
+      "service": "cynic-kernel.service",
+      "runtime_status": "active",
+      "canonical_role": "Observation bus, judgment engine, durable event store, Dogs, coordination, task dispatch.",
+      "talaria_domains": [
+        "talaria.pow.team",
+        "talaria.poh.user",
+        "talaria.chess.signal",
+        "talaria.reputation.public",
+        "talaria.governance.review",
+        "talaria.futarchy.market",
+        "talaria.alignment.capital",
+        "talaria.incident.trace",
+        "talaria.comms.signal"
+      ],
+      "must_not_own": [
+        "Public product UX",
+        "B&C chess gameplay",
+        "Telegram chat UX"
+      ]
+    },
+    {
+      "id": "telegram-public-and-ops-bot",
+      "kind": "telegram_bot",
+      "service": "telegram-bot.service",
+      "entrypoint": "cynic-python/organs/telegram/bot.py",
+      "runtime_status": "active",
+      "canonical_role": "Public bot commands plus current Ops callbacks until split.",
+      "must_split_into": [
+        "telegram-public-onboarding",
+        "telegram-ops-validation"
+      ],
+      "observed_risks": [
+        "Installed local unit had secrets inline; repo unit uses placeholders. Move runtime secrets to EnvironmentFile and rotate exposed credentials.",
+        "Public onboarding and Ops approval live in one process boundary."
+      ]
+    },
+    {
+      "id": "telegram-listener",
+      "kind": "telegram_ingestion",
+      "service": "telegram-listener.service",
+      "entrypoint": "cynic-python/organs/telegram/listener.py",
+      "runtime_status": "active",
+      "canonical_role": "Personal-account/MTProto ingestion and classification.",
+      "must_not_own": [
+        "Bot commands",
+        "Public group permissions",
+        "Ops approval actions"
+      ]
+    },
+    {
+      "id": "talaria-poh-bridge",
+      "kind": "sensor",
+      "entrypoint": "cynic-python/sensors/talaria_poh_bridge.py",
+      "runtime_status": "present_unconfirmed",
+      "canonical_role": "B&C /api/verify to talaria.event.v1 to CYNIC /observe.",
+      "must_not_own": [
+        "Telegram unmute",
+        "Final humanity judgment",
+        "B&C game state"
+      ]
+    },
+    {
+      "id": "hermes-x-talaria",
+      "kind": "x_organ",
+      "services": [
+        "hermes-x-ingest.service",
+        "hermes-x-organ.service",
+        "talaria-alerter.service",
+        "talaria-notification-poller.service",
+        "talaria-thread-monitor.service"
+      ],
+      "runtime_status": "mixed",
+      "observed_status": "hermes-x-ingest and hermes-x-organ active; talaria-thread-monitor failed; talaria-alerter activating; talaria-notification-poller timer active.",
+      "canonical_role": "X perception, draft generation, engagement validation tasks, and Ops-gated posting.",
+      "must_not_own": [
+        "Telegram public PoH state",
+        "Ungated public posting",
+        "Final Talaria reputation"
+      ]
+    },
+    {
+      "id": "legacy-cynicoracle-x",
+      "kind": "legacy_x_sensor",
+      "services": [
+        "cynic-cynicoracle-tracker.service",
+        "cynic-cynicoracle-strategy.service"
+      ],
+      "runtime_status": "failed",
+      "canonical_role": "None. Legacy CynicOracle naming should be retired or explicitly archived.",
+      "migration_target": "hermes-x-talaria"
+    },
+    {
+      "id": "blitz-and-chill-poh",
+      "kind": "external_product",
+      "expected_endpoint": "GET /api/verify?wallet=<wallet>",
+      "runtime_status": "external_unverified_this_pass",
+      "canonical_role": "Chess product and PoH evidence producer.",
+      "must_not_own": [
+        "Talaria registry",
+        "Telegram permissions",
+        "CYNIC judgment semantics"
+      ]
+    },
+    {
+      "id": "cynic-ui",
+      "kind": "frontend",
+      "package": "packages/cynic-ui",
+      "current_hosting": "Vercel cynic-organism",
+      "runtime_status": "ready",
+      "canonical_role": "CYNIC ops/debug UI only.",
+      "must_not_own": [
+        "Talaria public homepage",
+        "Talaria product demo"
+      ]
+    }
+  ],
+  "next_actions": [
+    {
+      "id": "deploy-talaria-frontends",
+      "priority": 1,
+      "action": "Restore www.talaria.build and demo.talaria.build deployments with explicit workspace build/output configuration."
+    },
+    {
+      "id": "repair-talaria-api",
+      "priority": 2,
+      "action": "Restore api.talaria.build /demo/health or intentionally remove the frontend dependency on it."
+    },
+    {
+      "id": "split-telegram-bot",
+      "priority": 3,
+      "action": "Separate Telegram Public onboarding from Telegram Ops validation and move runtime secrets to EnvironmentFile."
+    },
+    {
+      "id": "retire-cynicoracle-services",
+      "priority": 4,
+      "action": "Disable or migrate failed cynic-cynicoracle tracker/strategy timers to Talaria naming."
+    },
+    {
+      "id": "anvil-talaria-audit",
+      "priority": 5,
+      "action": "Teach Anvil to compare this runtime map against systemd, Vercel, domains, and CYNIC observations."
+    }
+  ]
+}
