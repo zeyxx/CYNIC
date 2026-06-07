@@ -729,7 +729,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    // ── Token enricher (Helius) — optional, graceful degradation ──
+    // ── Token enricher — Helius first, public lo-fi fallback when absent ──
     let enricher: Option<Arc<dyn domain::enrichment::TokenEnricherPort>> =
         match backends::helius::HeliusEnricher::from_env() {
             Some(h) => {
@@ -741,9 +741,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             None => {
                 klog!(
-                    "[Boot] Helius enricher not configured — token-analysis will use raw addresses"
+                    "[Boot] Helius enricher not configured — using lo-fi DexScreener/RugCheck fallback"
                 );
-                None
+                Some(Arc::new(backends::lofi::LofiEnricher::new()))
             }
         };
 
