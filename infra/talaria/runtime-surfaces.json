@@ -13,8 +13,8 @@
       "kind": "frontend",
       "package": "packages/talaria-landing",
       "intended_domain": "www.talaria.build",
-      "runtime_status": "broken",
-      "observed_status": "HTTP 404 DEPLOYMENT_NOT_FOUND on 2026-06-07",
+      "runtime_status": "ready",
+      "observed_status": "HTTP 200 on 2026-06-07; deployed as Vercel project talaria-landing and aliased to www.talaria.build.",
       "canonical_role": "Public Talaria homepage: product, trust layer, routes to demo, Telegram, B&C, and MetaDAO context.",
       "must_not_own": [
         "CYNIC operational dashboard",
@@ -28,8 +28,8 @@
       "kind": "frontend",
       "package": "packages/talaria-demo",
       "intended_domain": "demo.talaria.build",
-      "runtime_status": "broken",
-      "observed_status": "HTTP 404 DEPLOYMENT_NOT_FOUND on 2026-06-07",
+      "runtime_status": "ready",
+      "observed_status": "HTTP 200 on 2026-06-07; deployed as Vercel project talaria-demo and aliased to demo.talaria.build.",
       "canonical_role": "Interactive proposal judgment experience backed by CYNIC.",
       "must_not_own": [
         "Marketing landing copy",
@@ -173,7 +173,7 @@
     {
       "id": "deploy-talaria-frontends",
       "priority": 1,
-      "action": "Restore www.talaria.build and demo.talaria.build deployments with explicit workspace build/output configuration."
+      "action": "Keep www.talaria.build and demo.talaria.build deployments reproducible from package-local vercel.json files."
     },
     {
       "id": "repair-talaria-api",
