@@ -1,18 +1,19 @@
 # CYNIC — Multi-Agent Coordination
 
-Three cortex agents, one kernel, one repo. The kernel is the coordination bus.
+Three cortex agents, persistent organic agents, one kernel, one repo. The kernel is the coordination bus.
 
 ## Agents
 
-| Agent | CLI | Instructions | MCP Config | L3 Enforcement |
-|-------|-----|-------------|------------|----------------|
+| Agent | Runtime | Instructions | Coordination Config | L3 Enforcement |
+|-------|---------|--------------|---------------------|----------------|
 | Claude Code | `claude` | `CLAUDE.md` | `.claude/settings.json` | Hooks (PreToolUse → coord-claim.sh) |
 | Gemini CLI | `gemini` | `GEMINI.md` | `.gemini/settings.json` | Hooks (BeforeTool → coord-claim.sh) |
-| Codex CLI | `codex` | `AGENTS.md` (this file) | `.codex/config.toml` | MCP proxy (apply_patch lacks hooks — [#16732](https://github.com/openai/codex/issues/16732)) |
+| Codex CLI | `codex` | `CODEX.md` + `.codex/CODEX-PROTOCOL.md` | `.codex/config.toml` | Manual/MCP proxy; verify per session |
+| Hermes Agent | `hermes-agent-executor.service` → `hermes chat` | `HERMES_AGENT.md` + organ `SKILL.md` | REST `/coord/*` from executor | Executor claims declared task targets before launch |
 
 ## The Kernel Is the Bus
 
-The CYNIC kernel runs on `${CYNIC_REST_ADDR}` (Tailscale). All agents access it — Claude via hooks, Gemini/Codex via the `cynic-coord` MCP proxy (`mcp-coord/cynic-coord`).
+The CYNIC kernel runs on `${CYNIC_REST_ADDR}` (Tailscale). Agents access it through MCP or direct REST. Claude/Gemini/Codex may use MCP when available; Hermes Agent uses REST from its executor because it is a persistent systemd service, not an interactive cortex.
 
 ## Document Hierarchy
 
@@ -23,8 +24,10 @@ Use this order when two files appear to disagree:
 2. Agent adapters
    - `CLAUDE.md`
    - `GEMINI.md`
+   - `CODEX.md`
    - `.codex/CODEX-PROTOCOL.md`
-   These explain how each client executes the shared protocol and what automation or fallback paths it really has.
+   - `HERMES_AGENT.md`
+   These explain how each runtime executes the shared protocol and what automation or fallback paths it really has.
 3. `.handoff.md`
    Append-only session journal. Useful context, but non-normative by design. Older entries may be superseded by newer reality.
 4. Roadmap / backlog files
@@ -40,17 +43,17 @@ All agents have these tools via MCP:
 |------|------|------|
 | `cynic_coord_register` | Register yourself with the kernel | Session start |
 | `cynic_coord_claim` | Claim a file before editing | Before every file write |
-| `cynic_coord_who` | See active agents and claims | Before starting work |
+| `cynic_coord_who` | See active agents and claims (`GET /coord/who`) | Before starting work |
 | `cynic_coord_release` | Release your claims | Session end or done with file |
 | `cynic_observe` | Record a discovery/decision/blocker | When something material happens |
 | `cynic_health` | Check kernel health | When in doubt |
 | `cynic_handoff` | Read/write `.handoff.md` | Session start (read) and end (append) |
-
 ### Coordination Protocol
 
-```
-1. SESSION START
+1. **JSON is King:** All machine-readable reports, handoffs (within JSON fields), and signal extractions MUST be in JSON/JSONL.
+2. **SESSION START**
    → cynic_coord_register(agent_id, intent, agent_type)
+
    → cynic_handoff(action="read")  — load context from previous sessions
    → cynic_coord_who()             — see who else is working
 
@@ -61,6 +64,8 @@ All agents have these tools via MCP:
 3. DURING SESSION
    → cynic_observe() on discoveries, decisions, blockers
    → cynic_coord_who() periodically if session is long
+
+   REST note: `/coord/who` is the coordination view. `/agents` is system status and is not a substitute for file-claim inspection.
 
 4. SESSION END
    → cynic_handoff(action="append", message="what I did, what's next")
@@ -174,11 +179,27 @@ For coordination to work, Codex needs network access to the kernel:
 
 ### Workflow for Codex
 
-1. At session start: call `cynic_coord_register` with your agent ID and intent
-2. Before editing any file in `cynic-kernel/`: call `cynic_coord_claim`
-3. If you get CONFLICT: do NOT proceed. Call `cynic_coord_who` to see who has the file
-4. Record material discoveries with `cynic_observe`
-5. At session end: call `cynic_handoff(action="append")` with a summary, then `cynic_coord_release`
+Read `CODEX.md` first, then `.codex/CODEX-PROTOCOL.md`. Codex has no guaranteed automatic write hook, so treat coordination as manual unless MCP tools are visibly available in the session.
+
+1. At session start: call `cynic_coord_register` with your agent ID and intent.
+2. Before editing any file: call `cynic_coord_claim` or REST `/coord/claim`.
+3. If the response includes conflicts: do NOT proceed. Call `cynic_coord_who` / `GET /coord/who`.
+4. Record material discoveries with `cynic_observe`.
+5. At session end: call `cynic_handoff(action="append")` with a summary, then `cynic_coord_release`.
+
+## Hermes Agent — Specific Instructions
+
+Hermes Agent is an organic persistent agent, not a cortex CLI. Read `HERMES_AGENT.md` for the adapter contract. The executor must own repo coordination before launching `hermes chat`.
+
+Required behavior for repo-affecting Hermes tasks:
+
+1. Task declares `targets`, `repo_targets`, `coord_targets`, or `files`.
+2. Executor registers `hermes-agent-{domain}-{task_id}` with `/coord/register`.
+3. Executor claims all declared targets with `/coord/claim-batch`.
+4. Any returned conflict blocks the task, even if the kernel records claims as signals.
+5. Executor releases claims with `/coord/release` in a `finally` path.
+
+A repo-affecting Hermes task without declared targets must fail or requeue before `hermes chat` starts.
 
 ## Handoff Protocol
 
@@ -203,7 +224,7 @@ FOR_OTHER_AGENT: specific messages
 | Type | Where | Lifecycle | State | Naming |
 |------|-------|-----------|-------|--------|
 | **Cortex** | Claude Code / Gemini CLI / Codex CLI | Session (episodic) | None — memory via `.claude/memory/` or AGENTS.md | Derived from task, written to `.cortex-session` |
-| **Agent (organic)** | Autonomous framework (e.g., Hermes Agent, organism observer) | Persistent | Owns SOUL.md + SKILL.md, self-improving loop | Named in infrastructure registry (e.g., `hermes-x-organ`, `meta-cortex-observer`) |
+| **Agent (organic)** | Autonomous framework (e.g., Hermes Agent, organism observer) | Persistent | Owns SOUL.md + SKILL.md, self-improving loop; repo writes are mediated by an adapter | Named in infrastructure registry (e.g., `hermes-x-organ`, `organ-anvil-hermes-agent`) |
 | **Dog** | In-kernel validator | Persistent | Stateless inference; state via crystals | Named in `backends.toml` Dogs array (e.g., `qwen-7b-hf`, `gemini-cli`) |
 | **Organ** | Infrastructure subsystem (sensorial + reactive) | Persistent | Stateful (logs, datasets, cache) | Hierarchical: `organ-{role}` (family) → `organ-{role}-hermes-agent` (instance) → `organ-{role}-{tool}` (daemon) |
 | **Infra** | Scripts, MCP servers, hooks | Persistent | Tooling | Namespaced: `cynic-skills:*`, `mcp-coord/*`, `scripts/*` |
@@ -237,14 +258,16 @@ FOR_OTHER_AGENT: specific messages
 
 ### Organ Architecture (Data-Centric)
 
-Organs are not scripts — they are **sensorial organs** that perceive the repo/system and react adaptively:
+Organs are not scripts — they are **sensorial organs** that perceive the repo/system and react adaptively, following `docs/DATA_CONSTITUTION.md`:
 
-1. **Perception** — Sensors detect state (git status, PRs, dirty trees, divergences)
-2. **Transformation** — Raw state → decision signal (rules adapt to organism scale)
-3. **Structuration** — State stored in registry, handoff, gate state
-4. **Analysis** — Patterns emerge (coordination needs, bottlenecks, health)
-5. **Reliability** — ACID principles applied to repo lifecycle
-6. **Adaptation** — Gates intensity scales with organism activity
+1. **Perception** — Sensors detect state (CSV, hooks, sessions, git status).
+2. **Transformation** — Raw state → decision signal (Cleaning, grouping, summarizing).
+3. **Structuration** — Data modeled via 3NF, stored in registry, handoff, or database (ACID).
+4. **Analysis** — Patterns emerge (Statistics, Visualization, Distributions).
+5. **Apprentissage** — Discovery of hidden structures (Clustering, K-Means).
+6. **Reliability** — Sovereignty through durability and security (COMMIT/ROLLBACK).
+7. **Adaptation** — Gates intensity scales with organism activity.
+
 
 **See** `docs/organ-anvil.md` for full architecture.
 

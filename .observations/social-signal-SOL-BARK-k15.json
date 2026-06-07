@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-06-05T13:35:00Z",
+  "task_id": "k15-consumer",
+  "tool": "social_signal_analysis",
+  "target": "SOL",
+  "resolved_mint": "So11111111111111111111111111111111",
+  "domain": "social-signal",
+  "verdict": "BARK",
+  "q_score": 0.334,
+  "signal_score": 4.0,
+  "status": "bark_confirmed",
+  "live_verified": {
+    "tweet_id": "2060702302756131233",
+    "author": "info_guy_",
+    "text": "I'm $SOL holder 😍",
+    "views": 8,
+    "replies": 0,
+    "reposts": 0,
+    "likes": 0,
+    "verified_at": "2026-06-05T13:35:00Z"
+  },
+  "narrative": "Generic holder claim with zero engagement. Coordination_score=0.0 across 6 authors. No transaction proof, no LP discussion, no substantive analysis. Pure noise pattern confirmed 4th time.",
+  "tags": ["BARK", "generic_holder", "zero_engagement", "noise_confirmed", "k15-consumer"]
+}

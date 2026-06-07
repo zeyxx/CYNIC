@@ -111,3 +111,10 @@ def test_unknown_channel_defaults_to_twitter():
     text = "Some random signal content without obvious patterns"
     result = classify_block(-9999999, "block_10", text, 1)
     assert result.domain == "twitter"
+
+
+def test_classify_private_dm_defaults_to_community():
+    text = "Hey, I have a question about the protocol"
+    result = classify_block(12345678, "dm_block", text, 1, channel_type="private")
+    assert result.domain == "community"
+    assert result.channel_type == "private"

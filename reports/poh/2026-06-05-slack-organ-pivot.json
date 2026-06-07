@@ -1,0 +1,28 @@
+{
+  "poh_version": "1.0",
+  "timestamp": "2026-06-05T07:15:00Z",
+  "session_id": "gemini-cortex-orientation-0605",
+  "decision_stack": {
+    "strategic_pivot": "Native Linux Migration",
+    "infrastructure_goal": "vLLM / SGLang / EXL2",
+    "organ_directive": "Promote Slack to OrganPort"
+  },
+  "data_system_mapping": {
+    "perception": ["rtk", "tailscale", "hermes-x", "slack-pending"],
+    "transformation": "vLLM guided decoding (Outlines)",
+    "structuration": "OrganPort trait integration",
+    "reliability": "Sovereign Linux Node",
+    "risk_mitigation": "Bypassing 0.05 scoring flat-line"
+  },
+  "axiomatic_footprint": {
+    "fidelity": 0.85,
+    "phi": 0.78,
+    "verify": 0.90,
+    "culture": 0.65,
+    "burn": 0.95,
+    "sovereignty": 1.0,
+    "unnameable": 0.12
+  },
+  "governance_mempool_ref": "promote-slack-to-organ",
+  "next_agent": "hermes-agent"
+}

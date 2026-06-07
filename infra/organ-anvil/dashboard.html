@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organ Anvil - Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0e14;
+      color: #e5e7eb;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 20px 0;
+      border-bottom: 1px solid #1f2937;
+    }
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #f97316;
+      margin-bottom: 8px;
+    }
+    .header p {
+      color: #9ca3af;
+      font-size: 0.9rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #111827;
+      border-radius: 8px;
+      padding: 20px;
+      border: 1px solid #1f2937;
+    }
+    .card h2 {
+      font-size: 1.2rem;
+      color: #f97316;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card h2::before {
+      content: "●";
+      color: #10b981;
+    }
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #1f2937;
+    }
+    .metric:last-child {
+      border-bottom: none;
+    }
+    .metric-label {
+      color: #9ca3af;
+    }
+    .metric-value {
+      font-weight: 600;
+      font-family: monospace;
+    }
+    .health-score {
+      font-size: 3rem;
+      text-align: center;
+      padding: 20px 0;
+      font-weight: 700;
+    }
+    .health-good { color: #10b981; }
+    .health-warning { color: #f59e0b; }
+    .health-critical { color: #ef4444; }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .status-clean { background: #064e3b; color: #10b981; }
+    .status-dirty { background: #7f1d1d; color: #ef4444; }
+    .alert {
+      background: #7f1d1d;
+      border: 1px solid #ef4444;
+      border-radius: 4px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+    .alert-warning {
+      background: #78350f;
+      border-color: #f59e0b;
+    }
+    .timestamp {
+      color: #6b7280;
+      font-size: 0.8rem;
+      margin-top: 10px;
+      text-align: center;
+    }
+    .branches-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .branch-item {
+      padding: 8px;
+      margin: 4px 0;
+      background: #1f2937;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+    .refresh-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #f97316;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .refresh-btn:hover {
+      background: #ea580c;
+    }
+    .auto-refresh {
+      position: fixed;
+      bottom: 60px;
+      right: 20px;
+      color: #6b7280;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⚒ ORGAN ANVIL</h1>
+    <p>Repo Lifecycle Manager - Sensorial Organ</p>
+    <p id="last-update">Last update: loading...</p>
+  </div>
+
+  <div class="grid">
+    <!-- Health Score -->
+    <div class="card">
+      <h2>Health Score</h2>
+      <div id="health-score" class="health-score health-warning">--</div>
+      <div class="metric">
+        <span class="metric-label">Status</span>
+        <span id="dirty-status" class="status-badge status-dirty">DIRTY</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Last Perception</span>
+        <span id="last-perception" class="metric-value">--</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Run Count</span>
+        <span id="run-count" class="metric-value">--</span>
+      </div>
+    </div>
+
+    <!-- Branches -->
+    <div class="card">
+      <h2>Branches</h2>
+      <div class="metric">
+        <span class="metric-label">Local</span>
+        <span id="local-branches" class="metric-value">--</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Remote</span>
+        <span id="remote-branches" class="metric-value">--</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">PRs Open</span>
+        <span id="prs-open" class="metric-value">--</span>
+      </div>
+      <div id="branches-list" class="branches-list"></div>
+    </div>
+
+    <!-- Worktrees & Stashes -->
+    <div class="card">
+      <h2>Worktrees</h2>
+      <div class="metric">
+        <span class="metric-label">Active</span>
+        <span id="worktrees-count" class="metric-value">--</span>
+      </div>
+      <div id="worktrees-list" class="branches-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Stashes</h2>
+      <div class="metric">
+        <span class="metric-label">Count</span>
+        <span id="stashes-count" class="metric-value">--</span>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <h2>Alerts</h2>
+      <div id="alerts-container">
+        <div class="alert alert-warning">
+          <strong>⚠ Dirty Tree</strong> - Modifications non-committees détectées
+        </div>
+      </div>
+    </div>
+
+    <!-- POH History -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <h2>Proof of History (Last 5 Snapshots)</h2>
+      <div id="poh-history">
+        <p style="color: #6b7280;">Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  <div class="auto-refresh">Auto-refresh: 30s</div>
+
+  <script>
+    // Configuration
+    const API_BASE = '/api'; // Relative path for local files
+    const STATE_URL = './state.json';
+    const POH_URL = './poh.json';
+    const AUDIT_URL = './audit.jsonl';
+
+    let refreshInterval;
+
+    async function fetchJSON(url) {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return await response.json();
+      } catch (error) {
+        console.error('Fetch error:', error);
+        return null;
+      }
+    }
+
+    function updateHealthScore(score) {
+      const el = document.getElementById('health-score');
+      el.textContent = (score * 100).toFixed(0) + '%';
+      el.className = 'health-score';
+      if (score >= 0.8) el.classList.add('health-good');
+      else if (score >= 0.5) el.classList.add('health-warning');
+      else el.classList.add('health-critical');
+    }
+
+    function updateStatus(dirty) {
+      const el = document.getElementById('dirty-status');
+      el.textContent = dirty ? 'DIRTY' : 'CLEAN';
+      el.className = 'status-badge ' + (dirty ? 'status-dirty' : 'status-clean');
+    }
+
+    function updateMetric(id, value) {
+      document.getElementById(id).textContent = value;
+    }
+
+    function formatTimestamp(iso) {
+      if (!iso) return 'Never';
+      const d = new Date(iso);
+      return d.toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    }
+
+    function renderBranches(branches) {
+      const container = document.getElementById('branches-list');
+      container.innerHTML = branches.map(b =>
+        `<div class="branch-item">${b}</div>`
+      ).join('');
+    }
+
+    function renderWorktrees(worktrees) {
+      const container = document.getElementById('worktrees-list');
+      container.innerHTML = worktrees.map(w =>
+        `<div class="branch-item">${w}</div>`
+      ).join('');
+    }
+
+    function renderAlerts(alerts) {
+      const container = document.getElementById('alerts-container');
+      if (alerts.length === 0) {
+        container.innerHTML = '<p style="color: #6b7280;">No alerts</p>';
+        return;
+      }
+      container.innerHTML = alerts.map(a =>
+        `<div class="alert ${a.severity === 'warning' ? 'alert-warning' : ''}">
+          <strong>${a.severity.toUpperCase()}</strong> - ${a.message}
+          ${a.action_needed ? `<br><em>Action: ${a.action_needed}</em>` : ''}
+        </div>`
+      ).join('');
+    }
+
+    function renderPOH(poh) {
+      const container = document.getElementById('poh-history');
+      if (!poh || poh.length === 0) {
+        container.innerHTML = '<p style="color: #6b7280;">No history</p>';
+        return;
+      }
+      // Show last 5
+      const recent = poh.slice(-5).reverse();
+      container.innerHTML = recent.map(s =>
+        `<div style="padding: 10px; margin: 5px 0; background: #1f2937; border-radius: 4px; font-family: monospace;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+            <span>Run #${s.run}</span>
+            <span style="color: #6b7280;">${formatTimestamp(s.timestamp)}</span>
+          </div>
+          <div style="display: flex; gap: 15px;">
+            <span>Health: ${(s.repo_health_score * 100).toFixed(0)}%</span>
+            <span>Dirty: ${s.dirty_tree}</span>
+            <span>Branches: ${s.branches_local.length}</span>
+            <span>Stashes: ${s.stashes}</span>
+          </div>
+        </div>`
+      ).join('');
+    }
+
+    async function loadData() {
+      // Load state
+      const state = await fetchJSON(STATE_URL);
+      if (state) {
+        updateHealthScore(state.repo_health_score);
+        updateStatus(state.dirty_tree);
+        updateMetric('last-perception', formatTimestamp(state.last_perception));
+        updateMetric('run-count', state.run_count);
+        updateMetric('local-branches', state.branches_local.length);
+        updateMetric('remote-branches', state.branches_remote.length);
+        updateMetric('prs-open', state.prs_open);
+        updateMetric('worktrees-count', state.worktrees.length);
+        updateMetric('stashes-count', state.stashes);
+        renderBranches(state.branches_local);
+        renderWorktrees(state.worktrees);
+        renderAlerts(state.alerts);
+        updateMetric('last-update', `Last update: ${formatTimestamp(state.updated)}`);
+      }
+
+      // Load POH
+      const poh = await fetchJSON(POH_URL);
+      renderPOH(poh);
+    }
+
+    // Initial load
+    loadData();
+
+    // Auto-refresh every 30 seconds
+    refreshInterval = setInterval(loadData, 30000);
+  </script>
+</body>
+</html>

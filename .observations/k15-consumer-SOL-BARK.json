@@ -1,0 +1,26 @@
+{
+  "task_id": "k15-consumer",
+  "timestamp": "2026-06-05T14:00:00Z",
+  "tool": "social_signal_analysis",
+  "target": "SOL",
+  "resolved_mint": "So11111111111111111111111111111111",
+  "domain": "social-signal",
+  "status": "verified_noise",
+  "signal_score": 4.0,
+  "verdict": "BARK",
+  "q_score": 0.334,
+  "verification_count": 4,
+  "live_metrics": {
+    "tweet_id": "2060702302756131233",
+    "author": "info_guy_",
+    "text": "I'm $SOL holder 😍",
+    "views": 8,
+    "replies": 0,
+    "reposts": 0,
+    "likes": 0,
+    "date": "2026-05-30"
+  },
+  "narrative": "4th verification of SOL signal BARK pattern. Generic holder claim, zero engagement, coordination_score=0.0, has_spam=True. 6 authors all low-signal noise. Pattern stable across sessions. Mint = Wrapped SOL native, expected zero on-chain signal. No follow-up needed.",
+  "tags": ["BARK", "noise_confirmed", "generic_holder", "zero_engagement", "coord_score_0", "spam_pattern"],
+  "kernel_status": "degraded (observe endpoint auth mismatch)"
+}

@@ -11,8 +11,10 @@ use tokio_util::sync::CancellationToken;
 
 use crate::api::rest::AppState;
 use crate::domain::health_gate::count_healthy_dogs;
+use crate::domain::organ::{Metric, MetricKind, MetricValue, OrganHealth};
 use crate::domain::state_log::{
-    DogSnapshot, GENESIS_HASH, OrganSnapshot, ResourceSnapshot, StateBlock, SystemSnapshot,
+    DogSnapshot, GENESIS_HASH, OrganAuditSnapshot, OrganSnapshot, ResourceSnapshot, StateBlock,
+    SystemSnapshot,
 };
 use crate::infra::task_health::TaskHealth;
 
@@ -185,6 +187,8 @@ async fn capture_snapshot(state: &AppState, seq: u64, prev_hash: &str) -> StateB
         }
     };
 
+    let organ_audits = capture_organ_audits(state).await;
+
     // Organs — last observation per source (agent_id)
     let organs = match tokio::time::timeout(
         std::time::Duration::from_secs(3),
@@ -227,5 +231,131 @@ async fn capture_snapshot(state: &AppState, seq: u64, prev_hash: &str) -> StateB
         }
     };
 
-    StateBlock::new(seq, prev_hash.to_string(), dogs, system, resource, organs)
+    StateBlock::new(
+        seq,
+        prev_hash.to_string(),
+        dogs,
+        system,
+        resource,
+        organs,
+        organ_audits,
+    )
+}
+
+async fn capture_organ_audits(state: &AppState) -> Vec<OrganAuditSnapshot> {
+    let mut audits = Vec::new();
+
+    for organ in &state.senses {
+        let name = organ.name().to_string();
+        let health = organ.health().await;
+        let (health_label, health_reason) = match health {
+            OrganHealth::Alive => ("alive".to_string(), None),
+            OrganHealth::Degraded { reason } => ("degraded".to_string(), Some(reason)),
+            OrganHealth::Dead { reason } => ("dead".to_string(), Some(reason)),
+        };
+
+        let mut anomalies = Vec::new();
+        if health_label != "alive" {
+            anomalies.push(health_label.clone());
+        }
+
+        let freshness_secs = match tokio::time::timeout(
+            std::time::Duration::from_secs(3),
+            organ.freshness(),
+        )
+        .await
+        {
+            Ok(Ok(age)) => {
+                let secs = age.as_secs();
+                if secs > 8 * 3600 {
+                    anomalies.push("stale".to_string());
+                }
+                Some(secs)
+            }
+            Ok(Err(e)) => {
+                anomalies.push(format!("freshness_error:{e}"));
+                None
+            }
+            Err(_) => {
+                anomalies.push("freshness_timeout".to_string());
+                None
+            }
+        };
+
+        let (metrics, snapshot_error) =
+            match tokio::time::timeout(std::time::Duration::from_secs(5), organ.snapshot()).await {
+                Ok(Ok(snapshot)) => (snapshot.metrics, None),
+                Ok(Err(e)) => (Vec::new(), Some(format!("snapshot_error:{e}"))),
+                Err(_) => (Vec::new(), Some("snapshot_timeout".to_string())),
+            };
+
+        if let Some(error) = snapshot_error {
+            anomalies.push(error);
+        }
+        if metrics.is_empty() {
+            anomalies.push("no_metrics".to_string());
+        }
+
+        let counter_count = metrics
+            .iter()
+            .filter(|m| matches!(m.kind, MetricKind::Counter))
+            .count();
+        let gauge_count = metrics
+            .iter()
+            .filter(|m| matches!(m.kind, MetricKind::Gauge))
+            .count();
+        let metrics_hash = hash_metrics(&metrics);
+
+        audits.push(OrganAuditSnapshot {
+            organ: name,
+            health: health_label,
+            health_reason,
+            freshness_secs,
+            metric_count: metrics.len(),
+            counter_count,
+            gauge_count,
+            metrics_hash,
+            anomalies,
+        });
+    }
+
+    audits
+}
+
+fn hash_metrics(metrics: &[Metric]) -> String {
+    let mut canonical: Vec<serde_json::Value> = metrics
+        .iter()
+        .map(|m| {
+            serde_json::json!({
+                "key": &m.key,
+                "value": metric_value_json(&m.value),
+                "kind": match m.kind {
+                    MetricKind::Counter => "counter",
+                    MetricKind::Gauge => "gauge",
+                },
+                "unit": &m.unit,
+            })
+        })
+        .collect();
+    canonical.sort_by(|a, b| {
+        a.get("key")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(b.get("key").and_then(|v| v.as_str()).unwrap_or(""))
+    });
+
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(serde_json::Value::Array(canonical).to_string().as_bytes());
+    let result = hasher.finalize();
+    result.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn metric_value_json(value: &MetricValue) -> serde_json::Value {
+    match value {
+        MetricValue::F64(v) => serde_json::json!(v),
+        MetricValue::I64(v) => serde_json::json!(v),
+        MetricValue::Str(v) => serde_json::json!(v),
+        MetricValue::Bool(v) => serde_json::json!(v),
+    }
 }
