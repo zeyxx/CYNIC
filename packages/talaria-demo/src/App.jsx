@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { ChainExplorer } from './ChainExplorer'
 import { MetricsPanel } from './MetricsPanel'
+import { fetchJson } from './api'
 import './App.css'
 
-const API = 'https://api.talaria.build/demo/judge'
 
 const LANG_DEFAULT = navigator.language?.startsWith('fr') ? 'fr' : 'en'
 
@@ -240,7 +240,7 @@ function VerdictDoc({ result, lang, content }) {
   const humanNote = t.verdict_human?.[verdict] ?? null
 
   // Check if any axiom was raw-capped
-  const anyCapped = Object.entries(rawMap).some(([ax, raw]) => raw > PHI_MAX + 0.001)
+  const anyCapped = Object.values(rawMap).some(raw => raw > PHI_MAX + 0.001)
 
   return (
     <div className="verdict-doc">
@@ -362,14 +362,13 @@ export default function App() {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 90000)
     try {
-      const res = await fetch(API, {
+      const data = await fetchJson('/judge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: content.trim() }),
         signal: ctrl.signal,
+        timeoutMs: 90000,
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail?.error ?? data.error ?? `HTTP ${res.status}`)
       setResult(data)
       setHistory(h => [{
         verdict: data.verdict,

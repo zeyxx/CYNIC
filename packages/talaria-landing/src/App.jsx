@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { asArray, fetchJson } from './api'
 import './App.css'
 
-const API = 'https://api.talaria.build'
 
 const KIND_COLOR = {
   Howl:'#4ade80', Wag:'#86efac', Growl:'#fbbf24',
@@ -34,7 +34,7 @@ function useInterval(fn, ms) {
 }
 
 // ── Verdict Grid (mempool-style) ──────────────────────────────────────────────
-function VerdictGrid({ items, totalCount }) {
+function VerdictGrid({ items, totalCount, live }) {
   const [hovered, setHovered] = useState(null)
 
   // Fill grid: real verdicts + grey placeholders to show scale
@@ -45,8 +45,8 @@ function VerdictGrid({ items, totalCount }) {
   return (
     <div className="verdict-grid-wrap">
       <div className="verdict-grid-header">
-        <span className="micro-label">Live verdict activity</span>
-        <span className="verdict-grid-total">{totalCount.toLocaleString()} total</span>
+        <span className="micro-label">{live ? 'Live verdict activity' : 'Backend unavailable'}</span>
+        <span className="verdict-grid-total">{live ? `${totalCount.toLocaleString()} recent` : 'no live data'}</span>
       </div>
       <div className="verdict-grid">
         {real.map((v, i) => (
@@ -133,27 +133,53 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   const fetchStats = useCallback(async () => {
-    try { setStats(await (await fetch(`${API}/demo/stats`)).json()) } catch {}
+    try {
+      const [dogs, verdicts] = await Promise.all([
+        fetchJson('/dogs'),
+        fetchJson('/verdicts'),
+      ])
+      const recent = asArray(verdicts)
+      setStats({
+        live: true,
+        dogs_online: asArray(dogs).length,
+        recent_verdicts: recent.length,
+        latest_verdict_at: recent[0]?.timestamp ?? null,
+      })
+    } catch (e) {
+      setStats({ live: false, dogs_online: 0, recent_verdicts: 0, error: e.message })
+    }
   }, [])
 
   const fetchFeed = useCallback(async () => {
     try {
-      const data = await (await fetch(`${API}/demo/feed`)).json()
+      const verdicts = asArray(await fetchJson('/verdicts'))
+      const data = verdicts.map(v => ({
+        kind: v.verdict,
+        q: v.q_score?.total ?? 0,
+        domain: v.domain ?? 'unknown',
+        ts: v.timestamp,
+      })).filter(v => v.ts)
       setFeed(prev => {
         if (!data.length) return prev
         const incoming = data.filter(d => !prev.some(p => p.ts === d.ts && p.kind === d.kind))
         if (incoming.length) { setPulse(true); setTimeout(() => setPulse(false), 800) }
         return [...incoming, ...prev].slice(0, 80)
       })
-    } catch {}
+    } catch {
+      setFeed([])
+    }
   }, [])
 
-  useEffect(() => { fetchStats(); fetchFeed() }, [])
+  useEffect(() => {
+    const initial = setTimeout(() => { fetchStats(); fetchFeed() }, 0)
+    return () => clearTimeout(initial)
+  }, [fetchStats, fetchFeed])
   useInterval(fetchStats, 30000)
   useInterval(fetchFeed, 12000)
 
-  const dogs    = stats?.dogs_online ?? 0
-  const verdicts = stats?.verdicts_total ?? 0
+  const live = stats?.live === true
+  const dogs = live ? stats.dogs_online : 0
+  const verdicts = live ? stats.recent_verdicts : 0
 
   return (
     <div className="page">
@@ -178,10 +204,10 @@ export default function App() {
       {/* Observatory bar */}
       <div className="obs-bar">
         <LiveDot active={dogs > 0} />
-        <span className="obs-text">{dogs > 0 ? `${dogs} dog${dogs>1?'s':''} online` : 'offline'}</span>
+        <span className="obs-text">{live && dogs > 0 ? `${dogs} dog${dogs>1?'s':''} online` : 'backend offline'}</span>
         <span className="obs-sep">·</span>
         <span className="obs-num"><Counter value={verdicts} /></span>
-        <span className="obs-text"> verdicts rendered</span>
+        <span className="obs-text"> recent verdicts</span>
         <span className="obs-sep">·</span>
         <span className="obs-text">0% cloud</span>
         <div className="obs-spacer" />
@@ -203,7 +229,7 @@ export default function App() {
       </section>
 
       {/* Verdict grid — mempool style */}
-      <VerdictGrid items={feed} totalCount={verdicts} />
+      <VerdictGrid items={feed} totalCount={verdicts} live={live} />
 
       {/* Products */}
       <section className="two-products">
@@ -236,10 +262,10 @@ export default function App() {
       <section className="metrics-section">
         <p className="micro-label">By the numbers</p>
         <div className="metrics-grid">
-          <div className="metric-card"><div className="metric-num"><Counter value={verdicts} /></div><div className="metric-lbl">Verdicts <span className="live-tag">live</span></div></div>
-          <div className="metric-card"><div className="metric-num">2,045</div><div className="metric-lbl">Tests (CYNIC + B&amp;C)</div></div>
-          <div className="metric-card"><div className="metric-num">1,404</div><div className="metric-lbl">Commits combined</div></div>
-          <div className="metric-card"><div className="metric-num">0%</div><div className="metric-lbl">Cloud dependency</div></div>
+          <div className="metric-card"><div className="metric-num"><Counter value={verdicts} /></div><div className="metric-lbl">Recent verdicts <span className="live-tag">{live ? 'live' : 'offline'}</span></div></div>
+          <div className="metric-card"><div className="metric-num"><Counter value={dogs} /></div><div className="metric-lbl">Dogs online</div></div>
+          <div className="metric-card"><div className="metric-num">{stats?.latest_verdict_at ? new Date(stats.latest_verdict_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'n/a'}</div><div className="metric-lbl">Latest verdict</div></div>
+          <div className="metric-card"><div className="metric-num">{live ? 'OK' : 'OFF'}</div><div className="metric-lbl">Backend source</div></div>
         </div>
       </section>
 

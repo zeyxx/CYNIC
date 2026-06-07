@@ -1,6 +1,5 @@
 import {
   PublicKey,
-  Transaction,
   TransactionInstruction,
   SystemProgram,
 } from '@solana/web3.js'
@@ -8,13 +7,15 @@ import {
 export const PROGRAM_ID = new PublicKey('AKjCbxzdjXHcTmTqN37K7eZM2RUsCYTmaXUriTd6csBH')
 export const DEVNET_RPC = 'https://api.devnet.solana.com'
 
+const textEncoder = new TextEncoder()
+
 export function findCounterPda() {
-  return PublicKey.findProgramAddressSync([Buffer.from('cynic-counter')], PROGRAM_ID)
+  return PublicKey.findProgramAddressSync([textEncoder.encode('cynic-counter')], PROGRAM_ID)
 }
 
 export function findVerdictPda(verdictIdBytes) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from('verdict'), verdictIdBytes],
+    [textEncoder.encode('verdict'), verdictIdBytes],
     PROGRAM_ID,
   )
 }
@@ -37,11 +38,11 @@ export function recordVerdictIx(recorder, verdictId, verdictKind, qScoreTotal) {
   const kind = KIND[verdictKind] ?? 1
   const qMillis = Math.round(qScoreTotal * 1000)
 
-  const data = Buffer.alloc(22)
+  const data = new Uint8Array(22)
   data[0] = 1 // discriminator
   idBytes.forEach((b, i) => { data[i + 1] = b })
   data[17] = kind
-  data.writeUInt32LE(qMillis, 18)
+  new DataView(data.buffer).setUint32(18, qMillis, true)
 
   return {
     ix: new TransactionInstruction({
