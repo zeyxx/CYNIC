@@ -246,7 +246,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let configs = backend_configs.clone();
         tokio::spawn(async move {
-            backends::health_probe::validate_config(&configs).await;
+            backends::health_probe::validate_config(configs).await;
         });
     }
 
@@ -849,6 +849,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
         judge_jobs: Arc::new(api::rest::judge_job::JudgeJobStore::new()),
         system_contract: system_contract.clone(),
+        backend_configs: backend_configs.clone(),
         enricher: enricher.clone(),
         senses,
         domain_curations: Arc::clone(&domain_curations),

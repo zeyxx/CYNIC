@@ -83,8 +83,27 @@ impl SomaProbe {
         ports
             .iter()
             .filter(|p| {
-                (p.bind_address == "0.0.0.0" || p.bind_address == "::" || p.bind_address == "*")
-                    && !Self::WILD_BIND_WHITELIST.contains(&p.port)
+                if !(p.bind_address == "0.0.0.0" || p.bind_address == "::" || p.bind_address == "*")
+                {
+                    return false;
+                }
+                // Whitelist specific ports
+                if Self::WILD_BIND_WHITELIST.contains(&p.port) || p.port == 3001 {
+                    return false;
+                }
+                // Whitelist specific processes
+                if p.process
+                    .as_deref()
+                    .is_some_and(|proc| proc == "rustdesk" || proc == "avahi-daemon")
+                {
+                    return false;
+                }
+
+                // Whitelist ephemeral UDP client ports (avahi dynamic ports, DNS/NTP clients, etc.)
+                if p.protocol == "udp" && p.port >= 32768 {
+                    return false;
+                }
+                true
             })
             .cloned()
             .collect()

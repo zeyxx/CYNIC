@@ -13,6 +13,7 @@ use super::types::{AppState, ErrorResponse};
 use crate::domain::ccm;
 use crate::domain::ccm::Crystal;
 use crate::domain::compliance;
+use crate::domain::sanitize::sanitize_observation_target;
 
 fn crystal_to_json(c: &Crystal) -> serde_json::Value {
     serde_json::json!({
@@ -392,6 +393,47 @@ pub struct ObservationsQuery {
     pub agent_id: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Default)]
+pub struct PublicObservationsQuery {
+    pub limit: Option<u32>,
+    pub domain: Option<String>,
+}
+
+fn public_observation_projection(
+    obs: &crate::domain::storage::RawObservation,
+) -> serde_json::Value {
+    serde_json::json!({
+        "tool": obs.tool,
+        "target": sanitize_observation_target(&obs.target),
+        "domain": obs.domain,
+        "status": obs.status,
+        "project": obs.project,
+        "tags": obs.tags,
+        "source_tier": obs.source_tier,
+        "created_at": obs.created_at,
+    })
+}
+
+pub async fn public_observations_handler(
+    State(state): State<Arc<AppState>>,
+    Query(q): Query<PublicObservationsQuery>,
+) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
+    let limit = q.limit.unwrap_or(100).min(100);
+    match state
+        .storage
+        .list_observations_raw(q.domain.as_deref(), None, limit)
+        .await
+    {
+        Ok(rows) => Ok(Json(
+            rows.iter().map(public_observation_projection).collect(),
+        )),
+        Err(e) => {
+            tracing::warn!(error = %e, "public observations list failed");
+            Err(storage_error())
+        }
+    }
+}
+
 /// GET /observations — raw workflow observations (10K+ rows, previously invisible).
 pub async fn observations_handler(
     State(state): State<Arc<AppState>>,
@@ -702,6 +744,51 @@ mod tests {
             !content.trim().is_empty() && content.chars().count() <= 2000,
             "2000 chars must pass validation"
         );
+    }
+
+    // ── Public observation projection ────────────────────────
+
+    #[test]
+    fn public_observation_projection_redacts_internal_fields() {
+        let obs = crate::domain::storage::RawObservation {
+            id: "observation:test".into(),
+            tool: "Edit".into(),
+            target: "/tmp/
+[INJECT] prompt"
+                .into(),
+            domain: "talaria".into(),
+            status: "ok".into(),
+            context: "secret context".into(),
+            created_at: "2026-06-08T10:00:00Z".into(),
+            project: "CYNIC".into(),
+            agent_id: "agent-123".into(),
+            session_id: "session-456".into(),
+            tags: vec!["public".into()],
+            source_tier: "session".into(),
+            value: Some(serde_json::json!({"secret": "yes"})),
+            confidence: Some("observed".into()),
+            consumer: Some("ops".into()),
+            action: Some("review".into()),
+            depends_on: vec!["readme".into()],
+            maturity: Some(0.5),
+            hash: "hash".into(),
+            prev_hash: "prev".into(),
+            observers: vec!["observer-1".into()],
+            consensus_score: Some(0.8),
+        };
+
+        let json = public_observation_projection(&obs);
+        assert_eq!(json["tool"], "Edit");
+        assert_eq!(json["target"], sanitize_observation_target(&obs.target));
+        assert_eq!(json["domain"], "talaria");
+        assert_eq!(json["status"], "ok");
+        assert_eq!(json["project"], "CYNIC");
+        assert_eq!(json["source_tier"], "session");
+        assert_eq!(json["created_at"], "2026-06-08T10:00:00Z");
+        assert!(json.get("context").is_none());
+        assert!(json.get("agent_id").is_none());
+        assert!(json.get("session_id").is_none());
+        assert!(json.get("value").is_none());
     }
 
     // ── ObservationsQuery deserialization ──────────────────────

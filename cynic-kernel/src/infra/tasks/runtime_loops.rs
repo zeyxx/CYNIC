@@ -1046,6 +1046,7 @@ mod tests {
             system_contract: Arc::new(std::sync::RwLock::new(
                 crate::domain::contract::SystemContract::new(vec![], true),
             )),
+            backend_configs: vec![],
             enricher: None,
             senses: vec![],
             domain_curations: Arc::new(crate::domain::wisdom::DomainCurations::new()),

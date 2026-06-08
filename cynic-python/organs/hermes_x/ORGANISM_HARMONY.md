@@ -1,4 +1,12 @@
-# Hermes X Organism Harmony — Agent + Organ + Gemini Integration
+# Hermes X Organism Harmony — Agent + Organ + Sovereign Inference
+
+## Read This First
+- Hermes X is the organ.
+- `model_selector.py` routes inference.
+- `qwen25-7b-core` and `qwen36-27b-gpu` are the primary sovereign backends.
+- `antigravity-cli` is compat fallback only; it is not the organ.
+
+
 
 ## The Loop (Union of Three Forces)
 
@@ -20,7 +28,7 @@
            │ learned patterns + anomalies
            ↓
 ┌──────────────────────────────────────────────────────────────────┐
-│           GEMINI META-ADVISOR (Synthesis Layer)                  │
+│           SOVEREIGN SYNTHESIS LAYER (backend-first routing)                  │
 │  Reads: SKILL.md + reflection.jsonl + feedback_decision_log    │
 │  Synthesizes: cross-domain patterns, recommendations            │
 │  Writes: META_GUIDANCE section in SKILL.md                      │
@@ -34,7 +42,7 @@
 
 ## What Each Component Does
 
-### 1. AGENT (Hermes 9B / Gemini CLI)
+### 1. AGENT (uses the backend selector)
 **Input:** Task prompt + SKILL.md + META_GUIDANCE
 **Process:** Decide which domain to explore, what actions to take
 **Output:** Decisions logged to feedback_decision_log.jsonl
@@ -48,7 +56,7 @@ Current Skills (from SKILL.md):
   - D2 Domain: 72 verdicts, avg confidence 0.348
   - D3 Domain: 13 verdicts, avg confidence 0.378
   
-Meta-Guidance (from Gemini synthesis):
+Meta-Guidance (from sovereign synthesis):
   - D1 shows consistent signal (confidence stable 0.27), focus on volume
   - D2 trending up (0.30→0.35), increase sampling
   - D3 volatile but highest confidence (0.38), explore edge cases
@@ -104,12 +112,12 @@ Agent reads this and weights decision: **D2 > D3 > D1** (inverse confidence orde
 
 ---
 
-### 3. GEMINI META-ADVISOR (Synthesis)
+### 3. SOVEREIGN META-ADVISOR (Synthesis, optional compat fallback)
 **Input:** Last 3-5 reflections + current SKILL.md + recent decisions
-**Process:** Gemini CLI queries the organism state and synthesizes patterns
+**Process:** The synthesis layer reads organism state and writes guidance back to SKILL.md. Antigravity CLI is a compat fallback, not the organ itself.
 **Output:** META_GUIDANCE section appended to SKILL.md
 
-**Gemini Prompt:**
+**Sovereign Synthesis Prompt:**
 ```
 You are analyzing an autonomous organism that learns about domains (D1, D2, D3).
 
@@ -132,7 +140,7 @@ Questions:
 Guidance should help agent adapt exploration strategy.
 ```
 
-**Gemini Response (example):**
+**Synthesis Response (example):**
 ```
 Organism Analysis:
 - D1 is stable but saturated (high volume, low confidence). Continue maintenance but reduce focus.
@@ -145,7 +153,7 @@ Recommendation: Next cycle, allocate 50% to D2 (trend following), 30% D3 (confid
 
 **Stored in SKILL.md:**
 ```markdown
-## Meta-Guidance (synthesized by Gemini)
+## Meta-Guidance (synthesized by legacy Gemini)
 
 ### 2026-04-30T03:50:00Z
 Organism Analysis: D1 stable/saturated (0.27 confidence, 579 verdicts), D2 trending up (0.30→0.35), D3 volatile/high-confidence (0.38).
@@ -157,6 +165,8 @@ Recommendation: Next cycle allocate 50% D2 (trend), 30% D3 (confidence), 20% D1 
 
 ## The Harmony (K15 Closure)
 
+**Contract:** Hermes X is the organ. `model_selector.py` chooses the execution backend. Backends are implementation details; the organ only consumes the selected backend result.
+
 **Producer → Consumer Chain:**
 1. **Agent → Organ** (feedback_decision_log.jsonl)
    - Agent produces decisions
@@ -164,14 +174,14 @@ Recommendation: Next cycle allocate 50% D2 (trend), 30% D3 (confidence), 20% D1 
    - ✓ WIRED (PR#46)
 
 2. **Organ → Agent** (SKILL.md + META_GUIDANCE)
-   - Organ produces learned patterns + Gemini synthesis
+   - Organ produces learned patterns + legacy Gemini synthesis
    - Agent consumes guidance, adapts exploration
    - ✗ NOT WIRED YET (agent doesn't read SKILL.md before deciding)
 
-3. **Gemini ↔ Organ** (synthesis loop)
-   - Gemini reads organism state
-   - Organ reads Gemini guidance
-   - ✓ CODE EXISTS (gemini_meta_advisor.py) but blocked on quota
+3. **Legacy Gemini ↔ Organ** (synthesis loop)
+   - Synthesis layer reads organism state
+   - Organ reads synthesized guidance
+   - ✓ CODE EXISTS (backend selector + briefing path)
 
 ---
 
@@ -188,10 +198,10 @@ Type=simple
 ExecStart=python3 /path/to/organs/hermes_x/__main__.py --cycle --persist
 ```
 
-### 2. Gemini Meta-Advisor (every cycle + 2 min delay)
+### 2. Legacy Gemini Meta-Advisor (every cycle + 2 min delay)
 ```ini
 [Unit]
-Description=Hermes X Gemini Meta-Advisor — synthesize organism wisdom
+Description=Hermes X Legacy Gemini Meta-Advisor — synthesize organism wisdom
 After=hermes-x-organ.service
 
 [Service]
@@ -221,7 +231,7 @@ ExecStart=hermes chat -p "$(cat /path/to/SKILL.md) -- Decide which domain to exp
    - Target: r > 0.6 (agent favors high-confidence domains)
    - Falsify: r < 0.3 (decisions random relative to learned patterns)
 
-2. **Gemini guidance quality:**
+2. **Legacy Gemini guidance quality:**
    - Metric: Agent follows Gemini recommendations, verdicts improve
    - Target: When Gemini says "increase D2 sampling," D2 verdicts increase 20%+ next cycle
    - Falsify: No change in verdict distribution
@@ -244,11 +254,11 @@ ExecStart=hermes chat -p "$(cat /path/to/SKILL.md) -- Decide which domain to exp
 - ✓ Agent → Organ (feedback logs consumed)
 - ✓ Organ perception + analysis (all 5 layers working)
 - ✓ Organ learning (SKILL.md written)
-- ✓ Gemini CLI available (quota exhausted today, resets in 11h)
+- ✓ Sovereign backend priority is explicit in backends.toml; Antigravity CLI is legacy-only
 
 **Not Wired:**
 - ✗ Organ → Agent (agent doesn't read SKILL.md yet)
-- ✗ Gemini → Organ (blocked on quota)
+- ✗ Legacy Gemini → Organ (blocked on quota)
 - ✗ Systemd orchestration (manual runs only)
 
 **Blocked (Secondary):**

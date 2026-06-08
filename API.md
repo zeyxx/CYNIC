@@ -462,6 +462,11 @@ Record a tool-use observation (for CCM analytics, not crystal creation).
 
 List raw observations. Query params: `limit` (default 100, max 100), `domain`, `agent_id`.
 
+### GET /observations/public
+
+List public (sanitized) observations. Query params: `limit` (default 100, max 100), `domain`.
+
+
 ### GET /sessions
 
 List session summaries. Query param: `limit` (default 50, max 200).

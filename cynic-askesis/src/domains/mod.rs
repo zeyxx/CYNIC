@@ -28,7 +28,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn phase1_registry_is_empty() {
-        assert!(registry().is_empty(), "Phase 1 MUST ship no domains");
+    fn phase2_registry_is_not_empty() {
+        assert!(!registry().is_empty(), "Phase 2 registry contains domains");
     }
 }

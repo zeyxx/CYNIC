@@ -192,19 +192,17 @@ def main() -> int:
         return 1
 
     content = {
-        "objective": "Organ Anvil repo lifecycle perception and triage",
+        "objective": "Organ Anvil repo lifecycle perception",
         "domain": "organ-anvil",
         "targets": [
             "infra/organ-anvil/state.json",
             "infra/organ-anvil/poh.json",
             "infra/organ-anvil/audit.jsonl",
-            ".handoff.md",
         ],
         "actions": [
-            "Run bash scripts/organ-anvil.sh state to refresh repo perception.",
-            "Run bash scripts/organ-anvil.sh triage and summarize actionable scopes.",
+            "Run bash scripts/organ-anvil.sh state to refresh repo perception and persist the observation snapshot.",
+            "Do not triage, commit, stash, restore, push, or edit files outside declared targets unless a later task declares them.",
             "Post a concise repo-health observation to /observe.",
-            "Do not commit, stash, restore, push, or edit files outside declared targets unless a later task declares them.",
         ],
     }
     payload = {

@@ -11,7 +11,7 @@ quota_grace_period_secs = 600        # Skip dog for 10min on quota exhaustion
 evaluation_timeout_secs = 30         # Per-dog eval timeout (cloud API: 30s, sovereign: 60s)
 
 
-# ── Backend definitions (required for Dog initialization) ──
+# ── Dog Definitions ──
 
 # Deterministic heuristic (always available)
 [dog.deterministic-dog]
@@ -19,107 +19,42 @@ kind = "heuristic"
 failure_rate_threshold = 0.01        # Very strict (heuristics should be reliable)
 enabled = true
 
-# qwen-7b-hf REMOVED 2026-05-24: HF credits exhausted (0 balance), 402 in a loop.
-# Historical: 13,674 calls, 9.2% failure rate (2026-04-26 to 2026-05-07).
-# Re-add if HF credits are restored.
-
 # Qwen 3.6 27B GPU (sovereign, RTX 4060 Ti)
-# Upgraded from 9B → 27B IQ3_XXS on 2026-05-19 (inference-lab-27b).
-# 19.7 tok/s gen, 523 tok/s prompt, hybrid Mamba+Attn (16/64 attn layers).
 [dog.qwen36-27b-gpu]
 kind = "inference"
-provider = "sovereign"
+provider = "qwen36-27b-gpu"
 model = "Qwen3.6-27B-IQ3_XXS"
-failure_rate_threshold = 0.10        # 10% — above observed 4.9%, some buffer
-collapse_threshold = 50              # Low threshold (GPU should be stable)
+failure_rate_threshold = 0.10
+collapse_threshold = 50
 api_error_threshold = 50
-evaluation_timeout_secs = 60         # GPU models: longer timeout
+evaluation_timeout_secs = 60
 enabled = true
 
-# Qwen3-4B-Instruct-2507 CPU (sovereign, APU — RADV RENOIR Vulkan)
-# 2026-06-02: switched from Qwen2.5 7B to Qwen3-4B-Instruct-2507 Q4_K_M
-#   ~15 tok/s CPU (vs 8 tok/s for 7B), better JSON instruction following
-#   context_size 4096→8192: production stimuli were 4500-5500 tokens
-#   priority=backup removed: qwen36-gpu offline, need this dog to meet quorum=2
-# --parallel 1 only (--parallel 2 SEGVs on RADV RENOIR, observed 2026-05-08)
+# Qwen3-4B-Instruct-2507 CPU (sovereign, APU)
 [dog.qwen25-7b-core]
 kind = "inference"
-provider = "sovereign"
-model = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M"  # switched 2026-06-02, llama-server.env updated
-failure_rate_threshold = 0.40        # 40% — CPU is slow, allow higher error rate
+provider = "qwen25-7b-core"
+model = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M"
+failure_rate_threshold = 0.40
 collapse_threshold = 10
 api_error_threshold = 200
-evaluation_timeout_secs = 120        # 4B at ~15 tok/s: 120s for long completions
+evaluation_timeout_secs = 120
 enabled = true
-# priority = "backup" removed 2026-06-02: sole LLM dog while qwen36-gpu is offline
 
-# Gemini CLI (human subscription, free tier)
-# Observed (2026-05-07): 4,774 calls, 1,636 success, 2,808 api_error, quota exhausted
-# Status: QUOTA EXHAUSTED (free tier, resets 2026-05-07 17:04 UTC)
-# Decision: SKIP until quota reset
-[dog.gemini-cli]
+# Antigravity CLI (legacy runtime, backed by agy)
+[dog.antigravity-cli]
 kind = "inference"
-provider = "gemini"
-model = "gemini-2.0-pro"
-failure_rate_threshold = 0.50        # 50% — degraded, high bar to re-enable
-api_error_threshold = 100            # Alert early
-quota_status = "EXHAUSTED_UNTIL_2026_05_07T17:04:00Z"  # String pattern for quota detection
-quota_pattern = "TerminalQuotaError|You have exhausted your capacity"
-quota_grace_period_secs = 30600      # Skip for entire quota window (~8.5h)
+provider = "agy"
+model = "auto"
+fleet_node = "antigravity-cli"
+failure_rate_threshold = 0.50
+api_error_threshold = 100
 evaluation_timeout_secs = 30
-enabled = false                       # Disabled until quota reset
-skip_reason = "quota_exhausted"
-skip_until = "2026-05-07T17:04:00Z"
+enabled = true
 
-# Detection Rules (K15 consumer signals)
-[error_detection]
-# Quota exhaustion: skip dog gracefully (don't count as circuit open)
-quota_patterns = [
-    "TerminalQuotaError",
-    "You have exhausted your capacity",
-    "Rate limit exceeded",
-    "Quota",
-]
-# Transient errors: retry (don't count against failure rate)
-transient_patterns = [
-    "Timeout",
-    "temporarily unavailable",
-    "temporarily_unavailable",
-]
-# Critical errors: circuit open (persistent)
-critical_patterns = [
-    "command not found",
-    "exit 1",  # Subprocess crash
-    "permission denied",
-]
-
-# Quorum settings (data-derived, not magic)
-[verdict]
-# MIN_QUORUM = 2 comes from: with 5 Dogs, need 2+ to avoid single-Dog bias
-# But 2 Dogs is minimum; 3 is better for φ⁻¹ consensus
-min_voters = 2                       # Minimum Dogs for verdict (waived if only 2 Dogs available)
-min_confident_voters = 2             # At least 2 voters with confidence > φ⁻² (0.382)
-contested_threshold = 0.618          # φ⁻¹ — consensus threshold
-
-# Monitoring & Alerting (K15 consumers)
-[monitoring]
-failure_rate_check_interval_secs = 300  # Every 5 min
-alert_threshold_critical = 0.70      # >70% failure rate = page ops
-alert_threshold_warning = 0.40       # >40% failure rate = notify
-quota_exhaustion_alert = true        # Alert on TerminalQuotaError
-circuit_breaker_alert = true         # Alert when circuit opens
-
-# Circuit Breaker Behavior (post-evaluation)
-[circuit]
-# Open circuit after N consecutive failures or failure_rate exceeded
-open_on_consecutive_failures = 10
-open_on_failure_rate = true
-open_duration_secs = 300             # 5 min before retrying
-half_open_eval_budget = 2            # Try 2 evals before deciding to close
-failure_rate_recovery_window_secs = 3600  # Use last 1h of data for recovery decision
+# ── Backend Definitions ──
 
 [backend.qwen36-27b-gpu]
-# RTX 4060 Ti (cynic-gpu / windows-desktop), 19.7 tok/s gen @ IQ3_XXS
 base_url = "http://<TAILSCALE_GPU>:8080/v1"
 model = "Qwen3.6-27B-IQ3_XXS.gguf"
 context_size = 65536
@@ -127,9 +62,9 @@ json_mode = false
 disable_thinking = true
 timeout_secs = 60
 api_key_env = "CYNIC_SOVEREIGN_KEY"
+sovereign = true
 
 [backend.qwen36-27b-gpu.remediation]
-# Windows schtask — restarts llama-server via SSH
 node = "cynic-gpu"
 restart_command = "schtasks /Run /TN llama-server-27b"
 max_retries = 3
@@ -137,17 +72,53 @@ cooldown_secs = 120
 
 [backend.qwen25-7b-core]
 base_url = "http://<TAILSCALE_CORE>:8080/v1"
-model = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf"  # switched 2026-06-02
-context_size = 8192  # llama-server LLAMA_CTX_SIZE=8192 (was 4096 → caused context overflow on token-analysis)
-json_mode = true        # Critical for crystal formation
+model = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
+context_size = 8192
+json_mode = true
 disable_thinking = true
 timeout_secs = 120
 api_key_env = "CYNIC_SOVEREIGN_KEY"
+sovereign = true
 
 [backend.qwen25-7b-core.remediation]
-# Local service — kernel and llama-server on same machine
 node = "localhost"
 restart_command = "systemctl --user restart llama-server"
 max_retries = 3
 cooldown_secs = 60
 
+[backend.antigravity-cli]
+backend_type = "cli"
+base_url = "agy"
+model = "auto"
+auth_style = "none"
+context_size = 1000000
+timeout_secs = 60
+sovereign = false
+fleet_node = "antigravity-cli"
+# Antigravity CLI backed by agy
+
+# ── Global Settings ──
+
+[error_detection]
+quota_patterns = ["TerminalQuotaError", "You have exhausted your capacity", "Rate limit exceeded", "Quota"]
+transient_patterns = ["Timeout", "temporarily unavailable", "temporarily_unavailable"]
+critical_patterns = ["command not found", "exit 1", "permission denied"]
+
+[verdict]
+min_voters = 2
+min_confident_voters = 2
+contested_threshold = 0.618
+
+[monitoring]
+failure_rate_check_interval_secs = 300
+alert_threshold_critical = 0.70
+alert_threshold_warning = 0.40
+quota_exhaustion_alert = true
+circuit_breaker_alert = true
+
+[circuit]
+open_on_consecutive_failures = 10
+open_on_failure_rate = true
+open_duration_secs = 300
+half_open_eval_budget = 2
+failure_rate_recovery_window_secs = 3600

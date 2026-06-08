@@ -201,9 +201,11 @@ cp backends.toml.example ~/.config/cynic/backends.toml
 # Build + test + lint
 make check
 
-# Run
-source ~/.cynic-env
-cargo run -p cynic-kernel --release
+# Run the portal (single operator interface, containerized)
+sudo -n env DOCKER_BUILDKIT=0 COMPOSE_DOCKER_CLI_BUILD=0 docker compose -f infra/docker/cynic-portal/docker-compose.yml up --build
+
+# Or install the systemd portal service for an always-on local entrypoint
+systemctl --user enable --now cynic-portal.service
 ```
 
 ### Verify

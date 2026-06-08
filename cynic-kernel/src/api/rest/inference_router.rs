@@ -26,6 +26,7 @@ fn node_quality(failure_reason: &str, age: u64, sr: f64) -> &'static str {
 
 #[derive(Debug, Deserialize)]
 pub struct DogOperationRequest {
+    #[serde(deserialize_with = "super::types::deserialize_dog_id")]
     pub dog: String, // dog name: "qwen25-7b-core", "qwen35-9b-gpu", etc.
 }
 
@@ -481,31 +482,43 @@ async fn emit_probe_observation(
     Ok(())
 }
 
-/// GET /inference/list-models — list all available LLMs across the fleet.
 /// LIVE PROBING: queries actual llama-server on each node.
 /// Shows expected vs actual model, mismatch detection, emits observations.
 pub async fn list_models_handler(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<ListModelsResponse>, (StatusCode, Json<ErrorResponse>)> {
-    // Dog configuration: (dog_name, node_name, expected_model)
-    let dog_config = vec![
-        ("deterministic-dog", "deterministic", "deterministic"),
-        ("qwen-7b-hf", "qwen-7b-hf", "Qwen/Qwen2.5-Coder-7B-Instruct"),
-        (
-            "qwen25-7b-core",
-            "cynic-core",
-            "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
-        ),
-        ("qwen35-9b-gpu", "cynic-gpu", "Qwen3.5-9B-Q4_K_M.gguf"),
-        ("gemini-cli", "gemini-cli", "auto"),
-    ];
-
     let mut models: Vec<ModelInfo> = Vec::new();
 
-    for (dog, node, expected) in dog_config {
-        // Skip probing non-inference dogs
+    // 1. Manually add deterministic-dog
+    models.push(ModelInfo {
+        dog: "deterministic-dog".to_string(),
+        node: "deterministic".to_string(),
+        expected_model: "deterministic".to_string(),
+        actual_model: "N/A".to_string(),
+        mismatch: false,
+        reachable: true,
+        latency_ms: 0,
+        capabilities: serde_json::json!({
+            "context_size": 0,
+            "thinking_mode": false,
+            "json_mode": false,
+        }),
+        performance: serde_json::json!({
+            "success_count": 0,
+            "failures": 0,
+            "json_valid_rate": 0.0,
+        }),
+    });
+
+    // 2. Dynamically add all loaded backends
+    for cfg in &state.backend_configs {
+        let dog = &cfg.name;
+        let node = cfg.fleet_node.as_deref().unwrap_or(dog);
+        let expected = &cfg.model;
+
+        // Skip probing non-inference/CLI dogs
         let (actual_model, reachable, latency_ms, failure_reason) =
-            if node == "deterministic" || node == "qwen-7b-hf" || node == "gemini-cli" {
+            if cfg.backend_type == crate::infra::config::BackendType::Cli {
                 ("N/A".to_string(), true, 0, "none".to_string())
             } else {
                 // Live probe inference nodes (K2: via backends layer)
@@ -519,21 +532,17 @@ pub async fn list_models_handler(
             tracing::warn!("probe observation emit failed for {}/{}: {}", node, dog, e);
         }
 
-        let mismatch = expected != actual_model
+        let mismatch = expected != &actual_model
             && expected != "N/A"
             && actual_model != "N/A"
             && actual_model != "unknown"
             && actual_model != "parse_error";
 
+        // capabilities are derived from the boot-loaded configuration without hardcoding
         let capabilities = serde_json::json!({
-            "context_size": match dog {
-                "qwen25-7b-core" => 4096,
-                "qwen35-9b-gpu" => 131072,
-                "qwen-7b-hf" => 32768,
-                _ => 0,
-            },
-            "thinking_mode": dog == "qwen35-9b-gpu",
-            "json_mode": dog != "gemini-cli" && dog != "deterministic-dog",
+            "context_size": cfg.context_size,
+            "thinking_mode": !cfg.disable_thinking,
+            "json_mode": cfg.json_mode,
         });
 
         let performance = serde_json::json!({
@@ -543,9 +552,9 @@ pub async fn list_models_handler(
         });
 
         models.push(ModelInfo {
-            dog: dog.to_string(),
+            dog: dog.clone(),
             node: node.to_string(),
-            expected_model: expected.to_string(),
+            expected_model: expected.clone(),
             actual_model,
             mismatch,
             reachable,

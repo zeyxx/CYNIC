@@ -15,8 +15,8 @@ def analyze():
     categories = defaultdict(list)
     
     for star in stars:
-        name = star['name'].lower()
-        desc = star['description'].lower()
+        name = (star.get('name') or '').lower()
+        desc = (star.get('description') or '').lower()
         
         if any(kw in name or kw in desc for kw in ["agent", "orchestration", "maestro", "dexter", "conductor"]):
             categories["AGENT_OS"].append(star)

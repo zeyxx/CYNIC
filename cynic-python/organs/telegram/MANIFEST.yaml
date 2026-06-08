@@ -3,6 +3,10 @@ tier: 2
 domain: social
 status: active
 description: "Telegram channel listener — raw message ingestion to SQLite"
+framework: hermes-agent
+organ_dir: ~/.cynic/organs/telegram
+systemd_executor: organ-telegram-hermes-agent.service
+systemd_dispatch: organ-telegram-cron.service
 inputs:
   - source: telegram_api
     type: mtproto_stream

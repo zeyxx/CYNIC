@@ -532,6 +532,8 @@ repo_health() {
     )
     gates=$(gate_markers_json)
     coord=$(coord_snapshot_json)
+    worktree_count=$(git worktree list | wc -l | tr -d ' ')
+    health_score=$(calculate_health_score "$dirty_count" "$local_branches" "$remote_branches" "$(echo "$open_prs" | jq 'length')" "$worktree_count" "$(echo "$stashes" | jq 'length')")
 
     jq -n \
         --arg timestamp "$TIMESTAMP" \
@@ -546,6 +548,7 @@ repo_health() {
         --argjson stashes "$stashes" \
         --argjson gates "$gates" \
         --argjson coord "$coord" \
+        --argjson health_score "$health_score" \
         '
         def strip_origin: sub("^origin/"; "");
         def rec($severity; $kind; $target; $action):
@@ -562,7 +565,7 @@ repo_health() {
         ($status_lines | split("\n") | map(select(length > 0)) | map({status:.[0:2], path:.[3:]})) as $dirty_entries |
         [
           (if $dirty_count > 0 then rec("warning"; "dirty_worktree"; ($dirty_count | tostring); "run organ-anvil triage, then commit or stash by scope") else empty end),
-          (if ($stashes | length) > 0 then rec("warning"; "pending_stashes"; (($stashes | length) | tostring); "review stash scopes before merge") else empty end),
+          (if ($stashes | length) > 20 then rec("critical"; "pending_stashes"; (($stashes | length) | tostring); "drain stashes in scoped batches before merge; do not keep them indefinitely") elif ($stashes | length) > 0 then rec("warning"; "pending_stashes"; (($stashes | length) | tostring); "review stash scopes and split by branch before merge") else empty end),
           ($remote_feat_without_pr[]? | rec("warning"; "remote_feat_without_open_pr"; .; "inspect branch; create PR or delete remote after owner confirms")),
           ($stale_upstreams[]? | rec("warning"; "local_branch_stale_upstream"; (.name + " -> " + .upstream); "unset upstream, retarget to an active remote, or delete local branch after stashes are safe")),
           ($duplicate_titles[]? | rec("warning"; "duplicate_open_pr_title"; .title; "pick canonical PR and mark older PR superseded")),
@@ -576,6 +579,8 @@ repo_health() {
           mode:"repo-health",
           mutating:false,
           timestamp:$timestamp,
+          repo_health_score:$health_score,
+          dirty_tree:($dirty_count > 0),
           current:{branch:$current_branch, upstream:$upstream, head_sha:$head_sha},
           worktree:{dirty_count:$dirty_count, entries:$dirty_entries},
           branches:{

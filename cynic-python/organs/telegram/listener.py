@@ -1,5 +1,5 @@
 """
-Telegram Listener Daemon — captures channel messages to SQLite.
+Tier 2 INFRASTRUCTURE: Telegram Listener Daemon — captures channel messages to SQLite.
 
 Modes:
     --listen    Real-time daemon (systemd)
@@ -320,40 +320,43 @@ async def listen_loop(cfg: TelegramConfig) -> None:
         nonlocal last_heartbeat
         while True:
             await asyncio.sleep(5)
-            now = datetime.now(timezone.utc)
-            blocks = buffer.flush_ready(now)
-            for block in blocks:
-                store_block(conn, block, cfg.media_dir)
-                stats["blocks"] += 1
+            try:
+                now = datetime.now(timezone.utc)
+                blocks = buffer.flush_ready(now)
+                for block in blocks:
+                    store_block(conn, block, cfg.media_dir)
+                    stats["blocks"] += 1
 
-            elapsed = time.monotonic() - last_heartbeat
-            if elapsed >= cfg.heartbeat_interval_seconds:
-                dialogs_count = 0
-                try:
-                    async for d in client.iter_dialogs():
-                        if d.is_channel or d.is_group or d.is_user:
-                            dialogs_count += 1
-                except FloodWaitError as e:
-                    logger.warning("FloodWait on iter_dialogs: %ds", e.seconds)
-                    await asyncio.sleep(e.seconds)
+                elapsed = time.monotonic() - last_heartbeat
+                if elapsed >= cfg.heartbeat_interval_seconds:
+                    dialogs_count = 0
+                    try:
+                        async for d in client.iter_dialogs():
+                            if d.is_channel or d.is_group or d.is_user:
+                                dialogs_count += 1
+                    except FloodWaitError as e:
+                        logger.warning("FloodWait on iter_dialogs: %ds", e.seconds)
+                        await asyncio.sleep(e.seconds)
 
-                post_heartbeat(
-                    kernel_url=cfg.kernel_url,
-                    api_key=cfg.api_key,
-                    channels_active=dialogs_count,
-                    messages_count=stats["messages"],
-                    blocks_count=stats["blocks"],
-                    media_count=stats["media"],
-                )
-                stats["messages"] = 0
-                stats["blocks"] = 0
-                stats["media"] = 0
-                last_heartbeat = time.monotonic()
+                    post_heartbeat(
+                        kernel_url=cfg.kernel_url,
+                        api_key=cfg.api_key,
+                        channels_active=dialogs_count,
+                        messages_count=stats["messages"],
+                        blocks_count=stats["blocks"],
+                        media_count=stats["media"],
+                    )
+                    stats["messages"] = 0
+                    stats["blocks"] = 0
+                    stats["media"] = 0
+                    last_heartbeat = time.monotonic()
 
-                cleanup_expired(
-                    conn, cfg.media_dir,
-                    cfg.retention.raw_days, cfg.retention.media_days,
-                )
+                    cleanup_expired(
+                        conn, cfg.media_dir,
+                        cfg.retention.raw_days, cfg.retention.media_days,
+                    )
+            except Exception as e:
+                logger.error("Error in periodic_flush loop: %s", e, exc_info=True)
 
     loop = asyncio.get_running_loop()
     shutdown_event = asyncio.Event()

@@ -15,7 +15,7 @@ use crate::organ;
 
 /// Determine if a backend URL points to sovereign infrastructure.
 /// Sovereign = local network (127.x, 10.x, 100.x Tailscale, 192.168.x) or localhost.
-/// CLI backends (gemini-cli) use file paths, not URLs — treated as non-sovereign.
+/// CLI backends use file paths, not URLs, so they are treated as non-sovereign.
 /// This is alive: adding a new local backend automatically classifies it as sovereign.
 pub fn is_sovereign_url(url: &str) -> bool {
     let url_lower = url.to_lowercase();

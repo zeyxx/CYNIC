@@ -8,7 +8,7 @@ use crate::infra::config::BackendConfig;
 
 /// Validate config at boot — probe health URLs, log warnings for unreachable backends.
 /// Does NOT block boot — sovereign degradation is preferred over refusing to start.
-pub async fn validate_config(configs: &[BackendConfig]) {
+pub async fn validate_config(configs: Vec<BackendConfig>) {
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
         .build()
@@ -20,7 +20,7 @@ pub async fn validate_config(configs: &[BackendConfig]) {
         }
     };
 
-    for cfg in configs {
+    for cfg in &configs {
         let Some(ref health_url) = cfg.health_url else {
             klog!(
                 "[config] — {} no health probe (cloud API, error-driven circuit breaker)",

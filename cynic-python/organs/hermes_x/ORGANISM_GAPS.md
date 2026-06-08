@@ -37,7 +37,7 @@ Agent Adjusts Exploration ✗ (no adaptation)
 
 ---
 
-### Gap 2: Gemini Meta-Agent Not Wired
+### Gap 2: Legacy Gemini Meta-Agent Not Wired
 **What's Missing:** Hermes agent lacks reasoning about organism health
 
 **Current:**
@@ -105,9 +105,9 @@ Agent Adjusts Exploration ✗ (no adaptation)
 
 ---
 
-## Integration Points for Gemini Meta-Agent
+## Integration Points for Legacy Gemini Meta-Agent
 
-### 1. Post-Analysis (Gemini as synthesizer)
+### 1. Post-Analysis (Legacy Gemini as synthesizer)
 ```
 Organ cycles → reflection.jsonl → Gemini CLI reads last 5 cycles
      ↓

@@ -7,6 +7,8 @@ SYSTEMD_USER_DIR="${SYSTEMD_USER_DIR_OVERRIDE:-$HOME/.config/systemd/user}"
 
 managed_units=(
     "infra/systemd/cynic-kernel.service"
+    "infra/systemd/cynic-portal.service"
+    "infra/systemd/hermes-agent-executor.service"
     "infra/systemd/surrealdb.service"
     "infra/systemd/cynic-healthcheck.service"
     "infra/systemd/cynic-healthcheck.timer"
@@ -23,6 +25,21 @@ managed_units=(
     "infra/systemd/hermes-navigator.timer"
     "infra/systemd/hermes-search-executor.timer"
     "infra/systemd/hermes-search-generator.timer"
+    "infra/systemd/organ-anvil-hermes-agent.service"
+    "infra/systemd/organ-anvil-cron.service"
+    "infra/systemd/organ-anvil-cron.timer"
+    "infra/systemd/organ-docker-hermes-agent.service"
+    "infra/systemd/organ-docker-cron.service"
+    "infra/systemd/organ-docker-cron.timer"
+    "infra/systemd/organ-vercel-hermes-agent.service"
+    "infra/systemd/organ-vercel-cron.service"
+    "infra/systemd/organ-vercel-cron.timer"
+    "infra/systemd/organ-telegram-hermes-agent.service"
+    "infra/systemd/organ-telegram-cron.service"
+    "infra/systemd/organ-telegram-cron.timer"
+    "infra/systemd/organ-x-hermes-agent.service"
+    "infra/systemd/organ-x-cron.service"
+    "infra/systemd/organ-x-cron.timer"
 )
 
 mkdir -p "$SYSTEMD_USER_DIR"
@@ -39,5 +56,6 @@ for rel in "${managed_units[@]}"; do
 done
 
 systemctl --user daemon-reload
+systemctl --user enable --now hermes-agent-executor.service cynic-portal.service organ-anvil-hermes-agent.service organ-anvil-cron.timer organ-docker-hermes-agent.service organ-docker-cron.timer organ-vercel-hermes-agent.service organ-vercel-cron.timer
 bash "$PROJECT_DIR/scripts/verify-systemd-units.sh"
 echo "Done. Repo-managed systemd units are active."

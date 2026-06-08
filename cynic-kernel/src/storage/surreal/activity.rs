@@ -233,8 +233,8 @@ pub(super) async fn get_session_observations(
     session_id: &str,
 ) -> Result<Vec<RawObservation>, StorageError> {
     let sql = format!(
-        "SELECT tool, target, domain, status, context, created_at FROM observation \
-         WHERE agent_id = '{}' ORDER BY created_at ASC LIMIT 50;",
+        "SELECT * FROM observation \
+         WHERE session_id = '{}' ORDER BY created_at ASC LIMIT 50;",
         escape_surreal(session_id),
     );
     let rows = storage.query_one(&sql).await?;

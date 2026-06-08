@@ -1,331 +1,244 @@
 #!/usr/bin/env python3
-"""
-Advanced Model Selection for Hermes Meta-Agent
+# Tier 2 INFRASTRUCTURE: Hermes X backend selector.
+"""Hermes X backend selector.
 
-Multi-account + multi-model discovery and routing:
-1. Discover all available accounts (GEMINI_API_KEY env vars OR gcloud auth login)
-2. Per account, discover available models + quota status
-3. Select best model by cost/speed trade-off
-4. Route: Account1-Pro → Account1-Flash → Account2-Pro → Gemma → Degraded
-
-Configuration (API Key accounts):
-  export GEMINI_API_KEY=<google-cloud-project-1-key>
-  export GEMINI_API_KEY_2=<google-cloud-project-2-key>
-  export GEMINI_API_KEY_3=<google-cloud-project-3-key>
-
-Or (Authenticated account):
-  gcloud auth login
-  # CLI will auto-discover and use authenticated Google account
-
-Architecture:
-  ModelSelector
-  ├─ Discover Accounts (scan env for GEMINI_API_KEY_N)
-  │  └─ Per account: test models + quota status
-  │
-  ├─ Model Tiers (priority order)
-  │  ├─ Tier 1: gemini-2.0-flash (fastest, lowest quota cost)
-  │  ├─ Tier 2: gemini-1.5-flash (balanced)
-  │  ├─ Tier 3: gemini-1.5-pro (slowest, highest quality)
-  │  └─ Fallback: gemma-local (no quota)
-  │
-  └─ Select Best Available
-     ├─ Try each account in order: Pro → Flash
-     └─ When account exhausted: skip to next account
+Contract-first selector: infra/registry.json defines organ-x backend order,
+backends.toml defines the concrete endpoints. The legacy CLI path is only used when
+HERMES_X_ALLOW_ANTIGRAVITY_LEGACY is enabled.
 """
 
-__version__ = "0.2.0"
+from __future__ import annotations
 
 import json
 import os
 import subprocess
-import sys
-from datetime import datetime
-from pathlib import Path
-from typing import Optional, Dict, List, Tuple
+from typing import Any, Dict, Optional, Tuple
+from urllib import error, request
+
+from model_selector_config import (
+    get_backend_config,
+    resolve_backend_state,
+)
 
 
-class Account:
-    """Represents a Google Cloud project or authenticated account with Gemini API access.
-
-    Can be either:
-    - API key account: name="primary", api_key="<key>"
-    - Authenticated account: name="authenticated", api_key="" (uses gcloud auth login)
-    """
-
-    def __init__(self, name: str, api_key: str):
-        self.name = name  # "primary", "backup_1", "authenticated", etc.
-        self.api_key = api_key  # Empty string for authenticated accounts
-        self.available_models = []  # Discovered models
-        self.quota_status = {}  # Per-model quota info
-        self.discovered = False
-
-    def discover_models(self) -> bool:
-        """Test which models are available in this account.
-
-        Returns True if discovery successful, False if account is invalid/inaccessible.
-        """
-        models_to_try = [
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro",
-        ]
-
-        for model in models_to_try:
-            try:
-                env = os.environ.copy()
-
-                # If api_key is set, use it (API key account)
-                # If api_key is empty, use default authenticated account (gcloud auth login)
-                if self.api_key:
-                    env["GEMINI_API_KEY"] = self.api_key
-
-                result = subprocess.run(
-                    ["gemini", "-m", model, "-p", "test"],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                    env=env,
-                )
-
-                if result.returncode == 0:
-                    # Model available in this account
-                    self.available_models.append(model)
-                    self.quota_status[model] = {"status": "available"}
-                elif "QUOTA_EXHAUSTED" in result.stderr or "TerminalQuotaError" in result.stderr:
-                    # Model available but quota exhausted
-                    reset_seconds = 0
-                    if "reset after" in result.stderr:
-                        try:
-                            parts = result.stderr.split("reset after ")
-                            if len(parts) > 1:
-                                time_str = parts[1].split("s")[0]
-                                if "h" in time_str:
-                                    h = int(time_str.split("h")[0])
-                                    reset_seconds = h * 3600
-                        except (ValueError, IndexError):
-                            pass
-                    self.quota_status[model] = {
-                        "status": "quota_exhausted",
-                        "reset_seconds": reset_seconds,
-                    }
-                elif "ModelNotFoundError" in result.stderr or "Requested entity was not found" in result.stderr:
-                    # Model not available in this account
-                    self.quota_status[model] = {"status": "not_available"}
-                else:
-                    # Other error
-                    self.quota_status[model] = {
-                        "status": "error",
-                        "error": result.stderr[:100],
-                    }
-
-            except subprocess.TimeoutExpired:
-                self.quota_status[model] = {"status": "timeout"}
-            except Exception as e:
-                self.quota_status[model] = {"status": "error", "error": str(e)}
-
-        self.discovered = True
-        return len(self.available_models) > 0 or any(
-            s.get("status") == "quota_exhausted"
-            for s in self.quota_status.values()
-        )
-
-
-class ModelSelector:
-    """Intelligent multi-account, multi-model selector with fallback strategy."""
+class BackendSelector:
+    """Select the best available inference backend for Hermes X."""
 
     def __init__(self):
-        self.accounts: List[Account] = []
-        self.kernel_api_addr = os.environ.get("CYNIC_REST_ADDR", "")
-        self.kernel_api_key = os.environ.get("CYNIC_API_KEY", "")
-        self._discover_accounts()
+        state = resolve_backend_state()
+        self.backends: dict[str, dict[str, Any]] = state["backends"]
+        self.contract: dict[str, Any] = state["contract"]
+        self.legacy_backend: str = state["legacy_backend"]
+        self.legacy_command: str = state["legacy_command"]
+        self.legacy_model: str = state["legacy_model"]
+        self.legacy_enabled: bool = bool(state["legacy_enabled"])
+        self.priority: list[str] = state["priority"]
+        self.policy = state["policy"]
 
-    def _discover_accounts(self):
-        """Scan environment for all available Gemini API keys.
-
-        Also checks for authenticated Google account (gcloud auth login) if no API keys found.
-        """
-        # Primary account (API key)
-        if os.environ.get("GEMINI_API_KEY"):
-            self.accounts.append(
-                Account("primary", os.environ.get("GEMINI_API_KEY"))
-            )
-
-        # Backup accounts (API keys)
-        i = 2
-        while os.environ.get(f"GEMINI_API_KEY_{i}"):
-            self.accounts.append(
-                Account(f"backup_{i-1}", os.environ.get(f"GEMINI_API_KEY_{i}"))
-            )
-            i += 1
-
-        # If no API keys found, check for authenticated Google account
-        if not self.accounts:
-            try:
-                result = subprocess.run(
-                    ["gemini", "-m", "gemini-2.0-flash", "-p", "test"],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                # If this succeeds, a default authenticated account exists
-                if result.returncode == 0:
-                    self.accounts.append(Account("authenticated", ""))
-            except Exception:
-                pass
-
-    def discover_all_models(self) -> Dict:
-        """Discover available models across all accounts.
-
-        Returns dict: {account_name: {model: quota_status}}
-        """
-        result = {}
-        for account in self.accounts:
-            account.discover_models()
-            result[account.name] = {
-                "available": account.available_models,
-                "quota_status": account.quota_status,
+    def discover_all_backends(self) -> Dict[str, Dict[str, Any]]:
+        """Return the resolved backend table and a lightweight status summary."""
+        summary: Dict[str, Dict[str, Any]] = {}
+        for name, cfg in self.backends.items():
+            summary[name] = {
+                "enabled": cfg.get("enabled", True) is not False,
+                "provider": cfg.get("provider", "unknown"),
+                "model": cfg.get("model", ""),
+                "base_url": cfg.get("base_url", ""),
+                "json_mode": bool(cfg.get("json_mode", False)),
+                "disable_thinking": bool(cfg.get("disable_thinking", False)),
             }
-        return result
+        return summary
 
-    def select_best_model(self) -> Tuple[Optional[str], Optional[str], Dict]:
-        """Select the best available model across all accounts.
+    def select_best_backend(self) -> Tuple[Optional[str], Optional[Dict[str, Any]], Dict[str, Any]]:
+        """Select the best available backend in contract-first order."""
+        for name in self.priority:
+            cfg = self.backends.get(name) or get_backend_config(name)
+            if not cfg:
+                continue
+            if cfg.get("enabled") is False:
+                continue
+            if name == self.legacy_backend and not self.legacy_enabled:
+                continue
+            return name, cfg, {
+                "selected_backend": name,
+                "selected_model": cfg.get("model"),
+                "selected_account": cfg.get("provider", name),
+                "status": "available",
+            }
 
-        Returns: (model_name, account_name, status_dict)
-
-        Priority order (per account):
-        1. gemini-2.0-flash (fastest, cheapest)
-        2. gemini-1.5-flash (balanced)
-        3. gemini-1.5-pro (slowest, best quality)
-
-        Then moves to next account if current exhausted.
-        """
-        # Discover all models first if not already done
-        for account in self.accounts:
-            if not account.discovered:
-                account.discover_models()
-
-        # Try each account
-        for account in self.accounts:
-            # Try models in priority order
-            for model in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
-                if model in account.available_models:
-                    return model, account.name, {
-                        "selected_model": model,
-                        "selected_account": account.name,
-                        "status": "available",
-                    }
-
-        # No cloud model available, check Gemma local
-        try:
-            result = subprocess.run(
-                ["gemini", "gemma", "status"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0 and "Running" in result.stdout:
-                return "gemma-local", "local", {
-                    "selected_model": "gemma-local",
-                    "selected_account": "local",
-                    "status": "available",
-                }
-        except Exception:
-            pass
-
-        # All exhausted
         return None, None, {
+            "selected_backend": None,
             "selected_model": None,
             "status": "degraded",
-            "reason": "All models exhausted",
-            "accounts_tried": len(self.accounts),
-            "accounts_available": len(self.accounts),
+            "reason": "No inference backend available",
+            "policy": self.policy,
         }
 
-    def query_with_fallback(self, prompt: str) -> Tuple[Optional[str], Dict]:
-        """Query with intelligent fallback across accounts/models.
+    def query_with_fallback(self, prompt: str) -> Tuple[Optional[str], Dict[str, Any]]:
+        """Query the first healthy backend and return its completion text."""
+        backend_name, backend_cfg, selection = self.select_best_backend()
 
-        Returns: (response, status_dict)
-        """
-        model, account_name, selection = self.select_best_model()
-
-        if not model:
+        if not backend_name or not backend_cfg:
             return None, selection
 
+        if backend_name == self.legacy_backend:
+            return self._query_legacy_cli(prompt)
+
         try:
-            env = os.environ.copy()
+            result = self._query_openai_backend(backend_name, backend_cfg, prompt)
+            if result.get("ok"):
+                return result["content"], {
+                    "selected_backend": backend_name,
+                    "selected_model": backend_cfg.get("model"),
+                    "status": "success",
+                }
+            return None, {
+                "selected_backend": backend_name,
+                "selected_model": backend_cfg.get("model"),
+                "status": result.get("status", "error"),
+                "error": result.get("error", "backend request failed"),
+            }
+        except Exception as exc:
+            return None, {
+                "selected_backend": backend_name,
+                "selected_model": backend_cfg.get("model"),
+                "status": "error",
+                "error": str(exc),
+            }
 
-            # Set account if it's a cloud model (but not local)
-            if account_name != "local":
-                account = next(a for a in self.accounts if a.name == account_name)
-                # Only set GEMINI_API_KEY if account has one (skip for authenticated account)
-                if account.api_key:
-                    env["GEMINI_API_KEY"] = account.api_key
+    def _query_openai_backend(
+        self,
+        backend_name: str,
+        backend_cfg: Dict[str, Any],
+        prompt: str,
+    ) -> Dict[str, Any]:
+        base_url = str(backend_cfg.get("base_url", "")).rstrip("/")
+        model = str(backend_cfg.get("model", "default"))
+        if not base_url:
+            return {"ok": False, "status": "missing_base_url", "error": f"{backend_name}: no base_url configured"}
 
+        url = f"{base_url}/chat/completions"
+        timeout = int(backend_cfg.get("timeout_secs", backend_cfg.get("timeout", 60)))
+        max_tokens = int(backend_cfg.get("max_tokens", 1024))
+        temperature = float(backend_cfg.get("temperature", 0.3))
+        json_mode = bool(backend_cfg.get("json_mode", False))
+        disable_thinking = bool(backend_cfg.get("disable_thinking", False))
+        api_key_env = str(backend_cfg.get("api_key_env", "")).strip()
+        api_key = os.environ.get(api_key_env, "") if api_key_env else ""
+
+        messages = [{"role": "user", "content": prompt}]
+        if disable_thinking and "qwen" in model.lower():
+            messages[0]["content"] = "/no_think\n" + messages[0]["content"]
+
+        body: Dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "CYNIC-HermesX-BackendSelector/1.0",
+        }
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        data = json.dumps(body).encode("utf-8")
+        req = request.Request(url, data=data, headers=headers, method="POST")
+
+        try:
+            with request.urlopen(req, timeout=timeout) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                return {"ok": False, "status": "unparseable_response", "error": raw[:200]}
+
+            content = (
+                payload.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content")
+            )
+            if not isinstance(content, str) or not content.strip():
+                return {"ok": False, "status": "empty_response", "error": raw[:200]}
+            return {"ok": True, "content": content.strip(), "raw": payload}
+        except error.HTTPError as exc:
+            body_text = exc.read().decode("utf-8", errors="replace")[:200]
+            return {"ok": False, "status": f"http_{exc.code}", "error": body_text}
+        except Exception as exc:
+            return {"ok": False, "status": "request_error", "error": str(exc)}
+
+    def _query_legacy_cli(self, prompt: str) -> Tuple[Optional[str], Dict[str, Any]]:
+        if not self.legacy_enabled:
+            return None, {
+                "selected_backend": self.legacy_backend,
+                "status": "disabled",
+                "error": "Legacy CLI path disabled; set HERMES_X_ALLOW_ANTIGRAVITY_LEGACY=1 if you must use it",
+            }
+
+        env = os.environ.copy()
+        # Legacy CLI expects its own environment to be present already.
+        try:
             result = subprocess.run(
-                ["gemini", "-m", model, "-p", prompt],
+                [self.legacy_command, "-m", self.legacy_model, "-p", prompt],
                 capture_output=True,
                 text=True,
                 timeout=60,
                 env=env,
             )
-
-            if result.returncode == 0:
-                return result.stdout.strip(), {
-                    "selected_model": model,
-                    "selected_account": account_name,
-                    "status": "success",
-                }
-            else:
-                return None, {
-                    "selected_model": model,
-                    "selected_account": account_name,
-                    "status": "error",
-                    "error": result.stderr[:200],
-                }
-
         except subprocess.TimeoutExpired:
-            return None, {
-                "selected_model": model,
-                "selected_account": account_name,
-                "status": "timeout",
-            }
-        except Exception as e:
-            return None, {
-                "selected_model": model,
-                "selected_account": account_name,
-                "status": "error",
-                "error": str(e),
+            return None, {"selected_backend": self.legacy_backend, "status": "timeout"}
+        except Exception as exc:
+            return None, {"selected_backend": self.legacy_backend, "status": "error", "error": str(exc)}
+
+        if result.returncode == 0:
+            return result.stdout.strip(), {
+                "selected_backend": self.legacy_backend,
+                "status": "success",
             }
 
+        return None, {
+            "selected_backend": self.legacy_backend,
+            "status": "error",
+            "error": result.stderr[:200],
+        }
 
-def main():
-    """Test multi-account discovery and selection."""
-    print("Advanced Model Selector v0.2.0")
+
+def main() -> int:
+    """Test contract-first backend discovery and selection."""
+    print("Hermes X Backend Selector v1.0.0")
     print("=" * 60)
     print()
 
-    selector = ModelSelector()
+    selector = BackendSelector()
 
-    print(f"Discovered {len(selector.accounts)} account(s):")
-    for account in selector.accounts:
-        print(f"  - {account.name}")
+    print(f"Discovered {len(selector.backends)} backend(s):")
+    for name in selector.priority:
+        cfg = selector.backends.get(name, {})
+        print(f"  - {name} -> {cfg.get('model', '')}")
+    if selector.legacy_enabled and selector.legacy_backend not in selector.priority:
+        print(f"  - {selector.legacy_backend} (legacy opt-in, command: {selector.legacy_command})")
     print()
 
-    print("Discovering available models per account...")
-    discovery = selector.discover_all_models()
-    for account_name, info in discovery.items():
-        print(f"\n{account_name}:")
-        print(f"  Available: {info['available']}")
-        for model, status in info["quota_status"].items():
-            print(f"    {model}: {status.get('status', 'unknown')}")
+    print("Inspecting backend configuration...")
+    discovery = selector.discover_all_backends()
+    for backend_name, info in discovery.items():
+        print(f"\n{backend_name}:")
+        print(f"  Enabled: {info['enabled']}")
+        print(f"  Provider: {info['provider']}")
+        print(f"  Model: {info['model']}")
+        print(f"  Base URL: {info['base_url']}")
 
     print()
-    print("Selecting best available model...")
-    model, account, status = selector.select_best_model()
-    print(f"  Selected: {model} (account: {account})")
+    print("Selecting best available backend...")
+    backend, cfg, status = selector.select_best_backend()
+    print(f"  Selected: {backend} (model: {cfg.get('model') if cfg else None})")
     print(f"  Status: {status.get('status')}")
 
-    if model:
+    if backend:
         print()
         print("Testing query...")
         response, query_status = selector.query_with_fallback("Say 'hello' briefly")
@@ -334,6 +247,8 @@ def main():
         else:
             print(f"  ✗ Failed: {query_status.get('status')}")
 
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

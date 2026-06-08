@@ -214,9 +214,9 @@ def run() -> None:
         )
 
         seen[obs_id] = now
+        save_seen(seen)
         judged += 1
 
-    save_seen(seen)
     log.info(
         "done: judged=%d skipped(seen=%d timeout=%d)",
         judged, skipped_seen, skipped_timeout,

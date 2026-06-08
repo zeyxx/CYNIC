@@ -217,6 +217,7 @@ pub async fn analyze(
         "x-proxy",
         "hermes-x",
         "hermes", // replaced by hermes-x-cynic + hermes-x-proxy-cynic (2026-05-22)
+        "hermes-telegram-personal", // retired personal telegram listener
     ];
     for (agent_id, hb) in producer_heartbeats {
         if !is_permanent_source(agent_id) || hb.count < 2 {
@@ -484,6 +485,7 @@ pub fn analyze_state_log_trends(prev: &StateBlock, curr: &StateBlock) -> Vec<Ale
         "x-proxy",        // old raw tweet capture agent (replaced by search-generator)
         "hermes-x",       // old K15 debug/tweet capture (replaced by k15-consumer)
         "hermes",         // generic agent_id (4 obs) — replaced by hermes-x-cynic
+        "hermes-telegram-personal", // retired personal telegram listener
     ];
     let now = chrono::Utc::now();
     for organ in &curr.organs {

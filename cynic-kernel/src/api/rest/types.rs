@@ -113,6 +113,9 @@ impl RoleKeyMap {
     }
 }
 
+const LEGACY_DOG_ID: &str = "gemini-cli";
+const CANONICAL_DOG_ID: &str = "antigravity-cli";
+
 // ── PUSH-PRODUCER HEARTBEAT ────────────────────────────────
 
 /// Tracks the last /observe POST from a push-based producer.
@@ -174,6 +177,8 @@ pub struct AppState {
     /// Self-model: expected system state loaded from backends.toml at boot.
     /// Compared against live roster in /health to detect missing Dogs.
     pub system_contract: Arc<std::sync::RwLock<crate::domain::contract::SystemContract>>,
+    /// Expected system backends config loaded at boot.
+    pub backend_configs: Vec<crate::infra::config::BackendConfig>,
     /// Token enricher — fetches on-chain data for domain=token-analysis stimuli.
     /// None if Helius API key not configured. Graceful degradation: Dogs judge raw address.
     pub enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
@@ -518,6 +523,7 @@ pub struct JudgeRequest {
     pub context: Option<String>,
     pub domain: Option<String>,
     /// Optional: evaluate with only these Dogs (by ID). If omitted, all Dogs are used.
+    #[serde(default, deserialize_with = "deserialize_optional_dog_id_vec")]
     pub dogs: Option<Vec<String>>,
     /// Optional: disable crystal injection for A/B testing. Default: true.
     /// Accepts: true, false, or null/absent (→ true).
@@ -546,6 +552,55 @@ where
 {
     let v: Option<bool> = Option::deserialize(deserializer)?;
     Ok(v.unwrap_or(true))
+}
+
+/// Deserialize a backend label string, mapping the legacy label to the canonical backend id.
+pub fn deserialize_dog_id<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    if s == LEGACY_DOG_ID {
+        Ok(CANONICAL_DOG_ID.to_string())
+    } else {
+        Ok(s)
+    }
+}
+
+/// Deserialize an optional backend label string, mapping the legacy label to the canonical backend id.
+pub fn deserialize_optional_dog_id<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let opt: Option<String> = Option::deserialize(deserializer)?;
+    Ok(opt.map(|s| {
+        if s == LEGACY_DOG_ID {
+            CANONICAL_DOG_ID.to_string()
+        } else {
+            s
+        }
+    }))
+}
+
+/// Deserialize an optional list of backend labels, mapping any legacy label to the canonical backend id.
+pub fn deserialize_optional_dog_id_vec<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let opt: Option<Vec<String>> = Option::deserialize(deserializer)?;
+    Ok(opt.map(|vec| {
+        vec.into_iter()
+            .map(|s| {
+                if s == LEGACY_DOG_ID {
+                    CANONICAL_DOG_ID.to_string()
+                } else {
+                    s
+                }
+            })
+            .collect()
+    }))
 }
 
 #[derive(Debug, Clone, Serialize)]

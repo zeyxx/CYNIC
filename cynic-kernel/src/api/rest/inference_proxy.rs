@@ -74,6 +74,10 @@ impl ProxyTargets {
 #[derive(Debug, serde::Deserialize)]
 pub struct ProxyQueryParams {
     /// Target backend dog_id. If absent, uses first available sovereign backend.
+    #[serde(
+        default,
+        deserialize_with = "super::types::deserialize_optional_dog_id"
+    )]
     pub backend: Option<String>,
 }
 

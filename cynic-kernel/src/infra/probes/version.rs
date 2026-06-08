@@ -194,7 +194,7 @@ impl crate::domain::probe::Probe for VersionProbe {
             });
         }
 
-        let status = if behind_count > 0 || unknown_count > 0 {
+        let status = if unknown_count > 0 {
             ProbeStatus::Degraded
         } else {
             ProbeStatus::Ok

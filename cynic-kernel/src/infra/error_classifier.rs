@@ -121,7 +121,8 @@ mod tests {
     #[test]
     fn test_critical_classification() {
         let detection = ErrorDetection::default();
-        let category = ErrorCategory::classify("gemini-cli: command not found: exit 1", &detection);
+        let category =
+            ErrorCategory::classify("cli-backend: command not found: exit 1", &detection);
         assert_eq!(category, ErrorCategory::Critical);
         assert!(!category.should_retry());
         assert!(category.should_open_circuit());

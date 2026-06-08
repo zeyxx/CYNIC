@@ -35,7 +35,9 @@ PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
 define source_env
 	source ~/.cargo/env 2>/dev/null || true
 	source ~/.cynic-env 2>/dev/null || true
-	export RUST_MIN_STACK=67108864  # 64 MiB: rmcp serde monomorphization (A1 debt). Source of truth: .cargo/config.toml
+	export RUST_MIN_STACK=1073741824  # 1 GiB: rmcp serde monomorphization (A1 debt). Source of truth: .cargo/config.toml
+
+
 endef
 
 # ── Stage 1: Validate (3-level gates) ────────────────────────

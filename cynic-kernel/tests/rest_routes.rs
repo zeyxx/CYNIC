@@ -69,6 +69,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         system_contract: std::sync::Arc::new(std::sync::RwLock::new(
             cynic_kernel::domain::contract::SystemContract::new(vec![], true),
         )),
+        backend_configs: vec![],
         enricher: None,
         senses: vec![],
         domain_curations: std::sync::Arc::new(cynic_kernel::domain::wisdom::DomainCurations::new()),
@@ -1020,6 +1021,7 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         system_contract: std::sync::Arc::new(std::sync::RwLock::new(
             cynic_kernel::domain::contract::SystemContract::new(vec![], true),
         )),
+        backend_configs: vec![],
         enricher: None,
         senses: vec![],
         domain_curations: std::sync::Arc::new(cynic_kernel::domain::wisdom::DomainCurations::new()),

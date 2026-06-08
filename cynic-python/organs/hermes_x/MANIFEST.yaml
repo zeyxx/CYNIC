@@ -2,11 +2,32 @@ id: hermes-x-organ
 tier: 2  # infrastructure
 domain: social
 status: ACTIVE
+framework: hermes-agent
+organ_dir: ~/.cynic/organs/hermes/x
+systemd_executor: organ-x-hermes-agent.service
+systemd_dispatch: organ-x-cron.service
+
+inference:
+  policy: sovereign-first
+  primary_backend: qwen25-7b-core
+  fallback_backends:
+    - qwen36-27b-gpu
+    - gemini-cli  # legacy compatibility only; disabled by default
+  legacy_backend_sunset: 2026-06-18
+
+terminology:
+  organ: Hermes X is the X/Twitter perception, analysis, learning organ
+  selector: model_selector.py chooses which backend executes inference
+  backends:
+    primary: qwen25-7b-core
+    fallback: qwen36-27b-gpu
+    legacy: gemini-cli
+  rule: The organ never hardcodes a CLI name; it asks the selector for the available backend.
 
 description: |
   Hermes X organ — perception/transformation/analysis/learning cycle
-  for X/Twitter data. Runs hourly via hermes-data-organism timer.
-  Consumes kernel observations + tweet dataset + behavior logs.
+  for X/Twitter data. Managed by Hermes-Agent executor + 30min dispatch.
+  The legacy data organism remains a sensor/analysis helper.
 
 inputs:
   - source: kernel /observations
@@ -22,31 +43,36 @@ outputs:
   - path: ~/.cynic/organs/hermes/x/reflections/
     format: json
     frequency: hourly
-    consumer: hermes learning, gemini briefing
+    consumer: hermes learning, synthesis briefing
   - path: kernel /observe (domain=hermes-x)
     format: REST POST
     frequency: per-cycle
     consumer: K15 observation consumer
 
 crons:
+  - name: organ-x-cron
+    timer: "every 30min"
+    systemd: organ-x-cron.service
+    steps:
+      - organ-x-dispatch.py (enqueue Hermes-Agent X drift task)
   - name: hermes-data-organism
     timer: "hourly at :17"
     systemd: hermes-data-organism.service
     steps:
-      - hermes_data_organism.py (full 5-layer cycle)
+      - hermes_data_organism.py (legacy sensor/analysis helper)
 
 scripts:
   - name: __main__.py
     description: Run one organ cycle (perception → transformation → analysis → learning)
   - name: model_selector.py
-    description: Selects inference backend based on availability and cost
+    description: Selects sovereign inference backend based on backends.toml policy and availability
   - name: schema.py
     description: Data schemas for organ layers
   - name: analysis.py
     description: Pattern detection and anomaly analysis
 
 k15_consumers:
-  - consumer: gemini briefing (4h synthesis)
+  - consumer: synthesis briefing (4h synthesis)
     acts_on: reflections → domain wisdom update
   - consumer: K15 observation consumer
     acts_on: observations → task dispatch

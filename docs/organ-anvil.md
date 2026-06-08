@@ -200,4 +200,6 @@ Métriques organ-anvil :
 3. [ ] Évoluer les gates vers adaptatives
 4. [ ] Wire au kernel (Phase 2)
 5. [ ] Ajouter métriques de repo health
-6. [ ] Intégrer avec organ-keep (backup)
+6. [ ] Exposer une file `organ-anvil-proposal` pour review admin (approve/deny)
+7. [ ] Déclencher la remédiation après approval admin
+8. [ ] Intégrer avec organ-keep (backup)

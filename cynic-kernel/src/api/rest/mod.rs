@@ -43,7 +43,8 @@ use self::coord::{
 use self::data::{
     audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
     crystal_handler, crystals_handler, delete_crystal_handler, observations_handler,
-    observe_crystal_hypha_handler, sessions_handler, shatter_crystal_handler, usage_handler,
+    observe_crystal_hypha_handler, public_observations_handler, sessions_handler,
+    shatter_crystal_handler, usage_handler,
 };
 use self::dogs::{deregister_handler, dogs_handler, heartbeat_handler, register_dog_handler};
 use self::event::{event_handler, fleet_stats_handler};
@@ -140,6 +141,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
         .route("/agents", get(agents_handler))
+        .route("/observations/public", get(public_observations_handler))
         .route("/observations", get(observations_handler))
         .route("/sessions", get(sessions_handler))
         .route("/session/{agent_id}/compliance", get(compliance_handler))
