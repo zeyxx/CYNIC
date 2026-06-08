@@ -26,7 +26,12 @@ from typing import Any, Optional, TYPE_CHECKING
 import requests
 
 from . import __version__
-from .config import load_config, TelegramConfig
+from .config import (
+    ensure_runtime_dirs,
+    load_config,
+    TelegramConfig,
+    validate_telegram_credentials,
+)
 from .schema import bootstrap_db
 from .buffer import MessageBuffer, RawMessage, Block
 
@@ -461,6 +466,11 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    try:
+        validate_telegram_credentials(cfg)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    ensure_runtime_dirs(cfg)
 
     if args.auth:
         asyncio.run(auth(cfg))

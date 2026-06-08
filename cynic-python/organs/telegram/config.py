@@ -38,6 +38,21 @@ class TelegramConfig:
     telegram_api_hash: str = ""
 
 
+def ensure_runtime_dirs(cfg: TelegramConfig) -> None:
+    """Create local runtime directories needed by Telethon, SQLite, and media."""
+    for path in (cfg.session_path, cfg.db_path):
+        Path(path).expanduser().parent.mkdir(parents=True, exist_ok=True)
+    Path(cfg.media_dir).expanduser().mkdir(parents=True, exist_ok=True)
+
+
+def validate_telegram_credentials(cfg: TelegramConfig) -> None:
+    """Fail early with a clear error when Telegram credentials are absent."""
+    if cfg.telegram_api_id <= 0 or not cfg.telegram_api_hash:
+        raise ValueError(
+            "TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in the runtime environment"
+        )
+
+
 def load_config(yaml_path: str) -> TelegramConfig:
     """Load config from YAML file (if exists) + env vars for secrets."""
     cfg = TelegramConfig()

@@ -3,7 +3,12 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from organs.telegram.config import load_config
+from organs.telegram.config import (
+    TelegramConfig,
+    ensure_runtime_dirs,
+    load_config,
+    validate_telegram_credentials,
+)
 
 
 def test_load_config_from_yaml() -> None:
@@ -65,3 +70,30 @@ def test_retention_from_yaml() -> None:
         cfg = load_config(str(cfg_path))
         assert cfg.retention.raw_days == 14
         assert cfg.retention.media_days == 7
+
+
+def test_validate_telegram_credentials_rejects_missing_env() -> None:
+    """Telegram credentials fail early with a clear config error."""
+    cfg = TelegramConfig(telegram_api_id=0, telegram_api_hash="")
+    try:
+        validate_telegram_credentials(cfg)
+    except ValueError as exc:
+        assert "TELEGRAM_API_ID" in str(exc)
+        assert "TELEGRAM_API_HASH" in str(exc)
+    else:
+        raise AssertionError("missing Telegram credentials should fail")
+
+
+def test_ensure_runtime_dirs_creates_parent_paths() -> None:
+    """Runtime dirs are created before Telethon and SQLite open files."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "telegram"
+        cfg = TelegramConfig(
+            session_path=str(root / "session" / "session.session"),
+            db_path=str(root / "db" / "messages.db"),
+            media_dir=str(root / "media"),
+        )
+        ensure_runtime_dirs(cfg)
+        assert (root / "session").is_dir()
+        assert (root / "db").is_dir()
+        assert (root / "media").is_dir()

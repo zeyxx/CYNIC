@@ -11,8 +11,8 @@ ExecStart=%h/.cynic/organs/telegram/.venv/bin/python -m organs.telegram.listener
 Restart=on-failure
 RestartSec=30
 Environment=PYTHONUNBUFFERED=1
-EnvironmentFile=%h/.config/cynic/env
-EnvironmentFile=%h/.cynic/organs/telegram/env
+EnvironmentFile=-%h/.config/cynic/env
+EnvironmentFile=-%h/.cynic/organs/telegram/env
 # Cgroup limits — observed: 268MB.
 MemoryMax=512M
 
