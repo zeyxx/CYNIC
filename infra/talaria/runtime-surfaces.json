@@ -1,11 +1,13 @@
 {
   "schema": "talaria.runtime_surfaces.v1",
-  "captured_at": "2026-06-07T12:00:00Z",
+  "captured_at": "2026-06-08T14:20:00Z",
   "principles": [
     "Talaria is the public product/entity; CYNIC is the sovereign judgment and observation engine.",
+    "Vercel is the public edge surface for the portal; the local containerized portal is the fallback relay when the edge is unavailable.",
     "B&C owns chess gameplay and PoH evidence production; Talaria consumes selected B&C signals.",
     "Telegram Public, Telegram Ops, Telegram Listener, X, B&C, CYNIC, and Vercel are separate surfaces.",
-    "Markdown files are historical projections, not runtime sources of truth."
+    "Markdown files are historical projections, not runtime sources of truth.",
+    "Docker is the local container runtime for the portal fallback surface; Vercel is the public edge surface."
   ],
   "surfaces": [
     {
@@ -14,7 +16,7 @@
       "package": "packages/talaria-landing",
       "intended_domain": "www.talaria.build",
       "runtime_status": "ready",
-      "observed_status": "HTTP 200 on 2026-06-07; deployed as Vercel project talaria-landing and aliased to www.talaria.build.",
+      "observed_status": "HTTP 200 on 2026-06-08; deployed as Vercel project talaria-landing and aliased to www.talaria.build. Vercel config: package-local vercel.json (buildCommand=npm run build, outputDir=dist, framework=vite). Config matches package.json build script (vite build). No drift detected.",
       "canonical_role": "Public Talaria homepage: product, trust layer, routes to demo, Telegram, B&C, and MetaDAO context.",
       "must_not_own": [
         "CYNIC operational dashboard",
@@ -29,7 +31,7 @@
       "package": "packages/talaria-demo",
       "intended_domain": "demo.talaria.build",
       "runtime_status": "ready",
-      "observed_status": "HTTP 200 on 2026-06-07; deployed as Vercel project talaria-demo and aliased to demo.talaria.build.",
+      "observed_status": "HTTP 200 on 2026-06-08; deployed as Vercel project talaria-demo and aliased to demo.talaria.build. Vercel config: package-local vercel.json (buildCommand=npm run build, outputDir=dist, framework=vite). Config matches package.json build script (vite build). No drift detected.",
       "canonical_role": "Interactive proposal judgment experience backed by CYNIC.",
       "must_not_own": [
         "Marketing landing copy",
@@ -80,6 +82,7 @@
       "entrypoint": "cynic-python/organs/telegram/bot.py",
       "runtime_status": "active",
       "canonical_role": "Public bot commands plus current Ops callbacks until split.",
+      "managed_by": "organ-telegram",
       "must_split_into": [
         "telegram-public-onboarding",
         "telegram-ops-validation"
@@ -96,6 +99,7 @@
       "entrypoint": "cynic-python/organs/telegram/listener.py",
       "runtime_status": "active",
       "canonical_role": "Personal-account/MTProto ingestion and classification.",
+      "managed_by": "organ-telegram",
       "must_not_own": [
         "Bot commands",
         "Public group permissions",
@@ -131,7 +135,8 @@
         "Telegram public PoH state",
         "Ungated public posting",
         "Final Talaria reputation"
-      ]
+      ],
+      "managed_by": "organ-x"
     },
     {
       "id": "legacy-cynicoracle-x",
@@ -160,9 +165,25 @@
       "id": "cynic-ui",
       "kind": "frontend",
       "package": "packages/cynic-ui",
-      "current_hosting": "Vercel cynic-organism",
+      "current_hosting": "organ-vercel on Vercel",
+      "fallback_hosting": "cynic-portal.service on local/Tailscale (managed by organ-docker)",
       "runtime_status": "ready",
+      "observed_status": "Deployed via root vercel.json (buildCommand=npm run build -w packages/cynic-ui, outputDir=packages/cynic-ui/dist). Package-local vercel.json matches (buildCommand=npm run build, outputDir=dist, framework=vite). Build requires tsc -b (TypeScript). No config drift detected.",
       "canonical_role": "CYNIC ops/debug UI only.",
+      "must_not_own": [
+        "Talaria public homepage",
+        "Talaria product demo"
+      ]
+    },
+    {
+      "id": "cynic-portal",
+      "kind": "frontend",
+      "package": "packages/cynic-ui",
+      "current_hosting": "cynic-portal.service on local/Tailscale (Docker Compose)",
+      "runtime_status": "ready",
+      "observed_status": "Containerized portal behind systemd and Docker Compose; serves the same operator UI as a local fallback when the edge is unavailable.",
+      "canonical_role": "Fallback operator portal for LAN/Tailscale use.",
+      "managed_by": "organ-docker",
       "must_not_own": [
         "Talaria public homepage",
         "Talaria product demo"

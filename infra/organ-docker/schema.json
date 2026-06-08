@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-06-08T00:00:00Z",
+  "state_fields": {
+    "timestamp": "ISO timestamp",
+    "service_active": "boolean",
+    "compose_status": "string",
+    "compose_services": "array",
+    "container_count": "number",
+    "observed_url": "string",
+    "drift_notes": "array of strings",
+    "alerts": "array of strings"
+  }
+}

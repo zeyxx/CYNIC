@@ -10,6 +10,7 @@ use axum::{
 use http_body_util::BodyExt;
 use std::sync::Arc;
 
+use super::auth::auth_sessions;
 use super::types::{AppState, ErrorResponse, Role};
 use crate::infra::crypto;
 
@@ -39,10 +40,38 @@ pub async fn auth_middleware(
         || path == "/auth/input"
         || path == "/auth/verify"
         || path == "/state-history"
-        || path == "/observations"
-        || path == "/health"
     {
         return next.run(request).await;
+    }
+
+    // 1. Wallet session (preferred human path)
+    if let Some(session_id) = request
+        .headers()
+        .get("X-Cynic-Session")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+    {
+        let now = chrono::Utc::now().timestamp().max(0) as u64;
+        let session = auth_sessions()
+            .read()
+            .ok()
+            .and_then(|sessions| sessions.get(&session_id).cloned());
+
+        if let Some(session) = session {
+            if session.expires_at >= now {
+                let mut request = request;
+                request.extensions_mut().insert(session.role);
+                return next.run(request).await;
+            }
+        }
+
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "Invalid or expired wallet session".into(),
+            }),
+        )
+            .into_response();
     }
 
     // 1. Try Cryptographic Signature first (Zero-Trust path)

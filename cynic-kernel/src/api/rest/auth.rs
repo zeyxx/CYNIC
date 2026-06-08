@@ -1,4 +1,4 @@
-//! SIWS (Sign-In-With-Solana) authentication handlers.
+//! Wallet-based authentication handlers.
 
 use super::types::{AppState, ErrorResponse, Role};
 use crate::infra::crypto;
@@ -8,13 +8,16 @@ use axum::{
     response::{IntoResponse, Json, Response},
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::{OnceLock, RwLock};
 
 #[derive(Debug, Serialize)]
 pub struct AuthInputResponse {
     pub nonce: String,
     pub statement: String,
     pub domain: String,
+    pub timestamp: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -22,17 +25,44 @@ pub struct AuthVerifyRequest {
     pub address: String,
     pub signature: String,
     pub nonce: String,
+    pub timestamp: u64,
 }
 
 #[derive(Debug, Serialize)]
 pub struct AuthVerifyResponse {
     pub role: String,
     pub expires_at: u64,
+    #[serde(rename = "session_token")]
+    pub session_id: String,
+    pub address: String,
 }
 
-/// Generate a unique high-entropy nonce for SIWS.
+#[derive(Debug, Clone)]
+pub(super) struct AuthSession {
+    pub role: Role,
+    #[allow(dead_code)]
+    pub address: String,
+    pub expires_at: u64,
+}
+
+static AUTH_SESSIONS: OnceLock<RwLock<HashMap<String, AuthSession>>> = OnceLock::new();
+
+pub(super) fn auth_sessions() -> &'static RwLock<HashMap<String, AuthSession>> {
+    AUTH_SESSIONS.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+fn build_auth_message(domain: &str, statement: &str, nonce: &str) -> Vec<u8> {
+    format!(
+        "CYNIC AUTH\ndomain:{}\nnonce:{}\nstatement:{}",
+        domain, nonce, statement
+    )
+    .into_bytes()
+}
+
+/// Generate a unique high-entropy nonce for wallet sign-in.
 pub async fn auth_input_handler(State(_state): State<Arc<AppState>>) -> impl IntoResponse {
     let nonce = crypto::generate_nonce();
+    let timestamp = chrono::Utc::now().timestamp().max(0) as u64;
 
     let domain = std::env::var("CYNIC_DOMAIN").unwrap_or_else(|_| "localhost".to_string());
 
@@ -40,35 +70,43 @@ pub async fn auth_input_handler(State(_state): State<Arc<AppState>>) -> impl Int
         nonce,
         statement: "Sign in to CYNIC Epistemic Immune System. This signature proves you own the sovereign identity associated with this wallet.".to_string(),
         domain,
+        timestamp,
     })
 }
 
-/// Verify a SIWS signature.
+/// Verify a wallet signature and issue a short-lived session token.
 pub async fn auth_verify_handler(
     State(_state): State<Arc<AppState>>,
     Json(payload): Json<AuthVerifyRequest>,
 ) -> Response {
-    // 1. Verify the signature
-    // The message format for SIWS is standard. For now, we verify the raw Ed25519 signature
-    // against the nonce message.
-
-    let message = format!(
-        "Sign in to CYNIC Epistemic Immune System. This signature proves you own the sovereign identity associated with this wallet.\nNonce: {}",
-        payload.nonce
-    );
+    let domain = std::env::var("CYNIC_DOMAIN").unwrap_or_else(|_| "localhost".to_string());
+    let statement = "Sign in to CYNIC Epistemic Immune System. This signature proves you own the sovereign identity associated with this wallet.";
+    let message = build_auth_message(&domain, statement, &payload.nonce);
 
     match crate::infra::crypto::verify_signature(
         &payload.address,
         &payload.signature,
-        &(chrono::Utc::now().timestamp().to_string()), // Simplified timestamp check
-        message.as_bytes(),
+        &payload.timestamp.to_string(),
+        &message,
     ) {
         Ok(_) => {
-            // 2. Success - return Role and expiration
-            // In Phase 2, we check if the wallet address is in the trusted admin list.
+            let session_id = crypto::generate_secure_id();
+            let expires_at = (chrono::Utc::now().timestamp() + 12 * 3600) as u64;
+            let session = AuthSession {
+                role: Role::Cortex,
+                address: payload.address.clone(),
+                expires_at,
+            };
+
+            if let Ok(mut sessions) = auth_sessions().write() {
+                sessions.insert(session_id.clone(), session);
+            }
+
             Json(AuthVerifyResponse {
                 role: Role::Cortex.to_string(),
-                expires_at: (chrono::Utc::now().timestamp() + 3600) as u64,
+                expires_at,
+                session_id,
+                address: payload.address,
             })
             .into_response()
         }

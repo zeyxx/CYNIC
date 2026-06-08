@@ -1,0 +1,24 @@
+[Unit]
+Description=CYNIC Organ Vercel Hermes Agent - deployment surface manager
+After=cynic-kernel.service hermes-agent-executor.service
+Wants=cynic-kernel.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Bureau/CYNIC
+EnvironmentFile=%h/.config/cynic/env
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=HERMES_AGENT_DOMAIN_ALLOW=vercel
+Environment=HERMES_AGENT_KIND_ALLOW=hermes
+Environment=HERMES_AGENT_POLL_LIMIT=100
+Environment=X_ORGAN_DIR=%h/.cynic/organs/vercel
+ExecStartPre=/usr/bin/install -Dm644 %h/Bureau/CYNIC/infra/organ-vercel/SKILL.md %h/.cynic/organs/vercel/SKILL.md
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/core/hermes_agent_task_executor.py --organ-dir %h/.cynic/organs/vercel --interval 30
+Restart=on-failure
+RestartSec=30s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

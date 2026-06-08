@@ -92,7 +92,9 @@ infra/organ-anvil/
 6. **Triage** → `bash scripts/organ-anvil.sh triage` emits non-mutating scope diagnosis for dirty worktrees
 7. **Repo Health** → `bash scripts/organ-anvil.sh repo-health` emits non-mutating JSON radar for branches/PRs/stashes/gates/coord
 8. **Branch Report** → `bash scripts/organ-anvil.sh branch-report <branch> --save` appends an immutable JSON report to `reports.jsonl`
-9. **Rapport** → Dashboard HTML + handoff.md
+9. **Proposal Queue** → organ-anvil emits pending `organ-anvil-proposal` tasks for admin review before any remediation is applied
+10. **Approval Trigger** → approved proposals enqueue a remediation task for the same organ before execution
+11. **Rapport** → Dashboard HTML + handoff.md
 
 ## Évolutivité
 

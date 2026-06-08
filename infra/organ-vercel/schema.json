@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-06-08T00:00:00Z",
+  "state_fields": {
+    "timestamp": "ISO timestamp",
+    "deployment_count": "number",
+    "production_count": "number",
+    "preview_count": "number",
+    "latest_deploy_at": "ISO timestamp or null",
+    "latest_production_at": "ISO timestamp or null",
+    "latest_preview_at": "ISO timestamp or null",
+    "hours_since_latest": "number or null",
+    "deployment_gap_note": "string",
+    "alerts": "array of strings"
+  }
+}

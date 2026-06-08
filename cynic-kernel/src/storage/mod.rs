@@ -287,13 +287,26 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS status ON observation TYPE string;\
             DEFINE FIELD IF NOT EXISTS context ON observation TYPE string;\
             DEFINE FIELD IF NOT EXISTS session_id ON observation TYPE string;\
-            DEFINE FIELD IF NOT EXISTS created_at ON observation TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS timestamp ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS tags ON observation TYPE array;\
+            DEFINE FIELD IF NOT EXISTS source_tier ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS value ON observation TYPE any;\
+            DEFINE FIELD IF NOT EXISTS confidence ON observation TYPE string | null;\
+            DEFINE FIELD IF NOT EXISTS consumer ON observation TYPE string | null;\
+            DEFINE FIELD IF NOT EXISTS action ON observation TYPE string | null;\
+            DEFINE FIELD IF NOT EXISTS depends_on ON observation TYPE array;\
+            DEFINE FIELD IF NOT EXISTS maturity ON observation TYPE float | null;\
+            DEFINE FIELD IF NOT EXISTS hash ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS prev_hash ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS observers ON observation TYPE array;\
+            DEFINE FIELD IF NOT EXISTS consensus_score ON observation TYPE float | null;\n            DEFINE FIELD IF NOT EXISTS created_at ON observation TYPE datetime;\
             DEFINE INDEX IF NOT EXISTS obs_project_idx ON observation FIELDS project;\
             DEFINE INDEX IF NOT EXISTS obs_domain_idx ON observation FIELDS domain;\
             DEFINE INDEX IF NOT EXISTS obs_target_idx ON observation FIELDS target;\
             DEFINE INDEX IF NOT EXISTS obs_created_idx ON observation FIELDS created_at;\
             DEFINE INDEX IF NOT EXISTS obs_agent_idx ON observation FIELDS agent_id;\
             DEFINE INDEX IF NOT EXISTS obs_tool_idx ON observation FIELDS tool;\
+            DEFINE INDEX IF NOT EXISTS obs_session_idx ON observation FIELDS session_id;\
             DEFINE FIELD IF NOT EXISTS agent_id ON agent_session TYPE string;\
             DEFINE FIELD IF NOT EXISTS agent_type ON agent_session TYPE string;\
             DEFINE FIELD IF NOT EXISTS intent ON agent_session TYPE string;\

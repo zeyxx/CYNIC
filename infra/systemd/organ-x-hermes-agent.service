@@ -1,0 +1,24 @@
+[Unit]
+Description=CYNIC Organ X Hermes Agent - X surface manager
+After=cynic-kernel.service hermes-agent-executor.service hermes-x-ingest.service
+Wants=cynic-kernel.service hermes-x-ingest.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Bureau/CYNIC
+EnvironmentFile=%h/.config/cynic/env
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=HERMES_AGENT_DOMAIN_ALLOW=hermes-x
+Environment=HERMES_AGENT_KIND_ALLOW=hermes
+Environment=HERMES_AGENT_POLL_LIMIT=100
+Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x
+ExecStartPre=/usr/bin/install -Dm644 %h/Bureau/CYNIC/infra/organ-x/SKILL.md %h/.cynic/organs/hermes/x/SKILL.md
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/core/hermes_agent_task_executor.py --organ-dir %h/.cynic/organs/hermes/x --interval 30
+Restart=on-failure
+RestartSec=30s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
