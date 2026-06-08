@@ -369,16 +369,22 @@ impl TaskStorage for ReconnectableStorage {
     async fn list_pending_agent_tasks(
         &self,
         kind: &str,
+        domain: Option<&str>,
         limit: u32,
     ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
-        self.current().list_pending_agent_tasks(kind, limit).await
+        self.current()
+            .list_pending_agent_tasks(kind, domain, limit)
+            .await
     }
     async fn list_completed_agent_tasks(
         &self,
         kind: &str,
+        domain: Option<&str>,
         limit: u32,
     ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
-        self.current().list_completed_agent_tasks(kind, limit).await
+        self.current()
+            .list_completed_agent_tasks(kind, domain, limit)
+            .await
     }
     async fn update_agent_task_result(
         &self,

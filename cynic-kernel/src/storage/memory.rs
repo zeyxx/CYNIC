@@ -718,13 +718,18 @@ impl TaskStorage for InMemoryStorage {
     async fn list_pending_agent_tasks(
         &self,
         kind: &str,
+        domain: Option<&str>,
         limit: u32,
     ) -> Result<Vec<AgentTask>, StorageError> {
         let s = self.state.lock().await;
         let mut v: Vec<_> = s
             .tasks
             .values()
-            .filter(|t| t.kind == kind && t.status == "pending")
+            .filter(|t| {
+                t.kind == kind
+                    && domain.is_none_or(|domain| t.domain == domain)
+                    && t.status == "pending"
+            })
             .cloned()
             .collect();
         v.truncate(limit as usize);
@@ -734,13 +739,18 @@ impl TaskStorage for InMemoryStorage {
     async fn list_completed_agent_tasks(
         &self,
         kind: &str,
+        domain: Option<&str>,
         limit: u32,
     ) -> Result<Vec<AgentTask>, StorageError> {
         let s = self.state.lock().await;
         let mut v: Vec<_> = s
             .tasks
             .values()
-            .filter(|t| t.kind == kind && t.status == "completed")
+            .filter(|t| {
+                t.kind == kind
+                    && domain.is_none_or(|domain| t.domain == domain)
+                    && t.status == "completed"
+            })
             .cloned()
             .collect();
         v.truncate(limit as usize);

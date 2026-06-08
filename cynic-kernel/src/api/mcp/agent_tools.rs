@@ -111,7 +111,7 @@ impl CynicMcp {
         let limit = p.limit.unwrap_or(10).min(100);
         let tasks = self
             .storage
-            .list_pending_agent_tasks(&p.kind, limit)
+            .list_pending_agent_tasks(&p.kind, p.domain.as_deref(), limit)
             .await
             .map_err(|_e| sanitize_error("Agent task list"))?;
 

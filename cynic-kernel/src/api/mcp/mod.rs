@@ -237,6 +237,7 @@ pub struct DispatchAgentTaskParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListPendingAgentTasksParams {
     pub kind: String,
+    pub domain: Option<String>,
     pub limit: Option<u32>,
     pub agent_id: Option<String>,
 }
@@ -701,6 +702,7 @@ mod tests {
         async fn list_pending_agent_tasks(
             &self,
             _: &str,
+            _: Option<&str>,
             _: u32,
         ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
             Ok(vec![])
@@ -708,6 +710,7 @@ mod tests {
         async fn list_completed_agent_tasks(
             &self,
             _: &str,
+            _: Option<&str>,
             _: u32,
         ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
             Ok(vec![])

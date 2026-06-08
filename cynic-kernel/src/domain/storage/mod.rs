@@ -278,6 +278,7 @@ pub trait TaskStorage: Send + Sync {
     async fn list_pending_agent_tasks(
         &self,
         kind: &str,
+        domain: Option<&str>,
         limit: u32,
     ) -> Result<Vec<AgentTask>, StorageError>;
     // WHY: matches database schema
@@ -285,6 +286,7 @@ pub trait TaskStorage: Send + Sync {
     async fn list_completed_agent_tasks(
         &self,
         kind: &str,
+        domain: Option<&str>,
         limit: u32,
     ) -> Result<Vec<AgentTask>, StorageError>;
     // WHY: matches database schema

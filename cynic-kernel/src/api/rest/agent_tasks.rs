@@ -78,12 +78,16 @@ pub async fn dispatch_task_handler(
     })))
 }
 
-/// GET /agent-tasks?kind=hermes&limit=10 — poll pending tasks.
+/// GET /agent-tasks?kind=hermes&domain=organ-anvil&limit=10 — poll pending tasks.
 pub async fn list_tasks_handler(
     State(state): State<Arc<AppState>>,
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     let kind = params.get("kind").map(|s| s.as_str()).unwrap_or("hermes");
+    let domain = params
+        .get("domain")
+        .map(|s| s.as_str())
+        .filter(|s| !s.is_empty());
     let limit: u32 = params
         .get("limit")
         .and_then(|s| s.parse().ok())
@@ -91,7 +95,7 @@ pub async fn list_tasks_handler(
 
     let tasks = state
         .storage
-        .list_pending_agent_tasks(kind, limit)
+        .list_pending_agent_tasks(kind, domain, limit)
         .await
         .map_err(|e| {
             tracing::warn!(error = %e, "list_tasks failed");
@@ -115,6 +119,10 @@ pub async fn list_completed_tasks_handler(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     let kind = params.get("kind").map(|s| s.as_str()).unwrap_or("hermes");
+    let domain = params
+        .get("domain")
+        .map(|s| s.as_str())
+        .filter(|s| !s.is_empty());
     let limit: u32 = params
         .get("limit")
         .and_then(|s| s.parse().ok())
@@ -122,7 +130,7 @@ pub async fn list_completed_tasks_handler(
 
     let tasks = state
         .storage
-        .list_completed_agent_tasks(kind, limit)
+        .list_completed_agent_tasks(kind, domain, limit)
         .await
         .map_err(|e| {
             tracing::warn!(error = %e, "list_completed_tasks failed");
