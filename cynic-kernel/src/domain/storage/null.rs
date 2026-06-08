@@ -312,6 +312,7 @@ impl TaskStorage for NullStorage {
     async fn list_pending_agent_tasks(
         &self,
         _kind: &str,
+        _domain: Option<&str>,
         _limit: u32,
     ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
         Ok(vec![])
@@ -319,6 +320,7 @@ impl TaskStorage for NullStorage {
     async fn list_completed_agent_tasks(
         &self,
         _kind: &str,
+        _domain: Option<&str>,
         _limit: u32,
     ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
         Ok(vec![])

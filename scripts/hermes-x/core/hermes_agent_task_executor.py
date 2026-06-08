@@ -44,6 +44,7 @@ import time
 import requests
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from hermes_paths import HERMES_X_DIR
 
@@ -53,11 +54,19 @@ ORGAN_DIR = ""
 POLL_INTERVAL = 30.0
 KERNEL_ADDR = ""
 KERNEL_API_KEY = ""
+DOMAIN_ALLOWLIST: set[str] = set()
+KIND_ALLOWLIST: set[str] = set()
+DOMAIN_DENYLIST: set[str] = set()
+POLL_LIMIT = 1
 
 
 def load_env():
-    global ORGAN_DIR, KERNEL_ADDR, KERNEL_API_KEY
+    global ORGAN_DIR, KERNEL_ADDR, KERNEL_API_KEY, DOMAIN_ALLOWLIST, KIND_ALLOWLIST, DOMAIN_DENYLIST, POLL_LIMIT
     ORGAN_DIR = os.environ.get("X_ORGAN_DIR", str(HERMES_X_DIR))
+    DOMAIN_ALLOWLIST = _csv_env("HERMES_AGENT_DOMAIN_ALLOW")
+    KIND_ALLOWLIST = _csv_env("HERMES_AGENT_KIND_ALLOW")
+    DOMAIN_DENYLIST = _csv_env("HERMES_AGENT_DOMAIN_DENY")
+    POLL_LIMIT = _int_env("HERMES_AGENT_POLL_LIMIT", 1)
 
     # CYNIC_REST_ADDR is required and must be injected by systemd EnvironmentFile
     # Fail fast if missing (don't silently use a placeholder string like "<TAILSCALE_CORE>:3030")
@@ -75,6 +84,36 @@ def load_env():
     else:
         KERNEL_ADDR = f"http://{raw_addr}"
     KERNEL_API_KEY = os.environ.get("CYNIC_API_KEY", "")
+
+
+def _csv_env(name: str) -> set[str]:
+    raw = os.environ.get(name, "")
+    return {part.strip() for part in raw.split(",") if part.strip()}
+
+
+def _int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        logger.warning("invalid %s=%r, using default=%d", name, raw, default)
+        return default
+
+
+def task_matches_runtime(task: dict) -> bool:
+    """Return whether this executor instance is allowed to consume the task."""
+    normalize_task_content(task)
+    domain = str(task.get("domain", "")).strip()
+    kind = str(task.get("kind", "")).strip()
+    if domain in DOMAIN_DENYLIST:
+        return False
+    if DOMAIN_ALLOWLIST and domain not in DOMAIN_ALLOWLIST:
+        return False
+    if KIND_ALLOWLIST and kind not in KIND_ALLOWLIST:
+        return False
+    return True
 
 
 def kernel_headers() -> dict[str, str]:
@@ -247,33 +286,50 @@ def poll_tasks(organ_dir: str, limit: int = 1) -> list[dict]:
 
     Falls back to local FS if kernel unavailable (FS is for backward compat).
     """
-    # Try kernel API first
+    effective_limit = max(1, limit, POLL_LIMIT)
+    # Try kernel API first. Domain-scoped runtimes poll each allowed domain separately
+    # so old tasks for another organ cannot starve their queue.
     if KERNEL_ADDR and KERNEL_API_KEY:
         try:
             headers = {"Authorization": f"Bearer {KERNEL_API_KEY}"}
-            url = f"{KERNEL_ADDR}/agent-tasks?status=pending&limit={limit}"
-            response = requests.get(url, headers=headers, timeout=5)
+            query_domains: list[str | None] = sorted(DOMAIN_ALLOWLIST) if DOMAIN_ALLOWLIST else [None]
+            tasks = []
+            seen_ids = set()
+            saw_kernel_tasks = False
 
-            if response.status_code == 200:
+            for domain in query_domains:
+                params = {"status": "pending", "limit": str(effective_limit)}
+                if domain:
+                    params["domain"] = domain
+                response = requests.get(f"{KERNEL_ADDR}/agent-tasks", headers=headers, params=params, timeout=5)
+                if response.status_code != 200:
+                    continue
+
                 kernel_tasks = response.json()
-                # Convert kernel format to executor format
-                tasks = []
                 if isinstance(kernel_tasks, dict) and "tasks" in kernel_tasks:
                     kernel_tasks = kernel_tasks["tasks"]
                 elif isinstance(kernel_tasks, int):
-                    # API returned count, not tasks
                     logger.debug("kernel /agent-tasks returned count=%d, polling fallback", kernel_tasks)
                     kernel_tasks = []
 
+                saw_kernel_tasks = saw_kernel_tasks or bool(kernel_tasks)
                 for t in kernel_tasks:
-                    if isinstance(t, dict):
-                        t["_source"] = "kernel"  # Mark source for later
-                        t["id"] = t.get("agent_id", t.get("id", ""))
-                        tasks.append(t)
+                    if not isinstance(t, dict):
+                        continue
+                    t["_source"] = "kernel"
+                    # Keep the kernel record id for completion; agent_id is only metadata.
+                    t["id"] = t.get("id", t.get("agent_id", ""))
+                    task_id = str(t.get("id", ""))
+                    if task_id in seen_ids or not task_matches_runtime(t):
+                        continue
+                    seen_ids.add(task_id)
+                    tasks.append(t)
 
-                if tasks:
-                    logger.info("polled kernel: found %d pending task(s)", len(tasks))
-                    return tasks
+            if tasks:
+                logger.info("polled kernel: found %d pending task(s)", len(tasks))
+                return tasks[:limit]
+            if saw_kernel_tasks and (DOMAIN_ALLOWLIST or KIND_ALLOWLIST or DOMAIN_DENYLIST):
+                logger.debug("kernel tasks present, none matched this executor filter")
         except requests.RequestException as e:
             logger.warning("kernel /agent-tasks fetch failed: %s, falling back to local FS", e)
 
@@ -285,7 +341,7 @@ def poll_tasks(organ_dir: str, limit: int = 1) -> list[dict]:
 
     tasks = []
     try:
-        for task_file in sorted(tasks_dir.glob("*.json"))[:limit]:
+        for task_file in sorted(tasks_dir.glob("*.json"))[:effective_limit]:
             lock_file = tasks_dir / f".{task_file.stem}.lock"
 
             # Skip if already claimed
@@ -350,6 +406,47 @@ def claim_task(task: dict, organ_dir: str) -> bool:
         except OSError as e:
             logger.warning("Failed to claim task %s: %s", task_id, e)
             return False
+
+
+def complete_kernel_task(task: dict, result: str | None, error: str | None) -> bool:
+    """Report kernel task result so it leaves the pending queue."""
+    if task.get("_source") != "kernel":
+        return True
+    if not KERNEL_ADDR or not KERNEL_API_KEY:
+        logger.warning("cannot complete kernel task: kernel not configured")
+        return False
+
+    task_id = str(task.get("id", ""))
+    if not task_id:
+        logger.warning("cannot complete kernel task without id")
+        return False
+
+    payload: dict[str, str] = {}
+    if result is not None:
+        payload["result"] = result
+    if error is not None:
+        payload["error"] = error
+
+    try:
+        response = requests.post(
+            f"{KERNEL_ADDR}/agent-tasks/{quote(task_id, safe='')}/result",
+            headers=kernel_headers(),
+            json=payload,
+            timeout=5,
+        )
+        if response.status_code >= 400:
+            logger.warning(
+                "kernel task completion failed for %s: HTTP %d %s",
+                task_id,
+                response.status_code,
+                response.text[:200],
+            )
+            return False
+        logger.info("reported kernel task result: %s", task_id)
+        return True
+    except requests.RequestException as e:
+        logger.warning("kernel task completion unreachable for %s: %s", task_id, e)
+        return False
 
 
 def release_task(task: dict, organ_dir: str, success: bool = True):
@@ -721,6 +818,7 @@ def run(organ_dir: str, interval: float):
             if coord_error:
                 logger.error("task %s blocked by repo coordination: %s", task_id, coord_error)
                 release_task(task, organ_dir, success=False)
+                coord_release(coord_agent_id)
                 tasks_failed += 1
                 continue
 
@@ -730,10 +828,12 @@ def run(organ_dir: str, interval: float):
 
                 if error:
                     logger.error("task %s failed: %s", task_id, error)
+                    complete_kernel_task(task, result=None, error=error)
                     release_task(task, organ_dir, success=False)
                     tasks_failed += 1
                 else:
                     logger.info("task %s completed successfully", task_id)
+                    complete_kernel_task(task, result=result, error=None)
                     release_task(task, organ_dir, success=True)
                     tasks_executed += 1
             finally:

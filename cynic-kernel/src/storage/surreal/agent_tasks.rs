@@ -76,11 +76,16 @@ pub(super) async fn store_agent_task(
 pub(super) async fn list_pending_agent_tasks(
     storage: &SurrealHttpStorage,
     kind: &str,
+    domain: Option<&str>,
     limit: u32,
 ) -> Result<Vec<AgentTask>, StorageError> {
     let escaped_kind = crate::storage::escape_surreal(kind);
+    let domain_filter = domain
+        .map(crate::storage::escape_surreal)
+        .map(|domain| format!(" AND domain = '{domain}'"))
+        .unwrap_or_default();
     let query = format!(
-        "SELECT * FROM agent_tasks WHERE kind = '{escaped_kind}' AND status = 'pending' ORDER BY created_at ASC LIMIT {limit};"
+        "SELECT * FROM agent_tasks WHERE kind = '{escaped_kind}'{domain_filter} AND status = 'pending' ORDER BY created_at ASC LIMIT {limit};"
     );
     let rows = storage.query_one(&query).await?;
     Ok(rows.iter().filter_map(row_to_agent_task).collect())
@@ -90,11 +95,16 @@ pub(super) async fn list_pending_agent_tasks(
 pub(super) async fn list_completed_agent_tasks(
     storage: &SurrealHttpStorage,
     kind: &str,
+    domain: Option<&str>,
     limit: u32,
 ) -> Result<Vec<AgentTask>, StorageError> {
     let escaped_kind = crate::storage::escape_surreal(kind);
+    let domain_filter = domain
+        .map(crate::storage::escape_surreal)
+        .map(|domain| format!(" AND domain = '{domain}'"))
+        .unwrap_or_default();
     let query = format!(
-        "SELECT * FROM agent_tasks WHERE kind = '{escaped_kind}' AND status = 'completed' ORDER BY completed_at DESC LIMIT {limit};"
+        "SELECT * FROM agent_tasks WHERE kind = '{escaped_kind}'{domain_filter} AND status = 'completed' ORDER BY completed_at DESC LIMIT {limit};"
     );
     let rows = storage.query_one(&query).await?;
     Ok(rows.iter().filter_map(row_to_agent_task).collect())

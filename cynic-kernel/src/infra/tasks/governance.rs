@@ -39,7 +39,7 @@ pub fn spawn_governance_queue(
 
 async fn process_pending_submissions(storage: &Arc<dyn StoragePort>) -> Result<(), String> {
     let pending = storage
-        .list_pending_agent_tasks("submission", 1)
+        .list_pending_agent_tasks("submission", None, 1)
         .await
         .map_err(|e| format!("list_pending_submissions failed: {e}"))?;
 

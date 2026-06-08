@@ -420,8 +420,11 @@ impl CynicMcpProxy {
         self.rate_limit.check_other()?;
         let p = params.0;
         let limit = p.limit.unwrap_or(10).to_string();
-        self.get_query("/agent-tasks", &[("kind", p.kind), ("limit", limit)])
-            .await
+        let mut query = vec![("kind", p.kind), ("limit", limit)];
+        if let Some(domain) = p.domain {
+            query.push(("domain", domain));
+        }
+        self.get_query("/agent-tasks", &query).await
     }
 
     #[tool(

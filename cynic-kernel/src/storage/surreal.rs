@@ -329,18 +329,20 @@ impl TaskStorage for SurrealHttpStorage {
     async fn list_pending_agent_tasks(
         &self,
         kind: &str,
+        domain: Option<&str>,
         limit: u32,
     ) -> Result<Vec<AgentTask>, StorageError> {
-        agent_tasks::list_pending_agent_tasks(self, kind, limit).await
+        agent_tasks::list_pending_agent_tasks(self, kind, domain, limit).await
     }
 
     #[tracing::instrument(skip(self), err)]
     async fn list_completed_agent_tasks(
         &self,
         kind: &str,
+        domain: Option<&str>,
         limit: u32,
     ) -> Result<Vec<AgentTask>, StorageError> {
-        agent_tasks::list_completed_agent_tasks(self, kind, limit).await
+        agent_tasks::list_completed_agent_tasks(self, kind, domain, limit).await
     }
 
     #[tracing::instrument(skip(self), err)]
