@@ -338,8 +338,8 @@ Prefer publishing:
 ## MVP implementation sequence in CYNIC
 
 1. Canonical document and scope model.
-2. Add typed Talaria event helpers in CYNIC or a Python shared module.
-3. Update `talaria_poh_bridge.py` to emit raw `talaria.poh.user` observations rather than direct human verdict assumptions from B&C `/api/verify`.
+2. Add typed Talaria event helpers in CYNIC or a Python shared module. Implemented in `cynic-python/sensors/talaria_events.py`.
+3. Update `talaria_poh_bridge.py` to emit raw `talaria.poh.user` observations rather than direct human verdict assumptions from B&C `/api/verify`. Implemented in `cynic-python/sensors/talaria_poh_bridge.py`; it also maps chess ecosystem events to `talaria.chess.signal`.
 4. Update storage so `/observe` persists `value`, `confidence`, `consumer`, `action`, `depends_on`, `maturity`.
 5. Add public-safe projection function for observatory UI/API.
 6. Add MetaDAO proposal event ingestion once proposal source is chosen.
