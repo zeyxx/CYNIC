@@ -1,0 +1,60 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-06-09T11:27:00Z",
+  "datasets": [
+    {
+      "id": "telegram_raw_messages",
+      "tier": "L0",
+      "path": "~/.cynic/organs/telegram/messages.db",
+      "format": "SQLite",
+      "encrypted": false,
+      "description": "Raw Telegram message stream captured by the Telegram listener organ.",
+      "sovereignty_mandate": "Raw audit trail. Kept in secure local host storage."
+    },
+    {
+      "id": "telegram_signals_v1",
+      "tier": "L1",
+      "path": "cynic-python/datasets/telegram/signals_v1.jsonl",
+      "format": "JSONL",
+      "encrypted": false,
+      "description": "LLM-extracted curation signals from raw Telegram messages.",
+      "sovereignty_mandate": "Public Git compatibility. No raw secrets or credentials."
+    },
+    {
+      "id": "telegram_signals_flat_v2",
+      "tier": "L1",
+      "path": "cynic-python/datasets/telegram/signals_flat_v2.jsonl",
+      "format": "JSONL",
+      "encrypted": false,
+      "description": "Flattened signals dataset optimized for K-Means clustering and token scoring.",
+      "sovereignty_mandate": "Public Git compatibility."
+    },
+    {
+      "id": "x_curated_signals",
+      "tier": "L1",
+      "path": "cynic-python/curation/D{1-6}_curated.jsonl",
+      "format": "JSONL",
+      "encrypted": false,
+      "description": "Curated Twitter signals grouped by domains (D1-D6) extracted by Organ-X.",
+      "sovereignty_mandate": "Public Git compatibility. Private derivatives must be encrypted."
+    },
+    {
+      "id": "kenosis_analysis_results",
+      "tier": "L1",
+      "path": "cynic-python/kenosis_analysis_results.jsonl",
+      "format": "JSONL",
+      "encrypted": false,
+      "description": "Axiomatic alignment analysis results and anomaly detections.",
+      "sovereignty_mandate": "Axiomatic validation audit."
+    },
+    {
+      "id": "training_instruct_v1",
+      "tier": "L2",
+      "path": "cynic-python/datasets/training/instruct_v1.jsonl",
+      "format": "JSONL",
+      "encrypted": true,
+      "description": "Human-verified DPO/RLHF instruction-tuning dataset containing multi-axiom scoring reasoning chains and financial payloads.",
+      "sovereignty_mandate": "Encrypt the money. Must be symmetrically encrypted before public push."
+    }
+  ]
+}
