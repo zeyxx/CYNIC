@@ -50,6 +50,10 @@ The data must survive the system's failures.
 - **Security:** `password_hash` for identities.
 - **Mandate:** Guarantee the stability and sovereign integrity of the storage.
 
+## 7. FINANCIAL SOVEREIGNTY & ENCRYPTION
+Data relating to trading volumes, balances, proprietary signals, and economic models must be secured.
+- **Mandate:** "Encrypt the money." No raw financial indicators, client payloads, or trading datasets may be published in plaintext on public branches. All sovereign data must be encrypted before persistence or transfer outside the trusted environment.
+
 ## 8. FORMAT SOVEREIGNTY (JSON IS KING)
 In the CYNIC ecosystem, JSON is not just a format; it is the language of the realm.
 - **Inter-Agent Communication:** All reports intended for machine consumption (Handoffs, Audits, Task results) MUST be delivered in JSON.
@@ -91,6 +95,12 @@ SYSTÈME DATA INTELLIGENT
 ├── 6. FIABILITÉ (SURVIE SYSTÈME)
 │   ├── Garantir la stabilité (ACID, Transactions, Sécurité)
 │
-└── 7. RISQUES & ANTI-PATTERNS
+├── 7. SOUVERAINETÉ FINANCIÈRE & CHIFFREMENT
+│   ├── Protéger les actifs et modèles ("Encrypt the money")
+│
+├── 8. SOUVERAINETÉ DES FORMATS
+│   ├── Communication inter-agents (JSON is King)
+│
+└── 9. RISQUES & ANTI-PATTERNS
     ├── Éviter l'effondrement (Cascades, Cross-Joins, NaN)
 ```
