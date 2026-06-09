@@ -128,6 +128,19 @@
         "cynic-kernel"
       ],
       "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-jupyter",
+      "instance": "organ-jupyter-hermes-agent",
+      "role": "notebook_surface_manager",
+      "description": "Jupyter Notebook / Data Science environment manager for exploratory coding and data analysis within the CYNIC ecosystem.",
+      "scope": "local+jupyterlab",
+      "cron": "every 30min",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
     }
   ]
 }
