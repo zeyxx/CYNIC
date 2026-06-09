@@ -101,9 +101,9 @@ check: gate-0 gate-1 gate-2
 	@echo ""
 	@echo "  ✓ All gates passed"
 
-# Backward compatibility: `make gate` = all 3 levels + markers
 .PHONY: gate
 gate: check
+	@touch .gate-passed
 	@echo ""
 	@echo "══════════════════════════════════════════"
 	@echo "  ✓ All gates passed — markers written"
