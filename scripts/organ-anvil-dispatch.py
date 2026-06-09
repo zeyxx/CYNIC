@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Ensure the scripts directory is in sys.path
@@ -14,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hermes_dispatch import HermesDispatcher
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROPOSAL_STALE_AFTER = timedelta(minutes=45)
 
 
 def repo_health() -> dict | None:
@@ -32,8 +34,26 @@ def repo_health() -> dict | None:
         return None
 
 
+def _task_created_at(task: dict) -> datetime | None:
+    created_at = task.get("created_at")
+    if not created_at:
+        return None
+    try:
+        return datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _is_fresh_proposal(task: dict) -> bool:
+    created_at = _task_created_at(task)
+    if created_at is None:
+        return False
+    return datetime.now(timezone.utc) - created_at <= PROPOSAL_STALE_AFTER
+
+
 def existing_proposals(dispatcher: HermesDispatcher) -> int:
-    return len(dispatcher.fetch_tasks("/agent-tasks?kind=organ-anvil-proposal&domain=repo-lifecycle&limit=50"))
+    tasks = dispatcher.fetch_tasks("/agent-tasks?kind=organ-anvil-proposal&domain=repo-lifecycle&limit=50")
+    return sum(1 for task in tasks if _is_fresh_proposal(task))
 
 
 def approved_proposals(dispatcher: HermesDispatcher) -> list[dict]:
@@ -120,9 +140,17 @@ def build_remediation_task(dispatcher: HermesDispatcher, proposal_task: dict) ->
 
 
 def dispatch_proposal_task(dispatcher: HermesDispatcher) -> bool:
-    if existing_proposals(dispatcher) > 0:
-        print("organ-anvil proposal dispatch skipped: proposal already pending", file=sys.stderr)
+    pending = dispatcher.fetch_tasks("/agent-tasks?kind=organ-anvil-proposal&domain=repo-lifecycle&limit=50")
+    fresh_pending = [task for task in pending if _is_fresh_proposal(task)]
+    stale_pending = [task for task in pending if task not in fresh_pending]
+    if fresh_pending:
+        print("organ-anvil proposal dispatch skipped: fresh proposal already pending", file=sys.stderr)
         return False
+    if stale_pending:
+        print(
+            f"organ-anvil proposal dispatch refreshing {len(stale_pending)} stale proposal(s)",
+            file=sys.stderr,
+        )
 
     health = repo_health()
     if not health:

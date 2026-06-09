@@ -40,6 +40,7 @@ pub struct AuthVerifyResponse {
 #[derive(Debug, Clone)]
 pub(super) struct AuthSession {
     pub role: Role,
+    // WHY: address is parsed from JWT but not currently used in auth middleware checks
     #[allow(dead_code)]
     pub address: String,
     pub expires_at: u64,
@@ -52,11 +53,7 @@ pub(super) fn auth_sessions() -> &'static RwLock<HashMap<String, AuthSession>> {
 }
 
 fn build_auth_message(domain: &str, statement: &str, nonce: &str) -> Vec<u8> {
-    format!(
-        "CYNIC AUTH\ndomain:{}\nnonce:{}\nstatement:{}",
-        domain, nonce, statement
-    )
-    .into_bytes()
+    format!("CYNIC AUTH\ndomain:{domain}\nnonce:{nonce}\nstatement:{statement}").into_bytes()
 }
 
 /// Generate a unique high-entropy nonce for wallet sign-in.

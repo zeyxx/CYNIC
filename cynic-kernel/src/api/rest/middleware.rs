@@ -54,15 +54,13 @@ pub async fn auth_middleware(
         let now = chrono::Utc::now().timestamp().max(0) as u64;
         let session = auth_sessions()
             .read()
-            .ok()
+            .ok() // WHY: ignore lock poisoning
             .and_then(|sessions| sessions.get(&session_id).cloned());
 
-        if let Some(session) = session {
-            if session.expires_at >= now {
-                let mut request = request;
-                request.extensions_mut().insert(session.role);
-                return next.run(request).await;
-            }
+        if let Some(session) = session.filter(|s| s.expires_at >= now) {
+            let mut request = request;
+            request.extensions_mut().insert(session.role);
+            return next.run(request).await;
         }
 
         return (
