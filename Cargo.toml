@@ -1,9 +1,9 @@
 [workspace]
 members = [
-    "cynic-kernel",
-    "cynic-node",
-    "cynic-askesis",
-    "cynic-mcp",
+    "crates/cynic-kernel",
+    "crates/cynic-node",
+    "crates/cynic-askesis",
+    "crates/cynic-mcp",
 ]
 exclude = [
     "cynic-python/lab/quantum-ecc/ecdsafail-challenge",

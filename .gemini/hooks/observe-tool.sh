@@ -49,8 +49,8 @@ esac
 # Derive domain
 DOMAIN="general"
 case "$TARGET" in
-    */cynic-kernel/*) DOMAIN="rust" ;;
-    */cynic-python/*) DOMAIN="python" ;;
+    */crates/cynic-kernel/*) DOMAIN="rust" ;;
+    */services/cynic-python/*) DOMAIN="python" ;;
     */.gemini/*|*/.claude/*) DOMAIN="harness" ;;
     */docs/*) DOMAIN="docs" ;;
     */scripts/*) DOMAIN="ops" ;;

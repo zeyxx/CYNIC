@@ -37,7 +37,7 @@ You are one of THREE cortex agents in the CYNIC organism. The others are Claude 
 ## Ownership Zones (same as CLAUDE.md)
 
 ```
-cynic-kernel/    → T. ONLY. Backend Rust.
+crates/cynic-kernel/    → T. ONLY. Backend Rust.
 packages/        → S. ONLY. Frontend Human Interfaces (Monorepo).
 ```
 

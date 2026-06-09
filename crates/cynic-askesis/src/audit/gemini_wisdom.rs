@@ -14,7 +14,8 @@ use crate::reflection::{Reflection, Verdict};
 ///
 /// **Load-bearing for FOGC** (spec §5): inverting axioms requires
 /// changing this embedded text, which is committed to git under CODEOWNERS.
-const CYNIC_WISDOM_SKILL: &str = include_str!("../../../.agents/skills/cynic-wisdom/SKILL.md");
+const CYNIC_WISDOM_SKILL: &str =
+    include_str!("../../../../.cynic/agents/skills/cynic-wisdom/SKILL.md");
 
 const DEFAULT_MODEL: &str = "";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);

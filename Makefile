@@ -118,11 +118,11 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 	@echo ""
 	@echo "▶ Checking grep-enforceable rules..."
 	@set +e; FAIL=0; \
-	K1=$$(grep -rn '#\[cfg(' cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]' | grep -v '#\[cfg_attr(test'); \
+	K1=$$(grep -rn '#\[cfg(' crates/cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]' | grep -v '#\[cfg_attr(test'); \
 	if [ -n "$$K1" ]; then echo "FAIL K1: #[cfg] in domain/ (domain purity):"; echo "$$K1"; FAIL=1; fi; \
-	R1=$$(grep -rn '/home/\|/Users/' cynic-kernel/src/ scripts/ .claude/hooks/ --include='*.rs' --include='*.sh' --include='*.toml' | grep -v '//' | grep -v 'target/'); \
+	R1=$$(grep -rn '/home/\|/Users/' crates/cynic-kernel/src/ scripts/ .claude/hooks/ --include='*.rs' --include='*.sh' --include='*.toml' | grep -v '//' | grep -v 'target/'); \
 	if [ -n "$$R1" ]; then echo "FAIL R1: hardcoded absolute paths:"; echo "$$R1"; FAIL=1; fi; \
-	R2=$$(grep -rn '\.ok()' cynic-kernel/src/ --include='*.rs' | grep -v '//' | grep -v '/target/' | grep -v '#\[cfg(test)\]' | grep -v 'mod tests' \
+	R2=$$(grep -rn '\.ok()' crates/cynic-kernel/src/ --include='*.rs' | grep -v '//' | grep -v '/target/' | grep -v '#\[cfg(test)\]' | grep -v 'mod tests' \
 		| grep -v 'parse()\.ok()' | grep -v 'env::var.*\.ok()' | grep -v 'inspect_err' \
 		| grep -v 'to_str()\.ok()' | grep -v 'from_utf8.*\.ok()' | grep -v 'filter_map.*\.ok()' \
 		| grep -v 'create_dir_all.*\.ok()' | grep -v 'remove_file.*\.ok()' \
@@ -137,18 +137,18 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 			echo "FAIL R2: .ok() without adjacent logging: $$okline"; FAIL=1; \
 		done <<< "$$R2"; \
 	fi; \
-	K2=$$(grep -rn 'reqwest' cynic-kernel/src/domain/ cynic-kernel/src/api/ cynic-kernel/src/main.rs --include='*.rs' | grep -v '//' | grep -v 'api/mcp/proxy.rs'); \
+	K2=$$(grep -rn 'reqwest' crates/cynic-kernel/src/domain/ crates/cynic-kernel/src/api/ crates/cynic-kernel/src/main.rs --include='*.rs' | grep -v '//' | grep -v 'api/mcp/proxy.rs'); \
 	if [ -n "$$K2" ]; then echo "FAIL K2: reqwest outside backends/storage:"; echo "$$K2"; FAIL=1; fi; \
 	PIPELINE_FNS="format_crystal_context compute_qscore trimmed_mean"; \
 	for FN in $$PIPELINE_FNS; do \
-		HITS=$$(grep -rn "fn $$FN" cynic-kernel/src/api/ --include='*.rs' | grep -v '//'); \
+		HITS=$$(grep -rn "fn $$FN" crates/cynic-kernel/src/api/ --include='*.rs' | grep -v '//'); \
 		if [ -n "$$HITS" ]; then echo "FAIL K3/K11: pipeline function '$$FN' reimplemented in api/:"; echo "$$HITS"; FAIL=1; fi; \
 	done; \
-	K4=$$(grep -rn 'trait \w*Port' cynic-kernel/src/domain/ --include='*.rs' | sed 's/.*trait //' | sed 's/<.*//' | sed 's/ .*//' | sort | uniq -d); \
+	K4=$$(grep -rn 'trait \w*Port' crates/cynic-kernel/src/domain/ --include='*.rs' | sed 's/.*trait //' | sed 's/<.*//' | sed 's/ .*//' | sort | uniq -d); \
 	if [ -n "$$K4" ]; then echo "FAIL K4: duplicate trait names in domain/:"; echo "$$K4"; FAIL=1; fi; \
-	K5=$$(grep -rn 'serde_json::Value\|reqwest::\|surrealdb::\|axum::' cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]'); \
+	K5=$$(grep -rn 'serde_json::Value\|reqwest::\|surrealdb::\|axum::' crates/cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]'); \
 	if [ -n "$$K5" ]; then echo "FAIL K5: infra type leakage in domain/:"; echo "$$K5"; FAIL=1; fi; \
-	K12=$$(grep -rn '#\[allow(' cynic-kernel/src/ --include='*.rs' | grep -v '/target/' | grep -v '#\[cfg(test)\]' | grep -v '#\[cfg_attr(test'); \
+	K12=$$(grep -rn '#\[allow(' crates/cynic-kernel/src/ --include='*.rs' | grep -v '/target/' | grep -v '#\[cfg(test)\]' | grep -v '#\[cfg_attr(test'); \
 	if [ -n "$$K12" ]; then \
 		while IFS= read -r allowline; do \
 			FILE=$$(echo "$$allowline" | cut -d: -f1); LINENUM=$$(echo "$$allowline" | cut -d: -f2); \
@@ -195,7 +195,7 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	@echo ""
 	@echo "▶ Checking for drift..."
 	@set +e; FAIL=0; \
-	KERNEL_VERSION=$$(grep '^version' $(PROJECT_DIR)/cynic-kernel/Cargo.toml | head -1 | sed 's/.*"\([^"]*\)".*/\1/'); \
+	KERNEL_VERSION=$$(grep '^version' $(PROJECT_DIR)/crates/cynic-kernel/Cargo.toml | head -1 | sed 's/.*"\([^"]*\)".*/\1/'); \
 	CHANGELOG_HAS_VERSION=$$(grep -c "^\## \[$$KERNEL_VERSION\]" $(PROJECT_DIR)/CHANGELOG.md 2>/dev/null || true); \
 	VERSION_MD_HAS_VERSION=$$(grep -c "$$KERNEL_VERSION" $(PROJECT_DIR)/VERSION.md 2>/dev/null || true); \
 	if [ "$$CHANGELOG_HAS_VERSION" -eq 0 ]; then \
@@ -221,7 +221,7 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	else \
 		echo "SKIP: backends.toml not found at $$BACKENDS"; \
 	fi; \
-	DORMANT=$$(grep -nE '^\s*//\s*pub mod' $(PROJECT_DIR)/cynic-kernel/src/domain/mod.rs | grep -v 'DORMANT:'); \
+	DORMANT=$$(grep -nE '^\s*//\s*pub mod' $(PROJECT_DIR)/crates/cynic-kernel/src/domain/mod.rs | grep -v 'DORMANT:'); \
 	if [ -n "$$DORMANT" ]; then echo "FAIL Drift: commented module without DORMANT tag:"; echo "$$DORMANT"; FAIL=1; fi; \
 	WORKFLOW_SKILLS=$$(sed -n '/^## Workflow Triggers/,/^## /p' $(PROJECT_DIR)/.claude/rules/workflow.md | grep -oP '(?<=`/)[a-z][-a-z0-9:]*(?=`)' | sort -u); \
 	for SKILL in $$WORKFLOW_SKILLS; do \
@@ -244,16 +244,16 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			echo "WARN Drift: hook '$$HOOK_BASE' on disk but not wired in settings.json or settings.local.json"; FAIL=1; \
 		fi; \
 	done; \
-	STORES=$$(grep -oP 'async fn \Kstore_\w+' $(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs | sort -u); \
+	STORES=$$(grep -oP 'async fn \Kstore_\w+' $(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs | sort -u); \
 	for STORE in $$STORES; do \
 		ENTITY=$$(echo "$$STORE" | sed 's/^store_//'); \
 		STEM=$$(echo "$$ENTITY" | sed 's/y$$//' | sed 's/ing$$//'); \
 		CORE=$$(echo "$$ENTITY" | sed 's/^.*_//'); \
-		if ! grep -qE "async fn (list_|get_|load_|query_|count_|search_|find_)\w*($$STEM|$$CORE)" $(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs; then \
+		if ! grep -qE "async fn (list_|get_|load_|query_|count_|search_|find_)\w*($$STEM|$$CORE)" $(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs; then \
 			echo "FAIL Rule 33: '$$STORE' has no read path (searched '$$STEM' or '$$CORE')"; FAIL=1; \
 		fi; \
 	done; \
-	ROUTES=$$(grep -oP '\.route\("\K[^"]+' $(PROJECT_DIR)/cynic-kernel/src/api/rest/mod.rs); \
+	ROUTES=$$(grep -oP '\.route\("\K[^"]+' $(PROJECT_DIR)/crates/cynic-kernel/src/api/rest/mod.rs); \
 	for ROUTE in $$ROUTES; do \
 		if ! grep -qF "$$ROUTE" $(PROJECT_DIR)/API.md 2>/dev/null; then \
 			echo "FAIL Drift: route '$$ROUTE' registered in code but missing from API.md"; FAIL=1; \
@@ -269,7 +269,7 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	LIVE_ONLY=$$(comm -13 <(echo "$$REF_DOGS") <(echo "$$LIVE_DOGS")); \
 	if [ -n "$$REF_ONLY" ]; then echo "WARN D4: Dogs in reference.md but not active: $$REF_ONLY"; fi; \
 	if [ -n "$$LIVE_ONLY" ]; then echo "WARN D4: Dogs active but not in reference.md: $$LIVE_ONLY"; fi; \
-	KERN="$(PROJECT_DIR)/cynic-kernel/src"; \
+	KERN="$(PROJECT_DIR)/crates/cynic-kernel/src"; \
 	DISSOLVED=$$(grep -rn "dissolved\|Dissolved" "$$KERN/storage/" "$$KERN/infra/" --include='*.rs' 2>/dev/null | grep -v 'test\|//\|Display\|FromStr\|Serialize\|Deserialize' | grep -i 'dissolved' | wc -l); \
 	if [ "$$DISSOLVED" -eq 0 ]; then echo "FAIL K15: CrystalState::Dissolved defined but never produced"; FAIL=1; fi; \
 	COMPLIANCE_GATES=$$(grep -rn 'compliance.*deny\|compliance.*block\|compliance.*throttle\|compliance.*reject' "$$KERN/" --include='*.rs' 2>/dev/null | grep -v 'test\|//' | wc -l); \
@@ -295,8 +295,8 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			fi; \
 		done; \
 	done; \
-	PORT_METHODS=$$(grep -P '^\s+async fn \w+' $(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs | grep -oP 'fn \K\w+' | sort); \
-	RECON_METHODS=$$(grep -P '^\s+async fn \w+' $(PROJECT_DIR)/cynic-kernel/src/storage/reconnectable.rs | grep -oP 'fn \K\w+' | sort); \
+	PORT_METHODS=$$(grep -P '^\s+async fn \w+' $(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs | grep -oP 'fn \K\w+' | sort); \
+	RECON_METHODS=$$(grep -P '^\s+async fn \w+' $(PROJECT_DIR)/crates/cynic-kernel/src/storage/reconnectable.rs | grep -oP 'fn \K\w+' | sort); \
 	for PM in $$PORT_METHODS; do \
 		if ! echo "$$RECON_METHODS" | grep -qw "$$PM"; then \
 			echo "FAIL K17: StoragePort::$$PM not forwarded in ReconnectableStorage"; FAIL=1; \
@@ -312,7 +312,7 @@ lint-python-tiers: ## P1-P6: Python code lifecycle governance — new/modified f
 	@set +e; FAIL=0; WARN_COUNT=0; \
 	CHANGED=$$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null; git diff --name-only --diff-filter=ACM 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null); \
 	NEW_PY=$$(echo "$$CHANGED" | grep '\.py$$' | sort -u); \
-	ALL_PY=$$(find cynic-python scripts -name '*.py' -type f \
+	ALL_PY=$$(find services/cynic-python scripts -name '*.py' -type f \
 		-not -path '*__pycache__*' -not -path '*/venv/*' \
 		-not -path '*/tests/*' -not -name 'test_*.py' -not -name 'conftest.py' \
 		-not -name '__init__.py' 2>/dev/null); \
@@ -370,7 +370,7 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	echo ""; echo "── lint-rules ──"; \
 	\
 	echo "[K1] Injecting #[cfg(feature)] in domain/..."; \
-	TARGET="$(PROJECT_DIR)/cynic-kernel/src/domain/mod.rs"; \
+	TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/mod.rs"; \
 	cp "$$TARGET" "$$TARGET.gate-bak"; \
 	echo '#[cfg(feature = "gate_test_k1")] mod _phantom;' >> "$$TARGET"; \
 	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
@@ -411,7 +411,7 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	mv "$$TARGET.gate-bak" "$$TARGET"; \
 	\
 	echo "[K12] Injecting #[allow] without WHY:..."; \
-	ALLOW_TARGET="$(PROJECT_DIR)/cynic-kernel/src/main.rs"; \
+	ALLOW_TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/main.rs"; \
 	cp "$$ALLOW_TARGET" "$$ALLOW_TARGET.gate-bak"; \
 	echo '#[allow(unused_variables)]' >> "$$ALLOW_TARGET"; \
 	echo 'fn _k12_test() {}' >> "$$ALLOW_TARGET"; \
@@ -423,7 +423,7 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	mv "$$ALLOW_TARGET.gate-bak" "$$ALLOW_TARGET"; \
 	\
 	echo "[R2] Injecting .ok() without logging..."; \
-	R2_TARGET="$(PROJECT_DIR)/cynic-kernel/src/domain/mod.rs"; \
+	R2_TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/mod.rs"; \
 	cp "$$R2_TARGET" "$$R2_TARGET.gate-bak"; \
 	printf '\n\n\n\n\n\n\n\n\n\nfn _r2_test() { std::fs::File::open("x").ok(); }\n' >> "$$R2_TARGET"; \
 	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
@@ -434,7 +434,7 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	mv "$$R2_TARGET.gate-bak" "$$R2_TARGET"; \
 	\
 	echo "[K3] Injecting pipeline fn in api/..."; \
-	API_TARGET="$(PROJECT_DIR)/cynic-kernel/src/api/rest/mod.rs"; \
+	API_TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/api/rest/mod.rs"; \
 	cp "$$API_TARGET" "$$API_TARGET.gate-bak"; \
 	echo 'fn format_crystal_context() {}' >> "$$API_TARGET"; \
 	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
@@ -445,8 +445,8 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	mv "$$API_TARGET.gate-bak" "$$API_TARGET"; \
 	\
 	echo "[K4] Injecting duplicate Port trait name across domain/..."; \
-	K4_TARGET1="$(PROJECT_DIR)/cynic-kernel/src/domain/mod.rs"; \
-	K4_TARGET2="$(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs"; \
+	K4_TARGET1="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/mod.rs"; \
+	K4_TARGET2="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs"; \
 	cp "$$K4_TARGET1" "$$K4_TARGET1.gate-bak"; \
 	cp "$$K4_TARGET2" "$$K4_TARGET2.gate-bak"; \
 	echo 'trait _K4PhantomPort {}' >> "$$K4_TARGET1"; \
@@ -494,7 +494,7 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	mv "$$REF.gate-bak" "$$REF"; \
 	\
 	echo "[K15] Injecting store_* with no read path in storage/mod.rs..."; \
-	K15_TARGET="$(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs"; \
+	K15_TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs"; \
 	cp "$$K15_TARGET" "$$K15_TARGET.gate-bak"; \
 	printf '\n    async fn store_phantom_k15_gate_probe(&self) -> Result<(), StorageError> { unimplemented!() }\n' >> "$$K15_TARGET"; \
 	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
@@ -505,7 +505,7 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	mv "$$K15_TARGET.gate-bak" "$$K15_TARGET"; \
 	\
 	echo "[K17] Injecting StoragePort method not forwarded in ReconnectableStorage..."; \
-	K17_TARGET="$(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs"; \
+	K17_TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs"; \
 	cp "$$K17_TARGET" "$$K17_TARGET.gate-bak"; \
 	sed -i '/^}$$/i\    async fn _k17_gate_probe(\&self) -> Result<(), StorageError> { Ok(()) }' "$$K17_TARGET"; \
 	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
@@ -539,7 +539,7 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	rm -f "$$R23_STUB"; \
 	\
 	echo "[R23c] Injecting Rust Command::new(\"cargo\") without .env..."; \
-	R23_RS_STUB="$(PROJECT_DIR)/cynic-kernel/src/_r23_gate_probe.rs"; \
+	R23_RS_STUB="$(PROJECT_DIR)/crates/cynic-kernel/src/_r23_gate_probe.rs"; \
 	printf '%s\n' '// R23 gate-test probe' 'fn _r23_probe() {' '    tokio::process::Command::new("cargo").args(["build"]).spawn().ok();' '}' > "$$R23_RS_STUB"; \
 	if $(MAKE) --no-print-directory lint-subprocess-env >/dev/null 2>&1; then \
 		echo "  ✗ R23c gate MISSED Command::new(\"cargo\") without .env — BROKEN"; FAIL=$$((FAIL+1)); \
@@ -675,7 +675,7 @@ ship: commit
 deploy:
 	@$(source_env)
 	@echo "▶ Checking gate-2 marker..."
-	@NEWEST_RUST=$$(find cynic-kernel/src -name '*.rs' -exec stat -c '%Y' {} + 2>/dev/null | sort -rn | head -1); \
+	@NEWEST_RUST=$$(find crates/cynic-kernel/src -name '*.rs' -exec stat -c '%Y' {} + 2>/dev/null | sort -rn | head -1); \
 	GATE2_TIME=$$(stat -c '%Y' .gate-2 2>/dev/null || echo 0); \
 	if [ -n "$$NEWEST_RUST" ] && [ "$$NEWEST_RUST" -gt "$$GATE2_TIME" ]; then \
 		echo "✗ Gate 2 is stale — Rust changed since last full gate."; \
@@ -993,4 +993,4 @@ agents:  ## Show active agents and work claims (requires kernel running)
 calibrate-token-conviction-only: ## Validate conviction-only token baseline (100% accuracy on 28 tokens)
 	@echo ""
 	@echo "▶ Measuring token conviction→verdict mapping accuracy..."
-	@python3 $(PROJECT_DIR)/cynic-python/heuristics/measure_conviction_only.py
+	@python3 $(PROJECT_DIR)/services/cynic-python/heuristics/measure_conviction_only.py

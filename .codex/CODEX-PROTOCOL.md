@@ -90,7 +90,7 @@ Design implication:
 
 ## Stable Expectations
 
-Before touching `cynic-kernel/`:
+Before touching `crates/cynic-kernel/`:
 
 - verify who is active
 - claim the file explicitly
