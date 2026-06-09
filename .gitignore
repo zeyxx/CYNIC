@@ -165,3 +165,8 @@ cynic-python/heuristics/data/calibration_*.md
 cynic-python/heuristics/data/market_snapshots/
 cynic-python/heuristics/data/outcomes/
 
+# Log directory
+logs/
+
+# Ops assets (Teams screenshots)
+assets/teams/
