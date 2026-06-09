@@ -157,9 +157,9 @@ docs/internal/metalex-exhibit-a-*.md
 packages/cynic-ui/.vite/
 
 # Telemetry and temporary files
-divergence_*.csv
-measurement_report_*.md
-*.deb
+/divergence_*.csv
+/measurement_report_*.md
+/*.deb
 cynic-python/heuristics/data/calibration_*.json
 cynic-python/heuristics/data/calibration_*.md
 cynic-python/heuristics/data/market_snapshots/

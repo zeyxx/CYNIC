@@ -1,1 +1,2 @@
 {"timestamp":"2026-06-06T00:00:00Z","action":"perception","details":{"event":"organ-anvil-initialized"},"outcome":"success"}
+{"timestamp":"2026-06-09T08:50:30Z","action":"remediation","details":{"event":"state_sensors_committed","commit":"969f50d","files":["infra/organ-anvil/poh.json","infra/organ-anvil/state.json"],"scope":"organ-anvil","health_score":0.10,"dirty_files_remaining":33,"stashes_remaining":31,"branch":"feat/de-gemini-kernel-2026-06-08"},"outcome":"success"}

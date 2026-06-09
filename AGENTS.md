@@ -269,7 +269,7 @@ Organs are not scripts — they are **sensorial organs** that perceive the repo/
 7. **Adaptation** — Gates intensity scales with organism activity.
 
 
-**See** `docs/organ-anvil.md` for full architecture.
+**See** `docs/organs/organ-anvil.md` for full architecture.
 
 ### Cortex Naming Convention
 
