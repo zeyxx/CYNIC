@@ -146,11 +146,22 @@ cynic-python/heuristics/data/webhook_id.txt
 docs/ydays/
 cynic-python/heuristics/webhook_data/
 
-<<<<<<< HEAD
 # Quantum ECC harness — cloned challenge repo + runtime state
 cynic-python/lab/quantum-ecc/ecdsafail-challenge/
 cynic-python/lab/quantum-ecc/state.json
-=======
+
 # MetaLeX legal signature templates — personal PII, never in public repo
 docs/internal/metalex-exhibit-a-*.md
->>>>>>> origin/main
+
+# Vite dev cache
+packages/cynic-ui/.vite/
+
+# Telemetry and temporary files
+divergence_*.csv
+measurement_report_*.md
+*.deb
+cynic-python/heuristics/data/calibration_*.json
+cynic-python/heuristics/data/calibration_*.md
+cynic-python/heuristics/data/market_snapshots/
+cynic-python/heuristics/data/outcomes/
+

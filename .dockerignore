@@ -1,0 +1,7 @@
+.git
+**/.git
+**/node_modules
+**/dist
+**/.vite
+**/*.log
+packages/cynic-ui/dev_server.log
