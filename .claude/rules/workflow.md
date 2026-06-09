@@ -46,9 +46,9 @@ At session start, the cortex checks `/coord/who`. If another cortex touches the 
 **Rule MC5: Atomic scope.**
 Each branch = 1 coherent feature/fix. Not a catch-all with 26 commits spanning MCP + queues + OrganPort + metabolic fixes. If scope creeps → new branch.
 
-## Pre-Commit Validation (MANDATORY for cynic-kernel/)
+## Pre-Commit Validation (MANDATORY for crates/cynic-kernel/)
 
-**BEFORE ANY `git commit` to cynic-kernel/**, validate in this order:
+**BEFORE ANY `git commit` to crates/cynic-kernel/**, validate in this order:
 
 ```bash
 # Step 1: Fast type-check — catches 80% of errors in seconds, not minutes.
@@ -130,7 +130,7 @@ gh pr create --base main --title "..." --body "..."
 
 **Mechanical (hooks, no LLM action):**
 - `/build` — after kernel code changes (enforced by pre-commit hook)
-- Coord claims — auto-claimed on Edit/Write to cynic-kernel/src/*
+- Coord claims — auto-claimed on Edit/Write to crates/cynic-kernel/src/*
 
 ## Reverse Turing Test (extends Manifesto V.3 + CWO Principle 7)
 
@@ -178,7 +178,7 @@ The kernel is exposed to public internet via Tailscale Funnel. This is not theor
 ## Automatic Enforcement (hooks — no LLM action needed)
 
 These are handled mechanically. Do NOT invoke them manually:
-- **Coord claims:** `protect-files.sh` auto-claims on Edit/Write to `cynic-kernel/src/*`. Blocks on CONFLICT (409). Graceful degradation if kernel down.
+- **Coord claims:** `protect-files.sh` auto-claims on Edit/Write to `crates/cynic-kernel/src/*`. Blocks on CONFLICT (409). Graceful degradation if kernel down.
 - **Coord release:** `session-stop.sh` releases all claims at session end.
 - **Rust formatting:** `rustfmt-rs.sh` auto-formats `.rs` files after Edit/Write.
 - **Tool observation:** `observe-tool.sh` records Edit/Write/Bash/Read/Grep/Glob to `/observe` (async, fire-and-forget).

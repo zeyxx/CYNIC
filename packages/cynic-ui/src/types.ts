@@ -70,6 +70,70 @@ export interface Crystal {
   updated_at: string;
 }
 
+export interface StateDogSnapshot {
+  id: string;
+  circuit: string;
+  success_rate: number;
+  mean_latency_ms: number;
+  failures: number;
+  last_failure_reason?: string | null;
+}
+
+export interface StateSystemSnapshot {
+  status: string;
+  healthy_dogs: number;
+  total_dogs: number;
+  verdict_count: number;
+  total_tokens: number;
+  crystals_forming: number;
+  crystals_crystallized: number;
+}
+
+export interface StateResourceSnapshot {
+  cpu_pct: number;
+  memory_used_gb: number;
+  disk_avail_gb: number;
+  uptime_secs: number;
+}
+
+export interface StateOrganSnapshot {
+  source: string;
+  last_observation: string;
+  total_observations: number;
+  silence_secs: number;
+}
+
+export interface StateOrganAuditSnapshot {
+  organ: string;
+  health: string;
+  health_reason?: string | null;
+  freshness_secs?: number | null;
+  metric_count: number;
+  counter_count: number;
+  gauge_count: number;
+  metrics_hash: string;
+  anomalies: string[];
+}
+
+export interface StateHistoryBlock {
+  seq: number;
+  timestamp: string;
+  prev_hash: string;
+  dogs: StateDogSnapshot[];
+  system: StateSystemSnapshot;
+  resource: StateResourceSnapshot;
+  organs: StateOrganSnapshot[];
+  organ_audits: StateOrganAuditSnapshot[];
+  hash: string;
+}
+
+export interface StateHistoryResponse {
+  blocks: StateHistoryBlock[];
+  count: number;
+  chain_valid: boolean;
+  blocks_valid: boolean;
+}
+
 export const VERDICT_COLORS: Record<VerdictKind, string> = {
   Howl: '#FFD700',
   Wag: '#2196F3',
@@ -102,7 +166,6 @@ export const AXIOM_ICONS: Record<string, string> = {
   sovereignty: '👑',
 };
 
-// Async judge types
 export interface AsyncJudgeResponse {
   request_id: string;
   status: 'pending';
@@ -139,6 +202,31 @@ export interface Observation {
   session_id?: string;
   timestamp?: string;
   value?: any;
+}
+
+export interface PublicObservation {
+  tool: string;
+  target: string;
+  domain: string;
+  status: string;
+  project: string;
+  tags: string[];
+  source_tier: string;
+  created_at: string;
+}
+
+export interface AuthInputResponse {
+  nonce: string;
+  statement: string;
+  domain: string;
+  timestamp: number;
+}
+
+export interface AuthVerifyResponse {
+  role: string;
+  expires_at: number;
+  session_token: string;
+  address: string;
 }
 
 export interface AgentTask {

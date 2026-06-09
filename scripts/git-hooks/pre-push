@@ -88,10 +88,10 @@ if [ -n "$PUSH_LOCAL_SHA" ]; then
     if [ "$PUSH_REMOTE_SHA" = "$ZERO_SHA" ] || [ -z "$PUSH_REMOTE_SHA" ]; then
         # New branch — compare against origin/main
         RUST_FILES=$(git diff --name-only "origin/main...${PUSH_LOCAL_SHA}" 2>/dev/null \
-            | grep -E '(^cynic-kernel/.*\.rs$|^Cargo\.(toml|lock)$)' || true)
+            | grep -E '(^crates/cynic-kernel/.*\.rs$|^Cargo\.(toml|lock)$)' || true)
     else
         RUST_FILES=$(git diff --name-only "${PUSH_REMOTE_SHA}..${PUSH_LOCAL_SHA}" 2>/dev/null \
-            | grep -E '(^cynic-kernel/.*\.rs$|^Cargo\.(toml|lock)$)' || true)
+            | grep -E '(^crates/cynic-kernel/.*\.rs$|^Cargo\.(toml|lock)$)' || true)
     fi
     if [ -z "$RUST_FILES" ]; then
         echo "══════════════════════════════════════════"
@@ -117,7 +117,7 @@ echo ""
 # If the test binary is newer than all source files, skip recompilation.
 # This avoids the KC5 kill chain: cortex already validated → pre-push re-validates.
 # RTK data (2026-04-26): 449 min spent in make check, much of it redundant.
-NEWEST_SRC=$(find cynic-kernel/src -name '*.rs' -exec stat -c '%Y' {} + 2>/dev/null | sort -rn | head -1)
+NEWEST_SRC=$(find crates/cynic-kernel/src -name '*.rs' -exec stat -c '%Y' {} + 2>/dev/null | sort -rn | head -1)
 TEST_BIN=$(find target/debug/deps -name 'cynic_kernel-*' -executable 2>/dev/null | head -1)
 
 if [ -n "$TEST_BIN" ] && [ -n "$NEWEST_SRC" ]; then

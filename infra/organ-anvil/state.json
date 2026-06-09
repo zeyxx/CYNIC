@@ -1,35 +1,59 @@
 {
   "version": "1.1.0",
-  "updated": "2026-06-06T11:08:54Z",
-  "repo_health_score": 0.70,
+  "updated": "2026-06-09T08:53:26Z",
+  "repo_health_score": 0.10,
   "dirty_tree": true,
   "branches_local": [
-    "feat/llm-engineering-roadmap-2026-06-05",
-    "feat/observatory-unification-v2",
-    "feat/poh-vercel-integration"
+    "codex/hermesx-contract-reconsolidation-2026-06-08",
+    "feat/anvil-consolidated-2026-06-07",
+    "feat/observatory-coord-adapters-2026-06-06",
+    "feat/observatory-dataset-curation-2026-06-06",
+    "feat/observatory-kyon-mobile-2026-06-06",
+    "feat/observatory-market-sensors-ui-2026-06-06",
+    "feat/observatory-reports-observations-2026-06-06",
+    "feat/observatory-telegram-pipeline-2026-06-06",
+    "feat/observatory-vercel-kernel-2026-06-06",
+    "feat/organ-audit-anvil-clean-2026-06-06",
+    "feat/poh-vercel-integration",
+    "feat/talaria-runtime-surfaces-2026-06-07",
+    "fix/anvil-agent-task-routing-2026-06-08",
+    "fix/hermes-x-daemon-runtime-2026-06-08",
+    "fix/talaria-poh-bridge-2026-06-08",
+    "fix/telegram-organ-runtime-2026-06-08",
+    "fix/vercel-root-output-2026-06-07",
+    "+ main",
+    "session/2026-06-07-gemini-organ-x-recovery",
+    "+ sync/poh-radio-2026-06-07"
   ],
   "branches_remote": [
-    "  feat/observatory-unification-v2",
-    "  feat/organ-x-audit-2026-06-06",
-    "  main"
+    "  fix/anvil-agent-task-routing-2026-06-08",
+    "  fix/hermes-x-daemon-runtime-2026-06-08",
+    "  fix/talaria-poh-bridge-2026-06-08",
+    "  fix/telegram-organ-runtime-2026-06-08",
+    "  main",
+    "  session/2026-06-07-gemini-organ-x-recovery",
+    "  sync/poh-radio-2026-06-07"
   ],
-  "prs_open": 1,
+  "prs_open": 0,
   "worktrees": [
-    "/home/user/Bureau/CYNIC 8362be6 [feat/organ-x-audit-2026-06-06]"
+    "/home/user/Bureau/CYNIC 0562666 [feat/de-gemini-kernel-2026-06-08]",
+    "/tmp/cynic-anvil-consolidate 4005007 [main]",
+    "/tmp/cynic-gemini-forge 1949607 (detached",
+    "/tmp/cynic-poh-sync c038db1 [sync/poh-radio-2026-06-07]"
   ],
-  "stashes": 0,
+  "stashes": 31,
   "gate_markers": {
     "gate_0": {
       "present": true,
-      "mtime": "2026-06-06T10:02:04Z"
+      "mtime": "2026-06-09T08:53:07Z"
     },
     "gate_1": {
       "present": true,
-      "mtime": "2026-06-04T20:09:01Z"
+      "mtime": "2026-06-08T16:57:06Z"
     },
     "gate_2": {
       "present": true,
-      "mtime": "2026-06-04T17:59:14Z"
+      "mtime": "2026-06-08T16:59:06Z"
     },
     "gate_passed": {
       "present": true,
@@ -37,14 +61,19 @@
     }
   },
   "push_force_supported": true,
-  "last_perception": "2026-06-06T11:08:54Z",
-  "last_run": "2026-06-06T11:08:54Z",
-  "run_count": 10,
+  "last_perception": "2026-06-09T08:53:26Z",
+  "last_run": "2026-06-09T08:53:26Z",
+  "run_count": 68,
   "alerts": [
     {
       "severity": "warning",
       "message": "worktree dirty",
       "action_needed": "commit, stash, or intentionally leave scoped dirty state"
+    },
+    {
+      "severity": "warning",
+      "message": "stashes pending",
+      "action_needed": "restore, branch, or drop stashes after backup"
     }
   ]
 }

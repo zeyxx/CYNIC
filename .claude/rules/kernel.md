@@ -1,6 +1,6 @@
 ---
-description: Rust kernel rules — loaded when editing cynic-kernel/
-globs: ["cynic-kernel/**"]
+description: Rust kernel rules — loaded when editing crates/cynic-kernel/
+globs: ["crates/cynic-kernel/**"]
 ---
 
 ## Kernel Rules
@@ -48,7 +48,7 @@ K19. **Deterministic serialization.** Any struct serialized to DB or included in
 
 K21. **Pipeline output fed back as input = tag and filter.** When a pipeline's output (e.g. verdict) is stored as an observation for the compound loop, it MUST carry a distinguishing tag (e.g. `"compound-loop"`). Any consumer that re-processes observations (nightshift Phase 2, K15 consumers) MUST filter these tags to prevent amplification. Without filtering, each verdict generates a re-judgment which generates another verdict — bounded by domain gates but wasting compute proportional to verdict volume. Incident: nightshift re-judged 53% of observations as compound-loop feedback, saturating the sovereign Dog's single inference slot (2026-05-08). — Falsify: remove the tag filter from nightshift Phase 2; compound-loop observations should be re-judged and slot utilization should spike.
 
-K23. **New domain = 4 wiring items.** Adding a judgment domain requires: (1) `semantic_slug` case in `intake.rs` (prevents crystal collapse), (2) domain prompt in `domains/X.md` + registered in `embedded_domains.rs` (Dogs get correct axiom criteria), (3) curation sync path from live source to `cynic-python/curation/` (data reaches kernel), (4) verify `is_crystallizable_domain` includes the domain (crystals form). Omitting any one causes silent data loss — D2 had 4388 curated signals but 1 crystal for 9 days because all 4 were missing. Incident: D2 domain added to capture (2026-05-12) but never wired to consumption — 97% data loss until 2026-05-21 (PR#243). — Falsify: add a test domain without one of the 4 items; the corresponding pipeline stage should produce zero output for that domain.
+K23. **New domain = 4 wiring items.** Adding a judgment domain requires: (1) `semantic_slug` case in `intake.rs` (prevents crystal collapse), (2) domain prompt in `domains/X.md` + registered in `embedded_domains.rs` (Dogs get correct axiom criteria), (3) curation sync path from live source to `services/cynic-python/curation/` (data reaches kernel), (4) verify `is_crystallizable_domain` includes the domain (crystals form). Omitting any one causes silent data loss — D2 had 4388 curated signals but 1 crystal for 9 days because all 4 were missing. Incident: D2 domain added to capture (2026-05-12) but never wired to consumption — 97% data loss until 2026-05-21 (PR#243). — Falsify: add a test domain without one of the 4 items; the corresponding pipeline stage should produce zero output for that domain.
 
 K25. **Sovereign inference dispatch is rate-limited.** Any consumer that calls `judge.evaluate()` in a loop (nightshift, convergence, background jobs) MUST include `tokio::time::sleep()` between iterations. Without rate-limiting, a batch of N judgments saturates all sovereign Dog slots for the entire batch, starving interactive `/judge` requests. The SlotSemaphore reserves the last slot for User/Hermes, but only if callers yield between iterations. Incident: Hermes kanban 5 workers on 2 slots = 100% timeout (2026-04); nightshift 300+ observations tight loop = dogs=1 for all interactive requests (2026-05-24). — Falsify: remove `sleep` from nightshift observation loop; `journalctl | grep "slots saturated"` should spike within 2 cycles.
 

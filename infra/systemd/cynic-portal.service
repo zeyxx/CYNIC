@@ -1,0 +1,22 @@
+[Unit]
+Description=CYNIC Portal — single operator interface
+After=docker.service cynic-kernel.service
+Wants=docker.service
+Wants=cynic-kernel.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/cynic/env
+Environment=PATH=%h/.local/bin:%h/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=%h/Bureau/CYNIC
+ExecStart=/usr/bin/env sudo -n env DOCKER_BUILDKIT=0 COMPOSE_DOCKER_CLI_BUILD=0 docker compose -f infra/docker/cynic-portal/docker-compose.yml up --build --remove-orphans
+ExecStop=/usr/bin/env sudo -n env DOCKER_BUILDKIT=0 COMPOSE_DOCKER_CLI_BUILD=0 docker compose -f infra/docker/cynic-portal/docker-compose.yml down --remove-orphans
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+MemoryMax=256M
+
+[Install]
+WantedBy=default.target

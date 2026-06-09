@@ -5,7 +5,6 @@ import { getKernelUrl, KERNEL_URL_LS_KEY, SELECTED_DOGS_LS_KEY, getSelectedDogs 
 
 export function KernelSettings({ onClose }: { onClose: () => void }) {
   const [url, setUrl] = useState(getKernelUrl());
-  const [apiKey, setApiKey] = useState(localStorage.getItem('cynic_api_key') ?? '');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [availableDogs, setAvailableDogs] = useState<string[]>([]);
@@ -19,14 +18,11 @@ export function KernelSettings({ onClose }: { onClose: () => void }) {
     const clean = url.replace(/\/$/, '');
     localStorage.setItem(KERNEL_URL_LS_KEY, clean);
     localStorage.setItem(SELECTED_DOGS_LS_KEY, JSON.stringify(selectedDogs));
-    if (apiKey) localStorage.setItem('cynic_api_key', apiKey);
-    else localStorage.removeItem('cynic_api_key');
     window.location.reload();
   };
 
   const toggleDog = (id: string) => {
     setSelectedDogs(prev => {
-      // Empty list means "all selected" — materialize it before toggling
       const effective = prev.length === 0 ? [...availableDogs] : prev;
       return effective.includes(id)
         ? effective.filter(d => d !== id)
@@ -37,9 +33,7 @@ export function KernelSettings({ onClose }: { onClose: () => void }) {
   const reset = () => {
     localStorage.removeItem(KERNEL_URL_LS_KEY);
     localStorage.removeItem(SELECTED_DOGS_LS_KEY);
-    localStorage.removeItem('cynic_api_key');
     setUrl(DEFAULT_API_BASE);
-    setApiKey('');
     setTestResult(null);
   };
 
@@ -60,128 +54,63 @@ export function KernelSettings({ onClose }: { onClose: () => void }) {
   useEffect(() => { setTestResult(null); }, [url]);
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 100,
-      background: 'rgba(0,0,0,0.7)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }} onClick={onClose}>
-      <div style={{
-        background: '#111', border: '1px solid #333', borderRadius: 12,
-        padding: 28, width: 520, maxWidth: '95vw',
-      }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, color: '#C9A84C', fontFamily: 'monospace', fontSize: 15, letterSpacing: 2 }}>
-            ⚙ KERNEL SETTINGS
-          </h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 18 }}>
-            ×
-          </button>
-        </div>
-
-        <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 8 }}>
-          CYNIC Kernel URL (REST API base)
-        </label>
-        <input
-          value={url}
-          onChange={e => setUrl(e.target.value)}
-          style={{
-            width: '100%', padding: '10px 12px',
-            background: '#0a0a0a', border: '1px solid #333',
-            borderRadius: 8, color: '#e0e0e0',
-            fontFamily: 'monospace', fontSize: 13,
-            outline: 'none', boxSizing: 'border-box',
-          }}
-          placeholder="https://... or http://localhost:3030"
-        />
-        <div style={{ fontSize: 11, color: '#444', marginTop: 6 }}>
-          Cloudflare tunnel, Tailscale IP, ou localhost:3030 si le kernel tourne localement.
-        </div>
-
-        <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 8, marginTop: 20 }}>
-          API Key (Bearer token)
-        </label>
-        <input
-          value={apiKey}
-          onChange={e => setApiKey(e.target.value)}
-          type="password"
-          style={{
-            width: '100%', padding: '10px 12px',
-            background: '#0a0a0a', border: '1px solid #333',
-            borderRadius: 8, color: '#e0e0e0',
-            fontFamily: 'monospace', fontSize: 13,
-            outline: 'none', boxSizing: 'border-box',
-          }}
-          placeholder="Required for /judge, /verdicts, /crystals"
-        />
-        <div style={{ fontSize: 11, color: '#444', marginTop: 6 }}>
-          /health is public. All other endpoints require authentication.
-        </div>
-
-        <div style={{ marginTop: 24 }}>
-          <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 12 }}>
-            Active Dogs (Consensus Group)
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {availableDogs.length === 0 && <div style={{ fontSize: 11, color: '#444' }}>Loading dogs...</div>}
-            {availableDogs.map(id => (
-              <label key={id} style={{ 
-                display: 'flex', alignItems: 'center', gap: 10, 
-                padding: '10px', background: '#0a0a0a', border: '1px solid #222', 
-                borderRadius: 8, cursor: 'pointer', fontSize: 13 
-              }}>
-                <input 
-                  type="checkbox" 
-                  checked={selectedDogs.length === 0 || selectedDogs.includes(id)} 
-                  onChange={() => toggleDog(id)}
-                  style={{ accentColor: '#C9A84C' }}
-                />
-                <span style={{ color: (selectedDogs.length === 0 || selectedDogs.includes(id)) ? '#e0e0e0' : '#444' }}>
-                  {id}
-                </span>
-              </label>
-            ))}
+    <div className="settings-modal" onClick={onClose}>
+      <div className="settings-dialog" onClick={e => e.stopPropagation()}>
+        <div className="settings-head">
+          <div>
+            <div className="section-label">KERNEL SETTINGS</div>
+            <div className="section-title">Connection and consensus</div>
           </div>
-          <div style={{ fontSize: 11, color: '#444', marginTop: 8 }}>
-            If none selected, all dogs will be used by default.
+          <button onClick={onClose} className="button button-ghost">CLOSE</button>
+        </div>
+
+        <div className="settings-grid">
+          <div className="surface-card" style={{ minHeight: 0 }}>
+            <div className="section-label">KERNEL URL</div>
+            <input
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              className="form-input"
+              placeholder="https://... or http://localhost:3030"
+            />
+            <div className="helper-text">Cloudflare tunnel, Tailscale IP, or localhost:3030 if the kernel runs locally.</div>
+            <div className="helper-text">Protected endpoints require a wallet session.</div>
+          </div>
+
+          <div className="surface-card" style={{ minHeight: 0 }}>
+            <div className="section-label">ACTIVE DOGS</div>
+            <div className="checkbox-grid">
+              {availableDogs.length === 0 && <div className="empty-state">Loading dogs...</div>}
+              {availableDogs.map(id => (
+                <label key={id} className="checkbox-card">
+                  <input
+                    type="checkbox"
+                    checked={selectedDogs.length === 0 || selectedDogs.includes(id)}
+                    onChange={() => toggleDog(id)}
+                  />
+                  <span>{id}</span>
+                </label>
+              ))}
+            </div>
+            <div className="helper-text">If none are selected, all dogs are used by default.</div>
           </div>
         </div>
 
-        {testResult && (
-          <div style={{
-            marginTop: 12, padding: '8px 12px',
-            background: testResult.startsWith('✓') ? '#4CAF5011' : '#F4433611',
-            border: `1px solid ${testResult.startsWith('✓') ? '#4CAF50' : '#F44336'}`,
-            borderRadius: 6, color: testResult.startsWith('✓') ? '#4CAF50' : '#F44336',
-            fontFamily: 'monospace', fontSize: 12,
-          }}>
-            {testResult}
+        {testResult ? (
+          <div className={`surface-card ${testResult.startsWith('✓') ? '' : ''}`} style={{ marginTop: 12, minHeight: 0 }}>
+            <div className={`status-chip ${testResult.startsWith('✓') ? 'is-success' : 'is-danger'}`}>{testResult}</div>
           </div>
-        )}
+        ) : null}
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-          <button onClick={testConnection} disabled={testing} style={{
-            flex: 1, padding: '10px', background: '#1a1a1a',
-            border: '1px solid #444', borderRadius: 8,
-            color: '#aaa', cursor: testing ? 'not-allowed' : 'pointer',
-            fontFamily: 'monospace', fontSize: 12,
-          }}>
-            {testing ? 'Testing...' : 'Test Connection'}
+        <div className="settings-actions">
+          <button onClick={testConnection} disabled={testing} className="button button-ghost">
+            {testing ? 'TESTING...' : 'TEST CONNECTION'}
           </button>
-          <button onClick={reset} style={{
-            padding: '10px 16px', background: '#1a1a1a',
-            border: '1px solid #333', borderRadius: 8,
-            color: '#666', cursor: 'pointer',
-            fontFamily: 'monospace', fontSize: 12,
-          }}>
-            Reset
+          <button onClick={reset} className="button button-ghost">
+            RESET
           </button>
-          <button onClick={save} style={{
-            flex: 1, padding: '10px', background: '#C9A84C22',
-            border: '1px solid #C9A84C', borderRadius: 8,
-            color: '#C9A84C', cursor: 'pointer',
-            fontFamily: 'monospace', fontSize: 12, fontWeight: 700,
-          }}>
-            Save & Reload
+          <button onClick={save} className="button button-primary">
+            SAVE & RELOAD
           </button>
         </div>
       </div>

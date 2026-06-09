@@ -231,14 +231,14 @@ type TalariaEvent = {
 |---|---|
 | `scope` | `domain` |
 | `kind` | `tool` or `tags[]` |
-| `source/sourceUrl/evidenceHash/value` | `value` once persistence is complete; otherwise JSON in `context` |
+| `source/sourceUrl/evidenceHash/value` | `value` |
 | `confidence` | `confidence` |
 | `dependsOn` | `depends_on` |
 | `visibility` | `tags[]` until native field exists |
 | `summary` | `context` |
 | `actor` | `agent_id` or `target` depending source |
 
-Implementation gap: `ObserveRequest` accepts ledger fields, but current Surreal `store_observation` does not persist all of them. Before relying on `value/confidence/depends_on` for Talaria, update storage persistence or store a complete JSON envelope in `context` temporarily.
+
 
 ## B&C integration contract
 
@@ -340,8 +340,8 @@ Prefer publishing:
 1. Canonical document and scope model.
 2. Add typed Talaria event helpers in CYNIC or a Python shared module. Implemented in `cynic-python/sensors/talaria_events.py`.
 3. Update `talaria_poh_bridge.py` to emit raw `talaria.poh.user` observations rather than direct human verdict assumptions from B&C `/api/verify`. Implemented in `cynic-python/sensors/talaria_poh_bridge.py`; it also maps chess ecosystem events to `talaria.chess.signal`.
-4. Update storage so `/observe` persists `value`, `confidence`, `consumer`, `action`, `depends_on`, `maturity`.
-5. Add public-safe projection function for observatory UI/API.
+4. Storage now persists `value`, `confidence`, `consumer`, `action`, `depends_on`, `maturity`.
+5. Public-safe projection endpoint now serves observatory UI/API without raw internals.
 6. Add MetaDAO proposal event ingestion once proposal source is chosen.
 7. Calibrate scoring/reputation after first 50-100 reviewed users/events.
 
@@ -365,7 +365,8 @@ Prefer publishing:
 | Bootstrap trust requires humans | Human review is an explicit event scope |
 | Public evidence can manipulate markets | Redaction and visibility are first-class |
 | Wallet proof is required for sovereign PoH | Privy alone remains account continuity |
-| Current `/observe` schema is close but persistence is incomplete | Fix storage before relying on typed event fields |
+| Current `/observe` schema is now aligned with storage | Surreal persistence now keeps the ledger fields, including session-scoped reads |
+| Public observatory projection | resolved | Safe `/observations/public` view now strips raw internals |
 
 ## UI and repository topology
 
@@ -427,7 +428,7 @@ The split should be driven by operational need, not aesthetic repo cleanliness.
 | B&C role | corrected dissonance | was framed too narrowly as PoH producer | B&C is autonomous chess organism emitting selected signals |
 | Talaria observatory ownership | resolved | risk of spreading state across B&C/fronts | CYNIC owns canonical registry/state |
 | MetaDAO relation | resolved | markets could be mistaken for truth source | MetaDAO consumes observatory evidence |
-| `/observe` ledger fields | resolved in progress | API accepted fields that storage dropped | Surreal storage now persists ledger fields |
+| `/observe` ledger fields | resolved | API accepted fields and Surreal storage now persists ledger fields |
 ```
 
 ## Naming trajectory

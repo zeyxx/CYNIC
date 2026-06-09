@@ -1,0 +1,11 @@
+[Unit]
+Description=CYNIC Organ Docker Cron - every 30 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=30min
+Persistent=true
+Unit=organ-docker-cron.service
+
+[Install]
+WantedBy=timers.target

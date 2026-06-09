@@ -1,0 +1,670 @@
+//! HTTP Storage Adapter — connects to SurrealDB 3.x via POST /sql.
+//! Replaces the surrealdb crate (which has compilation bugs with 3.x)
+//! with direct HTTP calls using reqwest. Sovereign and dependency-light.
+//!
+//! SurrealDB HTTP API:
+//!   POST /sql  — raw SurrealQL, headers: surreal-ns, surreal-db, Authorization: Basic
+//!   Response: JSON array of statement results
+
+pub mod memory;
+pub mod reconnectable;
+pub mod surreal;
+
+use crate::domain::storage::StorageError;
+use reqwest::Client;
+use serde::Deserialize;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
+
+/// Slow query threshold — anything above this logs a warning.
+const SLOW_QUERY_MS: u64 = 100;
+
+/// HTTP-based SurrealDB client. No surrealdb crate needed.
+/// Auth: Bearer JWT (obtained via POST /signin at init, refreshed on 401).
+/// Prior approach used Basic auth which triggered Argon2id hashing on every query.
+#[derive(Debug)]
+pub struct SurrealHttpStorage {
+    pub(crate) client: Client,
+    pub(crate) url: String,
+    pub(crate) ns: String,
+    pub(crate) db: String,
+    pub(crate) auth: std::sync::RwLock<String>, // "Bearer <jwt>" — refreshed on 401
+    basic_auth: String,                         // "Basic base64(user:pass)" — for /signin only
+    // ── Storage observability (T1/T4 from crystallization) ──
+    pub(crate) metrics: StorageMetrics,
+}
+
+/// Per-table operation metrics for data-centric observation.
+#[derive(Debug, Clone)]
+pub struct TableOpMetrics {
+    pub table: String,
+    pub operation: String,
+    pub count: u64,
+    pub errors: u64,
+    pub total_latency_us: u64,
+    pub slow_count: u64,
+    pub min_latency_us: u64,
+    pub max_latency_us: u64,
+}
+
+/// Atomic counters for storage observability. Zero-cost when not read.
+#[derive(Debug)]
+pub struct StorageMetrics {
+    pub queries: AtomicU64,
+    pub errors: AtomicU64,
+    pub total_latency_us: AtomicU64,
+    pub slow_queries: AtomicU64,
+    pub started_at: std::time::Instant,
+    // ── Per-table metrics for CHAOS→MATRIX data-centric measurement ──
+    pub table_op_metrics: Arc<RwLock<HashMap<String, TableOpMetrics>>>,
+}
+
+impl StorageMetrics {
+    fn new() -> Self {
+        Self {
+            queries: AtomicU64::new(0),
+            errors: AtomicU64::new(0),
+            total_latency_us: AtomicU64::new(0),
+            slow_queries: AtomicU64::new(0),
+            started_at: std::time::Instant::now(),
+            table_op_metrics: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Record per-table metrics for data-centric measurement.
+    pub(crate) fn record_table_op(&self, table: &str, op: &str, latency_us: u64, is_error: bool) {
+        let key = format!("{table}#{op}");
+        if let Ok(mut metrics) = self.table_op_metrics.write() {
+            let entry = metrics.entry(key).or_insert_with(|| TableOpMetrics {
+                table: table.to_string(),
+                operation: op.to_string(),
+                count: 0,
+                errors: 0,
+                total_latency_us: 0,
+                slow_count: 0,
+                min_latency_us: u64::MAX,
+                max_latency_us: 0,
+            });
+
+            entry.count += 1;
+            if is_error {
+                entry.errors += 1;
+            }
+            entry.total_latency_us += latency_us;
+            if latency_us > (SLOW_QUERY_MS * 1000) {
+                entry.slow_count += 1;
+            }
+            entry.min_latency_us = entry.min_latency_us.min(latency_us);
+            entry.max_latency_us = entry.max_latency_us.max(latency_us);
+        }
+    }
+
+    /// Snapshot for /health — lock-free read.
+    pub fn snapshot(&self) -> StorageMetricsSnapshot {
+        let queries = self.queries.load(Ordering::Relaxed);
+        let total_us = self.total_latency_us.load(Ordering::Relaxed);
+        StorageMetricsSnapshot {
+            queries,
+            errors: self.errors.load(Ordering::Relaxed),
+            slow_queries: self.slow_queries.load(Ordering::Relaxed),
+            avg_latency_ms: total_us
+                .checked_div(queries)
+                .map_or(0.0, |avg| avg as f64 / 1000.0),
+            uptime_secs: self.started_at.elapsed().as_secs(),
+        }
+    }
+
+    /// Snapshot of per-table metrics for observation emission.
+    /// Returns a clone of all accumulated metrics.
+    pub fn snapshot_table_ops(&self) -> Vec<TableOpMetrics> {
+        self.table_op_metrics
+            .read()
+            .ok() // K14: RwLock poisoned = degraded, return empty
+            .map(|m| m.values().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    /// Reset per-table metrics (called after emission to avoid duplication).
+    pub fn reset_table_ops(&self) {
+        if let Ok(mut m) = self.table_op_metrics.write() {
+            m.clear();
+        }
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct StorageMetricsSnapshot {
+    pub queries: u64,
+    pub errors: u64,
+    pub slow_queries: u64,
+    pub avg_latency_ms: f64,
+    pub uptime_secs: u64,
+}
+
+#[derive(Deserialize, Debug)]
+pub(crate) struct SurrealResponse {
+    pub(crate) result: Option<serde_json::Value>,
+    pub(crate) status: Option<String>,
+}
+
+impl SurrealHttpStorage {
+    /// Expose database name for test teardown and /health introspection.
+    pub fn db_name(&self) -> &str {
+        &self.db
+    }
+
+    /// Expose namespace for /health introspection.
+    pub fn ns_name(&self) -> &str {
+        &self.ns
+    }
+
+    pub async fn init(config: &crate::infra::config::StorageConfig) -> Result<Self, StorageError> {
+        Self::init_with(&config.url, &config.namespace, &config.database).await
+    }
+
+    pub async fn init_with(url: &str, ns: &str, db: &str) -> Result<Self, StorageError> {
+        let user = std::env::var("SURREALDB_USER").unwrap_or_else(|_| "root".to_string());
+        let pass = std::env::var("SURREALDB_PASS").map_err(|e| {
+            StorageError::ConnectionFailed(format!("SURREALDB_PASS must be set: {e}"))
+        })?;
+
+        use base64::Engine;
+        let credentials = format!("{user}:{pass}");
+        let basic_auth = format!(
+            "Basic {}",
+            base64::engine::general_purpose::STANDARD.encode(&credentials)
+        );
+
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|e| StorageError::ConnectionFailed(format!("HTTP client: {e}")))?;
+        let url = url.trim_end_matches('/').to_string();
+
+        // Bootstrap namespace and database (SurrealDB 3.x doesn't auto-create).
+        // Uses Basic auth directly — this runs once at init, before we have a JWT.
+        let bootstrap_sql = format!(
+            "DEFINE NAMESPACE IF NOT EXISTS `{ns}`; USE NS `{ns}`; DEFINE DATABASE IF NOT EXISTS `{db}`;"
+        );
+        let resp = client
+            .post(format!("{url}/sql"))
+            .header("Accept", "application/json")
+            .header("Authorization", &basic_auth)
+            .body(bootstrap_sql)
+            .send()
+            .await
+            .map_err(|e| {
+                StorageError::ConnectionFailed(format!("SurrealDB unreachable at {url}: {e}"))
+            })?;
+
+        if !resp.status().is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(StorageError::ConnectionFailed(format!(
+                "Bootstrap failed: {body}"
+            )));
+        }
+
+        // Obtain JWT via /signin — eliminates Argon2id hashing on every query.
+        // Token expires after ~1h; refresh handled in query_inner on 401.
+        let bearer_auth = Self::signin(&client, &url, &user, &pass)
+            .await
+            .map_err(|e| {
+                tracing::warn!(error = %e, "JWT signin failed, falling back to Basic auth");
+                e
+            })
+            .unwrap_or_else(|_| basic_auth.clone());
+
+        let storage = Self {
+            client,
+            url,
+            ns: ns.to_string(),
+            db: db.to_string(),
+            auth: std::sync::RwLock::new(bearer_auth),
+            basic_auth,
+            metrics: StorageMetrics::new(),
+        };
+
+        // Health check on the actual ns/db
+        storage.query("RETURN true").await.map_err(|e| {
+            StorageError::ConnectionFailed(format!("SurrealDB unreachable at {}: {e}", storage.url))
+        })?;
+
+        // Bootstrap schema + indexes (idempotent — IF NOT EXISTS)
+        // SurrealDB 3.x requires explicit DEFINE TABLE before table-scan queries
+        // (SELECT * FROM table WHERE ...) work. Record-ID queries bypass this,
+        // but claim_batch/expire_stale/get_unsummarized_sessions need table scans.
+        let schema_sql = "\
+            DEFINE TABLE IF NOT EXISTS verdict;\
+            DEFINE TABLE IF NOT EXISTS crystal;\
+            DEFINE TABLE IF NOT EXISTS observation;\
+            DEFINE TABLE IF NOT EXISTS agent_session;\
+            DEFINE TABLE IF NOT EXISTS work_claim;\
+            DEFINE TABLE IF NOT EXISTS mcp_audit;\
+            DEFINE TABLE IF NOT EXISTS dog_usage;\
+            DEFINE TABLE IF NOT EXISTS session_summary;\
+            DEFINE TABLE IF NOT EXISTS event;\
+            DEFINE FIELD IF NOT EXISTS verdict_id ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS kind ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS total ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS fidelity ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS phi ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS verify ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS culture ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS burn ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS sovereignty ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS dog_id ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS stimulus ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS dog_scores_json ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS reasoning_fidelity ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS reasoning_phi ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS reasoning_verify ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS reasoning_culture ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS reasoning_burn ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS reasoning_sovereignty ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS integrity_hash ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS prev_hash ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS anomaly_detected ON verdict TYPE bool;\
+            DEFINE FIELD IF NOT EXISTS max_disagreement ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS anomaly_axiom ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS voter_count ON verdict TYPE int;\
+            DEFINE FIELD IF NOT EXISTS created_at ON verdict TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS content ON crystal TYPE string;\
+            DEFINE FIELD IF NOT EXISTS domain ON crystal TYPE string;\
+            DEFINE FIELD IF NOT EXISTS confidence ON crystal TYPE float;\
+            DEFINE FIELD IF NOT EXISTS observations ON crystal TYPE int;\
+            DEFINE FIELD IF NOT EXISTS state ON crystal TYPE string;\
+            DEFINE INDEX IF NOT EXISTS verdict_id_idx ON verdict FIELDS verdict_id UNIQUE;\
+            DEFINE INDEX IF NOT EXISTS verdict_created_idx ON verdict FIELDS created_at;\
+            DEFINE INDEX IF NOT EXISTS crystal_obs_idx ON crystal FIELDS observations;\
+            DEFINE INDEX IF NOT EXISTS crystal_domain_idx ON crystal FIELDS domain;\
+            DEFINE INDEX IF NOT EXISTS crystal_vec_idx ON crystal FIELDS embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32;\
+            DEFINE FIELD IF NOT EXISTS project ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS tool ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS target ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS domain ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS status ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS context ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS session_id ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS timestamp ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS tags ON observation TYPE array;\
+            DEFINE FIELD IF NOT EXISTS source_tier ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS value ON observation TYPE any;\
+            DEFINE FIELD IF NOT EXISTS confidence ON observation TYPE string | null;\
+            DEFINE FIELD IF NOT EXISTS consumer ON observation TYPE string | null;\
+            DEFINE FIELD IF NOT EXISTS action ON observation TYPE string | null;\
+            DEFINE FIELD IF NOT EXISTS depends_on ON observation TYPE array;\
+            DEFINE FIELD IF NOT EXISTS maturity ON observation TYPE float | null;\
+            DEFINE FIELD IF NOT EXISTS hash ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS prev_hash ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS observers ON observation TYPE array;\
+            DEFINE FIELD IF NOT EXISTS consensus_score ON observation TYPE float | null;\n            DEFINE FIELD IF NOT EXISTS created_at ON observation TYPE datetime;\
+            DEFINE INDEX IF NOT EXISTS obs_project_idx ON observation FIELDS project;\
+            DEFINE INDEX IF NOT EXISTS obs_domain_idx ON observation FIELDS domain;\
+            DEFINE INDEX IF NOT EXISTS obs_target_idx ON observation FIELDS target;\
+            DEFINE INDEX IF NOT EXISTS obs_created_idx ON observation FIELDS created_at;\
+            DEFINE INDEX IF NOT EXISTS obs_agent_idx ON observation FIELDS agent_id;\
+            DEFINE INDEX IF NOT EXISTS obs_tool_idx ON observation FIELDS tool;\
+            DEFINE INDEX IF NOT EXISTS obs_session_idx ON observation FIELDS session_id;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON agent_session TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_type ON agent_session TYPE string;\
+            DEFINE FIELD IF NOT EXISTS intent ON agent_session TYPE string;\
+            DEFINE FIELD IF NOT EXISTS registered_at ON agent_session TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS last_seen ON agent_session TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS active ON agent_session TYPE bool;\
+            DEFINE INDEX IF NOT EXISTS agent_session_active_idx ON agent_session FIELDS active;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON work_claim TYPE string;\
+            DEFINE FIELD IF NOT EXISTS target ON work_claim TYPE string;\
+            DEFINE FIELD IF NOT EXISTS claim_type ON work_claim TYPE string;\
+            DEFINE FIELD IF NOT EXISTS claimed_at ON work_claim TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS active ON work_claim TYPE bool;\
+            DEFINE INDEX IF NOT EXISTS work_claim_active_idx ON work_claim FIELDS active;\
+            DEFINE INDEX IF NOT EXISTS work_claim_target_idx ON work_claim FIELDS target;\
+            DEFINE FIELD IF NOT EXISTS status ON work_claim TYPE string DEFAULT 'claimed';\
+            DEFINE FIELD IF NOT EXISTS intent ON work_claim TYPE string DEFAULT '';\
+            DEFINE FIELD IF NOT EXISTS session_id ON work_claim TYPE string DEFAULT '';\
+            DEFINE FIELD IF NOT EXISTS ts ON mcp_audit TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS tool ON mcp_audit TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON mcp_audit TYPE string;\
+            DEFINE FIELD IF NOT EXISTS details ON mcp_audit TYPE string;\
+            DEFINE INDEX IF NOT EXISTS mcp_audit_ts_idx ON mcp_audit FIELDS ts;\
+            DEFINE FIELD IF NOT EXISTS dog_id ON dog_usage TYPE string;\
+            DEFINE FIELD IF NOT EXISTS prompt_tokens ON dog_usage TYPE int;\
+            DEFINE FIELD IF NOT EXISTS completion_tokens ON dog_usage TYPE int;\
+            DEFINE FIELD IF NOT EXISTS requests ON dog_usage TYPE int;\
+            DEFINE FIELD IF NOT EXISTS failures ON dog_usage TYPE int;\
+            DEFINE FIELD IF NOT EXISTS total_latency_ms ON dog_usage TYPE int;\
+            DEFINE FIELD IF NOT EXISTS updated_at ON dog_usage TYPE datetime;\
+            REMOVE INDEX IF EXISTS dog_usage_id_idx ON TABLE dog_usage;\
+            DEFINE FIELD IF NOT EXISTS session_id ON session_summary TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON session_summary TYPE string;\
+            DEFINE FIELD IF NOT EXISTS summary ON session_summary TYPE string;\
+            DEFINE FIELD IF NOT EXISTS observations_count ON session_summary TYPE int;\
+            DEFINE FIELD IF NOT EXISTS created_at ON session_summary TYPE datetime;\
+            DEFINE INDEX IF NOT EXISTS session_summary_session_idx ON session_summary FIELDS session_id UNIQUE;\
+            DEFINE INDEX IF NOT EXISTS session_summary_created_idx ON session_summary FIELDS created_at;\
+            DEFINE FIELD IF NOT EXISTS tool ON event TYPE string;\
+            DEFINE FIELD IF NOT EXISTS node ON event TYPE string;\
+            DEFINE FIELD IF NOT EXISTS elapsed_ms ON event TYPE int;\
+            DEFINE FIELD IF NOT EXISTS output_bytes ON event TYPE int;\
+            DEFINE FIELD IF NOT EXISTS success ON event TYPE bool;\
+            DEFINE FIELD IF NOT EXISTS metadata ON event TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON event TYPE string;\
+            DEFINE FIELD IF NOT EXISTS created_at ON event TYPE datetime;\
+            DEFINE INDEX IF NOT EXISTS event_node_idx ON event FIELDS node;\
+            DEFINE INDEX IF NOT EXISTS event_tool_idx ON event FIELDS tool;\
+            DEFINE INDEX IF NOT EXISTS event_created_idx ON event FIELDS created_at;\
+        ";
+        if let Err(e) = storage.query(schema_sql).await {
+            // CRITICAL, not WARNING: HNSW vector index (crystal_vec_idx) is in this batch.
+            // Without it, search_crystals_semantic fails silently and the crystal feedback
+            // loop falls back to list_crystals_for_domain (wrong crystals, no semantic match).
+            // We continue because the DB may have a prior schema — but this MUST be investigated.
+            tracing::error!(error = %e, "schema bootstrap failed — vector search may not work");
+        }
+
+        klog!(
+            "[Ring 1 / UAL] Linked to SurrealDB (HTTP) at {}",
+            storage.url
+        );
+        Ok(storage)
+    }
+
+    /// POST /signin to obtain a JWT Bearer token.
+    async fn signin(
+        client: &Client,
+        url: &str,
+        user: &str,
+        pass: &str,
+    ) -> Result<String, StorageError> {
+        let body = serde_json::json!({"user": user, "pass": pass});
+        let resp = client
+            .post(format!("{url}/signin"))
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| StorageError::ConnectionFailed(format!("/signin failed: {e}")))?;
+
+        let status = resp.status();
+        let json: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| StorageError::ConnectionFailed(format!("/signin parse: {e}")))?;
+
+        if !status.is_success() {
+            return Err(StorageError::ConnectionFailed(format!(
+                "/signin returned {status}: {}",
+                json.get("details")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+            )));
+        }
+
+        let token = json.get("token").and_then(|v| v.as_str()).ok_or_else(|| {
+            StorageError::ConnectionFailed("/signin: no token in response".into())
+        })?;
+
+        Ok(format!("Bearer {token}"))
+    }
+
+    /// Refresh the JWT token using stored Basic credentials.
+    /// Called from query_inner on 401 (token expired).
+    async fn refresh_token(&self) -> Result<(), StorageError> {
+        // Extract user:pass from basic_auth header
+        use base64::Engine;
+        let encoded = self
+            .basic_auth
+            .strip_prefix("Basic ")
+            .ok_or_else(|| StorageError::ConnectionFailed("corrupt basic_auth".into()))?;
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .map_err(|e| StorageError::ConnectionFailed(format!("base64 decode: {e}")))?;
+        let cred_str = String::from_utf8(decoded)
+            .map_err(|e| StorageError::ConnectionFailed(format!("utf8: {e}")))?;
+        let (user, pass) = cred_str
+            .split_once(':')
+            .ok_or_else(|| StorageError::ConnectionFailed("bad credentials format".into()))?;
+
+        let new_auth = Self::signin(&self.client, &self.url, user, pass).await?;
+        // K14: write lock — safe default is to keep old auth on failure (handled above via ?)
+        if let Ok(mut guard) = self.auth.write() {
+            *guard = new_auth;
+        }
+        tracing::info!("SurrealDB JWT refreshed");
+        Ok(())
+    }
+
+    /// Execute raw SurrealQL and return results.
+    pub async fn query(&self, sql: &str) -> Result<Vec<Vec<serde_json::Value>>, StorageError> {
+        let start = std::time::Instant::now();
+        self.metrics.queries.fetch_add(1, Ordering::Relaxed);
+
+        let result = self.query_inner(sql).await;
+
+        let elapsed_us = start.elapsed().as_micros() as u64;
+        self.metrics
+            .total_latency_us
+            .fetch_add(elapsed_us, Ordering::Relaxed);
+
+        let elapsed_ms = elapsed_us / 1000;
+        if elapsed_ms > SLOW_QUERY_MS {
+            self.metrics.slow_queries.fetch_add(1, Ordering::Relaxed);
+            let preview: String = sql.chars().take(80).collect();
+            tracing::warn!(latency_ms = elapsed_ms, query = %preview, "slow query");
+        }
+
+        let is_err = result.is_err();
+        if is_err {
+            self.metrics.errors.fetch_add(1, Ordering::Relaxed);
+        }
+
+        // Record per-table metrics for CHAOS→MATRIX measurement
+        if let Some((table, op)) = parse_sql_table_op(sql) {
+            self.metrics
+                .record_table_op(&table, &op, elapsed_us, is_err);
+        }
+
+        result
+    }
+
+    /// Inner query with retry on 401 (JWT expired or transient SurrealDB 3.x issue).
+    /// On first 401: refresh JWT via /signin, then retry. On second 401: backoff + retry.
+    async fn query_inner(&self, sql: &str) -> Result<Vec<Vec<serde_json::Value>>, StorageError> {
+        let mut last_err = String::new();
+        for attempt in 0..3u64 {
+            // Read current auth token (Bearer JWT or fallback Basic)
+            let current_auth = self
+                .auth
+                .read()
+                .map(|g| g.clone())
+                .unwrap_or_else(|_| self.basic_auth.clone());
+
+            let resp = self
+                .client
+                .post(format!("{}/sql", self.url))
+                .header("Accept", "application/json")
+                .header("surreal-ns", &self.ns)
+                .header("surreal-db", &self.db)
+                .header("Authorization", &current_auth)
+                .body(sql.to_string())
+                .send()
+                .await
+                .map_err(|e| StorageError::ConnectionFailed(e.to_string()))?;
+
+            if resp.status().as_u16() == 401 && attempt < 2 {
+                last_err = resp.text().await.unwrap_or_default();
+                // First 401: try refreshing JWT (token likely expired after ~1h)
+                if attempt == 0 {
+                    if let Err(e) = self.refresh_token().await {
+                        tracing::warn!(error = %e, "JWT refresh failed, retrying with current auth");
+                    }
+                } else {
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                }
+                continue;
+            }
+
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let body = resp.text().await.unwrap_or_default();
+                return Err(StorageError::QueryFailed(format!("HTTP {status}: {body}")));
+            }
+
+            let results: Vec<SurrealResponse> = resp
+                .json()
+                .await
+                .map_err(|e| StorageError::QueryFailed(format!("JSON parse error: {e}")))?;
+
+            for r in &results {
+                if r.status.as_deref() == Some("ERR") {
+                    let msg = r
+                        .result
+                        .as_ref()
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown SurrealDB error");
+                    return Err(StorageError::QueryFailed(msg.to_string()));
+                }
+            }
+
+            return Ok(results
+                .into_iter()
+                .map(|r| match r.result {
+                    Some(serde_json::Value::Array(arr)) => arr,
+                    Some(val) => vec![val],
+                    None => Vec::new(),
+                })
+                .collect());
+        }
+        // All retries exhausted
+        Err(StorageError::QueryFailed(format!(
+            "401 after 3 retries: {last_err}"
+        )))
+    }
+
+    /// Execute a single-statement query and return first result set.
+    pub async fn query_one(&self, sql: &str) -> Result<Vec<serde_json::Value>, StorageError> {
+        let mut results = self.query(sql).await?;
+        Ok(results.pop().unwrap_or_default())
+    }
+}
+
+// ── INPUT VALIDATION ──────────────────────────────────────────
+
+/// Validate IDs: alphanumeric, hyphens, underscores only. Max 128 chars.
+pub(crate) fn sanitize_id(id: &str) -> Result<&str, StorageError> {
+    if id.is_empty() || id.len() > 128 {
+        return Err(StorageError::QueryFailed(
+            "ID must be 1-128 characters".into(),
+        ));
+    }
+    if !id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(StorageError::QueryFailed(
+            "ID contains invalid characters".into(),
+        ));
+    }
+    Ok(id)
+}
+
+/// Escape string for SurrealQL string literals.
+/// Handles: backslashes, single quotes, backticks, null bytes, newlines, carriage returns, tabs.
+pub(crate) fn escape_surreal(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('\'', "\\'")
+        .replace('`', "\\`")
+        .replace('\0', "")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
+}
+
+/// Clamp query limit to prevent resource exhaustion.
+pub(crate) fn safe_limit(limit: u32) -> u32 {
+    limit.min(100)
+}
+
+/// Parse SQL to extract table name and operation type for per-table metrics.
+/// Returns (table, operation) or None if parsing fails.
+/// Handles: CREATE, SELECT, UPDATE, DELETE, INSERT, REMOVE, DEFINE, UPSERT
+fn parse_sql_table_op(sql: &str) -> Option<(String, String)> {
+    let normalized = sql.trim().to_uppercase();
+
+    // Extract operation keyword
+    let ops = [
+        "CREATE", "SELECT", "UPDATE", "DELETE", "INSERT", "UPSERT", "REMOVE", "DEFINE",
+    ];
+    let (operation, rest) = match ops.iter().find(|op| normalized.starts_with(*op)) {
+        Some(op) => (*op, normalized[op.len()..].trim_start().to_string()),
+        None => return None,
+    };
+    let rest = &rest;
+
+    // Extract table name (alphanumeric, underscore, backtick)
+    let mut table_chars = Vec::new();
+    let mut in_backtick = false;
+    for ch in rest.chars() {
+        if ch == '`' {
+            in_backtick = !in_backtick;
+        } else if in_backtick || ch.is_ascii_alphanumeric() || ch == '_' {
+            table_chars.push(ch);
+        } else if !ch.is_whitespace() || table_chars.is_empty() {
+            continue;
+        } else {
+            break;
+        }
+    }
+
+    let table = table_chars.iter().collect::<String>();
+    if table.is_empty() {
+        return None;
+    }
+
+    Some((table, operation.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn escape_surreal_handles_backticks() {
+        // RC4: backtick escaping was missing
+        assert_eq!(escape_surreal("hello`world"), "hello\\`world");
+    }
+
+    #[test]
+    fn escape_surreal_handles_quotes_and_backslashes() {
+        assert_eq!(escape_surreal("it's a \\test"), "it\\'s a \\\\test");
+    }
+
+    #[test]
+    fn escape_surreal_handles_null_bytes() {
+        assert_eq!(escape_surreal("a\0b"), "ab");
+    }
+
+    #[test]
+    fn sanitize_id_rejects_empty() {
+        assert!(sanitize_id("").is_err());
+    }
+
+    #[test]
+    fn sanitize_id_rejects_long() {
+        let long = "a".repeat(129);
+        assert!(sanitize_id(&long).is_err());
+    }
+
+    #[test]
+    fn sanitize_id_allows_valid() {
+        assert!(sanitize_id("my-dog_123").is_ok());
+    }
+
+    #[test]
+    fn sanitize_id_rejects_special_chars() {
+        assert!(sanitize_id("dog'; DROP TABLE--").is_err());
+    }
+}

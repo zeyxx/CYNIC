@@ -21,6 +21,7 @@ RestartSec=5
 # systemd does NOT support `export` prefix — Rule 12 maintained via generation.
 EnvironmentFile=%h/.config/cynic/env
 Environment="CYNIC_SCRIPTS=%h/Bureau/CYNIC/scripts"
+Environment="PATH=%h/.local/bin:%h/.npm-global/bin:/usr/local/bin:/usr/bin:/bin"
 LimitNOFILE=65535
 MemoryMax=2G
 

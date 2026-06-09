@@ -1,48 +1,18 @@
-import * as ed from '@noble/ed25519';
-import type { HealthResponse, JudgeRequest, Verdict, Crystal, AsyncJudgeResponse, AsyncJudgeStatus, Observation, AgentTask } from './types';
-
-// import { getKernelUrl } from './utils';
+import type { HealthResponse, JudgeRequest, Verdict, Crystal, AsyncJudgeResponse, AsyncJudgeStatus, Observation, PublicObservation, AgentTask, AuthInputResponse, AuthVerifyResponse, StateHistoryResponse } from './types';
+import { getAuthSessionToken } from './auth';
 
 function base(): string {
-  // En développement, on utilise le proxy Vite (/api)
-  // En production, on utilise VITE_API_BASE
   return import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_BASE ?? '');
 }
 
 /**
- * Enhanced fetch wrapper that supports:
- * 1. Ed25519 Cryptographic Signatures (Zero-Trust)
- * 2. Bearer Tokens (Legacy)
+ * Enhanced fetch wrapper that forwards the current wallet session when available.
  */
 async function cynicFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const method = options.method ?? 'GET';
-  const body = options.body ? String(options.body) : '';
-  const key = localStorage.getItem('cynic_api_key') ?? import.meta.env.VITE_API_KEY ?? '';
-  
   const headers = new Headers(options.headers);
-
-  // 1. Try to treat key as Ed25519 Private Key (64-char hex)
-  if (key.length === 64 && /^[0-9a-fA-F]+$/.test(key)) {
-    try {
-      const timestamp = Math.floor(Date.now() / 1000).toString();
-      // Payload format: METHOD|PATH|BODY
-      const payload = `${method}|${path}|${body}`;
-      // Signed payload: TIMESTAMP + PAYLOAD
-      const message = new TextEncoder().encode(timestamp + payload);
-      
-      const pubKey = await ed.getPublicKey(key);
-      const signature = await ed.sign(message, key);
-      
-      headers.set('X-Cynic-Signature', ed.etc.bytesToHex(signature));
-      headers.set('X-Cynic-Public-Key', ed.etc.bytesToHex(pubKey));
-      headers.set('X-Cynic-Timestamp', timestamp);
-    } catch (e) {
-      console.warn('Failed to sign request, falling back to Bearer', e);
-      headers.set('Authorization', `Bearer ${key}`);
-    }
-  } else if (key) {
-    // 2. Fallback to Bearer Token
-    headers.set('Authorization', `Bearer ${key}`);
+  const sessionId = getAuthSessionToken();
+  if (sessionId) {
+    headers.set('X-Cynic-Session', sessionId);
   }
 
   const url = path.startsWith('http') ? path : `${base()}${path}`;
@@ -123,6 +93,14 @@ export async function getObservations(domain?: string, limit = 100): Promise<Obs
   return data.observations ?? [];
 }
 
+export async function getPublicObservations(domain?: string, limit = 100): Promise<PublicObservation[]> {
+  let path = `/observations/public?limit=${limit}`;
+  if (domain) path += `&domain=${domain}`;
+  const res = await cynicFetch(path);
+  if (!res.ok) throw new Error('Failed to fetch public observations');
+  return res.json();
+}
+
 export async function getAgentTasks(kind = 'hermes', limit = 10): Promise<{ tasks: AgentTask[] }> {
   const res = await cynicFetch(`/agent-tasks?kind=${kind}&limit=${limit}`);
   if (!res.ok) throw new Error('Failed to fetch agent tasks');
@@ -138,23 +116,50 @@ export async function updateAgentTaskResult(id: string, result?: string, error?:
   if (!res.ok) throw new Error(`Failed to update agent task: ${res.status}`);
 }
 
-export async function getStateHistory(limit = 100): Promise<any[]> {
-  const res = await cynicFetch(`/state-history?limit=${limit}`);
-  if (!res.ok) throw new Error('Failed to fetch state history');
+export async function dispatchAgentTask(req: {
+  kind: string;
+  domain: string;
+  content: string;
+  agent_id?: string;
+}): Promise<{ task_id: string; status: string }> {
+  const res = await cynicFetch('/agent-tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new Error(`Failed to dispatch agent task: ${res.status}`);
   return res.json();
 }
 
-export async function getAuthInput(): Promise<{ nonce: string, statement: string, domain: string }> {
+export async function getStateHistory(limit = 100): Promise<StateHistoryResponse> {
+  const res = await cynicFetch(`/state-history?limit=${limit}`);
+  if (!res.ok) throw new Error('Failed to fetch state history');
+  const data = await res.json();
+  if (Array.isArray(data)) {
+    return { blocks: data, count: data.length, chain_valid: true, blocks_valid: true };
+  }
+  if (Array.isArray(data?.blocks)) {
+    return {
+      blocks: data.blocks,
+      count: typeof data.count === 'number' ? data.count : data.blocks.length,
+      chain_valid: typeof data.chain_valid === 'boolean' ? data.chain_valid : true,
+      blocks_valid: typeof data.blocks_valid === 'boolean' ? data.blocks_valid : true,
+    };
+  }
+  return { blocks: [], count: 0, chain_valid: false, blocks_valid: false };
+}
+
+export async function getAuthInput(): Promise<AuthInputResponse> {
   const res = await fetch(`${base()}/auth/input`);
   if (!res.ok) throw new Error('Failed to get auth input');
   return res.json();
 }
 
-export async function verifyAuth(address: string, signature: string, nonce: string): Promise<{ role: string, expires_at: number }> {
+export async function verifyAuth(address: string, signature: string, nonce: string, timestamp: number): Promise<AuthVerifyResponse> {
   const res = await fetch(`${base()}/auth/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ address, signature, nonce }),
+    body: JSON.stringify({ address, signature, nonce, timestamp }),
   });
   if (!res.ok) throw new Error('Auth verification failed');
   return res.json();

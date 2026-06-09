@@ -33,9 +33,9 @@ fi
 
 # Only coord-claim kernel source files
 case "$FILE_PATH" in
-    *cynic-kernel/src/*) ;;
-    *cynic-kernel/domains/*) ;;
-    *cynic-kernel/tests/*) ;;
+    *crates/cynic-kernel/src/*) ;;
+    *crates/cynic-kernel/domains/*) ;;
+    *crates/cynic-kernel/tests/*) ;;
     *)
         echo '{}'
         exit 0
@@ -50,7 +50,7 @@ fi
 
 # Derive agent ID from Gemini session (use PID as fallback)
 AGENT_ID="gemini-${GEMINI_SESSION_ID:-$$}"
-TARGET_FILE="${FILE_PATH#*cynic-kernel/}"
+TARGET_FILE="${FILE_PATH#*crates/cynic-kernel/}"
 
 # Attempt claim
 CLAIM_TMP=$(mktemp /tmp/cynic-claim-XXXXXX)

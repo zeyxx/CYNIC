@@ -68,11 +68,65 @@
       "name": "organ-anvil",
       "instance": "organ-anvil-hermes-agent",
       "role": "repo_lifecycle_manager",
-      "description": "Git repo hygiene — branches, PRs, dirty trees, sync enforcement",
+      "description": "Git repo hygiene, branch health, claim hygiene, and lifecycle triage.",
       "scope": "github+forgejo",
       "cron": "every 30min",
       "status": "active",
-      "depends_on": ["cynic-kernel"],
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-docker",
+      "instance": "organ-docker-hermes-agent",
+      "role": "container_surface_manager",
+      "description": "Local container fallback operator surface and portal reproducibility manager.",
+      "scope": "local+tailscale",
+      "cron": "every 30min",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-vercel",
+      "instance": "organ-vercel-hermes-agent",
+      "role": "deployment_surface_manager",
+      "description": "Public edge deployment manager for CYNIC frontends and Talaria surfaces.",
+      "scope": "vercel+github_deployments",
+      "cron": "every 30min",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-telegram",
+      "instance": "organ-telegram-hermes-agent",
+      "role": "messaging_surface_manager",
+      "description": "Telegram runtime and public/ops messaging surface manager.",
+      "scope": "telegram+ops+public",
+      "cron": "every 30min",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-x",
+      "instance": "organ-x-hermes-agent",
+      "role": "x_surface_manager",
+      "description": "X/Twitter perception, curation, and posting surface manager.",
+      "scope": "x+curation+alerts",
+      "cron": "every 30min",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
       "coord": "cynic_coord_register/release"
     }
   ]

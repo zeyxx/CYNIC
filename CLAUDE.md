@@ -47,7 +47,7 @@ Before building any sensor, probe, or store: name the consumer and what it chang
 
 No acting consumer → don't build the producer.
 
-**Falsify:** `grep -r "store_\|emit_event\|observe" cynic-kernel/src/ | grep -v "read_\|get_\|search_"` — every hit needs a corresponding acting reader.
+**Falsify:** `grep -r "store_\|emit_event\|observe" crates/cynic-kernel/src/ | grep -v "read_\|get_\|search_"` — every hit needs a corresponding acting reader.
 
 ---
 
@@ -232,7 +232,7 @@ CYNIC uses **YY.M.DD** versioning (semver-compatible date format):
 **Workflow:**
 ```bash
 scripts/bump-version.sh
-# Updates cynic-kernel/Cargo.toml to today's date, creates git tag prod-YY-MM-DD
+# Updates crates/cynic-kernel/Cargo.toml to today's date, creates git tag prod-YY-MM-DD
 ```
 
 **Why date-based?**
@@ -253,7 +253,7 @@ scripts/bump-version.sh
 | API contract | `API.md` |
 | Multi-agent coordination | `AGENTS.md` |
 | Build gates (Rust tier-1) | `.claude/rules/kernel.md` |
-| Analysis toolkit (Python tier-2) | `.claude/rules/python.md` + `cynic-python/` |
+| Analysis toolkit (Python tier-2) | `.claude/rules/python.md` + `services/cynic-python/` |
 
 ---
 
