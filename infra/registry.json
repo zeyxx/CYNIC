@@ -141,6 +141,20 @@
         "cynic-kernel"
       ],
       "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-prompt-enricher",
+      "instance": "organ-prompt-enricher-hermes-agent",
+      "role": "prompt_optimization_manager",
+      "description": "Dynamic prompt enrichment middleware. Uses retrieval augmentation, few-shot templating, and automated reasoning (CoT) structures to optimize raw prompts before dispatch to LLM backends.",
+      "scope": "kernel_middleware+inference",
+      "cron": "event-driven",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel",
+        "llama-embed"
+      ],
+      "coord": "cynic_coord_register/release"
     }
   ]
 }
