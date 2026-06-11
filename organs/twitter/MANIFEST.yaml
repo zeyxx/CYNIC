@@ -1,0 +1,36 @@
+id: organ-twitter
+tier: 2
+domain: social
+status: ACTIVE
+framework: hexagonal-organ
+systemd_executor: organ-twitter-hermes-agent.service
+systemd_dispatch: organ-twitter-cron.service
+
+description: |
+  Twitter/X organ — perception/transformation/analysis/learning cycle
+  for X/Twitter data. Managed by Hermes-Agent executor + 30min dispatch.
+
+inputs:
+  - source: kernel /observations
+    data: recent observations across all domains
+  - source: ~/.cynic/organs/twitter/dataset.jsonl
+    data: raw tweets from x_ingest_daemon
+  - source: kernel /verdicts
+    data: verdict history for feedback analysis
+
+outputs:
+  - path: ~/.cynic/organs/twitter/reflections/
+    format: json
+    frequency: hourly
+  - path: kernel /observe (domain=twitter)
+    format: REST POST
+    frequency: per-cycle
+
+crons:
+  - organ-twitter-cron.timer
+
+scripts:
+  - name: dispatch.py
+    description: Hexagonal architecture entrypoint
+  - name: cli.py
+    description: Trigger CLI for manual tests
