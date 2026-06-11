@@ -1,5 +1,5 @@
 # CYNIC — Universal Development Pipeline
-# Works for Claude Code, Gemini CLI, humans, any machine.
+# Works for Claude Code, Antigravity CLI, humans, any machine.
 # One entry point per stage. No discipline required — the structure enforces the flow.
 #
 # Usage:
@@ -31,11 +31,14 @@ MAKEFLAGS += --warn-undefined-variables
 # ── Environment ──────────────────────────────────────────────
 PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
 
+# 2 GiB: rmcp serde monomorphization (A1 debt)
+export RUST_MIN_STACK := 2147483648
+
 # Source env vars (CYNIC_REST_ADDR, CYNIC_API_KEY, etc.)
 define source_env
 	source ~/.cargo/env 2>/dev/null || true
 	source ~/.cynic-env 2>/dev/null || true
-	export RUST_MIN_STACK=1073741824  # 1 GiB: rmcp serde monomorphization (A1 debt). Source of truth: .cargo/config.toml
+	export RUST_MIN_STACK=2147483648  # 2 GiB: rmcp serde monomorphization (A1 debt). Source of truth: .cargo/config.toml
 
 
 endef
@@ -120,7 +123,7 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 	@set +e; FAIL=0; \
 	K1=$$(grep -rn '#\[cfg(' crates/cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]' | grep -v '#\[cfg_attr(test'); \
 	if [ -n "$$K1" ]; then echo "FAIL K1: #[cfg] in domain/ (domain purity):"; echo "$$K1"; FAIL=1; fi; \
-	R1=$$(grep -rn '/home/\|/Users/' crates/cynic-kernel/src/ scripts/ .claude/hooks/ --include='*.rs' --include='*.sh' --include='*.toml' | grep -v '//' | grep -v 'target/'); \
+	R1=$$(grep -rn '/home/\|/Users/' crates/cynic-kernel/src/ scripts/ .cortex/mcp/ --include='*.rs' --include='*.sh' --include='*.toml' | grep -v '//' | grep -v 'target/'); \
 	if [ -n "$$R1" ]; then echo "FAIL R1: hardcoded absolute paths:"; echo "$$R1"; FAIL=1; fi; \
 	R2=$$(grep -rn '\.ok()' crates/cynic-kernel/src/ --include='*.rs' | grep -v '//' | grep -v '/target/' | grep -v '#\[cfg(test)\]' | grep -v 'mod tests' \
 		| grep -v 'parse()\.ok()' | grep -v 'env::var.*\.ok()' | grep -v 'inspect_err' \
@@ -223,25 +226,28 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	fi; \
 	DORMANT=$$(grep -nE '^\s*//\s*pub mod' $(PROJECT_DIR)/crates/cynic-kernel/src/domain/mod.rs | grep -v 'DORMANT:'); \
 	if [ -n "$$DORMANT" ]; then echo "FAIL Drift: commented module without DORMANT tag:"; echo "$$DORMANT"; FAIL=1; fi; \
-	WORKFLOW_SKILLS=$$(sed -n '/^## Workflow Triggers/,/^## /p' $(PROJECT_DIR)/.claude/rules/workflow.md | grep -oP '(?<=`/)[a-z][-a-z0-9:]*(?=`)' | sort -u); \
+	WORKFLOW_SKILLS=$$(sed -n '/^## Workflow Triggers/,/^## /p' $(PROJECT_DIR)/.cortex/rules/workflow.md | grep -oP '(?<=`/)[a-z][-a-z0-9:]*(?=`)' | sort -u); \
 	for SKILL in $$WORKFLOW_SKILLS; do \
 		FOUND=0; \
 		if echo "$$SKILL" | grep -q ':'; then \
 			NS=$$(echo "$$SKILL" | cut -d: -f1); NAME=$$(echo "$$SKILL" | cut -d: -f2); \
-			[ -d "$${HOME}/.claude/commands/$${NS}/$${NAME}" ] && FOUND=1; \
-			[ -f "$${HOME}/.claude/commands/$${NS}/$${NAME}.md" ] && FOUND=1; \
+			[ -d "$${HOME}/.cortex/commands/$${NS}/$${NAME}" ] && FOUND=1; \
+			[ -f "$${HOME}/.cortex/commands/$${NS}/$${NAME}.md" ] && FOUND=1; \
 		else \
-			[ -f "$(PROJECT_DIR)/.claude/commands/$${SKILL}.md" ] && FOUND=1; \
+			[ -f "$(PROJECT_DIR)/.cortex/commands/$${SKILL}.md" ] && FOUND=1; \
 		fi; \
 		if [ $$FOUND -eq 0 ]; then \
 			echo "FAIL Drift: skill '/$${SKILL}' in workflow.md but not found on disk"; FAIL=1; \
 		fi; \
 	done; \
-	for HOOK in $(PROJECT_DIR)/.claude/hooks/*.sh; do \
+	for HOOK in $(PROJECT_DIR)/.cortex/mcp/*.sh; do \
 		HOOK_BASE=$$(basename "$$HOOK"); \
 		if ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.claude/settings.json 2>/dev/null && \
-		   ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.claude/settings.local.json 2>/dev/null; then \
-			echo "WARN Drift: hook '$$HOOK_BASE' on disk but not wired in settings.json or settings.local.json"; FAIL=1; \
+		   ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.claude/settings.local.json 2>/dev/null && \
+		   ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.mcp.json 2>/dev/null && \
+		   ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.antigravity/settings.json 2>/dev/null && \
+		   ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.codex/config.toml 2>/dev/null; then \
+			echo "WARN Drift: hook '$$HOOK_BASE' on disk but not wired in any adapter settings"; FAIL=1; \
 		fi; \
 	done; \
 	STORES=$$(grep -oP 'async fn \Kstore_\w+' $(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs | sort -u); \
@@ -259,7 +265,7 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			echo "FAIL Drift: route '$$ROUTE' registered in code but missing from API.md"; FAIL=1; \
 		fi; \
 	done; \
-	REF_DOGS=$$(sed -n '/^## Dogs/,/^##/p' $(PROJECT_DIR)/.claude/rules/reference.md | grep -oP '(?<=\| )[a-z][-a-z0-9]+(?= +\|)' | sort -u); \
+	REF_DOGS=$$(sed -n '/^## Dogs/,/^##/p' $(PROJECT_DIR)/.cortex/rules/reference.md | grep -oP '(?<=\| )[a-z][-a-z0-9]+(?= +\|)' | sort -u); \
 	LIVE_DOGS="deterministic-dog"; \
 	if [ -f "$$BACKENDS" ]; then \
 		BACKEND_DOGS=$$(grep -E '^\[(backend|dog)\.' "$$BACKENDS" | sed -E 's/^\[(backend|dog)\.//;s/\].*//' | grep -v 'remediation'); \
@@ -286,7 +292,7 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			fi; \
 		fi; \
 	done; \
-	for RULE in $(PROJECT_DIR)/.claude/rules/*.md; do \
+	for RULE in $(PROJECT_DIR)/.cortex/rules/*.md; do \
 		grep -oP '`[a-zA-Z_/]+\.(rs|toml|sh|md)`' "$$RULE" 2>/dev/null | tr -d '`' | while read -r REF; do \
 			if echo "$$REF" | grep -qE '\.rs$$' && ! find "$$KERN" -path "*$$REF" 2>/dev/null | grep -q .; then \
 				if ! find "$(PROJECT_DIR)" -path "*$$REF" 2>/dev/null | grep -q .; then \
@@ -483,7 +489,7 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	mv "$$TARGET.gate-bak" "$$TARGET"; \
 	\
 	echo "[D4] Injecting phantom Dog in reference.md..."; \
-	REF="$(PROJECT_DIR)/.claude/rules/reference.md"; \
+	REF="$(PROJECT_DIR)/.cortex/rules/reference.md"; \
 	cp "$$REF" "$$REF.gate-bak"; \
 	sed -i '/^| deterministic-dog/a | phantom-dog-test | Test | Nowhere |' "$$REF"; \
 	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
@@ -518,7 +524,7 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	echo ""; echo "── lint-subprocess-env ──"; \
 	\
 	echo "[R23a] Injecting shell script with cargo build and no RUST_MIN_STACK..."; \
-	R23_STUB="$(PROJECT_DIR)/.claude/hooks/_r23_gate_probe.sh"; \
+	R23_STUB="$(PROJECT_DIR)/.cortex/mcp/_r23_gate_probe.sh"; \
 	printf '%s\n' '#!/usr/bin/env bash' '# R23 gate-test probe' 'cargo build --tests' > "$$R23_STUB"; \
 	chmod +x "$$R23_STUB"; \
 	if $(MAKE) --no-print-directory lint-subprocess-env >/dev/null 2>&1; then \

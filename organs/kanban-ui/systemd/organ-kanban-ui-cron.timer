@@ -1,0 +1,9 @@
+[Unit]
+Description=CYNIC Organ Kanban UI Projector Timer
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=15min
+
+[Install]
+WantedBy=timers.target

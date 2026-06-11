@@ -30,7 +30,7 @@ from typing import Any
 CLAUDE_SESSIONS_DIR = Path.home() / ".claude" / "projects" / "-home-user-Bureau-CYNIC"
 RTK_DB = Path.home() / ".local" / "share" / "rtk" / "history.db"
 PROMPT_HISTORY = Path.home() / ".claude" / "history.jsonl"
-GEMINI_CHATS_DIR = Path.home() / ".gemini" / "tmp" / "cynic" / "chats"
+GEMINI_CHATS_DIR = Path.home() / ".antigravity" / "tmp" / "cynic" / "chats"
 _raw_addr = os.environ.get("CYNIC_REST_ADDR", "127.0.0.1:3030")
 KERNEL_ADDR = _raw_addr if _raw_addr.startswith("http") else f"http://{_raw_addr}"
 KERNEL_KEY = os.environ.get("CYNIC_API_KEY", "")

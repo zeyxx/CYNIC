@@ -1,0 +1,8 @@
+name: organ-kanban-ui
+role: dashboard_projection_manager
+description: Projects Hermes Kanban SQLite JSON state into an Obsidian Markdown Kanban board.
+author: CYNIC
+entrypoint: projector.py
+cron: "every 5min"
+dependencies:
+  - cynic-kernel

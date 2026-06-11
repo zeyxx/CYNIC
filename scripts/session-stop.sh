@@ -94,6 +94,6 @@ fi
 
 # 4. Askesis sealing (if applicable)
 # For Gemini: ingestion is handled by askesis-session-end.sh which should call this.
-# For Claude: ingestion is already handled in .claude/hooks/session-stop.sh.
+# For Claude: ingestion is already handled in .cortex/mcp/session-stop.sh.
 
 echo "{\"status\": \"success\", \"agent_id\": \"${AGENT_ID}\"}"

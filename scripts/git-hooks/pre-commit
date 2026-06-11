@@ -87,7 +87,7 @@ ssot_check() {
     # Exclude: API.md (contract), CHANGELOG.md (history), rules/ (principles with examples)
     STALE_STATE=$(printf '%s\n' "$STAGED_MD_DIFF" \
         | grep -iE '^\+.*(Current state.*observed|Status:.*LIVE|Status:.*DEPLOYED|Status:.*COMPILED|Last updated:.*2026|as of 2026)' \
-        | grep -viE 'CHANGELOG|API\.md|\.claude/rules/|status.*:|"status"' || true)
+        | grep -viE 'CHANGELOG|API\.md|\.cortex/rules/|status.*:|"status"' || true)
     if [ -n "$STALE_STATE" ]; then
         echo "SSOT WARNING: runtime state in static .md file:"
         echo "$STALE_STATE" | head -3

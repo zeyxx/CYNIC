@@ -65,8 +65,8 @@
   },
   "organs": [
     {
-      "name": "organ-anvil",
-      "instance": "organ-anvil-hermes-agent",
+      "name": "organ-forge",
+      "instance": "organ-forge-hermes-agent",
       "role": "repo_lifecycle_manager",
       "description": "Git repo hygiene, branch health, claim hygiene, and lifecycle triage.",
       "scope": "github+forgejo",
@@ -117,8 +117,8 @@
       "coord": "cynic_coord_register/release"
     },
     {
-      "name": "organ-x",
-      "instance": "organ-x-hermes-agent",
+      "name": "organ-twitter",
+      "instance": "organ-twitter-hermes-agent",
       "role": "x_surface_manager",
       "description": "X/Twitter perception, curation, and posting surface manager.",
       "scope": "x+curation+alerts",
@@ -153,6 +153,19 @@
       "depends_on": [
         "cynic-kernel",
         "llama-embed"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-kanban-ui",
+      "instance": "organ-kanban-ui-hermes-agent",
+      "role": "dashboard_projection_manager",
+      "description": "One-way projector from Hermes Kanban JSON state to Obsidian Markdown UI.",
+      "scope": "local+obsidian",
+      "cron": "every 5min",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
       ],
       "coord": "cynic_coord_register/release"
     }

@@ -160,8 +160,8 @@ def main() -> int:
 
     load_env()
 
-    api_key = os.environ.get("HELIUS_API_KEY")
-    if not api_key:
+    auth_key = os.environ.get("HELIUS_API_KEY")
+    if not auth_key:
         print("ERROR: HELIUS_API_KEY not set. Source ~/.cynic-env first.", file=sys.stderr)
         return 1
 
@@ -173,7 +173,7 @@ def main() -> int:
         print(f"ERROR: {VERDICTS_DIR} not found", file=sys.stderr)
         return 1
 
-    profiler = HeliusTokenProfiler(api_key=api_key)
+    profiler = HeliusTokenProfiler(auth_key=auth_key)
 
     # Target specific file or all baseline files
     if target_file:

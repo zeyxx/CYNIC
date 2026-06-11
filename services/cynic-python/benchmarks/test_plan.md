@@ -127,7 +127,7 @@ START
 ## After Testing: Commit Decision
 
 **If both phases pass:**
-1. Update `.claude/rules/reference.md` with new Dogs
+1. Update `.cortex/rules/reference.md` with new Dogs
 2. Commit models to kernel (recompile if needed)
 3. Run `/judge` on production test tokens (from CultScreener or Raydium)
 4. Archive observation CSVs: `git add observations/qwen*-*.json`
