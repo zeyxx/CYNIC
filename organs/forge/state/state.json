@@ -1,0 +1,44 @@
+{
+  "current_branch": "feat/organ-jupyter-setup-2026-06-10",
+  "dirty_files": 134,
+  "untracked_files": 16,
+  "branches": [
+    {
+      "name": "feat/organ-jupyter-setup-2026-06-10",
+      "commit_hash": "95b63aa1d041ef002c6bf6f8ef25e0f1f3c33ac1",
+      "author": "jeanterre552",
+      "date": "2026-06-11"
+    },
+    {
+      "name": "main",
+      "commit_hash": "4005007fc75c39421ff5e50675a3822730f194c2",
+      "author": "jeanterre552",
+      "date": "2026-06-08"
+    },
+    {
+      "name": "sync/poh-radio-2026-06-07",
+      "commit_hash": "c038db19b56a4ad2a27e321c3fda0d97eb8d1242",
+      "author": "jeanterre552",
+      "date": "2026-06-07"
+    }
+  ],
+  "gate_markers": {
+    "gate-0": true,
+    "gate-1": true,
+    "gate-2": true
+  },
+  "health_score": 93.0,
+  "alerts": [
+    {
+      "severity": "WARN",
+      "message": "Repo is dirty (134 modified files).",
+      "context": {}
+    },
+    {
+      "severity": "INFO",
+      "message": "Repo has 16 untracked files.",
+      "context": {}
+    }
+  ],
+  "timestamp": "2026-06-11T08:36:13.714720+00:00"
+}

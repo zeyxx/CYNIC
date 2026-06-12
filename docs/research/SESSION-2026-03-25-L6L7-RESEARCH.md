@@ -1,10 +1,10 @@
-# L6-L7 Research Findings — CLAUDE.md + .claude/rules/ Design
+# L6-L7 Research Findings — CLAUDE.md + .cortex/rules/ Design
 
 *2026-03-25. 5 research agents, crystallized. Ready to implement next session.*
 
 ## Critical Bug
 
-**`paths:` frontmatter in .claude/rules/ is BROKEN.** Use `globs:` instead.
+**`paths:` frontmatter in .cortex/rules/ is BROKEN.** Use `globs:` instead.
 - GitHub issues: #17204, #16299, #23478, #21858, #23569
 - Safe format: `globs: ["cynic-kernel/**/*.rs"]` (quoted, in array)
 - Do NOT use: `paths: ["cynic-kernel/**"]`
@@ -72,13 +72,13 @@ Lines 3-12:  Security (non-negotiable: no IPs, no keys, no names, placeholders)
 Lines 13-15: Ownership zones (T.=kernel, S.=frontend)
 Lines 16-28: Skill routing table (rewritten with specific triggers)
 Lines 29-35: Top 3 most-violated rules (primacy position)
-Lines 36-40: Canonical references + pointer to .claude/rules/
+Lines 36-40: Canonical references + pointer to .cortex/rules/
 ```
 
-## .claude/rules/ Structure (4 files)
+## .cortex/rules/ Structure (4 files)
 
 ```
-.claude/rules/
+.cortex/rules/
 ├── universal.md          # Judgment rules always loaded (~50 lines)
 │                         # Rules: 1,2,5,6,8,9,12,14-16,18,20-21,24-28,31,33
 ├── kernel.md             # Rust-specific, lazy loaded

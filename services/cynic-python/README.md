@@ -2,7 +2,7 @@
 
 Analysis & heuristics for multi-domain deterministic evaluators.
 
-## Key Principles (from .claude/rules/python.md)
+## Key Principles (from .cortex/rules/python.md)
 
 - **P1-P6:** Enforced via CI (mypy, pytest, ruff)
 - **P7-P15:** Design guidance (measurement, real data, observability)

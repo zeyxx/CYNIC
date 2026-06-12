@@ -8,7 +8,7 @@ rustflags = ["-C", "debuginfo=1"]
 [env]
 # A1 debt: rmcp's generated DWARF overflows debug linking unless debug info is reduced.
 # Keep the repo default here so plain `cargo build` works without shell setup.
-RUST_MIN_STACK = "1073741824"
+RUST_MIN_STACK = "2147483648"
 
 
 

@@ -161,7 +161,7 @@ Run 2 (after tuning):
 - Chess game outcome prediction
 - Embedding correlation (semantic consistency)
 
-## P-Rules (from .claude/rules/python.md)
+## P-Rules (from .cortex/rules/python.md)
 
 - P1: Type annotations (mypy --strict)
 - P2: Test coverage ≥80%

@@ -1,0 +1,26 @@
+id: organ-vercel
+tier: 2
+domain: infrastructure
+status: ACTIVE
+
+description: |
+  Vercel deployment monitoring organ. Tracks active Vercel deployments and project status.
+
+inputs:
+  - source: vercel cli
+    data: active vercel deployments
+
+outputs:
+  - path: kernel /observe (domain=vercel)
+    format: REST POST
+  - path: ~/.cynic/organs/vercel/dataset.jsonl
+    format: jsonl
+
+crons:
+  - organ-vercel-cron.timer
+
+scripts:
+  - name: dispatch.py
+    description: Hexagonal architecture entrypoint
+  - name: cli.py
+    description: Trigger CLI for manual tests

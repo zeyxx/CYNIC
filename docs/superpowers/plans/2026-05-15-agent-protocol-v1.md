@@ -18,8 +18,8 @@
 |------|--------|----------------|
 | `scripts/cynic-cortex.sh` | **Create** | Wrapper: clean check → worktree create → launch Claude Code |
 | `scripts/cynic-cortex-cleanup.sh` | **Create** | Cron: prune worktrees older than 24h with no unpushed commits |
-| `.claude/hooks/coord-claim.sh` | **Modify** | Change conflict response from block to warning |
-| `.claude/hooks/session-stop.sh` | **Modify** | Add worktree cleanup + claim status update |
+| `.cortex/mcp/coord-claim.sh` | **Modify** | Change conflict response from block to warning |
+| `.cortex/mcp/session-stop.sh` | **Modify** | Add worktree cleanup + claim status update |
 | `.claude/settings.json` | **Modify** | Remove `if` scope restriction on coord-claim |
 | `scripts/git-hooks/pre-push` | **Modify** | Add scope match + freshness + merged-PR checks |
 | `cynic-kernel/src/storage/mod.rs` | **Modify** | Add `status`, `intent`, `session_id` fields to work_claim bootstrap |
@@ -277,7 +277,7 @@ Agent Protocol v1 Component 2b."
 **Files:**
 - Modify: `cynic-kernel/src/domain/coord.rs` (add ClaimResultWithConflicts)
 - Modify: `cynic-kernel/src/api/rest/coord.rs:162-175` (change 409 → 200+conflicts)
-- Modify: `.claude/hooks/coord-claim.sh` (warning instead of block)
+- Modify: `.cortex/mcp/coord-claim.sh` (warning instead of block)
 
 - [ ] **Step 1: Modify REST handler — return 200 with conflicts**
 
@@ -310,7 +310,7 @@ Run: `cargo check --workspace --all-targets`
 
 - [ ] **Step 3: Update `coord-claim.sh` — warn instead of block on conflict**
 
-Replace the `409)` case in `.claude/hooks/coord-claim.sh`:
+Replace the `409)` case in `.cortex/mcp/coord-claim.sh`:
 
 ```bash
     200)
@@ -339,7 +339,7 @@ Expected: 25/25 pass (REST behavior change is tested via rest_routes, not integr
 - [ ] **Step 5: Commit**
 
 ```bash
-git add cynic-kernel/src/api/rest/coord.rs .claude/hooks/coord-claim.sh
+git add cynic-kernel/src/api/rest/coord.rs .cortex/mcp/coord-claim.sh
 git commit -m "feat(coord): claim returns 200+conflicts instead of 409 block
 
 Implements T1: claim as signal, not lock. The claim succeeds and
@@ -365,15 +365,15 @@ In `.claude/settings.json`, remove the `"if"` field from both coord-claim entrie
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/branch-guard.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.cortex/mcp/branch-guard.sh"
           },
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/coord-claim.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.cortex/mcp/coord-claim.sh"
           },
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/coord-claim.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.cortex/mcp/coord-claim.sh"
           }
         ]
       }
@@ -503,7 +503,7 @@ Agent Protocol v1 Component 3."
 ## Task 7: Session Stop Cleanup
 
 **Files:**
-- Modify: `.claude/hooks/session-stop.sh`
+- Modify: `.cortex/mcp/session-stop.sh`
 
 - [ ] **Step 1: Add worktree cleanup to session-stop.sh**
 
@@ -544,7 +544,7 @@ fi
 - [ ] **Step 2: Commit**
 
 ```bash
-git add .claude/hooks/session-stop.sh
+git add .cortex/mcp/session-stop.sh
 git commit -m "feat(coord): session-stop worktree cleanup
 
 Auto-removes worktree on session end if branch is pushed or has

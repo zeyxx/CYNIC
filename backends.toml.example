@@ -57,13 +57,13 @@ auth_style = "none"
 #model = "microsoft/phi-4-mini"
 #auth_style = "none"
 
-# ── Dog 6: Gemini CLI (subscription, no API key) ────────────
-# Uses gemini-cli binary with OAuth auth (Google subscription).
+# ── Dog 6: Antigravity CLI (subscription, no API key) ────────────
+# Uses antigravity-cli binary with OAuth auth (Google subscription).
 # backend_type = "cli" means base_url is the binary path, not an HTTP URL.
 # Different model family (Google) = architectural diversity.
-[backend.gemini-cli]
+[backend.antigravity-cli]
 backend_type = "cli"
-base_url = "gemini"
+base_url = "antigravity"
 model = "auto"
 auth_style = "none"
 context_size = 1000000

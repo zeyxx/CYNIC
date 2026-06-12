@@ -346,8 +346,8 @@ impl TaskStorage for SurrealHttpStorage {
     }
 
     #[tracing::instrument(skip(self), err)]
-    async fn mark_agent_task_processing(&self, task_id: &str) -> Result<(), StorageError> {
-        agent_tasks::mark_agent_task_processing(self, task_id).await
+    async fn claim_agent_task(&self, task_id: &str, agent_id: &str) -> Result<bool, StorageError> {
+        agent_tasks::claim_agent_task(self, task_id, agent_id).await
     }
     async fn update_agent_task_result(
         &self,

@@ -12,7 +12,7 @@ resolver = "2"
 
 # ── Industrial lint configuration (Axum/Embark Studios baseline) ──
 # Compiler lints = Layer 0 enforcement. 100% reliable, 0 context cost.
-# See .claude/rules/universal.md, .claude/rules/kernel.md
+# See .cortex/rules/universal.md, .cortex/rules/kernel.md
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

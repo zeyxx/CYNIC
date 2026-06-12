@@ -396,8 +396,8 @@ After 3 months of Gemini audits:
 ## 12. References
 
 - `CLAUDE.md` §I (axioms), §II (Dog identity), §V (never do), §VIII (sources)
-- `.claude/rules/kernel.md` (K1-K16 gates)
-- `.claude/rules/universal.md` (Rule 22: USE before architecture — Phase 2 body pilot respects this)
+- `.cortex/rules/kernel.md` (K1-K16 gates)
+- `.cortex/rules/universal.md` (Rule 22: USE before architecture — Phase 2 body pilot respects this)
 - Memory: `project_cynic_askesis_design.md`, `project_seventh_axiom_kenosis.md`, `feedback_claude_gemini_pyrrhonist.md`, `feedback_lazy_engineer_pattern.md`, `feedback_fogc_vigilance.md`
 - Gemini+cynic-wisdom brainstorm output: `/tmp/gemini-brainstorm-output.txt`, `/tmp/gemini-challenge-output.txt` (session-scoped, not committed)
 - Primary philosophical sources: Aristotle (Nicomachean Ethics — praxis vs poiesis), Corpus Hermeticum XI, Kybalion §4 (Polarity), Frabato (empty shell), Diogenes Laertius 6.60 (Cynic parrhesia)

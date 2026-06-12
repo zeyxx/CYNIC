@@ -13,7 +13,7 @@
 | IPC | pipes, sockets, shared mem | VascularSystem (mpsc channels) | No external IPC (WebSocket needed) |
 | Signals | Async notifications | HeresyNotice | - |
 | Filesystem | Persistent storage | StoragePort + SurrealDB | - |
-| Device drivers | Hardware adapters | InferencePort adapters (llama.cpp, Ollama, Gemini, HF) | - |
+| Device drivers | Hardware adapters | InferencePort adapters (llama.cpp, Ollama, Antigravity, HF) | - |
 | Mutex | Synchronization | coord/claim + coord/release | Non-atomic, theater |
 | Permissions/ACL | User/group/rwx | Bearer auth only | No per-agent capabilities |
 | Capabilities (seL4) | Unforgeable tokens | - | Not implemented |
@@ -40,14 +40,14 @@ The fractal invariant: **the same scheduling, isolation, and accountability prim
 
 ## 3. Four Agent Types — Integration Matrix
 
-| Property | Claude Code | Gemini CLI | OpenClaw | KAIROS |
+| Property | Claude Code | Antigravity CLI | OpenClaw | KAIROS |
 |---|---|---|---|---|
 | Lifecycle | Session (ephemeral) | Session (ephemeral) | Persistent daemon | Continuous daemon (60s cycles) |
 | Communication | stdio MCP + hooks + REST | stdio MCP + hooks + REST | WebSocket (18789) + HTTP + ACP bridge | HTTP REST only (POST /judge) |
 | Hook system | 12 events, bash, sync/async | ~10 events, bash, sync | Webhooks out, tool policies | None (loop is code) |
 | Session identity | CLAUDE_SESSION_ID | GEMINI_SESSION_ID | Binding tuple (channel,account,peer) | No session — process identity |
 | Sandbox | Per-tool allow/deny | Docker sandbox | Docker per non-elevated session | Trusted systemd service |
-| CYNIC integration | Deep (MCP + 4 hooks) | Minimal (GEMINI.md only) | None | HTTP adapter (CynicHttpAdapter) |
+| CYNIC integration | Deep (MCP + 4 hooks) | Minimal (ANTIGRAVITY.md only) | None | HTTP adapter (CynicHttpAdapter) |
 | Needs from OS | FS, git, shell, MCP | FS, git, shell, MCP, Docker | Node.js, port 18789, FS, Docker | Python, network, SurrealDB |
 
 ## 4. The Universal Interface (Already Exists)
@@ -120,6 +120,6 @@ From POSIX (50+ years), Linux (35), seL4 (15+):
 - seL4 Design Principles: microkerneldude.org
 - Fractal Component Model: France Telecom + INRIA, 2001
 - Claude Code hooks: code.claude.com/docs/en/hooks
-- Gemini CLI hooks: geminicli.com/docs
+- Antigravity CLI hooks: antigravitycli.com/docs
 - OpenClaw Gateway: docs.openclaw.ai/gateway/protocol
 - MCP Streamable HTTP: modelcontextprotocol.io/specification/2025-03-26

@@ -47,6 +47,10 @@ fn row_to_agent_task(row: &Value) -> Option<AgentTask> {
             .get("agent_id")
             .and_then(|v| v.as_str())
             .map(String::from),
+        claimed_by: obj
+            .get("claimed_by")
+            .and_then(|v| v.as_str())
+            .map(String::from),
         error: obj.get("error").and_then(|v| v.as_str()).map(String::from),
     })
 }
@@ -120,14 +124,18 @@ pub(super) async fn get_agent_task(
     Ok(rows.first().and_then(row_to_agent_task))
 }
 
-/// Mark task as processing.
-pub(super) async fn mark_agent_task_processing(
+/// Atomically claim task for processing.
+pub(super) async fn claim_agent_task(
     storage: &SurrealHttpStorage,
     task_id: &str,
-) -> Result<(), StorageError> {
-    let query = format!("UPDATE agent_tasks SET status = 'processing' WHERE id = {task_id};");
-    storage.query_one(&query).await?;
-    Ok(())
+    agent_id: &str,
+) -> Result<bool, StorageError> {
+    let escaped_agent_id = crate::storage::escape_surreal(agent_id);
+    let query = format!(
+        "UPDATE agent_tasks SET status = 'processing', claimed_by = '{escaped_agent_id}' WHERE id = {task_id} AND status = 'pending';"
+    );
+    let rows = storage.query_one(&query).await?;
+    Ok(!rows.is_empty())
 }
 
 /// Update task result and status. K15: Also observe the result as a crystal.

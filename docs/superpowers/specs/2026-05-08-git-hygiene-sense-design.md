@@ -117,7 +117,7 @@ bootstrap-git-hygiene.sh (one-time)
 
 | File | Change |
 |------|--------|
-| `.claude/hooks/session-init.sh` | Add ~25 lines after line 132: compute 3 new metrics + POST observation |
+| `.cortex/mcp/session-init.sh` | Add ~25 lines after line 132: compute 3 new metrics + POST observation |
 | `scripts/bootstrap-git-hygiene.sh` | New file (~80 lines): one-time backfill from git history |
 
 ## Falsification

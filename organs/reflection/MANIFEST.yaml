@@ -1,0 +1,27 @@
+id: organ-reflection
+tier: 2
+domain: synthesis
+status: ACTIVE
+
+description: |
+  Reflection organ. Ingests dataset.jsonl from all other organs, synthesizes 
+  events, and outputs askesis.jsonl for evaluation.
+
+inputs:
+  - source: organs/*/state/dataset.jsonl
+    data: all organ events and traces
+
+outputs:
+  - path: ~/.cynic/organs/reflection/askesis.jsonl
+    format: jsonl
+  - path: kernel /observe (domain=reflection)
+    format: REST POST
+
+crons:
+  - organ-reflection-cron.timer
+
+scripts:
+  - name: dispatch.py
+    description: Hexagonal architecture entrypoint
+  - name: cli.py
+    description: Trigger CLI for manual tests

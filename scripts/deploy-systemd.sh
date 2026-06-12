@@ -31,7 +31,7 @@ CHANGED=0
 SKIPPED=0
 CREATED=0
 
-for src in "$SOURCE_DIR"/*.service "$SOURCE_DIR"/*.timer; do
+for src in "$SOURCE_DIR"/*.service "$SOURCE_DIR"/*.timer "$PROJECT_DIR"/organs/*/systemd/*.service "$PROJECT_DIR"/organs/*/systemd/*.timer; do
     [ -f "$src" ] || continue
     name="$(basename "$src")"
 

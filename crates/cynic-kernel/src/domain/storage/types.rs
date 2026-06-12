@@ -177,6 +177,7 @@ pub struct AgentTask {
     pub created_at: String,
     pub completed_at: Option<String>,
     pub agent_id: Option<String>,
+    pub claimed_by: Option<String>,
     pub error: Option<String>,
 }
 

@@ -5,7 +5,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-ZONES_FILE="${PROJECT_DIR}/.claude/zones.json"
+ZONES_FILE="${PROJECT_DIR}/.cortex/zones.json"
 ZONE_STATE_DIR="/tmp/cynic-zones"
 
 source ~/.cynic-env 2>/dev/null || true
@@ -90,7 +90,7 @@ cat << 'DISPATCH_C'
 ═══ CORTEX C (copy-paste this) ═══
 
 SCOPE: docs + hooks
-ZONES: docs/ .claude/hooks/ .claude/rules/
+ZONES: docs/ .cortex/mcp/ .cortex/rules/
 TASK: [describe the task]
 DO NOT TOUCH: cynic-kernel/
 

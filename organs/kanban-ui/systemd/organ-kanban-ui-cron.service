@@ -1,0 +1,14 @@
+[Unit]
+Description=CYNIC Organ Kanban UI Projector
+After=cynic-kernel.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Bureau/CYNIC
+EnvironmentFile=%h/.config/cynic/env
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/organs/kanban-ui/src/entrypoints/cli.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=CYNIC Organ Reflection Cron
+After=cynic-kernel.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Bureau/CYNIC
+EnvironmentFile=%h/.config/cynic/env
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/organs/reflection/src/entrypoints/cli.py
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/organs/reflection/src/dispatch.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

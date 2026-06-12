@@ -87,7 +87,7 @@ ssot_check() {
     # Exclude: API.md (contract), CHANGELOG.md (history), rules/ (principles with examples)
     STALE_STATE=$(printf '%s\n' "$STAGED_MD_DIFF" \
         | grep -iE '^\+.*(Current state.*observed|Status:.*LIVE|Status:.*DEPLOYED|Status:.*COMPILED|Last updated:.*2026|as of 2026)' \
-        | grep -viE 'CHANGELOG|API\.md|\.claude/rules/|status.*:|"status"' || true)
+        | grep -viE 'CHANGELOG|API\.md|\.cortex/rules/|status.*:|"status"' || true)
     if [ -n "$STALE_STATE" ]; then
         echo "SSOT WARNING: runtime state in static .md file:"
         echo "$STALE_STATE" | head -3
@@ -154,6 +154,35 @@ coord_check() {
     return 0
 }
 coord_check || exit 1
+
+# ── Jupyter Notebook Hygiene (Gate-0) ──
+nbstrip_check() {
+    STAGED_IPYNB=$(git diff --cached --name-only --diff-filter=ACM | grep '\.ipynb$' || true)
+    [ -z "$STAGED_IPYNB" ] && return 0
+    
+    # Try to find nbstripout in path or in organ-jupyter
+    if command -v nbstripout >/dev/null 2>&1; then
+        NBSTRIPOUT="nbstripout"
+    elif [ -f "organs/jupyter/.venv/bin/nbstripout" ]; then
+        NBSTRIPOUT="organs/jupyter/.venv/bin/nbstripout"
+    else
+        echo "SECURITY FAIL: .ipynb files staged but nbstripout not found."
+        echo "  Run: organs/jupyter/.venv/bin/pip install nbstripout"
+        return 1
+    fi
+
+    FAIL=0
+    for file in $STAGED_IPYNB; do
+        if ! $NBSTRIPOUT --verify "$file" >/dev/null 2>&1; then
+            echo "JUPYTER HYGIENE FAIL: '$file' contains outputs!"
+            echo "  Run: $NBSTRIPOUT \"$file\""
+            echo "  Then re-stage the file: git add \"$file\""
+            FAIL=1
+        fi
+    done
+    return $FAIL
+}
+nbstrip_check || exit 1
 
 # ── Cargo.lock coherence check ──
 # If Cargo.toml changed, verify lock is consistent WITHOUT upgrading deps.

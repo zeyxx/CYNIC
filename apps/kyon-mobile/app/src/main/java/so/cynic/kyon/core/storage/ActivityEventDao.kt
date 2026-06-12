@@ -3,6 +3,7 @@ package so.cynic.kyon.core.storage
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ActivityEventDao {
@@ -11,6 +12,9 @@ interface ActivityEventDao {
 
     @Query("SELECT * FROM activity_events ORDER BY timestampMs DESC LIMIT :limit")
     suspend fun recent(limit: Int): List<ActivityEventEntity>
+
+    @Query("SELECT * FROM activity_events ORDER BY timestampMs DESC LIMIT :limit")
+    fun observeRecent(limit: Int): Flow<List<ActivityEventEntity>>
 
     @Query(
         "SELECT * FROM activity_events " +

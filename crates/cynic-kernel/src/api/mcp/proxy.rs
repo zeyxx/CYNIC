@@ -16,10 +16,9 @@ use rmcp::{
 
 use super::{
     AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
-    CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams, GitParams, JudgeParams,
-    ListParams, ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams,
-    RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, ValidateParams, WhoParams,
-    validate_agent_id,
+    CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams, JudgeParams, ListParams,
+    ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams, RegisterParams,
+    ReleaseParams, UpdateAgentTaskResultParams, WhoParams, validate_agent_id,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -31,7 +30,9 @@ pub struct CynicMcpProxy {
     api_key: String,
     authenticated: Arc<AtomicBool>,
     rate_limit: Arc<McpRateLimit>,
-    project_root: String,
+    pub project_root: String,
+    // WHY: K12 — tool_router is used via trait dispatch, compiler misses direct usage
+    #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
 }
 
@@ -44,6 +45,10 @@ impl std::fmt::Debug for CynicMcpProxy {
 }
 
 impl CynicMcpProxy {
+    pub fn tool_router() -> ToolRouter<Self> {
+        Self::tool_router_forward() + Self::tool_router_coord() + Self::tool_router_local()
+    }
+
     pub fn new(base_url: String, api_key: String, project_root: String) -> Self {
         // WHY: reqwest::Client::builder().build() only fails on TLS init error,
         // which is unrecoverable. Unwrap is safe here but clippy wants map_err.
@@ -62,13 +67,12 @@ impl CynicMcpProxy {
             client,
             base_url,
             api_key,
-            // Auto-auth when proxy has a valid API key. LLM echoing key = theater.
+            // MCP stdio is a local subprocess; if the wrapper injected the kernel token,
+            // requiring the model to echo it back through cynic_auth adds exposure only.
             authenticated: Arc::new(AtomicBool::new(auto_auth)),
             rate_limit: Arc::new(McpRateLimit::new()),
             project_root,
-            tool_router: Self::tool_router_forward()
-                + Self::tool_router_coord()
-                + Self::tool_router_local(),
+            tool_router: Self::tool_router(),
         }
     }
 
@@ -76,7 +80,7 @@ impl CynicMcpProxy {
         if !self.authenticated.load(Ordering::Relaxed) {
             return Err(McpError::new(
                 rmcp::model::ErrorCode(-32000),
-                "Not authenticated — call cynic_auth first",
+                "MCP not authenticated: CYNIC_API_KEY was not provided to the MCP process",
                 None,
             ));
         }
@@ -566,7 +570,7 @@ impl CynicMcpProxy {
 impl CynicMcpProxy {
     #[tool(
         name = "cynic_auth",
-        description = "Authenticate this MCP session. Required before calling sensitive tools. Pass the CYNIC_API_KEY. Call once per session."
+        description = "Fallback manual authentication for MCP sessions missing CYNIC_API_KEY env forwarding. Prefer fixing the MCP wrapper instead of passing secrets through the model."
     )]
     async fn cynic_auth(&self, params: Parameters<AuthParams>) -> Result<CallToolResult, McpError> {
         let p = params.0;
@@ -592,35 +596,59 @@ impl CynicMcpProxy {
     }
 
     #[tool(
-        name = "cynic_validate",
-        description = "Run cargo build + clippy + lint-rules on the kernel. Returns pass/fail with details."
+        name = "cynic_askesis_log",
+        description = "Log a reflection or interaction directly to the human Askesis journal (.cynic/memory/logs/human-kernel.jsonl). Use this to frictionlessly save the human's axioms and semantic footprint."
     )]
-    async fn cynic_validate(
+    async fn cynic_askesis_log(
         &self,
-        _params: Parameters<ValidateParams>,
+        params: Parameters<AskesisParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        // Local: runs filesystem commands
-        let result = super::build_tools::run_validate(&self.project_root).await;
-        Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_default(),
-        )]))
-    }
+        let p = params.0;
+        let logfile = format!(
+            "{}/.cynic/memory/logs/human-kernel.jsonl",
+            self.project_root
+        );
+        let askesis_bin = format!("{}/target/debug/cynic-askesis", self.project_root);
 
-    #[tool(
-        name = "cynic_git",
-        description = "Run safe git operations: status, diff, log, branch, stash."
-    )]
-    async fn cynic_git(&self, params: Parameters<GitParams>) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        // Local: runs git commands
-        let result = super::build_tools::run_git(&self.project_root, &params.0.op).await;
+        // Si le binaire n'existe pas, on fail gracefuly
+        if !std::path::Path::new(&askesis_bin).exists() {
+            return Err(McpError::internal_error(
+                "cynic-askesis binary not found. Please run 'cargo build -p cynic-askesis' first.",
+                None,
+            ));
+        }
+
+        let output = std::process::Command::new(&askesis_bin)
+            .arg("log")
+            .arg("--content")
+            .arg(&p.content)
+            .arg("--domain")
+            .arg(&p.domain)
+            .arg("--logfile")
+            .arg(&logfile)
+            .output()
+            .map_err(|e| {
+                McpError::internal_error(format!("Failed to execute cynic-askesis: {e}"), None)
+            })?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(McpError::internal_error(
+                format!("cynic-askesis failed: {stderr}"),
+                None,
+            ));
+        }
+
         Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_default(),
+            r#"{"status": "askesis_logged"}"#,
         )]))
     }
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct AskesisParams {
+    pub content: String,
+    pub domain: String,
 }
 
 // ── MCP ServerHandler ───────────────────────────────────────

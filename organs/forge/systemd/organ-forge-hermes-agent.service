@@ -1,0 +1,24 @@
+[Unit]
+Description=CYNIC Organ Anvil Hermes Agent - repo lifecycle manager
+After=cynic-kernel.service hermes-agent-executor.service
+Wants=cynic-kernel.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Bureau/CYNIC
+EnvironmentFile=%h/.config/cynic/env
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=%h/Bureau/CYNIC/services/cynic-python
+Environment=HERMES_AGENT_DOMAIN_ALLOW=organ-forge,repo-lifecycle
+Environment=HERMES_AGENT_KIND_ALLOW=hermes
+Environment=HERMES_AGENT_POLL_LIMIT=100
+Environment=X_ORGAN_DIR=%h/Bureau/CYNIC/organs/forge/state
+ExecStart=/usr/bin/python3 -m organs.core.daemon --organ-dir %h/Bureau/CYNIC/organs/forge/state --interval 30
+Restart=on-failure
+RestartSec=30s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

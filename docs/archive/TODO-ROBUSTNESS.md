@@ -24,7 +24,7 @@
 **Current state:**
 ```
 Modified (11):
- M .claude/rules/workflow.md          (docs, safe)
+ M .cortex/rules/workflow.md          (docs, safe)
  M TODO.md                            (session log, compress)
  M cynic-kernel.bin                   (binary artifact)
  M Cargo.toml                         (single line change)
@@ -37,7 +37,7 @@ Modified (11):
  M scripts/ouroboros_scorecard.py     (script, safe)
 
 Untracked (11):
- ?? .claude/session-convention-caplogy.md
+ ?? .cortex/session-convention-caplogy.md
  ?? src/domain/stimulus.rs            (DEFER to stimulus session)
  ?? docs/research/AGENT-COMPARISON-PROTOCOL.md
  ?? cynic-kernel.bin                  (duplicate)

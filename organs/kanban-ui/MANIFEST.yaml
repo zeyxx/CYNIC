@@ -1,0 +1,24 @@
+id: organ-kanban-ui
+tier: 3
+domain: presentation
+status: ACTIVE
+
+description: |
+  Projects Hermes Kanban SQLite JSON state into an Obsidian Markdown Kanban board.
+
+inputs:
+  - source: hermes tasks
+    data: json tasks from surrealdb/sqlite
+
+outputs:
+  - path: ~/.cynic/organs/kanban-ui/board.md
+    format: markdown
+
+crons:
+  - organ-kanban-ui-cron.timer
+
+scripts:
+  - name: dispatch.py
+    description: Hexagonal architecture entrypoint
+  - name: cli.py
+    description: Trigger CLI for manual tests

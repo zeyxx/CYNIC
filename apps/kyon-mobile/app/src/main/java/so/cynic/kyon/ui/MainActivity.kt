@@ -1,10 +1,17 @@
 package so.cynic.kyon.ui
 
+import android.app.AppOpsManager
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,71 +20,362 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import so.cynic.kyon.KyonApp
+import so.cynic.kyon.core.model.ActivityEvent
+import so.cynic.kyon.core.model.EventSource
+import so.cynic.kyon.core.storage.EventRepository
+import so.cynic.kyon.mirror.usage.UsageSnapshotCollector
+import java.text.DateFormat
 
 class MainActivity : ComponentActivity() {
+    private var events by mutableStateOf<List<ActivityEvent>>(emptyList())
+    private var usageAccessGranted by mutableStateOf(false)
+    private var notificationAccessGranted by mutableStateOf(false)
+    private var isRefreshingUsage by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             KyonShell(
+                usageAccessGranted = usageAccessGranted,
+                notificationAccessGranted = notificationAccessGranted,
+                events = events,
+                isRefreshingUsage = isRefreshingUsage,
                 openUsageAccess = {
                     startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 },
                 openNotificationAccess = {
                     startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 },
+                captureUsageSnapshot = ::captureUsageSnapshot,
+            )
+        }
+        observeEvents()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        usageAccessGranted = hasUsageAccess()
+        notificationAccessGranted = hasNotificationAccess()
+        loadEvents()
+    }
+
+    private fun observeEvents() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                repository().observeRecent().collect { latest ->
+                    events = latest
+                    notificationAccessGranted = hasNotificationAccess()
+                }
+            }
+        }
+    }
+
+    private fun captureUsageSnapshot() {
+        if (isRefreshingUsage) return
+        isRefreshingUsage = true
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val repository = repository()
+                UsageSnapshotCollector(applicationContext).snapshot()
+                    .forEach { repository.record(it) }
+                val latest = repository.recent()
+
+                withContext(Dispatchers.Main) {
+                    events = latest
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    isRefreshingUsage = false
+                }
+            }
+        }
+    }
+
+    private fun loadEvents() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val latest = repository().recent()
+            withContext(Dispatchers.Main) {
+                events = latest
+            }
+        }
+    }
+
+    private fun repository(): EventRepository =
+        EventRepository((application as KyonApp).database.activityEvents())
+
+    private fun hasUsageAccess(): Boolean {
+        val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(),
+                packageName,
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(),
+                packageName,
+            )
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun hasNotificationAccess(): Boolean {
+        val enabledListeners = Settings.Secure.getString(
+            contentResolver,
+            "enabled_notification_listeners",
+        ) ?: return false
+
+        return enabledListeners
+            .split(':')
+            .mapNotNull(ComponentName::unflattenFromString)
+            .any { it.packageName == packageName }
+    }
+}
+
+@Composable
+private fun KyonShell(
+    usageAccessGranted: Boolean,
+    notificationAccessGranted: Boolean,
+    events: List<ActivityEvent>,
+    isRefreshingUsage: Boolean,
+    openUsageAccess: () -> Unit,
+    openNotificationAccess: () -> Unit,
+    captureUsageSnapshot: () -> Unit,
+) {
+    var selectedFilter by remember { mutableStateOf(EventFilter.ALL) }
+    val filteredEvents = events.filter { selectedFilter.includes(it) }
+
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Kyon", style = MaterialTheme.typography.headlineMedium)
+                        Text("Shield actif en allow-default. Mirror local, metadata only.")
+                    }
+                }
+
+                item {
+                    StatusCard(
+                        usageAccessGranted = usageAccessGranted,
+                        notificationAccessGranted = notificationAccessGranted,
+                    )
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = openUsageAccess,
+                        ) {
+                            Text("Usage")
+                        }
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = openNotificationAccess,
+                        ) {
+                            Text("Notifs")
+                        }
+                    }
+                }
+
+                item {
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = usageAccessGranted && !isRefreshingUsage,
+                        onClick = captureUsageSnapshot,
+                    ) {
+                        Text(if (isRefreshingUsage) "Snapshot..." else "Snapshot usage")
+                    }
+                }
+
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "Journal local (${filteredEvents.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        EventFilterTabs(
+                            selected = selectedFilter,
+                            onSelected = { selectedFilter = it },
+                        )
+                    }
+                }
+
+                if (filteredEvents.isEmpty()) {
+                    item {
+                        EmptyEventCard()
+                    }
+                } else {
+                    items(filteredEvents) { event ->
+                        EventCard(event)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private enum class EventFilter(
+    val label: String,
+    private val source: EventSource?,
+) {
+    ALL("All", null),
+    USAGE("Usage", EventSource.MOBILE_USAGE),
+    NOTIFICATIONS("Notifications", EventSource.MOBILE_NOTIFICATION),
+    CALLS("Calls", EventSource.MOBILE_CALL),
+    SMS("SMS", EventSource.MOBILE_SMS);
+
+    fun includes(event: ActivityEvent): Boolean = source == null || event.source == source
+}
+
+@Composable
+private fun EventFilterTabs(
+    selected: EventFilter,
+    onSelected: (EventFilter) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        EventFilter.entries.forEach { filter ->
+            FilterChip(
+                selected = selected == filter,
+                onClick = { onSelected(filter) },
+                label = { Text(filter.label) },
             )
         }
     }
 }
 
 @Composable
-private fun KyonShell(
-    openUsageAccess: () -> Unit,
-    openNotificationAccess: () -> Unit,
+private fun StatusCard(
+    usageAccessGranted: Boolean,
+    notificationAccessGranted: Boolean,
 ) {
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column {
-                    Text("Kyon", style = MaterialTheme.typography.headlineMedium)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Shield protege les appels. Mirror observe les patterns locaux.")
-                    Spacer(Modifier.height(24.dp))
-                    Text("Sync kernel: desactivee par defaut")
-                    Text("Capture contenu: jamais par defaut")
-                }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("Etat local", style = MaterialTheme.typography.titleMedium)
+            StatusRow("Usage access", usageAccessGranted)
+            StatusRow("Notification listener", notificationAccessGranted)
+            StatusRow("Kernel sync", false, falseLabel = "off")
+            StatusRow("Content capture", false, falseLabel = "never")
+        }
+    }
+}
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Button(
-                        modifier = Modifier.weight(1f),
-                        onClick = openUsageAccess,
-                    ) {
-                        Text("Usage")
-                    }
-                    OutlinedButton(
-                        modifier = Modifier.weight(1f),
-                        onClick = openNotificationAccess,
-                    ) {
-                        Text("Notifs")
-                    }
-                }
+@Composable
+private fun StatusRow(
+    label: String,
+    enabled: Boolean,
+    falseLabel: String = "missing",
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label)
+        Text(
+            text = if (enabled) "on" else falseLabel,
+            color = if (enabled) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}
+
+@Composable
+private fun EventCard(event: ActivityEvent) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(event.eventType, style = MaterialTheme.typography.titleSmall)
+            Text(event.target, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "${event.source.name.lowercase()} - ${formatTimestamp(event.timestampMs)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (event.durationMs != null) {
+                Text(
+                    "duration ${formatDuration(event.durationMs)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
+}
+
+@Composable
+private fun EmptyEventCard() {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Aucun evenement local")
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Les services Shield et Mirror ecriront ici apres autorisation.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private fun formatTimestamp(timestampMs: Long): String =
+    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+        .format(timestampMs)
+
+private fun formatDuration(durationMs: Long): String {
+    val minutes = durationMs / 60_000L
+    return if (minutes > 0) "${minutes}m" else "${durationMs / 1_000L}s"
 }

@@ -6,7 +6,7 @@
 # explicitly.
 #
 # Scope:
-#   Shell: .claude/hooks/*.sh + scripts/*.sh + scripts/git-hooks/*
+#   Shell: .cortex/mcp/*.sh + scripts/*.sh + scripts/git-hooks/*
 #     - `cargo (build|test|clippy|run|check|audit)` → script must set RUST_MIN_STACK
 #     - `rustfmt ...`                              → invocation line must set --edition
 #     - `cargo fmt` is NOT flagged (no compilation, edition inherited from crate)
@@ -30,7 +30,7 @@ FAIL=0
 
 # ── Shell scripts ────────────────────────────────────────────
 shell_paths=()
-for p in .claude/hooks scripts scripts/git-hooks; do
+for p in .cortex/mcp scripts scripts/git-hooks; do
     [ -d "$p" ] || continue
     while IFS= read -r f; do shell_paths+=("$f"); done < <(find "$p" -maxdepth 1 -type f \( -name '*.sh' -o -name 'pre-commit' -o -name 'pre-push' -o -name 'commit-msg' \))
 done

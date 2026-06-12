@@ -31,9 +31,9 @@ evaluation_timeout_secs = 60
 enabled = true
 
 # Qwen3-4B-Instruct-2507 CPU (sovereign, APU)
-[dog.qwen25-7b-core]
+[dog.qwen3-4b-core]
 kind = "inference"
-provider = "qwen25-7b-core"
+provider = "qwen3-4b-core"
 model = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M"
 failure_rate_threshold = 0.40
 collapse_threshold = 10
@@ -70,7 +70,7 @@ restart_command = "schtasks /Run /TN llama-server-27b"
 max_retries = 3
 cooldown_secs = 120
 
-[backend.qwen25-7b-core]
+[backend.qwen3-4b-core]
 base_url = "http://<TAILSCALE_CORE>:8080/v1"
 model = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
 context_size = 8192
@@ -80,7 +80,7 @@ timeout_secs = 120
 api_key_env = "CYNIC_SOVEREIGN_KEY"
 sovereign = true
 
-[backend.qwen25-7b-core.remediation]
+[backend.qwen3-4b-core.remediation]
 node = "localhost"
 restart_command = "systemctl --user restart llama-server"
 max_retries = 3

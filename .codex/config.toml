@@ -4,6 +4,6 @@
 
 [mcp.cynic-coord]
 type = "stdio"
-command = ["./.codex/run-cynic-mcp.sh"]
+command = ["./.cortex/mcp/run-cynic-mcp.sh"]
 # Wrapper sources ~/.cynic-env locally, then execs /home/user/bin/cynic-kernel-mcp.
 # Do not put real CYNIC_REST_ADDR or CYNIC_API_KEY values in this repo.

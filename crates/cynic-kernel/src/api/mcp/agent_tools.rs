@@ -7,8 +7,8 @@ use rmcp::{
 use crate::domain::storage::AgentTask;
 
 use super::{
-    CynicMcp, DispatchAgentTaskParams, ListPendingAgentTasksParams, UpdateAgentTaskResultParams,
-    sanitize_error, validate_agent_id,
+    ClaimAgentTaskParams, CynicMcp, DispatchAgentTaskParams, ListPendingAgentTasksParams,
+    UpdateAgentTaskResultParams, sanitize_error, validate_agent_id,
 };
 
 #[tool_router(router = tool_router_agent, vis = "pub(super)")]
@@ -57,6 +57,7 @@ impl CynicMcp {
             created_at: now,
             completed_at: None,
             agent_id: p.agent_id.clone(),
+            claimed_by: None,
             error: None,
         };
 
@@ -130,6 +131,52 @@ impl CynicMcp {
             serde_json::json!({
                 "tasks": tasks,
                 "count": tasks.len(),
+            })
+            .to_string(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_claim_agent_task",
+        description = "Atomically claim a pending agent task. Prevents other agents from executing the same task simultaneously. Returns true if successfully claimed."
+    )]
+    pub(crate) async fn cynic_claim_agent_task(
+        &self,
+        params: Parameters<ClaimAgentTaskParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        validate_agent_id(&p.agent_id)?;
+
+        if p.task_id.is_empty() || p.task_id.len() > 128 {
+            return Err(McpError::invalid_params(
+                "task_id must be 1-128 characters",
+                None,
+            ));
+        }
+
+        let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
+        let claimed = self
+            .storage
+            .claim_agent_task(&p.task_id, &agent_id)
+            .await
+            .map_err(|_e| sanitize_error("Agent task claim"))?;
+
+        self.audit(
+            "cynic_claim_agent_task",
+            &agent_id,
+            &serde_json::json!({
+                "task_id": p.task_id,
+                "claimed": claimed,
+            }),
+        )
+        .await;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::json!({
+                "task_id": p.task_id,
+                "claimed": claimed,
             })
             .to_string(),
         )]))

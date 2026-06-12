@@ -76,15 +76,15 @@ Agent (Claude) repeatedly skips skills and commits without review. 4+ sessions o
 
 ```
 CONFIGURED:
-  .claude/commands/     → 9 commands (build, deploy, status, etc.)    ✓
-  ~/.claude/commands/   → cynic-skills/ (empirical, burn, judge, etc.) ✓
+  .cortex/commands/     → 9 commands (build, deploy, status, etc.)    ✓
+  ~/.cortex/commands/   → cynic-skills/ (empirical, burn, judge, etc.) ✓
   ~/.claude/plugins/    → superpowers, code-review, commit-commands    ✓
-  ~/.claude/hooks/      → rtk-rewrite (token compression)             ✓
+  ~/.cortex/mcp/      → rtk-rewrite (token compression)             ✓
 
 NOT CONFIGURED:
-  .claude/rules/        → EMPTY
-  .claude/agents/       → DOES NOT EXIST
-  .claude/hooks/        → EMPTY (project-level)
+  .cortex/rules/        → EMPTY
+  .cortex/agents/       → DOES NOT EXIST
+  .cortex/mcp/        → EMPTY (project-level)
   CLAUDE.md             → 300+ lines (too long, carries everything)
 ```
 

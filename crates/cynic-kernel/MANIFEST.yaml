@@ -43,7 +43,7 @@ outputs:
     format: json
     frequency: per-session
     consumer: multi-cortex isolation
-  - path: SurrealDB tables
+  - path: kernel /surrealdb
     format: structured
     frequency: continuous
     consumer: all kernel queries

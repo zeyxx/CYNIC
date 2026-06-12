@@ -21,30 +21,39 @@ def test_execute_task_emits_cost(tmp_path):
     os.environ["CYNIC_COST_LEDGER"] = ledger
     os.environ["CYNIC_SESSION_ID"] = "test-session"
 
-    mock_result = MagicMock()
-    mock_result.returncode = 0
-    mock_result.stdout = "ok"
-    mock_result.stderr = ""
+    def mock_subprocess_run(cmd, *args, **kwargs):
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        if "create" in cmd:
+            mock_result.stdout = json.dumps({"id": "t_mock123"})
+        elif "decompose" in cmd:
+            mock_result.stdout = ""
+        elif "show" in cmd:
+            mock_result.stdout = json.dumps({"task": {"status": "done"}})
+        elif "context" in cmd:
+            mock_result.stdout = "ok"
+        else:
+            mock_result.stdout = ""
+        return mock_result
 
-    with patch("subprocess.run", return_value=mock_result):
-        with patch("core.hermes_agent_task_executor.consult_soma_gate",
-                   return_value={"decision": "allocate", "data": {}}):
-            from core import hermes_agent_task_executor as hae
-            task = {
-                "id": "task-001",
-                "objective": "test task",
-                "actions": ["do something"],
-                "domain": "D3",
-                "_source": "kernel",
-            }
-            result, err = hae.execute_task(task, str(tmp_path))
+    with patch("subprocess.run", side_effect=mock_subprocess_run):
+        from organs.core.adapters.hermes_kanban_executor import HermesKanbanAdapter
+        task = {
+            "id": "task-001",
+            "objective": "test task",
+            "actions": ["do something"],
+            "domain": "D3",
+            "_source": "kernel",
+        }
+        adapter = HermesKanbanAdapter()
+        result, err = adapter.execute(task, str(tmp_path))
 
     assert result == "ok"
     assert err is None
     lines = Path(ledger).read_text().strip().splitlines()
     assert len(lines) == 1
     event = json.loads(lines[0])
-    assert event["feature_id"] == "hermes_agent"
+    assert event["feature_id"] == "hermes_kanban"
     assert event["compute_class"] == "tailnet"
     assert event["provider"] == "qwen36-27b-gpu"
     assert event["latency_ms"] >= 0

@@ -65,8 +65,8 @@
   },
   "organs": [
     {
-      "name": "organ-anvil",
-      "instance": "organ-anvil-hermes-agent",
+      "name": "organ-forge",
+      "instance": "organ-forge-hermes-agent",
       "role": "repo_lifecycle_manager",
       "description": "Git repo hygiene, branch health, claim hygiene, and lifecycle triage.",
       "scope": "github+forgejo",
@@ -117,12 +117,52 @@
       "coord": "cynic_coord_register/release"
     },
     {
-      "name": "organ-x",
-      "instance": "organ-x-hermes-agent",
+      "name": "organ-twitter",
+      "instance": "organ-twitter-hermes-agent",
       "role": "x_surface_manager",
       "description": "X/Twitter perception, curation, and posting surface manager.",
       "scope": "x+curation+alerts",
       "cron": "every 30min",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-jupyter",
+      "instance": "organ-jupyter-hermes-agent",
+      "role": "notebook_surface_manager",
+      "description": "Jupyter Notebook / Data Science environment manager for exploratory coding and data analysis within the CYNIC ecosystem.",
+      "scope": "local+jupyterlab",
+      "cron": "every 30min",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-prompt-enricher",
+      "instance": "organ-prompt-enricher-hermes-agent",
+      "role": "prompt_optimization_manager",
+      "description": "Dynamic prompt enrichment middleware. Uses retrieval augmentation, few-shot templating, and automated reasoning (CoT) structures to optimize raw prompts before dispatch to LLM backends.",
+      "scope": "kernel_middleware+inference",
+      "cron": "event-driven",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel",
+        "llama-embed"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-kanban-ui",
+      "instance": "organ-kanban-ui-hermes-agent",
+      "role": "dashboard_projection_manager",
+      "description": "One-way projector from Hermes Kanban JSON state to Obsidian Markdown UI.",
+      "scope": "local+obsidian",
+      "cron": "every 5min",
       "status": "active",
       "depends_on": [
         "cynic-kernel"

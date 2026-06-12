@@ -1,0 +1,15 @@
+[Unit]
+Description=CYNIC Organ Telegram Cron - dispatch messaging surface task
+After=cynic-kernel.service organ-telegram-hermes-agent.service
+Wants=organ-telegram-hermes-agent.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Bureau/CYNIC
+EnvironmentFile=%h/.config/cynic/env
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/organs/telegram/src/dispatch.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

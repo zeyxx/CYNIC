@@ -20,7 +20,7 @@ export RUSTFLAGS="-C debuginfo=1"    # rmcp debug DWARF overflow prevention
 cd /home/user/Bureau/CYNIC
 ```
 
-Per `.claude/rules/workflow.md`: pre-commit validation `cargo build --tests && cargo clippy --workspace --all-targets -- -D warnings` is MANDATORY before every commit that touches Rust code.
+Per `.cortex/rules/workflow.md`: pre-commit validation `cargo build --tests && cargo clippy --workspace --all-targets -- -D warnings` is MANDATORY before every commit that touches Rust code.
 
 ---
 
@@ -2129,8 +2129,8 @@ Recorded here to preserve reasoning:
 ## References
 
 - Spec: `docs/superpowers/specs/2026-04-17-cynic-askesis-design.md`
-- Workflow: `.claude/rules/workflow.md` (pre-commit validation, branch-PR discipline)
-- Kernel rules: `.claude/rules/kernel.md` (K1-K16)
-- Universal rules: `.claude/rules/universal.md` (Rules 1-23)
+- Workflow: `.cortex/rules/workflow.md` (pre-commit validation, branch-PR discipline)
+- Kernel rules: `.cortex/rules/kernel.md` (K1-K16)
+- Universal rules: `.cortex/rules/universal.md` (Rules 1-23)
 - Constitution: `CLAUDE.md`
 - Memory: `project_cynic_askesis_design.md`, `project_seventh_axiom_kenosis.md`, `feedback_claude_gemini_pyrrhonist.md`, `feedback_lazy_engineer_pattern.md`, `feedback_fogc_vigilance.md`

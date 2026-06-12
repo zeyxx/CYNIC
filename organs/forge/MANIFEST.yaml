@@ -1,0 +1,31 @@
+id: organ-forge
+tier: 2
+domain: infrastructure
+status: ACTIVE
+
+description: |
+  Forge monitoring organ. Ingests git commits, pushes, and build status.
+  Extracts actionable intelligence about the CYNIC project.
+
+inputs:
+  - source: git log / status
+    data: git commit history and working tree state
+  - source: make gate
+    data: build system status
+
+outputs:
+  - path: kernel /observe (domain=forge)
+    format: REST POST
+    frequency: per-ingest
+  - path: ~/.cynic/organs/forge/dataset.jsonl
+    format: jsonl
+    frequency: per-ingest
+
+crons:
+  - organ-forge-cron.timer
+
+scripts:
+  - name: dispatch.py
+    description: Hexagonal architecture entrypoint
+  - name: cli.py
+    description: Trigger CLI for manual tests

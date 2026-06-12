@@ -1,8 +1,8 @@
-# KENOSIS Discovery: Empirical Evidence from Gemini CLI Logs
+# KENOSIS Discovery: Empirical Evidence from Antigravity CLI Logs
 
 **Date**: 2026-05-01  
-**Data Source**: Gemini CLI session `session-2026-04-28T12-58-b0eba480.jsonl` (Dossier Vanille decision)  
-**Confidence**: HIGH — Direct quoted decision text from Gemini wisdom evaluation
+**Data Source**: Antigravity CLI session `session-2026-04-28T12-58-b0eba480.jsonl` (Dossier Vanille decision)  
+**Confidence**: HIGH — Direct quoted decision text from Antigravity wisdom evaluation
 
 ---
 
@@ -16,7 +16,7 @@
 
 ## The KENOSIS Decision (Direct Quote)
 
-Gemini's wisdom evaluation states:
+Antigravity's wisdom evaluation states:
 
 > **"Dans le Wu-Wei (l'agir non-agir), l'espace que tu laisses maintenant est aussi important que le message que tu as envoyé hier. C'est dans cet espace que son envie de te voir peut grandir."**
 
@@ -97,14 +97,14 @@ The "space" is not passive—it's strategically constructed. The silence is not 
 **KENOSIS is CONFIRMED if**:
 - ≥6 irreducible patterns found across multiple life domains
 - Wu-Wei decisions systematically enable better outcomes (measured via sequel events, autonomy preservation)
-- KENOSIS appears *organically* in Gemini wisdom (not imported from CLAUDE.md theory)
+- KENOSIS appears *organically* in Antigravity wisdom (not imported from CLAUDE.md theory)
 
 ---
 
 ## Raw Data Location
 
-- **Session file**: `~/.gemini/tmp/cynic/chats/session-2026-04-28T12-58-b0eba480.jsonl`
+- **Session file**: `~/.antigravity/tmp/cynic/chats/session-2026-04-28T12-58-b0eba480.jsonl`
 - **Line**: Contains full Dossier Vanille analysis with Wu-Wei decision
-- **Memory saved**: `~/.gemini/tmp/cynic/memory/GEMINI.md` (Gemini's local memory)
+- **Memory saved**: `~/.antigravity/tmp/cynic/memory/ANTIGRAVITY.md` (Antigravity's local memory)
 - **Analysis script**: `/home/user/Bureau/CYNIC/cynic-python/kenosis_mining.py`
 - **Results**: `/home/user/Bureau/CYNIC/cynic-python/kenosis_analysis_results.jsonl`

@@ -18,22 +18,22 @@ Audited sources:
 
 - `AGENTS.md`
 - `CLAUDE.md`
-- `GEMINI.md`
+- `ANTIGRAVITY.md`
 - `.codex/CODEX-PROTOCOL.md`
 - `.handoff.md`
 - `TODO-ROBUSTNESS.md`
 - `TODO.md`
 - `docs/TODO.md`
-- `.claude/rules/workflow.md`
+- `.cortex/rules/workflow.md`
 - `scripts/git-hooks/pre-commit`
 - `scripts/git-hooks/pre-push`
-- `.claude/hooks/session-init.sh`
-- `.claude/hooks/session-stop.sh`
-- `.claude/hooks/coord-claim.sh`
-- `scripts/coord-claim-gemini.sh`
+- `.cortex/mcp/session-init.sh`
+- `.cortex/mcp/session-stop.sh`
+- `.cortex/mcp/coord-claim.sh`
+- `scripts/coord-claim-antigravity.sh`
 - `.codex/config.toml`
 - `.claude/settings.json`
-- `.gemini/settings.json`
+- `.antigravity/settings.json`
 
 ## Executive Truths
 
@@ -42,7 +42,7 @@ Audited sources:
 | T1 | `AGENTS.md` is the best candidate for the repo-wide protocol source of truth. | 0.61 | Keep shared lifecycle, claims, handoff semantics, and security rules there. |
 | T1a | `.codex/CODEX-PROTOCOL.md` is not currently an adapter only; it mixes protocol, roadmap, and stale session state. | 0.58 | Reduce it to Codex-specific execution notes and fallback mechanics. |
 | T2 | `.handoff.md` is a historical journal, not a normative document. It contains superseded truths by design. | 0.61 | Explicitly mark it as non-normative and require “superseded by” semantics when needed. |
-| T3 | Claude has real session automation today; Gemini has partial file-claim automation; Codex still depends on manual or fallback execution. | 0.60 | Document the lowest common executable workflow, not the richest client-specific workflow. |
+| T3 | Claude has real session automation today; Antigravity has partial file-claim automation; Codex still depends on manual or fallback execution. | 0.60 | Document the lowest common executable workflow, not the richest client-specific workflow. |
 | T4 | `TODO-ROBUSTNESS.md` and `docs/TODO.md` currently preserve stale reality snapshots. | 0.56 | Re-scope one as roadmap and one as session protocol, or archive stale sections. |
 | T5 | The repo's largest workflow problem is not lack of docs, but role confusion between spec, journal, and backlog. | 0.61 | Enforce a strict document-role hierarchy before continuing large implementation work. |
 
@@ -52,17 +52,17 @@ Audited sources:
 |------|--------------|----------------------|--------|------------|
 | `AGENTS.md` | Shared multi-agent protocol | Yes | Mostly healthy | Also serves as Codex entrypoint, which is acceptable if kept stable. |
 | `CLAUDE.md` | Claude constitution + canonical philosophy + build/security guidance | Yes, for Claude-specific and repo philosophy | Healthy | Very broad; overlaps with workflow docs but remains canonical for Claude. |
-| `GEMINI.md` | Gemini adapter + operational notes | Yes, Gemini-only | Partially healthy | Contains assumptions about tools/config that may drift from actual `.gemini/settings.json`. |
+| `ANTIGRAVITY.md` | Antigravity adapter + operational notes | Yes, Antigravity-only | Partially healthy | Contains assumptions about tools/config that may drift from actual `.antigravity/settings.json`. |
 | `.codex/CODEX-PROTOCOL.md` | Codex adapter + roadmap + stale state | No, not as currently written | Unhealthy | Mixes enduring protocol with completed TODOs and historical cleanup state. |
 | `.handoff.md` | Append-only session journal | No | Healthy as a log, unhealthy as perceived truth source | Needs explicit non-normative framing and supersession discipline. |
 | `TODO-ROBUSTNESS.md` | Sprint roadmap | No | Stale | Contains already-completed work as active instructions. |
 | `TODO.md` | Session protocol + active work ledger | Partially | Mixed | Calls itself “protocol, not backlog”, but also contains mutable backlog and historical notes. |
 | `docs/TODO.md` | Open work ledger | No | Stale | Duplicates TODO semantics and preserves obsolete debt wording. |
-| `.claude/rules/workflow.md` | Operational discipline for Claude | Yes, but Claude-scoped | Healthy | Must not be mistaken for universal automation across all agents. |
+| `.cortex/rules/workflow.md` | Operational discipline for Claude | Yes, but Claude-scoped | Healthy | Must not be mistaken for universal automation across all agents. |
 
 ## Mechanization Matrix
 
-| Capability | Claude | Gemini | Codex | Truth |
+| Capability | Claude | Antigravity | Codex | Truth |
 |-----------|--------|--------|-------|-------|
 | Session start automation | Yes (`session-init.sh`) | No repo-proven equivalent | No repo-proven equivalent | Only Claude currently automates `register + probe + inject context`. |
 | Session end automation | Yes (`session-stop.sh`) | No repo-proven equivalent | No repo-proven equivalent | Only Claude currently automates release/compliance/session summary. |
@@ -121,7 +121,7 @@ Impact:
 Observed:
 
 - Claude has concrete hook-backed automation.
-- Gemini has a concrete claim helper and config, but not the full same lifecycle automation.
+- Antigravity has a concrete claim helper and config, but not the full same lifecycle automation.
 - Codex has config and repo protocol, but not the same deterministic lifecycle automation.
 
 Impact:
@@ -145,7 +145,7 @@ Contains:
 ### Layer B — Agent adapters
 
 - `CLAUDE.md`
-- `GEMINI.md`
+- `ANTIGRAVITY.md`
 - `.codex/CODEX-PROTOCOL.md`
 
 Contain only:

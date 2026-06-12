@@ -20,7 +20,7 @@
 - Access to `~/.cynic-env` (CYNIC_REST_ADDR, CYNIC_API_KEY)
 
 ### Zones
-Zone map is in `.claude/zones.json`. Key zones for this test:
+Zone map is in `.cortex/zones.json`. Key zones for this test:
 - **api** (API layer): REST handlers, http routing, request/response contracts
 - **storage** (Storage layer): SurrealDB adapters, storage ports, migrations
 - **domain** (Domain core): Types, traits, pure logic — max_cortex=1 (no parallelism allowed)
@@ -36,7 +36,7 @@ Cortex A and B will claim **api** and **storage** zones respectively. Both will 
 1. **Pull main and check zone system**:
    ```bash
    git fetch origin && git checkout main && git pull origin main
-   cat .claude/zones.json | jq '.zones | map(.name)' | head -15
+   cat .cortex/zones.json | jq '.zones | map(.name)' | head -15
    ```
 
 2. **Verify zone locks are clean**:
@@ -193,8 +193,8 @@ If ANY of these occur, zone-dispatch is not production-ready. Report findings to
 
 ## Reference
 
-- Zone system: `.claude/zones.json`
+- Zone system: `.cortex/zones.json`
 - Implementation: `cynic-kernel/src/api/middleware.rs` (to create)
 - Audit: `cynic-kernel/src/storage/audit.rs` (to create)
-- Coordination: `~/.claude/hooks/coord-claim.sh` (enforcement)
+- Coordination: `~/.cortex/mcp/coord-claim.sh` (enforcement)
 - Baseline data: `memory/project_zone_dispatch_2026_05_15.md`

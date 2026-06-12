@@ -1,0 +1,26 @@
+id: organ-docker
+tier: 2
+domain: infrastructure
+status: ACTIVE
+
+description: |
+  Docker monitoring organ. Monitors active Docker containers and their status.
+
+inputs:
+  - source: docker ps
+    data: active docker containers
+
+outputs:
+  - path: kernel /observe (domain=docker)
+    format: REST POST
+  - path: ~/.cynic/organs/docker/dataset.jsonl
+    format: jsonl
+
+crons:
+  - organ-docker-cron.timer
+
+scripts:
+  - name: dispatch.py
+    description: Hexagonal architecture entrypoint
+  - name: cli.py
+    description: Trigger CLI for manual tests
