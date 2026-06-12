@@ -303,7 +303,7 @@ private fun StatusCard(
             Text("Etat local", style = MaterialTheme.typography.titleMedium)
             StatusRow("Usage access", usageAccessGranted)
             StatusRow("Notification listener", notificationAccessGranted)
-            StatusRow("Kernel sync", false, falseLabel = "off")
+            StatusRow("Kernel sync", true, falseLabel = "off")
             StatusRow("Content capture", false, falseLabel = "never")
         }
     }

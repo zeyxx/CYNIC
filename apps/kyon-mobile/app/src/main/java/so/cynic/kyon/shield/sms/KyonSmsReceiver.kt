@@ -38,7 +38,7 @@ class KyonSmsReceiver : BroadcastReceiver() {
                     timestampMs = timestampMs,
                     privacy = EventPrivacy.METADATA_ONLY,
                     contextJson = """{"content_captured":false,"sender_hash":"$senderHash","parts":${messages.size}}""",
-                    syncEligible = false,
+                    syncEligible = true,
                 ),
             )
         }

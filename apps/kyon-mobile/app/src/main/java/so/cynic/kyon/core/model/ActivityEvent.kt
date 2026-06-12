@@ -14,6 +14,7 @@ enum class EventPrivacy {
 }
 
 data class ActivityEvent(
+    val id: Long? = null,
     val source: EventSource,
     val eventType: String,
     val target: String,

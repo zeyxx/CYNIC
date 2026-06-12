@@ -29,7 +29,7 @@ class KyonCallScreeningService : CallScreeningService() {
                     timestampMs = System.currentTimeMillis(),
                     privacy = EventPrivacy.METADATA_ONLY,
                     contextJson = """{"content_captured":false,"peer_hash":"$peerHash","decision":"allow_default"}""",
-                    syncEligible = false,
+                    syncEligible = true,
                 ),
             )
         }

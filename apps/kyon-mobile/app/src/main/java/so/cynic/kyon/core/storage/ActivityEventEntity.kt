@@ -20,6 +20,7 @@ data class ActivityEventEntity(
     val syncedAtMs: Long?,
 ) {
     fun toModel(): ActivityEvent = ActivityEvent(
+        id = id,
         source = EventSource.valueOf(source),
         eventType = eventType,
         target = target,
@@ -32,6 +33,7 @@ data class ActivityEventEntity(
 }
 
 fun ActivityEvent.toEntity(): ActivityEventEntity = ActivityEventEntity(
+    id = id ?: 0,
     source = source.name,
     eventType = eventType,
     target = target,
