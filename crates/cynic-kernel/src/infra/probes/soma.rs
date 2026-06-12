@@ -76,6 +76,7 @@ impl SomaProbe {
         47156, // RustDesk (UDP service discovery)
         54151, // qemu/libvirt VM networking
         55123, // qemu/libvirt VM networking
+        5000, 5433, 6379,
     ];
 
     /// Detect wild binds — ports listening on 0.0.0.0 or [::], excluding whitelisted.
