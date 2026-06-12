@@ -168,6 +168,19 @@
         "cynic-kernel"
       ],
       "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-freebox",
+      "instance": "organ-freebox-hermes-agent",
+      "role": "router_and_firewall_manager",
+      "description": "Freebox OS REST API integration for dynamic port forwarding, sovereign IP routing, and edge perimeter control.",
+      "scope": "local+router",
+      "cron": "event-driven",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
     }
   ]
 }
