@@ -21,12 +21,10 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 mod agent_tools;
-pub mod build_tools;
 mod coord_tools;
 mod judge_tools;
 mod observe_tools;
 pub mod proxy;
-mod vercel_tools;
 
 use crate::domain::coord::CoordPort;
 use crate::domain::events::KernelEvent;
@@ -154,17 +152,6 @@ pub struct AuthParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ValidateParams {
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct GitParams {
-    pub op: build_tools::GitOp,
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
 pub struct RegisterParams {
     pub agent_id: String,
     pub intent: String,
@@ -243,6 +230,12 @@ pub struct ListPendingAgentTasksParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct ClaimAgentTaskParams {
+    pub task_id: String,
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct UpdateAgentTaskResultParams {
     pub task_id: String,
     pub result: Option<String>,
@@ -298,7 +291,6 @@ pub struct CynicMcp {
     pub(crate) rate_limit: Arc<McpRateLimit>,
     pub(crate) bg_semaphore: Arc<tokio::sync::Semaphore>,
     pub(crate) authenticated: Arc<AtomicBool>,
-    pub(crate) project_root: String,
     pub(crate) enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
     pub(crate) domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
     pub(crate) domain_router: Arc<crate::infra::domain_router::DomainRouter>,
@@ -330,7 +322,6 @@ impl CynicMcp {
         task_health: Arc<crate::infra::task_health::TaskHealth>,
         system_contract: crate::domain::contract::SystemContract,
         event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
-        project_root: String,
         enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
         domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
         domain_router: Arc<crate::infra::domain_router::DomainRouter>,
@@ -368,12 +359,10 @@ impl CynicMcp {
                         .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
                         .unwrap_or(false),
             )),
-            project_root,
             tool_router: Self::tool_router_judge()
                 + Self::tool_router_coord()
                 + Self::tool_router_observe()
-                + Self::tool_router_agent()
-                + Self::tool_router_vercel(),
+                + Self::tool_router_agent(),
         }
     }
 
@@ -715,8 +704,8 @@ mod tests {
         ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
             Ok(vec![])
         }
-        async fn mark_agent_task_processing(&self, _: &str) -> Result<(), StorageError> {
-            Ok(())
+        async fn claim_agent_task(&self, _: &str, _: &str) -> Result<bool, StorageError> {
+            Ok(true)
         }
         async fn update_agent_task_result(
             &self,
@@ -890,7 +879,6 @@ mod tests {
             Arc::new(crate::infra::task_health::TaskHealth::new()),
             crate::domain::contract::SystemContract::new(vec!["deterministic-dog".into()], false),
             None,
-            "/tmp".to_string(),
             None,
             Arc::new(crate::domain::wisdom::DomainCurations::new()),
             domain_router,
@@ -1086,7 +1074,6 @@ mod tests {
             Arc::new(crate::infra::task_health::TaskHealth::new()),
             crate::domain::contract::SystemContract::new(vec!["deterministic-dog".into()], false),
             None,
-            "/tmp".to_string(),
             None,
             Arc::new(crate::domain::wisdom::DomainCurations::new()),
             domain_router,
@@ -1177,12 +1164,6 @@ mod tests {
     }
 
     #[test]
-    fn poison_git_params_rejects_empty() {
-        let r = serde_json::from_value::<GitParams>(serde_json::json!({}));
-        assert!(r.is_err(), "GitParams should require 'op'");
-    }
-
-    #[test]
     fn poison_dispatch_task_params_rejects_empty() {
         let r = serde_json::from_value::<DispatchAgentTaskParams>(serde_json::json!({}));
         assert!(
@@ -1230,15 +1211,6 @@ mod tests {
     fn poison_who_params_accepts_empty() {
         let r = serde_json::from_value::<WhoParams>(serde_json::json!({}));
         assert!(r.is_ok(), "WhoParams (all optional) should accept {{}}");
-    }
-
-    #[test]
-    fn poison_validate_params_accepts_empty() {
-        let r = serde_json::from_value::<ValidateParams>(serde_json::json!({}));
-        assert!(
-            r.is_ok(),
-            "ValidateParams (all optional) should accept {{}}"
-        );
     }
 
     // -- (c) Handler-level: empty-string required fields --
@@ -1314,7 +1286,6 @@ mod tests {
         assert!(serde_json::from_value::<InferParams>(empty.clone()).is_err());
         assert!(serde_json::from_value::<RegisterParams>(empty.clone()).is_err());
         assert!(serde_json::from_value::<ObserveParams>(empty.clone()).is_err());
-        assert!(serde_json::from_value::<GitParams>(empty.clone()).is_err());
         assert!(serde_json::from_value::<DispatchAgentTaskParams>(empty.clone()).is_err());
         assert!(serde_json::from_value::<ScopeParams>(empty.clone()).is_err());
         // All-optional structs succeed

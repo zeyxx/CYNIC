@@ -325,8 +325,12 @@ impl TaskStorage for NullStorage {
     ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
         Ok(vec![])
     }
-    async fn mark_agent_task_processing(&self, _task_id: &str) -> Result<(), StorageError> {
-        Ok(())
+    async fn claim_agent_task(
+        &self,
+        _task_id: &str,
+        _agent_id: &str,
+    ) -> Result<bool, StorageError> {
+        Ok(false)
     }
     async fn update_agent_task_result(
         &self,

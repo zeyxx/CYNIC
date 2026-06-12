@@ -757,12 +757,16 @@ impl TaskStorage for InMemoryStorage {
         Ok(v)
     }
 
-    async fn mark_agent_task_processing(&self, task_id: &str) -> Result<(), StorageError> {
+    async fn claim_agent_task(&self, task_id: &str, agent_id: &str) -> Result<bool, StorageError> {
         let mut s = self.state.lock().await;
-        if let Some(t) = s.tasks.get_mut(task_id) {
+        if let Some(t) = s.tasks.get_mut(task_id)
+            && t.status == "pending"
+        {
             t.status = "processing".into();
+            t.claimed_by = Some(agent_id.into());
+            return Ok(true);
         }
-        Ok(())
+        Ok(false)
     }
 
     async fn update_agent_task_result(

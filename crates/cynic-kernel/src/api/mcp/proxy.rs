@@ -16,10 +16,9 @@ use rmcp::{
 
 use super::{
     AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
-    CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams, GitParams, JudgeParams,
-    ListParams, ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams,
-    RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, ValidateParams, WhoParams,
-    validate_agent_id,
+    CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams, JudgeParams, ListParams,
+    ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams, RegisterParams,
+    ReleaseParams, UpdateAgentTaskResultParams, WhoParams, validate_agent_id,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -592,35 +591,59 @@ impl CynicMcpProxy {
     }
 
     #[tool(
-        name = "cynic_validate",
-        description = "Run cargo build + clippy + lint-rules on the kernel. Returns pass/fail with details."
+        name = "cynic_askesis_log",
+        description = "Log a reflection or interaction directly to the human Askesis journal (.cynic/memory/logs/human-kernel.jsonl). Use this to frictionlessly save the human's axioms and semantic footprint."
     )]
-    async fn cynic_validate(
+    async fn cynic_askesis_log(
         &self,
-        _params: Parameters<ValidateParams>,
+        params: Parameters<AskesisParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        // Local: runs filesystem commands
-        let result = super::build_tools::run_validate(&self.project_root).await;
-        Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_default(),
-        )]))
-    }
+        let p = params.0;
+        let logfile = format!(
+            "{}/.cynic/memory/logs/human-kernel.jsonl",
+            self.project_root
+        );
+        let askesis_bin = format!("{}/target/debug/cynic-askesis", self.project_root);
 
-    #[tool(
-        name = "cynic_git",
-        description = "Run safe git operations: status, diff, log, branch, stash."
-    )]
-    async fn cynic_git(&self, params: Parameters<GitParams>) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        // Local: runs git commands
-        let result = super::build_tools::run_git(&self.project_root, &params.0.op).await;
+        // Si le binaire n'existe pas, on fail gracefuly
+        if !std::path::Path::new(&askesis_bin).exists() {
+            return Err(McpError::internal_error(
+                "cynic-askesis binary not found. Please run 'cargo build -p cynic-askesis' first.",
+                None,
+            ));
+        }
+
+        let output = std::process::Command::new(&askesis_bin)
+            .arg("log")
+            .arg("--content")
+            .arg(&p.content)
+            .arg("--domain")
+            .arg(&p.domain)
+            .arg("--logfile")
+            .arg(&logfile)
+            .output()
+            .map_err(|e| {
+                McpError::internal_error(format!("Failed to execute cynic-askesis: {e}"), None)
+            })?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(McpError::internal_error(
+                format!("cynic-askesis failed: {stderr}"),
+                None,
+            ));
+        }
+
         Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_default(),
+            r#"{"status": "askesis_logged"}"#,
         )]))
     }
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct AskesisParams {
+    pub content: String,
+    pub domain: String,
 }
 
 // ── MCP ServerHandler ───────────────────────────────────────

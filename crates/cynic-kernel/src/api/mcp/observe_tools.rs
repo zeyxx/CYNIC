@@ -8,7 +8,7 @@ use rmcp::{
 
 use crate::domain::ccm::build_observation;
 
-use super::{CynicMcp, GitParams, ObserveParams, ValidateParams};
+use super::{CynicMcp, ObserveParams};
 
 #[tool_router(router = tool_router_observe, vis = "pub(super)")]
 impl CynicMcp {
@@ -78,71 +78,6 @@ impl CynicMcp {
 
         Ok(CallToolResult::success(vec![Content::text(
             r#"{"status":"observed"}"#,
-        )]))
-    }
-
-    #[tool(
-        name = "cynic_validate",
-        description = "Run the full validation pipeline: cargo build --tests + cargo clippy + cargo test. Returns pass/fail with stdout/stderr. Requires authentication. Takes ~2-5 minutes."
-    )]
-    pub(crate) async fn cynic_validate(
-        &self,
-        params: Parameters<ValidateParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let agent_id = params.0.agent_id.unwrap_or_else(|| "unknown".into());
-
-        tracing::info!(agent_id, "cynic_validate started");
-        let result = super::build_tools::run_validate(&self.project_root).await;
-
-        self.audit(
-            "cynic_validate",
-            &agent_id,
-            &serde_json::json!({
-                "passed": result.passed,
-                "build_ok": result.build_ok,
-                "clippy_ok": result.clippy_ok,
-                "test_ok": result.test_ok,
-                "duration_ms": result.duration_ms,
-            }),
-        )
-        .await;
-
-        Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string(&result)
-                .unwrap_or_else(|_| r#"{"error":"serialize failed"}"#.into()),
-        )]))
-    }
-
-    #[tool(
-        name = "cynic_git",
-        description = "Git operations: status, log, diff, commit. For commit: provide message + file list. No push (deploy = human decision). Requires authentication."
-    )]
-    pub(crate) async fn cynic_git(
-        &self,
-        params: Parameters<GitParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
-
-        let result = super::build_tools::run_git(&self.project_root, &p.op).await;
-
-        self.audit(
-            "cynic_git",
-            &agent_id,
-            &serde_json::json!({
-                "op": format!("{:?}", p.op),
-                "success": result.success,
-            }),
-        )
-        .await;
-
-        Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string(&result)
-                .unwrap_or_else(|_| r#"{"error":"serialize failed"}"#.into()),
         )]))
     }
 }

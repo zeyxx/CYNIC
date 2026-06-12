@@ -217,7 +217,7 @@ pub struct AppState {
     /// Tracks connected nodes with TTL-based eviction (120s default).
     pub node_registry: Arc<crate::api::websocket::NodeRegistry>,
     /// Zone config — maps file paths to ownership zones for dispatch visibility.
-    /// Loaded from .claude/zones.json at boot. Read-only after init.
+    /// Loaded from .cortex/zones.json at boot. Read-only after init.
     pub zones: Arc<crate::domain::zones::ZoneConfig>,
     /// Push-producer heartbeat registry — tracks last /observe POST per agent_id.
     /// K15 consumer: introspection alerts when permanent producers go silent.

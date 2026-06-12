@@ -396,8 +396,8 @@ impl TaskStorage for ReconnectableStorage {
             .update_agent_task_result(task_id, result, error)
             .await
     }
-    async fn mark_agent_task_processing(&self, task_id: &str) -> Result<(), StorageError> {
-        self.current().mark_agent_task_processing(task_id).await
+    async fn claim_agent_task(&self, task_id: &str, agent_id: &str) -> Result<bool, StorageError> {
+        self.current().claim_agent_task(task_id, agent_id).await
     }
 }
 

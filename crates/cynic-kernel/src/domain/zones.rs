@@ -1,5 +1,5 @@
 //! Zone configuration — maps file paths to ownership zones.
-//! Loaded from .claude/zones.json at boot. Immutable after load.
+//! Loaded from .cortex/zones.json at boot. Immutable after load.
 //! Data-centric: no state management, just resolution.
 
 use serde::Deserialize;

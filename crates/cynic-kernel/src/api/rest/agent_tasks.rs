@@ -58,7 +58,8 @@ pub async fn dispatch_task_handler(
         result: None,
         created_at: now,
         completed_at: None,
-        agent_id: req.agent_id,
+        agent_id: req.agent_id.clone(),
+        claimed_by: None,
         error: None,
     };
 
@@ -155,7 +156,7 @@ pub async fn complete_task_handler(
     Json(req): Json<UpdateTaskResultRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     // Mark processing first
-    let _ = state.storage.mark_agent_task_processing(&task_id).await;
+    let _ = state.storage.claim_agent_task(&task_id, "rest_api").await;
 
     state
         .storage

@@ -291,7 +291,7 @@ pub trait TaskStorage: Send + Sync {
     ) -> Result<Vec<AgentTask>, StorageError>;
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
-    async fn mark_agent_task_processing(&self, task_id: &str) -> Result<(), StorageError>;
+    async fn claim_agent_task(&self, task_id: &str, agent_id: &str) -> Result<bool, StorageError>;
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
     async fn update_agent_task_result(

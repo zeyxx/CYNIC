@@ -47,7 +47,9 @@ async fn process_pending_submissions(storage: &Arc<dyn StoragePort>) -> Result<(
         klog!("governance: processing submission task {}", task.id);
 
         // Mark as processing
-        let _ = storage.mark_agent_task_processing(&task.id).await;
+        let _ = storage
+            .claim_agent_task(&task.id, "kernel_governance")
+            .await;
 
         let content: SubmissionTaskContent = serde_json::from_str(&task.content)
             .map_err(|e| format!("invalid submission payload: {e}"))?;
