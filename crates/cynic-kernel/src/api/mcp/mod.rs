@@ -296,6 +296,8 @@ pub struct CynicMcp {
     pub(crate) domain_router: Arc<crate::infra::domain_router::DomainRouter>,
     pub(crate) dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
     pub(crate) routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
+    // WHY: K12 — tool_router is used via trait dispatch, compiler misses direct usage
+    #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
 }
 
@@ -306,6 +308,13 @@ impl std::fmt::Debug for CynicMcp {
 }
 
 impl CynicMcp {
+    pub fn tool_router() -> ToolRouter<Self> {
+        Self::tool_router_judge()
+            + Self::tool_router_coord()
+            + Self::tool_router_observe()
+            + Self::tool_router_agent()
+    }
+
     #[allow(clippy::too_many_arguments)]
     // WHY: Constructor receives many kernel dependencies — each is a distinct port required at the MCP
     // surface. A builder pattern would only rename the argument list; called in exactly one place.
@@ -359,10 +368,7 @@ impl CynicMcp {
                         .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
                         .unwrap_or(false),
             )),
-            tool_router: Self::tool_router_judge()
-                + Self::tool_router_coord()
-                + Self::tool_router_observe()
-                + Self::tool_router_agent(),
+            tool_router: Self::tool_router(),
         }
     }
 

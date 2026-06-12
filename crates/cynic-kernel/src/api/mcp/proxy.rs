@@ -30,7 +30,9 @@ pub struct CynicMcpProxy {
     api_key: String,
     authenticated: Arc<AtomicBool>,
     rate_limit: Arc<McpRateLimit>,
-    project_root: String,
+    pub project_root: String,
+    // WHY: K12 — tool_router is used via trait dispatch, compiler misses direct usage
+    #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
 }
 
@@ -43,6 +45,10 @@ impl std::fmt::Debug for CynicMcpProxy {
 }
 
 impl CynicMcpProxy {
+    pub fn tool_router() -> ToolRouter<Self> {
+        Self::tool_router_forward() + Self::tool_router_coord() + Self::tool_router_local()
+    }
+
     pub fn new(base_url: String, api_key: String, project_root: String) -> Self {
         // WHY: reqwest::Client::builder().build() only fails on TLS init error,
         // which is unrecoverable. Unwrap is safe here but clippy wants map_err.
@@ -61,13 +67,12 @@ impl CynicMcpProxy {
             client,
             base_url,
             api_key,
-            // Auto-auth when proxy has a valid API key. LLM echoing key = theater.
+            // MCP stdio is a local subprocess; if the wrapper injected the kernel token,
+            // requiring the model to echo it back through cynic_auth adds exposure only.
             authenticated: Arc::new(AtomicBool::new(auto_auth)),
             rate_limit: Arc::new(McpRateLimit::new()),
             project_root,
-            tool_router: Self::tool_router_forward()
-                + Self::tool_router_coord()
-                + Self::tool_router_local(),
+            tool_router: Self::tool_router(),
         }
     }
 
@@ -75,7 +80,7 @@ impl CynicMcpProxy {
         if !self.authenticated.load(Ordering::Relaxed) {
             return Err(McpError::new(
                 rmcp::model::ErrorCode(-32000),
-                "Not authenticated — call cynic_auth first",
+                "MCP not authenticated: CYNIC_API_KEY was not provided to the MCP process",
                 None,
             ));
         }
@@ -565,7 +570,7 @@ impl CynicMcpProxy {
 impl CynicMcpProxy {
     #[tool(
         name = "cynic_auth",
-        description = "Authenticate this MCP session. Required before calling sensitive tools. Pass the CYNIC_API_KEY. Call once per session."
+        description = "Fallback manual authentication for MCP sessions missing CYNIC_API_KEY env forwarding. Prefer fixing the MCP wrapper instead of passing secrets through the model."
     )]
     async fn cynic_auth(&self, params: Parameters<AuthParams>) -> Result<CallToolResult, McpError> {
         let p = params.0;
