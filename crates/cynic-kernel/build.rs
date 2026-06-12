@@ -87,6 +87,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Fallback to Cargo.toml version if git is unavailable (container builds).
     let git_version = git_stdout(&["describe", "--tags", "--always", "--dirty"])
         .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+    let git_sha =
+        git_stdout(&["rev-parse", "--short=12", "HEAD"]).unwrap_or_else(|| "unknown".to_string());
     println!("cargo:rustc-env=CYNIC_VERSION={git_version}");
+    println!("cargo:rustc-env=CYNIC_GIT_SHA={git_sha}");
+    println!("cargo:rustc-env=CYNIC_BUILD_PROFILE={profile}");
     Ok(())
 }

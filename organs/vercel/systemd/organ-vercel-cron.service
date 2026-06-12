@@ -1,12 +1,13 @@
 [Unit]
 Description=CYNIC Organ Vercel Cron - dispatch deployment surface task
-After=cynic-kernel.service organ-vercel-hermes-agent.service
-Wants=organ-vercel-hermes-agent.service
+After=cynic-kernel.service
+Wants=cynic-kernel.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/Bureau/CYNIC
-EnvironmentFile=%h/.config/cynic/env
+WorkingDirectory=%h/Bureau/CYNIC/organs/vercel
+EnvironmentFile=%h/.cynic-env
+Environment=PYTHONPATH=%h/Bureau/CYNIC/organs/vercel
 ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/organs/vercel/src/monitor.py
 ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/organs/vercel/src/dispatch.py
 StandardOutput=journal

@@ -35,6 +35,8 @@ export default function Home() {
     } finally {
       setIsSigning(false);
     }
+  }, [publicKey, signMessage]);
+
   const handleDeploy = useCallback(async () => {
     try {
       if (!publicKey || !signMessage) return;

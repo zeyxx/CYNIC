@@ -1,8 +1,28 @@
 {
-  "timestamp": "2026-06-12T08:32:44.888366+00:00",
-  "total_containers": 7,
+  "timestamp": "2026-06-12T15:41:58.973198+00:00",
+  "total_containers": 8,
   "running": 3,
   "containers": [
+    {
+      "Command": "\"/sbin/tini -- go2rt\u2026\"",
+      "CreatedAt": "2026-06-12 16:24:33 +0200 CEST",
+      "ID": "bef1fcdebfa6",
+      "Image": "ghcr.io/alexxit/go2rtc:latest",
+      "Labels": "org.opencontainers.image.created=2026-01-19T09:13:29.434Z,org.opencontainers.image.description=Ultimate camera streaming application with support RTSP, RTMP, HTTP-FLV, WebRTC, MSE, HLS, MP4, MJPEG, HomeKit, FFmpeg, etc.,org.opencontainers.image.licenses=MIT,org.opencontainers.image.revision=b5948cfb25404cc5cb37b166ecaa2dca20b11d4b,org.opencontainers.image.source=https://github.com/AlexxIT/go2rtc,org.opencontainers.image.title=go2rtc,org.opencontainers.image.url=https://github.com/AlexxIT/go2rtc,org.opencontainers.image.version=1.9.14",
+      "LocalVolumes": "1",
+      "Mounts": "9df6901de13da8\u2026",
+      "Names": "camera-go2rtc",
+      "Networks": "host",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "",
+      "RunningFor": "About an hour ago",
+      "Size": "4.1kB (virtual 267MB)",
+      "State": "exited",
+      "Status": "Exited (0) 43 minutes ago"
+    },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
       "CreatedAt": "2026-06-11 11:34:55 +0200 CEST",
@@ -18,7 +38,7 @@
         "os": "linux"
       },
       "Ports": "",
-      "RunningFor": "23 hours ago",
+      "RunningFor": "30 hours ago",
       "Size": "4.1kB (virtual 890MB)",
       "State": "created",
       "Status": "Created"
@@ -30,7 +50,7 @@
       "Image": "node:20-alpine",
       "Labels": "com.docker.compose.config-hash=dd599a00775dc4bbf21622ec7a9fa89d9052fa54e9a1ade182500158913c5ede,com.docker.compose.container-number=1,com.docker.compose.depends_on=deps:service_completed_successfully:false,db:service_healthy:false,socket:service_started:false,com.docker.compose.image=sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/user/Bureau/blitz-and-chill/docker-compose.yml,com.docker.compose.project.working_dir=/home/user/Bureau/blitz-and-chill,com.docker.compose.project=blitz-and-chill,com.docker.compose.service=web,com.docker.compose.version=2.40.3",
       "LocalVolumes": "2",
-      "Mounts": "/home/user/Bur\u2026,blitz-and-chil\u2026,blitz-and-chil\u2026",
+      "Mounts": "blitz-and-chil\u2026,blitz-and-chil\u2026,/home/user/Bur\u2026",
       "Names": "blitzchill-web",
       "Networks": "blitz-and-chill_default",
       "Platform": {
@@ -41,7 +61,7 @@
       "RunningFor": "2 days ago",
       "Size": "24.6kB (virtual 145MB)",
       "State": "exited",
-      "Status": "Exited (255) 12 hours ago"
+      "Status": "Exited (255) 20 hours ago"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -61,7 +81,7 @@
       "RunningFor": "2 days ago",
       "Size": "20.5kB (virtual 285MB)",
       "State": "running",
-      "Status": "Up About a minute (healthy)"
+      "Status": "Up 7 hours (healthy)"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -81,7 +101,7 @@
       "RunningFor": "2 days ago",
       "Size": "221kB (virtual 145MB)",
       "State": "exited",
-      "Status": "Exited (255) 12 hours ago"
+      "Status": "Exited (255) 20 hours ago"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -121,7 +141,7 @@
       "RunningFor": "2 days ago",
       "Size": "4.1kB (virtual 41.1MB)",
       "State": "running",
-      "Status": "Up About a minute (healthy)"
+      "Status": "Up 7 hours (healthy)"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -141,7 +161,7 @@
       "RunningFor": "3 days ago",
       "Size": "949MB (virtual 1.44GB)",
       "State": "running",
-      "Status": "Up About a minute"
+      "Status": "Up 7 hours"
     }
   ],
   "last_actions": []

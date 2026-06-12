@@ -1,16 +1,78 @@
 {
-  "version": "1.0.0",
-  "updated": "2026-06-08T22:01:50Z",
-  "source": "organ-vercel-state",
-  "deployment_count": 44,
-  "production_count": 11,
-  "preview_count": 33,
-  "latest_deploy_at": "2026-06-08T10:25:14Z",
-  "latest_production_at": "2026-06-08T10:25:14Z",
-  "latest_preview_at": "2026-06-08T10:24:56Z",
-  "hours_since_latest": 11.61,
-  "deployment_gap_note": "latest deployment age measured from GitHub deployments API",
-  "alerts": [
-    "no deployment in 11.61h"
+  "timestamp": "2026-06-12T17:46:30.952770+00:00",
+  "total_fetched": 10,
+  "failing": 0,
+  "ready": 10,
+  "deployments": [
+    {
+      "id": "dpl_CDgCSBWcJ8G97qWnZacvTuiEMMrc",
+      "name": "cynic-organism",
+      "url": "cynic-organism-lsn42ojoi-jean-terres-projects-ea04b3f5.vercel.app",
+      "state": "READY",
+      "created": 1781286060875
+    },
+    {
+      "id": "dpl_BndbAnBJxtrmw1CPwcfKSrG9HMhr",
+      "name": "cynic-organism",
+      "url": "cynic-organism-qr69trajm-jean-terres-projects-ea04b3f5.vercel.app",
+      "state": "READY",
+      "created": 1781273777916
+    },
+    {
+      "id": "dpl_Haop92jtA9NcsTN9sPvW1d9ACxQK",
+      "name": "cynic-organism",
+      "url": "cynic-organism-ndy7mjmxr-jean-terres-projects-ea04b3f5.vercel.app",
+      "state": "READY",
+      "created": 1781273749192
+    },
+    {
+      "id": "dpl_2BXGapWp87ZqZ1jEGBBaWr5ZhjwF",
+      "name": "cynic-organism",
+      "url": "cynic-organism-k60jn35vd-jean-terres-projects-ea04b3f5.vercel.app",
+      "state": "READY",
+      "created": 1781002993647
+    },
+    {
+      "id": "dpl_JCTRY3o7BoYgaxR77u5c7RP6TzAB",
+      "name": "cynic-organism",
+      "url": "cynic-organism-e87z00jm4-jean-terres-projects-ea04b3f5.vercel.app",
+      "state": "READY",
+      "created": 1781002976216
+    },
+    {
+      "id": "dpl_8DngXXmgqcB8kuWGFwPZETtFK8Zo",
+      "name": "cynic-organism",
+      "url": "cynic-organism-7tsqrxbct-jean-terres-projects-ea04b3f5.vercel.app",
+      "state": "READY",
+      "created": 1781002541490
+    },
+    {
+      "id": "dpl_2qjvKZrhL3oqFrvtFj1Dhu7zX4oc",
+      "name": "cynic-organism",
+      "url": "cynic-organism-nek5b61co-jean-terres-projects-ea04b3f5.vercel.app",
+      "state": "READY",
+      "created": 1781001275555
+    },
+    {
+      "id": "dpl_FU7USy8Y3kF3eeVkLA5JdCh5Y2fv",
+      "name": "cynic-organism",
+      "url": "cynic-organism-bqjwvy66k-jean-terres-projects-ea04b3f5.vercel.app",
+      "state": "READY",
+      "created": 1780914302813
+    },
+    {
+      "id": "dpl_Afw5sbhpLL52iohftdm1pLtkw6FC",
+      "name": "cynic-organism",
+      "url": "cynic-organism-1emy947jm-jean-terres-projects-ea04b3f5.vercel.app",
+      "state": "READY",
+      "created": 1780914278489
+    },
+    {
+      "id": "dpl_FFCEM3TudJfacaP71XA6Hu3E9ALV",
+      "name": "cynic-organism",
+      "url": "cynic-organism-11763c1om-jean-terres-projects-ea04b3f5.vercel.app",
+      "state": "READY",
+      "created": 1780913732867
+    }
   ]
 }

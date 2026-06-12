@@ -7,7 +7,7 @@ from typing import List
 from src.core.ports import VercelPort
 from src.core.entities import Deployment
 
-ENV_FILE = Path("/home/user/.config/cynic/env")
+ENV_FILE = Path("/home/user/.cynic-env")
 
 class RestVercelAdapter(VercelPort):
     def _get_vercel_token(self):
