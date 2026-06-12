@@ -1,0 +1,29 @@
+id: organ-jupyter
+tier: 2
+domain: environment
+status: ACTIVE
+
+description: |
+  Jupyter environment manager. Orchestrates JupyterLab, monitors execution states,
+  and synchronizes notebook outputs with persistent storage. Ensures gate-0 hygiene.
+
+inputs:
+  - source: workspace/.ipynb files
+    data: notebook file modifications
+  - source: jupyter kernel events
+    data: kernel states (Idle, Busy, Error)
+
+outputs:
+  - path: kernel /observe (domain=jupyter)
+    format: REST POST
+    frequency: event-driven
+  - path: ~/.cynic/organs/jupyter/dataset.jsonl
+    format: jsonl
+    frequency: event-driven
+
+services:
+  - organ-jupyter-hermes-agent.service
+
+scripts:
+  - name: server.py
+    description: Hexagonal architecture entrypoint to manage the Jupyter lab process
