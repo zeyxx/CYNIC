@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 # Ensure the scripts directory is in sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / \"scripts\"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "scripts"))
 from hermes_dispatch import HermesDispatcher
 
 

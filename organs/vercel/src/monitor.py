@@ -29,7 +29,7 @@ def get_vercel_token():
 def fetch_deployments(auth_tok):
     url = "https://api.vercel.com/v6/deployments?limit=10"
     req = urllib.request.Request(url, headers={
-        "Authorization": f"Bearer {token}",
+        "Authorization": f"Bearer {auth_tok}",
         "Content-Type": "application/json"
     })
     
@@ -57,7 +57,7 @@ def analyze_deployments(data):
 
 def main():
     auth_tok = get_vercel_token()
-    if not token:
+    if not auth_tok:
         print("VERCEL_TOKEN not found. Skipping Vercel monitor.")
         return 0
         
