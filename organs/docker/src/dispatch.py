@@ -2,19 +2,12 @@
 # Tier 2 INFRASTRUCTURE: organ-docker dispatch script.
 """Dispatch one organ-docker local-container task to the Hermes Agent executor."""
 
-from __future__ import annotations
-
 import json
 import sys
-from pathlib import Path
-
-# Ensure the scripts directory is in sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "scripts"))
-from hermes_dispatch import HermesDispatcher
-
+from src.adapters.hermes_adapter import DefaultHermesAdapter
 
 def main() -> int:
-    dispatcher = HermesDispatcher("organ-docker")
+    adapter = DefaultHermesAdapter("docker")
 
     content = {
         "objective": "Organ Docker measurement-first audit of the local container surface",
@@ -39,8 +32,7 @@ def main() -> int:
         "content": json.dumps(content, separators=(",", ":")),
     }
 
-    return 0 if dispatcher.dispatch_task(payload) else 1
-
+    return 0 if adapter.dispatch_task(payload) else 1
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())
