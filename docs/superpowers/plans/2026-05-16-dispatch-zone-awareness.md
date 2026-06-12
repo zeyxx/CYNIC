@@ -46,7 +46,7 @@
 | `cynic-kernel/src/main.rs` | MODIFY | Load zones.json at boot, inject into AppState |
 | `cynic-kernel/src/api/rest/types.rs` | MODIFY | Add `zones` field to AppState |
 | `cynic-kernel/tests/integration_zone_activity.rs` | CREATE | Integration tests |
-| `.claude/hooks/coord-claim.sh` | REWRITE | Thin GET client |
+| `.cortex/mcp/coord-claim.sh` | REWRITE | Thin GET client |
 
 ---
 
@@ -104,7 +104,7 @@ mod tests {
 
 ```rust
 //! Zone configuration — maps file paths to ownership zones.
-//! Loaded from .claude/zones.json at boot. Immutable after load.
+//! Loaded from .cortex/zones.json at boot. Immutable after load.
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -438,7 +438,7 @@ git commit -m "feat(dispatch): GET /dispatch/zone-activity — query observation
 ### Task 4: Rewrite hook as thin GET client
 
 **Files:**
-- Rewrite: `.claude/hooks/coord-claim.sh`
+- Rewrite: `.cortex/mcp/coord-claim.sh`
 
 - [ ] **Step 1: Write the new hook**
 
@@ -505,7 +505,7 @@ rm -rf /tmp/cynic-zones 2>/dev/null || true
 - [ ] **Step 3: Test hook manually**
 
 ```bash
-echo '{"tool_input":{"file_path":"/home/user/Bureau/CYNIC/scripts/foo.sh"},"session_id":"test-1234-5678"}' | bash .claude/hooks/coord-claim.sh
+echo '{"tool_input":{"file_path":"/home/user/Bureau/CYNIC/scripts/foo.sh"},"session_id":"test-1234-5678"}' | bash .cortex/mcp/coord-claim.sh
 # Should exit 0, possibly with zone activity warning
 ```
 

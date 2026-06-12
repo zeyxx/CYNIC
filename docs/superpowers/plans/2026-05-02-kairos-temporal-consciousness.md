@@ -96,7 +96,7 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ### Task 2: Extend session-init.sh with temporal anchors
 
 **Files:**
-- Modify: `.claude/hooks/session-init.sh` (add temporal section before the output block)
+- Modify: `.cortex/mcp/session-init.sh` (add temporal section before the output block)
 
 - [ ] **Step 1: Add temporal anchor computation**
 
@@ -177,7 +177,7 @@ fi
 - [ ] **Step 4: Test the hook locally**
 
 ```bash
-echo '{"cwd":"/home/user/Bureau/CYNIC","session_id":"test-123"}' | bash .claude/hooks/session-init.sh
+echo '{"cwd":"/home/user/Bureau/CYNIC","session_id":"test-123"}' | bash .cortex/mcp/session-init.sh
 ```
 
 Expected: output includes TEMPORAL line with real date/time/gap and ORGANISM line.
@@ -185,7 +185,7 @@ Expected: output includes TEMPORAL line with real date/time/gap and ORGANISM lin
 - [ ] **Step 5: Commit**
 
 ```bash
-git add .claude/hooks/session-init.sh
+git add .cortex/mcp/session-init.sh
 git commit -m "feat(hooks): temporal anchors + mempool scan in session-init
 
 Injects Chronos anchors (date, time, gap, deadlines), Kairos signals
@@ -200,7 +200,7 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ### Task 3: Add temporal compliance measurement to session-stop.sh
 
 **Files:**
-- Modify: `.claude/hooks/session-stop.sh` (add temporal metrics section)
+- Modify: `.cortex/mcp/session-stop.sh` (add temporal metrics section)
 
 - [ ] **Step 1: Read current session-stop.sh structure**
 
@@ -248,13 +248,13 @@ fi
 
 ```bash
 # Simulate (won't have real session context, but should not error)
-AGENT_ID="test-agent" KERNEL_STATUS="down" bash -c 'source .claude/hooks/session-stop.sh' 2>&1 | grep -i temporal || echo "No temporal output (kernel down — expected)"
+AGENT_ID="test-agent" KERNEL_STATUS="down" bash -c 'source .cortex/mcp/session-stop.sh' 2>&1 | grep -i temporal || echo "No temporal output (kernel down — expected)"
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add .claude/hooks/session-stop.sh
+git add .cortex/mcp/session-stop.sh
 git commit -m "feat(hooks): temporal compliance measurement in session-stop
 
 Measures mempool activity per session, reports compliance status,
@@ -356,7 +356,7 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 - Modify: `TODO.md` (add mempool reference)
-- Create: `.claude/projects/-home-user-Bureau-CYNIC/memory/project_kairos_temporal_consciousness.md`
+- Create: `.cortex/projects/-home-user-Bureau-CYNIC/memory/project_kairos_temporal_consciousness.md`
 
 - [ ] **Step 1: Save memory about this design**
 
@@ -373,7 +373,7 @@ Add a brief section noting the mempool is active and where to find the spec. Do 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add TODO.md .claude/projects/-home-user-Bureau-CYNIC/memory/
+git add TODO.md .cortex/projects/-home-user-Bureau-CYNIC/memory/
 git commit -m "docs: Kairos temporal consciousness memory + TODO update
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
@@ -386,6 +386,6 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 After all tasks complete:
 
 1. `head -120 CLAUDE.md` — temporal consciousness section present
-2. `echo '{"cwd":"/home/user/Bureau/CYNIC","session_id":"test"}' | bash .claude/hooks/session-init.sh` — TEMPORAL line in output
+2. `echo '{"cwd":"/home/user/Bureau/CYNIC","session_id":"test"}' | bash .cortex/mcp/session-init.sh` — TEMPORAL line in output
 3. `curl /observations?domain=mempool` — 3 seed items present
 4. Next session start: temporal read appears automatically in context injection

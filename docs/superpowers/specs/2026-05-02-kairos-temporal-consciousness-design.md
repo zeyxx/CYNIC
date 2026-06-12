@@ -139,7 +139,7 @@ The mempool is not a "better TODO." It is structurally isomorphic to a blockchai
 
 ### Mempool Item Structure
 
-Items live in the kernel as observations (`POST /observe`, `domain=mempool`). Fallback to `.claude/memory/` markdown with frontmatter when kernel is down.
+Items live in the kernel as observations (`POST /observe`, `domain=mempool`). Fallback to `.cortex/memory/` markdown with frontmatter when kernel is down.
 
 Kernel format (JSON, in `context` field):
 ```json
@@ -160,7 +160,7 @@ Kernel format (JSON, in `context` field):
 }
 ```
 
-Fallback format (markdown with frontmatter, in `.claude/memory/`):
+Fallback format (markdown with frontmatter, in `.cortex/memory/`):
 ```markdown
 ---
 state: pending

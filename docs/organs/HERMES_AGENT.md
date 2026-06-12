@@ -1,6 +1,6 @@
 # CYNIC — Hermes Agent Adapter
 
-Hermes Agent is an organic persistent agent, not a cortex CLI. It is launched by systemd through `infra/systemd/hermes-agent-executor.service` and executed by `scripts/hermes-x/core/hermes_agent_task_executor.py`.
+Hermes Agent is an organic persistent agent, not a cortex CLI. It is launched by systemd through `infra/systemd/hermes-agent-executor.service` and executed via the new Ouroboros lifecycle module at `services/cynic-python/organs/core/daemon.py`.
 
 ## Identity
 
@@ -68,3 +68,15 @@ Use the REST API with `Authorization: Bearer $CYNIC_API_KEY`:
 ## Scope
 
 This adapter defines Hermes Agent repo coordination only. Hermes X browsing, curation, and observation behavior remains governed by organ `SKILL.md` and manifest files.
+
+## Framework Evolution & Mercury Alternative
+
+L'écosystème autour de Hermes est en évolution continue (notamment via `hermes-agent-self-evolution` et `atropos`). L'architecture Hexagonale (Ports & Adapters) de CYNIC (via `Ouroboros` et `adapters/hermes_cli.py`) permet d'isoler le cœur organique de CYNIC des changements très rapides "upstream" du CLI de Hermes.
+
+### Alternative de Migration : Mercury Agent
+Si un jour nous décidons de remplacer Hermes Agent pour certains organes, *Mercury Agent* (`cosmicstack-labs/mercury-agent`) est un excellent candidat. 
+- **"Soul-driven"** : Il est nativement conçu pour tourner 24/7.
+- **Écosystème TypeScript** : Utile pour se rapprocher de `packages/`.
+- **Interopérabilité** : Le repo `mercury-agent-skills` propose un pont natif pour réutiliser des skills Hermes.
+
+Grâce à notre refactoring hexagonal, migrer de Hermes vers Mercury ne nécessiterait aucune modification du daemon (`ouroboros.py`). Il suffirait de créer un `adapters/mercury_cli.py`.

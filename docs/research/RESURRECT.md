@@ -317,5 +317,5 @@ If major changes needed: treat as a rewrite, not resurrection.
 
 Questions about archives? Check:
 - `.claude/plans/burn-audit-cynic-python.md` — Full audit results
-- `.claude/rules/python-lifecycle.md` — Tier system + governance
-- `.claude/memory/` — Project memory entries on specific modules
+- `.cortex/rules/python-lifecycle.md` — Tier system + governance
+- `.cortex/memory/` — Project memory entries on specific modules

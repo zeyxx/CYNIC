@@ -1,7 +1,232 @@
 {
   "domain": "organism",
-  "total_events": 2,
+  "total_events": 9,
   "recent_events": [
+    {
+      "organ_name": "forge",
+      "timestamp": "2026-06-11T07:36:13.078625+00:00",
+      "data": {
+        "current_branch": "feat/organ-jupyter-setup-2026-06-10",
+        "dirty_files": 134,
+        "untracked_files": 16,
+        "branches": [
+          {
+            "name": "feat/organ-jupyter-setup-2026-06-10",
+            "commit_hash": "95b63aa1d041ef002c6bf6f8ef25e0f1f3c33ac1",
+            "author": "jeanterre552",
+            "date": "2026-06-11"
+          },
+          {
+            "name": "main",
+            "commit_hash": "4005007fc75c39421ff5e50675a3822730f194c2",
+            "author": "jeanterre552",
+            "date": "2026-06-08"
+          },
+          {
+            "name": "sync/poh-radio-2026-06-07",
+            "commit_hash": "c038db19b56a4ad2a27e321c3fda0d97eb8d1242",
+            "author": "jeanterre552",
+            "date": "2026-06-07"
+          }
+        ],
+        "gate_markers": {
+          "gate-0": true,
+          "gate-1": true,
+          "gate-2": true
+        },
+        "health_score": 93.0,
+        "alerts": [
+          {
+            "severity": "WARN",
+            "message": "Repo is dirty (134 modified files).",
+            "context": {}
+          },
+          {
+            "severity": "INFO",
+            "message": "Repo has 16 untracked files.",
+            "context": {}
+          }
+        ],
+        "timestamp": "2026-06-11T07:36:13.078625+00:00"
+      }
+    },
+    {
+      "organ_name": "forge",
+      "timestamp": "2026-06-11T07:06:12.591673+00:00",
+      "data": {
+        "current_branch": "feat/organ-jupyter-setup-2026-06-10",
+        "dirty_files": 134,
+        "untracked_files": 16,
+        "branches": [
+          {
+            "name": "feat/organ-jupyter-setup-2026-06-10",
+            "commit_hash": "95b63aa1d041ef002c6bf6f8ef25e0f1f3c33ac1",
+            "author": "jeanterre552",
+            "date": "2026-06-11"
+          },
+          {
+            "name": "main",
+            "commit_hash": "4005007fc75c39421ff5e50675a3822730f194c2",
+            "author": "jeanterre552",
+            "date": "2026-06-08"
+          },
+          {
+            "name": "sync/poh-radio-2026-06-07",
+            "commit_hash": "c038db19b56a4ad2a27e321c3fda0d97eb8d1242",
+            "author": "jeanterre552",
+            "date": "2026-06-07"
+          }
+        ],
+        "gate_markers": {
+          "gate-0": true,
+          "gate-1": true,
+          "gate-2": true
+        },
+        "health_score": 93.0,
+        "alerts": [
+          {
+            "severity": "WARN",
+            "message": "Repo is dirty (134 modified files).",
+            "context": {}
+          },
+          {
+            "severity": "INFO",
+            "message": "Repo has 16 untracked files.",
+            "context": {}
+          }
+        ],
+        "timestamp": "2026-06-11T07:06:12.591673+00:00"
+      }
+    },
+    {
+      "organ_name": "twitter",
+      "timestamp": "2026-06-11T07:06:12.587422+00:00",
+      "data": {
+        "total_tweets_captured": 0,
+        "total_verdicts_judged": 0,
+        "latest_trends": [],
+        "proxy_status": "offline",
+        "timestamp": "2026-06-11T07:06:12.587422+00:00"
+      }
+    },
+    {
+      "organ_name": "forge",
+      "timestamp": "2026-06-11T06:36:12.578423+00:00",
+      "data": {
+        "current_branch": "feat/organ-jupyter-setup-2026-06-10",
+        "dirty_files": 134,
+        "untracked_files": 16,
+        "branches": [
+          {
+            "name": "feat/organ-jupyter-setup-2026-06-10",
+            "commit_hash": "95b63aa1d041ef002c6bf6f8ef25e0f1f3c33ac1",
+            "author": "jeanterre552",
+            "date": "2026-06-11"
+          },
+          {
+            "name": "main",
+            "commit_hash": "4005007fc75c39421ff5e50675a3822730f194c2",
+            "author": "jeanterre552",
+            "date": "2026-06-08"
+          },
+          {
+            "name": "sync/poh-radio-2026-06-07",
+            "commit_hash": "c038db19b56a4ad2a27e321c3fda0d97eb8d1242",
+            "author": "jeanterre552",
+            "date": "2026-06-07"
+          }
+        ],
+        "gate_markers": {
+          "gate-0": true,
+          "gate-1": true,
+          "gate-2": true
+        },
+        "health_score": 93.0,
+        "alerts": [
+          {
+            "severity": "WARN",
+            "message": "Repo is dirty (134 modified files).",
+            "context": {}
+          },
+          {
+            "severity": "INFO",
+            "message": "Repo has 16 untracked files.",
+            "context": {}
+          }
+        ],
+        "timestamp": "2026-06-11T06:36:12.578423+00:00"
+      }
+    },
+    {
+      "organ_name": "forge",
+      "timestamp": "2026-06-11T06:06:12.466260+00:00",
+      "data": {
+        "current_branch": "feat/organ-jupyter-setup-2026-06-10",
+        "dirty_files": 296,
+        "untracked_files": 15,
+        "branches": [
+          {
+            "name": "feat/organ-jupyter-setup-2026-06-10",
+            "commit_hash": "f53237e7a83b168d61a6d803e9a624b5cb377497",
+            "author": "jeanterre552",
+            "date": "2026-06-10"
+          },
+          {
+            "name": "main",
+            "commit_hash": "4005007fc75c39421ff5e50675a3822730f194c2",
+            "author": "jeanterre552",
+            "date": "2026-06-08"
+          },
+          {
+            "name": "sync/poh-radio-2026-06-07",
+            "commit_hash": "c038db19b56a4ad2a27e321c3fda0d97eb8d1242",
+            "author": "jeanterre552",
+            "date": "2026-06-07"
+          }
+        ],
+        "gate_markers": {
+          "gate-0": true,
+          "gate-1": true,
+          "gate-2": true
+        },
+        "health_score": 93.0,
+        "alerts": [
+          {
+            "severity": "WARN",
+            "message": "Repo is dirty (296 modified files).",
+            "context": {}
+          },
+          {
+            "severity": "INFO",
+            "message": "Repo has 15 untracked files.",
+            "context": {}
+          }
+        ],
+        "timestamp": "2026-06-11T06:06:12.466260+00:00"
+      }
+    },
+    {
+      "organ_name": "twitter",
+      "timestamp": "2026-06-11T06:06:12.459707+00:00",
+      "data": {
+        "total_tweets_captured": 0,
+        "total_verdicts_judged": 0,
+        "latest_trends": [],
+        "proxy_status": "offline",
+        "timestamp": "2026-06-11T06:06:12.459707+00:00"
+      }
+    },
+    {
+      "organ_name": "twitter",
+      "timestamp": "2026-06-10T14:20:16.260436+00:00",
+      "data": {
+        "total_tweets_captured": 0,
+        "total_verdicts_judged": 0,
+        "latest_trends": [],
+        "proxy_status": "offline",
+        "timestamp": "2026-06-10T14:20:16.260436+00:00"
+      }
+    },
     {
       "organ_name": "docker",
       "timestamp": "2026-06-10T14:13:55.144530+00:00",
@@ -183,5 +408,5 @@
       }
     }
   ],
-  "summary": "Aggregated 2 recent events across organism."
+  "summary": "Aggregated 9 recent events across organism."
 }

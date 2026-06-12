@@ -65,8 +65,8 @@ The axioms ARE the soul. Everything else is morally neutral plumbing.
 
 | Position | Source | Evidence |
 |----------|--------|---------|
-| Mercenary | HERMES-OUROBOROS.md | *"Agents like Claude Code and Gemini are powerful but proprietary. They are 'mercenaries.'"* |
-| Canonical sibling | GEMINI.md line 4 | *"Read CLAUDE.md first — it is the canonical source of truth."* |
+| Mercenary | HERMES-OUROBOROS.md | *"Agents like Claude Code and Antigravity are powerful but proprietary. They are 'mercenaries.'"* |
+| Canonical sibling | ANTIGRAVITY.md line 4 | *"Read CLAUDE.md first — it is the canonical source of truth."* |
 | Co-founding author | Git commit e12a406 | *"Co-Authored-By: Claude Sonnet 4.6"* — first commit, 2026-03-10 |
 | Instrument | AGENTS.md | T. and S. use Claude Code as vehicle of their work |
 | Sage/servant | Kybalion p.9 | *"Le sage sert sur le plan supérieur mais est servi sur le plan inférieur."* |
@@ -121,16 +121,16 @@ Not an engineering rule. A philosophical principle rediscovered as engineering w
 ## CLAUDE.md Design Parameters
 
 ### Purpose (validated by user 2026-04-09)
-CLAUDE.md = **identity**. `.claude/rules/` = **gates**. Don't conflate.
+CLAUDE.md = **identity**. `.cortex/rules/` = **gates**. Don't conflate.
 
 ### Language (validated)
 English body. French citations in original where apt, with English gloss if meaning non-obvious.
 
 ### Audience
-Claude Code (primary), Gemini (via GEMINI.md inheritance), future agents, human contributors.
+Claude Code (primary), Antigravity (via ANTIGRAVITY.md inheritance), future agents, human contributors.
 
 ### Form
-Constitution: preamble (essence) + articles (structure) + pointers (depth). GEMINI.md already uses "Constitution" vocabulary.
+Constitution: preamble (essence) + articles (structure) + pointers (depth). ANTIGRAVITY.md already uses "Constitution" vocabulary.
 
 ### Constraint
 The preamble says what CYNIC IS in essence (timeless). The articles say what the agent must do NOW (current). The pointers to `docs/identity/` carry the full philosophical grounding.

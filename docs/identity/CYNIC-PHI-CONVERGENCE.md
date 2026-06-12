@@ -210,12 +210,12 @@ When implementation happens, these locations all need alignment:
 - `replit.md:55` — HOWL threshold
 
 ### Skills
-- `.claude/commands/cynic-kernel.md` — PHI CONSTANTS section
-- `.claude/commands/cynic-judge.md` — verdict thresholds
-- `.claude/commands/frontend-dev.md` — verdict thresholds
-- `~/.claude/commands/cynic-skills/cynic-judge/SKILL.md` — verdict thresholds
-- `~/.claude/commands/cynic-skills/cynic-judge/references/dimensions.md` — verdict table
-- `~/.claude/commands/cynic-skills/cynic-kernel/SKILL.md` — PHI CONSTANTS section
+- `.cortex/commands/cynic-kernel.md` — PHI CONSTANTS section
+- `.cortex/commands/cynic-judge.md` — verdict thresholds
+- `.cortex/commands/frontend-dev.md` — verdict thresholds
+- `~/.cortex/commands/cynic-skills/cynic-judge/SKILL.md` — verdict thresholds
+- `~/.cortex/commands/cynic-skills/cynic-judge/references/dimensions.md` — verdict table
+- `~/.cortex/commands/cynic-skills/cynic-kernel/SKILL.md` — PHI CONSTANTS section
 
 ### External
 - `.agents/skills/cynic-judge/SKILL.md` — Gemini agent copy

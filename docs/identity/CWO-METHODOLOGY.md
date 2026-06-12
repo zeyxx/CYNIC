@@ -31,7 +31,7 @@ The Constitution says: "The FOGC test can only exist because the philosophy defi
   
 - **Testing**: R21 — every gate must have failed at least once. A test suite where everything passes on first run is a useless test suite. The Reverse Turing Test applies this to the organism: inject known-bad input, verify Dogs bark. Detection rate target: >φ⁻¹ but <1.0. A perfect detector is a broken detector.
 
-- **Code review**: When two agents (Claude + Gemini) agree without friction, suspect echo. Structural independence (Invariant 3) means disagreement is a health signal. If Gemini says "this is wrong" and Claude agrees instantly, something failed — the dialectic should produce a distinguishing question, not immediate capitulation.
+- **Code review**: When two agents (Claude + Antigravity) agree without friction, suspect echo. Structural independence (Invariant 3) means disagreement is a health signal. If Antigravity says "this is wrong" and Claude agrees instantly, something failed — the dialectic should produce a distinguishing question, not immediate capitulation.
 
 - **Architecture**: No component trusts another. Dogs don't communicate during judgment. The crystal loop doesn't trust its own crystals (epistemic soft gate, decay TTL). The health probe doesn't trust the service it's probing (circuit breaker, 5-state machine).
 
@@ -51,7 +51,7 @@ The Constitution says: "The FOGC test can only exist because the philosophy defi
 
 **How it changes building**:
 
-- **Inference**: Dogs run on owned silicon (cynic-core APU, cynic-gpu RTX 4060 Ti). Cloud APIs (HF, Gemini) are supplements, not dependencies. If every cloud API goes down, the organism still judges via Deterministic Dog + local Qwen.
+- **Inference**: Dogs run on owned silicon (cynic-core APU, cynic-gpu RTX 4060 Ti). Cloud APIs (HF, Antigravity) are supplements, not dependencies. If every cloud API goes down, the organism still judges via Deterministic Dog + local Qwen.
 
 - **Dependencies**: Every external crate is sovereignty debt. Necromancy rule: before adding a dependency, check if abandoned code already does it (`git log --all --full-history`). When you do depend, pin versions (P3), audit supply chain (`cargo audit`), and know the exit path.
 
@@ -77,7 +77,7 @@ The Constitution says: "The FOGC test can only exist because the philosophy defi
 
 **How it changes building**:
 
-- **LLM usage**: Claude Code, Gemini CLI, Codex are cortex extensions. They're not magic, not threats — they're cognitive tools with known failure modes. Shape their behavior (CLAUDE.md, GEMINI.md, hooks, skills) rather than either worshipping or rejecting them.
+- **LLM usage**: Claude Code, Antigravity CLI, Codex are cortex extensions. They're not magic, not threats — they're cognitive tools with known failure modes. Shape their behavior (CLAUDE.md, ANTIGRAVITY.md, hooks, skills) rather than either worshipping or rejecting them.
 
 - **Crystal loop**: The CCM is transmutation in code. A verdict (raw LLM output) is matter. Crystallization transforms it into wisdom (a crystal that improves future prompts). The crystal isn't the verdict — it's the verdict processed through the axioms.
 
@@ -91,7 +91,7 @@ The Constitution says: "The FOGC test can only exist because the philosophy defi
 - Rejecting human input because it's imprecise
 - Silent `.ok()` on fallible I/O (R2)
 
-**Current anchor**: Crystal loop closed (verdicts → crystals → prompts). Dog prompt injection working. Hooks shape Claude/Gemini behavior. Error handling via thiserror + typed domain errors.
+**Current anchor**: Crystal loop closed (verdicts → crystals → prompts). Dog prompt injection working. Hooks shape Claude/Antigravity behavior. Error handling via thiserror + typed domain errors.
 
 ---
 
@@ -101,7 +101,7 @@ The Constitution says: "The FOGC test can only exist because the philosophy defi
 
 **How it changes building**:
 
-- **Development**: Multi-cortex. Claude + Gemini + Codex working on the same codebase via different branches. They DON'T coordinate during work (Pyrrhonist architecture). Disagreement at merge time = signal. Schism protocol for genuine deadlocks (two worktrees, measure at J+7, absorb the better one).
+- **Development**: Multi-cortex. Claude + Antigravity + Codex working on the same codebase via different branches. They DON'T coordinate during work (Pyrrhonist architecture). Disagreement at merge time = signal. Schism protocol for genuine deadlocks (two worktrees, measure at J+7, absorb the better one).
 
 - **Judgment**: 5 Dogs, architecturally isolated. Fan-out to all active Dogs, wait for consensus. Anomaly detection on divergence (σ > φ⁻²). The pipeline trusts convergence, not any individual Dog.
 
@@ -115,7 +115,7 @@ The Constitution says: "The FOGC test can only exist because the philosophy defi
 - Averaging away genuine tension
 - Trusting convergence without checking for echo
 
-**Current anchor**: 5 Dogs (Deterministic, Qwen 7B, Qwen 3.5 9B, Gemma 4, Gemini). Multi-cortex (Claude + Gemini + Codex). StoragePort: SurrealDB + InMemory (13 contract tests each).
+**Current anchor**: 5 Dogs (Deterministic, Qwen 7B, Qwen 3.5 9B, Gemma 4, Antigravity). Multi-cortex (Claude + Antigravity + Codex). StoragePort: SurrealDB + InMemory (13 contract tests each).
 
 ---
 
@@ -131,7 +131,7 @@ The Constitution says: "The FOGC test can only exist because the philosophy defi
 
 - **Observations**: Every `/observe` call must have a consumer that acts. The mempool was killed (2026-05-09) because it had 0 consumers — pure K15 violation.
 
-- **Memory**: Session memories (`~/.claude/memory/`) must inform future sessions or be deleted. Memory that's never accessed = dead weight. The dream-consolidator agent exists to prune.
+- **Memory**: Session memories (`~/.cortex/memory/`) must inform future sessions or be deleted. Memory that's never accessed = dead weight. The dream-consolidator agent exists to prune.
 
 - **Documentation**: Docs that nobody reads are dead. Lifecycle tags (`living`, `historical`, `dormant`) distinguish. `make lint-drift` checks for drift between docs and code.
 
@@ -210,7 +210,7 @@ The same 7 principles apply at every scale. The methodology is self-similar.
 | Doubt | Log decisions in Askesis. "What would falsify my confidence in this choice?" |
 | Sovereignty | Work on your machine. Don't outsource thinking to cloud tools without local fallback. |
 | Transmutation | When you encounter bad code/ideas, process through axioms. Don't dismiss. |
-| Multiplicity | Ask CYNIC AND Gemini. When they disagree, that's where your attention goes. |
+| Multiplicity | Ask CYNIC AND Antigravity. When they disagree, that's where your attention goes. |
 | Knowledge→Action | If you logged a pattern 3 times without acting, either act or stop logging. |
 | Deface currency | Track your own bullshit. Askesis audit = the mirror. Don't look away. |
 | Bark or die | If you haven't challenged your own assumptions today, you're asleep. |
@@ -263,7 +263,7 @@ The same 7 principles apply at every scale. The methodology is self-similar.
 ### Coding
 
 **Before CWO**: Single developer, single model, linear progress.
-**After CWO**: Multi-cortex (Claude + Gemini + Codex). Each works on isolated branches. Disagreement at merge = signal. Schism for deadlocks. The codebase is the prompt — every pattern will be replicated by future LLM sessions (K11, K12).
+**After CWO**: Multi-cortex (Claude + Antigravity + Codex). Each works on isolated branches. Disagreement at merge = signal. Schism for deadlocks. The codebase is the prompt — every pattern will be replicated by future LLM sessions (K11, K12).
 
 ### Testing
 

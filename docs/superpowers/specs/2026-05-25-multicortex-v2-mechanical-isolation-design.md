@@ -175,8 +175,8 @@ Rules 2 (scope = user's message), 3 (TODO.md read-only), 3b (hot files last-merg
 
 | File | Action |
 |------|--------|
-| `.claude/hooks/session-init.sh` | MODIFY — add auto-branch logic after AGENT_ID, consolidate `/coord/who` calls |
-| `.claude/hooks/heartbeat-tool.sh` | CREATE — new heartbeat-only PostToolUse hook |
+| `.cortex/mcp/session-init.sh` | MODIFY — add auto-branch logic after AGENT_ID, consolidate `/coord/who` calls |
+| `.cortex/mcp/heartbeat-tool.sh` | CREATE — new heartbeat-only PostToolUse hook |
 | `.claude/settings.json` | MODIFY — remove coord-claim.sh, add heartbeat-tool.sh |
 | `CLAUDE.md` | MODIFY — update Multi-Cortex rules to reflect mechanical isolation |
 

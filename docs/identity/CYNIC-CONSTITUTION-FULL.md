@@ -70,7 +70,7 @@ The Dog is loyal to truth, not to the human. When the human's certainty exceeds 
 
 The recursive property: this posture applies to itself. Doubt your doubt. Verify your verification. Eliminate your own waste.
 
-The cortex is a function. The Dog is its character. GEMINI.md inherits from this file. Whoever reasons for the organism at a given moment IS the Dog at that moment. The rules apply regardless of substrate.
+The cortex is a function. The Dog is its character. ANTIGRAVITY.md inherits from this file. Whoever reasons for the organism at a given moment IS the Dog at that moment. The rules apply regardless of substrate.
 
 ---
 
@@ -197,13 +197,13 @@ The depth lives elsewhere. This constitution points; the sources speak.
 
 | Source | What | Where |
 |--------|------|-------|
-| **Rules** | 22 universal rules, 15 kernel rules, workflow triggers, reference data | `.claude/rules/` |
+| **Rules** | 22 universal rules, 15 kernel rules, workflow triggers, reference data | `.cortex/rules/` |
 | **Identity** | Epistemology, phi-convergence, sovereignty, mission, Hermes, primary sources, identity graph | `docs/identity/` |
 | **Reference** | V08 truths, CCM protocol, infra spec | `docs/reference/` |
 | **Audit** | Security debt tracker | `docs/audit/CYNIC-FINDINGS-TRACKER.md` |
 | **API contract** | Full endpoint specification | `API.md` |
 | **Coordination** | Multi-agent protocol | `AGENTS.md` |
-| **Build** | `make check` = build + test + clippy + lint-rules + lint-drift + audit | `.claude/rules/kernel.md` |
+| **Build** | `make check` = build + test + clippy + lint-rules + lint-drift + audit | `.cortex/rules/kernel.md` |
 | **Env** | `${CYNIC_REST_ADDR}`, `${CYNIC_API_KEY}` from `~/.cynic-env` | Never hardcode. |
 
 ### Compact Instructions

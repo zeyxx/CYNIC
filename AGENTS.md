@@ -6,14 +6,14 @@ Three cortex agents, persistent organic agents, one kernel, one repo. The kernel
 
 | Agent | Runtime | Instructions | Coordination Config | L3 Enforcement |
 |-------|---------|--------------|---------------------|----------------|
-| Claude Code | `claude` | `CLAUDE.md` | `.claude/settings.json` | Hooks (PreToolUse → coord-claim.sh) |
-| Gemini CLI | `gemini` | `GEMINI.md` | `.gemini/settings.json` | Hooks (BeforeTool → coord-claim.sh) |
-| Codex CLI | `codex` | `CODEX.md` + `.codex/CODEX-PROTOCOL.md` | `.codex/config.toml` | Manual/MCP proxy; verify per session |
+| Claude Code | `claude` | `CLAUDE.md` | `.claude/settings.json` | Explicit MCP (`cynic_coord_claim`) |
+| Antigravity CLI | `antigravity` | `ANTIGRAVITY.md` | `.antigravity/settings.json` | Explicit MCP (`cynic_coord_claim`) |
+| Codex CLI | `codex` | `CODEX.md` + `.codex/CODEX-PROTOCOL.md` | `.codex/config.toml` | Explicit MCP (`cynic_coord_claim`) |
 | Hermes Agent | `hermes-agent-executor.service` → `hermes chat` | `HERMES_AGENT.md` + organ `SKILL.md` | REST `/coord/*` from executor | Executor claims declared task targets before launch |
 
 ## The Kernel Is the Bus
 
-The CYNIC kernel runs on `${CYNIC_REST_ADDR}` (Tailscale). Agents access it through MCP or direct REST. Claude/Gemini/Codex may use MCP when available; Hermes Agent uses REST from its executor because it is a persistent systemd service, not an interactive cortex.
+The CYNIC kernel runs on `${CYNIC_REST_ADDR}` (Tailscale). Agents access it through MCP or direct REST. Claude/Antigravity/Codex may use MCP when available; Hermes Agent uses REST from its executor because it is a persistent systemd service, not an interactive cortex.
 
 ## Document Hierarchy
 
@@ -23,17 +23,13 @@ Use this order when two files appear to disagree:
    Shared repo-wide protocol. This file is the stable source of truth for session lifecycle, claims, handoff semantics, and security rules.
 2. Agent adapters
    - `CLAUDE.md`
-   - `GEMINI.md`
+   - `ANTIGRAVITY.md`
    - `CODEX.md`
    - `.codex/CODEX-PROTOCOL.md`
-   - `HERMES_AGENT.md`
-   These explain how each runtime executes the shared protocol and what automation or fallback paths it really has.
-3. `.handoff.md`
-   Append-only session journal. Useful context, but non-normative by design. Older entries may be superseded by newer reality.
-4. Roadmap / backlog files
-   `TODO.md` is the live work ledger. Historical sprint snapshots such as `TODO-ROBUSTNESS.md` and `docs/TODO.md` are not protocol sources.
+   - `docs/organs/HERMES_AGENT.md`
+   These explain how each runtime executes the shared protocol.
 
-Rule: protocol beats journal, and live ledger beats historical snapshot.
+Rule: Protocol beats journal, and dynamic Kernel state beats static files.
 
 ### MCP Coordination Tools
 
@@ -46,31 +42,30 @@ All agents have these tools via MCP:
 | `cynic_coord_who` | See active agents and claims (`GET /coord/who`) | Before starting work |
 | `cynic_coord_release` | Release your claims | Session end or done with file |
 | `cynic_observe` | Record a discovery/decision/blocker | When something material happens |
+| `cynic_dispatch_agent_task` | Create a new task in the Kernel mempool | When delegating work to organs (`kind="hermes"`) or logging structural work (`kind="cortex"`) |
+| `cynic_list_pending_agent_tasks` | Read pending tasks from the Kernel mempool | At session start, querying `kind="cortex"` to see if human has pending structural tasks |
+| `cynic_claim_agent_task` | Atomically claim a task for execution | After reading pending tasks and deciding to execute one |
+| `cynic_update_agent_task_result` | Mark a task as completed or failed | After finishing a claimed task |
 | `cynic_health` | Check kernel health | When in doubt |
-| `cynic_handoff` | Read/write `.handoff.md` | Session start (read) and end (append) |
 ### Coordination Protocol
 
-1. **JSON is King:** All machine-readable reports, handoffs (within JSON fields), and signal extractions MUST be in JSON/JSONL.
+1. **JSON is King:** All machine-readable reports, discoveries, and signal extractions MUST be in JSON/JSONL.
 2. **SESSION START**
    → cynic_coord_register(agent_id, intent, agent_type)
-
-   → cynic_handoff(action="read")  — load context from previous sessions
    → cynic_coord_who()             — see who else is working
 
-2. BEFORE EDITING A FILE
+3. **BEFORE EDITING A FILE**
    → cynic_coord_claim(agent_id, target)
    → If CONFLICT: STOP. Check cynic_coord_who(). Coordinate.
 
-3. DURING SESSION
+4. **DURING SESSION**
    → cynic_observe() on discoveries, decisions, blockers
    → cynic_coord_who() periodically if session is long
 
-   REST note: `/coord/who` is the coordination view. `/agents` is system status and is not a substitute for file-claim inspection.
+   REST note: `/coord/who` is the coordination view. `/agent-tasks` is the universal mempool.
 
-4. SESSION END
-   → cynic_handoff(action="append", message="what I did, what's next")
+5. **SESSION END**
    → cynic_coord_release(agent_id)  — release ALL claims
-```
 
 ### Enforcement Layers
 
@@ -78,9 +73,9 @@ All agents have these tools via MCP:
 |-------|-----------|----------|---------------|
 | **L1** | Instructions (this file) | All agents | No — LLM may ignore |
 | **L2** | Pre-commit hook | Git boundary | **Yes** — rejects commit on conflict |
-| **L3** | Per-agent hooks | File write time | **Yes** for Claude/Gemini. MCP-dependent for Codex. |
+| **L3** | Native MCP Tools | Explicit call | **Yes** — The proxy tracks and enforces. |
 
-L2 is the safety net. Even if an agent skips L1 and L3, the commit will be rejected if another agent holds the file.
+L2 is the safety net. Even if an agent fails to claim via L3, the commit will be rejected if another agent holds the file.
 
 ## Gate System (3-Level Sovereign CI)
 
@@ -168,7 +163,7 @@ The `cynic-coord` MCP server is configured in `.codex/config.toml`:
 ```toml
 [mcp.cynic-coord]
 type = "stdio"
-command = ["./mcp-coord/cynic-coord"]
+command = ["./.cortex/mcp/run-cynic-mcp.sh"]
 env = { CYNIC_REST_ADDR = "<TAILSCALE_CORE>:3030", CYNIC_API_KEY = "..." }
 ```
 
@@ -185,7 +180,7 @@ Read `CODEX.md` first, then `.codex/CODEX-PROTOCOL.md`. Codex has no guaranteed 
 2. Before editing any file: call `cynic_coord_claim` or REST `/coord/claim`.
 3. If the response includes conflicts: do NOT proceed. Call `cynic_coord_who` / `GET /coord/who`.
 4. Record material discoveries with `cynic_observe`.
-5. At session end: call `cynic_handoff(action="append")` with a summary, then `cynic_coord_release`.
+5. At session end: call `cynic_coord_release`.
 
 ## Hermes Agent — Specific Instructions
 
@@ -201,21 +196,14 @@ Required behavior for repo-affecting Hermes tasks:
 
 A repo-affecting Hermes task without declared targets must fail or requeue before `hermes chat` starts.
 
-## Handoff Protocol
+## Organic Governance (Zero-Markdown Ledger)
 
-`.handoff.md` is the semantic context bus — what was discovered, what's hot, what's next. The kernel coord system handles file-level mutex; handoff carries meaning.
+The organism relies on an **Agent-Agnostic, Zero-Markdown** governance model.
+There is no `TODO.md` and no `.handoff.md`.
 
-Important: `.handoff.md` is a journal, not a spec. Do not treat old entries as stable protocol. If a handoff entry conflicts with this file or an adapter file, the handoff entry is historical context only.
-
-Format:
-```markdown
-## [agent-id] 2026-04-15T18:30:00Z
-STATUS: what I did
-TOUCHED: files modified
-NEXT: what should happen next
-BLOCKS: any blockers
-FOR_OTHER_AGENT: specific messages
-```
+1. **The Code is the Truth**: The current state of the repo, the Git commit history, and the files (`docs/DATA_CONSTITUTION.md`, etc.) are the only static context.
+2. **The Kernel is the Mempool**: Any dynamic context, discoveries, or tasks are pushed to the Kernel via `cynic_observe` or queried from `/agent-tasks`.
+3. **Askesis (Proof-of-History)**: Human and agent interactions log their semantic footprints in structured JSONL (`.cynic/memory/logs/human-kernel.jsonl`), never in narrative markdown files.
 
 ## Organism Taxonomy
 
@@ -223,23 +211,23 @@ FOR_OTHER_AGENT: specific messages
 
 | Type | Where | Lifecycle | State | Naming |
 |------|-------|-----------|-------|--------|
-| **Cortex** | Claude Code / Gemini CLI / Codex CLI | Session (episodic) | None — memory via `.claude/memory/` or AGENTS.md | Derived from task, written to `.cortex-session` |
-| **Agent (organic)** | Autonomous framework (e.g., Hermes Agent, organism observer) | Persistent | Owns SOUL.md + SKILL.md, self-improving loop; repo writes are mediated by an adapter | Named in infrastructure registry (e.g., `hermes-x-organ`, `organ-anvil-hermes-agent`) |
-| **Dog** | In-kernel validator | Persistent | Stateless inference; state via crystals | Named in `backends.toml` Dogs array (e.g., `qwen-7b-hf`, `gemini-cli`) |
+| **Cortex** | Claude Code / Antigravity CLI / Codex CLI | Session (episodic) | None — memory via `.cortex/memory/` or AGENTS.md | Derived from task, written to `.cortex-session` |
+| **Agent (organic)** | Autonomous framework (e.g., Hermes Agent, organism observer) | Persistent | Owns SOUL.md + SKILL.md, self-improving loop; repo writes are mediated by an adapter | Named in infrastructure registry (e.g., `hermes-x-organ`, `organ-forge-hermes-agent`) |
+| **Dog** | In-kernel validator | Persistent | Stateless inference; state via crystals | Named in `backends.toml` Dogs array (e.g., `qwen-7b-hf`, `antigravity-cli`) |
 | **Organ** | Infrastructure subsystem (sensorial + reactive) | Persistent | Stateful (logs, datasets, cache) | Hierarchical: `organ-{role}` (family) → `organ-{role}-hermes-agent` (instance) → `organ-{role}-{tool}` (daemon) |
 | **Infra** | Scripts, MCP servers, hooks | Persistent | Tooling | Namespaced: `cynic-skills:*`, `mcp-coord/*`, `scripts/*` |
 
 ### Organ Naming Convention
 
 1. **Role-based naming** — not arbitrary
-   - `organ-anvil` — Repo lifecycle manager (perception + reactive)
+   - `organ-forge` — Repo lifecycle manager (perception + reactive)
    - `organ-keep` — Backup + persistence (durability)
-   - `organ-x` — Twitter/X data pipeline (collection)
+   - `organ-twitter` — Twitter/X data pipeline (collection)
    - `organ-{role}` — Reflects the organ's function in the organism
 
 2. **Instance naming** — agent + tool
-   - `organ-anvil-hermes-agent` — The Hermes instance running anvil
-   - `organ-anvil-cron` — The cron job scheduling anvil
+   - `organ-forge-hermes-agent` — The Hermes instance running anvil
+   - `organ-forge-cron` — The cron job scheduling anvil
    - `organ-keep-systemd` — The systemd service running keep
 
 3. **Registry entry** — `infra/registry.json`
@@ -247,8 +235,8 @@ FOR_OTHER_AGENT: specific messages
    {
      "organs": [
        {
-         "name": "organ-anvil",
-         "instance": "organ-anvil-hermes-agent",
+         "name": "organ-forge",
+         "instance": "organ-forge-hermes-agent",
          "role": "repo_lifecycle_manager",
          "status": "active"
        }
@@ -262,19 +250,19 @@ Organs are not scripts — they are **sensorial organs** that perceive the repo/
 
 1. **Perception** — Sensors detect state (CSV, hooks, sessions, git status).
 2. **Transformation** — Raw state → decision signal (Cleaning, grouping, summarizing).
-3. **Structuration** — Data modeled via 3NF, stored in registry, handoff, or database (ACID).
+3. **Structuration** — Data modeled via 3NF, stored in registry or database (ACID).
 4. **Analysis** — Patterns emerge (Statistics, Visualization, Distributions).
 5. **Apprentissage** — Discovery of hidden structures (Clustering, K-Means).
 6. **Reliability** — Sovereignty through durability and security (COMMIT/ROLLBACK).
 7. **Adaptation** — Gates intensity scales with organism activity.
 
 
-**See** `docs/organs/organ-anvil.md` for full architecture.
+**See** `organs/forge/README.md` for full architecture.
 
 ### Cortex Naming Convention
 
 1. **Derive from conversation theme** — not arbitrary
-   - Good: `cortex-phi-calibration`, `cortex-wallet-judgment`, `cortex-organ-x-rework`
+   - Good: `cortex-phi-calibration`, `cortex-wallet-judgment`, `cortex-organ-twitter-rework`
    - Bad: `cortex-1`, `cortex-session-3`
 
 2. **Write to `.cortex-session`** — single identity point
@@ -283,7 +271,6 @@ Organs are not scripts — they are **sensorial organs** that perceive the repo/
    ```
    This file propagates to:
    - Git branch name (`git branch -l | grep $(cat .cortex-session)`)
-   - Handoff entry signature (`## [cortex-wallet-judgment] 2026-04-27T...`)
    - Coord claims (`cynic_coord_claim` tagged with cortex ID)
 
 3. **Branch-per-cortex mandatory** — prevents HEAD collision
@@ -309,7 +296,7 @@ Organs are not scripts — they are **sensorial organs** that perceive the repo/
    - Confirm with `cynic_coord_who()` — you should be the only cortex on that branch
 
 2. **Human dispatch:**
-   - Partition tasks: "Claude handles AGENTS.md § Taxonomy, Gemini handles Hermes Agent rework"
+   - Partition tasks: "Claude handles AGENTS.md § Taxonomy, Antigravity handles Hermes Agent rework"
    - Post in #cynic with explicit scope per cortex
    - Prevents redundant work on same file
 
@@ -319,7 +306,6 @@ Organs are not scripts — they are **sensorial organs** that perceive the repo/
    - Do NOT force-push or reset --hard without coordination
 
 4. **At session end:**
-   - Append to `.handoff.md` with cortex ID + timestamp
    - Run `cynic_coord_release()` to free all claims
    - Leave `.cortex-session` file in-tree (useful for tracking which cortex touched what)
 

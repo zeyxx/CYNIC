@@ -36,6 +36,16 @@ curl -X POST http://localhost:3030/judge \
 
 ## How Routing Works
 
+### The Golden Rule: 1 Dog = 1 SOT
+
+**Every Dog encapsulates exactly one Source of Truth (SOT). LLM Dogs are the last resort.** 
+Before routing to an LLM Dog, the pipeline MUST exhaust deterministic Dogs:
+1. **Database Dogs:** Local Cache, SQL validations (Absolute SOT).
+2. **On-Chain Dogs:** Transaction history, liquidity locks, verified contract code (SOT).
+3. **Deterministic Heuristic Dogs:** Profile matching, hardcoded anti-sybil checks.
+
+If and only if the deterministic Dogs are inconclusive or the domain requires nuance, the pipeline routes to LLM Dogs. (e.g. `wallet-judgment` is fully handled by the `deterministic-dog`; `token-judgment` uses `rug-prefilter` dog before waking up `qwen-7b`).
+
 ### Priority Chain
 
 1. **Explicit dog list takes priority**

@@ -51,7 +51,7 @@ Build policy lives in three layers, with different responsibilities:
    Sets repo-local defaults so plain `cargo build` works.
 2. `cynic-kernel/build.rs`
    Cannot mutate the parent Cargo invocation, so it validates and warns when the environment drifts.
-3. `.claude/rules/workflow.md`
+3. `.cortex/rules/workflow.md`
    Documents the same requirement for humans and agents running commands outside normal repo-local Cargo config.
 
 This split is intentional. `build.rs` is not a magic control plane for Cargo itself; it runs too late to inject parent `RUSTFLAGS`.

@@ -1,8 +1,28 @@
 {
-  "timestamp": "2026-06-10T14:13:55.144530+00:00",
-  "total_containers": 6,
-  "running": 5,
+  "timestamp": "2026-06-12T08:32:44.888366+00:00",
+  "total_containers": 7,
+  "running": 3,
   "containers": [
+    {
+      "Command": "\"docker-entrypoint.s\u2026\"",
+      "CreatedAt": "2026-06-11 11:34:55 +0200 CEST",
+      "ID": "9a706add8804",
+      "Image": "mongo:7",
+      "Labels": "com.docker.compose.config-hash=4918fe15bd8edf6c592f5a707088096f28a95f0cccd7ce6d8e78da1df0304645,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:948b635bc126d62274eebb650dd2e2e66c9abc3bb0a336eb2279a5d8489417f5,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/user/Bureau/lets-play/docker-compose.yml,com.docker.compose.project.working_dir=/home/user/Bureau/lets-play,com.docker.compose.project=lets-play,com.docker.compose.service=mongo,com.docker.compose.version=2.40.3,org.opencontainers.image.version=22.04",
+      "LocalVolumes": "2",
+      "Mounts": "4ff0ae4cb9761d\u2026,lets-play_mong\u2026",
+      "Names": "lets-play-mongo",
+      "Networks": "lets-play_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "",
+      "RunningFor": "23 hours ago",
+      "Size": "4.1kB (virtual 890MB)",
+      "State": "created",
+      "Status": "Created"
+    },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
       "CreatedAt": "2026-06-09 18:57:23 +0200 CEST",
@@ -10,7 +30,7 @@
       "Image": "node:20-alpine",
       "Labels": "com.docker.compose.config-hash=dd599a00775dc4bbf21622ec7a9fa89d9052fa54e9a1ade182500158913c5ede,com.docker.compose.container-number=1,com.docker.compose.depends_on=deps:service_completed_successfully:false,db:service_healthy:false,socket:service_started:false,com.docker.compose.image=sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/user/Bureau/blitz-and-chill/docker-compose.yml,com.docker.compose.project.working_dir=/home/user/Bureau/blitz-and-chill,com.docker.compose.project=blitz-and-chill,com.docker.compose.service=web,com.docker.compose.version=2.40.3",
       "LocalVolumes": "2",
-      "Mounts": "blitz-and-chil\u2026,/home/user/Bur\u2026,blitz-and-chil\u2026",
+      "Mounts": "/home/user/Bur\u2026,blitz-and-chil\u2026,blitz-and-chil\u2026",
       "Names": "blitzchill-web",
       "Networks": "blitz-and-chill_default",
       "Platform": {
@@ -18,10 +38,10 @@
         "os": "linux"
       },
       "Ports": "0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp",
-      "RunningFor": "21 hours ago",
+      "RunningFor": "2 days ago",
       "Size": "24.6kB (virtual 145MB)",
-      "State": "running",
-      "Status": "Up 21 hours"
+      "State": "exited",
+      "Status": "Exited (255) 12 hours ago"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -38,10 +58,10 @@
         "os": "linux"
       },
       "Ports": "0.0.0.0:5433->5432/tcp, [::]:5433->5432/tcp",
-      "RunningFor": "21 hours ago",
+      "RunningFor": "2 days ago",
       "Size": "20.5kB (virtual 285MB)",
       "State": "running",
-      "Status": "Up 21 hours (healthy)"
+      "Status": "Up About a minute (healthy)"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -58,10 +78,10 @@
         "os": "linux"
       },
       "Ports": "0.0.0.0:3001->3001/tcp, [::]:3001->3001/tcp",
-      "RunningFor": "21 hours ago",
+      "RunningFor": "2 days ago",
       "Size": "221kB (virtual 145MB)",
-      "State": "running",
-      "Status": "Up 21 hours"
+      "State": "exited",
+      "Status": "Exited (255) 12 hours ago"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -78,10 +98,10 @@
         "os": "linux"
       },
       "Ports": "",
-      "RunningFor": "21 hours ago",
+      "RunningFor": "2 days ago",
       "Size": "68.3MB (virtual 213MB)",
       "State": "exited",
-      "Status": "Exited (0) 21 hours ago"
+      "Status": "Exited (0) 2 days ago"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -98,10 +118,10 @@
         "os": "linux"
       },
       "Ports": "0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp",
-      "RunningFor": "21 hours ago",
+      "RunningFor": "2 days ago",
       "Size": "4.1kB (virtual 41.1MB)",
       "State": "running",
-      "Status": "Up 21 hours (healthy)"
+      "Status": "Up About a minute (healthy)"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -118,10 +138,10 @@
         "os": "linux"
       },
       "Ports": "",
-      "RunningFor": "42 hours ago",
+      "RunningFor": "3 days ago",
       "Size": "949MB (virtual 1.44GB)",
       "State": "running",
-      "Status": "Up 29 hours"
+      "Status": "Up About a minute"
     }
   ],
   "last_actions": []

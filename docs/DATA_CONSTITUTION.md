@@ -101,6 +101,21 @@ SYSTÈME DATA INTELLIGENT
 ├── 8. SOUVERAINETÉ DES FORMATS
 │   ├── Communication inter-agents (JSON is King)
 │
-└── 9. RISQUES & ANTI-PATTERNS
-    ├── Éviter l'effondrement (Cascades, Cross-Joins, NaN)
+├── 9. RISQUES & ANTI-PATTERNS
+│   ├── Éviter l'effondrement (Cascades, Cross-Joins, NaN)
+│
+└── 10. EFFICIENCE COGNITIVE (1 Dog = 1 SOT)
+    ├── Chaque Dog représente une unique Source de Vérité. Les LLM Dogs sont le dernier recours.
 ```
+
+---
+
+## 10. COGNITIVE EFFICIENCY (1 Dog = 1 SOT)
+In CYNIC, a "Dog" is an epistemic agent encapsulating exactly one Source of Truth (SOT).
+- **The Golden Rule:** 1 Dog = 1 SOT.
+- **Hierarchy of Resolution:** You MUST route queries through deterministic Dogs before invoking LLM Dogs.
+  1. Local Database Dogs (Absolute SOT)
+  2. On-Chain / Cryptographic Dogs (SOT)
+  3. Deterministic Heuristic Dogs (e.g., `rug-prefilter`, `wallet-judgment` rules)
+  4. **LLM Dogs** (Latent SOT — Used ONLY for nuance, ambiguity, or when deterministic Dogs are inconclusive)
+- **Mandate:** Never burn GPU cycles to answer a question that a deterministic Dog could answer via a simple SQL query or API call. LLMs are for judgment, not data retrieval.

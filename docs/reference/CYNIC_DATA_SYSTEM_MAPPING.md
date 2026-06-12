@@ -15,11 +15,11 @@
 ### CYNIC
 | Sensor | Source | File | Data captured |
 |--------|--------|------|---------------|
-| observe-tool.sh | Claude Code PostToolUse | `.claude/hooks/observe-tool.sh` | Every action: file edited, command executed, search launched |
-| observe-prompt.sh | Claude Code UserPromptSubmit | `.claude/hooks/observe-prompt.sh` | Developer questions/instructions |
-| observe-subagent.sh | Claude Code SubagentStart | `.claude/hooks/observe-subagent.sh` | AI agent dispatches (type, objective) |
-| session-init.sh | SessionStart | `.claude/hooks/session-init.sh` | System state at startup (kernel, git, crystals) |
-| session-stop.sh | Stop | `.claude/hooks/session-stop.sh` | Session summary (commits, duration, compliance) |
+| observe-tool.sh | Claude Code PostToolUse | `.cortex/mcp/observe-tool.sh` | Every action: file edited, command executed, search launched |
+| observe-prompt.sh | Claude Code UserPromptSubmit | `.cortex/mcp/observe-prompt.sh` | Developer questions/instructions |
+| observe-subagent.sh | Claude Code SubagentStart | `.cortex/mcp/observe-subagent.sh` | AI agent dispatches (type, objective) |
+| session-init.sh | SessionStart | `.cortex/mcp/session-init.sh` | System state at startup (kernel, git, crystals) |
+| session-stop.sh | Stop | `.cortex/mcp/session-stop.sh` | Session summary (commits, duration, compliance) |
 | Hermes (Organ X) | Web browser (X/Twitter) | `scripts/hermes-x/` | Tweets, engagement, social signals |
 | Tailscale probes | Mesh network | `cynic-kernel/src/backends/` | GPU/CPU node state, latency |
 
@@ -142,8 +142,8 @@ File: `cynic-kernel/src/pipeline/crystal_observer.rs`
 ### CYNIC
 | Tool | Function | Endpoint/File |
 |------|----------|---------------|
-| `/status` | Kernel dashboard (Dogs, storage, latency) | `.claude/commands/status.md` |
-| `/cc-status` | Harness dashboard (hooks, observers, telemetry) | `.claude/commands/cc-status.md` |
+| `/status` | Kernel dashboard (Dogs, storage, latency) | `.cortex/commands/status.md` |
+| `/cc-status` | Harness dashboard (hooks, observers, telemetry) | `.cortex/commands/cc-status.md` |
 | `/health` | Real-time state (JSON) | `GET /health` |
 | `/metrics` | Prometheus counters | `GET /metrics` |
 | Token calibration | Confusion matrix Dogs vs CultScreener | `cynic-python/calibration/` |
@@ -337,14 +337,14 @@ This is an autopoietic system — it produces itself.
 
 | Concept | CYNIC File |
 |---------|-----------|
-| Perception | `.claude/hooks/observe-*.sh` |
+| Perception | `.cortex/mcp/observe-*.sh` |
 | Ingestion | `cynic-kernel/src/api/rest/routes.rs` (POST /observe) |
 | Storage | `cynic-kernel/src/domain/storage.rs` |
 | Transformation | `cynic-kernel/src/pipeline/crystal_observer.rs` |
 | ML / Dogs | `cynic-kernel/src/domain/dog.rs` |
 | Domain dispatch | `cynic-kernel/src/domain/dispatch.rs` |
 | API | `API.md` |
-| Governance | `.claude/CC-OWNERSHIP.md`, `.claude/rules/` |
-| Dashboard | `.claude/commands/status.md`, `.claude/commands/cc-status.md` |
+| Governance | `.cortex/CC-OWNERSHIP.md`, `.cortex/rules/` |
+| Dashboard | `.cortex/commands/status.md`, `.cortex/commands/cc-status.md` |
 | Calibration | `cynic-python/calibration/` |
 | Curated data | `cynic-python/curation/D*_curated.jsonl` |
