@@ -29,7 +29,7 @@ hypercube_db/
 
 # Dev tooling (secrets + local state only)
 .claude/settings.local.json
-.claude/memory/
+.cortex/memory/
 .claude/scheduled_tasks.lock
 .claude/worktrees/
 .playwright-mcp/
@@ -56,7 +56,7 @@ cynic-python/observations/
 # Platform configs
 .replit
 .mcp.json
-.gemini/
+.antigravity/
 .cynic/
 
 # Go build artifacts
@@ -85,7 +85,7 @@ scripts/run_niah.py
 /web/
 
 # Experimental scripts & utilities
-scripts/coord-claim-gemini.sh
+scripts/coord-claim-antigravity.sh
 scripts/cynic-api.py
 scripts/experiment_phi.py
 scripts/x-consumer.sh

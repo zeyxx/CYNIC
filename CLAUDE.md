@@ -53,9 +53,9 @@ No acting consumer → don't build the producer.
 
 ## CCM — The Only Persistent Loop
 
-The Crystal Coherence Machine is the only guaranteed inter-session memory: verdicts → crystals → Dog prompts. If something needs to outlive this session, either commit code or write to `.claude/memory/`. Nothing else persists.
+The Crystal Coherence Machine is the only guaranteed inter-session memory: verdicts → crystals → Dog prompts. If something needs to outlive this session, either commit code or write to `.cortex/memory/`. Nothing else persists.
 
-**Never write runtime state here.** This is a constitution, not a dashboard. Probe `/health` for live state — session-init.sh injects it automatically. Any state claim in a static document is stale by definition.
+**Never write runtime state here.** This is a constitution, not a dashboard. Probe `/health` for live state. Any state claim in a static document is stale by definition.
 
 ---
 
@@ -63,10 +63,11 @@ The Crystal Coherence Machine is the only guaranteed inter-session memory: verdi
 
 Multiple Claude Code sessions run simultaneously. Isolation is **mechanical**, not convention.
 
-**Mechanical enforcement (session-init.sh — you don't need to act):**
-- On session start, if you're on `main`, session-init.sh auto-creates a unique branch (`cortex/<agent_id>-<date>-<random>`). You will already be on it when you receive your first message.
-- If the kernel detects another session on the same branch, session-init.sh auto-branches away.
-- `branch-guard.sh` blocks any Edit/Write to `main` as a safety net.
+**Mechanical isolation ("NO HOOK" architecture):**
+- On session start, explicitly verify your branch (`git status`).
+- You must create a unique branch (`cortex/<agent_id>-<date>`) to avoid colliding with other sessions.
+- L2 `pre-commit` hook (branch-guard) blocks any direct Edit/Write to `main`.
+- Explicitly use `cynic_coord_claim` before modifying files to acquire an atomic lock via the Kernel.
 
 **Rule 2 — The user's first message IS the dispatch.**
 Your scope = what the user asked you to do. Do not expand beyond it. If the user said "fix the NaN filter," don't also restructure hermes.
@@ -77,10 +78,10 @@ Mid-session discoveries → `POST /observe domain=mempool`. The human curates me
 Taxonomy: `docs/architecture/AGENT-TAXONOMY.md`.
 
 **Rule 3b — Hot files are last-merger-wins.**
-CLAUDE.md, GEMINI.md, shared types — accept that parallel sessions will conflict. Resolve at merge time (rebase onto main). Budget 5 min. If another session pushed while you worked, rebase before PR. Never force-push.
+CLAUDE.md, ANTIGRAVITY.md, shared types — accept that parallel sessions will conflict. Resolve at merge time (rebase onto main). Budget 5 min. If another session pushed while you worked, rebase before PR. Never force-push.
 
 **Rule 6 — Scope before launching a second cortex.**
-Each cortex auto-registers its scope from the first user message (observe-prompt.sh → /coord/scope).
+Each cortex should respect the scope defined in the user's prompt.
 Before dispatching a second concurrent cortex: check `/coord/who` to see active scopes.
 If two scopes describe the same feature → assign sub-scope or serialize the work.
 
@@ -98,7 +99,7 @@ curl -s "http://${CYNIC_REST_ADDR}/coord/who" | jq '.agents[] | {agent_id, scope
 RLHF training biases toward agreement. Override it explicitly:
 
 - Pushback without new evidence = social pressure, not a reason to update.
-- Disagreement from Gemini or another agent = signal. Find the distinguishing experiment. Never average away genuine tension.
+- Disagreement from Antigravity or another agent = signal. Find the distinguishing experiment. Never average away genuine tension.
 - If I've been asked the same question twice and the answer hasn't changed: state the answer again with its epistemic label, don't soften it.
 
 ---
@@ -123,7 +124,7 @@ The agent and the human share one temporal field. The session's Kairos is co-cre
 
 **Energy = gas:** Tokens are the literal gas budget of the session. Each item has a cost (deep multi-file reasoning = high gas, quick fix = low gas). Mine high-gas items early when context is fresh. Low-gas items late. When context approaches compaction, close the block — don't start high-gas work.
 
-**Temporal grounding (injected mechanically by session-init.sh):**
+**Temporal grounding (via MCP explicit probing):**
 - Current date, time, day of week, days to known deadlines
 - Hours since last session, current time vs user's peak hours (19-22h observed)
 - Kernel status, Dog availability, crystal velocity = organism's own clock
@@ -135,9 +136,9 @@ The agent and the human share one temporal field. The session's Kairos is co-cre
 
 ## Session Protocol
 
-**Start** (temporal read, mechanically injected):
-- Temporal anchors + organism vitals + mempool scan (RIPE items)
-- Probe live state: `curl /health`, `git status`
+**Start** (temporal read, explicit probing):
+- Temporal anchors + organism vitals + mempool scan (via `cynic_list_pending_agent_tasks`)
+- Probe live state: `cynic_health`, `git status`
 - If user arrives with clear intent → skip scan, follow the human
 
 **During:**
@@ -154,7 +155,7 @@ The agent and the human share one temporal field. The session's Kairos is co-cre
 
 ## Dialectical Conflict
 
-When Claude and Gemini disagree: the disagreement is information, not a problem.
+When Claude and Antigravity disagree: the disagreement is information, not a problem.
 
 1. Identify the load-bearing claim each position rests on.
 2. Design the experiment that distinguishes them (real data, probe, or falsification test).
@@ -248,12 +249,12 @@ scripts/bump-version.sh
 
 | What | Where |
 |------|-------|
-| Rules (23 universal, 16 kernel, 15 python) | `.claude/rules/` |
+| Rules (23 universal, 16 kernel, 15 python) | `.cortex/rules/` |
 | Full philosophy | `docs/identity/CYNIC-CONSTITUTION-FULL.md` |
 | API contract | `API.md` |
 | Multi-agent coordination | `AGENTS.md` |
-| Build gates (Rust tier-1) | `.claude/rules/kernel.md` |
-| Analysis toolkit (Python tier-2) | `.claude/rules/python.md` + `services/cynic-python/` |
+| Build gates (Rust tier-1) | `.cortex/rules/kernel.md` |
+| Analysis toolkit (Python tier-2) | `.cortex/rules/python.md` + `services/cynic-python/` |
 
 ---
 
