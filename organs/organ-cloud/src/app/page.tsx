@@ -37,13 +37,12 @@ export default function Home() {
     }
   }, [publicKey, signMessage]);
 
-  const handleDeploy = useCallback(async () => {
+  const handleAction = useCallback(async (actionType: string) => {
     try {
       if (!publicKey || !signMessage) return;
       setIsSigning(true);
       
-      const action = "deploy_asdf";
-      const messageStr = `Authorize deployment on CYNIC Cloud\nAction: ${action}\nNonce: ${Date.now()}`;
+      const messageStr = `Authorize deployment on CYNIC Cloud\nAction: ${actionType}\nNonce: ${Date.now()}`;
       const message = new TextEncoder().encode(messageStr);
       
       const signature = await signMessage(message);
@@ -53,10 +52,12 @@ export default function Home() {
           public_key: publicKey.toBase58(),
           message: messageStr,
           signature: bs58.encode(signature),
-          action: action
+          action: actionType
         };
         
-        const response = await fetch("https://api.talaria.build/api/deploy", {
+        // Use local API for testing, or production if needed
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/deploy";
+        const response = await fetch(apiUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -66,14 +67,14 @@ export default function Home() {
         
         const data = await response.json();
         if (response.ok) {
-          alert(`Deploy success!\n${data.logs}`);
+          alert(`Action success!\n${data.logs || 'Done'}`);
         } else {
-          alert(`Deploy failed!\n${data}`);
+          alert(`Action failed!\n${data}`);
         }
       }
     } catch (err) {
-      console.error("Deploy failed", err);
-      alert("Deployment signature failed");
+      console.error("Action failed", err);
+      alert("Signature or network failed");
     } finally {
       setIsSigning(false);
     }
@@ -178,7 +179,7 @@ export default function Home() {
                 
                 <div className="flex gap-4 mt-8">
                   <button 
-                    onClick={handleDeploy}
+                    onClick={() => handleAction("deploy_asdf")}
                     disabled={isSigning}
                     className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-lg font-medium transition-colors shadow-lg shadow-purple-600/20 disabled:opacity-50">
                     <RefreshCw className={`h-4 w-4 ${isSigning ? 'animate-spin' : ''}`} />
@@ -201,6 +202,36 @@ export default function Home() {
                 <div>[Request] GET /api/v1/health - 200 OK (2ms)</div>
                 <div>[Request] GET /api/v1/health - 200 OK (1ms)</div>
                 <div className="animate-pulse mt-2">_</div>
+              </div>
+            </div>
+
+            {/* Freebox Organ Card */}
+            <div className="border border-neutral-800 rounded-2xl bg-neutral-900/50 overflow-hidden backdrop-blur-sm transition-all hover:border-neutral-700 shadow-xl mt-6">
+              <div className="p-6 border-b border-neutral-800">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="text-xl font-bold text-neutral-100">Freebox Gateway</h3>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Active
+                      </span>
+                    </div>
+                    <p className="text-sm text-neutral-400">organ-freebox • Host Execution</p>
+                  </div>
+                  <button className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors border border-neutral-700">
+                    <Server className="h-5 w-5 text-neutral-300" />
+                  </button>
+                </div>
+                
+                <div className="flex gap-4 mt-8">
+                  <button 
+                    onClick={() => handleAction("open_freebox")}
+                    disabled={isSigning}
+                    className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-50">
+                    <RefreshCw className={`h-4 w-4 ${isSigning ? 'animate-spin' : ''}`} />
+                    {isSigning ? 'Opening...' : 'Open Web Port (443)'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
