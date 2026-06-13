@@ -4,7 +4,9 @@ target/
 .gate-0
 .gate-1
 .gate-2
+.gate-release
 .gate_marker
+.release-build.json
 *.exe
 *.dll
 *.pdb

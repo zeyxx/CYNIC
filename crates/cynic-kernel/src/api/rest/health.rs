@@ -241,7 +241,12 @@ pub async fn health_handler(
         http_code,
         Json(serde_json::json!({
             "status": readiness.status,
-            "version": env!("CYNIC_VERSION"),
+            "version": env!("CARGO_PKG_VERSION"),
+            "build": {
+                "describe": env!("CYNIC_VERSION"),
+                "git_sha": env!("CYNIC_GIT_SHA"),
+                "profile": env!("CYNIC_BUILD_PROFILE"),
+            },
             "phi_max": PHI_INV,
             "axioms": AXIOM_NAMES,
             "dogs": dogs,

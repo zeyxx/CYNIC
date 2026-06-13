@@ -2,6 +2,13 @@
 
 All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [26.6.12] — 2026-06-12
+
+### Changed
+
+- **workflow:** Split development gates from release artifact validation.
+- **versioning:** Formalize CalVer `YY.M.DD` with git SHA/build metadata for repeated same-day builds.
+
 ## [26.5.14] — 2026-05-14
 
 ### Changed
@@ -379,5 +386,4 @@ All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/en/1.
 - **storage:** real SurrealDB integration test — no mocks
 - **kernel:** 86 tests — judge, router, rest fully covered
 - **kernel:** add 39 unit tests — middleware, usage, judge, observe
-
 

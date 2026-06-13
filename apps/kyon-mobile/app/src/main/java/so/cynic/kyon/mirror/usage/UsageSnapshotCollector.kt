@@ -28,7 +28,7 @@ class UsageSnapshotCollector(private val context: Context) : Sensor {
                     durationMs = it.totalTimeInForeground,
                     privacy = EventPrivacy.METADATA_ONLY,
                     contextJson = """{"content_captured":false}""",
-                    syncEligible = false,
+                    syncEligible = true,
                 )
             }
     }

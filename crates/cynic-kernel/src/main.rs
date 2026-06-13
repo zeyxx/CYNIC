@@ -25,7 +25,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // the correct and expected behaviour here; the MCP_MODE guard (which bans stdout to avoid
         // corrupting the JSON-RPC stream) has not yet been set when this branch executes.
         {
-            println!("cynic-kernel {}", env!("CARGO_PKG_VERSION"));
+            println!(
+                "cynic-kernel {} (build {}, sha {}, profile {})",
+                env!("CARGO_PKG_VERSION"),
+                env!("CYNIC_VERSION"),
+                env!("CYNIC_GIT_SHA"),
+                env!("CYNIC_BUILD_PROFILE")
+            );
         }
         return Ok(());
     }
@@ -1161,8 +1167,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             domain: "kernel-lifecycle".into(),
             status: "event".into(),
             context: format!(
-                "version={} dogs={}",
+                "version={} build={} sha={} dogs={}",
                 env!("CARGO_PKG_VERSION"),
+                env!("CYNIC_VERSION"),
+                env!("CYNIC_GIT_SHA"),
                 rest_state.judge.load_full().dog_ids().len()
             ),
             session_id: String::new(),
