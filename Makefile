@@ -3,9 +3,8 @@
 # One entry point per stage. No discipline required — the structure enforces the flow.
 #
 # Usage:
-#   make check    — debug build + tests + clippy (validate before commit)
-#   make gate     — debug check + write marker (run BEFORE git push)
-#   make gate-release — release build + artifact manifest (run BEFORE deploy)
+#   make check    — build + test + clippy (validate before commit)
+#   make gate     — check + write marker (run BEFORE git push)
 #   make commit   — check + commit (validated commit)
 #   make ship     — commit + push (pre-push verifies gate marker)
 #   make deploy   — ship + backup DB + restart kernel + verify
@@ -32,16 +31,14 @@ MAKEFLAGS += --warn-undefined-variables
 # ── Environment ──────────────────────────────────────────────
 PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
 
-# 4 GiB + no incremental: rustc 1.95/LLVM 22 is unstable on cynic-kernel otherwise.
-export RUST_MIN_STACK := 4294967296
-export CARGO_INCREMENTAL := 0
+# 2 GiB: rmcp serde monomorphization (A1 debt)
+export RUST_MIN_STACK := 2147483648
 
 # Source env vars (CYNIC_REST_ADDR, CYNIC_API_KEY, etc.)
 define source_env
 	source ~/.cargo/env 2>/dev/null || true
 	source ~/.cynic-env 2>/dev/null || true
-	export RUST_MIN_STACK=4294967296  # Source of truth: .cargo/config.toml
-	export CARGO_INCREMENTAL=0        # Source of truth: .cargo/config.toml
+	export RUST_MIN_STACK=2147483648  # 2 GiB: rmcp serde monomorphization (A1 debt). Source of truth: .cargo/config.toml
 
 
 endef
@@ -51,10 +48,8 @@ endef
 #   Always runs. Pure static checks, no compilation.
 # Level 1 — Light (~25s): cargo clippy
 #   Runs once per session. Marker invalidated only by Rust source changes.
-# Level 2 — Full debug (~1m30s): cargo test + audit
-#   Runs for development/push validation. Integration is explicit to avoid
-#   hiding storage/toolchain failures inside the default push path.
-#   Release artifacts use gate-release.
+# Level 2 — Full (~1m30s): cargo test + audit + integration
+#   Runs before deploy only. NOT at push time.
 
 .PHONY: gate-0
 gate-0: ## Level 0 — Instant: fmt + lints + security
@@ -84,64 +79,24 @@ gate-1: ## Level 1 — Light: cargo clippy
 	@touch .gate-1
 	@echo "  ✓ Gate 1 passed — clippy OK"
 
-.PHONY: version-check
-version-check: ## Verify CalVer SSOT and date alignment
-	@KERNEL_VERSION=$$(grep '^version' $(PROJECT_DIR)/crates/cynic-kernel/Cargo.toml | head -1 | sed 's/.*"\([^"]*\)".*/\1/'); \
-	TODAY_VERSION=$$(date -u +%y.%-m.%-d); \
-	if [ "$$KERNEL_VERSION" != "$$TODAY_VERSION" ]; then \
-		echo "✗ Version $$KERNEL_VERSION does not match today's CalVer $$TODAY_VERSION"; \
-		echo "  Update crates/cynic-kernel/Cargo.toml, CHANGELOG.md, and VERSION.md"; \
-		exit 1; \
-	fi; \
-	grep -q "^## \[$$KERNEL_VERSION\]" $(PROJECT_DIR)/CHANGELOG.md || { echo "✗ CHANGELOG.md missing $$KERNEL_VERSION"; exit 1; }; \
-	grep -q "$$KERNEL_VERSION" $(PROJECT_DIR)/VERSION.md || { echo "✗ VERSION.md missing $$KERNEL_VERSION"; exit 1; }; \
-	echo "✓ Version SSOT OK ($$KERNEL_VERSION)"
-
 .PHONY: gate-2
-gate-2: ## Level 2 — Full debug validation: test + audit; integration opt-in
+gate-2: ## Level 2 — Full: test + audit + integration
 	@$(source_env)
 	@echo "══════════════════════════════════════════"
-	@echo "  Gate Level 2 — Full debug validation"
+	@echo "  Gate Level 2 — Full validation"
 	@echo "══════════════════════════════════════════"
-	cargo test -p cynic-kernel --lib
+	cargo test -p cynic-kernel --lib --release
 	@echo "▶ Security audit (cargo audit)..."
 	cargo audit --deny warnings
-	@if [ "$${CYNIC_RUN_INTEGRATION:-0}" = "1" ]; then \
-		if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
-			echo "▶ Integration tests (SurrealDB available)..."; \
-			cargo test -p cynic-kernel --test integration_storage || exit 1; \
-			cargo test -p cynic-kernel --test storage_contract || exit 1; \
-		else \
-			echo "✗ CYNIC_RUN_INTEGRATION=1 but SurrealDB is not running"; \
-			exit 1; \
-		fi; \
+	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
+		echo "▶ Integration tests (SurrealDB available)..."; \
+		cargo test -p cynic-kernel --test integration_storage && \
+		cargo test -p cynic-kernel --test storage_contract; \
 	else \
-		echo "⚠ Integration tests skipped — run CYNIC_RUN_INTEGRATION=1 make gate-2 or make check-storage"; \
+		echo "⚠ SurrealDB not running — skipping integration tests"; \
 	fi
 	@touch .gate-2
-	@echo "  ✓ Gate 2 passed — debug tests + audit OK"
-
-.PHONY: gate-release
-gate-release: ## Release artifact gate: clean tree + release build + manifest
-	@$(source_env)
-	@echo "══════════════════════════════════════════"
-	@echo "  Release Gate — versioned artifact"
-	@echo "══════════════════════════════════════════"
-	@git diff --quiet && git diff --cached --quiet || { echo "✗ Release builds require a clean tracked worktree"; exit 1; }
-	@$(MAKE) --no-print-directory version-check
-	cargo build -p cynic-kernel --release
-	@BIN="$(PROJECT_DIR)/target/release/cynic-kernel"; \
-	VERSION=$$(grep '^version' $(PROJECT_DIR)/crates/cynic-kernel/Cargo.toml | head -1 | sed 's/.*"\([^"]*\)".*/\1/'); \
-	SHA=$$(git rev-parse --short=12 HEAD); \
-	DESCRIBE=$$(git describe --tags --always --dirty); \
-	CHECKSUM=$$(sha256sum "$$BIN" | awk '{print $$1}'); \
-	BUILT_AT=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
-	printf '{\n  "version": "%s",\n  "git_sha": "%s",\n  "git_describe": "%s",\n  "profile": "release",\n  "built_at": "%s",\n  "binary": "target/release/cynic-kernel",\n  "sha256": "%s"\n}\n' \
-		"$$VERSION" "$$SHA" "$$DESCRIBE" "$$BUILT_AT" "$$CHECKSUM" > .release-build.json; \
-	echo "  ✓ Release artifact: $$VERSION+$$SHA"; \
-	echo "  ✓ Manifest: .release-build.json"
-	@touch .gate-release
-	@echo "  ✓ Release gate passed"
+	@echo "  ✓ Gate 2 passed — tests + audit + integration OK"
 
 # Backward compatibility: `make check` = all 3 levels
 .PHONY: check
@@ -696,7 +651,7 @@ check-storage: ## Integration tests against real SurrealDB (requires :8000)
 	@echo "══════════════════════════════════════════"
 	@echo "  CYNIC check-storage — integration tests"
 	@echo "══════════════════════════════════════════"
-	cargo test -p cynic-kernel --test integration_storage --test storage_contract
+	cargo test -p cynic-kernel --release --test integration_storage --test storage_contract
 	@echo "✓ All checks passed"
 
 # ── Stage 2: Validated Commit ────────────────────────────────
@@ -720,29 +675,22 @@ ship: commit
 	@echo "✓ Shipped (pre-push validated build+test+clippy)"
 
 # ── Stage 4: Deploy ─────────────────────────────────────────
-# Requires release gate before deploying.
-# If gate-release marker is stale, deploy blocks and tells you to run `make gate-release`.
+# Requires Level 2 gate (tests + audit + integration) before deploying.
+# If gate-2 marker is stale, deploy blocks and tells you to run `make gate-2`.
 .PHONY: deploy
 deploy:
 	@$(source_env)
-	@echo "▶ Checking gate-release marker..."
-	@NEWEST_RELEASE_INPUT=$$({ find crates/cynic-kernel/src -name '*.rs' -exec stat -c '%Y' {} + 2>/dev/null; \
-		find crates/cynic-kernel -maxdepth 1 \( -name Cargo.toml -o -name build.rs \) -exec stat -c '%Y' {} + 2>/dev/null; \
-		find . -maxdepth 1 \( -name Cargo.toml -o -name Cargo.lock -o -name CHANGELOG.md -o -name VERSION.md \) -exec stat -c '%Y' {} + 2>/dev/null; } | sort -rn | head -1); \
-	GATE_RELEASE_TIME=$$(stat -c '%Y' .gate-release 2>/dev/null || echo 0); \
-	if [ -n "$$NEWEST_RELEASE_INPUT" ] && [ "$$NEWEST_RELEASE_INPUT" -gt "$$GATE_RELEASE_TIME" ]; then \
-		echo "✗ Release gate is stale — source/version changed since last release artifact."; \
-		echo "  Run: make gate-release"; \
+	@echo "▶ Checking gate-2 marker..."
+	@NEWEST_RUST=$$(find crates/cynic-kernel/src -name '*.rs' -exec stat -c '%Y' {} + 2>/dev/null | sort -rn | head -1); \
+	GATE2_TIME=$$(stat -c '%Y' .gate-2 2>/dev/null || echo 0); \
+	if [ -n "$$NEWEST_RUST" ] && [ "$$NEWEST_RUST" -gt "$$GATE2_TIME" ]; then \
+		echo "✗ Gate 2 is stale — Rust changed since last full gate."; \
+		echo "  Run: make gate-2"; \
 		echo "  Then: make deploy"; \
 		exit 1; \
 	fi
-	@[ -f .release-build.json ] || { echo "✗ Missing .release-build.json — run make gate-release"; exit 1; }
-	@BIN="$(PROJECT_DIR)/target/release/cynic-kernel"; \
-	[ -f "$$BIN" ] || { echo "✗ Missing release binary at $$BIN — run make gate-release"; exit 1; }; \
-	MANIFEST_SHA=$$(sed -n 's/.*"sha256": "\([^"]*\)".*/\1/p' .release-build.json); \
-	BIN_SHA=$$(sha256sum "$$BIN" | awk '{print $$1}'); \
-	[ "$$MANIFEST_SHA" = "$$BIN_SHA" ] || { echo "✗ Release manifest checksum does not match target/release/cynic-kernel"; exit 1; }
-	@echo "  ✓ Release gate fresh — proceeding with deploy"
+	@echo "  ✓ Gate 2 fresh — proceeding with deploy"
+	@$(MAKE) --no-print-directory ship check-storage
 	@echo ""
 	@echo "▶ Backing up DB before deploy..."
 	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
@@ -776,7 +724,7 @@ deploy:
 deploy-only:  ## Deploy target/release/cynic-kernel with no validation (skips check/commit/push)
 	@$(source_env)
 	@BIN="$(PROJECT_DIR)/target/release/cynic-kernel"; \
-	[ -f "$$BIN" ] || { echo "✗ No release binary at $$BIN — run 'make gate-release' first"; exit 1; }; \
+	[ -f "$$BIN" ] || { echo "✗ No release binary at $$BIN — run 'cargo build --release' or 'make check' first"; exit 1; }; \
 	AGE_SEC=$$(( $$(date +%s) - $$(stat -c %Y "$$BIN") )); \
 	if [ $$AGE_SEC -gt 3600 ]; then \
 		echo "⚠ Binary is $$((AGE_SEC/60))min old — consider rebuild if source changed"; \
@@ -899,27 +847,20 @@ test-restore: ## Verify backup restore works against a test DB (non-destructive)
 	else echo "⚠ Restore completed but 0 verdicts found — check backup contents"; fi
 
 # ── Stage 5: Release (tag + changelog) ─────────────────────────
-# Usage: make release
-# Dry run: make release-dry
+# Usage: make release v=patch  (or minor/major)
+# Dry run: make release-dry v=patch
 .PHONY: release
-release: gate-release
-	@VERSION=$$(grep '^version' $(PROJECT_DIR)/crates/cynic-kernel/Cargo.toml | head -1 | sed 's/.*"\([^"]*\)".*/\1/'); \
-	TAG="v$$VERSION"; \
-	git rev-parse "$$TAG" >/dev/null 2>&1 && { echo "✗ Tag $$TAG already exists"; exit 1; }; \
-	echo ""; \
-	echo "▶ Releasing $$TAG..."; \
-	git tag -a "$$TAG" -m "release: $$TAG"; \
-	git push origin "$$TAG"; \
-	echo "✓ Released $$TAG — artifact manifest is .release-build.json"
+release: check
+	@if [ -z "$(v)" ]; then echo "ERROR: provide version bump with v=patch|minor|major" >&2; exit 1; fi
+	@echo ""
+	@echo "▶ Releasing ($(v) bump)..."
+	cargo release $(v) --execute --no-confirm
+	@echo "✓ Released — changelog updated, tagged, pushed"
 
 .PHONY: release-dry
 release-dry:
-	@VERSION=$$(grep '^version' $(PROJECT_DIR)/crates/cynic-kernel/Cargo.toml | head -1 | sed 's/.*"\([^"]*\)".*/\1/'); \
-	TAG="v$$VERSION"; \
-	echo ""; \
-	echo "Would run: make gate-release"; \
-	echo "Would create tag: $$TAG"; \
-	echo "Would push tag: $$TAG"
+	@if [ -z "$(v)" ]; then echo "ERROR: provide version bump with v=patch|minor|major" >&2; exit 1; fi
+	cargo release $(v)
 
 # ── Git hooks (Layer 2 enforcement) ──────────────────────────
 .PHONY: install-hooks

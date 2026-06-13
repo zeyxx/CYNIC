@@ -1,0 +1,16 @@
+[Unit]
+Description=CYNIC Cloud API (Standalone Bare-Metal Gateway)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cynic-cloud-api
+# Le vigile tourne en root car il a besoin du droit d'appeler `pct exec`
+User=root
+Group=root
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

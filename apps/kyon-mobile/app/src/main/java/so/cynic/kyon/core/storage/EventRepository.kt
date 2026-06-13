@@ -14,13 +14,6 @@ class EventRepository(private val dao: ActivityEventDao) {
 
     fun observeRecent(limit: Int = 100): Flow<List<ActivityEvent>> =
         dao.observeRecent(limit).map { events -> events.map { it.toModel() } }
-
-    suspend fun pendingSync(limit: Int = 50): List<ActivityEvent> =
-        dao.pendingSync(limit).map { it.toModel() }
-
-    suspend fun markSynced(ids: List<Long>, syncedAtMs: Long) {
-        dao.markSynced(ids, syncedAtMs)
-    }
 }
 
 private fun ActivityEvent.toStorageEntity(): ActivityEventEntity = ActivityEventEntity(

@@ -9,8 +9,9 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.horizontalScroll
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,44 +20,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -177,11 +160,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-enum class Screen {
-    JOURNAL, STATUS
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun KyonShell(
     usageAccessGranted: Boolean,
@@ -192,193 +170,83 @@ private fun KyonShell(
     openNotificationAccess: () -> Unit,
     captureUsageSnapshot: () -> Unit,
 ) {
-    var currentScreen by remember { mutableStateOf(Screen.JOURNAL) }
-
-    val kyonColorScheme = darkColorScheme(
-        primary = Color(0xFF64B5F6),
-        onPrimary = Color(0xFF00334D),
-        primaryContainer = Color(0xFF004C6D),
-        onPrimaryContainer = Color(0xFFC4E7FF),
-        secondary = Color(0xFF81C784),
-        surface = Color(0xFF1E1E1E),
-        background = Color(0xFF121212),
-        error = Color(0xFFE57373)
-    )
-
-    MaterialTheme(colorScheme = kyonColorScheme) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Kyon Agent", fontWeight = FontWeight.Bold) },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.primary,
-                    )
-                )
-            },
-            bottomBar = {
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = currentScreen == Screen.JOURNAL,
-                        onClick = { currentScreen = Screen.JOURNAL },
-                        icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Journal") },
-                        label = { Text("Journal") }
-                    )
-                    NavigationBarItem(
-                        selected = currentScreen == Screen.STATUS,
-                        onClick = { currentScreen = Screen.STATUS },
-                        icon = { Icon(Icons.Default.Info, contentDescription = "Status") },
-                        label = { Text("Status") }
-                    )
-                }
-            }
-        ) { padding ->
-            Surface(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                color = MaterialTheme.colorScheme.background
-            ) {
-                when (currentScreen) {
-                    Screen.JOURNAL -> JournalScreen(events)
-                    Screen.STATUS -> StatusScreen(
-                        usageAccessGranted = usageAccessGranted,
-                        notificationAccessGranted = notificationAccessGranted,
-                        isRefreshingUsage = isRefreshingUsage,
-                        openUsageAccess = openUsageAccess,
-                        openNotificationAccess = openNotificationAccess,
-                        captureUsageSnapshot = captureUsageSnapshot
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun JournalScreen(events: List<ActivityEvent>) {
     var selectedFilter by remember { mutableStateOf(EventFilter.ALL) }
     val filteredEvents = events.filter { selectedFilter.includes(it) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        EventFilterTabs(
-            selected = selectedFilter,
-            onSelected = { selectedFilter = it },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp
-            )
-        ) {
-            if (filteredEvents.isEmpty()) {
-                item {
-                    EmptyEventCard()
-                }
-            } else {
-                items(filteredEvents) { event ->
-                    EventCard(event)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatusScreen(
-    usageAccessGranted: Boolean,
-    notificationAccessGranted: Boolean,
-    isRefreshingUsage: Boolean,
-    openUsageAccess: () -> Unit,
-    openNotificationAccess: () -> Unit,
-    captureUsageSnapshot: () -> Unit,
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)
-    ) {
-        item {
-            AnimatedVisibility(visible = !usageAccessGranted || !notificationAccessGranted) {
-                PermissionsCard(
-                    usageAccessGranted = usageAccessGranted,
-                    notificationAccessGranted = notificationAccessGranted,
-                    openUsageAccess = openUsageAccess,
-                    openNotificationAccess = openNotificationAccess
-                )
-            }
-        }
-
-        item {
-            StatusCard(
-                usageAccessGranted = usageAccessGranted,
-                notificationAccessGranted = notificationAccessGranted,
-            )
-        }
-
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Manual Actions", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Kyon", style = MaterialTheme.typography.headlineMedium)
+                        Text("Shield actif en allow-default. Mirror local, metadata only.")
+                    }
+                }
+
+                item {
+                    StatusCard(
+                        usageAccessGranted = usageAccessGranted,
+                        notificationAccessGranted = notificationAccessGranted,
+                    )
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = openUsageAccess,
+                        ) {
+                            Text("Usage")
+                        }
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = openNotificationAccess,
+                        ) {
+                            Text("Notifs")
+                        }
+                    }
+                }
+
+                item {
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = usageAccessGranted && !isRefreshingUsage,
                         onClick = captureUsageSnapshot,
                     ) {
-                        Text(if (isRefreshingUsage) "Snapshotting..." else "Snapshot Usage Stats")
+                        Text(if (isRefreshingUsage) "Snapshot..." else "Snapshot usage")
                     }
                 }
-            }
-        }
-    }
-}
 
-@Composable
-private fun PermissionsCard(
-    usageAccessGranted: Boolean,
-    notificationAccessGranted: Boolean,
-    openUsageAccess: () -> Unit,
-    openNotificationAccess: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Warning, contentDescription = "Warning", tint = MaterialTheme.colorScheme.error)
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(
-                    "Permissions Required",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Text(
-                "Kyon needs permissions to effectively shield and mirror your device.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
-            
-            if (!usageAccessGranted) {
-                OutlinedButton(onClick = openUsageAccess, modifier = Modifier.fillMaxWidth()) {
-                    Text("Grant Usage Access")
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "Journal local (${filteredEvents.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        EventFilterTabs(
+                            selected = selectedFilter,
+                            onSelected = { selectedFilter = it },
+                        )
+                    }
                 }
-            }
-            if (!notificationAccessGranted) {
-                OutlinedButton(onClick = openNotificationAccess, modifier = Modifier.fillMaxWidth()) {
-                    Text("Grant Notification Access")
+
+                if (filteredEvents.isEmpty()) {
+                    item {
+                        EmptyEventCard()
+                    }
+                } else {
+                    items(filteredEvents) { event ->
+                        EventCard(event)
+                    }
                 }
             }
         }
@@ -402,10 +270,9 @@ private enum class EventFilter(
 private fun EventFilterTabs(
     selected: EventFilter,
     onSelected: (EventFilter) -> Unit,
-    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -427,17 +294,16 @@ private fun StatusCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("Shield & Mirror Status", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Text("Etat local", style = MaterialTheme.typography.titleMedium)
             StatusRow("Usage access", usageAccessGranted)
             StatusRow("Notification listener", notificationAccessGranted)
-            StatusRow("Kernel sync", true, falseLabel = "off")
+            StatusRow("Kernel sync", false, falseLabel = "off")
             StatusRow("Content capture", false, falseLabel = "never")
         }
     }
@@ -452,52 +318,39 @@ private fun StatusRow(
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Text(label)
         Text(
-            text = if (enabled) "ON" else falseLabel.uppercase(),
-            style = MaterialTheme.typography.labelLarge,
-            color = if (enabled) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
-            fontWeight = FontWeight.Bold
+            text = if (enabled) "on" else falseLabel,
+            color = if (enabled) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
         )
     }
 }
 
 @Composable
 private fun EventCard(event: ActivityEvent) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(12.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(event.eventType, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                Text(
-                    formatTimestamp(event.timestampMs),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(event.eventType, style = MaterialTheme.typography.titleSmall)
             Text(event.target, style = MaterialTheme.typography.bodyMedium)
-            
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                "${event.source.name.lowercase()} - ${formatTimestamp(event.timestampMs)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (event.durationMs != null) {
                 Text(
-                    event.source.name,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.secondary
+                    "duration ${formatDuration(event.durationMs)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (event.durationMs != null) {
-                    Text(
-                        "duration: ${formatDuration(event.durationMs)}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
         }
     }
@@ -505,27 +358,22 @@ private fun EventCard(event: ActivityEvent) {
 
 @Composable
 private fun EmptyEventCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(16.dp))
-            Text("Log is empty", style = MaterialTheme.typography.titleMedium)
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Aucun evenement local")
             Spacer(Modifier.height(4.dp))
             Text(
-                "Shield and Mirror services will write events here after being authorized.",
+                "Les services Shield et Mirror ecriront ici apres autorisation.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
     }
 }
 
 private fun formatTimestamp(timestampMs: Long): String =
-    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(timestampMs)
+    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+        .format(timestampMs)
 
 private fun formatDuration(durationMs: Long): String {
     val minutes = durationMs / 60_000L

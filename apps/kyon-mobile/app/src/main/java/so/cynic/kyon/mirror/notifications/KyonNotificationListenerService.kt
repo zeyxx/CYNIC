@@ -21,7 +21,7 @@ class KyonNotificationListenerService : NotificationListenerService() {
             target = sbn.packageName,
             timestampMs = sbn.postTime,
             contextJson = """{"content_captured":false,"is_ongoing":${sbn.isOngoing},"id":${sbn.id}}""",
-            syncEligible = true,
+            syncEligible = false,
         )
 
         scope.launch {
