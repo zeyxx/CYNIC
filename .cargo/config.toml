@@ -3,7 +3,7 @@
 # rust-lang/rust #103767, #122357, #138561.
 # -j 1 is the only reliable setting; -j 2 is flaky under memory pressure.
 jobs = 1
-rustflags = ["-C", "debuginfo=1"]
+# rustflags = ["-C", "debuginfo=1"]
 
 [env]
 # A1 debt: rmcp's generated DWARF overflows debug linking unless debug info is reduced.

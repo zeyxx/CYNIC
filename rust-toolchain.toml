@@ -1,2 +1,2 @@
 [toolchain]
-channel = "stable"  # 1.95.0 active. LLVM SROA bug from 1.94.1 resolved. Stack workaround in .cargo/config.toml kept as safety net.
+channel = "1.93.0"  # 1.95.0 active. LLVM SROA bug from 1.94.1 resolved. Stack workaround in .cargo/config.toml kept as safety net.
