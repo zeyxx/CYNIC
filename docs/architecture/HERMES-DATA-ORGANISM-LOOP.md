@@ -118,7 +118,7 @@ OR:
 **What runs:**
 ```bash
 # Install
-sudo systemctl link /home/user/Bureau/CYNIC/infra/systemd/hermes-data-organism.{service,timer}
+sudo systemctl link /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/systemd/hermes-data-organism.{service,timer}
 sudo systemctl daemon-reload
 sudo systemctl enable --now hermes-data-organism.timer
 
@@ -265,7 +265,7 @@ This is the **compound signal**. No single week proves anything. But 12 weeks of
 
 **To deploy Stage 1:**
 ```bash
-sudo systemctl link /home/user/Bureau/CYNIC/infra/systemd/hermes-data-organism.{service,timer}
+sudo systemctl link /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/systemd/hermes-data-organism.{service,timer}
 sudo systemctl daemon-reload
 sudo systemctl enable --now hermes-data-organism.timer
 ```

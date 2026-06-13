@@ -177,7 +177,7 @@ fi
 - [ ] **Step 4: Test the hook locally**
 
 ```bash
-echo '{"cwd":"/home/user/Bureau/CYNIC","session_id":"test-123"}' | bash .cortex/mcp/session-init.sh
+echo '{"cwd":"/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC","session_id":"test-123"}' | bash .cortex/mcp/session-init.sh
 ```
 
 Expected: output includes TEMPORAL line with real date/time/gap and ORGANISM line.
@@ -386,6 +386,6 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 After all tasks complete:
 
 1. `head -120 CLAUDE.md` — temporal consciousness section present
-2. `echo '{"cwd":"/home/user/Bureau/CYNIC","session_id":"test"}' | bash .cortex/mcp/session-init.sh` — TEMPORAL line in output
+2. `echo '{"cwd":"/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC","session_id":"test"}' | bash .cortex/mcp/session-init.sh` — TEMPORAL line in output
 3. `curl /observations?domain=mempool` — 3 seed items present
 4. Next session start: temporal read appears automatically in context injection

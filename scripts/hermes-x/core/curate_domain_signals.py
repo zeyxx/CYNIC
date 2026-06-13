@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Tier 3
 """
 CYNIC Hermes Curation — Transform high-signal tweets into D1-D6 domain signals.
 
@@ -308,7 +309,7 @@ def curate_tweets(dry_run=False):
     # The kernel loads curations from CYNIC_CURATION_DIR (default: cynic-python/curation/)
     # at boot. This sync keeps the live curated data available for the next kernel restart.
     project_root = os.environ.get("CYNIC_PROJECT_ROOT",
-                                  str(Path.home() / "Bureau/CYNIC"))
+                                  str(Path.home() / "Bureau/SOLANA/asdf-forge/zeyxx/CYNIC"))
     kernel_curation_dir = Path(os.environ.get("CYNIC_CURATION_DIR",
                                               f"{project_root}/cynic-python/curation"))
     if kernel_curation_dir.exists():

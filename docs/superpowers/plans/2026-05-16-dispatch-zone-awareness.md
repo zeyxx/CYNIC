@@ -505,7 +505,7 @@ rm -rf /tmp/cynic-zones 2>/dev/null || true
 - [ ] **Step 3: Test hook manually**
 
 ```bash
-echo '{"tool_input":{"file_path":"/home/user/Bureau/CYNIC/scripts/foo.sh"},"session_id":"test-1234-5678"}' | bash .cortex/mcp/coord-claim.sh
+echo '{"tool_input":{"file_path":"/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/foo.sh"},"session_id":"test-1234-5678"}' | bash .cortex/mcp/coord-claim.sh
 # Should exit 0, possibly with zone activity warning
 ```
 

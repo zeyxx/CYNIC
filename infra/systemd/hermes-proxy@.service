@@ -9,7 +9,7 @@ StartLimitBurst=5
 Type=simple
 EnvironmentFile=%h/.config/cynic/env
 Environment=HERMES_ACCOUNT=%i
-WorkingDirectory=%h/Bureau/CYNIC/scripts/hermes-x
+WorkingDirectory=%h/cynic/scripts/hermes-x
 # Account-specific capture and dataset paths
 Environment=X_CAPTURE_DIR=%h/.cynic/organs/hermes/x/captures
 Environment=X_DATASET_PATH=%h/.cynic/organs/hermes/x/datasets/%i/dataset.jsonl

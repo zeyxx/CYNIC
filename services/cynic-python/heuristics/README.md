@@ -48,7 +48,7 @@ CULTSCREENER_API_KEY=<your_64_char_hex_key>
 
 **Step 2: Run Calibration Workflow**
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 ./scripts/calibrate-token-heuristics.sh all
 ```
 

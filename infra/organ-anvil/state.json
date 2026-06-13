@@ -1,22 +1,22 @@
 {
-  "timestamp": "2026-06-11T23:17:46Z",
-  "repo": "/home/user/Bureau/CYNIC",
-  "branch": "feat/organ-jupyter-setup-2026-06-10",
+  "timestamp": "2026-06-13T00:00:00Z",
+  "repo": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC",
+  "branch": "fix/fix-deployments-2026-06-13",
   "dirty": {
     "status": "dirty",
-    "changed_files": 163
+    "changed_files": 119
   },
-  "stashes": 0,
-  "worktrees": 3,
+  "stashes": 1,
+  "worktrees": 0,
   "branches": {
-    "local": 3,
+    "local": 5,
     "remote": 3
   },
   "gates": {
-    "gate-0": 1781158880,
-    "gate-1": 1781157848,
-    "gate-2": 1781001197,
-    "gate-passed": 1781001197
+    "gate-0": 1781345775,
+    "gate-1": 1781345846,
+    "gate-2": 1781276658,
+    "gate-passed": 1781276167
   },
   "health_score": 0.7
 }

@@ -34,7 +34,7 @@ hermes-curation.service and hermes-search-generator.service:
 **Detection & Prevention:**
 
 - Pre-merge: Grep for `User=` or `Group=` in any file under `.config/systemd/user/` — automatic REJECT
-- Deployment: Copy from `/home/user/Bureau/CYNIC/infra/systemd/` to `~/.config/systemd/user/` only when constraint-compliant
+- Deployment: Copy from `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/systemd/` to `~/.config/systemd/user/` only when constraint-compliant
 - Make target: `make validate-systemd-user` (falsifies SYS1, SYS2, SYS3)
 
 **Pattern Trigger:**

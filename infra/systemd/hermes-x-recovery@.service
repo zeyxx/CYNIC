@@ -10,7 +10,7 @@ EnvironmentFile=%h/.config/cynic/env
 Environment=HERMES_ACCOUNT=%i
 Environment=RECOVERY_LOG_PATH=%h/.cynic/organs/hermes/x/recovery.log
 Environment=RECOVERY_CHECK_INTERVAL=30
-WorkingDirectory=%h/Bureau/CYNIC/scripts/hermes-x/core
+WorkingDirectory=%h/cynic/scripts/hermes-x/core
 ExecStart=/usr/bin/python3 hermes_x_recovery.py
 Restart=on-failure
 RestartSec=10

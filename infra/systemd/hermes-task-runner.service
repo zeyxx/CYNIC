@@ -8,7 +8,7 @@ StartLimitBurst=5
 Type=simple
 EnvironmentFile=%h/.config/cynic/env
 Environment="X_ORGAN_DIR=%h/.cynic/organs/hermes/x"
-ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/core/hermes_task_runner.py --organ-dir $X_ORGAN_DIR --interval 10
+ExecStart=/usr/bin/python3 %h/cynic/scripts/hermes-x/core/hermes_task_runner.py --organ-dir $X_ORGAN_DIR --interval 10
 Restart=on-failure
 RestartSec=15
 

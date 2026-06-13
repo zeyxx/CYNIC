@@ -59,7 +59,7 @@
 
 ## 2. HolDex Precedent (Observed Implementation)
 
-HolDex (JavaScript/Node, /home/user/Bureau/CYNIC/external/HolDex) solves K-Score calculation and is **production-ready**:
+HolDex (JavaScript/Node, /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/external/HolDex) solves K-Score calculation and is **production-ready**:
 
 ### K-Score Formula (3-Pillar, HolDex v8)
 ```

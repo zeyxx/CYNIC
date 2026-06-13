@@ -25,7 +25,7 @@ All services run as `user` (non-root but shared):
 
 | Service | New User | Home | Files | Network | Rationale |
 |---------|----------|------|-------|---------|-----------|
-| cynic-kernel | `cynic` | `/home/cynic` | /home/cynic/Bureau/CYNIC/.cynic | <TAILSCALE_CORE>:3030 | Core logic engine |
+| cynic-kernel | `cynic` | `/home/cynic` | /home/cynic/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/.cynic | <TAILSCALE_CORE>:3030 | Core logic engine |
 | llama-server | `llama` | `/home/llama` | /home/llama/llama.cpp | <TAILSCALE_CORE>:8080 | Inference engine, isolated |
 | surreal | `surreal` | `/home/surreal` | /home/surreal/.surrealdb | 127.0.0.1:8000 | Database, localhost only |
 | hermes-k15-consumer | `root` | `/root` | /root/.cynic-env | <TAILSCALE_CORE>:3030 | Consumer reads observations |
@@ -48,7 +48,7 @@ For each service, create home directory with state directories:
 
 **cynic-kernel:**
 - `/home/cynic/.cynic` — Move/copy from `/home/user/.cynic`
-- Symlink: `/home/cynic/Bureau/CYNIC` → `/home/user/Bureau/CYNIC`
+- Symlink: `/home/cynic/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC` → `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC`
 
 **llama-server:**
 - `/home/llama/llama.cpp` — Symlink to `/home/user/llama.cpp` (binary location)

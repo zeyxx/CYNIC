@@ -5,9 +5,9 @@ Wants=cynic-kernel.service
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/CYNIC
+WorkingDirectory=%h/cynic
 # Generate node_kernels.toml from fleet.toml at startup
-ExecStartPre=%h/Bureau/CYNIC/scripts/fleet-gen.py --mode node-kernels
+ExecStartPre=%h/cynic/scripts/fleet-gen.py --mode node-kernels
 ExecStart=%h/bin/cynic-node
 KillMode=mixed
 KillSignal=SIGTERM
@@ -16,7 +16,7 @@ Restart=on-failure
 RestartSec=5
 # Environment from ~/.cynic-env (Bearer token, REST addr, API key)
 EnvironmentFile=%h/.config/cynic/env
-Environment="CYNIC_SCRIPTS=%h/Bureau/CYNIC/scripts"
+Environment="CYNIC_SCRIPTS=%h/cynic/scripts"
 LimitNOFILE=65535
 MemoryMax=1G
 

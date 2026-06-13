@@ -436,7 +436,7 @@ git remote add upstream https://github.com/rtk-ai/rtk.git
 After creating `.rtk/filters.toml` in CYNIC repo:
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 rtk trust
 rtk verify  # validate filter syntax
 ```

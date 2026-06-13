@@ -7,9 +7,9 @@ Wants=cynic-kernel.service
 EnvironmentFile=%h/.config/cynic/env
 Type=oneshot
 Environment="PYTHONUNBUFFERED=1"
-Environment="OUTPUT_DIR=%h/Bureau/CYNIC/reports/phase-2.0"
-WorkingDirectory=%h/Bureau/CYNIC
-ExecStartPre=/bin/mkdir -p %h/Bureau/CYNIC/reports/phase-2.0
+Environment="OUTPUT_DIR=%h/cynic/reports/phase-2.0"
+WorkingDirectory=%h/cynic
+ExecStartPre=/bin/mkdir -p %h/cynic/reports/phase-2.0
 ExecStart=/bin/bash scripts/outcome_measurement_t7.sh
 TimeoutStartSec=3600
 TimeoutStopSec=60

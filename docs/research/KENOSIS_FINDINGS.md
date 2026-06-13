@@ -106,5 +106,5 @@ The "space" is not passive—it's strategically constructed. The silence is not 
 - **Session file**: `~/.antigravity/tmp/cynic/chats/session-2026-04-28T12-58-b0eba480.jsonl`
 - **Line**: Contains full Dossier Vanille analysis with Wu-Wei decision
 - **Memory saved**: `~/.antigravity/tmp/cynic/memory/ANTIGRAVITY.md` (Antigravity's local memory)
-- **Analysis script**: `/home/user/Bureau/CYNIC/cynic-python/kenosis_mining.py`
-- **Results**: `/home/user/Bureau/CYNIC/cynic-python/kenosis_analysis_results.jsonl`
+- **Analysis script**: `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/kenosis_mining.py`
+- **Results**: `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/kenosis_analysis_results.jsonl`

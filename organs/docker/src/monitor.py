@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 ORGANS_DIR = Path(__file__).resolve().parent.parent
 STATE_FILE = ORGANS_DIR / "state" / "state.json"
 EXPECTED_COMPOSE_DIRS = [
-    Path("/home/user/Bureau/CYNIC/infra/docker/cynic-portal")
+    ORGANS_DIR.parent.parent / "infra/docker/cynic-portal"
 ]
 
 def run_sudo_docker(*args):

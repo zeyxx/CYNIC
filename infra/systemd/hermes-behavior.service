@@ -7,7 +7,7 @@ StartLimitBurst=3
 [Service]
 Type=simple
 Environment=DISPLAY=:0
-ExecStart=%h/.cynic/organs/hermes/behavior/.venv/bin/python %h/Bureau/CYNIC/scripts/hermes-x/core/behavior_logger.py
+ExecStart=%h/.cynic/organs/hermes/behavior/.venv/bin/python %h/cynic/scripts/hermes-x/core/behavior_logger.py
 Restart=on-failure
 RestartSec=10
 # Cgroup limits — observed: 32MB.

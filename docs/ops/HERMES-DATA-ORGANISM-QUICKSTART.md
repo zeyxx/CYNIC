@@ -204,7 +204,7 @@ This is how the organism becomes self-aware: **not through inference, but throug
 Stage 1 is ready. Deploy the systemd timer and let data accumulate for 1 week.
 
 ```bash
-sudo systemctl link /home/user/Bureau/CYNIC/infra/systemd/hermes-data-organism.{service,timer}
+sudo systemctl link /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/systemd/hermes-data-organism.{service,timer}
 sudo systemctl daemon-reload
 sudo systemctl enable --now hermes-data-organism.timer
 

@@ -10,7 +10,7 @@ Environment=PYTHONUNBUFFERED=1
 # Account-specific dataset and organ paths
 Environment=X_DATASET_PATH=%h/.cynic/organs/hermes/x/datasets/%i/dataset.jsonl
 Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x/datasets/%i
-ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/core/x_ingest_daemon.py
+ExecStart=/usr/bin/python3 %h/cynic/scripts/hermes-x/core/x_ingest_daemon.py
 Restart=on-failure
 RestartSec=15
 StartLimitIntervalSec=300

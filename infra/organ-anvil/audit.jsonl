@@ -59,3 +59,4 @@
 {"timestamp": "2026-06-11T22:13:06Z", "source": "perception", "payload": {"score": 0.7}}, "result": "success"}
 {"timestamp": "2026-06-11T22:45:48Z", "source": "perception", "payload": {"score": 0.7, "changed_files": 163, "dirty": "dirty", "branch": "feat/organ-jupyter-setup-2026-06-10"}}, "result": "success"}
 {"timestamp": "2026-06-11T23:17:47Z", "source": "perception", "payload": {"score": 0.7, "dirty": true, "changed_files": 163, "branches_local": 3, "branches_remote": 3, "alert": "dirty_tree_noted"}}, "result": "success"}
+{"timestamp": "2026-06-13T00:00:00Z", "source": "perception", "payload": {"score": 0.7, "dirty_files": 119, "local_branches": 5, "remote_branches": 3}, "result": "success"}

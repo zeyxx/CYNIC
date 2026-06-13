@@ -7,7 +7,7 @@ Wants=hermes-x-ingest.service
 Type=simple
 EnvironmentFile=%h/.config/cynic/env
 Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONPATH=%h/Bureau/CYNIC/services/cynic-python
+Environment=PYTHONPATH=%h/cynic/services/cynic-python
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=HERMES_AGENT_DOMAIN_DENY=organ-anvil,repo-lifecycle
 ExecStart=/usr/bin/python3 -m organs.core.daemon --organ-dir %h/.cynic/organs/hermes/x

@@ -8,7 +8,7 @@ PartOf=hermes-organism.target
 EnvironmentFile=%h/.config/cynic/env
 Type=oneshot
 Environment="PYTHONUNBUFFERED=1"
-Environment="PYTHONPATH=%h/Bureau/CYNIC"
+Environment="PYTHONPATH=%h/cynic"
 WorkingDirectory=%h/.cynic/organs/hermes/x
 ExecStart=/usr/bin/python3 core/organic_navigator.py \
     --organ-dir %h/.cynic/organs/hermes/x \

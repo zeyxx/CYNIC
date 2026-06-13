@@ -4,7 +4,7 @@ After=cynic-kernel.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/Bureau/CYNIC/cynic-python
+WorkingDirectory=%h/cynic/cynic-python
 ExecStart=/usr/bin/python3 metabolism/cost_aggregator.py
 EnvironmentFile=-%h/.config/cynic/env
 Environment=PYTHONUNBUFFERED=1

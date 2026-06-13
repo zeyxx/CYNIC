@@ -29,7 +29,7 @@ cannot tell better from worse. Improvement requires labelled outcomes, not just 
 
 ## Data
 
-Full divergence data in: `/home/user/Bureau/CYNIC/reports/phase-2.0/divergence_2026-06-02-080000.csv`
+Full divergence data in: `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/reports/phase-2.0/divergence_2026-06-02-080000.csv`
 
 ## Next Steps
 

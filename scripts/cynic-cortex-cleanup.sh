@@ -3,7 +3,7 @@
 # Deletes worktrees older than 24h that have no unpushed commits.
 set -euo pipefail
 
-CYNIC_ROOT="${CYNIC_ROOT:-$HOME/Bureau/CYNIC}"
+CYNIC_ROOT="${CYNIC_ROOT:-$HOME/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC}"
 WORKTREE_BASE="/tmp/cynic-worktrees"
 
 [ -d "$WORKTREE_BASE" ] || exit 0

@@ -8,7 +8,7 @@
 |-----------|------|----------|-------|-----|-----|
 | SurrealDB | 5.3 GB | /home/user/.surrealdb/data | Single copy, no backup | TBD | Total loss |
 | PostgreSQL | ~2 GB | /var/lib/postgresql/ | Single copy, no backup | TBD | Total loss |
-| Git history | Variable | /home/user/Bureau/CYNIC/.git | Local + GitHub | N/A | N/A |
+| Git history | Variable | /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/.git | Local + GitHub | N/A | N/A |
 
 ## Risk Assessment
 

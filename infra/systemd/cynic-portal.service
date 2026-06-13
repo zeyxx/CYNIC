@@ -10,7 +10,7 @@ StartLimitBurst=5
 Type=simple
 EnvironmentFile=%h/.config/cynic/env
 Environment=PATH=%h/.local/bin:%h/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
-WorkingDirectory=%h/Bureau/CYNIC
+WorkingDirectory=%h/cynic
 ExecStart=/usr/bin/env sudo -n env DOCKER_BUILDKIT=0 COMPOSE_DOCKER_CLI_BUILD=0 docker compose -f infra/docker/cynic-portal/docker-compose.yml up --build --remove-orphans
 ExecStop=/usr/bin/env sudo -n env DOCKER_BUILDKIT=0 COMPOSE_DOCKER_CLI_BUILD=0 docker compose -f infra/docker/cynic-portal/docker-compose.yml down --remove-orphans
 Restart=always

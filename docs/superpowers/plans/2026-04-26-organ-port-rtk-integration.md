@@ -656,7 +656,7 @@ async fn rtk_health_alive_with_real_db() {
         eprintln!("SKIP: RTK history.db not found at {}", db.display());
         return;
     }
-    let reader = RtkReader::new(db, "/home/user/Bureau/CYNIC".to_string());
+    let reader = RtkReader::new(db, "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC".to_string());
     assert!(matches!(reader.health().await, OrganHealth::Alive));
 }
 
@@ -665,7 +665,7 @@ async fn rtk_health_alive_with_real_db() {
 async fn rtk_freshness_returns_reasonable_duration() {
     let db = rtk_db_path();
     if !db.exists() { return; }
-    let reader = RtkReader::new(db, "/home/user/Bureau/CYNIC".to_string());
+    let reader = RtkReader::new(db, "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC".to_string());
     let fresh = reader.freshness().await.unwrap();
     // Should be < 7 days if RTK is actively used
     assert!(fresh.as_secs() < 7 * 24 * 3600, "freshness too old: {:?}", fresh);
@@ -676,7 +676,7 @@ async fn rtk_freshness_returns_reasonable_duration() {
 async fn rtk_snapshot_returns_7_metrics() {
     let db = rtk_db_path();
     if !db.exists() { return; }
-    let reader = RtkReader::new(db, "/home/user/Bureau/CYNIC".to_string());
+    let reader = RtkReader::new(db, "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC".to_string());
     let snap = reader.snapshot().await.unwrap();
 
     assert_eq!(snap.metrics.len(), 7);
@@ -710,7 +710,7 @@ async fn rtk_snapshot_returns_7_metrics() {
 async fn rtk_readonly_preserves_data_across_reads() {
     let db = rtk_db_path();
     if !db.exists() { return; }
-    let reader = RtkReader::new(db, "/home/user/Bureau/CYNIC".to_string());
+    let reader = RtkReader::new(db, "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC".to_string());
 
     // Snapshot before
     let before = reader.snapshot().await.unwrap();
@@ -799,7 +799,7 @@ max_lines = 60
 - [ ] **Step 3: Trust the filters**
 
 ```bash
-cd /home/user/Bureau/CYNIC && rtk trust
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC && rtk trust
 rtk verify
 ```
 

@@ -5,10 +5,10 @@ Wants=organ-vercel-hermes-agent.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/Bureau/CYNIC
+WorkingDirectory=%h/cynic
 EnvironmentFile=%h/.config/cynic/env
-ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/organs/vercel/src/monitor.py
-ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/organs/vercel/src/dispatch.py
+ExecStart=/usr/bin/python3 %h/cynic/organs/vercel/src/monitor.py
+ExecStart=/usr/bin/python3 %h/cynic/organs/vercel/src/dispatch.py
 StandardOutput=journal
 StandardError=journal
 

@@ -42,13 +42,13 @@ The cloned challenge repo lives at `cynic-python/lab/quantum-ecc/ecdsafail-chall
 - [ ] **Step 1.1: Create directory structure**
 
 ```bash
-mkdir -p /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/agents
-mkdir -p /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/tests
+mkdir -p /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/agents
+mkdir -p /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/tests
 ```
 
 - [ ] **Step 1.2: Add cloned repo to .gitignore**
 
-In `/home/user/Bureau/CYNIC/.gitignore`, add after the `benchmarks/` section:
+In `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/.gitignore`, add after the `benchmarks/` section:
 
 ```
 # Quantum ECC harness — cloned challenge repo (large, not part of CYNIC)
@@ -58,7 +58,7 @@ cynic-python/lab/quantum-ecc/state.json
 
 - [ ] **Step 1.3: Write levers.md**
 
-Create `/home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/levers.md`:
+Create `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/levers.md`:
 
 ```markdown
 # Quantum ECC Optimization Levers
@@ -112,14 +112,14 @@ of depth ~n over n-bit operands).
 - [ ] **Step 1.4: Create empty init files**
 
 ```bash
-touch /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/tests/__init__.py
-touch /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/agents/__init__.py
+touch /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/tests/__init__.py
+touch /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/agents/__init__.py
 ```
 
 - [ ] **Step 1.5: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/lab/quantum-ecc/ .gitignore
 git commit -m "feat(quantum-ecc): scaffold harness directory + levers reference"
 ```
@@ -134,7 +134,7 @@ git commit -m "feat(quantum-ecc): scaffold harness directory + levers reference"
 
 - [ ] **Step 2.1: Write failing test**
 
-Create `/home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/tests/test_state.py`:
+Create `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/tests/test_state.py`:
 
 ```python
 """Tests for state.py — CircuitState read/write."""
@@ -188,7 +188,7 @@ def test_load_state_handles_missing_optional_fields() -> None:
 - [ ] **Step 2.2: Run test to verify it fails**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc
 python -m pytest tests/test_state.py -v
 ```
 
@@ -196,7 +196,7 @@ Expected: `ImportError: No module named 'state'`
 
 - [ ] **Step 2.3: Write state.py**
 
-Create `/home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/state.py`:
+Create `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/state.py`:
 
 ```python
 """
@@ -251,7 +251,7 @@ def save_state(state: CircuitState, path: Path) -> None:
 - [ ] **Step 2.4: Run tests to verify they pass**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc
 python -m pytest tests/test_state.py -v
 ```
 
@@ -260,7 +260,7 @@ Expected: 3 tests PASS.
 - [ ] **Step 2.5: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/lab/quantum-ecc/state.py cynic-python/lab/quantum-ecc/tests/test_state.py
 git commit -m "feat(quantum-ecc): CircuitState persistence (state.py)"
 ```
@@ -275,7 +275,7 @@ git commit -m "feat(quantum-ecc): CircuitState persistence (state.py)"
 
 - [ ] **Step 3.1: Write failing tests**
 
-Create `/home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/tests/test_evaluator.py`:
+Create `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/tests/test_evaluator.py`:
 
 ```python
 """Tests for evaluator.py — cargo build+eval runner."""
@@ -329,7 +329,7 @@ def test_run_eval_raises_on_cargo_failure() -> None:
 - [ ] **Step 3.2: Run tests to verify they fail**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc
 python -m pytest tests/test_evaluator.py -v
 ```
 
@@ -337,7 +337,7 @@ Expected: `ImportError: No module named 'evaluator'`
 
 - [ ] **Step 3.3: Write evaluator.py**
 
-Create `/home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/evaluator.py`:
+Create `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/evaluator.py`:
 
 ```python
 """
@@ -414,7 +414,7 @@ def run_eval(repo_dir: Path) -> EvalResult:
 - [ ] **Step 3.4: Run tests to verify they pass**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc
 python -m pytest tests/test_evaluator.py -v
 ```
 
@@ -423,7 +423,7 @@ Expected: 5 tests PASS.
 - [ ] **Step 3.5: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/lab/quantum-ecc/evaluator.py cynic-python/lab/quantum-ecc/tests/test_evaluator.py
 git commit -m "feat(quantum-ecc): cargo eval runner (evaluator.py)"
 ```
@@ -438,7 +438,7 @@ git commit -m "feat(quantum-ecc): cargo eval runner (evaluator.py)"
 
 - [ ] **Step 4.1: Add anthropic to pyproject.toml**
 
-In `/home/user/Bureau/CYNIC/cynic-python/pyproject.toml`, add `"anthropic>=0.40"` to the `dependencies` list:
+In `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/pyproject.toml`, add `"anthropic>=0.40"` to the `dependencies` list:
 
 ```toml
 dependencies = [
@@ -460,7 +460,7 @@ pip install "anthropic>=0.40"
 
 - [ ] **Step 4.2: Write agents/inspector.py**
 
-Create `/home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/agents/inspector.py`:
+Create `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/agents/inspector.py`:
 
 ```python
 """
@@ -563,7 +563,7 @@ def read_circuit_files(repo_dir: Path) -> str:
 - [ ] **Step 4.3: Smoke-test inspector (manual, no real repo needed)**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc
 python -c "
 from agents.inspector import inspect_circuit
 sample = '''pub fn build() -> Vec<Op> {
@@ -583,7 +583,7 @@ Expected: `InspectionResult(windowed=False, projective=False, ...)`. Requires `A
 - [ ] **Step 4.4: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/lab/quantum-ecc/agents/inspector.py cynic-python/pyproject.toml
 git commit -m "feat(quantum-ecc): circuit inspector agent (Claude Haiku)"
 ```
@@ -597,7 +597,7 @@ git commit -m "feat(quantum-ecc): circuit inspector agent (Claude Haiku)"
 
 - [ ] **Step 5.1: Write optimizer.py**
 
-Create `/home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/agents/optimizer.py`:
+Create `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/agents/optimizer.py`:
 
 ```python
 """
@@ -707,7 +707,7 @@ def generate_optimization(
 - [ ] **Step 5.2: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/lab/quantum-ecc/agents/optimizer.py
 git commit -m "feat(quantum-ecc): circuit optimizer agent (Claude Sonnet)"
 ```
@@ -721,7 +721,7 @@ git commit -m "feat(quantum-ecc): circuit optimizer agent (Claude Sonnet)"
 
 - [ ] **Step 6.1: Write harness.py**
 
-Create `/home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/harness.py`:
+Create `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/harness.py`:
 
 ```python
 """
@@ -929,7 +929,7 @@ if __name__ == "__main__":
 - [ ] **Step 6.2: Smoke-test imports**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc
 python -c "from harness import run_loop, select_lever, load_lever_descriptions; print('imports OK')"
 ```
 
@@ -938,7 +938,7 @@ Expected: `imports OK`
 - [ ] **Step 6.3: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/lab/quantum-ecc/harness.py
 git commit -m "feat(quantum-ecc): main optimization loop (harness.py)"
 ```
@@ -952,7 +952,7 @@ git commit -m "feat(quantum-ecc): main optimization loop (harness.py)"
 
 - [ ] **Step 7.1: Write bootstrap.sh**
 
-Create `/home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/bootstrap.sh`:
+Create `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/bootstrap.sh`:
 
 ```bash
 #!/usr/bin/env bash
@@ -1031,13 +1031,13 @@ echo "  cd $SCRIPT_DIR && python harness.py --repo $REPO_DIR --max-iters 20"
 - [ ] **Step 7.2: Make executable**
 
 ```bash
-chmod +x /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/bootstrap.sh
+chmod +x /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/bootstrap.sh
 ```
 
 - [ ] **Step 7.3: Run bootstrap.sh**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc
 ./bootstrap.sh
 ```
 
@@ -1046,7 +1046,7 @@ Expected: ends with `=== Bootstrap complete ===` and a `state.json` with `baseli
 - [ ] **Step 7.4: Verify eval output format matches parser (MANDATORY)**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc
 python - <<'EOF'
 import subprocess
 from evaluator import parse_eval_output
@@ -1065,7 +1065,7 @@ If `parse_eval_output` raises `ValueError`: the actual output format differs fro
 - [ ] **Step 7.5: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/lab/quantum-ecc/bootstrap.sh
 git commit -m "feat(quantum-ecc): bootstrap.sh — clone, baseline eval, state init"
 ```
@@ -1077,7 +1077,7 @@ git commit -m "feat(quantum-ecc): bootstrap.sh — clone, baseline eval, state i
 - [ ] **Step 8.1: Run one iteration**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc
 python harness.py --repo ./ecdsafail-challenge --max-iters 1
 ```
 
@@ -1090,7 +1090,7 @@ Watch for these log lines (in order):
 - [ ] **Step 8.2: Check state.json updated**
 
 ```bash
-cat /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/state.json
+cat /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/lab/quantum-ecc/state.json
 ```
 
 Expected: `iterations` list has one entry.
@@ -1107,7 +1107,7 @@ Run again with `--max-iters 1` to try the next lever. This is normal — track w
 - [ ] **Step 8.4: Final commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/lab/quantum-ecc/
 git commit -m "chore(quantum-ecc): post-smoke-run checkpoint"
 ```

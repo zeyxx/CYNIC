@@ -11,7 +11,7 @@ Environment=CHROME_BIN=/usr/bin/google-chrome
 Environment=HERMES_CDP_PORT=40769
 Environment=HERMES_PROXY_PORT=8888
 Environment=DISPLAY=:0
-ExecStart=%h/Bureau/CYNIC/scripts/hermes-x/scripts/launch-browser.sh
+ExecStart=%h/cynic/scripts/hermes-x/scripts/launch-browser.sh
 Restart=on-failure
 RestartSec=30
 TimeoutStopSec=10

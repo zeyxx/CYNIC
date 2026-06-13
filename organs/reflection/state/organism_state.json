@@ -340,7 +340,7 @@
             "CreatedAt": "2026-06-08 22:03:36 +0200 CEST",
             "ID": "72f7b3667de3",
             "Image": "cynic-portal-portal",
-            "Labels": "com.docker.compose.config-hash=9d42dfdfd3ca1a08e988758a9da9022e8d18a2a952e7c0cbb596f67daf66c816,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image.builder=classic,com.docker.compose.image=sha256:a5e96bcf23512e2d64750e5fec52b52efa915bf219550798803382358b392e7d,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/user/Bureau/CYNIC/infra/docker/cynic-portal/docker-compose.yml,com.docker.compose.project.working_dir=/home/user/Bureau/CYNIC/infra/docker/cynic-portal,com.docker.compose.project=cynic-portal,com.docker.compose.service=portal,com.docker.compose.version=2.40.3",
+            "Labels": "com.docker.compose.config-hash=9d42dfdfd3ca1a08e988758a9da9022e8d18a2a952e7c0cbb596f67daf66c816,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image.builder=classic,com.docker.compose.image=sha256:a5e96bcf23512e2d64750e5fec52b52efa915bf219550798803382358b392e7d,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/docker/cynic-portal/docker-compose.yml,com.docker.compose.project.working_dir=/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/docker/cynic-portal,com.docker.compose.project=cynic-portal,com.docker.compose.service=portal,com.docker.compose.version=2.40.3",
             "LocalVolumes": "1",
             "Mounts": "/home/user/Bur\u2026,cynic-portal_c\u2026",
             "Names": "cynic-portal-portal-1",

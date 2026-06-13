@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Tier 3
 """Daily Token Snapshot — sovereign conviction accumulator.
 
 Runs daily via cron. Persists holder snapshots to build temporal conviction
@@ -25,7 +26,7 @@ Usage:
     python3 daily_snapshot.py --add-mint <m>   # add mint to watchlist
 
 Cron (systemd timer or crontab):
-    0 6 * * * cd /home/user/Bureau/CYNIC && python3 cynic-python/heuristics/daily_snapshot.py
+    0 6 * * * cd ~/cynic && python3 cynic-python/heuristics/daily_snapshot.py
 """
 
 import json

@@ -38,8 +38,8 @@
 - [ ] **Step 1: Create package marker**
 
 ```bash
-mkdir -p /home/user/Bureau/CYNIC/cynic-python/metabolism
-touch /home/user/Bureau/CYNIC/cynic-python/metabolism/__init__.py
+mkdir -p /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/metabolism
+touch /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/metabolism/__init__.py
 ```
 
 - [ ] **Step 2: Write the failing test**
@@ -160,7 +160,7 @@ def test_emit_appends_multiple_events():
 - [ ] **Step 3: Run test to verify it fails**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 python3 -m pytest tests/test_cost_tracker.py -v 2>&1 | head -20
 ```
 
@@ -260,7 +260,7 @@ def _emit(
 - [ ] **Step 5: Run tests**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 python3 -m pytest tests/test_cost_tracker.py -v 2>&1 | tail -15
 ```
 
@@ -269,7 +269,7 @@ Expected: `4 passed`
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/metabolism/__init__.py cynic-python/metabolism/cost_tracker.py cynic-python/tests/test_cost_tracker.py
 git commit -m "feat(metabolism): cost_tracker emitter — per-call cost events to JSONL ledger"
 ```
@@ -328,7 +328,7 @@ def test_spike_detector_emits_on_fetch(monkeypatch, tmp_path):
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 python3 -m pytest tests/test_cost_tracker.py::test_spike_detector_emits_on_fetch -v 2>&1 | tail -10
 ```
 
@@ -389,7 +389,7 @@ Also add `from pathlib import Path` at the top of spike_detector.py if not prese
 - [ ] **Step 4: Run test**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 python3 -m pytest tests/test_cost_tracker.py -v 2>&1 | tail -10
 ```
 
@@ -398,7 +398,7 @@ Expected: all pass
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/sensors/spike_detector.py cynic-python/tests/test_cost_tracker.py
 git commit -m "feat(metabolism): instrument spike_detector — GeckoTerminal call cost emission"
 ```
@@ -468,7 +468,7 @@ def test_execute_task_emits_cost(tmp_path):
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 python3 -m pytest tests/test_hermes_agent_cost.py -v 2>&1 | tail -10
 ```
 
@@ -550,7 +550,7 @@ Also add `from pathlib import Path` at the top of `hermes_agent_task_executor.py
 - [ ] **Step 4: Run test**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 python3 -m pytest tests/test_hermes_agent_cost.py -v 2>&1 | tail -10
 ```
 
@@ -559,7 +559,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add scripts/hermes-x/core/hermes_agent_task_executor.py cynic-python/tests/test_hermes_agent_cost.py
 git commit -m "feat(metabolism): instrument hermes_agent — tailnet Qwen call cost emission"
 ```
@@ -673,7 +673,7 @@ def test_format_context_string():
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 python3 -m pytest tests/test_cost_aggregator.py -v 2>&1 | tail -10
 ```
 
@@ -875,7 +875,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run tests**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 python3 -m pytest tests/test_cost_aggregator.py -v 2>&1 | tail -10
 ```
 
@@ -884,7 +884,7 @@ Expected: `4 passed`
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/metabolism/cost_aggregator.py cynic-python/tests/test_cost_aggregator.py
 git commit -m "feat(metabolism): cost_aggregator — 30min flush to kernel /observe domain=metabolism"
 ```
@@ -1032,7 +1032,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: Smoke test the CLI**
 
 ```bash
-cd /home/user/Bureau/CYNIC/cynic-python
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 python3 metabolism/cost_summary.py --since 24h 2>&1
 ```
 
@@ -1041,7 +1041,7 @@ Expected: `Cost summary — last 24h: no events found` (ledger doesn't exist yet
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add cynic-python/metabolism/cost_summary.py
 git commit -m "feat(metabolism): cost_summary CLI — human-readable cost report per session/feature"
 ```
@@ -1065,7 +1065,7 @@ After=cynic-kernel.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/Bureau/CYNIC/cynic-python
+WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 ExecStart=/usr/bin/python3 metabolism/cost_aggregator.py
 EnvironmentFile=-%h/.config/cynic/env
 Environment=PYTHONUNBUFFERED=1
@@ -1090,8 +1090,8 @@ WantedBy=timers.target
 - [ ] **Step 2: Deploy and enable**
 
 ```bash
-cp /home/user/Bureau/CYNIC/infra/systemd/hermes-cost-aggregator.service ~/.config/systemd/user/
-cp /home/user/Bureau/CYNIC/infra/systemd/hermes-cost-aggregator.timer ~/.config/systemd/user/
+cp /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/systemd/hermes-cost-aggregator.service ~/.config/systemd/user/
+cp /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/systemd/hermes-cost-aggregator.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now hermes-cost-aggregator.timer
 systemctl --user status hermes-cost-aggregator.timer --no-pager
@@ -1103,7 +1103,7 @@ Expected: `Active: active (waiting)`
 
 ```bash
 set -a; source ~/.cynic-env; set +a
-cd /home/user/Bureau/CYNIC/cynic-python
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 python3 metabolism/cost_aggregator.py
 ```
 
@@ -1115,7 +1115,7 @@ After the first real events flow through (wait for spike_detector to run once):
 
 ```bash
 set -a; source ~/.cynic-env; set +a
-python3 /home/user/Bureau/CYNIC/cynic-python/metabolism/cost_aggregator.py
+python3 /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/metabolism/cost_aggregator.py
 curl -s "http://${CYNIC_REST_ADDR}/observations?domain=metabolism&limit=1" \
   -H "Authorization: Bearer ${CYNIC_API_KEY}" | python3 -m json.tool | head -20
 ```
@@ -1125,7 +1125,7 @@ Expected: observation with `context` containing `tokens_in:...` and `sovereign_c
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git add infra/systemd/hermes-cost-aggregator.service infra/systemd/hermes-cost-aggregator.timer
 git commit -m "feat(metabolism): cost aggregator systemd timer — 30min flush to kernel"
 ```

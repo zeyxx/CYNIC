@@ -26,11 +26,11 @@ Tier 3 (Human): /memory-sync skill
 ### 1. Install Cron Job (every 30 minutes)
 
 ```bash
-chmod +x /home/user/Bureau/CYNIC/scripts/organism-probe.sh
-chmod +x /home/user/Bureau/CYNIC/scripts/organism-health-cron.sh
+chmod +x /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/organism-probe.sh
+chmod +x /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/organism-health-cron.sh
 
 # Add to crontab:
-(crontab -l 2>/dev/null; echo "*/30 * * * * /home/user/Bureau/CYNIC/scripts/organism-health-cron.sh >> /var/log/organism-health.log 2>&1") | crontab -
+(crontab -l 2>/dev/null; echo "*/30 * * * * /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/organism-health-cron.sh >> /var/log/organism-health.log 2>&1") | crontab -
 ```
 
 ### 2. Verify Cron Status
@@ -178,7 +178,7 @@ curl http://<TAILSCALE_CORE>:3030/health
 ```bash
 crontab -l | grep organism  # verify installed
 sudo service cron status    # check cron daemon
-sudo /home/user/Bureau/CYNIC/scripts/organism-health-cron.sh  # test manually
+sudo /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/organism-health-cron.sh  # test manually
 ```
 
 ### Memory sync not triggering

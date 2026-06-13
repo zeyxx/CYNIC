@@ -2,7 +2,7 @@
   "mcpServers": {
     "cynic": {
       "command": "ssh",
-      "args": ["cynic-gpu", "/home/user/Bureau/CYNIC/cynic-kernel", "--mcp"]
+      "args": ["cynic-gpu", "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-kernel", "--mcp"]
     },
     "tailscale": {
       "command": "ssh",

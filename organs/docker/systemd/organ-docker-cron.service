@@ -5,10 +5,10 @@ Wants=organ-docker-hermes-agent.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/Bureau/CYNIC
+WorkingDirectory=%h/cynic
 EnvironmentFile=%h/.config/cynic/env
-ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/organs/docker/src/monitor.py
-ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/organs/docker/src/dispatch.py
+ExecStart=/usr/bin/python3 %h/cynic/organs/docker/src/monitor.py
+ExecStart=/usr/bin/python3 %h/cynic/organs/docker/src/dispatch.py
 StandardOutput=journal
 StandardError=journal
 

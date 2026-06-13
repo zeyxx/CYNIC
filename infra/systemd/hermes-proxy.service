@@ -9,7 +9,7 @@ StartLimitBurst=5
 Type=simple
 # R1: project root from env, not hardcoded path
 EnvironmentFile=%h/.config/cynic/env
-WorkingDirectory=%h/Bureau/CYNIC/scripts/hermes-x
+WorkingDirectory=%h/cynic/scripts/hermes-x
 Environment=X_CAPTURE_DIR=%h/.cynic/organs/hermes/x/captures
 Environment=X_DATASET_PATH=%h/.cynic/organs/hermes/x/dataset.jsonl
 # SoC: only decrypt X/Twitter traffic. All other HTTPS passes through opaque.

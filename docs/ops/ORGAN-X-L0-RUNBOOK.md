@@ -447,10 +447,10 @@ systemctl --user start hermes-{browser,proxy,browser-hub,x-ingest,x-recovery}@cy
 systemctl --user stop hermes-{browser,proxy,browser-hub,x-ingest,x-recovery}@cynic
 
 # Switch to personal
-~/Bureau/CYNIC/scripts/hermes-x/toggle-x-account.sh personal
+~/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x/toggle-x-account.sh personal
 
 # Switch back to CYNIC
-~/Bureau/CYNIC/scripts/hermes-x/toggle-x-account.sh cynic
+~/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x/toggle-x-account.sh cynic
 
 # Watch recovery daemon in real-time
 journalctl --user -u hermes-x-recovery@cynic.service -f

@@ -79,7 +79,7 @@ If not found, key was created during this setup.
 
 **With environment variable (no prompt):**
 ```bash
-cd /home/user/Bureau/CYNIC/scripts/hermes-x
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x
 CYNIC_X_PASSWORD="<your_x_password>" systemctl --user start hermes-x-login.service
 ```
 

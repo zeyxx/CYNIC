@@ -55,7 +55,7 @@ Wants=hermes-x-ingest.service
 Type=simple
 EnvironmentFile=%h/.config/cynic/env
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/core/hermes_agent_task_executor.py --organ-dir %h/.cynic/organs/hermes/x
+ExecStart=/usr/bin/python3 %h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x/core/hermes_agent_task_executor.py --organ-dir %h/.cynic/organs/hermes/x
 Restart=on-failure
 RestartSec=30s
 StandardOutput=journal
@@ -256,7 +256,7 @@ PartOf=hermes-feedback-loop.timer
 Type=oneshot
 EnvironmentFile=%h/.config/cynic/env
 Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x
-ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/analysis/gemini_learn_from_verdicts.py --organ-dir %h/.cynic/organs/hermes/x
+ExecStart=/usr/bin/python3 %h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x/analysis/gemini_learn_from_verdicts.py --organ-dir %h/.cynic/organs/hermes/x
 StandardOutput=journal
 StandardError=journal
 

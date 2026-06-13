@@ -5,7 +5,7 @@ After=network-online.target
 [Service]
 Type=oneshot
 EnvironmentFile=%h/.config/cynic/env
-WorkingDirectory=%h/Bureau/CYNIC
+WorkingDirectory=%h/cynic
 ExecStart=/usr/bin/python3 scripts/daily_telemetry_digest.py
 StandardOutput=journal
 StandardError=journal

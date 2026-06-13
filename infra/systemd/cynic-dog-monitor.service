@@ -4,7 +4,7 @@ After=cynic-kernel.service
 
 [Service]
 Type=oneshot
-ExecStart=%h/Bureau/CYNIC/infra/systemd/dog-health-monitor.sh
+ExecStart=%h/cynic/infra/systemd/dog-health-monitor.sh
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=cynic-dog-monitor

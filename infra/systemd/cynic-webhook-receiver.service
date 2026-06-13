@@ -4,7 +4,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/CYNIC
+WorkingDirectory=%h/cynic
 EnvironmentFile=%h/.config/cynic/env
 ExecStart=/usr/bin/python3 cynic-python/heuristics/collection/webhook_receiver.py --port 3031
 Restart=on-failure

@@ -5,17 +5,17 @@ Wants=cynic-kernel.service telegram-listener.service
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/CYNIC
+WorkingDirectory=%h/cynic
 EnvironmentFile=%h/.config/cynic/env
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONPATH=%h/Bureau/CYNIC/services/cynic-python
+Environment=PYTHONPATH=%h/cynic/services/cynic-python
 Environment=HERMES_AGENT_DOMAIN_ALLOW=telegram
 Environment=HERMES_AGENT_KIND_ALLOW=hermes
 Environment=HERMES_AGENT_POLL_LIMIT=100
-Environment=X_ORGAN_DIR=%h/Bureau/CYNIC/organs/telegram/state
-ExecStartPre=/usr/bin/install -Dm644 %h/Bureau/CYNIC/infra/organ-telegram/SKILL.md %h/.cynic/organs/telegram/SKILL.md
-ExecStart=/usr/bin/python3 -m organs.core.daemon --organ-dir %h/Bureau/CYNIC/organs/telegram/state --interval 30
+Environment=X_ORGAN_DIR=%h/cynic/organs/telegram/state
+ExecStartPre=/usr/bin/install -Dm644 %h/cynic/infra/organ-telegram/SKILL.md %h/.cynic/organs/telegram/SKILL.md
+ExecStart=/usr/bin/python3 -m organs.core.daemon --organ-dir %h/cynic/organs/telegram/state --interval 30
 Restart=on-failure
 RestartSec=30s
 StandardOutput=journal

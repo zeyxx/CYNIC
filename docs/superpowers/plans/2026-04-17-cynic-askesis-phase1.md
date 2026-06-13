@@ -17,7 +17,7 @@
 ```bash
 export RUST_MIN_STACK=67108864       # workspace A1 workaround (inherited via .cargo/config.toml)
 export RUSTFLAGS="-C debuginfo=1"    # rmcp debug DWARF overflow prevention
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 ```
 
 Per `.cortex/rules/workflow.md`: pre-commit validation `cargo build --tests && cargo clippy --workspace --all-targets -- -D warnings` is MANDATORY before every commit that touches Rust code.

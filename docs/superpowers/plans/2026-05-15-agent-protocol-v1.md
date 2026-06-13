@@ -101,7 +101,7 @@ echo "dirty" >> /tmp/test-dirty && git add /tmp/test-dirty 2>/dev/null; touch Ca
 # Deletes worktrees older than 24h that have no unpushed commits.
 set -euo pipefail
 
-CYNIC_ROOT="${CYNIC_ROOT:-$HOME/Bureau/CYNIC}"
+CYNIC_ROOT="${CYNIC_ROOT:-$HOME/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC}"
 WORKTREE_BASE="/tmp/cynic-worktrees"
 
 [ -d "$WORKTREE_BASE" ] || exit 0
@@ -513,7 +513,7 @@ Add at the END of `session-stop.sh`, before the final exit:
 # ── Agent Protocol v1: worktree cleanup ──
 WORKTREE_DIR=$(pwd)
 if [[ "$WORKTREE_DIR" == /tmp/cynic-worktrees/* ]]; then
-    CYNIC_ROOT="${CYNIC_ROOT:-$HOME/Bureau/CYNIC}"
+    CYNIC_ROOT="${CYNIC_ROOT:-$HOME/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC}"
     BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 
     # Check for uncommitted changes

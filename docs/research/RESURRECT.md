@@ -39,7 +39,7 @@ Death date if not promoted: 2026-05-27 (30 days from archive)
 
 ```bash
 # Find the commit where it was archived
-cd ~/Bureau/CYNIC
+cd ~/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git log --all --pretty=format:"%H %s" | grep -i "burn.*archive"
 
 # Example output:
@@ -91,7 +91,7 @@ After=cynic-kernel.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=/home/user/Bureau/CYNIC
+WorkingDirectory=/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 ExecStart=/usr/bin/python3 cynic-python/benchmarks/judge_axiom_quality.py
 StandardOutput=journal
 StandardError=journal

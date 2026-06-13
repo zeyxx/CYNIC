@@ -106,7 +106,7 @@ Description=Daily token benchmark — judge 45 tracked tokens
 
 [Service]
 Type=oneshot
-WorkingDirectory=/home/user/Bureau/CYNIC
+WorkingDirectory=/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 ExecStart=/usr/bin/bash scripts/daily_benchmark.sh
 TimeoutStartSec=1800
 Environment=CYNIC_REST_ADDR=%h/.cynic-env

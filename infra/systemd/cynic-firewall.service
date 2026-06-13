@@ -1,6 +1,6 @@
 [Unit]
 Description=CYNIC Soma firewall (nftables)
-Documentation=file:%h/Bureau/CYNIC/docs/ops/soma-design.md
+Documentation=file:%h/cynic/docs/ops/soma-design.md
 Before=cynic-kernel.service
 DefaultDependencies=no
 

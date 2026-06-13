@@ -601,7 +601,7 @@ pub(crate) async fn zone_activity(
     }
 
     // Build CONTAINS conditions for path prefixes.
-    // Observations store full paths (/home/user/Bureau/CYNIC/scripts/foo.sh)
+    // Observations store full paths (/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/foo.sh)
     // Zone prefixes are relative (scripts/). Prepend project_root for matching.
     let conditions: Vec<String> = path_prefixes
         .iter()

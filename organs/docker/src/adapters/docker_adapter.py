@@ -6,7 +6,7 @@ from src.core.ports import DockerPort
 from src.core.entities import Container
 
 EXPECTED_COMPOSE_DIRS = [
-    Path("/home/user/Bureau/CYNIC/infra/docker/cynic-portal")
+    Path(__file__).resolve().parents[4] / "infra/docker/cynic-portal"
 ]
 
 class SystemDockerAdapter(DockerPort):

@@ -80,7 +80,7 @@ Environment=CHROME_BIN=/usr/bin/google-chrome
 Environment=HERMES_CDP_PORT=40769
 Environment=HERMES_PROXY_PORT=8888
 Environment=DISPLAY=:0
-ExecStart=%h/Bureau/CYNIC/scripts/hermes-x/scripts/launch-browser.sh
+ExecStart=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x/scripts/launch-browser.sh
 Restart=on-failure
 RestartSec=30
 TimeoutStopSec=10
@@ -817,7 +817,7 @@ EnvironmentFile=%h/.config/cynic/env
 Environment=HERMES_CDP_PORT=40769
 Environment=BROWSER_HUB_PORT=40770
 Environment=ORGAN_DIR=%h/.cynic/organs/hermes/x
-WorkingDirectory=%h/Bureau/CYNIC/scripts/hermes-x
+WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x
 ExecStart=/usr/bin/python3 core/browser_hub.py
 Restart=on-failure
 RestartSec=10

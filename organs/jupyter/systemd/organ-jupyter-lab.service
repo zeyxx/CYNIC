@@ -6,19 +6,19 @@ After=network.target
 Type=simple
 User=user
 Group=user
-WorkingDirectory=/home/user/Bureau/CYNIC
-Environment="PATH=/home/user/Bureau/CYNIC/organs/jupyter/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+WorkingDirectory=%h/cynic
+Environment="PATH=%h/cynic/organs/jupyter/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="JUPYTER_PORT=8888"
 Environment="JUPYTER_TOKEN=cynic-internal-token-2026"
 
 # Lancement de JupyterLab sans navigateur, lié en localhost uniquement, avec le token fixé pour l'API
-ExecStart=/home/user/Bureau/CYNIC/organs/jupyter/.venv/bin/jupyter-lab \
+ExecStart=%h/cynic/organs/jupyter/.venv/bin/jupyter-lab \
   --no-browser \
   --ip=127.0.0.1 \
   --port=8888 \
   --ServerApp.token="cynic-internal-token-2026" \
   --ServerApp.password="" \
-  --ServerApp.root_dir=/home/user/Bureau/CYNIC
+  --ServerApp.root_dir=%h/cynic
 
 Restart=on-failure
 RestartSec=5s

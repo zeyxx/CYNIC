@@ -35,7 +35,7 @@ Treat Codex as “manual by default, automated when verified”.
 ## Quick Start
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 source ~/.cynic-env
 codex
 ```

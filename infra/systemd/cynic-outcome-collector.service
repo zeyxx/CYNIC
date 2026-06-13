@@ -7,7 +7,7 @@ After=token-snapshot.service
 [Service]
 Type=oneshot
 EnvironmentFile=%h/.config/cynic/env
-WorkingDirectory=%h/Bureau/CYNIC
+WorkingDirectory=%h/cynic
 # Extracted from token-snapshot.service ExecStartPost (2026-05-30): rate-limited collection
 # (7s/request, dozens of mints due) exceeded the bundled 900s oneshot budget, so the
 # outcome stage — last of 5 — was killed every run → 0 outcomes ever persisted.

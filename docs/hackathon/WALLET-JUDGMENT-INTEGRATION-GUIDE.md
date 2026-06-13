@@ -70,7 +70,7 @@
 
 ## Implementation Checklist
 
-### T. (CYNIC Kernel — /home/user/Bureau/CYNIC/cynic-kernel/)
+### T. (CYNIC Kernel — /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-kernel/)
 
 - [ ] **Deterministic Dog** (cynic-kernel/src/domain/dog/)
   - Implement pseudocode from cynic-kernel/domains/wallet-judgment-dogs.md

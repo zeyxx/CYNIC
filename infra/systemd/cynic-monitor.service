@@ -3,6 +3,6 @@ Description=CYNIC Proxmox Monitoring Sonde
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /home/user/Bureau/CYNIC/infra/monitoring/monitor_vms.sh
-WorkingDirectory=/home/user/Bureau/CYNIC
+ExecStart=/bin/bash %h/cynic/infra/monitoring/monitor_vms.sh
+WorkingDirectory=%h/cynic
 

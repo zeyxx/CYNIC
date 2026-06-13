@@ -178,7 +178,7 @@ if __name__ == "__main__":
 ```
 
 ### Deployment
-1. Save to `/home/user/Bureau/CYNIC/scripts/hermes-x/search_executor.py`
+1. Save to `/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x/search_executor.py`
 2. systemctl will call it via hermes-search-executor.timer (15m)
 3. Execution logged to search_execution_log.jsonl
 

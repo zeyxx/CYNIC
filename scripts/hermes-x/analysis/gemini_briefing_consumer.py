@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Tier 3
 """
 Gemini Briefing Consumer — Phase 1 autonomous meta-agent.
 
@@ -13,7 +14,7 @@ Usage:
   python3 gemini_briefing_consumer.py --organ-dir ~/.cynic/organs/hermes/x
 
 Cron (run every 4 hours):
-  0 */4 * * * python3 /home/user/Bureau/CYNIC/scripts/hermes-x/gemini_briefing_consumer.py
+  0 */4 * * * python3 ~/cynic/scripts/hermes-x/gemini_briefing_consumer.py
 """
 
 import json

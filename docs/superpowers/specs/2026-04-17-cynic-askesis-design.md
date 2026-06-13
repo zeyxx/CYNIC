@@ -260,7 +260,7 @@ Attempt: cynic-malus tracks "self-compassion streaks" (inverse of FIDELITY-as-ha
 
 **Nuance — prompt construction is load-bearing**: because cynic-wisdom is embedded **inline** in the audit prompt (§3.3, due to headless CLI limitations), the actual substance lives in `audit/gemini_wisdom.rs`'s prompt builder, not in a separate skill file loaded at runtime. The FOGC defense therefore rests on:
 1. The prompt template version pinned to a git commit reference
-2. The cynic-wisdom skill text tracked in the CYNIC repo (`/home/user/Bureau/CYNIC/.agents/skills/cynic-wisdom/SKILL.md`)
+2. The cynic-wisdom skill text tracked in the CYNIC repo (`/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/.agents/skills/cynic-wisdom/SKILL.md`)
 3. Changes to either trigger a review loop (cannot drift silently)
 
 **Falsifiable**: if an attacker replaces the cynic-wisdom skill in the repo OR mutates the prompt builder to embed inverted axioms, the system becomes pathological. Defense: both sources versioned in git under CODEOWNERS review; any PR modifying either triggers explicit axiom-inversion check.

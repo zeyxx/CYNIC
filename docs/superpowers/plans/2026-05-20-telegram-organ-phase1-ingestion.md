@@ -41,7 +41,7 @@
 - [ ] **Step 1: Create feature branch**
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 git fetch origin
 git checkout -b feat/telegram-organ-$(date +%Y-%m-%d)-$(head -c4 /dev/urandom | xxd -p)
 ```
@@ -1306,7 +1306,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/CYNIC/cynic-python
+WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
 ExecStart=%h/.cynic/organs/telegram/.venv/bin/python -m organs.telegram.listener
 Restart=on-failure
 RestartSec=30

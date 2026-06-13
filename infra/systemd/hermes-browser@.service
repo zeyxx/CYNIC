@@ -16,7 +16,7 @@ Environment=HERMES_PROXY_PORT=8888
 Environment=DISPLAY=:0
 # Account-specific profile (loaded by launch-browser.sh from accounts.toml)
 Environment=HERMES_CHROME_PROFILE=%h/.cynic/organs/hermes/x/chrome-profiles/%i
-ExecStart=%h/Bureau/CYNIC/scripts/hermes-x/scripts/launch-browser.sh
+ExecStart=%h/cynic/scripts/hermes-x/scripts/launch-browser.sh
 Restart=on-failure
 RestartSec=30
 TimeoutStopSec=10

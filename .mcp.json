@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "cynic": {
-      "command": "/home/user/Bureau/CYNIC/.cortex/mcp/run-cynic-mcp.sh",
+      "command": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/.cortex/mcp/run-cynic-mcp.sh",
       "args": []
     },
     "tailscale": {

@@ -302,14 +302,14 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/CYNIC
+WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 ExecStart=/usr/bin/python3 -m cynic-python.organs.telegram.listener --listen
 Restart=on-failure
 RestartSec=30
 StartLimitIntervalSec=600
 StartLimitBurst=3
 Environment=PYTHONUNBUFFERED=1
-Environment="PYTHONPATH=%h/Bureau/CYNIC"
+Environment="PYTHONPATH=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC"
 EnvironmentFile=%h/.config/cynic/env
 
 [Install]

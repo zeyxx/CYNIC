@@ -6,7 +6,7 @@ StartLimitBurst=3
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/CYNIC/cynic-python
+WorkingDirectory=%h/cynic/cynic-python
 ExecStart=%h/.cynic/organs/telegram/.venv/bin/python -m organs.telegram.listener
 Restart=on-failure
 RestartSec=30

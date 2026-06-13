@@ -60,7 +60,7 @@ Wait 5 seconds between each restart. Verify with `make status`.
 ### Disk space low (<15%)
 
 1. Check: `df -h /`
-2. Largest consumers: `du -sh ~/.surrealdb/ ~/Bureau/CYNIC/target/ /tmp/`
+2. Largest consumers: `du -sh ~/.surrealdb/ ~/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/target/ /tmp/`
 3. Quick wins:
    - `cargo clean` in CYNIC repo (can reclaim 1-2 GB)
    - Old backups: `ls -lhrt ~/.surrealdb/backups/ | head -10` — delete if >14 days

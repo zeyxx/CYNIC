@@ -13,7 +13,7 @@ Environment=HERMES_CDP_PORT=40769
 Environment=BROWSER_HUB_PORT=40770
 # Account-specific organ directory
 Environment=ORGAN_DIR=%h/.cynic/organs/hermes/x/datasets/%i
-WorkingDirectory=%h/Bureau/CYNIC/scripts/hermes-x
+WorkingDirectory=%h/cynic/scripts/hermes-x
 ExecStart=%h/.cynic-venvs/hermes-x/bin/python3 core/browser_hub.py
 Restart=on-failure
 RestartSec=10

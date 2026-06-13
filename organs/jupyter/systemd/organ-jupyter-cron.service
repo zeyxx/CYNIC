@@ -3,5 +3,5 @@ Description=CYNIC Organ - Jupyter dispatch observer
 
 [Service]
 Type=oneshot
-WorkingDirectory=/home/user/Bureau/CYNIC
-ExecStart=/home/user/Bureau/CYNIC/organs/jupyter/.venv/bin/python /home/user/Bureau/CYNIC/organs/jupyter/src/server.py
+WorkingDirectory=%h/cynic
+ExecStart=%h/cynic/organs/jupyter/.venv/bin/python %h/cynic/organs/jupyter/src/server.py

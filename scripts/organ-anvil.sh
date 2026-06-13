@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo '$HOME/Bureau/CYNIC')"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo '$HOME/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC')"
 STATE_DIR="${REPO_ROOT}/infra/organ-anvil"
 STATE_FILE="${STATE_DIR}/state.json"
 AUDIT_FILE="${STATE_DIR}/audit.jsonl"
