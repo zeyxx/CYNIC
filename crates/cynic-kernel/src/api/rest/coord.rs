@@ -142,6 +142,28 @@ pub async fn coord_claim_handler(
         ));
     }
 
+    // K15 Gate: Enforce compliance threshold before allowing claims
+    let observations = state
+        .storage
+        .list_observations_raw(None, Some(&req.agent_id), 500)
+        .await
+        .unwrap_or_default();
+
+    let comp = crate::domain::compliance::score_session(&req.agent_id, &req.agent_id, &observations);
+    if comp.score < crate::domain::dog::PHI_INV3 {
+        tracing::error!(agent_id = %req.agent_id, score = %comp.score, "compliance: claim rejected");
+        return Err((
+            StatusCode::PRECONDITION_FAILED,
+            Json(ErrorResponse {
+                error: format!(
+                    "CRITICAL NON-COMPLIANCE (score={:.3}). Claim REJECTED. Warnings: {}",
+                    comp.score,
+                    comp.warnings.join("; ")
+                ),
+            }),
+        ));
+    }
+
     match state
         .coord
         .claim(&req.agent_id, &req.target, &claim_type)

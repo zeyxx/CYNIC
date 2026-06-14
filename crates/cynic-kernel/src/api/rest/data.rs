@@ -521,7 +521,7 @@ pub async fn compliance_handler(
     // K15: Hard gate — reject critically non-compliant sessions (Rule 6).
     // Threshold: PHI_INV3 (0.236).
     if result.score < crate::domain::dog::PHI_INV3 {
-        tracing::error!(agent_id = %agent_id, score = %result.score, "compliance: REJECTED");
+        tracing::error!(agent_id = %agent_id, score = %result.score, "compliance: rejected");
         return Err((
             StatusCode::PRECONDITION_FAILED,
             Json(ErrorResponse {
