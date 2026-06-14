@@ -55,7 +55,7 @@ enabled = true
 # ── Backend Definitions ──
 
 [backend.qwen36-27b-gpu]
-base_url = "http://<TAILSCALE_GPU>:8080/v1"
+base_url = "http://<TAILSCALE_HOST_GPU>:8080/v1"
 model = "Qwen3.6-27B-IQ3_XXS.gguf"
 context_size = 65536
 json_mode = false
@@ -65,13 +65,13 @@ api_key_env = "CYNIC_SOVEREIGN_KEY"
 sovereign = true
 
 [backend.qwen36-27b-gpu.remediation]
-node = "cynic-gpu"
+node = "cynic-host-gpu"
 restart_command = "schtasks /Run /TN llama-server-27b"
 max_retries = 3
 cooldown_secs = 120
 
 [backend.qwen3-4b-core]
-base_url = "http://<TAILSCALE_CORE>:8080/v1"
+base_url = "http://<TAILSCALE_HOST_PROXMOX>:8080/v1"
 model = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
 context_size = 8192
 json_mode = true
