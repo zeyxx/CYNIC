@@ -906,14 +906,33 @@ status:
 	@$(source_env)
 	@echo "CYNIC System Status"
 	@echo "═══════════════════"
-	@printf "Kernel:  "; HTTP=$$(curl -s -o /dev/null -w '%{http_code}' $${CYNIC_API_KEY:+-H "Authorization: Bearer $${CYNIC_API_KEY}"} "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null); [ "$$HTTP" = "200" ] && echo "healthy ($$HTTP)" || echo "DEGRADED (HTTP $${HTTP:-000})"
-	@printf "SurrealDB: "; surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"
-	@printf "Services: "; systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""
+	@HOST=$$(echo $${CYNIC_REST_ADDR} | cut -d: -f1); \
+	printf "Kernel:  "; HTTP=$$(curl -s -o /dev/null -w '%{http_code}' $${CYNIC_API_KEY:+-H "Authorization: Bearer $${CYNIC_API_KEY}"} "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null); [ "$$HTTP" = "200" ] && echo "healthy ($$HTTP)" || echo "DEGRADED (HTTP $${HTTP:-000})"; \
+	if [ "$$HOST" = "localhost" ] || [ "$$HOST" = "127.0.0.1" ]; then \
+		printf "SurrealDB: "; surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"; \
+		printf "Services: "; systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""; \
+	else \
+		printf "SurrealDB (Remote): "; ssh "$$HOST" surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"; \
+		printf "Services (Remote): "; ssh "$$HOST" systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""; \
+	fi
 	@printf "Hooks: "; $(MAKE) --no-print-directory verify-hooks >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
 	@printf "Units: "; $(MAKE) --no-print-directory verify-systemd-units >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
 	@printf "Runtime: "; $(MAKE) --no-print-directory runtime-check >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
 	@printf "Git: "; git -C $(PROJECT_DIR) rev-parse --abbrev-ref HEAD; git -C $(PROJECT_DIR) log --oneline -1
 	@printf "Backup: "; ls -t ~/.surrealdb/backups/*.surql 2>/dev/null | head -1 || echo "none"
+
+.PHONY: logs
+logs: ## Stream kernel logs remotely via SSH (derives host from CYNIC_REST_ADDR)
+	@$(source_env); \
+	HOST=$$(echo $${CYNIC_REST_ADDR} | cut -d: -f1); \
+	if [ -z "$$HOST" ]; then echo "ERROR: CYNIC_REST_ADDR not set"; exit 1; fi; \
+	if [ "$$HOST" = "localhost" ] || [ "$$HOST" = "127.0.0.1" ]; then \
+		echo "▶ Streaming local logs..."; \
+		journalctl --user -u cynic-kernel -n 100 -f; \
+	else \
+		echo "▶ Streaming remote logs from $$HOST..."; \
+		ssh "$$HOST" journalctl --user -u cynic-kernel -n 100 -f; \
+	fi
 
 .PHONY: runtime-truth
 runtime-truth:
