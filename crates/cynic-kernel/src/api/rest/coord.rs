@@ -549,3 +549,161 @@ pub async fn coord_rollback_handler(
         "restarting_in": "500ms"
     })))
 }
+
+/// GET /coord/backup — exports the SurrealDB database to a .surql stream.
+pub async fn coord_backup_handler()
+-> Result<axum::response::Response, (StatusCode, Json<ErrorResponse>)> {
+    let password = std::env::var("SURREALDB_PASS").unwrap_or_default();
+    let tmp_path = format!("/tmp/cynic_backup_{}.surql", chrono::Utc::now().timestamp());
+
+    let status = tokio::process::Command::new("surreal")
+        .args([
+            "export",
+            "--endpoint",
+            "http://localhost:8000",
+            "--namespace",
+            "cynic",
+            "--database",
+            "v2",
+            "--username",
+            "root",
+            "--password",
+            &password,
+            &tmp_path,
+        ])
+        .status()
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
+    if !status.success() {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "Export failed".into(),
+            }),
+        ));
+    }
+
+    let body = tokio::fs::read(&tmp_path).await.unwrap_or_default();
+    let _ = tokio::fs::remove_file(&tmp_path).await;
+
+    Ok(axum::response::Response::builder()
+        .header(
+            "Content-Disposition",
+            "attachment; filename=\"backup.surql\"",
+        )
+        .header("Content-Type", "application/octet-stream")
+        .body(axum::body::Body::from(body))
+        .unwrap())
+}
+
+/// POST /coord/restore — imports a .surql file to SurrealDB.
+pub async fn coord_restore_handler(
+    body: axum::body::Bytes,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let password = std::env::var("SURREALDB_PASS").unwrap_or_default();
+    let tmp_path = format!(
+        "/tmp/cynic_restore_{}.surql",
+        chrono::Utc::now().timestamp()
+    );
+
+    if let Err(e) = std::fs::write(&tmp_path, &body) {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        ));
+    }
+
+    let status = tokio::process::Command::new("surreal")
+        .args([
+            "import",
+            "--endpoint",
+            "http://localhost:8000",
+            "--namespace",
+            "cynic",
+            "--database",
+            "v2",
+            "--username",
+            "root",
+            "--password",
+            &password,
+            &tmp_path,
+        ])
+        .status()
+        .await
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&tmp_path);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
+    let _ = std::fs::remove_file(&tmp_path);
+
+    if !status.success() {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "Import failed".into(),
+            }),
+        ));
+    }
+
+    Ok(Json(serde_json::json!({ "status": "restored" })))
+}
+
+/// POST /coord/upgrade-systemd — updates the .service file and calls daemon-reload.
+pub async fn coord_upgrade_systemd_handler(
+    body: axum::body::Bytes,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
+    let service_dir = format!("{}/.config/systemd/user", home);
+
+    let _ = std::fs::create_dir_all(&service_dir);
+    let target_path = format!("{}/cynic-kernel.service", service_dir);
+
+    if let Err(e) = std::fs::write(&target_path, &body) {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        ));
+    }
+
+    let status = tokio::process::Command::new("systemctl")
+        .args(["--user", "daemon-reload"])
+        .status()
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
+    if !status.success() {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "daemon-reload failed".into(),
+            }),
+        ));
+    }
+
+    Ok(Json(serde_json::json!({ "status": "systemd_reloaded" })))
+}
