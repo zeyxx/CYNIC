@@ -350,8 +350,7 @@ pub async fn inference_start_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<DogOperationRequest>,
 ) -> Result<Json<DogOperationResponse>, (StatusCode, Json<ErrorResponse>)> {
-    // Map dog name to node name (e.g., "qwen25-7b-core" → "cynic-host-proxmox")
-    let node = dog_to_node(&req.dog);
+    let node = dog_to_node(&state, &req.dog);
 
     // Execute: systemctl start llama-server
     let status = attempt_node_start(&node).await;
@@ -374,7 +373,7 @@ pub async fn inference_remediate_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<DogOperationRequest>,
 ) -> Result<Json<DogOperationResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let node = dog_to_node(&req.dog);
+    let node = dog_to_node(&state, &req.dog);
     let status = attempt_node_recovery(&node).await;
 
     let _ = emit_recovery_observation(&state, &node, &status).await;
@@ -387,17 +386,14 @@ pub async fn inference_remediate_handler(
     }))
 }
 
-/// Map dog name to Tailscale node name.
-/// E.g., "qwen25-7b-core" → "cynic-host-proxmox", "qwen35-9b-gpu" → "cynic-host-gpu"
-pub(crate) fn dog_to_node(dog: &str) -> String {
-    if dog.contains("gpu") {
-        "cynic-host-gpu".to_string()
-    } else if dog.contains("core") || dog.contains("9b-core") {
-        "cynic-host-proxmox".to_string()
-    } else {
-        // Fallback: return the dog name as-is for unknown dogs
-        dog.to_string()
-    }
+/// Map dog name to Tailscale node name dynamically from backend configs.
+pub(crate) fn dog_to_node(state: &Arc<AppState>, dog: &str) -> String {
+    state
+        .backend_configs
+        .iter()
+        .find(|cfg| cfg.name == dog)
+        .and_then(|cfg| cfg.fleet_node.clone())
+        .unwrap_or_else(|| dog.to_string())
 }
 
 /// Attempt to start a node's llama-server (systemctl start).
