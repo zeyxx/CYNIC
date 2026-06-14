@@ -439,34 +439,48 @@ pub async fn coord_upgrade_handler(
     if body.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse { error: "Empty binary payload".into() }),
+            Json(ErrorResponse {
+                error: "Empty binary payload".into(),
+            }),
         ));
     }
 
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
-    let target_path = format!("{}/bin/cynic-kernel", home);
-    let tmp_path = format!("{}/bin/cynic-kernel.new", home);
+    let bin_dir = std::env::var("CYNIC_BIN_DIR").unwrap_or_else(|_| {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
+        format!("{}/bin", home)
+    });
+
+    let target_path = format!("{}/cynic-kernel", bin_dir);
+    let tmp_path = format!("{}/cynic-kernel.new", bin_dir);
 
     // 1. Write the payload to a temporary file
     if let Err(e) = std::fs::write(&tmp_path, &body) {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: format!("Failed to write tmp binary: {e}") }),
+            Json(ErrorResponse {
+                error: format!("Failed to write tmp binary: {e}"),
+            }),
         ));
     }
 
-    // 2. Make it executable
+    // 2. Backup the current binary for rollback (ignore if it doesn't exist)
+    let prev_path = format!("{}/cynic-kernel.prev", bin_dir);
+    let _ = std::fs::copy(&target_path, &prev_path);
+
+    // 3. Make it executable
     use std::os::unix::fs::PermissionsExt;
     if let Ok(mut perms) = std::fs::metadata(&tmp_path).map(|m| m.permissions()) {
         perms.set_mode(0o755);
         let _ = std::fs::set_permissions(&tmp_path, perms);
     }
 
-    // 3. Atomically rename tmp_path -> target_path
+    // 4. Atomically rename tmp_path -> target_path
     if let Err(e) = std::fs::rename(&tmp_path, &target_path) {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: format!("Failed to swap binary: {e}") }),
+            Json(ErrorResponse {
+                error: format!("Failed to swap binary: {e}"),
+            }),
         ));
     }
 

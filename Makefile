@@ -689,12 +689,11 @@ deploy:
 	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
 		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS in ~/.cynic-env}" \
 		~/.surrealdb/backups/cynic_v2_pre_deploy_$$(date +%Y%m%d_%H%M%S).surql
-	@echo "▶ Deploying kernel (saving previous for rollback)..."
-	systemctl --user stop cynic-kernel
-	@[ -f ~/bin/cynic-kernel ] && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev || true
-	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
+	@echo "▶ Deploying kernel via Sovereign Auto-Upgrade (POST /coord/upgrade)..."
+	@curl -f -X POST --data-binary @"$(PROJECT_DIR)/target/release/cynic-kernel" \
+		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
+		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/upgrade"
 
-	systemctl --user start cynic-kernel
 	@echo "▶ Verifying (HTTP status code — no JSON parsing)..."
 	@for i in $$(seq 1 15); do \
 		sleep 3; \
@@ -728,12 +727,11 @@ deploy-only:  ## Deploy target/release/cynic-kernel with no validation (skips ch
 	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
 		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS in ~/.cynic-env}" \
 		~/.surrealdb/backups/cynic_v2_deploy_only_$$(date +%Y%m%d_%H%M%S).surql
-	@echo "▶ Deploying kernel (saving previous for rollback)..."
-	systemctl --user stop cynic-kernel
-	@[ -f ~/bin/cynic-kernel ] && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev || true
-	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
+	@echo "▶ Deploying kernel via Sovereign Auto-Upgrade (POST /coord/upgrade)..."
+	@curl -f -X POST --data-binary @"$(PROJECT_DIR)/target/release/cynic-kernel" \
+		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
+		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/upgrade"
 
-	systemctl --user start cynic-kernel
 	@echo "▶ Verifying (HTTP status code — no JSON parsing)..."
 	@for i in $$(seq 1 15); do \
 		sleep 3; \
@@ -782,12 +780,11 @@ hotfix: check
 	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
 		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS}" \
 		~/.surrealdb/backups/cynic_v2_hotfix_$$(date +%Y%m%d_%H%M%S).surql
-	@echo "▶ Deploying kernel..."
-	systemctl --user stop cynic-kernel
-	@[ -f ~/bin/cynic-kernel ] && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev || true
-	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
+	@echo "▶ Deploying kernel via Sovereign Auto-Upgrade (POST /coord/upgrade)..."
+	@curl -f -X POST --data-binary @"$(PROJECT_DIR)/target/release/cynic-kernel" \
+		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
+		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/upgrade"
 
-	systemctl --user start cynic-kernel
 	@echo "▶ Verifying (retry loop)..."
 	@for i in $$(seq 1 15); do \
 		sleep 3; \

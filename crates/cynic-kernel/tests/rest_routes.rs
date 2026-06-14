@@ -1525,3 +1525,40 @@ async fn create_crystal_rejects_oversized_content() {
         "Error message must mention the 2000 char limit"
     );
 }
+
+// ── /coord/upgrade ──────────────────────────────────────────
+
+#[tokio::test]
+async fn coord_upgrade_requires_auth() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/coord/upgrade")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn coord_upgrade_rejects_empty_payload() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/coord/upgrade")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 400);
+}
