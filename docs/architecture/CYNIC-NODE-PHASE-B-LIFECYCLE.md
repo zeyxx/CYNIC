@@ -207,7 +207,7 @@ Node Command Execution (every 5s polling loop):
 ## Example Execution: Happy Path (Soma Commands Node)
 
 ```
-T+0:00  [BOOT] Load node_id=cynic-gpu-1, kernel=cynic-core:3030
+T+0:00  [BOOT] Load node_id=cynic-host-gpu-1, kernel=cynic-host-proxmox:3030
         ├─ Probe hardware: nvidia-smi → RTX 4060 Ti, 8GB total, 7.2GB free ✓
         ├─ Detect backend: CUDA (NVIDIA detected) ✓
         └─ Start command loop (every 5s polling)
@@ -229,7 +229,7 @@ T+0:15  [MODEL LOAD] llama-server ready (loading GGUF weights)
 
 T+0:30  [HEARTBEAT] POST /nodes/heartbeat
         {
-          "node_id": "cynic-gpu-1",
+          "node_id": "cynic-host-gpu-1",
           "hardware": {
             "gpu": {"name": "RTX 4060 Ti", "total_gb": 8, "free_gb": 2.8, "util%": 68},
             "cpu": {"cores": 8, "util%": 12},

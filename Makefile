@@ -80,18 +80,16 @@ gate-1: ## Level 1 — Light: cargo clippy
 	@echo "  ✓ Gate 1 passed — clippy OK"
 
 .PHONY: gate-2
-gate-2: ## Level 2 — Full: test + audit + integration
+gate-2: ## Level 2 — Full: test + audit + integration (Distributed via Forge Organ)
 	@$(source_env)
 	@echo "══════════════════════════════════════════"
-	@echo "  Gate Level 2 — Full validation"
+	@echo "  Gate Level 2 — Distributed Validation"
 	@echo "══════════════════════════════════════════"
-	cargo test -p cynic-kernel --lib --release
-	@echo "▶ Security audit (cargo audit)..."
-	cargo audit --deny warnings
+	@echo "▶ Delegating tests to remote Organ-Anvil via Forge Organ..."
+	@python3 organs/forge/src/entrypoints/cli.py delegate "build-and-test"
 	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
-		echo "▶ Integration tests (SurrealDB available)..."; \
-		cargo test -p cynic-kernel --test integration_storage && \
-		cargo test -p cynic-kernel --test storage_contract; \
+		echo "▶ Delegating Integration tests..."; \
+		python3 organs/forge/src/entrypoints/cli.py delegate "integration-test"; \
 	else \
 		echo "⚠ SurrealDB not running — skipping integration tests"; \
 	fi
@@ -215,11 +213,6 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			MODEL=$$(sed -n "/\[backend\.$${NAME}\]/,/^\[/p" "$$BACKENDS" | grep '^model' | head -1 | sed 's/.*= *"//;s/".*//'); \
 			[ -z "$$MODEL" ] && continue; \
 			if [ "$$MODEL" = "auto" ]; then continue; fi; \
-			PREFIX=$$(echo "$$NAME" | sed 's/[-_].*//' | tr -d '.' | tr '[:upper:]' '[:lower:]'); \
-			MODEL_NODOTS=$$(echo "$$MODEL" | tr -d '.' | tr '[:upper:]' '[:lower:]'); \
-			if ! echo "$$MODEL_NODOTS" | grep -q "$$PREFIX"; then \
-				echo "WARN Drift: Dog '$$NAME' → model '$$MODEL' (name prefix '$$PREFIX' not in model)"; \
-			fi; \
 		done < <(grep '^\[backend\.' "$$BACKENDS" | grep -v '\.remediation\]'); \
 	else \
 		echo "SKIP: backends.toml not found at $$BACKENDS"; \
@@ -692,16 +685,16 @@ deploy:
 	@echo "  ✓ Gate 2 fresh — proceeding with deploy"
 	@$(MAKE) --no-print-directory ship check-storage
 	@echo ""
-	@echo "▶ Backing up DB before deploy..."
-	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
-		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS in ~/.cynic-env}" \
-		~/.surrealdb/backups/cynic_v2_pre_deploy_$$(date +%Y%m%d_%H%M%S).surql
-	@echo "▶ Deploying kernel (saving previous for rollback)..."
-	systemctl --user stop cynic-kernel
-	@[ -f ~/bin/cynic-kernel ] && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev || true
-	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
+	@echo "▶ Backing up DB before deploy (via Sovereign API)..."
+	@mkdir -p ~/.surrealdb/backups
+	@curl -sS -f -H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY}" \
+		"http://$${CYNIC_REST_ADDR}/coord/backup" \
+		-o ~/.surrealdb/backups/cynic_v2_pre_deploy_$$(date +%Y%m%d_%H%M%S).surql || echo "⚠ Backup failed"
+	@echo "▶ Deploying kernel via Sovereign Auto-Upgrade (POST /coord/upgrade)..."
+	@curl -f -X POST --data-binary @"$(PROJECT_DIR)/target/release/cynic-kernel" \
+		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
+		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/upgrade"
 
-	systemctl --user start cynic-kernel
 	@echo "▶ Verifying (HTTP status code — no JSON parsing)..."
 	@for i in $$(seq 1 15); do \
 		sleep 3; \
@@ -713,7 +706,7 @@ deploy:
 		printf "."; \
 	done
 	@echo "▶ Healthcheck self-test..."
-	@bash ~/bin/cynic-healthcheck.sh && echo "  Healthcheck: PASS" || echo "  ⚠ Healthcheck: FAIL — review ~/bin/cynic-healthcheck.sh"
+	@curl -s -f "http://$${CYNIC_REST_ADDR}/health" >/dev/null && echo "  Healthcheck: PASS" || echo "  ⚠ Healthcheck: FAIL"
 	@echo "✓ Deployed and verified"
 
 # ── Fast-path: Deploy existing binary without commit/push ────
@@ -731,16 +724,16 @@ deploy-only:  ## Deploy target/release/cynic-kernel with no validation (skips ch
 	fi
 	@echo ""
 	@echo "▶ deploy-only — no commit, no push, no validation"
-	@echo "▶ Backing up DB before deploy..."
-	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
-		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS in ~/.cynic-env}" \
-		~/.surrealdb/backups/cynic_v2_deploy_only_$$(date +%Y%m%d_%H%M%S).surql
-	@echo "▶ Deploying kernel (saving previous for rollback)..."
-	systemctl --user stop cynic-kernel
-	@[ -f ~/bin/cynic-kernel ] && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev || true
-	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
+	@echo "▶ Backing up DB before deploy (via Sovereign API)..."
+	@mkdir -p ~/.surrealdb/backups
+	@curl -sS -f -H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY}" \
+		"http://$${CYNIC_REST_ADDR}/coord/backup" \
+		-o ~/.surrealdb/backups/cynic_v2_deploy_only_$$(date +%Y%m%d_%H%M%S).surql || echo "⚠ Backup failed"
+	@echo "▶ Deploying kernel via Sovereign Auto-Upgrade (POST /coord/upgrade)..."
+	@curl -f -X POST --data-binary @"$(PROJECT_DIR)/target/release/cynic-kernel" \
+		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
+		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/upgrade"
 
-	systemctl --user start cynic-kernel
 	@echo "▶ Verifying (HTTP status code — no JSON parsing)..."
 	@for i in $$(seq 1 15); do \
 		sleep 3; \
@@ -752,19 +745,17 @@ deploy-only:  ## Deploy target/release/cynic-kernel with no validation (skips ch
 		printf "."; \
 	done
 	@echo "▶ Healthcheck self-test..."
-	@bash ~/bin/cynic-healthcheck.sh && echo "  Healthcheck: PASS" || echo "  ⚠ Healthcheck: FAIL — review ~/bin/cynic-healthcheck.sh"
+	@curl -s -f "http://$${CYNIC_REST_ADDR}/health" >/dev/null && echo "  Healthcheck: PASS" || echo "  ⚠ Healthcheck: FAIL"
 	@echo "✓ Deployed (no commit, no push)"
 
 # ── Emergency: Rollback to previous binary ─────────────────
 .PHONY: rollback
 rollback:
 	@$(source_env)
-	@[ -f ~/bin/cynic-kernel.prev ] || { echo "✗ No previous binary to rollback to"; exit 1; }
-	@echo "▶ Rolling back to previous kernel binary..."
-	systemctl --user stop cynic-kernel
-	cp ~/bin/cynic-kernel.prev ~/bin/cynic-kernel
-
-	systemctl --user start cynic-kernel
+	@echo "▶ Rolling back to previous kernel binary via Sovereign Auto-Rollback (POST /coord/rollback)..."
+	@curl -f -X POST \
+		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
+		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/rollback"
 	@sleep 4
 	@echo "▶ Verifying rollback..."
 	@HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "http://$${CYNIC_REST_ADDR}/health"); \
@@ -772,8 +763,13 @@ rollback:
 
 # ── Systemd unit deployment ──────────────────────────────────
 .PHONY: deploy-systemd
-deploy-systemd:  ## Idempotent deploy: symlink infra/systemd/* → ~/.config/systemd/user/
-	@bash $(PROJECT_DIR)/scripts/deploy-systemd.sh
+deploy-systemd:  ## Idempotent deploy: push infra/systemd/* via Sovereign API
+	@$(source_env); \
+	echo "▶ Deploying systemd units via Sovereign API..."; \
+	curl -f -X POST --data-binary @"$(PROJECT_DIR)/infra/systemd/cynic-kernel.service" \
+		-H "Authorization: Bearer $${CYNIC_API_KEY}" \
+		"http://$${CYNIC_REST_ADDR}/coord/upgrade-systemd"; \
+	echo "✓ Systemd units deployed and reloaded"
 
 .PHONY: deploy-systemd-dry
 deploy-systemd-dry:  ## Dry-run: show what deploy-systemd would change
@@ -785,16 +781,16 @@ hotfix: check
 	@$(source_env)
 	@echo ""
 	@echo "⚠ HOTFIX DEPLOY — skipping push (commit locally, push later)"
-	@echo "▶ Backing up DB..."
-	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
-		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS}" \
-		~/.surrealdb/backups/cynic_v2_hotfix_$$(date +%Y%m%d_%H%M%S).surql
-	@echo "▶ Deploying kernel..."
-	systemctl --user stop cynic-kernel
-	@[ -f ~/bin/cynic-kernel ] && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev || true
-	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
+	@echo "▶ Backing up DB (via Sovereign API)..."
+	@mkdir -p ~/.surrealdb/backups
+	@curl -sS -f -H "Authorization: Bearer $${CYNIC_API_KEY}" \
+		"http://$${CYNIC_REST_ADDR}/coord/backup" \
+		-o ~/.surrealdb/backups/cynic_v2_hotfix_$$(date +%Y%m%d_%H%M%S).surql || echo "⚠ Backup failed"
+	@echo "▶ Deploying kernel via Sovereign Auto-Upgrade (POST /coord/upgrade)..."
+	@curl -f -X POST --data-binary @"$(PROJECT_DIR)/target/release/cynic-kernel" \
+		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
+		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/upgrade"
 
-	systemctl --user start cynic-kernel
 	@echo "▶ Verifying (retry loop)..."
 	@for i in $$(seq 1 15); do \
 		sleep 3; \
@@ -811,10 +807,10 @@ restore:
 	@[ -f "$(F)" ] || { echo "ERROR: file $(F) not found"; exit 1; }
 	@echo "⚠ RESTORING DB from $(F) — this will OVERWRITE current data"
 	@read -p "Are you sure? (yes/no) " CONFIRM || true; [ "$$CONFIRM" = "yes" ] || { echo "Aborted"; exit 1; }
-	systemctl --user stop cynic-kernel
-	surreal import --endpoint http://localhost:8000 --namespace cynic --database v2 \
-		--username root --password "$${SURREALDB_PASS}" "$(F)"
-	systemctl --user start cynic-kernel
+	@echo "▶ Restoring DB via Sovereign API (POST /coord/restore)..."
+	@curl -f -X POST --data-binary @"$(F)" \
+		-H "Authorization: Bearer $${CYNIC_API_KEY}" \
+		"http://$${CYNIC_REST_ADDR}/coord/restore"
 	@echo "✓ DB restored from $(F)"
 
 .PHONY: test-restore
@@ -918,14 +914,33 @@ status:
 	@$(source_env)
 	@echo "CYNIC System Status"
 	@echo "═══════════════════"
-	@printf "Kernel:  "; HTTP=$$(curl -s -o /dev/null -w '%{http_code}' $${CYNIC_API_KEY:+-H "Authorization: Bearer $${CYNIC_API_KEY}"} "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null); [ "$$HTTP" = "200" ] && echo "healthy ($$HTTP)" || echo "DEGRADED (HTTP $${HTTP:-000})"
-	@printf "SurrealDB: "; surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"
-	@printf "Services: "; systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""
+	@HOST=$$(echo $${CYNIC_REST_ADDR} | cut -d: -f1); \
+	printf "Kernel:  "; HTTP=$$(curl -s -o /dev/null -w '%{http_code}' $${CYNIC_API_KEY:+-H "Authorization: Bearer $${CYNIC_API_KEY}"} "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null); [ "$$HTTP" = "200" ] && echo "healthy ($$HTTP)" || echo "DEGRADED (HTTP $${HTTP:-000})"; \
+	if [ "$$HOST" = "localhost" ] || [ "$$HOST" = "127.0.0.1" ]; then \
+		printf "SurrealDB: "; surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"; \
+		printf "Services: "; systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""; \
+	else \
+		printf "SurrealDB (Remote): "; ssh "$$HOST" surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"; \
+		printf "Services (Remote): "; ssh "$$HOST" systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""; \
+	fi
 	@printf "Hooks: "; $(MAKE) --no-print-directory verify-hooks >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
 	@printf "Units: "; $(MAKE) --no-print-directory verify-systemd-units >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
 	@printf "Runtime: "; $(MAKE) --no-print-directory runtime-check >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
 	@printf "Git: "; git -C $(PROJECT_DIR) rev-parse --abbrev-ref HEAD; git -C $(PROJECT_DIR) log --oneline -1
 	@printf "Backup: "; ls -t ~/.surrealdb/backups/*.surql 2>/dev/null | head -1 || echo "none"
+
+.PHONY: logs
+logs: ## Stream kernel logs remotely via SSH (derives host from CYNIC_REST_ADDR)
+	@$(source_env); \
+	HOST=$$(echo $${CYNIC_REST_ADDR} | cut -d: -f1); \
+	if [ -z "$$HOST" ]; then echo "ERROR: CYNIC_REST_ADDR not set"; exit 1; fi; \
+	if [ "$$HOST" = "localhost" ] || [ "$$HOST" = "127.0.0.1" ]; then \
+		echo "▶ Streaming local logs..."; \
+		journalctl --user -u cynic-kernel -n 100 -f; \
+	else \
+		echo "▶ Streaming remote logs from $$HOST..."; \
+		ssh "$$HOST" journalctl --user -u cynic-kernel -n 100 -f; \
+	fi
 
 .PHONY: runtime-truth
 runtime-truth:

@@ -1,0 +1,15 @@
+[Unit]
+Description=CYNIC Organ Discord Cron - dispatch Discord surface task
+After=cynic-kernel.service organ-discord-hermes-agent.service
+Wants=organ-discord-hermes-agent.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+EnvironmentFile=%h/.config/cynic/env
+ExecStart=/usr/bin/python3 %h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/discord/src/dispatch.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

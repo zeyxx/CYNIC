@@ -9,8 +9,8 @@
 
 | Node | Tailscale IP | Hardware | Role | Latency |
 |------|-------------|----------|------|---------|
-| **cynic-core** | `<TAILSCALE_CORE>` | Ryzen 7 5700G, 27GB RAM, ROCm iGPU (0 VRAM) | kernel, db, embedding | — |
-| **cynic-gpu** | `<TAILSCALE_GPU>` | i5-14400F, RTX 4060 Ti 16GB, 16GB RAM | **all inference** | ~3ms |
+| **cynic-host-proxmox** | `<TAILSCALE_CORE>` | Ryzen 7 5700G, 27GB RAM, ROCm iGPU (0 VRAM) | kernel, db, embedding | — |
+| **cynic-host-gpu** | `<TAILSCALE_GPU>` | i5-14400F, RTX 4060 Ti 16GB, 16GB RAM | **all inference** | ~3ms |
 
 ## 2. Inference Backends — Crystallized Config
 
@@ -40,7 +40,7 @@ cooldown_secs = 60
 **GPU Server Launch Parameters:**
 
 ```bash
-# On cynic-gpu (Windows) — schtasks "CynicSovereign" must match these EXACTLY
+# On cynic-host-gpu (Windows) — schtasks "CynicSovereign" must match these EXACTLY
 llama-server.exe ^
   --model Qwen3.5-9B-Q4_K_M.gguf ^
   --n-gpu-layers 33 ^
@@ -57,7 +57,7 @@ llama-server.exe ^
 
 Built-in. No config needed. Always available.
 
-### Embedding: `llama-embed` (on cynic-core)
+### Embedding: `llama-embed` (on cynic-host-proxmox)
 
 ```bash
 # systemd: llama-embed.service
@@ -69,9 +69,9 @@ llama-server \
   --api-key-file ~/.config/cynic/llama-api-key
 ```
 
-### ❌ REMOVED: Local inference on cynic-core
+### ❌ REMOVED: Local inference on cynic-host-proxmox
 
-**Rationale:** cynic-core has 0 usable VRAM (iGPU only). Running 2 inference models on CPU consumed 6.2GB RAM and saturated swap (8GB/8GB = 100%). All inference must go to `cynic-gpu` (16GB dedicated VRAM).
+**Rationale:** cynic-host-proxmox has 0 usable VRAM (iGPU only). Running 2 inference models on CPU consumed 6.2GB RAM and saturated swap (8GB/8GB = 100%). All inference must go to `cynic-host-gpu` (16GB dedicated VRAM).
 
 ---
 
@@ -171,7 +171,7 @@ FUTURE (NVFP4):       Hardware-native 4-bit → ctx 262K — Blackwell only
 ├── cynic-kernel.service           ← Kernel (EnvironmentFile=~/.cynic-env)
 ├── surrealdb.service              ← Storage (EnvironmentFile=surrealdb.env)
 ├── llama-embed.service            ← Embedding (port 8081, CPU only)
-└── [NO local llama-server.service] ← REMOVED: all inference on cynic-gpu
+└── [NO local llama-server.service] ← REMOVED: all inference on cynic-host-gpu
 
 # GPU NODE (Windows, managed via schtasks)
 CynicSovereign scheduled task      ← Must match backends.toml parameters EXACTLY
@@ -183,7 +183,7 @@ CynicSovereign scheduled task      ← Must match backends.toml parameters EXACT
 |------|-----|
 | `~/.config/cynic/env` | Duplicate of `~/.cynic-env` — env.example says "deprecated" |
 | `~/.config/cynic/remediation.toml` | Superseded by `[backend.*.remediation]` in backends.toml |
-| `llama-server.service` (local) | No local inference — all goes to cynic-gpu |
+| `llama-server.service` (local) | No local inference — all goes to cynic-host-gpu |
 
 ---
 
@@ -193,8 +193,8 @@ CynicSovereign scheduled task      ← Must match backends.toml parameters EXACT
 |---|-----|----------|--------|
 | G1 | GPU node runs ctx=2048, should be 32768 | 🔴 CRITICAL | Update `schtasks` CynicSovereign on Windows |
 | G2 | TurboQuant not yet in upstream llama.cpp | ⏳ ACTIVE | Monitor PR #21089, test community fork when stable |
-| G3 | Gemma orphan process on cynic-core (:8080) | 🔴 FIX NOW | `kill 3862`, disable llama-server.service |
-| G4 | Swap 100% on cynic-core | 🟡 MEDIUM | Killing Gemma + llama-server frees ~6GB |
-| G5 | Disk 86% on cynic-core | 🟡 MEDIUM | `cargo clean`, prune old backups |
+| G3 | Gemma orphan process on cynic-host-proxmox (:8080) | 🔴 FIX NOW | `kill 3862`, disable llama-server.service |
+| G4 | Swap 100% on cynic-host-proxmox | 🟡 MEDIUM | Killing Gemma + llama-server frees ~6GB |
+| G5 | Disk 86% on cynic-host-proxmox | 🟡 MEDIUM | `cargo clean`, prune old backups |
 | G6 | Domain tests not re-run with -np 1 | 🟡 MEDIUM | Re-run sovereign-bench.sh after G1 fix |
 | G7 | `~/.config/cynic/env` still exists | 🟢 LOW | Delete after verifying nothing reads it |

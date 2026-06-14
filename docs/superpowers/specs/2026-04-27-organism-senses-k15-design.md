@@ -77,7 +77,7 @@ RTK tracks session-level token consumption (Claude Code tokens). This is a diffe
 
 New `senses/tailscale.rs` implementing `OrganPort`.
 
-**Data source:** `tailscale status --json` executed via `tokio::process::Command::output().await` wrapped in `tokio::time::timeout(Duration::from_secs(5), ...)`. No SSH, no MCP — local async CLI call on cynic-core.
+**Data source:** `tailscale status --json` executed via `tokio::process::Command::output().await` wrapped in `tokio::time::timeout(Duration::from_secs(5), ...)`. No SSH, no MCP — local async CLI call on cynic-host-proxmox.
 
 **NOT `spawn_blocking`** — `tokio::process::Command` is already async (unlike rusqlite in RtkReader which is synchronous and requires `spawn_blocking`). Pattern matches `infra/remediation.rs` subprocess calls.
 
@@ -87,8 +87,8 @@ New `senses/tailscale.rs` implementing `OrganPort`.
 | `nodes_online` | Gauge | count | `Peer[*].Online == true` |
 | `nodes_total` | Gauge | count | `len(Peer)` excluding funnel-ingress |
 | `nodes_ssh_ready` | Gauge | count | `Peer[*].SSH == true && Online == true` |
-| `gpu_online` | Gauge | bool | `Peer["cynic-gpu"].Online` |
-| `gpu_last_seen` | Gauge | seconds_ago | `now - Peer["cynic-gpu"].LastSeen` |
+| `gpu_online` | Gauge | bool | `Peer["cynic-host-gpu"].Online` |
+| `gpu_last_seen` | Gauge | seconds_ago | `now - Peer["cynic-host-gpu"].LastSeen` |
 
 **Health logic:**
 - `Alive` — `tailscale status --json` succeeds, self node present
@@ -111,7 +111,7 @@ pub struct TailscaleReader {
 // Tailscale — fleet nervous system (local CLI)
 if which::which("tailscale").is_ok() {
     senses.push(Arc::new(tailscale::TailscaleReader::new(
-        vec!["cynic-core", "cynic-gpu", "kairos"],
+        vec!["cynic-host-proxmox", "cynic-host-gpu", "kairos"],
     )));
 }
 ```
@@ -122,7 +122,7 @@ The `health_loop` already ticks every 20s and updates Dog circuit state. Add fle
 
 **Mechanism:**
 1. On each tick, read TailscaleReader snapshot
-2. For each Dog with a known fleet node mapping (e.g., `qwen35-9b-gpu` → `cynic-gpu`):
+2. For each Dog with a known fleet node mapping (e.g., `qwen35-9b-gpu` → `cynic-host-gpu`):
    - If node is offline → preemptively open Dog's circuit breaker
    - If node comes back online → allow normal health probe to close circuit
 
@@ -131,7 +131,7 @@ The `health_loop` already ticks every 20s and updates Dog circuit state. Add fle
 ```toml
 [qwen35-9b-gpu]
 url = "http://<TAILSCALE_GPU>:8080/v1/chat/completions"
-fleet_node = "cynic-gpu"  # Tailscale hostname for fleet awareness (distinct from remediation.node which is SSH target)
+fleet_node = "cynic-host-gpu"  # Tailscale hostname for fleet awareness (distinct from remediation.node which is SSH target)
 ```
 
 **Parse path:** `infra/boot.rs::build_fleet_targets` currently parses Dog config as TOML tables. The `node` field is added as `Option<String>` to the existing `DogConfig` struct (or equivalent). At health_loop startup, build a `HashMap<String, String>` mapping `dog_id → node_hostname` from all backends with a `node` field. This map is stored in `SenseState` and consulted on each tick.
@@ -139,12 +139,12 @@ fleet_node = "cynic-gpu"  # Tailscale hostname for fleet awareness (distinct fro
 ```rust
 // Built once at startup from backends.toml
 dog_to_node: HashMap<String, String>,
-// e.g. {"qwen35-9b-gpu" => "cynic-gpu", "gemma-4-e4b-core" => "cynic-core"}
+// e.g. {"qwen35-9b-gpu" => "cynic-host-gpu", "gemma-4-e4b-core" => "cynic-host-proxmox"}
 ```
 
 **Consumer contract:** Circuit breaker state change = system behavior change. A Dog marked Dead stops receiving `/judge` traffic. This is K15-compliant.
 
-**Hysteresis (required from day 1):** `cynic-gpu` is a Windows host that sleeps regularly. Tailscale reports `Online=false` during sleep, but the node recovers within seconds of wake. Without hysteresis, the circuit breaker oscillates on every sleep/wake cycle.
+**Hysteresis (required from day 1):** `cynic-host-gpu` is a Windows host that sleeps regularly. Tailscale reports `Online=false` during sleep, but the node recovers within seconds of wake. Without hysteresis, the circuit breaker oscillates on every sleep/wake cycle.
 
 **Rule:** Node must be offline for **>30 seconds across 2 consecutive ticks** before marking Dogs preemptively Dead. Health_loop tracks `first_offline_at: Option<Instant>` per fleet node in `SenseState`.
 
@@ -227,9 +227,9 @@ Consumer: Same alert pipeline as Consumer A.
 
 - If RTK savings_pct never drops below 38.2% in 30 days → threshold too low, recalibrate
 - If TailscaleReader adds >5ms to health_loop tick → `tailscale status` too slow, cache with TTL
-- If 30s hysteresis still causes false positives on cynic-gpu sleep/wake → increase to 60s
+- If 30s hysteresis still causes false positives on cynic-host-gpu sleep/wake → increase to 60s
 - If 30s hysteresis misses real outages (GPU crashes but flap buffer delays detection) → decrease to 15s
-- If `which::which("tailscale")` fails on production cynic-core → binary not in PATH, fix systemd env
+- If `which::which("tailscale")` fails on production cynic-host-proxmox → binary not in PATH, fix systemd env
 - If parse_failures delta > 50/tick never triggers → threshold too high, check actual parse_failures growth rate
 
 ## Testing Strategy
@@ -237,5 +237,5 @@ Consumer: Same alert pipeline as Consumer A.
 1. **Unit tests** (in-module): TailscaleReader with mock JSON output, alert threshold triggers
 2. **Delta tracking tests**: Inject two consecutive snapshots with parse_failures delta=51 → verify alert emitted; delta=49 → no alert. Same for burn_rate threshold.
 3. **Hysteresis tests**: Simulate node offline for 1 tick (20s) → no circuit break. Node offline for 2 ticks (40s) → circuit opens. Node back online mid-sequence → clear state.
-4. **Integration tests** (#[ignore]): Real `tailscale status --json` on cynic-core, real RTK history.db
+4. **Integration tests** (#[ignore]): Real `tailscale status --json` on cynic-host-proxmox, real RTK history.db
 5. **Gate test** (make test-gates): Inject fake RTK snapshot with savings_pct=0.10 → verify MetabolismAnomaly alert emitted

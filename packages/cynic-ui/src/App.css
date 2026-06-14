@@ -344,7 +344,9 @@ body {
 
 .topology-grid,
 .wallet-grid,
-.settings-grid {
+.settings-grid,
+.superteam-metrics,
+.skill-matrix {
   display: grid;
   gap: 14px;
 }
@@ -358,12 +360,22 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
+.superteam-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.skill-matrix {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
 .surface-card,
 .wallet-row,
 .timeline-item,
 .oracle-card,
 .review-card,
-.settings-card {
+.settings-card,
+.metric-card,
+.skill-tile {
   border: 1px solid var(--border-soft);
   background: var(--bg-card-2);
 }
@@ -429,9 +441,49 @@ body {
 .wallet-card,
 .review-card,
 .timeline-item,
-.oracle-card {
+.oracle-card,
+.metric-card,
+.skill-tile {
   padding: 16px;
   border-radius: 6px;
+}
+
+.metric-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.metric-label {
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.metric-card strong {
+  font-family: var(--serif);
+  color: var(--gold);
+  font-size: 28px;
+  font-weight: 500;
+}
+
+.skill-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 128px;
+}
+
+.skill-tile-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .wallet-row {

@@ -32,8 +32,8 @@ get_repo_state() {
     # Stashes
     stashes="$(git stash list 2>/dev/null | wc -l | tr -d ' ')"
     
-    # Worktrees (excluding main)
-    worktrees="$(git worktree list 2>/dev/null | grep -v "${REPO_ROOT}" | wc -l | tr -d ' ')"
+    # Worktrees (excluding main) — grep -v can exit 1 if no lines match
+    worktrees="$(git worktree list 2>/dev/null | { grep -v "${REPO_ROOT}" || true; } | wc -l | tr -d ' ')"
     
     # Branch counts
     local_branches="$(git branch 2>/dev/null | wc -l | tr -d ' ')"
@@ -61,18 +61,18 @@ get_repo_state() {
         if [ -n "$g" ]; then
             local diff=$(( (now_epoch - g) / 86400 ))
             if [ "$diff" -gt 2 ]; then
-                health_score="$(echo "$health_score - 0.1" | bc 2>/dev/null || echo "$health_score")"
+                health_score="$(LC_NUMERIC=C echo "$health_score - 0.1" | LC_NUMERIC=C bc 2>/dev/null || echo "$health_score")"
             fi
         fi
     done
     
     # Branch penalty (>5 local branches)
     if [ "$local_branches" -gt 5 ]; then
-        health_score="$(echo "$health_score - 0.15" | bc 2>/dev/null || echo "$health_score")"
+        health_score="$(LC_NUMERIC=C echo "$health_score - 0.15" | LC_NUMERIC=C bc 2>/dev/null || echo "$health_score")"
     fi
     
     # Ensure minimum 0.0
-    health_score="$(echo "$health_score" | awk '{if ($1 < 0) print 0; else print $1}')"
+    health_score="$(LC_NUMERIC=C echo "$health_score" | LC_NUMERIC=C awk '{if ($1+0 < 0) print 0; else printf "%.2f", $1+0}')"
     
     cat <<EOF
 {

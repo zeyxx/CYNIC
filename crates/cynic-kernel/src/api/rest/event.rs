@@ -178,10 +178,10 @@ mod tests {
 
     #[test]
     fn event_request_deserializes() {
-        let json = r#"{"tool":"mcp_tailscale","node":"cynic-gpu","elapsed_ms":250,"output_bytes":1024,"success":true}"#;
+        let json = r#"{"tool":"mcp_tailscale","node":"cynic-host-gpu","elapsed_ms":250,"output_bytes":1024,"success":true}"#;
         let req: EventRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.tool, "mcp_tailscale");
-        assert_eq!(req.node, "cynic-gpu");
+        assert_eq!(req.node, "cynic-host-gpu");
         assert_eq!(req.elapsed_ms, 250);
     }
 

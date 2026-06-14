@@ -306,14 +306,14 @@ Les 22 traditions (docs/identity/CYNIC-PERENNIAL-EPISTEMOLOGY.md) ne sont pas de
 
 ### RT6 — Comment souverain ?
 
-**Etat:** GPU RTX 4060 Ti 99%+ idle. HF Inference API = cognition louee. Modeles sur disque non deployes (Prometheus-2 7B, Qwen3-4B, Phi-4-mini). cynic-core (Gemma 4-E4B) est le seul Dog souverain.
+**Etat:** GPU RTX 4060 Ti 99%+ idle. HF Inference API = cognition louee. Modeles sur disque non deployes (Prometheus-2 7B, Qwen3-4B, Phi-4-mini). cynic-host-proxmox (Gemma 4-E4B) est le seul Dog souverain.
 
 **Probleme:** 4/5 LLM Dogs dependent d'infra externe (HF, Google, GPU remote). La "souverainete" est declaree, pas materielle.
 
 **Hypothese:** Remplacer qwen-7b-hf (anti-discrimine, HF API) par Prometheus-2 7B (judge-trained, deja sur disque) ameliorerait la qualite du jugement ET la souverainete.
 
 **Protocole:**
-1. Deployer Prometheus-2 7B Q5 sur llama-server (cynic-core, Vulkan ou CPU)
+1. Deployer Prometheus-2 7B Q5 sur llama-server (cynic-host-proxmox, Vulkan ou CPU)
 2. Adapter le prompt (Prometheus-2 attend rubric+reference, pas axiom-based)
 3. Mesurer sur le calibration corpus (RT3) : Prometheus-2 vs qwen-7b-hf
 4. **Falsification:** Si Prometheus-2 discrimination < qwen-7b-hf, le judge-trained model n'aide pas sur nos axiomes specifiques.
@@ -473,7 +473,7 @@ CYNIC juge mais N'AGIT JAMAIS. Les verdicts ne changent rien dans le monde mater
 **Contenu :** 32 nodes heterogenes (4GB laptop a 68GB workstation), CRDT+GossipSub, loss 2.0->0.326, Qwen2.5-0.5B fine-tune sur 4513 conversations. Zero coordinateur central. "Run `hyperspace start` on a 4GB laptop and you're training."
 
 **Classification :** RT6 (souverainete) + RT4b (prompt evolution)
-**Hypothese a digerer :** cynic-core + cynic-gpu pourraient collaborer pour fine-tuner un Dog specialise sans API externe. Hyperspace = pattern pour l'entrainement distribue souverain. Combined avec darwinian_evolver = evolution de prompts ET de modeles en souverain.
+**Hypothese a digerer :** cynic-host-proxmox + cynic-host-gpu pourraient collaborer pour fine-tuner un Dog specialise sans API externe. Hyperspace = pattern pour l'entrainement distribue souverain. Combined avec darwinian_evolver = evolution de prompts ET de modeles en souverain.
 **Falsification :** Le overhead du distributed training sur 2 nodes heterogenes (CPU vs GPU) peut-il converger en temps raisonnable (<24h) sur un fine-tune Dog ?
 
 ---

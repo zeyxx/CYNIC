@@ -1,0 +1,12 @@
+# Non-secret Discord organ config.
+# Secrets belong in ~/.cynic/organs/discord/env or ~/.config/cynic/env:
+#   CYNIC_REST_ADDR=...
+#   CYNIC_API_KEY=...
+
+db_path: ~/.cynic/organs/discord/messages.db
+heartbeat_interval_seconds: 300
+# Empty allowlists mean "ingest nothing" until explicitly configured.
+allowed_channel_ids: []
+
+retention:
+  raw_days: 90

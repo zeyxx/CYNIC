@@ -135,8 +135,8 @@ En mars, on achète du matériel :
 
 | Machine | CPU/GPU | Rôle |
 |---------|---------|------|
-| cynic-core | AMD APU | Kernel + Dog CPU |
-| cynic-gpu | RTX 4060 Ti | Dog GPU (55 tok/s) |
+| cynic-host-proxmox | AMD APU | Kernel + Dog CPU |
+| cynic-host-gpu | RTX 4060 Ti | Dog GPU (55 tok/s) |
 
 - **Tailscale mesh** : réseau privé entre les machines
 - **Zéro API cloud** pour l'inférence IA

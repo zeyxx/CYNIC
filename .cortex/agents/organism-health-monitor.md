@@ -24,7 +24,7 @@
 
 2. **Evaluate against MEMORY.md:**
    - Is this drift already documented in project/* memories?
-   - Is this expected (e.g., "LSTM training on cynic-core" in progress)?
+   - Is this expected (e.g., "LSTM training on cynic-host-proxmox" in progress)?
    - Is this anomalous (e.g., kernel down for 10min)?
 
 3. **Update memory only if:**

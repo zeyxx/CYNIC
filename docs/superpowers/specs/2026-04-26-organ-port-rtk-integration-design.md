@@ -391,7 +391,7 @@ Spec reviewed by automated subagent. 6 issues found.
 | 2 | **Blocking SQLite in async**: `open_db()` is sync inside `async fn`, will stall tokio threadpool | High | **Fixed.** All SQLite ops wrapped in `tokio::task::spawn_blocking()`. Added to `open_db()` doc. |
 | 3 | **K14 violation**: `dirs::data_local_dir().unwrap_or_default()` silently drops organ if path empty | Medium | **Rejected.** K14 applies to shared state (RwLock, Option) where fallback affects system behavior. RTK is an optional organ — silent skip on absent `history.db` is correct. Registering a Dead organ for an uninstalled tool = noise. |
 | 4 | **R1 violation**: `project_path LIKE '%CYNIC%'` hardcoded in SQL | Medium | **Fixed.** `RtkReader::new(db_path, project_root)` — project root passed at registry build time via `git rev-parse --show-toplevel` or equivalent. SQL uses bound parameter. |
-| 5 | **C toolchain for rusqlite bundled**: not documented | Low | **Fixed.** `build-essential` verified present on cynic-core (observed). Documented in §11. |
+| 5 | **C toolchain for rusqlite bundled**: not documented | Low | **Fixed.** `build-essential` verified present on cynic-host-proxmox (observed). Documented in §11. |
 | 6 | **Filters TOML native support**: inferred from README, not verified | Low | **Verified (observed).** RTK v0.30.1+ supports `rtk trust` / `rtk untrust` / `rtk verify` for project-local filters. Setup: `cd CYNIC && rtk trust` after creating `.rtk/filters.toml`. |
 
 ---
@@ -444,5 +444,5 @@ rtk verify  # validate filter syntax
 ### Build requirements
 
 - Rust 1.95.0 (current)
-- `build-essential` (verified present on cynic-core — provides `cc` for rusqlite bundled)
+- `build-essential` (verified present on cynic-host-proxmox — provides `cc` for rusqlite bundled)
 - No additional system dependencies

@@ -148,8 +148,8 @@ hermes-data-check.service:
       → log to SKILL.md
 
 # Real code would use:
-# curl http://cynic-core:3030/observe (emit observation)
-# curl http://cynic-core:3030/agent-tasks (create task)
+# curl http://cynic-host-proxmox:3030/observe (emit observation)
+# curl http://cynic-host-proxmox:3030/agent-tasks (create task)
 ```
 
 **What it outputs:**

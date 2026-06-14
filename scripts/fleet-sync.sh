@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # CYNIC Fleet Sync — Pushes updates to remote nodes
 # Usage: ./scripts/fleet-sync.sh <node-name>
-# Example: ./scripts/fleet-sync.sh cynic-forge
+# Example: ./scripts/fleet-sync.sh cynic-host-proxmox
 
 set -euo pipefail
 

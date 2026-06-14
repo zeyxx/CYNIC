@@ -15,8 +15,8 @@ Declared in `~/.config/cynic/backends.toml` — loaded at kernel boot if env var
 | Dog | Model | Where | Activation |
 |---|---|---|---|
 | deterministic-dog | Heuristics | In-kernel | Always (no config required) |
-| qwen25-7b-core | Qwen 2.5 7B Q4 | cynic-core (CPU + Vulkan) | If <TAILSCALE_CORE> reachable |
-| qwen36-27b-gpu | Qwen 3.6 27B IQ3_XXS | cynic-gpu (RTX 4060 Ti) | If <TAILSCALE_GPU> reachable |
+| qwen25-7b-core | Qwen 2.5 7B Q4 | cynic-host-proxmox (CPU + Vulkan) | If <TAILSCALE_CORE> reachable |
+| qwen36-27b-gpu | Qwen 3.6 27B IQ3_XXS | cynic-host-gpu (RTX 4060 Ti) | If <TAILSCALE_GPU> reachable |
 | antigravity-cli | Antigravity (auto) | CLI subprocess | If GEMINI_API_KEY set + antigravity-cli on PATH |
 
 ## Infrastructure

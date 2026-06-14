@@ -99,7 +99,7 @@
 ┌──────────────────────v──────────────────────────────────────┐
 │ INFRASTRUCTURE (Fleet, Processes, Storage)                  │
 │                                                              │
-│ KERNEL (cynic-core, Tailscale):                             │
+│ KERNEL (cynic-host-proxmox, Tailscale):                             │
 │  ├─ REST API (port 3030)                                    │
 │  ├─ Circuit breaker state (per Dog, observable)             │
 │  ├─ Observation producer (K15 seam)                         │
@@ -111,8 +111,8 @@
 │  └─ Auto-respawn on crash (with exponential backoff)        │
 │                                                              │
 │ FLEET:                                                       │
-│  ├─ cynic-core (kernel, llama-server on GPU)                │
-│  └─ cynic-gpu (RTX 4060 Ti, Windows schtask)                │
+│  ├─ cynic-host-proxmox (kernel, llama-server on GPU)                │
+│  └─ cynic-host-gpu (RTX 4060 Ti, Windows schtask)                │
 │  └─ cynic-node-1, cynic-node-2, ... (future)                │
 └──────────────────────────────────────────────────────────────┘
 ```

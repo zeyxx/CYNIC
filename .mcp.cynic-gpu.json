@@ -2,11 +2,11 @@
   "mcpServers": {
     "cynic": {
       "command": "ssh",
-      "args": ["cynic-gpu", "/home/user/Bureau/CYNIC/cynic-kernel", "--mcp"]
+      "args": ["cynic-host-gpu", "/home/user/Bureau/CYNIC/cynic-kernel", "--mcp"]
     },
     "tailscale": {
       "command": "ssh",
-      "args": ["cynic-gpu", "tailscale-mcp"]
+      "args": ["cynic-host-gpu", "tailscale-mcp"]
     }
   }
 }

@@ -106,7 +106,7 @@ DEFINE TABLE events SCHEMAFULL;
 
 -- Executions (Node-level)
 DEFINE TABLE node_executions SCHEMAFULL;
-  field node_id: string;         -- "cynic-gpu-1"
+  field node_id: string;         -- "cynic-host-gpu-1"
   field command: string;         -- "load_model", "switch_model"
   field duration_ms: integer;
   field hardware_before: object; -- {gpu_mem_free, cpu_util, etc.}

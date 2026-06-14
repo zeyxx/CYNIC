@@ -186,7 +186,7 @@ pub struct AgentTask {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
     pub tool: String,      // "mcp_tailscale" | "kernel_snapshot" | etc.
-    pub node: String,      // target node: "cynic-gpu", "cynic-core", "kairos"
+    pub node: String,      // target node: "cynic-host-gpu", "cynic-host-proxmox", "kairos"
     pub elapsed_ms: u64,   // latency
     pub output_bytes: u64, // response size
     pub success: bool,     // operation succeeded

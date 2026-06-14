@@ -37,8 +37,10 @@ use tower_http::services::ServeDir;
 
 use self::auth::{auth_input_handler, auth_verify_handler};
 use self::coord::{
-    coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
-    coord_register_handler, coord_release_handler, coord_scope_handler, coord_who_handler,
+    coord_backup_handler, coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
+    coord_register_handler, coord_release_handler, coord_restore_handler, coord_rollback_handler,
+    coord_scope_handler, coord_topology_handler, coord_upgrade_handler,
+    coord_upgrade_systemd_handler, coord_who_handler,
 };
 use self::data::{
     audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
@@ -182,6 +184,21 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/heartbeat", post(coord_heartbeat_handler))
         .route("/coord/scope", post(coord_scope_handler))
         .route("/coord/who", get(coord_who_handler))
+        .route("/coord/topology", get(coord_topology_handler))
+        .route(
+            "/coord/upgrade",
+            post(coord_upgrade_handler).layer(DefaultBodyLimit::max(100 * 1024 * 1024)),
+        )
+        .route("/coord/rollback", post(coord_rollback_handler))
+        .route("/coord/backup", get(coord_backup_handler))
+        .route(
+            "/coord/restore",
+            post(coord_restore_handler).layer(DefaultBodyLimit::max(100 * 1024 * 1024)),
+        )
+        .route(
+            "/coord/upgrade-systemd",
+            post(coord_upgrade_systemd_handler).layer(DefaultBodyLimit::max(1 * 1024 * 1024)),
+        )
         .route(
             "/dispatch/zone-activity",
             get(dispatch::zone_activity_handler),

@@ -1,0 +1,30 @@
+id: organ-discord
+tier: 2
+domain: social
+status: PLANNED
+description: "Discord passive capture organ — allowed channel ingestion from the operator's own Discord web session"
+framework: hexagonal-organ
+
+inputs:
+  - source: discord_web_passive_capture
+    data: allowed_channel_message_responses
+
+outputs:
+  - path: ~/.cynic/organs/discord/messages.db
+    format: sqlite
+  - path: http://127.0.0.1:8891
+    format: local_http_ui
+  - path: kernel /observe (domain=discord)
+    format: REST POST
+
+crons:
+  - discord-pipeline.timer
+  - organ-discord-cron.timer
+
+scripts:
+  - name: dispatch.py
+    description: Hermes task dispatch for Discord surface drift
+  - name: passive_proxy.py
+    description: mitmproxy addon for passive Discord web capture
+  - name: pipeline.py
+    description: Signal extraction from stored Discord messages

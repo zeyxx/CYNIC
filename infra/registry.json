@@ -2,27 +2,27 @@
   "version": "1.1.0",
   "nodes": [
     {
-      "name": "cynic-forge",
+      "name": "cynic-host-proxmox",
       "role": "proxmox_host_kernel",
       "os": "Proxmox VE 8.2",
       "network": {
         "local": "192.168.0.37",
-        "tailscale": "<TAILSCALE_FORGE>"
+        "tailscale": "<TAILSCALE_HOST_PROXMOX>"
       },
       "vms": [
         {
           "id": "lxc/100",
-          "name": "headscale",
+          "name": "cynic-lxc-vpn",
           "ip": "192.168.0.40"
         },
         {
           "id": "lxc/101",
-          "name": "forgejo",
+          "name": "cynic-lxc-git",
           "ip": "192.168.0.41"
         },
         {
           "id": "qemu/102",
-          "name": "cynic-node-forge",
+          "name": "cynic-vm-anvil",
           "ip": "192.168.0.42"
         }
       ],
@@ -41,7 +41,7 @@
       "status": "active"
     },
     {
-      "name": "cynic-gpu",
+      "name": "cynic-host-gpu",
       "role": "inference_node",
       "network": {
         "local": "192.168.0.67",
@@ -50,7 +50,7 @@
       "status": "active"
     },
     {
-      "name": "ubuntu",
+      "name": "cynic-host-cortex",
       "role": "cortex_host",
       "network": {
         "local": "192.168.0.12",
@@ -69,7 +69,7 @@
       "instance": "organ-forge-hermes-agent",
       "role": "repo_lifecycle_manager",
       "description": "Git repo hygiene, branch health, claim hygiene, and lifecycle triage.",
-      "scope": "github+forgejo",
+      "scope": "github+cynic-lxc-git",
       "cron": "every 30min",
       "status": "active",
       "depends_on": [
@@ -124,6 +124,19 @@
       "scope": "x+curation+alerts",
       "cron": "every 30min",
       "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-discord",
+      "instance": "organ-discord-hermes-agent",
+      "role": "discord_surface_manager",
+      "description": "Discord passive capture and community opportunity manager for bounties, grants, and Solana infrastructure signals.",
+      "scope": "discord+community+superteam",
+      "cron": "every 30min",
+      "status": "planned",
       "depends_on": [
         "cynic-kernel"
       ],

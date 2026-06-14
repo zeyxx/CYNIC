@@ -812,7 +812,7 @@ systemctl --user reset-failed hermes-proxy.service
 systemctl --user start hermes-proxy.service
 
 # 3. Restart llama-server on core to free the stuck slot
-# (SSH to cynic-core or local if on core)
+# (SSH to cynic-host-proxmox or local if on core)
 systemctl --user restart llama-server
 
 # 4. Verify embedding flag

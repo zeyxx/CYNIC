@@ -92,10 +92,10 @@ async fn handle_deploy(
             ("host", "python3 /root/CYNIC/organs/organ-freebox/organism_freebox.py".to_string())
         },
         "restart_vpn" => {
-            ("100", "systemctl restart headscale".to_string())
+            ("100", "systemctl restart cynic-lxc-vpn".to_string())
         },
         "update_forgejo" => {
-            ("101", "apt-get update && apt-get install -y forgejo".to_string()) // Exemple
+            ("101", "apt-get update && apt-get install -y cynic-lxc-git".to_string()) // Exemple
         },
         _ => {
             error!("❌ Action inconnue ou non autorisée: {}", payload.action);

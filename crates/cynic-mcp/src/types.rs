@@ -239,6 +239,14 @@ pub struct UpdateAgentTaskResultParams {
 
 // ── Tests ────────────────────────────────────────────────────
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ProxmoxActionParams {
+    pub node: String,
+    pub target_type: String, // "qemu" or "lxc"
+    pub vmid: u64,
+    pub action: String, // "start", "stop", "reboot", "suspend", "resume"
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

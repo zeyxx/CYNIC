@@ -169,9 +169,9 @@ mod tests {
     use super::*;
 
     const MOCK_STATUS: &str = r#"{
-        "Self": {"HostName": "cynic-core"},
+        "Self": {"HostName": "cynic-host-proxmox"},
         "Peer": {
-            "abc": {"HostName": "cynic-gpu", "Online": true, "SSH": true, "OS": "windows"},
+            "abc": {"HostName": "cynic-host-gpu", "Online": true, "SSH": true, "OS": "windows"},
             "def": {"HostName": "kairos", "Online": false, "SSH": true, "OS": "linux"},
             "ghi": {"HostName": "funnel-ingress-node", "Online": true}
         }
@@ -180,7 +180,7 @@ mod tests {
     #[test]
     fn parse_filters_funnel_ingress() {
         let metrics =
-            TailscaleReader::parse_status(MOCK_STATUS, &["cynic-gpu".into(), "kairos".into()])
+            TailscaleReader::parse_status(MOCK_STATUS, &["cynic-host-gpu".into(), "kairos".into()])
                 .unwrap();
         assert!(metrics.iter().all(|m| !m.key.contains("funnel")));
     }
@@ -188,11 +188,11 @@ mod tests {
     #[test]
     fn parse_counts_online_nodes() {
         let metrics =
-            TailscaleReader::parse_status(MOCK_STATUS, &["cynic-gpu".into(), "kairos".into()])
+            TailscaleReader::parse_status(MOCK_STATUS, &["cynic-host-gpu".into(), "kairos".into()])
                 .unwrap();
         let online = metrics.iter().find(|m| m.key == "nodes_online").unwrap();
         match &online.value {
-            MetricValue::I64(v) => assert_eq!(*v, 1), // only cynic-gpu is online
+            MetricValue::I64(v) => assert_eq!(*v, 1), // only cynic-host-gpu is online
             other => panic!("expected I64, got {other:?}"),
         }
     }
@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn parse_per_node_status() {
         let metrics =
-            TailscaleReader::parse_status(MOCK_STATUS, &["cynic-gpu".into(), "kairos".into()])
+            TailscaleReader::parse_status(MOCK_STATUS, &["cynic-host-gpu".into(), "kairos".into()])
                 .unwrap();
         let gpu = metrics
             .iter()
@@ -231,7 +231,7 @@ mod tests {
         let metrics = TailscaleReader::parse_status(MOCK_STATUS, &[]).unwrap();
         let total = metrics.iter().find(|m| m.key == "nodes_total").unwrap();
         match &total.value {
-            MetricValue::I64(v) => assert_eq!(*v, 2), // cynic-gpu + kairos (no funnel)
+            MetricValue::I64(v) => assert_eq!(*v, 2), // cynic-host-gpu + kairos (no funnel)
             other => panic!("expected I64, got {other:?}"),
         }
     }

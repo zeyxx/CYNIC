@@ -183,7 +183,7 @@ Instruction pairs: (stimulus, axiom_scores, verdict_kind)
     ▼
 LoRA fine-tune (batch, weekly or on N new crystals)
     │
-    ├── Base model: Qwen 2.5 7B (sovereign, on cynic-core)
+    ├── Base model: Qwen 2.5 7B (sovereign, on cynic-host-proxmox)
     ├── Tool: unsloth
     ├── Validation: held-out crystal set (20% split)
     │
@@ -277,7 +277,7 @@ Distillation::evaluate(candidate, held_out) -> PromotionDecision {
 **Observable:** A LoRA-tuned Dog passes shadow evaluation and is promoted to production.
 
 1. Build training data curator (crystals → instruction pairs)
-2. Integrate unsloth for LoRA fine-tune on cynic-gpu
+2. Integrate unsloth for LoRA fine-tune on cynic-host-gpu
 3. Build shadow evaluation framework
 4. First training run on chess domain (most data, clearest signal)
 5. If chess-Dog passes: extend to token-analysis domain

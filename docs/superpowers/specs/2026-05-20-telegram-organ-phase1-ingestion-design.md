@@ -99,7 +99,7 @@ Hermes-X currently uses JSONL (`dataset.jsonl`) for its operational stream. This
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                      cynic-core                          │
+│                      cynic-host-proxmox                          │
 │                                                          │
 │   telegram-listener (Python, systemd)                    │
 │   ├── Telethon v1 (MTProto, session locale)              │

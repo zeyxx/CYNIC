@@ -12,13 +12,13 @@ Run ID: `gemma-4-e4b-20260427_063127` (latest)
 - Mean latency: 7,184.1 ms
 - Success rate: 8/8 (100%)
 - Consistency: 35.09%
-- Hardware: cynic-core (APU + Vulkan)
+- Hardware: cynic-host-proxmox (APU + Vulkan)
 
 **Status:** Acceptable baseline. Consistency (variance) is moderate—indicates some latency jitter.
 
 ---
 
-## Phase 1: APU Models (cynic-core)
+## Phase 1: APU Models (cynic-host-proxmox)
 
 Target: Replace Gemma with a higher-engagement model that fits APU memory budget (≤9B).
 
@@ -28,7 +28,7 @@ Target: Replace Gemma with a higher-engagement model that fits APU memory budget
 
 **Setup:**
 ```bash
-# On cynic-core: download + quantize Qwen3.5-9B
+# On cynic-host-proxmox: download + quantize Qwen3.5-9B
 llama-cli -hf unsloth/Qwen3.5-9B-GGUF:Q4_K_M -c 4096
 ```
 
@@ -46,7 +46,7 @@ llama-cli -hf unsloth/Qwen3.5-9B-GGUF:Q4_K_M -c 4096
 
 ---
 
-## Phase 2: GPU Models (cynic-gpu, RTX 4060 Ti 16GB)
+## Phase 2: GPU Models (cynic-host-gpu, RTX 4060 Ti 16GB)
 
 Target: Test highest-engagement model from Twitter (Qwen3.6-27B).
 
@@ -56,7 +56,7 @@ Target: Test highest-engagement model from Twitter (Qwen3.6-27B).
 
 **Setup:**
 ```bash
-# On cynic-gpu (RTX 4060 Ti):
+# On cynic-host-gpu (RTX 4060 Ti):
 # Download + quantize Qwen3.6-27B
 llama-server -hf unsloth/Qwen3.6-27B-GGUF:Q4_K_M -c 4096 --gpu-layers 45
 ```

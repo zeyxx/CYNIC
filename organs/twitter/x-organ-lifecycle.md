@@ -18,7 +18,7 @@ A sovereign intelligence loop on crypto Twitter:
 **What**: Follow threads, profile authors, search for gaps in SKILL.md knowledge.
 **Output**: New data in dataset.jsonl (via proxy), curated observations, cynic_judge calls.
 **Value**: Discovers what passive capture misses — thread context, author credibility, emerging patterns.
-**Constraint**: Needs browser on cynic-core. Browsing discipline (human-like, rate limits).
+**Constraint**: Needs browser on cynic-host-proxmox. Browsing discipline (human-like, rate limits).
 
 ### Mode 2: Analyst (local dataset analysis)
 **When**: No browser needed. Can run anytime.
@@ -78,12 +78,12 @@ Total: ~25-40 turns. Not 79.
 
 | Component | Where | Status | Impact if down |
 |---|---|---|---|
-| llama-server (27B) | cynic-gpu:8080 | TurboQuant turbo3, 131K ctx | Agent can't reason → session dead |
-| CYNIC kernel | cynic-core:3030 | v0.7.7-275 | No MCP → degraded mode (local only) |
-| Browser (Chrome CDP) | cynic-core:40769 | Via hermes-browser.service | No browsing → analyst mode only |
-| Proxy (mitmproxy) | cynic-core:8888 | Via hermes-proxy.service | No passive capture → stale dataset |
-| SurrealDB | cynic-core:8000 | Active | No persistence → observations lost |
-| Embedding | cynic-core:8081 | Qwen3-Embed 0.6B | No crystal KNN → degraded crystal search |
+| llama-server (27B) | cynic-host-gpu:8080 | TurboQuant turbo3, 131K ctx | Agent can't reason → session dead |
+| CYNIC kernel | cynic-host-proxmox:3030 | v0.7.7-275 | No MCP → degraded mode (local only) |
+| Browser (Chrome CDP) | cynic-host-proxmox:40769 | Via hermes-browser.service | No browsing → analyst mode only |
+| Proxy (mitmproxy) | cynic-host-proxmox:8888 | Via hermes-proxy.service | No passive capture → stale dataset |
+| SurrealDB | cynic-host-proxmox:8000 | Active | No persistence → observations lost |
+| Embedding | cynic-host-proxmox:8081 | Qwen3-Embed 0.6B | No crystal KNN → degraded crystal search |
 
 ## Metrics to Track (per session)
 

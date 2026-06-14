@@ -1224,19 +1224,64 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let rest_listener = tokio::net::TcpListener::bind(&rest_addr).await?;
 
+    // Set up Unix Domain Socket listener
+    let uds_path = "/tmp/cynic-kernel.sock";
+    let _ = std::fs::remove_file(uds_path); // Cleanup stale socket
+    let uds_listener = tokio::net::UnixListener::bind(uds_path)?;
+    // Secure the UDS: only the owner can read/write (0600)
+    let _ = std::fs::set_permissions(
+        uds_path,
+        std::os::unix::fs::PermissionsExt::from_mode(0o600),
+    );
+
     // Signal handler — fires the shutdown token
     infra::tasks::spawn_signal_handler(shutdown.clone());
 
     klog!("╔══════════════════════════════════════╗");
     klog!("║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
-    klog!("║   REST: http://{}", rest_addr);
+    klog!("║   REST/WS: http://{} / ws://{}", rest_addr, rest_addr);
+    klog!("║   UDS:     unix://{}    ║", uds_path);
     klog!("║   Max confidence: phi^-1 = 0.618     ║");
     klog!("╚══════════════════════════════════════╝");
 
-    // axum with graceful shutdown — stops accepting connections on token cancel,
-    // drains in-flight requests (bounded by tower TimeoutLayer at 120s)
+    // Spawn UDS server loop
+    {
+        let mut make_service = rest_app.clone().into_make_service();
+        let shutdown_uds = shutdown.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = shutdown_uds.cancelled() => {
+                        klog!("[SHUTDOWN] UDS server drained");
+                        break;
+                    }
+                    accept_result = uds_listener.accept() => {
+                        if let Ok((socket, _addr)) = accept_result {
+                            let io = hyper_util::rt::TokioIo::new(socket);
+                            // Unpack the tower service
+                            let Ok(tower_service) = tower::Service::call(&mut make_service, ()).await;
+                            let svc = hyper::service::service_fn(move |req| {
+                                let mut svc = tower_service.clone();
+                                async move { tower::Service::call(&mut svc, req).await }
+                            });
+                            tokio::spawn(async move {
+                                if let Err(e) = hyper::server::conn::http1::Builder::new()
+                                    .serve_connection(io, svc)
+                                    .with_upgrades() // CRITICAL: Enables WebSocket over UDS!
+                                    .await
+                                {
+                                    tracing::debug!("UDS Connection error: {}", e);
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // axum with graceful shutdown for TCP (Tailscale remote organs)
     // F2: into_make_service_with_connect_info injects ConnectInfo<SocketAddr>
-    // into every request's extensions — rate limiter reads real peer addr, not X-Forwarded-For.
     if let Err(e) = axum::serve(
         rest_listener,
         rest_app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
@@ -1244,7 +1289,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .with_graceful_shutdown(shutdown.clone().cancelled_owned())
     .await
     {
-        tracing::error!(error = %e, "REST server fatal error");
+        tracing::error!(error = %e, "REST/TCP server fatal error");
     }
 
     klog!("[SHUTDOWN] REST server drained — flushing state");

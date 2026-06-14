@@ -17,7 +17,7 @@
 **Général :**
 - Pas de workflow PR → review → merge documenté
 - Repos CultScreener, B&C, CYNIC sans CI
-- Secrets/credentials gérés informellement (bloqueur SSH cynic-forge cette session)
+- Secrets/credentials gérés informellement (bloqueur SSH cynic-host-proxmox cette session)
 
 ---
 
@@ -39,7 +39,7 @@ jobs:
 ```
 → Chaque PR validée automatiquement avant merge. Plus de gate manuel.
 
-### P2 — Vaultwarden sur cynic-forge (½ journée)
+### P2 — Vaultwarden sur cynic-host-proxmox (½ journée)
 Centralise tous les credentials. Bloque : SSH, API keys, wallets backup.
 Voir [[project-credential-manager]].
 

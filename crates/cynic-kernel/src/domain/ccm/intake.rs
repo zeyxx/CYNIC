@@ -860,8 +860,8 @@ mod tests {
 
     #[test]
     fn infer_domain_infra_targets() {
-        assert_eq!(infer_domain(Some("cynic-core"), None), "infra");
-        assert_eq!(infer_domain(Some("cynic-gpu"), None), "infra");
+        assert_eq!(infer_domain(Some("cynic-host-proxmox"), None), "infra");
+        assert_eq!(infer_domain(Some("cynic-host-gpu"), None), "infra");
         assert_eq!(infer_domain(Some("llama-server"), None), "infra");
         assert_eq!(infer_domain(Some("surrealdb"), None), "infra");
     }

@@ -27,9 +27,9 @@ Git: main@a67bfd73, 3 dirty files (cymbal_findings.py, config.toml, .env)
 Llama: running (pool=3 models, qwen-9b active)
 
 Memory Sync:
-  ✓ Updated: project_infrastructure.md (llama pool size, cynic-gpu temps)
+  ✓ Updated: project_infrastructure.md (llama pool size, cynic-host-gpu temps)
   ✗ STALE: project_ccm_kill_chain.md (references 278/1934, now 312/2104)
-  ✗ MISSING: session context (LSTM training on cynic-core, ETA 21:00 check)
+  ✗ MISSING: session context (LSTM training on cynic-host-proxmox, ETA 21:00 check)
   
 Next: commit these updates to .cortex/projects/-home-user-Bureau-CYNIC/memory/
 ```

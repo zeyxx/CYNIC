@@ -350,7 +350,6 @@ pub async fn inference_start_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<DogOperationRequest>,
 ) -> Result<Json<DogOperationResponse>, (StatusCode, Json<ErrorResponse>)> {
-    // Map dog name to node name (e.g., "qwen25-7b-core" → "cynic-core")
     let node = dog_to_node(&req.dog);
 
     // Execute: systemctl start llama-server
@@ -387,16 +386,33 @@ pub async fn inference_remediate_handler(
     }))
 }
 
-/// Map dog name to Tailscale node name.
-/// E.g., "qwen25-7b-core" → "cynic-core", "qwen35-9b-gpu" → "cynic-gpu"
+static BACKEND_CONFIGS: std::sync::OnceLock<Vec<crate::infra::config::BackendConfig>> =
+    std::sync::OnceLock::new();
+
+/// Returns the node assigned to a Dog.
+/// Dynamically queries the fleet configuration rather than hardcoding names.
 pub(crate) fn dog_to_node(dog: &str) -> String {
-    if dog.contains("gpu") {
-        "cynic-gpu".to_string()
-    } else if dog.contains("core") || dog.contains("9b-core") {
-        "cynic-core".to_string()
+    let configs = BACKEND_CONFIGS.get_or_init(|| {
+        let path = std::path::PathBuf::from(
+            std::env::var("CYNIC_PROJECT_ROOT").unwrap_or_else(|_| ".".to_string()),
+        )
+        .join("backends.toml");
+        crate::infra::config::load_backends(&path)
+    });
+
+    for config in configs {
+        if config.name == dog {
+            if let Some(node) = &config.fleet_node {
+                return node.clone();
+            }
+        }
+    }
+
+    // Fallback if not found in backends.toml
+    if dog.contains("qwen-72b") || dog.contains("nemotron") {
+        "cynic-host-gpu".to_string()
     } else {
-        // Fallback: return the dog name as-is for unknown dogs
-        dog.to_string()
+        "cynic-vm-anvil".to_string()
     }
 }
 

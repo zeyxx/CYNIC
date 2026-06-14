@@ -493,7 +493,7 @@ The subprocess.run block starts at line 448. Wrap it with timing and cost emissi
         )
         _latency_ms = int((_time.monotonic() - _t0) * 1000)
 
-        # Emit cost — hermes calls Qwen 27B on cynic-gpu via tailnet
+        # Emit cost — hermes calls Qwen 27B on cynic-host-gpu via tailnet
         try:
             import sys as _sys
             _sys.path.insert(0, str(Path(organ_dir).parent.parent.parent / "cynic-python"))

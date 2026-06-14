@@ -329,14 +329,19 @@ pub async fn health_handler(
     )
 }
 
-/// GET /agents — show active agent sessions and their claims (requires auth)
+/// GET /agents — show active agent sessions, their claims, and connected websocket nodes
 pub async fn agents_handler(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     match state.coord.who(None).await {
-        Ok(snapshot) => Ok(Json(
-            serde_json::to_value(snapshot.into_summary()).unwrap_or_default(),
-        )),
+        Ok(snapshot) => {
+            let mut val = serde_json::to_value(snapshot.into_summary()).unwrap_or_default();
+            let nodes = state.node_registry.list_active().await;
+            if let Some(obj) = val.as_object_mut() {
+                obj.insert("websocket_nodes".to_string(), serde_json::json!(nodes));
+            }
+            Ok(Json(val))
+        }
         Err(e) => {
             tracing::warn!(error = %e, "agents query failed");
             Err(coordination_error())
