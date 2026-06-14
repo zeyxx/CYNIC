@@ -181,6 +181,19 @@
         "cynic-kernel"
       ],
       "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-gasdf",
+      "instance": "organ-gasdf-systemd",
+      "role": "gas_delegation_surface_manager",
+      "description": "Stateless Node.js infrastructure proxy for the GASdf Percolator Model. Signs transactions as fee payer and routes to the Pinocchio smart contract.",
+      "scope": "solana+gasless_tx",
+      "cron": "daemon",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "none"
     }
   ]
 }

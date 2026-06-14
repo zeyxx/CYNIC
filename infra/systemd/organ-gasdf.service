@@ -1,0 +1,17 @@
+[Unit]
+Description=CYNIC Organ — GASdf Percolator Node
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.cynic-env
+Environment=NODE_ENV=production
+WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/GASdf
+ExecStart=/usr/bin/env node src/index.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+MemoryMax=512M
+
+[Install]
+WantedBy=default.target
