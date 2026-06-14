@@ -195,5 +195,5 @@ ls -la /tmp/organism_health_trigger.txt
 
 - [ ] Grafana dashboard integration (push state to metrics)
 - [ ] Slack alerts on critical drift
-- [ ] Org-level dashboards (all organs: hermes-x, cynic-core, cynic-gpu)
+- [ ] Org-level dashboards (all organs: hermes-x, cynic-host-proxmox, cynic-host-gpu)
 - [ ] Predictive alerts (e.g., "memory trending up 5MB/h")

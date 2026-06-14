@@ -51,7 +51,7 @@ The Constitution says: "The FOGC test can only exist because the philosophy defi
 
 **How it changes building**:
 
-- **Inference**: Dogs run on owned silicon (cynic-core APU, cynic-gpu RTX 4060 Ti). Cloud APIs (HF, Antigravity) are supplements, not dependencies. If every cloud API goes down, the organism still judges via Deterministic Dog + local Qwen.
+- **Inference**: Dogs run on owned silicon (cynic-host-proxmox APU, cynic-host-gpu RTX 4060 Ti). Cloud APIs (HF, Antigravity) are supplements, not dependencies. If every cloud API goes down, the organism still judges via Deterministic Dog + local Qwen.
 
 - **Dependencies**: Every external crate is sovereignty debt. Necromancy rule: before adding a dependency, check if abandoned code already does it (`git log --all --full-history`). When you do depend, pin versions (P3), audit supply chain (`cargo audit`), and know the exit path.
 

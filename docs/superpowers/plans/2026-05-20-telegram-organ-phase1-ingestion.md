@@ -1335,12 +1335,12 @@ git commit -m "feat(telegram): MANIFEST + systemd service definition"
 
 ### Task 6: First Run Verification
 
-Manual task — requires interactive Telegram auth. Run on cynic-core.
+Manual task — requires interactive Telegram auth. Run on cynic-host-proxmox.
 
 - [ ] **Step 1: Add Telegram credentials to env**
 
 ```bash
-# Add to ~/.config/cynic/env (on cynic-core):
+# Add to ~/.config/cynic/env (on cynic-host-proxmox):
 # TELEGRAM_API_ID=<from https://my.telegram.org>
 # TELEGRAM_API_HASH=<from https://my.telegram.org>
 ```

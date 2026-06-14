@@ -23,7 +23,7 @@ graph TD
         Hermes[hermes-agent-executor <br> Chat & Skills]
         OrganX[organ-x <br> Social Sensor]
         OrganFin[organ-finance / polymarket <br> Nouveau]
-        GPU[cynic-gpu / llama-server <br> Nœud Inférence]
+        GPU[cynic-host-gpu / llama-server <br> Nœud Inférence]
         SDB[SurrealDB / Memory <br> Persistence]
     end
 
@@ -97,7 +97,7 @@ L'efficience computationnelle de CYNIC sur ses propres nœuds de calcul locaux.
 | Dépôts Clés | Connaissances à Extraire | Organe Cible CYNIC | Utilité Stratégique |
 | :--- | :--- | :--- | :--- |
 | `rtk-ai/rtk` | Proxy CLI écrit en Rust réduisant la consommation de tokens de 60-90% via du cache local intelligent. | [cynic-kernel](file:///home/user/Bureau/CYNIC/cynic-kernel) / [llama-server](file:///home/user/Bureau/CYNIC/infra/systemd/llama-server.service) | Réduit drastiquement le coût en tokens et la latence lors des appels redondants sur les fichiers de code. |
-| `LMCache/LMCache` | Partage et cache ultra-rapide des clés-valeurs (KV Cache) entre instances LLM. | [cynic-gpu](file:///home/user/Bureau/CYNIC/infra/registry.json#L44-L51) | Permet à nos Dogs (comme Qwen et Llama) d'inférer instantanément sur des contextes de fichiers déjà analysés. |
+| `LMCache/LMCache` | Partage et cache ultra-rapide des clés-valeurs (KV Cache) entre instances LLM. | [cynic-host-gpu](file:///home/user/Bureau/CYNIC/infra/registry.json#L44-L51) | Permet à nos Dogs (comme Qwen et Llama) d'inférer instantanément sur des contextes de fichiers déjà analysés. |
 | `alibaba/zvec` | Base de données de vecteurs ultra-légère et in-process en C++. | [surrealdb schema](file:///home/user/Bureau/CYNIC/infra/surrealdb/schema.surql) / [llama-embed](file:///home/user/Bureau/CYNIC/infra/systemd/llama-embed.service) | Permet de réaliser des recherches RAG ultra-rapides au niveau local du client sans base de données lourde dédiée. |
 
 ---

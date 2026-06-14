@@ -1,0 +1,17 @@
+[Unit]
+Description=CYNIC Discord pipeline — stored messages to kernel observations
+After=cynic-kernel.service discord-passive-proxy.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+EnvironmentFile=-%h/.config/cynic/env
+EnvironmentFile=-%h/.cynic/organs/discord/env
+ExecStart=/usr/bin/python3 -m organs.discord.src.pipeline --limit 200
+MemoryMax=256M
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

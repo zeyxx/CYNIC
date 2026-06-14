@@ -77,14 +77,14 @@ Expected output:
 {
   "nodes": [
     {
-      "node": "cynic-gpu",
+      "node": "cynic-host-gpu",
       "avg_latency_ms": 150,
       "success_rate": 1.0,
       "last_seen_secs": 5,
       "quality": "excellent"
     },
     {
-      "node": "cynic-gpu",
+      "node": "cynic-host-gpu",
       "avg_latency_ms": 0,
       "success_rate": 0.0,
       "last_seen_secs": 35,
@@ -101,9 +101,9 @@ Edit `scripts/probe-fleet-introspect.sh` to change:
 ```bash
 # Critical services to probe (add more as needed)
 declare -a SERVICES=(
-    "cynic-gpu:llama-server:8080"   # node:service:port
-    "cynic-gpu:hermes:3000"
-    "cynic-core:cynic-kernel:3030"
+    "cynic-host-gpu:llama-server:8080"   # node:service:port
+    "cynic-host-gpu:hermes:3000"
+    "cynic-host-proxmox:cynic-kernel:3030"
 )
 ```
 
@@ -170,7 +170,7 @@ systemctl start tailscale-fleet-probe.service  # manual trigger
    ```bash
    curl -X POST http://localhost:3030/event \
      -H "Content-Type: application/json" \
-     -d '{"tool":"test","node":"cynic-gpu","elapsed_ms":1,"output_bytes":0,"success":true}'
+     -d '{"tool":"test","node":"cynic-host-gpu","elapsed_ms":1,"output_bytes":0,"success":true}'
    ```
 
 4. Check DB connectivity:

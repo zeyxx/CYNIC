@@ -379,9 +379,9 @@ def execute_task(task: dict) -> tuple[str | None, str | None]:
     # Domain-specific probes for hermes-x tasks
     if domain.startswith("D") or domain == "hermes-x":
         # Probe mitmproxy/ingest daemon/browser
-        probe_service("cynic-core", "hermes-x-ingest")
-        probe_service("cynic-core", "mitmproxy")
-        probe_service("cynic-core", "hermes-browser")
+        probe_service("cynic-host-proxmox", "hermes-x-ingest")
+        probe_service("cynic-host-proxmox", "mitmproxy")
+        probe_service("cynic-host-proxmox", "hermes-browser")
 
     # Phase 1b: acknowledge and describe what Phase 2 will do
     result = json.dumps({

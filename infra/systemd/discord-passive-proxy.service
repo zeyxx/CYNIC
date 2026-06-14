@@ -1,0 +1,27 @@
+[Unit]
+Description=CYNIC Discord Passive Capture Proxy
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+ExecStart=%h/.cynic-venvs/hermes-x/bin/mitmdump \
+    -s %h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/discord/src/passive_proxy.py \
+    --listen-host 127.0.0.1 -p 8890 \
+    --set stream_large_bodies=2m \
+    --set ssl_insecure=true \
+    --set allow_hosts="(?:.*\\.)?discord\\.com" \
+    -q
+Restart=on-failure
+RestartSec=30
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+EnvironmentFile=-%h/.config/cynic/env
+EnvironmentFile=-%h/.cynic/organs/discord/env
+MemoryMax=512M
+
+[Install]
+WantedBy=default.target

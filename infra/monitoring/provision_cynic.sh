@@ -1,6 +1,6 @@
 #!/bin/bash
 # provision_cynic.sh
-# À exécuter en tant que root sur cynic-forge
+# À exécuter en tant que root sur cynic-host-proxmox
 
 if [[ $EUID -ne 0 ]]; then
    echo "Ce script doit être exécuté en tant que root"

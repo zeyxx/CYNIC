@@ -14,7 +14,7 @@ Phase 2.0 data is insufficient for threshold calibration.
 | Failed judgments (enriched_verdict_id=null) | 28 | LLM Dogs circuit=critical during measurement |
 
 The 28 failed judgments represent a kernel degradation event, not token signal.
-Infrastructure was repaired 2026-06-01/02 (headscale + llama-server).
+Infrastructure was repaired 2026-06-01/02 (cynic-lxc-vpn + llama-server).
 
 ### Outcome Distribution
 

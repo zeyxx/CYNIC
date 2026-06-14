@@ -30,7 +30,7 @@ def analyze_for_hardware(rankings_file: str = "observations/x_model_rankings.jso
     print("MODEL RECOMMENDATIONS FOR /JUDGE INFERENCE")
     print("="*80)
 
-    print("\n## APU (cynic-core: limited memory, Vulkan/CPU)")
+    print("\n## APU (cynic-host-proxmox: limited memory, Vulkan/CPU)")
     print("### Constraint: ≤9B params, CPU/APU-optimized")
     print()
 
@@ -46,7 +46,7 @@ def analyze_for_hardware(rankings_file: str = "observations/x_model_rankings.jso
             print(f"   - RAM requirement: {model['vram_gb']} GB")
         print()
 
-    print("\n## GPU (cynic-gpu: RTX 4060 Ti 16GB VRAM)")
+    print("\n## GPU (cynic-host-gpu: RTX 4060 Ti 16GB VRAM)")
     print("### Constraint: ≤27B params, CUDA/vLLM/ExLlama-optimized")
     print()
 

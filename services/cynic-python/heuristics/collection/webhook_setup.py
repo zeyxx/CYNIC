@@ -42,7 +42,7 @@ def _load_env() -> None:
 _load_env()
 
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
-WEBHOOK_URL = os.getenv("HELIUS_WEBHOOK_URL")  # e.g. https://cynic-core.tail1234.ts.net:3031/webhook/helius
+WEBHOOK_URL = os.getenv("HELIUS_WEBHOOK_URL")  # e.g. https://cynic-host-proxmox.tail1234.ts.net:3031/webhook/helius
 
 if not HELIUS_API_KEY:
     print("ERROR: HELIUS_API_KEY not set")

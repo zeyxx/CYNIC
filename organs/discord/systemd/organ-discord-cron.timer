@@ -1,0 +1,11 @@
+[Unit]
+Description=CYNIC Organ Discord Cron - every 30 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=30min
+Persistent=true
+Unit=organ-discord-cron.service
+
+[Install]
+WantedBy=timers.target

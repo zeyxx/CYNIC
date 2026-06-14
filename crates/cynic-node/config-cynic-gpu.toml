@@ -1,5 +1,5 @@
-# cynic-node config — cynic-gpu (RTX 4060 Ti, Windows)
-# Deployed to C:\cynic-node\config.toml on cynic-gpu
+# cynic-node config — cynic-host-gpu (RTX 4060 Ti, Windows)
+# Deployed to C:\cynic-node\config.toml on cynic-host-gpu
 
 [kernel]
 url = "http://100.64.0.1:3030"

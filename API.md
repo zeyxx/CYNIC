@@ -778,7 +778,7 @@ Queries actual llama-server on each node, detects model mismatches, and emits K1
   "models": [
     {
       "dog": "qwen35-9b-gpu",
-      "node": "cynic-gpu",
+      "node": "cynic-host-gpu",
       "expected_model": "Qwen3.5-9B-Q4_K_M.gguf",
       "actual_model": "Qwen3.5-9B-Q4_K_M.gguf",
       "mismatch": false,

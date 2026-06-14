@@ -350,7 +350,7 @@ pub async fn inference_start_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<DogOperationRequest>,
 ) -> Result<Json<DogOperationResponse>, (StatusCode, Json<ErrorResponse>)> {
-    // Map dog name to node name (e.g., "qwen25-7b-core" → "cynic-core")
+    // Map dog name to node name (e.g., "qwen25-7b-core" → "cynic-host-proxmox")
     let node = dog_to_node(&req.dog);
 
     // Execute: systemctl start llama-server
@@ -388,12 +388,12 @@ pub async fn inference_remediate_handler(
 }
 
 /// Map dog name to Tailscale node name.
-/// E.g., "qwen25-7b-core" → "cynic-core", "qwen35-9b-gpu" → "cynic-gpu"
+/// E.g., "qwen25-7b-core" → "cynic-host-proxmox", "qwen35-9b-gpu" → "cynic-host-gpu"
 pub(crate) fn dog_to_node(dog: &str) -> String {
     if dog.contains("gpu") {
-        "cynic-gpu".to_string()
+        "cynic-host-gpu".to_string()
     } else if dog.contains("core") || dog.contains("9b-core") {
-        "cynic-core".to_string()
+        "cynic-host-proxmox".to_string()
     } else {
         // Fallback: return the dog name as-is for unknown dogs
         dog.to_string()

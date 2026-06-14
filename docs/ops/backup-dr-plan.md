@@ -157,7 +157,7 @@ curl -s -H "Authorization: Bearer $CYNIC_API_KEY" \
 - Store oldest backup offsite (USB drive, encrypted S3, etc.)
 - Rotation: keep 3 monthly + 7 daily
 
-### Replication to backup node (cynic-gpu)
+### Replication to backup node (cynic-host-gpu)
 - Real-time replication via SurrealDB triggers
 - Reduces RTO from 1h to 5min
 - Requires network stability between nodes

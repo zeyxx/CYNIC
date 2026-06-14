@@ -354,9 +354,9 @@ domain_exclusions = []         # Empty = try all, pre-call check gates
 
 | Resource | Available | Used | **Idle** |
 |----------|-----------|------|----------|
-| RAM cynic-core | 27 GB | 12 GB (Gemma 2.3GB + Embed 1.1GB + OS) | **14 GB free** |
+| RAM cynic-host-proxmox | 27 GB | 12 GB (Gemma 2.3GB + Embed 1.1GB + OS) | **14 GB free** |
 | Vulkan iGPU | 100% | **5% busy** | **95% idle** |
-| RTX 4060 Ti (cynic-gpu) | 16 GB VRAM | Qwen 3.5 9B loaded | **99%+ idle** |
+| RTX 4060 Ti (cynic-host-gpu) | 16 GB VRAM | Qwen 3.5 9B loaded | **99%+ idle** |
 | Embedding model (port 8081) | 4 parallel slots, 8K ctx | ~10-50 calls/day | **99.9% idle** |
 
 ### Inference Producers — Who Consumes the Machines?
@@ -390,8 +390,8 @@ Also on disk unused: Prometheus-2 7B (4.1GB), Qwen3-4B, Phi-4-mini, Mistral-7B.
 
 | Criterion | llama.cpp | vLLM | SGLang |
 |-----------|-----------|------|--------|
-| Runs on cynic-core (Vulkan)? | **YES** | No | No |
-| Runs on cynic-gpu (Windows)? | **YES** | No (Linux) | No (Linux) |
+| Runs on cynic-host-proxmox (Vulkan)? | **YES** | No | No |
+| Runs on cynic-host-gpu (Windows)? | **YES** | No (Linux) | No (Linux) |
 | Prefix caching (RadixAttention)? | No | Yes | **6.4x** |
 | JSON constrained generation? | Yes | Yes | Yes (compressed FSM) |
 | Deploy complexity | Minimal | Medium | Medium |
@@ -478,7 +478,7 @@ Also on disk unused: Prometheus-2 7B (4.1GB), Qwen3-4B, Phi-4-mini, Mistral-7B.
 
 **Q4: Summarizer profile**
 
-- **Backend**: Gemma (port 8080 on cynic-core) via `SovereignSummarizer`
+- **Backend**: Gemma (port 8080 on cynic-host-proxmox) via `SovereignSummarizer`
 - **System prompt**: "You are a concise session summarizer. Output 2-3 sentences, no preamble." (72 chars / ~18 tok)
 - **Max tokens**: 512 completion
 - **Input**: Session content (variable, typically 500-2000 chars / ~125-500 tok)

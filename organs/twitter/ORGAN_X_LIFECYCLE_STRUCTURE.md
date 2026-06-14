@@ -176,7 +176,7 @@ TOKEN JUDGMENT FLOW
 ## Next Session — Priority Order
 
 **P0: Fix the pipeline**
-1. Boot kernel (cynic-core)
+1. Boot kernel (cynic-host-proxmox)
 2. Test ingest daemon (tail dataset.jsonl → /observe)
 3. Verify observation arrival in kernel
 4. Measure latency end-to-end

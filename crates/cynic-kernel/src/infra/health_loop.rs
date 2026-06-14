@@ -368,32 +368,37 @@ mod hysteresis_tests {
 
     #[test]
     fn first_offline_does_not_trigger() {
-        let mut fa = FleetAwareness::new(HashMap::from([("gpu-dog".into(), "cynic-gpu".into())]));
-        let to_mark = fa.tick(&["cynic-gpu".into()]);
+        let mut fa =
+            FleetAwareness::new(HashMap::from([("gpu-dog".into(), "cynic-host-gpu".into())]));
+        let to_mark = fa.tick(&["cynic-host-gpu".into()]);
         assert!(to_mark.is_empty(), "first tick should not mark anything");
     }
 
     #[test]
     fn sustained_offline_triggers_after_threshold() {
-        let mut fa = FleetAwareness::new(HashMap::from([("gpu-dog".into(), "cynic-gpu".into())]));
+        let mut fa =
+            FleetAwareness::new(HashMap::from([("gpu-dog".into(), "cynic-host-gpu".into())]));
         // First tick: record offline
-        fa.tick(&["cynic-gpu".into()]);
+        fa.tick(&["cynic-host-gpu".into()]);
         // Simulate time passing (>30s) by backdating the Instant
-        fa.node_offline_since
-            .insert("cynic-gpu".into(), Instant::now() - Duration::from_secs(31));
+        fa.node_offline_since.insert(
+            "cynic-host-gpu".into(),
+            Instant::now() - Duration::from_secs(31),
+        );
         // Second tick: should trigger
-        let to_mark = fa.tick(&["cynic-gpu".into()]);
+        let to_mark = fa.tick(&["cynic-host-gpu".into()]);
         assert_eq!(to_mark, vec!["gpu-dog"]);
     }
 
     #[test]
     fn node_comes_back_clears_state() {
-        let mut fa = FleetAwareness::new(HashMap::from([("gpu-dog".into(), "cynic-gpu".into())]));
-        fa.tick(&["cynic-gpu".into()]);
+        let mut fa =
+            FleetAwareness::new(HashMap::from([("gpu-dog".into(), "cynic-host-gpu".into())]));
+        fa.tick(&["cynic-host-gpu".into()]);
         // Node comes back
         fa.tick(&[]);
         assert!(
-            !fa.node_offline_since.contains_key("cynic-gpu"),
+            !fa.node_offline_since.contains_key("cynic-host-gpu"),
             "should clear offline state"
         );
     }
@@ -417,10 +422,12 @@ mod hysteresis_tests {
     #[test]
     fn empty_dog_map_never_marks() {
         let mut fa = FleetAwareness::new(HashMap::new());
-        fa.tick(&["cynic-gpu".into()]);
-        fa.node_offline_since
-            .insert("cynic-gpu".into(), Instant::now() - Duration::from_secs(31));
-        let to_mark = fa.tick(&["cynic-gpu".into()]);
+        fa.tick(&["cynic-host-gpu".into()]);
+        fa.node_offline_since.insert(
+            "cynic-host-gpu".into(),
+            Instant::now() - Duration::from_secs(31),
+        );
+        let to_mark = fa.tick(&["cynic-host-gpu".into()]);
         assert!(to_mark.is_empty());
     }
 }

@@ -59,3 +59,24 @@
 {"timestamp": "2026-06-11T22:13:06Z", "source": "perception", "payload": {"score": 0.7}}, "result": "success"}
 {"timestamp": "2026-06-11T22:45:48Z", "source": "perception", "payload": {"score": 0.7, "changed_files": 163, "dirty": "dirty", "branch": "feat/organ-jupyter-setup-2026-06-10"}}, "result": "success"}
 {"timestamp": "2026-06-11T23:17:47Z", "source": "perception", "payload": {"score": 0.7, "dirty": true, "changed_files": 163, "branches_local": 3, "branches_remote": 3, "alert": "dirty_tree_noted"}}, "result": "success"}
+{"timestamp": "2026-06-14T01:09:23Z", "source": "perception", "payload": {"score": 0, "dirty_files": 15, "branches": 6}}, "result": "success"}
+{"timestamp": "2026-06-14T01:14:20Z", "source": "perception", "payload": {"score": 0.55, "dirty_files": 19, "branches_local": 6, "branches_remote": 4, "stashes": 2, "worktrees": 0}}, "result": "success"}
+{"timestamp": "2026-06-14T01:46:30Z", "source": "perception", "payload": {"score": 0.55, "dirty": true, "branches_local": 6, "branches_remote": 4}}, "result": "success"}
+{"timestamp": "2026-06-14T02:17:53Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
+{"timestamp": "2026-06-14T02:50:14Z", "source": "perception", "payload": {"score": 0.55, "branches": 6, "dirty": true, "recommendation": "branch_cleanup"}}, "result": "success"}
+{"timestamp": "2026-06-14T03:22:11Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
+{"timestamp": "2026-06-14T03:53:30Z", "source": "perception", "payload": {"score": 0.55, "dirty": true, "changed_files": 20, "local_branches": 6, "remote_branches": 4}}, "result": "success"}
+{"timestamp": "2026-06-14T04:25:11Z", "source": "perception", "payload": {"score": 0.55, "branches": 6, "dirty": true, "recommendations": ["branch_cleanup", "review_dirty_changes"]}}, "result": "success"}
+{"timestamp": "2026-06-14T04:56:55Z", "source": "perception", "payload": {"score": 0.55, "dirty_files": 20, "branches": 6}}, "result": "success"}
+{"timestamp": "2026-06-14T05:28:53Z", "source": "perception", "payload": {"score": 0.55, "dirty_files": 20, "branches_local": 6}}, "result": "success"}
+{"timestamp": "2026-06-14T06:00:41Z", "source": "perception", "payload": {"score": 0.55, "dirty": true, "branches": 6}}, "result": "success"}
+{"timestamp": "2026-06-14T06:33:02Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
+{"timestamp": "2026-06-14T07:04:10Z", "source": "perception", "payload": {"health_score": 0.55, "branches_local": 6, "dirty": true, "changed_files": 20}}, "result": "success"}
+{"timestamp": "2026-06-14T07:35:32Z", "source": "perception", "payload": {"score": 0.55, "dirty_files": 20, "local_branches": 6, "recommendation": "cleanup_branches"}}, "result": "success"}
+{"timestamp": "2026-06-14T08:06:54Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
+{"timestamp": "2026-06-14T08:38:38Z", "source": "perception", "payload": {"score": 0.55, "dirty": true, "changed_files": 20, "local_branches": 6, "remote_branches": 4}}, "result": "success"}
+{"timestamp": "2026-06-14T09:10:30Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
+{"timestamp": "2026-06-14T09:43:15Z", "source": "perception", "payload": {"score": 0.55, "dirty": true, "local_branches": 6, "remote_branches": 4, "recommendations": ["branch_cleanup", "review_dirty_changes"]}}, "result": "success"}
+{"timestamp": "2026-06-14T10:14:55Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
+{"timestamp": "2026-06-14T10:47:05Z", "source": "perception", "payload": {"score": 0.55, "dirty_files": 15, "branches_local": 6, "alert": "dirty tree worsening (5→15), local branches > 5"}}, "result": "success"}
+{"timestamp": "2026-06-14T12:30:36Z", "source": "perception", "payload": {"score": 0.55, "dirty": true, "changed_files": 9, "branches": {"local": 6, "remote": 4}, "alert": "branch_count_exceeds_5", "dirty_tree": true}}, "result": "success"}

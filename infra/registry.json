@@ -69,7 +69,7 @@
       "instance": "organ-forge-hermes-agent",
       "role": "repo_lifecycle_manager",
       "description": "Git repo hygiene, branch health, claim hygiene, and lifecycle triage.",
-      "scope": "github+forgejo",
+      "scope": "github+cynic-lxc-git",
       "cron": "every 30min",
       "status": "active",
       "depends_on": [

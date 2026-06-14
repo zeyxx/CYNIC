@@ -18,9 +18,9 @@ managed_units=(
     "infra/systemd/hermes-proxy.service"
     "infra/systemd/hermes-x-ingest.service"
     "infra/systemd/discord-passive-proxy.service"
-    "infra/systemd/discord-browser.service"
     "infra/systemd/discord-pipeline.service"
     "infra/systemd/discord-pipeline.timer"
+    "infra/systemd/discord-opportunities-ui.service"
     "infra/systemd/hermes-curation.timer"
     "infra/systemd/hermes-data-organism.timer"
     "infra/systemd/hermes-feedback-loop.timer"
@@ -60,6 +60,6 @@ for rel in "${managed_units[@]}"; do
 done
 
 systemctl --user daemon-reload
-systemctl --user enable --now hermes-agent-executor.service cynic-portal.service organ-anvil-hermes-agent.service organ-anvil-cron.timer organ-docker-hermes-agent.service organ-docker-cron.timer organ-vercel-hermes-agent.service organ-vercel-cron.timer discord-passive-proxy.service discord-browser.service discord-pipeline.timer
+systemctl --user enable --now hermes-agent-executor.service cynic-portal.service organ-anvil-hermes-agent.service organ-anvil-cron.timer organ-docker-hermes-agent.service organ-docker-cron.timer organ-vercel-hermes-agent.service organ-vercel-cron.timer discord-passive-proxy.service discord-pipeline.timer discord-opportunities-ui.service
 bash "$PROJECT_DIR/scripts/verify-systemd-units.sh"
 echo "Done. Repo-managed systemd units are active."

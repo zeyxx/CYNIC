@@ -596,7 +596,7 @@ stimulus  ->  Dogs  ->  verdict  ->  crystal
 | **Dogs** | LLM + heuristics (server) | Humans (reporters) + heuristics |
 | **Verdict** | HOWL/WAG/GROWL/BARK | legitimate/nuisance/scam |
 | **Crystal** | "this token is a rug pull because..." | "this number is CPF telemarketing" |
-| **Node** | Server (cynic-core, cynic-gpu) | **Phone** (phone-first) |
+| **Node** | Server (cynic-host-proxmox, cynic-host-gpu) | **Phone** (phone-first) |
 
 CallShield is not "an app that optionally uses CYNIC." It is the **first deployment of CWO judgment on phones** — a new domain, new Dog type (human reporters), new node type (phones).
 

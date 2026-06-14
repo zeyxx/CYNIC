@@ -28,8 +28,8 @@ A sovereign distributed inference system where:
 ## 3. Current State (probed 2026-03-28)
 
 ### Fleet
-- **cynic-core** (Linux): Kernel + SurrealDB + llama-server (Gemma 4B CPU, 13 tok/s) + embedding server
-- **cynic-gpu** (Windows→Debian tomorrow): llama-server (Qwen 3.5 9B GPU, 55 tok/s)
+- **cynic-host-proxmox** (Linux): Kernel + SurrealDB + llama-server (Gemma 4B CPU, 13 tok/s) + embedding server
+- **cynic-host-gpu** (Windows→Debian tomorrow): llama-server (Qwen 3.5 9B GPU, 55 tok/s)
 - Network: Tailscale mesh, 2 active nodes
 
 ### Existing Infrastructure
@@ -49,7 +49,7 @@ A sovereign distributed inference system where:
 
 ### G1 — Push Events (MCP Tailscale)
 **Problem:** 100% pull. No node can proactively report "I'm dying."
-**Evidence:** sshd zombie on cynic-gpu — discovered only when ts_exec failed.
+**Evidence:** sshd zombie on cynic-host-gpu — discovered only when ts_exec failed.
 **Target:** Nodes report health proactively.
 
 ### G2 — Agent-less Architecture (MCP Tailscale)
@@ -102,7 +102,7 @@ A sovereign distributed inference system where:
 | G11 | **A2A protocol** | Agent-to-agent communication (existing roadmap mentions it) | LOW — strategic, not blocking |
 | G12 | **gRPC (existing in kernel)** | Proto + services partially exist. Dog-to-dog streaming. | MEDIUM — need inventory of what exists |
 | G13 | **External monitoring** | Prometheus exposed but not consumed. No alerting. | MEDIUM — ops maturity |
-| G14 | **Backup/recovery** | Single point of failure: cynic-core + SurrealDB | HIGH — data loss risk |
+| G14 | **Backup/recovery** | Single point of failure: cynic-host-proxmox + SurrealDB | HIGH — data loss risk |
 | G15 | **Edge inference** | Tiny model on phone/RPi as a Dog? | LOW — vision, not blocking |
 | G16 | **Cost metering** | Track GPU-hours per contributor for fairness | LOW — blocks at scale only |
 | G17 | **Infrastructure proprioception** | CYNIC doesn't monitor its own body — CPU, RAM, disk, services, network paths, SPOFs. The immune system has no nervous system. | **CRITICAL** — prerequisite for all self-healing |

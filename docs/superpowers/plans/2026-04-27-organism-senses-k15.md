@@ -202,9 +202,9 @@ mod tests {
     use super::*;
 
     const MOCK_STATUS: &str = r#"{
-        "Self": {"HostName": "cynic-core"},
+        "Self": {"HostName": "cynic-host-proxmox"},
         "Peer": {
-            "abc": {"HostName": "cynic-gpu", "Online": true, "SSH": true, "OS": "windows"},
+            "abc": {"HostName": "cynic-host-gpu", "Online": true, "SSH": true, "OS": "windows"},
             "def": {"HostName": "kairos", "Online": false, "SSH": true, "OS": "linux"},
             "ghi": {"HostName": "funnel-ingress-node", "Online": true}
         }
@@ -214,7 +214,7 @@ mod tests {
     fn parse_filters_funnel_ingress() {
         let metrics = TailscaleReader::parse_status(
             MOCK_STATUS,
-            &["cynic-gpu".into(), "kairos".into()],
+            &["cynic-host-gpu".into(), "kairos".into()],
         ).unwrap();
         // Should NOT include funnel-ingress-node
         assert!(metrics.iter().all(|m| !m.key.contains("funnel")));
@@ -224,11 +224,11 @@ mod tests {
     fn parse_counts_online_nodes() {
         let metrics = TailscaleReader::parse_status(
             MOCK_STATUS,
-            &["cynic-gpu".into(), "kairos".into()],
+            &["cynic-host-gpu".into(), "kairos".into()],
         ).unwrap();
         let online = metrics.iter().find(|m| m.key == "nodes_online").unwrap();
         match &online.value {
-            MetricValue::I64(v) => assert_eq!(*v, 1), // only cynic-gpu is online
+            MetricValue::I64(v) => assert_eq!(*v, 1), // only cynic-host-gpu is online
             other => panic!("expected I64, got {other:?}"),
         }
     }
@@ -237,7 +237,7 @@ mod tests {
     fn parse_per_node_status() {
         let metrics = TailscaleReader::parse_status(
             MOCK_STATUS,
-            &["cynic-gpu".into(), "kairos".into()],
+            &["cynic-host-gpu".into(), "kairos".into()],
         ).unwrap();
         let gpu = metrics.iter().find(|m| m.key == "node_cynic-gpu_online").unwrap();
         match &gpu.value {
@@ -262,7 +262,7 @@ mod tests {
         let metrics = TailscaleReader::parse_status(MOCK_STATUS, &[]).unwrap();
         let total = metrics.iter().find(|m| m.key == "nodes_total").unwrap();
         match &total.value {
-            MetricValue::I64(v) => assert_eq!(*v, 2), // cynic-gpu + kairos (no funnel)
+            MetricValue::I64(v) => assert_eq!(*v, 2), // cynic-host-gpu + kairos (no funnel)
             other => panic!("expected I64, got {other:?}"),
         }
     }
@@ -285,8 +285,8 @@ And in `build_sense_registry()`:
 if which::which("tailscale").is_ok() {
     senses.push(Arc::new(tailscale::TailscaleReader::new(
         vec![
-            "cynic-core".into(),
-            "cynic-gpu".into(),
+            "cynic-host-proxmox".into(),
+            "cynic-host-gpu".into(),
             "kairos".into(),
         ],
     )));
@@ -540,10 +540,10 @@ if let Some(node) = &cfg.fleet_node {
 Add `fleet_node` to relevant Dogs:
 ```toml
 [backend.qwen35-9b-gpu]
-fleet_node = "cynic-gpu"
+fleet_node = "cynic-host-gpu"
 
 [backend.gemma-4-e4b-core]
-fleet_node = "cynic-core"
+fleet_node = "cynic-host-proxmox"
 ```
 
 Run: `cargo check -p cynic-kernel`
@@ -576,9 +576,9 @@ mod hysteresis_tests {
     #[test]
     fn first_offline_does_not_trigger() {
         let mut fa = FleetAwareness::new(HashMap::from([
-            ("gpu-dog".into(), "cynic-gpu".into()),
+            ("gpu-dog".into(), "cynic-host-gpu".into()),
         ]));
-        let offline_nodes: Vec<String> = vec!["cynic-gpu".into()];
+        let offline_nodes: Vec<String> = vec!["cynic-host-gpu".into()];
         let to_mark = fa.tick(&offline_nodes);
         assert!(to_mark.is_empty(), "first tick should not mark anything");
     }
@@ -586,29 +586,29 @@ mod hysteresis_tests {
     #[test]
     fn sustained_offline_triggers_after_threshold() {
         let mut fa = FleetAwareness::new(HashMap::from([
-            ("gpu-dog".into(), "cynic-gpu".into()),
+            ("gpu-dog".into(), "cynic-host-gpu".into()),
         ]));
         // First tick: record offline
-        fa.tick(&["cynic-gpu".into()]);
+        fa.tick(&["cynic-host-gpu".into()]);
         // Simulate time passing (>30s) by backdating the Instant
         fa.node_offline_since.insert(
-            "cynic-gpu".into(),
+            "cynic-host-gpu".into(),
             Instant::now() - Duration::from_secs(31),
         );
         // Second tick: should trigger
-        let to_mark = fa.tick(&["cynic-gpu".into()]);
+        let to_mark = fa.tick(&["cynic-host-gpu".into()]);
         assert_eq!(to_mark, vec!["gpu-dog"]);
     }
 
     #[test]
     fn node_comes_back_clears_state() {
         let mut fa = FleetAwareness::new(HashMap::from([
-            ("gpu-dog".into(), "cynic-gpu".into()),
+            ("gpu-dog".into(), "cynic-host-gpu".into()),
         ]));
-        fa.tick(&["cynic-gpu".into()]);
+        fa.tick(&["cynic-host-gpu".into()]);
         // Node comes back
         fa.tick(&[]);
-        assert!(!fa.node_offline_since.contains_key("cynic-gpu"));
+        assert!(!fa.node_offline_since.contains_key("cynic-host-gpu"));
     }
 }
 ```
@@ -861,7 +861,7 @@ async fn freshness_is_zero() {
 ```
 
 Run: `cargo test -p cynic-kernel --test integration_tailscale_reader -- --ignored`
-Expected: 3 tests pass (on cynic-core where tailscale is running)
+Expected: 3 tests pass (on cynic-host-proxmox where tailscale is running)
 
 - [ ] **Step 3: Commit**
 

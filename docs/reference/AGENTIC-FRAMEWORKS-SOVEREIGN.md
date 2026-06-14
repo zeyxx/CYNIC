@@ -92,9 +92,9 @@ Actuellement :
 
 ```
 Inference stack :
-├── cynic-gpu (RTX 4060 Ti 16GB)
+├── cynic-host-gpu (RTX 4060 Ti 16GB)
 │   └── llama-server → Qwen3.5-9B-Q4_K_M.gguf (8080/v1)
-├── cynic-core (ROCm iGPU, 27GB RAM)
+├── cynic-host-proxmox (ROCm iGPU, 27GB RAM)
 │   └── llama-server → Qwen3-Embedding-0.6B (8081)
 └── cynic-kernel → Dog orchestration, MCP proxy, coordination
 
@@ -128,7 +128,7 @@ Pour un framework agentic souverain, on évalue :
 ### Phase 1 — Maintenant (2026-06)
 
 - ✅ Hermes Agent + organ-anvil (cron)
-- ✅ Inference locale (Qwen3.5-9B sur cynic-gpu)
+- ✅ Inference locale (Qwen3.5-9B sur cynic-host-gpu)
 - ✅ Coordination via MCP proxy
 
 ### Phase 2 — Intégration (2026-06-07)
@@ -154,7 +154,7 @@ Pour un framework agentic souverain, on évalue :
 | Mixtral-8x7B-Q4_K_M | ~12GB | 16GB | Très bon pour code | Code review |
 | Llama-3-8B-Q4_K_M | ~5GB | 8GB | Rapide, moins précis | Quick tasks |
 
-**Sur cynic-gpu (16GB VRAM)** :
+**Sur cynic-host-gpu (16GB VRAM)** :
 - Qwen3.5-9B → ✅ Stable (8.3GB VRAM @ ctx 32K)
 - Qwen3.5-14B → ✅ Possible (12GB VRAM, ctx réduit)
 - Mixtral-8x7B → ⚠️ Juste (16GB, ctx très réduit)
@@ -163,7 +163,7 @@ Pour un framework agentic souverain, on évalue :
 
 ## 7. Prochaines Étapes
 
-1. **Évaluer SWE-Agent** sur cynic-gpu pour le bug fixing automatique
+1. **Évaluer SWE-Agent** sur cynic-host-gpu pour le bug fixing automatique
 2. **Configurer Continue.dev** avec Qwen3.5-9B pour l'IDE local
-3. **Tester Qwen3.5-14B** sur cynic-gpu (si VRAM permet)
+3. **Tester Qwen3.5-14B** sur cynic-host-gpu (si VRAM permet)
 4. **Développer CYNIC-native agentic framework** (si nécessaire)

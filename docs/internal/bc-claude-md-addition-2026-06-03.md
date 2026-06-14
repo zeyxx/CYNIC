@@ -36,7 +36,7 @@ git branch -v        # any "ahead" → push now
 |---|---|
 | Auth (Google/Discord OAuth) | BROKEN in prod — `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` not set on Vercel |
 | `feat/poh-step1` | S. scope — timing/behavioral signals, NOT merged to main |
-| `worktree-feat+gamification-p0` | 5 commits local on cynic-gpu, NOT pushed |
+| `worktree-feat+gamification-p0` | 5 commits local on cynic-host-gpu, NOT pushed |
 | PR #11 `feat/poh-verify-endpoint` | T. scope — verify API endpoint, open |
 
 ---
