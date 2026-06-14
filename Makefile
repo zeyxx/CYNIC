@@ -750,12 +750,10 @@ deploy-only:  ## Deploy target/release/cynic-kernel with no validation (skips ch
 .PHONY: rollback
 rollback:
 	@$(source_env)
-	@[ -f ~/bin/cynic-kernel.prev ] || { echo "✗ No previous binary to rollback to"; exit 1; }
-	@echo "▶ Rolling back to previous kernel binary..."
-	systemctl --user stop cynic-kernel
-	cp ~/bin/cynic-kernel.prev ~/bin/cynic-kernel
-
-	systemctl --user start cynic-kernel
+	@echo "▶ Rolling back to previous kernel binary via Sovereign Auto-Rollback (POST /coord/rollback)..."
+	@curl -f -X POST \
+		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
+		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/rollback"
 	@sleep 4
 	@echo "▶ Verifying rollback..."
 	@HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "http://$${CYNIC_REST_ADDR}/health"); \

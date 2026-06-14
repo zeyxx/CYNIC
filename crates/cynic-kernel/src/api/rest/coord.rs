@@ -484,10 +484,9 @@ pub async fn coord_upgrade_handler(
         ));
     }
 
-    // 4. Trigger systemd to restart the service (detached)
-    tokio::spawn(async {
+    // 5. Spawn background task to trigger restart
+    tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-        tracing::info!("Auto-upgrade successful, restarting service via systemctl...");
         let _ = tokio::process::Command::new("systemctl")
             .arg("--user")
             .arg("restart")
@@ -498,6 +497,55 @@ pub async fn coord_upgrade_handler(
     Ok(Json(serde_json::json!({
         "status": "upgrade_scheduled",
         "bytes_received": body.len(),
+        "restarting_in": "500ms"
+    })))
+}
+
+/// D4: Sovereign Auto-Rollback
+/// Replaces the current `cynic-kernel` with `cynic-kernel.prev` and triggers `systemctl --user restart`.
+pub async fn coord_rollback_handler(
+    State(_state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let bin_dir = std::env::var("CYNIC_BIN_DIR").unwrap_or_else(|_| {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
+        format!("{}/bin", home)
+    });
+
+    let target_path = format!("{}/cynic-kernel", bin_dir);
+    let prev_path = format!("{}/cynic-kernel.prev", bin_dir);
+
+    // 1. Check if backup exists
+    if !std::path::Path::new(&prev_path).exists() {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "No previous binary found".into(),
+            }),
+        ));
+    }
+
+    // 2. Restore the previous binary by renaming it over the current one
+    if let Err(e) = std::fs::rename(&prev_path, &target_path) {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to rollback binary: {e}"),
+            }),
+        ));
+    }
+
+    // 3. Spawn background task to trigger restart
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        let _ = tokio::process::Command::new("systemctl")
+            .arg("--user")
+            .arg("restart")
+            .arg("cynic-kernel")
+            .spawn();
+    });
+
+    Ok(Json(serde_json::json!({
+        "status": "rollback_scheduled",
         "restarting_in": "500ms"
     })))
 }
