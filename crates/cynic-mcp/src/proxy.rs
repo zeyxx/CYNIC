@@ -17,8 +17,9 @@ use rmcp::{
 use crate::types::{
     AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
     DispatchAgentTaskParams, GitParams, InferParams, JudgeParams, ListParams,
-    ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams, RegisterParams,
-    ReleaseParams, UpdateAgentTaskResultParams, ValidateParams, WhoParams, validate_agent_id,
+    ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams, ProxmoxActionParams,
+    RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, ValidateParams,
+    WhoParams, validate_agent_id,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -708,7 +709,54 @@ impl CynicMcpProxy {
 
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
+
+    #[tool(
+        name = "cynic_proxmox_action",
+        description = "Perform actions (start, stop, reboot, suspend, resume) on Proxmox VMs and LXC containers."
+    )]
+    async fn cynic_proxmox_action(&self, params: Parameters<ProxmoxActionParams>) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        let proxmox_url = std::env::var("CYNIC_PROXMOX_URL").unwrap_or_default();
+        let token_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
+        let secret = std::env::var("CYNIC_PROXMOX_SECRET").unwrap_or_default();
+
+        if proxmox_url.is_empty() || token_id.is_empty() || secret.is_empty() {
+            return Err(McpError::internal_error(
+                "Proxmox credentials not configured in CYNIC_PROXMOX_* env vars",
+                None,
+            ));
+        }
+
+        let p = params.0;
+        let vmid = p.vmid;
+        let node = p.node;
+        let type_ = p.target_type; // "qemu" or "lxc"
+        let action = p.action; // "start", "stop", "reboot", "suspend", "resume"
+
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|e| McpError::internal_error(format!("Proxmox client error: {e}"), None))?;
+
+        let auth_header = format!("PVEAPIToken={}={}", token_id, secret);
+        
+        let url = format!("{proxmox_url}/api2/json/nodes/{node}/{type_}/{vmid}/status/{action}");
+
+        let resp = client
+            .post(&url)
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("Proxmox API POST failed: {e}"), None))?;
+
+        let text = resp.text().await.unwrap_or_default();
+        Ok(CallToolResult::success(vec![Content::text(text)]))
+    }
 }
+
 
 // ── MCP ServerHandler ───────────────────────────────────────
 
