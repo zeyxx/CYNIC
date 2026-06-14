@@ -26,7 +26,7 @@ _COMMUNITY = re.compile(r"\b(community|builder|collab|cofounder|partner|sponsor)
 _SOLANA = re.compile(r"\b(solana|spl|svm|anchor|pinocchio|jito)\b", re.IGNORECASE)
 _URL = re.compile(r"https?://\S+")
 _EARN_URL = re.compile(r"https://earn\.superteam\.fun/listing/[^\s>]+")
-_CATEGORY = re.compile(r"^\s*(?:[^\w\s]+)?\s*(Development|Design|Content)\s*$", re.IGNORECASE)
+_CATEGORY = re.compile(r"^\s*(?:[^\w\s]+)?\s*(Development|Design|Content|Growth)\s*$", re.IGNORECASE)
 _REWARD = re.compile(r"\((?:\$|USDG\s*)?([\d,]+)\s*(?:USDG|USDC|USD)?\)", re.IGNORECASE)
 
 
@@ -44,6 +44,7 @@ class Opportunity:
     url: str
     title: str
     category: str
+    capability: str
     reward: str
     reward_usd: int | None
     fit_score: int
@@ -137,13 +138,12 @@ def extract_opportunities(text: str) -> list[Opportunity]:
             reward_usd = int(reward_match.group(1).replace(",", ""))
 
         opportunities.append(
-            Opportunity(
+            opportunity_from_listing(
                 url=url,
                 title=title,
                 category=current_category,
                 reward=reward,
                 reward_usd=reward_usd,
-                fit_score=score_opportunity(title, current_category, reward_usd),
                 raw_text=text[:4000],
             )
         )
@@ -151,25 +151,88 @@ def extract_opportunities(text: str) -> list[Opportunity]:
     return opportunities
 
 
-def score_opportunity(title: str, category: str, reward_usd: int | None) -> int:
-    """Score fit for CYNIC treasury/community strategy."""
+def opportunity_from_listing(
+    url: str,
+    title: str,
+    category: str,
+    reward: str,
+    reward_usd: int | None,
+    raw_text: str,
+) -> Opportunity:
+    capability = classify_capability(title, category)
+    return Opportunity(
+        url=url,
+        title=title,
+        category=category,
+        capability=capability,
+        reward=reward,
+        reward_usd=reward_usd,
+        fit_score=score_opportunity(title, category, capability, reward_usd),
+        raw_text=raw_text,
+    )
+
+
+def classify_capability(title: str, category: str) -> str:
+    """Map Superteam categories/listing titles to CYNIC capability tracks."""
     text = f"{category} {title}".lower()
-    score = 35
+    if re.search(r"\b(mobile|android|ios|react native|flutter|seeker)\b", text):
+        return "mobile"
+    if re.search(r"\b(frontend|front-end|ui|ux|react|next|website|dashboard)\b", text):
+        return "frontend"
+    if re.search(r"\b(backend|api|indexer|rpc|validator|data|database|agent|eliza|integration)\b", text):
+        return "backend"
+    if re.search(r"\b(thread|write|writing|article|video|explainer|content|correspondent)\b", text):
+        return "content"
+    if re.search(r"\b(growth|community|ambassador|promote|campaign|referral)\b", text):
+        return "growth"
+    if re.search(r"\b(design|mascot|fanart|visual|vertical format)\b", text):
+        return "design"
     if category.lower() == "development":
-        score += 25
+        return "backend"
+    if category.lower() in {"content", "growth", "design"}:
+        return category.lower()
+    return "general"
+
+
+def score_opportunity(
+    title: str,
+    category: str,
+    capability: str,
+    reward_usd: int | None,
+) -> int:
+    """Score fit for CYNIC treasury/community strategy across Superteam tracks."""
+    text = f"{category} {capability} {title}".lower()
+    base_by_capability = {
+        "backend": 58,
+        "frontend": 55,
+        "mobile": 52,
+        "content": 45,
+        "growth": 42,
+        "design": 34,
+        "general": 35,
+    }
+    score = base_by_capability.get(capability, 35)
     if "feedback" in text or "product" in text:
-        score += 20
+        score += 18
     if "prediction" in text or "markets" in text or "futarchy" in text:
-        score += 20
+        score += 18
+    if "agent" in text or "eliza" in text:
+        score += 12
     if "solana" in text or "summit" in text:
-        score += 10
-    if "thread" in text or "content" in text:
-        score += 5
+        score += 8
+    if "rpc" in text or "indexer" in text or "infra" in text or "data" in text:
+        score += 16
     if reward_usd and reward_usd >= 1000:
-        score += 10
-    if category.lower() == "design":
-        score -= 10
+        score += 8
+    if reward_usd and reward_usd >= 3000:
+        score += 5
     return max(0, min(100, score))
+
+
+def legacy_score_opportunity(title: str, category: str, reward_usd: int | None) -> int:
+    """Backward-compatible wrapper for old callers."""
+    capability = classify_capability(title, category)
+    return score_opportunity(title, category, capability, reward_usd)
 
 
 def upsert_opportunities(
@@ -182,12 +245,13 @@ def upsert_opportunities(
     for opp in opportunities:
         conn.execute(
             """INSERT INTO opportunities
-               (url, title, category, reward, reward_usd, source, fit_score,
+               (url, title, category, capability, reward, reward_usd, source, fit_score,
                 status, first_seen, last_seen, raw_text)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?)
                ON CONFLICT(url) DO UPDATE SET
                  title=excluded.title,
                  category=excluded.category,
+                 capability=excluded.capability,
                  reward=excluded.reward,
                  reward_usd=excluded.reward_usd,
                  fit_score=excluded.fit_score,
@@ -197,6 +261,7 @@ def upsert_opportunities(
                 opp.url,
                 opp.title,
                 opp.category,
+                opp.capability,
                 opp.reward,
                 opp.reward_usd,
                 source,
@@ -292,6 +357,12 @@ def run_pipeline(
 ) -> None:
     """Process stored Discord messages."""
     conn = sqlite3.connect(db_path)
+    from .schema import SCHEMA_SQL, migrate_db
+    from .skills import bootstrap_skill_assessments
+
+    conn.executescript(SCHEMA_SQL)
+    migrate_db(conn)
+    bootstrap_skill_assessments(conn)
     rows = get_unprocessed(conn, limit)
     stats = {"processed": 0, "sent": 0, "ignored": 0, "opportunities": 0}
     start = time.monotonic()

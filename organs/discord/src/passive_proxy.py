@@ -12,6 +12,7 @@ Usage:
 """
 from __future__ import annotations
 
+import html
 import json
 import logging
 import os
@@ -151,6 +152,11 @@ class DiscordPassiveCapture:
         self.conn.commit()
         return cursor.rowcount > 0
 
+    def _write_snapshot(self, url: str, captured_at: str, content: str) -> str:
+        path = _snapshot_path(url, captured_at)
+        path.write_text(content, encoding="utf-8")
+        return str(path)
+
 
 def _as_int(value: object) -> int | None:
     try:
@@ -182,11 +188,6 @@ def _snapshot_dir() -> Path:
     return path
 
 
-def _strip_query(url: str) -> str:
-    parsed = urlparse(url)
-    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-
-
 def _now_slug(value: str) -> str:
     return value.replace(":", "").replace(".", "")
 
@@ -197,18 +198,6 @@ def _canonical_slug(url: str) -> str:
 
 def _snapshot_path(url: str, captured_at: str) -> Path:
     return _snapshot_dir() / f"{_canonical_slug(url)}-{_now_slug(captured_at)}.html"
-
-
-def _write_text(path: Path, content: str) -> str:
-    path.write_text(content, encoding="utf-8")
-    return str(path)
-
-
-def _write_snapshot_url(url: str, captured_at: str, content: str) -> str:
-    return _write_text(_snapshot_path(url, captured_at), content)
-
-
-DiscordPassiveCapture._write_snapshot = staticmethod(_write_snapshot_url)
 
 
 addons = [DiscordPassiveCapture()]

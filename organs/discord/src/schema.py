@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS opportunities (
     url          TEXT PRIMARY KEY,
     title        TEXT NOT NULL,
     category     TEXT,
+    capability   TEXT NOT NULL DEFAULT 'unknown',
     reward       TEXT,
     reward_usd   INTEGER,
     source       TEXT NOT NULL,
@@ -83,6 +84,31 @@ CREATE TABLE IF NOT EXISTS opportunity_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_opportunity_snapshots_url_time
     ON opportunity_snapshots(url, captured_at DESC);
+
+CREATE TABLE IF NOT EXISTS skill_catalog (
+    category   TEXT NOT NULL,
+    skill      TEXT NOT NULL,
+    source     TEXT NOT NULL,
+    first_seen TEXT NOT NULL,
+    last_seen  TEXT NOT NULL,
+    PRIMARY KEY (category, skill)
+);
+
+CREATE TABLE IF NOT EXISTS skill_assessments (
+    category           TEXT NOT NULL,
+    skill              TEXT NOT NULL,
+    level              INTEGER NOT NULL,
+    confidence         REAL NOT NULL,
+    status             TEXT NOT NULL,
+    evidence_json      TEXT NOT NULL,
+    judge_verdict_json TEXT,
+    updated_at         TEXT NOT NULL,
+    PRIMARY KEY (category, skill),
+    FOREIGN KEY(category, skill) REFERENCES skill_catalog(category, skill)
+);
+
+CREATE INDEX IF NOT EXISTS idx_skill_assessments_level
+    ON skill_assessments(level DESC, confidence DESC);
 """
 
 
@@ -92,6 +118,23 @@ def bootstrap_db(db_path: str) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA_SQL)
+    migrate_db(conn)
     conn.commit()
     logger.info("schema bootstrapped: %s", db_path)
     return conn
+
+
+def migrate_db(conn: sqlite3.Connection) -> None:
+    """Apply idempotent lightweight migrations for existing runtime DBs."""
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(opportunities)")}
+    additions = {
+        "platform_status": "TEXT NOT NULL DEFAULT 'unseen'",
+        "platform_last_seen": "TEXT",
+        "platform_title": "TEXT",
+        "platform_excerpt": "TEXT",
+        "capability": "TEXT NOT NULL DEFAULT 'unknown'",
+        "notes": "TEXT NOT NULL DEFAULT ''",
+    }
+    for name, ddl in additions.items():
+        if name not in cols:
+            conn.execute(f"ALTER TABLE opportunities ADD COLUMN {name} {ddl}")

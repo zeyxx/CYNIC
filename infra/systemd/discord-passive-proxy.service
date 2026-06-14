@@ -13,7 +13,7 @@ ExecStart=%h/.cynic-venvs/hermes-x/bin/mitmdump \
     --listen-host 127.0.0.1 -p 8890 \
     --set stream_large_bodies=2m \
     --set ssl_insecure=true \
-    --set allow_hosts="(?:.*\\.)?discord\\.com" \
+    --set allow_hosts="(?:.*\\.)?discord\\.com|earn\\.superteam\\.fun|superteam\\.fun|(?:.*\\.)?superteam\\.fun" \
     -q
 Restart=on-failure
 RestartSec=30

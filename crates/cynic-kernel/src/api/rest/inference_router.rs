@@ -386,15 +386,17 @@ pub async fn inference_remediate_handler(
     }))
 }
 
-static BACKEND_CONFIGS: std::sync::OnceLock<Vec<crate::infra::config::BackendConfig>> = std::sync::OnceLock::new();
+static BACKEND_CONFIGS: std::sync::OnceLock<Vec<crate::infra::config::BackendConfig>> =
+    std::sync::OnceLock::new();
 
 /// Returns the node assigned to a Dog.
 /// Dynamically queries the fleet configuration rather than hardcoding names.
 pub(crate) fn dog_to_node(dog: &str) -> String {
     let configs = BACKEND_CONFIGS.get_or_init(|| {
         let path = std::path::PathBuf::from(
-            std::env::var("CYNIC_PROJECT_ROOT").unwrap_or_else(|_| ".".to_string())
-        ).join("backends.toml");
+            std::env::var("CYNIC_PROJECT_ROOT").unwrap_or_else(|_| ".".to_string()),
+        )
+        .join("backends.toml");
         crate::infra::config::load_backends(&path)
     });
 
@@ -405,7 +407,7 @@ pub(crate) fn dog_to_node(dog: &str) -> String {
             }
         }
     }
-    
+
     // Fallback if not found in backends.toml
     if dog.contains("qwen-72b") || dog.contains("nemotron") {
         "cynic-host-gpu".to_string()
