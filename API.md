@@ -617,6 +617,24 @@ Update the task scope for an active agent session. Used by session-init.sh to au
 
 **Note:** Scope updates preserve `registered_at` (session age); they only refresh `last_seen` for heartbeat purposes.
 
+### GET /coord/topology
+
+Retrieves the current node topology and configuration for the cluster.
+
+**Response (200):** JSON topology object.
+
+### POST /coord/rollback
+
+Triggers a sovereign auto-rollback of the kernel binary and restarts the service.
+
+**Response (200):** `{ "status": "rollback_scheduled" }`
+
+### GET /coord/backup
+
+Exports the SurrealDB database to a .surql stream.
+
+**Response (200):** Raw `.surql` file download.
+
 ---
 
 ## Mail

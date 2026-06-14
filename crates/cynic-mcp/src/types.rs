@@ -375,9 +375,7 @@ mod tests {
         );
     }
 
-
     // -- validate_agent_id logic --
-
 
     #[test]
     fn validate_agent_id_accepts_none() {

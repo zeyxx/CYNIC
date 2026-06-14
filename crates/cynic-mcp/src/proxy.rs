@@ -17,9 +17,9 @@ use rmcp::{
 use crate::types::{
     AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
     DispatchAgentTaskParams, GitParams, InferParams, JudgeParams, ListParams,
-    ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams, ProxmoxActionParams,
-    RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, ValidateParams,
-    WhoParams, validate_agent_id,
+    ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams,
+    ProxmoxActionParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams,
+    ValidateParams, WhoParams, validate_agent_id,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -714,7 +714,10 @@ impl CynicMcpProxy {
         name = "cynic_proxmox_action",
         description = "Perform actions (start, stop, reboot, suspend, resume) on Proxmox VMs and LXC containers."
     )]
-    async fn cynic_proxmox_action(&self, params: Parameters<ProxmoxActionParams>) -> Result<CallToolResult, McpError> {
+    async fn cynic_proxmox_action(
+        &self,
+        params: Parameters<ProxmoxActionParams>,
+    ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
 
@@ -742,7 +745,7 @@ impl CynicMcpProxy {
             .map_err(|e| McpError::internal_error(format!("Proxmox client error: {e}"), None))?;
 
         let auth_header = format!("PVEAPIToken={}={}", token_id, secret);
-        
+
         let url = format!("{proxmox_url}/api2/json/nodes/{node}/{type_}/{vmid}/status/{action}");
 
         let resp = client
@@ -756,7 +759,6 @@ impl CynicMcpProxy {
         Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 }
-
 
 // ── MCP ServerHandler ───────────────────────────────────────
 

@@ -446,7 +446,7 @@ pub async fn coord_upgrade_handler(
     }
 
     let bin_dir = std::env::var("CYNIC_BIN_DIR").unwrap_or_else(|_| {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
         format!("{}/bin", home)
     });
 
@@ -507,7 +507,7 @@ pub async fn coord_rollback_handler(
     State(_state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     let bin_dir = std::env::var("CYNIC_BIN_DIR").unwrap_or_else(|_| {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
         format!("{}/bin", home)
     });
 
@@ -668,7 +668,7 @@ pub async fn coord_restore_handler(
 pub async fn coord_upgrade_systemd_handler(
     body: axum::body::Bytes,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
     let service_dir = format!("{}/.config/systemd/user", home);
 
     let _ = std::fs::create_dir_all(&service_dir);
