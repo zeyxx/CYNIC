@@ -37,3 +37,14 @@ class HealthAuditor(IHealthAuditor):
             
         state.health_score = max(0.0, score)
         return state
+
+class BuildDelegationService:
+    def __init__(self, git_perceiver, kernel_client):
+        self.git_perceiver = git_perceiver
+        self.kernel_client = kernel_client
+
+    async def delegate_task(self, intent: str):
+        patch = self.git_perceiver.extract_patch()
+        async for log_chunk in self.kernel_client.dispatch_task_and_stream(intent, patch):
+            # Pass the chunk directly to the terminal
+            print(log_chunk, end="", flush=True)

@@ -149,7 +149,8 @@ pub async fn coord_claim_handler(
         .await
         .unwrap_or_default();
 
-    let comp = crate::domain::compliance::score_session(&req.agent_id, &req.agent_id, &observations);
+    let comp =
+        crate::domain::compliance::score_session(&req.agent_id, &req.agent_id, &observations);
     if comp.score < crate::domain::dog::PHI_INV3 {
         tracing::error!(agent_id = %req.agent_id, score = %comp.score, "compliance: claim rejected");
         return Err((

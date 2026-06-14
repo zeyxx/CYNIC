@@ -11,6 +11,9 @@ class LocalGitPerceiver(IGitPerceiver):
         cmd = ["git", "-C", str(self.repo_path)] + list(args)
         res = subprocess.run(cmd, capture_output=True, text=True)
         return res.stdout.strip()
+        
+    def extract_patch(self) -> str:
+        return self._run_git("diff", "HEAD")
 
     def gather_state(self) -> RepoState:
         current_branch = self._run_git("rev-parse", "--abbrev-ref", "HEAD")

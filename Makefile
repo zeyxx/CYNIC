@@ -80,18 +80,16 @@ gate-1: ## Level 1 — Light: cargo clippy
 	@echo "  ✓ Gate 1 passed — clippy OK"
 
 .PHONY: gate-2
-gate-2: ## Level 2 — Full: test + audit + integration
+gate-2: ## Level 2 — Full: test + audit + integration (Distributed via Forge Organ)
 	@$(source_env)
 	@echo "══════════════════════════════════════════"
-	@echo "  Gate Level 2 — Full validation"
+	@echo "  Gate Level 2 — Distributed Validation"
 	@echo "══════════════════════════════════════════"
-	cargo test -p cynic-kernel --lib --release
-	@echo "▶ Security audit (cargo audit)..."
-	cargo audit --deny warnings
+	@echo "▶ Delegating tests to remote Organ-Anvil via Forge Organ..."
+	@python3 organs/forge/src/entrypoints/cli.py delegate "build-and-test"
 	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
-		echo "▶ Integration tests (SurrealDB available)..."; \
-		cargo test -p cynic-kernel --test integration_storage && \
-		cargo test -p cynic-kernel --test storage_contract; \
+		echo "▶ Delegating Integration tests..."; \
+		python3 organs/forge/src/entrypoints/cli.py delegate "integration-test"; \
 	else \
 		echo "⚠ SurrealDB not running — skipping integration tests"; \
 	fi

@@ -138,9 +138,9 @@ impl NodeRegistry {
 
 // ── MESSAGE FRAME TYPES ─────────────────────────────────────
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
-enum NodeMessage {
+pub enum NodeMessage {
     /// Node → Kernel: Registration with public key
     #[serde(rename = "register")]
     Register {
@@ -222,6 +222,47 @@ enum NodeMessage {
         stimulus_id: Option<String>,
         message: String,
     },
+
+    // ── CYNIC WORKFLOW EXTENSIONS (BOTTOM-UP) ───────────────
+    /// Dev → Kernel: Submit a new build/test task (via UDS)
+    #[serde(rename = "post_task")]
+    PostTask { patch: String, intent: String },
+
+    /// Kernel → Node: Dispatch task to anvil organ
+    #[serde(rename = "route_task")]
+    RouteTask {
+        task_id: String,
+        patch: String,
+        intent: String,
+    },
+
+    /// Node → Kernel, then Kernel → Dev: Real-time log stream
+    #[serde(rename = "log_chunk")]
+    LogChunk { task_id: String, stdout: String },
+
+    /// Node → Kernel: Final result of the task
+    #[serde(rename = "task_result")]
+    TaskResult {
+        task_id: String,
+        status: String,
+        artifact: Option<String>,
+    },
+}
+
+// ── TASK BROKER ─────────────────────────────────────────────
+
+use std::sync::OnceLock;
+use tokio::sync::broadcast;
+
+static TASK_BROKER: OnceLock<broadcast::Sender<NodeMessage>> = OnceLock::new();
+
+pub fn get_task_broker() -> broadcast::Sender<NodeMessage> {
+    TASK_BROKER
+        .get_or_init(|| {
+            let (tx, _) = broadcast::channel(1024);
+            tx
+        })
+        .clone()
 }
 
 // ── WEBSOCKET HANDLER ───────────────────────────────────────
@@ -316,12 +357,24 @@ async fn handle_node_connection(
             .await;
     }
 
+    // Subscribe to task routing broker
+    let mut task_rx = get_task_broker().subscribe();
+
     // Heartbeat interval: send ping every 30s
     let mut heartbeat_interval = tokio::time::interval(std::time::Duration::from_secs(30));
 
     // Message handling loop with heartbeat
     loop {
         tokio::select! {
+            // Incoming from TASK BROKER (Kernel → Organ/Dev)
+            Ok(broadcast_msg) = task_rx.recv() => {
+                if let Ok(json) = serde_json::to_string(&broadcast_msg) {
+                    if sender.send(axum::extract::ws::Message::Text(json.into())).await.is_err() {
+                        break;
+                    }
+                }
+            }
+
             // Incoming message from node
             Some(Ok(msg)) = receiver.next() => {
                 match msg {
@@ -365,6 +418,31 @@ async fn handle_node_connection(
                                     if let Ok(json) = serde_json::to_string(&ack) {
                                         let _ = sender.send(axum::extract::ws::Message::Text(json.into())).await;
                                     }
+                                }
+                                NodeMessage::PostTask { patch, intent } => {
+                                    // Generate a Task ID and broadcast the RouteTask
+                                    let task_id = crate::infra::crypto::generate_secure_id();
+                                    info!(task_id = %task_id, intent = %intent, "Routing new task from Dev to Organ-Anvil");
+                                    let _ = get_task_broker().send(NodeMessage::RouteTask {
+                                        task_id,
+                                        patch,
+                                        intent,
+                                    });
+                                }
+                                NodeMessage::LogChunk { task_id, stdout } => {
+                                    // Broadcast log stream so the UDS Dev client receives it
+                                    let _ = get_task_broker().send(NodeMessage::LogChunk {
+                                        task_id,
+                                        stdout,
+                                    });
+                                }
+                                NodeMessage::TaskResult { task_id, status, artifact } => {
+                                    // Broadcast final result
+                                    let _ = get_task_broker().send(NodeMessage::TaskResult {
+                                        task_id,
+                                        status,
+                                        artifact,
+                                    });
                                 }
                                 _ => {
                                     warn!(node_id = %node_id, "Unexpected message from node");
