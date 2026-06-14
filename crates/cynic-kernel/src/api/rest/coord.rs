@@ -388,3 +388,44 @@ pub async fn coord_who_handler(
         "claims": snapshot.claims,
     })))
 }
+
+/// GET /coord/topology — exposes the current fleet topology from infra/registry.json.
+pub async fn coord_topology_handler()
+-> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let project_root = std::env::var("CYNIC_PROJECT_ROOT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::process::Command::new("git")
+                .args(["rev-parse", "--show-toplevel"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| std::path::PathBuf::from(s.trim()))
+                .unwrap_or_else(|| {
+                    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+                })
+        });
+
+    let registry_path = project_root.join("infra/registry.json");
+    let content = std::fs::read_to_string(&registry_path).map_err(|e| {
+        tracing::warn!(error = %e, path = %registry_path.display(), "failed to read registry.json");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "topology unavailable".into(),
+            }),
+        )
+    })?;
+
+    let json: serde_json::Value = serde_json::from_str(&content).map_err(|e| {
+        tracing::warn!(error = %e, "failed to parse registry.json");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "topology malformed".into(),
+            }),
+        )
+    })?;
+
+    Ok(Json(json))
+}

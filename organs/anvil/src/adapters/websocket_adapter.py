@@ -86,10 +86,35 @@ class KernelWebSocketAdapter:
         command = "cargo test --workspace --no-run"
         
         if patch:
-            # We would apply the git patch here
-            pass
+            patch_file = "/tmp/current_build.patch"
+            with open(patch_file, "w") as f:
+                f.write(patch)
+            
+            # Reset workspace first to be safe
+            reset_cmd = "git reset --hard HEAD && git clean -fd"
+            await self.build_service.executor_port.execute(context, reset_cmd, on_log_chunk)
+            
+            # Apply patch
+            apply_cmd = f"git apply {patch_file}"
+            apply_result = await self.build_service.executor_port.execute(context, apply_cmd, on_log_chunk)
+            
+            if not apply_result.success:
+                logger.error("Failed to apply patch")
+                if self.ws:
+                    await self.ws.send(json.dumps({
+                        "type": "task_result",
+                        "task_id": task_id,
+                        "status": "failed",
+                        "error": "Failed to apply git patch"
+                    }))
+                return
 
         result = await self.build_service.run_build(context, command, on_log_chunk=on_log_chunk)
+        
+        if patch:
+            # Cleanup workspace after build
+            cleanup_cmd = "git reset --hard HEAD && git clean -fd"
+            await self.build_service.executor_port.execute(context, cleanup_cmd, on_log_chunk)
         
         if self.ws:
             await self.ws.send(json.dumps({

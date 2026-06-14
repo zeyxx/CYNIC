@@ -38,7 +38,8 @@ use tower_http::services::ServeDir;
 use self::auth::{auth_input_handler, auth_verify_handler};
 use self::coord::{
     coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
-    coord_register_handler, coord_release_handler, coord_scope_handler, coord_who_handler,
+    coord_register_handler, coord_release_handler, coord_scope_handler, coord_topology_handler,
+    coord_who_handler,
 };
 use self::data::{
     audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
@@ -182,6 +183,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/heartbeat", post(coord_heartbeat_handler))
         .route("/coord/scope", post(coord_scope_handler))
         .route("/coord/who", get(coord_who_handler))
+        .route("/coord/topology", get(coord_topology_handler))
         .route(
             "/dispatch/zone-activity",
             get(dispatch::zone_activity_handler),

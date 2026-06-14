@@ -14,7 +14,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from organs.forge.src.adapters.git_adapter import LocalGitPerceiver
 from organs.forge.src.adapters.storage_adapter import JsonStateStorage
-from organs.forge.src.adapters.kernel_adapter import UDSKernelClient
+from organs.forge.src.adapters.kernel_adapter import KernelWebSocketClient
 from organs.forge.src.core.services import HealthAuditor, BuildDelegationService
 
 def run_audit(repo_path, state_file):
@@ -42,7 +42,7 @@ def run_audit(repo_path, state_file):
 
 async def run_delegate(repo_path, intent):
     perceiver = LocalGitPerceiver(repo_path)
-    kernel_client = UDSKernelClient("/tmp/cynic-kernel.sock")
+    kernel_client = KernelWebSocketClient()
     
     service = BuildDelegationService(perceiver, kernel_client)
     print(f"▶ Delegating task '{intent}' to CYNIC Hub...")

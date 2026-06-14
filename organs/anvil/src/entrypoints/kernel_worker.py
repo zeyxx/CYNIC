@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import sys
-
+import json
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
@@ -24,11 +24,24 @@ async def main():
     
     build_service = BuildService(sync_port, executor_port, retriever_port)
     
-    # Configuration
-    kernel_uri = os.getenv("CYNIC_KERNEL_WS_URI", "ws://127.0.0.1:3030/ws")
+    # Configuration from SSoT (registry.json)
+    registry_path = os.path.join(os.path.dirname(__file__), "../../../../infra/registry.json")
+    with open(registry_path) as f:
+        registry = json.load(f)
+        
+    kernel_node = next((n for n in registry["nodes"] if n["role"] == "proxmox_host_kernel"), None)
+    if not kernel_node:
+        raise RuntimeError("Could not find proxmox_host_kernel in registry.json")
+        
+    kernel_ip = kernel_node["network"]["tailscale"]
+    if kernel_ip.startswith('<') and kernel_ip.endswith('>'):
+        env_var = kernel_ip[1:-1]
+        kernel_ip = os.environ.get(env_var, kernel_ip)
+    kernel_uri = f"ws://{kernel_ip}:3030/node/ws"
+
     api_key = os.getenv("CYNIC_API_KEY", "cynic-dev-key")
     public_key = os.getenv("CYNIC_NODE_PUBKEY", "test-pubkey")
-    identity = os.getenv("CYNIC_NODE_IDENTITY", "organ-anvil-proxmox")
+    identity = "organ-anvil" # Identity is derived from the organ itself
 
     # Wire up the adapter
     ws_adapter = KernelWebSocketAdapter(

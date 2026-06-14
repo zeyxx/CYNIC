@@ -130,6 +130,19 @@
       "coord": "cynic_coord_register/release"
     },
     {
+      "name": "organ-discord",
+      "instance": "organ-discord-hermes-agent",
+      "role": "discord_surface_manager",
+      "description": "Discord passive capture and community opportunity manager for bounties, grants, and Solana infrastructure signals.",
+      "scope": "discord+community+superteam",
+      "cron": "every 30min",
+      "status": "planned",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
       "name": "organ-jupyter",
       "instance": "organ-jupyter-hermes-agent",
       "role": "notebook_surface_manager",

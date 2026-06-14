@@ -564,13 +564,69 @@ pub fn derive_slots_url(base_url: &str) -> String {
 
 /// Load backend configs from TOML file. Resolves api_key_env to actual env var values.
 pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
-    let content = match std::fs::read_to_string(path) {
+    let mut content = match std::fs::read_to_string(path) {
         Ok(c) => c,
         Err(e) => {
             tracing::warn!(path = %path.display(), error = %e, "cannot read config file");
             return Vec::new();
         }
     };
+
+    // Dynamically resolve placeholders using infra/registry.json (SSoT)
+    let project_root = std::env::var("CYNIC_PROJECT_ROOT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::process::Command::new("git")
+                .args(["rev-parse", "--show-toplevel"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| std::path::PathBuf::from(s.trim()))
+                .unwrap_or_else(|| {
+                    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+                })
+        });
+
+    let registry_path = project_root.join("infra/registry.json");
+    if let Ok(registry_content) = std::fs::read_to_string(&registry_path) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&registry_content) {
+            if let Some(nodes) = json.get("nodes").and_then(|n| n.as_array()) {
+                for node in nodes {
+                    if let Some(name) = node.get("name").and_then(|n| n.as_str()) {
+                        let name_upper = if name.starts_with("cynic-") {
+                            name["cynic-".len()..].to_uppercase().replace("-", "_")
+                        } else {
+                            name.to_uppercase().replace("-", "_")
+                        };
+
+                        if let Some(ts) = node
+                            .get("network")
+                            .and_then(|nw| nw.get("tailscale"))
+                            .and_then(|t| t.as_str())
+                        {
+                            let key = format!("<TAILSCALE_{}>", name_upper);
+                            // If the registry itself contains a placeholder like <TAILSCALE_FORGE>, resolve from env
+                            let resolved = if ts.starts_with('<') && ts.ends_with('>') {
+                                let env_var = &ts[1..ts.len() - 1];
+                                std::env::var(env_var).unwrap_or_else(|_| ts.to_string())
+                            } else {
+                                ts.to_string()
+                            };
+                            content = content.replace(&key, &resolved);
+                        }
+                        if let Some(local) = node
+                            .get("network")
+                            .and_then(|nw| nw.get("local"))
+                            .and_then(|t| t.as_str())
+                        {
+                            let key = format!("<LOCAL_{}>", name_upper);
+                            content = content.replace(&key, local);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     let file: BackendsFile = match toml::from_str(&content) {
         Ok(f) => f,
