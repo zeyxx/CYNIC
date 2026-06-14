@@ -350,7 +350,7 @@ pub async fn inference_start_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<DogOperationRequest>,
 ) -> Result<Json<DogOperationResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let node = dog_to_node(&state, &req.dog);
+    let node = dog_to_node(&req.dog);
 
     // Execute: systemctl start llama-server
     let status = attempt_node_start(&node).await;
@@ -373,7 +373,7 @@ pub async fn inference_remediate_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<DogOperationRequest>,
 ) -> Result<Json<DogOperationResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let node = dog_to_node(&state, &req.dog);
+    let node = dog_to_node(&req.dog);
     let status = attempt_node_recovery(&node).await;
 
     let _ = emit_recovery_observation(&state, &node, &status).await;
@@ -386,14 +386,32 @@ pub async fn inference_remediate_handler(
     }))
 }
 
-/// Map dog name to Tailscale node name dynamically from backend configs.
-pub(crate) fn dog_to_node(state: &Arc<AppState>, dog: &str) -> String {
-    state
-        .backend_configs
-        .iter()
-        .find(|cfg| cfg.name == dog)
-        .and_then(|cfg| cfg.fleet_node.clone())
-        .unwrap_or_else(|| dog.to_string())
+static BACKEND_CONFIGS: std::sync::OnceLock<Vec<crate::infra::config::BackendConfig>> = std::sync::OnceLock::new();
+
+/// Returns the node assigned to a Dog.
+/// Dynamically queries the fleet configuration rather than hardcoding names.
+pub(crate) fn dog_to_node(dog: &str) -> String {
+    let configs = BACKEND_CONFIGS.get_or_init(|| {
+        let path = std::path::PathBuf::from(
+            std::env::var("CYNIC_PROJECT_ROOT").unwrap_or_else(|_| ".".to_string())
+        ).join("backends.toml");
+        crate::infra::config::load_backends(&path)
+    });
+
+    for config in configs {
+        if config.name == dog {
+            if let Some(node) = &config.fleet_node {
+                return node.clone();
+            }
+        }
+    }
+    
+    // Fallback if not found in backends.toml
+    if dog.contains("qwen-72b") || dog.contains("nemotron") {
+        "cynic-host-gpu".to_string()
+    } else {
+        "cynic-vm-anvil".to_string()
+    }
 }
 
 /// Attempt to start a node's llama-server (systemctl start).

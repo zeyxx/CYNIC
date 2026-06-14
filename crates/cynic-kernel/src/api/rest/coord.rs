@@ -429,3 +429,61 @@ pub async fn coord_topology_handler()
 
     Ok(Json(json))
 }
+
+/// POST /coord/upgrade — receives a new compiled cynic-kernel binary.
+/// Replaces the current executable and schedules a systemd restart.
+/// Handled natively without external scripts or SSH.
+pub async fn coord_upgrade_handler(
+    body: axum::body::Bytes,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    if body.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse { error: "Empty binary payload".into() }),
+        ));
+    }
+
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
+    let target_path = format!("{}/bin/cynic-kernel", home);
+    let tmp_path = format!("{}/bin/cynic-kernel.new", home);
+
+    // 1. Write the payload to a temporary file
+    if let Err(e) = std::fs::write(&tmp_path, &body) {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse { error: format!("Failed to write tmp binary: {e}") }),
+        ));
+    }
+
+    // 2. Make it executable
+    use std::os::unix::fs::PermissionsExt;
+    if let Ok(mut perms) = std::fs::metadata(&tmp_path).map(|m| m.permissions()) {
+        perms.set_mode(0o755);
+        let _ = std::fs::set_permissions(&tmp_path, perms);
+    }
+
+    // 3. Atomically rename tmp_path -> target_path
+    if let Err(e) = std::fs::rename(&tmp_path, &target_path) {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse { error: format!("Failed to swap binary: {e}") }),
+        ));
+    }
+
+    // 4. Trigger systemd to restart the service (detached)
+    tokio::spawn(async {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        tracing::info!("Auto-upgrade successful, restarting service via systemctl...");
+        let _ = tokio::process::Command::new("systemctl")
+            .arg("--user")
+            .arg("restart")
+            .arg("cynic-kernel")
+            .spawn();
+    });
+
+    Ok(Json(serde_json::json!({
+        "status": "upgrade_scheduled",
+        "bytes_received": body.len(),
+        "restarting_in": "500ms"
+    })))
+}
