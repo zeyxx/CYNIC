@@ -37,7 +37,10 @@ def main() -> int:
         "agent_id": "organ-discord-cron",
         "content": json.dumps(content, separators=(",", ":")),
     }
-    return 0 if dispatcher.dispatch_task(payload) else 1
+    if dispatcher.dispatch_task(payload):
+        return 0
+    print("organ-discord dispatch skipped: kernel bus unavailable or task rejected", file=sys.stderr)
+    return 0
 
 
 if __name__ == "__main__":

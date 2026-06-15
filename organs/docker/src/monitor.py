@@ -13,9 +13,10 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 ORGANS_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[3]
 STATE_FILE = ORGANS_DIR / "state" / "state.json"
 EXPECTED_COMPOSE_DIRS = [
-    Path("/home/user/Bureau/CYNIC/infra/docker/cynic-portal")
+    REPO_ROOT / "infra/docker/cynic-portal"
 ]
 
 def run_sudo_docker(*args):
@@ -63,7 +64,11 @@ def heal_infrastructure(containers):
         if compose_dir.name == "cynic-portal":
             if not any("cynic-portal" in name for name in running_names):
                 actions_taken.append(f"Healing {compose_dir.name}: containers missing or stopped.")
-                success = run_sudo_docker_compose(compose_dir, "up", "-d")
+                build_success = run_sudo_docker_compose(compose_dir, "build", "portal")
+                if not build_success:
+                    actions_taken.append(f"Failed to build {compose_dir.name}.")
+                    continue
+                success = run_sudo_docker_compose(compose_dir, "up", "-d", "--no-build")
                 if success:
                     actions_taken.append(f"Successfully restarted {compose_dir.name}.")
                 else:

@@ -39,7 +39,10 @@ def main() -> int:
         "content": json.dumps(content, separators=(",", ":")),
     }
 
-    return 0 if dispatcher.dispatch_task(payload) else 1
+    if dispatcher.dispatch_task(payload):
+        return 0
+    print("organ-docker dispatch skipped: kernel bus unavailable; local monitor state was still written.")
+    return 0
 
 
 if __name__ == "__main__":

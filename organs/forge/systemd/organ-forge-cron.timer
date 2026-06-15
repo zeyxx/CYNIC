@@ -1,5 +1,5 @@
 [Unit]
-Description=CYNIC Organ Anvil Cron - every 30 minutes
+Description=CYNIC Organ Forge Cron - every 30 minutes
 
 [Timer]
 OnBootSec=2min

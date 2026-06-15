@@ -2,6 +2,6 @@
 # Format: one systemd unit name per line. Lines starting with # are ignored.
 # Update this file when adding/removing services.
 cynic-kernel.service
+cynic-portal.service
 llama-server.service
-llama-embed.service
 surrealdb.service

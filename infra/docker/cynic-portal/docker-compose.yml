@@ -1,15 +1,12 @@
 services:
   portal:
+    container_name: cynic-portal
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../../..
+      dockerfile: infra/docker/cynic-portal/Dockerfile
+    image: cynic-portal:local
     network_mode: host
-    working_dir: /app
-    command: sh -lc 'if [ ! -f node_modules/.portal-installed ]; then npm ci && touch node_modules/.portal-installed; fi && npm run portal'
-    volumes:
-      - ../../..:/app
-      - cynic_portal_node_modules:/app/node_modules
     restart: unless-stopped
-
-volumes:
-  cynic_portal_node_modules:
+    labels:
+      cynic.role: portal
+      cynic.surface: operator-ui
