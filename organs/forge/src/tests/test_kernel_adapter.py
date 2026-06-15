@@ -99,6 +99,24 @@ def registry_fixture():
                 "workflow": {
                     "name": "kernel_release",
                     "owner": "organ-forge",
+                    "state_layers": {
+                        "desired": {
+                            "source": "human_intent",
+                            "description": "What the operator wants the organism to do.",
+                        },
+                        "declared": {
+                            "source": "infra/registry.json",
+                            "description": "What the registry says should happen.",
+                        },
+                        "observed": {
+                            "source": "runtime_probes",
+                            "description": "What Proxmox, Tailscale, and service evidence prove right now.",
+                        },
+                        "effective": {
+                            "source": "organ-forge",
+                            "description": "What the lifecycle organ authorizes for execution.",
+                        },
+                    },
                     "canonical_stages": [
                         {
                             "name": "local_validation",
@@ -234,6 +252,7 @@ class LifecyclePolicyTests(unittest.TestCase):
         self.assertEqual(result["request_profiles"], ["deploy", "gate-2"])
         self.assertEqual(result["repo_root"], "%h/.cynic/repos/CYNIC")
         self.assertEqual(result["workflow"]["name"], "kernel_release")
+        self.assertEqual(result["workflow"]["state_layers"]["declared"]["source"], "infra/registry.json")
 
     def test_validate_lifecycle_policy_rejects_operator_checkout_runtime_root(self):
         registry = registry_fixture()
@@ -915,8 +934,26 @@ class LifecyclePolicyTests(unittest.TestCase):
         client.fleet_probe = {"enabled": False, "status": "not_run"}
 
         workflow = client.lifecycle_context()["workflow"]
+        workflow_state = client.lifecycle_context()["workflow_state"]
 
         self.assertEqual(workflow["name"], "kernel_release")
+        self.assertEqual(workflow_state["declared"]["required_node_status"], "active")
+        self.assertEqual(
+            workflow_state["observed"]["activation_evidence_gaps"],
+            [
+                "cynic-vm-anvil:tailscale_env_TAILSCALE_ANVIL_missing",
+                "cynic-vm-anvil:service_organ-forge_inactive",
+                "cynic-vm-anvil:service_cargo-build_inactive",
+                "cynic-vm-anvil:service_gate-2_inactive",
+                "cynic-vm-anvil:runtime_path_repo_root_unverified",
+                "cynic-vm-core:tailscale_env_TAILSCALE_CORE_missing",
+                "cynic-vm-core:service_cynic-kernel_inactive",
+                "cynic-vm-core:service_surrealdb_inactive",
+                "cynic-vm-core:service_cynic-portal_inactive",
+                "cynic-vm-core:runtime_path_repo_root_unverified",
+            ],
+        )
+        self.assertFalse(workflow_state["effective"]["lifecycle_nodes_ready"])
         self.assertEqual(len(workflow["canonical_stages"]), 5)
         self.assertEqual(
             workflow["planned_policy"]["critical_targets"],

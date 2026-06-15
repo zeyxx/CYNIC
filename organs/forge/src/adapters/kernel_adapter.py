@@ -87,6 +87,29 @@ def validate_lifecycle_policy(registry: dict | None = None) -> dict:
         errors.append("lifecycle workflow.name must be kernel_release")
     if workflow.get("owner") != lifecycle["orchestrator_organ"]:
         errors.append("lifecycle workflow.owner must match orchestrator_organ")
+    state_layers = workflow.get("state_layers", {})
+    if not isinstance(state_layers, dict) or not state_layers:
+        errors.append("lifecycle workflow.state_layers must describe desired/declared/observed/effective")
+    else:
+        expected_layers = {
+            "desired": "human_intent",
+            "declared": "infra/registry.json",
+            "observed": "runtime_probes",
+            "effective": "organ-forge",
+        }
+        for layer_name, source in expected_layers.items():
+            layer = state_layers.get(layer_name, {})
+            if not isinstance(layer, dict):
+                errors.append(f"lifecycle workflow.state_layers.{layer_name} must be an object")
+                continue
+            if layer.get("source") != source:
+                errors.append(
+                    f"lifecycle workflow.state_layers.{layer_name}.source must be {source}"
+                )
+            if not layer.get("description"):
+                errors.append(
+                    f"lifecycle workflow.state_layers.{layer_name}.description missing"
+                )
     stages = workflow.get("canonical_stages", [])
     if not isinstance(stages, list) or len(stages) < 3:
         errors.append("lifecycle workflow.canonical_stages must define the canonical workflow")
@@ -1539,6 +1562,40 @@ class KernelRestClient(IKernelClient):
             activation_gap_details=activation_gap_details,
             required_status=required_status,
         )
+        workflow = self.lifecycle.get("workflow", {})
+        workflow_state = {
+            "desired": workflow.get("state_layers", {}).get("desired", {}),
+            "declared": {
+                "workflow": workflow,
+                "required_node_status": required_status,
+                "activation_requirements": self.lifecycle.get("activation_requirements", {}),
+                "fleet_requirements": self.lifecycle.get("fleet_requirements", {}),
+                "request_profiles": self.lifecycle.get("request_profiles", {}),
+                "repo_targets": self.lifecycle.get("repo_targets", []),
+            },
+            "observed": {
+                "build_target_status": self.build_node.get("status", "unknown"),
+                "deploy_target_status": self.deploy_node.get("status", "unknown"),
+                "activation_evidence_gaps": activation_gaps,
+                "activation_evidence_gap_details": activation_gap_details,
+                "fleet_probe": self.fleet_probe,
+                "kernel_probe": self.kernel_probe,
+                "status_nodes_ready": status_nodes_ready,
+                "fleet_nodes_ready": fleet_nodes_ready,
+            },
+            "effective": {
+                "lifecycle_nodes_ready": (
+                    status_nodes_ready and not activation_gaps and fleet_nodes_ready
+                ),
+                "dispatch_allowed": (
+                    status_nodes_ready and not activation_gaps and fleet_nodes_ready
+                ),
+                "release_allowed": (
+                    status_nodes_ready and not activation_gaps and fleet_nodes_ready
+                ),
+                "lifecycle_blockers": lifecycle_blockers,
+            },
+        }
         return {
             "lifecycle": "kernel_release",
             "orchestrator_organ": self.lifecycle["orchestrator_organ"],
@@ -1559,6 +1616,7 @@ class KernelRestClient(IKernelClient):
             "request_profiles": self.lifecycle.get("request_profiles", {}),
             "intents": self.lifecycle.get("intents", {}),
             "workflow": self.lifecycle.get("workflow", {}),
+            "workflow_state": workflow_state,
             "activation_evidence_gaps": activation_gaps,
             "activation_evidence_gap_details": activation_gap_details,
             "status_nodes_ready": status_nodes_ready,

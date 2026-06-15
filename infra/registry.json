@@ -100,6 +100,24 @@
       "workflow": {
         "name": "kernel_release",
         "owner": "organ-forge",
+        "state_layers": {
+          "desired": {
+            "source": "human_intent",
+            "description": "What the operator wants the organism to do."
+          },
+          "declared": {
+            "source": "infra/registry.json",
+            "description": "What the registry says should happen."
+          },
+          "observed": {
+            "source": "runtime_probes",
+            "description": "What Proxmox, Tailscale, and service evidence prove right now."
+          },
+          "effective": {
+            "source": "organ-forge",
+            "description": "What the lifecycle organ authorizes for execution."
+          }
+        },
         "canonical_stages": [
           {
             "name": "local_validation",
