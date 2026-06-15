@@ -7,6 +7,7 @@ use super::response::coordination_error;
 use super::types::{AppState, DogHealthResponse, ErrorResponse};
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
 use crate::domain::health_gate::count_healthy_dogs;
+use crate::domain::storage::{AgentTask, Observation};
 
 /// GET /live — Liveness probe. Returns 200 if the process is running.
 /// No dependencies checked — this is "is the kernel alive?" for systemd/k8s.
@@ -56,6 +57,16 @@ pub async fn health_handler(
     let probes_degraded =
         crate::domain::probe::EnvironmentSnapshot::is_degraded(&state.environment);
     let stale_tasks = state.task_health.readiness_stale_tasks();
+    let overdue_tasks = if storage_ok {
+        state
+            .storage
+            .list_overdue_agent_tasks(100)
+            .await
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    emit_overdue_task_observations(&state, &overdue_tasks).await;
 
     let dog_health_detail = judge.dog_health_detailed();
     let sovereign_ids = judge.sovereign_dog_ids();
@@ -272,6 +283,7 @@ pub async fn health_handler(
                 "storage_ok": storage_ok,
                 "probes_degraded": probes_degraded,
                 "stale_tasks": stale_tasks,
+                "overdue_agent_tasks": overdue_tasks,
                 "causes": readiness.causes,
             },
             "environment": state.environment.read().ok().and_then(|e| e.clone()),
@@ -327,6 +339,72 @@ pub async fn health_handler(
             "producers": producer_report,
         })),
     )
+}
+
+async fn emit_overdue_task_observations(state: &Arc<AppState>, overdue_tasks: &[AgentTask]) {
+    let to_emit: Vec<AgentTask> = {
+        let Ok(alerted) = state.overdue_task_alerted.read() else {
+            return;
+        };
+        overdue_tasks
+            .iter()
+            .filter(|task| !alerted.contains_key(&task.id))
+            .cloned()
+            .collect()
+    };
+
+    for task in to_emit {
+        let now = chrono::Utc::now().to_rfc3339();
+        let observation = Observation {
+            project: "CYNIC".to_string(),
+            agent_id: "cynic-kernel".to_string(),
+            tool: "agent_task_overdue".to_string(),
+            target: task.id.clone(),
+            domain: task.domain.clone(),
+            status: "critical".to_string(),
+            context: format!("agent task overdue: {}", task.id),
+            session_id: "kernel-overdue-monitor".to_string(),
+            timestamp: now.clone(),
+            tags: vec![
+                "agent-task".to_string(),
+                "overdue".to_string(),
+                "anti-forgetting".to_string(),
+            ],
+            source_tier: "permanent".to_string(),
+            value: Some(serde_json::json!({
+                "task_id": task.id.clone(),
+                "kind": task.kind.clone(),
+                "domain": task.domain.clone(),
+                "due_at": task.due_at.clone(),
+                "priority": task.priority,
+                "consumer": task.consumer.clone(),
+                "escalation_policy": task.escalation_policy.clone(),
+                "age_seconds": task.age_seconds,
+            })),
+            confidence: Some("observed".to_string()),
+            consumer: task
+                .consumer
+                .clone()
+                .or_else(|| Some("human+cortex".to_string())),
+            action: Some(
+                task.escalation_policy
+                    .clone()
+                    .unwrap_or_else(|| "review pending overdue agent task".to_string()),
+            ),
+            depends_on: Vec::new(),
+            maturity: Some(1.0),
+            hash: String::new(),
+            prev_hash: String::new(),
+            observers: vec!["cynic-kernel".to_string()],
+            consensus_score: Some(1.0),
+        };
+
+        if state.storage.store_observation(&observation).await.is_ok()
+            && let Ok(mut alerted) = state.overdue_task_alerted.write()
+        {
+            alerted.insert(observation.target.clone(), now);
+        }
+    }
 }
 
 /// GET /agents — show active agent sessions, their claims, and connected websocket nodes

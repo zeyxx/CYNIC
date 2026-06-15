@@ -289,6 +289,7 @@ pub trait TaskStorage: Send + Sync {
         domain: Option<&str>,
         limit: u32,
     ) -> Result<Vec<AgentTask>, StorageError>;
+    async fn list_overdue_agent_tasks(&self, limit: u32) -> Result<Vec<AgentTask>, StorageError>;
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
     async fn claim_agent_task(&self, task_id: &str, agent_id: &str) -> Result<bool, StorageError>;

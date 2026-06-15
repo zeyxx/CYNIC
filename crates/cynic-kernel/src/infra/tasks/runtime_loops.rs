@@ -1068,6 +1068,9 @@ mod tests {
             node_registry: Arc::new(crate::api::websocket::NodeRegistry::new(120)),
             zones: Arc::new(crate::domain::zones::ZoneConfig::default()),
             producer_heartbeats: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+            overdue_task_alerted: Arc::new(
+                std::sync::RwLock::new(std::collections::HashMap::new()),
+            ),
         })
     }
 

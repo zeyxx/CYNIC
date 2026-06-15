@@ -386,6 +386,12 @@ impl TaskStorage for ReconnectableStorage {
             .list_completed_agent_tasks(kind, domain, limit)
             .await
     }
+    async fn list_overdue_agent_tasks(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
+        self.current().list_overdue_agent_tasks(limit).await
+    }
     async fn update_agent_task_result(
         &self,
         task_id: &str,

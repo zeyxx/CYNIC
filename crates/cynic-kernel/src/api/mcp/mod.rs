@@ -430,6 +430,10 @@ pub struct DispatchAgentTaskParams {
     /// JSON task payload. Repo-affecting hermes tasks must declare coord_targets, targets, repo_targets, or files.
     pub content: String,
     pub agent_id: Option<String>,
+    pub due_at: Option<String>,
+    pub priority: Option<i64>,
+    pub consumer: Option<String>,
+    pub escalation_policy: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -917,6 +921,12 @@ mod tests {
             &self,
             _: &str,
             _: Option<&str>,
+            _: u32,
+        ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
+            Ok(vec![])
+        }
+        async fn list_overdue_agent_tasks(
+            &self,
             _: u32,
         ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
             Ok(vec![])

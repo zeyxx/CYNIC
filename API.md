@@ -509,10 +509,18 @@ Dispatch a task to the agent queue. Returns task_id.
 | `domain` | string (1-64) | yes | Domain (e.g. "social-signal") |
 | `content` | string (1-10000) | yes | Task content/instructions |
 | `agent_id` | string | no | Dispatching agent ID |
+| `due_at` | RFC3339 string | no | Deadline used by organism anti-forgetting |
+| `priority` | integer | no | Relative task priority |
+| `consumer` | string | no | Expected acting consumer |
+| `escalation_policy` | string | no | Action emitted when the task becomes overdue |
 
 ### GET /agent-tasks
 
-Poll pending tasks. Query params: `kind` (default "hermes"), `limit` (default 10).
+Poll pending tasks. Query params: `kind` (default "hermes"), `domain`, `limit` (default 10).
+
+Returned tasks include computed `overdue` and `age_seconds` metadata. For
+backward compatibility, task metadata can be derived from JSON `content` when
+first-class fields are absent.
 
 ### POST /agent-tasks/{id}/result
 

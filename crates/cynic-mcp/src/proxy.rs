@@ -46,6 +46,13 @@ impl std::fmt::Debug for CynicMcpProxy {
 }
 
 impl CynicMcpProxy {
+    fn proxmox_credential() -> String {
+        std::env::var("CYNIC_PROXMOX_TOKEN_SECRET")
+            .or_else(|_| std::env::var("CYNIC_PROXMOX_SECRET"))
+            .map(|value| value.trim().to_string())
+            .unwrap_or_default()
+    }
+
     pub fn tool_router() -> ToolRouter<Self> {
         Self::tool_router_forward() + Self::tool_router_coord() + Self::tool_router_local()
     }
@@ -398,6 +405,10 @@ impl CynicMcpProxy {
                 "domain": p.domain,
                 "content": p.content,
                 "agent_id": p.agent_id,
+                "due_at": p.due_at,
+                "priority": p.priority,
+                "consumer": p.consumer,
+                "escalation_policy": p.escalation_policy,
             }),
         )
         .await
@@ -648,10 +659,10 @@ impl CynicMcpProxy {
         self.rate_limit.check_other()?;
 
         let proxmox_url = std::env::var("CYNIC_PROXMOX_URL").unwrap_or_default();
-        let token_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
-        let token_value = std::env::var("CYNIC_PROXMOX_SECRET").unwrap_or_default();
+        let client_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
+        let credential_value = Self::proxmox_credential();
 
-        if proxmox_url.is_empty() || token_id.is_empty() || token_value.is_empty() {
+        if proxmox_url.is_empty() || client_id.is_empty() || credential_value.is_empty() {
             return Err(McpError::internal_error(
                 "Proxmox credentials not configured in CYNIC_PROXMOX_* env vars",
                 None,
@@ -665,7 +676,7 @@ impl CynicMcpProxy {
             .map_err(|e| McpError::internal_error(format!("Proxmox client error: {e}"), None))?;
 
         let auth_scheme = "PVEAPIToken";
-        let auth_header = format!("{auth_scheme}={token_id}={token_value}");
+        let auth_header = format!("{auth_scheme}={client_id}={credential_value}");
 
         // 1. Get nodes
         let nodes_resp = client
@@ -752,10 +763,10 @@ impl CynicMcpProxy {
         self.rate_limit.check_other()?;
 
         let proxmox_url = std::env::var("CYNIC_PROXMOX_URL").unwrap_or_default();
-        let token_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
-        let token_value = std::env::var("CYNIC_PROXMOX_SECRET").unwrap_or_default();
+        let client_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
+        let credential_value = Self::proxmox_credential();
 
-        if proxmox_url.is_empty() || token_id.is_empty() || token_value.is_empty() {
+        if proxmox_url.is_empty() || client_id.is_empty() || credential_value.is_empty() {
             return Err(McpError::internal_error(
                 "Proxmox credentials not configured in CYNIC_PROXMOX_* env vars",
                 None,
@@ -775,7 +786,7 @@ impl CynicMcpProxy {
             .map_err(|e| McpError::internal_error(format!("Proxmox client error: {e}"), None))?;
 
         let auth_scheme = "PVEAPIToken";
-        let auth_header = format!("{auth_scheme}={token_id}={token_value}");
+        let auth_header = format!("{auth_scheme}={client_id}={credential_value}");
 
         let url = format!("{proxmox_url}/api2/json/nodes/{node}/{type_}/{vmid}/status/{action}");
 

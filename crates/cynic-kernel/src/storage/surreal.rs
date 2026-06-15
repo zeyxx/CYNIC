@@ -345,6 +345,10 @@ impl TaskStorage for SurrealHttpStorage {
         agent_tasks::list_completed_agent_tasks(self, kind, domain, limit).await
     }
 
+    async fn list_overdue_agent_tasks(&self, limit: u32) -> Result<Vec<AgentTask>, StorageError> {
+        agent_tasks::list_overdue_agent_tasks(self, limit).await
+    }
+
     #[tracing::instrument(skip(self), err)]
     async fn claim_agent_task(&self, task_id: &str, agent_id: &str) -> Result<bool, StorageError> {
         agent_tasks::claim_agent_task(self, task_id, agent_id).await

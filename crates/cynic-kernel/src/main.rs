@@ -651,6 +651,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build fleet probe targets from Dog health_urls (backends.toml SoT).
     // Pure transform extracted to infra::boot.
     let fleet_targets = infra::boot::build_fleet_targets(&health_urls, &fleet_meta);
+    let fleet_inventory_probe = infra::probes::build_default_fleet_inventory_probe(&project_root);
 
     // ── STARTUP VERIFICATION: Fail fast on backend coherence violations ──
     // Probe backends immediately (context drift, model mismatch) before claiming sovereignty.
@@ -710,6 +711,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(infra::probes::ProxyProbe),
         Arc::new(infra::probes::SomaProbe),
         Arc::new(fleet_probe),
+        Arc::new(fleet_inventory_probe),
         Arc::new(infra::probes::VersionProbe::new()),
     ];
 
@@ -870,6 +872,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         node_registry: Arc::new(api::websocket::NodeRegistry::new(120)),
         zones,
         producer_heartbeats: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+        overdue_task_alerted: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 

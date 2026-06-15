@@ -1,18 +1,53 @@
 #!/bin/bash
 # infra/monitoring/monitor_vms.sh
-# Sondeur d'état dynamique — envoie des faits structurés au Kernel CYNIC
-# Utilise Proxmox pour découvrir les IP en temps réel et tester le liveness
+# Sondeur d'état dynamique — envoie des faits structurés au Kernel CYNIC.
+# ATTENTION: script legacy. La preuve d'activation devrait venir du probe
+# Kernel `fleet_inventory` (infra/probes/fleet_inventory.rs). À conserver pour
+# compatibilité tant que la chaîne de bootstrap dépend de ce script.
+set -euo pipefail
 
 REGISTRY="infra/registry.json"
 KERNEL_URL="http://localhost:3030/observe" 
 
-NODES=$(jq -r '.nodes[] | select(.role=="proxmox_host_kernel") | .network.local' "$REGISTRY")
+HYPERVISORS=$(jq -r '.nodes[] | select(.role=="hypervisor") | .network.local' "$REGISTRY")
+EXPECTED_VMS=$(jq -c '.nodes[] | select(.name=="cynic-host-proxmox") | .vms[]' "$REGISTRY")
 
-for node in $NODES; do
+for node in $HYPERVISORS; do
     # 1. Récupération brute des ressources
     DATA=$(ssh -o BatchMode=yes -o ConnectTimeout=5 cynic@"$node" "sudo pvesh get /cluster/resources --output-format json" 2>/dev/null)
     
     if [ -z "$DATA" ]; then continue; fi
+
+    ACTUAL_IDS=$(echo "$DATA" | jq -r '.[] | select(.type=="lxc" or .type=="qemu") | .id')
+
+    echo "$EXPECTED_VMS" | while read -r expected_vm; do
+        EXPECTED_ID=$(echo "$expected_vm" | jq -r '.id')
+        EXPECTED_NAME=$(echo "$expected_vm" | jq -r '.name')
+        EXPECTED_IP=$(echo "$expected_vm" | jq -r '.ip')
+
+        if ! echo "$ACTUAL_IDS" | grep -qx "$EXPECTED_ID"; then
+            PAYLOAD=$(jq -nc \
+                --arg tool "proxmox-monitor" \
+                --arg target "$EXPECTED_ID" \
+                --arg name "$EXPECTED_NAME" \
+                --arg state "missing" \
+                --arg liveness "missing" \
+                --arg ip "$EXPECTED_IP" \
+                '{
+                    tool: $tool,
+                    target: $target,
+                    domain: "infrastructure",
+                    status: "observed",
+                    context: {
+                        name: $name,
+                        state: $state,
+                        liveness: $liveness,
+                        ip: $ip
+                    }
+                }')
+            curl -s -X POST "$KERNEL_URL" -H "Content-Type: application/json" -d "$PAYLOAD" > /dev/null
+        fi
+    done
 
     echo "$DATA" | jq -c '.[] | select(.type=="lxc" or .type=="qemu") | {id: .id, name: .name, status: .status}' | while read -r vm; do
         ID=$(echo "$vm" | jq -r '.id')

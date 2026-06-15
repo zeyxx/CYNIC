@@ -13,51 +13,66 @@ fn extract_record_id(row: &Value) -> Option<String> {
 }
 
 fn row_to_agent_task(row: &Value) -> Option<AgentTask> {
-    row.as_object().map(|obj| AgentTask {
-        id: obj
-            .get("id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        kind: obj
-            .get("kind")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        domain: obj
-            .get("domain")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        content: obj
-            .get("content")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        status: obj
-            .get("status")
-            .and_then(|v| v.as_str())
-            .unwrap_or("pending")
-            .to_string(),
-        result: obj.get("result").and_then(|v| v.as_str()).map(String::from),
-        created_at: obj
-            .get("created_at")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        completed_at: obj
-            .get("completed_at")
-            .and_then(|v| v.as_str())
-            .map(String::from),
-        agent_id: obj
-            .get("agent_id")
-            .and_then(|v| v.as_str())
-            .map(String::from),
-        claimed_by: obj
-            .get("claimed_by")
-            .and_then(|v| v.as_str())
-            .map(String::from),
-        error: obj.get("error").and_then(|v| v.as_str()).map(String::from),
+    row.as_object().map(|obj| {
+        AgentTask {
+            id: obj
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            kind: obj
+                .get("kind")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            domain: obj
+                .get("domain")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            content: obj
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            status: obj
+                .get("status")
+                .and_then(|v| v.as_str())
+                .unwrap_or("pending")
+                .to_string(),
+            result: obj.get("result").and_then(|v| v.as_str()).map(String::from),
+            created_at: obj
+                .get("created_at")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            completed_at: obj
+                .get("completed_at")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+            agent_id: obj
+                .get("agent_id")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+            claimed_by: obj
+                .get("claimed_by")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+            error: obj.get("error").and_then(|v| v.as_str()).map(String::from),
+            due_at: obj.get("due_at").and_then(|v| v.as_str()).map(String::from),
+            priority: obj.get("priority").and_then(|v| v.as_i64()),
+            consumer: obj
+                .get("consumer")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+            escalation_policy: obj
+                .get("escalation_policy")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+            overdue: false,
+            age_seconds: None,
+        }
+        .with_computed_metadata()
     })
 }
 
@@ -77,8 +92,27 @@ pub(super) async fn store_agent_task(
         .as_ref()
         .map(|id| format!("'{}'", crate::storage::escape_surreal(id)))
         .unwrap_or_else(|| "null".to_string());
+    let due_at = task
+        .due_at
+        .as_ref()
+        .map(|value| format!("'{}'", crate::storage::escape_surreal(value)))
+        .unwrap_or_else(|| "null".to_string());
+    let priority = task
+        .priority
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "null".to_string());
+    let consumer = task
+        .consumer
+        .as_ref()
+        .map(|value| format!("'{}'", crate::storage::escape_surreal(value)))
+        .unwrap_or_else(|| "null".to_string());
+    let escalation_policy = task
+        .escalation_policy
+        .as_ref()
+        .map(|value| format!("'{}'", crate::storage::escape_surreal(value)))
+        .unwrap_or_else(|| "null".to_string());
     let query = format!(
-        "INSERT INTO agent_tasks {{ kind: '{}', domain: '{}', content: '{}', status: 'pending', created_at: '{}', agent_id: {agent_id} }} RETURN id;",
+        "INSERT INTO agent_tasks {{ kind: '{}', domain: '{}', content: '{}', status: 'pending', created_at: '{}', agent_id: {agent_id}, due_at: {due_at}, priority: {priority}, consumer: {consumer}, escalation_policy: {escalation_policy} }} RETURN id;",
         crate::storage::escape_surreal(&task.kind),
         crate::storage::escape_surreal(&task.domain),
         crate::storage::escape_surreal(&task.content),
@@ -107,6 +141,24 @@ pub(super) async fn list_pending_agent_tasks(
     );
     let rows = storage.query_one(&query).await?;
     Ok(rows.iter().filter_map(row_to_agent_task).collect())
+}
+
+/// List overdue pending tasks across all kinds and domains.
+pub(super) async fn list_overdue_agent_tasks(
+    storage: &SurrealHttpStorage,
+    limit: u32,
+) -> Result<Vec<AgentTask>, StorageError> {
+    let scan_limit = limit.max(1000);
+    let query = format!(
+        "SELECT * FROM agent_tasks WHERE status = 'pending' ORDER BY created_at ASC LIMIT {scan_limit};"
+    );
+    let rows = storage.query_one(&query).await?;
+    Ok(rows
+        .iter()
+        .filter_map(row_to_agent_task)
+        .filter(|task| task.overdue)
+        .take(limit as usize)
+        .collect())
 }
 
 /// List completed tasks of a specific kind.

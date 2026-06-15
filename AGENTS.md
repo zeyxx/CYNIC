@@ -33,6 +33,10 @@ Rule: Protocol beats journal, and dynamic Kernel state beats static files.
 
 ### MCP Coordination Tools
 
+All interactive agents coordinate through MCP first. The REST paths named in
+this document describe the Kernel backing API and the degraded fallback path
+only. If an MCP tool is visible in-session, use it instead of direct REST.
+
 All agents have these tools via MCP:
 
 | Tool | What | When |
@@ -62,7 +66,9 @@ All agents have these tools via MCP:
    → cynic_observe() on discoveries, decisions, blockers
    → cynic_coord_who() periodically if session is long
 
-   REST note: `/coord/who` is the coordination view. `/agent-tasks` is the universal mempool.
+   Backing API note: `/coord/who` is the coordination view.
+   `/agent-tasks` is the universal mempool. Agents should reach these through
+   MCP unless their adapter cannot expose MCP in the current session.
 
 5. **SESSION END**
    → cynic_coord_release(agent_id)  — release ALL claims
@@ -76,6 +82,86 @@ All agents have these tools via MCP:
 | **L3** | Native MCP Tools | Explicit call | **Yes** — The proxy tracks and enforces. |
 
 L2 is the safety net. Even if an agent fails to claim via L3, the commit will be rejected if another agent holds the file.
+
+## Task Memory And Anti-Forgetting
+
+The Kernel mempool is the canonical organism memory for work that must survive a
+chat session. Do not create `TODO.md`, `.handoff.md`, or narrative backlog files
+to remember future work.
+
+### Current Guarantees
+
+What is mechanically true today:
+
+- `cynic_dispatch_agent_task` persists pending work when Kernel storage is
+  healthy.
+- Pending tasks remain visible until claimed and completed through the task API.
+- `cynic_observe` records structured decisions, discoveries, and blockers in
+  the Proof-of-History path.
+- `cynic_claim_agent_task` is the atomic claim boundary for task execution.
+- `cynic_health` exposes storage degradation; if storage is down, mempool
+  memory is not reliable.
+
+REST equivalents (`POST /agent-tasks`, `POST /observe`, `POST
+/agent-tasks/{id}/claim`, `/health`) are fallback transport, not the preferred
+agent protocol.
+
+### Current Limits
+
+Do not overstate the current enforcement:
+
+- `overdue` pressure is now computed natively and exposed via `/health` and
+  `HealthCause::OverdueAgentTasks`.
+- A sidecar script, cron, timer, or systemd unit is still a temporary actuator
+  only when the kernel-native path is unavailable in that environment.
+
+If a task needs a deadline before native Kernel support exists, encode the task
+content as JSON and include at minimum:
+
+```json
+{
+  "objective": "...",
+  "due_at": "2026-06-22T23:59:00+02:00",
+  "timezone": "Europe/Paris",
+  "owner": "human+organism",
+  "done_when": ["..."],
+  "forgetting_controls": ["query /agent-tasks at cortex startup"]
+}
+```
+
+After dispatching such a task, the dispatching agent must verify it is visible
+with `cynic_list_pending_agent_tasks(kind=<kind>, domain=<domain>)` before
+claiming it has been remembered. If storage is down or the task cannot be read
+back, report a blocker with `cynic_observe` after storage is restored; do not
+pretend the organism has remembered it.
+
+### Desired Direction
+
+Anti-forgetting should become a Kernel/introspection property, not a pile of
+ad-hoc reminders. The durable target is:
+
+1. `agent_tasks` has first-class `due_at`, `priority`, `consumer`, and
+   `escalation_policy` fields.
+2. `cynic_list_pending_agent_tasks` exposes computed `overdue` and age metadata.
+3. `cynic_health` or introspection exposes overdue pending tasks as organism
+   attention pressure.
+4. The Kernel or an approved K15 consumer emits a critical observation when a
+   task is overdue.
+5. Sidecar timers remain actuators only; they must not become the canonical
+   memory ledger.
+
+Now that overdue metadata is first-class, every cortex session start should query
+pending structural work:
+
+```bash
+cynic_list_pending_agent_tasks(kind="cortex", limit=10)
+```
+
+and, when working in a known domain:
+
+```bash
+cynic_list_pending_agent_tasks(kind="cortex", domain="<domain>", limit=10)
+```
 
 ## Registry-Driven Supply Chain (MCP-First)
 

@@ -223,6 +223,8 @@ pub struct AppState {
     /// K15 consumer: introspection alerts when permanent producers go silent.
     /// Absence of signal becomes signal of absence.
     pub producer_heartbeats: Arc<std::sync::RwLock<HashMap<String, ProducerHeartbeat>>>,
+    /// Deduplicates critical overdue-task observations emitted from health/introspection paths.
+    pub overdue_task_alerted: Arc<std::sync::RwLock<HashMap<String, String>>>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
@@ -311,22 +313,36 @@ impl AppState {
         let storage_ok = self.storage.ping().await.is_ok();
         let live_dog_ids = judge.dog_ids();
 
-        let contract_guard = self
-            .system_contract
-            .read()
-            .unwrap_or_else(|e| e.into_inner());
-        let contract_delta = contract_guard.assess(&live_dog_ids);
+        let contract_delta = {
+            let contract_guard = self
+                .system_contract
+                .read()
+                .unwrap_or_else(|e| e.into_inner());
+            contract_guard.assess(&live_dog_ids)
+        };
 
         let probes_degraded =
             crate::domain::probe::EnvironmentSnapshot::is_degraded(&self.environment);
         let stale_tasks = self.task_health.readiness_stale_tasks();
+        let overdue_task_ids: Vec<String> = if storage_ok {
+            self.storage
+                .list_overdue_agent_tasks(100)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|task| task.id)
+                .collect()
+        } else {
+            Vec::new()
+        };
 
-        crate::domain::health_gate::system_health_assessment_with_contract(
+        crate::domain::health_gate::system_health_assessment_with_contract_and_overdue(
             healthy_dogs,
             total_dogs,
             storage_ok,
             probes_degraded,
             &stale_tasks,
+            &overdue_task_ids,
             Some(&contract_delta),
         )
     }

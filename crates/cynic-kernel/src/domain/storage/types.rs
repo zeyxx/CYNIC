@@ -179,6 +179,100 @@ pub struct AgentTask {
     pub agent_id: Option<String>,
     pub claimed_by: Option<String>,
     pub error: Option<String>,
+    #[serde(default)]
+    pub due_at: Option<String>,
+    #[serde(default)]
+    pub priority: Option<i64>,
+    #[serde(default)]
+    pub consumer: Option<String>,
+    #[serde(default)]
+    pub escalation_policy: Option<String>,
+    #[serde(default)]
+    pub overdue: bool,
+    #[serde(default)]
+    pub age_seconds: Option<i64>,
+}
+
+impl AgentTask {
+    pub fn with_computed_metadata(mut self) -> Self {
+        let now = chrono::Utc::now();
+        if self.due_at.is_none() {
+            self.due_at = self.content_string("due_at");
+        }
+        self.priority = self.priority.or_else(|| self.content_i64("priority"));
+        if self.consumer.is_none() {
+            self.consumer = self.content_string("consumer");
+        }
+        if self.escalation_policy.is_none() {
+            self.escalation_policy = self.content_string("escalation_policy");
+        }
+        self.overdue = self.is_overdue_at(now);
+        self.age_seconds = match chrono::DateTime::parse_from_rfc3339(&self.created_at) {
+            Ok(created) => Some(
+                now.signed_duration_since(created.with_timezone(&chrono::Utc))
+                    .num_seconds(),
+            ),
+            Err(_) => None,
+        };
+        self
+    }
+
+    pub fn is_overdue_at(&self, now: chrono::DateTime<chrono::Utc>) -> bool {
+        if self.status != "pending" {
+            return false;
+        }
+        let due_at = self
+            .due_at
+            .clone()
+            .or_else(|| self.content_string("due_at"));
+        let Some(due_at) = due_at else {
+            return false;
+        };
+        match chrono::DateTime::parse_from_rfc3339(&due_at) {
+            Ok(due) => due.with_timezone(&chrono::Utc) < now,
+            Err(_) => false,
+        }
+    }
+
+    // WHY: gate-0 forbids silent `.ok()` here; keep the parse failure explicit.
+    #[allow(clippy::manual_ok_err)]
+    fn content_metadata(&self) -> Option<AgentTaskContentMetadata> {
+        match serde_json::from_str::<AgentTaskContentMetadata>(&self.content) {
+            Ok(metadata) => Some(metadata),
+            Err(_) => None,
+        }
+    }
+
+    fn content_string(&self, key: &str) -> Option<String> {
+        let metadata = self.content_metadata()?;
+        let value = match key {
+            "due_at" => metadata.due_at,
+            "consumer" => metadata.consumer,
+            "escalation_policy" => metadata.escalation_policy,
+            _ => None,
+        }?;
+        if value.is_empty() { None } else { Some(value) }
+    }
+
+    fn content_i64(&self, key: &str) -> Option<i64> {
+        let metadata = self.content_metadata()?;
+        match key {
+            "priority" => metadata.priority,
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct AgentTaskContentMetadata {
+    #[serde(default)]
+    due_at: Option<String>,
+    #[serde(default)]
+    priority: Option<i64>,
+    #[serde(default)]
+    consumer: Option<String>,
+    #[serde(default)]
+    escalation_policy: Option<String>,
 }
 
 /// Infrastructure event: node latency, output size, success/fail.
@@ -215,6 +309,56 @@ pub struct RawEvent {
     pub created_at: String,
     #[serde(default)]
     pub failure_reason: String,
+}
+
+#[cfg(test)]
+mod agent_task_tests {
+    use super::AgentTask;
+
+    fn task_with_content(content: &str) -> AgentTask {
+        AgentTask {
+            id: "agent_tasks:test".to_string(),
+            kind: "cortex".to_string(),
+            domain: "scaling-lab".to_string(),
+            content: content.to_string(),
+            status: "pending".to_string(),
+            result: None,
+            created_at: "2026-06-15T00:00:00Z".to_string(),
+            completed_at: None,
+            agent_id: Some("tester".to_string()),
+            claimed_by: None,
+            error: None,
+            due_at: None,
+            priority: None,
+            consumer: None,
+            escalation_policy: None,
+            overdue: false,
+            age_seconds: None,
+        }
+    }
+
+    #[test]
+    fn task_metadata_falls_back_to_json_content() {
+        let task = task_with_content(
+            r#"{"due_at":"2026-06-14T23:59:00Z","priority":7,"consumer":"human+cortex","escalation_policy":"page human"}"#,
+        )
+        .with_computed_metadata();
+
+        assert_eq!(task.due_at.as_deref(), Some("2026-06-14T23:59:00Z"));
+        assert_eq!(task.priority, Some(7));
+        assert_eq!(task.consumer.as_deref(), Some("human+cortex"));
+        assert_eq!(task.escalation_policy.as_deref(), Some("page human"));
+    }
+
+    #[test]
+    fn pending_task_with_past_due_at_is_overdue() {
+        let task = task_with_content(r#"{"due_at":"2026-06-14T23:59:00Z"}"#);
+        let now = chrono::DateTime::parse_from_rfc3339("2026-06-15T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+
+        assert!(task.is_overdue_at(now));
+    }
 }
 
 /// Multi-cortex dispatch record — coordinates work across Claude Code, Gemini, and Hermes.

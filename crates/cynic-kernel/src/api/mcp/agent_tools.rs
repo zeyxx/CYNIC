@@ -60,6 +60,12 @@ impl CynicMcp {
             agent_id: p.agent_id.clone(),
             claimed_by: None,
             error: None,
+            due_at: p.due_at.clone(),
+            priority: p.priority,
+            consumer: p.consumer.clone(),
+            escalation_policy: p.escalation_policy.clone(),
+            overdue: false,
+            age_seconds: None,
         };
 
         self.storage
@@ -75,6 +81,9 @@ impl CynicMcp {
                 "kind": p.kind,
                 "domain": p.domain,
                 "task_id": task_id,
+                "due_at": p.due_at,
+                "priority": p.priority,
+                "consumer": p.consumer,
             }),
         )
         .await;

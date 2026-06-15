@@ -731,6 +731,7 @@ impl TaskStorage for InMemoryStorage {
                     && t.status == "pending"
             })
             .cloned()
+            .map(AgentTask::with_computed_metadata)
             .collect();
         v.truncate(limit as usize);
         Ok(v)
@@ -752,6 +753,21 @@ impl TaskStorage for InMemoryStorage {
                     && t.status == "completed"
             })
             .cloned()
+            .map(AgentTask::with_computed_metadata)
+            .collect();
+        v.truncate(limit as usize);
+        Ok(v)
+    }
+
+    async fn list_overdue_agent_tasks(&self, limit: u32) -> Result<Vec<AgentTask>, StorageError> {
+        let s = self.state.lock().await;
+        let mut v: Vec<_> = s
+            .tasks
+            .values()
+            .filter(|t| t.status == "pending")
+            .cloned()
+            .map(AgentTask::with_computed_metadata)
+            .filter(|t| t.overdue)
             .collect();
         v.truncate(limit as usize);
         Ok(v)

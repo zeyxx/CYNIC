@@ -1,5 +1,6 @@
 pub mod backup;
 pub mod fleet;
+pub mod fleet_inventory;
 pub mod network;
 pub mod pressure;
 pub mod process;
@@ -10,6 +11,7 @@ pub mod version;
 
 pub use backup::BackupProbe;
 pub use fleet::{FleetProbe, FleetTarget};
+pub use fleet_inventory::{FleetInventoryProbe, build_default_fleet_inventory_probe};
 pub use network::NetworkProbe;
 pub use pressure::PressureProbe;
 pub use process::ProcessProbe;

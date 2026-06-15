@@ -15,6 +15,14 @@ pub struct DispatchTaskRequest {
     pub content: String,
     #[serde(default)]
     pub agent_id: Option<String>,
+    #[serde(default)]
+    pub due_at: Option<String>,
+    #[serde(default)]
+    pub priority: Option<i64>,
+    #[serde(default)]
+    pub consumer: Option<String>,
+    #[serde(default)]
+    pub escalation_policy: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -273,6 +281,12 @@ pub async fn dispatch_task_handler(
         agent_id: req.agent_id.clone(),
         claimed_by: None,
         error: None,
+        due_at: req.due_at,
+        priority: req.priority,
+        consumer: req.consumer,
+        escalation_policy: req.escalation_policy,
+        overdue: false,
+        age_seconds: None,
     };
 
     let task_id = state.storage.store_agent_task(&task).await.map_err(|e| {
