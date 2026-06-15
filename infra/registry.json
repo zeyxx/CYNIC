@@ -97,6 +97,54 @@
           "deploy-kernel"
         ]
       },
+      "workflow": {
+        "name": "kernel_release",
+        "owner": "organ-forge",
+        "canonical_stages": [
+          {
+            "name": "local_validation",
+            "scope": "cortex-local",
+            "make_target": "check",
+            "allowed_when_lifecycle_planned": true
+          },
+          {
+            "name": "activation_request_generation",
+            "scope": "organ-forge",
+            "make_target": "lifecycle-activation-requests",
+            "allowed_when_lifecycle_planned": true
+          },
+          {
+            "name": "activation_request_dispatch",
+            "scope": "organ-forge",
+            "make_target": "lifecycle-activation-dispatch",
+            "allowed_when_lifecycle_planned": false
+          },
+          {
+            "name": "gate_2_request",
+            "scope": "organ-forge",
+            "make_target": "gate-2-request",
+            "request_profile": "gate-2",
+            "allowed_when_lifecycle_planned": false
+          },
+          {
+            "name": "deploy_request",
+            "scope": "organ-forge",
+            "make_target": "deploy-request",
+            "request_profile": "deploy",
+            "allowed_when_lifecycle_planned": false
+          }
+        ],
+        "planned_policy": {
+          "blocks_workflow_critical_edits": true,
+          "critical_targets": [
+            "infra/registry.json",
+            "Makefile",
+            "crates/cynic-kernel",
+            "crates/cynic-mcp",
+            "organs/forge"
+          ]
+        }
+      },
       "intents": {
         "build-and-test": {
           "objective": "run gate-2 validation on registry build runner",

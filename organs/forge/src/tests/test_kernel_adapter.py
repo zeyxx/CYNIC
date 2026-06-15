@@ -96,6 +96,54 @@ def registry_fixture():
                     "gate-2": ["build-and-test", "integration-test"],
                     "deploy": ["deploy-kernel"],
                 },
+                "workflow": {
+                    "name": "kernel_release",
+                    "owner": "organ-forge",
+                    "canonical_stages": [
+                        {
+                            "name": "local_validation",
+                            "scope": "cortex-local",
+                            "make_target": "check",
+                            "allowed_when_lifecycle_planned": True,
+                        },
+                        {
+                            "name": "activation_request_generation",
+                            "scope": "organ-forge",
+                            "make_target": "lifecycle-activation-requests",
+                            "allowed_when_lifecycle_planned": True,
+                        },
+                        {
+                            "name": "activation_request_dispatch",
+                            "scope": "organ-forge",
+                            "make_target": "lifecycle-activation-dispatch",
+                            "allowed_when_lifecycle_planned": False,
+                        },
+                        {
+                            "name": "gate_2_request",
+                            "scope": "organ-forge",
+                            "make_target": "gate-2-request",
+                            "request_profile": "gate-2",
+                            "allowed_when_lifecycle_planned": False,
+                        },
+                        {
+                            "name": "deploy_request",
+                            "scope": "organ-forge",
+                            "make_target": "deploy-request",
+                            "request_profile": "deploy",
+                            "allowed_when_lifecycle_planned": False,
+                        },
+                    ],
+                    "planned_policy": {
+                        "blocks_workflow_critical_edits": True,
+                        "critical_targets": [
+                            "infra/registry.json",
+                            "Makefile",
+                            "crates/cynic-kernel",
+                            "crates/cynic-mcp",
+                            "organs/forge",
+                        ],
+                    },
+                },
                 "intents": {
                     "build-and-test": {
                         "objective": "run gate-2 validation on registry build runner",
@@ -185,6 +233,7 @@ class LifecyclePolicyTests(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["request_profiles"], ["deploy", "gate-2"])
         self.assertEqual(result["repo_root"], "%h/.cynic/repos/CYNIC")
+        self.assertEqual(result["workflow"]["name"], "kernel_release")
 
     def test_validate_lifecycle_policy_rejects_operator_checkout_runtime_root(self):
         registry = registry_fixture()
@@ -850,6 +899,35 @@ class LifecyclePolicyTests(unittest.TestCase):
         )
         self.assertIn("action", content)
         self.assertIn("objective", content)
+
+    def test_lifecycle_context_exposes_registry_workflow(self):
+        client = KernelRestClient.__new__(KernelRestClient)
+        client.registry = registry_fixture()
+        client.lifecycle = client.registry["lifecycle"]["kernel_release"]
+        client.build_node = client.registry["nodes"][0]
+        client.deploy_node = client.registry["nodes"][1]
+        client.build_target = client.build_node["name"]
+        client.deploy_target = client.deploy_node["name"]
+        client.base_url = "http://127.0.0.1:3030"
+        client.kernel_endpoint_source = "not_resolved"
+        client.kernel_bus_canonical = False
+        client.kernel_probe = {"enabled": False, "status": "not_run"}
+        client.fleet_probe = {"enabled": False, "status": "not_run"}
+
+        workflow = client.lifecycle_context()["workflow"]
+
+        self.assertEqual(workflow["name"], "kernel_release")
+        self.assertEqual(len(workflow["canonical_stages"]), 5)
+        self.assertEqual(
+            workflow["planned_policy"]["critical_targets"],
+            [
+                "infra/registry.json",
+                "Makefile",
+                "crates/cynic-kernel",
+                "crates/cynic-mcp",
+                "organs/forge",
+            ],
+        )
 
     def test_lifecycle_activation_requests_dispatch_via_kernel_client(self):
         registry = registry_fixture()

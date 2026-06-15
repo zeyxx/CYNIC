@@ -82,6 +82,46 @@ def validate_lifecycle_policy(registry: dict | None = None) -> dict:
             if intent not in intents:
                 errors.append(f"request_profiles.{profile_name} unknown intent {intent}")
 
+    workflow = lifecycle.get("workflow", {})
+    if workflow.get("name") != "kernel_release":
+        errors.append("lifecycle workflow.name must be kernel_release")
+    if workflow.get("owner") != lifecycle["orchestrator_organ"]:
+        errors.append("lifecycle workflow.owner must match orchestrator_organ")
+    stages = workflow.get("canonical_stages", [])
+    if not isinstance(stages, list) or len(stages) < 3:
+        errors.append("lifecycle workflow.canonical_stages must define the canonical workflow")
+    else:
+        stage_names = [stage.get("name") for stage in stages if isinstance(stage, dict)]
+        for required_stage in [
+            "local_validation",
+            "activation_request_generation",
+            "activation_request_dispatch",
+            "gate_2_request",
+            "deploy_request",
+        ]:
+            if required_stage not in stage_names:
+                errors.append(f"lifecycle workflow missing canonical stage {required_stage}")
+        for stage in stages:
+            if not isinstance(stage, dict):
+                errors.append("lifecycle workflow canonical stages must be objects")
+                continue
+            if not stage.get("name"):
+                errors.append("lifecycle workflow canonical stage name missing")
+            if not stage.get("scope"):
+                errors.append(f"lifecycle workflow stage {stage.get('name', '<unknown>')} scope missing")
+            if not stage.get("make_target"):
+                errors.append(f"lifecycle workflow stage {stage.get('name', '<unknown>')} make_target missing")
+    planned_policy = workflow.get("planned_policy", {})
+    if planned_policy.get("blocks_workflow_critical_edits") is not True:
+        errors.append("lifecycle workflow planned_policy.blocks_workflow_critical_edits must be true")
+    critical_targets = planned_policy.get("critical_targets", [])
+    if not isinstance(critical_targets, list) or not critical_targets:
+        errors.append("lifecycle workflow planned_policy.critical_targets missing")
+    else:
+        for target in ["infra/registry.json", "Makefile", "crates/cynic-kernel", "crates/cynic-mcp", "organs/forge"]:
+            if target not in critical_targets:
+                errors.append(f"lifecycle workflow planned_policy missing critical target {target}")
+
     runtime_paths = lifecycle.get("runtime_paths", {})
     runtime_path_proofs = lifecycle.get("runtime_path_proofs", {})
 
@@ -166,6 +206,7 @@ def validate_lifecycle_policy(registry: dict | None = None) -> dict:
         "fleet_provider": fleet["provider"],
         "repo_root": repo_root,
         "request_profiles": sorted(profiles),
+        "workflow": workflow,
     }
 
 
@@ -1517,6 +1558,7 @@ class KernelRestClient(IKernelClient):
             "activation_requirements": self.lifecycle.get("activation_requirements", {}),
             "request_profiles": self.lifecycle.get("request_profiles", {}),
             "intents": self.lifecycle.get("intents", {}),
+            "workflow": self.lifecycle.get("workflow", {}),
             "activation_evidence_gaps": activation_gaps,
             "activation_evidence_gap_details": activation_gap_details,
             "status_nodes_ready": status_nodes_ready,
