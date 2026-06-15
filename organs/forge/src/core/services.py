@@ -43,8 +43,11 @@ class BuildDelegationService:
         self.git_perceiver = git_perceiver
         self.kernel_client = kernel_client
 
-    async def delegate_task(self, intent: str):
+    async def delegate_task(self, intent: str, emit_logs: bool = True):
         patch = self.git_perceiver.extract_patch()
+        chunks = []
         async for log_chunk in self.kernel_client.dispatch_task_and_stream(intent, patch):
-            # Pass the chunk directly to the terminal
-            print(log_chunk, end="", flush=True)
+            chunks.append(log_chunk)
+            if emit_logs:
+                print(log_chunk, end="", flush=True)
+        return "".join(chunks)

@@ -8,7 +8,7 @@ use crate::domain::storage::AgentTask;
 
 use super::{
     ClaimAgentTaskParams, CynicMcp, DispatchAgentTaskParams, ListPendingAgentTasksParams,
-    UpdateAgentTaskResultParams, sanitize_error, validate_agent_id,
+    UpdateAgentTaskResultParams, sanitize_error, validate_agent_id, validate_agent_task_content,
 };
 
 #[tool_router(router = tool_router_agent, vis = "pub(super)")]
@@ -44,6 +44,7 @@ impl CynicMcp {
                 None,
             ));
         }
+        validate_agent_task_content(&p.kind, &p.domain, &p.content)?;
 
         let task_id = format!("agent-task:{}", crate::infra::crypto::generate_secure_id());
         let now = chrono::Utc::now().to_rfc3339();

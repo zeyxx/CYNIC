@@ -77,24 +77,54 @@ All agents have these tools via MCP:
 
 L2 is the safety net. Even if an agent fails to claim via L3, the commit will be rejected if another agent holds the file.
 
+## Registry-Driven Supply Chain (MCP-First)
+
+`infra/registry.json` is the machine source of truth for build and runtime placement.
+
+- The primary kernel runtime is the node selected by `lifecycle.kernel_release.deploy_target_role` and `deploy_target_flag`.
+- The release build runner is the node selected by `lifecycle.kernel_release.build_runner_role`.
+- `cynic-host-proxmox` is the hypervisor only. Do not run the kernel directly on bare Proxmox.
+- Cortex machines are operator/editing surfaces. They may run local checks and development builds, but they are not the canonical release builder or kernel host.
+
+Canonical build/deploy requests are generated from `infra/registry.json:lifecycle.kernel_release` and go through the Kernel mempool via MCP:
+
+```json
+{
+  "kind": "<lifecycle.kernel_release.task_kind>",
+  "domain": "<lifecycle.kernel_release.task_domain>",
+  "content": "{\"lifecycle\":\"kernel_release\",\"intent\":\"<intent>\",\"objective\":\"<intent objective>\",\"orchestrator_organ\":\"<lifecycle orchestrator>\",\"build_target\":\"<resolved build_runner node>\",\"build_runner_role\":\"<registry role>\",\"deploy_target\":\"<resolved kernel_primary node>\",\"deploy_target_role\":\"<registry role>\",\"required_node_status\":\"<required status>\",\"activation_requirements\":{},\"fleet_requirements\":{},\"requires_e2e\":true,\"targets\":[\"<registry repo_targets>\"],\"coord_targets\":[\"<registry repo_targets>\"],\"deploy\":false}",
+  "agent_id": "cortex-<session>"
+}
+```
+
+Compliance gate: the supply-chain mempool path is canonical only when `make e2e` passes its supply-chain step:
+
+1. `POST /agent-tasks` creates a forge task.
+2. `GET /agent-tasks?kind=hermes&domain=<domain>` sees it pending.
+3. `POST /agent-tasks/{id}/claim` atomically claims it.
+4. `POST /agent-tasks/{id}/result` completes it.
+5. `GET /agent-tasks/completed?kind=hermes&domain=<domain>` sees it completed.
+
+Until that e2e is green on the active kernel, agents may patch and locally verify code, but must not call local shell builds/deploys the canonical supply chain.
+
 ## Gate System (3-Level Sovereign CI)
 
-No cloud CI, no GitHub Actions, no external dependency. The machine that pushes is the machine that verifies.
+No cloud CI, no GitHub Actions, no external dependency. Verification is sovereign and registry-driven: local cortex checks are allowed for development, but release validation belongs to the registered build runner.
 
 ### Levels
 
 | Level | Time | When | Contents |
 |-------|------|------|----------|
-| **Level 0** | <2s | Every push | `cargo fmt --check` + 6 lint targets (grep) + security scan |
+| **Level 0** | <2s | Every push | `cargo fmt --check` + lint targets + lifecycle contract tests + security scan |
 | **Level 1** | ~25s | Once per session | `cargo clippy --workspace` — marker invalidated only by Rust source changes |
-| **Level 2** | ~1m30s | Before deploy only | `cargo test --lib --release` + `cargo audit` + integration tests |
+| **Level 2** | async | Before deploy only | Registry build runner executes release tests, audit, and integration tests through `organ-forge` |
 
 ### Markers
 
 Each level writes its own marker on success :
 - `.gate-0` — Level 0 passed
 - `.gate-1` — Level 1 passed (clippy fresh)
-- `.gate-2` — Level 2 passed (tests fresh)
+- `.gate-2` — Level 2 passed on the registry build runner; cortex-local requests must not write this marker
 
 Markers are in `.gitignore` — they are not committed. They persist on disk between pushes.
 
@@ -113,9 +143,9 @@ git push
 git push
 # → Level 0 (<2s) + Level 1 skip = ~2s
 
-# Deploy → requires Level 2
-make gate-2    # ~1m30s
-make deploy    # verifies gate-2 fresh → ship → restart → healthcheck
+# Deploy → canonical path is registry/MCP
+make gate-2-request    # queue lifecycle request profile "gate-2" through organ-forge
+make deploy-request    # queue lifecycle request profile "deploy" through organ-forge
 ```
 
 ### Makefile Targets
@@ -123,11 +153,49 @@ make deploy    # verifies gate-2 fresh → ship → restart → healthcheck
 ```
 make gate-0    # Level 0 only
 make gate-1    # Level 1 only (clippy)
-make gate-2    # Level 2 only (tests + audit + integration)
-make check     # All 3 levels (backward compatible)
-make gate      # All 3 levels + markers written
-make deploy    # Verifies gate-2 fresh → ship → backup → deploy → verify
+make lifecycle-check  # Resolve registry lifecycle target; redacts endpoint; rejects local bus
+make lifecycle-diagnose  # Print redacted lifecycle state even when targets are planned/offline
+make lifecycle-blockers  # Operator wrapper around concise lifecycle blockers
+make lifecycle-profile-payloads p=deploy  # Dry-run profile payloads; validates before dispatch
+make gate-2-request  # Canonical Level 2 request profile; does not write .gate-2 locally
+make gate-2    # Refuses cortex-local marker writes
+make check     # Local cortex validation: gate-0 + gate-1
+make gate      # Local cortex validation + local marker
+make deploy-request  # Canonical deploy request: MCP/mempool → lifecycle orchestrator → registry build runner → registry kernel primary
+make deploy    # Legacy local deploy; requires CYNIC_ALLOW_LOCAL_DEPLOY=1
 ```
+
+`lifecycle-check` is strict. It requires the registry-selected build runner and
+kernel primary to have the lifecycle-required status, rejects a local kernel bus,
+and probes the registry-declared kernel health endpoint before any release task is
+queued. Use `lifecycle-diagnose` for non-mutating inspection while targets are
+still `planned`.
+Use `python3 organs/forge/src/entrypoints/cli.py lifecycle-blockers` when a
+machine client only needs readiness and blockers rather than the full diagnostic
+contract. `make lifecycle-blockers` is the operator wrapper and may return Make's
+wrapper exit code when the lifecycle is blocked.
+
+`gate-2-request` and `deploy-request` must resolve their intent lists from
+`lifecycle.kernel_release.request_profiles`. Cortex clients must not decide
+release-validation contents from local service state such as a local SurrealDB
+probe.
+Machine clients that need parseable output should call
+`python3 organs/forge/src/entrypoints/cli.py delegate-profile <profile> --json`
+directly. The Makefile request targets are human-facing wrappers and may include
+Make banners or non-JSON status lines.
+Use `python3 organs/forge/src/entrypoints/cli.py lifecycle-profile-payloads
+<profile> <domain> <agent_id>` to build and validate every payload in a request
+profile without dispatching it.
+
+Do not change lifecycle nodes from `planned` to `active` unless
+`lifecycle-diagnose` shows no `activation_evidence_gaps` for those nodes. At
+minimum, the registry must resolve the required network identifiers and declare
+the required services from `lifecycle.kernel_release.activation_requirements`.
+`lifecycle-diagnose` also reports a redacted `fleet_probe`; lifecycle nodes that
+are missing from the observed Tailscale fleet are not active runtime targets.
+When `lifecycle.kernel_release.fleet_requirements.required` is true,
+`lifecycle-check` also enforces this fleet proof before status and kernel-bus
+health can authorize release dispatch.
 
 ### Leeroy Jenkins Fallback
 
@@ -161,11 +229,13 @@ source ~/.cynic-env && codex
 
 The `cynic-coord` MCP server is configured in `.codex/config.toml`:
 ```toml
-[mcp.cynic-coord]
-type = "stdio"
-command = ["./.cortex/mcp/run-cynic-mcp.sh"]
-env = { CYNIC_REST_ADDR = "<TAILSCALE_CORE>:3030", CYNIC_API_KEY = "..." }
+[mcp_servers.cynic-coord]
+command = "./.cortex/mcp/run-cynic-mcp.sh"
 ```
+
+The wrapper sources `~/.cynic-env` and exports assignments before launching
+`$HOME/bin/cynic-kernel-mcp`. Do not put real `CYNIC_REST_ADDR` or
+`CYNIC_API_KEY` values in repo config.
 
 ### Sandbox
 

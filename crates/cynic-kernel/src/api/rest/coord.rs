@@ -447,11 +447,11 @@ pub async fn coord_upgrade_handler(
 
     let bin_dir = std::env::var("CYNIC_BIN_DIR").unwrap_or_else(|_| {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-        format!("{}/bin", home)
+        format!("{home}/bin")
     });
 
-    let target_path = format!("{}/cynic-kernel", bin_dir);
-    let tmp_path = format!("{}/cynic-kernel.new", bin_dir);
+    let target_path = format!("{bin_dir}/cynic-kernel");
+    let tmp_path = format!("{bin_dir}/cynic-kernel.new");
 
     // 1. Write the payload to a temporary file
     if let Err(e) = std::fs::write(&tmp_path, &body) {
@@ -464,7 +464,7 @@ pub async fn coord_upgrade_handler(
     }
 
     // 2. Backup the current binary for rollback (ignore if it doesn't exist)
-    let prev_path = format!("{}/cynic-kernel.prev", bin_dir);
+    let prev_path = format!("{bin_dir}/cynic-kernel.prev");
     let _ = std::fs::copy(&target_path, &prev_path);
 
     // 3. Make it executable
@@ -508,11 +508,11 @@ pub async fn coord_rollback_handler(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     let bin_dir = std::env::var("CYNIC_BIN_DIR").unwrap_or_else(|_| {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-        format!("{}/bin", home)
+        format!("{home}/bin")
     });
 
-    let target_path = format!("{}/cynic-kernel", bin_dir);
-    let prev_path = format!("{}/cynic-kernel.prev", bin_dir);
+    let target_path = format!("{bin_dir}/cynic-kernel");
+    let prev_path = format!("{bin_dir}/cynic-kernel.prev");
 
     // 1. Check if backup exists
     if !std::path::Path::new(&prev_path).exists() {
@@ -594,14 +594,21 @@ pub async fn coord_backup_handler()
     let body = tokio::fs::read(&tmp_path).await.unwrap_or_default();
     let _ = tokio::fs::remove_file(&tmp_path).await;
 
-    Ok(axum::response::Response::builder()
+    axum::response::Response::builder()
         .header(
             "Content-Disposition",
             "attachment; filename=\"backup.surql\"",
         )
         .header("Content-Type", "application/octet-stream")
         .body(axum::body::Body::from(body))
-        .unwrap())
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })
 }
 
 /// POST /coord/restore — imports a .surql file to SurrealDB.
@@ -669,10 +676,10 @@ pub async fn coord_upgrade_systemd_handler(
     body: axum::body::Bytes,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    let service_dir = format!("{}/.config/systemd/user", home);
+    let service_dir = format!("{home}/.config/systemd/user");
 
     let _ = std::fs::create_dir_all(&service_dir);
-    let target_path = format!("{}/cynic-kernel.service", service_dir);
+    let target_path = format!("{service_dir}/cynic-kernel.service");
 
     if let Err(e) = std::fs::write(&target_path, &body) {
         return Err((

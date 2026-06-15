@@ -401,10 +401,10 @@ pub(crate) fn dog_to_node(dog: &str) -> String {
     });
 
     for config in configs {
-        if config.name == dog {
-            if let Some(node) = &config.fleet_node {
-                return node.clone();
-            }
+        if config.name == dog
+            && let Some(node) = &config.fleet_node
+        {
+            return node.clone();
         }
     }
 

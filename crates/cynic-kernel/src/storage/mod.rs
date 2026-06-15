@@ -299,7 +299,8 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS hash ON observation TYPE string;\
             DEFINE FIELD IF NOT EXISTS prev_hash ON observation TYPE string;\
             DEFINE FIELD IF NOT EXISTS observers ON observation TYPE array;\
-            DEFINE FIELD IF NOT EXISTS consensus_score ON observation TYPE float | null;\n            DEFINE FIELD IF NOT EXISTS created_at ON observation TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS consensus_score ON observation TYPE float | null;\
+            DEFINE FIELD IF NOT EXISTS created_at ON observation TYPE datetime;\
             DEFINE INDEX IF NOT EXISTS obs_project_idx ON observation FIELDS project;\
             DEFINE INDEX IF NOT EXISTS obs_domain_idx ON observation FIELDS domain;\
             DEFINE INDEX IF NOT EXISTS obs_target_idx ON observation FIELDS target;\
@@ -362,6 +363,25 @@ impl SurrealHttpStorage {
             // loop falls back to list_crystals_for_domain (wrong crystals, no semantic match).
             // We continue because the DB may have a prior schema — but this MUST be investigated.
             tracing::error!(error = %e, "schema bootstrap failed — vector search may not work");
+        }
+
+        // Historical Surreal schemas used stricter optional observation fields. IF NOT EXISTS
+        // does not migrate them, so the runtime can reject records carrying NULL values.
+        let observation_optional_field_migration_sql = "\
+            DEFINE FIELD OVERWRITE confidence ON observation TYPE string | null;\
+            DEFINE FIELD OVERWRITE consumer ON observation TYPE string | null;\
+            DEFINE FIELD OVERWRITE action ON observation TYPE string | null;\
+            DEFINE FIELD OVERWRITE maturity ON observation TYPE float | null;\
+            DEFINE FIELD OVERWRITE consensus_score ON observation TYPE float | null;\
+        ";
+        if let Err(e) = storage
+            .query(observation_optional_field_migration_sql)
+            .await
+        {
+            tracing::error!(
+                error = %e,
+                "observation optional field schema migration failed"
+            );
         }
 
         klog!(

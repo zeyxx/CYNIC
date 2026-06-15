@@ -1,9 +1,122 @@
 {
   "version": "1.1.0",
+  "lifecycle": {
+    "kernel_release": {
+      "orchestrator_organ": "organ-forge",
+      "task_kind": "hermes",
+      "task_domain": "organ-forge",
+      "build_runner_role": "build_runner",
+      "deploy_target_role": "kernel_primary",
+      "deploy_target_flag": "deploy_target",
+      "required_node_status": "active",
+      "activation_requirements": {
+        "build_runner": {
+          "network": [
+            "tailscale"
+          ],
+          "filesystem": [
+            "repo_root"
+          ],
+          "services": [
+            "organ-forge",
+            "cargo-build",
+            "gate-2"
+          ]
+        },
+        "kernel_primary": {
+          "network": [
+            "tailscale"
+          ],
+          "filesystem": [
+            "repo_root"
+          ],
+          "services": [
+            "cynic-kernel",
+            "surrealdb",
+            "cynic-portal"
+          ]
+        }
+      },
+      "fleet_requirements": {
+        "provider": "tailscale",
+        "required": true,
+        "require_online": true
+      },
+      "kernel_bus_probe": {
+        "path": "/health",
+        "accepted_status": [
+          200,
+          503
+        ],
+        "requires_bearer_auth": true,
+        "timeout_seconds": 10
+      },
+      "requires_e2e": true,
+      "runtime_paths": {
+        "repo_root": "%h/.cynic/repos/CYNIC"
+      },
+      "runtime_path_proofs": {
+        "repo_root": {
+          "kind": "git_worktree",
+          "marker": ".git",
+          "sentinels": [
+            "AGENTS.md",
+            "infra/registry.json"
+          ]
+        }
+      },
+      "activation_evidence_contract": {
+        "patch_field": "activation_evidence_patch",
+        "node_field": "node",
+        "runtime_paths_field": "activation_evidence.runtime_paths",
+        "services_field": "activation_evidence.services",
+        "verified_requires": [
+          "marker_exists",
+          "sentinels_verified"
+        ],
+        "service_active_requires": [
+          "declared",
+          "active"
+        ],
+        "ingestion_mode": "validated_merge"
+      },
+      "local_deploy_override_env": "CYNIC_ALLOW_LOCAL_DEPLOY",
+      "local_kernel_bus_override_env": "CYNIC_ALLOW_LOCAL_KERNEL_BUS",
+      "repo_targets": [
+        "crates/cynic-kernel",
+        "crates/cynic-mcp",
+        "infra/registry.json",
+        "Makefile"
+      ],
+      "request_profiles": {
+        "gate-2": [
+          "build-and-test",
+          "integration-test"
+        ],
+        "deploy": [
+          "deploy-kernel"
+        ]
+      },
+      "intents": {
+        "build-and-test": {
+          "objective": "run gate-2 validation on registry build runner",
+          "deploy": false
+        },
+        "integration-test": {
+          "objective": "run integration tests from registry build runner against kernel primary",
+          "deploy": false
+        },
+        "deploy-kernel": {
+          "objective": "build kernel release on registry build runner and deploy to kernel primary",
+          "deploy": true
+        }
+      }
+    }
+  },
   "nodes": [
     {
       "name": "cynic-host-proxmox",
-      "role": "proxmox_host_kernel",
+      "role": "hypervisor",
       "os": "Proxmox VE 8.2",
       "network": {
         "local": "192.168.0.37",
@@ -24,21 +137,86 @@
           "id": "qemu/102",
           "name": "cynic-vm-anvil",
           "ip": "192.168.0.42"
+        },
+        {
+          "id": "qemu/103",
+          "name": "cynic-vm-core",
+          "ip": "<LAN_CORE>"
         }
       ],
       "services": [
         {
+          "name": "proxmox",
+          "port": 8006,
+          "description": "Hypervisor management plane only; no CYNIC kernel runtime."
+        },
+        {
           "name": "llama-embed",
           "port": 8081,
-          "description": "Sovereign embedding backend (Qwen3-Embed)"
+          "description": "Legacy declared sovereign embedding backend; must be migrated off the bare hypervisor or reattached to a VM."
         },
         {
           "name": "surrealdb-replica",
           "port": 8001,
-          "description": "Failover storage node"
+          "description": "Legacy declared failover storage node; must be migrated off the bare hypervisor or reattached to a VM."
         }
       ],
       "status": "active"
+    },
+    {
+      "name": "cynic-vm-anvil",
+      "role": "build_runner",
+      "host": "cynic-host-proxmox",
+      "os": "Debian 12",
+      "network": {
+        "local": "192.168.0.42",
+        "tailscale": "<TAILSCALE_ANVIL>"
+      },
+      "services": [
+        {
+          "name": "organ-forge",
+          "description": "Repo lifecycle manager and build orchestration surface."
+        },
+        {
+          "name": "cargo-build",
+          "description": "Sovereign Rust build runner for kernel binaries."
+        },
+        {
+          "name": "gate-2",
+          "description": "Pre-deploy validation runner for release tests and integration gates."
+        }
+      ],
+      "status": "planned"
+    },
+    {
+      "name": "cynic-vm-core",
+      "role": "kernel_primary",
+      "host": "cynic-host-proxmox",
+      "build_source": "cynic-vm-anvil",
+      "deploy_target": true,
+      "os": "Debian 12",
+      "network": {
+        "local": "<LAN_CORE>",
+        "tailscale": "<TAILSCALE_CORE>"
+      },
+      "services": [
+        {
+          "name": "cynic-kernel",
+          "port": 3030,
+          "description": "Primary CYNIC coordination bus, REST API, judge, mempool, and organism state loop."
+        },
+        {
+          "name": "surrealdb",
+          "port": 8000,
+          "description": "Primary CYNIC storage node."
+        },
+        {
+          "name": "cynic-portal",
+          "port": 5000,
+          "description": "Single operator interface served from the sovereign Docker portal."
+        }
+      ],
+      "status": "planned"
     },
     {
       "name": "cynic-host-gpu",
@@ -136,7 +314,7 @@
       "description": "Discord passive capture and community opportunity manager for bounties, grants, and Solana infrastructure signals.",
       "scope": "discord+community+superteam",
       "cron": "every 30min",
-      "status": "planned",
+      "status": "active",
       "depends_on": [
         "cynic-kernel"
       ],

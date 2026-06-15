@@ -100,7 +100,7 @@ def main() -> int:
 
     content = {
         "objective": "Organ Forge repo lifecycle perception",
-        "domain": "organ-forge",
+        "domain": "forge",
         "targets": [
             "organs/forge/state/state.json"
         ],
@@ -112,7 +112,7 @@ def main() -> int:
     }
     payload = {
         "kind": "hermes",
-        "domain": "organ-forge",
+        "domain": "forge",
         "agent_id": "organ-forge-cron",
         "content": json.dumps(content, separators=(",", ":")),
     }

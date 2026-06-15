@@ -9,7 +9,6 @@ Read in this order:
 
 1. `AGENTS.md` — shared protocol
 2. this file — how Codex executes that protocol
-3. `.handoff.md` — current historical context only
 
 Do not read roadmap or journal files as protocol.
 
@@ -35,7 +34,7 @@ Treat Codex as “manual by default, automated when verified”.
 ## Quick Start
 
 ```bash
-cd /home/user/Bureau/CYNIC
+cd <repo>
 source ~/.cynic-env
 codex
 ```
@@ -52,8 +51,8 @@ Then verify whether MCP is actually live in the session:
 At session start:
 
 1. `cynic_coord_register`
-2. `cynic_handoff(action="read")`
-3. `cynic_coord_who`
+2. `cynic_coord_who`
+3. `cynic_list_pending_agent_tasks(kind="cortex")` when looking for human-dispatched structural work
 
 Before editing:
 
@@ -62,7 +61,7 @@ Before editing:
 
 At session end:
 
-1. `cynic_handoff(action="append", ...)`
+1. `cynic_observe` for material discoveries, decisions, or blockers
 2. `cynic_coord_release`
 
 ### Fallback path: MCP unavailable
@@ -70,12 +69,38 @@ At session end:
 Use direct kernel REST calls with:
 
 - `POST /coord/register`
-- `GET /agents`
+- `GET /coord/who`
 - `POST /coord/claim`
 - `POST /coord/release`
-- local `.handoff.md` read/append
+- `POST /observe`
+- `GET /agent-tasks`
 
 This fallback is valid. It is better than pretending MCP worked.
+
+## Supply Chain
+
+Codex must treat `infra/registry.json` as the source of truth for infrastructure placement.
+
+- Build runner: node resolved from `lifecycle.kernel_release.build_runner_role`.
+- Kernel host: node resolved from `lifecycle.kernel_release.deploy_target_role` and its deploy flag.
+- Proxmox is a hypervisor only.
+- Cortex hosts are operator/editing surfaces only.
+- `make lifecycle-diagnose` is the non-mutating way to see redacted lifecycle readiness.
+- `python3 organs/forge/src/entrypoints/cli.py lifecycle-blockers` is the concise machine-readable readiness view; `make lifecycle-blockers` is the operator wrapper.
+- `make deploy-request` is the canonical Makefile entrypoint for release build/deploy requests.
+- `make gate-2-request` and `make deploy-request` resolve lifecycle intents from `lifecycle.kernel_release.request_profiles`.
+- Do not conditionally add or skip release-validation intents from cortex-local service probes.
+- Machine clients should use `python3 organs/forge/src/entrypoints/cli.py delegate-profile <profile> --json` for a single parseable JSON object. Treat Makefile request targets as human-facing wrappers.
+
+Canonical release build/deploy is MCP-first after the active kernel passes `make e2e`, including the supply-chain mempool step:
+
+1. dispatch task via `cynic_dispatch_agent_task` or `POST /agent-tasks`
+2. list it pending by kind/domain
+3. claim it via `cynic_claim_agent_task` or `POST /agent-tasks/{id}/claim`
+4. complete it via `cynic_update_agent_task_result` or `POST /agent-tasks/{id}/result`
+5. verify it appears in completed tasks
+
+Until that e2e is green on the active kernel, Codex may run local checks, but must label them transitional and must not present local shell build/deploy as the organism's canonical supply chain.
 
 ## Codex Limits That Matter
 
@@ -98,7 +123,7 @@ Before touching `crates/cynic-kernel/`:
 
 Before ending the session:
 
-- append a short handoff
+- record material observations in the kernel
 - release all claims
 
 If you cannot do these through MCP, do them through REST.
@@ -114,6 +139,6 @@ This file must not contain:
 
 Those belong in:
 
-- `TODO.md` for live work
-- archived TODO snapshots for history
-- `.handoff.md` for dated session context
+- the kernel mempool (`/agent-tasks`)
+- structured observations (`cynic_observe` / `/observe`)
+- domain files only when they are stable protocol, specs, or source code

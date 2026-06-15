@@ -1,15 +1,15 @@
-# Organ Anvil — Architecture Organique
+# Organ Forge — Architecture Organique
 
 **Type** : Organe sensoriel / réactif
-**Rôle** : Perception du repo lifecycle, signal de décision, adaptation des gates
-**Instance** : organ-anvil-hermes-agent
+**Rôle** : Perception du repo lifecycle, orchestration registry-driven, adaptation des gates
+**Instance** : déclarée dans `infra/registry.json`
 **Cron** : Toutes les 30 minutes (ou sur événement)
 
 ---
 
 ## Philosophie
 
-Organ-anvil n'est pas un script de nettoyage — c'est un **organe sensoriel** qui perçoit l'état du repo comme un système nerveux perçoit l'environnement.
+Organ-forge n'est pas un script de nettoyage — c'est un **organe sensoriel** qui perçoit l'état du repo comme un système nerveux perçoit l'environnement.
 
 Le repo est le système nerveux de l'organisme :
 - Branches = pensées en cours
@@ -73,16 +73,18 @@ L'état perçu est structuré dans :
 Registry (infra/registry.json) :
 ├── Organes actifs + statut
 ├── Dépendances entre organes
-└── Coordonnées (MCP tools)
-
-Handoff (.handoff.md) :
-├── Journal de session
-├── Décisions prises
-└── Next steps
+├── Politique `lifecycle.kernel_release`
+├── Rôles dynamiques: build runner, kernel primary, orchestrateur
+└── Preuve fleet Tailscale requise avant dispatch release
 
 Gate state (.gate-passed) :
 ├── Timestamp du dernier check
-└── État de la CI
+└── État des checks cortex locaux
+
+Kernel mempool (/agent-tasks) :
+├── Requêtes de validation release (`gate-2-request`)
+├── Requêtes build/deploy (`deploy-request`)
+└── Résultats produits par l'exécuteur registry lifecycle
 ```
 
 ### 4. ANALYSE & COMPRÉHENSION
@@ -103,7 +105,7 @@ Patterns :
 Principes ACID adaptés au repo :
 
 - **Atomicité** : Un commit est soit complet, soit absent (pas de partial commit)
-- **Cohérence** : Les règles du repo s'appliquent toujours (pas de bypass sauf organ-anvil)
+- **Cohérence** : Les règles du repo s'appliquent toujours ; pas de bypass cortex pour les markers release
 - **Isolation** : Chaque cortex a sa branche (pas de collision sur main)
 - **Durabilité** : Push sur origin = sauvegarde externe
 
@@ -112,7 +114,7 @@ Principes ACID adaptés au repo :
 - **Triggers en cascade** : Ne pas lancer des actions qui déclenchent d'autres organes (boucle)
 - **Auto-merge aveugle** : Ne pas merger sans validation humaine (pour l'instant)
 - **Prune agressif** : Ne pas supprimer de branches avec travail non-poussé
-- **Gate bypass** : Bypass seulement pour organ-anvil, pas pour les cortices
+- **Gate bypass** : Pas de marker release écrit par les cortices ; le Level 2 appartient à l'exécuteur du lifecycle registre
 
 ---
 
@@ -151,7 +153,7 @@ Grand (>15 organes) :
 
 ## Coordination avec les Cortices
 
-Organ-anvil ne remplace pas les cortices — il les complète :
+Organ-forge ne remplace pas les cortices — il les complète :
 
 ```
 Cortex (Gemini/Claude/Codex) :
@@ -159,26 +161,38 @@ Cortex (Gemini/Claude/Codex) :
 ├── Transforme en code/décisions
 └── Structure dans des fichiers
 
-Organ Anvil :
+Organ Forge :
 ├── Perçoit l'état du repo
-├── Transforme en signal de maintenance
-└── Structure dans le lifecycle
+├── Transforme en signal de lifecycle
+└── Structure dans le registre et le mempool kernel
 ```
 
-**Handoff entre cortex et organ-anvil** :
+**Passage cortex → organ-forge** :
 
-1. Cortex termine → écrit dans `.handoff.md`
-2. Organ-anvil lit `.handoff.md` → perçoit la fin de session
-3. Organ-anvil sécurise → commit + push + cleanup
-4. Organ-anvil écrit → état dans `.handoff.md`
-5. Prochain cortex lit → contexte complet
+1. Cortex observe/claim via kernel.
+2. Cortex demande `gate-2-request` ou `deploy-request`.
+3. Organ-forge lit `lifecycle.kernel_release.request_profiles`.
+4. Organ-forge résout les intents et targets depuis `infra/registry.json`.
+5. Organ-forge poste/traite la tâche dans `/agent-tasks`.
+6. Le résultat revient au kernel, pas dans un journal markdown.
+
+Les clients machine doivent appeler directement :
+
+```
+python3 organs/forge/src/entrypoints/cli.py lifecycle-blockers
+python3 organs/forge/src/entrypoints/cli.py delegate-profile <profile> --json
+```
+
+Ces sorties sont des objets JSON uniques. Les targets Makefile restent des
+wrappers lisibles par un opérateur et peuvent retourner le code d'erreur de
+`make` quand le lifecycle est bloqué.
 
 ---
 
 ## Métriques (Phase 2 readiness)
 
 ```
-Métriques organ-anvil :
+Métriques organ-forge :
 ├── Repo health score (0-1)
 │   ├── Dirty tree ratio
 │   ├── Branch divergence count
@@ -189,7 +203,7 @@ Métriques organ-anvil :
 └── Coordination failures (claims, conflicts)
 ```
 
-**Phase 2 goal** : Wire organ-anvil au kernel via `/observe` → le repo health devient une métrique de l'organisme.
+**Phase 2 goal** : Wire organ-forge au kernel via `/observe` → le repo health devient une métrique de l'organisme.
 
 ---
 
@@ -200,6 +214,6 @@ Métriques organ-anvil :
 3. [ ] Évoluer les gates vers adaptatives
 4. [ ] Wire au kernel (Phase 2)
 5. [ ] Ajouter métriques de repo health
-6. [ ] Exposer une file `organ-anvil-proposal` pour review admin (approve/deny)
+6. [ ] Exposer une file `organ-forge-proposal` pour review admin (approve/deny)
 7. [ ] Déclencher la remédiation après approval admin
 8. [ ] Intégrer avec organ-keep (backup)

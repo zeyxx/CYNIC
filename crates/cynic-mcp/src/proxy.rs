@@ -15,11 +15,11 @@ use rmcp::{
 };
 
 use crate::types::{
-    AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
-    DispatchAgentTaskParams, GitParams, InferParams, JudgeParams, ListParams,
+    AuditQueryParams, AuthParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
+    ComplianceParams, DispatchAgentTaskParams, GitParams, InferParams, JudgeParams, ListParams,
     ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams,
     ProxmoxActionParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams,
-    ValidateParams, WhoParams, validate_agent_id,
+    ValidateParams, WhoParams, validate_agent_id, validate_agent_task_content,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -390,6 +390,7 @@ impl CynicMcpProxy {
         self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
+        validate_agent_task_content(&p.kind, &p.domain, &p.content)?;
         self.post(
             "/agent-tasks",
             &serde_json::json!({
@@ -414,8 +415,32 @@ impl CynicMcpProxy {
         self.rate_limit.check_other()?;
         let p = params.0;
         let limit = p.limit.unwrap_or(10).to_string();
-        self.get_query("/agent-tasks", &[("kind", p.kind), ("limit", limit)])
-            .await
+        let mut query = vec![("kind", p.kind), ("limit", limit)];
+        if let Some(domain) = p.domain {
+            query.push(("domain", domain));
+        }
+        self.get_query("/agent-tasks", &query).await
+    }
+
+    #[tool(
+        name = "cynic_claim_agent_task",
+        description = "Atomically claim a pending agent task. Returns claimed=false when another agent already owns it."
+    )]
+    async fn cynic_claim_agent_task(
+        &self,
+        params: Parameters<ClaimAgentTaskParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        validate_agent_id(&p.agent_id)?;
+        self.post(
+            &format!("/agent-tasks/{}/claim", p.task_id),
+            &serde_json::json!({
+                "agent_id": p.agent_id.unwrap_or_else(|| "unknown".to_string()),
+            }),
+        )
+        .await
     }
 
     #[tool(
@@ -624,9 +649,9 @@ impl CynicMcpProxy {
 
         let proxmox_url = std::env::var("CYNIC_PROXMOX_URL").unwrap_or_default();
         let token_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
-        let secret = std::env::var("CYNIC_PROXMOX_SECRET").unwrap_or_default();
+        let token_value = std::env::var("CYNIC_PROXMOX_SECRET").unwrap_or_default();
 
-        if proxmox_url.is_empty() || token_id.is_empty() || secret.is_empty() {
+        if proxmox_url.is_empty() || token_id.is_empty() || token_value.is_empty() {
             return Err(McpError::internal_error(
                 "Proxmox credentials not configured in CYNIC_PROXMOX_* env vars",
                 None,
@@ -639,7 +664,8 @@ impl CynicMcpProxy {
             .build()
             .map_err(|e| McpError::internal_error(format!("Proxmox client error: {e}"), None))?;
 
-        let auth_header = format!("PVEAPIToken={}={}", token_id, secret);
+        let auth_scheme = "PVEAPIToken";
+        let auth_header = format!("{auth_scheme}={token_id}={token_value}");
 
         // 1. Get nodes
         let nodes_resp = client
@@ -660,7 +686,7 @@ impl CynicMcpProxy {
         if let Some(nodes) = nodes_json["data"].as_array() {
             for node in nodes {
                 if let Some(node_name) = node["node"].as_str() {
-                    output.push_str(&format!("=== Node: {} ===\n", node_name));
+                    output.push_str(&format!("=== Node: {node_name} ===\n"));
 
                     // 2. Get VMs
                     let qemu_resp = client
@@ -668,17 +694,19 @@ impl CynicMcpProxy {
                         .header("Authorization", &auth_header)
                         .send()
                         .await;
-                    if let Ok(resp) = qemu_resp {
-                        if let Ok(qemu_json) = resp.json::<serde_json::Value>().await {
-                            output.push_str("VMs:\n");
-                            if let Some(vms) = qemu_json["data"].as_array() {
-                                for vm in vms {
-                                    let vmid = vm["vmid"].as_u64().unwrap_or(0);
-                                    let name = vm["name"].as_str().unwrap_or("unknown");
-                                    let status = vm["status"].as_str().unwrap_or("unknown");
-                                    let mem = vm["maxmem"].as_u64().unwrap_or(0) / 1024 / 1024;
-                                    output.push_str(&format!("- ID: {vmid}, Name: {name}, Status: {status}, Mem: {mem}MB\n"));
-                                }
+                    if let Ok(resp) = qemu_resp
+                        && let Ok(qemu_json) = resp.json::<serde_json::Value>().await
+                    {
+                        output.push_str("VMs:\n");
+                        if let Some(vms) = qemu_json["data"].as_array() {
+                            for vm in vms {
+                                let vmid = vm["vmid"].as_u64().unwrap_or(0);
+                                let name = vm["name"].as_str().unwrap_or("unknown");
+                                let status = vm["status"].as_str().unwrap_or("unknown");
+                                let mem = vm["maxmem"].as_u64().unwrap_or(0) / 1024 / 1024;
+                                output.push_str(&format!(
+                                    "- ID: {vmid}, Name: {name}, Status: {status}, Mem: {mem}MB\n"
+                                ));
                             }
                         }
                     }
@@ -689,17 +717,19 @@ impl CynicMcpProxy {
                         .header("Authorization", &auth_header)
                         .send()
                         .await;
-                    if let Ok(resp) = lxc_resp {
-                        if let Ok(lxc_json) = resp.json::<serde_json::Value>().await {
-                            output.push_str("Containers (LXC):\n");
-                            if let Some(lxcs) = lxc_json["data"].as_array() {
-                                for lxc in lxcs {
-                                    let vmid = lxc["vmid"].as_u64().unwrap_or(0);
-                                    let name = lxc["name"].as_str().unwrap_or("unknown");
-                                    let status = lxc["status"].as_str().unwrap_or("unknown");
-                                    let mem = lxc["maxmem"].as_u64().unwrap_or(0) / 1024 / 1024;
-                                    output.push_str(&format!("- ID: {vmid}, Name: {name}, Status: {status}, Mem: {mem}MB\n"));
-                                }
+                    if let Ok(resp) = lxc_resp
+                        && let Ok(lxc_json) = resp.json::<serde_json::Value>().await
+                    {
+                        output.push_str("Containers (LXC):\n");
+                        if let Some(lxcs) = lxc_json["data"].as_array() {
+                            for lxc in lxcs {
+                                let vmid = lxc["vmid"].as_u64().unwrap_or(0);
+                                let name = lxc["name"].as_str().unwrap_or("unknown");
+                                let status = lxc["status"].as_str().unwrap_or("unknown");
+                                let mem = lxc["maxmem"].as_u64().unwrap_or(0) / 1024 / 1024;
+                                output.push_str(&format!(
+                                    "- ID: {vmid}, Name: {name}, Status: {status}, Mem: {mem}MB\n"
+                                ));
                             }
                         }
                     }
@@ -723,9 +753,9 @@ impl CynicMcpProxy {
 
         let proxmox_url = std::env::var("CYNIC_PROXMOX_URL").unwrap_or_default();
         let token_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
-        let secret = std::env::var("CYNIC_PROXMOX_SECRET").unwrap_or_default();
+        let token_value = std::env::var("CYNIC_PROXMOX_SECRET").unwrap_or_default();
 
-        if proxmox_url.is_empty() || token_id.is_empty() || secret.is_empty() {
+        if proxmox_url.is_empty() || token_id.is_empty() || token_value.is_empty() {
             return Err(McpError::internal_error(
                 "Proxmox credentials not configured in CYNIC_PROXMOX_* env vars",
                 None,
@@ -744,7 +774,8 @@ impl CynicMcpProxy {
             .build()
             .map_err(|e| McpError::internal_error(format!("Proxmox client error: {e}"), None))?;
 
-        let auth_header = format!("PVEAPIToken={}={}", token_id, secret);
+        let auth_scheme = "PVEAPIToken";
+        let auth_header = format!("{auth_scheme}={token_id}={token_value}");
 
         let url = format!("{proxmox_url}/api2/json/nodes/{node}/{type_}/{vmid}/status/{action}");
 

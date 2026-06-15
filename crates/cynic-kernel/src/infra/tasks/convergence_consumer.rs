@@ -124,11 +124,14 @@ async fn run_cycle(
         }
     };
 
-    let convergence_obs: Vec<_> = observations
-        .into_iter()
-        .filter(|o| o.tool.ends_with("-convergence"))
-        .filter(|o| !judged_targets.contains(&o.target))
-        .collect();
+    let mut convergence_obs = Vec::new();
+    for observation in observations {
+        if observation.tool.ends_with("-convergence")
+            && !judged_targets.contains(&observation.target)
+        {
+            convergence_obs.push(observation);
+        }
+    }
 
     if convergence_obs.is_empty() {
         return;

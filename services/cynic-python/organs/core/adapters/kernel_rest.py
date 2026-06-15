@@ -147,6 +147,28 @@ class KernelRestAdapter(KernelPort):
         source = task.get("_source", "local")
         
         if source == "kernel":
+            agent_id = hermes_coord_agent_id(task)
+            try:
+                response = requests.post(
+                    f"{self.kernel_addr}/agent-tasks/{quote(str(task_id), safe='')}/claim",
+                    headers=self._headers(),
+                    json={"agent_id": agent_id},
+                    timeout=5,
+                )
+                if response.status_code >= 400:
+                    logger.warning(
+                        "kernel task claim failed for %s: HTTP %s",
+                        task_id,
+                        response.status_code,
+                    )
+                    return False
+                data = response.json()
+                if not isinstance(data, dict) or data.get("claimed") is not True:
+                    return False
+            except (requests.RequestException, ValueError) as e:
+                logger.warning(f"kernel task claim unreachable for {task_id}: {e}")
+                return False
+
             lock_file = Path(self.organ_dir) / "agent-tasks" / f".{task_id}.lock"
             try:
                 lock_file.parent.mkdir(parents=True, exist_ok=True)
@@ -154,11 +176,12 @@ class KernelRestAdapter(KernelPort):
                     "pid": os.getpid(),
                     "claimed_at": datetime.now().isoformat() + "Z",
                     "source": "kernel",
+                    "agent_id": agent_id,
                 }))
                 return True
             except OSError as e:
                 logger.warning(f"Failed to create coordination lock for task {task_id}: {e}")
-                return True
+                return False
         return False
 
     def complete_task(self, task: dict, result: Optional[str], error: Optional[str]) -> bool:

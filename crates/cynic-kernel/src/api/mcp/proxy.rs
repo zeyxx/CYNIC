@@ -15,10 +15,11 @@ use rmcp::{
 };
 
 use super::{
-    AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
-    CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams, JudgeParams, ListParams,
-    ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams, RegisterParams,
-    ReleaseParams, UpdateAgentTaskResultParams, WhoParams, validate_agent_id,
+    AuditQueryParams, AuthParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
+    ComplianceParams, CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams,
+    JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit, MetabolismParams,
+    ObserveParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, WhoParams,
+    validate_agent_id, validate_agent_task_content,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -400,6 +401,7 @@ impl CynicMcpProxy {
         self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
+        validate_agent_task_content(&p.kind, &p.domain, &p.content)?;
         self.post(
             "/agent-tasks",
             &serde_json::json!({
@@ -429,6 +431,27 @@ impl CynicMcpProxy {
             query.push(("domain", domain));
         }
         self.get_query("/agent-tasks", &query).await
+    }
+
+    #[tool(
+        name = "cynic_claim_agent_task",
+        description = "Atomically claim a pending agent task. Returns claimed=false when another agent already owns it."
+    )]
+    async fn cynic_claim_agent_task(
+        &self,
+        params: Parameters<ClaimAgentTaskParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        validate_agent_id(&p.agent_id)?;
+        self.post(
+            &format!("/agent-tasks/{}/claim", p.task_id),
+            &serde_json::json!({
+                "agent_id": p.agent_id.unwrap_or_else(|| "unknown".to_string()),
+            }),
+        )
+        .await
     }
 
     #[tool(

@@ -155,7 +155,7 @@ async fn run_cargo(project_root: &str, args: &[&str]) -> CmdResult {
     let child = tokio::process::Command::new("cargo")
         .args(args)
         .current_dir(project_root)
-        .env("RUST_MIN_STACK", "67108864")
+        .env("RUST_MIN_STACK", "17179869184")
         .env("RUSTFLAGS", "-C debuginfo=1")
         .kill_on_drop(true) // K18: timed-out children must not become zombies
         .stdout(std::process::Stdio::piped())

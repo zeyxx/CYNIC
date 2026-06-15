@@ -6,6 +6,12 @@ use serde_json::Value;
 
 use super::crystals;
 
+fn extract_record_id(row: &Value) -> Option<String> {
+    row.as_str()
+        .map(String::from)
+        .or_else(|| row.get("id").and_then(|v| v.as_str()).map(String::from))
+}
+
 fn row_to_agent_task(row: &Value) -> Option<AgentTask> {
     row.as_object().map(|obj| AgentTask {
         id: obj
@@ -55,6 +61,12 @@ fn row_to_agent_task(row: &Value) -> Option<AgentTask> {
     })
 }
 
+fn task_record_id(task_id: &str) -> Result<String, StorageError> {
+    let raw_id = task_id.strip_prefix("agent_tasks:").unwrap_or(task_id);
+    crate::storage::sanitize_id(raw_id)?;
+    Ok(format!("agent_tasks:{raw_id}"))
+}
+
 /// Store a new agent task. Returns task ID.
 pub(super) async fn store_agent_task(
     storage: &SurrealHttpStorage,
@@ -72,8 +84,10 @@ pub(super) async fn store_agent_task(
         crate::storage::escape_surreal(&task.content),
         task.created_at
     );
-    storage.query_one(&query).await?;
-    Ok(task.id.clone())
+    let rows = storage.query_one(&query).await?;
+    rows.first()
+        .and_then(extract_record_id)
+        .ok_or_else(|| StorageError::QueryFailed("agent task insert returned no id".to_string()))
 }
 
 /// List pending tasks of a specific kind.
@@ -119,7 +133,8 @@ pub(super) async fn get_agent_task(
     storage: &SurrealHttpStorage,
     task_id: &str,
 ) -> Result<Option<AgentTask>, StorageError> {
-    let query = format!("SELECT * FROM agent_tasks WHERE id = {task_id};");
+    let record_id = task_record_id(task_id)?;
+    let query = format!("SELECT * FROM agent_tasks WHERE id = {record_id};");
     let rows = storage.query_one(&query).await?;
     Ok(rows.first().and_then(row_to_agent_task))
 }
@@ -130,9 +145,10 @@ pub(super) async fn claim_agent_task(
     task_id: &str,
     agent_id: &str,
 ) -> Result<bool, StorageError> {
+    let record_id = task_record_id(task_id)?;
     let escaped_agent_id = crate::storage::escape_surreal(agent_id);
     let query = format!(
-        "UPDATE agent_tasks SET status = 'processing', claimed_by = '{escaped_agent_id}' WHERE id = {task_id} AND status = 'pending';"
+        "UPDATE agent_tasks SET status = 'processing', claimed_by = '{escaped_agent_id}' WHERE id = {record_id} AND status = 'pending';"
     );
     let rows = storage.query_one(&query).await?;
     Ok(!rows.is_empty())
@@ -158,8 +174,9 @@ pub(super) async fn update_agent_task_result(
         .map(|e| format!("'{}'", crate::storage::escape_surreal(e)))
         .unwrap_or_else(|| "null".to_string());
 
+    let record_id = task_record_id(task_id)?;
     let query = format!(
-        "UPDATE agent_tasks SET status = '{status}', result = {result_str}, error = {error_str}, completed_at = '{now}' WHERE id = {task_id};"
+        "UPDATE agent_tasks SET status = '{status}', result = {result_str}, error = {error_str}, completed_at = '{now}' WHERE id = {record_id};"
     );
     storage.query_one(&query).await?;
 

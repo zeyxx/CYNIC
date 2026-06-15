@@ -3,13 +3,15 @@
 # One entry point per stage. No discipline required — the structure enforces the flow.
 #
 # Usage:
-#   make check    — build + test + clippy (validate before commit)
-#   make gate     — check + write marker (run BEFORE git push)
+#   make check    — local cortex validation (gate-0 + gate-1)
+#   make gate     — local cortex validation + marker (run BEFORE git push)
+#   make gate-2-request — canonical registry/MCP release validation request
 #   make commit   — check + commit (validated commit)
 #   make ship     — commit + push (pre-push verifies gate marker)
-#   make deploy   — ship + backup DB + restart kernel + verify
-#   make deploy-only — deploy existing binary WITHOUT commit/push/check (fast-path)
-#   make hotfix   — deploy WITHOUT push (emergency only — skips ship)
+#   make deploy-request — canonical registry/MCP build+deploy request
+#   make deploy   — local legacy deploy; requires CYNIC_ALLOW_LOCAL_DEPLOY=1
+#   make deploy-only — local legacy fast-path; requires CYNIC_ALLOW_LOCAL_DEPLOY=1
+#   make hotfix   — local emergency deploy; requires CYNIC_ALLOW_LOCAL_DEPLOY=1
 #   make rollback — restore previous binary
 #   make restore  — restore DB from backup file (F=path)
 #   make e2e      — end-to-end test against running kernel
@@ -27,18 +29,21 @@ SHELL := /bin/bash
 .ONESHELL:
 .SHELLFLAGS := -eu -o pipefail -c
 MAKEFLAGS += --warn-undefined-variables
+.NOTPARALLEL:
 
 # ── Environment ──────────────────────────────────────────────
 PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
 
-# 2 GiB: rmcp serde monomorphization (A1 debt)
-export RUST_MIN_STACK := 2147483648
+# 16 GiB: rmcp serde monomorphization in cynic-kernel test builds (A1 debt)
+export RUST_MIN_STACK := 17179869184
 
 # Source env vars (CYNIC_REST_ADDR, CYNIC_API_KEY, etc.)
 define source_env
 	source ~/.cargo/env 2>/dev/null || true
+	set -a
 	source ~/.cynic-env 2>/dev/null || true
-	export RUST_MIN_STACK=2147483648  # 2 GiB: rmcp serde monomorphization (A1 debt). Source of truth: .cargo/config.toml
+	set +a
+	export RUST_MIN_STACK=17179869184  # 16 GiB: rmcp serde monomorphization (A1 debt). Source of truth: .cargo/config.toml
 
 
 endef
@@ -64,6 +69,7 @@ gate-0: ## Level 0 — Instant: fmt + lints + security
 	@$(MAKE) --no-print-directory lint-security
 	@$(MAKE) --no-print-directory lint-python-tiers
 	@$(MAKE) --no-print-directory lint-topology
+	@$(MAKE) --no-print-directory lint-lifecycle
 	@scripts/config-sync.sh check 2>/dev/null || true
 	@touch .gate-0
 	@echo ""
@@ -80,34 +86,37 @@ gate-1: ## Level 1 — Light: cargo clippy
 	@echo "  ✓ Gate 1 passed — clippy OK"
 
 .PHONY: gate-2
-gate-2: ## Level 2 — Full: test + audit + integration (Distributed via Forge Organ)
+gate-2: ## Level 2 marker check; canonical execution is gate-2-request via organ-forge
+	@echo "✗ gate-2 cannot be marked by a cortex-local request."
+	@echo "  Use: make gate-2-request"
+	@echo "  The .gate-2 marker must be produced by the registry lifecycle executor."
+	@exit 1
+
+.PHONY: gate-2-request
+gate-2-request: ## Canonical: request gate-2 validation through organ-forge/mempool
 	@$(source_env)
 	@echo "══════════════════════════════════════════"
-	@echo "  Gate Level 2 — Distributed Validation"
+	@echo "  Gate Level 2 — Registry/MCP Request"
 	@echo "══════════════════════════════════════════"
-	@echo "▶ Delegating tests to remote Organ-Anvil via Forge Organ..."
-	@python3 organs/forge/src/entrypoints/cli.py delegate "build-and-test"
-	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
-		echo "▶ Delegating Integration tests..."; \
-		python3 organs/forge/src/entrypoints/cli.py delegate "integration-test"; \
-	else \
-		echo "⚠ SurrealDB not running — skipping integration tests"; \
-	fi
-	@touch .gate-2
-	@echo "  ✓ Gate 2 passed — tests + audit + integration OK"
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-profile-payloads "gate-2" "gate-2-request" "organ-forge-request" >/dev/null
+	@$(MAKE) --no-print-directory lifecycle-check
+	@echo "▶ Requesting validation profile through organ-forge..."
+	@python3 organs/forge/src/entrypoints/cli.py delegate-profile "gate-2" --json
+	@echo "  ✓ Gate 2 request queued; no local .gate-2 marker written"
 
-# Backward compatibility: `make check` = all 3 levels
+# Local cortex validation. Release validation is asynchronous through gate-2-request.
 .PHONY: check
-check: gate-0 gate-1 gate-2
+check: gate-0 gate-1
 	@echo ""
-	@echo "  ✓ All gates passed"
+	@echo "  ✓ Local cortex gates passed"
+	@echo "  Release validation: make gate-2-request"
 
 .PHONY: gate
 gate: check
 	@touch .gate-passed
 	@echo ""
 	@echo "══════════════════════════════════════════"
-	@echo "  ✓ All gates passed — markers written"
+	@echo "  ✓ Local gates passed — marker written"
 	@echo "  Now run: git push"
 	@echo "══════════════════════════════════════════"
 
@@ -175,6 +184,7 @@ lint-services: ## Compare running user services vs expected list — catches zom
 	@echo ""
 	@echo "▶ Checking service state..."
 	@EXPECTED="docs/ops/expected-services.txt"; \
+	export XDG_RUNTIME_DIR="$${XDG_RUNTIME_DIR:-/run/user/$$(id -u)}"; \
 	if [ ! -f "$$EXPECTED" ]; then echo "⚠ $$EXPECTED not found — skipping"; exit 0; fi; \
 	FAIL=0; \
 	while IFS= read -r svc; do \
@@ -190,6 +200,74 @@ lint-services: ## Compare running user services vs expected list — catches zom
 	done; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ All services match expected state"; fi; \
 	exit $$FAIL
+
+.PHONY: lint-lifecycle
+lint-lifecycle: ## Verify registry lifecycle policy has resolvable dynamic targets
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-lint
+	@$(MAKE) --no-print-directory test-lifecycle
+
+.PHONY: test-lifecycle
+test-lifecycle: ## Run organ-forge lifecycle contract tests
+	@python3 -m unittest organs.forge.src.tests.test_kernel_adapter
+
+.PHONY: lifecycle-check
+lifecycle-check: ## Resolve lifecycle runtime target without exposing secrets or real IPs
+	@$(source_env)
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-check
+
+.PHONY: lifecycle-diagnose
+lifecycle-diagnose: ## Print redacted lifecycle resolution even when canonical targets are not ready
+	@$(source_env)
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-diagnose
+
+.PHONY: lifecycle-blockers
+lifecycle-blockers: ## Print concise lifecycle readiness blockers for UI/machine clients
+	@$(source_env)
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-blockers
+
+.PHONY: lifecycle-activation-plan
+lifecycle-activation-plan: ## Print registry-derived activation plan for lifecycle operators
+	@$(source_env)
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-activation-plan
+
+.PHONY: lifecycle-runtime-paths
+lifecycle-runtime-paths: ## Print registry-derived runtime path requirements for lifecycle nodes
+	@$(source_env)
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-runtime-paths
+
+.PHONY: lifecycle-verify-runtime-paths
+lifecycle-verify-runtime-paths: ## Verify runtime path proofs on this machine for node=<registry-node>
+	@$(source_env)
+	@[ -n "$${node:-}" ] || { echo "ERROR: provide node=<registry-node>"; exit 1; }
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-verify-runtime-paths "$${node}"
+
+.PHONY: lifecycle-service-evidence-patch
+lifecycle-service-evidence-patch: ## Print service activation evidence patch for node=<registry-node>
+	@$(source_env)
+	@[ -n "$${node:-}" ] || { echo "ERROR: provide node=<registry-node>"; exit 1; }
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-service-evidence-patch "$${node}"
+
+.PHONY: lifecycle-validate-activation-evidence-patch
+lifecycle-validate-activation-evidence-patch: ## Validate evidence patch JSON with patch='<json>'
+	@$(source_env)
+	@[ -n "$${patch:-}" ] || { echo "ERROR: provide patch='<json>'"; exit 1; }
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-validate-activation-evidence-patch "$${patch}"
+
+.PHONY: lifecycle-apply-activation-evidence-patch
+lifecycle-apply-activation-evidence-patch: ## Validate and persist evidence patch JSON with patch='<json>'
+	@$(source_env)
+	@[ -n "$${patch:-}" ] || { echo "ERROR: provide patch='<json>'"; exit 1; }
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-apply-activation-evidence-patch "$${patch}"
+
+.PHONY: lifecycle-activate-node
+lifecycle-activate-node: ## Validate lifecycle evidence and persist node status=active for node=<registry-node>
+	@$(source_env)
+	@[ -n "$${node:-}" ] || { echo "ERROR: provide node=<registry-node>"; exit 1; }
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-activate-node "$${node}"
+
+.PHONY: lifecycle-profile-payloads
+lifecycle-profile-payloads: ## Dry-run: build and validate all payloads for lifecycle request profile p=<profile>
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-profile-payloads "$(p)" "$${DOMAIN:-lifecycle-profile-dry-run}" "$${AGENT_ID:-organ-forge-dry-run}"
 
 .PHONY: lint-drift
 lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules, phantom skills, unwired hooks
@@ -528,7 +606,7 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	rm -f "$$R23_STUB"; \
 	\
 	echo "[R23b] Injecting shell script with standalone rustfmt and no --edition..."; \
-	printf '%s\n' '#!/usr/bin/env bash' '# R23 gate-test probe' 'export RUST_MIN_STACK=67108864' 'rustfmt "$$FILE"' > "$$R23_STUB"; \
+	printf '%s\n' '#!/usr/bin/env bash' '# R23 gate-test probe' 'export RUST_MIN_STACK=17179869184' 'rustfmt "$$FILE"' > "$$R23_STUB"; \
 	chmod +x "$$R23_STUB"; \
 	if $(MAKE) --no-print-directory lint-subprocess-env >/dev/null 2>&1; then \
 		echo "  ✗ R23b gate MISSED rustfmt without --edition — BROKEN"; FAIL=$$((FAIL+1)); \
@@ -668,10 +746,29 @@ ship: commit
 	@echo "✓ Shipped (pre-push validated build+test+clippy)"
 
 # ── Stage 4: Deploy ─────────────────────────────────────────
-# Requires Level 2 gate (tests + audit + integration) before deploying.
+# Canonical deploy is registry/MCP first: request work from organ-forge.
+.PHONY: deploy-request
+deploy-request: ## Canonical: dispatch build on registry build_runner and deploy to kernel_primary
+	@$(source_env)
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-profile-payloads "deploy" "deploy-request" "organ-forge-request" >/dev/null
+	@$(MAKE) --no-print-directory lifecycle-check
+	@echo "▶ Dispatching canonical deploy request via Kernel mempool..."
+	@python3 organs/forge/src/entrypoints/cli.py delegate-profile "deploy" --json
+	@echo "✓ Deploy request queued through organ-forge"
+
+.PHONY: require-local-deploy-opt-in
+require-local-deploy-opt-in:
+	@[ "$${CYNIC_ALLOW_LOCAL_DEPLOY:-0}" = "1" ] || { \
+		echo "✗ Local deploy is not canonical."; \
+		echo "  Use: make deploy-request"; \
+		echo "  Emergency/local-only override: CYNIC_ALLOW_LOCAL_DEPLOY=1 make deploy"; \
+		exit 1; \
+	}
+
+# Legacy local deploy path. Requires Level 2 gate and explicit opt-in.
 # If gate-2 marker is stale, deploy blocks and tells you to run `make gate-2`.
 .PHONY: deploy
-deploy:
+deploy: require-local-deploy-opt-in
 	@$(source_env)
 	@echo "▶ Checking gate-2 marker..."
 	@NEWEST_RUST=$$(find crates/cynic-kernel/src -name '*.rs' -exec stat -c '%Y' {} + 2>/dev/null | sort -rn | head -1); \
@@ -714,7 +811,7 @@ deploy:
 # and you just want to roll the release binary into ~/bin. Skips all validation
 # gates — caller is responsible for freshness.
 .PHONY: deploy-only
-deploy-only:  ## Deploy target/release/cynic-kernel with no validation (skips check/commit/push)
+deploy-only: require-local-deploy-opt-in  ## Local legacy deploy target/release/cynic-kernel with no validation
 	@$(source_env)
 	@BIN="$(PROJECT_DIR)/target/release/cynic-kernel"; \
 	[ -f "$$BIN" ] || { echo "✗ No release binary at $$BIN — run 'cargo build --release' or 'make check' first"; exit 1; }; \
@@ -777,7 +874,7 @@ deploy-systemd-dry:  ## Dry-run: show what deploy-systemd would change
 
 # ── Emergency: Hotfix deploy (skip push — for incidents) ──────
 .PHONY: hotfix
-hotfix: check
+hotfix: require-local-deploy-opt-in check
 	@$(source_env)
 	@echo ""
 	@echo "⚠ HOTFIX DEPLOY — skipping push (commit locally, push later)"
@@ -881,32 +978,43 @@ monitor-vm: ## Monitor VMs on Proxmox
 .PHONY: e2e
 e2e:
 	@$(source_env)
-	@echo "▶ E2E: Sicilian Defense..."
-	@ADDR="http://$${CYNIC_REST_ADDR}"; AUTH="Authorization: Bearer $${CYNIC_API_KEY}"; FAIL=0; \
+	@echo "▶ E2E: Sicilian Defense + supply-chain mempool..."
+	@ADDR=$$(python3 organs/forge/src/entrypoints/cli.py kernel-url); AUTH="Authorization: Bearer $${CYNIC_API_KEY}"; FAIL=0; \
 	echo ""; \
-	printf "  1/6 Health........... "; \
-	HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "$$ADDR/health"); \
-	[ "$$HTTP" = "200" ] && echo "PASS ($$HTTP)" || { echo "FAIL ($$HTTP)"; FAIL=$$((FAIL+1)); }; \
-	printf "  2/6 Judge+dog_scores. "; \
+	printf "  1/7 Health........... "; \
+	HTTP=$$(curl -s -o /dev/null -w '%{http_code}' -H "$$AUTH" "$$ADDR/health"); \
+	python3 organs/forge/src/entrypoints/cli.py lifecycle-health-accepted "$$HTTP" >/dev/null && echo "PASS ($$HTTP)" || { echo "FAIL ($$HTTP)"; FAIL=$$((FAIL+1)); }; \
+	printf "  2/7 Judge+dog_scores. "; \
 	V=$$(curl -s -X POST "$$ADDR/judge" -H "Content-Type: application/json" -H "$$AUTH" \
 		-d '{"content":"1. e4 c5 — The Sicilian Defense.","context":"Most popular response to 1.e4","domain":"chess"}'); \
 	DOGS=$$(echo "$$V" | python3 -c "import json,sys; v=json.load(sys.stdin); print(len(v.get('dog_scores',[])))" 2>/dev/null); \
 	VERDICT=$$(echo "$$V" | python3 -c "import json,sys; print(json.load(sys.stdin)['verdict'])" 2>/dev/null); \
 	[ "$${DOGS:-0}" -gt 0 ] && echo "PASS $$VERDICT dogs=$$DOGS" || { echo "FAIL (dog_scores empty)"; FAIL=$$((FAIL+1)); }; \
-	printf "  3/6 Verdict DB RT.... "; \
+	printf "  3/7 Verdict DB RT.... "; \
 	DB_DOGS=$$(curl -s -H "$$AUTH" "$$ADDR/verdicts?limit=1" | python3 -c "import json,sys; v=json.load(sys.stdin); print(len(v[0].get('dog_scores',[])) if v else 0)" 2>/dev/null); \
 	[ "$${DB_DOGS:-0}" -gt 0 ] && echo "PASS ($$DB_DOGS dogs from DB)" || { echo "FAIL"; FAIL=$$((FAIL+1)); }; \
-	printf "  4/6 Observations..... "; \
-	OBS=$$(curl -s -H "$$AUTH" "$$ADDR/observations?limit=1" | python3 -c "import json,sys; o=json.load(sys.stdin); print(len(o[0].keys()) if o else 0)" 2>/dev/null); \
+	printf "  4/7 Observations..... "; \
+	OBS=$$(curl -s -H "$$AUTH" "$$ADDR/observations?limit=1" | python3 -c "import json,sys; o=json.load(sys.stdin); print(len(o[0].keys()) if o else 0)" 2>/dev/null || true); \
 	[ "$${OBS:-0}" -ge 10 ] && echo "PASS ($$OBS fields)" || { echo "FAIL ($$OBS fields)"; FAIL=$$((FAIL+1)); }; \
-	printf "  5/6 Audit............ "; \
-	AUD=$$(curl -s -H "$$AUTH" "$$ADDR/audit?limit=1" | python3 -c "import json,sys; a=json.load(sys.stdin); print(len(a[0].keys()) if a else 0)" 2>/dev/null); \
+	printf "  5/7 Audit............ "; \
+	AUD=$$(curl -s -H "$$AUTH" "$$ADDR/audit?limit=1" | python3 -c "import json,sys; a=json.load(sys.stdin); print(len(a[0].keys()) if a else 0)" 2>/dev/null || true); \
 	[ "$${AUD:-0}" -ge 5 ] && echo "PASS ($$AUD fields)" || { echo "FAIL ($$AUD fields)"; FAIL=$$((FAIL+1)); }; \
-	printf "  6/6 Crystals......... "; \
-	CRY=$$(curl -s -H "$$AUTH" "$$ADDR/crystals?limit=1" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null); \
+	printf "  6/7 Crystals......... "; \
+	CRY=$$(curl -s -H "$$AUTH" "$$ADDR/crystals?limit=1" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null || true); \
 	[ "$${CRY:-0}" -gt 0 ] && echo "PASS" || { echo "FAIL"; FAIL=$$((FAIL+1)); }; \
+	printf "  7/7 Supply-chain..... "; \
+	DOMAIN="supply-chain-e2e-$$(date +%s)"; \
+	PAYLOAD=$$(python3 organs/forge/src/entrypoints/cli.py lifecycle-task-payload "deploy-kernel" "$$DOMAIN" "cortex-e2e-supply-chain"); \
+	python3 organs/forge/src/entrypoints/cli.py lifecycle-validate-task-payload "$$PAYLOAD" >/dev/null; \
+	CREATED=$$(curl -s -X POST "$$ADDR/agent-tasks" -H "Content-Type: application/json" -H "$$AUTH" -d "$$PAYLOAD"); \
+	TASK=$$(echo "$$CREATED" | python3 -c "import json,sys; print(json.load(sys.stdin).get('task_id',''))" 2>/dev/null || true); \
+	PENDING=$$(curl -s -H "$$AUTH" "$$ADDR/agent-tasks?kind=hermes&domain=$$DOMAIN&limit=1" | python3 -c "import json,sys; print(json.load(sys.stdin).get('count',0))" 2>/dev/null || true); \
+	CLAIMED=$$(curl -s -X POST "$$ADDR/agent-tasks/$$TASK/claim" -H "Content-Type: application/json" -H "$$AUTH" -d '{"agent_id":"cortex-e2e-supply-chain"}' | python3 -c "import json,sys; print(json.load(sys.stdin).get('claimed',False))" 2>/dev/null || true); \
+	curl -s -X POST "$$ADDR/agent-tasks/$$TASK/result" -H "Content-Type: application/json" -H "$$AUTH" -d '{"result":"e2e supply-chain mempool passed"}' >/dev/null; \
+	COMPLETED=$$(curl -s -H "$$AUTH" "$$ADDR/agent-tasks/completed?kind=hermes&domain=$$DOMAIN&limit=1" | python3 -c "import json,sys; print(json.load(sys.stdin).get('count',0))" 2>/dev/null || true); \
+	[ -n "$$TASK" ] && [ "$${PENDING:-0}" -gt 0 ] && [ "$$CLAIMED" = "True" ] && [ "$${COMPLETED:-0}" -gt 0 ] && echo "PASS $$TASK" || { echo "FAIL task=$$TASK pending=$$PENDING claimed=$$CLAIMED completed=$$COMPLETED"; FAIL=$$((FAIL+1)); }; \
 	echo ""; \
-	[ $$FAIL -eq 0 ] && echo "✓ All 6 E2E checks passed" || { echo "✗ $$FAIL E2E check(s) FAILED"; exit 1; }
+	[ $$FAIL -eq 0 ] && echo "✓ All 7 E2E checks passed" || { echo "✗ $$FAIL E2E check(s) FAILED"; exit 1; }
 
 # ── Standalone: System status ────────────────────────────────
 .PHONY: status

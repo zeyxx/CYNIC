@@ -588,41 +588,40 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
         });
 
     let registry_path = project_root.join("infra/registry.json");
-    if let Ok(registry_content) = std::fs::read_to_string(&registry_path) {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&registry_content) {
-            if let Some(nodes) = json.get("nodes").and_then(|n| n.as_array()) {
-                for node in nodes {
-                    if let Some(name) = node.get("name").and_then(|n| n.as_str()) {
-                        let name_upper = if name.starts_with("cynic-") {
-                            name["cynic-".len()..].to_uppercase().replace("-", "_")
-                        } else {
-                            name.to_uppercase().replace("-", "_")
-                        };
+    if let Ok(registry_content) = std::fs::read_to_string(&registry_path)
+        && let Ok(json) = serde_json::from_str::<serde_json::Value>(&registry_content)
+        && let Some(nodes) = json.get("nodes").and_then(|n| n.as_array())
+    {
+        for node in nodes {
+            if let Some(name) = node.get("name").and_then(|n| n.as_str()) {
+                let name_upper = if let Some(stripped) = name.strip_prefix("cynic-") {
+                    stripped.to_uppercase().replace("-", "_")
+                } else {
+                    name.to_uppercase().replace("-", "_")
+                };
 
-                        if let Some(ts) = node
-                            .get("network")
-                            .and_then(|nw| nw.get("tailscale"))
-                            .and_then(|t| t.as_str())
-                        {
-                            let key = format!("<TAILSCALE_{}>", name_upper);
-                            // If the registry itself contains a placeholder like <TAILSCALE_FORGE>, resolve from env
-                            let resolved = if ts.starts_with('<') && ts.ends_with('>') {
-                                let env_var = &ts[1..ts.len() - 1];
-                                std::env::var(env_var).unwrap_or_else(|_| ts.to_string())
-                            } else {
-                                ts.to_string()
-                            };
-                            content = content.replace(&key, &resolved);
-                        }
-                        if let Some(local) = node
-                            .get("network")
-                            .and_then(|nw| nw.get("local"))
-                            .and_then(|t| t.as_str())
-                        {
-                            let key = format!("<LOCAL_{}>", name_upper);
-                            content = content.replace(&key, local);
-                        }
-                    }
+                if let Some(ts) = node
+                    .get("network")
+                    .and_then(|nw| nw.get("tailscale"))
+                    .and_then(|t| t.as_str())
+                {
+                    let key = format!("<TAILSCALE_{name_upper}>");
+                    // If the registry itself contains a placeholder like <TAILSCALE_FORGE>, resolve from env
+                    let resolved = if ts.starts_with('<') && ts.ends_with('>') {
+                        let env_var = &ts[1..ts.len() - 1];
+                        std::env::var(env_var).unwrap_or_else(|_| ts.to_string())
+                    } else {
+                        ts.to_string()
+                    };
+                    content = content.replace(&key, &resolved);
+                }
+                if let Some(local) = node
+                    .get("network")
+                    .and_then(|nw| nw.get("local"))
+                    .and_then(|t| t.as_str())
+                {
+                    let key = format!("<LOCAL_{name_upper}>");
+                    content = content.replace(&key, local);
                 }
             }
         }
