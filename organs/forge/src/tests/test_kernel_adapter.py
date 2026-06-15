@@ -11,6 +11,7 @@ from organs.forge.src.adapters.kernel_adapter import (
     activate_lifecycle_registry_node,
     apply_lifecycle_activation_evidence_patch,
     build_lifecycle_activation_plan,
+    build_lifecycle_activation_requests,
     build_lifecycle_profile_payloads,
     build_lifecycle_runtime_paths,
     build_lifecycle_service_evidence_patch,
@@ -819,6 +820,27 @@ class LifecyclePolicyTests(unittest.TestCase):
             },
             actions,
         )
+
+    def test_lifecycle_activation_requests_are_registry_derived(self):
+        payload = build_lifecycle_activation_requests(registry_fixture())
+
+        self.assertEqual(payload["status"], "blocked")
+        self.assertEqual(payload["build_target"], "cynic-vm-anvil")
+        self.assertEqual(payload["deploy_target"], "cynic-vm-core")
+        self.assertEqual(len(payload["requests"]), len(payload["actions"]))
+        request = payload["requests"][0]
+        self.assertEqual(request["kind"], "hermes")
+        self.assertEqual(request["domain"], "organ-forge")
+        content = json.loads(request["content"])
+        self.assertEqual(content["lifecycle"], "kernel_release")
+        self.assertEqual(content["build_target"], "cynic-vm-anvil")
+        self.assertEqual(content["deploy_target"], "cynic-vm-core")
+        self.assertEqual(
+            content["targets"],
+            ["crates/cynic-kernel", "crates/cynic-mcp", "infra/registry.json", "Makefile"],
+        )
+        self.assertIn("action", content)
+        self.assertIn("objective", content)
 
     def test_lifecycle_runtime_paths_are_registry_derived(self):
         payload = build_lifecycle_runtime_paths(registry_fixture())

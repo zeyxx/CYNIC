@@ -274,6 +274,11 @@ lifecycle-activation-plan: ## Print registry-derived activation plan for lifecyc
 	@$(source_env)
 	@python3 organs/forge/src/entrypoints/cli.py lifecycle-activation-plan
 
+.PHONY: lifecycle-activation-requests
+lifecycle-activation-requests: ## Print organ-generated activation requests from the lifecycle plan
+	@$(source_env)
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-activation-requests
+
 .PHONY: lifecycle-runtime-paths
 lifecycle-runtime-paths: ## Print registry-derived runtime path requirements for lifecycle nodes
 	@$(source_env)

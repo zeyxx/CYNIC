@@ -485,6 +485,92 @@ def build_lifecycle_activation_plan(
     }
 
 
+def build_lifecycle_activation_requests(
+    registry: dict | None = None,
+    inspect_fleet: bool = False,
+) -> dict:
+    registry = registry or load_registry()
+    plan = build_lifecycle_activation_plan(registry=registry, inspect_fleet=inspect_fleet)
+    lifecycle_repo_targets = (
+        registry.get("lifecycle", {})
+        .get("kernel_release", {})
+        .get("repo_targets", [])
+    )
+    requests = []
+    for action in plan["actions"]:
+        content = {
+            "lifecycle": "kernel_release",
+            "objective": f"activate {action.get('action')} for {action.get('node', 'lifecycle')}",
+            "orchestrator_organ": plan["orchestrator_organ"],
+            "domain": "organ-forge",
+            "build_target": plan["build_target"],
+            "build_runner_role": "build_runner",
+            "deploy_target": plan["deploy_target"],
+            "deploy_target_role": "kernel_primary",
+            "required_node_status": "active",
+            "activation_requirements": {
+                "build_runner": {
+                    "network": ["tailscale"],
+                    "filesystem": ["repo_root"],
+                    "services": ["organ-forge", "cargo-build", "gate-2"],
+                },
+                "kernel_primary": {
+                    "network": ["tailscale"],
+                    "filesystem": ["repo_root"],
+                    "services": ["cynic-kernel", "surrealdb", "cynic-portal"],
+                },
+            },
+            "fleet_requirements": {
+                "provider": "tailscale",
+                "required": True,
+                "require_online": True,
+            },
+            "runtime_paths": {
+                "repo_root": "%h/.cynic/repos/CYNIC",
+            },
+            "runtime_path_proofs": {
+                "repo_root": {
+                    "kind": "git_worktree",
+                    "marker": ".git",
+                    "sentinels": ["AGENTS.md", "infra/registry.json"],
+                }
+            },
+            "activation_evidence_contract": {
+                "patch_field": "activation_evidence_patch",
+                "node_field": "node",
+                "runtime_paths_field": "activation_evidence.runtime_paths",
+                "services_field": "activation_evidence.services",
+                "verified_requires": ["marker_exists", "sentinels_verified"],
+                "service_active_requires": ["declared", "active"],
+                "ingestion_mode": "validated_merge",
+            },
+            "targets": lifecycle_repo_targets,
+            "coord_targets": lifecycle_repo_targets,
+            "deploy": False,
+            "action": action,
+        }
+        requests.append(
+            {
+                "kind": "hermes",
+                "domain": "organ-forge",
+                "agent_id": "organ-forge-cli",
+                "content": json.dumps(content, separators=(",", ":")),
+            }
+        )
+
+    return {
+        "status": "ok" if plan.get("status") == "ok" else "blocked",
+        "lifecycle": plan.get("lifecycle"),
+        "orchestrator_organ": plan.get("orchestrator_organ"),
+        "build_target": plan.get("build_target"),
+        "deploy_target": plan.get("deploy_target"),
+        "blockers": plan.get("blockers", []),
+        "actions": plan.get("actions", []),
+        "requests": requests,
+        "next_requests": plan.get("next_requests", []),
+    }
+
+
 def build_lifecycle_runtime_paths(registry: dict | None = None) -> dict:
     plan = build_lifecycle_activation_plan(registry=registry, inspect_fleet=False)
     paths = []

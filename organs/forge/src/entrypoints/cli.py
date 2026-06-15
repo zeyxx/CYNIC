@@ -19,6 +19,7 @@ from organs.forge.src.adapters.kernel_adapter import (
     KernelRestClient,
     apply_lifecycle_activation_evidence_patch,
     build_lifecycle_activation_plan,
+    build_lifecycle_activation_requests,
     build_lifecycle_profile_payloads,
     build_lifecycle_runtime_paths,
     build_lifecycle_service_evidence_patch,
@@ -213,6 +214,21 @@ def run_lifecycle_blockers() -> int:
 def run_lifecycle_activation_plan() -> int:
     try:
         payload = build_lifecycle_activation_plan(inspect_fleet=True)
+        print(json.dumps(payload, separators=(",", ":")))
+        return 0 if payload["status"] == "ok" else 1
+    except Exception as e:
+        print(
+            json.dumps(
+                {"status": "error", "error": str(e)},
+                separators=(",", ":"),
+            ),
+            file=sys.stderr,
+        )
+        return 1
+
+def run_lifecycle_activation_requests() -> int:
+    try:
+        payload = build_lifecycle_activation_requests(inspect_fleet=True)
         print(json.dumps(payload, separators=(",", ":")))
         return 0 if payload["status"] == "ok" else 1
     except Exception as e:
@@ -504,6 +520,10 @@ def main():
         help="Override registry path for tests or controlled maintenance",
     )
     subparsers.add_parser("lifecycle-lint", help="Validate registry lifecycle policy structure")
+    subparsers.add_parser(
+        "lifecycle-activation-requests",
+        help="Build organ-generated activation requests from the lifecycle plan",
+    )
     payload_parser = subparsers.add_parser(
         "lifecycle-task-payload",
         help="Build a registry-derived /agent-tasks payload",
@@ -587,6 +607,8 @@ def main():
         )
     elif args.command == "lifecycle-lint":
         return run_lifecycle_lint()
+    elif args.command == "lifecycle-activation-requests":
+        return run_lifecycle_activation_requests()
     elif args.command == "lifecycle-task-payload":
         return run_lifecycle_task_payload(args.intent, args.domain, args.agent_id)
     elif args.command == "lifecycle-validate-task-payload":
