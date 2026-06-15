@@ -120,6 +120,35 @@ volatile_state_check() {
 }
 volatile_state_check || exit 1
 
+# ── Lifecycle readiness: block workflow-critical edits while planned ──
+# Planned release targets are not executable. Changes to the release path
+# must stop until organ-forge marks the lifecycle ready.
+lifecycle_readiness_check() {
+    [ "${ALLOW_PLANNED_LIFECYCLE_COMMIT:-}" = "1" ] && return 0
+    STAGED_LIFECYCLE=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null \
+        | grep -E '^(infra/registry\.json|Makefile|crates/cynic-kernel/|crates/cynic-mcp/|organs/forge/)' || true)
+    [ -z "$STAGED_LIFECYCLE" ] && return 0
+
+    PYTHON=python3
+    if ! command -v "$PYTHON" >/dev/null 2>&1; then
+        echo "LIFECYCLE FAIL: python3 not available to check lifecycle readiness"
+        return 1
+    fi
+
+    LIFECYCLE_PAYLOAD=$("$PYTHON" organs/forge/src/entrypoints/cli.py lifecycle-blockers 2>&1)
+    LIFECYCLE_STATUS=$?
+    if [ "$LIFECYCLE_STATUS" -ne 0 ]; then
+        echo "LIFECYCLE FAIL: registry lifecycle is planned, not executable:"
+        echo "$LIFECYCLE_PAYLOAD"
+        echo ""
+        echo "Workflow-critical files are blocked until the registry lifecycle is active."
+        echo "Emergency override: ALLOW_PLANNED_LIFECYCLE_COMMIT=1 git commit"
+        return 1
+    fi
+    return 0
+}
+lifecycle_readiness_check || exit 1
+
 # ── Branch warning: committing to main is usually a mistake ──
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 if [ "$CURRENT_BRANCH" = "main" ]; then

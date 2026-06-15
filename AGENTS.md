@@ -283,6 +283,7 @@ File extension is not a commit policy. Commit only durable source-of-truth files
 - Blocked by default: runtime snapshots and append-only observations such as `infra/organ-anvil/state.json`, `infra/organ-anvil/audit.jsonl`, and `organs/*/state/*.json(l)`.
 - Runtime state belongs in the Kernel mempool, `cynic_observe`, local organ state, or generated reports outside the committed source tree.
 - Emergency exception: `ALLOW_VOLATILE_STATE_COMMIT=1 git commit`, with the reason stated in the commit body.
+- Lifecycle-critical edits under `infra/registry.json`, `Makefile`, `crates/cynic-kernel/`, `crates/cynic-mcp/`, and `organs/forge/` are blocked while the registry lifecycle is `planned`.
 
 The pre-commit hook and `make gate-0` enforce the volatile-state block.
 

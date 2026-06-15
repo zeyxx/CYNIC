@@ -221,9 +221,34 @@ lint-services: ## Compare running user services vs expected list — catches zom
 	exit $$FAIL
 
 .PHONY: lint-lifecycle
-lint-lifecycle: ## Verify registry lifecycle policy has resolvable dynamic targets
+lint-lifecycle: ## Verify registry lifecycle policy and block workflow-critical edits while planned
 	@python3 organs/forge/src/entrypoints/cli.py lifecycle-lint
 	@$(MAKE) --no-print-directory test-lifecycle
+	@$(MAKE) --no-print-directory lint-lifecycle-readiness
+
+.PHONY: lint-lifecycle-readiness
+lint-lifecycle-readiness: ## Fail when lifecycle-critical staged files target a planned release path
+	@echo ""
+	@echo "▶ Checking lifecycle readiness..."
+	@if [ "$${ALLOW_PLANNED_LIFECYCLE_COMMIT:-}" = "1" ]; then \
+		echo "⚠ Planned lifecycle commit override enabled"; \
+		exit 0; \
+	fi; \
+	STAGED=$$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null \
+		| grep -E '^(infra/registry\.json|Makefile|crates/cynic-kernel/|crates/cynic-mcp/|organs/forge/)' || true); \
+	if [ -z "$$STAGED" ]; then \
+		echo "✓ No lifecycle-critical files staged"; \
+		exit 0; \
+	fi; \
+	if python3 organs/forge/src/entrypoints/cli.py lifecycle-blockers >/tmp/cynic-lifecycle-blockers.json 2>&1; then \
+		echo "✓ Lifecycle readiness OK"; \
+		rm -f /tmp/cynic-lifecycle-blockers.json; \
+		exit 0; \
+	fi; \
+	echo "FAIL lifecycle readiness: planned release path blocks workflow-critical edits:"; \
+	cat /tmp/cynic-lifecycle-blockers.json; \
+	rm -f /tmp/cynic-lifecycle-blockers.json; \
+	exit 1
 
 .PHONY: test-lifecycle
 test-lifecycle: ## Run organ-forge lifecycle contract tests
