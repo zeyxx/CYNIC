@@ -571,6 +571,120 @@ def build_lifecycle_activation_requests(
     }
 
 
+def validate_lifecycle_activation_request_payload(
+    payload: dict,
+    registry: dict | None = None,
+) -> dict:
+    registry = registry or load_registry()
+    lifecycle = registry.get("lifecycle", {}).get("kernel_release")
+    if not lifecycle:
+        raise RuntimeError("missing lifecycle.kernel_release")
+
+    errors = []
+    if payload.get("kind") != lifecycle.get("task_kind"):
+        errors.append("payload.kind does not match lifecycle task_kind")
+    if payload.get("domain") != "organ-forge":
+        errors.append("payload.domain does not match activation request domain")
+    if payload.get("agent_id") != "organ-forge-cli":
+        errors.append("payload.agent_id does not match activation request agent")
+
+    raw_content = payload.get("content", "")
+    try:
+        content = json.loads(raw_content) if isinstance(raw_content, str) else raw_content
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"payload.content is not valid JSON: {exc}") from exc
+    if not isinstance(content, dict):
+        raise RuntimeError("payload.content must be a JSON object")
+
+    nodes = registry.get("nodes", [])
+    build_node = next(
+        (node for node in nodes if node.get("role") == lifecycle["build_runner_role"]),
+        None,
+    )
+    deploy_node = next(
+        (
+            node
+            for node in nodes
+            if node.get("role") == lifecycle["deploy_target_role"]
+            and node.get(lifecycle.get("deploy_target_flag", "deploy_target")) is True
+        ),
+        None,
+    )
+    repo_targets = lifecycle.get("repo_targets", [])
+    expected = {
+        "lifecycle": "kernel_release",
+        "orchestrator_organ": lifecycle.get("orchestrator_organ"),
+        "domain": lifecycle.get("task_domain"),
+        "build_target": build_node.get("name") if build_node else None,
+        "build_runner_role": lifecycle.get("build_runner_role"),
+        "deploy_target": deploy_node.get("name") if deploy_node else None,
+        "deploy_target_role": lifecycle.get("deploy_target_role"),
+        "required_node_status": lifecycle.get("required_node_status"),
+        "activation_requirements": lifecycle.get("activation_requirements", {}),
+        "runtime_paths": lifecycle.get("runtime_paths", {}),
+        "runtime_path_proofs": lifecycle.get("runtime_path_proofs", {}),
+        "activation_evidence_contract": lifecycle.get("activation_evidence_contract", {}),
+        "fleet_requirements": lifecycle.get("fleet_requirements", {}),
+        "targets": repo_targets,
+        "coord_targets": repo_targets,
+        "deploy": False,
+    }
+    for key, expected_value in expected.items():
+        if content.get(key) != expected_value:
+            errors.append(f"content.{key} does not match lifecycle registry")
+
+    if not isinstance(content.get("action"), dict) or not content["action"].get("action"):
+        errors.append("content.action must be a structured activation action")
+    if not content.get("objective"):
+        errors.append("content.objective missing")
+
+    if errors:
+        raise RuntimeError("; ".join(errors))
+    return {
+        "status": "ok",
+        "lifecycle": "kernel_release",
+        "action": content["action"].get("action"),
+        "objective": content["objective"],
+    }
+
+
+def dispatch_lifecycle_activation_requests(
+    registry: dict | None = None,
+    inspect_fleet: bool = False,
+    kernel_client_factory=None,
+) -> dict:
+    registry = registry or load_registry()
+    plan = build_lifecycle_activation_requests(registry=registry, inspect_fleet=inspect_fleet)
+    if not plan.get("requests"):
+        raise RuntimeError("no lifecycle activation requests were generated")
+
+    kernel_client_factory = kernel_client_factory or KernelRestClient
+    client = kernel_client_factory(require_api_key=True, strict_lifecycle=False)
+    if not getattr(client, "api_key", ""):
+        raise RuntimeError("CYNIC_API_KEY is required for organ-forge kernel dispatch")
+
+    responses = []
+    for payload in plan["requests"]:
+        validate_lifecycle_activation_request_payload(payload, registry)
+        responses.append(client._post_agent_task(payload))
+
+    return {
+        "status": "ok",
+        "plan_status": plan.get("status"),
+        "lifecycle": plan.get("lifecycle"),
+        "orchestrator_organ": plan.get("orchestrator_organ"),
+        "build_target": plan.get("build_target"),
+        "deploy_target": plan.get("deploy_target"),
+        "blockers": plan.get("blockers", []),
+        "actions": plan.get("actions", []),
+        "requests": plan.get("requests", []),
+        "responses": responses,
+        "dispatched_count": len(responses),
+        "next_requests": plan.get("next_requests", []),
+        "local_execution_policy": plan.get("local_execution_policy", {}),
+    }
+
+
 def build_lifecycle_runtime_paths(registry: dict | None = None) -> dict:
     plan = build_lifecycle_activation_plan(registry=registry, inspect_fleet=False)
     paths = []

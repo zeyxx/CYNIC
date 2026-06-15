@@ -279,6 +279,11 @@ lifecycle-activation-requests: ## Print organ-generated activation requests from
 	@$(source_env)
 	@python3 organs/forge/src/entrypoints/cli.py lifecycle-activation-requests
 
+.PHONY: lifecycle-activation-dispatch
+lifecycle-activation-dispatch: ## Dispatch organ-generated activation requests to the kernel mempool
+	@$(source_env)
+	@python3 organs/forge/src/entrypoints/cli.py lifecycle-activation-dispatch
+
 .PHONY: lifecycle-runtime-paths
 lifecycle-runtime-paths: ## Print registry-derived runtime path requirements for lifecycle nodes
 	@$(source_env)

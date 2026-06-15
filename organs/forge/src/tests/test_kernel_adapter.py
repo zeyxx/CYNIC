@@ -16,6 +16,7 @@ from organs.forge.src.adapters.kernel_adapter import (
     build_lifecycle_runtime_paths,
     build_lifecycle_service_evidence_patch,
     build_lifecycle_task_payload,
+    dispatch_lifecycle_activation_requests,
     lifecycle_health_status_result,
     lifecycle_profile_intents,
     normalize_kernel_base_url,
@@ -237,6 +238,14 @@ class LifecyclePolicyTests(unittest.TestCase):
         )
         self.assertIn(
             "python3 organs/forge/src/entrypoints/cli.py lifecycle-activation-plan",
+            makefile,
+        )
+        self.assertIn(
+            "python3 organs/forge/src/entrypoints/cli.py lifecycle-activation-requests",
+            makefile,
+        )
+        self.assertIn(
+            "python3 organs/forge/src/entrypoints/cli.py lifecycle-activation-dispatch",
             makefile,
         )
         self.assertIn(
@@ -842,6 +851,32 @@ class LifecyclePolicyTests(unittest.TestCase):
         self.assertIn("action", content)
         self.assertIn("objective", content)
 
+    def test_lifecycle_activation_requests_dispatch_via_kernel_client(self):
+        registry = registry_fixture()
+        posted = []
+
+        class FakeClient:
+            def __init__(self, *args, **kwargs):
+                self.api_key = "token"
+
+            def _post_agent_task(self, payload):
+                posted.append(payload)
+                return {"id": f"task-{len(posted)}", "status": "queued"}
+
+        payload = dispatch_lifecycle_activation_requests(
+            registry=registry,
+            inspect_fleet=False,
+            kernel_client_factory=FakeClient,
+        )
+
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["plan_status"], "blocked")
+        self.assertEqual(payload["dispatched_count"], len(payload["requests"]))
+        self.assertEqual(len(posted), len(payload["requests"]))
+        self.assertEqual(payload["responses"][0]["status"], "queued")
+        first = json.loads(payload["requests"][0]["content"])
+        self.assertEqual(first["targets"], ["crates/cynic-kernel", "crates/cynic-mcp", "infra/registry.json", "Makefile"])
+
     def test_lifecycle_runtime_paths_are_registry_derived(self):
         payload = build_lifecycle_runtime_paths(registry_fixture())
 
@@ -1315,6 +1350,25 @@ class LifecyclePolicyTests(unittest.TestCase):
         self.assertEqual(payload["status"], "blocked")
         self.assertEqual(payload["actions"][0]["action"], "activate_registry_node")
         activation_plan.assert_called_once_with(inspect_fleet=True)
+
+    def test_lifecycle_activation_dispatch_cli_returns_ok_status(self):
+        with mock.patch(
+            "organs.forge.src.entrypoints.cli.dispatch_lifecycle_activation_requests",
+            return_value={
+                "status": "ok",
+                "plan_status": "blocked",
+                "requests": [{"kind": "hermes"}],
+                "responses": [{"id": "task-1"}],
+                "dispatched_count": 1,
+            },
+        ) as dispatch_requests, mock.patch("sys.stdout", new_callable=StringIO) as stdout:
+            status = cli.run_lifecycle_activation_dispatch()
+
+        self.assertEqual(status, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["dispatched_count"], 1)
+        dispatch_requests.assert_called_once_with(inspect_fleet=False)
 
     def test_observation_storage_migrates_legacy_optional_schema(self):
         storage_source = (
