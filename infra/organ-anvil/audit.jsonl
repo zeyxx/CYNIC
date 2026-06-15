@@ -80,8 +80,3 @@
 {"timestamp": "2026-06-14T10:14:55Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
 {"timestamp": "2026-06-14T10:47:05Z", "source": "perception", "payload": {"score": 0.55, "dirty_files": 15, "branches_local": 6, "alert": "dirty tree worsening (5→15), local branches > 5"}}, "result": "success"}
 {"timestamp": "2026-06-14T12:30:36Z", "source": "perception", "payload": {"score": 0.55, "dirty": true, "changed_files": 9, "branches": {"local": 6, "remote": 4}, "alert": "branch_count_exceeds_5", "dirty_tree": true}}, "result": "success"}
-{"timestamp": "2026-06-14T14:35:47Z", "source": "perception", "payload": {"health_score":0.55,"dirty_files":31,"local_branches":6,"remote_branches":5,"stashes":3}}, "result": "success"}
-{"timestamp": "2026-06-14T14:35:51Z", "source": "unknown", "payload": {}, "result": "unknown"}
-{"timestamp": "2026-06-15T02:08:02Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
-{"timestamp": "2026-06-15T04:46:10Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
-{"timestamp": "2026-06-15T06:22:02Z", "source": "perception", "payload": {"score": 0.55}}, "result": "warning"}

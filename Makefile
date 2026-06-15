@@ -66,6 +66,7 @@ gate-0: ## Level 0 — Instant: fmt + lints + security
 	@$(MAKE) --no-print-directory lint-rules
 	@$(MAKE) --no-print-directory lint-drift
 	@$(MAKE) --no-print-directory lint-subprocess-env
+	@$(MAKE) --no-print-directory lint-volatile-state
 	@$(MAKE) --no-print-directory lint-security
 	@$(MAKE) --no-print-directory lint-python-tiers
 	@$(MAKE) --no-print-directory lint-topology
@@ -178,6 +179,24 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 	if [ -n "$$BACKEND_IPS" ]; then echo "FAIL Rule 12: resolved Tailscale IPs in git backends.toml (use <TAILSCALE_*> placeholders):"; echo "$$BACKEND_IPS"; FAIL=1; fi; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ All grep-enforceable rules pass"; fi; \
 	exit $$FAIL
+
+.PHONY: lint-volatile-state
+lint-volatile-state: ## Block staged runtime snapshots from organ state directories
+	@echo ""
+	@echo "▶ Checking volatile state policy..."
+	@if [ "$${ALLOW_VOLATILE_STATE_COMMIT:-}" = "1" ]; then \
+		echo "⚠ Volatile state commit override enabled"; \
+		exit 0; \
+	fi; \
+	VOLATILE=$$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null \
+		| grep -E '^(infra/organ-anvil/(state\.json|audit\.jsonl)|organs/[^/]+/state/.*\.(json|jsonl))$$' || true); \
+	if [ -n "$$VOLATILE" ]; then \
+		echo "FAIL volatile state: runtime organ snapshots are staged:"; \
+		echo "$$VOLATILE"; \
+		echo "Use kernel observations or local state, not git snapshots."; \
+		exit 1; \
+	fi; \
+	echo "✓ Volatile state policy OK"
 
 .PHONY: lint-services
 lint-services: ## Compare running user services vs expected list — catches zombie/missing services

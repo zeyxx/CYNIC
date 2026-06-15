@@ -1,28 +1,8 @@
 {
-  "timestamp": "2026-06-15T09:04:44.289519+00:00",
+  "timestamp": "2026-06-14T04:44:19.397886+00:00",
   "total_containers": 8,
   "running": 3,
   "containers": [
-    {
-      "Command": "\"/docker-entrypoint.\u2026\"",
-      "CreatedAt": "2026-06-14 16:23:41 +0200 CEST",
-      "ID": "10916e18e78c",
-      "Image": "cynic-portal:local",
-      "Labels": "com.docker.compose.config-hash=42d9fc33b9a6df6839f313799f0b77d3f4ee1ed5cabcb5d4553b2c6e013a8cef,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:bee08d9e8333f42147fe32498cd7ce0b94e1f2f1ca27c44dad0c964d1a94724f,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/docker/cynic-portal/docker-compose.yml,com.docker.compose.project.working_dir=/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/docker/cynic-portal,com.docker.compose.project=cynic-portal,com.docker.compose.service=portal,com.docker.compose.version=2.40.3,cynic.role=portal,cynic.surface=operator-ui,maintainer=NGINX Docker Maintainers <docker-maint@nginx.com>",
-      "LocalVolumes": "0",
-      "Mounts": "",
-      "Names": "cynic-portal",
-      "Networks": "host",
-      "Platform": {
-        "architecture": "amd64",
-        "os": "linux"
-      },
-      "Ports": "",
-      "RunningFor": "19 hours ago",
-      "Size": "81.9kB (virtual 53MB)",
-      "State": "running",
-      "Status": "Up 19 hours (healthy)"
-    },
     {
       "Command": "\"/sbin/tini -- go2rt\u2026\"",
       "CreatedAt": "2026-06-12 16:24:33 +0200 CEST",
@@ -38,10 +18,10 @@
         "os": "linux"
       },
       "Ports": "",
-      "RunningFor": "2 days ago",
+      "RunningFor": "38 hours ago",
       "Size": "4.1kB (virtual 267MB)",
       "State": "exited",
-      "Status": "Exited (0) 2 days ago"
+      "Status": "Exited (0) 38 hours ago"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -58,7 +38,7 @@
         "os": "linux"
       },
       "Ports": "",
-      "RunningFor": "3 days ago",
+      "RunningFor": "2 days ago",
       "Size": "4.1kB (virtual 890MB)",
       "State": "created",
       "Status": "Created"
@@ -78,10 +58,10 @@
         "os": "linux"
       },
       "Ports": "0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp",
-      "RunningFor": "5 days ago",
+      "RunningFor": "4 days ago",
       "Size": "24.6kB (virtual 145MB)",
       "State": "exited",
-      "Status": "Exited (255) 3 days ago"
+      "Status": "Exited (255) 2 days ago"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -98,10 +78,10 @@
         "os": "linux"
       },
       "Ports": "0.0.0.0:5433->5432/tcp, [::]:5433->5432/tcp",
-      "RunningFor": "5 days ago",
+      "RunningFor": "4 days ago",
       "Size": "20.5kB (virtual 285MB)",
       "State": "running",
-      "Status": "Up 24 hours (healthy)"
+      "Status": "Up 20 hours (healthy)"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -118,10 +98,10 @@
         "os": "linux"
       },
       "Ports": "0.0.0.0:3001->3001/tcp, [::]:3001->3001/tcp",
-      "RunningFor": "5 days ago",
+      "RunningFor": "4 days ago",
       "Size": "221kB (virtual 145MB)",
       "State": "exited",
-      "Status": "Exited (255) 3 days ago"
+      "Status": "Exited (255) 2 days ago"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -130,7 +110,7 @@
       "Image": "node:20-alpine",
       "Labels": "com.docker.compose.config-hash=11192b1a597316b560287c374885e309d7d956123ebfc54200657e5633010f8a,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/user/Bureau/blitz-and-chill/docker-compose.yml,com.docker.compose.project.working_dir=/home/user/Bureau/blitz-and-chill,com.docker.compose.project=blitz-and-chill,com.docker.compose.replace=deps-1,com.docker.compose.service=deps,com.docker.compose.version=2.40.3",
       "LocalVolumes": "1",
-      "Mounts": "/home/user/Bur\u2026,blitz-and-chil\u2026",
+      "Mounts": "blitz-and-chil\u2026,/home/user/Bur\u2026",
       "Names": "blitz-and-chill-deps-1",
       "Networks": "blitz-and-chill_default",
       "Platform": {
@@ -138,10 +118,10 @@
         "os": "linux"
       },
       "Ports": "",
-      "RunningFor": "5 days ago",
+      "RunningFor": "4 days ago",
       "Size": "68.3MB (virtual 213MB)",
       "State": "exited",
-      "Status": "Exited (0) 5 days ago"
+      "Status": "Exited (0) 4 days ago"
     },
     {
       "Command": "\"docker-entrypoint.s\u2026\"",
@@ -158,10 +138,30 @@
         "os": "linux"
       },
       "Ports": "0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp",
-      "RunningFor": "5 days ago",
+      "RunningFor": "4 days ago",
       "Size": "4.1kB (virtual 41.1MB)",
       "State": "running",
-      "Status": "Up 24 hours (healthy)"
+      "Status": "Up 20 hours (healthy)"
+    },
+    {
+      "Command": "\"docker-entrypoint.s\u2026\"",
+      "CreatedAt": "2026-06-08 22:03:36 +0200 CEST",
+      "ID": "72f7b3667de3",
+      "Image": "cynic-portal-portal",
+      "Labels": "com.docker.compose.config-hash=9d42dfdfd3ca1a08e988758a9da9022e8d18a2a952e7c0cbb596f67daf66c816,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image.builder=classic,com.docker.compose.image=sha256:a5e96bcf23512e2d64750e5fec52b52efa915bf219550798803382358b392e7d,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/user/Bureau/CYNIC/infra/docker/cynic-portal/docker-compose.yml,com.docker.compose.project.working_dir=/home/user/Bureau/CYNIC/infra/docker/cynic-portal,com.docker.compose.project=cynic-portal,com.docker.compose.service=portal,com.docker.compose.version=2.40.3",
+      "LocalVolumes": "1",
+      "Mounts": "/home/user/Bur\u2026,cynic-portal_c\u2026",
+      "Names": "cynic-portal-portal-1",
+      "Networks": "host",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "",
+      "RunningFor": "5 days ago",
+      "Size": "948MB (virtual 1.44GB)",
+      "State": "running",
+      "Status": "Up 20 hours"
     }
   ],
   "last_actions": []

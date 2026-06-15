@@ -275,6 +275,17 @@ There is no `TODO.md` and no `.handoff.md`.
 2. **The Kernel is the Mempool**: Any dynamic context, discoveries, or tasks are pushed to the Kernel via `cynic_observe` or queried from `/agent-tasks`.
 3. **Askesis (Proof-of-History)**: Human and agent interactions log their semantic footprints in structured JSONL (`.cynic/memory/logs/human-kernel.jsonl`), never in narrative markdown files.
 
+### Commit Hygiene For Non-Code Files
+
+File extension is not a commit policy. Commit only durable source-of-truth files:
+
+- Allowed: protocol docs, registry/config JSON, systemd units, Dockerfiles, tests, fixtures, manifests, and operator contracts such as `docs/ops/expected-services.txt`.
+- Blocked by default: runtime snapshots and append-only observations such as `infra/organ-anvil/state.json`, `infra/organ-anvil/audit.jsonl`, and `organs/*/state/*.json(l)`.
+- Runtime state belongs in the Kernel mempool, `cynic_observe`, local organ state, or generated reports outside the committed source tree.
+- Emergency exception: `ALLOW_VOLATILE_STATE_COMMIT=1 git commit`, with the reason stated in the commit body.
+
+The pre-commit hook and `make gate-0` enforce the volatile-state block.
+
 ## Organism Taxonomy
 
 **Five species of intelligence + supporting infrastructure.**

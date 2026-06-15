@@ -101,6 +101,25 @@ ssot_check() {
 }
 ssot_check || exit 1
 
+# ── Volatile organism state: block runtime snapshots in commits ──
+# Source/config belongs in git. Runtime observations belong in the kernel,
+# local state directories, or explicitly reviewed fixtures.
+volatile_state_check() {
+    [ "${ALLOW_VOLATILE_STATE_COMMIT:-}" = "1" ] && return 0
+    STAGED_VOLATILE=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null \
+        | grep -E '^(infra/organ-anvil/(state\.json|audit\.jsonl)|organs/[^/]+/state/.*\.(json|jsonl))$' || true)
+    [ -z "$STAGED_VOLATILE" ] && return 0
+
+    echo "VOLATILE STATE FAIL: runtime organ snapshots staged:"
+    echo "$STAGED_VOLATILE"
+    echo ""
+    echo "Commit source, manifests, registry config, systemd units, and tests."
+    echo "Record runtime observations through the kernel instead of versioning snapshots."
+    echo "Emergency override: ALLOW_VOLATILE_STATE_COMMIT=1 git commit"
+    return 1
+}
+volatile_state_check || exit 1
+
 # ── Branch warning: committing to main is usually a mistake ──
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 if [ "$CURRENT_BRANCH" = "main" ]; then
