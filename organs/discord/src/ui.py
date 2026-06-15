@@ -113,6 +113,12 @@ def update(url: str, status: str, notes: str | None = None) -> None:
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
+        if parsed.path == "/api/opportunities":
+            self.respond_json({"opportunities": [dict(row) for row in rows()]})
+            return
+        if parsed.path == "/api/skills":
+            self.respond_json({"skills": [serialize_skill_row(row) for row in skill_rows()]})
+            return
         if parsed.path == "/skills":
             self.respond(render_skills())
             return
@@ -145,6 +151,15 @@ class Handler(BaseHTTPRequestHandler):
         payload = body.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def respond_json(self, body: object) -> None:
+        payload = json.dumps(body, separators=(",", ":")).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:5000")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
@@ -409,6 +424,32 @@ def render_skill_card(row: sqlite3.Row) -> str:
   <div class="muted">{html.escape(row["status"] or "unknown")} · confidence {confidence:.2f}</div>
   <div class="muted">{html.escape(evidence_text)}</div>
 </article>"""
+
+
+def serialize_skill_row(row: sqlite3.Row) -> dict[str, object]:
+    evidence: list[object] = []
+    judge_verdict: object | None = None
+    if row["evidence_json"]:
+        try:
+            evidence = json.loads(row["evidence_json"])
+        except json.JSONDecodeError:
+            evidence = []
+    if row["judge_verdict_json"]:
+        try:
+            judge_verdict = json.loads(row["judge_verdict_json"])
+        except json.JSONDecodeError:
+            judge_verdict = None
+    return {
+        "category": row["category"],
+        "skill": row["skill"],
+        "source": row["source"],
+        "level": row["level"] or 0,
+        "confidence": row["confidence"] or 0,
+        "status": row["status"] or "absent",
+        "evidence": evidence,
+        "judge_verdict": judge_verdict,
+        "updated_at": row["updated_at"],
+    }
 
 
 def summarize_evidence(evidence: list[object]) -> str:

@@ -241,4 +241,40 @@ export interface AgentTask {
   created_at?: string;
 }
 
+export interface SuperteamOpportunity {
+  title: string;
+  category: string | null;
+  capability: string;
+  reward: string | null;
+  reward_usd: number | null;
+  url: string;
+  fit_score: number;
+  status: string;
+  platform_status: string;
+  platform_last_seen: string | null;
+  platform_title: string | null;
+  platform_excerpt: string | null;
+  first_seen: string;
+  last_seen: string;
+  notes: string;
+}
+
+export interface SuperteamSkillEvidence {
+  kind: string;
+  path: string;
+  note: string;
+}
+
+export interface SuperteamSkill {
+  category: string;
+  skill: string;
+  source: string;
+  level: number;
+  confidence: number;
+  status: string;
+  evidence: SuperteamSkillEvidence[];
+  judge_verdict: unknown | null;
+  updated_at: string;
+}
+
 export const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3030';

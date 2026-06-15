@@ -1,4 +1,4 @@
-import type { HealthResponse, JudgeRequest, Verdict, Crystal, AsyncJudgeResponse, AsyncJudgeStatus, Observation, PublicObservation, AgentTask, AuthInputResponse, AuthVerifyResponse, StateHistoryResponse } from './types';
+import type { HealthResponse, JudgeRequest, Verdict, Crystal, AsyncJudgeResponse, AsyncJudgeStatus, Observation, PublicObservation, AgentTask, AuthInputResponse, AuthVerifyResponse, StateHistoryResponse, SuperteamOpportunity, SuperteamSkill } from './types';
 import { getAuthSessionToken } from './auth';
 
 function base(): string {
@@ -163,4 +163,18 @@ export async function verifyAuth(address: string, signature: string, nonce: stri
   });
   if (!res.ok) throw new Error('Auth verification failed');
   return res.json();
+}
+
+export async function getSuperteamOpportunities(): Promise<SuperteamOpportunity[]> {
+  const res = await fetch('/organ-discord/api/opportunities');
+  if (!res.ok) throw new Error(`Failed to fetch Superteam opportunities: ${res.status}`);
+  const data = await res.json();
+  return data.opportunities ?? [];
+}
+
+export async function getSuperteamSkills(): Promise<SuperteamSkill[]> {
+  const res = await fetch('/organ-discord/api/skills');
+  if (!res.ok) throw new Error(`Failed to fetch Superteam skills: ${res.status}`);
+  const data = await res.json();
+  return data.skills ?? [];
 }

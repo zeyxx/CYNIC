@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, RefreshCw } from 'lucide-react';
 import { getSuperteamOpportunities, getSuperteamSkills } from '../api';
-import type { SuperteamOpportunity, SuperteamSkill } from '../types';
+import type { SuperteamOpportunity, SuperteamSkill, SuperteamSkillEvidence } from '../types';
 import { SurfacePanel } from './SurfacePanel';
 
 type View = 'opportunities' | 'skills';
@@ -17,6 +16,10 @@ function formatReward(opp: SuperteamOpportunity): string {
   if (opp.reward) return opp.reward;
   if (opp.reward_usd) return `$${opp.reward_usd.toLocaleString()}`;
   return 'reward unknown';
+}
+
+function evidenceKey(skill: SuperteamSkill, item: SuperteamSkillEvidence): string {
+  return `${skill.category}:${skill.skill}:${item.kind}:${item.path}`;
 }
 
 export function SuperteamPanel() {
@@ -70,8 +73,7 @@ export function SuperteamPanel() {
           <button className={`tab-btn ${view === 'skills' ? 'active' : ''}`} onClick={() => setView('skills')}>
             Skills
           </button>
-          <button className="button button-ghost" onClick={refresh} disabled={loading} aria-label="Refresh Superteam data">
-            <RefreshCw size={14} />
+          <button className="button button-ghost" onClick={refresh} disabled={loading}>
             Refresh
           </button>
         </>
@@ -115,7 +117,6 @@ export function SuperteamPanel() {
               </div>
               <div className="review-actions">
                 <a className="button button-ghost" href={opp.url} target="_blank" rel="noreferrer">
-                  <ExternalLink size={14} />
                   Open Earn
                 </a>
               </div>
@@ -132,10 +133,12 @@ export function SuperteamPanel() {
                 <span>{skill.skill}</span>
                 <span className={`status-chip ${levelTone(skill.level)}`}>L{skill.level}</span>
               </div>
-              <div className="review-sub">{skill.category} · {skill.status} · confidence {skill.confidence.toFixed(2)}</div>
+              <div className="review-sub">
+                {skill.category} · {skill.status} · confidence {skill.confidence.toFixed(2)}
+              </div>
               <div className="tag-row">
                 {skill.evidence.slice(0, 2).map((item) => (
-                  <span className="pill is-muted" key={`${skill.category}:${skill.skill}:${item.path}`}>
+                  <span className="pill is-muted" key={evidenceKey(skill, item)}>
                     {item.kind}
                   </span>
                 ))}
