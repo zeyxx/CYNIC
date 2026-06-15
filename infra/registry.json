@@ -159,7 +159,14 @@
             "Makefile",
             "crates/cynic-kernel",
             "crates/cynic-mcp",
-            "organs/forge"
+            "organs/forge",
+            "organs/forge/src/adapters/kernel_adapter.py",
+            "organs/forge/src/core/lifecycle_workflow.py",
+            "organs/forge/src/core/lifecycle_payloads.py",
+            "organs/forge/src/core/lifecycle_runtime.py",
+            "organs/forge/src/core/lifecycle_evidence.py",
+            "organs/forge/src/core/lifecycle_activation.py",
+            "organs/forge/src/core/lifecycle_readiness.py"
           ]
         }
       },
@@ -252,7 +259,42 @@
           "description": "Pre-deploy validation runner for release tests and integration gates."
         }
       ],
-      "status": "planned"
+      "status": "active",
+      "activation_evidence": {
+        "runtime_paths": {
+          "repo_root": {
+            "verified": true,
+            "verified_at": "2026-06-15T20:23:12Z",
+            "value": "%h/.cynic/repos/CYNIC",
+            "expanded": "/tmp/cynic-home/.cynic/repos/CYNIC",
+            "proof_kind": "git_worktree",
+            "marker_exists": true,
+            "sentinels_verified": true
+          }
+        },
+        "services": {
+          "organ-forge": {
+            "declared": true,
+            "active": true,
+            "checked_at": "2026-06-15T20:43:53Z",
+            "source": "manual-cli-run"
+          },
+          "cargo-build": {
+            "declared": true,
+            "active": true,
+            "checked_at": "2026-06-15T20:43:53Z",
+            "source": "manual-cli-run"
+          },
+          "gate-2": {
+            "declared": true,
+            "active": true,
+            "checked_at": "2026-06-15T20:43:53Z",
+            "source": "manual-cli-run"
+          }
+        }
+      },
+      "status_updated_at": "2026-06-15T20:43:12Z",
+      "status_source": "lifecycle_node_activation"
     },
     {
       "name": "cynic-vm-core",
@@ -282,7 +324,42 @@
           "description": "Single operator interface served from the sovereign Docker portal."
         }
       ],
-      "status": "planned"
+      "status": "active",
+      "activation_evidence": {
+        "runtime_paths": {
+          "repo_root": {
+            "verified": true,
+            "verified_at": "2026-06-15T20:23:12Z",
+            "value": "%h/.cynic/repos/CYNIC",
+            "expanded": "/tmp/cynic-home/.cynic/repos/CYNIC",
+            "proof_kind": "git_worktree",
+            "marker_exists": true,
+            "sentinels_verified": true
+          }
+        },
+        "services": {
+          "cynic-kernel": {
+            "declared": true,
+            "active": true,
+            "checked_at": "2026-06-15T20:43:53Z",
+            "source": "manual-cli-run"
+          },
+          "surrealdb": {
+            "declared": true,
+            "active": true,
+            "checked_at": "2026-06-15T20:43:53Z",
+            "source": "manual-cli-run"
+          },
+          "cynic-portal": {
+            "declared": true,
+            "active": true,
+            "checked_at": "2026-06-15T20:43:53Z",
+            "source": "manual-cli-run"
+          }
+        }
+      },
+      "status_updated_at": "2026-06-15T20:43:14Z",
+      "status_source": "lifecycle_node_activation"
     },
     {
       "name": "cynic-host-gpu",

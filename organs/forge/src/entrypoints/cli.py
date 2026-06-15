@@ -36,6 +36,18 @@ from organs.forge.src.adapters.kernel_adapter import (
 )
 from organs.forge.src.core.services import HealthAuditor, BuildDelegationService
 
+
+def parse_service_states_argument(raw: str | None) -> dict | None:
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("--service-states must be valid JSON") from exc
+    if not isinstance(parsed, dict):
+        raise RuntimeError("--service-states must be a JSON object")
+    return parsed
+
 def run_audit(repo_path, state_file):
     # 1. Initialize Adapters
     perceiver = LocalGitPerceiver(repo_path)
@@ -287,9 +299,12 @@ def run_lifecycle_verify_runtime_paths(node_name: str) -> int:
         )
         return 1
 
-def run_lifecycle_service_evidence_patch(node_name: str) -> int:
+def run_lifecycle_service_evidence_patch(
+    node_name: str,
+    service_states: dict | None = None,
+) -> int:
     try:
-        payload = build_lifecycle_service_evidence_patch(node_name)
+        payload = build_lifecycle_service_evidence_patch(node_name, service_states=service_states)
         print(json.dumps(payload, separators=(",", ":")))
         return 0 if payload["status"] == "ok" else 1
     except Exception as e:
@@ -512,6 +527,10 @@ def main():
         help="Print registry-derived service activation evidence patch for one node",
     )
     service_evidence_parser.add_argument("node", help="Registry node name to build evidence for")
+    service_evidence_parser.add_argument(
+        "--service-states",
+        help="Optional JSON mapping of service_name -> {active, checked_at, source}",
+    )
     evidence_patch_parser = subparsers.add_parser(
         "lifecycle-validate-activation-evidence-patch",
         help="Validate a runtime activation evidence patch against the registry contract",
@@ -612,7 +631,21 @@ def main():
     elif args.command == "lifecycle-verify-runtime-paths":
         return run_lifecycle_verify_runtime_paths(args.node)
     elif args.command == "lifecycle-service-evidence-patch":
-        return run_lifecycle_service_evidence_patch(args.node)
+        try:
+            parsed_service_states = parse_service_states_argument(args.service_states)
+            return run_lifecycle_service_evidence_patch(
+                args.node,
+                service_states=parsed_service_states,
+            )
+        except Exception as e:
+            print(
+                json.dumps(
+                    {"status": "error", "error": str(e)},
+                    separators=(",", ":"),
+                ),
+                file=sys.stderr,
+            )
+            return 1
     elif args.command == "lifecycle-validate-activation-evidence-patch":
         return run_lifecycle_validate_activation_evidence_patch(args.patch)
     elif args.command == "lifecycle-apply-activation-evidence-patch":

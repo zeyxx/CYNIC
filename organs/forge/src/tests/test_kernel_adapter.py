@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -159,6 +160,13 @@ def registry_fixture():
                             "crates/cynic-kernel",
                             "crates/cynic-mcp",
                             "organs/forge",
+                            "organs/forge/src/adapters/kernel_adapter.py",
+                            "organs/forge/src/core/lifecycle_workflow.py",
+                            "organs/forge/src/core/lifecycle_payloads.py",
+                            "organs/forge/src/core/lifecycle_runtime.py",
+                            "organs/forge/src/core/lifecycle_evidence.py",
+                            "organs/forge/src/core/lifecycle_activation.py",
+                            "organs/forge/src/core/lifecycle_readiness.py",
                         ],
                     },
                 },
@@ -674,6 +682,7 @@ class LifecyclePolicyTests(unittest.TestCase):
             "missing": ["cynic-vm-anvil", "cynic-vm-core"],
             "matches": {},
         }
+        client.fleet_inventory_probe = {"enabled": True, "status": "ok"}
 
         blockers = client._lifecycle_blockers(
             activation_gap_details=client._activation_evidence_gap_details(),
@@ -695,6 +704,7 @@ class LifecyclePolicyTests(unittest.TestCase):
         client.build_node = registry["nodes"][0]
         client.deploy_node = registry["nodes"][1]
         client.fleet_probe = {"status": "error", "error": "tailscale_status_failed"}
+        client.fleet_inventory_probe = {"enabled": True, "status": "ok"}
 
         blockers = client._lifecycle_blockers(
             activation_gap_details=[],
@@ -705,6 +715,73 @@ class LifecyclePolicyTests(unittest.TestCase):
         fleet_probe = next(blocker for blocker in blockers if blocker["code"] == "fleet_probe:error")
         self.assertEqual(fleet_probe["kind"], "tailscale_probe")
         self.assertEqual(fleet_probe["error"], "tailscale_status_failed")
+
+    def test_lifecycle_blockers_include_fleet_inventory_evidence_gaps(self):
+        registry = registry_fixture()
+        lifecycle = registry["lifecycle"]["kernel_release"]
+        client = KernelRestClient.__new__(KernelRestClient)
+        client.lifecycle = lifecycle
+        client.build_node = registry["nodes"][0]
+        client.deploy_node = registry["nodes"][1]
+        client.fleet_probe = {"status": "ok", "missing": [], "matches": {}}
+        client.fleet_inventory_probe = {
+            "enabled": True,
+            "status": "degraded",
+            "summary": {
+                "provider_evidence_gaps": [
+                    "fleet:missing_node:cynic-vm-core",
+                    "fleet:unexpected_node:rogue-node",
+                ],
+                "declaration_missing_nodes": ["cynic-vm-core"],
+                "declaration_unexpected_nodes": ["rogue-node"],
+            },
+        }
+
+        blockers = client._lifecycle_blockers(
+            activation_gap_details=[],
+            required_status="active",
+        )
+        codes = [blocker["code"] for blocker in blockers if blocker["category"] == "fleet"]
+
+        self.assertIn("fleet_inventory:degraded", codes)
+        self.assertIn("fleet:missing_node:cynic-vm-core", codes)
+        self.assertIn("cynic-vm-core:fleet_inventory_missing", codes)
+
+    def test_fleet_inventory_probe_extraction_from_health_payload(self):
+        client = KernelRestClient.__new__(KernelRestClient)
+        health_payload = {
+            "environment": {
+                "probes": [
+                    {
+                        "name": "fleet_inventory",
+                        "status": "ok",
+                        "duration_ms": 12,
+                        "details": {
+                            "kind": "fleet_inventory",
+                            "data": {
+                                "nodes": [{"node_id": "vm-a"}],
+                                "summary": {
+                                    "declared_nodes": 1,
+                                    "observed_nodes": 1,
+                                    "matched_nodes": 1,
+                                    "missing_nodes": 0,
+                                    "unexpected_nodes": 0,
+                                    "provider_evidence_gaps": [],
+                                },
+                            },
+                        },
+                    }
+                ]
+            }
+        }
+
+        result = client._extract_fleet_inventory_from_health(health_payload)
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["name"], "fleet_inventory")
+        self.assertEqual(result["summary"]["declared_nodes"], 1)
+        self.assertEqual(result["duration_ms"], 12)
+        self.assertEqual(result["nodes"][0]["node_id"], "vm-a")
 
     def test_lifecycle_error_context_includes_blockers(self):
         diagnostic = mock.Mock()
@@ -963,6 +1040,13 @@ class LifecyclePolicyTests(unittest.TestCase):
                 "crates/cynic-kernel",
                 "crates/cynic-mcp",
                 "organs/forge",
+                "organs/forge/src/adapters/kernel_adapter.py",
+                "organs/forge/src/core/lifecycle_workflow.py",
+                "organs/forge/src/core/lifecycle_payloads.py",
+                "organs/forge/src/core/lifecycle_runtime.py",
+                "organs/forge/src/core/lifecycle_evidence.py",
+                "organs/forge/src/core/lifecycle_activation.py",
+                "organs/forge/src/core/lifecycle_readiness.py",
             ],
         )
 
@@ -1296,6 +1380,96 @@ class LifecyclePolicyTests(unittest.TestCase):
         services = payload["activation_evidence_patch"]["activation_evidence"]["services"]
         self.assertTrue(all(item["active"] for item in services.values()))
 
+    def test_lifecycle_service_evidence_patch_accepts_service_states_json_env(self):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "CYNIC_LIFECYCLE_SERVICE_STATES_JSON": json.dumps(
+                    {
+                        "organ-forge": {
+                            "active": True,
+                            "checked_at": "2026-06-15T00:00:00Z",
+                            "source": "unit-test-env",
+                        },
+                        "cargo-build": {
+                            "active": True,
+                            "checked_at": "2026-06-15T00:00:00Z",
+                            "source": "unit-test-env",
+                        },
+                        "gate-2": {
+                            "active": True,
+                            "checked_at": "2026-06-15T00:00:00Z",
+                            "source": "unit-test-env",
+                        },
+                    }
+                )
+            },
+        ):
+            payload = build_lifecycle_service_evidence_patch(
+                "cynic-vm-anvil",
+                registry_fixture(),
+            )
+        self.assertEqual(payload["status"], "ok")
+        services = payload["activation_evidence_patch"]["activation_evidence"]["services"]
+        self.assertEqual(len(services), 3)
+        self.assertTrue(all(item["active"] for item in services.values()))
+
+    def test_lifecycle_service_evidence_patch_rejects_invalid_service_states_env(self):
+        with mock.patch.dict(os.environ, {"CYNIC_SERVICE_STATES": "bad-json"}, clear=False):
+            with self.assertRaisesRegex(RuntimeError, "must be a JSON object"):
+                build_lifecycle_service_evidence_patch(
+                    "cynic-vm-anvil",
+                    registry_fixture(),
+                )
+
+    def test_lifecycle_service_evidence_patch_cli_reads_service_states_arg(self):
+        service_states = {
+            "organ-forge": {
+                "active": True,
+                "checked_at": "2026-06-15T00:00:00Z",
+                "source": "unit-test-cli",
+            },
+            "cargo-build": {
+                "active": True,
+                "checked_at": "2026-06-15T00:00:00Z",
+                "source": "unit-test-cli",
+            },
+            "gate-2": {
+                "active": True,
+                "checked_at": "2026-06-15T00:00:00Z",
+                "source": "unit-test-cli",
+            },
+        }
+        with mock.patch(
+            "organs.forge.src.entrypoints.cli.build_lifecycle_service_evidence_patch",
+            return_value={
+                "status": "ok",
+                "node": "cynic-vm-anvil",
+                "checks": [
+                    {"service": "organ-forge", "active": True},
+                    {"service": "cargo-build", "active": True},
+                    {"service": "gate-2", "active": True},
+                ],
+                "activation_evidence_patch": {
+                    "node": "cynic-vm-anvil",
+                    "activation_evidence": {"services": {}},
+                },
+            },
+        ) as service_patch, mock.patch("sys.stdout", new_callable=StringIO) as stdout:
+            status = cli.run_lifecycle_service_evidence_patch(
+                "cynic-vm-anvil",
+                service_states=service_states,
+            )
+
+        self.assertEqual(status, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["node"], "cynic-vm-anvil")
+        service_patch.assert_called_once_with(
+            "cynic-vm-anvil",
+            service_states=service_states,
+        )
+
     def test_lifecycle_service_evidence_patch_cli_returns_blocked_status(self):
         with mock.patch(
             "organs.forge.src.entrypoints.cli.build_lifecycle_service_evidence_patch",
@@ -1315,7 +1489,10 @@ class LifecyclePolicyTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(payload["status"], "blocked")
         self.assertEqual(payload["node"], "cynic-vm-anvil")
-        service_patch.assert_called_once_with("cynic-vm-anvil")
+        service_patch.assert_called_once_with(
+            "cynic-vm-anvil",
+            service_states=None,
+        )
 
     def test_apply_lifecycle_activation_evidence_patch_rejects_unknown_service(self):
         patch = {
@@ -1333,6 +1510,26 @@ class LifecyclePolicyTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "not required by node role"):
             apply_lifecycle_activation_evidence_patch(patch, registry_fixture())
+
+    def test_apply_lifecycle_activation_evidence_patch_accepts_activation_evidence_patch_wrapper(self):
+        fixture = registry_fixture()
+        wrapped = build_lifecycle_service_evidence_patch(
+            "cynic-vm-anvil",
+            fixture,
+            service_states={
+                "organ-forge": {"active": True, "checked_at": "2026-06-15T00:00:00Z"},
+                "cargo-build": {"active": True, "checked_at": "2026-06-15T00:00:00Z"},
+                "gate-2": {"active": True, "checked_at": "2026-06-15T00:00:00Z"},
+            },
+        )["activation_evidence_patch"]
+        result = apply_lifecycle_activation_evidence_patch(
+            {"activation_evidence_patch": wrapped},
+            fixture,
+        )
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["node"], "cynic-vm-anvil")
+        self.assertEqual(result["accepted_services"], ["cargo-build", "gate-2", "organ-forge"])
 
     def test_apply_lifecycle_activation_evidence_patch_rejects_runtime_path_drift(self):
         with tempfile.TemporaryDirectory() as home:

@@ -299,7 +299,11 @@ lifecycle-verify-runtime-paths: ## Verify runtime path proofs on this machine fo
 lifecycle-service-evidence-patch: ## Print service activation evidence patch for node=<registry-node>
 	@$(source_env)
 	@[ -n "$${node:-}" ] || { echo "ERROR: provide node=<registry-node>"; exit 1; }
-	@python3 organs/forge/src/entrypoints/cli.py lifecycle-service-evidence-patch "$${node}"
+	@if [ -n "$${SERVICE_STATES:-}" ]; then \
+		python3 organs/forge/src/entrypoints/cli.py lifecycle-service-evidence-patch "$${node}" --service-states "$${SERVICE_STATES}"; \
+	else \
+		python3 organs/forge/src/entrypoints/cli.py lifecycle-service-evidence-patch "$${node}"; \
+	fi
 
 .PHONY: lifecycle-validate-activation-evidence-patch
 lifecycle-validate-activation-evidence-patch: ## Validate evidence patch JSON with patch='<json>'
