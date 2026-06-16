@@ -54,6 +54,11 @@ class KyonApp : Application() {
         )
     }
 
+    fun refreshKernelConfig() {
+        kernelConfig = loadKernelConfig()
+        kernelClient = KernelObserveClient(kernelConfig)
+    }
+
     private fun scheduleSyncWorker() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)

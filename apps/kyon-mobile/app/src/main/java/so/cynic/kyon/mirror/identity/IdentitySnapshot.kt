@@ -1,6 +1,7 @@
 package so.cynic.kyon.mirror.identity
 
 import so.cynic.kyon.mirror.episodes.BehaviorEpisode
+import java.util.Calendar
 
 data class IdentitySnapshot(
     val generatedAtMs: Long,
@@ -11,16 +12,36 @@ data class IdentitySnapshot(
 
 class IdentitySnapshotBuilder {
     fun build(episodes: List<BehaviorEpisode>): IdentitySnapshot {
-        val topSurfaces = episodes
-            .sortedByDescending { it.eventCount }
+        val sortedByDuration = episodes
+            .sortedByDescending { it.totalDurationMs }
+
+        val topSurfaces = sortedByDuration
             .take(5)
             .map { it.dominantSurface }
+            .ifEmpty { listOf("aucun signal") }
+
+        val totalDurationMs = episodes.sumOf { it.totalDurationMs }
+        val nightUsageEpisodes = episodes.count { episode ->
+            isNightHour(episode.startedAtMs) || isNightHour(episode.endedAtMs)
+        }
+        val confidence = when {
+            totalDurationMs >= 6 * 60L * 60L * 1000L -> 0.92
+            totalDurationMs >= 60L * 60L * 1000L -> 0.7
+            totalDurationMs >= 10L * 60L * 1000L -> 0.4
+            episodes.isNotEmpty() -> 0.2
+            else -> 0.0
+        }
 
         return IdentitySnapshot(
             generatedAtMs = System.currentTimeMillis(),
             topSurfaces = topSurfaces,
-            nightUsageEpisodes = 0,
-            confidence = if (episodes.size >= 10) 0.3 else 0.1,
+            nightUsageEpisodes = nightUsageEpisodes,
+            confidence = confidence,
         )
+    }
+
+    private fun isNightHour(timestampMs: Long): Boolean {
+        val hour = Calendar.getInstance().apply { timeInMillis = timestampMs }.get(Calendar.HOUR_OF_DAY)
+        return hour < 6 || hour >= 22
     }
 }

@@ -3,6 +3,7 @@ package so.cynic.kyon.mirror.sync
 import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
+import androidx.work.Data
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,7 +28,14 @@ class KernelSyncWorker(
 
         if (!app.kernelConfig.syncEnabled) {
             Log.d(TAG, "Kernel sync disabled — skipping")
-            return Result.success()
+            return Result.success(
+                Data.Builder()
+                    .putLong("last_sync_ms", System.currentTimeMillis())
+                    .putInt("synced_count", 0)
+                    .putInt("pending_count", 0)
+                    .putString("result", "sync disabled")
+                    .build(),
+            )
         }
 
         val repository = EventRepository(app.database.activityEvents())
@@ -36,7 +44,14 @@ class KernelSyncWorker(
         val pendingEvents = repository.pendingSync(limit = 50)
         if (pendingEvents.isEmpty()) {
             Log.d(TAG, "No pending events — nothing to sync")
-            return Result.success()
+            return Result.success(
+                Data.Builder()
+                    .putLong("last_sync_ms", System.currentTimeMillis())
+                    .putInt("synced_count", 0)
+                    .putInt("pending_count", 0)
+                    .putString("result", "nothing to sync")
+                    .build(),
+            )
         }
 
         val syncedIds = mutableListOf<Long>()
@@ -55,7 +70,21 @@ class KernelSyncWorker(
         }
 
         Log.d(TAG, "Synced ${syncedIds.size}/${pendingEvents.size} events")
-        return if (syncedIds.size == pendingEvents.size) Result.success() else Result.retry()
+        val resultPayload = Data.Builder()
+            .putLong("last_sync_ms", System.currentTimeMillis())
+            .putInt("synced_count", syncedIds.size)
+            .putInt("pending_count", pendingEvents.size)
+            .putString(
+                "result",
+                if (syncedIds.size == pendingEvents.size) {
+                    "synced"
+                } else {
+                    "partial sync"
+                },
+            )
+            .build()
+
+        return if (syncedIds.size == pendingEvents.size) Result.success(resultPayload) else Result.retry()
     }
 
     companion object {
