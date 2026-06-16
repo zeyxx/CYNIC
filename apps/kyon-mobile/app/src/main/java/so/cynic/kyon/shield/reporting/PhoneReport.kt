@@ -7,8 +7,15 @@ enum class PhoneReportLabel {
     IGNORE,
 }
 
+/**
+ * A user report on a phone number.
+ *
+ * [numberHash] is a SHA-256 prefix (16 hex chars) of the normalized phone number — never the raw
+ * number, consistent with [so.cynic.kyon.shield.calls.KyonCallScreeningService] and
+ * [so.cynic.kyon.shield.sms.KyonSmsReceiver].
+ */
 data class PhoneReport(
-    val number: String,
+    val numberHash: String,
     val label: PhoneReportLabel,
     val reportedAtMs: Long,
 )

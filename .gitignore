@@ -96,7 +96,6 @@ scripts/x-interceptor.py
 # Binary artifacts & scratch
 cynic-kernel/cynic-kernel.bin
 scripts/openclaude.sh
-apps/
 /data/
 .venv/
 plan-test.json

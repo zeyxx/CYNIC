@@ -1,12 +1,15 @@
 package so.cynic.kyon.core.sync
 
 import org.json.JSONObject
-import so.cynic.kyon.core.storage.ActivityEventEntity
+import so.cynic.kyon.core.model.ActivityEvent
+import so.cynic.kyon.core.model.EventSource
 import java.net.HttpURLConnection
 import java.net.URL
 
 class KernelObserveClient(private val config: KernelConfig) {
-    fun postEvent(event: ActivityEventEntity): Boolean {
+
+    /** Returns true if the event was accepted by the kernel (2xx). Blocking — call from IO thread. */
+    fun postEvent(event: ActivityEvent): Boolean {
         if (!config.syncEnabled) return false
 
         val payload = JSONObject()
@@ -26,14 +29,16 @@ class KernelObserveClient(private val config: KernelConfig) {
             connection.doOutput = true
             connection.outputStream.use { it.write(payload.toString().toByteArray()) }
             connection.responseCode in 200..299
+        } catch (_: Exception) {
+            false
         } finally {
             connection.disconnect()
         }
     }
 
-    private fun domainFor(event: ActivityEventEntity): String =
+    private fun domainFor(event: ActivityEvent): String =
         when (event.source) {
-            "MOBILE_CALL", "MOBILE_SMS" -> "phone-number"
+            EventSource.MOBILE_CALL, EventSource.MOBILE_SMS -> "phone-number"
             else -> "personal-activity"
         }
 }
