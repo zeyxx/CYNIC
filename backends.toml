@@ -58,11 +58,12 @@ enabled = true
 base_url = "http://<TAILSCALE_HOST_GPU>:8080/v1"
 model = "Qwen3.6-27B-IQ3_XXS.gguf"
 context_size = 65536
-json_mode = false
+json_mode = true
 disable_thinking = true
 timeout_secs = 60
 api_key_env = "CYNIC_SOVEREIGN_KEY"
 sovereign = true
+suitable_for_domains = ["general", "chess", "dev", "trading", "token-analysis"]
 
 [backend.qwen36-27b-gpu.remediation]
 node = "cynic-host-gpu"
@@ -79,6 +80,7 @@ disable_thinking = true
 timeout_secs = 120
 api_key_env = "CYNIC_SOVEREIGN_KEY"
 sovereign = true
+suitable_for_domains = ["general", "chess", "dev", "trading", "token-analysis"]
 
 [backend.qwen3-4b-core.remediation]
 node = "localhost"
