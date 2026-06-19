@@ -20,6 +20,7 @@
 **3. LES PARADES AUX OBJECTIONS**
 *   **"Fiabilité ?"** -> *"Plafonnée mathématiquement à 61.8%. L'IA nettoie le bruit, l'empreinte comportementale (l'Humain) valide le reste. Le 99% de fiabilité d'OpenAI est un dogme."*
 *   **"Échelle de prod ?"** -> *"Le Kernel tourne en Alpha fermée. On ne vend pas de rêve. Si on discute aujourd'hui, c'est justement pour financer l'usine (les GPU) et le déploiement sur le Mainnet Solana dans les prochains mois."*
+*   **"Fragmentation de la résolution ?"** -> *"Un modèle monolithique (GPT) est un 'Single Point of Failure'. La fragmentation crée de l'anti-fragilité : la friction entre nos IAs permet à notre OS d'extraire la vérité."*
 *   **"L'Ask ?"** -> *(Tu ne demandes pas d'argent !)* *"Donnez-moi votre Telegram/Email, je vous envoie l'architecture mathématique et on s'appelle la semaine prochaine."*
 
 ---
