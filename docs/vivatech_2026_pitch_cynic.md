@@ -136,6 +136,10 @@ Si l'investisseur (ou le haut dignitaire) a une sensibilité philosophique, symb
 *   **Pour expliquer le Q-Score (Le Tribunal) :** "Face à un crime, on ne demande pas à un seul témoin la vérité absolue. On met l'accusation et la défense dans un tribunal. CYNIC fait pareil : il confronte les IAs concurrentes (Mistral, Qwen) et calcule mathématiquement la vérité de leur friction."
 *   **Pour expliquer l'Entropie (La Photo de 2020) :** "Une photo d'une rue vide aujourd'hui vaut zéro (générée par IA). Mais ancrée cryptographiquement (Proof-of-History) avec une preuve humaine (Proof-of-Observation) au moment du Covid, c'est une archive inestimable. L'information sans preuve se désintègre."
 
+**19b. Le Pivot Statistique & ZK (L'Arme contre "l'illusion de la moyenne")**
+*   **L'Objection classique :** "Faire la moyenne de plusieurs IA ne donne pas la vérité, cela donne le consensus de la médiocrité (elles partagent les mêmes biais)."
+*   **La Parade (La Cartographie de l'Incertitude) :** "Vous avez totalement raison. C'est pour cela que CYNIC fait l'inverse. Nous n'utilisons pas les modèles pour formuler une vérité par la moyenne, nous les utilisons pour **mesurer leur variance**. En appliquant la fonction de doute calibré ($\Phi^{-1}$) à cette variance, l'IA calcule mathématiquement son propre degré d'ignorance. Plus l'écart-type entre les modèles est fort, plus l'alerte remonte. La machine s'arrête, et l'humain — le seul Juge avec de l'empathie et de l'intuition — tranche. Et cette décision humaine est isolée par la cryptographie ZK (pour protéger le secret professionnel), puis gravée sur la blockchain Solana (pour empêcher l'État d'étouffer le signal). L'IA est le détecteur, l'humain est le validateur, le ZK est le garde-fou, Solana est l'ancre. It's just math."
+
 ---
 
 ## 🏁 20. LE CLOSING : L'INÉVITABILITÉ
