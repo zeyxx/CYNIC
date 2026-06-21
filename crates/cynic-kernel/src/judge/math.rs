@@ -5,39 +5,35 @@ use crate::domain::dog::{
     AxiomReasoning, AxiomScores, DogScore, PHI_INV2, QScore, Verdict, compute_qscore,
 };
 
-/// Trimmed mean: drop highest + lowest value when >= 4 scores, average the rest.
-/// With 2-3 scores: plain arithmetic mean. Robust against outlier LLM responses.
-/// Dogs that abstained on the target axiom are excluded — abstention ≠ low score.
-pub(super) fn trimmed_mean(
+/// Compute the spread (max - min) of scores for a given axiom across Dogs.
+/// This replaces `trimmed_mean` — the Kernel no longer computes a consensus mean.
+/// The signal is pure uncertainty (variance/friction). The AI is a compass.
+/// Dogs that abstained on the target axiom are excluded.
+pub(super) fn axiom_spread(
     scores: &[DogScore],
     axiom_name: &str,
     extract: impl Fn(&DogScore) -> f64,
 ) -> f64 {
-    let mut values: Vec<f64> = scores
+    let values: Vec<f64> = scores
         .iter()
         .filter(|s| !s.abstentions.iter().any(|a| a == axiom_name))
         .map(&extract)
+        .filter(|v| v.is_finite())
         .collect();
 
-    // Fallback: if all dogs abstained, include everyone (better than empty)
-    if values.is_empty() {
-        values = scores.iter().map(&extract).collect();
+    // If 0 or 1 Dog (no disagreement possible), or if all abstained
+    if values.len() < 2 {
+        return 0.05; // SCORE_FLOOR to prevent zero-flooding the geometric mean
     }
 
-    // WHY: malformed LLM responses can produce NaN/Inf scores. NaN compares as
-    // Equal via unwrap_or, bypassing trimmed-mean outlier filtering silently.
-    values.retain(|v| v.is_finite());
-    if values.is_empty() {
-        return 0.0;
-    }
-
-    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
-    if values.len() >= 4 {
-        let trimmed = &values[1..values.len() - 1];
-        trimmed.iter().sum::<f64>() / trimmed.len() as f64
+    let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
+    
+    let spread = max - min;
+    if spread < 0.05 {
+        0.05
     } else {
-        values.iter().sum::<f64>() / values.len() as f64
+        spread
     }
 }
 
@@ -97,16 +93,17 @@ pub fn verify_verdict_integrity(verdict: &Verdict) -> bool {
 
 /// Aggregate per-Dog scores into consensus AxiomScores.
 ///
-/// - Each axiom is reduced by `trimmed_mean` (robust against outliers).
+/// - The Kernel now acts as a COMPASS: it maps uncertainty.
+/// - Each axiom is reduced by `axiom_spread` (measuring friction/variance, not a mean).
 /// - The `reasoning` field is taken from the median Dog (sorted by Q-score) — deterministic
 ///   under parallel execution since we sort before picking.
 pub(super) fn aggregate_scores(dog_scores: &[DogScore]) -> AxiomScores {
-    let avg_fidelity = trimmed_mean(dog_scores, "fidelity", |s| s.fidelity);
-    let avg_phi = trimmed_mean(dog_scores, "phi", |s| s.phi);
-    let avg_verify = trimmed_mean(dog_scores, "verify", |s| s.verify);
-    let avg_culture = trimmed_mean(dog_scores, "culture", |s| s.culture);
-    let avg_burn = trimmed_mean(dog_scores, "burn", |s| s.burn);
-    let avg_sovereignty = trimmed_mean(dog_scores, "sovereignty", |s| s.sovereignty);
+    let spread_fidelity = axiom_spread(dog_scores, "fidelity", |s| s.fidelity);
+    let spread_phi = axiom_spread(dog_scores, "phi", |s| s.phi);
+    let spread_verify = axiom_spread(dog_scores, "verify", |s| s.verify);
+    let spread_culture = axiom_spread(dog_scores, "culture", |s| s.culture);
+    let spread_burn = axiom_spread(dog_scores, "burn", |s| s.burn);
+    let spread_sovereignty = axiom_spread(dog_scores, "sovereignty", |s| s.sovereignty);
 
     // Use median Dog's reasoning (deterministic under parallel execution)
     let mut sorted_by_q: Vec<&DogScore> = dog_scores.iter().collect();
@@ -141,12 +138,12 @@ pub(super) fn aggregate_scores(dog_scores: &[DogScore]) -> AxiomScores {
         .unwrap_or_default();
 
     AxiomScores {
-        fidelity: avg_fidelity,
-        phi: avg_phi,
-        verify: avg_verify,
-        culture: avg_culture,
-        burn: avg_burn,
-        sovereignty: avg_sovereignty,
+        fidelity: spread_fidelity,
+        phi: spread_phi,
+        verify: spread_verify,
+        culture: spread_culture,
+        burn: spread_burn,
+        sovereignty: spread_sovereignty,
         reasoning: median_reasoning,
         ..Default::default()
     }

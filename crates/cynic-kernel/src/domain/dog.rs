@@ -125,7 +125,10 @@ pub struct DogScore {
 }
 
 // ── PHI-BOUNDED Q-SCORE ────────────────────────────────────
-/// The kernel's final score. Every value capped at phi^-1 (0.618).
+/// The kernel's final uncertainty score (Compass Signal). 
+/// Instead of a consensus mean, it represents the geometric mean of the variance/spread
+/// across all Dogs for each axiom. Every value capped at phi^-1 (0.618).
+/// Low QScore = High Consensus (Bark). High QScore = High Uncertainty (Howl/Epoche).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QScore {
     pub total: f64,
