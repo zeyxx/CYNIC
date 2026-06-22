@@ -487,6 +487,29 @@ Every Python organ MUST be structured using Hexagonal Architecture and strict Ob
 - If collisions > 1 per session: escalate to distributed lock (Redis/SurrealDB-based `cynic_coord_lock`)
 - Until then: convention + human coordination is sufficient
 
+## Infrastructure Topology & Virtualization Matrix
+
+To eliminate information asymmetry and ensure sovereign mathematical scaling, all infrastructure must be mapped into `infra/registry.json` following these rigid deterministic rules:
+
+### 1. OS Selection: The Sovereign Base
+- **Debian 12 (Bookworm)** is the **exclusive** Operating System for all generic Organs, Kernel Primary, and Network control planes. It guarantees upstream purity and long-term sovereignty without corporate snaps or telemetry.
+- **Ubuntu LTS** is **strictly forbidden** unless mathematically required by closed-source ML drivers (e.g., specific CUDA/TensorRT blobs) that refuse to compile on Debian. If used, it must be documented with an explicit `activation_evidence_gaps` justification in the registry.
+
+### 2. Virtualization Granularity
+Deciding between Bare-Metal, VM, LXC, and Docker is a mathematical choice based on the organism's Trust and Isolation model:
+
+- **Level 0 (Bare Metal):** `cynic-host-proxmox`. Only the hypervisor runs here. **Zero organs or services** are permitted on Level 0.
+- **Level 1 (QEMU VM):** Complete hardware isolation boundary.
+  - **When to use:** For the Kernel Primary (`cynic-vm-v2`), CI/CD build runners (`cynic-vm-anvil`), or any node executing untrusted cortex code/Docker-in-Docker.
+  - **Rule:** If it requires strict kernel isolation, dynamic Docker daemon environments, or runs untrusted workloads, it MUST be a VM.
+- **Level 2 (LXC - System Container):** OS-level virtualization sharing the host kernel.
+  - **When to use:** High-performance, single-purpose stateful organs.
+  - **Examples:** `organ-headscale` (Mesh VPN), `organ-forgejo` (Git).
+  - **Rule:** If the organ requires pure I/O performance, static IPs, network namespace isolation, and runs static `systemd` daemons without needing a Docker engine, it MUST be an LXC.
+- **Level 3 (Docker - Application Container):** Process-level encapsulation.
+  - **When to use:** Inside VMs or LXCs for stateless ephemeral processes, frontend web portals (`cynic-portal`), or reproducible test environments.
+  - **Rule:** Docker is an application wrapper, never an infrastructure boundary. Do not substitute an LXC with Docker for persistent stateful databases.
+
 ## Security (inviolable — public repo)
 
 - **Never commit secrets.** API keys, tokens, real IPs → `~/.cynic-env` only.
