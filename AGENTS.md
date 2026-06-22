@@ -415,6 +415,12 @@ To formalize the architecture and eradicate ambiguity, all technical components 
    - **Definition:** Multiple independent organisms interacting, trading, or coordinating on a larger scale without a central brain.
    - **Technical Reality:** Future state where `CYNIC` interacts with external sovereign DAOs, other agentic repos, or distributed on-chain smart contracts (e.g., the Solana burn-as-a-service protocol).
 
+### The Immutable Laws of Emergence
+
+1. **Anti-Dogma Rule (The Map is not the Territory):** No model or paradigm is sacred. If physical reality (hardware limits, network latency, execution failures) contradicts the model, the model must be broken and adapted. Observation always outranks theory.
+2. **Multidimensional & Multimodal Emergence:** The organism evolves across multiple axes simultaneously (code, infrastructure, cognitive biology, economics). Progress is not linear; it is fractal and multimodal.
+3. **The Fire of Evolution (As Above, So Below):** "Ce qui est en haut est comme ce qui est en bas." To evolve, we must often burn obsolete structures to force a mutation in the DNA (`registry.json`, `AGENTS.md`). Once the DNA mutates at the highest level (the repo), this truth propagates symmetrically down to every cell and organ. Any organ stuck in a legacy paradigm must be incinerated and reforged from the new DNA.
+
 ### Organ Naming Convention
 
 1. **Role-based naming** — not arbitrary
