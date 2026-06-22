@@ -6,6 +6,9 @@
 
 **Decentralized epistemic consensus — independent AI validators judging content under mathematical doubt**
 
+> ⚠️ **STATUS: ALPHA / PRE-PROD** ⚠️
+> *The consensus math (Q-Score, Axioms) and hexagonal architecture are strictly implemented and tested. However, the multi-agent orchestration of the LLM validators ("Dogs") is currently undergoing heavy iteration and is unstable. Documentation may drift. Trust the code, the tests, and the probes.*
+
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.94%2B-orange.svg)](https://www.rust-lang.org/)
 [![Tests](https://img.shields.io/badge/tests-434_passing-brightgreen.svg)](#development)
@@ -69,9 +72,11 @@ The final **Q-Score** is the geometric mean of all axiom scores, φ-bounded. Geo
 
 ### Validators (Dogs)
 
+*(Note: Dog orchestration is currently under active restructure. The models and latencies below represent reference targets from earlier iterations, not current live guarantees. The `deterministic-dog` remains stable.)*
+
 Dogs evaluate content in parallel, independently, with no knowledge of each other's scores:
 
-| Dog | Type | Backend | Latency |
+| Dog | Type | Backend | Target Latency |
 |-----|------|---------|---------|
 | **deterministic-dog** | Heuristic | In-kernel | < 1 ms |
 | **qwen35-9b-gpu** | LLM (9B) | Local GPU | ~ 4 s |
@@ -175,6 +180,8 @@ Adding a new validator = implement `Dog`. Adding a new LLM backend = implement `
 ---
 
 ## Quickstart
+
+> ⚠️ **Note on Alpha Usage:** As the multi-agent Dog orchestration is currently under heavy refactoring, the `/judge` endpoint may experience timeouts or return partial consensus. The core domain logic (`make check`) remains the source of truth.
 
 ### Requirements
 

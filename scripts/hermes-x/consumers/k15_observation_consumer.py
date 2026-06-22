@@ -7,7 +7,7 @@ This consumer closes the K15 producer-consumer loop:
 4. POST to /agent-tasks for Hermes to execute
 
 Usage:
-  python k15_observation_consumer.py --kernel-url http://localhost:3030 \
+  python k15_observation_consumer.py --kernel-url "${CYNIC_REST_ADDR}" \
                                      --api-key $CYNIC_API_KEY \
                                      --poll-interval 60
 
@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Optional
 
 import requests
+from urllib.parse import urlparse
 
 # Import local heuristics
 sys.path.insert(0, str(Path(__file__).parent.parent / "heuristics"))
@@ -36,11 +37,11 @@ class K15ObservationConsumer:
 
     def __init__(
         self,
-        kernel_url: str = "http://localhost:3030",
+        kernel_url: str = "",
         api_key: str = None,
         domain_filter: str = "twitter",
     ):
-        self.kernel_url = kernel_url.rstrip("/")
+        self.kernel_url = self._normalize_kernel_url(kernel_url)
         self.api_key = api_key or os.environ.get("CYNIC_API_KEY", "")
         self.domain_filter = domain_filter
 
@@ -62,6 +63,28 @@ class K15ObservationConsumer:
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
+
+    @staticmethod
+    def _normalize_kernel_url(raw: str) -> str:
+        raw = (raw or "").strip()
+        if not raw:
+            env_addr = os.environ.get("CYNIC_REST_ADDR", "").strip()
+            if env_addr:
+                raw = env_addr
+            else:
+                raise RuntimeError(
+                    "CYNIC_REST_ADDR is required (SSOT endpoint, no localhost fallback)."
+                )
+
+        if not raw.startswith(("http://", "https://")):
+            raw = f"http://{raw}"
+
+        parsed = urlparse(raw)
+        host = parsed.hostname or ""
+        if host in {"127.0.0.1", "localhost"} and os.getenv("CYNIC_ALLOW_LOCAL_KERNEL", "0") != "1":
+            raise RuntimeError("SSOT rejected loopback kernel endpoint.")
+
+        return raw.rstrip("/")
 
     def fetch_observations(self, limit: int = 100) -> list:
         """Fetch recent observations from kernel."""
@@ -297,7 +320,11 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="K15 Observation Consumer")
-    parser.add_argument("--kernel-url", default="http://localhost:3030", help="Kernel URL")
+    parser.add_argument(
+        "--kernel-url",
+        default="",
+        help="Kernel URL (or set CYNIC_REST_ADDR)",
+    )
     parser.add_argument("--api-key", default=None, help="API key (or $CYNIC_API_KEY)")
     parser.add_argument("--domain", default="twitter", help="Domain filter")
     parser.add_argument("--poll-interval", type=int, default=60, help="Poll interval (seconds)")
@@ -305,13 +332,23 @@ def main():
 
     args = parser.parse_args()
 
-    consumer = K15ObservationConsumer(
-        kernel_url=args.kernel_url,
-        api_key=args.api_key,
-        domain_filter=args.domain,
-    )
+    try:
+        consumer = K15ObservationConsumer(
+            kernel_url=args.kernel_url,
+            api_key=args.api_key,
+            domain_filter=args.domain,
+        )
+    except RuntimeError as err:
+        print(f"Configuration error: {err}", file=sys.stderr)
+        print(
+            "Set CYNIC_REST_ADDR (or --kernel-url), and set CYNIC_ALLOW_LOCAL_KERNEL=1 if local loopback is intended.",
+            file=sys.stderr,
+        )
+        return 1
+
     consumer.run(poll_interval=args.poll_interval, max_iterations=args.max_iter)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

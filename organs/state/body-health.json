@@ -1,0 +1,481 @@
+{
+  "schema_version": "1.0.0",
+  "generated_by": "CYNIC/organs/controllers/audit_runtime.py",
+  "generated_at": "2026-06-17T23:00:20.600566+00:00",
+  "purpose": "Expose whether CYNIC organs are alive, stale, or merely declared.",
+  "freshness_policy": {
+    "fresh_seconds": 900,
+    "stale_seconds": 21600,
+    "rule": "A production organ is not trusted unless declared runtime outputs are present and fresh or otherwise probed."
+  },
+  "summary": {
+    "total_organs": 16,
+    "body_status": "degraded",
+    "by_runtime_status": {
+      "not_runtime_trusted": 13,
+      "warm": 1,
+      "present_unproven": 1,
+      "live": 1
+    },
+    "by_contract_status": {
+      "uncontracted_directory": 5,
+      "production_organ": 3,
+      "manifest_only": 8
+    }
+  },
+  "organs": [
+    {
+      "organ": "anvil",
+      "contract_status": "uncontracted_directory",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 0,
+      "manifest_status": null,
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing MANIFEST.yaml",
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "discord",
+      "contract_status": "production_organ",
+      "runtime_status": "warm",
+      "contract_score": 8,
+      "manifest_status": "PLANNED",
+      "declared_runtime": [
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/discord/state/autonomy.json",
+          "exists": true,
+          "age_seconds": 2542,
+          "status": "present",
+          "declared": "CYNIC/organs/discord/state/autonomy.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/discord/state/percolator-watch.json",
+          "exists": true,
+          "age_seconds": 14518,
+          "status": "present",
+          "declared": "CYNIC/organs/discord/state/percolator-watch.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/discord/state/proxy-lifecycle.json",
+          "exists": true,
+          "age_seconds": 17607,
+          "status": "present",
+          "declared": "CYNIC/organs/discord/state/proxy-lifecycle.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/discord/state/topology.json",
+          "exists": true,
+          "age_seconds": 14518,
+          "status": "present",
+          "declared": "CYNIC/organs/discord/state/topology.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/percolator/ops/infer-queue-state.json",
+          "exists": true,
+          "age_seconds": 958,
+          "status": "present",
+          "declared": "percolator/ops/infer-queue-state.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/percolator/ops/infer-queue.jsonl",
+          "exists": true,
+          "age_seconds": 16336,
+          "status": "present",
+          "declared": "percolator/ops/infer-queue.jsonl"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/percolator/ops/researcher-feed.json",
+          "exists": true,
+          "age_seconds": 958,
+          "status": "present",
+          "declared": "percolator/ops/researcher-feed.json"
+        },
+        {
+          "path": "/home/user/.cynic/organs/discord/config.yaml",
+          "exists": true,
+          "age_seconds": 19112,
+          "status": "present",
+          "declared": "~/.cynic/organs/discord/config.yaml"
+        },
+        {
+          "path": "/home/user/.cynic/organs/discord/messages.db",
+          "exists": true,
+          "age_seconds": 16647,
+          "status": "present",
+          "declared": "~/.cynic/organs/discord/messages.db"
+        }
+      ],
+      "sqlite_probes": [
+        {
+          "path": "/home/user/.cynic/organs/discord/messages.db",
+          "openable": true,
+          "tables": [
+            "channels",
+            "discord_channels",
+            "discord_identities",
+            "discord_message_entities",
+            "discord_relationships",
+            "discord_servers",
+            "discord_threads",
+            "guilds",
+            "messages",
+            "opportunities",
+            "opportunity_snapshots",
+            "pipeline_processed",
+            "raw_events",
+            "skill_assessments",
+            "skill_catalog",
+            "sqlite_sequence"
+          ],
+          "messages_total": 114,
+          "latest_message_date": "2026-06-17T18:09:22.773000+00:00",
+          "raw_events_total": 16,
+          "latest_raw_event": "2026-06-17T18:14:30.569363+00:00",
+          "pipeline_processed_total": 109
+        }
+      ],
+      "gaps": [],
+      "next_action": "Runtime exists; add heartbeat freshness or stronger output proof."
+    },
+    {
+      "organ": "docker",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 2,
+      "manifest_status": "ACTIVE",
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "forge",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 2,
+      "manifest_status": "ACTIVE",
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "gasdf",
+      "contract_status": "uncontracted_directory",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 0,
+      "manifest_status": null,
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing MANIFEST.yaml",
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "jupyter",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 2,
+      "manifest_status": "ACTIVE",
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "kanban-ui",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 1,
+      "manifest_status": "ACTIVE",
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "organ-cloud",
+      "contract_status": "uncontracted_directory",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 0,
+      "manifest_status": null,
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing MANIFEST.yaml",
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "organ-freebox",
+      "contract_status": "uncontracted_directory",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 0,
+      "manifest_status": null,
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing MANIFEST.yaml",
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "percolator",
+      "contract_status": "production_organ",
+      "runtime_status": "present_unproven",
+      "contract_score": 8,
+      "manifest_status": "ACTIVE",
+      "declared_runtime": [
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/percolator/SSOT.json",
+          "exists": true,
+          "age_seconds": 11623,
+          "status": "present",
+          "declared": "percolator/SSOT.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/percolator/notes/audit-plan.json",
+          "exists": true,
+          "age_seconds": 14360,
+          "status": "present",
+          "declared": "percolator/notes/audit-plan.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/percolator/notes/bounty-rules.json",
+          "exists": true,
+          "age_seconds": 953,
+          "status": "present",
+          "declared": "percolator/notes/bounty-rules.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/percolator/ops/anti-duplicate-protocol.json",
+          "exists": true,
+          "age_seconds": 14360,
+          "status": "present",
+          "declared": "percolator/ops/anti-duplicate-protocol.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/percolator/ops/dedupe-brief.json",
+          "exists": true,
+          "age_seconds": 13764,
+          "status": "present",
+          "declared": "percolator/ops/dedupe-brief.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/percolator/ops/infer-queue.jsonl",
+          "exists": true,
+          "age_seconds": 16336,
+          "status": "present",
+          "declared": "percolator/ops/infer-queue.jsonl"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/percolator/ops/researcher-feed.json",
+          "exists": true,
+          "age_seconds": 958,
+          "status": "present",
+          "declared": "percolator/ops/researcher-feed.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/percolator/workspace.json",
+          "exists": true,
+          "age_seconds": 14360,
+          "status": "present",
+          "declared": "percolator/workspace.json"
+        }
+      ],
+      "sqlite_probes": [],
+      "gaps": [
+        "runtime_status=present_unproven"
+      ],
+      "next_action": "Add explicit runtime outputs, heartbeat, or degraded queue evidence."
+    },
+    {
+      "organ": "prompt-enricher",
+      "contract_status": "uncontracted_directory",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 0,
+      "manifest_status": null,
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing MANIFEST.yaml",
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "reflection",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 2,
+      "manifest_status": "ACTIVE",
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "supervisor",
+      "contract_status": "production_organ",
+      "runtime_status": "live",
+      "contract_score": 8,
+      "manifest_status": "ACTIVE",
+      "declared_runtime": [
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/organ-contract-audit.json",
+          "exists": true,
+          "age_seconds": 189,
+          "status": "fresh",
+          "declared": "CYNIC/organs/organ-contract-audit.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/state/body-health.json",
+          "exists": true,
+          "age_seconds": 189,
+          "status": "fresh",
+          "declared": "CYNIC/organs/state/body-health.json"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/supervisor/state/action-queue.jsonl",
+          "exists": true,
+          "age_seconds": 186,
+          "status": "fresh",
+          "declared": "CYNIC/organs/supervisor/state/action-queue.jsonl"
+        },
+        {
+          "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/supervisor/state/supervision.json",
+          "exists": true,
+          "age_seconds": 186,
+          "status": "fresh",
+          "declared": "CYNIC/organs/supervisor/state/supervision.json"
+        }
+      ],
+      "sqlite_probes": [],
+      "gaps": [],
+      "next_action": "Keep observing freshness and downstream outputs."
+    },
+    {
+      "organ": "telegram",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 1,
+      "manifest_status": "ACTIVE",
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "twitter",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 2,
+      "manifest_status": "ACTIVE",
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "vercel",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "contract_score": 2,
+      "manifest_status": "ACTIVE",
+      "declared_runtime": [],
+      "sqlite_probes": [],
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    }
+  ],
+  "hard_rule": "Do not add a new organ to solve instability; first repair the nearest organ whose runtime_status is not live or warm."
+}

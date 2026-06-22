@@ -199,11 +199,17 @@
         {
           "id": "lxc/100",
           "name": "cynic-lxc-vpn",
+          "aliases": [
+            "organ-headscale"
+          ],
           "ip": "192.168.0.40"
         },
         {
           "id": "lxc/101",
           "name": "cynic-lxc-git",
+          "aliases": [
+            "organ-forgejo"
+          ],
           "ip": "192.168.0.41"
         },
         {
@@ -212,8 +218,11 @@
           "ip": "192.168.0.42"
         },
         {
-          "id": "qemu/103",
+          "id": "qemu/120",
           "name": "cynic-vm-core",
+          "aliases": [
+            "cynic-vm-core-probe"
+          ],
           "ip": "<LAN_CORE>"
         }
       ],
@@ -237,7 +246,27 @@
       "status": "active"
     },
     {
+      "name": "organ-headscale",
+      "role": "mesh_control",
+      "host": "cynic-host-proxmox",
+      "os": "Debian 12",
+      "network": {
+        "local": "192.168.0.40"
+      },
+      "services": [
+        {
+          "name": "headscale",
+          "description": "Sovereign mesh control plane host (identity + auth), intentionally decoupled from kernel runtime."
+        }
+      ],
+      "status": "active"
+    },
+    {
       "name": "cynic-vm-anvil",
+      "aliases": [
+        "cynic-node-forge",
+        "forge"
+      ],
       "role": "build_runner",
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
@@ -298,6 +327,9 @@
     },
     {
       "name": "cynic-vm-core",
+      "aliases": [
+        "cynic-vm-core-probe"
+      ],
       "role": "kernel_primary",
       "host": "cynic-host-proxmox",
       "build_source": "cynic-vm-anvil",
@@ -363,25 +395,32 @@
     },
     {
       "name": "cynic-host-gpu",
+      "aliases": [
+        "cynic-gpu"
+      ],
       "role": "inference_node",
       "network": {
         "local": "192.168.0.67",
-        "tailscale": "100.64.0.5"
+        "tailscale": "<TAILSCALE_GPU>"
       },
       "status": "active"
     },
     {
       "name": "cynic-host-cortex",
+      "aliases": [
+        "cynic-lxc-cortex",
+        "cynic-forge"
+      ],
       "role": "cortex_host",
       "network": {
         "local": "192.168.0.12",
-        "tailscale": "100.64.0.1"
+        "tailscale": "<TAILSCALE_CORTEX>"
       },
       "status": "active"
     }
   ],
   "routing_rules": {
-    "primary_tunnel": "tailscale_100_64_0_0_24",
+    "primary_tunnel": "tailscale_tail7ec70e_ts_net",
     "management_fallback": "local_192_168_0_0_24"
   },
   "organs": [

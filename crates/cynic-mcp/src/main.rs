@@ -2,6 +2,37 @@ use rmcp::ServiceExt;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
+fn resolve_rest_addr() -> Result<String, Box<dyn std::error::Error>> {
+    let raw_addr = std::env::var("CYNIC_REST_ADDR")
+        .map_err(|_| "CYNIC_REST_ADDR is required by SSOT (no localhost fallback)")?;
+
+    if raw_addr.trim().is_empty() {
+        return Err("CYNIC_REST_ADDR is empty".into());
+    }
+
+    let rest_addr = if raw_addr.starts_with("http://") || raw_addr.starts_with("https://") {
+        raw_addr
+    } else {
+        format!("http://{raw_addr}")
+    };
+
+    let hostport = rest_addr
+        .split("://")
+        .nth(1)
+        .unwrap_or(&rest_addr)
+        .split('/')
+        .next()
+        .unwrap_or("");
+    let host = hostport.split(':').next().unwrap_or("");
+    if (host == "127.0.0.1" || host == "localhost")
+        && std::env::var("CYNIC_ALLOW_LOCAL_KERNEL").unwrap_or_default() != "1"
+    {
+        return Err(format!("SSOT rejected local kernel address: {rest_addr}").into());
+    }
+
+    Ok(rest_addr)
+}
+
 #[tokio::main]
 #[allow(clippy::print_stderr)]
 // WHY: MCP binary must write to stderr for --version/--help; stdout is the JSON-RPC channel.
@@ -17,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("USAGE: cynic-mcp");
         eprintln!();
         eprintln!("ENVIRONMENT:");
-        eprintln!("  CYNIC_REST_ADDR   Kernel REST address (default: http://127.0.0.1:3030)");
+        eprintln!("  CYNIC_REST_ADDR   Kernel REST address (no localhost default under SSOT)");
         eprintln!("  CYNIC_API_KEY     Bearer token for kernel auth");
         eprintln!("  RUST_LOG          Log filter (default: cynic_mcp=info,warn)");
         return Ok(());
@@ -31,13 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(fmt::layer().json().with_writer(std::io::stderr))
         .init();
 
-    let raw_addr =
-        std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "http://127.0.0.1:3030".into());
-    let rest_addr = if raw_addr.starts_with("http://") || raw_addr.starts_with("https://") {
-        raw_addr
-    } else {
-        format!("http://{raw_addr}")
-    };
+    let rest_addr = resolve_rest_addr()?;
     let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
     let project_root = std::env::current_dir()
         .unwrap_or_else(|_| std::path::PathBuf::from("."))

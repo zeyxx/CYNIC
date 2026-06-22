@@ -1,0 +1,29 @@
+id: organ-supervisor
+tier: 1
+domain: body-governance
+status: ACTIVE
+description: "CYNIC body supervisor - converts organ contract/runtime audits into guard decisions and repair queues"
+framework: hexagonal-organ
+
+inputs:
+  - source: CYNIC/organs/organ-contract-audit.json
+    data: static organ contract audit
+  - source: CYNIC/organs/state/body-health.json
+    data: runtime organ health audit
+
+outputs:
+  - path: CYNIC/organs/supervisor/state/SSOT.json
+    format: curated_json
+  - path: CYNIC/organs/supervisor/state/supervision.json
+    format: generated_json
+  - path: CYNIC/organs/supervisor/state/action-queue.jsonl
+    format: degraded_queue_jsonl
+
+scripts:
+  - name: supervise_body.py
+    description: Build guard decisions and repair actions from body audit state without starting services.
+
+manual_gates:
+  - no_public_submission_without_human_approval
+  - no_new_organ_to_bypass_unhealthy_existing_organ
+  - no_runtime_trust_without_declared_outputs_and_freshness

@@ -12,6 +12,7 @@ This is the K15 producer layer: emit → consume → act.
 import json
 import logging
 import os
+from urllib.parse import urlparse
 from typing import Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
@@ -39,9 +40,17 @@ def get_kernel_address() -> str:
     Ensures the address includes a protocol (http://), even if environment
     variable only contains the host:port (e.g., <TAILSCALE_CORE>:3030).
     """
-    addr = os.environ.get("CYNIC_REST_ADDR", "localhost:3030")
+    addr = os.environ.get("CYNIC_REST_ADDR", "").strip()
+    if not addr:
+        raise RuntimeError("CYNIC_REST_ADDR is required (SSOT endpoint, no localhost fallback).")
     if not addr.startswith(("http://", "https://")):
         addr = f"http://{addr}"
+
+    parsed = urlparse(addr)
+    host = parsed.hostname or ""
+    if host in {"127.0.0.1", "localhost"} and os.getenv("CYNIC_ALLOW_LOCAL_KERNEL", "0") != "1":
+        raise RuntimeError("Loopback kernel endpoint rejected by SSOT policy.")
+
     return addr
 
 
@@ -94,7 +103,11 @@ def emit_observation(
         logger.warning("requests library not available; observation not emitted")
         return False
 
-    kernel_addr = get_kernel_address()
+    try:
+        kernel_addr = get_kernel_address()
+    except RuntimeError as exc:
+        logger.warning("Kernel emission skipped: %s", exc)
+        return False
     api_key = get_api_key()
 
     payload = {

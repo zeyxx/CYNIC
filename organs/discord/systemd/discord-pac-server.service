@@ -1,0 +1,15 @@
+[Unit]
+Description=CYNIC Discord PAC policy server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+ExecStart=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/discord/bin/pac-server.sh
+Restart=on-failure
+RestartSec=5
+MemoryMax=128M
+
+[Install]
+WantedBy=default.target

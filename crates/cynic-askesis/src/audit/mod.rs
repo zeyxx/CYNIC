@@ -14,7 +14,7 @@ pub trait AuditEngine: Send + Sync {
     async fn audit(&self, logs: &[LogEntry], questions: &[&str]) -> crate::Result<Reflection>;
 }
 
-pub mod gemini_wisdom;
+pub mod kernel_rest;
 
 /// Default Phase 2 audit directives.
 /// These guide Gemini to generate emergent questions based on the 7 CYNIC axioms.

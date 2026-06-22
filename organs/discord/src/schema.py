@@ -109,6 +109,99 @@ CREATE TABLE IF NOT EXISTS skill_assessments (
 
 CREATE INDEX IF NOT EXISTS idx_skill_assessments_level
     ON skill_assessments(level DESC, confidence DESC);
+
+CREATE TABLE IF NOT EXISTS raw_events (
+    event_id      TEXT PRIMARY KEY,
+    captured_at   TEXT NOT NULL,
+    host          TEXT NOT NULL,
+    method        TEXT NOT NULL,
+    path          TEXT NOT NULL,
+    endpoint_type TEXT NOT NULL,
+    policy        TEXT NOT NULL,
+    status_code   INTEGER,
+    content_type  TEXT,
+    request_url   TEXT NOT NULL,
+    body_hash     TEXT,
+    raw_json      TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_discord_raw_events_type_time
+    ON raw_events(endpoint_type, captured_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_discord_raw_events_path_time
+    ON raw_events(path, captured_at DESC);
+
+CREATE TABLE IF NOT EXISTS discord_identities (
+    user_id      INTEGER PRIMARY KEY,
+    username     TEXT,
+    global_name  TEXT,
+    discriminator TEXT,
+    bot          INTEGER NOT NULL DEFAULT 0,
+    first_seen   TEXT NOT NULL,
+    last_seen    TEXT NOT NULL,
+    raw_json      TEXT
+);
+
+CREATE TABLE IF NOT EXISTS discord_servers (
+    guild_id    INTEGER PRIMARY KEY,
+    name        TEXT,
+    owner_id    INTEGER,
+    first_seen  TEXT NOT NULL,
+    last_seen   TEXT NOT NULL,
+    raw_json     TEXT
+);
+
+CREATE TABLE IF NOT EXISTS discord_channels (
+    channel_id  INTEGER PRIMARY KEY,
+    guild_id    INTEGER,
+    parent_id   INTEGER,
+    name        TEXT,
+    channel_type INTEGER,
+    topic       TEXT,
+    first_seen  TEXT NOT NULL,
+    last_seen   TEXT NOT NULL,
+    raw_json     TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_discord_channels_guild
+    ON discord_channels(guild_id);
+
+CREATE TABLE IF NOT EXISTS discord_threads (
+    thread_id   INTEGER PRIMARY KEY,
+    channel_id  INTEGER,
+    guild_id    INTEGER,
+    parent_id   INTEGER,
+    name        TEXT,
+    archived    INTEGER,
+    first_seen  TEXT NOT NULL,
+    last_seen   TEXT NOT NULL,
+    raw_json     TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_discord_threads_channel
+    ON discord_threads(channel_id);
+
+CREATE TABLE IF NOT EXISTS discord_relationships (
+    user_id     INTEGER PRIMARY KEY,
+    relation_type TEXT NOT NULL,
+    username    TEXT,
+    first_seen  TEXT NOT NULL,
+    last_seen   TEXT NOT NULL,
+    raw_json     TEXT
+);
+
+CREATE TABLE IF NOT EXISTS discord_message_entities (
+    channel_id  INTEGER NOT NULL,
+    message_id  INTEGER NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id   TEXT NOT NULL,
+    label       TEXT,
+    raw_json    TEXT,
+    PRIMARY KEY (channel_id, message_id, entity_type, entity_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_discord_message_entities_entity
+    ON discord_message_entities(entity_type, entity_id);
 """
 
 

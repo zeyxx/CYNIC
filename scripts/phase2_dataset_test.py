@@ -22,7 +22,11 @@ from typing import Dict, List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "hermes-x" / "core"))
 from hermes_paths import HERMES_X_DIR as ORGAN_X, DATASET
-CYNIC_REST = os.getenv("CYNIC_REST_ADDR", "http://localhost:3030")
+CYNIC_REST = os.getenv("CYNIC_REST_ADDR")
+if not CYNIC_REST:
+    raise SystemExit("FATAL: CYNIC_REST_ADDR is required (SSOT: set in ~/.cynic-env).")
+if not CYNIC_REST.startswith(("http://", "https://")):
+    CYNIC_REST = f"http://{CYNIC_REST}"
 CYNIC_KEY = os.getenv("CYNIC_API_KEY", "")
 
 def judge(content, domain="token-analysis"):

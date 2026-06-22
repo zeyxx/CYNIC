@@ -1,0 +1,378 @@
+{
+  "schema_version": "1.1.0",
+  "generated_by": "CYNIC/organs/controllers/audit_organs.py",
+  "generated_at": "2026-06-17T22:57:10.686942+00:00",
+  "purpose": "Expose organ maturity so CYNIC stops adding organs onto an unstable body.",
+  "contract": {
+    "required_for_production": [
+      "manifest",
+      "desired_state",
+      "runbook",
+      "controller",
+      "ssot_state",
+      "runtime_stream",
+      "heartbeat_or_degraded_queue",
+      "runtime_evidence"
+    ],
+    "rule": "An organ without desired/runbook/controller/state/runtime evidence is not autonomous."
+  },
+  "organs": [
+    {
+      "organ": "anvil",
+      "manifest_status": null,
+      "has_manifest": false,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": false,
+      "heartbeat_or_queue_declared": false,
+      "status": "uncontracted_directory",
+      "gaps": [
+        "missing MANIFEST.yaml",
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Either add a full organ contract or move/demote this directory to tooling or sandbox."
+    },
+    {
+      "organ": "discord",
+      "manifest_status": "PLANNED",
+      "has_manifest": true,
+      "has_desired_state": true,
+      "has_runbook": true,
+      "has_controller": true,
+      "has_ssot_state": true,
+      "runtime_stream_declared": "~/.cynic/organs/discord/messages.db",
+      "runtime_evidence_detected": true,
+      "heartbeat_or_queue_declared": true,
+      "status": "production_organ",
+      "gaps": [],
+      "next_action": "Keep observing heartbeat and runtime outputs."
+    },
+    {
+      "organ": "docker",
+      "manifest_status": "ACTIVE",
+      "has_manifest": true,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": true,
+      "heartbeat_or_queue_declared": false,
+      "status": "manifest_only",
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Add desired state, runbook, controller, SSOT, and runtime contract or mark as experimental."
+    },
+    {
+      "organ": "forge",
+      "manifest_status": "ACTIVE",
+      "has_manifest": true,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": true,
+      "heartbeat_or_queue_declared": false,
+      "status": "manifest_only",
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Add desired state, runbook, controller, SSOT, and runtime contract or mark as experimental."
+    },
+    {
+      "organ": "gasdf",
+      "manifest_status": null,
+      "has_manifest": false,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": false,
+      "heartbeat_or_queue_declared": false,
+      "status": "uncontracted_directory",
+      "gaps": [
+        "missing MANIFEST.yaml",
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Either add a full organ contract or move/demote this directory to tooling or sandbox."
+    },
+    {
+      "organ": "jupyter",
+      "manifest_status": "ACTIVE",
+      "has_manifest": true,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": true,
+      "heartbeat_or_queue_declared": false,
+      "status": "manifest_only",
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Add desired state, runbook, controller, SSOT, and runtime contract or mark as experimental."
+    },
+    {
+      "organ": "kanban-ui",
+      "manifest_status": "ACTIVE",
+      "has_manifest": true,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": false,
+      "heartbeat_or_queue_declared": false,
+      "status": "manifest_only",
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Add desired state, runbook, controller, SSOT, and runtime contract or mark as experimental."
+    },
+    {
+      "organ": "organ-cloud",
+      "manifest_status": null,
+      "has_manifest": false,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": false,
+      "heartbeat_or_queue_declared": false,
+      "status": "uncontracted_directory",
+      "gaps": [
+        "missing MANIFEST.yaml",
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Either add a full organ contract or move/demote this directory to tooling or sandbox."
+    },
+    {
+      "organ": "organ-freebox",
+      "manifest_status": null,
+      "has_manifest": false,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": false,
+      "heartbeat_or_queue_declared": false,
+      "status": "uncontracted_directory",
+      "gaps": [
+        "missing MANIFEST.yaml",
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Either add a full organ contract or move/demote this directory to tooling or sandbox."
+    },
+    {
+      "organ": "percolator",
+      "manifest_status": "ACTIVE",
+      "has_manifest": true,
+      "has_desired_state": true,
+      "has_runbook": true,
+      "has_controller": true,
+      "has_ssot_state": true,
+      "runtime_stream_declared": "percolator/ops/researcher-feed.json",
+      "runtime_evidence_detected": true,
+      "heartbeat_or_queue_declared": true,
+      "status": "production_organ",
+      "gaps": [],
+      "next_action": "Keep observing heartbeat and runtime outputs."
+    },
+    {
+      "organ": "prompt-enricher",
+      "manifest_status": null,
+      "has_manifest": false,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": false,
+      "heartbeat_or_queue_declared": false,
+      "status": "uncontracted_directory",
+      "gaps": [
+        "missing MANIFEST.yaml",
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Either add a full organ contract or move/demote this directory to tooling or sandbox."
+    },
+    {
+      "organ": "reflection",
+      "manifest_status": "ACTIVE",
+      "has_manifest": true,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": true,
+      "heartbeat_or_queue_declared": false,
+      "status": "manifest_only",
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Add desired state, runbook, controller, SSOT, and runtime contract or mark as experimental."
+    },
+    {
+      "organ": "supervisor",
+      "manifest_status": "ACTIVE",
+      "has_manifest": true,
+      "has_desired_state": true,
+      "has_runbook": true,
+      "has_controller": true,
+      "has_ssot_state": true,
+      "runtime_stream_declared": "CYNIC/organs/supervisor/state/supervision.json",
+      "runtime_evidence_detected": true,
+      "heartbeat_or_queue_declared": true,
+      "status": "production_organ",
+      "gaps": [],
+      "next_action": "Keep observing heartbeat and runtime outputs."
+    },
+    {
+      "organ": "telegram",
+      "manifest_status": "ACTIVE",
+      "has_manifest": true,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": false,
+      "heartbeat_or_queue_declared": false,
+      "status": "manifest_only",
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Add desired state, runbook, controller, SSOT, and runtime contract or mark as experimental."
+    },
+    {
+      "organ": "twitter",
+      "manifest_status": "ACTIVE",
+      "has_manifest": true,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": true,
+      "heartbeat_or_queue_declared": false,
+      "status": "manifest_only",
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Add desired state, runbook, controller, SSOT, and runtime contract or mark as experimental."
+    },
+    {
+      "organ": "vercel",
+      "manifest_status": "ACTIVE",
+      "has_manifest": true,
+      "has_desired_state": false,
+      "has_runbook": false,
+      "has_controller": false,
+      "has_ssot_state": false,
+      "runtime_stream_declared": null,
+      "runtime_evidence_detected": true,
+      "heartbeat_or_queue_declared": false,
+      "status": "manifest_only",
+      "gaps": [
+        "missing desired/*.json",
+        "missing runbooks/*.json",
+        "missing controllers/*",
+        "missing state/SSOT.json",
+        "missing declared runtime stream",
+        "missing heartbeat or degraded queue declaration"
+      ],
+      "next_action": "Add desired state, runbook, controller, SSOT, and runtime contract or mark as experimental."
+    }
+  ],
+  "summary": {
+    "total_organ_directories": 16,
+    "uncontracted_directory": 5,
+    "production_organ": 3,
+    "manifest_only": 8
+  },
+  "policy": {
+    "before_new_organ": [
+      "run this controller",
+      "check whether an existing organ owns the domain",
+      "if found, extend its desired state instead of creating a sibling",
+      "if missing contract pieces, repair them first",
+      "only then add new code"
+    ],
+    "before_bounty_automation": [
+      "discord organ remains the observation source",
+      "percolator organ owns bounty workflow",
+      "no submission automation bypasses human approval",
+      "duplicate state must be current before proof work is promoted"
+    ]
+  }
+}

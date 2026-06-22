@@ -14,17 +14,10 @@ fi
 # Source environment variables
 source "$HOME/.cynic-env"
 
-# Get kernel URL from env (CYNIC_REST_ADDR should be set in ~/.cynic-env)
-KERNEL_URL="${CYNIC_REST_ADDR}"
-if [ -z "$KERNEL_URL" ]; then
-    echo "ERROR: CYNIC_REST_ADDR not set in ~/.cynic-env" >&2
-    exit 1
-fi
-
-# Convert host:port to http://host:port if needed
-if [[ ! "$KERNEL_URL" =~ ^http ]]; then
-    KERNEL_URL="http://$KERNEL_URL"
-fi
+# Get kernel URL from SSOT endpoint (no implicit localhost fallback)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
+KERNEL_URL="$(cynic_kernel_rest_url)"
 
 # Run the infrastructure monitor (polls infrastructure observations every 60s)
 exec /usr/bin/python3 "$PROJECT_ROOT/cynic-python/consumers/k15_infrastructure_consumer.py" \

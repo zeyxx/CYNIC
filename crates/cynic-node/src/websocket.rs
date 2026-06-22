@@ -133,7 +133,7 @@ pub struct PendingVerdict {
 
 /// Manages WebSocket connection to kernel with offline queue and dedup.
 pub struct WebSocketClient {
-    /// Kernel WebSocket URL (e.g., "ws://100.64.0.1:3030/node/ws")
+    /// Kernel WebSocket URL (e.g., "ws://<TAILSCALE_CORE>:3030/node/ws")
     kernel_url: String,
     /// API key for Bearer token authentication
     api_key: String,

@@ -52,6 +52,18 @@ api_error_threshold = 100
 evaluation_timeout_secs = 30
 enabled = true
 
+# ── Llama-Server (shared runtime) ──
+# All sovereign backends run under llama-server (llama.cpp OpenAI-compatible server).
+
+[llama-server]
+# Binary: llama-server (llama.cpp)
+# GPU instance: port 8080, model Qwen3.6-27B, context 65536
+# Core instance: port 8080, model Qwen3-4B, context 8192
+binary = "llama-server"
+openai_compat = true
+endpoints = ["/v1/chat/completions", "/v1/models"]
+json_mode_flag = "--json-mode"
+
 # ── Backend Definitions ──
 
 [backend.qwen36-27b-gpu]

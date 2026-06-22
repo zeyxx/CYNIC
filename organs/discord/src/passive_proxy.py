@@ -17,20 +17,26 @@ import json
 import logging
 import os
 import re
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
 from mitmproxy import http
 
+from organs.discord.src.capture_router import route_discord_path
 from organs.discord.src.config import load_config, validate_allowlist
+from organs.discord.src.normalizers import (
+    extract_message_entities,
+    hash_body,
+    insert_raw_event,
+    json_dumps,
+    normalize_payload,
+)
 from organs.discord.src.schema import bootstrap_db
 
 logger = logging.getLogger("discord-passive-proxy")
 
 _DEFAULT_CONFIG = Path.home() / ".cynic" / "organs" / "discord" / "config.yaml"
-_CHANNEL_MESSAGES = re.compile(r"/api/v\d+/channels/(\d+)/messages")
 _EARN_LISTING = re.compile(r"^/listing/([^/?#]+)/?")
 _TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 _TAG = re.compile(r"<[^>]+>")
@@ -55,12 +61,8 @@ class DiscordPassiveCapture:
         if not parsed.netloc.endswith("discord.com"):
             return
 
-        match = _CHANNEL_MESSAGES.search(parsed.path)
-        if not match:
-            return
-
-        channel_id = int(match.group(1))
-        if channel_id not in self.allowed_channels:
+        route = route_discord_path(parsed.path, self.allowed_channels)
+        if route is None or route.policy == "ignore":
             return
 
         content_type = flow.response.headers.get("content-type", "")
@@ -68,12 +70,22 @@ class DiscordPassiveCapture:
             return
 
         try:
-            payload = json.loads(flow.response.get_text())
+            response_text = flow.response.get_text()
+            payload = json.loads(response_text)
         except (json.JSONDecodeError, UnicodeDecodeError):
-            logger.warning("failed to parse Discord response for channel %s", channel_id)
+            logger.warning("failed to parse Discord response for %s", parsed.path)
             return
 
+        self._store_event(flow, parsed, route.endpoint_type, route.policy, response_text)
+        normalize_payload(self.conn, route.endpoint_type, payload)
+
+        if route.endpoint_type not in {"channel_messages", "channel_messages_search"} or route.policy != "store_messages":
+            self.conn.commit()
+            return
+
+        channel_id = int(route.resource_id or 0)
         if not isinstance(payload, list):
+            self.conn.commit()
             return
 
         inserted = 0
@@ -82,6 +94,27 @@ class DiscordPassiveCapture:
                 inserted += 1
         if inserted:
             logger.info("captured %d Discord messages from channel %s", inserted, channel_id)
+
+    def _store_event(self, flow: http.HTTPFlow, parsed, endpoint_type: str, policy: str, body: str) -> None:
+        captured_at = datetime.now(timezone.utc).isoformat()
+        body_hash = hash_body(body)
+        event_id = hash_body(f"{flow.request.method}:{parsed.netloc}:{parsed.path}:{body_hash}")
+        raw_json = body if self.cfg.store_raw_events or endpoint_type in self.cfg.raw_event_allowlist else None
+        insert_raw_event(
+            self.conn,
+            event_id=event_id,
+            captured_at=captured_at,
+            host=parsed.netloc,
+            method=flow.request.method,
+            path=parsed.path,
+            endpoint_type=endpoint_type,
+            policy=policy,
+            status_code=flow.response.status_code,
+            content_type=flow.response.headers.get("content-type", ""),
+            request_url=flow.request.pretty_url,
+            body_hash=body_hash,
+            raw_json=raw_json,
+        )
 
     def _capture_earn(self, flow: http.HTTPFlow, parsed) -> None:
         """Track visits to Superteam Earn listing pages."""
@@ -149,6 +182,7 @@ class DiscordPassiveCapture:
                 json.dumps(item, separators=(",", ":")),
             ),
         )
+        extract_message_entities(self.conn, channel_id, message_id, item)
         self.conn.commit()
         return cursor.rowcount > 0
 

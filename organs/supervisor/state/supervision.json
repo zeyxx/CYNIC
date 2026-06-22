@@ -1,0 +1,203 @@
+{
+  "schema_version": "1.0.0",
+  "generated_by": "CYNIC/organs/supervisor/controllers/supervise_body.py",
+  "generated_at": "2026-06-17T22:57:14.266081+00:00",
+  "purpose": "Convert CYNIC organ audits into guard decisions and repair queue entries.",
+  "body": {
+    "contract_summary": {
+      "total_organ_directories": 16,
+      "uncontracted_directory": 5,
+      "production_organ": 3,
+      "manifest_only": 8
+    },
+    "runtime_summary": {
+      "total_organs": 16,
+      "body_status": "live",
+      "by_runtime_status": {
+        "not_runtime_trusted": 13,
+        "live": 3
+      },
+      "by_contract_status": {
+        "uncontracted_directory": 5,
+        "production_organ": 3,
+        "manifest_only": 8
+      }
+    },
+    "trusted_organs": [
+      "discord",
+      "percolator",
+      "supervisor"
+    ],
+    "untrusted_organs": [
+      "anvil",
+      "docker",
+      "forge",
+      "gasdf",
+      "jupyter",
+      "kanban-ui",
+      "organ-cloud",
+      "organ-freebox",
+      "prompt-enricher",
+      "reflection",
+      "telegram",
+      "twitter",
+      "vercel"
+    ],
+    "hard_blocks": [
+      "new_organ_creation_requires_owner_reuse_or_repair_decision"
+    ]
+  },
+  "guards": {
+    "new_organ_creation": "blocked",
+    "public_external_actions": "manual_approval_required",
+    "kernel_offline_policy": "degrade_to_durable_queue"
+  },
+  "organs": [
+    {
+      "organ": "discord",
+      "trust_level": "trusted",
+      "contract_status": "production_organ",
+      "runtime_status": "live",
+      "manifest_status": "PLANNED",
+      "priority": 0,
+      "next_action": "Keep observing freshness and downstream outputs."
+    },
+    {
+      "organ": "percolator",
+      "trust_level": "trusted",
+      "contract_status": "production_organ",
+      "runtime_status": "live",
+      "manifest_status": "ACTIVE",
+      "priority": 1,
+      "next_action": "Keep observing freshness and downstream outputs."
+    },
+    {
+      "organ": "forge",
+      "trust_level": "declared",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": "ACTIVE",
+      "priority": 2,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "docker",
+      "trust_level": "declared",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": "ACTIVE",
+      "priority": 3,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "vercel",
+      "trust_level": "declared",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": "ACTIVE",
+      "priority": 4,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "twitter",
+      "trust_level": "declared",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": "ACTIVE",
+      "priority": 5,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "telegram",
+      "trust_level": "declared",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": "ACTIVE",
+      "priority": 6,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "jupyter",
+      "trust_level": "declared",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": "ACTIVE",
+      "priority": 7,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "kanban-ui",
+      "trust_level": "declared",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": "ACTIVE",
+      "priority": 8,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "reflection",
+      "trust_level": "declared",
+      "contract_status": "manifest_only",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": "ACTIVE",
+      "priority": 9,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "anvil",
+      "trust_level": "undeclared",
+      "contract_status": "uncontracted_directory",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": null,
+      "priority": 1000,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "gasdf",
+      "trust_level": "undeclared",
+      "contract_status": "uncontracted_directory",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": null,
+      "priority": 1000,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "organ-cloud",
+      "trust_level": "undeclared",
+      "contract_status": "uncontracted_directory",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": null,
+      "priority": 1000,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "organ-freebox",
+      "trust_level": "undeclared",
+      "contract_status": "uncontracted_directory",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": null,
+      "priority": 1000,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "prompt-enricher",
+      "trust_level": "undeclared",
+      "contract_status": "uncontracted_directory",
+      "runtime_status": "not_runtime_trusted",
+      "manifest_status": null,
+      "priority": 1000,
+      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+    },
+    {
+      "organ": "supervisor",
+      "trust_level": "trusted",
+      "contract_status": "production_organ",
+      "runtime_status": "live",
+      "manifest_status": "ACTIVE",
+      "priority": 1000,
+      "next_action": "Keep observing freshness and downstream outputs."
+    }
+  ],
+  "action_count": 13,
+  "action_queue": "CYNIC/organs/supervisor/state/action-queue.jsonl"
+}

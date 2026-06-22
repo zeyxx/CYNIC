@@ -16,7 +16,11 @@ source ~/.cynic-env 2>/dev/null || {
     exit 1
 }
 
-KERNEL_ADDR="${CYNIC_REST_ADDR:-localhost:3030}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CYNIC_SCRIPTS_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+source "${CYNIC_SCRIPTS_ROOT}/scripts/cynic-endpoint.sh"
+
+KERNEL_ADDR="$(cynic_kernel_rest_url)"
 API_KEY="${CYNIC_API_KEY:-}"
 AUTH_HEADER=""
 [ -n "$API_KEY" ] && AUTH_HEADER="Authorization: Bearer $API_KEY"
@@ -24,7 +28,7 @@ AUTH_HEADER=""
 # ── Probe kernel health ──
 HEALTH=$(timeout 5 curl -s --max-time 5 \
     ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-    "http://${KERNEL_ADDR}/health" 2>/dev/null || echo '{}')
+    "${KERNEL_ADDR}/health" 2>/dev/null || echo '{}')
 
 # Read contract from kernel (SSOT — no hardcoded dog list)
 FULFILLED=$(echo "$HEALTH" | jq -r '.contract.fulfilled // "null"' 2>/dev/null || echo "null")
@@ -72,7 +76,7 @@ if [[ "$RESTARTED" -eq 1 ]]; then
     sleep 3
     HEALTH_AFTER=$(timeout 5 curl -s --max-time 5 \
         ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-        "http://${KERNEL_ADDR}/health" 2>/dev/null || echo '{}')
+        "${KERNEL_ADDR}/health" 2>/dev/null || echo '{}')
     FULFILLED_AFTER=$(echo "$HEALTH_AFTER" | jq -r '.contract.fulfilled // false' 2>/dev/null)
     ACTIVE_AFTER=$(echo "$HEALTH_AFTER" | jq '.dogs | length // 0' 2>/dev/null || echo 0)
 
@@ -80,7 +84,7 @@ if [[ "$RESTARTED" -eq 1 ]]; then
         echo "$(date): Recovery successful: $ACTIVE_AFTER/$EXPECTED_COUNT Dogs online"
     else
         echo "$(date): Recovery incomplete: $ACTIVE_AFTER/$EXPECTED_COUNT"
-        timeout 3 curl -s --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+        timeout 3 curl -s --max-time 3 -X POST "${KERNEL_ADDR}/observe" \
             -H "Content-Type: application/json" \
             ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
             -d "{\"agent_id\":\"dog-health-monitor\",\"tool\":\"dog_restart\",\"target\":\"recovery_failed\",\"domain\":\"infra\",\"context\":\"expected=${EXPECTED_COUNT} actual=${ACTIVE_AFTER}\"}" \

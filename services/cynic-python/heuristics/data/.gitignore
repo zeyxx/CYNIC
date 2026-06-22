@@ -6,3 +6,9 @@ __pycache__/
 
 # Webhook state
 webhook_id.txt
+
+# Runtime calibration artifacts (ephemeral outputs)
+calibration_report_*.md
+measurement_report_*.md
+*_report_*.md
+divergence_*.csv

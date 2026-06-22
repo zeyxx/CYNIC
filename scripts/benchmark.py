@@ -16,9 +16,13 @@ Usage: python3 scripts/benchmark.py [--save]
 import json, os, sys, time, urllib.request, datetime
 from pathlib import Path
 
-ADDR = os.environ.get("CYNIC_REST_ADDR", "127.0.0.1:3030")
+ADDR = os.environ.get("CYNIC_REST_ADDR")
+if not ADDR:
+    raise SystemExit("FATAL: CYNIC_REST_ADDR is required (SSOT: set in ~/.cynic-env).")
+if not ADDR.startswith(("http://", "https://")):
+    ADDR = f"http://{ADDR}"
 API_KEY = os.environ.get("CYNIC_API_KEY", "")
-BASE = f"http://{ADDR}"
+BASE = ADDR
 TIMEOUT = 120
 
 TIER_ORDER = {"Howl": 0, "Wag": 1, "Growl": 2, "Bark": 3}

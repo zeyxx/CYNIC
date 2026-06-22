@@ -19,6 +19,7 @@ pub mod mint_permit;
 pub mod observe;
 pub mod phone_numbers;
 pub mod response;
+pub mod services;
 pub mod soma;
 pub mod types;
 
@@ -66,6 +67,10 @@ use self::mail::{
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
 use self::mint_permit::mint_permit_handler;
 use self::observe::observe_handler;
+use self::services::{
+    list_services_handler, register_service_handler, service_heartbeat_handler,
+    unregister_service_handler,
+};
 use self::soma::soma_request_handler;
 
 use crate::api::websocket::ws_handler;
@@ -221,6 +226,19 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/mail/mark-read/{id}", post(mark_read))
         .route("/mail/search", post(search))
         .route("/mail/unread", get(unread))
+        // ── OS Service Process Table ──────────────────────────────────
+        // Services register/heartbeat/unregister from their own code (no scripts).
+        // GET  /services              → observed process table (all registered services)
+        // POST /services/register     → announce on startup
+        // POST /services/{id}/heartbeat → TTL refresh (from native heartbeat task)
+        // DELETE /services/{id}       → explicit shutdown announce
+        .route("/services", get(list_services_handler))
+        .route("/services/register", post(register_service_handler))
+        .route("/services/{id}/heartbeat", post(service_heartbeat_handler))
+        .route(
+            "/services/{id}",
+            axum::routing::delete(unregister_service_handler),
+        )
         .layer(axum_mw::from_fn_with_state(state.clone(), audit_middleware))
         .layer(axum_mw::from_fn_with_state(state.clone(), auth_middleware))
         .layer(axum_mw::from_fn_with_state(

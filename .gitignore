@@ -47,6 +47,7 @@ benchmarks/
 
 # Exception: cynic-python/benchmarks is infrastructure (self-evolving inference organ)
 !cynic-python/benchmarks/
+!docs/cynic-python/benchmarks/
 cynic-python/observations/
 
 # Hermes agent state (contains .env + local DB)
@@ -97,6 +98,9 @@ scripts/x-interceptor.py
 cynic-kernel/cynic-kernel.bin
 scripts/openclaude.sh
 /data/
+# Phase-2.0 runtime outputs (measurement experiments)
+/data/reports/phase-2.0/measurement_report_*.md
+/data/reports/phase-2.0/divergence_*.csv
 .venv/
 plan-test.json
 report-test.json
@@ -143,6 +147,11 @@ cynic-python/heuristics/data/helius_cache/
 cynic-python/heuristics/data/webhook_data/
 cynic-python/heuristics/data/webhook_id.txt
 
+# Explicitly guard against markdown drift in persisted state surfaces.
+organs/*/state/*.md
+!organs/*/state/README.md
+!organs/*/state/SKILL.md
+
 # School deliverables (personal, not infrastructure)
 docs/ydays/
 cynic-python/heuristics/webhook_data/
@@ -163,6 +172,19 @@ packages/cynic-ui/.vite/
 /*.deb
 cynic-python/heuristics/data/calibration_*.json
 cynic-python/heuristics/data/calibration_*.md
+cynic-python/heuristics/data/calibration_report_*.md
+cynic-python/heuristics/data/measurement_report_*.md
+cynic-python/heuristics/data/*_report_*.md
+cynic-python/heuristics/data/divergence_*.csv
+# services/ monorepo relocation of cynic-python artifacts (anti-fragmentation: markdown only where documented)
+# Keep service runtime markdown artifacts explicit-only; no markdown by default in services.
+services/**/*.md
+services/cynic-python/heuristics/data/calibration_*.json
+services/cynic-python/heuristics/data/calibration_*.md
+services/cynic-python/heuristics/data/calibration_report_*.md
+services/cynic-python/heuristics/data/measurement_report_*.md
+services/cynic-python/heuristics/data/*_report_*.md
+services/cynic-python/heuristics/data/divergence_*.csv
 cynic-python/heuristics/data/market_snapshots/
 cynic-python/heuristics/data/outcomes/
 

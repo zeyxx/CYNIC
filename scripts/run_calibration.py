@@ -12,12 +12,33 @@ import json
 import os
 import sys
 import time
+from urllib.parse import urlparse
 from pathlib import Path
 import requests
 
 CORPUS_PATH = Path.home() / ".cynic/datasets/tokens/calibration_corpus.json"
 RESULTS_PATH = Path.home() / ".cynic/datasets/tokens/calibration_results_AFTER.json"
-REST_ADDR = os.environ.get("CYNIC_REST_ADDR", "http://localhost:3030")
+
+
+def _normalize_kernel_addr(raw: str) -> str:
+    raw = (raw or "").strip()
+    if not raw:
+        raise RuntimeError(
+            "CYNIC_REST_ADDR is required (SSOT endpoint, no localhost fallback)."
+        )
+    if not raw.startswith(("http://", "https://")):
+        raw = f"http://{raw}"
+
+    parsed = urlparse(raw)
+    host = parsed.hostname or ""
+    if host in {"127.0.0.1", "localhost"} and os.getenv("CYNIC_ALLOW_LOCAL_KERNEL", "0") != "1":
+        raise RuntimeError(
+            "SSOT rejected loopback kernel endpoint. Set CYNIC_REST_ADDR to <TAILSCALE_CORE>:3030."
+        )
+    return raw.rstrip("/")
+
+
+REST_ADDR = _normalize_kernel_addr(os.environ.get("CYNIC_REST_ADDR", ""))
 API_KEY = os.environ.get("CYNIC_API_KEY", "")
 
 def q_to_verdict(q: float) -> str:

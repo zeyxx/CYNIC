@@ -20,7 +20,10 @@ class HermesDispatcher:
         return os.environ.get(name, default)
 
     def kernel_addr(self) -> str:
-        raw = self.env("CYNIC_REST_ADDR", "127.0.0.1:3030")
+        raw = self.env("CYNIC_REST_ADDR", "").strip()
+        if not raw:
+            raise RuntimeError("CYNIC_REST_ADDR is required (SSOT kernel endpoint).")
+
         if raw.startswith(("http://", "https://")):
             return raw.rstrip("/")
         return f"http://{raw.rstrip('/')}"
@@ -33,9 +36,14 @@ class HermesDispatcher:
         key = self.kernel_key()
         if not key:
             return None
+        try:
+            addr = self.kernel_addr()
+        except RuntimeError as exc:
+            print(f"{self.agent_name} get_json skipped: {exc}", file=sys.stderr)
+            return None
 
         req = request.Request(
-            f"{self.kernel_addr()}{path}",
+            f"{addr}{path}",
             method="GET",
             headers={"Authorization": f"Bearer {key}"},
         )
@@ -51,10 +59,14 @@ class HermesDispatcher:
         key = self.kernel_key()
         if not key:
             return None, "kernel API key missing"
+        try:
+            addr = self.kernel_addr()
+        except RuntimeError as exc:
+            return None, str(exc)
 
         body = json.dumps(payload).encode("utf-8")
         req = request.Request(
-            f"{self.kernel_addr()}{path}",
+            f"{addr}{path}",
             data=body,
             method="POST",
             headers={

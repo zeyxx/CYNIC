@@ -7,9 +7,13 @@ set -euo pipefail
 PROJECT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 ZONES_FILE="${PROJECT_DIR}/.cortex/zones.json"
 ZONE_STATE_DIR="/tmp/cynic-zones"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source ~/.cynic-env 2>/dev/null || true
-KERNEL_ADDR="${CYNIC_REST_ADDR:-localhost:3030}"
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
+if ! KERNEL_ADDR="$(cynic_kernel_rest_url 2>/dev/null)"; then
+    KERNEL_ADDR=""
+fi
 API_KEY="${CYNIC_API_KEY:-}"
 
 # ── Show current state ──
@@ -38,15 +42,19 @@ echo ""
 
 # Active mempool dispatches
 echo "ACTIVE DISPATCHES (mempool):"
-if [[ -n "${API_KEY:-}" ]]; then
+if [[ -n "${KERNEL_ADDR}" && -n "${API_KEY:-}" ]]; then
     DISPATCHES=$(curl -s --max-time 3 \
         -H "Authorization: Bearer ${API_KEY}" \
-        "http://${KERNEL_ADDR}/observations?domain=mempool&limit=10" 2>/dev/null || echo "[]")
+        "${KERNEL_ADDR}/observations?domain=mempool&limit=10" 2>/dev/null || echo "[]")
     echo "$DISPATCHES" | jq -r '.[] | select(.tool == "human_dispatch") | "  \(.target // "?") — \(.context // "" | .[0:80])"' 2>/dev/null || echo "  (kernel unreachable)"
     DISPATCH_COUNT=$(echo "$DISPATCHES" | jq '[.[] | select(.tool == "human_dispatch")] | length' 2>/dev/null || echo 0)
     [[ "$DISPATCH_COUNT" == "0" ]] && echo "  (none)"
 else
-    echo "  (no API key — skipping)"
+    if [[ -z "${KERNEL_ADDR}" ]]; then
+        echo "  (kernel endpoint missing — skipping)"
+    elif [[ -z "${API_KEY}" ]]; then
+        echo "  (no API key — skipping)"
+    fi
 fi
 echo ""
 

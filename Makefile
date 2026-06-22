@@ -62,6 +62,7 @@ gate-0: ## Level 0 — Instant: fmt + lints + security
 	@echo "  Gate Level 0 — Instant checks"
 	@echo "══════════════════════════════════════════"
 	@$(MAKE) --no-print-directory verify-hooks
+	@$(MAKE) --no-print-directory markdown-fragmentation-audit-staged
 	cargo fmt --all -- --check
 	@$(MAKE) --no-print-directory lint-rules
 	@$(MAKE) --no-print-directory lint-drift
@@ -197,6 +198,14 @@ lint-volatile-state: ## Block staged runtime snapshots from organ state director
 		exit 1; \
 	fi; \
 	echo "✓ Volatile state policy OK"
+
+.PHONY: markdown-fragmentation-audit
+markdown-fragmentation-audit: ## Audit tracked markdown placement against SSOT policy
+	@python3 scripts/markdown-fragmentation-audit.py
+
+.PHONY: markdown-fragmentation-audit-staged
+markdown-fragmentation-audit-staged: ## Audit staged markdown candidates against SSOT policy
+	@python3 scripts/markdown-fragmentation-audit.py --staged
 
 .PHONY: lint-services
 lint-services: ## Compare running user services vs expected list — catches zombie/missing services
@@ -490,7 +499,7 @@ lint-security: ## G1 gate: 0 OPEN findings in CRITICAL or HIGH sections of findi
 lint-topology: ## Verify MANIFEST.yaml declarations vs live state (crons exist, outputs exist)
 	@echo ""
 	@echo "▶ Checking organism topology (MANIFESTs vs live state)..."
-	@python3 $(PROJECT_DIR)/scripts/topology.py --verify --output /tmp/cynic-topology-verify.md 2>&1 | tail -1 || { \
+	@python3 $(PROJECT_DIR)/scripts/topology.py --verify --json --output /tmp/cynic-topology-verify.json 2>&1 | tail -1 || { \
 		echo "⚠ Topology verification found drift — not blocking (fix MANIFESTs later)"; \
 	}
 

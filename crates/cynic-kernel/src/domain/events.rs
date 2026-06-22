@@ -53,4 +53,17 @@ pub enum KernelEvent {
         reason: String,
     },
     StorageReconnected,
+    /// A service announced itself via POST /services/register.
+    /// Feeds the OS-level process table — absence of this event = unknown service.
+    ServiceRegistered {
+        service_id: String,
+        tier: u8,
+        node: String,
+    },
+    /// A service TTL expired or explicitly called DELETE /services/{id}.
+    /// Kernel process table evicts the entry; organism can react.
+    ServiceDown {
+        service_id: String,
+        reason: String, // "ttl_expired" | "explicit_unregister"
+    },
 }

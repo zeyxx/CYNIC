@@ -4,23 +4,26 @@
 # Purpose: Measure token enrichment effectiveness by comparing verdicts before/after
 # Timeline: Baseline collected 2026-05-25, enrichment deployed 2026-05-29, measure T+7 on 2026-06-02
 # Input: 45 token mints + baseline verdicts (from k15-baseline observations)
-# Output: divergence.csv + measurement_report.md
+# Output: divergence.csv + measurement_report.json
 #
 # Falsify: If divergence ≤ 0.05 on Q-score, enrichment is noise (not working)
 
 set -euo pipefail
 
 # ── Configuration ──
-CYNIC_REST="http://${CYNIC_REST_ADDR:-127.0.0.1:3030}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${HOME}/.cynic-env" 2>/dev/null || true
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
+CYNIC_REST="$(cynic_kernel_rest_url)"
 API_KEY="${CYNIC_API_KEY:-$(grep CYNIC_API_KEY ~/.cynic-env | cut -d= -f2)}"
 OUTPUT_DIR="${OUTPUT_DIR:-.}"
 TIMESTAMP="$(date +%Y-%m-%d-%H%M%S)"
 DIVERGENCE_CSV="${OUTPUT_DIR}/divergence_${TIMESTAMP}.csv"
-REPORT_MD="${OUTPUT_DIR}/measurement_report_${TIMESTAMP}.md"
+REPORT_JSON="${OUTPUT_DIR}/measurement_report_${TIMESTAMP}.json"
 
 echo "[outcome_measurement_t7] Starting K15 closure measurement..."
 echo "[outcome_measurement_t7] Output: ${DIVERGENCE_CSV}"
-echo "[outcome_measurement_t7] Report: ${REPORT_MD}"
+echo "[outcome_measurement_t7] Report: ${REPORT_JSON}"
 
 # ── Helper: Read baseline verdicts from local JSONL files ──
 # K15 baseline collected 2026-05-25 to 2026-05-26 and stored in git commit 133aadd
@@ -233,54 +236,59 @@ else
     verdict_change_pct=$(echo "scale=2; $verdict_changes * 100 / $measured" | bc -l 2>/dev/null || echo "0")
 fi
 
-# ── Generate markdown report ──
+# ── Generate JSON report ──
+if [ "$measured" -le 0 ] || [ "$error_count" -gt $(( total / 2 )) ]; then
+    STATUS="ERROR — measurement invalid (${error_count}/${total} tokens failed); fix before interpreting"
+elif (( $(echo "$mean_divergence > 0.05" | bc -l) )); then
+    STATUS="PASS — enrichment shows effect"
+else
+    STATUS="FAIL — enrichment is noise"
+fi
 
-cat > "${REPORT_MD}" << EOF
-# K15 Closure: Outcome Measurement Report
-**Date**: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-**Measurement Period**: 2026-05-25 (baseline) → 2026-06-02 (T+7 enriched)
+python3 - "$REPORT_JSON" "$DIVERGENCE_CSV" "$total" "$measured" "$error_count" "$mean_divergence" "$verdict_changes" "$verdict_change_pct" "$baseline_count" "$STATUS" <<'PY'
+import json
+import sys
+from datetime import datetime
 
-## Summary
+(
+    report_path,
+    divergence_csv,
+    total,
+    measured,
+    error_count,
+    mean_divergence,
+    verdict_changes,
+    verdict_change_pct,
+    baseline_count,
+    status,
+) = sys.argv[1:11]
 
-| Metric | Value |
-|--------|-------|
-| Tokens In Set | ${total} |
-| Successfully Measured | ${measured} |
-| Measurement Errors | ${error_count} |
-| Mean Q-Score Divergence | ${mean_divergence} |
-| Verdict Changes | ${verdict_changes}/${measured} (${verdict_change_pct}%) |
-| Baseline Count | ${baseline_count} |
+payload = {
+    "schema": "outcome-measurement-v1",
+    "generated_at": datetime.utcnow().isoformat() + "Z",
+    "measurement_period": "2026-05-25 -> 2026-06-02 (T+7 enriched)",
+    "summary": {
+        "tokens_in_set": int(total),
+        "successfully_measured": int(measured),
+        "measurement_errors": int(error_count),
+        "mean_q_score_divergence": float(mean_divergence),
+        "verdict_changes": int(verdict_changes),
+        "verdict_change_percent": float(verdict_change_pct),
+        "baseline_count": int(baseline_count),
+    },
+    "falsification": {
+        "hypothesis": "Token enrichment (post-processor + class-aware caps) changes verdicts measurably.",
+        "status": status,
+        "note": "A large divergence without labelled outcomes only indicates change, not improvement.",
+        "divergence_csv": divergence_csv,
+    },
+}
 
-## Falsification Test
+with open(report_path, "w") as f:
+    json.dump(payload, f, indent=2)
+PY
 
-**Hypothesis**: Token enrichment (post-processor + class-aware caps) changes verdicts measurably.
-(NOTE: this detects *change*, not *improvement* — a large divergence with no ground truth
-cannot tell better from worse. Improvement requires labelled outcomes, not just divergence.)
-
-**Test**: If mean Q-score divergence ≤ 0.05, enrichment has no effect (is dead code).
-**Validity guard**: if >50% of tokens error out, the measurement itself is invalid → ERROR, not PASS.
-
-**Result**:
-- Successfully measured: **${measured}/${total}** (${error_count} errors)
-- Mean divergence: **${mean_divergence}**
-- **Status**: $(if [ "$measured" -le 0 ] || [ "$error_count" -gt $(( total / 2 )) ]; then echo "ERROR — measurement invalid (${error_count}/${total} tokens failed); fix before interpreting"; elif (( $(echo "$mean_divergence > 0.05" | bc -l) )); then echo "PASS — enrichment shows effect"; else echo "FAIL — enrichment is noise"; fi)
-
-## Data
-
-Full divergence data in: \`${DIVERGENCE_CSV}\`
-
-## Next Steps
-
-1. If PASS: Proceed to Phase 2.1 (calibration loop)
-2. If FAIL: Debug enrichment pipeline (token_postprocessor not applying caps correctly)
-
----
-
-**Generated by**: outcome_measurement_t7.sh (2026-05-29)
-EOF
-
-echo "[outcome_measurement_t7] Report written: ${REPORT_MD}"
-cat "${REPORT_MD}"
-
+echo "[outcome_measurement_t7] Report written: ${REPORT_JSON}"
+cat "${REPORT_JSON}"
 echo "[outcome_measurement_t7] Done."
 exit 0

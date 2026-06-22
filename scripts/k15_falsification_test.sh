@@ -4,7 +4,10 @@
 
 set -euo pipefail
 
-API_BASE="${CYNIC_REST_ADDR:-http://localhost:3030}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
+
+API_BASE="$(cynic_kernel_rest_url)"
 API_KEY="${CYNIC_API_KEY:-}"
 
 # Colors for output

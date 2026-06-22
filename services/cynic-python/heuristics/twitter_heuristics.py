@@ -66,14 +66,13 @@ class TwitterScorer:
         # ── SOVEREIGNTY: Decentralized community (diverse voices) ──
         sovereignty = self._score_sovereignty(signals)
 
-        # Trimmed mean
+        # Variance/Friction paradigm (replaces trimmed_mean)
+        # q_score now measures the internal contradiction (spread) of the signals
         scores = [fidelity, phi, verify, culture, burn, sovereignty]
-        scores_sorted = sorted(scores)
-        if len(scores_sorted) > 2:
-            trimmed = scores_sorted[1:-1]
-        else:
-            trimmed = scores_sorted
-        q_score = sum(trimmed) / len(trimmed) if trimmed else 0.0
+        spread = max(scores) - min(scores)
+        # If signals agree (all high or all low), spread is low (Bark = consensus).
+        # If signals contradict, spread is high (Howl = epoche/friction).
+        q_score = clamp(spread, 0.05, PHI_INV)
 
         return AxiomScores(
             fidelity=fidelity,
@@ -288,7 +287,7 @@ class TwitterScorer:
 if __name__ == "__main__":
     scorer = TwitterScorer()
 
-    # Test HOWL (healthy community)
+    # Test HOWL (healthy community) -> Now expect BARK (low variance/consensus)
     howl_signals = TwitterSignals(
         follower_count=50_000,
         tweet_count=2000,
@@ -304,9 +303,9 @@ if __name__ == "__main__":
         tweet_velocity=7.1,
     )
     howl_scores = scorer.score(howl_signals)
-    print(f"HOWL (healthy): q_score={howl_scores.q_score:.3f} (expect >0.528)")
+    print(f"Healthy consensus: q_score={howl_scores.q_score:.3f} (expect low variance -> ≤0.236)")
 
-    # Test BARK (rug scam)
+    # Test BARK (rug scam) -> Also expect BARK (low variance/consensus)
     bark_signals = TwitterSignals(
         follower_count=100,
         tweet_count=20,
@@ -322,4 +321,4 @@ if __name__ == "__main__":
         tweet_velocity=0.0,
     )
     bark_scores = scorer.score(bark_signals)
-    print(f"BARK (rug): q_score={bark_scores.q_score:.3f} (expect ≤0.236)")
+    print(f"Scam consensus: q_score={bark_scores.q_score:.3f} (expect low variance -> ≤0.236)")

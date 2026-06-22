@@ -2,7 +2,7 @@
 #![allow(clippy::print_stdout)]
 
 use clap::Parser;
-use cynic_askesis::audit::gemini_wisdom::GeminiWisdomAudit;
+use cynic_askesis::audit::kernel_rest::KernelRestAudit;
 use cynic_askesis::audit::{AuditEngine, default_phase2_directives};
 use cynic_askesis::log::LogStore;
 use cynic_askesis::log::jsonl::JsonlLog;
@@ -68,10 +68,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 return Ok(());
             }
 
-            println!("Found {} entries. Running Gemini audit...", logs.len());
+            println!(
+                "Found {} entries. Requesting Kernel Evaluation (POST /judge)...",
+                logs.len()
+            );
 
-            // Run audit using Gemini Wisdom
-            let engine = GeminiWisdomAudit::default();
+            // Run audit using Kernel REST API
+            let engine = KernelRestAudit::default();
             let directives = default_phase2_directives();
             let reflection = engine.audit(&logs, &directives).await?;
 

@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "watch_profile_id": "percolator_bounty_watch",
+  "purpose": "Map Discord social graph surfaces to Percolator bounty anti-duplicate intelligence.",
+  "inputs": {
+    "desired_state": "CYNIC/organs/discord/desired/discord-organ.json",
+    "messages_db": "~/.cynic/organs/discord/messages.db",
+    "server_ids": [
+      "1471242940801089668"
+    ],
+    "channel_ids": [
+      "1471256421998793022",
+      "1471256414507765873",
+      "1471256425631056059"
+    ]
+  },
+  "outputs": {
+    "researcher_feed": "percolator/ops/researcher-feed.json",
+    "finding_board": "percolator/ops/finding-board.json",
+    "inference_queue": "percolator/ops/infer-queue.jsonl"
+  },
+  "dedupe_keys": [
+    "discord_channel_id",
+    "discord_message_id",
+    "content_hash",
+    "author_identity_id",
+    "risk_class"
+  ]
+}

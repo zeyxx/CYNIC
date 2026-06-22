@@ -7,11 +7,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEMO_SCRIPT="${SCRIPT_DIR}/demo-organic.sh"
 SPEED="${1:-1}"
+source "${HOME}/.cynic-env" 2>/dev/null || true
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
+KERNEL_ADDR="$(cynic_kernel_rest_url)"
+CYNIC_REST_ADDR="${KERNEL_ADDR#http://}"
+CYNIC_REST_ADDR="${CYNIC_REST_ADDR#https://}"
 
 # ── Versioning + horodatage ────────────────────────────────────
 TIMESTAMP="$(date +%Y-%m-%d_%Hh%M)"
-source "${HOME}/.cynic-env" 2>/dev/null || true
-VERSION=$(curl -s -m 3 "${CYNIC_REST_ADDR:-localhost:3030}/health" \
+VERSION=$(curl -s -m 3 "${CYNIC_REST_ADDR}/health" \
     -H "Authorization: Bearer ${CYNIC_API_KEY:-}" 2>/dev/null \
     | python3 -c "import sys,json; print(json.load(sys.stdin).get('version','unknown'))" 2>/dev/null \
     || echo "unknown")

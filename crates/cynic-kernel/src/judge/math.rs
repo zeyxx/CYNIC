@@ -28,13 +28,9 @@ pub(super) fn axiom_spread(
 
     let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
-    
+
     let spread = max - min;
-    if spread < 0.05 {
-        0.05
-    } else {
-        spread
-    }
+    if spread < 0.05 { 0.05 } else { spread }
 }
 
 /// BLAKE3 integrity hash of a verdict — forms a hash chain linking verdicts.

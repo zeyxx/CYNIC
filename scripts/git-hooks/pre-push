@@ -113,6 +113,25 @@ echo "  CYNIC pre-push — sovereign CI gate"
 echo "══════════════════════════════════════════"
 echo ""
 
+# ── Anti-fragmentation guard: block accidental runtime-directory markdown drift ──
+markdown_push_fragmentation_guard() {
+    "$(dirname "$0")/markdown-fragmentation-guard.sh" push "$1" || return 1
+}
+
+set +e
+if [ -n "$PUSH_LOCAL_SHA" ]; then
+    if [ "$PUSH_REMOTE_SHA" = "$ZERO_SHA" ] || [ -z "$PUSH_REMOTE_SHA" ]; then
+        PUSH_FILE_LIST=$(git diff --name-only --diff-filter=ACM "origin/main...${PUSH_LOCAL_SHA}" 2>/dev/null || true)
+    else
+        PUSH_FILE_LIST=$(git diff --name-only --diff-filter=ACM "${PUSH_REMOTE_SHA}..${PUSH_LOCAL_SHA}" 2>/dev/null || true)
+    fi
+else
+    PUSH_FILE_LIST=""
+fi
+set -e
+
+markdown_push_fragmentation_guard "$PUSH_FILE_LIST" || exit 1
+
 # ── Freshness check (A8 metabolic optimization) ──
 # If the test binary is newer than all source files, skip recompilation.
 # This avoids the KC5 kill chain: cortex already validated → pre-push re-validates.

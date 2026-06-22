@@ -80,3 +80,36 @@
 {"timestamp": "2026-06-14T10:14:55Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
 {"timestamp": "2026-06-14T10:47:05Z", "source": "perception", "payload": {"score": 0.55, "dirty_files": 15, "branches_local": 6, "alert": "dirty tree worsening (5→15), local branches > 5"}}, "result": "success"}
 {"timestamp": "2026-06-14T12:30:36Z", "source": "perception", "payload": {"score": 0.55, "dirty": true, "changed_files": 9, "branches": {"local": 6, "remote": 4}, "alert": "branch_count_exceeds_5", "dirty_tree": true}}, "result": "success"}
+{"timestamp": "2026-06-16T09:39:14Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
+{"timestamp": "2026-06-16T15:29:30Z", "source": "perception", "payload": {"score":0.55,"dirty":true,"changed_files":17,"branches_local":8,"branches_remote":5,"alerts":["branches_exceed_5_limit","dirty_tree"]}}, "result": "success"}
+{"timestamp": "2026-06-16T16:32:31Z", "source": "perception", "payload": {"score": 0.55, "dirty_files": 17, "local_branches": 8, "alert": "borderline_health + branch_cleanup_recommended"}}, "result": "success"}
+{"timestamp": "2026-06-16T20:13:04Z", "source": "perception", "payload": {"score": 0.55, "branches": 8, "dirty_files": 13}}, "result": "success"}
+{"timestamp": "2026-06-16T21:15:41Z", "source": "perception", "payload": {"score": 0.55, "dirty": true, "local_branches": 8, "remote_branches": 5, "stashes": 3}}, "result": "success"}
+{"timestamp": "2026-06-16T22:18:30Z", "source": "perception", "payload": {"score": 0.55, "dirty_files": 13, "local_branches": 8, "remote_branches": 5, "stashes": 3, "alerts": ["health_score_near_threshold_0.5", "local_branches_exceed_5_cleanup_suggested", "dirty_working_tree_13_files"]}}, "result": "success"}
+{"timestamp": "2026-06-17T00:55:38Z", "source": "perception", "payload": {"score": 0.55}}, "result": "success"}
+{"timestamp": "2026-06-17T10:16:27Z", "source": "perception", "payload": {"score": 0.55, "dirty": true, "dirty_files": 27, "branches_local": 8, "branches_remote": 5, "stashes": 3}}, "result": "success"}
+{"timestamp": "2026-06-17T22:02:28Z", "source": "perception", "payload": {"score": 0.45, "dirty_files": 99, "health_drop": "0.55->0.45", "alert": "CRITICAL: health below 0.5", "branches_local": 8}}, "result": "success"}
+{"timestamp": "2026-06-17T22:34:20Z", "source": "perception", "payload": {"score": 0.45}}, "result": "success"}
+{"timestamp": "2026-06-18T00:09:49Z", "source": "perception", "payload": {"score": 0.45}}, "result": "success"}
+{"timestamp": "2026-06-18T05:54:46Z", "source": "perception", "payload": {"score": 0.45}}, "result": "success"}
+{"timestamp": "2026-06-18T14:17:23Z", "source": "perception", "payload": {"score": 0.45, "status": "CRITICAL", "dirty": true, "changed_files": 132, "branches_local": 8, "branches_remote": 5, "alerts": ["health_score_below_threshold", "excessive_branches", "dirty_working_tree"]}}, "result": "success"}
+{"timestamp": "2026-06-18T15:20:12Z", "source": "perception", "payload": {"score": 0.45, "alerts": ["health_critical", "branch_cleanup"], "dirty": true}}, "result": "success"}
+{"timestamp": "2026-06-18T21:35:25Z", "source": "perception", "payload": {"score": 0.25}}, "result": "success"}
+{"timestamp": "2026-06-18T22:07:48Z", "source": "perception", "payload": {"score": 0.25, "dirty_files": 136, "local_branches": 8, "remote_branches": 5, "alerts": ["CRITICAL_HEALTH", "BRANCH_CLEANUP"]}}, "result": "success"}
+{"timestamp": "2026-06-19T12:26:29Z", "source": "perception", "payload": {"score":0.25,"dirty_files":145,"local_branches":9,"remote_branches":7,"stashes":3,"alerts":["health_critical","branch_cleanup_needed"]}}, "result": "success"}
+{"timestamp": "2026-06-19T15:02:06Z", "source": "perception", "payload": {"score": 0.25, "dirty": true, "dirty_files": 145, "branches_local": 9, "branches_remote": 7, "alerts": ["CRITICAL: health_score 0.25 < 0.5 threshold", "BRANCH_BLOAT: 9 local branches > 5 limit", "DIRTY_TREE: 145 uncommitted files"]}}, "result": "success"}
+{"timestamp": "2026-06-19T20:15:53Z", "source": "perception", "payload": {"score":0.25,"dirty":true,"changed_files":145,"local_branches":9,"remote_branches":7,"alerts":["HEALTH_CRITICAL","BRANCH_CLEANUP_NEEDED","DIRTY_TREE"],"recommendations":["Commit or stash changes","Prune stale branches","Review gate timestamps"]}}, "result": "success"}
+{"timestamp": "2026-06-19T21:50:56Z", "source": "perception", "payload": {"score": 0.25, "dirty_files": 145, "local_branches": 9, "remote_branches": 7, "stashes": 3, "alerts": ["critical_health", "branch_cleanup"]}}, "result": "success"}
+{"timestamp": "2026-06-20T05:12:49Z", "source": "perception", "payload": {"score": 0.25, "alerts": ["CRITICAL: health_score 0.25 < 0.5 threshold", "BRANCH BLOAT: 9 local branches > 5", "DIRTY TREE: 145 changed files"], "recommendation": "Run git cleanup, resolve dirty files, and address health issues"}}, "result": "success"}
+{"timestamp": "2026-06-20T10:27:26Z", "source": "perception", "payload": {"score": 0.25}}, "result": "success"}
+{"timestamp": "2026-06-20T10:59:35Z", "source": "perception", "payload": {"score": 0.25}}, "result": "success"}
+{"timestamp": "2026-06-20T14:39:46Z", "source": "perception", "payload": {"score": 0.25, "status": "dirty", "dirty_files": 145, "local_branches": 9, "remote_branches": 7, "alerts": ["CRITICAL: health_score 0.25 below 0.5 threshold", "BRANCH CLEANUP: 9 local branches > 5 threshold", "DIRTY TREE: 145 uncommitted changed files"]}}, "result": "success"}
+{"timestamp": "2026-06-20T15:11:44Z", "source": "perception", "payload": {"score": 0.25, "dirty_files": 145, "local_branches": 9, "remote_branches": 7, "stashes": 3, "alerts": ["CRITICAL_HEALTH", "BRANCH_CLEANUP_NEEDED"]}}, "result": "success"}
+{"timestamp": "2026-06-20T16:14:17Z", "source": "perception", "payload": {"score": 0.25, "dirty_files": 145, "local_branches": 9, "remote_branches": 7, "alerts": ["critical_health", "excessive_branches", "dirty_tree"]}}, "result": "success"}
+{"timestamp": "2026-06-20T18:52:12Z", "source": "perception", "payload": {"score": 0.25}}, "result": "success"}
+{"timestamp": "2026-06-20T19:24:36Z", "source": "perception", "payload": {"score": 0.25, "alerts": ["critical_health", "branch_cleanup", "dirty_tree"]}}, "result": "success"}
+{"timestamp": "2026-06-21T00:06:44Z", "source": "perception", "payload": {"score": 0.25}}, "result": "success"}
+{"timestamp": "2026-06-21T11:47:10Z", "source": "perception", "payload": {"score": 0.25}}, "result": "success"}
+{"timestamp": "2026-06-22T00:17:35Z", "source": "perception", "payload": {"score": 0.25}}, "result": "success"}
+{"timestamp": "2026-06-22T03:56:47Z", "source": "perception", "payload": {"score": 0.25, "dirty": true, "changed_files": 149, "branches_local": 9, "branches_remote": 7, "stashes": 3}}, "result": "success"}
+{"timestamp": "2026-06-22T09:10:41Z", "source": "perception", "payload": {"score": 0.25}}, "result": "critical: health score below 0.5 threshold"}

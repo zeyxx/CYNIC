@@ -110,9 +110,16 @@ class DomainMeasurement:
             start = time.time()
             try:
                 verdict = self.twitter_dog.judge(tweet)
-                predicted_scores.append(verdict.q_score)
+                # q_score is now variance/friction, so we compute truth_score from raw axioms
+                # to compare against the ground truth quality label
+                truth_score = (
+                    verdict.fidelity * verdict.phi * verdict.verify * 
+                    verdict.culture * verdict.burn * verdict.sovereignty
+                ) ** (1/6)
+                
+                predicted_scores.append(truth_score)
                 predicted_verdicts.append(
-                    "HOWL" if verdict.q_score > 0.528 else "GROWL" if verdict.q_score > 0.382 else "BARK"
+                    "HOWL" if truth_score > 0.528 else "GROWL" if truth_score > 0.382 else "BARK"
                 )
             except Exception as e:
                 print(f"  Error on tweet {i}: {e}")

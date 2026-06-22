@@ -3,7 +3,7 @@
 # Dedicated embedding server using Qwen3-Embedding-0.6B (or 4B fallback).
 
 [kernel]
-url = "http://100.64.0.1:3030"
+url = "http://<TAILSCALE_CORE>:3030"
 api_key_env = "CYNIC_API_KEY"
 
 [dog]

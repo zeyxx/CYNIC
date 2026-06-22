@@ -2,8 +2,9 @@
 import os
 import json
 import logging
+import time
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 from urllib.parse import quote
@@ -236,7 +237,102 @@ class KernelRestAdapter(KernelPort):
         except requests.RequestException:
             return {"decision": "allocate", "data": {"slot_id": f"{task_id}-fallback"}}
 
+    def observe(self, domain: str, content: dict, agent_id: str) -> bool:
+        """G4: Emit a structured observation to the kernel Proof-of-History.
+
+        Fire-and-forget: never raises, returns True on 2xx, False otherwise.
+        The kernel /observe endpoint is the canonical ledger for agentic events.
+        """
+        try:
+            payload = {
+                "domain": domain,
+                "agent_id": agent_id,
+                "observed_at": datetime.now(timezone.utc).isoformat(),
+                "content": content,
+            }
+            response = requests.post(
+                f"{self.kernel_addr}/observe",
+                headers=self._headers(),
+                json=payload,
+                timeout=3,
+            )
+            if response.status_code >= 400:
+                logger.debug("observe rejected by kernel: HTTP %s", response.status_code)
+                return False
+            return True
+        except requests.RequestException as e:
+            logger.debug("observe unreachable (fire-and-forget): %s", e)
+            return False
+
+    def service_register(
+        self,
+        service_id: str,
+        tier: int,
+        node: str,
+        capabilities: list,
+        version: Optional[str] = None,
+        ttl_secs: int = 120,
+    ) -> bool:
+        """Announce this service to the kernel OS process table (POST /services/register)."""
+        try:
+            payload = {
+                "service_id": service_id,
+                "tier": tier,
+                "node": node,
+                "capabilities": capabilities,
+                "version": version,
+                "ttl_secs": ttl_secs,
+            }
+            resp = requests.post(
+                f"{self.kernel_addr}/services/register",
+                headers=self._headers(),
+                json=payload,
+                timeout=5,
+            )
+            if resp.status_code >= 400:
+                logger.warning("service_register rejected: HTTP %s", resp.status_code)
+                return False
+            logger.info("service registered in kernel process table: %s", service_id)
+            return True
+        except requests.RequestException as e:
+            logger.debug("service_register unreachable (fire-and-forget): %s", e)
+            return False
+
+    def service_heartbeat(self, service_id: str) -> bool:
+        """Refresh TTL in kernel process table (POST /services/{id}/heartbeat)."""
+        try:
+            resp = requests.post(
+                f"{self.kernel_addr}/services/{service_id}/heartbeat",
+                headers=self._headers(),
+                timeout=3,
+            )
+            if resp.status_code == 404:
+                # Not registered — trigger re-register on next cycle.
+                logger.warning("service_heartbeat: %s not registered, need re-register", service_id)
+                return False
+            return resp.status_code < 400
+        except requests.RequestException as e:
+            logger.debug("service_heartbeat unreachable: %s", e)
+            return False
+
+    def service_unregister(self, service_id: str) -> bool:
+        """Announce clean shutdown (DELETE /services/{id})."""
+        try:
+            resp = requests.delete(
+                f"{self.kernel_addr}/services/{service_id}",
+                headers=self._headers(),
+                timeout=3,
+            )
+            if resp.status_code < 400:
+                logger.info("service unregistered from kernel process table: %s", service_id)
+                return True
+            return False
+        except requests.RequestException as e:
+            logger.debug("service_unregister unreachable (kernel will TTL-evict): %s", e)
+            return False
+
     def coord_claim(self, task: dict) -> Tuple[str, List[str], Optional[str]]:
+
         agent_id = hermes_coord_agent_id(task)
         targets = task_targets(task)
 

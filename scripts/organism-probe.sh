@@ -6,7 +6,10 @@
 set -e
 
 CYNIC_ROOT="$(git rev-parse --show-toplevel)"
-KERNEL_ADDR="${CYNIC_REST_ADDR:-http://<TAILSCALE_CORE>:3030}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${HOME}/.cynic-env" 2>/dev/null || true
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
+KERNEL_ADDR="$(cynic_kernel_rest_url)"
 STATE_FILE="/tmp/organism_state.json"
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 

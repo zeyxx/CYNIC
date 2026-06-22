@@ -420,6 +420,72 @@ pub fn spawn_dog_ttl_checker(
     })
 }
 
+/// OS service process table TTL reaper — evicts services that missed their heartbeat.
+///
+/// Mirrors `spawn_dog_ttl_checker` exactly. Every 30s:
+///   1. Reads `registered_services` for entries past their TTL.
+///   2. Evicts them (write pass per-service to minimize lock hold time).
+///   3. Emits `KernelEvent::ServiceDown { reason: "ttl_expired" }` on the event bus.
+///
+/// Zero-script: services must heartbeat from their own code. Silence = eviction.
+pub fn spawn_service_ttl_checker(
+    rest_state: Arc<crate::api::rest::AppState>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(constants::DOG_TTL_CHECK_INTERVAL);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.tick().await; // skip first tick — give services time to announce on startup
+
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Service TTL reaper stopped");
+                    break;
+                }
+                _ = interval.tick() => {
+                    // Phase 1: identify expired (read-only pass)
+                    let expired: Vec<String> = match rest_state.registered_services.read() {
+                        Ok(map) => map
+                            .iter()
+                            .filter(|(_, svc)| svc.last_heartbeat.elapsed().as_secs() > svc.ttl_secs)
+                            .map(|(id, _)| id.clone())
+                            .collect(),
+                        Err(e) => {
+                            tracing::warn!(error = %e, "registered_services RwLock poisoned — skipping TTL reap");
+                            vec![]
+                        }
+                    };
+
+                    // Phase 2: evict + emit (write per-service to minimise lock contention)
+                    for service_id in expired {
+                        match rest_state.registered_services.write() {
+                            Ok(mut map) => { map.remove(&service_id); }
+                            Err(e) => {
+                                tracing::warn!(
+                                    error = %e, service_id = %service_id,
+                                    "registered_services write lock poisoned — cannot evict"
+                                );
+                                continue;
+                            }
+                        }
+                        tracing::warn!(
+                            service_id = %service_id,
+                            "service TTL expired — evicted from OS process table"
+                        );
+                        let _ = rest_state.event_tx.send(
+                            crate::domain::events::KernelEvent::ServiceDown {
+                                service_id,
+                                reason: "ttl_expired".into(),
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    })
+}
+
 /// Service discovery loop — organism-agnostic auto-registration.
 /// Every 60s, probes known inference service addresses for /v1/models.
 /// If a service responds with the expected model, registers it via POST /dogs/register.
@@ -1042,6 +1108,7 @@ mod tests {
             chain_verified: std::sync::atomic::AtomicBool::new(false),
             environment: Arc::new(std::sync::RwLock::new(None)),
             registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+            registered_services: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
             judge_jobs: Arc::new(crate::api::rest::judge_job::JudgeJobStore::new()),
             system_contract: Arc::new(std::sync::RwLock::new(
                 crate::domain::contract::SystemContract::new(vec![], true),

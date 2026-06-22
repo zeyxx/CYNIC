@@ -7,6 +7,11 @@ set -euo pipefail
 # Support both Claude and Gemini input formats
 INPUT=$(cat)
 source ~/.cynic-env 2>/dev/null || true
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
+if ! KERNEL_ADDR="$(cynic_kernel_rest_url 2>/dev/null)"; then
+    KERNEL_ADDR=""
+fi
 
 # Determine Agent ID
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
@@ -27,48 +32,67 @@ if [[ -z "$AGENT_ID" ]]; then
     AGENT_ID="cortex-unknown"
 fi
 
-KERNEL_ADDR="${CYNIC_REST_ADDR:-localhost:3030}"
 API_KEY="${CYNIC_API_KEY:-}"
 AUTH_HEADER=""
 [ -n "$API_KEY" ] && AUTH_HEADER="Authorization: Bearer $API_KEY"
 
 # 1. Release all coordination claims
 echo "Releasing claims for ${AGENT_ID}..." >&2
-curl -s --connect-timeout 2 --max-time 5 -X POST "http://${KERNEL_ADDR}/coord/release" \
-    -H "Content-Type: application/json" \
-    ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-    -d "{\"agent_id\":\"${AGENT_ID}\"}" \
-    > /dev/null 2>&1 || true
+if [[ -n "${KERNEL_ADDR}" ]]; then
+    curl -s --connect-timeout 2 --max-time 5 -X POST "${KERNEL_ADDR}/coord/release" \
+        -H "Content-Type: application/json" \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        -d "{\"agent_id\":\"${AGENT_ID}\"}" \
+        > /dev/null 2>&1 || true
+else
+    echo "Kernel endpoint unavailable; claim release skipped." >&2
+fi
 
-# 2. Check TODO.md for phase transitions (Governance Continuity)
+# 2. Check governance phase state JSON for continuity (non-markdown)
 PROJECT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-TODO_FILE="${PROJECT_DIR}/TODO.md"
+GOV_STATE_FILE="${PROJECT_DIR}/.cynic/governance-state.json"
 
-if [[ -f "$TODO_FILE" ]]; then
-    # Extract active phase and next phase
-    # This logic assumes the structure:
-    # ## NOW (YYYY-MM-DD)
-    # **Phase X: Name**
-    # ...
-    # ## IMMEDIATE (YYYY-MM-DD)
-    # **Phase Y: Name**
-    
-    NOW_SECTION=$(grep -A 20 "^## NOW" "$TODO_FILE" 2>/dev/null || true)
-    ACTIVE_PHASE=$(echo "$NOW_SECTION" | grep "^**Phase" | head -1 | sed 's/.*\*\*Phase \([^:]*\).*/\1/' 2>/dev/null || true)
-    
-    IMMEDIATE_SECTION=$(grep -A 30 "^## IMMEDIATE" "$TODO_FILE" 2>/dev/null || true)
-    NEXT_PHASE=$(echo "$IMMEDIATE_SECTION" | grep "^**Phase" | head -1 | sed 's/.*\*\*Phase \([^:]*\).*/\1/' 2>/dev/null || true)
-    
-    if [[ -n "$ACTIVE_PHASE" && -n "$NEXT_PHASE" ]]; then
-        # Check if active phase tasks are all completed
-        # Simple heuristic: are there any unchecked boxes in the NOW section's action items?
-        PENDING_TASKS=$(echo "$NOW_SECTION" | grep -c "\- \[ \]" || true)
-        
-        if [[ "$PENDING_TASKS" -eq 0 ]]; then
-            echo "Governance: Phase ${ACTIVE_PHASE} appears complete. Queuing Phase ${NEXT_PHASE}..." >&2
-            
-            # Post to mempool (observations domain)
-            curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+ACTIVE_PHASE=""
+NEXT_PHASE=""
+ACTIVE_PHASE_PENDING_TASKS=""
+ACTIVE_PHASE_COMPLETE=""
+
+# Prefer explicit phase state from governance JSON
+if [[ -f "$GOV_STATE_FILE" ]]; then
+    ACTIVE_PHASE=$(jq -r '.active_phase // empty' "$GOV_STATE_FILE" 2>/dev/null || true)
+    NEXT_PHASE=$(jq -r '.next_phase // empty' "$GOV_STATE_FILE" 2>/dev/null || true)
+    ACTIVE_PHASE_PENDING_TASKS=$(jq -r '.active_phase_pending_tasks // empty' "$GOV_STATE_FILE" 2>/dev/null || true)
+    ACTIVE_PHASE_COMPLETE=$(jq -r '.active_phase_complete // empty' "$GOV_STATE_FILE" 2>/dev/null || true)
+fi
+
+# Fallback: read from hook input JSON if session runtime provides state
+if [[ -z "$ACTIVE_PHASE" ]]; then
+    ACTIVE_PHASE=$(echo "$INPUT" | jq -r '.active_phase // empty' 2>/dev/null || true)
+fi
+if [[ -z "$NEXT_PHASE" ]]; then
+    NEXT_PHASE=$(echo "$INPUT" | jq -r '.next_phase // empty' 2>/dev/null || true)
+fi
+if [[ -z "$ACTIVE_PHASE_PENDING_TASKS" ]]; then
+    ACTIVE_PHASE_PENDING_TASKS=$(echo "$INPUT" | jq -r '.active_phase_pending_tasks // empty' 2>/dev/null || true)
+fi
+if [[ -z "$ACTIVE_PHASE_COMPLETE" ]]; then
+    ACTIVE_PHASE_COMPLETE=$(echo "$INPUT" | jq -r '.active_phase_complete // empty' 2>/dev/null || true)
+fi
+
+if [[ -n "$ACTIVE_PHASE" && -n "$NEXT_PHASE" ]]; then
+    if [[ "$ACTIVE_PHASE_COMPLETE" == "true" ]]; then
+        PENDING_TASKS=0
+    else
+        PENDING_TASKS="${ACTIVE_PHASE_PENDING_TASKS:-0}"
+    fi
+
+    # Post explicit transition suggestion only when transition is signaled.
+    if [[ "$PENDING_TASKS" -eq 0 ]]; then
+        echo "Governance: Phase ${ACTIVE_PHASE} appears complete. Queuing Phase ${NEXT_PHASE}..." >&2
+
+        # Post to mempool (observations domain)
+        if [[ -n "${KERNEL_ADDR}" ]]; then
+            curl -s --connect-timeout 2 --max-time 3 -X POST "${KERNEL_ADDR}/observe" \
                 -H "Content-Type: application/json" \
                 ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
                 -d "{
@@ -77,11 +101,13 @@ if [[ -f "$TODO_FILE" ]]; then
                     \"target\":\"phase_transition\",
                     \"domain\":\"mempool\",
                     \"tags\":[\"governance\", \"phase-transition\"],
-                    \"context\":\"Phase ${ACTIVE_PHASE} is COMPLETE. Next up: Phase ${NEXT_PHASE}. Action: Move Phase ${NEXT_PHASE} to ## NOW in TODO.md and start execution.\"
+                    \"context\":\"Phase ${ACTIVE_PHASE} is COMPLETE. Next up: Phase ${NEXT_PHASE}. Action: advance active_phase to ${NEXT_PHASE} in governance-state.json and start execution.\"
                 }" > /dev/null 2>&1 || true
         else
-            echo "Governance: Phase ${ACTIVE_PHASE} still has ${PENDING_TASKS} pending tasks." >&2
+            echo "Kernel endpoint unavailable; phase-transition observation skipped." >&2
         fi
+    else
+        echo "Governance: Phase ${ACTIVE_PHASE} still has ${PENDING_TASKS} pending tasks." >&2
     fi
 fi
 

@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0.0",
+  "organ": "percolator",
+  "runbook": "percolator-bounty-ops",
+  "purpose": "Operate Percolator bounty work from a CYNIC-owned SSOT while consuming Discord observations and GitHub links as derived signals.",
+  "operating_order": [
+    "read_this_runbook",
+    "read_desired_state",
+    "read_discord_researcher_feed_if_present",
+    "run_reconcile_controller",
+    "verify_generated_workspace_files",
+    "audit_only_after_duplicate_context_is_current"
+  ],
+  "principles": [
+    "cynic_organism_owns_the_operational_ssot",
+    "percolator_workspace_files_are_generated_views_or_work_products",
+    "discord_is_an_observation_source_not_the_source_of_truth",
+    "github_issues_are_submission_evidence_and_duplicate_signals",
+    "inference_work_can_be_queued_when_no_remote_worker_is_available",
+    "personal_pc_kernel_is_not_required"
+  ],
+  "controllers": {
+    "reconcile": "CYNIC/organs/percolator/controllers/reconcile_percolator.py",
+    "discord_feed_source": "percolator/ops/researcher-feed.json",
+    "inference_queue": "percolator/ops/infer-queue.jsonl"
+  },
+  "verification": [
+    "percolator_workspace_ssot_index_exists",
+    "bounty_rules_generated_from_desired_state",
+    "audit_plan_generated_from_desired_state",
+    "anti_duplicate_protocol_generated_from_desired_state",
+    "discord_feed_summary_ingested_if_present",
+    "finding_board_preserves_existing_findings"
+  ],
+  "write_policy": {
+    "read_only": ["percolator/upstream/percolator-prog"],
+    "generated": ["percolator/workspace.json", "percolator/notes/bounty-rules.json", "percolator/notes/audit-plan.json", "percolator/ops/anti-duplicate-protocol.json", "percolator/SSOT.json"],
+    "work_products": ["percolator/audits", "percolator/ops/finding-board.json"],
+    "runtime_streams": ["percolator/ops/researcher-feed.json", "percolator/ops/infer-queue.jsonl"]
+  }
+}

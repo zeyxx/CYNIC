@@ -10,6 +10,9 @@ Environment=PYTHONPATH=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 EnvironmentFile=-%h/.config/cynic/env
 EnvironmentFile=-%h/.cynic/organs/discord/env
 ExecStart=/usr/bin/python3 -m organs.discord.src.pipeline --limit 200
+ExecStart=/usr/bin/python3 organs/discord/src/percolator_watch.py --limit 2000
+ExecStart=/usr/bin/python3 organs/discord/src/percolator_dedupe_queue.py
+ExecStart=/usr/bin/python3 organs/percolator/controllers/reconcile_percolator.py --verify
 MemoryMax=256M
 TimeoutStartSec=120
 

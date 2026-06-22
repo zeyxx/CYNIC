@@ -102,6 +102,15 @@ ssot_check() {
 }
 ssot_check || exit 1
 
+# ── Anti-fragmentation guard: block accidental runtime-directory markdown drift ──
+# Most execution/runtime directories should stay code-first (code/data/states),
+# not ad-hoc markdown snapshots. Use docs/ or explicit state stores.
+markdown_fragmentation_guard() {
+    "$(dirname "$0")/markdown-fragmentation-guard.sh" commit "$1" || return 1
+}
+STAGED_MD=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true)
+markdown_fragmentation_guard "$STAGED_MD" || exit 1
+
 # ── Volatile organism state: block runtime snapshots in commits ──
 # Source/config belongs in git. Runtime observations belong in the kernel,
 # local state directories, or explicitly reviewed fixtures.

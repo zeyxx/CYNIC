@@ -15,7 +15,9 @@ DRY_RUN=false
 
 source ~/.cynic-env 2>/dev/null || true
 
-KERNEL_ADDR="${CYNIC_REST_ADDR:-localhost:3030}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
+KERNEL_ADDR="$(cynic_kernel_rest_url)"
 API_KEY="${CYNIC_API_KEY:-}"
 AUTH_HEADER=""
 [ -n "$API_KEY" ] && AUTH_HEADER="Authorization: Bearer $API_KEY"
@@ -26,7 +28,7 @@ PROJECT_DIR=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 if ! $DRY_RUN; then
     HEALTH=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
         ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-        "http://${KERNEL_ADDR}/health" 2>/dev/null || echo "000")
+        "${KERNEL_ADDR}/health" 2>/dev/null || echo "000")
     if [[ "$HEALTH" != "200" && "$HEALTH" != "503" ]]; then
         echo "ERROR: kernel not reachable (HTTP ${HEALTH}). Start kernel first." >&2
         exit 1
@@ -93,7 +95,7 @@ while [[ "$CURRENT" < "$TODAY" || "$CURRENT" == "$TODAY" ]]; do
     if $DRY_RUN; then
         echo "[DRY] ${CURRENT}: ${CTX}"
     else
-        curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+            curl -s --connect-timeout 2 --max-time 3 -X POST "${KERNEL_ADDR}/observe" \
             -H "Content-Type: application/json" \
             ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
             -d "{\"agent_id\":\"bootstrap\",\"tool\":\"git_hygiene_sense\",\"target\":\"bootstrap\",\"domain\":\"git-hygiene\",\"context\":\"${CTX}\",\"tags\":[\"git-hygiene\",\"sense\",\"bootstrap\"],\"consumer\":\"ccm\",\"action\":\"crystallize git hygiene patterns\"}" \

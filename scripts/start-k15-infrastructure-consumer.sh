@@ -15,17 +15,10 @@ fi
 # Source environment variables (use /root/.cynic-env since this runs as root in systemd)
 source /root/.cynic-env
 
-# Get kernel URL from env (CYNIC_REST_ADDR should be set in ~/.cynic-env)
-KERNEL_URL="${CYNIC_REST_ADDR}"
-if [ -z "$KERNEL_URL" ]; then
-    echo "ERROR: CYNIC_REST_ADDR not set in ~/.cynic-env" >&2
-    exit 1
-fi
-
-# Convert host:port to http://host:port if needed
-if [[ ! "$KERNEL_URL" =~ ^http ]]; then
-    KERNEL_URL="http://$KERNEL_URL"
-fi
+# Get kernel URL from SSOT endpoint (no implicit localhost fallback)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
+KERNEL_URL="$(cynic_kernel_rest_url)"
 
 # Run the infrastructure consumer (polls /observations, routes failures to /inference/remediate)
 # CYNIC_API_KEY from environment, not CLI args — prevents ps aux leakage

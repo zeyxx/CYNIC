@@ -59,39 +59,47 @@ def compare_runs(dog_name: str, observations_dir: str = "observations") -> Dict:
     }
 
 
-def generate_report(observations_dir: str = "observations") -> str:
-    """Generate markdown report."""
+def generate_report(observations_dir: str = "observations") -> Dict:
+    """Generate structured report payload."""
     dogs = set()
     for f in glob.glob(f"{observations_dir}/*.json"):
         dog_name = os.path.basename(f).split("-")[0]
         dogs.add(dog_name)
 
-    report = f"# Benchmark Report\n\nGenerated: {datetime.now().isoformat()}\n\n"
+    dogs_report = []
 
     for dog in sorted(dogs):
         analysis = compare_runs(dog, observations_dir)
         if not analysis:
             continue
 
-        report += f"## {dog}\n\n"
-        report += f"**Trend:** {analysis['trend']}\n"
-        report += f"**Runs:** {analysis['num_runs']}\n\n"
-
+        dog_payload = {
+            "dog_name": dog,
+            "trend": analysis["trend"],
+            "num_runs": analysis["num_runs"],
+            "runs": analysis["runs"],
+        }
         if analysis["runs"]:
             latest = analysis["runs"][-1]
-            report += f"### Latest Run\n"
-            report += f"- Mean latency: {latest['latency_stats']['mean_ms']:.1f}ms\n"
-            report += f"- Success rate: {latest['successful']}/{latest['total_samples']}\n"
-            report += f"- Consistency: {latest['consistency']:.2%}\n\n"
+            dog_payload["latest"] = {
+                "mean_latency_ms": latest["latency_stats"]["mean_ms"],
+                "success_rate": latest["successful"] / latest["total_samples"] if latest["total_samples"] else 0,
+                "consistency": latest["consistency"],
+            }
+        dogs_report.append(dog_payload)
 
-    return report
+    return {
+        "generated_at": datetime.now().isoformat(),
+        "dogs": dogs_report,
+    }
 
 
 if __name__ == "__main__":
     report = generate_report()
-    print(report)
+    print(json.dumps(report, indent=2))
 
     # Save report
-    with open("observations/analysis.md", "w") as f:
-        f.write(report)
-    print("\n✅ Report saved to observations/analysis.md")
+    report_path = "observations/analysis.json"
+    with open(report_path, "w") as f:
+        json.dump(report, f, indent=2)
+    print(f"\n✅ Report saved to {report_path}")

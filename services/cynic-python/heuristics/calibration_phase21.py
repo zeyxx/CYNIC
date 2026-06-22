@@ -7,7 +7,7 @@ to compute per-tier accuracy and propose threshold adjustments.
 K15 Consumer: calibration report → human review → backends.toml threshold update
 Input:  cynic-python/heuristics/data/outcomes/*.jsonl
         cynic-python/heuristics/data/divergence_*.csv
-Output: calibration_report_<timestamp>.md + calibration_deltas.json
+Output: calibration_report_<timestamp>.json + calibration_deltas.json
 """
 
 from __future__ import annotations
@@ -209,95 +209,55 @@ def propose_adjustments(stats: dict[str, TierStats]) -> dict:
 
 # ── Report generation ─────────────────────────────────────────────────────────
 
-def generate_report(
+def build_report_payload(
     stats: dict[str, TierStats],
     proposals: dict,
     divergence_count: int,
     outcomes_count: int,
-    output_path: Path,
-) -> None:
-    lines = [
-        "# Phase 2.1: Calibration Report",
-        f"**Input**: {divergence_count} divergence rows × {outcomes_count} outcomes",
-        "",
-        "## Accuracy per Tier",
-        "",
-        "| Tier | Verdicts | TP | FP | TN | FN | Unknown | Precision | Recall |",
-        "|------|---------|----|----|----|----|---------|-----------|--------|",
-    ]
-
+) -> dict:
     total_tp = total_fp = total_tn = total_fn = 0
+    label_counts: Counter[str] = Counter()
+    tiers: list[dict] = []
 
     for name, *_ in TIER_BOUNDS:
         t = stats[name]
         precision = t.true_positive / (t.true_positive + t.false_positive) if (t.true_positive + t.false_positive) > 0 else None
-        recall    = t.true_positive / (t.true_positive + t.false_negative) if (t.true_positive + t.false_negative) > 0 else None
-        prec_str  = f"{precision:.0%}" if precision is not None else "—"
-        rec_str   = f"{recall:.0%}"    if recall    is not None else "—"
-        q_mean    = sum(t.q_scores) / len(t.q_scores) if t.q_scores else 0
-        lines.append(
-            f"| {name} (q̄={q_mean:.3f}) | {t.verdicts} | {t.true_positive} | {t.false_positive} | "
-            f"{t.true_negative} | {t.false_negative} | {t.unknown} | {prec_str} | {rec_str} |"
-        )
+        recall = t.true_positive / (t.true_positive + t.false_negative) if (t.true_positive + t.false_negative) > 0 else None
+        q_mean = sum(t.q_scores) / len(t.q_scores) if t.q_scores else 0
+        tiers.append({
+            "tier": name,
+            "verdicts": t.verdicts,
+            "true_positive": t.true_positive,
+            "false_positive": t.false_positive,
+            "true_negative": t.true_negative,
+            "false_negative": t.false_negative,
+            "unknown": t.unknown,
+            "precision": precision,
+            "recall": recall,
+            "mean_q": q_mean,
+        })
         total_tp += t.true_positive
         total_fp += t.false_positive
         total_tn += t.true_negative
         total_fn += t.false_negative
 
-    overall_denom = total_tp + total_fp + total_tn + total_fn
-    overall_acc = (total_tp + total_tn) / overall_denom if overall_denom > 0 else 0
-    lines += [
-        "",
-        f"**Overall accuracy** (labelled tokens): {overall_acc:.0%}",
-        "",
-        "## Outcome Distribution",
-        "",
-    ]
-
-    # Outcome label breakdown
-    label_counts: Counter[str] = Counter()
-    for t in stats.values():
         label_counts["bad"] += t.true_positive + t.false_negative
         label_counts["good"] += t.true_negative + t.false_positive
         label_counts["unknown"] += t.unknown
 
-    for label, count in sorted(label_counts.items()):
-        lines.append(f"- **{label}**: {count}")
-
-    lines += [
-        "",
-        "## Calibration Signal",
-        "",
-        "⚠️  Note: deterministic-dog dominated this measurement (LLM Dogs were offline during",
-        "Phase 2.0 run). Q-scores cluster near 0.391 (deterministic-dog WAG boundary).",
-        "LLM Dog calibration requires a fresh measurement run with all Dogs active.",
-        "",
-    ]
-
-    if proposals:
-        lines += ["## Proposed Threshold Adjustments", ""]
-        for k, v in proposals.items():
-            lines.append(f"- `{k}`: {v}")
-    else:
-        lines += ["## Proposed Threshold Adjustments", "", "No adjustments needed based on current data."]
-
-    lines += [
-        "",
-        "## Falsification",
-        "",
-        "**Claim**: calibrated thresholds improve prediction accuracy on held-out set.",
-        "**Test**: Run measurement on next 45-token batch (collected after calibration).",
-        "**Falsify**: If accuracy does not improve by ≥5pp vs baseline, threshold change is noise.",
-        "",
-        "## Next Steps",
-        "",
-        "1. Review threshold proposals with human — apply to `backends.toml` if approved",
-        "2. Re-run measurement with LLM Dogs active (all 3 Dogs voting)",
-        "3. Collect next outcome batch (T+14) for validation",
-    ]
-
-    output_path.write_text("\n".join(lines) + "\n")
-    print(f"[calibration] Report written: {output_path}")
+    overall_denom = total_tp + total_fp + total_tn + total_fn
+    overall_acc = (total_tp + total_tn) / overall_denom if overall_denom > 0 else 0
+    return {
+        "version": "2.1",
+        "input": {
+            "divergence_rows": divergence_count,
+            "outcomes": outcomes_count,
+        },
+        "overall_accuracy": overall_acc,
+        "label_counts": dict(label_counts),
+        "tiers": tiers,
+        "proposals": proposals,
+    }
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -329,10 +289,11 @@ def main() -> None:
     stats     = analyze(divergence_rows, outcomes)
     proposals = propose_adjustments(stats)
 
-    report_path = output_dir / f"calibration_report_{ts}.md"
+    report_payload = build_report_payload(stats, proposals, len(divergence_rows), len(outcomes))
+    report_path = output_dir / f"calibration_report_{ts}.json"
+    report_path.write_text(json.dumps(report_payload, indent=2) + "\n")
+    print(f"[calibration] Report written: {report_path}")
     deltas_path = output_dir / f"calibration_deltas_{ts}.json"
-
-    generate_report(stats, proposals, len(divergence_rows), len(outcomes), report_path)
 
     with open(deltas_path, "w") as f:
         json.dump(proposals, f, indent=2)

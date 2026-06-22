@@ -855,6 +855,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         chain_verified: std::sync::atomic::AtomicBool::new(chain_verified),
         environment: Arc::clone(&environment),
         registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+        registered_services: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
         judge_jobs: Arc::new(api::rest::judge_job::JudgeJobStore::new()),
         system_contract: system_contract.clone(),
         backend_configs: backend_configs.clone(),
@@ -1072,6 +1073,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             shutdown.clone(),
         );
         klog!("[Ring 2] Dog TTL checker started (every 30s)");
+
+        infra::tasks::spawn_service_ttl_checker(Arc::clone(&rest_state), shutdown.clone());
+        klog!("[Ring 2] Service process table TTL reaper started (every 30s)");
 
         infra::tasks::spawn_dog_heartbeat_loop(
             Arc::clone(&rest_state),

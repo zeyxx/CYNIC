@@ -48,7 +48,7 @@ def test_twitter_dog_scoring():
             "expected_verdict": "GROWL",
         },
         {
-            "name": "Established token (healthy)",
+            "name": "Established token (healthy consensus)",
             "tweet": {
                 "tweet_id": "test_3",
                 "text": "BONK is the real Solana dogecoin, major DEX listed, LP locked and verified",
@@ -56,7 +56,7 @@ def test_twitter_dog_scoring():
                 "author_statuses_count": 2000,
                 "engagement_rate": 0.08,
             },
-            "expected_verdict": "HOWL",
+            "expected_verdict": "BARK",  # Low variance = consensus
         },
     ]
 

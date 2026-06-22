@@ -1,0 +1,4 @@
+# CYNIC SSOT policy: service Python packages are code/data/runtime,
+# operational truth and docs must live in docs/ (docs/cynic-python/...)
+*.md
+!.gitignore

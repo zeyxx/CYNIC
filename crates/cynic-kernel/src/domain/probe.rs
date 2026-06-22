@@ -127,7 +127,7 @@ pub struct FleetNodeObservation {
     pub observed: bool,
     /// Provider metadata for future extension.
     #[serde(default)]
-    pub meta: Option<serde_json::Value>,
+    pub meta: Option<std::collections::BTreeMap<String, String>>,
 }
 
 /// Provider status captured by FleetInventoryProbe.

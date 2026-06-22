@@ -56,7 +56,9 @@ if not logger.handlers:
 
 def get_kernel_address() -> str:
     """Get kernel REST address from environment."""
-    addr = os.environ.get("CYNIC_REST_ADDR", "localhost:3030")
+    addr = os.environ.get("CYNIC_REST_ADDR")
+    if not addr:
+        raise RuntimeError("FATAL: CYNIC_REST_ADDR is required (SSOT: set in ~/.cynic-env).")
     if not addr.startswith(("http://", "https://")):
         addr = f"http://{addr}"
     return addr

@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "organ": "discord",
+  "mode": "edge_capture_without_local_kernel_dependency",
+  "principle": "The personal PC should capture and structure low-cost data only. Heavy or annoying inference work is queued durably and consumed by an always-on worker elsewhere.",
+  "local_pc_responsibilities": [
+    "passive_discord_capture",
+    "sqlite_entity_storage",
+    "deterministic_percolator_feed_export",
+    "durable_inference_task_queue"
+  ],
+  "not_local_pc_responsibilities": [
+    "always_on_llm_inference",
+    "night_long_gpu_or_cpu_jobs",
+    "bright_screen_dependent_monitoring",
+    "manual_discord_refresh_loops"
+  ],
+  "queues": {
+    "percolator-bounty": "percolator/ops/infer-queue.jsonl"
+  },
+  "failure_policy": {
+    "personal_workstation_off": "always_on_or_next_available_node_continues_from_sqlite_and_queues",
+    "local_inference_unavailable": "append_tasks_and_continue_deterministic_indexing",
+    "browser_proxy_unavailable": "pipeline_correctness_degrades_but_contract_remains_valid",
+    "kernel_unreachable": "record_unavailable_backend_and_keep_manual_gates"
+  },
+  "consumer_options": [
+    "remote_cynic_kernel",
+    "headless_home_server",
+    "vps_worker",
+    "manual_batch_when_available"
+  ],
+  "sleep_rule": {
+    "personal_pc_kernel_required": false,
+    "personal_pc_screen_required": false,
+    "safe_to_sleep_after_capture": true
+  }
+}

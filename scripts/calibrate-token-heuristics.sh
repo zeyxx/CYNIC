@@ -168,7 +168,7 @@ do_tune() {
     echo "      2. Adjust thresholds based on failing tokens"
     echo "      3. Measure: python measure_against_ground_truth.py"
     echo ""
-    echo "  Manual tuning starts here. See CALIBRATION-ANALYSIS.md for guidance."
+    echo "  Manual tuning starts here. See docs/cynic-python/heuristics/CALIBRATION-ANALYSIS.md for guidance."
     echo ""
 }
 
@@ -231,5 +231,5 @@ case "$PHASE" in
 esac
 
 echo "────────────────────────────────────────────────────────────────────────────"
-echo "Calibration workflow complete. Next steps in CALIBRATION-ANALYSIS.md."
+echo "Calibration workflow complete. Next steps in docs/cynic-python/heuristics/CALIBRATION-ANALYSIS.md."
 echo "────────────────────────────────────────────────────────────────────────────"

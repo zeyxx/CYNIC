@@ -82,5 +82,7 @@ fn event_type_name(event: &KernelEvent) -> &'static str {
         KernelEvent::ContractDelta { .. } => "contract_delta",
         KernelEvent::CrystalShattered { .. } => "crystal_shattered",
         KernelEvent::StorageReconnected => "storage_reconnected",
+        KernelEvent::ServiceRegistered { .. } => "service_registered",
+        KernelEvent::ServiceDown { .. } => "service_down",
     }
 }

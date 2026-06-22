@@ -539,6 +539,38 @@ Response includes `chain_valid` (prev_hash linkage) and `blocks_valid` (SHA-256 
 
 ---
 
+## Services
+
+Service discovery and health tracking.
+
+### GET /services
+
+List all active registered services.
+
+**Response (200):** Array of service objects.
+
+### POST /services/register
+
+Register a new service.
+
+**Request:** `{ "node": "...", "port": N, "role": "...", "tier": N }`
+
+**Response (200):** `{ "service_id": "...", "status": "registered", "ttl_secs": 30 }`
+
+### POST /services/{id}/heartbeat
+
+Keep a registered service alive.
+
+**Response (200):** `{ "service_id": "...", "status": "heartbeat_accepted" }`
+
+### DELETE /services/{id}
+
+Unregister a service explicitly.
+
+**Response (200):** `{ "service_id": "...", "status": "unregistered" }`
+
+---
+
 ## Coordination
 
 Multi-agent file locking and session management.

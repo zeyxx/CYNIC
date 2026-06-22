@@ -125,41 +125,66 @@ class ConvergenceAnalyzer:
 
         return results
 
-    def report(self, metrics: List[ConvergenceMetric]) -> str:
-        """Generate a human-readable convergence report."""
-        lines = [
-            "# Convergence Report",
-            f"Generated: {datetime.now().isoformat()}",
-            "",
-        ]
-
+    def report(self, metrics: List[ConvergenceMetric]) -> Dict:
+        """Generate structured convergence report."""
         if not metrics:
-            lines.append("No metrics to report.")
-            return "\n".join(lines)
+            return {
+                "generated_at": datetime.now().isoformat(),
+                "metrics": [],
+                "summary": {
+                    "improved": 0,
+                    "total": 0,
+                    "improvement_rate": 0,
+                    "target": "improve latency while maintaining quality",
+                },
+            }
 
         # Separate into improved and degraded
         improved = [m for m in metrics if m.improved]
         degraded = [m for m in metrics if not m.improved]
 
-        if improved:
-            lines.append("## Improved Metrics ✓")
-            for m in improved:
-                lines.append(f"- **{m.metric_name}**: {m.before_value:.1f} → {m.after_value:.1f} "
-                           f"({m.delta_percent:+.1f}%)")
+        metric_rows = [
+            {
+                "metric_name": m.metric_name,
+                "before_value": m.before_value,
+                "after_value": m.after_value,
+                "delta_percent": m.delta_percent,
+                "direction": m.direction,
+                "target": m.target,
+                "improved": m.improved,
+            }
+            for m in metrics
+        ]
 
-        if degraded:
-            lines.append("\n## Degraded Metrics ✗")
-            for m in degraded:
-                lines.append(f"- **{m.metric_name}**: {m.before_value:.1f} → {m.after_value:.1f} "
-                           f"({m.delta_percent:+.1f}%)")
-
-        # Summary
-        improvement_rate = len(improved) / len(metrics) if metrics else 0
-        lines.append(f"\n## Summary")
-        lines.append(f"- Metrics improved: {len(improved)}/{len(metrics)} ({improvement_rate:.0%})")
-        lines.append(f"- Target: improve latency while maintaining quality")
-
-        return "\n".join(lines)
+        return {
+            "generated_at": datetime.now().isoformat(),
+            "metrics": metric_rows,
+            "improved_metrics": [m["metric_name"] for m in metric_rows if m["improved"]],
+            "degraded_metrics": [m["metric_name"] for m in metric_rows if not m["improved"]],
+            "summary": {
+                "improved": len(improved),
+                "total": len(metrics),
+                "improvement_rate": len(improved) / len(metrics) if metrics else 0,
+                "target": "improve latency while maintaining quality",
+                "before_run_id": None,
+                "after_run_id": None,
+            },
+            "data_points": [
+                {
+                    "metric_name": m.metric_name,
+                    "value": m.before_value,
+                    "kind": "before",
+                }
+                for m in metrics
+            ] + [
+                {
+                    "metric_name": m.metric_name,
+                    "value": m.after_value,
+                    "kind": "after",
+                }
+                for m in metrics
+            ],
+        }
 
 
 if __name__ == "__main__":
@@ -180,11 +205,14 @@ if __name__ == "__main__":
     metrics = analyzer.measure_impact(before_id, after_id)
 
     report = analyzer.report(metrics)
-    logger.info(f"\n{report}")
+    logger.info(f"\n{json.dumps(report, indent=2)}")
 
     # Save report
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_file = f"observations/convergence-{timestamp}.md"
+    report["summary"]["before_run_id"] = before_id
+    report["summary"]["after_run_id"] = after_id
+
+    report_file = f"observations/convergence-{timestamp}.json"
     with open(report_file, "w") as f:
-        f.write(report)
+        json.dump(report, f, indent=2)
     logger.info(f"✅ Report saved to {report_file}")

@@ -1,0 +1,64 @@
+{
+  "schema_version": "1.0.0",
+  "organ": "discord",
+  "suborgan": "discord-proxy-control",
+  "purpose": "Control the lifecycle of passive Discord proxy capture without breaking the primary browser.",
+  "states": {
+    "off": {
+      "description": "System/browser traffic is not routed through mitmproxy.",
+      "safe": true
+    },
+    "observe_ready": {
+      "description": "mitmproxy service is listening locally, but no browser is forced through it.",
+      "safe": true
+    },
+    "cert_ready": {
+      "description": "mitmproxy CA is installed/trusted for the browser trust store.",
+      "safe": true
+    },
+    "browser_attached": {
+      "description": "A browser or proxy policy is routing selected traffic through mitmproxy.",
+      "safe": "conditional"
+    },
+    "discord_authenticated": {
+      "description": "Discord session is authenticated before capture-sensitive routes are proxied.",
+      "safe": "conditional"
+    },
+    "capture_active": {
+      "description": "Allowlisted Discord surfaces are producing raw_events/messages in SQLite.",
+      "safe": "conditional"
+    },
+    "degraded": {
+      "description": "Proxy is running but no Discord traffic or DB writes are observed.",
+      "safe": false
+    },
+    "blocked": {
+      "description": "Proxy interferes with login, TLS, websocket, or primary browser usability.",
+      "safe": false
+    }
+  },
+  "required_invariants": [
+    "do_not_proxy_primary_browser_globally_without_ttl_and_rollback",
+    "do_not_intercept_discord_login_until_cert_ready_and_session_exists",
+    "prefer_pac_or_browser_specific_proxy_over_global_system_proxy",
+    "prefer_http_served_pac_over_file_url_pac_for_chrome_managed_policy",
+    "raw_storage_remains_disabled_by_default",
+    "rollback_must_be_available_before_activation",
+    "capture_active_requires_recent_raw_events_or_messages"
+  ],
+  "recommended_flow": [
+    "start_or_confirm_mitmproxy_service",
+    "run_proxy_preflight",
+    "install_or_verify_certificate",
+    "authenticate_discord_without_proxy_if_needed",
+    "attach_browser_with_pac_or_dedicated_policy",
+    "open_allowlisted_channel",
+    "confirm_raw_events_or_messages",
+    "run_intent_watchers",
+    "rollback_or_detach_proxy"
+  ],
+  "rollback": {
+    "primary": "CYNIC/organs/discord/bin/proxy-rollback.sh",
+    "secondary": "CYNIC/organs/discord/bin/proxy-off.sh"
+  }
+}

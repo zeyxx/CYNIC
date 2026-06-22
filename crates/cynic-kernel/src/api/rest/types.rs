@@ -172,6 +172,11 @@ pub struct AppState {
     /// Config-based Dogs are permanent and not tracked here.
     /// RwLock: read on every heartbeat, write on register/expire.
     pub registered_dogs: Arc<std::sync::RwLock<HashMap<String, RegisteredDog>>>,
+    /// OS-level service process table — tracks all registered organism services.
+    /// Services announce via POST /services/register; TTL-evicted on silence.
+    /// This is the kernel's equivalent of /proc — desired state = registry.json,
+    /// observed state = this map. Delta = what's missing or unknown.
+    pub registered_services: Arc<std::sync::RwLock<HashMap<String, RegisteredService>>>,
     /// D4: In-memory store for async judge jobs — progressive Dog arrival polling.
     pub judge_jobs: Arc<JudgeJobStore>,
     /// Self-model: expected system state loaded from backends.toml at boot.
@@ -516,6 +521,79 @@ pub struct RegisterDogResponse {
 pub struct RegisteredDog {
     pub registered_at: std::time::Instant,
     pub last_heartbeat: std::time::Instant,
+    pub ttl_secs: u64,
+}
+
+/// OS-level service entry — organism process table row.
+/// Every running service registers here on startup and heartbeats to stay visible.
+/// TTL: 120s default. Missing heartbeat = ServiceDown event + eviction.
+#[derive(Debug, Clone)]
+pub struct RegisteredService {
+    /// Unique service identifier — matches systemd unit name (without .service).
+    pub service_id: String,
+    /// Infrastructure tier: 0=kernel/storage, 1=nervous system, 2=organs, 3=secondary, 4=ui.
+    pub tier: u8,
+    /// Node where this service runs (matches registry.json node name).
+    pub node: String,
+    /// Declared capabilities — what this service can do (observe, claim, poll_tasks, etc.).
+    pub capabilities: Vec<String>,
+    /// Git SHA or semver at registration time — for drift detection.
+    pub version: Option<String>,
+    pub registered_at: std::time::Instant,
+    pub last_heartbeat: std::time::Instant,
+    /// TTL seconds — service must heartbeat within this window or it's evicted.
+    pub ttl_secs: u64,
+}
+
+// ── SERVICE API TYPES ─────────────────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+pub struct RegisterServiceRequest {
+    /// Unique service ID (e.g. "hermes-agent-executor", "organ-gasdf").
+    pub service_id: String,
+    /// Infrastructure tier 0-4.
+    pub tier: u8,
+    /// Node name from registry.json (e.g. "cynic-host-cortex", "cynic-vm-anvil").
+    pub node: String,
+    /// Declared capabilities (e.g. ["observe", "claim", "poll_tasks"]).
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    /// Optional version/git-sha for drift detection.
+    pub version: Option<String>,
+    /// Requested TTL in seconds (default: 120).
+    pub ttl_secs: Option<u64>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct RegisterServiceResponse {
+    pub service_id: String,
+    pub status: String,
+    pub ttl_secs: u64,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct ServiceHeartbeatResponse {
+    pub service_id: String,
+    pub status: String,
+    pub ttl_remaining_secs: u64,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct ServiceUnregisterResponse {
+    pub service_id: String,
+    pub status: String,
+}
+
+/// Snapshot of a registered service — returned by GET /services.
+#[derive(Debug, serde::Serialize)]
+pub struct ServiceSnapshot {
+    pub service_id: String,
+    pub tier: u8,
+    pub node: String,
+    pub capabilities: Vec<String>,
+    pub version: Option<String>,
+    pub uptime_secs: u64,
+    pub last_heartbeat_secs_ago: u64,
     pub ttl_secs: u64,
 }
 

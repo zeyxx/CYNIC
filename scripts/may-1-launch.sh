@@ -19,43 +19,67 @@ VERDICT_COUNT=$(jq length ~/.cynic/organs/hermes/x/verdicts_to_post.json 2>/dev/
 echo "✓ Generated $VERDICT_COUNT verdicts ready for posting"
 echo ""
 
-# 2. Create observation log
+# 2. Create observation log (JSON canonical format)
 echo "[2] Creating observation framework..."
 mkdir -p .cynic/may-1-10-experiment
-cat > .cynic/may-1-10-experiment/OBSERVATION_LOG.md << 'EOF'
-# CYNIC May 1-10 Observation Log
-
-**Hypothesis:** Coherent frequency across three voices (personal T., @CynicOracle, Telegram) establishes signal in noise.
-
-**Voices:**
-1. Personal T. (human, dataset tweets)
-2. @CynicOracle (organism prophecy, verdicts)
-3. Telegram bot (interactive witness, /judge queries)
-
-**Daily log (update evening):**
-
-## May 1
-- [ ] @CynicOracle philosophy thread posted (time: ___)
-- [ ] T. personal tweet posted (time: ___, engagement: ___)
-- [ ] Telegram bot deployed (time: ___)
-- Notes: ___
-
-## May 2-10
-(repeating structure)
-
-**Weekly analysis:**
-
-### Week 1 (May 1-7)
-- Which voice got most engagement? (Twitter/Telegram/personal)
-- What did people ask CYNIC to judge?
-- Which verdicts resonated most?
-- Coherence signal: voices reinforced each other? (Y/N)
-
-### Week 2 (May 8-10)
-- Truth check: Do Week 1 verdicts hold in Week 2 data?
-- Final analysis: What did coherent frequency reveal?
-
-EOF
+cat > .cynic/may-1-10-experiment/observation_log.json << 'EOF_OBS'
+{
+  "experiment": "CYNIC May 1-10 Launch",
+  "hypothesis": "Coherent frequency across three voices establishes signal in noise.",
+  "voices": [
+    "Personal T. (human, dataset tweets)",
+    "@CynicOracle (organism prophecy, verdicts)",
+    "Telegram bot (interactive witness, /judge queries)"
+  ],
+  "runbook": {
+    "date_range": "May 1-10",
+    "daily": [
+      {
+        "day": "May 1",
+        "actions": [
+          {
+            "label": "@CynicOracle philosophy thread posted",
+            "done": false,
+            "time": null,
+            "engagement": null
+          },
+          {
+            "label": "Personal T. tweet posted",
+            "done": false,
+            "time": null,
+            "engagement": null
+          },
+          {
+            "label": "Telegram bot deployed",
+            "done": false,
+            "time": null,
+            "notes": null
+          }
+        ]
+      }
+    ]
+  },
+  "analysis": {
+    "week_1": {
+      "questions": [
+        "Which voice got most engagement?",
+        "What did people ask CYNIC to judge?",
+        "Which verdicts resonated most?",
+        "Did voices reinforce each other?"
+      ],
+      "answers": {}
+    },
+    "week_2": {
+      "questions": [
+        "Do Week 1 verdicts hold in Week 2 data?",
+        "What did coherent frequency reveal?"
+      ],
+      "answers": {}
+    }
+  },
+  "notes": ""
+}
+EOF_OBS
 echo "✓ Observation framework created at .cynic/may-1-10-experiment/"
 echo ""
 
@@ -68,7 +92,7 @@ echo ""
 # 4. Create Telegram bot skeleton
 echo "[4] Preparing Telegram bot skeleton..."
 mkdir -p cynic-python/agents/telegram_bot
-cat > cynic-python/agents/telegram_bot/bot.py << 'EOF'
+cat > cynic-python/agents/telegram_bot/bot.py << 'EOF_PY'
 #!/usr/bin/env python3
 """CYNIC Telegram Bot — Interactive Witness Voice
 
@@ -108,7 +132,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🐕 CYNIC — Decentralized epistemic consensus\n\n"
         "I judge content across 6 axioms with φ⁻¹ (61.8%) confidence cap.\n\n"
-        "Try: `/judge chess e4` or `/judge token bonk`\n"
+        "Try: `/judge <domain> <content>`\n"
+        "Example: `/judge chess e4`\n"
         "Questions? Check: https://github.com/cynic"
     )
 
@@ -149,7 +174,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-EOF
+EOF_PY
 echo "✓ Telegram bot skeleton created at cynic-python/agents/telegram_bot/"
 echo ""
 
@@ -157,14 +182,14 @@ echo ""
 echo "=== SETUP COMPLETE ==="
 echo ""
 echo "✓ Verdicts: $VERDICT_COUNT ready in ~/.cynic/organs/hermes/x/verdicts_to_post.json"
-echo "✓ Observation framework: .cynic/may-1-10-experiment/OBSERVATION_LOG.md"
+echo "✓ Observation framework: .cynic/may-1-10-experiment/observation_log.json"
 echo "✓ Telegram bot skeleton: cynic-python/agents/telegram_bot/bot.py"
 echo ""
 echo "NEXT STEPS (for T., starting May 1):"
 echo "1. Post @CynicOracle philosophy thread (4-6 tweets)"
 echo "2. Share personal insight tweet from datasets"
 echo "3. Deploy Telegram bot (requires: pip install python-telegram-bot)"
-echo "4. Log daily observations (update OBSERVATION_LOG.md evening)"
+echo "4. Log daily observations (update observation_log.json evening)"
 echo "5. Monitor engagement (which voice resonates?)"
 echo ""
 echo "Hypothesis test: Are three voices coherent?"

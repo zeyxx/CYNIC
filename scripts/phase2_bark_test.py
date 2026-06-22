@@ -7,8 +7,30 @@ Tests: Does validate_scores fix allow degenerate outputs through as BARK?
 import json
 import subprocess
 import os
+from urllib.parse import urlparse
 
-CYNIC_REST = os.getenv("CYNIC_REST_ADDR", "http://localhost:3030")
+def _normalize_kernel_addr(raw: str) -> str:
+    raw = (raw or "").strip()
+    if not raw:
+        raise RuntimeError(
+            "CYNIC_REST_ADDR is required (SSOT endpoint, no localhost default)"
+        )
+
+    if not raw.startswith(("http://", "https://")):
+        raw = f"http://{raw}"
+
+    parsed = urlparse(raw)
+    host = parsed.hostname or ""
+    allow_local = os.environ.get("CYNIC_ALLOW_LOCAL_KERNEL", "0") == "1"
+    if host in {"127.0.0.1", "localhost"} and not allow_local:
+        raise RuntimeError(
+            f"SSOT rejected loopback kernel endpoint '{raw}'. Set CYNIC_REST_ADDR to <TAILSCALE_CORE>:3030."
+        )
+
+    return raw.rstrip("/")
+
+
+CYNIC_REST = _normalize_kernel_addr(os.getenv("CYNIC_REST_ADDR", ""))
 CYNIC_KEY = os.getenv("CYNIC_API_KEY", "")
 
 def judge(content, dog_filter=None):

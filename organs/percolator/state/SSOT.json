@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0.0",
+  "organ": "percolator",
+  "source_of_truth": "CYNIC/organs/percolator/desired/percolator-bounty.json",
+  "runbook": "CYNIC/organs/percolator/runbooks/percolator-bounty-ops.json",
+  "controller": "CYNIC/organs/percolator/controllers/reconcile_percolator.py",
+  "manifest": "CYNIC/organs/percolator/MANIFEST.yaml",
+  "generated_views": [
+    "percolator/SSOT.json",
+    "percolator/workspace.json",
+    "percolator/notes/bounty-rules.json",
+    "percolator/notes/audit-plan.json",
+    "percolator/ops/anti-duplicate-protocol.json"
+  ],
+  "work_products": [
+    "percolator/ops/finding-board.json",
+    "percolator/ops/submissions/queue.json",
+    "percolator/audits/_candidates"
+  ],
+  "runtime_inputs": [
+    "percolator/ops/researcher-feed.json",
+    "percolator/ops/dedupe-brief.json",
+    "percolator/ops/infer-queue.jsonl"
+  ],
+  "upstream_repositories": [
+    "percolator/upstream/percolator-prog",
+    "percolator/upstream/percolator-keeper",
+    "percolator/upstream/percolator-sdk",
+    "percolator/upstream/percolator-launch",
+    "percolator/upstream/percolator-nft",
+    "percolator/upstream/percolator-stake"
+  ],
+  "manual_gates": [
+    "No public issue without human approval.",
+    "No Discord post without human approval.",
+    "No high/critical severity wording without concrete impact proof.",
+    "No submission while duplicate overlap is unresolved.",
+    "No inference output as sole proof."
+  ],
+  "current_submission_state": {
+    "NFT-001": "ready_for_human_review_codeproof_only_issue_88_related_not_exact_duplicate_upstream_history_strengthened",
+    "NFT-002": "rejected_duplicate",
+    "KEEPER-001": "fallback_medium_deployment_dependent",
+    "LAUNCH-002": "rejected_duplicate_of_percolator_launch_2206"
+  },
+  "rule": "Percolator owns bounty workflow state. Discord is an observation source. GitHub issues are duplicate and submission evidence. Public submission remains manual."
+}

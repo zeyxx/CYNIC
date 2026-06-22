@@ -5,6 +5,17 @@ set -euo pipefail
 MODE="${1:-truth}"
 
 source ~/.cynic-env 2>/dev/null || true
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
+KERNEL_REST_ADDR="$(cynic_kernel_rest_url)"
+KERNEL_REST_HOSTPORT="${KERNEL_REST_ADDR#http://}"
+KERNEL_REST_HOSTPORT="${KERNEL_REST_HOSTPORT#https://}"
+KERNEL_REST_HOSTPORT="${KERNEL_REST_HOSTPORT%%/*}"
+if [[ "$KERNEL_REST_HOSTPORT" == *:* ]]; then
+    KERNEL_REST_EXPECT="${KERNEL_REST_HOSTPORT}"
+else
+    KERNEL_REST_EXPECT="${KERNEL_REST_HOSTPORT}:3030"
+fi
 
 PROJECT_DIR="${PROJECT_DIR_OVERRIDE:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 UNIT_DIR="${UNIT_DIR_OVERRIDE:-$PROJECT_DIR/infra/systemd}"
@@ -356,7 +367,7 @@ run_check_mode() {
     warn_minimal_profile "$kernel_unit" "cynic-kernel.service"
     warn_minimal_profile "$surreal_unit" "surrealdb.service"
 
-    check_service_runtime "cynic-kernel" "cynic-kernel" "cynic-kernel" "${CYNIC_REST_ADDR:-127.0.0.1:3030}"
+    check_service_runtime "cynic-kernel" "cynic-kernel" "cynic-kernel" "${KERNEL_REST_EXPECT:-3030}"
     check_service_runtime "surrealdb" "surrealdb" "surreal" "127.0.0.1:8000"
     check_service_runtime "llama-server" "llama-server" "llama-server" "127.0.0.1:8080"
     check_oneshot_service_not_failed "cynic-healthcheck" "cynic-healthcheck"
@@ -380,7 +391,7 @@ case "$MODE" in
     truth)
         echo "CYNIC Runtime Truth"
         echo "═══════════════════"
-        print_truth "cynic-kernel" "kernel-api" "cynic-kernel" "cynic-kernel" "${CYNIC_REST_ADDR:-127.0.0.1:3030}"
+        print_truth "cynic-kernel" "kernel-api" "cynic-kernel" "cynic-kernel" "${KERNEL_REST_EXPECT:-3030}"
         print_truth "surrealdb" "storage" "surrealdb" "surreal" "127.0.0.1:8000"
         print_truth "llama-server" "inference-backend" "llama-server" "llama-server" "127.0.0.1:8080"
         print_truth "embedding-backend" "embedding" "" "llama-server" "127.0.0.1:8081"

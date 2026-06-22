@@ -3,14 +3,16 @@
 
 Tier 2 INFRASTRUCTURE: Aggregates MANIFEST.yaml files into a unified topology view.
 
-K15 Consumer: session-init.sh injects TOPOLOGY.md at session start.
+K15 Consumer: session-init.sh injects topology output where needed.
               make lint-topology verifies MANIFESTs vs live state.
 
 Usage:
-    python3 scripts/topology.py              # render TOPOLOGY.md
+    python3 scripts/topology.py                        # print topology.json to stdout
+    python3 scripts/topology.py --md                  # print TOPOLOGY markdown to stdout
     python3 scripts/topology.py --verify     # render + verify vs live state
     python3 scripts/topology.py --graph      # print producer→consumer graph
     python3 scripts/topology.py --json       # output topology.json (machine-readable)
+    python3 scripts/topology.py --output TOPOLOGY.md  # write markdown output to TOPOLOGY.md
 """
 
 from __future__ import annotations
@@ -389,8 +391,14 @@ def main() -> int:
     parser.add_argument("--verify", action="store_true", help="Verify MANIFESTs vs live state")
     parser.add_argument("--graph", action="store_true", help="Print producer→consumer graph")
     parser.add_argument("--json", action="store_true", help="Output topology.json")
+    parser.add_argument("--md", action="store_true", help="Output TOPOLOGY markdown")
     parser.add_argument("--root", type=str, default=None, help="Project root (default: git toplevel)")
-    parser.add_argument("--output", type=str, default=None, help="Output file path (default: stdout for --json/--graph, TOPOLOGY.md for default)")
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output file path (default: stdout for --json/--graph/default, use this with --md for TOPOLOGY.md export)",
+    )
     args = parser.parse_args()
 
     # Determine project root
@@ -438,7 +446,7 @@ def main() -> int:
         print(f"Verification: {error_count} errors, {warn_count} warnings", file=sys.stderr)
 
     # Render
-    if args.json:
+    if args.json or (not args.json and not args.graph and not args.md):
         output = render_topology_json(manifests, all_issues, graph)
         if args.output:
             Path(args.output).write_text(output)
@@ -448,11 +456,14 @@ def main() -> int:
     elif args.graph:
         for edge in graph:
             print(f"  {edge['from']} -> {edge['to']}  (via {edge['via']})")
-    else:
+    elif args.md:
         md = render_topology_md(manifests, all_issues, graph)
-        output_path = Path(args.output) if args.output else root / "TOPOLOGY.md"
-        output_path.write_text(md)
-        print(f"Written to {output_path}", file=sys.stderr)
+        if args.output:
+            output_path = Path(args.output)
+            output_path.write_text(md)
+            print(f"Written to {output_path}", file=sys.stderr)
+        else:
+            print(md)
 
     # Exit code: 1 if verify found errors
     if args.verify and any(i.get("severity") == "error" for i in all_issues):

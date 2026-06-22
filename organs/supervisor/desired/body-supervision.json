@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0.0",
+  "organ": "supervisor",
+  "source_of_truth": "CYNIC/organs/supervisor/desired/body-supervision.json",
+  "mission": "Keep CYNIC from adding organs onto an unstable body by turning audit facts into explicit guard decisions and repair queues.",
+  "authority": {
+    "can_block_new_organs": true,
+    "can_mark_organs_untrusted": true,
+    "can_enqueue_repair_work": true,
+    "can_start_services": false,
+    "can_submit_external_reports": false,
+    "can_post_to_discord": false
+  },
+  "inputs": {
+    "contract_audit": "CYNIC/organs/organ-contract-audit.json",
+    "runtime_health": "CYNIC/organs/state/body-health.json"
+  },
+  "outputs": {
+    "supervision_state": "CYNIC/organs/supervisor/state/supervision.json",
+    "action_queue": "CYNIC/organs/supervisor/state/action-queue.jsonl"
+  },
+  "trust_model": {
+    "declared": "A directory or manifest exists, but the body must not rely on it.",
+    "wired": "Desired state, runbook, controller, and SSOT exist.",
+    "alive": "Declared runtime outputs exist and are fresh or warm.",
+    "useful": "The organ produces downstream work products consumed by another organ or operator.",
+    "trusted": "The organ is wired, alive, useful, and has explicit manual gates for dangerous actions."
+  },
+  "guard_rules": [
+    {
+      "id": "no_new_sibling_over_unhealthy_owner",
+      "severity": "hard",
+      "rule": "Do not create a new organ when an existing organ owns the domain but is missing contract or runtime evidence."
+    },
+    {
+      "id": "production_requires_runtime",
+      "severity": "hard",
+      "rule": "Do not treat production_organ as trusted unless runtime_status is live or warm."
+    },
+    {
+      "id": "manifest_only_is_not_autonomy",
+      "severity": "hard",
+      "rule": "Manifest-only organs are declarations, not autonomous body parts."
+    },
+    {
+      "id": "kernel_offline_is_not_failure",
+      "severity": "medium",
+      "rule": "Personal workstation kernel downtime must degrade to durable queues, not stop edge capture or bounty workflow."
+    },
+    {
+      "id": "human_gate_for_public_actions",
+      "severity": "hard",
+      "rule": "No GitHub issue, PR, Discord post, or external claim can be made without explicit human approval."
+    }
+  ],
+  "repair_priority": [
+    "discord",
+    "percolator",
+    "forge",
+    "docker",
+    "vercel",
+    "twitter",
+    "telegram",
+    "jupyter",
+    "kanban-ui",
+    "reflection"
+  ]
+}

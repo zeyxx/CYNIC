@@ -152,13 +152,13 @@ if __name__ == "__main__":
     dog = TwitterDog()
     dataset_path = DATASET
 
-    print("Scoring first 10 tweets with Twitter-Dog...")
+    print("Scoring first 10 tweets with Twitter-Dog (VARIANCE PARADIGM)...")
     print("-" * 80)
-    print(f"{'Tweet ID':<20} {'Signal':<8} {'Q-Score':<10} {'Verdict':<10}")
+    print(f"{'Tweet ID':<20} {'Signal':<8} {'Variance':<10} {'Friction':<10}")
     print("-" * 80)
 
     verdicts = dog.judge_from_dataset(dataset_path, limit=10)
 
     for tweet_id, verdict in verdicts:
-        verdict_type = "HOWL" if verdict.q_score > 0.528 else "GROWL" if verdict.q_score > 0.382 else "BARK"
-        print(f"{tweet_id:<20} {' ':<8} {verdict.q_score:.3f}     {verdict_type:<10}")
+        friction_type = "HOWL" if verdict.q_score > 0.528 else "GROWL" if verdict.q_score > 0.382 else "BARK"
+        print(f"{tweet_id:<20} {' ':<8} {verdict.q_score:.3f}     {friction_type:<10}")

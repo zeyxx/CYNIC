@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 import urllib.error
 import urllib.request
@@ -17,7 +18,9 @@ import urllib.request
 def _normalize_url(raw: str) -> str:
     raw = raw.strip()
     if not raw:
-        raise ValueError("kernel rest address is required")
+        raise ValueError(
+            "CYNIC_REST_ADDR is required (or pass --kernel-url) for kernel dispatch"
+        )
     if raw.startswith(("http://", "https://")):
         return raw.rstrip("/")
     return f"http://{raw.rstrip('/')}"
@@ -80,7 +83,10 @@ def _poll_completed(base_url: str, api_key: str, kind: str, domain: str, task_id
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--kernel-url", default="127.0.0.1:3030")
+    parser.add_argument(
+        "--kernel-url",
+        default=os.environ.get("CYNIC_REST_ADDR", ""),
+    )
     parser.add_argument("--api-key", required=True)
     parser.add_argument("--project-root", required=True)
     parser.add_argument("--command", required=True)
@@ -90,6 +96,8 @@ def main() -> int:
     parser.add_argument("--timeout", default=900, type=int)
 
     args = parser.parse_args()
+    if not args.kernel_url:
+        raise SystemExit("CYNIC_REST_ADDR is required for kyon-kernel-build-task")
 
     base_url = _normalize_url(args.kernel_url)
 

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "organ": "supervisor",
+  "source_of_truth": "CYNIC/organs/supervisor/state/SSOT.json",
+  "desired_state": "CYNIC/organs/supervisor/desired/body-supervision.json",
+  "runbook": "CYNIC/organs/supervisor/runbooks/body-supervision-ops.json",
+  "controllers": [
+    "CYNIC/organs/supervisor/controllers/supervise_body.py"
+  ],
+  "runtime_inputs": [
+    "CYNIC/organs/organ-contract-audit.json",
+    "CYNIC/organs/state/body-health.json"
+  ],
+  "runtime_outputs": [
+    "CYNIC/organs/supervisor/state/supervision.json",
+    "CYNIC/organs/supervisor/state/action-queue.jsonl"
+  ],
+  "degraded_queue": "CYNIC/organs/supervisor/state/action-queue.jsonl",
+  "heartbeat": {
+    "type": "generated_state_timestamp",
+    "path": "CYNIC/organs/supervisor/state/supervision.json"
+  },
+  "manual_gates": [
+    "no_public_submission_without_human_approval",
+    "no_new_organ_to_bypass_unhealthy_existing_organ"
+  ]
+}

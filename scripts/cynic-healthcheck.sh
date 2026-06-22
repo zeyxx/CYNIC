@@ -10,8 +10,10 @@
 set -euo pipefail
 
 source "${HOME}/.cynic-env" 2>/dev/null || { logger -t cynic-healthcheck -p user.err "FATAL: cannot source ~/.cynic-env"; exit 1; }
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
 
-ADDR="${CYNIC_REST_ADDR:-127.0.0.1:3030}"
+ADDR="$(cynic_kernel_rest_url)"
 STATE_DIR="${HOME}/.local/share/cynic"
 LOG="${STATE_DIR}/healthcheck.log"
 STATE_FILE="${STATE_DIR}/healthcheck.last"

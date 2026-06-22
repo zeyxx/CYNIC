@@ -4,7 +4,10 @@
 
 set -e
 
-CYNIC_REST="${CYNIC_REST_ADDR:-http://localhost:3030}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${HOME}/.cynic-env" 2>/dev/null || true
+source "${SCRIPT_DIR}/cynic-endpoint.sh"
+CYNIC_REST="$(cynic_kernel_rest_url)"
 CYNIC_KEY="${CYNIC_API_KEY}"
 
 echo "=================================================================="

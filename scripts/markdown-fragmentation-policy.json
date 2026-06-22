@@ -1,0 +1,59 @@
+{
+  "special_allowed": [
+    "scripts/README-token-screening.md",
+    "scripts/hermes-x/HERMES_LOGIN_SETUP.md",
+    "organs/*/state/README.md",
+    "organs/*/state/SKILL.md",
+    "apps/kyon-mobile/README.md"
+  ],
+  "canonical_prefixes": [
+    "docs/",
+    "packages/",
+    "crates/",
+    "organs/",
+    "cynic/",
+    ".cortex/",
+    ".cynic/",
+    "data/",
+    ".github/"
+  ],
+  "canonical_patterns": [
+    "organs/*/README.md",
+    "organs/*/SKILL.md",
+    "organs/twitter/*.md",
+    "organs/twitter/src/*.md",
+    "organs/organ-cloud/*.md",
+    "packages/*/README.md",
+    "packages/*/CLAUDE.md",
+    "crates/*/README.md",
+    "crates/*/BENCHMARK_ROUTING.md",
+    "crates/*/domains/*.md",
+    "crates/percolator-cli/*.md",
+    "crates/percolator-cli/DEPLOY_CHECKLIST.md"
+  ],
+  "canonical_roots": [
+    "CLAUDE.md",
+    "AGENTS.md",
+    "CODEX.md",
+    "ANTIGRAVITY.md",
+    "README.md",
+    "CHANGELOG.md",
+    "API.md",
+    "VERSION.md",
+    "TOPOLOGY.md",
+    ".codex/CODEX-PROTOCOL.md",
+    "packages/cynic-ui/CLAUDE.md",
+    "packages/talaria-demo/README.md",
+    "packages/talaria-landing/README.md",
+    "crates/cynic-askesis/README.md",
+    "apps/kyon-mobile/README.md"
+  ],
+  "runtime_prefixes": [
+    "services/",
+    "infra/",
+    "scripts/",
+    "cynic-python/",
+    "apps/",
+    "organs/*/state/"
+  ]
+}

@@ -12,7 +12,7 @@ KYN_BUILD_MODE="${KYN_BUILD_MODE:-auto}"
 KYN_KERNEL_TASK_KIND="${KYN_KERNEL_TASK_KIND:-kyon}"
 KYN_KERNEL_TASK_DOMAIN="${KYN_KERNEL_TASK_DOMAIN:-kyon-mobile}"
 KYN_KERNEL_TASK_TIMEOUT="${KYN_KERNEL_TASK_TIMEOUT:-900}"
-KYN_KERNEL_REST_ADDR="${KYN_KERNEL_REST_ADDR:-${CYNIC_REST_ADDR:-127.0.0.1:3030}}"
+KYN_KERNEL_REST_ADDR="${KYN_KERNEL_REST_ADDR:-${CYNIC_REST_ADDR:-}}"
 APK_REL_PATH="app/build/outputs/apk/debug/app-debug.apk"
 APK_LOCAL_PATH="$APP_DIR/$APK_REL_PATH"
 
@@ -263,6 +263,11 @@ if [[ "$KYN_BUILD_MODE" == "auto" ]]; then
     else
         KYN_BUILD_MODE="local"
     fi
+fi
+
+if [[ "$KYN_BUILD_MODE" == "kernel" && -z "${KYN_KERNEL_REST_ADDR:-}" ]]; then
+    echo "Cannot run kernel mode without CYNIC_REST_ADDR (or KYN_KERNEL_REST_ADDR)." >&2
+    exit 1
 fi
 
 case "$KYN_BUILD_MODE" in

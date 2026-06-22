@@ -37,7 +37,10 @@ def main():
         logger.error("CYNIC_REST_ADDR not set in environment.")
         sys.exit(1)
 
-    kernel_auth_key = os.environ.get("CYNIC_API_KEY", "")
+    # Auth: prefer Role::Organ key (CYNIC_ORGAN_KEY), fallback to legacy CYNIC_API_KEY.
+    # Role::Organ is the correct role for daemons — can observe + claim, cannot judge.
+    kernel_auth_key = os.environ.get("CYNIC_ORGAN_KEY") or os.environ.get("CYNIC_API_KEY", "")
+
     domain_allowlist = _csv_env("HERMES_AGENT_DOMAIN_ALLOW")
     kind_allowlist = _csv_env("HERMES_AGENT_KIND_ALLOW")
     domain_denylist = _csv_env("HERMES_AGENT_DOMAIN_DENY")
@@ -50,17 +53,31 @@ def main():
         kind_allowlist=kind_allowlist,
         domain_denylist=domain_denylist
     )
-    
+
     executor = HermesKanbanAdapter()
-    
+
+    # OS service identity — must match infra/registry.json entry.
+    # Injected by systemd unit via Environment= or EnvironmentFile=.
+    service_id   = os.environ.get("CYNIC_SERVICE_ID", "hermes-agent-executor")
+    tier         = int(os.environ.get("CYNIC_TIER", "2"))
+    node         = os.environ.get("CYNIC_NODE", "unknown")
+    version      = os.environ.get("CYNIC_VERSION")
+    capabilities = [c.strip() for c in os.environ.get("CYNIC_CAPABILITIES", "observe,claim,poll_tasks").split(",") if c.strip()]
+
     lifecycle = OuroborosLifecycle(
         kernel=kernel,
         executor=executor,
         organ_dir=organ_dir,
-        interval=args.interval
+        interval=args.interval,
+        service_id=service_id,
+        tier=tier,
+        node=node,
+        capabilities=capabilities,
+        version=version,
     )
-    
+
     lifecycle.start()
+
 
 if __name__ == "__main__":
     main()

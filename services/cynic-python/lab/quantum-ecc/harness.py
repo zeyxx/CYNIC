@@ -34,7 +34,8 @@ LEVER_PRIORITY = [
 
 def load_lever_descriptions() -> dict[str, str]:
     """Parse levers.md into {lever_name: description} dict."""
-    levers_md = Path(__file__).parent / "levers.md"
+    project_root = Path(__file__).resolve().parents[3]
+    levers_md = project_root / "docs" / "cynic-python" / "lab" / "quantum-ecc" / "levers.md"
     content = levers_md.read_text()
     descriptions: dict[str, str] = {}
     current_name: str | None = None

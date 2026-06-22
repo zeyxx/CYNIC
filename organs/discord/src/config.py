@@ -24,6 +24,9 @@ class DiscordConfig:
     db_path: str = str(_DEFAULT_ORGAN_DIR / "messages.db")
     heartbeat_interval_seconds: int = 300
     allowed_channel_ids: list[int] = field(default_factory=list)
+    capture_all_discord_metadata: bool = True
+    store_raw_events: bool = False
+    raw_event_allowlist: list[str] = field(default_factory=list)
     retention: RetentionConfig = field(default_factory=RetentionConfig)
 
     kernel_url: str = ""
@@ -65,6 +68,12 @@ def load_config(yaml_path: str) -> DiscordConfig:
         if "heartbeat_interval_seconds" in data:
             cfg.heartbeat_interval_seconds = int(data["heartbeat_interval_seconds"])
         cfg.allowed_channel_ids = _ids(data.get("allowed_channel_ids", []))
+        cfg.capture_all_discord_metadata = bool(
+            data.get("capture_all_discord_metadata", cfg.capture_all_discord_metadata)
+        )
+        cfg.store_raw_events = bool(data.get("store_raw_events", cfg.store_raw_events))
+        if isinstance(data.get("raw_event_allowlist"), list):
+            cfg.raw_event_allowlist = [str(item) for item in data["raw_event_allowlist"]]
         if "retention" in data and isinstance(data["retention"], dict):
             cfg.retention = RetentionConfig(
                 raw_days=int(data["retention"].get("raw_days", 90))

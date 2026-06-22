@@ -8,5 +8,12 @@ heartbeat_interval_seconds: 300
 # Empty allowlists mean "ingest nothing" until explicitly configured.
 allowed_channel_ids: []
 
+# Observe Discord endpoint classes globally, but persist according to policy.
+capture_all_discord_metadata: true
+
+# Raw response storage is off by default. Prefer normalized entities.
+store_raw_events: false
+raw_event_allowlist: []
+
 retention:
   raw_days: 90

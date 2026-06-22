@@ -313,10 +313,18 @@ Recommend: Do NOT proceed to Phase 1 until pivot succeeds.
 *Phase 0 audit: Tier 1 EXPERIMENTAL. Death date: 2026-05-22 if not promoted.*
 """
 
-    # Write report
-    report_path = HERMES_X_DIR / "data_audit_report.md"
-    with open(report_path, 'w') as f:
-        f.write(report)
+    # Write report in canonical JSON format
+    report_payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "overall_success": overall_success,
+        "summary_markdown": report,
+        "results": results,
+    }
+
+    report_path = HERMES_X_DIR / "data_audit_report.json"
+    with open(report_path, "w") as f:
+        json.dump(report_payload, f, indent=2)
+        f.write("\n")
 
     logger.info(f"Report written to {report_path}")
     logger.info("=" * 60)

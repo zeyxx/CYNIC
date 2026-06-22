@@ -29,13 +29,27 @@ import time
 import json
 import subprocess
 import logging
+from urllib.parse import urlparse
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any
 
 # Configuration
 ACCOUNT_ID = os.getenv("HERMES_ACCOUNT", "cynic")
-REST_ADDR = os.getenv("CYNIC_REST_ADDR", "http://127.0.0.1:3030")
+def _normalize_kernel_addr(raw: str) -> str:
+    raw = (raw or "").strip()
+    if not raw:
+        return ""
+    if not raw.startswith(("http://", "https://")):
+        raw = f"http://{raw}"
+    parsed = urlparse(raw)
+    host = parsed.hostname or ""
+    if host in {"127.0.0.1", "localhost"} and os.getenv("CYNIC_ALLOW_LOCAL_KERNEL", "0") != "1":
+        return ""
+    return raw.rstrip("/")
+
+
+REST_ADDR = _normalize_kernel_addr(os.getenv("CYNIC_REST_ADDR", ""))
 API_KEY = os.getenv("CYNIC_API_KEY", "")
 CHECK_INTERVAL = int(os.getenv("RECOVERY_CHECK_INTERVAL", "30"))
 from hermes_paths import HERMES_X_DIR as ORGAN_DIR, RECOVERY_LOG
@@ -321,6 +335,11 @@ def run_recovery_cycle():
 def main():
     """Main entry point."""
     logger.info(f"Hermes X Recovery Daemon started for account: {ACCOUNT_ID}")
+    if not REST_ADDR:
+        logger.error(
+            "CYNIC_REST_ADDR is required and must be non-loopback (e.g. <TAILSCALE_CORE>:3030)."
+        )
+        sys.exit(1)
     logger.info(f"Kernel: {REST_ADDR}")
     logger.info(f"Check interval: {CHECK_INTERVAL}s")
 
