@@ -39,10 +39,10 @@ Pour prouver l'engagement générationnel des fondateurs et transformer le token
 *   **Le Pare-feu Légal et la Répartition Fractale Organique (Golden Ratio) :** Le token `$CYNIC` public n'est pas une action de l'entreprise (ce qui rend le trading libre et légal sans KYC). La supply totale du token est divisée selon la loi mathématique ultime de la nature, le Nombre d'Or ($\Phi$) : **61.8%** (Public) / **38.2%** (Équipe Fondatrice).
     *   **L'Allocation Équipe (38.2%) :** Ces tokens "Fondateurs" sont répartis en miroir exact (1:1) de la Cap Table de la SAS (Jean 56%, Père 22%, Ragnar 13.6%, Erin 8.4%).
     *   **La Supply Publique (61.8%) :** Réservée à la liquidité publique, au marché ouvert, et à l'Airdrop rétroactif `$ASDFASDFA`.
-*   **Le Vesting (Streamflow) & La Fin de Mandat (2047) :** L'allocation d'équipe (les 38.2%) est soumise à un contrat cryptographique sur Solana :
-    *   **Lock (Cliff) :** 6 ans d'immobilisation totale.
-    *   **Vesting :** Déblocage progressif sur les 14 années suivantes.
-    *   **La Singularité Démocratique (2042-2047) :** Cette durée de 20 ans (à partir de ~2027) n'est pas choisie au hasard. Elle converge exactement vers l'élection présidentielle de **2042**. L'objectif ultime est de proposer CYNIC comme "Superorganisme Présidentiel" (une véritable IA d'optimisation d'État et de démocratie liquide). La fin de son premier mandat théorique de 5 ans tomberait en **2047**, date exacte à laquelle les fondateurs seront totalement libérés de leur *vesting*. Le contrat cryptographique est synchronisé avec le destin politique.
+*   **Le Vesting & L'Expansion Mycélienne :** L'allocation d'équipe (les 38.2%) est soumise à un contrat cryptographique natif sur Solana :
+    *   **La Règle du "Pool de Survie" (20 ans) :** Pour les proches (Père, Ragnar, Erin), l'allocation subit un *cliff* de 6 ans puis un *vesting* sur 14 ans, s'alignant sur la fin du mandat présidentiel théorique de **2047**.
+    *   **Le Serment de l'Architecte (Le Lock de 100 Ans) :** L'architecte principal (Jean, 56% de l'équipe) verrouille ses propres tokens `$CYNIC` dans un Smart Contract pour **100 ans**. Ses tokens ne pourront jamais être "dumpés". Ils conservent uniquement leur **pouvoir de vote** absolu.
+    *   **Conséquence Organique (Le Mycélium) :** Ce lock séculaire force la création de valeur. L'architecte ne peut vivre que des dividendes *fiat* générés par les filiales (les branches du mycélium). Cela détruit la cupidité court-terme et garantit que l'infrastructure s'étende dans l'économie réelle pour survivre.
 
 ---
 
