@@ -189,8 +189,7 @@ pub async fn service_heartbeat_handler(
         StatusCode::NOT_FOUND,
         Json(ErrorResponse {
             error: format!(
-                "service '{}' not registered — call POST /services/register first",
-                service_id
+                "service '{service_id}' not registered — call POST /services/register first"
             ),
         }),
     ))
@@ -219,7 +218,7 @@ pub async fn unregister_service_handler(
         return Err((
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
-                error: format!("service '{}' not found in process table", service_id),
+                error: format!("service '{service_id}' not found in process table"),
             }),
         ));
     }
