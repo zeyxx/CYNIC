@@ -58,12 +58,22 @@ Data relating to trading volumes, balances, proprietary signals, and economic mo
 In the CYNIC ecosystem, JSON is not just a format; it is the language of the realm.
 - **Inter-Agent Communication:** All reports intended for machine consumption (Handoffs, Audits, Task results) MUST be delivered in JSON.
 - **Signals:** Every extracted signal must adhere to a strict JSON schema.
-- **Datasets:** JSONL (JSON Lines) is the mandatory format for all training data (L1 & L2).
+- **Datasets:** JSONL (JSON Lines) is the mandatory format for all training data and logs.
 - **Mandate:** Human-readable text (Markdown) is for the Sovereign (T.); Machine-readable JSON is for the Cortex (Agents) and the Heart (Kernel).
 
 ---
 
-## 9. THE 5 IMMUTABLE LAWS OF DATA FLOW
+## 9. INDUSTRIAL DATASET LIFECYCLE
+To scale learning safely, datasets must be treated as industrial pipelines, not arbitrary text files.
+- **Raw Layer (`raw/`):** Immutable ingestion layer. Data is stored in `JSONL` exactly as received. It is never modified.
+- **Curated Layer (`curated/`):** The clean layer. Data has passed the Pydantic/Serde membrane. Null values are handled, schemas are enforced.
+- **Features Layer (`features/`):** Tensors, Vectors, and aggregated heuristics ready for machine learning (Dogs).
+- **Lineage (Metadata):** Every curated dataset MUST be accompanied by a `<dataset>.meta.json` containing its schema signature, origin organ, and timestamp.
+- **Mandate:** No dataset is manually forged. Data flows strictly from Raw to Curated via deterministic code.
+
+---
+
+## 10. THE 5 IMMUTABLE LAWS OF DATA FLOW
 To guarantee the homeostasis of the organism and absolute cell isolation, data circulation is governed by these physical laws:
 
 1. **The Law of the Membrane (Validation):** Unstructured data is a virus. Any data entering an Organ MUST cross a strict Pydantic (Python) or Serde (Rust) validation membrane. Raw dictionaries are forbidden.
@@ -74,7 +84,7 @@ To guarantee the homeostasis of the organism and absolute cell isolation, data c
 
 ---
 
-## 10. RISK MITIGATION (Anti-Patterns)
+## 11. RISK MITIGATION (Anti-Patterns)
 The following are considered "Heresies" in the CYNIC Data System:
 - **Cascading Triggers:** Unpredictable side-effects.
 - **Massive CROSS JOIN:** Data explosion leading to resource exhaustion.
@@ -83,7 +93,7 @@ The following are considered "Heresies" in the CYNIC Data System:
 
 ---
 
-## 11. TECHNICAL DATA FRAMEWORK (The Physical Layer)
+## 12. TECHNICAL DATA FRAMEWORK (The Physical Layer)
 While the principles above dictate the philosophy, the physical implementation in CYNIC relies on a strict technical stack. This framework will evolve organically, but currently enforces:
 
 1. **Schema Enforcement (The Membrane): `Pydantic` (Python) & `Serde` (Rust)**
