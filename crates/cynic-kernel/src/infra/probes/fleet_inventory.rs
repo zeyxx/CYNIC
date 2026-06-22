@@ -481,12 +481,12 @@ impl ProxmoxInventoryProvider {
                     ip,
                     desired,
                     observed: true,
-                    meta: Some(serde_json::json!({
-                        "provider": "proxmox",
-                        "vm_type": vm_type,
-                        "provider_node": node_name,
-                        "api": "proxmox",
-                    })),
+                    meta: Some(std::collections::BTreeMap::from([
+                        ("provider".to_string(), "proxmox".to_string()),
+                        ("vm_type".to_string(), vm_type.to_string()),
+                        ("provider_node".to_string(), node_name.to_string()),
+                        ("api".to_string(), "proxmox".to_string()),
+                    ])),
                 })
             })
             .collect())
@@ -620,11 +620,11 @@ impl KubernetesInventoryProvider {
                             ip,
                             desired: false,
                             observed: true,
-                            meta: Some(serde_json::json!({
-                                "provider": "kubernetes",
-                                "api": "kubectl",
-                                "resource": "nodes",
-                            })),
+                            meta: Some(std::collections::BTreeMap::from([
+                                ("provider".to_string(), "kubernetes".to_string()),
+                                ("api".to_string(), "kubectl".to_string()),
+                                ("resource".to_string(), "nodes".to_string()),
+                            ])),
                         })
                     })
                     .collect()
@@ -755,11 +755,11 @@ fn load_declared_inventory(project_root: &Path) -> Vec<FleetNodeObservation> {
             ip,
             desired: true,
             observed: false,
-            meta: Some(serde_json::json!({
-                "source": "registry",
-                "kind": "node",
-                "role": role,
-            })),
+            meta: Some(std::collections::BTreeMap::from([
+                ("source".to_string(), "registry".to_string()),
+                ("kind".to_string(), "node".to_string()),
+                ("role".to_string(), role.to_string()),
+            ])),
         });
 
         if let Some(vms) = node.get("vms").and_then(Value::as_array) {
@@ -792,12 +792,12 @@ fn load_declared_inventory(project_root: &Path) -> Vec<FleetNodeObservation> {
                     ip: vm_ip,
                     desired: true,
                     observed: false,
-                    meta: Some(serde_json::json!({
-                        "source": "registry",
-                        "kind": "vm",
-                        "role": role,
-                        "host": name,
-                    })),
+                    meta: Some(std::collections::BTreeMap::from([
+                        ("source".to_string(), "registry".to_string()),
+                        ("kind".to_string(), "vm".to_string()),
+                        ("role".to_string(), role.to_string()),
+                        ("host".to_string(), name.to_string()),
+                    ])),
                 });
             }
         }
