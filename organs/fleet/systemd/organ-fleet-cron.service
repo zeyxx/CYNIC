@@ -1,0 +1,11 @@
+[Unit]
+Description=Organ Fleet - Monitor Node States
+After=network.target cynic-kernel.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.cynic-env
+ExecStart=/usr/bin/python3 %h/.cynic/repos/CYNIC/organs/fleet/src/monitor.py
+WorkingDirectory=%h/.cynic/repos/CYNIC
+StandardOutput=journal
+StandardError=journal

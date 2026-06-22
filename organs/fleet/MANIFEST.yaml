@@ -1,0 +1,14 @@
+name: organ-fleet
+role: infrastructure_manager
+type: organ
+status: active
+dependencies:
+  - organ-forge
+  - cynic-kernel
+entrypoints:
+  - name: cron
+    type: systemd-timer
+    path: systemd/organ-fleet-cron.timer
+  - name: agent
+    type: systemd-service
+    path: systemd/organ-fleet-hermes-agent.service
