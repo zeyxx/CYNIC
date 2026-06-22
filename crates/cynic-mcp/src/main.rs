@@ -4,7 +4,7 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 fn resolve_rest_addr() -> Result<String, Box<dyn std::error::Error>> {
     let raw_addr = std::env::var("CYNIC_REST_ADDR")
-        .map_err(|_| "CYNIC_REST_ADDR is required by SSOT (no localhost fallback)")?;
+        .map_err(|_err| "CYNIC_REST_ADDR is required by SSOT (no localhost fallback)")?;
 
     if raw_addr.trim().is_empty() {
         return Err("CYNIC_REST_ADDR is empty".into());
