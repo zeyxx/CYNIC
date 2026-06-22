@@ -421,6 +421,31 @@ To formalize the architecture and eradicate ambiguity, all technical components 
 2. **Multidimensional & Multimodal Emergence:** The organism evolves across multiple axes simultaneously (code, infrastructure, cognitive biology, economics). Progress is not linear; it is fractal and multimodal.
 3. **The Fire of Evolution (As Above, So Below):** "Ce qui est en haut est comme ce qui est en bas." To evolve, we must often burn obsolete structures to force a mutation in the DNA (`registry.json`, `AGENTS.md`). Once the DNA mutates at the highest level (the repo), this truth propagates symmetrically down to every cell and organ. Any organ stuck in a legacy paradigm must be incinerated and reforged from the new DNA.
 
+### The Transmutation Protocol (Le Protocole de Transmutation)
+
+When an existing component is discovered to be in an obsolete paradigm (e.g., procedural bash script acting as an organ, monolithic dependency file), the Cortex MUST execute the Transmutation Protocol before extending its features. This is the practical application of the Fire of Evolution.
+
+**Step 1: Isolation (The Membrane)**
+- Create the explicit boundary for the new organ: `organs/<role>/`.
+- If Python, establish a sovereign `uv` workspace or isolated `.venv`. It must not share `pyproject.toml` with other organs unless explicitly designed as a shared Workspace library.
+
+**Step 2: State Purge (The Memory)**
+- Identify all state artifacts (JSON, CSV, logs) currently polluting the codebase.
+- Enforce that the new organ only reads/writes state to its strictly bound `state/` directory (e.g., `organs/<role>/state/`). The code repository must remain stateless.
+
+**Step 3: Hexagonal Refactoring (The Metabolism)**
+- Rewrite the procedural logic into OOP/Hexagonal architecture.
+- **Ports & Adapters:** Separate the core logic from external I/O (Twitter API, File System, Kernel REST).
+- Implement a clear entrypoint (`cli.py` or `__main__.py`) and bind it to a `hermes-agent` daemon if it requires autonomous execution.
+
+**Step 4: Systemd & Deployment Alignment (The Incarnation)**
+- Delete legacy flat scripts from `infra/systemd/user/` and `scripts/`.
+- Write a strictly scoped systemd service (`organ-<role>-hermes-agent.service`) utilizing the correct `Environment` variables (`PYTHONPATH`, `X_ORGAN_DIR`).
+- Map its final execution target (VM vs LXC vs Docker) in `infra/registry.json` following the Virtualization Matrix.
+
+**Step 5: Incineration (The Fire)**
+- Delete the old scripts and monolith paths. Burn the legacy code. Do not leave deprecated files "just in case" (Git is the memory).
+
 ### Organ Naming Convention
 
 1. **Role-based naming** — not arbitrary
