@@ -1,0 +1,112 @@
+{
+  "phase": 2,
+  "timestamp": "2026-05-01T18:34:07.461406",
+  "status": "partial_collection",
+  "humans": [
+    {
+      "wallet": "71mUpCH9FzB3zqdFy1Picwjs2Zr94vNX4NST8xqJLJz9",
+      "token_source": "USDC (largest holder)",
+      "portfolio_value": 383.43,
+      "token_count": 10,
+      "pattern": "Diverse, legitimate DeFi tokens (DeepCat, DeFAI, SOLITO)",
+      "classification": "HUMAN"
+    },
+    {
+      "wallet": "EKFXPqGVdNZmhSsp143XjqBqnEXsauPVWf3o4VeF9BVJ",
+      "token_source": "USDC (2nd holder)",
+      "portfolio_value": 237.95,
+      "token_count": 2,
+      "pattern": "Clean: SOL + USDC only",
+      "classification": "HUMAN"
+    },
+    {
+      "wallet": "2ourmXAdU2YrW9n1YgFnL3dShaDoQ1qesTySd9bgejPZ",
+      "token_source": "USDC (3rd holder)",
+      "portfolio_value": 2051.16,
+      "token_count": 5,
+      "pattern": "Diverse: SOL, USDC, USDT, Cecil, Ozempic",
+      "classification": "HUMAN"
+    },
+    {
+      "wallet": "FRPPBdG4sYCH7EnTMeKFSVLsfzfEUo4PQ1wWCUkzzmuv",
+      "token_source": "USDC (6th holder)",
+      "portfolio_value": 2.31,
+      "token_count": 2,
+      "pattern": "Minimal dust: SOL + USDC",
+      "classification": "HUMAN"
+    },
+    {
+      "wallet": "GwWJae7Un58mnjB8VVuJg66G17dJvknfmP9Wor7C1hxB",
+      "token_source": "USDC (7th holder)",
+      "portfolio_value": 1.36,
+      "token_count": 1,
+      "pattern": "Single token: USDC only",
+      "classification": "HUMAN"
+    },
+    {
+      "wallet": "CZPrEWviXykGWfeGTkcEL35MsWmXRLsP9rHrumCMihJf",
+      "token_source": "USDC (9th holder)",
+      "portfolio_value": 1.1,
+      "token_count": 1,
+      "pattern": "Single token: USDC only",
+      "classification": "HUMAN"
+    },
+    {
+      "wallet": "HJNr4feTNiDn59RCL1pYoARXMFoBEQSmAY7R7Cm21z9T",
+      "token_source": "USDC (10th holder)",
+      "portfolio_value": 2.27,
+      "token_count": 3,
+      "pattern": "Diverse: SOL + USDC + GST",
+      "classification": "HUMAN"
+    },
+    {
+      "wallet": "FhS4hgoMRjScJGCt9dgHjRZerXu6Vdeyt8nGkYRyrMhT",
+      "token_source": "USDC (12th holder)",
+      "portfolio_value": 0.08,
+      "token_count": 1,
+      "pattern": "Dust: USDC only",
+      "classification": "HUMAN"
+    },
+    {
+      "wallet": "FesXyaoCAoGiKvAXQ5Fsn7D3ToBA9FasZAF1w3FrhA6o",
+      "token_source": "USDC (13th holder)",
+      "portfolio_value": 0.29,
+      "token_count": 2,
+      "pattern": "Dust: GST + USDC",
+      "classification": "HUMAN"
+    },
+    {
+      "wallet": "6RhNocVMe6nX3AEP1NWr8mU36eh3HpwvTRkHz6esfKed",
+      "token_source": "USDC (14th holder)",
+      "portfolio_value": 0.5,
+      "token_count": 2,
+      "pattern": "Dust: SOL + USDC",
+      "classification": "HUMAN"
+    }
+  ],
+  "sybils": [
+    {
+      "wallet": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM",
+      "token_source": "USDC (4th holder)",
+      "portfolio_value": 410.86,
+      "token_count": 150,
+      "pattern": "EXTREME: 1B+ quantities of spam tokens (ChatGPT, PORNHUB, TikTok, WienerAI, etc)",
+      "classification": "SYBIL"
+    },
+    {
+      "wallet": "APW79zQ2iG9FjkSgMR1GCY2WBcMLRUeNJtYzPJA1uW4C",
+      "token_source": "USDC (11th holder)",
+      "portfolio_value": 41.82,
+      "token_count": 10,
+      "pattern": "Token farm: 92M BK, 89M JUPDROP, 250 bozo, 576K $CWIF",
+      "classification": "SYBIL"
+    }
+  ],
+  "measurement": {
+    "humans_collected": 10,
+    "sybils_collected": 2,
+    "humans_target": 10,
+    "sybils_target": 10,
+    "next_steps": "Fetch additional sybil wallets from other high-conviction tokens (GROWL, BARK verdicts)"
+  }
+}

@@ -63,7 +63,18 @@ In the CYNIC ecosystem, JSON is not just a format; it is the language of the rea
 
 ---
 
-## 9. RISK MITIGATION (Anti-Patterns)
+## 9. THE 5 IMMUTABLE LAWS OF DATA FLOW
+To guarantee the homeostasis of the organism and absolute cell isolation, data circulation is governed by these physical laws:
+
+1. **The Law of the Membrane (Validation):** Unstructured data is a virus. Any data entering an Organ MUST cross a strict Pydantic (Python) or Serde (Rust) validation membrane. Raw dictionaries are forbidden.
+2. **The Law of State Isolation:** An organ is strictly forbidden from reading the `state/` directory of another organ. State is private. If an organ needs external data, it must fetch it via the Central Nervous System (Kernel Mempool or SurrealDB).
+3. **The Law of Proof-of-History (Ouroboros):** Local organ memory is Append-Only (`.jsonl`). An organ may never overwrite its past observations, ensuring a perfect, cryptographically verifiable timeline.
+4. **The Law of Asymmetric Intelligence:** 1 Dog = 1 SOT. LLMs are the most expensive resource; they are used strictly for judgment and heuristic synthesis. Never burn GPU cycles for data retrieval if a deterministic SQL or API call can answer the question.
+5. **The Law of Circulation:** Organs do not share Python memory or variables. They communicate exclusively by pushing structured JSON payloads to the Kernel Bus (`/observe` or `/agent-tasks`).
+
+---
+
+## 10. RISK MITIGATION (Anti-Patterns)
 The following are considered "Heresies" in the CYNIC Data System:
 - **Cascading Triggers:** Unpredictable side-effects.
 - **Massive CROSS JOIN:** Data explosion leading to resource exhaustion.
@@ -72,7 +83,7 @@ The following are considered "Heresies" in the CYNIC Data System:
 
 ---
 
-## 10. TECHNICAL DATA FRAMEWORK (The Physical Layer)
+## 11. TECHNICAL DATA FRAMEWORK (The Physical Layer)
 While the principles above dictate the philosophy, the physical implementation in CYNIC relies on a strict technical stack. This framework will evolve organically, but currently enforces:
 
 1. **Schema Enforcement (The Membrane): `Pydantic` (Python) & `Serde` (Rust)**

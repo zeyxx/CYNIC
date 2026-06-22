@@ -1,0 +1,71 @@
+{
+  "phase": 2,
+  "timestamp": "2026-05-01T18:32:22.039094",
+  "tokens": [
+    {
+      "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "verdict": "HOWL"
+    },
+    {
+      "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenEst",
+      "verdict": "HOWL"
+    },
+    {
+      "mint": "So11111111111111111111111111111111111111112g",
+      "verdict": "HOWL"
+    },
+    {
+      "mint": "9n4nbM75f5Ui33ZbPYRq59Mdb3XfqbZTVJ9JSstB4ii",
+      "verdict": "HOWL"
+    },
+    {
+      "mint": "HZ1JovNiVvGrGNiiYvEozEVgPQrqAV5fHS3CqstVnA",
+      "verdict": "HOWL"
+    },
+    {
+      "mint": "MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmYAxLac",
+      "verdict": "HOWL"
+    },
+    {
+      "mint": "7xKXtg2CW87d98KYLn9quc4TqFJdLhkSakn9UXbtP68z",
+      "verdict": "HOWL"
+    },
+    {
+      "mint": "2FPyTwcZLUg1MDrwsyoP4D5Aq7aJUtL3umUKLjQuyNA1",
+      "verdict": "HOWL"
+    },
+    {
+      "mint": "TokenkegQfeZyiNwAJsyFbPVwwQnmZKeyHeVUTX1159",
+      "verdict": "HOWL"
+    },
+    {
+      "mint": "MarinadeMintLp6hTpf3yAKfQzLyp7UWnv3x2hZHG",
+      "verdict": "HOWL"
+    },
+    {
+      "mint": "2FPyTwcZLUg1MDrwsyoP4D5Aq7aJUtL3umUKLjQuyNA1",
+      "verdict": "GROWL"
+    },
+    {
+      "mint": "7xKXtg2CW87d98KYLn9quc4TqFJdLhkSakn9UXbtP68z",
+      "verdict": "GROWL"
+    },
+    {
+      "mint": "9n4nbM75f5Ui33ZbPYRq59Mdb3XfqbZTVJ9JSstB4ii",
+      "verdict": "GROWL"
+    },
+    {
+      "mint": "11111111111111111111111111111111111111111111",
+      "verdict": "BARK"
+    },
+    {
+      "mint": "22222222222222222222222222222222222222222222",
+      "verdict": "BARK"
+    }
+  ],
+  "corpus": {
+    "humans": [],
+    "sybils": []
+  },
+  "status": "ready_for_holder_collection"
+}

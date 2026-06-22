@@ -1,0 +1,51 @@
+[
+  {
+    "wallet_address": "DttWaC338zumGCUMNEveSnorveDjJjNttzq37u9Cs7y",
+    "is_human": false,
+    "source": "pump.fun_documented_rug",
+    "reason": "High-frequency token creation, pattern match for pump.fun rug deployer",
+    "expected_score": 0.15
+  },
+  {
+    "wallet_address": "5Q544fKrFoe6tsEbD7K5QKf1C3gDRQ2oCJY6sCKcLvpK",
+    "is_human": false,
+    "source": "mev_bot_jito",
+    "reason": "Known MEV sandwich attack bot, high frequency, all_txs_same_hour signature",
+    "expected_score": 0.10
+  },
+  {
+    "wallet_address": "11111111111111111111111111111111",
+    "is_human": true,
+    "source": "solana_system_program",
+    "reason": "Established protocol account, institutional activity",
+    "expected_score": 0.30
+  },
+  {
+    "wallet_address": "TokenkegQfeZyiNwAJsyFbPVwwQnmZKeyHeVUTX1159",
+    "is_human": true,
+    "source": "token_program_official",
+    "reason": "Core Solana program, multi-year established activity",
+    "expected_score": 0.40
+  },
+  {
+    "wallet_address": "SysvarRent111111111111111111111111111111111",
+    "is_human": true,
+    "source": "solana_sysvar",
+    "reason": "System variable account, institutional",
+    "expected_score": 0.35
+  },
+  {
+    "wallet_address": "orcaEKTdK7LKz57chYcUdjik6bk5FqDNUucA2B6Hb8Q",
+    "is_human": true,
+    "source": "orca_protocol",
+    "reason": "Established DeFi protocol, 3+ years, governance",
+    "expected_score": 0.45
+  },
+  {
+    "wallet_address": "RaydiumAmmV4GJF5vryXjYiKwg3PdYYYHTUNqCqV5h",
+    "is_human": true,
+    "source": "raydium_protocol",
+    "reason": "Major DEX, established institution, multi-year",
+    "expected_score": 0.45
+  }
+]

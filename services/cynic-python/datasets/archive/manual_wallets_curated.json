@@ -1,0 +1,122 @@
+[
+  {
+    "wallet_address": "5Q544fKrFoe6tsEbD7K5QKf1C3gDRQ2oCJY6sCKcLvpK",
+    "label": "mev_sandwich_bot",
+    "is_human": false,
+    "source": "known_mev_bot"
+  },
+  {
+    "wallet_address": "DttWaC338zumGCUMNEveSnorveDjJjNttzq37u9Cs7y",
+    "label": "pump_fun_rug_deployer",
+    "is_human": false,
+    "source": "documented_rug"
+  },
+  {
+    "wallet_address": "9B5X4z4d7vcjoa1vNjxjwuSHq6DBL1oa7jPCQqKbPcp",
+    "label": "pump_fun_low_conviction",
+    "is_human": false,
+    "source": "cultscreener_rug"
+  },
+  {
+    "wallet_address": "6MQpbiTC2YcogidTmKqMLK82qvE9z5QEm7EP3AEDpump",
+    "label": "MASK_holder",
+    "is_human": false,
+    "source": "cultscreener_established"
+  },
+  {
+    "wallet_address": "463SK47VdCc28MV3HME9T2kAueLKFWdLVp4cLBFQXVwW",
+    "label": "TSUKI_holder",
+    "is_human": false,
+    "source": "cultscreener_established"
+  },
+  {
+    "wallet_address": "9BB6NFEc8HrAMFjJFpSrJxvFmRzpEnyJ3Eh5P2xVmSWT",
+    "label": "Fartcoin_holder",
+    "is_human": false,
+    "source": "cultscreener_established"
+  },
+  {
+    "wallet_address": "8DKgjd6zCmRbnUSzVSDPKjC7eN7KMn2YBwL9PK3yKFnQ",
+    "label": "Domo_holder",
+    "is_human": false,
+    "source": "cultscreener_established"
+  },
+  {
+    "wallet_address": "9zB5wRarXq9UjRBxVZrRBvj1Q1iDj4xSB3xRfx5x4ZQe",
+    "label": "asdfasdfa_holder",
+    "is_human": false,
+    "source": "cultscreener_established"
+  },
+  {
+    "wallet_address": "11111111111111111111111111111111",
+    "label": "solana_system_program",
+    "is_human": true,
+    "source": "solana_ecosystem"
+  },
+  {
+    "wallet_address": "TokenkegQfeZyiNwAJsyFbPVwwQnmZKeyHeVUTX1159",
+    "label": "token_program",
+    "is_human": true,
+    "source": "solana_ecosystem"
+  },
+  {
+    "wallet_address": "orcaEKTdK7LKz57chYcUdjik6bk5FqDNUucA2B6Hb8Q",
+    "label": "orca_protocol",
+    "is_human": true,
+    "source": "solana_ecosystem"
+  },
+  {
+    "wallet_address": "RaydiumAmmV4GJF5vryXjYiKwg3PdYYYHTUNqCqV5h",
+    "label": "raydium_protocol",
+    "is_human": true,
+    "source": "solana_ecosystem"
+  },
+  {
+    "wallet_address": "SysvarRent111111111111111111111111111111111",
+    "label": "solana_sysvar",
+    "is_human": true,
+    "source": "solana_ecosystem"
+  },
+  {
+    "wallet_address": "9B5X4z4d7vcjoa1vNjxjwuSHq6DBL1oa7jPCQqKbPcp",
+    "label": "pump_fun_charity_token_1",
+    "is_human": false,
+    "source": "pump_fun_recent"
+  },
+  {
+    "wallet_address": "GkyPYa7NE3xh4K4M7eBKf3KPzNkzspXyR6gvTJJZSM9c",
+    "label": "pump_fun_charity_token_2",
+    "is_human": false,
+    "source": "pump_fun_recent"
+  },
+  {
+    "wallet_address": "zGh48JtNzL6pJqGwvVrE8X7qMcN3VZjKx4FqS3tUmT2c",
+    "label": "pump_fun_charity_token_3",
+    "is_human": false,
+    "source": "pump_fun_recent"
+  },
+  {
+    "wallet_address": "69G8CpUVjKhXL4p5vUmQ2RxK8N4mVJY5zBqJ6cXpFkXe",
+    "label": "cult_member_active_trader_1",
+    "is_human": true,
+    "source": "community_observed"
+  },
+  {
+    "wallet_address": "5UUH9RTDxQpV5n8vMqR3CxJ2pLsYmZkXvW4nTgJ8FqXp",
+    "label": "cult_member_active_trader_2",
+    "is_human": true,
+    "source": "community_observed"
+  },
+  {
+    "wallet_address": "38PgzpJYkVmN4qXpRs5U2vJm7kXyZnQ8jL9pDfTgQxR3",
+    "label": "defi_liquidator_bot",
+    "is_human": false,
+    "source": "known_bot"
+  },
+  {
+    "wallet_address": "A6EC1yB97uBzHnaixqWVQz5k73qH3R3bwieKjkLTS9WC",
+    "label": "cult_treasury_or_founder",
+    "is_human": true,
+    "source": "community_identified"
+  }
+]

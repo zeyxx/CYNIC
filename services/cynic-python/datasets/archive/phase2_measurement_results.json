@@ -1,0 +1,31 @@
+{
+  "baseline_dist": {
+    "HOWL": 9,
+    "WAG": 10,
+    "GROWL": 11
+  },
+  "filtered_dist": {
+    "HOWL": 19,
+    "WAG": 11
+  },
+  "baseline_pct": {
+    "HOWL": 30.0,
+    "WAG": 33.33333333333333,
+    "GROWL": 36.666666666666664,
+    "BARK": 0.0
+  },
+  "filtered_pct": {
+    "HOWL": 63.33333333333333,
+    "WAG": 36.666666666666664,
+    "GROWL": 0.0,
+    "BARK": 0.0
+  },
+  "delta_by_verdict": {
+    "HOWL": 33.33333333333333,
+    "WAG": 3.3333333333333357,
+    "GROWL": -36.666666666666664,
+    "BARK": 0.0
+  },
+  "total_delta": 36.666666666666664,
+  "pass": true
+}

@@ -1,0 +1,17 @@
+session_id,timestamp,domain,cortex_type,fidelity,sovereignty,burn,phi,verify,culture,is_multi_cortex,partner_cortex,decision_text
+"session-2026-04-28T12-58-b0eba480","2026-04-28T12:59:29.760Z","general","user",0.60,0.40,0.70,0.70,0.70,0.50,0,"","Thinking... 
+ │
+ │ Analyzing the Recent Data
+ │ I'm focused on the rose heart emoji Vanille sent, an"
+"session-2026-04-28T12-58-b0eba480","2026-04-28T17:08:09.169Z","general","user",0.50,0.50,0.50,0.50,0.50,0.50,0,"","c'est intéressant, si on prend tout les axiomes de cynic ça donne quoi?"
+"session-2026-04-28T12-58-b0eba480","2026-04-29T10:56:12.050Z","general","user",0.40,0.50,0.50,0.50,0.50,0.50,0,"","2. j'ai visionné les storys postée hier soir ce matin (vers 11h40 quoi). 3. oui. cette réponse est o"
+"session-2026-04-26T12-15-119d0d35","2026-04-26T12:28:22.543Z","general","user",0.60,0.50,0.50,0.50,0.50,0.50,0,"","voici un rapprot de claude avec sa mémoire sur ce dossier: DOSSIER ERIN — Rapport complet
+Basé sur 4"
+"session-2026-04-26T12-15-119d0d35","2026-04-26T14:03:32.577Z","general","user",0.50,0.50,0.50,0.50,0.50,0.50,0,"","1. c'est une stratégie qu'on a établit avec gemini pour me faire travailler, expériencer et incarner"
+"session-2026-04-26T12-15-119d0d35","2026-04-26T14:07:37.187Z","general","user",0.50,0.50,0.50,0.50,0.50,0.50,0,"","1. Oui, je travaille sur ça activement (je crois). 2. oui. 3. Ok et pour la stratégie de travaille e"
+"session-2026-04-29T10-13-44499c90","2026-04-29T10:13:21.669Z","general","user",0.60,0.60,0.60,0.70,0.60,0.60,0,"","Use skill cynic-wisdom (inline text below).
+
+=== cynic-wisdom SKILL TEXT ===
+---
+name: cynic-wisdom
+"
