@@ -5,11 +5,17 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
+WorkingDirectory=%h/.cynic/repos/CYNIC
 EnvironmentFile=%h/.cynic-env
-ExecStart=/usr/bin/python3 %h/.cynic/repos/CYNIC/organs/forge/src/dispatch.py fleet
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=%h/.cynic/repos/CYNIC/services/cynic-python
+Environment=HERMES_AGENT_DOMAIN_ALLOW=organ-fleet,fleet
+Environment=HERMES_AGENT_KIND_ALLOW=hermes
+Environment=X_ORGAN_DIR=%h/.cynic/repos/CYNIC/organs/fleet/state
+ExecStart=/usr/bin/python3 -m organs.core.daemon --organ-dir %h/.cynic/repos/CYNIC/organs/fleet/state --interval 30
 Restart=always
 RestartSec=10
-WorkingDirectory=%h/.cynic/repos/CYNIC
 
 [Install]
 WantedBy=default.target
