@@ -33,6 +33,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
     let judge = Arc::new(Judge::new(dogs, breakers));
     let judge_swap = arc_swap::ArcSwap::from(judge);
     Arc::new(AppState {
+        registered_services: Default::default(),
         judge: judge_swap,
         storage: Arc::new(NullStorage),
         coord: Arc::new(NullCoord),
@@ -988,6 +989,7 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
     let judge = Arc::new(cynic_kernel::judge::Judge::new(dogs, breakers));
     let judge_swap = arc_swap::ArcSwap::from(judge);
     let state = Arc::new(AppState {
+        registered_services: Default::default(),
         judge: judge_swap,
         storage: Arc::new(NullStorage),
         coord: Arc::new(NullCoord),
