@@ -72,6 +72,22 @@ The following are considered "Heresies" in the CYNIC Data System:
 
 ---
 
+## 10. TECHNICAL DATA FRAMEWORK (The Physical Layer)
+While the principles above dictate the philosophy, the physical implementation in CYNIC relies on a strict technical stack. This framework will evolve organically, but currently enforces:
+
+1. **Schema Enforcement (The Membrane): `Pydantic` (Python) & `Serde` (Rust)**
+   - No untyped dictionaries are allowed to circulate. Every piece of data entering an organ must be validated through a Pydantic model or Rust struct.
+2. **State & Graph Persistence: `SurrealDB`**
+   - The primary ACID database for relational and document data. Used for long-term storage of validated states, graph relationships, and strict querying.
+3. **The Append-Only Memory: `JSONL` (JSON Lines)**
+   - Used for the Ouroboros (local organ memory) and `cynic_observe` logs. Append-only ensures Proof-of-History and prevents accidental overwrite of past states.
+4. **The Coordination Memory: `cynic-kernel` (Mempool & API)**
+   - Ephemeral tasks, cross-organ coordination, and emergent goals are not stored in static files but pushed to the Kernel's REST API (`/agent-tasks`).
+5. **The Analytical Muscles: `Pandas` & `Numpy`**
+   - When data requires matrix operations, clustering, or deep transformation (Step 2 & 4), it is loaded into DataFrames.
+
+---
+
 ## Data Intelligence Architecture (Hierarchical View)
 
 ```text
