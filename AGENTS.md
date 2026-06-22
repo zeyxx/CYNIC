@@ -553,8 +553,11 @@ Every Python organ MUST be structured using Hexagonal Architecture and strict Ob
 To eliminate information asymmetry and ensure sovereign mathematical scaling, all infrastructure must be mapped into `infra/registry.json` following these rigid deterministic rules:
 
 ### 1. OS Selection: The Sovereign Base
-- **Debian 12 (Bookworm)** is the **exclusive** Operating System for all generic Organs, Kernel Primary, and Network control planes. It guarantees upstream purity and long-term sovereignty without corporate snaps or telemetry.
-- **Ubuntu LTS** is **strictly forbidden** unless mathematically required by closed-source ML drivers (e.g., specific CUDA/TensorRT blobs) that refuse to compile on Debian. If used, it must be documented with an explicit `activation_evidence_gaps` justification in the registry.
+The Anti-Dogma rule applies to Operating Systems. We select the OS based on the mathematical reality of the physical layer:
+- **Debian 12 (Bookworm)** is the **default and baseline** Operating System for all generic Organs, the Kernel Primary, and Network control planes. It guarantees upstream purity and long-term sovereignty.
+- **Ubuntu LTS** is **strictly forbidden** *unless* mathematically required by closed-source ML drivers (e.g., specific CUDA/TensorRT blobs) that refuse to compile on Debian.
+- **Specialized OSes (Windows Server, Alpine, pfSense/FreeBSD)** are **authorized** when they solve a specific problem that Debian cannot (e.g., Active Directory for Windows Server, ultra-light boundaries for Alpine, core routing for FreeBSD). 
+- **The Golden Rule:** Any divergence from the Debian baseline MUST be documented with an explicit justification in `infra/registry.json`. No OS is chosen by habit; it is chosen by necessity.
 
 ### 2. Virtualization Granularity
 Deciding between Bare-Metal, VM, LXC, and Docker is a mathematical choice based on the organism's Trust and Isolation model:
