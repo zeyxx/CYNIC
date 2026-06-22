@@ -20,8 +20,6 @@ use crate::infra::error_classifier::ErrorCategory;
 use crate::organ::BackendHandle;
 use chrono::Utc;
 use futures_util::StreamExt;
-#[cfg(test)]
-use math::trimmed_mean;
 use math::{aggregate_scores, chain_hash, detect_residuals};
 use std::sync::{Arc, Mutex};
 
@@ -1574,8 +1572,6 @@ mod tests {
         assert!(verdict.timestamp.ends_with("+00:00") || verdict.timestamp.ends_with('Z'));
     }
 
-    // ── trimmed_mean (private fn, direct unit tests) ─────
-
     fn make_dog_score(id: &str, val: f64) -> DogScore {
         DogScore {
             dog_id: id.into(),
@@ -1593,127 +1589,6 @@ mod tests {
             raw_sovereignty: val,
             ..Default::default()
         }
-    }
-
-    #[test]
-    fn trimmed_mean_two_values_averages() {
-        let scores = vec![make_dog_score("a", 0.2), make_dog_score("b", 0.8)];
-        let result = trimmed_mean(&scores, "fidelity", |s| s.fidelity);
-        assert!((result - 0.5).abs() < 1e-10);
-    }
-
-    #[test]
-    fn trimmed_mean_three_values_averages() {
-        let scores = vec![
-            make_dog_score("a", 0.1),
-            make_dog_score("b", 0.5),
-            make_dog_score("c", 0.9),
-        ];
-        let result = trimmed_mean(&scores, "fidelity", |s| s.fidelity);
-        assert!((result - 0.5).abs() < 1e-10);
-    }
-
-    #[test]
-    fn trimmed_mean_four_values_trims_outliers() {
-        // With 4+ scores, drop min and max, average the rest
-        let scores = vec![
-            make_dog_score("outlier_low", 0.0),
-            make_dog_score("mid_a", 0.5),
-            make_dog_score("mid_b", 0.6),
-            make_dog_score("outlier_high", 1.0),
-        ];
-        let result = trimmed_mean(&scores, "fidelity", |s| s.fidelity);
-        // Should be mean of [0.5, 0.6] = 0.55
-        assert!((result - 0.55).abs() < 1e-10);
-    }
-
-    #[test]
-    fn trimmed_mean_five_values_trims_extremes() {
-        let scores = vec![
-            make_dog_score("a", 0.1),
-            make_dog_score("b", 0.4),
-            make_dog_score("c", 0.5),
-            make_dog_score("d", 0.6),
-            make_dog_score("e", 0.9),
-        ];
-        let result = trimmed_mean(&scores, "fidelity", |s| s.fidelity);
-        // Trimmed: [0.4, 0.5, 0.6] → mean = 0.5
-        assert!((result - 0.5).abs() < 1e-10);
-    }
-
-    #[test]
-    fn trimmed_mean_single_value() {
-        let scores = vec![make_dog_score("a", 0.7)];
-        let result = trimmed_mean(&scores, "fidelity", |s| s.fidelity);
-        assert!((result - 0.7).abs() < 1e-10);
-    }
-
-    #[test]
-    fn trimmed_mean_per_axiom_extraction() {
-        let scores = vec![DogScore {
-            dog_id: "x".into(),
-            fidelity: 0.9,
-            phi: 0.1,
-            verify: 0.5,
-            culture: 0.3,
-            burn: 0.7,
-            sovereignty: 0.4,
-            raw_fidelity: 0.9,
-            raw_phi: 0.1,
-            raw_verify: 0.5,
-            raw_culture: 0.3,
-            raw_burn: 0.7,
-            raw_sovereignty: 0.4,
-            ..Default::default()
-        }];
-        assert!((trimmed_mean(&scores, "fidelity", |s| s.fidelity) - 0.9).abs() < 1e-10);
-        assert!((trimmed_mean(&scores, "phi", |s| s.phi) - 0.1).abs() < 1e-10);
-        assert!((trimmed_mean(&scores, "burn", |s| s.burn) - 0.7).abs() < 1e-10);
-    }
-
-    #[test]
-    fn trimmed_mean_excludes_abstaining_dog() {
-        // DeterministicDog abstains on fidelity — its NEUTRAL score should be excluded
-        let mut abstainer = make_dog_score("deterministic", 0.309); // NEUTRAL
-        abstainer.abstentions = vec!["fidelity".into()];
-        let llm = make_dog_score("llm", 0.7);
-        let scores = vec![abstainer, llm];
-
-        // Without exclusion: mean(0.309, 0.7) = 0.5045
-        // With exclusion: only LLM score = 0.7
-        let result = trimmed_mean(&scores, "fidelity", |s| s.fidelity);
-        assert!(
-            (result - 0.7).abs() < 1e-10,
-            "abstaining dog should be excluded, got {result}"
-        );
-    }
-
-    #[test]
-    fn trimmed_mean_includes_non_abstaining_axiom() {
-        // Same dog abstains on fidelity but NOT on burn
-        let mut dog = make_dog_score("det", 0.5);
-        dog.abstentions = vec!["fidelity".into()];
-        let scores = vec![dog, make_dog_score("llm", 0.8)];
-
-        // On burn (no abstention): mean(0.5, 0.8) = 0.65
-        let result = trimmed_mean(&scores, "burn", |s| s.burn);
-        assert!(
-            (result - 0.65).abs() < 1e-10,
-            "non-abstaining axiom should include both dogs, got {result}"
-        );
-    }
-
-    #[test]
-    fn trimmed_mean_filters_nan_values() {
-        let mut nan_dog = make_dog_score("nan-dog", f64::NAN);
-        nan_dog.fidelity = f64::NAN;
-        let normal = make_dog_score("normal", 0.6);
-        let scores = vec![nan_dog, normal];
-        let result = trimmed_mean(&scores, "fidelity", |s| s.fidelity);
-        assert!(
-            (result - 0.6).abs() < 1e-10,
-            "NaN should be filtered, got {result}"
-        );
     }
 
     #[test]

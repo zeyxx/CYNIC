@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-06-22T10:06:06.906495+00:00",
+  "timestamp": "2026-06-22T10:36:24.886548+00:00",
   "total_containers": 42,
   "running": 6,
   "containers": [
@@ -630,7 +630,7 @@
       "Image": "kurtosistech/engine:1.20.0",
       "Labels": "com.kurtosistech.app-id=kurtosis,com.kurtosistech.container-type=kurtosis-engine,com.kurtosistech.guid=f8d42f9c80a641bcbbba7f3b9109017d,com.kurtosistech.id=f8d42f9c80a641bcbbba7f3b9109017d,com.kurtosistech.ports=grpc:9710/TCP/http,traefik.enable=true,traefik.http.routers.engine-rest-api.rule=Host(`engine`),traefik.http.routers.engine-rest-api.service=engine-rest-api,traefik.http.services.engine-rest-api.loadbalancer.server.port=9779",
       "LocalVolumes": "3",
-      "Mounts": "kurtosis-githu\u2026,kurtosis-docke\u2026,kurtosis-logs-\u2026,/var/run/docke\u2026",
+      "Mounts": "kurtosis-docke\u2026,kurtosis-logs-\u2026,/var/run/docke\u2026,kurtosis-githu\u2026",
       "Names": "kurtosis-engine--f8d42f9c80a641bcbbba7f3b9109017d",
       "Networks": "bridge",
       "Platform": {
@@ -652,7 +652,7 @@
       "LocalVolumes": "0",
       "Mounts": "/var/run/docke\u2026",
       "Names": "kurtosis-reverse-proxy--f8d42f9c80a641bcbbba7f3b9109017d",
-      "Networks": "bridge,kt-privacy-ethereum-network",
+      "Networks": "kt-privacy-ethereum-network,bridge",
       "Platform": {
         "architecture": "amd64",
         "os": "linux"
@@ -730,7 +730,7 @@
       "Image": "mongo:7",
       "Labels": "com.docker.compose.config-hash=4918fe15bd8edf6c592f5a707088096f28a95f0cccd7ce6d8e78da1df0304645,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:948b635bc126d62274eebb650dd2e2e66c9abc3bb0a336eb2279a5d8489417f5,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/user/Bureau/lets-play/docker-compose.yml,com.docker.compose.project.working_dir=/home/user/Bureau/lets-play,com.docker.compose.project=lets-play,com.docker.compose.service=mongo,com.docker.compose.version=2.40.3,org.opencontainers.image.version=22.04",
       "LocalVolumes": "2",
-      "Mounts": "lets-play_mong\u2026,4ff0ae4cb9761d\u2026",
+      "Mounts": "4ff0ae4cb9761d\u2026,lets-play_mong\u2026",
       "Names": "lets-play-mongo",
       "Networks": "lets-play_default",
       "Platform": {
@@ -790,7 +790,7 @@
       "Image": "node:20-alpine",
       "Labels": "com.docker.compose.config-hash=3569c47cbad070bc3853f7c5f09eb03fa5f18aa4be39625abb148ab655770fdb,com.docker.compose.container-number=1,com.docker.compose.depends_on=deps:service_completed_successfully:false,db:service_healthy:false,com.docker.compose.image=sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/user/Bureau/blitz-and-chill/docker-compose.yml,com.docker.compose.project.working_dir=/home/user/Bureau/blitz-and-chill,com.docker.compose.project=blitz-and-chill,com.docker.compose.replace=blitzchill-socket,com.docker.compose.service=socket,com.docker.compose.version=2.40.3",
       "LocalVolumes": "1",
-      "Mounts": "/home/user/Bur\u2026,blitz-and-chil\u2026",
+      "Mounts": "blitz-and-chil\u2026,/home/user/Bur\u2026",
       "Names": "blitzchill-socket",
       "Networks": "blitz-and-chill_default",
       "Platform": {
@@ -810,7 +810,7 @@
       "Image": "node:20-alpine",
       "Labels": "com.docker.compose.config-hash=11192b1a597316b560287c374885e309d7d956123ebfc54200657e5633010f8a,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/user/Bureau/blitz-and-chill/docker-compose.yml,com.docker.compose.project.working_dir=/home/user/Bureau/blitz-and-chill,com.docker.compose.project=blitz-and-chill,com.docker.compose.replace=deps-1,com.docker.compose.service=deps,com.docker.compose.version=2.40.3",
       "LocalVolumes": "1",
-      "Mounts": "blitz-and-chil\u2026,/home/user/Bur\u2026",
+      "Mounts": "/home/user/Bur\u2026,blitz-and-chil\u2026",
       "Names": "blitz-and-chill-deps-1",
       "Networks": "blitz-and-chill_default",
       "Platform": {

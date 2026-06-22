@@ -326,9 +326,9 @@
       "status_source": "lifecycle_node_activation"
     },
     {
-      "name": "cynic-vm-core",
+      "name": "cynic-vm-v2",
       "aliases": [
-        "cynic-vm-core-probe"
+        "cynic-kernel-primary"
       ],
       "role": "kernel_primary",
       "host": "cynic-host-proxmox",
@@ -336,8 +336,8 @@
       "deploy_target": true,
       "os": "Debian 12",
       "network": {
-        "local": "<LAN_CORE>",
-        "tailscale": "<TAILSCALE_CORE>"
+        "local": "<LAN_CORE_V2>",
+        "tailscale": "<TAILSCALE_CORE_V2>"
       },
       "services": [
         {
@@ -356,42 +356,13 @@
           "description": "Single operator interface served from the sovereign Docker portal."
         }
       ],
-      "status": "active",
-      "activation_evidence": {
-        "runtime_paths": {
-          "repo_root": {
-            "verified": true,
-            "verified_at": "2026-06-15T20:23:12Z",
-            "value": "%h/.cynic/repos/CYNIC",
-            "expanded": "/tmp/cynic-home/.cynic/repos/CYNIC",
-            "proof_kind": "git_worktree",
-            "marker_exists": true,
-            "sentinels_verified": true
-          }
-        },
-        "services": {
-          "cynic-kernel": {
-            "declared": true,
-            "active": true,
-            "checked_at": "2026-06-15T20:43:53Z",
-            "source": "manual-cli-run"
-          },
-          "surrealdb": {
-            "declared": true,
-            "active": true,
-            "checked_at": "2026-06-15T20:43:53Z",
-            "source": "manual-cli-run"
-          },
-          "cynic-portal": {
-            "declared": true,
-            "active": true,
-            "checked_at": "2026-06-15T20:43:53Z",
-            "source": "manual-cli-run"
-          }
-        }
-      },
-      "status_updated_at": "2026-06-15T20:43:14Z",
-      "status_source": "lifecycle_node_activation"
+      "status": "planned"
+    },
+    {
+      "name": "cynic-vm-core",
+      "role": "legacy_core",
+      "status": "planned_obsolescence",
+      "description": "Old root-based VM. Pending deletion."
     },
     {
       "name": "cynic-host-gpu",
