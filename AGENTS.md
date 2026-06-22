@@ -412,7 +412,7 @@ The pre-commit hook and `make gate-0` enforce the volatile-state block.
    }
    ```
 
-### Organ Architecture (Data-Centric)
+### Organ Architecture (Data-Centric & Hexagonal)
 
 Organs are not scripts — they are **sensorial organs** that perceive the repo/system and react adaptively, following `docs/DATA_CONSTITUTION.md`:
 
@@ -424,6 +424,11 @@ Organs are not scripts — they are **sensorial organs** that perceive the repo/
 6. **Reliability** — Sovereignty through durability and security (COMMIT/ROLLBACK).
 7. **Adaptation** — Gates intensity scales with organism activity.
 
+**Strict Hexagonal Architecture (Ports and Adapters) + OOP rule:**
+Every Python organ MUST be structured using Hexagonal Architecture and strict Object-Oriented Programming (OOP) to decouple the core logic from external dependencies (I/O, APIs, Database). Flat procedural scripts are explicitly banned.
+- `src/core/` — Domain entities, state logic, and pure abstract ports. No side-effects.
+- `src/adapters/` — Implementations of the ports (Git, Kernel API, Proxmox, SurrelDB).
+- `src/entrypoints/` — CLI wrappers, cron runners, and dispatchers that wire the adapters to the core.
 
 **See** `organs/forge/README.md` for full architecture.
 

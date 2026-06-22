@@ -5,7 +5,7 @@ After=network.target cynic-kernel.service
 [Service]
 Type=oneshot
 EnvironmentFile=%h/.cynic-env
-ExecStart=/usr/bin/python3 %h/.cynic/repos/CYNIC/organs/fleet/src/monitor.py
+ExecStart=/usr/bin/python3 %h/.cynic/repos/CYNIC/organs/fleet/src/entrypoints/cli.py
 WorkingDirectory=%h/.cynic/repos/CYNIC
 StandardOutput=journal
 StandardError=journal
