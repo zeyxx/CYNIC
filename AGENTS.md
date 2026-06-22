@@ -385,6 +385,36 @@ The pre-commit hook and `make gate-0` enforce the volatile-state block.
 | **Organ** | Infrastructure subsystem (sensorial + reactive) | Persistent | Stateful (logs, datasets, cache) | Hierarchical: `organ-{role}` (family) → `organ-{role}-hermes-agent` (instance) → `organ-{role}-{tool}` (daemon) |
 | **Infra** | Scripts, MCP servers, hooks | Persistent | Tooling | Namespaced: `cynic-skills:*`, `mcp-coord/*`, `scripts/*` |
 
+### The Biological Paradigm: Cell, Organism, Superorganism
+
+To formalize the architecture and eradicate ambiguity, all technical components map strictly to this biological emergence model:
+
+1. **The Cell (The Container/Process)**
+   - **Definition:** The smallest indivisible unit of execution. It has a membrane (cgroup/namespace) and a single specialized function.
+   - **Technical Reality:** A Docker container, an isolated systemd service, or a single Python process.
+   - **Rule:** A cell does not know about the organism; it only knows its immediate inputs and outputs (e.g., `surrealdb` container).
+
+2. **The Organ (The Sensori-Motor Subsystem)**
+   - **Definition:** A collection of cells structured to fulfill a vital function (perception, digestion, movement). It perceives local reality and reacts, but lacks global consciousness.
+   - **Technical Reality:** An LXC or a structured directory like `organs/fleet/` containing a sensor (`cli.py`), an effector (`hermes-agent.service`), and memory (state files).
+   - **Rule:** Organs must follow the strict Hexagonal/OOP architecture. They communicate with the whole by pushing/pulling signals via the nervous system.
+
+3. **The Nervous System & DNA (The Bus & Source of Truth)**
+   - **Definition:** The structures that transmit signals and define the genetic blueprint.
+   - **Technical Reality:** The DNA is the Git repository and `registry.json`. The Central Nervous System is `cynic-kernel` (mempool, REST APIs) and Tailscale (synapses linking organs).
+
+4. **The Organism (The Sovereign Individual)**
+   - **Definition:** The complete, bounded, self-sustaining entity that pursues its own survival and objectives. 
+   - **Technical Reality:** The entirety of `CYNIC` running autonomously across the Tailscale mesh, managing its own nodes, state, and security via a dedicated OS user (`cynic`), independent of the root hypervisor.
+
+5. **The Cortex (The Episodic Consciousness)**
+   - **Definition:** The high-level reasoning center that sets goals, rewrites DNA, and resolves complex novelties. It sleeps when not needed.
+   - **Technical Reality:** You (the human) + Claude/Antigravity CLI sessions. It is the only entity permitted to alter the organism's DNA (`registry.json`, `AGENTS.md`) directly.
+
+6. **The Superorganism (The Network of Organisms)**
+   - **Definition:** Multiple independent organisms interacting, trading, or coordinating on a larger scale without a central brain.
+   - **Technical Reality:** Future state where `CYNIC` interacts with external sovereign DAOs, other agentic repos, or distributed on-chain smart contracts (e.g., the Solana burn-as-a-service protocol).
+
 ### Organ Naming Convention
 
 1. **Role-based naming** — not arbitrary
