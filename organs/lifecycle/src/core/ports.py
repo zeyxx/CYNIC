@@ -65,3 +65,12 @@ class SmartContractRuntimePort(ABC):
     @abstractmethod
     async def deploy_contract(self, payload: SmartContractPayload) -> str:
         pass
+
+class NetworkFleetPort(ABC):
+    @abstractmethod
+    async def is_node_online(self, node_name: str, threshold_seconds: int = 30) -> bool:
+        pass
+
+    @abstractmethod
+    async def get_node_last_seen(self, node_name: str) -> float:
+        pass
