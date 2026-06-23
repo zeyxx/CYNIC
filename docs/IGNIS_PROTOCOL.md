@@ -6,8 +6,8 @@ Ignis is an autonomous, permissionless protocol executing continuous buyback & b
 
 To respect the "Organic Always Wins" and "Permissionless" mandates, Ignis is divided into three distinct biological layers:
 
-### A. The On-Chain Program (Rust / Anchor)
-- **Role:** The unbreakable physical membrane. It holds funds in a Vault PDA and exposes a strictly permissionless `crank_buyback_and_burn` instruction.
+### A. The On-Chain Program (Native Rust / solana-program)
+- **Role:** The unbreakable physical membrane. It holds funds in a Vault PDA and exposes a strictly permissionless `crank_buyback_and_burn` instruction. Written in pure Native Rust to eliminate blackboxes and minimize binary footprint.
 - **Mechanics:** 
   - Anyone can call the instruction.
   - It receives a CPI payload containing routing instructions (e.g., Jupiter swap data).
@@ -31,7 +31,7 @@ To respect the "Organic Always Wins" and "Permissionless" mandates, Ignis is div
 
 ```text
 services/ignis/
-├── program/        (Rust: The Anchor Smart Contract)
+├── program/        (Native Rust: The Solana Smart Contract)
 ├── client/         (TypeScript: The Keeper Bot)
 └── intelligence/   (Python: CYNIC Organ / ML heuristics)
 ```

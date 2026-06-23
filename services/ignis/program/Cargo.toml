@@ -1,0 +1,16 @@
+[package]
+name = "ignis-program"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+solana-program = "1.18.17" # Pinning version as per our sovereign mandate
+borsh = "1.5.1"
+thiserror = "1.0"
+spl-token = { version = "4.0.0", features = ["no-entrypoint"] }
+
+[lib]
+crate-type = ["cdylib", "lib"]
