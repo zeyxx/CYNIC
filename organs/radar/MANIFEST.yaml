@@ -1,0 +1,12 @@
+name: radar
+status: ACTIVE
+domain: tech-watch
+description: "Sensory organ. Monitors ecosystem uptime (Holdex) and blockchain state mutations (Pump.fun)."
+capabilities:
+  - perception (http, rpc)
+  - structured_observation
+dependencies:
+  - cynic-kernel (REST API)
+runtime:
+  type: persistent-daemon
+  heartbeat_interval_seconds: 60
