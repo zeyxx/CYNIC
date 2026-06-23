@@ -1,0 +1,19 @@
+[Unit]
+Description=organ-slack — CYNIC Slack relay daemon
+Documentation=file:///home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/slack/MANIFEST.yaml
+After=network-online.target cynic-kernel.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+EnvironmentFile=%h/.cynic-env
+WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+ExecStart=/usr/bin/python3 -m organs.slack.src.dispatch
+Restart=on-failure
+RestartSec=30s
+# Sovereignty note: Slack is a transitional dependency.
+# When Organ-Wireguard V3 is operational, replace sender.py only.
+
+[Install]
+WantedBy=multi-user.target

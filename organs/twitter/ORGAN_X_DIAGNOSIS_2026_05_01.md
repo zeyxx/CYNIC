@@ -41,7 +41,7 @@
 - Query verdicts for feedback loop
 - Store curated D1-D6 data
 
-**Fix:** Set `CYNIC_API_KEY` in `~/.cynic-env`, ensure kernel running on Tailscale `<TAILSCALE_CORE>:3030`
+**Fix:** Set `CYNIC_API_KEY` in `~/.cynic-env`, ensure kernel running on Tailscale `<HEADSCALE_CORE>:3030`
 
 **Timeline:** 1 command, 0 implementation
 
@@ -74,7 +74,7 @@
 
 **Implementation:** `hermes-agent-orchestrator.py` that:
 1. Queries kernel for domain coverage
-2. Spins up Claude/Gemini agent on `<TAILSCALE_GPU>:8080` (Qwen 27B)
+2. Spins up Claude/Gemini agent on `<HEADSCALE_GPU>:8080` (Qwen 27B)
 3. Injects exploration task + behavioral profile
 4. Routes reflections back to kernel
 

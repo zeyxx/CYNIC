@@ -184,7 +184,7 @@ def validate_lifecycle_policy(registry: dict | None = None) -> dict:
                 )
 
     fleet = lifecycle.get("fleet_requirements", {})
-    if fleet.get("provider") != "tailscale":
+    if fleet.get("provider") != "headscale":
         errors.append("fleet_requirements.provider must be tailscale")
     if fleet.get("required") is not True:
         errors.append("fleet_requirements.required must be true")
@@ -494,7 +494,7 @@ class KernelRestClient(IKernelClient):
         if not requirements.get("required", False):
             return
         provider = requirements.get("provider")
-        if provider != "tailscale":
+        if provider != "headscale":
             raise RuntimeError(f"unsupported lifecycle fleet provider: {provider}")
         self.inspect_fleet()
         if self.fleet_probe.get("status") != "ok":
@@ -584,7 +584,7 @@ class KernelRestClient(IKernelClient):
                 self.lifecycle["deploy_target_role"],
                 deploy_target_flag=self.lifecycle.get("deploy_target_flag"),
             )
-            raw = kernel.get("network", {}).get("tailscale", "")
+            raw = kernel.get("network", {}).get("headscale", "")
             self.kernel_endpoint_source = "registry:kernel_primary.network.tailscale"
         if not raw:
             raise RuntimeError("CYNIC_REST_ADDR is required")
@@ -852,3 +852,19 @@ class KernelRestClient(IKernelClient):
         validate_lifecycle_task_payload(payload, self.registry)
         response = self._post_agent_task(payload)
         yield json.dumps(response, separators=(",", ":")) + "\n"
+
+    async def listen_events(self):
+        import httpx
+        url = f"{self.base_url}/events"
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+            
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream("GET", url, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]
+                        if data:
+                            yield data

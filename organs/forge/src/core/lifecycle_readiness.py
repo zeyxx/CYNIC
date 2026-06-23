@@ -153,7 +153,7 @@ def inspect_fleet(
     }
     try:
         result = subprocess.run(
-            ["tailscale", "status", "--json"],
+            ["headscale", "status", "--json"],
             check=False,
             capture_output=True,
             text=True,

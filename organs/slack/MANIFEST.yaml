@@ -1,0 +1,30 @@
+id: organ-slack
+tier: 2
+domain: slack
+status: ACTIVE
+description: "Slack relay organ — polls SurrealDB mempool and routes observations to configured Slack channels"
+framework: hexagonal-organ
+sovereignty_note: "Slack is a transitional dependency. This organ is designed to be replaced by organ-sovereign-messaging when Organ-Wireguard V3 is operational."
+
+inputs:
+  - source: surrealdb_mempool
+    data: observations (domain=slack)
+
+outputs:
+  - path: Slack API (chat.postMessage)
+    format: HTTPS POST
+  - path: kernel /observe (domain=slack, status=delivered|failed)
+    format: REST POST
+
+routing:
+  table: infra/registry.json#routing_rules.slack_routing
+  env_prefix: SLACK_CHANNEL_
+  fallback: SLACK_CHANNEL_KERNEL
+
+scripts:
+  - name: dispatch.py
+    description: Hexagonal architecture entrypoint — polls mempool, routes to channel
+  - name: sender.py
+    description: Slack API adapter (chat.postMessage wrapper)
+  - name: router.py
+    description: Resolves routing_rules from registry.json to concrete channel IDs

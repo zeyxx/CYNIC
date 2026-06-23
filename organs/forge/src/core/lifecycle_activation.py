@@ -58,7 +58,7 @@ def _activation_action_for_blocker(blocker: dict) -> dict:
     if category == "fleet" and blocker.get("kind") == "tailscale_probe":
         return {
             "action": "restore_fleet_probe",
-            "provider": "tailscale",
+            "provider": "headscale",
             "required": blocker.get("required"),
             "actual": blocker.get("actual"),
             "error": blocker.get("error"),
@@ -216,18 +216,18 @@ def build_lifecycle_activation_requests(
             "required_node_status": "active",
             "activation_requirements": {
                 "build_runner": {
-                    "network": ["tailscale"],
+                    "network": ["headscale"],
                     "filesystem": ["repo_root"],
                     "services": ["organ-forge", "cargo-build", "gate-2"],
                 },
                 "kernel_primary": {
-                    "network": ["tailscale"],
+                    "network": ["headscale"],
                     "filesystem": ["repo_root"],
                     "services": ["cynic-kernel", "surrealdb", "cynic-portal"],
                 },
             },
             "fleet_requirements": {
-                "provider": "tailscale",
+                "provider": "headscale",
                 "required": True,
                 "require_online": True,
             },

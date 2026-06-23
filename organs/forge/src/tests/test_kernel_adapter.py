@@ -46,18 +46,18 @@ def registry_fixture():
                 "required_node_status": "active",
                 "activation_requirements": {
                     "build_runner": {
-                        "network": ["tailscale"],
+                        "network": ["headscale"],
                         "filesystem": ["repo_root"],
                         "services": ["organ-forge", "cargo-build", "gate-2"],
                     },
                     "kernel_primary": {
-                        "network": ["tailscale"],
+                        "network": ["headscale"],
                         "filesystem": ["repo_root"],
                         "services": ["cynic-kernel", "surrealdb", "cynic-portal"],
                     },
                 },
                 "fleet_requirements": {
-                    "provider": "tailscale",
+                    "provider": "headscale",
                     "required": True,
                     "require_online": True,
                 },
@@ -190,7 +190,7 @@ def registry_fixture():
             {
                 "name": "cynic-vm-anvil",
                 "role": "build_runner",
-                "network": {"tailscale": "<TAILSCALE_ANVIL>"},
+                "network": {"headscale": "<HEADSCALE_ANVIL>"},
                 "services": [
                     {"name": "organ-forge"},
                     {"name": "cargo-build"},
@@ -202,7 +202,7 @@ def registry_fixture():
                 "name": "cynic-vm-core",
                 "role": "kernel_primary",
                 "deploy_target": True,
-                "network": {"tailscale": "<TAILSCALE_CORE>"},
+                "network": {"headscale": "<HEADSCALE_CORE>"},
                 "services": [
                     {"name": "cynic-kernel"},
                     {"name": "surrealdb"},
@@ -218,7 +218,7 @@ def registry_fixture():
 def registry_with_ready_anvil():
     registry = registry_fixture()
     node = registry["nodes"][0]
-    node["network"]["tailscale"] = "100.64.0.10"
+    node["network"]["headscale"] = "100.64.0.10"
     node["activation_evidence"] = {
         "runtime_paths": {
             "repo_root": {
@@ -444,7 +444,7 @@ class LifecyclePolicyTests(unittest.TestCase):
         self.assertEqual(content["deploy_target"], "cynic-vm-core")
         self.assertEqual(content["deploy_target_role"], "kernel_primary")
         self.assertEqual(content["required_node_status"], "active")
-        self.assertEqual(content["fleet_requirements"]["provider"], "tailscale")
+        self.assertEqual(content["fleet_requirements"]["provider"], "headscale")
         self.assertEqual(
             content["activation_requirements"]["build_runner"]["services"],
             ["organ-forge", "cargo-build", "gate-2"],
@@ -617,12 +617,12 @@ class LifecyclePolicyTests(unittest.TestCase):
         self.assertEqual(
             [gap["code"] for gap in details],
             [
-                "cynic-vm-anvil:tailscale_env_TAILSCALE_ANVIL_missing",
+                "cynic-vm-anvil:tailscale_env_HEADSCALE_ANVIL_missing",
                 "cynic-vm-anvil:service_organ-forge_inactive",
                 "cynic-vm-anvil:service_cargo-build_inactive",
                 "cynic-vm-anvil:service_gate-2_inactive",
                 "cynic-vm-anvil:runtime_path_repo_root_unverified",
-                "cynic-vm-core:tailscale_env_TAILSCALE_CORE_missing",
+                "cynic-vm-core:tailscale_env_HEADSCALE_CORE_missing",
                 "cynic-vm-core:service_cynic-kernel_inactive",
                 "cynic-vm-core:service_surrealdb_inactive",
                 "cynic-vm-core:service_cynic-portal_inactive",
@@ -632,7 +632,7 @@ class LifecyclePolicyTests(unittest.TestCase):
         self.assertEqual(details[0]["kind"], "network")
         self.assertEqual(details[0]["role"], "build_runner")
         self.assertEqual(details[0]["reason"], "missing_env")
-        self.assertEqual(details[0]["env"], "TAILSCALE_ANVIL")
+        self.assertEqual(details[0]["env"], "HEADSCALE_ANVIL")
         self.assertEqual(details[1]["kind"], "service")
         self.assertEqual(details[1]["role"], "build_runner")
         self.assertEqual(details[1]["reason"], "missing_service_evidence")
@@ -929,8 +929,8 @@ class LifecyclePolicyTests(unittest.TestCase):
                 "action": "provide_placeholder_env_evidence",
                 "node": "cynic-vm-anvil",
                 "role": "build_runner",
-                "env": "TAILSCALE_ANVIL",
-                "requirement": "tailscale",
+                "env": "HEADSCALE_ANVIL",
+                "requirement": "headscale",
             },
             actions,
         )
@@ -1018,12 +1018,12 @@ class LifecyclePolicyTests(unittest.TestCase):
         self.assertEqual(
             workflow_state["observed"]["activation_evidence_gaps"],
             [
-                "cynic-vm-anvil:tailscale_env_TAILSCALE_ANVIL_missing",
+                "cynic-vm-anvil:tailscale_env_HEADSCALE_ANVIL_missing",
                 "cynic-vm-anvil:service_organ-forge_inactive",
                 "cynic-vm-anvil:service_cargo-build_inactive",
                 "cynic-vm-anvil:service_gate-2_inactive",
                 "cynic-vm-anvil:runtime_path_repo_root_unverified",
-                "cynic-vm-core:tailscale_env_TAILSCALE_CORE_missing",
+                "cynic-vm-core:tailscale_env_HEADSCALE_CORE_missing",
                 "cynic-vm-core:service_cynic-kernel_inactive",
                 "cynic-vm-core:service_surrealdb_inactive",
                 "cynic-vm-core:service_cynic-portal_inactive",
