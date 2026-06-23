@@ -1,0 +1,11 @@
+[project]
+name = "organ-wireguard"
+version = "0.2.0"
+description = "CYNIC Wireguard hot-reloader daemon (Hexagonal Pure Python)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "python-dotenv>=1.0.1",
+    "pyroute2>=0.7.3",
+    "pynacl>=1.5.0"
+]

@@ -1,0 +1,19 @@
+name: organ-wireguard
+role: mesh_network_controller
+description: "Sovereign native WireGuard mesh controller using STUN NAT traversal and SurrealDB SSOT. Hexagonal architecture."
+version: 0.2.0
+dependencies:
+  - cynic-kernel
+interfaces:
+  mesh_state:
+    - fetch_mesh_nodes
+    - fetch_mesh_routes
+    - publish_node_endpoint
+  network_interface:
+    - apply_wireguard_config
+    - resolve_external_endpoint
+state_paths:
+  - desired/state.json
+  - state/SSOT.json
+runbooks:
+  - runbooks/operations.json
