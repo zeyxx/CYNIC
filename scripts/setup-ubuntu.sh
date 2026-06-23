@@ -42,12 +42,56 @@ else
     echo "SurrealDB already installed: $(surreal version)"
 fi
 
-# ── 5. Tailscale ────────────────────────
-echo "[5/10] Tailscale..."
+# ── 5. Headscale/Tailscale Client (Compilé depuis les sources) ──
+echo "[5/10] Compiling Tailscale client from source..."
 if ! command -v tailscale &>/dev/null; then
-    curl -fsSL https://tailscale.com/install.sh | sh
+    echo "Installing Go if needed..."
+    if ! command -v go &>/dev/null; then
+        sudo apt-get install -y golang-go
+    fi
+    
+    TS_SRC_DIR="$HOME/dev/tailscale-src"
+    if [ ! -d "$TS_SRC_DIR" ]; then
+        git clone https://github.com/tailscale/tailscale.git "$TS_SRC_DIR"
+    fi
+    
+    cd "$TS_SRC_DIR"
+    echo "Building tailscaled and tailscale..."
+    go build -o tailscaled ./cmd/tailscaled
+    go build -o tailscale ./cmd/tailscale
+    
+    sudo mv tailscaled /usr/local/bin/
+    sudo mv tailscale /usr/local/bin/
+    
+    echo "Configuring tailscaled systemd service..."
+    cat <<'EOF' | sudo tee /etc/systemd/system/tailscaled.service
+[Unit]
+Description=Tailscale node agent
+Documentation=https://tailscale.com/kb/
+Wants=network-pre.target
+After=network-pre.target NetworkManager.service systemd-resolved.service
+
+[Service]
+ExecStartPre=/usr/local/bin/tailscaled --cleanup
+ExecStart=/usr/local/bin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock
+ExecStopPost=/usr/local/bin/tailscaled --cleanup
+Restart=on-failure
+RuntimeDirectory=tailscale
+RuntimeDirectoryMode=0755
+StateDirectory=tailscale
+StateDirectoryMode=0700
+CacheDirectory=tailscale
+CacheDirectoryMode=0750
+Type=notify
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now tailscaled
 fi
-echo ">>> After script: sudo tailscale up --ssh"
+echo ">>> After script: sudo tailscale up --login-server=https://<HEADSCALE_URL> --ssh"
 
 # ── 6. Claude Code ──────────────────────
 echo "[6/10] Claude Code..."
@@ -100,10 +144,10 @@ mkdir -p "$CLAUDE_DIR/projects"
 cat > "$CYNIC_DIR/.mcp.json" <<MCPEOF
 {
   "mcpServers": {
-    "tailscale": {
+    "headscale": {
       "command": "$TSMCP_DIR/tailscale-mcp",
       "args": [],
-      "description": "Tailscale network MCP — node discovery, remote exec, file transfer"
+      "description": "Headscale network MCP — node discovery, remote exec, file transfer"
     }
   }
 }

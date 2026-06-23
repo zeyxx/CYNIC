@@ -37,7 +37,7 @@ CYNIC has no naming convention. 12 significant inconsistencies found across env 
 4. `dogs_used` (String, joined) vs `dog_id` (String) — same concept, different names
 5. `id` vs `dog_id` — dog identity has 3 different JSON keys across endpoints
 6. `"deterministic-dog"` — only dog with `-dog` suffix (12 string literals scattered in code)
-7. `<TAILSCALE_S>` vs `<TAILSCALE_GPU>` — same machine, two placeholder names
+7. `<HEADSCALE_S>` vs `<HEADSCALE_GPU>` — same machine, two placeholder names
 8. `SURREALDB_URL` protocol mismatch — `ws://` in setup-ubuntu.sh vs `http://` in deployed env
 9. `domain/temporal.rs` — file exists, module commented out (dead architecture)
 10. `"VERIFY/FALSIFY"` in API axioms list vs `verify` in domain types

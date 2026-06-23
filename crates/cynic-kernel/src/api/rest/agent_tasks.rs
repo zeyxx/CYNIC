@@ -299,6 +299,14 @@ pub async fn dispatch_task_handler(
         )
     })?;
 
+    let _ = state
+        .event_tx
+        .send(crate::domain::events::KernelEvent::AgentTaskCreated {
+            task_id: task_id.clone(),
+            kind: task.kind.clone(),
+            domain: task.domain.clone(),
+        });
+
     Ok(Json(serde_json::json!({
         "task_id": task_id,
         "status": "pending",
@@ -333,6 +341,15 @@ pub async fn claim_task_handler(
                 }),
             )
         })?;
+
+    if claimed {
+        let _ = state
+            .event_tx
+            .send(crate::domain::events::KernelEvent::AgentTaskClaimed {
+                task_id: task_id.clone(),
+                agent_id: req.agent_id.clone(),
+            });
+    }
 
     Ok(Json(serde_json::json!({
         "task_id": task_id,
@@ -432,6 +449,12 @@ pub async fn complete_task_handler(
                 }),
             )
         })?;
+
+    let _ = state
+        .event_tx
+        .send(crate::domain::events::KernelEvent::AgentTaskCompleted {
+            task_id: task_id.clone(),
+        });
 
     Ok(Json(serde_json::json!({
         "task_id": task_id,

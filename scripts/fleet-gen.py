@@ -5,7 +5,7 @@ This repository references ``scripts/fleet-gen.py`` from runtime bootstrap hooks
 and operational workflows. The historical implementation is not present in this
 workspace, so this shim restores the behavior required for current tooling:
 
-* file-based placeholder substitution for `<TAILSCALE_*>` values (input path mode)
+* file-based placeholder substitution for `<HEADSCALE_*>` values (input path mode)
 * a legacy no-op `node-kernels` mode used by systemd bootstrap
 
 Usage:

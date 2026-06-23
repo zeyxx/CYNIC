@@ -4,8 +4,9 @@
 //! mode returns explicit errors rather than silently succeeding.
 
 use super::{
-    ActivityStorage, CrystalStorage, DispatchStorage, Observation, StateLogStorage, StorageError,
-    StoragePort, SubmissionStorage, TaskStorage, UsageRow, VerdictStorage,
+    ActivityStorage, CrystalStorage, DispatchStorage, MeshNode, MeshRoute, MeshStorage,
+    Observation, StateLogStorage, StorageError, StoragePort, SubmissionStorage, TaskStorage,
+    UsageRow, VerdictStorage,
 };
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
@@ -345,6 +346,28 @@ impl TaskStorage for NullStorage {
         _error: Option<String>,
     ) -> Result<(), StorageError> {
         Ok(())
+    }
+}
+
+#[async_trait]
+impl MeshStorage for NullStorage {
+    async fn register_mesh_node(
+        &self,
+        _name: &str,
+        _public_key: &str,
+        _external_endpoint: Option<&str>,
+    ) -> Result<MeshNode, StorageError> {
+        Err(StorageError::QueryFailed(
+            "MeshStorage not supported in NullStorage".to_string(),
+        ))
+    }
+
+    async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError> {
+        Ok(vec![])
+    }
+
+    async fn list_mesh_routes(&self) -> Result<Vec<MeshRoute>, StorageError> {
+        Ok(vec![])
     }
 }
 

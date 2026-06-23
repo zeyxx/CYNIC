@@ -244,6 +244,16 @@ impl SurrealHttpStorage {
             DEFINE TABLE IF NOT EXISTS dog_usage;\
             DEFINE TABLE IF NOT EXISTS session_summary;\
             DEFINE TABLE IF NOT EXISTS event;\
+            DEFINE TABLE IF NOT EXISTS mesh_nodes;\
+            DEFINE TABLE IF NOT EXISTS mesh_routes;\
+            DEFINE FIELD IF NOT EXISTS name ON mesh_nodes TYPE string;\
+            DEFINE FIELD IF NOT EXISTS public_key ON mesh_nodes TYPE string;\
+            DEFINE FIELD IF NOT EXISTS mesh_ip ON mesh_nodes TYPE string;\
+            DEFINE FIELD IF NOT EXISTS external_endpoint ON mesh_nodes TYPE string;\
+            DEFINE FIELD IF NOT EXISTS last_seen ON mesh_nodes TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS source_node ON mesh_routes TYPE record<mesh_nodes>;\
+            DEFINE FIELD IF NOT EXISTS target_node ON mesh_routes TYPE record<mesh_nodes>;\
+            DEFINE FIELD IF NOT EXISTS allowed_ips ON mesh_routes TYPE array<string>;\
             DEFINE FIELD IF NOT EXISTS verdict_id ON verdict TYPE string;\
             DEFINE FIELD IF NOT EXISTS kind ON verdict TYPE string;\
             DEFINE FIELD IF NOT EXISTS total ON verdict TYPE float;\

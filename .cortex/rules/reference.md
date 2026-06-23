@@ -15,8 +15,8 @@ Declared in `~/.config/cynic/backends.toml` — loaded at kernel boot if env var
 | Dog | Model | Where | Activation |
 |---|---|---|---|
 | deterministic-dog | Heuristics | In-kernel | Always (no config required) |
-| qwen25-7b-core | Qwen 2.5 7B Q4 | cynic-host-proxmox (CPU + Vulkan) | If <TAILSCALE_CORE> reachable |
-| qwen36-27b-gpu | Qwen 3.6 27B IQ3_XXS | cynic-host-gpu (RTX 4060 Ti) | If <TAILSCALE_GPU> reachable |
+| qwen25-7b-core | Qwen 2.5 7B Q4 | cynic-host-proxmox (CPU + Vulkan) | If <HEADSCALE_CORE> reachable |
+| qwen36-27b-gpu | Qwen 3.6 27B IQ3_XXS | cynic-host-gpu (RTX 4060 Ti) | If <HEADSCALE_GPU> reachable |
 | antigravity-cli | Antigravity (auto) | CLI subprocess | If GEMINI_API_KEY set + antigravity-cli on PATH |
 
 ## Infrastructure
@@ -25,8 +25,8 @@ Source of truth: `~/.config/cynic/fleet.toml`
 
 | Service | Location | What |
 |---|---|---|
-| CYNIC Kernel | `<TAILSCALE_CORE>`:3030 | REST API |
-| llama-server | `<TAILSCALE_CORE>`:8080 | Qwen 2.5 7B (CPU + Vulkan) |
-| llama-server | `<TAILSCALE_GPU>`:8080 | Qwen 3.6 27B IQ3_XXS (GPU, 19.7 tok/s) |
+| CYNIC Kernel | `<HEADSCALE_CORE>`:3030 | REST API |
+| llama-server | `<HEADSCALE_CORE>`:8080 | Qwen 2.5 7B (CPU + Vulkan) |
+| llama-server | `<HEADSCALE_GPU>`:8080 | Qwen 3.6 27B IQ3_XXS (GPU, 19.7 tok/s) |
 
 Full API contract: `API.md`. Env: `${CYNIC_REST_ADDR}`, `${CYNIC_API_KEY}` from `~/.cynic-env`.

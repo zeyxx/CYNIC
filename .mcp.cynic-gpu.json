@@ -4,7 +4,7 @@
       "command": "ssh",
       "args": ["cynic-host-gpu", "/home/user/Bureau/CYNIC/cynic-kernel", "--mcp"]
     },
-    "tailscale": {
+    "headscale": {
       "command": "ssh",
       "args": ["cynic-host-gpu", "tailscale-mcp"]
     }

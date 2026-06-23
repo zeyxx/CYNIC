@@ -138,7 +138,7 @@ impl TailscaleReader {
     async fn run_tailscale_cmd() -> Result<String, OrganError> {
         let output = tokio::time::timeout(
             Duration::from_secs(5),
-            tokio::process::Command::new("tailscale")
+            tokio::process::Command::new("headscale")
                 .args(["status", "--json"])
                 .output(),
         )
@@ -162,7 +162,7 @@ impl TailscaleReader {
 #[async_trait]
 impl OrganPort for TailscaleReader {
     fn name(&self) -> &str {
-        "tailscale"
+        "headscale"
     }
 
     async fn health(&self) -> OrganHealth {
@@ -282,7 +282,7 @@ pub mod tailscale;
 And in `build_sense_registry()`:
 ```rust
 // Tailscale — fleet nervous system (local CLI)
-if which::which("tailscale").is_ok() {
+if which::which("headscale").is_ok() {
     senses.push(Arc::new(tailscale::TailscaleReader::new(
         vec![
             "cynic-host-proxmox".into(),
@@ -683,7 +683,7 @@ dog_to_fleet_node: HashMap<String, String>,
 Inside the loop, after Dog probes, add:
 ```rust
 // Fleet awareness: preemptive circuit breaking via Tailscale sense
-if let Some(ts_sense) = senses.iter().find(|s| s.name() == "tailscale") {
+if let Some(ts_sense) = senses.iter().find(|s| s.name() == "headscale") {
     match tokio::time::timeout(Duration::from_secs(5), ts_sense.snapshot()).await {
         Ok(Ok(snap)) => {
             let offline_nodes: Vec<String> = snap.metrics.iter()
@@ -749,7 +749,7 @@ git commit -m "feat(health_loop): preemptive Dog marking via Tailscale fleet awa
 ```rust
 #[test]
 fn fleet_drift_gpu_offline_triggers_alert() {
-    let snaps = vec![("tailscale".into(), make_tailscale_snapshot(false))];
+    let snaps = vec![("headscale".into(), make_tailscale_snapshot(false))];
     let alerts = check_sense_health(&snaps);
     assert!(alerts.iter().any(|a| a.kind == "fleet_drift"));
 }
@@ -773,7 +773,7 @@ Expected: FAIL
 
 In `check_sense_health`, add:
 ```rust
-("tailscale", key) if key.starts_with("node_") && key.ends_with("_online") => {
+("headscale", key) if key.starts_with("node_") && key.ends_with("_online") => {
     if let MetricValue::Bool(false) = &metric.value {
         let node = key.strip_prefix("node_").unwrap()
             .strip_suffix("_online").unwrap();

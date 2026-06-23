@@ -6,6 +6,7 @@ mod coord;
 mod crystals;
 mod dispatch;
 mod maintenance;
+mod mesh;
 mod ops;
 mod state_log;
 mod verdict_queue;
@@ -15,9 +16,9 @@ use super::{SurrealHttpStorage, safe_limit};
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
 use crate::domain::storage::{
-    ActivityStorage, AgentDispatch, AgentTask, CrystalStorage, DispatchStorage, Event, Observation,
-    RawEvent, RawObservation, StateLogStorage, StorageError, StoragePort, SubmissionStorage,
-    TaskStorage, UsageRow, VerdictStorage,
+    ActivityStorage, AgentDispatch, AgentTask, CrystalStorage, DispatchStorage, Event, MeshNode,
+    MeshRoute, MeshStorage, Observation, RawEvent, RawObservation, StateLogStorage, StorageError,
+    StoragePort, SubmissionStorage, TaskStorage, UsageRow, VerdictStorage,
 };
 use crate::domain::verdict_queue::QueuedVerdict;
 
@@ -509,6 +510,26 @@ impl SubmissionStorage for SurrealHttpStorage {
             confirmed as u32,
             failed as u32,
         ))
+    }
+}
+
+#[async_trait::async_trait]
+impl MeshStorage for SurrealHttpStorage {
+    async fn register_mesh_node(
+        &self,
+        name: &str,
+        public_key: &str,
+        external_endpoint: Option<&str>,
+    ) -> Result<MeshNode, StorageError> {
+        mesh::register_mesh_node(self, name, public_key, external_endpoint).await
+    }
+
+    async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError> {
+        mesh::list_mesh_nodes(self).await
+    }
+
+    async fn list_mesh_routes(&self) -> Result<Vec<MeshRoute>, StorageError> {
+        mesh::list_mesh_routes(self).await
     }
 }
 

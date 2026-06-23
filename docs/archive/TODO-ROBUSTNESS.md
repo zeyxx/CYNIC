@@ -11,7 +11,7 @@
 **Action:**
 - [ ] Set RUST_MIN_STACK=16777216 + RUSTFLAGS="-C debuginfo=1" in build scripts + docs
 - [ ] `cargo build --release` locally
-- [ ] Boot cynic-kernel service on <TAILSCALE_CORE>:3030
+- [ ] Boot cynic-kernel service on <HEADSCALE_CORE>:3030
 - [ ] Verify `curl http://localhost:3030/health` returns 200
 - [ ] Verify Dogs heartbeat registered (5/5 expected)
 

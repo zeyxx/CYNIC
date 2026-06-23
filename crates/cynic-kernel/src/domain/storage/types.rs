@@ -380,3 +380,23 @@ pub struct AgentDispatch {
     pub hash: String,       // SHA256(scope|zone|claimed_by|branch|status)
     pub prev_hash: String,  // Chain: hash of previous COMPLETED dispatch for scope
 }
+
+/// WireGuard V3 mesh network node info.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MeshNode {
+    pub id: String,
+    pub name: String,
+    pub public_key: String,
+    pub mesh_ip: String,
+    pub external_endpoint: String,
+    pub last_seen: String,
+}
+
+/// WireGuard V3 mesh network routing peer relationship.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MeshRoute {
+    pub id: String,
+    pub source_node: String, // Record ID of the source mesh node
+    pub target_node: String, // Record ID of the target mesh node
+    pub allowed_ips: Vec<String>,
+}

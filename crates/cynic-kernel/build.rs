@@ -21,6 +21,17 @@ fn main() {
     let short_sha = git_sha.chars().take(7).collect::<String>();
     let version = format!("{date}-{short_sha}");
 
+    let allow_local = env::var("CYNIC_ALLOW_LOCAL_DEV_BUILD").is_ok()
+        || env::var("CYNIC_ALLOW_LOCAL_KERNEL_BUS").is_ok()
+        || env::var("CYNIC_TIER").unwrap_or_default() == "2"
+        || env::var("CYNIC_TIER").unwrap_or_default() == "3";
+
+    if !allow_local {
+        panic!(
+            "HERESY BLOCKED: Cortex machines must not compile the kernel locally. Use the MCP `cynic_lifecycle_dispatch` tool to dispatch the build task to the registry build runner via the mempool. To override for local dev, pass CYNIC_ALLOW_LOCAL_DEV_BUILD=1."
+        );
+    }
+
     println!("cargo:rustc-env=CYNIC_VERSION={version}");
     println!("cargo:rustc-env=CYNIC_GIT_SHA={git_sha}");
     println!("cargo:rustc-env=CYNIC_BUILD_PROFILE={profile}");

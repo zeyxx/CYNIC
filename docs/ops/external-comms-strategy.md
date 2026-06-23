@@ -72,7 +72,7 @@ Competitors are likely already tweeting, building hype, getting early feedback.
 | Asset | Status | Location |
 |-------|--------|----------|
 | README with pitch | ✅ Exists | /README.md |
-| Live kernel | ✅ Running | <TAILSCALE_CORE>:3030 |
+| Live kernel | ✅ Running | <HEADSCALE_CORE>:3030 |
 | Cloudflare tunnel | ✅ Live | https://orders-seems-invitation-yesterday.trycloudflare.com |
 | UI demo capability | ✅ Vercel deployed | (check .env.local) |
 | Curator verdicts | ✅ 42 ready | (cynic-python/organs/hermes_x/) |

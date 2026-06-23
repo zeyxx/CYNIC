@@ -66,4 +66,19 @@ pub enum KernelEvent {
         service_id: String,
         reason: String, // "ttl_expired" | "explicit_unregister"
     },
+    /// A new agent task was pushed to the mempool.
+    AgentTaskCreated {
+        task_id: String,
+        kind: String,
+        domain: String,
+    },
+    /// An agent atomically claimed a pending task.
+    AgentTaskClaimed {
+        task_id: String,
+        agent_id: String,
+    },
+    /// An agent task was completed or failed.
+    AgentTaskCompleted {
+        task_id: String,
+    },
 }

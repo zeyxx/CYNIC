@@ -12,7 +12,7 @@ TIMEOUT="${3:-30}"  # Default 30 seconds
 # MCP server config (stdio-based, spawned on-demand)
 # R1: no hardcoded paths — use env var or resolve relative to repo root
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MCP_PROG="${TAILSCALE_MCP:-${REPO_ROOT}/../tailscale-mcp/tailscale-mcp}"
+MCP_PROG="${HEADSCALE_MCP:-${REPO_ROOT}/../tailscale-mcp/tailscale-mcp}"
 
 
 if [[ ! -f "$MCP_PROG" ]]; then

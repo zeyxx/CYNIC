@@ -231,7 +231,7 @@ def call_mcp_ts_introspect(node: str, service: str, port: int = 0) -> dict | Non
     Returns ServiceIntrospection dict or None on error.
     MCP protocol requires persistent process with line-buffered I/O.
     """
-    mcp_prog = os.environ.get("TAILSCALE_MCP", "/home/user/Bureau/tailscale-mcp/tailscale-mcp")
+    mcp_prog = os.environ.get("HEADSCALE_MCP", "/home/user/Bureau/tailscale-mcp/tailscale-mcp")
     if not os.path.isfile(mcp_prog):
         logger.warning("MCP binary not found at %s", mcp_prog)
         return None

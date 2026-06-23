@@ -4,7 +4,7 @@
       "command": "./.cortex/mcp/run-cynic-mcp.sh",
       "args": []
     },
-    "tailscale": {
+    "headscale": {
       "command": "tailscale-mcp",
       "args": []
     }

@@ -27,7 +27,7 @@ Agent C (OpenCode)─────┘      │       Judge (consensus quality gat
 - **Hardware:** Ryzen 7 5700G 8C/16T, 27 GB RAM, Vega 8 iGPU
 - **Inference:** llama.cpp Vulkan build, Gemma 3 4B Q4_K_M, 26 GPU layers, 23 t/s gen
 - **Services:** cynic-kernel + SurrealDB + llama-server (systemd)
-- **Tailscale:** `<TAILSCALE_CORE>`
+- **Tailscale:** `<HEADSCALE_CORE>`
 
 ### S. Windows Desktop (GPU Worker)
 - **Hardware:** i5-14400F 10C/16T, RTX 4060 Ti 16 GB VRAM, 16 GB RAM
@@ -35,7 +35,7 @@ Agent C (OpenCode)─────┘      │       Judge (consensus quality gat
 - **Models available:** gemma3:12b-it-q4_K_M (active), qwen3.5:9b (thinking issue), qwen3-coder:30b, gpt-oss:20b
 - **Access:** `tailscale serve --tcp 11434 tcp://localhost:11434` (Tailscale-only, no firewall needed)
 - **Known issue:** Qwen 3.5 thinking mode — Ollama OpenAI API puts all output in `reasoning`, `content` empty
-- **Tailscale:** `<TAILSCALE_S>`
+- **Tailscale:** `<HEADSCALE_S>`
 
 ### Forge (Backup — No Inference)
 - **Hardware:** i5-6500T 4C/4T, 11 GB RAM, no GPU
@@ -60,8 +60,34 @@ Agent C (OpenCode)─────┘      │       Judge (consensus quality gat
 - Session hijacking via Mcp-Session-Id (CVE-2025-6515)
 - Spec authors acknowledge stateful scaling "doesn't work yet"
 - TLS not mandated — plaintext is spec-compliant
-- **CYNIC's REST API already handles remote access with Bearer auth on Tailscale**
+- **CYNIC's REST API already handles remote access with Bearer auth on Headscale**
 - Re-evaluate after June 2026 spec revision
+
+---
+
+## Mesh Networking Evolution
+
+CYNIC is pivoting away from proprietary ecosystem tooling (Tailscale) toward absolute sovereignty while maintaining a frictionless developer experience.
+
+| Phase | Technology | Status | Decision |
+|-------|------------|--------|----------|
+| **V1** | Tailscale SaaS | ❌ Deprecated | Proprietary control plane. |
+| **V2** | Headscale + Tailscale Client | ✅ Current | Open source control plane, but still relies on Tailscale CLI daemon and ecosystem structure. |
+| **V3** | Raw WireGuard + `Organ-Wireguard` | 🚀 Strategic | **TARGET** — Zero external dependencies. |
+
+### The `Organ-Wireguard` Architecture (Target)
+To achieve frictionless mesh networking without Headscale:
+1. **Key Distribution**: Decentralized via SurrealDB (`mesh_keys` table on the `kernel_primary`).
+2. **Auto-Configuration**: An autonomous CYNIC daemon (`Organ-Wireguard`) listens to Mempool events, automatically rewriting `/etc/wireguard/wg0.conf` and executing `wg-quick` hot reloads.
+3. **NAT Traversal**: Integration of a custom or self-hosted STUN/TURN server to recover the hole-punching capabilities lost by abandoning Tailscale.
+
+### Provisioning Boundary (Ansible vs CYNIC)
+As CYNIC moves towards V3 sovereignty, the boundary between declarative provisioning and autonomous runtime strictly separates:
+
+| Domain | Tool | Responsibility |
+|--------|------|----------------|
+| **Layer 0 (Bootstrap)** | **Ansible** | **Bare-Metal/VM Ignition.** Strictly limited to creating the OS user, installing base dependencies (Go, Rust), deploying the initial CYNIC daemon, and injecting the *Initial Trust Key* (a minimal `/etc/wireguard/wg0.conf` pointing to the Kernel). Once the machine pings the Kernel, Ansible's job is completely finished. |
+| **Layer 1+ (Runtime)** | **CYNIC Kernel & MCP** | **Dynamic Topology & Lifecycle.** The organism automatically distributes new network routes (Organ-Wireguard), updates software (`make deploy-request` via `organ-forge`), and manages configuration drift. Ansible is never used to update network nodes or deploy code. |
 
 ---
 

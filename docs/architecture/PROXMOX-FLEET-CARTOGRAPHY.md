@@ -23,7 +23,7 @@ What it declares today:
 - `cynic-host-proxmox` as `hypervisor`
 - `cynic-vm-anvil` as `build_runner`
 - `cynic-vm-core` as `kernel_primary`
-- Tailscale placeholders for `TAILSCALE_HOST_PROXMOX`, `TAILSCALE_ANVIL`, `TAILSCALE_CORE`
+- Tailscale placeholders for `HEADSCALE_HOST_PROXMOX`, `HEADSCALE_ANVIL`, `HEADSCALE_CORE`
 - lifecycle workflow and activation evidence rules
 
 This is the declarative layer. It does not probe reality.

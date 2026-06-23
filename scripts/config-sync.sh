@@ -41,7 +41,7 @@ case "$cmd" in
     ;;
 
   hermes-config)
-    # Substitute <TAILSCALE_*> placeholders in Hermes ouroboros config template
+    # Substitute <HEADSCALE_*> placeholders in Hermes ouroboros config template
     # Reads: .hermes_ouroboros/config.yaml.tpl (repo template)
     # Outputs: ~/.config/cynic/hermes-ouroboros-config.yaml (runtime)
     echo "Resolving placeholders in Hermes ouroboros config..."
@@ -57,13 +57,13 @@ case "$cmd" in
       exit 1
     fi
 
-    # Use fleet-gen.py to substitute all <TAILSCALE_*> placeholders
+    # Use fleet-gen.py to substitute all <HEADSCALE_*> placeholders
     python3 "$FLEET_GEN" "$HERMES_TEMPLATE" > "$HERMES_RUNTIME"
 
     # Verify no unresolved placeholders remain
-    if grep -q '<TAILSCALE_' "$HERMES_RUNTIME"; then
-      echo "ERROR: Unresolved <TAILSCALE_*> placeholders remain in ${HERMES_RUNTIME}:" >&2
-      grep '<TAILSCALE_' "$HERMES_RUNTIME" >&2
+    if grep -q '<HEADSCALE_' "$HERMES_RUNTIME"; then
+      echo "ERROR: Unresolved <HEADSCALE_*> placeholders remain in ${HERMES_RUNTIME}:" >&2
+      grep '<HEADSCALE_' "$HERMES_RUNTIME" >&2
       exit 1
     fi
 
@@ -87,7 +87,7 @@ case "$cmd" in
     if [[ "${2:-}" == "--no-secrets" ]]; then
       echo "Collecting runtime → repo with IP masking..."
       # Mask real Tailscale IPs (100.x.y.z) before committing
-      sed 's/100\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/<TAILSCALE_MASKED>/g' "$RUNTIME_BACKENDS" > "${REPO_BACKENDS}.masked"
+      sed 's/100\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/<HEADSCALE_MASKED>/g' "$RUNTIME_BACKENDS" > "${REPO_BACKENDS}.masked"
       echo "  ${RUNTIME_BACKENDS} → backends.toml.masked (IPs masked)"
       echo "Review, then: cp ${REPO_BACKENDS}.masked ${REPO_BACKENDS}"
     else
@@ -141,7 +141,7 @@ case "$cmd" in
     HERMES_TEMPLATE="${PROJECT_ROOT}/.hermes_ouroboros/config.yaml.tpl"
     HERMES_RUNTIME="${RUNTIME_DIR}/hermes-ouroboros-config.yaml"
     if [[ -f "$HERMES_RUNTIME" ]]; then
-      if grep -v '^#' "$HERMES_RUNTIME" | grep -q '<TAILSCALE_'; then
+      if grep -v '^#' "$HERMES_RUNTIME" | grep -q '<HEADSCALE_'; then
         echo "DRIFT: ${HERMES_RUNTIME} has unresolved placeholders — run: config-sync.sh hermes-config" >&2
         FAIL=1
       else

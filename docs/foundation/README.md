@@ -22,7 +22,10 @@ Les fichiers ci-dessous sont les rendus humains lisibles.
 | 5 | `docs/foundation/CYNIC_OWNERSHIP_CONSTITUTION.md` | Ownership, wallets, flux, reserves, responsibilities |
 | 6 | `docs/foundation/CYNIC_E_SCORE.md` | E-Score, Proof of History, reputation, vote, rewards |
 | 7 | `docs/foundation/CYNIC_PROTOCOL_REVENUE_WATERFALL.md` | Waterfall des revenus protocolaires |
-| 8 | `docs/CYNIC_ECOSYSTEM_ARCHITECTURE.md` | Architecture ecosysteme globale |
+| 8 | `docs/foundation/CYNIC_PROTOCOL_TOKEN_PAPER.md` | Paper public draft pour `$CYNIC` comme actif protocolaire |
+| 9 | `docs/foundation/TALARIA_SAS_GENESIS_NOTE.md` | Note publique draft pour TALARIA SAS comme entite legal genesis |
+| 10 | `docs/foundation/CYNIC_FAIR_LAUNCH_COVENANT.md` | Covenant launch/listing/perp : no hidden allocation, timing, power |
+| 11 | `docs/CYNIC_ECOSYSTEM_ARCHITECTURE.md` | Architecture ecosysteme globale |
 
 ---
 

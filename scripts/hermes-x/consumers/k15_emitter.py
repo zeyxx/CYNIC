@@ -38,7 +38,7 @@ def get_kernel_address() -> str:
     """Get kernel REST address from environment or default.
 
     Ensures the address includes a protocol (http://), even if environment
-    variable only contains the host:port (e.g., <TAILSCALE_CORE>:3030).
+    variable only contains the host:port (e.g., <HEADSCALE_CORE>:3030).
     """
     addr = os.environ.get("CYNIC_REST_ADDR", "").strip()
     if not addr:

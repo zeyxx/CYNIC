@@ -1,11 +1,7 @@
 #![no_std]
 
 use pinocchio::{
-    account_info::AccountInfo,
-    entrypoint,
-    msg,
-    program_error::ProgramError,
-    pubkey::Pubkey,
+    account_info::AccountInfo, entrypoint, msg, program_error::ProgramError, pubkey::Pubkey,
 };
 
 entrypoint!(process_instruction);

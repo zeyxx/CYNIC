@@ -12,7 +12,7 @@ ExecStartPre=/bin/sh -c 'if [ -f %h/.surrealdb/data/LOCK ]; then \
     rm -f %h/.surrealdb/data/LOCK && echo "Removed stale LOCK file"; \
   fi; \
 fi'
-ExecStart=/usr/local/bin/surreal start --bind 127.0.0.1:8000 --transaction-timeout 10s --query-timeout 30s surrealkv://%h/.surrealdb/data
+ExecStart=/usr/local/bin/surreal start --bind 0.0.0.0:8000 --transaction-timeout 10s --query-timeout 30s surrealkv://%h/.surrealdb/data
 NoNewPrivileges=true
 PrivateTmp=true
 Restart=always

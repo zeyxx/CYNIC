@@ -5,8 +5,8 @@
 #   CYNIC_REST_ADDR in environment (or source ~/.cynic-env)
 #
 # Accepted values:
-#   - <TAILSCALE_CORE>:3030
-#   - http://<TAILSCALE_CORE>:3030
+#   - <HEADSCALE_CORE>:3030
+#   - http://<HEADSCALE_CORE>:3030
 #   - https://...
 #
 # Policy:
@@ -37,7 +37,7 @@ cynic_kernel_rest_url() {
     local host="${hostport%%:*}"
 
     if [[ "$host" == "127.0.0.1" || "$host" == "localhost" ]] && [[ "${CYNIC_ALLOW_LOCAL_KERNEL:-0}" != "1" ]]; then
-        echo "FATAL: SSOT rejected loopback kernel endpoint '$addr'. Set CYNIC_REST_ADDR to fleet endpoint (e.g. <TAILSCALE_CORE>:3030)." >&2
+        echo "FATAL: SSOT rejected loopback kernel endpoint '$addr'. Set CYNIC_REST_ADDR to fleet endpoint (e.g. <HEADSCALE_CORE>:3030)." >&2
         return 1
     fi
 

@@ -54,7 +54,7 @@ def subprocess_output(cmd: List[str]) -> str:
 
 def collect_tailscale_observed() -> Set[str]:
     try:
-        output = subprocess_output(["tailscale", "status", "--json"])
+        output = subprocess_output(["headscale", "status", "--json"])
     except Exception:
         return set()
 
@@ -195,10 +195,10 @@ def collect_placeholders(payload: dict, include_non_tailscale: bool = True) -> d
 
     for node in payload.get("nodes", []):
         name = node.get("name", "<unnamed>")
-        tailscale_ref = node.get("network", {}).get("tailscale", "")
+        tailscale_ref = node.get("network", {}).get("headscale", "")
         for key in re.findall(r"<([A-Z0-9_]+)>", str(tailscale_ref)):
             placeholders.setdefault(key, {
-                "kind": "tailscale",
+                "kind": "headscale",
                 "nodes": [],
                 "aliases": set(),
             })
@@ -238,7 +238,7 @@ def resolve_candidate(
     aliases = set(info.get("aliases", [])) if isinstance(info.get("aliases"), Iterable) else set()
     if current:
         return current, "set"
-    if kind != "tailscale":
+    if kind != "headscale":
         return "", "missing"
 
     if resolve_headscale and observed_headscale:
@@ -338,7 +338,7 @@ for var, info in sorted(placeholders.items()):
                 print(f'export {var}="{value}"  # already-set: {source_node}')
             else:
                 print(f'export {var}="{value}"')
-        elif kind == "tailscale" and status_kind == "missing":
+        elif kind == "headscale" and status_kind == "missing":
             default = candidate if candidate else "<UNSET>"
             if resolve_headscale:
                 print(f'export {var}="{default}"  # resolve from headscale not possible ({headscale_status})')
@@ -364,17 +364,17 @@ if mode != "--check":
 
     current_kernel = os.environ.get("CYNIC_REST_ADDR", "")
     if not current_kernel:
-        core = os.environ.get("TAILSCALE_CORE", "")
+        core = os.environ.get("HEADSCALE_CORE", "")
         if core:
             print('export CYNIC_REST_ADDR=' + f'"http://{core}:3030"' + '  # from SSOT desired kernel endpoint')
         else:
-            print('export CYNIC_REST_ADDR="http://<TAILSCALE_CORE>:3030"  # define TAILSCALE_CORE before sourcing this value')
+            print('export CYNIC_REST_ADDR="http://<HEADSCALE_CORE>:3030"  # define HEADSCALE_CORE before sourcing this value')
 
     current_proxmox = os.environ.get("CYNIC_PROXMOX_URL", "")
     if not current_proxmox:
-        proxmox_host = os.environ.get("TAILSCALE_HOST_PROXMOX", "")
+        proxmox_host = os.environ.get("HEADSCALE_HOST_PROXMOX", "")
         if proxmox_host:
             print('export CYNIC_PROXMOX_URL=' + f'"https://{proxmox_host}:8006"')
         else:
-            print('export CYNIC_PROXMOX_URL="https://<TAILSCALE_HOST_PROXMOX>:8006"')
+            print('export CYNIC_PROXMOX_URL="https://<HEADSCALE_HOST_PROXMOX>:8006"')
 PY

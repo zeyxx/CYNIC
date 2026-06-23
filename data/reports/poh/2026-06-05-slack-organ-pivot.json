@@ -8,7 +8,7 @@
     "organ_directive": "Promote Slack to OrganPort"
   },
   "data_system_mapping": {
-    "perception": ["rtk", "tailscale", "hermes-x", "slack-pending"],
+    "perception": ["rtk", "headscale", "hermes-x", "slack-pending"],
     "transformation": "vLLM guided decoding (Outlines)",
     "structuration": "OrganPort trait integration",
     "reliability": "Sovereign Linux Node",

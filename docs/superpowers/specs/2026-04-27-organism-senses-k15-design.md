@@ -109,7 +109,7 @@ pub struct TailscaleReader {
 **Registration in `senses/mod.rs`:**
 ```rust
 // Tailscale — fleet nervous system (local CLI)
-if which::which("tailscale").is_ok() {
+if which::which("headscale").is_ok() {
     senses.push(Arc::new(tailscale::TailscaleReader::new(
         vec!["cynic-host-proxmox", "cynic-host-gpu", "kairos"],
     )));
@@ -130,7 +130,7 @@ The `health_loop` already ticks every 20s and updates Dog circuit state. Add fle
 
 ```toml
 [qwen35-9b-gpu]
-url = "http://<TAILSCALE_GPU>:8080/v1/chat/completions"
+url = "http://<HEADSCALE_GPU>:8080/v1/chat/completions"
 fleet_node = "cynic-host-gpu"  # Tailscale hostname for fleet awareness (distinct from remediation.node which is SSH target)
 ```
 
@@ -229,7 +229,7 @@ Consumer: Same alert pipeline as Consumer A.
 - If TailscaleReader adds >5ms to health_loop tick → `tailscale status` too slow, cache with TTL
 - If 30s hysteresis still causes false positives on cynic-host-gpu sleep/wake → increase to 60s
 - If 30s hysteresis misses real outages (GPU crashes but flap buffer delays detection) → decrease to 15s
-- If `which::which("tailscale")` fails on production cynic-host-proxmox → binary not in PATH, fix systemd env
+- If `which::which("headscale")` fails on production cynic-host-proxmox → binary not in PATH, fix systemd env
 - If parse_failures delta > 50/tick never triggers → threshold too high, check actual parse_failures growth rate
 
 ## Testing Strategy

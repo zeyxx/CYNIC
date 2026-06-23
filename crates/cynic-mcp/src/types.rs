@@ -442,6 +442,23 @@ pub struct ProxmoxActionParams {
     pub action: String, // "start", "stop", "reboot", "suspend", "resume"
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ProxmoxProvisionParams {
+    pub node: String,
+    pub vmid: u64,
+    pub name: String,
+    pub archive: String,
+    pub storage: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ProxmoxExecParams {
+    pub node: String,
+    pub vmid: u64,
+    pub command: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 #[cfg(test)]
 mod tests {
     use super::*;

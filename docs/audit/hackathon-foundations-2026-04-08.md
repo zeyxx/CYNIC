@@ -123,9 +123,9 @@ $ git status --short
 
 **Llama-server processes are live**:
 ```
-$ curl http://<TAILSCALE_GPU>:8080/health       → {"status":"ok"}
-$ curl http://<TAILSCALE_GPU>:8080/v1/models    → Qwen3.5-9B-Q4_K_M.gguf, 8.95B params, 262K ctx
-$ curl http://<TAILSCALE_CORE>:8080/health          → {"status":"ok"}
+$ curl http://<HEADSCALE_GPU>:8080/health       → {"status":"ok"}
+$ curl http://<HEADSCALE_GPU>:8080/v1/models    → Qwen3.5-9B-Q4_K_M.gguf, 8.95B params, 262K ctx
+$ curl http://<HEADSCALE_CORE>:8080/health          → {"status":"ok"}
 ```
 The processes are up, models are loaded. Root cause is in the prompt→response→parse chain, not infrastructure. Deep investigation = post-hackathon.
 

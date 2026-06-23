@@ -163,7 +163,7 @@ The flywheel: your session produces verdicts. Verdicts that survive crystallize 
 
 ## VII. Security (Inviolable — public repo)
 
-Use placeholders for IPs: `<TAILSCALE_CORE>`, `<TAILSCALE_GPU>`, `<TAILSCALE_KAIROS>`.
+Use placeholders for IPs: `<HEADSCALE_CORE>`, `<HEADSCALE_GPU>`, `<HEADSCALE_KAIROS>`.
 Never commit: real IPs, API keys/tokens/passwords, real names (use T./S.), machine hostnames, emails.
 Secrets live in `~/.cynic-env` only. Systemd uses `~/.config/cynic/env`.
 Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`, `/live`, `/ready`, `/metrics`, `/events`.

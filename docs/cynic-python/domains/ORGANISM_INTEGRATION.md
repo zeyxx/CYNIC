@@ -127,7 +127,7 @@ Domain-discovery v1, k15-routing v1, behavioral-analysis v1 are all **Validated*
 ```
 Status (2026-05-03):
   Kernel health: {"healthy": false}
-  Last probe: curl -s http://<TAILSCALE_CORE>:3030/health
+  Last probe: curl -s http://<HEADSCALE_CORE>:3030/health
   Status since: 2026-05-02 (degraded → unhealthy over 24h)
   
 Phase 2 Readiness:
@@ -136,7 +136,7 @@ Phase 2 Readiness:
   ✓ behavioral-analysis v1: Analysis complete (pending measurement phase)
   
 Next step: Verify kernel recovery
-  curl http://<TAILSCALE_CORE>:3030/health
+  curl http://<HEADSCALE_CORE>:3030/health
   If {"healthy": true}: Wire K15 consumers immediately (all code ready)
   If {"healthy": false}: Continue Phase 1 refinement (silhouette validation, v2 planning)
 ```

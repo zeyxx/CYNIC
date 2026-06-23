@@ -12,7 +12,7 @@
 
 Hermes Agent (NousResearch, v0.13.0) is installed and configured sovereign:
 - LLM: Qwen 3.5 9B via kernel `/v1` proxy → llama-server GPU
-- Fallback: `<TAILSCALE_CORE>:8080` (CPU direct)
+- Fallback: `<HEADSCALE_CORE>:8080` (CPU direct)
 - MCP: `cynic-kernel-mcp` wired as native MCP server
 - Skill: CYNIC v2.3 (17K dataset, PROTOCOL v2, BEHAVIOR.md calibrated)
 - System prompt: CYNIC-aware ("You are CYNIC's sense organ on X/Twitter")

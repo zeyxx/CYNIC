@@ -9,8 +9,8 @@ mod types;
 
 pub use null::NullStorage;
 pub use types::{
-    AgentDispatch, AgentTask, AuditContext, Event, Observation, PRMetadata, RawEvent,
-    RawObservation, StorageError, StorageMetrics, SubmissionTaskContent, UsageRow,
+    AgentDispatch, AgentTask, AuditContext, Event, MeshNode, MeshRoute, Observation, PRMetadata,
+    RawEvent, RawObservation, StorageError, StorageMetrics, SubmissionTaskContent, UsageRow,
 };
 
 use crate::domain::ccm::Crystal;
@@ -304,6 +304,18 @@ pub trait TaskStorage: Send + Sync {
 }
 
 #[async_trait]
+pub trait MeshStorage: Send + Sync {
+    async fn register_mesh_node(
+        &self,
+        name: &str,
+        public_key: &str,
+        external_endpoint: Option<&str>,
+    ) -> Result<MeshNode, StorageError>;
+    async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError>;
+    async fn list_mesh_routes(&self) -> Result<Vec<MeshRoute>, StorageError>;
+}
+
+#[async_trait]
 pub trait DispatchStorage: Send + Sync {
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
@@ -428,6 +440,7 @@ pub trait StoragePort:
     + CrystalStorage
     + ActivityStorage
     + TaskStorage
+    + MeshStorage
     + DispatchStorage
     + StateLogStorage
     + SubmissionStorage

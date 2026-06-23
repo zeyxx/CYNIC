@@ -64,7 +64,7 @@ cat /tmp/organism_state.json | jq .
   "kernel": {
     "running": true,
     "pid": "28451",
-    "address": "http://<TAILSCALE_CORE>:3030",
+    "address": "http://<HEADSCALE_CORE>:3030",
     "health": { "dogs_healthy": 5, "dogs_total": 6, ... }
   },
   "hermes": {
@@ -170,7 +170,7 @@ ps aux | grep cynic-kernel
 echo $CYNIC_REST_ADDR
 
 # Manually test
-curl http://<TAILSCALE_CORE>:3030/health
+curl http://<HEADSCALE_CORE>:3030/health
 ```
 
 ### Cron not running

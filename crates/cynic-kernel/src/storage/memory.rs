@@ -18,9 +18,9 @@ use crate::domain::dog::{MIN_QUORUM, Verdict};
 use crate::domain::dog_health::DogStats;
 use crate::domain::sanitize::sanitize_crystal_content;
 use crate::domain::storage::{
-    ActivityStorage, AgentDispatch, AgentTask, CrystalStorage, DispatchStorage, Event, Observation,
-    RawEvent, RawObservation, StateLogStorage, StorageError, StoragePort, SubmissionStorage,
-    TaskStorage, UsageRow, VerdictStorage,
+    ActivityStorage, AgentDispatch, AgentTask, CrystalStorage, DispatchStorage, Event, MeshNode,
+    MeshRoute, MeshStorage, Observation, RawEvent, RawObservation, StateLogStorage, StorageError,
+    StoragePort, SubmissionStorage, TaskStorage, UsageRow, VerdictStorage,
 };
 use crate::domain::usage::DogUsage;
 use crate::domain::verdict_queue::QueuedVerdict;
@@ -42,6 +42,8 @@ struct State {
     tasks: HashMap<String, AgentTask>,
     events: Vec<Event>,
     dog_stats: HashMap<String, DogStats>,
+    mesh_nodes: HashMap<String, MeshNode>,
+    mesh_routes: Vec<MeshRoute>,
 }
 
 impl Default for InMemoryStorage {
@@ -802,6 +804,65 @@ impl TaskStorage for InMemoryStorage {
             t.error = error;
         }
         Ok(())
+    }
+}
+
+#[async_trait]
+impl MeshStorage for InMemoryStorage {
+    async fn register_mesh_node(
+        &self,
+        name: &str,
+        public_key: &str,
+        external_endpoint: Option<&str>,
+    ) -> Result<MeshNode, StorageError> {
+        let mut s = self.state.lock().await;
+        // Check if existing name or public key exists
+        let mut found_node = None;
+        for node in s.mesh_nodes.values() {
+            if node.name == name || node.public_key == public_key {
+                found_node = Some(node.clone());
+                break;
+            }
+        }
+
+        let mesh_ip = if let Some(ref node) = found_node {
+            node.mesh_ip.clone()
+        } else {
+            // Allocate new IP
+            // Find next free IP in 10.20.0.3 to 10.20.0.254
+            let mut allocated = None;
+            for i in 3..=254 {
+                let candidate = format!("10.20.0.{i}/24");
+                let exists = s.mesh_nodes.values().any(|n| n.mesh_ip == candidate);
+                if !exists {
+                    allocated = Some(candidate);
+                    break;
+                }
+            }
+            allocated.ok_or_else(|| StorageError::QueryFailed("No available mesh IPs".into()))?
+        };
+
+        let node = MeshNode {
+            id: format!("mesh_nodes:{}", name),
+            name: name.to_string(),
+            public_key: public_key.to_string(),
+            mesh_ip,
+            external_endpoint: external_endpoint.unwrap_or("").to_string(),
+            last_seen: chrono::Utc::now().to_rfc3339(),
+        };
+
+        s.mesh_nodes.insert(name.to_string(), node.clone());
+        Ok(node)
+    }
+
+    async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError> {
+        let s = self.state.lock().await;
+        Ok(s.mesh_nodes.values().cloned().collect())
+    }
+
+    async fn list_mesh_routes(&self) -> Result<Vec<MeshRoute>, StorageError> {
+        let s = self.state.lock().await;
+        Ok(s.mesh_routes.clone())
     }
 }
 

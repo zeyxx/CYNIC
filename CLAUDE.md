@@ -193,7 +193,7 @@ Use `/cynic-skills:metathink` when the session feels stuck or the ratio tips >3:
 
 ## Security (Inviolable — public repo)
 
-Use placeholders: `<TAILSCALE_CORE>`, `<TAILSCALE_GPU>`, `<TAILSCALE_KAIROS>`.
+Use placeholders: `<HEADSCALE_CORE>`, `<HEADSCALE_GPU>`, `<HEADSCALE_KAIROS>`.
 Never commit: real IPs, API keys/tokens/passwords, real names (use T./S.).
 Secrets: `~/.cynic-env`. Systemd: `~/.config/cynic/env`.
 Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`, `/live`, `/ready`.

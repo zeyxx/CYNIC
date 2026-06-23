@@ -16,9 +16,9 @@ use crate::domain::coord::{
     AuditEntry, BatchClaimResult, ClaimResult, CoordError, CoordPort, CoordSnapshot,
 };
 use crate::domain::storage::{
-    ActivityStorage, CrystalStorage, DispatchStorage, Observation, RawObservation, StateLogStorage,
-    StorageError, StorageMetrics, StoragePort, SubmissionStorage, TaskStorage, UsageRow,
-    VerdictStorage,
+    ActivityStorage, CrystalStorage, DispatchStorage, MeshNode, MeshRoute, MeshStorage,
+    Observation, RawObservation, StateLogStorage, StorageError, StorageMetrics, StoragePort,
+    SubmissionStorage, TaskStorage, UsageRow, VerdictStorage,
 };
 use crate::domain::verdict_queue::QueuedVerdict;
 use crate::infra::config::StorageConfig;
@@ -404,6 +404,26 @@ impl TaskStorage for ReconnectableStorage {
     }
     async fn claim_agent_task(&self, task_id: &str, agent_id: &str) -> Result<bool, StorageError> {
         self.current().claim_agent_task(task_id, agent_id).await
+    }
+}
+
+#[async_trait]
+impl MeshStorage for ReconnectableStorage {
+    async fn register_mesh_node(
+        &self,
+        name: &str,
+        public_key: &str,
+        external_endpoint: Option<&str>,
+    ) -> Result<MeshNode, StorageError> {
+        self.current()
+            .register_mesh_node(name, public_key, external_endpoint)
+            .await
+    }
+    async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError> {
+        self.current().list_mesh_nodes().await
+    }
+    async fn list_mesh_routes(&self) -> Result<Vec<MeshRoute>, StorageError> {
+        self.current().list_mesh_routes().await
     }
 }
 

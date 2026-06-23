@@ -577,6 +577,6 @@ Deciding between Bare-Metal, VM, LXC, and Docker is a mathematical choice based 
 ## Security (inviolable — public repo)
 
 - **Never commit secrets.** API keys, tokens, real IPs → `~/.cynic-env` only.
-- **Use placeholders:** `<TAILSCALE_CORE>`, `<TAILSCALE_GPU>`, `<TAILSCALE_KAIROS>`.
+- **Use placeholders:** `<HEADSCALE_CORE>`, `<HEADSCALE_GPU>`, `<HEADSCALE_KAIROS>`.
 - **All API calls require Bearer auth** — `Authorization: Bearer $CYNIC_API_KEY`.
 - **The kernel is Tailscale-only.** No public tunnel. No ngrok. No Cloudflare.

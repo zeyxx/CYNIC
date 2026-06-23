@@ -44,6 +44,7 @@ managed_units=(
     "infra/systemd/organ-x-hermes-agent.service"
     "infra/systemd/organ-x-cron.service"
     "infra/systemd/organ-x-cron.timer"
+    "infra/systemd/organ-wireguard-daemon.service"
 )
 
 mkdir -p "$SYSTEMD_USER_DIR"
@@ -60,6 +61,6 @@ for rel in "${managed_units[@]}"; do
 done
 
 systemctl --user daemon-reload
-systemctl --user enable --now hermes-agent-executor.service cynic-portal.service organ-anvil-hermes-agent.service organ-anvil-cron.timer organ-docker-hermes-agent.service organ-docker-cron.timer organ-vercel-hermes-agent.service organ-vercel-cron.timer discord-passive-proxy.service discord-pipeline.timer discord-opportunities-ui.service
+systemctl --user enable --now hermes-agent-executor.service cynic-portal.service organ-anvil-hermes-agent.service organ-anvil-cron.timer organ-docker-hermes-agent.service organ-docker-cron.timer organ-vercel-hermes-agent.service organ-vercel-cron.timer discord-passive-proxy.service discord-pipeline.timer discord-opportunities-ui.service organ-wireguard-daemon.service
 bash "$PROJECT_DIR/scripts/verify-systemd-units.sh"
 echo "Done. Repo-managed systemd units are active."

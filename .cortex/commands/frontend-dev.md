@@ -4,7 +4,7 @@ IMPORTANT: Read `packages/cynic-ui/CLAUDE.md` first — it has the full context,
 Also read `API.md` for the complete REST contract with TypeScript interfaces.
 
 Context:
-- CYNIC kernel: http://<TAILSCALE_CORE>:3030 (Tailscale) — CORS allows all origins
+- CYNIC kernel: http://<HEADSCALE_CORE>:3030 (Tailscale) — CORS allows all origins
 - API endpoints:
   - GET /health — {"status":"sovereign","phi_max":0.618,...}
   - POST /judge — submit content for chess evaluation, returns Verdict with 6 axiom scores

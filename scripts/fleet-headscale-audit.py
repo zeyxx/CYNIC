@@ -97,7 +97,7 @@ def http_get_json(url: str, headers: Dict[str, str]) -> dict:
 
 def proxmox_request(path: str) -> Tuple[Optional[dict], Optional[str]]:
     env_url = os.environ.get("CYNIC_PROXMOX_URL", "").rstrip("/")
-    proxmox_host = os.environ.get("TAILSCALE_HOST_PROXMOX", "").strip()
+    proxmox_host = os.environ.get("HEADSCALE_HOST_PROXMOX", "").strip()
     candidate_urls = []
     if env_url:
         candidate_urls.append(env_url)
@@ -105,7 +105,7 @@ def proxmox_request(path: str) -> Tuple[Optional[dict], Optional[str]]:
         candidate_urls.append(f"https://{proxmox_host}:8006")
 
     if not candidate_urls:
-        return None, "missing CYNIC_PROXMOX_URL and missing TAILSCALE_HOST_PROXMOX; set one of them"
+        return None, "missing CYNIC_PROXMOX_URL and missing HEADSCALE_HOST_PROXMOX; set one of them"
 
     proxmox_token_id = os.environ.get("CYNIC_PROXMOX_TOKEN_ID", "")
     proxmox_secret = os.environ.get("CYNIC_PROXMOX_TOKEN_SECRET", os.environ.get("CYNIC_PROXMOX_SECRET", ""))
@@ -220,7 +220,7 @@ def tailscale_peers() -> Tuple[Set[str], List[str], Optional[str]]:
         pass
 
     try:
-        data = json.loads(shell(["tailscale", "status", "--json"]))
+        data = json.loads(shell(["headscale", "status", "--json"]))
     except subprocess.CalledProcessError as exc:
         detail = exc.stdout or exc.output or ""
         return set(), [], f"tailscale status failed: {detail.strip()}"
@@ -333,7 +333,7 @@ def collect_tailscale_env_requirements(registry: dict) -> Dict[str, List[str]]:
     required: Dict[str, Set[str]] = {}
     for node in registry.get("nodes", []):
         name = node.get("name", "")
-        tailscale_value = node.get("network", {}).get("tailscale")
+        tailscale_value = node.get("network", {}).get("headscale")
         if not isinstance(tailscale_value, str):
             continue
         for match in re.findall(r"<([A-Z0-9_]+)>", tailscale_value):
@@ -355,7 +355,7 @@ def resolve_kernel_endpoint(registry: dict) -> Tuple[str, Optional[str]]:
     for node in registry.get("nodes", []):
         if node.get("role") != "kernel_primary":
             continue
-        tailscale_ref = str(node.get("network", {}).get("tailscale", ""))
+        tailscale_ref = str(node.get("network", {}).get("headscale", ""))
         matches = re.findall(r"<([A-Z0-9_]+)>", tailscale_ref)
         if matches:
             kernel_endpoint = f"<{matches[0]}>:3030"
@@ -369,7 +369,7 @@ def resolve_kernel_endpoint(registry: dict) -> Tuple[str, Optional[str]]:
         if unresolved:
             return "", f"unresolved placeholders in CYNIC_REST_ADDR: {', '.join(sorted(unresolved))}"
         if is_loopback_endpoint(configured_addr) and os.environ.get("CYNIC_ALLOW_LOCAL_KERNEL") != "1":
-            return "", "CYNIC_REST_ADDR resolves to loopback; set a fleet endpoint (e.g. <TAILSCALE_CORE>:3030) or CYNIC_ALLOW_LOCAL_KERNEL=1"
+            return "", "CYNIC_REST_ADDR resolves to loopback; set a fleet endpoint (e.g. <HEADSCALE_CORE>:3030) or CYNIC_ALLOW_LOCAL_KERNEL=1"
         return configured_addr, None
 
     configured_addr = kernel_endpoint

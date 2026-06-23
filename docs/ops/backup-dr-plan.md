@@ -83,7 +83,7 @@ WantedBy=timers.target
 
 ```bash
 # Liveness check
-curl -sf http://<TAILSCALE_CORE>:3030/ready || {
+curl -sf http://<HEADSCALE_CORE>:3030/ready || {
   echo "ALERT: SurrealDB unhealthy"
   # POST alert to /observe with K15 tag
 }
@@ -94,7 +94,7 @@ curl -sf http://<TAILSCALE_CORE>:3030/ready || {
 ```bash
 # Try querying a known crystal
 curl -H "Authorization: Bearer $CYNIC_API_KEY" \
-  http://<TAILSCALE_CORE>:3030/crystals?limit=1
+  http://<HEADSCALE_CORE>:3030/crystals?limit=1
 
 # If response = error → corruption likely
 ```
@@ -126,7 +126,7 @@ systemctl start surreal
 
 # Health check
 sleep 3
-curl -sf http://<TAILSCALE_CORE>:3030/ready || {
+curl -sf http://<HEADSCALE_CORE>:3030/ready || {
   echo "✗ Restore failed: not ready"
   exit 1
 }
@@ -139,7 +139,7 @@ echo "✓ Restored from $BACKUP_FILE"
 ```bash
 # Sample crystal queries
 curl -s -H "Authorization: Bearer $CYNIC_API_KEY" \
-  http://<TAILSCALE_CORE>:3030/crystals?limit=100 | jq '.[] | select(.state=="canonical")' | wc -l
+  http://<HEADSCALE_CORE>:3030/crystals?limit=100 | jq '.[] | select(.state=="canonical")' | wc -l
 
 # Expected: >0 canonical crystals
 # If 0 → backup may be from early genesis (empty)
@@ -147,7 +147,7 @@ curl -s -H "Authorization: Bearer $CYNIC_API_KEY" \
 
 ### Step 5: Resume operations (5 min)
 
-- Verify kernel health: `curl http://<TAILSCALE_CORE>:3030/health`
+- Verify kernel health: `curl http://<HEADSCALE_CORE>:3030/health`
 - Resume inference: Dogs should be active
 - K15 observation: POST recovery event to `/observe` for audit trail
 

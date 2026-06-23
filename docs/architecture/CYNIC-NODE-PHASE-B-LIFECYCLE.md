@@ -9,7 +9,7 @@
 ```
 ┌────────────────────────────────────────────────────────────┐
 │ cynic-node Binary (Soma's Remote Agent)                    │
-│ Runs on: <TAILSCALE_GPU>, <TAILSCALE_NODE_2>, etc.        │
+│ Runs on: <HEADSCALE_GPU>, <HEADSCALE_NODE_2>, etc.        │
 ├────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐  │
@@ -283,7 +283,7 @@ T+30:00 [30-MIN MARK] Node still alive, 60 heartbeats sent, models switched once
 
 | Aspect | Centralized Soma (Recommended) | Distributed Soma (Autonomous) |
 |--------|--------------------------------|-------------------------------|
-| **Soma Location** | On kernel machine (`<TAILSCALE_CORE>`) | On each machine (local) |
+| **Soma Location** | On kernel machine (`<HEADSCALE_CORE>`) | On each machine (local) |
 | **State SSOT** | Kernel (global truth) | Each node (local truth only) |
 | **Decision Scope** | Which models where (all nodes) | Per-node only |
 | **Conflict Risk** | Low (Soma arbitrates) | High (independent decisions) |
@@ -293,7 +293,7 @@ T+30:00 [30-MIN MARK] Node still alive, 60 heartbeats sent, models switched once
 | **Best For** | Production (many nodes) | Labs (isolated machines) |
 
 **Centralized Topology (CYNIC Production):**
-- Soma lives on `<TAILSCALE_CORE>` (Ring 2)
+- Soma lives on `<HEADSCALE_CORE>` (Ring 2)
 - Soma owns registered_nodes, hardware_map, model allocation
 - All nodes heartbeat to kernel (Tailscale, ~5-20ms latency)
 - Soma makes decisions every 5 min, broadcasts commands to all nodes in parallel

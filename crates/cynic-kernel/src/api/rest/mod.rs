@@ -14,6 +14,7 @@ pub mod inference_router;
 pub mod judge;
 pub mod judge_job;
 pub mod mail;
+pub mod mesh;
 pub mod middleware;
 pub mod mint_permit;
 pub mod observe;
@@ -64,6 +65,7 @@ use self::judge_job::{judge_async_handler, judge_status_handler};
 use self::mail::{
     fetch_message, health as mail_health, inbox, mark_read, search, send, sync, unread,
 };
+use self::mesh::{list_mesh_nodes_handler, list_mesh_routes_handler, mesh_register_handler};
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
 use self::mint_permit::mint_permit_handler;
 use self::observe::observe_handler;
@@ -218,6 +220,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             get(phone_numbers::reporter_stats_handler),
         )
         .route("/soma/request", post(soma_request_handler))
+        .route("/mesh/register", post(mesh_register_handler))
+        .route("/api/v1/mesh/register", post(mesh_register_handler))
+        .route("/mesh/nodes", get(list_mesh_nodes_handler))
+        .route("/mesh/routes", get(list_mesh_routes_handler))
         .route("/mail/health", get(mail_health))
         .route("/mail/inbox", get(inbox))
         .route("/mail/messages/{id}", get(fetch_message))

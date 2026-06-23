@@ -25,10 +25,10 @@ All services run as `user` (non-root but shared):
 
 | Service | New User | Home | Files | Network | Rationale |
 |---------|----------|------|-------|---------|-----------|
-| cynic-kernel | `cynic` | `/home/cynic` | /home/cynic/Bureau/CYNIC/.cynic | <TAILSCALE_CORE>:3030 | Core logic engine |
-| llama-server | `llama` | `/home/llama` | /home/llama/llama.cpp | <TAILSCALE_CORE>:8080 | Inference engine, isolated |
+| cynic-kernel | `cynic` | `/home/cynic` | /home/cynic/Bureau/CYNIC/.cynic | <HEADSCALE_CORE>:3030 | Core logic engine |
+| llama-server | `llama` | `/home/llama` | /home/llama/llama.cpp | <HEADSCALE_CORE>:8080 | Inference engine, isolated |
 | surreal | `surreal` | `/home/surreal` | /home/surreal/.surrealdb | 127.0.0.1:8000 | Database, localhost only |
-| hermes-k15-consumer | `root` | `/root` | /root/.cynic-env | <TAILSCALE_CORE>:3030 | Consumer reads observations |
+| hermes-k15-consumer | `root` | `/root` | /root/.cynic-env | <HEADSCALE_CORE>:3030 | Consumer reads observations |
 | hermes-infrastructure-monitor | `root` | `/root` | /root/.cynic-env | Tailscale mesh | Recovery needs ts_exec |
 
 ---

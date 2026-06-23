@@ -337,7 +337,7 @@ def main():
     logger.info(f"Hermes X Recovery Daemon started for account: {ACCOUNT_ID}")
     if not REST_ADDR:
         logger.error(
-            "CYNIC_REST_ADDR is required and must be non-loopback (e.g. <TAILSCALE_CORE>:3030)."
+            "CYNIC_REST_ADDR is required and must be non-loopback (e.g. <HEADSCALE_CORE>:3030)."
         )
         sys.exit(1)
     logger.info(f"Kernel: {REST_ADDR}")

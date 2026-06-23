@@ -123,7 +123,7 @@ deterministic-dog:
   
 qwen35-9b-gpu:
   version: "1.0"
-  endpoint: "http://<TAILSCALE_GPU>:8080"  # Can change without lab code
+  endpoint: "http://<HEADSCALE_GPU>:8080"  # Can change without lab code
   latency: 7000
 ```
 

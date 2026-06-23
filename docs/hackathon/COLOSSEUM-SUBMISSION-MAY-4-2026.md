@@ -79,7 +79,7 @@ Quorum = 2+ Dogs (deterministic + 1 language model) → verdict issued. System d
 
 ## Deployed
 
-- **REST API:** Cloudflare tunnel (private IP: <TAILSCALE_CORE>:3030)
+- **REST API:** Cloudflare tunnel (private IP: <HEADSCALE_CORE>:3030)
 - **Web UI:** https://cynic-ui.vercel.app
 - **GitHub:** https://github.com/zeyxx/CYNIC
 - **On-Chain:** Pinocchio contract deployed to Solana devnet

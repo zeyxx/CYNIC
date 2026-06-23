@@ -33,7 +33,7 @@ def _normalize_kernel_addr(raw: str) -> str:
     host = parsed.hostname or ""
     if host in {"127.0.0.1", "localhost"} and os.getenv("CYNIC_ALLOW_LOCAL_KERNEL", "0") != "1":
         raise RuntimeError(
-            "SSOT rejected loopback kernel endpoint. Set CYNIC_REST_ADDR to <TAILSCALE_CORE>:3030."
+            "SSOT rejected loopback kernel endpoint. Set CYNIC_REST_ADDR to <HEADSCALE_CORE>:3030."
         )
     return raw.rstrip("/")
 

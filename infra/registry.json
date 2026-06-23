@@ -12,7 +12,7 @@
       "activation_requirements": {
         "build_runner": {
           "network": [
-            "headscale"
+            "synapse"
           ],
           "filesystem": [
             "repo_root"
@@ -25,20 +25,28 @@
         },
         "kernel_primary": {
           "network": [
-            "headscale"
+            "synapse"
           ],
           "filesystem": [
             "repo_root"
           ],
           "services": [
             "cynic-kernel",
-            "surrealdb",
             "cynic-portal"
+          ]
+        },
+        "storage_primary": {
+          "network": [
+            "synapse"
+          ],
+          "filesystem": [],
+          "services": [
+            "surrealdb"
           ]
         }
       },
       "fleet_requirements": {
-        "provider": "headscale",
+        "provider": "synapse",
         "required": false,
         "require_online": false
       },
@@ -193,14 +201,14 @@
       "os": "Proxmox VE 8.2",
       "network": {
         "local": "192.168.0.37",
-        "headscale": "<HEADSCALE_HOST_PROXMOX>"
+        "synapse": "10.20.0.1"
       },
       "vms": [
         {
           "id": "lxc/100",
           "name": "cynic-lxc-vpn",
           "aliases": [
-            "organ-headscale"
+            "organ-wireguard"
           ],
           "ip": "192.168.0.40"
         },
@@ -257,17 +265,18 @@
       "status": "active"
     },
     {
-      "name": "organ-headscale",
+      "name": "organ-wireguard",
       "role": "mesh_control",
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
       "network": {
-        "local": "192.168.0.40"
+        "local": "192.168.0.40",
+        "synapse": "10.20.0.2"
       },
       "services": [
         {
-          "name": "headscale",
-          "description": "Sovereign mesh control plane host (identity + auth), intentionally decoupled from kernel runtime."
+          "name": "wireguard-control",
+          "description": "Sovereign Wireguard control plane and IPAM."
         }
       ],
       "status": "active"
@@ -282,7 +291,7 @@
       "os": "Debian 12",
       "network": {
         "local": "192.168.0.43",
-        "headscale": "<HEADSCALE_SURREALDB>"
+        "synapse": "10.20.0.3"
       },
       "services": [
         {
@@ -304,7 +313,7 @@
       "os": "Debian 12",
       "network": {
         "local": "192.168.0.42",
-        "headscale": "<HEADSCALE_ANVIL>"
+        "synapse": "10.20.0.4"
       },
       "services": [
         {
@@ -369,7 +378,7 @@
       "os": "Debian 12",
       "network": {
         "local": "<LAN_CORE_V2>",
-        "headscale": "<HEADSCALE_CORE_V2>"
+        "synapse": "10.20.0.5"
       },
       "services": [
         {
@@ -437,7 +446,7 @@
       "os": "Debian 12",
       "network": {
         "local": "<LAN_STAGING>",
-        "headscale": "<HEADSCALE_STAGING>"
+        "synapse": "10.20.0.6"
       },
       "services": [
         {
@@ -456,7 +465,7 @@
       "role": "inference_node",
       "network": {
         "local": "192.168.0.67",
-        "headscale": "<HEADSCALE_GPU>"
+        "synapse": "10.20.0.7"
       },
       "status": "active"
     },
@@ -469,13 +478,13 @@
       "role": "cortex_host",
       "network": {
         "local": "192.168.0.12",
-        "headscale": "<HEADSCALE_CORTEX>"
+        "synapse": "10.20.0.8"
       },
       "status": "active"
     }
   ],
   "routing_rules": {
-    "primary_tunnel": "headscale_souverain_mesh",
+    "primary_tunnel": "synapse_mesh",
     "management_fallback": "local_192_168_0_0_24",
     "slack_routing": {
       "kernel_ops": "SLACK_CHANNEL_KERNEL",
@@ -489,7 +498,7 @@
       "name": "organ-slack",
       "instance": "organ-slack-daemon",
       "role": "slack_relay",
-      "description": "Sovereign Slack relay — polls observations from SurrealDB mempool and routes to configured channels via registry.json routing table. Transitional dependency: replace sender.py when sovereign messaging is ready.",
+      "description": "Sovereign Slack relay \u2014 polls observations from SurrealDB mempool and routes to configured channels via registry.json routing table. Transitional dependency: replace sender.py when sovereign messaging is ready.",
       "scope": "slack+kernel_mempool",
       "cron": "daemon",
       "status": "active",

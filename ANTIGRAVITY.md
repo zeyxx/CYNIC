@@ -61,8 +61,8 @@ To prevent knowledge fragmentation across episodic sessions:
 1. **Index Everything:** Always record new reports in `reports/README.md`.
 2. **Data as Moat:** Strictly follow `docs/DATA_CONSTITUTION.md` for all ingestion and modeling.
 3. **JSON is King:** Prefer JSON/JSONL for all structured data, signals, and machine-readable reports.
-4. **Specialized Datasets:** Follow the hierarchy defined in `docs/DATASET_ARCHITECTURE.md`.
-3. **Memory Sync:** Update the private project memory (`~/.antigravity/tmp/cynic/memory/MEMORY.md`) for any machine-specific or cross-session persistence.
+4. **The Kernel is the Mempool:** Any dynamic context, discoveries, or tasks are pushed to the Kernel via `cynic_observe` or queried from `/agent-tasks`. Do NOT use local Markdown files for persistence.
+5. **Specialized Datasets:** Follow the hierarchy defined in `docs/DATASET_ARCHITECTURE.md`.
 
 ## Build Commands
 
@@ -83,28 +83,27 @@ cargo clippy -p cynic-kernel --release -- -D warnings
 This section explains how Antigravity executes the shared protocol from `AGENTS.md`.
 If this file and `AGENTS.md` ever disagree on coordination semantics, `AGENTS.md` wins.
 
-Default repo config wires Antigravity to the `cynic-coord` proxy only. That gives Antigravity these shared tools:
+Antigravity now has access to the full Kernel MCP surface, including coordination, task mempool, and validation tools:
 
-- `cynic_coord_register`
-- `cynic_coord_claim`
-- `cynic_coord_who`
-- `cynic_coord_release`
-- `cynic_observe`
-- `cynic_health`
+- `cynic_coord_register`, `cynic_coord_claim`, `cynic_coord_who`, `cynic_coord_release`
+- `cynic_observe`, `cynic_health`
+- `cynic_dispatch_agent_task`, `cynic_list_pending_agent_tasks`, `cynic_claim_agent_task`, `cynic_update_agent_task_result`
+- plus domain tools like `cynic_auth`, `cynic_validate`, `cynic_git`, etc.
 
 Every session follows this lifecycle:
 
 | Start | Register, inspect active work | `cynic_coord_register(...)` → `cynic_coord_who()` |
 | Before edit | Claim explicitly when in doubt | `cynic_coord_claim(agent_id, target-file)` |
 | During | Record discoveries, decisions, blockers | `cynic_observe(...)` |
-| End | Release all claims, seal session | `cynic_coord_release(agent_id)` → `cynic_askesis_log(...)` |
+| End | Release all claims, seal session | `cynic_coord_release(agent_id)` |
 
 ## Git Workflow: Branch-per-Session (L3)
 
-1. **Isolation :** Antigravity MUST work exclusively on a branch dedicated to the current session.
-   - Format : `session/YYYY-MM-DD-cortex-<id>`
-   - Command : `git checkout -b session/$(date +%Y-%m-%d)-antigravity-$(uuidgen | cut -c1-8)`
-   - This prevents branch collision and ensures a clean audit trail.
+1. **Isolation:** Antigravity MUST work exclusively on a branch dedicated to the current session.
+   - Derive the cortex name from your task (e.g., `wallet-judgment`) and write it to `.cortex-session`.
+   - Format: `<type>/<cortex-session>-YYYY-MM-DD`
+   - Command: `echo "task-theme" > .cortex-session && git checkout -b feat/$(cat .cortex-session)-$(date +%Y-%m-%d)`
+   - This prevents branch collision, ensures a clean audit trail, and enables multi-cortex coordination.
 2. **Commit :** Commits must be atomic, conventional (`type(scope): description`), and focused on the session's specific goal.
 3. **Main :** The `main` branch is immutable for agents. No commit direct, no push direct. All work merges via PR.
 
@@ -115,7 +114,7 @@ Antigravity is the primary interlocutor for Zey's **Askesis** (discipline throug
 **1. Automated Proof-of-History (v0.3.0):**
 - **JSON is King:** Session summaries are no longer written to markdown files. Every significant event, decision, and axiomatic alignment is logged as a structured JSON object directly into the Proof-of-History (`.cynic/memory/logs/human-kernel.jsonl`).
 - **Structured Logging:** Use `./target/debug/cynic-askesis log` with a JSON payload to ensure machine-readability and auditability.
-- **Sealing:** Upon exit, call `cynic_askesis_log` to crystallize the session's axiomatic state into the JSONL store.
+- **Sealing:** Upon exit, use `cynic_observe` or task completion tools to crystallize the session's axiomatic state into the JSONL store.
 - **Isolation:** Human logs are protected by `.antigravityignore` and `.gitignore`. They are never sent to the LLM during broad codebase scans.
 
 **2. Emergent Audit Protocol:**
@@ -123,14 +122,12 @@ Antigravity is the primary interlocutor for Zey's **Askesis** (discipline throug
 - It uses **Axiomatic Directives** (Fidelity, Phi, Verify, Culture, Burn, Sovereignty, Kenosis) to let the "Question of the Week" emerge from the context.
 - Priority: Distinguish between *Verticalité Native* (autonomous hardware) and *Verticalité Défensive* (performative theatre).
 
-The repo does **not** currently configure Antigravity with the full kernel MCP surface by default.
-Do not assume `cynic_auth`, `cynic_validate`, or `cynic_git` exist unless you explicitly added a second MCP server that exposes them.
-Default validation remains repo commands such as `make check` or direct `cargo` commands.
+Antigravity now has access to the full kernel MCP surface by default. You can use tools like `cynic_auth`, `cynic_validate`, and `cynic_git` natively. However, traditional repo commands (`make check`, `cargo build`) remain valid when interacting via shell.
 
 ## Security Rules (INVIOLABLE — repo is PUBLIC)
 
 1. **Never commit real IPs, tokens, passwords, API keys, or names** — use placeholders and env vars
-2. **Use `<TAILSCALE_CORE>`, `<TAILSCALE_GPU>`** for infrastructure references
+2. **Use `<HEADSCALE_CORE>`, `<HEADSCALE_GPU>`** for infrastructure references
 3. **Use `T.`, `S.`** for people — never full names
 4. **Before every commit:** `git diff --staged | grep -iE "api.key|token|password|AIza|hf_|100\.(74|75|119)"` must return empty
 5. **All API calls require** `Authorization: Bearer $CYNIC_API_KEY` (except `/health`)
@@ -162,3 +159,4 @@ When Claude or Codex delegates a task to you (via `antigravity -p "..." --approv
 5. **Max 2 fix attempts** — obvious → alternative → escalate to owner
 6. **Read before writing** — always read a file before modifying it
 7. **Don't brute-force** — if something fails twice, stop and explain
+8. **No Local Compilation Heresy** — **NEVER** use `cargo build --release` or `make deploy` to compile or deploy the kernel/MCP locally. Cortex machines are strictly Operator surfaces. You MUST use the `cynic_lifecycle_dispatch` MCP tool to delegate build tasks to the organism's registry via the Kernel mempool.

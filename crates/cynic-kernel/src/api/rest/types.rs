@@ -845,3 +845,21 @@ mod tests {
         assert!(!req.crystals);
     }
 }
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct RegisterMeshRequest {
+    pub node_name: String,
+    pub public_key: String,
+    pub external_endpoint: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct RegisterMeshResponse {
+    pub status: String,
+    pub node_name: String,
+    pub mesh_ip: String,
+    pub public_key: String,
+    pub external_endpoint: String,
+    pub hub_public_key: String,
+    pub hub_endpoint: String,
+}

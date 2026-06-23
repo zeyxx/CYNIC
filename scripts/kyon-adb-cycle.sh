@@ -68,7 +68,7 @@ with open(registry_path, "r", encoding="utf-8") as handle:
 host = ""
 for node in registry.get("nodes", []):
     if node.get("role") == role:
-        host = node.get("network", {}).get("tailscale", "") or node.get("network", {}).get("local", "")
+        host = node.get("network", {}).get("headscale", "") or node.get("network", {}).get("local", "")
         if host.startswith("<") and host.endswith(">"):
             env_name = host[1:-1]
             host = os.environ.get(env_name, host)

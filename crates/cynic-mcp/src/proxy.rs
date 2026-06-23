@@ -6,6 +6,8 @@
 //! Local tools (validate, git) run in-process (filesystem access required).
 //! All other tools → HTTP to REST kernel.
 
+use schemars::JsonSchema;
+use serde::Deserialize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -18,9 +20,15 @@ use crate::types::{
     AuditQueryParams, AuthParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
     ComplianceParams, DispatchAgentTaskParams, GitParams, InferParams, JudgeParams, ListParams,
     ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams,
-    ProxmoxActionParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams,
-    ValidateParams, WhoParams, validate_agent_id, validate_agent_task_content,
+    ProxmoxActionParams, ProxmoxExecParams, ProxmoxProvisionParams, RegisterParams, ReleaseParams,
+    UpdateAgentTaskResultParams, ValidateParams, WhoParams, validate_agent_id,
+    validate_agent_task_content,
 };
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LifecycleDispatchParams {
+    pub profile: String,
+}
 
 // ── Proxy struct ────────────────────────────────────────────
 
@@ -799,6 +807,202 @@ impl CynicMcpProxy {
 
         let text = resp.text().await.unwrap_or_default();
         Ok(CallToolResult::success(vec![Content::text(text)]))
+    }
+
+    #[tool(
+        name = "cynic_proxmox_provision",
+        description = "Provision a new Proxmox VM from an archive backup (vma.gz). Provides autonomous infrastructure cloning."
+    )]
+    async fn cynic_proxmox_provision(
+        &self,
+        params: Parameters<ProxmoxProvisionParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        let proxmox_url = std::env::var("CYNIC_PROXMOX_URL").unwrap_or_default();
+        let client_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
+        let credential_value = Self::proxmox_credential();
+
+        if proxmox_url.is_empty() || client_id.is_empty() || credential_value.is_empty() {
+            return Err(McpError::internal_error(
+                "Proxmox credentials not configured in CYNIC_PROXMOX_* env vars",
+                None,
+            ));
+        }
+
+        let p = params.0;
+
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .timeout(std::time::Duration::from_secs(300)) // Provisioning takes time
+            .build()
+            .map_err(|e| McpError::internal_error(format!("Proxmox client error: {e}"), None))?;
+
+        let auth_scheme = "PVEAPIToken";
+        let auth_header = format!("{auth_scheme}={client_id}={credential_value}");
+
+        let url = format!("{proxmox_url}/api2/json/nodes/{}/qemu", p.node);
+
+        // pvesh create /nodes/pve/qemu -vmid 130 -archive local:backup/... -name cynic-vm-staging -storage local-lvm
+        let form = [
+            ("vmid", p.vmid.to_string()),
+            ("archive", p.archive),
+            ("name", p.name),
+            ("storage", p.storage),
+            ("force", "1".to_string()), // Force overwriting existing if any
+        ];
+
+        let resp = client
+            .post(&url)
+            .header("Authorization", &auth_header)
+            .form(&form)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("Proxmox API POST failed: {e}"), None))?;
+
+        let text = resp.text().await.unwrap_or_default();
+        Ok(CallToolResult::success(vec![Content::text(text)]))
+    }
+
+    #[tool(
+        name = "cynic_proxmox_exec",
+        description = "Execute a command inside a Proxmox VM using the QEMU Guest Agent without requiring SSH."
+    )]
+    async fn cynic_proxmox_exec(
+        &self,
+        params: Parameters<ProxmoxExecParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        let proxmox_url = std::env::var("CYNIC_PROXMOX_URL").unwrap_or_default();
+        let client_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
+        let credential_value = Self::proxmox_credential();
+
+        if proxmox_url.is_empty() || client_id.is_empty() || credential_value.is_empty() {
+            return Err(McpError::internal_error(
+                "Proxmox credentials not configured in CYNIC_PROXMOX_* env vars",
+                None,
+            ));
+        }
+
+        let p = params.0;
+
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| McpError::internal_error(format!("Proxmox client error: {e}"), None))?;
+
+        let auth_scheme = "PVEAPIToken";
+        let auth_header = format!("{auth_scheme}={client_id}={credential_value}");
+
+        let exec_url = format!(
+            "{proxmox_url}/api2/json/nodes/{}/qemu/{}/agent/exec",
+            p.node, p.vmid
+        );
+
+        // Split command into arguments (simple split by space, for complex commands use sh -c)
+        let mut form = Vec::new();
+        for arg in p.command.split_whitespace() {
+            form.push(("command", arg.to_string()));
+        }
+
+        let resp = client
+            .post(&exec_url)
+            .header("Authorization", &auth_header)
+            .form(&form)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("Proxmox API POST failed: {e}"), None))?;
+
+        let text = resp.text().await.unwrap_or_default();
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::json!({}));
+        let pid = json["data"]["pid"].as_i64().ok_or_else(|| {
+            McpError::internal_error(
+                format!("Failed to get PID from exec response: {}", text),
+                None,
+            )
+        })?;
+
+        let status_url = format!(
+            "{proxmox_url}/api2/json/nodes/{}/qemu/{}/agent/exec-status?pid={}",
+            p.node, p.vmid, pid
+        );
+
+        // Wait for execution to finish (up to ~30 seconds)
+        for _ in 0..15 {
+            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+            let status_resp = client
+                .get(&status_url)
+                .header("Authorization", &auth_header)
+                .send()
+                .await
+                .map_err(|e| {
+                    McpError::internal_error(format!("Proxmox API GET failed: {e}"), None)
+                })?;
+
+            let status_text = status_resp.text().await.unwrap_or_default();
+            let status_json: serde_json::Value =
+                serde_json::from_str(&status_text).unwrap_or(serde_json::json!({}));
+
+            if status_json["data"]["exited"].as_i64() == Some(1) {
+                let exitcode = status_json["data"]["exitcode"].as_i64().unwrap_or(-1);
+                let out_data = status_json["data"]["out-data"].as_str().unwrap_or("");
+                let err_data = status_json["data"]["err-data"].as_str().unwrap_or("");
+
+                let result_text = format!(
+                    "Exit code: {}\nStdout:\n{}\nStderr:\n{}",
+                    exitcode, out_data, err_data
+                );
+                return Ok(CallToolResult::success(vec![Content::text(result_text)]));
+            }
+        }
+
+        Ok(CallToolResult::success(vec![Content::text(format!(
+            "Command timed out after 30 seconds. PID was {}.",
+            pid
+        ))]))
+    }
+
+    #[tool(
+        name = "cynic_lifecycle_dispatch",
+        description = "Dispatch a canonical lifecycle task (e.g. 'deploy' or 'gate-2') to the organism's registry via the Kernel mempool, bypassing local execution."
+    )]
+    async fn cynic_lifecycle_dispatch(
+        &self,
+        params: Parameters<LifecycleDispatchParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        let profile = params.0.profile;
+
+        let output = std::process::Command::new("python3")
+            .arg("organs/forge/src/entrypoints/cli.py")
+            .arg("lifecycle-profile-payloads")
+            .arg(&profile)
+            .arg(&format!("{}-request", profile))
+            .arg("organ-forge-request")
+            .output()
+            .map_err(|e| {
+                McpError::internal_error(format!("Failed to run python3 cli.py: {e}"), None)
+            })?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(McpError::internal_error(
+                format!("Lifecycle dispatch failed: {stderr}"),
+                None,
+            ));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        Ok(CallToolResult::success(vec![Content::text(
+            stdout.to_string(),
+        )]))
     }
 }
 

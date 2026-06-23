@@ -130,7 +130,7 @@ systemctl --user start hermes-calibration.service
 journalctl --user -xeu hermes-calibration.service -n 50
 
 # Verify output/metrics
-curl -s http://<TAILSCALE_CORE>:3030/health | jq .dog_convergence
+curl -s http://<HEADSCALE_CORE>:3030/health | jq .dog_convergence
 ```
 
 ### Step 7: Commit

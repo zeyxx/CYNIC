@@ -23,7 +23,7 @@
 
 ## What's Blocked
 
-**Kernel Health**: `curl http://<TAILSCALE_CORE>:3030/health` returns `{"healthy": false}`
+**Kernel Health**: `curl http://<HEADSCALE_CORE>:3030/health` returns `{"healthy": false}`
 
 Kernel has been unhealthy since 2026-05-02. This blocks:
 - K15 consumer wiring (router loading, observation routing)

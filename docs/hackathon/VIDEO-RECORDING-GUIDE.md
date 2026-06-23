@@ -10,11 +10,11 @@
 ```bash
 # 1. Verify kernel is live
 curl -H "Authorization: Bearer $CYNIC_API_KEY" \
-  http://<TAILSCALE_CORE>:3030/health | jq .
+  http://<HEADSCALE_CORE>:3030/health | jq .
 
 # 2. Get latest verdict (for reference)
 curl -H "Authorization: Bearer $CYNIC_API_KEY" \
-  http://<TAILSCALE_CORE>:3030/verdicts?limit=1 | jq .
+  http://<HEADSCALE_CORE>:3030/verdicts?limit=1 | jq .
 ```
 
 ## Recording Workflow
@@ -26,7 +26,7 @@ curl -H "Authorization: Bearer $CYNIC_API_KEY" \
    curl -X POST -H "Authorization: Bearer $CYNIC_API_KEY" \
      -H "Content-Type: application/json" \
      -d '{"content":"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v","domain":"token-analysis"}' \
-     http://<TAILSCALE_CORE>:3030/judge | jq .
+     http://<HEADSCALE_CORE>:3030/judge | jq .
    ```
    Narrate: "We submit USDC to CYNIC for judgment across six axioms."
 
@@ -39,7 +39,7 @@ curl -H "Authorization: Bearer $CYNIC_API_KEY" \
 4. **Scene 3 (40s):** Retrieve final verdict
    ```bash
    curl -H "Authorization: Bearer $CYNIC_API_KEY" \
-     http://<TAILSCALE_CORE>:3030/verdicts?limit=1 | jq '.[] | {verdict, q_score, dogs_used, max_disagreement, timestamp}'
+     http://<HEADSCALE_CORE>:3030/verdicts?limit=1 | jq '.[] | {verdict, q_score, dogs_used, max_disagreement, timestamp}'
    ```
    Narrate: "The Crystal Coherence Machine crystallizes disagreement into a single verdict. This is q-score 0.39, GROWL confidence, with max disagreement 0.568 across axioms."
 

@@ -8,7 +8,7 @@ Personal account (askesis) = manual: T. sends context, reads bot replies.
 
 Usage:
   export CYNIC_API_KEY=...
-  export CYNIC_REST_ADDR=http://<TAILSCALE_CORE>:3030
+  export CYNIC_REST_ADDR=http://<HEADSCALE_CORE>:3030
   export CYNIC_TELEGRAM_BOT_TOKEN=...
   python3 talaria_bot.py
 """

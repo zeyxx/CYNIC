@@ -9,8 +9,8 @@
 
 | Node | Tailscale IP | Hardware | Role | Latency |
 |------|-------------|----------|------|---------|
-| **cynic-host-proxmox** | `<TAILSCALE_CORE>` | Ryzen 7 5700G, 27GB RAM, ROCm iGPU (0 VRAM) | kernel, db, embedding | — |
-| **cynic-host-gpu** | `<TAILSCALE_GPU>` | i5-14400F, RTX 4060 Ti 16GB, 16GB RAM | **all inference** | ~3ms |
+| **cynic-host-proxmox** | `<HEADSCALE_CORE>` | Ryzen 7 5700G, 27GB RAM, ROCm iGPU (0 VRAM) | kernel, db, embedding | — |
+| **cynic-host-gpu** | `<HEADSCALE_GPU>` | i5-14400F, RTX 4060 Ti 16GB, 16GB RAM | **all inference** | ~3ms |
 
 ## 2. Inference Backends — Crystallized Config
 
@@ -19,7 +19,7 @@
 ```toml
 # backends.toml — SINGLE SOURCE OF TRUTH
 [backend.sovereign-gpu]
-base_url = "http://<TAILSCALE_GPU>:8080/v1"
+base_url = "http://<HEADSCALE_GPU>:8080/v1"
 model = "Qwen3.5-9B-Q4_K_M.gguf"
 auth_style = "none"
 context_size = 131072          # INCREASED: 131K (11.5GB VRAM) to support root workspace context
@@ -31,7 +31,7 @@ cost_input_per_mtok = 0.0
 cost_output_per_mtok = 0.0
 
 [backend.sovereign-gpu.remediation]
-node = "<USER>@<TAILSCALE_GPU>"
+node = "<USER>@<HEADSCALE_GPU>"
 restart_command = "schtasks /run /tn CynicSovereign"
 max_retries = 3
 cooldown_secs = 60
@@ -63,7 +63,7 @@ Built-in. No config needed. Always available.
 # systemd: llama-embed.service
 llama-server \
   --model Qwen3-Embedding-0.6B-Q8_0.gguf \
-  --host <TAILSCALE_CORE> --port 8081 \
+  --host <HEADSCALE_CORE> --port 8081 \
   --threads 4 --ctx-size 8192 --parallel 4 \
   --n-gpu-layers 0 --embedding \
   --api-key-file ~/.config/cynic/llama-api-key
