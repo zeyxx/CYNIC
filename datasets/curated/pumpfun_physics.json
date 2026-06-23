@@ -1,0 +1,60 @@
+{
+  "version": "1.0.0",
+  "domain": "solana_memecoin_market",
+  "platform": "pump.fun",
+  "snapshot_date": "2026-06-23",
+  "physics": {
+    "creation": {
+      "cost_to_creator": 0,
+      "token_standard": "SPL",
+      "custom_taxes_allowed": false
+    },
+    "bonding_curve": {
+      "graduation_mcap_usd_approx": 69000,
+      "creator_reward_sol": 0.5,
+      "liquidity_migration_target": ["Raydium", "PumpSwap"]
+    },
+    "creator_fees": {
+      "update_status": "2026_Q1_Updates",
+      "can_capture_trading_volume": true,
+      "max_wallets_for_fee_sharing": 10,
+      "cashback_coins_choice": "immutable_at_launch",
+      "post_launch_modification_limit": 1
+    }
+  },
+  "market_reality": {
+    "investor_psychology": {
+      "primary_fear": "Developer Rug Pull (dumping supply)",
+      "secondary_fear": "Developer changing fee structure",
+      "trust_metric": "On-chain mathematical immutability"
+    },
+    "lifecycles": {
+      "pump_and_dump": "Dev sells, community dies within 24h",
+      "cto_community_takeover": "Dev abandons, community assumes control, highly resilient",
+      "utility_grind": "Dev builds real product, needs continuous marketing"
+    }
+  },
+  "ignis_ux_constraints": {
+    "vault_authority_models": [
+      {
+        "mode": "Immutable_God_Mode",
+        "description": "Vault has NO authority. Once fees point here, it's locked forever. Best for ultimate market trust.",
+        "risk": "If the project needs to migrate liquidity or contracts later, they can't stop the burn."
+      },
+      {
+        "mode": "CTO_Transferable",
+        "description": "Vault has an authority (Dev). Dev can transfer authority to a Multisig. Allows Community Takeovers.",
+        "risk": "Market sees 'Authority' and assumes dev can steal fees instead of burning them."
+      },
+      {
+        "mode": "Throttled_Burn",
+        "description": "Burn is capped per hour. Prevents bots from front-running the burn or creating artificial mega-spikes.",
+        "risk": "Requires more complex eBPF state management."
+      }
+    ],
+    "holdex_integration": {
+      "requirement": "Vault must expose total_burned and status on-chain",
+      "badge_condition": "Fee routing must be mathematically locked to the Vault PDA"
+    }
+  }
+}
