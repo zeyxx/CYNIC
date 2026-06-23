@@ -8,6 +8,7 @@ import argparse
 import asyncio
 import json
 from pathlib import Path
+import os
 
 # Add CYNIC root to path for local imports if needed
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
@@ -69,6 +70,25 @@ def run_audit(repo_path, state_file):
     for alert in audited_state.alerts:
         print(f"[{alert.severity}] {alert.message}")
         
+    return 0
+
+async def run_daemon(repo_path, state_file):
+    from organs.forge.controllers.lifecycle_agent import LifecycleAgentController
+    
+    print(json.dumps({
+        "status": "starting", 
+        "mode": "daemon", 
+        "message": "Forge Organ starting Agentic Controller (Autonomous Mempool Consumer)"
+    }))
+    
+    controller = LifecycleAgentController(repo_path)
+    try:
+        await controller.run_loop()
+    except asyncio.CancelledError:
+        print(json.dumps({"status": "shutdown", "message": "Forge Organ shutting down gracefully"}))
+    except Exception as e:
+        print(json.dumps({"status": "fatal", "message": f"Agent loop crashed: {e}"}))
+        return 1
     return 0
 
 async def delegate_intent(repo_path, intent, emit_logs: bool = True) -> dict:
@@ -509,6 +529,9 @@ def main():
     parser = argparse.ArgumentParser(description="CYNIC Forge Organ CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
     
+    # Daemon Command
+    subparsers.add_parser("daemon", help="Run the organ in Event Listener Mode (Model B) listening to the CYNIC Kernel")
+
     # Audit Command
     subparsers.add_parser("audit", help="Audit the repository state")
 
@@ -616,7 +639,9 @@ def main():
     repo_path = PROJECT_ROOT
     state_file = PROJECT_ROOT / "organs" / "forge" / "state" / "state.json"
     
-    if args.command == "audit":
+    if args.command == "daemon":
+        return asyncio.run(run_daemon(repo_path, state_file))
+    elif args.command == "audit":
         return run_audit(repo_path, state_file)
     elif args.command == "lifecycle-check":
         return run_lifecycle_check()

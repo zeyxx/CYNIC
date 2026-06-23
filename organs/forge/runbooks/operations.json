@@ -1,0 +1,17 @@
+{
+  "name": "organ-forge-operations",
+  "routines": [
+    {
+      "name": "consume_mempool",
+      "trigger": "heartbeat",
+      "actions": [
+        "GET /agent-tasks?kind=hermes&domain=organ-forge",
+        "If pending, POST /agent-tasks/{id}/claim",
+        "Parse intent from task content",
+        "Execute appropriate validation/delegation (e.g. build-and-test, deploy-kernel)",
+        "POST /agent-tasks/{id}/result with execution proof"
+      ],
+      "failure_mode": "Log to degraded queue, wait for next heartbeat"
+    }
+  ]
+}
