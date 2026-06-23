@@ -7,6 +7,13 @@
 # See CLAUDE.md § VII: Build Environment
 export RUST_MIN_STACK=67108864
 
+SCRIPT_PATH="$0"
+if command -v readlink >/dev/null 2>&1; then
+    RESOLVED_SCRIPT=$(readlink -f "$0" 2>/dev/null || true)
+    [ -n "$RESOLVED_SCRIPT" ] && SCRIPT_PATH="$RESOLVED_SCRIPT"
+fi
+SCRIPT_DIR=$(CDPATH= cd "$(dirname "$SCRIPT_PATH")" && pwd)
+
 # ── L2: Staged secret / real infra leak check ──
 # Blocks obvious credential leaks and real Tailscale IPs anywhere in the staged diff,
 # not just in Rust files. This catches config/docs regressions before they reach the repo.
@@ -106,7 +113,7 @@ ssot_check || exit 1
 # Most execution/runtime directories should stay code-first (code/data/states),
 # not ad-hoc markdown snapshots. Use docs/ or explicit state stores.
 markdown_fragmentation_guard() {
-    "$(dirname "$0")/markdown-fragmentation-guard.sh" commit "$1" || return 1
+    "$SCRIPT_DIR/markdown-fragmentation-guard.sh" commit "$1" || return 1
 }
 STAGED_MD=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true)
 markdown_fragmentation_guard "$STAGED_MD" || exit 1

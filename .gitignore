@@ -98,6 +98,11 @@ scripts/x-interceptor.py
 cynic-kernel/cynic-kernel.bin
 scripts/openclaude.sh
 /data/
+!/data/
+!/data/curated/
+!/data/curated/talaria/
+!/data/curated/talaria/genesis.v1.json
+!/data/curated/talaria/genesis.v1.meta.json
 # Phase-2.0 runtime outputs (measurement experiments)
 /data/reports/phase-2.0/measurement_report_*.md
 /data/reports/phase-2.0/divergence_*.csv
