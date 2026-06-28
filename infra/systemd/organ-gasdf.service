@@ -5,8 +5,9 @@ After=network.target
 [Service]
 Type=simple
 EnvironmentFile=%h/.cynic-env
+Environment=GASDF_ROOT=@CYNIC_PROJECT_ROOT@/../GASdf
 Environment=NODE_ENV=production
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/GASdf
+WorkingDirectory=@CYNIC_PROJECT_ROOT@/../GASdf
 ExecStart=/usr/bin/env node src/index.js
 Restart=always
 RestartSec=5
