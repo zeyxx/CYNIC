@@ -142,12 +142,27 @@ class RepoTopologyValidationTests(unittest.TestCase):
                 json.dumps(document_inventory),
                 encoding="utf-8",
             )
+            organ_maturity_inventory = {
+                "schema": "cynic.organ_maturity_inventory.v1",
+                "status": "draft",
+                "authorities": {
+                    "topology_contract": "axioms/repo-topology-v1.json",
+                    "topology_policy": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+                },
+                "organs": [],
+                "totals": {"organs": 0, "by_maturity": {}},
+            }
+            (contracts / "organ-maturity-inventory-v1.json").write_text(
+                json.dumps(organ_maturity_inventory),
+                encoding="utf-8",
+            )
 
             old_values = (
                 module.WORKSPACE_ROOT,
                 module.CONTRACT_PATH,
                 module.THEME_CONTRACT_PATH,
                 module.DOCUMENT_THEME_INVENTORY_PATH,
+                module.ORGAN_MATURITY_INVENTORY_PATH,
                 module.CONTRACTS_ROOT,
                 module.MCP_SRC_ROOT,
                 module.ORGANS_ROOT,
@@ -159,6 +174,7 @@ class RepoTopologyValidationTests(unittest.TestCase):
                 module.CONTRACT_PATH = contracts / "repo-topology-v1.json"
                 module.THEME_CONTRACT_PATH = contracts / "organism-theme-topology-v1.json"
                 module.DOCUMENT_THEME_INVENTORY_PATH = contracts / "document-theme-inventory-v1.json"
+                module.ORGAN_MATURITY_INVENTORY_PATH = contracts / "organ-maturity-inventory-v1.json"
                 module.CONTRACTS_ROOT = contracts
                 module.MCP_SRC_ROOT = root / "crates" / "cynic-mcp" / "src"
                 module.ORGANS_ROOT = root / "organs"
@@ -171,6 +187,7 @@ class RepoTopologyValidationTests(unittest.TestCase):
                     module.CONTRACT_PATH,
                     module.THEME_CONTRACT_PATH,
                     module.DOCUMENT_THEME_INVENTORY_PATH,
+                    module.ORGAN_MATURITY_INVENTORY_PATH,
                     module.CONTRACTS_ROOT,
                     module.MCP_SRC_ROOT,
                     module.ORGANS_ROOT,
@@ -543,6 +560,138 @@ class RepoTopologyValidationTests(unittest.TestCase):
             }
         )
         self.assertEqual([], [item for item in findings if item.severity == "critical"])
+
+    def test_rejects_missing_organ_maturity_inventory_entry(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            contracts = root / "axioms"
+            contracts.mkdir()
+            (root / "organs" / "ghost").mkdir(parents=True)
+            inventory_path = contracts / "organ-maturity-inventory-v1.json"
+            inventory_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "cynic.organ_maturity_inventory.v1",
+                        "status": "draft",
+                        "organs": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            old_values = (
+                module.WORKSPACE_ROOT,
+                module.ORGANS_ROOT,
+                module.ORGAN_MATURITY_INVENTORY_PATH,
+            )
+            try:
+                module.WORKSPACE_ROOT = root
+                module.ORGANS_ROOT = root / "organs"
+                module.ORGAN_MATURITY_INVENTORY_PATH = inventory_path
+                findings = module.validate_organ_maturity_inventory_contract(
+                    {"organ_maturity_policy": {"allowed_statuses": ["canonical"]}}
+                )
+            finally:
+                (
+                    module.WORKSPACE_ROOT,
+                    module.ORGANS_ROOT,
+                    module.ORGAN_MATURITY_INVENTORY_PATH,
+                ) = old_values
+
+        self.assertIn("organ_missing_maturity_inventory", [item.kind for item in findings])
+
+    def test_allows_complete_organ_maturity_inventory(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            contracts = root / "axioms"
+            contracts.mkdir()
+            (root / "organs" / "ghost").mkdir(parents=True)
+            inventory_path = contracts / "organ-maturity-inventory-v1.json"
+            inventory_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "cynic.organ_maturity_inventory.v1",
+                        "status": "draft",
+                        "organs": [
+                            {
+                                "path": "organs/ghost/",
+                                "maturity": "canonical",
+                                "evidence": ["MANIFEST.yaml"],
+                                "next_action": "extend through boundary",
+                            }
+                        ],
+                        "totals": {"organs": 1, "by_maturity": {"canonical": 1}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            old_values = (
+                module.WORKSPACE_ROOT,
+                module.ORGANS_ROOT,
+                module.ORGAN_MATURITY_INVENTORY_PATH,
+            )
+            try:
+                module.WORKSPACE_ROOT = root
+                module.ORGANS_ROOT = root / "organs"
+                module.ORGAN_MATURITY_INVENTORY_PATH = inventory_path
+                findings = module.validate_organ_maturity_inventory_contract(
+                    {"organ_maturity_policy": {"allowed_statuses": ["canonical"]}}
+                )
+            finally:
+                (
+                    module.WORKSPACE_ROOT,
+                    module.ORGANS_ROOT,
+                    module.ORGAN_MATURITY_INVENTORY_PATH,
+                ) = old_values
+
+        self.assertEqual([], [item for item in findings if item.severity == "critical"])
+
+    def test_rejects_unknown_organ_maturity_inventory_status(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            contracts = root / "axioms"
+            contracts.mkdir()
+            (root / "organs" / "ghost").mkdir(parents=True)
+            inventory_path = contracts / "organ-maturity-inventory-v1.json"
+            inventory_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "cynic.organ_maturity_inventory.v1",
+                        "status": "draft",
+                        "organs": [
+                            {
+                                "path": "organs/ghost/",
+                                "maturity": "improvised",
+                                "evidence": ["MANIFEST.yaml"],
+                                "next_action": "unknown",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            old_values = (
+                module.WORKSPACE_ROOT,
+                module.ORGANS_ROOT,
+                module.ORGAN_MATURITY_INVENTORY_PATH,
+            )
+            try:
+                module.WORKSPACE_ROOT = root
+                module.ORGANS_ROOT = root / "organs"
+                module.ORGAN_MATURITY_INVENTORY_PATH = inventory_path
+                findings = module.validate_organ_maturity_inventory_contract(
+                    {"organ_maturity_policy": {"allowed_statuses": ["canonical"]}}
+                )
+            finally:
+                (
+                    module.WORKSPACE_ROOT,
+                    module.ORGANS_ROOT,
+                    module.ORGAN_MATURITY_INVENTORY_PATH,
+                ) = old_values
+
+        self.assertIn("organ_maturity_inventory_status_unknown", [item.kind for item in findings])
 
     def test_rejects_hardcoded_project_path_in_mcp(self):
         module = load_module()

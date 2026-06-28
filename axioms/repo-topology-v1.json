@@ -6,6 +6,7 @@
         "human_readable_policy": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
         "theme_topology_contract": "axioms/organism-theme-topology-v1.json",
         "theme_topology_policy": "docs/foundation/CYNIC_THEME_TOPOLOGY_POLICY.md",
+        "organ_maturity_inventory": "axioms/organ-maturity-inventory-v1.json",
         "policy_matrix": "docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md",
         "agent_entrypoint": "AGENTS.md"
     },

@@ -24,6 +24,7 @@ WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 CONTRACT_PATH = WORKSPACE_ROOT / "axioms/repo-topology-v1.json"
 THEME_CONTRACT_PATH = WORKSPACE_ROOT / "axioms/organism-theme-topology-v1.json"
 DOCUMENT_THEME_INVENTORY_PATH = WORKSPACE_ROOT / "axioms/document-theme-inventory-v1.json"
+ORGAN_MATURITY_INVENTORY_PATH = WORKSPACE_ROOT / "axioms/organ-maturity-inventory-v1.json"
 CONTRACTS_ROOT = WORKSPACE_ROOT / "axioms"
 MCP_SRC_ROOT = WORKSPACE_ROOT / "crates/cynic-mcp/src"
 ORGANS_ROOT = WORKSPACE_ROOT / "organs"
@@ -126,6 +127,7 @@ DOC_ZONE_REQUIRED_FIELDS = {
 }
 ROOT_CLASS_REQUIRED_FIELDS = {"path", "class", "owns", "must_not_own"}
 DOCUMENT_INVENTORY_REQUIRED_FIELDS = {"path", "theme", "status", "canonical_target"}
+ORGAN_MATURITY_INVENTORY_REQUIRED_FIELDS = {"path", "maturity", "evidence", "next_action"}
 DOCUMENT_INVENTORY_SENSITIVE_MARKDOWN_ROOTS = [
     "docs/internal/",
     "docs/hackathon/",
@@ -1088,6 +1090,180 @@ def validate_organ_maturity_policy(contract: dict[str, Any]) -> list[Finding]:
     return findings
 
 
+def validate_organ_maturity_inventory_contract(contract: dict[str, Any]) -> list[Finding]:
+    findings: list[Finding] = []
+    if not ORGAN_MATURITY_INVENTORY_PATH.exists():
+        return [
+            Finding(
+                "critical",
+                "organ_maturity_inventory_missing",
+                relative(ORGAN_MATURITY_INVENTORY_PATH),
+                "organ-maturity-inventory-v1.json must classify every immediate organ directory.",
+            )
+        ]
+
+    try:
+        inventory = load_json(ORGAN_MATURITY_INVENTORY_PATH)
+    except json.JSONDecodeError as exc:
+        return [
+            Finding(
+                "critical",
+                "organ_maturity_inventory_invalid_json",
+                relative(ORGAN_MATURITY_INVENTORY_PATH),
+                f"{exc.msg} at line {exc.lineno} column {exc.colno}",
+            )
+        ]
+
+    if inventory.get("schema") != "cynic.organ_maturity_inventory.v1":
+        findings.append(
+            Finding(
+                "critical",
+                "unexpected_organ_maturity_inventory_schema",
+                relative(ORGAN_MATURITY_INVENTORY_PATH),
+                f"expected cynic.organ_maturity_inventory.v1, got {inventory.get('schema')!r}",
+            )
+        )
+
+    for name, value in sorted(inventory.get("authorities", {}).items()):
+        authority = WORKSPACE_ROOT / value
+        if not authority.exists():
+            findings.append(
+                Finding(
+                    "critical",
+                    "organ_maturity_inventory_authority_missing",
+                    relative(authority),
+                    f"authority {name!r} is declared by organ-maturity-inventory-v1 but does not exist.",
+                )
+            )
+
+    organs = inventory.get("organs")
+    if not isinstance(organs, list):
+        findings.append(
+            Finding(
+                "critical",
+                "organ_maturity_inventory_organs_missing",
+                relative(ORGAN_MATURITY_INVENTORY_PATH),
+                "organ-maturity-inventory-v1 must declare organs as a list.",
+            )
+        )
+        organs = []
+
+    allowed = allowed_organ_maturity_statuses(contract)
+    seen_paths: set[str] = set()
+    inventory_paths: set[str] = set()
+    by_maturity: dict[str, int] = {}
+    for index, item in enumerate(organs):
+        item_path = str(item.get("path") or f"organs[{index}]")
+        for field in sorted(ORGAN_MATURITY_INVENTORY_REQUIRED_FIELDS):
+            if not item.get(field):
+                findings.append(
+                    Finding(
+                        "critical",
+                        "organ_maturity_inventory_metadata_missing",
+                        item_path,
+                        f"organs entries must declare {field}.",
+                    )
+                )
+        path_value = item.get("path")
+        if path_value:
+            path = str(path_value).rstrip("/") + "/"
+            inventory_paths.add(path)
+            if path in seen_paths:
+                findings.append(
+                    Finding(
+                        "critical",
+                        "organ_maturity_inventory_duplicate_path",
+                        path,
+                        "Each immediate organ directory must appear only once in organ-maturity-inventory-v1.",
+                    )
+                )
+            seen_paths.add(path)
+            if not path.startswith("organs/") or path.count("/") != 2:
+                findings.append(
+                    Finding(
+                        "critical",
+                        "organ_maturity_inventory_path_not_immediate_organ",
+                        path,
+                        "Organ maturity inventory entries must target immediate organs/<role>/ directories.",
+                    )
+                )
+            if not (WORKSPACE_ROOT / path).is_dir():
+                findings.append(
+                    Finding(
+                        "critical",
+                        "organ_maturity_inventory_path_missing",
+                        path,
+                        "Inventory entry points to an organ directory that does not exist.",
+                    )
+                )
+        maturity = item.get("maturity")
+        if maturity:
+            maturity_value = str(maturity).lower()
+            by_maturity[maturity_value] = by_maturity.get(maturity_value, 0) + 1
+            if allowed and maturity_value not in allowed:
+                findings.append(
+                    Finding(
+                        "critical",
+                        "organ_maturity_inventory_status_unknown",
+                        item_path,
+                        f"maturity {maturity!r} is not declared in organ_maturity_policy.allowed_statuses.",
+                    )
+                )
+
+    actual_organs = set()
+    if ORGANS_ROOT.exists():
+        actual_organs = {
+            relative(path).rstrip("/") + "/"
+            for path in ORGANS_ROOT.iterdir()
+            if path.is_dir()
+        }
+    for path in sorted(actual_organs - inventory_paths):
+        findings.append(
+            Finding(
+                "critical",
+                "organ_missing_maturity_inventory",
+                path,
+                "Every immediate organ directory must appear in organ-maturity-inventory-v1.",
+            )
+        )
+    for path in sorted(inventory_paths - actual_organs):
+        findings.append(
+            Finding(
+                "critical",
+                "organ_maturity_inventory_stale_path",
+                path,
+                "Organ maturity inventory contains a path that is not an immediate organ directory.",
+            )
+        )
+
+    totals = inventory.get("totals", {})
+    if totals:
+        declared_count = totals.get("organs")
+        if declared_count is not None and declared_count != len(organs):
+            findings.append(
+                Finding(
+                    "critical",
+                    "organ_maturity_inventory_total_mismatch",
+                    relative(ORGAN_MATURITY_INVENTORY_PATH),
+                    f"totals.organs={declared_count!r} but inventory contains {len(organs)} entries.",
+                )
+            )
+        declared_by_maturity = totals.get("by_maturity", {})
+        if declared_by_maturity and {
+            str(key): value for key, value in declared_by_maturity.items()
+        } != by_maturity:
+            findings.append(
+                Finding(
+                    "critical",
+                    "organ_maturity_inventory_maturity_total_mismatch",
+                    relative(ORGAN_MATURITY_INVENTORY_PATH),
+                    f"totals.by_maturity does not match actual inventory counts {by_maturity}.",
+                )
+            )
+
+    return findings
+
+
 def validate_organ_boundaries(contract: dict[str, Any]) -> list[Finding]:
     findings: list[Finding] = []
     if not ORGANS_ROOT.exists():
@@ -1456,6 +1632,7 @@ def validate() -> list[Finding]:
         contract = load_json(CONTRACT_PATH)
         findings.extend(validate_contract_file_policy(contract))
         findings.extend(validate_organ_maturity_policy(contract))
+        findings.extend(validate_organ_maturity_inventory_contract(contract))
         findings.extend(validate_current_transitional_paths(contract))
         findings.extend(validate_transitional_wrapper_file_exceptions(contract))
         findings.extend(validate_misplaced_organ_exceptions(contract))

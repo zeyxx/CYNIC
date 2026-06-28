@@ -69,6 +69,17 @@ The second organic correction layer is organ maturity. A directory under
 `axioms/repo-topology-v1.json:organ_maturity_policy` is the machine vocabulary.
 Organ manifests and organ exceptions must use that vocabulary.
 
+The third organic correction layer is the organ maturity inventory.
+`axioms/organ-maturity-inventory-v1.json` must list every immediate
+`organs/<role>/` directory exactly once. The inventory is not a backlog; it is a
+machine projection of the current body:
+
+- canonical organs are visible instead of implied by absence from exceptions.
+- partial, transitional, embryonic, quarantined and blocked organs are visible
+  in one scan.
+- adding or deleting an organ requires updating the inventory, which makes
+  organism shape drift fail in the topology gate.
+
 ## 2. Dependency Direction
 
 Allowed direction is top-down:
@@ -242,6 +253,8 @@ The `lint-repo-topology-contract` gate currently enforces:
   `repo-topology-v1.contract_file_policy.allowed_subdirectories`.
 - topology authorities exist.
 - topology root classes declare `class`, `owns` and `must_not_own`.
+- every immediate `organs/<role>/` directory is represented exactly once in
+  `axioms/organ-maturity-inventory-v1.json` with a declared maturity status.
 - portable MCP Rust code does not contain host/project-specific absolute paths.
 - every immediate `organs/<role>/` directory has `MANIFEST.yaml` or a declared
   boundary exception.

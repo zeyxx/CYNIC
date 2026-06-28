@@ -1,0 +1,265 @@
+{
+    "schema": "cynic.organ_maturity_inventory.v1",
+    "status": "draft",
+    "purpose": "Classify every immediate organs/<role>/ directory with the organism-wide maturity vocabulary so organ evolution is visible and enforceable.",
+    "authorities": {
+        "topology_contract": "axioms/repo-topology-v1.json",
+        "topology_policy": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md"
+    },
+    "allowed_statuses_source": "axioms/repo-topology-v1.json:organ_maturity_policy.allowed_statuses",
+    "organs": [
+        {
+            "path": "organs/browser/",
+            "maturity": "canonical",
+            "evidence": [
+                "MANIFEST.yaml",
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "next_action": "extend only through the manifest-backed organ boundary"
+        },
+        {
+            "path": "organs/controllers/",
+            "maturity": "legacy_blocked",
+            "evidence": [
+                "organ_boundary_exceptions"
+            ],
+            "next_action": "migrate controller entrypoints into organs/supervisor/controllers/"
+        },
+        {
+            "path": "organs/discord/",
+            "maturity": "transitional",
+            "evidence": [
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
+            ],
+            "next_action": "split Discord behavior into core, adapters and entrypoints"
+        },
+        {
+            "path": "organs/exposure/",
+            "maturity": "canonical",
+            "evidence": [
+                "MANIFEST.yaml",
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "next_action": "extend only through the manifest-backed organ boundary"
+        },
+        {
+            "path": "organs/fleet/",
+            "maturity": "canonical",
+            "evidence": [
+                "MANIFEST.yaml",
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "next_action": "extend only through the manifest-backed organ boundary"
+        },
+        {
+            "path": "organs/forge/",
+            "maturity": "canonical",
+            "evidence": [
+                "MANIFEST.yaml",
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "next_action": "extend only through the manifest-backed organ boundary"
+        },
+        {
+            "path": "organs/freebox/",
+            "maturity": "embryonic",
+            "evidence": [
+                "organ_boundary_exceptions"
+            ],
+            "next_action": "fold Freebox behavior into organs/fleet/ or declare a bounded organ-freebox"
+        },
+        {
+            "path": "organs/gasdf/",
+            "maturity": "embryonic",
+            "evidence": [
+                "organ_boundary_exceptions"
+            ],
+            "next_action": "assign a durable role and manifest, or delete the seed"
+        },
+        {
+            "path": "organs/headscale/",
+            "maturity": "transitional",
+            "evidence": [
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
+            ],
+            "next_action": "move Headscale provisioning behind a declared core/adapter boundary"
+        },
+        {
+            "path": "organs/jupyter/",
+            "maturity": "transitional",
+            "evidence": [
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
+            ],
+            "next_action": "add a bounded entrypoint package for runtime wiring"
+        },
+        {
+            "path": "organs/kanban-ui/",
+            "maturity": "canonical",
+            "evidence": [
+                "MANIFEST.yaml",
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "next_action": "extend only through the manifest-backed organ boundary"
+        },
+        {
+            "path": "organs/keep/",
+            "maturity": "canonical_partial",
+            "evidence": [
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
+            ],
+            "next_action": "add adapter boundaries when storage provider IO leaves entrypoints"
+        },
+        {
+            "path": "organs/lifecycle/",
+            "maturity": "canonical_partial",
+            "evidence": [
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
+            ],
+            "next_action": "represent lifecycle runtime wiring with a bounded entrypoint package or absorb it into organ-forge"
+        },
+        {
+            "path": "organs/percolator/",
+            "maturity": "transitional",
+            "evidence": [
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
+            ],
+            "next_action": "move percolator behavior into a hexagonal source tree"
+        },
+        {
+            "path": "organs/prompt-enricher/",
+            "maturity": "embryonic",
+            "evidence": [
+                "organ_boundary_exceptions"
+            ],
+            "next_action": "declare an organ boundary or demote prompt enrichment to a shared library"
+        },
+        {
+            "path": "organs/radar/",
+            "maturity": "transitional",
+            "evidence": [
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
+            ],
+            "next_action": "add a core package so radar decisions are not encoded directly in adapters or entrypoints"
+        },
+        {
+            "path": "organs/rag/",
+            "maturity": "embryonic",
+            "evidence": [
+                "organ_boundary_exceptions"
+            ],
+            "next_action": "declare retrieval ownership and lifecycle or delete the seed"
+        },
+        {
+            "path": "organs/reflection/",
+            "maturity": "canonical",
+            "evidence": [
+                "MANIFEST.yaml",
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "next_action": "extend only through the manifest-backed organ boundary"
+        },
+        {
+            "path": "organs/slack/",
+            "maturity": "transitional",
+            "evidence": [
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
+            ],
+            "next_action": "move Slack into a transport adapter behind transport-independent coordination semantics"
+        },
+        {
+            "path": "organs/state/",
+            "maturity": "quarantined",
+            "evidence": [
+                "organ_boundary_exceptions"
+            ],
+            "next_action": "migrate global state into Kernel memory, .cynic cache, or organ-local state"
+        },
+        {
+            "path": "organs/superteam/",
+            "maturity": "embryonic",
+            "evidence": [
+                "organ_boundary_exceptions"
+            ],
+            "next_action": "declare a manifest-backed organ-superteam or delete the seed"
+        },
+        {
+            "path": "organs/supervisor/",
+            "maturity": "canonical_partial",
+            "evidence": [
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
+            ],
+            "next_action": "migrate supervisor validation logic under src with controller wrappers only"
+        },
+        {
+            "path": "organs/telegram/",
+            "maturity": "transitional",
+            "evidence": [
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
+            ],
+            "next_action": "move Telegram into a transport adapter behind transport-independent coordination semantics"
+        },
+        {
+            "path": "organs/telemetry/",
+            "maturity": "embryonic",
+            "evidence": [
+                "organ_boundary_exceptions"
+            ],
+            "next_action": "declare a bounded telemetry organ or merge collection into supervisor adapters"
+        },
+        {
+            "path": "organs/twitter/",
+            "maturity": "canonical",
+            "evidence": [
+                "MANIFEST.yaml",
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "next_action": "extend only through the manifest-backed organ boundary"
+        },
+        {
+            "path": "organs/wireguard/",
+            "maturity": "canonical",
+            "evidence": [
+                "MANIFEST.yaml",
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "next_action": "extend only through the manifest-backed organ boundary"
+        }
+    ],
+    "totals": {
+        "organs": 26,
+        "by_maturity": {
+            "canonical": 8,
+            "canonical_partial": 3,
+            "transitional": 7,
+            "embryonic": 6,
+            "quarantined": 1,
+            "legacy_blocked": 1
+        }
+    }
+}
