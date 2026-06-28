@@ -143,11 +143,12 @@
         },
         {
             "path": "organs/prompt-enricher/",
-            "maturity": "embryonic",
+            "maturity": "transitional",
             "evidence": [
-                "organ_boundary_exceptions"
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
             ],
-            "next_action": "declare an organ boundary or demote prompt enrichment to a shared library"
+            "next_action": "split src/src/main.py into core, adapters and entrypoints"
         },
         {
             "path": "organs/radar/",
@@ -262,8 +263,8 @@
         "by_maturity": {
             "canonical": 10,
             "canonical_partial": 3,
-            "transitional": 7,
-            "embryonic": 4,
+            "transitional": 8,
+            "embryonic": 3,
             "quarantined": 1,
             "legacy_blocked": 1
         }

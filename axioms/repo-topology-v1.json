@@ -519,13 +519,6 @@
             "expiry_condition": "RAG state and interfaces have a declared owner and lifecycle"
         },
         {
-            "path": "organs/prompt-enricher/",
-            "status": "embryonic",
-            "owner": "cortex",
-            "replacement": "manifest-backed organ-prompt-enricher or removal",
-            "expiry_condition": "prompt enrichment is declared as an organ or demoted to a shared library"
-        },
-        {
             "path": "organs/state/",
             "status": "quarantined",
             "owner": "organ-supervisor",
@@ -599,6 +592,18 @@
             ],
             "replacement": "hexagonal organ-percolator source tree",
             "expiry_condition": "percolator behavior has a bounded implementation tree"
+        },
+        {
+            "path": "organs/prompt-enricher/",
+            "status": "transitional",
+            "owner": "organ-prompt-enricher",
+            "missing_paths": [
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "replacement": "prompt enrichment logic split into core use cases, Kernel/RAG adapters, and a bounded entrypoint",
+            "expiry_condition": "src/src/main.py is removed or reduced to a compatibility wrapper"
         },
         {
             "path": "organs/radar/",
