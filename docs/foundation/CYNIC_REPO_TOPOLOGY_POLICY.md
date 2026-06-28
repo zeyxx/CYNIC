@@ -53,6 +53,22 @@ This is the first organic correction layer: classify the body before moving
 organs. It prevents hidden organs, hidden policy and hidden runtime state from
 appearing as accidental root folders.
 
+The second organic correction layer is organ maturity. A directory under
+`organs/` is not simply "present" or "absent"; it must be in one declared state:
+
+| Maturity | Meaning |
+|----------|---------|
+| `canonical` | Manifest-backed and structurally complete for its runtime |
+| `canonical_partial` | Bounded organ with explicit missing part, owner and expiry |
+| `transitional` | Tolerated while being migrated; no new canonical behavior |
+| `embryonic` | Undifferentiated organ seed; must gain a boundary or be absorbed |
+| `quarantined` | Read-only migration/deletion surface |
+| `legacy_blocked` | Fails closed except guarded emergency fallback |
+| `burn_candidate` | No durable role is proven; deletion/absorption preferred |
+
+`axioms/repo-topology-v1.json:organ_maturity_policy` is the machine vocabulary.
+Organ manifests and organ exceptions must use that vocabulary.
+
 ## 2. Dependency Direction
 
 Allowed direction is top-down:

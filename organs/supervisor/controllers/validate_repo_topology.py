@@ -1024,6 +1024,70 @@ def validate_exception_metadata(
     return findings
 
 
+def allowed_organ_maturity_statuses(contract: dict[str, Any]) -> set[str]:
+    policy = contract.get("organ_maturity_policy", {})
+    statuses = policy.get("allowed_statuses")
+    if statuses:
+        return {str(item).lower() for item in statuses}
+    manifest_statuses = (
+        contract.get("organ_shape", {})
+        .get("manifest_policy", {})
+        .get("allowed_statuses", [])
+    )
+    return {str(item).lower() for item in manifest_statuses}
+
+
+def validate_organ_maturity_policy(contract: dict[str, Any]) -> list[Finding]:
+    findings: list[Finding] = []
+    policy = contract.get("organ_maturity_policy")
+    if not isinstance(policy, dict):
+        return [
+            Finding(
+                "critical",
+                "organ_maturity_policy_missing",
+                relative(CONTRACT_PATH),
+                "repo-topology-v1 must declare organ_maturity_policy so organ states use one vocabulary.",
+            )
+        ]
+    for field in ("allowed_statuses", "status_meanings", "minimum_exception_fields", "shape_exception_fields", "rule"):
+        if not policy.get(field):
+            findings.append(
+                Finding(
+                    "critical",
+                    "organ_maturity_policy_metadata_missing",
+                    relative(CONTRACT_PATH),
+                    f"organ_maturity_policy must declare {field}.",
+                )
+            )
+
+    allowed = allowed_organ_maturity_statuses(contract)
+    for status in allowed:
+        if status not in {str(key).lower() for key in policy.get("status_meanings", {}).keys()}:
+            findings.append(
+                Finding(
+                    "critical",
+                    "organ_maturity_status_meaning_missing",
+                    relative(CONTRACT_PATH),
+                    f"organ maturity status {status!r} must have a status_meanings entry.",
+                )
+            )
+
+    for key in ("organ_boundary_exceptions", "organ_shape_exceptions"):
+        for item in contract.get(key, []):
+            status = item.get("status")
+            path = str(item.get("path") or key)
+            if status and str(status).lower() not in allowed:
+                findings.append(
+                    Finding(
+                        "critical",
+                        "organ_maturity_status_unknown",
+                        path,
+                        f"{key} status {status!r} is not declared in organ_maturity_policy.allowed_statuses.",
+                    )
+                )
+    return findings
+
+
 def validate_organ_boundaries(contract: dict[str, Any]) -> list[Finding]:
     findings: list[Finding] = []
     if not ORGANS_ROOT.exists():
@@ -1391,6 +1455,7 @@ def validate() -> list[Finding]:
     if not any(item.kind in {"repo_topology_contract_missing", "unexpected_repo_topology_schema"} for item in topology_findings):
         contract = load_json(CONTRACT_PATH)
         findings.extend(validate_contract_file_policy(contract))
+        findings.extend(validate_organ_maturity_policy(contract))
         findings.extend(validate_current_transitional_paths(contract))
         findings.extend(validate_transitional_wrapper_file_exceptions(contract))
         findings.extend(validate_misplaced_organ_exceptions(contract))

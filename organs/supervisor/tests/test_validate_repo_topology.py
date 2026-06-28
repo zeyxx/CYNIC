@@ -86,6 +86,13 @@ class RepoTopologyValidationTests(unittest.TestCase):
                         "must_not_own": ["project_specific_hardcoded_paths"],
                     },
                 ],
+                "organ_maturity_policy": {
+                    "allowed_statuses": ["canonical", "embryonic"],
+                    "status_meanings": {"canonical": "complete", "embryonic": "seed"},
+                    "minimum_exception_fields": ["path", "status", "owner", "replacement", "expiry_condition"],
+                    "shape_exception_fields": ["path", "status", "owner", "missing_paths", "replacement", "expiry_condition"],
+                    "rule": "known statuses only",
+                },
             }
             (contracts / "repo-topology-v1.json").write_text(json.dumps(contract), encoding="utf-8")
             theme_contract = {
@@ -489,6 +496,53 @@ class RepoTopologyValidationTests(unittest.TestCase):
                 module.WORKSPACE_ROOT, module.CONTRACT_PATH = old_values
 
         self.assertEqual([], [item for item in findings if item.kind == "top_level_root_unclassified"])
+
+    def test_rejects_missing_organ_maturity_policy(self):
+        module = load_module()
+        findings = module.validate_organ_maturity_policy({})
+        self.assertEqual("organ_maturity_policy_missing", findings[0].kind)
+
+    def test_rejects_unknown_organ_maturity_status(self):
+        module = load_module()
+        findings = module.validate_organ_maturity_policy(
+            {
+                "organ_maturity_policy": {
+                    "allowed_statuses": ["canonical", "embryonic"],
+                    "status_meanings": {"canonical": "ok", "embryonic": "seed"},
+                    "minimum_exception_fields": ["path"],
+                    "shape_exception_fields": ["path"],
+                    "rule": "known statuses only",
+                },
+                "organ_boundary_exceptions": [
+                    {
+                        "path": "organs/ghost/",
+                        "status": "improvised",
+                    }
+                ],
+            }
+        )
+        self.assertEqual("organ_maturity_status_unknown", findings[0].kind)
+
+    def test_allows_declared_embryonic_organ_maturity_status(self):
+        module = load_module()
+        findings = module.validate_organ_maturity_policy(
+            {
+                "organ_maturity_policy": {
+                    "allowed_statuses": ["canonical", "embryonic"],
+                    "status_meanings": {"canonical": "ok", "embryonic": "seed"},
+                    "minimum_exception_fields": ["path"],
+                    "shape_exception_fields": ["path"],
+                    "rule": "known statuses only",
+                },
+                "organ_boundary_exceptions": [
+                    {
+                        "path": "organs/ghost/",
+                        "status": "embryonic",
+                    }
+                ],
+            }
+        )
+        self.assertEqual([], [item for item in findings if item.severity == "critical"])
 
     def test_rejects_hardcoded_project_path_in_mcp(self):
         module = load_module()

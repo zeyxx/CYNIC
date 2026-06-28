@@ -498,28 +498,28 @@
         },
         {
             "path": "organs/gasdf/",
-            "status": "transitional",
+            "status": "embryonic",
             "owner": "cortex",
             "replacement": "manifest-backed organ or removal",
             "expiry_condition": "the gasdf concern is either assigned an organ role or deleted"
         },
         {
             "path": "organs/freebox/",
-            "status": "transitional",
+            "status": "embryonic",
             "owner": "organ-fleet",
             "replacement": "organs/fleet/ or a manifest-backed organ-freebox",
             "expiry_condition": "Freebox behavior is either folded into fleet or declared as a bounded organ"
         },
         {
             "path": "organs/rag/",
-            "status": "transitional",
+            "status": "embryonic",
             "owner": "cortex",
             "replacement": "manifest-backed retrieval organ",
             "expiry_condition": "RAG state and interfaces have a declared owner and lifecycle"
         },
         {
             "path": "organs/prompt-enricher/",
-            "status": "transitional",
+            "status": "embryonic",
             "owner": "cortex",
             "replacement": "manifest-backed organ-prompt-enricher or removal",
             "expiry_condition": "prompt enrichment is declared as an organ or demoted to a shared library"
@@ -533,14 +533,14 @@
         },
         {
             "path": "organs/superteam/",
-            "status": "transitional",
+            "status": "embryonic",
             "owner": "cortex",
             "replacement": "manifest-backed organ-superteam or removal",
             "expiry_condition": "Superteam behavior has an explicit organ manifest and lifecycle"
         },
         {
             "path": "organs/telemetry/",
-            "status": "transitional",
+            "status": "embryonic",
             "owner": "organ-supervisor",
             "replacement": "manifest-backed organ-telemetry or merged supervisor adapter",
             "expiry_condition": "telemetry collection has a bounded organ owner"
@@ -593,13 +593,13 @@
         },
         {
             "path": "organs/lifecycle/",
-            "status": "legacy_blocked",
+            "status": "canonical_partial",
             "owner": "organ-forge",
             "missing_paths": [
                 "src/entrypoints"
             ],
-            "replacement": "organs/forge lifecycle entrypoints",
-            "expiry_condition": "legacy lifecycle scripts are deleted or moved behind forge/fleet adapters"
+            "replacement": "organs/forge lifecycle entrypoints or lifecycle/src/entrypoints package when standalone lifecycle remains necessary",
+            "expiry_condition": "lifecycle runtime wiring is represented by a bounded entrypoint package or fully absorbed by organ-forge"
         },
         {
             "path": "organs/percolator/",
@@ -899,5 +899,41 @@
         ],
         "rule": "Every top-level directory that is not ignored must appear in root_classes with class, owns and must_not_own metadata.",
         "reason": "Top-level directories are organism species. Unclassified roots become hidden organs, hidden runtime state, or hidden source-of-truth surfaces."
+    },
+    "organ_maturity_policy": {
+        "allowed_statuses": [
+            "canonical",
+            "canonical_partial",
+            "transitional",
+            "embryonic",
+            "quarantined",
+            "legacy_blocked",
+            "burn_candidate"
+        ],
+        "status_meanings": {
+            "canonical": "Manifest-backed organ with declared boundary and complete required executable shape when applicable.",
+            "canonical_partial": "Manifest-backed organ intentionally missing a bounded part while a concrete replacement/expiry is declared.",
+            "transitional": "Existing behavior is tolerated with owner, replacement and expiry; new canonical behavior must not be added here.",
+            "embryonic": "Directory exists as an undifferentiated organ seed; it must either gain a manifest/shape or be folded into another organ.",
+            "quarantined": "May be read for migration or deletion but must not receive new features.",
+            "legacy_blocked": "Legacy path must fail closed except for explicitly guarded emergency fallback.",
+            "burn_candidate": "No durable role is proven; deletion or absorption is the preferred outcome."
+        },
+        "minimum_exception_fields": [
+            "path",
+            "status",
+            "owner",
+            "replacement",
+            "expiry_condition"
+        ],
+        "shape_exception_fields": [
+            "path",
+            "status",
+            "owner",
+            "missing_paths",
+            "replacement",
+            "expiry_condition"
+        ],
+        "rule": "Every non-canonical organ state must use an allowed maturity status and carry owner, replacement and expiry evidence."
     }
 }
