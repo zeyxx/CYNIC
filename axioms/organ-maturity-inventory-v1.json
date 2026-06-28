@@ -225,12 +225,14 @@
         },
         {
             "path": "organs/telemetry/",
-            "maturity": "transitional",
+            "maturity": "canonical",
             "evidence": [
                 "MANIFEST.yaml",
-                "organ_shape_exceptions"
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
             ],
-            "next_action": "move the root main.py runtime wiring into src/entrypoints"
+            "next_action": "route runtime callers to src/entrypoints/cli.py and keep root main.py as compatibility only"
         },
         {
             "path": "organs/twitter/",
@@ -258,9 +260,9 @@
     "totals": {
         "organs": 26,
         "by_maturity": {
-            "canonical": 9,
+            "canonical": 10,
             "canonical_partial": 3,
-            "transitional": 8,
+            "transitional": 7,
             "embryonic": 4,
             "quarantined": 1,
             "legacy_blocked": 1

@@ -1,14 +1,14 @@
 id: organ-telemetry
 tier: 2
 domain: observability
-status: TRANSITIONAL
-framework: transitional-python-organ
+status: ACTIVE
+framework: hexagonal-organ
 
 description: |
   Telemetry analysis organ for extracting, filtering, clustering and explaining
-  local agent/runtime anomaly signals. It has core and adapter packages, but its
-  runtime entrypoint still lives at the organ root and must move under
-  src/entrypoints before the organ can be canonical.
+  local agent/runtime anomaly signals. The canonical runtime entrypoint is
+  src/entrypoints/cli.py; root main.py remains a compatibility surface until
+  external callers move to the bounded entrypoint.
 
 inputs:
   - source: ~/.gemini/antigravity-cli/brain
@@ -23,8 +23,10 @@ outputs:
     format: RCA report
 
 scripts:
+  - name: src/entrypoints/cli.py
+    description: Canonical bounded entrypoint for the telemetry pipeline.
   - name: main.py
-    description: Transitional root entrypoint for the telemetry pipeline.
+    description: Compatibility entrypoint retained for existing callers.
   - name: src/adapters/surreal_adapter.py
     description: SurrealDB persistence adapter for anomaly records.
   - name: src/pipeline/

@@ -645,16 +645,6 @@
             ],
             "replacement": "Telegram as social adapter behind transport-independent coordination core",
             "expiry_condition": "Telegram payloads no longer define coordination semantics"
-        },
-        {
-            "path": "organs/telemetry/",
-            "status": "transitional",
-            "owner": "organ-telemetry",
-            "missing_paths": [
-                "src/entrypoints"
-            ],
-            "replacement": "telemetry root main.py moved to src/entrypoints/cli.py or equivalent bounded entrypoint",
-            "expiry_condition": "telemetry runtime wiring no longer lives at the organ root"
         }
     ],
     "dependency_direction": [
