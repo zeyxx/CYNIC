@@ -851,6 +851,91 @@ class RepoTopologyValidationTests(unittest.TestCase):
 
         self.assertEqual([], [item for item in findings if item.severity == "critical"])
 
+    def test_warns_manifest_script_reference_missing_or_untracked(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            organ = root / "organs" / "partial"
+            organ.mkdir(parents=True)
+            (organ / "MANIFEST.yaml").write_text(
+                """
+id: partial
+status: ACTIVE
+description: test
+scripts:
+  - name: src/entrypoints/cli.py
+  - name: local_probe.py
+""",
+                encoding="utf-8",
+            )
+            (organ / "local_probe.py").write_text("print('local')\n", encoding="utf-8")
+            old_values = (
+                module.WORKSPACE_ROOT,
+                module.ORGANS_ROOT,
+                module.git_ls_files,
+                module.git_ls_untracked,
+            )
+            try:
+                module.WORKSPACE_ROOT = root
+                module.ORGANS_ROOT = root / "organs"
+                module.git_ls_files = lambda *args: ["organs/partial/MANIFEST.yaml"]
+                module.git_ls_untracked = lambda *args: ["organs/partial/local_probe.py"]
+                findings = module.validate_manifest_script_references()
+            finally:
+                (
+                    module.WORKSPACE_ROOT,
+                    module.ORGANS_ROOT,
+                    module.git_ls_files,
+                    module.git_ls_untracked,
+                ) = old_values
+
+        self.assertEqual(
+            ["manifest_script_reference_missing", "manifest_script_reference_untracked"],
+            [item.kind for item in findings],
+        )
+
+    def test_allows_manifest_script_reference_tracked_directory(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            organ = root / "organs" / "partial"
+            (organ / "src" / "pipeline").mkdir(parents=True)
+            (organ / "src" / "pipeline" / "stage.py").write_text("VALUE = 1\n", encoding="utf-8")
+            (organ / "MANIFEST.yaml").write_text(
+                """
+id: partial
+status: ACTIVE
+description: test
+scripts:
+  - name: src/pipeline/
+""",
+                encoding="utf-8",
+            )
+            old_values = (
+                module.WORKSPACE_ROOT,
+                module.ORGANS_ROOT,
+                module.git_ls_files,
+                module.git_ls_untracked,
+            )
+            try:
+                module.WORKSPACE_ROOT = root
+                module.ORGANS_ROOT = root / "organs"
+                module.git_ls_files = lambda *args: [
+                    "organs/partial/MANIFEST.yaml",
+                    "organs/partial/src/pipeline/stage.py",
+                ]
+                module.git_ls_untracked = lambda *args: []
+                findings = module.validate_manifest_script_references()
+            finally:
+                (
+                    module.WORKSPACE_ROOT,
+                    module.ORGANS_ROOT,
+                    module.git_ls_files,
+                    module.git_ls_untracked,
+                ) = old_values
+
+        self.assertEqual([], findings)
+
     def test_rejects_python_organ_shape_without_declared_exception(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as tmp:

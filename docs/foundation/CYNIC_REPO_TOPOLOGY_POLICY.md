@@ -260,6 +260,9 @@ The `lint-repo-topology-contract` gate currently enforces:
   boundary exception.
 - manifest-backed organs declare identity, lifecycle status and description
   according to `repo-topology-v1.organ_shape.manifest_policy`.
+- manifest `scripts[].name` entries that look like file paths are audited as
+  non-blocking findings when they point to missing or untracked files; this is
+  currently a visibility layer while historical manifests are being corrected.
 - manifest-backed Python organs either expose `src/core`, `src/adapters` and
   `src/entrypoints`, or carry an exact, non-stale shape exception.
 - tracked runtime state is either quarantined in the topology contract or

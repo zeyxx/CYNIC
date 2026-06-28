@@ -128,6 +128,16 @@ DOC_ZONE_REQUIRED_FIELDS = {
 ROOT_CLASS_REQUIRED_FIELDS = {"path", "class", "owns", "must_not_own"}
 DOCUMENT_INVENTORY_REQUIRED_FIELDS = {"path", "theme", "status", "canonical_target"}
 ORGAN_MATURITY_INVENTORY_REQUIRED_FIELDS = {"path", "maturity", "evidence", "next_action"}
+MANIFEST_SCRIPT_REFERENCE_SUFFIXES = {
+    ".py",
+    ".sh",
+    ".ts",
+    ".js",
+    ".md",
+    ".json",
+    ".yaml",
+    ".yml",
+}
 DOCUMENT_INVENTORY_SENSITIVE_MARKDOWN_ROOTS = [
     "docs/internal/",
     "docs/hackathon/",
@@ -1372,6 +1382,83 @@ def validate_organ_manifest_policy(contract: dict[str, Any]) -> list[Finding]:
     return findings
 
 
+def manifest_script_reference_path(organ_dir: Path, name: str) -> str | None:
+    if not name or name.startswith(("/", "@", "$")):
+        return None
+    if " " in name:
+        return None
+    path = Path(name)
+    if not path.suffix and not name.endswith("/"):
+        return None
+    if path.suffix and path.suffix not in MANIFEST_SCRIPT_REFERENCE_SUFFIXES:
+        return None
+    return relative(organ_dir / path).rstrip("/") + ("/" if name.endswith("/") else "")
+
+
+def is_git_tracked_path(path: str, tracked: set[str]) -> bool:
+    normalized = path.rstrip("/")
+    if normalized in tracked:
+        return True
+    prefix = normalized + "/"
+    return any(item.startswith(prefix) for item in tracked)
+
+
+def validate_manifest_script_references() -> list[Finding]:
+    findings: list[Finding] = []
+    if not ORGANS_ROOT.exists():
+        return findings
+
+    try:
+        tracked = set(git_ls_files("organs"))
+        untracked = set(git_ls_untracked("organs"))
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        return [
+            Finding(
+                "critical",
+                "manifest_script_reference_scan_failed",
+                "organs/",
+                f"unable to query git organ files: {exc}",
+            )
+        ]
+
+    for manifest in sorted(ORGANS_ROOT.glob("*/MANIFEST.yaml")):
+        try:
+            payload = load_yaml(manifest) or {}
+        except yaml.YAMLError:
+            continue
+        scripts = payload.get("scripts", [])
+        if not isinstance(scripts, list):
+            continue
+        for index, item in enumerate(scripts):
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "")
+            rel = manifest_script_reference_path(manifest.parent, name)
+            if rel is None:
+                continue
+            if is_git_tracked_path(rel, tracked):
+                continue
+            if (WORKSPACE_ROOT / rel).exists() or is_git_tracked_path(rel, untracked):
+                findings.append(
+                    Finding(
+                        "medium",
+                        "manifest_script_reference_untracked",
+                        f"{relative(manifest)}:scripts[{index}]",
+                        f"Manifest script reference {name!r} resolves to {rel!r}, which exists but is not tracked.",
+                    )
+                )
+            else:
+                findings.append(
+                    Finding(
+                        "medium",
+                        "manifest_script_reference_missing",
+                        f"{relative(manifest)}:scripts[{index}]",
+                        f"Manifest script reference {name!r} resolves to missing path {rel!r}.",
+                    )
+                )
+    return findings
+
+
 def has_python_sources(path: Path) -> bool:
     src = path / "src"
     return src.exists() and any(src.rglob("*.py"))
@@ -1638,6 +1725,7 @@ def validate() -> list[Finding]:
         findings.extend(validate_misplaced_organ_exceptions(contract))
         findings.extend(validate_organ_boundaries(contract))
         findings.extend(validate_organ_manifest_policy(contract))
+        findings.extend(validate_manifest_script_references())
         findings.extend(validate_python_organ_shape(contract))
         findings.extend(validate_runtime_state_commit_exceptions(contract))
         findings.extend(validate_provider_mutation_script_exceptions(contract))
