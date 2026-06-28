@@ -1,0 +1,51 @@
+{
+    "schema": "cynic.proof_of_history.v1",
+    "status": "draft",
+    "version": "1.0.0",
+    "name": "cynic-proof-of-history",
+    "description": "The immutable nervous system and data pipeline for CYNIC events",
+    "stages": [
+        {
+            "stage": 1,
+            "name": "raw_data",
+            "format": "any",
+            "storage": "filesystem (tmp/ or memory)",
+            "description": "Unstructured or raw output from sensors, APIs, or LLM output before validation."
+        },
+        {
+            "stage": 2,
+            "name": "data_warehouse",
+            "format": "jsonl",
+            "storage": "data/warehouse/",
+            "description": "Append-only sink. Every event, decision, and anomaly is recorded here chronologically."
+        },
+        {
+            "stage": 3,
+            "name": "jsonl_datasets",
+            "format": "jsonl",
+            "storage": "data/datasets/",
+            "description": "Curated, filtered, or domain-specific subsets derived from the warehouse for ML inference or replay."
+        },
+        {
+            "stage": 4,
+            "name": "surrealdb",
+            "format": "graph/document",
+            "storage": "SurrealDB Instance",
+            "description": "Live queryable state. Synced from the warehouse. Organs query this for real-time decision making."
+        },
+        {
+            "stage": 5,
+            "name": "CCM",
+            "format": "coordination_model",
+            "storage": "cynic-kernel / mempool",
+            "description": "Cynic Coordination Model. The execution layer that consumes the live state and emits new raw data (actions)."
+        }
+    ],
+    "event_envelope": {
+        "timestamp": "ISO8601",
+        "source_organ": "string",
+        "event_type": "string",
+        "payload": "object",
+        "cryptographic_hash": "string (SHA-256 of payload + prev_hash)"
+    }
+}

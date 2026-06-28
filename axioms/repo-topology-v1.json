@@ -1,0 +1,693 @@
+{
+    "schema": "cynic.repo_topology.v1",
+    "status": "normative",
+    "purpose": "Define the canonical filesystem topology for CYNIC so source-of-truth, contracts, organs, deployment projections, adapters and runtime state do not drift into competing structures.",
+    "authorities": {
+        "human_readable_policy": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+        "theme_topology_contract": "axioms/organism-theme-topology-v1.json",
+        "theme_topology_policy": "docs/foundation/CYNIC_THEME_TOPOLOGY_POLICY.md",
+        "policy_matrix": "docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md",
+        "agent_entrypoint": "AGENTS.md"
+    },
+    "root_classes": [
+        {
+            "path": "docs/foundation/",
+            "class": "policy",
+            "owns": [
+                "cross_cutting_rules",
+                "source_of_truth_hierarchy",
+                "topology_policy"
+            ],
+            "must_not_own": [
+                "runtime_state",
+                "provider_credentials",
+                "deployment_scripts"
+            ]
+        },
+        {
+            "path": "axioms/",
+            "class": "semantic_contract",
+            "owns": [
+                "machine_readable_protocols",
+                "payload_contracts",
+                "consumer_profiles"
+            ],
+            "must_not_own": [
+                "runtime_evidence",
+                "transport_specific_secrets",
+                "manual_backlogs"
+            ]
+        },
+        {
+            "path": "docs/architecture/",
+            "class": "architecture_map",
+            "owns": [
+                "implementation_maps",
+                "current_and_target_architecture"
+            ],
+            "must_not_own": [
+                "normative_policy_without_contract",
+                "runtime_state"
+            ]
+        },
+        {
+            "path": "docs/internal/",
+            "class": "private_draft_and_historical_context",
+            "owns": [
+                "private_drafts",
+                "historical_context",
+                "noncanonical_evidence"
+            ],
+            "must_not_own": [
+                "foundation_policy",
+                "legal_source_of_truth",
+                "protocol_source_of_truth",
+                "runtime_desired_state"
+            ]
+        },
+        {
+            "path": "docs/hackathon/",
+            "class": "submission_projection",
+            "owns": [
+                "external_submission_packaging",
+                "demo_scripts",
+                "program_specific_drafts"
+            ],
+            "must_not_own": [
+                "identity_rules",
+                "token_equity_claims",
+                "runtime_topology"
+            ]
+        },
+        {
+            "path": "data/",
+            "class": "curated_data_and_reports",
+            "owns": [
+                "curated_machine_datasets",
+                "generated_reports",
+                "evidence_artifacts"
+            ],
+            "must_not_own": [
+                "durable_policy",
+                "coordination_memory",
+                "deployment_desired_state"
+            ]
+        },
+        {
+            "path": "packages/",
+            "class": "product_projection",
+            "owns": [
+                "frontend_applications",
+                "public_ui_copy",
+                "package_local_readmes"
+            ],
+            "must_not_own": [
+                "foundation_doctrine",
+                "legal_claims",
+                "protocol_allocation_rules"
+            ]
+        },
+        {
+            "path": "infra/",
+            "class": "organism_infrastructure",
+            "owns": [
+                "registry",
+                "agent_exposure",
+                "deployment_assets",
+                "network_policy",
+                "operator_contracts"
+            ],
+            "must_not_own": [
+                "organ_domain_logic",
+                "append_only_runtime_observations",
+                "ad_hoc_work_memory"
+            ]
+        },
+        {
+            "path": "crates/cynic-kernel/",
+            "class": "kernel",
+            "owns": [
+                "coordination_bus",
+                "memory",
+                "health",
+                "storage",
+                "rest_api",
+                "kernel_mcp_api"
+            ],
+            "must_not_own": [
+                "provider_lifecycle_mutations",
+                "social_transport_semantics"
+            ]
+        },
+        {
+            "path": "crates/cynic-mcp/",
+            "class": "portable_mcp_surface",
+            "owns": [
+                "mcp_tool_contract_projection",
+                "parameter_validation",
+                "portable_agent_surface"
+            ],
+            "must_not_own": [
+                "project_specific_hardcoded_paths",
+                "slack_specific_semantics",
+                "provider_policy_decisions"
+            ]
+        },
+        {
+            "path": "organs/",
+            "class": "persistent_subsystems",
+            "owns": [
+                "bounded_organs",
+                "ports_and_adapters",
+                "organ_tests",
+                "organ_runtime_projection"
+            ],
+            "must_not_own": [
+                "global_policy",
+                "competing_registry",
+                "shared_runtime_state_outside_organ_boundary"
+            ]
+        },
+        {
+            "path": "services/",
+            "class": "shared_runtime_frameworks",
+            "owns": [
+                "frameworks_used_by_multiple_organs_or_agents"
+            ],
+            "must_not_own": [
+                "organ_specific_business_logic_without_clear_owner",
+                "canonical_kernel_state"
+            ]
+        },
+        {
+            "path": "scripts/",
+            "class": "transitional_operator_wrappers",
+            "owns": [
+                "temporary_operator_wrappers",
+                "diagnostics"
+            ],
+            "must_not_own": [
+                "canonical_lifecycle",
+                "canonical_provisioning",
+                "durable_policy"
+            ]
+        },
+        {
+            "path": ".cortex/",
+            "class": "cortex_adapter_local",
+            "owns": [
+                "interactive_agent_wrappers",
+                "local_cortex_adapter_assets"
+            ],
+            "must_not_own": [
+                "organism_policy",
+                "durable_memory",
+                "runtime_state_source_of_truth"
+            ]
+        },
+        {
+            "path": ".cynic/",
+            "class": "local_runtime_state",
+            "owns": [
+                "local_memory_cache",
+                "local_logs",
+                "runtime_artifacts"
+            ],
+            "must_not_own": [
+                "committed_source_of_truth",
+                "portable_contracts"
+            ]
+        }
+    ],
+    "organ_shape": {
+        "required_files": [
+            "MANIFEST.yaml"
+        ],
+        "recommended_files": [
+            "README.md"
+        ],
+        "python_executable_required_paths": [
+            "src/core",
+            "src/adapters",
+            "src/entrypoints"
+        ],
+        "tests_paths": [
+            "tests",
+            "src/tests"
+        ],
+        "manifest_policy": {
+            "identity_fields_any": [
+                "id",
+                "name"
+            ],
+            "required_fields": [
+                "status",
+                "description"
+            ],
+            "allowed_statuses": [
+                "active",
+                "planned",
+                "declared",
+                "transitional",
+                "quarantined",
+                "legacy_blocked"
+            ],
+            "status_case": "case_insensitive",
+            "reason": "MANIFEST.yaml is the organ membrane. It must provide a stable identity, lifecycle status and purpose."
+        },
+        "state_policy": {
+            "allowed_path": "organs/<organ>/state/",
+            "commit_default": "forbidden",
+            "exceptions": [
+                "fixtures",
+                "operator_contracts_explicitly_declared_in_manifest"
+            ]
+        }
+    },
+    "contract_file_policy": {
+        "allowed_extensions": [
+            ".json"
+        ],
+        "extension_exceptions": [],
+        "allowed_subdirectories": [
+            {
+                "path": "axioms/consumer-profiles/",
+                "class": "consumer_profile",
+                "owner": "portable_coordination_contract",
+                "reason": "Consumer profiles bind external repos to CYNIC contracts without becoming CYNIC-wide policy."
+            }
+        ],
+        "json_required_top_level_fields": [
+            "schema",
+            "status"
+        ],
+        "allowed_statuses": [
+            "normative",
+            "target_contract",
+            "consumer_profile",
+            "draft",
+            "deprecated"
+        ],
+        "schema_prefix": "cynic.",
+        "reason": "axioms is a machine contract namespace. JSON files here must be addressable by schema and lifecycle status, not just valid syntax."
+    },
+    "organ_boundary_exceptions": [
+        {
+            "path": "organs/controllers/",
+            "status": "legacy_blocked",
+            "owner": "organ-supervisor",
+            "replacement": "organs/supervisor/controllers/",
+            "expiry_condition": "all controller entrypoints are owned by a manifest-backed organ"
+        },
+        {
+            "path": "organs/gasdf/",
+            "status": "transitional",
+            "owner": "cortex",
+            "replacement": "manifest-backed organ or removal",
+            "expiry_condition": "the gasdf concern is either assigned an organ role or deleted"
+        },
+        {
+            "path": "organs/freebox/",
+            "status": "transitional",
+            "owner": "organ-fleet",
+            "replacement": "organs/fleet/ or a manifest-backed organ-freebox",
+            "expiry_condition": "Freebox behavior is either folded into fleet or declared as a bounded organ"
+        },
+        {
+            "path": "organs/rag/",
+            "status": "transitional",
+            "owner": "cortex",
+            "replacement": "manifest-backed retrieval organ",
+            "expiry_condition": "RAG state and interfaces have a declared owner and lifecycle"
+        },
+        {
+            "path": "organs/prompt-enricher/",
+            "status": "transitional",
+            "owner": "cortex",
+            "replacement": "manifest-backed organ-prompt-enricher or removal",
+            "expiry_condition": "prompt enrichment is declared as an organ or demoted to a shared library"
+        },
+        {
+            "path": "organs/state/",
+            "status": "quarantined",
+            "owner": "organ-supervisor",
+            "replacement": "Kernel mempool, .cynic local cache, or organs/<role>/state/",
+            "expiry_condition": "global organ state is migrated to owned state boundaries"
+        },
+        {
+            "path": "organs/superteam/",
+            "status": "transitional",
+            "owner": "cortex",
+            "replacement": "manifest-backed organ-superteam or removal",
+            "expiry_condition": "Superteam behavior has an explicit organ manifest and lifecycle"
+        },
+        {
+            "path": "organs/telemetry/",
+            "status": "transitional",
+            "owner": "organ-supervisor",
+            "replacement": "manifest-backed organ-telemetry or merged supervisor adapter",
+            "expiry_condition": "telemetry collection has a bounded organ owner"
+        }
+    ],
+    "organ_shape_exceptions": [
+        {
+            "path": "organs/discord/",
+            "status": "transitional",
+            "owner": "organ-discord",
+            "missing_paths": [
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "replacement": "hexagonal organ-discord source tree",
+            "expiry_condition": "Discord transport logic is separated into core, adapters and entrypoints"
+        },
+        {
+            "path": "organs/headscale/",
+            "status": "transitional",
+            "owner": "organ-fleet",
+            "missing_paths": [
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "replacement": "organ-fleet adapter or bounded organ-headscale",
+            "expiry_condition": "Headscale provisioning has a declared core/adapter boundary"
+        },
+        {
+            "path": "organs/jupyter/",
+            "status": "transitional",
+            "owner": "organ-jupyter",
+            "missing_paths": [
+                "src/entrypoints"
+            ],
+            "replacement": "organ-jupyter entrypoint package",
+            "expiry_condition": "Jupyter runtime wiring is not hidden in systemd only"
+        },
+        {
+            "path": "organs/keep/",
+            "status": "canonical_partial",
+            "owner": "organ-keep",
+            "missing_paths": [
+                "src/adapters"
+            ],
+            "replacement": "organ-keep adapter package when provider IO leaves entrypoints",
+            "expiry_condition": "storage activation uses an adapter for every external IO boundary"
+        },
+        {
+            "path": "organs/lifecycle/",
+            "status": "legacy_blocked",
+            "owner": "organ-forge",
+            "missing_paths": [
+                "src/entrypoints"
+            ],
+            "replacement": "organs/forge lifecycle entrypoints",
+            "expiry_condition": "legacy lifecycle scripts are deleted or moved behind forge/fleet adapters"
+        },
+        {
+            "path": "organs/percolator/",
+            "status": "transitional",
+            "owner": "organ-percolator",
+            "missing_paths": [
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "replacement": "hexagonal organ-percolator source tree",
+            "expiry_condition": "percolator behavior has a bounded implementation tree"
+        },
+        {
+            "path": "organs/radar/",
+            "status": "transitional",
+            "owner": "organ-radar",
+            "missing_paths": [
+                "src/core"
+            ],
+            "replacement": "organ-radar core package",
+            "expiry_condition": "radar decisions are not encoded directly in adapters or entrypoints"
+        },
+        {
+            "path": "organs/slack/",
+            "status": "transitional",
+            "owner": "organ-slack",
+            "missing_paths": [
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "replacement": "Slack as social adapter behind transport-independent coordination core",
+            "expiry_condition": "Slack payloads no longer define coordination semantics"
+        },
+        {
+            "path": "organs/supervisor/",
+            "status": "canonical_partial",
+            "owner": "organ-supervisor",
+            "missing_paths": [
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "replacement": "supervisor controllers migrated into hexagonal source tree",
+            "expiry_condition": "supervisor validation logic lives under src with controller wrappers only"
+        },
+        {
+            "path": "organs/telegram/",
+            "status": "transitional",
+            "owner": "organ-telegram",
+            "missing_paths": [
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "replacement": "Telegram as social adapter behind transport-independent coordination core",
+            "expiry_condition": "Telegram payloads no longer define coordination semantics"
+        }
+    ],
+    "dependency_direction": [
+        "docs/foundation",
+        "axioms",
+        "infra/registry.json",
+        "infra/agent-exposure.json",
+        "crates/cynic-kernel",
+        "crates/cynic-mcp",
+        "organs/<organ>/src/core",
+        "organs/<organ>/src/adapters",
+        "organs/<organ>/src/entrypoints",
+        "infra/systemd",
+        "scripts"
+    ],
+    "forbidden_patterns": [
+        {
+            "pattern": "hardcoded_project_paths_in_portable_proxy",
+            "reason": "Portable MCP surfaces must resolve project context from configuration or explicit parameters."
+        },
+        {
+            "pattern": "provider_ip_as_service_contract",
+            "reason": "LAN, Proxmox and provider addresses are evidence; service identity belongs to the registry and Synapse mesh policy."
+        },
+        {
+            "pattern": "script_as_canonical_lifecycle",
+            "reason": "Scripts are wrappers or adapters; canonical lifecycle must be registry and MCP mediated."
+        },
+        {
+            "pattern": "runtime_json_committed_as_memory",
+            "reason": "Dynamic memory belongs to the Kernel, local state directories or explicit fixtures."
+        },
+        {
+            "pattern": "slack_specific_payload_as_coordination_contract",
+            "reason": "Slack is a social adapter; coordination semantics must be transport independent."
+        },
+        {
+            "pattern": "organ_without_boundary",
+            "reason": "Persistent subsystems require a manifest, owner, lifecycle status and bounded state."
+        }
+    ],
+    "migration_states": [
+        {
+            "state": "canonical",
+            "meaning": "Path satisfies this contract and may be extended."
+        },
+        {
+            "state": "transitional",
+            "meaning": "Path is allowed only with owner, expiry condition and replacement path."
+        },
+        {
+            "state": "quarantined",
+            "meaning": "Path may be read for migration but must not receive new features."
+        },
+        {
+            "state": "legacy_blocked",
+            "meaning": "Path must fail closed unless an explicit emergency environment flag is set."
+        }
+    ],
+    "current_transitional_paths": [
+        {
+            "path": "scripts/",
+            "owner": "cortex",
+            "allowed_file_kinds": [
+                "operator_wrapper",
+                "diagnostic",
+                "developer_lint"
+            ],
+            "forbidden_concerns": [
+                "canonical_lifecycle",
+                "provider_mutation_without_mcp_contract",
+                "durable_policy",
+                "runtime_memory"
+            ],
+            "replacement": "organ-owned entrypoint or canonical MCP operation",
+            "expiry_condition": "all scripts classified as diagnostic/operator wrapper or migrated"
+        },
+        {
+            "path": "infra/scripts/",
+            "owner": "cortex",
+            "allowed_file_kinds": [
+                "bootstrap_wrapper",
+                "operator_diagnostic"
+            ],
+            "forbidden_concerns": [
+                "organ_domain_logic",
+                "canonical_provisioning",
+                "provider_mutation_without_mcp_contract"
+            ],
+            "replacement": "infra contract plus organ adapter",
+            "expiry_condition": "no provider mutation remains canonical here"
+        },
+        {
+            "path": "services/cynic-python/organs/core/",
+            "owner": "Hermes/Ouroboros framework",
+            "allowed_file_kinds": [
+                "shared_runtime_framework"
+            ],
+            "forbidden_concerns": [
+                "organ_specific_business_logic",
+                "canonical_kernel_state",
+                "provider_mutation"
+            ],
+            "replacement": "shared runtime framework with explicit consumers",
+            "expiry_condition": "framework boundary documented and no organ-specific behavior remains hidden there"
+        }
+    ],
+    "transitional_wrapper_file_exceptions": [
+        {
+            "path": "scripts/audit_organism.py",
+            "status": "transitional",
+            "owner": "organ-supervisor",
+            "classification": "diagnostic",
+            "replacement": "organ-supervisor entrypoint or MCP topology/status operation",
+            "expiry_condition": "organ-supervisor exposes the audit as a bounded entrypoint"
+        },
+        {
+            "path": "scripts/enroll-mesh-windows.ps1",
+            "status": "transitional",
+            "owner": "organ-wireguard",
+            "classification": "operator_wrapper",
+            "replacement": "network mesh enrollment MCP operation or organ-wireguard entrypoint",
+            "expiry_condition": "Windows mesh enrollment is contract-backed and does not live in scripts/"
+        },
+        {
+            "path": "scripts/generate-document-theme-inventory.py",
+            "status": "transitional",
+            "owner": "organ-supervisor",
+            "classification": "developer_lint",
+            "replacement": "organ-supervisor document topology entrypoint or MCP topology/status operation",
+            "expiry_condition": "document theme inventory generation is exposed through a bounded organ-supervisor entrypoint"
+        },
+        {
+            "path": "scripts/kyon-goal-check.sh",
+            "status": "transitional",
+            "owner": "organ-supervisor",
+            "classification": "diagnostic",
+            "replacement": "organ-supervisor goal/status check entrypoint",
+            "expiry_condition": "goal checks are exposed by a bounded organ entrypoint"
+        },
+        {
+            "path": "scripts/portability-audit.py",
+            "status": "transitional",
+            "owner": "organ-supervisor",
+            "classification": "diagnostic",
+            "replacement": "organ-supervisor portability audit entrypoint",
+            "expiry_condition": "portability audit is exposed through organ-supervisor"
+        },
+        {
+            "path": "scripts/proxmox_exec.py",
+            "status": "legacy_blocked",
+            "owner": "organ-fleet",
+            "classification": "legacy_provider_exec_fallback",
+            "replacement": "MCP fleet_node_exec with registry/provider preflight",
+            "expiry_condition": "QEMU/LXC execution is fully covered by canonical MCP and no direct script fallback is needed"
+        },
+        {
+            "path": "scripts/update_registry.py",
+            "status": "transitional",
+            "owner": "organ-supervisor",
+            "classification": "operator_wrapper",
+            "replacement": "registry mutation contract plus organ-supervisor/organ-forge entrypoint",
+            "expiry_condition": "registry edits are mediated by typed contract-aware operations"
+        }
+    ],
+    "misplaced_organ_exceptions": [
+        {
+            "path": "scripts/hermes-x/",
+            "status": "legacy_blocked",
+            "owner": "organ-twitter",
+            "target": "organs/twitter/",
+            "replacement": "keep only compatibility shims or delete scripts/hermes-x after external callers no longer import legacy paths",
+            "expiry_condition": "scripts/hermes-x contains no runtime implementation files, no infra/systemd unit references @CYNIC_PROJECT_ROOT@/scripts/hermes-x, and all remaining historical assets have deletion or migration decisions"
+        }
+    ],
+    "runtime_state_commit_exceptions": [
+        {
+            "paths": [
+                "infra/organ-anvil/audit.jsonl",
+                "infra/organ-anvil/state.json",
+                "organs/discord/state/SSOT.json",
+                "organs/discord/state/autonomy.json",
+                "organs/discord/state/percolator-watch.json",
+                "organs/discord/state/proxy-lifecycle.json",
+                "organs/discord/state/topology.json",
+                "organs/discord/state/topology.schema.json",
+                "organs/forge/state/SSOT.json",
+                "organs/forge/state/audit.jsonl",
+                "organs/forge/state/dataset.jsonl",
+                "organs/forge/state/poh.json",
+                "organs/forge/state/reports.jsonl",
+                "organs/forge/state/schema.json",
+                "organs/forge/state/state.json",
+                "organs/jupyter/state/state.json",
+                "organs/organ-rag/state/datasets/surrealdb_capabilities_2026-06-23.json",
+                "organs/percolator/state/SSOT.json",
+                "organs/reflection/state/human_state.json",
+                "organs/reflection/state/organism_state.json",
+                "organs/reflection/state/state.json",
+                "organs/supervisor/state/SSOT.json",
+                "organs/supervisor/state/action-queue.jsonl",
+                "organs/supervisor/state/supervision.json",
+                "organs/twitter/state/dataset.jsonl",
+                "organs/twitter/state/state.json"
+            ],
+            "status": "quarantined",
+            "owner": "cortex",
+            "commit_policy": "legacy_tracked_only_no_new_files",
+            "replacement": "Kernel mempool, local .cynic cache, organ-local uncommitted state, or test fixtures",
+            "expiry_condition": "tracked runtime snapshots are deleted or moved to explicit fixtures/operator contracts"
+        }
+    ],
+    "provider_mutation_script_exceptions": [
+        {
+            "path": "scripts/proxmox_exec.py",
+            "status": "legacy_blocked",
+            "owner": "organ-fleet",
+            "replacement": "MCP fleet_node_exec with registry/provider preflight",
+            "guard": "requires CYNIC_ALLOW_LEGACY_INFRA_TOOLS=1 (and documented fallback with CYNIC_PROXMOX_* credentials)",
+            "expiry_condition": "QEMU execution is fully covered by canonical MCP and no direct script fallback is needed"
+        }
+    ],
+    "minimum_gate_checks": [
+        "json_contracts_parse",
+        "no_new_runtime_state_without_manifest_exception",
+        "no_new_hardcoded_absolute_paths_in_mcp_proxy",
+        "no_new_provider_mutation_script_without_fallback_metadata",
+        "python_organs_keep_core_adapter_entrypoint_boundary"
+    ]
+}

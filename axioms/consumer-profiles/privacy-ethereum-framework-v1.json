@@ -1,0 +1,87 @@
+{
+    "schema": "cynic.consumer_profile.privacy_ethereum_framework.v1",
+    "status": "consumer_profile",
+    "consumer": "privacy-ethereum-framework",
+    "version": "1.0.0",
+    "project": "privacy-ethereum-framework",
+    "coordination": {
+        "contract_version": "coordination-event-v1",
+        "required_mcp_operations": {
+            "publish": "coordination_status_publish",
+            "read": "coordination_status_read",
+            "thread_reply": "coordination_thread_reply",
+            "artifact_share": "coordination_artifact_share",
+            "decision_record": "coordination_decision_record"
+        },
+        "required_events": [
+            "workstream.started",
+            "workstream.blocked",
+            "workstream.updated",
+            "interface.changed",
+            "run.completed",
+            "decision.recorded"
+        ],
+        "routing": {
+            "project_workstream_to_routing_key": {
+                "privacy-ethereum-framework": "stage_privacy_ethereum"
+            },
+            "fallback": "kernel_ops"
+        },
+        "minimum_fields_per_event": {
+            "workstream.started": [
+                "project",
+                "workstream",
+                "branch",
+                "owner",
+                "scope"
+            ],
+            "workstream.blocked": [
+                "project",
+                "workstream",
+                "branch",
+                "blocker",
+                "impact",
+                "requested_action"
+            ],
+            "workstream.updated": [
+                "project",
+                "workstream",
+                "branch",
+                "commit",
+                "summary",
+                "artifacts",
+                "open_points"
+            ],
+            "interface.changed": [
+                "project",
+                "workstream",
+                "branch",
+                "interface_name",
+                "change_summary",
+                "requested_reviewers"
+            ],
+            "run.completed": [
+                "project",
+                "run_id",
+                "branch",
+                "commit",
+                "mechanisms",
+                "result_paths",
+                "notes"
+            ],
+            "decision.recorded": [
+                "project",
+                "topic",
+                "decision",
+                "rationale",
+                "source_artifact"
+            ]
+        },
+        "adapter_policy": {
+            "publish_is_repo_first": true,
+            "threads_are_stateful": true,
+            "do_not_use_channel_as_sole_source_of_truth": true,
+            "artifact_reference_is_required_for_decisions": true
+        }
+    }
+}

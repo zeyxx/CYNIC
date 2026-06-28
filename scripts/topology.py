@@ -8,11 +8,11 @@ K15 Consumer: session-init.sh injects topology output where needed.
 
 Usage:
     python3 scripts/topology.py                        # print topology.json to stdout
-    python3 scripts/topology.py --md                  # print TOPOLOGY markdown to stdout
+    python3 scripts/topology.py --md                  # print ephemeral topology markdown to stdout
     python3 scripts/topology.py --verify     # render + verify vs live state
     python3 scripts/topology.py --graph      # print producer→consumer graph
     python3 scripts/topology.py --json       # output topology.json (machine-readable)
-    python3 scripts/topology.py --output TOPOLOGY.md  # write markdown output to TOPOLOGY.md
+    python3 scripts/topology.py --md --output /tmp/cynic-topology.md
 """
 
 from __future__ import annotations
@@ -242,7 +242,7 @@ def build_graph(manifests: list[dict[str, Any]]) -> list[dict[str, str]]:
 
 def render_topology_md(manifests: list[dict[str, Any]], issues: list[dict[str, str]],
                        graph: list[dict[str, str]]) -> str:
-    """Render TOPOLOGY.md content."""
+    """Render ephemeral topology markdown content."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     lines: list[str] = []
     lines.append(f"# CYNIC Organism Topology (auto-generated {now})")
@@ -397,7 +397,7 @@ def main() -> int:
         "--output",
         type=str,
         default=None,
-        help="Output file path (default: stdout for --json/--graph/default, use this with --md for TOPOLOGY.md export)",
+        help="Output file path. Markdown output is ephemeral; do not write root topology snapshots.",
     )
     args = parser.parse_args()
 

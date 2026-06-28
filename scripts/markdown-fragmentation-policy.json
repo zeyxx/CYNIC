@@ -1,7 +1,6 @@
 {
   "special_allowed": [
     "scripts/README-token-screening.md",
-    "scripts/hermes-x/HERMES_LOGIN_SETUP.md",
     "organs/*/state/README.md",
     "organs/*/state/SKILL.md",
     "apps/kyon-mobile/README.md"
@@ -40,8 +39,7 @@
     "CHANGELOG.md",
     "API.md",
     "VERSION.md",
-    "TOPOLOGY.md",
-    ".codex/CODEX-PROTOCOL.md",
+        ".codex/CODEX-PROTOCOL.md",
     "packages/cynic-ui/CLAUDE.md",
     "packages/talaria-demo/README.md",
     "packages/talaria-landing/README.md",
@@ -55,5 +53,14 @@
     "cynic-python/",
     "apps/",
     "organs/*/state/"
+  ],
+  "theme_inventory": "axioms/document-theme-inventory-v1.json",
+  "classified_sensitive_markdown_roots": [
+    "docs/internal/",
+    "docs/hackathon/",
+    "docs/research/",
+    "docs/reference/",
+    "data/reports/",
+    "packages/"
   ]
 }

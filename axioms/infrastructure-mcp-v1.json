@@ -1,0 +1,626 @@
+{
+    "schema": "cynic.infrastructure_mcp.v1",
+    "status": "target_contract",
+    "description": "Canonical deterministic MCP contract for CYNIC infrastructure and network operations. Adapter-specific tools such as raw Proxmox actions are implementation details, not the portable agent contract.",
+    "authority": {
+        "policy": "docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md",
+        "network_policy": "infra/registry.json:network_policy",
+        "fleet_topology": "infra/registry.json",
+        "runtime_evidence": "organ-fleet"
+    },
+    "principles": [
+        "deny_by_default",
+        "registry_desired_state_first",
+        "provider_observation_is_evidence_not_policy",
+        "no_ad_hoc_ip_allocation",
+        "synapse_dns_is_the_service_contract",
+        "mutating_operations_require_preflight_and_audit",
+        "private_keys_never_leave_the_node"
+    ],
+    "identity": {
+        "actor_fields": [
+            "agent_id",
+            "client",
+            "session_id"
+        ],
+        "target_fields": [
+            "node",
+            "role",
+            "service",
+            "resource_id"
+        ],
+        "audit_fields": [
+            "intent",
+            "preconditions",
+            "mutation",
+            "evidence",
+            "rollback_hint"
+        ]
+    },
+    "operation_families": {
+        "registry": {
+            "description": "Read and validate desired topology/policy without side effects.",
+            "operations": {
+                "infra.registry.read": {
+                    "mcp_tool": "infra_registry_read",
+                    "implementation_status": "implemented_local",
+                    "mutates": false,
+                    "required_inputs": [],
+                    "returns": [
+                        "registry_version",
+                        "nodes",
+                        "network_policy",
+                        "organs"
+                    ]
+                },
+                "infra.registry.validate": {
+                    "mcp_tool": "infra_registry_validate",
+                    "implementation_status": "implemented_local",
+                    "mutates": false,
+                    "required_inputs": [
+                        "dimensions"
+                    ],
+                    "returns": [
+                        "status",
+                        "violations",
+                        "warnings"
+                    ]
+                }
+            }
+        },
+        "ipam": {
+            "description": "Reserve, release and check service-plane addresses from registry policy.",
+            "operations": {
+                "network.ipam.check": {
+                    "mcp_tool": "network_ipam_check",
+                    "implementation_status": "implemented_local",
+                    "mutates": false,
+                    "required_inputs": [
+                        "node"
+                    ],
+                    "returns": [
+                        "reserved",
+                        "synapse",
+                        "dns",
+                        "policy_violations"
+                    ]
+                },
+                "network.ipam.reserve": {
+                    "implementation_status": "target_contract",
+                    "mutates": true,
+                    "required_inputs": [
+                        "node",
+                        "role",
+                        "plane"
+                    ],
+                    "preconditions": [
+                        "plane_exists",
+                        "address_not_allocated",
+                        "node_not_runtime_routable_without_reservation"
+                    ],
+                    "returns": [
+                        "reservation_patch",
+                        "dns_names",
+                        "audit_event"
+                    ]
+                },
+                "network.ipam.release": {
+                    "implementation_status": "target_contract",
+                    "mutates": true,
+                    "required_inputs": [
+                        "node",
+                        "plane"
+                    ],
+                    "preconditions": [
+                        "node_not_active",
+                        "no_live_service_dependency"
+                    ],
+                    "returns": [
+                        "reservation_patch",
+                        "audit_event"
+                    ]
+                }
+            }
+        },
+        "fleet": {
+            "description": "Provision and inspect runtime nodes through provider adapters while preserving registry policy.",
+            "operations": {
+                "fleet.node.status": {
+                    "mcp_tool": "fleet_node_status",
+                    "implementation_status": "implemented_registry_plus_proxmox_read",
+                    "mutates": false,
+                    "required_inputs": [
+                        "node"
+                    ],
+                    "returns": [
+                        "declared",
+                        "observed",
+                        "effective_status",
+                        "provider_evidence"
+                    ]
+                },
+                "fleet.node.provision": {
+                    "implementation_status": "target_contract",
+                    "mutates": true,
+                    "required_inputs": [
+                        "node",
+                        "provider",
+                        "spec_ref"
+                    ],
+                    "preconditions": [
+                        "registry_node_declared",
+                        "network_ipam_reserved",
+                        "no_existing_provider_resource_collision"
+                    ],
+                    "returns": [
+                        "resource_id",
+                        "provider_task_id",
+                        "runtime_evidence"
+                    ]
+                },
+                "fleet.node.exec": {
+                    "mcp_tool": "fleet_node_exec",
+                    "implementation_status": "implemented_qemu_lxc_preflight_blocked",
+                    "mutates": true,
+                    "required_inputs": [
+                        "node",
+                        "command",
+                        "purpose"
+                    ],
+                    "preconditions": [
+                        "node_observed_running",
+                        "command_policy_allows_purpose"
+                    ],
+                    "returns": [
+                        "exit_code",
+                        "stdout",
+                        "stderr",
+                        "audit_event"
+                    ],
+                    "coverage_required": [
+                        "qemu",
+                        "lxc"
+                    ],
+                    "current_coverage": [
+                        "qemu_guest_agent_exec_when_provider_observed_running",
+                        "lxc_ssh_sudo_helper_when_bridge_transport_configured",
+                        "lxc_structured_precondition_missing_until_exec_bridge_exists_or_transport_configured"
+                    ],
+                    "lxc_bridge_contract": "axioms/lxc-exec-bridge-v1.json",
+                    "activation_evidence": [
+                        "helper_exists_root_owned",
+                        "sudoers_rule_matches_contract",
+                        "policy_validates",
+                        "dry_run_read_only_command_passes",
+                        "raw_pct_exec_not_allowed_to_agent"
+                    ]
+                }
+            },
+            "lxc_exec_bridge.plan": {
+                "mcp_tool": "lxc_exec_bridge_plan",
+                "implementation_status": "implemented_local_organ_fleet_plan",
+                "mutates": false,
+                "required_inputs": [],
+                "optional_inputs": [
+                    "helper_source"
+                ],
+                "returns": [
+                    "helper_source",
+                    "helper_target",
+                    "policy_source",
+                    "policy_target",
+                    "sudoers_target",
+                    "sudoers_rule",
+                    "activation_checks",
+                    "mcp_operation",
+                    "cli_exit_code"
+                ]
+            },
+            "lxc_exec_bridge.bundle": {
+                "mcp_tool": "lxc_exec_bridge_bundle",
+                "implementation_status": "implemented_local_tmp_bundle",
+                "mutates": false,
+                "writes_local_output_dir": true,
+                "required_inputs": [],
+                "optional_inputs": [
+                    "output_dir",
+                    "helper_source"
+                ],
+                "path_policy": [
+                    "output_dir_defaults_to_/tmp/cynic-lxc-bridge",
+                    "output_dir_must_be_absolute_under_/tmp"
+                ],
+                "returns": [
+                    "bundle_dir",
+                    "bundle_files",
+                    "helper_target",
+                    "policy_target",
+                    "sudoers_target",
+                    "mcp_operation",
+                    "cli_exit_code"
+                ],
+                "current_limits": [
+                    "does_not_install_helper_or_sudoers",
+                    "activation_still_requires_root_operator_or_dedicated_activation_organ"
+                ]
+            },
+            "lxc_exec_bridge.status": {
+                "mcp_tool": "lxc_exec_bridge_status",
+                "implementation_status": "implemented_local_organ_fleet_status",
+                "mutates": false,
+                "required_inputs": [],
+                "optional_inputs": [
+                    "helper_path",
+                    "installed_policy_path",
+                    "sudoers_path"
+                ],
+                "returns": [
+                    "status",
+                    "checks",
+                    "missing",
+                    "helper_path",
+                    "sudoers_rule",
+                    "mcp_operation",
+                    "cli_exit_code",
+                    "transport_status"
+                ],
+                "current_limits": [
+                    "local_filesystem_status_only_until_remote_bridge_status_probe_is_authorized",
+                    "does_not_install_helper_or_sudoers"
+                ]
+            }
+        },
+        "mesh": {
+            "description": "Bootstrap, validate and operate the deterministic Synapse/WireGuard service mesh.",
+            "operations": {
+                "network.mesh.bootstrap": {
+                    "implementation_status": "target_contract",
+                    "mutates": true,
+                    "required_inputs": [
+                        "node"
+                    ],
+                    "preconditions": [
+                        "network_ipam_reserved",
+                        "node_observed_running"
+                    ],
+                    "returns": [
+                        "public_key",
+                        "mesh_ip",
+                        "dns_names",
+                        "service_status"
+                    ]
+                },
+                "network.mesh.status": {
+                    "mcp_tool": "network_mesh_status",
+                    "implementation_status": "implemented_registry_plus_optional_dns_read",
+                    "schema": "cynic.infrastructure_mcp.network_mesh_status.v1",
+                    "organ_projection": {
+                        "organ": "organ-wireguard",
+                        "command": "python3 organs/wireguard/src/entrypoints/cli.py status --registry infra/registry.json",
+                        "contract_alignment": "same_schema_as_mcp"
+                    },
+                    "mutates": false,
+                    "required_inputs": [],
+                    "optional_inputs": [
+                        "registry_ref",
+                        "resolve_dns",
+                        "include_records"
+                    ],
+                    "returns": [
+                        "peers",
+                        "missing",
+                        "offline",
+                        "dns_status",
+                        "policy_status",
+                        "runtime_status",
+                        "records",
+                        "dns_checks"
+                    ],
+                    "current_limits": [
+                        "wireguard_runtime_peer_state_not_observed_until_organ_wireguard_agent_reports_runtime_evidence",
+                        "dns_resolution_is_optional_and_observed_from_the_calling_host"
+                    ]
+                },
+                "network.mesh.dns.render": {
+                    "mcp_tool": "network_mesh_dns_render",
+                    "implementation_status": "implemented_local",
+                    "mutates": false,
+                    "required_inputs": [
+                        "registry_ref"
+                    ],
+                    "returns": [
+                        "zone",
+                        "records",
+                        "policy_status"
+                    ]
+                },
+                "network.mesh.dns.activation_plan": {
+                    "mcp_tool": "network_mesh_dns_activation_plan",
+                    "implementation_status": "implemented_organ_wireguard_cli",
+                    "organ_projection": {
+                        "organ": "organ-wireguard",
+                        "command": "python3 organs/wireguard/src/entrypoints/cli.py dns plan"
+                    },
+                    "mutates": false,
+                    "returns": [
+                        "target",
+                        "provider_policy",
+                        "package_preconditions",
+                        "required_owner",
+                        "required_modes",
+                        "activation_checks",
+                        "forbidden"
+                    ],
+                    "current_limits": [
+                        "does_not_install_coredns_or_resolver_dropin",
+                        "noncanonical_dns_providers_require_adapter_contract_before_use"
+                    ]
+                },
+                "network.mesh.dns.activation_bundle": {
+                    "mcp_tool": "network_mesh_dns_activation_bundle",
+                    "implementation_status": "implemented_organ_wireguard_cli",
+                    "organ_projection": {
+                        "organ": "organ-wireguard",
+                        "command": "python3 organs/wireguard/src/entrypoints/cli.py dns bundle --registry infra/registry.json --output-dir /tmp/cynic-synapse-dns"
+                    },
+                    "mutates": false,
+                    "writes_local_output_dir": true,
+                    "returns": [
+                        "bundle_dir",
+                        "bundle_files",
+                        "target",
+                        "activation_checks"
+                    ],
+                    "current_limits": [
+                        "activation_requires_root_operator_or_dedicated_activation_organ",
+                        "cortex_sessions_must_not_install_bundle_directly_as_root"
+                    ]
+                },
+                "network.mesh.dns.activation_status": {
+                    "mcp_tool": "network_mesh_dns_activation_status",
+                    "implementation_status": "implemented_organ_wireguard_cli",
+                    "organ_projection": {
+                        "organ": "organ-wireguard",
+                        "command": "python3 organs/wireguard/src/entrypoints/cli.py dns activation-status --resolve-dns"
+                    },
+                    "mutates": false,
+                    "returns": [
+                        "status",
+                        "checks",
+                        "provider_policy",
+                        "provider_status",
+                        "missing",
+                        "paths",
+                        "mesh_status"
+                    ]
+                },
+                "network.mesh.peer.rotate": {
+                    "implementation_status": "target_contract",
+                    "mutates": true,
+                    "required_inputs": [
+                        "node"
+                    ],
+                    "preconditions": [
+                        "node_local_key_rotation_supported",
+                        "private_key_not_exported"
+                    ],
+                    "returns": [
+                        "public_key",
+                        "rotation_evidence"
+                    ]
+                }
+            }
+        },
+        "service": {
+            "description": "Install, verify and health-check node services after node and mesh are ready.",
+            "operations": {
+                "service.deploy": {
+                    "implementation_status": "target_contract",
+                    "mutates": true,
+                    "required_inputs": [
+                        "node",
+                        "service",
+                        "unit_ref"
+                    ],
+                    "preconditions": [
+                        "node_observed_running",
+                        "mesh_ready",
+                        "service_declared_in_registry"
+                    ],
+                    "returns": [
+                        "unit_status",
+                        "health_endpoint",
+                        "audit_event"
+                    ]
+                },
+                "service.status": {
+                    "mcp_tool": "service_status",
+                    "implementation_status": "implemented_registry_plus_provider_node_status",
+                    "mutates": false,
+                    "required_inputs": [
+                        "node",
+                        "service"
+                    ],
+                    "returns": [
+                        "declared",
+                        "systemd_state",
+                        "ports",
+                        "evidence"
+                    ],
+                    "current_limits": [
+                        "systemd_state_not_observed_until_fleet_node_exec_or_service_agent_is_available"
+                    ]
+                },
+                "service.health": {
+                    "mcp_tool": "service_health",
+                    "implementation_status": "implemented_synapse_http_health_only",
+                    "mutates": false,
+                    "required_inputs": [
+                        "node",
+                        "service"
+                    ],
+                    "returns": [
+                        "healthy",
+                        "endpoint",
+                        "latency_ms",
+                        "failure_reason"
+                    ],
+                    "current_limits": [
+                        "no_lan_or_provider_address_fallback",
+                        "requires_declared_port_or_explicit_synapse_endpoint"
+                    ]
+                }
+            }
+        },
+        "storage": {
+            "description": "Inspect and activate organism storage without making provider addresses or local database state canonical.",
+            "operations": {
+                "storage.primary.plan": {
+                    "mcp_tool": "storage_primary_plan",
+                    "implementation_status": "implemented_local_organ_keep_plan",
+                    "mutates": false,
+                    "required_inputs": [],
+                    "optional_inputs": [
+                        "registry"
+                    ],
+                    "path_policy": [
+                        "registry_must_be_project_relative"
+                    ],
+                    "returns": [
+                        "target",
+                        "requires",
+                        "forbidden",
+                        "install_targets",
+                        "mcp_operation",
+                        "cli_exit_code"
+                    ]
+                },
+                "storage.primary.bundle": {
+                    "mcp_tool": "storage_primary_bundle",
+                    "implementation_status": "implemented_local_tmp_bundle",
+                    "mutates": false,
+                    "writes_local_output_dir": true,
+                    "required_inputs": [],
+                    "optional_inputs": [
+                        "output_dir",
+                        "registry",
+                        "schema"
+                    ],
+                    "path_policy": [
+                        "output_dir_defaults_to_/tmp/cynic-storage-primary",
+                        "output_dir_must_be_absolute_under_/tmp",
+                        "registry_and_schema_must_be_project_relative"
+                    ],
+                    "returns": [
+                        "bundle_dir",
+                        "bundle_files",
+                        "target",
+                        "requires",
+                        "install_targets",
+                        "mcp_operation",
+                        "cli_exit_code"
+                    ],
+                    "current_limits": [
+                        "does_not_install_or_start_storage",
+                        "activation_still_requires_bridge_runtime_storage_node_and_service_health"
+                    ]
+                },
+                "storage.primary.readiness": {
+                    "mcp_tool": "storage_primary_readiness",
+                    "implementation_status": "implemented_aggregated_non_mutating_readiness",
+                    "mutates": false,
+                    "required_inputs": [],
+                    "optional_inputs": [
+                        "resolve_mesh_dns",
+                        "service_health_timeout_seconds",
+                        "bundle_default_dir"
+                    ],
+                    "composes": [
+                        "storage.primary.status",
+                        "lxc_exec_bridge.status",
+                        "network.mesh.status",
+                        "network.mesh.dns.activation_status",
+                        "fleet.node.status",
+                        "service.health"
+                    ],
+                    "returns": [
+                        "ready",
+                        "status",
+                        "checks",
+                        "missing",
+                        "next_actions",
+                        "evidence",
+                        "evidence.dns_activation_status",
+                        "mcp_operation"
+                    ],
+                    "current_limits": [
+                        "readiness_only",
+                        "does_not_install_bridge_or_start_storage"
+                    ]
+                },
+                "storage.primary.status": {
+                    "mcp_tool": "storage_primary_status",
+                    "implementation_status": "implemented_local_organ_keep_status",
+                    "mutates": false,
+                    "required_inputs": [],
+                    "optional_inputs": [
+                        "bundle_dir",
+                        "auto_bundle_dir",
+                        "bundle_default_dir",
+                        "bridge_status_json",
+                        "auto_bridge_status",
+                        "fleet_report_json",
+                        "mesh_status_json",
+                        "auto_mesh_status",
+                        "resolve_mesh_dns",
+                        "auto_fleet_status",
+                        "health_json",
+                        "auto_service_health",
+                        "service_health_timeout_seconds"
+                    ],
+                    "returns": [
+                        "status",
+                        "target",
+                        "checks",
+                        "missing",
+                        "mcp_operation",
+                        "cli_exit_code",
+                        "bundle_evidence_source",
+                        "mesh_evidence_source",
+                        "bridge_evidence_source",
+                        "fleet_evidence_source",
+                        "health_evidence_source",
+                        "evidence_stdin"
+                    ],
+                    "preconditions_reported": [
+                        "registry_declares_storage_node",
+                        "endpoint_is_synapse_dns",
+                        "bridge_active",
+                        "fleet_observes_node_running",
+                        "mesh_reaches_storage",
+                        "bundle_complete",
+                        "service_health_healthy"
+                    ],
+                    "current_limits": [
+                        "non_mutating_status_only",
+                        "activation_still_requires_lxc_exec_bridge_runtime_and_storage_node_health"
+                    ]
+                }
+            }
+        }
+    },
+    "non_canonical_current_tools": [
+        {
+            "tool": "cynic_proxmox_list",
+            "reason": "provider adapter evidence only; not registry/policy aware"
+        },
+        {
+            "tool": "cynic_proxmox_action",
+            "reason": "provider mutation without canonical preflight contract"
+        },
+        {
+            "tool": "cynic_proxmox_exec",
+            "reason": "provider-level fallback; use fleet_node_exec for registry/provider preflight and structured LXC blocking"
+        }
+    ]
+}
