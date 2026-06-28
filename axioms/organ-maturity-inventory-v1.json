@@ -80,11 +80,12 @@
         },
         {
             "path": "organs/gasdf/",
-            "maturity": "embryonic",
+            "maturity": "transitional",
             "evidence": [
-                "organ_boundary_exceptions"
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
             ],
-            "next_action": "assign a durable role and manifest, or delete the seed"
+            "next_action": "move gas delegation source and signing policy inside the organ boundary"
         },
         {
             "path": "organs/headscale/",
@@ -264,8 +265,7 @@
         "by_maturity": {
             "canonical": 10,
             "canonical_partial": 3,
-            "transitional": 9,
-            "embryonic": 1,
+            "transitional": 10,
             "quarantined": 2,
             "legacy_blocked": 1
         }

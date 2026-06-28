@@ -1,0 +1,34 @@
+id: organ-gasdf
+tier: 2
+domain: gas-delegation
+status: TRANSITIONAL
+framework: external-runtime-projection
+systemd_executor: organ-gasdf.service
+
+description: |
+  GASdf Percolator node surface. The declared role is an off-chain gas
+  delegation and fee-payer relay for the GASdf on-chain contract, but the active
+  runtime still projects to an external GASdf checkout through systemd. This
+  organ is therefore a bounded transition surface until source, signing policy
+  and runtime adapters live inside the CYNIC organ boundary.
+
+inputs:
+  - source: infra/registry.json
+    data: organ identity, role and deployment intent
+  - source: operator environment
+    data: fee-payer and RPC credentials supplied outside the repo
+
+outputs:
+  - path: external GASdf runtime
+    format: Node.js percolator process
+  - path: Solana RPC
+    format: fee delegation transactions
+
+scripts:
+  - name: scripts/analyze_pump.ts
+    description: Local research/probe script only; not canonical runtime source.
+
+manual_gates:
+  - no_committed_fee_payer_secret
+  - no_signing_runtime_without_registry_and_human_approval
+  - no_external_checkout_as_final_organ_boundary

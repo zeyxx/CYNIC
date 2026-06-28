@@ -498,13 +498,6 @@
             "expiry_condition": "all controller entrypoints are owned by a manifest-backed organ"
         },
         {
-            "path": "organs/gasdf/",
-            "status": "embryonic",
-            "owner": "cortex",
-            "replacement": "manifest-backed organ or removal",
-            "expiry_condition": "the gasdf concern is either assigned an organ role or deleted"
-        },
-        {
             "path": "organs/state/",
             "status": "quarantined",
             "owner": "organ-supervisor",
@@ -536,6 +529,18 @@
             ],
             "replacement": "Freebox provider mutation split into registry-aware core use cases, Freebox OS adapter and bounded entrypoint",
             "expiry_condition": "router mutation is mediated by typed adapters and no hardcoded local network policy remains"
+        },
+        {
+            "path": "organs/gasdf/",
+            "status": "transitional",
+            "owner": "organ-gasdf",
+            "missing_paths": [
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "replacement": "gas delegation source, signing policy and runtime adapter moved inside organs/gasdf/",
+            "expiry_condition": "organ-gasdf no longer depends on ../GASdf as its primary runtime boundary"
         },
         {
             "path": "organs/headscale/",
@@ -842,7 +847,6 @@
                 "organs/forge/state/schema.json",
                 "organs/forge/state/state.json",
                 "organs/jupyter/state/state.json",
-                "organs/organ-rag/state/datasets/surrealdb_capabilities_2026-06-23.json",
                 "organs/percolator/state/SSOT.json",
                 "organs/reflection/state/human_state.json",
                 "organs/reflection/state/organism_state.json",
