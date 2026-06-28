@@ -71,11 +71,12 @@
         },
         {
             "path": "organs/freebox/",
-            "maturity": "embryonic",
+            "maturity": "transitional",
             "evidence": [
-                "organ_boundary_exceptions"
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
             ],
-            "next_action": "fold Freebox behavior into organs/fleet/ or declare a bounded organ-freebox"
+            "next_action": "move Freebox provider mutation behind core, adapters and entrypoints"
         },
         {
             "path": "organs/gasdf/",
@@ -161,11 +162,11 @@
         },
         {
             "path": "organs/rag/",
-            "maturity": "embryonic",
+            "maturity": "quarantined",
             "evidence": [
-                "organ_boundary_exceptions"
+                "MANIFEST.yaml"
             ],
-            "next_action": "declare retrieval ownership and lifecycle or delete the seed"
+            "next_action": "migrate or delete historical retrieval state artifacts before declaring active retrieval behavior"
         },
         {
             "path": "organs/reflection/",
@@ -263,9 +264,9 @@
         "by_maturity": {
             "canonical": 10,
             "canonical_partial": 3,
-            "transitional": 8,
-            "embryonic": 3,
-            "quarantined": 1,
+            "transitional": 9,
+            "embryonic": 1,
+            "quarantined": 2,
             "legacy_blocked": 1
         }
     }

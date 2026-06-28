@@ -505,20 +505,6 @@
             "expiry_condition": "the gasdf concern is either assigned an organ role or deleted"
         },
         {
-            "path": "organs/freebox/",
-            "status": "embryonic",
-            "owner": "organ-fleet",
-            "replacement": "organs/fleet/ or a manifest-backed organ-freebox",
-            "expiry_condition": "Freebox behavior is either folded into fleet or declared as a bounded organ"
-        },
-        {
-            "path": "organs/rag/",
-            "status": "embryonic",
-            "owner": "cortex",
-            "replacement": "manifest-backed retrieval organ",
-            "expiry_condition": "RAG state and interfaces have a declared owner and lifecycle"
-        },
-        {
             "path": "organs/state/",
             "status": "quarantined",
             "owner": "organ-supervisor",
@@ -538,6 +524,18 @@
             ],
             "replacement": "hexagonal organ-discord source tree",
             "expiry_condition": "Discord transport logic is separated into core, adapters and entrypoints"
+        },
+        {
+            "path": "organs/freebox/",
+            "status": "transitional",
+            "owner": "organ-freebox",
+            "missing_paths": [
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
+            ],
+            "replacement": "Freebox provider mutation split into registry-aware core use cases, Freebox OS adapter and bounded entrypoint",
+            "expiry_condition": "router mutation is mediated by typed adapters and no hardcoded local network policy remains"
         },
         {
             "path": "organs/headscale/",

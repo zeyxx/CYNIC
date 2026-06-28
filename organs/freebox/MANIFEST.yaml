@@ -1,0 +1,32 @@
+id: organ-freebox
+tier: 2
+domain: edge-network
+status: TRANSITIONAL
+framework: transitional-edge-organ
+
+description: |
+  Local edge router and firewall management organ for Freebox OS. The desired
+  role is real, but provider mutation, credential handling and port-forwarding
+  policy must move behind bounded adapters and registry/Synapse contracts before
+  this organ can be canonical.
+
+inputs:
+  - source: registry and Kernel lifecycle requests
+    data: explicit edge exposure intents and approved network targets
+  - source: operator environment
+    data: Freebox API credentials and physical-router approval state
+
+outputs:
+  - path: Freebox OS API
+    format: provider mutation requests
+  - path: kernel /observe
+    format: edge network observations and blockers
+
+scripts:
+  - name: organism_freebox.py
+    description: Local prototype only; not canonical source until split behind adapters and scrubbed of hardcoded network policy.
+
+manual_gates:
+  - no_router_mutation_without_explicit_human_approval
+  - no_committed_router_credentials_or_local_ip_policy
+  - no_public_exposure_without_registry_and_synapse_contract

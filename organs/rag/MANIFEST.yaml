@@ -1,0 +1,24 @@
+id: organ-rag
+tier: 2
+domain: retrieval-memory
+status: QUARANTINED
+framework: quarantined-state-surface
+
+description: |
+  Quarantined retrieval/memory surface. The current directory exists to fence
+  migrated RAG state artifacts, not to define active retrieval runtime logic.
+  Durable retrieval behavior must be declared as a bounded organ or absorbed by
+  Kernel storage and database-backed memory contracts.
+
+inputs:
+  - source: historical state artifacts
+    data: migrated retrieval and database capability notes
+
+outputs:
+  - path: none
+    format: read-only migration evidence
+
+manual_gates:
+  - no_new_runtime_state_commits
+  - no_retrieval_runtime_logic_in_quarantined_surface
+  - migrate_or_delete_state_artifacts_before_activation
