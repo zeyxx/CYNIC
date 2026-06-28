@@ -124,6 +124,7 @@ DOC_ZONE_REQUIRED_FIELDS = {
     "must_not_own",
     "canonicality",
 }
+ROOT_CLASS_REQUIRED_FIELDS = {"path", "class", "owns", "must_not_own"}
 DOCUMENT_INVENTORY_REQUIRED_FIELDS = {"path", "theme", "status", "canonical_target"}
 DOCUMENT_INVENTORY_SENSITIVE_MARKDOWN_ROOTS = [
     "docs/internal/",
@@ -339,6 +340,7 @@ def validate_topology_contract() -> list[Finding]:
                 )
             )
 
+    declared_root_paths: set[str] = set()
     for root_class in contract.get("root_classes", []):
         path_value = root_class.get("path")
         if not path_value:
@@ -351,7 +353,8 @@ def validate_topology_contract() -> list[Finding]:
                 )
             )
             continue
-        for field in ("class", "owns", "must_not_own"):
+        declared_root_paths.add(str(path_value).rstrip("/") + "/")
+        for field in sorted(ROOT_CLASS_REQUIRED_FIELDS - {"path"}):
             if not root_class.get(field):
                 findings.append(
                     Finding(
@@ -371,6 +374,24 @@ def validate_topology_contract() -> list[Finding]:
                     f"declared root class {root_class.get('class')!r} does not exist yet.",
                 )
             )
+
+    policy = contract.get("top_level_root_policy", {})
+    ignored_roots = set(policy.get("ignored_roots", []))
+    if policy:
+        for path in sorted(item for item in WORKSPACE_ROOT.iterdir() if item.is_dir()):
+            name = path.name
+            if name in ignored_roots:
+                continue
+            rel = f"{name}/"
+            if rel not in declared_root_paths:
+                findings.append(
+                    Finding(
+                        "critical",
+                        "top_level_root_unclassified",
+                        rel,
+                        "Every top-level directory must be declared in repo-topology-v1.root_classes or ignored by top_level_root_policy.",
+                    )
+                )
 
     return findings
 

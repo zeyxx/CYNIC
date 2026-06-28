@@ -41,6 +41,18 @@ Every root class in `repo-topology-v1.root_classes` must declare:
 - `owns`: what the path is allowed to define.
 - `must_not_own`: concerns that must move to another layer.
 
+Top-level directories are organism species. A new root directory is forbidden
+until it is either:
+
+- declared in `axioms/repo-topology-v1.json:root_classes`; or
+- explicitly ignored by `top_level_root_policy.ignored_roots` because it is
+  local build/runtime noise such as `.git`, `.venv`, `target` or
+  `node_modules`.
+
+This is the first organic correction layer: classify the body before moving
+organs. It prevents hidden organs, hidden policy and hidden runtime state from
+appearing as accidental root folders.
+
 ## 2. Dependency Direction
 
 Allowed direction is top-down:

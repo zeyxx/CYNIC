@@ -11,6 +11,22 @@
     },
     "root_classes": [
         {
+            "path": "docs/",
+            "class": "human_projection_and_archive_surface",
+            "owns": [
+                "foundation_policy",
+                "architecture_maps",
+                "historical_context",
+                "research",
+                "operator_runbooks"
+            ],
+            "must_not_own": [
+                "machine_contracts",
+                "runtime_state",
+                "deployment_desired_state"
+            ]
+        },
+        {
             "path": "docs/foundation/",
             "class": "policy",
             "owns": [
@@ -94,6 +110,172 @@
             ]
         },
         {
+            "path": ".agents/",
+            "class": "agent_adapter_local",
+            "owns": [
+                "local_agent_assets",
+                "adapter_specific_agent_metadata"
+            ],
+            "must_not_own": [
+                "organism_policy",
+                "machine_contracts",
+                "runtime_source_of_truth"
+            ]
+        },
+        {
+            "path": ".antigravity/",
+            "class": "cortex_adapter_local",
+            "owns": [
+                "antigravity_adapter_config",
+                "local_runtime_projection"
+            ],
+            "must_not_own": [
+                "organism_policy",
+                "durable_memory",
+                "machine_contracts"
+            ]
+        },
+        {
+            "path": ".cargo/",
+            "class": "developer_toolchain_config",
+            "owns": [
+                "rust_toolchain_projection",
+                "local_build_config"
+            ],
+            "must_not_own": [
+                "organism_policy",
+                "runtime_state",
+                "deployment_desired_state"
+            ]
+        },
+        {
+            "path": ".claude/",
+            "class": "cortex_adapter_local",
+            "owns": [
+                "claude_adapter_config",
+                "local_runtime_projection"
+            ],
+            "must_not_own": [
+                "organism_policy",
+                "durable_memory",
+                "machine_contracts"
+            ]
+        },
+        {
+            "path": ".codex/",
+            "class": "cortex_adapter_local",
+            "owns": [
+                "codex_adapter_config",
+                "local_runtime_projection"
+            ],
+            "must_not_own": [
+                "organism_policy",
+                "durable_memory",
+                "machine_contracts"
+            ]
+        },
+        {
+            "path": ".github/",
+            "class": "external_platform_projection",
+            "owns": [
+                "repository_host_templates",
+                "pull_request_templates"
+            ],
+            "must_not_own": [
+                "canonical_ci",
+                "organism_policy",
+                "runtime_state"
+            ]
+        },
+        {
+            "path": ".leeroy-jenkins/",
+            "class": "local_gate_bypass_log",
+            "owns": [
+                "local_emergency_bypass_log"
+            ],
+            "must_not_own": [
+                "canonical_memory",
+                "policy",
+                "contracts"
+            ]
+        },
+        {
+            "path": "apps/",
+            "class": "application_surfaces",
+            "owns": [
+                "mobile_or_application_products",
+                "operator_or_user_interfaces"
+            ],
+            "must_not_own": [
+                "organism_policy",
+                "protocol_allocation_rules",
+                "organ_core_logic"
+            ]
+        },
+        {
+            "path": "assets/",
+            "class": "static_assets",
+            "owns": [
+                "repo_static_assets",
+                "presentation_assets"
+            ],
+            "must_not_own": [
+                "policy",
+                "runtime_state",
+                "domain_logic"
+            ]
+        },
+        {
+            "path": "datasets/",
+            "class": "legacy_dataset_surface",
+            "owns": [
+                "legacy_curated_datasets"
+            ],
+            "must_not_own": [
+                "runtime_memory",
+                "policy",
+                "new_canonical_dataset_roots"
+            ]
+        },
+        {
+            "path": "external/",
+            "class": "digestion_input",
+            "owns": [
+                "external_repositories",
+                "reference_material_for_ingestion"
+            ],
+            "must_not_own": [
+                "organism_policy",
+                "runtime_desired_state",
+                "canonical_contracts"
+            ]
+        },
+        {
+            "path": "percolator/",
+            "class": "legacy_tool_surface",
+            "owns": [
+                "legacy_percolator_runtime_artifacts"
+            ],
+            "must_not_own": [
+                "canonical_organ_logic",
+                "policy",
+                "runtime_memory"
+            ]
+        },
+        {
+            "path": "tmp/",
+            "class": "local_runtime_state",
+            "owns": [
+                "temporary_operator_artifacts",
+                "local_scratch"
+            ],
+            "must_not_own": [
+                "committed_source_of_truth",
+                "policy",
+                "contracts"
+            ]
+        },
+        {
             "path": "packages/",
             "class": "product_projection",
             "owns": [
@@ -121,6 +303,21 @@
                 "organ_domain_logic",
                 "append_only_runtime_observations",
                 "ad_hoc_work_memory"
+            ]
+        },
+        {
+            "path": "crates/",
+            "class": "rust_workspace",
+            "owns": [
+                "kernel_code",
+                "mcp_code",
+                "rust_services",
+                "rust_tests"
+            ],
+            "must_not_own": [
+                "organism_policy",
+                "runtime_state",
+                "provider_desired_state"
             ]
         },
         {
@@ -688,6 +885,19 @@
         "no_new_runtime_state_without_manifest_exception",
         "no_new_hardcoded_absolute_paths_in_mcp_proxy",
         "no_new_provider_mutation_script_without_fallback_metadata",
-        "python_organs_keep_core_adapter_entrypoint_boundary"
-    ]
+        "python_organs_keep_core_adapter_entrypoint_boundary",
+        "top_level_roots_are_classified"
+    ],
+    "top_level_root_policy": {
+        "ignored_roots": [
+            ".git",
+            ".venv",
+            "target",
+            "node_modules",
+            "package",
+            ".pytest_cache"
+        ],
+        "rule": "Every top-level directory that is not ignored must appear in root_classes with class, owns and must_not_own metadata.",
+        "reason": "Top-level directories are organism species. Unclassified roots become hidden organs, hidden runtime state, or hidden source-of-truth surfaces."
+    }
 }

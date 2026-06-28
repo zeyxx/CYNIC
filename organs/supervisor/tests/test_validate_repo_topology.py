@@ -418,6 +418,78 @@ class RepoTopologyValidationTests(unittest.TestCase):
             [item.kind for item in findings if item.kind == "root_class_metadata_missing"],
         )
 
+    def test_rejects_unclassified_top_level_root_when_policy_enabled(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "axioms").mkdir()
+            (root / "mystery").mkdir()
+            contract_path = root / "axioms" / "repo-topology-v1.json"
+            contract_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "cynic.repo_topology.v1",
+                        "status": "normative",
+                        "authorities": {},
+                        "root_classes": [
+                            {
+                                "path": "axioms/",
+                                "class": "semantic_contract",
+                                "owns": ["contracts"],
+                                "must_not_own": ["runtime_state"],
+                            }
+                        ],
+                        "top_level_root_policy": {"ignored_roots": []},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            old_values = (module.WORKSPACE_ROOT, module.CONTRACT_PATH)
+            try:
+                module.WORKSPACE_ROOT = root
+                module.CONTRACT_PATH = contract_path
+                findings = module.validate_topology_contract()
+            finally:
+                module.WORKSPACE_ROOT, module.CONTRACT_PATH = old_values
+
+        self.assertIn("top_level_root_unclassified", [item.kind for item in findings])
+
+    def test_allows_declared_or_ignored_top_level_roots(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "axioms").mkdir()
+            (root / "target").mkdir()
+            contract_path = root / "axioms" / "repo-topology-v1.json"
+            contract_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "cynic.repo_topology.v1",
+                        "status": "normative",
+                        "authorities": {},
+                        "root_classes": [
+                            {
+                                "path": "axioms/",
+                                "class": "semantic_contract",
+                                "owns": ["contracts"],
+                                "must_not_own": ["runtime_state"],
+                            }
+                        ],
+                        "top_level_root_policy": {"ignored_roots": ["target"]},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            old_values = (module.WORKSPACE_ROOT, module.CONTRACT_PATH)
+            try:
+                module.WORKSPACE_ROOT = root
+                module.CONTRACT_PATH = contract_path
+                findings = module.validate_topology_contract()
+            finally:
+                module.WORKSPACE_ROOT, module.CONTRACT_PATH = old_values
+
+        self.assertEqual([], [item for item in findings if item.kind == "top_level_root_unclassified"])
+
     def test_rejects_hardcoded_project_path_in_mcp(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as tmp:
