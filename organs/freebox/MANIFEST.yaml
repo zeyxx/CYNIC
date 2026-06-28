@@ -22,9 +22,9 @@ outputs:
   - path: kernel /observe
     format: edge network observations and blockers
 
-scripts:
-  - name: organism_freebox.py
-    description: Local prototype only; not canonical source until split behind adapters and scrubbed of hardcoded network policy.
+transition_debt:
+  - provider mutation must be split into src/core, src/adapters and src/entrypoints.
+  - local prototypes must not be referenced as organ scripts until hardcoded network policy and credential handling are removed.
 
 manual_gates:
   - no_router_mutation_without_explicit_human_approval
