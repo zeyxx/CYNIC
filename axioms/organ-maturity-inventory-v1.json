@@ -196,11 +196,14 @@
         },
         {
             "path": "organs/superteam/",
-            "maturity": "embryonic",
+            "maturity": "canonical",
             "evidence": [
-                "organ_boundary_exceptions"
+                "MANIFEST.yaml",
+                "src/core",
+                "src/adapters",
+                "src/entrypoints"
             ],
-            "next_action": "declare a manifest-backed organ-superteam or delete the seed"
+            "next_action": "extend only through the manifest-backed organ boundary"
         },
         {
             "path": "organs/supervisor/",
@@ -222,11 +225,12 @@
         },
         {
             "path": "organs/telemetry/",
-            "maturity": "embryonic",
+            "maturity": "transitional",
             "evidence": [
-                "organ_boundary_exceptions"
+                "MANIFEST.yaml",
+                "organ_shape_exceptions"
             ],
-            "next_action": "declare a bounded telemetry organ or merge collection into supervisor adapters"
+            "next_action": "move the root main.py runtime wiring into src/entrypoints"
         },
         {
             "path": "organs/twitter/",
@@ -254,10 +258,10 @@
     "totals": {
         "organs": 26,
         "by_maturity": {
-            "canonical": 8,
+            "canonical": 9,
             "canonical_partial": 3,
-            "transitional": 7,
-            "embryonic": 6,
+            "transitional": 8,
+            "embryonic": 4,
             "quarantined": 1,
             "legacy_blocked": 1
         }

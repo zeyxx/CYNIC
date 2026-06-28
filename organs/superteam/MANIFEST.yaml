@@ -1,0 +1,35 @@
+id: organ-superteam
+tier: 2
+domain: opportunity-intelligence
+status: ACTIVE
+framework: hexagonal-organ
+
+description: |
+  Superteam opportunity workbench organ. It scores opportunity listings,
+  builds RAG cards, browser request queues, human approval gates and draft
+  submission packets without submitting externally or mutating authenticated
+  surfaces.
+
+inputs:
+  - source: opportunity_details.jsonl
+    data: normalized Superteam opportunity listings and metadata
+
+outputs:
+  - path: output/rag/opportunity_cards.jsonl
+    format: jsonl
+  - path: output/top_targets.json
+    format: json
+  - path: output/browser_requests.jsonl
+    format: jsonl
+  - path: output/human_gates.json
+    format: json
+  - path: output/submission_packets/
+    format: directory
+
+scripts:
+  - name: src/entrypoints/cli.py
+    description: Build Superteam workbench artifacts from normalized opportunity input.
+
+manual_gates:
+  - no_external_submission_without_human_approval
+  - no_wallet_signature_or_authenticated_mutation

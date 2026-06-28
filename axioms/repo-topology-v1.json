@@ -531,20 +531,6 @@
             "owner": "organ-supervisor",
             "replacement": "Kernel mempool, .cynic local cache, or organs/<role>/state/",
             "expiry_condition": "global organ state is migrated to owned state boundaries"
-        },
-        {
-            "path": "organs/superteam/",
-            "status": "embryonic",
-            "owner": "cortex",
-            "replacement": "manifest-backed organ-superteam or removal",
-            "expiry_condition": "Superteam behavior has an explicit organ manifest and lifecycle"
-        },
-        {
-            "path": "organs/telemetry/",
-            "status": "embryonic",
-            "owner": "organ-supervisor",
-            "replacement": "manifest-backed organ-telemetry or merged supervisor adapter",
-            "expiry_condition": "telemetry collection has a bounded organ owner"
         }
     ],
     "organ_shape_exceptions": [
@@ -659,6 +645,16 @@
             ],
             "replacement": "Telegram as social adapter behind transport-independent coordination core",
             "expiry_condition": "Telegram payloads no longer define coordination semantics"
+        },
+        {
+            "path": "organs/telemetry/",
+            "status": "transitional",
+            "owner": "organ-telemetry",
+            "missing_paths": [
+                "src/entrypoints"
+            ],
+            "replacement": "telemetry root main.py moved to src/entrypoints/cli.py or equivalent bounded entrypoint",
+            "expiry_condition": "telemetry runtime wiring no longer lives at the organ root"
         }
     ],
     "dependency_direction": [
