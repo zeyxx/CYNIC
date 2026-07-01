@@ -253,7 +253,7 @@
           "aliases": [
             "organ-surrealdb"
           ],
-          "ip": "<PROXMOX_STORAGE_LOCAL>"
+          "ip": "10.10.10.103"
         },
         {
           "id": "qemu/102",
