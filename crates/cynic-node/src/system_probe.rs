@@ -55,26 +55,43 @@ pub(crate) async fn run_system_probe(
 
         // Best-effort ZFS health check (Linux only)
         let mut zfs_health = serde_json::Value::Null;
+        // Best-effort Proxmox resources check (Linux only, Proxmox host)
+        let mut proxmox_resources = serde_json::Value::Null;
+
         #[cfg(target_os = "linux")]
         {
             if let Ok(output) = std::process::Command::new("zpool")
                 .args(["list", "-H", "-o", "name,health"])
                 .output()
-                && output.status.success()
             {
-                let text = String::from_utf8_lossy(&output.stdout);
-                let pools: Vec<_> = text
-                    .lines()
-                    .filter_map(|l| {
-                        let parts: Vec<&str> = l.split_whitespace().collect();
-                        if parts.len() >= 2 {
-                            Some(json!({ "name": parts[0], "health": parts[1] }))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                zfs_health = json!(pools);
+                if output.status.success() {
+                    let text = String::from_utf8_lossy(&output.stdout);
+                    let pools: Vec<_> = text
+                        .lines()
+                        .filter_map(|l| {
+                            let parts: Vec<&str> = l.split_whitespace().collect();
+                            if parts.len() >= 2 {
+                                Some(json!({ "name": parts[0], "health": parts[1] }))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    zfs_health = json!(pools);
+                }
+            }
+
+            // pvesh get /cluster/resources --output-format json
+            if let Ok(output) = std::process::Command::new("pvesh")
+                .args(["get", "/cluster/resources", "--output-format", "json"])
+                .output()
+            {
+                if output.status.success() {
+                    if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
+                        // The output is typically an array of resources
+                        proxmox_resources = json!({ "resources": json_val });
+                    }
+                }
             }
         }
 
@@ -87,6 +104,7 @@ pub(crate) async fn run_system_probe(
             "load_average_1m": load,
             "uptime_seconds": uptime,
             "zfs_pools": zfs_health,
+            "proxmox_resources": proxmox_resources,
         });
 
         let payload = json!({
