@@ -46,11 +46,12 @@
         }
       },
       "fleet_requirements": {
-        "provider": "synapse",
-        "required": false,
-        "require_online": false
+        "provider": "organ-fleet",
+        "required": true,
+        "require_online": false,
+        "allow_bootstrap_override": true
       },
-      "_kernel_bus_probe": {
+      "kernel_bus_probe": {
         "path": "/health",
         "accepted_status": [
           200,
@@ -61,7 +62,7 @@
       },
       "requires_e2e": true,
       "runtime_paths": {
-        "repo_root": "%h/.cynic/repos/CYNIC"
+        "repo_root": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}"
       },
       "runtime_path_proofs": {
         "repo_root": {
@@ -103,6 +104,9 @@
         ],
         "deploy": [
           "deploy-kernel"
+        ],
+        "mcp-reload": [
+          "build-and-reload-mcp"
         ]
       },
       "workflow": {
@@ -153,6 +157,13 @@
             "allowed_when_lifecycle_planned": false
           },
           {
+            "name": "mcp_reload_request",
+            "scope": "organ-forge",
+            "make_target": "mcp-reload-request",
+            "request_profile": "mcp-reload",
+            "allowed_when_lifecycle_planned": false
+          },
+          {
             "name": "deploy_request",
             "scope": "organ-forge",
             "make_target": "deploy-request",
@@ -190,6 +201,19 @@
         "deploy-kernel": {
           "objective": "build kernel release on registry build runner and deploy to kernel primary",
           "deploy": true
+        },
+        "build-and-reload-mcp": {
+          "objective": "build cynic MCP on registry build runner and reload the cortex MCP runtime",
+          "deploy": false,
+          "targets": [
+            "crates/cynic-mcp",
+            ".cortex/mcp/run_cynic_mcp.py"
+          ],
+          "coord_targets": [
+            "crates/cynic-mcp",
+            ".cortex/mcp/run_cynic_mcp.py",
+            ".codex/config.toml"
+          ]
         }
       }
     }
@@ -197,6 +221,9 @@
   "nodes": [
     {
       "name": "cynic-host-proxmox",
+      "aliases": [
+        "pve"
+      ],
       "role": "hypervisor",
       "os": "Proxmox VE 8.2",
       "network": {
@@ -206,9 +233,9 @@
       "vms": [
         {
           "id": "lxc/100",
-          "name": "cynic-lxc-vpn",
+          "name": "organ-headscale",
           "aliases": [
-            "organ-wireguard"
+            "cynic-lxc-vpn"
           ],
           "ip": "192.168.0.40"
         },
@@ -226,12 +253,13 @@
           "aliases": [
             "organ-surrealdb"
           ],
-          "ip": "192.168.0.43"
+          "ip": "<PROXMOX_STORAGE_LOCAL>"
         },
         {
           "id": "qemu/102",
           "name": "cynic-vm-anvil",
-          "ip": "192.168.0.42"
+          "ip": "10.10.10.102",
+          "mac": "BC:24:11:00:34:31"
         },
         {
           "id": "qemu/120",
@@ -248,6 +276,23 @@
             "cynic-kernel-staging"
           ],
           "ip": "<LAN_STAGING>"
+        },
+        {
+          "id": "qemu/140",
+          "name": "cynic-vm-v2",
+          "aliases": [
+            "cynic-kernel-primary"
+          ],
+          "ip": "10.10.10.140",
+          "mac": "BC:24:11:99:07:57"
+        },
+        {
+          "id": "lxc/105",
+          "name": "cynic-builder",
+          "aliases": [
+            "candidate-build-runner"
+          ],
+          "ip": "<LAN_BUILDER>"
         }
       ],
       "services": [
@@ -257,16 +302,31 @@
           "description": "Hypervisor management plane only; no CYNIC kernel runtime."
         },
         {
+          "name": "cynic-node",
+          "port": null,
+          "description": "Native Rust probe observing hypervisor resources via sudo pvesh."
+        },
+        {
           "name": "llama-embed",
           "port": 8081,
           "description": "Legacy declared sovereign embedding backend; must be migrated off the bare hypervisor or reattached to a VM."
         }
       ],
+      "energy_profile": {
+        "class": "always_on",
+        "criticality": "core",
+        "wake_policy": "manual",
+        "power_budget": "high",
+        "thermal_sensitive": false
+      },
       "status": "active"
     },
     {
-      "name": "organ-wireguard",
-      "role": "mesh_control",
+      "name": "organ-headscale",
+      "aliases": [
+        "cynic-lxc-vpn"
+      ],
+      "role": "mesh_access_control",
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
       "network": {
@@ -275,22 +335,53 @@
       },
       "services": [
         {
-          "name": "wireguard-control",
-          "description": "Sovereign Wireguard control plane and IPAM."
+          "name": "headscale",
+          "description": "Sovereign Tailscale-compatible access mesh control plane for operators and agents."
         }
       ],
+      "energy_profile": {
+        "class": "always_on",
+        "criticality": "core",
+        "wake_policy": "manual",
+        "power_budget": "low",
+        "thermal_sensitive": false
+      },
       "status": "active"
+    },
+    {
+      "name": "organ-wireguard",
+      "role": "synapse_mesh_controller",
+      "host": "cynic-host-proxmox",
+      "os": "Debian 12",
+      "network": {
+        "synapse": "10.20.0.9"
+      },
+      "services": [
+        {
+          "name": "wireguard-control",
+          "description": "Deterministic native WireGuard/Synapse service mesh controller and IPAM."
+        }
+      ],
+      "energy_profile": {
+        "class": "always_on",
+        "criticality": "core",
+        "wake_policy": "manual",
+        "power_budget": "low",
+        "thermal_sensitive": false
+      },
+      "status": "planned"
     },
     {
       "name": "cynic-lxc-surrealdb",
       "aliases": [
+        "organ-surrealdb",
         "cynic-storage-primary"
       ],
       "role": "storage_primary",
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
       "network": {
-        "local": "192.168.0.43",
+        "local": "<PROXMOX_STORAGE_LOCAL>",
         "synapse": "10.20.0.3"
       },
       "services": [
@@ -300,7 +391,25 @@
           "description": "Primary CYNIC distributed storage node (TiKV backed), isolated from kernel."
         }
       ],
-      "status": "planned"
+      "energy_profile": {
+        "class": "always_on",
+        "criticality": "core",
+        "wake_policy": "manual",
+        "power_budget": "medium",
+        "thermal_sensitive": false
+      },
+      "status": "active",
+      "activation_evidence": {
+        "runtime_paths": {},
+        "services": {
+          "surrealdb": {
+            "declared": true,
+            "active": true,
+            "checked_at": "2026-06-29T20:56:43Z",
+            "source": "lifecycle_service_evidence_patch"
+          }
+        }
+      }
     },
     {
       "name": "cynic-vm-anvil",
@@ -329,13 +438,20 @@
           "description": "Pre-deploy validation runner for release tests and integration gates."
         }
       ],
+      "energy_profile": {
+        "class": "burst",
+        "criticality": "core",
+        "wake_policy": "agentic",
+        "power_budget": "high",
+        "thermal_sensitive": true
+      },
       "status": "active",
       "activation_evidence": {
         "runtime_paths": {
           "repo_root": {
             "verified": true,
             "verified_at": "2026-06-15T20:23:12Z",
-            "value": "%h/.cynic/repos/CYNIC",
+            "value": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}",
             "expanded": "/tmp/cynic-home/.cynic/repos/CYNIC",
             "proof_kind": "git_worktree",
             "marker_exists": true,
@@ -392,13 +508,20 @@
           "description": "Single operator interface served from the sovereign Docker portal."
         }
       ],
+      "energy_profile": {
+        "class": "always_on",
+        "criticality": "core",
+        "wake_policy": "manual",
+        "power_budget": "medium",
+        "thermal_sensitive": false
+      },
       "status": "active",
       "activation_evidence": {
         "runtime_paths": {
           "repo_root": {
             "verified": true,
             "verified_at": "2026-06-15T20:23:12Z",
-            "value": "%h/.cynic/repos/CYNIC",
+            "value": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}",
             "expanded": "/tmp/cynic-home/.cynic/repos/CYNIC",
             "proof_kind": "git_worktree",
             "marker_exists": true,
@@ -407,12 +530,6 @@
         },
         "services": {
           "cynic-kernel": {
-            "declared": true,
-            "active": true,
-            "checked_at": "2026-06-15T20:43:53Z",
-            "source": "manual-cli-run"
-          },
-          "surrealdb": {
             "declared": true,
             "active": true,
             "checked_at": "2026-06-15T20:43:53Z",
@@ -432,6 +549,13 @@
     {
       "name": "cynic-vm-core",
       "role": "legacy_core",
+      "energy_profile": {
+        "class": "manual",
+        "criticality": "optional",
+        "wake_policy": "manual",
+        "power_budget": "medium",
+        "thermal_sensitive": false
+      },
       "status": "planned_obsolescence",
       "description": "Old root-based VM. Pending deletion."
     },
@@ -455,34 +579,237 @@
           "description": "Staging CYNIC coordination bus."
         }
       ],
+      "energy_profile": {
+        "class": "manual",
+        "criticality": "support",
+        "wake_policy": "manual",
+        "power_budget": "medium",
+        "thermal_sensitive": false
+      },
       "status": "planned"
+    },
+    {
+      "name": "cynic-builder",
+      "aliases": [
+        "lxc/105"
+      ],
+      "role": "candidate_build_runner",
+      "host": "cynic-host-proxmox",
+      "os": "Debian 12",
+      "network": {
+        "local": "<LAN_BUILDER>"
+      },
+      "services": [
+        {
+          "name": "android-build",
+          "description": "Observed LXC build surface. Must be adopted by organ-forge or archived before it can be canonical."
+        }
+      ],
+      "energy_profile": {
+        "class": "burst",
+        "criticality": "support",
+        "wake_policy": "agentic",
+        "power_budget": "high",
+        "thermal_sensitive": true
+      },
+      "status": "declared"
     },
     {
       "name": "cynic-host-gpu",
       "aliases": [
-        "cynic-gpu"
+        "cynic-gpu",
+        "cortex-s"
       ],
       "role": "inference_node",
       "network": {
         "local": "192.168.0.67",
         "synapse": "10.20.0.7"
       },
-      "status": "active"
+      "services": [
+        {
+          "name": "llama-server",
+          "description": "Sovereign inference node service (Qwen/GGUF runtime on GPU host). This machine also serves as the primary Cortex operator surface for S."
+        }
+      ],
+      "energy_profile": {
+        "class": "manual",
+        "criticality": "support",
+        "wake_policy": "manual",
+        "power_budget": "high",
+        "thermal_sensitive": true
+      },
+      "status": "declared"
     },
     {
       "name": "cynic-host-cortex",
       "aliases": [
         "cynic-lxc-cortex",
-        "cynic-forge"
+        "cynic-forge",
+        "ubuntu",
+        "cortex-t"
       ],
       "role": "cortex_host",
       "network": {
         "local": "192.168.0.12",
         "synapse": "10.20.0.8"
       },
-      "status": "active"
+      "energy_profile": {
+        "class": "manual",
+        "criticality": "support",
+        "wake_policy": "manual",
+        "power_budget": "medium",
+        "thermal_sensitive": false
+      },
+      "status": "declared"
     }
   ],
+  "fleet_truth": {
+    "owner": "organ-fleet",
+    "status_semantics": {
+      "active": "Declared active and backed by recent provider evidence.",
+      "declared": "Known to the registry but not proven live yet.",
+      "planned": "Desired but not expected to be live.",
+      "planned_obsolescence": "Kept for migration/deletion only.",
+      "archived": "Retained in git history only; should not be runtime-routable."
+    },
+    "runtime_proof_contract": {
+      "providers": [
+        "registry",
+        "proxmox",
+        "headscale",
+        "synapse",
+        "systemd",
+        "kernel_health"
+      ],
+      "active_requires_observed_provider": true,
+      "stale_after_seconds": 300
+    },
+    "mesh_layers": {
+      "mesh_access_control": "Headscale/Tailscale-compatible control plane for operator and agent reachability.",
+      "synapse_mesh_controller": "Native WireGuard/Synapse service mesh for deterministic organism traffic."
+    },
+    "energy_dimensions": [
+      "physical",
+      "thermal",
+      "network",
+      "economic",
+      "cognitive",
+      "temporal",
+      "attention"
+    ]
+  },
+  "network_policy": {
+    "version": "network-policy.v1",
+    "owner": "organ-wireguard",
+    "canonical_service_plane": "synapse",
+    "rules": {
+      "agents_consume_dns": "*.synapse.cynic",
+      "lan_addresses_are_provider_evidence_not_contract": true,
+      "no_ad_hoc_ip_allocation": true,
+      "provisioning_requires_registry_reservation": true
+    },
+    "planes": {
+      "synapse": {
+        "cidr": "10.20.0.0/24",
+        "dns_zone": "synapse.cynic",
+        "allocation": "registry_reserved_static",
+        "canonical": true
+      },
+      "proxmox_guest": {
+        "cidr": "10.10.10.0/24",
+        "allocation": "proxmox_provider_evidence",
+        "canonical": false,
+        "note": "Provider-side guest network. It is not an agent/service contract."
+      },
+      "lan": {
+        "cidr": "192.168.0.0/24",
+        "allocation": "physical_network_provider_evidence",
+        "canonical": false,
+        "note": "Operator LAN reachability is evidence/fallback only. Agents must not depend on it."
+      }
+    },
+    "reservations": [
+      {
+        "name": "cynic-host-proxmox",
+        "role": "hypervisor",
+        "synapse": "10.20.0.1",
+        "dns": [
+          "cynic-host-proxmox.synapse.cynic",
+          "pve.synapse.cynic"
+        ]
+      },
+      {
+        "name": "organ-headscale",
+        "role": "mesh_access_control",
+        "synapse": "10.20.0.2",
+        "dns": [
+          "organ-headscale.synapse.cynic",
+          "cynic-lxc-vpn.synapse.cynic"
+        ]
+      },
+      {
+        "name": "cynic-lxc-surrealdb",
+        "role": "storage_primary",
+        "synapse": "10.20.0.3",
+        "dns": [
+          "cynic-lxc-surrealdb.synapse.cynic",
+          "organ-surrealdb.synapse.cynic",
+          "cynic-storage-primary.synapse.cynic"
+        ]
+      },
+      {
+        "name": "cynic-vm-anvil",
+        "role": "build_runner",
+        "synapse": "10.20.0.4",
+        "dns": [
+          "cynic-vm-anvil.synapse.cynic",
+          "forge.synapse.cynic"
+        ]
+      },
+      {
+        "name": "cynic-vm-v2",
+        "role": "kernel_primary",
+        "synapse": "10.20.0.5",
+        "dns": [
+          "cynic-vm-v2.synapse.cynic",
+          "cynic-kernel-primary.synapse.cynic"
+        ]
+      },
+      {
+        "name": "cynic-vm-staging",
+        "role": "kernel_staging",
+        "synapse": "10.20.0.6",
+        "dns": [
+          "cynic-vm-staging.synapse.cynic",
+          "cynic-kernel-staging.synapse.cynic"
+        ]
+      },
+      {
+        "name": "cynic-host-gpu",
+        "role": "inference_node",
+        "synapse": "10.20.0.7",
+        "dns": [
+          "cynic-host-gpu.synapse.cynic"
+        ]
+      },
+      {
+        "name": "cynic-host-cortex",
+        "role": "cortex_host",
+        "synapse": "10.20.0.8",
+        "dns": [
+          "cynic-host-cortex.synapse.cynic"
+        ]
+      },
+      {
+        "name": "organ-wireguard",
+        "role": "synapse_mesh_controller",
+        "synapse": "10.20.0.9",
+        "dns": [
+          "organ-wireguard.synapse.cynic"
+        ]
+      }
+    ]
+  },
   "routing_rules": {
     "primary_tunnel": "synapse_mesh",
     "management_fallback": "local_192_168_0_0_24",
@@ -495,10 +822,77 @@
   },
   "organs": [
     {
+      "name": "organ-fleet",
+      "instance": "organ-fleet-systemd",
+      "role": "fleet_truth_aggregator",
+      "description": "Aggregates registry, Proxmox, Headscale, Synapse/WireGuard, systemd, kernel health, and energy signals into one desired/declared/observed/effective fleet truth surface.",
+      "scope": "registry+proxmox+headscale+synapse+kernel_health",
+      "cron": "every 5min",
+      "status": "planned",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-headscale",
+      "instance": "organ-headscale-systemd",
+      "role": "mesh_access_control",
+      "description": "Headscale/Tailscale-compatible access mesh control plane for operator and agent reachability.",
+      "scope": "headscale+operators+agents",
+      "cron": "daemon",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-wireguard",
+      "instance": "organ-wireguard-daemon",
+      "role": "synapse_mesh_controller",
+      "description": "Native WireGuard/Synapse service mesh controller for deterministic organism traffic, service IPs, and internal DNS.",
+      "scope": "synapse+wireguard+dns",
+      "cron": "daemon",
+      "status": "planned",
+      "depends_on": [
+        "cynic-kernel",
+        "organ-headscale"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-supervisor",
+      "instance": "organ-supervisor-cli",
+      "role": "body_governance_supervisor",
+      "description": "Inventories organ declarations, filesystem implementations, manifests, systemd evidence, incoherences, and repair suggestions. It observes and classifies the body; it does not start services or mutate other organs.",
+      "scope": "organism_body+governance",
+      "cron": "on demand",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel",
+        "organ-fleet"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-exposure",
+      "instance": "organ-exposure-cli",
+      "role": "agent_exposure_projection_manager",
+      "description": "Computes and renders organism-wide MCP/tool exposure projections for cortex agents from infra/agent-exposure.json.",
+      "scope": "mcp+agent_capabilities",
+      "cron": "on demand",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "none"
+    },
+    {
       "name": "organ-slack",
       "instance": "organ-slack-daemon",
       "role": "slack_relay",
-      "description": "Sovereign Slack relay \u2014 polls observations from SurrealDB mempool and routes to configured channels via registry.json routing table. Transitional dependency: replace sender.py when sovereign messaging is ready.",
+      "description": "Sovereign Slack relay — polls observations from SurrealDB mempool and routes to configured channels via registry.json routing table. Transitional dependency: replace sender.py when sovereign messaging is ready.",
       "scope": "slack+kernel_mempool",
       "cron": "daemon",
       "status": "active",
@@ -522,13 +916,27 @@
       "coord": "cynic_coord_register/release"
     },
     {
+      "name": "organ-lifecycle",
+      "instance": "organ-lifecycle",
+      "role": "repo_lifecycle_transmutation_candidate",
+      "description": "Transmutation candidate for lifecycle surfaces. It runs a bounded supply-chain convergence controller and emits SSOT updates through a systemd timer, while organ-forge remains canonical until the lifecycle e2e proof is complete.",
+      "scope": "proxmox+container_runtime+serverless_hosting+smart_contract_testing",
+      "cron": "timer",
+      "status": "planned",
+      "depends_on": [
+        "cynic-kernel",
+        "organ-forge"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
       "name": "organ-docker",
       "instance": "organ-docker-hermes-agent",
       "role": "container_surface_manager",
-      "description": "Local container fallback operator surface and portal reproducibility manager.",
+      "description": "Declared container surface capability. Not an active autonomous organ until a filesystem body, manifest, and runtime unit exist.",
       "scope": "local+tailscale",
-      "cron": "every 30min",
-      "status": "active",
+      "cron": "manual",
+      "status": "declared",
       "depends_on": [
         "cynic-kernel"
       ],
@@ -538,10 +946,10 @@
       "name": "organ-vercel",
       "instance": "organ-vercel-hermes-agent",
       "role": "deployment_surface_manager",
-      "description": "Public edge deployment manager for CYNIC frontends and Talaria surfaces.",
+      "description": "Declared public edge deployment capability. Not an active autonomous organ until a filesystem body, manifest, and runtime unit exist.",
       "scope": "vercel+github_deployments",
-      "cron": "every 30min",
-      "status": "active",
+      "cron": "manual",
+      "status": "declared",
       "depends_on": [
         "cynic-kernel"
       ],
@@ -580,6 +988,46 @@
       "description": "Discord passive capture and community opportunity manager for bounties, grants, and Solana infrastructure signals.",
       "scope": "discord+community+superteam",
       "cron": "every 30min",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-percolator",
+      "instance": "organ-percolator-cli",
+      "role": "security_bounty_workflow_manager",
+      "description": "Declared bounty workflow capability for rules, duplicate intelligence, findings, proof gates, and submission queues. Human-gated and not an active autonomous runtime.",
+      "scope": "security_bounty+finding_workflow+duplicate_intelligence",
+      "cron": "manual",
+      "status": "declared",
+      "depends_on": [
+        "cynic-kernel",
+        "organ-discord"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-radar",
+      "instance": "organ-radar-cli",
+      "role": "ecosystem_perception_sensor",
+      "description": "Planned sensory organ for ecosystem uptime and blockchain state mutation monitoring. CLI implementation exists, but no daemon/runtime proof is canonical yet.",
+      "scope": "tech_watch+http_sensor+rpc_sensor",
+      "cron": "manual",
+      "status": "planned",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
+    },
+    {
+      "name": "organ-reflection",
+      "instance": "organ-reflection-cron",
+      "role": "organism_synthesis_manager",
+      "description": "Reflection organ that aggregates organ traces and emits synthesis observations through a local cron runtime.",
+      "scope": "organ_traces+synthesis+askesis",
+      "cron": "timer",
       "status": "active",
       "depends_on": [
         "cynic-kernel"
@@ -638,6 +1086,19 @@
         "cynic-kernel"
       ],
       "coord": "none"
+    },
+    {
+      "name": "organ-browser",
+      "instance": "organ-browser-systemd",
+      "role": "browser_perception_and_interaction",
+      "description": "Sovereign browser organ for SearXNG candidate discovery, Firecrawl markdown extraction, and policy-wrapped Playwright/CDP automation.",
+      "scope": "web+search+scrape+interact",
+      "cron": "daemon",
+      "status": "active",
+      "depends_on": [
+        "cynic-kernel"
+      ],
+      "coord": "cynic_coord_register/release"
     }
   ]
 }

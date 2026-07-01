@@ -81,15 +81,35 @@ pub(crate) async fn run_system_probe(
                 }
             }
 
-            // pvesh get /cluster/resources --output-format json
-            if let Ok(output) = std::process::Command::new("pvesh")
-                .args(["get", "/cluster/resources", "--output-format", "json"])
+            // sudo -n pvesh get /cluster/resources --output-format json
+            if let Ok(output) = std::process::Command::new("sudo")
+                .args(["-n", "pvesh", "get", "/cluster/resources", "--output-format", "json"])
                 .output()
             {
                 if output.status.success() {
                     if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
-                        // The output is typically an array of resources
-                        proxmox_resources = json!({ "resources": json_val });
+                        proxmox_resources = json!({ "resources": &json_val });
+
+                        // L0 Watchdog: Autonomous remediation for critical infrastructure
+                        if let Some(arr) = json_val.as_array() {
+                            for res in arr {
+                                if let (Some(name), Some(status), Some(id)) = (
+                                    res.get("name").and_then(|v| v.as_str()),
+                                    res.get("status").and_then(|v| v.as_str()),
+                                    res.get("id").and_then(|v| v.as_str())
+                                ) {
+                                    // Protect the Kernel Primary (cynic-vm-v2)
+                                    if name == "cynic-vm-v2" && status == "stopped" {
+                                        warn!("L0 Watchdog: Critical node {} ({}) is stopped! Initiating autonomous emergence (qm start).", name, id);
+                                        if let Some(vmid) = id.split('/').last() {
+                                            let _ = std::process::Command::new("sudo")
+                                                .args(["-n", "qm", "start", vmid])
+                                                .output();
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
