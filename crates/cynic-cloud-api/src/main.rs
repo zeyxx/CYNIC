@@ -89,7 +89,7 @@ async fn handle_deploy(
             ("200", "cd /app/organ-asdf && docker-compose pull && docker-compose up -d".to_string())
         },
         "open_freebox" => {
-            ("host", "python3 /root/CYNIC/organs/organ-freebox/organism_freebox.py".to_string())
+            ("host", "python3 /root/CYNIC/organs/freebox/src/entrypoints/cli.py status".to_string())
         },
         "restart_vpn" => {
             ("100", "systemctl restart cynic-lxc-vpn".to_string())

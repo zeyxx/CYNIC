@@ -26,6 +26,20 @@ from pathlib import Path
 from typing import Any, Optional
 
 
+def _bootstrap_services_root(start: Path) -> None:
+    base = start if start.is_dir() else start.parent
+    for candidate in (base, *base.parents):
+        if (candidate / "project_root.py").is_file() and (candidate / "hermes_paths.py").is_file():
+            root_str = str(candidate)
+            if root_str not in sys.path:
+                sys.path.insert(0, root_str)
+            return
+
+_bootstrap_services_root(Path(__file__).resolve())
+
+from project_root import resolve_repo_root
+
+
 __version__ = "0.1.0"
 
 # Outcome windows (days after judgment)
@@ -38,7 +52,7 @@ RATE_LIMIT_SECONDS = 7
 def find_data_root() -> Path:
     """Find the data directory by reading MANIFESTs or falling back to known path."""
     # Try to find via MANIFEST
-    project_root = Path(__file__).resolve().parents[3]  # cynic-python/heuristics/collection/ → project root
+    project_root = resolve_repo_root(Path(__file__).resolve())
     manifest_path = Path(__file__).resolve().parent / "MANIFEST.yaml"
 
     # Fallback: known relative path

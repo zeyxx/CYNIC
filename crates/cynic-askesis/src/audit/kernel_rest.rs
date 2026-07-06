@@ -5,7 +5,7 @@ use std::env;
 use std::time::Duration;
 
 use crate::audit::AuditEngine;
-use crate::log::LogEntry;
+use crate::log::ObservationEvent;
 use crate::reflection::{Reflection, Verdict};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
@@ -61,13 +61,15 @@ impl Default for KernelRestAudit {
 }
 
 impl KernelRestAudit {
-    fn build_content(logs: &[LogEntry], questions: &[&str]) -> String {
+    fn build_content(logs: &[ObservationEvent], questions: &[&str]) -> String {
         let mut p = String::new();
         p.push_str("=== LOGS ===\n");
         for e in logs {
             p.push_str(&format!(
                 "[{}] domain={}: {}\n",
-                e.timestamp.format("%Y-%m-%d %H:%M"),
+                chrono::DateTime::from_timestamp_millis(e.timestamp)
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                    .unwrap_or_else(|| e.timestamp.to_string()),
                 e.domain.as_deref().unwrap_or("(none)"),
                 e.content
             ));
@@ -83,7 +85,11 @@ impl KernelRestAudit {
 
 #[async_trait]
 impl AuditEngine for KernelRestAudit {
-    async fn audit(&self, logs: &[LogEntry], questions: &[&str]) -> crate::Result<Reflection> {
+    async fn audit(
+        &self,
+        logs: &[ObservationEvent],
+        questions: &[&str],
+    ) -> crate::Result<Reflection> {
         let content = Self::build_content(logs, questions);
 
         let req = JudgeRequest {

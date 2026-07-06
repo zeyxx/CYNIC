@@ -58,7 +58,8 @@
     "rollback_or_detach_proxy"
   ],
   "rollback": {
-    "primary": "CYNIC/organs/discord/bin/proxy-rollback.sh",
-    "secondary": "CYNIC/organs/discord/bin/proxy-off.sh"
+    "status": "blocked_until_reforged",
+    "replacement": "organ-discord Python entrypoint for browser-scoped proxy attach/detach",
+    "reason": "legacy shell rollback entrypoints were removed during no-script-entrypoint transmutation"
   }
 }

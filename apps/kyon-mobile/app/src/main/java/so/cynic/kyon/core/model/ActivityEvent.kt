@@ -23,4 +23,8 @@ data class ActivityEvent(
     val privacy: EventPrivacy = EventPrivacy.METADATA_ONLY,
     val contextJson: String = "{}",
     val syncEligible: Boolean = false,
+    
+    // Organism Proof-of-History (Edge Ledger)
+    val cryptographicHash: String? = null,
+    val prevHash: String? = null,
 )

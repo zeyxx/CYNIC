@@ -223,7 +223,7 @@ impl crate::domain::probe::Probe for FleetInventoryProbe {
             status,
             details: ProbeDetails::FleetInventory(FleetInventoryDetails { nodes, summary }),
             duration_ms: start.elapsed().as_millis() as u64,
-            timestamp: chrono::Utc::now().to_rfc3339(),
+            timestamp: chrono::Utc::now().timestamp_millis(),
         })
     }
 }

@@ -3,14 +3,16 @@ import json
 from pathlib import Path
 from collections import defaultdict
 
+from organs.contracts.src.surface_contracts import iter_json_objects
+
 def analyze():
     input_file = Path.home() / ".cynic" / "organs" / "hermes" / "github" / "stars.jsonl"
     output_file = Path.home() / ".cynic" / "organs" / "hermes" / "github" / "analysis.json"
     
     stars = []
     with open(input_file, 'r') as f:
-        for line in f:
-            stars.append(json.loads(line))
+        for row in iter_json_objects(f):
+            stars.append(row)
             
     categories = defaultdict(list)
     

@@ -76,18 +76,6 @@ crons:
     steps:
       - archive old health metrics
 
-  - name: surrealdb-backup
-    timer: "daily at 00:00"
-    systemd: surrealdb-backup.service
-    steps:
-      - backup SurrealDB data
-
-  - name: surreal-watchdog
-    timer: "every 1min"
-    systemd: surreal-watchdog.service
-    steps:
-      - verify SurrealDB is responsive
-
   - name: cynic-telemetry-digest
     timer: "daily at 07:00"
     systemd: cynic-telemetry-digest.service

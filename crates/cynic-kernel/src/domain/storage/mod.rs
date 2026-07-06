@@ -10,7 +10,8 @@ mod types;
 pub use null::NullStorage;
 pub use types::{
     AgentDispatch, AgentTask, AuditContext, Event, MeshNode, MeshRoute, Observation, PRMetadata,
-    RawEvent, RawObservation, StorageError, StorageMetrics, SubmissionTaskContent, UsageRow,
+    ProofOfHistory, RawEvent, RawObservation, StorageError, StorageMetrics, SubmissionTaskContent,
+    UsageRow,
 };
 
 use crate::domain::ccm::Crystal;
@@ -101,7 +102,7 @@ pub trait CrystalStorage: Send + Sync {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         voter_count: usize,
         verdict_id: &str,
         verdict_kind: &str,
@@ -114,7 +115,7 @@ pub trait CrystalStorage: Send + Sync {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         source: &str,
         sentiment: Option<&str>,
     ) -> Result<(), StorageError>;
@@ -125,7 +126,7 @@ pub trait CrystalStorage: Send + Sync {
         id: &str,
         reason: &str,
         source: &str,
-        timestamp: &str,
+        timestamp: i64,
     ) -> Result<(), StorageError>;
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
@@ -196,6 +197,18 @@ pub trait ActivityStorage: Send + Sync {
         &self,
         domain: Option<&str>,
         agent_id: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError>;
+    // WHY: matches database schema, with contract-level filters for portable transport layers.
+    #[allow(clippy::too_many_arguments)]
+    async fn list_observations_filtered(
+        &self,
+        domain: Option<&str>,
+        agent_id: Option<&str>,
+        project: Option<&str>,
+        workstream: Option<&str>,
+        thread_id: Option<&str>,
+        target: Option<&str>,
         limit: u32,
     ) -> Result<Vec<RawObservation>, StorageError>;
     // WHY: matches database schema
@@ -305,11 +318,11 @@ pub trait TaskStorage: Send + Sync {
 
 #[async_trait]
 pub trait MeshStorage: Send + Sync {
-    async fn register_mesh_node(
+    /// Publish a mesh node's public key (IP is static).
+    async fn publish_mesh_key(
         &self,
-        name: &str,
+        mesh_ip: &str,
         public_key: &str,
-        external_endpoint: Option<&str>,
     ) -> Result<MeshNode, StorageError>;
     async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError>;
     async fn list_mesh_routes(&self) -> Result<Vec<MeshRoute>, StorageError>;
@@ -432,6 +445,18 @@ pub trait SubmissionStorage: Send + Sync {
     async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError>;
 }
 
+#[async_trait]
+pub trait ProofOfHistoryStorage: Send + Sync {
+    async fn store_proof_of_history(
+        &self,
+        poh: &crate::domain::storage::ProofOfHistory,
+    ) -> Result<String, StorageError>;
+    async fn list_proof_of_history(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::storage::ProofOfHistory>, StorageError>;
+}
+
 // ── COMPOSITE STORAGE PORT ──────────────────────────────────
 
 #[async_trait]
@@ -444,6 +469,7 @@ pub trait StoragePort:
     + DispatchStorage
     + StateLogStorage
     + SubmissionStorage
+    + ProofOfHistoryStorage
 {
     /// Fast connectivity check — used by /health to verify DB is reachable.
     // WHY: matches database schema

@@ -5,8 +5,8 @@ PartOf=hermes-search-generator.timer
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/.cynic/organs/hermes/x
-ExecStart=/usr/bin/python3 core/search_generation.py
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+ExecStart=@CYNIC_PROJECT_ROOTpython3 @/organs/twitter/src/entrypoints/python_launcher.py @CYNIC_PROJECT_ROOT@/organs/twitter/src/entrypoints/hermes_x.py search-generator
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=hermes-search-generator

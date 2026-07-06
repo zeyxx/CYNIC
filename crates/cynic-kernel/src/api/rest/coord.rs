@@ -5,10 +5,13 @@
 use axum::{extract::State, http::StatusCode, response::Json};
 use serde::Deserialize;
 use std::sync::Arc;
+use std::time::Duration;
 
 use super::response::coordination_error;
 use super::types::{AppState, ErrorResponse};
 use crate::domain::coord::ClaimResult;
+
+const COORD_HANDLER_TIMEOUT: Duration = Duration::from_secs(5);
 
 fn validate_agent_id(id: &str) -> Result<(), (StatusCode, Json<ErrorResponse>)> {
     crate::domain::coord::validate_agent_id(id).map_err(|msg| {
@@ -57,6 +60,11 @@ pub struct CoordHeartbeatRequest {
 pub struct ScopeRequest {
     pub agent_id: String,
     pub scope: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InfraProvisionRequest {
+    pub target: String,
 }
 
 // ── Handlers ──────────────────────────────────────────────
@@ -378,10 +386,21 @@ pub async fn coord_who_handler(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     let agent_filter = params.get("agent_id").map(|s| s.as_str());
 
-    let snapshot = state.coord.who(agent_filter).await.map_err(|e| {
-        tracing::warn!(error = %e, "coord who failed");
-        coordination_error()
-    })?;
+    let snapshot = tokio::time::timeout(COORD_HANDLER_TIMEOUT, state.coord.who(agent_filter))
+        .await
+        .map_err(|_| {
+            tracing::warn!("coord who timed out");
+            (
+                StatusCode::GATEWAY_TIMEOUT,
+                Json(ErrorResponse {
+                    error: "coordination query timed out".into(),
+                }),
+            )
+        })?
+        .map_err(|e| {
+            tracing::warn!(error = %e, "coord who failed");
+            coordination_error()
+        })?;
 
     Ok(Json(serde_json::json!({
         "agents": snapshot.agents,
@@ -430,7 +449,7 @@ pub async fn coord_topology_handler()
     Ok(Json(json))
 }
 
-/// POST /coord/upgrade — receives a new compiled cynic-kernel binary.
+/// POST /lifecycle/upgrade — receives a new compiled cynic-kernel binary.
 /// Replaces the current executable and schedules a systemd restart.
 /// Handled natively without external scripts or SSH.
 pub async fn coord_upgrade_handler(
@@ -550,7 +569,7 @@ pub async fn coord_rollback_handler(
     })))
 }
 
-/// GET /coord/backup — exports the SurrealDB database to a .surql stream.
+/// GET /lifecycle/backup — exports the SurrealDB database to a .surql stream.
 pub async fn coord_backup_handler()
 -> Result<axum::response::Response, (StatusCode, Json<ErrorResponse>)> {
     let password = std::env::var("SURREALDB_PASS").unwrap_or_default();
@@ -611,7 +630,7 @@ pub async fn coord_backup_handler()
         })
 }
 
-/// POST /coord/restore — imports a .surql file to SurrealDB.
+/// POST /lifecycle/restore — imports a .surql file to SurrealDB.
 pub async fn coord_restore_handler(
     body: axum::body::Bytes,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
@@ -671,7 +690,7 @@ pub async fn coord_restore_handler(
     Ok(Json(serde_json::json!({ "status": "restored" })))
 }
 
-/// POST /coord/upgrade-systemd — updates the .service file and calls daemon-reload.
+/// POST /lifecycle/upgrade-systemd — updates the .service file and calls daemon-reload.
 pub async fn coord_upgrade_systemd_handler(
     body: axum::body::Bytes,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
@@ -713,4 +732,62 @@ pub async fn coord_upgrade_systemd_handler(
     }
 
     Ok(Json(serde_json::json!({ "status": "systemd_reloaded" })))
+}
+
+pub async fn coord_infra_provision_handler(
+    State(_state): State<Arc<AppState>>,
+    Json(req): Json<InfraProvisionRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    if req.target.is_empty() || req.target.chars().count() > 64 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Invalid target name".into(),
+            }),
+        ));
+    }
+
+    tracing::info!("Executing infra provision for target: {}", req.target);
+
+    let project_root = std::env::var("CYNIC_PROJECT_ROOT").unwrap_or_else(|_| ".".to_string());
+
+    let output = std::process::Command::new("python3")
+        .arg("-m")
+        .arg("organs.lifecycle.src.entrypoints.cli")
+        .arg("provision")
+        .arg("--target")
+        .arg(&req.target)
+        .arg("--registry")
+        .arg("infra/registry.json")
+        .current_dir(project_root)
+        .output();
+
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+
+            if out.status.success() {
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                    "target": req.target,
+                    "stdout": stdout,
+                    "stderr": stderr
+                })))
+            } else {
+                Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Provision failed: {stderr}"),
+                    }),
+                ))
+            }
+        }
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to execute command: {e}"),
+            }),
+        )),
+    }
 }

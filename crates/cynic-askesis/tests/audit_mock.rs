@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use cynic_askesis::audit::{AuditEngine, default_phase2_directives as default_questions};
-use cynic_askesis::log::LogEntry;
+use cynic_askesis::log::ObservationEvent;
 use cynic_askesis::reflection::{Reflection, Verdict};
 
 struct StaticMock(Reflection);
@@ -11,7 +11,7 @@ struct StaticMock(Reflection);
 impl AuditEngine for StaticMock {
     async fn audit(
         &self,
-        _logs: &[LogEntry],
+        _logs: &[ObservationEvent],
         _questions: &[&str],
     ) -> cynic_askesis::Result<Reflection> {
         Ok(self.0.clone())

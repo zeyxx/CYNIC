@@ -4,9 +4,9 @@ After=cynic-kernel.service discord-passive-proxy.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
 Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONPATH=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+Environment=PYTHONPATH=@CYNIC_PROJECT_ROOT@
 EnvironmentFile=-%h/.config/cynic/env
 EnvironmentFile=-%h/.cynic/organs/discord/env
 ExecStart=/usr/bin/python3 -m organs.discord.src.pipeline --limit 200

@@ -2,7 +2,7 @@
 Description=CYNIC Hermes Feedback Loop — ingests verdicts and updates domain wisdom every 1 hour
 Documentation=https://github.com/zeyxx/CYNIC/docs/hermes-architecture.md
 # After=cynic-kernel.service — REMOVED: causes ordering cycle (timers.target→timer→kernel→basic→timers.target)
-# The SERVICE has After=hermes-x-ingest.service which transitively waits for the kernel.
+# The SERVICE has After=hermes-ingest.service which transitively waits for the kernel.
 
 [Timer]
 OnBootSec=5min

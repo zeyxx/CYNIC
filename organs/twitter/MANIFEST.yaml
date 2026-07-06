@@ -1,6 +1,7 @@
 id: organ-twitter
 tier: 2
 domain: social
+domain_role: primary
 status: ACTIVE
 framework: hexagonal-organ
 systemd_executor: organ-twitter-hermes-agent.service
@@ -8,29 +9,321 @@ systemd_dispatch: organ-twitter-cron.service
 
 description: |
   Twitter/X organ — perception/transformation/analysis/learning cycle
-  for X/Twitter data. Managed by Hermes-Agent executor + 30min dispatch.
+  for X/Twitter data. It exposes a cortex-readable context bridge:
+  manually supplied tweets/articles/notes are normalized into JSONL and
+  exported as Markdown/JSON bundles under organs/twitter/state/context/.
+  Managed by Hermes-Agent executor + 30min dispatch.
+  Hermes X runtime code is owned by this organ under src/core, src/adapters and
+  src/entrypoints. The root-level legacy scripts/hermes-x copy has been removed; organ-twitter
+  src/entrypoints is the runtime source of truth.
 
 inputs:
   - source: kernel /observations
     data: recent observations across all domains
   - source: ~/.cynic/organs/twitter/dataset.jsonl
     data: raw tweets from x_ingest_daemon
+  - source: organs/twitter/state/context_items.jsonl
+    data: operator-supplied tweets, threads, articles, and notes for cortex context
   - source: kernel /verdicts
     data: verdict history for feedback analysis
 
 outputs:
+  - path: organs/twitter/state/context/latest.md
+    format: markdown
+    frequency: on-demand via cli.py bundle
+  - path: organs/twitter/state/context/latest.json
+    format: json
+    frequency: on-demand via cli.py bundle
   - path: ~/.cynic/organs/twitter/reflections/
     format: json
     frequency: hourly
   - path: kernel /observe (domain=twitter)
     format: REST POST
     frequency: per-cycle
+  - path: ~/.cynic/organs/hermes/x/domain_signals/
+    format: json
+    frequency: every 30min via hermes-curation
+  - path: ~/.cynic/organs/hermes/x/SKILL.md
+    format: markdown
+    frequency: every 1h/4h via feedback and briefing consumers
+  - path: kernel /agent-tasks
+    format: REST POST
+    frequency: every 10min via K15 consumer
 
 crons:
   - organ-twitter-cron.timer
+  - hermes-ingest.service
+  - hermes-curation.service
+  - hermes-search-generator.service
+  - hermes-feedback-loop.service
+  - hermes-k15-consumer.service
+  - hermes-gemini-briefing.service
 
 scripts:
-  - name: dispatch.py
+  - name: src/dispatch.py
     description: Hexagonal architecture entrypoint
-  - name: cli.py
-    description: Trigger CLI for manual tests
+  - name: src/entrypoints/cli.py
+    description: Ingest tweets/articles/notes, inspect state, and export cortex context bundles
+    integration_status: organ_entrypoint
+    owner: organ-twitter
+    expiry_condition: none
+  - name: src/adapters/twitter_cli_runtime.py
+    description: Runtime handlers for organ-twitter context ingestion, listing, bundling, perception and diagnostics
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: organ-twitter CLI entrypoint remains a thin parser and dispatch membrane
+  - name: src/core/convergence_detector.py
+    description: Organ-owned X signal convergence detector; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/core/ingest_signals.py
+    description: Pure X ingest domain assignment and Dog stimulus formatting rules
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/core/domain_curation.py
+    description: Pure D1-D6 curation rules for Hermes X domain signals
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: entrypoint curation runtime delegates all curation decisions to core services
+  - name: src/core/hermes_x_router.py
+    description: Pure Hermes X compatibility routing table for organ-owned components
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: Hermes X compatibility entrypoint delegates routing to core contract
+  - name: src/adapters/curation_kernel_bridge.py
+    description: Kernel observation bridge for curated Hermes X domain signals
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: curation runtime uses organ-owned Kernel adapter instead of direct REST calls in entrypoints
+  - name: src/adapters/curation_files.py
+    description: File persistence adapter for curated Hermes X domain signal artifacts
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: curation runtime uses organ-owned file adapters instead of direct file effects in entrypoints
+  - name: src/entrypoints/hermes_x.py
+    description: Organ-owned compatibility router for Hermes X runtime components; root-level legacy paths are not injected
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/entrypoints/x_ingest.py
+    description: Organ-owned X ingest runtime entrypoint; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/x_ingest_runtime.py
+    description: Runtime adapter for Hermes X dataset tailing, Kernel observation emission, and convergence bridge
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: X ingest entrypoint remains a thin compatibility membrane
+  - name: src/entrypoints/search_generation.py
+    description: Organ-owned Hermes X search task generator; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/core/search_generation.py
+    description: Pure search query extraction, weighting, deduplication, and selection rules
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: search generation entrypoint remains a thin cycle membrane
+  - name: src/adapters/search_generation_io.py
+    description: Filesystem adapter for SKILL.md, curation yield, and search task JSONL I/O
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: search generation file effects stay outside entrypoint membranes
+  - name: src/entrypoints/curate_domain_signals.py
+    description: Organ-owned Hermes X curation runtime; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/entrypoints/organic_navigator.py
+    description: Organ-owned Hermes X organic navigator runtime; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/core/organic_navigation.py
+    description: UCB1 navigation target selection and default target rules for Hermes X browsing
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: organic navigator entrypoint remains a thin CLI membrane
+  - name: src/adapters/organic_navigation_io.py
+    description: Filesystem adapter for navigation targets, yield boosts, CDP endpoint discovery, and JSONL logs
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: organic navigation file effects stay outside entrypoint membranes
+  - name: src/adapters/organic_navigation_runtime.py
+    description: Playwright and Browser Hub runtime adapter for organic navigation cycles
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: organic navigation browser effects stay outside entrypoint membranes
+  - name: src/entrypoints/k15_observation_consumer.py
+    description: Organ-owned K15 observation consumer; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/k15_observation_runtime.py
+    description: Runtime adapter for K15 observation scoring, kernel reads, and Hermes task dispatch
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: K15 observation consumer entrypoint remains a thin CLI membrane
+  - name: src/entrypoints/hermes_task_runner.py
+    description: Organ-owned Hermes task runner; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/hermes_task_runner_runtime.py
+    description: Runtime adapter for Hermes task polling, probing, execution stubs, heartbeat, and shutdown loop
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: Hermes task runner entrypoint remains a thin CLI and compatibility membrane
+  - name: src/entrypoints/gemini_briefing_consumer.py
+    description: Organ-owned Gemini briefing consumer; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/core/briefing_priorities.py
+    description: Domain priority analysis and task content builder for Gemini briefing consumption
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: keep briefing domain rules out of entrypoint membranes
+  - name: src/adapters/briefing_consumer_io.py
+    description: Filesystem and kernel task I/O adapter for Gemini briefing consumption
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: keep Gemini briefing external I/O behind adapter boundary
+  - name: src/entrypoints/gemini_learn_from_verdicts.py
+    description: Organ-owned Gemini verdict learning loop; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/core/verdict_learning.py
+    description: Verdict pattern extraction and SKILL.md learned-section rendering for Gemini learning
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: keep verdict learning analysis out of entrypoint membranes
+  - name: src/adapters/verdict_learning_io.py
+    description: Filesystem adapter for Gemini verdict learning inputs and SKILL.md updates
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: keep verdict learning file effects behind adapter boundary
+  - name: src/entrypoints/hermes_x_login.py
+    description: Organ-owned Hermes X login entrypoint; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/x_login_runtime.py
+    description: Playwright runtime adapter for Hermes X login and account Chrome profile selection
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: Hermes X login entrypoint remains a thin credentials/CLI membrane
+  - name: src/entrypoints/hermes_x_recovery.py
+    description: Organ-owned Hermes X recovery daemon; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/hermes_x_recovery_runtime.py
+    description: Runtime adapter for Hermes X auth heartbeat checks and recovery cascade
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: Hermes X recovery entrypoint remains a thin compatibility membrane
+  - name: src/adapters/get_x_credentials.py
+    description: Organ-owned X credential resolver; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/hermes_x_proxy.py
+    description: Organ-owned mitmproxy adapter for passive X/Twitter GraphQL capture; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/entrypoints/x_poster.py
+    description: Organ-owned human-gated X reply poster; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/x_poster_runtime.py
+    description: Runtime adapter for CDP reply posting, comms ledger writes, and Kernel observation emission
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: X poster entrypoint remains a thin CLI and human-gate membrane
+  - name: src/adapters/k15_emitter.py
+    description: Organ-owned compatibility adapter for legacy K15 observation emission; should converge into generic kernel observation transport
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/entrypoints/data_architecture_audit.py
+    description: Organ-owned expired Tier 1 audit preserved for historical reproducibility; not active runtime
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/data_architecture_audit_runtime.py
+    description: Runtime implementation for the expired Hermes X Phase 0 data architecture audit
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: expired audit entrypoint remains a thin compatibility membrane
+  - name: src/adapters/hermes_paths.py
+    description: Organ-owned Hermes X path resolution module, owned by organ-twitter
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/hermes_task_store.py
+    description: Filesystem adapter for Hermes X organ-local task polling, claims, locks, and completion cleanup
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: hermes_task_runner entrypoint delegates local task store mutation through adapters
+  - name: src/adapters/hub_client.py
+    description: Organ-owned Browser Hub client, owned by organ-twitter
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/browser_hub.py
+    description: Organ-owned Browser Hub runtime/API; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/behavior_context.py
+    description: Runtime context adapter for behavior logger X11, Chrome CDP, and tweet-id lookup
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: entrypoint behavior logger delegates runtime context I/O through adapters
+  - name: src/adapters/x_kernel_transport.py
+    description: Kernel REST transport adapter for X ingest observations and judgments
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/x_ingest_store.py
+    description: Filesystem adapter for X ingest cursor, verdict, and dataset health state
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/x_ingest_health.py
+    description: Runtime health adapter for X ingest heartbeat, proxy/CDP checks, and dataset freshness
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: x_ingest entrypoint delegates heartbeat diagnostics through adapters
+  - name: src/adapters/notification_poller.py
+    description: Organ-owned Talaria notification poller; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/talaria_alerter.py
+    description: Organ-owned Talaria Telegram alerter; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/adapters/search_executor.py
+    description: Organ-owned Hermes X search executor; root-level legacy copy has been removed
+    integration_status: transition_debt
+    owner: organ-twitter
+    expiry_condition: track organ-twitter Hermes X migration files or quarantine them
+  - name: src/entrypoints/launch_browser.py
+    description: Organ-owned Chrome launcher for Hermes X browser/CDP/proxy sessions
+    integration_status: organ_entrypoint
+    owner: organ-twitter
+    expiry_condition: none
+  - name: src/entrypoints/toggle_account.py
+    description: Organ-owned operator entrypoint for account-specific Hermes X service switching
+    integration_status: organ_entrypoint
+    owner: organ-twitter
+    expiry_condition: none

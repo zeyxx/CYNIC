@@ -177,10 +177,11 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Deployment
-1. Save to `/home/user/Bureau/CYNIC/scripts/hermes-x/search_executor.py`
-2. systemctl will call it via hermes-search-executor.timer (15m)
-3. Execution logged to search_execution_log.jsonl
+### Historical Deployment Note
+This 2026-05-01 design predates organ-twitter. Do not create new files under
+the legacy Hermes-X script tree; the current search executor lives at
+`organs/twitter/src/adapters/search_executor.py` and systemd projections should
+route through organ-owned paths.
 
 ---
 
@@ -281,8 +282,8 @@ Learned patterns
 
 ## Implementation Checklist
 
-- [ ] Create `scripts/hermes-x/search_executor.py` (this design)
-- [ ] Set executable: `chmod +x scripts/hermes-x/search_executor.py`
+- [ ] Historical only: do not create a new search executor under the legacy script tree.
+- [ ] Use `organs/twitter/src/adapters/search_executor.py` for current work.
 - [ ] Create lab_briefing_latest.json (stub above)
 - [ ] Enable/test hermes-search-executor.service: `systemctl --user start hermes-search-executor`
 - [ ] Enable/test hermes-gemini-briefing.service: `systemctl --user start hermes-gemini-briefing`

@@ -194,7 +194,7 @@ impl crate::domain::probe::Probe for SomaProbe {
         let wild_binds = Self::find_wild_binds(&all_ports);
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         // Status: degraded if wild binds exist or firewall absent
         let status = if !wild_binds.is_empty() || !firewall_active {

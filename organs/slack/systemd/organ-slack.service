@@ -1,6 +1,6 @@
 [Unit]
 Description=organ-slack — CYNIC Slack relay daemon
-Documentation=file:///home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/slack/MANIFEST.yaml
+Documentation=file://@CYNIC_PROJECT_ROOT@/organs/slack/MANIFEST.yaml
 After=network-online.target cynic-kernel.service
 Wants=network-online.target
 
@@ -8,7 +8,7 @@ Wants=network-online.target
 Type=simple
 User=%i
 EnvironmentFile=%h/.cynic-env
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
 ExecStart=/usr/bin/python3 -m organs.slack.src.dispatch
 Restart=on-failure
 RestartSec=30s

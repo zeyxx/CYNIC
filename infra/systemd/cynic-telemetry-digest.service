@@ -5,8 +5,8 @@ After=network-online.target
 [Service]
 Type=oneshot
 EnvironmentFile=%h/.config/cynic/env
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
-ExecStart=/usr/bin/python3 scripts/daily_telemetry_digest.py
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+ExecStart=/bin/sh -c 'echo "legacy telemetry digest entrypoint removed; reforge telemetry digest as an organ entrypoint before enabling cynic-telemetry-digest" >&2; exit 1'
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=cynic-telemetry-digest

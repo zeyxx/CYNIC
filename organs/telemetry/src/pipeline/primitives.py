@@ -1,8 +1,9 @@
-import json
 import glob
 import os
 from datetime import datetime
 from typing import Iterator
+
+from organs.contracts.src.surface_contracts import iter_json_objects
 from ..core.entities import LogEntry
 
 class LogParser:
@@ -14,13 +15,8 @@ class LogParser:
         for filepath in glob.glob(pattern):
             session_id = filepath.split("/")[-4]
             with open(filepath, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if not line.strip(): continue
-                    try:
-                        data = json.loads(line)
-                        yield LogParser._map_to_entry("antigravity", session_id, data)
-                    except json.JSONDecodeError:
-                        continue
+                for data in iter_json_objects(f):
+                    yield LogParser._map_to_entry("antigravity", session_id, data)
 
     @staticmethod
     def _map_to_entry(agent_id: str, session_id: str, data: dict) -> LogEntry:

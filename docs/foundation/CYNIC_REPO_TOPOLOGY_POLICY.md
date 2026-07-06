@@ -10,6 +10,10 @@ because durable policy written only in prompts, journals or one-off docs
 disappears; durable policy written in the wrong directory creates competing
 truths.
 
+The meta-layer contract in `docs/foundation/CYNIC_META_LAYER_CONTRACTS.md`
+and `axioms/meta-layer-contract-v1.json` decide which category of concern a
+file may own before this topology policy decides the exact directory.
+
 When the question is not just "which directory owns this file?" but "which
 domain owns this claim?", use `docs/foundation/CYNIC_THEME_TOPOLOGY_POLICY.md`
 and `axioms/organism-theme-topology-v1.json`.
@@ -29,7 +33,7 @@ Every file must belong to one of these classes:
 | Organ | `organs/<role>/` | Persistent bounded subsystem |
 | Shared runtime framework | `services/` | Framework code reused by multiple organs or agents |
 | Deployment projection | `infra/systemd/`, `infra/docker/`, `infra/firewall/` | Concrete incarnation of desired state |
-| Transitional wrapper | `scripts/`, `infra/scripts/` | Operator wrapper or diagnostic only |
+| Transitional wrapper | `infra/scripts/` | Operator wrapper or diagnostic only |
 | Local runtime state | `.cynic/`, `organs/<role>/state/` | Non-canonical state, logs, caches |
 
 If a file does not fit one class, the concern is not understood well enough to
@@ -66,6 +70,10 @@ The second organic correction layer is organ maturity. A directory under
 | `legacy_blocked` | Fails closed except guarded emergency fallback |
 | `burn_candidate` | No durable role is proven; deletion/absorption preferred |
 
+The maturity vocabulary is ordered from least recoverable to most complete.
+`axioms/organ-maturity-inventory-v1.json.maturity_order` must preserve that
+progression so the body does not collapse the states into a flat set.
+
 `axioms/repo-topology-v1.json:organ_maturity_policy` is the machine vocabulary.
 Organ manifests and organ exceptions must use that vocabulary.
 
@@ -79,6 +87,21 @@ machine projection of the current body:
   in one scan.
 - adding or deleting an organ requires updating the inventory, which makes
   organism shape drift fail in the topology gate.
+
+The fourth organic correction layer is the organ layer inventory.
+`axioms/organ-layer-topology-v1.json` must assign exactly one primary layer and
+rank to every immediate `organs/<role>/` directory. This keeps the body
+explicitly stratified: governance, fleet, mesh, storage, transport,
+observability and workspace surfaces can evolve independently without hiding
+their relative altitude.
+
+That inventory is itself hierarchical: each layer except the foundational
+contract layer names the more abstract layer it refines.
+
+The fifth organic correction layer is the axiom topological graph.
+`axioms/axiom-registry-v1.json.topological_layers` must place every root axiom
+family in a declared topological layer so functional layer names do not drift
+into placement claims.
 
 ## 2. Dependency Direction
 
@@ -99,8 +122,8 @@ Examples:
   policy or hardcode project paths.
 - `organs/wireguard/src/adapters/` may write CoreDNS or WireGuard config; it
   must not decide which service owns which canonical address.
-- `scripts/` may diagnose or wrap; it must not become the canonical supply
-  chain or provisioning path.
+- Root-level `scripts/` is closed. Diagnostics and wrappers must move behind
+  organ entrypoints, make fragments, infra contracts or MCP operations.
 
 ## 3. Canonical Organ Shape
 
@@ -151,10 +174,10 @@ These paths are tolerated but must not receive new canonical behavior:
 
 | Path | Status | Replacement |
 |------|--------|-------------|
-| `scripts/` | transitional | organ entrypoint or MCP operation |
+| `scripts/` | legacy blocked | organ entrypoint or MCP operation |
 | `infra/scripts/` | transitional | infra contract + organ adapter |
 | `organs/lifecycle/` legacy script surface | burned | registry/MCP fleet and storage operations through bounded lifecycle adapters |
-| `services/cynic-python/organs/core/` | boundary under clarification | shared Hermes/Ouroboros runtime framework |
+| `services/ouroboros-runtime/src/ouroboros_runtime/core/` | boundary under clarification | shared Hermes/Ouroboros runtime framework |
 
 Adding a new file to a transitional path requires fallback metadata:
 
@@ -199,9 +222,9 @@ replacement and expiry condition.
 
 New wrappers in transitional roots must match
 `repo-topology-v1.transitional_wrapper_file_exceptions` before they can become
-part of the source tree. This applies even when they are read-only diagnostics:
-`scripts/` is not an unbounded API namespace. Each exception must declare path,
-status, owner, classification, replacement and expiry condition.
+part of the source tree. Root-level `scripts/` is not an API namespace; any file
+under it is topology drift until moved behind an organ entrypoint, make fragment,
+infra contract or MCP operation.
 
 A `MANIFEST.yaml` under `scripts/` is not a wrapper; it is an organ hiding in a
 transitional root. Such paths are forbidden unless declared in

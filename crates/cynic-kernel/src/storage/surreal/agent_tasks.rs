@@ -12,6 +12,37 @@ fn extract_record_id(row: &Value) -> Option<String> {
         .or_else(|| row.get("id").and_then(|v| v.as_str()).map(String::from))
 }
 
+fn value_as_i64(row: &Value, key: &str) -> i64 {
+    row.get(key)
+        .and_then(|v| {
+            v.as_i64()
+                .or_else(|| {
+                    v.as_str().and_then(|s| {
+                        s.parse::<i64>()
+                            .inspect_err(|e| {
+                                tracing::warn!("Failed to parse i64 from string '{}': {}", s, e)
+                            })
+                            .ok()
+                    })
+                })
+                .or_else(|| {
+                    v.as_str().and_then(|s| {
+                        chrono::DateTime::parse_from_rfc3339(s)
+                            .map(|ts| ts.timestamp_millis())
+                            .inspect_err(|e| {
+                                tracing::warn!(
+                                    "Failed to parse RFC3339 timestamp from string '{}': {}",
+                                    s,
+                                    e
+                                )
+                            })
+                            .ok()
+                    })
+                })
+        })
+        .unwrap_or(0)
+}
+
 fn row_to_agent_task(row: &Value) -> Option<AgentTask> {
     row.as_object().map(|obj| {
         AgentTask {
@@ -41,11 +72,7 @@ fn row_to_agent_task(row: &Value) -> Option<AgentTask> {
                 .unwrap_or("pending")
                 .to_string(),
             result: obj.get("result").and_then(|v| v.as_str()).map(String::from),
-            created_at: obj
-                .get("created_at")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string(),
+            created_at: value_as_i64(row, "created_at"),
             completed_at: obj
                 .get("completed_at")
                 .and_then(|v| v.as_str())
@@ -112,7 +139,7 @@ pub(super) async fn store_agent_task(
         .map(|value| format!("'{}'", crate::storage::escape_surreal(value)))
         .unwrap_or_else(|| "null".to_string());
     let query = format!(
-        "INSERT INTO agent_tasks {{ kind: '{}', domain: '{}', content: '{}', status: 'pending', created_at: '{}', agent_id: {agent_id}, due_at: {due_at}, priority: {priority}, consumer: {consumer}, escalation_policy: {escalation_policy} }} RETURN id;",
+        "INSERT INTO agent_tasks {{ kind: '{}', domain: '{}', content: '{}', status: 'pending', result: null, created_at: {}, completed_at: null, agent_id: {agent_id}, claimed_by: null, error: null, due_at: {due_at}, priority: {priority}, consumer: {consumer}, escalation_policy: {escalation_policy} }} RETURN id;",
         crate::storage::escape_surreal(&task.kind),
         crate::storage::escape_surreal(&task.domain),
         crate::storage::escape_surreal(&task.content),
@@ -134,10 +161,10 @@ pub(super) async fn list_pending_agent_tasks(
     let escaped_kind = crate::storage::escape_surreal(kind);
     let domain_filter = domain
         .map(crate::storage::escape_surreal)
-        .map(|domain| format!(" AND domain = '{domain}'"))
+        .map(|domain| format!(" AND `domain` = '{domain}'"))
         .unwrap_or_default();
     let query = format!(
-        "SELECT * FROM agent_tasks WHERE kind = '{escaped_kind}'{domain_filter} AND status = 'pending' ORDER BY created_at ASC LIMIT {limit};"
+        "SELECT * FROM agent_tasks WHERE `kind` = '{escaped_kind}'{domain_filter} AND `status` = 'pending' ORDER BY `created_at` ASC LIMIT {limit};"
     );
     let rows = storage.query_one(&query).await?;
     Ok(rows.iter().filter_map(row_to_agent_task).collect())
@@ -150,7 +177,7 @@ pub(super) async fn list_overdue_agent_tasks(
 ) -> Result<Vec<AgentTask>, StorageError> {
     let scan_limit = limit.max(1000);
     let query = format!(
-        "SELECT * FROM agent_tasks WHERE status = 'pending' ORDER BY created_at ASC LIMIT {scan_limit};"
+        "SELECT * FROM agent_tasks WHERE `status` = 'pending' ORDER BY `created_at` ASC LIMIT {scan_limit};"
     );
     let rows = storage.query_one(&query).await?;
     Ok(rows
@@ -161,7 +188,7 @@ pub(super) async fn list_overdue_agent_tasks(
         .collect())
 }
 
-/// List completed tasks of a specific kind.
+/// List resolved tasks of a specific kind.
 pub(super) async fn list_completed_agent_tasks(
     storage: &SurrealHttpStorage,
     kind: &str,
@@ -171,10 +198,10 @@ pub(super) async fn list_completed_agent_tasks(
     let escaped_kind = crate::storage::escape_surreal(kind);
     let domain_filter = domain
         .map(crate::storage::escape_surreal)
-        .map(|domain| format!(" AND domain = '{domain}'"))
+        .map(|domain| format!(" AND `domain` = '{domain}'"))
         .unwrap_or_default();
     let query = format!(
-        "SELECT * FROM agent_tasks WHERE kind = '{escaped_kind}'{domain_filter} AND status = 'completed' ORDER BY completed_at DESC LIMIT {limit};"
+        "SELECT * FROM agent_tasks WHERE `kind` = '{escaped_kind}'{domain_filter} AND (`status` = 'completed' OR `status` = 'failed') ORDER BY `completed_at` DESC LIMIT {limit};"
     );
     let rows = storage.query_one(&query).await?;
     Ok(rows.iter().filter_map(row_to_agent_task).collect())
@@ -218,7 +245,7 @@ pub(super) async fn update_agent_task_result(
     } else {
         "completed"
     };
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = chrono::Utc::now().timestamp_millis();
     let result_str = result
         .map(|r| format!("'{}'", crate::storage::escape_surreal(r)))
         .unwrap_or_else(|| "null".to_string());
@@ -241,18 +268,24 @@ pub(super) async fn update_agent_task_result(
             .or(task.error.as_deref())
             .unwrap_or("no result or error");
         let obs_score = if task.error.is_some() { 0.0 } else { 1.0 };
+        let now_string = now.to_string();
+        let completed_at = task.completed_at.as_deref().unwrap_or(&now_string);
         let _ = crystals::observe_crystal(
             storage,
             &task.id,
             obs_content,
             &task.domain,
             obs_score,
-            task.completed_at.as_deref().unwrap_or(&now),
+            completed_at,
             1,
             &task.id,
             &task.status,
         )
         .await;
+
+        use crate::domain::proof::Provable;
+        let poh = task.to_proof_of_history();
+        let _ = super::proof_of_history::store_proof_of_history(storage, &poh).await;
     }
 
     Ok(())

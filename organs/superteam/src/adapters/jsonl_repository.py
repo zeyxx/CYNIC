@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Iterable
 
+from organs.contracts.src.surface_contracts import iter_json_objects
+
 from src.core.entities import Opportunity
 
 
@@ -14,10 +16,7 @@ class JsonlOpportunityRepository:
     def list(self) -> list[Opportunity]:
         opportunities: list[Opportunity] = []
         with self.path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                if not line.strip():
-                    continue
-                raw = json.loads(line)
+            for raw in iter_json_objects(handle):
                 opportunities.append(_to_opportunity(raw))
         return opportunities
 

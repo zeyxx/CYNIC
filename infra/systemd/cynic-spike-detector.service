@@ -7,8 +7,8 @@ After=network-online.target
 [Service]
 EnvironmentFile=%h/.config/cynic/env
 Type=oneshot
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/sensors
-ExecStart=/usr/bin/python3 %h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python/sensors/spike_detector.py
+WorkingDirectory=@CYNIC_PROJECT_ROOT@/cynic-python/sensors
+ExecStart=/usr/bin/python3 @CYNIC_PROJECT_ROOT@/cynic-python/sensors/spike_detector.py
 TimeoutStartSec=60
 TimeoutStopSec=10
 MemoryMax=128M

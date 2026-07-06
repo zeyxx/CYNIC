@@ -15,7 +15,7 @@ CYNIC/
 │   │   │   ├── state.json
 │   │   │   ├── audit.jsonl
 │   │   │   └── poh.json
-│   │   ├── src/                      # ⬅️ ex: scripts/organ-anvil-dispatch.py
+│   │   ├── src/                      # ⬅️ ex: organs/forge/src/entrypoints/anvil.py
 │   │   │   ├── dispatch.py
 │   │   │   └── run.sh
 │   │   └── systemd/                  # ⬅️ ex: infra/systemd/organ-anvil-cron.service

@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Optional
 import urllib.request
 import urllib.error
+from metabolism.cost_tracker import emit as emit_cost
 
 # ---------------------------------------------------------------------------
 # Configuration (overridable via environment variables)
@@ -160,6 +161,7 @@ def fetch_trending_pools() -> list[dict]:  # type: ignore[type-arg]
 
     Returns list of pool objects, or raises on network/parse error.
     """
+    start = time.monotonic()
     req = urllib.request.Request(
         GECKO_URL,
         headers={"Accept": "application/json", "User-Agent": "cynic-spike-detector/1.0"},
@@ -167,6 +169,13 @@ def fetch_trending_pools() -> list[dict]:  # type: ignore[type-arg]
     with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
         body = json.loads(resp.read().decode())
     pools: list[dict] = body.get("data", [])  # type: ignore[type-arg]
+    emit_cost(
+        feature_id="spike_detector",
+        operation="fetch_trending_pools",
+        compute_class="external_api",
+        provider="geckoterminal",
+        latency_ms=int((time.monotonic() - start) * 1000),
+    )
     return pools
 
 

@@ -17,20 +17,15 @@ Can also be called directly (CLI mode) to send a one-shot message:
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import os
-import sys
-import urllib.request
-import urllib.error
-from pathlib import Path
-from datetime import datetime, timezone
 
-# Allow running from any working directory
-sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "scripts"))
+import requests
 
-from .router import resolve_channel, list_routes
+from organs.contracts.src.adapters.kernel_observe import post_kernel_observe
+from .router import resolve_coordination_channel, list_routes
 from .sender import send, format_observation
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,27 +42,22 @@ CYNIC_API_KEY = os.environ.get("CYNIC_API_KEY", "")
 
 def _kernel_observe(context: str, status: str, domain: str = "slack") -> None:
     """Fire-and-forget observation back to the Kernel."""
-    payload = json.dumps({
+    payload = {
         "tool": "organ-slack",
         "domain": domain,
         "context": context,
         "status": status,
         "tags": ["organ-slack", "relay"],
-    }).encode()
-    req = urllib.request.Request(
-        f"{KERNEL_REST_ADDR}/observe",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {CYNIC_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+    }
+    result = post_kernel_observe(
+        request_post=requests.post,
+        kernel_url=KERNEL_REST_ADDR,
+        auth_key=CYNIC_API_KEY,
+        payload=payload,
+        timeout=5,
     )
-    try:
-        with urllib.request.urlopen(req, timeout=5):
-            pass
-    except Exception as exc:
-        log.warning("Kernel observe failed (non-blocking): %s", exc)
+    if not result.posted:
+        log.warning("Kernel observe failed (non-blocking): %s", result.error or result.status_code)
 
 
 # ── Core dispatch logic ──────────────────────────────────────────────────────
@@ -79,19 +69,48 @@ def dispatch_observation(observation: dict) -> bool:
     """
     routing_key = observation.get("domain", "kernel_ops")
     channel_id = observation.get("target", "")
+    payload = observation.get("value")
 
-    # If target is already a raw channel ID (starts with C), use it directly
-    if not (channel_id.startswith("C") and len(channel_id) > 8):
-        try:
-            channel_id = resolve_channel(routing_key)
-        except RuntimeError as exc:
-            log.error("Routing failed: %s", exc)
-            return False
+    # If target is already a raw channel ID (starts with C), use it directly.
+    if not (isinstance(channel_id, str) and channel_id.startswith("C") and len(channel_id) > 8):
+        channel_id = ""
 
-    text, blocks = format_observation(observation)
+    thread_id = None
+    if isinstance(payload, dict):
+        thread_id = payload.get("thread_id")
+        thread_ts = payload.get("thread_ts")
+    else:
+        thread_ts = None
 
     try:
-        send(channel_id, text, blocks)
+        if not channel_id:
+            # Coordination payloads have project/workstream context in value.coordination.
+            project = ""
+            workstream = None
+            if isinstance(payload, dict):
+                project = payload.get("project", "")
+                workstream = payload.get("workstream") or payload.get("thread", None)
+                if isinstance(workstream, str) and not workstream:
+                    workstream = None
+            channel_id = resolve_coordination_channel(
+                project=project or routing_key,
+                workstream=workstream,
+                thread_id=thread_id if isinstance(thread_id, str) else None,
+                fallback_key=routing_key,
+            )
+        if not isinstance(payload, dict):
+            payload = {}
+    except RuntimeError as exc:
+        log.error("Routing failed: %s", exc)
+        return False
+
+    text, blocks = format_observation(observation)
+    thread_ts_opt = None
+    if isinstance(thread_ts, str):
+        thread_ts_opt = thread_ts
+
+    try:
+        send(channel_id, text, blocks, thread_ts=thread_ts_opt)
         log.info("Delivered to %s (route=%s)", channel_id, routing_key)
         _kernel_observe(
             context=f"Delivered: {text[:120]}",

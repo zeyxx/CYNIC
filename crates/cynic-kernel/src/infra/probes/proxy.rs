@@ -29,7 +29,7 @@ impl crate::domain::probe::Probe for ProxyProbe {
         .await;
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         let status = match result {
             Ok(Ok(_)) => ProbeStatus::Ok,

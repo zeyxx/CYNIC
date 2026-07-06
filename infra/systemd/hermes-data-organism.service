@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
 EnvironmentFile=%h/.config/cynic/env
 
 # Perception cycle: ingest session logs, kernel observations, node data
-ExecStart=/usr/bin/python3 scripts/hermes_data_organism.py
+ExecStart=/usr/bin/python3 @CYNIC_PROJECT_ROOT@/organs/reflection/src/entrypoints/data_organism.py
 
 # Logging
 StandardOutput=journal

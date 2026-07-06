@@ -1,6 +1,9 @@
 # CYNIC Node + Soma Orchestrator — System Architecture
 
 > **Context:** Phase A (TTL janitor) is foundational for Soma's Dog lifecycle management. Diagram shows the integration points.
+>
+> Meta-layer contract: `docs/foundation/CYNIC_META_LAYER_CONTRACTS.md`.
+> Soma owns orchestration; `cynic-node` owns local execution and supervision.
 
 ---
 

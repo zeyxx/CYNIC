@@ -30,8 +30,8 @@ pub(super) async fn store_crystal(
         crystal.source_diversity,
         crystal.state,
         relations_json,
-        escape(&crystal.created_at),
-        escape(&crystal.updated_at)
+        crystal.created_at,
+        crystal.updated_at
     );
     storage.query_one(&sql).await?;
     Ok(())
@@ -442,8 +442,8 @@ pub(super) fn row_to_crystal(row: &serde_json::Value) -> Crystal {
         confidence: row["confidence"].as_f64().unwrap_or(0.0),
         observations: row["observations"].as_u64().unwrap_or(0) as u32,
         state,
-        created_at: row["created_at"].as_str().unwrap_or("").to_string(),
-        updated_at: row["updated_at"].as_str().unwrap_or("").to_string(),
+        created_at: row["created_at"].as_i64().unwrap_or(0),
+        updated_at: row["updated_at"].as_i64().unwrap_or(0),
         contributing_verdicts,
         certainty: row["certainty"].as_f64().unwrap_or(0.0),
         variance_m2: row["variance_m2"].as_f64().unwrap_or(0.0),

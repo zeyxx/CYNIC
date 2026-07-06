@@ -23,6 +23,7 @@ from urllib.parse import urlparse
 
 from mitmproxy import http
 
+from organs.contracts.src.surface_contracts import json_object_or_default
 from organs.discord.src.capture_router import route_discord_path
 from organs.discord.src.config import load_config, validate_allowlist
 from organs.discord.src.normalizers import (
@@ -71,7 +72,7 @@ class DiscordPassiveCapture:
 
         try:
             response_text = flow.response.get_text()
-            payload = json.loads(response_text)
+            payload = json_object_or_default(response_text)
         except (json.JSONDecodeError, UnicodeDecodeError):
             logger.warning("failed to parse Discord response for %s", parsed.path)
             return

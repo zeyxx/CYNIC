@@ -9,14 +9,23 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from organs.contracts.src.surface_contracts import json_object_or_raise
+from organs.contracts.src.surface_contracts import read_json_file_or_default
+
+from .agent_proposals import (
+    build_lifecycle_agent_proposal,
+    validate_lifecycle_agent_proposal,
+)
+from .project_root import resolve_project_root_from_script
+
 
 def _default_registry_path() -> Path:
-    return Path(__file__).resolve().parents[4] / "infra" / "registry.json"
+    return resolve_project_root_from_script(__file__) / "infra" / "registry.json"
 
 
 def _load_registry(path: str | Path | None = None) -> dict:
     target_path = Path(path) if path else _default_registry_path()
-    return json.loads(target_path.read_text())
+    return read_json_file_or_default(target_path, {})
 
 
 def lifecycle_profile_intents(
@@ -78,6 +87,8 @@ def build_lifecycle_task_payload(
         raise RuntimeError(f"unknown lifecycle intent: {intent}")
 
     repo_targets = lifecycle.get("repo_targets", [])
+    intent_targets = intent_policy.get("targets", repo_targets)
+    intent_coord_targets = intent_policy.get("coord_targets", intent_targets)
     content = {
         "lifecycle": "kernel_release",
         "intent": intent,
@@ -86,6 +97,7 @@ def build_lifecycle_task_payload(
         "domain": lifecycle["task_domain"],
         "build_target": build_node["name"],
         "build_runner_role": lifecycle["build_runner_role"],
+        "build_policy": lifecycle.get("build_policy", {}),
         "deploy_target": deploy_node["name"],
         "deploy_target_role": lifecycle["deploy_target_role"],
         "required_node_status": lifecycle.get("required_node_status"),
@@ -94,11 +106,18 @@ def build_lifecycle_task_payload(
         "runtime_path_proofs": lifecycle.get("runtime_path_proofs", {}),
         "activation_evidence_contract": lifecycle.get("activation_evidence_contract", {}),
         "fleet_requirements": lifecycle.get("fleet_requirements", {}),
+        "mcp_freshness_controller": lifecycle.get("mcp_freshness_controller", {}),
         "requires_e2e": lifecycle.get("requires_e2e", True),
-        "targets": repo_targets,
-        "coord_targets": repo_targets,
+        "targets": intent_targets,
+        "coord_targets": intent_coord_targets,
         "deploy": intent_policy.get("deploy", False),
     }
+    if intent_policy.get("bootstrap_phase") is True:
+        content["bootstrap_phase"] = True
+    content["operator_interface_proposal"] = build_lifecycle_agent_proposal(
+        content,
+        source_agent_id=agent_id,
+    )
     return {
         "kind": lifecycle["task_kind"],
         "domain": domain,
@@ -126,11 +145,11 @@ def validate_lifecycle_task_payload(
 
     raw_content = payload.get("content", "")
     try:
-        content = json.loads(raw_content) if isinstance(raw_content, str) else raw_content
-    except json.JSONDecodeError as exc:
+        content = json_object_or_raise(raw_content, RuntimeError("payload.content is not valid JSON"))
+    except RuntimeError as exc:
+        if str(exc) == "payload.content is not valid JSON":
+            raise
         raise RuntimeError(f"payload.content is not valid JSON: {exc}") from exc
-    if not isinstance(content, dict):
-        raise RuntimeError("payload.content must be a JSON object")
 
     nodes = registry.get("nodes", [])
     build_node = next(
@@ -149,6 +168,14 @@ def validate_lifecycle_task_payload(
     intent = content.get("intent")
     intent_policy = lifecycle.get("intents", {}).get(intent)
     repo_targets = lifecycle.get("repo_targets", [])
+    expected_targets = (
+        intent_policy.get("targets", repo_targets) if intent_policy else repo_targets
+    )
+    expected_coord_targets = (
+        intent_policy.get("coord_targets", expected_targets)
+        if intent_policy
+        else expected_targets
+    )
 
     expected = {
         "lifecycle": "kernel_release",
@@ -156,6 +183,7 @@ def validate_lifecycle_task_payload(
         "domain": lifecycle.get("task_domain"),
         "build_target": build_node.get("name") if build_node else None,
         "build_runner_role": lifecycle.get("build_runner_role"),
+        "build_policy": lifecycle.get("build_policy", {}),
         "deploy_target": deploy_node.get("name") if deploy_node else None,
         "deploy_target_role": lifecycle.get("deploy_target_role"),
         "required_node_status": lifecycle.get("required_node_status"),
@@ -164,9 +192,10 @@ def validate_lifecycle_task_payload(
         "runtime_path_proofs": lifecycle.get("runtime_path_proofs", {}),
         "activation_evidence_contract": lifecycle.get("activation_evidence_contract", {}),
         "fleet_requirements": lifecycle.get("fleet_requirements", {}),
+        "mcp_freshness_controller": lifecycle.get("mcp_freshness_controller", {}),
         "requires_e2e": lifecycle.get("requires_e2e", True),
-        "targets": repo_targets,
-        "coord_targets": repo_targets,
+        "targets": expected_targets,
+        "coord_targets": expected_coord_targets,
     }
     for key, expected_value in expected.items():
         if content.get(key) != expected_value:
@@ -179,9 +208,14 @@ def validate_lifecycle_task_payload(
             errors.append("content.objective does not match lifecycle intent")
         if content.get("deploy") != intent_policy.get("deploy", False):
             errors.append("content.deploy does not match lifecycle intent")
+        if intent_policy.get("bootstrap_phase") is True and content.get("bootstrap_phase") is not True:
+            errors.append("content.bootstrap_phase does not match lifecycle intent")
+        if intent_policy.get("bootstrap_phase") is not True and content.get("bootstrap_phase") is True:
+            errors.append("content.bootstrap_phase is only allowed for bootstrap intents")
 
     if not isinstance(content.get("coord_targets"), list) or not content.get("coord_targets"):
         errors.append("content.coord_targets must be a non-empty list")
+    errors.extend(validate_lifecycle_agent_proposal(content))
 
     if errors:
         raise RuntimeError("; ".join(errors))
@@ -210,6 +244,10 @@ def build_lifecycle_profile_payloads(
         )
         for intent in intents
     ]
+    for payload in payloads:
+        content = json.loads(payload["content"])
+        content["request_profile"] = profile
+        payload["content"] = json.dumps(content, separators=(",", ":"))
     validations = [
         validate_lifecycle_task_payload(payload, registry)
         for payload in payloads
@@ -221,4 +259,3 @@ def build_lifecycle_profile_payloads(
         "payloads": payloads,
         "validations": validations,
     }
-

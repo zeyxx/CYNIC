@@ -27,6 +27,5 @@ files:
   scripts:
     - ab_test_simple.py
     - ab_test_divergence_enrichment.py
-    - ab_test.sh
   data:
     - ab_test_results.json

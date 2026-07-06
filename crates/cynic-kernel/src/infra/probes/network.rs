@@ -112,7 +112,7 @@ impl crate::domain::probe::Probe for NetworkProbe {
         let tcp_stats = Self::read_tcp_stats();
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         // If neither source is available, mark unavailable.
         if ts_stats.is_none() && tcp_stats.is_none() {

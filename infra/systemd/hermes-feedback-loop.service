@@ -1,13 +1,13 @@
 [Unit]
 Description=CYNIC Hermes Feedback Loop — ingests verdicts and updates domain wisdom (1h cron)
-After=hermes-x-ingest.service
+After=hermes-ingest.service
 PartOf=hermes-feedback-loop.timer
 
 [Service]
 Type=oneshot
 EnvironmentFile=%h/.config/cynic/env
 Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x
-ExecStart=/usr/bin/python3 %h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x/analysis/gemini_learn_from_verdicts.py --organ-dir %h/.cynic/organs/hermes/x
+ExecStart=@CYNIC_PROJECT_ROOTpython3 @/organs/twitter/src/entrypoints/python_launcher.py @CYNIC_PROJECT_ROOT@/organs/twitter/src/entrypoints/hermes_x.py feedback-loop --organ-dir %h/.cynic/organs/hermes/x
 StandardOutput=journal
 StandardError=journal
 

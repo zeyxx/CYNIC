@@ -43,6 +43,24 @@ enum Command {
         #[arg(short, long)]
         domain: String,
     },
+    /// Inject a cryptographic Proof-of-Action to calibrate the E-Score
+    Proof {
+        /// Proof-of-Build metric (e.g., lines of code, PRs merged)
+        #[arg(long)]
+        build: Option<f64>,
+        /// Proof-of-Capital metric (e.g., USD spent)
+        #[arg(long)]
+        capital: Option<f64>,
+        /// Proof-of-Attention metric (e.g., public narrative output)
+        #[arg(long)]
+        attention: Option<f64>,
+        /// Brief explanation of the action
+        #[arg(short, long)]
+        desc: String,
+        /// Path to the target JSONL log file
+        #[arg(long, default_value = ".cynic/memory/logs/human-kernel.jsonl")]
+        logfile: PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -111,7 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 return Ok(());
             }
 
-            let entry = cynic_askesis::log::LogEntry::new(content).with_domain(&domain);
+            let entry = cynic_askesis::log::ObservationEvent::new(content).with_domain(&domain);
 
             store.append(entry)?;
             println!("Successfully ingested as domain: {domain}");
@@ -124,10 +142,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             domain,
         } => {
             let mut store = JsonlLog::new(&logfile)?;
-            let entry = cynic_askesis::log::LogEntry::new(content).with_domain(&domain);
+            let entry = cynic_askesis::log::ObservationEvent::new(content).with_domain(&domain);
 
             store.append(entry)?;
             println!("Successfully logged to domain: {domain}");
+
+            Ok(())
+        }
+        Command::Proof {
+            build,
+            capital,
+            attention,
+            desc,
+            logfile,
+        } => {
+            let mut store = JsonlLog::new(&logfile)?;
+
+            // Format the payload as JSON for the State Engine
+            let payload = serde_json::json!({
+                "action": "E_SCORE_PROOF_INJECTION",
+                "proof_of_build": build.unwrap_or(0.0),
+                "proof_of_capital": capital.unwrap_or(0.0),
+                "proof_of_attention": attention.unwrap_or(0.0),
+                "description": desc,
+            });
+
+            let content = serde_json::to_string(&payload)?;
+            let entry = cynic_askesis::log::ObservationEvent::new(content).with_domain("ouroboros");
+            store.append(entry)?;
+
+            println!("Ouroboros Proof successfully injected to domain 'ouroboros'.");
+            println!("Kernel is recalculating Alpha E-Score...");
 
             Ok(())
         }

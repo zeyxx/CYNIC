@@ -17,7 +17,11 @@ target/
 .leeroy-jenkins/
 
 # Dependencies
-node_modules/
+/node_modules
+/packages/public-ui/node_modules
+/packages/odysseum-ui/node_modules
+/package/
+.gradle/
 
 # Environment / secrets
 .env
@@ -55,6 +59,12 @@ cynic-python/observations/
 # accounts.toml.tpl is template; accounts.toml (runtime) is local-only (never committed)
 .hermes_ouroboros/*
 !.hermes_ouroboros/*.tpl
+
+# Organ runtime state belongs to the Kernel, local organ state, or fixtures.
+infra/organ-anvil/state.json
+infra/organ-anvil/audit.jsonl
+organs/*/state/*.json
+organs/*/state/*.jsonl
 
 # Platform configs
 .replit
@@ -151,11 +161,17 @@ cynic-python/heuristics/data/snapshots/
 cynic-python/heuristics/data/helius_cache/
 cynic-python/heuristics/data/webhook_data/
 cynic-python/heuristics/data/webhook_id.txt
+/data/calibration_results_real.json
+/data/population_stats.json
+/data/token_profiles.jsonl
+/data/market_snapshots/
+/data/obsidian/
 
 # Explicitly guard against markdown drift in persisted state surfaces.
-organs/*/state/*.md
+organs/*/state/
 !organs/*/state/README.md
 !organs/*/state/SKILL.md
+
 
 # School deliverables (personal, not infrastructure)
 docs/ydays/
@@ -170,6 +186,9 @@ docs/internal/metalex-exhibit-a-*.md
 
 # Vite dev cache
 packages/cynic-ui/.vite/
+
+# Gradle wrapper/cache state from nested mobile app workspaces
+**/.gradle-user-home/
 
 # Telemetry and temporary files
 /divergence_*.csv
@@ -198,3 +217,7 @@ logs/
 
 # Ops assets (Teams screenshots)
 assets/teams/
+
+# Generated operator activation bundles
+/cynic-synapse-dns/
+/cynic-lxc-bridge/

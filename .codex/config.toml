@@ -1,14 +1,202 @@
-# CYNIC — Codex CLI configuration
-# Instructions: AGENTS.md (project root)
-# Coordination: via CYNIC kernel MCP proxy -> kernel REST API
+# Generated from infra/agent-exposure.json via organ-exposure.
+# Do not edit this block by hand; change the SSOT and re-render.
 
 [mcp_servers.cynic-coord]
-command = "./.cortex/mcp/run-cynic-mcp.sh"
+command = "python3"
+args = ["./.cortex/mcp/run_cynic_mcp.py"]
+
+[mcp_servers.cynic-coord.tools.cynic_api_contracts]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.cynic_mcp_surface]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.cynic_attention]
+approval_mode = "approve"
 
 [mcp_servers.cynic-coord.tools.cynic_health]
 approval_mode = "approve"
 
 [mcp_servers.cynic-coord.tools.cynic_dispatch_agent_task]
 approval_mode = "approve"
-# Wrapper sources ~/.cynic-env locally, then execs /home/user/bin/cynic-kernel-mcp.
-# Do not put real CYNIC_REST_ADDR or CYNIC_API_KEY values in this repo.
+
+[mcp_servers.cynic-coord.tools.cynic_coord_register]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_list_pending_agent_tasks]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_watch_pending_agent_tasks]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_list_completed_agent_tasks]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_coord_claim_batch]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_observe]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_coord_release]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_coord_who]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_lifecycle_status]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_lifecycle_payloads]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_lifecycle_dispatch]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.coordination_contract_manifest]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.coordination_status_publish]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.coordination_status_read]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.coordination_thread_reply]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.coordination_artifact_share]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.coordination_decision_record]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.infra_registry_read]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.infra_registry_validate]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.network_ipam_check]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.network_mesh_dns_render]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.network_mesh_status]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.network_mesh_dns_activation_plan]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.network_mesh_dns_activation_bundle]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.network_mesh_dns_activation_status]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.fleet_node_status]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.lxc_exec_bridge_plan]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.lxc_exec_bridge_bundle]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.lxc_exec_bridge_status]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.fleet_node_exec]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.service_status]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.service_health]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.storage_primary_plan]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.storage_primary_bundle]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.storage_primary_readiness]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.storage_primary_status]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_audit_query]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_coord_claim]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_metabolism]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_update_agent_task_result]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.cynic_claim_agent_task]
+approval_mode = "approve"
+
+[mcp_servers.cynic-coord.tools.identity_attest]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.identity_smoke_check]
+approval_mode = "approve"
+
+[mcp_servers.cynic-browser]
+command = "python3"
+args = ["./.cortex/mcp/run_browser_mcp.py"]
+
+[mcp_servers.cynic-browser.tools.browser_policy]
+approval_mode = "auto"
+
+[mcp_servers.cynic-browser.tools.browser_status]
+approval_mode = "auto"
+
+[mcp_servers.cynic-browser.tools.browser_tabs]
+approval_mode = "auto"
+
+[mcp_servers.cynic-browser.tools.browser_task_state]
+approval_mode = "auto"
+
+[mcp_servers.cynic-browser.tools.browser_snapshot]
+approval_mode = "auto"
+
+[mcp_servers.cynic-browser.tools.browser_render_public_url]
+approval_mode = "approve"
+
+[mcp_servers.cynic-browser.tools.browser_navigate]
+approval_mode = "approve"
+
+[mcp_servers.cynic-browser.tools.browser_scroll]
+approval_mode = "approve"
+
+[mcp_servers.cynic-browser.tools.browser_back]
+approval_mode = "approve"
+
+[mcp_servers.cynic-browser.tools.browser_get_images]
+approval_mode = "approve"
+
+[mcp_servers.cynic-browser.tools.browser_vision]
+approval_mode = "approve"
+
+[mcp_servers.cynic-browser.tools.browser_console]
+approval_mode = "approve"
+
+[mcp_servers.cynic-browser.tools.browser_cdp]
+approval_mode = "approve"
+
+[mcp_servers.cynic-browser.tools.browser_dialog]
+approval_mode = "approve"
+
+[mcp_servers.cynic-browser.tools.browser_click]
+approval_mode = "approve"
+
+[mcp_servers.cynic-browser.tools.browser_type]
+approval_mode = "approve"

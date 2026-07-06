@@ -13,7 +13,7 @@ This document defines the reference architecture for the Talaria ecosystem (CYNI
 - **Law**: The framework defines the *mechanics* of intelligence. It is the "Brain & Hands".
 
 ## 2. The Prefrontal System: CYNIC Actuators
-**Implementation**: `scripts/hermes-x/core/`
+**Implementation**: `organs/twitter/src/` plus Kernel/Hermes adapters
 **Status**: NATIVE SOVEREIGN NUCLEUS
 
 - **Role**: The "Axiomatic Filter". If Hermes is the muscle, CYNIC is the **will** and the **conscience**.

@@ -1,13 +1,29 @@
+
 import json
 import logging
 import os
-import subprocess
+import socket
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib import error, request
+from urllib.parse import urlparse
+
+from organs.contracts.src.adapters.kernel_http import (
+    kernel_auth_headers,
+    normalize_kernel_base_url as _normalize_kernel_base_url,
+)
+from organs.contracts.src.surface_contracts import json_object_or_raise
 
 from ..core.ports import IKernelClient
-from ..core.lifecycle_state import build_workflow_state, validate_workflow_layers
+from .fleet_evidence_adapter import FleetEvidenceAdapter
+from .kernel_bus_probe_adapter import KernelBusProbeAdapter
+from .kernel_task_client import KernelTaskClient
+from .lifecycle_diagnostic_service import LifecycleDiagnosticService
+from .registry_adapter import (
+    RegistryAdapter,
+    lifecycle_health_status_result,
+    load_registry,
+    validate_lifecycle_policy,
+)
 from ..core.lifecycle_workflow import (
     activate_lifecycle_registry_node as _workflow_activate_lifecycle_registry_node,
     apply_lifecycle_activation_evidence_patch as _workflow_apply_lifecycle_activation_evidence_patch,
@@ -28,226 +44,9 @@ from ..core.lifecycle_workflow import (
 from ..core.lifecycle_readiness import (
     activation_evidence_gaps as _readiness_activation_evidence_gaps,
     build_activation_evidence_gap_details as _readiness_build_activation_evidence_gap_details,
-    fleet_nodes_ready as _readiness_fleet_nodes_ready,
-    inspect_fleet as _readiness_inspect_fleet,
-    lifecycle_blockers as _readiness_lifecycle_blockers,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _default_registry_path() -> Path:
-    return Path(__file__).resolve().parents[4] / "infra" / "registry.json"
-
-
-def load_registry(path: str | Path | None = None) -> dict:
-    registry_path = Path(path) if path else _default_registry_path()
-    with registry_path.open() as f:
-        return json.load(f)
-
-
-def validate_lifecycle_policy(registry: dict | None = None) -> dict:
-    registry = registry or load_registry()
-    lifecycle = registry.get("lifecycle", {}).get("kernel_release")
-    if not lifecycle:
-        raise RuntimeError("missing lifecycle.kernel_release")
-
-    nodes = registry.get("nodes", [])
-    organs = registry.get("organs", [])
-    build_role = lifecycle["build_runner_role"]
-    deploy_role = lifecycle["deploy_target_role"]
-    deploy_flag = lifecycle.get("deploy_target_flag", "deploy_target")
-
-    build_node = next((node for node in nodes if node.get("role") == build_role), None)
-    deploy_node = next(
-        (
-            node
-            for node in nodes
-            if node.get("role") == deploy_role and node.get(deploy_flag) is True
-        ),
-        None,
-    )
-    organ = next(
-        (item for item in organs if item.get("name") == lifecycle["orchestrator_organ"]),
-        None,
-    )
-
-    errors = []
-    if not build_node:
-        errors.append("lifecycle build runner role does not resolve")
-    if not deploy_node:
-        errors.append("lifecycle deploy target role does not resolve")
-    if not organ:
-        errors.append("lifecycle orchestrator organ does not resolve")
-    if not lifecycle.get("task_kind") or not lifecycle.get("task_domain"):
-        errors.append("lifecycle task routing incomplete")
-    if not isinstance(lifecycle.get("repo_targets"), list) or not lifecycle["repo_targets"]:
-        errors.append("lifecycle repo_targets missing")
-
-    intents = lifecycle.get("intents", {})
-    if not isinstance(intents, dict) or not intents:
-        errors.append("lifecycle intents missing")
-    for intent_name, intent_policy in intents.items():
-        if not isinstance(intent_policy, dict):
-            errors.append(f"intents.{intent_name} must be an object")
-            continue
-        if not intent_policy.get("objective"):
-            errors.append(f"intents.{intent_name}.objective missing")
-        if not isinstance(intent_policy.get("deploy"), bool):
-            errors.append(f"intents.{intent_name}.deploy must be boolean")
-
-    profiles = lifecycle.get("request_profiles", {})
-    if not isinstance(profiles, dict) or not profiles:
-        errors.append("lifecycle request_profiles missing")
-    for profile_name, profile_intents in profiles.items():
-        if not isinstance(profile_intents, list) or not profile_intents:
-            errors.append(f"request_profiles.{profile_name} must be a non-empty intent list")
-            continue
-        for intent in profile_intents:
-            if intent not in intents:
-                errors.append(f"request_profiles.{profile_name} unknown intent {intent}")
-
-    workflow = lifecycle.get("workflow", {})
-    errors.extend(
-        validate_workflow_layers(
-            workflow,
-            lifecycle["orchestrator_organ"],
-        )
-    )
-    stages = workflow.get("canonical_stages", [])
-    if not isinstance(stages, list) or len(stages) < 3:
-        errors.append("lifecycle workflow.canonical_stages must define the canonical workflow")
-    else:
-        stage_names = [stage.get("name") for stage in stages if isinstance(stage, dict)]
-        for required_stage in [
-            "local_validation",
-            "activation_request_generation",
-            "activation_request_dispatch",
-            "gate_2_request",
-            "deploy_request",
-        ]:
-            if required_stage not in stage_names:
-                errors.append(f"lifecycle workflow missing canonical stage {required_stage}")
-        for stage in stages:
-            if not isinstance(stage, dict):
-                errors.append("lifecycle workflow canonical stages must be objects")
-                continue
-            if not stage.get("name"):
-                errors.append("lifecycle workflow canonical stage name missing")
-            if not stage.get("scope"):
-                errors.append(f"lifecycle workflow stage {stage.get('name', '<unknown>')} scope missing")
-            if not stage.get("make_target"):
-                errors.append(f"lifecycle workflow stage {stage.get('name', '<unknown>')} make_target missing")
-    planned_policy = workflow.get("planned_policy", {})
-    if planned_policy.get("blocks_workflow_critical_edits") is not True:
-        errors.append("lifecycle workflow planned_policy.blocks_workflow_critical_edits must be true")
-    critical_targets = planned_policy.get("critical_targets", [])
-    if not isinstance(critical_targets, list) or not critical_targets:
-        errors.append("lifecycle workflow planned_policy.critical_targets missing")
-    else:
-        for target in [
-            "infra/registry.json",
-            "Makefile",
-            "crates/cynic-kernel",
-            "crates/cynic-mcp",
-            "organs/forge",
-            "organs/forge/src/adapters/kernel_adapter.py",
-            "organs/forge/src/core/lifecycle_workflow.py",
-            "organs/forge/src/core/lifecycle_payloads.py",
-            "organs/forge/src/core/lifecycle_runtime.py",
-            "organs/forge/src/core/lifecycle_evidence.py",
-            "organs/forge/src/core/lifecycle_activation.py",
-            "organs/forge/src/core/lifecycle_readiness.py",
-        ]:
-            if target not in critical_targets:
-                errors.append(f"lifecycle workflow planned_policy missing critical target {target}")
-
-    runtime_paths = lifecycle.get("runtime_paths", {})
-    runtime_path_proofs = lifecycle.get("runtime_path_proofs", {})
-
-    activation = lifecycle.get("activation_requirements", {})
-    if set(activation) != {build_role, deploy_role}:
-        errors.append("activation_requirements must cover build/deploy roles exactly")
-    for role, requirement in activation.items():
-        if not isinstance(requirement.get("network"), list) or not requirement["network"]:
-            errors.append(f"activation_requirements.{role}.network missing")
-        if not isinstance(requirement.get("services"), list) or not requirement["services"]:
-            errors.append(f"activation_requirements.{role}.services missing")
-        filesystem = requirement.get("filesystem", [])
-        if not isinstance(filesystem, list) or "repo_root" not in filesystem:
-            errors.append(f"activation_requirements.{role}.filesystem must include repo_root")
-            filesystem = []
-        for path_name in filesystem:
-            if path_name not in runtime_paths:
-                errors.append(
-                    f"activation_requirements.{role}.filesystem references unknown runtime path {path_name}"
-                )
-
-    fleet = lifecycle.get("fleet_requirements", {})
-    if fleet.get("provider") != "headscale":
-        errors.append("fleet_requirements.provider must be tailscale")
-    if fleet.get("required") is not True:
-        errors.append("fleet_requirements.required must be true")
-    if fleet.get("require_online") is not True:
-        errors.append("fleet_requirements.require_online must be true")
-
-    probe = lifecycle.get("kernel_bus_probe", {})
-    if not str(probe.get("path", "")).startswith("/"):
-        errors.append("kernel_bus_probe.path must be absolute")
-    if not isinstance(probe.get("accepted_status"), list) or not probe["accepted_status"]:
-        errors.append("kernel_bus_probe.accepted_status missing")
-    if int(probe.get("timeout_seconds", 0)) <= 0:
-        errors.append("kernel_bus_probe.timeout_seconds must be positive")
-
-    repo_root = runtime_paths.get("repo_root")
-    if not isinstance(repo_root, str) or not repo_root:
-        errors.append("runtime_paths.repo_root missing")
-    elif "/Bureau/" in repo_root or repo_root.startswith("/home/"):
-        errors.append("runtime_paths.repo_root must not point at an operator checkout")
-    repo_root_proof = runtime_path_proofs.get("repo_root", {})
-    if repo_root_proof.get("kind") != "git_worktree":
-        errors.append("runtime_path_proofs.repo_root.kind must be git_worktree")
-    if repo_root_proof.get("marker") != ".git":
-        errors.append("runtime_path_proofs.repo_root.marker must be .git")
-    if not isinstance(repo_root_proof.get("sentinels"), list) or not repo_root_proof["sentinels"]:
-        errors.append("runtime_path_proofs.repo_root.sentinels missing")
-    evidence_contract = lifecycle.get("activation_evidence_contract", {})
-    if evidence_contract.get("patch_field") != "activation_evidence_patch":
-        errors.append("activation_evidence_contract.patch_field must be activation_evidence_patch")
-    if evidence_contract.get("node_field") != "node":
-        errors.append("activation_evidence_contract.node_field must be node")
-    if evidence_contract.get("runtime_paths_field") != "activation_evidence.runtime_paths":
-        errors.append(
-            "activation_evidence_contract.runtime_paths_field must be activation_evidence.runtime_paths"
-        )
-    if evidence_contract.get("services_field") != "activation_evidence.services":
-        errors.append("activation_evidence_contract.services_field must be activation_evidence.services")
-    verified_requires = evidence_contract.get("verified_requires", [])
-    if sorted(verified_requires) != ["marker_exists", "sentinels_verified"]:
-        errors.append(
-            "activation_evidence_contract.verified_requires must include marker_exists and sentinels_verified"
-        )
-    service_active_requires = evidence_contract.get("service_active_requires", [])
-    if sorted(service_active_requires) != ["active", "declared"]:
-        errors.append(
-            "activation_evidence_contract.service_active_requires must include declared and active"
-        )
-    if evidence_contract.get("ingestion_mode") != "validated_merge":
-        errors.append("activation_evidence_contract.ingestion_mode must be validated_merge")
-
-    if errors:
-        raise RuntimeError("; ".join(errors))
-    return {
-        "status": "ok",
-        "lifecycle": "kernel_release",
-        "build_runner_role": build_role,
-        "deploy_target_role": deploy_role,
-        "orchestrator_organ": lifecycle["orchestrator_organ"],
-        "fleet_provider": fleet["provider"],
-        "repo_root": repo_root,
-        "request_profiles": sorted(profiles),
-        "workflow": workflow,
-    }
 
 
 def lifecycle_profile_intents(
@@ -389,32 +188,8 @@ def persist_lifecycle_registry_node_activation(
     )
 
 
-def lifecycle_health_status_result(
-    status_code: int,
-    registry: dict | None = None,
-) -> dict:
-    registry = registry or load_registry()
-    lifecycle = registry.get("lifecycle", {}).get("kernel_release")
-    if not lifecycle:
-        raise RuntimeError("missing lifecycle.kernel_release")
-    probe = lifecycle.get("kernel_bus_probe", {})
-    accepted = probe.get("accepted_status", [200])
-    if not isinstance(accepted, list) or not accepted:
-        raise RuntimeError("kernel_bus_probe.accepted_status missing")
-    return {
-        "status": "ok" if status_code in accepted else "rejected",
-        "http_status": status_code,
-        "accepted_status": accepted,
-        "accepted": status_code in accepted,
-    }
-
-
 def normalize_kernel_base_url(raw: str) -> str:
-    if not raw:
-        raise RuntimeError("CYNIC_REST_ADDR is required")
-    if raw.startswith(("http://", "https://")):
-        return raw.rstrip("/")
-    return f"http://{raw.rstrip('/')}"
+    return _normalize_kernel_base_url(raw, reject_loopback=False)
 
 
 class KernelRestClient(IKernelClient):
@@ -424,6 +199,7 @@ class KernelRestClient(IKernelClient):
         require_api_key: bool = True,
         strict_lifecycle: bool = True,
     ):
+        self.registry_adapter = RegistryAdapter()
         self.registry = self._load_registry()
         self.lifecycle = self._required_lifecycle("kernel_release")
         self.build_node = self._required_node(self.lifecycle["build_runner_role"])
@@ -445,27 +221,32 @@ class KernelRestClient(IKernelClient):
         self.api_key = os.environ.get("CYNIC_" + "API" + "_KEY", "")
         if require_api_key and not self.api_key:
             raise RuntimeError("CYNIC_API_KEY is required for organ-forge kernel dispatch")
+        self.kernel_tasks = KernelTaskClient(self.base_url, self.api_key)
+        self.fleet_evidence = FleetEvidenceAdapter()
+        self.kernel_bus_probe = KernelBusProbeAdapter(self.fleet_evidence)
+        self.lifecycle_diagnostics = LifecycleDiagnosticService()
         if strict_lifecycle:
             self._probe_kernel_bus()
 
     def _load_registry(self) -> dict:
-        return load_registry()
+        return self._registry_adapter().load()
+
+    def _registry_adapter(self) -> RegistryAdapter:
+        adapter = getattr(self, "registry_adapter", None)
+        if adapter is None:
+            adapter = RegistryAdapter()
+            self.registry_adapter = adapter
+        return adapter
 
     def _required_lifecycle(self, name: str) -> dict:
-        lifecycle = self.registry.get("lifecycle", {}).get(name)
-        if not lifecycle:
-            raise RuntimeError(f"registry missing lifecycle.{name}")
-        return lifecycle
+        return self._registry_adapter().required_lifecycle(self.registry, name)
 
     def _required_node(self, role: str, deploy_target_flag: str | None = None) -> dict:
-        for node in self.registry.get("nodes", []):
-            if node.get("role") != role:
-                continue
-            if deploy_target_flag and node.get(deploy_target_flag) is not True:
-                continue
-            return node
-        suffix = f" with {deploy_target_flag}=true" if deploy_target_flag else ""
-        raise RuntimeError(f"registry missing node role={role}{suffix}")
+        return self._registry_adapter().required_node(
+            self.registry,
+            role,
+            deploy_target_flag,
+        )
 
     def _require_ready_nodes(self) -> None:
         required = self.lifecycle.get("required_node_status")
@@ -494,11 +275,17 @@ class KernelRestClient(IKernelClient):
         if not requirements.get("required", False):
             return
         provider = requirements.get("provider")
-        if provider != "headscale":
+        if provider == "organ-fleet":
+            self._probe_fleet_inventory_report()
+            if not self.fleet_inventory_probe.get("status") == "ok":
+                reason = self.fleet_inventory_probe.get("error") or self.fleet_inventory_probe.get("status", "not_run")
+                raise RuntimeError(f"registry lifecycle fleet inventory failed ({reason})")
+            return
+        if provider != "synapse":
             raise RuntimeError(f"unsupported lifecycle fleet provider: {provider}")
         self.inspect_fleet()
-        if self.fleet_probe.get("status") != "ok":
-            reason = self.fleet_probe.get("error", self.fleet_probe.get("status", "unknown"))
+        if not self.fleet_probe.get("status") == "ok":
+            reason = self.fleet_probe.get("error") or self.fleet_probe.get("status", "not_run")
             raise RuntimeError(f"registry lifecycle fleet probe failed ({reason})")
         missing = self.fleet_probe.get("missing", [])
         offline = [
@@ -523,6 +310,7 @@ class KernelRestClient(IKernelClient):
             self.build_node,
             self.deploy_node,
             env=os.environ,
+            extra_role_nodes=self._activation_role_nodes(),
         )
 
     def _activation_evidence_gap_details(self) -> list[dict]:
@@ -531,50 +319,79 @@ class KernelRestClient(IKernelClient):
             self.build_node,
             self.deploy_node,
             env=os.environ,
+            extra_role_nodes=self._activation_role_nodes(),
         )
+
+    def _activation_role_nodes(self) -> dict:
+        roles = set(self.lifecycle.get("activation_requirements", {}))
+        role_nodes = {
+            self.lifecycle["build_runner_role"]: self.build_node,
+            self.lifecycle["deploy_target_role"]: self.deploy_node,
+        }
+        for role in roles.difference(role_nodes):
+            registry = getattr(self, "registry", {})
+            node = next(
+                (item for item in registry.get("nodes", []) if item.get("role") == role),
+                None,
+            )
+            if node:
+                role_nodes[role] = node
+        return role_nodes
 
     @staticmethod
     def _extract_fleet_inventory_from_health(payload: dict) -> dict:
-        environment = payload.get("environment")
-        if not isinstance(environment, dict):
-            return {"enabled": True, "status": "missing_environment"}
+        return FleetEvidenceAdapter.extract_inventory_from_health(payload)
 
-        probes = environment.get("probes")
-        if not isinstance(probes, list):
-            return {"enabled": True, "status": "missing_probes"}
+    @staticmethod
+    def _extract_fleet_inventory_from_fleet_report(report: dict) -> dict:
+        return FleetEvidenceAdapter.extract_inventory_from_fleet_report(report)
 
-        for probe in probes:
-            if not isinstance(probe, dict):
+    def _probe_fleet_inventory_report(self) -> None:
+        self.fleet_inventory_probe = (
+            self._fleet_evidence_adapter().probe_fleet_inventory_report(env=os.environ)
+        )
+
+    @staticmethod
+    def _kernel_address_from_node(node: dict) -> str:
+        if not isinstance(node, dict):
+            return ""
+        network = (
+            node.get("network", {}).get("synapse")
+            or node.get("network", {}).get("local")
+            or ""
+        )
+        if network.startswith("<") and network.endswith(">"):
+            env_name = network[1:-1]
+            network = os.environ.get(env_name, "")
+        if not network:
+            return ""
+        port = 3030
+        for service in node.get("services", []):
+            if not isinstance(service, dict):
                 continue
-            if probe.get("name") != "fleet_inventory":
+            if service.get("name") != "cynic-kernel":
                 continue
-            details = probe.get("details")
-            if isinstance(details, dict) and details.get("kind") == "fleet_inventory":
-                data = details.get("data", {})
-            else:
-                data = details if isinstance(details, dict) else {}
-            if not isinstance(data, dict):
-                return {
-                    "enabled": True,
-                    "status": str(probe.get("status", "unknown")),
-                    "error": "fleet_inventory_data_not_object",
-                }
-            summary = data.get("summary", {})
-            nodes = data.get("nodes", [])
-            extracted = {
-                "enabled": True,
-                "status": str(probe.get("status", "unknown")),
-                "name": probe.get("name", "fleet_inventory"),
-                "summary": summary if isinstance(summary, dict) else {},
-            }
-            if nodes:
-                extracted["nodes"] = nodes
-            if probe.get("error"):
-                extracted["error"] = str(probe.get("error"))
-            if probe.get("duration_ms") is not None:
-                extracted["duration_ms"] = probe["duration_ms"]
-            return extracted
-        return {"enabled": True, "status": "missing_probe"}
+            service_port = service.get("port")
+            if isinstance(service_port, int) and service_port > 0:
+                port = service_port
+                break
+            if isinstance(service_port, str) and service_port.isdigit():
+                port = int(service_port)
+                break
+        return f"{network}:{port}"
+
+    @staticmethod
+    def _kernel_endpoint_reachable(base_url: str, timeout_seconds: float = 1.0) -> bool:
+        parsed = urlparse(base_url if "://" in base_url else f"http://{base_url}")
+        host = parsed.hostname
+        if not host:
+            return False
+        port = parsed.port or 3030
+        try:
+            with socket.create_connection((host, port), timeout=timeout_seconds):
+                return True
+        except OSError:
+            return False
 
     def _kernel_addr(self, explicit: str | None) -> str:
         raw = explicit or os.environ.get("CYNIC_REST_ADDR", "")
@@ -584,8 +401,8 @@ class KernelRestClient(IKernelClient):
                 self.lifecycle["deploy_target_role"],
                 deploy_target_flag=self.lifecycle.get("deploy_target_flag"),
             )
-            raw = kernel.get("network", {}).get("headscale", "")
-            self.kernel_endpoint_source = "registry:kernel_primary.network.tailscale"
+            raw = kernel.get("network", {}).get("synapse", "")
+            self.kernel_endpoint_source = "registry:kernel_primary.network.synapse"
         if not raw:
             raise RuntimeError("CYNIC_REST_ADDR is required")
         if raw.startswith("<") and raw.endswith(">"):
@@ -608,10 +425,21 @@ class KernelRestClient(IKernelClient):
         ):
             self.kernel_bus_canonical = False
             override = self.lifecycle.get("local_kernel_bus_override_env")
-            if self.strict_lifecycle and (not override or os.environ.get(override) != "1"):
+            override_enabled = bool(override and os.environ.get(override) == "1")
+            if self.strict_lifecycle and not override_enabled:
                 raise RuntimeError(
                     "local kernel bus is not canonical; point CYNIC_REST_ADDR to registry kernel_primary"
                 )
+            normalized = normalize_kernel_base_url(raw)
+            if self._kernel_endpoint_reachable(normalized):
+                return normalized
+            fallback = self._kernel_address_from_node(self.deploy_node)
+            if fallback:
+                raw = fallback
+                self.kernel_endpoint_source = "registry:kernel_primary.network.synapse"
+                self.kernel_bus_canonical = True
+            else:
+                return normalized
         return normalize_kernel_base_url(raw)
 
     @staticmethod
@@ -633,202 +461,152 @@ class KernelRestClient(IKernelClient):
             redacted_host = "<redacted-host>"
         return f"{scheme}{redacted_host}{sep}{port}" if sep else f"{scheme}{redacted_host}"
 
+    def _fleet_probe_value(self) -> dict:
+        return self._lifecycle_diagnostic_service().fleet_probe_value(
+            getattr(self, "fleet_probe", None)
+        )
+
+    @staticmethod
+    def _probe_dict_value(probe: dict | None) -> dict:
+        return LifecycleDiagnosticService.probe_dict_value(probe)
+
     def lifecycle_context(self) -> dict:
-        required_status = self.lifecycle.get("required_node_status")
         activation_gap_details = self._activation_evidence_gap_details()
         activation_gaps = self._activation_evidence_gaps()
-        fleet_inventory_probe = getattr(
-            self,
-            "fleet_inventory_probe",
-            {"enabled": False, "status": "not_run"},
+        fleet_inventory_probe = self._probe_dict_value(
+            getattr(self, "fleet_inventory_probe", None)
         )
-        if (
-            fleet_inventory_probe.get("status") == "not_run"
-        ):
+        if fleet_inventory_probe.get("status") == "not_run":
             try:
                 self._probe_kernel_bus()
             except Exception:
                 pass
-            fleet_inventory_probe = getattr(
-                self,
-                "fleet_inventory_probe",
-                {"enabled": False, "status": "error"},
+            fleet_inventory_probe = self._probe_dict_value(
+                getattr(self, "fleet_inventory_probe", None)
+            )
+        if fleet_inventory_probe.get("status") == "not_run":
+            try:
+                self._probe_fleet_inventory_report()
+            except Exception as exc:
+                self.fleet_inventory_probe = {
+                    "enabled": True,
+                    "status": "error",
+                    "error": type(exc).__name__,
+                }
+            fleet_inventory_probe = self._probe_dict_value(
+                getattr(self, "fleet_inventory_probe", {"enabled": False, "status": "error"})
             )
 
         self.fleet_inventory_probe = fleet_inventory_probe
-        status_nodes_ready = (
-            not any(
-                node.get("status") != required_status
-                for node in (self.build_node, self.deploy_node)
-            )
-            if required_status
-            else True
-        )
-        fleet_nodes_ready = self._fleet_nodes_ready()
-        lifecycle_blockers = self._lifecycle_blockers(
-            activation_gap_details=activation_gap_details,
-            required_status=required_status,
-        )
-        workflow_state = build_workflow_state(
-            self.lifecycle,
+        self.fleet_probe = self._fleet_probe_value()
+        return self._lifecycle_diagnostic_service().build_context(
+            lifecycle=self.lifecycle,
             build_node=self.build_node,
             deploy_node=self.deploy_node,
-            required_status=required_status,
+            build_target=self.build_target,
+            deploy_target=self.deploy_target,
+            kernel_endpoint_source=self.kernel_endpoint_source,
+            kernel_endpoint=self._redact_url(self.base_url),
+            kernel_bus_canonical=self.kernel_bus_canonical,
+            kernel_probe=self.kernel_probe,
+            fleet_probe=self.fleet_probe,
+            fleet_inventory_probe=self.fleet_inventory_probe,
             activation_gap_details=activation_gap_details,
             activation_gaps=activation_gaps,
-            fleet_probe=self.fleet_probe,
-            kernel_probe=self.kernel_probe,
-            fleet_inventory_probe=self.fleet_inventory_probe,
-            status_nodes_ready=status_nodes_ready,
-            fleet_nodes_ready=fleet_nodes_ready,
-            lifecycle_blockers=lifecycle_blockers,
+            activation_role_nodes=list(self._activation_role_nodes().values()),
         )
-        return {
-            "lifecycle": "kernel_release",
-            "orchestrator_organ": self.lifecycle["orchestrator_organ"],
-            "task_kind": self.lifecycle["task_kind"],
-            "task_domain": self.lifecycle["task_domain"],
-            "build_target": self.build_target,
-            "build_target_status": self.build_node.get("status", "unknown"),
-            "deploy_target": self.deploy_target,
-            "deploy_target_status": self.deploy_node.get("status", "unknown"),
-            "kernel_endpoint_source": self.kernel_endpoint_source,
-            "kernel_endpoint": self._redact_url(self.base_url),
-            "kernel_bus_canonical": self.kernel_bus_canonical,
-            "kernel_probe": self.kernel_probe,
-            "fleet_probe": self.fleet_probe,
-            "fleet_inventory_probe": self.fleet_inventory_probe,
-            "fleet_requirements": self.lifecycle.get("fleet_requirements", {}),
-            "required_node_status": required_status,
-            "activation_requirements": self.lifecycle.get("activation_requirements", {}),
-            "request_profiles": self.lifecycle.get("request_profiles", {}),
-            "intents": self.lifecycle.get("intents", {}),
-            "workflow": self.lifecycle.get("workflow", {}),
-            "workflow_state": workflow_state,
-            "activation_evidence_gaps": activation_gaps,
-            "activation_evidence_gap_details": activation_gap_details,
-            "status_nodes_ready": status_nodes_ready,
-            "fleet_nodes_ready": fleet_nodes_ready,
-            "lifecycle_nodes_ready": (
-                status_nodes_ready and not activation_gaps and fleet_nodes_ready
-            ),
-            "lifecycle_blockers": lifecycle_blockers,
-            "requires_e2e": self.lifecycle.get("requires_e2e", True),
-            "repo_targets": self.lifecycle.get("repo_targets", []),
-        }
 
     def _lifecycle_blockers(
         self,
         activation_gap_details: list[dict],
         required_status: str | None,
+        status_nodes: list[dict] | None = None,
     ) -> list[dict]:
-        fleet_inventory_probe = getattr(
-            self,
-            "fleet_inventory_probe",
-            {"enabled": False, "status": "not_run"},
-        )
-        return _readiness_lifecycle_blockers(
+        return self._lifecycle_diagnostic_service().lifecycle_blockers(
             self.lifecycle,
             self.build_node,
             self.deploy_node,
             activation_gap_details=activation_gap_details,
             required_status=required_status,
-            fleet_probe=self.fleet_probe,
-            fleet_inventory_probe=fleet_inventory_probe,
+            fleet_probe=getattr(self, "fleet_probe", None),
+            fleet_inventory_probe=getattr(self, "fleet_inventory_probe", None),
+            status_nodes=status_nodes,
         )
 
     def _fleet_nodes_ready(self) -> bool:
-        fleet_inventory_probe = getattr(
-            self,
-            "fleet_inventory_probe",
-            {"enabled": False, "status": "not_run"},
-        )
-        return _readiness_fleet_nodes_ready(
+        return self._lifecycle_diagnostic_service().fleet_nodes_ready(
             self.lifecycle,
-            self.fleet_probe,
-            fleet_inventory_probe,
+            getattr(self, "fleet_probe", None),
+            getattr(self, "fleet_inventory_probe", None),
         )
 
     def inspect_fleet(self) -> None:
-        self.fleet_probe = _readiness_inspect_fleet(self.build_target, self.deploy_target)
+        self.fleet_probe = self._fleet_evidence_adapter().inspect_fleet(
+            self.build_target,
+            self.deploy_target,
+        )
+
+    def _fleet_evidence_adapter(self) -> FleetEvidenceAdapter:
+        adapter = getattr(self, "fleet_evidence", None)
+        if adapter is None:
+            adapter = FleetEvidenceAdapter()
+            self.fleet_evidence = adapter
+        return adapter
+
+    def _lifecycle_diagnostic_service(self) -> LifecycleDiagnosticService:
+        service = getattr(self, "lifecycle_diagnostics", None)
+        if service is None:
+            service = LifecycleDiagnosticService()
+            self.lifecycle_diagnostics = service
+        return service
 
     def _probe_kernel_bus(self) -> None:
-        probe = self.lifecycle.get("kernel_bus_probe") or {}
-        if not probe:
-            return
-        path = probe.get("path", "/health")
-        timeout = int(probe.get("timeout_seconds", 10))
-        accepted = set(probe.get("accepted_status", [200]))
-        headers = {}
-        if probe.get("requires_bearer_auth", True):
-            if not self.api_key:
-                raise RuntimeError("CYNIC_API_KEY is required for kernel bus probe")
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        req = request.Request(
-            f"{self.base_url}{path}",
-            method="GET",
-            headers=headers,
+        result = self._kernel_bus_probe_adapter().probe(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            probe_config=self.lifecycle.get("kernel_bus_probe") or {},
         )
-        self.kernel_probe = {
-            "enabled": True,
-            "path": path,
-            "accepted_status": sorted(accepted),
-            "status": "pending",
-        }
-        health_payload = None
-        try:
-            with request.urlopen(req, timeout=timeout) as resp:
-                status = resp.status
-                raw = resp.read().decode("utf-8", errors="replace")
-            try:
-                health_payload = json.loads(raw)
-            except json.JSONDecodeError:
-                self.kernel_probe.update({"status_error": "health_payload_invalid_json"})
-        except error.HTTPError as exc:
-            status = exc.code
-            try:
-                raw = exc.read().decode("utf-8", errors="replace")
-            except Exception:
-                raw = ""
-            try:
-                health_payload = json.loads(raw)
-            except Exception:
-                self.kernel_probe.update({"status_error": "health_payload_invalid_json"})
-        except OSError as exc:
-            self.kernel_probe.update({"status": "error", "error": type(exc).__name__})
-            raise RuntimeError(f"kernel bus probe failed: {type(exc).__name__}")
-        self.kernel_probe.update({"status": "ok" if status in accepted else "rejected", "http_status": status})
-        if health_payload is not None:
-            self.fleet_inventory_probe = self._extract_fleet_inventory_from_health(
-                health_payload
-            )
-        else:
-            self.fleet_inventory_probe = {"enabled": True, "status": "missing_body"}
-        if status not in accepted:
-            raise RuntimeError(
-                f"kernel bus probe rejected HTTP {status}; accepted={sorted(accepted)}"
-            )
+        if result["kernel_probe"] is None:
+            return
+        self.kernel_probe = result["kernel_probe"]
+        self.fleet_inventory_probe = result["fleet_inventory_probe"]
+
+    def _kernel_bus_probe_adapter(self) -> KernelBusProbeAdapter:
+        adapter = getattr(self, "kernel_bus_probe", None)
+        if adapter is None:
+            adapter = KernelBusProbeAdapter(self._fleet_evidence_adapter())
+            self.kernel_bus_probe = adapter
+        return adapter
 
     def _post_agent_task(self, payload: dict) -> dict:
-        body = json.dumps(payload).encode("utf-8")
-        req = request.Request(
-            f"{self.base_url}/agent-tasks",
-            data=body,
-            method="POST",
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
+        return self._kernel_task_client().post_agent_task(payload)
+
+    def _list_agent_tasks(
+        self, *, kind: str, domain: str, completed: bool = False, limit: int = 50
+    ) -> dict:
+        return self._kernel_task_client().list_agent_tasks(
+            kind=kind,
+            domain=domain,
+            completed=completed,
+            limit=limit,
         )
-        try:
-            with request.urlopen(req, timeout=10) as resp:
-                text = resp.read().decode("utf-8", errors="replace")
-                return json.loads(text)
-        except error.HTTPError as exc:
-            text = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"agent task dispatch failed: HTTP {exc.code} {text[:200]}")
-        except (OSError, json.JSONDecodeError) as exc:
-            raise RuntimeError(f"agent task dispatch failed: {exc}")
+
+    def _assert_agent_task_visible(self, task_id: str, *, kind: str, domain: str) -> None:
+        for completed in (False, True):
+            payload = self._list_agent_tasks(kind=kind, domain=domain, completed=completed)
+            tasks = payload.get("tasks") if isinstance(payload, dict) else []
+            if any(isinstance(task, dict) and task.get("id") == task_id for task in tasks or []):
+                return
+        raise RuntimeError(
+            f"agent task read-back incomplete: {task_id} not visible in pending or completed mempool"
+        )
+
+    def _kernel_task_client(self) -> KernelTaskClient:
+        client = getattr(self, "kernel_tasks", None)
+        if client is None:
+            client = KernelTaskClient(self.base_url, self.api_key)
+            self.kernel_tasks = client
+        return client
 
     def _content_for_intent(self, intent: str, patch: str) -> dict:
         payload = build_lifecycle_task_payload(
@@ -837,7 +615,7 @@ class KernelRestClient(IKernelClient):
             agent_id="organ-forge-cli",
             registry=self.registry,
         )
-        content = json.loads(payload["content"])
+        content = json_object_or_raise(payload["content"], RuntimeError("payload.content is not valid JSON"))
         if patch:
             content["patch_sha256"] = __import__("hashlib").sha256(patch.encode("utf-8")).hexdigest()
         return content
@@ -851,14 +629,20 @@ class KernelRestClient(IKernelClient):
         }
         validate_lifecycle_task_payload(payload, self.registry)
         response = self._post_agent_task(payload)
+        task_id = response.get("task_id")
+        if not task_id:
+            raise RuntimeError(f"agent task dispatch response missing task_id: {response}")
+        self._assert_agent_task_visible(
+            task_id,
+            kind=payload["kind"],
+            domain=payload["domain"],
+        )
         yield json.dumps(response, separators=(",", ":")) + "\n"
 
     async def listen_events(self):
         import httpx
         url = f"{self.base_url}/events"
-        headers = {}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
+        headers = kernel_auth_headers(self.api_key, content_type=False)
             
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream("GET", url, headers=headers) as response:

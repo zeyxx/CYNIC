@@ -73,9 +73,9 @@ struct AgentmailMessage {
     #[serde(default)]
     html: Option<String>,
     #[serde(default)]
-    timestamp: String,
+    timestamp: i64,
     #[serde(default)]
-    created_at: String,
+    created_at: i64,
     #[serde(default)]
     labels: Vec<String>,
 }
@@ -268,14 +268,12 @@ impl MailPort for AgentmailBackend {
         Ok(messages
             .into_iter()
             .map(|msg| {
-                let ts = if msg.timestamp.is_empty() {
-                    &msg.created_at
+                let ts = if msg.timestamp == 0 {
+                    msg.created_at
                 } else {
-                    &msg.timestamp
+                    msg.timestamp
                 };
-                let date = DateTime::parse_from_rfc3339(ts)
-                    .map(|dt| dt.with_timezone(&Utc))
-                    .unwrap_or_else(|_| Utc::now());
+                let date = DateTime::from_timestamp_millis(ts).unwrap_or_else(Utc::now);
 
                 MessageSummary {
                     id: msg.message_id,

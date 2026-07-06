@@ -1,0 +1,16 @@
+[Unit]
+Description=CYNIC Jarvis Sensor Constellation (X11/Input Telemetry)
+After=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=%h/.Xauthority
+ExecStart=/usr/bin/python3 @CYNIC_PROJECT_ROOT@/organs/jarvis/src/entrypoints/sensor_constellation.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

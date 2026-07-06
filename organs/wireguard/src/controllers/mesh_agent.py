@@ -3,7 +3,7 @@ import asyncio
 import logging
 from typing import List, Tuple
 
-from ..core.ports import MeshStatePort, NetworkInterfacePort
+from ..core.ports import MeshStatePort, NetworkInterfacePort, DnsConfigPort
 from ..core.entities import MeshNode, WireguardConfig, WireguardPeerConfig
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,8 @@ class MeshAgent:
         stun_host: str,
         stun_port: int,
         state_port: MeshStatePort,
-        net_port: NetworkInterfacePort
+        net_port: NetworkInterfacePort,
+        dns_port: DnsConfigPort = None
     ):
         self.node_name = node_name
         self.interface = interface
@@ -24,6 +25,7 @@ class MeshAgent:
         self.stun_port = stun_port
         self.state_port = state_port
         self.net_port = net_port
+        self.dns_port = dns_port
         
         self.private_key = self._get_or_generate_key()
         self.public_key = self.net_port.derive_public_key(self.private_key)
@@ -91,6 +93,9 @@ class MeshAgent:
                 
             nodes = await self.state_port.fetch_mesh_nodes()
             routes = await self.state_port.fetch_mesh_routes()
+            
+            if self.dns_port:
+                self.dns_port.write_synapse_hosts(nodes)
             
             local_node = next((n for n in nodes if n.name == self.node_name or n.public_key == self.public_key), None)
             if not local_node:

@@ -1,12 +1,20 @@
 {
   "mcpServers": {
+    "browser": {
+      "args": [
+        "./.cortex/mcp/run_browser_mcp.py"
+      ],
+      "command": "python3"
+    },
     "cynic": {
-      "command": "./.cortex/mcp/run-cynic-mcp.sh",
-      "args": []
+      "args": [
+        "./.cortex/mcp/run_cynic_mcp.py"
+      ],
+      "command": "python3"
     },
     "headscale": {
-      "command": "tailscale-mcp",
-      "args": []
+      "args": [],
+      "command": "tailscale-mcp"
     }
   }
 }

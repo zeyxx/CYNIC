@@ -1,203 +1,636 @@
 {
-  "schema_version": "1.0.0",
-  "generated_by": "CYNIC/organs/supervisor/controllers/supervise_body.py",
-  "generated_at": "2026-06-17T22:57:14.266081+00:00",
-  "purpose": "Convert CYNIC organ audits into guard decisions and repair queue entries.",
-  "body": {
-    "contract_summary": {
-      "total_organ_directories": 16,
-      "uncontracted_directory": 5,
-      "production_organ": 3,
-      "manifest_only": 8
+  "schema_version": "2.0.0",
+  "generated_by": "organs/supervisor/controllers/supervise_body.py",
+  "generated_at": "2026-06-25T16:01:27.628096+00:00",
+  "policy": {
+    "source": "docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md",
+    "scale": "organ",
+    "dimension": "observability",
+    "authority": "infra/registry.json + organs/*/MANIFEST.yaml + systemd evidence"
+  },
+  "desired_state": "CYNIC/organs/supervisor/desired/body-supervision.json",
+  "summary": {
+    "organ_count": 27,
+    "incoherence_count": 13,
+    "repair_suggestion_count": 0,
+    "classifications": {
+      "declared_implemented": 10,
+      "unclassified_directory": 6,
+      "declared_and_runtime_wired": 7,
+      "declared_without_filesystem": 2,
+      "filesystem_without_manifest": 2
     },
-    "runtime_summary": {
-      "total_organs": 16,
-      "body_status": "live",
-      "by_runtime_status": {
-        "not_runtime_trusted": 13,
-        "live": 3
-      },
-      "by_contract_status": {
-        "uncontracted_directory": 5,
-        "production_organ": 3,
-        "manifest_only": 8
-      }
-    },
-    "trusted_organs": [
-      "discord",
-      "percolator",
-      "supervisor"
-    ],
-    "untrusted_organs": [
-      "anvil",
-      "docker",
-      "forge",
-      "gasdf",
-      "jupyter",
-      "kanban-ui",
-      "organ-cloud",
-      "organ-freebox",
-      "prompt-enricher",
-      "reflection",
-      "telegram",
-      "twitter",
-      "vercel"
-    ],
     "hard_blocks": [
-      "new_organ_creation_requires_owner_reuse_or_repair_decision"
+      "new_organ_creation_requires_supervisor_classification"
     ]
   },
-  "guards": {
-    "new_organ_creation": "blocked",
-    "public_external_actions": "manual_approval_required",
-    "kernel_offline_policy": "degrade_to_durable_queue"
-  },
-  "organs": [
+  "records": [
     {
-      "organ": "discord",
-      "trust_level": "trusted",
-      "contract_status": "production_organ",
-      "runtime_status": "live",
-      "manifest_status": "PLANNED",
-      "priority": 0,
-      "next_action": "Keep observing freshness and downstream outputs."
+      "name": "organ-browser",
+      "directory": "organs/browser",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-browser-systemd",
+      "registry_role": "browser_perception_and_interaction",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "tech-watch/browser",
+      "local_systemd_units": [],
+      "infra_systemd_units": [
+        "hermes-browser-hub.service",
+        "hermes-browser-hub@.service",
+        "hermes-browser.service",
+        "hermes-browser@.service",
+        "organ-browser-hub.service",
+        "organ-browser.service"
+      ],
+      "runtime_proven": false,
+      "classification": "declared_implemented",
+      "incoherences": [
+        "active_instance_without_systemd_unit_evidence"
+      ]
     },
     {
-      "organ": "percolator",
-      "trust_level": "trusted",
-      "contract_status": "production_organ",
-      "runtime_status": "live",
-      "manifest_status": "ACTIVE",
-      "priority": 1,
-      "next_action": "Keep observing freshness and downstream outputs."
-    },
-    {
-      "organ": "forge",
-      "trust_level": "declared",
-      "contract_status": "manifest_only",
-      "runtime_status": "not_runtime_trusted",
-      "manifest_status": "ACTIVE",
-      "priority": 2,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
-    },
-    {
-      "organ": "docker",
-      "trust_level": "declared",
-      "contract_status": "manifest_only",
-      "runtime_status": "not_runtime_trusted",
-      "manifest_status": "ACTIVE",
-      "priority": 3,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
-    },
-    {
-      "organ": "vercel",
-      "trust_level": "declared",
-      "contract_status": "manifest_only",
-      "runtime_status": "not_runtime_trusted",
-      "manifest_status": "ACTIVE",
-      "priority": 4,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
-    },
-    {
-      "organ": "twitter",
-      "trust_level": "declared",
-      "contract_status": "manifest_only",
-      "runtime_status": "not_runtime_trusted",
-      "manifest_status": "ACTIVE",
-      "priority": 5,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
-    },
-    {
-      "organ": "telegram",
-      "trust_level": "declared",
-      "contract_status": "manifest_only",
-      "runtime_status": "not_runtime_trusted",
-      "manifest_status": "ACTIVE",
-      "priority": 6,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
-    },
-    {
-      "organ": "jupyter",
-      "trust_level": "declared",
-      "contract_status": "manifest_only",
-      "runtime_status": "not_runtime_trusted",
-      "manifest_status": "ACTIVE",
-      "priority": 7,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
-    },
-    {
-      "organ": "kanban-ui",
-      "trust_level": "declared",
-      "contract_status": "manifest_only",
-      "runtime_status": "not_runtime_trusted",
-      "manifest_status": "ACTIVE",
-      "priority": 8,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
-    },
-    {
-      "organ": "reflection",
-      "trust_level": "declared",
-      "contract_status": "manifest_only",
-      "runtime_status": "not_runtime_trusted",
-      "manifest_status": "ACTIVE",
-      "priority": 9,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
-    },
-    {
-      "organ": "anvil",
-      "trust_level": "undeclared",
-      "contract_status": "uncontracted_directory",
-      "runtime_status": "not_runtime_trusted",
+      "name": "organ-controllers",
+      "directory": "organs/controllers",
+      "registry_present": false,
+      "registry_status": null,
+      "registry_instance": null,
+      "registry_role": null,
+      "filesystem_present": true,
+      "manifest_present": false,
       "manifest_status": null,
-      "priority": 1000,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+      "manifest_role": null,
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "unclassified_directory",
+      "incoherences": [
+        "unclassified_organ_directory"
+      ]
     },
     {
-      "organ": "gasdf",
-      "trust_level": "undeclared",
-      "contract_status": "uncontracted_directory",
-      "runtime_status": "not_runtime_trusted",
+      "name": "organ-discord",
+      "directory": "organs/discord",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-discord-hermes-agent",
+      "registry_role": "discord_surface_manager",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "social",
+      "local_systemd_units": [
+        "discord-pac-server.service",
+        "organ-discord-cron.service",
+        "organ-discord-hermes-agent.service"
+      ],
+      "infra_systemd_units": [
+        "discord-opportunities-ui.service",
+        "discord-passive-proxy.service",
+        "discord-pipeline.service"
+      ],
+      "runtime_proven": true,
+      "classification": "declared_and_runtime_wired",
+      "incoherences": []
+    },
+    {
+      "name": "organ-docker",
+      "directory": null,
+      "registry_present": true,
+      "registry_status": "declared",
+      "registry_instance": "organ-docker-hermes-agent",
+      "registry_role": "container_surface_manager",
+      "filesystem_present": false,
+      "manifest_present": false,
       "manifest_status": null,
-      "priority": 1000,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+      "manifest_role": null,
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "declared_without_filesystem",
+      "incoherences": []
     },
     {
-      "organ": "organ-cloud",
-      "trust_level": "undeclared",
-      "contract_status": "uncontracted_directory",
-      "runtime_status": "not_runtime_trusted",
+      "name": "organ-exposure",
+      "directory": "organs/exposure",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-exposure-cli",
+      "registry_role": "agent_exposure_projection_manager",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "organism/exposure",
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": true,
+      "classification": "declared_and_runtime_wired",
+      "incoherences": []
+    },
+    {
+      "name": "organ-fleet",
+      "directory": "organs/fleet",
+      "registry_present": true,
+      "registry_status": "planned",
+      "registry_instance": "organ-fleet-systemd",
+      "registry_role": "fleet_truth_aggregator",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "planned",
+      "manifest_role": "fleet_truth_aggregator",
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "declared_implemented",
+      "incoherences": []
+    },
+    {
+      "name": "organ-forge",
+      "directory": "organs/forge",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-forge-hermes-agent",
+      "registry_role": "repo_lifecycle_manager",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "infrastructure",
+      "local_systemd_units": [
+        "organ-forge-cron.service",
+        "organ-forge-hermes-agent.service"
+      ],
+      "infra_systemd_units": [],
+      "runtime_proven": true,
+      "classification": "declared_and_runtime_wired",
+      "incoherences": []
+    },
+    {
+      "name": "organ-freebox",
+      "directory": "organs/organ-freebox",
+      "registry_present": false,
+      "registry_status": null,
+      "registry_instance": null,
+      "registry_role": null,
+      "filesystem_present": true,
+      "manifest_present": false,
       "manifest_status": null,
-      "priority": 1000,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+      "manifest_role": null,
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "unclassified_directory",
+      "incoherences": [
+        "unclassified_organ_directory"
+      ]
     },
     {
-      "organ": "organ-freebox",
-      "trust_level": "undeclared",
-      "contract_status": "uncontracted_directory",
-      "runtime_status": "not_runtime_trusted",
+      "name": "organ-gasdf",
+      "directory": "organs/gasdf",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-gasdf-systemd",
+      "registry_role": "gas_delegation_surface_manager",
+      "filesystem_present": true,
+      "manifest_present": false,
       "manifest_status": null,
-      "priority": 1000,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+      "manifest_role": null,
+      "local_systemd_units": [],
+      "infra_systemd_units": [
+        "organ-gasdf.service"
+      ],
+      "runtime_proven": false,
+      "classification": "filesystem_without_manifest",
+      "incoherences": [
+        "active_instance_without_systemd_unit_evidence"
+      ]
     },
     {
-      "organ": "prompt-enricher",
-      "trust_level": "undeclared",
-      "contract_status": "uncontracted_directory",
-      "runtime_status": "not_runtime_trusted",
+      "name": "organ-headscale",
+      "directory": "organs/headscale",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-headscale-systemd",
+      "registry_role": "mesh_access_control",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "mesh_access_control",
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "declared_implemented",
+      "incoherences": [
+        "active_instance_without_systemd_unit_evidence"
+      ]
+    },
+    {
+      "name": "organ-jupyter",
+      "directory": "organs/jupyter",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-jupyter-hermes-agent",
+      "registry_role": "notebook_surface_manager",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "environment",
+      "local_systemd_units": [
+        "organ-jupyter-cron.service",
+        "organ-jupyter-lab.service"
+      ],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "declared_implemented",
+      "incoherences": [
+        "active_instance_without_systemd_unit_evidence"
+      ]
+    },
+    {
+      "name": "organ-kanban-ui",
+      "directory": "organs/kanban-ui",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-kanban-ui-hermes-agent",
+      "registry_role": "dashboard_projection_manager",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "presentation",
+      "local_systemd_units": [
+        "organ-kanban-ui-cron.service"
+      ],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "declared_implemented",
+      "incoherences": [
+        "active_instance_without_systemd_unit_evidence"
+      ]
+    },
+    {
+      "name": "organ-lifecycle",
+      "directory": "organs/lifecycle",
+      "registry_present": true,
+      "registry_status": "planned",
+      "registry_instance": "organ-lifecycle-candidate",
+      "registry_role": "repo_lifecycle_transmutation_candidate",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "planned",
+      "manifest_role": "repo_lifecycle_transmutation_candidate",
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "declared_implemented",
+      "incoherences": []
+    },
+    {
+      "name": "organ-percolator",
+      "directory": "organs/percolator",
+      "registry_present": true,
+      "registry_status": "declared",
+      "registry_instance": "organ-percolator-cli",
+      "registry_role": "security_bounty_workflow_manager",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "declared",
+      "manifest_role": "security-bounty",
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "declared_implemented",
+      "incoherences": []
+    },
+    {
+      "name": "organ-prompt-enricher",
+      "directory": "organs/prompt-enricher",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-prompt-enricher-hermes-agent",
+      "registry_role": "prompt_optimization_manager",
+      "filesystem_present": true,
+      "manifest_present": false,
       "manifest_status": null,
-      "priority": 1000,
-      "next_action": "Repair or demote the organ contract before relying on runtime behavior."
+      "manifest_role": null,
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "filesystem_without_manifest",
+      "incoherences": [
+        "active_instance_without_systemd_unit_evidence"
+      ]
     },
     {
-      "organ": "supervisor",
-      "trust_level": "trusted",
-      "contract_status": "production_organ",
-      "runtime_status": "live",
-      "manifest_status": "ACTIVE",
-      "priority": 1000,
-      "next_action": "Keep observing freshness and downstream outputs."
+      "name": "organ-radar",
+      "directory": "organs/radar",
+      "registry_present": true,
+      "registry_status": "planned",
+      "registry_instance": "organ-radar-cli",
+      "registry_role": "ecosystem_perception_sensor",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "planned",
+      "manifest_role": "tech-watch",
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "declared_implemented",
+      "incoherences": []
+    },
+    {
+      "name": "organ-rag",
+      "directory": "organs/organ-rag",
+      "registry_present": false,
+      "registry_status": null,
+      "registry_instance": null,
+      "registry_role": null,
+      "filesystem_present": true,
+      "manifest_present": false,
+      "manifest_status": null,
+      "manifest_role": null,
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "unclassified_directory",
+      "incoherences": [
+        "unclassified_organ_directory"
+      ]
+    },
+    {
+      "name": "organ-reflection",
+      "directory": "organs/reflection",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-reflection-cron",
+      "registry_role": "organism_synthesis_manager",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "synthesis",
+      "local_systemd_units": [
+        "organ-reflection-cron.service"
+      ],
+      "infra_systemd_units": [],
+      "runtime_proven": true,
+      "classification": "declared_and_runtime_wired",
+      "incoherences": []
+    },
+    {
+      "name": "organ-slack",
+      "directory": "organs/slack",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-slack-daemon",
+      "registry_role": "slack_relay",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "slack",
+      "local_systemd_units": [
+        "organ-slack.service"
+      ],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "declared_implemented",
+      "incoherences": [
+        "active_instance_without_systemd_unit_evidence"
+      ]
+    },
+    {
+      "name": "organ-state",
+      "directory": "organs/state",
+      "registry_present": false,
+      "registry_status": null,
+      "registry_instance": null,
+      "registry_role": null,
+      "filesystem_present": true,
+      "manifest_present": false,
+      "manifest_status": null,
+      "manifest_role": null,
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "unclassified_directory",
+      "incoherences": [
+        "unclassified_organ_directory"
+      ]
+    },
+    {
+      "name": "organ-superteam",
+      "directory": "organs/superteam",
+      "registry_present": false,
+      "registry_status": null,
+      "registry_instance": null,
+      "registry_role": null,
+      "filesystem_present": true,
+      "manifest_present": false,
+      "manifest_status": null,
+      "manifest_role": null,
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "unclassified_directory",
+      "incoherences": [
+        "unclassified_organ_directory"
+      ]
+    },
+    {
+      "name": "organ-supervisor",
+      "directory": "organs/supervisor",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-supervisor-cli",
+      "registry_role": "body_governance_supervisor",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "body-governance",
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": true,
+      "classification": "declared_and_runtime_wired",
+      "incoherences": []
+    },
+    {
+      "name": "organ-telegram",
+      "directory": "organs/telegram",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-telegram-hermes-agent",
+      "registry_role": "messaging_surface_manager",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "social",
+      "local_systemd_units": [
+        "organ-telegram-cron.service",
+        "organ-telegram-hermes-agent.service"
+      ],
+      "infra_systemd_units": [
+        "telegram-listener.service"
+      ],
+      "runtime_proven": true,
+      "classification": "declared_and_runtime_wired",
+      "incoherences": []
+    },
+    {
+      "name": "organ-telemetry",
+      "directory": "organs/telemetry",
+      "registry_present": false,
+      "registry_status": null,
+      "registry_instance": null,
+      "registry_role": null,
+      "filesystem_present": true,
+      "manifest_present": false,
+      "manifest_status": null,
+      "manifest_role": null,
+      "local_systemd_units": [],
+      "infra_systemd_units": [
+        "cynic-telemetry-digest.service"
+      ],
+      "runtime_proven": false,
+      "classification": "unclassified_directory",
+      "incoherences": [
+        "unclassified_organ_directory"
+      ]
+    },
+    {
+      "name": "organ-twitter",
+      "directory": "organs/twitter",
+      "registry_present": true,
+      "registry_status": "active",
+      "registry_instance": "organ-twitter-hermes-agent",
+      "registry_role": "x_surface_manager",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": "active",
+      "manifest_role": "social",
+      "local_systemd_units": [
+        "organ-twitter-cron.service",
+        "organ-twitter-hermes-agent.service"
+      ],
+      "infra_systemd_units": [],
+      "runtime_proven": true,
+      "classification": "declared_and_runtime_wired",
+      "incoherences": []
+    },
+    {
+      "name": "organ-vercel",
+      "directory": null,
+      "registry_present": true,
+      "registry_status": "declared",
+      "registry_instance": "organ-vercel-hermes-agent",
+      "registry_role": "deployment_surface_manager",
+      "filesystem_present": false,
+      "manifest_present": false,
+      "manifest_status": null,
+      "manifest_role": null,
+      "local_systemd_units": [],
+      "infra_systemd_units": [],
+      "runtime_proven": false,
+      "classification": "declared_without_filesystem",
+      "incoherences": []
+    },
+    {
+      "name": "organ-wireguard",
+      "directory": "organs/wireguard",
+      "registry_present": true,
+      "registry_status": "planned",
+      "registry_instance": "organ-wireguard-daemon",
+      "registry_role": "synapse_mesh_controller",
+      "filesystem_present": true,
+      "manifest_present": true,
+      "manifest_status": null,
+      "manifest_role": "mesh_network_controller",
+      "local_systemd_units": [],
+      "infra_systemd_units": [
+        "organ-wireguard-daemon.service"
+      ],
+      "runtime_proven": true,
+      "classification": "declared_implemented",
+      "incoherences": []
     }
   ],
-  "action_count": 13,
-  "action_queue": "CYNIC/organs/supervisor/state/action-queue.jsonl"
+  "incoherences": [
+    {
+      "severity": "medium",
+      "kind": "active_instance_without_systemd_unit_evidence",
+      "organ": "organ-browser",
+      "detail": "Instance organ-browser-systemd is not found in organ-local or infra systemd units."
+    },
+    {
+      "severity": "low",
+      "kind": "unclassified_organ_directory",
+      "organ": "organ-controllers",
+      "detail": "Directory under organs/ is neither registered nor manifested."
+    },
+    {
+      "severity": "low",
+      "kind": "unclassified_organ_directory",
+      "organ": "organ-freebox",
+      "detail": "Directory under organs/ is neither registered nor manifested."
+    },
+    {
+      "severity": "medium",
+      "kind": "active_instance_without_systemd_unit_evidence",
+      "organ": "organ-gasdf",
+      "detail": "Instance organ-gasdf-systemd is not found in organ-local or infra systemd units."
+    },
+    {
+      "severity": "medium",
+      "kind": "active_instance_without_systemd_unit_evidence",
+      "organ": "organ-headscale",
+      "detail": "Instance organ-headscale-systemd is not found in organ-local or infra systemd units."
+    },
+    {
+      "severity": "medium",
+      "kind": "active_instance_without_systemd_unit_evidence",
+      "organ": "organ-jupyter",
+      "detail": "Instance organ-jupyter-hermes-agent is not found in organ-local or infra systemd units."
+    },
+    {
+      "severity": "medium",
+      "kind": "active_instance_without_systemd_unit_evidence",
+      "organ": "organ-kanban-ui",
+      "detail": "Instance organ-kanban-ui-hermes-agent is not found in organ-local or infra systemd units."
+    },
+    {
+      "severity": "medium",
+      "kind": "active_instance_without_systemd_unit_evidence",
+      "organ": "organ-prompt-enricher",
+      "detail": "Instance organ-prompt-enricher-hermes-agent is not found in organ-local or infra systemd units."
+    },
+    {
+      "severity": "low",
+      "kind": "unclassified_organ_directory",
+      "organ": "organ-rag",
+      "detail": "Directory under organs/ is neither registered nor manifested."
+    },
+    {
+      "severity": "medium",
+      "kind": "active_instance_without_systemd_unit_evidence",
+      "organ": "organ-slack",
+      "detail": "Instance organ-slack-daemon is not found in organ-local or infra systemd units."
+    },
+    {
+      "severity": "low",
+      "kind": "unclassified_organ_directory",
+      "organ": "organ-state",
+      "detail": "Directory under organs/ is neither registered nor manifested."
+    },
+    {
+      "severity": "low",
+      "kind": "unclassified_organ_directory",
+      "organ": "organ-superteam",
+      "detail": "Directory under organs/ is neither registered nor manifested."
+    },
+    {
+      "severity": "low",
+      "kind": "unclassified_organ_directory",
+      "organ": "organ-telemetry",
+      "detail": "Directory under organs/ is neither registered nor manifested."
+    }
+  ],
+  "repair_suggestions": []
 }

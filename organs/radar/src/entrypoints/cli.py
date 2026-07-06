@@ -1,38 +1,76 @@
+"""Radar CLI — Scan targets and produce structured observations.
+
+Usage:
+    # Scan all configured targets
+    python -m src.entrypoints.cli
+
+    # Scan a single target
+    python -m src.entrypoints.cli --target hermes-agent
+
+    # JSON output for kernel ingestion
+    python -m src.entrypoints.cli --json
+"""
+
+import argparse
 import asyncio
-from src.domain.entities import Target, TargetType
-from src.adapters.http_sensor import HttpSensorAdapter
+import json
+import sys
 
-async def main():
-    # 1. Initialize the adapter (Driven Port)
-    sensor = HttpSensorAdapter(timeout_seconds=5.0)
+from src.core.scanner import DEFAULT_TARGETS, scan_target
 
-    # 2. Define the domain entity (Target)
-    holdex_target = Target(
-        id="partner_holdex_live",
-        target_type=TargetType.API_ENDPOINT,
-        uri="https://holdex.live",
-        metadata={"description": "Holdex UI Frontend"}
-    )
 
-    print(f"[*] Radar starting scan on: {holdex_target.uri}")
+async def main_async(target_name: str = None, json_output: bool = False, verbose: bool = False):
+    """Main async entrypoint."""
+    if target_name:
+        targets = [DEFAULT_TARGETS[target_name]] if target_name in DEFAULT_TARGETS else []
+        if not targets:
+            print(f"Error: unknown target '{target_name}'", file=sys.stderr)
+            sys.exit(1)
+    else:
+        targets = list(DEFAULT_TARGETS.values())
 
-    # 3. Execute the observation
-    observation = await sensor.perceive(holdex_target)
+    results = []
+    for target in targets:
+        result = await scan_target(target, verbose=verbose)
+        results.append(result)
 
-    # 4. Output the result in standard JSON format (Constitution Compliant)
-    import json
-    import dataclasses
-    
-    # Custom serializer to handle datetime and enums
-    def json_serializer(obj):
-        if hasattr(obj, 'isoformat'):
-            return obj.isoformat()
-        if hasattr(obj, 'value'):
-            return obj.value
-        raise TypeError(f"Type {type(obj)} not serializable")
+    # Print results
+    updates = [r for r in results if r["status"] == "update_available"]
+    if updates:
+        print(f"\n⚠ {len(updates)} update(s) available:")
+        for u in updates:
+            print(f"  • {u['target_id']}: {u['current_version']} → {u['latest_version']}")
+            if u.get("release_info"):
+                print(f"    URL: {u['release_info']['html_url']}")
 
-    print("\n[*] Observation Results:")
-    print(json.dumps(dataclasses.asdict(observation), default=json_serializer, indent=2))
+    if json_output:
+        if len(results) == 1:
+            print(json.dumps(results[0], indent=2))
+        else:
+            print(json.dumps(results, indent=2))
+    else:
+        print(f"\n[*] Scan complete. {len(results)} target(s) checked.")
+        for r in results:
+            status_icon = "⚠" if r["status"] == "update_available" else "✓"
+            print(f"  {status_icon} {r['target_id']}: {r['status']} (latency={r['latency_ms']}ms)")
+
+    return results
+
+
+def main():
+    """CLI entrypoint."""
+    parser = argparse.ArgumentParser(description="Radar — Scan ecosystem targets")
+    parser.add_argument("--target", help="Scan a specific target by ID")
+    parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    args = parser.parse_args()
+
+    asyncio.run(main_async(
+        target_name=args.target,
+        json_output=args.json,
+        verbose=args.verbose,
+    ))
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

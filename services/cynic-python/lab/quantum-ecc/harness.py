@@ -14,6 +14,21 @@ import sys
 from pathlib import Path
 from typing import Any
 
+
+def _bootstrap_services_root(start: Path) -> None:
+    base = start if start.is_dir() else start.parent
+    for candidate in (base, *base.parents):
+        if (candidate / "project_root.py").is_file() and (candidate / "hermes_paths.py").is_file():
+            root_str = str(candidate)
+            if root_str not in sys.path:
+                sys.path.insert(0, root_str)
+            return
+
+
+_bootstrap_services_root(Path(__file__).resolve())
+
+from project_root import resolve_repo_root
+
 from agents.inspector import InspectionResult, inspect_circuit, read_circuit_files
 from agents.optimizer import generate_optimization
 from evaluator import EvalResult, run_eval
@@ -34,7 +49,7 @@ LEVER_PRIORITY = [
 
 def load_lever_descriptions() -> dict[str, str]:
     """Parse levers.md into {lever_name: description} dict."""
-    project_root = Path(__file__).resolve().parents[3]
+    project_root = resolve_repo_root(Path(__file__).resolve())
     levers_md = project_root / "docs" / "cynic-python" / "lab" / "quantum-ecc" / "levers.md"
     content = levers_md.read_text()
     descriptions: dict[str, str] = {}
@@ -193,7 +208,7 @@ def main() -> None:
 
     repo_dir = Path(args.repo).resolve()
     if not (repo_dir / "src" / "point_add").exists():
-        print(f"ERROR: {repo_dir}/src/point_add not found. Run bootstrap.sh first.")
+        print(f"ERROR: {repo_dir}/src/point_add not found. Run bootstrap.py first.")
         sys.exit(1)
 
     run_loop(repo_dir, args.max_iters)

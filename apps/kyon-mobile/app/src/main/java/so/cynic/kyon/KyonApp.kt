@@ -8,6 +8,8 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import so.cynic.kyon.bootstrap.KyonContainer
+import so.cynic.kyon.core.config.FeatureFlags
 import so.cynic.kyon.core.storage.KyonDatabase
 import so.cynic.kyon.core.sync.KernelConfig
 import so.cynic.kyon.core.sync.KernelObserveClient
@@ -27,6 +29,14 @@ class KyonApp : Application() {
     lateinit var kernelClient: KernelObserveClient
         private set
 
+    /** Runtime feature toggles loaded from SharedPreferences. */
+    lateinit var featureFlags: FeatureFlags
+        private set
+
+    /** Composition root for application/use case + adapter wiring. */
+    lateinit var container: KyonContainer
+        private set
+
     override fun onCreate() {
         super.onCreate()
 
@@ -37,7 +47,9 @@ class KyonApp : Application() {
         ).fallbackToDestructiveMigration().build()
 
         kernelConfig = loadKernelConfig()
+        featureFlags = loadFeatureFlags()
         kernelClient = KernelObserveClient(kernelConfig)
+        container = KyonContainer(database, kernelConfig)
 
         scheduleSyncWorker()
     }
@@ -54,9 +66,16 @@ class KyonApp : Application() {
         )
     }
 
+    private fun loadFeatureFlags(): FeatureFlags {
+        val prefs = getSharedPreferences(PREFS_KERNEL, Context.MODE_PRIVATE)
+        return FeatureFlags.readFrom(prefs)
+    }
+
     fun refreshKernelConfig() {
         kernelConfig = loadKernelConfig()
+        featureFlags = loadFeatureFlags()
         kernelClient = KernelObserveClient(kernelConfig)
+        container = KyonContainer(database, kernelConfig)
     }
 
     private fun scheduleSyncWorker() {
@@ -80,5 +99,9 @@ class KyonApp : Application() {
         const val PREF_KERNEL_URL = "kernel_url"
         const val PREF_KERNEL_BEARER = "kernel_token"
         const val PREF_SYNC_ENABLED = "sync_enabled"
+        const val PREF_SHIELD_ENABLED = "feature_shield_enabled"
+        const val PREF_USAGE_COLLECTION_ENABLED = "feature_usage_collection_enabled"
+        const val PREF_NOTIFICATION_COLLECTION_ENABLED = "feature_notification_collection_enabled"
+        const val PREF_EXPORT_EVENTS_ENABLED = "feature_export_events_enabled"
     }
 }

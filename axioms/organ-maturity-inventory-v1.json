@@ -1,273 +1,467 @@
 {
-    "schema": "cynic.organ_maturity_inventory.v1",
-    "status": "draft",
-    "purpose": "Classify every immediate organs/<role>/ directory with the organism-wide maturity vocabulary so organ evolution is visible and enforceable.",
-    "authorities": {
-        "topology_contract": "axioms/repo-topology-v1.json",
-        "topology_policy": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md"
+  "schema": "cynic.organ_maturity_inventory.v1",
+  "status": "draft",
+  "draft_reason": "organ maturity was reconstructed from live topology during cleanup and includes open Git membranes.",
+  "promotion_condition": "every immediate organ has a stable maturity entry, untracked organ body evidence is resolved, and organ shape exceptions are current.",
+  "decision_authority": "organ-supervisor",
+  "purpose": "Classify every immediate organs/<role>/ directory with the organism-wide maturity vocabulary so organ evolution is visible and enforceable.",
+  "authorities": {
+    "topology_contract": "axioms/repo-topology-v1.json",
+    "topology_policy": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md"
+  },
+  "allowed_statuses_source": "axioms/repo-topology-v1.json:organ_maturity_policy.allowed_statuses",
+  "maturity_order": [
+    "burn_candidate",
+    "legacy_blocked",
+    "quarantined",
+    "embryonic",
+    "transitional",
+    "canonical_partial",
+    "canonical"
+  ],
+  "maturity_transition_policy": {
+    "canonical_partial": {
+      "owner": "organ-supervisor",
+      "rule": "The organ has a recognizable bounded shape but still has open membrane, adapter, state, or projection debt.",
+      "promotes_to": "canonical",
+      "exit_condition": "promote to canonical when its body is tracked or quarantined, shape exceptions are removed, and topology validation remains green"
     },
-    "allowed_statuses_source": "axioms/repo-topology-v1.json:organ_maturity_policy.allowed_statuses",
-    "organs": [
-        {
-            "path": "organs/browser/",
-            "maturity": "canonical",
-            "evidence": [
-                "MANIFEST.yaml",
-                "src/core",
-                "src/adapters",
-                "src/entrypoints"
-            ],
-            "next_action": "extend only through the manifest-backed organ boundary"
-        },
-        {
-            "path": "organs/controllers/",
-            "maturity": "legacy_blocked",
-            "evidence": [
-                "organ_boundary_exceptions"
-            ],
-            "next_action": "migrate controller entrypoints into organs/supervisor/controllers/"
-        },
-        {
-            "path": "organs/discord/",
-            "maturity": "transitional",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "split Discord behavior into core, adapters and entrypoints"
-        },
-        {
-            "path": "organs/exposure/",
-            "maturity": "canonical",
-            "evidence": [
-                "MANIFEST.yaml",
-                "src/core",
-                "src/adapters",
-                "src/entrypoints"
-            ],
-            "next_action": "extend only through the manifest-backed organ boundary"
-        },
-        {
-            "path": "organs/fleet/",
-            "maturity": "canonical",
-            "evidence": [
-                "MANIFEST.yaml",
-                "src/core",
-                "src/adapters",
-                "src/entrypoints"
-            ],
-            "next_action": "extend only through the manifest-backed organ boundary"
-        },
-        {
-            "path": "organs/forge/",
-            "maturity": "canonical",
-            "evidence": [
-                "MANIFEST.yaml",
-                "src/core",
-                "src/adapters",
-                "src/entrypoints"
-            ],
-            "next_action": "extend only through the manifest-backed organ boundary"
-        },
-        {
-            "path": "organs/freebox/",
-            "maturity": "transitional",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "move Freebox provider mutation behind core, adapters and entrypoints"
-        },
-        {
-            "path": "organs/gasdf/",
-            "maturity": "transitional",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "move gas delegation source and signing policy inside the organ boundary"
-        },
-        {
-            "path": "organs/headscale/",
-            "maturity": "transitional",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "move Headscale provisioning behind a declared core/adapter boundary"
-        },
-        {
-            "path": "organs/jupyter/",
-            "maturity": "transitional",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "add a bounded entrypoint package for runtime wiring"
-        },
-        {
-            "path": "organs/kanban-ui/",
-            "maturity": "canonical",
-            "evidence": [
-                "MANIFEST.yaml",
-                "src/core",
-                "src/adapters",
-                "src/entrypoints"
-            ],
-            "next_action": "extend only through the manifest-backed organ boundary"
-        },
-        {
-            "path": "organs/keep/",
-            "maturity": "canonical_partial",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "add adapter boundaries when storage provider IO leaves entrypoints"
-        },
-        {
-            "path": "organs/lifecycle/",
-            "maturity": "canonical_partial",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "represent lifecycle runtime wiring with a bounded entrypoint package or absorb it into organ-forge"
-        },
-        {
-            "path": "organs/percolator/",
-            "maturity": "transitional",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "move percolator behavior into a hexagonal source tree"
-        },
-        {
-            "path": "organs/prompt-enricher/",
-            "maturity": "transitional",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "split src/src/main.py into core, adapters and entrypoints"
-        },
-        {
-            "path": "organs/radar/",
-            "maturity": "transitional",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "add a core package so radar decisions are not encoded directly in adapters or entrypoints"
-        },
-        {
-            "path": "organs/rag/",
-            "maturity": "quarantined",
-            "evidence": [
-                "MANIFEST.yaml"
-            ],
-            "next_action": "migrate or delete historical retrieval state artifacts before declaring active retrieval behavior"
-        },
-        {
-            "path": "organs/reflection/",
-            "maturity": "canonical",
-            "evidence": [
-                "MANIFEST.yaml",
-                "src/core",
-                "src/adapters",
-                "src/entrypoints"
-            ],
-            "next_action": "extend only through the manifest-backed organ boundary"
-        },
-        {
-            "path": "organs/slack/",
-            "maturity": "transitional",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "move Slack into a transport adapter behind transport-independent coordination semantics"
-        },
-        {
-            "path": "organs/state/",
-            "maturity": "quarantined",
-            "evidence": [
-                "organ_boundary_exceptions"
-            ],
-            "next_action": "migrate global state into Kernel memory, .cynic cache, or organ-local state"
-        },
-        {
-            "path": "organs/superteam/",
-            "maturity": "canonical",
-            "evidence": [
-                "MANIFEST.yaml",
-                "src/core",
-                "src/adapters",
-                "src/entrypoints"
-            ],
-            "next_action": "extend only through the manifest-backed organ boundary"
-        },
-        {
-            "path": "organs/supervisor/",
-            "maturity": "canonical_partial",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "migrate supervisor validation logic under src with controller wrappers only"
-        },
-        {
-            "path": "organs/telegram/",
-            "maturity": "transitional",
-            "evidence": [
-                "MANIFEST.yaml",
-                "organ_shape_exceptions"
-            ],
-            "next_action": "move Telegram into a transport adapter behind transport-independent coordination semantics"
-        },
-        {
-            "path": "organs/telemetry/",
-            "maturity": "canonical",
-            "evidence": [
-                "MANIFEST.yaml",
-                "src/core",
-                "src/adapters",
-                "src/entrypoints"
-            ],
-            "next_action": "route runtime callers to src/entrypoints/cli.py and keep root main.py as compatibility only"
-        },
-        {
-            "path": "organs/twitter/",
-            "maturity": "canonical",
-            "evidence": [
-                "MANIFEST.yaml",
-                "src/core",
-                "src/adapters",
-                "src/entrypoints"
-            ],
-            "next_action": "extend only through the manifest-backed organ boundary"
-        },
-        {
-            "path": "organs/wireguard/",
-            "maturity": "canonical",
-            "evidence": [
-                "MANIFEST.yaml",
-                "src/core",
-                "src/adapters",
-                "src/entrypoints"
-            ],
-            "next_action": "extend only through the manifest-backed organ boundary"
-        }
-    ],
-    "totals": {
-        "organs": 26,
-        "by_maturity": {
-            "canonical": 10,
-            "canonical_partial": 3,
-            "transitional": 10,
-            "quarantined": 2,
-            "legacy_blocked": 1
-        }
+    "embryonic": {
+      "owner": "organ-supervisor",
+      "rule": "The organ is a declared seed that may lack complete runtime, adapter, or deployment evidence.",
+      "promotes_to": "canonical_partial",
+      "exit_condition": "promote to canonical_partial once it has manifest-backed ownership and enough source shape to validate, or remove the organ directory"
+    },
+    "legacy_blocked": {
+      "owner": "organ-supervisor",
+      "rule": "The organ path is known legacy structure that must not receive new behavior until migrated or deleted.",
+      "promotes_to": "canonical_partial",
+      "exit_condition": "remove the legacy path or migrate its durable behavior into a bounded canonical organ"
+    },
+    "quarantined": {
+      "owner": "organ-supervisor",
+      "rule": "The organ path contains state, historical, or unsafe structure that must not be treated as active organ behavior.",
+      "promotes_to": "burn_candidate",
+      "exit_condition": "delete, migrate to explicit runtime state, or reclassify after a manifest-backed bounded organ exists"
+    },
+    "transitional": {
+      "owner": "organ-supervisor",
+      "rule": "The organ is active or historically meaningful but violates the target bounded core/adapter/entrypoint shape.",
+      "promotes_to": "canonical_partial",
+      "exit_condition": "promote to canonical_partial or canonical after the declared next_action and shape exception expiry condition are satisfied"
     }
+  },
+  "organs": [
+    {
+      "path": "organs/browser/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/contracts/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "promote to canonical after agent framework capability registry files are tracked through git membrane closure wave 10"
+    },
+    {
+      "path": "organs/discord/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/domain/",
+      "maturity": "embryonic",
+      "evidence": [
+        "MANIFEST.yaml",
+        "desired/domains.json",
+        "desired/redirects.json",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "untracked organ body files"
+      ],
+      "next_action": "promote to canonical_partial after zone migration (Phase 1) is verified end-to-end for talaria.build"
+    },
+    {
+      "path": "organs/exposure/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/fleet/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/forge/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "lifecycle-critical membrane still open",
+        "untracked organ body files"
+      ],
+      "next_action": "close lifecycle-critical membrane through registry lifecycle gate before declaring canonical"
+    },
+    {
+      "path": "organs/framework-map/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "untracked organ body files"
+      ],
+      "next_action": "promote to canonical after framework-map source is tracked through git membrane closure wave 11 and first Hermes checkout scan is observed"
+    },
+    {
+      "path": "organs/freebox/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "router mutation requires explicit port-forward intent and approval gate",
+        "legacy organism_freebox.py compatibility wrapper retired",
+        "router mutation requires registry intent id and Synapse target evidence",
+        "untracked organ body files"
+      ],
+      "next_action": "promote to canonical after infra/registry.json declares first-class edge exposure intents consumed by organ-freebox"
+    },
+    {
+      "path": "organs/gasdf/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "external GASdf checkout projection replaced by organ-owned non-signing runtime membrane",
+        "untracked organ body files"
+      ],
+      "next_action": "implement audited signer adapter only after registry lifecycle approval, human approval and kernel read-back evidence"
+    },
+    {
+      "path": "organs/headscale/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/identity/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "untracked organ body files"
+      ],
+      "next_action": "promote to canonical after credential attestation tools are wired into agent exposure and smoke-check is validated against live providers"
+    },
+    {
+      "path": "organs/jarvis/",
+      "maturity": "embryonic",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints"
+      ],
+      "next_action": "promote to canonical_partial after removing supervisor hardcoded cli and wiring jarvis to mempool"
+    },
+    {
+      "path": "organs/jupyter/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/kanban-ui/",
+      "maturity": "canonical",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "untracked organ body files"
+      ],
+      "next_action": "extend only through the manifest-backed organ boundary"
+    },
+    {
+      "path": "organs/keep/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/adapters",
+        "src/core",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/lifecycle/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "systemd",
+        "untracked organ body files",
+        "git membrane closed through staged source",
+        "legacy controllers/lifecycle_controller.py wrapper retired"
+      ],
+      "next_action": "prove the timer-backed convergence loop is stable and promote to canonical"
+    },
+    {
+      "path": "organs/oracle/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "observation payload and JSONL read-back verifier",
+        "untracked organ body files"
+      ],
+      "next_action": "replace mock Solana anchor with audited adapter and prove Kernel /observe read-back before declaring canonical"
+    },
+    {
+      "path": "organs/percolator/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/prompt-enricher/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "legacy src/src compatibility wrapper retired",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/prospect/",
+      "maturity": "embryonic",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "untracked organ body files"
+      ],
+      "next_action": "promote to canonical_partial after first prospect batch is generated, reviewed by a cortex session, and routed through Hermes-Agent enrichment"
+    },
+    {
+      "path": "organs/radar/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/rag/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "non-mutating status command proves no local retrieval state artifacts",
+        "active in-repo retrieval behavior explicitly retired",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/reflection/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/slack/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/superteam/",
+      "maturity": "canonical",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints"
+      ],
+      "next_action": "extend only through the manifest-backed organ boundary"
+    },
+    {
+      "path": "organs/supervisor/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "god-object split below topology limit",
+        "untracked organ body files"
+      ],
+      "next_action": "continue reducing controller wrappers and keep topology/gate reports green"
+    },
+    {
+      "path": "organs/telegram/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/telemetry/",
+      "maturity": "canonical",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints"
+      ],
+      "next_action": "route runtime callers to src/entrypoints/cli.py and keep root main.py as compatibility only"
+    },
+    {
+      "path": "organs/twitter/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    },
+    {
+      "path": "organs/wireguard/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "git membrane closed through staged source",
+        "untracked organ body files"
+      ],
+      "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
+    }
+  ],
+  "totals": {
+    "organs": 31,
+    "by_maturity": {
+      "canonical": 3,
+      "canonical_partial": 25,
+      "embryonic": 3
+    }
+  }
 }

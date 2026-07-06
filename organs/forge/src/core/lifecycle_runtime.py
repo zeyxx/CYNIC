@@ -7,22 +7,41 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+from organs.contracts.src.surface_contracts import read_json_file_or_default
+from .project_root import resolve_project_root_from_script
+
 
 def _default_registry_path() -> Path:
-    return Path(__file__).resolve().parents[4] / "infra" / "registry.json"
+    return resolve_project_root_from_script(__file__) / "infra" / "registry.json"
 
 
 def _load_registry(path: str | Path | None = None) -> dict:
     target_path = Path(path) if path else _default_registry_path()
-    return json.loads(target_path.read_text())
+    return read_json_file_or_default(target_path, {})
 
 
 def _expand_systemd_user_path(value: str, home: str) -> str:
+    project_slug = os.environ.get("CYNIC_PROJECT_SLUG", "CYNIC")
+    value = value.replace("${CYNIC_PROJECT_SLUG}", project_slug)
     if value.startswith("%h/"):
         return os.path.join(home, value[3:])
     if value == "%h":
         return home
     return value
+
+
+def _git_worktree_probe(expanded: str) -> dict:
+    git_dir = Path(expanded) / ".git"
+    required_paths = {
+        "git_dir": git_dir,
+        "git_head": git_dir / "HEAD",
+        "git_config": git_dir / "config",
+        "git_objects": git_dir / "objects",
+    }
+    return {
+        name: path.exists()
+        for name, path in required_paths.items()
+    }
 
 
 def build_lifecycle_runtime_paths(registry: dict | None = None) -> dict:
@@ -74,6 +93,7 @@ def verify_lifecycle_runtime_paths(
         sentinels = proof.get("sentinels", [])
         marker_path = os.path.join(expanded, marker) if marker else ""
         marker_ok = bool(marker_path) and os.path.exists(marker_path)
+        git_probe = _git_worktree_probe(expanded) if proof.get("kind") == "git_worktree" else {}
         sentinel_checks = [
             {
                 "path": sentinel,
@@ -92,10 +112,13 @@ def verify_lifecycle_runtime_paths(
                 "proof_kind": proof.get("kind"),
                 "marker": marker,
                 "marker_exists": marker_ok,
+                "git_probe": git_probe,
                 "sentinels": sentinel_checks,
                 "ok": (
                     proof.get("kind") == "git_worktree"
                     and marker_ok
+                    and bool(git_probe)
+                    and all(git_probe.values())
                     and bool(sentinel_checks)
                     and all(item["exists"] for item in sentinel_checks)
                 ),
@@ -118,6 +141,7 @@ def verify_lifecycle_runtime_paths(
             "expanded": check["expanded"],
             "proof_kind": check["proof_kind"],
             "marker_exists": check["marker_exists"],
+            "git_probe": check["git_probe"],
             "sentinels_verified": all(item["exists"] for item in check["sentinels"]),
         }
         for check in checks
@@ -134,4 +158,3 @@ def verify_lifecycle_runtime_paths(
             },
         },
     }
-

@@ -7,9 +7,9 @@ StartLimitBurst=3
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
-ExecStart=%h/.cynic-venvs/hermes-x/bin/mitmdump \
-    -s %h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/discord/src/passive_proxy.py \
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+ExecStart=@CYNIC_PROJECT_ROOTpython3 @/organs/discord/src/entrypoints/mitmdump_launcher.py \
+    -s @CYNIC_PROJECT_ROOT@/organs/discord/src/passive_proxy.py \
     --listen-host 127.0.0.1 -p 8890 \
     --set stream_large_bodies=2m \
     --set ssl_insecure=true \
@@ -18,7 +18,7 @@ ExecStart=%h/.cynic-venvs/hermes-x/bin/mitmdump \
 Restart=on-failure
 RestartSec=30
 Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONPATH=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+Environment=PYTHONPATH=@CYNIC_PROJECT_ROOT@
 EnvironmentFile=-%h/.config/cynic/env
 EnvironmentFile=-%h/.cynic/organs/discord/env
 MemoryMax=512M

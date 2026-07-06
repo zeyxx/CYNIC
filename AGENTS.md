@@ -15,13 +15,45 @@ Three cortex agents, persistent organic agents, one kernel, one repo. The kernel
 
 The CYNIC kernel runs on `${CYNIC_REST_ADDR}` (Tailscale). Agents access it through MCP or direct REST. Claude/Antigravity/Codex may use MCP when available; Hermes Agent uses REST from its executor because it is a persistent systemd service, not an interactive cortex.
 
+## Autonomy Boundary
+
+Not every agent-shaped runtime has the same authority. The machine contract is
+`axioms/agent-autonomy-boundary-v1.json`.
+
+| Class | Examples | Supervision | May rewrite DNA directly? | Promotion path |
+|-------|----------|-------------|---------------------------|----------------|
+| `interactive_cortex` | Codex/Claude/Antigravity with the human in the loop | Human present | Yes, after coord claims | Commit/proposal/lifecycle dispatch |
+| `supervised_cortex_delegate` | A bounded subtask spawned from a cortex session | Parent cortex session | Yes, only inside declared targets | Return result to parent or proposal queue |
+| `autonomous_organ_agent` | Hermes Agent executor, future MCP freshness controller | Executor + policy boundary | No direct DNA rewrite from inference | Proposal, task, patch artifact, observation |
+| `service_actuator` | build runner, deploy actuator, mesh/storage adapter | Registry desired state | No | Proof observation/result |
+
+Example: Codex CLI in this session is an `interactive_cortex` because the
+operator is steering and can approve DNA changes. Hermes Agent updating MCP
+after a new REST API appears is an `autonomous_organ_agent`: it may detect the
+freshness gap and dispatch `mcp-reload`, but repo-affecting work still needs
+declared targets, executor claims, proof, and the appropriate operator/runtime
+gate.
+
 ## Document Hierarchy
 
 Use this order when two files appear to disagree:
 
-1. `AGENTS.md`
+1. `docs/foundation/CYNIC_META_LAYER_CONTRACTS.md`
+   Meta-layer contract. This file decides where the major classes of rules
+   live, how command surfaces are split, and whether a command is a policy,
+   contract, runtime or wrapper concern.
+2. `docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md`
+   Cross-cutting organism policy by dimension, scale and enforcement layer.
+   This file decides whether a rule belongs to the semantic contract, kernel,
+   MCP surface, runtime adapter, deployment, observability or fallback layer.
+3. `docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md`
+   Filesystem topology policy. This file decides where policy, contracts,
+   registry desired state, organs, adapters, projections, wrappers and runtime
+   state may live. Its machine contract is
+   `axioms/repo-topology-v1.json`.
+4. `AGENTS.md`
    Shared repo-wide protocol. This file is the stable source of truth for session lifecycle, claims, handoff semantics, and security rules.
-2. Agent adapters
+5. Agent adapters
    - `CLAUDE.md`
    - `ANTIGRAVITY.md`
    - `CODEX.md`
@@ -29,7 +61,19 @@ Use this order when two files appear to disagree:
    - `docs/organs/HERMES_AGENT.md`
    These explain how each runtime executes the shared protocol.
 
-Rule: Protocol beats journal, and dynamic Kernel state beats static files.
+Rule: policy decides the layer, protocol decides the agent behavior, dynamic
+Kernel state beats stale static claims.
+
+Topology enforcement is executable. `make lint-repo-topology-contract` validates
+`axioms/repo-topology-v1.json`, declared topology authorities, portable
+MCP path hygiene, organ manifest boundaries, and Python organ
+core/adapter/entrypoint shape exceptions. Do not add a new organ directory or
+partial Python organ shape without updating that contract.
+
+Exposure enforcement is executable. `make lint-agent-exposure-contract`
+validates that tools exposed by `infra/agent-exposure.json` exist in
+`crates/cynic-mcp/src/proxy.rs`, and that implemented `mcp_tool` entries in
+`axioms/*.json` are exposed through the `cynic-coord` server.
 
 ### MCP Coordination Tools
 
@@ -37,26 +81,112 @@ All interactive agents coordinate through MCP first. The REST paths named in
 this document describe the Kernel backing API and the degraded fallback path
 only. If an MCP tool is visible in-session, use it instead of direct REST.
 
+### Universal Agent Exposure SSOT
+
+`infra/agent-exposure.json` is the machine source of truth for organism
+capabilities exposed to cortex agents through MCP. Agent-local configuration
+files such as `.codex/config.toml`, `.claude/settings.json`, and Antigravity
+settings are projections of this file, not independent sources of truth.
+
+When adding or removing an exposed MCP server or tool:
+
+1. Update `infra/agent-exposure.json`.
+2. Render the target agent config with `organ-exposure`.
+3. Apply the rendered projection from an environment allowed to write that
+   agent's config file.
+
+Do not maintain per-agent MCP tool lists by hand when the capability is
+organism-wide. Per-agent files may still carry adapter-specific runtime settings,
+but the exposed server/tool inventory belongs to `infra/agent-exposure.json`.
+
+Codex projection example:
+
+```bash
+python3 organs/exposure/src/entrypoints/cli.py render --agent codex
+```
+
 All agents have these tools via MCP:
 
+<!-- BEGIN_MCP_TOOLS -->
 | Tool | What | When |
 |------|------|------|
-| `cynic_coord_register` | Register yourself with the kernel | Session start |
-| `cynic_coord_claim` | Claim a file before editing | Before every file write |
-| `cynic_coord_who` | See active agents and claims (`GET /coord/who`) | Before starting work |
-| `cynic_coord_release` | Release your claims | Session end or done with file |
-| `cynic_observe` | Record a discovery/decision/blocker | When something material happens |
-| `cynic_dispatch_agent_task` | Create a new task in the Kernel mempool | When delegating work to organs (`kind="hermes"`) or logging structural work (`kind="cortex"`) |
-| `cynic_list_pending_agent_tasks` | Read pending tasks from the Kernel mempool | At session start, querying `kind="cortex"` to see if human has pending structural tasks |
-| `cynic_claim_agent_task` | Atomically claim a task for execution | After reading pending tasks and deciding to execute one |
-| `cynic_update_agent_task_result` | Mark a task as completed or failed | After finishing a claimed task |
-| `cynic_health` | Check kernel health | When in doubt |
+| `browser_back` | Tool from cynic-browser | As needed |
+| `browser_cdp` | Tool from cynic-browser | As needed |
+| `browser_click` | Tool from cynic-browser | As needed |
+| `browser_console` | Tool from cynic-browser | As needed |
+| `browser_dialog` | Tool from cynic-browser | As needed |
+| `browser_get_images` | Tool from cynic-browser | As needed |
+| `browser_navigate` | Tool from cynic-browser | As needed |
+| `browser_policy` | Tool from cynic-browser | As needed |
+| `browser_render_public_url` | Tool from cynic-browser | As needed |
+| `browser_scroll` | Tool from cynic-browser | As needed |
+| `browser_snapshot` | Tool from cynic-browser | As needed |
+| `browser_status` | Tool from cynic-browser | As needed |
+| `browser_tabs` | Tool from cynic-browser | As needed |
+| `browser_task_state` | Tool from cynic-browser | As needed |
+| `browser_type` | Tool from cynic-browser | As needed |
+| `browser_vision` | Tool from cynic-browser | As needed |
+| `coordination_artifact_share` | Tool from cynic-coord | As needed |
+| `coordination_contract_manifest` | Tool from cynic-coord | As needed |
+| `coordination_decision_record` | Tool from cynic-coord | As needed |
+| `coordination_status_publish` | Tool from cynic-coord | As needed |
+| `coordination_status_read` | Tool from cynic-coord | As needed |
+| `coordination_thread_reply` | Tool from cynic-coord | As needed |
+| `cynic_api_contracts` | Tool from cynic-coord | As needed |
+| `cynic_attention` | Tool from cynic-coord | As needed |
+| `cynic_audit_query` | Tool from cynic-coord | As needed |
+| `cynic_claim_agent_task` | Tool from cynic-coord | As needed |
+| `cynic_coord_claim` | Tool from cynic-coord | As needed |
+| `cynic_coord_claim_batch` | Tool from cynic-coord | As needed |
+| `cynic_coord_register` | Tool from cynic-coord | As needed |
+| `cynic_coord_release` | Tool from cynic-coord | As needed |
+| `cynic_coord_who` | Tool from cynic-coord | As needed |
+| `cynic_dispatch_agent_task` | Tool from cynic-coord | As needed |
+| `cynic_health` | Tool from cynic-coord | As needed |
+| `cynic_lifecycle_dispatch` | Tool from cynic-coord | As needed |
+| `cynic_lifecycle_payloads` | Tool from cynic-coord | As needed |
+| `cynic_lifecycle_status` | Tool from cynic-coord | As needed |
+| `cynic_list_completed_agent_tasks` | Tool from cynic-coord | As needed |
+| `cynic_list_pending_agent_tasks` | Tool from cynic-coord | As needed |
+| `cynic_mcp_surface` | Tool from cynic-coord | As needed |
+| `cynic_metabolism` | Tool from cynic-coord | As needed |
+| `cynic_observe` | Tool from cynic-coord | As needed |
+| `cynic_update_agent_task_result` | Tool from cynic-coord | As needed |
+| `fleet_node_exec` | Tool from cynic-coord | As needed |
+| `fleet_node_status` | Tool from cynic-coord | As needed |
+| `identity_attest` | Tool from cynic-coord | As needed |
+| `identity_smoke_check` | Tool from cynic-coord | As needed |
+| `infra_registry_read` | Tool from cynic-coord | As needed |
+| `infra_registry_validate` | Tool from cynic-coord | As needed |
+| `lxc_exec_bridge_bundle` | Tool from cynic-coord | As needed |
+| `lxc_exec_bridge_plan` | Tool from cynic-coord | As needed |
+| `lxc_exec_bridge_status` | Tool from cynic-coord | As needed |
+| `network_ipam_check` | Tool from cynic-coord | As needed |
+| `network_mesh_dns_activation_bundle` | Tool from cynic-coord | As needed |
+| `network_mesh_dns_activation_plan` | Tool from cynic-coord | As needed |
+| `network_mesh_dns_activation_status` | Tool from cynic-coord | As needed |
+| `network_mesh_dns_render` | Tool from cynic-coord | As needed |
+| `network_mesh_status` | Tool from cynic-coord | As needed |
+| `service_health` | Tool from cynic-coord | As needed |
+| `service_status` | Tool from cynic-coord | As needed |
+| `storage_primary_bundle` | Tool from cynic-coord | As needed |
+| `storage_primary_plan` | Tool from cynic-coord | As needed |
+| `storage_primary_readiness` | Tool from cynic-coord | As needed |
+| `storage_primary_status` | Tool from cynic-coord | As needed |
+<!-- END_MCP_TOOLS -->
+
+Raw provider tools such as `cynic_proxmox_list`, `cynic_proxmox_action`,
+and `cynic_proxmox_exec` are adapter-level fallback tools and are not part of
+the default MCP build. Use the canonical infra tools above for
+registry/IPAM/mesh/fleet preflight whenever they are available.
 ### Coordination Protocol
 
 1. **JSON is King:** All machine-readable reports, discoveries, and signal extractions MUST be in JSON/JSONL.
 2. **SESSION START**
    → cynic_coord_register(agent_id, intent, agent_type)
    → cynic_coord_who()             — see who else is working
+   → cynic_attention()             — see organism pressure before choosing work
+   → cynic_list_pending_agent_tasks(kind="cortex", limit=10)
 
 3. **BEFORE EDITING A FILE**
    → cynic_coord_claim(agent_id, target)
@@ -189,7 +319,7 @@ Compliance gate: the supply-chain mempool path is canonical only when `make e2e`
 2. `GET /agent-tasks?kind=hermes&domain=<domain>` sees it pending.
 3. `POST /agent-tasks/{id}/claim` atomically claims it.
 4. `POST /agent-tasks/{id}/result` completes it.
-5. `GET /agent-tasks/completed?kind=hermes&domain=<domain>` sees it completed.
+5. `GET /agent-tasks/completed?kind=hermes&domain=<domain>` sees the exact same task id completed.
 
 Until that e2e is green on the active kernel, agents may patch and locally verify code, but must not call local shell builds/deploys the canonical supply chain.
 
@@ -229,9 +359,13 @@ git push
 git push
 # → Level 0 (<2s) + Level 1 skip = ~2s
 
-# Deploy → canonical path is registry/MCP
-make gate-2-request    # queue lifecycle request profile "gate-2" through organ-forge
-make deploy-request    # queue lifecycle request profile "deploy" through organ-forge
+# Deploy → native operator path is registry/MCP through cynic
+cynic gate-2 --dry-run   # inspect registry-derived profile "gate-2"
+cynic gate-2             # queue lifecycle request profile "gate-2" through organ-forge
+cynic mcp-reload --dry-run
+cynic mcp-reload         # queue lifecycle request profile "mcp-reload" through organ-forge
+cynic deploy --dry-run
+cynic deploy             # queue lifecycle request profile "deploy" through organ-forge
 ```
 
 ### Makefile Targets
@@ -241,13 +375,15 @@ make gate-0    # Level 0 only
 make gate-1    # Level 1 only (clippy)
 make lifecycle-check  # Resolve registry lifecycle target; redacts endpoint; rejects local bus
 make lifecycle-diagnose  # Print redacted lifecycle state even when targets are planned/offline
-make lifecycle-blockers  # Operator wrapper around concise lifecycle blockers
+cynic activate --dry-run  # Native operator activation blockers and action summary
+make lifecycle-activation-dispatch  # Dispatch organ-generated activation requests to the kernel mempool
 make lifecycle-profile-payloads p=deploy  # Dry-run profile payloads; validates before dispatch
-make gate-2-request  # Canonical Level 2 request profile; does not write .gate-2 locally
+cynic gate-2  # Canonical operator Level 2 request profile; does not write .gate-2 locally
+cynic mcp-reload  # Canonical operator MCP rebuild/reload request profile; no cortex-local build
 make gate-2    # Refuses cortex-local marker writes
 make check     # Local cortex validation: gate-0 + gate-1
 make gate      # Local cortex validation + local marker
-make deploy-request  # Canonical deploy request: MCP/mempool → lifecycle orchestrator → registry build runner → registry kernel primary
+cynic deploy  # Canonical operator deploy request: MCP/mempool → lifecycle orchestrator → registry build runner → registry kernel primary
 make deploy    # Legacy local deploy; requires CYNIC_ALLOW_LOCAL_DEPLOY=1
 ```
 
@@ -257,21 +393,28 @@ and probes the registry-declared kernel health endpoint before any release task 
 queued. Use `lifecycle-diagnose` for non-mutating inspection while targets are
 still `planned`.
 Use `python3 organs/forge/src/entrypoints/cli.py lifecycle-blockers` when a
-machine client only needs readiness and blockers rather than the full diagnostic
-contract. `make lifecycle-blockers` is the operator wrapper and may return Make's
-wrapper exit code when the lifecycle is blocked.
+machine client only needs readiness, blockers, and the dry-run
+`activation_request_summary` for the next dispatchable organ actions rather than
+the full diagnostic contract. Machine clients must check
+`activation_schema_version == "activation.v1"` before consuming activation
+summaries or dispatch traces. This command is non-mutating; dispatch remains
+`cynic activate` through organ-forge/mempool. `make lifecycle-blockers` is a
+legacy fallback wrapper and may return Make's wrapper exit code when the
+lifecycle is blocked.
 
-`gate-2-request` and `deploy-request` must resolve their intent lists from
+`cynic gate-2`, `cynic mcp-reload`, and `cynic deploy` must resolve their intent lists from
 `lifecycle.kernel_release.request_profiles`. Cortex clients must not decide
 release-validation contents from local service state such as a local SurrealDB
 probe.
-Machine clients that need parseable output should call
-`python3 organs/forge/src/entrypoints/cli.py delegate-profile <profile> --json`
-directly. The Makefile request targets are human-facing wrappers and may include
-Make banners or non-JSON status lines.
-Use `python3 organs/forge/src/entrypoints/cli.py lifecycle-profile-payloads
-<profile> <domain> <agent_id>` to build and validate every payload in a request
-profile without dispatching it.
+Cortex clients that need parseable dry-run output must use
+`cynic_lifecycle_payloads(profile=<profile>)` when MCP is visible. It is
+explicitly non-mutating and returns registry-derived payloads with
+`mutates_mempool=false`. Cortex clients that intend to request validation or
+deploy must use `cynic_lifecycle_dispatch(profile=<profile>)`; success requires
+the dispatched task ids to be visible in pending or completed mempool reads.
+The Python `lifecycle-profile-payloads` and `delegate-profile` commands are
+fallback transports for MCP-unavailable environments and operator wrappers, not
+the preferred cortex protocol.
 
 Do not change lifecycle nodes from `planned` to `active` unless
 `lifecycle-diagnose` shows no `activation_evidence_gaps` for those nodes. At
@@ -316,12 +459,23 @@ source ~/.cynic-env && codex
 The `cynic-coord` MCP server is configured in `.codex/config.toml`:
 ```toml
 [mcp_servers.cynic-coord]
-command = "./.cortex/mcp/run-cynic-mcp.sh"
+command = "python3"
+args = ["./.cortex/mcp/run_cynic_mcp.py"]
 ```
 
-The wrapper sources `~/.cynic-env` and exports assignments before launching
-`$HOME/bin/cynic-kernel-mcp`. Do not put real `CYNIC_REST_ADDR` or
-`CYNIC_API_KEY` values in repo config.
+The wrapper sources `~/.cynic-env`, resolves the project root from
+`CYNIC_PROJECT_ROOT`, the wrapper path, or git, exports `CYNIC_PROJECT_ROOT`,
+then resolves the MCP binary from `CYNIC_MCP_BINARY`, repo-local
+`target/release/cynic-mcp`, `PATH` (`cynic-mcp`), then
+`CYNIC_MCP_FALLBACK_BIN`/`$HOME/bin/cynic-kernel-mcp`. It refuses to start when
+`crates/cynic-mcp` sources are newer than the selected binary. This is
+intentional: a stale MCP binary can expose old tool contracts while the repo says
+something else. Do not put real `CYNIC_REST_ADDR` or `CYNIC_API_KEY` values in
+repo config. Use `make mcp-freshness` for a non-mutating diagnostic that checks
+which binary would be selected and whether it is stale. If it fails, request
+`cynic mcp-reload` through the registry build runner. Use `make
+mcp-reload-request` only as a legacy fallback when the `cynic` CLI is not
+available. Cortex machines do not build or refresh MCP binaries locally.
 
 ### Sandbox
 
@@ -383,7 +537,7 @@ The pre-commit hook and `make gate-0` enforce the volatile-state block.
 | **Agent (organic)** | Autonomous framework (e.g., Hermes Agent, organism observer) | Persistent | Owns SOUL.md + SKILL.md, self-improving loop; repo writes are mediated by an adapter | Named in infrastructure registry (e.g., `hermes-x-organ`, `organ-forge-hermes-agent`) |
 | **Dog** | In-kernel validator | Persistent | Stateless inference; state via crystals | Named in `backends.toml` Dogs array (e.g., `qwen-7b-hf`, `antigravity-cli`) |
 | **Organ** | Infrastructure subsystem (sensorial + reactive) | Persistent | Stateful (logs, datasets, cache) | Hierarchical: `organ-{role}` (family) → `organ-{role}-hermes-agent` (instance) → `organ-{role}-{tool}` (daemon) |
-| **Infra** | Scripts, MCP servers, hooks | Persistent | Tooling | Namespaced: `cynic-skills:*`, `mcp-coord/*`, `scripts/*` |
+| **Infra** | MCP servers, hooks, projections | Persistent | Tooling | Namespaced: `cynic-skills:*`, `mcp-coord/*`, `infra/*` |
 
 ### The Biological Paradigm: Cell, Organism, Superorganism
 
@@ -435,7 +589,8 @@ When an existing component is discovered to be in an obsolete paradigm (e.g., pr
 
 **Step 3: Hexagonal Refactoring (The Metabolism)**
 - Rewrite the procedural logic into OOP/Hexagonal architecture.
-- **Ports & Adapters:** Separate the core logic from external I/O (Twitter API, File System, Kernel REST).
+- **Strict S.O.L.I.D Enforcement (Anti God-Object):** Never create monolithic adapters (e.g., a single `proxmox_adapter.py` doing Auth, LXC, and VMs). Sub-domains must be fragmented into packages (`src/adapters/<domain>/`) following the Single Responsibility Principle.
+- **Ports & Adapters:** Separate the core logic from external I/O (Twitter API, File System, Kernel REST). Adapters must have a Facade if they orchestrate multiple internal managers.
 - Implement a clear entrypoint (`cli.py` or `__main__.py`) and bind it to a `hermes-agent` daemon if it requires autonomous execution.
 
 **Step 4: Systemd & Deployment Alignment (The Incarnation)**
@@ -552,6 +707,59 @@ Every Python organ MUST be structured using Hexagonal Architecture and strict Ob
 
 To eliminate information asymmetry and ensure sovereign mathematical scaling, all infrastructure must be mapped into `infra/registry.json` following these rigid deterministic rules:
 
+### 0. Fleet Truth, Runtime Proof, And Energy
+
+`infra/registry.json` declares desired and declared reality. It is not, by
+itself, proof that a node or organ is alive. `organ-fleet` is the canonical
+aggregator for observed fleet truth and must compare registry declarations
+against provider evidence from Proxmox, Headscale, Synapse/WireGuard, systemd,
+and kernel health.
+
+Status semantics are strict:
+
+- `active` means declared active **and** backed by recent runtime provider
+  evidence.
+- `declared` means known to the registry but not yet proven live.
+- `planned` means desired but not expected to be live.
+- `planned_obsolescence` means retained only for migration or deletion.
+- `archived` means retained in Git history only and not runtime-routable.
+
+If a node is declared `active` but `organ-fleet` cannot match recent provider
+evidence, its effective status is `stale` until proven otherwise. A source-level
+tool or organ change is not a live capability until the active runtime proves it.
+
+Mesh layers are complementary, not competing names:
+
+- `organ-headscale` owns mesh access control: Headscale/Tailscale-compatible
+  reachability for operators and agents.
+- `organ-wireguard` owns the deterministic Synapse service mesh:
+  native WireGuard routing, service IPs, and `*.synapse.cynic` naming.
+
+Network allocation is registry-governed. `infra/registry.json:network_policy`
+is the source of truth for service-plane CIDRs, DNS zones, and Synapse IP
+reservations. Agents and organs must consume `*.synapse.cynic` names for
+organism services. LAN, Proxmox guest, DHCP, and provider-local addresses are
+runtime evidence or bootstrap details only; they are not stable service
+contracts.
+
+No agent may invent an IP address from observed infrastructure state. Before a
+node, LXC, VM, service, or organ is provisioned as runtime-routable, it must
+have a registry reservation for its canonical service-plane address. If the
+reservation is missing, the correct action is to update the registry/network
+policy and let `organ-wireguard`/`organ-fleet` validate it, not to choose a free
+address manually.
+
+Every `organs/*` directory that is an organ must have an explicit registry
+state: `active`, `planned`, `absorbed`, or `archived`. Support directories are
+not organs and must be ignored explicitly by `organ-fleet`.
+
+Energy is a first-class fleet dimension. Lifecycle/build/inference decisions
+must consider physical, thermal, network, economic, cognitive, temporal, and
+attention energy. A powered-off machine is not automatically a failure: it can
+be an intentional energy state when its `energy_profile` declares manual,
+burst, or sleep-capable behavior. Without an `energy_profile`, intentional
+sleep cannot be distinguished from failure.
+
 ### 1. OS Selection: The Sovereign Base
 The Anti-Dogma rule applies to Operating Systems. We select the OS based on the mathematical reality of the physical layer:
 - **Debian 12 (Bookworm)** is the **default and baseline** Operating System for all generic Organs, the Kernel Primary, and Network control planes. It guarantees upstream purity and long-term sovereignty.
@@ -579,4 +787,6 @@ Deciding between Bare-Metal, VM, LXC, and Docker is a mathematical choice based 
 - **Never commit secrets.** API keys, tokens, real IPs → `~/.cynic-env` only.
 - **Use placeholders:** `<HEADSCALE_CORE>`, `<HEADSCALE_GPU>`, `<HEADSCALE_KAIROS>`.
 - **All API calls require Bearer auth** — `Authorization: Bearer $CYNIC_API_KEY`.
-- **The kernel is Tailscale-only.** No public tunnel. No ngrok. No Cloudflare.
+- **The kernel is mesh-only.** Use the sovereign Headscale/Tailscale-compatible
+  access mesh and/or Synapse service mesh. No public tunnel. No ngrok. No
+  Cloudflare.

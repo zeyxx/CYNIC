@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from organs.contracts.src.surface_contracts import json_loads_or_default
+
 import requests
 
 from .config import load_config
@@ -135,11 +137,8 @@ def extract_block_gemini(text: str, timeout: int = 300) -> tuple[str, int, int]:
         lines = [l for l in lines if not l.startswith("```")]
         raw = "\n".join(lines).strip()
 
-    try:
-        signals = json.loads(raw)
-        if not isinstance(signals, list):
-            signals = []
-    except json.JSONDecodeError:
+    signals = json_loads_or_default(raw, [])
+    if not isinstance(signals, list):
         signals = []
         raw = "[]"
 
@@ -172,11 +171,8 @@ def extract_block_llama(text: str, auth_key: str, timeout: int = 90) -> tuple[st
     content = data["choices"][0]["message"]["content"]
     tokens = data.get("usage", {}).get("total_tokens", 0)
 
-    try:
-        signals = json.loads(content)
-        if not isinstance(signals, list):
-            signals = []
-    except json.JSONDecodeError:
+    signals = json_loads_or_default(content, [])
+    if not isinstance(signals, list):
         signals = []
 
     return content, len(signals), tokens

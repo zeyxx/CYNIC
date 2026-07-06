@@ -7,5 +7,6 @@ rustflags = ["-C", "debuginfo=1"]
 
 [env]
 # A1 debt: rmcp/serde monomorphization can overflow rustc stack in kernel test builds.
-# Keep the repo default here so plain `cargo build` works without shell setup.
-RUST_MIN_STACK = "17179869184"
+# Keep this bounded for heterogeneous build runners; 16GiB stack reservations make
+# rustc fail to spawn its control-C handler on smaller VMs.
+RUST_MIN_STACK = "33554432"

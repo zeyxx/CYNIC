@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
+from organs.contracts.src.surface_contracts import read_yaml_file_with_loader
+from organs.contracts.src.adapters.runtime_dirs import ensure_dirs, ensure_parent_dirs
 
 logger = logging.getLogger("telegram.config")
 
@@ -40,9 +42,8 @@ class TelegramConfig:
 
 def ensure_runtime_dirs(cfg: TelegramConfig) -> None:
     """Create local runtime directories needed by Telethon, SQLite, and media."""
-    for path in (cfg.session_path, cfg.db_path):
-        Path(path).expanduser().parent.mkdir(parents=True, exist_ok=True)
-    Path(cfg.media_dir).expanduser().mkdir(parents=True, exist_ok=True)
+    ensure_parent_dirs((cfg.session_path, cfg.db_path))
+    ensure_dirs((cfg.media_dir,))
 
 
 def validate_telegram_credentials(cfg: TelegramConfig) -> None:
@@ -59,8 +60,7 @@ def load_config(yaml_path: str) -> TelegramConfig:
 
     p = Path(yaml_path)
     if p.exists():
-        with p.open() as f:
-            data = yaml.safe_load(f) or {}
+        data = read_yaml_file_with_loader(p, yaml) or {}
         for key in ("session_path", "db_path", "media_dir",
                      "buffer_window_seconds", "heartbeat_interval_seconds"):
             if key in data:

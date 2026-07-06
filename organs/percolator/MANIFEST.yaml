@@ -1,7 +1,7 @@
 id: organ-percolator
 tier: 2
 domain: security-bounty
-status: ACTIVE
+status: declared
 description: "Percolator bounty workflow organ — rules, duplicate intelligence, findings, proof gates, and submission queue"
 framework: hexagonal-organ
 
@@ -14,8 +14,12 @@ inputs:
     data: local upstream repository clones for code review
 
 outputs:
-  - path: percolator/SSOT.json
+  - path: organs/percolator/state/SSOT.json
     format: generated_json
+  - path: percolator/ops/infer-queue.jsonl
+    format: degraded_queue_jsonl
+
+planned_outputs:
   - path: percolator/workspace.json
     format: generated_json
   - path: percolator/notes/bounty-rules.json
@@ -26,8 +30,6 @@ outputs:
     format: generated_json
   - path: percolator/ops/finding-board.json
     format: work_product_json
-  - path: percolator/ops/infer-queue.jsonl
-    format: degraded_queue_jsonl
   - path: percolator/audits/_candidates
     format: work_product_directory
 
@@ -36,9 +38,9 @@ crons:
   - organ-discord-cron.timer
 
 scripts:
-  - name: reconcile_percolator.py
+  - name: controllers/reconcile_percolator.py
     description: Reconcile Percolator desired state into generated workspace views while preserving finding work products.
-  - name: build_dedupe_brief.py
+  - name: controllers/build_dedupe_brief.py
     description: Build duplicate intelligence from the Discord researcher feed.
 
 manual_gates:

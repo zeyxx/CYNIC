@@ -78,6 +78,9 @@ pub struct BackendConfig {
     /// Default: false. Set true for llama-server backends where JSON reliability matters.
     /// Not all backends support this (cloud APIs may use different mechanisms).
     pub json_mode: bool,
+    /// Does this backend support tool use / function calling.
+    /// Default: false.
+    pub supports_tool_use: bool,
     /// Prompt tier: controls how much domain context this Dog receives.
     /// Lite = generic 6-line axioms (better for small models <10B).
     /// Full = complete domain prompt with rubrics (better for capable models).
@@ -510,6 +513,7 @@ struct BackendEntry {
     temperature: Option<f32>,
     disable_thinking: Option<bool>,
     json_mode: Option<bool>,
+    supports_tool_use: Option<bool>,
     prompt_tier: Option<String>,
     cost_input_per_mtok: Option<f64>,
     cost_output_per_mtok: Option<f64>,
@@ -750,6 +754,7 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 temperature: entry.temperature.unwrap_or(0.3),
                 disable_thinking: entry.disable_thinking.unwrap_or(false),
                 json_mode: entry.json_mode.unwrap_or(false),
+                supports_tool_use: entry.supports_tool_use.unwrap_or(false),
                 prompt_tier: PromptTier::from_str_opt(entry.prompt_tier.as_deref()),
                 cost_input_per_mtok: entry.cost_input_per_mtok.unwrap_or(0.0),
                 cost_output_per_mtok: entry.cost_output_per_mtok.unwrap_or(0.0),
@@ -1034,6 +1039,7 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             temperature: 0.3,
             disable_thinking: false,
             json_mode: false,
+            supports_tool_use: false,
             prompt_tier: PromptTier::Full,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,

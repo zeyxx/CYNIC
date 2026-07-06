@@ -1,0 +1,78 @@
+-- =========================================================================
+-- CYNIC HYPERGRAPH SCHEMA - SURREALDB
+-- =========================================================================
+-- Ce schéma définit la topologie organique de la mémoire de KYON.
+-- Il garantit que les perspectives humaines restent des hypothèses (falsifiables)
+-- et sépare orthogonalement les Axiomes CYNIC (Structurels) des 19 Traditions (Heuristiques).
+
+-- -------------------------------------------------------------------------
+-- 1. NOEUDS (VERTICES)
+-- -------------------------------------------------------------------------
+
+-- L'Humain (Entité faillible)
+DEFINE TABLE user SCHEMAFULL;
+DEFINE FIELD NOUS_id ON user TYPE string;
+DEFINE FIELD baseline_pressure ON user TYPE float DEFAULT 0.618;
+
+-- Les Axiomes CYNIC (Orthogonaux & Structurels)
+-- Ex: "La vérité est une asymptote", "Organic Always Wins"
+DEFINE TABLE cynic_axiom SCHEMAFULL;
+DEFINE FIELD core_principle ON cynic_axiom TYPE string;
+DEFINE FIELD mutability ON cynic_axiom TYPE float DEFAULT 0.0; -- Proche de l'immuable (orthogonal)
+
+-- Les 19 Traditions (Heuristiques de Sagesse)
+-- Ex: Stoïcisme, Taoïsme, Bouddhisme, etc.
+DEFINE TABLE perennial_tradition SCHEMAFULL;
+DEFINE FIELD name ON perennial_tradition TYPE string;
+DEFINE FIELD epistemology_type ON perennial_tradition TYPE string;
+DEFINE FIELD survival_years ON perennial_tradition TYPE int; -- Force empirique temporelle
+
+-- Les Observations Brutes (La réalité des capteurs)
+DEFINE TABLE sensory_observation SCHEMAFULL;
+DEFINE FIELD timestamp ON sensory_observation TYPE datetime;
+DEFINE FIELD context_source ON sensory_observation TYPE string; -- ex: "tiktok", "keyboard"
+DEFINE FIELD kinetic_entropy ON sensory_observation TYPE float; -- Vitesse de scroll
+
+-- La Perspective Humaine (L'argument lors du Lockdown)
+-- ATTENTION: Ce n'est pas une vérité prophétique. C'est une hypothèse falsifiable.
+DEFINE TABLE human_perspective SCHEMAFULL;
+DEFINE FIELD timestamp ON human_perspective TYPE datetime;
+DEFINE FIELD raw_argument ON human_perspective TYPE string;
+DEFINE FIELD is_dogmatic ON human_perspective TYPE bool DEFAULT false; -- KYON détectera si l'humain s'enferme
+DEFINE FIELD zkp_hash ON human_perspective TYPE string; -- Preuve d'intégrité
+
+-- -------------------------------------------------------------------------
+-- 2. ARÊTES (EDGES - RELATIONS CYBERNÉTIQUES)
+-- -------------------------------------------------------------------------
+
+-- Relation Orthogonale: Un Axiome CYNIC régit ou filtre les heuristiques des traditions
+DEFINE TABLE GOVERNS_HEURISTIC SCHEMAFULL TYPE RELATION FROM cynic_axiom TO perennial_tradition;
+DEFINE FIELD orthogonality_matrix ON GOVERNS_HEURISTIC TYPE array<float>;
+
+-- La boucle de Falsification : La Perspective de l'humain tente de falsifier une observation de KYON
+DEFINE TABLE FALSIFIES SCHEMAFULL TYPE RELATION FROM human_perspective TO sensory_observation;
+DEFINE FIELD weight ON FALSIFIES TYPE float DEFAULT 0.5; -- Confiance initiale faible
+DEFINE FIELD temporal_decay ON FALSIFIES TYPE bool DEFAULT true; -- La validité de l'argument s'effrite sans nouvelle preuve
+
+-- L'Alignement : L'Humain utilise une tradition comme lentille (Lens) pour son argument
+DEFINE TABLE USES_LENS SCHEMAFULL TYPE RELATION FROM human_perspective TO perennial_tradition;
+DEFINE FIELD resonance_score ON USES_LENS TYPE float; -- À quel point l'argument matche vraiment la tradition
+
+-- La Boucle Empirique : Une observation renforce ou dégrade un argument humain passé
+DEFINE TABLE VALIDATES_EMPIRICALLY SCHEMAFULL TYPE RELATION FROM sensory_observation TO human_perspective;
+DEFINE FIELD verification_delta ON VALIDATES_EMPIRICALLY TYPE float; -- Si < 0, l'humain mentait ou se trompait
+
+-- =========================================================================
+-- 3. INSTANCIATION DES 7 AXIOMES GOUVERNEURS (CYNIC CORE)
+-- Ces 7 axiomes sont les vecteurs orthogonaux immuables de l'Organisme
+-- =========================================================================
+
+INSERT INTO cynic_axiom (id, core_principle, mutability) VALUES 
+  ('axiom:fidelity', 'Fidelity: Le système ne doit jamais corrompre ou altérer la nature originelle des données ou de l\'humain.', 0.0),
+  ('axiom:falsifiability', 'Verify/Falsify: Toute théorie (algorithmique ou humaine) est une hypothèse jusqu\'à preuve ZK du contraire.', 0.0),
+  ('axiom:orthogonality', 'Orthogonality: Séparation stricte des préoccupations (Infrastucture vs Sémantique vs Heuristique).', 0.0),
+  ('axiom:homeostasis', 'Homeostasis: L\'Organisme réagit à la pression (entropie) pour restaurer l\'équilibre (Golden Ratio 0.618).', 0.0),
+  ('axiom:temporal_decay', 'Temporal Decay: La validité d\'une théorie non re-vérifiée s\'effondre avec le temps.', 0.0),
+  ('axiom:autonomy', 'Autonomy: La Souveraineté de l\'agent et de l\'utilisateur ne peut être compromise par un tier central.', 0.0),
+  ('axiom:convergence', 'Convergence: La vérité absolue est inatteignable (Asymptote), mais l\'itération empirique tend vers Phi.', 0.0);
+

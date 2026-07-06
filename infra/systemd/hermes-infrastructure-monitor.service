@@ -5,11 +5,11 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
-Environment="CYNIC_ROOT=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC"
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+Environment="CYNIC_ROOT=@CYNIC_PROJECT_ROOT@"
 
-# Run the infrastructure consumer via wrapper
-ExecStart=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/start-infrastructure-monitor.sh
+# Legacy wrapper removed. Reforge this as an organ entrypoint before enabling.
+ExecStart=/bin/sh -c 'echo "legacy infrastructure monitor entrypoint removed; reforge as an organ entrypoint before enabling hermes-infrastructure-monitor" >&2; exit 1'
 
 # Restart on failure with 30s backoff
 Restart=on-failure

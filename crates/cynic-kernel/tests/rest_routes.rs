@@ -111,6 +111,62 @@ async fn body_json(body: Body) -> serde_json::Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
+// ── API discovery ────────────────────────────────────────────
+
+#[tokio::test]
+async fn openapi_contract_is_publicly_discoverable() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/openapi.json")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let v = body_json(resp.into_body()).await;
+    assert_eq!(v["openapi"], "3.1.0");
+}
+
+#[tokio::test]
+async fn api_topology_contract_is_publicly_discoverable() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/topology")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let v = body_json(resp.into_body()).await;
+    assert_eq!(v["schema"], "cynic.api_topology.v1");
+}
+
+#[tokio::test]
+async fn api_layer_alignment_contract_is_publicly_discoverable() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/layer-alignment")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let v = body_json(resp.into_body()).await;
+    assert_eq!(v["schema"], "cynic.api_layer_alignment.v1");
+}
+
 // ── /health ─────────────────────────────────────────────────
 
 #[tokio::test]
@@ -171,7 +227,7 @@ async fn health_with_auth_returns_full_details() {
     //   storage          → healthcheck.sh, /status skill
     //   version          → /status skill, deploy verification
     //   total_requests   → /status skill, cost tracking
-    //   total_tokens     → cost tracking, /usage
+    //   total_tokens     → cost tracking, /metrics/usage
     //   estimated_cost_usd → /status skill, cost dashboard
     //   uptime_seconds   → /status skill
     //   embedding        → /status skill
@@ -568,7 +624,7 @@ async fn create_crystal_requires_auth() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/crystal")
+                .uri("/crystals")
                 .header("Content-Type", "application/json")
                 .body(Body::from(r#"{"content":"test insight","domain":"chess"}"#))
                 .unwrap(),
@@ -587,7 +643,7 @@ async fn create_crystal_returns_500_with_null_storage() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/crystal")
+                .uri("/crystals")
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
                 .body(Body::from(
@@ -600,7 +656,7 @@ async fn create_crystal_returns_500_with_null_storage() {
     assert_eq!(
         resp.status(),
         500,
-        "NullStorage: POST /crystal must return 500 (storage unavailable)"
+        "NullStorage: POST /crystals must return 500 (storage unavailable)"
     );
 }
 
@@ -612,7 +668,7 @@ async fn create_crystal_rejects_empty_content() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/crystal")
+                .uri("/crystals")
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
                 .body(Body::from(r#"{"content":"","domain":"chess"}"#))
@@ -636,7 +692,7 @@ async fn delete_crystal_returns_500_with_null_storage() {
         .oneshot(
             axum::http::Request::builder()
                 .method("DELETE")
-                .uri("/crystal/test-id")
+                .uri("/crystals/test-id")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),
@@ -646,13 +702,13 @@ async fn delete_crystal_returns_500_with_null_storage() {
     assert_eq!(
         resp.status(),
         500,
-        "NullStorage: DELETE /crystal must return 500"
+        "NullStorage: DELETE /crystals must return 500"
     );
 }
 
 #[tokio::test]
 async fn observe_crystal_hypha_rejects_missing_source() {
-    // /crystal/{id}/observe exists as hypha handler — requires `source` field.
+    // /crystals/{id}/observe exists as hypha handler — requires `source` field.
     // Missing source → 422 (unprocessable entity from axum JSON extractor).
     let state = test_state(Some("key"));
     let app = rest::router(state);
@@ -660,7 +716,7 @@ async fn observe_crystal_hypha_rejects_missing_source() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/crystal/test-id/observe")
+                .uri("/crystals/test-id/observe")
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
                 .body(Body::from(
@@ -673,7 +729,7 @@ async fn observe_crystal_hypha_rejects_missing_source() {
     assert_eq!(
         resp.status(),
         422,
-        "POST /crystal/id/observe without source field → 422"
+        "POST /crystals/id/observe without source field -> 422"
     );
 }
 
@@ -714,7 +770,7 @@ fn raw_observation_json_shape() {
         domain: "code".into(),
         status: "success".into(),
         context: "test".into(),
-        created_at: "2026-03-23T00:00:00Z".into(),
+        created_at: 1_742_688_000_000,
         project: "CYNIC".into(),
         agent_id: "agent-1".into(),
         session_id: "sess-1".into(),
@@ -1108,7 +1164,7 @@ async fn coord_register_rejects_control_chars_in_agent_id() {
     );
 }
 
-// ── /crystal/{id} ────────────────────────────────────────────
+// ── /crystals/{id} ───────────────────────────────────────────
 
 #[tokio::test]
 async fn get_crystal_returns_500_with_null_storage() {
@@ -1118,7 +1174,7 @@ async fn get_crystal_returns_500_with_null_storage() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/crystal/abc123")
+                .uri("/crystals/abc123")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),
@@ -1128,7 +1184,7 @@ async fn get_crystal_returns_500_with_null_storage() {
     assert_eq!(
         resp.status(),
         500,
-        "NullStorage: GET /crystal/{{id}} must return 500 (storage unavailable)"
+        "NullStorage: GET /crystals/{{id}} must return 500 (storage unavailable)"
     );
 }
 
@@ -1139,7 +1195,7 @@ async fn get_crystal_requires_auth() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/crystal/abc123")
+                .uri("/crystals/abc123")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1148,7 +1204,7 @@ async fn get_crystal_requires_auth() {
     assert_eq!(resp.status(), 401);
 }
 
-// ── /usage ───────────────────────────────────────────────────
+// ── /metrics/usage ───────────────────────────────────────────
 
 #[tokio::test]
 async fn usage_requires_auth() {
@@ -1157,7 +1213,7 @@ async fn usage_requires_auth() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/usage")
+                .uri("/metrics/usage")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1173,14 +1229,14 @@ async fn usage_returns_200_with_expected_shape() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/usage")
+                .uri("/metrics/usage")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), 200, "GET /usage must return 200");
+    assert_eq!(resp.status(), 200, "GET /metrics/usage must return 200");
     let v = body_json(resp.into_body()).await;
     // CONTRACT: these fields must exist — consumers: /status skill, cost tracking
     assert!(
@@ -1281,6 +1337,23 @@ async fn observations_accepts_domain_filter() {
     );
 }
 
+#[tokio::test]
+async fn observations_accepts_coordination_filters() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/observations?domain=coordination&project=privacy-ethereum-framework&workstream=launch&thread_id=t0")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+}
+
 // ── /sessions ────────────────────────────────────────────────
 
 #[tokio::test]
@@ -1322,7 +1395,7 @@ async fn sessions_returns_empty_array_with_null_storage() {
     );
 }
 
-// ── /session/{agent_id}/compliance ───────────────────────────
+// ── /sessions/{agent_id}/compliance ──────────────────────────
 
 #[tokio::test]
 async fn compliance_requires_auth() {
@@ -1331,7 +1404,7 @@ async fn compliance_requires_auth() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/session/claude-123/compliance")
+                .uri("/sessions/claude-123/compliance")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1349,7 +1422,7 @@ async fn compliance_returns_score_with_null_storage() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/session/claude-123/compliance")
+                .uri("/sessions/claude-123/compliance")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),
@@ -1359,7 +1432,7 @@ async fn compliance_returns_score_with_null_storage() {
     assert_eq!(
         resp.status(),
         200,
-        "GET /session/{{agent_id}}/compliance must return 200"
+        "GET /sessions/{{agent_id}}/compliance must return 200"
     );
     let v = body_json(resp.into_body()).await;
     // CONTRACT: SessionCompliance fields — consumed by session-stop.sh and /status
@@ -1514,7 +1587,7 @@ async fn create_crystal_rejects_oversized_content() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/crystal")
+                .uri("/crystals")
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
                 .body(Body::from(body.to_string()))
@@ -1534,7 +1607,7 @@ async fn create_crystal_rejects_oversized_content() {
     );
 }
 
-// ── /coord/upgrade ──────────────────────────────────────────
+// ── /lifecycle/upgrade ──────────────────────────────────────
 
 #[tokio::test]
 async fn coord_upgrade_requires_auth() {
@@ -1544,7 +1617,7 @@ async fn coord_upgrade_requires_auth() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/coord/upgrade")
+                .uri("/lifecycle/upgrade")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1561,7 +1634,42 @@ async fn coord_upgrade_rejects_empty_payload() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/coord/upgrade")
+                .uri("/lifecycle/upgrade")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 400);
+}
+
+#[tokio::test]
+async fn lifecycle_upgrade_alias_requires_auth() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/lifecycle/upgrade")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn lifecycle_upgrade_alias_rejects_empty_payload() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/lifecycle/upgrade")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),

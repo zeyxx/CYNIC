@@ -159,7 +159,7 @@ pub struct Verdict {
     pub reasoning: AxiomReasoning,
     pub dog_id: String,
     pub stimulus_summary: String,
-    pub timestamp: String,
+    pub timestamp: i64,
     #[serde(default)]
     pub dog_scores: Vec<DogScore>,
     #[serde(default)]

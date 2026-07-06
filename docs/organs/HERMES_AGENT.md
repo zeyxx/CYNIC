@@ -1,6 +1,88 @@
 # CYNIC — Hermes Agent Adapter
 
-Hermes Agent is an organic persistent agent, not a cortex CLI. It is launched by systemd through `infra/systemd/hermes-agent-executor.service` and executed via the new Ouroboros lifecycle module at `services/cynic-python/organs/core/daemon.py`.
+Hermes Agent is the default agentic execution framework for CYNIC organ work.
+It is an organic persistent agent runtime, not a cortex CLI. It is launched by
+systemd through `infra/systemd/hermes-agent-executor.service` and executed via
+the new Ouroboros lifecycle module at
+`services/ouroboros-runtime/src/ouroboros_runtime/core/daemon.py`.
+
+Default does not mean coupled. CYNIC consumes Hermes through contracts,
+capability scans, process boundaries, and adapters. CYNIC core, organ core
+logic, policy, coordination, memory, evidence, and human gates remain
+framework-independent.
+
+## Default Execution Policy
+
+When an organ needs autonomous agentic execution, the default route candidate is
+`NousResearch/hermes-agent` if all of the following are true:
+
+- the required capability is observed or declared in
+  `cynic.agent_framework_capabilities.v1`;
+- the task can be represented by `cynic.agent_execution_envelope.v1` or another
+  declared CYNIC schema;
+- the side-effect policy is compatible with the task risk;
+- repo-affecting tasks declare coordination targets before launch;
+- results can be normalized back into Kernel task results, observations, or
+  evidence bundles.
+
+Before implementing new agent runtime behavior in CYNIC, check whether Hermes
+already provides the capability through CLI, gateway, ACP, MCP, scheduler,
+subagents, toolsets, skills, browser/computer-use, terminal backends, memory, or
+session search. Prefer adapting the existing Hermes surface over rebuilding it.
+
+Fork policy:
+
+- keep upstream `NousResearch/hermes-agent` as the source of truth by default;
+- maintain CYNIC integration as adapters and contracts first;
+- create a CYNIC fork only when an adapter cannot enforce sovereignty, policy,
+  security, or required local runtime behavior;
+- if a fork exists, it remains an execution substrate behind the same CYNIC
+  contracts, not a new organism authority.
+
+Anti-coupling rules:
+
+- do not import Hermes internals into CYNIC core or organ core logic;
+- do not make Hermes memory the organism memory;
+- do not let Hermes toolsets decide coordination claims, policy, gates, or
+  evidence redaction;
+- do not commit Hermes runtime state, cookies, sessions, profiles, or generated
+  skills into the repo;
+- do not duplicate Hermes capabilities in CYNIC unless a contract, sovereignty,
+  or safety requirement proves the adapter route is insufficient.
+
+## Bloodstream Contract
+
+Hermes execution is not allowed to remain a black box. Every CYNIC-owned Hermes
+adapter must emit structured bloodstream events into the Kernel ledger while it
+runs.
+
+Minimum events:
+
+- `task_received`
+- `kanban_created` or equivalent upstream task/session id creation
+- `decompose_attempted` when Hermes planning/delegation is invoked
+- `kanban_status` or equivalent progress/status events during execution
+- `kanban_completed` or a terminal non-success event
+- `task_finished`
+
+Minimum result shape:
+
+```json
+{
+  "schema": "cynic.hermes.execution_result.v1",
+  "task_id": "...",
+  "domain": "...",
+  "executor": "hermes-kanban",
+  "hermes_kanban_task_id": "...",
+  "status": "completed",
+  "output": "..."
+}
+```
+
+Downstream organs must consume this normalized result or Kernel observations,
+not raw Hermes terminal prose. If an upstream Hermes feature cannot emit enough
+evidence through the adapter, the task must be treated as integration debt
+before it becomes cashflow-critical automation.
 
 ## Identity
 
@@ -67,11 +149,21 @@ Use the REST API with `Authorization: Bearer $CYNIC_API_KEY`:
 
 ## Scope
 
-This adapter defines Hermes Agent repo coordination only. Hermes X browsing, curation, and observation behavior remains governed by organ `SKILL.md` and manifest files.
+This adapter defines Hermes Agent execution and repo coordination. Hermes X
+browsing, curation, and observation behavior remains governed by organ
+`SKILL.md`, manifest files, `organ-browser`, and framework capability contracts.
 
 ## Framework Evolution & Mercury Alternative
 
-L'écosystème autour de Hermes est en évolution continue (notamment via `hermes-agent-self-evolution` et `atropos`). L'architecture Hexagonale (Ports & Adapters) de CYNIC (via `Ouroboros` et `adapters/hermes_cli.py`) permet d'isoler le cœur organique de CYNIC des changements très rapides "upstream" du CLI de Hermes.
+L'écosystème autour de Hermes est en évolution continue. L'architecture
+hexagonale (Ports & Adapters) de CYNIC (via `Ouroboros` et
+`adapters/hermes_cli.py`) permet d'isoler le cœur organique de CYNIC des
+changements très rapides upstream du CLI Hermes.
+
+Hermes reste le framework agentique d'exécution par défaut tant qu'il couvre les
+capacités requises via des contrats CYNIC. Les alternatives ne sont pas des
+remplacements opportunistes ; elles sont des routes de fallback quand Hermes est
+indisponible, insuffisant, trop coûteux, ou impossible à borner proprement.
 
 ### Alternative de Migration : Mercury Agent
 Si un jour nous décidons de remplacer Hermes Agent pour certains organes, *Mercury Agent* (`cosmicstack-labs/mercury-agent`) est un excellent candidat. 
@@ -79,4 +171,6 @@ Si un jour nous décidons de remplacer Hermes Agent pour certains organes, *Merc
 - **Écosystème TypeScript** : Utile pour se rapprocher de `packages/`.
 - **Interopérabilité** : Le repo `mercury-agent-skills` propose un pont natif pour réutiliser des skills Hermes.
 
-Grâce à notre refactoring hexagonal, migrer de Hermes vers Mercury ne nécessiterait aucune modification du daemon (`ouroboros.py`). Il suffirait de créer un `adapters/mercury_cli.py`.
+Grâce à notre refactoring hexagonal, ajouter Mercury comme fallback ne devrait
+pas nécessiter de modifier le daemon (`ouroboros.py`). Il faudrait créer un
+`adapters/mercury_cli.py` et le faire passer par les mêmes contrats d'exécution.

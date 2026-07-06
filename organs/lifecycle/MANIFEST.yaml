@@ -1,29 +1,102 @@
 name: organ-lifecycle
-role: repo_lifecycle_manager
-description: "Unified organ for sovereign CI/CD, container runtime, smart contract testing, and git operations. Replaces forge, fabric, docker, vercel, and anvil."
+domain: lifecycle
+domain_role: sovereign_release_and_runtime_convergence
+role: repo_lifecycle_transmutation_candidate
+status: planned
+description: "Planned transmutation candidate for sovereign Forgejo-backed CI/CD, container runtime, smart contract testing, and lifecycle convergence. It does not replace organ-forge until the registry, tests, entrypoints, runtime unit, and e2e proof are present."
 version: 1.0.0
 dependencies:
   - cynic-kernel
+contracts:
+  - axioms/lifecycle-interface-v1.json
+  - axioms/lifecycle-supply-chain-v1.json
+  - axioms/dependency-convergence-organ-v1.json
+ports:
+  - InfraRegistryPort
+  - FleetStatusPort
+  - ServiceHealthPort
+  - StoragePrimaryPort
+  - LifecycleDispatchPort
+  - CoordinationPort
+  - ObservationPort
+  - SupplyChainAnalysisPort
+  - SovereignInferencePort
 interfaces:
-  mempool:
-    - fetch_pending_tasks
-    - claim_task
-    - submit_result
-  git:
-    - get_latest_commit
-    - create_pull_request
-    - merge_pull_request
-  provisioning:
-    - provision_vm
-    - destroy_vm
-  container_runtime:
-    - deploy_container
-    - get_container_logs
-  serverless_hosting:
-    - deploy_project
-  smart_contract:
-    - execute_tests
-    - deploy_contract
+  registry:
+    - load_registry
+    - resolve_node
+    - resolve_service
+  fleet_status:
+    - is_node_online
+    - get_node_last_seen
+    - get_node_status
+  service_health:
+    - check_service_health
+    - service_status
+  storage_primary:
+    - status
+    - readiness
+    - bundle
+  lifecycle_dispatch:
+    - dispatch
+    - payloads
+  coordination:
+    - register_agent
+    - who
+    - claim
+    - release
+    - list_pending_tasks
+    - list_completed_tasks
+    - claim_agent_task
+    - update_agent_task_result
+  observation:
+    - observe
+    - audit_query
+  supply_chain_analysis:
+    - analyze_supply_chain
+  dependency_convergence:
+    - convergence_pack
+    - request_sovereign_inference_review
+  sovereign_inference:
+    - hermes_agent_dependency_convergence
+  runtime:
+    - snapshot
+    - run_once
+controllers:
+  - name: src/entrypoints/watchdog.py
+    description: Freshness watchdog that reconciles the organ when SSOT state goes stale
+components:
+  - name: src/core/controller.py
+    description: Core lifecycle convergence controller, freshness health, SSOT update, and reconcile flow.
+    integration_status: canonical_partial
+    owner: organ-lifecycle
+    expiry_condition: none
+systemd:
+  - infra/systemd/organ-lifecycle.service
+  - infra/systemd/organ-lifecycle.timer
+  - infra/systemd/organ-lifecycle-watchdog.service
+  - infra/systemd/organ-lifecycle-watchdog.timer
+mempool:
+  - fetch_pending_tasks
+  - claim_task
+  - submit_result
+sovereign_forge:
+  - read_forgejo_repository_state
+  - create_forgejo_change_request
+  - merge_forgejo_change_request_after_evidence
+git_substrate:
+  - get_latest_commit
+provisioning:
+  - provision_vm
+  - destroy_vm
+container_runtime:
+  - deploy_container
+  - get_container_logs
+serverless_hosting:
+  - deploy_project
+smart_contract:
+  - execute_tests
+  - deploy_contract
 state_paths:
   - desired/state.json
   - state/SSOT.json

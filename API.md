@@ -12,6 +12,14 @@ rate_limit: 30 req/min global, 10 req/min on /judge. /health exempt.
 
 # CYNIC Kernel — REST API Reference
 
+Machine-readable OpenAPI contract: [`docs/api/openapi.json`](docs/api/openapi.json).
+Operation topology contract: [`axioms/api-topology-v1.json`](axioms/api-topology-v1.json).
+Layer alignment contract: [`axioms/api-layer-alignment-v1.json`](axioms/api-layer-alignment-v1.json).
+Topology budget: `0` root splits, `0` transitional operations, `0` legacy operations.
+
+Public discovery endpoints: `GET /openapi.json`, `GET /api/topology`, `GET /api/layer-alignment`.
+They must remain unauthenticated and canonical under the `/api` topology family.
+
 ## Base URL
 
 ```
@@ -85,6 +93,14 @@ Prometheus-format metrics. No auth.
 ### GET /events
 
 SSE event stream. No auth. Events: `verdict`, `crystal`, `dog_failed`, `session`, `backfill`, `anomaly`. Keepalive every 15s. Limited to 32 concurrent connections — returns **503** (plain text) when full.
+
+### GET /proof-of-history
+
+Proof-of-history ledger export. Auth required. Returns the kernel's chained PoH records in reverse chronological order.
+
+**Response (200):** `ProofOfHistory[]`
+
+**Fields:** `id`, `timestamp`, `source_organ`, `event_type`, `payload`, `cryptographic_hash`, `prev_hash`, `cryptographic_signature`.
 
 ---
 
@@ -243,7 +259,7 @@ Used to validate chess wallet authenticity for Personality Card minting. Dogs sc
 - `400` if context is missing or invalid JSON: `"wallet-judgment requires valid WalletProfile JSON in context field"`
 - `422` if context fails validation gates (e.g., `games_completed < 5`): returns `Bark` verdict
 
-### POST /mint-permit
+### POST /permits/mint
 
 Request a PoIH mint permit for a wallet. Enriches the wallet with Helius behavioral data (temporal signals from SWAP history) and scores with the behavioral deterministic dog. Returns a permit if the verdict is WAG or HOWL.
 
@@ -310,7 +326,7 @@ Poll the progressive state of an async judgment job created by `POST /judge/asyn
 
 List recent verdicts. Returns the 20 most recent verdict objects (limit hardcoded).
 
-### GET /verdict/{id}
+### GET /verdicts/{id}
 
 Get verdict by UUID. Returns single verdict object. 404 if not found.
 
@@ -383,11 +399,9 @@ Returns array of:
 
 **State transitions:** Forming (< 21 obs) → Crystallized (≥ 21 obs, confidence ≥ 0.618) → Canonical (≥ 233 obs, confidence ≥ 0.618). Decaying if confidence drops below 0.382.
 
-### GET /crystal/{id}
+Canonical paths use plural `/crystals/*`.
 
-Single crystal by ID. 404 if not found.
-
-### POST /crystal
+### POST /crystals
 
 Create a new crystal (starts at Forming, confidence 0.0).
 
@@ -398,11 +412,15 @@ Create a new crystal (starts at Forming, confidence 0.0).
 
 **Response (201):** `{ "id": "...", "domain": "...", "state": "Forming" }`
 
-### DELETE /crystal/{id}
+### GET /crystals/{id}
+
+Single crystal by ID. 404 if not found.
+
+### DELETE /crystals/{id}
 
 Delete crystal. Idempotent. **Response (204):** No content.
 
-### POST /crystal/{id}/observe
+### POST /crystals/{id}/observe
 
 Hypha observation — non-verdict feedback on a crystal (e.g., from an organ or cortex).
 
@@ -416,7 +434,7 @@ Hypha observation — non-verdict feedback on a crystal (e.g., from an organ or 
 
 **Response (200):** `{ "status": "observed", "crystal_id": "...", "hypha_count": N }`
 
-### POST /crystal/{id}/shatter
+### POST /crystals/{id}/shatter
 
 Instant crystal dissolution. Cortex/Internal only — ORGAN role forbidden.
 
@@ -431,7 +449,7 @@ Instant crystal dissolution. Cortex/Internal only — ORGAN role forbidden.
 
 ## WebSocket
 
-### GET /node/ws
+### GET /events/ws
 
 WebSocket endpoint for node-kernel bidirectional communication (Phase 3). Nodes register with Ed25519 public key, receive stimuli (PUSH mode) or request them (PULL mode), and submit verdicts. Heartbeat every 30s. Reconnects with exponential backoff.
 
@@ -440,6 +458,34 @@ Protocol messages: `register`, `register_response`, `stimulus`, `stimulus_reques
 ---
 
 ## Analytics
+
+### GET /attention
+
+Cortex startup attention endpoint. Returns a compact operational pressure surface to orient new human/agent sessions based on degraded dogs, offline nodes, and overdue tasks. Auth required.
+
+**Query Params:**
+- `task_kind` (string, default `"cortex"`)
+- `task_domain` (string, optional)
+- `task_limit` (integer, default `10`, max `25`)
+
+**Response (200):**
+```json
+{
+  "attention_level": "normal|degraded|critical",
+  "readiness": { "healthy": true, "message": "..." },
+  "top_causes": {
+    "critical_alerts": [],
+    "overdue_task_count": 0,
+    "missing_node_count": 0,
+    "degraded_dog_count": 0,
+    "backlog": 0,
+    "digestion_ratio": 100.0
+  },
+  "fleet": { "missing_nodes": [] },
+  "mempool": { "overdue_tasks_sample": [], "pending_tasks_sample": [] },
+  "recommended_actions": []
+}
+```
 
 ### POST /observe
 
@@ -473,7 +519,7 @@ List session summaries. Query param: `limit` (default 50, max 200).
 
 Returns array of: `{ session_id, agent_id, summary, observations_count, created_at }`.
 
-### GET /usage
+### GET /metrics/usage
 
 Token consumption and cost tracking.
 
@@ -521,6 +567,16 @@ Poll pending tasks. Query params: `kind` (default "hermes"), `domain`, `limit` (
 Returned tasks include computed `overdue` and `age_seconds` metadata. For
 backward compatibility, task metadata can be derived from JSON `content` when
 first-class fields are absent.
+
+### GET /agent-tasks/watch
+
+Long-poll pending tasks. Blocks until a task event matching `kind` and `domain` occurs or `timeout_secs` expires.
+
+Query params:
+- `kind` (default "hermes"): filter tasks by kind (1-64 characters)
+- `domain`: optional filter by domain
+- `limit` (default 10): maximum number of tasks to return
+- `timeout_secs` (default 30): maximum seconds to block
 
 ### POST /agent-tasks/{id}/result
 
@@ -657,23 +713,207 @@ Update the task scope for an active agent session. Used by session-init.sh to au
 
 **Note:** Scope updates preserve `registered_at` (session age); they only refresh `last_seen` for heartbeat purposes.
 
+### MCP coordination (portable)
+
+The MCP server also exposes transport-agnostic coordination tools (not Slack-specific):
+
+- `coordination_status_publish`
+- `coordination_status_read`
+- `coordination_thread_reply`
+- `coordination_artifact_share`
+- `coordination_decision_record`
+- `coordination_contract_manifest`
+
+Canonical contract artifact (authoritative):
+- `axioms/coordination-protocol-v1.json`
+- `axioms/consumer-profiles/privacy-ethereum-framework-v1.json`
+
+Canonical event envelope shape:
+
+```json
+{
+  "coordination_contract": {
+    "version": "coordination-event-v1",
+    "operation": "status.publish"
+  },
+  "project": "privacy-ethereum-framework",
+  "workstream": "stage1-foundations",
+  "thread_id": "optional-thread-id",
+  "event": "workstream.updated",
+  "status": "ok",
+  "summary": "Stage 1 foundations formalized",
+  "artifacts": ["AGENTS.md", "FOUNDATIONS.md"],
+  "open_points": ["Decision traceability still pending"],
+  "extra": {}
+}
+```
+
+These tools publish structured events in `/observe` with `coordination` payload:
+
+```json
+{
+  "coordination_contract": {
+    "version": "coordination-event-v1",
+    "operation": "status.publish"
+  },
+  "project": "privacy-ethereum-framework",
+  "workstream": "stage1-foundations",
+  "thread_id": "optional-thread-id",
+  "event": "workstream.updated",
+  "status": "ok",
+  "summary": "Stage 1 foundations formalized",
+  "artifacts": ["AGENTS.md", "FOUNDATIONS.md"],
+  "open_points": ["Decision traceability still pending"],
+  "extra": {}
+}
+```
+
+### Mapping to expected portable contract
+
+| CYNIC MCP tool | Consumer contract intent |
+|-----------------|-------------------------|
+| `coordination_status_publish` | `coordination.status.publish` |
+| `coordination_status_read` | `coordination.status.read` |
+| `coordination_thread_reply` | `coordination.thread.reply` |
+| `coordination_artifact_share` | `coordination.artifact.share` |
+| `coordination_decision_record` | `coordination.decision.record` |
+| `coordination_contract_manifest` | `coordination.capability.lookup` |
+
+### MCP coordination policy knobs
+
+- `CYNIC_COORDINATION_PROTOCOL_PATH` (default `axioms/coordination-protocol-v1.json`)
+- `CYNIC_COORDINATION_CLIENT_PROFILE_DIR` (default `axioms/consumer-profiles`)
+- `CYNIC_COORDINATION_CLIENT_ID` (fallback client identifier)
+- `CYNIC_COORDINATION_STRICT` (`1|true|TRUE|yes|on|...` ; default `true`)
+- `CYNIC_LIFECYCLE_CLI_PATH` (default `organs/forge/src/entrypoints/cli.py`)
+- `CYNIC_LIFECYCLE_CLI_CMD` (default `python3`)
+
+In strict mode, coordination tools require an allowed `client` and apply per-client operation+project constraints from
+`coordination-protocol-v1.json` `permission_model`.
+
 ### GET /coord/topology
 
 Retrieves the current node topology and configuration for the cluster.
 
 **Response (200):** JSON topology object.
 
-### POST /coord/rollback
+---
 
-Triggers a sovereign auto-rollback of the kernel binary and restarts the service.
+## Lifecycle
+
+Canonical metabolism/deployment surface. The old `/coord/*` upgrade,
+rollback, backup, restore, and systemd upgrade paths remain as deprecated
+aliases for compatibility.
+
+### POST /lifecycle/upgrade
+
+Uploads a kernel binary artifact, swaps it into place, and schedules a user
+systemd restart.
+
+**Request body:** raw binary payload.
+
+**Response (200):** `{ "status": "upgrade_scheduled", "bytes_received": N }`
+
+### POST /lifecycle/rollback
+
+Restores the previous kernel binary and schedules a user systemd restart.
 
 **Response (200):** `{ "status": "rollback_scheduled" }`
 
-### GET /coord/backup
+### GET /lifecycle/backup
 
-Exports the SurrealDB database to a .surql stream.
+Exports the SurrealDB database to a `.surql` stream.
 
 **Response (200):** Raw `.surql` file download.
+
+### POST /lifecycle/restore
+
+Imports a `.surql` database backup.
+
+**Request body:** raw `.surql` payload.
+
+**Response (200):** `{ "status": "restored" }`
+
+### POST /lifecycle/upgrade-systemd
+
+Updates the user systemd unit projection and runs `systemctl --user daemon-reload`.
+
+**Request body:** systemd unit payload.
+
+**Response (200):** `{ "status": "systemd_reloaded" }`
+
+### POST /lifecycle/provision
+
+Compatibility/provisioning shim for infra targets. Delegates to the lifecycle
+projection entrypoint.
+
+**Request body:** `{ "target": "..." }`
+
+**Response (200):**
+```json
+{
+  "status": "ok",
+  "target": "...",
+  "stdout": "...",
+  "stderr": "..."
+}
+```
+
+**Errors:** `400` for an invalid target, `500` if the delegated provision task fails.
+
+---
+
+## Mesh Networking
+
+WireGuard mesh coordination endpoints.
+
+### POST /mesh/publish
+
+Publishes a node's public key for its statically assigned mesh IP.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `mesh_ip` | string (1-20) | yes | The static IP of the node in the mesh network |
+| `public_key` | string (1-128) | yes | The node's WireGuard public key |
+
+**Response (200):** `{ "status": "published", "mesh_ip": "...", "public_key": "..." }`
+**Response (400):** Validation error for IP or key length.
+
+### GET /mesh/nodes
+
+Lists all registered mesh nodes and their public keys.
+
+**Response (200):** Array of `MeshNode` objects `{ "id": "...", "mesh_ip": "...", "public_key": "...", "last_seen": N, "endpoint": "..." }`.
+
+### GET /mesh/routes
+
+Lists all registered mesh routes.
+
+**Response (200):** Array of `MeshRoute` objects.
+
+---
+
+## Webhooks
+
+### POST /webhook/github/release
+
+Receives GitHub release events for tracked repositories and dispatches update
+tasks into the kernel mempool.
+
+**Request body:** GitHub release webhook payload.
+
+**Response (200):**
+```json
+{
+  "status": "dispatched",
+  "task_id": "...",
+  "repo": "owner/repo",
+  "kind": "hermes",
+  "domain": "update"
+}
+```
+
+Untracked repositories return `{ "status": "ignored" }`.
 
 ---
 
@@ -763,7 +1003,7 @@ Unread message count.
 
 ## Compliance
 
-### GET /session/{agent_id}/compliance
+### GET /sessions/{agent_id}/compliance
 
 Workflow compliance score for a specific agent session. Analyzes tool-use observations to detect rule violations (e.g., Edit without prior Read, bash retry loops).
 
@@ -788,7 +1028,7 @@ Compliance trend across recent sessions. Query param: `limit` (default 20, max 1
 
 ## Inference & Routing
 
-### GET /fleet-stats
+### GET /fleet/stats
 
 Node health and routing intelligence for inference work distribution.
 
@@ -858,7 +1098,7 @@ Queries actual llama-server on each node, detects model mismatches, and emits K1
 }
 ```
 
-### POST /inference/start
+### POST /lifecycle/inference/start
 
 Start a Dog (spawn llama-server subprocess, register model).
 
@@ -871,6 +1111,18 @@ Start a Dog (spawn llama-server subprocess, register model).
 **Response (200):** `{ "dog": "qwen35-9b-gpu", "operation": "start", "status": "succeeded", "timestamp": "..." }`
 
 **Response (408):** Timeout during startup.
+
+### POST /lifecycle/inference/remediate-dog
+
+Restart/remediate a Dog backend runtime.
+
+**Request:**
+
+```json
+{ "dog": "qwen35-9b-gpu" }
+```
+
+**Response (200):** `{ "dog": "qwen35-9b-gpu", "operation": "remediate", "status": "succeeded", "timestamp": "..." }`
 
 ### GET /inference/candidates
 
@@ -979,7 +1231,7 @@ Remove a dynamically registered Dog from the roster. Config-based Dogs cannot be
 **Response 200:** `{ "dog_id": "...", "status": "deregistered", "roster_size": 4 }`
 **Response 404:** Dog not found or not a registered Dog.
 
-### GET /agents
+### GET /coord/agents
 
 Active agent sessions and claims. Returns `{ active_agents, active_claims, agents: [...], claims: [...] }`.
 

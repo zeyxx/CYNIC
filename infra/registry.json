@@ -9,6 +9,47 @@
       "deploy_target_role": "kernel_primary",
       "deploy_target_flag": "deploy_target",
       "required_node_status": "active",
+      "build_policy": {
+        "artifact_targets": [
+          "crates/cynic-kernel",
+          "crates/cynic-mcp",
+          "crates/cynic-node"
+        ],
+        "rust_toolchain": "1.88.0",
+        "rust_release_target": "x86_64-unknown-linux-musl",
+        "reason": "Release binaries must run across Debian 12 Proxmox/LXC nodes and Ubuntu guests without glibc coupling.",
+        "scope": "runtime Rust binaries only; web, mobile, tests, and local cortex checks keep their native toolchains.",
+        "owner": "organ-forge",
+        "bootstrap": {
+          "project_slug": "CYNIC",
+          "principal": "cynic",
+          "preferred_transport": "fleet_node_exec",
+          "fallback_transport": "parent_provider_exec",
+          "transport_command_env": "CYNIC_FLEET_NODE_EXEC_COMMAND",
+          "transport_command_default": "python3 organs/forge/src/entrypoints/fleet_node_exec_wrapper.py",
+          "repo_materialization": "git_fetch",
+          "repo_source": {
+            "remote": "ssh://git@forgejo.synapse.cynic/jeanterre13/CYNIC.git",
+            "ref": "main",
+            "ref_env": "CYNIC_FORGEJO_BOOTSTRAP_REF",
+            "transport": "ssh",
+            "host_role": "forge_primary",
+            "fallback_remote_env": "CYNIC_FORGEJO_BOOTSTRAP_REMOTE",
+            "fallback_transport": "local_tunnel"
+          },
+          "toolchain_manager": "rustup",
+          "host_packages": [
+            "ca-certificates",
+            "musl-tools"
+          ],
+          "watchdog_config_path": "%h/.config/cynic/node-watchdog.toml",
+          "watchdog_services": [
+            "organ-forge.service",
+            "cargo-build",
+            "gate-2"
+          ]
+        }
+      },
       "activation_requirements": {
         "build_runner": {
           "network": [
@@ -60,6 +101,36 @@
         "requires_bearer_auth": true,
         "timeout_seconds": 10
       },
+      "mcp_freshness_controller": {
+        "schema": "cynic.mcp_freshness_controller.v1",
+        "status": "active",
+        "owner": "organ-forge",
+        "consumer": "organ-forge-hermes-agent",
+        "check_command": "CYNIC_MCP_CHECK_ONLY=1 python3 ./.cortex/mcp/run_cynic_mcp.py",
+        "dispatch_profile": "mcp-reload",
+        "dispatch_tool": "cynic_lifecycle_dispatch",
+        "fallback_command": "cynic mcp-reload",
+        "legacy_fallback_command": "make mcp-reload-request",
+        "debounce_seconds": 900,
+        "trigger_sources": [
+          "crates/cynic-mcp/src",
+          "infra/agent-exposure.json",
+          ".cortex/mcp/run_cynic_mcp.py",
+          "organs/exposure"
+        ],
+        "stale_statuses": [
+          "stale",
+          "missing",
+          "failed",
+          "timeout"
+        ],
+        "proof_requirements": [
+          "mcp-reload dispatch returns a task id or duplicate pending read-back",
+          "completed task is visible through Kernel agent task read-back",
+          "CYNIC_MCP_CHECK_ONLY=1 python3 ./.cortex/mcp/run_cynic_mcp.py reports fresh",
+          "organ-forge emits an observation for refresh decision and refresh result"
+        ]
+      },
       "requires_e2e": true,
       "runtime_paths": {
         "repo_root": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}"
@@ -98,6 +169,9 @@
         "Makefile"
       ],
       "request_profiles": {
+        "bootstrap": [
+          "bootstrap-build-runner"
+        ],
         "gate-2": [
           "build-and-test",
           "integration-test"
@@ -128,13 +202,94 @@
           "effective": {
             "source": "organ-forge",
             "description": "What the lifecycle organ authorizes for execution."
+          },
+          "applied": {
+            "source": "organ-lifecycle",
+            "description": "What the registry-selected runner/runtime has executed through declared ports."
+          },
+          "verified": {
+            "source": "kernel_readback",
+            "description": "What the Kernel, service health, fleet evidence, or activation evidence proves after execution."
           }
+        },
+        "transition_contract": {
+          "schema": "cynic.lifecycle_transition_contract.v1",
+          "layers": [
+            "desired",
+            "declared",
+            "observed",
+            "effective",
+            "applied",
+            "verified"
+          ],
+          "rule": "A lifecycle state may advance only when the next layer has machine-readable evidence and required read-back.",
+          "transitions": [
+            {
+              "from": "desired",
+              "to": "declared",
+              "authority": "infra/registry.json",
+              "evidence": [
+                "request_profiles",
+                "intents",
+                "repo_targets"
+              ],
+              "read_back_required": false
+            },
+            {
+              "from": "declared",
+              "to": "observed",
+              "authority": "runtime_probes",
+              "evidence": [
+                "fleet_inventory",
+                "service_health",
+                "activation_evidence"
+              ],
+              "read_back_required": false
+            },
+            {
+              "from": "observed",
+              "to": "effective",
+              "authority": "organ-forge",
+              "evidence": [
+                "lifecycle_blockers_empty",
+                "lifecycle_nodes_ready"
+              ],
+              "read_back_required": false
+            },
+            {
+              "from": "effective",
+              "to": "applied",
+              "authority": "organ-lifecycle",
+              "evidence": [
+                "claimed_agent_task",
+                "runner_result"
+              ],
+              "read_back_required": true
+            },
+            {
+              "from": "applied",
+              "to": "verified",
+              "authority": "kernel_readback",
+              "evidence": [
+                "completed_agent_task",
+                "service_health_or_activation_evidence"
+              ],
+              "read_back_required": true
+            }
+          ]
         },
         "canonical_stages": [
           {
             "name": "local_validation",
             "scope": "cortex-local",
             "make_target": "check",
+            "allowed_when_lifecycle_planned": true
+          },
+          {
+            "name": "bootstrap_request",
+            "scope": "organ-forge",
+            "make_target": "bootstrap-request",
+            "request_profile": "bootstrap",
             "allowed_when_lifecycle_planned": true
           },
           {
@@ -190,6 +345,19 @@
         }
       },
       "intents": {
+        "bootstrap-build-runner": {
+          "objective": "bootstrap registry build runner enough to run cargo, gate-2, and organ-forge lifecycle tasks",
+          "deploy": false,
+          "bootstrap_phase": true,
+          "targets": [
+            "organs/forge",
+            "infra/registry.json"
+          ],
+          "coord_targets": [
+            "organs/forge",
+            "infra/registry.json"
+          ]
+        },
         "build-and-test": {
           "objective": "run gate-2 validation on registry build runner",
           "deploy": false
@@ -225,10 +393,17 @@
         "pve"
       ],
       "role": "hypervisor",
+      "constellation": "mesh",
       "os": "Proxmox VE 8.2",
       "network": {
         "local": "192.168.0.37",
         "synapse": "10.20.0.1"
+      },
+      "observed_provider_network": {
+        "lan": "192.168.0.37",
+        "source": "operator_observation",
+        "observed_at": "2026-07-02",
+        "canonical": false
       },
       "vms": [
         {
@@ -327,11 +502,18 @@
         "cynic-lxc-vpn"
       ],
       "role": "mesh_access_control",
+      "constellation": "mesh",
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
       "network": {
         "local": "192.168.0.40",
         "synapse": "10.20.0.2"
+      },
+      "observed_provider_network": {
+        "lan": "192.168.0.40",
+        "source": "operator_observation",
+        "observed_at": "2026-07-02",
+        "canonical": false
       },
       "services": [
         {
@@ -351,6 +533,7 @@
     {
       "name": "organ-wireguard",
       "role": "synapse_mesh_controller",
+      "constellation": "mesh",
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
       "network": {
@@ -378,11 +561,18 @@
         "cynic-storage-primary"
       ],
       "role": "storage_primary",
+      "constellation": "storage",
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
       "network": {
         "local": "<PROXMOX_STORAGE_LOCAL>",
         "synapse": "10.20.0.3"
+      },
+      "observed_provider_network": {
+        "proxmox_guest": "10.10.10.103",
+        "source": "operator_observation",
+        "observed_at": "2026-07-02",
+        "canonical": false
       },
       "services": [
         {
@@ -418,11 +608,18 @@
         "forge"
       ],
       "role": "build_runner",
+      "constellation": "forge",
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
       "network": {
-        "local": "192.168.0.42",
+        "local": "10.10.10.102",
         "synapse": "10.20.0.4"
+      },
+      "observed_provider_network": {
+        "proxmox_guest": "10.10.10.102",
+        "source": "operator_observation",
+        "observed_at": "2026-07-02",
+        "canonical": false
       },
       "services": [
         {
@@ -488,13 +685,20 @@
         "cynic-kernel-primary"
       ],
       "role": "kernel_primary",
+      "constellation": "kernel",
       "host": "cynic-host-proxmox",
       "build_source": "cynic-vm-anvil",
       "deploy_target": true,
       "os": "Debian 12",
       "network": {
-        "local": "<LAN_CORE_V2>",
+        "local": "10.10.10.140",
         "synapse": "10.20.0.5"
+      },
+      "observed_provider_network": {
+        "proxmox_guest": "10.10.10.140",
+        "source": "operator_observation",
+        "observed_at": "2026-07-02",
+        "canonical": false
       },
       "services": [
         {
@@ -549,6 +753,7 @@
     {
       "name": "cynic-vm-core",
       "role": "legacy_core",
+      "constellation": "kernel",
       "energy_profile": {
         "class": "manual",
         "criticality": "optional",
@@ -565,6 +770,7 @@
         "cynic-kernel-staging"
       ],
       "role": "kernel_staging",
+      "constellation": "kernel",
       "host": "cynic-host-proxmox",
       "deploy_target": false,
       "os": "Debian 12",
@@ -589,11 +795,63 @@
       "status": "planned"
     },
     {
+      "name": "cynic-lxc-git",
+      "aliases": [
+        "organ-forgejo",
+        "forgejo"
+      ],
+      "role": "forge_primary",
+      "constellation": "forge",
+      "host": "cynic-host-proxmox",
+      "os": "Debian 12",
+      "network": {
+        "local": "10.10.10.101",
+        "synapse": "10.20.0.10"
+      },
+      "observed_provider_network": {
+        "proxmox_guest": "10.10.10.101",
+        "source": "operator_observation",
+        "observed_at": "2026-07-02",
+        "canonical": false
+      },
+      "services": [
+        {
+          "name": "forgejo",
+          "port": 3000,
+          "description": "Sovereign Git forge and preferred repo lifecycle control plane. GitHub remains external mirror/publication, not canonical agency."
+        },
+        {
+          "name": "forgejo-ssh",
+          "port": 22,
+          "description": "Direct SSH Git transport target; tunnel use is bootstrap fallback only."
+        }
+      ],
+      "energy_profile": {
+        "class": "always_on",
+        "criticality": "core",
+        "wake_policy": "manual",
+        "power_budget": "low",
+        "thermal_sensitive": false
+      },
+      "status": "active",
+      "activation_evidence": {
+        "services": {
+          "forgejo": {
+            "declared": true,
+            "active": true,
+            "checked_at": "2026-07-02T00:00:00+02:00",
+            "source": "operator_observation"
+          }
+        }
+      }
+    },
+    {
       "name": "cynic-builder",
       "aliases": [
         "lxc/105"
       ],
       "role": "candidate_build_runner",
+      "constellation": "forge",
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
       "network": {
@@ -621,6 +879,7 @@
         "cortex-s"
       ],
       "role": "inference_node",
+      "constellation": "inference",
       "network": {
         "local": "192.168.0.67",
         "synapse": "10.20.0.7"
@@ -649,6 +908,7 @@
         "cortex-t"
       ],
       "role": "cortex_host",
+      "constellation": "cortex",
       "network": {
         "local": "192.168.0.12",
         "synapse": "10.20.0.8"
@@ -807,6 +1067,16 @@
         "dns": [
           "organ-wireguard.synapse.cynic"
         ]
+      },
+      {
+        "name": "cynic-lxc-git",
+        "role": "forge_primary",
+        "synapse": "10.20.0.10",
+        "dns": [
+          "cynic-lxc-git.synapse.cynic",
+          "organ-forgejo.synapse.cynic",
+          "forgejo.synapse.cynic"
+        ]
       }
     ]
   },
@@ -907,11 +1177,12 @@
       "instance": "organ-forge-hermes-agent",
       "role": "repo_lifecycle_manager",
       "description": "Git repo hygiene, branch health, claim hygiene, and lifecycle triage.",
-      "scope": "github+cynic-lxc-git",
+      "scope": "forgejo_primary+github_mirror+cynic-lxc-git",
       "cron": "every 30min",
       "status": "active",
       "depends_on": [
-        "cynic-kernel"
+        "cynic-kernel",
+        "cynic-lxc-git"
       ],
       "coord": "cynic_coord_register/release"
     },

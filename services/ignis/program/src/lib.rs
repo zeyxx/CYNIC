@@ -1,16 +1,19 @@
-#![no_std]
+#![cfg_attr(target_os = "solana", no_std)]
+#![allow(unexpected_cfgs)]
+#![allow(unused_imports)]
 
 use pinocchio::{
     account_info::AccountInfo, entrypoint, msg, program_error::ProgramError, pubkey::Pubkey,
 };
 
+#[cfg(target_os = "solana")]
 entrypoint!(process_instruction);
 
 /// Ignis Vault Factory Entrypoint
 /// Raw eBPF execution, zero-copy deserialization.
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    _program_id: &Pubkey,
+    _accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> Result<(), ProgramError> {
     msg!("Ignis Protocol: eBPF crank engaged.");

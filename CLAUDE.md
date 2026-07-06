@@ -149,7 +149,7 @@ The agent and the human share one temporal field. The session's Kairos is co-cre
 
 **End:**
 - Commit what changed. Update mempool states (MINED → CRYSTALLIZED or deferred).
-- Session distill to kernel. session-stop.sh measures temporal compliance.
+- Session distill to kernel. The session lifecycle adapter measures temporal compliance.
 
 ---
 
@@ -228,12 +228,12 @@ Remove explicit exports once a session confirms build succeeds without them.
 CYNIC uses **YY.M.DD** versioning (semver-compatible date format):
 - **Cargo.toml `version`** — Always reflects deployment date (e.g., `26.5.14` = 2026-05-14)
 - **Git tags** — `prod-YY-MM-DD` (e.g., `prod-26-05-14`, `prod-26-05-14-phase1`)
-- **Bump on merge** — When merging Phase N to main, run `scripts/bump-version.sh`
+- **Bump on merge** — When merging Phase N to main, use the release lifecycle contract or the `make release v=patch|minor|major` target when a semver bump is intentional. Do not add shell script entrypoints for versioning.
 
 **Workflow:**
 ```bash
-scripts/bump-version.sh
-# Updates crates/cynic-kernel/Cargo.toml to today's date, creates git tag prod-YY-MM-DD
+make release-dry v=patch
+make release v=patch
 ```
 
 **Why date-based?**

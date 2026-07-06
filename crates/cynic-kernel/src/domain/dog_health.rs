@@ -52,7 +52,7 @@ pub struct DogStats {
     pub api_error_count: u64,
     /// RFC3339 timestamp of last successful score (K14: None = never succeeded).
     #[serde(default)]
-    pub last_success: Option<String>,
+    pub last_success: Option<i64>,
     /// Cumulative latency of successful calls (ms). Used to compute mean.
     pub total_latency_ms: u64,
     /// Cumulative completion tokens from successful calls.
@@ -94,7 +94,7 @@ impl DogStats {
     pub fn record_success(&mut self) {
         self.total_calls += 1;
         self.success_count += 1;
-        self.last_success = Some(chrono::Utc::now().to_rfc3339());
+        self.last_success = Some(chrono::Utc::now().timestamp_millis());
     }
 
     pub fn record_success_with_latency(&mut self, elapsed_ms: u64) {

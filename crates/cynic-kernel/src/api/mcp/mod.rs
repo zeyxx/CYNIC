@@ -7,7 +7,7 @@
 //! Zero duplication with REST handlers — both call the same core.
 //!
 //! Tools split by concern:
-//! - judge_tools.rs: auth, judge, health, verdicts, crystals, infer, audit
+//! - judge_tools.rs: auth, judge, health, verdicts, crystals,  audit
 //! - coord_tools.rs: register, claim, claim_batch, release, who
 //! - observe_tools.rs: observe, validate, git
 
@@ -22,16 +22,12 @@ use serde::Deserialize;
 
 mod agent_tools;
 mod coord_tools;
-mod judge_tools;
 mod observe_tools;
 pub mod proxy;
 
 use crate::domain::coord::CoordPort;
 use crate::domain::events::KernelEvent;
-use crate::domain::inference::InferPort;
 use crate::domain::storage::StoragePort;
-use crate::domain::usage::DogUsageTracker;
-use crate::judge::Judge;
 
 // ── MCP Rate Limiter ──────────────────────────────────────────
 
@@ -489,14 +485,16 @@ pub struct CrystalShatterParams {
 // ── MCP Server ───────────────────────────────────────────────
 
 #[derive(Clone)]
+    // WHY: Dormant logic kept for Phase 2, disabled as part of Option B deep purge
+#[allow(dead_code)]
 pub struct CynicMcp {
-    pub(crate) judge: Arc<arc_swap::ArcSwap<Judge>>,
+    
     pub(crate) storage: Arc<dyn StoragePort>,
     pub(crate) coord: Arc<dyn CoordPort>,
-    pub(crate) usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
+    
     pub(crate) embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
-    pub(crate) verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
-    pub(crate) infer: Arc<dyn InferPort>,
+    
+    
     pub(crate) metrics: Arc<crate::domain::metrics::Metrics>,
     pub(crate) environment:
         Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
@@ -506,11 +504,11 @@ pub struct CynicMcp {
     pub(crate) rate_limit: Arc<McpRateLimit>,
     pub(crate) bg_semaphore: Arc<tokio::sync::Semaphore>,
     pub(crate) authenticated: Arc<AtomicBool>,
-    pub(crate) enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
-    pub(crate) domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
-    pub(crate) domain_router: Arc<crate::infra::domain_router::DomainRouter>,
-    pub(crate) dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
-    pub(crate) routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
+    
+    
+    
+    
+    
     // WHY: K12 — tool_router is used via trait dispatch, compiler misses direct usage
     #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
@@ -524,8 +522,7 @@ impl std::fmt::Debug for CynicMcp {
 
 impl CynicMcp {
     pub fn tool_router() -> ToolRouter<Self> {
-        Self::tool_router_judge()
-            + Self::tool_router_coord()
+        Self::tool_router_coord()
             + Self::tool_router_observe()
             + Self::tool_router_agent()
     }
@@ -534,42 +531,42 @@ impl CynicMcp {
     // WHY: Constructor receives many kernel dependencies — each is a distinct port required at the MCP
     // surface. A builder pattern would only rename the argument list; called in exactly one place.
     pub fn new(
-        judge: Arc<Judge>,
+        
         storage: Arc<dyn StoragePort>,
         coord: Arc<dyn CoordPort>,
-        usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
+        
         embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
-        verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
-        infer: Arc<dyn InferPort>,
+        
+        
         metrics: Arc<crate::domain::metrics::Metrics>,
         environment: Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
         task_health: Arc<crate::infra::task_health::TaskHealth>,
         system_contract: crate::domain::contract::SystemContract,
         event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
-        enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
-        domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
-        domain_router: Arc<crate::infra::domain_router::DomainRouter>,
-        dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
-        routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
+        
+        
+        
+        
+        
     ) -> Self {
         Self {
-            judge: Arc::new(arc_swap::ArcSwap::from(judge)),
+            
             storage,
             coord,
             embedding,
-            verdict_cache,
-            infer,
+            
+            
             metrics,
             environment,
             task_health,
             system_contract,
-            usage,
+            
             event_tx,
-            enricher,
-            domain_curations,
-            domain_router,
-            dog_perf_collector,
-            routing_calc,
+            
+            
+            
+            
+            
             rate_limit: Arc::new(McpRateLimit::new()),
             bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
                 crate::domain::constants::BG_SEMAPHORE_PERMITS,
@@ -1097,10 +1094,10 @@ mod tests {
             judge,
             storage,
             coord,
-            usage,
+            
             embedding,
-            verdict_cache,
-            infer,
+            
+            
             metrics,
             Arc::new(std::sync::RwLock::new(None)),
             Arc::new(crate::infra::task_health::TaskHealth::new()),
@@ -1108,9 +1105,9 @@ mod tests {
             None,
             None,
             Arc::new(crate::domain::wisdom::DomainCurations::new()),
-            domain_router,
-            dog_perf_collector,
-            routing_calc,
+            
+            
+            
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
         mcp
@@ -1292,10 +1289,10 @@ mod tests {
             judge,
             storage,
             coord,
-            usage,
+            
             embedding,
-            verdict_cache,
-            infer,
+            
+            
             metrics,
             Arc::new(std::sync::RwLock::new(None)),
             Arc::new(crate::infra::task_health::TaskHealth::new()),
@@ -1303,9 +1300,9 @@ mod tests {
             None,
             None,
             Arc::new(crate::domain::wisdom::DomainCurations::new()),
-            domain_router,
-            dog_perf_collector,
-            routing_calc,
+            
+            
+            
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
 

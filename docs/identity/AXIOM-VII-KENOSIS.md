@@ -1,6 +1,6 @@
 # CYNIC Axiom VII: KENOSIS (The Void / Wu-Wei)
 
-**Status**: EMERGENT (1/8 Patterns Validated)
+**Status**: VALIDATED (Human Sovereign Confirmation)
 **Etymology**: From Greek *kenosis* (emptying) and Daoist *Wu-Wei* (non-action).
 
 ## Definition

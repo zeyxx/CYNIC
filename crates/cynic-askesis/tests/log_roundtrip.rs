@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use chrono::{Duration, Utc};
-use cynic_askesis::log::{LogEntry, LogStore, jsonl::JsonlLog};
+use cynic_askesis::log::{LogStore, ObservationEvent, jsonl::JsonlLog};
 use tempfile::TempDir;
 
 #[test]
@@ -10,7 +10,7 @@ fn append_then_range_returns_entries() {
     let path = tmp.path().join("log.jsonl");
     let mut store = JsonlLog::new(path).unwrap();
 
-    let entry = LogEntry::new("pas fait de sport aujourd'hui").with_domain("body");
+    let entry = ObservationEvent::new("pas fait de sport aujourd'hui").with_domain("body");
     store.append(entry.clone()).unwrap();
 
     let now = Utc::now();
@@ -28,7 +28,7 @@ fn range_filters_by_timestamp() {
     let path = tmp.path().join("log.jsonl");
     let mut store = JsonlLog::new(path).unwrap();
 
-    store.append(LogEntry::new("today")).unwrap();
+    store.append(ObservationEvent::new("today")).unwrap();
 
     let future_from = Utc::now() + Duration::days(1);
     let future_to = future_from + Duration::hours(1);

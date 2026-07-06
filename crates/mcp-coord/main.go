@@ -9,8 +9,9 @@
 // kernel over HTTP. Zero kernel coupling.
 //
 // Env:
-//   CYNIC_REST_ADDR — kernel address (e.g. <TAILSCALE_CORE>:3030)
-//   CYNIC_API_KEY   — bearer token
+//
+//	CYNIC_REST_ADDR — kernel address (e.g. <TAILSCALE_CORE>:3030)
+//	CYNIC_API_KEY   — bearer token
 package main
 
 import (
@@ -237,7 +238,7 @@ func handleRelease(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 }
 
 func handleWho(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	data, status, err := kernelRequest("GET", "/agents", nil)
+	data, status, err := kernelRequest("GET", "/coord/agents", nil)
 	if err != nil {
 		return errorResult(err.Error())
 	}

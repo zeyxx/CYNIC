@@ -8,6 +8,7 @@ mod dispatch;
 mod maintenance;
 mod mesh;
 mod ops;
+mod proof_of_history;
 mod state_log;
 mod verdict_queue;
 mod verdicts;
@@ -17,8 +18,9 @@ use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
 use crate::domain::storage::{
     ActivityStorage, AgentDispatch, AgentTask, CrystalStorage, DispatchStorage, Event, MeshNode,
-    MeshRoute, MeshStorage, Observation, RawEvent, RawObservation, StateLogStorage, StorageError,
-    StoragePort, SubmissionStorage, TaskStorage, UsageRow, VerdictStorage,
+    MeshRoute, MeshStorage, Observation, ProofOfHistory, ProofOfHistoryStorage, RawEvent,
+    RawObservation, StateLogStorage, StorageError, StoragePort, SubmissionStorage, TaskStorage,
+    UsageRow, VerdictStorage,
 };
 use crate::domain::verdict_queue::QueuedVerdict;
 
@@ -138,7 +140,7 @@ impl CrystalStorage for SurrealHttpStorage {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         voter_count: usize,
         verdict_id: &str,
         verdict_kind: &str,
@@ -149,7 +151,7 @@ impl CrystalStorage for SurrealHttpStorage {
             content,
             domain,
             score,
-            timestamp,
+            &timestamp.to_string(),
             voter_count,
             verdict_id,
             verdict_kind,
@@ -162,12 +164,19 @@ impl CrystalStorage for SurrealHttpStorage {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         source: &str,
         sentiment: Option<&str>,
     ) -> Result<(), StorageError> {
         crystals::observe_crystal_hypha(
-            self, id, content, domain, score, timestamp, source, sentiment,
+            self,
+            id,
+            content,
+            domain,
+            score,
+            &timestamp.to_string(),
+            source,
+            sentiment,
         )
         .await
     }
@@ -176,9 +185,9 @@ impl CrystalStorage for SurrealHttpStorage {
         id: &str,
         reason: &str,
         source: &str,
-        timestamp: &str,
+        timestamp: i64,
     ) -> Result<(), StorageError> {
-        crystals::shatter_crystal(self, id, reason, source, timestamp).await
+        crystals::shatter_crystal(self, id, reason, source, &timestamp.to_string()).await
     }
     async fn store_crystal_embedding(
         &self,
@@ -250,6 +259,21 @@ impl ActivityStorage for SurrealHttpStorage {
         limit: u32,
     ) -> Result<Vec<RawObservation>, StorageError> {
         activity::list_observations_raw(self, domain, agent_id, limit).await
+    }
+    async fn list_observations_filtered(
+        &self,
+        domain: Option<&str>,
+        agent_id: Option<&str>,
+        project: Option<&str>,
+        workstream: Option<&str>,
+        thread_id: Option<&str>,
+        target: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError> {
+        activity::list_observations_filtered(
+            self, domain, agent_id, project, workstream, thread_id, target, limit,
+        )
+        .await
     }
     async fn list_observations_by_target(
         &self,
@@ -515,13 +539,12 @@ impl SubmissionStorage for SurrealHttpStorage {
 
 #[async_trait::async_trait]
 impl MeshStorage for SurrealHttpStorage {
-    async fn register_mesh_node(
+    async fn publish_mesh_key(
         &self,
-        name: &str,
+        mesh_ip: &str,
         public_key: &str,
-        external_endpoint: Option<&str>,
     ) -> Result<MeshNode, StorageError> {
-        mesh::register_mesh_node(self, name, public_key, external_endpoint).await
+        mesh::publish_mesh_key(self, mesh_ip, public_key).await
     }
 
     async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError> {
@@ -530,6 +553,16 @@ impl MeshStorage for SurrealHttpStorage {
 
     async fn list_mesh_routes(&self) -> Result<Vec<MeshRoute>, StorageError> {
         mesh::list_mesh_routes(self).await
+    }
+}
+
+#[async_trait::async_trait]
+impl ProofOfHistoryStorage for SurrealHttpStorage {
+    async fn store_proof_of_history(&self, poh: &ProofOfHistory) -> Result<String, StorageError> {
+        proof_of_history::store_proof_of_history(self, poh).await
+    }
+    async fn list_proof_of_history(&self, limit: u32) -> Result<Vec<ProofOfHistory>, StorageError> {
+        proof_of_history::list_proof_of_history(self, limit).await
     }
 }
 

@@ -1,7 +1,10 @@
 name: organ-wireguard
+domain: synapse-mesh
+domain_role: private_service_mesh_controller
 role: mesh_network_controller
 description: "Sovereign native WireGuard mesh controller using STUN NAT traversal and SurrealDB SSOT. Hexagonal architecture."
 version: 0.2.0
+status: planned
 dependencies:
   - cynic-kernel
 interfaces:
@@ -9,11 +12,43 @@ interfaces:
     - fetch_mesh_nodes
     - fetch_mesh_routes
     - publish_node_endpoint
+    - report_mesh_status
   network_interface:
     - apply_wireguard_config
     - resolve_external_endpoint
+  dns_projection:
+    - render_synapse_hosts
+    - sync_synapse_hosts
+    - plan_synapse_dns_activation
+    - bundle_synapse_dns_activation
+    - report_synapse_dns_activation_status
+    - report_synapse_dns_provider_policy
 state_paths:
   - desired/state.json
   - state/SSOT.json
+scripts:
+  - name: src/entrypoints/cli.py
+    description: Thin organ-wireguard CLI membrane for registry, mesh status, DNS activation and daemon commands
+    integration_status: organ_entrypoint
+    owner: organ-wireguard
+    expiry_condition: none
+  - name: src/adapters/cli_runtime.py
+    description: Runtime implementation for organ-wireguard CLI commands and report surfaces
+    integration_status: transition_debt
+    owner: organ-wireguard
+    expiry_condition: command effects stay outside entrypoint membranes
 runbooks:
   - runbooks/operations.json
+commands:
+  validate:
+    - python3 organs/wireguard/src/entrypoints/cli.py validate --registry infra/registry.json
+  mesh_status:
+    - python3 organs/wireguard/src/entrypoints/cli.py status --resolve-dns --include-records --registry infra/registry.json
+  sync_dns_plan:
+    - python3 organs/wireguard/src/entrypoints/cli.py status --include-records --registry infra/registry.json
+  dns_activation_plan:
+    - python3 organs/wireguard/src/entrypoints/cli.py dns plan
+  dns_activation_bundle:
+    - python3 organs/wireguard/src/entrypoints/cli.py dns bundle --registry infra/registry.json --output-dir /tmp/cynic-synapse-dns
+  dns_activation_status:
+    - python3 organs/wireguard/src/entrypoints/cli.py dns activation-status --resolve-dns

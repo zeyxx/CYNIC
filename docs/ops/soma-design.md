@@ -142,8 +142,8 @@ After=cynic-kernel.service
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/CYNIC/scripts/hermes-x
-ExecStart=%h/.local/bin/mitmdump -s x_proxy.py --listen-host 127.0.0.1 -p 8888 --set stream_large_bodies=1m --set ssl_insecure=true -q
+WorkingDirectory=%h/Bureau/CYNIC
+ExecStart=%h/.local/bin/mitmdump -s %h/Bureau/CYNIC/organs/twitter/src/adapters/hermes_x_proxy.py --listen-host 127.0.0.1 -p 8888 --set stream_large_bodies=1m --set ssl_insecure=true -q
 Restart=on-failure
 RestartSec=10
 

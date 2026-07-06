@@ -1,6 +1,9 @@
 {
     "schema": "cynic.proof_of_history.v1",
     "status": "draft",
+    "draft_reason": "Proof-of-History is documented as an organism pipeline contract but still predates the current kernel/mempool storage enforcement.",
+    "promotion_condition": "event envelope, storage stages, and kernel/crystal write paths are backed by executable validation or typed runtime contracts.",
+    "decision_authority": "organ-supervisor",
     "version": "1.0.0",
     "name": "cynic-proof-of-history",
     "description": "The immutable nervous system and data pipeline for CYNIC events",
@@ -35,10 +38,17 @@
         },
         {
             "stage": 5,
-            "name": "CCM",
-            "format": "coordination_model",
-            "storage": "cynic-kernel / mempool",
-            "description": "Cynic Coordination Model. The execution layer that consumes the live state and emits new raw data (actions)."
+            "name": "CCM_Crystal_Coherence_Machine",
+            "format": "multidimensional_coordination_model",
+            "storage": "cynic-kernel / mempool / crystals",
+            "description": "Crystal Coherence Machine. The ultimate multidimensional execution and coherence layer. It aligns raw data, state, and physical actions across all rings of the organism to maintain perfect systemic harmony."
+        },
+        {
+            "stage": 6,
+            "name": "L1_Anchoring",
+            "format": "state_root_hash",
+            "storage": "Solana Smart Contract (Odysseum Vault / Sovereign Rollup) after audited adapter activation; current organ runtime emits mock receipts and Kernel observation payloads only.",
+            "description": "The transparency oracle periodically extracts the CCM state root (or the latest cryptographic_hash from the JSONL). Current repo evidence proves state-root extraction, mock anchor receipts, observation payload construction and JSONL read-back; public Solana anchoring requires a real audited adapter and Kernel /observe read-back before production claims."
         }
     ],
     "event_envelope": {
@@ -46,6 +56,7 @@
         "source_organ": "string",
         "event_type": "string",
         "payload": "object",
-        "cryptographic_hash": "string (SHA-256 of payload + prev_hash)"
+        "cryptographic_hash": "string (SHA2-512 or SHA3-512 of payload + prev_hash)",
+        "cryptographic_signature": "string (Reserved for PQC ML-DSA / SPHINCS+ or current Ed25519)"
     }
 }

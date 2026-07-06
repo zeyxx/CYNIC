@@ -6,6 +6,8 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+from organs.contracts.src.surface_contracts import read_json_file_or_default
+
 FEED = Path('percolator/ops/researcher-feed.json')
 OUT = Path('percolator/ops/dedupe-brief.json')
 
@@ -26,7 +28,7 @@ def area_for(text: str) -> str | None:
     return None
 
 def main() -> int:
-    feed = json.loads(FEED.read_text()) if FEED.exists() else {'live_log': []}
+    feed = read_json_file_or_default(FEED, {'live_log': []})
     by_repo = defaultdict(list)
     by_area = defaultdict(list)
     submissions = []

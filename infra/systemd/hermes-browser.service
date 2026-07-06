@@ -11,7 +11,7 @@ Environment=CHROME_BIN=/usr/bin/google-chrome
 Environment=HERMES_CDP_PORT=40769
 Environment=HERMES_PROXY_PORT=8888
 Environment=DISPLAY=:0
-ExecStart=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x/scripts/launch-browser.sh
+ExecStart=@CYNIC_PROJECT_ROOTpython3 @/organs/twitter/src/entrypoints/launch_browser.py
 Restart=on-failure
 RestartSec=30
 TimeoutStopSec=10

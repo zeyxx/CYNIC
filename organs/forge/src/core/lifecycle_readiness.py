@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
+
+from organs.contracts.src.surface_contracts import json_object_or_default
+
+from .entities import FleetProbe
 
 
 def build_activation_evidence_gap_details(
@@ -13,6 +16,7 @@ def build_activation_evidence_gap_details(
     deploy_node: dict,
     *,
     env: dict | None = None,
+    extra_role_nodes: dict | None = None,
 ) -> list[dict]:
     env = env or os.environ
     requirements = lifecycle.get("activation_requirements", {})
@@ -20,6 +24,7 @@ def build_activation_evidence_gap_details(
         lifecycle["build_runner_role"]: build_node,
         lifecycle["deploy_target_role"]: deploy_node,
     }
+    role_nodes.update(extra_role_nodes or {})
     gaps = []
     for role, requirement in requirements.items():
         node = role_nodes.get(role)
@@ -127,6 +132,7 @@ def activation_evidence_gaps(
     deploy_node: dict,
     *,
     env: dict | None = None,
+    extra_role_nodes: dict | None = None,
 ) -> list[str]:
     return [
         gap["code"]
@@ -135,6 +141,7 @@ def activation_evidence_gaps(
             build_node,
             deploy_node,
             env=env,
+            extra_role_nodes=extra_role_nodes,
         )
     ]
 
@@ -146,30 +153,25 @@ def inspect_fleet(
     timeout: int = 10,
 ) -> dict:
     target_names = {build_target, deploy_target}
-    probe = {
-        "enabled": True,
-        "status": "pending",
-        "targets": sorted(target_names),
-    }
     try:
         result = subprocess.run(
-            ["headscale", "status", "--json"],
+            ["synapse", "status", "--json"],
             check=False,
             capture_output=True,
             text=True,
             timeout=timeout,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        probe.update({"status": "error", "error": type(exc).__name__})
-        return probe
+    except FileNotFoundError:
+        return FleetProbe.from_dict({"enabled": True, "status": "degraded", "error": "synapse_cli_unavailable", "targets": sorted(target_names)})
+    except subprocess.TimeoutExpired:
+        return FleetProbe.from_dict({"enabled": True, "status": "error", "error": "synapse_status_timeout", "targets": sorted(target_names)})
+    except OSError as exc:
+        return FleetProbe.from_dict({"enabled": True, "status": "error", "error": type(exc).__name__, "targets": sorted(target_names)})
     if result.returncode != 0:
-        probe.update({"status": "error", "error": "tailscale_status_failed"})
-        return probe
-    try:
-        status = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        probe.update({"status": "error", "error": "tailscale_json_invalid"})
-        return probe
+        return FleetProbe.from_dict({"enabled": True, "status": "error", "error": "synapse_status_failed", "targets": sorted(target_names)})
+    status = json_object_or_default(result.stdout)
+    if not status:
+        return FleetProbe.from_dict({"enabled": True, "status": "error", "error": "synapse_json_invalid", "targets": sorted(target_names)})
     peers = list((status.get("Peer") or {}).values())
     self_node = status.get("Self")
     if isinstance(self_node, dict):
@@ -195,15 +197,14 @@ def inspect_fleet(
             "os": peer.get("OS", "unknown"),
             "name": peer.get("HostName") or peer.get("DNSName", "").split(".", 1)[0],
         }
-    probe.update(
-        {
-            "status": "ok",
-            "matches": matches,
-            "missing": missing,
-            "tailnet_running": status.get("BackendState") == "Running",
-        }
-    )
-    return probe
+    return FleetProbe.from_dict({
+        "enabled": True,
+        "status": "ok",
+        "missing": missing,
+        "matches": matches,
+        "targets": sorted(target_names),
+        "mesh_running": status.get("BackendState") == "Running"
+    })
 
 
 def fleet_nodes_ready(
@@ -216,16 +217,18 @@ def fleet_nodes_ready(
         return True
     if not fleet_inventory_probe:
         return False
-    if fleet_probe.get("status") != "ok":
-        return False
-    if fleet_probe.get("missing"):
-        return False
     if fleet_inventory_probe.get("status") != "ok":
         return False
     summary = fleet_inventory_probe.get("summary", {})
     if isinstance(summary, dict):
         if summary.get("missing_nodes", 0) > 0 or summary.get("unexpected_nodes", 0) > 0:
             return False
+    if requirements.get("provider") == "organ-fleet":
+        return True
+    if fleet_probe.get("status") != "ok":
+        return False
+    if fleet_probe.get("missing", []):
+        return False
     if requirements.get("require_online", True):
         return all(
             peer.get("online") is True
@@ -243,74 +246,96 @@ def lifecycle_blockers(
     required_status: str | None,
     fleet_probe: dict,
     fleet_inventory_probe: dict,
+    status_nodes: list[dict] | None = None,
 ) -> list[dict]:
     blockers = [
         {"category": "activation", **gap}
         for gap in activation_gap_details
     ]
     if required_status:
-        for node in (build_node, deploy_node):
+        nodes = status_nodes if status_nodes is not None else [build_node, deploy_node]
+        seen_nodes = set()
+        for node in nodes:
+            node_name = node.get("name")
+            if node_name in seen_nodes:
+                continue
+            seen_nodes.add(node_name)
             actual = node.get("status", "unknown")
             if actual != required_status:
                 blockers.append(
                     {
                         "category": "status",
                         "kind": "node_status",
-                        "node": node.get("name"),
+                        "node": node_name,
                         "role": node.get("role"),
                         "required_status": required_status,
                         "actual_status": actual,
-                        "code": f"{node.get('name')}:status_{actual}_not_{required_status}",
+                        "code": f"{node_name}:status_{actual}_not_{required_status}",
                     }
                 )
     fleet_requirements = lifecycle.get("fleet_requirements", {})
     if fleet_requirements.get("required", False):
-        fleet_status = fleet_probe.get("status", "not_run")
-        if fleet_status != "ok":
-            blockers.append(
-                {
+        provider = fleet_requirements.get("provider", "synapse")
+        if provider == "synapse":
+            fleet_status = fleet_probe.get("status", "not_run")
+            if fleet_status != "ok":
+                blocker = {
                     "category": "fleet",
-                    "kind": "tailscale_probe",
+                    "kind": "synapse_probe",
+                    "provider": "synapse",
                     "required": "ok",
                     "actual": fleet_status,
                     "error": fleet_probe.get("error"),
                     "code": f"fleet_probe:{fleet_status}",
+                    "resolver_organ": "organ-wireguard",
+                    "resolver_consumer": "organ-forge-hermes-agent",
                 }
-            )
-        for node_name in fleet_probe.get("missing", []):
-            blockers.append(
-                {
-                    "category": "fleet",
-                    "kind": "tailscale_peer",
-                    "node": node_name,
-                    "required": "present",
-                    "actual": "missing",
-                    "code": f"{node_name}:fleet_missing",
-                }
-            )
-        if fleet_requirements.get("require_online", True):
-            for node_name, peer in fleet_probe.get("matches", {}).items():
-                if not peer.get("online"):
-                    blockers.append(
-                {
-                    "category": "fleet",
-                    "kind": "tailscale_peer",
-                    "node": node_name,
-                    "required": "online",
-                    "actual": "offline",
-                    "code": f"{node_name}:fleet_offline",
-                }
-            )
+                if fleet_probe.get("error") == "synapse_cli_unavailable":
+                    blocker.update(
+                        {
+                            "operator_action": "activate organ-wireguard / synapse CLI on the registry build runner environment",
+                            "command": "python3 organs/wireguard/src/entrypoints/cli.py sync-dns --registry infra/registry.json",
+                        }
+                    )
+                blockers.append(blocker)
+            for node_name in fleet_probe.get("missing", []):
+                blockers.append(
+                    {
+                        "category": "fleet",
+                        "kind": "synapse_peer",
+                        "node": node_name,
+                        "required": "present",
+                        "actual": "missing",
+                        "code": f"{node_name}:fleet_missing",
+                    }
+                )
+            if fleet_requirements.get("require_online", True):
+                for node_name, peer in fleet_probe.get("matches", {}).items():
+                    if not peer.get("online"):
+                        blockers.append(
+                            {
+                                "category": "fleet",
+                                "kind": "synapse_peer",
+                                "node": node_name,
+                                "required": "online",
+                                "actual": "offline",
+                                "code": f"{node_name}:fleet_offline",
+                            }
+                        )
         inventory_status = fleet_inventory_probe.get("status", "not_run")
         if inventory_status != "ok":
             blockers.append(
                 {
                     "category": "fleet",
                     "kind": "fleet_inventory",
+                    "provider": "organ-fleet",
                     "required": "ok",
                     "actual": inventory_status,
                     "error": fleet_inventory_probe.get("error"),
                     "code": f"fleet_inventory:{inventory_status}",
+                    "resolver_organ": "organ-fleet",
+                    "resolver_consumer": "organ-forge-hermes-agent",
+                    "command": "python3 organs/fleet/src/entrypoints/cli.py report --json --registry infra/registry.json",
                 }
             )
         summary = fleet_inventory_probe.get("summary", {})

@@ -64,6 +64,22 @@ fn default_stop_timeout_secs() -> u64 {
     10
 }
 
+fn default_watchdog_interval_secs() -> u64 {
+    30
+}
+
+fn default_watchdog_http_timeout_secs() -> u64 {
+    5
+}
+
+fn default_watchdog_constellation() -> String {
+    "unassigned".to_string()
+}
+
+fn default_watchdog_role() -> String {
+    "node_watchdog".to_string()
+}
+
 // ── Config structs ────────────────────────────────────────────────────────────
 
 /// Top-level configuration parsed from a node TOML file.
@@ -76,6 +92,46 @@ pub(crate) struct Config {
     pub(crate) restart: RestartConfig,
     #[serde(default)]
     pub(crate) health: HealthConfig,
+}
+
+/// L0 watchdog configuration. This is intentionally independent from Dog
+/// supervision so a node can become observable before any inference backend exists.
+#[derive(Debug, Deserialize)]
+pub(crate) struct WatchdogConfig {
+    pub(crate) kernel: KernelConfig,
+    pub(crate) node: NodeConfig,
+    #[serde(default)]
+    pub(crate) watchdog: WatchdogRuntimeConfig,
+}
+
+/// Node identity projected into observations.
+#[derive(Debug, Deserialize)]
+pub(crate) struct NodeConfig {
+    pub(crate) name: String,
+    #[serde(default = "default_watchdog_role")]
+    pub(crate) role: String,
+    #[serde(default = "default_watchdog_constellation")]
+    pub(crate) constellation: String,
+    #[serde(default)]
+    pub(crate) services: Vec<String>,
+}
+
+/// Watchdog loop settings.
+#[derive(Debug, Deserialize)]
+pub(crate) struct WatchdogRuntimeConfig {
+    #[serde(default = "default_watchdog_interval_secs")]
+    pub(crate) interval_secs: u64,
+    #[serde(default = "default_watchdog_http_timeout_secs")]
+    pub(crate) http_timeout_secs: u64,
+}
+
+impl Default for WatchdogRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            interval_secs: default_watchdog_interval_secs(),
+            http_timeout_secs: default_watchdog_http_timeout_secs(),
+        }
+    }
 }
 
 /// Kernel connection settings.
@@ -274,6 +330,32 @@ pub(crate) fn load(path: &str) -> Result<Config, String> {
     Ok(cfg)
 }
 
+/// Load a watchdog-only config. This accepts `[kernel]`, `[node]`, and optional
+/// `[watchdog]`; it deliberately does not require `[dog]` or `[process]`.
+pub(crate) fn load_watchdog(path: &str) -> Result<WatchdogConfig, String> {
+    let raw =
+        std::fs::read_to_string(path).map_err(|e| format!("cannot read config {path}: {e}"))?;
+
+    let mut cfg: WatchdogConfig =
+        toml::from_str(&raw).map_err(|e| format!("config parse error in {path}: {e}"))?;
+
+    cfg.kernel.api_key = std::env::var(&cfg.kernel.api_key_env).map_err(|e| {
+        format!(
+            "environment variable `{}` not set (required for kernel auth): {e}",
+            cfg.kernel.api_key_env
+        )
+    })?;
+    if cfg.kernel.api_key.is_empty() {
+        return Err(format!(
+            "environment variable `{}` is empty (must be non-empty for kernel auth)",
+            cfg.kernel.api_key_env
+        ));
+    }
+
+    validate_watchdog(&cfg)?;
+    Ok(cfg)
+}
+
 /// Expand `${VAR_NAME}` patterns in a string from environment variables.
 /// Returns Err if a referenced variable is not set.
 fn expand_env_vars(input: &str) -> Result<String, String> {
@@ -331,6 +413,28 @@ pub(crate) fn validate(cfg: &Config) -> Result<(), String> {
         ));
     }
 
+    Ok(())
+}
+
+pub(crate) fn validate_watchdog(cfg: &WatchdogConfig) -> Result<(), String> {
+    let name_len = cfg.node.name.len();
+    if name_len == 0 || name_len > 64 {
+        return Err(format!(
+            "node.name must be 1-64 characters, got {name_len} chars"
+        ));
+    }
+    if cfg.node.role.is_empty() || cfg.node.role.len() > 64 {
+        return Err("node.role must be 1-64 characters".to_string());
+    }
+    if cfg.node.constellation.is_empty() || cfg.node.constellation.len() > 64 {
+        return Err("node.constellation must be 1-64 characters".to_string());
+    }
+    if cfg.watchdog.interval_secs == 0 {
+        return Err("watchdog.interval_secs must be > 0".to_string());
+    }
+    if cfg.watchdog.http_timeout_secs == 0 {
+        return Err("watchdog.http_timeout_secs must be > 0".to_string());
+    }
     Ok(())
 }
 

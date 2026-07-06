@@ -8,9 +8,9 @@ PartOf=hermes-organism.target
 EnvironmentFile=%h/.config/cynic/env
 Type=oneshot
 Environment="PYTHONUNBUFFERED=1"
-Environment="PYTHONPATH=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC"
-WorkingDirectory=%h/.cynic/organs/hermes/x
-ExecStart=/usr/bin/python3 core/organic_navigator.py \
+Environment="PYTHONPATH=@CYNIC_PROJECT_ROOT@"
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+ExecStart=@CYNIC_PROJECT_ROOTpython3 @/organs/twitter/src/entrypoints/python_launcher.py @CYNIC_PROJECT_ROOT@/organs/twitter/src/entrypoints/hermes_x.py navigator \
     --organ-dir %h/.cynic/organs/hermes/x \
     --budget 5
 TimeoutStartSec=300

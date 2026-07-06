@@ -194,14 +194,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] No backends.toml found, using env var fallback");
         infra::config::load_backends_from_env()
     };
-    let summarizer_backend_cfg = infra::boot::select_summarizer_backend(&backend_configs);
-    if let Some(cfg) = summarizer_backend_cfg.as_ref() {
-        klog!(
-            "[Ring 2] Sovereign summarizer backend: {} (timeout={}s)",
-            cfg.name,
-            cfg.timeout_secs
-        );
-    }
+    // Summarizer disabled pending excision review
 
     // Self-model: load SystemContract from backends.toml — ALL declared Dogs,
     // regardless of whether their env vars resolve right now.
@@ -289,18 +282,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 2: Build Dogs + organ from backend_configs ──────
     // Factory loop lives in infra::boot so main stays a composition root.
-    let infra::boot::DogsAndOrgan {
-        dogs,
-        organ_handles,
-        organ,
-        cost_rates,
-        health_urls,
-        slots_urls,
-        fleet_meta,
-        remediation_configs,
-        dog_to_fleet_node,
-    } = infra::boot::build_dogs_and_organ(backend_configs.clone(), &domain_prompts, &storage_port)
-        .await;
+    // build_dogs_and_organ disabled
 
     // Soma L2: Slot tracker — shared between health loop (writer) and Judge + REST (readers).
     let slot_tracker = Arc::new(domain::slot_tracker::SlotTracker::new());
@@ -321,13 +303,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ─── RING 2: Health Loop + Remediation ──────────────────────
-    // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
-    if !remediation_configs.is_empty() {
-        klog!(
-            "[Ring 2] Remediation: {} Dogs configured for auto-restart",
-            remediation_configs.len()
-        );
-    }
+    // Remediation disabled
 
     // ─── RING 2: Embedding backend (sovereign, auto-recovery) ────
     let initial_embed: Arc<dyn domain::embedding::EmbeddingPort> = {
@@ -372,41 +348,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // ─── RING 2: Build Judge ──────────────────────────────────
-    let breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = dogs
-        .iter()
-        .map(|d| {
-            let dog_name = d.id().to_string();
-            let mut breaker = infra::circuit_breaker::CircuitBreaker::new(dog_name.clone());
-
-            // Apply data-driven thresholds from backends.toml if configured for this Dog
-            if let Some(_threshold_cfg) = dog_thresholds.dogs.get(&dog_name) {
-                breaker = breaker.with_thresholds(
-                    dog_thresholds.circuit.open_on_consecutive_failures,
-                    dog_thresholds.circuit.open_duration_secs,
-                );
-            } else {
-                // Use global defaults from backends.toml
-                breaker = breaker.with_thresholds(
-                    dog_thresholds.circuit.open_on_consecutive_failures,
-                    dog_thresholds.circuit.open_duration_secs,
-                );
-            }
-
-            Arc::new(breaker) as Arc<dyn domain::health_gate::HealthGate>
-        })
-        .collect();
-    // Daily budgets from backends.toml: restrict quota-constrained Dogs
-    let budget_limits: Vec<(String, u32)> = backend_configs
-        .iter()
-        .filter(|c| c.daily_budget > 0)
-        .map(|c| (c.name.clone(), c.daily_budget))
-        .collect();
-    let judge = judge::Judge::new(dogs, breakers)
-        .with_organ_handles(organ_handles)
-        .with_budgets(&budget_limits)
-        .with_slot_tracker(Arc::clone(&slot_tracker))
-        .with_slot_semaphores(Arc::clone(&slot_semaphores))
-        .with_inference_queues(Arc::clone(&inference_queues));
+    let breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = vec![];
+    // Judge disabled
     // Background task health tracker — updated by each spawned task, exposed in /health
     let task_health = Arc::new(infra::task_health::TaskHealth::new());
     // Lifecycle orchestration — all background tasks select! on this token.
@@ -414,19 +357,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shutdown = CancellationToken::new();
 
     // Seed integrity hash chain from last stored verdict + verify integrity
-    let chain_verified = infra::boot::seed_integrity_chain(&storage_port, &judge).await;
+    let chain_verified = infra::boot::seed_integrity_chain(&storage_port).await;
 
-    // Seed EPOCHÉ window from recent verdicts (data-driven suspension threshold)
-    match storage_port.recent_max_disagreements(1000).await {
-        Ok(recent) if !recent.is_empty() => judge.seed_epoche_window(&recent),
-        Ok(_) => tracing::info!(
-            phase = "boot",
-            "No historical verdicts for EPOCHÉ window — starting cold"
-        ),
-        Err(e) => {
-            tracing::warn!(phase = "boot", error = %e, "Failed to seed EPOCHÉ window — starting cold")
-        }
-    }
+    // EPOCHÉ disabled
 
     // Sense registry — best-effort organ readers (RTK, Hermes X, Tailscale)
     // Built early so health_loop can use Tailscale sense for fleet awareness.
@@ -450,31 +383,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     // ─── RING 2: Spawn health loop + remediation watcher ──────
-    let all_breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> =
-        judge.breakers().iter().map(Arc::clone).collect();
+    let all_breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = vec![];
     {
-        let probe_configs: Vec<infra::health_loop::DogProbeConfig> = judge
-            .dog_ids()
-            .iter()
-            .filter(|id| *id != "deterministic-dog")
-            .filter_map(|id| {
-                health_urls
-                    .get(id.as_str())
-                    .and_then(|opt| opt.as_ref())
-                    .map(|url| {
-                        let api_key = backend_configs
-                            .iter()
-                            .find(|c| c.name == *id)
-                            .and_then(|c| c.api_key.clone());
-                        infra::health_loop::DogProbeConfig {
-                            dog_id: id.clone(),
-                            health_url: url.clone(),
-                            slots_url: slots_urls.get(id.as_str()).and_then(|opt| opt.clone()),
-                            api_key,
-                        }
-                    })
-            })
-            .collect();
+    let probe_configs: Vec<infra::health_loop::DogProbeConfig> = vec![];
         if !probe_configs.is_empty() {
             let probe_breakers: Vec<_> = probe_configs
                 .iter()
@@ -491,7 +402,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Arc::clone(&task_health),
                 Arc::clone(&storage_port),
                 senses.clone(),
-                dog_to_fleet_node.clone(),
+                std::collections::HashMap::new(),
                 Arc::clone(&slot_tracker),
                 Arc::clone(&slot_semaphores),
                 Arc::clone(&routing_calc),
@@ -503,9 +414,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
     }
-    if !remediation_configs.is_empty() {
+    if false {
         infra::tasks::spawn_remediation_watcher(
-            remediation_configs.clone(),
+            std::collections::HashMap::new(),
             all_breakers,
             Arc::clone(&task_health),
             shutdown.clone(),
@@ -530,19 +441,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ─── RING 3: REST API (for React/external clients) ────────
-    let judge = Arc::new(judge);
-    let judge_swap = arc_swap::ArcSwap::from(Arc::clone(&judge));
+    // let judge = Arc::new(judge);
+    // judge_swap removed
     let usage_tracker = Arc::new(tokio::sync::Mutex::new(
         domain::usage::DogUsageTracker::new(),
     ));
     // Wire per-Dog cost rates from backends.toml
     {
         let mut usage = usage_tracker.lock().await;
-        for (name, input_rate, output_rate) in &cost_rates {
-            usage.set_cost_rate(name, *input_rate, *output_rate);
+    for (name, input_rate, output_rate) in &std::vec::Vec::<(String, u64, u64)>::new() {
+            usage.set_cost_rate(name, *input_rate as f64, *output_rate as f64);
         }
-        if !cost_rates.is_empty() {
-            klog!("[Ring 2] Cost rates: {} Dogs configured", cost_rates.len());
+    if false {
+            klog!("[Ring 2] Cost rates: {} Dogs configured", 0);
         }
     }
     // Load historical usage from DB (survives restarts)
@@ -650,7 +561,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     // Build fleet probe targets from Dog health_urls (backends.toml SoT).
     // Pure transform extracted to infra::boot.
-    let fleet_targets = infra::boot::build_fleet_targets(&health_urls, &fleet_meta);
+    let fleet_targets = infra::boot::build_fleet_targets(&std::collections::HashMap::new(), &std::collections::HashMap::new());
     let fleet_inventory_probe = infra::probes::build_default_fleet_inventory_probe(&project_root);
 
     // ── STARTUP VERIFICATION: Fail fast on backend coherence violations ──
@@ -772,7 +683,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|c| (c.name.clone(), c.sovereign))
         .collect();
     let proxy_targets = Arc::new(api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
-        &fleet_meta,
+        &std::collections::HashMap::new(),
         &sovereign_flags,
     ));
     if !proxy_targets.available().is_empty() {
@@ -826,7 +737,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let rest_state = Arc::new(api::rest::AppState {
-        judge: judge_swap,
         storage: Arc::clone(&storage_port),
         coord: Arc::clone(&coord),
         embedding: Arc::clone(&embedding) as Arc<dyn domain::embedding::EmbeddingPort>,
@@ -856,7 +766,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         environment: Arc::clone(&environment),
         registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
         registered_services: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
-        judge_jobs: Arc::new(api::rest::judge_job::JudgeJobStore::new()),
         system_contract: system_contract.clone(),
         backend_configs: backend_configs.clone(),
         enricher: enricher.clone(),
@@ -941,21 +850,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&usage_tracker),
             Arc::clone(&task_health),
             shutdown.clone(),
-            Some(Arc::clone(&organ)),
+            None,
         );
         klog!("[Ring 2] Usage + organ stats flush task started (every 60s, TTL cleanup every 1h)");
 
-        // ─── RING 2: Session summarizer (sovereign inference, background) ──
-        if let Ok(summarizer) = infra::boot::build_summarizer(summarizer_backend_cfg.as_ref()) {
-            infra::tasks::spawn_session_summarizer(
-                Arc::clone(&storage_port),
-                summarizer,
-                Arc::clone(&task_health),
-                shutdown.clone(),
-            );
-        } else {
-            klog!("[Ring 2] Session summarizer DISABLED — HTTP client init failed");
-        }
+        // Session summarizer disabled
 
         // ─── One-shot: backfill crystal embeddings (orphan defragmentation) ──
         // Always spawned — on NullStorage the query returns empty (no-op).
@@ -1027,24 +926,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             klog!("[Ring 2] Slack alerter disabled (CYNIC_SLACK_WEBHOOK not set)");
         }
-        infra::tasks::spawn_event_consumer(
-            &event_tx,
-            Arc::clone(&rest_state),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-            slack.clone(),
-        );
+        // Event consumer disabled
 
-        // ─── Layer 4 Slack alerter: polls /observations?consumer=pattern_healing ────
-        // K15 feedback loop: anomaly detected → observation emitted → alerter sends Slack
-        infra::tasks::spawn_pattern_healing_alerter(
-            kernel_addr,
-            api_key,
-            Arc::clone(&task_health),
-            shutdown.clone(),
-            slack,
-        );
-        klog!("[Ring 2] Pattern healing alerter started (K15 Layer 4 consumer)");
+        // ─── Layer 4 Slack alerter: disabled
 
         // ─── Storage reconnect (K15: detection → action) ──
         // Ephemeral task — exits once storage is connected. No TaskHealth tracking
@@ -1055,49 +939,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             shutdown.clone(),
         );
 
-        infra::tasks::spawn_probe_scheduler(
-            probes,
-            Arc::clone(&storage_port),
-            Arc::clone(&environment),
-            Arc::clone(&organ),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-        );
-        klog!(
-            "[Ring 2] Probe scheduler started (resource+process+pressure+network+fleet: 30s, backup: 1h)"
-        );
+        // Probe scheduler disabled
 
-        infra::tasks::spawn_dog_ttl_checker(
-            Arc::clone(&rest_state),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-        );
-        klog!("[Ring 2] Dog TTL checker started (every 30s)");
+        // Dog tasks disabled
 
-        infra::tasks::spawn_service_ttl_checker(Arc::clone(&rest_state), shutdown.clone());
-        klog!("[Ring 2] Service process table TTL reaper started (every 30s)");
-
-        infra::tasks::spawn_dog_heartbeat_loop(
-            Arc::clone(&rest_state),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-        );
-        klog!("[Ring 2] Dog heartbeat loop started (every 40s, K15 consumer)");
-
-        infra::tasks::spawn_dog_perf_flush_loop(
-            Arc::clone(&rest_state),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-        );
-        klog!("[Ring 2] Dog performance flush loop started (every 60s, K15 seam 3 producer)");
-
-        infra::tasks::spawn_discovery_loop(
-            Arc::clone(&rest_state),
-            fleet_meta,
-            Arc::clone(&task_health),
-            shutdown.clone(),
-        );
-        klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
+        // Discovery loop disabled
 
         // ─── Governance (Auto-Submission) ────────────────────────
         let _governance_handle = infra::tasks::spawn_governance_queue(
@@ -1108,23 +954,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] Governance submission queue started");
 
         // ─── Storage metrics emitter (every 60s, CHAOS→MATRIX data-centric measurement) ────
-        let _storage_metrics_handle = infra::tasks::spawn_storage_metrics_emitter(
-            Arc::clone(&storage_port),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-        );
-        klog!(
-            "[Ring 2] Storage metrics emitter started (every 60s, data-centric bottleneck detection)"
-        );
+        // Storage metrics disabled
 
         // ─── Crystal immune system (every 5min, Soma L2: Background priority) ───────
-        let _crystal_challenge_handle = infra::tasks::spawn_crystal_challenge_loop(
-            rest_state.judge.load_full(),
-            Arc::clone(&storage_port),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-        );
-        klog!("[Ring 2] Crystal challenge loop started (every 5min, Soma L2 Background priority)");
+        // Crystal challenge disabled
 
         // ─── Nightshift: DISABLED (K15 violation: no consumer for dev domain crystals) ────
         // Nightshift spawned every 1h to judge commits + observations → create dev crystals.
@@ -1133,24 +966,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Revived in Phase 2+ when temporal compounding actually has a consumer that acts.
 
         // ─── Convergence consumer: polls convergence signals, triggers enriched pipeline ──
-        let _convergence_consumer_handle = infra::tasks::spawn_convergence_consumer(
-            rest_state.judge.load_full(),
-            Arc::clone(&storage_port),
-            Arc::clone(&rest_state.metrics),
-            dog_thresholds.convergence.clone(),
-            infra::tasks::ConvergencePipelineDeps {
-                embedding: Arc::clone(&embedding) as Arc<dyn domain::embedding::EmbeddingPort>,
-                usage: Arc::clone(&usage_tracker),
-                verdict_cache: Arc::clone(&verdict_cache),
-                enricher: enricher.clone(),
-                domain_curations: Arc::clone(&domain_curations),
-                domain_router: Arc::clone(&domain_router),
-                routing_calc: Arc::clone(&routing_calc),
-                event_tx: Some(event_tx.clone()),
-            },
-            shutdown.clone(),
-        );
-        klog!("[Ring 3] Convergence consumer started (poll interval: 60s, enriched pipeline)");
+        // Convergence disabled
     } else {
         klog!("[Ring 2] MCP mode — background tasks SKIPPED (REST kernel handles them)");
     }
@@ -1178,10 +994,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 env!("CARGO_PKG_VERSION"),
                 env!("CYNIC_VERSION"),
                 env!("CYNIC_GIT_SHA"),
-                rest_state.judge.load_full().dog_ids().len()
+                0
             ),
             session_id: String::new(),
-            timestamp: chrono::Utc::now().to_rfc3339(),
+            timestamp: chrono::Utc::now().timestamp_millis(),
             tags: vec!["kernel-self-obs".into()],
             source_tier: "permanent".to_string(),
             value: None,

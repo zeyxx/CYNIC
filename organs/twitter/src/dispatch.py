@@ -5,11 +5,9 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "scripts"))
-from hermes_dispatch import HermesDispatcher
+from organs.contracts.src.hermes_dispatch import HermesDispatcher
+from organs.contracts.src.surface_contracts import read_json_file_or_default
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 STATE_FILE = PROJECT_DIR / "state" / "state.json"
@@ -18,9 +16,9 @@ def get_state() -> dict | None:
     if not STATE_FILE.exists():
         return None
     try:
-        with open(STATE_FILE, "r") as f:
-            return json.load(f)
-    except json.JSONDecodeError:
+        state = read_json_file_or_default(STATE_FILE, {})
+        return state if isinstance(state, dict) else None
+    except Exception:
         return None
 
 def main() -> int:
@@ -41,14 +39,18 @@ def main() -> int:
         "targets": [
             "organs/twitter/state/state.json",
             "organs/twitter/state/dataset.jsonl",
-            "organs/twitter/SKILL.md"
+            "organs/twitter/state/context_items.jsonl",
+            "organs/twitter/state/context/latest.md",
+            "organs/twitter/state/SKILL.md"
         ],
         "actions": [
             "Read the Twitter surface state from state.json.",
-            "If Proxy is offline, run in Analyst Mode: analyze historical dataset.jsonl and find patterns.",
-            "If Proxy is online, run in Explorer Mode: check for high-signal tweets and curate them.",
-            "Update SKILL.md with new patterns and evidence.",
-            "Post a concise insight to /observe."
+            "If state/context/latest.md exists, use it as the cortex context bundle.",
+            "If no bundle exists but context_items.jsonl has items, run organs/twitter/src/entrypoints/cli.py bundle.",
+            "If Proxy is offline, run Analyst Mode over context_items.jsonl and historical dataset.jsonl.",
+            "If Proxy is online, run Explorer Mode: check for high-signal tweets and curate them into context_items.jsonl.",
+            "Update state/SKILL.md only with durable operating patterns and evidence.",
+            "Post a concise JSON observation to /observe."
         ],
     }
     

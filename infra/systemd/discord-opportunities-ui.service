@@ -4,9 +4,9 @@ After=discord-pipeline.service
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
 Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONPATH=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+Environment=PYTHONPATH=@CYNIC_PROJECT_ROOT@
 Environment=DISCORD_DB_PATH=%h/.cynic/organs/discord/messages.db
 Environment=DISCORD_UI_HOST=127.0.0.1
 Environment=DISCORD_UI_PORT=8891

@@ -1,4 +1,43 @@
-# Organ Anvil - Architecture Data-Driven
+# Organ Forge Local Memory
+
+This directory is organ-local peripheral memory. It is not the organism-wide
+source of truth.
+
+Canonical layers:
+
+- Git, `infra/registry.json`, axioms, manifests: desired state / DNA.
+- Kernel `/observe`, `/agent-tasks`, `proof_of_history`: durable organism memory
+  after read-back.
+- `organs/forge/state/`: local buffer, cache, journal, warehouse, outbox,
+  reports, and operator views for organ-forge.
+
+Current local-memory shape:
+
+```text
+state/
+  db/                 SQLite local index and outbox
+  journal/            append-only JSONL local event journal
+  outbox/             reserved for file-backed delivery batches
+  deadletter/         reserved for invalid or undeliverable events
+  reports.jsonl       legacy CCM/report stream
+  audit.jsonl         legacy local journal
+  state.json          legacy local snapshot
+  poh.json            legacy projection; canonical PoH is Kernel storage
+```
+
+Use:
+
+```bash
+python3 organs/forge/src/entrypoints/cli.py organ-memory-status
+python3 organs/forge/src/entrypoints/cli.py organ-memory-record event '{"ok":true}'
+python3 organs/forge/src/entrypoints/cli.py organ-memory-flush --dry-run
+```
+
+Machine clients must treat every output as JSON. Local memory may buffer and
+compress, but it must not claim global authority without Kernel promotion and
+read-back.
+
+# Legacy Organ Anvil Notes
 
 ## Structure des fichiers
 
@@ -35,7 +74,7 @@ infra/organ-anvil/
 
 ### Schema Evolution
 1. Nouveau champ → Ajout dans `schema.json` avec version incrémentée
-2. Migration → Script de migration dans `scripts/organ-anvil-migrate.sh`
+2. Migration → entrypoint organique bornée sous `organs/forge/src/entrypoints/`
 3. Compatibilité backward → Les anciens champs sont conservés, les nouveaux ajoutés avec valeur par défaut
 
 ### State Evolution
@@ -84,21 +123,21 @@ infra/organ-anvil/
 
 ## Workflow
 
-1. **Perception** → `bash scripts/organ-anvil.sh state`
+1. **Perception** → `python3 organs/forge/src/entrypoints/anvil.py perceive --save`
 2. **Décision** → Hermes Agent lit state.json et décide
 3. **Action** → Scripts ou MCP tools
-4. **Audit** → `bash scripts/organ-anvil.sh audit "action" '{"details":...}' "outcome"`
-5. **Signal** → `bash scripts/organ-anvil.sh signal` emits compact JSON for cortices/Hermes consumers
-6. **Triage** → `bash scripts/organ-anvil.sh triage` emits non-mutating scope diagnosis for dirty worktrees
-7. **Repo Health** → `bash scripts/organ-anvil.sh repo-health` emits non-mutating JSON radar for branches/PRs/stashes/gates/coord
-8. **Branch Report** → `bash scripts/organ-anvil.sh branch-report <branch> --save` appends an immutable JSON report to `reports.jsonl`
+4. **Audit** → `python3 organs/forge/src/entrypoints/anvil.py audit "action" '{"details":true}' "outcome"`
+5. **Signal** → future organ-forge entrypoint or MCP surface emits compact JSON for cortices/Hermes consumers
+6. **Triage** → future organ-forge entrypoint emits non-mutating scope diagnosis for dirty worktrees
+7. **Repo Health** → `python3 organs/forge/src/entrypoints/anvil.py perceive` emits non-mutating JSON radar for repo/gates
+8. **Branch Report** → future organ-forge entrypoint appends an immutable JSON report to `reports.jsonl`
 9. **Proposal Queue** → organ-anvil emits pending `organ-anvil-proposal` tasks for admin review before any remediation is applied
 10. **Approval Trigger** → approved proposals enqueue a remediation task for the same organ before execution
 11. **Rapport** → Dashboard HTML + handoff.md
 
 ## Évolutivité
 
-- Ajouter de nouveaux capteurs dans `scripts/organ-anvil.sh`
+- Ajouter de nouveaux capteurs dans `organs/forge/src/core/` et les exposer par `organs/forge/src/entrypoints/`
 - Ajouter de nouvelles règles dans le prompt du cron
 - Ajouter de nouvelles métriques dans `state.json`
 - Ajouter de nouveaux panneaux dans `dashboard.html`

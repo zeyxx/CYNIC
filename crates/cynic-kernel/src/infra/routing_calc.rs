@@ -70,7 +70,7 @@ impl RoutingCalculator {
                 success,
                 failure_reason: if success { "none" } else { "unknown" }.to_string(),
                 agent_id: "kernel-routing".to_string(),
-                timestamp: chrono::Utc::now().to_rfc3339(),
+                timestamp: chrono::Utc::now().timestamp_millis(),
                 metadata: format!("dog={dog_id} domain={domain}"),
             };
 

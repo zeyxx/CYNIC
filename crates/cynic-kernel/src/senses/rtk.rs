@@ -74,12 +74,12 @@ impl OrganPort for RtkReader {
         let path = self.db_path.clone();
         tokio::task::spawn_blocking(move || {
             let conn = Self::open_db(&path)?;
-            let ts: String = conn
+            let ts: i64 = conn
                 .query_row("SELECT MAX(timestamp) FROM commands", [], |row| row.get(0))
                 .map_err(|e| OrganError::ReadFailed(format!("freshness query: {e}")))?;
 
-            let parsed = chrono::DateTime::parse_from_rfc3339(&ts)
-                .map_err(|e| OrganError::ReadFailed(format!("timestamp parse: {e}")))?;
+            let parsed = chrono::DateTime::from_timestamp_millis(ts)
+                .ok_or_else(|| OrganError::ReadFailed("bad timestamp".to_string()))?;
 
             let age = Utc::now()
                 .signed_duration_since(parsed)

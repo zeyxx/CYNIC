@@ -25,5 +25,8 @@ services:
   - organ-jupyter-hermes-agent.service
 
 scripts:
-  - name: server.py
+  - name: src/entrypoints/cli.py
     description: Hexagonal architecture entrypoint to manage the Jupyter lab process
+    owner: organ-jupyter
+    integration_status: transition_debt
+    expiry_condition: Jupyter runtime wiring remains compatibility-wrapped until the body files are tracked or quarantined.

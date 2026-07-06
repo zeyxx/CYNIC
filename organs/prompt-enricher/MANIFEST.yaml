@@ -1,15 +1,15 @@
 id: organ-prompt-enricher
 tier: 2
 domain: prompt-middleware
-status: TRANSITIONAL
-framework: transitional-python-organ
+status: ACTIVE
+framework: canonical-python-organ
 
 description: |
   Prompt enrichment middleware organ. It is intended to enrich raw Kernel
   agent tasks with contextual scaffolding, retrieval context and operational
-  constraints before execution by cortex agents or Dogs. The current
-  implementation is still a prototype under src/src/main.py and must be moved
-  behind a core/adapters/entrypoints boundary before it can become canonical.
+  constraints before execution by cortex agents or Dogs. Its implementation is
+  split across core, adapters, and entrypoints so enrichment policy, Kernel I/O,
+  and invocation surfaces remain distinct.
 
 inputs:
   - source: cynic-kernel /agent-tasks
@@ -24,8 +24,11 @@ outputs:
     format: enrichment impact observations
 
 scripts:
-  - name: src/src/main.py
-    description: Prototype polling loop for prompt enrichment.
+  - name: src/entrypoints/cli.py
+    description: Canonical prompt enrichment CLI membrane.
+    owner: organ-prompt-enricher
+    integration_status: organ_entrypoint
+    expiry_condition: none
 
 manual_gates:
   - no_prompt_mutation_without_kernel_task_trace

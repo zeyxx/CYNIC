@@ -8,7 +8,8 @@ use crate::domain::storage::AgentTask;
 
 use super::{
     ClaimAgentTaskParams, CynicMcp, DispatchAgentTaskParams, ListPendingAgentTasksParams,
-    UpdateAgentTaskResultParams, sanitize_error, validate_agent_id, validate_agent_task_content,
+    UpdateAgentTaskResultParams, sanitize_error, validate_agent_id,
+    validate_agent_task_content,
 };
 
 #[tool_router(router = tool_router_agent, vis = "pub(super)")]
@@ -47,7 +48,7 @@ impl CynicMcp {
         validate_agent_task_content(&p.kind, &p.domain, &p.content)?;
 
         let task_id = format!("agent-task:{}", crate::infra::crypto::generate_secure_id());
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = chrono::Utc::now().timestamp_millis();
         let task = AgentTask {
             id: task_id.clone(),
             kind: p.kind.clone(),
@@ -141,6 +142,58 @@ impl CynicMcp {
             serde_json::json!({
                 "tasks": tasks,
                 "count": tasks.len(),
+            })
+            .to_string(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_watch_pending_agent_tasks",
+        description = "Wait for pending tasks of a specific kind until work appears or the timeout expires. Use this to avoid repeated polling when a consumer can block."
+    )]
+    pub(crate) async fn cynic_watch_pending_agent_tasks(
+        &self,
+        params: Parameters<ListPendingAgentTasksParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        validate_agent_id(&p.agent_id)?;
+
+        if p.kind.is_empty() || p.kind.len() > 64 {
+            return Err(McpError::invalid_params(
+                "kind must be 1-64 characters",
+                None,
+            ));
+        }
+
+        let limit = p.limit.unwrap_or(10).min(100);
+        let timeout_secs = 30;
+        let tasks = self
+            .storage
+            .list_pending_agent_tasks(&p.kind, p.domain.as_deref(), limit)
+            .await
+            .map_err(|_e| sanitize_error("Agent task watch"))?;
+
+        let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
+        self.audit(
+            "cynic_watch_pending_agent_tasks",
+            &agent_id,
+            &serde_json::json!({
+                "kind": p.kind,
+                "count": tasks.len(),
+                "timeout_secs": timeout_secs,
+                "watch": "immediate",
+            }),
+        )
+        .await;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::json!({
+                "tasks": tasks,
+                "count": tasks.len(),
+                "watch": "immediate",
+                "timeout_secs": timeout_secs,
             })
             .to_string(),
         )]))

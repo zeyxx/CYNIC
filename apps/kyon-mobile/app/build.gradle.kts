@@ -42,4 +42,5 @@ dependencies {
     ksp("androidx.room:room-compiler:$roomVersion")
 
     debugImplementation("androidx.compose.ui:ui-tooling:1.7.5")
+    testImplementation("junit:junit:4.13.2")
 }

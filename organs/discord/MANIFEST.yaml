@@ -1,7 +1,8 @@
 id: organ-discord
 tier: 2
 domain: social
-status: PLANNED
+domain_role: sensor
+status: ACTIVE
 description: "Discord passive capture organ — allowed channel ingestion from the operator's own Discord web session"
 framework: hexagonal-organ
 
@@ -22,9 +23,9 @@ crons:
   - organ-discord-cron.timer
 
 scripts:
-  - name: dispatch.py
+  - name: src/dispatch.py
     description: Hermes task dispatch for Discord surface drift
-  - name: passive_proxy.py
+  - name: src/passive_proxy.py
     description: mitmproxy addon for passive Discord web capture
-  - name: pipeline.py
+  - name: src/pipeline.py
     description: Signal extraction from stored Discord messages

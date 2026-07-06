@@ -1,5 +1,5 @@
 name: radar
-status: ACTIVE
+status: planned
 domain: tech-watch
 description: "Sensory organ. Monitors ecosystem uptime (Holdex) and blockchain state mutations (Pump.fun)."
 capabilities:
@@ -10,3 +10,14 @@ dependencies:
 runtime:
   type: persistent-daemon
   heartbeat_interval_seconds: 60
+components:
+  - name: src/core/scanner.py
+    description: Core target registry, sensor routing, and observation normalization for radar scans
+    integration_status: transition_debt
+    owner: organ-radar
+    expiry_condition: radar decisions are no longer encoded directly in adapters or entrypoints
+  - name: src/entrypoints/cli.py
+    description: Thin CLI membrane for radar target scans
+    integration_status: transition_debt
+    owner: organ-radar
+    expiry_condition: entrypoint remains under thin membrane threshold and delegates scan decisions to core

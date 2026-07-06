@@ -259,7 +259,7 @@ This is the **compound signal**. No single week proves anything. But 12 weeks of
 ## Files & Deployment
 
 **Created:**
-- `scripts/hermes_data_organism.py` (TIER 1: Perception)
+- `organs/reflection/src/entrypoints/data_organism.py` (TIER 1: Perception)
 - `infra/systemd/hermes-data-organism.{service,timer}` (automation)
 - This doc (TIER 2-5: Reference)
 

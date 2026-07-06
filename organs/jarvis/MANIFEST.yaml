@@ -1,0 +1,10 @@
+id: organ-jarvis
+name: Jarvis Cognitive Extension
+description: "Backend service for cognitive extension, decoupling I/O physical capture from intent extraction and execution."
+status: active
+lifecycle_status: embryonic
+owner: organ-supervisor
+
+systemd_services:
+  - cynic-jarvis-brain.service
+  - cynic-jarvis-sensor.service

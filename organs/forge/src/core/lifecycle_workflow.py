@@ -25,6 +25,8 @@ from .lifecycle_evidence import (
 )
 from .lifecycle_activation import (
     build_lifecycle_activation_plan as _activation_build_lifecycle_activation_plan,
+)
+from .lifecycle_activation_requests import (
     build_lifecycle_activation_requests as _activation_build_lifecycle_activation_requests,
     dispatch_lifecycle_activation_requests as _activation_dispatch_lifecycle_activation_requests,
     validate_lifecycle_activation_request_payload as _activation_validate_lifecycle_activation_request_payload,

@@ -10,6 +10,9 @@ interface ActivityEventDao {
     @Insert
     suspend fun insert(event: ActivityEventEntity)
 
+    @Query("SELECT cryptographicHash FROM activity_events ORDER BY id DESC LIMIT 1")
+    suspend fun getLastHash(): String?
+
     @Query("SELECT * FROM activity_events ORDER BY timestampMs DESC LIMIT :limit")
     suspend fun recent(limit: Int): List<ActivityEventEntity>
 

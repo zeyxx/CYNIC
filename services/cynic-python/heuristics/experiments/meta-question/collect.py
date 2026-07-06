@@ -33,15 +33,27 @@ import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 
+
+def _bootstrap_services_root(start: Path) -> None:
+    base = start if start.is_dir() else start.parent
+    for candidate in (base, *base.parents):
+        if (candidate / "project_root.py").is_file() and (candidate / "hermes_paths.py").is_file():
+            root_str = str(candidate)
+            if root_str not in sys.path:
+                sys.path.insert(0, root_str)
+            return
+
+_bootstrap_services_root(Path(__file__).resolve())
+
+from project_root import resolve_repo_root
+
 __version__ = "0.1.0"
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-CALIBRATION_PATH = (
-    Path(__file__).resolve().parents[3] / "data" / "calibration_results_real.json"
-)
+CALIBRATION_PATH = resolve_repo_root(Path(__file__).resolve()) / "data" / "calibration_results_real.json"
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "benchmark_results.jsonl"
 

@@ -25,49 +25,18 @@
 
 ## Backup Strategy (Phase 1)
 
-### Daily snapshots to local disk
+### Daily snapshots through organ-keep
+
+Backup/restore is owned by organ-keep. Operators should inspect the storage primary and generate activation evidence through the organ entrypoint, not through standalone shell procedures.
 
 ```bash
-#!/bin/bash
-# backup-surrealdb-daily.sh
-BACKUP_DIR=~/.cynic/backups/surrealdb
-mkdir -p "$BACKUP_DIR"
-
-# Stop surreal, backup, restart
-systemctl stop surreal
-
-# Tar + compress the data directory
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-tar --xattrs -czf "$BACKUP_DIR/surrealdb-$TIMESTAMP.tar.gz" \
-  /home/user/.surrealdb/data
-
-# Verify tarball integrity
-tar -tzf "$BACKUP_DIR/surrealdb-$TIMESTAMP.tar.gz" > /dev/null && \
-  echo "✓ Backup $TIMESTAMP verified" || \
-  { echo "✗ Backup failed"; exit 1; }
-
-systemctl start surreal
-
-# Keep only last 7 days
-find "$BACKUP_DIR" -name "surrealdb-*.tar.gz" -mtime +7 -delete
+python3 organs/keep/src/entrypoints/cli.py storage-primary status --json
+python3 organs/keep/src/entrypoints/cli.py storage-primary bundle --output-dir ~/.cynic/backups/surrealdb
 ```
 
 **Schedule:** Daily at 02:00 UTC (cron via systemd timer)
 
-```ini
-# /etc/systemd/system/cynic-backup-surrealdb.timer
-[Unit]
-Description=Daily SurrealDB backup
-Requires=cynic-backup-surrealdb.service
-
-[Timer]
-OnCalendar=daily
-OnCalendar=*-*-* 02:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
+Timer ownership belongs in `infra/systemd/` and registry lifecycle activation evidence. Do not introduce ad-hoc backup timers outside the organ/deployment contract.
 
 ### RTO / RPO Targets
 
@@ -82,57 +51,19 @@ WantedBy=timers.target
 ### Step 1: Detect failure (5 min)
 
 ```bash
-# Liveness check
-curl -sf http://<HEADSCALE_CORE>:3030/ready || {
-  echo "ALERT: SurrealDB unhealthy"
-  # POST alert to /observe with K15 tag
-}
+python3 organs/keep/src/entrypoints/cli.py storage-primary status --json
 ```
 
 ### Step 2: Assess corruption (10 min)
 
 ```bash
-# Try querying a known crystal
 curl -H "Authorization: Bearer $CYNIC_API_KEY" \
   http://<HEADSCALE_CORE>:3030/crystals?limit=1
-
-# If response = error → corruption likely
 ```
 
 ### Step 3: Restore from backup (30 min)
 
-```bash
-#!/bin/bash
-# restore-surrealdb.sh BACKUP_FILE
-
-BACKUP_FILE="$1"
-systemctl stop surreal
-
-# Backup current (corrupted) data
-mv /home/user/.surrealdb/data \
-   /home/user/.surrealdb/data.corrupted-$(date +%s)
-
-# Extract backup
-mkdir -p /home/user/.surrealdb/data
-tar -xzf "$BACKUP_FILE" -C /home/user/.surrealdb/data --strip-components=1
-
-# Verify structure
-[ -d "/home/user/.surrealdb/data/sstables" ] || {
-  echo "✗ Restore failed: missing sstables"
-  exit 1
-}
-
-systemctl start surreal
-
-# Health check
-sleep 3
-curl -sf http://<HEADSCALE_CORE>:3030/ready || {
-  echo "✗ Restore failed: not ready"
-  exit 1
-}
-
-echo "✓ Restored from $BACKUP_FILE"
-```
+Restore must go through the registry lifecycle and storage-primary evidence path. Use `make lifecycle-blockers` to inspect readiness, then dispatch the appropriate lifecycle activation request through organ-forge/mempool. Direct filesystem restore commands are emergency operator actions, not documented organism entrypoints.
 
 ### Step 4: Verify data integrity (15 min)
 
@@ -177,11 +108,11 @@ curl -s -H "Authorization: Bearer $CYNIC_API_KEY" \
 
 ## Implementation TODO
 
-- [ ] Create backup-surrealdb.sh script
-- [ ] Create systemd timer for daily backups
+- [ ] Keep organ-keep storage-primary status green
+- [ ] Keep registry/systemd timer projection aligned through lifecycle activation
 - [ ] Deploy: `sudo systemctl enable --now cynic-backup-surrealdb.timer`
-- [ ] Create restore-surrealdb.sh recovery procedure
-- [ ] Document manual restore steps in runbook
+- [ ] Document registry-backed restore lifecycle
+- [ ] Keep manual restore actions outside source-tree entrypoints
 - [ ] Test restore on non-production VM
 - [ ] Archive first 3 backups offsite (USB, S3)
 - [ ] Set calendar reminder: monthly review of backup sizes

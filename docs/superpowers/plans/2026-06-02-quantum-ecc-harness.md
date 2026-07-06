@@ -14,7 +14,7 @@
 
 ```
 cynic-python/lab/quantum-ecc/
-├── bootstrap.sh          # Clone repo, verify toolchain, run baseline eval, init state.json
+├── bootstrap.py          # Clone repo, verify toolchain, run baseline eval, init state.json
 ├── harness.py            # CLI entry point + main optimization loop
 ├── evaluator.py          # Run cargo build+eval, return EvalResult
 ├── state.py              # CircuitState dataclass + JSON read/write
@@ -916,7 +916,7 @@ def main() -> None:
 
     repo_dir = Path(args.repo).resolve()
     if not (repo_dir / "src" / "point_add").exists():
-        print(f"ERROR: {repo_dir}/src/point_add not found. Run bootstrap.sh first.")
+        print(f"ERROR: {repo_dir}/src/point_add not found. Run bootstrap.py first.")
         sys.exit(1)
 
     run_loop(repo_dir, args.max_iters)
@@ -945,105 +945,25 @@ git commit -m "feat(quantum-ecc): main optimization loop (harness.py)"
 
 ---
 
-## Task 7: `bootstrap.sh` — setup and baseline
+## Task 7: `bootstrap.py` - setup and baseline
 
 **Files:**
-- Create: `cynic-python/lab/quantum-ecc/bootstrap.sh`
+- Create: `cynic-python/lab/quantum-ecc/bootstrap.py`
 
-- [ ] **Step 7.1: Write bootstrap.sh**
+- [ ] **Step 7.1: Write bootstrap.py**
 
-Create `/home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/bootstrap.sh`:
+Create a Python entrypoint that uses `subprocess.run([...], shell=False)`, verifies `cargo` and `git`, clones or fast-forwards `ecdsafail-challenge`, runs the baseline evaluation, and initializes `state.json` without overwriting existing progress.
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$SCRIPT_DIR/ecdsafail-challenge"
-REPO_URL="https://github.com/ecdsafail/ecdsafail-challenge"
-
-echo "=== Quantum ECC Harness Bootstrap ==="
-
-if ! command -v cargo &>/dev/null; then
-    echo "ERROR: cargo not found. Install Rust: https://rustup.rs/"; exit 1
-fi
-if ! command -v git &>/dev/null; then
-    echo "ERROR: git not found."; exit 1
-fi
-if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
-    echo "ERROR: ANTHROPIC_API_KEY not set."; exit 1
-fi
-
-echo "✓ cargo $(cargo --version | cut -d' ' -f2), git $(git --version | cut -d' ' -f3)"
-
-if [[ -d "$REPO_DIR/.git" ]]; then
-    echo "Repo exists — pulling latest..."
-    timeout 30 git -C "$REPO_DIR" pull --ff-only
-else
-    echo "Cloning $REPO_URL..."
-    timeout 120 git clone "$REPO_URL" "$REPO_DIR"
-fi
-
-echo "✓ Challenge repo at $REPO_DIR"
-echo "Running baseline evaluation (2-5 min)..."
-cd "$REPO_DIR"
-cargo build --release 2>&1 | tail -3
-cargo run --release --bin build 2>&1 | tail -2
-EVAL_OUTPUT=$(cargo run --release --bin eval 2>&1)
-echo "$EVAL_OUTPUT"
-
-STATE_FILE="$SCRIPT_DIR/state.json"
-python3 - <<PYEOF
-import json, re
-from pathlib import Path
-
-output = """$EVAL_OUTPUT"""
-
-def extract(field):
-    m = re.search(rf"^{field}:\s*(\S+)", output, re.MULTILINE)
-    return int(m.group(1)) if m else 0
-
-gates  = extract("gates")
-qubits = extract("qubits")
-product = extract("product")
-
-state_path = Path("$STATE_FILE")
-if not state_path.exists() or json.loads(state_path.read_text()).get("baseline_product", 0) == 0:
-    state_path.write_text(json.dumps({
-        "best_product": product,
-        "best_gate_count": gates,
-        "best_qubit_count": qubits,
-        "tried_levers": [],
-        "iterations": [],
-        "baseline_product": product,
-    }, indent=2))
-    print(f"State initialized: product={product:,} ({gates:,} gates x {qubits:,} qubits)")
-else:
-    print("State file exists — preserving progress.")
-PYEOF
-
-echo ""
-echo "=== Bootstrap complete ==="
-echo "Run the harness with:"
-echo "  cd $SCRIPT_DIR && python harness.py --repo $REPO_DIR --max-iters 20"
-```
-
-- [ ] **Step 7.2: Make executable**
-
-```bash
-chmod +x /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc/bootstrap.sh
-```
-
-- [ ] **Step 7.3: Run bootstrap.sh**
+- [ ] **Step 7.2: Run bootstrap.py**
 
 ```bash
 cd /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc
-./bootstrap.sh
+python3 bootstrap.py
 ```
 
 Expected: ends with `=== Bootstrap complete ===` and a `state.json` with `baseline_product` set.
 
-- [ ] **Step 7.4: Verify eval output format matches parser (MANDATORY)**
+- [ ] **Step 7.3: Verify eval output format matches parser (MANDATORY)**
 
 ```bash
 cd /home/user/Bureau/CYNIC/cynic-python/lab/quantum-ecc
@@ -1062,12 +982,12 @@ EOF
 
 If `parse_eval_output` raises `ValueError`: the actual output format differs from assumed. Update the regex keys in `evaluator.py:parse_eval_output` to match the real field names before proceeding.
 
-- [ ] **Step 7.5: Commit**
+- [ ] **Step 7.4: Commit**
 
 ```bash
 cd /home/user/Bureau/CYNIC
-git add cynic-python/lab/quantum-ecc/bootstrap.sh
-git commit -m "feat(quantum-ecc): bootstrap.sh — clone, baseline eval, state init"
+git add cynic-python/lab/quantum-ecc/bootstrap.py
+git commit -m "feat(quantum-ecc): bootstrap.py - clone, baseline eval, state init"
 ```
 
 ---
@@ -1117,7 +1037,7 @@ git commit -m "chore(quantum-ecc): post-smoke-run checkpoint"
 ## Self-Review
 
 **Spec coverage:**
-- ✓ bootstrap.sh — Task 7
+- ✓ bootstrap.py - Task 7
 - ✓ harness.py main loop — Task 6
 - ✓ inspector agent (Haiku) — Task 4
 - ✓ optimizer agent (Sonnet) — Task 5

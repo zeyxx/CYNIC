@@ -241,13 +241,13 @@ All endpoints except health probes require `Authorization: Bearer $CYNIC_API_KEY
 | `/live`, `/ready` | GET | Kubernetes-compatible liveness/readiness |
 | `/judge` | POST | Submit content for multi-validator evaluation |
 | `/verdicts` | GET | List recent verdicts |
-| `/verdict/{id}` | GET | Get verdict by ID |
+| `/verdicts/{id}` | GET | Get verdict by ID |
 | `/crystals` | GET | List crystallized patterns |
-| `/crystal/{id}` | GET/DELETE | Get or dissolve a crystal |
+| `/crystals/{id}` | GET/DELETE | Get or dissolve a crystal |
 | `/observe` | POST | Record observation (agent workflow) |
 | `/dogs` | GET | Active validators and status |
-| `/usage` | GET | Token consumption per Dog |
-| `/agents` | GET | Registered agent sessions |
+| `/metrics/usage` | GET | Token consumption per Dog |
+| `/coord/agents` | GET | Registered agent sessions |
 | `/events` | GET | SSE event stream |
 | `/coord/*` | POST | Multi-agent coordination (claim/release) |
 | `/metrics` | GET | Prometheus-compatible metrics |

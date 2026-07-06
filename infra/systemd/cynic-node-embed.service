@@ -7,7 +7,7 @@ StartLimitIntervalSec=0
 Type=simple
 Restart=always
 RestartSec=1
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
 EnvironmentFile=%h/.config/cynic/env
 ExecStart=%h/.cargo/bin/cargo run -p cynic-node --release -- --config cynic-node/node-qwen3-embed-forge.toml
 

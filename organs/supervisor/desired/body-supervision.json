@@ -12,8 +12,8 @@
     "can_post_to_discord": false
   },
   "inputs": {
-    "contract_audit": "CYNIC/organs/organ-contract-audit.json",
-    "runtime_health": "CYNIC/organs/state/body-health.json"
+    "contract_audit": "CYNIC/organs/supervisor/state/organ-contract-audit.json",
+    "runtime_health": "CYNIC/organs/supervisor/state/body-health.json"
   },
   "outputs": {
     "supervision_state": "CYNIC/organs/supervisor/state/supervision.json",

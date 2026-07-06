@@ -9,12 +9,12 @@ StartLimitBurst=5
 Type=simple
 # R1: project root from env, not hardcoded path
 EnvironmentFile=%h/.config/cynic/env
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
 Environment=X_CAPTURE_DIR=%h/.cynic/organs/hermes/x/captures
 Environment=X_DATASET_PATH=%h/.cynic/organs/hermes/x/dataset.jsonl
 # SoC: only decrypt X/Twitter traffic. All other HTTPS passes through opaque.
 ExecStart=%h/.local/bin/mitmdump \
-    -s core/x_proxy.py \
+    -s @CYNIC_PROJECT_ROOT@/organs/twitter/src/adapters/hermes_x_proxy.py \
     --listen-host 127.0.0.1 -p 8888 \
     --set stream_large_bodies=1m \
     --set ssl_insecure=true \

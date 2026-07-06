@@ -5,10 +5,13 @@ Aggregates Proof-of-History datasets from all organs into a single unified state
 """
 import sys
 from pathlib import Path
+try:
+    from organs.reflection.src.entrypoints._bootstrap import bootstrap_repo_path
+except ImportError:
+    from _bootstrap import bootstrap_repo_path
 
-# Add CYNIC root to path for local imports if needed
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+
+PROJECT_ROOT = bootstrap_repo_path()
 
 from organs.reflection.src.adapters.aggregator_adapter import FileSystemPoHAggregator, JsonStateStorage
 

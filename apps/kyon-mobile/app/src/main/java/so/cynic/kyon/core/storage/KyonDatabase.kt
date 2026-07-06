@@ -9,11 +9,13 @@ import so.cynic.kyon.shield.reporting.PhoneReportEntity
     entities = [
         ActivityEventEntity::class,
         PhoneReportEntity::class,
+        OrganismStateEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class KyonDatabase : RoomDatabase() {
     abstract fun activityEvents(): ActivityEventDao
     abstract fun phoneReports(): PhoneReportDao
+    abstract fun organismState(): OrganismStateDao
 }

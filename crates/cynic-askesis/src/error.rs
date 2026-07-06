@@ -17,7 +17,7 @@ pub enum AskesisError {
     AnchorProvider(String),
 
     #[error("invalid log entry: {0}")]
-    InvalidLogEntry(String),
+    InvalidObservationEvent(String),
 
     #[error("gemini subprocess failed: {0}")]
     GeminiSubprocess(String),

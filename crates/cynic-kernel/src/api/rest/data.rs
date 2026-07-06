@@ -1,4 +1,4 @@
-//! REST API handlers for data access — /crystals, /crystal/{id}, /usage, crystal CRUD.
+//! REST API handlers for data access — /crystals, /crystals/{id}, /metrics/usage, crystal CRUD.
 
 use axum::{
     extract::{Path, Query, State},
@@ -94,7 +94,7 @@ pub async fn usage_handler(State(state): State<Arc<AppState>>) -> Json<serde_jso
     let usage = state.usage.lock().await;
     let merged = usage.merged_dogs();
     let active_ids: std::collections::HashSet<String> =
-        state.judge.load_full().dog_ids().into_iter().collect();
+        std::collections::HashSet::new();
 
     let mut active_dogs: Vec<serde_json::Value> = Vec::new();
     let mut retired_tokens: u64 = 0;
@@ -159,7 +159,7 @@ pub struct ShatterCrystalRequest {
     pub source: String,
 }
 
-/// POST /crystal — create a new crystal directly (not via judge pipeline).
+/// POST /crystals — create a new crystal directly (not via judge pipeline).
 /// Returns 201 with the crystal ID, domain, and initial state.
 pub async fn create_crystal_handler(
     State(state): State<Arc<AppState>>,
@@ -178,7 +178,7 @@ pub async fn create_crystal_handler(
         "{:x}",
         ccm::content_hash(&format!("{}:{}", domain, req.content))
     );
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = chrono::Utc::now().timestamp_millis();
 
     let crystal = Crystal {
         id: id.clone(),
@@ -187,7 +187,7 @@ pub async fn create_crystal_handler(
         confidence: 0.0,
         observations: 0,
         state: ccm::CrystalState::Forming,
-        created_at: now.clone(),
+        created_at: now,
         updated_at: now,
         contributing_verdicts: vec![],
         certainty: 0.0,
@@ -224,7 +224,7 @@ pub async fn create_crystal_handler(
     ))
 }
 
-/// DELETE /crystal/{id} — delete a crystal by ID. Idempotent.
+/// DELETE /crystals/{id} — delete a crystal by ID. Idempotent.
 pub async fn delete_crystal_handler(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -241,7 +241,7 @@ pub async fn delete_crystal_handler(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// POST /crystal/{id}/observe — hypha observation (non-verdict source).
+/// POST /crystals/{id}/observe — hypha observation (non-verdict source).
 pub async fn observe_crystal_hypha_handler(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -296,7 +296,7 @@ pub async fn observe_crystal_hypha_handler(
             }),
         ));
     }
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = chrono::Utc::now().timestamp_millis();
     match state
         .storage
         .observe_crystal_hypha(
@@ -304,7 +304,7 @@ pub async fn observe_crystal_hypha_handler(
             content,
             &req.domain,
             req.score,
-            &now,
+            now,
             &req.source,
             sentiment,
         )
@@ -331,7 +331,7 @@ pub async fn observe_crystal_hypha_handler(
     }
 }
 
-/// POST /crystal/{id}/shatter — instant dissolution. Cortex/Internal only.
+/// POST /crystals/{id}/shatter — instant dissolution. Cortex/Internal only.
 pub async fn shatter_crystal_handler(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -355,10 +355,10 @@ pub async fn shatter_crystal_handler(
             }),
         ));
     }
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = chrono::Utc::now().timestamp_millis();
     match state
         .storage
-        .shatter_crystal(&id, &body.reason, &body.source, &now)
+        .shatter_crystal(&id, &body.reason, &body.source, now)
         .await
     {
         Ok(()) => {
@@ -391,6 +391,10 @@ pub struct ObservationsQuery {
     pub limit: Option<u32>,
     pub domain: Option<String>,
     pub agent_id: Option<String>,
+    pub project: Option<String>,
+    pub workstream: Option<String>,
+    pub thread_id: Option<String>,
+    pub target: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -442,7 +446,15 @@ pub async fn observations_handler(
     let limit = q.limit.unwrap_or(100).min(100); // safe_limit caps at 100 in storage
     match state
         .storage
-        .list_observations_raw(q.domain.as_deref(), q.agent_id.as_deref(), limit)
+        .list_observations_filtered(
+            q.domain.as_deref(),
+            q.agent_id.as_deref(),
+            q.project.as_deref(),
+            q.workstream.as_deref(),
+            q.thread_id.as_deref(),
+            q.target.as_deref(),
+            limit,
+        )
         .await
     {
         Ok(rows) => Ok(Json(rows)),
@@ -494,7 +506,7 @@ pub struct AuditQuery {
     pub agent_id: Option<String>,
 }
 
-/// GET /session/{agent_id}/compliance — Score a session's workflow compliance.
+/// GET /sessions/{agent_id}/compliance — Score a session's workflow compliance.
 /// Queries observations for the agent, runs deterministic heuristics, stores + returns result.
 pub async fn compliance_handler(
     State(state): State<Arc<AppState>>,
@@ -593,6 +605,26 @@ pub async fn audit_handler(
     }
 }
 
+#[derive(Debug, Deserialize, Default)]
+pub struct ProofOfHistoryQuery {
+    pub limit: Option<u32>,
+}
+
+/// GET /proof-of-history — The new PoH ledger
+pub async fn proof_of_history_handler(
+    State(state): State<Arc<AppState>>,
+    Query(q): Query<ProofOfHistoryQuery>,
+) -> Result<Json<Vec<crate::domain::storage::ProofOfHistory>>, (StatusCode, Json<ErrorResponse>)> {
+    let limit = q.limit.unwrap_or(50).min(100);
+    match state.storage.list_proof_of_history(limit).await {
+        Ok(rows) => Ok(Json(rows)),
+        Err(e) => {
+            tracing::warn!(error = %e, "proof of history query failed");
+            Err(storage_error())
+        }
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 // WHY: test assertions — panics are acceptable and expected in test context
@@ -610,8 +642,8 @@ mod tests {
             confidence: 0.5,
             observations: 10,
             state: ccm::CrystalState::Forming,
-            created_at: "2026-01-01".into(),
-            updated_at: "2026-01-02".into(),
+            created_at: 1_767_225_600_000,
+            updated_at: 1_767_312_000_000,
             contributing_verdicts: vec![],
             certainty: 0.75,
             variance_m2: 1.23,
@@ -759,7 +791,7 @@ mod tests {
             domain: "talaria".into(),
             status: "ok".into(),
             context: "secret context".into(),
-            created_at: "2026-06-08T10:00:00Z".into(),
+            created_at: 1_780_912_800_000,
             project: "CYNIC".into(),
             agent_id: "agent-123".into(),
             session_id: "session-456".into(),
@@ -799,6 +831,10 @@ mod tests {
         assert!(q.limit.is_none());
         assert!(q.domain.is_none());
         assert!(q.agent_id.is_none());
+        assert!(q.project.is_none());
+        assert!(q.workstream.is_none());
+        assert!(q.thread_id.is_none());
+        assert!(q.target.is_none());
     }
 
     #[test]
@@ -808,6 +844,7 @@ mod tests {
             limit: Some(10),
             domain: Some("code".into()),
             agent_id: Some("claude-123".into()),
+            ..Default::default()
         };
         assert_eq!(q.agent_id.as_deref(), Some("claude-123"));
         assert_eq!(q.domain.as_deref(), Some("code"));
@@ -821,6 +858,7 @@ mod tests {
             limit: None,
             domain: None,
             agent_id: None,
+            ..Default::default()
         };
         let effective = q.limit.unwrap_or(100).min(100);
         assert_eq!(effective, 100);
@@ -829,6 +867,7 @@ mod tests {
             limit: Some(9999),
             domain: None,
             agent_id: None,
+            ..Default::default()
         };
         let effective_big = q_big.limit.unwrap_or(100).min(100);
         assert_eq!(effective_big, 100);

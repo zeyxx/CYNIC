@@ -4,7 +4,7 @@ After=cynic-kernel.service
 
 [Service]
 Type=oneshot
-ExecStart=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/systemd/dog-health-monitor.sh
+ExecStart=/bin/sh -c 'echo "legacy dog health shell entrypoint closed; reforge as supervisor/dog organ entrypoint before enabling cynic-dog-monitor" >&2; exit 1'
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=cynic-dog-monitor

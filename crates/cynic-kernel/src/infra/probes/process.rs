@@ -98,7 +98,7 @@ impl crate::domain::probe::Probe for ProcessProbe {
             .unwrap_or((None, None));
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         // If we can't read anything, mark as unavailable (non-Linux graceful degradation).
         let status = if memory_rss_mb.is_none() && fd_count.is_none() && thread_count.is_none() {

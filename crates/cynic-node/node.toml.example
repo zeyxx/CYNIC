@@ -1,5 +1,27 @@
 # Example cynic-node configuration.
 # Copy to /etc/cynic/node-<name>.toml or ~/.config/cynic/node-<name>.toml.
+#
+# L0 watchdog mode does not require [dog] or [process]:
+#
+# cynic-node --watchdog --config /etc/cynic/node-watchdog.toml
+#
+# [kernel]
+# url = "http://cynic-kernel-primary.synapse.cynic:3030"
+# api_key_env = "CYNIC_API_KEY"
+#
+# [node]
+# name = "cynic-vm-v2"
+# role = "kernel_primary"
+# constellation = "kernel"
+# services = ["cynic-kernel.service", "cynic-portal.service"]
+#
+# [watchdog]
+# interval_secs = 30
+# http_timeout_secs = 5
+#
+# Bootstrap ladder emitted by watchdog observations:
+# b0 binary_alive -> b1 local_identity_observed -> b2 kernel_reachable
+# -> b3 constellation_declared -> b4 services_sampled -> b5 runtime_actionable
 
 [kernel]
 url = "http://<TAILSCALE_CORE>:3030"

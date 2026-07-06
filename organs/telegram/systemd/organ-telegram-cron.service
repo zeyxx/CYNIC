@@ -5,9 +5,9 @@ Wants=organ-telegram-hermes-agent.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
 EnvironmentFile=%h/.config/cynic/env
-ExecStart=/usr/bin/python3 %h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/telegram/src/dispatch.py
+ExecStart=/usr/bin/python3 @CYNIC_PROJECT_ROOT@/organs/telegram/src/dispatch.py
 StandardOutput=journal
 StandardError=journal
 

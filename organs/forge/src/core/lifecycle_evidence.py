@@ -4,17 +4,21 @@ from __future__ import annotations
 
 import json
 import os
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
+from organs.contracts.src.surface_contracts import json_object_or_raise, read_json_file_or_raise
+from .project_root import resolve_project_root_from_script
+
 
 def _default_registry_path() -> Path:
-    return Path(__file__).resolve().parents[4] / "infra" / "registry.json"
+    return resolve_project_root_from_script(__file__) / "infra" / "registry.json"
 
 
 def _load_registry(path: str | Path | None = None) -> dict:
     target_path = Path(path) if path else _default_registry_path()
-    return json.loads(target_path.read_text())
+    return read_json_file_or_raise(target_path, RuntimeError(f"failed to load registry: {target_path}"))
 
 
 def _save_registry(path: str | Path, registry: dict) -> None:
@@ -32,7 +36,7 @@ def build_lifecycle_service_evidence_patch(
     if not node_name:
         raise RuntimeError("node_name is required")
     registry = registry or _load_registry()
-    from ..adapters.kernel_adapter import validate_lifecycle_policy
+    from ..adapters.registry_adapter import validate_lifecycle_policy
 
     validate_lifecycle_policy(registry)
     lifecycle = registry["lifecycle"]["kernel_release"]
@@ -58,16 +62,16 @@ def build_lifecycle_service_evidence_patch(
             env_payload = os.environ.get("CYNIC_SERVICE_STATES")
         if env_payload:
             try:
-                decoded = json.loads(env_payload)
-            except json.JSONDecodeError as exc:
+                service_states = json_object_or_raise(
+                    env_payload,
+                    RuntimeError("CYNIC_LIFECYCLE_SERVICE_STATES_JSON must be a JSON object"),
+                )
+            except RuntimeError as exc:
+                if str(exc) == "CYNIC_LIFECYCLE_SERVICE_STATES_JSON must be a JSON object":
+                    raise
                 raise RuntimeError(
                     "CYNIC_LIFECYCLE_SERVICE_STATES_JSON must be a JSON object"
                 ) from exc
-            if not isinstance(decoded, dict):
-                raise RuntimeError(
-                    "CYNIC_LIFECYCLE_SERVICE_STATES_JSON must be a JSON object"
-                )
-            service_states = decoded
 
     declared_services = {
         service.get("name")
@@ -137,7 +141,7 @@ def apply_lifecycle_activation_evidence_patch(
     registry: dict | None = None,
 ) -> dict:
     registry = registry or _load_registry()
-    from ..adapters.kernel_adapter import validate_lifecycle_policy
+    from ..adapters.registry_adapter import validate_lifecycle_policy
 
     validate_lifecycle_policy(registry)
 
@@ -250,7 +254,7 @@ def apply_lifecycle_activation_evidence_patch(
     if errors:
         raise RuntimeError("; ".join(errors))
 
-    merged = json.loads(json.dumps(registry))
+    merged = deepcopy(registry)
     target = merged["nodes"][node_index]
     target.setdefault("activation_evidence", {}).setdefault("runtime_paths", {}).update(
         runtime_paths
@@ -291,7 +295,8 @@ def activate_lifecycle_registry_node(
     if not node_name:
         raise RuntimeError("node_name is required")
     registry = registry or _load_registry()
-    from ..adapters.kernel_adapter import KernelRestClient, validate_lifecycle_policy
+    from ..adapters.kernel_adapter import KernelRestClient
+    from ..adapters.registry_adapter import validate_lifecycle_policy
 
     validate_lifecycle_policy(registry)
     lifecycle = registry["lifecycle"]["kernel_release"]
@@ -348,7 +353,7 @@ def activate_lifecycle_registry_node(
         .isoformat()
         .replace("+00:00", "Z")
     )
-    merged = json.loads(json.dumps(registry))
+    merged = deepcopy(registry)
     target = merged["nodes"][node_index]
     previous_status = target.get("status", "unknown")
     target["status"] = required_status

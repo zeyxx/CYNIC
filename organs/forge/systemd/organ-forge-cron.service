@@ -5,10 +5,10 @@ Wants=organ-forge-hermes-agent.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/.cynic/repos/CYNIC
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
 EnvironmentFile=%h/.config/cynic/env
-ExecStart=/usr/bin/python3 %h/.cynic/repos/CYNIC/organs/forge/src/entrypoints/cli.py audit
-ExecStart=/usr/bin/python3 %h/.cynic/repos/CYNIC/organs/forge/src/dispatch.py
+ExecStart=/usr/bin/python3 @CYNIC_PROJECT_ROOT@/organs/forge/src/entrypoints/cli.py audit
+ExecStart=/usr/bin/python3 @CYNIC_PROJECT_ROOT@/organs/forge/src/dispatch.py
 StandardOutput=journal
 StandardError=journal
 

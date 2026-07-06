@@ -11,7 +11,7 @@ inputs:
     data: observations (domain=slack)
 
 outputs:
-  - path: Slack API (chat.postMessage)
+  - path: REST Slack API (chat.postMessage)
     format: HTTPS POST
   - path: kernel /observe (domain=slack, status=delivered|failed)
     format: REST POST
@@ -22,9 +22,9 @@ routing:
   fallback: SLACK_CHANNEL_KERNEL
 
 scripts:
-  - name: dispatch.py
+  - name: src/dispatch.py
     description: Hexagonal architecture entrypoint — polls mempool, routes to channel
-  - name: sender.py
+  - name: src/sender.py
     description: Slack API adapter (chat.postMessage wrapper)
-  - name: router.py
+  - name: src/router.py
     description: Resolves routing_rules from registry.json to concrete channel IDs

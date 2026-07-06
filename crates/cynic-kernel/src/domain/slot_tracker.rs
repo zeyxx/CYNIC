@@ -157,7 +157,7 @@ impl SlotTracker {
             .map(|(dog_id, slots)| {
                 let fresh = slots.updated_at.elapsed() < STALE_THRESHOLD;
                 SlotHealthEntry {
-                    dog_id: dog_id.clone(),
+                    dog_id: dog_id.to_string(),
                     total: slots.total,
                     busy: slots.busy,
                     utilization: slots.utilization(),

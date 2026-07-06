@@ -31,11 +31,10 @@ macro_rules! klog {
 
 pub mod api;
 pub mod backends;
-pub mod dogs;
 pub mod domain;
 pub mod infra;
 pub mod introspection;
-pub mod judge;
+pub mod json;
 pub mod organ;
 pub mod pipeline;
 pub mod probe;

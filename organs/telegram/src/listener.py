@@ -25,6 +25,8 @@ from typing import Any, Optional, TYPE_CHECKING
 
 import requests
 
+from organs.contracts.src.adapters.kernel_observe import post_kernel_observe
+
 from . import __version__
 from .config import (
     ensure_runtime_dirs,
@@ -74,18 +76,17 @@ def post_heartbeat(
         ),
         "tags": ["heartbeat", "telegram"],
     }
-    try:
-        resp = requests.post(
-            f"{kernel_url}/observe",
-            headers={"Authorization": f"Bearer {auth_key}",
-                     "Content-Type": "application/json"},
-            data=json.dumps(body),
-            timeout=10,
-        )
-        if resp.status_code != 200:
-            logger.warning("heartbeat POST returned %d", resp.status_code)
-    except Exception:
+    result = post_kernel_observe(
+        request_post=requests.post,
+        kernel_url=kernel_url,
+        auth_key=auth_key,
+        payload=body,
+        timeout=10,
+    )
+    if result.error:
         logger.warning("heartbeat POST failed", exc_info=True)
+    elif not result.posted:
+        logger.warning("heartbeat POST returned %d", result.status_code)
 
 
 # ── SQLite persistence ──

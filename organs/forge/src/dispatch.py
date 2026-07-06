@@ -8,10 +8,8 @@ import json
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-
-# Ensure the scripts directory is in sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "scripts"))
-from hermes_dispatch import HermesDispatcher
+from organs.contracts.src.hermes_dispatch import HermesDispatcher
+from organs.contracts.src.surface_contracts import read_json_file_or_default
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 STATE_FILE = PROJECT_DIR / "state" / "state.json"
@@ -22,9 +20,9 @@ def repo_health() -> dict | None:
     if not STATE_FILE.exists():
         return None
     try:
-        with open(STATE_FILE, "r") as f:
-            return json.load(f)
-    except json.JSONDecodeError:
+        state = read_json_file_or_default(STATE_FILE, {})
+        return state if isinstance(state, dict) else None
+    except Exception:
         return None
 
 
@@ -46,7 +44,7 @@ def _is_fresh_proposal(task: dict) -> bool:
 
 
 def dispatch_proposal_task(dispatcher: HermesDispatcher) -> bool:
-    pending = dispatcher.fetch_tasks("/agent-tasks?kind=organ-forge-proposal&domain=repo-lifecycle&limit=50")
+    pending = dispatcher.list_agent_tasks(kind="organ-forge-proposal", domain="repo-lifecycle", limit=50)
     fresh_pending = [task for task in pending if _is_fresh_proposal(task)]
     if fresh_pending:
         print("organ-forge proposal dispatch skipped: fresh proposal already pending", file=sys.stderr)

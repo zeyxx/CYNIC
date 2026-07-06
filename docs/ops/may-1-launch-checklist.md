@@ -7,7 +7,7 @@
 ## DAY 1 (May 1)
 
 ### Morning Setup (30 min)
-- [ ] Review philosophy thread draft: `scripts/cynic-oracle-philosophy-thread.md`
+- [ ] Review the current philosophy thread draft from the owned docs/internal or foundation workspace.
 - [ ] Edit ruthlessly. Delete anything that doesn't feel true to you.
 - [ ] Verify @CynicOracle Twitter access. Test posting.
 - [ ] Verify Telegram access (or decide: build bot or skip Telegram for now?)

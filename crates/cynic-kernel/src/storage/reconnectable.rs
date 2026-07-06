@@ -17,8 +17,9 @@ use crate::domain::coord::{
 };
 use crate::domain::storage::{
     ActivityStorage, CrystalStorage, DispatchStorage, MeshNode, MeshRoute, MeshStorage,
-    Observation, RawObservation, StateLogStorage, StorageError, StorageMetrics, StoragePort,
-    SubmissionStorage, TaskStorage, UsageRow, VerdictStorage,
+    Observation, ProofOfHistory, ProofOfHistoryStorage, RawObservation, StateLogStorage,
+    StorageError, StorageMetrics, StoragePort, SubmissionStorage, TaskStorage, UsageRow,
+    VerdictStorage,
 };
 use crate::domain::verdict_queue::QueuedVerdict;
 use crate::infra::config::StorageConfig;
@@ -157,7 +158,7 @@ impl CrystalStorage for ReconnectableStorage {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         voter_count: usize,
         verdict_id: &str,
         verdict_kind: &str,
@@ -181,7 +182,7 @@ impl CrystalStorage for ReconnectableStorage {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         source: &str,
         sentiment: Option<&str>,
     ) -> Result<(), StorageError> {
@@ -194,7 +195,7 @@ impl CrystalStorage for ReconnectableStorage {
         id: &str,
         reason: &str,
         source: &str,
-        timestamp: &str,
+        timestamp: i64,
     ) -> Result<(), StorageError> {
         self.current()
             .shatter_crystal(id, reason, source, timestamp)
@@ -277,6 +278,22 @@ impl ActivityStorage for ReconnectableStorage {
     ) -> Result<Vec<RawObservation>, StorageError> {
         self.current()
             .list_observations_raw(domain, agent_id, limit)
+            .await
+    }
+    async fn list_observations_filtered(
+        &self,
+        domain: Option<&str>,
+        agent_id: Option<&str>,
+        project: Option<&str>,
+        workstream: Option<&str>,
+        thread_id: Option<&str>,
+        target: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError> {
+        self.current()
+            .list_observations_filtered(
+                domain, agent_id, project, workstream, thread_id, target, limit,
+            )
             .await
     }
     async fn list_observations_by_target(
@@ -409,15 +426,12 @@ impl TaskStorage for ReconnectableStorage {
 
 #[async_trait]
 impl MeshStorage for ReconnectableStorage {
-    async fn register_mesh_node(
+    async fn publish_mesh_key(
         &self,
-        name: &str,
+        mesh_ip: &str,
         public_key: &str,
-        external_endpoint: Option<&str>,
     ) -> Result<MeshNode, StorageError> {
-        self.current()
-            .register_mesh_node(name, public_key, external_endpoint)
-            .await
+        self.current().publish_mesh_key(mesh_ip, public_key).await
     }
     async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError> {
         self.current().list_mesh_nodes().await
@@ -618,6 +632,17 @@ impl StoragePort for ReconnectableStorage {
         &self,
     ) -> Result<Vec<crate::storage::TableOpMetrics>, StorageError> {
         self.current().get_table_op_metrics().await
+    }
+}
+
+#[async_trait]
+impl ProofOfHistoryStorage for ReconnectableStorage {
+    async fn store_proof_of_history(&self, poh: &ProofOfHistory) -> Result<String, StorageError> {
+        self.current().store_proof_of_history(poh).await
+    }
+
+    async fn list_proof_of_history(&self, limit: u32) -> Result<Vec<ProofOfHistory>, StorageError> {
+        self.current().list_proof_of_history(limit).await
     }
 }
 

@@ -2,6 +2,10 @@
 
 **Soma L1 Alpha** prevents GPU starvation between high-contention tasks (Hermes agent, nightshift Dog evaluations).
 
+Meta-layer contract: `docs/foundation/CYNIC_META_LAYER_CONTRACTS.md`.
+Soma is the central orchestrator; `cynic-node` is the machine-local executor
+and supervisor.
+
 ## Architecture
 
 Soma L1 has 4 levers (Soma design from CYNIC Constitution):

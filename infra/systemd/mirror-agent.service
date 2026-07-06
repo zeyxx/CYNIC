@@ -5,7 +5,7 @@ After=network-online.target
 [Service]
 Type=simple
 ExecStart=%h/.cynic/organs/mirror/.venv/bin/python -m organs.mirror.daemon
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/cynic-python
+WorkingDirectory=@CYNIC_PROJECT_ROOT@/cynic-python
 EnvironmentFile=%h/.config/cynic/env
 Restart=on-failure
 RestartSec=10

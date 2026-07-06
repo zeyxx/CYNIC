@@ -6,9 +6,20 @@ Syncs Hermes Kanban state to an Obsidian Kanban Markdown file.
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
-SRC_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(SRC_DIR))
+def _bootstrap_repo_path() -> Path:
+    start = Path(__file__).resolve()
+    for candidate in (start, *start.parents):
+        if (candidate / "organs").is_dir() and (candidate / "infra").is_dir():
+            if str(candidate) not in sys.path:
+                sys.path.insert(0, str(candidate))
+            return candidate
+    raise RuntimeError("Could not resolve repository root for kanban ui entrypoint")
+
+
+PROJECT_ROOT = _bootstrap_repo_path()
+SRC_DIR = Path(__file__).resolve().parent
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 from adapters.kanban_adapters import HermesKanbanSource, ObsidianKanbanProjector
 

@@ -7,9 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tokio::sync::Mutex;
 
-use arc_swap::ArcSwap;
 
-use super::judge_job::JudgeJobStore;
 use crate::domain::coord::CoordPort;
 use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
@@ -22,7 +20,6 @@ use crate::domain::verdict_cache::VerdictCache;
 use crate::domain::wisdom::DomainCurations;
 use crate::infra::task_health::TaskHealth;
 use crate::introspection::Alert;
-use crate::judge::Judge;
 
 // ── ROLE-SCOPED AUTH ──────────────────────────────────────
 // Three roles match the organism's communication patterns:
@@ -130,7 +127,6 @@ pub struct ProducerHeartbeat {
 // ── SHARED STATE ───────────────────────────────────────────
 
 pub struct AppState {
-    pub judge: ArcSwap<Judge>,
     pub storage: Arc<dyn StoragePort>,
     pub coord: Arc<dyn CoordPort>,
     pub embedding: Arc<dyn EmbeddingPort>,
@@ -178,7 +174,6 @@ pub struct AppState {
     /// observed state = this map. Delta = what's missing or unknown.
     pub registered_services: Arc<std::sync::RwLock<HashMap<String, RegisteredService>>>,
     /// D4: In-memory store for async judge jobs — progressive Dog arrival polling.
-    pub judge_jobs: Arc<JudgeJobStore>,
     /// Self-model: expected system state loaded from backends.toml at boot.
     /// Compared against live roster in /health to detect missing Dogs.
     pub system_contract: Arc<std::sync::RwLock<crate::domain::contract::SystemContract>>,
@@ -310,13 +305,13 @@ impl AppState {
     /// Centralized system health assessment (SSoT for REST and MCP).
     /// Computes status from Dogs, storage, probes, background tasks, and contract.
     pub async fn system_health(&self) -> crate::domain::health_gate::HealthAssessment {
-        let judge = self.judge.load_full();
-        let dog_health = judge.dog_health();
+        
+        let dog_health: Vec<(String, String, u32)> = vec![];
         let (healthy_dogs, total_dogs) =
             crate::domain::health_gate::count_healthy_dogs(&dog_health);
 
         let storage_ok = self.storage.ping().await.is_ok();
-        let live_dog_ids = judge.dog_ids();
+        let live_dog_ids = vec![];
 
         let contract_delta = {
             let contract_guard = self
@@ -424,7 +419,7 @@ impl PerIpRateLimiter {
 
 // ── POIH (Proof of Intelligence on-chain) ─────────────────
 
-/// POST /mint-permit — request a behavioral wallet evaluation for PoIH attestation.
+/// POST /permits/mint — request a behavioral wallet evaluation for PoIH attestation.
 #[derive(Debug, Deserialize)]
 pub struct MintPermitRequest {
     /// Solana wallet address to evaluate (base58, 32-44 chars).
@@ -433,7 +428,7 @@ pub struct MintPermitRequest {
     pub proof_source: crate::domain::poih::ProofSource,
 }
 
-/// POST /mint-permit response.
+/// POST /permits/mint response.
 #[derive(Debug, Serialize)]
 pub struct MintPermitResponse {
     /// Permit details — present only when approved (WAG or HOWL).
@@ -535,7 +530,7 @@ pub struct RegisteredService {
     pub tier: u8,
     /// Node where this service runs (matches registry.json node name).
     pub node: String,
-    /// Declared capabilities — what this service can do (observe, claim, poll_tasks, etc.).
+    /// Declared capabilities — what this service can do (observe, claim, wait_for_tasks, etc.).
     pub capabilities: Vec<String>,
     /// Git SHA or semver at registration time — for drift detection.
     pub version: Option<String>,
@@ -555,7 +550,7 @@ pub struct RegisterServiceRequest {
     pub tier: u8,
     /// Node name from registry.json (e.g. "cynic-host-cortex", "cynic-vm-anvil").
     pub node: String,
-    /// Declared capabilities (e.g. ["observe", "claim", "poll_tasks"]).
+    /// Declared capabilities (e.g. ["observe", "claim", "wait_for_tasks"]).
     #[serde(default)]
     pub capabilities: Vec<String>,
     /// Optional version/git-sha for drift detection.
@@ -706,7 +701,7 @@ pub struct JudgeResponse {
     pub reasoning: ReasoningResponse,
     pub dogs_used: String,
     pub phi_max: f64,
-    pub timestamp: String,
+    pub timestamp: i64,
     pub dog_scores: Vec<DogScoreResponse>,
     /// Number of Dogs that contributed to this verdict (T9: transparency).
     /// Consumers can distinguish single-Dog from consensus.
@@ -847,19 +842,14 @@ mod tests {
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct RegisterMeshRequest {
-    pub node_name: String,
+pub struct PublishMeshKeyRequest {
+    pub mesh_ip: String,
     pub public_key: String,
-    pub external_endpoint: Option<String>,
 }
 
 #[derive(Debug, serde::Serialize)]
-pub struct RegisterMeshResponse {
+pub struct PublishMeshKeyResponse {
     pub status: String,
-    pub node_name: String,
     pub mesh_ip: String,
     pub public_key: String,
-    pub external_endpoint: String,
-    pub hub_public_key: String,
-    pub hub_endpoint: String,
 }

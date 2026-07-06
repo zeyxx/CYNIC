@@ -20,7 +20,7 @@
 | observe-subagent.sh | Claude Code SubagentStart | `.cortex/mcp/observe-subagent.sh` | AI agent dispatches (type, objective) |
 | session-init.sh | SessionStart | `.cortex/mcp/session-init.sh` | System state at startup (kernel, git, crystals) |
 | session-stop.sh | Stop | `.cortex/mcp/session-stop.sh` | Session summary (commits, duration, compliance) |
-| Hermes (Organ X) | Web browser (X/Twitter) | `scripts/hermes-x/` | Tweets, engagement, social signals |
+| organ-twitter | Web browser (X/Twitter) | `organs/twitter/` | Tweets, engagement, social signals |
 | Tailscale probes | Mesh network | `cynic-kernel/src/backends/` | GPU/CPU node state, latency |
 
 **Difference from course:** CYNIC does not read CSVs — it captures in real-time via hooks (event-driven, not batch). Equivalent to an IoT system where every tool is a sensor.

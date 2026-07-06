@@ -78,7 +78,7 @@ pub struct OrganAuditSnapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateBlock {
     pub seq: u64,
-    pub timestamp: String,
+    pub timestamp: i64,
     pub prev_hash: String,
     pub dogs: Vec<DogSnapshot>,
     pub system: SystemSnapshot,
@@ -104,7 +104,7 @@ impl StateBlock {
         organs: Vec<OrganSnapshot>,
         organ_audits: Vec<OrganAuditSnapshot>,
     ) -> Self {
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
         let mut block = Self {
             seq,
             timestamp,
@@ -142,6 +142,26 @@ impl StateBlock {
     /// Verify this block's hash is consistent with its data.
     pub fn verify(&self) -> bool {
         self.hash == self.compute_hash()
+    }
+}
+
+impl crate::domain::proof::Provable for StateBlock {
+    fn source_organ(&self) -> String {
+        "cynic-kernel".to_string()
+    }
+
+    fn event_type(&self) -> String {
+        "state_block_appended".to_string()
+    }
+
+    fn proof_payload(&self) -> crate::json::JsonValue {
+        serde_json::json!({
+            "seq": self.seq,
+            "timestamp": self.timestamp,
+            "legacy_sha256": self.hash,
+            "system_status": self.system.status,
+            "healthy_dogs": self.system.healthy_dogs,
+        })
     }
 }
 

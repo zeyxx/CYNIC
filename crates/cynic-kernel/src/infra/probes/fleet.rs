@@ -66,7 +66,7 @@ impl crate::domain::probe::Probe for FleetProbe {
                 status: ProbeStatus::Ok,
                 details: ProbeDetails::Fleet(FleetDetails { dogs: Vec::new() }),
                 duration_ms: 0,
-                timestamp: chrono::Utc::now().to_rfc3339(),
+                timestamp: chrono::Utc::now().timestamp_millis(),
             });
         }
 
@@ -167,7 +167,7 @@ impl crate::domain::probe::Probe for FleetProbe {
         let results = futures_util::future::join_all(futures).await;
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         let reachable_count = results.iter().filter(|r| r.reachable).count();
         let total = results.len();

@@ -8,11 +8,29 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[3]
+from organs.contracts.src.surface_contracts import read_json_file_or_default
+
+
+
+def _resolve_project_root() -> Path:
+    env_root = os.environ.get("CYNIC_PROJECT_ROOT")
+    if env_root:
+        return Path(env_root).expanduser().resolve()
+
+    start = Path(__file__).resolve()
+    for candidate in [start, *start.parents]:
+        if (candidate / "infra").is_dir() and (candidate / "organs").is_dir() and (candidate / ".git").exists():
+            return candidate
+
+    return Path(__file__).resolve().parent
+
+
+ROOT = _resolve_project_root()
 WORKSPACE = ROOT.parent
 DEFAULT_DESIRED = ROOT / "organs/discord/desired/discord-organ.json"
 RUNTIME_CONFIG = Path.home() / ".cynic/organs/discord/config.yaml"
@@ -24,7 +42,7 @@ AUTONOMY = ROOT / "organs/discord/state/autonomy.json"
 
 
 def load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return read_json_file_or_default(path, {})
 
 
 def write(path: Path, content: str, dry_run: bool) -> bool:

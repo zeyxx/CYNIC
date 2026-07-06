@@ -40,7 +40,7 @@ pub struct QueuedVerdict {
     /// Last error (if status = failed)
     pub error_reason: Option<String>,
     /// Enqueued timestamp
-    pub created_at: String,
+    pub created_at: i64,
     /// Last submission attempt
     pub submitted_at: Option<String>,
     /// Confirmed timestamp (when tx finalized)

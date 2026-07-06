@@ -239,6 +239,7 @@ impl SurrealHttpStorage {
             DEFINE TABLE IF NOT EXISTS crystal;\
             DEFINE TABLE IF NOT EXISTS observation;\
             DEFINE TABLE IF NOT EXISTS agent_session;\
+            DEFINE TABLE IF NOT EXISTS agent_tasks;\
             DEFINE TABLE IF NOT EXISTS work_claim;\
             DEFINE TABLE IF NOT EXISTS mcp_audit;\
             DEFINE TABLE IF NOT EXISTS dog_usage;\
@@ -325,6 +326,22 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS last_seen ON agent_session TYPE datetime;\
             DEFINE FIELD IF NOT EXISTS active ON agent_session TYPE bool;\
             DEFINE INDEX IF NOT EXISTS agent_session_active_idx ON agent_session FIELDS active;\
+            DEFINE FIELD IF NOT EXISTS kind ON agent_tasks TYPE string;\
+            DEFINE FIELD IF NOT EXISTS domain ON agent_tasks TYPE string;\
+            DEFINE FIELD IF NOT EXISTS content ON agent_tasks TYPE string;\
+            DEFINE FIELD IF NOT EXISTS status ON agent_tasks TYPE string;\
+            DEFINE FIELD IF NOT EXISTS result ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD IF NOT EXISTS created_at ON agent_tasks TYPE int | string;\
+            DEFINE FIELD IF NOT EXISTS completed_at ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD IF NOT EXISTS claimed_by ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD IF NOT EXISTS error ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD IF NOT EXISTS due_at ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD IF NOT EXISTS priority ON agent_tasks TYPE option<int | null>;\
+            DEFINE FIELD IF NOT EXISTS consumer ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD IF NOT EXISTS escalation_policy ON agent_tasks TYPE option<string | null>;\
+            DEFINE INDEX IF NOT EXISTS agent_tasks_pending_idx ON agent_tasks FIELDS kind, domain, status, created_at;\
+            DEFINE INDEX IF NOT EXISTS agent_tasks_completed_idx ON agent_tasks FIELDS kind, domain, status, completed_at;\
             DEFINE FIELD IF NOT EXISTS agent_id ON work_claim TYPE string;\
             DEFINE FIELD IF NOT EXISTS target ON work_claim TYPE string;\
             DEFINE FIELD IF NOT EXISTS claim_type ON work_claim TYPE string;\
@@ -392,6 +409,24 @@ impl SurrealHttpStorage {
                 error = %e,
                 "observation optional field schema migration failed"
             );
+        }
+
+        // Historical kernels wrote agent task timestamps as RFC3339 strings and omitted
+        // nullable fields, which SurrealDB represents as NONE rather than NULL.
+        let agent_task_field_migration_sql = "\
+            DEFINE FIELD OVERWRITE created_at ON agent_tasks TYPE int | string;\
+            DEFINE FIELD OVERWRITE result ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD OVERWRITE completed_at ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD OVERWRITE agent_id ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD OVERWRITE claimed_by ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD OVERWRITE error ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD OVERWRITE due_at ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD OVERWRITE priority ON agent_tasks TYPE option<int | null>;\
+            DEFINE FIELD OVERWRITE consumer ON agent_tasks TYPE option<string | null>;\
+            DEFINE FIELD OVERWRITE escalation_policy ON agent_tasks TYPE option<string | null>;\
+        ";
+        if let Err(e) = storage.query(agent_task_field_migration_sql).await {
+            tracing::error!(error = %e, "agent task schema migration failed");
         }
 
         klog!(

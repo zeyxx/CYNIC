@@ -102,7 +102,9 @@ pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Cry
         observations,
         state,
         created_at: crystal.created_at.clone(),
-        updated_at: timestamp.to_string(),
+        updated_at: chrono::DateTime::parse_from_rfc3339(timestamp)
+            .map(|ts| ts.timestamp_millis())
+            .unwrap_or(0),
         contributing_verdicts: crystal.contributing_verdicts.clone(),
         certainty,
         variance_m2,
@@ -131,6 +133,9 @@ pub fn new_crystal(
     initial_score: f64,
     timestamp: &str,
 ) -> Crystal {
+    let timestamp = chrono::DateTime::parse_from_rfc3339(timestamp)
+        .map(|ts| ts.timestamp_millis())
+        .unwrap_or(0);
     Crystal {
         id,
         content,
@@ -138,8 +143,8 @@ pub fn new_crystal(
         confidence: initial_score,
         observations: 1,
         state: CrystalState::Forming,
-        created_at: timestamp.to_string(),
-        updated_at: timestamp.to_string(),
+        created_at: timestamp,
+        updated_at: timestamp,
         contributing_verdicts: vec![],
         certainty: 0.0,
         variance_m2: 0.0,
@@ -185,11 +190,11 @@ pub fn decay_days(domain: &str) -> f64 {
 /// Compute decay relevance: confidence * e^(-age_days / decay_days(domain)).
 /// Pure function — caller provides now for testability.
 /// Returns 0.0 on unparseable timestamps (defensive, not silent).
-pub fn decay_relevance(confidence: f64, updated_at: &str, now: &str, domain: &str) -> f64 {
-    let Ok(updated) = chrono::DateTime::parse_from_rfc3339(updated_at) else {
+pub fn decay_relevance(confidence: f64, updated_at: &i64, now: &i64, domain: &str) -> f64 {
+    let Some(updated) = chrono::DateTime::from_timestamp_millis(*updated_at) else {
         return 0.0;
     };
-    let Ok(now_dt) = chrono::DateTime::parse_from_rfc3339(now) else {
+    let Some(now_dt) = chrono::DateTime::from_timestamp_millis(*now) else {
         return 0.0;
     };
     let age_days = (now_dt - updated).num_seconds().max(0) as f64 / 86400.0;
@@ -217,11 +222,11 @@ pub fn format_crystal_context(
         return None;
     }
 
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = chrono::Utc::now().timestamp_millis();
     let mut sorted = domain_filtered;
     sorted.sort_by(|a, b| {
-        let ra = decay_relevance(a.confidence(), a.updated_at(), &now, domain);
-        let rb = decay_relevance(b.confidence(), b.updated_at(), &now, domain);
+        let ra = decay_relevance(a.confidence(), &a.updated_at(), &now, domain);
+        let rb = decay_relevance(b.confidence(), &b.updated_at(), &now, domain);
         rb.partial_cmp(&ra).unwrap_or(std::cmp::Ordering::Equal)
     });
 
@@ -288,7 +293,7 @@ pub struct SessionSummary {
     pub agent_id: String,
     pub summary: String,
     pub observations_count: u32,
-    pub created_at: String,
+    pub created_at: i64,
 }
 
 /// Format recent session summaries as context for Dog prompts.
@@ -359,8 +364,8 @@ mod tests {
             confidence,
             observations,
             state,
-            created_at: "2026-03-13T00:00:00Z".into(),
-            updated_at: "2026-03-13T00:00:00Z".into(),
+            created_at: 1_773_360_000_000,
+            updated_at: 1_773_360_000_000,
             contributing_verdicts: vec![],
             certainty: 0.0,
             variance_m2: 0.0,
@@ -498,9 +503,9 @@ mod tests {
 
     #[test]
     fn decay_relevance_no_decay_for_today() {
-        let now = "2026-03-21T12:00:00Z";
-        let updated = "2026-03-21T12:00:00Z";
-        let rel = decay_relevance(0.7, updated, now, "test");
+        let now = 1_774_094_400_000;
+        let updated = 1_774_094_400_000;
+        let rel = decay_relevance(0.7, &updated, &now, "test");
         assert!(
             (rel - 0.7).abs() < 0.01,
             "same-day crystal should have ~no decay, got {rel}"
@@ -509,9 +514,9 @@ mod tests {
 
     #[test]
     fn decay_relevance_decays_old_crystals() {
-        let now = "2026-03-21T12:00:00Z";
-        let updated_90d_ago = "2025-12-21T12:00:00Z";
-        let rel = decay_relevance(0.7, updated_90d_ago, now, "test");
+        let now = 1_774_094_400_000;
+        let updated_90d_ago = 1_766_318_400_000;
+        let rel = decay_relevance(0.7, &updated_90d_ago, &now, "test");
         assert!(
             rel < 0.3,
             "90-day-old crystal should decay significantly, got {rel}"
@@ -524,9 +529,9 @@ mod tests {
 
     #[test]
     fn decay_relevance_recent_beats_old_high_confidence() {
-        let now = "2026-03-21T12:00:00Z";
-        let recent = decay_relevance(0.65, "2026-03-20T12:00:00Z", now, "test");
-        let old = decay_relevance(0.70, "2025-09-21T12:00:00Z", now, "test");
+        let now = 1_774_094_400_000;
+        let recent = decay_relevance(0.65, &1_774_008_000_000, &now, "test");
+        let old = decay_relevance(0.70, &1_758_456_000_000, &now, "test");
         assert!(
             recent > old,
             "recent crystal ({recent}) should outrank old one ({old})"
@@ -535,7 +540,7 @@ mod tests {
 
     #[test]
     fn decay_relevance_bad_timestamp_returns_zero() {
-        let rel = decay_relevance(0.7, "not-a-date", "2026-03-21T12:00:00Z", "test");
+        let rel = decay_relevance(0.7, &0, &1_774_094_400_000, "test");
         assert!(
             (rel - 0.0).abs() < 1e-10,
             "bad timestamp should return 0, got {rel}"
@@ -555,10 +560,10 @@ mod tests {
 
     #[test]
     fn token_crystal_decays_faster_than_chess() {
-        let now = "2026-04-15T12:00:00Z";
-        let updated_30d = "2026-03-16T12:00:00Z";
-        let token_rel = decay_relevance(0.6, updated_30d, now, "token");
-        let chess_rel = decay_relevance(0.6, updated_30d, now, "chess");
+        let now = 1_776_254_400_000;
+        let updated_30d = 1_773_662_400_000;
+        let token_rel = decay_relevance(0.6, &updated_30d, &now, "token");
+        let chess_rel = decay_relevance(0.6, &updated_30d, &now, "chess");
         assert!(
             token_rel < chess_rel,
             "token ({token_rel}) should decay faster than chess ({chess_rel})"
@@ -568,11 +573,11 @@ mod tests {
     #[test]
     fn crystal_context_prefers_recent_over_old() {
         let mut recent = make_crystal(0.65, 25, CrystalState::Crystallized);
-        recent.updated_at = "2026-03-20T12:00:00Z".into();
+        recent.updated_at = 1_774_008_000_000;
         recent.content = "RECENT_PATTERN".into();
 
         let mut old = make_crystal(0.70, 30, CrystalState::Crystallized);
-        old.updated_at = "2025-06-01T00:00:00Z".into();
+        old.updated_at = 1_748_736_000_000;
         old.content = "OLD_PATTERN".into();
         old.id = "test-2".into();
 
@@ -594,7 +599,7 @@ mod tests {
             agent_id: "test-agent".into(),
             summary: summary.into(),
             observations_count: obs_count,
-            created_at: "2026-03-21T12:00:00Z".into(),
+            created_at: 1_774_094_400_000,
         }
     }
 
@@ -641,7 +646,7 @@ mod tests {
                 domain: "code".into(),
                 status: "ok".into(),
                 context: String::new(),
-                created_at: String::new(),
+                created_at: 0,
                 project: String::new(),
                 agent_id: String::new(),
                 session_id: String::new(),
@@ -665,7 +670,7 @@ mod tests {
                 domain: "workflow".into(),
                 status: "ok".into(),
                 context: String::new(),
-                created_at: String::new(),
+                created_at: 0,
                 project: String::new(),
                 agent_id: String::new(),
                 session_id: String::new(),
@@ -700,7 +705,7 @@ mod tests {
                 domain: "code".into(),
                 status: "ok".into(),
                 context: String::new(),
-                created_at: String::new(),
+                created_at: 0,
                 project: String::new(),
                 agent_id: String::new(),
                 session_id: String::new(),
@@ -787,8 +792,8 @@ mod tests {
             confidence: 1.0,
             observations: 8,
             state: CrystalState::Forming,
-            created_at: "2026-06-03T10:00:00Z".into(),
-            updated_at: "2026-06-03T10:00:00Z".into(),
+            created_at: 1_780_480_800_000,
+            updated_at: 1_780_480_800_000,
             contributing_verdicts: vec![],
             certainty: 0.0,
             variance_m2: 0.0, // perfect consensus

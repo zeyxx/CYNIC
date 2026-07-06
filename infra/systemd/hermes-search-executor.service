@@ -8,9 +8,9 @@ EnvironmentFile=%h/.config/cynic/env
 Type=oneshot
 Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x
 Environment=X_PROXY_ADDR=localhost:8888
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x
-# CYNIC_REST_ADDR is injected from EnvironmentFile (should be substituted by config-sync.sh hermes-config)
-ExecStart=/usr/bin/python3 core/search_executor.py \
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+# CYNIC_REST_ADDR is injected from EnvironmentFile by the registry projection.
+ExecStart=@CYNIC_PROJECT_ROOTpython3 @/organs/twitter/src/entrypoints/python_launcher.py @CYNIC_PROJECT_ROOT@/organs/twitter/src/entrypoints/hermes_x.py search-executor \
     --organ-dir %h/.cynic/organs/hermes/x \
     --max-searches 5 \
     --proxy-addr localhost:8888

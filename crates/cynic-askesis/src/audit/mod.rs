@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 
-use crate::log::LogEntry;
+use crate::log::ObservationEvent;
 use crate::reflection::Reflection;
 
 #[async_trait]
@@ -11,7 +11,11 @@ pub trait AuditEngine: Send + Sync {
     ///
     /// Must return `Reflection::degraded(reason)` on engine unavailability
     /// (per K14: poison/missing = degraded, never optimistic).
-    async fn audit(&self, logs: &[LogEntry], questions: &[&str]) -> crate::Result<Reflection>;
+    async fn audit(
+        &self,
+        logs: &[ObservationEvent],
+        questions: &[&str],
+    ) -> crate::Result<Reflection>;
 }
 
 pub mod kernel_rest;

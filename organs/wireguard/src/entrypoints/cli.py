@@ -1,71 +1,110 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import logging
 import os
 import sys
-import socket
-import asyncio
-import logging
+
+try:
+    from organs.wireguard.src.entrypoints._bootstrap import bootstrap_repo_path
+except ImportError:
+    from _bootstrap import bootstrap_repo_path
+
+
+ROOT = bootstrap_repo_path()
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 try:
     from dotenv import load_dotenv
-    env_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".env")
-    load_dotenv(env_path)
+
+    load_dotenv(ROOT / ".env")
 except ImportError:
     pass
 
-from ..adapters.netlink_adapter import NetlinkWireguardAdapter
-from ..adapters.surreal_adapter import SurrealMeshAdapter
-from ..controllers.mesh_agent import MeshAgent
+from organs.wireguard.src.adapters.cli_runtime import (
+    WIREGUARD_SURFACE_REGISTRY,
+    run_daemon,
+    run_dns_activation_status,
+    run_dns_bundle,
+    run_dns_plan,
+    run_status,
+    run_sync_dns,
+    run_validate,
+)
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("wireguard-cli")
 
-def main():
-    if os.geteuid() != 0:
-        logger.warning("Daemon is not running as root. Netlink commands will likely fail.")
 
-    node_name = os.environ.get("CYNIC_NODE_NAME")
-    if not node_name:
-        try:
-            node_name = socket.gethostname()
-        except Exception:
-            node_name = "unknown-node"
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="organ-wireguard control surface")
+    subparsers = parser.add_subparsers(dest="command")
 
-    interface = os.environ.get("CYNIC_WG_INTERFACE", "wg0")
-    stun_host = os.environ.get("CYNIC_STUN_HOST", "stun.l.google.com")
-    stun_port = int(os.environ.get("CYNIC_STUN_PORT", 19302))
+    sync_dns = subparsers.add_parser("sync-dns", help="render CoreDNS synapse hosts from registry")
+    sync_dns.add_argument("--registry", default="infra/registry.json")
+    sync_dns.add_argument("--state-dir", default=os.environ.get("CYNIC_COREDNS_STATE_DIR", "/etc/coredns"))
 
-    surreal_url = os.environ.get("SURREALDB_URL", "http://localhost:8000")
-    surreal_ns = os.environ.get("SURREALDB_NS", "cynic")
-    surreal_db = os.environ.get("SURREALDB_DB", "main")
-    surreal_user = os.environ.get("SURREALDB_USER", "root")
-    surreal_pass = os.environ.get("SURREALDB_PASS", "")
+    validate = subparsers.add_parser("validate", help="validate registry network policy without writing files")
+    validate.add_argument("--registry", default="infra/registry.json")
 
-    if not surreal_pass:
-        logger.warning("SURREALDB_PASS is not set.")
-
-    state_port = SurrealMeshAdapter(
-        url=surreal_url,
-        ns=surreal_ns,
-        db=surreal_db,
-        user=surreal_user,
-        password=surreal_pass
+    dns = subparsers.add_parser("dns", help="plan, bundle or inspect Synapse DNS activation")
+    dns_subparsers = dns.add_subparsers(dest="dns_command", required=True)
+    dns_subparsers.add_parser("plan")
+    dns_bundle = dns_subparsers.add_parser("bundle")
+    dns_bundle.add_argument("--registry", default="infra/registry.json")
+    dns_bundle.add_argument("--output-dir", required=True)
+    dns_status = dns_subparsers.add_parser("activation-status")
+    dns_status.add_argument("--hosts-path", default="/etc/coredns/synapse.hosts")
+    dns_status.add_argument("--corefile-path", default="/etc/coredns/Corefile")
+    dns_status.add_argument("--service-path", default="/etc/systemd/system/coredns-synapse.service")
+    dns_status.add_argument(
+        "--resolved-dropin-path",
+        default="/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf",
     )
-    
-    net_port = NetlinkWireguardAdapter()
+    dns_status.add_argument("--resolve-dns", action="store_true")
 
-    agent = MeshAgent(
-        node_name=node_name,
-        interface=interface,
-        stun_host=stun_host,
-        stun_port=stun_port,
-        state_port=state_port,
-        net_port=net_port
-    )
+    status = subparsers.add_parser("status", help="emit non-mutating Synapse mesh status")
+    status.add_argument("--registry", default="infra/registry.json")
+    status.add_argument("--resolve-dns", action="store_true")
+    status.add_argument("--include-records", action="store_true")
+    subparsers.add_parser("daemon", help="run the WireGuard mesh control loop")
+    return parser
 
-    try:
-        asyncio.run(agent.start())
-    except KeyboardInterrupt:
-        logger.info("Exiting organ-wireguard daemon.")
-        sys.exit(0)
+
+def dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    command = args.command or "daemon"
+    if command == "sync-dns":
+        return run_sync_dns(args.registry, args.state_dir)
+    if command == "validate":
+        return run_validate(args.registry)
+    if command == "dns":
+        if args.dns_command == "plan":
+            return run_dns_plan()
+        if args.dns_command == "bundle":
+            return run_dns_bundle(args.registry, args.output_dir)
+        if args.dns_command == "activation-status":
+            return run_dns_activation_status(
+                args.hosts_path,
+                args.corefile_path,
+                args.service_path,
+                args.resolved_dropin_path,
+                args.resolve_dns,
+            )
+    if command == "status":
+        return run_status(args.registry, args.resolve_dns, args.include_records)
+    if command == "daemon":
+        return run_daemon()
+    parser.error(f"unknown command: {command}")
+    return 2
+
+
+def main() -> int:
+    parser = build_parser()
+    return dispatch(parser.parse_args(), parser)
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

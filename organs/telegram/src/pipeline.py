@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Optional
 
 import requests
+from organs.contracts.src.adapters.kernel_observe import post_kernel_observe
+from organs.contracts.src.surface_contracts import json_loads_or_default
 
 logger = logging.getLogger("telegram.pipeline")
 
@@ -216,12 +218,11 @@ def extract_signals_gemini(text: str, timeout: int = 120) -> list[dict]:
         lines = [l for l in raw.split("\n") if not l.startswith("```")]
         raw = "\n".join(lines).strip()
 
-    try:
-        signals = json.loads(raw)
-        return signals if isinstance(signals, list) else []
-    except json.JSONDecodeError:
+    signals = json_loads_or_default(raw, [])
+    if not isinstance(signals, list):
         logger.warning("gemini output not valid JSON: %s", raw[:100])
         return []
+    return signals
 
 
 # ── Kernel POST ───────────────────────────────────────────────────────────────
@@ -244,20 +245,16 @@ def post_observe(
         "context": signal.get("content", ""),
         "tags": ["telegram", source, block_id, f"channel:{channel_id}"],
     }
-    try:
-        resp = requests.post(
-            f"{kernel_url}/observe",
-            headers={
-                "Authorization": f"Bearer {auth_key}",
-                "Content-Type": "application/json",
-            },
-            data=json.dumps(body),
-            timeout=15,
-        )
-        return resp.status_code == 200
-    except Exception:
+    result = post_kernel_observe(
+        request_post=requests.post,
+        kernel_url=kernel_url,
+        auth_key=auth_key,
+        payload=body,
+        timeout=15,
+    )
+    if result.error:
         logger.warning("observe POST failed", exc_info=True)
-        return False
+    return result.posted
 
 
 # ── Main pipeline run ─────────────────────────────────────────────────────────

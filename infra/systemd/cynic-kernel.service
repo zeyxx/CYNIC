@@ -1,14 +1,16 @@
 [Unit]
 Description=CYNIC OS V2 — Sovereign Kernel
-After=network.target surrealdb.service
-Wants=surrealdb.service hermes-gateway.service
+After=network.target
+Wants=hermes-gateway.service
 
 [Service]
 Type=simple
-WorkingDirectory=%h/.cynic/repos/CYNIC
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
 ExecStart=%h/bin/cynic-kernel
 # Keep boot simple and authoritative: the kernel already reports storage
-# readiness through /ready and degrades honestly if SurrealDB is unavailable.
+# readiness through /ready and degrades honestly if remote storage is unavailable.
+# Do not pull in a local surrealdb.service from cortex/operator machines. Storage
+# placement belongs to infra/registry.json and the storage_primary node.
 # Keep this user unit minimally sandboxed until a compatible hardening profile
 # is proven under live restart conditions; the stricter profile fails here with
 # 218/CAPABILITIES and prevents the kernel from booting at all.
@@ -20,7 +22,7 @@ RestartSec=5
 # Generated from ~/.cynic-env: sed 's/^export //' ~/.cynic-env > ~/.config/cynic/env
 # systemd does NOT support `export` prefix — Rule 12 maintained via generation.
 EnvironmentFile=%h/.config/cynic/env
-Environment="CYNIC_SCRIPTS=%h/.cynic/repos/CYNIC/scripts"
+Environment="CYNIC_SCRIPTS=@CYNIC_PROJECT_ROOT@/scripts"
 Environment="PATH=%h/.local/bin:%h/.npm-global/bin:/usr/local/bin:/usr/bin:/bin"
 LimitNOFILE=65535
 MemoryMax=2G

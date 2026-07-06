@@ -1,6 +1,8 @@
 # TALARIA Legal Genesis Plan
 
-Ce document definit ce qui doit etre vrai au **23 juillet 2026** pour que TALARIA SAS naisse proprement en France.
+Ce document definit ce qui doit etre vrai a la sortie de stage du **22 juillet
+2026**, au checkpoint du **23 juillet 2026**, puis pendant la zone tampon
+J+3/J+4 avant signature, communication publique forte ou lancement token.
 
 Il ne remplace pas les statuts, l'avis d'un avocat, ni le travail d'un expert-comptable. Il sert de cahier de contraintes pour eviter la dispersion : le genesis doit etre clair, defensible, auditable et limite aux besoins reels.
 
@@ -18,7 +20,24 @@ Documents relies :
 
 ## 1. Principe Genesis
 
-Le 23 juillet 2026, TALARIA SAS ne doit pas prouver que CYNIC a deja tout deploye. Elle doit prouver qu'elle sait qui possede quoi, qui decide quoi, qui encaisse quoi, qui paie quoi, et ce qui ne sera jamais promis au public.
+Le 23 juillet 2026 n'est pas une date de lancement token. C'est un checkpoint
+de readiness apres la fin de stage du 22 juillet 2026.
+
+Au 23 juillet 2026, TALARIA SAS ne doit pas prouver que CYNIC a deja tout
+deploye. Elle doit prouver qu'elle sait qui possede quoi, qui decide quoi, qui
+encaisse quoi, qui paie quoi, ce qui reste ouvert, et ce qui ne sera jamais
+promis au public.
+
+Une zone tampon de 3 a 4 jours apres le 23 juillet est explicitement normale
+pour formaliser les derniers details :
+
+- role exact de Ragnar ;
+- statut holder / associe / contributeur de Ragnar ;
+- niveau de reconnaissance, part ou statut d'Erin ;
+- cap table finale ;
+- whitepaper technique ;
+- paper legal / MiCA route memo ;
+- coherence entre communication, token paper et statuts.
 
 Naming canonique :
 
@@ -38,11 +57,15 @@ Token is not equity.
 No jurisdiction before necessity.
 ```
 
-La France est le genesis legal parce que l'IP, la gouvernance initiale, les fondateurs et l'administration de depart y sont ancres. Les autres juridictions ne sont pas des prerequis du 23 juillet.
+La France est le genesis legal parce que l'IP, la gouvernance initiale, les fondateurs et l'administration de depart y sont ancres. Les autres juridictions ne sont pas des prerequis du checkpoint du 23 juillet.
 
 ---
 
-## 2. Livrables Minimum Du 23 Juillet 2026
+## 2. Livrables Minimum Du Checkpoint 23 Juillet 2026
+
+Le checkpoint du 23 juillet est un point de consolidation interne. Il peut
+autoriser la finalisation des statuts et des papers, mais il ne doit pas etre
+presente comme une date de lancement public de `$CYNIC`.
 
 ### 2.1 Entite
 
@@ -96,7 +119,8 @@ Regles :
 
 ### 2.3 IP Et Contributions
 
-Doit etre clair au 23 juillet :
+Doit etre clair au checkpoint du 23 juillet, ou explicitement inscrit comme
+decision de la zone tampon :
 
 - quelle IP est apportee ou licenciee a TALARIA SAS ;
 - quels repos, marques, noms, domaines, documents, architectures et standards sont couverts ;
@@ -113,7 +137,7 @@ TALARIA SAS controle la marque, les standards, les policies, la gouvernance et l
 
 ### 2.4 Wallets Genesis
 
-Les wallets du 23 juillet ne doivent pas etre nombreux. Ils doivent etre lisibles.
+Les wallets du checkpoint genesis ne doivent pas etre nombreux. Ils doivent etre lisibles.
 
 Wallets minimum :
 
@@ -134,7 +158,7 @@ Regles :
 
 ### 2.5 Politique Fiscale Minimum
 
-Le 23 juillet, il faut une politique simple, pas une optimisation internationale.
+Au checkpoint du 23 juillet, il faut une politique simple, pas une optimisation internationale.
 
 Doit exister :
 
@@ -217,11 +241,92 @@ Mais tout doit rester auditable par la SAS, et les exceptions doivent avoir une 
 
 ---
 
-## 3. Ce Qui N'Est Pas Necessaire Au 23 Juillet
+## 3. Zone Tampon Post-Stage
+
+La periode J+3/J+4 apres le checkpoint du 23 juillet sert a transformer les
+decisions encore humaines en documents signables et publiables.
+
+### 3.1 Decisions Humaines A Verrouiller
+
+Avant signature ou communication publique forte :
+
+1.  Ragnar est-il associe legal, holder protocolaire, contributeur reconnu,
+    operateur, ou combinaison explicite de ces roles ?
+2.  Si Ragnar est holder, quelle allocation, quel vesting, quelle justification
+    publique et quel lien avec une contribution mesurable ?
+3.  Erin recoit-elle une part legale, une reconnaissance fondatrice, une
+    allocation token future, une place narrative, ou aucun droit economique ?
+4.  Si Erin recoit une part ou allocation, quelle base : contribution passee,
+    reconnaissance symbolique, service futur, pacte familial, ou autre
+    justification documentee ?
+5.  Les pourcentages de cap table restent-ils ceux du draft ou doivent-ils etre
+    recalcules avant statuts ?
+6.  Quelle partie de l'IP est apportee a TALARIA SAS et quelle partie reste
+    licenciee ?
+7.  Quels documents publics sortent au genesis, et lesquels restent internes ?
+
+### 3.2 Whitepaper Technique
+
+Le whitepaper technique doit expliquer CYNIC sans promettre de rendement.
+
+Minimum :
+
+- probleme traite ;
+- architecture CYNIC Framework / Kernel / Dogs / agents / organs ;
+- role du E-Score ;
+- preuve d'historique et sources de verite ;
+- flux de donnees ;
+- modele operator / compute ;
+- securite ;
+- limites connues ;
+- roadmap technique sans promesse commerciale garantie ;
+- relation entre CYNIC Framework et CYNIC Protocol ;
+- ce que `$CYNIC` active techniquement, si et seulement si les mechanics sont
+  finalisees.
+
+### 3.3 Paper Legal / MiCA Route Memo
+
+Le paper legal n'est pas du marketing. Il doit qualifier le chemin possible.
+
+Minimum :
+
+- entite offeror ou personne demandant admission a la negociation, si applicable ;
+- qualification MiCA preliminaire ;
+- statut non-equity de `$CYNIC` ;
+- separation TALARIA SAS / CYNIC Protocol ;
+- revue des communications publiques ;
+- traitement des wallets et allocations ;
+- risques AML/CFT ;
+- fiscalite et comptabilite crypto ;
+- si AMF notification / white paper MiCA est requis ;
+- ce qui reste interdit tant que counsel n'a pas valide.
+
+### 3.4 Communication Pendant La Zone Tampon
+
+Autorise :
+
+```text
+TALARIA SAS / CYNIC are finalising legal and technical genesis papers after the
+22 July stage end. $CYNIC is a planned protocol asset, not equity, not launched.
+```
+
+Interdit :
+
+```text
+$CYNIC launches on 23 July.
+Buy before the whitepaper.
+Perp market soon.
+Buyback confirmed.
+Ragnar/Erin allocations confirmed before final docs.
+```
+
+---
+
+## 4. Ce Qui N'Est Pas Necessaire Au Checkpoint 23 Juillet
 
 Ces sujets sont importants, mais ne doivent pas bloquer le genesis.
 
-### 3.1 Holding Northern Ireland / UK
+### 4.1 Holding Northern Ireland / UK
 
 Pas necessaire au genesis.
 
@@ -232,7 +337,7 @@ Besoin reel de cap table internationale, investisseurs common law,
 contrats groupe ou structuration corporate hors France.
 ```
 
-### 3.2 InfraCo Texas
+### 4.2 InfraCo Texas
 
 Pas necessaire sans compute physique ou revenus infra reels.
 
@@ -243,7 +348,7 @@ Serveurs, GPU, datacenter, contrats energie, clients compute,
 ou revenus infra necessitant une entite operationnelle US.
 ```
 
-### 3.3 Suisse
+### 4.3 Suisse
 
 Pas necessaire au genesis.
 
@@ -254,7 +359,7 @@ Besoin de banking crypto, opinion token, SRO AML, gouvernance protocolaire neutr
 association, fondation ou entite crypto operationnelle.
 ```
 
-### 3.4 Asie
+### 4.4 Asie
 
 Pas necessaire au genesis.
 
@@ -264,11 +369,11 @@ Trigger K15 :
 Utilisateurs, clients, operateurs, distribution ou contrainte reglementaire locale.
 ```
 
-### 3.5 ZK-KYC / Quantum-Proof KYC / PoH Avancee
+### 4.5 ZK-KYC / Quantum-Proof KYC / PoH Avancee
 
 Objectif long terme : remplacer le KYC intrusif par une preuve minimale, souveraine et privacy-preserving.
 
-Mais au 23 juillet :
+Mais au checkpoint du 23 juillet :
 
 - ne pas pretendre remplacer legalement le KYC reglementaire existant ;
 - ne pas promettre une solution quantum-proof tant qu'elle n'est pas implementee, auditee et comprise ;
@@ -286,20 +391,24 @@ No privacy theater.
 
 ---
 
-## 4. Decisions A Prendre Avant Signature
+## 5. Decisions A Prendre Avant Signature
 
 ### Obligatoires
 
 1.  Qui est president de TALARIA SAS ?
 2.  Quelle adresse de siege social ?
 3.  Quel capital social initial ?
-4.  Les quatre parties fondatrices sont-elles toutes associees des le 23 juillet ?
+4.  Les quatre parties fondatrices sont-elles toutes associees a la signature ?
 5.  Les pourcentages de cap table sont-ils fixes ou encore indicatifs ?
 6.  Quelle IP est apportee/licenciee a la SAS au genesis ?
 7.  Qui signe les wallets genesis ?
 8.  Quel expert-comptable ou cabinet est responsable du premier exercice ?
 9.  Quelle reserve minimale est bloquee avant tout burn/buyback ?
-10. Quels documents publics sont publies le jour du genesis ?
+10. Ragnar est-il associe, holder, operateur, contributeur, ou autre role public ?
+11. Quel est le niveau exact de reconnaissance ou de participation d'Erin ?
+12. Le whitepaper technique est-il coherent avec les claims publics ?
+13. Le paper legal / MiCA route memo est-il pret pour counsel review ?
+14. Quels documents publics sont publies le jour du genesis ?
 
 ### A Ne Pas Decider Trop Tot
 
@@ -314,11 +423,14 @@ No privacy theater.
 
 ---
 
-## 5. Pack Public Genesis
+## 6. Pack Public Genesis
 
 Le jour du genesis, CYNIC peut publier un pack simple :
 
 - CYNIC Legal Genesis Note ;
+- CYNIC Technical Whitepaper ;
+- CYNIC Legal Paper / MiCA Route Memo ;
+- CYNIC Protocol Token Paper ;
 - Token / Equity Firewall ;
 - Wallet Ownership Registry v0 ;
 - Protocol Revenue Waterfall v0 ;
@@ -331,7 +443,7 @@ Ces documents ne doivent pas tout promettre. Ils doivent montrer que CYNIC sait 
 
 ---
 
-## 6. K15 Jurisdiction Expansion Doctrine
+## 7. K15 Jurisdiction Expansion Doctrine
 
 Formule :
 
@@ -343,7 +455,7 @@ Une nouvelle juridiction n'est justifiee que si elle resout une friction prouvee
 
 | Juridiction | Fonction possible | Trigger |
 |-------------|-------------------|---------|
-| France | Genesis, IP, gouvernance, UE | Toujours, au 23 juillet 2026 |
+| France | Genesis, IP, gouvernance, UE | Toujours, au checkpoint du 23 juillet 2026 |
 | UK / Northern Ireland | Holding, cap table, common law | Investisseurs ou structuration groupe |
 | Texas / USA | InfraCo, compute, datacenter | Actifs physiques et revenus infra |
 | Suisse | Crypto clarity, banking, governance protocol | Opinion token, SRO, fondation/association |
@@ -358,16 +470,19 @@ CYNIC choisit une juridiction parce qu'elle est le meilleur environnement pour u
 
 ---
 
-## 7. Definition Of Done
+## 8. Definition Of Done
 
 Le Legal Genesis Plan est pret quand :
 
 - les statuts peuvent etre rediges sans ambiguite majeure ;
 - la cap table est comprise par tous les fondateurs ;
+- les roles Ragnar et Erin sont explicites, documentes et non contradictoires ;
 - l'IP genesis est identifiee ;
 - les wallets genesis sont nommes ;
 - les reserves fiscales et couts directs passent avant burn/rewards ;
 - le token/equity firewall est publiable ;
+- le whitepaper technique est suffisamment clair pour ne pas dependre du narratif token ;
+- le paper legal / MiCA route memo est pret pour relecture counsel ;
 - les relations de pouvoir sont publiques ;
 - les relations ordinaires sont auditables ;
 - les expansions UK/Texas/Suisse/Asie sont explicitement conditionnelles ;

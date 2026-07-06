@@ -5,12 +5,7 @@
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
-
-# Ensure the scripts directory is in sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / \"scripts\"))
-from hermes_dispatch import HermesDispatcher
+from organs.contracts.src.hermes_dispatch import HermesDispatcher
 
 
 def main() -> int:

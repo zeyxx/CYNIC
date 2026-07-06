@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 import requests
+from organs.contracts.src.adapters.kernel_observe import post_kernel_observe
 
 logger = logging.getLogger("discord.pipeline")
 
@@ -308,20 +309,16 @@ def post_observe(
             f"channel:{channel_id}",
         ],
     }
-    try:
-        resp = requests.post(
-            f"{kernel_url}/observe",
-            headers={
-                "Authorization": f"Bearer {auth_key}",
-                "Content-Type": "application/json",
-            },
-            data=json.dumps(body),
-            timeout=15,
-        )
-        return resp.status_code == 200
-    except Exception:
+    result = post_kernel_observe(
+        request_post=requests.post,
+        kernel_url=kernel_url,
+        auth_key=auth_key,
+        payload=body,
+        timeout=15,
+    )
+    if result.error:
         logger.warning("observe POST failed", exc_info=True)
-        return False
+    return result.posted
 
 
 def get_unprocessed(conn: sqlite3.Connection, limit: int | None) -> list[tuple]:

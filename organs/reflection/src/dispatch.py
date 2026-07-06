@@ -5,11 +5,9 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "scripts"))
-from hermes_dispatch import HermesDispatcher
+from organs.contracts.src.hermes_dispatch import HermesDispatcher
+from organs.contracts.src.surface_contracts import read_json_file_or_default
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 ORGANISM_STATE_FILE = PROJECT_DIR / "state" / "organism_state.json"
@@ -19,9 +17,9 @@ def get_poh(file_path: Path) -> dict | None:
     if not file_path.exists():
         return None
     try:
-        with open(file_path, "r") as f:
-            return json.load(f)
-    except json.JSONDecodeError:
+        poh = read_json_file_or_default(file_path, {})
+        return poh if isinstance(poh, dict) else None
+    except Exception:
         return None
 
 def dispatch_organism_askesis(dispatcher: HermesDispatcher) -> bool:

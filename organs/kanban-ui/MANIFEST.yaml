@@ -18,7 +18,5 @@ crons:
   - organ-kanban-ui-cron.timer
 
 scripts:
-  - name: dispatch.py
-    description: Hexagonal architecture entrypoint
-  - name: cli.py
+  - name: src/entrypoints/cli.py
     description: Trigger CLI for manual tests

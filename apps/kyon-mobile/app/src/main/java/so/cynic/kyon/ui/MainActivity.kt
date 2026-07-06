@@ -52,23 +52,22 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import so.cynic.kyon.KyonApp
+import so.cynic.kyon.core.config.FeatureFlags
 import so.cynic.kyon.core.model.ActivityEvent
 import so.cynic.kyon.core.model.EventSource
-import so.cynic.kyon.core.storage.EventRepository
 import so.cynic.kyon.mirror.episodes.EpisodeBuilder
 import so.cynic.kyon.mirror.identity.IdentitySnapshot
 import so.cynic.kyon.mirror.identity.IdentitySnapshotBuilder
 import so.cynic.kyon.mirror.usage.UsageSnapshotCollector
-import so.cynic.kyon.shield.reporting.PhoneReportEntity
+import so.cynic.kyon.application.observability.ExportFormat
+import so.cynic.kyon.shield.reporting.PhoneReport
 import so.cynic.kyon.shield.reporting.PhoneReportLabel
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.DateFormat
-import java.security.MessageDigest
-import java.util.Locale
 
 class MainActivity : ComponentActivity() {
-    private var phoneReports by mutableStateOf<List<PhoneReportEntity>>(emptyList())
+    private var phoneReports by mutableStateOf<List<PhoneReport>>(emptyList())
     private var phoneReportInput by mutableStateOf("")
     private var selectedPhoneReportLabel by mutableStateOf(PhoneReportLabel.SCAM)
     private var kernelPingStatus by mutableStateOf("Aucun test effectué")
@@ -78,11 +77,18 @@ class MainActivity : ComponentActivity() {
     private var kernelUrl by mutableStateOf("")
     private var kernelToken by mutableStateOf("")
     private var kernelSyncEnabled by mutableStateOf(false)
+    private var shieldEnabled by mutableStateOf(true)
+    private var usageCollectionEnabled by mutableStateOf(true)
+    private var notificationCollectionEnabled by mutableStateOf(true)
+    private var exportEventsEnabled by mutableStateOf(true)
+    private var socialSemanticMonitoringEnabled by mutableStateOf(false)
+    private var commercialSemanticMonitoringEnabled by mutableStateOf(false)
     private var events by mutableStateOf<List<ActivityEvent>>(emptyList())
     private var mirrorIdentity by mutableStateOf<IdentitySnapshot?>(null)
     private var usageAccessGranted by mutableStateOf(false)
     private var notificationAccessGranted by mutableStateOf(false)
     private var isRefreshingUsage by mutableStateOf(false)
+    private var organismState by mutableStateOf<so.cynic.kyon.core.storage.OrganismStateEntity?>(null)
 
     private val episodeBuilder = EpisodeBuilder()
     private val identitySnapshotBuilder = IdentitySnapshotBuilder()
@@ -102,6 +108,13 @@ class MainActivity : ComponentActivity() {
                 kernelUrl = kernelUrl,
                 kernelToken = kernelToken,
                 kernelSyncEnabled = kernelSyncEnabled,
+                shieldEnabled = shieldEnabled,
+                usageCollectionEnabled = usageCollectionEnabled,
+                notificationCollectionEnabled = notificationCollectionEnabled,
+                exportEventsEnabled = exportEventsEnabled,
+                socialSemanticMonitoringEnabled = socialSemanticMonitoringEnabled,
+                commercialSemanticMonitoringEnabled = commercialSemanticMonitoringEnabled,
+                organismState = organismState,
                 kernelPingStatus = kernelPingStatus,
                 kernelSyncWorkerStatus = kernelSyncWorkerStatus,
                 kernelSyncWorkerLastRun = kernelSyncWorkerLastRun,
@@ -127,13 +140,22 @@ class MainActivity : ComponentActivity() {
                 onKernelUrlChange = { kernelUrl = it },
                 onKernelTokenChange = { kernelToken = it },
                 onKernelSyncEnabledChange = { kernelSyncEnabled = it },
+                onShieldEnabledChange = { shieldEnabled = it },
+                onUsageCollectionEnabledChange = { usageCollectionEnabled = it },
+                onNotificationCollectionEnabledChange = { notificationCollectionEnabled = it },
+                onExportEventsEnabledChange = { exportEventsEnabled = it },
+                onSocialSemanticMonitoringEnabledChange = { socialSemanticMonitoringEnabled = it },
+                onCommercialSemanticMonitoringEnabledChange = { commercialSemanticMonitoringEnabled = it },
                 onKernelSettingsSave = { saveKernelSettings() },
                 onKernelPing = { pingKernel() },
+                onExportEventsJson = { exportEvents(ExportFormat.JSON) },
+                onExportEventsCsv = { exportEvents(ExportFormat.CSV) },
             )
         }
         observeEvents()
         observePhoneReports()
         observeKernelSyncWorkerStatus()
+        observeHomeostasis()
         refreshKernelSyncStatus()
     }
 
@@ -158,9 +180,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun observeEvents() {
+        val app = application as KyonApp
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                repository().observeRecent().collect { latest ->
+                app.container.observeRecentActivityEvents.execute().collect { latest ->
                     events = latest
                     mirrorIdentity = buildIdentityFrom(latest)
                     notificationAccessGranted = hasNotificationAccess()
@@ -173,8 +196,19 @@ class MainActivity : ComponentActivity() {
         val app = application as KyonApp
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                app.database.phoneReports().observeAll().collect { latest ->
+                app.container.observePhoneReports.execute().collect { latest ->
                     phoneReports = latest
+                }
+            }
+        }
+    }
+
+    private fun observeHomeostasis() {
+        val app = application as KyonApp
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                app.container.observeHomeostasis.execute().collect { latest ->
+                    organismState = latest
                 }
             }
         }
@@ -182,14 +216,15 @@ class MainActivity : ComponentActivity() {
 
     private fun captureUsageSnapshot() {
         if (isRefreshingUsage) return
+        val app = application as KyonApp
+        if (!usageCollectionEnabled || !app.featureFlags.usageCollectionEnabled) return
         isRefreshingUsage = true
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val repository = repository()
                 val collected = UsageSnapshotCollector(applicationContext).snapshot()
-                collected.forEach { repository.record(it) }
-                val latest = repository.recent()
+                collected.forEach { app.container.recordActivityEvent.execute(it) }
+                val latest = app.container.loadRecentActivityEvents.execute()
                 val identity = buildIdentityFrom(latest)
 
                 withContext(Dispatchers.Main) {
@@ -206,7 +241,8 @@ class MainActivity : ComponentActivity() {
 
     private fun loadEvents() {
         lifecycleScope.launch(Dispatchers.IO) {
-            val latest = repository().recent()
+            val app = application as KyonApp
+            val latest = app.container.loadRecentActivityEvents.execute()
             withContext(Dispatchers.Main) {
                 events = latest
                 mirrorIdentity = buildIdentityFrom(latest)
@@ -220,50 +256,21 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun savePhoneReport(rawInput: String, label: PhoneReportLabel) {
-        val normalized = rawInput.trim()
-        if (normalized.isBlank()) return
-
-        val numberHash = normalizePhoneReportTarget(normalized)
-        val report = PhoneReportEntity(
-            numberHash = numberHash,
-            label = label.name,
-            reportedAtMs = System.currentTimeMillis(),
-        )
-
         lifecycleScope.launch(Dispatchers.IO) {
-            (application as KyonApp).database.phoneReports().upsert(report)
+            (application as KyonApp).container.savePhoneReport.execute(rawInput, label)
         }
     }
 
     private fun deletePhoneReport(numberHash: String) {
         lifecycleScope.launch(Dispatchers.IO) {
-            (application as KyonApp).database.phoneReports().delete(numberHash)
+            (application as KyonApp).container.deletePhoneReport.execute(numberHash)
         }
     }
 
-    private fun relabelPhoneReport(report: PhoneReportEntity, label: PhoneReportLabel) {
-        if (report.label == label.name) return
-
-        val updated = report.copy(
-            label = label.name,
-            reportedAtMs = System.currentTimeMillis(),
-        )
+    private fun relabelPhoneReport(report: PhoneReport, label: PhoneReportLabel) {
         lifecycleScope.launch(Dispatchers.IO) {
-            (application as KyonApp).database.phoneReports().upsert(updated)
+            (application as KyonApp).container.relabelPhoneReport.execute(report, label)
         }
-    }
-
-    private fun normalizePhoneReportTarget(input: String): String {
-        val trimmed = input.trim().lowercase(Locale.US)
-        val looksLikeHash = trimmed.length == 16 && trimmed.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
-        return if (looksLikeHash) trimmed else phoneHash(trimmed)
-    }
-
-    private fun phoneHash(raw: String): String {
-        val normalized = raw.filter { !it.isWhitespace() }.lowercase(Locale.US)
-            .ifBlank { "unknown" }
-        val digest = MessageDigest.getInstance("SHA-256").digest(normalized.toByteArray())
-        return digest.joinToString(separator = "") { "%02x".format(it) }.take(16)
     }
 
     private fun loadKernelSettingsFromPrefs() {
@@ -273,16 +280,32 @@ class MainActivity : ComponentActivity() {
         kernelUrl = prefs.getString(KyonApp.PREF_KERNEL_URL, "") ?: ""
         kernelToken = prefs.getString(KyonApp.PREF_KERNEL_BEARER, "") ?: ""
         kernelSyncEnabled = prefs.getBoolean(KyonApp.PREF_SYNC_ENABLED, false)
+        shieldEnabled = prefs.getBoolean(KyonApp.PREF_SHIELD_ENABLED, true)
+        usageCollectionEnabled = prefs.getBoolean(KyonApp.PREF_USAGE_COLLECTION_ENABLED, true)
+        notificationCollectionEnabled = prefs.getBoolean(KyonApp.PREF_NOTIFICATION_COLLECTION_ENABLED, true)
+        exportEventsEnabled = prefs.getBoolean(KyonApp.PREF_EXPORT_EVENTS_ENABLED, true)
+        socialSemanticMonitoringEnabled = prefs.getBoolean(FeatureFlags.PREF_SOCIAL_SEMANTIC_MONITORING_ENABLED, false)
+        commercialSemanticMonitoringEnabled = prefs.getBoolean(FeatureFlags.PREF_COMMERCIAL_SEMANTIC_MONITORING_ENABLED, false)
     }
 
     private fun saveKernelSettings() {
         val app = application as KyonApp
-        app.getSharedPreferences(KyonApp.PREFS_KERNEL, Context.MODE_PRIVATE)
+        val flags = FeatureFlags(
+            shieldEnabled = shieldEnabled,
+            syncEnabled = kernelSyncEnabled,
+            usageCollectionEnabled = usageCollectionEnabled,
+            notificationCollectionEnabled = notificationCollectionEnabled,
+            exportEventsEnabled = exportEventsEnabled,
+            socialSemanticMonitoringEnabled = socialSemanticMonitoringEnabled,
+            commercialSemanticMonitoringEnabled = commercialSemanticMonitoringEnabled,
+        )
+
+        val editor = app.getSharedPreferences(KyonApp.PREFS_KERNEL, Context.MODE_PRIVATE)
             .edit()
             .putString(KyonApp.PREF_KERNEL_URL, kernelUrl.trim())
             .putString(KyonApp.PREF_KERNEL_BEARER, kernelToken.trim())
-            .putBoolean(KyonApp.PREF_SYNC_ENABLED, kernelSyncEnabled)
-            .apply()
+
+        flags.saveTo(editor).apply()
 
         app.refreshKernelConfig()
         refreshKernelSyncStatus()
@@ -376,8 +399,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun repository(): EventRepository =
-        EventRepository((application as KyonApp).database.activityEvents())
+    private fun exportEvents(format: ExportFormat, limit: Int = 500) {
+        val app = application as KyonApp
+        if (!exportEventsEnabled || !app.featureFlags.exportEventsEnabled) return
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val payload = app.container.exportActivityEvents.execute(limit = limit, format = format)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = payload.mimeType
+                putExtra(Intent.EXTRA_TEXT, payload.body)
+                putExtra(Intent.EXTRA_SUBJECT, "kyon-events-${format.name.lowercase()}-${System.currentTimeMillis()}")
+            }
+            withContext(Dispatchers.Main) {
+                startActivity(Intent.createChooser(shareIntent, "Exporter événements"))
+            }
+        }
+    }
 
     private fun hasUsageAccess(): Boolean {
         val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
@@ -417,12 +454,19 @@ private fun KyonShell(
     notificationAccessGranted: Boolean,
     events: List<ActivityEvent>,
     mirrorIdentity: IdentitySnapshot?,
-    phoneReports: List<PhoneReportEntity>,
+    phoneReports: List<PhoneReport>,
     phoneReportInput: String,
     selectedPhoneReportLabel: PhoneReportLabel,
     kernelUrl: String,
     kernelToken: String,
     kernelSyncEnabled: Boolean,
+    shieldEnabled: Boolean,
+    usageCollectionEnabled: Boolean,
+    notificationCollectionEnabled: Boolean,
+    exportEventsEnabled: Boolean,
+    socialSemanticMonitoringEnabled: Boolean,
+    commercialSemanticMonitoringEnabled: Boolean,
+    organismState: so.cynic.kyon.core.storage.OrganismStateEntity?,
     kernelPingStatus: String,
     kernelSyncWorkerStatus: String,
     kernelSyncWorkerLastRun: String,
@@ -434,13 +478,21 @@ private fun KyonShell(
     onPhoneReportInputChange: (String) -> Unit,
     onPhoneReportLabelSelect: (PhoneReportLabel) -> Unit,
     onPhoneReportSubmit: () -> Unit,
-    onPhoneReportDelete: (PhoneReportEntity) -> Unit,
-    onPhoneReportRelabel: (PhoneReportEntity, PhoneReportLabel) -> Unit,
+    onPhoneReportDelete: (PhoneReport) -> Unit,
+    onPhoneReportRelabel: (PhoneReport, PhoneReportLabel) -> Unit,
     onKernelUrlChange: (String) -> Unit,
     onKernelTokenChange: (String) -> Unit,
     onKernelSyncEnabledChange: (Boolean) -> Unit,
+    onShieldEnabledChange: (Boolean) -> Unit,
+    onUsageCollectionEnabledChange: (Boolean) -> Unit,
+    onNotificationCollectionEnabledChange: (Boolean) -> Unit,
+    onExportEventsEnabledChange: (Boolean) -> Unit,
+    onSocialSemanticMonitoringEnabledChange: (Boolean) -> Unit,
+    onCommercialSemanticMonitoringEnabledChange: (Boolean) -> Unit,
     onKernelSettingsSave: () -> Unit,
     onKernelPing: () -> Unit,
+    onExportEventsJson: () -> Unit,
+    onExportEventsCsv: () -> Unit,
 ) {
     var selectedFilter by remember { mutableStateOf(EventFilter.ALL) }
     val filteredEvents = events.filter { selectedFilter.includes(it) }
@@ -467,6 +519,7 @@ private fun KyonShell(
                         notificationAccessGranted = notificationAccessGranted,
                         mirrorIdentity = mirrorIdentity,
                         kernelSyncEnabled = kernelSyncEnabled,
+                        organismState = organismState,
                         kernelSyncWorkerStatus = kernelSyncWorkerStatus,
                         kernelSyncWorkerLastRun = kernelSyncWorkerLastRun,
                         kernelSyncWorkerResult = kernelSyncWorkerResult,
@@ -496,10 +549,32 @@ private fun KyonShell(
                 item {
                     Button(
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = usageAccessGranted && !isRefreshingUsage,
+                        enabled = usageAccessGranted && usageCollectionEnabled && !isRefreshingUsage,
                         onClick = captureUsageSnapshot,
                     ) {
                         Text(if (isRefreshingUsage) "Snapshot..." else "Snapshot usage")
+                    }
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            enabled = exportEventsEnabled,
+                            onClick = onExportEventsJson,
+                        ) {
+                            Text("Exporter JSON")
+                        }
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            enabled = exportEventsEnabled,
+                            onClick = onExportEventsCsv,
+                        ) {
+                            Text("Exporter CSV")
+                        }
                     }
                 }
 
@@ -521,10 +596,22 @@ private fun KyonShell(
                         kernelUrl = kernelUrl,
                         kernelToken = kernelToken,
                         kernelSyncEnabled = kernelSyncEnabled,
+                        shieldEnabled = shieldEnabled,
+                        usageCollectionEnabled = usageCollectionEnabled,
+                        notificationCollectionEnabled = notificationCollectionEnabled,
+                        exportEventsEnabled = exportEventsEnabled,
+                        socialSemanticMonitoringEnabled = socialSemanticMonitoringEnabled,
+                        commercialSemanticMonitoringEnabled = commercialSemanticMonitoringEnabled,
                         kernelPingStatus = kernelPingStatus,
                         onKernelUrlChange = onKernelUrlChange,
                         onKernelTokenChange = onKernelTokenChange,
                         onKernelSyncEnabledChange = onKernelSyncEnabledChange,
+                        onShieldEnabledChange = onShieldEnabledChange,
+                        onUsageCollectionEnabledChange = onUsageCollectionEnabledChange,
+                        onNotificationCollectionEnabledChange = onNotificationCollectionEnabledChange,
+                        onExportEventsEnabledChange = onExportEventsEnabledChange,
+                        onSocialSemanticMonitoringEnabledChange = onSocialSemanticMonitoringEnabledChange,
+                        onCommercialSemanticMonitoringEnabledChange = onCommercialSemanticMonitoringEnabledChange,
                         onSave = onKernelSettingsSave,
                         onPing = onKernelPing,
                     )
@@ -597,6 +684,7 @@ private fun StatusCard(
     notificationAccessGranted: Boolean,
     mirrorIdentity: IdentitySnapshot?,
     kernelSyncEnabled: Boolean,
+    organismState: so.cynic.kyon.core.storage.OrganismStateEntity?,
     kernelSyncWorkerStatus: String,
     kernelSyncWorkerLastRun: String,
     kernelSyncWorkerResult: String,
@@ -614,6 +702,20 @@ private fun StatusCard(
             StatusRow("Notification listener", notificationAccessGranted)
             StatusRow("Mirror profile", mirrorIdentity != null, falseLabel = "inactive")
             StatusRow("Kernel sync", kernelSyncEnabled, falseLabel = "off")
+            
+            if (organismState != null) {
+                StatusRow(
+                    label = "Sovereign Shield",
+                    enabled = organismState.shieldLevel != "PERMISSIVE",
+                    falseLabel = "PERMISSIVE",
+                    trueLabelOverride = organismState.shieldLevel
+                )
+                Text(
+                    "Pression Métabolique: ${String.format(java.util.Locale.US, "%.2f", organismState.focusPressure)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Text(
                 "Statut worker: $kernelSyncWorkerStatus",
                 style = MaterialTheme.typography.bodySmall,
@@ -655,6 +757,7 @@ private fun StatusRow(
     label: String,
     enabled: Boolean,
     falseLabel: String = "missing",
+    trueLabelOverride: String? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -662,7 +765,7 @@ private fun StatusRow(
     ) {
         Text(label)
         Text(
-            text = if (enabled) "on" else falseLabel,
+            text = if (enabled) (trueLabelOverride ?: "on") else falseLabel,
             color = if (enabled) {
                 MaterialTheme.colorScheme.primary
             } else {
@@ -675,13 +778,13 @@ private fun StatusRow(
 @Composable
 private fun PhoneReportCard(
     phoneReportInput: String,
-    reports: List<PhoneReportEntity>,
+    reports: List<PhoneReport>,
     selectedLabel: PhoneReportLabel,
     onInputChange: (String) -> Unit,
     onLabelSelect: (PhoneReportLabel) -> Unit,
     onSubmit: () -> Unit,
-    onDelete: (PhoneReportEntity) -> Unit,
-    onRelabel: (PhoneReportEntity, PhoneReportLabel) -> Unit,
+    onDelete: (PhoneReport) -> Unit,
+    onRelabel: (PhoneReport, PhoneReportLabel) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -755,7 +858,7 @@ private fun PhoneReportCard(
 
 @Composable
 private fun ReportRow(
-    report: PhoneReportEntity,
+    report: PhoneReport,
     onDelete: () -> Unit,
     onRelabel: (PhoneReportLabel) -> Unit,
 ) {
@@ -776,7 +879,7 @@ private fun ReportRow(
         ) {
             PhoneReportLabel.entries.forEach { label ->
                 FilterChip(
-                    selected = report.label == label.name,
+                    selected = report.label == label,
                     onClick = { onRelabel(label) },
                     label = { Text(label.name.lowercase()) },
                 )
@@ -793,10 +896,22 @@ private fun KernelSettingsCard(
     kernelUrl: String,
     kernelToken: String,
     kernelSyncEnabled: Boolean,
+    shieldEnabled: Boolean,
+    usageCollectionEnabled: Boolean,
+    notificationCollectionEnabled: Boolean,
+    exportEventsEnabled: Boolean,
+    socialSemanticMonitoringEnabled: Boolean,
+    commercialSemanticMonitoringEnabled: Boolean,
     kernelPingStatus: String,
     onKernelUrlChange: (String) -> Unit,
     onKernelTokenChange: (String) -> Unit,
     onKernelSyncEnabledChange: (Boolean) -> Unit,
+    onShieldEnabledChange: (Boolean) -> Unit,
+    onUsageCollectionEnabledChange: (Boolean) -> Unit,
+    onNotificationCollectionEnabledChange: (Boolean) -> Unit,
+    onExportEventsEnabledChange: (Boolean) -> Unit,
+    onSocialSemanticMonitoringEnabledChange: (Boolean) -> Unit,
+    onCommercialSemanticMonitoringEnabledChange: (Boolean) -> Unit,
     onSave: () -> Unit,
     onPing: () -> Unit,
 ) {
@@ -829,6 +944,68 @@ private fun KernelSettingsCard(
                 Switch(
                     checked = kernelSyncEnabled,
                     onCheckedChange = onKernelSyncEnabledChange,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Shield local actif")
+                Switch(
+                    checked = shieldEnabled,
+                    onCheckedChange = onShieldEnabledChange,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Collecte usage")
+                Switch(
+                    checked = usageCollectionEnabled,
+                    onCheckedChange = onUsageCollectionEnabledChange,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Collecte notifications")
+                Switch(
+                    checked = notificationCollectionEnabled,
+                    onCheckedChange = onNotificationCollectionEnabledChange,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Export événements")
+                Switch(
+                    checked = exportEventsEnabled,
+                    onCheckedChange = onExportEventsEnabledChange,
+                )
+            }
+            
+            Text("Intelligence locale (Sovereignty)", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Scan sémantique Social (Opt-in)")
+                Switch(
+                    checked = socialSemanticMonitoringEnabled,
+                    onCheckedChange = onSocialSemanticMonitoringEnabledChange,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Scan sémantique Commercial")
+                Switch(
+                    checked = commercialSemanticMonitoringEnabled,
+                    onCheckedChange = onCommercialSemanticMonitoringEnabledChange,
                 )
             }
             Button(

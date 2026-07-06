@@ -19,6 +19,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
+from organs.contracts.src.surface_contracts import read_json_file_or_default
+
 _PERCS = re.compile(
     r"\b(percolator|dcccrypto|percolator-prog|percolator-sdk|percolator-nft|bounty|audit|finding|duplicate|dupe|poc|exploit|critical|medium|med-critical|issue|pull|pr)\b",
     re.IGNORECASE,
@@ -273,7 +275,7 @@ def render_feed(items: list[FeedItem]) -> str:
 def update_rules(rules_path: Path, items: list[FeedItem]) -> None:
     if not rules_path.exists():
         return
-    rules = json.loads(rules_path.read_text(encoding="utf-8"))
+    rules = read_json_file_or_default(rules_path, {})
     windows = [item.bounty_window for item in items if item.bounty_window is not None]
     if windows:
         latest = sorted(windows, key=lambda window: window.start_utc)[-1]

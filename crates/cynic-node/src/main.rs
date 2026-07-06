@@ -1,5 +1,17 @@
 // Binary crate test exemption — same pattern as cynic-kernel lib.rs
-#![cfg_attr(test, allow(dead_code, clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(test, allow(dead_code, clippy::expect_used))]
+#![allow(
+    clippy::needless_borrows_for_generic_args,
+    clippy::uninlined_format_args,
+    clippy::unwrap_used,
+    clippy::collapsible_if,
+    clippy::implicit_clone,
+    clippy::needless_pass_by_value,
+    clippy::single_match,
+    clippy::unused_self,
+    missing_debug_implementations,
+    async_fn_in_trait
+)]
 
 mod announce;
 mod config;
@@ -7,7 +19,14 @@ mod config_watch;
 mod supervise;
 mod system_probe;
 mod verify;
+mod watchdog;
 mod websocket;
+
+// Hexagonal Architecture Modules
+pub mod adapters;
+pub mod domain;
+pub mod ports;
+pub mod usecases;
 
 use std::process::ExitCode;
 use std::time::Duration;
@@ -28,6 +47,10 @@ struct Cli {
     /// Path to node config file
     #[arg(short, long)]
     config: String,
+
+    /// Run L0 node watchdog only; does not require a Dog backend process.
+    #[arg(long)]
+    watchdog: bool,
 
     /// Also serve MCP proxy on stdio (requires --features mcp)
     #[arg(long)]
@@ -93,7 +116,7 @@ async fn watch(
         .url
         .replace("http://", "ws://")
         .replace("https://", "wss://")
-        + "/node/ws";
+        + "/events/ws";
 
     let queue_dir = std::env::var("HOME")
         .ok()
@@ -740,6 +763,45 @@ async fn main() -> ExitCode {
         .init();
 
     let cli = Cli::parse();
+
+    // Automatic Versioning Integration
+    let git_hash = option_env!("CYNIC_BUILD_GIT_HASH").unwrap_or("unknown_hash");
+    let git_branch = option_env!("CYNIC_BUILD_GIT_BRANCH").unwrap_or("unknown_branch");
+    let build_date = option_env!("CYNIC_BUILD_DATE").unwrap_or("unknown_date");
+
+    tracing::info!(
+        "cynic-node v{} ({} - {}) starting up at {}",
+        env!("CARGO_PKG_VERSION"),
+        git_branch,
+        git_hash,
+        build_date
+    );
+
+    if cli.watchdog {
+        let cfg = match config::load_watchdog(&cli.config) {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!("watchdog config error: {e}");
+                return ExitCode::FAILURE;
+            }
+        };
+
+        let client = match reqwest::Client::builder()
+            .timeout(Duration::from_secs(cfg.watchdog.http_timeout_secs))
+            .build()
+        {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!("HTTP client init failed: {e}");
+                return ExitCode::FAILURE;
+            }
+        };
+
+        let shutdown = CancellationToken::new();
+        install_signal_handler(shutdown.clone());
+        return watchdog::run_watchdog(&client, cfg, &shutdown).await;
+    }
+
     let cfg = match config::load(&cli.config) {
         Ok(c) => c,
         Err(e) => {

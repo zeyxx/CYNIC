@@ -4,11 +4,19 @@ Ce document formalise la structure légale, technique et économique de l'écosy
 
 L'index central des documents fondateurs est `docs/foundation/README.md`.
 
+Statut important : ce document reste une architecture ecosysteme globale et une
+memoire de these. Il ne doit plus etre utilise seul pour decider des flux
+economiques, allocations token, buybacks, burns, perps ou claims de
+decentralisation. Les rails economiques canoniques sont dans
+`docs/foundation/CYNIC_FEDERATED_ECONOMIC_ARCHITECTURE.md`. En cas de conflit,
+ce document cede devant le token/equity firewall, le legal genesis plan, le
+memo legal/MiCA et l'architecture economique federee.
+
 La separation naming entre TALARIA SAS, marque publique, framework CYNIC, CYNIC Protocol et `$CYNIC` est formalisee dans `docs/foundation/TALARIA_CYNIC_NAMING.md`.
 
 Le principe d'ownership, les wallets, les flux protocolaires, les reserves fiscales, les roles operateurs et la separation token/equity sont detailles dans `docs/foundation/CYNIC_OWNERSHIP_CONSTITUTION.md`.
 
-Le plan operationnel du legal genesis du **23 juillet 2026** est formalise dans `docs/foundation/CYNIC_LEGAL_GENESIS_PLAN.md`.
+Le plan operationnel du legal genesis, avec sortie de stage le **22 juillet 2026**, checkpoint le **23 juillet 2026** et zone tampon J+3/J+4, est formalise dans `docs/foundation/CYNIC_LEGAL_GENESIS_PLAN.md`.
 
 Le pare-feu public entre `$CYNIC`, les actions, les dividendes, les rewards protocolaires et la gouvernance legale est formalise dans `docs/foundation/CYNIC_TOKEN_EQUITY_FIREWALL.md`.
 
@@ -17,6 +25,16 @@ Le E-Score, modele unique de reputation, citoyennete reseau, merite operateur, a
 La hierarchie des sources de verite, qui limite le Kernel a une couche de jugement et ancre les faits dans les SoT legales, protocolaires, operationnelles et marche, est formalisee dans `docs/foundation/CYNIC_SOURCE_OF_TRUTH_HIERARCHY.md`.
 
 Le token protocolaire et memetique reste `$CYNIC`. TALARIA SAS est l'entite legale genesis ; CYNIC Protocol est le reseau ; CYNIC WORLD ORDER est la couche culturelle.
+
+Doctrine economique courte :
+
+```text
+TALARIA SAS = corporate surface.
+CYNIC Framework = technical engine.
+CYNIC Protocol = rule layer.
+$CYNIC = protocol fuel.
+Federated first. Decentralisable only after proof.
+```
 
 ---
 
@@ -93,6 +111,14 @@ TALARIA SAS est l'entite legale genesis qui opere, protege et gouverne le framew
 
 ## 4. Tokenomics & Gouvernance : L'Horizon 2047
 
+Statut : thesis legacy a relire contre
+`docs/foundation/CYNIC_FEDERATED_ECONOMIC_ARCHITECTURE.md`,
+`docs/foundation/CYNIC_TOKEN_EQUITY_FIREWALL.md` et
+`docs/foundation/CYNIC_LEGAL_MICA_ROUTE_MEMO.md` avant toute publication.
+Cette section ne fixe pas une allocation finale, une promesse de launch, une
+promesse de buyback, une promesse de burn, ni un droit economique pour holders
+passifs.
+
 Pour prouver l'engagement générationnel des fondateurs et transformer le token en véritable actif de confiance absolu (jusqu'à l'échelle de l'État), la chronologie est mathématiquement alignée sur le calendrier politique :
 
 *   **Le Pare-feu Légal et la Répartition Fractale Organique (Golden Ratio) :** Le token `$CYNIC` public n'est pas une action de l'entreprise (ce qui rend le trading libre et légal sans KYC). La supply totale du token est divisée selon la loi mathématique ultime de la nature, le Nombre d'Or ($\Phi$) : **61.8%** (Public) / **38.2%** (Équipe Fondatrice).
@@ -106,6 +132,14 @@ Pour prouver l'engagement générationnel des fondateurs et transformer le token
 ---
 
 ## 5. Capture de Valeur (Le "Anti-Cosmos Trap")
+
+Statut : thesis legacy. Les mecanismes ci-dessous expriment une intuition de
+capture de valeur, mais les flux executables doivent passer par les rails
+corporate, protocolaire ou operateur definis dans
+`docs/foundation/CYNIC_FEDERATED_ECONOMIC_ARCHITECTURE.md`. Toute mention de
+conversion automatique, buyback, burn, fee ou routing vers `$CYNIC` doit etre
+relue par counsel et reformulee comme option conditionnelle, jamais comme
+promesse.
 
 Le piège classique des infrastructures (comme Cosmos ou Aave) est d'avoir une technologie de pointe dont la valeur générée par les applications ne ruisselle jamais vers le token racine. CYNIC évite cela grâce à cinq mécanismes de flux :
 

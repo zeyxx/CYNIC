@@ -3,6 +3,8 @@
 //! Ingestion side of the CCM pipeline: normalize content, extract patterns
 //! from observations, infer domains, build observation records.
 
+use crate::json::JsonValue;
+
 // ── CONTENT HASHING ─────────────────────────────────────────
 /// Deterministic content hash for crystal IDs. FNV-1a — not cryptographic,
 /// just stable content addressing for deduplication. Changing this algo
@@ -501,7 +503,7 @@ pub fn build_observation_with_ledger(
     agent_id: Option<String>,
     session_id: Option<String>,
     tags: Option<Vec<String>>,
-    value: Option<serde_json::Value>, // K5-exempt: heterogeneous observation facts, unavoidable for generic storage
+    value: Option<JsonValue>, // K5-exempt: heterogeneous observation facts, unavoidable for generic storage
     confidence: Option<String>,
     consumer: Option<String>,
     action: Option<String>,
@@ -517,7 +519,7 @@ pub fn build_observation_with_ledger(
         resolved_domain,
         tool,
         target.as_deref().unwrap_or(""),
-        chrono::Utc::now().to_rfc3339()
+        chrono::Utc::now().timestamp_millis()
     );
     let hash = format!("{:x}", content_hash(&hash_input));
 
@@ -544,7 +546,7 @@ pub fn build_observation_with_ledger(
             .map(|c| c.chars().take(2000).collect())
             .unwrap_or_default(),
         session_id: session_id.unwrap_or_default(),
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().timestamp_millis(),
         tags: tags.unwrap_or_default(),
         source_tier: String::new(),
         value,

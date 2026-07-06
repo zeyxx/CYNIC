@@ -18,8 +18,8 @@ use super::{
     AuditQueryParams, AuthParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
     ComplianceParams, CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams,
     JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit, MetabolismParams,
-    ObserveParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, WhoParams,
-    validate_agent_id, validate_agent_task_content,
+    ObserveParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams,
+    WhoParams, validate_agent_id, validate_agent_task_content,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -240,7 +240,7 @@ impl CynicMcpProxy {
             format!("{hash:x}")
         });
         self.post(
-            &format!("/crystal/{crystal_id}/observe"),
+            &format!("/crystals/{crystal_id}/observe"),
             &serde_json::json!({
                 "content": p.content,
                 "domain": p.domain,
@@ -265,7 +265,7 @@ impl CynicMcpProxy {
         self.rate_limit.check_other()?;
         let p = params.0;
         self.post(
-            &format!("/crystal/{}/shatter", p.crystal_id),
+            &format!("/crystals/{}/shatter", p.crystal_id),
             &serde_json::json!({
                 "reason": p.reason,
                 "source": p.source,
@@ -355,7 +355,7 @@ impl CynicMcpProxy {
         self.rate_limit.check_other()?;
         let p = params.0;
         if let Some(agent_id) = p.agent_id {
-            self.get(&format!("/session/{agent_id}/compliance")).await
+            self.get(&format!("/sessions/{agent_id}/compliance")).await
         } else {
             let limit = p.limit.unwrap_or(20).to_string();
             self.get_query("/compliance", &[("limit", limit)]).await
@@ -431,6 +431,30 @@ impl CynicMcpProxy {
             query.push(("domain", domain));
         }
         self.get_query("/agent-tasks", &query).await
+    }
+
+    #[tool(
+        name = "cynic_watch_pending_agent_tasks",
+        description = "Wait for pending tasks of a given agent kind via the kernel watch surface. Returns immediately when tasks already exist, otherwise waits until timeout."
+    )]
+    async fn cynic_watch_pending_agent_tasks(
+        &self,
+        params: Parameters<ListPendingAgentTasksParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let limit = p.limit.unwrap_or(10).to_string();
+        let timeout_secs = "30".to_string();
+        let mut query = vec![
+            ("kind", p.kind),
+            ("limit", limit),
+            ("timeout_secs", timeout_secs),
+        ];
+        if let Some(domain) = p.domain {
+            query.push(("domain", domain));
+        }
+        self.get_query("/agent-tasks/watch", &query).await
     }
 
     #[tool(

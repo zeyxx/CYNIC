@@ -34,7 +34,7 @@ pub(super) async fn store_state_block(
             resource_uptime_secs = {r_up}, \
             hash = '{hash}';",
         seq = block.seq,
-        ts = escape_surreal(&block.timestamp),
+        ts = block.timestamp,
         prev = escape_surreal(&block.prev_hash),
         dogs = dogs_json,
         organs = organs_json,
@@ -56,6 +56,11 @@ pub(super) async fn store_state_block(
         .query(&sql)
         .await
         .map_err(|e| StorageError::QueryFailed(format!("store state_block: {e}")))?;
+
+    use crate::domain::proof::Provable;
+    let poh = block.to_proof_of_history();
+    let _ = super::proof_of_history::store_proof_of_history(storage, &poh).await;
+
     Ok(())
 }
 
@@ -173,7 +178,7 @@ fn row_to_state_block(row: &serde_json::Value) -> Result<StateBlock, StorageErro
 
     Ok(StateBlock {
         seq: row["seq"].as_u64().unwrap_or(0),
-        timestamp: row["timestamp"].as_str().unwrap_or("").to_string(),
+        timestamp: row["timestamp"].as_i64().unwrap_or(0),
         prev_hash: row["prev_hash"].as_str().unwrap_or("").to_string(),
         dogs,
         system,

@@ -2,6 +2,7 @@ import requests
 import sys
 import dataclasses
 from pathlib import Path
+from organs.contracts.src.adapters.kernel_observe import post_kernel_observe
 from ..core.ports import KernelObserverPort
 from ..core.entities import JupyterState
 
@@ -36,10 +37,11 @@ class CynicKernelAdapter(KernelObserverPort):
         }
         
         try:
-            requests.post(
-                f"http://{self.kernel_addr}/observe",
-                headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-                json=observation,
+            post_kernel_observe(
+                request_post=requests.post,
+                kernel_url=self.kernel_addr,
+                auth_key=self.api_key,
+                payload=observation,
                 timeout=5
             )
         except Exception as e:

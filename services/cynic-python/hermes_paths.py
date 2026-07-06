@@ -1,16 +1,18 @@
-"""
-Tier 2 INFRASTRUCTURE: Canonical path resolution for Hermes organ (cynic-python).
+"""Tier 2 INFRASTRUCTURE: forwarder for Hermes X path resolution used by cynic-python consumers.
 
-Thin forwarder — loads the canonical module from scripts/hermes-x/core/hermes_paths.py
-via importlib to avoid self-import. Falls back to standalone MANIFEST.json resolution.
-SSOT: ~/.cynic/organs/hermes/x/config/MANIFEST.json
+Canonical source lives in organ-twitter. This module never imports the retired
+Hermes-X script shim; if the organ adapter is absent, it falls back to local
+manifest-driven path resolution.
 """
 
 import importlib.util
 import sys
 from pathlib import Path
 
-_core_path = Path(__file__).resolve().parent.parent / "scripts" / "hermes-x" / "core" / "hermes_paths.py"
+from project_root import resolve_repo_root
+
+_repo_root = resolve_repo_root(Path(__file__).resolve())
+_core_path = _repo_root / "organs" / "twitter" / "src" / "adapters" / "hermes_paths.py"
 
 if _core_path.exists():
     _spec = importlib.util.spec_from_file_location("_hermes_paths_core", str(_core_path))

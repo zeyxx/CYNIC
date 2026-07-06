@@ -37,7 +37,7 @@ impl crate::domain::probe::Probe for BackupProbe {
         let scan_result = scan_backup_dir(backup_dir).await;
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         match scan_result {
             Ok(ScanResult::NotFound) => Ok(ProbeResult {

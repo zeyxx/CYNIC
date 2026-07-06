@@ -1,6 +1,8 @@
 import json
 import dataclasses
 from pathlib import Path
+
+from organs.contracts.src.surface_contracts import iter_json_objects
 from ..core.entities import ProofOfHistory, OrganEvent
 from ..core.ports import IPoHAggregator, IStateStorage
 
@@ -15,9 +17,7 @@ class FileSystemPoHAggregator(IPoHAggregator):
             organ_name = dataset_file.parent.parent.name
             try:
                 lines = dataset_file.read_text().splitlines()[-20:]
-                for line in lines:
-                    if not line.strip(): continue
-                    data = json.loads(line)
+                for data in iter_json_objects(lines):
                     ts = str(data.get("timestamp", ""))
                     events.append(OrganEvent(organ_name=organ_name, timestamp=ts, data=data))
             except Exception:
@@ -33,9 +33,7 @@ class FileSystemPoHAggregator(IPoHAggregator):
         try:
             if self.human_kernel_log.exists():
                 lines = self.human_kernel_log.read_text().splitlines()[-50:]
-                for line in lines:
-                    if not line.strip(): continue
-                    data = json.loads(line)
+                for data in iter_json_objects(lines):
                     ts = str(data.get("timestamp", ""))
                     events.append(OrganEvent(organ_name="human", timestamp=ts, data=data))
         except Exception:

@@ -75,6 +75,8 @@ disable_thinking = true
 timeout_secs = 60
 api_key_env = "CYNIC_SOVEREIGN_KEY"
 sovereign = true
+supports_tool_use = true
+latency_class = "background"
 suitable_for_domains = ["general", "chess", "dev", "trading", "token-analysis"]
 
 [backend.qwen36-27b-gpu.remediation]
@@ -92,6 +94,8 @@ disable_thinking = true
 timeout_secs = 120
 api_key_env = "CYNIC_SOVEREIGN_KEY"
 sovereign = true
+supports_tool_use = false
+latency_class = "realtime"
 suitable_for_domains = ["general", "chess", "dev", "trading", "token-analysis"]
 
 [backend.qwen3-4b-core.remediation]

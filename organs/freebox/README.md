@@ -19,4 +19,4 @@ Following the `DATA_CONSTITUTION.md`:
 4. **Reliability:** Acts autonomously upon network topology changes.
 
 ## Execution
-The organ runs as a background process or is triggered dynamically via `organism_freebox.py`.
+The organ is triggered through `src/entrypoints/cli.py`.

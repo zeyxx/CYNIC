@@ -10,6 +10,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from organs.contracts.src.surface_contracts import json_loads_or_default
+
 DB_PATH = Path(os.environ.get("DISCORD_DB_PATH", "~/.cynic/organs/discord/messages.db")).expanduser()
 HOST = os.environ.get("DISCORD_UI_HOST", "127.0.0.1")
 PORT = int(os.environ.get("DISCORD_UI_PORT", "8891"))
@@ -409,10 +411,7 @@ def render_skill_card(row: sqlite3.Row) -> str:
     confidence = float(row["confidence"] or 0.0)
     evidence = []
     if row["evidence_json"]:
-        try:
-            evidence = json.loads(row["evidence_json"])
-        except json.JSONDecodeError:
-            evidence = []
+        evidence = json_loads_or_default(row["evidence_json"], [])
     tone = "low" if level < 2 else "mid" if level < 4 else "high"
     evidence_text = summarize_evidence(evidence)
     return f"""<article class="skill-card {tone}">
@@ -430,15 +429,9 @@ def serialize_skill_row(row: sqlite3.Row) -> dict[str, object]:
     evidence: list[object] = []
     judge_verdict: object | None = None
     if row["evidence_json"]:
-        try:
-            evidence = json.loads(row["evidence_json"])
-        except json.JSONDecodeError:
-            evidence = []
+        evidence = json_loads_or_default(row["evidence_json"], [])
     if row["judge_verdict_json"]:
-        try:
-            judge_verdict = json.loads(row["judge_verdict_json"])
-        except json.JSONDecodeError:
-            judge_verdict = None
+        judge_verdict = json_loads_or_default(row["judge_verdict_json"], None)
     return {
         "category": row["category"],
         "skill": row["skill"],

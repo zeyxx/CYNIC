@@ -6,6 +6,7 @@
         "registry": "infra/registry.json",
         "storage_schema": "infra/surrealdb/schema.surql",
         "lxc_exec_bridge": "axioms/lxc-exec-bridge-v1.json",
+        "network_mesh_dns": "axioms/infrastructure-mcp-v1.json:network.mesh.dns.activation_bundle",
         "organ": "organs/keep"
     },
     "target": {
@@ -66,10 +67,12 @@
         },
         "bundles": {
             "lxc_exec_bridge": "/tmp/cynic-lxc-bridge",
+            "network_mesh_dns": "/tmp/cynic-synapse-dns",
             "storage_primary": "/tmp/cynic-storage-primary"
         },
         "coord_targets": [
             "organs/fleet",
+            "organs/wireguard",
             "organs/keep",
             "axioms/lxc-exec-bridge-v1.json",
             "axioms/storage-primary-activation-v1.json",
@@ -79,9 +82,10 @@
             "install root-owned LXC exec bridge helper, policy, and sudoers on the Proxmox host from the lxc_exec_bridge bundle",
             "verify lxc_exec_bridge_status.status is active",
             "start or observe cynic-lxc-surrealdb running through fleet.node.status",
+            "install CoreDNS Synapse DNS files from the network_mesh_dns bundle and verify network_mesh_dns_activation_status.status is active",
+            "verify organ-surrealdb.synapse.cynic DNS and mesh reachability",
             "install the storage_primary bundle inside cynic-lxc-surrealdb through the approved bridge or operator path",
             "start the surrealdb service with secrets supplied out-of-band",
-            "verify organ-surrealdb.synapse.cynic DNS and mesh reachability",
             "verify service.health on http://organ-surrealdb.synapse.cynic:8000/health",
             "verify storage_primary_readiness.ready is true",
             "point kernel SURREALDB_URL to the Synapse endpoint and verify kernel health no longer reports storage down"

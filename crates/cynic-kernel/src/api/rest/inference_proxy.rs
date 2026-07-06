@@ -31,16 +31,18 @@ pub struct ProxyTargets {
 struct ProxyTarget {
     base_url: String,
     api_key: Option<String>,
+    supports_tool_use: bool,
+    model_name: String,
 }
 
 impl ProxyTargets {
     /// Build from boot-time fleet_meta (only sovereign HTTP backends).
     pub fn from_fleet_meta(
-        fleet_meta: &std::collections::HashMap<String, (String, u32, String, Option<String>)>,
+        fleet_meta: &std::collections::HashMap<String, (String, u32, String, Option<String>, bool)>,
         sovereign_flags: &std::collections::HashMap<String, bool>,
     ) -> Self {
         let mut targets = BTreeMap::new();
-        for (dog_id, (base_url, _ctx, _model, api_key)) in fleet_meta {
+        for (dog_id, (base_url, _ctx, model_name, api_key, supports_tool_use)) in fleet_meta {
             // Only proxy sovereign backends (http://, local inference)
             if sovereign_flags.get(dog_id).copied().unwrap_or(false) {
                 targets.insert(
@@ -48,6 +50,8 @@ impl ProxyTargets {
                     ProxyTarget {
                         base_url: base_url.clone(),
                         api_key: api_key.clone(),
+                        supports_tool_use: *supports_tool_use,
+                        model_name: model_name.clone(),
                     },
                 );
             }
@@ -68,6 +72,14 @@ impl ProxyTargets {
     /// First available backend (deterministic — BTreeMap is sorted).
     fn first(&self) -> Option<(&str, &ProxyTarget)> {
         self.targets.iter().next().map(|(k, v)| (k.as_str(), v))
+    }
+
+    /// First available backend that supports tool use.
+    fn first_with_tools(&self) -> Option<(&str, &ProxyTarget)> {
+        self.targets
+            .iter()
+            .find(|(_, v)| v.supports_tool_use)
+            .map(|(k, v)| (k.as_str(), v))
     }
 }
 
@@ -97,11 +109,27 @@ pub async fn proxy_chat_completions(
     body: axum::body::Bytes,
 ) -> Response {
     let proxy = &state.proxy_targets;
+    let json_body = match serde_json::from_slice::<serde_json::Value>(&body) {
+        Ok(value) => Some(value),
+        Err(err) => {
+            tracing::debug!(error = %err, "ignoring non-JSON inference proxy body");
+            None
+        }
+    };
+    let requires_tools = if let Some(json) = &json_body {
+        json.get("tools").is_some() || json.get("functions").is_some()
+    } else {
+        false
+    };
+    let json_model = json_body
+        .as_ref()
+        .and_then(|j| j.get("model"))
+        .and_then(|m| m.as_str());
 
     // 1. Select backend
-    let (dog_id, target) = match &params.backend {
+    let (dog_id, target) = match params.backend.as_deref().or(json_model) {
         Some(id) => match proxy.get(id) {
-            Some(t) => (id.as_str(), t),
+            Some(t) => (id, t),
             None => {
                 return (
                     StatusCode::NOT_FOUND,
@@ -115,22 +143,32 @@ pub async fn proxy_chat_completions(
                     .into_response();
             }
         },
-        None => match proxy.first() {
-            Some((id, t)) => (id, t),
-            None => {
-                return (
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    axum::Json(serde_json::json!({
-                        "error": {
-                            "message": "no sovereign backends configured",
-                            "type": "server_error",
-                        }
-                    })),
-                )
-                    .into_response();
+        None => {
+            let backend_opt = if requires_tools {
+                proxy.first_with_tools().or_else(|| proxy.first()) // Fallback to first if none support tools
+            } else {
+                proxy.first()
+            };
+
+            match backend_opt {
+                Some((id, t)) => (id, t),
+                None => {
+                    return (
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        axum::Json(serde_json::json!({
+                            "error": {
+                                "message": "no sovereign backends configured",
+                                "type": "server_error",
+                            }
+                        })),
+                    )
+                        .into_response();
+                }
             }
-        },
+        }
     };
+
+    let start_time = std::time::Instant::now();
 
     // 2. Check slot availability (Soma L2/L3 gate)
     if state.slot_tracker.all_slots_busy(dog_id) {
@@ -187,6 +225,7 @@ pub async fn proxy_chat_completions(
     tracing::info!(
         dog_id = %dog_id,
         upstream = %url,
+        requires_tools = %requires_tools,
         "Soma L4 proxy: forwarding chat completion"
     );
 
@@ -195,26 +234,36 @@ pub async fn proxy_chat_completions(
             let status =
                 StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
             let headers = resp.headers().clone();
-            match resp.bytes().await {
-                Ok(body) => {
-                    let mut response = (status, body).into_response();
-                    // Forward content-type from upstream
-                    if let Some(ct) = headers.get("content-type") {
-                        response.headers_mut().insert("content-type", ct.clone());
-                    }
-                    response
-                }
-                Err(e) => (
-                    StatusCode::BAD_GATEWAY,
-                    axum::Json(serde_json::json!({
-                        "error": {
-                            "message": format!("upstream response read failed: {e}"),
-                            "type": "server_error",
-                        }
-                    })),
-                )
-                    .into_response(),
+            let stream = resp.bytes_stream();
+            let body = axum::body::Body::from_stream(stream);
+            let mut response = (status, body).into_response();
+            // Forward content-type from upstream
+            if let Some(ct) = headers.get("content-type") {
+                response.headers_mut().insert("content-type", ct.clone());
             }
+
+            // Inject observability headers (X-Cynic-*)
+            if let Ok(hv) = axum::http::HeaderValue::from_str(dog_id) {
+                response.headers_mut().insert("x-cynic-backend-id", hv);
+            }
+            if let Ok(hv) = axum::http::HeaderValue::from_str(&target.model_name) {
+                response.headers_mut().insert("x-cynic-model", hv);
+            }
+            if let Ok(hv) =
+                axum::http::HeaderValue::from_str(&start_time.elapsed().as_millis().to_string())
+            {
+                response.headers_mut().insert("x-cynic-latency-ms", hv);
+            }
+
+            tracing::info!(
+                dog_id = %dog_id,
+                model = %target.model_name,
+                latency_ms = start_time.elapsed().as_millis(),
+                status = status.as_u16(),
+                "Soma L4 proxy: completion stream started"
+            );
+
+            response
         }
         Err(e) => {
             let (status, msg) = if e.is_timeout() {
@@ -303,19 +352,16 @@ pub async fn proxy_models(
         Ok(resp) => {
             let status =
                 StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-            match resp.bytes().await {
-                Ok(body) => {
-                    let mut response = (status, body).into_response();
-                    response.headers_mut().insert(
-                        "content-type",
-                        "application/json".parse().unwrap_or_else(|_| {
-                            axum::http::HeaderValue::from_static("application/json")
-                        }),
-                    );
-                    response
-                }
-                Err(_) => StatusCode::BAD_GATEWAY.into_response(),
-            }
+            let stream = resp.bytes_stream();
+            let body = axum::body::Body::from_stream(stream);
+            let mut response = (status, body).into_response();
+            response.headers_mut().insert(
+                "content-type",
+                "application/json"
+                    .parse()
+                    .unwrap_or_else(|_| axum::http::HeaderValue::from_static("application/json")),
+            );
+            response
         }
         Err(_) => StatusCode::BAD_GATEWAY.into_response(),
     }
@@ -335,6 +381,7 @@ mod tests {
                 32768u32,
                 "Qwen2.5-7B-Instruct".to_string(),
                 None,
+                true,
             ),
         );
         fleet.insert(
@@ -344,6 +391,7 @@ mod tests {
                 128000u32,
                 "gpt-4".to_string(),
                 Some("sk-xxx".to_string()),
+                false,
             ),
         );
 
@@ -361,11 +409,23 @@ mod tests {
         let mut fleet = std::collections::HashMap::new();
         fleet.insert(
             "b-dog".to_string(),
-            ("http://b:8080/v1".to_string(), 0u32, "m".to_string(), None),
+            (
+                "http://b:8080/v1".to_string(),
+                0u32,
+                "m".to_string(),
+                None,
+                false,
+            ),
         );
         fleet.insert(
             "a-dog".to_string(),
-            ("http://a:8080/v1".to_string(), 0u32, "m".to_string(), None),
+            (
+                "http://a:8080/v1".to_string(),
+                0u32,
+                "m".to_string(),
+                None,
+                false,
+            ),
         );
 
         let mut sovereign = std::collections::HashMap::new();

@@ -26,7 +26,7 @@ Modified 7 files to make hermes-x account-aware:
 |------|--------|---------|
 | `get_x_credentials.py` | Reads account from env var + accounts.toml | Multi-account credential selection |
 | `hermes_x_login.py` | Derives chrome profile from accounts.toml | Per-account browser profile |
-| `launch-browser.sh` | Reads HERMES_ACCOUNT env var | Account selection at Chrome startup |
+| `organs/twitter/src/entrypoints/launch_browser.py` | Reads HERMES_ACCOUNT env var | Account selection at Chrome startup |
 | `x_proxy.py` | Adds account_id field to tweets | Source tracking in dataset |
 | `x_ingest_daemon.py` | Detects auth failures + posts heartbeat | Layer 1 failure detection |
 | `hermes_x.rs` | Multi-account health aggregation | Kernel reports per-account status |
@@ -42,13 +42,13 @@ Implements 4-layer resilience:
 |-------|-----------|--------|--------|
 | **1** | 2 heartbeat cycles with zero engagement_rate | Log WARN + continue | Signals auth failure |
 | **2** | Failure persists 5+ min | Run `hermes_x_login.py --force` | Re-authenticate current account |
-| **3** | Layer 2 fails 3× + fallback exists | `toggle-x-account.sh {fallback}` | Switch to secondary account |
+| **3** | Layer 2 fails 3x + fallback exists | `python3 organs/twitter/src/entrypoints/toggle_account.py {fallback}` | Switch to secondary account |
 | **4** | All layers fail | POST critical alert to kernel | Human intervention needed |
 
 **New Files**:
 - `hermes_x_recovery.py`: Daemon monitors heartbeat + implements cascade (351 lines)
-- `toggle-x-account.sh`: Atomic account switching script (133 lines)
-- `hermes-x-recovery@.service`: Systemd template for recovery daemon
+- `organs/twitter/src/entrypoints/toggle_account.py`: Atomic account switching entrypoint
+- `hermes-recovery@.service`: Systemd template for recovery daemon
 - `test_recovery.py`: 10 integration tests (all pass ✓)
 
 ---
@@ -103,15 +103,15 @@ CYNIC_API_KEY="<your-api-key>"                # Bearer token  # HARDCODED_CREDS=
 systemctl --user start hermes-browser@cynic
 systemctl --user start hermes-proxy@cynic
 systemctl --user start hermes-browser-hub@cynic
-systemctl --user start hermes-x-ingest@cynic
-systemctl --user start hermes-x-recovery@cynic
+systemctl --user start hermes-ingest@cynic
+systemctl --user start hermes-recovery@cynic
 
 # 2. Wait for services to stabilize
 sleep 10
 
 # 3. Verify services running
 systemctl --user status hermes-browser@cynic
-systemctl --user status hermes-x-ingest@cynic
+systemctl --user status hermes-ingest@cynic
 
 # 4. Check dataset growth
 tail -20 ~/.cynic/organs/hermes/x/datasets/cynic/dataset.jsonl
@@ -136,15 +136,15 @@ curl -s http://127.0.0.1:3030/observations?domain=hermes-x \
 
 ```bash
 # 1. Stop CYNIC stack
-./scripts/hermes-x/toggle-x-account.sh cynic  # Current active
+python3 organs/twitter/src/entrypoints/toggle_account.py cynic  # Current active
 systemctl --user is-active hermes-browser@cynic  # Should be inactive
 
 # 2. Switch to personal
-./scripts/hermes-x/toggle-x-account.sh personal
+python3 organs/twitter/src/entrypoints/toggle_account.py personal
 
 # 3. Verify stack restarted for personal
 systemctl --user status hermes-browser@personal
-systemctl --user status hermes-x-ingest@personal
+systemctl --user status hermes-ingest@personal
 
 # 4. Check symlinks updated
 ls -la ~/.cynic/organs/hermes/x/dataset.jsonl  # Should point to datasets/personal/
@@ -168,7 +168,7 @@ tail -f ~/.cynic/organs/hermes/x/datasets/personal/dataset.jsonl | grep -o '"acc
 #    - Wait 2 heartbeat cycles (~60 seconds)
 
 # 2. Watch recovery daemon detect failure
-journalctl --user -u hermes-x-recovery@cynic.service -f
+journalctl --user -u hermes-recovery@cynic.service -f
 
 # Expected logs:
 # [WARN] Auth failure detected (1/2)
@@ -201,7 +201,7 @@ tail -20 ~/.cynic/organs/hermes/x/recovery.log
 #    - Wait for Layer 2 to exhaust (3 retries, ~5 min)
 
 # 3. Watch recovery daemon escalate:
-journalctl --user -u hermes-x-recovery@cynic.service -f
+journalctl --user -u hermes-recovery@cynic.service -f
 
 # Expected logs:
 # [WARN] Auth failure detected (1/2)
@@ -226,7 +226,7 @@ tail -f ~/.cynic/organs/hermes/x/datasets/personal/dataset.jsonl | grep '"accoun
 **Expected**:
 - ✓ Layer 2 attempts 3 times, all fail
 - ✓ Layer 3 detects fallback (personal) configured
-- ✓ toggle-x-account.sh switches services atomically
+- ✓ toggle_account.py switches services atomically
 - ✓ Symlinks update to datasets/personal/
 - ✓ Personal account dataset resumes growing
 - ✓ recovery.log shows Layer 3 success
@@ -240,7 +240,7 @@ tail -f ~/.cynic/organs/hermes/x/datasets/personal/dataset.jsonl | grep '"accoun
 #    - Ensure Layer 2 + Layer 3 both fail
 
 # 2. Wait for Layer 4 alert:
-journalctl --user -u hermes-x-recovery@cynic.service -f
+journalctl --user -u hermes-recovery@cynic.service -f
 
 # Expected logs:
 # [CRITICAL] [Layer 4] All recovery attempts failed for cynic. Alerting kernel.
@@ -286,8 +286,8 @@ systemctl --user list-units 'hermes-*@personal.service' --state=running
 ### Check Recovery Daemon Status
 
 ```bash
-systemctl --user status hermes-x-recovery@cynic.service
-journalctl --user -u hermes-x-recovery@cynic.service -n 20
+systemctl --user status hermes-recovery@cynic.service
+journalctl --user -u hermes-recovery@cynic.service -n 20
 ```
 
 ### Check Kernel Health
@@ -386,7 +386,7 @@ tail -5 ~/.cynic/organs/hermes/x/dataset.jsonl | jq '.account_id'
 │    ├─ SUCCESS → reset counters, continue          │
 │    ├─ FAIL 3× → proceed to Layer 3                │
 │    ↓                                               │
-│ Layer 3: toggle-x-account.sh personal             │
+│ Layer 3: python3 organs/twitter/src/entrypoints/toggle_account.py personal │
 │    ├─ SUCCESS → account switched, continue        │
 │    ├─ FAIL → proceed to Layer 4                   │
 │    ↓                                               │
@@ -407,7 +407,7 @@ tail -5 ~/.cynic/organs/hermes/x/dataset.jsonl | jq '.account_id'
 | Recovery daemon crashes | requests library missing | `pip3 install requests` |
 | No tweets captured | Proxy not listening | `systemctl --user status hermes-proxy@cynic` |
 | Recovery not detecting failure | engagement_rate field check wrong | Check proxy logs: `journalctl --user -u hermes-proxy@cynic` |
-| Symlinks not updating | toggle script permission issue | `chmod +x scripts/hermes-x/toggle-x-account.sh` |
+| Symlinks not updating | account toggle entrypoint failed | `python3 organs/twitter/src/entrypoints/toggle_account.py cynic` |
 
 ---
 
@@ -431,7 +431,7 @@ tail -5 ~/.cynic/organs/hermes/x/dataset.jsonl | jq '.account_id'
 | Data isolation | ✓ | ✓ |
 | Failure detection | ✓ (via heartbeat) | ✓ (daemon monitors) |
 | Automatic recovery | ✗ | ✓ (4 layers) |
-| Account switching | ✗ | ✓ (toggle-x-account.sh) |
+| Account switching | ✗ | ✓ (toggle_account.py) |
 | Kernel alerting | ✗ | ✓ (Layer 4) |
 | Production ready | Partial | YES |
 
@@ -447,13 +447,13 @@ systemctl --user start hermes-{browser,proxy,browser-hub,x-ingest,x-recovery}@cy
 systemctl --user stop hermes-{browser,proxy,browser-hub,x-ingest,x-recovery}@cynic
 
 # Switch to personal
-~/Bureau/CYNIC/scripts/hermes-x/toggle-x-account.sh personal
+python3 ~/Bureau/CYNIC/organs/twitter/src/entrypoints/toggle_account.py personal
 
 # Switch back to CYNIC
-~/Bureau/CYNIC/scripts/hermes-x/toggle-x-account.sh cynic
+python3 ~/Bureau/CYNIC/organs/twitter/src/entrypoints/toggle_account.py cynic
 
 # Watch recovery daemon in real-time
-journalctl --user -u hermes-x-recovery@cynic.service -f
+journalctl --user -u hermes-recovery@cynic.service -f
 
 # View last 50 recovery log lines
 tail -50 ~/.cynic/organs/hermes/x/recovery.log

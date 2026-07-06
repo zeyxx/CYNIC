@@ -18,7 +18,7 @@ tokio-tungstenite = "0.24"
 tokio-stream = { version = "0.1", features = ["sync"] }
 futures-util = "0.3"
 http = "1.1"
-reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 process-wrap = { version = "9.1", features = ["tokio1"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -29,6 +29,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 notify = { version = "7", default-features = false, features = ["macos_kqueue"] }
 chrono = "0.4"
 sysinfo = "0.33"
+tempfile = "3"
 cynic-mcp = { path = "../cynic-mcp", optional = true }
 rmcp = { version = "1.2", features = ["server", "transport-io"], optional = true }
 
@@ -37,7 +38,6 @@ libc = "0.2"
 
 [dev-dependencies]
 axum = "0.8"
-tempfile = "3"
 
 [lints]
 workspace = true

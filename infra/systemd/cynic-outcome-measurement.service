@@ -7,10 +7,10 @@ Wants=cynic-kernel.service
 EnvironmentFile=%h/.config/cynic/env
 Type=oneshot
 Environment="PYTHONUNBUFFERED=1"
-Environment="OUTPUT_DIR=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/reports/phase-2.0"
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
-ExecStartPre=/bin/mkdir -p %h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/reports/phase-2.0
-ExecStart=/bin/bash scripts/outcome_measurement_t7.sh
+Environment="OUTPUT_DIR=@CYNIC_PROJECT_ROOT@/reports/phase-2.0"
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+ExecStartPre=/bin/mkdir -p @CYNIC_PROJECT_ROOT@/reports/phase-2.0
+ExecStart=/bin/sh -c 'echo "legacy outcome measurement entrypoint removed; reforge this as an organ entrypoint before enabling cynic-outcome-measurement" >&2; exit 1'
 TimeoutStartSec=3600
 TimeoutStopSec=60
 

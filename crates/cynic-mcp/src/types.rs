@@ -6,6 +6,14 @@ use rmcp::ErrorData as McpError;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+// ── API discovery ─────────────────────────────────────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ApiContractsParams {
+    /// Which API contract to fetch: manifest, openapi, topology, or layer_alignment.
+    pub contract: Option<String>,
+}
+
 // ── MCP Rate Limiter ──────────────────────────────────────────
 
 pub struct McpRateLimit {
@@ -284,181 +292,14 @@ fn load_registry() -> Option<serde_json::Value> {
 
 // ── MCP Tool Parameters ─────────────────────────────────────
 
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct JudgeParams {
-    pub content: String,
-    pub context: Option<String>,
-    pub domain: Option<String>,
-    pub dogs: Option<Vec<String>>,
-    pub agent_id: Option<String>,
-    pub crystals: Option<bool>,
-    /// Optional: sensitivity level. "high" forces routing to sovereign (local) Dogs only.
-    /// Use for private content: DMs, wallet seeds, API keys. Default: none (auto-detected).
-    pub sensitivity: Option<String>,
-    /// Optional: slot acquisition priority. Controls queuing on sovereign inference.
-    /// Values: "user" (30s wait, default), "hermes" (15s), "nightshift" (skip if busy), "background" (skip).
-    pub priority: Option<String>,
-}
+// --- Coordination / transport-agnostic payloads -------------------------------
 
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListParams {
-    pub limit: Option<u32>,
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct InferParams {
-    pub system: Option<String>,
-    pub prompt: String,
-    pub agent_id: Option<String>,
-    pub temperature: Option<f64>,
-    pub max_tokens: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct MetabolismParams {
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ComplianceParams {
-    /// Agent ID to score compliance for. If omitted, returns recent trend.
-    pub agent_id: Option<String>,
-    /// Number of recent compliance records to return (trend mode). Default: 20.
-    pub limit: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct AuditQueryParams {
-    pub tool: Option<String>,
-    pub agent_id: Option<String>,
-    pub limit: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct AuthParams {
-    pub api_key: String,
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ValidateParams {
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct GitParams {
-    pub op: crate::local_tools::GitOp,
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct RegisterParams {
-    pub agent_id: String,
-    pub intent: String,
-    pub agent_type: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ClaimParams {
-    pub agent_id: String,
-    pub target: String,
-    pub claim_type: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct BatchClaimParams {
-    pub agent_id: String,
-    pub targets: Vec<String>,
-    pub claim_type: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ReleaseParams {
-    pub agent_id: String,
-    pub target: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct WhoParams {
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ObserveParams {
-    pub tool: String,
-    pub target: Option<String>,
-    pub domain: Option<String>,
-    pub status: Option<String>,
-    pub context: Option<String>,
-    pub project: Option<String>,
-    pub agent_id: Option<String>,
-    pub session_id: Option<String>,
-    pub tags: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct DispatchAgentTaskParams {
-    pub kind: String,   // "hermes" | "nightshift" | future agent
-    pub domain: String, // "twitter" | "token" | "on-chain"
-    /// JSON task payload. Repo-affecting hermes tasks must declare coord_targets, targets, repo_targets, or files.
-    pub content: String,
-    pub agent_id: Option<String>,
-    pub due_at: Option<String>,
-    pub priority: Option<i64>,
-    pub consumer: Option<String>,
-    pub escalation_policy: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListPendingAgentTasksParams {
-    pub kind: String,
-    pub domain: Option<String>,
-    pub limit: Option<u32>,
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ClaimAgentTaskParams {
-    pub task_id: String,
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct UpdateAgentTaskResultParams {
-    pub task_id: String,
-    pub result: Option<String>,
-    pub error: Option<String>,
-    pub agent_id: Option<String>,
+fn default_coordination_contract_version() -> String {
+    "coordination-event-v1".to_string()
 }
 
 // ── Tests ────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ProxmoxActionParams {
-    pub node: String,
-    pub target_type: String, // "qemu" or "lxc"
-    pub vmid: u64,
-    pub action: String, // "start", "stop", "reboot", "suspend", "resume"
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ProxmoxProvisionParams {
-    pub node: String,
-    pub vmid: u64,
-    pub name: String,
-    pub archive: String,
-    pub storage: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ProxmoxExecParams {
-    pub node: String,
-    pub vmid: u64,
-    pub command: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -523,6 +364,29 @@ mod tests {
     }
 
     #[test]
+    fn observe_params_accepts_k15_ledger_fields() {
+        let r = serde_json::from_value::<ObserveParams>(serde_json::json!({
+            "tool": "repo_edit",
+            "domain": "mempool",
+            "status": "critical",
+            "consumer": "organ-forge",
+            "action": "verify lifecycle dispatch read-back",
+            "confidence": "observed",
+            "value": {"task_id": "agent_tasks:test"},
+            "depends_on": ["agent_tasks:test"],
+            "maturity": 0.9
+        }));
+
+        let params = r.expect("ObserveParams should accept K15 ledger fields");
+        assert_eq!(params.consumer.as_deref(), Some("organ-forge"));
+        assert_eq!(params.confidence.as_deref(), Some("observed"));
+        assert_eq!(
+            params.depends_on.as_deref(),
+            Some(&["agent_tasks:test".to_string()][..])
+        );
+    }
+
+    #[test]
     fn poison_git_params_rejects_empty() {
         let r = serde_json::from_value::<GitParams>(serde_json::json!({}));
         assert!(r.is_err(), "GitParams should require 'op'");
@@ -557,9 +421,9 @@ mod tests {
             "orchestrator_organ": "organ-forge",
             "build_target": "cynic-vm-anvil",
             "build_runner_role": "build_runner",
-            "deploy_target": "cynic-vm-core",
+            "deploy_target": "cynic-vm-v2",
             "deploy_target_role": "kernel_primary",
-            "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+            "runtime_paths": {"repo_root": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}"},
             "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
             "activation_evidence_contract": activation_evidence_contract(),
             "coord_targets": ["crates/cynic-kernel", "infra/registry.json"]
@@ -652,6 +516,15 @@ mod tests {
         assert!(
             r.is_err(),
             "ListPendingAgentTasksParams should require 'kind'"
+        );
+    }
+
+    #[test]
+    fn poison_watch_pending_params_rejects_empty() {
+        let r = serde_json::from_value::<WatchPendingAgentTasksParams>(serde_json::json!({}));
+        assert!(
+            r.is_err(),
+            "WatchPendingAgentTasksParams should require 'kind'"
         );
     }
 
@@ -750,3 +623,11 @@ mod tests {
         assert!(rl.check_other().is_err());
     }
 }
+
+include!("types_split/coord.rs");
+include!("types_split/task.rs");
+include!("types_split/network.rs");
+include!("types_split/infra.rs");
+include!("types_split/fleet.rs");
+include!("types_split/storage.rs");
+include!("types_split/identity.rs");

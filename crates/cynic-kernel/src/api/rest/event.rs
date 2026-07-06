@@ -1,4 +1,4 @@
-//! REST handler for POST /event and GET /fleet-stats — infrastructure observability.
+//! REST handler for POST /events and GET /fleet/stats — infrastructure observability.
 //! Events feed node routing decisions (Phase 2).
 
 use axum::{
@@ -27,7 +27,7 @@ pub struct EventRequest {
 #[derive(Debug, Serialize)]
 pub struct FleetStatsResponse {
     pub nodes: Vec<NodeStats>,
-    pub timestamp: String,
+    pub timestamp: i64,
     pub window_secs: u64,
 }
 
@@ -40,7 +40,7 @@ pub struct NodeStats {
     pub quality: String, // "excellent" | "good" | "degraded" | "dead"
 }
 
-/// POST /event — log infrastructure event (node latency, output size, success).
+/// POST /events — log infrastructure event (node latency, output size, success).
 /// Fire-and-forget with bounded background task pool (K6 timeout enforcement).
 pub async fn event_handler(
     State(state): State<Arc<AppState>>,
@@ -72,7 +72,7 @@ pub async fn event_handler(
         success: req.success,
         metadata: req.metadata.unwrap_or_default(),
         agent_id: req.agent_id.unwrap_or_else(|| "unknown".to_string()),
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().timestamp_millis(),
         failure_reason: req.failure_reason.unwrap_or_default(),
     };
 
@@ -116,7 +116,7 @@ pub struct FleetStatsQuery {
     pub limit: Option<u32>,
 }
 
-/// GET /fleet-stats — node routing intelligence (authenticated only).
+/// GET /fleet/stats — node routing intelligence (authenticated only).
 /// Returns aggregated latencies + success rates per node over a time window.
 /// Used by inference router to select fastest node.
 pub async fn fleet_stats_handler(
@@ -156,7 +156,7 @@ pub async fn fleet_stats_handler(
 
             Ok(Json(FleetStatsResponse {
                 nodes,
-                timestamp: chrono::Utc::now().to_rfc3339(),
+                timestamp: chrono::Utc::now().timestamp_millis(),
                 window_secs,
             }))
         }

@@ -50,7 +50,8 @@
                 "E-Score",
                 "Proof of History",
                 "technical whitepaper",
-                "token/equity firewall"
+                "token/equity firewall",
+                "Odysseum OS architecture"
             ],
             "canonical_sources": [
                 "docs/foundation/TALARIA_CYNIC_NAMING.md",
@@ -61,7 +62,8 @@
                 "docs/foundation/CYNIC_PROTOCOL_TOKEN_PAPER.md",
                 "docs/foundation/CYNIC_FAIR_LAUNCH_COVENANT.md",
                 "docs/foundation/CYNIC_TECHNICAL_WHITEPAPER.md",
-                "docs/foundation/CYNIC_FEDERATED_ECONOMIC_ARCHITECTURE.md"
+                "docs/foundation/CYNIC_FEDERATED_ECONOMIC_ARCHITECTURE.md",
+                "docs/foundation/ODYSSEUM_MANIFEST.md"
             ],
             "allowed_projection_paths": [
                 "docs/CYNIC_ECOSYSTEM_ARCHITECTURE.md",
@@ -70,8 +72,8 @@
                 "docs/CYNIC_OnePager_Web3.md",
                 "docs/vivatech_2026_pitch_cynic.md",
                 "docs/internal/",
-                "packages/talaria-demo/",
-                "packages/talaria-landing/"
+                "packages/odysseum-ui/",
+                "packages/public-ui/"
             ],
             "must_not_own": [
                 "TALARIA SAS share ownership",
@@ -89,9 +91,7 @@
                 "pre-genesis pitch evidence"
             ],
             "canonical_sources": [
-                "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-                "docs/internal/futardio-odysseum-submit.md",
-                "docs/internal/futardio-project-analysis-2026-05-28.md"
+                "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md"
             ],
             "allowed_projection_paths": [
                 "docs/internal/",
@@ -155,6 +155,7 @@
                 "data/curated/talaria/genesis.v1.meta.json"
             ],
             "allowed_projection_paths": [
+                "data/emergence/",
                 "data/reports/",
                 "docs/audit/",
                 "docs/research/",

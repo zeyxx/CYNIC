@@ -9,45 +9,98 @@ import so.cynic.kyon.KyonApp
 import so.cynic.kyon.core.model.ActivityEvent
 import so.cynic.kyon.core.model.EventPrivacy
 import so.cynic.kyon.core.model.EventSource
-import so.cynic.kyon.core.storage.EventRepository
-import so.cynic.kyon.shield.reporting.PhoneReportDao
 import so.cynic.kyon.shield.reporting.PhoneReportLabel
-import java.security.MessageDigest
-import java.util.Locale
+
+import android.os.PowerManager
+import android.content.Context
+import java.util.Calendar
 
 class KyonCallScreeningService : CallScreeningService() {
     private val scope = CoroutineScope(Dispatchers.IO)
 
     override fun onScreenCall(callDetails: Call.Details) {
-        val peerHash = hashPeer(callDetails.handle?.schemeSpecificPart.orEmpty())
         val app = application as? KyonApp
         if (app == null) {
             respondToCall(callDetails, allowDefaultCallResponse())
             return
         }
 
-        val eventRepository = EventRepository(app.database.activityEvents())
-        val reportDao: PhoneReportDao = app.database.phoneReports()
+        if (!app.featureFlags.shieldEnabled) {
+            respondToCall(callDetails, allowDefaultCallResponse())
+            return
+        }
+
+        val peer = callDetails.handle?.schemeSpecificPart.orEmpty()
+        val useCase = app.container.shieldDecision
+        val homeostasisEngine = app.container.homeostasisEngine
+
+        // --- Context & Physical Reality ---
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val isScreenOn = powerManager.isInteractive
 
         scope.launch {
-            val report = reportDao.findByHash(peerHash)
-            val shouldBlock = shouldBlock(report?.label)
+            val currentState = homeostasisEngine.getCurrentState()
+            val pressure = currentState?.focusPressure ?: 0.0f
+            val isLockdown = currentState?.shieldLevel == "LOCKDOWN"
+            val isStrict = currentState?.shieldLevel == "STRICT"
 
-            eventRepository.record(
+            var blockOverride = false
+            var overrideReason = ""
+
+            // 1. Reality-based Heuristics (No Assumptions)
+            // We rely purely on the real-time physical state of the device (isScreenOn) 
+            // and the biological state of the organism (Pressure).
+            if (isLockdown && isScreenOn) {
+                // The human is overloaded (LOCKDOWN) but actively engaged with the device.
+                // An interruption here breaks an already fragile cognitive state.
+                blockOverride = true
+                overrideReason = "lockdown_active_usage"
+            } else if (isLockdown && !isScreenOn) {
+                // The human is overloaded, but the device is off. 
+                // They are likely attempting to recover (resting, sleeping).
+                blockOverride = true
+                overrideReason = "lockdown_recovery_protection"
+            } else if (isStrict && isScreenOn) {
+                // The human is not yet overloaded, but pressure is high (STRICT) and they are active.
+                // Protect their real-time flow state without assuming *what* time of day it is.
+                blockOverride = true
+                overrideReason = "strict_flow_protection"
+            }
+
+            if (blockOverride) {
+                app.container.recordActivityEvent.execute(
+                    ActivityEvent(
+                        source = EventSource.MOBILE_CALL,
+                        eventType = "incoming_call_screened",
+                        target = "call_peer",
+                        timestampMs = System.currentTimeMillis(),
+                        privacy = EventPrivacy.METADATA_ONLY,
+                        contextJson = """{"content_captured":false,"decision":"blocked_by_context","reason":"$overrideReason","pressure":$pressure,"screen_on":$isScreenOn}""",
+                        syncEligible = false,
+                    ),
+                )
+                respondToCall(callDetails, blockCallResponse())
+                return@launch
+            }
+
+            // 2. Otherwise, fallback to the Standard Shield Decision (Local Reports/Reputation)
+            val decision = useCase.execute(peer)
+
+            app.container.recordActivityEvent.execute(
                 ActivityEvent(
                     source = EventSource.MOBILE_CALL,
                     eventType = "incoming_call_screened",
-                    target = "call_peer:$peerHash",
+                    target = "call_peer:${decision.peerHash}",
                     timestampMs = System.currentTimeMillis(),
                     privacy = EventPrivacy.METADATA_ONLY,
-                    contextJson = """{"content_captured":false,"peer_hash":"$peerHash","decision":"${if (shouldBlock) "blocked_by_report" else "allow_default"}","report_label":"${report?.label ?: "NONE"}"}""",
+                    contextJson = """{"content_captured":false,"peer_hash":"${decision.peerHash}","decision":"${if (decision.shouldBlock) "blocked_by_report" else "allow_default"}","report_label":"${decision.reportLabel ?: PhoneReportLabel.IGNORE}"}""",
                     syncEligible = false,
                 ),
             )
 
             respondToCall(
                 callDetails,
-                if (shouldBlock) blockCallResponse() else allowDefaultCallResponse(),
+                if (decision.shouldBlock) blockCallResponse() else allowDefaultCallResponse(),
             )
         }
     }
@@ -65,23 +118,4 @@ class KyonCallScreeningService : CallScreeningService() {
         .setSkipCallLog(false)
         .setSkipNotification(false)
         .build()
-
-    private fun shouldBlock(label: String?): Boolean {
-        val normalized = label ?: return false
-        return try {
-            when (PhoneReportLabel.valueOf(normalized)) {
-                PhoneReportLabel.SCAM, PhoneReportLabel.NUISANCE -> true
-                PhoneReportLabel.LEGITIMATE, PhoneReportLabel.IGNORE -> false
-            }
-        } catch (_: IllegalArgumentException) {
-            false
-        }
-    }
-
-    private fun hashPeer(peer: String): String {
-        val normalized = peer.filter { !it.isWhitespace() }.lowercase(Locale.US)
-        val input = normalized.ifBlank { "unknown" }
-        val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
-        return digest.joinToString(separator = "") { "%02x".format(it) }.take(16)
-    }
 }

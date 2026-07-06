@@ -9,16 +9,20 @@
 
 ## Philosophie
 
-Organ-forge n'est pas un script de nettoyage — c'est un **organe sensoriel** qui perçoit l'état du repo comme un système nerveux perçoit l'environnement.
+Organ-forge n'est pas un script de nettoyage — c'est un **organe sensoriel** qui perçoit l'état du repo, de Forgejo, du Kernel et des gates comme un système nerveux perçoit l'environnement.
 
-Le repo est le système nerveux de l'organisme :
+Forgejo est la forge prioritaire pour l'agency et la privacy du lifecycle. Git reste le DAG local, la membrane de travail et l'archive adressée par contenu. GitHub reste la source externe propriétaire, backup, publication et information; il ne doit pas redevenir le plan de contrôle prioritaire de l'organisme.
+
+Le repo est une couche du système nerveux de l'organisme :
 - Branches = pensées en cours
-- PRs = décisions en attente
+- demandes Forgejo = décisions en attente
 - Commits = souvenirs
 - Dirty trees = travail actif
 - Divergences = conflits cognitifs
 
 L'organe perçoit ces signaux et adapte ses règles en conséquence.
+
+Principe récursif: à chaque échelle, le lifecycle doit suivre la même forme minimale: intention, claim, route, exécution, observation, résultat, convergence. Une action locale qui ne peut pas produire cette chaîne n'est pas encore un lifecycle réel.
 
 ---
 
@@ -32,15 +36,15 @@ L'organe perçoit l'état du repo via des capteurs :
 Capteurs :
 ├── git status → dirty tree (travail en cours)
 ├── git branch → branches locales/remote (pensées)
-├── git fetch → synchronisation (communication)
-├── gh pr list → PRs ouverts (décisions)
+├── git fetch → synchronisation DAG (communication)
+├── Forgejo API → demandes ouvertes, reviews, checks, refs protégées
 ├── git log → historique (mémoire)
 └── cynic_coord_who → agents actifs (coordination)
 ```
 
 **Données perçues** :
 - Branches orphelines → signal de fin de session
-- PRs stagnants > N jours → signal de blocage
+- demandes Forgejo stagnantes > N jours → signal de blocage
 - Dirty tree → signal de travail actif non-sécurisé
 - Divergences (+/- commits) → signal de conflit
 - Claims actifs → signal de coordination
@@ -53,8 +57,8 @@ Les données brutes → signal de décision :
 Signal → Décision :
 ├── Orpheline + pushable → Push automatique
 ├── Orpheline + conflict → Alerter cortex
-├── PR vert + >3 jours → Suggestion merge
-├── PR rouge + >7 jours → Suggestion close
+├── demande Forgejo verte + >3 jours → Suggestion merge
+├── demande Forgejo rouge + >7 jours → Suggestion close
 ├── Dirty tree → Commit + push (sécurisation)
 ├── Divergence 2-way → Alerter, ne pas résoudre
 └── Claim stale + >1h → Release automatique
@@ -94,7 +98,7 @@ L'organe détecte des patterns :
 ```
 Patterns :
 ├── Branches divergentes → Besoin de coordination
-├── PRs ouverts sans review → Goulot d'étranglement
+├── Demandes Forgejo ouvertes sans review → Goulot d'étranglement
 ├── Sessions courtes + beaucoup de branches → Exploration
 ├── Sessions longues + peu de commits → Blocage
 └── Claims non-released → Agent bloqué ou mort
@@ -107,7 +111,7 @@ Principes ACID adaptés au repo :
 - **Atomicité** : Un commit est soit complet, soit absent (pas de partial commit)
 - **Cohérence** : Les règles du repo s'appliquent toujours ; pas de bypass cortex pour les markers release
 - **Isolation** : Chaque cortex a sa branche (pas de collision sur main)
-- **Durabilité** : Push sur origin = sauvegarde externe
+- **Durabilité** : Push vers Forgejo souverain = sauvegarde et coordination interne; miroir externe éventuel = publication, pas autorité
 
 ### 6. RISQUES & ANTI-PATTERNS
 
@@ -130,22 +134,22 @@ Les gates actuelles sont bureaucratiques — elles s'exécutent toujours, même 
 Petit (< 5 organes) :
 ├── Pre-commit : Secret check + basic fmt
 ├── Pre-push : Config drift + grep rules
-└── CI : Full build + test + clippy
+└── Runner registry : Full build + test + clippy
 
 Moyen (5-15 organes) :
 ├── Pre-commit : Secret + fmt + lint
 ├── Pre-push : Full check
-└── CI : Full + integration tests
+└── Runner registry : Full + integration tests
 
 Grand (>15 organes) :
 ├── Pre-commit : Fast checks only
 ├── Pre-push : Incremental checks
-└── CI : Parallel + full suite
+└── Runner registry : Parallel + full suite
 ```
 
 **Adaptation automatique** :
-- Si >3 PRs ouverts → Relâcher les gates sur les branches feature
-- Si 0 PRs ouverts → Resserer les gates (moins de pression)
+- Si >3 demandes Forgejo ouvertes → Relâcher les gates sur les branches feature
+- Si 0 demande Forgejo ouverte → Resserer les gates (moins de pression)
 - Si activité > 10 commits/jour → Gates incrémentales
 - Si activité < 2 commits/jour → Gates complètes
 
@@ -196,7 +200,7 @@ Métriques organ-forge :
 ├── Repo health score (0-1)
 │   ├── Dirty tree ratio
 │   ├── Branch divergence count
-│   ├── PR age average
+│   ├── Forgejo request age average
 │   └── Gate failure rate
 ├── Action count (commits, pushes, alerts)
 ├── Response time (perception → action)

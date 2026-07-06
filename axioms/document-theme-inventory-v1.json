@@ -7,7 +7,506 @@
     "archive",
     "delete_candidate"
   ],
+  "decision_authority": "organ-supervisor",
   "documents": [
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/MANIFEST.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/analysis/completion_audit.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/analysis/inventory_summary.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/analysis/opportunity_layers.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/analysis/platform_map.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/analysis/scoring_model_v1.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/analysis/shortlist.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/briefs/overnight_brief.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/datasets/discord_france_leads.jsonl",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/datasets/global_opportunities.jsonl",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/datasets/grants.jsonl",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/datasets/opportunity_details.jsonl",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/research/agentic_web_patterns.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/research/opportunity_specific_research.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/schemas/browser_observation.schema.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/schemas/grant.schema.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/schemas/opportunity.schema.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/schemas/opportunity_detail.schema.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/schemas/organ.schema.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/schemas/research.schema.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/schemas/skill.schema.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/skills/agent_skills_v1.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/specs/organ_browser_v1.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/specs/organ_superteam_v1.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/specs/sub_organs_v1.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/specs/submission_pipeline_v1.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/started_work/advanced-infrastructure-challenge-build-a-smart-transaction-stack/README.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/started_work/advanced-infrastructure-challenge-build-a-smart-transaction-stack/architecture_outline.json",
+      "status": "evidence",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/started_work/break-it-before-users-do-multihopper-agentic-flow-bugs-and-fixes/README.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/started_work/break-it-before-users-do-multihopper-agentic-flow-bugs-and-fixes/finding_template.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/started_work/break-it-before-users-do-multihopper-agentic-flow-bugs-and-fixes/test_matrix.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/started_work/skills/README.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/started_work/skills/SKILL_DRAFT.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/started_work/skills/submission_plan.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/browser_requests.jsonl",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/build_artifacts/solana-bounty-to-submission-skill/SKILL.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/build_artifacts/solana-bounty-to-submission-skill/references/evidence-bundles.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/build_artifacts/solana-bounty-to-submission-skill/references/human-gates.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/build_artifacts/solana-bounty-to-submission-skill/references/requirement-extraction.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/build_artifacts/solana-bounty-to-submission-skill/tests/expected/requirements.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/build_artifacts/solana-bounty-to-submission-skill/tests/fixtures/superteam_listing.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/human_gates.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/rag/opportunity_cards.jsonl",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/advanced-infrastructure-challenge-build-a-smart-transaction-stack/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/advanced-infrastructure-challenge-build-a-smart-transaction-stack/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/advanced-infrastructure-challenge-build-a-smart-transaction-stack/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/best-solana-summit-germany-content-bounty/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/best-solana-summit-germany-content-bounty/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/best-solana-summit-germany-content-bounty/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/break-it-before-users-do-multihopper-agentic-flow-bugs-and-fixes/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/break-it-before-users-do-multihopper-agentic-flow-bugs-and-fixes/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/break-it-before-users-do-multihopper-agentic-flow-bugs-and-fixes/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/create-a-video-why-build-in-australia/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/create-a-video-why-build-in-australia/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/create-a-video-why-build-in-australia/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/deep-dive-australian-innovation-investment-and-competitiveness/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/deep-dive-australian-innovation-investment-and-competitiveness/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/deep-dive-australian-innovation-investment-and-competitiveness/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/explain-clapmi-in-your-niche/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/explain-clapmi-in-your-niche/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/explain-clapmi-in-your-niche/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/fatcat-product-feedback/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/fatcat-product-feedback/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/fatcat-product-feedback/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/hubra-rasol-bounty-nope/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/hubra-rasol-bounty-nope/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/hubra-rasol-bounty-nope/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/paj-video-content-bounty/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/paj-video-content-bounty/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/paj-video-content-bounty/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/publish-twitter-deep-dive-on-solana-in-2026/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/publish-twitter-deep-dive-on-solana-in-2026/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/publish-twitter-deep-dive-on-solana-in-2026/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/skills/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/skills/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/skills/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/what-makes-superteam-so-super/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/what-makes-superteam-so-super/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/what-makes-superteam-so-super/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/write-a-banger-twitter-thread-about-mypip/browser_task.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/write-a-banger-twitter-thread-about-mypip/opportunity_score.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/submission_packets/write-a-banger-twitter-thread-about-mypip/submission_draft.md",
+      "status": "projection",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "data/emergence/superteam-browser/2026-06-24/workbench/top_targets.json",
+      "status": "evidence",
+      "theme": "data_and_evidence"
+    },
     {
       "canonical_target": "docs/DATA_CONSTITUTION.md",
       "path": "data/reports/README.md",
@@ -91,6 +590,312 @@
       "path": "data/reports/telegram_audit_2026_06_05.md",
       "status": "evidence",
       "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/AGENT-TAXONOMY.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/AGENT_ORCHESTRATION_DESIGN_2026_05_01.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/BEHAVIORAL_ANALYTICS_ARCHITECTURE.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/BEHAVIOR_ML_DESIGN_2026_05_01.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/CCM-V2-ARCHITECTURE.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/COORDINATION-MCP-FOUNDATION.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+      "path": "docs/architecture/cynic-portability-foundation.md",
+      "status": "draft",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/architecture/CYNIC-DATA-ARCHITECTURE-APPLIED.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/architecture/CYNIC-NODE-PHASE-B-LIFECYCLE.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/CYNIC-NODE-SOMA-SYSTEM.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/CYNIC-ORGANISM-DISTRIBUTED-ROADMAP.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/HERMES-DATA-ORGANISM-LOOP.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/HERMES_ARCHITECTURE.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/HERMES_NEXT_STEPS.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/ORGAN-DATA-CONVENTION.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/ORGAN-WIREGUARD-V3.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/ORGANISM-DATA-METABOLISM.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/ORGANISM-HEALTH-SYSTEM.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/architecture/PROTOCOL.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/PROXMOX-FLEET-CARTOGRAPHY.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/SOMA.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/TOPOLOGY.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/proposed_organ_topology.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/architecture/talaria-observatory.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_DEPRECATED_SURFACE_REPORT_2026-06-27.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_EMERGENCE_AND_FRAGMENTATION.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_E_SCORE.md",
+      "status": "canonical",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_FAIR_LAUNCH_COVENANT.md",
+      "status": "canonical",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_FEDERATED_ECONOMIC_ARCHITECTURE.md",
+      "status": "canonical",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+      "path": "docs/foundation/CYNIC_FRACTAL_ABSTRACTION_PRINCIPLE.md",
+      "status": "canonical",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_LEGAL_GENESIS_PLAN.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_LEGAL_MICA_ROUTE_MEMO.md",
+      "status": "canonical",
+      "theme": "talaria_legal_genesis"
+    },
+    {
+      "canonical_target": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+      "path": "docs/foundation/CYNIC_EVOLUTION_LIFECYCLE.md",
+      "status": "canonical",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+      "path": "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md",
+      "status": "canonical",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+      "path": "docs/foundation/CYNIC_MULTI_SCALE_EMPIRICAL_RULE.md",
+      "status": "canonical",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_ONE_PERSON_FUTARCHY.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/CYNIC_ONE_PERSON_FUTARCHY.md",
+      "path": "docs/foundation/CYNIC_ONE_PERSON_ENTERPRISE_FUTARCHY_FRAMEWORK.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md",
+      "status": "canonical",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_OWNERSHIP_CONSTITUTION.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_PROTOCOL_REVENUE_WATERFALL.md",
+      "status": "canonical",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_PROTOCOL_TOKEN_PAPER.md",
+      "status": "canonical",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/foundation/CYNIC_ORGANISM_PHYSICS_POLICY.md",
+      "status": "draft",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_SOURCE_OF_TRUTH_HIERARCHY.md",
+      "status": "canonical",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_TECHNICAL_WHITEPAPER.md",
+      "status": "canonical",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_THEME_TOPOLOGY_POLICY.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/CYNIC_TOKEN_EQUITY_FIREWALL.md",
+      "status": "canonical",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
+      "path": "docs/foundation/ODYSSEUM_MANIFEST.md",
+      "status": "draft",
+      "theme": "odysseum_futardio_legacy"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "docs/foundation/README.md",
+      "status": "draft",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "status": "canonical",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/foundation/TALARIA_SAS_GENESIS_NOTE.md",
+      "status": "canonical",
+      "theme": "talaria_legal_genesis"
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
@@ -239,7 +1044,7 @@
     {
       "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
       "path": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "status": "canonical",
+      "status": "evidence",
       "theme": "odysseum_futardio_legacy"
     },
     {
@@ -256,27 +1061,9 @@
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/YDAYS-BRIEF-S.md",
+      "path": "docs/internal/asdfasdfa-bagwork-futarchy-operating-contract-2026-06-29.md",
       "status": "draft",
       "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/YDAYS-SLIDES.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/bc-claude-md-addition-2026-06-03.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/bc-talaria-codev-cadrage-2026-06-02.md",
-      "status": "draft",
-      "theme": "talaria_legal_genesis"
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
@@ -286,15 +1073,9 @@
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/co-founder-agreement-T-S-2026-06-02.md",
+      "path": "docs/internal/clarification_ip_caplogy.md",
       "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/demo-ui-phi-visibility-2026-06-02.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
+      "theme": "talaria_legal_genesis"
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
@@ -310,192 +1091,6 @@
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/dm-ownershipfm-2026-06-02.md",
-      "status": "draft",
-      "theme": "talaria_legal_genesis"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-7-steps.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-description-2026-06-02.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-description-final.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-dm-0xMista-draft.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-odysseum-submit.md",
-      "status": "canonical",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-pitch-BC-v3.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-pitch-BC-v4.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-pitch-BC-v5.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-pitch-CYNIC-v3.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-pitch-draft-2026-05-28.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-pitch-unified-v6.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-project-analysis-2026-05-28.md",
-      "status": "canonical",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-step3-description-PASTE.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-tos-draft.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/internal/futardio-website-plan.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/gcr-message-draft-2026-05-31.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/gcr-thread-response-2026-06-02.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/pinned-tweet-2026-06-02.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/quantum-ecc-discovery-2026-06-02.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/internal/research-solana-program-frameworks-2026-05-29.md",
-      "status": "draft",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/slack-S-decisions-2026-05-31.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/slack-message-S-cofounder-2026-06-02.md",
-      "status": "draft",
-      "theme": "talaria_legal_genesis"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/step-1-metadao.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/step-2-metadao.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/step-3-metadao.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/step-4-metadao.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/telegram-pin-post-2026-06-02.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/telegram-s-frame-2026-06-02.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/tweet-demo-robin-hanson-2026-06-02.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "AGENTS.md",
-      "path": "docs/internal/vision-agentic-economy-2026-05-29.md",
-      "status": "draft",
-      "theme": "organism_runtime_topology"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
       "path": "docs/internal/writeup-cynic-cultscreener-2026-06-02.md",
       "status": "draft",
       "theme": "cynic_protocol_framework"
@@ -505,6 +1100,132 @@
       "path": "docs/internal/ydays-presentation.html",
       "status": "draft",
       "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/ops/HERMES-DATA-ORGANISM-QUICKSTART.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "docs/ops/K15_CONSUMER_DEPLOYMENT.md",
+      "status": "draft",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/ops/ORGAN-X-L0-RUNBOOK.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/ops/STAGE-DELIVERY-8D.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/ops/domain-ops-runbook.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/ops/repo-access-collaboration.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/architecture/cynic-portability-foundation.md",
+      "path": "docs/ops/cynic-multi-project-onboarding.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/ops/stage-delivery/STAGE-DELIVERY-STAGIAIRES-1-2.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/ops/stage-delivery/STAGE-DELIVERY-STAGIAIRES-1-2-SIGNOFF.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "docs/ops/RUNBOOK.md",
+      "status": "draft",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "docs/ops/backup-dr-plan.md",
+      "status": "draft",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "docs/ops/cynic-oracle-philosophy-thread.md",
+      "status": "draft",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "docs/ops/external-comms-strategy.md",
+      "status": "draft",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "docs/ops/fleet-probe.md",
+      "status": "draft",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "docs/ops/gemini-auth-status.md",
+      "status": "draft",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/ops/hermes/CURATOR_WORKFLOW.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/ops/hermes/FEEDBACK_LOOP_README.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/ops/hermes/HERMES_LOGIN_SETUP.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "docs/ops/may-1-launch-checklist.md",
+      "status": "draft",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "docs/DATA_CONSTITUTION.md",
+      "path": "docs/ops/service-isolation-design.md",
+      "status": "draft",
+      "theme": "data_and_evidence"
+    },
+    {
+      "canonical_target": "AGENTS.md",
+      "path": "docs/ops/soma-design.md",
+      "status": "projection",
+      "theme": "organism_runtime_topology"
     },
     {
       "canonical_target": "AGENTS.md",
@@ -688,12 +1409,6 @@
     },
     {
       "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/INFERENCE-MATRIX.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
       "path": "docs/research/KAIROS-RECOVERY-PLAN.md",
       "status": "evidence",
       "theme": "data_and_evidence"
@@ -777,146 +1492,169 @@
       "theme": "data_and_evidence"
     },
     {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/cynic-ui/CLAUDE.md",
+      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
+      "path": "packages/odysseum-ui/.oxlintrc.json",
+      "status": "evidence",
+      "theme": "odysseum_futardio_legacy"
+    },
+    {
+      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
+      "path": "packages/odysseum-ui/README.md",
       "status": "projection",
-      "theme": "cynic_protocol_framework"
+      "theme": "odysseum_futardio_legacy"
+    },
+    {
+      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
+      "path": "packages/odysseum-ui/index.html",
+      "status": "projection",
+      "theme": "odysseum_futardio_legacy"
+    },
+    {
+      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
+      "path": "packages/odysseum-ui/package.json",
+      "status": "evidence",
+      "theme": "odysseum_futardio_legacy"
+    },
+    {
+      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
+      "path": "packages/odysseum-ui/tsconfig.app.json",
+      "status": "evidence",
+      "theme": "odysseum_futardio_legacy"
+    },
+    {
+      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
+      "path": "packages/odysseum-ui/tsconfig.json",
+      "status": "evidence",
+      "theme": "odysseum_futardio_legacy"
+    },
+    {
+      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
+      "path": "packages/odysseum-ui/tsconfig.node.json",
+      "status": "evidence",
+      "theme": "odysseum_futardio_legacy"
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/cynic-ui/README.md",
-      "status": "projection",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/cynic-ui/index.html",
-      "status": "projection",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/cynic-ui/package.json",
+      "path": "packages/public-ui/.oxlintrc.json",
       "status": "evidence",
       "theme": "cynic_protocol_framework"
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/cynic-ui/public/verdicts.html",
+      "path": "packages/public-ui/README.md",
       "status": "projection",
       "theme": "cynic_protocol_framework"
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/cynic-ui/tsconfig.app.json",
+      "path": "packages/public-ui/index.html",
+      "status": "projection",
+      "theme": "cynic_protocol_framework"
+    },
+    {
+      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "path": "packages/public-ui/package.json",
       "status": "evidence",
       "theme": "cynic_protocol_framework"
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/cynic-ui/tsconfig.json",
+      "path": "packages/public-ui/tsconfig.app.json",
       "status": "evidence",
       "theme": "cynic_protocol_framework"
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/cynic-ui/tsconfig.node.json",
+      "path": "packages/public-ui/tsconfig.json",
       "status": "evidence",
       "theme": "cynic_protocol_framework"
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/cynic-ui/vercel.json",
+      "path": "packages/public-ui/tsconfig.node.json",
       "status": "evidence",
       "theme": "cynic_protocol_framework"
     },
     {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/talaria-demo/README.md",
-      "status": "projection",
-      "theme": "talaria_legal_genesis"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/talaria-demo/index.html",
-      "status": "projection",
-      "theme": "talaria_legal_genesis"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/talaria-demo/package.json",
+      "canonical_target": "data/emergence/superteam-browser/2026-06-24/MANIFEST.json",
+      "path": "data/emergence/superteam-browser/2026-06-24/",
       "status": "evidence",
-      "theme": "talaria_legal_genesis"
+      "theme": "data_and_evidence"
     },
     {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/talaria-demo/vercel.json",
-      "status": "evidence",
-      "theme": "talaria_legal_genesis"
+      "path": "docs/architecture/CYNIC-COGNITIVE-DECOUPLING-R1.md",
+      "theme": "cynic_protocol_framework",
+      "status": "draft",
+      "canonical_target": "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md"
     },
     {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/talaria-landing/README.md",
-      "status": "projection",
-      "theme": "talaria_legal_genesis"
+      "path": "docs/foundation/CYNIC_AGENTIC_RUNTIME_ROLES.md",
+      "theme": "cynic_protocol_framework",
+      "status": "draft",
+      "canonical_target": "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md"
     },
     {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/talaria-landing/index.html",
-      "status": "projection",
-      "theme": "talaria_legal_genesis"
+      "path": "docs/foundation/CYNIC_ANTI_POLLING_POLICY.md",
+      "theme": "cynic_protocol_framework",
+      "status": "draft",
+      "canonical_target": "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md"
     },
     {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/talaria-landing/package.json",
-      "status": "evidence",
-      "theme": "talaria_legal_genesis"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/talaria-landing/public/draft.html",
-      "status": "projection",
-      "theme": "talaria_legal_genesis"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/talaria-landing/public/tos.html",
-      "status": "projection",
-      "theme": "talaria_legal_genesis"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "packages/talaria-landing/vercel.json",
-      "status": "evidence",
-      "theme": "talaria_legal_genesis"
+      "path": "docs/research/CWO_NARRATIVE_AHMAD_OSMAN.md",
+      "theme": "cynic_protocol_framework",
+      "status": "draft",
+      "canonical_target": "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md"
     }
   ],
+  "draft_reason": "document themes were reconstructed from scattered Markdown and evidence surfaces during topology cleanup.",
+  "promotion_condition": "all sensitive Markdown and evidence capsule paths are classified, canonical targets exist, and theme topology validation remains green after Git membrane closure.",
   "purpose": "Machine-readable classification of sensitive scattered docs by organism theme. This is an inventory, not a policy source.",
   "schema": "cynic.document_theme_inventory.v1",
   "sensitive_roots": [
+    "docs/foundation/",
+    "docs/architecture/",
+    "docs/ops/",
     "docs/internal/",
     "docs/hackathon/",
     "docs/research/",
     "docs/reference/",
+    "data/emergence/",
     "data/reports/",
     "packages/"
   ],
   "status": "draft",
+  "status_transition_policy": {
+    "archive": {
+      "exit_condition": "remove the archive entry when the file is deleted or promote it to evidence if it becomes durable source material",
+      "owner": "organ-supervisor",
+      "rule": "Archived documents are retained only as historical evidence and must point to the current canonical target that supersedes them."
+    },
+    "delete_candidate": {
+      "exit_condition": "delete the file, archive it as historical evidence, or promote it to a governed status with a canonical target",
+      "owner": "organ-supervisor",
+      "rule": "Delete candidates are explicitly non-canonical and must not be used as policy, runtime instructions, or source-of-truth material."
+    },
+    "draft": {
+      "exit_condition": "promote to canonical/projection/evidence, archive, or delete once the canonical target has absorbed the durable content",
+      "owner": "organ-supervisor",
+      "rule": "Draft documents may exist only as working material mapped to a canonical target; they do not outrank axioms, registry, AGENTS.md, or foundation policy."
+    }
+  },
   "theme_contract": "axioms/organism-theme-topology-v1.json",
   "totals": {
     "by_status": {
-      "canonical": 3,
-      "draft": 66,
-      "evidence": 68,
-      "projection": 10
+      "canonical": 16,
+      "draft": 56,
+      "evidence": 129,
+      "projection": 60
     },
     "by_theme": {
-      "cynic_protocol_framework": 59,
-      "data_and_evidence": 36,
-      "odysseum_futardio_legacy": 21,
-      "organism_runtime_topology": 16,
-      "talaria_legal_genesis": 15
+      "cynic_protocol_framework": 62,
+      "data_and_evidence": 126,
+      "odysseum_futardio_legacy": 14,
+      "organism_runtime_topology": 54,
+      "talaria_legal_genesis": 5
     },
-    "documents": 147
+    "documents": 266
   }
 }

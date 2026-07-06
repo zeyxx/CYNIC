@@ -1,6 +1,7 @@
 import json
 import dataclasses
 from pathlib import Path
+from organs.contracts.src.surface_contracts import read_json_file_or_default
 from ..core.entities import RepoState, Branch, Alert
 from ..core.ports import IStateStorage
 
@@ -27,9 +28,7 @@ class JsonStateStorage(IStateStorage):
     def load_state(self) -> RepoState:
         if not self.state_file.exists():
             return RepoState(current_branch="main", dirty_files=0, untracked_files=0)
-            
-        with open(self.state_file, 'r') as f:
-            data = json.load(f)
+        data = read_json_file_or_default(self.state_file, {})
             
         branches = [Branch(**b) for b in data.get('branches', [])]
         alerts = [Alert(**a) for a in data.get('alerts', [])]

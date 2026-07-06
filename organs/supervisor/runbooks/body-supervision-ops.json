@@ -20,8 +20,8 @@
   ],
   "controllers": {
     "supervise": "CYNIC/organs/supervisor/controllers/supervise_body.py",
-    "static_contract_audit": "CYNIC/organs/controllers/audit_organs.py",
-    "runtime_health_audit": "CYNIC/organs/controllers/audit_runtime.py"
+    "static_contract_audit": "CYNIC/organs/supervisor/controllers/audit_organs.py",
+    "runtime_health_audit": "CYNIC/organs/supervisor/controllers/audit_runtime.py"
   },
   "verification": [
     "supervision_state_exists",

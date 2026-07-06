@@ -59,6 +59,18 @@ pub async fn observe_handler(
         ));
     }
 
+    // Axiom enforcement: coordination domain requires strict JSON schema
+    if req.domain.as_deref() == Some("coordination")
+        && let Err(e) = validate_coordination_schema(&req)
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: format!("coordination schema violation: {e}"),
+            }),
+        ));
+    }
+
     let agent_id = req.agent_id.clone();
 
     // Track push-producer heartbeat — absence detection for permanent sources.
@@ -195,6 +207,76 @@ pub async fn observe_handler(
 
     state.metrics.inc_observation_ingested();
     Ok(Json(serde_json::json!({ "status": "observed" })))
+}
+
+fn validate_coordination_schema(req: &ObserveRequest) -> Result<(), &'static str> {
+    let value = req
+        .value
+        .as_ref()
+        .ok_or("coordination domain requires a 'value' JSON object")?;
+
+    let event = value
+        .get("event")
+        .and_then(|v| v.as_str())
+        .ok_or("missing 'event' in value")?;
+    value
+        .get("project")
+        .and_then(|v| v.as_str())
+        .ok_or("missing 'project' in value")?;
+    value
+        .get("workstream")
+        .and_then(|v| v.as_str())
+        .ok_or("missing 'workstream' in value")?;
+    value
+        .get("summary")
+        .and_then(|v| v.as_str())
+        .ok_or("missing 'summary' in value")?;
+    value
+        .get("coordination_contract")
+        .ok_or("missing 'coordination_contract' in value")?;
+
+    match event {
+        "workstream.started" | "workstream.blocked" | "workstream.updated"
+        | "interface.changed" | "run.completed" => {}
+        "artifact.share" => {
+            value
+                .get("artifacts")
+                .ok_or("event 'artifact.share' requires 'artifacts'")?;
+        }
+        "thread.reply" => {
+            value
+                .get("thread_id")
+                .ok_or("event 'thread.reply' requires 'thread_id'")?;
+            value
+                .get("message")
+                .ok_or("event 'thread.reply' requires 'message'")?;
+        }
+        "decision.record" => {
+            value
+                .get("artifacts")
+                .ok_or("event 'decision.record' requires 'artifacts'")?;
+            value
+                .get("open_points")
+                .ok_or("event 'decision.record' requires 'open_points'")?;
+        }
+        "decision.recorded" => {
+            value
+                .get("topic")
+                .ok_or("event 'decision.recorded' requires 'topic'")?;
+            value
+                .get("decision")
+                .ok_or("event 'decision.recorded' requires 'decision'")?;
+            value
+                .get("rationale")
+                .ok_or("event 'decision.recorded' requires 'rationale'")?;
+            value
+                .get("source_artifact")
+                .ok_or("event 'decision.recorded' requires 'source_artifact'")?;
+        }
+        _ => return Err("unsupported coordination event type"),
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

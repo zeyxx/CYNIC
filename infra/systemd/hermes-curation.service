@@ -1,13 +1,13 @@
 [Unit]
 Description=Hermes X Curation — Transform high-signal tweets to domain signals
-After=hermes-x-ingest.service
+After=hermes-ingest.service
 PartOf=hermes-curation.timer
 
 [Service]
 Type=oneshot
 EnvironmentFile=%h/.config/cynic/env
-WorkingDirectory=%h/.cynic/organs/hermes/x
-ExecStart=/usr/bin/python3 core/curate_domain_signals.py
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+ExecStart=@CYNIC_PROJECT_ROOTpython3 @/organs/twitter/src/entrypoints/python_launcher.py @CYNIC_PROJECT_ROOT@/organs/twitter/src/entrypoints/hermes_x.py curation
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=hermes-curation

@@ -1,29 +1,31 @@
-import sys
-from src.pipeline.primitives import LogParser
-from src.pipeline.heuristics import HeuristicAnalyzer
-from src.pipeline.ml import MLAnalyzer
-from src.pipeline.llm import LLMAnalyzer
+#!/usr/bin/env python3
+"""Compatibility entrypoint for telemetry organ."""
 
-def main():
-    print("[Telemetry] Etape 1: Primitives (Extraction)")
-    entries = list(LogParser.parse_antigravity_logs("~/.gemini/antigravity-cli/brain"))
-    print(f"[Telemetry] {len(entries)} entrees brutes parsees.")
-    
-    print("[Telemetry] Etape 2: Heuristiques (Filtrage & Agregation)")
-    heuristic = HeuristicAnalyzer()
-    anomalies = heuristic.process_stream(entries)
-    print(f"[Telemetry] {len(anomalies)} boucles d'anomalies detectees.")
-    
-    print("[Telemetry] Etape 3: Machine Learning (Clustering local)")
-    ml = MLAnalyzer()
-    clustered = ml.cluster_anomalies(anomalies)
-    
-    print("[Telemetry] Etape 4: LLM (Root Cause Analysis)")
-    llm = LLMAnalyzer()
-    report = llm.generate_rca(clustered)
-    
-    print("\n--- SYNTHESE RCA ---")
-    print(report)
+from __future__ import annotations
+
+import sys
+import os
+from pathlib import Path
+
+def _resolve_project_root() -> Path:
+    env_root = os.environ.get("CYNIC_PROJECT_ROOT")
+    if env_root:
+        return Path(env_root).expanduser().resolve()
+
+    start = Path(__file__).resolve()
+    for candidate in (start, *start.parents):
+        if (candidate / "organs").is_dir() and (candidate / "infra").is_dir():
+            return candidate
+
+    return Path(__file__).resolve().parent
+
+
+PROJECT_ROOT = _resolve_project_root()
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from organs.telemetry.src.entrypoints.cli import main as main_entrypoint  # noqa: E402
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main_entrypoint())

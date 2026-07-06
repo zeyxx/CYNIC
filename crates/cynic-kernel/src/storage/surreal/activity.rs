@@ -26,6 +26,68 @@ const OBSERVATION_SELECT_FIELDS: &str = "id, project, agent_id, tool, target, do
     context, session_id, timestamp, tags, source_tier, value, confidence, consumer, action, \
     depends_on, maturity, hash, prev_hash, observers, consensus_score, created_at";
 
+fn extract_thread_from_coordination_target(target: &str) -> Option<&str> {
+    target.split_once('#').map(|(_, thread)| thread)
+}
+
+fn extract_workstream_from_coordination_target(target: &str) -> Option<&str> {
+    let after_prefix = target.strip_prefix("coord://")?;
+    let target_without_thread = after_prefix.split('#').next()?;
+    let mut parts = target_without_thread.split('/');
+    parts.next()?;
+    let workstream = parts.next()?;
+    if workstream.is_empty() {
+        None
+    } else {
+        Some(workstream)
+    }
+}
+
+// WHY: collapsible_if is allowed here to avoid compiler ICE on complex pattern bindings.
+#[allow(clippy::collapsible_if)]
+fn matches_coordination_filters(
+    row: &RawObservation,
+    project: Option<&str>,
+    workstream: Option<&str>,
+    thread_id: Option<&str>,
+) -> bool {
+    if let Some(project) = project {
+        if row.project != project {
+            return false;
+        }
+    }
+
+    if let Some(workstream_filter) = workstream {
+        if !workstream_filter.is_empty()
+            && row
+                .value
+                .as_ref()
+                .and_then(|value| value.get("workstream"))
+                .and_then(|value| value.as_str())
+                .or_else(|| extract_workstream_from_coordination_target(&row.target))
+                != Some(workstream_filter)
+        {
+            return false;
+        }
+    }
+
+    if let Some(thread_filter) = thread_id {
+        if !thread_filter.is_empty()
+            && row
+                .value
+                .as_ref()
+                .and_then(|value| value.get("thread_id"))
+                .and_then(|value| value.as_str())
+                .or_else(|| extract_thread_from_coordination_target(&row.target))
+                != Some(thread_filter)
+        {
+            return false;
+        }
+    }
+
+    true
+}
+
 fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
     let tags = row["tags"]
         .as_array()
@@ -58,7 +120,7 @@ fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
         domain: row["domain"].as_str().unwrap_or("").to_string(),
         status: row["status"].as_str().unwrap_or("").to_string(),
         context: row["context"].as_str().unwrap_or("").to_string(),
-        created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+        created_at: row["created_at"].as_i64().unwrap_or(0),
         project: row["project"].as_str().unwrap_or("").to_string(),
         agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
         session_id: row["session_id"].as_str().unwrap_or("").to_string(),
@@ -141,7 +203,7 @@ pub(super) async fn store_observation(
         escape_surreal(&obs.status),
         escape_surreal(&obs.context),
         escape_surreal(&obs.session_id),
-        escape_surreal(&obs.timestamp),
+        obs.timestamp,
         tags_sql,
         escape_surreal(&obs.source_tier),
         value_json,
@@ -156,6 +218,11 @@ pub(super) async fn store_observation(
         consensus_score,
     );
     storage.query(&sql).await?;
+
+    use crate::domain::proof::Provable;
+    let poh = obs.to_proof_of_history();
+    let _ = super::proof_of_history::store_proof_of_history(storage, &poh).await;
+
     Ok(())
 }
 
@@ -197,7 +264,7 @@ pub(super) async fn list_session_summaries(
             agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
             summary: row["summary"].as_str().unwrap_or("").to_string(),
             observations_count: row["observations_count"].as_u64().unwrap_or(0) as u32,
-            created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+            created_at: row["created_at"].as_i64().unwrap_or(0),
         })
         .collect())
 }
@@ -307,7 +374,7 @@ pub(super) async fn list_session_compliance(
             read_before_edit: row["read_before_edit"].as_f64().unwrap_or(0.0),
             bash_retry_violations: row["bash_retry_violations"].as_u64().unwrap_or(0) as u32,
             files_modified: row["files_modified"].as_u64().unwrap_or(0) as u32,
-            created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+            created_at: row["created_at"].as_i64().unwrap_or(0),
         })
         .collect())
 }
@@ -332,6 +399,55 @@ pub(super) async fn list_observations_raw(
     );
     let rows = storage.query_one(&sql).await?;
     Ok(rows.iter().map(row_to_raw_observation).collect())
+}
+
+// WHY: list_observations_filtered requires passing all query filtering fields as parameters.
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn list_observations_filtered(
+    storage: &SurrealHttpStorage,
+    domain: Option<&str>,
+    agent_id: Option<&str>,
+    project: Option<&str>,
+    workstream: Option<&str>,
+    thread_id: Option<&str>,
+    target: Option<&str>,
+    limit: u32,
+) -> Result<Vec<RawObservation>, StorageError> {
+    let mut rows = if let Some(target) = target {
+        if let Some(domain) = domain {
+            list_observations_by_target(storage, domain, target, limit).await?
+        } else {
+            let mut rows = list_observations_raw(storage, None, agent_id, limit).await?;
+            rows.retain(|row| row.target == target);
+            rows
+        }
+    } else {
+        let mut conditions = Vec::new();
+        if let Some(d) = domain {
+            conditions.push(format!("domain = '{}'", escape_surreal(d)));
+        }
+        if let Some(a) = agent_id {
+            conditions.push(format!("agent_id = '{}'", escape_surreal(a)));
+        }
+        if let Some(p) = project {
+            conditions.push(format!("project = '{}'", escape_surreal(p)));
+        }
+        let where_clause = build_where_clause(&conditions);
+        let sql = format!(
+            "SELECT {OBSERVATION_SELECT_FIELDS} FROM observation{where_clause} ORDER BY created_at DESC LIMIT {}",
+            safe_limit(limit),
+        );
+        let rows = storage.query_one(&sql).await?;
+        rows.iter().map(row_to_raw_observation).collect::<Vec<_>>()
+    };
+
+    rows.retain(|row| matches_coordination_filters(row, project, workstream, thread_id));
+    rows.sort_by_key(|row| std::cmp::Reverse(row.created_at));
+    if rows.len() > limit as usize {
+        rows.truncate(limit as usize);
+    }
+
+    Ok(rows)
 }
 
 /// List observations filtered by domain + target — efficient single-target lookup.
@@ -406,7 +522,7 @@ fn row_to_raw_event(row: &serde_json::Value) -> RawEvent {
         success: row["success"].as_bool().unwrap_or(false),
         metadata: row["metadata"].as_str().unwrap_or("").to_string(),
         agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
-        created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+        created_at: row["created_at"].as_i64().unwrap_or(0),
         failure_reason: row["failure_reason"].as_str().unwrap_or("").to_string(),
     }
 }

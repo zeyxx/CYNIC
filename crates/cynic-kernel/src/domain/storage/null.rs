@@ -119,7 +119,7 @@ impl CrystalStorage for NullStorage {
         _content: &str,
         _domain: &str,
         _score: f64,
-        _timestamp: &str,
+        _timestamp: i64,
         _voter_count: usize,
         _verdict_id: &str,
         _verdict_kind: &str,
@@ -134,7 +134,7 @@ impl CrystalStorage for NullStorage {
         _content: &str,
         _domain: &str,
         _score: f64,
-        _timestamp: &str,
+        _timestamp: i64,
         _source: &str,
         _sentiment: Option<&str>,
     ) -> Result<(), StorageError> {
@@ -147,7 +147,7 @@ impl CrystalStorage for NullStorage {
         _id: &str,
         _reason: &str,
         _source: &str,
-        _timestamp: &str,
+        _timestamp: i64,
     ) -> Result<(), StorageError> {
         Err(StorageError::ConnectionFailed(
             "NullStorage: shatter not persisted (DEGRADED mode)".into(),
@@ -225,6 +225,18 @@ impl ActivityStorage for NullStorage {
         &self,
         _domain: Option<&str>,
         _agent_id: Option<&str>,
+        _limit: u32,
+    ) -> Result<Vec<crate::domain::storage::RawObservation>, StorageError> {
+        Ok(vec![])
+    }
+    async fn list_observations_filtered(
+        &self,
+        _domain: Option<&str>,
+        _agent_id: Option<&str>,
+        _project: Option<&str>,
+        _workstream: Option<&str>,
+        _thread_id: Option<&str>,
+        _target: Option<&str>,
         _limit: u32,
     ) -> Result<Vec<crate::domain::storage::RawObservation>, StorageError> {
         Ok(vec![])
@@ -351,14 +363,13 @@ impl TaskStorage for NullStorage {
 
 #[async_trait]
 impl MeshStorage for NullStorage {
-    async fn register_mesh_node(
+    async fn publish_mesh_key(
         &self,
-        _name: &str,
+        _mesh_ip: &str,
         _public_key: &str,
-        _external_endpoint: Option<&str>,
     ) -> Result<MeshNode, StorageError> {
-        Err(StorageError::QueryFailed(
-            "MeshStorage not supported in NullStorage".to_string(),
+        Err(StorageError::ConnectionFailed(
+            "Null storage cannot publish mesh key".to_string(),
         ))
     }
 
@@ -495,6 +506,24 @@ impl SubmissionStorage for NullStorage {
     }
     async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError> {
         Ok((0, 0, 0, 0))
+    }
+}
+
+#[async_trait]
+impl crate::domain::storage::ProofOfHistoryStorage for NullStorage {
+    async fn store_proof_of_history(
+        &self,
+        _poh: &crate::domain::storage::ProofOfHistory,
+    ) -> Result<String, StorageError> {
+        Err(StorageError::ConnectionFailed(
+            "Null storage cannot store proof of history".to_string(),
+        ))
+    }
+    async fn list_proof_of_history(
+        &self,
+        _limit: u32,
+    ) -> Result<Vec<crate::domain::storage::ProofOfHistory>, StorageError> {
+        Ok(vec![])
     }
 }
 

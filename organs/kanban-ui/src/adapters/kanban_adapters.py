@@ -1,6 +1,9 @@
 import json
 import subprocess
 from pathlib import Path
+
+from organs.contracts.src.surface_contracts import json_object_or_default
+
 from core.entities import KanbanTask, KanbanBoard
 from core.ports import IKanbanSource, IKanbanProjector
 
@@ -12,7 +15,7 @@ class HermesKanbanSource(IKanbanSource):
     def fetch_tasks(self) -> KanbanBoard:
         try:
             res = subprocess.run(["hermes", "kanban", "ls", "--json"], capture_output=True, text=True, check=True)
-            data = json.loads(res.stdout)
+            data = json_object_or_default(res.stdout, [])
             
             tasks = []
             for t in data:

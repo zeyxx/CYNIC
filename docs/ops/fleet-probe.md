@@ -96,16 +96,7 @@ Expected output:
 
 ## Configuration
 
-Edit `scripts/probe-fleet-introspect.sh` to change:
-
-```bash
-# Critical services to probe (add more as needed)
-declare -a SERVICES=(
-    "cynic-host-gpu:llama-server:8080"   # node:service:port
-    "cynic-host-gpu:hermes:3000"
-    "cynic-host-proxmox:cynic-kernel:3030"
-)
-```
+Change declared fleet probes in `infra/registry.json` and validate them with the canonical mesh/fleet tools before deployment. Do not add standalone probe script entrypoints.
 
 Add port to `ServiceRegistry` in `tailscale-mcp/mcp/introspect.go` if service is unknown:
 
@@ -156,9 +147,9 @@ systemctl start tailscale-fleet-probe.service  # manual trigger
 
 ### No Events appearing in /fleet-stats
 
-1. Check probe script is executable:
+1. Check the canonical fleet probe surface:
    ```bash
-   ./scripts/probe-fleet-introspect.sh  # should print nothing on success
+   python3 organs/fleet/src/entrypoints/cli.py status --json
    ```
 
 2. Check Tailscale MCP is running:

@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
-ExecStart=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/discord/bin/pac-server.sh
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+ExecStart=@CYNIC_PROJECT_ROOTpython3 @/organs/discord/src/entrypoints/pac_server.py
 Restart=on-failure
 RestartSec=5
 MemoryMax=128M

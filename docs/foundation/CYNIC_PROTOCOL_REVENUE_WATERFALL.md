@@ -12,6 +12,7 @@ Documents relies :
 - `docs/foundation/CYNIC_OWNERSHIP_CONSTITUTION.md`
 - `docs/foundation/CYNIC_TOKEN_EQUITY_FIREWALL.md`
 - `docs/foundation/CYNIC_LEGAL_GENESIS_PLAN.md`
+- `docs/foundation/CYNIC_FEDERATED_ECONOMIC_ARCHITECTURE.md`
 
 ---
 
@@ -67,6 +68,12 @@ Le Kernel ne doit pas seul :
 ---
 
 ## 3. Waterfall Generale
+
+La waterfall est une regle de branche. Elle ne remplace pas l'architecture
+economique globale. Le document
+`docs/foundation/CYNIC_FEDERATED_ECONOMIC_ARCHITECTURE.md` decide d'abord si un
+flux passe par le rail corporate, le rail protocolaire ou le rail operateur.
+Ensuite seulement, la presente waterfall route le flux protocolaire ou mixte.
 
 Chaque branche doit publier sa waterfall avant de router des flux significatifs.
 

@@ -10,7 +10,24 @@ from pathlib import Path
 from typing import Iterable
 from urllib import error, request
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+from organs.contracts.src.adapters.kernel_http import kernel_auth_headers, kernel_url as build_kernel_url
+from organs.contracts.src.surface_contracts import json_loads_or_default
+
+
+def _resolve_project_root() -> Path:
+    env_root = os.environ.get("CYNIC_PROJECT_ROOT")
+    if env_root:
+        return Path(env_root).expanduser().resolve()
+
+    start = Path(__file__).resolve()
+    for candidate in [start, *start.parents]:
+        if (candidate / "infra").is_dir() and (candidate / "organs").is_dir() and (candidate / ".git").exists():
+            return candidate
+
+    return Path(__file__).resolve().parent
+
+
+REPO_ROOT = _resolve_project_root()
 
 SUPERTEAM_SKILLS: dict[str, tuple[str, ...]] = {
     "Frontend": ("All", "React", "Svelte", "Angular", "Vue", "SolidJS", "Redux", "Elm", "Other"),
@@ -170,14 +187,14 @@ REALITY_PROBES: dict[tuple[str, str], tuple[EvidenceProbe, ...]] = {
         EvidenceProbe("artifact", "CHANGELOG.md", "release writing"),
     ),
     ("Content", "Social Media"): (
-        EvidenceProbe("code", "scripts/hermes-x/core/search_generation.py", "social search generation"),
-        EvidenceProbe("code", "scripts/hermes-x/core/x_ingest_daemon.py", "X ingestion daemon"),
+        EvidenceProbe("code", "organs/twitter/src/entrypoints/search_generation.py", "social search generation"),
+        EvidenceProbe("code", "organs/twitter/src/entrypoints/x_ingest.py", "X ingestion daemon"),
     ),
     ("Content", "Video"): (),
     ("Content", "Video Editing"): (),
     ("Other", "Data Analytics"): (
         EvidenceProbe("code", "organs/discord/src/schema.py", "SQLite model"),
-        EvidenceProbe("code", "scripts/correlation_analysis.py", "correlation analysis"),
+        EvidenceProbe("code", "organs/discord/src/pipeline.py", "signal analysis"),
         EvidenceProbe("code", "services/cynic-python/heuristics/experiments/ab-test-enrichment/ab_test_divergence_enrichment.py", "measurement experiment"),
     ),
     ("Other", "Operations"): (
@@ -263,8 +280,6 @@ def maybe_judge_skill(category: str, skill: str, evidence: tuple[dict[str, str],
     kernel_url = os.environ.get("CYNIC_REST_ADDR", "")
     if not kernel_url:
         return None
-    if not kernel_url.startswith("http"):
-        kernel_url = f"http://{kernel_url}"
 
     payload = {
         "domain": "capability-assessment",
@@ -282,17 +297,15 @@ def maybe_judge_skill(category: str, skill: str, evidence: tuple[dict[str, str],
     }
     body = json.dumps(payload).encode("utf-8")
     req = request.Request(
-        f"{kernel_url.rstrip('/')}/judge",
+        build_kernel_url(kernel_url, "/judge"),
         data=body,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.environ.get('CYNIC_API_KEY', '')}",
-        },
+        headers=kernel_auth_headers(os.environ.get("CYNIC_API_KEY", "")),
         method="POST",
     )
     try:
         with request.urlopen(req, timeout=20) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            payload = json_loads_or_default(resp.read().decode("utf-8"), None)
+            return payload if isinstance(payload, dict) else None
     except (error.URLError, TimeoutError, json.JSONDecodeError, OSError):
         return None
 
@@ -305,7 +318,7 @@ def assess_skill(category: str, skill: str) -> SkillAssessment:
         level = max(row.level for row in children)
         confidence = max(row.confidence for row in children)
         evidence = tuple(dict.fromkeys(json.dumps(item, sort_keys=True) for row in children for item in row.evidence))
-        restored = tuple(json.loads(item) for item in evidence[:8])
+        restored = tuple(json_loads_or_default(item, {}) for item in evidence[:8])
         return SkillAssessment(category, skill, level, round(confidence, 2), LEVEL_LABELS[level], restored)
 
     probes = REALITY_PROBES.get((category, skill), FALLBACK_PROBES.get(category, ()))

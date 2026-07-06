@@ -385,7 +385,7 @@ impl CynicMcp {
             format!("{hash:x}")
         });
 
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         self.storage
             .observe_crystal_hypha(
@@ -393,7 +393,7 @@ impl CynicMcp {
                 &p.content,
                 &p.domain,
                 p.score,
-                &timestamp,
+                timestamp,
                 &p.source,
                 p.sentiment.as_deref(),
             )
@@ -438,10 +438,10 @@ impl CynicMcp {
             return Err(McpError::invalid_params("reason must not be empty", None));
         }
 
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         self.storage
-            .shatter_crystal(&p.crystal_id, &p.reason, &p.source, &timestamp)
+            .shatter_crystal(&p.crystal_id, &p.reason, &p.source, timestamp)
             .await
             .map_err(|e| {
                 tracing::warn!(error = %e, crystal_id = p.crystal_id, "MCP crystal shatter failed");

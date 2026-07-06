@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 
+from organs.contracts.src.surface_contracts import json_object_or_default
+
 @dataclass
 class Branch:
     name: str
@@ -27,6 +29,49 @@ class RepoState:
     def add_alert(self, severity: str, message: str, context: dict = None):
         self.alerts.append(Alert(severity, message, context or {}))
 
+
+class FleetProbe(dict):
+    @classmethod
+    def not_run(cls) -> "FleetProbe":
+        return cls({"enabled": False, "status": "not_run"})
+
+    @classmethod
+    def from_dict(cls, data: dict | None) -> "FleetProbe":
+        if isinstance(data, cls):
+            return data
+        return cls(data or {"enabled": False, "status": "not_run"})
+
+    def to_dict(self) -> dict:
+        return dict(self)
+
+    def is_ok(self) -> bool:
+        return self.status == "ok"
+
+    @property
+    def status(self) -> str:
+        return str(self.get("status", "unknown"))
+
+    @property
+    def error(self) -> str | None:
+        error = self.get("error")
+        return str(error) if error is not None else None
+
+    @property
+    def missing(self) -> list:
+        missing = self.get("missing", [])
+        return missing if isinstance(missing, list) else []
+
+    @property
+    def matches(self) -> dict:
+        matches = self.get("matches", {})
+        return matches if isinstance(matches, dict) else {}
+
+    @property
+    def targets(self) -> list:
+        targets = self.get("targets", [])
+        return targets if isinstance(targets, list) else []
+
+
 @dataclass
 class LifecycleTaskContent:
     lifecycle: str
@@ -44,11 +89,16 @@ class LifecycleTaskContent:
     runtime_path_proofs: Dict[str, Any]
     activation_evidence_contract: Dict[str, str]
     fleet_requirements: Dict[str, Any]
+    mcp_freshness_controller: Dict[str, Any]
     requires_e2e: bool
     targets: List[str]
     coord_targets: List[str]
     deploy: bool
+    request_profile: str | None = None
     patch_sha256: str | None = None
+    activation_schema_version: str | None = None
+    correlation_id: str | None = None
+    action: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict) -> 'LifecycleTaskContent':
@@ -68,12 +118,20 @@ class LifecycleTaskContent:
             runtime_path_proofs=data.get('runtime_path_proofs', {}),
             activation_evidence_contract=data.get('activation_evidence_contract', {}),
             fleet_requirements=data.get('fleet_requirements', {}),
+            mcp_freshness_controller=data.get('mcp_freshness_controller', {}),
             requires_e2e=data.get('requires_e2e', True),
             targets=data.get('targets', []),
             coord_targets=data.get('coord_targets', []),
             deploy=data.get('deploy', False),
-            patch_sha256=data.get('patch_sha256')
+            request_profile=data.get('request_profile'),
+            patch_sha256=data.get('patch_sha256'),
+            activation_schema_version=data.get('activation_schema_version'),
+            correlation_id=data.get('correlation_id'),
+            action=data.get('action', {})
         )
+
+
+
 
 @dataclass
 class AgentTask:
@@ -86,12 +144,8 @@ class AgentTask:
     
     @classmethod
     def from_dict(cls, data: dict) -> 'AgentTask':
-        import json
         content_raw = data.get('content', '{}')
-        if isinstance(content_raw, str):
-            content_dict = json.loads(content_raw)
-        else:
-            content_dict = content_raw
+        content_dict = json_object_or_default(content_raw, {})
             
         return cls(
             id=data.get('id', ''),

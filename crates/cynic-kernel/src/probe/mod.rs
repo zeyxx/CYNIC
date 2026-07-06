@@ -47,7 +47,7 @@ pub async fn run(force_reprobe: bool) -> Result<NodeConfig, Box<dyn std::error::
     let llm = llm::probe_llm_resources(&env, &compute).await;
 
     let mut config = NodeConfig {
-        probed_at: chrono::Utc::now().to_rfc3339(),
+        probed_at: chrono::Utc::now().timestamp_millis().to_string(),
         hardware: hw,
         compute,
         llm,

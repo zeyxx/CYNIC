@@ -37,7 +37,7 @@
 **Purpose**: Ongoing operational logic; production jobs; monitoring
 
 **Characteristics**:
-- Lives in: `scripts/hermes-x/` or `cynic-python/<module>/` with no `EXPERIMENT:` tag
+- Lives in: an organ-owned package such as `organs/twitter/src/` or a bounded service module with no `EXPERIMENT:` tag
 - Has systemd service OR cron job (scheduled)
 - Has K15 consumer (acting reader) OR feeds to another service
 - Testable: Unit tests exist and pass
@@ -85,7 +85,7 @@
 - **Correctness**: Silent failure risk too high (Rust's type system needed)
 - **Sovereignty**: Production deployment on offline machines (no Python runtime)
 
-**Example Candidate**: `scripts/hermes-x/search_executor.py`
+**Example Candidate**: `organs/twitter/src/adapters/search_executor.py`
 - Running >30 days ✓
 - Used by hermes-x organ ✓
 - Interface stable ✓
@@ -208,10 +208,10 @@ Rust migration: PLANNED for Phase 3 (estimated 2026-05-15)
 
 **Action**: Tag each file with tier + decision
 
-### scripts/hermes-x/ (33 files)
-- `search_executor.py`: Tier 2 ✓ (systemd wired)
-- `x_proxy.py`: Tier 2 ✓ (ingest daemon dependency)
-- `hermes_killchain_tracer.py`: Tier 1? (analysis script) → **TAG** (what's the use case?)
+### organ-owned social runtime
+- `organs/twitter/src/adapters/search_executor.py`: Tier 2 ✓ (systemd wired)
+- `organs/twitter/src/adapters/hermes_x_proxy.py`: Tier 2 ✓ (ingest daemon dependency)
+- legacy analysis scripts under transitional roots: Tier 1? → **TAG** or migrate before use
 
 ---
 

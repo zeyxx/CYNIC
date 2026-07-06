@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from organs.contracts.src.surface_contracts import read_json_file_or_default
+
 _DEFAULT_FEED = Path("percolator/ops/researcher-feed.json")
 _DEFAULT_QUEUE = Path("percolator/ops/infer-queue.jsonl")
 _DEFAULT_STATE = Path("percolator/ops/infer-queue-state.json")
@@ -25,9 +27,7 @@ def stable_hash(value: Any) -> str:
 
 
 def load_json(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
+    return read_json_file_or_default(path, {})
 
 
 def load_seen(path: Path) -> set[str]:

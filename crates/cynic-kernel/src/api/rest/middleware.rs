@@ -37,6 +37,9 @@ pub async fn auth_middleware(
     let path = request.uri().path();
     if path == "/live"
         || path == "/ready"
+        || path == "/openapi.json"
+        || path == "/api/topology"
+        || path == "/api/layer-alignment"
         || path == "/auth/input"
         || path == "/auth/verify"
         || path == "/state-history"
@@ -171,7 +174,7 @@ pub async fn auth_middleware(
                 || path == "/health"
                 || path == "/events"
                 || path.starts_with("/v1/")
-                || (path.starts_with("/crystal/") && path.ends_with("/observe"));
+                || (path.starts_with("/crystals/") && path.ends_with("/observe"));
             if !allowed {
                 return (
                     StatusCode::FORBIDDEN,

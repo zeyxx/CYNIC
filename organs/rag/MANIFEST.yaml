@@ -1,24 +1,32 @@
 id: organ-rag
 tier: 2
 domain: retrieval-memory
-status: QUARANTINED
-framework: quarantined-state-surface
+status: ACTIVE
+framework: canonical-python-organ
 
 description: |
-  Quarantined retrieval/memory surface. The current directory exists to fence
-  migrated RAG state artifacts, not to define active retrieval runtime logic.
-  Durable retrieval behavior must be declared as a bounded organ or absorbed by
-  Kernel storage and database-backed memory contracts.
+  Retrieval/memory contract surface. Active in-repo retrieval behavior is
+  retired. The current runtime is non-mutating and only reports whether local
+  historical state artifacts remain. Future retrieval behavior must be
+  implemented behind Kernel storage and database-backed memory contracts.
+
+retired_behaviors:
+  - in_repo_vector_or_retrieval_state
+  - active_retrieval_runtime_without_kernel_storage_contract
 
 inputs:
-  - source: historical state artifacts
-    data: migrated retrieval and database capability notes
+  - source: organs/rag
+    data: local retrieval-memory membrane inventory
 
 outputs:
-  - path: none
-    format: read-only migration evidence
+  - path: stdout
+    format: cynic.rag.status.v1
 
 manual_gates:
   - no_new_runtime_state_commits
-  - no_retrieval_runtime_logic_in_quarantined_surface
-  - migrate_or_delete_state_artifacts_before_activation
+  - no_active_retrieval_without_kernel_storage_contract
+  - no_vector_state_inside_repo_source_tree
+
+entrypoints:
+  - name: src/entrypoints/cli.py
+    description: Non-mutating retrieval-memory status report.

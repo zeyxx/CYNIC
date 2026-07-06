@@ -262,7 +262,7 @@ pub struct ProbeResult {
     pub details: ProbeDetails,
     pub duration_ms: u64,
     /// RFC3339 timestamp of when the probe completed.
-    pub timestamp: String,
+    pub timestamp: i64,
 }
 
 // ─── EnvironmentSnapshot ─────────────────────────────────────────────────────
@@ -271,7 +271,7 @@ pub struct ProbeResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnvironmentSnapshot {
     /// RFC3339 timestamp of when the snapshot was assembled.
-    pub timestamp: String,
+    pub timestamp: i64,
     pub probes: Vec<ProbeResult>,
     pub overall: ProbeStatus,
 }
@@ -363,7 +363,7 @@ impl Probe for NullProbe {
             status: ProbeStatus::Unavailable,
             details: ProbeDetails::Empty,
             duration_ms: 0,
-            timestamp: "1970-01-01T00:00:00Z".to_string(),
+            timestamp: 0,
         })
     }
 }
@@ -389,7 +389,7 @@ mod tests {
             status,
             details: ProbeDetails::Empty,
             duration_ms: 0,
-            timestamp: "1970-01-01T00:00:00Z".to_string(),
+            timestamp: 0,
         };
 
         // Single-element cases

@@ -6,6 +6,14 @@ This document defines how CYNIC policies are split by dimension, scale and
 runtime layer. It exists to prevent mixed concerns, hidden shortcuts and
 transport-specific abstractions disguised as organism policy.
 
+The layer precedence contract lives in
+`docs/foundation/CYNIC_META_LAYER_CONTRACTS.md` and the machine contract lives
+in `axioms/meta-layer-contract-v1.json`.
+
+The empirical multi-scale rule lives in
+`docs/foundation/CYNIC_MULTI_SCALE_EMPIRICAL_RULE.md` and the machine map
+lives in `axioms/multiscale-organism-property-map-v1.json`.
+
 ## 1. Core Rule
 
 Every durable rule must declare:
@@ -53,9 +61,12 @@ one.
 
 | Dimension | Question answered | Primary source | Enforcement |
 |-----------|-------------------|----------------|-------------|
+| Layer precedence | Which layer is allowed to decide? | `docs/foundation/CYNIC_META_LAYER_CONTRACTS.md` + `axioms/meta-layer-contract-v1.json` | review, topology, contract tests |
+| Multi-scale projection | How do organism properties project across scales? | `docs/foundation/CYNIC_MULTI_SCALE_EMPIRICAL_RULE.md` + `axioms/multiscale-organism-property-map-v1.json` | empirical evidence, review, runtime checks |
 | Source of truth | Where is truth anchored? | `docs/foundation/CYNIC_SOURCE_OF_TRUTH_HIERARCHY.md` | review, audit, protocol tests |
 | Repo topology | Where does each concern live? | `docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md` + `axioms/repo-topology-v1.json` | topology validator, review, gate-0 target |
 | Theme topology | Which domain owns TALARIA/CYNIC/Odysseum/runtime/data claims? | `docs/foundation/CYNIC_THEME_TOPOLOGY_POLICY.md` + `axioms/organism-theme-topology-v1.json` | topology validator, foundation index, review |
+| Organ layer topology | Which primary layer and rank owns each organ? | `axioms/organ-layer-topology-v1.json` | layer validator, topology review |
 | Identity | Who is acting? | `AGENTS.md`, registry, service identity | `/coord/register`, service table, audit |
 | Permissions | What may this actor do? | policy contract + exposure manifest | MCP validation, REST auth, deny by default |
 | Coordination | How do agents avoid collisions? | `AGENTS.md`, `/coord/*` | claims, pre-commit, task targets |
@@ -107,13 +118,17 @@ operations underneath.
    classified as source, fixture or operator contract.
 10. No "temporary" fallback is valid without an owner, expiry condition and
     replacement path.
+11. Human-supervised cortex agents and autonomous organic agents are different
+    authority classes. The boundary is `axioms/agent-autonomy-boundary-v1.json`.
 
 ## 7. Client Classes
 
 | Class | Examples | Interface | Required guarantees |
 |-------|----------|-----------|---------------------|
-| Cortex CLI | Codex, Claude, Antigravity | MCP first, REST fallback | register, read attention, claim before edit, observe material facts, release |
-| Persistent agent | Hermes Agent | executor-owned REST or future MCP | claim task, register runtime agent, claim declared targets, release in finally path |
+| Interactive cortex | Codex, Claude, Antigravity with human in the loop | MCP first, REST fallback | register, read attention, claim before edit, observe material facts, release |
+| Supervised cortex delegate | bounded spawned cortex task | MCP or REST through parent context | declared targets, parent intent, return result to parent/proposal queue |
+| Autonomous organ agent | Hermes Agent, MCP freshness controller | executor-owned REST or future MCP | claim task, register runtime agent, claim declared targets, release in finally path, emit proposals/proofs rather than direct DNA mutation |
+| Service actuator | build runner, deploy actuator, provider adapter | Kernel REST + local/provider ports | execute approved/registry-authorized work, emit proof, no product intent invention |
 | Organ service | Slack, Twitter, Forge | Kernel REST + local ports | bounded scope, local state discipline, health, observations |
 | Dog | deterministic or LLM validator | Kernel-invoked scoring | stateless scoring, no repo writes, bounded confidence |
 | Consumer repo | privacy framework and future repos | MCP coordination contract | project-scoped operations, repo-first artifacts, no Slack dependency |
@@ -122,24 +137,32 @@ Hermes is not exempt because it is persistent. The executor is its adapter, and
 the adapter must provide the same safety boundary that an interactive cortex
 provides manually through MCP.
 
+MCP freshness is autonomous maintenance, not cortex preference management. A
+new REST API, MCP source change or `infra/agent-exposure.json` capability change
+should become an `autonomous_organ_agent` task that dispatches the registry
+`mcp-reload` profile and proves freshness. It must not silently grant itself
+public/operator authority beyond the declared exposure contract.
+
 ## 8. Canonical File Ownership
 
 | Concern | Canonical file or family | Notes |
 |---------|--------------------------|-------|
 | Agent session protocol | `AGENTS.md` | Operational entrypoint for agents |
+| Agent autonomy boundary | `axioms/agent-autonomy-boundary-v1.json` | Human-supervised cortex vs autonomous organ agent authority |
 | Organism policy matrix | this file | Cross-cutting policy authority |
 | Source-of-truth hierarchy | `docs/foundation/CYNIC_SOURCE_OF_TRUTH_HIERARCHY.md` | Truth anchoring |
 | Theme topology | `axioms/organism-theme-topology-v1.json` | TALARIA/CYNIC/Odysseum/runtime/data thematic ownership |
 | Coordination semantics | `axioms/coordination-protocol-v1.json` | Transport-agnostic payloads |
 | Infrastructure semantics | `axioms/infrastructure-mcp-v1.json` | Deterministic infra/network MCP operations |
 | Repo topology | `axioms/repo-topology-v1.json` | Machine-readable filesystem concern boundaries |
+| Organ layer topology | `axioms/organ-layer-topology-v1.json` | Primary layer/rank inventory for every immediate organ |
 | Coordination architecture | `docs/architecture/COORDINATION-MCP-FOUNDATION.md` | Current implementation map |
 | Agent exposure | `infra/agent-exposure.json` | MCP exposure source of truth |
 | Runtime placement | `infra/registry.json` | Fleet and lifecycle source |
 | Hermes executor contract | `docs/organs/HERMES_AGENT.md` | Persistent-agent adapter contract |
 | Kernel APIs | `crates/cynic-kernel/` | Memory, coordination, health, storage |
 | MCP proxy | `crates/cynic-mcp/` | Portable tool surface |
-| Python persistent-agent runtime | `services/cynic-python/organs/core/` | Ouroboros executor framework |
+| Python persistent-agent runtime | `services/ouroboros-runtime/src/ouroboros_runtime/core/` | Ouroboros executor framework |
 
 If a concern appears in two places, the lower-level file may only project or
 implement the higher-level rule. It must not redefine it.

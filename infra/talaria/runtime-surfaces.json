@@ -119,24 +119,24 @@
       ]
     },
     {
-      "id": "hermes-x-talaria",
+      "id": "twitter-talaria",
       "kind": "x_organ",
       "services": [
-        "hermes-x-ingest.service",
-        "hermes-x-organ.service",
+        "hermes-ingest.service",
+        "hermes-data-organism.service",
         "talaria-alerter.service",
         "talaria-notification-poller.service",
         "talaria-thread-monitor.service"
       ],
       "runtime_status": "mixed",
-      "observed_status": "hermes-x-ingest and hermes-x-organ active; talaria-thread-monitor failed; talaria-alerter activating; talaria-notification-poller timer active.",
+      "observed_status": "hermes-ingest and hermes-data-organism active; talaria-thread-monitor failed; talaria-alerter activating; talaria-notification-poller timer active.",
       "canonical_role": "X perception, draft generation, engagement validation tasks, and Ops-gated posting.",
       "must_not_own": [
         "Telegram public PoH state",
         "Ungated public posting",
         "Final Talaria reputation"
       ],
-      "managed_by": "organ-x"
+      "managed_by": "organ-twitter"
     },
     {
       "id": "legacy-cynicoracle-x",
@@ -147,7 +147,7 @@
       ],
       "runtime_status": "failed",
       "canonical_role": "None. Legacy CynicOracle naming should be retired or explicitly archived.",
-      "migration_target": "hermes-x-talaria"
+      "migration_target": "twitter-talaria"
     },
     {
       "id": "blitz-and-chill-poh",

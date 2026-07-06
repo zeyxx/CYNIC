@@ -15,6 +15,8 @@ import os
 import urllib.error
 import urllib.request
 
+from organs.contracts.src.surface_contracts import json_object_or_default
+
 
 SLACK_API_URL = "https://slack.com/api/chat.postMessage"
 
@@ -26,7 +28,13 @@ def _bot_token() -> str:
     return token
 
 
-def send(channel_id: str, text: str, blocks: list | None = None) -> dict:
+def send(
+    channel_id: str,
+    text: str,
+    blocks: list | None = None,
+    *,
+    thread_ts: str | None = None,
+) -> dict:
     """
     Post a message to a Slack channel.
 
@@ -44,6 +52,8 @@ def send(channel_id: str, text: str, blocks: list | None = None) -> dict:
     payload: dict = {"channel": channel_id, "text": text}
     if blocks:
         payload["blocks"] = blocks
+    if thread_ts:
+        payload["thread_ts"] = thread_ts
 
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -65,7 +75,7 @@ def send(channel_id: str, text: str, blocks: list | None = None) -> dict:
     except OSError as exc:
         raise RuntimeError(f"organ-slack: network error — {exc}") from exc
 
-    result = json.loads(raw)
+    result = json_object_or_default(raw)
     if not result.get("ok"):
         error_code = result.get("error", "unknown")
         raise RuntimeError(f"organ-slack: Slack API error — {error_code} (channel={channel_id})")

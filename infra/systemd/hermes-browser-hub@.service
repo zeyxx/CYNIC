@@ -13,8 +13,8 @@ Environment=HERMES_CDP_PORT=40769
 Environment=BROWSER_HUB_PORT=40770
 # Account-specific organ directory
 Environment=ORGAN_DIR=%h/.cynic/organs/hermes/x/datasets/%i
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/scripts/hermes-x
-ExecStart=%h/.cynic-venvs/hermes-x/bin/python3 core/browser_hub.py
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+ExecStart=@CYNIC_PROJECT_ROOTpython3 @/organs/twitter/src/entrypoints/python_launcher.py @CYNIC_PROJECT_ROOT@/organs/twitter/src/entrypoints/hermes_x.py browser-hub
 Restart=on-failure
 RestartSec=10
 MemoryMax=128M

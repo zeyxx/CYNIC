@@ -27,7 +27,7 @@ pub(super) async fn enqueue_verdict(
     let verdict_id = sanitize_id(verdict_id)?;
     let content_hash = sanitize_id(content_hash)?;
     let verdict_type = escape_surreal(verdict_type);
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = chrono::Utc::now().timestamp_millis();
 
     let sql = format!(
         "CREATE queued_verdict SET \
@@ -99,7 +99,7 @@ pub(super) async fn update_verdict_submitted(
     let verdict_id = sanitize_id(verdict_id)?;
     let tx_signature = escape_surreal(tx_signature);
     let verdict_pda = escape_surreal(verdict_pda);
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = chrono::Utc::now().timestamp_millis();
 
     let sql = format!(
         "UPDATE queued_verdict SET status = 'submitted', tx_signature = '{tx_signature}', verdict_pda = '{verdict_pda}', submitted_at = d'{now}' WHERE verdict_id = '{verdict_id}'"
@@ -114,7 +114,7 @@ pub(super) async fn update_verdict_confirmed(
     verdict_id: &str,
 ) -> Result<(), StorageError> {
     let verdict_id = sanitize_id(verdict_id)?;
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = chrono::Utc::now().timestamp_millis();
 
     let sql = format!(
         "UPDATE queued_verdict SET status = 'confirmed', confirmed_at = d'{now}' WHERE verdict_id = '{verdict_id}'"
@@ -213,7 +213,7 @@ fn row_to_queued_verdict(row: &serde_json::Value) -> QueuedVerdict {
             .as_str()
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string()),
-        created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+        created_at: row["created_at"].as_i64().unwrap_or(0),
         submitted_at: row["submitted_at"]
             .as_str()
             .filter(|s| !s.is_empty())

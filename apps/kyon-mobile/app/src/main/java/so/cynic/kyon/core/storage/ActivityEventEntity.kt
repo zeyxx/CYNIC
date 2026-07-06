@@ -18,6 +18,8 @@ data class ActivityEventEntity(
     val contextJson: String,
     val syncEligible: Boolean,
     val syncedAtMs: Long?,
+    val cryptographicHash: String?,
+    val prevHash: String?,
 ) {
     fun toModel(): ActivityEvent = ActivityEvent(
         id = id,
@@ -29,6 +31,8 @@ data class ActivityEventEntity(
         privacy = EventPrivacy.valueOf(privacy),
         contextJson = contextJson,
         syncEligible = syncEligible,
+        cryptographicHash = cryptographicHash,
+        prevHash = prevHash,
     )
 }
 
@@ -43,4 +47,6 @@ fun ActivityEvent.toEntity(): ActivityEventEntity = ActivityEventEntity(
     contextJson = contextJson,
     syncEligible = syncEligible,
     syncedAtMs = null,
+    cryptographicHash = cryptographicHash,
+    prevHash = prevHash,
 )

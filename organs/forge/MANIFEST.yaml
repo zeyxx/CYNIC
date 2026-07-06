@@ -4,14 +4,24 @@ domain: infrastructure
 status: ACTIVE
 
 description: |
-  Forge monitoring organ. Ingests git commits, pushes, and build status.
-  Extracts actionable intelligence about the CYNIC project.
+  Sovereign forge lifecycle organ. Perceives Forgejo, git DAG state,
+  coordination claims, lifecycle dispatches, and build evidence.
+  Extracts actionable intelligence about the CYNIC project without treating
+  GitHub or raw git commands as the priority agency/privacy lifecycle authority.
+
+ports:
+  - CoordinationPort
+  - LifecycleDispatchPort
+  - InfraRegistryPort
+  - ObservationPort
 
 inputs:
+  - source: Forgejo
+    data: sovereign forge repositories, branches, reviews, protected refs, and build/release evidence
   - source: git log / status
-    data: git commit history and working tree state
+    data: local git DAG history and working tree membrane state
   - source: make gate
-    data: build system status
+    data: cortex-local validation evidence, never canonical release proof
 
 outputs:
   - path: kernel /observe (domain=forge)
@@ -25,7 +35,22 @@ crons:
   - organ-forge-cron.timer
 
 scripts:
-  - name: dispatch.py
+  - name: src/dispatch.py
     description: Hexagonal architecture entrypoint
-  - name: cli.py
-    description: Trigger CLI for manual tests
+  - name: src/entrypoints/cli.py
+    description: Thin CLI membrane for organ-forge operators and lifecycle requests
+components:
+  - name: src/core/cli_runtime.py
+    description: Organ-forge CLI runtime, command parser, audit, daemon, delegate, and lifecycle dispatch handlers.
+    integration_status: transition_debt
+    owner: organ-forge
+    expiry_condition: src/entrypoints/cli.py remains a thin CLI membrane.
+  - name: src/core/lifecycle_diagnostic_payloads.py
+    description: Pure lifecycle diagnostic payload parsing, projection, and dispatch error classification.
+    integration_status: transition_debt
+    owner: organ-forge
+    expiry_condition: lifecycle diagnostic entrypoint remains a thin JSON CLI membrane.
+  - name: src/core/agent_proposals.py
+    description: Pure proposal envelope builder for forge lifecycle tasks exposed through Kernel /agent-proposals.
+    integration_status: active
+    owner: organ-forge

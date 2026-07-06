@@ -19,7 +19,7 @@ pub struct HeliusCallMetric {
     /// Estimated credits consumed
     pub credits_cost: u32,
     /// Timestamp
-    pub timestamp: String,
+    pub timestamp: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

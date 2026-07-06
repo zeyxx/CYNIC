@@ -7,9 +7,14 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+import subprocess
 from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts" / "hermes-x"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "services" / "reliability-runtime" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "services" / "observability-runtime" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "services" / "coordination-runtime" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "services" / "ouroboros-runtime" / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 os.environ.setdefault("CYNIC_REST_ADDR", "127.0.0.1:3030")
@@ -21,23 +26,22 @@ def test_execute_task_emits_cost(tmp_path):
     os.environ["CYNIC_COST_LEDGER"] = ledger
     os.environ["CYNIC_SESSION_ID"] = "test-session"
 
-    def mock_subprocess_run(cmd, *args, **kwargs):
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        if "create" in cmd:
-            mock_result.stdout = json.dumps({"id": "t_mock123"})
-        elif "decompose" in cmd:
-            mock_result.stdout = ""
-        elif "show" in cmd:
-            mock_result.stdout = json.dumps({"task": {"status": "done"}})
-        elif "context" in cmd:
-            mock_result.stdout = "ok"
-        else:
-            mock_result.stdout = ""
-        return mock_result
+    def mock_run_subprocess(cmd, timeout=None):
+        if cmd[:3] == ["hermes", "kanban", "create"]:
+            return subprocess.CompletedProcess(cmd, 0, json.dumps({"id": "t_mock123"}), "")
+        if cmd[:3] == ["hermes", "kanban", "decompose"]:
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        if cmd[:3] == ["hermes", "kanban", "show"]:
+            return subprocess.CompletedProcess(cmd, 0, json.dumps({"task": {"status": "done"}}), "")
+        if cmd[:3] == ["hermes", "kanban", "context"]:
+            return subprocess.CompletedProcess(cmd, 0, "ok", "")
+        raise AssertionError(f"unexpected command: {cmd}")
 
-    with patch("subprocess.run", side_effect=mock_subprocess_run):
-        from organs.core.adapters.hermes_kanban_executor import HermesKanbanAdapter
+    with patch(
+        "ouroboros_runtime.core.adapters.hermes_kanban_executor.HermesKanbanAdapter._run_subprocess",
+        side_effect=mock_run_subprocess,
+    ):
+        from ouroboros_runtime.core.adapters.hermes_kanban_executor import HermesKanbanAdapter
         task = {
             "id": "task-001",
             "objective": "test task",

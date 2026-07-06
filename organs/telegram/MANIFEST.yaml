@@ -1,6 +1,7 @@
 id: organ-telegram
 tier: 2
 domain: social
+domain_role: sensor
 status: ACTIVE
 description: "Telegram channel listener — raw message ingestion to SQLite"
 framework: hexagonal-organ
@@ -19,7 +20,5 @@ crons:
   - organ-telegram-cron.timer
 
 scripts:
-  - name: dispatch.py
+  - name: src/dispatch.py
     description: Hexagonal architecture entrypoint
-  - name: cli.py
-    description: Trigger CLI for manual tests

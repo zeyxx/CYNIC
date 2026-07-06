@@ -1,5 +1,5 @@
 //! Inference routing — selects fastest healthy node for Dog evaluation.
-//! Queries /fleet-stats to route inference work by latency + success rate.
+//! Queries fleet stats to route inference work by latency + success rate.
 //! Also provides operational endpoints to start/remediate dogs.
 //! Live probing: each list-models call probes actual node state + emits observations.
 
@@ -35,7 +35,7 @@ pub struct DogOperationResponse {
     pub dog: String,
     pub operation: String, // "start" or "remediate"
     pub status: String,    // "succeeded", "failed", "timed_out", etc.
-    pub timestamp: String,
+    pub timestamp: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -54,7 +54,7 @@ pub struct ModelInfo {
 #[derive(Debug, Serialize)]
 pub struct ListModelsResponse {
     pub models: Vec<ModelInfo>,
-    pub timestamp: String,
+    pub timestamp: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -73,7 +73,7 @@ pub struct InferenceRouteResponse {
 }
 
 /// POST /inference/route — select best node for inference work.
-/// Queries /fleet-stats over a time window, ranks nodes by (success_rate DESC, latency ASC).
+/// Queries fleet stats over a time window, ranks nodes by (success_rate DESC, latency ASC).
 /// Returns the fastest healthy node suitable for the domain.
 pub async fn inference_route_handler(
     State(state): State<Arc<AppState>>,
@@ -197,14 +197,14 @@ pub async fn inference_candidates_handler(
     Ok(Json(serde_json::json!({
         "candidates": candidates,
         "window_secs": window_secs,
-        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "timestamp": chrono::Utc::now().timestamp_millis(),
     })))
 }
 
 #[derive(Debug, Serialize)]
 pub struct RemediateResponse {
     pub degraded_nodes: Vec<DegradedNodeInfo>,
-    pub timestamp: String,
+    pub timestamp: i64,
     pub window_secs: u64,
 }
 
@@ -265,7 +265,7 @@ pub async fn remediate_handler(
 
     Ok(Json(RemediateResponse {
         degraded_nodes: remediated,
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().timestamp_millis(),
         window_secs,
     }))
 }
@@ -324,7 +324,7 @@ async fn emit_recovery_observation(
         status: status.to_string(),
         context: "Attempted llama-server restart on degraded node".to_string(),
         session_id: "".to_string(),
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().timestamp_millis(),
         tags: vec!["k15-recovery".to_string(), "remediation".to_string()],
         source_tier: "permanent".to_string(),
         value: None,
@@ -343,7 +343,7 @@ async fn emit_recovery_observation(
     Ok(())
 }
 
-/// POST /inference/start — start a specific dog (llama-server service).
+/// POST /lifecycle/inference/start — start a specific dog (llama-server service).
 /// body: {"dog": "qwen25-7b-core"}
 /// Returns: operation status (succeeded, failed, timed_out).
 pub async fn inference_start_handler(
@@ -362,7 +362,7 @@ pub async fn inference_start_handler(
         dog: req.dog,
         operation: "start".to_string(),
         status,
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().timestamp_millis(),
     }))
 }
 
@@ -382,7 +382,7 @@ pub async fn inference_remediate_handler(
         dog: req.dog,
         operation: "remediate".to_string(),
         status,
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().timestamp_millis(),
     }))
 }
 
@@ -476,7 +476,7 @@ async fn emit_probe_observation(
             "Dog probe failed: failure_type={failure_reason}, latency_ms={latency_ms}"
         ),
         session_id: "".to_string(),
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().timestamp_millis(),
         tags: vec![
             "k15-observability".to_string(),
             format!("failure_type:{failure_reason}"),
@@ -582,7 +582,7 @@ pub async fn list_models_handler(
 
     Ok(Json(ListModelsResponse {
         models,
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().timestamp_millis(),
     }))
 }
 
@@ -610,7 +610,7 @@ pub async fn inference_slots_handler(
 
     Json(serde_json::json!({
         "backends": backends,
-        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "timestamp": chrono::Utc::now().timestamp_millis(),
     }))
 }
 

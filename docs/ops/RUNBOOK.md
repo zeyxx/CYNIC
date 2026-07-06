@@ -14,6 +14,23 @@ make rollback        # Revert to previous kernel binary
 make restore F=path  # Restore DB from backup (DESTRUCTIVE)
 ```
 
+## Repo Access Collaboration
+
+If shared filesystem repos are owned by one account and `cynic` must also write them:
+
+Use the native command:
+
+```bash
+cynic repos add \
+  ~/Bureau/CAPLOGY/privacy-ethereum-framework \
+  ~/Bureau/CAPLOGY/privacy-ethereum-framework-Ihceen
+```
+
+The first `cynic codex` / `cynic agy` inside a repo also records that repo automatically.
+Do not use shell compatibility shims as operator entrypoints. Repo access is owned by the native `cynic repos add` command and its supervisor-backed profile.
+
+More details: `docs/ops/repo-access-collaboration.md`.
+
 ## Service Restart Order
 
 Always restart in this order (dependencies flow downward):
@@ -105,6 +122,27 @@ This stops the kernel, imports the backup, restarts the kernel.
 - `cynic-healthcheck.timer` runs every 5 minutes
 - Checks: kernel reachable, SurrealDB up, disk >15% free, memory >512MB
 - Results in journal: `journalctl -t cynic-healthcheck --since "1 hour ago"`
+
+### Lifecycle convergence loop
+- `organ-lifecycle.timer` runs the supply-chain convergence controller on a timer
+- Canonical projection lives in `infra/systemd/organ-lifecycle.service` and `infra/systemd/organ-lifecycle.timer`
+- Preferred operator entrypoint: `make organ-lifecycle-install`
+- Non-mutating verification: `make organ-lifecycle-status`
+- Freshness health: `make organ-lifecycle-health`
+- Supply-chain analysis: `make organ-lifecycle-analyze`
+- One-shot convergence: `make organ-lifecycle-run`
+- Watchdog reconcile: `make organ-lifecycle-watchdog`
+- Full proof sequence: `make organ-lifecycle-prove`
+- Activate from an operator shell:
+
+```bash
+sudo systemctl link /home/user/Bureau/CYNIC/infra/systemd/organ-lifecycle.{service,timer}
+sudo systemctl link /home/user/Bureau/CYNIC/infra/systemd/organ-lifecycle-watchdog.{service,timer}
+sudo systemctl enable --now organ-lifecycle.timer
+sudo systemctl enable --now organ-lifecycle-watchdog.timer
+systemctl status organ-lifecycle.timer organ-lifecycle.service organ-lifecycle-watchdog.timer organ-lifecycle-watchdog.service
+journalctl -u organ-lifecycle.service -f
+```
 
 ### Manual dashboard
 ```bash

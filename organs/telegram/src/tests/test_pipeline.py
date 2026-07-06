@@ -1,6 +1,6 @@
 """Tests for the Telegram signal pipeline classifier."""
 import pytest
-from ..pipeline import classify_block, ClassifiedBlock
+from organs.telegram.src.pipeline import ClassifiedBlock, classify_block
 
 
 # ── Buy-bot detection ─────────────────────────────────────────────────────────

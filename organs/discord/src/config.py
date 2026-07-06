@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
+from organs.contracts.src.surface_contracts import read_yaml_file_with_loader
+from organs.contracts.src.adapters.runtime_dirs import ensure_parent_dirs
 
 _DEFAULT_ORGAN_DIR = Path.home() / ".cynic" / "organs" / "discord"
 
@@ -45,9 +47,9 @@ def _ids(value: object) -> list[int]:
     return out
 
 
-def ensure_runtime_dirs(cfg: DiscordConfig) -> None:
+def ensure_discord_runtime_dirs(cfg: DiscordConfig) -> None:
     """Create local runtime directories."""
-    Path(cfg.db_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
+    ensure_parent_dirs((cfg.db_path,))
 
 
 def validate_allowlist(cfg: DiscordConfig) -> None:
@@ -61,8 +63,7 @@ def load_config(yaml_path: str) -> DiscordConfig:
     cfg = DiscordConfig()
     path = Path(yaml_path).expanduser()
     if path.exists():
-        with path.open() as f:
-            data = yaml.safe_load(f) or {}
+        data = read_yaml_file_with_loader(path, yaml) or {}
         if "db_path" in data:
             cfg.db_path = str(Path(data["db_path"]).expanduser())
         if "heartbeat_interval_seconds" in data:

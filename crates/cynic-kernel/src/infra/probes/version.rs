@@ -211,7 +211,7 @@ impl crate::domain::probe::Probe for VersionProbe {
                 unknown_count,
             }),
             duration_ms,
-            timestamp: chrono::Utc::now().to_rfc3339(),
+            timestamp: chrono::Utc::now().timestamp_millis(),
         })
     }
 }

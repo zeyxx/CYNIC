@@ -6,26 +6,46 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import so.cynic.kyon.KyonApp
-import so.cynic.kyon.core.model.ActivityEvent
-import so.cynic.kyon.core.model.EventSource
-import so.cynic.kyon.core.storage.EventRepository
 
 class KyonNotificationListenerService : NotificationListenerService() {
     private val scope = CoroutineScope(Dispatchers.IO)
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        val repository = EventRepository((application as KyonApp).database.activityEvents())
-        val event = ActivityEvent(
-            source = EventSource.MOBILE_NOTIFICATION,
-            eventType = "notification_posted",
-            target = sbn.packageName,
-            timestampMs = sbn.postTime,
-            contextJson = """{"content_captured":false,"is_ongoing":${sbn.isOngoing},"id":${sbn.id}}""",
-            syncEligible = false,
+        val app = application as? KyonApp ?: return
+        if (!app.featureFlags.notificationCollectionEnabled) return
+
+        val useCase = app.container.recordNotificationEvent
+        val packageName = sbn.packageName
+        
+        val socialApps = setOf(
+            "com.instagram.android", 
+            "com.whatsapp", 
+            "com.snapchat.android", 
+            "com.facebook.katana", 
+            "com.facebook.orca",
+            "com.twitter.android", 
+            "com.zhiliaoapp.musically" // TikTok
         )
+        
+        val isSocialApp = socialApps.contains(packageName)
+        val canExtractSemantics = if (isSocialApp) {
+            app.featureFlags.socialSemanticMonitoringEnabled
+        } else {
+            true // Other apps could be checked against commercialSemanticMonitoringEnabled if needed
+        }
+
+        val title = if (canExtractSemantics) { sbn.notification.extras.getString("android.title") ?: "" } else { "" }
+        val text = if (canExtractSemantics) { sbn.notification.extras.getCharSequence("android.text")?.toString() ?: "" } else { "" }
 
         scope.launch {
-            repository.record(event)
+            useCase.execute(
+                packageName = sbn.packageName,
+                postedAtMs = sbn.postTime,
+                isOngoing = sbn.isOngoing,
+                notificationId = sbn.id,
+                title = title,
+                text = text,
+            )
         }
     }
 }

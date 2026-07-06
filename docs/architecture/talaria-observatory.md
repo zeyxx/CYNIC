@@ -189,7 +189,7 @@ Existing CYNIC pieces:
 - `cynic-python/sensors/talaria_tracker.py`
 - `cynic-python/sensors/talaria_strategy_consumer.py`
 - `cynic-python/agents/talaria_bot.py`
-- `scripts/hermes-x/core/talaria_alerter.py`
+- `organs/twitter/src/adapters/talaria_alerter.py`
 
 These should feed observatory events instead of remaining only generic observations.
 

@@ -1,9 +1,10 @@
-import json
 import logging
 import urllib.request
 import urllib.error
 from base64 import b64encode
 from typing import List
+
+from organs.contracts.src.surface_contracts import json_object_or_default
 
 from ..core.ports import MeshStatePort
 from ..core.entities import MeshNode, MeshRoute
@@ -30,7 +31,7 @@ class SurrealMeshAdapter(MeshStatePort):
         try:
             with urllib.request.urlopen(req, timeout=10) as response:
                 body = response.read().decode('utf-8')
-                results = json.loads(body)
+                results = json_object_or_default(body, [])
                 if results and isinstance(results, list):
                     last_result = results[-1]
                     if last_result.get("status") == "ERR":

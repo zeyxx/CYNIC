@@ -1,21 +1,21 @@
 [Unit]
 Description=CYNIC Organ X Hermes Agent - X surface manager
-After=cynic-kernel.service hermes-agent-executor.service hermes-x-ingest.service
-Wants=cynic-kernel.service hermes-x-ingest.service
+After=cynic-kernel.service hermes-agent-executor.service hermes-ingest.service
+Wants=cynic-kernel.service hermes-ingest.service
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
 EnvironmentFile=%h/.config/cynic/env
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONPATH=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/services/cynic-python
-Environment=HERMES_AGENT_DOMAIN_ALLOW=hermes-x
+Environment=PYTHONPATH=@CYNIC_PROJECT_ROOT@/services/reliability-runtime/src:@CYNIC_PROJECT_ROOT@/services/observability-runtime/src:@CYNIC_PROJECT_ROOT@/services/coordination-runtime/src:@CYNIC_PROJECT_ROOT@/services/ouroboros-runtime/src:@CYNIC_PROJECT_ROOT@/services/cynic-python
+Environment=HERMES_AGENT_DOMAIN_ALLOW=twitter,social-twitter,social-signal,organ-health
 Environment=HERMES_AGENT_KIND_ALLOW=hermes
-Environment=HERMES_AGENT_POLL_LIMIT=100
-Environment=X_ORGAN_DIR=%h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/twitter/state
-ExecStartPre=/usr/bin/install -Dm644 %h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/infra/organ-twitter/SKILL.md %h/.cynic/organs/hermes/x/SKILL.md
-ExecStart=/usr/bin/python3 -m organs.core.daemon --organ-dir %h/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/organs/twitter/state --interval 30
+Environment=HERMES_AGENT_BATCH_LIMIT=100
+Environment=X_ORGAN_DIR=@CYNIC_PROJECT_ROOT@/organs/twitter/state
+ExecStartPre=/usr/bin/install -Dm644 @CYNIC_PROJECT_ROOT@/organs/twitter/state/SKILL.md %h/.cynic/organs/hermes/x/SKILL.md
+ExecStart=/usr/bin/python3 -m ouroboros_runtime.core.daemon --organ-dir @CYNIC_PROJECT_ROOT@/organs/twitter/state --interval 30
 Restart=on-failure
 RestartSec=30s
 StandardOutput=journal
