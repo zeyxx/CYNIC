@@ -393,7 +393,7 @@ async fn list_pending_tasks(
         state.storage.list_pending_agent_tasks(kind, domain, limit),
     )
     .await
-    .map_err(|_| {
+    .map_err(|_e| {
         tracing::warn!(kind, domain, limit, "list_pending_agent_tasks timed out");
         (
             StatusCode::GATEWAY_TIMEOUT,
@@ -504,7 +504,7 @@ pub async fn dispatch_task_handler(
 
     let task_id = tokio::time::timeout(AGENT_TASK_STORAGE_TIMEOUT, state.storage.store_agent_task(&task))
         .await
-        .map_err(|_| {
+        .map_err(|_e| {
             tracing::warn!("dispatch_task timed out. Triggering automated memory self-healing.");
 
             if let Ok(project_root) = std::env::var("CYNIC_PROJECT_ROOT") {
@@ -585,7 +585,7 @@ pub async fn claim_task_handler(
         state.storage.claim_agent_task(&task_id, &req.agent_id),
     )
     .await
-    .map_err(|_| {
+    .map_err(|_e| {
         tracing::warn!(task_id = %task_id, agent_id = %req.agent_id, "claim_task timed out");
         (
             StatusCode::GATEWAY_TIMEOUT,
@@ -712,7 +712,7 @@ pub async fn list_agent_proposals_handler(
             state.storage.list_pending_agent_tasks(kind, domain, limit),
         )
         .await
-        .map_err(|_| {
+        .map_err(|_e| {
             tracing::warn!(
                 kind,
                 domain,
@@ -742,7 +742,7 @@ pub async fn list_agent_proposals_handler(
                 .list_completed_agent_tasks(kind, domain, limit),
         )
         .await
-        .map_err(|_| {
+        .map_err(|_e| {
             tracing::warn!(
                 kind,
                 domain,
@@ -771,7 +771,7 @@ pub async fn list_agent_proposals_handler(
                 state.storage.list_pending_agent_tasks(kind, domain, limit),
             )
             .await
-            .map_err(|_| {
+            .map_err(|_e| {
                 tracing::warn!(
                     kind,
                     domain,
@@ -801,7 +801,7 @@ pub async fn list_agent_proposals_handler(
                     .list_completed_agent_tasks(kind, domain, limit),
             )
             .await
-            .map_err(|_| {
+            .map_err(|_e| {
                 tracing::warn!(
                     kind,
                     domain,
@@ -937,7 +937,7 @@ pub async fn list_completed_tasks_handler(
             .list_completed_agent_tasks(kind, domain, limit),
     )
     .await
-    .map_err(|_| {
+    .map_err(|_e| {
         tracing::warn!(kind, domain, limit, "list_completed_tasks timed out");
         (
             StatusCode::GATEWAY_TIMEOUT,
@@ -984,7 +984,7 @@ pub async fn complete_task_handler(
             .update_agent_task_result(&task_id, req.result, req.error),
     )
     .await
-    .map_err(|_| {
+    .map_err(|_e| {
         tracing::warn!(task_id = %task_id, "complete_task timed out");
         (
             StatusCode::GATEWAY_TIMEOUT,

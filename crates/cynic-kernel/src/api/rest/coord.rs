@@ -388,7 +388,7 @@ pub async fn coord_who_handler(
 
     let snapshot = tokio::time::timeout(COORD_HANDLER_TIMEOUT, state.coord.who(agent_filter))
         .await
-        .map_err(|_| {
+        .map_err(|_e| {
             tracing::warn!("coord who timed out");
             (
                 StatusCode::GATEWAY_TIMEOUT,

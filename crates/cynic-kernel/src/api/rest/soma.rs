@@ -36,7 +36,7 @@ pub async fn soma_request_handler(
         .iter()
         .filter_map(|dog_id| {
             state.slot_semaphores.get(dog_id).map(|sem| DogSlotStatus {
-                dog_id: dog_id.to_string(),
+                dog_id: dog_id.clone(),
                 total_slots: sem.total_slots(),
                 available_slots: sem.available(),
             })

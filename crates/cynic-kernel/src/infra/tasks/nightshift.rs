@@ -7,7 +7,7 @@ use crate::infra::task_health::TaskHealth;
 
     // WHY: Dormant logic kept for Phase 2, disabled as part of Option B deep purge
 #[allow(dead_code)]
-pub fn spawn_nightshift(
+pub(crate) fn spawn_nightshift(
     _storage: Arc<dyn StoragePort>,
     _event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     _task_health: Arc<TaskHealth>,

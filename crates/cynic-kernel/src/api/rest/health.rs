@@ -1,6 +1,5 @@
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
 /// REST API handlers for liveness, readiness, health, agents and metrics — read-only observability.
-
 use axum::{extract::State, http::StatusCode, response::Json};
 use std::sync::Arc;
 use std::time::Duration;
@@ -36,6 +35,8 @@ pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode
 /// Auth required (T1, KC3) — leaks Dog roster, circuit states, version, token counts.
 /// Unauthenticated callers get 401 from middleware (never reach this handler).
 /// For unauthenticated probes, use /live (200) or /ready (200/503).
+// WHY: Health response contains many optional legacy flags, restructuring breaks the API.
+#[allow(clippy::type_complexity)]
 pub async fn health_handler(
     State(state): State<Arc<AppState>>,
 ) -> (StatusCode, Json<serde_json::Value>) {
@@ -438,8 +439,8 @@ pub async fn metrics_handler(
     // Per-dog metrics from usage tracker
     {
         let usage = state.usage.lock().await;
-        let merged = usage.merged_dogs();
-        let mut dog_data: Vec<(String, u64, u64, u64, u64)> = vec![];
+        let _merged = usage.merged_dogs();
+        let dog_data: Vec<(String, u64, u64, u64, u64)> = vec![];
         let circuit_states: Vec<(String, String, u32)> = vec![];
         crate::domain::metrics::append_dog_metrics(&mut out, &dog_data, &circuit_states);
     }
@@ -447,7 +448,7 @@ pub async fn metrics_handler(
     // Organ quality metrics
     {
         
-        let snapshots: std::collections::HashMap<String, serde_json::Value> = std::collections::HashMap::new();
+        let _snapshots: std::collections::HashMap<String, serde_json::Value> = std::collections::HashMap::new();
         // crate::domain::metrics::append_organ_metrics(&mut out, &snapshots);
     }
 

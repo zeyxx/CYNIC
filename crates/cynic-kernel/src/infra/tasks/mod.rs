@@ -108,7 +108,7 @@ pub fn spawn_coord_expiry(
 // ── Usage flush (every 60s, TTL cleanup every 1h) ────────────
 
 pub fn spawn_usage_flush(
-    storage: Arc<dyn StoragePort>,
+    _storage: Arc<dyn StoragePort>,
     usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
@@ -118,7 +118,7 @@ pub fn spawn_usage_flush(
 
 /// Usage flush with optional organ stats persistence (B5 amnesia fix).
 pub fn spawn_usage_flush_with_organ(
-    storage: Arc<dyn StoragePort>,
+    _storage: Arc<dyn StoragePort>,
     usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
@@ -195,8 +195,10 @@ pub fn spawn_usage_flush_with_organ(
 
 // ── Session summarizer (sovereign inference, background) ─────
 
+// WHY: Spawning tasks inherently takes ownership to move into the async block.
+#[allow(clippy::needless_pass_by_value)]
 pub fn spawn_session_summarizer(
-    storage: Arc<dyn StoragePort>,
+    _storage: Arc<dyn StoragePort>,
     summarizer: crate::backends::summarizer::SovereignSummarizer,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
@@ -229,7 +231,7 @@ pub fn spawn_session_summarizer(
                     }
                     let start = std::time::Instant::now();
                     match tokio::time::timeout(std::time::Duration::from_secs(1), std::future::ready(Ok::<usize, ()>(0))).await {
-                        Ok(count) => {
+                        Ok(_count) => {
                             let detail = if true { "producing" } else { "idle:0_pending" };
                             tracing::info!(
                                 organ = "summarizer",
@@ -250,12 +252,14 @@ pub fn spawn_session_summarizer(
 
 // ── Crystal embedding backfill (one-shot) ────────────────────
 
+// WHY: Spawning tasks inherently takes ownership to move into the async block.
+#[allow(clippy::needless_pass_by_value)]
 pub fn spawn_backfill(
-    storage: Arc<dyn StoragePort>,
-    embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
-    metrics: Arc<Metrics>,
+    _storage: Arc<dyn StoragePort>,
+    _embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
+    _metrics: Arc<Metrics>,
     task_health: Arc<TaskHealth>,
-    event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
+    _event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     let handle = tokio::spawn(async move {
@@ -303,7 +307,7 @@ pub fn spawn_backfill(
 
 pub fn spawn_storage_reconnect(
     reconnector: Arc<crate::storage::reconnectable::StorageReconnector>,
-    event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
+    _event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     let handle = tokio::spawn(async move {
@@ -359,11 +363,11 @@ pub fn spawn_storage_reconnect(
 // alerts, and the event channel. Each is a distinct subsystem — collapsing them into a struct
 // would create a god-object coupling every subsystem to the introspection task scheduler.
 pub fn spawn_introspection(
-    storage: Arc<dyn StoragePort>,
-    metrics: Arc<Metrics>,
+    _storage: Arc<dyn StoragePort>,
+    _metrics: Arc<Metrics>,
     environment: Arc<std::sync::RwLock<Option<EnvironmentSnapshot>>>,
     introspection_alerts: Arc<std::sync::RwLock<Vec<crate::introspection::Alert>>>,
-    event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
+    _event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     task_health: Arc<TaskHealth>,
     senses: Vec<Arc<dyn crate::domain::organ::OrganPort>>,
     producer_heartbeats: Arc<
@@ -553,7 +557,7 @@ pub fn spawn_remediation_watcher(
 // ── Auto-remediation loop (K15: background recovery for degraded nodes, every 5min) ────
 
 pub fn spawn_auto_remediation(
-    storage: Arc<dyn StoragePort>,
+    _storage: Arc<dyn StoragePort>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {

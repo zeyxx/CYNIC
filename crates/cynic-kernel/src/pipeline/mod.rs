@@ -1,1 +1,1 @@
-pub mod models { pub struct Pipeline; }
+pub mod models { #[derive(Debug)] pub struct Pipeline; }
