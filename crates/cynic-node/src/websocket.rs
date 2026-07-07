@@ -447,21 +447,79 @@ impl WebSocketClient {
                                                     "Received stimulus from kernel"
                                                 );
 
-                                                // TODO: Phase 3.2c — Route to local judgment engine
-                                                // For now, queue it locally
-                                                let pending = PendingStimulus {
-                                                    stimulus_id,
-                                                    stimulus: NodeMessage::Stimulus {
-                                                        stimulus_id: "".to_string(), // filled in above
-                                                        domain,
-                                                        content,
-                                                        context,
-                                                        timeout_ms,
-                                                        idempotent_key,
-                                                    },
-                                                    received_at: chrono::Utc::now().timestamp(),
-                                                };
-                                                self.queue_stimulus(pending).await;
+                                                // Phase 3.2c — Route to native adapters
+                                                match domain.as_str() {
+                                                    "fleet.lxc_exec" => {
+                                                        let stimulus_id_clone = stimulus_id.clone();
+                                                        let content_clone = content.clone();
+                                                        let verdicts_queue = self.pending_verdicts.clone();
+                                                        
+                                                        tokio::spawn(async move {
+                                                            use crate::adapters::proxmox::lxc_bridge::{LxcExecBridge, LxcExecRequest};
+                                                            
+                                                            let verdict_payload = match serde_json::from_value::<LxcExecRequest>(content_clone) {
+                                                                Ok(req) => {
+                                                                    match LxcExecBridge::execute(req).await {
+                                                                        Ok(resp) => serde_json::json!({ "status": "success", "response": resp }),
+                                                                        Err(e) => serde_json::json!({ "status": "error", "message": e }),
+                                                                    }
+                                                                }
+                                                                Err(e) => serde_json::json!({ "status": "error", "message": format!("Invalid payload: {}", e) }),
+                                                            };
+
+                                                            let mut queue = verdicts_queue.write().await;
+                                                            queue.push_back(PendingVerdict {
+                                                                stimulus_id: stimulus_id_clone,
+                                                                verdict: verdict_payload,
+                                                                signature: "NATIVE_ADAPTER_UNSIGNED_YET".to_string(),
+                                                                queued_at: chrono::Utc::now().timestamp(),
+                                                            });
+                                                        });
+                                                    }
+                                                    "fleet.host_exec" => {
+                                                        let stimulus_id_clone = stimulus_id.clone();
+                                                        let content_clone = content.clone();
+                                                        let verdicts_queue = self.pending_verdicts.clone();
+                                                        
+                                                        tokio::spawn(async move {
+                                                            use crate::adapters::host::{HostExecAdapter, HostExecRequest};
+                                                            
+                                                            let verdict_payload = match serde_json::from_value::<HostExecRequest>(content_clone) {
+                                                                Ok(req) => {
+                                                                    match HostExecAdapter::execute(req).await {
+                                                                        Ok(resp) => serde_json::json!({ "status": "success", "response": resp }),
+                                                                        Err(e) => serde_json::json!({ "status": "error", "message": e }),
+                                                                    }
+                                                                }
+                                                                Err(e) => serde_json::json!({ "status": "error", "message": format!("Invalid payload: {}", e) }),
+                                                            };
+
+                                                            let mut queue = verdicts_queue.write().await;
+                                                            queue.push_back(PendingVerdict {
+                                                                stimulus_id: stimulus_id_clone,
+                                                                verdict: verdict_payload,
+                                                                signature: "NATIVE_ADAPTER_UNSIGNED_YET".to_string(),
+                                                                queued_at: chrono::Utc::now().timestamp(),
+                                                            });
+                                                        });
+                                                    }
+                                                    _ => {
+                                                        // For non-native domains, queue it locally
+                                                        let pending = PendingStimulus {
+                                                            stimulus_id: stimulus_id.clone(),
+                                                            stimulus: NodeMessage::Stimulus {
+                                                                stimulus_id,
+                                                                domain,
+                                                                content,
+                                                                context,
+                                                                timeout_ms,
+                                                                idempotent_key,
+                                                            },
+                                                            received_at: chrono::Utc::now().timestamp(),
+                                                        };
+                                                        self.queue_stimulus(pending).await;
+                                                    }
+                                                }
                                             }
                                         }
                                         NodeMessage::Pong { timestamp: _ } => {
