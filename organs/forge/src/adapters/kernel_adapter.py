@@ -94,20 +94,24 @@ def build_lifecycle_profile_payloads(
 def build_lifecycle_activation_plan(
     registry: dict | None = None,
     inspect_fleet: bool = False,
+    include_network_probe: bool = False,
 ) -> dict:
     return _workflow_build_lifecycle_activation_plan(
         registry=registry,
         inspect_fleet=inspect_fleet,
+        include_network_probe=include_network_probe,
     )
 
 
 def build_lifecycle_activation_requests(
     registry: dict | None = None,
     inspect_fleet: bool = False,
+    include_network_probe: bool = False,
 ) -> dict:
     return _workflow_build_lifecycle_activation_requests(
         registry=registry,
         inspect_fleet=inspect_fleet,
+        include_network_probe=include_network_probe,
     )
 
 
@@ -121,11 +125,13 @@ def validate_lifecycle_activation_request_payload(
 def dispatch_lifecycle_activation_requests(
     registry: dict | None = None,
     inspect_fleet: bool = False,
+    include_network_probe: bool = False,
     kernel_client_factory=None,
 ) -> dict:
     return _workflow_dispatch_lifecycle_activation_requests(
         registry=registry,
         inspect_fleet=inspect_fleet,
+        include_network_probe=include_network_probe,
         kernel_client_factory=kernel_client_factory,
     )
 
@@ -484,12 +490,13 @@ class KernelRestClient(IKernelClient):
             fleet_inventory_probe = self._probe_dict_value(
                 getattr(self, "fleet_inventory_probe", None)
             )
-        if fleet_inventory_probe.get("status") == "not_run":
+        if fleet_inventory_probe.get("status") in ("not_run", "error"):
             try:
                 self._probe_fleet_inventory_report()
             except Exception as exc:
                 self.fleet_inventory_probe = {
                     "enabled": True,
+                    "name": "organ_fleet_report",
                     "status": "error",
                     "error": type(exc).__name__,
                 }
@@ -561,15 +568,22 @@ class KernelRestClient(IKernelClient):
         return service
 
     def _probe_kernel_bus(self) -> None:
-        result = self._kernel_bus_probe_adapter().probe(
-            base_url=self.base_url,
-            api_key=self.api_key,
-            probe_config=self.lifecycle.get("kernel_bus_probe") or {},
-        )
-        if result["kernel_probe"] is None:
-            return
-        self.kernel_probe = result["kernel_probe"]
-        self.fleet_inventory_probe = result["fleet_inventory_probe"]
+        try:
+            result = self._kernel_bus_probe_adapter().probe(
+                base_url=self.base_url,
+                api_key=self.api_key,
+                probe_config=self.lifecycle.get("kernel_bus_probe") or {},
+            )
+            if result["kernel_probe"] is None:
+                return
+            self.kernel_probe = result["kernel_probe"]
+            self.fleet_inventory_probe = result["fleet_inventory_probe"]
+        except RuntimeError as e:
+            if "kernel bus probe failed" in str(e):
+                self.kernel_probe = {"enabled": True, "status": "error", "error": "probe_failed", "detail": str(e)}
+                self.fleet_inventory_probe = {"enabled": True, "status": "error", "error": "probe_failed"}
+            else:
+                raise
 
     def _kernel_bus_probe_adapter(self) -> KernelBusProbeAdapter:
         adapter = getattr(self, "kernel_bus_probe", None)

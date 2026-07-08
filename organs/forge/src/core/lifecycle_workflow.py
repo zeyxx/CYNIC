@@ -78,20 +78,24 @@ def build_lifecycle_profile_payloads(
 def build_lifecycle_activation_plan(
     registry: dict | None = None,
     inspect_fleet: bool = False,
+    include_network_probe: bool = False,
 ) -> dict:
     return _activation_build_lifecycle_activation_plan(
         registry=registry,
         inspect_fleet=inspect_fleet,
+        include_network_probe=include_network_probe,
     )
 
 
 def build_lifecycle_activation_requests(
     registry: dict | None = None,
     inspect_fleet: bool = False,
+    include_network_probe: bool = False,
 ) -> dict:
     return _activation_build_lifecycle_activation_requests(
         registry=registry,
         inspect_fleet=inspect_fleet,
+        include_network_probe=include_network_probe,
     )
 
 
@@ -105,11 +109,13 @@ def validate_lifecycle_activation_request_payload(
 def dispatch_lifecycle_activation_requests(
     registry: dict | None = None,
     inspect_fleet: bool = False,
+    include_network_probe: bool = False,
     kernel_client_factory=None,
 ) -> dict:
     return _activation_dispatch_lifecycle_activation_requests(
         registry=registry,
         inspect_fleet=inspect_fleet,
+        include_network_probe=include_network_probe,
         kernel_client_factory=kernel_client_factory,
     )
 

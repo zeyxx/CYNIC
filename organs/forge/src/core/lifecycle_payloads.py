@@ -17,6 +17,7 @@ from .agent_proposals import (
     validate_lifecycle_agent_proposal,
 )
 from .project_root import resolve_project_root_from_script
+from .lifecycle_runtime_artifacts import build_runtime_artifact_manifest
 
 
 def _default_registry_path() -> Path:
@@ -107,6 +108,10 @@ def build_lifecycle_task_payload(
         "activation_evidence_contract": lifecycle.get("activation_evidence_contract", {}),
         "fleet_requirements": lifecycle.get("fleet_requirements", {}),
         "mcp_freshness_controller": lifecycle.get("mcp_freshness_controller", {}),
+        "runtime_artifact_manifest": build_runtime_artifact_manifest(
+            registry,
+            now="registry-declared",
+        ),
         "requires_e2e": lifecycle.get("requires_e2e", True),
         "targets": intent_targets,
         "coord_targets": intent_coord_targets,
@@ -193,6 +198,10 @@ def validate_lifecycle_task_payload(
         "activation_evidence_contract": lifecycle.get("activation_evidence_contract", {}),
         "fleet_requirements": lifecycle.get("fleet_requirements", {}),
         "mcp_freshness_controller": lifecycle.get("mcp_freshness_controller", {}),
+        "runtime_artifact_manifest": build_runtime_artifact_manifest(
+            registry,
+            now="registry-declared",
+        ),
         "requires_e2e": lifecycle.get("requires_e2e", True),
         "targets": expected_targets,
         "coord_targets": expected_coord_targets,

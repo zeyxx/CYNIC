@@ -2,12 +2,292 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 
 from organs.contracts.src.surface_contracts import json_object_or_default
 
 from .entities import FleetProbe
+
+
+def _run_json_shell(command: str, *, timeout: int = 30) -> tuple[dict | None, dict]:
+    try:
+        result = subprocess.run(
+            ["bash", "-lc", command],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        metadata = {
+            "command": command,
+            "exit_code": result.returncode,
+            "stdout": result.stdout.strip(),
+            "stderr": result.stderr.strip(),
+        }
+    except subprocess.TimeoutExpired as exc:
+        return None, {
+            "command": command,
+            "exit_code": None,
+            "stdout": (exc.stdout or "").strip(),
+            "stderr": (exc.stderr or "").strip(),
+            "timeout_seconds": timeout,
+            "error": "timeout",
+        }
+    if result.returncode != 0:
+        return None, metadata
+    try:
+        return json.loads(result.stdout), metadata
+    except json.JSONDecodeError as exc:
+        metadata["stderr"] = (
+            f"{metadata['stderr']}\njson_decode_error:{exc}"
+            if metadata["stderr"]
+            else f"json_decode_error:{exc}"
+        )
+        return None, metadata
+
+
+def _run_json_program(
+    argv: list[str],
+    request: dict[str, object],
+    *,
+    timeout: int = 30,
+) -> tuple[dict | None, dict]:
+    try:
+        result = subprocess.run(
+            argv,
+            input=json.dumps(request, separators=(",", ":")),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        metadata = {
+            "argv": argv,
+            "exit_code": result.returncode,
+            "stdout": result.stdout.strip(),
+            "stderr": result.stderr.strip(),
+        }
+    except subprocess.TimeoutExpired as exc:
+        return None, {
+            "argv": argv,
+            "exit_code": None,
+            "stdout": (exc.stdout or "").strip(),
+            "stderr": (exc.stderr or "").strip(),
+            "timeout_seconds": timeout,
+            "error": "timeout",
+        }
+    if not result.stdout.strip():
+        return None, metadata
+    try:
+        return json.loads(result.stdout), metadata
+    except json.JSONDecodeError as exc:
+        metadata["stderr"] = (
+            f"{metadata['stderr']}\njson_decode_error:{exc}"
+            if metadata["stderr"]
+            else f"json_decode_error:{exc}"
+        )
+        return None, metadata
+
+
+def _probe_mcp_launcher_freshness(timeout: int = 30) -> dict | None:
+    env = os.environ.copy()
+    env["CYNIC_MCP_CHECK_ONLY"] = "1"
+    result = subprocess.run(
+        ["python3", ".cortex/mcp/run_cynic_mcp.py"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=env,
+    )
+    stdout = result.stdout.strip()
+    if not stdout:
+        return None
+    try:
+        payload = json.loads(stdout)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def probe_fleet_node_exec_transport(hostname: str, timeout: int = 30) -> dict:
+    request = {
+        "tool": "fleet_node_exec",
+        "node": hostname,
+        "command": "hostname",
+        "timeout_seconds": timeout,
+        "purpose": "verify root-capable remote execution transport for network repair",
+        "agent_id": "organ-forge-network-root-channel",
+    }
+    payload, metadata = _run_json_program(
+        ["python3", "organs/forge/src/entrypoints/fleet_node_exec_wrapper.py"],
+        request,
+        timeout=timeout,
+    )
+    if not isinstance(payload, dict):
+        return {
+            "enabled": True,
+            "status": "blocked",
+            "error": "remote_exec_transport_no_payload",
+            "request": request,
+            "metadata": metadata,
+        }
+    probe = {
+        "enabled": True,
+        "status": payload.get("status", "blocked"),
+        "ok": payload.get("ok", False),
+        "error": payload.get("error"),
+        "transport": payload.get("transport"),
+        "stderr": payload.get("stderr"),
+        "canonical_binary": payload.get("canonical_binary"),
+        "repair_local_debug_binary": payload.get("repair_local_debug_binary"),
+        "stale_source": payload.get("stale_source"),
+        "missing": payload.get("missing"),
+        "reason": payload.get("reason"),
+        "required_bridge": payload.get("required_bridge"),
+        "declared_role": payload.get("declared_role"),
+        "declared_transport": payload.get("declared_transport"),
+        "response": payload.get("response"),
+        "request": request,
+        "metadata": metadata,
+    }
+    response = payload.get("response") if isinstance(payload.get("response"), dict) else {}
+    response_error = response.get("error") if isinstance(response, dict) else {}
+    if isinstance(response_error, dict):
+        probe["response_error_code"] = response_error.get("code")
+        probe["response_error_message"] = response_error.get("message")
+    if probe.get("error") == "mcp_initialize_failed":
+        launcher_check = _probe_mcp_launcher_freshness(timeout=timeout)
+        if isinstance(launcher_check, dict):
+            probe["launcher_check"] = launcher_check
+            for key in ("canonical_binary", "repair_local_debug_binary", "stale_source", "status"):
+                if probe.get(key) in (None, False) and key in launcher_check:
+                    target_key = "launcher_status" if key == "status" else key
+                    probe[target_key] = launcher_check.get(key)
+                elif key == "status":
+                    probe["launcher_status"] = launcher_check.get("status")
+    return probe
+
+
+def probe_local_network_runtime(timeout: int = 30) -> dict:
+    observe_command = "cargo run -q -p cynic-node -- observe --json"
+    actuator_command = "cargo run -q -p cynic-node -- network actuator-status --json"
+    host_exec_command = "python3 organs/fleet/src/entrypoints/cli.py host-exec activation-status --bundle-dir /tmp/cynic-host-exec"
+    observation, observation_meta = _run_json_shell(observe_command, timeout=timeout)
+    actuator, actuator_meta = _run_json_shell(actuator_command, timeout=timeout)
+    host_exec_activation, host_exec_meta = _run_json_shell(host_exec_command, timeout=timeout)
+
+    blockers: list[dict] = []
+    hostname = None
+    if isinstance(observation, dict):
+        hostname = observation.get("hostname")
+        mesh_status_projection = observation.get("network_mesh_status")
+        projected_runtime_status = None
+        if isinstance(mesh_status_projection, dict):
+            projected_runtime_status = mesh_status_projection.get("runtime_status")
+        for blocker in observation.get("blockers", []):
+            blockers.append(
+                {
+                    "category": "network",
+                    "kind": "runtime_blocker",
+                    "hostname": hostname,
+                    "severity": observation.get("severity"),
+                    "runtime_status": projected_runtime_status or observation.get("status"),
+                    "code": f"network_runtime:{blocker}",
+                    "blocker": blocker,
+                    "resolver_organ": "cynic-node",
+                    "resolver_consumer": "organ-forge-hermes-agent",
+                    "command": observe_command,
+                }
+            )
+    if isinstance(actuator, dict) and actuator.get("status") != "active":
+        blockers.append(
+            {
+                "category": "network",
+                "kind": "actuator_activation",
+                "hostname": hostname,
+                "actual": actuator.get("status"),
+                "required": "active",
+                "code": f"network_actuator:{actuator.get('status', 'unknown')}",
+                "resolver_organ": "organ-fleet",
+                "resolver_consumer": "organ-forge-hermes-agent",
+                "command": actuator_command,
+                "next_actions": actuator.get("next_actions", []),
+                "root_authority": actuator.get("root_authority"),
+            }
+        )
+        root_authority = actuator.get("root_authority", {})
+        if isinstance(root_authority, dict) and root_authority.get("sudo_noninteractive_available") is False:
+            transport_probe = probe_fleet_node_exec_transport(hostname or "unknown", timeout=30)
+            if isinstance(host_exec_activation, dict) and host_exec_activation.get("status") != "active":
+                blockers.append(
+                    {
+                        "category": "network",
+                        "kind": "host_exec_activation",
+                        "hostname": hostname,
+                        "actual": host_exec_activation.get("status"),
+                        "required": "active",
+                        "code": f"network_host_exec:{host_exec_activation.get('status', 'unknown')}",
+                        "resolver_organ": "organ-fleet",
+                        "resolver_consumer": "organ-forge-hermes-agent",
+                        "command": host_exec_command,
+                        "missing": host_exec_activation.get("missing", []),
+                        "helper_path": host_exec_activation.get("helper_path"),
+                        "sudoers_rule": host_exec_activation.get("sudoers_rule"),
+                        "next_actions": host_exec_activation.get("next_actions", []),
+                        "proof_requirements": host_exec_activation.get("proof_requirements", []),
+                        "bundle_complete": host_exec_activation.get("bundle_complete"),
+                    }
+                )
+            blockers.append(
+                {
+                    "category": "network",
+                    "kind": "root_authority",
+                    "hostname": hostname,
+                    "actual": "sudo_prompt_required",
+                    "required": "sudo_noninteractive_available",
+                    "code": "network_root_authority:sudo_noninteractive_unavailable",
+                    "resolver_organ": "organ-fleet",
+                    "resolver_consumer": "organ-forge-hermes-agent",
+                    "command": root_authority.get("command", "sudo -n true"),
+                }
+            )
+            if transport_probe.get("status") != "ok":
+                blockers.append(
+                    {
+                        "category": "network",
+                        "kind": "remote_exec_transport",
+                        "hostname": hostname,
+                        "actual": transport_probe.get("error") or transport_probe.get("status"),
+                        "required": "ok",
+                        "code": f"network_remote_exec_transport:{transport_probe.get('error') or transport_probe.get('status')}",
+                        "resolver_organ": "organ-forge",
+                        "resolver_consumer": "organ-forge-hermes-agent",
+                        "command": "python3 organs/forge/src/entrypoints/fleet_node_exec_wrapper.py",
+                        "transport_probe": transport_probe,
+                    }
+                )
+
+    if observation is None and actuator is None:
+        return {
+            "enabled": True,
+            "status": "error",
+            "error": "network_runtime_probe_failed",
+            "commands": [observation_meta, actuator_meta],
+            "blockers": [],
+        }
+    return {
+        "enabled": True,
+        "status": "blocked" if blockers else "ok",
+        "hostname": hostname,
+        "observation": observation,
+        "actuator_activation": actuator,
+        "host_exec_activation": host_exec_activation,
+        "commands": [observation_meta, actuator_meta, host_exec_meta],
+        "blockers": blockers,
+    }
 
 
 def build_activation_evidence_gap_details(
@@ -153,57 +433,76 @@ def inspect_fleet(
     timeout: int = 10,
 ) -> dict:
     target_names = {build_target, deploy_target}
-    try:
-        result = subprocess.run(
-            ["synapse", "status", "--json"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except FileNotFoundError:
-        return FleetProbe.from_dict({"enabled": True, "status": "degraded", "error": "synapse_cli_unavailable", "targets": sorted(target_names)})
-    except subprocess.TimeoutExpired:
-        return FleetProbe.from_dict({"enabled": True, "status": "error", "error": "synapse_status_timeout", "targets": sorted(target_names)})
-    except OSError as exc:
-        return FleetProbe.from_dict({"enabled": True, "status": "error", "error": type(exc).__name__, "targets": sorted(target_names)})
-    if result.returncode != 0:
-        return FleetProbe.from_dict({"enabled": True, "status": "error", "error": "synapse_status_failed", "targets": sorted(target_names)})
-    status = json_object_or_default(result.stdout)
-    if not status:
-        return FleetProbe.from_dict({"enabled": True, "status": "error", "error": "synapse_json_invalid", "targets": sorted(target_names)})
-    peers = list((status.get("Peer") or {}).values())
-    self_node = status.get("Self")
-    if isinstance(self_node, dict):
-        peers.append(self_node)
-    by_name = {}
-    for peer in peers:
-        names = {
-            str(peer.get("HostName", "")).lower(),
-            str(peer.get("DNSName", "")).split(".", 1)[0].lower(),
-        }
-        for name in names:
-            if name:
-                by_name[name] = peer
     matches = {}
     missing = []
+    
+    # ORGAN-WIREGUARD-V3: Agnostic network probe with Deep Sovereignty.
+    # We resolve the name directly from the registry SSoT to bypass local DNS / hosts.
+    try:
+        import json
+        from pathlib import Path
+        
+        # Locate the registry.json dynamically
+        # Assuming we are in CYNIC/organs/forge/src/core/lifecycle_readiness.py
+        registry_path = Path(__file__).resolve().parent.parent.parent.parent.parent / "infra" / "registry.json"
+        
+        registry_data = {}
+        if registry_path.exists():
+            with open(registry_path, "r", encoding="utf-8") as f:
+                registry_data = json.load(f)
+                
+        # Build a name-to-ip map
+        ip_map = {}
+        for node in registry_data.get("nodes", []):
+            name = node.get("name")
+            ip = node.get("network", {}).get("local") or node.get("ip")
+            if name and ip and ip != "dhcp":
+                ip_map[name] = ip
+                
+    except Exception as e:
+        ip_map = {}
+
     for target in sorted(target_names):
-        peer = by_name.get(target.lower())
-        if not peer:
+        try:
+            # Use the registry IP if found, otherwise fallback to the raw target name
+            target_ip = ip_map.get(target, target)
+            
+            result = subprocess.run(
+                ["ping", "-c", "1", "-W", "1", target_ip],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+            if result.returncode == 0:
+                matches[target] = {
+                    "online": True,
+                    "os": "unknown",  # OS agnostic
+                    "name": target,
+                }
+            else:
+                missing.append(target)
+        except FileNotFoundError:
+            return FleetProbe.from_dict(
+                {
+                    "enabled": True,
+                    "status": "degraded",
+                    "error": "synapse_cli_unavailable",
+                    "targets": sorted(target_names),
+                }
+            )
+        except Exception:
             missing.append(target)
-            continue
-        matches[target] = {
-            "online": bool(peer.get("Online")),
-            "os": peer.get("OS", "unknown"),
-            "name": peer.get("HostName") or peer.get("DNSName", "").split(".", 1)[0],
-        }
+            
+    if missing:
+        return FleetProbe.from_dict({"enabled": True, "status": "degraded", "error": "nodes_unreachable", "targets": missing})
+
     return FleetProbe.from_dict({
         "enabled": True,
         "status": "ok",
         "missing": missing,
         "matches": matches,
         "targets": sorted(target_names),
-        "mesh_running": status.get("BackendState") == "Running"
     })
 
 
@@ -287,14 +586,14 @@ def lifecycle_blockers(
                     "actual": fleet_status,
                     "error": fleet_probe.get("error"),
                     "code": f"fleet_probe:{fleet_status}",
-                    "resolver_organ": "organ-wireguard",
+                    "resolver_organ": "organ-fleet",
                     "resolver_consumer": "organ-forge-hermes-agent",
                 }
                 if fleet_probe.get("error") == "synapse_cli_unavailable":
                     blocker.update(
                         {
-                            "operator_action": "activate organ-wireguard / synapse CLI on the registry build runner environment",
-                            "command": "python3 organs/wireguard/src/entrypoints/cli.py sync-dns --registry infra/registry.json",
+                            "operator_action": "restore the organ-fleet synapse probe surface on the registry build runner environment",
+                            "command": "python3 organs/fleet/src/entrypoints/cli.py report --json --registry infra/registry.json",
                         }
                     )
                 blockers.append(blocker)
