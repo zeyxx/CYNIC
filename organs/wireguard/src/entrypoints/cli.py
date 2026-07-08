@@ -25,7 +25,6 @@ except ImportError:
 
 from organs.wireguard.src.adapters.cli_runtime import (
     WIREGUARD_SURFACE_REGISTRY,
-    run_daemon,
     run_dns_activation_status,
     run_dns_bundle,
     run_provider_fallback_hosts,
@@ -42,8 +41,8 @@ logger = logging.getLogger("wireguard-cli")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="organ-wireguard control surface")
-    subparsers = parser.add_subparsers(dest="command")
+    parser = argparse.ArgumentParser(description="organ-wireguard compatibility surface")
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
     sync_dns = subparsers.add_parser("sync-dns", help="render CoreDNS synapse hosts from registry")
     sync_dns.add_argument("--registry", default="infra/registry.json")
@@ -87,12 +86,11 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--resolve-dns", action="store_true")
     status.add_argument("--include-records", action="store_true")
     status.add_argument("--observe-runtime", action="store_true")
-    subparsers.add_parser("daemon", help="run the WireGuard mesh control loop")
     return parser
 
 
 def dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    command = args.command or "daemon"
+    command = args.command
     if command == "sync-dns":
         return run_sync_dns(args.registry, args.state_dir)
     if command == "validate":
@@ -116,15 +114,6 @@ def dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         return run_provider_fallback_status(args.registry, args.hosts_path, args.check_connectivity)
     if command == "status":
         return run_status(args.registry, args.resolve_dns, args.include_records, args.observe_runtime)
-    if command == "daemon":
-        if os.environ.get("CYNIC_ALLOW_LEGACY_WIREGUARD_DAEMON") != "1":
-            print(
-                "organ-wireguard daemon is legacy-blocked; use organ-fleet/cynic-node surfaces or set "
-                "CYNIC_ALLOW_LEGACY_WIREGUARD_DAEMON=1 for breakglass compatibility.",
-                file=sys.stderr,
-            )
-            return 2
-        return run_daemon()
     parser.error(f"unknown command: {command}")
     return 2
 

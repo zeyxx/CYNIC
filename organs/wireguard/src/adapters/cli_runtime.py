@@ -1,12 +1,10 @@
-"""Runtime functions for the organ-wireguard CLI surface."""
+"""Runtime functions for the organ-wireguard compatibility CLI surface."""
 
 from __future__ import annotations
 
-import asyncio
 import argparse
 import json
 import logging
-import os
 import shutil
 import socket
 import subprocess
@@ -274,48 +272,3 @@ def _provider_connectivity_status(service_checks: list[dict]) -> list[dict]:
             sock.close()
         results.append({**check, "status": status, "network_status": network_status, "error": error})
     return results
-
-
-def run_daemon() -> int:
-    if os.geteuid() != 0:
-        logger.warning("Daemon is not running as root. Netlink commands will likely fail.")
-
-    from organs.wireguard.src.adapters.netlink_adapter import NetlinkWireguardAdapter
-    from organs.wireguard.src.adapters.surreal_adapter import SurrealMeshAdapter
-    from organs.wireguard.src.controllers.mesh_agent import MeshAgent
-
-    node_name = os.environ.get("CYNIC_NODE_NAME") or socket.gethostname()
-    interface = os.environ.get("CYNIC_WG_INTERFACE", "wg0")
-    stun_host = os.environ.get("CYNIC_STUN_HOST", "stun.l.google.com")
-    stun_port = int(os.environ.get("CYNIC_STUN_PORT", 19302))
-    surreal_url = os.environ.get("SURREALDB_URL", "http://localhost:8000")
-    surreal_ns = os.environ.get("SURREALDB_NS", "cynic")
-    surreal_db = os.environ.get("SURREALDB_DB", "main")
-    surreal_user = os.environ.get("SURREALDB_USER", "root")
-    surreal_pass = os.environ.get("SURREALDB_PASS", "")
-
-    if not surreal_pass:
-        logger.warning("SURREALDB_PASS is not set.")
-
-    agent = MeshAgent(
-        node_name=node_name,
-        interface=interface,
-        stun_host=stun_host,
-        stun_port=stun_port,
-        state_port=SurrealMeshAdapter(
-            url=surreal_url,
-            ns=surreal_ns,
-            db=surreal_db,
-            user=surreal_user,
-            password=surreal_pass,
-        ),
-        net_port=NetlinkWireguardAdapter(),
-        dns_port=CoreDNSAdapter(state_dir="/etc/coredns"),
-    )
-
-    try:
-        asyncio.run(agent.start())
-    except KeyboardInterrupt:
-        logger.info("Exiting organ-wireguard daemon.")
-        return 0
-    return 0

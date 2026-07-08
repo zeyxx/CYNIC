@@ -2,20 +2,14 @@ name: organ-wireguard
 domain: synapse-mesh
 domain_role: legacy_private_service_mesh_implementation
 role: legacy_synapse_mesh_implementation
-description: "Legacy WireGuard membrane retained for compatibility and migration evidence; canonical network control already lives in cynic-node and organ-fleet."
+description: "Legacy WireGuard compatibility shim retained for reports and migration evidence; canonical network control already lives in cynic-node and organ-fleet."
 version: 0.2.0
 status: legacy_blocked
 dependencies:
   - cynic-kernel
 interfaces:
-  mesh_state:
-    - fetch_mesh_nodes
-    - fetch_mesh_routes
-    - publish_node_endpoint
+  compatibility_reports:
     - report_mesh_status
-  network_interface:
-    - apply_wireguard_config
-    - resolve_external_endpoint
   dns_projection:
     - render_synapse_hosts
     - sync_synapse_hosts
@@ -36,10 +30,10 @@ scripts:
     owner: organ-wireguard
     expiry_condition: all remaining compatibility callers move to organ-fleet or cynic-node
   - name: src/adapters/cli_runtime.py
-    description: Legacy runtime implementation backing compatibility report surfaces and fallback helpers
+    description: Legacy compatibility implementation forwarding report surfaces and fallback helpers to organ-fleet
     integration_status: transition_debt
     owner: organ-wireguard
-    expiry_condition: active runtime effects are fully absorbed by organ-fleet, cynic-node, and network-actuator
+    expiry_condition: all compatibility callers move to organ-fleet and the shim can be deleted
 runbooks:
   - runbooks/operations.json
 commands:

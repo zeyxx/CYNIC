@@ -322,28 +322,11 @@ class WireguardCliTests(unittest.TestCase):
         self.assertIn("cynic fallback-hosts", WIREGUARD_SURFACE_REGISTRY.report_names())
         self.assertIn("cynic fallback-status", WIREGUARD_SURFACE_REGISTRY.report_names())
 
-    def test_daemon_requires_explicit_breakglass_env(self):
+    def test_daemon_command_is_removed_from_legacy_surface(self):
         parser = build_parser()
-        args = parser.parse_args(["daemon"])
-        stderr = io.StringIO()
-
-        with patch.dict("os.environ", {}, clear=False):
-            with patch("sys.stderr", stderr):
-                status = dispatch(args, parser)
-
-        self.assertEqual(status, 2)
-        self.assertIn("legacy-blocked", stderr.getvalue())
-
-    def test_daemon_runs_when_breakglass_env_is_set(self):
-        parser = build_parser()
-        args = parser.parse_args(["daemon"])
-
-        with patch.dict("os.environ", {"CYNIC_ALLOW_LEGACY_WIREGUARD_DAEMON": "1"}, clear=False):
-            with patch("organs.wireguard.src.entrypoints.cli.run_daemon", return_value=0) as run_daemon_mock:
-                status = dispatch(args, parser)
-
-        self.assertEqual(status, 0)
-        run_daemon_mock.assert_called_once_with()
+        with self.assertRaises(SystemExit) as exc:
+            parser.parse_args(["daemon"])
+        self.assertEqual(exc.exception.code, 2)
 
 
 if __name__ == "__main__":
