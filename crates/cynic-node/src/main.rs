@@ -25,6 +25,7 @@ mod network_actuator_status;
 mod network_evidence;
 mod network_repair;
 mod network_root_policy;
+mod network_runtime_status;
 mod network_shadow_proof;
 mod observe;
 mod provider_fallback_hosts;

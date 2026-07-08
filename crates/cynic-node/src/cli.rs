@@ -81,7 +81,10 @@ pub(crate) enum NetworkCommands {
         #[arg(long, default_value = "/etc/systemd/system/coredns-synapse.service")]
         service_path: String,
         /// Resolved drop-in path to validate.
-        #[arg(long, default_value = "/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf")]
+        #[arg(
+            long,
+            default_value = "/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf"
+        )]
         resolved_dropin_path: String,
         /// Also validate DNS resolution semantics.
         #[arg(long)]
@@ -164,5 +167,38 @@ pub(crate) enum NetworkCommands {
         /// Include runtime observation in the Python mesh status surface.
         #[arg(long)]
         observe_runtime: bool,
+    },
+    /// Emit unified local network runtime status for lifecycle readiness.
+    RuntimeStatus {
+        /// Emit JSON. Present for explicit operator intent; currently always JSON.
+        #[arg(long)]
+        json: bool,
+        /// Registry path used to derive runtime checks.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+        /// Also validate DNS resolution semantics.
+        #[arg(long)]
+        resolve_dns: bool,
+        /// Probe critical service sockets through the provider fallback plane.
+        #[arg(long)]
+        check_provider_connectivity: bool,
+        /// Provider fallback hosts file to validate.
+        #[arg(long, default_value = "/etc/cynic/provider-fallback.hosts")]
+        provider_hosts_path: String,
+        /// Hosts path to validate.
+        #[arg(long, default_value = "/etc/coredns/synapse.hosts")]
+        hosts_path: String,
+        /// Corefile path to validate.
+        #[arg(long, default_value = "/etc/coredns/Corefile")]
+        corefile_path: String,
+        /// Service path to validate.
+        #[arg(long, default_value = "/etc/systemd/system/coredns-synapse.service")]
+        service_path: String,
+        /// Resolved drop-in path to validate.
+        #[arg(
+            long,
+            default_value = "/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf"
+        )]
+        resolved_dropin_path: String,
     },
 }

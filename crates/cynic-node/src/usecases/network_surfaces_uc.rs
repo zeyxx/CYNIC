@@ -1,13 +1,14 @@
 use std::process::ExitCode;
 
+use crate::cli::NetworkCommands;
 use crate::dns_activation_status;
 use crate::dns_bundle;
 use crate::dns_plan;
-use crate::cli::NetworkCommands;
 use crate::network_actuator_status;
 use crate::network_evidence;
 use crate::network_repair;
 use crate::network_root_policy;
+use crate::network_runtime_status;
 use crate::network_shadow_proof;
 use crate::observe;
 use crate::provider_fallback_hosts;
@@ -83,7 +84,9 @@ pub(crate) fn execute_network_command(command: &NetworkCommands) -> ExitCode {
         }
         NetworkCommands::Repair { dry_run, registry } => {
             if !dry_run {
-                tracing::error!("network repair currently requires --dry-run; apply is not implemented");
+                tracing::error!(
+                    "network repair currently requires --dry-run; apply is not implemented"
+                );
                 return ExitCode::FAILURE;
             }
             let observation = observe::observe_payload(Some(registry));
@@ -128,17 +131,53 @@ pub(crate) fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             registry,
             resolve_dns,
             observe_runtime,
-        } => match network_shadow_proof::build_shadow_proof(registry, *resolve_dns, *observe_runtime) {
+        } => {
+            match network_shadow_proof::build_shadow_proof(registry, *resolve_dns, *observe_runtime)
+            {
+                Ok(report) => {
+                    let should_fail = report.status == "drift_detected";
+                    emit_json("network shadow proof", &report, should_fail)
+                }
+                Err(error) => {
+                    tracing::error!("network shadow proof failed: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        NetworkCommands::RuntimeStatus {
+            json: _,
+            registry,
+            resolve_dns,
+            check_provider_connectivity,
+            provider_hosts_path,
+            hosts_path,
+            corefile_path,
+            service_path,
+            resolved_dropin_path,
+        } => match network_runtime_status::build_network_runtime_status(
+            registry,
+            *resolve_dns,
+            *check_provider_connectivity,
+            provider_hosts_path,
+            hosts_path,
+            corefile_path,
+            service_path,
+            resolved_dropin_path,
+        ) {
             Ok(report) => {
-                let should_fail = report.status == "drift_detected";
-                emit_json("network shadow proof", &report, should_fail)
+                let should_fail = should_fail_runtime_status(&report.status);
+                emit_json("network runtime status", &report, should_fail)
             }
             Err(error) => {
-                tracing::error!("network shadow proof failed: {error}");
+                tracing::error!("network runtime status failed: {error}");
                 ExitCode::FAILURE
             }
         },
     }
+}
+
+fn should_fail_runtime_status(status: &str) -> bool {
+    status == "blocked"
 }
 
 fn emit_json<T: serde::Serialize>(label: &str, value: &T, should_fail: bool) -> ExitCode {
@@ -155,5 +194,17 @@ fn emit_json<T: serde::Serialize>(label: &str, value: &T, should_fail: bool) -> 
             tracing::error!("{label} serialization failed: {error}");
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_fail_runtime_status;
+
+    #[test]
+    fn runtime_status_only_fails_when_blocked() {
+        assert!(should_fail_runtime_status("blocked"));
+        assert!(!should_fail_runtime_status("provider_fallback_active"));
+        assert!(!should_fail_runtime_status("mesh_active"));
     }
 }
