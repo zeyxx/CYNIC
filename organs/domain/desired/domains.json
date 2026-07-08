@@ -1,0 +1,27 @@
+{
+  "schema": "cynic.domain-ops.desired.v1",
+  "_comment": "Desired state for all public-facing domains managed by the CYNIC organism. No secrets here — credentials are read from environment variables only.",
+  "apex": "talaria.build",
+  "registrar": "porkbun",
+  "dns_authority": {
+    "current": "porkbun",
+    "target": "cloudflare",
+    "migration_status": "pending"
+  },
+  "apps": [
+    {
+      "subdomain": "odysseum",
+      "fqdn": "odysseum.talaria.build",
+      "pages_project": "odysseum",
+      "source_dir": "packages/odysseum-ui/dist",
+      "analytics": true,
+      "status": "pending",
+      "_comment": "First public deployment. Pending zone migration."
+    }
+  ],
+  "proxy_policy": {
+    "web_records": "proxied",
+    "mail_records": "dns_only",
+    "verification_txt": "dns_only"
+  }
+}

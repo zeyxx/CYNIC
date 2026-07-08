@@ -1,0 +1,28 @@
+id: organ-exposure
+tier: 2
+domain: organism/exposure
+status: ACTIVE
+
+description: |
+  Organism exposure organ. Computes the universal tool/capability surface that
+  cortex agents receive from the CYNIC organism and renders agent-specific
+  projections from a single machine source of truth.
+
+inputs:
+  - source: infra/agent-exposure.json
+    data: declared MCP servers, tool approvals, agent targets, and runtime requirements
+
+outputs:
+  - path: process/stdout
+    format: TOML / JSON
+    frequency: on demand
+  - path: REST future kernel /observe
+    format: REST POST
+    frequency: on drift detection
+
+scripts:
+  - name: src/entrypoints/cli.py
+    description: Exposure projection CLI; replaces root-level ad-hoc render scripts.
+    integration_status: transition_debt
+    owner: organ-exposure
+    expiry_condition: track organ-exposure CLI or quarantine the organ

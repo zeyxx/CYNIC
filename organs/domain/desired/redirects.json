@@ -1,0 +1,5 @@
+{
+  "schema": "cynic.domain-ops.redirects.v1",
+  "_comment": "Desired state for Cloudflare bulk redirects. Each entry maps a source hostname to a canonical target. No secrets here.",
+  "redirects": []
+}

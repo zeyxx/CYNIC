@@ -1,0 +1,76 @@
+name: organ-domain
+domain: public-edge
+domain_role: public_dns_and_registrar_ops
+role: public_domain_ops
+description: >
+  Sovereign public domain operations for the CYNIC organism.
+  Manages the full lifecycle from registrar (Porkbun) to public edge
+  (Cloudflare DNS, Pages, bulk redirects, proxy policy).
+  Desired state lives in desired/domains.json. No scripts; only
+  entrypoint-driven use cases behind explicit approval gates.
+version: 0.1.0
+status: planned
+maturity: canonical_partial
+dependencies:
+  - cynic-kernel
+
+interfaces:
+  registrar_ops:
+    - check_availability
+    - portfolio_list
+    - expiry_audit
+    - register_domain
+    - set_nameservers
+  zone_ops:
+    - backup_zone
+    - migrate_zone
+    - write_dns_record
+    - verify_delegation
+  pages_ops:
+    - deploy_pages_site
+    - attach_custom_domain
+    - verify_pages_site
+  redirect_ops:
+    - reconcile_redirects
+    - verify_redirects
+  proxy_ops:
+    - audit_proxy_status
+    - patch_proxy_drift
+
+state_paths:
+  - desired/domains.json
+  - desired/redirects.json
+  - state/backups/
+
+commands:
+  status:
+    - python3 organs/domain/src/entrypoints/cli.py status --desired organs/domain/desired/domains.json
+  check:
+    - python3 organs/domain/src/entrypoints/cli.py registrar check talaria.build
+  portfolio:
+    - python3 organs/domain/src/entrypoints/cli.py registrar portfolio
+  expiry_audit:
+    - python3 organs/domain/src/entrypoints/cli.py registrar expiry-audit
+  zone_backup:
+    - python3 organs/domain/src/entrypoints/cli.py zone backup --desired organs/domain/desired/domains.json
+  zone_migrate_dry_run:
+    - python3 organs/domain/src/entrypoints/cli.py zone migrate --desired organs/domain/desired/domains.json --dry-run
+  pages_deploy_dry_run:
+    - python3 organs/domain/src/entrypoints/cli.py pages deploy --desired organs/domain/desired/domains.json --dry-run
+  pages_verify:
+    - python3 organs/domain/src/entrypoints/cli.py pages verify --desired organs/domain/desired/domains.json
+  redirect_verify:
+    - python3 organs/domain/src/entrypoints/cli.py redirects verify --desired organs/domain/desired/redirects.json
+  proxy_audit:
+    - python3 organs/domain/src/entrypoints/cli.py proxy audit --desired organs/domain/desired/domains.json
+
+rules:
+  - secrets_never_in_desired_state
+  - reads_env_vars_only_for_credentials
+  - backup_zone_before_any_write
+  - approval_gate_for_paid_operations
+  - approval_gate_for_ns_cutover
+  - does_not_own_internal_dns
+  - does_not_replace_organ_wireguard
+  - does_not_replace_organ_headscale
+  - verifies_via_authoritative_nameservers
