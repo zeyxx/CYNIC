@@ -735,6 +735,43 @@ class RootAndMaturityTopologyTests(unittest.TestCase):
 
         self.assertIn("python_organ_authority_total_mismatch", [item.kind for item in findings])
 
+    def test_rejects_active_logic_inside_python_legacy_duplication_organ(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inventory_path = write_python_organ_authority_fixture(
+                root,
+                inventory_organs=[
+                    {
+                        "path": "organs/fleet/",
+                        "classification": "python_transitional_vital",
+                        "rust_authority_targets": ["crates/cynic-node"],
+                        "reason": "fleet network authority is converging into cynic-node",
+                    },
+                    {
+                        "path": "organs/browser/",
+                        "classification": "python_legacy_duplication",
+                        "rust_authority_targets": ["crates/cynic-node"],
+                        "reason": "legacy organ should not keep active logic",
+                    },
+                ],
+            )
+            (root / "organs" / "browser" / "src" / "controllers").mkdir(parents=True, exist_ok=True)
+            (root / "organs" / "browser" / "src" / "controllers" / "mesh_agent.py").write_text(
+                "VALUE = 1\n",
+                encoding="utf-8",
+            )
+            old_values = (module.WORKSPACE_ROOT, module.ORGANS_ROOT, module.PYTHON_ORGAN_AUTHORITY_INVENTORY_PATH)
+            try:
+                module.WORKSPACE_ROOT = root
+                module.ORGANS_ROOT = root / "organs"
+                module.PYTHON_ORGAN_AUTHORITY_INVENTORY_PATH = inventory_path
+                findings = module.validate_python_organ_authority_inventory_contract()
+            finally:
+                module.WORKSPACE_ROOT, module.ORGANS_ROOT, module.PYTHON_ORGAN_AUTHORITY_INVENTORY_PATH = old_values
+
+        self.assertIn("python_legacy_duplication_active_logic_present", [item.kind for item in findings])
+
 
 if __name__ == "__main__":
     unittest.main()

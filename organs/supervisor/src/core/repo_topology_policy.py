@@ -597,6 +597,24 @@ def validate_python_organ_authority_inventory_contract() -> list[host.Finding]:
                     "Organs with declared Python vital function groups must not be classified as python_membrane.",
                 )
             )
+        if rel and classification == "python_legacy_duplication":
+            organ_dir = host.WORKSPACE_ROOT / rel
+            active_legacy_paths = [organ_dir / "src" / "core" / "use_cases.py"]
+            if (organ_dir / "src" / "controllers").exists():
+                active_legacy_paths.extend((organ_dir / "src" / "controllers").rglob("*.py"))
+            if (organ_dir / "src" / "adapters").exists():
+                active_legacy_paths.extend((organ_dir / "src" / "adapters").glob("*netlink*.py"))
+                active_legacy_paths.extend((organ_dir / "src" / "adapters").glob("*surreal*.py"))
+            active_legacy_paths = [path for path in active_legacy_paths if path.exists()]
+            for legacy_path in active_legacy_paths:
+                findings.append(
+                    host.Finding(
+                        "critical",
+                        "python_legacy_duplication_active_logic_present",
+                        host.relative(legacy_path),
+                        "Organs classified as python_legacy_duplication must not keep controllers, active use cases, or provider-specific actuation adapters.",
+                    )
+                )
 
     immediate_python_organs = {
         f"{host.relative(path)}/"
