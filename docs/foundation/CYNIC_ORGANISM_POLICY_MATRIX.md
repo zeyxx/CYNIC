@@ -167,7 +167,7 @@ substitute for the registry executor once the bus is reachable again.
 | Hermes executor contract | `docs/organs/HERMES_AGENT.md` | Persistent-agent adapter contract |
 | Kernel APIs | `crates/cynic-kernel/` | Memory, coordination, health, storage |
 | MCP proxy | `crates/cynic-mcp/` | Portable tool surface |
-| Python persistent-agent runtime | `services/ouroboros-runtime/src/ouroboros_runtime/core/` | Ouroboros executor framework |
+| Python persistent-agent runtimes | `services/{coordination,observability,reliability}-runtime/src/` | declared runtime membranes consumed by organs and Hermes surfaces |
 
 If a concern appears in two places, the lower-level file may only project or
 implement the higher-level rule. It must not redefine it.

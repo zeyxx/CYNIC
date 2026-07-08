@@ -15,10 +15,8 @@
   ],
   "scan_roots": [
     "services/coordination-runtime/src/",
-    "services/ouroboros-runtime/src/",
     "services/reliability-runtime/src/",
     "services/observability-runtime/src/",
-    "infra/systemd/",
     "organs/twitter/systemd/",
     "organs/discord/systemd/",
     "organs/telegram/systemd/"
@@ -46,103 +44,13 @@
       "status": "transitional"
     },
     {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/ouroboros.py",
-      "current_mechanism": "executor loop waiting on blocking task intake port",
-      "target_mechanism": "event-driven task intake backed by kernel-native watch",
-      "status": "transitional"
-    },
-    {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/daemon.py",
-      "current_mechanism": "operator-configured wait timeout and status-check interval",
-      "target_mechanism": "stream/listener bootstrap with narrower status-check semantics",
-      "status": "transitional"
-    },
-    {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_kanban_executor.py",
-      "current_mechanism": "Hermes kanban show polling",
-      "target_mechanism": "Hermes execution event stream or blocking status wait",
-      "status": "transitional"
-    },
-    {
-      "path": "infra/systemd/hermes-agent-executor.service",
-      "current_mechanism": "status interval environment for Hermes executor",
-      "target_mechanism": "event-driven executor service configuration",
-      "status": "transitional"
-    },
-    {
       "path": "organs/twitter/systemd/organ-twitter-hermes-agent.service",
       "current_mechanism": "batch-limit and interval wiring",
       "target_mechanism": "event-driven organ intake wiring",
       "status": "transitional"
-    },
-    {
-      "path": "organs/discord/systemd/organ-discord-hermes-agent.service",
-      "current_mechanism": "batch-limit and interval wiring",
-      "target_mechanism": "event-driven organ intake wiring",
-      "status": "transitional"
-    },
-    {
-      "path": "organs/telegram/systemd/organ-telegram-hermes-agent.service",
-      "current_mechanism": "batch-limit and interval wiring",
-      "target_mechanism": "event-driven organ intake wiring",
-      "status": "transitional"
-    },
-    {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/compute_guard.py",
-      "reason": "Legacy polling in Ouroboros runtime tests/core, pending migration to reactive bus",
-      "owner": "organism-python-runtime",
-      "deadline": "2026-12-31",
-      "current_mechanism": "sleep/loop",
-      "target_mechanism": "reactive_bus",
-      "status": "legacy"
-    },
-    {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/tests/test_hermes_kanban_executor_wait.py",
-      "reason": "Legacy polling in Ouroboros runtime tests/core, pending migration to reactive bus",
-      "owner": "organism-python-runtime",
-      "deadline": "2026-12-31",
-      "current_mechanism": "sleep/loop",
-      "target_mechanism": "reactive_bus",
-      "status": "legacy"
-    },
-    {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/tests/test_compute_guard.py",
-      "reason": "Legacy polling in Ouroboros runtime tests/core, pending migration to reactive bus",
-      "owner": "organism-python-runtime",
-      "deadline": "2026-12-31",
-      "current_mechanism": "sleep/loop",
-      "target_mechanism": "reactive_bus",
-      "status": "legacy"
-    },
-    {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/tests/test_observe_plumbing.py",
-      "reason": "Legacy polling in Ouroboros runtime tests/core, pending migration to reactive bus",
-      "owner": "organism-python-runtime",
-      "deadline": "2026-12-31",
-      "current_mechanism": "sleep/loop",
-      "target_mechanism": "reactive_bus",
-      "status": "legacy"
-    },
-    {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/tests/test_kernel_rest.py",
-      "reason": "Legacy polling in Ouroboros runtime tests/core, pending migration to reactive bus",
-      "owner": "organism-python-runtime",
-      "deadline": "2026-12-31",
-      "current_mechanism": "sleep/loop",
-      "target_mechanism": "reactive_bus",
-      "status": "legacy"
-    },
-    {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/ports/execution.py",
-      "reason": "Legacy polling in Ouroboros runtime tests/core, pending migration to reactive bus",
-      "owner": "organism-python-runtime",
-      "deadline": "2026-12-31",
-      "current_mechanism": "sleep/loop",
-      "target_mechanism": "reactive_bus",
-      "status": "legacy"
     }
   ],
   "totals": {
-    "transitional_polling_surfaces": 15
+    "transitional_polling_surfaces": 3
   }
 }

@@ -899,138 +899,6 @@
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/AIRTABLE-FORM-QUESTIONS.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/B2C-CYNIC-INTEGRATION-SPECIFICATION.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/B2C-INTEGRATION-GUIDE.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/hackathon/B2C-SOLANA-CONVERGENCE-AUDIT.md",
-      "status": "draft",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/hackathon/COLOSSEUM-SUBMISSION-DRAFT.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/hackathon/COLOSSEUM-SUBMISSION-FULL.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/hackathon/COLOSSEUM-SUBMISSION-MAY-4-2026.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/EXECUTION-PLAN.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/EXTERNAL-CONTEXT-2026-04-25.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/hackathon/HACKATHON-GROUND-TRUTH-2026-04-30.md",
-      "status": "draft",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/hackathon/HACKATHON_SUBMISSION.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/MAY-2-EXECUTION-GUIDE.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/MESSAGE-TO-S-2026-04-30.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/PRIORITY-ACTIONS-2026-04-30.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
-      "path": "docs/hackathon/TALARIA-INCUBATOR-SUBMISSION-DRAFT.md",
-      "status": "draft",
-      "theme": "odysseum_futardio_legacy"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/VIDEO-DEMO-SCRIPT.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/VIDEO-RECORDING-GUIDE.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/hackathon/WALLET-BEHAVIOR-ANALYSIS-PHASE-1.md",
-      "status": "draft",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/hackathon/WALLET-BEHAVIOR-ANALYSIS-REFERENCE.md",
-      "status": "draft",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/WALLET-BEHAVIOR-CORPUS-COLLECTION.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/WALLET-JUDGMENT-INTEGRATION-GUIDE.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/hackathon/integration-proposal-cynic-asdelegate-2026-04-08.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
       "path": "docs/internal/DOSSIER-METADAO.md",
       "status": "draft",
       "theme": "cynic_protocol_framework"
@@ -1056,18 +924,6 @@
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
       "path": "docs/internal/asdfasdfa-bagwork-futarchy-operating-contract-2026-06-29.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/caplogy-clarification-perimetre-DRAFT.md",
-      "status": "draft",
-      "theme": "talaria_legal_genesis"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/dev-cycle-diagnostic-2026-06-02.md",
       "status": "draft",
       "theme": "cynic_protocol_framework"
     },
@@ -1156,12 +1012,6 @@
       "theme": "data_and_evidence"
     },
     {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/ops/cynic-oracle-philosophy-thread.md",
-      "status": "draft",
-      "theme": "cynic_protocol_framework"
-    },
-    {
       "canonical_target": "docs/DATA_CONSTITUTION.md",
       "path": "docs/ops/external-comms-strategy.md",
       "status": "draft",
@@ -1190,12 +1040,6 @@
       "path": "docs/ops/hermes/FEEDBACK_LOOP_README.md",
       "status": "projection",
       "theme": "organism_runtime_topology"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/ops/may-1-launch-checklist.md",
-      "status": "draft",
-      "theme": "data_and_evidence"
     },
     {
       "canonical_target": "docs/DATA_CONSTITUTION.md",
@@ -1352,126 +1196,6 @@
       "path": "docs/reference/token-stimulus-roadmap.md",
       "status": "evidence",
       "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/research/AGENT-COMPARISON-PROTOCOL.md",
-      "status": "evidence",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/CCM-ORGANISM-AUDIT-2026-05-12.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/COMPOUND-RESEARCH-2026-03-18.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/research/CYNIC-ML-RESEARCH-PROGRAM.md",
-      "status": "evidence",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/research/CYNIC-OS-RESEARCH.md",
-      "status": "evidence",
-      "theme": "cynic_protocol_framework"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/HEURISTIC_VALIDATION_FINDINGS.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/KAIROS-RECOVERY-PLAN.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/KENOSIS_FINDINGS.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/MINING_REPORT_5_TARGETS.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/RESURRECT.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/SESSION-2026-03-24-RESEARCH.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/SESSION-2026-03-25-L6L7-RESEARCH.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/SESSION-2026-03-25-RESEARCH.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/WALLET_BEHAVIOR_STATUS.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/metathinking-analysis.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "AGENTS.md",
-      "path": "docs/research/organism-contract.md",
-      "status": "evidence",
-      "theme": "organism_runtime_topology"
-    },
-    {
-      "canonical_target": "AGENTS.md",
-      "path": "docs/research/overnight-research-agent-architecture.md",
-      "status": "evidence",
-      "theme": "organism_runtime_topology"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/overnight-research-inference-routing.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/overnight-research-rag-knowledge.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
-    },
-    {
-      "canonical_target": "docs/DATA_CONSTITUTION.md",
-      "path": "docs/research/overnight-research-synthesis.md",
-      "status": "evidence",
-      "theme": "data_and_evidence"
     },
     {
       "canonical_target": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",

@@ -281,9 +281,11 @@ not second organ trees.
 
 The current pressure points are:
 
-- `services/ouroboros-runtime/src/ouroboros_runtime/core/` behaves like shared
-  execution runtime and no longer masquerades as an organ, but it still mixes
-  execution, observability, and reliability responsibilities.
+- `services/coordination-runtime/src/cynic_coord_runtime/`,
+  `services/observability-runtime/src/cynic_observe_runtime/`, and
+  `services/reliability-runtime/src/cynic_reliability_runtime/` are the current
+  first-class runtime roots. New persistent runtimes must extend one of these or
+  justify a new declared runtime class.
 - `services/coordination-runtime/src/cynic_coord_runtime/` now owns the Kernel
   task/claim/register membrane; Hermes-specific repo-claim policy has been
   moved above it into execution-owned composition.
@@ -293,10 +295,9 @@ The current pressure points are:
 - `services/reliability-runtime/src/cynic_reliability_runtime/` now owns the
   Kernel service-liveness membrane, but broader readiness, degraded-mode and
   rollback helpers are not yet centralized there.
-- `services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_coordination.py`
-  now composes generic coordination primitives with Hermes repo-claim policy,
-  which is a better ownership shape than embedding that policy in the shared
-  coordination runtime.
+- Hermes-specific coordination policy must compose generic contracts from
+  `organs/contracts/` and the shared coordination runtime instead of creating a
+  hidden fourth Python runtime root.
 - `organs/contracts/` already owns shared Python contracts, which means shared
   runtime code should not masquerade as a second organ tree.
 - `services/cynic-python/` currently mixes runtime framework, datasets,

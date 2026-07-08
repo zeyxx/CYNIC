@@ -116,6 +116,51 @@
       "reason": "Lifecycle gap classification and ownership drift rules are deterministic contracts and should converge on a stable Rust authority once the transition stops moving."
     },
     {
+      "id": "forge_registry_activation_truth",
+      "status": "active_migration_queue",
+      "organ": "organ-forge",
+      "criticality": "high",
+      "target_crate": "crates/cynic-kernel",
+      "target_component": "registry_activation_truth",
+      "source_paths": [
+        "organs/forge/src/core/lifecycle_evidence.py",
+        "organs/forge/src/core/lifecycle_payloads.py"
+      ],
+      "functions": [
+        "build_lifecycle_service_evidence_patch",
+        "apply_lifecycle_activation_evidence_patch",
+        "persist_lifecycle_activation_evidence_patch",
+        "activate_lifecycle_registry_node",
+        "persist_lifecycle_registry_node_activation",
+        "build_lifecycle_task_payload",
+        "validate_lifecycle_task_payload"
+      ],
+      "reason": "Registry mutation truth, lifecycle payload validation, and activation read-back must not remain mutable Python authority inside the forge membrane."
+    },
+    {
+      "id": "forge_activation_readiness_probes",
+      "status": "active_migration_queue",
+      "organ": "organ-forge",
+      "criticality": "high",
+      "target_crate": "crates/cynic-node",
+      "target_component": "activation_readiness_probes",
+      "source_paths": [
+        "organs/forge/src/core/lifecycle_readiness.py",
+        "organs/forge/src/core/lifecycle_activation.py"
+      ],
+      "functions": [
+        "probe_fleet_node_exec_transport",
+        "probe_local_network_runtime",
+        "build_activation_evidence_gap_details",
+        "activation_evidence_gaps",
+        "inspect_fleet",
+        "fleet_nodes_ready",
+        "lifecycle_blockers",
+        "build_lifecycle_activation_plan"
+      ],
+      "reason": "Per-node runtime probing, readiness classification, and bounded activation planning belong to cynic-node, not to a central Python orchestrator."
+    },
+    {
       "id": "supervisor_contract_validators",
       "status": "active_migration_queue",
       "organ": "organ-supervisor",
@@ -133,6 +178,65 @@
         "validate_openapi_route_contract"
       ],
       "reason": "Stable MCP and API surface contracts should not remain Python-only once they govern canonical exposure."
+    },
+    {
+      "id": "supervisor_runtime_surface_status",
+      "status": "active_migration_queue",
+      "organ": "organ-supervisor",
+      "criticality": "high",
+      "target_crate": "crates/cynic-node",
+      "target_component": "runtime_surface_status",
+      "source_paths": [
+        "organs/supervisor/src/core/runtime_principals_infra_surfaces.py"
+      ],
+      "functions": [
+        "storage_primary_status",
+        "lxc_exec_bridge_status",
+        "fleet_status",
+        "mesh_status",
+        "storage_primary_plan",
+        "lxc_exec_bridge_plan"
+      ],
+      "reason": "Status and plan surfaces for local bridge, mesh, storage and fleet runtime should be emitted by the node runtime itself, not reconstructed by supervisor Python glue."
+    },
+    {
+      "id": "supervisor_organ_inventory_truth",
+      "status": "planned_migration",
+      "organ": "organ-supervisor",
+      "criticality": "medium",
+      "target_crate": "crates/cynic-kernel",
+      "target_component": "organ_inventory_truth",
+      "source_paths": [
+        "organs/supervisor/src/core/body_supervision.py"
+      ],
+      "functions": [
+        "build_inventory",
+        "build_report",
+        "classify",
+        "ssot_freshness",
+        "unit_matches_instance"
+      ],
+      "reason": "Declared-vs-observed organ inventory and runtime coherence classification define organism truth and should converge toward kernel-side deterministic read-back."
+    },
+    {
+      "id": "supervisor_repo_topology_rules",
+      "status": "planned_migration",
+      "organ": "organ-supervisor",
+      "criticality": "medium",
+      "target_crate": "crates/cynic-mcp",
+      "target_component": "contract_validators",
+      "source_paths": [
+        "organs/supervisor/src/core/repo_topology_policy.py"
+      ],
+      "functions": [
+        "validate_organ_maturity_policy",
+        "validate_organ_maturity_inventory_contract",
+        "validate_python_organ_authority_inventory_contract",
+        "validate_manifest_script_references",
+        "validate_python_organ_shape",
+        "validate_mcp_no_absolute_project_paths"
+      ],
+      "reason": "Stable repo topology and exposure validation rules should be portable Rust validators rather than accreted Python policy logic."
     },
     {
       "id": "lifecycle_dependency_convergence",

@@ -42,16 +42,12 @@
     "status_when_missing": "transitional_gap"
   },
   "runtime_coherence_surfaces": {
-    "daemon_default_capabilities_path": "services/ouroboros-runtime/src/ouroboros_runtime/core/daemon.py",
-    "lifecycle_default_capabilities_path": "services/ouroboros-runtime/src/ouroboros_runtime/core/ouroboros.py",
+    "task_wait_port_path": "services/coordination-runtime/src/cynic_coord_runtime/ports/perception.py",
     "kernel_watch_adapter_path": "services/coordination-runtime/src/cynic_coord_runtime/adapters/kernel_rest.py",
-    "executor_status_path": "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_kanban_executor.py"
+    "hermes_graph_adapter_path": "services/observability-runtime/src/cynic_observe_runtime/adapters/kernel_observe.py"
   },
   "inertia_surfaces": [
-    "infra/systemd/hermes-agent-executor.service",
     "organs/forge/systemd/organ-forge-hermes-agent.service",
-    "organs/twitter/systemd/organ-twitter-hermes-agent.service",
-    "organs/discord/systemd/organ-discord-hermes-agent.service",
-    "organs/telegram/systemd/organ-telegram-hermes-agent.service"
+    "organs/twitter/systemd/organ-twitter-hermes-agent.service"
   ]
 }

@@ -193,7 +193,7 @@
       "summary": "Central kernel bus for tasks, claims, observations, health, REST and kernel-side MCP.",
       "python_absorption_authority": {
         "allowed_from_organs": ["organ-forge", "organ-supervisor"],
-        "allowed_domains": ["durable_memory", "coordination", "lifecycle_truth", "observation_contracts"],
+        "allowed_domains": ["durable_memory", "coordination", "lifecycle_truth", "observation_contracts", "registry_activation_truth", "organ_inventory_truth"],
         "why": "Kernel absorbs deterministic functions that define durable organism truth, read-back, coordination or registry-backed lifecycle state."
       },
       "must_not_depend_on": ["crates/cynic-node", "crates/kyon-core", "services/ignis/program"]
@@ -224,8 +224,8 @@
       "primary_runtime_role": "all_runtime_nodes",
       "summary": "Per-machine local runtime for heartbeat, local supervision, bounded actuation and proof emission.",
       "python_absorption_authority": {
-        "allowed_from_organs": ["organ-fleet", "organ-wireguard", "organ-lifecycle"],
-        "allowed_domains": ["network_contracts", "service_supervision", "node_runtime_observation", "bounded_host_actuation"],
+        "allowed_from_organs": ["organ-fleet", "organ-wireguard", "organ-lifecycle", "organ-forge", "organ-supervisor"],
+        "allowed_domains": ["network_contracts", "service_supervision", "node_runtime_observation", "bounded_host_actuation", "activation_readiness_probes", "runtime_surface_status"],
         "why": "Node absorbs deterministic per-machine network, service and bounded actuation/runtime truth."
       },
       "must_not_depend_on": ["crates/cynic-kernel"]
@@ -307,6 +307,17 @@
       "primary_runtime_role": "onchain_verdict_protocol",
       "summary": "Solana verdict program candidate, not an off-chain organism runtime service.",
       "transition_status": "visible_non_member"
+    },
+    {
+      "path": "crates/cynic-agent-gateway",
+      "package": "cynic-agent-gateway",
+      "family": "quarantine",
+      "class": "transitional_visible_crate",
+      "workspace_member": true,
+      "runtime_artifact": null,
+      "primary_runtime_role": null,
+      "summary": "Framework execution gateway candidate visible in the workspace but not yet accepted as canonical organism runtime authority.",
+      "transition_status": "workspace_member_without_canonical_role"
     },
     {
       "path": "crates/kyon-core",

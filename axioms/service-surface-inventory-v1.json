@@ -81,16 +81,6 @@
       "next_action": "keep reusable runtime code here only when multiple organs or agents consume it"
     },
     {
-      "path": "services/ouroboros-runtime/",
-      "class": "shared_runtime_framework",
-      "owner": "organism-python-runtime",
-      "status": "shared_runtime_framework",
-      "evidence": [
-        "untracked service body files"
-      ],
-      "next_action": "keep reusable runtime code here only when multiple organs or agents consume it"
-    },
-    {
       "path": "services/reliability-runtime/",
       "class": "shared_runtime_framework",
       "owner": "organism-python-runtime",
@@ -102,11 +92,11 @@
     }
   ],
   "totals": {
-    "surfaces": 6,
+    "surfaces": 5,
     "by_status": {
-      "shared_runtime_framework": 5,
+      "shared_runtime_framework": 4,
       "protocol_service_embryo": 1
     },
-    "declared_surfaces": 6
+    "declared_surfaces": 5
   }
 }

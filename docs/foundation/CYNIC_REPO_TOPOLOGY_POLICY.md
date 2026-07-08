@@ -177,7 +177,9 @@ These paths are tolerated but must not receive new canonical behavior:
 | `scripts/` | legacy blocked | organ entrypoint or MCP operation |
 | `infra/scripts/` | transitional | infra contract + organ adapter |
 | `organs/lifecycle/` legacy script surface | burned | registry/MCP fleet and storage operations through bounded lifecycle adapters |
-| `services/ouroboros-runtime/src/ouroboros_runtime/core/` | boundary under clarification | shared Hermes/Ouroboros runtime framework |
+| `services/coordination-runtime/src/cynic_coord_runtime/` | canonical shared runtime | task watch/claim/read-back membrane |
+| `services/observability-runtime/src/cynic_observe_runtime/` | canonical shared runtime | observation and Hermes graph emission membrane |
+| `services/reliability-runtime/src/cynic_reliability_runtime/` | canonical shared runtime | liveness/readiness membrane |
 
 Adding a new file to a transitional path requires fallback metadata:
 

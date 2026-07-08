@@ -133,9 +133,9 @@ Ensure the following variables are set and exported:
   ```bash
   ./.cynic/python-runtime/bin/hermes chat
   ```
-- **Daemon Testing:** Persistent background agents are defined as systemd services (e.g. `infra/systemd/hermes-agent-executor.service`). To test the Ouroboros daemon loop locally, run:
+- **Daemon Testing:** Persistent background agents are defined as systemd services (for example `organs/twitter/systemd/organ-twitter-hermes-agent.service`). To test the X runner loop locally, run:
   ```bash
-  python3 services/ouroboros-runtime/src/ouroboros_runtime/core/daemon.py --once
+  python3 organs/twitter/src/entrypoints/hermes_task_runner.py --organ-dir organs/twitter/state --interval 999
   ```
 - **Verification:** Before queuing release profiles or deploying changes, run all tests in the forge organ (`make check`).
 

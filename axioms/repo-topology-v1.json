@@ -726,8 +726,8 @@
   },
   "shared_runtime_framework_paths": [
     {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/",
-      "owner": "Hermes/Ouroboros framework",
+      "path": "services/coordination-runtime/src/cynic_coord_runtime/",
+      "owner": "coordination runtime",
       "allowed_concerns": [
         "shared_runtime_framework"
       ],
@@ -738,7 +738,42 @@
       ],
       "consumers": [
         "Hermes Agent",
-        "organ-local Python runtimes"
+        "organ-forge",
+        "runtime adapters"
+      ],
+      "expiry_condition": "move under a first-class organ only if it starts owning organ-specific behavior or canonical state"
+    },
+    {
+      "path": "services/observability-runtime/src/cynic_observe_runtime/",
+      "owner": "observability runtime",
+      "allowed_concerns": [
+        "shared_runtime_framework"
+      ],
+      "forbidden_concerns": [
+        "organ_specific_business_logic",
+        "canonical_kernel_state",
+        "provider_mutation"
+      ],
+      "consumers": [
+        "Hermes Agent",
+        "kernel observation adapters"
+      ],
+      "expiry_condition": "move under a first-class organ only if it starts owning organ-specific behavior or canonical state"
+    },
+    {
+      "path": "services/reliability-runtime/src/cynic_reliability_runtime/",
+      "owner": "reliability runtime",
+      "allowed_concerns": [
+        "shared_runtime_framework"
+      ],
+      "forbidden_concerns": [
+        "organ_specific_business_logic",
+        "canonical_kernel_state",
+        "provider_mutation"
+      ],
+      "consumers": [
+        "Hermes Agent",
+        "health and readiness adapters"
       ],
       "expiry_condition": "move under a first-class organ only if it starts owning organ-specific behavior or canonical state"
     }

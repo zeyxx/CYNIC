@@ -414,9 +414,17 @@ sync-docs: ## Synchronize agent documentation from source of truth files
 lint-topology: ## Verify MANIFEST.yaml declarations vs live state (crons exist, outputs exist)
 	@echo ""
 	@echo "▶ Checking organism topology (MANIFESTs vs live state)..."
-	@PYTHONDONTWRITEBYTECODE=1 python3 $(PROJECT_DIR)/organs/supervisor/controllers/validate_repo_topology.py --json > /tmp/cynic-topology-verify.json || { \
-		echo "⚠ Topology verification found drift — not blocking (fix MANIFESTs later)"; \
-	}
+	@$(MAKE) --no-print-directory clean-python-caches
+	@tmp_pyc_dir=$$(mktemp -d); \
+	if PYTHONPYCACHEPREFIX="$$tmp_pyc_dir" PYTHONDONTWRITEBYTECODE=1 python3 -B $(PROJECT_DIR)/organs/supervisor/controllers/validate_repo_topology.py --json > /tmp/cynic-topology-verify.json; \
+	then \
+	  status=0; \
+	else \
+	  status=0; \
+	  echo "⚠ Topology verification found drift — not blocking (fix MANIFESTs later)"; \
+	fi; \
+	rm -rf "$$tmp_pyc_dir"; \
+	exit $$status
 
 .PHONY: clean-python-caches
 clean-python-caches: ## Remove Python bytecode caches from source membranes before topology checks
@@ -430,7 +438,11 @@ api-geometry-report: ## Print machine-readable API topology geometry report
 lint-repo-topology-contract: clean-python-caches ## Verify repo topology contract and portable MCP path invariants
 	@echo ""
 	@echo "▶ Checking repo topology contract..."
-	@PYTHONDONTWRITEBYTECODE=1 python3 $(PROJECT_DIR)/organs/supervisor/controllers/validate_repo_topology.py --strict
+	@tmp_pyc_dir=$$(mktemp -d); \
+	PYTHONPYCACHEPREFIX="$$tmp_pyc_dir" PYTHONDONTWRITEBYTECODE=1 python3 -B $(PROJECT_DIR)/organs/supervisor/controllers/validate_repo_topology.py --strict; \
+	status=$$?; \
+	rm -rf "$$tmp_pyc_dir"; \
+	exit $$status
 
 .PHONY: lint-infra-consumption-contract
 lint-infra-consumption-contract: ## Verify organs consume infra through declared lifecycle/runtime contracts

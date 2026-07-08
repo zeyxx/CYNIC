@@ -154,8 +154,8 @@
       "id": "hermes_framework_agent",
       "meaning": "An autonomous task executor that actually invokes NousResearch/hermes-agent through the CYNIC adapter boundary.",
       "required_evidence": [
-        "ExecStart or runtime adapter routes through services/ouroboros-runtime",
-        "HermesKanbanAdapter or equivalent Hermes adapter is used",
+        "ExecStart or runtime adapter routes through a declared CYNIC runtime or organ entrypoint",
+        "Hermes kanban graph adapter or equivalent Hermes adapter is used",
         "task content is normalized through cynic.agent_execution_envelope.v1 or a declared CYNIC schema",
         "repo-affecting tasks declare targets before hermes chat starts",
         "bloodstream events are emitted before, during and after execution"
@@ -384,25 +384,6 @@
   ],
   "current_mapping_pressure": [
     {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/",
-      "current_state": "transitional_mixed_runtime_identity",
-      "declared_primary_runtime_class": "execution-runtime",
-      "secondary_runtime_classes": [
-        "observability-runtime",
-        "reliability-runtime"
-      ],
-      "declared_roles": [
-        "executor",
-        "observability",
-        "reliability"
-      ],
-      "problems": [
-        "execution, observability and reliability responsibilities are not fully decoupled yet",
-        "runtime responsibilities are co-located in a path already marked transitional"
-      ],
-      "target_shape": "move shared runtime mechanics under explicit services/<runtime>/ roots and keep only compatibility shims during migration"
-    },
-    {
       "path": "services/coordination-runtime/src/cynic_coord_runtime/",
       "current_state": "canonicalizing_coordination_runtime",
       "declared_primary_runtime_class": "coordination-runtime",
@@ -443,22 +424,6 @@
         "broader readiness, degraded-mode and rollback helpers are not centralized yet"
       ],
       "target_shape": "converge service liveness, readiness policy and operational incident helpers under this runtime as reuse appears"
-    },
-    {
-      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_coordination.py",
-      "current_state": "execution_owned_hermes_coordination_policy",
-      "declared_primary_runtime_class": "execution-runtime",
-      "secondary_runtime_classes": [
-        "coordination-runtime"
-      ],
-      "declared_roles": [
-        "executor"
-      ],
-      "problems": [
-        "Hermes-specific repo-claim policy now composes generic coordination primitives but remains tightly bound to Ouroboros execution",
-        "policy is reusable for Hermes executors, but not yet promoted to a framework-neutral contract surface"
-      ],
-      "target_shape": "keep executor-specific coordination policy here until another executor needs the same semantics, then lift the contract upward"
     },
     {
       "path": "organs/contracts/",

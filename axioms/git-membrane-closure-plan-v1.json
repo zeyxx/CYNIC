@@ -101,250 +101,126 @@
       "disposition": "track_or_quarantine",
       "targets": [
         {
-          "path": "organs/forge/",
-          "classification": "organ_body",
-          "reason": "lifecycle activation source files are visible, but staging is isolated because lifecycle readiness blocks workflow-critical files while the release lifecycle is planned"
-        },
-        {
-          "path": "crates/cynic-kernel/",
-          "classification": "runtime_source",
-          "reason": "kernel source files are visible, but staging is isolated because lifecycle readiness blocks workflow-critical files while the release lifecycle is planned"
-        },
-        {
-          "path": "crates/cynic-mcp/",
-          "classification": "runtime_source",
-          "reason": "MCP source files are visible, but staging is isolated because lifecycle readiness blocks workflow-critical files while the release lifecycle is planned"
-        },
-        {
           "path": "organs/lifecycle/tests/test_kernel_observation_adapter.py",
           "classification": "organ_body",
           "reason": "lifecycle observation adapter coverage is a visible organ body file and must be absorbed into the lifecycle membrane closure wave"
         }
       ]
     },
+    {
+      "wave": 10,
+      "theme": "agent framework capability registry",
+      "disposition": "track",
+      "targets": [
         {
-            "wave": 9,
-            "theme": "identity credential membrane",
-            "disposition": "track_or_quarantine",
-            "targets": [
-                {
-                    "path": "organs/identity/",
-                    "classification": "organ_body",
-                    "reason": "credential lifecycle source files are visible and should be absorbed into the membrane plan before closure is claimed"
-                }
-            ]
+          "path": "axioms/agent-framework-capabilities-v1.json",
+          "classification": "contract_source",
+          "reason": "framework capability registry contract is a new semantic contract and must be tracked with its axiom registry admission"
         },
         {
-            "wave": 10,
-            "theme": "agent framework capability registry",
-            "disposition": "track",
-            "targets": [
-                {
-                    "path": "axioms/agent-framework-capabilities-v1.json",
-                    "classification": "contract_source",
-                    "reason": "framework capability registry contract is a new semantic contract and must be tracked with its axiom registry admission"
-                },
-                {
-                    "path": "axioms/agent-autonomy-boundary-v1.json",
-                    "classification": "contract_source",
-                    "reason": "agent autonomy boundary contract separates human-supervised cortex authority from autonomous organ-agent authority"
-                },
-                {
-                    "path": "axioms/external-dependency-inventory-v1.json",
-                    "classification": "contract_source",
-                    "reason": "external dependency inventory contract is a new semantic contract and must be tracked with its axiom registry admission"
-                },
-                {
-                    "path": "axioms/organ-hexagonal-architecture-v1.json",
-                    "classification": "contract_source",
-                    "reason": "organ-wide hexagonal architecture contract records the shared anti-reinvention rule before new framework-map organ work"
-                },
-                {
-                    "path": "organs/contracts/src/core/agent_framework_capabilities.py",
-                    "classification": "organ_body",
-                    "reason": "framework-agnostic capability registry model belongs to the organ-contracts core membrane"
-                },
-                {
-                    "path": "organs/contracts/src/core/external_dependency_inventory.py",
-                    "classification": "organ_body",
-                    "reason": "framework-agnostic dependency inventory model belongs to the organ-contracts core membrane"
-                },
-                {
-                    "path": "organs/contracts/src/adapters/dependency_inventory.py",
-                    "classification": "organ_body",
-                    "reason": "manifest-backed dependency scanner is the shared adapter for local and external source roots"
-                },
-                {
-                    "path": "organs/contracts/src/adapters/hermes_agent_capabilities.py",
-                    "classification": "organ_body",
-                    "reason": "Hermes Agent discovery is a provider adapter for the shared capability registry contract"
-                },
-                {
-                    "path": "organs/contracts/src/tests/test_agent_framework_capabilities.py",
-                    "classification": "organ_body",
-                    "reason": "capability registry tests prove serialization and Hermes scanner behavior before membrane closure"
-                },
-                {
-                    "path": "organs/contracts/src/tests/test_external_dependency_inventory.py",
-                    "classification": "organ_body",
-                    "reason": "dependency inventory tests prove manifest parsing across supported ecosystems before membrane closure"
-                }
-            ]
+          "path": "axioms/agent-autonomy-boundary-v1.json",
+          "classification": "contract_source",
+          "reason": "agent autonomy boundary contract separates human-supervised cortex authority from autonomous organ-agent authority"
         },
         {
-            "wave": 11,
-            "theme": "framework mapping organ",
-            "disposition": "track",
-            "targets": [
-                {
-                    "path": "organs/framework-map/",
-                    "classification": "organ_body",
-                    "reason": "framework-map is a new hexagonal organ for external framework capability, dependency, architecture and compatibility mapping"
-                }
-            ]
+          "path": "axioms/external-dependency-inventory-v1.json",
+          "classification": "contract_source",
+          "reason": "external dependency inventory contract is a new semantic contract and must be tracked with its axiom registry admission"
         },
         {
-            "wave": 12,
-            "theme": "polymorphic agent execution envelope",
-            "disposition": "track",
-            "targets": [
-                {
-                    "path": "axioms/agent-execution-envelope-v1.json",
-                    "classification": "contract_source",
-                    "reason": "agent execution envelope is a new semantic contract admitted by the axiom registry for provider-agnostic task routing"
-                },
-                {
-                    "path": "organs/contracts/src/core/agent_execution_envelope.py",
-                    "classification": "organ_body",
-                    "reason": "framework-agnostic execution envelope model belongs to the organ-contracts core membrane"
-                },
-                {
-                    "path": "organs/contracts/src/tests/test_agent_execution_envelope.py",
-                    "classification": "organ_body",
-                    "reason": "execution envelope tests prove serialization, route validation, and manifest exposure before membrane closure"
-                }
-            ]
+          "path": "axioms/organ-hexagonal-architecture-v1.json",
+          "classification": "contract_source",
+          "reason": "organ-wide hexagonal architecture contract records the shared anti-reinvention rule before new framework-map organ work"
         },
         {
-            "wave": 13,
-            "theme": "one-person enterprise futarchy framework",
-            "disposition": "track",
-            "targets": [
-                {
-                    "path": "docs/foundation/CYNIC_ONE_PERSON_ENTERPRISE_FUTARCHY_FRAMEWORK.md",
-                    "classification": "document_projection",
-                    "reason": "framework distills OPE/futarchy doctrine into the public interface contract and is indexed by the foundation canon"
-                },
-                {
-                    "path": "axioms/one-person-enterprise-interface-v1.json",
-                    "classification": "contract_source",
-                    "reason": "canonical deterministic SSOT for the OPE public interface contract; product packages must project it instead of owning local contracts"
-                },
-                {
-                    "path": "axioms/axiom-registry-v1.json",
-                    "classification": "contract_source",
-                    "reason": "registry admission for one-person-enterprise-interface-v1 keeps the new root axiom from becoming an unclassified competing constitution"
-                }
-            ]
+          "path": "organs/contracts/src/core/agent_framework_capabilities.py",
+          "classification": "organ_body",
+          "reason": "framework-agnostic capability registry model belongs to the organ-contracts core membrane"
         },
         {
-            "wave": 14,
-            "theme": "visible open membrane root classification",
-            "disposition": "track_or_quarantine",
-            "targets": [
-                {
-                    "path": ".agents/",
-                    "classification": "agent_adapter_projection",
-                    "reason": "agent adapter projection files are visible and must be tracked or quarantined before membrane closure"
-                },
-                {
-                    "path": ".cortex/",
-                    "classification": "agent_adapter_projection",
-                    "reason": "cortex MCP wrapper files are visible and must be absorbed into the agent adapter membrane"
-                },
-                {
-                    "path": "apps/",
-                    "classification": "application_source",
-                    "reason": "application source files are visible and need a single closure wave instead of per-file ad hoc staging"
-                },
-                {
-                    "path": "axioms/",
-                    "classification": "contract_source",
-                    "reason": "untracked contract roots must be closed as deterministic source-of-truth changes"
-                },
-                {
-                    "path": "crates/cynic-node/",
-                    "classification": "runtime_source",
-                    "reason": "cynic-node runtime source is visible and must be closed through a dedicated runtime wave"
-                },
-                {
-                    "path": "crates/cynic-cognitive-sensor/",
-                    "classification": "runtime_source",
-                    "reason": "renamed sensorium crate is visible and must be tracked or quarantined before the crate membrane can close"
-                },
-                {
-                    "path": "crates/cynic-inference/",
-                    "classification": "runtime_source",
-                    "reason": "inference runtime source is visible and must be tracked or quarantined before the crate membrane can close"
-                },
-                {
-                    "path": "data/",
-                    "classification": "curated_evidence_capsule",
-                    "reason": "visible data artifacts must be tracked as curated evidence or moved out of the source membrane"
-                },
-                {
-                    "path": "datasets/",
-                    "classification": "curated_evidence_capsule",
-                    "reason": "visible datasets must be classified before they can be committed or quarantined"
-                },
-                {
-                    "path": "docs/",
-                    "classification": "document_projection",
-                    "reason": "visible documentation projections need closure as a documented wave"
-                },
-                {
-                    "path": "infra/",
-                    "classification": "infra_contract_projection",
-                    "reason": "visible infra desired-state and projection files must be closed together"
-                },
-                {
-                    "path": "make/",
-                    "classification": "deployment_projection",
-                    "reason": "visible make surfaces are operator/deployment projections and need closure proof"
-                },
-                {
-                    "path": "organs/",
-                    "classification": "organ_body",
-                    "reason": "visible organ body files must be tracked or quarantined before any organ is declared canonical"
-                },
-                {
-                    "path": "packages/",
-                    "classification": "product_projection",
-                    "reason": "visible package projections need a product-surface closure wave"
-                },
-                {
-                    "path": "patch.py",
-                    "classification": "developer_diagnostic_candidate",
-                    "reason": "top-level diagnostic candidate must be explicitly tracked, moved, or deleted"
-                },
-                {
-                    "path": "services/",
-                    "classification": "runtime_source",
-                    "reason": "visible service source files need runtime membrane closure"
-                },
-                {
-                    "path": "synapse-dns-bundle/",
-                    "classification": "deployment_projection",
-                    "reason": "visible Synapse DNS bundle must be tracked or quarantined as deployment projection"
-                },
-                {
-                    "path": "tmp/",
-                    "classification": "developer_diagnostic_candidate",
-                    "reason": "visible temporary diagnostic files must be explicitly closed or deleted"
-                }
-            ]
+          "path": "organs/contracts/src/core/external_dependency_inventory.py",
+          "classification": "organ_body",
+          "reason": "framework-agnostic dependency inventory model belongs to the organ-contracts core membrane"
+        },
+        {
+          "path": "organs/contracts/src/adapters/dependency_inventory.py",
+          "classification": "organ_body",
+          "reason": "manifest-backed dependency scanner is the shared adapter for local and external source roots"
+        },
+        {
+          "path": "organs/contracts/src/adapters/hermes_agent_capabilities.py",
+          "classification": "organ_body",
+          "reason": "Hermes Agent discovery is a provider adapter for the shared capability registry contract"
+        },
+        {
+          "path": "organs/contracts/src/tests/test_agent_framework_capabilities.py",
+          "classification": "organ_body",
+          "reason": "capability registry tests prove serialization and Hermes scanner behavior before membrane closure"
+        },
+        {
+          "path": "organs/contracts/src/tests/test_external_dependency_inventory.py",
+          "classification": "organ_body",
+          "reason": "dependency inventory tests prove manifest parsing across supported ecosystems before membrane closure"
         }
-    ],
+      ]
+    },
+    {
+      "wave": 12,
+      "theme": "polymorphic agent execution envelope",
+      "disposition": "track",
+      "targets": [
+        {
+          "path": "axioms/agent-execution-envelope-v1.json",
+          "classification": "contract_source",
+          "reason": "agent execution envelope is a new semantic contract admitted by the axiom registry for provider-agnostic task routing"
+        },
+        {
+          "path": "organs/contracts/src/core/agent_execution_envelope.py",
+          "classification": "organ_body",
+          "reason": "framework-agnostic execution envelope model belongs to the organ-contracts core membrane"
+        },
+        {
+          "path": "organs/contracts/src/tests/test_agent_execution_envelope.py",
+          "classification": "organ_body",
+          "reason": "execution envelope tests prove serialization, route validation, and manifest exposure before membrane closure"
+        }
+      ]
+    },
+    {
+      "wave": 13,
+      "theme": "one-person enterprise futarchy framework",
+      "disposition": "track",
+      "targets": [
+        {
+          "path": "docs/foundation/CYNIC_ONE_PERSON_ENTERPRISE_FUTARCHY_FRAMEWORK.md",
+          "classification": "document_projection",
+          "reason": "framework distills OPE/futarchy doctrine into the public interface contract and is indexed by the foundation canon"
+        },
+        {
+          "path": "axioms/one-person-enterprise-interface-v1.json",
+          "classification": "contract_source",
+          "reason": "canonical deterministic SSOT for the OPE public interface contract; product packages must project it instead of owning local contracts"
+        },
+        {
+          "path": "axioms/axiom-registry-v1.json",
+          "classification": "contract_source",
+          "reason": "registry admission for one-person-enterprise-interface-v1 keeps the new root axiom from becoming an unclassified competing constitution"
+        }
+      ]
+    },
+    {
+      "wave": 14,
+      "theme": "visible open membrane root classification",
+      "disposition": "track_or_quarantine",
+      "targets": [
+        {
+          "path": "patch.py",
+          "classification": "developer_diagnostic_candidate",
+          "reason": "top-level diagnostic candidate must be explicitly tracked, moved, or deleted"
+        }
+      ]
+    }
+  ],
   "done_when": [
     "git ls-files --others --exclude-standard returns no source-like files outside ignored runtime outputs",
     "all canonical and canonical_partial surfaces either have no untracked files or have been intentionally downgraded/quarantined",

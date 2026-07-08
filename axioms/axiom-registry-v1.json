@@ -22,6 +22,9 @@
       "id": "runtime_registry"
     },
     {
+      "id": "runtime_contract"
+    },
+    {
       "id": "kernel_contract"
     },
     {
@@ -391,6 +394,11 @@
     {
       "id": "organism.runtime_governance",
       "description": "added automatically"
+    },
+    {
+      "id": "organism.runtime_governance.heterogeneous_infra",
+      "parent": "organism.runtime_governance",
+      "kind": "sub_layer"
     }
   ],
   "contracts": [
@@ -1005,6 +1013,16 @@
       "merge_policy": "extend_existing_family_before_new_contract"
     },
     {
+      "id": "heterogeneous_runtime_matrix",
+      "path": "axioms/heterogeneous-runtime-matrix-v1.json",
+      "family": "repo_topology",
+      "functional_layer": "runtime_contract",
+      "topological_layer": "organism.runtime_governance.heterogeneous_infra",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
       "id": "cynic.cognitive_signal.v1",
       "path": "axioms/cognitive-signal-v1.json",
       "functional_layer": "semantic_contract",
@@ -1061,7 +1079,7 @@
     }
   ],
   "totals": {
-    "contracts": 66
+    "contracts": 67
   },
   "admission_rule": "A root axioms/*.json file is illegal unless this registry declares its functional_layer, topological_layer, scale, owner and merge_policy."
 }
