@@ -1,10 +1,10 @@
 name: organ-wireguard
 domain: synapse-mesh
-domain_role: private_service_mesh_controller
-role: mesh_network_controller
-description: "Sovereign native WireGuard mesh controller using STUN NAT traversal and SurrealDB SSOT. Hexagonal architecture."
+domain_role: legacy_private_service_mesh_implementation
+role: legacy_synapse_mesh_implementation
+description: "Legacy WireGuard membrane retained for compatibility and migration evidence; canonical network control already lives in cynic-node and organ-fleet."
 version: 0.2.0
-status: planned
+status: legacy_blocked
 dependencies:
   - cynic-kernel
 interfaces:
@@ -23,20 +23,23 @@ interfaces:
     - bundle_synapse_dns_activation
     - report_synapse_dns_activation_status
     - report_synapse_dns_provider_policy
+  provider_fallback:
+    - render_temporary_provider_hosts
+    - report_temporary_provider_fallback_status
 state_paths:
   - desired/state.json
   - state/SSOT.json
 scripts:
   - name: src/entrypoints/cli.py
-    description: Thin organ-wireguard CLI membrane for registry, mesh status, DNS activation and daemon commands
+    description: Thin legacy CLI membrane for compatibility reports, DNS bundles, and provider fallback helpers
     integration_status: organ_entrypoint
     owner: organ-wireguard
-    expiry_condition: none
+    expiry_condition: all remaining compatibility callers move to organ-fleet or cynic-node
   - name: src/adapters/cli_runtime.py
-    description: Runtime implementation for organ-wireguard CLI commands and report surfaces
+    description: Legacy runtime implementation backing compatibility report surfaces and fallback helpers
     integration_status: transition_debt
     owner: organ-wireguard
-    expiry_condition: command effects stay outside entrypoint membranes
+    expiry_condition: active runtime effects are fully absorbed by organ-fleet, cynic-node, and network-actuator
 runbooks:
   - runbooks/operations.json
 commands:
@@ -52,3 +55,7 @@ commands:
     - python3 organs/wireguard/src/entrypoints/cli.py dns bundle --registry infra/registry.json --output-dir /tmp/cynic-synapse-dns
   dns_activation_status:
     - python3 organs/wireguard/src/entrypoints/cli.py dns activation-status --resolve-dns
+  provider_fallback_hosts:
+    - python3 organs/wireguard/src/entrypoints/cli.py fallback-hosts --registry infra/registry.json --output-dir /tmp/cynic-provider-fallback
+  provider_fallback_status:
+    - python3 organs/wireguard/src/entrypoints/cli.py fallback-status --registry infra/registry.json --check-connectivity

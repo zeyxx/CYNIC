@@ -28,6 +28,8 @@ from organs.wireguard.src.adapters.cli_runtime import (
     run_daemon,
     run_dns_activation_status,
     run_dns_bundle,
+    run_provider_fallback_hosts,
+    run_provider_fallback_status,
     run_dns_plan,
     run_status,
     run_sync_dns,
@@ -66,10 +68,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dns_status.add_argument("--resolve-dns", action="store_true")
 
+    fallback_hosts = subparsers.add_parser(
+        "fallback-hosts",
+        help="render temporary provider-plane hosts bundle from registry network.local values",
+    )
+    fallback_hosts.add_argument("--registry", default="infra/registry.json")
+    fallback_hosts.add_argument("--output-dir", required=True)
+    fallback_status = subparsers.add_parser(
+        "fallback-status",
+        help="verify temporary provider-plane hosts and route resurrection path",
+    )
+    fallback_status.add_argument("--registry", default="infra/registry.json")
+    fallback_status.add_argument("--hosts-path", default="/etc/hosts")
+    fallback_status.add_argument("--check-connectivity", action="store_true")
+
     status = subparsers.add_parser("status", help="emit non-mutating Synapse mesh status")
     status.add_argument("--registry", default="infra/registry.json")
     status.add_argument("--resolve-dns", action="store_true")
     status.add_argument("--include-records", action="store_true")
+    status.add_argument("--observe-runtime", action="store_true")
     subparsers.add_parser("daemon", help="run the WireGuard mesh control loop")
     return parser
 
@@ -93,9 +110,20 @@ def dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 args.resolved_dropin_path,
                 args.resolve_dns,
             )
+    if command == "fallback-hosts":
+        return run_provider_fallback_hosts(args.registry, args.output_dir)
+    if command == "fallback-status":
+        return run_provider_fallback_status(args.registry, args.hosts_path, args.check_connectivity)
     if command == "status":
-        return run_status(args.registry, args.resolve_dns, args.include_records)
+        return run_status(args.registry, args.resolve_dns, args.include_records, args.observe_runtime)
     if command == "daemon":
+        if os.environ.get("CYNIC_ALLOW_LEGACY_WIREGUARD_DAEMON") != "1":
+            print(
+                "organ-wireguard daemon is legacy-blocked; use organ-fleet/cynic-node surfaces or set "
+                "CYNIC_ALLOW_LEGACY_WIREGUARD_DAEMON=1 for breakglass compatibility.",
+                file=sys.stderr,
+            )
+            return 2
         return run_daemon()
     parser.error(f"unknown command: {command}")
     return 2
