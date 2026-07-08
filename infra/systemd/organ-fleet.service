@@ -1,0 +1,9 @@
+[Unit]
+Description=CYNIC Organ - Fleet Truth Aggregator
+After=network.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.cynic-env
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+ExecStart=/usr/bin/env uv run --directory organs/fleet python src/entrypoints/cli.py report --json --registry infra/registry.json --output state/fleet-truth.json

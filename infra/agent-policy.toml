@@ -1,0 +1,191 @@
+# Agent Policy — CYNIC Sovereign System
+# Projection of axioms/runtime-principals-v1.json for agent groups, concerns, and sudoers generation
+# Generated from empirical audit of 16541 log entries across 359 sessions
+
+[runtime]
+authority = "axioms/runtime-principals-v1.json"
+dedicated_user = "cynic"
+dedicated_group = "cynic"
+default_cortex_posture = "bounded_yolo"
+
+[groups]
+
+[groups.cynic-cortex]
+description = "Interactive session agents supervised by a human"
+members = ["antigravity", "codex", "claude"]
+execution_mode = "session"
+concerns = ["build", "git", "data-read", "data-write", "infra-read", "kernel-mcp"]
+
+[groups.cynic-organ]
+description = "Autonomous background agents: daemons, crons, webhooks"
+members = ["hermes-daemon", "hermes-cron", "hermes-webhook"]
+execution_mode = ["daemon", "cron", "webhook"]
+concerns = ["data-read", "data-write", "comms", "kernel-mcp"]
+
+[groups.cynic-infra]
+description = "Infrastructure mutation operations, explicit approval required"
+members = ["antigravity", "codex"]
+execution_mode = "session"
+concerns = ["infra-write", "network", "vm-provision"]
+
+[groups.cynic-read]
+description = "Read-only baseline, all agents inherit this"
+members = ["antigravity", "codex", "claude", "hermes-daemon", "hermes-cron", "hermes-webhook"]
+execution_mode = "*"
+concerns = ["data-read"]
+
+
+# Concern definitions — what each concern actually allows at OS level
+
+[concerns.build]
+commands = [
+    "/usr/bin/cargo *",
+    "/usr/bin/make *",
+    "/usr/bin/uv *",
+    "/usr/bin/npm *",
+    "/usr/bin/npx *",
+    "/usr/bin/python3 *",
+]
+nopasswd = true
+
+[concerns.git]
+commands = [
+    "/usr/bin/git *",
+]
+nopasswd = true
+blocklist = ["git push --force", "git reset --hard HEAD~"]
+
+[concerns.data-read]
+commands = [
+    "/usr/bin/find ${HOME}/* -type f",
+    "/usr/bin/cat ${HOME}/*",
+    "/usr/bin/ls *",
+]
+nopasswd = true
+
+[concerns.data-write]
+paths = [
+    "${HOME}/.cynic/*",
+    "${HOME}/.hermes/*",
+    "${HOME}/.gemini/*",
+    "${CYNIC_REPO_ROOT}/*",
+    "${CYNIC_CONSUMER_ROOT:-${HOME}/CAPLOGY}/*",
+]
+nopasswd = true
+
+[concerns.comms]
+# Hermes organ reaches Telegram, Slack, Discord via HTTP — no OS-level sudo needed
+# Enforced at network level (nft) not sudoers
+commands = []
+nopasswd = true
+
+[concerns.kernel-mcp]
+commands = [
+    "${HOME}/bin/cynic-kernel-mcp *",
+    "${HOME}/.cortex/mcp/run_cynic_mcp.py *",
+]
+nopasswd = true
+
+[concerns.infra-read]
+commands = [
+    "/usr/bin/ss *",
+    "/usr/bin/ip *",
+    "/usr/bin/ps *",
+    "/usr/bin/docker ps *",
+    "/usr/bin/docker logs *",
+]
+nopasswd = true
+
+[concerns.infra-write]
+commands = [
+    "/usr/bin/systemctl restart cynic-*",
+    "/usr/bin/systemctl stop cynic-*",
+    "/usr/bin/systemctl start cynic-*",
+    "/usr/bin/docker run *",
+    "/usr/bin/docker compose *",
+]
+# Requires explicit approval — NOT nopasswd by design
+nopasswd = false
+
+[concerns.network]
+commands = [
+    "/usr/sbin/nft -f ${HOME}/.config/cynic/firewall.nft",
+    "/usr/sbin/nft flush ruleset",
+    "/usr/sbin/nft list ruleset",
+    "/usr/bin/wg *",
+    "/usr/bin/wg-quick *",
+]
+nopasswd = false
+
+[concerns.vm-provision]
+commands = [
+    # Proxmox operations go through the Proxmox HTTP API, not sudo
+    # organ-fabric uses CYNIC_PROXMOX_TOKEN_ID — no OS sudo needed
+]
+nopasswd = true
+
+
+# Agent identity mapping — how each CLI binary maps to a group at runtime
+
+[agents.antigravity]
+binary = "${HOME}/.local/bin/agy"
+runtime_user = "cynic"
+execution_posture = "bounded_yolo"
+primary_group = "cynic-cortex"
+also_member_of = ["cynic-infra", "cynic-read"]
+hermes_cli_elevation = false  # runs as cortex when called interactively
+
+[agents.codex]
+binary = "${HOME}/.local/bin/codex"
+runtime_user = "cynic"
+execution_posture = "bounded_yolo"
+primary_group = "cynic-cortex"
+also_member_of = ["cynic-read"]
+note = "YOLO is bounded by the runtime-principals contract: project-scoped velocity, destructive host/provider mutations denied."
+
+[agents.claude]
+binary = "${HOME}/.local/bin/claude"
+primary_group = "cynic-cortex"
+also_member_of = ["cynic-read"]
+
+[agents.hermes-daemon]
+binary = "${HOME}/.hermes/bin/hermes"
+runtime_signal = "gateway.pid present"
+primary_group = "cynic-organ"
+also_member_of = ["cynic-read"]
+
+[agents.hermes-cron]
+binary = "${HOME}/.hermes/bin/hermes"
+runtime_signal = "launched from jobs.json scheduler"
+primary_group = "cynic-organ"
+also_member_of = ["cynic-read"]
+
+[agents.hermes-cli]
+binary = "${HOME}/.hermes/bin/hermes"
+runtime_signal = "interactive tty present"
+primary_group = "cynic-cortex"  # elevated when human is present
+also_member_of = ["cynic-organ", "cynic-read"]
+note = "Same binary as daemon but tty detection elevates to cortex group"
+
+
+# Anti-patterns detected in audit — these guide what NOT to allow
+
+[antipatterns]
+kernel_unreachable_loops = 8   # REST kernel unreachable — mitigated by not blocking CI on it
+mcp_deserialization_errors = 7 # missing field errors — mitigated by typed sudoers (no shell hacks)
+grep_syntax_errors = 5         # agents using grep -r wrong — not a sudo issue, a skill issue
+edit_failures = 4              # file edit loops — scoped paths in data-write fix this
+
+# Explicit DENY list — never allowed regardless of group
+[deny]
+commands = [
+    "rm -rf /",
+    "rm -rf ~",
+    "dd if=* of=/dev/*",
+    "DROP TABLE",
+    "DROP DATABASE",
+    "git push --force",
+    "git reset --hard HEAD~",
+    "mkfs.*",
+    "shred *",
+]

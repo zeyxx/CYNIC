@@ -1296,6 +1296,12 @@
       {
         "name": "cynic-vm-v2",
         "role": "kernel_primary",
+        "id": "node-4",
+        "aliases": [
+          "cynic-vm-v2.synapse.cynic",
+          "cynic-kernel-primary.synapse.cynic",
+          "inference.synapse.cynic"
+        ],
         "synapse": "10.20.0.5",
         "dns": [
           "cynic-vm-v2.synapse.cynic",

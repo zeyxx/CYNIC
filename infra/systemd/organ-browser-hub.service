@@ -1,0 +1,22 @@
+[Unit]
+Description=CYNIC organ-browser hub — policy-facing Browser Hub HTTP API
+After=organ-browser.service
+Wants=organ-browser.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/cynic/env
+Environment=ORGAN_BROWSER_CDP_PORT=40769
+Environment=ORGAN_BROWSER_HUB_PORT=40770
+Environment=ORGAN_BROWSER_STATE_DIR=%h/.cynic/organs/browser
+WorkingDirectory=@CYNIC_PROJECT_ROOT@
+ExecStart=/usr/bin/python3 organs/browser/src/entrypoints/browser_hub.py
+Restart=on-failure
+RestartSec=10
+MemoryMax=128M
+TimeoutStartSec=30
+
+[Install]
+WantedBy=default.target

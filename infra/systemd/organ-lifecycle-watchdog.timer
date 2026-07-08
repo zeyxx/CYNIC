@@ -1,0 +1,11 @@
+[Unit]
+Description=CYNIC Organ Lifecycle - freshness watchdog timer
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=organ-lifecycle-watchdog.service
+
+[Install]
+WantedBy=timers.target

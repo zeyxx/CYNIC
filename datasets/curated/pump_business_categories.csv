@@ -1,0 +1,4 @@
+mcap_bracket,total_communities,avg_lifespan_days,avg_unique_traders,total_fees_generated_usd,average_ltv_usd,median_ltv_usd
+1_Micro (85k-1M),8185,40.33,2667.98,27566988.96,3367.98,1481.07
+2_PME (1M-10M),2312,18.90,2227.95,16367738.49,7079.47,14.91
+3_Blue_Chip (10M+),1662,28.71,2234.37,11169691.90,6720.63,3.41

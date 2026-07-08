@@ -1,0 +1,47 @@
+{
+  "schema": "cynic.curated_dataset_model.v1",
+  "dataset": "datasets/curated/odysseum_monte_carlo.csv",
+  "status": "curated_evidence",
+  "owner": "organ-radar",
+  "source": {
+    "kind": "legacy_script_to_be_deleted",
+    "path": "scripts/dune/monte_carlo.py",
+    "replacement": "this JSON model plus the curated CSV output",
+    "deletion_blocker": "legacy scripts/ path is owned by cynic:cynic in the current sandbox"
+  },
+  "random_seed": 42,
+  "iterations": 1000,
+  "inputs": {
+    "total_sol_communities": 77261,
+    "total_sol_fees_usd": 58553979,
+    "avg_sol_fees_usd": 757,
+    "total_usdc_communities": 682,
+    "total_usdc_fees_usd": 1894433,
+    "avg_usdc_fees_usd": 2777
+  },
+  "parameter_grid": {
+    "take_rates": [0.005, 0.01, 0.02, 0.05],
+    "quantum_rates": [0.05, 0.1, 0.2],
+    "penetration_rates": [0.01, 0.05, 0.15, 0.5]
+  },
+  "calculation": {
+    "total_market_fees_usd": "total_sol_fees_usd + total_usdc_fees_usd",
+    "target_fees_usd": "total_market_fees_usd * penetration_rate",
+    "luck_factor": "clamp(random.gauss(quantum_rate, quantum_rate * 0.5), 0.0, 1.0)",
+    "effective_fees_captured_usd": "target_fees_usd * (1 - luck_factor)",
+    "quarterly_revenue_usd": "effective_fees_captured_usd * take_rate",
+    "arr_usd": "quarterly_revenue_usd * 4"
+  },
+  "outputs": {
+    "columns": [
+      "Take_Rate",
+      "Quantum_Loto",
+      "Market_Share",
+      "ARR_Mean_$",
+      "ARR_Worst_Case_$",
+      "ARR_Best_Case_$"
+    ],
+    "worst_case_percentile": 0.05,
+    "best_case_percentile": 0.95
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "repositories": [
+    {
+      "added_at": "2026-06-29T17:40:11.066489+00:00",
+      "added_by": "cynic",
+      "discovered": false,
+      "owner": "user",
+      "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC",
+      "source": "apply"
+    }
+  ],
+  "schema": "cynic.runtime_principals.repo_access.v1",
+  "updated_at": "2026-07-03T01:00:09.845420+00:00",
+  "version": 1
+}
