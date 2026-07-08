@@ -1,0 +1,94 @@
+{
+  "manifest_version": "1.0.0",
+  "framework": "kyon",
+  "target": "portable_mobile_framework",
+  "ports": [
+    "ports/ActivityEventStore",
+    "ports/PhoneReportStore",
+    "ports/ObservationSink",
+    "ports/PeerHasher"
+  ],
+  "core_invariants": {
+    "hexagonal": true,
+    "dependency_direction": "application_to_ports_only",
+    "composition_root": "bootstrap/KyonContainer.kt",
+    "runtime_config_externalized": true
+  },
+  "default_integration": {
+    "transport": {
+      "type": "http_sync",
+      "contract": "KernelObservationSink",
+      "config_keys": [
+        "kernel_url",
+        "kernel_token",
+        "sync_enabled"
+      ]
+    },
+    "storage": {
+      "primary": "room",
+      "adapter": "adapters/storage/room"
+    },
+    "scheduler": {
+      "type": "WorkManager",
+      "worker": "mirror/sync/KernelSyncWorker.kt"
+    }
+  },
+  "portable_actions": [
+    {
+      "id": "kyon.copy_sources",
+      "label": "Copy Kyon source tree",
+      "commands": [
+        "mkdir -p <target_repo>/app/src/main/java/<base>/",
+        "cp -R apps/kyon-mobile/app/src/main/java/so/cynic/kyon/* <target_repo>/app/src/main/java/<base>/",
+        "cp -R apps/kyon-mobile/app/src/main/res <target_repo>/app/src/main/"
+      ],
+      "required": true
+    },
+    {
+      "id": "kyon.swap_adapters",
+      "label": "Replace project-specific adapters",
+      "commands": [
+        "Replace adapters/storage implementations with local project adapters.",
+        "Replace kernel sync adapter to route to local kernel contract.",
+        "Replace app entrypoint (Application subclass) and manifest declarations."
+      ],
+      "required": true
+    },
+    {
+      "id": "kyon_externalize_config",
+      "label": "Externalize runtime config",
+      "commands": [
+        "Keep kernel_url / kernel_token in runtime settings only.",
+        "Store project-specific constants via SharedPreferences/secure storage."
+      ],
+      "required": true
+    },
+    {
+      "id": "kyon_verify",
+      "label": "Verify integration",
+      "commands": [
+        "cd <target_repo>",
+        "./gradlew :app:compileDebugKotlin --no-daemon",
+        "./gradlew :app:testDebugUnitTest --no-daemon"
+      ],
+      "required": true
+    }
+  ],
+  "ports_to_replace_for_new_project": [
+    {
+      "name": "Storage adapter",
+      "current": "adapters/storage/room/RoomActivityEventStore.kt",
+      "replace_with": "project_storage/*"
+    },
+    {
+      "name": "Sync sink",
+      "current": "adapters/sync/kernel/KernelObservationSink.kt",
+      "replace_with": "project_sync/*"
+    },
+    {
+      "name": "Worker scheduling",
+      "current": "mirror/sync/KernelSyncWorker.kt",
+      "replace_with": "project_worker/*"
+    }
+  ]
+}
