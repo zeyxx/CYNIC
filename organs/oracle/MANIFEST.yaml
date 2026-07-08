@@ -1,0 +1,14 @@
+id: organ-oracle
+name: Transparency Oracle (L1 Anchoring)
+domain: transparency
+domain_role: proof_of_build_anchor
+status: active
+description: The transparency organ that periodically reads the CYNIC State Engine logs (Stage 2) and anchors the latest cryptographic State Root to Solana (Stage 6), providing absolute Proof-of-Build to the public.
+state_paths:
+  - state/
+entrypoints:
+  - name: src/entrypoints/cli.py
+    description: Non-mutating state-root status, mock anchor receipt, observe payload and JSONL read-back verifier.
+manual_gates:
+  - no_mainnet_anchor_without_real_solana_adapter
+  - no_anchor_claim_without_kernel_observation_readback

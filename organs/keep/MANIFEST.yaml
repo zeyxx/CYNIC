@@ -1,0 +1,28 @@
+id: organ-keep
+name: organ-keep
+tier: 2
+domain: storage
+role: storage_durability
+description: "Owns CYNIC storage activation, backup, migration and durability contracts."
+version: 0.1.0
+status: planned
+owner: organ-keep
+dependencies:
+  - organ-fleet
+  - cynic-kernel
+inputs:
+  registry:
+    - infra/registry.json
+  schema:
+    - infra/surrealdb/schema.surql
+  bridge:
+    - docs/contracts/lxc-exec-bridge-v1.json
+outputs:
+  storage_activation_bundle:
+    format: directory
+    command: python3 organs/keep/src/entrypoints/cli.py storage-primary bundle --output-dir /tmp/cynic-storage-primary
+rules:
+  - storage_endpoint_must_be_synapse_dns
+  - no_root_root_default_credentials
+  - no_lan_ip_service_contract
+  - activation_requires_lxc_exec_bridge

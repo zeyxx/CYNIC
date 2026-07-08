@@ -1,0 +1,29 @@
+name: organ-headscale
+domain: access-mesh
+domain_role: operator_reachability_control_plane
+role: mesh_access_control
+description: "Headscale/Tailscale-compatible access mesh control plane for operator and agent reachability."
+version: 0.1.0
+status: active
+dependencies:
+  - cynic-kernel
+interfaces:
+  access_mesh:
+    - list_nodes
+    - generate_preauthkey
+    - observe_node_liveness
+    - revoke_node
+outputs:
+  fleet_evidence:
+    format: json
+    consumer: organ-fleet
+scripts:
+  - name: src/entrypoints/cli.py
+    description: Canonical headscale contract/status entrypoint.
+    owner: organ-headscale
+    integration_status: transition_debt
+    expiry_condition: Headscale provisioning exposes a bounded entrypoint package with separated core and adapter layers.
+rules:
+  - owns_access_mesh_only
+  - does_not_own_synapse_service_mesh
+  - does_not_run_kernel

@@ -1,0 +1,45 @@
+name: organ-identity
+domain: identity
+domain_role: credential_attestation_and_lifecycle
+role: credential_management
+description: >
+  Credential lifecycle management for the CYNIC organism.
+  Single source of truth for adding, removing, listing, and attesting
+  credentials stored in ~/.cynic-env.
+  CLI surface for the human operator.
+  MCP surface for agents (attestation only — values never exposed).
+version: 0.1.0
+status: declared
+maturity: canonical_partial
+dependencies:
+  - cynic-kernel
+
+interfaces:
+  credential_ops:
+    - add_credential
+    - remove_credential
+    - list_credentials
+    - rotate_credential
+  attestation:
+    - attest_presence
+    - smoke_check
+    - shape_proof
+
+rules:
+  - values_never_logged
+  - values_never_in_mcp_response
+  - writes_only_to_cynic_env
+  - reads_env_file_path_from_CYNIC_ENV_FILE_or_default
+  - attestation_is_hash_of_value_not_value
+
+commands:
+  list:
+    - python3 organs/identity/src/entrypoints/cli.py list
+  add:
+    - python3 organs/identity/src/entrypoints/cli.py add <KEY>
+  remove:
+    - python3 organs/identity/src/entrypoints/cli.py remove <KEY>
+  verify:
+    - python3 organs/identity/src/entrypoints/cli.py verify
+  attest:
+    - python3 organs/identity/src/entrypoints/cli.py attest

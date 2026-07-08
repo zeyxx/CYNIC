@@ -1,0 +1,62 @@
+id: organ-solana
+tier: 2
+domain: solana
+status: active
+framework: canonical-python-organ
+
+description: |
+  Solana sensing and library-feeding organ. It probes live chain evidence and
+  emits structured observations into the Kernel-backed CYNIC library. It is not
+  the library database, not a RAG store, not an Odysseum product backend, and
+  not a signing surface.
+
+  Canonical architecture:
+  - organ-solana owns ingestion membranes and lightweight field probes.
+  - crates/cynic-inference owns deterministic Solana mechanism parsing when
+    the Python probe graduates to Rust.
+  - crates/cynic-kernel owns durable observations, read-back and library query.
+  - crates/cynic-mcp owns agent-facing tools over that library.
+  - Odysseum consumes Solana observations; it does not own Solana truth.
+
+capabilities:
+  - solana_rpc_account_probe
+  - pump_pumpswap_mechanism_probe
+  - token_program_classification
+  - kernel_observation_emission
+  - solana_library_feeder
+
+does_not_own:
+  - wallet_signing
+  - transaction_submission
+  - durable_memory_database
+  - vector_index
+  - odysseum_business_logic
+  - mcp_tool_surface
+  - rust_crate_boundary
+
+inputs:
+  - source: CLI
+    data: Solana mint addresses and optional RPC endpoint
+  - source: Solana JSON-RPC
+    data: getAccountInfo, getSignaturesForAddress, getTransaction
+
+outputs:
+  - path: stdout
+    format: cynic.solana.pump_live_probe.v1 JSONL
+  - path: Kernel /observe
+    format: structured observation when --observe is used
+
+promotion_path:
+  - current: Python field probe validates mechanism shape quickly.
+  - next: Move deterministic parsing/classification into crates/cynic-inference without creating a new crate.
+  - then: Expose stable read/query through Kernel and MCP after the observation schema proves useful.
+
+manual_gates:
+  - no_wallet_signature
+  - no_transaction_submission
+  - no_repo_local_research_snapshots
+  - no_vector_state_inside_repo_source_tree
+
+entrypoints:
+  - name: src/entrypoints/pump_probe.py
+    description: Probe live Pump/PumpSwap evidence for one or more Solana mints.
