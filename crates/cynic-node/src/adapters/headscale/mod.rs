@@ -1,5 +1,5 @@
 //! Headscale Access Mesh Adapter
-//! 
+//!
 //! Cet adaptateur porte en Rust les capacités de l'ancien `organ-headscale` (Python).
 //! Il interagit avec le control plane souverain (Headscale) pour lister les nœuds,
 //! générer des clés d'authentification et observer la santé du mesh d'accès.
@@ -87,13 +87,13 @@ impl HeadscaleAdapter {
         let json_data = self.list_nodes()?;
         let nodes: Vec<HeadscaleNode> = serde_json::from_str(&json_data)
             .map_err(|e| format!("Failed to parse nodes: {}", e))?;
-        
+
         for node in nodes {
             if node.name == node_name {
                 return Ok(node.online);
             }
         }
-        
+
         Err(format!("Node {} not found", node_name))
     }
 }

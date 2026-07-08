@@ -1,3 +1,5 @@
+#![allow(clippy::print_stdout)] // WHY: Simulation module logs progress via println
+
 use crate::{FalsificationPayload, PostQuantumZkEngine};
 use serde::{Deserialize, Serialize};
 
@@ -6,9 +8,11 @@ pub const PHI_INVERSE: f64 = 0.6180339887;
 
 /// Représente le Macrocosme (Le réseau global CYNIC).
 /// Reçoit les preuves ZK depuis les Microcosmes (appareils utilisateurs).
+#[derive(Debug)]
 pub struct MacrocosmFederation {
     // Dans une implémentation réelle, ceci gèrerait les connexions P2P (ex: libp2p)
     // ou une connexion vers un noeud SurrealDB validateur central.
+    #[allow(dead_code)] // WHY: Placeholder for future P2P implementation
     active_peers: usize,
 }
 
@@ -17,6 +21,12 @@ pub struct FederationReceipt {
     pub success: bool,
     pub macrocosm_consensus_hash: String,
     pub absolute_confidence: f64, // Calculé via l'équation de Convergence φ
+}
+
+impl Default for MacrocosmFederation {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MacrocosmFederation {
@@ -29,7 +39,7 @@ impl MacrocosmFederation {
 
     /// Calcule la Confiance absolue après `n` convergences de la même intention.
     /// Équation: C(n) = 1 - φ⁻⁽²ⁿ⁺²⁾
-    fn calculate_phi_convergence(&self, n_occurrences: u32) -> f64 {
+    fn calculate_phi_convergence(n_occurrences: u32) -> f64 {
         let exponent = (2 * n_occurrences + 2) as i32;
         let phi_power = PHI_INVERSE.powi(exponent);
         1.0 - phi_power
@@ -62,7 +72,7 @@ impl MacrocosmFederation {
         println!("KYON_FEDERATION: Preuve STARK Post-Quantique validée mathématiquement.");
 
         // 3. Convergence φ (CYNIC-PHI-CONVERGENCE)
-        let confidence = self.calculate_phi_convergence(past_occurrences);
+        let confidence = Self::calculate_phi_convergence(past_occurrences);
         println!("KYON_FEDERATION: Convergence de l'Axiome (n={}) -> Confiance = {:.3}%", past_occurrences, confidence * 100.0);
 
         // 4. Actuateur K15 ("Knowledge Must Act")
@@ -72,7 +82,7 @@ impl MacrocosmFederation {
             println!("KYON_FEDERATION: [K15 ACTUATOR] Seuil HOWL atteint ! Déclenchement d'une mutation souveraine de l'Organisme.");
         }
 
-        let consensus_hash = format!("macro_{}", zk_proof);
+        let consensus_hash = format!("macro_{zk_proof}");
 
         Ok(FederationReceipt {
             success: true,

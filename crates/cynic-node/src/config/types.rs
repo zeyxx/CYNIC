@@ -1,0 +1,137 @@
+use serde::Deserialize;
+use std::collections::HashMap;
+
+use super::defaults;
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct Config {
+    pub(crate) kernel: KernelConfig,
+    pub(crate) dog: DogConfig,
+    pub(crate) process: ProcessConfig,
+    #[serde(default)]
+    pub(crate) restart: RestartConfig,
+    #[serde(default)]
+    pub(crate) health: HealthConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct WatchdogConfig {
+    pub(crate) kernel: KernelConfig,
+    pub(crate) node: NodeConfig,
+    #[serde(default)]
+    pub(crate) watchdog: WatchdogRuntimeConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct NodeConfig {
+    pub(crate) name: String,
+    #[serde(default = "defaults::default_watchdog_role")]
+    pub(crate) role: String,
+    #[serde(default = "defaults::default_watchdog_constellation")]
+    pub(crate) constellation: String,
+    #[serde(default)]
+    pub(crate) services: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct WatchdogRuntimeConfig {
+    #[serde(default = "defaults::default_watchdog_interval_secs")]
+    pub(crate) interval_secs: u64,
+    #[serde(default = "defaults::default_watchdog_http_timeout_secs")]
+    pub(crate) http_timeout_secs: u64,
+    #[serde(default = "defaults::default_watchdog_registry_path")]
+    pub(crate) registry_path: String,
+}
+
+impl Default for WatchdogRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            interval_secs: defaults::default_watchdog_interval_secs(),
+            http_timeout_secs: defaults::default_watchdog_http_timeout_secs(),
+            registry_path: defaults::default_watchdog_registry_path(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct KernelConfig {
+    pub(crate) url: String,
+    pub(crate) api_key_env: String,
+    #[serde(skip)]
+    pub(crate) api_key: String,
+    #[serde(default = "defaults::default_heartbeat_interval_secs")]
+    pub(crate) heartbeat_interval_secs: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct DogConfig {
+    pub(crate) name: String,
+    pub(crate) model: String,
+    pub(crate) base_url: String,
+    #[serde(default = "defaults::default_context_size")]
+    pub(crate) context_size: u32,
+    #[serde(default = "defaults::default_dog_timeout_secs")]
+    pub(crate) timeout_secs: u64,
+    pub(crate) api_key_env: Option<String>,
+    #[serde(skip)]
+    pub(crate) api_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ProcessConfig {
+    pub(crate) command: Vec<String>,
+    pub(crate) working_dir: Option<String>,
+    #[serde(default = "defaults::default_stop_timeout_secs")]
+    pub(crate) stop_timeout_secs: u64,
+    #[serde(default)]
+    pub(crate) env: HashMap<String, String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct RestartConfig {
+    #[serde(default = "defaults::default_max_attempts")]
+    pub(crate) max_attempts: u32,
+    #[serde(default = "defaults::default_initial_delay_secs")]
+    pub(crate) initial_delay_secs: u64,
+    #[serde(default = "defaults::default_max_delay_secs")]
+    pub(crate) max_delay_secs: u64,
+    #[serde(default = "defaults::default_min_uptime_secs")]
+    pub(crate) min_uptime_secs: u64,
+}
+
+impl Default for RestartConfig {
+    fn default() -> Self {
+        Self {
+            max_attempts: defaults::default_max_attempts(),
+            initial_delay_secs: defaults::default_initial_delay_secs(),
+            max_delay_secs: defaults::default_max_delay_secs(),
+            min_uptime_secs: defaults::default_min_uptime_secs(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct HealthConfig {
+    #[serde(default = "defaults::default_health_interval_secs")]
+    pub(crate) interval_secs: u64,
+    #[serde(default = "defaults::default_verify_interval_secs")]
+    pub(crate) verify_interval_secs: u64,
+    #[serde(default = "defaults::default_health_timeout_secs")]
+    pub(crate) timeout_secs: u64,
+    #[serde(default = "defaults::default_max_failures")]
+    pub(crate) max_failures: u32,
+    #[serde(default = "defaults::default_startup_timeout_secs")]
+    pub(crate) startup_timeout_secs: u64,
+}
+
+impl Default for HealthConfig {
+    fn default() -> Self {
+        Self {
+            interval_secs: defaults::default_health_interval_secs(),
+            verify_interval_secs: defaults::default_verify_interval_secs(),
+            timeout_secs: defaults::default_health_timeout_secs(),
+            max_failures: defaults::default_max_failures(),
+            startup_timeout_secs: defaults::default_startup_timeout_secs(),
+        }
+    }
+}

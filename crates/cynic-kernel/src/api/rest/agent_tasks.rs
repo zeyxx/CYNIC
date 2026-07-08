@@ -1091,7 +1091,7 @@ mod tests {
         );
     }
 
-    fn task_with_content(content: serde_json::Value) -> AgentTask {
+    fn task_with_content(content: &serde_json::Value) -> AgentTask {
         AgentTask {
             id: "agent_tasks:test".to_string(),
             kind: "hermes".to_string(),
@@ -1115,7 +1115,7 @@ mod tests {
 
     #[test]
     fn extracts_operator_interface_proposal_from_hermes_task_content() {
-        let task = task_with_content(serde_json::json!({
+        let task = task_with_content(&serde_json::json!({
             "schema": "cynic.dependency_convergence_hermes_task.v1",
             "operator_interface_proposal": {
                 "schema": "cynic.agent_proposal.v1",
@@ -1140,7 +1140,7 @@ mod tests {
 
     #[test]
     fn projects_agent_proposal_for_operator_listing() {
-        let task = task_with_content(serde_json::json!({
+        let task = task_with_content(&serde_json::json!({
             "operator_interface_proposal": {
                 "schema": "cynic.agent_proposal.v1",
                 "proposal_id": "dependency-convergence-test",

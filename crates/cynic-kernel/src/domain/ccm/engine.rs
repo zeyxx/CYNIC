@@ -101,7 +101,7 @@ pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Cry
         confidence,
         observations,
         state,
-        created_at: crystal.created_at.clone(),
+        created_at: crystal.created_at,
         updated_at: chrono::DateTime::parse_from_rfc3339(timestamp)
             .map(|ts| ts.timestamp_millis())
             .unwrap_or(0),

@@ -38,16 +38,18 @@ use crate::types::{
     CoordinationStatusPublishParams, CoordinationStatusReadParams, CoordinationThreadReplyParams,
     DispatchAgentTaskParams, FleetNodeExecParams, FleetNodeStatusParams, GitParams,
     IdentityAttestParams, IdentitySmokeCheckParams, InferParams, InfraProvisionParams,
-    InfraRegistryReadParams, InfraRegistryValidateParams, JudgeParams, ListParams,
-    ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
+    InfraRegistryReadParams, InfraRegistryValidateParams, JudgeParams, LibraryQueryParams,
+    ListParams, ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
     LxcExecBridgeStatusParams, McpRateLimit, MetabolismParams, NetworkIpamCheckParams,
     NetworkMeshDnsActivationBundleParams, NetworkMeshDnsActivationPlanParams,
-    NetworkMeshDnsActivationStatusParams, NetworkMeshDnsRenderParams, NetworkMeshStatusParams,
-    ObserveParams, ProxmoxActionParams, ProxmoxExecParams, ProxmoxProvisionParams, RegisterParams,
-    ReleaseParams, ServiceHealthParams, ServiceStatusParams, StoragePrimaryBundleParams,
-    StoragePrimaryPlanParams, StoragePrimaryReadinessParams, StoragePrimaryStatusParams,
-    UpdateAgentTaskResultParams, ValidateParams, WatchPendingAgentTasksParams, WhoParams,
-    validate_agent_id, validate_agent_task_content,
+    NetworkMeshDnsActivationStatusParams, NetworkMeshDnsRenderParams,
+    NetworkMeshProviderFallbackHostsParams, NetworkMeshProviderFallbackStatusParams,
+    NetworkMeshStatusParams, ObserveParams, ProxmoxActionParams, ProxmoxExecParams,
+    ProxmoxProvisionParams, RegisterParams, ReleaseParams, ServiceHealthParams,
+    ServiceStatusParams, StoragePrimaryBundleParams, StoragePrimaryPlanParams,
+    StoragePrimaryReadinessParams, StoragePrimaryStatusParams, UpdateAgentTaskResultParams,
+    ValidateParams, WatchPendingAgentTasksParams, WhoParams, validate_agent_id,
+    validate_agent_task_content,
 };
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -335,6 +337,65 @@ impl CynicMcpProxy {
             "helper": helper,
             "ssh_exit_code": output.status.code(),
             "bridge": parsed,
+            "stderr": stderr,
+        }))
+    }
+
+    fn run_host_exec_transport(
+        argv: &[String],
+        request: &serde_json::Value,
+    ) -> Result<serde_json::Value, McpError> {
+        let Some(program) = argv.first() else {
+            return Err(McpError::internal_error(
+                "host exec transport command is empty",
+                None,
+            ));
+        };
+        let mut child = std::process::Command::new(program)
+            .args(&argv[1..])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| {
+                McpError::internal_error(format!("host exec transport spawn failed: {e}"), None)
+            })?;
+
+        if let Some(stdin) = child.stdin.as_mut() {
+            stdin
+                .write_all(
+                    serde_json::to_string(request)
+                        .unwrap_or_default()
+                        .as_bytes(),
+                )
+                .map_err(|e| {
+                    McpError::internal_error(
+                        format!("host exec transport stdin write failed: {e}"),
+                        None,
+                    )
+                })?;
+        }
+        let output = child.wait_with_output().map_err(|e| {
+            McpError::internal_error(format!("host exec transport wait failed: {e}"), None)
+        })?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let parsed = serde_json::from_str::<serde_json::Value>(&stdout).unwrap_or_else(|_| {
+            serde_json::json!({
+                "schema": "cynic.host_exec_transport.response.v1",
+                "status": "error",
+                "error": "transport_output_not_json",
+                "stdout": stdout,
+                "stderr": stderr,
+                "exit_code": output.status.code()
+            })
+        });
+        Ok(serde_json::json!({
+            "status": if output.status.success() { "completed" } else { "transport_failed" },
+            "provider": "host_exec_transport",
+            "command": argv,
+            "exit_code": output.status.code(),
+            "transport": parsed,
             "stderr": stderr,
         }))
     }

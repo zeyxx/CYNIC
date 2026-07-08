@@ -113,7 +113,7 @@ pub(crate) async fn run_system_probe(
                                             "L0 Watchdog: Critical node {} ({}) is stopped! Initiating autonomous emergence (qm start).",
                                             name, id
                                         );
-                                        if let Some(vmid) = id.split('/').last() {
+                                        if let Some(vmid) = id.split('/').next_back() {
                                             let _ = std::process::Command::new("sudo")
                                                 .args(["-n", "qm", "start", vmid])
                                                 .output();

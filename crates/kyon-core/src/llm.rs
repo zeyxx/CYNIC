@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 
 /// La Matrice de Paramètres Totales.
 /// Définit l'état cognitif du Persona lors de la génération.
@@ -38,12 +37,19 @@ pub trait CognitiveEngine: Send + Sync {
     async fn infer(&self, matrix: &CognitiveMatrix, sensory_context: &str) -> Result<String, String>;
 }
 
-use candle_core::{Device, Tensor};
+use candle_core::Device;
 
 /// Implémentation spécifique pour Candle (Moteur Pur Rust)
 pub struct CandleEngine {
+    #[allow(dead_code)] // WHY: Reserved for future hardware acceleration
     device: Device,
     model_loaded: bool,
+}
+
+impl Default for CandleEngine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CandleEngine {

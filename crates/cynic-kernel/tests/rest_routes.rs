@@ -10,7 +10,7 @@ use http_body_util::BodyExt;
 use tower::ServiceExt;
 
 use cynic_kernel::api::rest::{self, AppState, PerIpRateLimiter, StorageInfo};
-use cynic_kernel::dogs::deterministic::DeterministicDog;
+
 use cynic_kernel::domain::coord::NullCoord;
 use cynic_kernel::domain::embedding::NullEmbedding;
 use cynic_kernel::domain::metrics::Metrics;
@@ -18,23 +18,11 @@ use cynic_kernel::domain::storage::NullStorage;
 use cynic_kernel::domain::usage::DogUsageTracker;
 use cynic_kernel::domain::verdict_cache::VerdictCache;
 use cynic_kernel::infra::task_health::TaskHealth;
-use cynic_kernel::judge::Judge;
+
 
 fn test_state(api_key: Option<&str>) -> Arc<AppState> {
-    let dogs: Vec<Arc<dyn cynic_kernel::domain::dog::Dog>> = vec![Arc::new(DeterministicDog)];
-    let breakers: Vec<Arc<dyn cynic_kernel::domain::health_gate::HealthGate>> = dogs
-        .iter()
-        .map(|d| {
-            Arc::new(cynic_kernel::infra::circuit_breaker::CircuitBreaker::new(
-                d.id().to_string(),
-            )) as Arc<dyn cynic_kernel::domain::health_gate::HealthGate>
-        })
-        .collect();
-    let judge = Arc::new(Judge::new(dogs, breakers));
-    let judge_swap = arc_swap::ArcSwap::from(judge);
     Arc::new(AppState {
         registered_services: Default::default(),
-        judge: judge_swap,
         storage: Arc::new(NullStorage),
         coord: Arc::new(NullCoord),
         embedding: Arc::new(NullEmbedding),
@@ -66,7 +54,6 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         registered_dogs: std::sync::Arc::new(std::sync::RwLock::new(
             std::collections::HashMap::new(),
         )),
-        judge_jobs: Arc::new(cynic_kernel::api::rest::judge_job::JudgeJobStore::new()),
         system_contract: std::sync::Arc::new(std::sync::RwLock::new(
             cynic_kernel::domain::contract::SystemContract::new(vec![], true),
         )),
@@ -356,215 +343,6 @@ async fn dogs_with_auth_returns_list() {
     assert_eq!(dogs[0], "deterministic-dog");
 }
 
-// ── /judge ──────────────────────────────────────────────────
-
-#[tokio::test]
-async fn judge_requires_auth() {
-    let state = test_state(Some("secret-key"));
-    let app = rest::router(state);
-
-    let resp = app
-        .oneshot(
-            axum::http::Request::builder()
-                .method("POST")
-                .uri("/judge")
-                .header("Content-Type", "application/json")
-                .body(Body::from(r#"{"content":"test"}"#))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), 401);
-}
-
-#[tokio::test]
-async fn judge_async_requires_auth() {
-    let state = test_state(Some("secret-key"));
-    let app = rest::router(state);
-
-    let resp = app
-        .oneshot(
-            axum::http::Request::builder()
-                .method("POST")
-                .uri("/judge/async")
-                .header("Content-Type", "application/json")
-                .body(Body::from(r#"{"content":"test"}"#))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), 401);
-}
-
-#[tokio::test]
-async fn judge_produces_verdict() {
-    let state = test_state(Some("key"));
-    let app = rest::router(state);
-
-    let resp = app
-        .oneshot(
-            axum::http::Request::builder()
-                .method("POST")
-                .uri("/judge")
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer key")
-                .body(Body::from(
-                    r#"{"content":"The Sicilian Defense is strong","domain":"chess"}"#,
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), 200);
-    let v = body_json(resp.into_body()).await;
-
-    // ── API CONTRACT: /judge response ──
-    // Consumer map:
-    //   verdict_id     → frontend (link to detail), MCP cynic_judge
-    //   verdict        → frontend badge, MCP, CCM crystal domain
-    //   q_score.total  → frontend score display, MCP, CCM crystal confidence
-    //   q_score.{axiom} → frontend radar chart, MCP per-axiom breakdown
-    //   reasoning.{axiom} → frontend reasoning display, MCP
-    //   dogs_used      → frontend dog list, /status skill
-    //   stimulus_summary → CCM crystal content, verdict history
-    assert!(
-        v["verdict_id"].is_string(),
-        "CONTRACT: verdict_id must be string"
-    );
-    let verdict = v["verdict"]
-        .as_str()
-        .expect("CONTRACT: verdict must be string");
-    assert!(
-        ["Howl", "Wag", "Growl", "Bark"].contains(&verdict),
-        "CONTRACT: verdict must be Howl/Wag/Growl/Bark"
-    );
-
-    // Q-Score structure
-    let q = &v["q_score"];
-    assert!(
-        q["total"].is_number(),
-        "CONTRACT: q_score.total must be number"
-    );
-    assert!(
-        q["fidelity"].is_number(),
-        "CONTRACT: q_score.fidelity must be number"
-    );
-    assert!(q["phi"].is_number(), "CONTRACT: q_score.phi must be number");
-    assert!(
-        q["verify"].is_number(),
-        "CONTRACT: q_score.verify must be number"
-    );
-    assert!(
-        q["culture"].is_number(),
-        "CONTRACT: q_score.culture must be number"
-    );
-    assert!(
-        q["burn"].is_number(),
-        "CONTRACT: q_score.burn must be number"
-    );
-    assert!(
-        q["sovereignty"].is_number(),
-        "CONTRACT: q_score.sovereignty must be number"
-    );
-
-    // Reasoning structure
-    let r = &v["reasoning"];
-    assert!(
-        r["fidelity"].is_string(),
-        "CONTRACT: reasoning.fidelity must be string"
-    );
-
-    // Dogs
-    assert!(
-        v["dogs_used"].is_string(),
-        "CONTRACT: dogs_used must be string"
-    );
-    // dog_scores — per-Dog breakdown (v0.7.1: persisted to DB, round-trips correctly)
-    assert!(
-        v["dog_scores"].is_array(),
-        "CONTRACT: dog_scores must be array"
-    );
-    let scores = v["dog_scores"].as_array().unwrap();
-    assert!(
-        !scores.is_empty(),
-        "CONTRACT: dog_scores must have at least 1 entry (deterministic-dog)"
-    );
-    let ds = &scores[0];
-    assert!(
-        ds["dog_id"].is_string(),
-        "CONTRACT: dog_scores[].dog_id must be string"
-    );
-    assert!(
-        ds["fidelity"].is_number(),
-        "CONTRACT: dog_scores[].fidelity must be number"
-    );
-    assert!(
-        ds["sovereignty"].is_number(),
-        "CONTRACT: dog_scores[].sovereignty must be number"
-    );
-}
-
-#[tokio::test]
-async fn judge_async_round_trip_exposes_status() {
-    let state = test_state(Some("key"));
-    let app = rest::router(Arc::clone(&state));
-
-    let resp = app
-        .clone()
-        .oneshot(
-            axum::http::Request::builder()
-                .method("POST")
-                .uri("/judge/async")
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer key")
-                .body(Body::from(
-                    r#"{"content":"Short factual sentence.","domain":"general"}"#,
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), 202);
-    let accepted = body_json(resp.into_body()).await;
-    let request_id = accepted["request_id"]
-        .as_str()
-        .expect("CONTRACT: async judge must return request_id");
-    assert_eq!(accepted["status"], "pending");
-    assert_eq!(accepted["dogs_total"], 1);
-
-    tokio::time::sleep(std::time::Duration::from_millis(25)).await;
-
-    let status_resp = app
-        .oneshot(
-            axum::http::Request::builder()
-                .uri(format!("/judge/status/{request_id}"))
-                .header("Authorization", "Bearer key")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(status_resp.status(), 200);
-    let status = body_json(status_resp.into_body()).await;
-    assert_eq!(status["request_id"], request_id);
-    assert_eq!(status["dogs_total"], 1);
-    let phase = status["status"]
-        .as_str()
-        .expect("CONTRACT: async status must expose status string");
-    assert!(
-        ["evaluating", "complete"].contains(&phase),
-        "CONTRACT: async status must progress to evaluating/complete"
-    );
-    assert!(
-        status["dogs_arrived"].is_array(),
-        "CONTRACT: async status must expose dog arrivals"
-    );
-}
 
 // ── /health without auth config (open API) ──────────────────
 
@@ -1033,20 +811,8 @@ async fn coord_register_accepts_valid_intent() {
 #[tokio::test]
 async fn events_rejects_when_sse_semaphore_exhausted() {
     // Build state with 0 SSE permits — simulates all 32 slots taken.
-    let dogs: Vec<Arc<dyn cynic_kernel::domain::dog::Dog>> = vec![Arc::new(DeterministicDog)];
-    let breakers: Vec<Arc<dyn cynic_kernel::domain::health_gate::HealthGate>> = dogs
-        .iter()
-        .map(|d| {
-            Arc::new(cynic_kernel::infra::circuit_breaker::CircuitBreaker::new(
-                d.id().to_string(),
-            )) as Arc<dyn cynic_kernel::domain::health_gate::HealthGate>
-        })
-        .collect();
-    let judge = Arc::new(cynic_kernel::judge::Judge::new(dogs, breakers));
-    let judge_swap = arc_swap::ArcSwap::from(judge);
     let state = Arc::new(AppState {
         registered_services: Default::default(),
-        judge: judge_swap,
         storage: Arc::new(NullStorage),
         coord: Arc::new(NullCoord),
         embedding: Arc::new(NullEmbedding),
@@ -1078,7 +844,6 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         registered_dogs: std::sync::Arc::new(std::sync::RwLock::new(
             std::collections::HashMap::new(),
         )),
-        judge_jobs: Arc::new(cynic_kernel::api::rest::judge_job::JudgeJobStore::new()),
         system_contract: std::sync::Arc::new(std::sync::RwLock::new(
             cynic_kernel::domain::contract::SystemContract::new(vec![], true),
         )),

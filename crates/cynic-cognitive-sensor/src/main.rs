@@ -3,10 +3,10 @@ use tokio::time;
 
 #[tokio::main]
 async fn main() {
-    println!("CYNIC Jarvis Sensor (Windows Endpoint) starting...");
+    println!("CYNIC Cognitive Sensor (host endpoint) starting...");
     // TODO: Implement rdev key/mouse hooks
     // TODO: Implement windows API active window tracking
-    // TODO: Send loop to CYNIC_REST_ADDR / Jarvis Brain
+    // TODO: Send loop to CYNIC_REST_ADDR / cognitive signal ingestion
     
     let mut interval = time::interval(Duration::from_secs(5));
     loop {

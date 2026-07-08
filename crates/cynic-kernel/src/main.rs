@@ -278,7 +278,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "project_root has no .git/ — nightshift git log will fail silently. Set CYNIC_PROJECT_ROOT or start from repo root."
         );
     }
-    let domain_prompts = Arc::new(infra::config::load_domain_prompts(&project_root));
+    let _domain_prompts = Arc::new(infra::config::load_domain_prompts(&project_root));
 
     // ─── RING 2: Build Dogs + organ from backend_configs ──────
     // Factory loop lives in infra::boot so main stays a composition root.
@@ -348,7 +348,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // ─── RING 2: Build Judge ──────────────────────────────────
-    let breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = vec![];
+    let _breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = vec![];
     // Judge disabled
     // Background task health tracker — updated by each spawned task, exposed in /health
     let task_health = Arc::new(infra::task_health::TaskHealth::new());
@@ -613,7 +613,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    let probes: Vec<Arc<dyn domain::probe::Probe>> = vec![
+    let _probes: Vec<Arc<dyn domain::probe::Probe>> = vec![
         Arc::new(infra::probes::ResourceProbe::default()),
         Arc::new(infra::probes::BackupProbe::new(backup_dir)),
         Arc::new(infra::probes::ProcessProbe),
@@ -913,8 +913,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".into());
         let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
         infra::tasks::spawn_pattern_analyzer(
-            kernel_addr.clone(),
-            api_key.clone(),
+            kernel_addr,
+            api_key,
             Arc::clone(&task_health),
             shutdown.clone(),
         );

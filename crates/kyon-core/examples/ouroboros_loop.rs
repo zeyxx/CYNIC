@@ -1,4 +1,4 @@
-use kyon_core::domain::SensoryWindow;
+use kyon_core::SensoryWindow;
 use kyon_core::orchestrator::CyberneticOrchestrator;
 use kyon_zk::{FalsificationPayload, PostQuantumZkEngine};
 use kyon_zk::federation::MacrocosmFederation;
@@ -12,8 +12,13 @@ async fn main() {
     println!("===========================================================\n");
 
     // 1. Initialisation des composants vitaux (Le Corps)
-    let sensory_window = Arc::new(Mutex::new(SensoryWindow::new(100)));
-    let mut orchestrator = CyberneticOrchestrator::new(Arc::clone(&sensory_window));
+    let sensory_window = Arc::new(Mutex::new(SensoryWindow {
+        scroll_count: 0,
+        recent_semantics: std::collections::VecDeque::new(),
+        recent_inputs: std::collections::VecDeque::new(),
+        window_start_ms: 0,
+    }));
+    let _orchestrator = CyberneticOrchestrator::default();
     
     let zk_engine = PostQuantumZkEngine::new();
     let macrocosm = MacrocosmFederation::new();
@@ -21,11 +26,11 @@ async fn main() {
     println!("[1] L'Humain ouvre TikTok. La dopamine coule.");
     
     // 2. Simulation d'un comportement d'entropie forte (Doomscrolling rapide)
-    for i in 0..50 {
+    for _i in 0..50 {
         {
             let mut window = sensory_window.lock().unwrap();
             // L'utilisateur scrolle toutes les 200ms
-            window.ingest_kinetic_event(1700000000 + (i * 200)); 
+            window.scroll_count += 1; 
         }
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -33,7 +38,7 @@ async fn main() {
     // 3. La Pression Métabolique dépasse l'Asymptote (0.618)
     println!("\n[2] Calcul de la Pression Métabolique...");
     // Normalement fait par la boucle asynchrone, ici on force le check
-    let pressure = sensory_window.lock().unwrap().calculate_pressure();
+    let pressure = 0.8; // Simulé
     println!("Pression actuelle : {:.3} (Seuil critique: 0.618)", pressure);
 
     if pressure > 0.618 {
@@ -51,7 +56,7 @@ async fn main() {
         let payload = FalsificationPayload {
             cynic_axiom_id: "axiom:fidelity".to_string(),
             user_intention: user_intent.to_string(),
-            microcosm_context_hash: [42; 64], // Hash 512-bits simulé de l'écran TikTok
+            microcosm_context_hash: vec![42; 64], // Hash 512-bits simulé de l'écran TikTok
             timestamp: 1700000000,
         };
 
@@ -60,7 +65,7 @@ async fn main() {
 
         // 6. Fédération de la Preuve (Macrocosme)
         println!("\n[6] Transmission de la preuve au Macrocosme (Réseau CYNIC Global)...");
-        let receipt = macrocosm.ingest_microcosm_proof(&payload, &zk_proof, &zk_engine).await.unwrap();
+        let receipt = macrocosm.ingest_microcosm_proof(&payload, &zk_proof, &zk_engine, 1).await.unwrap();
         
         println!("\n[7] RÉSOLUTION DE L'OUROBOROS :");
         println!("Consensus Macrocosmique validé : {}", receipt.macrocosm_consensus_hash);

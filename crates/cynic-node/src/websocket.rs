@@ -9,10 +9,14 @@
 // WHY: Module not yet wired into main.rs — see Phase 3.2 comment above.
 #![allow(dead_code, unreachable_pub)]
 
+mod protocol;
+mod queue_store;
+mod domain_dispatch;
+
 use futures_util::sink::SinkExt;
 use futures_util::stream::StreamExt;
+use futures_util::Sink;
 use http::Request;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -21,113 +25,15 @@ use tokio::sync::RwLock;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, error, info, warn};
 
-// ── Message Types ──────────────────────────────────────────────────────────
+pub use protocol::{NodeMessage, PendingStimulus, PendingVerdict};
 
-/// Node→Kernel or Kernel→Node message in WebSocket protocol.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum NodeMessage {
-    /// Node → Kernel: Registration with public key
-    #[serde(rename = "register")]
-    Register {
-        node_public_key: String,
-        node_identity: String,
-    },
-
-    /// Kernel → Node: Registration response with assigned node_id
-    #[serde(rename = "register_response")]
-    RegisterResponse {
-        node_id: String,
-        kernel_version: String,
-        max_stimulus_timeout: u64,
-        max_queue_size: usize,
-    },
-
-    /// Kernel → Node: Stimulus (PUSH mode)
-    #[serde(rename = "stimulus")]
-    Stimulus {
-        stimulus_id: String,
-        domain: String,
-        content: serde_json::Value,
-        context: serde_json::Value,
-        timeout_ms: u64,
-        idempotent_key: String,
-    },
-
-    /// Node → Kernel: Stimulus request (PULL mode)
-    #[serde(rename = "stimulus_request")]
-    StimulusRequest {
-        domain: String,
-        request_timeout_ms: u64,
-        last_processed_stimulus_id: Option<String>,
-    },
-
-    /// Kernel → Node: No work available response
-    #[serde(rename = "stimulus_unavailable")]
-    StimulusUnavailable { retry_after_ms: u64 },
-
-    /// Node → Kernel: Verdict with signature
-    #[serde(rename = "verdict")]
-    Verdict {
-        stimulus_id: String,
-        verdict: serde_json::Value,
-        signature: String,
-        node_public_key: String,
-    },
-
-    /// Kernel → Node: Acknowledgment of verdict
-    #[serde(rename = "ack")]
-    Ack {
-        stimulus_id: String,
-        status: String,
-        verdict_id: String,
-    },
-
-    /// Heartbeat ping/pong
-    #[serde(rename = "ping")]
-    Ping { timestamp: i64 },
-
-    #[serde(rename = "pong")]
-    Pong { timestamp: i64 },
-
-    /// Kernel → Node: Backpressure (node should pause requests)
-    #[serde(rename = "backpressure")]
-    Backpressure {
-        queue_usage_percent: u8,
-        resume_after_ms: u64,
-    },
-
-    /// Kernel → Node: Node eviction (TTL expired)
-    #[serde(rename = "eviction")]
-    Eviction { reason: String, message: String },
-
-    /// Error frame (both directions)
-    #[serde(rename = "error")]
-    Error {
-        error_code: String,
-        stimulus_id: Option<String>,
-        message: String,
-    },
-}
-
-// ── Pending Queue Items ────────────────────────────────────────────────────
-
-/// Stimulus stored in local queue during network partition.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PendingStimulus {
-    pub stimulus_id: String,
-    pub stimulus: NodeMessage,
-    pub received_at: i64,
-}
-
-/// Verdict queued for delivery to kernel.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PendingVerdict {
-    pub stimulus_id: String,
-    pub verdict: serde_json::Value,
-    pub signature: String,
-    pub queued_at: i64,
-}
+type WsWriter = futures_util::stream::SplitSink<
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+    Message,
+>;
+type WsReader = futures_util::stream::SplitStream<
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+>;
 
 // ── WebSocket Client ───────────────────────────────────────────────────────
 
@@ -177,44 +83,19 @@ impl WebSocketClient {
 
     /// Load pending stimuli and verdicts from disk.
     pub async fn load_persistent_queues(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let stimuli_file = self.queue_dir.join("pending_stimuli.json");
-        let verdicts_file = self.queue_dir.join("pending_verdicts.json");
-
-        if stimuli_file.exists() {
-            let data = std::fs::read_to_string(&stimuli_file)?;
-            let stimuli: Vec<PendingStimulus> = serde_json::from_str(&data)?;
-            let mut queue = self.pending_stimuli.write().await;
-            queue.extend(stimuli);
-            info!(count = queue.len(), "Loaded pending stimuli from disk");
-        }
-
-        if verdicts_file.exists() {
-            let data = std::fs::read_to_string(&verdicts_file)?;
-            let verdicts: Vec<PendingVerdict> = serde_json::from_str(&data)?;
-            let mut queue = self.pending_verdicts.write().await;
-            queue.extend(verdicts);
-            info!(count = queue.len(), "Loaded pending verdicts from disk");
-        }
-
+        let (stimuli, verdicts) = queue_store::load_queues(&self.queue_dir)?;
+        let mut stimuli_queue = self.pending_stimuli.write().await;
+        *stimuli_queue = stimuli;
+        let mut verdicts_queue = self.pending_verdicts.write().await;
+        *verdicts_queue = verdicts;
         Ok(())
     }
 
     /// Persist pending queues to disk.
     pub async fn save_persistent_queues(&self) -> Result<(), Box<dyn std::error::Error>> {
-        std::fs::create_dir_all(&self.queue_dir)?;
-
-        let stimuli_file = self.queue_dir.join("pending_stimuli.json");
         let stimuli = self.pending_stimuli.read().await;
-        let stimuli_vec: Vec<_> = stimuli.iter().cloned().collect();
-        std::fs::write(&stimuli_file, serde_json::to_string(&stimuli_vec)?)?;
-
-        let verdicts_file = self.queue_dir.join("pending_verdicts.json");
         let verdicts = self.pending_verdicts.read().await;
-        let verdicts_vec: Vec<_> = verdicts.iter().cloned().collect();
-        std::fs::write(&verdicts_file, serde_json::to_string(&verdicts_vec)?)?;
-
-        info!("Saved persistent queues to disk");
-        Ok(())
+        queue_store::save_queues(&self.queue_dir, &stimuli, &verdicts)
     }
 
     /// Check if stimulus is in dedup cache (within 3600s window).
@@ -328,36 +209,74 @@ impl WebSocketClient {
 
     /// Connect to kernel and run the main multiplexing loop.
     async fn connect_and_run(&self) -> Result<(), String> {
-        // Connect to kernel with authentication headers
         debug!("Connecting to kernel at {}", self.kernel_url);
 
-        // Build HTTP request with Bearer token and node identity headers
-        let request = Request::builder()
+        let request = self.build_request()?;
+
+        let (ws_stream, _) = connect_async(request).await.map_err(|e| e.to_string())?;
+        info!("Connected to kernel at {}", self.kernel_url);
+
+        let (mut write, mut read) = ws_stream.split();
+        self.register_session(&mut write, &mut read).await?;
+
+        let mut heartbeat_interval = tokio::time::interval(Duration::from_secs(30));
+
+        loop {
+            tokio::select! {
+                _ = heartbeat_interval.tick() => {
+                    self.send_ping(&mut write).await?;
+                }
+
+                msg_result = read.next() => {
+                    if let Some(result) = msg_result {
+                        match result.map_err(|e| e.to_string())? {
+                            Message::Text(text) => {
+                                if let Some(err) = self.handle_incoming_text(&mut write, &text).await? {
+                                    return err;
+                                }
+                            }
+                            Message::Close(_) => {
+                                info!("Kernel closed WebSocket connection");
+                                return Ok(());
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        warn!("WebSocket stream ended");
+                        return Err("WebSocket stream closed".into());
+                    }
+                }
+
+                _ = tokio::time::sleep(Duration::from_millis(100)), if self.pending_verdict_count().await > 0 => {
+                    self.flush_pending_verdicts(&mut write).await?;
+                }
+            }
+        }
+    }
+
+    fn build_request(&self) -> Result<Request<()>, String> {
+        Request::builder()
             .uri(&self.kernel_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("X-Node-Public-Key", &self.node_public_key)
             .header("X-Node-Identity", &self.node_identity)
             .body(())
-            .map_err(|e| format!("Failed to build WebSocket request: {e}"))?;
+            .map_err(|e| format!("Failed to build WebSocket request: {e}"))
+    }
 
-        let (ws_stream, _) = connect_async(request).await.map_err(|e| e.to_string())?;
-        info!("Connected to kernel at {}", self.kernel_url);
-
-        // Send registration
+    async fn register_session(
+        &self,
+        write: &mut WsWriter,
+        read: &mut WsReader,
+    ) -> Result<(), String> {
         let register_msg = NodeMessage::Register {
             node_public_key: self.node_public_key.clone(),
             node_identity: self.node_identity.clone(),
         };
-        let register_json = serde_json::to_string(&register_msg).map_err(|e| e.to_string())?;
-        let (mut write, mut read) = ws_stream.split();
-        write
-            .send(Message::Text(register_json))
-            .await
-            .map_err(|e| e.to_string())?;
+        self.send_message(write, &register_msg).await?;
         debug!("Sent registration to kernel");
 
-        // Wait for RegisterResponse
-        let register_response = loop {
+        loop {
             if let Some(msg_result) = read.next().await {
                 match msg_result.map_err(|e| e.to_string())? {
                     Message::Text(text) => {
@@ -376,7 +295,7 @@ impl WebSocketClient {
                                 max_queue_size = max_queue_size,
                                 "Registered with kernel"
                             );
-                            break (node_id, max_stimulus_timeout, max_queue_size);
+                            return Ok(());
                         }
                     }
                     Message::Close(_) => {
@@ -387,210 +306,160 @@ impl WebSocketClient {
             } else {
                 return Err("WebSocket stream ended during registration".into());
             }
+        }
+    }
+
+    async fn send_ping(&self, write: &mut WsWriter) -> Result<(), String> {
+        let ping = NodeMessage::Ping {
+            timestamp: chrono::Utc::now().timestamp(),
         };
+        self.send_message(write, &ping).await?;
+        debug!("Sent heartbeat ping");
+        Ok(())
+    }
 
-        let (_node_id, _max_stimulus_timeout, _max_queue_size) = register_response;
-
-        // Multiplex: heartbeat, incoming messages, and queue draining
-        let mut heartbeat_interval = tokio::time::interval(Duration::from_secs(30));
-
-        loop {
-            tokio::select! {
-                // Heartbeat every 30s
-                _ = heartbeat_interval.tick() => {
-                    let now = chrono::Utc::now().timestamp();
-                    let ping = NodeMessage::Ping {
-                        timestamp: now,
-                    };
-                    let ping_json = serde_json::to_string(&ping)
-                        .map_err(|e| e.to_string())?;
-                    write.send(Message::Text(ping_json)).await
-                        .map_err(|e| e.to_string())?;
-                    debug!("Sent heartbeat ping");
+    async fn handle_incoming_text(
+        &self,
+        write: &mut WsWriter,
+        text: &str,
+    ) -> Result<Option<Result<(), String>>, String> {
+        if let Ok(msg) = serde_json::from_str::<NodeMessage>(text) {
+            match msg {
+                NodeMessage::Stimulus {
+                    stimulus_id,
+                    domain,
+                    content,
+                    context,
+                    timeout_ms,
+                    idempotent_key,
+                } => {
+                    self.handle_stimulus(
+                        write,
+                        stimulus_id,
+                        domain,
+                        content,
+                        context,
+                        timeout_ms,
+                        idempotent_key,
+                    )
+                    .await?;
                 }
-
-                // Receive messages from kernel
-                msg_result = read.next() => {
-                    if let Some(result) = msg_result {
-                        match result.map_err(|e| e.to_string())? {
-                            Message::Text(text) => {
-                                if let Ok(msg) = serde_json::from_str::<NodeMessage>(&text) {
-                                    match msg {
-                                        NodeMessage::Stimulus {
-                                            stimulus_id,
-                                            domain,
-                                            content,
-                                            context,
-                                            timeout_ms,
-                                            idempotent_key,
-                                        } => {
-                                            // Check dedup cache
-                                            if self.should_skip_stimulus(&stimulus_id).await {
-                                                debug!(stimulus_id = %stimulus_id, "Skipping duplicate stimulus");
-                                                // Send ack anyway for idempotence
-                                                let ack = NodeMessage::Ack {
-                                                    stimulus_id: stimulus_id.clone(),
-                                                    status: "already_processed".to_string(),
-                                                    verdict_id: format!("verd_{stimulus_id}"),
-                                                };
-                                                let ack_json = serde_json::to_string(&ack)
-                                                    .map_err(|e| e.to_string())?;
-                                                write.send(Message::Text(ack_json)).await
-                                                    .map_err(|e| e.to_string())?;
-                                            } else {
-                                                // Mark as processed in dedup cache
-                                                self.mark_stimulus_processed(stimulus_id.clone()).await;
-                                                info!(
-                                                    stimulus_id = %stimulus_id,
-                                                    domain = %domain,
-                                                    timeout_ms = timeout_ms,
-                                                    "Received stimulus from kernel"
-                                                );
-
-                                                // Phase 3.2c — Route to native adapters
-                                                match domain.as_str() {
-                                                    "fleet.lxc_exec" => {
-                                                        let stimulus_id_clone = stimulus_id.clone();
-                                                        let content_clone = content.clone();
-                                                        let verdicts_queue = self.pending_verdicts.clone();
-                                                        
-                                                        tokio::spawn(async move {
-                                                            use crate::adapters::proxmox::lxc_bridge::{LxcExecBridge, LxcExecRequest};
-                                                            
-                                                            let verdict_payload = match serde_json::from_value::<LxcExecRequest>(content_clone) {
-                                                                Ok(req) => {
-                                                                    match LxcExecBridge::execute(req).await {
-                                                                        Ok(resp) => serde_json::json!({ "status": "success", "response": resp }),
-                                                                        Err(e) => serde_json::json!({ "status": "error", "message": e }),
-                                                                    }
-                                                                }
-                                                                Err(e) => serde_json::json!({ "status": "error", "message": format!("Invalid payload: {}", e) }),
-                                                            };
-
-                                                            let mut queue = verdicts_queue.write().await;
-                                                            queue.push_back(PendingVerdict {
-                                                                stimulus_id: stimulus_id_clone,
-                                                                verdict: verdict_payload,
-                                                                signature: "NATIVE_ADAPTER_UNSIGNED_YET".to_string(),
-                                                                queued_at: chrono::Utc::now().timestamp(),
-                                                            });
-                                                        });
-                                                    }
-                                                    "fleet.host_exec" => {
-                                                        let stimulus_id_clone = stimulus_id.clone();
-                                                        let content_clone = content.clone();
-                                                        let verdicts_queue = self.pending_verdicts.clone();
-                                                        
-                                                        tokio::spawn(async move {
-                                                            use crate::adapters::host::{HostExecAdapter, HostExecRequest};
-                                                            
-                                                            let verdict_payload = match serde_json::from_value::<HostExecRequest>(content_clone) {
-                                                                Ok(req) => {
-                                                                    match HostExecAdapter::execute(req).await {
-                                                                        Ok(resp) => serde_json::json!({ "status": "success", "response": resp }),
-                                                                        Err(e) => serde_json::json!({ "status": "error", "message": e }),
-                                                                    }
-                                                                }
-                                                                Err(e) => serde_json::json!({ "status": "error", "message": format!("Invalid payload: {}", e) }),
-                                                            };
-
-                                                            let mut queue = verdicts_queue.write().await;
-                                                            queue.push_back(PendingVerdict {
-                                                                stimulus_id: stimulus_id_clone,
-                                                                verdict: verdict_payload,
-                                                                signature: "NATIVE_ADAPTER_UNSIGNED_YET".to_string(),
-                                                                queued_at: chrono::Utc::now().timestamp(),
-                                                            });
-                                                        });
-                                                    }
-                                                    _ => {
-                                                        // For non-native domains, queue it locally
-                                                        let pending = PendingStimulus {
-                                                            stimulus_id: stimulus_id.clone(),
-                                                            stimulus: NodeMessage::Stimulus {
-                                                                stimulus_id,
-                                                                domain,
-                                                                content,
-                                                                context,
-                                                                timeout_ms,
-                                                                idempotent_key,
-                                                            },
-                                                            received_at: chrono::Utc::now().timestamp(),
-                                                        };
-                                                        self.queue_stimulus(pending).await;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        NodeMessage::Pong { timestamp: _ } => {
-                                            debug!("Received heartbeat pong");
-                                        }
-                                        NodeMessage::Backpressure {
-                                            queue_usage_percent,
-                                            resume_after_ms,
-                                        } => {
-                                            warn!(
-                                                queue_usage_percent = queue_usage_percent,
-                                                resume_after_ms = resume_after_ms,
-                                                "Kernel backpressure applied, pausing stimulus requests"
-                                            );
-                                            // TODO: Phase 3.2c — Pause stimulus requests
-                                        }
-                                        NodeMessage::Eviction { reason, message } => {
-                                            error!(
-                                                reason = %reason,
-                                                message = %message,
-                                                "Kernel evicted node, reconnecting..."
-                                            );
-                                            return Err(format!("Evicted by kernel: {message}"));
-                                        }
-                                        NodeMessage::Error {
-                                            error_code,
-                                            stimulus_id,
-                                            message,
-                                        } => {
-                                            error!(
-                                                error_code = %error_code,
-                                                stimulus_id = ?stimulus_id,
-                                                message = %message,
-                                                "Kernel error"
-                                            );
-                                        }
-                                        _ => {
-                                            debug!("Received unexpected message type: {:?}", msg);
-                                        }
-                                    }
-                                }
-                            }
-                            Message::Close(_) => {
-                                info!("Kernel closed WebSocket connection");
-                                return Ok(());
-                            }
-                            _ => {}
-                        }
-                    } else {
-                        warn!("WebSocket stream ended");
-                        return Err("WebSocket stream closed".into());
-                    }
+                NodeMessage::Pong { timestamp: _ } => {
+                    debug!("Received heartbeat pong");
                 }
-
-                // Drain pending verdicts
-                _ = tokio::time::sleep(Duration::from_millis(100)), if self.pending_verdict_count().await > 0 => {
-                    while let Some(pending) = self.dequeue_verdict().await {
-                        let verdict = NodeMessage::Verdict {
-                            stimulus_id: pending.stimulus_id.clone(),
-                            verdict: pending.verdict.clone(),
-                            signature: pending.signature.clone(),
-                            node_public_key: self.node_public_key.clone(),
-                        };
-                        let verdict_json = serde_json::to_string(&verdict)
-                            .map_err(|e| e.to_string())?;
-                        write.send(Message::Text(verdict_json)).await
-                            .map_err(|e| e.to_string())?;
-                        info!(stimulus_id = %pending.stimulus_id, "Sent pending verdict to kernel");
-                    }
+                NodeMessage::Backpressure {
+                    queue_usage_percent,
+                    resume_after_ms,
+                } => {
+                    warn!(
+                        queue_usage_percent = queue_usage_percent,
+                        resume_after_ms = resume_after_ms,
+                        "Kernel backpressure applied, pausing stimulus requests"
+                    );
+                }
+                NodeMessage::Eviction { reason, message } => {
+                    error!(
+                        reason = %reason,
+                        message = %message,
+                        "Kernel evicted node, reconnecting..."
+                    );
+                    return Ok(Some(Err(format!("Evicted by kernel: {message}"))));
+                }
+                NodeMessage::Error {
+                    error_code,
+                    stimulus_id,
+                    message,
+                } => {
+                    error!(
+                        error_code = %error_code,
+                        stimulus_id = ?stimulus_id,
+                        message = %message,
+                        "Kernel error"
+                    );
+                }
+                _ => {
+                    debug!("Received unexpected message type: {:?}", msg);
                 }
             }
         }
+        Ok(None)
+    }
+
+    async fn handle_stimulus(
+        &self,
+        write: &mut WsWriter,
+        stimulus_id: String,
+        domain: String,
+        content: serde_json::Value,
+        context: serde_json::Value,
+        timeout_ms: u64,
+        idempotent_key: String,
+    ) -> Result<(), String> {
+        if self.should_skip_stimulus(&stimulus_id).await {
+            debug!(stimulus_id = %stimulus_id, "Skipping duplicate stimulus");
+            let ack = NodeMessage::Ack {
+                stimulus_id: stimulus_id.clone(),
+                status: "already_processed".to_string(),
+                verdict_id: format!("verd_{stimulus_id}"),
+            };
+            self.send_message(write, &ack).await?;
+            return Ok(());
+        }
+
+        self.mark_stimulus_processed(stimulus_id.clone()).await;
+        info!(
+            stimulus_id = %stimulus_id,
+            domain = %domain,
+            timeout_ms = timeout_ms,
+            "Received stimulus from kernel"
+        );
+
+        if !domain_dispatch::spawn_native_handler(
+            domain.as_str(),
+            stimulus_id.clone(),
+            content.clone(),
+            self.pending_verdicts.clone(),
+        ) {
+            let pending = PendingStimulus {
+                stimulus_id: stimulus_id.clone(),
+                stimulus: NodeMessage::Stimulus {
+                    stimulus_id,
+                    domain,
+                    content,
+                    context,
+                    timeout_ms,
+                    idempotent_key,
+                },
+                received_at: chrono::Utc::now().timestamp(),
+            };
+            self.queue_stimulus(pending).await;
+        }
+        Ok(())
+    }
+
+    async fn flush_pending_verdicts(&self, write: &mut WsWriter) -> Result<(), String> {
+        while let Some(pending) = self.dequeue_verdict().await {
+            let verdict = NodeMessage::Verdict {
+                stimulus_id: pending.stimulus_id.clone(),
+                verdict: pending.verdict.clone(),
+                signature: pending.signature.clone(),
+                node_public_key: self.node_public_key.clone(),
+            };
+            self.send_message(write, &verdict).await?;
+            info!(stimulus_id = %pending.stimulus_id, "Sent pending verdict to kernel");
+        }
+        Ok(())
+    }
+
+    async fn send_message<S>(&self, write: &mut S, msg: &NodeMessage) -> Result<(), String>
+    where
+        S: Sink<Message> + Unpin,
+        S::Error: std::fmt::Display,
+    {
+        let json = serde_json::to_string(msg).map_err(|e| e.to_string())?;
+        write
+            .send(Message::Text(json))
+            .await
+            .map_err(|e| e.to_string())
     }
 }

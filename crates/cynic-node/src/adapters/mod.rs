@@ -1,5 +1,10 @@
-pub mod proxmox;
-pub mod surrealdb;
-pub mod wireguard;
+pub mod dns_renderer;
 pub mod headscale;
 pub mod host;
+pub mod host_observation;
+pub mod provider_fallback_probe;
+pub mod proxmox;
+pub mod registry;
+pub mod runtime_observation;
+pub mod surrealdb;
+pub mod wireguard;

@@ -14,8 +14,22 @@
 )]
 
 mod announce;
+mod build_attestation;
+mod cli;
 mod config;
 mod config_watch;
+mod dns_activation_status;
+mod dns_bundle;
+mod dns_plan;
+mod network_actuator_status;
+mod network_evidence;
+mod network_repair;
+mod network_root_policy;
+mod network_shadow_proof;
+mod observe;
+mod provider_fallback_hosts;
+mod provider_fallback_status;
+mod runtime_supervision;
 mod supervise;
 mod system_probe;
 mod verify;
@@ -37,30 +51,14 @@ use reqwest::Client;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
+use crate::cli::{Cli, Commands};
 use crate::config::Config;
-
-// ── CLI ───────────────────────────────────────────────────────────────────────
-
-#[derive(Parser)]
-#[command(name = "cynic-node", about = "CYNIC inference backend supervisor")]
-struct Cli {
-    /// Path to node config file
-    #[arg(short, long)]
-    config: String,
-
-    /// Run L0 node watchdog only; does not require a Dog backend process.
-    #[arg(long)]
-    watchdog: bool,
-
-    /// Also serve MCP proxy on stdio (requires --features mcp)
-    #[arg(long)]
-    mcp: bool,
-}
+use crate::usecases::network_surfaces_uc;
 
 // ── ExitReason ────────────────────────────────────────────────────────────────
 
 #[derive(Debug)]
-enum ExitReason {
+pub(crate) enum ExitReason {
     /// SIGTERM / SIGINT received — clean shutdown requested.
     Shutdown,
     /// Backend process exited unexpectedly or failed health checks.
@@ -484,7 +482,7 @@ fn build_registration_payload(cfg: &Config) -> serde_json::Value {
 /// Run one full lifecycle: wait_healthy → register → watch.
 ///
 /// Returns the exit reason and the dog_id if registration succeeded before exit.
-async fn run_lifecycle(
+pub(crate) async fn run_lifecycle(
     client: &Client,
     cfg: &Config,
     child: &mut Box<dyn ChildWrapper>,
@@ -542,218 +540,6 @@ fn install_signal_handler(shutdown: CancellationToken) {
     });
 }
 
-// ── Supervision loop ──────────────────────────────────────────────────────────
-
-/// The main supervision loop.  Returns `ExitCode::SUCCESS` on clean shutdown,
-/// `ExitCode::FAILURE` on unrecoverable errors.
-///
-/// Owns the config so it can be reloaded from disk on model mismatch (L2 auto-heal).
-async fn run_node(
-    client: &Client,
-    config_path: &str,
-    mut cfg: Config,
-    shutdown: &CancellationToken,
-) -> ExitCode {
-    // L3: file watcher — proactive config reload on TOML change.
-    // Degraded if watcher fails (L2 mismatch detection still works as fallback).
-    // _watcher must stay alive for the duration of run_node — dropping it kills inotify.
-    let (mut config_rx, _watcher) = match config_watch::spawn_config_watcher(config_path) {
-        Ok((rx, watcher)) => (rx, Some(watcher)),
-        Err(e) => {
-            tracing::warn!(
-                "L3 file watcher unavailable ({e}) — falling back to L2 mismatch detection"
-            );
-            let (_, rx) = tokio::sync::watch::channel(());
-            (rx, None)
-        }
-    };
-
-    // Phase 3.5: Spawn background system probe to report node hardware specs to kernel.
-    tokio::spawn(crate::system_probe::run_system_probe(
-        client.clone(),
-        cfg.kernel.url.clone(),
-        cfg.kernel.api_key.clone(),
-        cfg.dog.name.clone(),
-        60, // 1 minute interval
-    ));
-
-    let mut state = NodeState {
-        needs_spawn: true,
-        child: None,
-        backoff: supervise::Backoff::from_config(&cfg.restart),
-        dog_id: None,
-    };
-
-    let exit_code = loop {
-        if state.needs_spawn {
-            if let Some(id) = state.dog_id.take() {
-                deregister(client, &cfg, &id).await;
-            }
-            match spawn_backend(&cfg).await {
-                Ok(c) => {
-                    state.child = Some(c);
-                    state.backoff.record_start();
-                }
-                Err(e) => {
-                    tracing::error!("spawn failed: {e}");
-                    break ExitCode::FAILURE;
-                }
-            }
-        }
-
-        let Some(c) = state.child.as_mut() else {
-            tracing::error!("internal: child is None after spawn");
-            break ExitCode::FAILURE;
-        };
-
-        let (reason, id) = run_lifecycle(
-            client,
-            &cfg,
-            c,
-            shutdown,
-            &mut state.backoff,
-            &mut config_rx,
-        )
-        .await;
-        state.dog_id = id;
-
-        // L2/L3 auto-heal: on mismatch or config file change, re-read from disk.
-        // If the TOML was updated (new model, new command), adopt the new config
-        // before respawning. If unchanged, restart anyway (runtime mismatch).
-        if matches!(&reason, ExitReason::Mismatch | ExitReason::ConfigChanged) {
-            match config::load(config_path) {
-                Ok(new_cfg) => {
-                    let model_changed = new_cfg.dog.model != cfg.dog.model;
-                    let command_changed = new_cfg.process.command != cfg.process.command;
-                    let name_changed = new_cfg.dog.name != cfg.dog.name;
-                    if model_changed || command_changed || name_changed {
-                        tracing::info!(
-                            old_model = %cfg.dog.model,
-                            new_model = %new_cfg.dog.model,
-                            old_name = %cfg.dog.name,
-                            new_name = %new_cfg.dog.name,
-                            "L2 auto-heal: config changed on disk — adopting new config"
-                        );
-                        cfg = new_cfg;
-                        state.backoff.reset();
-                    } else {
-                        tracing::warn!(
-                            "L2: config unchanged on disk — runtime mismatch, restarting backend"
-                        );
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!("L2: config reload failed ({e}) — using existing config");
-                }
-            }
-        }
-
-        match handle_exit_reason(reason, &cfg, &mut state, shutdown, client).await {
-            LoopAction::Continue => {}
-            LoopAction::Break(code) => break code,
-        }
-    };
-
-    tracing::info!("cynic-node stopped");
-    exit_code
-}
-
-/// Action the supervision loop should take after handling an exit reason.
-enum LoopAction {
-    Continue,
-    Break(ExitCode),
-}
-
-/// Mutable state threaded through the supervision loop.
-#[derive(Debug)]
-struct NodeState {
-    needs_spawn: bool,
-    child: Option<Box<dyn ChildWrapper>>,
-    backoff: supervise::Backoff,
-    dog_id: Option<String>,
-}
-
-/// Process an ExitReason and update loop state. Returns the next loop action.
-async fn handle_exit_reason(
-    reason: ExitReason,
-    cfg: &Config,
-    state: &mut NodeState,
-    shutdown: &CancellationToken,
-    client: &Client,
-) -> LoopAction {
-    match reason {
-        ExitReason::Shutdown => {
-            if let Some(id) = state.dog_id.take() {
-                deregister(client, cfg, &id).await;
-            }
-            stop_child(&mut state.child, cfg).await;
-            LoopAction::Break(ExitCode::SUCCESS)
-        }
-        ExitReason::Expired => {
-            tracing::warn!("kernel expired this dog — will re-register without respawn");
-            state.dog_id = None;
-            state.needs_spawn = false;
-            LoopAction::Continue
-        }
-        ExitReason::Crashed => {
-            state.dog_id = None;
-            state.needs_spawn = true;
-            state.backoff.reset_if_stable();
-            if state.backoff.exhausted() {
-                tracing::error!(
-                    "max restart attempts ({}) reached — giving up",
-                    cfg.restart.max_attempts
-                );
-                stop_child(&mut state.child, cfg).await;
-                return LoopAction::Break(ExitCode::FAILURE);
-            }
-            tracing::info!("backend crashed — waiting before restart");
-            state.backoff.wait_or_shutdown(shutdown).await;
-            LoopAction::Continue
-        }
-        ExitReason::Mismatch | ExitReason::ConfigChanged => {
-            if let Some(id) = state.dog_id.take() {
-                deregister(client, cfg, &id).await;
-            }
-            stop_child(&mut state.child, cfg).await;
-            state.needs_spawn = true;
-            LoopAction::Continue
-        }
-        ExitReason::Fatal(e) => {
-            tracing::error!("fatal: {e}");
-            if let Some(id) = state.dog_id.take() {
-                deregister(client, cfg, &id).await;
-            }
-            stop_child(&mut state.child, cfg).await;
-            LoopAction::Break(ExitCode::FAILURE)
-        }
-    }
-}
-
-/// Best-effort graceful stop of the child process.
-async fn stop_child(child: &mut Option<Box<dyn ChildWrapper>>, cfg: &Config) {
-    if let Some(c) = child.as_mut() {
-        let _ = supervise::graceful_stop(c, cfg.process.stop_timeout_secs).await;
-    }
-}
-
-/// Best-effort deregistration of a dog from the kernel.
-async fn deregister(client: &Client, cfg: &Config, dog_id: &str) {
-    announce::try_deregister(client, &cfg.kernel.url, &cfg.kernel.api_key, dog_id).await;
-}
-
-/// Spawn the backend process with retries.
-async fn spawn_backend(cfg: &Config) -> std::io::Result<Box<dyn ChildWrapper>> {
-    tracing::info!("spawning backend: {:?}", cfg.process.command);
-    supervise::spawn_with_retries(
-        &cfg.process.command,
-        cfg.process.working_dir.as_deref(),
-        &cfg.process.env,
-        3,
-    )
-    .await
-}
-
 // ── main ──────────────────────────────────────────────────────────────────────
 
 #[tokio::main]
@@ -763,6 +549,23 @@ async fn main() -> ExitCode {
         .init();
 
     let cli = Cli::parse();
+
+    match cli.command {
+        Some(Commands::Observe {
+            json: _,
+            registry,
+            fail_on_warning,
+            fail_on_critical,
+        }) => return network_surfaces_uc::execute_observe(
+            &registry,
+            fail_on_warning,
+            fail_on_critical,
+        ),
+        Some(Commands::Network { command }) => {
+            return network_surfaces_uc::execute_network_command(&command);
+        }
+        None => {}
+    }
 
     // Automatic Versioning Integration
     let git_hash = option_env!("CYNIC_BUILD_GIT_HASH").unwrap_or("unknown_hash");
@@ -778,7 +581,11 @@ async fn main() -> ExitCode {
     );
 
     if cli.watchdog {
-        let cfg = match config::load_watchdog(&cli.config) {
+        let Some(config_path) = cli.config.as_deref() else {
+            tracing::error!("--config is required for --watchdog");
+            return ExitCode::FAILURE;
+        };
+        let cfg = match config::load_watchdog(config_path) {
             Ok(c) => c,
             Err(e) => {
                 tracing::error!("watchdog config error: {e}");
@@ -802,7 +609,12 @@ async fn main() -> ExitCode {
         return watchdog::run_watchdog(&client, cfg, &shutdown).await;
     }
 
-    let cfg = match config::load(&cli.config) {
+    let Some(config_path) = cli.config.as_deref() else {
+        tracing::error!("--config is required unless using the observe command");
+        return ExitCode::FAILURE;
+    };
+
+    let cfg = match config::load(config_path) {
         Ok(c) => c,
         Err(e) => {
             tracing::error!("config error: {e}");
@@ -862,5 +674,5 @@ async fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    run_node(&client, &cli.config, cfg, &shutdown).await
+    runtime_supervision::run_node(&client, config_path, cfg, &shutdown).await
 }

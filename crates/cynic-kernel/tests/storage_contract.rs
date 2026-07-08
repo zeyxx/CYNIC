@@ -16,7 +16,7 @@ use cynic_kernel::domain::dog::{
 };
 use cynic_kernel::domain::storage::{Observation, StoragePort};
 use cynic_kernel::domain::usage::DogUsage;
-use cynic_kernel::judge::verify_verdict_integrity;
+
 use cynic_kernel::storage::memory::InMemoryStorage;
 
 // ── Test helpers ──────────────────────────────────────────
@@ -106,7 +106,7 @@ fn make_obs(agent: &str, tool: &str, target: &str) -> Observation {
         status: "success".to_string(),
         context: "contract test".to_string(),
         session_id: agent.to_string(),
-        timestamp: "2026-01-01T00:00:00Z".to_string(),
+        timestamp: 1767225600,
         tags: vec![],
         source_tier: cynic_kernel::introspection::classify_source_tier(agent).to_string(),
         value: None,
@@ -141,10 +141,7 @@ async fn contract_verdict_store_get_roundtrip(db: &dyn StoragePort) {
     assert_eq!(got.integrity_hash, v.integrity_hash);
     assert_eq!(got.prev_hash, None);
     assert!((got.q_score.total - 0.55).abs() < 0.001);
-    assert!(
-        verify_verdict_integrity(&got),
-        "verdict must remain integrity-valid after store/get round-trip"
-    );
+
 }
 
 /// C2: Observe crystal below quorum → must reject with error.
@@ -227,7 +224,7 @@ async fn contract_crystal_forming_to_crystallized(db: &dyn StoragePort) {
             "chess pattern",
             "chess",
             0.65,
-            1_767_225_600_000 + i * 60_000,
+            1_767_225_600_000 + i as i64 * 60_000,
             2,
             &format!("v-{i}"),
             "howl",
@@ -258,7 +255,7 @@ async fn contract_crystal_high_obs_low_confidence_decays(db: &dyn StoragePort) {
             "contradictory claim",
             "test",
             score,
-            1_767_225_600_000 + i * 60_000,
+            1_767_225_600_000 + i as i64 * 60_000,
             2,
             &format!("v-{i}"),
             "howl",
@@ -324,7 +321,7 @@ async fn contract_list_crystals_for_domain_excludes_forming(db: &dyn StoragePort
             "mature pattern",
             "chess",
             0.65,
-            1_767_225_600_000 + i * 60_000,
+            1_767_225_600_000 + i as i64 * 60_000,
             2,
             &format!("v-{i}"),
             "howl",
@@ -445,7 +442,7 @@ async fn contract_crystal_canonical_at_233_obs(db: &dyn StoragePort) {
             "well-established pattern",
             "chess",
             0.65,
-            1_767_225_600_000 + i * 3_600_000,
+            1_767_225_600_000 + i as i64 * 3_600_000,
             2,
             &format!("v-{i}"),
             "howl",

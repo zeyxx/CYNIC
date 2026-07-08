@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let store = JsonlLog::new(log_path)?;
             let to = chrono::Utc::now();
             let from = to - chrono::Duration::days(7);
-            let logs = store.range(from, to)?;
+            let logs = store.range(from.timestamp(), to.timestamp())?;
 
             if logs.is_empty() {
                 println!("No log entries found in the last 7 days.");
@@ -118,7 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // DE-DUPLICATION: Check if last entry is identical
             let to = chrono::Utc::now();
             let from = to - chrono::Duration::hours(1);
-            if let Ok(recent) = store.range(from, to)
+            if let Ok(recent) = store.range(from.timestamp(), to.timestamp())
                 && let Some(last) = recent.last()
                 && last.content == content
                 && last.domain.as_deref() == Some(&domain)

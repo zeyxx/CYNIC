@@ -1,8 +1,8 @@
 [package]
-name = "cynic-jarvis-sensor"
+name = "cynic-cognitive-sensor"
 version = "0.1.0"
 edition = "2021"
-description = "Jarvis PC Sensor Constellation Client (Cross-platform/Windows)"
+description = "CYNIC cognitive sensor constellation client (cross-platform host I/O)"
 
 [dependencies]
 rdev = "0.5.3"

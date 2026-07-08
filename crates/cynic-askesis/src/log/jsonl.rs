@@ -68,7 +68,7 @@ impl LogStore for JsonlLog {
         let hash_result = hasher.finalize();
         let hash_hex = hash_result
             .iter()
-            .map(|b| format!("{:02x}", b))
+            .map(|b| format!("{b:02x}"))
             .collect::<String>();
 
         entry.cryptographic_hash = Some(hash_hex);
@@ -85,7 +85,7 @@ impl LogStore for JsonlLog {
         let reader = BufReader::new(file);
         let mut results = Vec::new();
 
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             if line.trim().is_empty() {
                 continue;
             }

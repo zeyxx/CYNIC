@@ -50,6 +50,7 @@ pub extern "system" fn Java_so_cynic_kyon_core_domain_KyonRustBridge_calculateSe
 ) -> jfloat {
     // Constante Universelle CYNIC : L'asymptote épistémique.
     // Au-delà de ce seuil (φ⁻¹ = 0.618), l'organisme considère qu'il y a une rupture de souveraineté.
+    #[allow(dead_code)] // WHY: Reference constant for homeostasis threshold
     const PHI_INVERSE: f32 = 0.618;
 
     let mut pressure: f32 = 0.1; // Baseline

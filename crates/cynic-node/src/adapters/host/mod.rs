@@ -1,8 +1,8 @@
 //! Bare-Metal / Host Exec Adapter
-//! 
-//! Cet adaptateur permet à `cynic-node` d'exécuter des actions natives sur un nœud 
+//!
+//! Cet adaptateur permet à `cynic-node` d'exécuter des actions natives sur un nœud
 //! Bare-Metal, AWS EC2, ou un conteneur standard (non-LXC Proxmox).
-//! Typiquement utilisé pour interagir avec `systemd` (ex: restart llama-server) 
+//! Typiquement utilisé pour interagir avec `systemd` (ex: restart llama-server)
 //! ou lire des métriques GPU (`nvidia-smi`) directement sur l'hôte.
 
 use serde::{Deserialize, Serialize};
@@ -30,14 +30,17 @@ impl HostExecAdapter {
         }
 
         let root_cmd = &request.command[0];
-        
+
         // Par sécurité, on peut whitelister certaines commandes comme systemctl ou nvidia-smi
         if root_cmd != "systemctl" && root_cmd != "nvidia-smi" && root_cmd != "echo" {
-            return Err(format!("Command '{}' is not whitelisted for HostExecAdapter", root_cmd));
+            return Err(format!(
+                "Command '{}' is not whitelisted for HostExecAdapter",
+                root_cmd
+            ));
         }
 
         let args = &request.command[1..];
-        
+
         let output = Command::new(root_cmd)
             .args(args)
             .output()

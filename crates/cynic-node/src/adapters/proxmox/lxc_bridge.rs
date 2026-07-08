@@ -1,5 +1,5 @@
 //! LXC Exec Bridge Adapter
-//! 
+//!
 //! Cet adaptateur remplace le prototype Python `organ-fleet`.
 //! Il interagit avec le helper sécurisé `cynic-lxc-exec-bridge` sur l'hyperviseur Proxmox
 //! via `sudo -n`, en passant la requête au format JSON par stdin.
@@ -12,7 +12,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 /// Requête formatée pour le helper `cynic-lxc-exec-bridge`
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LxcExecRequest {
     pub action: String, // ex: "exec", "status"
     pub vmid: u32,
@@ -20,7 +20,7 @@ pub struct LxcExecRequest {
 }
 
 /// Réponse retournée par l'exécution dans le conteneur LXC
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LxcExecResponse {
     pub exit_code: i32,
     pub stdout: String,
@@ -32,7 +32,8 @@ pub struct LxcExecBridge;
 impl LxcExecBridge {
     /// Exécute une commande de manière isolée dans le conteneur LXC
     pub async fn execute(request: LxcExecRequest) -> Result<LxcExecResponse, String> {
-        let payload = serde_json::to_string(&request).map_err(|e| format!("Serialization error: {}", e))?;
+        let payload =
+            serde_json::to_string(&request).map_err(|e| format!("Serialization error: {}", e))?;
 
         // `sudo -n` garantit qu'on ne bloque pas en demandant un mot de passe.
         // Seul l'utilisateur cynic est autorisé via /etc/sudoers.d/cynic-lxc-exec-bridge
@@ -47,10 +48,16 @@ impl LxcExecBridge {
 
         // On injecte le JSON dans stdin
         if let Some(mut stdin) = child.stdin.take() {
-            stdin.write_all(payload.as_bytes()).await.map_err(|e| format!("Stdin write error: {}", e))?;
+            stdin
+                .write_all(payload.as_bytes())
+                .await
+                .map_err(|e| format!("Stdin write error: {}", e))?;
         }
 
-        let output = child.wait_with_output().await.map_err(|e| format!("Wait output error: {}", e))?;
+        let output = child
+            .wait_with_output()
+            .await
+            .map_err(|e| format!("Wait output error: {}", e))?;
 
         let stdout_str = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr_str = String::from_utf8_lossy(&output.stderr).to_string();

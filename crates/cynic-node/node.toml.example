@@ -18,6 +18,7 @@
 # [watchdog]
 # interval_secs = 30
 # http_timeout_secs = 5
+# registry_path = "infra/registry.json"
 #
 # Bootstrap ladder emitted by watchdog observations:
 # b0 binary_alive -> b1 local_identity_observed -> b2 kernel_reachable

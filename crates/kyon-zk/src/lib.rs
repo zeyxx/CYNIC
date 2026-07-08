@@ -11,6 +11,8 @@
 //! protocole FRI (Fast Reed-Solomon Interactive Oracle Proofs), qui sont 
 //! structurellement résistants aux attaques par ordinateurs quantiques.
 
+#![allow(clippy::print_stdout)] // WHY: Simulation module logs progress via println
+
 pub mod federation;
 
 use serde::{Deserialize, Serialize};
@@ -24,15 +26,22 @@ pub struct FalsificationPayload {
     
     // Hash 512-bits (ex: SHA3-512) offrant 256-bits de sécurité absolue
     // face à l'algorithme de Grover des futurs ordinateurs quantiques.
-    pub microcosm_context_hash: [u8; 64], 
+    pub microcosm_context_hash: Vec<u8>, 
     
     pub timestamp: u64,
 }
 
 /// Le Moteur ZK (Zero-Knowledge Virtual Machine)
+#[derive(Debug)]
 pub struct PostQuantumZkEngine {
     // Dans une implémentation réelle SP1, ceci contiendrait le ProverClient
     // client: sp1_core::ProverClient,
+}
+
+impl Default for PostQuantumZkEngine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PostQuantumZkEngine {

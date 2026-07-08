@@ -30,6 +30,8 @@ notify = { version = "7", default-features = false, features = ["macos_kqueue"] 
 chrono = "0.4"
 sysinfo = "0.33"
 tempfile = "3"
+sha2 = "0.10.8"
+hex = "0.4"
 cynic-mcp = { path = "../cynic-mcp", optional = true }
 rmcp = { version = "1.2", features = ["server", "transport-io"], optional = true }
 
