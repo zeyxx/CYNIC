@@ -48,12 +48,11 @@ def minimal_contract() -> dict:
             "expected_mcp_tool": "cynic_watch_pending_agent_tasks",
         },
         "runtime_coherence_surfaces": {
-            "daemon_default_capabilities_path": "services/ouroboros-runtime/src/ouroboros_runtime/core/daemon.py",
-            "lifecycle_default_capabilities_path": "services/ouroboros-runtime/src/ouroboros_runtime/core/ouroboros.py",
+            "task_wait_port_path": "services/coordination-runtime/src/cynic_coord_runtime/ports/perception.py",
             "kernel_watch_adapter_path": "services/coordination-runtime/src/cynic_coord_runtime/adapters/kernel_rest.py",
-            "executor_status_path": "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_kanban_executor.py",
+            "hermes_graph_adapter_path": "services/observability-runtime/src/cynic_observe_runtime/adapters/kernel_observe.py",
         },
-        "inertia_surfaces": ["infra/systemd/hermes-agent-executor.service"],
+        "inertia_surfaces": ["organs/forge/systemd/organ-forge-hermes-agent.service"],
     }
 
 
@@ -67,8 +66,9 @@ class OrganismPhysicsContractTests(unittest.TestCase):
             (root / "infra").mkdir(parents=True)
             (root / "crates" / "cynic-mcp" / "src" / "routers").mkdir(parents=True)
             (root / "services" / "coordination-runtime" / "src" / "cynic_coord_runtime" / "adapters").mkdir(parents=True)
-            (root / "services" / "ouroboros-runtime" / "src" / "ouroboros_runtime" / "core" / "adapters").mkdir(parents=True)
-            (root / "infra" / "systemd").mkdir(parents=True)
+            (root / "services" / "coordination-runtime" / "src" / "cynic_coord_runtime" / "ports").mkdir(parents=True)
+            (root / "services" / "observability-runtime" / "src" / "cynic_observe_runtime" / "adapters").mkdir(parents=True)
+            (root / "organs" / "forge" / "systemd").mkdir(parents=True)
 
             (root / "docs" / "foundation" / "CYNIC_ORGANISM_PHYSICS_POLICY.md").write_text("policy\n", encoding="utf-8")
             (root / "docs" / "foundation" / "CYNIC_AGENTIC_RUNTIME_ROLES.md").write_text("roles\n", encoding="utf-8")
@@ -106,24 +106,20 @@ class OrganismPhysicsContractTests(unittest.TestCase):
                 'name = "cynic_watch_pending_agent_tasks"\n',
                 encoding="utf-8",
             )
+            (root / "services" / "coordination-runtime" / "src" / "cynic_coord_runtime" / "ports" / "perception.py").write_text(
+                "def wait_for_tasks(timeout_secs, limit=1):\n    return []\n",
+                encoding="utf-8",
+            )
             (root / "services" / "coordination-runtime" / "src" / "cynic_coord_runtime" / "adapters" / "kernel_rest.py").write_text(
                 "def wait_for_tasks():\n    return []\n",
                 encoding="utf-8",
             )
-            (root / "services" / "ouroboros-runtime" / "src" / "ouroboros_runtime" / "core" / "daemon.py").write_text(
-                'caps = "observe,claim,wait_for_tasks"\n',
+            (root / "services" / "observability-runtime" / "src" / "cynic_observe_runtime" / "adapters" / "kernel_observe.py").write_text(
+                "def publish_hermes_kanban_event():\n    return True\n",
                 encoding="utf-8",
             )
-            (root / "services" / "ouroboros-runtime" / "src" / "ouroboros_runtime" / "core" / "ouroboros.py").write_text(
-                'caps = ["observe", "claim", "wait_for_tasks"]\n',
-                encoding="utf-8",
-            )
-            (root / "services" / "ouroboros-runtime" / "src" / "ouroboros_runtime" / "core" / "adapters" / "hermes_kanban_executor.py").write_text(
-                "def status_wait():\n    return None\n",
-                encoding="utf-8",
-            )
-            (root / "infra" / "systemd" / "hermes-agent-executor.service").write_text(
-                "[Service]\nEnvironment=HERMES_AGENT_TASK_TIMEOUT_SECS=120\n",
+            (root / "organs" / "forge" / "systemd" / "organ-forge-hermes-agent.service").write_text(
+                "[Service]\nEnvironment=HERMES_AGENT_BATCH_LIMIT=5\n",
                 encoding="utf-8",
             )
             contract_path = root / "axioms" / "organism-physics-v1.json"
@@ -150,8 +146,9 @@ class OrganismPhysicsContractTests(unittest.TestCase):
             (root / "infra").mkdir(parents=True)
             (root / "crates" / "cynic-mcp" / "src" / "routers").mkdir(parents=True)
             (root / "services" / "coordination-runtime" / "src" / "cynic_coord_runtime" / "adapters").mkdir(parents=True)
-            (root / "services" / "ouroboros-runtime" / "src" / "ouroboros_runtime" / "core" / "adapters").mkdir(parents=True)
-            (root / "infra" / "systemd").mkdir(parents=True)
+            (root / "services" / "coordination-runtime" / "src" / "cynic_coord_runtime" / "ports").mkdir(parents=True)
+            (root / "services" / "observability-runtime" / "src" / "cynic_observe_runtime" / "adapters").mkdir(parents=True)
+            (root / "organs" / "forge" / "systemd").mkdir(parents=True)
 
             (root / "docs" / "foundation" / "CYNIC_ORGANISM_PHYSICS_POLICY.md").write_text("policy\n", encoding="utf-8")
             (root / "docs" / "foundation" / "CYNIC_AGENTIC_RUNTIME_ROLES.md").write_text("roles\n", encoding="utf-8")
@@ -189,24 +186,21 @@ class OrganismPhysicsContractTests(unittest.TestCase):
                 'name = "cynic_list_pending_agent_tasks"\n',
                 encoding="utf-8",
             )
+            (root / "services" / "coordination-runtime" / "src" / "cynic_coord_runtime" / "ports" / "perception.py").write_text(
+                "def wait_for_tasks(timeout_secs, limit=1):\n    return []\n"
+                "def poll_tasks(limit=1):\n    return []\n",
+                encoding="utf-8",
+            )
             (root / "services" / "coordination-runtime" / "src" / "cynic_coord_runtime" / "adapters" / "kernel_rest.py").write_text(
                 'logger.warning("kernel /agent-tasks/watch unavailable: %s", e)\n',
                 encoding="utf-8",
             )
-            (root / "services" / "ouroboros-runtime" / "src" / "ouroboros_runtime" / "core" / "daemon.py").write_text(
-                'caps = "observe,claim,wait_for_tasks"\n',
+            (root / "services" / "observability-runtime" / "src" / "cynic_observe_runtime" / "adapters" / "kernel_observe.py").write_text(
+                "def observe():\n    return True\n",
                 encoding="utf-8",
             )
-            (root / "services" / "ouroboros-runtime" / "src" / "ouroboros_runtime" / "core" / "ouroboros.py").write_text(
-                'caps = ["observe", "claim", "poll_tasks"]\n',
-                encoding="utf-8",
-            )
-            (root / "services" / "ouroboros-runtime" / "src" / "ouroboros_runtime" / "core" / "adapters" / "hermes_kanban_executor.py").write_text(
-                'show = "hermes kanban show"\ndef _sleep_poll():\n    return None\n',
-                encoding="utf-8",
-            )
-            (root / "infra" / "systemd" / "hermes-agent-executor.service").write_text(
-                "[Service]\nEnvironment=HERMES_AGENT_STATUS_INTERVAL_SECS=5\n",
+            (root / "organs" / "forge" / "systemd" / "organ-forge-hermes-agent.service").write_text(
+                "[Service]\nEnvironment=HERMES_AGENT_POLL_LIMIT=5\n",
                 encoding="utf-8",
             )
             contract_path = root / "axioms" / "organism-physics-v1.json"
@@ -225,6 +219,6 @@ class OrganismPhysicsContractTests(unittest.TestCase):
         kinds = {item.kind for item in findings}
         self.assertIn("physics_watch_not_propagated_to_mcp_surface", kinds)
         self.assertIn("physics_watch_not_propagated_to_mcp_router", kinds)
-        self.assertIn("physics_runtime_capability_vocabulary_split", kinds)
-        self.assertIn("physics_executor_status_open_loop", kinds)
+        self.assertIn("physics_task_intake_port_still_exposes_polling_compat", kinds)
+        self.assertIn("physics_hermes_graph_emission_missing", kinds)
         self.assertIn("physics_mcp_freshness_loop_open", kinds)

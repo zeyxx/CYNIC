@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from organs.supervisor.src.core.repo_topology_host_validation import iter_immediate_organ_dirs
 
 
 FindingFactory = Callable[[str, str, str, str], Any]
@@ -45,7 +46,7 @@ class OrganShapeService:
             )
         )
 
-        for organ_dir in sorted(path for path in self.organs_root.iterdir() if path.is_dir()):
+        for organ_dir in iter_immediate_organ_dirs(self.organs_root):
             rel = self.relative(organ_dir).rstrip("/") + "/"
             if (organ_dir / "MANIFEST.yaml").exists():
                 continue
@@ -364,7 +365,7 @@ class OrganShapeService:
             )
         )
 
-        for organ_dir in sorted(path for path in self.organs_root.iterdir() if path.is_dir()):
+        for organ_dir in iter_immediate_organ_dirs(self.organs_root):
             if not (organ_dir / "MANIFEST.yaml").exists() or not self.has_python_sources(organ_dir):
                 continue
             missing = [item for item in required_paths if not (organ_dir / item).exists()]

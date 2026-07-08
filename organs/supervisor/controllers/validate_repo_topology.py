@@ -8,6 +8,8 @@ from pathlib import Path
 import sys
 from typing import Any
 
+sys.dont_write_bytecode = True
+
 try:
     from organs.supervisor.controllers._bootstrap import bootstrap_repo_path
 except ImportError:

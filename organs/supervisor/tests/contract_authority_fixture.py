@@ -27,8 +27,20 @@ def write_base_files(root: Path) -> None:
     (root / "crates" / "cynic-node" / "src" / "adapters").mkdir(parents=True)
     (root / "crates" / "cynic-node" / "src" / "ports").mkdir(parents=True)
     (root / "crates" / "cynic-node" / "src" / "usecases").mkdir(parents=True)
+    (root / "crates" / "cynic-node" / "src" / "ports" / "network_interfaces_port.rs").write_text(
+        'pub trait NetworkInterfacesPort {}\n',
+        encoding="utf-8",
+    )
+    (root / "crates" / "cynic-node" / "Cargo.toml").write_text(
+        '[package]\nname = "cynic-node"\nversion = "0.1.0"\nedition = "2021"\n',
+        encoding="utf-8",
+    )
     (root / "crates" / "cynic-node" / "src" / "main.rs").write_text("fn main() {}\n", encoding="utf-8")
     (root / "crates" / "cynic-node" / "build.rs").write_text("fn main() {}\n", encoding="utf-8")
+    (root / "Cargo.toml").write_text(
+        '[workspace]\nmembers = ["crates/cynic-node"]\n',
+        encoding="utf-8",
+    )
     (root / "infra").mkdir()
     (root / "infra" / "registry.json").write_text("{}", encoding="utf-8")
     (root / "organs" / "supervisor" / "entrypoints").mkdir(parents=True)
@@ -72,6 +84,52 @@ commands = ["rm -rf /", "git reset --hard HEAD~"]
     (root / "scripts").mkdir()
     (root / ".cortex").mkdir()
     (root / ".cynic").mkdir()
+
+    (root / "docs" / "foundation" / "CYNIC_ORGANISM_PHYSICS_POLICY.md").write_text(
+        "# fixture\n",
+        encoding="utf-8",
+    )
+    (root / "docs" / "foundation" / "CYNIC_AGENTIC_RUNTIME_ROLES.md").write_text(
+        "# fixture\n",
+        encoding="utf-8",
+    )
+    (root / "infra" / "agent-exposure.json").write_text("{}\n", encoding="utf-8")
+    (root / "infra" / "registry.json").write_text(
+        json.dumps(
+            {
+                "nodes": [
+                    {"name": "kernel-node", "role": "kernel_node"},
+                    {"name": "build-node", "role": "build_node"}
+                ],
+                "lifecycle": {
+                    "kernel_release": {
+                        "build_runner_role": "build_node",
+                        "deploy_target_role": "kernel_node",
+                        "workflow": {
+                            "transition_contract": {
+                                "layers": [],
+                                "transitions": [
+                                    {
+                                        "from": "effective",
+                                        "to": "applied",
+                                        "evidence": [],
+                                        "read_back_required": True,
+                                    },
+                                    {
+                                        "from": "applied",
+                                        "to": "verified",
+                                        "evidence": [],
+                                        "read_back_required": True,
+                                    },
+                                ],
+                            }
+                        },
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def write_api_discovery_files(root: Path) -> None:
@@ -485,9 +543,8 @@ def write_theme_and_evidence_contracts(contracts: Path, draft_governance: dict[s
         },
         "layers": [
             {
-                "parent_layer": None,
                 "projection_kind": "fractal_rank",
-                "id": "governance_control_plane",
+                "id": "foundational_contract",
                 "rank": 20,
                 "name": "Governance control plane",
                 "responsibility": "test fixture",
@@ -500,14 +557,14 @@ def write_theme_and_evidence_contracts(contracts: Path, draft_governance: dict[s
         "organs": [
             {
                 "path": "organs/supervisor/",
-                "layer_id": "governance_control_plane",
+                "layer_id": "foundational_contract",
                 "layer_rank": 20,
                 "owner": "organ-supervisor",
                 "why": "test fixture",
                 "evidence": ["MANIFEST.yaml", "src/core", "src/entrypoints"],
             }
         ],
-        "totals": {"layers": 1, "organs": 1, "by_layer": {"governance_control_plane": 1}},
+        "totals": {"layers": 1, "organs": 1, "by_layer": {"foundational_contract": 1}},
     }
     (contracts / "organ-layer-topology-v1.json").write_text(json.dumps(organ_layer_topology), encoding="utf-8")
 
@@ -879,6 +936,263 @@ def write_storage_primary_activation_contract(contracts: Path) -> None:
         encoding="utf-8",
     )
 
+
+def write_rust_python_runtime_contracts(root: Path, contracts: Path) -> None:
+    rust_crate_roles_contract = {
+        "schema": "cynic.rust_crate_roles.v1",
+        "status": "normative",
+        "crates": [
+            {
+                "path": "crates/cynic-node",
+                "package": "cynic-node",
+                "family": "nervous_system",
+                "class": "kernel_runtime",
+                "workspace_member": True,
+                "summary": "fixture runtime crate",
+                "python_absorption_authority": {
+                    "status": "authoritative",
+                    "owner": "services/supervisor-pool",
+                    "target": "node_network",
+                },
+            }
+        ],
+        "totals": {"crates": 1},
+    }
+    (contracts / "rust-crate-roles-v1.json").write_text(
+        json.dumps(rust_crate_roles_contract),
+        encoding="utf-8",
+    )
+
+    python_vital_function_placement_contract = {
+        "schema": "cynic.python_vital_function_placement.v1",
+        "status": "normative",
+        "function_groups": [
+            {
+                "id": "network-porting",
+                "status": "planned_migration",
+                "criticality": "medium",
+                "organ": "services",
+                "target_crate": "crates/cynic-node",
+                "target_component": "src/ports",
+                "source_paths": ["services"],
+                "functions": ["network_bind"],
+                "reason": "fixture migration staging",
+            }
+        ],
+        "target_crate_policy": [
+            {
+                "target_crate": "crates/cynic-node",
+                "expected_family": "nervous_system",
+                "expected_class": "kernel_runtime",
+                "why": "align with node-network port absorption",
+            }
+        ],
+    }
+    (contracts / "python-vital-function-placement-v1.json").write_text(
+        json.dumps(python_vital_function_placement_contract),
+        encoding="utf-8",
+    )
+
+    node_network_interfaces_contract = {
+        "schema": "cynic.node_network_interfaces.v1",
+        "status": "normative",
+        "authorities": {
+            "python_vital_function_placement": "axioms/python-vital-function-placement-v1.json",
+            "rust_crate_roles": "axioms/rust-crate-roles-v1.json",
+        },
+        "target_crate": {
+            "path": "crates/cynic-node",
+            "family": "nervous_system",
+            "class": "kernel_runtime",
+        },
+        "ports": [
+            {
+                "id": "node_network_port",
+                "responsibility": "fixture-boundary",
+                "rust_trait": "crates/cynic-node/src/ports/network_interfaces_port.rs",
+                "current_python_authority": ["services"],
+                "absorbs_function_groups": ["network-porting"],
+            }
+        ],
+    }
+    (contracts / "node-network-interfaces-v1.json").write_text(
+        json.dumps(node_network_interfaces_contract),
+        encoding="utf-8",
+    )
+
+    python_organ_authority_inventory_contract = {
+        "schema": "cynic.python_organ_authority_inventory.v1",
+        "status": "normative",
+        "allowed_classifications": [
+            "python_membrane",
+            "python_transitional_vital",
+            "python_legacy_duplication",
+        ],
+        "organs": [],
+        "totals": {
+            "organs": 0,
+            "by_classification": {
+                "python_membrane": 0,
+                "python_transitional_vital": 0,
+                "python_legacy_duplication": 0,
+            },
+        },
+    }
+    (contracts / "python-organ-authority-inventory-v1.json").write_text(
+        json.dumps(python_organ_authority_inventory_contract),
+        encoding="utf-8",
+    )
+
+    (contracts / "node-bootstrap-v1.json").write_text(
+        json.dumps(
+            {
+                "schema": "node-bootstrap-placeholder",
+                "status": "draft",
+                "bootstrap_targets": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def write_agentic_runtime_and_physics_contracts(root: Path, contracts: Path) -> None:
+    agentic_runtime_topology_contract = {
+        "schema": "cynic.agentic_runtime_topology.v1",
+        "status": "normative",
+        "authorities": {
+            "human_readable_policy": "docs/foundation/CYNIC_AGENTIC_RUNTIME_ROLES.md",
+            "runtime_registry": "infra/registry.json",
+        },
+        "agentic_roles": [
+            {
+                "id": "fixture_agentic_coordinator",
+                "class": "coordinator",
+                "allowed_responsibilities": ["observe", "dispatch"],
+                "forbidden_responsibilities": ["disruptive_actuation"],
+            }
+        ],
+        "runtime_classes": [
+            {
+                "id": "shared_runtime",
+                "class": "shared_runtime_framework",
+                "allowed_responsibilities": ["observe", "dispatch"],
+                "forbidden_responsibilities": ["polling"],
+            }
+        ],
+        "minimum_runtime_set": ["shared_runtime"],
+    }
+    (contracts / "agentic-runtime-topology-v1.json").write_text(
+        json.dumps(agentic_runtime_topology_contract),
+        encoding="utf-8",
+    )
+
+    anti_polling_transition_contract = {
+        "schema": "cynic.anti_polling_transition.v1",
+        "status": "normative",
+        "authorities": {
+            "runtime_contracts": "axioms/agentic-runtime-topology-v1.json",
+            "node_network_interfaces": "axioms/node-network-interfaces-v1.json",
+        },
+        "polling_markers": ["AGENTIC_POLLING_MARKER"],
+        "scan_roots": ["organs", "infra"],
+        "transitional_polling_surfaces": [
+            {
+                "path": "infra",
+                "current_mechanism": "legacy_polling",
+                "target_mechanism": "watch",
+                "status": "implemented",
+                "forbidden_in_fixture": False,
+            }
+        ],
+    }
+    (contracts / "anti-polling-transition-v1.json").write_text(
+        json.dumps(anti_polling_transition_contract),
+        encoding="utf-8",
+    )
+
+    organism_physics_contract = {
+        "schema": "cynic.organism_physics.v1",
+        "status": "normative",
+        "authorities": {
+            "agent_exposure": "infra/agent-exposure.json",
+            "anti_polling_contract": "axioms/anti-polling-transition-v1.json",
+            "human_readable_policy": "docs/foundation/CYNIC_ORGANISM_PHYSICS_POLICY.md",
+            "runtime_roles": "docs/foundation/CYNIC_AGENTIC_RUNTIME_ROLES.md",
+        },
+        "required_lifecycle_layers": [],
+        "required_transition_evidence": {
+            "effective_to_applied": [],
+            "applied_to_verified": [],
+        },
+        "watch_propagation_rule": {
+            "kernel_surface": "GET /watch-fixture",
+            "expected_mcp_tool": "fixture.watch",
+            "consumer_surface_group": "kernel",
+        },
+    }
+    (contracts / "organism-physics-v1.json").write_text(
+        json.dumps(organism_physics_contract),
+        encoding="utf-8",
+    )
+
+    heterogeneous_runtime_matrix_contract = {
+        "schema": "cynic.heterogeneous_runtime_matrix.v1",
+        "status": "normative",
+        "authorities": {
+            "runtime_registry": "infra/registry.json",
+            "node_bootstrap": "axioms/node-bootstrap-v1.json",
+            "runtime_principals": "axioms/runtime-principals-v1.json",
+            "rust_crate_roles": "axioms/rust-crate-roles-v1.json",
+        },
+        "allowed_classes": ["kernel_node", "build_node"],
+        "allowed_machine_types": ["vm_runtime_node"],
+        "allowed_activation_modes": ["kernel_primary", "build_and_publish"],
+        "allowed_local_agents": ["cynic-node", "cynic-kernel", "cynic-mcp"],
+        "allowed_local_actuators": ["service_restart", "artifact_publish"],
+        "allowed_network_planes": ["synapse"],
+        "allowed_dns_contracts": ["kernel_service_resolution"],
+        "allowed_proof_surfaces": ["service.health"],
+        "roles": [
+            {
+                "role": "kernel_node",
+                "class": "kernel_node",
+                "organism_role": "fixture kernel role",
+                "bootstrap_target_stage": "b5_runtime_actionable",
+                "required_local_agents": ["cynic-node", "cynic-kernel"],
+                "authorized_local_actuators": ["service_restart"],
+                "activation_mode": "kernel_primary",
+                "required_network_planes": ["synapse"],
+                "required_dns_contracts": ["kernel_service_resolution"],
+                "required_proof_surfaces": ["service.health"],
+                "capabilities": {"build": False, "deploy": True, "recover": True},
+                "why": "fixture role",
+            },
+            {
+                "role": "build_node",
+                "class": "build_node",
+                "organism_role": "fixture build role",
+                "bootstrap_target_stage": "b5_runtime_actionable",
+                "required_local_agents": ["cynic-mcp", "cynic-node"],
+                "authorized_local_actuators": ["artifact_publish"],
+                "activation_mode": "build_and_publish",
+                "required_network_planes": ["synapse"],
+                "required_dns_contracts": ["kernel_service_resolution"],
+                "required_proof_surfaces": ["service.health"],
+                "capabilities": {"build": True, "deploy": False, "recover": True},
+                "why": "fixture build role",
+            }
+        ],
+        "node_bindings": [
+            {"node": "kernel-node", "role": "kernel_node", "machine_type": "vm_runtime_node"},
+            {"node": "build-node", "role": "build_node", "machine_type": "vm_runtime_node"}
+        ],
+        "totals": {"roles": 2, "node_bindings": 2},
+    }
+    (contracts / "heterogeneous-runtime-matrix-v1.json").write_text(
+        json.dumps(heterogeneous_runtime_matrix_contract),
+        encoding="utf-8",
+    )
+
 def write_runtime_and_infra_contracts(contracts: Path) -> None:
     write_runtime_principals_contract(contracts)
     write_meta_layer_contract(contracts)
@@ -887,7 +1201,23 @@ def write_runtime_and_infra_contracts(contracts: Path) -> None:
     write_storage_primary_activation_contract(contracts)
 
 
+def write_runtime_and_python_contracts(root: Path, contracts: Path) -> None:
+    write_rust_python_runtime_contracts(root, contracts)
+    write_agentic_runtime_and_physics_contracts(root, contracts)
+
+
 def validate_with_fixture_paths(module: Any, root: Path, contracts: Path):
+    from organs.supervisor.src.core import (
+        anti_polling_transition_contract,
+        agentic_runtime_topology_contract,
+        heterogeneous_runtime_matrix_contract,
+        lifecycle_heterogeneous_runtime_contract,
+        node_network_interfaces_contract,
+        organism_physics_contract,
+        python_vital_function_placement_contract,
+        rust_crate_roles_contract,
+    )
+
     old_values = (
         module.WORKSPACE_ROOT,
         module.CONTRACT_PATH,
@@ -921,6 +1251,23 @@ def validate_with_fixture_paths(module: Any, root: Path, contracts: Path):
         module.SERVICES_ROOT,
         module.git_ls_files,
         module.git_ls_untracked,
+        module.PYTHON_ORGAN_AUTHORITY_INVENTORY_PATH,
+        module._impl.PYTHON_ORGAN_AUTHORITY_INVENTORY_PATH,
+        anti_polling_transition_contract.CONTRACT_PATH,
+        agentic_runtime_topology_contract.CONTRACT_PATH,
+        heterogeneous_runtime_matrix_contract.CONTRACT_PATH,
+        heterogeneous_runtime_matrix_contract.REGISTRY_PATH,
+        lifecycle_heterogeneous_runtime_contract.REGISTRY_PATH,
+        lifecycle_heterogeneous_runtime_contract.MATRIX_PATH,
+        lifecycle_heterogeneous_runtime_contract.RUST_CRATE_ROLES_PATH,
+        node_network_interfaces_contract.CONTRACT_PATH,
+        node_network_interfaces_contract.RUST_CRATE_ROLES_PATH,
+        node_network_interfaces_contract.PYTHON_VITAL_FUNCTION_PATH,
+        organism_physics_contract.CONTRACT_PATH,
+        python_vital_function_placement_contract.CONTRACT_PATH,
+        python_vital_function_placement_contract.RUST_CRATE_ROLES_PATH,
+        rust_crate_roles_contract.CONTRACT_PATH,
+        rust_crate_roles_contract.WORKSPACE_TOML_PATH,
     )
     try:
         module.WORKSPACE_ROOT = root
@@ -977,8 +1324,26 @@ def validate_with_fixture_paths(module: Any, root: Path, contracts: Path):
         module.MCP_SRC_ROOT = root / "crates" / "cynic-mcp" / "src"
         module.ORGANS_ROOT = root / "organs"
         module.SERVICES_ROOT = root / "services"
+        module.PYTHON_ORGAN_AUTHORITY_INVENTORY_PATH = contracts / "python-organ-authority-inventory-v1.json"
+        module._impl.PYTHON_ORGAN_AUTHORITY_INVENTORY_PATH = contracts / "python-organ-authority-inventory-v1.json"
         module.git_ls_files = lambda *args: []
         module.git_ls_untracked = lambda *args: []
+
+        anti_polling_transition_contract.CONTRACT_PATH = contracts / "anti-polling-transition-v1.json"
+        agentic_runtime_topology_contract.CONTRACT_PATH = contracts / "agentic-runtime-topology-v1.json"
+        heterogeneous_runtime_matrix_contract.CONTRACT_PATH = contracts / "heterogeneous-runtime-matrix-v1.json"
+        heterogeneous_runtime_matrix_contract.REGISTRY_PATH = root / "infra" / "registry.json"
+        lifecycle_heterogeneous_runtime_contract.REGISTRY_PATH = root / "infra" / "registry.json"
+        lifecycle_heterogeneous_runtime_contract.MATRIX_PATH = contracts / "heterogeneous-runtime-matrix-v1.json"
+        lifecycle_heterogeneous_runtime_contract.RUST_CRATE_ROLES_PATH = contracts / "rust-crate-roles-v1.json"
+        node_network_interfaces_contract.CONTRACT_PATH = contracts / "node-network-interfaces-v1.json"
+        node_network_interfaces_contract.RUST_CRATE_ROLES_PATH = contracts / "rust-crate-roles-v1.json"
+        node_network_interfaces_contract.PYTHON_VITAL_FUNCTION_PATH = contracts / "python-vital-function-placement-v1.json"
+        organism_physics_contract.CONTRACT_PATH = contracts / "organism-physics-v1.json"
+        python_vital_function_placement_contract.CONTRACT_PATH = contracts / "python-vital-function-placement-v1.json"
+        python_vital_function_placement_contract.RUST_CRATE_ROLES_PATH = contracts / "rust-crate-roles-v1.json"
+        rust_crate_roles_contract.CONTRACT_PATH = contracts / "rust-crate-roles-v1.json"
+        rust_crate_roles_contract.WORKSPACE_TOML_PATH = root / "Cargo.toml"
         return module.validate()
     finally:
         (
@@ -1014,6 +1379,23 @@ def validate_with_fixture_paths(module: Any, root: Path, contracts: Path):
             module.SERVICES_ROOT,
             module.git_ls_files,
             module.git_ls_untracked,
+            module.PYTHON_ORGAN_AUTHORITY_INVENTORY_PATH,
+            module._impl.PYTHON_ORGAN_AUTHORITY_INVENTORY_PATH,
+            anti_polling_transition_contract.CONTRACT_PATH,
+            agentic_runtime_topology_contract.CONTRACT_PATH,
+            heterogeneous_runtime_matrix_contract.CONTRACT_PATH,
+            heterogeneous_runtime_matrix_contract.REGISTRY_PATH,
+            lifecycle_heterogeneous_runtime_contract.REGISTRY_PATH,
+            lifecycle_heterogeneous_runtime_contract.MATRIX_PATH,
+            lifecycle_heterogeneous_runtime_contract.RUST_CRATE_ROLES_PATH,
+            node_network_interfaces_contract.CONTRACT_PATH,
+            node_network_interfaces_contract.RUST_CRATE_ROLES_PATH,
+            node_network_interfaces_contract.PYTHON_VITAL_FUNCTION_PATH,
+            organism_physics_contract.CONTRACT_PATH,
+            python_vital_function_placement_contract.CONTRACT_PATH,
+            python_vital_function_placement_contract.RUST_CRATE_ROLES_PATH,
+            rust_crate_roles_contract.CONTRACT_PATH,
+            rust_crate_roles_contract.WORKSPACE_TOML_PATH,
         ) = old_values
 
 
@@ -1050,5 +1432,6 @@ def validate_complete_contract_authority_fixture(module: Any):
         write_surface_inventory_contracts(contracts, draft_governance)
         write_git_membrane_contract(contracts, draft_governance)
         write_runtime_and_infra_contracts(contracts)
+        write_runtime_and_python_contracts(root, contracts)
 
         return validate_with_fixture_paths(module, root, contracts)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from organs.supervisor.src.core.repo_topology_host_validation import iter_immediate_organ_dirs
 from organs.supervisor.src.core.organism_stack_utils import (
     read_text,
     rel,
@@ -18,7 +19,7 @@ def organ_manifests(root: Path) -> list[dict[str, object]]:
     manifests: list[dict[str, object]] = []
     if not organs_root.is_dir():
         return manifests
-    for organ_dir in sorted(path for path in organs_root.iterdir() if path.is_dir()):
+    for organ_dir in iter_immediate_organ_dirs(organs_root):
         manifest = organ_dir / "MANIFEST.yaml"
         text = read_text(manifest)
         manifests.append(

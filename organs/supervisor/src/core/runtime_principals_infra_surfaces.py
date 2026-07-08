@@ -30,6 +30,26 @@ INFRA_SURFACE_REGISTRY = SurfaceRegistry(
 )
 
 
+def _mesh_status_projection_from_node_runtime(payload: dict[str, object]) -> dict[str, object]:
+    if payload.get("schema") != "cynic.node.network_runtime_status.v1":
+        return payload
+    observation = payload.get("observation") if isinstance(payload.get("observation"), dict) else {}
+    mesh_status = observation.get("network_mesh_status") if isinstance(observation.get("network_mesh_status"), dict) else {}
+    projected = {
+        "schema": "cynic.infrastructure_mcp.network_mesh_status.v1",
+        "status": payload.get("status"),
+        "policy_status": mesh_status.get("policy_status"),
+        "dns_status": mesh_status.get("dns_status"),
+        "runtime_status": mesh_status.get("runtime_status"),
+        "hostname": payload.get("hostname"),
+        "blockers": payload.get("blockers", []),
+    }
+    dns_activation = payload.get("dns_activation") if isinstance(payload.get("dns_activation"), dict) else {}
+    if dns_activation.get("missing") is not None:
+        projected["missing"] = dns_activation.get("missing")
+    return projected
+
+
 def storage_primary_report() -> dict[str, object]:
     result = _run_capture(
         ["python3", "organs/keep/src/entrypoints/cli.py", "storage-primary", "status"],
@@ -181,21 +201,30 @@ def fleet_status(extra_args: list[str] | None = None) -> dict[str, object]:
 def mesh_status(extra_args: list[str] | None = None) -> dict[str, object]:
     extra_args = extra_args or []
     command = [
-        "python3",
-        "organs/fleet/src/entrypoints/cli.py",
-        "mesh",
-        "status",
-        *extra_args,
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "cynic-node",
+        "--",
+        "network",
+        "runtime-status",
+        "--json",
     ]
+    if "--resolve-dns" in extra_args:
+        command.append("--resolve-dns")
     result = _run_capture(command, timeout=20, stdout_limit=None)
     payload = json_stdout_or_envelope(
         result,
-        schema="cynic.infrastructure_mcp.network_mesh_status.v1",
+        schema="cynic.node.network_runtime_status.v1",
         stdout_transform=_tail,
     )
+    payload = _mesh_status_projection_from_node_runtime(payload)
     payload["exit_code"] = result["exit_code"]
     payload["command"] = " ".join(["cynic", "mesh", "status", *extra_args]).strip()
-    payload["fallback_command"] = " ".join(command)
+    payload["fallback_command"] = " ".join(
+        ["python3", "organs/fleet/src/entrypoints/cli.py", "mesh", "status", *extra_args]
+    ).strip()
     payload["mutates_mempool"] = False
     attach_surface_contract(payload, MESH_SURFACE)
     payload["next_checks"] = _infra_next_checks(payload, json_command="cynic mesh status --json")

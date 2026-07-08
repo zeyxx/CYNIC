@@ -25,6 +25,15 @@ from organs.supervisor.src.core.organism_physics_contract import (
 from organs.supervisor.src.core.node_network_interfaces_contract import (
     validate_node_network_interfaces_contract,
 )
+from organs.supervisor.src.core.rust_crate_roles_contract import (
+    validate_rust_crate_roles_contract,
+)
+from organs.supervisor.src.core.heterogeneous_runtime_matrix_contract import (
+    validate_heterogeneous_runtime_matrix_contract,
+)
+from organs.supervisor.src.core.lifecycle_heterogeneous_runtime_contract import (
+    validate_lifecycle_heterogeneous_runtime_contract,
+)
 from organs.supervisor.src.core.python_vital_function_placement_contract import (
     validate_python_vital_function_placement_contract,
 )
@@ -386,13 +395,10 @@ def validate_organ_maturity_inventory_contract(contract: dict[str, Any]) -> list
                         )
                     )
 
-    actual_organs = set()
-    if host.ORGANS_ROOT.exists():
-        actual_organs = {
-            host.relative(path).rstrip("/") + "/"
-            for path in host.ORGANS_ROOT.iterdir()
-            if path.is_dir()
-        }
+    actual_organs = {
+        host.relative(path).rstrip("/") + "/"
+        for path in host.iter_immediate_organ_dirs(host.ORGANS_ROOT)
+    }
     for path in sorted(actual_organs - inventory_paths):
         findings.append(
             host.Finding(
@@ -618,8 +624,8 @@ def validate_python_organ_authority_inventory_contract() -> list[host.Finding]:
 
     immediate_python_organs = {
         f"{host.relative(path)}/"
-        for path in sorted(host.ORGANS_ROOT.iterdir())
-        if path.is_dir() and (path / "src").exists() and any(path.joinpath("src").rglob("*.py"))
+        for path in host.iter_immediate_organ_dirs(host.ORGANS_ROOT)
+        if (path / "src").exists() and any(path.joinpath("src").rglob("*.py"))
     }
     for rel in sorted(immediate_python_organs - inventory_paths):
         findings.append(
@@ -842,6 +848,9 @@ def validate() -> list[host.Finding]:
     findings.extend(validate_anti_polling_transition_contract())
     findings.extend(validate_organism_physics_contract())
     findings.extend(validate_node_network_interfaces_contract())
+    findings.extend(validate_rust_crate_roles_contract())
+    findings.extend(validate_heterogeneous_runtime_matrix_contract())
+    findings.extend(validate_lifecycle_heterogeneous_runtime_contract())
     findings.extend(validate_python_vital_function_placement_contract())
     findings.extend(host.validate_meta_layer_contract())
     findings.extend(host.validate_api_layer_alignment_contract())

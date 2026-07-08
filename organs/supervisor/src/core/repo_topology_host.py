@@ -44,6 +44,8 @@ from organs.supervisor.src.core.repo_topology_host_validation import (
     git_ls_files as _git_ls_files,
     git_ls_untracked as _git_ls_untracked,
     git_metadata_writable as _git_metadata_writable,
+    is_generated_dependency_directory as _is_generated_dependency_directory,
+    iter_immediate_organ_dirs as _iter_immediate_organ_dirs,
     load_json as _load_json,
     load_yaml as _load_yaml,
     path_matches_any as _path_matches_any,
@@ -93,6 +95,14 @@ def load_toml(path: Path) -> dict[str, object]:
 
 def path_matches_any(path: str, patterns: set[str]) -> bool:
     return _path_matches_any(path, patterns)
+
+
+def is_generated_dependency_directory(path: Path) -> bool:
+    return _is_generated_dependency_directory(path)
+
+
+def iter_immediate_organ_dirs(organs_root: Path) -> list[Path]:
+    return _iter_immediate_organ_dirs(organs_root)
 
 
 def validate_json_contracts() -> list[Finding]:

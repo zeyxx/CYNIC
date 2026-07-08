@@ -153,16 +153,15 @@ def _validate_runtime_coherence(contract: dict) -> list[host.Finding]:
     surfaces = contract.get("runtime_coherence_surfaces") or {}
     findings: list[host.Finding] = []
 
-    daemon_text = _read_text(surfaces.get("daemon_default_capabilities_path"))
-    lifecycle_text = _read_text(surfaces.get("lifecycle_default_capabilities_path"))
-    if daemon_text and lifecycle_text:
-        if "observe,claim,wait_for_tasks" in daemon_text and '"poll_tasks"' in lifecycle_text and '"wait_for_tasks"' not in lifecycle_text:
+    task_wait_port_text = _read_text(surfaces.get("task_wait_port_path"))
+    if task_wait_port_text:
+        if "wait_for_tasks" in task_wait_port_text and "poll_tasks" in task_wait_port_text:
             findings.append(
                 host.Finding(
                     "warning",
-                    "physics_runtime_capability_vocabulary_split",
-                    str(surfaces.get("lifecycle_default_capabilities_path")),
-                    "daemon defaults use wait_for_tasks while lifecycle fallback capabilities still advertise poll_tasks.",
+                    "physics_task_intake_port_still_exposes_polling_compat",
+                    str(surfaces.get("task_wait_port_path")),
+                    "task intake port still exposes poll_tasks alongside wait_for_tasks, so polling compatibility remains in the canonical runtime membrane.",
                 )
             )
 
@@ -177,14 +176,14 @@ def _validate_runtime_coherence(contract: dict) -> list[host.Finding]:
             )
         )
 
-    executor_text = _read_text(surfaces.get("executor_status_path"))
-    if "hermes kanban show" in executor_text and "_sleep_poll" in executor_text:
+    hermes_graph_adapter_text = _read_text(surfaces.get("hermes_graph_adapter_path"))
+    if hermes_graph_adapter_text and "publish_hermes_kanban_event" not in hermes_graph_adapter_text:
         findings.append(
             host.Finding(
                 "warning",
-                "physics_executor_status_open_loop",
-                str(surfaces.get("executor_status_path")),
-                "Hermes execution status still relies on kanban show polling instead of a blocking or streamed membrane.",
+                "physics_hermes_graph_emission_missing",
+                str(surfaces.get("hermes_graph_adapter_path")),
+                "Hermes execution path no longer exposes a canonical Hermes kanban graph emission adapter.",
             )
         )
     return findings

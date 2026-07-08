@@ -753,6 +753,46 @@ class RuntimePrincipalsTests(unittest.TestCase):
         self.assertEqual("cynic activate --dry-run", by_check["wireguard_runtime_observed"]["command"])
         self.assertEqual("cynic-node", by_check["mesh_dns_ok"]["resolver_organ"])
 
+    def test_mesh_status_projects_cynic_node_runtime_surface(self):
+        module = load_module()
+        globals_ref = module.mesh_status.__globals__
+        original_run = globals_ref["_run_capture"]
+
+        def fake_run(*args, **kwargs):
+            return {
+                "status": "ok",
+                "exit_code": 0,
+                "stdout": json.dumps(
+                    {
+                        "schema": "cynic.node.network_runtime_status.v1",
+                        "status": "blocked",
+                        "hostname": "ubuntu",
+                        "observation": {
+                            "network_mesh_status": {
+                                "policy_status": "ok",
+                                "dns_status": "violation",
+                                "runtime_status": "mesh_active",
+                            }
+                        },
+                        "dns_activation": {"missing": ["synapse_dns_resolves"]},
+                        "blockers": [{"kind": "runtime_blocker"}],
+                    }
+                ),
+                "stderr": "",
+            }
+
+        globals_ref["_run_capture"] = fake_run
+        try:
+            report = module.mesh_status(["--resolve-dns", "--include-records"])
+        finally:
+            globals_ref["_run_capture"] = original_run
+
+        self.assertEqual("cynic.infrastructure_mcp.network_mesh_status.v1", report["schema"])
+        self.assertEqual("ok", report["policy_status"])
+        self.assertEqual("violation", report["dns_status"])
+        self.assertEqual("mesh_active", report["runtime_status"])
+        self.assertEqual(["synapse_dns_resolves"], report["missing"])
+
     def test_lifecycle_subprocesses_run_from_repo_root_with_pythonpath(self):
         module = load_lifecycle_actions_module()
 

@@ -63,6 +63,16 @@ LOCAL_DATA_RUNTIME_OUTPUT_GLOBS = [
     "data/obsidian/**",
 ]
 
+GENERATED_DEPENDENCY_DIRECTORY_NAMES = {
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".nox",
+    ".hypothesis",
+}
+
 PROVIDER_MUTATION_ROOTS = ["scripts", "infra/scripts", "organs/lifecycle/scripts"]
 PROVIDER_MUTATION_SUFFIXES = (".py", ".sh")
 TRANSITIONAL_WRAPPER_SUFFIXES = (".py", ".sh", ".ps1")

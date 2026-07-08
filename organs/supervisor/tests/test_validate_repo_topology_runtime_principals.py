@@ -42,9 +42,6 @@ class RuntimePrincipalTopologyProjectionTests(unittest.TestCase):
 
         self.assertEqual([], [item for item in findings if item.severity == "critical"])
 
-        self.assertEqual([], [item for item in findings if item.severity == "critical"])
-
-
 
     def test_rejects_hardcoded_project_path_in_mcp(self):
         module = load_module()

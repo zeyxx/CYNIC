@@ -17,6 +17,7 @@ from organs.contracts.src.surface_contracts import (
     read_toml_file_with_loader,
     read_yaml_file_with_loader,
 )
+from organs.supervisor.src.core import repo_topology_host_constants as host_constants
 
 
 @dataclass
@@ -64,6 +65,20 @@ def git_ls_untracked(workspace_root: Path, *pathspecs: str) -> list[str]:
 
 def path_matches_any(path: str, patterns: set[str]) -> bool:
     return any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+
+
+def is_generated_dependency_directory(path: Path) -> bool:
+    return path.name in host_constants.GENERATED_DEPENDENCY_DIRECTORY_NAMES
+
+
+def iter_immediate_organ_dirs(organs_root: Path) -> list[Path]:
+    if not organs_root.exists():
+        return []
+    return sorted(
+        path
+        for path in organs_root.iterdir()
+        if path.is_dir() and not is_generated_dependency_directory(path)
+    )
 
 
 def validate_json_contracts(
@@ -182,9 +197,9 @@ def validate_data_constitution_rules(
 
     organ_names = []
     if organs_root.exists():
-        organ_names = [p.name for p in organs_root.iterdir() if p.is_dir()]
+        organ_names = [p.name for p in iter_immediate_organ_dirs(organs_root)]
 
-    for organ_dir in sorted(path for path in organs_root.iterdir() if path.is_dir()):
+    for organ_dir in iter_immediate_organ_dirs(organs_root):
         organ_name = organ_dir.name
         for path in sorted(organ_dir.rglob("*.py")):
             if "state/" in relative_fn(path) or "tests/" in relative_fn(path) or ".venv/" in relative_fn(path) or "node_modules/" in relative_fn(path):

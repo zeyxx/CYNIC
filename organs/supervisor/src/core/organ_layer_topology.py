@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from organs.supervisor.src.core import repo_topology_host_constants as host
+from organs.supervisor.src.core.repo_topology_host_validation import iter_immediate_organ_dirs
 from organs.supervisor.src.core.repo_topology_host_validation import Finding
 
 
@@ -290,9 +291,8 @@ class OrganLayerTopologyService:
 
         actual_organs = {
             self.relative(path).rstrip("/") + "/"
-            for path in self.organs_root.iterdir()
-            if path.is_dir()
-        } if self.organs_root.exists() else set()
+            for path in iter_immediate_organ_dirs(self.organs_root)
+        }
         inventory_paths: set[str] = set()
         by_layer: dict[str, int] = {}
         for index, item in enumerate(organs):

@@ -86,10 +86,10 @@ class AgenticRuntimeTopologyContractTests(unittest.TestCase):
             (root / "axioms").mkdir(parents=True)
             (root / "docs" / "foundation").mkdir(parents=True)
             (root / "services" / "cynic-python" / "organs" / "core").mkdir(parents=True)
+            (root / "services" / "runtime-core").mkdir(parents=True)
             (root / "docs" / "foundation" / "CYNIC_AGENTIC_RUNTIME_ROLES.md").write_text("policy\n", encoding="utf-8")
             (root / "axioms" / "repo-topology-v1.json").write_text("{}", encoding="utf-8")
             contract = minimal_contract()
-            contract["current_mapping_pressure"][0]["path"] = "services/ouroboros-runtime/src/ouroboros_runtime/core/"
             contract_path = root / "axioms" / "agentic-runtime-topology-v1.json"
             contract_path.write_text(json.dumps(contract), encoding="utf-8")
 
