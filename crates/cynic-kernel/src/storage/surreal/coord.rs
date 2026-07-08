@@ -208,6 +208,8 @@ impl CoordPort for SurrealHttpStorage {
         &self,
         tool_filter: Option<&str>,
         agent_filter: Option<&str>,
+        since: Option<&str>,
+        until: Option<&str>,
         limit: u32,
     ) -> Result<Vec<AuditEntry>, CoordError> {
         let mut conditions = Vec::new();
@@ -216,6 +218,12 @@ impl CoordPort for SurrealHttpStorage {
         }
         if let Some(agent) = agent_filter {
             conditions.push(format!("agent_id = '{}'", escape_surreal(agent)));
+        }
+        if let Some(s) = since {
+            conditions.push(format!("ts >= type::datetime('{}')", escape_surreal(s)));
+        }
+        if let Some(u) = until {
+            conditions.push(format!("ts <= type::datetime('{}')", escape_surreal(u)));
         }
         let where_clause = build_where_clause(&conditions);
         let query = format!(

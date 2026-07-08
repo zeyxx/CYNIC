@@ -13,7 +13,8 @@
         "artifact_targets": [
           "crates/cynic-kernel",
           "crates/cynic-mcp",
-          "crates/cynic-node"
+          "crates/cynic-node",
+          "crates/cynic-cognitive-sensor"
         ],
         "rust_toolchain": "1.88.0",
         "rust_release_target": "x86_64-unknown-linux-musl",
@@ -29,10 +30,10 @@
           "transport_command_default": "python3 organs/forge/src/entrypoints/fleet_node_exec_wrapper.py",
           "repo_materialization": "git_fetch",
           "repo_source": {
-            "remote": "ssh://git@forgejo.synapse.cynic/jeanterre13/CYNIC.git",
+            "remote": "http://forgejo.synapse.cynic/jeanterre13/CYNIC.git",
             "ref": "main",
             "ref_env": "CYNIC_FORGEJO_BOOTSTRAP_REF",
-            "transport": "ssh",
+            "transport": "local_tunnel",
             "host_role": "forge_primary",
             "fallback_remote_env": "CYNIC_FORGEJO_BOOTSTRAP_REMOTE",
             "fallback_transport": "local_tunnel"
@@ -40,7 +41,9 @@
           "toolchain_manager": "rustup",
           "host_packages": [
             "ca-certificates",
-            "musl-tools"
+            "musl-tools",
+            "pkg-config",
+            "libxi-dev"
           ],
           "watchdog_config_path": "%h/.config/cynic/node-watchdog.toml",
           "watchdog_services": [
@@ -131,6 +134,268 @@
           "organ-forge emits an observation for refresh decision and refresh result"
         ]
       },
+      "runtime_artifacts": [
+        {
+          "name": "cynic-mcp",
+          "kind": "rust_binary",
+          "owner": "organ-forge",
+          "source_targets": [
+            "crates/cynic-mcp/src",
+            "infra/agent-exposure.json",
+            ".cortex/mcp/run_cynic_mcp.py",
+            "organs/exposure"
+          ],
+          "build_targets": [
+            "crates/cynic-mcp"
+          ],
+          "publish": {
+            "path": "%h/bin/cynic-kernel-mcp",
+            "hash": null
+          },
+          "runtime_targets": [
+            "cortex"
+          ],
+          "activation": [
+            "install executable",
+            "verify launcher freshness",
+            "reload MCP client session or mark reload-required"
+          ],
+          "proof": [
+            "CYNIC_MCP_CHECK_ONLY=1 python3 ./.cortex/mcp/run_cynic_mcp.py reports fresh",
+            "MCP initialize responds",
+            "MCP tools/list returns cynic_coord_claim"
+          ],
+          "lifecycle_stages": [
+            "source",
+            "build_or_package",
+            "publish",
+            "propagate",
+            "activate",
+            "prove"
+          ],
+          "request_profiles": [
+            "mcp-reload"
+          ]
+        },
+        {
+          "name": "cynic-cognitive-sensor",
+          "kind": "rust_binary",
+          "owner": "organ-forge",
+          "source_targets": [
+            "crates/cynic-cognitive-sensor",
+            "axioms/cognitive-signal-v1.json"
+          ],
+          "build_targets": [
+            "crates/cynic-cognitive-sensor"
+          ],
+          "system_packages": [
+            "pkg-config",
+            "libxi-dev"
+          ],
+          "publish": {
+            "path": "%h/bin/cynic-cognitive-sensor",
+            "hash": null
+          },
+          "runtime_targets": [
+            "cortex"
+          ],
+          "activation": [
+            "install executable",
+            "verify cognitive signal schema",
+            "start only on an approved operator host"
+          ],
+          "proof": [
+            "cargo check --manifest-path crates/cynic-cognitive-sensor/Cargo.toml passes on build runner",
+            "binary starts without missing XInput libraries",
+            "emits cynic.cognitive_signal.v1"
+          ],
+          "lifecycle_stages": [
+            "source",
+            "build_or_package",
+            "publish",
+            "propagate",
+            "activate",
+            "prove"
+          ],
+          "request_profiles": [
+            "gate-2"
+          ]
+        },
+        {
+          "name": "cynic-node",
+          "kind": "rust_binary",
+          "owner": "organ-forge",
+          "source_targets": [
+            "crates/cynic-node",
+            "infra/systemd/cynic-node.service",
+            "axioms/node-bootstrap-v1.json",
+            "axioms/network-infra-gaps-v1.json"
+          ],
+          "build_targets": [
+            "crates/cynic-node"
+          ],
+          "publish": {
+            "path": "%h/bin/cynic-node",
+            "hash": null
+          },
+          "runtime_targets": [
+            "all_runtime_nodes"
+          ],
+          "activation": [
+            "install executable",
+            "install declared watchdog or service configuration for the node role",
+            "start cynic-node only on nodes that declare the runtime surface"
+          ],
+          "proof": [
+            "cynic-node observe --json emits binary_attestation",
+            "cynic-node --watchdog emits cynic-node-watchdog payload",
+            "systemd unit or watchdog surface resolves to %h/bin/cynic-node"
+          ],
+          "lifecycle_stages": [
+            "source",
+            "build_or_package",
+            "publish",
+            "propagate",
+            "activate",
+            "prove"
+          ],
+          "request_profiles": [
+            "bootstrap",
+            "gate-2",
+            "deploy"
+          ]
+        },
+        {
+          "name": "organ-forge",
+          "kind": "python_organ",
+          "owner": "organ-forge",
+          "source_targets": [
+            "organs/forge",
+            "infra/registry.json",
+            "axioms/lifecycle-supply-chain-v1.json"
+          ],
+          "build_targets": [
+            "organs/forge"
+          ],
+          "publish": {
+            "path": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}/organs/forge",
+            "hash": null
+          },
+          "runtime_targets": [
+            "build_runner"
+          ],
+          "activation": [
+            "materialize repo under runtime principal",
+            "install Python dependencies",
+            "start hermes-agent-executor.service"
+          ],
+          "proof": [
+            "python3 organs/forge/src/entrypoints/cli.py lifecycle-blockers returns activation.v1",
+            "organ-forge daemon active",
+            "lifecycle task read-back works"
+          ],
+          "lifecycle_stages": [
+            "source",
+            "build_or_package",
+            "publish",
+            "propagate",
+            "activate",
+            "prove"
+          ],
+          "request_profiles": [
+            "bootstrap",
+            "gate-2",
+            "deploy",
+            "mcp-reload"
+          ]
+        },
+        {
+          "name": "agent-exposure-projections",
+          "kind": "agent_projection",
+          "owner": "organ-exposure",
+          "source_targets": [
+            "infra/agent-exposure.json",
+            "organs/exposure",
+            ".codex/config.toml",
+            ".claude/settings.json",
+            ".antigravity/settings.json"
+          ],
+          "build_targets": [
+            "organs/exposure"
+          ],
+          "publish": {
+            "path": "agent-local config projections",
+            "hash": null
+          },
+          "runtime_targets": [
+            "cortex"
+          ],
+          "activation": [
+            "render projection from infra/agent-exposure.json",
+            "install projection in each agent config"
+          ],
+          "proof": [
+            "python3 organs/exposure/src/entrypoints/cli.py render --agent codex is stable",
+            "make lint-agent-exposure-contract passes"
+          ],
+          "lifecycle_stages": [
+            "source",
+            "build_or_package",
+            "publish",
+            "propagate",
+            "activate",
+            "prove"
+          ],
+          "request_profiles": [
+            "mcp-reload"
+          ]
+        },
+        {
+          "name": "lifecycle-systemd-units",
+          "kind": "systemd_unit",
+          "owner": "organ-lifecycle",
+          "source_targets": [
+            "infra/systemd",
+            "infra/registry.json",
+            "organs/lifecycle"
+          ],
+          "build_targets": [
+            "infra/systemd"
+          ],
+          "publish": {
+            "path": "runtime user systemd units",
+            "hash": null
+          },
+          "runtime_targets": [
+            "build_runner",
+            "kernel_primary",
+            "storage_primary"
+          ],
+          "activation": [
+            "install unit under runtime principal",
+            "systemctl daemon-reload",
+            "start or restart declared unit"
+          ],
+          "proof": [
+            "unit file matches registry source",
+            "service declared",
+            "service active"
+          ],
+          "lifecycle_stages": [
+            "source",
+            "build_or_package",
+            "publish",
+            "propagate",
+            "activate",
+            "prove"
+          ],
+          "request_profiles": [
+            "bootstrap",
+            "deploy",
+            "mcp-reload"
+          ]
+        }
+      ],
       "requires_e2e": true,
       "runtime_paths": {
         "repo_root": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}"
@@ -412,7 +677,7 @@
           "aliases": [
             "cynic-lxc-vpn"
           ],
-          "ip": "192.168.0.40"
+          "ip": "10.10.10.40"
         },
         {
           "id": "lxc/101",
@@ -442,7 +707,7 @@
           "aliases": [
             "cynic-vm-core-probe"
           ],
-          "ip": "<LAN_CORE>"
+          "ip": "10.10.10.184"
         },
         {
           "id": "qemu/130",
@@ -450,7 +715,7 @@
           "aliases": [
             "cynic-kernel-staging"
           ],
-          "ip": "<LAN_STAGING>"
+          "ip": "dhcp"
         },
         {
           "id": "qemu/140",
@@ -467,7 +732,7 @@
           "aliases": [
             "candidate-build-runner"
           ],
-          "ip": "<LAN_BUILDER>"
+          "ip": "dhcp"
         }
       ],
       "services": [
@@ -487,6 +752,14 @@
           "description": "Legacy declared sovereign embedding backend; must be migrated off the bare hypervisor or reattached to a VM."
         }
       ],
+      "host_exec_transport": {
+        "schema": "cynic.host_exec_transport.v1",
+        "kind": "manual_operator_surface",
+        "status": "declared",
+        "principal": "cynic",
+        "required_bridge": "declare and implement a canonical host exec transport for hypervisor/manual hosts before using fleet_node_exec on this node",
+        "reason": "This host is the native Proxmox hypervisor surface, not a guest resource."
+      },
       "energy_profile": {
         "class": "always_on",
         "criticality": "core",
@@ -506,11 +779,11 @@
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
       "network": {
-        "local": "192.168.0.40",
+        "local": "10.10.10.40",
         "synapse": "10.20.0.2"
       },
       "observed_provider_network": {
-        "lan": "192.168.0.40",
+        "lan": "10.10.10.40",
         "source": "operator_observation",
         "observed_at": "2026-07-02",
         "canonical": false
@@ -531,30 +804,6 @@
       "status": "active"
     },
     {
-      "name": "organ-wireguard",
-      "role": "synapse_mesh_controller",
-      "constellation": "mesh",
-      "host": "cynic-host-proxmox",
-      "os": "Debian 12",
-      "network": {
-        "synapse": "10.20.0.9"
-      },
-      "services": [
-        {
-          "name": "wireguard-control",
-          "description": "Deterministic native WireGuard/Synapse service mesh controller and IPAM."
-        }
-      ],
-      "energy_profile": {
-        "class": "always_on",
-        "criticality": "core",
-        "wake_policy": "manual",
-        "power_budget": "low",
-        "thermal_sensitive": false
-      },
-      "status": "planned"
-    },
-    {
       "name": "cynic-lxc-surrealdb",
       "aliases": [
         "organ-surrealdb",
@@ -565,7 +814,7 @@
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
       "network": {
-        "local": "<PROXMOX_STORAGE_LOCAL>",
+        "local": "10.10.10.103",
         "synapse": "10.20.0.3"
       },
       "observed_provider_network": {
@@ -775,7 +1024,7 @@
       "deploy_target": false,
       "os": "Debian 12",
       "network": {
-        "local": "<LAN_STAGING>",
+        "local": "dhcp",
         "synapse": "10.20.0.6"
       },
       "services": [
@@ -855,7 +1104,7 @@
       "host": "cynic-host-proxmox",
       "os": "Debian 12",
       "network": {
-        "local": "<LAN_BUILDER>"
+        "local": "dhcp"
       },
       "services": [
         {
@@ -890,6 +1139,14 @@
           "description": "Sovereign inference node service (Qwen/GGUF runtime on GPU host). This machine also serves as the primary Cortex operator surface for S."
         }
       ],
+      "host_exec_transport": {
+        "schema": "cynic.host_exec_transport.v1",
+        "kind": "manual_operator_surface",
+        "status": "declared",
+        "principal": "cynic",
+        "required_bridge": "declare and implement a canonical host exec transport for inference/manual hosts before using fleet_node_exec on this node",
+        "reason": "This host is a native operator/inference surface, not a Proxmox guest resource."
+      },
       "energy_profile": {
         "class": "manual",
         "criticality": "support",
@@ -912,6 +1169,16 @@
       "network": {
         "local": "192.168.0.12",
         "synapse": "10.20.0.8"
+      },
+      "host_exec_transport": {
+        "schema": "cynic.host_exec_transport.v1",
+        "kind": "ssh_sudo_helper",
+        "status": "declared",
+        "principal": "cynic",
+        "required_bridge": "install and validate the canonical host-exec helper bundle on this cortex host before using fleet_node_exec on this node",
+        "reason": "This host is a native cortex operator surface and should execute bounded root operations through the canonical host-exec helper.",
+        "transport_command_env": "CYNIC_HOST_EXEC_COMMAND",
+        "transport_command_default": "sudo -n /usr/local/libexec/cynic-host-exec"
       },
       "energy_profile": {
         "class": "manual",
@@ -946,7 +1213,7 @@
     },
     "mesh_layers": {
       "mesh_access_control": "Headscale/Tailscale-compatible control plane for operator and agent reachability.",
-      "synapse_mesh_controller": "Native WireGuard/Synapse service mesh for deterministic organism traffic."
+      "synapse_mesh_controller": "Legacy native WireGuard/Synapse implementation pending full absorption into cynic-node diagnostics and organ-fleet network surfaces."
     },
     "energy_dimensions": [
       "physical",
@@ -960,7 +1227,7 @@
   },
   "network_policy": {
     "version": "network-policy.v1",
-    "owner": "organ-wireguard",
+    "owner": "cynic-node",
     "canonical_service_plane": "synapse",
     "rules": {
       "agents_consume_dns": "*.synapse.cynic",
@@ -1061,14 +1328,6 @@
         ]
       },
       {
-        "name": "organ-wireguard",
-        "role": "synapse_mesh_controller",
-        "synapse": "10.20.0.9",
-        "dns": [
-          "organ-wireguard.synapse.cynic"
-        ]
-      },
-      {
         "name": "cynic-lxc-git",
         "role": "forge_primary",
         "synapse": "10.20.0.10",
@@ -1114,20 +1373,6 @@
       "status": "active",
       "depends_on": [
         "cynic-kernel"
-      ],
-      "coord": "cynic_coord_register/release"
-    },
-    {
-      "name": "organ-wireguard",
-      "instance": "organ-wireguard-daemon",
-      "role": "synapse_mesh_controller",
-      "description": "Native WireGuard/Synapse service mesh controller for deterministic organism traffic, service IPs, and internal DNS.",
-      "scope": "synapse+wireguard+dns",
-      "cron": "daemon",
-      "status": "planned",
-      "depends_on": [
-        "cynic-kernel",
-        "organ-headscale"
       ],
       "coord": "cynic_coord_register/release"
     },

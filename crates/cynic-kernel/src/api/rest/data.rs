@@ -504,6 +504,8 @@ pub struct AuditQuery {
     pub limit: Option<u32>,
     pub tool: Option<String>,
     pub agent_id: Option<String>,
+    pub since: Option<String>,
+    pub until: Option<String>,
 }
 
 /// GET /sessions/{agent_id}/compliance — Score a session's workflow compliance.
@@ -594,7 +596,13 @@ pub async fn audit_handler(
     let limit = q.limit.unwrap_or(50).min(100);
     match state
         .coord
-        .query_audit(q.tool.as_deref(), q.agent_id.as_deref(), limit)
+        .query_audit(
+            q.tool.as_deref(),
+            q.agent_id.as_deref(),
+            q.since.as_deref(),
+            q.until.as_deref(),
+            limit,
+        )
         .await
     {
         Ok(rows) => Ok(Json(rows)),
@@ -900,6 +908,8 @@ mod tests {
         assert!(q.limit.is_none());
         assert!(q.tool.is_none());
         assert!(q.agent_id.is_none());
+        assert!(q.since.is_none());
+        assert!(q.until.is_none());
     }
 
     #[test]
@@ -909,9 +919,13 @@ mod tests {
             limit: Some(20),
             tool: Some("cynic_judge".into()),
             agent_id: Some("claude-1".into()),
+            since: Some("2026-07-01".into()),
+            until: Some("2026-07-08".into()),
         };
         assert_eq!(q.tool.as_deref(), Some("cynic_judge"));
         assert_eq!(q.agent_id.as_deref(), Some("claude-1"));
+        assert_eq!(q.since.as_deref(), Some("2026-07-01"));
+        assert_eq!(q.until.as_deref(), Some("2026-07-08"));
         assert_eq!(q.limit, Some(20));
     }
 
@@ -921,6 +935,8 @@ mod tests {
             limit: None,
             tool: None,
             agent_id: None,
+            since: None,
+            until: None,
         };
         let effective = q.limit.unwrap_or(50).min(100);
         assert_eq!(effective, 50);
@@ -929,6 +945,8 @@ mod tests {
             limit: Some(999),
             tool: None,
             agent_id: None,
+            since: None,
+            until: None,
         };
         let effective_big = q_big.limit.unwrap_or(50).min(100);
         assert_eq!(effective_big, 100);

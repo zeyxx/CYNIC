@@ -541,7 +541,13 @@ impl CynicMcp {
 
         match self
             .coord
-            .query_audit(p.tool.as_deref(), p.agent_id.as_deref(), limit)
+            .query_audit(
+                p.tool.as_deref(),
+                p.agent_id.as_deref(),
+                p.since.as_deref(),
+                p.until.as_deref(),
+                limit,
+            )
             .await
         {
             Ok(results) => Ok(CallToolResult::success(vec![Content::text(

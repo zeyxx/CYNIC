@@ -146,6 +146,8 @@ pub trait CoordPort: Send + Sync {
         &self,
         tool_filter: Option<&str>,
         agent_filter: Option<&str>,
+        since: Option<&str>,
+        until: Option<&str>,
         limit: u32,
     ) -> Result<Vec<AuditEntry>, CoordError>;
     async fn heartbeat(&self, agent_id: &str) -> Result<(), CoordError>;
@@ -204,6 +206,8 @@ impl CoordPort for NullCoord {
     }
     async fn query_audit(
         &self,
+        _: Option<&str>,
+        _: Option<&str>,
         _: Option<&str>,
         _: Option<&str>,
         _: u32,
