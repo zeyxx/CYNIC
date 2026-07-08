@@ -71,7 +71,8 @@ class LifecycleBootstrapExecutorTests(unittest.TestCase):
         
         self.assertIn('src=${CYNIC_PROJECT_ROOT:-}', repo_materialize_command)
         self.assertIn('cp -a "$src"/. "$tmp"/', repo_materialize_command)
-        self.assertIn("dpkg-query -W ca-certificates musl-tools", commands)
+        expected_host_packages = " ".join(contract["toolchain"]["host_packages"])
+        self.assertIn(f"dpkg-query -W {expected_host_packages}", commands)
         repo_materialized_command = next(
             command for command in commands if ".cynic/repos/CYNIC/.git" in command
         )

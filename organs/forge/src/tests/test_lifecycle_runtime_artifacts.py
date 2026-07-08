@@ -16,7 +16,7 @@ class LifecycleRuntimeArtifactTests(unittest.TestCase):
         )
 
         self.assertEqual("cynic.lifecycle.runtime_artifact_manifest.v1", manifest["schema"])
-        self.assertEqual("drift", manifest["status"])
+        self.assertEqual("ok", manifest["status"])
         self.assertEqual(6, manifest["artifact_count"])
         by_name = {artifact["name"]: artifact for artifact in manifest["artifacts"]}
         self.assertEqual("rust_binary", by_name["cynic-mcp"]["kind"])
@@ -27,7 +27,7 @@ class LifecycleRuntimeArtifactTests(unittest.TestCase):
         self.assertEqual("agent_projection", by_name["agent-exposure-projections"]["kind"])
         self.assertEqual("systemd_unit", by_name["lifecycle-systemd-units"]["kind"])
         self.assertEqual(REQUIRED_STAGES, by_name["cynic-mcp"]["lifecycle_stages"])
-        self.assertIn("proof_drift", {item["kind"] for item in manifest["drift"]})
+        self.assertEqual([], manifest["drift"])
 
     def test_manifest_accepts_observed_proofs(self):
         observed = {

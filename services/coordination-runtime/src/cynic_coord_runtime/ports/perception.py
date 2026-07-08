@@ -11,10 +11,6 @@ class KernelPort(ObservationPort, ServiceLivenessPort, ABC):
         pass
 
     @abstractmethod
-    def poll_tasks(self, limit: int = 1) -> List[Dict]:
-        pass
-
-    @abstractmethod
     def claim_task(self, task: dict, agent_id: str) -> bool:
         pass
 

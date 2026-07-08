@@ -41,11 +41,13 @@ def cynic_integration_from_reports(
         _bridge(
             "execution_bloodstream",
             status=_status(
-                _exists(repo_root, "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_kanban_executor.py"),
+                _exists(repo_root, "services/observability-runtime/src/cynic_observe_runtime/adapters/kernel_observe.py")
+                and _exists(repo_root, "organs/contracts/src/core/hermes_kanban_graph.py"),
                 True,
             ),
             evidence=[
-                "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_kanban_executor.py",
+                "services/observability-runtime/src/cynic_observe_runtime/adapters/kernel_observe.py",
+                "organs/contracts/src/core/hermes_kanban_graph.py",
                 "docs/organs/HERMES_AGENT.md",
             ],
             rationale="Hermes execution must emit bloodstream events and normalized results instead of remaining a black box.",
@@ -67,13 +69,14 @@ def cynic_integration_from_reports(
             "fleet_model_governance",
             status=_status(
                 _exists(repo_root, "organs/contracts/src/adapters/hermes_fleet_model.py")
-                and _exists(repo_root, "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_fleet_config_actuator.py"),
+                and _exists(repo_root, "organs/contracts/src/adapters/hermes_fleet_config_projection.py")
+                and _exists(repo_root, "organs/contracts/src/adapters/hermes_fleet_backend_readiness.py"),
                 True,
             ),
             evidence=[
                 "organs/contracts/src/adapters/hermes_fleet_model.py",
                 "organs/contracts/src/adapters/hermes_fleet_config_projection.py",
-                "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_fleet_config_actuator.py",
+                "organs/contracts/src/adapters/hermes_fleet_backend_readiness.py",
             ],
             rationale="Hermes provider/model state must resolve to a fleet backend declared by CYNIC, not arbitrary local picker state.",
         ),
@@ -129,7 +132,8 @@ def cynic_integration_from_reports(
             status=_kanban_mirror_status("kanban" in command_names, kanban_mirror),
             evidence=[
                 "organs/framework-map/src/adapters/hermes_kanban_mirror.py",
-                "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_kanban_executor.py",
+                "services/observability-runtime/src/cynic_observe_runtime/adapters/kernel_observe.py",
+                "organs/contracts/src/core/hermes_kanban_graph.py",
                 "docs/organs/HERMES_AGENT.md",
             ],
             rationale="Execution events exist, but the full Hermes kanban graph is not mirrored into Kernel-native task/comment/blocker state.",

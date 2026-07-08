@@ -31,8 +31,8 @@ FULL_GRAPH_MIRROR_SURFACES = (
 
 class HermesKanbanMirrorDiscovery:
     def discover(self, *, repo_root: Path, command_map: dict[str, Any] | None = None) -> dict[str, Any]:
-        executor = repo_root / "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_kanban_executor.py"
-        observed_events = _observed_events(executor)
+        contract = repo_root / "organs/contracts/src/core/hermes_kanban_graph.py"
+        observed_events = _observed_events(contract)
         minimum_missing = [event for event in MINIMUM_BLOODSTREAM_EVENTS if event not in observed_events]
         observed_surfaces = _observed_graph_surfaces(observed_events)
         missing_graph_surfaces = [item for item in FULL_GRAPH_MIRROR_SURFACES if item not in observed_surfaces]
@@ -47,7 +47,7 @@ class HermesKanbanMirrorDiscovery:
 
         return {
             "schema": KANBAN_MIRROR_SCHEMA,
-            "executor_path": str(executor),
+            "executor_path": str(contract),
             "status": status,
             "observed_events": observed_events,
             "minimum_bloodstream_events": list(MINIMUM_BLOODSTREAM_EVENTS),
@@ -70,6 +70,16 @@ def _observed_events(path: Path) -> list[str]:
         return []
     events: set[str] = set()
     for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "VALID_HERMES_KANBAN_EVENTS":
+                    value = node.value
+                    if isinstance(value, ast.Call) and value.args:
+                        first = value.args[0]
+                        if isinstance(first, ast.Set):
+                            for item in first.elts:
+                                if isinstance(item, ast.Constant) and isinstance(item.value, str):
+                                    events.add(item.value)
         if not isinstance(node, ast.Call):
             continue
         func = node.func

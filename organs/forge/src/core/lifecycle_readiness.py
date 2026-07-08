@@ -172,52 +172,23 @@ def probe_fleet_node_exec_transport(hostname: str, timeout: int = 30) -> dict:
 
 
 def probe_local_network_runtime(timeout: int = 30) -> dict:
-    observe_command = "cargo run -q -p cynic-node -- observe --json"
-    actuator_command = "cargo run -q -p cynic-node -- network actuator-status --json"
+    runtime_status_command = (
+        "cargo run -q -p cynic-node -- network runtime-status --json --resolve-dns"
+    )
     host_exec_command = "python3 organs/fleet/src/entrypoints/cli.py host-exec activation-status --bundle-dir /tmp/cynic-host-exec"
-    observation, observation_meta = _run_json_shell(observe_command, timeout=timeout)
-    actuator, actuator_meta = _run_json_shell(actuator_command, timeout=timeout)
+    runtime_status, runtime_status_meta = _run_json_shell(runtime_status_command, timeout=timeout)
     host_exec_activation, host_exec_meta = _run_json_shell(host_exec_command, timeout=timeout)
 
-    blockers: list[dict] = []
+    blockers = []
     hostname = None
-    if isinstance(observation, dict):
-        hostname = observation.get("hostname")
-        mesh_status_projection = observation.get("network_mesh_status")
-        projected_runtime_status = None
-        if isinstance(mesh_status_projection, dict):
-            projected_runtime_status = mesh_status_projection.get("runtime_status")
-        for blocker in observation.get("blockers", []):
-            blockers.append(
-                {
-                    "category": "network",
-                    "kind": "runtime_blocker",
-                    "hostname": hostname,
-                    "severity": observation.get("severity"),
-                    "runtime_status": projected_runtime_status or observation.get("status"),
-                    "code": f"network_runtime:{blocker}",
-                    "blocker": blocker,
-                    "resolver_organ": "cynic-node",
-                    "resolver_consumer": "organ-forge-hermes-agent",
-                    "command": observe_command,
-                }
-            )
+    observation = None
+    actuator = None
+    if isinstance(runtime_status, dict):
+        hostname = runtime_status.get("hostname")
+        observation = runtime_status.get("observation")
+        actuator = runtime_status.get("actuator_activation")
+        blockers = list(runtime_status.get("blockers", []))
     if isinstance(actuator, dict) and actuator.get("status") != "active":
-        blockers.append(
-            {
-                "category": "network",
-                "kind": "actuator_activation",
-                "hostname": hostname,
-                "actual": actuator.get("status"),
-                "required": "active",
-                "code": f"network_actuator:{actuator.get('status', 'unknown')}",
-                "resolver_organ": "organ-fleet",
-                "resolver_consumer": "organ-forge-hermes-agent",
-                "command": actuator_command,
-                "next_actions": actuator.get("next_actions", []),
-                "root_authority": actuator.get("root_authority"),
-            }
-        )
         root_authority = actuator.get("root_authority", {})
         if isinstance(root_authority, dict) and root_authority.get("sudo_noninteractive_available") is False:
             transport_probe = probe_fleet_node_exec_transport(hostname or "unknown", timeout=30)
@@ -270,22 +241,24 @@ def probe_local_network_runtime(timeout: int = 30) -> dict:
                     }
                 )
 
-    if observation is None and actuator is None:
+    if runtime_status is None:
         return {
             "enabled": True,
             "status": "error",
             "error": "network_runtime_probe_failed",
-            "commands": [observation_meta, actuator_meta],
+            "commands": [runtime_status_meta],
             "blockers": [],
         }
     return {
         "enabled": True,
-        "status": "blocked" if blockers else "ok",
+        "status": runtime_status.get("status", "blocked") if isinstance(runtime_status, dict) else "blocked",
         "hostname": hostname,
         "observation": observation,
         "actuator_activation": actuator,
+        "dns_activation": runtime_status.get("dns_activation") if isinstance(runtime_status, dict) else None,
+        "provider_fallback_status": runtime_status.get("provider_fallback_status") if isinstance(runtime_status, dict) else None,
         "host_exec_activation": host_exec_activation,
-        "commands": [observation_meta, actuator_meta, host_exec_meta],
+        "commands": [runtime_status_meta, host_exec_meta],
         "blockers": blockers,
     }
 

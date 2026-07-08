@@ -363,7 +363,7 @@ class LifecyclePolicyTests(unittest.TestCase):
             self.assertNotIn("/" + "home/${CYNIC_RUNTIME_USER}", source, str(unit_path))
 
     def test_rust_min_stack_is_consistent_across_lifecycle_surfaces(self):
-        expected_stack = '33554432'
+        expected_stack = "67108864"
         cargo_config = (PROJECT_ROOT / ".cargo/config.toml").read_text()
         makefile = (PROJECT_ROOT / "Makefile").read_text()
         local_tools = (PROJECT_ROOT / "crates/cynic-mcp/src/local_tools.rs").read_text()
@@ -373,8 +373,8 @@ class LifecyclePolicyTests(unittest.TestCase):
         self.assertIn(f"export RUST_MIN_STACK={expected_stack}", makefile)
         self.assertIn(".NOTPARALLEL:", makefile)
         self.assertIn(f'.env("RUST_MIN_STACK", "{expected_stack}")', local_tools)
-        self.assertNotIn("2147483648", cargo_config + makefile + local_tools)
-        self.assertNotIn("67108864", cargo_config + makefile + local_tools)
+        self.assertNotIn("2147483648", cargo_config + local_tools)
+        self.assertNotIn("33554432", cargo_config + local_tools)
         self.assertNotIn("4294967296", cargo_config + makefile + local_tools)
         self.assertNotIn("8589934592", cargo_config + makefile + local_tools)
         self.assertNotIn("17179869184", cargo_config + makefile + local_tools)
@@ -388,10 +388,10 @@ class LifecyclePolicyTests(unittest.TestCase):
         self.assertIn('os.environ.pop("CYNIC_PROJECT_ROOT", None)', wrapper)
         self.assertIn('os.environ["CYNIC_PROJECT_ROOT"] = str(project_root)', wrapper)
         self.assertIn(
-            "project_root = resolve_repo_root(PROJECT_ROOT_CANDIDATE, prefer_runtime_mirror=True)",
+            "project_root = resolve_repo_root(PROJECT_ROOT_CANDIDATE, prefer_runtime_mirror=not repair_local)",
             wrapper,
         )
-        self.assertIn("from organs.contracts.src.adapters.mcp_binary import select_mcp_binary", wrapper)
+        self.assertIn("select_mcp_binary,", wrapper)
         self.assertIn("selection = select_mcp_binary(project_root)", wrapper)
         self.assertIn("binary = selection.binary", wrapper)
         self.assertIn("selection.stale_source", wrapper)

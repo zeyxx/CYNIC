@@ -45,58 +45,6 @@ class KernelRestAdapter(KernelObserveTransportMixin, KernelServiceLivenessMixin,
             return False
         return True
 
-    def _collect_pending_tasks(self, limit: int = 1) -> List[Dict]:
-        if not self.kernel_addr or not self.auth_key:
-            return []
-            
-        try:
-            query_domains: list[Optional[str]] = sorted(self.domain_allowlist) if self.domain_allowlist else [None]
-            tasks = []
-            seen_ids = set()
-
-            for domain in query_domains:
-                params = {"status": "pending", "limit": str(limit)}
-                if domain:
-                    params["domain"] = domain
-                response = requests.get(f"{self.kernel_addr}/agent-tasks", headers=self._headers(), params=params, timeout=5)
-                if response.status_code != 200:
-                    continue
-
-                kernel_tasks = response.json()
-                if isinstance(kernel_tasks, dict) and "tasks" in kernel_tasks:
-                    kernel_tasks = kernel_tasks["tasks"]
-                elif isinstance(kernel_tasks, int):
-                    kernel_tasks = []
-
-                for t in kernel_tasks:
-                    if not isinstance(t, dict):
-                        continue
-                    
-                    # Merge JSON content into task object if it's a JSON string
-                    content_val = t.get("content")
-                    if isinstance(content_val, str):
-                        try:
-                            parsed_content = json.loads(content_val)
-                            if isinstance(parsed_content, dict):
-                                t.update(parsed_content)
-                        except json.JSONDecodeError:
-                            pass
-                    elif isinstance(content_val, dict):
-                        t.update(content_val)
-
-                    t["_source"] = "kernel"
-                    t["id"] = t.get("id", t.get("agent_id", ""))
-                    task_id = str(t.get("id", ""))
-                    if task_id in seen_ids or not self._task_matches(t):
-                        continue
-                    seen_ids.add(task_id)
-                    tasks.append(t)
-
-            return tasks[:limit]
-        except requests.RequestException as e:
-            logger.warning(f"kernel /agent-tasks fetch failed: {e}")
-            return []
-
     def wait_for_tasks(self, timeout_secs: float, limit: int = 1) -> List[Dict]:
         timeout_secs = max(0.0, float(timeout_secs))
         if not self.kernel_addr or not self.auth_key:
@@ -141,9 +89,6 @@ class KernelRestAdapter(KernelObserveTransportMixin, KernelServiceLivenessMixin,
             logger.warning("kernel /agent-tasks/watch unavailable: %s", e)
 
         return []
-
-    def poll_tasks(self, limit: int = 1) -> List[Dict]:
-        return self._collect_pending_tasks(limit=limit)
 
     def claim_task(self, task: dict, agent_id: str) -> bool:
         task_id = task.get("id", "")

@@ -102,25 +102,20 @@ class LifecycleFleetReadinessTests(unittest.TestCase):
 
     def test_probe_local_network_runtime_surfaces_host_exec_activation_gap(self):
         def fake_run_json_shell(command, *, timeout=30):
-            if command == "cargo run -q -p cynic-node -- observe --json":
+            if command == "cargo run -q -p cynic-node -- network runtime-status --json --resolve-dns":
                 return (
                     {
                         "hostname": "ubuntu",
                         "severity": "warning",
                         "status": "provider_fallback_active",
-                        "network_mesh_status": {"runtime_status": "provider_fallback_active"},
-                        "blockers": [],
-                    },
-                    {"command": command, "exit_code": 0, "stdout": "{}", "stderr": ""},
-                )
-            if command == "cargo run -q -p cynic-node -- network actuator-status --json":
-                return (
-                    {
-                        "status": "missing_activation",
-                        "root_authority": {
-                            "command": "sudo -n true",
-                            "sudo_noninteractive_available": False,
+                        "actuator_activation": {
+                            "status": "inactive",
+                            "root_authority": {
+                                "command": "sudo -n true",
+                                "sudo_noninteractive_available": False,
+                            },
                         },
+                        "blockers": [],
                     },
                     {"command": command, "exit_code": 0, "stdout": "{}", "stderr": ""},
                 )
@@ -159,20 +154,20 @@ class LifecycleFleetReadinessTests(unittest.TestCase):
 
     def test_probe_local_network_runtime_prefers_canonical_mesh_runtime_projection(self):
         def fake_run_json_shell(command, *, timeout=30):
-            if command == "cargo run -q -p cynic-node -- observe --json":
+            if command == "cargo run -q -p cynic-node -- network runtime-status --json --resolve-dns":
                 return (
                     {
                         "hostname": "ubuntu",
                         "severity": "warning",
                         "status": "provider_fallback_active",
-                        "network_mesh_status": {"runtime_status": "mesh_active"},
-                        "blockers": ["wireguard_mesh_absent"],
+                        "dns_activation": {"runtime_status": "mesh_active"},
+                        "blockers": [
+                            {
+                                "kind": "runtime_blocker",
+                                "runtime_status": "mesh_active",
+                            }
+                        ],
                     },
-                    {"command": command, "exit_code": 0, "stdout": "{}", "stderr": ""},
-                )
-            if command == "cargo run -q -p cynic-node -- network actuator-status --json":
-                return (
-                    {"status": "active"},
                     {"command": command, "exit_code": 0, "stdout": "{}", "stderr": ""},
                 )
             if command == "python3 organs/fleet/src/entrypoints/cli.py host-exec activation-status --bundle-dir /tmp/cynic-host-exec":

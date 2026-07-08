@@ -31,7 +31,6 @@ from organs.forge.src.adapters.kernel_adapter import (
 )
 from organs.forge.src.adapters.registry_adapter import load_registry
 
-
 def _run(func, check_ok=True) -> int:
     try:
         res = func()
@@ -60,12 +59,7 @@ def run_lifecycle_check(strict: bool = True) -> int:
         print(json.dumps(payload, separators=(",", ":")), file=sys.stderr)
         return 1
 
-
-def lifecycle_dispatch_error_payload(exc: Exception) -> dict:
-    return _lifecycle_dispatch_error_payload(str(exc), lifecycle_error_context())
-
-
-def lifecycle_blockers_payload() -> dict:
+def _activation_snapshot() -> dict:
     activation = build_lifecycle_activation_requests(
         inspect_fleet=True,
         include_network_probe=True,
@@ -73,7 +67,15 @@ def lifecycle_blockers_payload() -> dict:
     activation["bootstrap_source"] = probe_bootstrap_source()
     activation["runtime_probe"] = probe_local_consumer_runtime()
     activation["network_probe"] = probe_local_network_runtime()
-    return _lifecycle_blockers_payload(activation)
+    return activation
+
+
+def lifecycle_dispatch_error_payload(exc: Exception) -> dict:
+    return _lifecycle_dispatch_error_payload(str(exc), lifecycle_error_context())
+
+
+def lifecycle_blockers_payload() -> dict:
+    return _lifecycle_blockers_payload(_activation_snapshot())
 
 
 def run_lifecycle_blockers() -> int:
@@ -81,14 +83,7 @@ def run_lifecycle_blockers() -> int:
 
 
 def organism_gap_map_payload() -> dict:
-    activation = build_lifecycle_activation_requests(
-        inspect_fleet=True,
-        include_network_probe=True,
-    )
-    activation["bootstrap_source"] = probe_bootstrap_source()
-    activation["runtime_probe"] = probe_local_consumer_runtime()
-    activation["network_probe"] = probe_local_network_runtime()
-    return _organism_gap_map_payload(activation)
+    return _organism_gap_map_payload(_activation_snapshot())
 
 
 def run_organism_gap_map() -> int:
@@ -104,14 +99,7 @@ def run_organism_next_repair_batch() -> int:
 
 
 def lifecycle_root_install_sequence_payload() -> dict:
-    activation = build_lifecycle_activation_requests(
-        inspect_fleet=True,
-        include_network_probe=True,
-    )
-    activation["bootstrap_source"] = probe_bootstrap_source()
-    activation["runtime_probe"] = probe_local_consumer_runtime()
-    activation["network_probe"] = probe_local_network_runtime()
-    return _lifecycle_root_install_sequence_payload(activation)
+    return _lifecycle_root_install_sequence_payload(_activation_snapshot())
 
 
 def run_lifecycle_root_install_sequence() -> int:

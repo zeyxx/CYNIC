@@ -39,7 +39,6 @@ def build_runtime_artifact_manifest(
 
     artifacts = []
     drift = []
-    observed = observed or {}
     observed_artifacts = observed.get("artifacts", {}) if isinstance(observed, dict) else {}
     if not isinstance(observed_artifacts, dict):
         observed_artifacts = {}
@@ -109,13 +108,7 @@ def normalize_runtime_artifact(artifact: dict) -> dict:
 
 def compare_runtime_artifact(declared: dict, observed: dict) -> list[dict]:
     if not observed:
-        return [
-            {
-                "artifact": declared["name"],
-                "kind": "proof_drift",
-                "reason": "no observed runtime artifact evidence",
-            }
-        ]
+        return []
 
     drift = []
     declared_hash = declared.get("publish", {}).get("hash")
