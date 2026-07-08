@@ -1,0 +1,13 @@
+services:
+  ui:
+    image: node:22-alpine
+    container_name: cynic-odysseum-ui
+    working_dir: /app/packages/odysseum-ui
+    volumes:
+      - ../..:/app
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - CYNIC_REST_ADDR=http://10.10.10.140:3030
+    command: npm run dev
