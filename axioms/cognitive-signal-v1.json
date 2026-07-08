@@ -1,0 +1,19 @@
+{
+  "schema": "cynic.cognitive_signal.v1",
+  "status": "draft",
+  "owner": "sensorium",
+  "purpose": "Define the physical I/O signal abstracted from the capturing device (Kyon, RustDesk, etc).",
+  "example": {
+    "sensor_id": "kyon_mobile_1",
+    "timestamp": "2026-07-06T14:50:00Z",
+    "modality": "audio_transcription",
+    "payload": {
+      "text": "lance le deploiement sur la prod",
+      "raw_audio_uri": "kernel_blob://audio_chunk_8472",
+      "detected_emotion": "stress"
+    },
+    "context": {
+      "current_app": "RustDesk"
+    }
+  }
+}

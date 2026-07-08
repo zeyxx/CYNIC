@@ -1,0 +1,245 @@
+{
+  "schema": "cynic.meta_layer_contract.v1",
+  "status": "normative",
+  "version": 1,
+  "purpose": "Define the precedence and canonical home of CYNIC meta-layers so policy, contracts, runtime projections, and wrappers do not compete as source of truth.",
+  "recursion_boundary": {
+    "rule": "The meta-layer contract is the root contract for contract placement and precedence; no lower contract may create a competing contract-of-contracts hierarchy.",
+    "root_contract": "axioms/meta-layer-contract-v1.json",
+    "registry_contract": "axioms/axiom-registry-v1.json",
+    "allowed_meta_contracts": [
+      "axioms/meta-layer-contract-v1.json",
+      "axioms/axiom-registry-v1.json"
+    ],
+    "projection_rule": "Domain contracts may reference this boundary and project layer vocabulary into their own domain, but they must not redefine functional layers, precedence, or canonical homes.",
+    "new_contract_admission": [
+      "classify the contract in axiom-registry-v1.json",
+      "reuse an existing functional layer from precedence",
+      "declare whether the contract is semantic, topology, registry, kernel, MCP, organ runtime, node runtime, or wrapper projection",
+      "refuse creation when an existing contract can be extended without changing authority"
+    ],
+    "forbidden": [
+      "contract of contracts outside the allowed_meta_contracts list",
+      "domain contract redefining meta-layer precedence",
+      "organ runtime file becoming the source of contract authority",
+      "wrapper command creating semantics absent from policy or axioms"
+    ]
+  },
+  "symbolic_vocabulary": {
+    "Keter": "source intent, crown, ultimate precedence",
+    "Chokhmah": "generative insight and design possibility",
+    "Binah": "bounded form, schema, containment",
+    "Chesed": "expansion and allowance",
+    "Gevurah": "constraint, admission, refusal",
+    "Tiferet": "integration, coherence, lifecycle harmony",
+    "Netzach": "execution endurance, actuator persistence",
+    "Hod": "interface, protocol, observable language",
+    "Yesod": "foundation, memory, state transfer",
+    "Malkhut": "material runtime, process, filesystem, node"
+  },
+  "precedence": [
+    "policy",
+    "semantic_contract",
+    "topology_contract",
+    "runtime_registry",
+    "kernel_contract",
+    "mcp_surface",
+    "organ_runtime",
+    "node_runtime",
+    "surface_wrapper"
+  ],
+  "layers": [
+    {
+      "name": "policy",
+      "canonical_home": "docs/foundation/",
+      "engineering_role": "Human-readable decision layer that names what the organism allows, forbids, and owns before any implementation claims authority.",
+      "agent_question": "Which policy authorizes this change?",
+      "system_primitives": [
+        "policy file",
+        "review boundary",
+        "precedence rule",
+        "admission criterion"
+      ],
+      "symbolic_alignment": [
+        "Keter",
+        "Gevurah"
+      ],
+      "may_decide": [
+        "what is allowed",
+        "what is owned",
+        "what is forbidden"
+      ]
+    },
+    {
+      "name": "semantic_contract",
+      "canonical_home": "axioms/",
+      "engineering_role": "Machine-readable invariant layer that turns policy language into typed payloads, vocabularies, and validation targets.",
+      "agent_question": "Which JSON contract defines the vocabulary and invariant?",
+      "system_primitives": [
+        "JSON schema",
+        "typed payload",
+        "enum",
+        "contract validator"
+      ],
+      "symbolic_alignment": [
+        "Binah",
+        "Hod"
+      ],
+      "may_decide": [
+        "payload shape",
+        "contract vocabulary",
+        "invariants"
+      ]
+    },
+    {
+      "name": "topology_contract",
+      "canonical_home": "axioms/repo-topology-v1.json and related topology axioms",
+      "engineering_role": "Filesystem and organ-boundary layer that assigns every durable source path to a lawful concern.",
+      "agent_question": "Where may this file live, and which boundary owns it?",
+      "system_primitives": [
+        "path classifier",
+        "directory boundary",
+        "manifest",
+        "lint gate"
+      ],
+      "symbolic_alignment": [
+        "Binah",
+        "Malkhut"
+      ],
+      "may_decide": [
+        "file placement",
+        "root classes",
+        "organ boundaries"
+      ]
+    },
+    {
+      "name": "runtime_registry",
+      "canonical_home": "infra/registry.json and infra/agent-exposure.json",
+      "engineering_role": "Desired-state layer for nodes, services, lifecycle targets, and agent exposure projections.",
+      "agent_question": "What does the organism declare should exist at runtime?",
+      "system_primitives": [
+        "desired state",
+        "node record",
+        "service declaration",
+        "projection manifest"
+      ],
+      "symbolic_alignment": [
+        "Yesod",
+        "Tiferet"
+      ],
+      "may_decide": [
+        "declared nodes",
+        "services",
+        "exposure",
+        "lifecycle targets"
+      ]
+    },
+    {
+      "name": "kernel_contract",
+      "canonical_home": "crates/cynic-kernel/ and kernel API docs",
+      "engineering_role": "Central nervous-system contract for durable task memory, claims, observations, health, and read-back proofs.",
+      "agent_question": "Which kernel endpoint or state transition proves this lifecycle step?",
+      "system_primitives": [
+        "REST route",
+        "transaction",
+        "queue",
+        "read-after-write proof"
+      ],
+      "symbolic_alignment": [
+        "Yesod",
+        "Tiferet",
+        "Gevurah"
+      ],
+      "may_decide": [
+        "tasks",
+        "claims",
+        "observations",
+        "health",
+        "read-back"
+      ]
+    },
+    {
+      "name": "mcp_surface",
+      "canonical_home": "crates/cynic-mcp/",
+      "engineering_role": "Agent-facing adapter layer that exposes kernel and organism capabilities as discoverable tools.",
+      "agent_question": "Which MCP tool is the canonical agent interface?",
+      "system_primitives": [
+        "tool schema",
+        "RPC adapter",
+        "authorization boundary",
+        "transport envelope"
+      ],
+      "symbolic_alignment": [
+        "Hod",
+        "Yesod"
+      ],
+      "may_decide": [
+        "which tools are exposed",
+        "how they are validated"
+      ]
+    },
+    {
+      "name": "organ_runtime",
+      "canonical_home": "organs/<role>/",
+      "engineering_role": "Hexagonal organ implementation layer that senses, decides locally, and acts through declared ports.",
+      "agent_question": "Which organ owns this behavior and through which port?",
+      "system_primitives": [
+        "process",
+        "port",
+        "adapter",
+        "state directory",
+        "entrypoint"
+      ],
+      "symbolic_alignment": [
+        "Netzach",
+        "Hod",
+        "Malkhut"
+      ],
+      "may_decide": [
+        "local behavior within the declared contract"
+      ]
+    },
+    {
+      "name": "node_runtime",
+      "canonical_home": "crates/cynic-node/ and node docs",
+      "engineering_role": "Host-local execution layer that supervises node processes, receives commands, and emits heartbeats.",
+      "agent_question": "Which node-local primitive executes or observes this runtime fact?",
+      "system_primitives": [
+        "systemd unit",
+        "heartbeat",
+        "socket",
+        "process supervisor",
+        "cgroup"
+      ],
+      "symbolic_alignment": [
+        "Netzach",
+        "Malkhut",
+        "Yesod"
+      ],
+      "may_decide": [
+        "local supervision",
+        "heartbeats",
+        "command reception"
+      ]
+    },
+    {
+      "name": "surface_wrapper",
+      "canonical_home": "Makefile*, scripts/, transitional wrappers",
+      "engineering_role": "Ergonomic invocation layer that may wrap canonical interfaces but must not become a source of truth.",
+      "agent_question": "Which canonical layer does this wrapper call?",
+      "system_primitives": [
+        "shell command",
+        "Make target",
+        "CLI argument",
+        "exit code"
+      ],
+      "symbolic_alignment": [
+        "Hod",
+        "Malkhut"
+      ],
+      "may_decide": [
+        "invocation ergonomics only"
+      ]
+    }
+  ]
+}

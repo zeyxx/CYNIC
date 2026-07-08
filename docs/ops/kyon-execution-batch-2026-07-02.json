@@ -1,0 +1,44 @@
+{
+  "schema_version": "cynic.execution.batch.v1",
+  "batch_id": "kyon-r2-portability-b1",
+  "created_at": "2026-07-02",
+  "owner": "cortex",
+  "project": "kyon-mobile",
+  "status": "ready",
+  "tasks": [
+    {
+      "id": "KYON-R2-01",
+      "title": "Publish adapter binding contract",
+      "artifact": "docs/ops/kyon-portability-runtime-contract.json",
+      "outcome": "binding contract complete",
+      "status": "done"
+    },
+    {
+      "id": "KYON-R2-02",
+      "title": "Define live validation gates",
+      "artifact": "docs/ops/kyon-live-verification-plan.json",
+      "outcome": "L1-L4 checks defined with pass criteria",
+      "status": "done"
+    },
+    {
+      "id": "KYON-R2-03",
+      "title": "Create project onboarding JSON",
+      "artifact": "docs/ops/cynic-multi-project-onboarding.json",
+      "outcome": "portable onboarding path and outputs defined",
+      "status": "done"
+    },
+    {
+      "id": "KYON-R2-04",
+      "title": "Link roadmap to portability artifacts",
+      "artifact": "docs/ops/cynic-multi-project-execution.json",
+      "outcome": "R2 updated with JSON artifacts and acceptance gates",
+      "status": "done"
+    }
+  ],
+  "constraints": {
+    "no_markdown_artifacts": true,
+    "soc_hexagonal_first": true,
+    "output_format": "json"
+  },
+  "next_batch_hint": "R3: produce execution evidence logs after live checks are run"
+}

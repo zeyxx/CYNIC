@@ -1,0 +1,112 @@
+{
+  "generated_at": "2026-06-24T00:00:00+02:00",
+  "name": "organ-superteam",
+  "status": "emerging_spec",
+  "mission": "Turn Superteam Earn, Discord Superteam France, and related sponsor surfaces into a repeatable opportunity-to-submission pipeline.",
+  "empirical_basis": [
+    "Current global Earn inventory contains 33 open bounties, 44 live grants, and 38 Discord France leads.",
+    "The website exposes filters, sorts, tabs, grants, details, bookmarks, dashboard, and authenticated agent surfaces.",
+    "No official stable API was assumed; the organ must survive UI and endpoint drift."
+  ],
+  "opportunity_layers": [
+    {
+      "name": "quick_cash_low_risk",
+      "definition": "Low effort, no capital, no social posting, near-term reward, can prepare drafts without external mutation."
+    },
+    {
+      "name": "technical_reusable",
+      "definition": "Build, QA, agent skill, infrastructure, or research work that remains useful for CYNIC even if the bounty is lost."
+    },
+    {
+      "name": "grants_durable_funding",
+      "definition": "Longer funding pathways requiring proposal quality, credibility, portfolio, and human strategy."
+    },
+    {
+      "name": "social_content_subjective",
+      "definition": "Threads, videos, design and narrative work with subjective judging or public posting requirements."
+    },
+    {
+      "name": "community_discord_stale_or_local",
+      "definition": "Leads from Discord France and community channels that may be region-specific, stale, or not mirrored on Earn."
+    }
+  ],
+  "owned_data": [
+    "opportunity inventory",
+    "listing details",
+    "deadline and reward ledger",
+    "submission requirements",
+    "scoring features",
+    "human gate decisions",
+    "submission drafts",
+    "post-submission outcomes"
+  ],
+  "hexagonal_shape": {
+    "core": [
+      "Opportunity",
+      "Grant",
+      "Sponsor",
+      "Requirement",
+      "SubmissionPlan",
+      "HumanGate",
+      "Outcome"
+    ],
+    "ports": [
+      "OpportunitySourcePort",
+      "DetailExtractorPort",
+      "ScoringPort",
+      "SubmissionWorkspacePort",
+      "PortfolioPort",
+      "HumanApprovalPort",
+      "OutcomeLearningPort"
+    ],
+    "adapters": [
+      "SuperteamEarnBrowserAdapter",
+      "SuperteamPublicEndpointAdapter",
+      "DiscordFranceSqliteAdapter",
+      "FilesystemWorkspaceAdapter",
+      "KernelMempoolAdapter"
+    ]
+  },
+  "workflow": [
+    "discover",
+    "normalize",
+    "deduplicate",
+    "classify_layer",
+    "score",
+    "extract_requirements",
+    "decide_start_or_gate",
+    "prepare_work",
+    "QA_evidence_bundle",
+    "human_submit_gate",
+    "learn_from_outcome"
+  ],
+  "human_gate_rules": [
+    "No submission without explicit approval.",
+    "No public social post without explicit approval.",
+    "No wallet connect, signature, trade, stake, deposit, or paid API spend without explicit approval.",
+    "No use of personal Google data beyond current authenticated session navigation."
+  ],
+  "sub_organs": [
+    "organ-browser",
+    "organ-evidence",
+    "organ-portfolio",
+    "organ-research",
+    "organ-submission"
+  ],
+  "risks": [
+    "Competition is high on broad content bounties.",
+    "Some technical bounties require capital, RPC access, or wallet actions.",
+    "Discord opportunities can be stale or less structured.",
+    "Earn agent listings may require authorization and separate terms."
+  ],
+  "next_experiment": {
+    "objective": "Run one full dry-run from listing to submission-ready bundle on a technical reusable bounty, stopping before actual Superteam submission.",
+    "candidate": "Ship useful agent skills we can add to Solana AI Kit",
+    "success_criteria": [
+      "Submission requirements are extracted.",
+      "A package skeleton exists.",
+      "Evidence bundle includes sources and evaluation checklist.",
+      "Human can approve or reject submission in under 10 minutes."
+    ]
+  }
+}

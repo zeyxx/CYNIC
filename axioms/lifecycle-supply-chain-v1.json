@@ -1,0 +1,101 @@
+{
+  "schema": "cynic.lifecycle_supply_chain.v1",
+  "status": "normative",
+  "purpose": "Define the lifecycle supply-chain and execution analysis contract so the organism can detect circular dependencies, unresolved edges, and invalid execution ordering before dispatch.",
+  "ports": [
+    "SupplyChainAnalysisPort",
+    "InfraRegistryPort",
+    "LifecycleDispatchPort",
+    "CoordinationPort",
+    "ObservationPort"
+  ],
+  "scope": {
+    "graph_sources": [
+      "infra/registry.json:nodes",
+      "infra/registry.json:organs",
+      "infra/registry.json:lifecycle.kernel_release.workflow",
+      "infra/registry.json:lifecycle.kernel_release.runtime_artifacts",
+      "infra/registry.json:nodes[].services[]"
+    ],
+    "execution_layers": [
+      "desired",
+      "declared",
+      "observed",
+      "effective"
+    ]
+  },
+  "invariants": [
+    "Dependency cycles among declared runtime nodes and organs must be reported explicitly.",
+    "Unresolved dependencies must be separated from cycles.",
+    "Services declared on nodes are part of the supply-chain graph and may satisfy declared dependencies.",
+    "Execution stages must remain an ordered path, not an implicit loop.",
+    "Supply-chain analysis must remain registry-backed and should not infer hidden runtime truth from cortex-local state.",
+    "Release binaries for runtime Rust services must use the registry-declared musl target unless a more specific node contract overrides it."
+  ],
+  "runtime_artifact_manifest": {
+    "schema": "cynic.lifecycle.runtime_artifact_manifest.v1",
+    "registry_path": "infra/registry.json:lifecycle.kernel_release.runtime_artifacts",
+    "purpose": "Unify Rust binaries, Python organs, rendered agent projections, and systemd units under one propagation lifecycle.",
+    "canonical_stages": [
+      "source",
+      "build_or_package",
+      "publish",
+      "propagate",
+      "activate",
+      "prove"
+    ],
+    "required_artifact_kinds": [
+      "rust_binary",
+      "python_organ",
+      "agent_projection",
+      "systemd_unit"
+    ],
+    "drift_classes": [
+      "source_drift",
+      "artifact_hash_drift",
+      "projection_drift",
+      "unit_drift",
+      "runtime_drift",
+      "capability_drift",
+      "proof_drift"
+    ],
+    "minimum_runtime_artifacts": [
+      "cynic-mcp",
+      "cynic-cognitive-sensor",
+      "cynic-node",
+      "organ-forge",
+      "agent-exposure-projections",
+      "lifecycle-systemd-units"
+    ]
+  },
+  "release_artifact_policy": {
+    "owner": "organ-forge",
+    "registry_path": "infra/registry.json:lifecycle.kernel_release.build_policy",
+    "default_rust_release_target": "x86_64-unknown-linux-musl",
+    "artifact_targets": [
+      "crates/cynic-kernel",
+      "crates/cynic-mcp",
+      "crates/cynic-node"
+    ],
+    "scope": "runtime Rust binaries only",
+    "must_not_apply_to": [
+      "web packages",
+      "mobile apps",
+      "unit tests",
+      "cortex-local development checks"
+    ]
+  },
+  "report_fields": [
+    "status",
+    "summary",
+    "graph",
+    "cycles",
+    "unresolved_dependencies",
+    "execution"
+  ],
+  "execution_semantics": {
+    "analysis_mode": "read_only",
+    "observation_domain": "organ-lifecycle",
+    "consumer": "organ-forge-hermes-agent"
+  }
+}

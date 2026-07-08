@@ -1,0 +1,251 @@
+{
+  "schema": "cynic.hermes_agent_capability_map.v1",
+  "observed_at": "2026-07-03T02:45:00Z",
+  "source": {
+    "repository": "https://github.com/NousResearch/hermes-agent",
+    "checkout": "/tmp/hermes-agent",
+    "binary": "hermes",
+    "observed_version": "Hermes Agent v0.18.0 (2026.7.1)",
+    "scan_command": "python3 organs/framework-map/src/entrypoints/cli.py map-hermes --source-root /tmp/hermes-agent --no-write-state"
+  },
+  "principle": {
+    "default_execution_framework": "hermes-agent",
+    "integration_mode": "fusion_through_ports_contracts_and_kernel_bloodstream",
+    "anti_reinvention_rule": "Before CYNIC implements an agent runtime capability, verify whether Hermes already provides it and prefer an adapter unless sovereignty, security, policy, or local runtime constraints prove a gap.",
+    "authority_boundary": "Hermes executes. CYNIC owns coordination, policy, memory ledger, gates, evidence, task routing, and cashflow metrics."
+  },
+  "upstream_inventory": {
+    "top_level_surfaces": [
+      "acp_adapter",
+      "acp_registry",
+      "agent",
+      "apps",
+      "cron",
+      "docker",
+      "gateway",
+      "hermes_cli",
+      "optional-mcps",
+      "optional-skills",
+      "plugins",
+      "providers",
+      "skills",
+      "tools",
+      "tui_gateway",
+      "ui-tui",
+      "web",
+      "website"
+    ],
+    "core_tools_sample": [
+      "web_search",
+      "web_extract",
+      "terminal",
+      "process",
+      "read_file",
+      "write_file",
+      "patch",
+      "search_files",
+      "vision_analyze",
+      "image_generate",
+      "skills_list",
+      "skill_view",
+      "skill_manage",
+      "browser_navigate",
+      "browser_snapshot",
+      "browser_click",
+      "browser_type",
+      "browser_scroll",
+      "browser_cdp",
+      "todo",
+      "memory",
+      "session_search",
+      "execute_code",
+      "delegate_task",
+      "cronjob",
+      "kanban_create",
+      "kanban_show",
+      "kanban_complete",
+      "computer_use"
+    ],
+    "pyproject_extras_sample": [
+      "acp",
+      "anthropic",
+      "bedrock",
+      "computer-use",
+      "cron",
+      "daytona",
+      "exa",
+      "firecrawl",
+      "google",
+      "hindsight",
+      "honcho",
+      "mcp",
+      "mem0",
+      "messaging",
+      "modal",
+      "slack",
+      "supermemory",
+      "voice",
+      "web"
+    ]
+  },
+  "capability_map": [
+    {
+      "capability": "agent_task_execution",
+      "hermes_surfaces": ["hermes chat", "hermes kanban", "agent/conversation_loop.py", "agent/tool_executor.py"],
+      "cynic_surfaces": ["kernel /agent-tasks", "hermes-agent-executor.service", "OuroborosLifecycle", "HermesKanbanAdapter"],
+      "status": "partially_integrated",
+      "cashflow_relevance": "central",
+      "gap": "Execution now emits bloodstream events, but completed outputs still need per-domain structured schemas for prospecting, delivery, CRM, and reporting."
+    },
+    {
+      "capability": "kanban_multi_agent_coordination",
+      "hermes_surfaces": ["hermes kanban", "hermes_cli/kanban.py", "hermes_cli/kanban_swarm.py", "tools/kanban_tools.py"],
+      "cynic_surfaces": ["kernel /agent-tasks", "coord claims"],
+      "status": "underused",
+      "cashflow_relevance": "high",
+      "gap": "CYNIC uses Hermes kanban as execution substrate but does not yet mirror kanban task graph, blockers, comments, and handoffs into the Kernel ledger."
+    },
+    {
+      "capability": "browser_computer_use",
+      "hermes_surfaces": ["tools/browser_tool.py", "tools/browser_supervisor.py", "tools/browser_cdp_tool.py", "tools/computer_use/"],
+      "cynic_surfaces": ["organ-browser", "organ-prospect browser-result ingestion"],
+      "status": "adapter_started",
+      "cashflow_relevance": "central",
+      "gap": "Need a read-only browser sourcing runner that returns official_website_url evidence arrays directly to organ-prospect."
+    },
+    {
+      "capability": "web_research_and_extraction",
+      "hermes_surfaces": ["tools/web_tools.py", "exa extra", "firecrawl extra", "parallel-web extra"],
+      "cynic_surfaces": ["organ-browser SearXNGAdapter", "organ-browser FirecrawlAdapter"],
+      "status": "duplicated",
+      "cashflow_relevance": "central",
+      "gap": "CYNIC should stop building independent research logic beyond sovereignty wrappers; route web research through Hermes-compatible local provider policies."
+    },
+    {
+      "capability": "skill_lifecycle",
+      "hermes_surfaces": ["skills/", "optional-skills/", "tools/skills_tool.py", "agent/skill_*"],
+      "cynic_surfaces": ["organ SKILL.md", "Codex skills", "organ manifests"],
+      "status": "fragmented",
+      "cashflow_relevance": "high",
+      "gap": "No canonical bridge between Hermes skills and CYNIC organ skills. Need import/export/curation policy so cashflow workflows become reusable skills."
+    },
+    {
+      "capability": "memory_and_session_search",
+      "hermes_surfaces": ["tools/memory_tool.py", "tools/session_search_tool.py", "agent/memory_manager.py", "agent/learning_graph.py"],
+      "cynic_surfaces": ["kernel observe", "agent-tasks", "organ state dirs"],
+      "status": "boundary_defined_not_fused",
+      "cashflow_relevance": "high",
+      "gap": "Hermes memory must not replace Kernel memory, but useful summaries, decisions, and learned outreach patterns need a bridge into CYNIC observations."
+    },
+    {
+      "capability": "scheduled_automation",
+      "hermes_surfaces": ["cron/", "tools/cronjob_tools.py", "hermes cron"],
+      "cynic_surfaces": ["systemd timers", "Kernel mempool", "organ dispatch scripts"],
+      "status": "duplicated",
+      "cashflow_relevance": "high",
+      "gap": "CYNIC has many systemd/timer surfaces. Decide when Hermes cron owns business workflow cadence versus systemd owning infrastructure cadence."
+    },
+    {
+      "capability": "messaging_gateway",
+      "hermes_surfaces": ["gateway/", "slack", "telegram", "whatsapp", "sms", "send_message_tool"],
+      "cynic_surfaces": ["organ-telegram", "organ-slack", "organ-discord"],
+      "status": "duplicated",
+      "cashflow_relevance": "high",
+      "gap": "Outreach cannot be fully automated yet. Need human-gated messaging adapter that drafts, queues, records approval, sends, and logs replies."
+    },
+    {
+      "capability": "subagent_delegation",
+      "hermes_surfaces": ["tools/delegate_tool.py", "kanban swarm"],
+      "cynic_surfaces": ["kernel agent tasks", "coord claims", "future route envelope"],
+      "status": "underused",
+      "cashflow_relevance": "medium",
+      "gap": "CYNIC delegates through Kernel tasks but does not yet let Hermes spawn bounded subagents whose scopes are mirrored to coord claims and mempool state."
+    },
+    {
+      "capability": "terminal_and_file_tools",
+      "hermes_surfaces": ["tools/terminal_tool.py", "tools/file_tools.py", "tools/patch_parser.py", "tools/path_security.py"],
+      "cynic_surfaces": ["repo coordination", "pre-commit/pre-push gates", "Codex/Claude cortex edits"],
+      "status": "dangerous_without_adapter",
+      "cashflow_relevance": "medium",
+      "gap": "Hermes can patch files, but CYNIC must enforce claims before launch and should prefer patch artifacts/proposals for autonomous organ agents."
+    },
+    {
+      "capability": "model_provider_routing",
+      "hermes_surfaces": ["providers/", "agent/*_adapter.py", "hermes model", "fallback", "moa"],
+      "cynic_surfaces": ["backends.toml", "dogs", "soma gate", "cost ledger"],
+      "status": "parallel_systems",
+      "cashflow_relevance": "medium",
+      "gap": "Need a policy bridge so CYNIC can choose Hermes provider/model routes by cost, sovereignty, latency, and task risk."
+    },
+    {
+      "capability": "acp_mcp_plugin_interfaces",
+      "hermes_surfaces": ["acp_adapter/", "optional-mcps/", "mcp", "plugins/"],
+      "cynic_surfaces": ["infra/agent-exposure.json", "cynic-mcp", "organ-exposure"],
+      "status": "not_fused",
+      "cashflow_relevance": "medium",
+      "gap": "CYNIC needs a formal adapter inventory deciding which Hermes ACP/MCP/plugin surfaces are allowed, exposed, or blocked per organ."
+    },
+    {
+      "capability": "dashboard_and_tui",
+      "hermes_surfaces": ["web/", "ui-tui/", "apps/desktop", "dashboard"],
+      "cynic_surfaces": ["organ-kanban-ui", "future operator dashboard"],
+      "status": "unmapped",
+      "cashflow_relevance": "medium",
+      "gap": "Potentially reuse Hermes dashboard/TUI patterns instead of building another operator UI, but must preserve CYNIC kernel as source of truth."
+    },
+    {
+      "capability": "trajectory_generation_and_training_data",
+      "hermes_surfaces": ["batch_runner.py", "trajectory_compressor.py", "datagen-config-examples/"],
+      "cynic_surfaces": ["observations", "proof-of-history", "future learning loops"],
+      "status": "available_not_integrated",
+      "cashflow_relevance": "low_now_high_later",
+      "gap": "Could convert successful cashflow workflows into training/evaluation traces once the pipeline has revenue proof."
+    }
+  ],
+  "cashflow_bottom_up_missing_links": [
+    {
+      "priority": 1,
+      "name": "browser_result_to_prospect_batch",
+      "status": "started",
+      "needed_next": "Run real organ-browser/Hermes sourcing task and require official_website_url evidence arrays."
+    },
+    {
+      "priority": 2,
+      "name": "prospect_crm_state",
+      "status": "missing",
+      "needed_next": "Create canonical prospect states: sourced, audited, approved_for_outreach, contacted, replied, call_booked, proposal_sent, won, lost."
+    },
+    {
+      "priority": 3,
+      "name": "human_gated_outreach_queue",
+      "status": "missing",
+      "needed_next": "Adapter that stores draft messages, requires approval, sends via selected channel, and logs replies."
+    },
+    {
+      "priority": 4,
+      "name": "delivery_factory",
+      "status": "missing",
+      "needed_next": "Standard site/local SEO/form/email automation package with generated artifacts and acceptance checklist."
+    },
+    {
+      "priority": 5,
+      "name": "cashflow_metrics",
+      "status": "missing",
+      "needed_next": "Record leads, audits, approvals, sends, replies, calls, proposals, wins, MRR, setup revenue, and delivery cost."
+    }
+  ],
+  "do_not_rebuild_before_adapting": [
+    "browser automation",
+    "web research",
+    "tool registry",
+    "skills lifecycle",
+    "cron scheduler",
+    "messaging gateway",
+    "kanban decomposition",
+    "session search",
+    "memory providers",
+    "terminal backends",
+    "MCP/ACP adapters",
+    "dashboard/TUI primitives"
+  ]
+}

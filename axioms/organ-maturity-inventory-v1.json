@@ -212,17 +212,6 @@
       "next_action": "promote to canonical after credential attestation tools are wired into agent exposure and smoke-check is validated against live providers"
     },
     {
-      "path": "organs/jarvis/",
-      "maturity": "embryonic",
-      "evidence": [
-        "MANIFEST.yaml",
-        "src/core",
-        "src/adapters",
-        "src/entrypoints"
-      ],
-      "next_action": "promote to canonical_partial after removing supervisor hardcoded cli and wiring jarvis to mempool"
-    },
-    {
       "path": "organs/jupyter/",
       "maturity": "canonical_partial",
       "evidence": [
@@ -381,6 +370,18 @@
       "next_action": "close or quarantine visible untracked organ body files before declaring canonical"
     },
     {
+      "path": "organs/solana/",
+      "maturity": "canonical_partial",
+      "evidence": [
+        "MANIFEST.yaml",
+        "src/core",
+        "src/adapters",
+        "src/entrypoints",
+        "untracked organ body files"
+      ],
+      "next_action": "promote to canonical after Solana RAG/probe boundary is tracked and live observations are read back from Kernel library"
+    },
+    {
       "path": "organs/superteam/",
       "maturity": "canonical",
       "evidence": [
@@ -460,8 +461,8 @@
     "organs": 31,
     "by_maturity": {
       "canonical": 3,
-      "canonical_partial": 25,
-      "embryonic": 3
+      "canonical_partial": 26,
+      "embryonic": 2
     }
   }
 }

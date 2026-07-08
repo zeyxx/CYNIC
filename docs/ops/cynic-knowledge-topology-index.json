@@ -1,0 +1,177 @@
+{
+  "schema_version": "cynic.knowledge.topology.index.v1",
+  "created_at": "2026-07-02T11:10:00+02:00",
+  "project": "CYNIC",
+  "scope": ["/docs", "/axioms", "/AGENTS.md", "/infra", "/infra/agent-exposure.json", "/infra/registry.json"],
+  "fragmentation_snapshot": {
+    "docs_files_total": 293,
+    "ops_json": 12,
+    "ops_md": 21,
+    "note": "Docs classification run completed for docs/md+json scope"
+  },
+  "classification_runs": [
+    {
+      "run_id": "cynic-topology-classification-run-2026-07-02",
+      "created_at": "2026-07-02T11:00:00+02:00",
+      "artifact": "docs/ops/cynic-topology-classification-run-2026-07-02.json",
+      "status": "done",
+      "scope_count": 293
+    }
+  ],
+  "classes": {
+    "authoritative_files": {
+      "paths": [
+        "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md",
+        "docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md",
+        "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+        "AGENTS.md"
+      ]
+    },
+    "projection_files": {
+      "paths": [
+        "docs/foundation/*.md",
+        "docs/foundation/*.json",
+        "docs/ops/*",
+        "docs/architecture/*",
+        "docs/domains/*",
+        "docs/specs/*",
+        "docs/primary-sources/*"
+      ]
+    },
+    "historical_files": {
+      "paths": [
+        "docs/archive/*",
+        "docs/research/*",
+        "docs/identity/*",
+        "docs/reference/*",
+        "docs/audit/*",
+        "docs/hackathon/*",
+        "docs/superpowers/*"
+      ]
+    }
+  },
+  "tiers": {
+    "authoritative": {
+      "policy": [
+        "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md",
+        "docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md",
+        "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md"
+      ],
+      "coordination": [
+        "AGENTS.md"
+      ],
+      "machine_contract": [
+        "axioms/repo-topology-v1.json",
+        "axioms/meta-layer-contract-v1.json",
+        "axioms/organ-layer-topology-v1.json",
+        "axioms/organism-theme-topology-v1.json"
+      ],
+      "infra_contract": [
+        "infra/registry.json",
+        "infra/agent-exposure.json"
+      ]
+    },
+    "derived": {
+      "ops_contracts": [
+        "docs/ops/*.json"
+      ],
+      "ops_procedures": [
+        "docs/ops/*.md"
+      ]
+    },
+    "historique_archive": {
+      "locations": [
+        "docs/archive",
+        "docs/research",
+        "docs/superpowers",
+        "docs/identity"
+      ],
+      "read_mode": "historique_ne_pas_source"
+    }
+  },
+  "conflict_hotspots": [
+    {
+      "topic": "single source of truth",
+      "files": [
+        "docs/CYNIC_SOURCE_OF_TRUTH.md",
+        "docs/DATA_CONSTITUTION.md",
+        "docs/DATA_CONSTITUTION.md"
+      ],
+      "risk": "multiple self-referential SoT claims without a single resolver"
+    },
+    {
+      "topic": "deprecated scripts and reports",
+      "files": [
+        "docs/foundation/CYNIC_DEPRECATED_SURFACE_REPORT_2026-06-27.md",
+        "docs/audit/CYNIC-DEEP-AUDIT-2026-03-25.md",
+        "docs/ops/STAGE-DELIVERY-8D.md"
+      ],
+      "risk": "legacy artifacts used as active reference"
+    },
+    {
+      "topic": "mixed project scope",
+      "files": [
+        "docs/architecture/CYNIC-DATA-ARCHITECTURE-APPLIED.md",
+        "docs/reference/CYNIC-INFRA-SPEC-v0.1.md",
+        "docs/reference/CYNIC-ARCHITECTURAL-TRUTHS-V08.md"
+      ],
+      "risk": "architecture and operational rules mixed with tactical implementation notes"
+    }
+  ],
+  "policy_semantics": {
+    "outside_authority_report": "docs/ops/cynic-fragmentation-f2-policy-check-2026-07-02.json",
+    "remediation_report": "docs/ops/cynic-fragmentation-f2-policy-remediation-2026-07-02.json",
+    "execution_policy_guard": "docs/ops/cynic-fragmentation-f3-runtime-policy-guard-2026-07-02.json",
+    "reduction_graph": "docs/ops/cynic-organism-data-reduction-2026-07-02.json",
+    "docs_layer_materialization": "docs/ops/cynic-docs-pyramid-materialization-2026-07-02.json",
+    "python_runtime_governance": "docs/ops/cynic-organism-python-runtime-v1.json",
+    "pyramid_architecture": "docs/ops/cynic-organism-pyramid-architecture-v1.json",
+    "report_total": 49
+  },
+  "enforcement": {
+    "resolver": "docs/ops/cynic-canonical-topology.json",
+    "read_order": [
+      "policy -> coordination -> machine_contract -> infra_contract -> derived"
+    ],
+    "reject_if": [
+      "docs/ops claims imported into machine contracts",
+      "non-ops docs modify topology semantics without index"
+    ]
+    ,
+    "runtime_guards": [
+      "policy assertions can only be consumed from: docs/foundation CYNIC_META_LAYER_CONTRACTS.md, CYNIC_ORGANISM_POLICY_MATRIX.md, CYNIC_REPO_TOPOLOGY_POLICY.md; AGENTS.md",
+      "all projection policy claims must be tagged with policy_class in docs/ops/cynic-fragmentation-f2-policy-remediation-2026-07-02.json",
+      "historical_only and projection_stale classes must never feed deployment or orchestration logic"
+    ]
+  },
+  "cleanup_plan": {
+    "phase_0_observation_only": {
+      "duration_days": 1,
+      "actions": [
+        "Tag all derived files with source-of-truth class in index",
+        "Stop creating new .md fragments outside docs/foundation and docs/ops"
+      ]
+    },
+    "phase_1_unify": {
+      "duration_days": 2,
+      "actions": [
+        "Consolidate all active topology statements into axioms and foundation files",
+        "Convert stale /docs/reference pages to projections or archive markers"
+      ]
+    },
+    "phase_2_contract": {
+      "duration_days": 1,
+      "actions": [
+        "Generate single execution evidence stream and retire ad-hoc runbooks",
+        "Add non-blocking check comparing all .md topology claims against index"
+      ]
+    }
+  },
+  "acceptance": {
+    "required": [
+      "No topology semantics in non-index docs",
+      "No new top-level duplicated contracts without index entry",
+      "docs/ops references align with canonical resolver"
+    ]
+  }
+}

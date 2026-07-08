@@ -1,0 +1,72 @@
+{
+  "schema_version": "cynic.multi_project_onboarding.v1",
+  "created_at": "2026-07-02",
+  "objective": "Attach a new project to CYNIC via adapter-only wiring and JSON contracts",
+  "target_project_category": "mobile_app",
+  "inputs": {
+    "mandatory": [
+      "project_repo_path",
+      "secret_source_plan",
+      "storage_adapter_choice",
+      "kernel_transport_adapter_choice"
+    ]
+  },
+  "steps": [
+    {
+      "id": "S1_runtime_contracts",
+      "name": "Copy runtime contract artifacts",
+      "required": [
+        "docs/ops/cynic-project-adapter-contract.json",
+        "apps/kyon-mobile/portable-deployment-manifest.json"
+      ],
+      "outputs": [
+        "project/<name>/portable-deployment-manifest.json"
+      ]
+    },
+    {
+      "id": "S2_adapter_bindings",
+      "name": "Bind project adapters in composition root",
+      "required": [
+        "ports/* interfaces",
+        "adapters/* implementations"
+      ],
+      "outputs": [
+        "docs/ops/kyon-portability-runtime-contract.json"
+      ]
+    },
+    {
+      "id": "S3_config_hardening",
+      "name": "Externalize runtime config keys",
+      "required": [
+        "kernel_url",
+        "kernel_token",
+        "sync_enabled",
+        "feature toggles"
+      ],
+      "outputs": [
+        "config-resolver.json"
+      ],
+      "checks": [
+        "no hardcoded kernel URL in domain/application packages",
+        "no hardcoded kernel token in repository"
+      ]
+    },
+    {
+      "id": "S4_live_verification",
+      "name": "Run live verification checks",
+      "required": [
+        "docs/ops/kyon-live-verification-plan.json"
+      ],
+      "outputs": [
+        "docs/ops/run-artifacts/cynic-onboarding-live-proof.json"
+      ],
+      "gates": [
+        "all checks pass"
+      ]
+    }
+  ],
+  "validation_artifacts": [
+    "docs/ops/kyon-portability-runtime-contract.json",
+    "docs/ops/kyon-live-verification-plan.json"
+  ]
+}

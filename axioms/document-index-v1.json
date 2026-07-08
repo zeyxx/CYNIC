@@ -1,0 +1,1560 @@
+{
+  "schema": "cynic.document_index.v1",
+  "status": "draft",
+  "documents": [
+    {
+      "path": "docs/CYNIC_OnePager_Deeptech.md",
+      "title_hint": "# CYNIC : L'OS Cognitif Souverain",
+      "size_bytes": 2075,
+      "category": "general"
+    },
+    {
+      "path": "docs/CYNIC_ECOSYSTEM_ARCHITECTURE.md",
+      "title_hint": "# CYNIC : Architecture Fondatrice & L'Horizon 2047",
+      "size_bytes": 17180,
+      "category": "general"
+    },
+    {
+      "path": "docs/IGNIS_PROTOCOL.md",
+      "title_hint": "# IGNIS: Burn-as-a-Service Protocol",
+      "size_bytes": 3746,
+      "category": "general"
+    },
+    {
+      "path": "docs/futard_tally_submission.md",
+      "title_hint": "# Futard.io - Tally Application (Pitch)",
+      "size_bytes": 4811,
+      "category": "general"
+    },
+    {
+      "path": "docs/CYNIC_OnePager_Corporate.md",
+      "title_hint": "# CYNIC : Souverainet\u00e9 B2B & Confidentialit\u00e9 Cognitive",
+      "size_bytes": 2149,
+      "category": "general"
+    },
+    {
+      "path": "docs/DATA_CONSTITUTION.md",
+      "title_hint": "# CYNIC DATA CONSTITUTION",
+      "size_bytes": 2220,
+      "category": "general"
+    },
+    {
+      "path": "docs/DATASET_ARCHITECTURE.md",
+      "title_hint": "# CYNIC Dataset Architecture for Specialized LLM Training",
+      "size_bytes": 2178,
+      "category": "general"
+    },
+    {
+      "path": "docs/vivatech_2026_pitch_cynic.md",
+      "title_hint": "# \ud83d\ude80 CYNIC \u2014 Strat\u00e9gie & Pitch Vivatech 2026",
+      "size_bytes": 22510,
+      "category": "general"
+    },
+    {
+      "path": "docs/BLITZ_AND_CHILL_POH.md",
+      "title_hint": "# BLITZ & CHILL : Proof of Humanity (PoH) Architecture",
+      "size_bytes": 2845,
+      "category": "general"
+    },
+    {
+      "path": "docs/CYNIC_OnePager_Web3.md",
+      "title_hint": "# CYNIC : L'Oracle d'Identit\u00e9 et de V\u00e9rit\u00e9 sur Solana",
+      "size_bytes": 2115,
+      "category": "general"
+    },
+    {
+      "path": "docs/CYNIC_Pitch_Vivatech_2min.md",
+      "title_hint": "# \u26a1 LE PITCH CYNIC \"MANIFESTE\" (V2 : Le Pivot Variance & ZK) - 2 minutes chrono",
+      "size_bytes": 3121,
+      "category": "general"
+    },
+    {
+      "path": "docs/internal/discussion-S-structure-2026-05-28.md",
+      "title_hint": "<!-- RECONSTRUCTED 2026-05-29 \u2014 Original lost in home directory reset. Content approximate. -->",
+      "size_bytes": 3129,
+      "category": "internal_draft"
+    },
+    {
+      "path": "docs/internal/caplogy-clarification-perimetre-DRAFT.md",
+      "title_hint": "# Clarification de p\u00e9rim\u00e8tre \u2014 T. & S. \u2194 Caplogy",
+      "size_bytes": 3031,
+      "category": "internal_draft"
+    },
+    {
+      "path": "docs/internal/asdfasdfa-bagwork-futarchy-operating-contract-2026-06-29.md",
+      "title_hint": "# ASDFASDFA Bagwork / Talaria-CYNIC Futarchy Operating Contract",
+      "size_bytes": 15522,
+      "category": "internal_draft"
+    },
+    {
+      "path": "docs/internal/DOSSIER-METADAO.md",
+      "title_hint": "# Dossier MetaDAO / Talaria \u2014 Suivi central",
+      "size_bytes": 5162,
+      "category": "internal_draft"
+    },
+    {
+      "path": "docs/internal/dev-cycle-diagnostic-2026-06-02.md",
+      "title_hint": "# Cycle de d\u00e9veloppement \u2014 Diagnostic + Plan \u2014 2026-06-02",
+      "size_bytes": 2137,
+      "category": "internal_draft"
+    },
+    {
+      "path": "docs/internal/STOCKS_ON_SOLANA_GROUND_TRUTH.md",
+      "title_hint": "# GROUND TRUTH & SoC : \"STOCKS ON SOLANA\"",
+      "size_bytes": 6902,
+      "category": "internal_draft"
+    },
+    {
+      "path": "docs/internal/HOLDEX_CULTSCREENER_STATE.md",
+      "title_hint": "# HolDex & CultScreener : \u00c9tat des Lieux et Historique",
+      "size_bytes": 1625,
+      "category": "internal_draft"
+    },
+    {
+      "path": "docs/internal/ODYSSEUM_FUTARDIO_WHITEPAPER.md",
+      "title_hint": "# ODYSSEUM : THE FUTARCHIC OS FOR SOLANA COMMUNITIES",
+      "size_bytes": 6908,
+      "category": "internal_draft"
+    },
+    {
+      "path": "docs/internal/writeup-cynic-cultscreener-2026-06-02.md",
+      "title_hint": "# CYNIC \u00d7 CultScreener \u2014 Writeup B2B",
+      "size_bytes": 2811,
+      "category": "internal_draft"
+    },
+    {
+      "path": "docs/identity/CYNIC-PRIMARY-SOURCES.md",
+      "title_hint": "# CYNIC \u2014 Primary Sources Analysis",
+      "size_bytes": 63062,
+      "category": "general"
+    },
+    {
+      "path": "docs/identity/CYNIC-PHI-CONVERGENCE.md",
+      "title_hint": "# CYNIC \u2014 Phi-Convergence: Confidence Beyond \u03c6\u207b\u00b9",
+      "size_bytes": 8946,
+      "category": "general"
+    },
+    {
+      "path": "docs/identity/RUSSELL-DIGESTION.md",
+      "title_hint": "# Walter Russell \u2014 The Universal One (1926): Digestion Against CYNIC",
+      "size_bytes": 23792,
+      "category": "general"
+    },
+    {
+      "path": "docs/identity/AXIOM-VII-KENOSIS.md",
+      "title_hint": "# CYNIC Axiom VII: KENOSIS (The Void / Wu-Wei)",
+      "size_bytes": 3608,
+      "category": "general"
+    },
+    {
+      "path": "docs/identity/CYNIC-SOVEREIGNTY-VISION.md",
+      "title_hint": "# CYNIC Sovereignty Vision \u2014 From Judgment Engine to Sovereign Agent",
+      "size_bytes": 10015,
+      "category": "general"
+    },
+    {
+      "path": "docs/identity/CYNIC-PERENNIAL-EPISTEMOLOGY.md",
+      "title_hint": "# CYNIC \u2014 The Perennial Epistemology Made Computational",
+      "size_bytes": 22567,
+      "category": "general"
+    },
+    {
+      "path": "docs/identity/CWO-METHODOLOGY.md",
+      "title_hint": "<!-- lifecycle: living -->",
+      "size_bytes": 19890,
+      "category": "general"
+    },
+    {
+      "path": "docs/identity/CYNIC-MISSION.md",
+      "title_hint": "# CYNIC Mission \u2014 Crystallized Architecture",
+      "size_bytes": 13553,
+      "category": "general"
+    },
+    {
+      "path": "docs/identity/CYNIC-CONSTITUTION-FULL.md",
+      "title_hint": "# CYNIC \u2014 Constitution",
+      "size_bytes": 15971,
+      "category": "general"
+    },
+    {
+      "path": "docs/identity/CYNIC-IDENTITY-GRAPH.md",
+      "title_hint": "# CYNIC \u2014 Identity Graph",
+      "size_bytes": 7778,
+      "category": "general"
+    },
+    {
+      "path": "docs/identity/HERMES-OUROBOROS.md",
+      "title_hint": "# Hermes Ouroboros Identity",
+      "size_bytes": 2539,
+      "category": "general"
+    },
+    {
+      "path": "docs/identity/AXIOM-VIII-FRACTAL.md",
+      "title_hint": "# Axiom VIII: La Fragmentation Fractale & Multidimensionnelle",
+      "size_bytes": 2236,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/README.md",
+      "title_hint": "# CYNIC Python Tier-2 Toolkit",
+      "size_bytes": 1567,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/agents/community_manager_skill.md",
+      "title_hint": "# Skill: Community Manager (CYNIC Organ)",
+      "size_bytes": 1919,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/benchmarks/test_plan.md",
+      "title_hint": "# Inference Model Testing Plan (DATA-CENTRIC)",
+      "size_bytes": 5296,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/benchmarks/README.md",
+      "title_hint": "# Benchmarks \u2014 Self-Evolving Data-Centric Inference Framework",
+      "size_bytes": 6011,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/lab/VERSIONING.md",
+      "title_hint": "# CYNIC Lab \u2014 Versioning & Fast Iteration",
+      "size_bytes": 9404,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/lab/README_INFRASTRUCTURE.md",
+      "title_hint": "# Python Lab Infrastructure \u2014 Data-Centric Multi-Domain Development",
+      "size_bytes": 8529,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/lab/README.md",
+      "title_hint": "# CYNIC Data Science Lab \u2014 Designed for Flexibility",
+      "size_bytes": 8589,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/lab/quantum-ecc/levers.md",
+      "title_hint": "# Quantum ECC Optimization Levers",
+      "size_bytes": 2878,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/heuristics/CALIBRATION_REPORT.md",
+      "title_hint": "# Multi-Modal Token Judgment Calibration Report",
+      "size_bytes": 8918,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/heuristics/README.md",
+      "title_hint": "# Token Judgment Heuristics",
+      "size_bytes": 10854,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/heuristics/CALIBRATION-ANALYSIS.md",
+      "title_hint": "# Token Calibration Analysis (2026-04-29)",
+      "size_bytes": 5435,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/heuristics/QUICKSTART.md",
+      "title_hint": "# Token Calibration Quick Start",
+      "size_bytes": 8508,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/heuristics/DATAFLOW.md",
+      "title_hint": "# Token Judgment Data Flow",
+      "size_bytes": 7848,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/domains/PHASE1_REFINEMENT_SESSION.md",
+      "title_hint": "# Phase 1 Refinement \u2014 Session 2026-05-03 (Continued)",
+      "size_bytes": 4034,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/domains/PHASE1_STRUCTURE.md",
+      "title_hint": "# Phase 1 Domain Discovery Structure (2026-05-03)",
+      "size_bytes": 7142,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/domains/ORGANISM_INTEGRATION.md",
+      "title_hint": "# Python Code Lifecycle in CYNIC Organism",
+      "size_bytes": 7509,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/domains/PHASE3_CLEANUP_CHECKLIST.md",
+      "title_hint": "# Phase 3 Cleanup Checklist (Post-Measurement)",
+      "size_bytes": 6205,
+      "category": "general"
+    },
+    {
+      "path": "docs/cynic-python/domains/PHASE2_READINESS.md",
+      "title_hint": "# Phase 2 Readiness \u2014 Session 2026-05-03",
+      "size_bytes": 3316,
+      "category": "general"
+    },
+    {
+      "path": "docs/audit/WALLET_AUTHENTICITY_STATUS.md",
+      "title_hint": "# Wallet Authenticity Heuristic \u2014 Status Report",
+      "size_bytes": 6990,
+      "category": "general"
+    },
+    {
+      "path": "docs/audit/hackathon-foundations-2026-04-08.md",
+      "title_hint": "# Colosseum Frontier Foundations Audit \u2014 2026-04-08",
+      "size_bytes": 14520,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/audit/VALIDATION_PLAN.md",
+      "title_hint": "# Hermes + CCM Validation Run",
+      "size_bytes": 1786,
+      "category": "general"
+    },
+    {
+      "path": "docs/audit/X_INGEST_AUDIT.md",
+      "title_hint": "# X Ingest Audit \u2014 2026-05-04",
+      "size_bytes": 6834,
+      "category": "general"
+    },
+    {
+      "path": "docs/audit/CYNIC-DIAGNOSTIC-2026-03-21.md",
+      "title_hint": "# CYNIC Diagnostic Complet \u2014 2026-03-21",
+      "size_bytes": 4834,
+      "category": "general"
+    },
+    {
+      "path": "docs/audit/CYNIC-INDUSTRIAL-AUDIT.md",
+      "title_hint": "# CYNIC Industrial Audit \u2014 2026-03-24",
+      "size_bytes": 13195,
+      "category": "general"
+    },
+    {
+      "path": "docs/audit/CYNIC-DEEP-AUDIT-2026-03-25.md",
+      "title_hint": "<!-- lifecycle: historical -->",
+      "size_bytes": 20008,
+      "category": "general"
+    },
+    {
+      "path": "docs/audit/WORKFLOW-TRUTH-AUDIT-2026-04-15.md",
+      "title_hint": "# Workflow Truth Audit \u2014 2026-04-15",
+      "size_bytes": 9345,
+      "category": "general"
+    },
+    {
+      "path": "docs/audit/CYNIC-FINDINGS-TRACKER.md",
+      "title_hint": "# CYNIC Findings Tracker \u2014 v0.8.0-dev",
+      "size_bytes": 13210,
+      "category": "general"
+    },
+    {
+      "path": "docs/audit/SESSION-2026-03-25-STRESS-TEST.md",
+      "title_hint": "# Session 2026-03-25 \u2014 CYNIC Stress Test Results",
+      "size_bytes": 12391,
+      "category": "general"
+    },
+    {
+      "path": "docs/audit/KILLCHAIN_ANALYSIS.md",
+      "title_hint": "# Kill-Chain Analysis \u2014 Hermes Organic Agent Foundation",
+      "size_bytes": 8280,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/HERMES-INTEGRATION.md",
+      "title_hint": "<!-- AI-CONTEXT",
+      "size_bytes": 2508,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/token-stimulus-roadmap.md",
+      "title_hint": "# Token Stimulus Protocol \u2014 Roadmap",
+      "size_bytes": 6367,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/KAIROS-ON-CYNIC.md",
+      "title_hint": "# KAIROS on CYNIC \u2014 Design Document",
+      "size_bytes": 28212,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/AGENTIC-FRAMEWORKS-SOVEREIGN.md",
+      "title_hint": "# Frameworks Agentic \u2014 D\u00e9veloppement avec Inference Souveraine",
+      "size_bytes": 5491,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/INFRA-BUILD.md",
+      "title_hint": "# Infra Build \u2014 A1 Debt",
+      "size_bytes": 2769,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/CONVICTION_DEMO_VIDEO.md",
+      "title_hint": "# CYNIC Conviction-Only Demo \u2014 Video Script (May 2-3, 2026)",
+      "size_bytes": 4574,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/EXTERNAL_CONTEXT.md",
+      "title_hint": "# External Projects \u2014 Absorption Roadmap",
+      "size_bytes": 2976,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/INFERENCE-SOT.md",
+      "title_hint": "# CYNIC Inference \u2014 Source of Truth",
+      "size_bytes": 7973,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/CYNIC-ARCHITECTURAL-TRUTHS-V08.md",
+      "title_hint": "# CYNIC v0.8 \u2014 Architectural Truths for Invariant Enforcement",
+      "size_bytes": 14558,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/CYNIC-INFRASTRUCTURE-ROADMAP.md",
+      "title_hint": "# CYNIC Infrastructure Roadmap \u2014 Living Document",
+      "size_bytes": 14116,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/token-43-dimensions.md",
+      "title_hint": "# Token Domain \u2014 43 Dimension Mapping",
+      "size_bytes": 16259,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/WALLET_BEHAVIOR_README.md",
+      "title_hint": "# Wallet Behavior Analysis \u2014 Human vs Bot Detection",
+      "size_bytes": 6754,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/PYTHON_PROTOCOL.md",
+      "title_hint": "# CYNIC Python Research Protocol",
+      "size_bytes": 9368,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/token-calibration-baseline.md",
+      "title_hint": "# Token Domain \u2014 Calibration Baseline",
+      "size_bytes": 3866,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/CCM-COMPOUND-PROTOCOL.md",
+      "title_hint": "# CCM \u2014 Compound Cognitive Memory",
+      "size_bytes": 6735,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/CYNIC_DATA_SYSTEM_MAPPING.md",
+      "title_hint": "# CYNIC as a Data System \u2014 Course Concepts \u2194 Production Implementation",
+      "size_bytes": 14371,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/NAMING-CONVENTION.md",
+      "title_hint": "# CYNIC Naming Convention",
+      "size_bytes": 10196,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/CRYSTAL-LOOP-KPIS.md",
+      "title_hint": "# Crystal Loop \u2014 KPIs & Objectives",
+      "size_bytes": 5050,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/CYNIC-SELFCONSTRUCTION-CRYSTALLIZED.md",
+      "title_hint": "# CYNIC Self-Construction \u2014 Crystallized Truth",
+      "size_bytes": 18133,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/CCM-PRODUCT-CRYSTALLIZATION.md",
+      "title_hint": "# CCM \u2014 Crystal Consensus Model: Product Crystallization",
+      "size_bytes": 9394,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/CYNIC-INFRA-SPEC-v0.1.md",
+      "title_hint": "# CYNIC Infrastructure Specification \u2014 v0.1",
+      "size_bytes": 12257,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/PROBE-SYSTEM-SPEC.md",
+      "title_hint": "# CYNIC Probe System \u2014 Proprioception Spec",
+      "size_bytes": 14950,
+      "category": "general"
+    },
+    {
+      "path": "docs/reference/TRACK2_DECISION_FRAMEWORK.md",
+      "title_hint": "# Track 2 Decision Framework \u2014 v1 vs v2 Heuristics",
+      "size_bytes": 3263,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/KAIROS-RECOVERY-PLAN.md",
+      "title_hint": "# KAIROS Recovery Plan \u2014 2026-04-13",
+      "size_bytes": 1614,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/overnight-research-rag-knowledge.md",
+      "title_hint": "# Overnight Research: RAG, Knowledge Management, and Observation Pipelines",
+      "size_bytes": 40748,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/CYNIC-OS-RESEARCH.md",
+      "title_hint": "# CYNIC-OS Research \u2014 Agent Operating System Architecture",
+      "size_bytes": 7150,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/KENOSIS_FINDINGS.md",
+      "title_hint": "# KENOSIS Discovery: Empirical Evidence from Antigravity CLI Logs",
+      "size_bytes": 5023,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/overnight-research-synthesis.md",
+      "title_hint": "# Overnight Research \u2014 Cross-Cutting Synthesis",
+      "size_bytes": 4249,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/CCM-ORGANISM-AUDIT-2026-05-12.md",
+      "title_hint": "# CCM Organism Audit \u2014 2026-05-12",
+      "size_bytes": 3585,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/organism-contract.md",
+      "title_hint": "# CYNIC Organism Contract",
+      "size_bytes": 4283,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/MINING_REPORT_5_TARGETS.md",
+      "title_hint": "# Multi-Cortex Introspection Report \u2014 5 Target Query Analysis",
+      "size_bytes": 8211,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/HEURISTIC_VALIDATION_FINDINGS.md",
+      "title_hint": "# Heuristic vs Semantic Axiom Extraction \u2014 Validation Report",
+      "size_bytes": 4519,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/COMPOUND-RESEARCH-2026-03-18.md",
+      "title_hint": "# CYNIC Compound Research \u2014 2026-03-18",
+      "size_bytes": 18400,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/metathinking-analysis.md",
+      "title_hint": "# CYNIC Metathinking Analysis \u2014 Recursive Self-Evaluation",
+      "size_bytes": 20176,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/overnight-research-agent-architecture.md",
+      "title_hint": "# Overnight Research: Agent Architecture Patterns",
+      "size_bytes": 33235,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/research/SESSION-2026-03-25-RESEARCH.md",
+      "title_hint": "# CYNIC Research \u2014 Industrial Gaps, Agnosticism, Engineering Practices",
+      "size_bytes": 41136,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/overnight-research-inference-routing.md",
+      "title_hint": "# Overnight Research: Inference Routing & Optimization",
+      "size_bytes": 9797,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/SESSION-2026-03-24-RESEARCH.md",
+      "title_hint": "# Session 2026-03-24 \u2014 Research & Crystallization",
+      "size_bytes": 9888,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/CYNIC-ML-RESEARCH-PROGRAM.md",
+      "title_hint": "# CYNIC ML Research Program",
+      "size_bytes": 31451,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/RESURRECT.md",
+      "title_hint": "# How to Resurrect Archived Python Code",
+      "size_bytes": 12637,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/AGENT-COMPARISON-PROTOCOL.md",
+      "title_hint": "# Agent Comparison Protocol",
+      "size_bytes": 1898,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/WALLET_BEHAVIOR_STATUS.md",
+      "title_hint": "# Wallet Behavior Analysis \u2014 Status & Integration Plan",
+      "size_bytes": 7058,
+      "category": "general"
+    },
+    {
+      "path": "docs/research/SESSION-2026-03-25-L6L7-RESEARCH.md",
+      "title_hint": "# L6-L7 Research Findings \u2014 CLAUDE.md + .cortex/rules/ Design",
+      "size_bytes": 7839,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/HERMES-DATA-ORGANISM-QUICKSTART.md",
+      "title_hint": "# Hermes Data Organism \u2014 Quick Start",
+      "size_bytes": 5906,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/ORGAN-X-L0-RUNBOOK.md",
+      "title_hint": "# Organ-X L0 Multi-Account Architecture \u2014 End-to-End Runbook",
+      "size_bytes": 18867,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/gemini-auth-status.md",
+      "title_hint": "# Gemini Authentication Status",
+      "size_bytes": 1086,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/backup-dr-plan.md",
+      "title_hint": "# CYNIC Backup & Disaster Recovery Plan",
+      "size_bytes": 5875,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/may-1-launch-checklist.md",
+      "title_hint": "# CYNIC May 1 Launch Checklist",
+      "size_bytes": 4489,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/soma-design.md",
+      "title_hint": "# CYNIC Soma \u2014 The Organism's Body Management",
+      "size_bytes": 9094,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/fleet-probe.md",
+      "title_hint": "# Tailscale Fleet Introspection Probe",
+      "size_bytes": 6900,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/K15_CONSUMER_DEPLOYMENT.md",
+      "title_hint": "# K15 Consumer Deployment Guide",
+      "size_bytes": 6771,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/RUNBOOK.md",
+      "title_hint": "# CYNIC Runbook \u2014 Operational Recovery Procedures",
+      "size_bytes": 4826,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/service-isolation-design.md",
+      "title_hint": "# Service Isolation Architecture",
+      "size_bytes": 4057,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/external-comms-strategy.md",
+      "title_hint": "# External Communications Strategy \u2014 Hackathon Phase",
+      "size_bytes": 4928,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/cynic-oracle-philosophy-thread.md",
+      "title_hint": "# @CynicOracle Philosophy Thread \u2014 May 1 Launch",
+      "size_bytes": 4709,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/hermes/CURATOR_WORKFLOW.md",
+      "title_hint": "# DORMANT: Point-in-time observation \u2014 not live state. Probe /health for current reality.",
+      "size_bytes": 2116,
+      "category": "general"
+    },
+    {
+      "path": "docs/ops/hermes/FEEDBACK_LOOP_README.md",
+      "title_hint": "# Organ X Feedback Loop \u2014 Semi-Manual Learning",
+      "size_bytes": 4259,
+      "category": "general"
+    },
+    {
+      "path": "docs/inference/INFERENCE-GAP-MAP.md",
+      "title_hint": "# CYNIC Inference Gap Map \u2014 Session D\u00e9di\u00e9e Scope",
+      "size_bytes": 9275,
+      "category": "general"
+    },
+    {
+      "path": "docs/inference/INFERENCE-FOUNDATIONS.md",
+      "title_hint": "# Inference Foundations \u2014 What We Know, What We Need, What Exists",
+      "size_bytes": 32310,
+      "category": "general"
+    },
+    {
+      "path": "docs/archive/TODO-ARCHIVE-2026-04-17.md",
+      "title_hint": "# TODO Archive \u2014 2026-04-17",
+      "size_bytes": 2570,
+      "category": "general"
+    },
+    {
+      "path": "docs/archive/TODO-HISTORY.md",
+      "title_hint": "# CYNIC \u2014 Open Work",
+      "size_bytes": 2742,
+      "category": "general"
+    },
+    {
+      "path": "docs/archive/TODO-ROBUSTNESS.md",
+      "title_hint": "# CYNIC Robustness Sprint \u2014 1, 3, 4, 5",
+      "size_bytes": 4834,
+      "category": "general"
+    },
+    {
+      "path": "docs/archive/TODO-HISTORY-2026-05-04.md",
+      "title_hint": "# TODO History \u2014 Archived 2026-05-04",
+      "size_bytes": 1784,
+      "category": "general"
+    },
+    {
+      "path": "docs/organs/HERMES_AGENT.md",
+      "title_hint": "# CYNIC \u2014 Hermes Agent Adapter",
+      "size_bytes": 3639,
+      "category": "general"
+    },
+    {
+      "path": "docs/organs/HERMES-SYMBIOSIS.md",
+      "title_hint": "# Hermes\u2194CYNIC Symbiosis \u2014 Data-Centric Evolution",
+      "size_bytes": 7789,
+      "category": "general"
+    },
+    {
+      "path": "docs/organs/TODO_HERMES_AGENT.md",
+      "title_hint": "# Hermes Organic Agent \u2014 Learning Roadmap",
+      "size_bytes": 7509,
+      "category": "general"
+    },
+    {
+      "path": "docs/organs/JUDGE_ORGAN.md",
+      "title_hint": "# Judge/CCM Organ \u2014 Truth Synthesis Loop",
+      "size_bytes": 5825,
+      "category": "general"
+    },
+    {
+      "path": "docs/integrity/KILLCHAIN_ANALYSIS.md",
+      "title_hint": "# Kill-Chain Analysis \u2014 Hermes Organic Agent Foundation",
+      "size_bytes": 8280,
+      "category": "general"
+    },
+    {
+      "path": "docs/primary-sources/archimedes-palimpsest/ARCHIMEDES-INGEST.md",
+      "title_hint": "# Archimedes Palimpsest \u2014 Working Ingest",
+      "size_bytes": 16962,
+      "category": "general"
+    },
+    {
+      "path": "docs/primary-sources/archimedes-palimpsest/ARCHIMEDES-CYNIC-CONVERGENCE-TEST.md",
+      "title_hint": "# Archimedes \u2194 CYNIC Convergence Test",
+      "size_bytes": 15325,
+      "category": "general"
+    },
+    {
+      "path": "docs/hackathon/MESSAGE-TO-S-2026-04-30.md",
+      "title_hint": "# To S. (Blitz & Chill) \u2014 Wallet-Judgment Integration Data Request",
+      "size_bytes": 3313,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/TALARIA-INCUBATOR-SUBMISSION-DRAFT.md",
+      "title_hint": "# Talaria Observatory / Blitz & Chill - Solana Incubator (Cohort 5) Submission",
+      "size_bytes": 9140,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/HACKATHON_SUBMISSION.md",
+      "title_hint": "# CYNIC \u2014 Solana Frontier Hackathon Submission",
+      "size_bytes": 5393,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/WALLET-BEHAVIOR-CORPUS-COLLECTION.md",
+      "title_hint": "# Wallet Behavior Corpus Collection \u2014 Data-Centric Approach",
+      "size_bytes": 6977,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/AIRTABLE-FORM-QUESTIONS.md",
+      "title_hint": "# Solana Incubator - Cohort 5 Application Form",
+      "size_bytes": 4325,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/EXECUTION-PLAN.md",
+      "title_hint": "# Colosseum Frontier \u2014 Execution Plan",
+      "size_bytes": 9272,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/COLOSSEUM-SUBMISSION-MAY-4-2026.md",
+      "title_hint": "# CYNIC \u2014 Sovereign Token Judge",
+      "size_bytes": 5995,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/B2C-CYNIC-INTEGRATION-SPECIFICATION.md",
+      "title_hint": "# Blitz & Chill \u2194 CYNIC Integration Specification",
+      "size_bytes": 3378,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/integration-proposal-cynic-asdelegate-2026-04-08.md",
+      "title_hint": "# CYNIC \u00d7 ASDelegate \u2014 Integration Proposal for Colosseum Frontier",
+      "size_bytes": 17847,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/MAY-2-EXECUTION-GUIDE.md",
+      "title_hint": "# May 2-3 Execution Guide \u2014 Wallet Behavior Corpus Collection",
+      "size_bytes": 6677,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/PRIORITY-ACTIONS-2026-04-30.md",
+      "title_hint": "# Priority Actions \u2014 April 30, 2026",
+      "size_bytes": 6248,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/WALLET-JUDGMENT-INTEGRATION-GUIDE.md",
+      "title_hint": "# Wallet Judgment Integration Guide",
+      "size_bytes": 11054,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/WALLET-BEHAVIOR-ANALYSIS-PHASE-1.md",
+      "title_hint": "# Phase 1: Wallet Behavior Analysis \u2014 Human vs Bot Detection",
+      "size_bytes": 12315,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/HACKATHON-GROUND-TRUTH-2026-04-30.md",
+      "title_hint": "# Hackathon Ground Truth \u2014 2026-04-30",
+      "size_bytes": 6168,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/VIDEO-RECORDING-GUIDE.md",
+      "title_hint": "# Video Recording Guide \u2014 CYNIC Colosseum Demo",
+      "size_bytes": 4255,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/VIDEO-DEMO-SCRIPT.md",
+      "title_hint": "# CYNIC Colosseum Video Demo Script (2-3 min)",
+      "size_bytes": 1920,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/EXTERNAL-CONTEXT-2026-04-25.md",
+      "title_hint": "# Hackathon External Context \u2014 2026-04-25",
+      "size_bytes": 3197,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/WALLET-BEHAVIOR-ANALYSIS-REFERENCE.md",
+      "title_hint": "# Wallet Behavior Analysis \u2014 Quick Reference",
+      "size_bytes": 4083,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/B2C-SOLANA-CONVERGENCE-AUDIT.md",
+      "title_hint": "# B&C + T.'s Solana Code \u2014 Convergence Audit",
+      "size_bytes": 8918,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/B2C-INTEGRATION-GUIDE.md",
+      "title_hint": "# B&C Integration Guide \u2014 Wallet Behavior Scoring",
+      "size_bytes": 6526,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/COLOSSEUM-SUBMISSION-FULL.md",
+      "title_hint": "# CYNIC \u2014 Sovereign Token Judge",
+      "size_bytes": 4321,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/hackathon/COLOSSEUM-SUBMISSION-DRAFT.md",
+      "title_hint": "# CYNIC: Sovereign Token Intelligence via Calibrated Doubt",
+      "size_bytes": 3122,
+      "category": "hackathon"
+    },
+    {
+      "path": "docs/domains/calibration-token-analysis.md",
+      "title_hint": "# Calibration Corpus \u2014 Token Analysis Domain",
+      "size_bytes": 7473,
+      "category": "general"
+    },
+    {
+      "path": "docs/domains/DOMAIN_DISCOVERY_COMPLETE.md",
+      "title_hint": "# CHAOS\u2192MATRIX Domain Discovery \u2014 Complete",
+      "size_bytes": 6421,
+      "category": "general"
+    },
+    {
+      "path": "docs/domains/calibration.md",
+      "title_hint": "# Calibration Corpus \u2014 Dev Domain",
+      "size_bytes": 4420,
+      "category": "general"
+    },
+    {
+      "path": "docs/domains/DOMAIN_STRATEGY.md",
+      "title_hint": "# Domain Discovery Strategy \u2014 REVISED (2026-05-03)",
+      "size_bytes": 10606,
+      "category": "general"
+    },
+    {
+      "path": "docs/domains/REGISTRY.md",
+      "title_hint": "# CYNIC Domain Registry",
+      "size_bytes": 7746,
+      "category": "general"
+    },
+    {
+      "path": "docs/domains/D3-SOVEREIGNTY-MANIFESTO.md",
+      "title_hint": "# CYNIC Domain D3: Sovereign Agency (Active)",
+      "size_bytes": 1994,
+      "category": "general"
+    },
+    {
+      "path": "docs/domains/DOMAIN-DISPATCH.md",
+      "title_hint": "# Domain Dispatch Guide (May 3 Launch)",
+      "size_bytes": 10761,
+      "category": "general"
+    },
+    {
+      "path": "docs/bugs/LLVM-SIGSEGV-codegen-units-1.md",
+      "title_hint": "# LLVM SIGSEGV with codegen-units=1 on Rust 1.95.0",
+      "size_bytes": 3816,
+      "category": "general"
+    },
+    {
+      "path": "docs/architecture/AGENT_ORCHESTRATION_DESIGN_2026_05_01.md",
+      "title_hint": "# DORMANT: Point-in-time observation \u2014 not live state. Probe /health for current reality.",
+      "size_bytes": 10678,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/HERMES_NEXT_STEPS.md",
+      "title_hint": "# Hermes Next Steps \u2014 Unblocking Phase 3 Measurement",
+      "size_bytes": 7532,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/BEHAVIOR_ML_DESIGN_2026_05_01.md",
+      "title_hint": "# Behavior ML Design \u2014 Learning Organic Movement from 533K Events",
+      "size_bytes": 6221,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/CYNIC-ORGANISM-DISTRIBUTED-ROADMAP.md",
+      "title_hint": "# CYNIC Organism \u2014 Distributed Topology Roadmap",
+      "size_bytes": 11981,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/AGENT-TAXONOMY.md",
+      "title_hint": "# Agent Taxonomy \u2014 CYNIC Organism",
+      "size_bytes": 9416,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/CCM-V2-ARCHITECTURE.md",
+      "title_hint": "# CCM v2 \u2014 Architecture Decision Record",
+      "size_bytes": 15202,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/talaria-observatory.md",
+      "title_hint": "# Talaria Observatory \u2014 CYNIC Canonical Architecture",
+      "size_bytes": 15937,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/PROXMOX-FLEET-CARTOGRAPHY.md",
+      "title_hint": "# Proxmox / Fleet Cartography",
+      "size_bytes": 7629,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/ORGAN-WIREGUARD-V3.md",
+      "title_hint": "# Organ-Wireguard (V3 Mesh Networking) \u2014 Specification",
+      "size_bytes": 7852,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/ORGANISM-HEALTH-SYSTEM.md",
+      "title_hint": "# Organism Health Monitoring System",
+      "size_bytes": 4934,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/HERMES_ARCHITECTURE.md",
+      "title_hint": "# CYNIC Hermes Architecture \u2014 Agentic OS & Sovereign Law",
+      "size_bytes": 2457,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/SOMA.md",
+      "title_hint": "# Soma L1 Alpha \u2014 Resource Orchestration",
+      "size_bytes": 6013,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/COORDINATION-MCP-FOUNDATION.md",
+      "title_hint": "# Coordination MCP Foundation (CYNIC) \u2014 v1.0",
+      "size_bytes": 7026,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/CYNIC-DATA-ARCHITECTURE-APPLIED.md",
+      "title_hint": "# CYNIC Data Architecture \u2014 Applied Template",
+      "size_bytes": 20918,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/ORGAN-DATA-CONVENTION.md",
+      "title_hint": "# Organ Data Convention",
+      "size_bytes": 5315,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/BEHAVIORAL_ANALYTICS_ARCHITECTURE.md",
+      "title_hint": "# Behavioral Analytics Architecture \u2014 Data-Centric Design",
+      "size_bytes": 9526,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/HERMES-DATA-ORGANISM-LOOP.md",
+      "title_hint": "# Hermes Data Organism \u2014 Feedback Loop Architecture",
+      "size_bytes": 9155,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/CYNIC-NODE-SOMA-SYSTEM.md",
+      "title_hint": "# CYNIC Node + Soma Orchestrator \u2014 System Architecture",
+      "size_bytes": 17692,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/proposed_organ_topology.md",
+      "title_hint": "# Nouvelle Topologie : La Grande Migration des Organs",
+      "size_bytes": 3782,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/ORGANISM-DATA-METABOLISM.md",
+      "title_hint": "# CYNIC Organism \u2014 Data-Centric Architecture",
+      "size_bytes": 21726,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/CYNIC-NODE-PHASE-B-LIFECYCLE.md",
+      "title_hint": "# CYNIC Node Phase B \u2014 Binary Lifecycle & Integration",
+      "size_bytes": 18470,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/TOPOLOGY.md",
+      "title_hint": "# CYNIC Organism Topology (auto-generated 2026-06-27 00:32 UTC)",
+      "size_bytes": 3931,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/architecture/PROTOCOL.md",
+      "title_hint": "# CYNIC Inference & Wisdom Synthesis Protocol v1.0",
+      "size_bytes": 6104,
+      "category": "architecture"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-23-solana-rework.md",
+      "title_hint": "# Solana Surface Rework \u2014 Implementation Plan",
+      "size_bytes": 46205,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-02-kairos-temporal-consciousness.md",
+      "title_hint": "# KAIROS Temporal Consciousness \u2014 Implementation Plan",
+      "size_bytes": 15502,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-09-organism-self-healing.md",
+      "title_hint": "# Organism Self-Healing \u2014 Correctifs & \u00c9volutions",
+      "size_bytes": 34064,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-20-callshield-kernel-domain.md",
+      "title_hint": "# CallShield \u2014 Kernel phone_number Domain Implementation Plan",
+      "size_bytes": 31865,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-02-quantum-ecc-harness.md",
+      "title_hint": "# Quantum ECC Optimization Harness \u2014 Phase A",
+      "size_bytes": 37397,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-16-hermes-organ-x-phase-b.md",
+      "title_hint": "# Hermes Organ X Phase B \u2014 Repair + Harden",
+      "size_bytes": 17208,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-04-27-chronic-failure-gate.md",
+      "title_hint": "# Chronic Failure Gate \u2014 Organism Self-Healing for Slow Dogs",
+      "size_bytes": 9658,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-18-mirror-agent.md",
+      "title_hint": "# Mirror Agent Implementation Plan",
+      "size_bytes": 25736,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-02-talaria-x-monitor.md",
+      "title_hint": "# Talaria X Monitor \u2014 Implementation Plan",
+      "size_bytes": 43233,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-04-26-organ-port-rtk-integration.md",
+      "title_hint": "# OrganPort + RTK Integration \u2014 Implementation Plan",
+      "size_bytes": 27133,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-07-mcp-proxy-extraction.md",
+      "title_hint": "# MCP Proxy Extraction \u2014 Implementation Plan",
+      "size_bytes": 15378,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-16-dispatch-zone-awareness.md",
+      "title_hint": "# Dispatch Zone Awareness \u2014 Data-Centric Implementation",
+      "size_bytes": 19661,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-24-rug-risk-scoring.md",
+      "title_hint": "# Rug Risk Scoring \u2014 Implementation Plan",
+      "size_bytes": 21050,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-07-token-analysis-upgrade.md",
+      "title_hint": "# Token-Analysis Pipeline Upgrade \u2014 Implementation Plan",
+      "size_bytes": 31332,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-22-pull-aggregation-phase1.md",
+      "title_hint": "# Pull-Based Multi-Source Aggregation \u2014 Phase 1 Implementation Plan",
+      "size_bytes": 30744,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-04-17-cynic-askesis-phase1.md",
+      "title_hint": "# cynic-askesis Phase 1 Implementation Plan",
+      "size_bytes": 63381,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-15-agent-protocol-v1.md",
+      "title_hint": "# Agent Protocol v1 Implementation Plan",
+      "size_bytes": 21370,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-20-telegram-organ-phase1-ingestion.md",
+      "title_hint": "# Telegram Organ Phase 1: Ingestion \u2014 Implementation Plan",
+      "size_bytes": 49258,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-11-hermes-browser-hub-L0.md",
+      "title_hint": "# Hermes Shared Browser + Attribution (L0) Implementation Plan",
+      "size_bytes": 49061,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-20-callshield-plan2-android-mvp.md",
+      "title_hint": "# CallShield Plan 2 \u2014 Android MVP Implementation Plan",
+      "size_bytes": 41350,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-04-27-organism-senses-k15.md",
+      "title_hint": "# Organism Senses K15 \u2014 Implementation Plan",
+      "size_bytes": 29007,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-11-soma-l2-priority-slot-semaphore.md",
+      "title_hint": "# Soma L2 \u2014 Priority Slot Semaphore Implementation Plan",
+      "size_bytes": 24235,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-17-meta-question-benchmark.md",
+      "title_hint": "# Meta-Question Benchmark Implementation Plan",
+      "size_bytes": 26845,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-02-metabolic-cost-ledger.md",
+      "title_hint": "# Metabolic Cost Ledger Implementation Plan",
+      "size_bytes": 38475,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-15-crystal-vivant-phase1.md",
+      "title_hint": "# Crystal Vivant Phase 1 \u2014 Implementation Plan",
+      "size_bytes": 40435,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-04-17-cynic-askesis-design.md",
+      "title_hint": "# cynic-askesis \u2014 Design Spec",
+      "size_bytes": 21913,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-11-hermes-shared-browser-behavioral-engine-design.md",
+      "title_hint": "# Hermes Shared Browser & Behavioral Engine",
+      "size_bytes": 30189,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-04-27-organism-senses-k15-design.md",
+      "title_hint": "# Organism Senses \u2014 K15 Consumers + TailscaleReader",
+      "size_bytes": 12153,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-24-token-pipeline-calibration-loop-design.md",
+      "title_hint": "# Token Pipeline Calibration Loop",
+      "size_bytes": 17448,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-22-asdf-forge-github-org-design.md",
+      "title_hint": "# asdf-forge \u2014 GitHub Organization Design",
+      "size_bytes": 12971,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-06-02-talaria-x-monitor-design.md",
+      "title_hint": "# Talaria X Monitor \u2014 Design Spec",
+      "size_bytes": 9777,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-04-26-organ-port-rtk-integration-design.md",
+      "title_hint": "# OrganPort + RTK Integration \u2014 Design Spec",
+      "size_bytes": 17973,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-06-02-metabolic-cost-ledger-design.md",
+      "title_hint": "# Metabolic Cost Ledger \u2014 Design Spec",
+      "size_bytes": 8383,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-25-multicortex-v2-mechanical-isolation-design.md",
+      "title_hint": "# Multi-Cortex Coordination v2 \u2014 Mechanical Isolation",
+      "size_bytes": 12596,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-08-git-hygiene-sense-design.md",
+      "title_hint": "# Git Hygiene Sense \u2014 Design Spec",
+      "size_bytes": 7065,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-20-telegram-organ-phase1-ingestion-design.md",
+      "title_hint": "# Telegram Organ \u2014 Phase 1: Ingestion",
+      "size_bytes": 20328,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-19-callshield-anti-spam-app-design.md",
+      "title_hint": "# CallShield \u2014 Anti-Spam/Scam Phone App Design",
+      "size_bytes": 46854,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-07-mcp-proxy-extraction-design.md",
+      "title_hint": "# MCP Proxy Extraction \u2014 Design Spec",
+      "size_bytes": 6854,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-17-meta-question-benchmark-design.md",
+      "title_hint": "# Meta-Question Benchmark \u2014 CYNIC Dogs vs Claude",
+      "size_bytes": 8943,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-16-hermes-organ-x-repair-harden-design.md",
+      "title_hint": "# Hermes Organ X \u2014 Repair + Harden (Phase B)",
+      "size_bytes": 6024,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-19-outcome-feedback-loop-design.md",
+      "title_hint": "# Outcome Feedback Loop \u2014 Design Spec",
+      "size_bytes": 6721,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-18-organic-agent-passive-capture-design.md",
+      "title_hint": "# Organic Agent \u2014 Passive Capture & Human Signal Integration",
+      "size_bytes": 19913,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-10-soma-l5-inference-scheduler-design.md",
+      "title_hint": "# Soma L5: Inference Scheduler \u2014 Priority Queue with Aging",
+      "size_bytes": 13862,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-15-agent-protocol-v1-design.md",
+      "title_hint": "# CYNIC Agent Protocol v1 \u2014 Design Spec",
+      "size_bytes": 15329,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-22-pull-based-multi-source-aggregation-design.md",
+      "title_hint": "# Pull-Based Multi-Source Aggregation",
+      "size_bytes": 14650,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-23-solana-rework-design.md",
+      "title_hint": "# Solana Surface Rework \u2014 Design Spec",
+      "size_bytes": 19065,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-11-soma-l2-priority-slot-semaphore-design.md",
+      "title_hint": "# Soma L2 \u2014 Priority Slot Semaphore",
+      "size_bytes": 8583,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-12-security-hardening-design.md",
+      "title_hint": "# CYNIC Security Hardening \u2014 Design Spec",
+      "size_bytes": 10373,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-20-callshield-plan2-android-mvp.md",
+      "title_hint": "# CallShield \u2014 Plan 2: Android MVP App",
+      "size_bytes": 21744,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-24-rug-risk-scoring-design.md",
+      "title_hint": "# Rug Risk Scoring \u2014 Design Spec",
+      "size_bytes": 12349,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-15-crystal-vivant-mycelium-transport-design.md",
+      "title_hint": "# Crystal Vivant \u2014 Mycelium Universal Transport",
+      "size_bytes": 17127,
+      "category": "general"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-02-kairos-temporal-consciousness-design.md",
+      "title_hint": "# KAIROS \u2014 Temporal Consciousness for CLAUDE.md",
+      "size_bytes": 29630,
+      "category": "general"
+    },
+    {
+      "path": "docs/foundation/CYNIC_E_SCORE.md",
+      "title_hint": "# CYNIC E-Score",
+      "size_bytes": 12260,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_LEGAL_GENESIS_PLAN.md",
+      "title_hint": "# TALARIA Legal Genesis Plan",
+      "size_bytes": 16341,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_EMERGENCE_AND_FRAGMENTATION.md",
+      "title_hint": "# CYNIC Emergence and Fragmentation",
+      "size_bytes": 4646,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/README.md",
+      "title_hint": "# Foundation Index",
+      "size_bytes": 3008,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_OWNERSHIP_CONSTITUTION.md",
+      "title_hint": "# CYNIC Ownership Constitution",
+      "size_bytes": 9704,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_LEGAL_MICA_ROUTE_MEMO.md",
+      "title_hint": "# CYNIC Legal / MiCA Route Memo",
+      "size_bytes": 7340,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+      "title_hint": "# TALARIA / CYNIC Naming",
+      "size_bytes": 3979,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_SOURCE_OF_TRUTH_HIERARCHY.md",
+      "title_hint": "# CYNIC Source Of Truth Hierarchy",
+      "size_bytes": 7813,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_PROTOCOL_REVENUE_WATERFALL.md",
+      "title_hint": "# CYNIC Protocol Revenue Waterfall",
+      "size_bytes": 10576,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/TALARIA_SAS_GENESIS_NOTE.md",
+      "title_hint": "# TALARIA SAS Genesis Note",
+      "size_bytes": 5494,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_ONE_PERSON_FUTARCHY.md",
+      "title_hint": "# CYNIC : One-Person Enterprise & Futarchy Manifest",
+      "size_bytes": 2296,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_TECHNICAL_WHITEPAPER.md",
+      "title_hint": "# CYNIC Technical Whitepaper",
+      "size_bytes": 7973,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/ODYSSEUM_MANIFEST.md",
+      "title_hint": "# ODYSSEUM MANIFEST",
+      "size_bytes": 2290,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_THEME_TOPOLOGY_POLICY.md",
+      "title_hint": "# CYNIC Theme Topology Policy",
+      "size_bytes": 2846,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_PROTOCOL_TOKEN_PAPER.md",
+      "title_hint": "# CYNIC Protocol Token Paper",
+      "size_bytes": 7106,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_DEPRECATED_SURFACE_REPORT_2026-06-27.md",
+      "title_hint": "# Hermes X Legacy Surface Report (2026-06-27)",
+      "size_bytes": 4256,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md",
+      "title_hint": "# CYNIC Organism Policy Matrix",
+      "size_bytes": 11561,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_FEDERATED_ECONOMIC_ARCHITECTURE.md",
+      "title_hint": "# CYNIC Federated Economic Architecture",
+      "size_bytes": 10044,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+      "title_hint": "# CYNIC Repo Topology Policy",
+      "size_bytes": 11842,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_FAIR_LAUNCH_COVENANT.md",
+      "title_hint": "# CYNIC Fair Launch Covenant",
+      "size_bytes": 5065,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/foundation/CYNIC_TOKEN_EQUITY_FIREWALL.md",
+      "title_hint": "# CYNIC Token / Equity Firewall",
+      "size_bytes": 12370,
+      "category": "foundation"
+    },
+    {
+      "path": "docs/specs/zone-dispatch-test-plan.md",
+      "title_hint": "# Zone Dispatch Test Plan \u2014 Parallel Cortex Validation",
+      "size_bytes": 7253,
+      "category": "general"
+    },
+    {
+      "path": "docs/specs/2026-04-11-deterministic-dog-evolution.md",
+      "title_hint": "# CYNIC Backend Evolution \u2014 Spec",
+      "size_bytes": 12433,
+      "category": "general"
+    }
+  ]
+}

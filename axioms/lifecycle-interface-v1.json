@@ -1,0 +1,106 @@
+{
+  "schema": "cynic.lifecycle_interface.v1",
+  "status": "normative",
+  "purpose": "Define the lifecycle organ's interface layers, adapter boundaries, sovereign Forgejo boundary, and runtime surfaces so agents can extend the organ without reintroducing implicit coupling.",
+  "scope": {
+    "organ": "organ-lifecycle",
+    "domain": "repo lifecycle transmutation candidate",
+    "boundary": "Ports are the only supported integration surface between the lifecycle core and external systems."
+  },
+  "forge_boundary": {
+    "canonical_forge": "Forgejo",
+    "git_role": "content-addressed repository substrate and local membrane",
+    "github_role": "external proprietary upstream, backup, publication and intelligence source; not the priority agency/privacy lifecycle authority",
+    "required_property": "Forge operations must cross a port and produce Kernel-readable evidence before lifecycle state advances."
+  },
+  "required_ports": [
+    "InfraRegistryPort",
+    "FleetStatusPort",
+    "ServiceHealthPort",
+    "StoragePrimaryPort",
+    "LifecycleDispatchPort",
+    "CoordinationPort",
+    "ObservationPort",
+    "SupplyChainAnalysisPort"
+  ],
+  "future_required_ports": [
+    "SovereignForgePort"
+  ],
+  "adapter_map": [
+    {
+      "port": "InfraRegistryPort",
+      "adapter": "organs/lifecycle/src/adapters/registry_adapter.py",
+      "transport": "filesystem",
+      "responsibility": "Load registry desired state and resolve nodes or services without hardcoded paths."
+    },
+    {
+      "port": "FleetStatusPort",
+      "adapter": "organs/lifecycle/src/adapters/surreal_fleet_adapter.py",
+      "transport": "http",
+      "responsibility": "Read fleet truth from the declared Surreal-backed mesh surface."
+    },
+    {
+      "port": "ServiceHealthPort",
+      "adapter": "organs/lifecycle/src/adapters/kernel_service_health_adapter.py",
+      "transport": "http",
+      "responsibility": "Read service registry health from the kernel's declared service surface."
+    },
+    {
+      "port": "StoragePrimaryPort",
+      "adapter": "organs/lifecycle/src/adapters/kernel_storage_primary_adapter.py",
+      "transport": "http",
+      "responsibility": "Read storage-primary health and produce backup bundles through the kernel contract."
+    },
+    {
+      "port": "LifecycleDispatchPort",
+      "adapter": "organs/lifecycle/src/adapters/kernel_lifecycle_dispatch_adapter.py",
+      "transport": "http",
+      "responsibility": "Build and dispatch lifecycle requests through the kernel mempool surface."
+    },
+    {
+      "port": "CoordinationPort",
+      "adapter": "organs/lifecycle/src/adapters/kernel_coordination_adapter.py",
+      "transport": "http",
+      "responsibility": "Register, claim, release, and read coordination state through the kernel coord API."
+    },
+    {
+      "port": "ObservationPort",
+      "adapter": "organs/lifecycle/src/adapters/kernel_observation_adapter.py",
+      "transport": "http",
+      "responsibility": "Record observations and read lifecycle observations through the kernel observability surface."
+    },
+    {
+      "port": "SupplyChainAnalysisPort",
+      "adapter": "organs/lifecycle/src/adapters/registry_supply_chain_adapter.py",
+      "transport": "filesystem",
+      "responsibility": "Analyze supply-chain dependencies, execution order, and circular references from registry truth."
+    }
+  ],
+  "entrypoints": [
+    "organs/lifecycle/src/entrypoints/cli.py",
+    "organs/lifecycle/src/entrypoints/runtime.py",
+    "organs/lifecycle/src/entrypoints/controller.py",
+    "organs/lifecycle/src/entrypoints/watchdog.py",
+    "organs/lifecycle/src/entrypoints/controller.py"
+  ],
+  "state_boundaries": [
+    "organs/lifecycle/desired/state.json",
+    "organs/lifecycle/state/SSOT.json",
+    "organs/lifecycle/runbooks/operations.json"
+  ],
+  "cross_links": [
+    "axioms/infra-consumption-v1.json",
+    "axioms/lifecycle-supply-chain-v1.json",
+    "organs/lifecycle/MANIFEST.yaml",
+    "infra/registry.json",
+    "crates/cynic-kernel/src/api/rest/mod.rs"
+  ],
+  "constraints": [
+    "No cortex-local build is part of this contract.",
+    "Adapters must be thin and single-responsibility.",
+    "Registry loading must flow through the registry port, not ad hoc json parsing in business logic.",
+    "Kernel coordination and observation must use declared REST or MCP-backed ports.",
+    "Forgejo operations must not be hidden behind generic GitHub or pull-request assumptions.",
+    "Every lifecycle transition must preserve the recursive shape: intent, claim, route, execute, observe, result, converge."
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "generated_at": "2026-06-24T00:00:00Z",
+  "items": [
+    {
+      "question": "How should CYNIC separate search, extraction, and interaction for web agents?",
+      "sources": [
+        {
+          "title": "Firecrawl Introduction",
+          "url": "https://docs.firecrawl.dev/introduction",
+          "notes": "Docs describe search, scrape, interact, map/crawl, screenshots/structured JSON, MCP/skills."
+        }
+      ],
+      "findings": [
+        "Separate discovery from known-URL extraction and dynamic interaction.",
+        "Prefer clean markdown/structured JSON for evidence ingestion.",
+        "Interaction should be session-bounded and stopped after task completion.",
+        "Managed tools combine proxies/rendering/browser sessions, but CYNIC should implement sovereign equivalents around Chrome/Hub."
+      ],
+      "applicability_to_cynic": [
+        "organ-browser ports should be SearchPort, ExtractorPort, BrowserPort, EvidencePort.",
+        "organ-superteam should call browser capabilities by intent rather than owning raw CDP.",
+        "Firecrawl-like skills can inspire CYNIC skills but should not become a cloud dependency by default."
+      ],
+      "risks": [
+        "Cloud scraping tools can leak authenticated context if misused.",
+        "Interact APIs blur extraction and action; CYNIC needs human gates before mutation."
+      ],
+      "next_experiment": "Implement a local three-route browser contract: discover listings, harvest detail, safe form probe."
+    },
+    {
+      "question": "How should CYNIC distinguish an AI browser agent from a raw browser session?",
+      "sources": [
+        {
+          "title": "Browser Use Quick start",
+          "url": "https://docs.browser-use.com/cloud/quickstart",
+          "notes": "Docs distinguish Agent run/task from raw Browser/CDP session and mention profile, recording, proxy."
+        }
+      ],
+      "findings": [
+        "A high-level agent runs tasks with model/planning; a raw browser exposes CDP/session primitives.",
+        "Profiles and recordings are first-class browser session concerns.",
+        "CYNIC needs both: organ-browser as controlled raw browser/session layer and higher-level organs as task agents."
+      ],
+      "applicability_to_cynic": [
+        "Browser Hub should be the raw browser adapter, not a domain agent.",
+        "organ-superteam is a task/domain agent consuming organ-browser.",
+        "Evidence/recording should be explicit per task, not ambient capture of everything."
+      ],
+      "risks": [
+        "Letting domain agents drive CDP directly bypasses safety policy.",
+        "Recording authenticated sessions can capture sensitive data unless scoped."
+      ],
+      "next_experiment": "Route all future Superteam navigation through a BrowserPort request format with owner, scope, and stop conditions."
+    },
+    {
+      "question": "How should evidence bundles be captured for web tasks?",
+      "sources": [
+        {
+          "title": "Playwright Trace Viewer",
+          "url": "https://playwright.dev/docs/trace-viewer",
+          "notes": "Playwright trace tooling centers around recorded actions, DOM snapshots, screenshots and debugging artifacts."
+        }
+      ],
+      "findings": [
+        "Trace-style artifacts make web automation auditable: actions, DOM snapshots, screenshots, network context.",
+        "Evidence should be task-scoped and replayable enough for debugging.",
+        "Screenshots alone are weaker than screenshot + URL + timestamp + extracted requirement mapping."
+      ],
+      "applicability_to_cynic": [
+        "organ-evidence should own evidence bundles independent of organ-superteam.",
+        "Submission QA should require evidence IDs for each listing requirement.",
+        "Started_work should include evidence_checklist.json before any human submit."
+      ],
+      "risks": [
+        "Full traces of authenticated sessions may contain secrets or personal data.",
+        "Evidence needs redaction and scope discipline."
+      ],
+      "next_experiment": "Create one redaction-safe evidence bundle schema and use it for a selected Superteam listing."
+    },
+    {
+      "question": "How should CYNIC handle human-in-the-loop browser agents?",
+      "sources": [
+        {
+          "title": "Interaction-Driven Browsing HITL framework",
+          "url": "https://arxiv.org/abs/2509.12049",
+          "notes": "Paper frames iterative browser agents where agent proposes next actions and user steers exploration/exploitation."
+        },
+        {
+          "title": "ColorBrowserAgent",
+          "url": "https://arxiv.org/abs/2601.07262",
+          "notes": "Long-horizon browser automation benefits from progress summaries and human knowledge adaptation."
+        }
+      ],
+      "findings": [
+        "Web work is nonlinear; agents should propose next actions and summarize progress.",
+        "Human feedback should be solicited only at meaningful uncertainty/action boundaries.",
+        "Progress summaries and dead-end memory are necessary for long-horizon browsing."
+      ],
+      "applicability_to_cynic": [
+        "human_gate_request should include exact action, target, payload, risk, and alternative.",
+        "organ-browser should maintain a small ledger of last actions, facts, blockers, and checkpoints.",
+        "organ-superteam should separate exploration from exploitation: inventory broadly, then deepen selected targets."
+      ],
+      "risks": [
+        "Too many gates cause fatigue; too few gates cause account/wallet risk.",
+        "Long-horizon agents can drift unless ledger is structured and evicted."
+      ],
+      "next_experiment": "Add a task ledger schema with goal, last actions, facts, dead ends, checkpoints for browser sessions."
+    },
+    {
+      "question": "How should browser agent sandboxing and prompt-injection risk shape organ-browser?",
+      "sources": [
+        {
+          "title": "ceLLMate: Sandboxing Browser AI Agents",
+          "url": "https://arxiv.org/abs/2512.12594",
+          "notes": "Paper identifies prompt injection risks and proposes mapping low-level UI events to high-level semantic actions/policies."
+        }
+      ],
+      "findings": [
+        "Browser agents are vulnerable to web prompt injection and undesired state-changing requests.",
+        "Policy should be expressed in semantic action classes, not brittle low-level clicks.",
+        "Agent sitemap/action taxonomy helps constrain ambient authority."
+      ],
+      "applicability_to_cynic": [
+        "organ-browser should classify actions as read, navigate, draft, submit, sign, trade, account_mutation, external_post.",
+        "Default allowed: read/navigate/extract/draft. Default blocked: submit/sign/trade/stake/deposit/post/account mutation.",
+        "Every browser observation should be evidence, not instruction."
+      ],
+      "risks": [
+        "Superteam listings may contain external docs/forms with malicious or misleading instructions.",
+        "Authenticated Google context increases blast radius of injection."
+      ],
+      "next_experiment": "Implement action_class field in every future browser command/evidence bundle."
+    }
+  ]
+}

@@ -1,0 +1,378 @@
+{
+  "schema_version": "cynic.fragmentation.f2.policy.remediation.v1",
+  "batch": "cynic-fragmentation-eradication",
+  "generated_at": "2026-07-02T11:30:00+02:00",
+  "source": "docs/ops/cynic-fragmentation-f2-policy-check-2026-07-02.json",
+  "canonical_resolver": "docs/ops/cynic-canonical-topology.json",
+  "policy_remediation_mode": "single_layered_resolver_enforced",
+  "decisions": [
+    {
+      "file": "docs/CYNIC_ECOSYSTEM_ARCHITECTURE.md",
+      "policy_class": "projection_stale",
+      "action": "demote_to_projection_stale",
+      "rationale": "Top-level legacy docs; keep as contextual reference",
+      "next_required": "move_to_archive_or_index_if_active"
+    },
+    {
+      "file": "docs/DATASET_ARCHITECTURE.md",
+      "policy_class": "projection_stale",
+      "action": "demote_to_projection_stale",
+      "rationale": "Top-level legacy docs; keep as contextual reference",
+      "next_required": "move_to_archive_or_index_if_active"
+    },
+    {
+      "file": "docs/DATA_CONSTITUTION.md",
+      "policy_class": "projection_stale",
+      "action": "demote_to_projection_stale",
+      "rationale": "Top-level legacy docs; keep as contextual reference",
+      "next_required": "move_to_archive_or_index_if_active"
+    },
+    {
+      "file": "docs/api/openapi.json",
+      "policy_class": "projection_stale",
+      "action": "demote_to_projection_stale",
+      "rationale": "Top-level legacy docs; keep as contextual reference",
+      "next_required": "move_to_archive_or_index_if_active"
+    },
+    {
+      "file": "docs/architecture/BEHAVIORAL_ANALYTICS_ARCHITECTURE.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/architecture/COORDINATION-MCP-FOUNDATION.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/architecture/CYNIC-DATA-ARCHITECTURE-APPLIED.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/architecture/CYNIC-NODE-PHASE-B-LIFECYCLE.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/architecture/CYNIC-NODE-SOMA-SYSTEM.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/architecture/CYNIC-ORGANISM-DISTRIBUTED-ROADMAP.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/architecture/ORGAN-WIREGUARD-V3.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/architecture/ORGANISM-DATA-METABOLISM.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/architecture/PROXMOX-FLEET-CARTOGRAPHY.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/architecture/TOPOLOGY.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/architecture/talaria-observatory.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/archive/TODO-HISTORY.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/archive/TODO-ROBUSTNESS.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/audit/CYNIC-DEEP-AUDIT-2026-03-25.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/audit/WORKFLOW-TRUTH-AUDIT-2026-04-15.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/domains/DOMAIN-DISPATCH.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/domains/DOMAIN_DISCOVERY_COMPLETE.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/domains/REGISTRY.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/domains/calibration.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/foundation/CYNIC_DEPRECATED_SURFACE_REPORT_2026-06-27.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/foundation/CYNIC_E_SCORE.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/foundation/CYNIC_LEGAL_GENESIS_PLAN.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/foundation/CYNIC_MULTI_SCALE_EMPIRICAL_RULE.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/foundation/CYNIC_ONE_PERSON_ENTERPRISE_FUTARCHY_FRAMEWORK.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/foundation/CYNIC_PROTOCOL_REVENUE_WATERFALL.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/foundation/CYNIC_TECHNICAL_WHITEPAPER.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/foundation/CYNIC_TOKEN_EQUITY_FIREWALL.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/foundation/README.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/foundation/TALARIA_SAS_GENESIS_NOTE.md",
+      "policy_class": "projection_policy",
+      "action": "retain_as_projection",
+      "rationale": "Useful for execution planning only; topology semantics must resolve via canonical resolver",
+      "next_required": "link_to_index_when_executed"
+    },
+    {
+      "file": "docs/hackathon/HACKATHON_SUBMISSION.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/hackathon/integration-proposal-cynic-asdelegate-2026-04-08.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/identity/AXIOM-VII-KENOSIS.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/identity/CWO-METHODOLOGY.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/identity/CYNIC-IDENTITY-GRAPH.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/reference/CYNIC-INFRASTRUCTURE-ROADMAP.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/reference/INFERENCE-SOT.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/reference/INFRA-BUILD.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/research/CCM-ORGANISM-AUDIT-2026-05-12.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/research/overnight-research-agent-architecture.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/superpowers/plans/2026-05-23-solana-rework.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-05-02-kairos-temporal-consciousness-design.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-05-11-hermes-shared-browser-behavioral-engine-design.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-05-15-crystal-vivant-mycelium-transport-design.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-05-22-asdf-forge-github-org-design.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-05-23-solana-rework-design.md",
+      "policy_class": "historical_only",
+      "action": "demote_to_historical_only",
+      "rationale": "Evidence file preserved for trace only; excluded from execution topology semantics",
+      "next_required": "do_not_treat_as_execution_contract"
+    }
+  ],
+  "summary": {
+    "total": 49,
+    "by_class": [
+      {
+        "policy_class": "historical_only",
+        "count": 20
+      },
+      {
+        "policy_class": "projection_policy",
+        "count": 25
+      },
+      {
+        "policy_class": "projection_stale",
+        "count": 4
+      }
+    ],
+    "projections_pending_linking": 25,
+    "historical_links_required": 24
+  },
+  "acceptance": {
+    "resolver_dominance": "docs/ops/cynic-canonical-topology.json",
+    "projection_invariant": "topology_assertions only from authoritative_tier (policy+coordination+machine_contract)",
+    "historical_invariant": "historical files cannot be used as live policy inputs",
+    "status": "enforcement-ready"
+  }
+}

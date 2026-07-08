@@ -1,0 +1,187 @@
+{
+  "schema": "cynic.public_futarchy_manifest.v1",
+  "status": "draft",
+  "purpose": "Define the public ASDFASDFA/Talaria/CYNIC futarchy manifest contract so product UI, public copy, build proofs, decisions and outcomes remain projections of a typed source instead of drifting into React constants or private notes.",
+  "authority_chain": {
+    "policy_matrix": "docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md",
+    "repo_topology": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+    "theme_topology": "docs/foundation/CYNIC_THEME_TOPOLOGY_POLICY.md",
+    "naming": "docs/foundation/TALARIA_CYNIC_NAMING.md",
+    "fair_launch": "docs/foundation/CYNIC_FAIR_LAUNCH_COVENANT.md",
+    "draft_context": "docs/internal/asdfasdfa-bagwork-futarchy-operating-contract-2026-06-29.md"
+  },
+  "layer_contract": [
+    {
+      "layer": "foundation_policy",
+      "path": "docs/foundation/",
+      "owns": [
+        "legal and protocol boundaries",
+        "token/equity firewall",
+        "cross-cutting topology law"
+      ],
+      "must_not_own": [
+        "live weekly build proof content",
+        "mutable decision status"
+      ]
+    },
+    {
+      "layer": "machine_contract",
+      "path": "axioms/public-futarchy-manifest-v1.json",
+      "owns": [
+        "manifest schema",
+        "allowed public sections",
+        "decision/build-proof/outcome fields",
+        "guardrails for projections"
+      ],
+      "must_not_own": [
+        "private legal advice",
+        "runtime social engagement state"
+      ]
+    },
+    {
+      "layer": "product_projection",
+      "path": "packages/talaria-demo/",
+      "owns": [
+        "public interface",
+        "copy presentation",
+        "visual grouping",
+        "future data loading"
+      ],
+      "must_not_own": [
+        "new legal claims",
+        "protocol allocation rules",
+        "canonical decision truth"
+      ]
+    },
+    {
+      "layer": "kernel_memory",
+      "path": "Kernel /observe and /agent-tasks",
+      "owns": [
+        "dynamic observations",
+        "pending work",
+        "completed work read-back"
+      ],
+      "must_not_own": [
+        "public legal doctrine",
+        "product layout"
+      ]
+    },
+    {
+      "layer": "organ_automation",
+      "path": "future organ or bounded service",
+      "owns": [
+        "build-proof compression",
+        "post candidate generation",
+        "cult pulse monitoring"
+      ],
+      "must_not_own": [
+        "autonomous public posting before human approval",
+        "unreviewed legal or market promises"
+      ]
+    }
+  ],
+  "public_sections": [
+    "manifest_map",
+    "live_decisions",
+    "build_proofs",
+    "outcomes"
+  ],
+  "guardrails": [
+    "No equity promise.",
+    "No guaranteed pump, floor, buyback or listing.",
+    "No claim that ASDFASDFA owns Talaria or CYNIC.",
+    "Market price is signal, not truth.",
+    "The interface must show work before asking for belief."
+  ],
+  "manifest_map": [
+    {
+      "label": "$ASDFASDFA",
+      "role": "Cult distribution shell",
+      "boundary": "No equity, no guaranteed revenue, no hidden promise."
+    },
+    {
+      "label": "Talaria",
+      "role": "Legal and public vehicle",
+      "boundary": "Contracts and IP live here; token holders do not own the company."
+    },
+    {
+      "label": "CYNIC",
+      "role": "Judgment engine",
+      "boundary": "Scores doubt, records proof, and refuses false certainty."
+    },
+    {
+      "label": "Futarchy",
+      "role": "Market coordination rail",
+      "boundary": "Market price is signal, not truth."
+    }
+  ],
+  "live_decisions": [
+    {
+      "id": "asdfasdfa-first-cult-screener-case-study",
+      "status": "active",
+      "kind": "market-resolvable",
+      "title": "Should ASDFASDFA become the first public cult-screener case study before any CYNIC token launch?",
+      "evidence": [
+        "Existing live community asset",
+        "Cleaner legal boundary than unlaunched protocol fuel",
+        "Directly tests the judgment/distribution loop"
+      ],
+      "next": "Draft public proposal and evidence card."
+    },
+    {
+      "id": "next-visible-milestone",
+      "status": "draft",
+      "kind": "market-resolvable",
+      "title": "Should the next visible milestone be X distribution, API integration, or on-chain proof?",
+      "evidence": [
+        "Bagwork weakened during deep CYNIC build cycles",
+        "Talaria demo already judges governance proposals",
+        "Public proof stream is missing"
+      ],
+      "next": "Turn into a market-resolvable decision with measurable outputs."
+    }
+  ],
+  "build_proofs": [
+    {
+      "id": "w27-operating-contract",
+      "period": "2026-W27",
+      "effort": "current focus",
+      "artifact": "ASDFASDFA / Talaria-CYNIC futarchy operating contract",
+      "why": "Turns the cult from passive meme surface into the public pressure layer around CYNIC decisions."
+    },
+    {
+      "id": "build-proof-compressor",
+      "period": "next",
+      "effort": "automation gap",
+      "artifact": "Build-proof compressor",
+      "why": "Convert git/docs/kernel observations into weekly public proof cards and post candidates."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "proposal-judge-live",
+      "status": "shipped",
+      "title": "CYNIC proposal judge is live",
+      "detail": "Talaria can already score governance proposals with phi-bounded confidence."
+    },
+    {
+      "id": "public-futarchy-surface",
+      "status": "open",
+      "title": "Public futarchy surface",
+      "detail": "Manifest, build log, decisions and outcomes now have a first UI surface."
+    }
+  ],
+  "projection_paths": [
+    {
+      "path": "packages/talaria-demo/src/futarchyManifest.js",
+      "class": "frontend_projection",
+      "rule": "May copy this contract for Vite packaging, but must not add legal or protocol claims that are absent from this contract or foundation policy."
+    },
+    {
+      "path": "packages/talaria-demo/src/App.jsx",
+      "class": "frontend_rendering",
+      "rule": "May render sections and statuses; must not become the source of manifest data."
+    }
+  ],
+  "promotion_condition": "Promote status to normative only after the public manifest contract has a validator or test that checks projection drift and all public legal/protocol claims are covered by foundation canon."
+}

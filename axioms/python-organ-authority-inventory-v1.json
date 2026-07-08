@@ -1,0 +1,61 @@
+{
+  "schema": "cynic.python_organ_authority_inventory.v1",
+  "status": "draft",
+  "purpose": "Classify every immediate Python organ by authority type so stable deterministic functions migrate into canonical Rust crates while membranes, wrappers and exploratory probes remain intentionally Python.",
+  "authorities": {
+    "repo_topology_contract": "axioms/repo-topology-v1.json",
+    "rust_crate_roles": "axioms/rust-crate-roles-v1.json",
+    "python_vital_function_placement": "axioms/python-vital-function-placement-v1.json"
+  },
+  "allowed_classifications": [
+    "python_membrane",
+    "python_transitional_vital",
+    "python_legacy_duplication"
+  ],
+  "classification_rules": {
+    "python_membrane": "The organ may remain Python because it is primarily wrapper glue, external I/O adaptation, operator rendering, or exploratory observation without canonical organism authority.",
+    "python_transitional_vital": "The organ still hosts stable or shared deterministic authority that must migrate into one or more canonical Rust crates.",
+    "python_legacy_duplication": "The organ duplicates canonical logic or carries a deprecated authority surface and should disappear after the Rust authority absorbs it."
+  },
+  "organs": [
+    {"path": "organs/browser/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["browser_adapter", "external_io", "operator_wrapper"], "migrate_domains": [], "reason": "Browser automation and external-web adaptation are membrane behavior, not canonical organism truth."},
+    {"path": "organs/contracts/", "classification": "python_transitional_vital", "rust_authority_targets": ["crates/cynic-kernel", "crates/cynic-mcp"], "keep_domains": ["entrypoint_glue"], "migrate_domains": ["shared_contract_models", "validator_logic"], "reason": "Shared contract authority should not remain Python-only once stable."},
+    {"path": "organs/discord/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["social_adapter", "external_io"], "migrate_domains": [], "reason": "Discord is an external social membrane."},
+    {"path": "organs/domain/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["domain_projection", "operator_bundle"], "migrate_domains": [], "reason": "Domain routing remains a bounded product membrane for now."},
+    {"path": "organs/exposure/", "classification": "python_transitional_vital", "rust_authority_targets": ["crates/cynic-mcp"], "keep_domains": ["projection_wrapper"], "migrate_domains": ["agent_exposure_validation", "tool_projection_rules"], "reason": "Exposure SSOT and stable projection validation belong with the canonical MCP surface."},
+    {"path": "organs/fleet/", "classification": "python_transitional_vital", "rust_authority_targets": ["crates/cynic-node"], "keep_domains": ["operator_bundle", "migration_wrapper"], "migrate_domains": ["network_contracts", "service_supervision"], "reason": "Canonical node runtime and network truth must live in cynic-node."},
+    {"path": "organs/forge/", "classification": "python_transitional_vital", "rust_authority_targets": ["crates/cynic-kernel"], "keep_domains": ["operator_dispatch", "entrypoint_glue"], "migrate_domains": ["lifecycle_gap_contracts", "registry_backed_truth"], "reason": "Lifecycle and release truth should converge on kernel-side deterministic authority."},
+    {"path": "organs/framework-map/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["inventory_probe", "reporting"], "migrate_domains": [], "reason": "Framework mapping is still exploratory observation."},
+    {"path": "organs/freebox/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["router_adapter", "external_io"], "migrate_domains": [], "reason": "Freebox integration is a provider membrane with explicit approval gates."},
+    {"path": "organs/gasdf/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["external_checkout_projection"], "migrate_domains": [], "reason": "GASdf remains an external integration membrane."},
+    {"path": "organs/headscale/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["network_provider_adapter"], "migrate_domains": [], "reason": "Headscale integration is provider-facing adaptation, not canonical internal truth."},
+    {"path": "organs/identity/", "classification": "python_transitional_vital", "rust_authority_targets": ["crates/cynic-kernel", "crates/cynic-node"], "keep_domains": ["entrypoint_glue"], "migrate_domains": ["identity_contracts", "attestation_truth"], "reason": "Identity and attestation contracts should become deterministic runtime authority."},
+    {"path": "organs/jupyter/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["analysis_surface", "operator_wrapper"], "migrate_domains": [], "reason": "Notebook integration is an operator analysis membrane."},
+    {"path": "organs/kanban-ui/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["ui_wrapper"], "migrate_domains": [], "reason": "UI surface is not organism authority."},
+    {"path": "organs/keep/", "classification": "python_transitional_vital", "rust_authority_targets": ["crates/cynic-kernel", "crates/cynic-node"], "keep_domains": ["entrypoint_glue"], "migrate_domains": ["storage_contracts", "readiness_truth"], "reason": "Storage activation and readiness truth should not remain mutable Python logic."},
+    {"path": "organs/lifecycle/", "classification": "python_transitional_vital", "rust_authority_targets": ["crates/cynic-inference", "crates/cynic-kernel"], "keep_domains": ["operator_wrapper"], "migrate_domains": ["dependency_convergence", "supply_chain_analysis"], "reason": "Convergence and lifecycle evaluation logic should become reusable deterministic Rust modules."},
+    {"path": "organs/oracle/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["external_signal_adapter"], "migrate_domains": [], "reason": "Oracle remains an observation membrane."},
+    {"path": "organs/percolator/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["protocol_probe"], "migrate_domains": [], "reason": "Percolator remains protocol observation and analysis glue."},
+    {"path": "organs/prompt-enricher/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["prompt_adapter"], "migrate_domains": [], "reason": "Prompt shaping is a cortex-facing membrane."},
+    {"path": "organs/prospect/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["prospection_probe"], "migrate_domains": [], "reason": "Prospect is exploratory search logic."},
+    {"path": "organs/radar/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["signal_observation"], "migrate_domains": [], "reason": "Radar remains exploratory observation."},
+    {"path": "organs/rag/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["retrieval_wrapper"], "migrate_domains": [], "reason": "RAG is a retrieval membrane until kernel-backed memory contracts stabilize further."},
+    {"path": "organs/reflection/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["reflection_report"], "migrate_domains": [], "reason": "Reflection is analysis glue, not canonical runtime authority."},
+    {"path": "organs/slack/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["social_adapter", "external_io"], "migrate_domains": [], "reason": "Slack is an external social membrane."},
+    {"path": "organs/solana/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["protocol_probe", "analysis_glue"], "migrate_domains": [], "reason": "Current Solana organ logic is still exploratory and should not become infrastructure authority."},
+    {"path": "organs/superteam/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["external_program_adapter"], "migrate_domains": [], "reason": "Superteam integration is external adaptation."},
+    {"path": "organs/supervisor/", "classification": "python_transitional_vital", "rust_authority_targets": ["crates/cynic-mcp", "crates/cynic-kernel", "crates/cynic-node"], "keep_domains": ["entrypoint_glue", "operator_reports", "exploratory_audits"], "migrate_domains": ["stable_contract_validators", "repo_topology_rules", "surface_validation"], "reason": "Supervisor still carries normative validation authority that should converge into Rust."},
+    {"path": "organs/telegram/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["social_adapter", "external_io"], "migrate_domains": [], "reason": "Telegram is an external social membrane."},
+    {"path": "organs/telemetry/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["telemetry_adapter", "observation_glue"], "migrate_domains": [], "reason": "Telemetry collection is membrane behavior."},
+    {"path": "organs/twitter/", "classification": "python_membrane", "rust_authority_targets": [], "keep_domains": ["social_adapter", "external_io"], "migrate_domains": [], "reason": "Twitter/X remains an external social membrane despite its size."},
+    {"path": "organs/wireguard/", "classification": "python_legacy_duplication", "rust_authority_targets": ["crates/cynic-node"], "keep_domains": ["temporary_migration_wrapper"], "migrate_domains": ["legacy_network_contracts"], "reason": "Wireguard organ duplicates canonical network logic and should disappear after absorption into cynic-node."}
+  ],
+  "totals": {
+    "organs": 31,
+    "by_classification": {
+      "python_membrane": 22,
+      "python_transitional_vital": 8,
+      "python_legacy_duplication": 1
+    }
+  }
+}

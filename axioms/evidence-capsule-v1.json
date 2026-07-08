@@ -1,0 +1,30 @@
+{
+  "schema": "cynic.evidence_capsule.v1",
+  "status": "normative",
+  "purpose": "Define the minimum machine-readable membrane for curated evidence snapshots under data/emergence.",
+  "root": "data/emergence/",
+  "capsule_depth": 2,
+  "capsule_pattern": "data/emergence/<domain>/<snapshot>/",
+  "manifest_name": "MANIFEST.json",
+  "manifest_required_fields": [
+    "id",
+    "created_at",
+    "root",
+    "purpose",
+    "status",
+    "sensitivity_policy"
+  ],
+  "document_inventory_requirements": {
+    "theme": "data_and_evidence",
+    "status": "evidence",
+    "canonical_target": "<capsule>/MANIFEST.json"
+  },
+  "forbidden_manifest_concerns": [
+    "cookies",
+    "tokens",
+    "secrets",
+    "wallet private keys",
+    "seed phrases"
+  ],
+  "rule": "Evidence snapshots are allowed to be visible source artifacts only when their capsule root has a manifest and document-theme-inventory coverage."
+}

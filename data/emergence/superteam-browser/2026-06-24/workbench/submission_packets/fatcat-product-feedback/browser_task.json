@@ -1,0 +1,49 @@
+{
+  "allowed_actions": [
+    "open_public_listing",
+    "open_public_resource_links",
+    "extract_requirements",
+    "capture_sanitized_text_evidence",
+    "capture_public_screenshot_reference"
+  ],
+  "context": {
+    "deadline": "2026-07-02T03:59:59.999Z",
+    "resources": [
+      "https://www.fatcatbot.io/",
+      "https://t.me/FatCat_Solbot",
+      "https://x.com/fatcattrading",
+      "https://t.me/FatCat_Community",
+      "http://app.fatcatbot.io",
+      "https://docs.fatcatbot.io/"
+    ],
+    "reward_amount": 500.0,
+    "slug": "fatcat-product-feedback",
+    "title": "Product Feedback",
+    "token": "USDC"
+  },
+  "created_at": "2026-06-24T00:31:56.001898+00:00",
+  "evidence_required": [
+    "current_listing_status",
+    "deadline",
+    "submission_requirements",
+    "judging_criteria",
+    "resource_links",
+    "auth_or_credential_blockers"
+  ],
+  "forbidden_actions": [
+    "submit_application",
+    "post_to_social",
+    "connect_wallet",
+    "sign_transaction",
+    "trade_stake_deposit_or_transfer",
+    "store_cookie_token_secret_or_private_profile_data"
+  ],
+  "human_gate": {
+    "reason": "External browser execution and every Superteam submission remain human-gated.",
+    "required": true
+  },
+  "id": "superteam-fatcat-product-feedback-evidence",
+  "objective": "Collect fresh public evidence and submission requirements for this Superteam opportunity without mutating external state.",
+  "source": "organ-superteam",
+  "url": "https://superteam.fun/earn/listing/fatcat-product-feedback/"
+}

@@ -72,7 +72,6 @@
         },
         "coord_targets": [
             "organs/fleet",
-            "organs/wireguard",
             "organs/keep",
             "axioms/lxc-exec-bridge-v1.json",
             "axioms/storage-primary-activation-v1.json",

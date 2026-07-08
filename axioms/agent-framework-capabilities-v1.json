@@ -1,0 +1,89 @@
+{
+  "schema": "cynic.agent_framework_capabilities_contract.v1",
+  "status": "draft",
+  "purpose": "Define the framework-agnostic capability registry payload CYNIC uses to understand external agent frameworks without binding organism policy to a provider name.",
+  "payload_schema": "cynic.agent_framework_capabilities.v1",
+  "owner": "organ-contracts",
+  "contract_rules": [
+    "Capabilities describe what CYNIC can safely route to a framework today; they are not a wishlist.",
+    "Framework adapters may observe, declare, or infer capabilities, but must report confidence for each capability.",
+    "Provider-specific discovery belongs in organ-contracts adapters or a bounded runtime adapter, not in organ-forge core.",
+    "Runtime observations are published through kernel observations or task results, not committed narrative markdown.",
+    "Organ business logic consumes capability ids and CYNIC schemas, not framework names.",
+    "Hermes Agent is the default framework to scan before CYNIC adds a new agent runtime capability; new local implementations must cite an adapter, sovereignty, security, or policy gap."
+  ],
+  "required_fields": [
+    "schema",
+    "framework",
+    "version",
+    "observed_at",
+    "capabilities"
+  ],
+  "capability_fields": [
+    "id",
+    "input_schemas",
+    "output_schemas",
+    "side_effects",
+    "confidence"
+  ],
+  "confidence_values": [
+    "observed",
+    "declared",
+    "inferred"
+  ],
+  "side_effect_values": [
+    "none",
+    "kernel_observe",
+    "kernel_task_dispatch",
+    "repo_read",
+    "repo_write_requires_claim",
+    "network",
+    "external_process"
+  ],
+  "known_cynic_schemas": [
+    "cynic.agent_task.v1",
+    "cynic.agent_task_result.v1",
+    "cynic.git_matter_review_request.v1",
+    "cynic.git_matter_review.v1"
+  ],
+  "provider_policy": {
+    "default_framework": "hermes-agent",
+    "default_framework_source": "https://github.com/NousResearch/hermes-agent",
+    "fork_policy": "Prefer upstream Hermes Agent plus adapters. Maintain a CYNIC fork only when upstream or adapter boundaries cannot satisfy sovereignty, security, policy, or local runtime requirements.",
+    "selection_inputs": [
+      "capability_id",
+      "schema_compatibility",
+      "availability",
+      "cost",
+      "risk",
+      "evidence"
+    ],
+    "forbidden_selection_inputs": [
+      "hardcoded_provider_import",
+      "framework_name_as_authority",
+      "reinventing_unscanned_default_framework_capability"
+    ]
+  },
+  "example": {
+    "schema": "cynic.agent_framework_capabilities.v1",
+    "framework": "hermes-agent",
+    "version": "unknown",
+    "observed_at": "2026-07-01T00:00:00Z",
+    "capabilities": [
+      {
+        "id": "repo_review",
+        "input_schemas": [
+          "cynic.git_matter_review_request.v1"
+        ],
+        "output_schemas": [
+          "cynic.git_matter_review.v1"
+        ],
+        "side_effects": [
+          "repo_read",
+          "repo_write_requires_claim"
+        ],
+        "confidence": "inferred"
+      }
+    ]
+  }
+}

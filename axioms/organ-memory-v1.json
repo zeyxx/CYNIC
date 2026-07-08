@@ -1,0 +1,114 @@
+{
+  "schema": "cynic.organ_memory.v1",
+  "status": "normative",
+  "purpose": "Classify organ-local memory so local stores digest and compress information without becoming hidden organism-wide sources of truth.",
+  "central_memory": {
+    "canonical_dynamic_memory": "cynic-kernel storage: /observe, /agent-tasks, proof_of_history",
+    "canonical_desired_state": "Git, infra/registry.json, axioms, manifests",
+    "local_memory_role": "perception buffer, cache, outbox, warehouse, reports, and crash recovery for a single organ"
+  },
+  "required_storage_classes": [
+    "raw",
+    "normalized",
+    "warehouse",
+    "ccm",
+    "outbox",
+    "deadletter",
+    "cache",
+    "artifact",
+    "checkpoint",
+    "local_journal",
+    "local_snapshot",
+    "desired_projection",
+    "local_contract",
+    "operator_view",
+    "local_doc"
+  ],
+  "storage_classes": {
+    "raw": "Append-only local perception: command output, provider evidence, sensor samples.",
+    "normalized": "Validated local events in stable organ schema.",
+    "warehouse": "Queryable local history for trends, compression, and replay.",
+    "ccm": "Compressed cognition memory: distilled observations/proofs ready for Kernel promotion.",
+    "outbox": "Durable local queue for idempotent Kernel delivery when central storage is unavailable.",
+    "deadletter": "Events that failed validation or delivery and need human/organ remediation.",
+    "cache": "Regenerable materialized view or temporary computed state.",
+    "artifact": "Heavy proof material, logs, reports, dashboards, or build output references.",
+    "checkpoint": "Cursor, watermark, last-seen id, or sync position.",
+    "local_journal": "Append-only organ-local audit used for crash recovery and replay.",
+    "local_snapshot": "Point-in-time state view scoped to one organ.",
+    "desired_projection": "Organ-local projection of desired state; not the canonical desired state.",
+    "local_contract": "Schema or policy used by the local organ runtime.",
+    "operator_view": "Human-readable or browser-rendered local view derived from state.",
+    "local_doc": "Local state documentation or skill instruction."
+  },
+  "authority_levels": {
+    "local_only": "Useful to one organ; cannot decide organism truth.",
+    "kernel_promotion_candidate": "May be compressed and pushed to Kernel with idempotent read-back.",
+    "derived_from_git_or_kernel": "Projection/cache derived from canonical state elsewhere.",
+    "legacy_debt": "Tracked historical state that must be migrated, ignored, or removed."
+  },
+  "local_backend_policy": {
+    "jsonl": "Preferred for append-only raw/journal/report streams and simple replay.",
+    "sqlite": "Preferred for autonomous organs that need indexes, transactions, retries, outbox, and crash-safe reconciliation.",
+    "json": "Allowed for snapshots, checkpoints, local projections, and small cache files.",
+    "html": "Allowed only for derived operator views.",
+    "pac": "Allowed only for local runtime artifacts or generated network policy views."
+  },
+  "promotion_rules": [
+    "raw local data is not promoted directly unless a controller explicitly chooses it as proof evidence",
+    "ccm and outbox events promoted to Kernel must include source_organ, event_type, payload_hash, idempotency_key, and observed_at",
+    "task dispatches and critical observations require read-back before the organ may claim durable memory",
+    "local SQLite/JSONL stores must tolerate Kernel or SurrealDB downtime and flush later without duplicate events",
+    "organs/*/state and infra/organ-anvil must not claim organism_canonical authority"
+  ],
+  "runtime_dna_sync_policy": {
+    "destructive_reset_default": false,
+    "required_preflight_order": [
+      "diagnose_runtime_dna",
+      "classify_dirty_runtime",
+      "archive_or_promote_local_matter",
+      "select_canonical_sync_source",
+      "fast_forward_or_block",
+      "build",
+      "read_back"
+    ],
+    "canonical_sync_sources": [
+      "registry-selected repo remote/ref",
+      "signed lifecycle task payload",
+      "coord-claimed cortex patch artifact"
+    ]
+  },
+  "state_path_classifications": [
+    {"path": "infra/organ-anvil/audit.jsonl", "organ": "organ-anvil", "class": "local_journal", "authority": "legacy_debt", "backend": "jsonl", "promotion_path": "compress to cynic_observe or proof_of_history when material", "next_action": "migrate under organs/forge/state/journal or remove from tracked source"},
+    {"path": "infra/organ-anvil/state.json", "organ": "organ-anvil", "class": "local_snapshot", "authority": "legacy_debt", "backend": "json", "promotion_path": "derive from organ-forge runtime perception", "next_action": "replace with untracked organ-local snapshot"},
+    {"path": "organs/discord/state/SKILL.md", "organ": "organ-discord", "class": "local_doc", "authority": "local_only", "backend": "markdown", "promotion_path": "none", "next_action": "move durable instructions to organ manifest or docs if still active"},
+    {"path": "organs/discord/state/SSOT.json", "organ": "organ-discord", "class": "desired_projection", "authority": "legacy_debt", "backend": "json", "promotion_path": "registry or organ manifest", "next_action": "rename away from SSOT or migrate to desired/"},
+    {"path": "organs/discord/state/autonomy.json", "organ": "organ-discord", "class": "local_snapshot", "authority": "legacy_debt", "backend": "json", "promotion_path": "cynic_observe for durable decisions", "next_action": "reclassify under cache or desired projection"},
+    {"path": "organs/discord/state/percolator-watch.json", "organ": "organ-discord", "class": "checkpoint", "authority": "legacy_debt", "backend": "json", "promotion_path": "none unless watcher state becomes lifecycle-relevant", "next_action": "move to untracked checkpoint store"},
+    {"path": "organs/discord/state/proxy-lifecycle.json", "organ": "organ-discord", "class": "local_snapshot", "authority": "legacy_debt", "backend": "json", "promotion_path": "Kernel observation if lifecycle changes", "next_action": "replace with lifecycle controller state"},
+    {"path": "organs/discord/state/proxy-policy.pac", "organ": "organ-discord", "class": "artifact", "authority": "legacy_debt", "backend": "pac", "promotion_path": "none", "next_action": "generate outside tracked source or classify as fixture"},
+    {"path": "organs/discord/state/topology.json", "organ": "organ-discord", "class": "desired_projection", "authority": "legacy_debt", "backend": "json", "promotion_path": "registry or topology axiom", "next_action": "remove local topology SSOT"},
+    {"path": "organs/discord/state/topology.schema.json", "organ": "organ-discord", "class": "local_contract", "authority": "local_only", "backend": "json", "promotion_path": "axioms/schemas if shared", "next_action": "promote or keep organ-local"},
+    {"path": "organs/forge/state/README.md", "organ": "organ-forge", "class": "local_doc", "authority": "legacy_debt", "backend": "markdown", "promotion_path": "docs/foundation or organ manifest", "next_action": "rewrite to state-class policy"},
+    {"path": "organs/forge/state/SSOT.json", "organ": "organ-forge", "class": "desired_projection", "authority": "legacy_debt", "backend": "json", "promotion_path": "infra/registry.json or Kernel read-back", "next_action": "rename away from SSOT"},
+    {"path": "organs/forge/state/audit.jsonl", "organ": "organ-forge", "class": "local_journal", "authority": "legacy_debt", "backend": "jsonl", "promotion_path": "cynic_observe/proof_of_history for material events", "next_action": "move to state/journal and make untracked"},
+    {"path": "organs/forge/state/dashboard.html", "organ": "organ-forge", "class": "operator_view", "authority": "local_only", "backend": "html", "promotion_path": "none", "next_action": "keep generated or move to UI surface"},
+    {"path": "organs/forge/state/dataset.jsonl", "organ": "organ-forge", "class": "warehouse", "authority": "legacy_debt", "backend": "jsonl", "promotion_path": "compressed ccm events", "next_action": "move to untracked local warehouse"},
+    {"path": "organs/forge/state/poh.json", "organ": "organ-forge", "class": "artifact", "authority": "legacy_debt", "backend": "json", "promotion_path": "Kernel proof_of_history", "next_action": "delete or mark as legacy projection; canonical PoH is Kernel"},
+    {"path": "organs/forge/state/reports.jsonl", "organ": "organ-forge", "class": "ccm", "authority": "kernel_promotion_candidate", "backend": "jsonl", "promotion_path": "cynic_observe with read-back", "next_action": "split reports from outbox and add idempotency keys"},
+    {"path": "organs/forge/state/schema.json", "organ": "organ-forge", "class": "local_contract", "authority": "local_only", "backend": "json", "promotion_path": "axioms/schemas if shared", "next_action": "align with organ-memory classes"},
+    {"path": "organs/forge/state/state.json", "organ": "organ-forge", "class": "local_snapshot", "authority": "legacy_debt", "backend": "json", "promotion_path": "derive from Kernel and runtime probes", "next_action": "replace with untracked snapshot or SQLite materialized view"},
+    {"path": "organs/jupyter/state/state.json", "organ": "organ-jupyter", "class": "local_snapshot", "authority": "legacy_debt", "backend": "json", "promotion_path": "cynic_observe if service state matters", "next_action": "make untracked cache"},
+    {"path": "organs/percolator/state/SSOT.json", "organ": "organ-percolator", "class": "desired_projection", "authority": "legacy_debt", "backend": "json", "promotion_path": "registry/axioms", "next_action": "rename away from SSOT"},
+    {"path": "organs/reflection/state/human_state.json", "organ": "organ-reflection", "class": "local_snapshot", "authority": "legacy_debt", "backend": "json", "promotion_path": "Kernel observation if material", "next_action": "move to untracked local store"},
+    {"path": "organs/reflection/state/organism_state.json", "organ": "organ-reflection", "class": "cache", "authority": "derived_from_git_or_kernel", "backend": "json", "promotion_path": "none", "next_action": "make derivation explicit"},
+    {"path": "organs/reflection/state/state.json", "organ": "organ-reflection", "class": "local_snapshot", "authority": "legacy_debt", "backend": "json", "promotion_path": "Kernel observation if material", "next_action": "move to untracked local store"},
+    {"path": "organs/supervisor/state/SSOT.json", "organ": "organ-supervisor", "class": "desired_projection", "authority": "legacy_debt", "backend": "json", "promotion_path": "axioms/repo-topology-v1.json or registry", "next_action": "rename away from SSOT"},
+    {"path": "organs/supervisor/state/action-queue.jsonl", "organ": "organ-supervisor", "class": "outbox", "authority": "legacy_debt", "backend": "jsonl", "promotion_path": "Kernel /agent-tasks", "next_action": "replace with agent_tasks or organ-local outbox flush"},
+    {"path": "organs/supervisor/state/supervision.json", "organ": "organ-supervisor", "class": "local_snapshot", "authority": "legacy_debt", "backend": "json", "promotion_path": "cynic_observe for findings", "next_action": "derive from validators"},
+    {"path": "organs/telegram/state/SKILL.md", "organ": "organ-telegram", "class": "local_doc", "authority": "local_only", "backend": "markdown", "promotion_path": "organ manifest if durable", "next_action": "move durable instruction out of state"},
+    {"path": "organs/twitter/state/SKILL.md", "organ": "organ-twitter", "class": "local_doc", "authority": "local_only", "backend": "markdown", "promotion_path": "organ manifest if durable", "next_action": "move durable instruction out of state"},
+    {"path": "organs/twitter/state/dataset.jsonl", "organ": "organ-twitter", "class": "warehouse", "authority": "legacy_debt", "backend": "jsonl", "promotion_path": "compressed observations only", "next_action": "move to untracked warehouse"},
+    {"path": "organs/twitter/state/state.json", "organ": "organ-twitter", "class": "local_snapshot", "authority": "legacy_debt", "backend": "json", "promotion_path": "cynic_observe for material state", "next_action": "move to untracked cache"}
+  ]
+}

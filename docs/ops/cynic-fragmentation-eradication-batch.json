@@ -1,0 +1,80 @@
+{
+  "schema_version": "cynic.fragmentation.eradication.batch.v1",
+  "created_at": "2026-07-02T00:00:00+02:00",
+  "updated_at": "2026-07-02T13:20:00+02:00",
+  "project": "CYNIC",
+  "trigger": "topology fragmentation and contradictory documentation structure",
+  "status": "active",
+  "owner": "cortex",
+  "priority": "urgent",
+  "tasks": [
+    {
+      "id": "F0",
+      "title": "Gel des nouvelles déclarations non canoniques",
+      "type": "governance",
+      "status": "done",
+      "artifacts": [
+        "docs/ops/cynic-docs-pyramid-materialization-2026-07-02.json"
+      ],
+      "acceptance": [
+        "Aucune nouvelle source de vérité en .md en dehors de docs/foundation, AGENTS, axioms, infra",
+        "Aucune nouvelle page d'exécution hors docs/ops avec type JSON ou explicitement projetée"
+      ]
+    },
+    {
+      "id": "F1",
+      "title": "Classifier l'entropie documentaire",
+      "type": "inventory",
+      "status": "done",
+      "acceptance": [
+        "Chaque document de docs classé: authority/projection/historical",
+        "Toutes les entrées authority listées dans cynic-knowledge-topology-index.json"
+      ],
+      "artifact": "docs/ops/cynic-topology-classification-run-2026-07-02.json"
+    },
+    {
+      "id": "F2",
+      "title": "Imposer la résolution par tiers",
+      "type": "policy",
+      "status": "done",
+      "acceptance": [
+        "cynic-canonical-topology.json est la référence unique",
+        "docs/ops/kyon-* restent des projections de la stratégie active"
+      ],
+      "artifacts": [
+        "docs/ops/cynic-canonical-topology.json",
+        "docs/ops/cynic-multi-project-execution.json"
+      ],
+      "decision_file": "docs/ops/cynic-fragmentation-f2-policy-remediation-2026-07-02.json",
+      "supporting_artifacts": [
+        "docs/ops/cynic-fragmentation-f2-policy-check-2026-07-02.json"
+      ]
+    },
+    {
+      "id": "F3",
+      "title": "Éliminer la pollution de vérité opérationnelle",
+      "type": "execution",
+      "status": "in_progress",
+      "artifacts": [
+        "docs/ops/cynic-organism-data-reduction-2026-07-02.json",
+        "docs/ops/cynic-fragmentation-f3-runtime-policy-guard-2026-07-02.json"
+      ],
+      "acceptance": [
+        "Aucune assertion de politique dans un runbook sans lien vers l'index",
+        "Aucun document historique utilisé comme entrée d'exécution sans marque historical_only"
+        ,
+        "Runtime exécuté uniquement sur la partition live_projection_policy"
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "id": "G-CONSISTENCY",
+      "description": "Résultat accepté si aucune contradiction non résolue entre tiers priorisés",
+      "required_files": [
+        "docs/ops/cynic-canonical-topology.json",
+        "docs/ops/cynic-knowledge-topology-index.json"
+      ]
+    }
+  ]
+}

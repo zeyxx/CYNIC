@@ -1,0 +1,86 @@
+{
+  "schema_version": "cynic.project.adapter.binding.v1",
+  "created_at": "2026-07-02T10:00:00+02:00",
+  "project": "kyon-mobile",
+  "objective": "Make Kyon usable as a portable projection while preserving hexagonal architecture",
+  "composition_root": "so.cynic.kyon.bootstrap.KyonContainer",
+  "ports": {
+    "kernel_transport": {
+      "required": true,
+      "interface": "so.cynic.kyon.ports.ObservationSink",
+      "adapter": "so.cynic.kyon.adapters.sync.kernel.KernelObservationSink",
+      "runtime_config": {
+        "base_url": "KyonApp.PREF_KERNEL_URL",
+        "token": "KyonApp.PREF_KERNEL_BEARER",
+        "sync_enabled": "KyonApp.PREF_SYNC_ENABLED",
+        "observe_path": "/observe",
+        "timeout_ms": 4000
+      },
+      "forbidden_for_domain_layer": [
+        "java.net.HttpURLConnection",
+        "/observe path strings",
+        "/health path strings"
+      ]
+    },
+    "state_store": {
+      "required": true,
+      "interfaces": [
+        "so.cynic.kyon.ports.ActivityEventStore",
+        "so.cynic.kyon.ports.PhoneReportStore"
+      ],
+      "adapters": [
+        "so.cynic.kyon.adapters.storage.room.RoomActivityEventStore",
+        "so.cynic.kyon.adapters.storage.room.RoomPhoneReportStore"
+      ],
+      "config_keys": [
+        "database_name",
+        "database_migrations"
+      ]
+    },
+    "security": {
+      "required": true,
+      "capabilities": [
+        "token_at_rest_handling",
+        "network_toggle_policy",
+        "input_validation"
+      ],
+      "current": {
+        "secret_storage": "android SharedPreferences",
+        "network_toggle": "featureFlags + PREF_SYNC_ENABLED",
+        "hashing": "so.cynic.kyon.adapters.security.Sha256PeerHasher"
+      },
+      "migration_target": {
+        "secret_storage": "android Keystore-backed secret provider"
+      }
+    }
+  },
+  "bootstrap_contract": {
+    "entrypoint_class": "so.cynic.kyon.KyonApp",
+    "must_inject": [
+      "KyonDatabase",
+      "KernelConfig",
+      "ObservationSink",
+      "FeatureFlags"
+    ],
+    "must_not_instantiate_in_domain": true,
+    "forbidden_dependencies": [
+      "KernelObserveClient usage in application/domain layers",
+      "HTTP client construction outside adapters"
+    ]
+  },
+  "project_migration_map": {
+    "from_legacy": "Direct kernel API references in UI or domain",
+    "to_port": "ports.KernelTransport + ObservationSink implementations"
+  },
+  "evidence_artifacts": [
+    "docs/ops/kyon-live-verification-plan.json",
+    "docs/ops/cynic-multi-project-onboarding.json"
+  ],
+  "acceptance": {
+    "must_pass": [
+      "No production call path can touch HttpURLConnection except adapters",
+      "KyonContainer only sees interface types from ports",
+      "Changing sync endpoint requires only adapter config + prefs keys"
+    ]
+  }
+}

@@ -1055,12 +1055,6 @@
     },
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/TODO_IP_CAPLOGY.md",
-      "status": "draft",
-      "theme": "talaria_legal_genesis"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
       "path": "docs/internal/asdfasdfa-bagwork-futarchy-operating-contract-2026-06-29.md",
       "status": "draft",
       "theme": "cynic_protocol_framework"
@@ -1068,12 +1062,6 @@
     {
       "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
       "path": "docs/internal/caplogy-clarification-perimetre-DRAFT.md",
-      "status": "draft",
-      "theme": "talaria_legal_genesis"
-    },
-    {
-      "canonical_target": "docs/foundation/TALARIA_CYNIC_NAMING.md",
-      "path": "docs/internal/clarification_ip_caplogy.md",
       "status": "draft",
       "theme": "talaria_legal_genesis"
     },
@@ -1200,12 +1188,6 @@
     {
       "canonical_target": "AGENTS.md",
       "path": "docs/ops/hermes/FEEDBACK_LOOP_README.md",
-      "status": "projection",
-      "theme": "organism_runtime_topology"
-    },
-    {
-      "canonical_target": "AGENTS.md",
-      "path": "docs/ops/hermes/HERMES_LOGIN_SETUP.md",
       "status": "projection",
       "theme": "organism_runtime_topology"
     },
@@ -1595,12 +1577,6 @@
     },
     {
       "path": "docs/foundation/CYNIC_ANTI_POLLING_POLICY.md",
-      "theme": "cynic_protocol_framework",
-      "status": "draft",
-      "canonical_target": "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md"
-    },
-    {
-      "path": "docs/research/CWO_NARRATIVE_AHMAD_OSMAN.md",
       "theme": "cynic_protocol_framework",
       "status": "draft",
       "canonical_target": "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md"

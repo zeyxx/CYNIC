@@ -1,0 +1,512 @@
+{
+  "schema": "cynic.agentic_runtime_topology.v1",
+  "status": "normative",
+  "purpose": "Define the canonical agentic roles, shared runtime classes, and topological mapping rules so CYNIC stops fragmenting execution, memory, policy, observability, and actuation into competing structures.",
+  "authorities": {
+    "human_readable_policy": "docs/foundation/CYNIC_AGENTIC_RUNTIME_ROLES.md",
+    "meta_layer_contract": "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md",
+    "policy_matrix": "docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md",
+    "repo_topology_policy": "docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md",
+    "repo_topology_contract": "axioms/repo-topology-v1.json",
+    "autonomy_boundary": "axioms/agent-autonomy-boundary-v1.json"
+  },
+  "invariants": [
+    "Every canonical runtime surface must declare exactly one primary runtime class.",
+    "Every canonical persistent execution surface must declare at least one agentic role.",
+    "Shared runtime frameworks belong under services/ and must not masquerade as organs.",
+    "Organs may consume shared runtimes and contracts, but must not redefine shared runtime responsibilities locally.",
+    "Observability, askesis, execution, judgment, actuation, and coordination are independent concerns even when one implementation surface currently co-locates them.",
+    "A path that mixes runtime framework, datasets, heuristics, labs, and organ identity is transitional until split or quarantined."
+  ],
+  "agentic_roles": [
+    {
+      "id": "cortex",
+      "class": "episodic_control",
+      "allowed_responsibilities": [
+        "dna_mutation",
+        "operator_arbitration",
+        "design_decision",
+        "policy_exception_handling"
+      ],
+      "forbidden_responsibilities": [
+        "durable_runtime_supervision",
+        "hidden_memory_ledger",
+        "autonomous_deploy_loop"
+      ]
+    },
+    {
+      "id": "judge",
+      "class": "evaluation_and_gating",
+      "allowed_responsibilities": [
+        "verdict",
+        "objection",
+        "score",
+        "policy_gate",
+        "proof_requirement"
+      ],
+      "forbidden_responsibilities": [
+        "direct_infra_mutation",
+        "ungated_domain_execution"
+      ]
+    },
+    {
+      "id": "executor",
+      "class": "bounded_work_execution",
+      "allowed_responsibilities": [
+        "task_execution",
+        "session_subprocess_control",
+        "structured_result_emission",
+        "bounded_retry_and_budget"
+      ],
+      "forbidden_responsibilities": [
+        "policy_authorship",
+        "memory_canon_authorship",
+        "deploy_authority_without_actuation_contract"
+      ]
+    },
+    {
+      "id": "supervisor",
+      "class": "organism_drift_detection",
+      "allowed_responsibilities": [
+        "fragmentation_detection",
+        "stale_runtime_detection",
+        "corrective_task_dispatch",
+        "missing_evidence_detection"
+      ],
+      "forbidden_responsibilities": [
+        "hidden_policy_fork",
+        "unbounded_domain_logic"
+      ]
+    },
+    {
+      "id": "actuator",
+      "class": "bounded_mutation",
+      "allowed_responsibilities": [
+        "deploy_apply_restart",
+        "service_mutation",
+        "node_mutation",
+        "bounded_infra_mutation"
+      ],
+      "forbidden_responsibilities": [
+        "governance_rule_authorship",
+        "proof_free_success_claim"
+      ]
+    },
+    {
+      "id": "archivist",
+      "class": "askesis_memory_and_lineage",
+      "allowed_responsibilities": [
+        "structured_memory_append",
+        "semantic_compression",
+        "replay_metadata",
+        "anti_forgetting_hooks"
+      ],
+      "forbidden_responsibilities": [
+        "unrelated_domain_execution",
+        "direct_deploy_authority"
+      ]
+    },
+    {
+      "id": "platform",
+      "class": "substrate_and_placement",
+      "allowed_responsibilities": [
+        "node_placement",
+        "mesh_dns_ipam_storage_placement",
+        "build_runner_and_deploy_target_placement"
+      ],
+      "forbidden_responsibilities": [
+        "domain_semantics",
+        "undeclared_policy_reinterpretation"
+      ]
+    },
+    {
+      "id": "reliability",
+      "class": "sre_and_homoeostasis",
+      "allowed_responsibilities": [
+        "health_readiness_liveness_policy",
+        "backpressure_and_saturation_policy",
+        "rollback_criteria",
+        "incident_evidence"
+      ],
+      "forbidden_responsibilities": [
+        "domain_product_behavior",
+        "legal_or_protocol_governance_canon"
+      ]
+    },
+    {
+      "id": "observability",
+      "class": "legibility_and_evidence",
+      "allowed_responsibilities": [
+        "telemetry_envelopes",
+        "evidence_envelopes",
+        "introspection_surfaces",
+        "trace_metric_event_normalization"
+      ],
+      "forbidden_responsibilities": [
+        "domain_execution",
+        "deployment_placement",
+        "policy_authorship"
+      ]
+    }
+  ],
+  "agent_runtime_substrate_classes": [
+    {
+      "id": "hermes_framework_agent",
+      "meaning": "An autonomous task executor that actually invokes NousResearch/hermes-agent through the CYNIC adapter boundary.",
+      "required_evidence": [
+        "ExecStart or runtime adapter routes through services/ouroboros-runtime",
+        "HermesKanbanAdapter or equivalent Hermes adapter is used",
+        "task content is normalized through cynic.agent_execution_envelope.v1 or a declared CYNIC schema",
+        "repo-affecting tasks declare targets before hermes chat starts",
+        "bloodstream events are emitted before, during and after execution"
+      ],
+      "may_be_named": [
+        "*-hermes-agent",
+        "hermes-agent-executor"
+      ],
+      "must_not_be_confused_with": [
+        "custom_deterministic_controller",
+        "service_actuator",
+        "cortex_cli"
+      ]
+    },
+    {
+      "id": "custom_deterministic_controller",
+      "meaning": "A CYNIC-owned controller loop that consumes tasks and executes deterministic code paths without invoking Hermes Agent as the model runtime.",
+      "required_evidence": [
+        "owned organ/controller entrypoint",
+        "deterministic intent executor or adapter",
+        "machine-readable task result",
+        "no claim that Hermes Agent performed the work unless a Hermes adapter was invoked"
+      ],
+      "may_be_named": [
+        "*-controller",
+        "*-daemon",
+        "organ-*"
+      ],
+      "must_not_be_named": [
+        "*-hermes-agent"
+      ],
+      "must_not_be_confused_with": [
+        "hermes_framework_agent"
+      ]
+    },
+    {
+      "id": "service_actuator",
+      "meaning": "A bounded runtime mutator that applies registry-authorized changes such as build, deploy, restart, DNS or storage activation.",
+      "required_evidence": [
+        "registry desired state or approved lifecycle task",
+        "bounded side-effect envelope",
+        "read-back proof or observation",
+        "no model inference required for the mutation itself"
+      ],
+      "may_be_named": [
+        "*-actuator",
+        "*-activation",
+        "*-bridge"
+      ],
+      "must_not_be_confused_with": [
+        "hermes_framework_agent",
+        "interactive_cortex"
+      ]
+    },
+    {
+      "id": "interactive_cortex_cli",
+      "meaning": "Human-supervised episodic CLI session such as Codex, Claude Code, or Antigravity.",
+      "required_evidence": [
+        "human session present",
+        "coordination claims before repo edits",
+        "no persistent runtime supervision claim"
+      ],
+      "may_be_named": [
+        "codex",
+        "claude",
+        "antigravity"
+      ],
+      "must_not_be_confused_with": [
+        "autonomous_organ_agent",
+        "service_actuator"
+      ]
+    }
+  ],
+  "runtime_classes": [
+    {
+      "id": "execution-runtime",
+      "class": "shared_runtime_framework",
+      "allowed_responsibilities": [
+        "execution_loop",
+        "session_and_subprocess_control",
+        "execution_budgeting",
+        "retry_backoff",
+        "runtime_heartbeat"
+      ],
+      "forbidden_responsibilities": [
+        "domain_logic",
+        "policy_canon",
+        "durable_askesis_memory_canon"
+      ]
+    },
+    {
+      "id": "judge-runtime",
+      "class": "shared_runtime_framework",
+      "allowed_responsibilities": [
+        "verdict_envelope",
+        "objection",
+        "score",
+        "gate_evaluation",
+        "proof_check"
+      ],
+      "forbidden_responsibilities": [
+        "actuation",
+        "policy_authorship",
+        "domain_work_execution"
+      ]
+    },
+    {
+      "id": "askesis-runtime",
+      "class": "shared_runtime_framework",
+      "allowed_responsibilities": [
+        "memory_append_contract",
+        "semantic_compression",
+        "replay_metadata",
+        "anti_forgetting_memory_hook"
+      ],
+      "forbidden_responsibilities": [
+        "policy_authorship",
+        "deployment_side_effect"
+      ]
+    },
+    {
+      "id": "actuation-runtime",
+      "class": "shared_runtime_framework",
+      "allowed_responsibilities": [
+        "deploy_apply_restart_primitive",
+        "bounded_side_effect_envelope",
+        "rollback_hook",
+        "mutation_proof_envelope"
+      ],
+      "forbidden_responsibilities": [
+        "product_domain_semantics",
+        "operator_governance"
+      ]
+    },
+    {
+      "id": "observability-runtime",
+      "class": "shared_runtime_framework",
+      "allowed_responsibilities": [
+        "event_metric_trace_envelope",
+        "evidence_emission",
+        "health_evaluator",
+        "heartbeat_normalization",
+        "introspection_builder"
+      ],
+      "forbidden_responsibilities": [
+        "domain_execution_logic",
+        "policy_authorship"
+      ]
+    },
+    {
+      "id": "reliability-runtime",
+      "class": "shared_runtime_framework",
+      "allowed_responsibilities": [
+        "service_liveness_membrane",
+        "health_readiness_liveness_helper",
+        "degraded_mode_signal",
+        "operational_incident_evidence"
+      ],
+      "forbidden_responsibilities": [
+        "domain_execution_logic",
+        "policy_authorship"
+      ]
+    },
+    {
+      "id": "coordination-runtime",
+      "class": "shared_runtime_framework",
+      "allowed_responsibilities": [
+        "register_claim_release_client_flow",
+        "task_state_transition_helper",
+        "read_back_verification_helper",
+        "coordination_proof_helper"
+      ],
+      "forbidden_responsibilities": [
+        "kernel_authority_redefinition",
+        "domain_product_behavior"
+      ]
+    },
+    {
+      "id": "policy-runtime",
+      "class": "shared_runtime_framework",
+      "allowed_responsibilities": [
+        "side_effect_permission_check",
+        "fallback_policy_check",
+        "forbidden_surface_check",
+        "compliance_helper"
+      ],
+      "forbidden_responsibilities": [
+        "policy_doctrine_authorship",
+        "hidden_deployment_logic"
+      ]
+    },
+    {
+      "id": "integration-runtime",
+      "class": "shared_runtime_framework",
+      "allowed_responsibilities": [
+        "external_system_membrane",
+        "api_session_normalization",
+        "browser_computer_use_bridge",
+        "transport_adapter_envelope"
+      ],
+      "forbidden_responsibilities": [
+        "domain_semantics",
+        "memory_canon_authorship",
+        "policy_authorship"
+      ]
+    }
+  ],
+  "canonical_runtime_root_rules": {
+    "shared_runtime_root": "services/",
+    "organ_root": "organs/",
+    "contract_root": "organs/contracts/",
+    "policy_root": "docs/foundation/",
+    "machine_contract_root": "axioms/",
+    "forbidden_shared_runtime_shapes": [
+      "services/**/organs/**"
+    ]
+  },
+  "minimum_runtime_set": [
+    "execution-runtime",
+    "judge-runtime",
+    "askesis-runtime",
+    "actuation-runtime",
+    "observability-runtime",
+    "reliability-runtime",
+    "coordination-runtime"
+  ],
+  "current_mapping_pressure": [
+    {
+      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/",
+      "current_state": "transitional_mixed_runtime_identity",
+      "declared_primary_runtime_class": "execution-runtime",
+      "secondary_runtime_classes": [
+        "observability-runtime",
+        "reliability-runtime"
+      ],
+      "declared_roles": [
+        "executor",
+        "observability",
+        "reliability"
+      ],
+      "problems": [
+        "execution, observability and reliability responsibilities are not fully decoupled yet",
+        "runtime responsibilities are co-located in a path already marked transitional"
+      ],
+      "target_shape": "move shared runtime mechanics under explicit services/<runtime>/ roots and keep only compatibility shims during migration"
+    },
+    {
+      "path": "services/coordination-runtime/src/cynic_coord_runtime/",
+      "current_state": "canonicalizing_coordination_runtime",
+      "declared_primary_runtime_class": "coordination-runtime",
+      "secondary_runtime_classes": [],
+      "declared_roles": [
+        "supervisor"
+      ],
+      "problems": [
+        "service liveness has moved out, but polling still carries a legacy domain alias normalizer for compatibility",
+        "runtime still needs eventual contract-level normalization for legacy task-domain migration"
+      ],
+      "target_shape": "keep Kernel task/claim/read-back mechanics here and converge remaining compatibility shims toward shared contract or migration surfaces"
+    },
+    {
+      "path": "services/observability-runtime/src/cynic_observe_runtime/",
+      "current_state": "canonicalizing_observability_runtime",
+      "declared_primary_runtime_class": "observability-runtime",
+      "secondary_runtime_classes": [],
+      "declared_roles": [
+        "observability"
+      ],
+      "problems": [
+        "observation and evidence transport are separated from execution, but health evaluation and broader introspection are not yet centralized here",
+        "runtime is currently focused on Kernel observation membrane rather than the full observability stack"
+      ],
+      "target_shape": "keep observation/evidence publication here and converge health evaluation, heartbeat semantics and introspection builders toward this runtime over time"
+    },
+    {
+      "path": "services/reliability-runtime/src/cynic_reliability_runtime/",
+      "current_state": "emerging_reliability_runtime",
+      "declared_primary_runtime_class": "reliability-runtime",
+      "secondary_runtime_classes": [],
+      "declared_roles": [
+        "reliability"
+      ],
+      "problems": [
+        "runtime currently owns only the Kernel service-liveness membrane",
+        "broader readiness, degraded-mode and rollback helpers are not centralized yet"
+      ],
+      "target_shape": "converge service liveness, readiness policy and operational incident helpers under this runtime as reuse appears"
+    },
+    {
+      "path": "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_coordination.py",
+      "current_state": "execution_owned_hermes_coordination_policy",
+      "declared_primary_runtime_class": "execution-runtime",
+      "secondary_runtime_classes": [
+        "coordination-runtime"
+      ],
+      "declared_roles": [
+        "executor"
+      ],
+      "problems": [
+        "Hermes-specific repo-claim policy now composes generic coordination primitives but remains tightly bound to Ouroboros execution",
+        "policy is reusable for Hermes executors, but not yet promoted to a framework-neutral contract surface"
+      ],
+      "target_shape": "keep executor-specific coordination policy here until another executor needs the same semantics, then lift the contract upward"
+    },
+    {
+      "path": "organs/contracts/",
+      "current_state": "canonical_shared_contract_surface",
+      "declared_roles": [
+        "judge",
+        "archivist",
+        "observability"
+      ],
+      "declared_primary_runtime_class": "coordination-runtime",
+      "notes": [
+        "shared ports, adapters and payload envelopes already belong here",
+        "runtime frameworks must consume this layer rather than recreate contract logic"
+      ]
+    },
+    {
+      "path": "organs/forge/src/entrypoints/cli.py",
+      "current_state": "custom_deterministic_controller_mislabeled_as_hermes_agent",
+      "declared_primary_runtime_class": "actuation-runtime",
+      "declared_runtime_substrate_class": "custom_deterministic_controller",
+      "entrypoint_command": "python3 organs/forge/src/entrypoints/cli.py daemon",
+      "declared_roles": [
+        "actuator",
+        "supervisor"
+      ],
+      "problems": [
+        "organ-forge lifecycle daemon executes deterministic lifecycle intents directly",
+        "the organ-forge-hermes-agent service name implies Hermes Agent framework execution even when Hermes is not invoked"
+      ],
+      "target_shape": "rename or reclassify the service as an organ-forge controller/actuator unless it routes execution through the Hermes framework adapter"
+    },
+    {
+      "path": "services/cynic-python/",
+      "current_state": "mixed_workspace_and_runtime_surface",
+      "problems": [
+        "runtime framework, datasets, heuristics, labs and agent surfaces share one root",
+        "ownership is not singular",
+        "canonical and exploratory concerns are mixed"
+      ],
+      "target_shape": "split canonical runtimes into explicit services/<runtime>/ roots and quarantine remaining exploratory/data-heavy surfaces into explicit workspace ownership"
+    }
+  ],
+  "review_questions": [
+    "Which agentic role owns this surface?",
+    "Which runtime class owns its shared mechanics?",
+    "What decisions may it take?",
+    "What decisions are forbidden?",
+    "What proof or read-back must it emit?",
+    "Why is it not already covered by an existing runtime or contract?"
+  ]
+}

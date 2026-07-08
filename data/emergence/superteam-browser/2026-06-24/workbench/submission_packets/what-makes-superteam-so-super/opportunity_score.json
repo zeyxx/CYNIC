@@ -1,0 +1,57 @@
+{
+  "browser_task": {
+    "allowed_actions": [
+      "open_public_listing",
+      "open_public_resource_links",
+      "extract_requirements",
+      "capture_sanitized_text_evidence",
+      "capture_public_screenshot_reference"
+    ],
+    "context": {
+      "deadline": "2026-06-30T22:59:59.999Z",
+      "resources": [],
+      "reward_amount": 1900.0,
+      "slug": "what-makes-superteam-so-super",
+      "title": "What makes Superteam So Super?",
+      "token": "USDG"
+    },
+    "created_at": "2026-06-24T00:31:56.001643+00:00",
+    "evidence_required": [
+      "current_listing_status",
+      "deadline",
+      "submission_requirements",
+      "judging_criteria",
+      "resource_links",
+      "auth_or_credential_blockers"
+    ],
+    "forbidden_actions": [
+      "submit_application",
+      "post_to_social",
+      "connect_wallet",
+      "sign_transaction",
+      "trade_stake_deposit_or_transfer",
+      "store_cookie_token_secret_or_private_profile_data"
+    ],
+    "human_gate": {
+      "reason": "External browser execution and every Superteam submission remain human-gated.",
+      "required": true
+    },
+    "id": "superteam-what-makes-superteam-so-super-evidence",
+    "objective": "Collect fresh public evidence and submission requirements for this Superteam opportunity without mutating external state.",
+    "source": "organ-superteam",
+    "url": "https://superteam.fun/earn/listing/what-makes-superteam-so-super/"
+  },
+  "gates": [
+    "human_submission",
+    "external_browser"
+  ],
+  "layer": "research_or_feedback",
+  "next_action": "browser_research_and_submission_outline",
+  "reasons": [
+    "medium_reward",
+    "near_term"
+  ],
+  "score": 19.0,
+  "slug": "what-makes-superteam-so-super",
+  "title": "What makes Superteam So Super?"
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "AgentSkill.schema.json",
+  "title": "AgentSkill",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "maturity",
+    "trigger",
+    "inputs",
+    "outputs",
+    "workflow",
+    "safety_constraints"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "maturity": {
+      "enum": [
+        "seed",
+        "usable",
+        "needs_organization"
+      ]
+    },
+    "trigger": {
+      "type": "string"
+    },
+    "inputs": {
+      "type": "array"
+    },
+    "outputs": {
+      "type": "array"
+    },
+    "workflow": {
+      "type": "array"
+    },
+    "safety_constraints": {
+      "type": "array"
+    },
+    "superteam_probe": {
+      "type": [
+        "object",
+        "array",
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

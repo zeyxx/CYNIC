@@ -1,0 +1,118 @@
+{
+  "schema_version": "cynic.fragmentation.f2.policy.check.v1",
+  "created_at": "2026-07-02T11:20:00+02:00",
+  "batch": "cynic-fragmentation-eradication",
+  "source": "docs/ops/cynic-topology-classification-run-2026-07-02.json",
+  "hits": {
+    "total": 49,
+    "top_dirs": [
+      {
+        "dir": "CYNIC_ECOSYSTEM_ARCHITECTURE.md",
+        "count": 1
+      },
+      {
+        "dir": "DATASET_ARCHITECTURE.md",
+        "count": 1
+      },
+      {
+        "dir": "DATA_CONSTITUTION.md",
+        "count": 1
+      },
+      {
+        "dir": "api",
+        "count": 1
+      },
+      {
+        "dir": "architecture",
+        "count": 11
+      },
+      {
+        "dir": "archive",
+        "count": 2
+      },
+      {
+        "dir": "audit",
+        "count": 2
+      },
+      {
+        "dir": "domains",
+        "count": 4
+      },
+      {
+        "dir": "foundation",
+        "count": 10
+      },
+      {
+        "dir": "hackathon",
+        "count": 2
+      },
+      {
+        "dir": "identity",
+        "count": 3
+      },
+      {
+        "dir": "reference",
+        "count": 3
+      },
+      {
+        "dir": "research",
+        "count": 2
+      },
+      {
+        "dir": "superpowers",
+        "count": 6
+      }
+    ],
+    "sample": [
+      "docs/CYNIC_ECOSYSTEM_ARCHITECTURE.md",
+      "docs/DATASET_ARCHITECTURE.md",
+      "docs/DATA_CONSTITUTION.md",
+      "docs/api/openapi.json",
+      "docs/architecture/BEHAVIORAL_ANALYTICS_ARCHITECTURE.md",
+      "docs/architecture/COORDINATION-MCP-FOUNDATION.md",
+      "docs/architecture/CYNIC-DATA-ARCHITECTURE-APPLIED.md",
+      "docs/architecture/CYNIC-NODE-PHASE-B-LIFECYCLE.md",
+      "docs/architecture/CYNIC-NODE-SOMA-SYSTEM.md",
+      "docs/architecture/CYNIC-ORGANISM-DISTRIBUTED-ROADMAP.md",
+      "docs/architecture/ORGAN-WIREGUARD-V3.md",
+      "docs/architecture/ORGANISM-DATA-METABOLISM.md",
+      "docs/architecture/PROXMOX-FLEET-CARTOGRAPHY.md",
+      "docs/architecture/TOPOLOGY.md",
+      "docs/architecture/talaria-observatory.md",
+      "docs/archive/TODO-HISTORY.md",
+      "docs/archive/TODO-ROBUSTNESS.md",
+      "docs/audit/CYNIC-DEEP-AUDIT-2026-03-25.md",
+      "docs/audit/WORKFLOW-TRUTH-AUDIT-2026-04-15.md",
+      "docs/domains/DOMAIN-DISPATCH.md",
+      "docs/domains/DOMAIN_DISCOVERY_COMPLETE.md",
+      "docs/domains/REGISTRY.md",
+      "docs/domains/calibration.md",
+      "docs/foundation/CYNIC_DEPRECATED_SURFACE_REPORT_2026-06-27.md",
+      "docs/foundation/CYNIC_E_SCORE.md",
+      "docs/foundation/CYNIC_LEGAL_GENESIS_PLAN.md",
+      "docs/foundation/CYNIC_MULTI_SCALE_EMPIRICAL_RULE.md",
+      "docs/foundation/CYNIC_ONE_PERSON_ENTERPRISE_FUTARCHY_FRAMEWORK.md",
+      "docs/foundation/CYNIC_PROTOCOL_REVENUE_WATERFALL.md",
+      "docs/foundation/CYNIC_TECHNICAL_WHITEPAPER.md",
+      "docs/foundation/CYNIC_TOKEN_EQUITY_FIREWALL.md",
+      "docs/foundation/README.md",
+      "docs/foundation/TALARIA_SAS_GENESIS_NOTE.md",
+      "docs/hackathon/HACKATHON_SUBMISSION.md",
+      "docs/hackathon/integration-proposal-cynic-asdelegate-2026-04-08.md",
+      "docs/identity/AXIOM-VII-KENOSIS.md",
+      "docs/identity/CWO-METHODOLOGY.md",
+      "docs/identity/CYNIC-IDENTITY-GRAPH.md",
+      "docs/reference/CYNIC-INFRASTRUCTURE-ROADMAP.md",
+      "docs/reference/INFERENCE-SOT.md",
+      "docs/reference/INFRA-BUILD.md",
+      "docs/research/CCM-ORGANISM-AUDIT-2026-05-12.md",
+      "docs/research/overnight-research-agent-architecture.md",
+      "docs/superpowers/plans/2026-05-23-solana-rework.md",
+      "docs/superpowers/specs/2026-05-02-kairos-temporal-consciousness-design.md",
+      "docs/superpowers/specs/2026-05-11-hermes-shared-browser-behavioral-engine-design.md",
+      "docs/superpowers/specs/2026-05-15-crystal-vivant-mycelium-transport-design.md",
+      "docs/superpowers/specs/2026-05-22-asdf-forge-github-org-design.md",
+      "docs/superpowers/specs/2026-05-23-solana-rework-design.md"
+    ]
+  }
+}

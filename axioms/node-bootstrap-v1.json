@@ -1,0 +1,69 @@
+{
+  "schema": "cynic.node_bootstrap.v1",
+  "status": "normative",
+  "purpose": "Define the minimal, architecture-neutral bootstrap ladder for a CYNIC node joining the organism.",
+  "principle": {
+    "definition": "Bootstrap is the smallest auditable path by which a heterogeneous machine becomes observable, addressable and eventually actionable without assuming the full organism is already healthy.",
+    "why": "The organism currently lives on one operator's material substrate; external heterogeneous setups need deterministic birth stages instead of implicit local knowledge.",
+    "anti_chicken_egg_rule": "A bootstrap stage may depend only on earlier stages. No stage may require the lifecycle/mempool path it is supposed to restore."
+  },
+  "bootstrap_ladder": [
+    {
+      "stage": "b0_binary_alive",
+      "meaning": "cynic-node executable can start on the host architecture.",
+      "requires": [],
+      "evidence": ["process_alive", "version_or_build_metadata"]
+    },
+    {
+      "stage": "b1_local_identity_observed",
+      "meaning": "node name, OS, architecture, hostname and local IPs are observable.",
+      "requires": ["b0_binary_alive"],
+      "evidence": ["node.name", "node.os", "node.arch", "node.ips"]
+    },
+    {
+      "stage": "b2_kernel_reachable",
+      "meaning": "node can reach the kernel transport and authenticate enough to emit observation.",
+      "requires": ["b1_local_identity_observed"],
+      "evidence": ["kernel.reachable", "POST /observe accepted"]
+    },
+    {
+      "stage": "b3_constellation_declared",
+      "meaning": "node publishes the functional constellation it belongs to.",
+      "requires": ["b2_kernel_reachable"],
+      "evidence": ["node.constellation", "fleet.constellation observation"]
+    },
+    {
+      "stage": "b4_services_sampled",
+      "meaning": "node samples bounded service liveness declared for that host.",
+      "requires": ["b3_constellation_declared"],
+      "evidence": ["services[].name", "services[].status"]
+    },
+    {
+      "stage": "b5_runtime_actionable",
+      "meaning": "higher organs may dispatch bounded actions to this node through declared contracts.",
+      "requires": ["b4_services_sampled"],
+      "evidence": ["organ-fleet ingestion", "activation evidence patch", "coord target claim"]
+    }
+  ],
+  "canonical_emitter": "cynic-node --watchdog",
+  "canonical_observation_schema": "cynic.node_bootstrap_evidence.v1",
+  "forbidden_assumptions": [
+    "systemd is always present",
+    "glibc version matches the build machine",
+    "the node can build Rust locally",
+    "the node has a Dog backend",
+    "the lifecycle mempool is writable before storage bootstrap is healthy",
+    "the operator's local LAN is the universal service plane"
+  ],
+  "heterogeneous_setup_policy": {
+    "build_artifact": "prefer static musl for Linux targets",
+    "runtime_identity": "derive OS and architecture at observation time",
+    "activation": "progress through bootstrap stages; never skip directly to deploy",
+    "fallback": "emergency direct mutation is allowed only to restore the bus, then must be assimilated into source contracts"
+  },
+  "source_files": [
+    "crates/cynic-node/src/domain/bootstrap.rs",
+    "crates/cynic-node/src/watchdog.rs",
+    "axioms/node-constellation-v1.json"
+  ]
+}

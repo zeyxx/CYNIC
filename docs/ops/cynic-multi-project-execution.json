@@ -1,0 +1,159 @@
+{
+  "manifest_version": "1.0.0",
+  "goal": "Make CYNIC portable across N projects while preserving production-grade topology",
+  "current_project": "CYNIC",
+  "constraints": [
+    "single_source_of_truth_file: docs/ops/cynic-canonical-topology.json",
+    "no hardcoded project-specific URLs/tokens in runtime/core",
+    "keep repository topology declarations as policy sources",
+    "preserve existing organism contracts and MCP exposed tools"
+  ],
+  "canonical_topology": "docs/ops/cynic-canonical-topology.json",
+  "doc_policy": "docs/ops/*.md are derived evidence/procedures, never source truth",
+  "roadmap": [
+    {
+      "id": "R1",
+      "name": "Identify hard couplings in runtime",
+      "status": "done",
+      "owner": "cortex",
+      "artifacts": [
+        "docs/ops/coupling-discovery-r1.json",
+        "docs/ops/coupling-discovery-r1-top20.json",
+        "docs/ops/coupling-discovery-r1-codeonly.json"
+      ],
+      "results": {
+        "discovery_count": 76,
+        "discovery_codeonly_count": 51,
+        "high_priority_files": [
+          "organs/forge/state/poh.json",
+          "organs/supervisor/state/body-health.json",
+          "organs/reflection/state/organism_state.json",
+          "organs/reflection/state/state.json",
+          "organs/framework-map/state/latest-hermes-map.json",
+          "crates/cynic-kernel/src/api/rest/mod.rs",
+          "crates/cynic-kernel/src/infra/config.rs",
+          "crates/cynic-kernel/src/infra/boot.rs"
+        ]
+      },
+      "steps": [
+        {
+          "cmd": "rg -n \"localhost|127\\.0\\.0\\.1|/home/user|FIXME|TODO\" crates organs docs infra",
+          "type": "discovery"
+        },
+        {
+          "cmd": "rg -n \"Path|PathBuf|registry|node|service|fleet\" docs/foundation docs/ops crates orgs",
+          "type": "discovery"
+        },
+        {
+          "cmd": "rg -n \"localhost|127\\\\.0\\\\.0\\\\.1|/home/user|TODO|FIXME\" crates organs infra --glob '!*state*' --glob '!*tests*' --glob '!*README*' --glob '!*.md'",
+          "type": "discovery"
+        }
+      ],
+      "acceptance": [
+        "List of explicit coupling points with file:line references."
+      ]
+    },
+    {
+      "id": "R2",
+      "name": "Create project adapter interface package",
+      "status": "in_progress",
+      "owner": "cortex",
+      "artifacts": [
+        "docs/ops/cynic-project-adapter-contract.json",
+        "docs/ops/kyon-portability-runtime-contract.json",
+        "docs/ops/kyon-live-verification-plan.json",
+        "docs/ops/cynic-multi-project-onboarding.json"
+      ],
+      "steps": [
+        {
+          "cmd": "Create per-project adapter binding artifact for Kyon mobile transport/secrets/storage boundaries.",
+          "type": "artifact"
+        },
+        {
+          "cmd": "Create adapters in <project>/src/adapters/project for: secrets, transport, persistence, permissions.",
+          "type": "implementation"
+        },
+        {
+          "cmd": "Bind these adapters in bootstrap entry points only.",
+          "type": "implementation"
+        },
+        {
+          "cmd": "Define live-only validation steps and evidence contracts for non-simulated data checks.",
+          "type": "validation"
+        }
+      ],
+      "acceptance": [
+        "Domain and application layers compile with adapter interfaces only.",
+        "Onboarding JSON artifact contains complete, reproducible Kyon binding map.",
+        "Live verification has explicit pass criteria with structured output artifacts."
+      ]
+    },
+    {
+      "id": "R3",
+      "name": "Extract project contract schema",
+      "status": "planned",
+      "owner": "cortex",
+      "steps": [
+        {
+          "cmd": "Add JSON contract for project adapters",
+          "type": "artifact"
+        },
+        {
+          "cmd": "Version contract and document required keys",
+          "type": "artifact"
+        }
+      ],
+      "acceptance": [
+        "Single JSON contract file exists with semver and change log."
+      ]
+    },
+    {
+      "id": "R4",
+      "name": "Bootstrap portability proof",
+      "status": "planned",
+      "owner": "cortex",
+      "steps": [
+        {
+          "cmd": "Prepare sample target repo mapping using only adapter overrides and JSON config.",
+          "type": "implementation"
+        },
+        {
+          "cmd": "Run compile + gate sequence for target mapping.",
+          "type": "validation"
+        }
+      ],
+      "acceptance": [
+        "At least one non-Kyon project boots CYNIC using only adapter/config swaps."
+      ]
+    }
+  ],
+  "gates": {
+    "pre_exec": [
+      {
+        "id": "G0",
+        "command": "make gate-0",
+        "expected": "pass"
+      }
+    ],
+    "post_exec": [
+      {
+        "id": "G1",
+        "command": "make gate-1",
+        "expected": "pass"
+      },
+      {
+        "id": "G2",
+        "expected": "local_release_not_required_for_porting_scope"
+      }
+    ]
+  },
+  "evidence": {
+    "artifact_format": "json",
+    "required_artifacts": [
+      "discovery.log.jsonl",
+      "coupling-report.json",
+      "adapter-contract.json",
+      "portability-smoke-test-report.json"
+    ]
+  }
+}

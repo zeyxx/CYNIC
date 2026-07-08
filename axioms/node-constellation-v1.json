@@ -1,0 +1,61 @@
+{
+  "schema": "cynic.node_constellation.v1",
+  "status": "normative",
+  "purpose": "Define constellation as the runtime grouping principle for comparable node-level evidence emitted by cynic-node watchdog cells.",
+  "principle": {
+    "definition": "A constellation is a named group of nodes or cells that share a runtime function and publish comparable L0 evidence without requiring a central cortex session.",
+    "why": "Fleet truth needs fractal grouping above individual processes but below organs, so lifecycle can reason about build, kernel, storage, mesh, forge, and cortex runtime families deterministically.",
+    "kenosis_rule": "A watchdog observation must report only local evidence and bounded service status; it must not infer global health or perform rich orchestration."
+  },
+  "required_observation_fields": [
+    "schema",
+    "node.name",
+    "node.role",
+    "node.constellation",
+    "system",
+    "kernel",
+    "observed_at"
+  ],
+  "canonical_observation_schema": "cynic.node_watchdog_observation.v1",
+  "canonical_emitter": "cynic-node --watchdog",
+  "canonical_domain": "fleet.constellation",
+  "consumer": "organ-fleet",
+  "constellations": [
+    {
+      "name": "kernel",
+      "function": "Kernel primary and kernel-adjacent runtime liveness."
+    },
+    {
+      "name": "forge",
+      "function": "Build runner, repo lifecycle, release validation and forge surfaces."
+    },
+    {
+      "name": "storage",
+      "function": "Storage primary and persistence readiness."
+    },
+    {
+      "name": "mesh",
+      "function": "Synapse, DNS and access mesh reachability."
+    },
+    {
+      "name": "cortex",
+      "function": "Operator and episodic reasoning surfaces."
+    },
+    {
+      "name": "inference",
+      "function": "Dog backend and local inference capacity."
+    }
+  ],
+  "invariants": [
+    "node.constellation is a functional grouping, not a host identity",
+    "node.name must still match registry node identity when the node is declared",
+    "organ-fleet may aggregate constellations, but each cynic-node watchdog only emits local evidence",
+    "watchdog mode must start without dog or process config",
+    "dog supervision may layer on top of watchdog evidence but must not be required for L0 liveness"
+  ],
+  "source_files": [
+    "crates/cynic-node/src/watchdog.rs",
+    "crates/cynic-node/node.toml.example",
+    "infra/registry.json"
+  ]
+}

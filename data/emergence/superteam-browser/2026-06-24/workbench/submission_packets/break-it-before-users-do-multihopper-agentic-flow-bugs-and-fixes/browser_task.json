@@ -1,0 +1,50 @@
+{
+  "allowed_actions": [
+    "open_public_listing",
+    "open_public_resource_links",
+    "extract_requirements",
+    "capture_sanitized_text_evidence",
+    "capture_public_screenshot_reference"
+  ],
+  "context": {
+    "deadline": "2026-07-10T22:59:59.999Z",
+    "resources": [
+      "https://res.cloudinary.com/dgvnuwspr/image/upload/v1781121976/listing-description/jnlr24llmw4yoba7bbqw.webp",
+      "https://dev-docs.multihopper.com/",
+      "https://dev-docs.multihopper.com/",
+      "https://dev-docs.multihopper.com/guides/agentic-integration",
+      "https://dev-docs.multihopper.com/guides/agentic-integration",
+      "https://dev-docs.multihopper.com/mcp",
+      "https://dev-docs.multihopper.com/mcp"
+    ],
+    "reward_amount": 1000.0,
+    "slug": "break-it-before-users-do-multihopper-agentic-flow-bugs-and-fixes",
+    "title": "Break It Before Users Do: MultiHopper Agentic Flow Bugs & Fixes",
+    "token": "USDC"
+  },
+  "created_at": "2026-06-24T00:31:56.002581+00:00",
+  "evidence_required": [
+    "current_listing_status",
+    "deadline",
+    "submission_requirements",
+    "judging_criteria",
+    "resource_links",
+    "auth_or_credential_blockers"
+  ],
+  "forbidden_actions": [
+    "submit_application",
+    "post_to_social",
+    "connect_wallet",
+    "sign_transaction",
+    "trade_stake_deposit_or_transfer",
+    "store_cookie_token_secret_or_private_profile_data"
+  ],
+  "human_gate": {
+    "reason": "External browser execution and every Superteam submission remain human-gated.",
+    "required": true
+  },
+  "id": "superteam-break-it-before-users-do-multihopper-agentic-flow-bugs-and-fixes-evidence",
+  "objective": "Collect fresh public evidence and submission requirements for this Superteam opportunity without mutating external state.",
+  "source": "organ-superteam",
+  "url": "https://superteam.fun/earn/listing/break-it-before-users-do-multihopper-agentic-flow-bugs-and-fixes/"
+}

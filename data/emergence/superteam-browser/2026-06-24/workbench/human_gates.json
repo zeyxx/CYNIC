@@ -1,0 +1,124 @@
+{
+  "browser_runtime": "Codex did not have access to the organism browser runtime in this session; browser_requests.jsonl is the handoff queue for a browser-capable agent.",
+  "policy": "No external submission, post, wallet connection, signature, transfer, stake, deposit, or authenticated mutation without explicit human approval.",
+  "targets": [
+    {
+      "gates": [
+        "human_submission",
+        "external_browser"
+      ],
+      "next_action": "package_public_skill_repo_or_pr",
+      "slug": "skills",
+      "title": "Ship useful agent skills we can add to Solana AI Kit"
+    },
+    {
+      "gates": [
+        "human_submission",
+        "external_browser",
+        "wallet_or_funds"
+      ],
+      "next_action": "request_infra_credits_and_scope_minimum_lifecycle_demo",
+      "slug": "advanced-infrastructure-challenge-build-a-smart-transaction-stack",
+      "title": "Advanced Infrastructure Challenge \u2013 Build a Smart Transaction Stack"
+    },
+    {
+      "gates": [
+        "human_submission",
+        "external_browser"
+      ],
+      "next_action": "browser_research_and_submission_outline",
+      "slug": "deep-dive-australian-innovation-investment-and-competitiveness",
+      "title": "Deep Dive | Australian Innovation, Investment & Competitiveness"
+    },
+    {
+      "gates": [
+        "human_submission",
+        "external_browser",
+        "wallet_or_funds",
+        "sponsor_credentials"
+      ],
+      "next_action": "ask_sponsor_for_test_credentials_then_run_matrix",
+      "slug": "break-it-before-users-do-multihopper-agentic-flow-bugs-and-fixes",
+      "title": "Break It Before Users Do: MultiHopper Agentic Flow Bugs & Fixes"
+    },
+    {
+      "gates": [
+        "human_submission",
+        "external_browser"
+      ],
+      "next_action": "browser_research_and_submission_outline",
+      "slug": "explain-clapmi-in-your-niche",
+      "title": "Explain ClapMi in Your Niche"
+    },
+    {
+      "gates": [
+        "human_submission",
+        "external_browser",
+        "public_identity"
+      ],
+      "next_action": "draft_only_until_public_identity_gate",
+      "slug": "publish-twitter-deep-dive-on-solana-in-2026",
+      "title": "Publish Twitter Deep Dive on Solana in 2026"
+    },
+    {
+      "gates": [
+        "human_submission",
+        "external_browser",
+        "wallet_or_funds"
+      ],
+      "next_action": "browser_research_and_submission_outline",
+      "slug": "fatcat-product-feedback",
+      "title": "Product Feedback"
+    },
+    {
+      "gates": [
+        "human_submission",
+        "external_browser",
+        "public_identity"
+      ],
+      "next_action": "draft_only_until_public_identity_gate",
+      "slug": "best-solana-summit-germany-content-bounty",
+      "title": "Best Solana Summit Germany Content Bounty"
+    },
+    {
+      "gates": [
+        "human_submission",
+        "external_browser",
+        "wallet_or_funds"
+      ],
+      "next_action": "browser_research_and_submission_outline",
+      "slug": "hubra-rasol-bounty-nope",
+      "title": "Hubra raSOL Bounty"
+    },
+    {
+      "gates": [
+        "human_submission",
+        "external_browser",
+        "public_identity"
+      ],
+      "next_action": "draft_only_until_public_identity_gate",
+      "slug": "create-a-video-why-build-in-australia",
+      "title": "Create a video | Why Build in Australia?"
+    },
+    {
+      "gates": [
+        "human_submission",
+        "external_browser"
+      ],
+      "next_action": "browser_research_and_submission_outline",
+      "slug": "what-makes-superteam-so-super",
+      "title": "What makes Superteam So Super?"
+    },
+    {
+      "gates": [
+        "human_submission",
+        "external_browser",
+        "public_identity",
+        "wallet_or_funds"
+      ],
+      "next_action": "draft_only_until_public_identity_gate",
+      "slug": "paj-video-content-bounty",
+      "title": "Paj Video Content Bounty"
+    }
+  ]
+}

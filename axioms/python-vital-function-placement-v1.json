@@ -1,0 +1,155 @@
+{
+  "schema": "cynic.python_vital_function_placement.v1",
+  "status": "normative",
+  "purpose": "Declare which Python organ functions are vital, why they are too authoritative to remain mutable glue long-term, and which Rust crate family must absorb them.",
+  "authorities": {
+    "meta_layer_contract": "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md",
+    "repo_topology_contract": "axioms/repo-topology-v1.json",
+    "rust_crate_roles": "axioms/rust-crate-roles-v1.json"
+  },
+  "placement_policy": {
+    "rule": "Python organs may remain membranes, bundles, wrappers and exploratory probes, but stable vital functions must graduate into canonical Rust crates.",
+    "python_may_keep": [
+      "entrypoint glue",
+      "operator bundle rendering",
+      "temporary migration wrappers",
+      "exploratory observation logic without stable contract authority"
+    ],
+    "python_must_not_keep": [
+      "canonical runtime truth",
+      "stable policy validation",
+      "shared deterministic diff logic",
+      "reusable network/service contract computation"
+    ]
+  },
+  "target_crate_policy": [
+    {
+      "target_crate": "crates/cynic-node",
+      "expected_family": "soma",
+      "expected_class": "node_runtime",
+      "why": "Node-local runtime truth, bounded repair planning, and host/service/network observation belong here."
+    },
+    {
+      "target_crate": "crates/cynic-mcp",
+      "expected_family": "nervous_system",
+      "expected_class": "portable_mcp_surface",
+      "why": "Portable agent-facing projections and network/tool schemas belong here."
+    },
+    {
+      "target_crate": "crates/cynic-kernel",
+      "expected_family": "nervous_system",
+      "expected_class": "kernel_runtime",
+      "why": "Durable memory, observations, coordination and stable registry-backed lifecycle truth belong here."
+    },
+    {
+      "target_crate": "crates/cynic-inference",
+      "expected_family": "judgment",
+      "expected_class": "inference_runtime",
+      "why": "Deterministic evaluators, convergence heuristics and judgment-like reusable logic belong here when they stop moving."
+    }
+  ],
+  "function_groups": [
+    {
+      "id": "fleet_network_contracts",
+      "status": "planned_migration",
+      "organ": "organ-fleet",
+      "criticality": "high",
+      "target_crate": "crates/cynic-node",
+      "target_component": "network_contracts",
+      "source_paths": [
+        "organs/fleet/src/core/network_surfaces.py",
+        "organs/fleet/src/adapters/registry_adapter.py"
+      ],
+      "functions": [
+        "dns_activation_plan",
+        "coredns_corefile",
+        "resolved_dropin",
+        "dns_records_from_hosts",
+        "mesh_status_payload",
+        "observe_network_runtime",
+        "provider_route_status",
+        "provider_connectivity_status"
+      ],
+      "reason": "These are deterministic network contract computations and runtime policy reads that should not live as mutable Python business logic in the canonical active organ."
+    },
+    {
+      "id": "wireguard_legacy_network_contracts",
+      "status": "planned_removal_after_absorption",
+      "organ": "organ-wireguard",
+      "criticality": "high",
+      "target_crate": "crates/cynic-node",
+      "target_component": "network_contracts",
+      "source_paths": [
+        "organs/wireguard/src/core/dns_activation.py",
+        "organs/wireguard/src/core/status_reports.py",
+        "organs/wireguard/src/core/runtime_observation.py",
+        "organs/wireguard/src/adapters/registry_adapter.py"
+      ],
+      "functions": [
+        "dns_activation_plan",
+        "coredns_corefile",
+        "resolved_dropin",
+        "dns_records_from_hosts",
+        "mesh_status_payload",
+        "observe_network_runtime"
+      ],
+      "reason": "Legacy WireGuard logic is duplicated with organ-fleet and must be removed after absorption into the canonical network runtime."
+    },
+    {
+      "id": "forge_gap_diagnostics",
+      "status": "planned_migration",
+      "organ": "organ-forge",
+      "criticality": "medium",
+      "target_crate": "crates/cynic-kernel",
+      "target_component": "lifecycle_gap_contracts",
+      "source_paths": [
+        "organs/forge/src/core/lifecycle_diagnostic_payloads.py"
+      ],
+      "functions": [
+        "_gap_order_for_family",
+        "_gap_dependency",
+        "_structural_gap_entries",
+        "_gap_coverage_summary",
+        "_ownership_summary",
+        "organism_gap_map_payload"
+      ],
+      "reason": "Lifecycle gap classification and ownership drift rules are deterministic contracts and should converge on a stable Rust authority once the transition stops moving."
+    },
+    {
+      "id": "supervisor_contract_validators",
+      "status": "active_migration_queue",
+      "organ": "organ-supervisor",
+      "criticality": "high",
+      "target_crate": "crates/cynic-mcp",
+      "target_component": "contract_validators",
+      "source_paths": [
+        "organs/supervisor/src/core/infrastructure_mcp_contract.py",
+        "organs/supervisor/src/core/api_topology_contract.py",
+        "organs/supervisor/src/core/openapi_route_contract.py"
+      ],
+      "functions": [
+        "validate",
+        "api_geometry_report",
+        "validate_openapi_route_contract"
+      ],
+      "reason": "Stable MCP and API surface contracts should not remain Python-only once they govern canonical exposure."
+    },
+    {
+      "id": "lifecycle_dependency_convergence",
+      "status": "planned_migration",
+      "organ": "organ-lifecycle",
+      "criticality": "medium",
+      "target_crate": "crates/cynic-inference",
+      "target_component": "dependency_convergence",
+      "source_paths": [
+        "organs/lifecycle/src/core/dependency_convergence.py",
+        "organs/lifecycle/src/core/supply_chain_analysis.py"
+      ],
+      "functions": [
+        "build_dependency_convergence_report",
+        "analyze_supply_chain_drift"
+      ],
+      "reason": "Convergence and supply-chain heuristics are better treated as reusable deterministic evaluation logic than long-lived Python organ authority."
+    }
+  ]
+}

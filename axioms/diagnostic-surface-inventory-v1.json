@@ -1,0 +1,55 @@
+{
+  "schema": "cynic.diagnostic_surface_inventory.v1",
+  "status": "draft",
+  "draft_reason": "root-level diagnostics and local development projections were classified after they appeared as open membrane files.",
+  "promotion_condition": "each diagnostic surface is either migrated to a bounded test/MCP diagnostic, moved to an explicit dev projection, or removed; no unclassified watched root diagnostic remains.",
+  "decision_authority": "organ-supervisor",
+  "purpose": "Classify root-level local diagnostics and development projections so they cannot silently become policy, organs, lifecycle or runtime memory.",
+  "watched_root_globs": [
+    "debug_*.py",
+    "test_*.py",
+    "docker-compose*.yml",
+    "docker-compose*.yaml"
+  ],
+  "allowed_statuses": [
+    "local_diagnostic",
+    "local_dev_projection",
+    "transitional",
+    "quarantined"
+  ],
+  "status_transition_policy": {
+    "local_dev_projection": {
+      "owner": "organ-supervisor",
+      "rule": "A local dev projection may support operator development but must not become canonical runtime placement or storage truth.",
+      "exit_condition": "move under an explicit dev projection boundary, generate it from registry policy, or delete it"
+    },
+    "local_diagnostic": {
+      "owner": "organ-supervisor",
+      "rule": "A local diagnostic may probe behavior during cleanup but must not become a hidden test, policy, or lifecycle path.",
+      "exit_condition": "migrate to a bounded test/MCP diagnostic, replace with a Make target, or delete it"
+    },
+    "quarantined": {
+      "owner": "organ-supervisor",
+      "rule": "A quarantined diagnostic is unsafe or obsolete and must not guide active operations.",
+      "exit_condition": "delete, archive as evidence, or replace with a typed diagnostic"
+    },
+    "transitional": {
+      "owner": "organ-supervisor",
+      "rule": "A transitional diagnostic has a known replacement and may exist only during migration.",
+      "exit_condition": "complete replacement and remove the root-level diagnostic"
+    }
+  },
+  "required_fields": [
+    "path",
+    "status",
+    "owner",
+    "classification",
+    "replacement",
+    "expiry_condition"
+  ],
+  "surfaces": [],
+  "totals": {
+    "surfaces": 0,
+    "by_status": {}
+  }
+}

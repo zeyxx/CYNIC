@@ -1,0 +1,731 @@
+{
+  "schema": "cynic.hermes_agent_command_map.v1",
+  "generated_at": "2026-07-03T00:00:00+02:00",
+  "agent_id": "codex-cortex-20260703-ai-stack-leverage",
+  "source": {
+    "upstream_repository": "https://github.com/NousResearch/hermes-agent",
+    "local_checkout": "/tmp/hermes-agent",
+    "installed_binary": "hermes",
+    "observed_version": "Hermes Agent v0.18.0 (2026.7.1)",
+    "status_command": "hermes status --all",
+    "status_redaction": "API keys, credential paths, and secret suffixes are not recorded in this map."
+  },
+  "current_local_runtime_observation": {
+    "provider": "Google AI Studio",
+    "model": null,
+    "gateway_status": "stopped",
+    "scheduled_jobs": 0,
+    "active_sessions": 0,
+    "terminal_backend": "local",
+    "configured_messaging_platforms": [
+      "slack"
+    ],
+    "credential_observation": "At least one provider key is configured locally, but secrets are intentionally omitted."
+  },
+  "cynic_expected_runtime_route": {
+    "authority": "backends.toml plus fleet evidence",
+    "principle": "Hermes should be propelled by a CYNIC fleet LLM backend, not by an arbitrary external provider picker state.",
+    "primary_candidate": {
+      "backend": "qwen36-27b-gpu",
+      "fleet_node": "cynic-host-gpu",
+      "server": "llama-server",
+      "api_shape": "OpenAI-compatible /v1",
+      "model": "Qwen3.6-27B-IQ3_XXS.gguf",
+      "sovereign": true,
+      "supports_tool_use": true,
+      "latency_class": "background"
+    },
+    "secondary_candidate": {
+      "backend": "qwen3-4b-core",
+      "fleet_node": "localhost",
+      "server": "llama-server",
+      "api_shape": "OpenAI-compatible /v1",
+      "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "sovereign": true,
+      "supports_tool_use": false,
+      "latency_class": "realtime"
+    },
+    "observed_mismatch": "The Hermes CLI status currently reports Google AI Studio with no selected model. That is an adapter/runtime configuration mismatch relative to the organism route, not the desired CYNIC execution contract."
+  },
+  "root_cli_commands": [
+    "chat",
+    "model",
+    "moa",
+    "fallback",
+    "secrets",
+    "migrate",
+    "gateway",
+    "proxy",
+    "lsp",
+    "setup",
+    "postinstall",
+    "whatsapp",
+    "whatsapp-cloud",
+    "slack",
+    "send",
+    "login",
+    "logout",
+    "auth",
+    "status",
+    "cron",
+    "webhook",
+    "portal",
+    "kanban",
+    "project",
+    "hooks",
+    "doctor",
+    "security",
+    "dump",
+    "debug",
+    "backup",
+    "checkpoints",
+    "import",
+    "config",
+    "pairing",
+    "skills",
+    "bundles",
+    "plugins",
+    "curator",
+    "pets",
+    "journey",
+    "learning",
+    "memory-graph",
+    "memory",
+    "tools",
+    "computer-use",
+    "mcp",
+    "sessions",
+    "insights",
+    "claw",
+    "version",
+    "update",
+    "uninstall",
+    "acp",
+    "profile",
+    "completion",
+    "dashboard",
+    "serve",
+    "desktop",
+    "gui",
+    "logs",
+    "prompt-size"
+  ],
+  "command_groups": {
+    "llm_provider_model": {
+      "commands": {
+        "model": {
+          "purpose": "Interactively select inference provider and default model.",
+          "options": [
+            "--refresh",
+            "--portal-url",
+            "--inference-url",
+            "--client-id",
+            "--scope",
+            "--no-browser",
+            "--manual-paste",
+            "--timeout",
+            "--ca-bundle",
+            "--insecure"
+          ]
+        },
+        "fallback": {
+          "purpose": "Manage provider/model fallback chain.",
+          "subcommands": [
+            "list",
+            "ls",
+            "add",
+            "remove",
+            "rm",
+            "clear"
+          ]
+        },
+        "moa": {
+          "purpose": "Configure provider/model set for mixture-of-agents prompting.",
+          "subcommands": [
+            "list",
+            "ls",
+            "configure",
+            "config",
+            "delete",
+            "rm"
+          ]
+        },
+        "status": {
+          "purpose": "Inspect environment, provider, model, API key presence, auth providers, terminal backend, messaging platforms, gateway, scheduled jobs, and sessions.",
+          "observed_flags": [
+            "--all"
+          ]
+        },
+        "prompt-size": {
+          "purpose": "Report fixed prompt budget for a fresh session without an API call.",
+          "options": [
+            "--platform",
+            "--json"
+          ]
+        }
+      },
+      "cynic_integration_gap": "CYNIC does not yet enforce that Hermes active provider/model/fallback/MoA state resolves to a declared fleet backend from backends.toml with soma leases, cost evidence, sovereignty policy, and organ-scoped allowlists."
+    },
+    "agent_execution_and_coordination": {
+      "commands": {
+        "kanban": {
+          "purpose": "Task boards, decomposition, swarm dispatch, worker claims, comments, state changes, daemon, telemetry, and garbage collection.",
+          "subcommands": [
+            "init",
+            "boards",
+            "create",
+            "swarm",
+            "list",
+            "ls",
+            "show",
+            "assign",
+            "reclaim",
+            "reassign",
+            "diagnostics",
+            "diag",
+            "link",
+            "unlink",
+            "claim",
+            "comment",
+            "complete",
+            "edit",
+            "block",
+            "schedule",
+            "unblock",
+            "promote",
+            "archive",
+            "tail",
+            "dispatch",
+            "daemon",
+            "watch",
+            "stats",
+            "notify-subscribe",
+            "notify-list",
+            "notify-unsubscribe",
+            "log",
+            "runs",
+            "heartbeat",
+            "assignees",
+            "context",
+            "specify",
+            "decompose",
+            "gc"
+          ]
+        },
+        "cron": {
+          "purpose": "Scheduled task lifecycle.",
+          "subcommands": [
+            "list",
+            "create",
+            "add",
+            "edit",
+            "pause",
+            "resume",
+            "run",
+            "remove",
+            "rm",
+            "delete",
+            "status",
+            "tick"
+          ],
+          "options": [
+            "--accept-hooks"
+          ]
+        },
+        "project": {
+          "purpose": "Human-named workspaces spanning folders/repos, optionally bound to kanban boards.",
+          "subcommands": [
+            "create",
+            "list",
+            "ls",
+            "show",
+            "add-folder",
+            "remove-folder",
+            "rename",
+            "set-primary",
+            "use",
+            "archive",
+            "restore",
+            "bind-board"
+          ]
+        }
+      },
+      "cynic_integration_gap": "Kanban state is now partially mirrored by the adapter, but task decomposition, board state, worker telemetry, and terminal events are not yet first-class kernel observations."
+    },
+    "tooling_and_surface_area": {
+      "commands": {
+        "tools": {
+          "purpose": "Enable, disable, list, and post-setup Hermes toolsets.",
+          "subcommands": [
+            "list",
+            "disable",
+            "enable",
+            "post-setup"
+          ]
+        },
+        "mcp": {
+          "purpose": "Serve and manage MCP servers.",
+          "subcommands": [
+            "serve",
+            "add",
+            "remove",
+            "rm",
+            "list",
+            "ls",
+            "test",
+            "configure",
+            "config",
+            "login",
+            "reauth",
+            "picker",
+            "catalog",
+            "install"
+          ]
+        },
+        "acp": {
+          "purpose": "Run Hermes in Agent Client Protocol mode for editor integration.",
+          "options": [
+            "--accept-hooks",
+            "--version",
+            "--check",
+            "--setup",
+            "--setup-browser",
+            "--yes"
+          ]
+        },
+        "computer-use": {
+          "purpose": "Install and diagnose CUA driver for desktop computer use.",
+          "subcommands": [
+            "install",
+            "status",
+            "doctor",
+            "permissions"
+          ]
+        }
+      },
+      "cynic_integration_gap": "CYNIC needs a policy renderer that converts organ intent into Hermes enabled/disabled toolsets instead of giving every task the full Hermes surface."
+    },
+    "skills_plugins_memory_sessions": {
+      "commands": {
+        "skills": {
+          "purpose": "Search, install, inspect, audit, configure, publish, and manage skills.",
+          "subcommands": [
+            "browse",
+            "search",
+            "install",
+            "inspect",
+            "list",
+            "check",
+            "update",
+            "audit",
+            "uninstall",
+            "reset",
+            "list-modified",
+            "diff",
+            "opt-out",
+            "opt-in",
+            "repair-official",
+            "publish",
+            "snapshot",
+            "tap",
+            "config"
+          ]
+        },
+        "plugins": {
+          "purpose": "Install and manage plugins from Git repositories.",
+          "subcommands": [
+            "install",
+            "update",
+            "remove",
+            "rm",
+            "uninstall",
+            "list",
+            "ls",
+            "enable",
+            "disable"
+          ]
+        },
+        "bundles": {
+          "purpose": "Create and manage skill bundles exposed as slash commands.",
+          "subcommands": [
+            "list",
+            "show",
+            "create",
+            "delete",
+            "reload"
+          ]
+        },
+        "memory": {
+          "purpose": "Manage external memory providers while built-in MEMORY.md/USER.md remains active.",
+          "providers": [
+            "honcho",
+            "openviking",
+            "mem0",
+            "hindsight",
+            "holographic",
+            "retaindb",
+            "byterover"
+          ],
+          "subcommands": [
+            "setup",
+            "status",
+            "off",
+            "reset"
+          ]
+        },
+        "sessions": {
+          "purpose": "Manage SQLite session store.",
+          "subcommands": [
+            "list",
+            "export",
+            "delete",
+            "prune",
+            "optimize",
+            "repair",
+            "stats",
+            "rename",
+            "browse"
+          ]
+        },
+        "profile": {
+          "purpose": "Manage Hermes profiles and distributions.",
+          "subcommands": [
+            "list",
+            "use",
+            "create",
+            "delete",
+            "describe",
+            "show",
+            "alias",
+            "rename",
+            "export",
+            "import",
+            "install",
+            "update",
+            "info"
+          ]
+        }
+      },
+      "cynic_integration_gap": "Hermes memory/session/profile state must remain adapter-local; durable organism memory remains the CYNIC kernel mempool and observations."
+    },
+    "messaging_gateway_and_servers": {
+      "commands": {
+        "gateway": {
+          "purpose": "Run and manage messaging gateway across platforms.",
+          "subcommands": [
+            "run",
+            "start",
+            "stop",
+            "restart",
+            "status",
+            "install",
+            "uninstall",
+            "list",
+            "setup",
+            "migrate-legacy",
+            "enroll"
+          ],
+          "options": [
+            "--accept-hooks"
+          ]
+        },
+        "dashboard": {
+          "purpose": "Launch web dashboard for config, API keys, and sessions.",
+          "subcommands": [
+            "register"
+          ],
+          "options": [
+            "--port",
+            "--host",
+            "--insecure",
+            "--skip-build",
+            "--isolated",
+            "--stop",
+            "--status",
+            "--no-open"
+          ]
+        },
+        "serve": {
+          "purpose": "Run headless JSON-RPC/WebSocket backend server.",
+          "options": [
+            "--port",
+            "--host",
+            "--insecure",
+            "--skip-build",
+            "--isolated",
+            "--stop",
+            "--status"
+          ]
+        },
+        "hooks": {
+          "purpose": "Inspect, test, revoke, and diagnose shell hooks.",
+          "subcommands": [
+            "list",
+            "ls",
+            "test",
+            "revoke",
+            "remove",
+            "rm",
+            "doctor"
+          ]
+        }
+      },
+      "cynic_integration_gap": "Gateway channels can become cashflow/outreach organs only after CYNIC adds human-gated outbound queues and channel-level consent/evidence controls."
+    },
+    "maintenance_security_backup": {
+      "commands": {
+        "doctor": {
+          "purpose": "Diagnose Hermes setup.",
+          "options": [
+            "--fix",
+            "--ack"
+          ]
+        },
+        "security": {
+          "purpose": "Run OSV.dev supply-chain audit for Hermes venv, plugins, and pinned MCP servers.",
+          "subcommands": [
+            "audit"
+          ]
+        },
+        "backup": {
+          "purpose": "Archive Hermes configuration, skills, sessions, and data.",
+          "options": [
+            "--output",
+            "--quick",
+            "--label"
+          ]
+        },
+        "checkpoints": {
+          "purpose": "Manage filesystem checkpoint shadow git store.",
+          "subcommands": [
+            "status",
+            "list",
+            "prune",
+            "clear",
+            "clear-legacy"
+          ]
+        },
+        "config": {
+          "purpose": "Manage Hermes configuration.",
+          "subcommands": [
+            "show",
+            "edit",
+            "set",
+            "path",
+            "env-path",
+            "check",
+            "migrate"
+          ]
+        }
+      },
+      "cynic_integration_gap": "CYNIC can call these as diagnostics, but release gates and repo policy remain CYNIC-owned."
+    }
+  },
+  "static_toolset_inventory": {
+    "source_file": "/tmp/hermes-agent/toolsets.py",
+    "toolset_count": 57,
+    "tool_count": 76,
+    "toolset_names": [
+      "browser",
+      "clarify",
+      "code_execution",
+      "coding",
+      "computer_use",
+      "context_engine",
+      "cronjob",
+      "debugging",
+      "delegation",
+      "discord",
+      "discord_admin",
+      "feishu_doc",
+      "feishu_drive",
+      "file",
+      "hermes-acp",
+      "hermes-api-server",
+      "hermes-bluebubbles",
+      "hermes-cli",
+      "hermes-cron",
+      "hermes-dingtalk",
+      "hermes-discord",
+      "hermes-email",
+      "hermes-feishu",
+      "hermes-gateway",
+      "hermes-homeassistant",
+      "hermes-matrix",
+      "hermes-mattermost",
+      "hermes-qqbot",
+      "hermes-signal",
+      "hermes-slack",
+      "hermes-sms",
+      "hermes-telegram",
+      "hermes-webhook",
+      "hermes-wecom",
+      "hermes-wecom-callback",
+      "hermes-weixin",
+      "hermes-whatsapp",
+      "hermes-yuanbao",
+      "homeassistant",
+      "image_gen",
+      "kanban",
+      "memory",
+      "project",
+      "safe",
+      "search",
+      "session_search",
+      "skills",
+      "spotify",
+      "terminal",
+      "todo",
+      "tts",
+      "video",
+      "video_gen",
+      "vision",
+      "web",
+      "x_search",
+      "yuanbao"
+    ],
+    "tool_names": [
+      "browser_back",
+      "browser_cdp",
+      "browser_click",
+      "browser_console",
+      "browser_dialog",
+      "browser_get_images",
+      "browser_navigate",
+      "browser_press",
+      "browser_scroll",
+      "browser_snapshot",
+      "browser_type",
+      "browser_vision",
+      "clarify",
+      "close_terminal",
+      "computer_use",
+      "cronjob",
+      "delegate_task",
+      "discord",
+      "discord_admin",
+      "execute_code",
+      "feishu_doc_read",
+      "feishu_drive_add_comment",
+      "feishu_drive_list_comment_replies",
+      "feishu_drive_list_comments",
+      "feishu_drive_reply_comment",
+      "ha_call_service",
+      "ha_get_state",
+      "ha_list_entities",
+      "ha_list_services",
+      "image_generate",
+      "kanban_block",
+      "kanban_comment",
+      "kanban_complete",
+      "kanban_create",
+      "kanban_heartbeat",
+      "kanban_link",
+      "kanban_list",
+      "kanban_show",
+      "kanban_unblock",
+      "memory",
+      "patch",
+      "process",
+      "project_create",
+      "project_list",
+      "project_switch",
+      "read_file",
+      "read_terminal",
+      "search_files",
+      "session_search",
+      "skill_manage",
+      "skill_view",
+      "skills_list",
+      "spotify_albums",
+      "spotify_devices",
+      "spotify_library",
+      "spotify_playback",
+      "spotify_playlists",
+      "spotify_queue",
+      "spotify_search",
+      "terminal",
+      "text_to_speech",
+      "todo",
+      "video_analyze",
+      "video_generate",
+      "vision_analyze",
+      "web_extract",
+      "web_search",
+      "write_file",
+      "x_search",
+      "xai_video_edit",
+      "xai_video_extend",
+      "yb_query_group_info",
+      "yb_query_group_members",
+      "yb_search_sticker",
+      "yb_send_dm",
+      "yb_send_sticker"
+    ]
+  },
+  "cynic_llm_propulsion_contract": {
+    "principle": "Hermes Agent remains the default agentic execution framework, but the LLM that propels Hermes must resolve through CYNIC fleet inference when the task is organism-owned. CYNIC owns sovereignty, cost policy, kernel memory, coordination claims, and proof emission.",
+    "do_not_rebuild": [
+      "provider picker",
+      "fallback provider chain",
+      "mixture-of-agents slots",
+      "tool-capable model routing",
+      "prompt budget reporting"
+    ],
+    "required_bridge": {
+      "name": "hermes_fleet_model_provider_bridge",
+      "inputs": [
+        "hermes status --all",
+        "hermes config show",
+        "hermes fallback list",
+        "hermes moa list",
+        "hermes prompt-size --json",
+        "backends.toml",
+        "fleet_node_status",
+        "network_mesh_status",
+        "soma acquire/release evidence"
+      ],
+      "outputs": [
+        "cynic.hermes.model_state.v1 observation",
+        "resolved fleet backend id",
+        "resolved fleet node id",
+        "soma cost and budget evidence",
+        "organ-scoped allowed provider/model/toolset policy",
+        "kernel-visible degraded status when Hermes model is unset, non-sovereign, or does not match the declared fleet backend"
+      ],
+      "first_blocker_to_fix": "Hermes currently reports a provider but no selected default model in this environment; CYNIC must force or verify the fleet OpenAI-compatible backend route before Hermes execution is treated as sovereign organism work."
+    }
+  },
+  "bottom_up_cashflow_integration_order": [
+    {
+      "rank": 1,
+      "name": "model_provider_bridge",
+      "why": "Without observable provider/model/fallback state, CYNIC cannot govern cost, sovereignty, or quality of Hermes executions."
+    },
+    {
+      "rank": 2,
+      "name": "toolset_policy_renderer",
+      "why": "Each organ must launch Hermes with only the toolsets needed for its task."
+    },
+    {
+      "rank": 3,
+      "name": "kanban_event_mirror",
+      "why": "Hermes decomposition and worker progress must become kernel observations, not terminal text."
+    },
+    {
+      "rank": 4,
+      "name": "browser_result_to_prospect_batch",
+      "why": "This turns browser/search work into inspectable SMB prospect inventory for organ-prospect."
+    },
+    {
+      "rank": 5,
+      "name": "human_gated_outreach_queue",
+      "why": "Messaging/gateway capability is useless for acquisition until consent, review, and evidence are enforced."
+    },
+    {
+      "rank": 6,
+      "name": "delivery_factory",
+      "why": "Prospects become cashflow only when CYNIC can produce websites and workflow automations with repeatable deployment evidence."
+    }
+  ]
+}

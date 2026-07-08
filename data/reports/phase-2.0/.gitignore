@@ -1,0 +1,3 @@
+# Runtime outputs from measurement runs — keep off git
+measurement_report_*.md
+divergence_*.csv

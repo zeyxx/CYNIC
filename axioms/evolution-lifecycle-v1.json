@@ -1,0 +1,95 @@
+{
+  "schema": "cynic.evolution_lifecycle.v1",
+  "status": "normative",
+  "version": 1,
+  "purpose": "Define the machine-readable lifecycle from cortex-authored repo mutation to sovereign Forgejo coordination, Kernel mempool dispatch, and registry-mediated production convergence.",
+  "authorities": {
+    "policy": "docs/foundation/CYNIC_EVOLUTION_LIFECYCLE.md",
+    "meta_layer_contract": "axioms/meta-layer-contract-v1.json",
+    "repo_topology_contract": "axioms/repo-topology-v1.json",
+    "registry": "infra/registry.json"
+  },
+  "sovereign_forge": {
+    "forge_authority": "Forgejo is the priority sovereign forge authority for agency/privacy-sensitive lifecycle coordination; GitHub remains the external proprietary upstream, backup, publication and intelligence source.",
+    "git_role": "Git remains the content-addressed DAG, local membrane and archival substrate; it is not the lifecycle authority by itself.",
+    "kernel_role": "The Kernel is the nervous-system bus for tasks, claims, observations and read-back evidence.",
+    "organ_roles": {
+      "organ-forge": "Perceives forge/repo state, coordinates claims and dispatches lifecycle intent.",
+      "organ-lifecycle": "Converges registry-selected runtime, build, validation and deployment state.",
+      "organ-exposure": "Projects organism capabilities to cortex adapters and MCP surfaces.",
+      "organ-framework-map": "Observes external frameworks so execution routes can be selected from evidence."
+    },
+    "forbidden_authorities": [
+      "GitHub Actions as canonical CI",
+      "GitHub pull request state as canonical lifecycle truth",
+      "local git commit as production evidence",
+      "cortex-local push as deployment proof"
+    ]
+  },
+  "fractal_recursion": {
+    "rule": "Every lifecycle layer must expose the same recursive shape: intent, claim, route, execute, observe, result, converge.",
+    "scales": {
+      "cell": ["process intent", "process lock", "exit code", "stdout_json", "artifact"],
+      "organ": ["organ task", "coord claim", "port adapter", "runtime execution", "observation", "SSOT update"],
+      "organism": ["registry profile", "mempool task", "build runner", "kernel read-back", "runtime evidence"],
+      "superorganism": ["external forge or protocol intent", "federated claim", "signed evidence", "settlement or publication"]
+    },
+    "non_recursion_smells": [
+      "one-off wrapper that bypasses claims",
+      "manual lifecycle step without read-back",
+      "provider-specific route with no generic envelope",
+      "state transition without evidence at its own scale"
+    ]
+  },
+  "state_layers": {
+    "cortex": ["intent_captured", "cortex_registered", "attention_loaded", "targets_claimed", "repo_mutated"],
+    "local_validation": ["local_gates_passed"],
+    "registry": ["release_profile_resolved", "payloads_validated"],
+    "kernel": ["mempool_dispatched", "organ_claimed_task"],
+    "organ": ["runner_validating", "release_validated", "deploy_dispatched"],
+    "runtime": ["runtime_applied", "production_observed"],
+    "coordination": ["claims_released", "closed"]
+  },
+  "canonical_states": [
+    "intent_captured",
+    "cortex_registered",
+    "attention_loaded",
+    "targets_claimed",
+    "repo_mutated",
+    "local_gates_passed",
+    "release_profile_resolved",
+    "payloads_validated",
+    "mempool_dispatched",
+    "organ_claimed_task",
+    "runner_validating",
+    "release_validated",
+    "deploy_dispatched",
+    "runtime_applied",
+    "production_observed",
+    "claims_released",
+    "closed"
+  ],
+  "blocked_states": [
+    "coordination_conflict",
+    "local_gate_failed",
+    "registry_target_unresolved",
+    "mempool_readback_failed",
+    "organ_task_failed",
+    "runtime_evidence_missing"
+  ],
+  "production_definition": {
+    "requires_registry_authority": true,
+    "requires_mempool_readback": true,
+    "requires_lifecycle_organ_completion": true,
+    "requires_runtime_or_service_evidence": true,
+    "non_deploying_profile_exception": "release_validated may transition to production_observed when the completed lifecycle task is the effective runtime evidence"
+  },
+  "forbidden_shortcuts": [
+    "cortex local shell build presented as canonical supply chain",
+    "committed source diff presented as production evidence",
+    "GitHub or generic git host state presented as sovereign lifecycle authority",
+    "wrapper command redefining lifecycle semantics",
+    "runtime status promoted without registry authority",
+    "mempool dispatch claimed without pending or completed read-back"
+  ]
+}

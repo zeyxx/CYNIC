@@ -546,6 +546,14 @@
           "src/ports/",
           "src/usecases/"
         ],
+        "max_rs_file_lines": 500,
+        "line_count_exceptions": [
+          {
+            "path": "src/main.rs",
+            "max_lines": 700,
+            "reason": "cynic-node main.rs is still carrying transitional supervision/runtime composition and is being reduced under active migration."
+          }
+        ],
         "owner": "cynic-node",
         "reason": "cynic-node is the Rust hexagonal organ crate and must keep its domain, adapters, ports and usecases boundaries explicit."
       }

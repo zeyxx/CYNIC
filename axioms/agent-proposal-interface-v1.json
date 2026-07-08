@@ -1,0 +1,124 @@
+{
+  "schema": "cynic.agent_proposal_interface.v1",
+  "status": "normative",
+  "purpose": "Define how proposals produced by cortex agents and persistent organic agents become operator-reviewable interface objects and public candidates without leaking private execution state.",
+  "owner": "organ-lifecycle",
+  "layer_authority": {
+    "policy": "docs/foundation/CYNIC_ORGANISM_POLICY_MATRIX.md",
+    "public_interface": "axioms/one-person-enterprise-interface-v1.json",
+    "task_memory": "Kernel agent_tasks mempool",
+    "public_projection": "packages/public-ui"
+  },
+  "invariants": [
+    "Every agent proposal is JSON before it is UI copy.",
+    "A proposal is operator-visible by default and public only after an explicit review transition.",
+    "Inference may propose, but it must not publish or mutate public-facing claims directly.",
+    "Private execution details, secrets, raw prompts, private IPs, credentials and bearer tokens are never part of the public projection.",
+    "A public proposal must cite inspectable evidence or declare the claim as unverified.",
+    "Rejected or superseded proposals remain useful operator evidence but must not be promoted as public outcomes."
+  ],
+  "proposal_envelope": {
+    "schema": "cynic.agent_proposal.v1",
+    "required_fields": [
+      "proposal_id",
+      "source",
+      "domain",
+      "objective",
+      "visibility",
+      "operator_review",
+      "public_projection",
+      "targets",
+      "coord_targets",
+      "proof",
+      "rollback",
+      "confidence"
+    ],
+    "visibility_states": [
+      "operator_private",
+      "public_candidate",
+      "public",
+      "rejected",
+      "superseded"
+    ],
+    "operator_review_states": [
+      "pending",
+      "approved",
+      "rejected",
+      "needs_evidence",
+      "needs_redaction"
+    ]
+  },
+  "review_event_contract": {
+    "schema": "cynic.agent_proposal_review.v1",
+    "route": "POST /agent-proposals/{proposal_id}/review",
+    "storage_mode": "append_only_observation",
+    "agent_safe_default": false,
+    "required_fields": [
+      "proposal_id",
+      "state",
+      "reviewer",
+      "public_eligible",
+      "reviewed_at"
+    ],
+    "valid_states": [
+      "approved",
+      "rejected",
+      "needs_evidence",
+      "needs_redaction"
+    ],
+    "invariants": [
+      "A review event records operator judgment without mutating the original proposal envelope.",
+      "public_eligible=true is valid only when state == approved.",
+      "Review events are private operator evidence until a separate public projection passes redaction."
+    ]
+  },
+  "public_projection_contract": {
+    "schema": "cynic.agent_proposal_public_projection.v1",
+    "required_fields": [
+      "title",
+      "summary",
+      "status_label",
+      "evidence_refs",
+      "risk_label",
+      "redaction_status"
+    ],
+    "must_not_include": [
+      "raw_prompt",
+      "api_key",
+      "bearer_token",
+      "private_key",
+      "unredacted_private_ip",
+      "operator_local_path",
+      "secret_env"
+    ],
+    "publication_gate": [
+      "operator_review.state == approved",
+      "public_projection.redaction_status == clean",
+      "proof.evidence_refs is not empty or status_label declares unverified"
+    ]
+  },
+  "interface_slots": [
+    {
+      "route": "/operator/proposals",
+      "audience": "operator",
+      "purpose": "Review all agent proposals, approve/reject them, request evidence and decide whether a proposal may become public."
+    },
+    {
+      "route": "/decisions",
+      "audience": "public",
+      "purpose": "Expose approved decision-grade proposals as public questions or public proof cards."
+    },
+    {
+      "route": "/build-log",
+      "audience": "public",
+      "purpose": "Expose approved build proposals only after proof and redaction gates are satisfied."
+    }
+  ],
+  "agent_obligations": [
+    "include targets and coord_targets for repo-affecting proposals",
+    "include proof_commands or evidence_refs",
+    "include rollback shape when mutation is proposed",
+    "set visibility to operator_private unless the operator has approved publication",
+    "set public_projection.redaction_status to needs_review until redaction is proven clean"
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "generated_at": "2026-06-24T00:00:00+02:00",
+  "name": "organ-browser",
+  "status": "emerging_spec",
+  "mission": "Provide sovereign, account-aware web perception and safe interaction for agents without leaking secrets or letting untrusted web content become instructions.",
+  "empirical_basis": [
+    "Superteam Earn requires search, filters, detail pages, auth-only surfaces, and safe form inspection.",
+    "Browser Hub was reachable, but tab and window ownership remains rough for long autonomous sessions.",
+    "Direct Chrome CDP is powerful but bypasses organ policy unless wrapped by a governed adapter."
+  ],
+  "owned_data": [
+    "route maps",
+    "page observations",
+    "selector inventories",
+    "network endpoint inventory",
+    "screenshots and traces with redaction policy",
+    "action ledger"
+  ],
+  "state_boundaries": {
+    "allowed": [
+      "non-secret metadata",
+      "redacted screenshots",
+      "public API payload summaries",
+      "selector maps",
+      "safe interaction logs"
+    ],
+    "forbidden": [
+      "cookies",
+      "tokens",
+      "passwords",
+      "personal Google data",
+      "authenticated raw HTML dumps",
+      "wallet private keys"
+    ]
+  },
+  "hexagonal_shape": {
+    "core": [
+      "NavigationIntent",
+      "PageEvidence",
+      "ActionPolicy",
+      "HumanGate",
+      "RedactionRule"
+    ],
+    "ports": [
+      "SearchPort",
+      "ScrapePort",
+      "BrowserPort",
+      "EvidenceStorePort",
+      "SecretScannerPort",
+      "KernelObservationPort"
+    ],
+    "adapters": [
+      "SearXNGAdapter",
+      "FirecrawlAdapter",
+      "BrowserHubAdapter",
+      "PlaywrightAdapter",
+      "ChromeCdpAdapter",
+      "FilesystemEvidenceStore",
+      "CynicKernelObservationAdapter"
+    ]
+  },
+  "policy_layers": [
+    {
+      "layer": "search",
+      "tools": ["SearXNG"],
+      "allowed_actions": ["query", "collect candidate URLs", "record snippets"],
+      "mutation_risk": "none"
+    },
+    {
+      "layer": "extract",
+      "tools": ["Firecrawl", "static fetch"],
+      "allowed_actions": ["scrape known public URLs", "extract markdown", "extract metadata"],
+      "mutation_risk": "low"
+    },
+    {
+      "layer": "interact",
+      "tools": ["Browser Hub", "Playwright", "Camofox or equivalent"],
+      "allowed_actions": ["open", "click", "filter", "scroll", "inspect forms", "screenshot"],
+      "mutation_risk": "medium"
+    },
+    {
+      "layer": "mutate",
+      "tools": ["Browser Hub with explicit human approval"],
+      "allowed_actions": ["submit", "post", "connect wallet", "sign", "purchase", "stake", "deposit"],
+      "mutation_risk": "high",
+      "gate": "human_approval_required"
+    }
+  ],
+  "required_skills": [
+    "web_route_mapper",
+    "filter_pagination_walker",
+    "safe_submission_form_prober",
+    "evidence_bundle_creator",
+    "human_gate_requester"
+  ],
+  "interactions": [
+    {
+      "with": "organ-superteam",
+      "contract": "Provide normalized page evidence and safe action affordances for bounty workflows."
+    },
+    {
+      "with": "organ-evidence",
+      "contract": "Send redacted traces, screenshots, source URLs, hashes, and replay notes."
+    },
+    {
+      "with": "kernel",
+      "contract": "Emit JSON observations for material discoveries, blockers, and irreversible-action gates."
+    }
+  ],
+  "risks": [
+    "Prompt injection through bounty descriptions or sponsor pages.",
+    "Accidental mutation while logged in through personal Google.",
+    "Selector drift and pagination changes.",
+    "Overcollection of sensitive authenticated content."
+  ],
+  "next_experiment": {
+    "objective": "Wrap Browser Hub and CDP behind a policy-enforced adapter that records every action as JSONL and blocks mutate-class actions unless a human gate object is present.",
+    "success_criteria": [
+      "Can inventory Superteam Earn filters and details without raw authenticated dumps.",
+      "Can inspect a submission form without submitting.",
+      "Produces replayable evidence bundle with redacted screenshots and route metadata."
+    ]
+  }
+}

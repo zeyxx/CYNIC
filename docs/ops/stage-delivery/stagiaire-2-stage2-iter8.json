@@ -1,0 +1,146 @@
+{
+  "dimensions": [
+    {
+      "evidence": [
+        "ok (0 portability blockers)"
+      ],
+      "id": "portabilit\u00e9",
+      "notes": [
+        "blocker_count: 0",
+        "by_category: {'historical': 1, 'local': 20, 'runtime_state': 75, 'test': 18}",
+        "status: ok",
+        "total_findings: 114"
+      ],
+      "status": "pass"
+    },
+    {
+      "evidence": [
+        "cynic-coord tools: 42 discovered"
+      ],
+      "id": "mcp_lifecycle",
+      "notes": [],
+      "status": "pass"
+    },
+    {
+      "evidence": [
+        "fleet nodes: 11",
+        "node status mix: {'active': 4, 'declared': 3, 'planned': 3, 'planned_obsolescence': 1}"
+      ],
+      "id": "r\u00e9seau",
+      "notes": [
+        "cynic-vm-core: network block omitted for status=planned_obsolescence"
+      ],
+      "status": "warn"
+    },
+    {
+      "evidence": [
+        "declared services: 12",
+        "expected services: 4",
+        "systemd unit files present: 78"
+      ],
+      "id": "services",
+      "notes": [],
+      "status": "pass"
+    },
+    {
+      "evidence": [
+        "fleet nodes: 11",
+        "active nodes: 4",
+        "critical roles: 3"
+      ],
+      "id": "fleet",
+      "notes": [],
+      "status": "pass"
+    },
+    {
+      "evidence": [
+        "Organs: 24",
+        "MANIFEST present: 24",
+        "Org entrypoints: 68"
+      ],
+      "id": "abstraction",
+      "notes": [
+        "Compatibility shims detected (12): removed legacy fleet generator, organ-twitter compatibility shims, removed Hermes data organism script"
+      ],
+      "status": "warn"
+    },
+    {
+      "evidence": [
+        "Organs: 24",
+        "MANIFEST present: 24",
+        "Org entrypoints: 68"
+      ],
+      "id": "simplicit\u00e9",
+      "notes": [
+        "Compatibility shims detected (12): removed legacy fleet generator, organ-twitter compatibility shims, removed Hermes data organism script"
+      ],
+      "status": "warn"
+    },
+    {
+      "evidence": [
+        "Observability routes and policy docs checked"
+      ],
+      "id": "transparence_gouvernance",
+      "notes": [],
+      "status": "pass"
+    }
+  ],
+  "iteration_plan": [
+    [
+      "portabilit\u00e9"
+    ],
+    [
+      "mcp_lifecycle"
+    ],
+    [
+      "r\u00e9seau"
+    ],
+    [
+      "services"
+    ],
+    [
+      "fleet"
+    ],
+    [
+      "abstraction"
+    ],
+    [
+      "simplicit\u00e9"
+    ],
+    [
+      "transparence_gouvernance"
+    ],
+    [
+      "portabilit\u00e9"
+    ],
+    [
+      "mcp_lifecycle"
+    ],
+    [
+      "r\u00e9seau"
+    ],
+    [
+      "services"
+    ],
+    [
+      "fleet"
+    ],
+    [
+      "abstraction"
+    ],
+    [
+      "simplicit\u00e9"
+    ],
+    [
+      "transparence_gouvernance"
+    ]
+  ],
+  "iterations": 16,
+  "schema": "cynic.stage_readiness.v1",
+  "summary": {
+    "fail": 0,
+    "pass": 5,
+    "warn": 3
+  },
+  "warn_limit_exceeded": false
+}

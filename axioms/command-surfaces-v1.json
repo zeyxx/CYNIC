@@ -1,0 +1,176 @@
+{
+  "schema": "cynic.command_surfaces.v1",
+  "status": "normative",
+  "purpose": "Define canonical human, agent, fallback, runtime, and validation command surfaces so CYNIC stops treating make, organ entrypoints, MCP and cynic as equivalent operator interfaces.",
+  "surface_roles": {
+    "human_operator": {
+      "primary": "cynic",
+      "contract": "Human-facing command surface. May render concise text by default, but must provide --json for machine use.",
+      "examples": ["cynic organism", "cynic activate --dry-run", "cynic gate-2", "cynic mcp-reload", "cynic deploy"]
+    },
+    "interactive_agent": {
+      "primary": "MCP tools declared by infra/agent-exposure.json",
+      "contract": "Agents use MCP first when visible. Tool outputs must be JSON-compatible and mutating calls must prove read-back.",
+      "examples": ["cynic_attention", "cynic_lifecycle_payloads", "cynic_lifecycle_dispatch", "cynic_observe"]
+    },
+    "machine_fallback": {
+      "primary": "organ Python entrypoints",
+      "contract": "Fallback transport for MCP-unavailable environments and runtime daemons. Machine-facing commands must emit a single JSON object or JSONL.",
+      "examples": [
+        "python3 organs/forge/src/entrypoints/cli.py lifecycle-blockers",
+        "python3 organs/forge/src/entrypoints/cli.py lifecycle-profile-payloads <profile> <domain> <agent_id>",
+        "python3 organs/forge/src/entrypoints/cli.py organ-memory-status"
+      ]
+    },
+    "validation_dev": {
+      "primary": "make",
+      "contract": "Validation, developer convenience, and legacy wrappers. Make must not become the canonical agent or deployment control plane.",
+      "examples": ["make lint-repo-topology-contract", "make lint-agent-exposure-contract", "make lint-organ-memory-contract"]
+    },
+    "runtime_daemon": {
+      "primary": "systemd service entrypoints",
+      "contract": "Long-lived organ processes consume Kernel tasks, write local peripheral memory, and emit proof/read-back. They are not human UX surfaces.",
+      "examples": ["organ-forge-hermes-agent.service", "organ-lifecycle.service"]
+    }
+  },
+  "global_rules": [
+    "Machine-facing commands must emit JSON or JSONL only.",
+    "Human-facing commands may emit text, but must expose --json when their output can be consumed by agents or automation.",
+    "Mutating lifecycle commands must declare read_back_required=true.",
+    "Cortex-local make targets may validate or enqueue lifecycle requests, but must not build/deploy canonical release artifacts locally.",
+    "MCP is the canonical interactive-agent surface; organ entrypoints are fallback/runtime surfaces."
+  ],
+  "commands": [
+    {
+      "name": "cynic gate-2",
+      "role": "human_operator",
+      "domain": "lifecycle",
+      "canonical": true,
+      "mutates": true,
+      "mutates_mempool": true,
+      "json_output_required": false,
+      "json_flag": "--json",
+      "read_back_required": true,
+      "agent_equivalent": "cynic_lifecycle_dispatch(profile=\"gate-2\")",
+      "fallback_command": "python3 organs/forge/src/entrypoints/cli.py delegate-profile gate-2 --json"
+    },
+    {
+      "name": "cynic mcp-reload",
+      "role": "human_operator",
+      "domain": "lifecycle",
+      "canonical": true,
+      "mutates": true,
+      "mutates_mempool": true,
+      "json_output_required": false,
+      "json_flag": "--json",
+      "read_back_required": true,
+      "agent_equivalent": "cynic_lifecycle_dispatch(profile=\"mcp-reload\")",
+      "fallback_command": "python3 organs/forge/src/entrypoints/cli.py delegate-profile mcp-reload --json"
+    },
+    {
+      "name": "cynic deploy",
+      "role": "human_operator",
+      "domain": "lifecycle",
+      "canonical": true,
+      "mutates": true,
+      "mutates_mempool": true,
+      "json_output_required": false,
+      "json_flag": "--json",
+      "read_back_required": true,
+      "agent_equivalent": "cynic_lifecycle_dispatch(profile=\"deploy\")",
+      "fallback_command": "python3 organs/forge/src/entrypoints/cli.py delegate-profile deploy --json"
+    },
+    {
+      "name": "cynic_lifecycle_payloads",
+      "role": "interactive_agent",
+      "domain": "lifecycle",
+      "canonical": true,
+      "mutates": false,
+      "mutates_mempool": false,
+      "json_output_required": true,
+      "read_back_required": false,
+      "source": "infra/agent-exposure.json"
+    },
+    {
+      "name": "cynic_lifecycle_dispatch",
+      "role": "interactive_agent",
+      "domain": "lifecycle",
+      "canonical": true,
+      "mutates": true,
+      "mutates_mempool": true,
+      "json_output_required": true,
+      "read_back_required": true,
+      "source": "infra/agent-exposure.json"
+    },
+    {
+      "name": "organ-forge lifecycle-blockers",
+      "role": "machine_fallback",
+      "domain": "lifecycle",
+      "canonical": false,
+      "mutates": false,
+      "mutates_mempool": false,
+      "json_output_required": true,
+      "command": "python3 organs/forge/src/entrypoints/cli.py lifecycle-blockers",
+      "preferred_agent_surface": "cynic_lifecycle_status"
+    },
+    {
+      "name": "organ-forge organ-memory-status",
+      "role": "machine_fallback",
+      "domain": "organ_memory",
+      "canonical": false,
+      "mutates": false,
+      "mutates_mempool": false,
+      "json_output_required": true,
+      "command": "python3 organs/forge/src/entrypoints/cli.py organ-memory-status",
+      "preferred_agent_surface": "future:organ_memory_status"
+    },
+    {
+      "name": "organ-forge organ-memory-record",
+      "role": "machine_fallback",
+      "domain": "organ_memory",
+      "canonical": false,
+      "mutates": true,
+      "mutates_local_memory": true,
+      "mutates_mempool": false,
+      "json_output_required": true,
+      "command": "python3 organs/forge/src/entrypoints/cli.py organ-memory-record <event_type> <json_payload>",
+      "read_back_required": false,
+      "preferred_agent_surface": "future:organ_memory_record"
+    },
+    {
+      "name": "organ-forge organ-memory-flush",
+      "role": "machine_fallback",
+      "domain": "organ_memory",
+      "canonical": false,
+      "mutates": true,
+      "mutates_local_memory": true,
+      "mutates_mempool": false,
+      "json_output_required": true,
+      "command": "python3 organs/forge/src/entrypoints/cli.py organ-memory-flush --dry-run",
+      "read_back_required": false,
+      "preferred_agent_surface": "future:organ_outbox_flush"
+    },
+    {
+      "name": "make lint-organ-memory-contract",
+      "role": "validation_dev",
+      "domain": "validation",
+      "canonical": true,
+      "mutates": false,
+      "mutates_mempool": false,
+      "json_output_required": true,
+      "command": "make lint-organ-memory-contract"
+    },
+    {
+      "name": "make gate-2-request",
+      "role": "validation_dev",
+      "domain": "lifecycle",
+      "canonical": false,
+      "mutates": true,
+      "mutates_mempool": true,
+      "json_output_required": false,
+      "read_back_required": true,
+      "preferred_human_surface": "cynic gate-2",
+      "preferred_agent_surface": "cynic_lifecycle_dispatch(profile=\"gate-2\")"
+    }
+  ]
+}

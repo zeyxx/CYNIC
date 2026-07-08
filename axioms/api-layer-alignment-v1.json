@@ -1,0 +1,105 @@
+{
+  "schema": "cynic.api_layer_alignment.v1",
+  "status": "normative",
+  "purpose": "Align API layers with engineering responsibilities, OS primitives and a symbolic topology vocabulary so agents can reason across abstraction levels without treating analogy as authority.",
+  "scope": {
+    "topology_contract": "axioms/api-topology-v1.json",
+    "openapi": "docs/api/openapi.json",
+    "human_reference": "API.md"
+  },
+  "guardrails": [
+    "Symbolic mapping is a cognitive alignment aid, not an authority layer.",
+    "Executable contracts, runtime evidence and validators outrank symbolic analogy.",
+    "Do not infer religious meaning into protocol behavior, security policy or deployment authorization.",
+    "When analogy and engineering evidence disagree, update or discard the analogy."
+  ],
+  "symbolic_vocabulary": {
+    "Keter": "objective, source intent and organism purpose",
+    "Chokhmah": "generative insight, candidate hypothesis and raw novelty",
+    "Binah": "structure, contract, schema and bounded form",
+    "Chesed": "expansion, capacity, delegation and resource generosity",
+    "Gevurah": "constraint, security, rate limit, claim and refusal",
+    "Tiferet": "integration, judgement, routing and balanced decision",
+    "Netzach": "action, persistence, execution and endurance",
+    "Hod": "protocol, language, interface and formal adapter",
+    "Yesod": "transmission, state bridge, queue and durable foundation",
+    "Malkhut": "manifest runtime surface, process, file, socket and user-visible effect"
+  },
+  "layers": {
+    "perception": {
+      "engineering_role": "Observe and expose current organism state without owning mutation.",
+      "agent_question": "What is happening now?",
+      "system_primitives": ["read", "poll", "epoll", "health probe", "metrics scrape", "log read", "socket read", "file descriptor"],
+      "symbolic_alignment": ["Malkhut", "Yesod"],
+      "must": ["Expose read-only or streamable reality.", "Return current evidence instead of desired state.", "Remain agent-safe by default unless the endpoint leaks sensitive data."],
+      "must_not": ["Mutate lifecycle state.", "Become the source of truth for policy."]
+    },
+    "memory": {
+      "engineering_role": "Persist observations, tasks, crystals and read-back proof.",
+      "agent_question": "What has the organism remembered?",
+      "system_primitives": ["database transaction", "write-ahead log", "append-only log", "fsync", "snapshot", "queue", "read-after-write proof"],
+      "symbolic_alignment": ["Yesod", "Binah"],
+      "must": ["Provide durable read-back for mempool writes.", "Separate committed memory from transient runtime effects.", "Model data with stable schemas."],
+      "must_not": ["Hide irreversible runtime mutation behind a memory verb.", "Store volatile runtime snapshots as source-of-truth code."]
+    },
+    "coordination": {
+      "engineering_role": "Coordinate actors, claims, leases, sessions and contention boundaries.",
+      "agent_question": "Who may act on this resource?",
+      "system_primitives": ["mutex", "semaphore", "lease", "flock", "heartbeat", "PID", "lock table", "compare-and-swap"],
+      "symbolic_alignment": ["Gevurah", "Hod"],
+      "must": ["Make ownership and conflict explicit.", "Represent claims as bounded runtime facts.", "Expose who/claim/release style introspection for agents."],
+      "must_not": ["Deploy, provision or restore infrastructure directly.", "Pretend stale static claims outrank live kernel state."]
+    },
+    "cognition": {
+      "engineering_role": "Judge, route, score and infer without directly owning deployment mutation.",
+      "agent_question": "What should be inferred or decided?",
+      "system_primitives": ["scheduler", "worker pool", "model router", "scoring function", "job status", "bounded queue", "cache"],
+      "symbolic_alignment": ["Tiferet", "Chokhmah", "Binah"],
+      "must": ["Separate inference requests from infrastructure activation.", "Expose status/read paths for async decisions.", "Keep model compatibility surfaces explicit."],
+      "must_not": ["Start or remediate runtime processes under a cognition-only route.", "Conflate verdict production with deployment authority."]
+    },
+    "metabolism": {
+      "engineering_role": "Change organism runtime: deploy, provision, restore, backup, start, remediate or send side-effectful work.",
+      "agent_question": "What is the organism changing in its body?",
+      "system_primitives": ["fork", "exec", "signal", "systemd", "cgroup", "namespace", "mount", "rollback", "backup", "restore"],
+      "symbolic_alignment": ["Gevurah", "Netzach", "Malkhut"],
+      "must": ["Require explicit lifecycle authorization for deployment or destructive mutation.", "Use registry-driven targets for build and runtime placement.", "Expose dangerous operations as not agent-safe by default."],
+      "must_not": ["Run canonical release builds from cortex-local state.", "Hide deployment, restore or destructive effects behind coordination or perception roots."]
+    },
+    "compatibility": {
+      "engineering_role": "Adapt external protocols and legacy clients while pointing to canonical organism families.",
+      "agent_question": "Which foreign or legacy shape is being translated?",
+      "system_primitives": ["API shim", "ABI boundary", "symlink", "version negotiation", "content negotiation", "adapter", "deprecation marker"],
+      "symbolic_alignment": ["Hod", "Yesod"],
+      "must": ["Declare the canonical family for every compatibility operation.", "Preserve external interoperability without becoming policy source of truth.", "Carry deprecation or compatibility status in machine-readable contracts."],
+      "must_not": ["Outlive its canonical replacement without an explicit reason.", "Invent a parallel ontology for the same organism capability."]
+    }
+  },
+  "vertical_alignment_rules": [
+    {
+      "id": "dangerous-mutation-crosses-metabolism",
+      "rule": "deployment operations must be metabolism or must name a canonical lifecycle family; destructive resource operations may stay in their owning layer but must never be agent_safe_default.",
+      "enforcement": "validator"
+    },
+    {
+      "id": "perception-does-not-mutate",
+      "rule": "perception operations must use read or stream mutation levels unless they are explicitly recording external events into the mempool or registering runtime presence.",
+      "enforcement": "validator"
+    },
+    {
+      "id": "compatibility-is-not-source-of-truth",
+      "rule": "compatibility and transitional operations must point at a distinct canonical family.",
+      "enforcement": "validator"
+    },
+    {
+      "id": "memory-proves-writeback",
+      "rule": "mempool writes that create durable memory must have a read-back family in the API topology.",
+      "enforcement": "design-review"
+    },
+    {
+      "id": "lifecycle-is-not-agent-safe",
+      "rule": "deployment and destructive lifecycle operations must not be agent_safe_default.",
+      "enforcement": "validator"
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "schema_version": "cynic.live.verification.v1",
+  "created_at": "2026-07-02",
+  "project": "kyon-mobile",
+  "goal": "Prove data path is live and not simulated",
+  "checks": [
+    {
+      "id": "L1_kernel_health",
+      "name": "Kernel reachability and liveness",
+      "kind": "api_probe",
+      "input": {
+        "method": "GET",
+        "path": "/health",
+        "source": "runtime-configured kernel_url"
+      },
+      "pass_if": {
+        "status_code_min": 200,
+        "status_code_max": 299,
+        "response_ms_max": 4000
+      },
+      "artifact": "docs/ops/run-artifacts/kernel-health-check.jsonl"
+    },
+    {
+      "id": "L2_round_trip_observe",
+      "name": "Live event POST + sync round trip",
+      "kind": "round_trip",
+      "input": {
+        "domain": "personal-activity",
+        "tool": "kyon_mobile",
+        "agent_id": "kyon-device-local"
+      },
+      "pass_if": {
+        "post_status_code_min": 200,
+        "post_status_code_max": 299,
+        "pending_count_delta": "+1 then -1 after worker flush"
+      },
+      "artifact": "docs/ops/run-artifacts/kyon-roundtrip-verification.json"
+    },
+    {
+      "id": "L3_worker_observability",
+      "name": "Background worker actually executes sync",
+      "kind": "worker_probe",
+      "input": {
+        "worker_class": "so.cynic.kyon.mirror.sync.KernelSyncWorker",
+        "constraints": "NetworkType.CONNECTED"
+      },
+      "pass_if": {
+        "last_sync_timestamp_progress": true,
+        "result_synced_count_present": true
+      },
+      "artifact": "docs/ops/run-artifacts/kernel-sync-worker-status.json"
+    },
+    {
+      "id": "L4_portability_sanity",
+      "name": "Adapter-only integration check",
+      "kind": "static_scan",
+      "input": {
+        "forbidden_patterns": [
+          "so.cynic.kyon.adaptors.*",
+          "java.net.HttpURLConnection in application or domain packages"
+        ]
+      },
+      "pass_if": {
+        "http_calls_outside_adapters": 0
+      },
+      "artifact": "docs/ops/run-artifacts/kyon-portability-sanity.json"
+    }
+  ],
+  "execution_order": [
+    "L1_kernel_health",
+    "L2_round_trip_observe",
+    "L3_worker_observability",
+    "L4_portability_sanity"
+  ],
+  "gates": {
+    "must_be_live": true,
+    "fail_if_any_check_missing": true
+  }
+}

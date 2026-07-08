@@ -73,7 +73,7 @@ one.
 | Memory | What survives a session? | Kernel mempool + committed source | `/agent-tasks`, `/observe`, git |
 | Privacy | What can leave local context? | policy contract + consumer profile | sensitivity flags, local-first defaults |
 | Transport | How is information delivered? | adapter config | adapter tests, routing table |
-| Network/IPAM | How nodes and services become reachable? | `infra/registry.json:network_policy` + `axioms/infrastructure-mcp-v1.json` | registry validation, organ-wireguard tests, MCP preflight |
+| Network/IPAM | How nodes and services become reachable? | `infra/registry.json:network_policy` + `axioms/infrastructure-mcp-v1.json` | registry validation, `cynic-node` evidence, `organ-fleet` tests, MCP preflight |
 | Execution | How does work run? | organ contracts + runtime ports | daemon lifecycle, tests, systemd |
 | Supply chain | How builds/deploys happen | `infra/registry.json` | lifecycle dispatch, gates |
 | Observability | How violations are seen? | health/audit/compliance contract | `/health`, observations, completed read-back |
@@ -143,6 +143,11 @@ should become an `autonomous_organ_agent` task that dispatches the registry
 `mcp-reload` profile and proves freshness. It must not silently grant itself
 public/operator authority beyond the declared exposure contract.
 
+When the MCP/Kernel/build-runner path is itself broken, this rule degrades to a
+cortex-local repair build. The repair build may restore local tooling and prove
+patches, but it is not release validation, not deploy authority, and not a
+substitute for the registry executor once the bus is reachable again.
+
 ## 8. Canonical File Ownership
 
 | Concern | Canonical file or family | Notes |
@@ -188,6 +193,7 @@ Forbidden fallback patterns:
 - hardcoded local paths in portable proxies;
 - Slack channel IDs as semantic identifiers;
 - direct shell deploy presented as canonical supply chain;
+- local repair build presented as registry release validation;
 - raw provider operation presented as canonical infra lifecycle;
 - manually selected LAN or Proxmox guest address presented as service contract;
 - prompt-only coordination for repo-affecting agents;

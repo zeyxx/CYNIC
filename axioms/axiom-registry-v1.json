@@ -1,0 +1,1067 @@
+{
+  "schema": "cynic.axiom_registry.v1",
+  "status": "normative",
+  "version": 1,
+  "purpose": "Declare the multicouche/fractal placement of every root axiom contract so JSON contracts cannot fragment into competing constitutions.",
+  "authorities": {
+    "meta_layer_contract": "axioms/meta-layer-contract-v1.json",
+    "repo_topology_contract": "axioms/repo-topology-v1.json",
+    "policy": "docs/foundation/CYNIC_META_LAYER_CONTRACTS.md"
+  },
+  "functional_layers": [
+    {
+      "id": "policy"
+    },
+    {
+      "id": "semantic_contract"
+    },
+    {
+      "id": "topology_contract"
+    },
+    {
+      "id": "runtime_registry"
+    },
+    {
+      "id": "kernel_contract"
+    },
+    {
+      "id": "mcp_surface"
+    },
+    {
+      "id": "organ_runtime"
+    },
+    {
+      "id": "node_runtime"
+    },
+    {
+      "id": "surface_wrapper"
+    },
+    {
+      "id": "semantic_contract",
+      "description": "added automatically"
+    },
+    {
+      "id": "organism_policy",
+      "description": "added automatically"
+    }
+  ],
+  "topology_axes": [
+    {
+      "id": "superorganism",
+      "root_layer": "superorganism",
+      "owns": [
+        "inter-organism and adversarial context"
+      ],
+      "must_not_own": [
+        "repo placement",
+        "node activation",
+        "organ implementation"
+      ]
+    },
+    {
+      "id": "organism",
+      "root_layer": "organism",
+      "owns": [
+        "identity",
+        "themes",
+        "evolution",
+        "supply chain",
+        "organism-wide semantic contracts"
+      ],
+      "must_not_own": [
+        "file placement",
+        "process supervision",
+        "wrapper ergonomics"
+      ]
+    },
+    {
+      "id": "nervous_system",
+      "root_layer": "nervous_system",
+      "owns": [
+        "kernel",
+        "mcp",
+        "api",
+        "memory",
+        "storage contracts"
+      ],
+      "must_not_own": [
+        "product narrative",
+        "local organ internals",
+        "external protocol facts"
+      ]
+    },
+    {
+      "id": "cortex",
+      "root_layer": "cortex",
+      "owns": [
+        "episodic agent adapters and session coordination contracts"
+      ],
+      "must_not_own": [
+        "runtime desired state",
+        "organ-local implementation",
+        "node activation"
+      ]
+    },
+    {
+      "id": "organ",
+      "root_layer": "organ",
+      "owns": [
+        "persistent subsystem contracts",
+        "organ-local interfaces",
+        "ports"
+      ],
+      "must_not_own": [
+        "repo-wide topology",
+        "node fleet desired state"
+      ]
+    },
+    {
+      "id": "node",
+      "root_layer": "node",
+      "owns": [
+        "OS principal",
+        "process",
+        "bridge and runtime placement concerns"
+      ],
+      "must_not_own": [
+        "semantic identity",
+        "public product claims"
+      ]
+    },
+    {
+      "id": "repo",
+      "root_layer": "repo",
+      "owns": [
+        "filesystem placement",
+        "source membrane",
+        "document and surface inventories"
+      ],
+      "must_not_own": [
+        "runtime truth",
+        "service health",
+        "kernel task semantics"
+      ]
+    },
+    {
+      "id": "external_surface",
+      "root_layer": "external_surface",
+      "owns": [
+        "protocol, product, public and adversarial surfaces"
+      ],
+      "must_not_own": [
+        "organ internals",
+        "repo topology",
+        "kernel state"
+      ]
+    }
+  ],
+  "contract_scales": [
+    {
+      "id": "superorganism",
+      "projection": "fractal_scale",
+      "description": "Inter-organism, adversarial, public or market-level contracts."
+    },
+    {
+      "id": "organism",
+      "projection": "fractal_scale",
+      "description": "Whole-CYNIC identity, policy, lifecycle, memory and nervous-system contracts."
+    },
+    {
+      "id": "organ",
+      "projection": "fractal_scale",
+      "description": "Persistent subsystem contracts and organ-local interfaces."
+    },
+    {
+      "id": "node",
+      "projection": "fractal_scale",
+      "description": "Host, runtime principal, process placement and physical execution contracts."
+    },
+    {
+      "id": "repo",
+      "projection": "fractal_scale",
+      "description": "Filesystem, source membrane, inventory and implementation surface contracts."
+    },
+    {
+      "id": "protocol",
+      "projection": "external_surface",
+      "description": "External protocol mechanics or economic mechanism contracts."
+    },
+    {
+      "id": "product",
+      "projection": "external_surface",
+      "description": "Public product, market and user-facing offer contracts."
+    }
+  ],
+  "topological_layers": [
+    {
+      "id": "superorganism",
+      "parent": null,
+      "kind": "axis_root"
+    },
+    {
+      "id": "organism",
+      "parent": "superorganism",
+      "kind": "axis_root"
+    },
+    {
+      "id": "organism.identity",
+      "parent": "organism",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "organism.layer_graph",
+      "parent": "organism",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "organism.fractal_property_map",
+      "parent": "organism",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "organism.theme",
+      "parent": "organism",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "organism.evolution",
+      "parent": "organism",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "organism.supply_chain",
+      "parent": "organism",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "organism.infra",
+      "parent": "organism",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "organism.data_memory",
+      "parent": "organism",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "organism.organ",
+      "parent": "organism",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "nervous_system",
+      "parent": "organism",
+      "kind": "axis_root"
+    },
+    {
+      "id": "nervous_system.kernel",
+      "parent": "nervous_system",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "nervous_system.mcp",
+      "parent": "nervous_system",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "nervous_system.api",
+      "parent": "nervous_system",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "nervous_system.memory",
+      "parent": "nervous_system",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "nervous_system.storage",
+      "parent": "nervous_system",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "cortex",
+      "parent": "organism",
+      "kind": "axis_root"
+    },
+    {
+      "id": "organ",
+      "parent": "organism",
+      "kind": "axis_root"
+    },
+    {
+      "id": "organ.lifecycle",
+      "parent": "organ",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "node",
+      "parent": "organism",
+      "kind": "axis_root"
+    },
+    {
+      "id": "node.bootstrap",
+      "parent": "node",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "node.constellation",
+      "parent": "node",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "node.network",
+      "parent": "node",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "node.lxc_bridge",
+      "parent": "node",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "node.principal",
+      "parent": "node",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "repo",
+      "parent": "organism",
+      "kind": "axis_root"
+    },
+    {
+      "id": "repo.docs",
+      "parent": "repo",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "repo.data",
+      "parent": "repo",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "repo.diagnostic_surface",
+      "parent": "repo",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "repo.implementation_surface",
+      "parent": "repo",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "repo.infra",
+      "parent": "repo",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "repo.services",
+      "parent": "repo",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "repo.git_membrane",
+      "parent": "repo",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "external_surface",
+      "parent": "organism",
+      "kind": "axis_root"
+    },
+    {
+      "id": "external_surface.protocol",
+      "parent": "external_surface",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "external_surface.product",
+      "parent": "external_surface",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "external_surface.public",
+      "parent": "external_surface",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "external_surface.adversary",
+      "parent": "external_surface",
+      "kind": "sub_layer"
+    },
+    {
+      "id": "organism.runtime_governance",
+      "description": "added automatically"
+    }
+  ],
+  "contracts": [
+    {
+      "id": "agent_execution_envelope",
+      "path": "axioms/agent-execution-envelope-v1.json",
+      "family": "organ",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organ",
+      "owner": "organ-contracts",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "agent_framework_capabilities",
+      "path": "axioms/agent-framework-capabilities-v1.json",
+      "family": "organ",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organ",
+      "owner": "organ-contracts",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "agent_proposal_interface",
+      "path": "axioms/agent-proposal-interface-v1.json",
+      "family": "product",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "external_surface.public",
+      "scale": "organism",
+      "owner": "organ-lifecycle",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "api_layer_alignment",
+      "path": "axioms/api-layer-alignment-v1.json",
+      "family": "api",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "nervous_system.api",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "api_topology",
+      "path": "axioms/api-topology-v1.json",
+      "family": "api",
+      "functional_layer": "topology_contract",
+      "topological_layer": "nervous_system.api",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "axiom_registry",
+      "path": "axioms/axiom-registry-v1.json",
+      "family": "meta",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.layer_graph",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "agent_autonomy_boundary",
+      "path": "axioms/agent-autonomy-boundary-v1.json",
+      "family": "agents",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "cortex",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "canonical_pumpswap_ssot",
+      "path": "axioms/canonical_pumpswap_ssot.json",
+      "family": "pump",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "external_surface.protocol",
+      "scale": "protocol",
+      "owner": "organ-percolator",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "coordination_protocol",
+      "path": "axioms/coordination-protocol-v1.json",
+      "family": "coordination",
+      "functional_layer": "kernel_contract",
+      "topological_layer": "nervous_system.kernel",
+      "scale": "organism",
+      "owner": "cynic-kernel",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "data_constitution",
+      "path": "axioms/data-constitution-v1.json",
+      "family": "data",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.data_memory",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "data_control_surface_inventory",
+      "path": "axioms/data-control-surface-inventory-v1.json",
+      "family": "surface_inventory",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.data",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "diagnostic_surface_inventory",
+      "path": "axioms/diagnostic-surface-inventory-v1.json",
+      "family": "surface_inventory",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.diagnostic_surface",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "document_index",
+      "path": "axioms/document-index-v1.json",
+      "family": "document_inventory",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.docs",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "document_theme_inventory",
+      "path": "axioms/document-theme-inventory-v1.json",
+      "family": "document_inventory",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.docs",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "evidence_capsule",
+      "path": "axioms/evidence-capsule-v1.json",
+      "family": "evidence",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.data_memory",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "organism_physics",
+      "path": "axioms/organism-physics-v1.json",
+      "family": "runtime_governance",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.runtime_governance",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "external_dependency_inventory",
+      "path": "axioms/external-dependency-inventory-v1.json",
+      "family": "organ",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organ",
+      "owner": "organ-contracts",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "evolution_lifecycle",
+      "path": "axioms/evolution-lifecycle-v1.json",
+      "family": "lifecycle",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.evolution",
+      "scale": "organism",
+      "owner": "organ-forge",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "git_membrane_closure_plan",
+      "path": "axioms/git-membrane-closure-plan-v1.json",
+      "family": "git_membrane",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.git_membrane",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "implementation_surface_inventory",
+      "path": "axioms/implementation-surface-inventory-v1.json",
+      "family": "surface_inventory",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.implementation_surface",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "infra_consumption",
+      "path": "axioms/infra-consumption-v1.json",
+      "family": "infra",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.infra",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "infra_surface_inventory",
+      "path": "axioms/infra-surface-inventory-v1.json",
+      "family": "surface_inventory",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.infra",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "infrastructure_mcp",
+      "path": "axioms/infrastructure-mcp-v1.json",
+      "family": "infra",
+      "functional_layer": "mcp_surface",
+      "topological_layer": "nervous_system.mcp",
+      "scale": "organism",
+      "owner": "cynic-mcp",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "kyon",
+      "path": "axioms/kyon-v1.json",
+      "family": "product",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "external_surface.product",
+      "scale": "product",
+      "owner": "organ-kyon",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "lifecycle_interface",
+      "path": "axioms/lifecycle-interface-v1.json",
+      "family": "lifecycle",
+      "functional_layer": "organ_runtime",
+      "topological_layer": "organ.lifecycle",
+      "scale": "organ",
+      "owner": "organ-lifecycle",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "lifecycle_supply_chain",
+      "path": "axioms/lifecycle-supply-chain-v1.json",
+      "family": "lifecycle",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.supply_chain",
+      "scale": "organism",
+      "owner": "organ-forge",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "dependency_convergence_organ",
+      "path": "axioms/dependency-convergence-organ-v1.json",
+      "family": "lifecycle",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ.lifecycle",
+      "scale": "organ",
+      "owner": "organ-lifecycle",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "lxc_exec_bridge",
+      "path": "axioms/lxc-exec-bridge-v1.json",
+      "family": "infra",
+      "functional_layer": "node_runtime",
+      "topological_layer": "node.lxc_bridge",
+      "scale": "node",
+      "owner": "organ-lifecycle",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "meta_layer_contract",
+      "path": "axioms/meta-layer-contract-v1.json",
+      "family": "meta",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.layer_graph",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "multiscale_organism_property_map",
+      "path": "axioms/multiscale-organism-property-map-v1.json",
+      "family": "meta",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.fractal_property_map",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "odysseum_manifest",
+      "path": "axioms/odysseum-manifest-v1.json",
+      "family": "product",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "external_surface.protocol",
+      "scale": "protocol",
+      "owner": "organ-percolator",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "one_person_enterprise_interface",
+      "path": "axioms/one-person-enterprise-interface-v1.json",
+      "family": "product",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "external_surface.public",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "organ_contracts",
+      "path": "axioms/organ-contracts-v1.json",
+      "family": "organ",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organ",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "organ_hexagonal_architecture",
+      "path": "axioms/organ-hexagonal-architecture-v1.json",
+      "family": "organ",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organ",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "organ_layer_topology",
+      "path": "axioms/organ-layer-topology-v1.json",
+      "family": "organ",
+      "functional_layer": "topology_contract",
+      "topological_layer": "organism.organ",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "organ_maturity_inventory",
+      "path": "axioms/organ-maturity-inventory-v1.json",
+      "family": "organ",
+      "functional_layer": "topology_contract",
+      "topological_layer": "organism.organ",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "organism_philosophy",
+      "path": "axioms/organism-philosophy-v1.json",
+      "family": "identity",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.identity",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "organism_theme_topology",
+      "path": "axioms/organism-theme-topology-v1.json",
+      "family": "theme",
+      "functional_layer": "topology_contract",
+      "topological_layer": "organism.theme",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "predator_fractal_model",
+      "path": "axioms/predator-fractal-model-v1.json",
+      "family": "threat_model",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "external_surface.adversary",
+      "scale": "superorganism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "proof_of_history",
+      "path": "axioms/proof-of-history-v1.json",
+      "family": "memory",
+      "functional_layer": "kernel_contract",
+      "topological_layer": "nervous_system.memory",
+      "scale": "organism",
+      "owner": "cynic-kernel",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "organ_memory",
+      "path": "axioms/organ-memory-v1.json",
+      "family": "memory",
+      "functional_layer": "organ_runtime",
+      "topological_layer": "organism.data_memory",
+      "scale": "organism",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "public_futarchy_manifest",
+      "path": "axioms/public-futarchy-manifest-v1.json",
+      "family": "product",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "external_surface.public",
+      "scale": "protocol",
+      "owner": "organ-percolator",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "pump_mechanisms",
+      "path": "axioms/pump_mechanisms.json",
+      "family": "pump",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "external_surface.protocol",
+      "scale": "protocol",
+      "owner": "organ-percolator",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "pumpfun_fee_tiers",
+      "path": "axioms/pumpfun_fee_tiers.json",
+      "family": "pump",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "external_surface.protocol",
+      "scale": "protocol",
+      "owner": "organ-percolator",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "repo_topology",
+      "path": "axioms/repo-topology-v1.json",
+      "family": "repo_topology",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "rust_crate_roles",
+      "path": "axioms/rust-crate-roles-v1.json",
+      "family": "repo_topology",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.implementation_surface",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "node_bootstrap",
+      "path": "axioms/node-bootstrap-v1.json",
+      "family": "runtime_identity",
+      "functional_layer": "node_runtime",
+      "topological_layer": "node.bootstrap",
+      "scale": "node",
+      "owner": "organ-fleet",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "node_constellation",
+      "path": "axioms/node-constellation-v1.json",
+      "family": "runtime_identity",
+      "functional_layer": "node_runtime",
+      "topological_layer": "node.constellation",
+      "scale": "node",
+      "owner": "organ-fleet",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "node_network_interfaces",
+      "path": "axioms/node-network-interfaces-v1.json",
+      "family": "infra",
+      "functional_layer": "node_runtime",
+      "topological_layer": "node.network",
+      "scale": "node",
+      "owner": "cynic-node",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "mcp_freshness_controller",
+      "path": "axioms/mcp-freshness-controller-v1.json",
+      "family": "nervous_system_surface",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "nervous_system.mcp",
+      "scale": "organism",
+      "owner": "organ-forge",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "network_infra_gaps",
+      "path": "axioms/network-infra-gaps-v1.json",
+      "family": "infra",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.infra",
+      "scale": "organism",
+      "owner": "cynic-node",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "network_actuator_root_policy",
+      "path": "axioms/network-actuator-root-policy-v1.json",
+      "family": "infra",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organism.infra",
+      "scale": "organism",
+      "owner": "cynic-node",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "python_vital_function_placement",
+      "path": "axioms/python-vital-function-placement-v1.json",
+      "family": "repo_topology",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.implementation_surface",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "python_organ_authority_inventory",
+      "path": "axioms/python-organ-authority-inventory-v1.json",
+      "family": "repo_topology",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.implementation_surface",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "command_surfaces",
+      "path": "axioms/command-surfaces-v1.json",
+      "family": "surface_inventory",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.services",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "runtime_principals",
+      "path": "axioms/runtime-principals-v1.json",
+      "family": "runtime_identity",
+      "functional_layer": "node_runtime",
+      "topological_layer": "node.principal",
+      "scale": "node",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "service_surface_inventory",
+      "path": "axioms/service-surface-inventory-v1.json",
+      "family": "surface_inventory",
+      "functional_layer": "topology_contract",
+      "topological_layer": "repo.services",
+      "scale": "repo",
+      "owner": "organ-supervisor",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "storage_primary_activation",
+      "path": "axioms/storage-primary-activation-v1.json",
+      "family": "storage",
+      "functional_layer": "runtime_registry",
+      "topological_layer": "nervous_system.storage",
+      "scale": "node",
+      "owner": "organ-keep",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "host_exec_transport",
+      "path": "axioms/host-exec-transport-v1.json",
+      "family": "infra",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "node.principal",
+      "scale": "node",
+      "owner": "organ-fleet",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "hermes_execution_result",
+      "path": "axioms/hermes-execution-result-v1.json",
+      "family": "agents",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organ",
+      "owner": "organ-contracts",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "hermes_gateway_message_in",
+      "path": "axioms/hermes-gateway-message-in-v1.json",
+      "family": "agents",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organ",
+      "owner": "organ-contracts",
+      "merge_policy": "extend_existing_family_before_new_contract"
+    },
+    {
+      "id": "cynic.cognitive_signal.v1",
+      "path": "axioms/cognitive-signal-v1.json",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organism",
+      "enforcement": "executable",
+      "family": "organ",
+      "merge_policy": "extend_existing_family_before_new_contract",
+      "owner": "organ-contracts"
+    },
+    {
+      "id": "agentic_runtime_topology_v1",
+      "path": "axioms/agentic-runtime-topology-v1.json",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organ",
+      "family": "organ",
+      "merge_policy": "extend_existing_family_before_new_contract",
+      "owner": "organ-contracts",
+      "enforcement": "executable"
+    },
+    {
+      "id": "anti_polling_transition_v1",
+      "path": "axioms/anti-polling-transition-v1.json",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organ",
+      "family": "organ",
+      "merge_policy": "extend_existing_family_before_new_contract",
+      "owner": "organ-contracts",
+      "enforcement": "executable"
+    },
+    {
+      "id": "cognitive_intent_v1",
+      "path": "axioms/cognitive-intent-v1.json",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organ",
+      "family": "organ",
+      "merge_policy": "extend_existing_family_before_new_contract",
+      "owner": "organ-contracts",
+      "enforcement": "executable"
+    },
+    {
+      "id": "cognitive_profile_v1",
+      "path": "axioms/cognitive-profile-v1.json",
+      "functional_layer": "semantic_contract",
+      "topological_layer": "organ",
+      "scale": "organ",
+      "family": "organ",
+      "merge_policy": "extend_existing_family_before_new_contract",
+      "owner": "organ-contracts",
+      "enforcement": "executable"
+    }
+  ],
+  "totals": {
+    "contracts": 66
+  },
+  "admission_rule": "A root axioms/*.json file is illegal unless this registry declares its functional_layer, topological_layer, scale, owner and merge_policy."
+}

@@ -1,0 +1,61 @@
+{
+  "generated_at": "2026-06-24T00:00:00+02:00",
+  "listing_slug": "break-it-before-users-do-multihopper-agentic-flow-bugs-and-fixes",
+  "status": "planned_not_executed",
+  "source_docs": [
+    "https://dev-docs.multihopper.com/",
+    "https://dev-docs.multihopper.com/guides/agentic-integration",
+    "https://dev-docs.multihopper.com/mcp"
+  ],
+  "tests": [
+    {
+      "id": "mh-agent-001",
+      "area": "partial_signatures",
+      "objective": "Verify agent signing preserves server partial signatures on VersionedTransactions.",
+      "requires": ["preparedTxs fixture or approved test prepare call"],
+      "expected_evidence": ["before/after signature slots", "transaction decode notes", "sanitized logs"],
+      "risk": "high_for_agent_reliability"
+    },
+    {
+      "id": "mh-agent-002",
+      "area": "broadcast_order",
+      "objective": "Verify keeperFundingTx is broadcast and confirmed before routeInitTxs, orchestratorInitTx, and sessionInitTxs.",
+      "requires": ["approved test route", "RPC endpoint"],
+      "expected_evidence": ["signature order", "timestamps", "confirmation statuses"],
+      "risk": "high_for_funds_and_resume"
+    },
+    {
+      "id": "mh-agent-003",
+      "area": "two_step_confirm_broadcast",
+      "objective": "Verify first confirm-broadcast records keeperFundingSignature immediately and second confirm-broadcast records the remaining signatures.",
+      "requires": ["approved API key", "test transfer"],
+      "expected_evidence": ["request bodies with secrets removed", "API responses", "status transition"],
+      "risk": "medium_high"
+    },
+    {
+      "id": "mh-agent-004",
+      "area": "expiry_resume",
+      "objective": "Simulate delay after prepare and verify re-prepare returns null for already confirmed groups and non-null for remaining groups.",
+      "requires": ["approved test transfer", "controlled delay"],
+      "expected_evidence": ["prepare response diff", "resume decision log"],
+      "risk": "medium_high"
+    },
+    {
+      "id": "mh-agent-005",
+      "area": "idempotency",
+      "objective": "Test duplicate create/prepare/confirm behavior with stable and changed Idempotency-Key values.",
+      "requires": ["approved API key", "safe test parameters"],
+      "expected_evidence": ["sanitized requests", "status codes", "duplicate semantics"],
+      "risk": "medium"
+    },
+    {
+      "id": "mh-agent-006",
+      "area": "documentation_blocker",
+      "objective": "Identify places where an autonomous agent could infer unsafe behavior from examples or missing constraints.",
+      "requires": ["docs only"],
+      "expected_evidence": ["quoted doc section references", "ambiguity explanation", "proposed wording"],
+      "risk": "low_execution_risk_high_submission_value_if_precise"
+    }
+  ],
+  "not_executed_reason": "The bounty requires approved test environment, credentials, wallets, and token balances. Running real transfer tests without them would violate scope and safety policy."
+}

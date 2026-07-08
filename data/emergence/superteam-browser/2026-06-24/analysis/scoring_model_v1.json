@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-06-24T00:00:00Z",
+  "features": [
+    "kind",
+    "deadline",
+    "reward",
+    "submissions",
+    "comments",
+    "capital_required",
+    "social_posting",
+    "reuse_value",
+    "fit_cynic",
+    "effort",
+    "risk"
+  ],
+  "scoring_notes": [
+    "v1 heuristic favors reusable technical work because even failed submissions build organism assets",
+    "social/video bounties are downweighted due subjective quality and posting gate",
+    "capital/trade/stake requirements create human gate and risk penalty",
+    "grants are scored separately because they are durable funding paths, not quick payout bounties"
+  ]
+}

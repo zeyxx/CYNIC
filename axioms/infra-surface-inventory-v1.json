@@ -1,0 +1,119 @@
+{
+  "schema": "cynic.infra_surface_inventory.v1",
+  "status": "draft",
+  "draft_reason": "immediate infra files mix desired state, projections, and adapter policy during topology cleanup.",
+  "promotion_condition": "infra surfaces have stable owners, projection rendering is covered by validation, and registry/agent exposure contracts remain mechanically green.",
+  "decision_authority": "organ-supervisor",
+  "purpose": "Classify immediate infra/* files so organism-wide desired state and agent policy surfaces stay explicit.",
+  "allowed_statuses": [
+    "canonical",
+    "canonical_partial",
+    "projection",
+    "transitional",
+    "quarantined"
+  ],
+  "status_transition_policy": {
+    "canonical": {
+      "owner": "organ-supervisor",
+      "rule": "Canonical infra surfaces are durable source-of-truth files and may be mutated only through contract-aware review.",
+      "exit_condition": "remain canonical while validation covers their authority; demote only if ownership moves to another contract"
+    },
+    "canonical_partial": {
+      "owner": "organ-supervisor",
+      "rule": "Canonical partial infra surfaces are intended source of truth but still have open membrane, projection, or validation debt.",
+      "exit_condition": "promote to canonical after membrane closure and executable validation cover their role"
+    },
+    "projection": {
+      "owner": "organ-supervisor",
+      "rule": "Projection infra surfaces mirror or render another authority and must not be edited as independent truth.",
+      "exit_condition": "keep generated and validated, promote to canonical only with explicit authority, or delete"
+    },
+    "quarantined": {
+      "owner": "organ-supervisor",
+      "rule": "Quarantined infra surfaces are excluded from active desired state.",
+      "exit_condition": "delete, archive as evidence, or reclassify after authority is explicit"
+    },
+    "transitional": {
+      "owner": "organ-supervisor",
+      "rule": "Transitional infra surfaces are temporary during topology cleanup.",
+      "exit_condition": "promote, project, quarantine, or delete after next_action is complete"
+    }
+  },
+  "required_evidence_for_open_membrane": "untracked infra surface file",
+  "surfaces": [
+    {
+      "path": "infra/README.md",
+      "class": "infra_boundary_projection",
+      "owner": "organ-supervisor",
+      "status": "projection",
+      "evidence": [
+        "documents infra topology boundaries",
+        "untracked infra surface file"
+      ],
+      "next_action": "keep aligned with repo-topology and infra contracts or move durable rules into axioms"
+    },
+    {
+      "path": "infra/agent-exposure.json",
+      "class": "agent_exposure_ssot",
+      "owner": "organ-exposure",
+      "status": "canonical_partial",
+      "evidence": [
+        "universal agent exposure source of truth",
+        "untracked infra surface file"
+      ],
+      "next_action": "track once projection rendering and exposure validation are stable"
+    },
+    {
+      "path": "infra/agent-policy.toml",
+      "class": "agent_os_policy_projection",
+      "owner": "organ-exposure",
+      "status": "projection",
+      "evidence": [
+        "projection of axioms/runtime-principals-v1.json for agent policy and sudoers generation",
+        "untracked infra surface file"
+      ],
+      "next_action": "keep projection aligned with runtime-principals validation until rendered sudoers generation is canonical"
+    },
+    {
+      "path": "infra/repo-access-profile.json",
+      "class": "repo_access_profile_projection",
+      "owner": "organ-supervisor",
+      "status": "projection",
+      "evidence": [
+        "repo access profile for the cynic runtime principal",
+        "untracked infra surface file"
+      ],
+      "next_action": "keep aligned with runtime-principals and repo access collaboration workflow"
+    },
+    {
+      "path": "infra/registry.json",
+      "class": "organism_desired_state",
+      "owner": "organism",
+      "status": "canonical",
+      "evidence": [
+        "registry source of truth"
+      ],
+      "next_action": "mutate only through contract-aware review and registry validation"
+    },
+    {
+      "path": "infra/surreal_init.surql",
+      "class": "local_database_seed_projection",
+      "owner": "organ-keep",
+      "status": "transitional",
+      "evidence": [
+        "SurrealDB schema seed",
+        "untracked infra surface file"
+      ],
+      "next_action": "migrate durable schema into storage activation contracts or delete the local seed projection"
+    }
+  ],
+  "totals": {
+    "surfaces": 6,
+    "by_status": {
+      "projection": 3,
+      "canonical_partial": 1,
+      "canonical": 1,
+      "transitional": 1
+    }
+  }
+}

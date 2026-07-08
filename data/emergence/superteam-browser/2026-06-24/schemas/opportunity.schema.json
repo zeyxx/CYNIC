@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "Opportunity.schema.json",
+  "title": "Opportunity",
+  "type": "object",
+  "required": [
+    "source_layer",
+    "slug",
+    "url",
+    "title"
+  ],
+  "properties": {
+    "source_layer": {
+      "type": "string"
+    },
+    "id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "slug": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "type": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reward_amount": {
+      "type": [
+        "number",
+        "integer",
+        "null"
+      ]
+    },
+    "token": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "deadline": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "submission_count": {
+      "type": [
+        "number",
+        "integer",
+        "null"
+      ]
+    },
+    "comment_count": {
+      "type": [
+        "number",
+        "integer",
+        "null"
+      ]
+    },
+    "sponsor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "agent_access": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

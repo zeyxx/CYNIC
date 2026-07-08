@@ -1,0 +1,57 @@
+{
+  "schema": "cynic.organism_physics.v1",
+  "status": "normative",
+  "purpose": "Define the physical invariants that detect when a mutation is only locally true versus causally propagated, energy-disciplined, coupled, and verified across the organism.",
+  "authorities": {
+    "human_readable_policy": "docs/foundation/CYNIC_ORGANISM_PHYSICS_POLICY.md",
+    "runtime_roles": "docs/foundation/CYNIC_AGENTIC_RUNTIME_ROLES.md",
+    "anti_polling_contract": "axioms/anti-polling-transition-v1.json",
+    "api_topology_contract": "axioms/api-topology-v1.json",
+    "registry": "infra/registry.json",
+    "agent_exposure": "infra/agent-exposure.json"
+  },
+  "invariants": [
+    "A lifecycle mutation is not physically real until applied and verified layers have machine-readable evidence and read-back.",
+    "A canonical watch or event membrane promoted in one layer must propagate to downstream canonical consumers or remain explicitly transitional debt.",
+    "A shared runtime must not keep a poll-first default capability vocabulary after its canonical intake path has moved to wait/watch semantics.",
+    "Polling debt, fallback intervals, and legacy env wiring are energy leakage and must remain visible until removed.",
+    "A canonical execution path should converge toward a closed control loop with observation, dispatch, execution, read-back, and correction."
+  ],
+  "required_lifecycle_layers": [
+    "desired",
+    "declared",
+    "observed",
+    "effective",
+    "applied",
+    "verified"
+  ],
+  "required_transition_evidence": {
+    "effective_to_applied": [
+      "claimed_agent_task",
+      "runner_result"
+    ],
+    "applied_to_verified": [
+      "completed_agent_task",
+      "service_health_or_activation_evidence"
+    ]
+  },
+  "watch_propagation_rule": {
+    "kernel_surface": "GET /agent-tasks/watch",
+    "consumer_surface_group": "memory_tasks",
+    "expected_mcp_tool": "cynic_watch_pending_agent_tasks",
+    "status_when_missing": "transitional_gap"
+  },
+  "runtime_coherence_surfaces": {
+    "daemon_default_capabilities_path": "services/ouroboros-runtime/src/ouroboros_runtime/core/daemon.py",
+    "lifecycle_default_capabilities_path": "services/ouroboros-runtime/src/ouroboros_runtime/core/ouroboros.py",
+    "kernel_watch_adapter_path": "services/coordination-runtime/src/cynic_coord_runtime/adapters/kernel_rest.py",
+    "executor_status_path": "services/ouroboros-runtime/src/ouroboros_runtime/core/adapters/hermes_kanban_executor.py"
+  },
+  "inertia_surfaces": [
+    "infra/systemd/hermes-agent-executor.service",
+    "organs/forge/systemd/organ-forge-hermes-agent.service",
+    "organs/twitter/systemd/organ-twitter-hermes-agent.service",
+    "organs/discord/systemd/organ-discord-hermes-agent.service",
+    "organs/telegram/systemd/organ-telegram-hermes-agent.service"
+  ]
+}

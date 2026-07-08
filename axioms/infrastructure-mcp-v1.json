@@ -292,11 +292,32 @@
                 },
                 "network.mesh.status": {
                     "mcp_tool": "network_mesh_status",
-                    "implementation_status": "implemented_registry_plus_optional_dns_read",
+                    "implementation_status": "implemented_registry_plus_optional_dns_and_runtime_read",
                     "schema": "cynic.infrastructure_mcp.network_mesh_status.v1",
+                    "runtime_observation_contract": {
+                        "schema": "cynic.network_mesh.runtime_observation.v1",
+                        "required_fields": [
+                            "schema",
+                            "source",
+                            "status",
+                            "severity",
+                            "blockers",
+                            "missing",
+                            "drift",
+                            "blocking"
+                        ],
+                        "canonical_producers": [
+                            "cargo run -q -p cynic-node -- observe --json",
+                            "python3 organs/fleet/src/entrypoints/cli.py mesh status --observe-runtime"
+                        ],
+                        "shared_between": [
+                            "crates/cynic-node",
+                            "organs/fleet"
+                        ]
+                    },
                     "organ_projection": {
-                        "organ": "organ-wireguard",
-                        "command": "python3 organs/wireguard/src/entrypoints/cli.py status --registry infra/registry.json",
+                        "organ": "organ-fleet",
+                        "command": "python3 organs/fleet/src/entrypoints/cli.py mesh status --registry infra/registry.json",
                         "contract_alignment": "same_schema_as_mcp"
                     },
                     "mutates": false,
@@ -304,7 +325,8 @@
                     "optional_inputs": [
                         "registry_ref",
                         "resolve_dns",
-                        "include_records"
+                        "include_records",
+                        "observe_runtime"
                     ],
                     "returns": [
                         "peers",
@@ -313,11 +335,14 @@
                         "dns_status",
                         "policy_status",
                         "runtime_status",
+                        "runtime_observation",
+                        "drift",
+                        "blocking",
                         "records",
                         "dns_checks"
                     ],
                     "current_limits": [
-                        "wireguard_runtime_peer_state_not_observed_until_organ_wireguard_agent_reports_runtime_evidence",
+                        "wireguard_runtime_peer_state_is_observed_from_calling_host_only_when observe_runtime is requested",
                         "dns_resolution_is_optional_and_observed_from_the_calling_host"
                     ]
                 },
@@ -336,10 +361,10 @@
                 },
                 "network.mesh.dns.activation_plan": {
                     "mcp_tool": "network_mesh_dns_activation_plan",
-                    "implementation_status": "implemented_organ_wireguard_cli",
+                    "implementation_status": "implemented_organ_fleet_cli",
                     "organ_projection": {
-                        "organ": "organ-wireguard",
-                        "command": "python3 organs/wireguard/src/entrypoints/cli.py dns plan"
+                        "organ": "organ-fleet",
+                        "command": "python3 organs/fleet/src/entrypoints/cli.py dns plan"
                     },
                     "mutates": false,
                     "returns": [
@@ -358,10 +383,10 @@
                 },
                 "network.mesh.dns.activation_bundle": {
                     "mcp_tool": "network_mesh_dns_activation_bundle",
-                    "implementation_status": "implemented_organ_wireguard_cli",
+                    "implementation_status": "implemented_organ_fleet_cli",
                     "organ_projection": {
-                        "organ": "organ-wireguard",
-                        "command": "python3 organs/wireguard/src/entrypoints/cli.py dns bundle --registry infra/registry.json --output-dir /tmp/cynic-synapse-dns"
+                        "organ": "organ-fleet",
+                        "command": "python3 organs/fleet/src/entrypoints/cli.py dns bundle --registry infra/registry.json --output-dir /tmp/cynic-synapse-dns"
                     },
                     "mutates": false,
                     "writes_local_output_dir": true,
@@ -376,12 +401,64 @@
                         "cortex_sessions_must_not_install_bundle_directly_as_root"
                     ]
                 },
+                "network.mesh.provider_fallback_hosts": {
+                    "mcp_tool": "network_mesh_provider_fallback_hosts",
+                    "implementation_status": "implemented_organ_fleet_cli",
+                    "schema": "cynic.organ_fleet.provider_fallback_hosts.v1",
+                    "organ_projection": {
+                        "organ": "organ-fleet",
+                        "command": "python3 organs/fleet/src/entrypoints/cli.py fallback-hosts --registry infra/registry.json --output-dir /tmp/cynic-provider-fallback"
+                    },
+                    "mutates": false,
+                    "required_inputs": [],
+                    "optional_inputs": [
+                        "registry_ref",
+                        "output_dir"
+                    ],
+                    "returns": [
+                        "hosts_path",
+                        "records",
+                        "canonical",
+                        "expires_on"
+                    ],
+                    "current_limits": [
+                        "temporary_provider_plane_fallback_only",
+                        "does_not_install_or_modify_etc_hosts"
+                    ]
+                },
+                "network.mesh.provider_fallback_status": {
+                    "mcp_tool": "network_mesh_provider_fallback_status",
+                    "implementation_status": "implemented_organ_fleet_cli",
+                    "schema": "cynic.organ_fleet.provider_fallback_status.v1",
+                    "organ_projection": {
+                        "organ": "organ-fleet",
+                        "command": "python3 organs/fleet/src/entrypoints/cli.py fallback-status --registry infra/registry.json --hosts-path /etc/hosts"
+                    },
+                    "mutates": false,
+                    "required_inputs": [],
+                    "optional_inputs": [
+                        "registry_ref",
+                        "hosts_path",
+                        "check_connectivity"
+                    ],
+                    "returns": [
+                        "status",
+                        "checks",
+                        "route",
+                        "connectivity",
+                        "missing"
+                    ],
+                    "current_limits": [
+                        "temporary_provider_plane_fallback_only",
+                        "service_refusal_is_reported_as_reachable_host_but_closed_service"
+                    ]
+                },
                 "network.mesh.dns.activation_status": {
                     "mcp_tool": "network_mesh_dns_activation_status",
-                    "implementation_status": "implemented_organ_wireguard_cli",
+                    "implementation_status": "implemented_organ_fleet_cli",
                     "organ_projection": {
-                        "organ": "organ-wireguard",
-                        "command": "python3 organs/wireguard/src/entrypoints/cli.py dns activation-status --resolve-dns"
+                        "organ": "organ-fleet",
+                        "command": "python3 organs/fleet/src/entrypoints/cli.py dns activation-status --resolve-dns"
                     },
                     "mutates": false,
                     "returns": [
