@@ -1,0 +1,1 @@
+"""Supervisor entrypoint boundary."""
