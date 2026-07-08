@@ -2,9 +2,10 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from ._test_utils import resolve_project_root
 
 
-AXIOM_PATH = Path(__file__).resolve().parents[3] / "axioms" / "multiscale-organism-property-map-v1.json"
+AXIOM_PATH = resolve_project_root(Path(__file__).resolve()) / "axioms" / "multiscale-organism-property-map-v1.json"
 
 
 class MultiscaleOrganismPropertyMapTests(unittest.TestCase):

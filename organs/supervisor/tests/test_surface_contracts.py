@@ -4,15 +4,16 @@ import unittest
 from pathlib import Path
 
 try:
-    from ._test_utils import load_module_from_path
+    from ._test_utils import load_module_from_path, resolve_project_root
 except ImportError:
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _test_utils import load_module_from_path
+    from _test_utils import load_module_from_path, resolve_project_root
 
 
-SHARED_MODULE_PATH = Path(__file__).resolve().parents[2] / "contracts" / "src" / "surface_contracts.py"
+ROOT = resolve_project_root(Path(__file__).resolve())
+SHARED_MODULE_PATH = ROOT / "organs" / "contracts" / "src" / "surface_contracts.py"
 SHIM_MODULE_PATH = Path(__file__).resolve().parent.parent / "src" / "core" / "surface_contracts.py"
 
 
