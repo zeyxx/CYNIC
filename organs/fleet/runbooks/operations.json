@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "operations": {
+    "scan_proxmox": {
+      "command": "python3 ../src/entrypoints/cli.py report --json --registry ../../infra/registry.json",
+      "timeout": 30
+    }
+  }
+}

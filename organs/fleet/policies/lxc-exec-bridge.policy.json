@@ -1,0 +1,50 @@
+{
+  "schema": "cynic.lxc_exec_bridge.policy.v1",
+  "status": "planned",
+  "helper_path": "/usr/local/libexec/cynic-lxc-exec-bridge",
+  "sudoers_subject": "cynic",
+  "max_timeout_seconds": 60,
+  "allowed_purposes": {
+    "read_only": {
+      "description": "Non-mutating diagnostics inside an LXC.",
+      "argv_prefixes": [
+        ["cat", "/etc/os-release"],
+        ["hostname"],
+        ["ip", "addr", "show"],
+        ["systemctl", "is-active"],
+        ["systemctl", "status"]
+      ]
+    },
+    "service_control": {
+      "description": "Bounded systemd control for registry-declared services only.",
+      "argv_prefixes": [
+        ["systemctl", "is-active"],
+        ["systemctl", "status"],
+        ["systemctl", "restart"],
+        ["systemctl", "start"],
+        ["systemctl", "stop"]
+      ],
+      "requires_declared_service": true
+    }
+  },
+  "forbidden_tokens": [
+    "sh",
+    "bash",
+    "-c",
+    "curl",
+    "wget",
+    "nc",
+    "python",
+    "python3",
+    "perl",
+    "ruby",
+    "chmod",
+    "chown",
+    "tee",
+    ">",
+    ">>",
+    "|",
+    "&&",
+    ";"
+  ]
+}

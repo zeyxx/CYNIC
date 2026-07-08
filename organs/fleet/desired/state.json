@@ -1,0 +1,7 @@
+{
+  "version": "1.0.0",
+  "desired": {
+    "sync_interval_seconds": 60,
+    "enforce_registry_truth": true
+  }
+}
