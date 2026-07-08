@@ -1,0 +1,79 @@
+{
+  "activation_checks": [
+    "install CoreDNS from a distribution package or approved internal package mirror",
+    "command -v coredns",
+    "install -o root -g root -m 0644 synapse.hosts /etc/coredns/synapse.hosts",
+    "install -o root -g root -m 0644 Corefile /etc/coredns/Corefile",
+    "install -o root -g root -m 0644 coredns-synapse.service /etc/systemd/system/coredns-synapse.service",
+    "install -o root -g root -m 0644 cynic-synapse-dns.conf /etc/systemd/resolved.conf.d/cynic-synapse-dns.conf",
+    "systemctl daemon-reload",
+    "systemctl enable --now coredns-synapse.service",
+    "systemctl restart systemd-resolved.service",
+    "getent hosts organ-surrealdb.synapse.cynic resolves 10.20.0.3"
+  ],
+  "bundle_dir": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/synapse-dns-bundle",
+  "bundle_files": [
+    "Corefile",
+    "README.activation.md",
+    "coredns-synapse.service",
+    "cynic-synapse-dns.conf",
+    "manifest.json",
+    "synapse.hosts"
+  ],
+  "forbidden": [
+    "manual /etc/hosts edits as canonical DNS",
+    "192.168.* service endpoint",
+    "remote installer piped to shell",
+    "wget installer piped to shell",
+    "unverified upstream CoreDNS binary",
+    "automatic fallback to a noncanonical DNS provider without an adapter contract"
+  ],
+  "mutates": false,
+  "package_preconditions": [
+    {
+      "allowed_sources": [
+        "distribution_package",
+        "approved_internal_package_mirror"
+      ],
+      "binary": "coredns",
+      "forbidden_sources": [
+        "curl_pipe_shell",
+        "wget_pipe_shell",
+        "unverified_upstream_binary"
+      ],
+      "name": "coredns"
+    }
+  ],
+  "provider_policy": {
+    "approved_sources": [
+      "distribution_package",
+      "approved_internal_package_mirror"
+    ],
+    "canonical_binary": "coredns",
+    "canonical_provider": "coredns",
+    "known_noncanonical_candidates": [
+      "dnsmasq",
+      "unbound",
+      "bind9",
+      "systemd-resolved"
+    ],
+    "promotion_rule": "A candidate provider becomes usable only after a dedicated adapter contract, bundle renderer, service template, and activation-status checks are added.",
+    "selection_source": "organ-wireguard Synapse DNS activation contract",
+    "service_contract": "*.synapse.cynic"
+  },
+  "required_modes": {
+    "corefile": "0644",
+    "hosts": "0644",
+    "resolved_dropin": "0644",
+    "service": "0644"
+  },
+  "required_owner": "root:root",
+  "schema": "cynic.organ_wireguard.dns_activation_plan.v1",
+  "target": {
+    "corefile": "/etc/coredns/Corefile",
+    "hosts": "/etc/coredns/synapse.hosts",
+    "resolved_dropin": "/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf",
+    "service": "/etc/systemd/system/coredns-synapse.service",
+    "zone": "synapse.cynic"
+  }
+}

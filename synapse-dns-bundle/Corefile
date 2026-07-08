@@ -1,0 +1,6 @@
+.:1053 {
+    errors
+    hosts /etc/coredns/synapse.hosts {
+        fallthrough
+    }
+}

@@ -1,0 +1,13 @@
+[Unit]
+Description=CYNIC Synapse CoreDNS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/env coredns -conf /etc/coredns/Corefile
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
