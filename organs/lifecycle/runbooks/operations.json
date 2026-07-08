@@ -1,0 +1,77 @@
+{
+  "version": "1.0.0",
+  "contract": "axioms/lifecycle-interface-v1.json",
+  "analysis_contract": "axioms/lifecycle-supply-chain-v1.json",
+  "ports": [
+    "InfraRegistryPort",
+    "FleetStatusPort",
+    "ServiceHealthPort",
+    "StoragePrimaryPort",
+    "LifecycleDispatchPort",
+    "CoordinationPort",
+    "ObservationPort",
+    "SupplyChainAnalysisPort"
+  ],
+  "interfaces": {
+    "registry": {
+      "load_registry": {
+        "command": "python3 -c 'from organs.lifecycle.src.adapters.registry_adapter import RegistryFileAdapter; print(RegistryFileAdapter().load_registry().get(\"lifecycle\", {}).get(\"kernel_release\", {}).get(\"task_kind\", \"\"))'",
+        "timeout": 10
+      }
+    },
+    "supply_chain_analysis": {
+      "analyze_supply_chain": {
+        "command": "python3 - <<'PY'\nfrom organs.lifecycle.src.adapters.registry_supply_chain_adapter import RegistrySupplyChainAdapter\nprint(RegistrySupplyChainAdapter().analyze_supply_chain()['summary'])\nPY",
+        "timeout": 10
+      }
+    },
+    "runtime": {
+      "snapshot": {
+        "command": "python3 - <<'PY'\nimport asyncio\nfrom organs.lifecycle.src.entrypoints.runtime import build_lifecycle_runtime\nprint(asyncio.run(build_lifecycle_runtime().snapshot()))\nPY",
+        "timeout": 10
+      },
+      "run_once": {
+        "command": "python3 - <<'PY'\nimport asyncio\nfrom organs.lifecycle.src.entrypoints.runtime import build_lifecycle_runtime\nprint(asyncio.run(build_lifecycle_runtime().run_once()))\nPY",
+        "timeout": 10
+      }
+    },
+    "controller": {
+      "run_once": {
+        "command": "python3 - <<'PY'\nimport asyncio\nfrom organs.lifecycle.src.entrypoints.controller import run_controller_once\nprint(asyncio.run(run_controller_once()))\nPY",
+        "timeout": 10
+      },
+      "reconcile": {
+        "command": "python3 - <<'PY'\nimport asyncio\nfrom organs.lifecycle.src.entrypoints.controller import LifecycleController\nprint(asyncio.run(LifecycleController().reconcile()))\nPY",
+        "timeout": 10
+      }
+    },
+    "watchdog": {
+      "run_once": {
+        "command": "python3 - <<'PY'\nimport asyncio\nfrom organs.lifecycle.src.entrypoints.watchdog import run_watchdog_once\nprint(asyncio.run(run_watchdog_once()))\nPY",
+        "timeout": 10
+      }
+    },
+    "coordination": {
+      "who": {
+        "command": "POST /coord/who",
+        "timeout": 10
+      }
+    },
+    "provisioning": {
+      "provision_vm": {
+        "command": "python3 ../src/entrypoints/cli.py provision --target {node_role} --registry ../../infra/registry.json",
+        "timeout": 300
+      },
+      "destroy_vm": {
+        "command": "python3 ../src/entrypoints/cli.py destroy --vmid {vmid} --force",
+        "timeout": 60
+      }
+    },
+    "mempool": {
+      "fetch_pending_tasks": {
+        "command": "python3 ../src/entrypoints/cli.py mempool fetch",
+        "timeout": 10
+      }
+    }
+  }
+}

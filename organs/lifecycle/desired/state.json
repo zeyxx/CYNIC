@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "desired": {
+    "auto_remediation_enabled": true,
+    "max_concurrent_provisioning": 2,
+    "mempool_poll_interval_seconds": 30
+  }
+}
