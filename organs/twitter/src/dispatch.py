@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from organs.contracts.src.hermes_dispatch import HermesDispatcher
 from organs.contracts.src.surface_contracts import read_json_file_or_default

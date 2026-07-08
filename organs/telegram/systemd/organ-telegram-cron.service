@@ -1,12 +1,12 @@
 [Unit]
 Description=CYNIC Organ Telegram Cron - dispatch messaging surface task
-After=cynic-kernel.service organ-telegram-hermes-agent.service
-Wants=organ-telegram-hermes-agent.service
+After=cynic-kernel.service
 
 [Service]
 Type=oneshot
 WorkingDirectory=@CYNIC_PROJECT_ROOT@
 EnvironmentFile=%h/.config/cynic/env
+Environment=PYTHONPATH=@CYNIC_PROJECT_ROOT@
 ExecStart=/usr/bin/python3 @CYNIC_PROJECT_ROOT@/organs/telegram/src/dispatch.py
 StandardOutput=journal
 StandardError=journal

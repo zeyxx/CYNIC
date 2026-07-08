@@ -6,7 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=@CYNIC_PROJECT_ROOT@
-ExecStart=@CYNIC_PROJECT_ROOTpython3 @/organs/discord/src/entrypoints/pac_server.py
+Environment=PYTHONPATH=@CYNIC_PROJECT_ROOT@
+ExecStart=/usr/bin/python3 @CYNIC_PROJECT_ROOT@/organs/discord/src/entrypoints/pac_server.py
 Restart=on-failure
 RestartSec=5
 MemoryMax=128M

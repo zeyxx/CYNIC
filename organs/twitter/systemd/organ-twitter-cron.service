@@ -6,7 +6,7 @@ After=cynic-kernel.service
 Type=oneshot
 WorkingDirectory=@CYNIC_PROJECT_ROOT@
 EnvironmentFile=%h/.config/cynic/env
-ExecStart=/usr/bin/python3 @CYNIC_PROJECT_ROOT@/organs/twitter/src/entrypoints/cli.py
+Environment=PYTHONPATH=@CYNIC_PROJECT_ROOT@
 ExecStart=/usr/bin/python3 @CYNIC_PROJECT_ROOT@/organs/twitter/src/dispatch.py
 StandardOutput=journal
 StandardError=journal
