@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CYNIC Browser Organ Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "status",
+    "observed_at",
+    "url",
+    "evidence",
+    "mutations_performed"
+  ],
+  "properties": {
+    "task_id": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "blocked", "failed", "needs_human_gate"]
+    },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "url": { "type": "string", "format": "uri" },
+    "summary": { "type": "string" },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "value"],
+        "properties": {
+          "kind": { "type": "string" },
+          "value": { "type": "string" },
+          "redaction": { "type": "string" }
+        }
+      }
+    },
+    "mutations_performed": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CYNIC Browser Organ Task",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "created_at",
+    "source",
+    "objective",
+    "url",
+    "allowed_actions",
+    "forbidden_actions",
+    "evidence_required",
+    "human_gate"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source": { "type": "string", "minLength": 1 },
+    "objective": { "type": "string", "minLength": 1 },
+    "url": { "type": "string", "format": "uri" },
+    "context": { "type": "object" },
+    "allowed_actions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "forbidden_actions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "evidence_required": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "human_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "reason"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}
