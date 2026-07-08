@@ -31,7 +31,7 @@ Supply-chain rule:
 - Dry-run a full request profile with `cynic_lifecycle_payloads(profile="<profile>")` before dispatch when checking compliance. This must not write to the mempool.
 - Use `cynic_lifecycle_dispatch(profile="gate-2")`, `cynic_lifecycle_dispatch(profile="mcp-reload")`, or `cynic_lifecycle_dispatch(profile="deploy")` for mutating requests; success must prove read-back visibility in pending or completed agent tasks.
 - When completing a mempool task through `cynic_update_agent_task_result`, pass `kind` and `domain` when known; verified success means the exact task id is visible in completed tasks.
-- If `make mcp-freshness` reports a missing or stale MCP binary, request `cynic mcp-reload` through the organism build runner; do not present a cortex-local MCP build as canonical validation.
+- If `make mcp-freshness` reports a missing or stale MCP binary, request `cynic mcp-reload` through the organism build runner. If MCP, Kernel, or the build runner path is broken, use `make mcp-repair-local` to rebuild the local proxy and continue. Do not present a cortex-local MCP build as canonical validation.
 - The MCP wrapper exports `CYNIC_PROJECT_ROOT` after resolving the repo from `CYNIC_PROJECT_ROOT`, its own path, or git, so Codex/Claude/Antigravity/Hermes can share the same launcher contract across checkouts.
 - Use `cynic gate-2`, `cynic mcp-reload`, and `cynic deploy` as the native operator transports when MCP is unavailable. Use `make gate-2-request`, `make mcp-reload-request`, `make deploy-request`, or the Python lifecycle CLI only as legacy fallbacks when the `cynic` CLI is unavailable.
 - Local build/deploy commands are transitional checks only, not canonical supply-chain execution.

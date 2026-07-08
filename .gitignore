@@ -83,6 +83,9 @@ rustc-ice-*.txt
 /*-state*.md
 /message.txt
 /*.png
+/patch.py
+/tmp/
+/.agents/
 /algomancer-learning.md
 /history.txt
 .claude/agent-memory/

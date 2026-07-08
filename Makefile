@@ -16,6 +16,7 @@
 #   make bootstrap-request — canonical registry/MCP build_runner birth request
 #   make gate-2-request — canonical registry/MCP release validation request
 #   make mcp-reload-request — canonical registry/MCP cynic-mcp build/reload request
+#   make mcp-repair-local — emergency cortex-local cynic-mcp repair build
 #   make commit   — check + commit (validated commit)
 #   make ship     — commit + push (pre-push verifies gate marker)
 #   make deploy-request — canonical registry/MCP build+deploy request
@@ -29,6 +30,7 @@
 #   make runtime-truth — PID/PPID/binary/version/state/port truth for critical processes
 #   make runtime-check — fail on runtime drift or duplicate critical processes; warn on minimal unit profiles
 #   make mcp-freshness — fail if the Codex MCP wrapper would select a stale binary
+#   make mcp-repair-local — rebuild local MCP binary when the canonical path is inaccessible
 #   make deploy-systemd — idempotent symlink infra/systemd/* → ~/.config/systemd/user/
 #   make deploy-systemd-dry — dry-run: show what deploy-systemd would change
 #   make verify-systemd-units — fail if installed user units drift from the repo
@@ -45,8 +47,8 @@ MAKEFLAGS += --warn-undefined-variables
 # ── Environment ──────────────────────────────────────────────
 PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
 
-# 16 GiB: rmcp serde monomorphization in cynic-kernel test builds (A1 debt)
-export RUST_MIN_STACK := 33554432
+# 64 MiB: bounded rustc stack for heterogeneous lifecycle/cortex builds.
+export RUST_MIN_STACK := 67108864
 
 # Source env vars (CYNIC_REST_ADDR, CYNIC_API_KEY, etc.)
 define source_env
@@ -54,7 +56,7 @@ define source_env
 	set -a
 	source ~/.cynic-env 2>/dev/null || true
 	set +a
-	export RUST_MIN_STACK=33554432  # 32 MiB: bounded rustc stack for heterogeneous lifecycle build runners. Source of truth: .cargo/config.toml
+	export RUST_MIN_STACK=67108864  # 64 MiB: bounded rustc stack for heterogeneous lifecycle/cortex builds.
 
 
 endef

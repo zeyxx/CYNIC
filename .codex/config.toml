@@ -38,6 +38,9 @@ approval_mode = "approve"
 [mcp_servers.cynic-coord.tools.cynic_observe]
 approval_mode = "approve"
 
+[mcp_servers.cynic-coord.tools.cynic_library_query]
+approval_mode = "approve"
+
 [mcp_servers.cynic-coord.tools.cynic_coord_release]
 approval_mode = "approve"
 
@@ -84,6 +87,12 @@ approval_mode = "auto"
 approval_mode = "auto"
 
 [mcp_servers.cynic-coord.tools.network_mesh_status]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.network_mesh_provider_fallback_hosts]
+approval_mode = "auto"
+
+[mcp_servers.cynic-coord.tools.network_mesh_provider_fallback_status]
 approval_mode = "auto"
 
 [mcp_servers.cynic-coord.tools.network_mesh_dns_activation_plan]
@@ -200,3 +209,16 @@ approval_mode = "approve"
 
 [mcp_servers.cynic-browser.tools.browser_type]
 approval_mode = "approve"
+
+[mcp_servers.cynic-docker]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-docker"]
+
+[mcp_servers.cynic-docker.tools.docker_container_list]
+approval_mode = "auto"
+
+[mcp_servers.cynic-docker.tools.docker_container_logs]
+approval_mode = "auto"
+
+[mcp_servers.cynic-docker.tools.docker_container_inspect]
+approval_mode = "auto"

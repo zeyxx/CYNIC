@@ -12,9 +12,12 @@
       ],
       "command": "python3"
     },
-    "headscale": {
-      "args": [],
-      "command": "tailscale-mcp"
+    "cynic-docker": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-docker"
+      ],
+      "command": "npx"
     }
   }
 }

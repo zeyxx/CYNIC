@@ -219,6 +219,36 @@ The Kernel mempool is the canonical organism memory for work that must survive a
 chat session. Do not create `TODO.md`, `.handoff.md`, or narrative backlog files
 to remember future work.
 
+### Research Memory And The CYNIC Library
+
+The CYNIC knowledge library is dynamic Kernel memory backed by storage
+(SurrealDB when healthy), not a pile of research Markdown files. Market scans,
+ecosystem docs, tweet-derived hypotheses, mechanism tables, source excerpts and
+live verification results must be written as structured observations through
+`cynic_observe` or REST `POST /observe`, then queried through `cynic_audit_query`
+or the Kernel audit/read APIs.
+
+Agents must not create `docs/research/*.md`, ad-hoc JSON files, or narrative
+library snapshots just to preserve discoveries from a session. A repo file is
+allowed only when it is durable source of truth: a manifesto, policy, axiom,
+schema, test fixture, public specification, or implementation artifact. If the
+storage path is degraded, report the blocker and keep the result in the chat
+handoff; do not pretend the organism has remembered it.
+
+Research observations SHOULD use JSON payloads with at least:
+
+```json
+{
+  "domain": "odysseum",
+  "kind": "mechanism_observation",
+  "source": {"type": "url|repo|tweet|chain", "uri": "..."},
+  "claim": "...",
+  "evidence": {},
+  "confidence": "observed|inferred|hypothesis",
+  "next_verification": ["..."]
+}
+```
+
 ### Current Guarantees
 
 What is mechanically true today:
@@ -323,6 +353,31 @@ Compliance gate: the supply-chain mempool path is canonical only when `make e2e`
 
 Until that e2e is green on the active kernel, agents may patch and locally verify code, but must not call local shell builds/deploys the canonical supply chain.
 
+### Broken-Bus Repair Path
+
+The supply chain must not depend on itself to heal. If MCP, Kernel
+coordination, the registry build runner, or `mcp-reload` is unreachable or stale
+in a way that blocks ordinary work, an interactive cortex with the human present
+may run a cortex-local repair build.
+
+Allowed repair scope:
+
+- build local tooling needed to restore work, especially `cynic-mcp`;
+- run local checks, tests, and binaries against the working tree;
+- patch the broken coordination/build surface directly when necessary.
+
+Forbidden during repair:
+
+- writing `.gate-2`;
+- presenting a local build as registry release validation;
+- deploying to the canonical kernel host as if the lifecycle executor approved it;
+- changing lifecycle nodes from `planned` to `active` to bypass readiness proof.
+
+Use `make mcp-repair-local` for the emergency local `cynic-mcp` build. Record
+the fact as a Kernel observation when the bus is back. If the bus is still down,
+the command output and git diff are the temporary proof until coordination is
+restored.
+
 ## Gate System (3-Level Sovereign CI)
 
 No cloud CI, no GitHub Actions, no external dependency. Verification is sovereign and registry-driven: local cortex checks are allowed for development, but release validation belongs to the registered build runner.
@@ -380,6 +435,7 @@ make lifecycle-activation-dispatch  # Dispatch organ-generated activation reques
 make lifecycle-profile-payloads p=deploy  # Dry-run profile payloads; validates before dispatch
 cynic gate-2  # Canonical operator Level 2 request profile; does not write .gate-2 locally
 cynic mcp-reload  # Canonical operator MCP rebuild/reload request profile; no cortex-local build
+make mcp-repair-local  # Emergency only: local cynic-mcp repair when MCP/kernel/build-runner path is broken
 make gate-2    # Refuses cortex-local marker writes
 make check     # Local cortex validation: gate-0 + gate-1
 make gate      # Local cortex validation + local marker
@@ -475,7 +531,10 @@ repo config. Use `make mcp-freshness` for a non-mutating diagnostic that checks
 which binary would be selected and whether it is stale. If it fails, request
 `cynic mcp-reload` through the registry build runner. Use `make
 mcp-reload-request` only as a legacy fallback when the `cynic` CLI is not
-available. Cortex machines do not build or refresh MCP binaries locally.
+available. If that path is itself broken or unreachable, use `make
+mcp-repair-local` to rebuild the local MCP binary and continue repair work. A
+local MCP repair build is not canonical release validation and must not write
+`.gate-2`.
 
 ### Sandbox
 
@@ -514,6 +573,7 @@ There is no `TODO.md` and no `.handoff.md`.
 1. **The Code is the Truth**: The current state of the repo, the Git commit history, and the files (`docs/DATA_CONSTITUTION.md`, etc.) are the only static context.
 2. **The Kernel is the Mempool**: Any dynamic context, discoveries, or tasks are pushed to the Kernel via `cynic_observe` or queried from `/agent-tasks`.
 3. **Askesis (Proof-of-History)**: Human and agent interactions log their semantic footprints in structured JSONL (`.cynic/memory/logs/human-kernel.jsonl`), never in narrative markdown files.
+4. **Research is Observation**: Ecosystem research, market tweets, protocol mechanism tables, and source discovery belong in Kernel observations / audit memory. Promote them to Git only after they become stable doctrine, contracts, schemas, tests, or implementation.
 
 ### Commit Hygiene For Non-Code Files
 
@@ -530,6 +590,15 @@ The pre-commit hook and `make gate-0` enforce the volatile-state block.
 ## Organism Taxonomy
 
 **Five species of intelligence + supporting infrastructure.**
+
+### Organ Scarcity Rule
+
+Do not create a new organ just because a topic needs files. A new organ is the
+last resort for a durable sensori-motor subsystem with its own boundary,
+inputs/outputs and lifecycle. Prefer, in order: a capability inside an existing
+organ, an app/package, an axiom/schema, or a Kernel observation. If a new organ
+is still necessary, name the existing organ or surface it cannot be absorbed
+into.
 
 | Type | Where | Lifecycle | State | Naming |
 |------|-------|-----------|-------|--------|
@@ -732,8 +801,11 @@ Mesh layers are complementary, not competing names:
 
 - `organ-headscale` owns mesh access control: Headscale/Tailscale-compatible
   reachability for operators and agents.
-- `organ-wireguard` owns the deterministic Synapse service mesh:
-  native WireGuard routing, service IPs, and `*.synapse.cynic` naming.
+- `cynic-node` + `organ-fleet` own the active deterministic Synapse service
+  mesh surfaces: node-local runtime evidence, bounded repair planning, active
+  DNS/mesh operator surfaces, and `*.synapse.cynic` naming.
+- `organ-wireguard` is a legacy compatibility membrane only. It is not the
+  canonical active runtime authority.
 
 Network allocation is registry-governed. `infra/registry.json:network_policy`
 is the source of truth for service-plane CIDRs, DNS zones, and Synapse IP
@@ -746,7 +818,7 @@ No agent may invent an IP address from observed infrastructure state. Before a
 node, LXC, VM, service, or organ is provisioned as runtime-routable, it must
 have a registry reservation for its canonical service-plane address. If the
 reservation is missing, the correct action is to update the registry/network
-policy and let `organ-wireguard`/`organ-fleet` validate it, not to choose a free
+policy and let `cynic-node`/`organ-fleet` validate it, not to choose a free
 address manually.
 
 Every `organs/*` directory that is an organ must have an explicit registry

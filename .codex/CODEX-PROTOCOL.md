@@ -102,6 +102,16 @@ Canonical release build/deploy is MCP-first after the active kernel passes `make
 
 Until that e2e is green on the active kernel, Codex may run local checks, but must label them transitional and must not present local shell build/deploy as the organism's canonical supply chain.
 
+Broken-bus exception:
+
+- If MCP, the Kernel, the registry build runner, or the `mcp-reload` profile is
+  broken in a way that prevents repair, Codex may run `make mcp-repair-local`.
+- This exception is limited to restoring local tooling and validating patches.
+- It must not write `.gate-2`, deploy to the canonical kernel host, or mark
+  lifecycle nodes active.
+- Once coordination is restored, record the repair as an observation or dispatch
+  the canonical follow-up validation.
+
 ## Codex Limits That Matter
 
 - `apply_patch` does not provide the same hook surface as Claude/Gemini
@@ -142,3 +152,16 @@ Those belong in:
 - the kernel mempool (`/agent-tasks`)
 - structured observations (`cynic_observe` / `/observe`)
 - domain files only when they are stable protocol, specs, or source code
+
+## Research Memory
+
+Do not create repo-local research notes or JSON snapshots just to remember what
+was found during browsing. CYNIC's library lives in Kernel storage; write market
+signals, ecosystem mechanisms, source discoveries and verification tables as
+structured `cynic_observe` payloads, and read them back with audit/query tools
+when available.
+
+Only promote research into Git when it becomes stable doctrine, an axiom,
+schema, test fixture, public specification or implementation. If Kernel storage
+or MCP observation is unavailable, say that explicitly instead of creating a
+shadow library in Markdown.

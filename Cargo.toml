@@ -3,10 +3,15 @@ members = [
     "crates/cynic-kernel",
     "crates/cynic-node",
     "crates/cynic-askesis",
-    "crates/cynic-mcp", "services/ignis/program", "crates/kyon-core", "crates/kyon-zk", 
+    "crates/cynic-mcp", 
+    "crates/cynic-agent-gateway", 
+    "services/ignis/program", 
+    "crates/kyon-core", 
+    "crates/kyon-zk", 
 ]
 exclude = [
     "cynic-python/lab/quantum-ecc/ecdsafail-challenge",
+    "crates/cynic-cognitive-sensor",
 ]
 resolver = "2"
 
