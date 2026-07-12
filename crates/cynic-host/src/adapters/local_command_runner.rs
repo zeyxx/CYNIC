@@ -178,15 +178,18 @@ fn install_bootstrap_packages(
         .iter()
         .any(|source| source == "distribution_package")
     {
-        let package_installer = current_runtime_layout()
+        let layout = current_runtime_layout();
+        let argv = layout
             .capabilities()
             .package_manager
-            .installer;
-        let mut args = vec!["install", "-y"];
-        for package in packages {
-            args.push(package.as_str());
+            .kind
+            .install_argv(packages, &layout);
+        if let Some((command, args)) = argv.split_first() {
+            return run_command(
+                command,
+                &args.iter().map(String::as_str).collect::<Vec<_>>(),
+            );
         }
-        return run_command(&package_installer, &args);
     }
 
     HostCommandResult {

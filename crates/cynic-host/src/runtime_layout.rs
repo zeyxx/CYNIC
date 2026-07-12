@@ -2,6 +2,8 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
+
 use crate::process_observation::command_stdout;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,9 +37,88 @@ pub struct ServiceManagerCapability {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackageManagerCapability {
+    pub kind: PackageManagerKind,
     pub installer: String,
     pub query: String,
     pub rpm_query: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PackageManagerKind {
+    Apt,
+    Apk,
+    Dnf,
+    Rpm,
+    Unknown,
+}
+
+impl PackageManagerKind {
+    pub fn parse(value: &str) -> Self {
+        match value {
+            "apt" | "apt-get" | "debian" => Self::Apt,
+            "apk" | "alpine" => Self::Apk,
+            "dnf" => Self::Dnf,
+            "rpm" => Self::Rpm,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Apt => "apt",
+            Self::Apk => "apk",
+            Self::Dnf => "dnf",
+            Self::Rpm => "rpm",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    pub fn query_argv(self, package: &str, layout: &HostRuntimeLayout) -> Vec<String> {
+        match self {
+            Self::Apt => vec![
+                layout.package_query_bin(),
+                "-s".to_string(),
+                package.to_string(),
+            ],
+            Self::Apk => vec![
+                layout.apk_bin(),
+                "info".to_string(),
+                "-e".to_string(),
+                package.to_string(),
+            ],
+            Self::Dnf | Self::Rpm => vec![layout.rpm_bin(), "-q".to_string(), package.to_string()],
+            Self::Unknown => vec![layout.which_bin(), package.to_string()],
+        }
+    }
+
+    pub fn install_argv(self, packages: &[String], layout: &HostRuntimeLayout) -> Vec<String> {
+        match self {
+            Self::Apt => {
+                let mut argv = vec![
+                    layout.package_install_bin(),
+                    "install".to_string(),
+                    "-y".to_string(),
+                ];
+                argv.extend(packages.iter().cloned());
+                argv
+            }
+            Self::Apk => {
+                let mut argv = vec![
+                    layout.apk_bin(),
+                    "add".to_string(),
+                    "--no-cache".to_string(),
+                ];
+                argv.extend(packages.iter().cloned());
+                argv
+            }
+            Self::Dnf => {
+                let mut argv = vec![layout.dnf_bin(), "install".to_string(), "-y".to_string()];
+                argv.extend(packages.iter().cloned());
+                argv
+            }
+            Self::Rpm | Self::Unknown => Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -208,6 +289,7 @@ impl HostRuntimeLayout {
                 command: self.service_manager_bin(),
             },
             package_manager: PackageManagerCapability {
+                kind: self.package_manager_kind(),
                 installer: self.package_install_bin(),
                 query: self.package_query_bin(),
                 rpm_query: self.rpm_bin(),
@@ -275,11 +357,38 @@ impl HostRuntimeLayout {
     }
 
     pub fn package_query_bin(&self) -> String {
-        env_path("CYNIC_PACKAGE_QUERY_BIN", "dpkg")
+        env_path(
+            "CYNIC_PACKAGE_QUERY_BIN",
+            match self.package_manager_kind() {
+                PackageManagerKind::Apk => "apk",
+                PackageManagerKind::Dnf | PackageManagerKind::Rpm => "rpm",
+                PackageManagerKind::Apt | PackageManagerKind::Unknown => "dpkg",
+            },
+        )
     }
 
     pub fn package_install_bin(&self) -> String {
-        env_path("CYNIC_PACKAGE_INSTALL_BIN", "apt-get")
+        env_path(
+            "CYNIC_PACKAGE_INSTALL_BIN",
+            match self.package_manager_kind() {
+                PackageManagerKind::Apk => "apk",
+                PackageManagerKind::Dnf => "dnf",
+                PackageManagerKind::Rpm => "rpm",
+                PackageManagerKind::Apt | PackageManagerKind::Unknown => "apt-get",
+            },
+        )
+    }
+
+    pub fn package_manager_kind(&self) -> PackageManagerKind {
+        PackageManagerKind::parse(&env_path("CYNIC_PACKAGE_MANAGER_KIND", "apt"))
+    }
+
+    pub fn apk_bin(&self) -> String {
+        env_path("CYNIC_APK_BIN", "apk")
+    }
+
+    pub fn dnf_bin(&self) -> String {
+        env_path("CYNIC_DNF_BIN", "dnf")
     }
 
     pub fn rpm_bin(&self) -> String {
@@ -421,5 +530,38 @@ mod tests {
 
         assert_eq!(capabilities.service_manager.kind, "openrc");
         assert_eq!(capabilities.service_manager.command, "rc-service-test");
+    }
+
+    #[test]
+    fn package_manager_can_select_apk_from_env() {
+        unsafe {
+            std::env::set_var("CYNIC_PACKAGE_MANAGER_KIND", "apk");
+            std::env::set_var("CYNIC_APK_BIN", "apk-test");
+        }
+        let layout = HostRuntimeLayout::from_env();
+        let capabilities = layout.capabilities();
+
+        assert_eq!(
+            capabilities.package_manager.kind,
+            super::PackageManagerKind::Apk
+        );
+        assert_eq!(
+            capabilities
+                .package_manager
+                .kind
+                .query_argv("coredns", &layout),
+            vec!["apk-test", "info", "-e", "coredns"]
+        );
+        assert_eq!(
+            capabilities
+                .package_manager
+                .kind
+                .install_argv(&["coredns".to_string()], &layout),
+            vec!["apk-test", "add", "--no-cache", "coredns"]
+        );
+        unsafe {
+            std::env::remove_var("CYNIC_PACKAGE_MANAGER_KIND");
+            std::env::remove_var("CYNIC_APK_BIN");
+        }
     }
 }

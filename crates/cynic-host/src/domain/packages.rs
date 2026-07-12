@@ -1,18 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-use crate::command_surface::{
-    HostCommandSurface, argv_command, expectation, install_dir_command, package_presence_command,
-};
+use crate::command_surface::{HostCommandSurface, argv_command, expectation, install_dir_command};
 use crate::domain::shared::{
     HostSubstrateDomain, SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence,
     SurfaceContract, SurfaceStatus,
 };
 use crate::install_contract::{MODE_0644, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
-use crate::runtime_layout::current_runtime_layout;
+use crate::runtime_layout::{PackageManagerKind, current_runtime_layout};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PackagePolicy {
+    pub manager: PackageManagerKind,
     pub policy_dir: String,
     pub source_projection_path: String,
     pub approved_sources: Vec<String>,
@@ -109,7 +108,6 @@ impl PackagePolicy {
 
     pub fn activation_plan(&self) -> PackageActivationPlan {
         let runtime_layout = current_runtime_layout();
-        let capabilities = runtime_layout.capabilities();
         let first_source = self
             .approved_sources
             .first()
@@ -136,11 +134,9 @@ impl PackagePolicy {
                 .bootstrap_packages
                 .iter()
                 .map(|pkg| {
-                    package_presence_command(
+                    argv_command(
                         "package_presence",
-                        pkg.clone(),
-                        capabilities.package_manager.query.clone(),
-                        capabilities.package_manager.rpm_query.clone(),
+                        self.manager.query_argv(pkg, &runtime_layout),
                     )
                 })
                 .collect(),
@@ -200,7 +196,8 @@ impl PackagePolicy {
     }
 
     fn install_commands(&self) -> Vec<HostCommandSurface> {
-        vec![
+        let runtime_layout = current_runtime_layout();
+        let mut commands = vec![
             install_dir_command(
                 "prepare_directory",
                 self.policy_dir.clone(),
@@ -213,14 +210,22 @@ impl PackagePolicy {
                     self.source_projection_path
                 ),
             ),
-            expectation(
+        ];
+        let install_argv = self
+            .manager
+            .install_argv(&self.bootstrap_packages, &runtime_layout);
+        if install_argv.is_empty() {
+            commands.push(expectation(
                 "install_bootstrap_packages",
                 format!(
                     "install bootstrap packages from approved sources: {}",
                     self.bootstrap_packages.join(",")
                 ),
-            ),
-        ]
+            ));
+        } else {
+            commands.push(argv_command("install_bootstrap_packages", install_argv));
+        }
+        commands
     }
 
     pub fn apply_operations(&self) -> Vec<HostOperation> {
@@ -238,5 +243,56 @@ impl PackagePolicy {
                 packages: self.bootstrap_packages.clone(),
             },
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PackagePolicy;
+    use crate::command_surface::render_command;
+    use crate::runtime_layout::PackageManagerKind;
+
+    fn policy(manager: PackageManagerKind) -> PackagePolicy {
+        PackagePolicy {
+            manager,
+            policy_dir: "/etc/cynic".to_string(),
+            source_projection_path: "/etc/cynic/package-sources.json".to_string(),
+            approved_sources: vec!["distribution_package".to_string()],
+            bootstrap_packages: vec!["coredns".to_string(), "wireguard-tools".to_string()],
+        }
+    }
+
+    #[test]
+    fn apk_policy_renders_apk_install_and_presence_commands() {
+        let package_policy = policy(PackageManagerKind::Apk);
+        let activation = package_policy.activation_plan();
+        let rendered = activation
+            .install_commands
+            .iter()
+            .chain(activation.postflight.iter())
+            .map(render_command)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("apk add --no-cache coredns wireguard-tools"));
+        assert!(rendered.contains("apk info -e coredns"));
+        assert!(!rendered.contains("apt-get"));
+        assert!(!rendered.contains("dpkg"));
+    }
+
+    #[test]
+    fn apt_policy_renders_apt_and_dpkg_commands() {
+        let package_policy = policy(PackageManagerKind::Apt);
+        let activation = package_policy.activation_plan();
+        let rendered = activation
+            .install_commands
+            .iter()
+            .chain(activation.postflight.iter())
+            .map(render_command)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("apt-get install -y coredns wireguard-tools"));
+        assert!(rendered.contains("dpkg -s coredns"));
     }
 }

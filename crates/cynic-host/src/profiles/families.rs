@@ -2,7 +2,7 @@ use crate::domain::packages::PackagePolicy;
 use crate::domain::principal::PrincipalPolicy;
 use crate::domain::privilege::PrivilegePolicy;
 use crate::domain::services::{ServiceManagerKind, ServicePolicy, ServiceUnitPolicy};
-use crate::runtime_layout::current_runtime_layout;
+use crate::runtime_layout::{PackageManagerKind, current_runtime_layout};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HostFamilyKind {
@@ -195,6 +195,12 @@ impl HostFamilyProfile {
 
     pub fn package_policy(&self) -> PackagePolicy {
         PackagePolicy {
+            manager: match self.kind {
+                HostFamilyKind::AlpineOpenRc => PackageManagerKind::Apk,
+                HostFamilyKind::DebianSystemd | HostFamilyKind::ProxmoxHypervisor => {
+                    PackageManagerKind::Apt
+                }
+            },
             policy_dir: self.config_dir.clone(),
             source_projection_path: format!("{}/package-sources.json", self.config_dir),
             approved_sources: self.package_approved_sources.clone(),
@@ -305,6 +311,10 @@ mod tests {
         assert_eq!(
             family.service_policy().manager,
             crate::domain::services::ServiceManagerKind::OpenRc
+        );
+        assert_eq!(
+            family.package_policy().manager,
+            crate::runtime_layout::PackageManagerKind::Apk
         );
         assert!(family.bootstrap_packages.contains(&"openrc".to_string()));
         assert!(

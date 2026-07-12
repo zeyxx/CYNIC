@@ -454,6 +454,7 @@ mod tests {
         fn desired_packages(&self) -> PackagePolicy {
             let layout = current_runtime_layout();
             PackagePolicy {
+                manager: crate::runtime_layout::PackageManagerKind::Apt,
                 policy_dir: layout.config_dir.clone(),
                 source_projection_path: format!("{}/package-sources.json", layout.config_dir),
                 approved_sources: vec!["distribution_package".to_string()],

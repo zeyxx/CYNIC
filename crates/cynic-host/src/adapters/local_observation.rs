@@ -88,9 +88,17 @@ impl HostServiceObservationPort for LocalHostObservationAdapter {
 
 fn package_present(package: &str) -> bool {
     let layout = current_runtime_layout();
-    command_exit_success(&layout.package_query_bin(), &["-s", package]).unwrap_or(false)
-        || command_exit_success(&layout.rpm_bin(), &["-q", package]).unwrap_or(false)
+    let capabilities = layout.capabilities();
+    let argv = capabilities
+        .package_manager
+        .kind
+        .query_argv(package, &layout);
+    command_exit_success(&argv[0], &string_args(&argv[1..])).unwrap_or(false)
         || command_exit_success(&layout.which_bin(), &[package]).unwrap_or(false)
+}
+
+fn string_args(args: &[String]) -> Vec<&str> {
+    args.iter().map(String::as_str).collect()
 }
 
 fn service_observation_to_substrate_unit(
