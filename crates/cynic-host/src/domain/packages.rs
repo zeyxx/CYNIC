@@ -9,6 +9,8 @@ use crate::install_contract::{MODE_0644, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
 use crate::runtime_layout::{PackageManagerKind, current_runtime_layout};
 
+const DEFAULT_OS_RELEASE_PATH: &str = "/etc/os-release";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PackagePolicy {
     pub manager: PackageManagerKind,
@@ -55,6 +57,32 @@ pub struct PackageObservedState {
     pub installed_packages: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PackageCommandContext {
+    pub package_query_bin: String,
+    pub package_install_bin: String,
+    pub apk_bin: String,
+    pub dnf_bin: String,
+    pub rpm_bin: String,
+    pub which_bin: String,
+    pub os_release_path: String,
+}
+
+impl PackageCommandContext {
+    pub fn from_current_runtime() -> Self {
+        let layout = current_runtime_layout();
+        Self {
+            package_query_bin: layout.package_query_bin(),
+            package_install_bin: layout.package_install_bin(),
+            apk_bin: layout.apk_bin(),
+            dnf_bin: layout.dnf_bin(),
+            rpm_bin: layout.rpm_bin(),
+            which_bin: layout.which_bin(),
+            os_release_path: DEFAULT_OS_RELEASE_PATH.to_string(),
+        }
+    }
+}
+
 impl PackagePolicy {
     pub fn contract(&self) -> SubstrateDomainContract {
         SubstrateDomainContract {
@@ -95,6 +123,10 @@ impl PackagePolicy {
     }
 
     pub fn bundle(&self) -> PackageBundleReport {
+        self.bundle_with_context(&PackageCommandContext::from_current_runtime())
+    }
+
+    pub fn bundle_with_context(&self, context: &PackageCommandContext) -> PackageBundleReport {
         PackageBundleReport {
             status: SurfaceStatus::Planned,
             files: vec![SubstrateBundleFile {
@@ -102,12 +134,18 @@ impl PackagePolicy {
                 install_path: self.source_projection_path.clone(),
                 mode: MODE_0644.octal.to_string(),
             }],
-            commands: self.install_commands(),
+            commands: self.install_commands(context),
         }
     }
 
     pub fn activation_plan(&self) -> PackageActivationPlan {
-        let runtime_layout = current_runtime_layout();
+        self.activation_plan_with_context(&PackageCommandContext::from_current_runtime())
+    }
+
+    pub fn activation_plan_with_context(
+        &self,
+        context: &PackageCommandContext,
+    ) -> PackageActivationPlan {
         let first_source = self
             .approved_sources
             .first()
@@ -121,7 +159,7 @@ impl PackagePolicy {
                     vec![
                         "test".to_string(),
                         "-f".to_string(),
-                        "/etc/os-release".to_string(),
+                        context.os_release_path.clone(),
                     ],
                 ),
                 expectation(
@@ -129,14 +167,14 @@ impl PackagePolicy {
                     format!("approved package source selected: {first_source}"),
                 ),
             ],
-            install_commands: self.install_commands(),
+            install_commands: self.install_commands(context),
             postflight: self
                 .bootstrap_packages
                 .iter()
                 .map(|pkg| {
                     argv_command(
                         "package_presence",
-                        self.manager.query_argv(pkg, &runtime_layout),
+                        package_query_argv(self.manager, pkg, context),
                     )
                 })
                 .collect(),
@@ -144,10 +182,18 @@ impl PackagePolicy {
     }
 
     pub fn apply_report(&self, dry_run: bool) -> PackageApplyReport {
+        self.apply_report_with_context(dry_run, &PackageCommandContext::from_current_runtime())
+    }
+
+    pub fn apply_report_with_context(
+        &self,
+        dry_run: bool,
+        context: &PackageCommandContext,
+    ) -> PackageApplyReport {
         PackageApplyReport {
             status: SurfaceStatus::Planned,
             dry_run,
-            commands: self.install_commands(),
+            commands: self.install_commands(context),
             proofs_required: self
                 .bootstrap_packages
                 .iter()
@@ -195,8 +241,7 @@ impl PackagePolicy {
         }
     }
 
-    fn install_commands(&self) -> Vec<HostCommandSurface> {
-        let runtime_layout = current_runtime_layout();
+    fn install_commands(&self, context: &PackageCommandContext) -> Vec<HostCommandSurface> {
         let mut commands = vec![
             install_dir_command(
                 "prepare_directory",
@@ -211,9 +256,7 @@ impl PackagePolicy {
                 ),
             ),
         ];
-        let install_argv = self
-            .manager
-            .install_argv(&self.bootstrap_packages, &runtime_layout);
+        let install_argv = package_install_argv(self.manager, &self.bootstrap_packages, context);
         if install_argv.is_empty() {
             commands.push(expectation(
                 "install_bootstrap_packages",
@@ -246,11 +289,88 @@ impl PackagePolicy {
     }
 }
 
+fn package_query_argv(
+    manager: PackageManagerKind,
+    package: &str,
+    context: &PackageCommandContext,
+) -> Vec<String> {
+    match manager {
+        PackageManagerKind::Apt => vec![
+            context.package_query_bin.clone(),
+            "-s".to_string(),
+            package.to_string(),
+        ],
+        PackageManagerKind::Apk => vec![
+            context.apk_bin.clone(),
+            "info".to_string(),
+            "-e".to_string(),
+            package.to_string(),
+        ],
+        PackageManagerKind::Dnf | PackageManagerKind::Rpm => {
+            vec![
+                context.rpm_bin.clone(),
+                "-q".to_string(),
+                package.to_string(),
+            ]
+        }
+        PackageManagerKind::Unknown => vec![context.which_bin.clone(), package.to_string()],
+    }
+}
+
+fn package_install_argv(
+    manager: PackageManagerKind,
+    packages: &[String],
+    context: &PackageCommandContext,
+) -> Vec<String> {
+    match manager {
+        PackageManagerKind::Apt => {
+            let mut argv = vec![
+                context.package_install_bin.clone(),
+                "install".to_string(),
+                "-y".to_string(),
+            ];
+            argv.extend(packages.iter().cloned());
+            argv
+        }
+        PackageManagerKind::Apk => {
+            let mut argv = vec![
+                context.apk_bin.clone(),
+                "add".to_string(),
+                "--no-cache".to_string(),
+            ];
+            argv.extend(packages.iter().cloned());
+            argv
+        }
+        PackageManagerKind::Dnf => {
+            let mut argv = vec![
+                context.dnf_bin.clone(),
+                "install".to_string(),
+                "-y".to_string(),
+            ];
+            argv.extend(packages.iter().cloned());
+            argv
+        }
+        PackageManagerKind::Rpm | PackageManagerKind::Unknown => Vec::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::PackagePolicy;
+    use super::{PackageCommandContext, PackagePolicy};
     use crate::command_surface::render_command;
     use crate::runtime_layout::PackageManagerKind;
+
+    fn context() -> PackageCommandContext {
+        PackageCommandContext {
+            package_query_bin: "/portable/bin/dpkg".to_string(),
+            package_install_bin: "/portable/bin/apt-get".to_string(),
+            apk_bin: "/portable/bin/apk".to_string(),
+            dnf_bin: "/portable/bin/dnf".to_string(),
+            rpm_bin: "/portable/bin/rpm".to_string(),
+            which_bin: "/portable/bin/which".to_string(),
+            os_release_path: "/portable/etc/os-release".to_string(),
+        }
+    }
 
     fn policy(manager: PackageManagerKind) -> PackagePolicy {
         PackagePolicy {
@@ -265,17 +385,19 @@ mod tests {
     #[test]
     fn apk_policy_renders_apk_install_and_presence_commands() {
         let package_policy = policy(PackageManagerKind::Apk);
-        let activation = package_policy.activation_plan();
+        let activation = package_policy.activation_plan_with_context(&context());
         let rendered = activation
-            .install_commands
+            .preflight
             .iter()
+            .chain(activation.install_commands.iter())
             .chain(activation.postflight.iter())
             .map(render_command)
             .collect::<Vec<_>>()
             .join("\n");
 
-        assert!(rendered.contains("apk add --no-cache coredns wireguard-tools"));
-        assert!(rendered.contains("apk info -e coredns"));
+        assert!(rendered.contains("test -f /portable/etc/os-release"));
+        assert!(rendered.contains("/portable/bin/apk add --no-cache coredns wireguard-tools"));
+        assert!(rendered.contains("/portable/bin/apk info -e coredns"));
         assert!(!rendered.contains("apt-get"));
         assert!(!rendered.contains("dpkg"));
     }
@@ -283,7 +405,7 @@ mod tests {
     #[test]
     fn apt_policy_renders_apt_and_dpkg_commands() {
         let package_policy = policy(PackageManagerKind::Apt);
-        let activation = package_policy.activation_plan();
+        let activation = package_policy.activation_plan_with_context(&context());
         let rendered = activation
             .install_commands
             .iter()
@@ -292,7 +414,21 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
 
-        assert!(rendered.contains("apt-get install -y coredns wireguard-tools"));
-        assert!(rendered.contains("dpkg -s coredns"));
+        assert!(rendered.contains("/portable/bin/apt-get install -y coredns wireguard-tools"));
+        assert!(rendered.contains("/portable/bin/dpkg -s coredns"));
+    }
+
+    #[test]
+    fn apply_report_uses_injected_package_command_context() {
+        let package_policy = policy(PackageManagerKind::Dnf);
+        let report = package_policy.apply_report_with_context(true, &context());
+        let rendered = report
+            .commands
+            .iter()
+            .map(render_command)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("/portable/bin/dnf install -y coredns wireguard-tools"));
     }
 }
