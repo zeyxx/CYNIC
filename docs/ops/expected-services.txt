@@ -1,7 +1,0 @@
-# CYNIC expected user services — compared by `make lint-services`
-# Format: one systemd unit name per line. Lines starting with # are ignored.
-# Update this file when adding/removing services.
-cynic-kernel.service
-cynic-portal.service
-llama-server.service
-surrealdb.service
