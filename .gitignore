@@ -1,226 +1,62 @@
-# Build artifacts
-target/
-.gate-passed
-.gate-0
-.gate-1
-.gate-2
-.gate-release
-.gate_marker
-.release-build.json
+# Rust build artifacts
+/target/
+crates/*/target/
+rustc-ice-*.txt
+*.pdb
 *.exe
 *.dll
-*.pdb
-*.zip
+*.so
+*.dylib
 *.bin
 
-# Leeroy Jenkins bypass log (audit trail, not source)
-.leeroy-jenkins/
+# Local gates and release scratch
+.gate-*
+.gate_marker
+.release-build.json
 
-# Dependencies
-/node_modules
-/packages/public-ui/node_modules
-/packages/odysseum-ui/node_modules
-/package/
-.gradle/
-
-# Environment / secrets
+# Secrets and machine-local configuration
 .env
 *.local
+.askesis/
 
-# Logs
-*.log
+# Runtime state and generated data
+/data/
+/logs/
+/observations/
+/tmp/
+state*.md
+*-state*.md
+message.txt
+history.txt
 
-# Database
-hypercube_db/
-
-# Dev tooling (secrets + local state only)
-.claude/settings.local.json
-.cortex/memory/
-.claude/scheduled_tasks.lock
-.claude/worktrees/
-.playwright-mcp/
-.worktrees/
-
-# Experimental scripts (contain hardcoded IPs — sanitize before committing)
-scripts/exp-*.py
-scripts/exp-*.sh
-scripts/*.patch
-scripts/ollama-bench.py
-scripts/sovereign-bench.sh
-benchmarks/
-
-# Exception: cynic-python/benchmarks is infrastructure (self-evolving inference organ)
-!cynic-python/benchmarks/
-!docs/cynic-python/benchmarks/
-cynic-python/observations/
-
-# Hermes agent state (contains .env + local DB)
-# Exception: .tpl template files are safe (no secrets, only <TAILSCALE_*> placeholders)
-# accounts.toml.tpl is template; accounts.toml (runtime) is local-only (never committed)
-.hermes_ouroboros/*
-!.hermes_ouroboros/*.tpl
-
-# Organ runtime state belongs to the Kernel, local organ state, or fixtures.
-infra/organ-anvil/state.json
-infra/organ-anvil/audit.jsonl
-organs/*/state/*.json
-organs/*/state/*.jsonl
-
-# Platform configs
-.replit
-.mcp.json
+# Tool and agent local state
+.claude/
 .antigravity/
 .cynic/
+.playwright-mcp/
+.worktrees/
+.agents/
 
-# Go build artifacts
-mcp-coord/cynic-coord
+# Dependency and language caches
+/node_modules/
+package-lock.json
+.venv/
+__pycache__/
+**/__pycache__/
+**/.gradle-user-home/
+.gradle/
 
-# Compiler crash reports
-rustc-ice-*.txt
+# Local reference material, not repo authority
+/docs/*.pptx
 
-# Session artifacts (AI-generated scratch files at root only)
-/state*.md
-/*-state*.md
-/message.txt
-/*.png
-/patch.py
-/tmp/
-/.agents/
-/algomancer-learning.md
-/history.txt
-.claude/agent-memory/
-.claude/CODEX-HANDOFF-*.md
-.claude/session-convention-*.md
-scripts/run_niah.py
-
-# External projects (T.'s repos + ASDFASDFA's, planned absorption into core)
-# See EXTERNAL_CONTEXT.md for absorption roadmap and fork status
+# External exploratory checkouts
 /external/
-
-# Untracked exploratory directories
 /web/
 
-# Experimental scripts & utilities
-scripts/coord-claim-antigravity.sh
-scripts/cynic-api.py
-scripts/experiment_phi.py
-scripts/x-consumer.sh
-scripts/x-interceptor.py
-
-# Binary artifacts & scratch
-cynic-kernel/cynic-kernel.bin
-scripts/openclaude.sh
-/data/
-!/data/
-!/data/curated/
-!/data/curated/talaria/
-!/data/curated/talaria/genesis.v1.json
-!/data/curated/talaria/genesis.v1.meta.json
-# Phase-2.0 runtime outputs (measurement experiments)
-/data/reports/phase-2.0/measurement_report_*.md
-/data/reports/phase-2.0/divergence_*.csv
-.venv/
-plan-test.json
-report-test.json
-
-# Python cache
-scripts/__pycache__/
-scripts/hermes-x/__pycache__/
-
-# Hermes-x runtime state (captures + verdicts are local only)
-scripts/hermes-x/captures/
-scripts/hermes-x/verdicts/
-
-# npm lockfile (noisy, not cross-platform canonical)
-package-lock.json
-cynic-python/benchmarks/__pycache__/
-cynic-python/inference_organ/
-cynic-python/benchmarks/
-cynic-python/experiment_thinking_tradeoff.py
-cynic-python/research_gpu_capabilities.py
-.claude-research/
-.cynic-explorer-*.md
-observations/
-__pycache__/
-.cynic/memory/
-
-# Personal data (public repo — never track)
-.askesis/
-cynic-python/domains/behavioral-analysis/
-
-# Demo artifacts
+# Binary/demo/export artifacts
+*.zip
+*.deb
+*.png
+*.mp4
 cynic-demo-output-*.txt
 cynic-demo.html
-cynic-demo.mp4
-record-demo.sh
-cynic-python/lab/ccm_chaos_clusters.json
-.archive/
-demo-video/
-.cortex-session
-skills-lock.json
-
-# Runtime data (holder snapshots, webhook captures, API cache — too large for git)
-cynic-python/heuristics/data/snapshots/
-cynic-python/heuristics/data/helius_cache/
-cynic-python/heuristics/data/webhook_data/
-cynic-python/heuristics/data/webhook_id.txt
-/data/calibration_results_real.json
-/data/population_stats.json
-/data/token_profiles.jsonl
-/data/market_snapshots/
-/data/obsidian/
-
-# Explicitly guard against markdown drift in persisted state surfaces.
-organs/*/state/
-!organs/*/state/README.md
-!organs/*/state/SKILL.md
-
-
-# School deliverables (personal, not infrastructure)
-docs/ydays/
-cynic-python/heuristics/webhook_data/
-
-# Quantum ECC harness — cloned challenge repo + runtime state
-cynic-python/lab/quantum-ecc/ecdsafail-challenge/
-cynic-python/lab/quantum-ecc/state.json
-
-# MetaLeX legal signature templates — personal PII, never in public repo
-docs/internal/metalex-exhibit-a-*.md
-
-# Vite dev cache
-packages/cynic-ui/.vite/
-
-# Gradle wrapper/cache state from nested mobile app workspaces
-**/.gradle-user-home/
-
-# Telemetry and temporary files
-/divergence_*.csv
-/measurement_report_*.md
-/*.deb
-cynic-python/heuristics/data/calibration_*.json
-cynic-python/heuristics/data/calibration_*.md
-cynic-python/heuristics/data/calibration_report_*.md
-cynic-python/heuristics/data/measurement_report_*.md
-cynic-python/heuristics/data/*_report_*.md
-cynic-python/heuristics/data/divergence_*.csv
-# services/ monorepo relocation of cynic-python artifacts (anti-fragmentation: markdown only where documented)
-# Keep service runtime markdown artifacts explicit-only; no markdown by default in services.
-services/**/*.md
-services/cynic-python/heuristics/data/calibration_*.json
-services/cynic-python/heuristics/data/calibration_*.md
-services/cynic-python/heuristics/data/calibration_report_*.md
-services/cynic-python/heuristics/data/measurement_report_*.md
-services/cynic-python/heuristics/data/*_report_*.md
-services/cynic-python/heuristics/data/divergence_*.csv
-cynic-python/heuristics/data/market_snapshots/
-cynic-python/heuristics/data/outcomes/
-
-# Log directory
-logs/
-
-# Ops assets (Teams screenshots)
-assets/teams/
-
-# Generated operator activation bundles
-/cynic-synapse-dns/
-/cynic-lxc-bridge/
