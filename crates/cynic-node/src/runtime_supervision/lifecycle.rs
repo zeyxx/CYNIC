@@ -4,12 +4,11 @@ use process_wrap::tokio::ChildWrapper;
 use reqwest::Client;
 use tokio_util::sync::CancellationToken;
 
-use crate::adapters::websocket_federation::WebSocketFederationAdapter;
 use crate::announce;
 use crate::config;
 use crate::config::Config;
 use crate::domain::supervision::ExitReason;
-use crate::ports::runtime_federation_port::RuntimeFederationPort;
+use crate::ports::runtime_federation_port::{RuntimeFederationFactory, RuntimeFederationPort};
 use crate::supervise;
 use crate::verify;
 
@@ -23,6 +22,7 @@ pub(crate) async fn run_lifecycle(
     shutdown: &CancellationToken,
     backoff: &mut supervise::Backoff,
     config_rx: &mut tokio::sync::watch::Receiver<()>,
+    federation_factory: &impl RuntimeFederationFactory,
 ) -> (ExitReason, Option<String>) {
     if let Err(reason) = wait_healthy(client, cfg, child, shutdown).await {
         return (reason, None);
@@ -31,7 +31,16 @@ pub(crate) async fn run_lifecycle(
     match register_with_kernel(client, cfg, child, shutdown).await {
         Ok(id) => {
             backoff.reset();
-            let reason = watch(client, cfg, child, &id, shutdown, config_rx).await;
+            let reason = watch(
+                client,
+                cfg,
+                child,
+                &id,
+                shutdown,
+                config_rx,
+                federation_factory,
+            )
+            .await;
             (reason, Some(id))
         }
         Err(reason) => (reason, None),
@@ -46,6 +55,7 @@ async fn watch(
     dog_id: &str,
     shutdown: &CancellationToken,
     config_rx: &mut tokio::sync::watch::Receiver<()>,
+    federation_factory: &impl RuntimeFederationFactory,
 ) -> ExitReason {
     let health_url = config::derive_health_url(&cfg.dog.base_url);
     let models_url = config::derive_models_url(&cfg.dog.base_url);
@@ -56,7 +66,7 @@ async fn watch(
         tokio::time::interval(Duration::from_secs(cfg.health.verify_interval_secs));
     let mut stimulus_tick = tokio::time::interval(Duration::from_millis(100));
     let mut health_failures: u32 = 0;
-    let federation = WebSocketFederationAdapter::from_env(&cfg.kernel.url, &cfg.dog.name);
+    let federation = federation_factory.build(&cfg.kernel.url, &cfg.dog.name);
 
     if let Err(e) = federation.load_persistent_queues().await {
         tracing::warn!("failed to load persistent queues: {e}");

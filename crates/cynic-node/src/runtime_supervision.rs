@@ -4,11 +4,13 @@ use process_wrap::tokio::ChildWrapper;
 use reqwest::Client;
 use tokio_util::sync::CancellationToken;
 
+use crate::adapters::websocket_federation::WebSocketFederationFactory;
 use crate::announce;
 use crate::config;
 use crate::config::Config;
 use crate::config_watch;
 use crate::domain::supervision::ExitReason;
+use crate::ports::runtime_federation_port::RuntimeFederationFactory;
 use crate::supervise;
 
 mod lifecycle;
@@ -22,9 +24,29 @@ use lifecycle::run_lifecycle;
 pub(crate) async fn run_node(
     client: &Client,
     config_path: &str,
-    mut cfg: Config,
+    cfg: Config,
     shutdown: &CancellationToken,
 ) -> ExitCode {
+    run_node_with_federation_factory(
+        client,
+        config_path,
+        cfg,
+        shutdown,
+        WebSocketFederationFactory,
+    )
+    .await
+}
+
+async fn run_node_with_federation_factory<F>(
+    client: &Client,
+    config_path: &str,
+    mut cfg: Config,
+    shutdown: &CancellationToken,
+    federation_factory: F,
+) -> ExitCode
+where
+    F: RuntimeFederationFactory + Clone,
+{
     let (mut config_rx, _watcher) = match config_watch::spawn_config_watcher(config_path) {
         Ok((rx, watcher)) => (rx, Some(watcher)),
         Err(e) => {
@@ -80,6 +102,7 @@ pub(crate) async fn run_node(
             shutdown,
             &mut state.backoff,
             &mut config_rx,
+            &federation_factory,
         )
         .await;
         state.dog_id = id;

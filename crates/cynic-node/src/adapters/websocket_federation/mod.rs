@@ -7,12 +7,23 @@ use crate::domain::runtime_federation::{
     DEFAULT_NODE_PUBLIC_KEY, RuntimeFederationConfig, default_queue_dir,
     deterministic_fallback_verdict, kernel_websocket_url,
 };
-use crate::ports::runtime_federation_port::RuntimeFederationPort;
+use crate::ports::runtime_federation_port::{RuntimeFederationFactory, RuntimeFederationPort};
 use crate::websocket::{NodeMessage, PendingStimulus, PendingVerdict, WebSocketClient};
 
 #[derive(Clone)]
 pub struct WebSocketFederationAdapter {
     client: Arc<WebSocketClient>,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct WebSocketFederationFactory;
+
+impl RuntimeFederationFactory for WebSocketFederationFactory {
+    type Federation = WebSocketFederationAdapter;
+
+    fn build(&self, kernel_http_url: &str, node_identity: &str) -> Self::Federation {
+        WebSocketFederationAdapter::from_env(kernel_http_url, node_identity)
+    }
 }
 
 impl WebSocketFederationAdapter {
@@ -96,7 +107,8 @@ fn fallback_verdict_for_stimulus(stimulus: PendingStimulus) -> Result<PendingVer
 
 #[cfg(test)]
 mod tests {
-    use super::fallback_verdict_for_stimulus;
+    use super::{WebSocketFederationFactory, fallback_verdict_for_stimulus};
+    use crate::ports::runtime_federation_port::RuntimeFederationFactory;
     use crate::websocket::{NodeMessage, PendingStimulus};
 
     #[test]
@@ -130,5 +142,11 @@ mod tests {
         assert_eq!(verdict.stimulus_id, "stim-1");
         assert_eq!(verdict.verdict["id"], "verd_stim-1");
         assert_eq!(verdict.verdict["kind"], "DETERMINISTIC_FALLBACK");
+    }
+
+    #[test]
+    fn factory_builds_default_websocket_federation_adapter() {
+        let factory = WebSocketFederationFactory;
+        let _adapter = factory.build("http://127.0.0.1:3030", "node-a");
     }
 }
