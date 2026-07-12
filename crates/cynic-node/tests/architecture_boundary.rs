@@ -340,3 +340,47 @@ fn network_actuator_bundle_uses_portable_command_context() {
         "network actuator bundle orchestration must not own runtime probing detail"
     );
 }
+
+#[test]
+fn network_actuator_apply_uses_explicit_command_context() {
+    let root = crate_root();
+    let apply =
+        fs::read_to_string(root.join("src/network_actuator/apply.rs")).expect("read apply.rs");
+    let production_apply = apply.split("#[cfg(test)]").next().unwrap_or(&apply);
+    let apply_without_context_factory = production_apply
+        .replace("fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "");
+
+    assert!(
+        production_apply.contains("struct NetworkActuatorApplyContext")
+            && production_apply.contains("fn from_current_runtime() -> Self")
+            && production_apply.contains("fn apply_profile_with_context")
+            && production_apply.contains("fn profile_commands_with_context"),
+        "network actuator apply must expose explicit context-driven entrypoints"
+    );
+    assert!(
+        apply_without_context_factory
+            .contains("NetworkActuatorApplyContext::from_current_runtime()")
+            && !apply_without_context_factory.contains("current_runtime_layout()"),
+        "runtime layout probing must be isolated in NetworkActuatorApplyContext::from_current_runtime"
+    );
+    assert!(
+        production_apply.contains("context.ip_bin.clone()")
+            && production_apply.contains("context.systemctl_bin.clone()")
+            && production_apply.contains("context.wg_bin.clone()"),
+        "network actuator apply commands must consume injected binaries"
+    );
+    let tests = apply.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    assert!(
+        tests.contains("/portable/bin/ip")
+            && tests.contains("/portable/bin/systemctl")
+            && tests.contains("/portable/bin/wg"),
+        "network actuator apply tests must prove portable binary injection"
+    );
+    for stale_fixture in ["\"/sbin/ip\"", "\"/usr/bin/wg\"", "\"/bin/systemctl\""] {
+        assert!(
+            !tests.contains(stale_fixture),
+            "network actuator apply tests must not preserve host-specific fixture: {stale_fixture}"
+        );
+    }
+}
