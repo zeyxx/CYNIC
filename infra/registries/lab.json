@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "schema": "cynic.registry.v1.lab",
+  "purpose": "Portable lightweight lab registry used to prove low-layer crates are not coupled to the real fleet.",
+  "lab": {
+    "provider": "qemu-libvirt",
+    "isolation": {
+      "network_name": "cynic-lab-isolated",
+      "network_mode": "libvirt-isolated",
+      "host_routing_mutation": false
+    },
+    "base_image": {
+      "path": "/var/lib/cynic/lab/images/ubuntu-24.04-server-cloudimg-amd64.img",
+      "source_url": "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img",
+      "sha256_url": "https://cloud-images.ubuntu.com/noble/current/SHA256SUMS",
+      "sha256": "5fa5b05e5ec239858c4531485d6023b0896448c2df7c63b34f8dae6ea6051a44"
+    },
+    "guest_bootstrap": {
+      "transport": "ssh",
+      "ssh_user": "cynic",
+      "ssh_key_policy": "operator_supplied_outside_git"
+    }
+  },
+  "network_policy": {
+    "canonical_service_plane": "labmesh",
+    "mesh": {
+      "provider": "wireguard"
+    },
+    "planes": {
+      "synapse": {
+        "cidr": "172.30.40.0/24",
+        "dns_zone": "labmesh.example",
+        "canonical": true
+      },
+      "proxmox_guest": {
+        "cidr": "172.30.41.0/24",
+        "canonical": false
+      }
+    },
+    "reservations": [
+      {
+        "name": "lab-kernel",
+        "dns": [
+          "lab-kernel.labmesh.example",
+          "kernel.labmesh.example"
+        ]
+      },
+      {
+        "name": "lab-builder",
+        "dns": [
+          "lab-builder.labmesh.example",
+          "builder.labmesh.example"
+        ]
+      },
+      {
+        "name": "lab-storage",
+        "dns": [
+          "lab-storage.labmesh.example",
+          "storage.labmesh.example"
+        ]
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "lab-kernel",
+      "name": "lab-kernel",
+      "role": "kernel_primary",
+      "status": "candidate",
+      "deploy_target": true,
+      "network": {
+        "synapse": "172.30.40.10",
+        "local": "172.30.41.10"
+      },
+      "services": [
+        {
+          "name": "cynic-kernel",
+          "artifact": "cynic-kernel",
+          "port": 3030,
+          "unit": "cynic-kernel.service"
+        },
+        {
+          "name": "cynic-node",
+          "artifact": "cynic-node",
+          "unit": "cynic-node.service"
+        }
+      ]
+    },
+    {
+      "id": "lab-builder",
+      "name": "lab-builder",
+      "role": "build_runner",
+      "status": "candidate",
+      "deploy_target": false,
+      "network": {
+        "synapse": "172.30.40.20",
+        "local": "172.30.41.20"
+      },
+      "services": [
+        {
+          "name": "ssh",
+          "port": 22
+        }
+      ]
+    },
+    {
+      "id": "lab-storage",
+      "name": "lab-storage",
+      "role": "storage_primary",
+      "status": "candidate",
+      "deploy_target": false,
+      "network": {
+        "synapse": "172.30.40.30",
+        "local": "172.30.41.30"
+      },
+      "services": [
+        {
+          "name": "surrealdb",
+          "port": 8000,
+          "unit": "surrealdb.service"
+        }
+      ]
+    }
+  ],
+  "lifecycle": {
+    "kernel_release": {
+      "build_runner_role": "build_runner",
+      "deploy_target_role": "kernel_primary",
+      "host_bootstrap": {
+        "role_profiles": {
+          "kernel_primary": {
+            "target_stage": "h6_host_actionable",
+            "required_domains": [
+              "host",
+              "services",
+              "storage",
+              "kernel"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "service:cynic-kernel:3030:observed",
+              "service:surrealdb:8000:observed"
+            ]
+          },
+          "build_runner": {
+            "target_stage": "h4_privilege_helpers_ready",
+            "required_domains": [
+              "host",
+              "toolchain",
+              "build"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "cargo_check_observed",
+              "binary_build_observed"
+            ]
+          },
+          "storage_primary": {
+            "target_stage": "h5_services_projected",
+            "required_domains": [
+              "host",
+              "storage"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "service:surrealdb:8000:observed"
+            ]
+          }
+        }
+      },
+      "runtime_artifacts": [
+        "cynic-kernel",
+        "cynic-node",
+        "cynic-mcp",
+        "cynic"
+      ]
+    }
+  }
+}

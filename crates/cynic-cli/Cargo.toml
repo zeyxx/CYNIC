@@ -1,0 +1,24 @@
+[package]
+name = "cynic-cli"
+version = "0.1.0"
+edition = "2024"
+publish = false
+default-run = "cynic"
+
+[[bin]]
+name = "cynic"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+cynic-host = { path = "../cynic-host" }
+cynic-node = { path = "../cynic-node" }
+cynic-protocol = { path = "../cynic-protocol" }
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints]
+workspace = true

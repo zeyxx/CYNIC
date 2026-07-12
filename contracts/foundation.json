@@ -1,0 +1,93 @@
+{
+  "schema": "cynic.foundation.v1",
+  "status": "normative",
+  "purpose": "Small foundation contract for the rebuilt low-layer organism baseline.",
+  "constitutional": {
+    "scope": [
+      "CYNIC is a low-layer Rust runtime organism before it is a product surface.",
+      "Runtime truth is proved by executable code, OS services, registry placement, and runtime read-back.",
+      "Dead documentation, deleted organs, and historical Python gates cannot define current authority."
+    ],
+    "authority_order": [
+      "observed runtime state",
+      "contracts/foundation.json",
+      "infra/runtime-authority.json",
+      "infra/registry.json",
+      "Cargo.toml workspace",
+      "canonical Rust crates",
+      "infra/agent-exposure.json"
+    ],
+    "hard_boundaries": [
+      {
+        "name": "low_layer_first",
+        "rule": "Kernel, host, node, protocol, MCP, CLI, storage, and service supervision take precedence over UX and product layers."
+      },
+      {
+        "name": "rust_runtime_authority",
+        "rule": "Durable runtime authority must live in Rust crates, infra placement, or machine-readable contracts."
+      },
+      {
+        "name": "provider_agnostic_domain",
+        "rule": "Domain logic must not depend on a specific LLM, browser, host, hypervisor, or cloud provider."
+      },
+      {
+        "name": "portable_host_contract",
+        "rule": "Host and node capabilities must be represented as portable ports before concrete adapters."
+      },
+      {
+        "name": "runtime_proof_over_prose",
+        "rule": "A claim about organism liveness is valid only when it can be checked through build output, service state, health/read-back, or persisted runtime evidence."
+      },
+      {
+        "name": "no_contract_forest",
+        "rule": "Do not create broad contract trees. Add a new contract only when a stable boundary cannot be expressed in Rust types, tests, registry, or this file."
+      }
+    ],
+    "deleted_authorities": [
+      "axioms",
+      "organs",
+      "docs as runtime law",
+      "Python lifecycle gates",
+      "UX surfaces as low-layer proof",
+      "agent-specific prose backlogs"
+    ]
+  },
+  "evolutive_policies": {
+    "build": {
+      "default_gate": "make check",
+      "build_gate": "blocked: make build currently hits rustc 1.96.1 ICE in cynic-kernel binary compilation",
+      "release_gate": "experimental: make build-release currently hits rustc 1.96.1 release-profile instability",
+      "test_gate": "experimental: make test currently hits a rustc 1.96.1 ICE in cynic-kernel test compilation",
+      "check_stack": "make check uses RUST_MIN_STACK=268435456 because rustc 1.96.1 overflows on cynic-kernel after full rebuilds",
+      "build_stack": "make build uses RUST_MIN_STACK=536870912 because rustc 1.96.1 overflows while linking cynic-kernel debug binaries",
+      "release_stack": "make build-release uses RUST_MIN_STACK=1073741824 because rustc 1.96.1 overflows during release/profile compilation",
+      "policy": "Build policy may evolve, but it must stay executable from the repository root. A compiler ICE is toolchain debt, not runtime proof."
+    },
+    "runtime": {
+      "registry": "infra/registry.json",
+      "systemd_projection": "infra/systemd",
+      "policy": "Runtime placement may evolve through registry and service templates, not through stale narrative docs. Registry nodes are targets until local proof promotes them to observed/locked."
+    },
+    "agent_exposure": {
+      "source": "infra/agent-exposure.json",
+      "policy": "Expose only currently backed Rust MCP surfaces. Legacy Python proxies are not valid exposure."
+    },
+    "infra_retention": {
+      "keep_rule": "Keep infra files that deploy, secure, configure, or inspect the active low-layer runtime.",
+      "delete_rule": "Delete committed runtime snapshots, UX containers, organ remnants, and provider experiments unless they are required by registry or systemd."
+    },
+    "proof": {
+      "minimum_local_proof": [
+        "make check",
+        "binary build after rustc ICE/toolchain pin is resolved",
+        "systemd unit inventory matches infra/registry.json service names"
+      ],
+      "future_distributed_proof": [
+        "cynic bootstrap constellation --json reads registry targets and reports missing proof without mutating",
+        "node runtime emits host/service proof",
+        "kernel stores observations and task read-back",
+        "MCP exposes read-only runtime status to agents"
+      ]
+    }
+  }
+}

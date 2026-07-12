@@ -1,0 +1,95 @@
+{
+  "schema": "cynic.runtime_authority.v1",
+  "status": "normative",
+  "purpose": "Minimal operational authority map for the rebuilt low-layer organism.",
+  "authority_order": [
+    "observed runtime state",
+    "contracts/foundation.json",
+    "infra/runtime-authority.json",
+    "infra/registry.json",
+    "Cargo.toml workspace",
+    "canonical Rust crates",
+    "infra/agent-exposure.json"
+  ],
+  "canonical_runtime_surfaces": {
+    "kernel_bus": {
+      "owner": "crates/cynic-kernel",
+      "artifact": "cynic-kernel",
+      "owns": [
+        "coordination",
+        "agent tasks",
+        "observations",
+        "health",
+        "runtime read-back"
+      ]
+    },
+    "host_substrate": {
+      "owner": "crates/cynic-host",
+      "artifact": null,
+      "owns": [
+        "OS principal policy",
+        "filesystem projection",
+        "package and service projection",
+        "bounded process execution",
+        "host proof"
+      ]
+    },
+    "node_runtime": {
+      "owner": "crates/cynic-node",
+      "artifact": "cynic-node",
+      "owns": [
+        "node-local supervision",
+        "runtime probes",
+        "network and DNS status",
+        "node proof emission"
+      ],
+      "must_consume": [
+        "crates/cynic-host"
+      ]
+    },
+    "operator_cli": {
+      "owner": "crates/cynic-cli",
+      "artifact": "cynic",
+      "owns": [
+        "operator command grammar",
+        "automation JSON output",
+        "bounded local audits"
+      ]
+    },
+    "agent_mcp": {
+      "owner": "crates/cynic-mcp",
+      "artifact": "cynic-mcp",
+      "owns": [
+        "agent-facing MCP tools",
+        "portable tool projection"
+      ]
+    },
+    "protocol_contracts": {
+      "owner": "crates/cynic-protocol",
+      "artifact": null,
+      "owns": [
+        "shared no-I/O protocol types",
+        "payload helpers"
+      ]
+    },
+    "proof_history": {
+      "owner": "crates/cynic-askesis",
+      "artifact": null,
+      "owns": [
+        "append-only proof/history tooling"
+      ]
+    }
+  },
+  "deleted_authorities": [
+    "axioms",
+    "organs",
+    "docs as runtime authority",
+    "Python lifecycle gates",
+    "product UX as low-layer proof"
+  ],
+  "development_default": {
+    "primary_check": "make check",
+    "new_contract_rule": "Do not add root contract forests. Add Rust types, tests, or a small field in this file only when runtime code needs it.",
+    "deletion_rule": "Anything outside the authority map must prove current runtime use before it is kept."
+  }
+}
