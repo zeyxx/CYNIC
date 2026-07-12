@@ -384,3 +384,47 @@ fn network_actuator_apply_uses_explicit_command_context() {
         );
     }
 }
+
+#[test]
+fn network_actuator_policy_uses_explicit_command_context() {
+    let root = crate_root();
+    let policy =
+        fs::read_to_string(root.join("src/network_actuator/policy.rs")).expect("read policy.rs");
+    let production_policy = policy.split("#[cfg(test)]").next().unwrap_or(&policy);
+    let policy_without_context_factory = production_policy
+        .replace("fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "");
+
+    assert!(
+        production_policy.contains("struct NetworkActuatorPolicyContext")
+            && production_policy.contains("fn from_current_runtime() -> Self")
+            && production_policy.contains("fn build_policy_document_with_context"),
+        "network actuator policy must expose explicit context-driven entrypoints"
+    );
+    assert!(
+        policy_without_context_factory
+            .contains("NetworkActuatorPolicyContext::from_current_runtime()")
+            && !policy_without_context_factory.contains("current_runtime_layout()"),
+        "runtime layout probing must be isolated in NetworkActuatorPolicyContext::from_current_runtime"
+    );
+    assert!(
+        production_policy.contains("context.ip_bin")
+            && production_policy.contains("context.systemctl_bin.clone()")
+            && production_policy.contains("context.wg_bin.clone()"),
+        "network actuator policy command prefixes must consume injected binaries"
+    );
+    let tests = policy.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    assert!(
+        tests.contains("/portable/bin/ip")
+            && tests.contains("/portable/bin/systemctl")
+            && tests.contains("/portable/bin/wg")
+            && tests.contains("/portable/bin/cynic-network-actuator"),
+        "network actuator policy tests must prove portable binary injection"
+    );
+    for stale_fixture in ["\"/sbin/ip\"", "\"/usr/bin/wg\"", "\"/bin/systemctl\""] {
+        assert!(
+            !tests.contains(stale_fixture),
+            "network actuator policy tests must not preserve host-specific fixture: {stale_fixture}"
+        );
+    }
+}
