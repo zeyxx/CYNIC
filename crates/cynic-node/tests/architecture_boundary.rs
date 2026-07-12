@@ -383,6 +383,49 @@ fn network_mesh_plan_reads_registry_through_a_port() {
 }
 
 #[test]
+fn network_mesh_bundle_writes_through_a_port() {
+    let root = crate_root();
+    let bundle = fs::read_to_string(root.join("src/network_mesh_bundle.rs"))
+        .expect("read network_mesh_bundle.rs");
+    let port = fs::read_to_string(root.join("src/ports/network_mesh_bundle_writer_port.rs"))
+        .expect("read ports/network_mesh_bundle_writer_port.rs");
+    let adapter =
+        fs::read_to_string(root.join("src/adapters/local_network_mesh_bundle_writer/mod.rs"))
+            .expect("read adapters/local_network_mesh_bundle_writer/mod.rs");
+
+    assert!(
+        bundle.lines().count() <= 240
+            && bundle.contains("build_network_mesh_bundle_with_writer")
+            && bundle.contains("LocalNetworkMeshBundleWriter")
+            && bundle.contains("NetworkMeshBundleWriterPort"),
+        "network_mesh_bundle.rs must stay a thin bundle projection surface"
+    );
+    for forbidden in ["use std::fs;", "fs::create_dir_all", "fs::write("] {
+        assert!(
+            !bundle.contains(forbidden),
+            "network_mesh_bundle.rs must not own direct filesystem writes: {forbidden}"
+        );
+    }
+    assert!(
+        port.contains("pub(crate) trait NetworkMeshBundleWriterPort")
+            && port.contains("fn create_dir_all")
+            && port.contains("fn write_string"),
+        "mesh bundle writing must expose a dedicated writer port"
+    );
+    assert!(
+        adapter.contains("impl NetworkMeshBundleWriterPort for LocalNetworkMeshBundleWriter")
+            && adapter.contains("fs::create_dir_all")
+            && adapter.contains("fs::write"),
+        "local mesh bundle filesystem writes must live in the local adapter"
+    );
+    let tests = bundle.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    assert!(
+        tests.contains("RecordingBundleWriter") && tests.contains("/virtual/bundle"),
+        "network mesh bundle tests must prove substituted writer usage"
+    );
+}
+
+#[test]
 fn network_actuator_bundle_uses_portable_command_context() {
     let root = crate_root();
     let bundle =

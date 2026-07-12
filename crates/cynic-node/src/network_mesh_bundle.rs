@@ -1,10 +1,11 @@
-use std::fs;
 use std::path::Path;
 
 use cynic_protocol::{NetworkMeshPeer, NetworkMeshPlan};
 use serde::Serialize;
 
+use crate::adapters::local_network_mesh_bundle_writer::LocalNetworkMeshBundleWriter;
 use crate::network_mesh_plan::build_network_mesh_plan;
+use crate::ports::network_mesh_bundle_writer_port::NetworkMeshBundleWriterPort;
 
 const MANIFEST_FILENAME: &str = "manifest.json";
 const PLAN_FILENAME: &str = "mesh-plan.json";
@@ -34,18 +35,27 @@ pub(crate) fn build_network_mesh_bundle(
     provider_override: Option<&str>,
     output_dir: &str,
 ) -> Result<NetworkMeshBundleReport, String> {
+    build_network_mesh_bundle_with_writer(
+        registry_path,
+        provider_override,
+        output_dir,
+        &LocalNetworkMeshBundleWriter,
+    )
+}
+
+fn build_network_mesh_bundle_with_writer(
+    registry_path: &str,
+    provider_override: Option<&str>,
+    output_dir: &str,
+    writer: &impl NetworkMeshBundleWriterPort,
+) -> Result<NetworkMeshBundleReport, String> {
     let plan = build_network_mesh_plan(registry_path, provider_override)?;
     let out = Path::new(output_dir);
-    fs::create_dir_all(out).map_err(|error| {
-        format!(
-            "failed to create mesh bundle dir {}: {error}",
-            out.display()
-        )
-    })?;
-    write_json(out.join(PLAN_FILENAME), &plan)?;
-    write_json(out.join(DNS_FILENAME), &plan.dns)?;
-    write_json(out.join(ACL_FILENAME), &plan.acl)?;
-    write_json(out.join(ROUTES_FILENAME), &plan.routes)?;
+    writer.create_dir_all(out)?;
+    write_json(&out.join(PLAN_FILENAME), &plan, writer)?;
+    write_json(&out.join(DNS_FILENAME), &plan.dns, writer)?;
+    write_json(&out.join(ACL_FILENAME), &plan.acl, writer)?;
+    write_json(&out.join(ROUTES_FILENAME), &plan.routes, writer)?;
     let mut bundle_files = vec![
         PLAN_FILENAME.to_string(),
         DNS_FILENAME.to_string(),
@@ -56,28 +66,21 @@ pub(crate) fn build_network_mesh_bundle(
     match plan.provider.as_str() {
         "wireguard" => {
             let wg_dir = out.join(WIREGUARD_DIR);
-            fs::create_dir_all(&wg_dir).map_err(|error| {
-                format!(
-                    "failed to create wireguard bundle dir {}: {error}",
-                    wg_dir.display()
-                )
-            })?;
+            writer.create_dir_all(&wg_dir)?;
             for peer in &plan.desired_peers {
                 let filename = format!("{WIREGUARD_DIR}/{}.conf.tpl", peer.id);
-                fs::write(out.join(&filename), wireguard_peer_template(&plan, peer))
-                    .map_err(|error| format!("failed to write {filename}: {error}"))?;
+                writer.write_string(&out.join(&filename), &wireguard_peer_template(&plan, peer))?;
                 bundle_files.push(filename);
             }
         }
         provider => {
             let filename = format!("{provider}-plan.json");
-            write_json(out.join(&filename), &plan)?;
+            write_json(&out.join(&filename), &plan, writer)?;
             bundle_files.push(filename);
         }
     }
 
-    fs::write(out.join(README_FILENAME), activation_readme(&plan))
-        .map_err(|error| format!("failed to write {README_FILENAME}: {error}"))?;
+    writer.write_string(&out.join(README_FILENAME), &activation_readme(&plan))?;
     bundle_files.push(README_FILENAME.to_string());
 
     let report = NetworkMeshBundleReport {
@@ -102,15 +105,17 @@ pub(crate) fn build_network_mesh_bundle(
             "post_apply_runtime_observation",
         ],
     };
-    write_json(out.join(MANIFEST_FILENAME), &report)?;
+    write_json(&out.join(MANIFEST_FILENAME), &report, writer)?;
     Ok(report)
 }
 
-fn write_json(path: impl AsRef<Path>, value: &impl Serialize) -> Result<(), String> {
-    let path = path.as_ref();
+fn write_json(
+    path: &Path,
+    value: &impl Serialize,
+    writer: &impl NetworkMeshBundleWriterPort,
+) -> Result<(), String> {
     let payload = serde_json::to_string_pretty(value).map_err(|error| error.to_string())?;
-    fs::write(path, format!("{payload}\n"))
-        .map_err(|error| format!("failed to write {}: {error}", path.display()))
+    writer.write_string(path, &format!("{payload}\n"))
 }
 
 fn wireguard_peer_template(plan: &NetworkMeshPlan, peer: &NetworkMeshPeer) -> String {
@@ -150,6 +155,40 @@ fn activation_readme(plan: &NetworkMeshPlan) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
+    use std::path::{Path, PathBuf};
+
+    struct RecordingBundleWriter {
+        directories: std::sync::Mutex<Vec<PathBuf>>,
+        files: std::sync::Mutex<BTreeMap<PathBuf, String>>,
+    }
+
+    impl RecordingBundleWriter {
+        fn new() -> Self {
+            Self {
+                directories: std::sync::Mutex::new(Vec::new()),
+                files: std::sync::Mutex::new(BTreeMap::new()),
+            }
+        }
+    }
+
+    impl NetworkMeshBundleWriterPort for RecordingBundleWriter {
+        fn create_dir_all(&self, path: &Path) -> Result<(), String> {
+            self.directories
+                .lock()
+                .expect("directories lock")
+                .push(path.to_path_buf());
+            Ok(())
+        }
+
+        fn write_string(&self, path: &Path, contents: &str) -> Result<(), String> {
+            self.files
+                .lock()
+                .expect("files lock")
+                .insert(path.to_path_buf(), contents.to_string());
+            Ok(())
+        }
+    }
 
     #[test]
     fn mesh_bundle_writes_manifest_plan_and_wireguard_templates() {
@@ -166,5 +205,33 @@ mod tests {
         assert!(out.path().join(MANIFEST_FILENAME).exists());
         assert!(out.path().join(PLAN_FILENAME).exists());
         assert!(out.path().join("wireguard/lab-kernel.conf.tpl").exists());
+    }
+
+    #[test]
+    fn mesh_bundle_can_be_built_through_substituted_writer_port() {
+        let writer = RecordingBundleWriter::new();
+        let registry_path = format!(
+            "{}/../../infra/registries/lab.json",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let report =
+            build_network_mesh_bundle_with_writer(&registry_path, None, "/virtual/bundle", &writer)
+                .expect("bundle");
+
+        assert_eq!(report.bundle_dir, "/virtual/bundle");
+        assert!(
+            writer
+                .directories
+                .lock()
+                .expect("directories lock")
+                .iter()
+                .any(|path| path == Path::new("/virtual/bundle"))
+        );
+        let files = writer.files.lock().expect("files lock");
+        assert!(files.contains_key(&PathBuf::from("/virtual/bundle/manifest.json")));
+        assert!(files.contains_key(&PathBuf::from("/virtual/bundle/mesh-plan.json")));
+        assert!(files.contains_key(&PathBuf::from(
+            "/virtual/bundle/wireguard/lab-kernel.conf.tpl"
+        )));
     }
 }
