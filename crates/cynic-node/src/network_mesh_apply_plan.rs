@@ -2,21 +2,20 @@ use std::path::Path;
 
 use serde::Serialize;
 
-use cynic_host::runtime_layout::current_runtime_layout;
-
 use crate::adapters::local_network_mesh_bundle::LocalNetworkMeshBundleReader;
 use crate::network_command_surface::NetworkCommandSurface;
 use crate::ports::network_mesh_bundle_port::NetworkMeshBundlePort;
 
 mod command_plan;
+mod context;
 mod policy;
 mod profile_execution;
 
 use command_plan::{
-    MeshApplyRuntimeContext, dns_install, firewall_preflight, post_apply_observation, preflight,
-    rollback_conditions, rollback_plan, route_install, route_observation, route_preflight,
-    tunnel_install,
+    dns_install, firewall_preflight, post_apply_observation, preflight, rollback_conditions,
+    rollback_plan, route_install, route_observation, route_preflight, tunnel_install,
 };
+use context::NetworkMeshApplyPlanContext;
 use policy::{MeshActuatorPolicyProjection, mesh_actuator_policy};
 use profile_execution::{NetworkMeshApplyProfileReport, apply_network_mesh_profile_from_plan};
 
@@ -47,35 +46,32 @@ pub(crate) struct NetworkMeshApplyPlanReport {
 pub(crate) fn build_network_mesh_apply_plan(
     bundle_dir: &str,
 ) -> Result<NetworkMeshApplyPlanReport, String> {
-    build_network_mesh_apply_plan_with_reader(bundle_dir, &LocalNetworkMeshBundleReader)
+    build_network_mesh_apply_plan_with_reader_and_context(
+        bundle_dir,
+        &LocalNetworkMeshBundleReader,
+        NetworkMeshApplyPlanContext::from_current_runtime(),
+    )
 }
 
-fn build_network_mesh_apply_plan_with_reader(
+fn build_network_mesh_apply_plan_with_reader_and_context(
     bundle_dir: &str,
     bundle_reader: &impl NetworkMeshBundlePort,
+    context: NetworkMeshApplyPlanContext,
 ) -> Result<NetworkMeshApplyPlanReport, String> {
     let bundle_dir = Path::new(bundle_dir);
     let bundle = bundle_reader.load_mesh_bundle(bundle_dir)?;
     let manifest = bundle.manifest;
     let plan = bundle.plan;
-    let runtime_layout = current_runtime_layout();
-    let capabilities = runtime_layout.capabilities();
-    let context = MeshApplyRuntimeContext {
-        mesh_interface: capabilities.wireguard_tool.mesh_interface.clone(),
-        ip_bin: capabilities.route_tool.command.clone(),
-        wg_bin: capabilities.wireguard_tool.command.clone(),
-        getent_bin: capabilities.name_service.resolver_command.clone(),
-    };
 
     let preflight = preflight(&manifest, &plan);
     let firewall_preflight = firewall_preflight(&plan);
     let tunnel_install = tunnel_install(bundle_dir, &manifest, &plan);
     let route_preflight = route_preflight(&plan);
-    let route_install = route_install(&plan, &context);
-    let route_observation = route_observation(&plan, &context);
+    let route_install = route_install(&plan, &context.runtime);
+    let route_observation = route_observation(&plan, &context.runtime);
     let dns_install = dns_install(bundle_dir);
-    let post_apply_observation = post_apply_observation(&plan, &context);
-    let rollback_plan = rollback_plan(&plan, &context);
+    let post_apply_observation = post_apply_observation(&plan, &context.runtime);
+    let rollback_plan = rollback_plan(&plan, &context.runtime);
     let actuator_policy = mesh_actuator_policy(
         &firewall_preflight,
         &tunnel_install,
@@ -144,6 +140,7 @@ mod tests {
         MeshApplyBundle, MeshBundleManifest, MeshPlanFile, MeshPlanRouteFile,
     };
     use crate::network_command_surface::NetworkCommandInvocation;
+    use crate::network_mesh_apply_plan::command_plan::MeshApplyRuntimeContext;
     use crate::network_mesh_bundle::build_network_mesh_bundle;
     use std::path::Path;
 
@@ -269,13 +266,28 @@ mod tests {
 
     #[test]
     fn apply_plan_can_be_built_from_substituted_bundle_port() {
-        let plan = build_network_mesh_apply_plan_with_reader("/virtual/bundle", &FakeBundleReader)
-            .expect("apply plan");
+        let plan = build_network_mesh_apply_plan_with_reader_and_context(
+            "/virtual/bundle",
+            &FakeBundleReader,
+            NetworkMeshApplyPlanContext {
+                runtime: MeshApplyRuntimeContext {
+                    mesh_interface: "cynic-mesh0".to_string(),
+                    ip_bin: "/portable/bin/ip".to_string(),
+                    wg_bin: "/portable/bin/wg".to_string(),
+                    getent_bin: "/portable/bin/getent".to_string(),
+                },
+            },
+        )
+        .expect("apply plan");
 
         assert_eq!(plan.status, "planned");
         assert!(plan.bundle_complete);
         assert_eq!(plan.provider, "static");
         assert_eq!(plan.desired_peer_count, 1);
         assert_eq!(plan.route_install.len(), 1);
+        assert!(plan.route_install.iter().all(|command| matches!(
+            &command.invocation,
+            NetworkCommandInvocation::Argv { argv } if argv.first() == Some(&"/portable/bin/ip".to_string())
+        )));
     }
 }

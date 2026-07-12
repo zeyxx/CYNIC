@@ -228,18 +228,31 @@ fn network_mesh_apply_plan_reads_bundles_through_a_port() {
         .expect("read adapters/local_network_mesh_bundle/mod.rs");
     let command_plan = fs::read_to_string(root.join("src/network_mesh_apply_plan/command_plan.rs"))
         .expect("read network_mesh_apply_plan/command_plan.rs");
+    let context = fs::read_to_string(root.join("src/network_mesh_apply_plan/context.rs"))
+        .expect("read network_mesh_apply_plan/context.rs");
     let policy_module = fs::read_to_string(root.join("src/network_mesh_apply_plan/policy.rs"))
         .expect("read network_mesh_apply_plan/policy.rs");
     let profile_execution =
         fs::read_to_string(root.join("src/network_mesh_apply_plan/profile_execution.rs"))
             .expect("read network_mesh_apply_plan/profile_execution.rs");
+    let planner_without_context_factory = production_planner
+        .replace("fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "");
 
     assert!(
         planner.lines().count() <= 300
             && planner.contains("mod command_plan;")
+            && planner.contains("mod context;")
             && planner.contains("mod policy;")
-            && planner.contains("mod profile_execution;"),
+            && planner.contains("mod profile_execution;")
+            && planner.contains("build_network_mesh_apply_plan_with_reader_and_context"),
         "network_mesh_apply_plan.rs must stay a thin orchestration surface"
+    );
+    assert!(
+        planner_without_context_factory
+            .contains("NetworkMeshApplyPlanContext::from_current_runtime()")
+            && !planner_without_context_factory.contains("current_runtime_layout()"),
+        "runtime layout probing must be isolated in NetworkMeshApplyPlanContext::from_current_runtime"
     );
     assert!(
         domain.contains("pub(crate) struct MeshApplyBundle")
@@ -276,6 +289,12 @@ fn network_mesh_apply_plan_reads_bundles_through_a_port() {
         );
     }
     assert!(
+        context.contains("pub(super) struct NetworkMeshApplyPlanContext")
+            && context.contains("pub(super) fn from_current_runtime() -> Self")
+            && context.contains("let runtime_layout = current_runtime_layout();"),
+        "network mesh apply plan runtime probing must live in its dedicated context module"
+    );
+    assert!(
         command_plan.contains("pub(super) fn route_install")
             && command_plan.contains("pub(super) fn rollback_plan"),
         "mesh apply command construction must live in command_plan"
@@ -293,9 +312,22 @@ fn network_mesh_apply_plan_reads_bundles_through_a_port() {
     assert!(
         planner.contains("NetworkMeshBundlePort")
             && planner.contains("LocalNetworkMeshBundleReader")
-            && planner.contains("build_network_mesh_apply_plan_with_reader"),
+            && planner.contains("build_network_mesh_apply_plan_with_reader_and_context"),
         "network_mesh_apply_plan.rs must plan through the bundle port with a thin local façade"
     );
+    let tests = planner.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    assert!(
+        tests.contains("/portable/bin/ip")
+            && tests.contains("/portable/bin/wg")
+            && tests.contains("/portable/bin/getent"),
+        "network mesh apply plan tests must prove portable binary injection"
+    );
+    for stale_fixture in ["\"/sbin/ip\"", "\"/usr/bin/wg\"", "\"/usr/bin/getent\""] {
+        assert!(
+            !tests.contains(stale_fixture),
+            "network mesh apply plan tests must not preserve host-specific fixture: {stale_fixture}"
+        );
+    }
 }
 
 #[test]
