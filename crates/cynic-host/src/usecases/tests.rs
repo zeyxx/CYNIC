@@ -1,19 +1,21 @@
 use super::{
     HOST_ACTIVATION_PLAN_SCHEMA, HOST_APPLY_EXECUTION_SCHEMA, HOST_APPLY_REPORT_SCHEMA,
-    HOST_BUNDLE_SCHEMA, HOST_OBSERVATION_SCHEMA, build_host_activation_plan,
-    build_host_apply_report, build_host_bundle, collect_contracts, execute_host_apply,
+    HOST_BUNDLE_SCHEMA, HOST_OBSERVATION_SCHEMA, HostCommandContext, build_host_activation_plan,
+    build_host_activation_plan_with_context, build_host_apply_report,
+    build_host_apply_report_with_context, build_host_bundle, collect_contracts, execute_host_apply,
     observe_host,
 };
 use crate::command_surface::{HostCommandInvocation, HostCommandSurface, render_command};
 use crate::domain::filesystem::FilesystemPolicy;
-use crate::domain::packages::PackageObservedState;
 use crate::domain::packages::PackagePolicy;
-use crate::domain::principal::PrincipalObservedState;
+use crate::domain::packages::{PackageCommandContext, PackageObservedState};
 use crate::domain::principal::PrincipalPolicy;
-use crate::domain::privilege::PrivilegeObservedState;
+use crate::domain::principal::{PrincipalCommandContext, PrincipalObservedState};
 use crate::domain::privilege::PrivilegePolicy;
+use crate::domain::privilege::{PrivilegeCommandContext, PrivilegeObservedState};
 use crate::domain::services::{
-    ServiceManagerKind, ServiceObservedState, ServiceObservedUnit, ServicePolicy, ServiceUnitPolicy,
+    ServiceCommandContext, ServiceManagerKind, ServiceObservedState, ServiceObservedUnit,
+    ServicePolicy, ServiceUnitPolicy,
 };
 use crate::domain::shared::{SubstrateBundleFile, SubstrateDomainContract, SurfaceStatus};
 use crate::ports::{
@@ -26,6 +28,34 @@ use crate::runtime_layout::current_runtime_layout;
 struct StaticHostContractPort;
 struct FakeCommandRunner;
 struct FakeObservationAdapter;
+
+fn portable_command_context() -> HostCommandContext {
+    HostCommandContext {
+        principal: PrincipalCommandContext {
+            getent_bin: "/portable/bin/getent".to_string(),
+        },
+        privilege: PrivilegeCommandContext {
+            sudo_bin: "/portable/bin/sudo".to_string(),
+            route_bin: "/portable/bin/ip".to_string(),
+            service_manager_bin: "/portable/bin/systemctl".to_string(),
+            denied_shell_bin: "/portable/bin/sh".to_string(),
+        },
+        packages: PackageCommandContext {
+            package_query_bin: "/portable/bin/dpkg".to_string(),
+            package_install_bin: "/portable/bin/apt-get".to_string(),
+            apk_bin: "/portable/bin/apk".to_string(),
+            dnf_bin: "/portable/bin/dnf".to_string(),
+            rpm_bin: "/portable/bin/rpm".to_string(),
+            which_bin: "/portable/bin/which".to_string(),
+            os_release_path: "/portable/etc/os-release".to_string(),
+        },
+        services: ServiceCommandContext {
+            systemctl_bin: "/portable/bin/systemctl".to_string(),
+            rc_service_bin: "/portable/bin/rc-service".to_string(),
+            rc_update_bin: "/portable/bin/rc-update".to_string(),
+        },
+    }
+}
 
 impl HostPrincipalPort for StaticHostContractPort {
     fn desired_principal(&self) -> PrincipalPolicy {
@@ -359,6 +389,42 @@ fn activation_plan_marks_blocked_domains_and_next_actions() {
 }
 
 #[test]
+fn activation_plan_uses_injected_host_command_context() {
+    let observed = observe_host(&StaticHostContractPort, &FakeObservationAdapter);
+    let plan = build_host_activation_plan_with_context(
+        &StaticHostContractPort,
+        &observed,
+        &portable_command_context(),
+    );
+    let rendered_commands = plan
+        .principal
+        .preflight
+        .iter()
+        .chain(plan.privilege.denial_checks.iter())
+        .chain(plan.packages.preflight.iter())
+        .chain(plan.packages.install_commands.iter())
+        .chain(plan.packages.postflight.iter())
+        .chain(plan.services.install_commands.iter())
+        .chain(plan.services.postflight.iter())
+        .map(render_command)
+        .collect::<Vec<_>>();
+
+    for expected in [
+        "/portable/bin/getent passwd cynic",
+        "/portable/bin/sudo -n /portable/bin/ip route show",
+        "/portable/bin/apt-get install -y wireguard-tools iproute2",
+        "/portable/bin/dpkg -s wireguard-tools",
+        "/portable/bin/systemctl enable --now cynic-node.service",
+        "test -f /portable/etc/os-release",
+    ] {
+        assert!(
+            rendered_commands.iter().any(|item| item.contains(expected)),
+            "expected portable command fragment not found: {expected}"
+        );
+    }
+}
+
+#[test]
 fn apply_report_propagates_dry_run_and_blockers() {
     let observed = observe_host(&StaticHostContractPort, &FakeObservationAdapter);
     let report = build_host_apply_report(&StaticHostContractPort, &observed, true);
@@ -366,6 +432,50 @@ fn apply_report_propagates_dry_run_and_blockers() {
     assert!(report.dry_run);
     assert_eq!(report.status, SurfaceStatus::Blocked);
     assert!(!report.blocked_domains.is_empty());
+}
+
+#[test]
+fn apply_report_uses_injected_host_command_context() {
+    let observed = observe_host(&StaticHostContractPort, &FakeObservationAdapter);
+    let report = build_host_apply_report_with_context(
+        &StaticHostContractPort,
+        &observed,
+        true,
+        &portable_command_context(),
+    );
+    let rendered_commands = report
+        .packages
+        .commands
+        .iter()
+        .chain(report.services.commands.iter())
+        .map(render_command)
+        .collect::<Vec<_>>();
+
+    assert!(report.dry_run);
+    assert!(
+        report
+            .principal
+            .proofs_required
+            .iter()
+            .any(|item| item == "/portable/bin/getent passwd cynic")
+    );
+    assert!(
+        report
+            .privilege
+            .denial_proofs_required
+            .iter()
+            .any(|item| item.contains("/portable/bin/sudo -n /portable/bin/ip route show"))
+    );
+    assert!(
+        rendered_commands
+            .iter()
+            .any(|item| item.contains("/portable/bin/apt-get install -y wireguard-tools iproute2"))
+    );
+    assert!(
+        rendered_commands
+            .iter()
+            .any(|item| item.contains("/portable/bin/systemctl enable --now cynic-node.service"))
+    );
 }
 
 #[test]

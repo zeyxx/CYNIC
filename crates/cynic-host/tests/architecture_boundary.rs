@@ -63,13 +63,23 @@ fn host_usecases_surface_stays_a_thin_orchestrator() {
         fs::read_to_string(root.join("src/usecases/status.rs")).expect("read usecases/status.rs");
     let execution = fs::read_to_string(root.join("src/usecases/execution.rs"))
         .expect("read usecases/execution.rs");
+    let command_context = fs::read_to_string(root.join("src/usecases/command_context.rs"))
+        .expect("read usecases/command_context.rs");
+    let planning = fs::read_to_string(root.join("src/usecases/planning.rs"))
+        .expect("read usecases/planning.rs");
 
     assert!(
         surface.lines().count() <= 220,
         "usecases/mod.rs must stay a thin orchestrator; current line count is {}",
         surface.lines().count()
     );
-    for module in ["reports", "status", "execution"] {
+    for module in [
+        "command_context",
+        "planning",
+        "reports",
+        "status",
+        "execution",
+    ] {
         assert!(
             surface.contains(&format!("mod {module};")),
             "usecases/mod.rs must declare bounded module {module}"
@@ -109,6 +119,47 @@ fn host_usecases_surface_stays_a_thin_orchestrator() {
         execution.contains("pub fn execute_host_apply") && execution.contains("fn extend_commands"),
         "host apply execution must live in execution.rs"
     );
+    assert!(
+        command_context.contains("pub struct HostCommandContext")
+            && command_context.contains("pub fn from_current_runtime() -> Self"),
+        "host usecases must aggregate domain command contexts explicitly"
+    );
+    assert!(
+        surface.contains("pub use command_context::HostCommandContext;")
+            && surface.contains("build_host_activation_plan_with_context")
+            && surface.contains("build_host_apply_report_with_context"),
+        "host usecases must expose portable command-context entrypoints"
+    );
+    for expected in [
+        ".activation_plan_with_context(&command_context.principal)",
+        ".activation_plan_with_context(&command_context.privilege)",
+        ".activation_plan_with_context(&command_context.packages)",
+        ".activation_plan_with_context(&command_context.services)",
+        ".apply_report_with_context(dry_run, &command_context.principal)",
+        ".apply_report_with_context(dry_run, &command_context.privilege)",
+        ".apply_report_with_context(dry_run, &command_context.packages)",
+        ".apply_report_with_context(dry_run, &command_context.services)",
+    ] {
+        assert!(
+            planning.contains(expected),
+            "host usecases must call domain context entrypoints explicitly: {expected}"
+        );
+    }
+    for forbidden in [
+        "desired_principal().activation_plan()",
+        "desired_privilege().activation_plan()",
+        "desired_packages().activation_plan()",
+        "desired_services().activation_plan()",
+        "desired_principal().apply_report(dry_run)",
+        "desired_privilege().apply_report(dry_run)",
+        "desired_packages().apply_report(dry_run)",
+        "desired_services().apply_report(dry_run)",
+    ] {
+        assert!(
+            !planning.contains(forbidden),
+            "host usecases must not bypass explicit command context: {forbidden}"
+        );
+    }
 }
 
 #[test]
