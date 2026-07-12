@@ -527,3 +527,57 @@ fn network_repair_uses_explicit_command_context() {
         );
     }
 }
+
+#[test]
+fn node_observation_surfaces_use_explicit_command_contexts() {
+    let root = crate_root();
+    let observe = fs::read_to_string(root.join("src/observe.rs")).expect("read src/observe.rs");
+    let observe_uc = fs::read_to_string(root.join("src/usecases/observe_node_uc.rs"))
+        .expect("read src/usecases/observe_node_uc.rs");
+    let production_observe = observe.split("#[cfg(test)]").next().unwrap_or(&observe);
+    let production_observe_uc = observe_uc
+        .split("#[cfg(test)]")
+        .next()
+        .unwrap_or(&observe_uc);
+    let observe_without_context_factory = production_observe
+        .replace("pub(crate) fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "")
+        .replace("let host_capabilities = runtime_layout.capabilities();", "");
+    let observe_uc_without_context_factory = production_observe_uc
+        .replace("fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "")
+        .replace("let capabilities = runtime_layout.capabilities();", "");
+
+    assert!(
+        observe.contains("pub(crate) struct SyntheticNodeObservationContext")
+            && observe.contains("synthetic_for_tests_with_context"),
+        "observe.rs must expose an explicit synthetic observation context"
+    );
+    assert!(
+        production_observe_uc.contains("struct NodeObservationCommandContext")
+            && production_observe_uc.contains("fn from_current_runtime() -> Self")
+            && production_observe_uc.contains("fn build_node_observation_with_context")
+            && production_observe_uc
+                .contains("fn from_context(context: &NodeObservationCommandContext) -> Self"),
+        "observe_node_uc.rs must expose explicit command context and local port factory"
+    );
+    assert!(
+        !observe_without_context_factory.contains("current_runtime_layout()")
+            && !observe_uc_without_context_factory.contains("current_runtime_layout()"),
+        "runtime layout probing must be isolated in observation context factories"
+    );
+    let observe_tests = observe.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    let observe_uc_tests = observe_uc.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    for expected in [
+        "/portable/bin/ip",
+        "/portable/bin/wg",
+        "/portable/bin/systemctl",
+        "wg-quick@wg-portable",
+        "portable-resolved",
+    ] {
+        assert!(
+            observe_tests.contains(expected) || observe_uc_tests.contains(expected),
+            "observation tests must prove portable context injection: {expected}"
+        );
+    }
+}

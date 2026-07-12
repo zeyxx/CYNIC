@@ -41,6 +41,31 @@ struct NodeObservationRuntimeInputs {
     binary_attestation: crate::build_attestation::BinaryAttestation,
 }
 
+#[derive(Debug, Clone)]
+struct NodeObservationCommandContext {
+    ip_bin: String,
+    wg_bin: String,
+    systemctl_bin: String,
+    mesh_interface: String,
+    wg_quick_unit: String,
+    resolved_unit: String,
+}
+
+impl NodeObservationCommandContext {
+    fn from_current_runtime() -> Self {
+        let runtime_layout = current_runtime_layout();
+        let capabilities = runtime_layout.capabilities();
+        Self {
+            ip_bin: capabilities.route_tool.command.clone(),
+            wg_bin: capabilities.wireguard_tool.command.clone(),
+            systemctl_bin: capabilities.service_manager.command.clone(),
+            mesh_interface: capabilities.wireguard_tool.mesh_interface.clone(),
+            wg_quick_unit: runtime_layout.wg_quick_unit(),
+            resolved_unit: capabilities.dns_provider.resolved_unit.clone(),
+        }
+    }
+}
+
 struct LocalNodeRuntimeObservationPort {
     ip_bin: String,
     wg_bin: String,
@@ -48,6 +73,19 @@ struct LocalNodeRuntimeObservationPort {
     mesh_interface: String,
     wg_quick_unit: String,
     resolved_unit: String,
+}
+
+impl LocalNodeRuntimeObservationPort {
+    fn from_context(context: &NodeObservationCommandContext) -> Self {
+        Self {
+            ip_bin: context.ip_bin.clone(),
+            wg_bin: context.wg_bin.clone(),
+            systemctl_bin: context.systemctl_bin.clone(),
+            mesh_interface: context.mesh_interface.clone(),
+            wg_quick_unit: context.wg_quick_unit.clone(),
+            resolved_unit: context.resolved_unit.clone(),
+        }
+    }
 }
 
 impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
@@ -213,20 +251,21 @@ fn parse_ipv4(value: &str) -> Option<u32> {
 }
 
 pub(crate) fn build_node_observation(registry_path: Option<&str>) -> NodeObservation {
+    build_node_observation_with_context(
+        registry_path,
+        &NodeObservationCommandContext::from_current_runtime(),
+    )
+}
+
+fn build_node_observation_with_context(
+    registry_path: Option<&str>,
+    context: &NodeObservationCommandContext,
+) -> NodeObservation {
     let plan = build_observation_plan(registry_path);
-    let runtime_layout = current_runtime_layout();
-    let capabilities = runtime_layout.capabilities();
     build_node_observation_with_port(
         registry_path,
         plan,
-        &LocalNodeRuntimeObservationPort {
-            ip_bin: capabilities.route_tool.command.clone(),
-            wg_bin: capabilities.wireguard_tool.command.clone(),
-            systemctl_bin: capabilities.service_manager.command.clone(),
-            mesh_interface: capabilities.wireguard_tool.mesh_interface.clone(),
-            wg_quick_unit: runtime_layout.wg_quick_unit(),
-            resolved_unit: capabilities.dns_provider.resolved_unit.clone(),
-        },
+        &LocalNodeRuntimeObservationPort::from_context(context),
     )
 }
 
@@ -368,7 +407,10 @@ fn build_node_observation_with_runtime(
 
 #[cfg(test)]
 mod tests {
-    use super::{NodeObservationRuntimeInputs, build_node_observation_with_runtime};
+    use super::{
+        NodeObservationCommandContext, NodeObservationRuntimeInputs,
+        build_node_observation_with_context, build_node_observation_with_runtime,
+    };
     use crate::adapters::host_observation::{CommandObservation, TcpObservation};
     use crate::build_attestation::runtime_binary_attestation;
     use crate::domain::node_observation::{NodeRuntimeSeverity, NodeRuntimeStatus};
@@ -471,5 +513,27 @@ mod tests {
         assert!(observation.capabilities.wireguard_active);
         assert!(observation.capabilities.critical_dns_ok);
         assert!(observation.capabilities.critical_tcp_open);
+    }
+
+    #[test]
+    fn context_builder_accepts_portable_runtime_binaries() {
+        let observation = build_node_observation_with_context(
+            None,
+            &NodeObservationCommandContext {
+                ip_bin: "/portable/bin/ip".to_string(),
+                wg_bin: "/portable/bin/wg".to_string(),
+                systemctl_bin: "/portable/bin/systemctl".to_string(),
+                mesh_interface: "wg-portable".to_string(),
+                wg_quick_unit: "wg-quick@wg-portable".to_string(),
+                resolved_unit: "portable-resolved".to_string(),
+            },
+        );
+
+        assert_eq!(observation.network.interfaces.command, "/portable/bin/ip");
+        assert_eq!(observation.network.wireguard.command, "/portable/bin/wg");
+        assert_eq!(
+            observation.services.systemd.wg_quick_wg0.command,
+            "/portable/bin/systemctl"
+        );
     }
 }

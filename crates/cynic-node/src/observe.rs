@@ -81,6 +81,31 @@ pub(crate) struct NodeObservation {
     pub(crate) services: ServiceObservation,
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone)]
+pub(crate) struct SyntheticNodeObservationContext {
+    pub(crate) wg_quick_unit: String,
+    pub(crate) resolved_unit: String,
+    pub(crate) ip_bin: String,
+    pub(crate) wg_bin: String,
+    pub(crate) systemctl_bin: String,
+}
+
+#[cfg(test)]
+impl SyntheticNodeObservationContext {
+    pub(crate) fn from_current_runtime() -> Self {
+        let runtime_layout = current_runtime_layout();
+        let host_capabilities = runtime_layout.capabilities();
+        Self {
+            wg_quick_unit: runtime_layout.wg_quick_unit(),
+            resolved_unit: host_capabilities.dns_provider.resolved_unit.clone(),
+            ip_bin: host_capabilities.route_tool.command.clone(),
+            wg_bin: host_capabilities.wireguard_tool.command.clone(),
+            systemctl_bin: host_capabilities.service_manager.command.clone(),
+        }
+    }
+}
+
 impl NodeObservation {
     pub(crate) fn is_warning_or_worse(&self) -> bool {
         self.severity != NodeRuntimeSeverity::Clear
@@ -99,13 +124,19 @@ impl NodeObservation {
         capabilities: NodeRuntimeCapabilities,
         provider_fallback_gateway: Option<String>,
     ) -> Self {
-        let runtime_layout = current_runtime_layout();
-        let host_capabilities = runtime_layout.capabilities();
-        let wg_quick_unit = runtime_layout.wg_quick_unit();
-        let resolved_unit = host_capabilities.dns_provider.resolved_unit.clone();
-        let ip_bin = host_capabilities.route_tool.command.clone();
-        let wg_bin = host_capabilities.wireguard_tool.command.clone();
-        let systemctl_bin = host_capabilities.service_manager.command.clone();
+        Self::synthetic_for_tests_with_context(
+            capabilities,
+            provider_fallback_gateway,
+            &SyntheticNodeObservationContext::from_current_runtime(),
+        )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn synthetic_for_tests_with_context(
+        capabilities: NodeRuntimeCapabilities,
+        provider_fallback_gateway: Option<String>,
+        context: &SyntheticNodeObservationContext,
+    ) -> Self {
         let verdict = classify_runtime(capabilities.clone());
         let network_mesh_status =
             canonical_network_mesh_status_projection(&verdict.status, capabilities.critical_dns_ok);
@@ -160,17 +191,17 @@ impl NodeObservation {
             network_mesh_status,
             runtime_observation,
             network: NetworkObservation {
-                interfaces: command_observation_for_tests(&ip_bin, &["-brief", "addr"]),
-                routes: command_observation_for_tests(&ip_bin, &["route"]),
+                interfaces: command_observation_for_tests(&context.ip_bin, &["-brief", "addr"]),
+                routes: command_observation_for_tests(&context.ip_bin, &["route"]),
                 provider_fallback_route: command_observation_for_tests(
-                    &ip_bin,
+                    &context.ip_bin,
                     &["route", "show", "10.10.10.0/24"],
                 ),
                 synapse_route: command_observation_for_tests(
-                    &ip_bin,
+                    &context.ip_bin,
                     &["route", "show", "10.20.0.0/24"],
                 ),
-                wireguard: command_observation_for_tests(&wg_bin, &["show"]),
+                wireguard: command_observation_for_tests(&context.wg_bin, &["show"]),
             },
             dns: DnsObservation {
                 critical_hosts: Vec::new(),
@@ -180,16 +211,16 @@ impl NodeObservation {
             services: ServiceObservation {
                 systemd: SystemdObservation {
                     wg_quick_wg0: command_observation_for_tests(
-                        &systemctl_bin,
-                        &["is-active", &wg_quick_unit],
+                        &context.systemctl_bin,
+                        &["is-active", &context.wg_quick_unit],
                     ),
                     network_manager: command_observation_for_tests(
-                        &systemctl_bin,
+                        &context.systemctl_bin,
                         &["is-active", "NetworkManager"],
                     ),
                     systemd_resolved: command_observation_for_tests(
-                        &systemctl_bin,
-                        &["is-active", &resolved_unit],
+                        &context.systemctl_bin,
+                        &["is-active", &context.resolved_unit],
                     ),
                 },
                 tcp: Vec::new(),
@@ -211,4 +242,47 @@ fn command_observation_for_tests(command: &str, args: &[&str]) -> CommandObserva
 
 pub(crate) fn observe_payload(registry_path: Option<&str>) -> NodeObservation {
     crate::usecases::observe_node_uc::build_node_observation(registry_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{NodeObservation, SyntheticNodeObservationContext};
+    use crate::domain::node_observation::NodeRuntimeCapabilities;
+
+    #[test]
+    fn synthetic_observation_uses_injected_command_context() {
+        let observation = NodeObservation::synthetic_for_tests_with_context(
+            NodeRuntimeCapabilities {
+                provider_fallback_active: true,
+                synapse_route_active: false,
+                wireguard_active: false,
+                critical_dns_ok: true,
+                critical_dns_canonical: true,
+                critical_tcp_open: true,
+            },
+            Some("192.168.0.37".to_string()),
+            &SyntheticNodeObservationContext {
+                wg_quick_unit: "wg-quick@wg-portable".to_string(),
+                resolved_unit: "portable-resolved".to_string(),
+                ip_bin: "/portable/bin/ip".to_string(),
+                wg_bin: "/portable/bin/wg".to_string(),
+                systemctl_bin: "/portable/bin/systemctl".to_string(),
+            },
+        );
+
+        assert_eq!(observation.network.interfaces.command, "/portable/bin/ip");
+        assert_eq!(observation.network.wireguard.command, "/portable/bin/wg");
+        assert_eq!(
+            observation.services.systemd.wg_quick_wg0.command,
+            "/portable/bin/systemctl"
+        );
+        assert_eq!(
+            observation.services.systemd.wg_quick_wg0.args,
+            vec!["is-active".to_string(), "wg-quick@wg-portable".to_string()]
+        );
+        assert_eq!(
+            observation.services.systemd.systemd_resolved.args,
+            vec!["is-active".to_string(), "portable-resolved".to_string()]
+        );
+    }
 }
