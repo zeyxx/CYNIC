@@ -9,6 +9,8 @@ use cynic_protocol::{
 };
 
 pub(crate) mod model;
+#[cfg(kani)]
+mod verification;
 
 use model::{NetworkPlane, NetworkPolicy, RegistryNode};
 

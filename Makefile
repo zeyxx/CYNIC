@@ -226,6 +226,10 @@ test: ## Run tests for low-layer core crates
 	@echo "warning: rustc 1.96.1 currently ICEs while compiling cynic-kernel tests in this workspace"
 	@$(TEST_RUST_ENV) cargo test $(foreach crate,$(CORE_CRATES),-p $(crate))
 
+.PHONY: kani-node-mesh
+kani-node-mesh: ## Run Kani proofs for low-layer mesh planning invariants (requires `cargo kani setup`)
+	@$(RUST_ENV) cargo kani -p cynic-node
+
 .PHONY: run-kernel
 run-kernel: ## Run the kernel locally
 	@$(RUST_ENV) cargo run -p cynic-kernel

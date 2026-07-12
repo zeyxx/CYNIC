@@ -20,6 +20,7 @@ dead_code = "deny"
 unused_imports = "deny"
 unreachable_pub = "warn"
 missing_debug_implementations = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
 
 [workspace.lints.clippy]
 # Groups — priority -1/-2 so individual lints (priority 0) can override

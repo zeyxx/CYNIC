@@ -337,6 +337,8 @@ fn network_mesh_plan_reads_registry_through_a_port() {
         .expect("read network_mesh_plan.rs");
     let domain_model = fs::read_to_string(root.join("src/network_mesh_plan/model.rs"))
         .expect("read network_mesh_plan/model.rs");
+    let verification = fs::read_to_string(root.join("src/network_mesh_plan/verification.rs"))
+        .expect("read network_mesh_plan/verification.rs");
     let port = fs::read_to_string(root.join("src/ports/network_mesh_registry_port.rs"))
         .expect("read ports/network_mesh_registry_port.rs");
     let adapter = fs::read_to_string(root.join("src/adapters/local_network_mesh_registry/mod.rs"))
@@ -345,6 +347,7 @@ fn network_mesh_plan_reads_registry_through_a_port() {
     assert!(
         planner.lines().count() <= 300
             && planner.contains("pub(crate) mod model;")
+            && planner.contains("mod verification;")
             && planner.contains("build_network_mesh_plan_with_reader"),
         "network_mesh_plan.rs must stay a thin mesh planning surface"
     );
@@ -358,6 +361,12 @@ fn network_mesh_plan_reads_registry_through_a_port() {
             "network_mesh_plan.rs must not own registry file loading/parsing: {forbidden}"
         );
     }
+    assert!(
+        verification.contains("#[kani::proof]")
+            && verification.contains("proof_address_plane_prefers_declared_service_plane")
+            && verification.contains("proof_default_dns_names_follow_zone_presence"),
+        "mesh planning Kani proofs must live in network_mesh_plan/verification.rs"
+    );
     assert!(
         domain_model.contains("pub(crate) struct MeshRegistry")
             && domain_model.contains("pub(crate) struct NetworkPolicy")
