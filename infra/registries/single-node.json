@@ -33,6 +33,7 @@
         "localhost"
       ],
       "role": "kernel_primary",
+      "host_family": "linux.debian.systemd",
       "status": "candidate",
       "deploy_target": true,
       "network": {

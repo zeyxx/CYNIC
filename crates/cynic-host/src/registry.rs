@@ -25,7 +25,16 @@ struct RegistryNode {
     role: Option<String>,
     canonical_role: Option<String>,
     #[serde(default)]
+    host_family: Option<String>,
+    #[serde(default)]
+    substrate: Option<RegistryNodeSubstrate>,
+    #[serde(default)]
     services: Vec<RegistryNodeService>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegistryNodeSubstrate {
+    family: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -215,14 +224,7 @@ pub fn resolve_registry_service_policy(
     if units.is_empty() {
         Ok(None)
     } else {
-        let manager = if units
-            .iter()
-            .any(|unit| unit.supervisor_provider.as_deref() == Some("openrc"))
-        {
-            ServiceManagerKind::OpenRc
-        } else {
-            ServiceManagerKind::Systemd
-        };
+        let manager = service_manager_for_node(node, &units);
         Ok(Some(ServicePolicy {
             unit_dir: match manager {
                 ServiceManagerKind::OpenRc => "/etc/init.d".to_string(),
@@ -279,6 +281,10 @@ fn registry_node_name(node: &RegistryNode) -> Option<String> {
 }
 
 fn profile_for_node(node: &RegistryNode) -> HostProfile {
+    if let Some(profile) = declared_host_family(node).and_then(host_profile_for_family) {
+        return profile;
+    }
+
     match node.role.as_deref() {
         Some("hypervisor") => HostProfile::ProxmoxHypervisor,
         _ if node.services.iter().any(|service| {
@@ -292,6 +298,50 @@ fn profile_for_node(node: &RegistryNode) -> HostProfile {
             HostProfile::AlpineOpenRcNetworkNode
         }
         _ => HostProfile::NetworkNode,
+    }
+}
+
+fn service_manager_for_node(
+    node: &RegistryNode,
+    units: &[ServiceUnitPolicy],
+) -> ServiceManagerKind {
+    match declared_host_family(node).and_then(host_profile_for_family) {
+        Some(HostProfile::AlpineOpenRcNetworkNode) => ServiceManagerKind::OpenRc,
+        Some(HostProfile::NetworkNode | HostProfile::ProxmoxHypervisor) => {
+            ServiceManagerKind::Systemd
+        }
+        None if units
+            .iter()
+            .any(|unit| unit.supervisor_provider.as_deref() == Some("openrc")) =>
+        {
+            ServiceManagerKind::OpenRc
+        }
+        None => ServiceManagerKind::Systemd,
+    }
+}
+
+fn declared_host_family(node: &RegistryNode) -> Option<&str> {
+    node.host_family
+        .as_deref()
+        .or_else(|| {
+            node.substrate
+                .as_ref()
+                .and_then(|substrate| substrate.family.as_deref())
+        })
+        .map(str::trim)
+        .filter(|family| !family.is_empty())
+}
+
+fn host_profile_for_family(family: &str) -> Option<HostProfile> {
+    match family {
+        "debian-systemd" | "linux.debian.systemd" | "ubuntu-systemd" | "linux.ubuntu.systemd" => {
+            Some(HostProfile::NetworkNode)
+        }
+        "alpine-openrc" | "linux.alpine.openrc" => Some(HostProfile::AlpineOpenRcNetworkNode),
+        "proxmox" | "proxmox-hypervisor" | "linux.proxmox.systemd" => {
+            Some(HostProfile::ProxmoxHypervisor)
+        }
+        _ => None,
     }
 }
 
@@ -504,6 +554,97 @@ mod tests {
 
         assert_eq!(profile, HostProfile::AlpineOpenRcNetworkNode);
         assert_eq!(profile.name(), "alpine-openrc");
+    }
+
+    #[test]
+    fn resolves_explicit_host_family_before_service_heuristics() {
+        let path = write_registry_fixture(
+            r#"{
+              "nodes": [
+                {
+                  "name":"debian-node",
+                  "role":"kernel_primary",
+                  "host_family":"linux.debian.systemd",
+                  "services": [
+                    {
+                      "name":"legacy-openrc-shaped-unit",
+                      "unit":"cynic-node",
+                      "supervisor":{"provider":"openrc"}
+                    }
+                  ]
+                }
+              ]
+            }"#,
+        );
+
+        let profile = resolve_host_profile("debian-node", Some(path.to_str().expect("utf8 path")))
+            .expect("profile resolved");
+        let policy =
+            resolve_registry_service_policy("debian-node", Some(path.to_str().expect("utf8 path")))
+                .expect("policy resolved")
+                .expect("policy present");
+
+        assert_eq!(profile, HostProfile::NetworkNode);
+        assert_eq!(
+            policy.manager,
+            crate::domain::services::ServiceManagerKind::Systemd
+        );
+    }
+
+    #[test]
+    fn resolves_explicit_alpine_host_family_without_openrc_service_hint() {
+        let path = write_registry_fixture(
+            r#"{
+              "nodes": [
+                {
+                  "name":"alpine-node",
+                  "role":"kernel_primary",
+                  "host_family":"linux.alpine.openrc",
+                  "services": [
+                    {
+                      "name":"node",
+                      "unit":"cynic-node",
+                      "supervisor":{"provider":"process-port"}
+                    }
+                  ]
+                }
+              ]
+            }"#,
+        );
+
+        let profile = resolve_host_profile("alpine-node", Some(path.to_str().expect("utf8 path")))
+            .expect("profile resolved");
+        let policy =
+            resolve_registry_service_policy("alpine-node", Some(path.to_str().expect("utf8 path")))
+                .expect("policy resolved")
+                .expect("policy present");
+
+        assert_eq!(profile, HostProfile::AlpineOpenRcNetworkNode);
+        assert_eq!(
+            policy.manager,
+            crate::domain::services::ServiceManagerKind::OpenRc
+        );
+        assert_eq!(policy.unit_dir, "/etc/init.d");
+    }
+
+    #[test]
+    fn resolves_substrate_family_alias_to_host_profile() {
+        let path = write_registry_fixture(
+            r#"{
+              "nodes": [
+                {
+                  "name":"alpine-node",
+                  "role":"kernel_primary",
+                  "substrate":{"family":"linux.alpine.openrc"}
+                }
+              ]
+            }"#,
+        );
+
+        let profile = resolve_host_profile("alpine-node", Some(path.to_str().expect("utf8 path")))
+            .expect("profile resolved");
+
+        assert_eq!(profile, HostProfile::AlpineOpenRcNetworkNode);
     }
 
     fn write_registry_fixture(contents: &str) -> PathBuf {

@@ -66,6 +66,7 @@
       "id": "lab-kernel",
       "name": "lab-kernel",
       "role": "kernel_primary",
+      "host_family": "linux.debian.systemd",
       "status": "candidate",
       "deploy_target": true,
       "network": {
@@ -90,6 +91,7 @@
       "id": "lab-builder",
       "name": "lab-builder",
       "role": "build_runner",
+      "host_family": "linux.debian.systemd",
       "status": "candidate",
       "deploy_target": false,
       "network": {
@@ -107,6 +109,7 @@
       "id": "lab-storage",
       "name": "lab-storage",
       "role": "storage_primary",
+      "host_family": "linux.debian.systemd",
       "status": "candidate",
       "deploy_target": false,
       "network": {
