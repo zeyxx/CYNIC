@@ -1,6 +1,7 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
+use crate::domain::services::openrc_service_name;
 use crate::ports::{HostCommandResult, HostCommandRunnerPort, HostOperation};
 use crate::process_observation::capture_command;
 use crate::runtime_layout::current_runtime_layout;
@@ -81,10 +82,6 @@ fn start_service(
         }
         _ => run_command(&capabilities.service_manager.command, &["start", unit]),
     }
-}
-
-fn openrc_service_name(unit: &str) -> String {
-    unit.strip_suffix(".service").unwrap_or(unit).to_string()
 }
 
 fn ensure_dir(path: &str, mode: u32) -> HostCommandResult {

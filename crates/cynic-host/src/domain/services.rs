@@ -86,6 +86,24 @@ pub struct ServiceObservedState {
     pub units: Vec<ServiceObservedUnit>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServiceCommandContext {
+    pub systemctl_bin: String,
+    pub rc_service_bin: String,
+    pub rc_update_bin: String,
+}
+
+impl ServiceCommandContext {
+    pub fn from_current_runtime() -> Self {
+        let layout = current_runtime_layout();
+        Self {
+            systemctl_bin: layout.systemctl_bin(),
+            rc_service_bin: layout.rc_service_bin(),
+            rc_update_bin: layout.rc_update_bin(),
+        }
+    }
+}
+
 impl ServicePolicy {
     pub fn contract(&self) -> SubstrateDomainContract {
         SubstrateDomainContract {
@@ -122,6 +140,10 @@ impl ServicePolicy {
     }
 
     pub fn bundle(&self) -> ServiceBundleReport {
+        self.bundle_with_context(&ServiceCommandContext::from_current_runtime())
+    }
+
+    pub fn bundle_with_context(&self, context: &ServiceCommandContext) -> ServiceBundleReport {
         ServiceBundleReport {
             status: SurfaceStatus::Planned,
             files: self
@@ -133,26 +155,33 @@ impl ServicePolicy {
                     mode: MODE_0644.octal.to_string(),
                 })
                 .collect(),
-            commands: self.install_commands(),
+            commands: self.install_commands(context),
         }
     }
 
     pub fn activation_plan(&self) -> ServiceActivationPlan {
+        self.activation_plan_with_context(&ServiceCommandContext::from_current_runtime())
+    }
+
+    pub fn activation_plan_with_context(
+        &self,
+        context: &ServiceCommandContext,
+    ) -> ServiceActivationPlan {
         ServiceActivationPlan {
             status: SurfaceStatus::Planned,
             preflight: self
                 .units
                 .iter()
-                .map(|unit| self.status_command(&unit.unit_name))
+                .map(|unit| self.status_command(&unit.unit_name, context))
                 .collect(),
-            install_commands: self.install_commands(),
+            install_commands: self.install_commands(context),
             postflight: self
                 .units
                 .iter()
                 .flat_map(|unit| {
                     [
-                        self.is_enabled_command(&unit.unit_name),
-                        self.is_active_command(&unit.unit_name),
+                        self.is_enabled_command(&unit.unit_name, context),
+                        self.is_active_command(&unit.unit_name, context),
                     ]
                 })
                 .collect(),
@@ -160,10 +189,18 @@ impl ServicePolicy {
     }
 
     pub fn apply_report(&self, dry_run: bool) -> ServiceApplyReport {
+        self.apply_report_with_context(dry_run, &ServiceCommandContext::from_current_runtime())
+    }
+
+    pub fn apply_report_with_context(
+        &self,
+        dry_run: bool,
+        context: &ServiceCommandContext,
+    ) -> ServiceApplyReport {
         ServiceApplyReport {
             status: SurfaceStatus::Planned,
             dry_run,
-            commands: self.install_commands(),
+            commands: self.install_commands(context),
             proofs_required: self
                 .units
                 .iter()
@@ -228,8 +265,7 @@ impl ServicePolicy {
         }
     }
 
-    fn install_commands(&self) -> Vec<HostCommandSurface> {
-        let layout = current_runtime_layout();
+    fn install_commands(&self, context: &ServiceCommandContext) -> Vec<HostCommandSurface> {
         let mut commands = vec![install_dir_command(
             "prepare_directory",
             self.unit_dir.clone(),
@@ -238,13 +274,13 @@ impl ServicePolicy {
         if self.manager == ServiceManagerKind::Systemd {
             commands.push(argv_command(
                 "daemon_reload",
-                vec![layout.systemctl_bin(), "daemon-reload".to_string()],
+                vec![context.systemctl_bin.clone(), "daemon-reload".to_string()],
             ));
         }
         commands.extend(
             self.units
                 .iter()
-                .flat_map(|unit| self.unit_install_commands(unit)),
+                .flat_map(|unit| self.unit_install_commands(unit, context)),
         );
         commands
     }
@@ -285,13 +321,12 @@ impl ServicePolicy {
         }
     }
 
-    fn status_command(&self, unit: &str) -> HostCommandSurface {
-        let layout = current_runtime_layout();
+    fn status_command(&self, unit: &str, context: &ServiceCommandContext) -> HostCommandSurface {
         match self.manager {
             ServiceManagerKind::Systemd => argv_command(
                 "service_status",
                 vec![
-                    layout.systemctl_bin(),
+                    context.systemctl_bin.clone(),
                     "status".to_string(),
                     unit.to_string(),
                 ],
@@ -299,7 +334,7 @@ impl ServicePolicy {
             ServiceManagerKind::OpenRc => argv_command(
                 "service_status",
                 vec![
-                    layout.rc_service_bin(),
+                    context.rc_service_bin.clone(),
                     openrc_service_name(unit),
                     "status".to_string(),
                 ],
@@ -307,13 +342,16 @@ impl ServicePolicy {
         }
     }
 
-    fn is_enabled_command(&self, unit: &str) -> HostCommandSurface {
-        let layout = current_runtime_layout();
+    fn is_enabled_command(
+        &self,
+        unit: &str,
+        context: &ServiceCommandContext,
+    ) -> HostCommandSurface {
         match self.manager {
             ServiceManagerKind::Systemd => argv_command(
                 "service_is_enabled",
                 vec![
-                    layout.systemctl_bin(),
+                    context.systemctl_bin.clone(),
                     "is-enabled".to_string(),
                     unit.to_string(),
                 ],
@@ -321,7 +359,7 @@ impl ServicePolicy {
             ServiceManagerKind::OpenRc => argv_command(
                 "service_is_enabled",
                 vec![
-                    layout.rc_update_bin(),
+                    context.rc_update_bin.clone(),
                     "show".to_string(),
                     openrc_service_name(unit),
                 ],
@@ -329,13 +367,12 @@ impl ServicePolicy {
         }
     }
 
-    fn is_active_command(&self, unit: &str) -> HostCommandSurface {
-        let layout = current_runtime_layout();
+    fn is_active_command(&self, unit: &str, context: &ServiceCommandContext) -> HostCommandSurface {
         match self.manager {
             ServiceManagerKind::Systemd => argv_command(
                 "service_is_active",
                 vec![
-                    layout.systemctl_bin(),
+                    context.systemctl_bin.clone(),
                     "is-active".to_string(),
                     unit.to_string(),
                 ],
@@ -343,7 +380,7 @@ impl ServicePolicy {
             ServiceManagerKind::OpenRc => argv_command(
                 "service_is_active",
                 vec![
-                    layout.rc_service_bin(),
+                    context.rc_service_bin.clone(),
                     openrc_service_name(unit),
                     "status".to_string(),
                 ],
@@ -351,21 +388,28 @@ impl ServicePolicy {
         }
     }
 
-    fn unit_install_commands(&self, unit: &ServiceUnitPolicy) -> Vec<HostCommandSurface> {
+    fn unit_install_commands(
+        &self,
+        unit: &ServiceUnitPolicy,
+        context: &ServiceCommandContext,
+    ) -> Vec<HostCommandSurface> {
         if unit.enable_on_boot {
-            self.enable_now_commands(&unit.unit_name)
+            self.enable_now_commands(&unit.unit_name, context)
         } else {
-            vec![self.start_command(&unit.unit_name)]
+            vec![self.start_command(&unit.unit_name, context)]
         }
     }
 
-    fn enable_now_commands(&self, unit: &str) -> Vec<HostCommandSurface> {
-        let layout = current_runtime_layout();
+    fn enable_now_commands(
+        &self,
+        unit: &str,
+        context: &ServiceCommandContext,
+    ) -> Vec<HostCommandSurface> {
         match self.manager {
             ServiceManagerKind::Systemd => vec![argv_command(
                 "enable_now",
                 vec![
-                    layout.systemctl_bin(),
+                    context.systemctl_bin.clone(),
                     "enable".to_string(),
                     "--now".to_string(),
                     unit.to_string(),
@@ -377,7 +421,7 @@ impl ServicePolicy {
                     argv_command(
                         "enable_on_boot",
                         vec![
-                            layout.rc_update_bin(),
+                            context.rc_update_bin.clone(),
                             "add".to_string(),
                             service.clone(),
                             "default".to_string(),
@@ -385,20 +429,19 @@ impl ServicePolicy {
                     ),
                     argv_command(
                         "start_service",
-                        vec![layout.rc_service_bin(), service, "start".to_string()],
+                        vec![context.rc_service_bin.clone(), service, "start".to_string()],
                     ),
                 ]
             }
         }
     }
 
-    fn start_command(&self, unit: &str) -> HostCommandSurface {
-        let layout = current_runtime_layout();
+    fn start_command(&self, unit: &str, context: &ServiceCommandContext) -> HostCommandSurface {
         match self.manager {
             ServiceManagerKind::Systemd => argv_command(
                 "start_service",
                 vec![
-                    layout.systemctl_bin(),
+                    context.systemctl_bin.clone(),
                     "start".to_string(),
                     unit.to_string(),
                 ],
@@ -406,7 +449,7 @@ impl ServicePolicy {
             ServiceManagerKind::OpenRc => argv_command(
                 "start_service",
                 vec![
-                    layout.rc_service_bin(),
+                    context.rc_service_bin.clone(),
                     openrc_service_name(unit),
                     "start".to_string(),
                 ],
@@ -415,14 +458,25 @@ impl ServicePolicy {
     }
 }
 
-fn openrc_service_name(unit: &str) -> String {
+pub(crate) fn openrc_service_name(unit: &str) -> String {
     unit.strip_suffix(".service").unwrap_or(unit).to_string()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{ServiceManagerKind, ServicePolicy, ServiceUnitPolicy, openrc_service_name};
+    use super::{
+        ServiceCommandContext, ServiceManagerKind, ServicePolicy, ServiceUnitPolicy,
+        openrc_service_name,
+    };
     use crate::command_surface::render_command;
+
+    fn context() -> ServiceCommandContext {
+        ServiceCommandContext {
+            systemctl_bin: "/portable/bin/systemctl".to_string(),
+            rc_service_bin: "/portable/bin/rc-service".to_string(),
+            rc_update_bin: "/portable/bin/rc-update".to_string(),
+        }
+    }
 
     fn unit() -> ServiceUnitPolicy {
         ServiceUnitPolicy {
@@ -452,7 +506,7 @@ mod tests {
             units: vec![unit()],
         };
 
-        let plan = policy.activation_plan();
+        let plan = policy.activation_plan_with_context(&context());
         let rendered = plan
             .install_commands
             .iter()
@@ -476,7 +530,7 @@ mod tests {
             units: vec![unit()],
         };
 
-        let bundle = policy.bundle();
+        let bundle = policy.bundle_with_context(&context());
         let rendered = bundle
             .commands
             .iter()
@@ -488,5 +542,50 @@ mod tests {
         assert_eq!(bundle.files[0].install_path, "/etc/init.d/cynic-node");
         assert!(rendered.contains("rc-update add cynic-node default"));
         assert!(rendered.contains("rc-service cynic-node start"));
+    }
+
+    #[test]
+    fn systemd_activation_plan_uses_injected_command_context() {
+        let policy = ServicePolicy {
+            manager: ServiceManagerKind::Systemd,
+            unit_dir: "/etc/systemd/system".to_string(),
+            units: vec![unit()],
+        };
+
+        let plan = policy.activation_plan_with_context(&context());
+        let rendered = plan
+            .preflight
+            .iter()
+            .chain(plan.install_commands.iter())
+            .chain(plan.postflight.iter())
+            .map(render_command)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("/portable/bin/systemctl status cynic-node.service"));
+        assert!(rendered.contains("/portable/bin/systemctl daemon-reload"));
+        assert!(rendered.contains("/portable/bin/systemctl enable --now cynic-node.service"));
+        assert!(rendered.contains("/portable/bin/systemctl is-enabled cynic-node.service"));
+        assert!(rendered.contains("/portable/bin/systemctl is-active cynic-node.service"));
+    }
+
+    #[test]
+    fn apply_report_uses_injected_service_command_context() {
+        let policy = ServicePolicy {
+            manager: ServiceManagerKind::OpenRc,
+            unit_dir: "/etc/init.d".to_string(),
+            units: vec![unit()],
+        };
+
+        let report = policy.apply_report_with_context(true, &context());
+        let rendered = report
+            .commands
+            .iter()
+            .map(render_command)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("/portable/bin/rc-update add cynic-node default"));
+        assert!(rendered.contains("/portable/bin/rc-service cynic-node start"));
     }
 }

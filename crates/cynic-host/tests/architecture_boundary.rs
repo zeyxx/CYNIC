@@ -110,3 +110,38 @@ fn host_usecases_surface_stays_a_thin_orchestrator() {
         "host apply execution must live in execution.rs"
     );
 }
+
+#[test]
+fn service_domain_uses_explicit_command_context_for_portability() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let services =
+        fs::read_to_string(root.join("src/domain/services.rs")).expect("read domain/services.rs");
+    let production_services = services.split("#[cfg(test)]").next().unwrap_or(&services);
+    let local_runner = fs::read_to_string(root.join("src/adapters/local_command_runner.rs"))
+        .expect("read adapters/local_command_runner.rs");
+
+    assert!(
+        production_services.contains("pub struct ServiceCommandContext")
+            && production_services.contains("pub fn bundle_with_context")
+            && production_services.contains("pub fn activation_plan_with_context")
+            && production_services.contains("pub fn apply_report_with_context"),
+        "service domain must expose explicit command-context entrypoints"
+    );
+    assert!(
+        production_services.contains("pub(crate) fn openrc_service_name"),
+        "OpenRC service name normalization must be shared from the service domain"
+    );
+    assert!(
+        local_runner.contains("use crate::domain::services::openrc_service_name;")
+            && !local_runner.contains("fn openrc_service_name"),
+        "local command runner must reuse the shared OpenRC service name normalizer"
+    );
+
+    let production_without_context_factory = production_services
+        .replace("pub fn from_current_runtime() -> Self", "")
+        .replace("let layout = current_runtime_layout();", "");
+    assert!(
+        !production_without_context_factory.contains("current_runtime_layout()"),
+        "service command construction must consume ServiceCommandContext instead of reading global runtime layout"
+    );
+}

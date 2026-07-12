@@ -8,7 +8,9 @@ use cynic_protocol::{
     ServiceSupervisorUnitObservation, service_supervisor_status,
 };
 
-use crate::domain::services::{ServicePolicy, ServiceUnitPolicy};
+use crate::domain::services::{
+    ServicePolicy, ServiceUnitPolicy, openrc_service_name as openrc_unit_name,
+};
 use crate::process_observation::{capture_command, command_exit_success};
 use crate::runtime_layout::current_runtime_layout;
 
@@ -370,10 +372,7 @@ fn provider_scope(provider: SupervisorProvider) -> &'static str {
 }
 
 fn openrc_service_name(unit: &ServiceUnitPolicy) -> String {
-    unit.unit_name
-        .strip_suffix(".service")
-        .unwrap_or(&unit.unit_name)
-        .to_string()
+    openrc_unit_name(&unit.unit_name)
 }
 
 fn policy_source(policy: &ServicePolicy) -> String {
