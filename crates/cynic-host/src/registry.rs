@@ -215,9 +215,20 @@ pub fn resolve_registry_service_policy(
     if units.is_empty() {
         Ok(None)
     } else {
+        let manager = if units
+            .iter()
+            .any(|unit| unit.supervisor_provider.as_deref() == Some("openrc"))
+        {
+            ServiceManagerKind::OpenRc
+        } else {
+            ServiceManagerKind::Systemd
+        };
         Ok(Some(ServicePolicy {
-            manager: ServiceManagerKind::Systemd,
-            unit_dir: current_runtime_layout().service_unit_dir,
+            unit_dir: match manager {
+                ServiceManagerKind::OpenRc => "/etc/init.d".to_string(),
+                ServiceManagerKind::Systemd => current_runtime_layout().service_unit_dir,
+            },
+            manager,
             units,
         }))
     }
@@ -270,6 +281,16 @@ fn registry_node_name(node: &RegistryNode) -> Option<String> {
 fn profile_for_node(node: &RegistryNode) -> HostProfile {
     match node.role.as_deref() {
         Some("hypervisor") => HostProfile::ProxmoxHypervisor,
+        _ if node.services.iter().any(|service| {
+            service
+                .supervisor
+                .as_ref()
+                .and_then(|s| s.provider.as_deref())
+                == Some("openrc")
+        }) =>
+        {
+            HostProfile::AlpineOpenRcNetworkNode
+        }
         _ => HostProfile::NetworkNode,
     }
 }
@@ -432,6 +453,11 @@ mod tests {
         )
         .expect("service policy resolves")
         .expect("service policy present");
+        assert_eq!(
+            policy.manager,
+            crate::domain::services::ServiceManagerKind::OpenRc
+        );
+        assert_eq!(policy.unit_dir, "/etc/init.d");
         let units = policy
             .units
             .iter()
@@ -450,6 +476,34 @@ mod tests {
         );
         assert_eq!(policy.units[1].health_kind.as_deref(), Some("process"));
         assert_eq!(policy.units[1].process_name.as_deref(), Some("cynic-node"));
+    }
+
+    #[test]
+    fn resolves_openrc_registry_node_to_alpine_profile() {
+        let path = write_registry_fixture(
+            r#"{
+              "nodes": [
+                {
+                  "name":"alpine-node",
+                  "role":"kernel_primary",
+                  "services": [
+                    {
+                      "name":"node",
+                      "unit":"cynic-node",
+                      "supervisor":{"provider":"openrc"},
+                      "health":{"kind":"process","process":"cynic-node"}
+                    }
+                  ]
+                }
+              ]
+            }"#,
+        );
+
+        let profile = resolve_host_profile("alpine-node", Some(path.to_str().expect("utf8 path")))
+            .expect("profile resolved");
+
+        assert_eq!(profile, HostProfile::AlpineOpenRcNetworkNode);
+        assert_eq!(profile.name(), "alpine-openrc");
     }
 
     fn write_registry_fixture(contents: &str) -> PathBuf {

@@ -10,6 +10,7 @@ use crate::ports::{
 };
 use crate::process_observation::{command_exit_success, command_stdout};
 use crate::runtime_layout::current_runtime_layout;
+use crate::service_supervisor_observation::observe_service_supervisor;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalHostObservationAdapter;
@@ -73,16 +74,13 @@ impl HostPackageObservationPort for LocalHostObservationAdapter {
 
 impl HostServiceObservationPort for LocalHostObservationAdapter {
     fn observe_services(&self, policy: &ServicePolicy) -> ServiceObservedState {
+        let supervisor_observation =
+            observe_service_supervisor("local-host-substrate".to_string(), policy);
         ServiceObservedState {
-            units: policy
-                .units
+            units: supervisor_observation
+                .services
                 .iter()
-                .map(|unit| ServiceObservedUnit {
-                    unit_name: unit.unit_name.clone(),
-                    present: systemctl_known(&unit.unit_name),
-                    enabled: systemctl_enabled(&unit.unit_name),
-                    active: systemctl_active(&unit.unit_name),
-                })
+                .map(service_observation_to_substrate_unit)
                 .collect(),
         }
     }
@@ -95,27 +93,102 @@ fn package_present(package: &str) -> bool {
         || command_exit_success(&layout.which_bin(), &[package]).unwrap_or(false)
 }
 
-fn systemctl_known(unit: &str) -> bool {
-    let service_manager = current_runtime_layout()
-        .capabilities()
-        .service_manager
-        .command;
-    command_exit_success(&service_manager, &["status", unit]).is_some()
+fn service_observation_to_substrate_unit(
+    unit: &cynic_protocol::ServiceSupervisorUnitObservation,
+) -> ServiceObservedUnit {
+    ServiceObservedUnit {
+        unit_name: unit.unit_name.clone(),
+        present: unit_present(unit),
+        enabled: unit_enabled(unit),
+        active: unit.status == "active",
+    }
 }
 
-fn systemctl_enabled(unit: &str) -> bool {
-    let service_manager = current_runtime_layout()
-        .capabilities()
-        .service_manager
-        .command;
-    command_stdout(&service_manager, &["is-enabled", unit])
-        .is_some_and(|stdout| stdout == "enabled" || stdout == "static")
+fn unit_present(unit: &cynic_protocol::ServiceSupervisorUnitObservation) -> bool {
+    match unit.selected_provider.as_str() {
+        "systemd" => unit.load_state == "loaded",
+        "openrc" | "process" | "process_port" => unit.probe_status == "ok",
+        _ => unit.status == "active" || unit.status == "degraded",
+    }
 }
 
-fn systemctl_active(unit: &str) -> bool {
-    let service_manager = current_runtime_layout()
-        .capabilities()
-        .service_manager
-        .command;
-    command_stdout(&service_manager, &["is-active", unit]).is_some_and(|stdout| stdout == "active")
+fn unit_enabled(unit: &cynic_protocol::ServiceSupervisorUnitObservation) -> bool {
+    match unit.selected_provider.as_str() {
+        "systemd" => matches!(
+            unit.unit_file_state.as_str(),
+            "enabled" | "enabled-runtime" | "static" | "generated"
+        ),
+        "openrc" | "process" | "process_port" => unit.status == "active",
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::service_observation_to_substrate_unit;
+    use cynic_protocol::ServiceSupervisorUnitObservation;
+
+    fn unit(
+        selected_provider: &str,
+        load_state: &str,
+        unit_file_state: &str,
+        status: &'static str,
+        probe_status: &'static str,
+    ) -> ServiceSupervisorUnitObservation {
+        ServiceSupervisorUnitObservation {
+            service_id: "svc".to_string(),
+            unit_name: "svc.service".to_string(),
+            health_port: None,
+            health_kind: None,
+            desired_provider: None,
+            selected_provider: selected_provider.to_string(),
+            selected_scope: "system".to_string(),
+            target_source: "test".to_string(),
+            desired_state: "enabled_and_active".to_string(),
+            restart_policy: "on-failure".to_string(),
+            probe_status,
+            probe_detail: "test".to_string(),
+            provider_attempts: Vec::new(),
+            load_state: load_state.to_string(),
+            unit_file_state: unit_file_state.to_string(),
+            active_state: status.to_string(),
+            sub_state: "unknown".to_string(),
+            restart_count: None,
+            active_enter_timestamp_monotonic: None,
+            status,
+        }
+    }
+
+    #[test]
+    fn systemd_supervisor_observation_maps_to_substrate_unit() {
+        let observed = service_observation_to_substrate_unit(&unit(
+            "systemd", "loaded", "enabled", "active", "ok",
+        ));
+
+        assert!(observed.present);
+        assert!(observed.enabled);
+        assert!(observed.active);
+    }
+
+    #[test]
+    fn openrc_supervisor_observation_does_not_require_systemctl() {
+        let observed = service_observation_to_substrate_unit(&unit(
+            "openrc", "unknown", "unknown", "active", "ok",
+        ));
+
+        assert!(observed.present);
+        assert!(observed.enabled);
+        assert!(observed.active);
+    }
+
+    #[test]
+    fn unknown_supervisor_observation_remains_blocked() {
+        let observed = service_observation_to_substrate_unit(&unit(
+            "openrc", "unknown", "unknown", "unknown", "blocked",
+        ));
+
+        assert!(!observed.present);
+        assert!(!observed.enabled);
+        assert!(!observed.active);
+    }
 }

@@ -204,8 +204,8 @@ impl HostRuntimeLayout {
                 resolver_command: self.getent_bin(),
             },
             service_manager: ServiceManagerCapability {
-                kind: "systemd".to_string(),
-                command: self.systemctl_bin(),
+                kind: self.service_manager_kind(),
+                command: self.service_manager_bin(),
             },
             package_manager: PackageManagerCapability {
                 installer: self.package_install_bin(),
@@ -237,6 +237,25 @@ impl HostRuntimeLayout {
 
     pub fn systemctl_bin(&self) -> String {
         env_path("CYNIC_SYSTEMCTL_BIN", "systemctl")
+    }
+
+    pub fn service_manager_kind(&self) -> String {
+        env_path("CYNIC_SERVICE_MANAGER_KIND", "systemd")
+    }
+
+    pub fn service_manager_bin(&self) -> String {
+        match self.service_manager_kind().as_str() {
+            "openrc" => self.rc_service_bin(),
+            _ => self.systemctl_bin(),
+        }
+    }
+
+    pub fn rc_service_bin(&self) -> String {
+        env_path("CYNIC_RC_SERVICE_BIN", "rc-service")
+    }
+
+    pub fn rc_update_bin(&self) -> String {
+        env_path("CYNIC_RC_UPDATE_BIN", "rc-update")
     }
 
     pub fn ip_bin(&self) -> String {
@@ -386,5 +405,21 @@ mod tests {
             layout.network_actuator_sudoers_path(),
             "/opt/cynic/sudoers.d/cynic-network-actuator"
         );
+    }
+
+    #[test]
+    fn capabilities_can_select_openrc_service_manager_from_env() {
+        unsafe {
+            std::env::set_var("CYNIC_SERVICE_MANAGER_KIND", "openrc");
+            std::env::set_var("CYNIC_RC_SERVICE_BIN", "rc-service-test");
+        }
+        let capabilities = HostRuntimeLayout::from_env().capabilities();
+        unsafe {
+            std::env::remove_var("CYNIC_SERVICE_MANAGER_KIND");
+            std::env::remove_var("CYNIC_RC_SERVICE_BIN");
+        }
+
+        assert_eq!(capabilities.service_manager.kind, "openrc");
+        assert_eq!(capabilities.service_manager.command, "rc-service-test");
     }
 }

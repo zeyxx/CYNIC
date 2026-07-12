@@ -12,6 +12,7 @@ use crate::runtime_layout::current_runtime_layout;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ServiceManagerKind {
     Systemd,
+    OpenRc,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -128,7 +129,7 @@ impl ServicePolicy {
                 .iter()
                 .map(|unit| SubstrateBundleFile {
                     logical_name: self.unit_logical_name().to_string(),
-                    install_path: format!("{}/{}", self.unit_dir, unit.unit_name),
+                    install_path: format!("{}/{}", self.unit_dir, self.install_unit_name(unit)),
                     mode: MODE_0644.octal.to_string(),
                 })
                 .collect(),
@@ -240,28 +241,11 @@ impl ServicePolicy {
                 vec![layout.systemctl_bin(), "daemon-reload".to_string()],
             ));
         }
-        commands.extend(self.units.iter().map(|unit| {
-            if unit.enable_on_boot {
-                argv_command(
-                    "enable_now",
-                    vec![
-                        layout.systemctl_bin(),
-                        "enable".to_string(),
-                        "--now".to_string(),
-                        unit.unit_name.clone(),
-                    ],
-                )
-            } else {
-                argv_command(
-                    "start_service",
-                    vec![
-                        layout.systemctl_bin(),
-                        "start".to_string(),
-                        unit.unit_name.clone(),
-                    ],
-                )
-            }
-        }));
+        commands.extend(
+            self.units
+                .iter()
+                .flat_map(|unit| self.unit_install_commands(unit)),
+        );
         commands
     }
 
@@ -290,6 +274,14 @@ impl ServicePolicy {
     fn unit_logical_name(&self) -> &'static str {
         match self.manager {
             ServiceManagerKind::Systemd => "systemd-unit",
+            ServiceManagerKind::OpenRc => "openrc-service",
+        }
+    }
+
+    fn install_unit_name(&self, unit: &ServiceUnitPolicy) -> String {
+        match self.manager {
+            ServiceManagerKind::Systemd => unit.unit_name.clone(),
+            ServiceManagerKind::OpenRc => openrc_service_name(&unit.unit_name),
         }
     }
 
@@ -302,6 +294,14 @@ impl ServicePolicy {
                     layout.systemctl_bin(),
                     "status".to_string(),
                     unit.to_string(),
+                ],
+            ),
+            ServiceManagerKind::OpenRc => argv_command(
+                "service_status",
+                vec![
+                    layout.rc_service_bin(),
+                    openrc_service_name(unit),
+                    "status".to_string(),
                 ],
             ),
         }
@@ -318,6 +318,14 @@ impl ServicePolicy {
                     unit.to_string(),
                 ],
             ),
+            ServiceManagerKind::OpenRc => argv_command(
+                "service_is_enabled",
+                vec![
+                    layout.rc_update_bin(),
+                    "show".to_string(),
+                    openrc_service_name(unit),
+                ],
+            ),
         }
     }
 
@@ -332,6 +340,153 @@ impl ServicePolicy {
                     unit.to_string(),
                 ],
             ),
+            ServiceManagerKind::OpenRc => argv_command(
+                "service_is_active",
+                vec![
+                    layout.rc_service_bin(),
+                    openrc_service_name(unit),
+                    "status".to_string(),
+                ],
+            ),
         }
+    }
+
+    fn unit_install_commands(&self, unit: &ServiceUnitPolicy) -> Vec<HostCommandSurface> {
+        if unit.enable_on_boot {
+            self.enable_now_commands(&unit.unit_name)
+        } else {
+            vec![self.start_command(&unit.unit_name)]
+        }
+    }
+
+    fn enable_now_commands(&self, unit: &str) -> Vec<HostCommandSurface> {
+        let layout = current_runtime_layout();
+        match self.manager {
+            ServiceManagerKind::Systemd => vec![argv_command(
+                "enable_now",
+                vec![
+                    layout.systemctl_bin(),
+                    "enable".to_string(),
+                    "--now".to_string(),
+                    unit.to_string(),
+                ],
+            )],
+            ServiceManagerKind::OpenRc => {
+                let service = openrc_service_name(unit);
+                vec![
+                    argv_command(
+                        "enable_on_boot",
+                        vec![
+                            layout.rc_update_bin(),
+                            "add".to_string(),
+                            service.clone(),
+                            "default".to_string(),
+                        ],
+                    ),
+                    argv_command(
+                        "start_service",
+                        vec![layout.rc_service_bin(), service, "start".to_string()],
+                    ),
+                ]
+            }
+        }
+    }
+
+    fn start_command(&self, unit: &str) -> HostCommandSurface {
+        let layout = current_runtime_layout();
+        match self.manager {
+            ServiceManagerKind::Systemd => argv_command(
+                "start_service",
+                vec![
+                    layout.systemctl_bin(),
+                    "start".to_string(),
+                    unit.to_string(),
+                ],
+            ),
+            ServiceManagerKind::OpenRc => argv_command(
+                "start_service",
+                vec![
+                    layout.rc_service_bin(),
+                    openrc_service_name(unit),
+                    "start".to_string(),
+                ],
+            ),
+        }
+    }
+}
+
+fn openrc_service_name(unit: &str) -> String {
+    unit.strip_suffix(".service").unwrap_or(unit).to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ServiceManagerKind, ServicePolicy, ServiceUnitPolicy, openrc_service_name};
+    use crate::command_surface::render_command;
+
+    fn unit() -> ServiceUnitPolicy {
+        ServiceUnitPolicy {
+            service_id: "node".to_string(),
+            unit_name: "cynic-node.service".to_string(),
+            enable_on_boot: true,
+            restart_mode: "on-failure".to_string(),
+            source: "test".to_string(),
+            health_port: None,
+            process_name: Some("cynic-node".to_string()),
+            supervisor_provider: Some("openrc".to_string()),
+            health_kind: None,
+        }
+    }
+
+    #[test]
+    fn openrc_service_name_strips_systemd_suffix() {
+        assert_eq!(openrc_service_name("cynic-node.service"), "cynic-node");
+        assert_eq!(openrc_service_name("cynic-node"), "cynic-node");
+    }
+
+    #[test]
+    fn openrc_activation_plan_uses_rc_tools_not_systemctl() {
+        let policy = ServicePolicy {
+            manager: ServiceManagerKind::OpenRc,
+            unit_dir: "/etc/init.d".to_string(),
+            units: vec![unit()],
+        };
+
+        let plan = policy.activation_plan();
+        let rendered = plan
+            .install_commands
+            .iter()
+            .chain(plan.postflight.iter())
+            .map(render_command)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("rc-update add cynic-node default"));
+        assert!(rendered.contains("rc-service cynic-node start"));
+        assert!(rendered.contains("rc-update show cynic-node"));
+        assert!(rendered.contains("rc-service cynic-node status"));
+        assert!(!rendered.contains("systemctl"));
+    }
+
+    #[test]
+    fn openrc_bundle_targets_init_d_services() {
+        let policy = ServicePolicy {
+            manager: ServiceManagerKind::OpenRc,
+            unit_dir: "/etc/init.d".to_string(),
+            units: vec![unit()],
+        };
+
+        let bundle = policy.bundle();
+        let rendered = bundle
+            .commands
+            .iter()
+            .map(render_command)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert_eq!(bundle.files[0].logical_name, "openrc-service");
+        assert_eq!(bundle.files[0].install_path, "/etc/init.d/cynic-node");
+        assert!(rendered.contains("rc-update add cynic-node default"));
+        assert!(rendered.contains("rc-service cynic-node start"));
     }
 }

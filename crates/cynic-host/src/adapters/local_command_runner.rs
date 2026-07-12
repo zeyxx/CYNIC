@@ -22,18 +22,69 @@ impl HostCommandRunnerPort for LocalHostCommandRunner {
                 packages,
             } => install_bootstrap_packages(approved_sources, packages),
             HostOperation::ServiceManagerDaemonReload => {
-                run_command(&capabilities.service_manager.command, &["daemon-reload"])
+                if capabilities.service_manager.kind == "systemd" {
+                    run_command(&capabilities.service_manager.command, &["daemon-reload"])
+                } else {
+                    HostCommandResult {
+                        command: format!(
+                            "{} daemon-reload unsupported",
+                            capabilities.service_manager.kind
+                        ),
+                        success: true,
+                        exit_code: Some(0),
+                        stdout: String::new(),
+                        stderr: String::new(),
+                    }
+                }
             }
-            HostOperation::ServiceEnableNow { unit } => run_command(
-                &capabilities.service_manager.command,
-                &["enable", "--now", unit.as_str()],
-            ),
-            HostOperation::ServiceStart { unit } => run_command(
-                &capabilities.service_manager.command,
-                &["start", unit.as_str()],
-            ),
+            HostOperation::ServiceEnableNow { unit } => enable_now_service(&capabilities, unit),
+            HostOperation::ServiceStart { unit } => start_service(&capabilities, unit),
         }
     }
+}
+
+fn enable_now_service(
+    capabilities: &crate::runtime_layout::HostCapabilities,
+    unit: &str,
+) -> HostCommandResult {
+    match capabilities.service_manager.kind.as_str() {
+        "openrc" => {
+            let service = openrc_service_name(unit);
+            let rc_update = current_runtime_layout().rc_update_bin();
+            let added = run_command(&rc_update, &["add", service.as_str(), "default"]);
+            if !added.success {
+                return added;
+            }
+            run_command(
+                &capabilities.service_manager.command,
+                &[service.as_str(), "start"],
+            )
+        }
+        _ => run_command(
+            &capabilities.service_manager.command,
+            &["enable", "--now", unit],
+        ),
+    }
+}
+
+fn start_service(
+    capabilities: &crate::runtime_layout::HostCapabilities,
+    unit: &str,
+) -> HostCommandResult {
+    match capabilities.service_manager.kind.as_str() {
+        "openrc" => {
+            let service = openrc_service_name(unit);
+            run_command(
+                &capabilities.service_manager.command,
+                &[service.as_str(), "start"],
+            )
+        }
+        _ => run_command(&capabilities.service_manager.command, &["start", unit]),
+    }
+}
+
+fn openrc_service_name(unit: &str) -> String {
+    unit.strip_suffix(".service").unwrap_or(unit).to_string()
 }
 
 fn ensure_dir(path: &str, mode: u32) -> HostCommandResult {

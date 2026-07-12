@@ -7,6 +7,7 @@ use crate::runtime_layout::current_runtime_layout;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HostFamilyKind {
     DebianSystemd,
+    AlpineOpenRc,
     ProxmoxHypervisor,
 }
 
@@ -147,6 +148,51 @@ impl HostFamilyProfile {
         }
     }
 
+    pub fn alpine_openrc() -> Self {
+        let layout = current_runtime_layout();
+        Self {
+            kind: HostFamilyKind::AlpineOpenRc,
+            config_dir: layout.config_dir.clone(),
+            helper_dir: layout.helper_dir.clone(),
+            sudoers_dir: layout.sudoers_dir.clone(),
+            service_unit_dir: "/etc/init.d".to_string(),
+            package_approved_sources: vec![
+                "distribution_package".to_string(),
+                "approved_internal_package_mirror".to_string(),
+            ],
+            bootstrap_packages: vec![
+                "wireguard-tools".to_string(),
+                "iproute2".to_string(),
+                "coredns".to_string(),
+                "openrc".to_string(),
+            ],
+            service_units: vec![
+                ServiceUnitPolicy {
+                    service_id: "wireguard_mesh".to_string(),
+                    unit_name: "wg-quick@wg0".to_string(),
+                    enable_on_boot: true,
+                    restart_mode: "on-failure".to_string(),
+                    source: "profile:alpine_openrc".to_string(),
+                    health_port: None,
+                    process_name: None,
+                    supervisor_provider: Some("openrc".to_string()),
+                    health_kind: None,
+                },
+                ServiceUnitPolicy {
+                    service_id: "dns_service".to_string(),
+                    unit_name: "coredns-synapse".to_string(),
+                    enable_on_boot: true,
+                    restart_mode: "on-failure".to_string(),
+                    source: "profile:alpine_openrc".to_string(),
+                    health_port: None,
+                    process_name: Some("coredns".to_string()),
+                    supervisor_provider: Some("openrc".to_string()),
+                    health_kind: Some("process".to_string()),
+                },
+            ],
+        }
+    }
+
     pub fn package_policy(&self) -> PackagePolicy {
         PackagePolicy {
             policy_dir: self.config_dir.clone(),
@@ -158,7 +204,12 @@ impl HostFamilyProfile {
 
     pub fn service_policy(&self) -> ServicePolicy {
         ServicePolicy {
-            manager: ServiceManagerKind::Systemd,
+            manager: match self.kind {
+                HostFamilyKind::AlpineOpenRc => ServiceManagerKind::OpenRc,
+                HostFamilyKind::DebianSystemd | HostFamilyKind::ProxmoxHypervisor => {
+                    ServiceManagerKind::Systemd
+                }
+            },
             unit_dir: self.service_unit_dir.clone(),
             units: self.service_units.clone(),
         }
@@ -190,6 +241,12 @@ impl HostFamilyProfile {
     fn dedicated_helpers(&self) -> Vec<String> {
         match self.kind {
             HostFamilyKind::DebianSystemd => vec![
+                "cynic-network-actuator".to_string(),
+                "cynic-service-actuator".to_string(),
+                "cynic-dns-actuator".to_string(),
+                "cynic-host-exec".to_string(),
+            ],
+            HostFamilyKind::AlpineOpenRc => vec![
                 "cynic-network-actuator".to_string(),
                 "cynic-service-actuator".to_string(),
                 "cynic-dns-actuator".to_string(),
@@ -238,6 +295,23 @@ mod tests {
                 .service_units
                 .iter()
                 .any(|unit| unit.unit_name == "pveproxy.service")
+        );
+    }
+
+    #[test]
+    fn alpine_openrc_family_declares_openrc_surfaces() {
+        let family = HostFamilyProfile::alpine_openrc();
+        assert_eq!(family.kind, HostFamilyKind::AlpineOpenRc);
+        assert_eq!(
+            family.service_policy().manager,
+            crate::domain::services::ServiceManagerKind::OpenRc
+        );
+        assert!(family.bootstrap_packages.contains(&"openrc".to_string()));
+        assert!(
+            family
+                .service_units
+                .iter()
+                .all(|unit| unit.supervisor_provider.as_deref() == Some("openrc"))
         );
     }
 }
