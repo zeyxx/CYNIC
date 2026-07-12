@@ -6,11 +6,17 @@ include!("helpers_split/proxmox.rs");
 include!("helpers_split/lifecycle.rs");
 include!("helpers_split/coord.rs");
 include!("helpers_split/mcp_surface.rs");
+#[cfg(test)]
 include!("helpers_split/infrastructure_contract.rs");
+#[cfg(test)]
 include!("helpers_split/command_surfaces_contract.rs");
+#[cfg(test)]
 include!("helpers_split/infra_consumption_contract.rs");
+#[cfg(test)]
 include!("helpers_split/api_topology_contract.rs");
+#[cfg(test)]
 include!("helpers_split/api_layer_alignment_contract.rs");
+#[cfg(test)]
 include!("helpers_split/openapi_route_contract.rs");
 include!("helpers_split/hardcoded_paths_contract.rs");
 include!("helpers_split/reqwest_usage_contract.rs");

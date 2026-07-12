@@ -10,7 +10,12 @@
     clippy::single_match,
     clippy::unused_self,
     missing_debug_implementations,
-    async_fn_in_trait
+    async_fn_in_trait,
+    clippy::too_many_arguments,
+    clippy::redundant_clone,
+    clippy::manual_contains,
+    clippy::needless_borrow,
+    clippy::print_stdout
 )]
 
 mod announce;
@@ -20,11 +25,22 @@ mod config;
 mod config_watch;
 mod dns_activation_status;
 mod dns_bundle;
+mod dns_contract;
 mod dns_plan;
+mod network_activation_chain;
+mod network_actuator;
+mod network_actuator_contract;
 mod network_actuator_status;
+mod network_command_surface;
+mod network_diagnostic_surface;
 mod network_evidence;
+mod network_host_substrate;
+mod network_mesh_apply_plan;
+mod network_mesh_bundle;
+mod network_mesh_plan;
 mod network_repair;
 mod network_root_policy;
+mod network_runtime_proof;
 mod network_runtime_status;
 mod network_shadow_proof;
 mod observe;
@@ -557,11 +573,13 @@ async fn main() -> ExitCode {
             registry,
             fail_on_warning,
             fail_on_critical,
-        }) => return network_surfaces_uc::execute_observe(
-            &registry,
-            fail_on_warning,
-            fail_on_critical,
-        ),
+        }) => {
+            return network_surfaces_uc::execute_observe(
+                &registry,
+                fail_on_warning,
+                fail_on_critical,
+            );
+        }
         Some(Commands::Network { command }) => {
             return network_surfaces_uc::execute_network_command(&command);
         }

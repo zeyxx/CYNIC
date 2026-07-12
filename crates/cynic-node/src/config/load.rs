@@ -56,9 +56,7 @@ pub(crate) fn load_watchdog(path: &str) -> Result<WatchdogConfig, String> {
 
 fn resolve_kernel_api_key(api_key: &mut String, env_name: &str) -> Result<(), String> {
     *api_key = std::env::var(env_name).map_err(|e| {
-        format!(
-            "environment variable `{env_name}` not set (required for kernel auth): {e}"
-        )
+        format!("environment variable `{env_name}` not set (required for kernel auth): {e}")
     })?;
     if api_key.is_empty() {
         return Err(format!(

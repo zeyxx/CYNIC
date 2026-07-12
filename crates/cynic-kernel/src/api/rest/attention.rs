@@ -60,7 +60,6 @@ pub async fn attention_handler(
         Vec::new()
     };
 
-    
     let _sovereign_ids: Vec<String> = vec![];
     let dogs: Vec<serde_json::Value> = vec![];
 

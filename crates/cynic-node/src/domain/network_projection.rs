@@ -1,8 +1,6 @@
 use serde::Serialize;
 
-use crate::domain::node_observation::{
-    NodeRuntimeSeverity, NodeRuntimeStatus, NodeRuntimeVerdict,
-};
+use crate::domain::node_observation::{NodeRuntimeSeverity, NodeRuntimeStatus, NodeRuntimeVerdict};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -145,7 +143,10 @@ pub(crate) fn dns_projection_observation(
     }
 
     DnsProjectionObservation {
-        state: if drift_classes.iter().any(|item| *item == "dns_projection_drift") {
+        state: if drift_classes
+            .iter()
+            .any(|item| *item == "dns_projection_drift")
+        {
             DnsProjectionState::ProjectionDrift
         } else {
             DnsProjectionState::Active
@@ -195,7 +196,9 @@ pub(crate) fn shared_runtime_observation(
     let blockers = verdict
         .blockers
         .iter()
-        .map(|blocker| serde_json::to_value(blocker).unwrap_or_else(|_| serde_json::json!("unknown")))
+        .map(|blocker| {
+            serde_json::to_value(blocker).unwrap_or_else(|_| serde_json::json!("unknown"))
+        })
         .filter_map(|value| value.as_str().map(|item| item.to_string()))
         .collect::<Vec<_>>();
     let drift = blockers

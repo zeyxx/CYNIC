@@ -117,8 +117,9 @@ pub(super) fn push_organ_alignment_anomalies(
                 severity: "warning".to_string(),
                 kind: "registry_organ_without_directory".to_string(),
                 target: organ.clone(),
-                message: "Registry declares organ but no matching organs/ directory exists."
-                    .to_string(),
+                message:
+                    "Registry declares a legacy organ entry that has no matching runtime body."
+                        .to_string(),
             });
         }
     }
@@ -184,7 +185,10 @@ pub(super) fn summary(
         constellations: constellation_summary(nodes, observed_resources),
         anomaly_count: anomalies.len(),
         critical_anomaly_count: critical.len(),
-        critical_targets: critical.iter().map(|anomaly| anomaly.target.clone()).collect(),
+        critical_targets: critical
+            .iter()
+            .map(|anomaly| anomaly.target.clone())
+            .collect(),
     }
 }
 

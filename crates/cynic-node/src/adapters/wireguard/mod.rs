@@ -1,7 +1,8 @@
 use crate::domain::mesh::MeshTopology;
 use crate::ports::mesh_port::MeshAdapter;
+use cynic_host::process_observation::capture_command;
+use cynic_host::runtime_layout::current_runtime_layout;
 use std::error::Error;
-use std::process::Command;
 use tracing::{error, info};
 
 #[derive(Debug, Clone)]
@@ -17,9 +18,19 @@ impl WireguardAdapter {
     }
 
     fn execute(&self, cmd: &str, args: &[&str]) -> Result<(), Box<dyn Error>> {
-        let status = Command::new(cmd).args(args).status()?;
-        if !status.success() {
-            let err_msg = format!("Command '{} {:?}' failed with status {}", cmd, args, status);
+        let output = capture_command(cmd, args)?;
+        if !output.success {
+            let err_msg = if output.stderr.is_empty() {
+                format!(
+                    "Command '{} {:?}' failed with exit code {:?}",
+                    cmd, args, output.exit_code
+                )
+            } else {
+                format!(
+                    "Command '{} {:?}' failed with exit code {:?}: {}",
+                    cmd, args, output.exit_code, output.stderr
+                )
+            };
             error!("{}", err_msg);
             return Err(err_msg.into());
         }
@@ -37,22 +48,26 @@ impl MeshAdapter for WireguardAdapter {
             "Initializing WireGuard interface {} with IP {}",
             self.interface_name, local_ip
         );
+        let capabilities = current_runtime_layout().capabilities();
+        let ip_bin = capabilities.route_tool.command;
+        let wg_bin = capabilities.wireguard_tool.command;
 
         // 1. Create interface (ignore error if it already exists)
-        let _ = Command::new("ip")
-            .args(&[
+        let _ = capture_command(
+            &ip_bin,
+            &[
                 "link",
                 "add",
                 "dev",
                 &self.interface_name,
                 "type",
                 "wireguard",
-            ])
-            .status();
+            ],
+        );
 
         // 2. Assign IP
         self.execute(
-            "ip",
+            &ip_bin,
             &["address", "replace", local_ip, "dev", &self.interface_name],
         )?;
 
@@ -62,19 +77,15 @@ impl MeshAdapter for WireguardAdapter {
         use std::io::Write;
         let mut temp_file = tempfile::NamedTempFile::new()?;
         write!(temp_file, "{}", private_key)?;
+        let temp_key_path = temp_file.path().to_string_lossy().to_string();
 
         self.execute(
-            "wg",
-            &[
-                "set",
-                &self.interface_name,
-                "private-key",
-                temp_file.path().to_str().unwrap(),
-            ],
+            &wg_bin,
+            &["set", &self.interface_name, "private-key", &temp_key_path],
         )?;
 
         // 4. Bring interface up
-        self.execute("ip", &["link", "set", "up", "dev", &self.interface_name])?;
+        self.execute(&ip_bin, &["link", "set", "up", "dev", &self.interface_name])?;
 
         Ok(())
     }
@@ -84,6 +95,10 @@ impl MeshAdapter for WireguardAdapter {
             "Synchronizing WireGuard topology on {}",
             self.interface_name
         );
+        let wg_bin = current_runtime_layout()
+            .capabilities()
+            .wireguard_tool
+            .command;
 
         for peer in &topology.peers {
             let mut endpoint_args = Vec::new();
@@ -107,7 +122,7 @@ impl MeshAdapter for WireguardAdapter {
             args.extend(endpoint_args);
 
             let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-            self.execute("wg", &args_ref)?;
+            self.execute(&wg_bin, &args_ref)?;
         }
 
         Ok(())

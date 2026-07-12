@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -42,7 +43,7 @@ pub(crate) struct RuntimeArtifactDeclarationDrift {
     pub(crate) executable_path: Option<String>,
     pub(crate) expected_publish_path: Option<String>,
     pub(crate) path_matches_expected: Option<bool>,
-    pub(crate) evidence_sources: Vec<&'static str>,
+    pub(crate) evidence_sources: Vec<String>,
     pub(crate) proposed_runtime_artifact: Option<RuntimeArtifactProposal>,
 }
 
@@ -133,10 +134,10 @@ impl BinaryAttestation {
             expected_publish_path: self.expected_publish_path.clone(),
             path_matches_expected: self.path_matches_expected,
             evidence_sources: vec![
-                "infra/registry.json:lifecycle.kernel_release.runtime_artifacts",
-                "infra/systemd/cynic-node.service:ExecStart=%h/bin/cynic-node",
-                "axioms/rust-crate-roles-v1.json:runtime_artifact=cynic-node",
-                "axioms/lifecycle-supply-chain-v1.json:release_artifact_policy.artifact_targets includes crates/cynic-node",
+                format!("{DEFAULT_REGISTRY_PATH}:lifecycle.kernel_release.runtime_artifacts"),
+                "infra/systemd/cynic-node.service:ExecStart=%h/bin/cynic-node".to_string(),
+                "contracts/foundation.json:constitutional.runtime_authority_order".to_string(),
+                "Cargo.toml:workspace.members includes crates/cynic-node".to_string(),
             ],
             proposed_runtime_artifact: self.runtime_artifact_proposal.clone(),
         }
@@ -147,14 +148,14 @@ fn proposed_runtime_artifact() -> RuntimeArtifactProposal {
     RuntimeArtifactProposal {
         name: "cynic-node",
         kind: "rust_binary",
-        owner: "organ-forge",
+        owner: "cynic-node",
         build_targets: vec!["crates/cynic-node"],
         publish_path: "%h/bin/cynic-node",
         primary_runtime_role: "all_runtime_nodes",
         rationale_sources: vec![
             "infra/systemd/cynic-node.service:ExecStart=%h/bin/cynic-node",
-            "axioms/rust-crate-roles-v1.json:runtime_artifact=cynic-node",
-            "axioms/lifecycle-supply-chain-v1.json:release_artifact_policy.artifact_targets includes crates/cynic-node",
+            "contracts/foundation.json:constitutional.runtime_authority_order",
+            "Cargo.toml:workspace.members includes crates/cynic-node",
         ],
     }
 }

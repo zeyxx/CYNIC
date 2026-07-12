@@ -9,13 +9,13 @@
 // WHY: Module not yet wired into main.rs — see Phase 3.2 comment above.
 #![allow(dead_code, unreachable_pub)]
 
+mod domain_dispatch;
 mod protocol;
 mod queue_store;
-mod domain_dispatch;
 
+use futures_util::Sink;
 use futures_util::sink::SinkExt;
 use futures_util::stream::StreamExt;
-use futures_util::Sink;
 use http::Request;
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;

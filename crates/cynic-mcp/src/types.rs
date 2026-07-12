@@ -14,6 +14,30 @@ pub struct ApiContractsParams {
     pub contract: Option<String>,
 }
 
+// ── Docker ───────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct DockerContainerListParams {
+    /// Include stopped containers. Defaults to true.
+    pub all: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct DockerContainerLogsParams {
+    /// Container name or id.
+    pub container: String,
+    /// Return the last N log lines. Defaults to 200.
+    pub tail: Option<u32>,
+    /// Include timestamps in the output. Defaults to true.
+    pub timestamps: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct DockerContainerInspectParams {
+    /// Container name or id.
+    pub container: String,
+}
+
 // ── MCP Rate Limiter ──────────────────────────────────────────
 
 pub struct McpRateLimit {

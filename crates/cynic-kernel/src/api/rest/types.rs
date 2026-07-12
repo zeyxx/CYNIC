@@ -7,7 +7,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tokio::sync::Mutex;
 
-
 use crate::domain::coord::CoordPort;
 use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
@@ -305,7 +304,6 @@ impl AppState {
     /// Centralized system health assessment (SSoT for REST and MCP).
     /// Computes status from Dogs, storage, probes, background tasks, and contract.
     pub async fn system_health(&self) -> crate::domain::health_gate::HealthAssessment {
-        
         let dog_health: Vec<(String, String, u32)> = vec![];
         let (healthy_dogs, total_dogs) =
             crate::domain::health_gate::count_healthy_dogs(&dog_health);

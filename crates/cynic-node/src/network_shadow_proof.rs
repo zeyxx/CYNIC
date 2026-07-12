@@ -1,6 +1,4 @@
 use std::error::Error;
-use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use chrono::Utc;
 use serde::Serialize;
@@ -16,18 +14,16 @@ pub(crate) struct NetworkShadowProofReport {
     schema: &'static str,
     generated_at: String,
     registry: String,
-    repo_root: String,
-    python: ShadowProofPython,
+    legacy_python: RetiredLegacyPython,
     rust: ShadowProofRust,
     drift: Vec<ShadowDrift>,
     pub(crate) status: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct ShadowProofPython {
-    dns_bundle_dir: String,
-    dns_bundle_files: Value,
-    mesh_status: Value,
+struct RetiredLegacyPython {
+    status: &'static str,
+    reason: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -57,46 +53,25 @@ struct ShadowDrift {
     detail: String,
 }
 
+#[derive(Debug, Clone)]
+struct ShadowProofReportInputs {
+    registry: String,
+    rust: ShadowProofRust,
+    drift: Vec<ShadowDrift>,
+}
+
 pub(crate) fn build_shadow_proof(
     registry: &str,
     resolve_dns: bool,
     observe_runtime: bool,
 ) -> Result<NetworkShadowProofReport, Box<dyn Error>> {
-    let repo_root = repo_root()?;
-    let tempdir = tempfile::tempdir()?;
-    let python_bundle_dir = tempdir.path().join("python-dns-bundle");
-    std::fs::create_dir_all(&python_bundle_dir)?;
-
-    let python_bundle = run_python_json(
-        &repo_root,
-        &[
-            "organs/fleet/src/entrypoints/cli.py",
-            "dns",
-            "bundle",
-            "--registry",
-            registry,
-            "--output-dir",
-            python_bundle_dir.to_string_lossy().as_ref(),
-        ],
-    )?;
-    let mut mesh_args = vec![
-        "organs/fleet/src/entrypoints/cli.py",
-        "mesh",
-        "status",
-        "--registry",
-        registry,
-    ];
-    if resolve_dns {
-        mesh_args.push("--resolve-dns");
-    }
-    if observe_runtime {
-        mesh_args.push("--observe-runtime");
-    }
-    let python_mesh = run_python_json(&repo_root, &mesh_args)?;
-
     let registry_adapter = LocalRegistryAdapter::new(registry);
     let topology = registry_adapter.fetch_static_topology()?;
-    let renderer = SynapseDnsRenderer;
+    let zone = registry_adapter
+        .fetch_network_policy_summary()?
+        .synapse_dns_zone
+        .unwrap_or_else(crate::dns_contract::default_dns_zone);
+    let renderer = SynapseDnsRenderer::new(zone);
     let activation_plan = renderer.activation_plan()?;
     let synapse_hosts = renderer.render_hosts(&topology)?;
     let corefile = renderer.render_corefile()?;
@@ -106,117 +81,72 @@ pub(crate) fn build_shadow_proof(
     let rust = ShadowProofRust {
         dns_bundle: RustDnsBundle {
             activation_plan: serde_json::to_value(activation_plan)?,
-            synapse_hosts: synapse_hosts.clone(),
-            corefile: corefile.clone(),
-            resolved_dropin: resolved_dropin.clone(),
+            synapse_hosts,
+            corefile,
+            resolved_dropin,
         },
         mesh_status: RustMeshStatus {
-            runtime_status: serde_json::to_value(&rust_observation)?["network_mesh_status"]["runtime_status"]
-                .as_str()
-                .unwrap_or("unknown")
-                .to_string(),
-            dns_status: serde_json::to_value(&rust_observation)?["network_mesh_status"]["dns_status"]
-                .as_str()
-                .unwrap_or("unknown")
-                .to_string(),
+            runtime_status:
+                serde_json::to_value(&rust_observation)?["network_mesh_status"]["runtime_status"]
+                    .as_str()
+                    .unwrap_or("unknown")
+                    .to_string(),
+            dns_status:
+                serde_json::to_value(&rust_observation)?["network_mesh_status"]["dns_status"]
+                    .as_str()
+                    .unwrap_or("unknown")
+                    .to_string(),
             blocker_count: rust_observation.blockers.len(),
         },
     };
 
-    let drift = compare_python_and_rust(
-        &python_bundle_dir,
-        &python_bundle,
-        &python_mesh,
-        &rust,
-    )?;
-    let status = if drift.is_empty() { "aligned" } else { "drift_detected" };
-
-    Ok(NetworkShadowProofReport {
-        schema: "cynic.node_network_shadow_proof.v1",
-        generated_at: Utc::now().to_rfc3339(),
+    let drift = evaluate_rust_network_shadow(&rust, resolve_dns, observe_runtime);
+    Ok(build_shadow_proof_report(ShadowProofReportInputs {
         registry: registry.to_string(),
-        repo_root: repo_root.to_string_lossy().to_string(),
-        python: ShadowProofPython {
-            dns_bundle_dir: python_bundle_dir.to_string_lossy().to_string(),
-            dns_bundle_files: python_bundle,
-            mesh_status: python_mesh,
-        },
         rust,
         drift,
-        status,
-    })
+    }))
 }
 
-fn compare_python_and_rust(
-    python_bundle_dir: &Path,
-    python_bundle: &Value,
-    python_mesh: &Value,
+fn evaluate_rust_network_shadow(
     rust: &ShadowProofRust,
-) -> Result<Vec<ShadowDrift>, Box<dyn Error>> {
+    resolve_dns: bool,
+    observe_runtime: bool,
+) -> Vec<ShadowDrift> {
     let mut drift = Vec::new();
-    let hosts = std::fs::read_to_string(python_bundle_dir.join("synapse.hosts"))?;
-    let corefile = std::fs::read_to_string(python_bundle_dir.join("Corefile"))?;
-    let resolved = std::fs::read_to_string(python_bundle_dir.join("cynic-synapse-dns.conf"))?;
 
-    if normalize_text(&hosts) != normalize_text(&rust.dns_bundle.synapse_hosts) {
+    if normalize_text(&rust.dns_bundle.synapse_hosts).is_empty() {
         drift.push(ShadowDrift {
-            kind: "dns_hosts_mismatch",
-            detail: "Python and Rust rendered different synapse.hosts content.".to_string(),
+            kind: "dns_hosts_empty",
+            detail: "Rust DNS host projection is empty for the current registry.".to_string(),
         });
     }
-    if normalize_text(&corefile) != normalize_text(&rust.dns_bundle.corefile) {
+    if normalize_text(&rust.dns_bundle.corefile).is_empty() {
         drift.push(ShadowDrift {
-            kind: "dns_corefile_mismatch",
-            detail: "Python and Rust rendered different Corefile content.".to_string(),
+            kind: "dns_corefile_empty",
+            detail: "Rust CoreDNS projection is empty.".to_string(),
         });
     }
-    if normalize_text(&resolved) != normalize_text(&rust.dns_bundle.resolved_dropin) {
+    if normalize_text(&rust.dns_bundle.resolved_dropin).is_empty() {
         drift.push(ShadowDrift {
-            kind: "dns_resolved_dropin_mismatch",
-            detail: "Python and Rust rendered different resolved drop-in content.".to_string(),
+            kind: "dns_resolved_dropin_empty",
+            detail: "Rust resolved drop-in projection is empty.".to_string(),
         });
     }
-
-    let python_bundle_schema = python_bundle
-        .get("schema")
-        .and_then(Value::as_str)
-        .unwrap_or("unknown");
-    if python_bundle_schema != "cynic.organ_fleet.dns_activation_bundle.v1" {
+    if observe_runtime && rust.mesh_status.runtime_status == "unknown" {
         drift.push(ShadowDrift {
-            kind: "python_bundle_schema_unexpected",
-            detail: format!("unexpected python dns bundle schema: {python_bundle_schema}"),
+            kind: "runtime_status_unknown",
+            detail: "Runtime observation did not produce a network mesh status.".to_string(),
+        });
+    }
+    if resolve_dns && rust.mesh_status.dns_status == "unknown" {
+        drift.push(ShadowDrift {
+            kind: "dns_status_unknown",
+            detail: "DNS resolution was requested but no DNS status was observed.".to_string(),
         });
     }
 
-    let python_runtime_status = python_mesh
-        .get("runtime_status")
-        .and_then(Value::as_str)
-        .unwrap_or("unknown");
-    if python_runtime_status != rust.mesh_status.runtime_status {
-        drift.push(ShadowDrift {
-            kind: "mesh_runtime_status_mismatch",
-            detail: format!(
-                "python runtime_status={} rust runtime_status={}",
-                python_runtime_status, rust.mesh_status.runtime_status
-            ),
-        });
-    }
-
-    let python_dns_status = python_mesh
-        .get("dns_status")
-        .and_then(Value::as_str)
-        .unwrap_or("unknown");
-    if python_dns_status != rust.mesh_status.dns_status {
-        drift.push(ShadowDrift {
-            kind: "mesh_dns_status_mismatch",
-            detail: format!(
-                "python dns_status={} rust dns_status={}",
-                python_dns_status, rust.mesh_status.dns_status
-            ),
-        });
-    }
-
-    Ok(drift)
+    drift
 }
 
 fn normalize_text(value: &str) -> String {
@@ -229,40 +159,62 @@ fn normalize_text(value: &str) -> String {
         .to_string()
 }
 
-fn run_python_json(repo_root: &Path, args: &[&str]) -> Result<Value, Box<dyn Error>> {
-    let output = Command::new("python3")
-        .args(args)
-        .current_dir(repo_root)
-        .output()?;
-    match serde_json::from_slice(&output.stdout) {
-        Ok(value) => Ok(value),
-        Err(parse_error) => {
-            if !output.status.success() {
-                return Err(format!(
-                    "python command failed (status={}): stderr={} stdout={}",
-                    output.status,
-                    String::from_utf8_lossy(&output.stderr).trim(),
-                    String::from_utf8_lossy(&output.stdout).trim(),
-                )
-                .into());
-            }
-            Err(Box::new(parse_error))
-        }
-    }
-}
+fn build_shadow_proof_report(inputs: ShadowProofReportInputs) -> NetworkShadowProofReport {
+    let status = if inputs.drift.is_empty() {
+        "aligned"
+    } else {
+        "drift_detected"
+    };
 
-fn repo_root() -> Result<PathBuf, Box<dyn Error>> {
-    Ok(Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()?)
+    NetworkShadowProofReport {
+        schema: "cynic.node_network_shadow_proof.v1",
+        generated_at: Utc::now().to_rfc3339(),
+        registry: inputs.registry,
+        legacy_python: RetiredLegacyPython {
+            status: "retired",
+            reason: "Python organ shadow proof was removed from the minimal low-layer baseline.",
+        },
+        rust: inputs.rust,
+        drift: inputs.drift,
+        status,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+    use serde_json::json;
 
     #[test]
     fn normalize_text_ignores_trailing_space_and_blank_edges() {
         assert_eq!(normalize_text("a \n b\n\n"), "a\n b");
+    }
+
+    #[test]
+    fn report_builder_marks_drift_status_from_inputs() {
+        let report = build_shadow_proof_report(ShadowProofReportInputs {
+            registry: DEFAULT_REGISTRY_PATH.to_string(),
+            rust: ShadowProofRust {
+                dns_bundle: RustDnsBundle {
+                    activation_plan: json!({}),
+                    synapse_hosts: String::new(),
+                    corefile: String::new(),
+                    resolved_dropin: String::new(),
+                },
+                mesh_status: RustMeshStatus {
+                    runtime_status: "mesh_active".to_string(),
+                    dns_status: "active".to_string(),
+                    blocker_count: 0,
+                },
+            },
+            drift: vec![ShadowDrift {
+                kind: "dns_status_unknown",
+                detail: "mismatch".to_string(),
+            }],
+        });
+
+        assert_eq!(report.status, "drift_detected");
+        assert_eq!(report.legacy_python.status, "retired");
     }
 }

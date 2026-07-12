@@ -1,6 +1,7 @@
+use cynic_host::process_observation::capture_command;
+use cynic_host::runtime_layout::current_runtime_layout;
 use std::error::Error;
 use std::net::{SocketAddr, TcpStream};
-use std::process::Command;
 use std::time::Duration;
 
 use crate::ports::network_interfaces_port::{
@@ -13,14 +14,15 @@ pub struct LocalProviderFallbackProbe;
 
 impl LocalProviderFallbackProbe {
     fn command_output(command: &str, args: &[&str]) -> (Option<String>, Option<String>) {
-        match Command::new(command).args(args).output() {
+        match capture_command(command, args) {
             Ok(output) => {
-                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-                if output.status.success() {
-                    (Some(stdout), (!stderr.is_empty()).then_some(stderr))
+                if output.success {
+                    (
+                        Some(output.stdout),
+                        (!output.stderr.is_empty()).then_some(output.stderr),
+                    )
                 } else {
-                    (None, (!stderr.is_empty()).then_some(stderr))
+                    (None, (!output.stderr.is_empty()).then_some(output.stderr))
                 }
             }
             Err(error) => (None, Some(error.to_string())),
@@ -33,12 +35,16 @@ impl ProviderFallbackProbePort for LocalProviderFallbackProbe {
         &self,
         route: &ProviderFallbackRoute,
     ) -> Result<ProviderFallbackRouteStatus, Box<dyn Error>> {
+        let capabilities = current_runtime_layout().capabilities();
         let cidr = route.cidr.as_str();
         let gateway = route.gateway.clone().unwrap_or_default();
 
-        let (route_stdout, route_error) = Self::command_output("ip", &["route", "show", cidr]);
-        let (active_connections, nmcli_active_error) =
-            Self::command_output("nmcli", &["-t", "-f", "NAME", "connection", "show", "--active"]);
+        let (route_stdout, route_error) =
+            Self::command_output(&capabilities.route_tool.command, &["route", "show", cidr]);
+        let (active_connections, nmcli_active_error) = Self::command_output(
+            &capabilities.network_manager.command,
+            &["-t", "-f", "NAME", "connection", "show", "--active"],
+        );
 
         let mut nmcli_outputs = Vec::new();
         let mut nmcli_errors = Vec::new();
@@ -50,8 +56,10 @@ impl ProviderFallbackProbePort for LocalProviderFallbackProbe {
             if connection_name.is_empty() {
                 continue;
             }
-            let (routes_stdout, routes_error) =
-                Self::command_output("nmcli", &["-g", "ipv4.routes", "connection", "show", connection_name]);
+            let (routes_stdout, routes_error) = Self::command_output(
+                &capabilities.network_manager.command,
+                &["-g", "ipv4.routes", "connection", "show", connection_name],
+            );
             if let Some(stdout) = routes_stdout.filter(|value| !value.is_empty()) {
                 nmcli_outputs.push(stdout);
             }
@@ -84,9 +92,9 @@ impl ProviderFallbackProbePort for LocalProviderFallbackProbe {
     ) -> Result<Vec<ProviderServiceConnectivity>, Box<dyn Error>> {
         let mut results = Vec::new();
         for check in checks {
-            let address: SocketAddr = format!("{}:{}", check.host, check.port).parse().or_else(|_| {
-                format!("{}:{}", check.ip, check.port).parse()
-            })?;
+            let address: SocketAddr = format!("{}:{}", check.host, check.port)
+                .parse()
+                .or_else(|_| format!("{}:{}", check.ip, check.port).parse())?;
 
             let result = match TcpStream::connect_timeout(&address, Duration::from_secs(2)) {
                 Ok(stream) => {

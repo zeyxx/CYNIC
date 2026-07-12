@@ -487,16 +487,14 @@ pub struct CrystalShatterParams {
 // ── MCP Server ───────────────────────────────────────────────
 
 #[derive(Clone)]
-    // WHY: Dormant logic kept for Phase 2, disabled as part of Option B deep purge
+// WHY: Dormant logic kept for Phase 2, disabled as part of Option B deep purge
 #[allow(dead_code)]
 pub struct CynicMcp {
-    
     pub(crate) storage: Arc<dyn StoragePort>,
     pub(crate) coord: Arc<dyn CoordPort>,
-    
+
     pub(crate) embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
-    
-    
+
     pub(crate) metrics: Arc<crate::domain::metrics::Metrics>,
     pub(crate) environment:
         Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
@@ -506,11 +504,7 @@ pub struct CynicMcp {
     pub(crate) rate_limit: Arc<McpRateLimit>,
     pub(crate) bg_semaphore: Arc<tokio::sync::Semaphore>,
     pub(crate) authenticated: Arc<AtomicBool>,
-    
-    
-    
-    
-    
+
     // WHY: K12 — tool_router is used via trait dispatch, compiler misses direct usage
     #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
@@ -524,51 +518,36 @@ impl std::fmt::Debug for CynicMcp {
 
 impl CynicMcp {
     pub fn tool_router() -> ToolRouter<Self> {
-        Self::tool_router_coord()
-            + Self::tool_router_observe()
-            + Self::tool_router_agent()
+        Self::tool_router_coord() + Self::tool_router_observe() + Self::tool_router_agent()
     }
 
     #[allow(clippy::too_many_arguments)]
     // WHY: Constructor receives many kernel dependencies — each is a distinct port required at the MCP
     // surface. A builder pattern would only rename the argument list; called in exactly one place.
     pub fn new(
-        
         storage: Arc<dyn StoragePort>,
         coord: Arc<dyn CoordPort>,
-        
+
         embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
-        
-        
+
         metrics: Arc<crate::domain::metrics::Metrics>,
         environment: Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
         task_health: Arc<crate::infra::task_health::TaskHealth>,
         system_contract: crate::domain::contract::SystemContract,
         event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
-        
-        
-        
-        
-        
     ) -> Self {
         Self {
-            
             storage,
             coord,
             embedding,
-            
-            
+
             metrics,
             environment,
             task_health,
             system_contract,
-            
+
             event_tx,
-            
-            
-            
-            
-            
+
             rate_limit: Arc::new(McpRateLimit::new()),
             bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
                 crate::domain::constants::BG_SEMAPHORE_PERMITS,
@@ -624,4 +603,3 @@ impl ServerHandler for CynicMcp {
             .with_instructions("CYNIC epistemic immune system — independent AI validators reaching consensus under mathematical doubt. φ-bounded at 61.8%.")
     }
 }
-

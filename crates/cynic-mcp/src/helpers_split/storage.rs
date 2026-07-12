@@ -1,14 +1,3 @@
-fn organ_keep_cli_path() -> PathBuf {
-    project_root().join(
-        std::env::var("CYNIC_ORGAN_KEEP_CLI_PATH")
-            .unwrap_or_else(|_| "organs/keep/src/entrypoints/cli.py".to_string()),
-    )
-}
-
-fn organ_keep_cli_command() -> String {
-    std::env::var("CYNIC_ORGAN_KEEP_CLI_CMD").unwrap_or_else(|_| "python3".to_string())
-}
-
 fn storage_primary_plan_args(params: &StoragePrimaryPlanParams) -> Result<Vec<String>, McpError> {
     Ok(vec![
         "storage-primary".to_string(),
@@ -37,42 +26,11 @@ fn storage_primary_bundle_args(
     ])
 }
 
-fn run_organ_keep_json(args: &[String], operation: &str) -> Result<serde_json::Value, McpError> {
-    let cli_path = organ_keep_cli_path();
-    let cli_command = organ_keep_cli_command();
-    let output = std::process::Command::new(&cli_command)
-        .arg(&cli_path)
-        .args(args)
-        .output()
-        .map_err(|e| {
-            McpError::internal_error(
-                format!(
-                    "Failed to run organ-keep CLI command ({}) {}: {e}",
-                    cli_command,
-                    cli_path.display()
-                ),
-                None,
-            )
-        })?;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let mut payload: serde_json::Value = serde_json::from_str(&stdout).map_err(|e| {
-        McpError::internal_error(
-            format!(
-                "organ-keep {operation} did not emit valid JSON: {e}; stderr={}",
-                stderr.trim()
-            ),
-            None,
-        )
-    })?;
-    if let Some(object) = payload.as_object_mut() {
-        object.insert("mcp_operation".to_string(), serde_json::json!(operation));
-        object.insert(
-            "cli_exit_code".to_string(),
-            serde_json::json!(output.status.code()),
-        );
-    }
-    Ok(payload)
+fn run_organ_keep_json(_args: &[String], operation: &str) -> Result<serde_json::Value, McpError> {
+    Ok(unsupported_minimal_baseline(
+        operation,
+        "legacy organ-keep Python CLI was removed from the low-layer baseline",
+    ))
 }
 
 fn run_storage_primary_plan(
@@ -186,119 +144,40 @@ fn storage_primary_status_uses_auto_health(params: &StoragePrimaryStatusParams) 
     params.health_json.is_none() && params.auto_service_health.unwrap_or(false)
 }
 
-fn storage_primary_status_args(
-    params: &StoragePrimaryStatusParams,
-    evidence_stdin: bool,
-) -> Result<Vec<String>, McpError> {
-    let mut args = vec!["storage-primary".to_string(), "status".to_string()];
-    if let Some(value) = storage_primary_status_bundle_dir(params)? {
-        args.extend(["--bundle-dir".to_string(), value.clone()]);
-    }
-    if let Some(value) = &params.bridge_status_json {
-        args.extend(["--bridge-status-json".to_string(), value.clone()]);
-    }
-    if let Some(value) = &params.fleet_report_json {
-        args.extend(["--fleet-report-json".to_string(), value.clone()]);
-    }
-    if let Some(value) = &params.mesh_status_json {
-        args.extend(["--mesh-status-json".to_string(), value.clone()]);
-    }
-    if let Some(value) = &params.health_json {
-        args.extend(["--health-json".to_string(), value.clone()]);
-    }
-    if evidence_stdin {
-        args.push("--evidence-stdin".to_string());
-    }
-    Ok(args)
-}
-
 fn run_storage_primary_status(
     params: &StoragePrimaryStatusParams,
     evidence: Option<serde_json::Value>,
 ) -> Result<serde_json::Value, McpError> {
-    let cli_path = organ_keep_cli_path();
-    let cli_command = organ_keep_cli_command();
-    let use_evidence_stdin = evidence.is_some();
-    let output = if let Some(evidence) = evidence {
-        let mut child = std::process::Command::new(&cli_command)
-            .arg(&cli_path)
-            .args(storage_primary_status_args(params, true)?)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| {
-                McpError::internal_error(
-                    format!(
-                        "Failed to spawn organ-keep CLI command ({}) {}: {e}",
-                        cli_command,
-                        cli_path.display()
-                    ),
-                    None,
-                )
-            })?;
-        let stdin = child.stdin.as_mut().ok_or_else(|| {
-            McpError::internal_error("Failed to open stdin for organ-keep CLI".to_string(), None)
-        })?;
-        let evidence_json = serde_json::to_string(&evidence).map_err(|e| {
-            McpError::internal_error(
-                format!("Failed to serialize storage status evidence for organ-keep CLI: {e}"),
-                None,
-            )
-        })?;
-        stdin.write_all(evidence_json.as_bytes()).map_err(|e| {
-            McpError::internal_error(
-                format!("Failed to send storage status evidence to organ-keep CLI: {e}"),
-                None,
-            )
-        })?;
-        child.wait_with_output().map_err(|e| {
-            McpError::internal_error(
-                format!(
-                    "Failed to wait for organ-keep CLI command ({}) {}: {e}",
-                    cli_command,
-                    cli_path.display()
-                ),
-                None,
-            )
-        })?
-    } else {
-        std::process::Command::new(&cli_command)
-            .arg(&cli_path)
-            .args(storage_primary_status_args(params, false)?)
-            .output()
-            .map_err(|e| {
-                McpError::internal_error(
-                    format!(
-                        "Failed to run organ-keep CLI command ({}) {}: {e}",
-                        cli_command,
-                        cli_path.display()
-                    ),
-                    None,
-                )
-            })?
-    };
+    let bundle_dir = storage_primary_status_bundle_dir(params)?;
+    let use_evidence = evidence.is_some();
+    let mut missing = Vec::new();
+    if bundle_dir.is_some() && params.bundle_dir.is_none() && storage_primary_status_uses_auto_bundle(params) {
+        missing.push(serde_json::json!("bundle_complete"));
+    }
+    if storage_primary_status_uses_auto_bridge(params) {
+        missing.push(serde_json::json!("bridge_active"));
+    }
+    if storage_primary_status_uses_auto_fleet(params) {
+        missing.push(serde_json::json!("fleet_observes_node_running"));
+    }
+    if storage_primary_status_uses_auto_mesh(params) {
+        missing.push(serde_json::json!("mesh_reaches_storage"));
+    }
+    if storage_primary_status_uses_auto_health(params) {
+        missing.push(serde_json::json!("service_health_healthy"));
+    }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let mut payload: serde_json::Value = serde_json::from_str(&stdout).map_err(|e| {
-        McpError::internal_error(
-            format!(
-                "organ-keep storage-primary status did not emit valid JSON: {e}; stderr={}",
-                stderr.trim()
-            ),
-            None,
-        )
-    })?;
+    let mut payload = serde_json::json!({
+        "schema": "cynic.storage_primary_activation.status.v1.minimal",
+        "status": if missing.is_empty() { "active" } else { "incomplete" },
+        "mcp_operation": "storage.primary.status",
+        "missing": missing,
+        "bundle_dir": bundle_dir,
+        "evidence": evidence,
+        "authority": "infra/registry.json",
+        "note": "Legacy organ-keep CLI was removed; this minimal status reports only MCP-composed evidence and explicit inputs."
+    });
     if let Some(object) = payload.as_object_mut() {
-        object.insert(
-            "mcp_operation".to_string(),
-            serde_json::json!("storage.primary.status"),
-        );
-        object.insert(
-            "cli_exit_code".to_string(),
-            serde_json::json!(output.status.code()),
-        );
         object.insert(
             "bundle_evidence_source".to_string(),
             serde_json::json!(if params.bundle_dir.is_some() {
@@ -351,10 +230,37 @@ fn run_storage_primary_status(
         );
         object.insert(
             "evidence_stdin".to_string(),
-            serde_json::json!(use_evidence_stdin),
+            serde_json::json!(use_evidence),
         );
     }
     Ok(payload)
+}
+
+#[cfg(test)]
+fn storage_primary_status_args(
+    params: &StoragePrimaryStatusParams,
+    evidence_stdin: bool,
+) -> Result<Vec<String>, McpError> {
+    let mut args = vec!["storage-primary".to_string(), "status".to_string()];
+    if let Some(value) = storage_primary_status_bundle_dir(params)? {
+        args.extend(["--bundle-dir".to_string(), value.clone()]);
+    }
+    if let Some(value) = &params.bridge_status_json {
+        args.extend(["--bridge-status-json".to_string(), value.clone()]);
+    }
+    if let Some(value) = &params.fleet_report_json {
+        args.extend(["--fleet-report-json".to_string(), value.clone()]);
+    }
+    if let Some(value) = &params.mesh_status_json {
+        args.extend(["--mesh-status-json".to_string(), value.clone()]);
+    }
+    if let Some(value) = &params.health_json {
+        args.extend(["--health-json".to_string(), value.clone()]);
+    }
+    if evidence_stdin {
+        args.push("--evidence-stdin".to_string());
+    }
+    Ok(args)
 }
 
 fn storage_fleet_report(

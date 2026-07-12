@@ -4,8 +4,13 @@ use crate::cli::NetworkCommands;
 use crate::dns_activation_status;
 use crate::dns_bundle;
 use crate::dns_plan;
+use crate::network_activation_chain;
+use crate::network_actuator;
 use crate::network_actuator_status;
 use crate::network_evidence;
+use crate::network_mesh_apply_plan;
+use crate::network_mesh_bundle;
+use crate::network_mesh_plan;
 use crate::network_repair;
 use crate::network_root_policy;
 use crate::network_runtime_status;
@@ -14,18 +19,14 @@ use crate::observe;
 use crate::provider_fallback_hosts;
 use crate::provider_fallback_status;
 
-pub(crate) fn execute_observe(
-    registry: &str,
-    fail_on_warning: bool,
-    fail_on_critical: bool,
-) -> ExitCode {
+pub fn execute_observe(registry: &str, fail_on_warning: bool, fail_on_critical: bool) -> ExitCode {
     let observation = observe::observe_payload(Some(registry));
     let should_fail = (fail_on_warning && observation.is_warning_or_worse())
         || (fail_on_critical && observation.is_critical());
     emit_json("observe", &observation, should_fail)
 }
 
-pub(crate) fn execute_network_command(command: &NetworkCommands) -> ExitCode {
+pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
     match command {
         NetworkCommands::DnsBundle {
             json: _,
@@ -82,6 +83,37 @@ pub(crate) fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             let status = network_actuator_status::activation_status(&observation);
             emit_json("network actuator status", &status, false)
         }
+        NetworkCommands::ActuatorBundle {
+            registry,
+            output_dir,
+        } => {
+            let observation = observe::observe_payload(Some(registry));
+            match network_actuator::write_install_bundle(&observation, output_dir) {
+                Ok(bundle) => emit_json("network actuator bundle", &bundle, false),
+                Err(error) => {
+                    tracing::error!("network actuator bundle failed: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        NetworkCommands::ActuatorPlan {
+            registry,
+            bundle_dir,
+        } => {
+            let observation = observe::observe_payload(Some(registry));
+            let plan = network_actuator::activation_plan(&observation, bundle_dir);
+            emit_json("network actuator plan", &plan, false)
+        }
+        NetworkCommands::Apply {
+            registry,
+            profile,
+            apply,
+        } => {
+            let observation = observe::observe_payload(Some(registry));
+            let report = network_actuator::apply_profile(&observation, profile, *apply);
+            let should_fail = report.status != "completed";
+            emit_json("network actuator apply", &report, should_fail)
+        }
         NetworkCommands::Repair { dry_run, registry } => {
             if !dry_run {
                 tracing::error!(
@@ -93,6 +125,64 @@ pub(crate) fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             let plan = network_repair::build_dry_run_plan(&observation);
             emit_json("network repair plan", &plan, false)
         }
+        NetworkCommands::MeshPlan {
+            json: _,
+            registry,
+            provider,
+        } => match network_mesh_plan::build_network_mesh_plan(registry, provider.as_deref()) {
+            Ok(report) => emit_json("network mesh plan", &report, false),
+            Err(error) => {
+                tracing::error!("network mesh plan failed: {error}");
+                ExitCode::FAILURE
+            }
+        },
+        NetworkCommands::MeshBundle {
+            json: _,
+            registry,
+            provider,
+            output_dir,
+        } => match network_mesh_bundle::build_network_mesh_bundle(
+            registry,
+            provider.as_deref(),
+            output_dir,
+        ) {
+            Ok(report) => emit_json("network mesh bundle", &report, false),
+            Err(error) => {
+                tracing::error!("network mesh bundle failed: {error}");
+                ExitCode::FAILURE
+            }
+        },
+        NetworkCommands::MeshApplyPlan {
+            json: _,
+            bundle_dir,
+        } => match network_mesh_apply_plan::build_network_mesh_apply_plan(bundle_dir) {
+            Ok(report) => emit_json("network mesh apply plan", &report, false),
+            Err(error) => {
+                tracing::error!("network mesh apply plan failed: {error}");
+                ExitCode::FAILURE
+            }
+        },
+        NetworkCommands::MeshApplyProfile {
+            json: _,
+            bundle_dir,
+            profile,
+            apply,
+            closed_environment,
+        } => match network_mesh_apply_plan::apply_network_mesh_profile(
+            bundle_dir,
+            profile,
+            *apply,
+            *closed_environment,
+        ) {
+            Ok(report) => {
+                let should_fail = report.status != "completed";
+                emit_json("network mesh apply profile", &report, should_fail)
+            }
+            Err(error) => {
+                tracing::error!("network mesh apply profile failed: {error}");
+                ExitCode::FAILURE
+            }
+        },
         NetworkCommands::ProviderFallbackStatus {
             json: _,
             registry,
@@ -170,6 +260,65 @@ pub(crate) fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             }
             Err(error) => {
                 tracing::error!("network runtime status failed: {error}");
+                ExitCode::FAILURE
+            }
+        },
+        NetworkCommands::RuntimeProof {
+            json: _,
+            registry,
+            resolve_dns,
+            check_provider_connectivity,
+            provider_hosts_path,
+            hosts_path,
+            corefile_path,
+            service_path,
+            resolved_dropin_path,
+        } => match crate::network_runtime_proof::build_network_runtime_proof_bundle(
+            registry,
+            *resolve_dns,
+            *check_provider_connectivity,
+            provider_hosts_path,
+            hosts_path,
+            corefile_path,
+            service_path,
+            resolved_dropin_path,
+        ) {
+            Ok(report) => emit_json(
+                "network runtime proof",
+                &report,
+                report.status != "satisfied",
+            ),
+            Err(error) => {
+                tracing::error!("network runtime proof failed: {error}");
+                ExitCode::FAILURE
+            }
+        },
+        NetworkCommands::ActivationChain {
+            json: _,
+            registry,
+            resolve_dns,
+            check_provider_connectivity,
+            provider_hosts_path,
+            hosts_path,
+            corefile_path,
+            service_path,
+            resolved_dropin_path,
+        } => match network_activation_chain::build_activation_chain_report(
+            registry,
+            *resolve_dns,
+            *check_provider_connectivity,
+            provider_hosts_path,
+            hosts_path,
+            corefile_path,
+            service_path,
+            resolved_dropin_path,
+        ) {
+            Ok(report) => {
+                let should_fail = report.status == "blocked";
+                emit_json("network activation chain", &report, should_fail)
+            }
+            Err(error) => {
+                tracing::error!("network activation chain failed: {error}");
                 ExitCode::FAILURE
             }
         },

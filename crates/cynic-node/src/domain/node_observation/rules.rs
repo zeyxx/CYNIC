@@ -1,10 +1,10 @@
 use super::{
     NodeRuntimeAction, NodeRuntimeBlocker, NodeRuntimeCapabilities, NodeRuntimeRemediation,
-    NodeRuntimeSeverity, NodeRuntimeStatus, NodeRuntimeVerdict,
-    SURFACE_FLEET_NODE_STATUS, SURFACE_NETWORK_MESH_DNS_ACTIVATION_STATUS,
-    SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_HOSTS, SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_STATUS,
-    SURFACE_NETWORK_MESH_STATUS,
+    NodeRuntimeSeverity, NodeRuntimeStatus, NodeRuntimeVerdict, SURFACE_FLEET_NODE_STATUS,
+    SURFACE_NETWORK_MESH_DNS_ACTIVATION_STATUS, SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_HOSTS,
+    SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_STATUS, SURFACE_NETWORK_MESH_STATUS,
 };
+use cynic_host::runtime_layout::current_runtime_layout;
 
 pub fn classify_runtime(capabilities: NodeRuntimeCapabilities) -> NodeRuntimeVerdict {
     let mut blockers = Vec::new();
@@ -61,6 +61,7 @@ pub fn classify_runtime(capabilities: NodeRuntimeCapabilities) -> NodeRuntimeVer
 }
 
 fn remediation_for_blockers(blockers: &[NodeRuntimeBlocker]) -> Vec<NodeRuntimeRemediation> {
+    let runtime_layout = current_runtime_layout();
     blockers
         .iter()
         .map(|blocker| match blocker {
@@ -69,7 +70,8 @@ fn remediation_for_blockers(blockers: &[NodeRuntimeBlocker]) -> Vec<NodeRuntimeR
                 mutates_host: true,
                 requires_root: true,
                 canonical_surface: SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_STATUS,
-                fallback_surface: "ip route replace 10.10.10.0/24 via <registry.provider_gateway>",
+                fallback_surface:
+                    "ip route replace 10.10.10.0/24 via <registry.provider_gateway>".to_string(),
                 reason: "node cannot reach provider-plane services while canonical Synapse is absent",
             },
             NodeRuntimeBlocker::CriticalDnsResolutionFailed => NodeRuntimeRemediation {
@@ -77,7 +79,7 @@ fn remediation_for_blockers(blockers: &[NodeRuntimeBlocker]) -> Vec<NodeRuntimeR
                 mutates_host: true,
                 requires_root: true,
                 canonical_surface: SURFACE_NETWORK_MESH_DNS_ACTIVATION_STATUS,
-                fallback_surface: SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_HOSTS,
+                fallback_surface: SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_HOSTS.to_string(),
                 reason: "critical service names do not resolve on this node",
             },
             NodeRuntimeBlocker::CanonicalDnsProjectionDrift => NodeRuntimeRemediation {
@@ -85,7 +87,10 @@ fn remediation_for_blockers(blockers: &[NodeRuntimeBlocker]) -> Vec<NodeRuntimeR
                 mutates_host: true,
                 requires_root: true,
                 canonical_surface: SURFACE_NETWORK_MESH_DNS_ACTIVATION_STATUS,
-                fallback_surface: "python3 organs/fleet/src/entrypoints/cli.py dns bundle",
+                fallback_surface: format!(
+                    "cynic network dns bundle --output-dir {}",
+                    runtime_layout.dns_bundle_dir
+                ),
                 reason: "critical service names resolve, but not to the canonical Synapse IPs declared in registry",
             },
             NodeRuntimeBlocker::CriticalTcpConnectivityFailed => NodeRuntimeRemediation {
@@ -93,7 +98,7 @@ fn remediation_for_blockers(blockers: &[NodeRuntimeBlocker]) -> Vec<NodeRuntimeR
                 mutates_host: false,
                 requires_root: false,
                 canonical_surface: SURFACE_FLEET_NODE_STATUS,
-                fallback_surface: "ssh/curl direct provider-plane probe",
+                fallback_surface: "ssh/curl direct provider-plane probe".to_string(),
                 reason: "at least one critical control-plane socket is unreachable",
             },
             NodeRuntimeBlocker::SynapseRouteMissing => NodeRuntimeRemediation {
@@ -101,7 +106,10 @@ fn remediation_for_blockers(blockers: &[NodeRuntimeBlocker]) -> Vec<NodeRuntimeR
                 mutates_host: true,
                 requires_root: true,
                 canonical_surface: SURFACE_NETWORK_MESH_STATUS,
-                fallback_surface: "python3 organs/fleet/src/entrypoints/cli.py network-actuator install-plan",
+                fallback_surface: format!(
+                    "cynic network actuator plan --bundle-dir {}",
+                    runtime_layout.network_actuator_bundle_dir
+                ),
                 reason: "canonical organism mesh route is absent",
             },
             NodeRuntimeBlocker::WireguardMeshAbsent => NodeRuntimeRemediation {
@@ -109,7 +117,10 @@ fn remediation_for_blockers(blockers: &[NodeRuntimeBlocker]) -> Vec<NodeRuntimeR
                 mutates_host: true,
                 requires_root: true,
                 canonical_surface: SURFACE_NETWORK_MESH_STATUS,
-                fallback_surface: "python3 organs/fleet/src/entrypoints/cli.py network-actuator install-plan",
+                fallback_surface: format!(
+                    "cynic network actuator plan --bundle-dir {}",
+                    runtime_layout.network_actuator_bundle_dir
+                ),
                 reason: "WireGuard runtime has no observed peer/interface state",
             },
         })

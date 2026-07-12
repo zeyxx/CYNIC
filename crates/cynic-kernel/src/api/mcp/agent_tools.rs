@@ -8,8 +8,7 @@ use crate::domain::storage::AgentTask;
 
 use super::{
     ClaimAgentTaskParams, CynicMcp, DispatchAgentTaskParams, ListPendingAgentTasksParams,
-    UpdateAgentTaskResultParams, sanitize_error, validate_agent_id,
-    validate_agent_task_content,
+    UpdateAgentTaskResultParams, sanitize_error, validate_agent_id, validate_agent_task_content,
 };
 
 #[tool_router(router = tool_router_agent, vis = "pub(super)")]

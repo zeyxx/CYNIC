@@ -42,6 +42,10 @@ pub(crate) fn build_provider_fallback_status(
     check_connectivity: bool,
 ) -> Result<ProviderFallbackStatusReport, Box<dyn std::error::Error>> {
     let registry_adapter = LocalRegistryAdapter::new(registry);
+    let dns_zone = registry_adapter
+        .fetch_network_policy_summary()?
+        .synapse_dns_zone
+        .unwrap_or_else(crate::dns_contract::default_dns_zone);
     let route = registry_adapter.fetch_provider_fallback_route()?;
     let service_checks = registry_adapter.fetch_provider_fallback_service_checks()?;
     let probe = LocalProviderFallbackProbe;
@@ -56,7 +60,7 @@ pub(crate) fn build_provider_fallback_status(
     let hosts_file_exists = Path::new(hosts_path).exists();
     let hosts_missing = service_checks
         .iter()
-        .filter(|check| check.host.ends_with(".synapse.cynic") && !hosts_text.contains(&check.host))
+        .filter(|check| check.host.ends_with(&dns_zone) && !hosts_text.contains(&check.host))
         .map(|check| check.host.clone())
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
@@ -85,7 +89,11 @@ pub(crate) fn build_provider_fallback_status(
     Ok(ProviderFallbackStatusReport {
         schema: "cynic.organ_fleet.provider_fallback_status.v1",
         generated_at: Utc::now().to_rfc3339(),
-        status: if missing.is_empty() { "active" } else { "blocked" },
+        status: if missing.is_empty() {
+            "active"
+        } else {
+            "blocked"
+        },
         canonical: false,
         registry_ref: registry.to_string(),
         hosts_path: hosts_path.to_string(),
@@ -151,7 +159,10 @@ mod tests {
         )
         .expect("report");
 
-        assert_eq!(report.schema, "cynic.organ_fleet.provider_fallback_status.v1");
+        assert_eq!(
+            report.schema,
+            "cynic.organ_fleet.provider_fallback_status.v1"
+        );
         assert_eq!(report.status, "blocked");
         assert!(report.missing.contains(&"provider_fallback_hosts_file"));
     }

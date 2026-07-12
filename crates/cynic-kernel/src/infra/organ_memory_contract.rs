@@ -160,7 +160,7 @@ pub fn validate_organ_memory_contract_value(
             findings.push(ContractFinding::critical(
                 "organ_memory_unknown_class",
                 path.clone(),
-                format!("class {:?} is not declared in storage_classes", class),
+                format!("class {class:?} is not declared in storage_classes"),
             ));
         }
 
@@ -172,10 +172,7 @@ pub fn validate_organ_memory_contract_value(
             findings.push(ContractFinding::critical(
                 "organ_memory_unknown_authority",
                 path.clone(),
-                format!(
-                    "authority {:?} is not declared in authority_levels",
-                    authority
-                ),
+                format!("authority {authority:?} is not declared in authority_levels"),
             ));
         }
 

@@ -48,7 +48,7 @@ pub async fn health_handler(
     };
 
     // Authenticated: full details
-    
+
     let dog_health: Vec<(String, String, u32)> = vec![];
     let (healthy_dogs, total_dogs) = count_healthy_dogs(&dog_health);
     let live_dog_ids = vec![];
@@ -83,7 +83,9 @@ pub async fn health_handler(
 
     let dog_health_detail: Vec<(String, String, u32, Option<String>, Option<u64>)> = vec![];
     let sovereign_ids: Vec<String> = vec![];
-    let dogs: Vec<DogHealthResponse> = dog_health_detail.into_iter().map(|(id, circuit, failures, reason, open_secs)| {
+    let dogs: Vec<DogHealthResponse> = dog_health_detail
+        .into_iter()
+        .map(|(id, circuit, failures, reason, open_secs)| {
             let kind = if id == "deterministic-dog" {
                 "heuristic"
             } else {
@@ -221,7 +223,7 @@ pub async fn health_handler(
                     "health": health,
                 })
             })
-            .collect(); 
+            .collect();
         report.sort_by(|a, b| {
             a["agent_id"]
                 .as_str()
@@ -447,8 +449,8 @@ pub async fn metrics_handler(
 
     // Organ quality metrics
     {
-        
-        let _snapshots: std::collections::HashMap<String, serde_json::Value> = std::collections::HashMap::new();
+        let _snapshots: std::collections::HashMap<String, serde_json::Value> =
+            std::collections::HashMap::new();
         // crate::domain::metrics::append_organ_metrics(&mut out, &snapshots);
     }
 

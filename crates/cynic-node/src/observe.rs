@@ -1,25 +1,25 @@
-use crate::build_attestation::{BinaryAttestation, RuntimeArtifactDeclarationDrift};
+use crate::adapters::host_observation::{CommandObservation, TcpObservation};
 #[cfg(test)]
 use crate::build_attestation::runtime_binary_attestation;
-use crate::domain::observation_runtime::{
-    DnsResolutionObservation,
-};
+use crate::build_attestation::{BinaryAttestation, RuntimeArtifactDeclarationDrift};
 use crate::domain::network_projection::{
     CanonicalNetworkMeshStatusProjection, DnsProjectionObservation, SharedRuntimeObservation,
     WireguardTransportObservation,
 };
 #[cfg(test)]
 use crate::domain::network_projection::{
-    DnsProjectionChecks, DnsProjectionState, WireguardTransportChecks,
-    WireguardTransportState, canonical_network_mesh_status_projection, shared_runtime_observation,
+    DnsProjectionChecks, DnsProjectionState, WireguardTransportChecks, WireguardTransportState,
+    canonical_network_mesh_status_projection, shared_runtime_observation,
 };
+#[cfg(test)]
+use crate::domain::node_observation::{NODE_OBSERVATION_SCHEMA, classify_runtime};
 use crate::domain::node_observation::{
     NodeRuntimeBlocker, NodeRuntimeCapabilities, NodeRuntimeRemediation, NodeRuntimeSeverity,
     NodeRuntimeStatus,
 };
+use crate::domain::observation_runtime::DnsResolutionObservation;
 #[cfg(test)]
-use crate::domain::node_observation::{NODE_OBSERVATION_SCHEMA, classify_runtime};
-use crate::adapters::host_observation::{CommandObservation, TcpObservation};
+use cynic_host::runtime_layout::current_runtime_layout;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -99,11 +99,16 @@ impl NodeObservation {
         capabilities: NodeRuntimeCapabilities,
         provider_fallback_gateway: Option<String>,
     ) -> Self {
+        let runtime_layout = current_runtime_layout();
+        let host_capabilities = runtime_layout.capabilities();
+        let wg_quick_unit = runtime_layout.wg_quick_unit();
+        let resolved_unit = host_capabilities.dns_provider.resolved_unit.clone();
+        let ip_bin = host_capabilities.route_tool.command.clone();
+        let wg_bin = host_capabilities.wireguard_tool.command.clone();
+        let systemctl_bin = host_capabilities.service_manager.command.clone();
         let verdict = classify_runtime(capabilities.clone());
-        let network_mesh_status = canonical_network_mesh_status_projection(
-            &verdict.status,
-            capabilities.critical_dns_ok,
-        );
+        let network_mesh_status =
+            canonical_network_mesh_status_projection(&verdict.status, capabilities.critical_dns_ok);
         let wireguard_transport = WireguardTransportObservation {
             state: WireguardTransportState::MeshAbsent,
             checks: WireguardTransportChecks {
@@ -131,11 +136,8 @@ impl NodeObservation {
                 Vec::new()
             },
         };
-        let runtime_observation = shared_runtime_observation(
-            &verdict,
-            &wireguard_transport,
-            &dns_projection,
-        );
+        let runtime_observation =
+            shared_runtime_observation(&verdict, &wireguard_transport, &dns_projection);
         Self {
             schema: NODE_OBSERVATION_SCHEMA,
             generated_at: "1970-01-01T00:00:00+00:00".to_string(),
@@ -158,17 +160,17 @@ impl NodeObservation {
             network_mesh_status,
             runtime_observation,
             network: NetworkObservation {
-                interfaces: command_observation_for_tests("ip", &["-brief", "addr"]),
-                routes: command_observation_for_tests("ip", &["route"]),
+                interfaces: command_observation_for_tests(&ip_bin, &["-brief", "addr"]),
+                routes: command_observation_for_tests(&ip_bin, &["route"]),
                 provider_fallback_route: command_observation_for_tests(
-                    "ip",
+                    &ip_bin,
                     &["route", "show", "10.10.10.0/24"],
                 ),
                 synapse_route: command_observation_for_tests(
-                    "ip",
+                    &ip_bin,
                     &["route", "show", "10.20.0.0/24"],
                 ),
-                wireguard: command_observation_for_tests("wg", &["show"]),
+                wireguard: command_observation_for_tests(&wg_bin, &["show"]),
             },
             dns: DnsObservation {
                 critical_hosts: Vec::new(),
@@ -178,16 +180,16 @@ impl NodeObservation {
             services: ServiceObservation {
                 systemd: SystemdObservation {
                     wg_quick_wg0: command_observation_for_tests(
-                        "systemctl",
-                        &["is-active", "wg-quick@wg0"],
+                        &systemctl_bin,
+                        &["is-active", &wg_quick_unit],
                     ),
                     network_manager: command_observation_for_tests(
-                        "systemctl",
+                        &systemctl_bin,
                         &["is-active", "NetworkManager"],
                     ),
                     systemd_resolved: command_observation_for_tests(
-                        "systemctl",
-                        &["is-active", "systemd-resolved"],
+                        &systemctl_bin,
+                        &["is-active", &resolved_unit],
                     ),
                 },
                 tcp: Vec::new(),

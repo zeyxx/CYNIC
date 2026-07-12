@@ -3,7 +3,8 @@ use crate::ports::mesh_port::{MeshAdapter, MeshStateProvider};
 use std::error::Error;
 use tracing::info;
 
-/// Use Case: Establish and synchronize the sovereign WireGuard mesh
+/// Use Case: Establish and synchronize the canonical Synapse mesh transport.
+/// The transport is WireGuard; provider coordination adapters are not the truth source.
 #[derive(Debug)]
 pub struct MeshSyncUseCase<A: MeshAdapter, S: MeshStateProvider> {
     adapter: A,

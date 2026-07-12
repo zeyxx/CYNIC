@@ -31,6 +31,16 @@ pub struct GitResult {
     pub stderr: String,
 }
 
+/// Result of a Docker CLI operation.
+#[derive(Debug, serde::Serialize)]
+pub struct DockerResult {
+    pub success: bool,
+    pub command: String,
+    pub stdout: String,
+    pub stderr: String,
+    pub exit_code: Option<i32>,
+}
+
 /// Git operations — each maps to a specific git command with typed args.
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op")]
@@ -276,6 +286,179 @@ async fn run_git_cmd(project_root: &str, args: &[&str]) -> GitResult {
             success: false,
             stdout: String::new(),
             stderr: "Git timed out (30s)".to_string(),
+        },
+    }
+}
+
+pub async fn run_docker_container_list(all: bool) -> DockerResult {
+    let args = if all {
+        vec![
+            "ps".to_string(),
+            "--all".to_string(),
+            "--no-trunc".to_string(),
+            "--format".to_string(),
+            "{{json .}}".to_string(),
+        ]
+    } else {
+        vec![
+            "ps".to_string(),
+            "--no-trunc".to_string(),
+            "--format".to_string(),
+            "{{json .}}".to_string(),
+        ]
+    };
+    let command = format!("docker {}", args.join(" "));
+    let raw = run_docker_cmd(&args).await;
+    if !raw.success {
+        return DockerResult {
+            success: false,
+            command,
+            stdout: raw.stdout,
+            stderr: raw.stderr,
+            exit_code: raw.exit_code,
+        };
+    }
+
+    let containers = raw
+        .stdout
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .collect::<Vec<_>>();
+
+    let stdout = serde_json::json!({
+        "schema": "cynic.docker.container_list.v1",
+        "containers": containers,
+        "count": containers.len(),
+    })
+    .to_string();
+
+    DockerResult {
+        success: true,
+        command,
+        stdout,
+        stderr: raw.stderr,
+        exit_code: raw.exit_code,
+    }
+}
+
+pub async fn run_docker_container_logs(
+    container: &str,
+    tail: Option<u32>,
+    timestamps: bool,
+) -> DockerResult {
+    let mut args = vec!["logs".to_string()];
+    if timestamps {
+        args.push("--timestamps".to_string());
+    }
+    let tail = tail.unwrap_or(200);
+    args.push("--tail".to_string());
+    args.push(tail.to_string());
+    args.push(container.to_string());
+    let command = format!("docker {}", args.join(" "));
+    let raw = run_docker_cmd(&args).await;
+    if !raw.success {
+        return DockerResult {
+            success: false,
+            command,
+            stdout: raw.stdout,
+            stderr: raw.stderr,
+            exit_code: raw.exit_code,
+        };
+    }
+
+    DockerResult {
+        success: true,
+        command,
+        stdout: serde_json::json!({
+            "schema": "cynic.docker.container_logs.v1",
+            "container": container,
+            "tail": tail,
+            "timestamps": timestamps,
+            "logs": raw.stdout,
+        })
+        .to_string(),
+        stderr: raw.stderr,
+        exit_code: raw.exit_code,
+    }
+}
+
+pub async fn run_docker_container_inspect(container: &str) -> DockerResult {
+    let args = vec!["inspect".to_string(), container.to_string()];
+    let command = format!("docker {}", args.join(" "));
+    let raw = run_docker_cmd(&args).await;
+    if !raw.success {
+        return DockerResult {
+            success: false,
+            command,
+            stdout: raw.stdout,
+            stderr: raw.stderr,
+            exit_code: raw.exit_code,
+        };
+    }
+
+    let inspection: serde_json::Value = serde_json::from_str(&raw.stdout)
+        .unwrap_or_else(|_| serde_json::json!({ "raw": raw.stdout }));
+    DockerResult {
+        success: true,
+        command,
+        stdout: serde_json::json!({
+            "schema": "cynic.docker.container_inspect.v1",
+            "container": container,
+            "inspection": inspection,
+        })
+        .to_string(),
+        stderr: raw.stderr,
+        exit_code: raw.exit_code,
+    }
+}
+
+struct DockerCmdResult {
+    success: bool,
+    stdout: String,
+    stderr: String,
+    exit_code: Option<i32>,
+}
+
+async fn run_docker_cmd(args: &[String]) -> DockerCmdResult {
+    let child = tokio::process::Command::new("docker")
+        .args(args)
+        .kill_on_drop(true)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn();
+
+    let result = match child {
+        Ok(c) => {
+            tokio::time::timeout(std::time::Duration::from_secs(30), c.wait_with_output()).await
+        }
+        Err(e) => {
+            return DockerCmdResult {
+                success: false,
+                stdout: String::new(),
+                stderr: format!("Failed to spawn docker: {e}"),
+                exit_code: None,
+            };
+        }
+    };
+
+    match result {
+        Ok(Ok(output)) => DockerCmdResult {
+            success: output.status.success(),
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            exit_code: output.status.code(),
+        },
+        Ok(Err(e)) => DockerCmdResult {
+            success: false,
+            stdout: String::new(),
+            stderr: format!("Failed to read docker output: {e}"),
+            exit_code: None,
+        },
+        Err(_elapsed) => DockerCmdResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "Docker timed out (30s)".to_string(),
+            exit_code: None,
         },
     }
 }

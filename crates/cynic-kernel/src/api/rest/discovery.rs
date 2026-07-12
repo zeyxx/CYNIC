@@ -1,14 +1,56 @@
-//! Public API contract discovery endpoints.
+//! Public API discovery endpoints for the minimal runtime baseline.
 
 use axum::{
     http::header,
     response::{IntoResponse, Response},
 };
 
-const OPENAPI_JSON: &str = include_str!("../../../../../docs/api/openapi.json");
-const API_TOPOLOGY_JSON: &str = include_str!("../../../../../axioms/api-topology-v1.json");
-const API_LAYER_ALIGNMENT_JSON: &str =
-    include_str!("../../../../../axioms/api-layer-alignment-v1.json");
+const OPENAPI_JSON: &str = r#"{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CYNIC Kernel API",
+    "version": "minimal-runtime"
+  },
+  "paths": {
+    "/health": {},
+    "/ready": {},
+    "/coord/register": {},
+    "/coord/who": {},
+    "/coord/claim": {},
+    "/coord/release": {},
+    "/observe": {},
+    "/agent-tasks": {}
+  }
+}"#;
+
+const API_TOPOLOGY_JSON: &str = r#"{
+  "schema": "cynic.api_topology.v1.minimal",
+  "status": "runtime_embedded",
+  "authority": "crates/cynic-kernel",
+  "routes": [
+    "/health",
+    "/ready",
+    "/coord/register",
+    "/coord/who",
+    "/coord/claim",
+    "/coord/release",
+    "/observe",
+    "/agent-tasks"
+  ]
+}"#;
+
+const API_LAYER_ALIGNMENT_JSON: &str = r#"{
+  "schema": "cynic.api_layer_alignment.v1.minimal",
+  "status": "runtime_embedded",
+  "authority": "infra/runtime-authority.json",
+  "layers": {
+    "kernel": "crates/cynic-kernel",
+    "mcp": "crates/cynic-mcp",
+    "node": "crates/cynic-node",
+    "host": "crates/cynic-host",
+    "cli": "crates/cynic-cli"
+  }
+}"#;
 
 fn json_contract(body: &'static str) -> Response {
     (

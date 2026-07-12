@@ -3,7 +3,7 @@
 # rust-lang/rust #103767, #122357, #138561.
 # -j 1 is the only reliable setting; -j 2 is flaky under memory pressure.
 jobs = 1
-rustflags = ["-C", "debuginfo=1"]
+rustflags = ["-C", "debuginfo=0"]
 
 [env]
 # A1 debt: rmcp/serde monomorphization can overflow rustc stack in kernel/MCP builds.

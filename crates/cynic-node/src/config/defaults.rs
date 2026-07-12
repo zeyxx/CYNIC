@@ -59,7 +59,7 @@ pub(super) fn default_watchdog_http_timeout_secs() -> u64 {
 }
 
 pub(super) fn default_watchdog_registry_path() -> String {
-    "infra/registry.json".to_string()
+    DEFAULT_REGISTRY_PATH.to_string()
 }
 
 pub(super) fn default_watchdog_constellation() -> String {
@@ -69,3 +69,4 @@ pub(super) fn default_watchdog_constellation() -> String {
 pub(super) fn default_watchdog_role() -> String {
     "node_watchdog".to_string()
 }
+use cynic_host::registry::DEFAULT_REGISTRY_PATH;

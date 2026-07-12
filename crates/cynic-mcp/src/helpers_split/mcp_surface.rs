@@ -114,13 +114,10 @@ fn mcp_surface_manifest(project_root: &str) -> Result<serde_json::Value, McpErro
     let status = if findings.is_empty() { "ok" } else { "violation" };
     Ok(serde_json::json!({
         "schema": "cynic.mcp_surface_manifest.v1",
-        "server": "cynic-coord",
+        "server": "cynic",
         "canonical_binary": "crates/cynic-mcp",
         "exposure_ssot": "infra/agent-exposure.json",
-        "fallback": {
-            "python_rest_mcp": ".cortex/mcp/python_rest_mcp.py",
-            "role": "minimal_coordination_tasks_lifecycle_status"
-        },
+        "fallback": serde_json::Value::Null,
         "policy": {
             "agent_primary_surface": "mcp",
             "operator_primary_surface": "cynic",

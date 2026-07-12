@@ -18,8 +18,8 @@ use super::{
     AuditQueryParams, AuthParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
     ComplianceParams, CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams,
     JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit, MetabolismParams,
-    ObserveParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams,
-    WhoParams, validate_agent_id, validate_agent_task_content,
+    ObserveParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, WhoParams,
+    validate_agent_id, validate_agent_task_content,
 };
 
 // ── Proxy struct ────────────────────────────────────────────

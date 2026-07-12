@@ -2,8 +2,7 @@ use serde::Serialize;
 
 pub const NODE_OBSERVATION_SCHEMA: &str = "cynic.node_observation.v1";
 pub const SURFACE_NETWORK_MESH_STATUS: &str = "network.mesh.status";
-pub const SURFACE_NETWORK_MESH_DNS_ACTIVATION_STATUS: &str =
-    "network.mesh.dns.activation_status";
+pub const SURFACE_NETWORK_MESH_DNS_ACTIVATION_STATUS: &str = "network.mesh.dns.activation_status";
 pub const SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_HOSTS: &str =
     "network.mesh.provider_fallback_hosts";
 pub const SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_STATUS: &str =
@@ -54,7 +53,7 @@ pub struct NodeRuntimeRemediation {
     pub mutates_host: bool,
     pub requires_root: bool,
     pub canonical_surface: &'static str,
-    pub fallback_surface: &'static str,
+    pub fallback_surface: String,
     pub reason: &'static str,
 }
 

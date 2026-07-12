@@ -141,7 +141,6 @@ async fn contract_verdict_store_get_roundtrip(db: &dyn StoragePort) {
     assert_eq!(got.integrity_hash, v.integrity_hash);
     assert_eq!(got.prev_hash, None);
     assert!((got.q_score.total - 0.55).abs() < 0.001);
-
 }
 
 /// C2: Observe crystal below quorum → must reject with error.

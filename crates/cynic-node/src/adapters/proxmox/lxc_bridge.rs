@@ -6,10 +6,9 @@
 //! C'est ce composant qui permet au Kernel de restart `llama-server` ou de lire `nvidia-smi`
 //! sans jamais ouvrir de connexion SSH.
 
+use cynic_host::process_observation::capture_command_with_stdin;
+use cynic_host::runtime_layout::current_runtime_layout;
 use serde::{Deserialize, Serialize};
-use std::process::Stdio;
-use tokio::io::AsyncWriteExt;
-use tokio::process::Command;
 
 /// Requête formatée pour le helper `cynic-lxc-exec-bridge`
 #[derive(Debug, Deserialize, Serialize)]
@@ -34,52 +33,31 @@ impl LxcExecBridge {
     pub async fn execute(request: LxcExecRequest) -> Result<LxcExecResponse, String> {
         let payload =
             serde_json::to_string(&request).map_err(|e| format!("Serialization error: {}", e))?;
+        let runtime_layout = current_runtime_layout();
+        let sudo_bin = runtime_layout.sudo_bin();
+        let lxc_exec_bridge_bin = runtime_layout.lxc_exec_bridge_bin();
 
-        // `sudo -n` garantit qu'on ne bloque pas en demandant un mot de passe.
-        // Seul l'utilisateur cynic est autorisé via /etc/sudoers.d/cynic-lxc-exec-bridge
-        let mut child = Command::new("sudo")
-            .arg("-n")
-            .arg("cynic-lxc-exec-bridge")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to spawn sudo cynic-lxc-exec-bridge: {}", e))?;
-
-        // On injecte le JSON dans stdin
-        if let Some(mut stdin) = child.stdin.take() {
-            stdin
-                .write_all(payload.as_bytes())
-                .await
-                .map_err(|e| format!("Stdin write error: {}", e))?;
-        }
-
-        let output = child
-            .wait_with_output()
+        let output = capture_command_with_stdin(&sudo_bin, &["-n", &lxc_exec_bridge_bin], &payload)
             .await
-            .map_err(|e| format!("Wait output error: {}", e))?;
+            .map_err(|e| format!("Failed to spawn sudo {lxc_exec_bridge_bin}: {e}"))?;
 
-        let stdout_str = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr_str = String::from_utf8_lossy(&output.stderr).to_string();
-
-        if output.status.success() {
+        if output.success {
             // Le helper Python d'origine retourne normalement du JSON structuré.
-            match serde_json::from_str::<LxcExecResponse>(&stdout_str) {
+            match serde_json::from_str::<LxcExecResponse>(&output.stdout) {
                 Ok(resp) => Ok(resp),
                 Err(_) => {
                     // Fallback si le helper crache directement le raw output
                     Ok(LxcExecResponse {
                         exit_code: 0,
-                        stdout: stdout_str,
-                        stderr: stderr_str,
+                        stdout: output.stdout,
+                        stderr: output.stderr,
                     })
                 }
             }
         } else {
             Err(format!(
                 "LXC Bridge execution failed with code {:?}. Stderr: {}",
-                output.status.code(),
-                stderr_str
+                output.exit_code, output.stderr
             ))
         }
     }

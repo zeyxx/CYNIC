@@ -1,17 +1,3 @@
-fn network_surface_cli_path() -> PathBuf {
-    project_root().join(
-        std::env::var("CYNIC_NETWORK_SURFACE_CLI_PATH")
-            .or_else(|_| std::env::var("CYNIC_ORGAN_WIREGUARD_CLI_PATH"))
-            .unwrap_or_else(|_| "organs/fleet/src/entrypoints/cli.py".to_string()),
-    )
-}
-
-fn network_surface_cli_command() -> String {
-    std::env::var("CYNIC_NETWORK_SURFACE_CLI_CMD")
-        .or_else(|_| std::env::var("CYNIC_ORGAN_WIREGUARD_CLI_CMD"))
-        .unwrap_or_else(|_| "python3".to_string())
-}
-
 fn repo_relative_arg(
     value: &Option<String>,
     default: &str,
@@ -44,6 +30,15 @@ fn tmp_output_dir_arg(
     Ok(output_dir)
 }
 
+#[cfg(not(test))]
+fn relative_project_path(project_root: &str, path: &std::path::Path) -> String {
+    path.strip_prefix(project_root)
+        .ok()
+        .and_then(|relative| relative.to_str())
+        .map(String::from)
+        .unwrap_or_else(|| path.display().to_string())
+}
+
 #[cfg_attr(not(feature = "legacy_infra_tools"), allow(dead_code))]
 fn require_legacy_infra_tool(tool_name: &str) -> Result<(), McpError> {
     const LEGACY_INFRA_TOOL_ENV: &str = "CYNIC_ALLOW_LEGACY_INFRA_TOOLS";
@@ -73,51 +68,20 @@ fn registry_ref_arg(value: &Option<String>) -> Result<String, McpError> {
 }
 
 fn run_network_surface_json(
-    args: &[String],
+    _args: &[String],
     operation: &str,
 ) -> Result<serde_json::Value, McpError> {
-    let cli_path = network_surface_cli_path();
-    let cli_command = network_surface_cli_command();
-    let output = std::process::Command::new(&cli_command)
-        .arg(&cli_path)
-        .args(args)
-        .output()
-        .map_err(|e| {
-            McpError::internal_error(
-                format!(
-                    "Failed to run network surface CLI command ({}) {}: {e}",
-                    cli_command,
-                    cli_path.display()
-                ),
-                None,
-            )
-        })?;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let mut payload: serde_json::Value = serde_json::from_str(&stdout).map_err(|e| {
-        McpError::internal_error(
-            format!(
-                "network surface {operation} did not emit valid JSON: {e}; stderr={}",
-                stderr.trim()
-            ),
-            None,
-        )
-    })?;
-    if let Some(object) = payload.as_object_mut() {
-        object.insert("mcp_operation".to_string(), serde_json::json!(operation));
-        object.insert(
-            "cli_exit_code".to_string(),
-            serde_json::json!(output.status.code()),
-        );
-    }
-    Ok(payload)
+    Ok(unsupported_minimal_baseline(
+        operation,
+        "legacy network Python surface was removed from the low-layer baseline",
+    ))
 }
 
 const COORDINATION_DOMAIN: &str = "coordination";
 const COORDINATION_TOOL: &str = "coordination";
 const COORDINATION_SCHEMA: &str = "coordination-event-v1";
-const DEFAULT_COORDINATION_PROTOCOL_PATH: &str = "axioms/coordination-protocol-v1.json";
-const DEFAULT_COORDINATION_CLIENT_PROFILE_DIR: &str = "axioms/consumer-profiles";
+const DEFAULT_COORDINATION_PROTOCOL_PATH: &str = "contracts/foundation.json";
+const DEFAULT_COORDINATION_CLIENT_PROFILE_DIR: &str = "contracts/consumer-profiles";
 const COORDINATION_OPERATION_STATUS_PUBLISH: &str = "coordination.status.publish";
 const COORDINATION_OPERATION_STATUS_READ: &str = "coordination.status.read";
 const COORDINATION_OPERATION_THREAD_REPLY: &str = "coordination.thread.reply";
@@ -138,6 +102,17 @@ fn project_root() -> PathBuf {
         })
         .or_else(|| std::env::current_dir().ok())
         .unwrap_or_else(|| PathBuf::from("."))
+}
+
+fn unsupported_minimal_baseline(operation: &str, reason: &str) -> serde_json::Value {
+    serde_json::json!({
+        "schema": "cynic.unsupported_minimal_baseline.v1",
+        "status": "unsupported",
+        "operation": operation,
+        "reason": reason,
+        "authority": "contracts/foundation.json",
+        "policy": "Implement this capability as a Rust port/adapter or registry-backed runtime proof before exposing it as active."
+    })
 }
 
 fn load_consumer_profile(project: &str) -> Result<Option<serde_json::Value>, McpError> {

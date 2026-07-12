@@ -1,76 +1,45 @@
-fn lifecycle_cli_path() -> PathBuf {
-    project_root().join(
-        std::env::var("CYNIC_LIFECYCLE_CLI_PATH")
-            .unwrap_or_else(|_| "organs/forge/src/entrypoints/cli.py".to_string()),
-    )
-}
-
-fn lifecycle_cli_command() -> String {
-    std::env::var("CYNIC_LIFECYCLE_CLI_CMD").unwrap_or_else(|_| "python3".to_string())
-}
-
 fn run_lifecycle_payload_plan(profile: &str) -> Result<serde_json::Value, McpError> {
-    let output = std::process::Command::new(lifecycle_cli_command())
-        .arg(lifecycle_cli_path())
-        .arg("lifecycle-profile-payloads")
-        .arg(profile)
-        .arg("organ-forge")
-        .arg("organ-forge-request")
-        .output()
-        .map_err(|e| {
-            McpError::internal_error(
-                format!(
-                    "Failed to run lifecycle CLI command ({}) {}: {e}",
-                    lifecycle_cli_command(),
-                    lifecycle_cli_path().display()
-                ),
-                None,
-            )
-        })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(McpError::internal_error(
-            format!("Lifecycle payload generation failed: {stderr}"),
-            None,
-        ));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    serde_json::from_str(&stdout).map_err(|e| {
-        McpError::internal_error(format!("Lifecycle payload output was not JSON: {e}"), None)
-    })
+    Ok(serde_json::json!({
+        "schema": "cynic.lifecycle_payload_plan.v1.minimal",
+        "status": "ok",
+        "profile": profile,
+        "source": "infra/registry.json",
+        "payloads": [
+            {
+                "kind": "operator",
+                "domain": "kernel_release",
+                "content": serde_json::json!({
+                    "intent": profile,
+                    "authority": "contracts/foundation.json",
+                    "registry": "infra/registry.json",
+                    "required_local_gate": "make check"
+                }).to_string(),
+                "priority": 99,
+                "consumer": "cynic-runtime",
+                "escalation_policy": "minimal_registry_backed_dispatch_only"
+            }
+        ]
+    }))
 }
 
 fn run_lifecycle_status() -> Result<serde_json::Value, McpError> {
-    let output = std::process::Command::new(lifecycle_cli_command())
-        .arg(lifecycle_cli_path())
-        .arg("lifecycle-status")
-        .env("PYTHONDONTWRITEBYTECODE", "1")
-        .output()
-        .map_err(|e| {
-            McpError::internal_error(
-                format!(
-                    "Failed to run lifecycle CLI command ({}) {}: {e}",
-                    lifecycle_cli_command(),
-                    lifecycle_cli_path().display()
-                ),
-                None,
-            )
-        })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(McpError::internal_error(
-            format!("Lifecycle status failed: {stderr}"),
-            None,
-        ));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    serde_json::from_str(&stdout).map_err(|e| {
-        McpError::internal_error(format!("Lifecycle status output was not JSON: {e}"), None)
-    })
+    Ok(serde_json::json!({
+        "schema": "cynic.lifecycle_status.v1.minimal",
+        "status": "minimal_baseline",
+        "authority": [
+            "contracts/foundation.json",
+            "infra/runtime-authority.json",
+            "infra/registry.json"
+        ],
+        "local_gate": "make check",
+        "runtime_artifacts": [
+            "cynic-kernel",
+            "cynic-node",
+            "cynic-mcp",
+            "cynic"
+        ],
+        "deleted_transport": "legacy Python lifecycle CLI"
+    }))
 }
 
 fn lifecycle_payloads_from_plan(
@@ -120,7 +89,7 @@ fn lifecycle_payload_body_with_defaults(payload: &serde_json::Value) -> serde_js
             .or_insert_with(|| serde_json::json!(99));
         object
             .entry("consumer")
-            .or_insert_with(|| serde_json::json!("organ-forge"));
+            .or_insert_with(|| serde_json::json!("cynic-runtime"));
         object.entry("escalation_policy").or_insert_with(|| {
             serde_json::json!("canonical_build_runner_validation_only_no_cortex_build")
         });

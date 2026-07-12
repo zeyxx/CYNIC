@@ -3,15 +3,16 @@ use std::collections::{BTreeMap, BTreeSet};
 use super::model::{Registry, RegistryNode};
 
 pub(super) fn canonical_names_for(
+    dns_zone: &str,
     primary_name: &str,
     aliases: &[String],
     reserved_host: Option<String>,
 ) -> Vec<String> {
     let mut names = BTreeSet::new();
-    names.insert(format!("{primary_name}.synapse.cynic"));
+    names.insert(format!("{primary_name}.{dns_zone}"));
     for alias in aliases {
         if !alias.is_empty() {
-            names.insert(format!("{alias}.synapse.cynic"));
+            names.insert(format!("{alias}.{dns_zone}"));
         }
     }
     if let Some(host) = reserved_host.filter(|value| !value.is_empty()) {
@@ -20,24 +21,8 @@ pub(super) fn canonical_names_for(
     names.into_iter().collect()
 }
 
-pub(super) fn is_l0_network_role(role: Option<&str>) -> bool {
-    matches!(
-        role,
-        Some("kernel_primary")
-            | Some("storage_primary")
-            | Some("forge_primary")
-            | Some("build_runner")
-    )
-}
-
-pub(super) fn is_l0_network_service(service: Option<&str>) -> bool {
-    matches!(
-        service,
-        Some("cynic-kernel") | Some("surrealdb") | Some("forgejo") | Some("forgejo-ssh")
-    )
-}
-
 pub(super) fn preferred_node_host(
+    dns_zone: &str,
     node: &RegistryNode,
     reserved_host: Option<String>,
     local_ip: &str,
@@ -46,7 +31,7 @@ pub(super) fn preferred_node_host(
         return host;
     }
     if let Some(name) = node.name.as_deref() {
-        return format!("{name}.synapse.cynic");
+        return format!("{name}.{dns_zone}");
     }
     local_ip.to_string()
 }
@@ -69,7 +54,10 @@ pub(super) fn vm_aliases_by_name(nodes: &[RegistryNode]) -> BTreeMap<String, Vec
     aliases
 }
 
-pub(super) fn reservation_hosts_by_name(registry: &Registry) -> BTreeMap<String, String> {
+pub(super) fn reservation_hosts_by_name(
+    registry: &Registry,
+    dns_zone: &str,
+) -> BTreeMap<String, String> {
     let mut hosts = BTreeMap::new();
     for reservation in registry
         .network_policy
@@ -86,7 +74,7 @@ pub(super) fn reservation_hosts_by_name(registry: &Registry) -> BTreeMap<String,
             .clone()
             .unwrap_or_default()
             .into_iter()
-            .find(|value| value.ends_with(".synapse.cynic"));
+            .find(|value| value.ends_with(dns_zone));
         if let Some(host) = preferred {
             hosts.insert(name, host);
         }

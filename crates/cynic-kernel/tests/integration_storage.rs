@@ -808,7 +808,7 @@ async fn audit_store_and_query() {
         .unwrap();
 
     let all = db
-        .query_audit(None, None, 10)
+        .query_audit(None, None, None, None, 10)
         .await
         .expect("query_audit failed");
     assert!(
@@ -817,7 +817,10 @@ async fn audit_store_and_query() {
         all.len()
     );
 
-    let filtered = db.query_audit(Some("cynic_judge"), None, 10).await.unwrap();
+    let filtered = db
+        .query_audit(Some("cynic_judge"), None, None, None, 10)
+        .await
+        .unwrap();
     assert!(!filtered.is_empty(), "tool filter should return results");
 
     common::teardown_test_db(&db).await;

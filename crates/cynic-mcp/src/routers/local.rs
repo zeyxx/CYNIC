@@ -100,7 +100,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "infra_registry_validate",
-        description = "Validate CYNIC registry and stable local contract dimensions without mutating state. Supports network_policy, ipam, synapse, infrastructure_mcp, command_surfaces, infra_consumption, api_topology, api_layer_alignment, openapi_routes, hardcoded_paths, reqwest_usage, secrets, ips, unlogged_ok, allow_without_why, and pipeline_functions."
+        description = "Validate the minimal CYNIC registry and local code hygiene dimensions without mutating state. Supports network_policy, ipam, synapse, hardcoded_paths, reqwest_usage, secrets, ips, unlogged_ok, allow_without_why, and pipeline_functions."
     )]
     async fn infra_registry_validate(
         &self,
@@ -118,24 +118,6 @@ impl CynicMcpProxy {
             match dimension.as_str() {
                 "network_policy" | "ipam" | "synapse" => {
                     violations.extend(validate_network_policy(&registry));
-                }
-                "infrastructure_mcp" => {
-                    violations.extend(validate_infrastructure_mcp_contract(&self.project_root));
-                }
-                "command_surfaces" => {
-                    violations.extend(validate_command_surfaces_contract(&self.project_root));
-                }
-                "infra_consumption" => {
-                    violations.extend(validate_infra_consumption_contract(&self.project_root));
-                }
-                "api_topology" => {
-                    violations.extend(validate_api_topology_contract(&self.project_root));
-                }
-                "api_layer_alignment" => {
-                    violations.extend(validate_api_layer_alignment_contract(&self.project_root));
-                }
-                "openapi_routes" => {
-                    violations.extend(validate_openapi_route_contract(&self.project_root));
                 }
                 "hardcoded_paths" => {
                     violations.extend(validate_hardcoded_paths(&self.project_root));
@@ -161,7 +143,7 @@ impl CynicMcpProxy {
                 unknown => violations.push(serde_json::json!({
                     "kind": "unsupported_dimension",
                     "dimension": unknown,
-                    "message": "infra_registry_validate currently supports network_policy/ipam/synapse/infrastructure_mcp/command_surfaces/infra_consumption/api_topology/api_layer_alignment/openapi_routes/hardcoded_paths/reqwest_usage/secrets/ips/unlogged_ok/allow_without_why/pipeline_functions"
+                    "message": "infra_registry_validate currently supports network_policy/ipam/synapse/hardcoded_paths/reqwest_usage/secrets/ips/unlogged_ok/allow_without_why/pipeline_functions"
                 })),
             }
         }
@@ -349,7 +331,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "network_mesh_dns_activation_plan",
-        description = "Render the non-mutating Synapse DNS activation plan from organ-fleet. Does not install CoreDNS or resolver configuration."
+        description = "Render the non-mutating Synapse DNS activation plan from the canonical cynic-node network surface. Does not install CoreDNS or resolver configuration."
     )]
     async fn network_mesh_dns_activation_plan(
         &self,
@@ -365,7 +347,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "network_mesh_dns_activation_bundle",
-        description = "Build a local non-mutating Synapse DNS activation bundle under /tmp. Does not install CoreDNS or resolver configuration."
+        description = "Build a local non-mutating Synapse DNS activation bundle under /tmp from the canonical cynic-node network surface. Does not install CoreDNS or resolver configuration."
     )]
     async fn network_mesh_dns_activation_bundle(
         &self,
@@ -381,7 +363,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "network_mesh_provider_fallback_hosts",
-        description = "Build a local non-mutating provider-plane hosts fallback bundle under /tmp. Temporary only while Synapse DNS is inactive."
+        description = "Build a local non-mutating provider-plane hosts fallback bundle under /tmp from the canonical cynic-node network surface. Temporary only while Synapse DNS is inactive."
     )]
     async fn network_mesh_provider_fallback_hosts(
         &self,
@@ -413,7 +395,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "network_mesh_dns_activation_status",
-        description = "Read non-mutating Synapse DNS activation status from organ-fleet. Reports bundle/service/resolver checks and optional DNS resolution."
+        description = "Read non-mutating Synapse DNS activation status from the canonical cynic-node network surface. Reports bundle/service/resolver checks and optional DNS resolution."
     )]
     async fn network_mesh_dns_activation_status(
         &self,

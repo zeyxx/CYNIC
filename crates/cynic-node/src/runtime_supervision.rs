@@ -4,13 +4,13 @@ use process_wrap::tokio::ChildWrapper;
 use reqwest::Client;
 use tokio_util::sync::CancellationToken;
 
+use crate::ExitReason;
 use crate::announce;
 use crate::config;
 use crate::config::Config;
 use crate::config_watch;
 use crate::run_lifecycle;
 use crate::supervise;
-use crate::ExitReason;
 
 /// The main supervision loop. Returns `ExitCode::SUCCESS` on clean shutdown,
 /// `ExitCode::FAILURE` on unrecoverable errors.
@@ -70,8 +70,15 @@ pub(crate) async fn run_node(
             break ExitCode::FAILURE;
         };
 
-        let (reason, id) =
-            run_lifecycle(client, &cfg, c, shutdown, &mut state.backoff, &mut config_rx).await;
+        let (reason, id) = run_lifecycle(
+            client,
+            &cfg,
+            c,
+            shutdown,
+            &mut state.backoff,
+            &mut config_rx,
+        )
+        .await;
         state.dog_id = id;
 
         if matches!(&reason, ExitReason::Mismatch | ExitReason::ConfigChanged) {

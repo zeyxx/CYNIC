@@ -385,7 +385,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── RING 2: Spawn health loop + remediation watcher ──────
     let all_breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = vec![];
     {
-    let probe_configs: Vec<infra::health_loop::DogProbeConfig> = vec![];
+        let probe_configs: Vec<infra::health_loop::DogProbeConfig> = vec![];
         if !probe_configs.is_empty() {
             let probe_breakers: Vec<_> = probe_configs
                 .iter()
@@ -449,10 +449,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Wire per-Dog cost rates from backends.toml
     {
         let mut usage = usage_tracker.lock().await;
-    for (name, input_rate, output_rate) in &std::vec::Vec::<(String, u64, u64)>::new() {
+        for (name, input_rate, output_rate) in &std::vec::Vec::<(String, u64, u64)>::new() {
             usage.set_cost_rate(name, *input_rate as f64, *output_rate as f64);
         }
-    if false {
+        if false {
             klog!("[Ring 2] Cost rates: {} Dogs configured", 0);
         }
     }
@@ -561,7 +561,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     // Build fleet probe targets from Dog health_urls (backends.toml SoT).
     // Pure transform extracted to infra::boot.
-    let fleet_targets = infra::boot::build_fleet_targets(&std::collections::HashMap::new(), &std::collections::HashMap::new());
+    let fleet_targets = infra::boot::build_fleet_targets(
+        &std::collections::HashMap::new(),
+        &std::collections::HashMap::new(),
+    );
     let fleet_inventory_probe = infra::probes::build_default_fleet_inventory_probe(&project_root);
 
     // ── STARTUP VERIFICATION: Fail fast on backend coherence violations ──

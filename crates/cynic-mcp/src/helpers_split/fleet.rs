@@ -1,18 +1,7 @@
-fn organ_fleet_cli_path() -> PathBuf {
-    project_root().join(
-        std::env::var("CYNIC_ORGAN_FLEET_CLI_PATH")
-            .unwrap_or_else(|_| "organs/fleet/src/entrypoints/cli.py".to_string()),
-    )
-}
-
-fn organ_fleet_cli_command() -> String {
-    std::env::var("CYNIC_ORGAN_FLEET_CLI_CMD").unwrap_or_else(|_| "python3".to_string())
-}
-
 fn lxc_exec_bridge_helper_source_arg(value: &Option<String>) -> String {
     value
         .clone()
-        .unwrap_or_else(|| "organs/fleet/src/entrypoints/lxc_exec_bridge_helper.py".to_string())
+        .unwrap_or_else(|| "unsupported/minimal-baseline/lxc_exec_bridge_helper".to_string())
 }
 
 fn lxc_exec_bridge_plan_args(params: &LxcExecBridgePlanParams) -> Vec<String> {
@@ -54,42 +43,11 @@ fn lxc_exec_bridge_bundle_args(
     ])
 }
 
-fn run_organ_fleet_json(args: &[String], operation: &str) -> Result<serde_json::Value, McpError> {
-    let cli_path = organ_fleet_cli_path();
-    let cli_command = organ_fleet_cli_command();
-    let output = std::process::Command::new(&cli_command)
-        .arg(&cli_path)
-        .args(args)
-        .output()
-        .map_err(|e| {
-            McpError::internal_error(
-                format!(
-                    "Failed to run organ-fleet CLI command ({}) {}: {e}",
-                    cli_command,
-                    cli_path.display()
-                ),
-                None,
-            )
-        })?;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let mut payload: serde_json::Value = serde_json::from_str(&stdout).map_err(|e| {
-        McpError::internal_error(
-            format!(
-                "organ-fleet {operation} did not emit valid JSON: {e}; stderr={}",
-                stderr.trim()
-            ),
-            None,
-        )
-    })?;
-    if let Some(object) = payload.as_object_mut() {
-        object.insert("mcp_operation".to_string(), serde_json::json!(operation));
-        object.insert(
-            "cli_exit_code".to_string(),
-            serde_json::json!(output.status.code()),
-        );
-    }
-    Ok(payload)
+fn run_organ_fleet_json(_args: &[String], operation: &str) -> Result<serde_json::Value, McpError> {
+    Ok(unsupported_minimal_baseline(
+        operation,
+        "legacy organ-fleet Python CLI was removed from the low-layer baseline",
+    ))
 }
 
 fn run_lxc_exec_bridge_plan(

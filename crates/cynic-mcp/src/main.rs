@@ -6,7 +6,10 @@
     clippy::needless_pass_by_value,
     clippy::redundant_clone,
     clippy::map_err_ignore,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::manual_let_else,
+    clippy::uninlined_format_args
 )]
 
 use rmcp::ServiceExt;

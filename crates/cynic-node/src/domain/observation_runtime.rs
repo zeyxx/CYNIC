@@ -1,3 +1,4 @@
+use cynic_host::runtime_layout::observed_hostname;
 use serde::Serialize;
 
 use crate::adapters::host_observation::{
@@ -42,7 +43,9 @@ pub(crate) fn dns_projection_surface(
     provider_fallback_active: bool,
     systemd_resolved: &CommandObservation,
 ) -> DnsProjectionObservation {
-    let dns_ok = dns_checks.iter().all(|item| item.command.exit_code == Some(0));
+    let dns_ok = dns_checks
+        .iter()
+        .all(|item| item.command.exit_code == Some(0));
     let resolved_matches_expected_synapse = dns_checks.iter().all(|item| {
         matches!(
             item.resolution_status.as_str(),
@@ -58,14 +61,5 @@ pub(crate) fn dns_projection_surface(
 }
 
 pub(crate) fn hostname() -> String {
-    std::fs::read_to_string("/etc/hostname")
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| {
-            std::env::var("HOSTNAME")
-                .ok()
-                .filter(|value| !value.is_empty())
-                .unwrap_or_else(|| "unknown".to_string())
-        })
+    observed_hostname()
 }

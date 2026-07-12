@@ -18,14 +18,20 @@ pub(super) fn load_queues(
         let data = std::fs::read_to_string(&stimuli_file)?;
         let stimuli: Vec<PendingStimulus> = serde_json::from_str(&data)?;
         stimuli_queue.extend(stimuli);
-        info!(count = stimuli_queue.len(), "Loaded pending stimuli from disk");
+        info!(
+            count = stimuli_queue.len(),
+            "Loaded pending stimuli from disk"
+        );
     }
 
     if verdicts_file.exists() {
         let data = std::fs::read_to_string(&verdicts_file)?;
         let verdicts: Vec<PendingVerdict> = serde_json::from_str(&data)?;
         verdicts_queue.extend(verdicts);
-        info!(count = verdicts_queue.len(), "Loaded pending verdicts from disk");
+        info!(
+            count = verdicts_queue.len(),
+            "Loaded pending verdicts from disk"
+        );
     }
 
     Ok((stimuli_queue, verdicts_queue))

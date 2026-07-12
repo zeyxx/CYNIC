@@ -13,7 +13,7 @@
 # name = "cynic-vm-v2"
 # role = "kernel_primary"
 # constellation = "kernel"
-# services = ["cynic-kernel.service", "cynic-portal.service"]
+# services = ["cynic-kernel.service", "cynic-node.service"]
 #
 # [watchdog]
 # interval_secs = 30

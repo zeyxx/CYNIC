@@ -19,7 +19,6 @@ use cynic_kernel::domain::usage::DogUsageTracker;
 use cynic_kernel::domain::verdict_cache::VerdictCache;
 use cynic_kernel::infra::task_health::TaskHealth;
 
-
 fn test_state(api_key: Option<&str>) -> Arc<AppState> {
     Arc::new(AppState {
         registered_services: Default::default(),
@@ -342,7 +341,6 @@ async fn dogs_with_auth_returns_list() {
     assert_eq!(dogs.len(), 1);
     assert_eq!(dogs[0], "deterministic-dog");
 }
-
 
 // ── /health without auth config (open API) ──────────────────
 

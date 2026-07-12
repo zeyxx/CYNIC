@@ -36,7 +36,8 @@ use crate::types::{
     ClaimParams, ComplianceParams, CoordinationArtifactShareParams,
     CoordinationContractManifestParams, CoordinationDecisionRecordParams,
     CoordinationStatusPublishParams, CoordinationStatusReadParams, CoordinationThreadReplyParams,
-    DispatchAgentTaskParams, FleetNodeExecParams, FleetNodeStatusParams, GitParams,
+    DispatchAgentTaskParams, DockerContainerInspectParams, DockerContainerListParams,
+    DockerContainerLogsParams, FleetNodeExecParams, FleetNodeStatusParams, GitParams,
     IdentityAttestParams, IdentitySmokeCheckParams, InferParams, InfraProvisionParams,
     InfraRegistryReadParams, InfraRegistryValidateParams, JudgeParams, LibraryQueryParams,
     ListParams, ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
@@ -95,6 +96,7 @@ impl CynicMcpProxy {
             + Self::tool_router_coord()
             + Self::tool_router_identity()
             + Self::tool_router_local()
+            + Self::tool_router_docker()
     }
 
     pub fn new(base_url: String, api_key: String, project_root: String) -> Self {
@@ -699,4 +701,5 @@ impl CynicMcpProxy {
 include!("routers/forward.rs");
 include!("routers/coord.rs");
 include!("routers/local.rs");
+include!("routers/docker.rs");
 include!("handler.rs");

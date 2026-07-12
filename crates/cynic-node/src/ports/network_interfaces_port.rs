@@ -1,4 +1,9 @@
 use crate::domain::node_observation::NodeRuntimeVerdict;
+use crate::domain::observation_runtime::DnsResolutionObservation;
+use crate::{
+    adapters::host_observation::{CommandObservation, TcpObservation},
+    build_attestation::BinaryAttestation,
+};
 use serde::Serialize;
 use std::error::Error;
 
@@ -44,6 +49,31 @@ pub trait ProviderFallbackProbePort {
         &self,
         checks: &[ProviderServiceCheck],
     ) -> Result<Vec<ProviderServiceConnectivity>, Box<dyn Error>>;
+}
+
+/// Local node-runtime observation port used by node observation assembly.
+pub(crate) trait NodeRuntimeObservationPort {
+    fn observe_interfaces(&self) -> CommandObservation;
+    fn observe_routes(&self) -> CommandObservation;
+    fn observe_provider_fallback_route(&self, cidr: &str) -> CommandObservation;
+    fn observe_synapse_route(&self, cidr: &str) -> CommandObservation;
+    fn observe_wireguard(&self) -> CommandObservation;
+    fn observe_mesh_runtime(
+        &self,
+        synapse_cidr: &str,
+        synapse_probe_ip: &str,
+    ) -> MeshRuntimeObservation;
+    fn observe_dns_checks(
+        &self,
+        critical_hosts: &[String],
+        expected_synapse_ips: &std::collections::BTreeMap<String, String>,
+    ) -> Vec<DnsResolutionObservation>;
+    fn observe_tcp_checks(&self, checks: &[ProviderServiceCheck]) -> Vec<TcpObservation>;
+    fn observe_wg_quick_status(&self) -> CommandObservation;
+    fn observe_network_manager_status(&self) -> CommandObservation;
+    fn observe_systemd_resolved_status(&self) -> CommandObservation;
+    fn observe_hostname(&self) -> String;
+    fn observe_binary_attestation(&self, registry_path: Option<&str>) -> BinaryAttestation;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

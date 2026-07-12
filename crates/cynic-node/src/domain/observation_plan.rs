@@ -34,37 +34,9 @@ impl ObservationPlan {
             provider_fallback_cidr: "10.10.10.0/24".to_string(),
             provider_fallback_gateway: None,
             dns_zone: "synapse.cynic".to_string(),
-            critical_hosts: vec![
-                "forgejo.synapse.cynic".to_string(),
-                "organ-forgejo.synapse.cynic".to_string(),
-                "forge.synapse.cynic".to_string(),
-                "cynic-vm-anvil.synapse.cynic".to_string(),
-                "cynic-kernel-primary.synapse.cynic".to_string(),
-                "organ-surrealdb.synapse.cynic".to_string(),
-            ],
+            critical_hosts: Vec::new(),
             expected_synapse_ips: BTreeMap::new(),
-            tcp_checks: vec![
-                TcpCheck {
-                    host: "forgejo.synapse.cynic".to_string(),
-                    port: 3000,
-                },
-                TcpCheck {
-                    host: "organ-forgejo.synapse.cynic".to_string(),
-                    port: 22,
-                },
-                TcpCheck {
-                    host: "forge.synapse.cynic".to_string(),
-                    port: 22,
-                },
-                TcpCheck {
-                    host: "cynic-kernel-primary.synapse.cynic".to_string(),
-                    port: 3030,
-                },
-                TcpCheck {
-                    host: "organ-surrealdb.synapse.cynic".to_string(),
-                    port: 8000,
-                },
-            ],
+            tcp_checks: Vec::new(),
         }
     }
 }
@@ -157,7 +129,6 @@ mod tests {
                 "reservations": [
                   {{"name": "kernel", "dns": ["kernel.synapse.cynic"]}},
                   {{"name": "staging", "dns": ["staging.synapse.cynic"]}},
-                  {{"name": "forge", "dns": ["forge.synapse.cynic"]}},
                   {{"name": "builder", "dns": ["builder.synapse.cynic"]}}
                 ]
               }},
@@ -169,8 +140,7 @@ mod tests {
                   "aliases": [],
                   "network": {{"local": "10.10.10.5"}},
                   "services": [
-                    {{"name": "cynic-kernel", "port": 3030}},
-                    {{"name": "cynic-portal", "port": 5000}}
+                    {{"name": "cynic-kernel", "port": 3030}}
                   ]
                 }},
                 {{
@@ -182,23 +152,15 @@ mod tests {
                   "services": [{{"name": "cynic-kernel", "port": 3030}}]
                 }},
                 {{
-                  "name": "forge",
-                  "role": "forge_primary",
-                  "status": "active",
-                  "aliases": [],
-                  "network": {{"local": "10.10.10.10"}},
-                  "services": [
-                    {{"name": "forgejo", "port": 3000}},
-                    {{"name": "forgejo-ssh", "port": 22}}
-                  ]
-                }},
-                {{
                   "name": "builder",
                   "role": "build_runner",
                   "status": "active",
                   "aliases": [],
                   "network": {{"local": "10.10.10.4"}},
-                  "services": [{{"name": "gate-2"}}]
+                  "services": [
+                    {{"name": "ssh", "port": 22}},
+                    {{"name": "gate-2"}}
+                  ]
                 }}
               ]
             }}"#
@@ -213,7 +175,6 @@ mod tests {
             plan.critical_hosts,
             vec![
                 "builder.synapse.cynic".to_string(),
-                "forge.synapse.cynic".to_string(),
                 "kernel.synapse.cynic".to_string(),
             ]
         );
@@ -224,8 +185,6 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 ("builder.synapse.cynic", 22),
-                ("forge.synapse.cynic", 22),
-                ("forge.synapse.cynic", 3000),
                 ("kernel.synapse.cynic", 3030),
             ]
         );

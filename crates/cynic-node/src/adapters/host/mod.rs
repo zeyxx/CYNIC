@@ -5,8 +5,9 @@
 //! Typiquement utilisé pour interagir avec `systemd` (ex: restart llama-server)
 //! ou lire des métriques GPU (`nvidia-smi`) directement sur l'hôte.
 
+use cynic_host::process_observation::capture_command;
+use cynic_host::runtime_layout::current_runtime_layout;
 use serde::{Deserialize, Serialize};
-use std::process::Command;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HostExecRequest {
@@ -30,9 +31,16 @@ impl HostExecAdapter {
         }
 
         let root_cmd = &request.command[0];
+        let runtime_layout = current_runtime_layout();
+        let capabilities = runtime_layout.capabilities();
+        let nvidia_smi_bin = runtime_layout.nvidia_smi_bin();
+        let allowed_commands = [
+            capabilities.service_manager.command.as_str(),
+            nvidia_smi_bin.as_str(),
+            "echo",
+        ];
 
-        // Par sécurité, on peut whitelister certaines commandes comme systemctl ou nvidia-smi
-        if root_cmd != "systemctl" && root_cmd != "nvidia-smi" && root_cmd != "echo" {
+        if !allowed_commands.contains(&root_cmd.as_str()) {
             return Err(format!(
                 "Command '{}' is not whitelisted for HostExecAdapter",
                 root_cmd
@@ -40,16 +48,15 @@ impl HostExecAdapter {
         }
 
         let args = &request.command[1..];
+        let args_ref: Vec<&str> = args.iter().map(String::as_str).collect();
 
-        let output = Command::new(root_cmd)
-            .args(args)
-            .output()
+        let output = capture_command(root_cmd, &args_ref)
             .map_err(|e| format!("Failed to spawn {}: {}", root_cmd, e))?;
 
         Ok(HostExecResponse {
-            exit_code: output.status.code().unwrap_or(-1),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            exit_code: output.exit_code.unwrap_or(-1),
+            stdout: output.stdout,
+            stderr: output.stderr,
         })
     }
 }

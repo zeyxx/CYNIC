@@ -15,7 +15,7 @@ fn write_registry(root: &std::path::Path) -> PathBuf {
               "proxmox_guest": { "cidr": "10.10.10.0/24", "canonical": false }
             },
             "reservations": [
-              { "name": "forge", "dns": ["forge.synapse.cynic"] },
+              { "name": "builder", "dns": ["builder.synapse.cynic"] },
               { "name": "kernel", "dns": ["cynic-kernel-primary.synapse.cynic"] }
             ]
           },
@@ -26,17 +26,16 @@ fn write_registry(root: &std::path::Path) -> PathBuf {
               "network": { "local": "10.10.10.1", "synapse": "10.20.0.1" }
             },
             {
-              "name": "forge",
+              "name": "builder",
               "role": "build_runner",
               "status": "active",
-              "aliases": ["forgejo"],
+              "aliases": ["builder-ssh"],
               "network": { "local": "10.10.10.5", "synapse": "10.20.0.5" },
               "services": [
-                { "name": "forgejo", "port": 3000 },
-                { "name": "forgejo-ssh", "port": 22 }
+                { "name": "ssh", "port": 22 }
               ],
               "vms": [
-                { "name": "forge", "aliases": ["organ-forgejo"] }
+                { "name": "builder", "aliases": ["build-runner"] }
               ]
             },
             {
@@ -62,9 +61,21 @@ fn fetches_static_topology_with_aliases() {
 
     let topology = adapter.fetch_static_topology().expect("topology");
 
-    assert!(topology.iter().any(|item| item.node == "forge" && item.ip == "10.20.0.5"));
-    assert!(topology.iter().any(|item| item.node == "forgejo" && item.ip == "10.20.0.5"));
-    assert!(topology.iter().any(|item| item.node == "organ-forgejo" && item.ip == "10.20.0.5"));
+    assert!(
+        topology
+            .iter()
+            .any(|item| item.node == "builder" && item.ip == "10.20.0.5")
+    );
+    assert!(
+        topology
+            .iter()
+            .any(|item| item.node == "builder-ssh" && item.ip == "10.20.0.5")
+    );
+    assert!(
+        topology
+            .iter()
+            .any(|item| item.node == "build-runner" && item.ip == "10.20.0.5")
+    );
 }
 
 #[test]
@@ -78,7 +89,10 @@ fn fetches_network_policy_summary_and_route() {
     assert_eq!(summary.canonical_service_plane, "synapse");
     assert_eq!(summary.synapse_cidr.as_deref(), Some("10.20.0.0/24"));
     assert_eq!(summary.synapse_dns_zone.as_deref(), Some("synapse.cynic"));
-    assert_eq!(summary.provider_fallback_planes, vec!["proxmox_guest".to_string()]);
+    assert_eq!(
+        summary.provider_fallback_planes,
+        vec!["proxmox_guest".to_string()]
+    );
     assert_eq!(route.cidr, "10.10.10.0/24");
     assert_eq!(route.gateway.as_deref(), Some("10.10.10.1"));
 }
@@ -93,7 +107,7 @@ fn fetches_provider_fallback_service_checks() {
         .expect("checks");
 
     assert!(checks.iter().any(|item| {
-        item.node == "forge" && item.service == "forgejo" && item.host == "forge.synapse.cynic"
+        item.node == "builder" && item.service == "ssh" && item.host == "builder.synapse.cynic"
     }));
     assert!(checks.iter().any(|item| {
         item.node == "kernel"
