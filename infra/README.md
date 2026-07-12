@@ -1,51 +1,28 @@
-# CYNIC Infra Topology
+# CYNIC Infra
 
-`infra/` contains organism-wide desired state, deployment assets and low-level
-operator bridges. It must not become a dumping ground for organ runtime state or
-ad hoc scripts.
+`infra/` contains deployment and runtime placement assets for the low-layer
+organism baseline.
 
-Normative parent policy:
-`docs/foundation/CYNIC_REPO_TOPOLOGY_POLICY.md`.
+Keep:
 
-Machine contract: `axioms/repo-topology-v1.json`.
+- `registry.json`: active node and lifecycle placement.
+- `registries/lab.json`: portable non-canonical lab topology for N-case smoke
+  tests and VM/LXC experiments.
+- `runtime-authority.json`: runtime surface authority map.
+- `agent-exposure.json`: active Rust MCP exposure.
+- `systemd/`: active service templates.
+- `surrealdb/` and `surreal_init.surql`: storage schema/bootstrap.
+- `compose/`: local SurrealDB helper.
+- `firewall/`: host firewall projection.
+- `sudoers.d/`: bounded OS operator projection.
+- `repo-access-profile.json`: repository access profile.
 
-## Canonical Boundaries
+Do not put runtime snapshots, organ state, UX containers, provider experiments,
+or narrative backlogs here. A new infra file must either be referenced by the
+registry/systemd, configure storage/security, or support an executable runtime
+check.
 
-| Path | Concern | Authority |
-|------|---------|-----------|
-| `registry.json` | Fleet topology, lifecycle placement, network policy and organ declarations | Source of truth |
-| `agent-exposure.json` | MCP/tool exposure projected to cortex clients | Source of truth |
-| `systemd/` | Unit files and timers for concrete service placement | Deployment projection |
-| `surrealdb/` | Database schema and migrations | Storage contract |
-| `docker/` | Container packaging for bounded app surfaces | Deployment adapter |
-| `firewall/` | Host firewall policy | Deployment adapter |
-| `sudoers/` | Optional rendered least-privilege operator projections | Deployment projection |
-| `monitoring/` | Legacy/bootstrap provider probes | Transitional adapter |
-
-## Rules
-
-1. Desired topology belongs in `registry.json`, not in shell scripts.
-2. Network allocations belong in `registry.json:network_policy`.
-3. Runtime evidence belongs in `organ-fleet`, kernel health, or structured
-   observations, not committed state snapshots.
-4. Provider actions such as Proxmox create/start/exec are adapter operations.
-   Agents must consume the semantic contract in
-   `axioms/infrastructure-mcp-v1.json` once implemented.
-5. New infra concerns should first choose their owner:
-   - `infra/registry.json` for organism-wide desired state.
-   - `organs/<role>/` for a persistent subsystem.
-   - `infra/systemd/` for deployment projection.
-   - `organs/<role>/src/entrypoints/` for executable organ operations.
-   - `infra/` contracts or projections for deployment-only concerns.
-
-## Current Debt Markers
-
-- `infra/monitoring/*` is bootstrap evidence, not the canonical fleet source.
-- Raw Proxmox MCP tools are provider-level and must be wrapped by canonical
-  fleet MCP operations before they are considered frictionless for agents.
-- Storage LXC activation is blocked until canonical Synapse provisioning
-  (`cynic-node` evidence + `organ-fleet`/network-actuator execution) and
-  `fleet.node.exec` cover LXC deterministically.
-- Dedicated storage activation artifacts belong to `organ-keep`; use
-  `make storage-primary-bundle out=<dir>` for a non-mutating bundle. Legacy
-  storage scripts remain blocked fallback only.
+Use `make lab-smoke` before promoting runtime assumptions into
+`infra/registry.json`. The lab registry is deliberately not the fleet source of
+truth; it exists to prove that crates and CLI surfaces do not hardcode the real
+fleet.

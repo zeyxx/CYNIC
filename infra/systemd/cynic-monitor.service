@@ -1,7 +1,0 @@
-[Unit]
-Description=CYNIC Proxmox Monitoring Sonde
-
-[Service]
-Type=oneshot
-ExecStart=/bin/sh -c 'echo "legacy VM monitor script entrypoint closed; reforge as organ-fleet entrypoint before enabling cynic-monitor" >&2; exit 1'
-WorkingDirectory=@CYNIC_PROJECT_ROOT@
