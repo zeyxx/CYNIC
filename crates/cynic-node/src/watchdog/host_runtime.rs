@@ -1,5 +1,4 @@
 use cynic_host::runtime_layout::{observed_hostname, observed_local_ips, observed_service_status};
-use sysinfo::Disks;
 
 pub(super) trait WatchdogHostRuntimePort {
     fn hostname(&self) -> String;
@@ -31,20 +30,6 @@ fn local_ips_from_stdout(command_stdout: Option<String>) -> Vec<String> {
 #[cfg(test)]
 fn service_status_from_stdout(command_stdout: Option<String>) -> String {
     command_stdout.unwrap_or_else(|| "unknown".to_string())
-}
-
-pub(super) fn disk_totals_gb(disks: &Disks) -> (f64, f64) {
-    let mut total = 0.0;
-    let mut available = 0.0;
-    for disk in disks {
-        total += disk.total_space() as f64 / 1024.0 / 1024.0 / 1024.0;
-        available += disk.available_space() as f64 / 1024.0 / 1024.0 / 1024.0;
-    }
-    (total, available)
-}
-
-pub(super) fn bytes_to_gb(value: u64) -> f64 {
-    value as f64 / 1024.0 / 1024.0 / 1024.0
 }
 
 pub(super) fn hostname() -> String {

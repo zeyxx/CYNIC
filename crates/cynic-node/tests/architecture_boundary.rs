@@ -183,3 +183,33 @@ fn system_probe_has_domain_port_and_local_adapter_boundaries() {
         "sysinfo and local command probing must live in the local adapter"
     );
 }
+
+#[test]
+fn watchdog_reuses_system_metrics_port_instead_of_resampling_os_state() {
+    let root = crate_root();
+    let sampler =
+        fs::read_to_string(root.join("src/watchdog/sampler.rs")).expect("read watchdog/sampler.rs");
+    let host_runtime = fs::read_to_string(root.join("src/watchdog/host_runtime.rs"))
+        .expect("read watchdog/host_runtime.rs");
+
+    assert!(
+        sampler.contains("SysinfoMetricsSampler")
+            && sampler.contains("SystemMetricsPort")
+            && sampler.contains("sample_metrics()"),
+        "watchdog sampler must reuse the shared system metrics port"
+    );
+    for forbidden in [
+        "CpuRefreshKind",
+        "MemoryRefreshKind",
+        "Disks::",
+        "System::load_average",
+        "System::uptime",
+        "disk_totals_gb",
+        "bytes_to_gb",
+    ] {
+        assert!(
+            !sampler.contains(forbidden) && !host_runtime.contains(forbidden),
+            "watchdog must not own duplicate OS metric sampling: {forbidden}"
+        );
+    }
+}

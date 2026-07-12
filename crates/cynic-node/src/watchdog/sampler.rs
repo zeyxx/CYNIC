@@ -1,13 +1,12 @@
+use crate::adapters::local_system_probe::SysinfoMetricsSampler;
 use crate::build_attestation::runtime_binary_attestation;
 use crate::config::WatchdogConfig;
 use crate::domain::bootstrap::l0_bootstrap_stages;
 use crate::observe::{self, NodeObservation};
+use crate::ports::system_probe_port::SystemMetricsPort;
 use serde_json::json;
-use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, RefreshKind, System};
 
-use super::host_runtime::{
-    LocalWatchdogHostRuntime, WatchdogHostRuntimePort, bytes_to_gb, disk_totals_gb,
-};
+use super::host_runtime::{LocalWatchdogHostRuntime, WatchdogHostRuntimePort};
 use super::kernel_bridge::{LocalWatchdogKernelProbe, WatchdogKernelProbePort};
 
 pub(super) const OBSERVATION_SCHEMA: &str = "cynic.node_watchdog_observation.v1";
@@ -44,19 +43,13 @@ pub(super) struct WatchdogObservationInputs {
 }
 
 pub(super) struct LocalSampler {
-    system: System,
-    disks: Disks,
+    metrics: SysinfoMetricsSampler,
 }
 
 impl LocalSampler {
     pub(super) fn new() -> Self {
         Self {
-            system: System::new_with_specifics(
-                RefreshKind::nothing()
-                    .with_cpu(CpuRefreshKind::everything())
-                    .with_memory(MemoryRefreshKind::everything()),
-            ),
-            disks: Disks::new_with_refreshed_list(),
+            metrics: SysinfoMetricsSampler::new(),
         }
     }
 
@@ -82,9 +75,6 @@ impl LocalSampler {
         KernelProbe: WatchdogKernelProbePort,
         NetworkObserve: WatchdogNetworkObservationPort,
     {
-        self.system.refresh_all();
-        self.disks.refresh(true);
-
         let kernel = kernel_probe.probe(cfg).await;
         let services = cfg
             .node
@@ -99,7 +89,7 @@ impl LocalSampler {
             .collect::<Vec<_>>();
         let services_sampled = !cfg.node.services.is_empty();
 
-        let disk = disk_totals_gb(&self.disks);
+        let system_metrics = self.metrics.sample_metrics();
         let network_observation = network_observe.observe_network(cfg);
         let network_observation_value = serde_json::to_value(&network_observation)
             .unwrap_or_else(|error| json!({ "serialization_error": error.to_string() }));
@@ -113,17 +103,17 @@ impl LocalSampler {
                 kernel,
                 services,
                 services_sampled,
-                disk_total_gb: disk.0,
-                disk_available_gb: disk.1,
+                disk_total_gb: system_metrics.disk_total_gb,
+                disk_available_gb: system_metrics.disk_available_gb,
                 network_observation_value,
                 binary_attestation,
                 hostname: runtime.hostname(),
                 ips: runtime.local_ips(),
-                cpu_usage_percent: self.system.global_cpu_usage(),
-                memory_used_gb: bytes_to_gb(self.system.used_memory()),
-                memory_total_gb: bytes_to_gb(self.system.total_memory()),
-                load_average_1m: System::load_average().one,
-                uptime_seconds: System::uptime(),
+                cpu_usage_percent: system_metrics.cpu_usage_percent,
+                memory_used_gb: system_metrics.memory_used_gb,
+                memory_total_gb: system_metrics.memory_total_gb,
+                load_average_1m: system_metrics.load_average_1m,
+                uptime_seconds: system_metrics.uptime_seconds,
                 observed_at: chrono::Utc::now().to_rfc3339(),
             },
         )
