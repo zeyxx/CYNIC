@@ -183,3 +183,42 @@ fn package_domain_uses_explicit_command_context_for_portability() {
         );
     }
 }
+
+#[test]
+fn privilege_domain_uses_explicit_command_context_for_portability() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let privilege =
+        fs::read_to_string(root.join("src/domain/privilege.rs")).expect("read domain/privilege.rs");
+    let production_privilege = privilege.split("#[cfg(test)]").next().unwrap_or(&privilege);
+
+    assert!(
+        production_privilege.contains("pub struct PrivilegeCommandContext")
+            && production_privilege.contains("pub fn activation_plan_with_context")
+            && production_privilege.contains("pub fn apply_report_with_context"),
+        "privilege domain must expose explicit command-context entrypoints"
+    );
+    assert!(
+        production_privilege.contains("route_bin")
+            && production_privilege.contains("service_manager_bin")
+            && production_privilege.contains("denied_shell_bin"),
+        "privilege denial checks must be generated from injectable command context"
+    );
+
+    let production_without_context_factory = production_privilege
+        .replace("pub fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "")
+        .replace("let capabilities = runtime_layout.capabilities();", "");
+    assert!(
+        !production_without_context_factory.contains("current_runtime_layout()"),
+        "privilege command construction must consume PrivilegeCommandContext instead of reading global runtime layout"
+    );
+    for forbidden in [
+        "capabilities.route_tool.command.clone()",
+        "capabilities.service_manager.command.clone()",
+    ] {
+        assert!(
+            !production_without_context_factory.contains(forbidden),
+            "privilege domain must not hardwire denial command construction: {forbidden}"
+        );
+    }
+}
