@@ -1,4 +1,0 @@
-<resources>
-    <string name="app_name">Kyon Mobile</string>
-    <string name="accessibility_service_description">Permet à l\'organisme KYON de lire le contexte sémantique de l\'écran pour alimenter son IA hors-ligne et protéger votre cognition contre le doomscrolling.</string>
-</resources>
