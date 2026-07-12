@@ -22,29 +22,48 @@ use self::proofs::{proof_requirements, root_authority};
 pub(crate) use self::types::NetworkActuatorActivationStatus;
 use self::types::{NetworkActuatorChecks, RootAuthorityCheck};
 
+#[derive(Debug, Clone)]
+struct NetworkActuatorStatusContext {
+    helper_path: String,
+    policy_path: String,
+    sudoers_path: String,
+    bundle_dir: String,
+    route_command: String,
+    wireguard_command: String,
+    denied_shell_bin: String,
+    denied_bash_bin: String,
+}
+
+impl NetworkActuatorStatusContext {
+    fn from_current_runtime() -> Self {
+        let runtime_layout = current_runtime_layout();
+        let capabilities = runtime_layout.capabilities();
+        Self {
+            helper_path: helper_path(),
+            policy_path: policy_path(),
+            sudoers_path: sudoers_path(),
+            bundle_dir: runtime_layout.network_actuator_bundle_dir,
+            route_command: capabilities.route_tool.command,
+            wireguard_command: capabilities.wireguard_tool.command,
+            denied_shell_bin: "/bin/sh".to_string(),
+            denied_bash_bin: "/usr/bin/bash".to_string(),
+        }
+    }
+}
+
 pub(crate) fn activation_status(observation: &NodeObservation) -> NetworkActuatorActivationStatus {
     let root_policy = build_root_policy(observation);
-    let runtime_layout = current_runtime_layout();
-    let capabilities = runtime_layout.capabilities();
-    let helper_path = helper_path();
-    let policy_path = policy_path();
-    let sudoers_path = sudoers_path();
-    let sudoers_content = fs::read_to_string(&sudoers_path).unwrap_or_default();
-    let bundle_dir = runtime_layout.network_actuator_bundle_dir;
-    let bundle_complete = helper_bundle_complete(&bundle_dir, &bundle_required_files());
+    let context = NetworkActuatorStatusContext::from_current_runtime();
+    let sudoers_content = fs::read_to_string(&context.sudoers_path).unwrap_or_default();
+    let bundle_complete = helper_bundle_complete(&context.bundle_dir, &bundle_required_files());
     let root_authority = root_authority();
     let host_context = network_host_substrate::observe_network_host_runtime_context();
     activation_status_with_host_context(
         root_policy,
-        helper_path,
-        policy_path,
-        sudoers_path,
+        context,
         sudoers_content,
-        bundle_dir,
         bundle_complete,
         root_authority,
-        capabilities.route_tool.command,
-        capabilities.wireguard_tool.command,
         host_context.host_profile,
         host_context.host_resolution.clone(),
         serialize_value(&host_context.host_substrate),
@@ -58,15 +77,10 @@ pub(crate) fn activation_status(observation: &NodeObservation) -> NetworkActuato
 
 fn activation_status_with_host_context(
     root_policy: crate::network_root_policy::NetworkRootPolicy,
-    helper_path: String,
-    policy_path: String,
-    sudoers_path: String,
+    context: NetworkActuatorStatusContext,
     sudoers_content: String,
-    bundle_dir: String,
     bundle_complete: bool,
     root_authority: RootAuthorityCheck,
-    route_command: String,
-    wireguard_command: String,
     host_profile: &'static str,
     host_resolution: Option<cynic_host::registry::HostProfileResolution>,
     host_substrate: Value,
@@ -77,30 +91,37 @@ fn activation_status_with_host_context(
     bootstrap_blocked: bool,
 ) -> NetworkActuatorActivationStatus {
     let checks = NetworkActuatorChecks {
-        helper_exists: path_exists(&helper_path),
-        helper_mode_0755: path_mode_equals(&helper_path, MODE_0755.unix),
-        helper_executable: path_executable(&helper_path),
-        policy_exists: path_exists(&policy_path),
-        policy_mode_0644: path_mode_equals(&policy_path, MODE_0644.unix),
-        sudoers_exists: path_exists(&sudoers_path),
-        sudoers_mode_0440: path_mode_equals(&sudoers_path, MODE_0440.unix),
+        helper_exists: path_exists(&context.helper_path),
+        helper_mode_0755: path_mode_equals(&context.helper_path, MODE_0755.unix),
+        helper_executable: path_executable(&context.helper_path),
+        policy_exists: path_exists(&context.policy_path),
+        policy_mode_0644: path_mode_equals(&context.policy_path, MODE_0644.unix),
+        sudoers_exists: path_exists(&context.sudoers_path),
+        sudoers_mode_0440: path_mode_equals(&context.sudoers_path, MODE_0440.unix),
         sudoers_rule_matches: sudoers_content.contains(&root_policy.sudoers_rule),
         sudoers_no_raw_ip: forbidden_pattern_blocked(
             &root_policy,
             &sudoers_content,
-            &route_command,
+            &context.route_command,
         ),
         sudoers_no_raw_wg: forbidden_pattern_blocked(
             &root_policy,
             &sudoers_content,
-            &wireguard_command,
+            &context.wireguard_command,
         ) && forbidden_pattern_blocked(
             &root_policy,
             &sudoers_content,
             "/usr/bin/wg-quick",
         ),
-        sudoers_no_shell: forbidden_pattern_blocked(&root_policy, &sudoers_content, "/bin/sh")
-            && forbidden_pattern_blocked(&root_policy, &sudoers_content, "/usr/bin/bash"),
+        sudoers_no_shell: forbidden_pattern_blocked(
+            &root_policy,
+            &sudoers_content,
+            &context.denied_shell_bin,
+        ) && forbidden_pattern_blocked(
+            &root_policy,
+            &sudoers_content,
+            &context.denied_bash_bin,
+        ),
     };
 
     let mut missing = filesystem_and_sudoers_diagnostics(&checks, bundle_complete);
@@ -124,11 +145,11 @@ fn activation_status_with_host_context(
             "missing_activation"
         },
         host_profile,
-        helper_path,
-        policy_path,
-        sudoers_target: sudoers_path,
+        helper_path: context.helper_path,
+        policy_path: context.policy_path,
+        sudoers_target: context.sudoers_path,
         sudoers_rule: root_policy.sudoers_rule.clone(),
-        bundle_dir,
+        bundle_dir: context.bundle_dir,
         bundle_complete,
         bundle_evidence_source: "default_bundle_dir",
         root_authority,
@@ -347,7 +368,7 @@ fn serialize_value<T: serde::Serialize>(value: &T) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::activation_status_with_host_context;
+    use super::{NetworkActuatorStatusContext, activation_status_with_host_context};
     use crate::domain::node_observation::NodeRuntimeCapabilities;
     use crate::network_actuator_status::types::RootAuthorityCheck;
     use crate::network_root_policy::build_root_policy;
@@ -370,11 +391,17 @@ mod tests {
 
         let status = activation_status_with_host_context(
             root_policy,
-            "/missing/helper".to_string(),
-            "/missing/policy".to_string(),
-            "/missing/sudoers".to_string(),
+            NetworkActuatorStatusContext {
+                helper_path: "/missing/helper".to_string(),
+                policy_path: "/missing/policy".to_string(),
+                sudoers_path: "/missing/sudoers".to_string(),
+                bundle_dir: "/missing/bundle".to_string(),
+                route_command: "/portable/bin/ip".to_string(),
+                wireguard_command: "/portable/bin/wg".to_string(),
+                denied_shell_bin: "/portable/bin/sh".to_string(),
+                denied_bash_bin: "/portable/bin/bash".to_string(),
+            },
             String::new(),
-            "/missing/bundle".to_string(),
             false,
             RootAuthorityCheck {
                 command: "sudo -n true".to_string(),
@@ -382,8 +409,6 @@ mod tests {
                 exit_code: Some(1),
                 stderr: "password required".to_string(),
             },
-            "/usr/bin/ip".to_string(),
-            "/usr/bin/wg".to_string(),
             "test-host",
             None,
             serde_json::json!({}),

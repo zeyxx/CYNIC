@@ -5,32 +5,42 @@ use crate::network_actuator_status::types::{NetworkActuatorProofRequirement, Roo
 use crate::network_root_policy::NetworkRootPolicy;
 
 #[derive(Debug, Clone)]
-struct NetworkActuatorRuntimeContext {
+struct NetworkActuatorProofContext {
     sudo_bin: String,
     sudo_true_command: String,
     route_bin: String,
     wireguard_bin: String,
+    denied_shell_bin: String,
     default_bundle_dir: String,
+}
+
+impl NetworkActuatorProofContext {
+    fn from_current_runtime() -> Self {
+        let runtime_layout = current_runtime_layout();
+        let capabilities = runtime_layout.capabilities();
+        Self {
+            sudo_bin: runtime_layout.sudo_bin(),
+            sudo_true_command: runtime_layout.sudo_noninteractive_command(&["true"]),
+            route_bin: capabilities.route_tool.command.clone(),
+            wireguard_bin: capabilities.wireguard_tool.command.clone(),
+            denied_shell_bin: "/bin/sh".to_string(),
+            default_bundle_dir: runtime_layout.network_actuator_bundle_dir.clone(),
+        }
+    }
 }
 
 pub(crate) fn proof_requirements(
     root_policy: &NetworkRootPolicy,
 ) -> Vec<NetworkActuatorProofRequirement> {
-    let runtime_layout = current_runtime_layout();
-    let capabilities = runtime_layout.capabilities();
-    let context = NetworkActuatorRuntimeContext {
-        sudo_bin: runtime_layout.sudo_bin(),
-        sudo_true_command: runtime_layout.sudo_noninteractive_command(&["true"]),
-        route_bin: capabilities.route_tool.command.clone(),
-        wireguard_bin: capabilities.wireguard_tool.command.clone(),
-        default_bundle_dir: runtime_layout.network_actuator_bundle_dir.clone(),
-    };
-    proof_requirements_with_context(root_policy, &context)
+    proof_requirements_with_context(
+        root_policy,
+        &NetworkActuatorProofContext::from_current_runtime(),
+    )
 }
 
 fn proof_requirements_with_context(
     root_policy: &NetworkRootPolicy,
-    context: &NetworkActuatorRuntimeContext,
+    context: &NetworkActuatorProofContext,
 ) -> Vec<NetworkActuatorProofRequirement> {
     let mut requirements = vec![
         NetworkActuatorProofRequirement {
@@ -104,7 +114,7 @@ fn proof_requirements_with_context(
                     vec![
                         context.sudo_bin.clone(),
                         "-n".to_string(),
-                        "/bin/sh".to_string(),
+                        context.denied_shell_bin.clone(),
                         "-c".to_string(),
                         "true".to_string(),
                     ],
@@ -133,17 +143,10 @@ fn proof_requirements_with_context(
 }
 
 pub(crate) fn root_authority() -> RootAuthorityCheck {
-    let runtime_layout = current_runtime_layout();
-    root_authority_with_context(&NetworkActuatorRuntimeContext {
-        sudo_bin: runtime_layout.sudo_bin(),
-        sudo_true_command: runtime_layout.sudo_noninteractive_command(&["true"]),
-        route_bin: runtime_layout.capabilities().route_tool.command.clone(),
-        wireguard_bin: runtime_layout.capabilities().wireguard_tool.command.clone(),
-        default_bundle_dir: runtime_layout.network_actuator_bundle_dir,
-    })
+    root_authority_with_context(&NetworkActuatorProofContext::from_current_runtime())
 }
 
-fn root_authority_with_context(context: &NetworkActuatorRuntimeContext) -> RootAuthorityCheck {
+fn root_authority_with_context(context: &NetworkActuatorProofContext) -> RootAuthorityCheck {
     match capture_command(&context.sudo_bin, &["-n", "true"]) {
         Ok(output) => RootAuthorityCheck {
             command: context.sudo_true_command.clone(),
@@ -162,7 +165,7 @@ fn root_authority_with_context(context: &NetworkActuatorRuntimeContext) -> RootA
 
 #[cfg(test)]
 mod tests {
-    use super::{NetworkActuatorRuntimeContext, proof_requirements_with_context};
+    use super::{NetworkActuatorProofContext, proof_requirements_with_context};
     use crate::domain::node_observation::NodeRuntimeCapabilities;
     use crate::network_root_policy::build_root_policy;
     use crate::observe::NodeObservation;
@@ -183,12 +186,13 @@ mod tests {
         let root_policy = build_root_policy(&observation);
         let requirements = proof_requirements_with_context(
             &root_policy,
-            &NetworkActuatorRuntimeContext {
-                sudo_bin: "/usr/bin/sudo".to_string(),
-                sudo_true_command: "/usr/bin/sudo -n true".to_string(),
-                route_bin: "/sbin/ip".to_string(),
-                wireguard_bin: "/usr/bin/wg".to_string(),
-                default_bundle_dir: "/tmp/actuator".to_string(),
+            &NetworkActuatorProofContext {
+                sudo_bin: "/portable/bin/sudo".to_string(),
+                sudo_true_command: "/portable/bin/sudo -n true".to_string(),
+                route_bin: "/portable/bin/ip".to_string(),
+                wireguard_bin: "/portable/bin/wg".to_string(),
+                denied_shell_bin: "/portable/bin/sh".to_string(),
+                default_bundle_dir: "/portable/runtime/actuator".to_string(),
             },
         );
 
@@ -196,13 +200,21 @@ mod tests {
             item.check == "bundle_complete"
                 && item.commands.iter().any(|command| {
                     crate::network_command_surface::render_command(command)
-                        .contains("/tmp/actuator")
+                        .contains("/portable/runtime/actuator")
                 })
         }));
         assert!(requirements.iter().any(|item| {
             item.check == "raw ip/wg/nmcli invocations are never present in sudoers"
                 && item.commands.iter().any(|command| {
-                    crate::network_command_surface::render_command(command).contains("/usr/bin/wg")
+                    crate::network_command_surface::render_command(command)
+                        .contains("/portable/bin/wg")
+                })
+        }));
+        assert!(requirements.iter().any(|item| {
+            item.check == "shell execution through the helper is forbidden"
+                && item.commands.iter().any(|command| {
+                    crate::network_command_surface::render_command(command)
+                        .contains("/portable/bin/sh")
                 })
         }));
     }

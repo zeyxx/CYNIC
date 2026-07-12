@@ -581,3 +581,72 @@ fn node_observation_surfaces_use_explicit_command_contexts() {
         );
     }
 }
+
+#[test]
+fn network_actuator_status_family_uses_explicit_command_contexts() {
+    let root = crate_root();
+    let status = fs::read_to_string(root.join("src/network_actuator_status.rs"))
+        .expect("read network_actuator_status.rs");
+    let proofs = fs::read_to_string(root.join("src/network_actuator_status/proofs.rs"))
+        .expect("read network_actuator_status/proofs.rs");
+    let contract = fs::read_to_string(root.join("src/network_actuator_contract.rs"))
+        .expect("read network_actuator_contract.rs");
+    let production_status = status.split("#[cfg(test)]").next().unwrap_or(&status);
+    let production_proofs = proofs.split("#[cfg(test)]").next().unwrap_or(&proofs);
+    let production_contract = contract.split("#[cfg(test)]").next().unwrap_or(&contract);
+
+    let status_without_context_factory = production_status
+        .replace("fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "")
+        .replace("let capabilities = runtime_layout.capabilities();", "");
+    let proofs_without_context_factory = production_proofs
+        .replace("fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "")
+        .replace("let capabilities = runtime_layout.capabilities();", "");
+    let contract_without_context_factory = production_contract
+        .replace("fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "");
+
+    assert!(
+        production_status.contains("struct NetworkActuatorStatusContext")
+            && production_status.contains("fn from_current_runtime() -> Self")
+            && production_status.contains("activation_status_with_host_context"),
+        "network_actuator_status.rs must expose an explicit status context"
+    );
+    assert!(
+        production_proofs.contains("struct NetworkActuatorProofContext")
+            && production_proofs.contains("fn from_current_runtime() -> Self")
+            && production_proofs.contains("proof_requirements_with_context"),
+        "network_actuator_status/proofs.rs must expose an explicit proof context"
+    );
+    assert!(
+        production_contract.contains("struct NetworkActuatorContractContext")
+            && production_contract.contains("fn from_current_runtime() -> Self"),
+        "network_actuator_contract.rs must expose an explicit contract context"
+    );
+    assert!(
+        !status_without_context_factory.contains("current_runtime_layout()")
+            && !proofs_without_context_factory.contains("current_runtime_layout()")
+            && !contract_without_context_factory.contains("current_runtime_layout()"),
+        "runtime layout probing must be isolated in actuator status family context factories"
+    );
+    let status_tests = status.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    let proofs_tests = proofs.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    let contract_tests = contract.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    for expected in [
+        "/portable/bin/ip",
+        "/portable/bin/wg",
+        "/portable/bin/sh",
+        "/portable/bin/cynic-network-actuator",
+        "/portable/etc/cynic/network-actuator.policy.json",
+        "/portable/etc/sudoers.d/cynic-network-actuator",
+        "/portable/runtime/actuator",
+    ] {
+        assert!(
+            status_tests.contains(expected)
+                || proofs_tests.contains(expected)
+                || contract_tests.contains(expected),
+            "actuator status family tests must prove portable path injection: {expected}"
+        );
+    }
+}
