@@ -6,5 +6,6 @@ pub mod network_projection;
 pub mod node_observation;
 pub mod observation_plan;
 pub mod observation_runtime;
+pub mod runtime_federation;
 pub mod supervision;
 pub mod version;

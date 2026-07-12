@@ -4,13 +4,14 @@ use process_wrap::tokio::ChildWrapper;
 use reqwest::Client;
 use tokio_util::sync::CancellationToken;
 
+use crate::adapters::websocket_federation::WebSocketFederationAdapter;
 use crate::announce;
 use crate::config;
 use crate::config::Config;
 use crate::domain::supervision::ExitReason;
+use crate::ports::runtime_federation_port::RuntimeFederationPort;
 use crate::supervise;
 use crate::verify;
-use crate::websocket;
 
 /// Run one full lifecycle: wait_healthy -> register -> watch.
 ///
@@ -55,49 +56,13 @@ async fn watch(
         tokio::time::interval(Duration::from_secs(cfg.health.verify_interval_secs));
     let mut stimulus_tick = tokio::time::interval(Duration::from_millis(100));
     let mut health_failures: u32 = 0;
+    let federation = WebSocketFederationAdapter::from_env(&cfg.kernel.url, &cfg.dog.name);
 
-    let node_public_key = std::env::var("CYNIC_NODE_PUBLIC_KEY")
-        .unwrap_or_else(|_| "stub-public-key-phase-3-4-pending".to_string());
-
-    let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_else(|_| {
-        tracing::warn!("CYNIC_API_KEY not set; WebSocket authentication will fail");
-        String::new()
-    });
-
-    let kernel_ws_url = cfg
-        .kernel
-        .url
-        .replace("http://", "ws://")
-        .replace("https://", "wss://")
-        + "/events/ws";
-
-    let queue_dir = std::env::var("HOME")
-        .ok()
-        .map(|h| std::path::PathBuf::from(h).join(".cynic/node"))
-        .unwrap_or_else(|| std::path::PathBuf::from(".cynic/node"));
-
-    let ws_client = std::sync::Arc::new(websocket::WebSocketClient::new(
-        kernel_ws_url,
-        api_key,
-        node_public_key,
-        cfg.dog.name.clone(),
-        queue_dir,
-    ));
-
-    if let Err(e) = ws_client.load_persistent_queues().await {
+    if let Err(e) = federation.load_persistent_queues().await {
         tracing::warn!("failed to load persistent queues: {e}");
     }
 
-    let ws_client_clone = ws_client.clone();
-    let mut ws_handle = tokio::spawn({
-        let ws = ws_client_clone.clone();
-        async move {
-            match ws.run().await {
-                Ok(_) => tracing::info!("WebSocket client exited cleanly"),
-                Err(e) => tracing::error!("WebSocket client error: {e}"),
-            }
-        }
-    });
+    let mut federation_handle = federation.spawn_connection();
 
     loop {
         let child_wait = child.wait();
@@ -120,9 +85,7 @@ async fn watch(
                 }
             }
             _ = stimulus_tick.tick() => {
-                if let Some(pending) = ws_client.dequeue_stimulus().await
-                    && let Err(e) = process_stimulus(&ws_client, pending).await
-                {
+                if let Err(e) = federation.process_next_stimulus().await {
                     tracing::error!("stimulus processing error: {e}");
                 }
             }
@@ -135,11 +98,11 @@ async fn watch(
                 return ExitReason::ConfigChanged;
             }
             _ = shutdown.cancelled() => {
-                let _ = ws_handle.await;
+                let _ = federation_handle.await;
                 return ExitReason::Shutdown;
             }
-            _ = &mut ws_handle => {
-                tracing::warn!("WebSocket client task exited unexpectedly");
+            _ = &mut federation_handle => {
+                tracing::warn!("runtime federation task exited unexpectedly");
             }
         }
     }
@@ -193,62 +156,6 @@ async fn on_verify_tick(client: &Client, cfg: &Config, models_url: &str) -> Opti
         }
         _ => None,
     }
-}
-
-async fn process_stimulus(
-    ws_client: &std::sync::Arc<websocket::WebSocketClient>,
-    stimulus: websocket::PendingStimulus,
-) -> Result<(), String> {
-    let stimulus_id = stimulus.stimulus_id.clone();
-
-    let (_domain, _content, _context) = match &stimulus.stimulus {
-        websocket::NodeMessage::Stimulus {
-            domain,
-            content,
-            context,
-            ..
-        } => (domain.clone(), content.clone(), context.clone()),
-        _ => {
-            return Err(format!(
-                "stimulus {stimulus_id}: message is not a Stimulus variant"
-            ));
-        }
-    };
-
-    let verdict = serde_json::json!({
-        "id": format!("verd_{}", stimulus_id),
-        "domain": "unknown",
-        "kind": "DETERMINISTIC_FALLBACK",
-        "q_score": 0.5,
-        "axiom_scores": {
-            "FIDELITY": 0.5,
-            "PHI": 0.5,
-            "VERIFY": 0.5,
-            "CULTURE": 0.5,
-            "BURN": 0.5,
-            "SOVEREIGNTY": 0.5
-        },
-        "dog_id": "deterministic-fallback-phase-3-2",
-        "dog_scores": [0.5],
-        "timestamp": std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0)
-    });
-
-    let pending_verdict = websocket::PendingVerdict {
-        stimulus_id,
-        verdict,
-        signature: "stub-signature-phase-3-4-pending".to_string(),
-        queued_at: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0),
-    };
-
-    ws_client.queue_verdict(pending_verdict).await;
-    tracing::debug!("stimulus processed and verdict queued");
-    Ok(())
 }
 
 async fn wait_healthy(

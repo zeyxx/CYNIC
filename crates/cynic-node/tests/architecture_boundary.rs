@@ -62,8 +62,46 @@ fn node_supervision_state_is_owned_outside_main() {
             && lifecycle.contains("async fn register_with_kernel"),
         "runtime supervision lifecycle must live in runtime_supervision/lifecycle.rs"
     );
+    for forbidden in [
+        "std::env::var",
+        "WebSocketClient::new",
+        "DETERMINISTIC_FALLBACK",
+        "stub-public-key-phase",
+        "stub-signature-phase",
+    ] {
+        assert!(
+            !lifecycle.contains(forbidden),
+            "runtime_supervision/lifecycle.rs must not own federation detail: {forbidden}"
+        );
+    }
     assert!(
         domain_supervision.contains("pub enum ExitReason"),
         "supervision outcome type must live in the domain layer"
+    );
+}
+
+#[test]
+fn runtime_federation_has_domain_port_and_adapter_boundaries() {
+    let root = crate_root();
+    let domain = fs::read_to_string(root.join("src/domain/runtime_federation.rs"))
+        .expect("read domain/runtime_federation.rs");
+    let port = fs::read_to_string(root.join("src/ports/runtime_federation_port.rs"))
+        .expect("read ports/runtime_federation_port.rs");
+    let adapter = fs::read_to_string(root.join("src/adapters/websocket_federation/mod.rs"))
+        .expect("read adapters/websocket_federation/mod.rs");
+
+    assert!(
+        domain.contains("pub struct RuntimeFederationConfig")
+            && domain.contains("pub fn deterministic_fallback_verdict"),
+        "runtime federation config and fallback verdict rules must live in domain"
+    );
+    assert!(
+        port.contains("pub trait RuntimeFederationPort"),
+        "runtime federation must expose a port boundary"
+    );
+    assert!(
+        adapter.contains("impl RuntimeFederationPort for WebSocketFederationAdapter")
+            && adapter.contains("WebSocketClient::new"),
+        "WebSocket client wiring must live in the concrete federation adapter"
     );
 }

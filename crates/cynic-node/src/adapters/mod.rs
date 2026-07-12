@@ -7,4 +7,5 @@ pub mod proxmox;
 pub mod registry;
 pub mod runtime_observation;
 pub mod surrealdb;
+pub mod websocket_federation;
 pub mod wireguard;

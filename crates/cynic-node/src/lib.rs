@@ -46,6 +46,7 @@ pub mod ports;
 mod provider_fallback_hosts;
 mod provider_fallback_status;
 pub mod usecases;
+pub mod websocket;
 
 pub use cli::NetworkCommands;
 
