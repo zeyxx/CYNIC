@@ -1,1 +1,0 @@
-"""GASdf organ adapters package."""

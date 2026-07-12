@@ -1,2 +1,0 @@
-"""organ-prospect package."""
-

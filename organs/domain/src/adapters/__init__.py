@@ -1,1 +1,0 @@
-"""Domain organ adapters package."""

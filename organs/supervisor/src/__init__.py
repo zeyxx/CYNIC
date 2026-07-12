@@ -1,1 +1,0 @@
-"""Supervisor organ source membrane."""

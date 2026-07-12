@@ -1,7 +1,0 @@
-{
-  "schema": "cynic.organ_wireguard.desired_state.v1",
-  "status": "planned",
-  "purpose": "Declared desired-state membrane for organ-wireguard. Runtime evidence remains outside committed source unless explicitly classified.",
-  "nodes": [],
-  "dns_records": []
-}

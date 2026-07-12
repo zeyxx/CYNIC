@@ -1,2 +1,0 @@
-"""Retrieval-memory organ package."""
-

@@ -1,2 +1,0 @@
-"""Entrypoints for organ-prospect."""
-

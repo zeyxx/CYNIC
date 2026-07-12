@@ -1,1 +1,0 @@
-"""Coordination runtime adapter surfaces."""

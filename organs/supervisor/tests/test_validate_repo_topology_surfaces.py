@@ -1,6 +1,0 @@
-try:
-    from .test_validate_repo_topology_surfaces_a import RepoTopologySurfaceValidationPart1Tests
-    from .test_validate_repo_topology_surfaces_b import RepoTopologySurfaceValidationPart2Tests
-except ImportError:
-    from test_validate_repo_topology_surfaces_a import RepoTopologySurfaceValidationPart1Tests
-    from test_validate_repo_topology_surfaces_b import RepoTopologySurfaceValidationPart2Tests

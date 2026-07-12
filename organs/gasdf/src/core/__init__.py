@@ -1,1 +1,0 @@
-"""GASdf organ core package."""

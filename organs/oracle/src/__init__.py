@@ -1,2 +1,0 @@
-"""Transparency oracle organ package."""
-

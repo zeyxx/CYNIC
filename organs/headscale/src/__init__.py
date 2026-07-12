@@ -1,2 +1,0 @@
-"""Headscale organ source package."""
-

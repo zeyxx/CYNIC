@@ -1,1 +1,0 @@
-"""Solana mechanism library organ."""
