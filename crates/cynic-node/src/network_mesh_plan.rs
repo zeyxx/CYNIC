@@ -1,80 +1,35 @@
 use std::collections::BTreeMap;
+use std::path::Path;
 
+use crate::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader;
+use crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
 use cynic_protocol::{
     NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer,
     NetworkMeshPlan, NetworkMeshRoute, NetworkMeshService,
 };
-use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
-struct Registry {
-    #[serde(default)]
-    network_policy: Option<NetworkPolicy>,
-    #[serde(default)]
-    nodes: Vec<RegistryNode>,
-}
+pub(crate) mod model;
 
-#[derive(Debug, Deserialize)]
-struct NetworkPolicy {
-    #[serde(default)]
-    canonical_service_plane: Option<String>,
-    #[serde(default)]
-    planes: BTreeMap<String, NetworkPlane>,
-    #[serde(default)]
-    reservations: Vec<NetworkReservation>,
-    #[serde(default)]
-    mesh: Option<MeshPolicy>,
-}
-
-#[derive(Debug, Deserialize)]
-struct MeshPolicy {
-    #[serde(default)]
-    provider: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct NetworkPlane {
-    #[serde(default)]
-    cidr: Option<String>,
-    #[serde(default)]
-    dns_zone: Option<String>,
-    #[serde(default)]
-    canonical: Option<bool>,
-}
-
-#[derive(Debug, Deserialize)]
-struct NetworkReservation {
-    name: Option<String>,
-    #[serde(default)]
-    dns: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RegistryNode {
-    id: Option<String>,
-    name: Option<String>,
-    role: Option<String>,
-    status: Option<String>,
-    #[serde(default)]
-    network: BTreeMap<String, String>,
-    #[serde(default)]
-    services: Vec<RegistryService>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RegistryService {
-    name: Option<String>,
-    port: Option<u16>,
-}
+use model::{NetworkPlane, NetworkPolicy, RegistryNode};
 
 pub(crate) fn build_network_mesh_plan(
     registry_path: &str,
     provider_override: Option<&str>,
 ) -> Result<NetworkMeshPlan, String> {
-    let raw = std::fs::read_to_string(registry_path)
-        .map_err(|error| format!("failed to read registry {registry_path}: {error}"))?;
-    let registry: Registry = serde_json::from_str(&raw)
-        .map_err(|error| format!("failed to parse registry {registry_path}: {error}"))?;
+    build_network_mesh_plan_with_reader(
+        registry_path,
+        provider_override,
+        &LocalNetworkMeshRegistryReader,
+    )
+}
+
+fn build_network_mesh_plan_with_reader(
+    registry_path: &str,
+    provider_override: Option<&str>,
+    registry_reader: &impl NetworkMeshRegistryPort,
+) -> Result<NetworkMeshPlan, String> {
+    let registry_path_ref = Path::new(registry_path);
+    let registry = registry_reader.load_mesh_registry(registry_path_ref)?;
     let policy = registry.network_policy.as_ref();
     let service_plane = policy
         .and_then(|policy| policy.canonical_service_plane.clone())
@@ -138,7 +93,7 @@ pub(crate) fn build_network_mesh_plan(
             "insufficient_peers"
         },
         provider,
-        registry_path: registry_path.to_string(),
+        registry_path: registry_path_ref.to_string_lossy().to_string(),
         service_plane,
         cidr: plane.and_then(|plane| plane.cidr.clone()),
         dns_zone: plane.and_then(|plane| plane.dns_zone.clone()),
@@ -241,6 +196,59 @@ fn default_dns_names(id: &str, plane: Option<&NetworkPlane>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
+    use std::path::Path;
+
+    struct FakeRegistryReader;
+
+    impl NetworkMeshRegistryPort for FakeRegistryReader {
+        fn load_mesh_registry(&self, _registry_path: &Path) -> Result<model::MeshRegistry, String> {
+            Ok(model::MeshRegistry {
+                network_policy: Some(NetworkPolicy {
+                    canonical_service_plane: Some("labmesh".to_string()),
+                    planes: BTreeMap::from([(
+                        "labmesh".to_string(),
+                        NetworkPlane {
+                            cidr: Some("10.30.0.0/24".to_string()),
+                            dns_zone: Some("labmesh.example".to_string()),
+                            canonical: Some(true),
+                        },
+                    )]),
+                    reservations: Vec::new(),
+                    mesh: Some(model::MeshPolicy {
+                        provider: Some("wireguard".to_string()),
+                    }),
+                }),
+                nodes: vec![
+                    RegistryNode {
+                        id: None,
+                        name: Some("node-a".to_string()),
+                        role: Some("kernel".to_string()),
+                        status: Some("active".to_string()),
+                        network: BTreeMap::from([
+                            ("labmesh".to_string(), "10.30.0.10".to_string()),
+                            ("local".to_string(), "192.168.1.10".to_string()),
+                        ]),
+                        services: vec![model::RegistryService {
+                            name: Some("ssh".to_string()),
+                            port: Some(22),
+                        }],
+                    },
+                    RegistryNode {
+                        id: None,
+                        name: Some("node-b".to_string()),
+                        role: Some("worker".to_string()),
+                        status: Some("active".to_string()),
+                        network: BTreeMap::from([
+                            ("labmesh".to_string(), "10.30.0.11".to_string()),
+                            ("local".to_string(), "192.168.1.11".to_string()),
+                        ]),
+                        services: Vec::new(),
+                    },
+                ],
+            })
+        }
+    }
 
     #[test]
     fn builds_distributed_mesh_plan_from_lab_registry() {
@@ -265,5 +273,24 @@ mod tests {
                 .any(|record| record.name == "kernel.labmesh.example")
         );
         assert!(!plan.can_apply);
+    }
+
+    #[test]
+    fn plan_can_be_built_from_substituted_registry_port() {
+        let plan = build_network_mesh_plan_with_reader(
+            "/virtual/registry.json",
+            None,
+            &FakeRegistryReader,
+        )
+        .expect("plan");
+        assert_eq!(plan.registry_path, "/virtual/registry.json");
+        assert_eq!(plan.provider, "wireguard");
+        assert_eq!(plan.desired_peer_count, 2);
+        assert_eq!(plan.status, "planned");
+        assert!(
+            plan.routes
+                .iter()
+                .all(|route| route.provider == "wireguard")
+        );
     }
 }

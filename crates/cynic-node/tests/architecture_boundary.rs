@@ -331,6 +331,58 @@ fn network_mesh_apply_plan_reads_bundles_through_a_port() {
 }
 
 #[test]
+fn network_mesh_plan_reads_registry_through_a_port() {
+    let root = crate_root();
+    let planner = fs::read_to_string(root.join("src/network_mesh_plan.rs"))
+        .expect("read network_mesh_plan.rs");
+    let domain_model = fs::read_to_string(root.join("src/network_mesh_plan/model.rs"))
+        .expect("read network_mesh_plan/model.rs");
+    let port = fs::read_to_string(root.join("src/ports/network_mesh_registry_port.rs"))
+        .expect("read ports/network_mesh_registry_port.rs");
+    let adapter = fs::read_to_string(root.join("src/adapters/local_network_mesh_registry/mod.rs"))
+        .expect("read adapters/local_network_mesh_registry/mod.rs");
+
+    assert!(
+        planner.lines().count() <= 300
+            && planner.contains("pub(crate) mod model;")
+            && planner.contains("build_network_mesh_plan_with_reader"),
+        "network_mesh_plan.rs must stay a thin mesh planning surface"
+    );
+    for forbidden in [
+        "std::fs::read_to_string",
+        "serde_json::from_str(&raw)",
+        "Deserialize",
+    ] {
+        assert!(
+            !planner.contains(forbidden),
+            "network_mesh_plan.rs must not own registry file loading/parsing: {forbidden}"
+        );
+    }
+    assert!(
+        domain_model.contains("pub(crate) struct MeshRegistry")
+            && domain_model.contains("pub(crate) struct NetworkPolicy")
+            && domain_model.contains("pub(crate) struct RegistryNode"),
+        "mesh registry DTOs must live in network_mesh_plan/model.rs"
+    );
+    assert!(
+        port.contains("pub(crate) trait NetworkMeshRegistryPort")
+            && port.contains("fn load_mesh_registry"),
+        "mesh plan registry loading must expose a dedicated port"
+    );
+    assert!(
+        adapter.contains("impl NetworkMeshRegistryPort for LocalNetworkMeshRegistryReader")
+            && adapter.contains("fs::read_to_string")
+            && adapter.contains("serde_json::from_str"),
+        "local mesh registry file loading must live in the local adapter"
+    );
+    let tests = planner.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    assert!(
+        tests.contains("FakeRegistryReader") && tests.contains("/virtual/registry.json"),
+        "network mesh plan tests must prove substituted registry loading"
+    );
+}
+
+#[test]
 fn network_actuator_bundle_uses_portable_command_context() {
     let root = crate_root();
     let bundle =
