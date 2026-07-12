@@ -222,3 +222,41 @@ fn privilege_domain_uses_explicit_command_context_for_portability() {
         );
     }
 }
+
+#[test]
+fn principal_domain_uses_explicit_command_context_for_portability() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let principal =
+        fs::read_to_string(root.join("src/domain/principal.rs")).expect("read domain/principal.rs");
+    let production_principal = principal.split("#[cfg(test)]").next().unwrap_or(&principal);
+
+    assert!(
+        production_principal.contains("pub struct PrincipalCommandContext")
+            && production_principal.contains("pub fn activation_plan_with_context")
+            && production_principal.contains("pub fn apply_report_with_context"),
+        "principal domain must expose explicit command-context entrypoints"
+    );
+    assert!(
+        production_principal.contains("getent_bin"),
+        "principal identity checks must be generated from injectable command context"
+    );
+
+    let production_without_context_factory = production_principal
+        .replace("pub fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "")
+        .replace("getent_bin: runtime_layout.getent_bin(),", "");
+    assert!(
+        !production_without_context_factory.contains("current_runtime_layout()"),
+        "principal command construction must consume PrincipalCommandContext instead of reading global runtime layout"
+    );
+    for forbidden in [
+        "runtime_layout.getent_bin()",
+        "format!(\"getent passwd",
+        "format!(\"getent group",
+    ] {
+        assert!(
+            !production_without_context_factory.contains(forbidden),
+            "principal domain must not hardwire identity command construction: {forbidden}"
+        );
+    }
+}

@@ -59,6 +59,20 @@ pub struct PrincipalObservedState {
     pub present_state_dirs: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrincipalCommandContext {
+    pub getent_bin: String,
+}
+
+impl PrincipalCommandContext {
+    pub fn from_current_runtime() -> Self {
+        let runtime_layout = current_runtime_layout();
+        Self {
+            getent_bin: runtime_layout.getent_bin(),
+        }
+    }
+}
+
 impl PrincipalPolicy {
     pub fn contract(&self) -> SubstrateDomainContract {
         SubstrateDomainContract {
@@ -122,14 +136,20 @@ impl PrincipalPolicy {
     }
 
     pub fn activation_plan(&self) -> PrincipalActivationPlan {
-        let runtime_layout = current_runtime_layout();
+        self.activation_plan_with_context(&PrincipalCommandContext::from_current_runtime())
+    }
+
+    pub fn activation_plan_with_context(
+        &self,
+        context: &PrincipalCommandContext,
+    ) -> PrincipalActivationPlan {
         PrincipalActivationPlan {
             status: SurfaceStatus::Planned,
             preflight: vec![
                 argv_command(
                     "query_user",
                     vec![
-                        runtime_layout.getent_bin(),
+                        context.getent_bin.clone(),
                         "passwd".to_string(),
                         self.runtime_user.clone(),
                     ],
@@ -137,7 +157,7 @@ impl PrincipalPolicy {
                 argv_command(
                     "query_group",
                     vec![
-                        runtime_layout.getent_bin(),
+                        context.getent_bin.clone(),
                         "group".to_string(),
                         self.runtime_group.clone(),
                     ],
@@ -148,7 +168,7 @@ impl PrincipalPolicy {
                 argv_command(
                     "query_user",
                     vec![
-                        runtime_layout.getent_bin(),
+                        context.getent_bin.clone(),
                         "passwd".to_string(),
                         self.runtime_user.clone(),
                     ],
@@ -170,13 +190,21 @@ impl PrincipalPolicy {
     }
 
     pub fn apply_report(&self, dry_run: bool) -> PrincipalApplyReport {
+        self.apply_report_with_context(dry_run, &PrincipalCommandContext::from_current_runtime())
+    }
+
+    pub fn apply_report_with_context(
+        &self,
+        dry_run: bool,
+        context: &PrincipalCommandContext,
+    ) -> PrincipalApplyReport {
         PrincipalApplyReport {
             status: SurfaceStatus::Planned,
             dry_run,
             commands: self.install_commands(),
             proofs_required: vec![
-                format!("getent passwd {}", self.runtime_user),
-                format!("getent group {}", self.runtime_group),
+                format!("{} passwd {}", context.getent_bin, self.runtime_user),
+                format!("{} group {}", context.getent_bin, self.runtime_group),
                 format!("test -d {}", self.home_dir),
             ],
         }
@@ -259,5 +287,65 @@ impl PrincipalPolicy {
             )
         }));
         commands
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PrincipalCommandContext, PrincipalObservedState, PrincipalPolicy};
+    use crate::command_surface::render_command;
+    use crate::domain::shared::SurfaceStatus;
+
+    fn context() -> PrincipalCommandContext {
+        PrincipalCommandContext {
+            getent_bin: "/portable/bin/getent".to_string(),
+        }
+    }
+
+    fn policy() -> PrincipalPolicy {
+        PrincipalPolicy {
+            runtime_user: "cynic".to_string(),
+            runtime_group: "cynic".to_string(),
+            home_dir: "/var/lib/cynic".to_string(),
+            config_dir: "/etc/cynic".to_string(),
+            state_dirs: vec!["/var/lib/cynic/state".to_string()],
+        }
+    }
+
+    #[test]
+    fn activation_plan_uses_injected_principal_command_context() {
+        let activation = policy().activation_plan_with_context(&context());
+        let rendered = activation
+            .preflight
+            .iter()
+            .chain(activation.postflight.iter())
+            .map(render_command)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("/portable/bin/getent passwd cynic"));
+        assert!(rendered.contains("/portable/bin/getent group cynic"));
+    }
+
+    #[test]
+    fn apply_report_uses_injected_principal_command_context() {
+        let report = policy().apply_report_with_context(true, &context());
+        let rendered = report.proofs_required.join("\n");
+
+        assert!(rendered.contains("/portable/bin/getent passwd cynic"));
+        assert!(rendered.contains("/portable/bin/getent group cynic"));
+        assert!(rendered.contains("test -d /var/lib/cynic"));
+    }
+
+    #[test]
+    fn status_blocks_when_home_does_not_match_policy() {
+        let report = policy().status(&PrincipalObservedState {
+            user_present: true,
+            group_present: true,
+            observed_home_dir: Some("/wrong".to_string()),
+            present_state_dirs: vec!["/var/lib/cynic/state".to_string()],
+        });
+
+        assert_eq!(report.status, SurfaceStatus::Blocked);
     }
 }
