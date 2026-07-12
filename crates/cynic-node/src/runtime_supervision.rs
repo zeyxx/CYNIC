@@ -4,13 +4,16 @@ use process_wrap::tokio::ChildWrapper;
 use reqwest::Client;
 use tokio_util::sync::CancellationToken;
 
-use crate::ExitReason;
 use crate::announce;
 use crate::config;
 use crate::config::Config;
 use crate::config_watch;
-use crate::run_lifecycle;
+use crate::domain::supervision::ExitReason;
 use crate::supervise;
+
+mod lifecycle;
+
+use lifecycle::run_lifecycle;
 
 /// The main supervision loop. Returns `ExitCode::SUCCESS` on clean shutdown,
 /// `ExitCode::FAILURE` on unrecoverable errors.
