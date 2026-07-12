@@ -297,3 +297,46 @@ fn network_mesh_apply_plan_reads_bundles_through_a_port() {
         "network_mesh_apply_plan.rs must plan through the bundle port with a thin local façade"
     );
 }
+
+#[test]
+fn network_actuator_bundle_uses_portable_command_context() {
+    let root = crate_root();
+    let bundle =
+        fs::read_to_string(root.join("src/network_actuator/bundle.rs")).expect("read bundle.rs");
+    let production_bundle = bundle.split("#[cfg(test)]").next().unwrap_or(&bundle);
+    let context = fs::read_to_string(root.join("src/network_actuator/bundle/context.rs"))
+        .expect("read bundle/context.rs");
+    let commands = fs::read_to_string(root.join("src/network_actuator/bundle/commands.rs"))
+        .expect("read bundle/commands.rs");
+
+    assert!(
+        bundle.lines().count() <= 420
+            && bundle.contains("mod commands;")
+            && bundle.contains("mod context;"),
+        "network_actuator/bundle.rs must stay below monolith size and delegate bounded details"
+    );
+    assert!(
+        context.contains("pub(crate) struct NetworkActuatorBundleContext")
+            && context.contains("pub(crate) fn from_current_runtime() -> Self")
+            && context.contains("denied_shell_bin"),
+        "network actuator bundle must expose an explicit injectable command context"
+    );
+    assert!(
+        commands.contains("pub(super) fn denial_checks")
+            && commands.contains("pub(super) fn postflight_commands")
+            && commands.contains("context.denied_shell_bin.clone()"),
+        "network actuator command/proof surfaces must consume the injected context"
+    );
+    assert!(
+        !commands.contains("\"/bin/sh\"")
+            && !commands.contains("\"/usr/bin/sudo\"")
+            && !commands.contains("\"/sbin/ip\"")
+            && !commands.contains("\"/usr/bin/wg\""),
+        "network actuator commands must not hardcode host-specific binaries"
+    );
+    assert!(
+        !production_bundle.contains("current_runtime_layout()")
+            && !production_bundle.contains("struct NetworkActuatorRuntimeContext"),
+        "network actuator bundle orchestration must not own runtime probing detail"
+    );
+}

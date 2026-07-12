@@ -10,7 +10,6 @@ use cynic_host::install_contract::{
     MODE_0440, MODE_0644, MODE_0755, ROOT_OWNERSHIP, mode_map, owner_string, root_owned_path,
 };
 use cynic_host::registry::DEFAULT_REGISTRY_PATH;
-use cynic_host::runtime_layout::current_runtime_layout;
 
 use crate::network_actuator::policy::build_policy_document;
 use crate::network_actuator::types::{
@@ -19,28 +18,21 @@ use crate::network_actuator::types::{
 use crate::network_actuator_contract::{
     NETWORK_ACTUATOR_HELPER_FILENAME, NETWORK_ACTUATOR_MANIFEST_FILENAME,
     NETWORK_ACTUATOR_POLICY_FILENAME, NETWORK_ACTUATOR_SUDOERS_FILENAME, bundle_required_files,
-    helper_path, policy_path, sudoers_path, sudoers_projection, sudoers_rule,
+    sudoers_projection,
 };
 use crate::network_command_surface::{
-    NetworkCommandSurface, argv_command, expectation, from_host_command, install_dir_command,
+    NetworkCommandSurface, expectation, from_host_command, install_dir_command,
     install_file_command, render_command,
 };
-use crate::network_diagnostic_surface::{NetworkDiagnostic, diagnostic};
 use crate::observe::NodeObservation;
 
-#[derive(Debug, Clone)]
-struct NetworkActuatorRuntimeContext {
-    helper_target: String,
-    policy_target: String,
-    sudoers_target: String,
-    sudoers_rule: String,
-    helper_dir: String,
-    config_dir: String,
-    sudoers_dir: String,
-    sudo_bin: String,
-    route_bin: String,
-    wireguard_bin: String,
-}
+mod commands;
+mod context;
+
+use commands::{
+    denial_checks, deny_route_command, postflight_commands, preflight_commands, success_criteria,
+};
+use context::{NetworkActuatorBundleContext, helper_install_runtime};
 
 pub(crate) fn write_install_bundle(
     observation: &NodeObservation,
@@ -76,7 +68,7 @@ pub(crate) fn write_install_bundle(
         &helper_source.to_string_lossy(),
         &policy_target.to_string_lossy(),
         &output_dir.to_string_lossy(),
-        &runtime_context(),
+        &NetworkActuatorBundleContext::from_current_runtime(),
     );
     fs::write(
         &manifest_target,
@@ -91,7 +83,7 @@ pub(crate) fn activation_plan(
     bundle_dir: impl AsRef<Path>,
 ) -> NetworkActuatorActivationPlan {
     let bundle_dir = bundle_dir.as_ref();
-    let context = runtime_context();
+    let context = NetworkActuatorBundleContext::from_current_runtime();
     let install_plan = install_bundle_manifest_with_context(
         "<current_executable>",
         &bundle_dir
@@ -106,7 +98,7 @@ pub(crate) fn activation_plan(
 fn activation_plan_with_context(
     bundle_dir: &Path,
     install_plan: NetworkActuatorBundleManifest,
-    context: &NetworkActuatorRuntimeContext,
+    context: &NetworkActuatorBundleContext,
 ) -> NetworkActuatorActivationPlan {
     let bundle_dir_str = bundle_dir.to_string_lossy().to_string();
     let bundle_files = install_plan.bundle_files.clone();
@@ -146,12 +138,8 @@ fn activation_plan_with_context(
                 from_host_command(helper_runtime.validate_sudoers_command()),
             ])
             .collect(),
-        postflight: postflight_commands(&context.sudo_bin, &context.helper_target),
-        denial_checks: denial_checks(
-            &context.sudo_bin,
-            &context.route_bin,
-            &context.wireguard_bin,
-        ),
+        postflight: postflight_commands(context),
+        denial_checks: denial_checks(context),
         success_criteria: success_criteria(),
     }
 }
@@ -160,7 +148,7 @@ fn install_bundle_manifest_with_context(
     helper_source: &str,
     policy_source: &str,
     bundle_dir: &str,
-    context: &NetworkActuatorRuntimeContext,
+    context: &NetworkActuatorBundleContext,
 ) -> NetworkActuatorBundleManifest {
     let helper_runtime = helper_install_runtime(context);
     let prepare_directories = prepare_directories(context);
@@ -216,9 +204,9 @@ fn bundle_files(bundle_dir: &str) -> BTreeMap<&'static str, String> {
 
 fn activation_checks(
     prepare_directories: Vec<NetworkCommandSurface>,
-    context: &NetworkActuatorRuntimeContext,
+    context: &NetworkActuatorBundleContext,
 ) -> Vec<NetworkCommandSurface> {
-    let deny_direct_route = deny_direct_route_command(context);
+    let deny_direct_route = deny_route_command(context);
     prepare_directories
         .into_iter()
         .chain([
@@ -252,7 +240,7 @@ fn activation_checks(
         .collect()
 }
 
-fn prepare_directories(context: &NetworkActuatorRuntimeContext) -> Vec<NetworkCommandSurface> {
+fn prepare_directories(context: &NetworkActuatorBundleContext) -> Vec<NetworkCommandSurface> {
     let mut commands = helper_install_runtime(context)
         .prepare_directories()
         .into_iter()
@@ -267,214 +255,6 @@ fn prepare_directories(context: &NetworkActuatorRuntimeContext) -> Vec<NetworkCo
         root_owned_path(MODE_0755),
     ));
     commands
-}
-
-fn runtime_context() -> NetworkActuatorRuntimeContext {
-    let runtime_layout = current_runtime_layout();
-    let capabilities = runtime_layout.capabilities();
-    NetworkActuatorRuntimeContext {
-        helper_target: helper_path(),
-        policy_target: policy_path(),
-        sudoers_target: sudoers_path(),
-        sudoers_rule: sudoers_rule(),
-        helper_dir: runtime_layout.helper_dir.clone(),
-        config_dir: runtime_layout.config_dir.clone(),
-        sudoers_dir: runtime_layout.sudoers_dir.clone(),
-        sudo_bin: runtime_layout.sudo_bin(),
-        route_bin: capabilities.route_tool.command.clone(),
-        wireguard_bin: capabilities.wireguard_tool.command.clone(),
-    }
-}
-
-fn helper_install_runtime(context: &NetworkActuatorRuntimeContext) -> BoundedHelperInstallRuntime {
-    BoundedHelperInstallRuntime {
-        helper_target: context.helper_target.clone(),
-        sudoers_target: context.sudoers_target.clone(),
-        helper_dir: context.helper_dir.clone(),
-        sudoers_dir: context.sudoers_dir.clone(),
-    }
-}
-
-fn preflight_commands(bundle_dir_str: &str) -> Vec<NetworkCommandSurface> {
-    vec![
-        cargo_build_helper_command(),
-        cargo_run_network_command(
-            "bundle",
-            vec![
-                "actuator-bundle".to_string(),
-                "--output-dir".to_string(),
-                bundle_dir_str.to_string(),
-            ],
-        ),
-        status_command(),
-        evidence_command(),
-    ]
-}
-
-fn postflight_commands(sudo_bin: &str, helper_target: &str) -> Vec<NetworkCommandSurface> {
-    vec![
-        status_command(),
-        evidence_command(),
-        prove_profile_apply_command(sudo_bin, helper_target),
-    ]
-}
-
-fn denial_checks(
-    sudo_bin: &str,
-    route_bin: &str,
-    wireguard_bin: &str,
-) -> Vec<NetworkCommandSurface> {
-    vec![
-        deny_route_command(sudo_bin, route_bin),
-        deny_wireguard_command(sudo_bin, wireguard_bin),
-        deny_shell_command(sudo_bin),
-    ]
-}
-
-fn prove_profile_apply_command(sudo_bin: &str, helper_target: &str) -> NetworkCommandSurface {
-    argv_command(
-        "prove_profile_apply",
-        vec![
-            sudo_bin.to_string(),
-            "-n".to_string(),
-            helper_target.to_string(),
-            "apply".to_string(),
-            "--profile".to_string(),
-            "synapse-route".to_string(),
-            "--registry".to_string(),
-            DEFAULT_REGISTRY_PATH.to_string(),
-            "--apply".to_string(),
-        ],
-    )
-}
-
-fn deny_direct_route_command(context: &NetworkActuatorRuntimeContext) -> NetworkCommandSurface {
-    argv_command(
-        "deny_direct_route",
-        vec![
-            context.sudo_bin.clone(),
-            "-n".to_string(),
-            context.route_bin.clone(),
-            "route".to_string(),
-            "show".to_string(),
-        ],
-    )
-}
-
-fn success_criteria() -> Vec<NetworkDiagnostic> {
-    vec![
-        activation_status_active_criterion(),
-        network_actuator_status_active_criterion(),
-        direct_commands_denied_criterion(),
-    ]
-}
-
-fn deny_route_command(sudo_bin: &str, route_bin: &str) -> NetworkCommandSurface {
-    argv_command(
-        "deny_route",
-        vec![
-            sudo_bin.to_string(),
-            "-n".to_string(),
-            route_bin.to_string(),
-            "route".to_string(),
-            "show".to_string(),
-        ],
-    )
-}
-
-fn deny_wireguard_command(sudo_bin: &str, wireguard_bin: &str) -> NetworkCommandSurface {
-    argv_command(
-        "deny_wireguard",
-        vec![
-            sudo_bin.to_string(),
-            "-n".to_string(),
-            wireguard_bin.to_string(),
-            "show".to_string(),
-        ],
-    )
-}
-
-fn deny_shell_command(sudo_bin: &str) -> NetworkCommandSurface {
-    argv_command(
-        "deny_shell",
-        vec![
-            sudo_bin.to_string(),
-            "-n".to_string(),
-            "/bin/sh".to_string(),
-            "-c".to_string(),
-            "true".to_string(),
-        ],
-    )
-}
-
-fn activation_status_active_criterion() -> NetworkDiagnostic {
-    diagnostic(
-        "activation_status_active",
-        "success_criteria",
-        "activation-status reports status=active",
-    )
-}
-
-fn network_actuator_status_active_criterion() -> NetworkDiagnostic {
-    diagnostic(
-        "network_actuator_status_active",
-        "success_criteria",
-        "cynic-node network actuator-status reports status=active",
-    )
-}
-
-fn direct_commands_denied_criterion() -> NetworkDiagnostic {
-    diagnostic(
-        "direct_commands_denied",
-        "success_criteria",
-        "direct ip/wg/shell commands remain denied for cynic",
-    )
-}
-
-fn status_command() -> NetworkCommandSurface {
-    cargo_run_network_command(
-        "status",
-        vec!["actuator-status".to_string(), "--json".to_string()],
-    )
-}
-
-fn evidence_command() -> NetworkCommandSurface {
-    cargo_run_network_command(
-        "evidence",
-        vec!["evidence".to_string(), "--json".to_string()],
-    )
-}
-
-fn cargo_build_helper_command() -> NetworkCommandSurface {
-    argv_command(
-        "build",
-        vec![
-            "cargo".to_string(),
-            "build".to_string(),
-            "-q".to_string(),
-            "-p".to_string(),
-            "cynic-node".to_string(),
-            "--bin".to_string(),
-            NETWORK_ACTUATOR_HELPER_FILENAME.to_string(),
-        ],
-    )
-}
-
-fn cargo_run_network_command(
-    role: &'static str,
-    network_args: Vec<String>,
-) -> NetworkCommandSurface {
-    let mut argv = vec![
-        "cargo".to_string(),
-        "run".to_string(),
-        "-q".to_string(),
-        "-p".to_string(),
-        "cynic-node".to_string(),
-        "--".to_string(),
-        "network".to_string(),
-    ];
-    argv.extend(network_args);
-    argv_command(role, argv)
 }
 
 fn prepare_bundle_target(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
@@ -512,25 +292,26 @@ fn bundle_complete(bundle_dir: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        NetworkActuatorRuntimeContext, activation_plan_with_context,
+        NetworkActuatorBundleContext, activation_plan_with_context,
         install_bundle_manifest_with_context,
     };
     use crate::network_command_surface::NetworkCommandInvocation;
     use std::path::Path;
 
-    fn test_context() -> NetworkActuatorRuntimeContext {
-        NetworkActuatorRuntimeContext {
-            helper_target: "/usr/local/bin/cynic-network-actuator".to_string(),
-            policy_target: "/etc/cynic/network-actuator.policy.json".to_string(),
-            sudoers_target: "/etc/sudoers.d/cynic-network-actuator".to_string(),
-            sudoers_rule: "cynic ALL=(root) NOPASSWD: /usr/local/bin/cynic-network-actuator"
+    fn test_context() -> NetworkActuatorBundleContext {
+        NetworkActuatorBundleContext {
+            helper_target: "/portable/bin/cynic-network-actuator".to_string(),
+            policy_target: "/portable/etc/cynic/network-actuator.policy.json".to_string(),
+            sudoers_target: "/portable/etc/sudoers.d/cynic-network-actuator".to_string(),
+            sudoers_rule: "cynic ALL=(root) NOPASSWD: /portable/bin/cynic-network-actuator"
                 .to_string(),
-            helper_dir: "/usr/local/bin".to_string(),
-            config_dir: "/etc/cynic".to_string(),
-            sudoers_dir: "/etc/sudoers.d".to_string(),
-            sudo_bin: "/usr/bin/sudo".to_string(),
-            route_bin: "/sbin/ip".to_string(),
-            wireguard_bin: "/usr/bin/wg".to_string(),
+            helper_dir: "/portable/bin".to_string(),
+            config_dir: "/portable/etc/cynic".to_string(),
+            sudoers_dir: "/portable/etc/sudoers.d".to_string(),
+            sudo_bin: "/portable/bin/sudo".to_string(),
+            route_bin: "/portable/bin/ip".to_string(),
+            wireguard_bin: "/portable/bin/wg".to_string(),
+            denied_shell_bin: "/portable/bin/sh".to_string(),
         }
     }
 
@@ -545,21 +326,21 @@ mod tests {
 
         assert_eq!(
             manifest.helper_target,
-            "/usr/local/bin/cynic-network-actuator"
+            "/portable/bin/cynic-network-actuator"
         );
         assert_eq!(
             manifest.policy_target,
-            "/etc/cynic/network-actuator.policy.json"
+            "/portable/etc/cynic/network-actuator.policy.json"
         );
         assert_eq!(
             manifest.sudoers_target,
-            "/etc/sudoers.d/cynic-network-actuator"
+            "/portable/etc/sudoers.d/cynic-network-actuator"
         );
         assert!(
             manifest
                 .activation_checks
                 .iter()
-                .any(|item| matches!(&item.invocation, NetworkCommandInvocation::Expectation { text } if text.contains("/usr/bin/sudo -n /sbin/ip route show")))
+                .any(|item| matches!(&item.invocation, NetworkCommandInvocation::Expectation { text } if text.contains("/portable/bin/sudo -n /portable/bin/ip route show")))
         );
     }
 
@@ -580,7 +361,7 @@ mod tests {
                 .iter()
                 .find_map(|command| match &command.invocation {
                     NetworkCommandInvocation::InstallFile { target, .. }
-                        if target == "/usr/local/bin/cynic-network-actuator" =>
+                        if target == "/portable/bin/cynic-network-actuator" =>
                     {
                         Some(target)
                     }
@@ -588,12 +369,18 @@ mod tests {
                 });
         assert_eq!(
             helper_install,
-            Some(&"/usr/local/bin/cynic-network-actuator".to_string())
+            Some(&"/portable/bin/cynic-network-actuator".to_string())
         );
         match &plan.denial_checks[0].invocation {
             NetworkCommandInvocation::Argv { argv } => {
-                assert_eq!(argv[0], "/usr/bin/sudo");
-                assert_eq!(argv[2], "/sbin/ip");
+                assert_eq!(argv[0], "/portable/bin/sudo");
+                assert_eq!(argv[2], "/portable/bin/ip");
+            }
+            _ => panic!("expected argv command"),
+        }
+        match &plan.denial_checks[2].invocation {
+            NetworkCommandInvocation::Argv { argv } => {
+                assert_eq!(argv[2], "/portable/bin/sh");
             }
             _ => panic!("expected argv command"),
         }
