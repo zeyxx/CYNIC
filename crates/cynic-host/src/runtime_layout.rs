@@ -120,6 +120,13 @@ impl HostRuntimeLayout {
             .to_string()
     }
 
+    pub fn host_exec_policy_path(&self) -> String {
+        PathBuf::from(&self.config_dir)
+            .join("host-exec.policy.json")
+            .display()
+            .to_string()
+    }
+
     pub fn network_actuator_helper_path(&self) -> String {
         PathBuf::from(&self.helper_dir)
             .join("cynic-network-actuator")

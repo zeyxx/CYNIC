@@ -9,6 +9,7 @@ pub mod execution;
 pub mod filesystem_observation;
 pub mod framework_bootstrap;
 pub mod host_bootstrap_evidence;
+pub mod host_exec_cli;
 pub mod host_exec_policy;
 pub mod install_contract;
 pub mod lab;
