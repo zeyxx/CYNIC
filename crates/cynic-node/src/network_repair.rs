@@ -12,11 +12,23 @@ use crate::network_root_policy::{NetworkRootPolicy, build_root_policy};
 use crate::observe::NodeObservation;
 
 #[derive(Debug, Clone)]
-struct NetworkRepairRuntimeContext {
+struct NetworkRepairContext {
     route_command: String,
     network_actuator_bundle_dir: String,
     provider_fallback_bundle_dir: String,
     dns_bundle_dir: String,
+}
+
+impl NetworkRepairContext {
+    fn from_current_runtime() -> Self {
+        let runtime_layout = current_runtime_layout();
+        Self {
+            route_command: runtime_layout.capabilities().route_tool.command.clone(),
+            network_actuator_bundle_dir: runtime_layout.network_actuator_bundle_dir.clone(),
+            provider_fallback_bundle_dir: runtime_layout.provider_fallback_bundle_dir,
+            dns_bundle_dir: runtime_layout.dns_bundle_dir,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -50,10 +62,17 @@ struct NetworkRepairStep {
 }
 
 pub(crate) fn build_dry_run_plan(observation: &NodeObservation) -> NetworkRepairPlan {
+    build_dry_run_plan_with_context(observation, &NetworkRepairContext::from_current_runtime())
+}
+
+fn build_dry_run_plan_with_context(
+    observation: &NodeObservation,
+    context: &NetworkRepairContext,
+) -> NetworkRepairPlan {
     let steps = observation
         .remediation
         .iter()
-        .map(|remediation| repair_step(observation, remediation))
+        .map(|remediation| repair_step_with_context(observation, remediation, context))
         .collect::<Vec<_>>();
 
     NetworkRepairPlan {
@@ -75,9 +94,10 @@ pub(crate) fn build_dry_run_plan(observation: &NodeObservation) -> NetworkRepair
     }
 }
 
-fn repair_step(
+fn repair_step_with_context(
     observation: &NodeObservation,
     remediation: &NodeRuntimeRemediation,
+    context: &NetworkRepairContext,
 ) -> NetworkRepairStep {
     NetworkRepairStep {
         action: remediation.action.clone(),
@@ -86,28 +106,14 @@ fn repair_step(
         requires_root: remediation.requires_root,
         canonical_surface: remediation.canonical_surface,
         fallback_surface: remediation.fallback_surface.clone(),
-        command_preview: command_preview(observation, &remediation.action),
+        command_preview: command_preview_with_context(observation, &remediation.action, context),
     }
-}
-
-fn command_preview(
-    observation: &NodeObservation,
-    action: &NodeRuntimeAction,
-) -> Vec<NetworkCommandSurface> {
-    let runtime_layout = current_runtime_layout();
-    let context = NetworkRepairRuntimeContext {
-        route_command: runtime_layout.capabilities().route_tool.command.clone(),
-        network_actuator_bundle_dir: runtime_layout.network_actuator_bundle_dir.clone(),
-        provider_fallback_bundle_dir: runtime_layout.provider_fallback_bundle_dir,
-        dns_bundle_dir: runtime_layout.dns_bundle_dir,
-    };
-    command_preview_with_context(observation, action, &context)
 }
 
 fn command_preview_with_context(
     observation: &NodeObservation,
     action: &NodeRuntimeAction,
-    context: &NetworkRepairRuntimeContext,
+    context: &NetworkRepairContext,
 ) -> Vec<NetworkCommandSurface> {
     match action {
         NodeRuntimeAction::RestoreProviderFallbackRoute => observation
@@ -318,6 +324,15 @@ mod tests {
     use crate::domain::node_observation::NodeRuntimeCapabilities;
     use crate::network_command_surface::{NetworkCommandInvocation, render_command};
 
+    fn portable_context() -> NetworkRepairContext {
+        NetworkRepairContext {
+            route_command: "/portable/bin/ip".to_string(),
+            network_actuator_bundle_dir: "/portable/runtime/actuator".to_string(),
+            provider_fallback_bundle_dir: "/portable/runtime/provider-fallback".to_string(),
+            dns_bundle_dir: "/portable/runtime/dns".to_string(),
+        }
+    }
+
     #[test]
     fn dry_run_plan_never_mutates_host_even_when_steps_would() {
         let observation = NodeObservation::synthetic_for_tests(
@@ -332,7 +347,7 @@ mod tests {
             Some("192.168.0.37".to_string()),
         );
 
-        let plan = build_dry_run_plan(&observation);
+        let plan = build_dry_run_plan_with_context(&observation, &portable_context());
 
         assert!(plan.dry_run);
         assert!(!plan.mutates_host);
@@ -362,18 +377,13 @@ mod tests {
         let preview = command_preview_with_context(
             &observation,
             &NodeRuntimeAction::RestoreProviderFallbackRoute,
-            &NetworkRepairRuntimeContext {
-                route_command: "/sbin/ip".to_string(),
-                network_actuator_bundle_dir: "/tmp/actuator".to_string(),
-                provider_fallback_bundle_dir: "/tmp/provider".to_string(),
-                dns_bundle_dir: "/tmp/dns".to_string(),
-            },
+            &portable_context(),
         );
 
         assert_eq!(preview.len(), 1);
         match &preview[0].invocation {
             NetworkCommandInvocation::Argv { argv } => {
-                assert_eq!(argv[0], "/sbin/ip");
+                assert_eq!(argv[0], "/portable/bin/ip");
                 assert!(argv.join(" ").contains("192.168.0.37"));
             }
             other => panic!(
@@ -384,5 +394,32 @@ mod tests {
                 })
             ),
         }
+    }
+
+    #[test]
+    fn actuator_preview_uses_injected_bundle_directories() {
+        let observation = NodeObservation::synthetic_for_tests(
+            NodeRuntimeCapabilities {
+                provider_fallback_active: true,
+                synapse_route_active: false,
+                wireguard_active: false,
+                critical_dns_ok: true,
+                critical_dns_canonical: true,
+                critical_tcp_open: true,
+            },
+            Some("192.168.0.37".to_string()),
+        );
+        let preview = command_preview_with_context(
+            &observation,
+            &NodeRuntimeAction::ActivateSynapseRoute,
+            &portable_context(),
+        );
+
+        assert!(
+            preview
+                .iter()
+                .map(render_command)
+                .any(|item| item.contains("/portable/runtime/actuator"))
+        );
     }
 }

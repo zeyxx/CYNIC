@@ -477,3 +477,53 @@ fn network_root_policy_uses_explicit_command_context() {
         );
     }
 }
+
+#[test]
+fn network_repair_uses_explicit_command_context() {
+    let root = crate_root();
+    let repair =
+        fs::read_to_string(root.join("src/network_repair.rs")).expect("read network_repair.rs");
+    let production_repair = repair.split("#[cfg(test)]").next().unwrap_or(&repair);
+    let repair_without_context_factory = production_repair
+        .replace("fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "");
+
+    assert!(
+        production_repair.contains("struct NetworkRepairContext")
+            && production_repair.contains("fn from_current_runtime() -> Self")
+            && production_repair.contains("fn build_dry_run_plan_with_context")
+            && production_repair.contains("fn command_preview_with_context"),
+        "network repair must expose explicit context-driven entrypoints"
+    );
+    assert!(
+        repair_without_context_factory.contains("NetworkRepairContext::from_current_runtime()")
+            && !repair_without_context_factory.contains("current_runtime_layout()"),
+        "runtime layout probing must be isolated in NetworkRepairContext::from_current_runtime"
+    );
+    assert!(
+        production_repair.contains("context.route_command.clone()")
+            && production_repair.contains("context.network_actuator_bundle_dir.clone()")
+            && production_repair.contains("context.provider_fallback_bundle_dir.clone()")
+            && production_repair.contains("context.dns_bundle_dir.clone()"),
+        "network repair previews must consume injected runtime paths and commands"
+    );
+    let tests = repair.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    assert!(
+        tests.contains("/portable/bin/ip")
+            && tests.contains("/portable/runtime/actuator")
+            && tests.contains("/portable/runtime/provider-fallback")
+            && tests.contains("/portable/runtime/dns"),
+        "network repair tests must prove portable path injection"
+    );
+    for stale_fixture in [
+        "\"/sbin/ip\"",
+        "\"/tmp/actuator\"",
+        "\"/tmp/provider\"",
+        "\"/tmp/dns\"",
+    ] {
+        assert!(
+            !tests.contains(stale_fixture),
+            "network repair tests must not preserve host-specific fixture: {stale_fixture}"
+        );
+    }
+}
