@@ -1,65 +1,24 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use cynic_host::runtime_layout::current_runtime_layout;
 
-use crate::network_actuator::CommandExecution;
-use crate::network_actuator::execution::run_command;
-use crate::network_command_surface::{NetworkCommandSurface, argv_command, expectation};
-use crate::network_diagnostic_surface::{NetworkDiagnostic, diagnostic};
+use crate::adapters::local_network_mesh_bundle::LocalNetworkMeshBundleReader;
+use crate::network_command_surface::NetworkCommandSurface;
+use crate::ports::network_mesh_bundle_port::NetworkMeshBundlePort;
 
-const MANIFEST_FILENAME: &str = "manifest.json";
-const PLAN_FILENAME: &str = "mesh-plan.json";
+mod command_plan;
+mod policy;
+mod profile_execution;
 
-#[derive(Debug, Clone, Deserialize)]
-struct MeshBundleManifest {
-    schema: String,
-    status: String,
-    provider: String,
-    bundle_files: Vec<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct MeshPlanFile {
-    provider: String,
-    cidr: Option<String>,
-    desired_peer_count: usize,
-    desired_peers: Vec<MeshPlanPeerFile>,
-    routes: Vec<MeshPlanRouteFile>,
-    dns: Vec<MeshPlanDnsRecordFile>,
-    acl: Vec<MeshPlanAclRuleFile>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct MeshPlanPeerFile {
-    id: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct MeshPlanRouteFile {
-    destination: String,
-    via_peer: String,
-    provider: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct MeshPlanDnsRecordFile {
-    name: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct MeshPlanAclRuleFile {}
-
-#[derive(Debug, Clone)]
-struct MeshApplyRuntimeContext {
-    mesh_interface: String,
-    ip_bin: String,
-    wg_bin: String,
-    getent_bin: String,
-}
+use command_plan::{
+    MeshApplyRuntimeContext, dns_install, firewall_preflight, post_apply_observation, preflight,
+    rollback_conditions, rollback_plan, route_install, route_observation, route_preflight,
+    tunnel_install,
+};
+use policy::{MeshActuatorPolicyProjection, mesh_actuator_policy};
+use profile_execution::{NetworkMeshApplyProfileReport, apply_network_mesh_profile_from_plan};
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct NetworkMeshApplyPlanReport {
@@ -85,44 +44,20 @@ pub(crate) struct NetworkMeshApplyPlanReport {
     pub(crate) can_apply: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct MeshActuatorPolicyProjection {
-    pub(crate) schema: &'static str,
-    pub(crate) status: &'static str,
-    pub(crate) mutates: bool,
-    pub(crate) source: &'static str,
-    pub(crate) allowed_profiles: Vec<MeshActuatorProfile>,
-    pub(crate) forbidden_tokens: Vec<&'static str>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct MeshActuatorProfile {
-    pub(crate) name: &'static str,
-    pub(crate) description: &'static str,
-    pub(crate) command_count: usize,
-    pub(crate) command_prefixes: Vec<NetworkCommandSurface>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkMeshApplyProfileReport {
-    pub(crate) schema: &'static str,
-    pub(crate) generated_at: String,
-    pub(crate) status: &'static str,
-    pub(crate) profile: String,
-    pub(crate) apply: bool,
-    pub(crate) closed_environment: bool,
-    pub(crate) bundle_dir: String,
-    pub(crate) commands: Vec<NetworkCommandSurface>,
-    pub(crate) executions: Vec<CommandExecution>,
-    pub(crate) violations: Vec<NetworkDiagnostic>,
-}
-
 pub(crate) fn build_network_mesh_apply_plan(
     bundle_dir: &str,
 ) -> Result<NetworkMeshApplyPlanReport, String> {
+    build_network_mesh_apply_plan_with_reader(bundle_dir, &LocalNetworkMeshBundleReader)
+}
+
+fn build_network_mesh_apply_plan_with_reader(
+    bundle_dir: &str,
+    bundle_reader: &impl NetworkMeshBundlePort,
+) -> Result<NetworkMeshApplyPlanReport, String> {
     let bundle_dir = Path::new(bundle_dir);
-    let manifest: MeshBundleManifest = read_json(bundle_dir.join(MANIFEST_FILENAME))?;
-    let plan: MeshPlanFile = read_json(bundle_dir.join(PLAN_FILENAME))?;
+    let bundle = bundle_reader.load_mesh_bundle(bundle_dir)?;
+    let manifest = bundle.manifest;
+    let plan = bundle.plan;
     let runtime_layout = current_runtime_layout();
     let capabilities = runtime_layout.capabilities();
     let context = MeshApplyRuntimeContext {
@@ -131,10 +66,6 @@ pub(crate) fn build_network_mesh_apply_plan(
         wg_bin: capabilities.wireguard_tool.command.clone(),
         getent_bin: capabilities.name_service.resolver_command.clone(),
     };
-    let bundle_complete = manifest
-        .bundle_files
-        .iter()
-        .all(|file| bundle_dir.join(file).is_file());
 
     let preflight = preflight(&manifest, &plan);
     let firewall_preflight = firewall_preflight(&plan);
@@ -158,7 +89,7 @@ pub(crate) fn build_network_mesh_apply_plan(
 
     Ok(NetworkMeshApplyPlanReport {
         schema: "cynic.network_mesh_apply_plan.v1",
-        status: if bundle_complete {
+        status: if bundle.complete {
             "planned"
         } else {
             "blocked"
@@ -166,7 +97,7 @@ pub(crate) fn build_network_mesh_apply_plan(
         mutates: false,
         provider: manifest.provider.clone(),
         bundle_dir: bundle_dir.to_string_lossy().to_string(),
-        bundle_complete,
+        bundle_complete: bundle.complete,
         desired_peer_count: plan.desired_peer_count,
         preflight,
         firewall_preflight,
@@ -197,431 +128,56 @@ pub(crate) fn apply_network_mesh_profile(
     closed_environment: bool,
 ) -> Result<NetworkMeshApplyProfileReport, String> {
     let plan = build_network_mesh_apply_plan(bundle_dir)?;
-    let selected_profile = plan
-        .actuator_policy
-        .allowed_profiles
-        .iter()
-        .find(|item| item.name == profile);
-    let mut violations =
-        validate_mesh_profile_request(&plan, selected_profile, profile, apply, closed_environment);
-    let commands = selected_profile
-        .map(|item| item.command_prefixes.clone())
-        .unwrap_or_default();
-
-    if violations.is_empty() {
-        violations.extend(non_executable_violations(&commands));
-    }
-
-    if !violations.is_empty() || commands.is_empty() {
-        return Ok(NetworkMeshApplyProfileReport {
-            schema: "cynic.network_mesh_apply_profile.v1",
-            generated_at: Utc::now().to_rfc3339(),
-            status: "refused",
-            profile: profile.to_string(),
-            apply,
-            closed_environment,
-            bundle_dir: bundle_dir.to_string(),
-            commands,
-            executions: Vec::new(),
-            violations,
-        });
-    }
-
-    let executions = commands.iter().map(run_command).collect::<Vec<_>>();
-    let success = executions
-        .iter()
-        .all(|execution| execution.exit_code == Some(0));
-
-    Ok(NetworkMeshApplyProfileReport {
-        schema: "cynic.network_mesh_apply_profile.v1",
-        generated_at: Utc::now().to_rfc3339(),
-        status: if success { "completed" } else { "failed" },
-        profile: profile.to_string(),
+    Ok(apply_network_mesh_profile_from_plan(
+        bundle_dir,
+        profile,
         apply,
         closed_environment,
-        bundle_dir: bundle_dir.to_string(),
-        commands,
-        executions,
-        violations: Vec::new(),
-    })
-}
-
-fn validate_mesh_profile_request(
-    plan: &NetworkMeshApplyPlanReport,
-    selected_profile: Option<&MeshActuatorProfile>,
-    profile: &str,
-    apply: bool,
-    closed_environment: bool,
-) -> Vec<NetworkDiagnostic> {
-    let mut violations = Vec::new();
-    if profile.trim().is_empty() {
-        violations.push(diagnostic(
-            "missing_profile",
-            "request_validation",
-            "profile is required",
-        ));
-    }
-    if !apply {
-        violations.push(diagnostic(
-            "apply_flag_required",
-            "request_validation",
-            "apply flag is required for mesh actuator execution",
-        ));
-    }
-    if !plan.bundle_complete {
-        violations.push(diagnostic(
-            "bundle_incomplete",
-            "request_validation",
-            "mesh bundle is incomplete",
-        ));
-    }
-    if selected_profile.is_none() {
-        violations.push(diagnostic(
-            "profile_not_allowed_for_mesh_bundle",
-            "request_validation",
-            "profile is not present in actuator_policy.allowed_profiles",
-        ));
-    }
-    if is_mutating_mesh_profile(profile) && !closed_environment {
-        violations.push(diagnostic(
-            "closed_environment_required",
-            "request_validation",
-            "mutating mesh profiles require an explicitly declared closed environment",
-        ));
-    }
-    violations
-}
-
-fn is_mutating_mesh_profile(profile: &str) -> bool {
-    matches!(
-        profile,
-        "mesh-route-install" | "mesh-rollback" | "mesh-tunnel-install" | "mesh-dns-install"
-    )
-}
-
-fn non_executable_violations(commands: &[NetworkCommandSurface]) -> Vec<NetworkDiagnostic> {
-    commands
-        .iter()
-        .filter(|command| {
-            !matches!(
-                command.invocation,
-                crate::network_command_surface::NetworkCommandInvocation::Argv { .. }
-            )
-        })
-        .map(|command| {
-            let _role = &command.role;
-            diagnostic(
-                "profile_contains_non_executable_surface",
-                "request_validation",
-                "profile contains non-argv command; mesh apply-profile only executes argv surfaces",
-            )
-        })
-        .collect()
-}
-
-fn mesh_actuator_policy(
-    firewall_preflight: &[NetworkCommandSurface],
-    tunnel_install: &[NetworkCommandSurface],
-    route_preflight: &[NetworkCommandSurface],
-    route_install: &[NetworkCommandSurface],
-    route_observation: &[NetworkCommandSurface],
-    dns_install: &[NetworkCommandSurface],
-    post_apply_observation: &[NetworkCommandSurface],
-    rollback_plan: &[NetworkCommandSurface],
-) -> MeshActuatorPolicyProjection {
-    MeshActuatorPolicyProjection {
-        schema: "cynic.network_mesh_actuator_policy_projection.v1",
-        status: "planned",
-        mutates: false,
-        source: "cynic.network_mesh_apply_plan.v1",
-        allowed_profiles: vec![
-            profile(
-                "mesh-firewall-preflight",
-                "Prepare or validate firewall transaction before tunnel activation.",
-                firewall_preflight,
-            ),
-            profile(
-                "mesh-tunnel-install",
-                "Install provider tunnel configuration after secret material is supplied.",
-                tunnel_install,
-            ),
-            profile(
-                "mesh-route-preflight",
-                "Validate declared mesh route bindings before route mutation.",
-                route_preflight,
-            ),
-            profile(
-                "mesh-route-install",
-                "Install mesh routes after tunnel activation.",
-                route_install,
-            ),
-            profile(
-                "mesh-route-observe",
-                "Observe mesh route state after route mutation.",
-                route_observation,
-            ),
-            profile("mesh-dns-install", "Install mesh DNS records.", dns_install),
-            profile(
-                "mesh-observe",
-                "Observe mesh convergence after apply.",
-                post_apply_observation,
-            ),
-            profile(
-                "mesh-rollback",
-                "Rollback routes, DNS, firewall, and tunnel configuration.",
-                rollback_plan,
-            ),
-        ],
-        forbidden_tokens: vec![
-            "sh", "bash", "-c", "curl", "wget", "nc", "python", "python3", "perl", "ruby", ">",
-            ">>", "|", "&&", ";",
-        ],
-    }
-}
-
-fn profile(
-    name: &'static str,
-    description: &'static str,
-    commands: &[NetworkCommandSurface],
-) -> MeshActuatorProfile {
-    MeshActuatorProfile {
-        name,
-        description,
-        command_count: commands.len(),
-        command_prefixes: commands.to_vec(),
-    }
-}
-
-fn read_json<T: for<'de> Deserialize<'de>>(path: PathBuf) -> Result<T, String> {
-    let raw = fs::read_to_string(&path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    serde_json::from_str(&raw)
-        .map_err(|error| format!("failed to parse {}: {error}", path.display()))
-}
-
-fn preflight(manifest: &MeshBundleManifest, plan: &MeshPlanFile) -> Vec<NetworkCommandSurface> {
-    vec![
-        expectation(
-            "bundle_schema",
-            format!("manifest schema is {}", manifest.schema),
-        ),
-        expectation(
-            "bundle_status",
-            format!("manifest status is {}", manifest.status),
-        ),
-        expectation(
-            "peer_count",
-            format!(
-                "mesh plan contains {} desired peers",
-                plan.desired_peer_count
-            ),
-        ),
-        expectation(
-            "provider_secret_material",
-            format!(
-                "all {} private keys are supplied outside the repository before apply",
-                plan.provider
-            ),
-        ),
-    ]
-}
-
-fn firewall_preflight(plan: &MeshPlanFile) -> Vec<NetworkCommandSurface> {
-    vec![
-        expectation(
-            "firewall_transaction",
-            "install firewall policy atomically before opening mesh routes",
-        ),
-        expectation(
-            "deny_untunneled_mesh",
-            format!(
-                "deny traffic to mesh cidr {} outside selected provider interface",
-                plan.cidr.as_deref().unwrap_or("<mesh-cidr>")
-            ),
-        ),
-        expectation(
-            "allow_declared_services",
-            format!("allow {} declared mesh service ACL entries", plan.acl.len()),
-        ),
-    ]
-}
-
-fn tunnel_install(
-    bundle_dir: &Path,
-    manifest: &MeshBundleManifest,
-    plan: &MeshPlanFile,
-) -> Vec<NetworkCommandSurface> {
-    match manifest.provider.as_str() {
-        "wireguard" => plan
-            .desired_peers
-            .iter()
-            .map(|peer| {
-                expectation(
-                    "install_wireguard_peer_template",
-                    format!(
-                        "materialize {}/wireguard/{}.conf.tpl with private key into OS-specific WireGuard config store",
-                        bundle_dir.display(),
-                        peer.id
-                    ),
-                )
-            })
-            .collect(),
-        provider => vec![expectation(
-            "install_provider_bundle",
-            format!("install provider-specific bundle for {provider}"),
-        )],
-    }
-}
-
-fn route_preflight(plan: &MeshPlanFile) -> Vec<NetworkCommandSurface> {
-    plan.routes
-        .iter()
-        .map(|route| {
-            expectation(
-                "route_binding",
-                format!(
-                    "route {} is declared via peer {} using provider {}",
-                    route.destination, route.via_peer, route.provider
-                ),
-            )
-        })
-        .collect()
-}
-
-fn route_install(
-    plan: &MeshPlanFile,
-    context: &MeshApplyRuntimeContext,
-) -> Vec<NetworkCommandSurface> {
-    plan.routes
-        .iter()
-        .map(|route| {
-            argv_command(
-                "install_mesh_route",
-                vec![
-                    context.ip_bin.clone(),
-                    "route".to_string(),
-                    "replace".to_string(),
-                    route.destination.clone(),
-                    "dev".to_string(),
-                    context.mesh_interface.clone(),
-                ],
-            )
-        })
-        .collect()
-}
-
-fn route_observation(
-    plan: &MeshPlanFile,
-    context: &MeshApplyRuntimeContext,
-) -> Vec<NetworkCommandSurface> {
-    plan.routes
-        .iter()
-        .map(|route| {
-            argv_command(
-                "inspect_mesh_route",
-                vec![
-                    context.ip_bin.clone(),
-                    "route".to_string(),
-                    "show".to_string(),
-                    route.destination.clone(),
-                ],
-            )
-        })
-        .collect()
-}
-
-fn dns_install(bundle_dir: &Path) -> Vec<NetworkCommandSurface> {
-    vec![expectation(
-        "install_mesh_dns_records",
-        format!(
-            "install DNS records from {}/dns-records.json into selected DNS provider",
-            bundle_dir.display()
-        ),
-    )]
-}
-
-fn post_apply_observation(
-    plan: &MeshPlanFile,
-    context: &MeshApplyRuntimeContext,
-) -> Vec<NetworkCommandSurface> {
-    let mut commands = vec![
-        argv_command(
-            "inspect_wireguard",
-            vec![context.wg_bin.clone(), "show".to_string()],
-        ),
-        argv_command(
-            "inspect_mesh_routes",
-            vec![
-                context.ip_bin.clone(),
-                "route".to_string(),
-                "show".to_string(),
-            ],
-        ),
-    ];
-    if let Some(record) = plan.dns.first() {
-        commands.push(argv_command(
-            "inspect_mesh_dns",
-            vec![
-                context.getent_bin.clone(),
-                "hosts".to_string(),
-                record.name.clone(),
-            ],
-        ));
-    }
-    commands
-}
-
-fn rollback_conditions() -> Vec<&'static str> {
-    vec![
-        "provider interface fails to activate",
-        "declared peer reachability is below quorum",
-        "DNS convergence fails",
-        "firewall policy blocks control-plane recovery",
-        "post-apply observation cannot run",
-    ]
-}
-
-fn rollback_plan(
-    plan: &MeshPlanFile,
-    context: &MeshApplyRuntimeContext,
-) -> Vec<NetworkCommandSurface> {
-    let mut commands = plan
-        .routes
-        .iter()
-        .map(|route| {
-            argv_command(
-                "remove_mesh_route",
-                vec![
-                    context.ip_bin.clone(),
-                    "route".to_string(),
-                    "del".to_string(),
-                    route.destination.clone(),
-                ],
-            )
-        })
-        .collect::<Vec<_>>();
-    commands.extend([
-        expectation(
-            "restore_previous_dns",
-            "restore DNS provider state captured during preflight",
-        ),
-        expectation(
-            "restore_previous_firewall",
-            "restore previous firewall transaction snapshot",
-        ),
-        expectation(
-            "deactivate_new_tunnel",
-            "deactivate newly installed provider tunnel config",
-        ),
-    ]);
-    commands
+        plan,
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::network_mesh_apply::{
+        MeshApplyBundle, MeshBundleManifest, MeshPlanFile, MeshPlanRouteFile,
+    };
     use crate::network_command_surface::NetworkCommandInvocation;
     use crate::network_mesh_bundle::build_network_mesh_bundle;
+    use std::path::Path;
+
+    struct FakeBundleReader;
+
+    impl NetworkMeshBundlePort for FakeBundleReader {
+        fn load_mesh_bundle(
+            &self,
+            _bundle_dir: &Path,
+        ) -> Result<crate::domain::network_mesh_apply::MeshApplyBundle, String> {
+            Ok(MeshApplyBundle {
+                manifest: MeshBundleManifest {
+                    schema: "cynic.network_mesh_bundle.v1".to_string(),
+                    status: "ready".to_string(),
+                    provider: "static".to_string(),
+                    bundle_files: Vec::new(),
+                },
+                plan: MeshPlanFile {
+                    provider: "static".to_string(),
+                    cidr: Some("10.10.10.0/24".to_string()),
+                    desired_peer_count: 1,
+                    desired_peers: Vec::new(),
+                    routes: vec![MeshPlanRouteFile {
+                        destination: "10.10.10.0/24".to_string(),
+                        via_peer: "node-a".to_string(),
+                        provider: "static".to_string(),
+                    }],
+                    dns: Vec::new(),
+                    acl: Vec::new(),
+                },
+                complete: true,
+            })
+        }
+    }
 
     #[test]
     fn apply_plan_reads_bundle_without_mutating() {
@@ -709,5 +265,17 @@ mod tests {
                 .iter()
                 .any(|item| item.code == "closed_environment_required")
         );
+    }
+
+    #[test]
+    fn apply_plan_can_be_built_from_substituted_bundle_port() {
+        let plan = build_network_mesh_apply_plan_with_reader("/virtual/bundle", &FakeBundleReader)
+            .expect("apply plan");
+
+        assert_eq!(plan.status, "planned");
+        assert!(plan.bundle_complete);
+        assert_eq!(plan.provider, "static");
+        assert_eq!(plan.desired_peer_count, 1);
+        assert_eq!(plan.route_install.len(), 1);
     }
 }

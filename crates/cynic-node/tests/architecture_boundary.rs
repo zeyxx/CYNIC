@@ -213,3 +213,87 @@ fn watchdog_reuses_system_metrics_port_instead_of_resampling_os_state() {
         );
     }
 }
+
+#[test]
+fn network_mesh_apply_plan_reads_bundles_through_a_port() {
+    let root = crate_root();
+    let planner = fs::read_to_string(root.join("src/network_mesh_apply_plan.rs"))
+        .expect("read network_mesh_apply_plan.rs");
+    let production_planner = planner.split("#[cfg(test)]").next().unwrap_or(&planner);
+    let domain = fs::read_to_string(root.join("src/domain/network_mesh_apply.rs"))
+        .expect("read domain/network_mesh_apply.rs");
+    let port = fs::read_to_string(root.join("src/ports/network_mesh_bundle_port.rs"))
+        .expect("read ports/network_mesh_bundle_port.rs");
+    let adapter = fs::read_to_string(root.join("src/adapters/local_network_mesh_bundle/mod.rs"))
+        .expect("read adapters/local_network_mesh_bundle/mod.rs");
+    let command_plan = fs::read_to_string(root.join("src/network_mesh_apply_plan/command_plan.rs"))
+        .expect("read network_mesh_apply_plan/command_plan.rs");
+    let policy_module = fs::read_to_string(root.join("src/network_mesh_apply_plan/policy.rs"))
+        .expect("read network_mesh_apply_plan/policy.rs");
+    let profile_execution =
+        fs::read_to_string(root.join("src/network_mesh_apply_plan/profile_execution.rs"))
+            .expect("read network_mesh_apply_plan/profile_execution.rs");
+
+    assert!(
+        planner.lines().count() <= 300
+            && planner.contains("mod command_plan;")
+            && planner.contains("mod policy;")
+            && planner.contains("mod profile_execution;"),
+        "network_mesh_apply_plan.rs must stay a thin orchestration surface"
+    );
+    assert!(
+        domain.contains("pub(crate) struct MeshApplyBundle")
+            && domain.contains("pub(crate) struct MeshBundleManifest")
+            && domain.contains("pub(crate) struct MeshPlanFile"),
+        "mesh apply bundle DTOs must live in the domain layer"
+    );
+    assert!(
+        port.contains("pub(crate) trait NetworkMeshBundlePort")
+            && port.contains("fn load_mesh_bundle"),
+        "mesh apply bundle loading must expose a port boundary"
+    );
+    assert!(
+        adapter.contains("impl NetworkMeshBundlePort for LocalNetworkMeshBundleReader")
+            && adapter.contains("fs::read_to_string"),
+        "local mesh bundle filesystem loading must live in the local adapter"
+    );
+    for forbidden in ["std::fs", "read_to_string", "PathBuf", "MANIFEST_FILENAME"] {
+        assert!(
+            !planner.contains(forbidden),
+            "network_mesh_apply_plan.rs must not own bundle filesystem loading: {forbidden}"
+        );
+    }
+    for forbidden in [
+        "fn preflight",
+        "fn route_install",
+        "fn mesh_actuator_policy",
+        "fn validate_mesh_profile_request",
+        "fn non_executable_violations",
+    ] {
+        assert!(
+            !production_planner.contains(forbidden),
+            "network_mesh_apply_plan.rs must not own extracted mesh apply detail: {forbidden}"
+        );
+    }
+    assert!(
+        command_plan.contains("pub(super) fn route_install")
+            && command_plan.contains("pub(super) fn rollback_plan"),
+        "mesh apply command construction must live in command_plan"
+    );
+    assert!(
+        policy_module.contains("pub(super) fn mesh_actuator_policy")
+            && policy_module.contains("pub(crate) struct MeshActuatorPolicyProjection"),
+        "mesh apply policy projection must live in policy"
+    );
+    assert!(
+        profile_execution.contains("pub(super) fn apply_network_mesh_profile_from_plan")
+            && profile_execution.contains("fn validate_mesh_profile_request"),
+        "mesh apply profile validation and execution must live in profile_execution"
+    );
+    assert!(
+        planner.contains("NetworkMeshBundlePort")
+            && planner.contains("LocalNetworkMeshBundleReader")
+            && planner.contains("build_network_mesh_apply_plan_with_reader"),
+        "network_mesh_apply_plan.rs must plan through the bundle port with a thin local façade"
+    );
+}

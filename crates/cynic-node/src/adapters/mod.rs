@@ -2,6 +2,7 @@ pub mod dns_renderer;
 pub mod headscale;
 pub mod host;
 pub mod host_observation;
+pub(crate) mod local_network_mesh_bundle;
 pub mod local_system_probe;
 pub mod provider_fallback_probe;
 pub mod proxmox;

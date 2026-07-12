@@ -2,6 +2,7 @@ pub mod bootstrap;
 pub mod fleet_truth;
 pub mod homeostasis;
 pub mod mesh;
+pub(crate) mod network_mesh_apply;
 pub mod network_projection;
 pub mod node_observation;
 pub mod observation_plan;
