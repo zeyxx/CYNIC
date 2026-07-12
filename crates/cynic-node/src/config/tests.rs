@@ -102,6 +102,53 @@ fn parse_config_serde_defaults() {
 }
 
 #[test]
+fn runtime_federation_config_prefers_explicit_values() {
+    let cfg = make_config_with_env(
+        r#"
+[kernel]
+url = "http://kernel-http:3030"
+api_key_env = "TEST_CYNIC_API_KEY"
+
+[dog]
+name = "explicit-node"
+model = "test-model:7b"
+base_url = "http://127.0.0.1:8080/v1"
+
+[federation]
+kernel_ws_url = "wss://kernel-ws/events/ws"
+api_key = "explicit-api-key"
+node_public_key = "explicit-public-key"
+queue_dir = "/tmp/cynic-node-queues"
+
+[process]
+command = ["llama-server", "-m", "/models/test.gguf"]
+"#,
+        "kernel-key",
+    )
+    .unwrap();
+
+    let federation = runtime_federation_config(&cfg);
+
+    assert_eq!(federation.kernel_ws_url, "wss://kernel-ws/events/ws");
+    assert_eq!(federation.api_key, "explicit-api-key");
+    assert_eq!(federation.node_public_key, "explicit-public-key");
+    assert_eq!(federation.node_identity, "explicit-node");
+    assert_eq!(
+        federation.queue_dir,
+        std::path::PathBuf::from("/tmp/cynic-node-queues")
+    );
+}
+
+#[test]
+fn runtime_federation_config_derives_defaults_when_section_missing() {
+    let cfg = make_config_with_env(VALID_TOML, "key").unwrap();
+    let federation = runtime_federation_config(&cfg);
+
+    assert_eq!(federation.kernel_ws_url, "ws://127.0.0.1:3030/events/ws");
+    assert_eq!(federation.node_identity, "test-dog");
+}
+
+#[test]
 fn validate_rejects_empty_command() {
     let mut cfg = make_config_with_env(VALID_TOML, "key").unwrap();
     cfg.process.command.clear();

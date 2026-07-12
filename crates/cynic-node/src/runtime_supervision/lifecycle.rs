@@ -7,6 +7,7 @@ use tokio_util::sync::CancellationToken;
 use crate::announce;
 use crate::config;
 use crate::config::Config;
+use crate::domain::runtime_federation::RuntimeFederationConfig;
 use crate::domain::supervision::ExitReason;
 use crate::ports::runtime_federation_port::{RuntimeFederationFactory, RuntimeFederationPort};
 use crate::supervise;
@@ -23,6 +24,7 @@ pub(crate) async fn run_lifecycle(
     backoff: &mut supervise::Backoff,
     config_rx: &mut tokio::sync::watch::Receiver<()>,
     federation_factory: &impl RuntimeFederationFactory,
+    federation_config: RuntimeFederationConfig,
 ) -> (ExitReason, Option<String>) {
     if let Err(reason) = wait_healthy(client, cfg, child, shutdown).await {
         return (reason, None);
@@ -39,6 +41,7 @@ pub(crate) async fn run_lifecycle(
                 shutdown,
                 config_rx,
                 federation_factory,
+                federation_config,
             )
             .await;
             (reason, Some(id))
@@ -56,6 +59,7 @@ async fn watch(
     shutdown: &CancellationToken,
     config_rx: &mut tokio::sync::watch::Receiver<()>,
     federation_factory: &impl RuntimeFederationFactory,
+    federation_config: RuntimeFederationConfig,
 ) -> ExitReason {
     let health_url = config::derive_health_url(&cfg.dog.base_url);
     let models_url = config::derive_models_url(&cfg.dog.base_url);
@@ -66,7 +70,7 @@ async fn watch(
         tokio::time::interval(Duration::from_secs(cfg.health.verify_interval_secs));
     let mut stimulus_tick = tokio::time::interval(Duration::from_millis(100));
     let mut health_failures: u32 = 0;
-    let federation = federation_factory.build(&cfg.kernel.url, &cfg.dog.name);
+    let federation = federation_factory.build(federation_config);
 
     if let Err(e) = federation.load_persistent_queues().await {
         tracing::warn!("failed to load persistent queues: {e}");

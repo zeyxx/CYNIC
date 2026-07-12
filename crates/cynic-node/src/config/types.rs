@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use super::defaults;
 
@@ -12,6 +13,8 @@ pub(crate) struct Config {
     pub(crate) restart: RestartConfig,
     #[serde(default)]
     pub(crate) health: HealthConfig,
+    #[serde(default)]
+    pub(crate) federation: Option<FederationConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -122,6 +125,16 @@ pub(crate) struct HealthConfig {
     pub(crate) max_failures: u32,
     #[serde(default = "defaults::default_startup_timeout_secs")]
     pub(crate) startup_timeout_secs: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct FederationConfig {
+    pub(crate) api_key_env: Option<String>,
+    pub(crate) api_key: Option<String>,
+    pub(crate) node_public_key_env: Option<String>,
+    pub(crate) node_public_key: Option<String>,
+    pub(crate) queue_dir: Option<PathBuf>,
+    pub(crate) kernel_ws_url: Option<String>,
 }
 
 impl Default for HealthConfig {

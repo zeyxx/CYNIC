@@ -21,8 +21,8 @@ pub struct WebSocketFederationFactory;
 impl RuntimeFederationFactory for WebSocketFederationFactory {
     type Federation = WebSocketFederationAdapter;
 
-    fn build(&self, kernel_http_url: &str, node_identity: &str) -> Self::Federation {
-        WebSocketFederationAdapter::from_env(kernel_http_url, node_identity)
+    fn build(&self, config: RuntimeFederationConfig) -> Self::Federation {
+        WebSocketFederationAdapter::new(config)
     }
 }
 
@@ -147,6 +147,12 @@ mod tests {
     #[test]
     fn factory_builds_default_websocket_federation_adapter() {
         let factory = WebSocketFederationFactory;
-        let _adapter = factory.build("http://127.0.0.1:3030", "node-a");
+        let _adapter = factory.build(crate::domain::runtime_federation::RuntimeFederationConfig {
+            kernel_ws_url: "ws://127.0.0.1:3030/events/ws".to_string(),
+            api_key: "key".to_string(),
+            node_public_key: "public-key".to_string(),
+            node_identity: "node-a".to_string(),
+            queue_dir: std::path::PathBuf::from(".cynic/node"),
+        });
     }
 }

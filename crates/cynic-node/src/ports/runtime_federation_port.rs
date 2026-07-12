@@ -1,5 +1,7 @@
 use tokio::task::JoinHandle;
 
+use crate::domain::runtime_federation::RuntimeFederationConfig;
+
 pub trait RuntimeFederationPort {
     async fn load_persistent_queues(&self) -> Result<(), String>;
     fn spawn_connection(&self) -> JoinHandle<()>;
@@ -9,5 +11,5 @@ pub trait RuntimeFederationPort {
 pub trait RuntimeFederationFactory {
     type Federation: RuntimeFederationPort;
 
-    fn build(&self, kernel_http_url: &str, node_identity: &str) -> Self::Federation;
+    fn build(&self, config: RuntimeFederationConfig) -> Self::Federation;
 }

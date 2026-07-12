@@ -1,4 +1,7 @@
-use super::{Config, WatchdogConfig};
+use super::{Config, FederationConfig, WatchdogConfig};
+use crate::domain::runtime_federation::{
+    DEFAULT_NODE_PUBLIC_KEY, RuntimeFederationConfig, default_queue_dir, kernel_websocket_url,
+};
 
 pub(crate) fn derive_health_url(base_url: &str) -> String {
     let trimmed = base_url.trim_end_matches('/');
@@ -117,6 +120,51 @@ pub(crate) fn validate(cfg: &Config) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+pub(crate) fn runtime_federation_config(cfg: &Config) -> RuntimeFederationConfig {
+    let federation = cfg.federation.as_ref();
+    RuntimeFederationConfig {
+        kernel_ws_url: federation
+            .and_then(|config| config.kernel_ws_url.clone())
+            .unwrap_or_else(|| kernel_websocket_url(&cfg.kernel.url)),
+        api_key: federation_api_key(federation).unwrap_or_else(|| {
+            std::env::var("CYNIC_API_KEY").unwrap_or_else(|_| {
+                tracing::warn!("CYNIC_API_KEY not set; WebSocket authentication will fail");
+                String::new()
+            })
+        }),
+        node_public_key: federation_node_public_key(federation).unwrap_or_else(|| {
+            std::env::var("CYNIC_NODE_PUBLIC_KEY")
+                .unwrap_or_else(|_| DEFAULT_NODE_PUBLIC_KEY.to_string())
+        }),
+        node_identity: cfg.dog.name.clone(),
+        queue_dir: federation
+            .and_then(|config| config.queue_dir.clone())
+            .unwrap_or_else(|| default_queue_dir(std::env::var("HOME").ok().map(Into::into))),
+    }
+}
+
+fn federation_api_key(config: Option<&FederationConfig>) -> Option<String> {
+    let config = config?;
+    if let Some(value) = config.api_key.clone() {
+        return Some(value);
+    }
+    config
+        .api_key_env
+        .as_ref()
+        .and_then(|env_name| std::env::var(env_name).ok())
+}
+
+fn federation_node_public_key(config: Option<&FederationConfig>) -> Option<String> {
+    let config = config?;
+    if let Some(value) = config.node_public_key.clone() {
+        return Some(value);
+    }
+    config
+        .node_public_key_env
+        .as_ref()
+        .and_then(|env_name| std::env::var(env_name).ok())
 }
 
 pub(crate) fn validate_watchdog(cfg: &WatchdogConfig) -> Result<(), String> {

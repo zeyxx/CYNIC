@@ -92,6 +92,8 @@ fn runtime_federation_has_domain_port_and_adapter_boundaries() {
         .expect("read adapters/websocket_federation/mod.rs");
     let lifecycle = fs::read_to_string(root.join("src/runtime_supervision/lifecycle.rs"))
         .expect("read runtime_supervision/lifecycle.rs");
+    let config_load =
+        fs::read_to_string(root.join("src/config/load.rs")).expect("read config/load.rs");
 
     assert!(
         domain.contains("pub struct RuntimeFederationConfig")
@@ -109,9 +111,26 @@ fn runtime_federation_has_domain_port_and_adapter_boundaries() {
             && adapter.contains("WebSocketClient::new"),
         "WebSocket client wiring must live in the concrete federation adapter"
     );
+    let factory_impl = adapter
+        .split("impl RuntimeFederationFactory for WebSocketFederationFactory")
+        .nth(1)
+        .and_then(|tail| tail.split("impl WebSocketFederationAdapter").next())
+        .unwrap_or_default();
+    assert!(
+        factory_impl.contains("fn build(&self, config: RuntimeFederationConfig)")
+            && factory_impl.contains("WebSocketFederationAdapter::new(config)")
+            && !factory_impl.contains("std::env::var")
+            && !factory_impl.contains("from_env"),
+        "default federation factory must consume explicit RuntimeFederationConfig, not env"
+    );
     assert!(
         lifecycle.contains("RuntimeFederationFactory")
-            && lifecycle.contains("federation_factory.build"),
+            && lifecycle.contains("federation_factory.build(federation_config)"),
         "lifecycle must consume federation through a factory boundary"
+    );
+    assert!(
+        config_load.contains("pub(crate) fn runtime_federation_config")
+            && config_load.contains("std::env::var(\"CYNIC_API_KEY\")"),
+        "runtime federation env fallback must be isolated in config loading"
     );
 }

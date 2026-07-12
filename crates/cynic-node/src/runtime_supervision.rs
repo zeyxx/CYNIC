@@ -103,6 +103,7 @@ where
             &mut state.backoff,
             &mut config_rx,
             &federation_factory,
+            config::runtime_federation_config(&cfg),
         )
         .await;
         state.dog_id = id;
