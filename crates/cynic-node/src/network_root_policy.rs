@@ -10,11 +10,23 @@ use crate::network_command_surface::{NetworkCommandSurface, shell_command};
 use crate::observe::NodeObservation;
 
 #[derive(Debug, Clone)]
-struct NetworkRootRuntimeContext {
+struct NetworkRootPolicyContext {
     helper_path: String,
     sudoers_target: String,
     sudoers_rule: String,
     forbidden_patterns: Vec<String>,
+}
+
+impl NetworkRootPolicyContext {
+    fn from_current_runtime() -> Self {
+        let runtime_layout = current_runtime_layout();
+        Self {
+            helper_path: helper_path(),
+            sudoers_target: sudoers_path(),
+            sudoers_rule: sudoers_rule(),
+            forbidden_patterns: runtime_layout.forbidden_raw_invocation_patterns(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -70,21 +82,15 @@ pub(crate) struct DenialRequirement {
 }
 
 pub(crate) fn build_root_policy(observation: &NodeObservation) -> NetworkRootPolicy {
-    let runtime_layout = current_runtime_layout();
     build_root_policy_with_context(
         observation,
-        NetworkRootRuntimeContext {
-            helper_path: helper_path(),
-            sudoers_target: sudoers_path(),
-            sudoers_rule: sudoers_rule(),
-            forbidden_patterns: runtime_layout.forbidden_raw_invocation_patterns(),
-        },
+        NetworkRootPolicyContext::from_current_runtime(),
     )
 }
 
 fn build_root_policy_with_context(
     observation: &NodeObservation,
-    context: NetworkRootRuntimeContext,
+    context: NetworkRootPolicyContext,
 ) -> NetworkRootPolicy {
     NetworkRootPolicy {
         schema: "cynic.network_root_policy.v1",
@@ -221,7 +227,7 @@ fn remediation_to_profile(
 
 #[cfg(test)]
 mod tests {
-    use super::{NetworkRootRuntimeContext, build_root_policy_with_context};
+    use super::{NetworkRootPolicyContext, build_root_policy_with_context};
     use crate::domain::node_observation::NodeRuntimeCapabilities;
     use crate::observe::NodeObservation;
 
@@ -241,19 +247,22 @@ mod tests {
 
         let policy = build_root_policy_with_context(
             &observation,
-            NetworkRootRuntimeContext {
-                helper_path: "/usr/local/bin/cynic-network-actuator".to_string(),
-                sudoers_target: "/etc/sudoers.d/cynic-network-actuator".to_string(),
-                sudoers_rule: "cynic ALL=(root) NOPASSWD: /usr/local/bin/cynic-network-actuator"
+            NetworkRootPolicyContext {
+                helper_path: "/portable/bin/cynic-network-actuator".to_string(),
+                sudoers_target: "/portable/etc/sudoers.d/cynic-network-actuator".to_string(),
+                sudoers_rule: "cynic ALL=(root) NOPASSWD: /portable/bin/cynic-network-actuator"
                     .to_string(),
-                forbidden_patterns: vec!["/sbin/ip".to_string(), "/usr/bin/wg".to_string()],
+                forbidden_patterns: vec![
+                    "/portable/bin/ip".to_string(),
+                    "/portable/bin/wg".to_string(),
+                ],
             },
         );
 
         assert_eq!(policy.schema, "cynic.network_root_policy.v1");
         assert_eq!(
             policy.sudoers_rule,
-            "cynic ALL=(root) NOPASSWD: /usr/local/bin/cynic-network-actuator"
+            "cynic ALL=(root) NOPASSWD: /portable/bin/cynic-network-actuator"
         );
         assert_eq!(policy.allowed_profiles.len(), 2);
         assert!(
@@ -266,7 +275,7 @@ mod tests {
             policy
                 .forbidden_invocation_patterns
                 .iter()
-                .any(|pattern| pattern.pattern == "/sbin/ip")
+                .any(|pattern| pattern.pattern == "/portable/bin/ip")
         );
     }
 }

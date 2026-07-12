@@ -428,3 +428,52 @@ fn network_actuator_policy_uses_explicit_command_context() {
         );
     }
 }
+
+#[test]
+fn network_root_policy_uses_explicit_command_context() {
+    let root = crate_root();
+    let policy = fs::read_to_string(root.join("src/network_root_policy.rs"))
+        .expect("read network_root_policy.rs");
+    let production_policy = policy.split("#[cfg(test)]").next().unwrap_or(&policy);
+    let policy_without_context_factory = production_policy
+        .replace("fn from_current_runtime() -> Self", "")
+        .replace("let runtime_layout = current_runtime_layout();", "");
+
+    assert!(
+        production_policy.contains("struct NetworkRootPolicyContext")
+            && production_policy.contains("fn from_current_runtime() -> Self")
+            && production_policy.contains("fn build_root_policy_with_context"),
+        "network root policy must expose explicit context-driven entrypoints"
+    );
+    assert!(
+        policy_without_context_factory.contains("NetworkRootPolicyContext::from_current_runtime()")
+            && !policy_without_context_factory.contains("current_runtime_layout()"),
+        "runtime layout probing must be isolated in NetworkRootPolicyContext::from_current_runtime"
+    );
+    assert!(
+        production_policy.contains("context.helper_path")
+            && production_policy.contains("context.sudoers_target")
+            && production_policy.contains("context.sudoers_rule")
+            && production_policy.contains("context\n            .forbidden_patterns"),
+        "network root policy must consume the injected root context"
+    );
+    let tests = policy.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    assert!(
+        tests.contains("/portable/bin/cynic-network-actuator")
+            && tests.contains("/portable/etc/sudoers.d/cynic-network-actuator")
+            && tests.contains("/portable/bin/ip")
+            && tests.contains("/portable/bin/wg"),
+        "network root policy tests must prove portable path injection"
+    );
+    for stale_fixture in [
+        "\"/usr/local/bin/cynic-network-actuator\"",
+        "\"/etc/sudoers.d/cynic-network-actuator\"",
+        "\"/sbin/ip\"",
+        "\"/usr/bin/wg\"",
+    ] {
+        assert!(
+            !tests.contains(stale_fixture),
+            "network root policy tests must not preserve host-specific fixture: {stale_fixture}"
+        );
+    }
+}
