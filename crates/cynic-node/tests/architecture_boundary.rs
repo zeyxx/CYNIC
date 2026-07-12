@@ -228,10 +228,16 @@ fn network_mesh_apply_plan_reads_bundles_through_a_port() {
         .expect("read adapters/local_network_mesh_bundle/mod.rs");
     let command_plan = fs::read_to_string(root.join("src/network_mesh_apply_plan/command_plan.rs"))
         .expect("read network_mesh_apply_plan/command_plan.rs");
+    let command_plan_verification =
+        fs::read_to_string(root.join("src/network_mesh_apply_plan/command_plan_verification.rs"))
+            .expect("read network_mesh_apply_plan/command_plan_verification.rs");
     let context = fs::read_to_string(root.join("src/network_mesh_apply_plan/context.rs"))
         .expect("read network_mesh_apply_plan/context.rs");
     let policy_module = fs::read_to_string(root.join("src/network_mesh_apply_plan/policy.rs"))
         .expect("read network_mesh_apply_plan/policy.rs");
+    let policy_verification =
+        fs::read_to_string(root.join("src/network_mesh_apply_plan/policy_verification.rs"))
+            .expect("read network_mesh_apply_plan/policy_verification.rs");
     let profile_execution =
         fs::read_to_string(root.join("src/network_mesh_apply_plan/profile_execution.rs"))
             .expect("read network_mesh_apply_plan/profile_execution.rs");
@@ -242,8 +248,10 @@ fn network_mesh_apply_plan_reads_bundles_through_a_port() {
     assert!(
         planner.lines().count() <= 300
             && planner.contains("mod command_plan;")
+            && planner.contains("mod command_plan_verification;")
             && planner.contains("mod context;")
             && planner.contains("mod policy;")
+            && planner.contains("mod policy_verification;")
             && planner.contains("mod profile_execution;")
             && planner.contains("build_network_mesh_apply_plan_with_reader_and_context"),
         "network_mesh_apply_plan.rs must stay a thin orchestration surface"
@@ -300,9 +308,25 @@ fn network_mesh_apply_plan_reads_bundles_through_a_port() {
         "mesh apply command construction must live in command_plan"
     );
     assert!(
+        command_plan_verification.contains("#[kani::proof]")
+            && command_plan_verification
+                .contains("proof_route_install_uses_injected_ip_bin_and_mesh_interface")
+            && command_plan_verification
+                .contains("proof_post_apply_observation_adds_dns_probe_only_when_dns_exists"),
+        "mesh apply Kani command proofs must live in command_plan_verification.rs"
+    );
+    assert!(
         policy_module.contains("pub(super) fn mesh_actuator_policy")
             && policy_module.contains("pub(crate) struct MeshActuatorPolicyProjection"),
         "mesh apply policy projection must live in policy"
+    );
+    assert!(
+        policy_verification.contains("#[kani::proof]")
+            && policy_verification
+                .contains("proof_mesh_policy_exposes_stable_profile_order_and_count")
+            && policy_verification
+                .contains("proof_mesh_policy_forbidden_tokens_keep_shell_escape_vectors_blocked"),
+        "mesh apply Kani policy proofs must live in policy_verification.rs"
     );
     assert!(
         profile_execution.contains("pub(super) fn apply_network_mesh_profile_from_plan")

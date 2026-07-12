@@ -7,8 +7,12 @@ use crate::network_command_surface::NetworkCommandSurface;
 use crate::ports::network_mesh_bundle_port::NetworkMeshBundlePort;
 
 mod command_plan;
+#[cfg(kani)]
+mod command_plan_verification;
 mod context;
 mod policy;
+#[cfg(kani)]
+mod policy_verification;
 mod profile_execution;
 
 use command_plan::{
