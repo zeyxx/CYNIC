@@ -134,3 +134,52 @@ fn runtime_federation_has_domain_port_and_adapter_boundaries() {
         "runtime federation env fallback must be isolated in config loading"
     );
 }
+
+#[test]
+fn system_probe_has_domain_port_and_local_adapter_boundaries() {
+    let root = crate_root();
+    let probe = fs::read_to_string(root.join("src/system_probe.rs")).expect("read system_probe.rs");
+    let domain = fs::read_to_string(root.join("src/domain/system_observation.rs"))
+        .expect("read domain/system_observation.rs");
+    let port = fs::read_to_string(root.join("src/ports/system_probe_port.rs"))
+        .expect("read ports/system_probe_port.rs");
+    let adapter = fs::read_to_string(root.join("src/adapters/local_system_probe/mod.rs"))
+        .expect("read adapters/local_system_probe/mod.rs");
+
+    assert!(
+        probe.lines().count() <= 140,
+        "system_probe.rs must remain a thin orchestrator"
+    );
+    for forbidden in [
+        "sysinfo::",
+        "CpuRefreshKind",
+        "Disks::",
+        "capture_command",
+        "pvesh",
+        "qm",
+        "critical_proxmox_vmids_to_restart",
+        "parse_zpool_health",
+    ] {
+        assert!(
+            !probe.contains(forbidden),
+            "system_probe.rs must not own concrete host/platform detail: {forbidden}"
+        );
+    }
+    assert!(
+        domain.contains("pub struct SystemMetricsSample")
+            && domain.contains("pub fn critical_proxmox_vmids_to_restart")
+            && domain.contains("pub fn system_observation_payload"),
+        "system observation rules and payload builders must live in domain"
+    );
+    assert!(
+        port.contains("pub trait SystemMetricsPort")
+            && port.contains("pub trait SystemProbePlatformPort"),
+        "system probe must expose metrics and platform ports"
+    );
+    assert!(
+        adapter.contains("impl SystemMetricsPort for SysinfoMetricsSampler")
+            && adapter.contains("impl SystemProbePlatformPort for LinuxPlatformProbe")
+            && adapter.contains("capture_command"),
+        "sysinfo and local command probing must live in the local adapter"
+    );
+}

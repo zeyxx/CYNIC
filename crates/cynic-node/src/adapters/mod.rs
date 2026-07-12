@@ -2,6 +2,7 @@ pub mod dns_renderer;
 pub mod headscale;
 pub mod host;
 pub mod host_observation;
+pub mod local_system_probe;
 pub mod provider_fallback_probe;
 pub mod proxmox;
 pub mod registry;
