@@ -9,6 +9,9 @@ use crate::network_actuator_contract::{
 use crate::network_command_surface::{NetworkCommandSurface, shell_command};
 use crate::observe::NodeObservation;
 
+#[cfg(kani)]
+mod verification;
+
 #[derive(Debug, Clone)]
 struct NetworkRootPolicyContext {
     helper_path: String,

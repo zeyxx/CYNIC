@@ -230,6 +230,10 @@ test: ## Run tests for low-layer core crates
 kani-node-mesh: ## Run Kani proofs for low-layer mesh planning invariants (requires `cargo kani setup`)
 	@$(RUST_ENV) cargo kani -p cynic-node
 
+.PHONY: kani-low-layers
+kani-low-layers: ## Run aggregated low-layer Kani proofs for cynic-node (requires `cargo kani setup`)
+	@$(RUST_ENV) cargo kani -p cynic-node
+
 .PHONY: run-kernel
 run-kernel: ## Run the kernel locally
 	@$(RUST_ENV) cargo run -p cynic-kernel

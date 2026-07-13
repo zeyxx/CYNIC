@@ -594,6 +594,8 @@ fn network_root_policy_uses_explicit_command_context() {
     let root = crate_root();
     let policy = fs::read_to_string(root.join("src/network_root_policy.rs"))
         .expect("read network_root_policy.rs");
+    let verification = fs::read_to_string(root.join("src/network_root_policy/verification.rs"))
+        .expect("read network_root_policy/verification.rs");
     let production_policy = policy.split("#[cfg(test)]").next().unwrap_or(&policy);
     let policy_without_context_factory = production_policy
         .replace("fn from_current_runtime() -> Self", "")
@@ -602,6 +604,7 @@ fn network_root_policy_uses_explicit_command_context() {
     assert!(
         production_policy.contains("struct NetworkRootPolicyContext")
             && production_policy.contains("fn from_current_runtime() -> Self")
+            && production_policy.contains("mod verification;")
             && production_policy.contains("fn build_root_policy_with_context"),
         "network root policy must expose explicit context-driven entrypoints"
     );
@@ -616,6 +619,12 @@ fn network_root_policy_uses_explicit_command_context() {
             && production_policy.contains("context.sudoers_rule")
             && production_policy.contains("context\n            .forbidden_patterns"),
         "network root policy must consume the injected root context"
+    );
+    assert!(
+        verification.contains("#[kani::proof]")
+            && verification.contains("proof_root_policy_keeps_denial_contract_shape")
+            && verification.contains("proof_allowed_profiles_only_contains_root_remediations"),
+        "network root policy Kani proofs must live in network_root_policy/verification.rs"
     );
     let tests = policy.split("#[cfg(test)]").nth(1).unwrap_or_default();
     assert!(
