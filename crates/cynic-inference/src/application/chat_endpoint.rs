@@ -44,6 +44,9 @@ pub struct ChatEndpointResolution {
     pub endpoint: Option<String>,
     pub model: Option<String>,
     pub backend_name: Option<String>,
+    /// Resolved API key material (never logged). From backend env inject or chat key file.
+    #[serde(skip_serializing)]
+    pub api_key: Option<String>,
     pub detail: String,
     pub candidates: Vec<String>,
     pub dns_zone: String,
@@ -61,7 +64,9 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
     if let Ok(ep) = std::env::var("CYNIC_CHAT_ENDPOINT") {
         let ep = ep.trim().trim_end_matches('/').to_string();
         if !ep.is_empty() {
-            let model = std::env::var("CYNIC_CHAT_MODEL").ok().filter(|s| !s.is_empty());
+            let model = std::env::var("CYNIC_CHAT_MODEL")
+                .ok()
+                .filter(|s| !s.is_empty());
             return ChatEndpointResolution {
                 schema: "cynic.chat.endpoint.v1",
                 ready: true,
@@ -69,6 +74,7 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
                 endpoint: Some(ep),
                 model,
                 backend_name: None,
+                api_key: resolve_chat_api_key(None),
                 detail: "breakglass CYNIC_CHAT_ENDPOINT".into(),
                 candidates,
                 dns_zone,
@@ -102,6 +108,10 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
                 endpoint: Some(ep),
                 model,
                 backend_name: Some(b.name.clone()),
+                api_key: b
+                    .api_key
+                    .clone()
+                    .or_else(|| resolve_chat_api_key(Some(&b.name))),
                 detail: format!("cynic inference SSOT ({})", path.display()),
                 candidates,
                 dns_zone,
@@ -127,6 +137,7 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
                         endpoint: Some(ep),
                         model,
                         backend_name: Some(host.clone()),
+                        api_key: resolve_chat_api_key(None),
                         detail: format!("synapse DNS {host}:{port} (zone={dns_zone})"),
                         candidates,
                         dns_zone,
@@ -143,6 +154,7 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
                         endpoint: Some(ep),
                         model,
                         backend_name: Some(host.clone()),
+                        api_key: resolve_chat_api_key(None),
                         detail: format!("synapse DNS {host} via {ip}:{port}"),
                         candidates,
                         dns_zone,
@@ -177,6 +189,7 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
                 endpoint: Some(s.endpoint),
                 model,
                 backend_name: Some(s.name),
+                api_key: resolve_chat_api_key(None),
                 detail: if want_ods {
                     format!("ODS adapter ({ODS_SURFACE} / {ODS_UPSTREAM})")
                 } else {
@@ -200,6 +213,7 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
                 endpoint: Some(ep),
                 model,
                 backend_name: None,
+                api_key: resolve_chat_api_key(None),
                 detail: "loopback OpenAI-compat probe".into(),
                 candidates,
                 dns_zone,
@@ -215,6 +229,7 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
         endpoint: None,
         model: None,
         backend_name: None,
+        api_key: resolve_chat_api_key(None),
         detail: format!(
             "no chat endpoint from cynic inference.toml, DNS zone `{dns_zone}`, or ODS/probe — start inference or pass --mock"
         ),
@@ -259,6 +274,55 @@ pub fn inference_config_candidates() -> Vec<std::path::PathBuf> {
     out
 }
 
+/// Resolve chat API key without logging secrets.
+///
+/// Order:
+/// 1. `CYNIC_CHAT_API_KEY`
+/// 2. `CYNIC_CHAT_API_KEY_FILE` (contents)
+/// 3. `CYNIC_BACKEND_<NAME>_API_KEY` when backend name known
+/// 4. principal /etc convention file `llama-api-key` under config_dir
+pub fn resolve_chat_api_key(backend_name: Option<&str>) -> Option<String> {
+    if let Ok(k) = std::env::var("CYNIC_CHAT_API_KEY") {
+        let k = k.trim().to_string();
+        if !k.is_empty() {
+            return Some(k);
+        }
+    }
+    if let Ok(path) = std::env::var("CYNIC_CHAT_API_KEY_FILE") {
+        if let Ok(raw) = std::fs::read_to_string(&path) {
+            let k = raw.trim().to_string();
+            if !k.is_empty() {
+                return Some(k);
+            }
+        }
+    }
+    if let Some(name) = backend_name {
+        let env_key = format!(
+            "CYNIC_BACKEND_{}_API_KEY",
+            name.to_uppercase().replace('-', "_")
+        );
+        if let Ok(k) = std::env::var(env_key) {
+            let k = k.trim().to_string();
+            if !k.is_empty() {
+                return Some(k);
+            }
+        }
+    }
+    let principal = PrincipalPaths::resolve();
+    for path in [
+        principal.config_dir.join("llama-api-key"),
+        std::path::PathBuf::from("/etc/cynic/llama-api-key"),
+    ] {
+        if let Ok(raw) = std::fs::read_to_string(&path) {
+            let k = raw.trim().to_string();
+            if !k.is_empty() {
+                return Some(k);
+            }
+        }
+    }
+    None
+}
+
 fn resolve_host(name: &str) -> Option<String> {
     let out = Command::new("getent").args(["hosts", name]).output().ok()?;
     if !out.status.success() {
@@ -284,10 +348,7 @@ async fn probe_openai_base(base: &str) -> Option<(String, Option<String>)> {
     let models_urls = if base.ends_with("/v1") {
         vec![format!("{base}/models")]
     } else {
-        vec![
-            format!("{base}/v1/models"),
-            format!("{base}/models"),
-        ]
+        vec![format!("{base}/v1/models"), format!("{base}/models")]
     };
 
     for url in models_urls {
@@ -343,6 +404,7 @@ mod tests {
             endpoint: None,
             model: None,
             backend_name: None,
+            api_key: resolve_chat_api_key(None),
             detail: "x".into(),
             candidates: vec![],
             dns_zone: DEFAULT_DNS_ZONE.into(),

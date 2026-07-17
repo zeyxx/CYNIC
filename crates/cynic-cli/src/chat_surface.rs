@@ -119,8 +119,10 @@ pub(crate) async fn build_chat_runtime(
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "default".into());
 
-    let client: Arc<dyn cynic_inference::ChatCompletionClient> =
-        Arc::new(HttpOpenAiChatClient::new(&endpoint, &model).map_err(|e| e.to_string())?);
+    let client: Arc<dyn cynic_inference::ChatCompletionClient> = Arc::new(
+        HttpOpenAiChatClient::with_api_key(&endpoint, &model, resolution.api_key.clone())
+            .map_err(|e| e.to_string())?,
+    );
     let tools = Arc::new(BuiltinToolInvoker);
     let service = ChatService::new(
         store.clone() as Arc<dyn ChatSessionStore>,

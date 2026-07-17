@@ -1,0 +1,43 @@
+{
+  "schema": "cynic.repo_remotes.v1",
+  "purpose": "Git placement authority for sovereignty: Forgejo is the candidate sovereign SSOT; GitHub is an optional public relay.",
+  "updated_at": "2026-07-17",
+  "remotes": [
+    {
+      "id": "forgejo",
+      "role": "sovereign_candidate",
+      "url": "http://10.10.10.101:3000/jeanterre13/CYNIC.git",
+      "http_port": 3000,
+      "host_ip": "10.10.10.101",
+      "host_aliases": [
+        "forgejo",
+        "forgejo.synapse.cynic",
+        "cynic-lxc-git",
+        "cynic-lxc-git.synapse.cynic",
+        "jeanterre13"
+      ],
+      "status_observed": "reachable_http_ui_repo_missing_or_auth_required",
+      "notes": [
+        "Wrong legacy URL used port 18300 — Forgejo serves on 3000.",
+        "User jeanterre13 exists (active=false until first login).",
+        "Push requires token or SSH key; empty public repo search returned no CYNIC clone.",
+        "Chicken-egg: restore synapse DNS so forgejo.synapse.cynic works without /etc/hosts pins."
+      ]
+    },
+    {
+      "id": "origin",
+      "role": "public_relay",
+      "url": "https://github.com/zeyxx/CYNIC.git",
+      "notes": [
+        "Temporary collab/mirror while Forgejo is unrepaired.",
+        "Not runtime authority and not a substitute for cynic proof surfaces."
+      ]
+    }
+  ],
+  "rules": [
+    "Prefer Forgejo when authenticated and reachable; do not invent SaaS CI as industrial proof",
+    "cynic lifecycle/metrics/conformance are the release gates — git remote health is infrastructure",
+    "Do not commit tokens or machine-local absolute paths into agent projections",
+    "Repair path: cynic network/DNS + host bootstrap for git LXC, then git push forgejo"
+  ]
+}

@@ -24,17 +24,31 @@ pub struct HttpOpenAiChatClient {
 }
 
 impl HttpOpenAiChatClient {
-    pub fn new(base_url: impl Into<String>, model: impl Into<String>) -> Result<Self, ChatServiceError> {
+    pub fn new(
+        base_url: impl Into<String>,
+        model: impl Into<String>,
+    ) -> Result<Self, ChatServiceError> {
+        Self::with_api_key(base_url, model, None)
+    }
+
+    pub fn with_api_key(
+        base_url: impl Into<String>,
+        model: impl Into<String>,
+        api_key: Option<String>,
+    ) -> Result<Self, ChatServiceError> {
         let timeout_secs = 120u64;
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(timeout_secs))
             .build()
             .map_err(|e| ChatServiceError::Model(format!("http client: {e}")))?;
+        let api_key = api_key
+            .filter(|k| !k.trim().is_empty())
+            .or_else(|| std::env::var("CYNIC_CHAT_API_KEY").ok().filter(|k| !k.is_empty()));
         Ok(Self {
             client,
             base_url: base_url.into().trim_end_matches('/').to_string(),
             model: model.into(),
-            api_key: std::env::var("CYNIC_CHAT_API_KEY").ok(),
+            api_key,
             timeout_secs,
         })
     }

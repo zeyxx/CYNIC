@@ -151,6 +151,17 @@ Agent work must reduce fragmentation.
 - Product domain prompt files under `crates/cynic-kernel/domains/` are residual
   product material (`domains/README.md`), not low-layer runtime law.
 
+## Sovereignty vs relay (chicken and egg)
+
+- **Runtime authority** stays local: principal `cynic`, `/etc/cynic`, harness proofs.
+- **Git**: Forgejo (`infra/repo-remotes.json`) is the sovereign *candidate* SSOT.
+  GitHub `origin` is an optional **public relay** while Forgejo DNS/auth/repo is
+  repaired — not a reason to reintroduce SaaS CI as law.
+- Observed Forgejo HTTP port is **3000** (not 18300). Host aliases live under
+  synapse / `/etc/hosts` (`forgejo.synapse.cynic`, `10.10.10.101`).
+- Prefer fixing reachability with cynic network/bootstrap surfaces over hardcoding
+  operator machine names in domain code.
+
 ## Agent CLI / Host Surface Patterns (anti-monolith)
 
 These rules are durable agent law for both Grok and Codex sessions. They exist
