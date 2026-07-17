@@ -83,10 +83,14 @@ impl ProcessLocalRuntime {
     }
 
     fn kill_pid(pid: u32) {
-        let _ = Command::new("kill").args(["-TERM", &pid.to_string()]).status();
+        let _ = Command::new("kill")
+            .args(["-TERM", &pid.to_string()])
+            .status();
         thread::sleep(Duration::from_millis(400));
         if Path::new(&format!("/proc/{pid}")).is_dir() {
-            let _ = Command::new("kill").args(["-KILL", &pid.to_string()]).status();
+            let _ = Command::new("kill")
+                .args(["-KILL", &pid.to_string()])
+                .status();
         }
     }
 
@@ -126,7 +130,9 @@ impl ProcessLocalRuntime {
         }
     }
 
-    fn build_argv(profile: &LocalModelProfile) -> Result<(PathBuf, Vec<String>), LocalRuntimeError> {
+    fn build_argv(
+        profile: &LocalModelProfile,
+    ) -> Result<(PathBuf, Vec<String>), LocalRuntimeError> {
         // Prefer probe-generated runtime env (principal layout), then static profile.
         let inventory = FsLocalModelInventory::from_env();
         let full = inventory.get_profile(&profile.alias)?;
@@ -198,7 +204,7 @@ impl ProcessLocalRuntime {
         Ok((bin, argv))
     }
 
-    fn wait_http_ready(profile: &LocalModelProfile, timeout: Duration) -> bool {
+    fn wait_http_ready(&self, alias: &str, profile: &LocalModelProfile, timeout: Duration) -> bool {
         let url = format!("http://{}:{}/v1/models", profile.host, profile.port);
         let start = std::time::Instant::now();
         let mut wait = crate::progress::WaitProgress::new(
@@ -206,8 +212,46 @@ impl ProcessLocalRuntime {
             5,
         );
         while start.elapsed() < timeout {
+            // Fail fast if process crashed (corrupt GGUF, OOM, etc.)
+            if self.read_pid(alias).is_none() {
+                crate::progress::progress(
+                    "dead",
+                    format!(
+                        "llama-server exited early — see log {}",
+                        self.log_path(alias).display()
+                    ),
+                );
+                if let Ok(tail) = fs::read_to_string(self.log_path(alias)) {
+                    let last: String = tail
+                        .lines()
+                        .rev()
+                        .take(8)
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .rev()
+                        .collect::<Vec<_>>()
+                        .join(" | ");
+                    if !last.is_empty() {
+                        crate::progress::progress(
+                            "log",
+                            last.chars().take(500).collect::<String>(),
+                        );
+                    }
+                }
+                wait.done(false);
+                return false;
+            }
             let ok = Command::new("curl")
-                .args(["-sS", "-m", "2", "-o", "/dev/null", "-w", "%{http_code}", &url])
+                .args([
+                    "-sS",
+                    "-m",
+                    "2",
+                    "-o",
+                    "/dev/null",
+                    "-w",
+                    "%{http_code}",
+                    &url,
+                ])
                 .output()
                 .ok()
                 .and_then(|o| String::from_utf8(o.stdout).ok())
@@ -274,10 +318,7 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
         crate::progress::progress(
             "preflight",
-            format!(
-                "arch={}",
-                gguf_meta.architecture.as_deref().unwrap_or("?")
-            ),
+            format!("arch={}", gguf_meta.architecture.as_deref().unwrap_or("?")),
         );
 
         // Probe plan → principal runtime env (same materialization membrane as systemd).
@@ -323,15 +364,11 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         }
         crate::progress::progress(
             "spawn",
-            format!(
-                "{} (log {})",
-                bin.display(),
-                self.log_path(alias).display()
-            ),
+            format!("{} (log {})", bin.display(), self.log_path(alias).display()),
         );
-        let child = cmd.spawn().map_err(|e| {
-            LocalRuntimeError::Control(format!("spawn {}: {e}", bin.display()))
-        })?;
+        let child = cmd
+            .spawn()
+            .map_err(|e| LocalRuntimeError::Control(format!("spawn {}: {e}", bin.display())))?;
         let pid = child.id();
         self.write_pid(alias, pid)?;
         crate::progress::progress("spawn", format!("pid={pid}"));
@@ -342,9 +379,10 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
             "load",
             "waiting for llama-server to finish loading weights into memory/VRAM",
         );
-        let ready = Self::wait_http_ready(&profile, Duration::from_secs(180));
+        let ready = self.wait_http_ready(alias, &profile, Duration::from_secs(180));
         let st = self.status_for_alias(alias, &profile);
         let ok = ready && st.state == LocalRuntimeState::Active;
+        let log_hint = self.log_path(alias).display().to_string();
         if !ok {
             if let Some(p) = self.read_pid(alias) {
                 Self::kill_pid(p);
@@ -354,7 +392,26 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         let st = if ok {
             st
         } else {
-            LocalRuntimeStatus::inactive("process start failed or model not ready")
+            LocalRuntimeStatus::inactive(format!(
+                "process start failed or model not ready (log {log_hint})"
+            ))
+        };
+
+        let fail_tail = if ok {
+            String::new()
+        } else {
+            fs::read_to_string(self.log_path(alias))
+                .ok()
+                .map(|t| {
+                    let lines: Vec<&str> = t.lines().rev().take(5).collect();
+                    let joined = lines.into_iter().rev().collect::<Vec<_>>().join(" | ");
+                    if joined.is_empty() {
+                        String::new()
+                    } else {
+                        format!("; log_tail={joined}")
+                    }
+                })
+                .unwrap_or_default()
         };
 
         Ok(LocalRuntimeMutationReport {
@@ -366,10 +423,10 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
             unit: format!("process:{alias}"),
             status: st,
             message: Some(format!(
-                "process supervisor: arch={} pid={} log={} env={} ready={ready}",
+                "process supervisor: arch={} pid={} log={} env={} ready={ready}{fail_tail}",
                 gguf_meta.architecture.as_deref().unwrap_or("?"),
                 pid,
-                self.log_path(alias).display(),
+                log_hint,
                 materialize.runtime_env
             )),
         })
@@ -378,9 +435,13 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
     fn stop(&self, alias: Option<&str>) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
         let alias = match alias {
             Some(a) => a.to_string(),
-            None => self.list_running_aliases().into_iter().next().ok_or_else(|| {
-                LocalRuntimeError::Rejected("no running process instance to stop".into())
-            })?,
+            None => self
+                .list_running_aliases()
+                .into_iter()
+                .next()
+                .ok_or_else(|| {
+                    LocalRuntimeError::Rejected("no running process instance to stop".into())
+                })?,
         };
         let profile = self.inventory.get_profile(&alias).ok();
         if let Some(pid) = self.read_pid(&alias) {

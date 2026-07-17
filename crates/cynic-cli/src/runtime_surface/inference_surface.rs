@@ -182,35 +182,64 @@ pub(crate) fn execute_inference_start(alias: Option<&str>, json: bool) -> ExitCo
         "supervisor",
         format!("{:?}", service.supervisor_kind().as_str()),
     );
-    match service.start(&resolved) {
-        Ok(mut report) => {
-            // Surface which alias auto-resolution chose (frictionless audit trail).
-            if alias.is_none()
-                || alias.is_some_and(|a| {
-                    matches!(
-                        a.to_ascii_lowercase().as_str(),
-                        "auto" | "default" | "any" | "" | "_" | "-"
-                    )
-                })
-            {
-                if let Some(msg) = report.message.take() {
-                    report.message = Some(format!("resolved_alias={resolved}; {msg}"));
-                } else {
-                    report.message = Some(format!("resolved_alias={resolved}"));
+
+    let auto_mode = alias.is_none()
+        || alias.is_some_and(|a| {
+            matches!(
+                a.to_ascii_lowercase().as_str(),
+                "auto" | "default" | "any" | "" | "_" | "-"
+            )
+        });
+
+    // Ordered start attempts: preferred first, then other startable profiles.
+    let mut candidates = vec![resolved.clone()];
+    if auto_mode {
+        if let Ok(ensured) = cynic_inference::ensure_profiles_from_vault() {
+            for a in ensured.startable_aliases {
+                if !candidates.contains(&a) {
+                    candidates.push(a);
                 }
             }
-            let code = if report.ok {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
-            };
-            let _ = emit_json(&report);
-            code
         }
-        Err(error) => {
-            eprintln!("inference start error: {error}");
-            ExitCode::FAILURE
+    }
+
+    let mut last_report = None;
+    for (i, try_alias) in candidates.iter().enumerate() {
+        if i > 0 {
+            cynic_inference::progress::progress(
+                "fallback",
+                format!("previous alias failed; trying {try_alias}"),
+            );
         }
+        match service.start(try_alias) {
+            Ok(mut report) => {
+                if let Some(msg) = report.message.take() {
+                    report.message = Some(format!("resolved_alias={try_alias}; {msg}"));
+                } else {
+                    report.message = Some(format!("resolved_alias={try_alias}"));
+                }
+                if report.ok {
+                    let _ = emit_json(&report);
+                    return ExitCode::SUCCESS;
+                }
+                last_report = Some(report);
+            }
+            Err(error) => {
+                cynic_inference::progress::progress("error", format!("{try_alias}: {error}"));
+                if !auto_mode {
+                    eprintln!("inference start error: {error}");
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+    }
+
+    if let Some(report) = last_report {
+        let _ = emit_json(&report);
+        ExitCode::FAILURE
+    } else {
+        eprintln!("inference start error: no startable alias succeeded");
+        ExitCode::FAILURE
     }
 }
 
