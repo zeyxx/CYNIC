@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "${script_dir}/.." && pwd)"
+vendor_dir="${repo_root}/vendor"
+
+cd "${repo_root}"
+rm -rf "${vendor_dir}"
+
+if ! getent hosts static.crates.io >/dev/null 2>&1; then
+  echo "vendor bootstrap blocked: cannot resolve static.crates.io" >&2
+  echo "Cargo registry access is not available from this environment right now." >&2
+  exit 1
+fi
+
+if ! CYNIC_CARGO_NETWORK_MODE=online \
+  CYNIC_CARGO_SOURCE_MODE=registry \
+  "${repo_root}/scripts/cargo" vendor "${vendor_dir}"; then
+  rm -rf "${vendor_dir}"
+  echo "vendor bootstrap failed; removed incomplete ${vendor_dir}" >&2
+  exit 1
+fi
+
+cat <<'EOF'
+vendor bootstrap complete.
+
+To use vendored sources:
+  CARGO_SOURCE_MODE=vendor make check
+
+To refresh vendor later:
+  ./scripts/cargo-vendor-bootstrap
+EOF

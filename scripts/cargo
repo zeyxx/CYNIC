@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "${script_dir}/.." && pwd)"
+
+if [[ "${CARGO_WRAPPER_ACTIVE:-0}" == "1" ]]; then
+  echo "cargo wrapper recursion detected" >&2
+  exit 1
+fi
+
+real_cargo=""
+for candidate in "${CARGO_REAL_BIN:-}" "/home/user/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo" "/usr/bin/cargo" "/usr/local/bin/cargo" "/home/user/.cargo/bin/cargo"; do
+  if [[ -n "${candidate}" && -x "${candidate}" && "${candidate}" != "${BASH_SOURCE[0]}" ]]; then
+    real_cargo="${candidate}"
+    break
+  fi
+done
+
+if [[ -z "${real_cargo}" ]]; then
+  echo "unable to locate real cargo binary" >&2
+  exit 1
+fi
+
+cargo_home="${CARGO_HOME:-${repo_root}/.cargo-home}"
+registry_home="${cargo_home}/registry"
+src_home="${registry_home}/src"
+cache_link="${registry_home}/cache"
+index_link="${registry_home}/index"
+seed_home="${HOME:-/home/user}/.cargo"
+
+mkdir -p "${cargo_home}" "${registry_home}" "${src_home}"
+
+if [[ -d "${seed_home}/registry/cache" && ! -e "${cache_link}" ]]; then
+  ln -s "${seed_home}/registry/cache" "${cache_link}"
+fi
+
+if [[ -d "${seed_home}/registry/index" && ! -e "${index_link}" ]]; then
+  ln -s "${seed_home}/registry/index" "${index_link}"
+fi
+
+if [[ -d "${seed_home}/git" && ! -e "${cargo_home}/git" ]]; then
+  ln -s "${seed_home}/git" "${cargo_home}/git"
+fi
+
+export CARGO_HOME="${cargo_home}"
+export CARGO_WRAPPER_ACTIVE=1
+
+toolchain_bin_dir="$(dirname -- "${real_cargo}")"
+if [[ -x "${toolchain_bin_dir}/rustc" ]]; then
+  export RUSTC="${toolchain_bin_dir}/rustc"
+fi
+if [[ -x "${toolchain_bin_dir}/rustdoc" ]]; then
+  export RUSTDOC="${toolchain_bin_dir}/rustdoc"
+fi
+if [[ -x "${toolchain_bin_dir}/rustfmt" ]]; then
+  export RUSTFMT="${toolchain_bin_dir}/rustfmt"
+fi
+
+network_mode="${CYNIC_CARGO_NETWORK_MODE:-offline}"
+source_mode="${CYNIC_CARGO_SOURCE_MODE:-registry}"
+args=("$@")
+subcommand="${1:-}"
+
+if [[ "${network_mode}" == "offline" && "${subcommand}" != "fmt" ]]; then
+  has_network_flag=0
+  for arg in "${args[@]}"; do
+    if [[ "${arg}" == "--offline" || "${arg}" == "--frozen" ]]; then
+      has_network_flag=1
+      break
+    fi
+  done
+  if [[ "${has_network_flag}" == "0" ]]; then
+    inserted=0
+    rebuilt_args=()
+    for arg in "${args[@]}"; do
+      if [[ "${arg}" == "--" && "${inserted}" == "0" ]]; then
+        rebuilt_args+=("--offline")
+        inserted=1
+      fi
+      rebuilt_args+=("${arg}")
+    done
+    if [[ "${inserted}" == "0" ]]; then
+      rebuilt_args+=("--offline")
+    fi
+    args=("${rebuilt_args[@]}")
+  fi
+fi
+
+if [[ "${source_mode}" == "vendor" ]]; then
+  vendor_dir="${repo_root}/vendor"
+  if [[ ! -d "${vendor_dir}" ]]; then
+    echo "vendor mode requested but ${vendor_dir} does not exist" >&2
+    exit 1
+  fi
+  args=(
+    --config "source.crates-io.replace-with=\"vendored-sources\""
+    --config "source.vendored-sources.directory=\"${vendor_dir}\""
+    "${args[@]}"
+  )
+fi
+
+exec "${real_cargo}" "${args[@]}"
