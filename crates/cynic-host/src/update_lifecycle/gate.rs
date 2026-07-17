@@ -6,15 +6,9 @@ use super::policy::phase_policy;
 use super::port::{ArgvRunner, json_status, split_command};
 use super::state_store::{load_state, save_state};
 use super::time::now_ms;
-use super::types::{
-    GateResult, LifecycleGateReport, UPDATE_LIFECYCLE_GATE_SCHEMA,
-};
+use super::types::{GateResult, LifecycleGateReport, UPDATE_LIFECYCLE_GATE_SCHEMA};
 
-pub fn run_gates(
-    state_path: &Path,
-    execute: bool,
-    runner: &dyn ArgvRunner,
-) -> LifecycleGateReport {
+pub fn run_gates(state_path: &Path, execute: bool, runner: &dyn ArgvRunner) -> LifecycleGateReport {
     let mut state = load_state(state_path);
     let policy = phase_policy(&state.current_phase);
     let mut results = Vec::new();
@@ -57,7 +51,15 @@ pub fn run_gates(
 
         let mut ok = out.success();
         if let Some(st) = json_status(&out.stdout) {
-            ok = ok && st != "blocked" && st != "error";
+            // Soft-fail statuses must not promote authority (sovereignty bar):
+            // insufficient_evidence / below_target are honest residuals, not green.
+            ok = ok
+                && st != "blocked"
+                && st != "error"
+                && st != "degraded"
+                && st != "insufficient_evidence"
+                && st != "below_target"
+                && st != "attention";
         }
         if g.required && !ok {
             all_required_ok = false;

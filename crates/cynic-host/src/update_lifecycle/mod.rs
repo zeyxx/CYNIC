@@ -73,11 +73,8 @@ mod tests {
         use std::sync::atomic::{AtomicU64, Ordering};
         static N: AtomicU64 = AtomicU64::new(0);
         let n = N.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!(
-            "cynic-lifecycle-test-{}-{}",
-            std::process::id(),
-            n
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("cynic-lifecycle-test-{}-{}", std::process::id(), n));
         let _ = std::fs::create_dir_all(&dir);
         dir.join("update-state.json")
     }
@@ -194,6 +191,55 @@ mod tests {
     }
 
     #[test]
+    fn gate_rejects_soft_fail_json_status() {
+        let path = tmp_state();
+        let _ = std::fs::remove_file(&path);
+        let mut runner = MapArgvRunner::default();
+        // All lab gates return exit 0 but metrics-like insufficient_evidence on validate
+        runner.responses.push((
+            vec![
+                "cynic".into(),
+                "runtime".into(),
+                "validate".into(),
+                "--json".into(),
+            ],
+            ArgvOutput {
+                exit_code: Some(0),
+                stdout: r#"{"status":"insufficient_evidence"}"#.into(),
+                stderr: String::new(),
+                spawn_error: None,
+            },
+        ));
+        runner.responses.push((
+            vec!["cynic".into(), "deps".into(), "--json".into()],
+            ArgvOutput {
+                exit_code: Some(0),
+                stdout: r#"{"status":"ok"}"#.into(),
+                stderr: String::new(),
+                spawn_error: None,
+            },
+        ));
+        runner.responses.push((
+            vec![
+                "cynic".into(),
+                "runtime".into(),
+                "harness".into(),
+                "--json".into(),
+            ],
+            ArgvOutput {
+                exit_code: Some(0),
+                stdout: r#"{"status":"ok"}"#.into(),
+                stderr: String::new(),
+                spawn_error: None,
+            },
+        ));
+        let r = run_gates(&path, true, &runner);
+        assert_eq!(r.status, "blocked");
+        assert!(!r.all_required_ok);
+        assert!(!r.results.iter().find(|g| g.id == "runtime_validate").unwrap().ok);
+    }
+
+    #[test]
     fn ops_report_builds_findings_from_runner_json() {
         let path = tmp_state();
         let _ = std::fs::remove_file(&path);
@@ -251,8 +297,18 @@ mod tests {
         ));
         let report = ops_report(&path, &runner);
         assert!(!report.black_box);
-        assert!(report.findings.iter().any(|f| f.id == "deps.desired_upgrade"));
-        assert!(report.findings.iter().any(|f| f.id == "lifecycle.gate_missing"));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.id == "deps.desired_upgrade")
+        );
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.id == "lifecycle.gate_missing")
+        );
     }
 
     #[test]
