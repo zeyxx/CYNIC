@@ -10,6 +10,7 @@ pub mod dispatch;
 pub mod event;
 pub mod events;
 pub mod health;
+pub mod inference_observation;
 pub mod inference_proxy;
 pub mod inference_router;
 pub mod mail;
@@ -39,10 +40,9 @@ use tower_http::services::ServeDir;
 use self::attention::attention_handler;
 use self::auth::{auth_input_handler, auth_verify_handler};
 use self::coord::{
-    coord_backup_handler, coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
-    coord_infra_provision_handler, coord_register_handler, coord_release_handler,
-    coord_restore_handler, coord_rollback_handler, coord_scope_handler, coord_topology_handler,
-    coord_upgrade_handler, coord_upgrade_systemd_handler, coord_who_handler,
+    coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
+    coord_register_handler, coord_release_handler, coord_scope_handler, coord_topology_handler,
+    coord_who_handler,
 };
 use self::data::{
     audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
@@ -200,21 +200,6 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/scope", post(coord_scope_handler))
         .route("/coord/who", get(coord_who_handler))
         .route("/coord/topology", get(coord_topology_handler))
-        .route("/lifecycle/provision", post(coord_infra_provision_handler))
-        .route(
-            "/lifecycle/upgrade",
-            post(coord_upgrade_handler).layer(DefaultBodyLimit::max(100 * 1024 * 1024)),
-        )
-        .route("/lifecycle/rollback", post(coord_rollback_handler))
-        .route("/lifecycle/backup", get(coord_backup_handler))
-        .route(
-            "/lifecycle/restore",
-            post(coord_restore_handler).layer(DefaultBodyLimit::max(100 * 1024 * 1024)),
-        )
-        .route(
-            "/lifecycle/upgrade-systemd",
-            post(coord_upgrade_systemd_handler).layer(DefaultBodyLimit::max(1024 * 1024)),
-        )
         .route(
             "/dispatch/zone-activity",
             get(dispatch::zone_activity_handler),

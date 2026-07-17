@@ -43,7 +43,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_validate",
-        description = "Run cargo build + clippy + lint-rules on the kernel. Returns pass/fail with details."
+        description = "Run the canonical repository gate `make check` (authority JSON + cargo check core crates + surface-audit including agent-exposure). Prefer this over inventing a parallel validate stack. Returns cynic.mcp.validate.v1."
     )]
     async fn cynic_validate(
         &self,
@@ -1465,5 +1465,124 @@ impl CynicMcpProxy {
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
         )]))
+    }
+
+    #[tool(
+        name = "cynic_inference_backends",
+        description = "Read the sovereign inference configuration from the SSOT (CYNIC_INFERENCE_CONFIG or /etc/cynic/inference.toml) and probe each backend health endpoint. Returns declared backends with sovereign flag, model, base_url, and live health status. Never emits API keys. Use this to discover which local inference backends are available before routing tasks."
+    )]
+    async fn cynic_inference_backends(&self) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        use cynic_inference::{InferenceConfigError, load_inference_config};
+
+        let loaded = match load_inference_config() {
+            Ok(loaded) => loaded,
+            Err(InferenceConfigError::NotFound { path }) => {
+                let result = serde_json::json!({
+                    "schema": "cynic.inference_backends.v1",
+                    "status": "not_configured",
+                    "config_path": path.to_string_lossy(),
+                    "message": "No inference config found. Copy infra/inference.toml.example to the reported path.",
+                    "backends": [],
+                });
+                return Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&result)
+                        .unwrap_or_else(|_| result.to_string()),
+                )]));
+            }
+            Err(error) => {
+                return Err(McpError::internal_error(
+                    format!("inference config error: {error}"),
+                    None,
+                ));
+            }
+        };
+
+        // Probe each backend /models — 3s timeout, best-effort, non-blocking.
+        #[allow(clippy::expect_used)] // WHY: default() only fails on TLS init, unrecoverable
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(3))
+            .build()
+            .unwrap_or_default();
+
+        let mut backend_views = Vec::new();
+        for backend in &loaded.backends {
+            let health_url = backend
+                .health_url
+                .clone()
+                .unwrap_or_else(|| {
+                    format!("{}/models", backend.base_url.trim_end_matches('/'))
+                });
+
+            let health_status = match http.get(&health_url).send().await {
+                Ok(resp) if resp.status().is_success() => "healthy",
+                Ok(_) => "degraded",
+                Err(_) => "unreachable",
+            };
+
+            backend_views.push(serde_json::json!({
+                "name": backend.name,
+                "sovereign": backend.sovereign,
+                "base_url": backend.base_url,
+                "model": backend.model,
+                "backend_type": format!("{:?}", backend.backend_type).to_lowercase(),
+                "context_size": backend.context_size,
+                "timeout_secs": backend.timeout_secs,
+                "max_tokens": backend.max_tokens,
+                "has_api_key": backend.api_key.is_some(),
+                "health": health_status,
+            }));
+        }
+
+        let sovereign_healthy = backend_views
+            .iter()
+            .filter(|b| {
+                b.get("sovereign")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                    && b.get("health").and_then(|v| v.as_str()) == Some("healthy")
+            })
+            .count();
+
+        let result = serde_json::json!({
+            "schema": "cynic.inference_backends.v1",
+            "status": "ok",
+            "config_path": loaded.path.map(|p| p.to_string_lossy().into_owned()),
+            "backend_count": backend_views.len(),
+            "sovereign_healthy_count": sovereign_healthy,
+            "backends": backend_views,
+        });
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result)
+                .unwrap_or_else(|_| result.to_string()),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_inference_discover",
+        description = "Scan local ports for running ODS/Ollama/llama-server instances and register them in the user config (~/.config/cynic/inference.toml). Returns the scan results, newly registered backends, and status."
+    )]
+    async fn cynic_inference_discover(&self) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        use cynic_inference::sync_discovered_backends;
+
+        match sync_discovered_backends().await {
+            Ok(report) => {
+                let result = serde_json::to_value(&report).unwrap_or_default();
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&result)
+                        .unwrap_or_else(|_| result.to_string()),
+                )]))
+            }
+            Err(error) => Err(McpError::internal_error(
+                format!("Inference discovery failed: {error}"),
+                None,
+            )),
+        }
     }
 }

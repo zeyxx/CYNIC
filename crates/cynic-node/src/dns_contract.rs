@@ -8,13 +8,18 @@ use crate::network_command_surface::{
     NetworkCommandSurface, argv_command, expectation, package_presence_command,
 };
 
+#[cfg(kani)]
+mod verification;
+
 #[derive(Debug, Clone)]
 struct DnsRuntimeContext {
     zone: String,
     storage_probe_fqdn: Option<String>,
     package_query_bin: String,
     rpm_query_bin: String,
+    service_manager_kind: String,
     service_manager_bin: String,
+    service_enable_bin: String,
     dns_service_unit: String,
     resolved_unit: String,
     resolver_command: String,
@@ -114,7 +119,7 @@ pub(crate) fn dns_activation_checks_for_zone(
 }
 
 fn dns_activation_checks_with_context(context: &DnsRuntimeContext) -> Vec<NetworkCommandSurface> {
-    vec![
+    let mut checks = vec![
         expectation(
             "package_source_policy",
             "install CoreDNS from a distribution package or approved internal package mirror",
@@ -125,42 +130,79 @@ fn dns_activation_checks_with_context(context: &DnsRuntimeContext) -> Vec<Networ
             context.package_query_bin.clone(),
             context.rpm_query_bin.clone(),
         ),
-        argv_command(
-            "daemon_reload",
-            vec![
-                context.service_manager_bin.clone(),
-                "daemon-reload".to_string(),
-            ],
-        ),
-        argv_command(
-            "enable_dns_service",
-            vec![
-                context.service_manager_bin.clone(),
-                "enable".to_string(),
-                "--now".to_string(),
-                context.dns_service_unit.clone(),
-            ],
-        ),
-        argv_command(
-            "restart_resolved",
-            vec![
-                context.service_manager_bin.clone(),
-                "restart".to_string(),
-                context.resolved_unit.clone(),
-            ],
-        ),
-        argv_command(
-            "resolve_storage_fqdn",
-            vec![
-                context.resolver_command.clone(),
-                "hosts".to_string(),
-                context
-                    .storage_probe_fqdn
-                    .clone()
-                    .unwrap_or_else(|| format!("*.{}", context.zone)),
-            ],
-        ),
-    ]
+    ];
+
+    checks.extend(service_manager_activation_checks(context));
+    checks.push(argv_command(
+        "resolve_storage_fqdn",
+        vec![
+            context.resolver_command.clone(),
+            "hosts".to_string(),
+            context
+                .storage_probe_fqdn
+                .clone()
+                .unwrap_or_else(|| format!("*.{}", context.zone)),
+        ],
+    ));
+    checks
+}
+
+fn service_manager_activation_checks(context: &DnsRuntimeContext) -> Vec<NetworkCommandSurface> {
+    match context.service_manager_kind.as_str() {
+        "openrc" => vec![
+            argv_command(
+                "enable_dns_service",
+                vec![
+                    context.service_enable_bin.clone(),
+                    "add".to_string(),
+                    openrc_service_name(&context.dns_service_unit),
+                    "default".to_string(),
+                ],
+            ),
+            argv_command(
+                "start_dns_service",
+                vec![
+                    context.service_manager_bin.clone(),
+                    openrc_service_name(&context.dns_service_unit),
+                    "start".to_string(),
+                ],
+            ),
+            expectation(
+                "resolver_integration",
+                "OpenRC resolver integration requires a dedicated adapter; do not emit resolver-daemon commands from another service-manager family",
+            ),
+        ],
+        _ => vec![
+            argv_command(
+                "daemon_reload",
+                vec![
+                    context.service_manager_bin.clone(),
+                    "daemon-reload".to_string(),
+                ],
+            ),
+            argv_command(
+                "enable_dns_service",
+                vec![
+                    context.service_manager_bin.clone(),
+                    "enable".to_string(),
+                    "--now".to_string(),
+                    context.dns_service_unit.clone(),
+                ],
+            ),
+            argv_command(
+                "restart_resolved",
+                vec![
+                    context.service_manager_bin.clone(),
+                    "restart".to_string(),
+                    context.resolved_unit.clone(),
+                ],
+            ),
+        ],
+    }
+}
+
+fn openrc_service_name(unit: &str) -> String {
+    unit.strip_suffix(".service").unwrap_or(unit).to_string()
 }
 
 pub(crate) fn dns_target_paths() -> DnsTargetPaths {
@@ -341,7 +383,9 @@ fn dns_runtime_context_for_zone(
         storage_probe_fqdn,
         package_query_bin: capabilities.package_manager.query.clone(),
         rpm_query_bin: capabilities.package_manager.rpm_query.clone(),
+        service_manager_kind: capabilities.service_manager.kind.clone(),
         service_manager_bin: capabilities.service_manager.command.clone(),
+        service_enable_bin: runtime_layout.rc_update_bin(),
         dns_service_unit: capabilities.dns_provider.service_unit.clone(),
         resolved_unit: capabilities.dns_provider.resolved_unit.clone(),
         resolver_command: capabilities.name_service.resolver_command.clone(),
@@ -366,7 +410,9 @@ mod tests {
             storage_probe_fqdn: Some("storage.test.zone".to_string()),
             package_query_bin: "/usr/bin/dpkg".to_string(),
             rpm_query_bin: "/usr/bin/rpm".to_string(),
+            service_manager_kind: "systemd".to_string(),
             service_manager_bin: "/usr/bin/systemctl".to_string(),
+            service_enable_bin: "/usr/bin/systemctl".to_string(),
             dns_service_unit: "coredns-synapse.service".to_string(),
             resolved_unit: "systemd-resolved.service".to_string(),
             resolver_command: "/usr/bin/getent".to_string(),
@@ -404,5 +450,26 @@ mod tests {
         assert!(unit.contains("/usr/bin/coredns -conf /etc/coredns/Corefile"));
         assert!(readme.contains("coredns-synapse.service"));
         assert!(readme.contains("storage.test.zone"));
+    }
+
+    #[test]
+    fn openrc_activation_checks_do_not_emit_systemd_commands() {
+        let mut context = context();
+        context.service_manager_kind = "openrc".to_string();
+        context.service_manager_bin = "/sbin/rc-service".to_string();
+        context.service_enable_bin = "/sbin/rc-update".to_string();
+
+        let rendered = dns_activation_checks_with_context(&context)
+            .iter()
+            .map(crate::network_command_surface::render_command)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("/sbin/rc-update add coredns-synapse default"));
+        assert!(rendered.contains("/sbin/rc-service coredns-synapse start"));
+        assert!(rendered.contains("OpenRC resolver integration requires a dedicated adapter"));
+        assert!(!rendered.contains("daemon-reload"));
+        assert!(!rendered.contains("enable --now"));
+        assert!(!rendered.contains("systemd-resolved"));
     }
 }

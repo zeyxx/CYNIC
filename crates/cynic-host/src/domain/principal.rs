@@ -295,6 +295,7 @@ mod tests {
     use super::{PrincipalCommandContext, PrincipalObservedState, PrincipalPolicy};
     use crate::command_surface::render_command;
     use crate::domain::shared::SurfaceStatus;
+    use crate::runtime_authority::default_runtime_principal_layout;
 
     fn context() -> PrincipalCommandContext {
         PrincipalCommandContext {
@@ -303,10 +304,11 @@ mod tests {
     }
 
     fn policy() -> PrincipalPolicy {
+        let principal = default_runtime_principal_layout();
         PrincipalPolicy {
-            runtime_user: "cynic".to_string(),
-            runtime_group: "cynic".to_string(),
-            home_dir: "/var/lib/cynic".to_string(),
+            runtime_user: principal.runtime_user,
+            runtime_group: principal.runtime_group,
+            home_dir: principal.home_dir.display().to_string(),
             config_dir: "/etc/cynic".to_string(),
             state_dirs: vec!["/var/lib/cynic/state".to_string()],
         }

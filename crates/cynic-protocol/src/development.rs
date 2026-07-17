@@ -113,12 +113,20 @@ pub fn development_surface_manifest() -> DevelopmentSurfaceManifest {
                 owner: "cynic-mcp",
                 responsibility: "Expose only compiled and policy-backed organism capabilities to agents.",
                 mutation_scope: "MCP/tool projections, not domain ownership",
-                canonical_commands: vec!["cargo check -p cynic-mcp", "cynic commands --json"],
-                exit_evidence: vec!["agent_surface_projected"],
+                canonical_commands: vec![
+                    "make check",
+                    "cynic dev agent-exposure --json",
+                    "cynic commands --json",
+                ],
+                exit_evidence: vec![
+                    "agent_surface_projected",
+                    "cynic.cli.agent_exposure_audit.v1",
+                ],
                 anti_responsibilities: vec![
                     "invent runtime state",
                     "duplicate CLI business logic",
                     "expose deleted or unbacked tools",
+                    "invent a parallel validate stack",
                 ],
             },
             DevelopmentSurface {
@@ -127,12 +135,13 @@ pub fn development_surface_manifest() -> DevelopmentSurfaceManifest {
                 owner: "Makefile",
                 responsibility: "Run the single-machine development loop and report honest blocked runtime state.",
                 mutation_scope: "Read-only by default; no host mutation",
-                canonical_commands: vec!["make e2e"],
-                exit_evidence: vec!["cynic.local_e2e.v1"],
+                canonical_commands: vec!["make check", "make e2e"],
+                exit_evidence: vec!["cynic.local_e2e.v1", "cynic.dev_check.v1"],
                 anti_responsibilities: vec![
                     "prove fleet distribution",
                     "auto-apply OS remediation",
                     "mask blocked proofs",
+                    "reintroduce fmt/build/clippy/test as a second agent gate",
                 ],
             },
             DevelopmentSurface {

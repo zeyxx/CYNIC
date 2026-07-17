@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use tokio::task::JoinHandle;
 
+use crate::adapters::local_runtime_federation_queue_store::LocalRuntimeFederationQueueStore;
 use crate::domain::runtime_federation::{
     DEFAULT_NODE_PUBLIC_KEY, RuntimeFederationConfig, default_queue_dir,
     deterministic_fallback_verdict, kernel_websocket_url,
@@ -51,7 +52,7 @@ impl WebSocketFederationAdapter {
                 config.api_key,
                 config.node_public_key,
                 config.node_identity,
-                config.queue_dir,
+                Arc::new(LocalRuntimeFederationQueueStore::new(config.queue_dir)),
             )),
         }
     }

@@ -1,0 +1,17 @@
+//! Native CYNIC local inference adapters (vault + process supervisor).
+//!
+//! Part of **our** system: declared profiles + `llama-server@` (or equivalent).
+//! Not a substitute for [Osmantic ODS](https://github.com/Osmantic/ODS), which
+//! remains the preferred full-environment bootstrap framework when installed.
+//! ODS integration (observe running stack) lives in `adapters::ods`.
+
+pub mod engine_probe;
+pub mod model_store;
+pub mod session_store;
+pub mod systemd_user;
+pub mod vault_inventory;
+
+pub use model_store::FsModelStore;
+pub use session_store::FsChatSessionStore;
+pub use systemd_user::SystemdUserLocalRuntime;
+pub use vault_inventory::FsLocalModelInventory;

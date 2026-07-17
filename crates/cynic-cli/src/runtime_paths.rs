@@ -1,6 +1,8 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
+use cynic_host::runtime_authority::{RuntimeProjectionClass, default_runtime_authority_paths};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RuntimeMode {
     ExplicitFlag,
@@ -9,6 +11,31 @@ pub(crate) enum RuntimeMode {
     ProjectRootEnv,
     DevWorktree,
     UnresolvedFallback,
+}
+
+impl RuntimeMode {
+    pub(crate) fn projection_class(self) -> RuntimeProjectionClass {
+        match self {
+            Self::Installed => RuntimeProjectionClass::RuntimeAuthority,
+            Self::ExplicitFlag | Self::Environment | Self::ProjectRootEnv => {
+                RuntimeProjectionClass::OperatorProjection
+            }
+            Self::DevWorktree | Self::UnresolvedFallback => {
+                RuntimeProjectionClass::DevWorktreeFallback
+            }
+        }
+    }
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::ExplicitFlag => "explicit_flag",
+            Self::Environment => "environment",
+            Self::Installed => "installed",
+            Self::ProjectRootEnv => "project_root_env",
+            Self::DevWorktree => "dev_worktree",
+            Self::UnresolvedFallback => "unresolved_fallback",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +58,7 @@ pub(crate) struct RuntimePaths {
     pub(crate) network_actuator_policy_path: PathBuf,
     pub(crate) network_actuator_sudoers_path: PathBuf,
     pub(crate) mode: RuntimeMode,
+    pub(crate) projection_class: RuntimeProjectionClass,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -56,13 +84,14 @@ pub(crate) struct RuntimeContext {
 
 impl RuntimeContext {
     pub(crate) fn from_env(explicit_registry: Option<String>) -> Self {
+        let authority = default_runtime_authority_paths();
         Self {
             explicit_registry: explicit_registry.map(PathBuf::from),
             env_registry: env::var("CYNIC_REGISTRY").ok().map(PathBuf::from),
             project_root_env: env::var("CYNIC_PROJECT_ROOT").ok().map(PathBuf::from),
             current_dir: env::current_dir().ok(),
             current_exe: env::current_exe().ok(),
-            installed_config_root: Some(PathBuf::from("/etc/cynic")),
+            installed_config_root: Some(authority.config_root),
             env_config_root: env::var("CYNIC_CONFIG_ROOT").ok().map(PathBuf::from),
             env_policy_root: env::var("CYNIC_POLICY_ROOT").ok().map(PathBuf::from),
             env_libexec_root: env::var("CYNIC_LIBEXEC_ROOT").ok().map(PathBuf::from),
@@ -107,6 +136,7 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
             ),
             network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
             mode: RuntimeMode::ExplicitFlag,
+            projection_class: RuntimeMode::ExplicitFlag.projection_class(),
         };
     }
 
@@ -136,6 +166,7 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
             ),
             network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
             mode: RuntimeMode::Environment,
+            projection_class: RuntimeMode::Environment.projection_class(),
         };
     }
 
@@ -164,6 +195,7 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
                 ),
                 network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
                 mode: RuntimeMode::Installed,
+                projection_class: RuntimeMode::Installed.projection_class(),
             };
         }
     }
@@ -194,6 +226,7 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
                 ),
                 network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
                 mode: RuntimeMode::ProjectRootEnv,
+                projection_class: RuntimeMode::ProjectRootEnv.projection_class(),
             };
         }
     }
@@ -222,6 +255,7 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
             ),
             network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
             mode: RuntimeMode::DevWorktree,
+            projection_class: RuntimeMode::DevWorktree.projection_class(),
         };
     }
 
@@ -249,6 +283,7 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
             ),
             network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
             mode: RuntimeMode::DevWorktree,
+            projection_class: RuntimeMode::DevWorktree.projection_class(),
         };
     }
 
@@ -276,6 +311,7 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
         network_actuator_policy_path: effective_network_actuator_policy_path(context, &config_root),
         network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
         mode: RuntimeMode::UnresolvedFallback,
+        projection_class: RuntimeMode::UnresolvedFallback.projection_class(),
     }
 }
 
@@ -301,31 +337,35 @@ fn effective_policy_root(context: &RuntimeContext, config_root: &Path) -> PathBu
 }
 
 fn effective_libexec_root(context: &RuntimeContext) -> PathBuf {
+    let authority = default_runtime_authority_paths();
     context
         .env_libexec_root
         .clone()
-        .unwrap_or_else(|| PathBuf::from("/usr/local/libexec"))
+        .unwrap_or(authority.helper_root)
 }
 
 fn effective_sudoers_dir(context: &RuntimeContext) -> PathBuf {
+    let authority = default_runtime_authority_paths();
     context
         .env_sudoers_dir
         .clone()
-        .unwrap_or_else(|| PathBuf::from("/etc/sudoers.d"))
+        .unwrap_or(authority.sudoers_dir)
 }
 
 fn effective_state_root(context: &RuntimeContext) -> PathBuf {
+    let authority = default_runtime_authority_paths();
     context
         .env_state_root
         .clone()
-        .unwrap_or_else(|| PathBuf::from("/var/lib/cynic"))
+        .unwrap_or(authority.principal.state_root)
 }
 
 fn effective_log_root(context: &RuntimeContext) -> PathBuf {
+    let authority = default_runtime_authority_paths();
     context
         .env_log_root
         .clone()
-        .unwrap_or_else(|| PathBuf::from("/var/log/cynic"))
+        .unwrap_or(authority.principal.log_root)
 }
 
 fn effective_provider_hosts_path(context: &RuntimeContext, config_root: &Path) -> PathBuf {
@@ -336,31 +376,35 @@ fn effective_provider_hosts_path(context: &RuntimeContext, config_root: &Path) -
 }
 
 fn effective_dns_hosts_path(context: &RuntimeContext) -> PathBuf {
+    let authority = default_runtime_authority_paths();
     context
         .env_dns_hosts_path
         .clone()
-        .unwrap_or_else(|| PathBuf::from("/etc/coredns/synapse.hosts"))
+        .unwrap_or(authority.dns_hosts_path)
 }
 
 fn effective_dns_corefile_path(context: &RuntimeContext) -> PathBuf {
+    let authority = default_runtime_authority_paths();
     context
         .env_dns_corefile_path
         .clone()
-        .unwrap_or_else(|| PathBuf::from("/etc/coredns/Corefile"))
+        .unwrap_or(authority.dns_corefile_path)
 }
 
 fn effective_dns_service_path(context: &RuntimeContext) -> PathBuf {
+    let authority = default_runtime_authority_paths();
     context
         .env_dns_service_path
         .clone()
-        .unwrap_or_else(|| PathBuf::from("/etc/systemd/system/coredns-synapse.service"))
+        .unwrap_or(authority.dns_service_path)
 }
 
 fn effective_resolved_dropin_path(context: &RuntimeContext) -> PathBuf {
+    let authority = default_runtime_authority_paths();
     context
         .env_resolved_dropin_path
         .clone()
-        .unwrap_or_else(|| PathBuf::from("/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf"))
+        .unwrap_or(authority.resolved_dropin_path)
 }
 
 fn effective_host_exec_helper_path(context: &RuntimeContext) -> PathBuf {
@@ -441,6 +485,10 @@ mod tests {
         });
 
         assert_eq!(resolved.mode, RuntimeMode::Installed);
+        assert_eq!(
+            resolved.projection_class,
+            RuntimeProjectionClass::RuntimeAuthority
+        );
         assert_eq!(resolved.registry_path, etc.join("registry.json"));
         assert_eq!(resolved.config_root, etc);
         assert_eq!(resolved.sudoers_dir, PathBuf::from("/etc/sudoers.d"));
@@ -470,6 +518,10 @@ mod tests {
         });
 
         assert_eq!(resolved.mode, RuntimeMode::DevWorktree);
+        assert_eq!(
+            resolved.projection_class,
+            RuntimeProjectionClass::DevWorktreeFallback
+        );
         assert_eq!(resolved.registry_path, repo.join("infra/registry.json"));
         assert_eq!(resolved.config_root, root.join("etc/cynic"));
         assert_eq!(resolved.policy_root, root.join("etc/cynic"));
@@ -496,6 +548,10 @@ mod tests {
         });
 
         assert_eq!(resolved.mode, RuntimeMode::ExplicitFlag);
+        assert_eq!(
+            resolved.projection_class,
+            RuntimeProjectionClass::OperatorProjection
+        );
         assert_eq!(resolved.registry_path, explicit);
         assert_eq!(resolved.libexec_root, PathBuf::from("/usr/local/libexec"));
         assert_eq!(

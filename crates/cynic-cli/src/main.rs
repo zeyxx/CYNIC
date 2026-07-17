@@ -1,15 +1,22 @@
 use std::process::ExitCode;
 
 use clap::{CommandFactory, Parser, Subcommand};
+mod agent_exposure_audit;
 mod audit_surface;
 mod bootstrap_surface;
+mod chat_surface;
+mod chat_tui;
 mod command_manifest;
+mod crate_audit;
+mod deps_surface;
 mod dev_surface;
 mod fleet_observation;
 mod fleet_report;
 mod fleet_surface;
 mod host_exec_alias_surface;
+mod kernel_boundary_audit;
 mod lab_surface;
+mod lifecycle_surface;
 mod network_surface;
 mod node_host_audit;
 mod runtime_paths;
@@ -76,6 +83,72 @@ enum Command {
         #[command(subcommand)]
         command: AuditCommand,
     },
+    /// Ecosystem tech-watch and human-validated upgrades (canonical).
+    Deps {
+        #[command(subcommand)]
+        command: Option<DepsCommand>,
+        /// Machine-readable JSON (default is human text).
+        #[arg(long, global = true)]
+        json: bool,
+    },
+    /// Update lifecycle: lab → conformance → staging → canary → production.
+    Lifecycle {
+        #[command(subcommand)]
+        command: lifecycle_surface::LifecycleCommand,
+    },
+    /// Operator chat against the inference plane (session history under principal).
+    /// Default with no prompt: interactive TUI. Does not require cynic-kernel.
+    Chat {
+        /// User prompt (one-shot). Omit to open the interactive TUI.
+        prompt: Option<String>,
+        /// Resume an existing session id (one-shot).
+        #[arg(long)]
+        resume: Option<String>,
+        /// Explicit session id for a new or continuing session.
+        #[arg(long = "session")]
+        session_id: Option<String>,
+        /// Request progressive stream chunks in the turn report / TUI turns.
+        #[arg(long)]
+        stream: bool,
+        /// Machine-readable JSON (disables TUI).
+        #[arg(long)]
+        json: bool,
+        /// List durable sessions under principal chat state.
+        #[arg(long = "list-sessions")]
+        list_sessions: bool,
+        /// Export a session as JSONL to stdout.
+        #[arg(long)]
+        export: Option<String>,
+        /// Force mock inference plane (tools/stream without live engine).
+        #[arg(long)]
+        mock: bool,
+        /// Prefer Osmantic ODS OpenAI-compat discovery for the chat endpoint.
+        #[arg(long)]
+        ods: bool,
+        /// Do not open the interactive TUI when prompt is omitted.
+        #[arg(long = "no-tui")]
+        no_tui: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum DepsCommand {
+    /// Ordered upgrade plan (manual + one-click items).
+    Plan,
+    /// Preview or apply scripted upgrades (`--yes` = one-click human consent).
+    Upgrade {
+        /// Apply all allowlisted scripted upgrades (explicit human consent).
+        #[arg(long)]
+        yes: bool,
+        /// Non-interactive apply (agents): requires --confirm from a plan.
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        confirm: Option<String>,
+        /// Limit to dep ids (e.g. cynic, huggingface-cli).
+        #[arg(long = "only")]
+        only: Vec<String>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -109,6 +182,40 @@ fn main() -> ExitCode {
         Some(Command::Bootstrap { command }) => execute_bootstrap(command),
         Some(Command::Network { command }) => execute_network(command),
         Some(Command::Audit { command }) => execute_audit(command),
+        Some(Command::Deps { command, json }) => match command {
+            None => deps_surface::execute_deps(json),
+            Some(DepsCommand::Plan) => deps_surface::execute_deps_plan(json),
+            Some(DepsCommand::Upgrade {
+                yes,
+                apply,
+                confirm,
+                only,
+            }) => deps_surface::execute_deps_upgrade(json, apply, yes, confirm.as_deref(), &only),
+        },
+        Some(Command::Lifecycle { command }) => lifecycle_surface::execute_lifecycle(command),
+        Some(Command::Chat {
+            prompt,
+            resume,
+            session_id,
+            stream,
+            json,
+            list_sessions,
+            export,
+            mock,
+            ods,
+            no_tui,
+        }) => chat_surface::execute_chat(chat_surface::ChatArgs {
+            prompt,
+            resume,
+            session_id,
+            stream,
+            json,
+            list_sessions,
+            export,
+            mock,
+            ods,
+            no_tui,
+        }),
     }
 }
 

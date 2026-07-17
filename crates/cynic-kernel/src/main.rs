@@ -1,113 +1,41 @@
-use cynic_kernel::domain::inference::BackendPort;
+use cynic_inference::adapters::embedding::auto_recovery::AutoRecoveryEmbedding;
+use cynic_inference::application::embedding_runtime::{
+    EmbeddingRuntimeConfig, build_initial_embedding_port, discover_embedding_backend,
+};
+use cynic_inference::embedding::EmbeddingPort;
+use cynic_kernel::bootstrap::entry::{
+    KernelEntryFlags, configure_stdio_mode, init_tracing, load_env_file,
+    print_version_and_exit_if_requested, run_mcp_proxy_mode_if_requested,
+};
+use cynic_kernel::bootstrap::{
+    config::load_kernel_config_bundle, storage::connect_storage_runtime,
+};
+use cynic_kernel::bootstrap::{
+    rest_state::{RestStateInputs, build_rest_state},
+    services::build_runtime_services,
+};
 use cynic_kernel::domain::probe::Probe;
 use cynic_kernel::infra::alerts::SlackAlerter;
 use cynic_kernel::*;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
-use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 // ============================================================
 // BOOT SEQUENCE
 // ============================================================
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load environment variables from .env file
-    let _env_loaded = dotenvy::dotenv().ok();
-    tracing::trace!("env loaded from .env (if present)");
+    load_env_file();
+    let entry_flags = KernelEntryFlags::from_env_args();
 
-    // Parse flags early — MCP mode needs stderr-only logging from the start.
-    let force_reprobe = std::env::args().any(|a| a == "--reset");
-    let mcp_mode = std::env::args().any(|a| a == "--mcp");
-
-    if std::env::args().any(|a| a == "--version") {
-        #[allow(clippy::print_stdout)]
-        // WHY: This is the --version flag output path. Printing the version string to stdout is
-        // the correct and expected behaviour here; the MCP_MODE guard (which bans stdout to avoid
-        // corrupting the JSON-RPC stream) has not yet been set when this branch executes.
-        {
-            println!(
-                "cynic-kernel {} (build {}, sha {}, profile {})",
-                env!("CARGO_PKG_VERSION"),
-                env!("CYNIC_VERSION"),
-                env!("CYNIC_GIT_SHA"),
-                env!("CYNIC_BUILD_PROFILE")
-            );
-        }
+    if print_version_and_exit_if_requested(entry_flags)? {
         return Ok(());
     }
 
-    // Set global MCP flag BEFORE any module has a chance to println! to stdout.
-    if mcp_mode {
-        cynic_kernel::MCP_MODE.store(true, std::sync::atomic::Ordering::Relaxed);
-    }
+    configure_stdio_mode(entry_flags);
+    init_tracing(entry_flags);
 
-    // ─── Structured logging (tracing) ────────────────────────
-    // RUST_LOG controls filtering. Default: info for cynic, warn for deps.
-    // MCP mode: write to stderr (stdout reserved for JSON-RPC).
-    // REST mode: write to stdout with JSON format for production.
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("cynic_kernel=info,warn"));
-
-    if mcp_mode {
-        tracing_subscriber::registry()
-            .with(env_filter)
-            .with(fmt::layer().json().with_writer(std::io::stderr))
-            .init();
-    } else {
-        tracing_subscriber::registry()
-            .with(env_filter)
-            .with(fmt::layer().json())
-            .init();
-    }
-
-    // ─── MCP PROXY EARLY EXIT ─────────────────────────────────
-    // When --mcp is set, skip the entire kernel init (Rings 0-2).
-    // Forward all tool calls to the running REST kernel via HTTP.
-    // This is the monolith fix: MCP clients get zero local state.
-    if mcp_mode {
-        tracing::warn!(
-            "DEPRECATED: --mcp flag will be removed. Use the standalone cynic-mcp binary instead."
-        );
-        use rmcp::ServiceExt;
-
-        let raw_addr =
-            std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "http://127.0.0.1:3030".into());
-        // Env may contain bare "IP:PORT" — prepend http:// if missing.
-        let rest_addr = if raw_addr.starts_with("http://") || raw_addr.starts_with("https://") {
-            raw_addr
-        } else {
-            format!("http://{raw_addr}")
-        };
-        let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
-        let project_root = std::env::current_dir()
-            .unwrap_or_else(|_| std::path::PathBuf::from("."))
-            .display()
-            .to_string();
-
-        tracing::info!(
-            rest_addr,
-            "MCP proxy mode — forwarding to REST kernel (zero local state)"
-        );
-
-        let mcp_proxy = api::mcp::proxy::CynicMcpProxy::new(rest_addr, api_key, project_root);
-
-        let shutdown = CancellationToken::new();
-        infra::tasks::spawn_signal_handler(shutdown.clone());
-
-        let transport = rmcp::transport::io::stdio();
-        let server = mcp_proxy
-            .serve(transport)
-            .await
-            .map_err(|e| format!("MCP proxy error: {e}"))?;
-
-        tokio::select! {
-            _ = server.waiting() => {}
-            _ = shutdown.clone().cancelled_owned() => {
-                tracing::info!("MCP proxy shutting down");
-            }
-        }
-
-        shutdown.cancel();
+    if run_mcp_proxy_mode_if_requested(entry_flags).await? {
         return Ok(());
     }
 
@@ -115,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     klog!("╔══════════════════════════════════════╗");
     klog!("║       CYNIC OS V2 — SOVEREIGN BOOT    ║");
     klog!("╚══════════════════════════════════════╝");
-    let node_config = probe::run(force_reprobe).await?;
+    let node_config = probe::run(entry_flags.force_reprobe).await?;
 
     klog!("[Ring 0] Omniscience Active. Reality Mapped.");
     klog!(
@@ -125,119 +53,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         node_config.compute.vram_gb
     );
 
-    // ─── RING 1: Load config (single source of truth) ─────────
-    let backends_path = dirs::config_dir()
-        .unwrap_or_else(|| {
-            klog!("[Ring 1] dirs::config_dir() unavailable — falling back to current directory");
-            std::path::PathBuf::from(".")
-        })
-        .join("cynic")
-        .join("backends.toml");
-    let storage_config = infra::config::load_storage_config(&backends_path);
-    klog!("[Ring 1] Config: {}", backends_path.display());
-    klog!(
-        "[Ring 1] Storage: url={} ns={} db={}",
-        storage_config.url,
-        storage_config.namespace,
-        storage_config.database
-    );
-
-    // ─── RING 1: Native Storage Client (UAL) ──────────────────
-    // HTTP adapter to SurrealDB 3.x — graceful degradation if unavailable.
-    // Wrapped in ReconnectableStorage/Coord so a background task can swap
-    // NullStorage → SurrealHttpStorage without restarting the kernel.
-    let (storage_port, coord, reconnector): (
-        Arc<dyn domain::storage::StoragePort>,
-        Arc<dyn domain::coord::CoordPort>,
-        Arc<storage::reconnectable::StorageReconnector>,
-    ) = {
-        let (raw_storage, raw_coord): (
-            Arc<dyn domain::storage::StoragePort>,
-            Arc<dyn domain::coord::CoordPort>,
-        ) = match storage::SurrealHttpStorage::init(&storage_config).await {
-            Ok(s) => {
-                klog!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
-                let db = Arc::new(s);
-                (Arc::clone(&db) as _, Arc::clone(&db) as _)
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, "storage DEGRADED — will auto-reconnect when SurrealDB is available");
-                (
-                    Arc::new(domain::storage::NullStorage) as _,
-                    Arc::new(domain::coord::NullCoord) as _,
-                )
-            }
-        };
-        let reconnectable_storage = Arc::new(storage::reconnectable::ReconnectableStorage::new(
-            raw_storage,
-        ));
-        let reconnectable_coord =
-            Arc::new(storage::reconnectable::ReconnectableCoord::new(raw_coord));
-        let reconnector = Arc::new(storage::reconnectable::StorageReconnector::new(
-            reconnectable_storage.shared_lock(),
-            reconnectable_coord.shared_lock(),
-            storage_config.clone(),
-        ));
-        (
-            reconnectable_storage as Arc<dyn domain::storage::StoragePort>,
-            reconnectable_coord as Arc<dyn domain::coord::CoordPort>,
-            reconnector,
-        )
-    };
-
-    // ─── RING 2: Load Backend Configs ──────────────────────────
-
-    let backend_configs = if backends_path.exists() {
-        klog!("[Ring 2] Loading backends from {}", backends_path.display());
-        infra::config::load_backends(&backends_path)
-    } else {
-        klog!("[Ring 2] No backends.toml found, using env var fallback");
-        infra::config::load_backends_from_env()
-    };
+    let kernel_config = load_kernel_config_bundle();
+    let backends_path = kernel_config.backends_path.clone();
+    let storage_config = kernel_config.storage_config.clone();
+    let backend_configs = kernel_config.backend_configs.clone();
+    let dog_thresholds = Arc::clone(&kernel_config.dog_thresholds);
     // Summarizer disabled pending excision review
+    let system_contract = Arc::new(std::sync::RwLock::new(kernel_config.system_contract));
 
-    // Self-model: load SystemContract from backends.toml — ALL declared Dogs,
-    // regardless of whether their env vars resolve right now.
-    let system_contract = infra::config::load_system_contract(&backends_path);
-    let expected_count = system_contract.expected_count();
-    let expected_dogs = system_contract.expected_dogs().to_vec();
-    let system_contract = Arc::new(std::sync::RwLock::new(system_contract));
-
-    klog!(
-        "[Ring 2] SystemContract: {} expected Dogs {:?}",
-        expected_count,
-        expected_dogs
-    );
-
-    // Load Dog thresholds and error detection patterns from backends.toml.
-    // These drive circuit breaker behavior, error classification, and monitoring alerts.
-    let dog_thresholds = Arc::new(infra::config::load_dog_thresholds(&backends_path));
-    klog!(
-        "[Ring 2] Dog thresholds: circuit open={} failure_threshold={} error patterns: quota({}) transient({}) critical({})",
-        dog_thresholds.circuit.open_duration_secs,
-        dog_thresholds.circuit.open_on_consecutive_failures,
-        dog_thresholds.error_detection.quota_patterns.len(),
-        dog_thresholds.error_detection.transient_patterns.len(),
-        dog_thresholds.error_detection.critical_patterns.len()
-    );
-
-    // Filter out disabled backends — don't register Dogs that are disabled in backends.toml.
-    // Before this fix, disabled Dogs were still registered, counted in expected_dog_count,
-    // and caused permanent jury gate downgrades (expected=5, actual=3).
-    let backend_configs: Vec<_> = backend_configs
-        .into_iter()
-        .filter(|c| {
-            if let Some(threshold) = dog_thresholds.dogs.get(&c.name).filter(|t| !t.enabled) {
-                klog!(
-                    "[Ring 2] Backend '{}' DISABLED — skipping (reason: {:?})",
-                    c.name,
-                    threshold.skip_reason
-                );
-                return false;
-            }
-            true
-        })
-        .collect();
+    let storage_runtime = connect_storage_runtime(&storage_config).await;
+    let storage_port = storage_runtime.storage_port;
+    let coord = storage_runtime.coord;
+    let reconnector = storage_runtime.reconnector;
 
     // Validate config — probe health URLs, log warnings.
     // Spawned as background task (not awaited) so boot isn't delayed by network.
@@ -251,34 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 1: Load domain prompts (chess.md, trading.md, etc.) ──
     // RC3: use runtime path discovery, not compile-time CARGO_MANIFEST_DIR
-    let project_root = std::env::var("CYNIC_PROJECT_ROOT")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| {
-            // Try git discovery, fall back to binary's parent dir
-            std::process::Command::new("git")
-                .args(["rev-parse", "--show-toplevel"])
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
-                .map(|s| std::path::PathBuf::from(s.trim()))
-                .unwrap_or_else(|| {
-                    let fallback =
-                        std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-                    klog!(
-                        "[Ring 1] No CYNIC_PROJECT_ROOT and git not available — using cwd: {}",
-                        fallback.display()
-                    );
-                    fallback
-                })
-        });
-    // Validate project_root has a .git directory — nightshift depends on this
-    if !project_root.join(".git").exists() {
-        tracing::error!(
-            path = %project_root.display(),
-            "project_root has no .git/ — nightshift git log will fail silently. Set CYNIC_PROJECT_ROOT or start from repo root."
-        );
-    }
-    let _domain_prompts = Arc::new(infra::config::load_domain_prompts(&project_root));
+    let _domain_prompts = Arc::new(infra::config::load_domain_prompts());
 
     // ─── RING 2: Build Dogs + organ from backend_configs ──────
     // Factory loop lives in infra::boot so main stays a composition root.
@@ -306,46 +106,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Remediation disabled
 
     // ─── RING 2: Embedding backend (sovereign, auto-recovery) ────
-    let initial_embed: Arc<dyn domain::embedding::EmbeddingPort> = {
-        if let Ok(url) = std::env::var("CYNIC_EMBED_URL") {
-            let api_key = std::env::var("SOVEREIGN_API_KEY").ok();
-            let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());
-            match backends::embedding::EmbeddingBackend::new(&url, api_key, &model) {
-                Ok(b) if b.health().await.is_available() => {
-                    klog!("[Ring 2] Embedding: explicit URL {} (sovereign)", url);
-                    Arc::new(b)
-                }
-                _ => {
-                    klog!("[Ring 2] Embedding: explicit URL {} unavailable", url);
-                    Arc::new(domain::embedding::NullEmbedding)
-                }
-            }
-        } else {
-            let host = std::env::var("CYNIC_REST_ADDR")
-                .unwrap_or_else(|_| domain::constants::DEFAULT_REST_ADDR.into())
-                .split(':')
-                .next()
-                .unwrap_or("127.0.0.1")
-                .to_string();
-            let api_key = std::env::var("SOVEREIGN_API_KEY").ok();
-            let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());
-            match backends::embedding::EmbeddingBackend::discover(&host, api_key, &model).await {
-                Some(b) => {
-                    klog!("[Ring 2] Embedding: discovered at {}", b.base_url());
-                    Arc::new(b)
-                }
-                None => {
-                    klog!(
-                        "[Ring 2] Embedding: no server found — NullEmbedding, will auto-discover"
-                    );
-                    Arc::new(domain::embedding::NullEmbedding)
-                }
-            }
-        }
-    };
-    let embedding: Arc<backends::auto_embed::AutoRecoveryEmbedding> = Arc::new(
-        backends::auto_embed::AutoRecoveryEmbedding::new(initial_embed),
-    );
+    let embedding_runtime = EmbeddingRuntimeConfig::from_env();
+    let initial_embed: Arc<dyn EmbeddingPort> =
+        build_initial_embedding_port(&embedding_runtime).await;
+    let embedding: Arc<AutoRecoveryEmbedding> = Arc::new(AutoRecoveryEmbedding::new(initial_embed));
 
     // ─── RING 2: Build Judge ──────────────────────────────────
     let _breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = vec![];
@@ -361,13 +125,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // EPOCHÉ disabled
 
-    // Sense registry — best-effort organ readers (RTK, Hermes X, Tailscale)
-    // Built early so health_loop can use Tailscale sense for fleet awareness.
-    let sense_root = match std::env::current_dir() {
-        Ok(p) => p.display().to_string(),
-        Err(_) => String::new(),
-    };
-    let senses = senses::build_sense_registry(&sense_root);
+    // Sense registry — best-effort organ readers (RTK, Hermes X).
+    let senses = senses::build_sense_registry();
     if !senses.is_empty() {
         klog!("[senses] {} organ(s) registered", senses.len());
         for s in &senses {
@@ -401,8 +160,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 probe_breakers,
                 Arc::clone(&task_health),
                 Arc::clone(&storage_port),
-                senses.clone(),
-                std::collections::HashMap::new(),
                 Arc::clone(&slot_tracker),
                 Arc::clone(&slot_semaphores),
                 Arc::clone(&routing_calc),
@@ -565,7 +322,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &std::collections::HashMap::new(),
         &std::collections::HashMap::new(),
     );
-    let fleet_inventory_probe = infra::probes::build_default_fleet_inventory_probe(&project_root);
+    let fleet_inventory_probe = infra::probes::build_default_fleet_inventory_probe();
 
     // ── STARTUP VERIFICATION: Fail fast on backend coherence violations ──
     // Probe backends immediately (context drift, model mismatch) before claiming sovereignty.
@@ -629,186 +386,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(infra::probes::VersionProbe::new()),
     ];
 
-    // ── Domain curations (D1-D6) for wisdom enrichment ──
-    let curation_dir = std::env::var("CYNIC_CURATION_DIR")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::path::PathBuf::from("cynic-python/curation"));
-    let domain_curations = match domain::wisdom::DomainCurations::load_from_path(&curation_dir) {
-        Ok(curations) => {
-            klog!(
-                "[Boot] Domain curations loaded from {:?} ({} domains)",
-                curation_dir,
-                curations.loaded_domains.len()
-            );
-            Arc::new(curations)
-        }
-        Err(e) => {
-            klog!(
-                "[Boot] Domain curations failed to load: {} — wisdom enrichment will be empty",
-                e
-            );
-            Arc::new(domain::wisdom::DomainCurations::new())
-        }
-    };
-
-    // ── Token enricher — Helius first, public lo-fi fallback when absent ──
-    let enricher: Option<Arc<dyn domain::enrichment::TokenEnricherPort>> =
-        match backends::helius::HeliusEnricher::from_env() {
-            Some(h) => {
-                let h = h.with_kscore_config(dog_thresholds.kscore.clone());
-                klog!(
-                    "[Boot] Helius enricher configured — token-analysis with K-Score behavioral analysis"
-                );
-                Some(Arc::new(h))
-            }
-            None => {
-                klog!(
-                    "[Boot] Helius enricher not configured — using lo-fi DexScreener/RugCheck fallback"
-                );
-                Some(Arc::new(backends::lofi::LofiEnricher::new()))
-            }
-        };
-
-    // ─── Domain router — data-centric Dog selection ──────────────────
-    // Initialized from backend_configs. Maps domain → suitable Dogs.
-    let domain_router = Arc::new(infra::domain_router::DomainRouter::from_backends(
-        &backend_configs,
-    ));
-
-    // ─── Dog performance collector — K15 seam 3 producer ──
-    // Aggregates latency/success observations from pipeline.on_dog callbacks.
-    // Periodically flushes to routing_calc for live routing adaptation.
-    let dog_perf_collector = Arc::new(infra::dog_performance::DogPerformanceCollector::new());
-
-    // Soma L4: Inference proxy routing table — sovereign backends only.
-    let sovereign_flags: std::collections::HashMap<String, bool> = backend_configs
-        .iter()
-        .map(|c| (c.name.clone(), c.sovereign))
-        .collect();
-    let proxy_targets = Arc::new(api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
-        &std::collections::HashMap::new(),
-        &sovereign_flags,
-    ));
-    if !proxy_targets.available().is_empty() {
-        klog!(
-            "[Ring 2] Soma L4 proxy: {} sovereign backend(s): {:?}",
-            proxy_targets.available().len(),
-            proxy_targets.available()
-        );
-    }
-
-    // Event bus — broadcast channel for SSE/WebSocket subscribers.
-    // Capacity 256: events are small JSON, subscribers should keep up.
-    let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
+    let runtime_services = build_runtime_services(&backend_configs, &dog_thresholds);
 
     // DORMANT: Organism recovery (K15 consumer: state history → crystal cache)
     // state history consumer not yet complete — deferred to next phase
-
-    // ─── RING 2: Mail service (agentmail.to REST API) ──────────────────
-    // K15 producer: syncs inbox every 5 minutes, emits observations for recovery emails
-    let mail_backend: Option<Arc<dyn domain::mail::MailPort>> = {
-        // Try to load agentmail config from env
-        match backends::mail::AgentmailConfig::from_env("MAIL_USERNAME") {
-            Some(config) => {
-                let backend = backends::mail::AgentmailBackend::new(config);
-                klog!("[Ring 2] Mail service: agentmail.to configured");
-                Some(Arc::new(backend) as Arc<dyn domain::mail::MailPort>)
-            }
-            None => {
-                klog!(
-                    "[Ring 2] Mail service: AGENTMAIL_API_KEY or MAIL_USERNAME not configured — disabled"
-                );
-                None
-            }
-        }
-    };
-
-    // ─── RING 2: Zone config (dispatch visibility) ──────────────────
-    let zones = {
-        let zones_path = project_root.join(".claude").join("zones.json");
-        let zones_str = zones_path.display().to_string();
-        match domain::zones::ZoneConfig::from_file(&zones_str) {
-            Ok(z) => {
-                klog!("[Ring 2] Zones: loaded {} zone(s)", z.zone_count());
-                Arc::new(z)
-            }
-            Err(e) => {
-                klog!("[Ring 2] Zones: {e} — zone activity disabled");
-                Arc::new(domain::zones::ZoneConfig::default())
-            }
-        }
-    };
-
-    let rest_state = Arc::new(api::rest::AppState {
-        storage: Arc::clone(&storage_port),
-        coord: Arc::clone(&coord),
-        embedding: Arc::clone(&embedding) as Arc<dyn domain::embedding::EmbeddingPort>,
-        usage: Arc::clone(&usage_tracker),
-        verdict_cache: Arc::clone(&verdict_cache),
-        task_health: Arc::clone(&task_health),
-        metrics: Arc::clone(&metrics),
-        api_key,
-        role_keys,
-        storage_info: api::rest::StorageInfo {
-            namespace: storage_config.namespace.clone(),
-            database: storage_config.database.clone(),
+    let event_tx = runtime_services.event_tx.clone();
+    let rest_state = build_rest_state(
+        RestStateInputs {
+            storage: Arc::clone(&storage_port),
+            coord: Arc::clone(&coord),
+            embedding: Arc::clone(&embedding),
+            usage: Arc::clone(&usage_tracker),
+            verdict_cache: Arc::clone(&verdict_cache),
+            task_health: Arc::clone(&task_health),
+            metrics: Arc::clone(&metrics),
+            api_key,
+            role_keys,
+            storage_config: storage_config.clone(),
+            chain_verified,
+            environment: Arc::clone(&environment),
+            system_contract: system_contract.clone(),
+            backend_configs: backend_configs.clone(),
+            senses,
+            routing_calc: Arc::clone(&routing_calc),
+            slot_semaphores: Arc::clone(&slot_semaphores),
+            slot_tracker: Arc::clone(&slot_tracker),
         },
-        rate_limiter: api::rest::PerIpRateLimiter::new(30), // 30 requests/minute global
-        judge_limiter: api::rest::PerIpRateLimiter::new(10), // 10 /judge per minute (inference costs money)
-        ready_cache: api::rest::ReadyCache::new(),
-        bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
-            domain::constants::BG_SEMAPHORE_PERMITS,
-        )),
-        bg_tasks: tokio_util::task::TaskTracker::new(),
-        sse_semaphore: Arc::new(tokio::sync::Semaphore::new(
-            domain::constants::SSE_SEMAPHORE_PERMITS,
-        )),
-        introspection_alerts: Arc::new(std::sync::RwLock::new(Vec::new())),
-        event_tx: event_tx.clone(),
-        chain_verified: std::sync::atomic::AtomicBool::new(chain_verified),
-        environment: Arc::clone(&environment),
-        registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
-        registered_services: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
-        system_contract: system_contract.clone(),
-        backend_configs: backend_configs.clone(),
-        enricher: enricher.clone(),
-        senses,
-        domain_curations: Arc::clone(&domain_curations),
-        domain_router: Arc::clone(&domain_router),
-        routing_calc: Arc::clone(&routing_calc),
-        dog_perf_collector: Arc::clone(&dog_perf_collector),
-        slot_semaphores: Arc::clone(&slot_semaphores),
-        slot_tracker: Arc::clone(&slot_tracker),
-        proxy_targets: Arc::clone(&proxy_targets),
-        project_root: project_root.display().to_string(),
-        mail: mail_backend.clone(),
-        node_registry: Arc::new(api::websocket::NodeRegistry::new(120)),
-        zones,
-        producer_heartbeats: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
-        overdue_task_alerted: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
-    });
+        runtime_services,
+    );
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
     // ─── Background tasks (REST-only — MCP is a thin tool-dispatch layer) ──
     // MCP mode skips all background tasks: the REST kernel already runs them.
     // Spawning duplicates causes SurrealDB contention, double nightshifts,
     // and 60s+ MCP startup delay that kills Hermes sessions.
-    if !mcp_mode {
+    if !entry_flags.mcp_mode {
         // Background embedding discovery — retries every 60s if currently NullEmbedding
         {
             // Cast to dyn EmbeddingPort so the trait method is in scope inside the async block.
-            let embed_ref: Arc<backends::auto_embed::AutoRecoveryEmbedding> =
-                Arc::clone(&embedding);
-            let embed_probe: Arc<dyn domain::embedding::EmbeddingPort> =
-                Arc::clone(&embedding) as Arc<dyn domain::embedding::EmbeddingPort>;
-            let host = std::env::var("CYNIC_REST_ADDR")
-                .unwrap_or_else(|_| domain::constants::DEFAULT_REST_ADDR.into())
-                .split(':')
-                .next()
-                .unwrap_or("127.0.0.1")
-                .to_string();
-            let api_key = std::env::var("SOVEREIGN_API_KEY").ok();
-            let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());
+            let embed_ref: Arc<AutoRecoveryEmbedding> = Arc::clone(&embedding);
+            let embed_probe: Arc<dyn EmbeddingPort> =
+                Arc::clone(&embedding) as Arc<dyn EmbeddingPort>;
+            let embedding_runtime = embedding_runtime.clone();
             let shutdown = shutdown.clone();
             tokio::spawn(async move {
                 let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
@@ -818,13 +437,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         _ = shutdown.cancelled() => break,
                         _ = interval.tick() => {
                             if embed_probe.embed("health-probe").await.is_err()
-                                && let Some(backend) =
-                                    backends::embedding::EmbeddingBackend::discover(
-                                        &host,
-                                        api_key.clone(),
-                                        &model,
-                                    )
-                                    .await
+                                && let Some(backend) = discover_embedding_backend(&embedding_runtime).await
                             {
                                 klog!(
                                     "[Ring 2] Embedding: auto-discovered backend, hot-swapping"
@@ -864,7 +477,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // After reconnect, backfill runs against the live DB.
         infra::tasks::spawn_backfill(
             Arc::clone(&storage_port),
-            Arc::clone(&embedding) as Arc<dyn domain::embedding::EmbeddingPort>,
+            Arc::clone(&embedding) as Arc<dyn EmbeddingPort>,
             Arc::clone(&metrics),
             Arc::clone(&task_health),
             event_tx.clone(),

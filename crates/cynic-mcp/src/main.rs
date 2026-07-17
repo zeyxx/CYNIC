@@ -12,6 +12,9 @@
     clippy::uninlined_format_args
 )]
 
+use cynic_host::runtime_registry::{
+    resolve_runtime_project_root_or_cwd_fallback, resolve_runtime_registry_path,
+};
 use rmcp::ServiceExt;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
@@ -52,15 +55,11 @@ fn is_local_rest_addr(rest_addr: &str) -> bool {
 }
 
 fn project_root() -> std::path::PathBuf {
-    std::env::var("CYNIC_PROJECT_ROOT")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| {
-            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
-        })
+    resolve_runtime_project_root_or_cwd_fallback().path
 }
 
 fn registry_kernel_rest_addr() -> Result<ResolvedRestAddr, Box<dyn std::error::Error>> {
-    let registry_path = project_root().join("infra/registry.json");
+    let registry_path = resolve_runtime_registry_path(None)?;
     let content = std::fs::read_to_string(&registry_path)
         .map_err(|e| format!("cannot read {}: {e}", registry_path.display()))?;
     let registry: serde_json::Value = serde_json::from_str(&content)

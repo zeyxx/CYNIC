@@ -340,9 +340,8 @@ impl ActivityStorage for SurrealHttpStorage {
         &self,
         path_prefixes: &[String],
         exclude_agent: &str,
-        project_root: &str,
     ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
-        activity::zone_activity(self, path_prefixes, exclude_agent, project_root).await
+        activity::zone_activity(self, path_prefixes, exclude_agent).await
     }
 }
 

@@ -492,7 +492,7 @@ impl CynicMcp {
         let temperature = p.temperature.unwrap_or(0.7).clamp(0.0, 2.0);
         let max_tokens = p.max_tokens.unwrap_or(2048).min(8192);
 
-        let request = crate::domain::inference::InferRequest {
+        let request = cynic_inference::inference::InferRequest {
             system: p.system,
             prompt: p.prompt.clone(),
             temperature,

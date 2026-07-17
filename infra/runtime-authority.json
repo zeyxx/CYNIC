@@ -78,6 +78,82 @@
       "owns": [
         "append-only proof/history tooling"
       ]
+    },
+    "inference_plane": {
+      "owner": "crates/cynic-inference",
+      "artifact": null,
+      "owns": [
+        "model vault and layout under runtime principal",
+        "native local inference unit control",
+        "OpenAI-compat client adapters",
+        "operator chat session event store",
+        "chat stream and tool loop application service"
+      ],
+      "must_not_own": [
+        "kernel coordination SSOT",
+        "operator HOME as default authority when principal is resolvable"
+      ]
+    }
+  },
+  "installed_state": {
+    "owner": "crates/cynic-host",
+    "runtime_user": "cynic",
+    "runtime_group": "cynic",
+    "paths": [
+      "/etc/cynic",
+      "/var/lib/cynic",
+      "/var/log/cynic",
+      "/var/lib/cynic/reports"
+    ],
+    "rule": "Installed runtime state is owned by the cynic principal and must not live under an operator home directory."
+  },
+  "installed_service_projections": {
+    "systemd_system_units": {
+      "authority": "runtime_authority_adapter",
+      "kind": "installed_service_unit",
+      "provider": "systemd",
+      "owner": "crates/cynic-host",
+      "file_paths": [
+        "infra/systemd/installed/cynic-kernel.service",
+        "infra/systemd/installed/cynic-node.service"
+      ],
+      "signals": [
+        "User=cynic",
+        "Group=cynic",
+        "WorkingDirectory=/var/lib/cynic",
+        "Environment=\"CYNIC_REGISTRY=/etc/cynic/registry.json\"",
+        "root-owned systemd unit target"
+      ],
+      "rule": "Service manager projections are adapters selected by host capabilities; systemd is not the runtime model."
+    },
+    "openrc_services": {
+      "authority": "runtime_authority_adapter",
+      "kind": "installed_service_script",
+      "provider": "openrc",
+      "owner": "crates/cynic-host",
+      "file_paths": [],
+      "signals": [
+        "ServiceManagerKind::OpenRc",
+        "/etc/init.d",
+        "rc-service",
+        "rc-update"
+      ]
+    }
+  },
+  "operator_projections": {
+    "systemd_user_units": {
+      "authority": "non_authoritative_operator_projection",
+      "kind": "developer_or_operator_user_unit",
+      "file_paths": [
+        "infra/systemd/cynic-kernel.service",
+        "infra/systemd/cynic-node.service"
+      ],
+      "signals": [
+        "%h user home expansion",
+        "@CYNIC_PROJECT_ROOT@ checkout working directory",
+        "%h/.config/cynic/env operator environment file"
+      ],
+      "migration_rule": "Keep these units explicit as operator projections. Installed service manager adapters are declared separately under installed_service_projections."
     }
   },
   "deleted_authorities": [
@@ -87,9 +163,38 @@
     "Python lifecycle gates",
     "product UX as low-layer proof"
   ],
+  "experimental_workspace_crates": {
+    "cynic-inference": {
+      "owner": "crates/cynic-inference",
+      "status": "extracting",
+      "role": "CYNIC native model adapters, routing, embeddings, and local vault lifecycle. Integrates with Osmantic ODS (https://github.com/Osmantic/ODS) as an external maintained framework to bootstrap the host AI environment — ODS is not reimplemented here.",
+      "not_yet": [
+        "canonical runtime authority surface",
+        "make check core package gate",
+        "agent exposure domain ownership",
+        "first-class ODS install/lifecycle adapter beyond port discovery"
+      ]
+    },
+    "cynic-observer": {
+      "owner": "crates/cynic-observer",
+      "status": "experimental",
+      "role": "Observation/WAL helpers outside the minimal authority map until proof of runtime use.",
+      "not_yet": [
+        "canonical runtime authority surface",
+        "make check core package gate"
+      ]
+    }
+  },
+  "agent_coherence": {
+    "exposure_ssot": "infra/agent-exposure.json",
+    "audit_command": "cynic dev agent-exposure --json",
+    "docs_policy": "docs/ is quarantined historical prose; see docs/README.md. Docs are not runtime law.",
+    "rule": "Every cynic-mcp #[tool] must appear in agent-exposure with a domain and tier. Machine-local absolute paths are forbidden in agent projections."
+  },
   "development_default": {
     "primary_check": "make check",
     "new_contract_rule": "Do not add root contract forests. Add Rust types, tests, or a small field in this file only when runtime code needs it.",
     "deletion_rule": "Anything outside the authority map must prove current runtime use before it is kept."
   }
 }
+

@@ -1,0 +1,22 @@
+[package]
+name = "cynic-inference"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+async-trait = "0.1"
+reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "stream"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2.0.18"
+tokio = { version = "1", features = ["process", "rt", "macros", "sync", "time"] }
+toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
+tracing = "0.1"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

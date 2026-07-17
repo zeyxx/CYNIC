@@ -8,7 +8,6 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tokio::sync::Mutex;
 
 use crate::domain::coord::CoordPort;
-use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::mail::MailPort;
 use crate::domain::metrics::Metrics;
@@ -19,6 +18,7 @@ use crate::domain::verdict_cache::VerdictCache;
 use crate::domain::wisdom::DomainCurations;
 use crate::infra::task_health::TaskHealth;
 use crate::introspection::Alert;
+use cynic_inference::embedding::EmbeddingPort;
 
 // ── ROLE-SCOPED AUTH ──────────────────────────────────────
 // Three roles match the organism's communication patterns:
@@ -205,10 +205,7 @@ pub struct AppState {
     /// GET /inference/slots (external dispatch query).
     pub slot_tracker: Arc<crate::domain::slot_tracker::SlotTracker>,
     /// Soma L4: Inference proxy routing table — maps dog_id → upstream llama-server URL.
-    pub proxy_targets: Arc<super::inference_proxy::ProxyTargets>,
-    /// Project root (repository root — resolved at boot).
-    /// Used by `/git/state` endpoint to run git commands in the correct context.
-    pub project_root: String,
+    pub proxy_targets: Arc<cynic_inference::application::proxy_routing::ProxyTargets>,
     /// Mail service — organis email operations (inbox, send, sync).
     /// None if mail backend not configured.
     pub mail: Option<Arc<dyn MailPort>>,

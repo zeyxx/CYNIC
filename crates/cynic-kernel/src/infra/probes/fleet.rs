@@ -6,6 +6,9 @@ use crate::domain::probe::{
     DogHealthDetails, FleetDetails, ProbeDetails, ProbeError, ProbeResult, ProbeStatus,
 };
 use async_trait::async_trait;
+use cynic_node::verify::{
+    ContextResult, IdentityResult, check_context_with_bearer, check_identity_with_bearer,
+};
 use std::time::{Duration, Instant};
 
 #[cfg(test)]
@@ -102,41 +105,35 @@ impl crate::domain::probe::Probe for FleetProbe {
                     };
 
                     let mut actual_n_ctx = None;
-                    if let Some(ref p_url) = props_url
-                        && let Ok(resp) = auth_get(p_url).send().await
-                        && let Ok(json) = resp.json::<serde_json::Value>().await
-                    {
-                        actual_n_ctx = json
-                            .pointer("/default_generation_settings/n_ctx")
-                            .and_then(|v| v.as_u64())
-                            .map(|v| v as u32);
+                    if let Some(ref p_url) = props_url {
+                        if let ContextResult::Observed { n_ctx } =
+                            check_context_with_bearer(&client, p_url, 5, api_key.as_deref()).await
+                        {
+                            actual_n_ctx = Some(n_ctx);
+                        }
                     }
 
-                    // Model identity check: GET /v1/models, compare against backends.toml.
-                    // This is B4: the root cause of "two models on same port" going undetected.
+                    // Model identity observation belongs to cynic-node; this probe only projects
+                    // node verification into the kernel's FleetDetails report.
                     let mut actual_model = None;
                     let mut model_mismatch = false;
-                    if reachable
-                        && let Some(ref m_url) = models_url
-                        && let Ok(resp) = auth_get(m_url).send().await
-                        && let Ok(json) = resp.json::<serde_json::Value>().await
-                    {
-                        // OpenAI-compatible /v1/models returns {"data": [{"id": "model-name"}]}
-                        actual_model = json
-                            .pointer("/data/0/id")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_string());
-
-                        if let Some(ref actual) = actual_model
-                            && !expected_model.is_empty()
+                    if reachable && let Some(ref m_url) = models_url {
+                        match check_identity_with_bearer(
+                            &client,
+                            m_url,
+                            &expected_model,
+                            5,
+                            api_key.as_deref(),
+                        )
+                        .await
                         {
-                            // Substring match (same as verify_model_loaded at boot)
-                            let actual_lower = actual.to_lowercase();
-                            let expected_lower = expected_model.to_lowercase();
-                            if !actual_lower.contains(&expected_lower)
-                                && !expected_lower.contains(&actual_lower)
-                            {
-                                model_mismatch = true;
+                            IdentityResult::Match | IdentityResult::Unknown => {}
+                            IdentityResult::Unreachable => {
+                                actual_model = Some("unreachable".to_string());
+                            }
+                            IdentityResult::Mismatch { actual, .. } => {
+                                actual_model = Some(actual);
+                                model_mismatch = !expected_model.is_empty();
                             }
                         }
                     }

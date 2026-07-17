@@ -1,6 +1,7 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use serde::Serialize;
 
@@ -16,6 +17,193 @@ pub struct FrameworkBootstrapBundleReport {
     maintenance_command: String,
     target_runtime: &'static str,
     security_invariants: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct StandaloneCliInstallReport {
+    schema: &'static str,
+    pub status: &'static str,
+    pub mutates: bool,
+    pub requested_apply: bool,
+    pub source: String,
+    pub target: String,
+    pub command: Vec<String>,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub proof: Vec<&'static str>,
+}
+
+pub fn install_standalone_cli(
+    source: Option<&str>,
+    target: Option<&str>,
+    apply: bool,
+) -> Result<StandaloneCliInstallReport, String> {
+    let source = match source {
+        Some(path) => PathBuf::from(path),
+        None => std::env::current_exe()
+            .map_err(|error| format!("failed to locate current executable: {error}"))?,
+    };
+    let target = target
+        .map(PathBuf::from)
+        .unwrap_or_else(default_cli_install_target);
+    let target_display = target.display().to_string();
+    let user_local = is_user_local_target(&target);
+    let command = if user_local {
+        // No root ownership: $HOME/.local/bin (or other user-writable prefix).
+        vec![
+            "install".to_string(),
+            "-m".to_string(),
+            "0755".to_string(),
+            source.display().to_string(),
+            target_display.clone(),
+        ]
+    } else {
+        vec![
+            "install".to_string(),
+            "-o".to_string(),
+            "root".to_string(),
+            "-g".to_string(),
+            "root".to_string(),
+            "-m".to_string(),
+            "0755".to_string(),
+            source.display().to_string(),
+            target_display.clone(),
+        ]
+    };
+    let source_display = source.display().to_string();
+
+    if !apply {
+        return Ok(StandaloneCliInstallReport {
+            schema: "cynic.framework_bootstrap.standalone_cli_install.v1",
+            status: "planned",
+            mutates: false,
+            requested_apply: false,
+            source: source_display,
+            target: target_display,
+            command,
+            exit_code: None,
+            stdout: String::new(),
+            stderr: String::new(),
+            proof: standalone_cli_install_proof(),
+        });
+    }
+
+    if same_existing_file(&source, &target) {
+        return Ok(StandaloneCliInstallReport {
+            schema: "cynic.framework_bootstrap.standalone_cli_install.v1",
+            status: "already_installed",
+            mutates: false,
+            requested_apply: true,
+            source: source_display,
+            target: target_display,
+            command,
+            exit_code: None,
+            stdout: String::new(),
+            stderr: String::new(),
+            proof: standalone_cli_install_proof(),
+        });
+    }
+
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            format!(
+                "failed to create install directory {}: {error}",
+                parent.display()
+            )
+        })?;
+    }
+
+    let source_str = source
+        .to_str()
+        .ok_or_else(|| format!("source path is not valid utf-8: {}", source.display()))?;
+    let output = if user_local {
+        Command::new("install")
+            .args(["-m", "0755", source_str, &target_display])
+            .output()
+    } else {
+        Command::new("install")
+            .args([
+                "-o",
+                "root",
+                "-g",
+                "root",
+                "-m",
+                "0755",
+                source_str,
+                &target_display,
+            ])
+            .output()
+    }
+    .map_err(|error| format!("failed to execute install: {error}"))?;
+
+    let status = if output.status.success() {
+        "installed"
+    } else {
+        "blocked"
+    };
+
+    Ok(StandaloneCliInstallReport {
+        schema: "cynic.framework_bootstrap.standalone_cli_install.v1",
+        status,
+        mutates: true,
+        requested_apply: true,
+        source: source_display,
+        target: target_display,
+        command,
+        exit_code: output.status.code(),
+        stdout: String::from_utf8_lossy(&output.stdout).trim().to_string(),
+        stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        proof: standalone_cli_install_proof(),
+    })
+}
+
+/// Prefer user-local install when possible so dev updates do not need sudo.
+/// Override with explicit `--target` or `CYNIC_STANDALONE_CLI`.
+fn default_cli_install_target() -> PathBuf {
+    if let Ok(p) = std::env::var("CYNIC_STANDALONE_CLI") {
+        return PathBuf::from(p);
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        return PathBuf::from(home).join(".local/bin/cynic");
+    }
+    PathBuf::from("/usr/local/bin/cynic")
+}
+
+fn is_user_local_target(target: &Path) -> bool {
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        if target.starts_with(home.join(".local/bin")) {
+            return true;
+        }
+    }
+    // Any path under XDG_DATA_HOME/../bin style user prefix
+    if let Ok(xdg) = std::env::var("XDG_BIN_HOME") {
+        if target.starts_with(PathBuf::from(xdg)) {
+            return true;
+        }
+    }
+    false
+}
+
+fn same_existing_file(source: &Path, target: &Path) -> bool {
+    let Ok(source) = source.canonicalize() else {
+        return false;
+    };
+    let Ok(target) = target.canonicalize() else {
+        return false;
+    };
+    source == target
+}
+
+fn standalone_cli_install_proof() -> Vec<&'static str> {
+    vec![
+        "installs the Rust standalone cynic binary directly",
+        "does not install a shell wrapper",
+        "does not require CYNIC_PROJECT_ROOT",
+        "does not depend on Python organs",
+        "source binary can be injected explicitly by the build surface",
+    ]
 }
 
 pub fn write_framework_bootstrap_bundle(
@@ -37,6 +225,7 @@ pub fn write_framework_bootstrap_bundle(
         "host-exec-bundle/manifest.json".to_string(),
     ];
 
+    copy_standalone_cli_if_available(output_dir, &mut files)?;
     write_executable_file(
         output_dir.join("install.sh"),
         bootstrap_install_script(),
@@ -92,9 +281,38 @@ pub fn write_framework_bootstrap_bundle(
             "bootstrap installs minimal OS packages through the detected package manager when missing",
             "sudoers is validated with visudo before verification",
             "direct shell/systemctl/package-manager sudo paths must remain denied",
+            "standalone cynic entrypoint must not require CYNIC_PROJECT_ROOT or Python organs",
             "verification emits evidence under /var/lib/cynic/bootstrap",
         ],
     })
+}
+
+fn copy_standalone_cli_if_available(
+    output_dir: &Path,
+    files: &mut Vec<String>,
+) -> Result<(), String> {
+    let current_exe = std::env::current_exe()
+        .map_err(|error| format!("failed to locate current executable: {error}"))?;
+    if current_exe.file_name().and_then(|name| name.to_str()) != Some("cynic") {
+        return Ok(());
+    }
+
+    let target = output_dir.join("bin/cynic");
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create standalone cli dir: {error}"))?;
+    }
+    fs::copy(&current_exe, &target).map_err(|error| {
+        format!(
+            "failed to copy standalone cynic binary from {} to {}: {error}",
+            current_exe.display(),
+            target.display()
+        )
+    })?;
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o755))
+        .map_err(|error| format!("failed to chmod {}: {error}", target.display()))?;
+    files.push("bin/cynic".to_string());
+    Ok(())
 }
 
 fn write_file(
@@ -133,6 +351,7 @@ RUNTIME_USER="${CYNIC_RUNTIME_USER:-cynic}"
 RUNTIME_GROUP="${CYNIC_RUNTIME_GROUP:-cynic}"
 HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
 SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
+CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
 
 if [ "$(id -u)" != "0" ]; then
   echo "install.sh must run as root" >&2
@@ -183,17 +402,21 @@ fi
 
 if ! id -u "$RUNTIME_USER" >/dev/null 2>&1; then
   if command -v useradd >/dev/null 2>&1; then
-    useradd --system --home-dir "/home/$RUNTIME_USER" --create-home --gid "$RUNTIME_GROUP" --shell "$NOLOGIN" "$RUNTIME_USER"
+    useradd --system --home-dir /var/lib/cynic --create-home --gid "$RUNTIME_GROUP" --shell "$NOLOGIN" "$RUNTIME_USER"
   else
-    adduser -S -D -h "/home/$RUNTIME_USER" -G "$RUNTIME_GROUP" -s "$NOLOGIN" "$RUNTIME_USER"
+    adduser -S -D -h /var/lib/cynic -G "$RUNTIME_GROUP" -s "$NOLOGIN" "$RUNTIME_USER"
   fi
 fi
 
-install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 "/home/$RUNTIME_USER"
-install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 /etc/cynic /var/lib/cynic /var/log/cynic /var/lib/cynic/bootstrap
+install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 /var/lib/cynic
+install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 /etc/cynic /var/lib/cynic /var/log/cynic /var/lib/cynic/bootstrap /var/lib/cynic/reports
 install -d -o root -g root -m 0755 "$(dirname "$HELPER_TARGET")" "$(dirname "$SUDOERS_TARGET")"
 install -o root -g root -m 0755 "$BUNDLE/cynic-host-exec" "$HELPER_TARGET"
 install -o root -g root -m 0440 "$BUNDLE/cynic-host-exec.sudoers" "$SUDOERS_TARGET"
+if [ -x "$ROOT/bin/cynic" ]; then
+  install -d -o root -g root -m 0755 "$(dirname "$CLI_TARGET")"
+  install -o root -g root -m 0755 "$ROOT/bin/cynic" "$CLI_TARGET"
+fi
 visudo -cf "$SUDOERS_TARGET"
 
 "$HELPER_TARGET" principal-prepare --apply > /var/lib/cynic/bootstrap/principal-prepare.json
@@ -212,11 +435,15 @@ RUNTIME_GROUP="${CYNIC_RUNTIME_GROUP:-cynic}"
 HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
 SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
 EVIDENCE_DIR="${CYNIC_BOOTSTRAP_EVIDENCE_DIR:-/var/lib/cynic/bootstrap}"
+CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
 
 install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 "$EVIDENCE_DIR"
 test -x "$HELPER_TARGET"
 test -f "$SUDOERS_TARGET"
 visudo -cf "$SUDOERS_TARGET"
+if [ -x "$CLI_TARGET" ]; then
+  "$CLI_TARGET" runtime paths --json > "$EVIDENCE_DIR/standalone-cli-runtime-paths.json"
+fi
 
 "$HELPER_TARGET" bridge-status > "$EVIDENCE_DIR/bridge-status.json"
 sudo -u "$RUNTIME_USER" sudo -n "$HELPER_TARGET" principal-prepare > "$EVIDENCE_DIR/principal-plan-through-sudo.json"
@@ -267,7 +494,7 @@ echo "cynic framework bootstrap security maintenance passed"
 
 #[cfg(test)]
 mod tests {
-    use super::write_framework_bootstrap_bundle;
+    use super::{install_standalone_cli, write_framework_bootstrap_bundle};
 
     #[test]
     fn framework_bootstrap_bundle_writes_security_kit() {
@@ -285,9 +512,33 @@ mod tests {
         assert_eq!(report.status, "written");
         assert!(out.join("host-exec-bundle/cynic-host-exec").is_file());
         assert!(out.join("install.sh").is_file());
+        let install_script =
+            std::fs::read_to_string(out.join("install.sh")).expect("read install.sh");
+        assert!(install_script.contains("--home-dir /var/lib/cynic"));
+        assert!(install_script.contains("/var/lib/cynic/reports"));
+        assert!(install_script.contains("/usr/local/bin/cynic"));
+        assert!(!install_script.contains("/home/$RUNTIME_USER"));
+        assert!(!install_script.contains("CYNIC_PROJECT_ROOT"));
+        assert!(!install_script.contains("organs/supervisor"));
+        assert!(!install_script.contains("runtime_principals.py"));
         assert!(out.join("verify.sh").is_file());
         assert!(out.join("security-maintenance.sh").is_file());
         assert!(out.join("security-policy.json").is_file());
         std::fs::remove_dir_all(out).expect("cleanup");
+    }
+
+    #[test]
+    fn standalone_cli_install_is_idempotent_when_source_is_target() {
+        let current = std::env::current_exe().expect("current exe");
+        let report = install_standalone_cli(
+            Some(current.to_str().expect("utf8 path")),
+            Some(current.to_str().expect("utf8 path")),
+            true,
+        )
+        .expect("install cli report");
+
+        assert_eq!(report.status, "already_installed");
+        assert!(!report.mutates);
+        assert!(report.requested_apply);
     }
 }

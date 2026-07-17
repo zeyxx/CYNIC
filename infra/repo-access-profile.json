@@ -5,11 +5,12 @@
       "added_by": "cynic",
       "discovered": false,
       "owner": "user",
-      "path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC",
+      "path": ".",
       "source": "apply"
     }
   ],
   "schema": "cynic.runtime_principals.repo_access.v1",
   "updated_at": "2026-07-11T17:12:41.672898+00:00",
-  "version": 1
+  "version": 1,
+  "notes": "Use portable relative paths (checkout root as '.'). Absolute machine-local homes are rejected by agent exposure audit."
 }

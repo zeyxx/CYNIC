@@ -3,6 +3,7 @@ pub mod boot;
 pub mod circuit_breaker;
 pub mod config;
 pub mod crypto;
+pub mod dog_node_resolver;
 pub mod dog_performance;
 pub mod domain_router;
 pub mod embedded_domains;

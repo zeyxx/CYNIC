@@ -55,13 +55,13 @@
   "evolutive_policies": {
     "build": {
       "default_gate": "make check",
-      "build_gate": "blocked: make build currently hits rustc 1.96.1 ICE in cynic-kernel binary compilation",
-      "release_gate": "experimental: make build-release currently hits rustc 1.96.1 release-profile instability",
-      "test_gate": "experimental: make test currently hits a rustc 1.96.1 ICE in cynic-kernel test compilation",
-      "check_stack": "make check uses RUST_MIN_STACK=268435456 because rustc 1.96.1 overflows on cynic-kernel after full rebuilds",
-      "build_stack": "make build uses RUST_MIN_STACK=536870912 because rustc 1.96.1 overflows while linking cynic-kernel debug binaries",
-      "release_stack": "make build-release uses RUST_MIN_STACK=1073741824 because rustc 1.96.1 overflows during release/profile compilation",
-      "policy": "Build policy may evolve, but it must stay executable from the repository root. A compiler ICE is toolchain debt, not runtime proof."
+      "build_gate": "blocked: on Thursday, July 16, 2026, make build still hits rustc 1.96.0 instability in workspace binary compilation",
+      "release_gate": "experimental: on Thursday, July 16, 2026, make build-release still hits rustc 1.96.0 release-profile instability",
+      "test_gate": "experimental: on Thursday, July 16, 2026, make test can still hit a rustc 1.96.0 ICE during workspace test compilation",
+      "check_stack": "make check uses RUST_MIN_STACK=536870912 and CARGO_INCREMENTAL=0 to avoid known rustc 1.96.0 stack pressure and incremental ICE paths in this workspace",
+      "build_stack": "make build uses RUST_MIN_STACK=536870912 and CARGO_INCREMENTAL=0 because rustc 1.96.0 remains unstable while linking workspace debug binaries",
+      "release_stack": "make build-release uses RUST_MIN_STACK=1073741824 and CARGO_INCREMENTAL=0 because rustc 1.96.0 remains unstable during release/profile compilation",
+      "policy": "Build policy may evolve, but it must stay executable from the repository root. A compiler ICE is toolchain debt, not runtime proof, and the canonical local workaround must stay explicit."
     },
     "runtime": {
       "registry": "infra/registry.json",
@@ -70,8 +70,13 @@
     },
     "agent_exposure": {
       "source": "infra/agent-exposure.json",
-      "policy": "Expose only currently backed Rust MCP surfaces. Legacy Python proxies are not valid exposure."
+      "audit": "cynic dev agent-exposure --json (also folded into cynic dev surface-audit --json)",
+      "docs_quarantine": "docs/README.md",
+      "validate_gate": "MCP tool cynic_validate runs `make check` only — no parallel fmt/build/clippy/test stack",
+      "policy": "Expose every currently implemented Rust MCP tool with domain and tier labels. Keep projections portable (no committed machine-local absolute paths). Legacy Python proxies are not valid exposure. docs/ prose is historical and not runtime authority. Agent validation must share the same gate as operators (`make check`)."
     },
+
+
     "infra_retention": {
       "keep_rule": "Keep infra files that deploy, secure, configure, or inspect the active low-layer runtime.",
       "delete_rule": "Delete committed runtime snapshots, UX containers, organ remnants, and provider experiments unless they are required by registry or systemd."

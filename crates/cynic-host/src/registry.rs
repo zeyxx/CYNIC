@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 use crate::domain::services::{ServiceManagerKind, ServicePolicy, ServiceUnitPolicy};
 use crate::profiles::HostProfile;
 use crate::runtime_layout::current_runtime_layout;
-
-pub const DEFAULT_REGISTRY_PATH: &str = "infra/registry.json";
+pub use crate::runtime_registry::DEFAULT_REGISTRY_PATH;
+use crate::runtime_registry::resolve_runtime_registry_path;
 
 #[derive(Debug, Deserialize)]
 struct RegistryDocument {
@@ -244,21 +244,7 @@ pub fn resolve_current_registry_service_policy(
 }
 
 fn resolve_registry_path(explicit_path: Option<&str>) -> Result<PathBuf, String> {
-    if let Some(path) = explicit_path {
-        return Ok(PathBuf::from(path));
-    }
-    if let Ok(path) = std::env::var("CYNIC_REGISTRY_PATH") {
-        return Ok(PathBuf::from(path));
-    }
-    let default = PathBuf::from(DEFAULT_REGISTRY_PATH);
-    if default.is_file() {
-        Ok(default)
-    } else {
-        Err(format!(
-            "registry path required: pass --registry <path> or set CYNIC_REGISTRY_PATH (default {} not found)",
-            DEFAULT_REGISTRY_PATH
-        ))
-    }
+    resolve_runtime_registry_path(explicit_path.map(Path::new))
 }
 
 fn load_registry(path: &Path) -> Result<RegistryDocument, String> {
@@ -316,7 +302,20 @@ fn service_manager_for_node(
         {
             ServiceManagerKind::OpenRc
         }
-        None => ServiceManagerKind::Systemd,
+        None => current_service_manager_kind(),
+    }
+}
+
+fn current_service_manager_kind() -> ServiceManagerKind {
+    service_manager_kind_from_runtime_kind(
+        &crate::runtime_layout::current_runtime_layout().service_manager_kind(),
+    )
+}
+
+fn service_manager_kind_from_runtime_kind(kind: &str) -> ServiceManagerKind {
+    match kind {
+        "openrc" => ServiceManagerKind::OpenRc,
+        _ => ServiceManagerKind::Systemd,
     }
 }
 
@@ -625,6 +624,18 @@ mod tests {
             crate::domain::services::ServiceManagerKind::OpenRc
         );
         assert_eq!(policy.unit_dir, "/etc/init.d");
+    }
+
+    #[test]
+    fn service_manager_fallback_is_capability_driven_not_systemd_hardcoded() {
+        assert_eq!(
+            super::service_manager_kind_from_runtime_kind("openrc"),
+            crate::domain::services::ServiceManagerKind::OpenRc
+        );
+        assert_eq!(
+            super::service_manager_kind_from_runtime_kind("systemd"),
+            crate::domain::services::ServiceManagerKind::Systemd
+        );
     }
 
     #[test]

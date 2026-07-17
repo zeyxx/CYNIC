@@ -2,11 +2,14 @@
 members = [
     "crates/cynic-cli",
     "crates/cynic-protocol",
+    "crates/cynic-inference",
     "crates/cynic-kernel",
     "crates/cynic-node",
     "crates/cynic-askesis",
     "crates/cynic-mcp",
-    "crates/cynic-host"
+    "crates/cynic-host",
+    "crates/cynic-intel",
+    "crates/cynic-observer",
 ]
 resolver = "2"
 

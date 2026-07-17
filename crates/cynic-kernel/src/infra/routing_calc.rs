@@ -64,7 +64,7 @@ impl RoutingCalculator {
         if let Some(storage) = &self.storage {
             let event = Event {
                 tool: "dog_evaluation".to_string(),
-                node: crate::api::rest::inference_router::dog_to_node(dog_id),
+                node: crate::infra::dog_node_resolver::resolve_runtime_dog_node(dog_id),
                 elapsed_ms: latency_ms as u64,
                 output_bytes: 0,
                 success,

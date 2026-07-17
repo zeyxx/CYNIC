@@ -9,6 +9,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use cynic_host::runtime_registry::resolve_runtime_project_root_or_cwd_fallback;
 use rmcp::{
     ErrorData as McpError, ServerHandler, handler::server::tool::ToolRouter,
     handler::server::wrapper::Parameters, model::*, tool, tool_handler, tool_router,
@@ -31,7 +32,6 @@ pub struct CynicMcpProxy {
     api_key: String,
     authenticated: Arc<AtomicBool>,
     rate_limit: Arc<McpRateLimit>,
-    pub project_root: String,
     // WHY: K12 — tool_router is used via trait dispatch, compiler misses direct usage
     #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
@@ -50,7 +50,7 @@ impl CynicMcpProxy {
         Self::tool_router_forward() + Self::tool_router_coord() + Self::tool_router_local()
     }
 
-    pub fn new(base_url: String, api_key: String, project_root: String) -> Self {
+    pub fn new(base_url: String, api_key: String) -> Self {
         // WHY: reqwest::Client::builder().build() only fails on TLS init error,
         // which is unrecoverable. Unwrap is safe here but clippy wants map_err.
         #[allow(clippy::expect_used)] // WHY: TLS init failure = unrecoverable
@@ -72,7 +72,6 @@ impl CynicMcpProxy {
             // requiring the model to echo it back through cynic_auth adds exposure only.
             authenticated: Arc::new(AtomicBool::new(auto_auth)),
             rate_limit: Arc::new(McpRateLimit::new()),
-            project_root,
             tool_router: Self::tool_router(),
         }
     }
@@ -651,14 +650,12 @@ impl CynicMcpProxy {
         params: Parameters<AskesisParams>,
     ) -> Result<CallToolResult, McpError> {
         let p = params.0;
-        let logfile = format!(
-            "{}/.cynic/memory/logs/human-kernel.jsonl",
-            self.project_root
-        );
-        let askesis_bin = format!("{}/target/debug/cynic-askesis", self.project_root);
+        let project_root = resolve_runtime_project_root_or_cwd_fallback().path;
+        let logfile = project_root.join(".cynic/memory/logs/human-kernel.jsonl");
+        let askesis_bin = project_root.join("target/debug/cynic-askesis");
 
         // Si le binaire n'existe pas, on fail gracefuly
-        if !std::path::Path::new(&askesis_bin).exists() {
+        if !askesis_bin.exists() {
             return Err(McpError::internal_error(
                 "cynic-askesis binary not found. Please run 'cargo build -p cynic-askesis' first.",
                 None,

@@ -1,0 +1,180 @@
+//! Phase policy tables (pure). Gate *commands* are declared argv strings;
+//! execution is the runner port's job.
+
+use crate::runtime_harness::{
+    canary_context, closed_local_lab_context, conformance_context, production_context,
+    staging_context,
+};
+
+use super::types::{GateCheck, LifecyclePhase, MutationClass, PhasePolicy};
+
+impl LifecyclePhase {
+    pub fn harness(&self) -> crate::runtime_harness::RuntimeHarnessContext {
+        match self {
+            Self::ClosedLocalLab => closed_local_lab_context(),
+            Self::Conformance => conformance_context(),
+            Self::Staging => staging_context(),
+            Self::Canary => canary_context(),
+            Self::Production => production_context(),
+        }
+    }
+}
+
+pub fn phase_policy(phase: &LifecyclePhase) -> PhasePolicy {
+    let harness = phase.harness();
+    match phase {
+        LifecyclePhase::ClosedLocalLab => PhasePolicy {
+            phase: phase.clone(),
+            harness,
+            allowed_mutations: vec![MutationClass::ObserveOnly, MutationClass::DepsScripted],
+            gates: vec![
+                GateCheck {
+                    id: "runtime_validate",
+                    command: "cynic runtime validate --json",
+                    purpose: "portable validation suite; blocked is honest",
+                    required: true,
+                },
+                GateCheck {
+                    id: "deps_observe",
+                    command: "cynic deps --json",
+                    purpose: "ecosystem pins vs observed PATH/principal",
+                    required: true,
+                },
+                GateCheck {
+                    id: "harness_lab",
+                    command: "cynic runtime harness --json --kind closed_local_lab",
+                    purpose: "confirm lab membrane is selected",
+                    required: true,
+                },
+            ],
+            promotion_gate: "lab evidence complete without promoting lab to runtime authority",
+            rollback_intent: "discard lab artifacts; no production rollback needed",
+        },
+        LifecyclePhase::Conformance => PhasePolicy {
+            phase: phase.clone(),
+            harness,
+            allowed_mutations: vec![MutationClass::ObserveOnly, MutationClass::DepsScripted],
+            gates: vec![
+                GateCheck {
+                    id: "conformance",
+                    command: "cynic runtime conformance --json",
+                    purpose: "node satisfies execution/bootstrap/security contracts",
+                    required: true,
+                },
+                GateCheck {
+                    id: "metrics",
+                    command: "cynic runtime metrics --json",
+                    purpose: "metric targets and residual risk budget",
+                    required: true,
+                },
+                GateCheck {
+                    id: "surface_audit",
+                    command: "cynic dev surface-audit --json",
+                    purpose: "canonical CLI surfaces green",
+                    required: true,
+                },
+            ],
+            promotion_gate: "conformance + metrics pass on candidate node",
+            rollback_intent: "do not promote; re-run conformance after fix",
+        },
+        LifecyclePhase::Staging => PhasePolicy {
+            phase: phase.clone(),
+            harness,
+            allowed_mutations: vec![
+                MutationClass::ObserveOnly,
+                MutationClass::DepsScripted,
+                MutationClass::InferenceRuntime,
+                MutationClass::HostBootstrap,
+            ],
+            gates: vec![
+                GateCheck {
+                    id: "conformance_repeat",
+                    command: "cynic runtime conformance --json",
+                    purpose: "staging node still qualifies",
+                    required: true,
+                },
+                GateCheck {
+                    id: "inference_config",
+                    command: "cynic runtime inference --json",
+                    purpose: "inference SSOT present for chat/runtime",
+                    required: true,
+                },
+                GateCheck {
+                    id: "network_preflight",
+                    command: "cynic runtime network-preflight --json",
+                    purpose: "resolver/DNS preflight before release",
+                    required: false,
+                },
+            ],
+            promotion_gate: "staging proofs held under production-like isolation",
+            rollback_intent: "revert staging node image/config; no fleet blast radius",
+        },
+        LifecyclePhase::Canary => PhasePolicy {
+            phase: phase.clone(),
+            harness,
+            allowed_mutations: vec![
+                MutationClass::ObserveOnly,
+                MutationClass::DepsScripted,
+                MutationClass::InferenceRuntime,
+                MutationClass::HostBootstrap,
+                MutationClass::FleetNetwork,
+            ],
+            gates: vec![
+                GateCheck {
+                    id: "fleet_report",
+                    command: "cynic fleet report --json",
+                    purpose: "canary subset health observable",
+                    required: true,
+                },
+                GateCheck {
+                    id: "metrics_canary",
+                    command: "cynic runtime metrics --json",
+                    purpose: "canary metrics within residual risk budget",
+                    required: true,
+                },
+                GateCheck {
+                    id: "deps_canary",
+                    command: "cynic deps --json",
+                    purpose: "deps not blocking required pins on canary",
+                    required: true,
+                },
+            ],
+            promotion_gate: "canary subset stable with rollback path proven",
+            rollback_intent: "roll back canary nodes only; preserve production fleet",
+        },
+        LifecyclePhase::Production => PhasePolicy {
+            phase: phase.clone(),
+            harness,
+            allowed_mutations: vec![
+                MutationClass::ObserveOnly,
+                MutationClass::DepsScripted,
+                MutationClass::InferenceRuntime,
+                MutationClass::HostBootstrap,
+                MutationClass::FleetNetwork,
+            ],
+            gates: vec![
+                GateCheck {
+                    id: "runtime_report",
+                    command: "cynic runtime report --json",
+                    purpose: "persistent runtime phase + inference summary",
+                    required: true,
+                },
+                GateCheck {
+                    id: "metrics_prod",
+                    command: "cynic runtime metrics --json",
+                    purpose: "SLO/residual risk under production authority",
+                    required: true,
+                },
+                GateCheck {
+                    id: "surface_audit_prod",
+                    command: "cynic dev surface-audit --json",
+                    purpose: "canonical surfaces still green after rollout",
+                    required: true,
+                },
+            ],
+            promotion_gate:
+                "already at production authority; further changes require new lifecycle cycle",
+            rollback_intent: "controlled rollback via previous artifact + proof bundle",
+        },
+    }
+}

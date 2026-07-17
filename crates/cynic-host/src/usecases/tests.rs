@@ -23,6 +23,7 @@ use crate::ports::{
     HostPackageObservationPort, HostPackagePort, HostPrincipalObservationPort, HostPrincipalPort,
     HostPrivilegeObservationPort, HostPrivilegePort, HostServiceObservationPort, HostServicePort,
 };
+use crate::runtime_authority::default_runtime_principal_layout;
 use crate::runtime_layout::current_runtime_layout;
 
 struct StaticHostContractPort;
@@ -60,12 +61,13 @@ fn portable_command_context() -> HostCommandContext {
 impl HostPrincipalPort for StaticHostContractPort {
     fn desired_principal(&self) -> PrincipalPolicy {
         let layout = current_runtime_layout();
+        let principal = default_runtime_principal_layout();
         let config_dir = layout.config_dir.clone();
         let state_dirs = layout.state_dirs();
         PrincipalPolicy {
-            runtime_user: "cynic".to_string(),
-            runtime_group: "cynic".to_string(),
-            home_dir: layout.runtime_home_dir,
+            runtime_user: principal.runtime_user,
+            runtime_group: principal.runtime_group,
+            home_dir: principal.home_dir.display().to_string(),
             config_dir,
             state_dirs,
         }
@@ -242,7 +244,7 @@ fn principal_status_is_active_when_observed_state_matches_policy() {
     let report = policy.status(&PrincipalObservedState {
         user_present: true,
         group_present: true,
-        observed_home_dir: Some(layout.runtime_home_dir),
+        observed_home_dir: Some(policy.home_dir.clone()),
         present_state_dirs,
     });
     assert_eq!(report.status, SurfaceStatus::Active);

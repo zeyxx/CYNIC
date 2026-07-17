@@ -12,7 +12,8 @@ mod steps;
 use fs_assertions::{registry_dns_zone, validate_directory_contains, validate_directory_excludes};
 use predicates::{
     metrics_consumes_architecture_proof, plan_consumes_host_identity_proof,
-    plan_consumes_network_runtime_proof, suite_covers_cloud_prisms,
+    plan_consumes_network_runtime_proof, runtime_paths_explicit_registry_is_operator_projection,
+    suite_covers_cloud_prisms,
 };
 use proof_fixtures::{
     validation_temp_dir, write_satisfied_architecture_boundary_proof,
@@ -64,11 +65,12 @@ fn build_runtime_validation_report(
     let default_zone = "synapse.cynic";
 
     let steps = vec![
-        run_json_validation_step(
+        run_json_validation_step_with_predicate(
             "runtime_paths",
             &["runtime", "paths", "--json", "--registry", registry_path],
             &[0],
             "runtime path resolution must execute and emit JSON",
+            runtime_paths_explicit_registry_is_operator_projection,
         ),
         run_json_validation_step(
             "canonical_surface_audit",

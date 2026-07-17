@@ -11,8 +11,8 @@ use tower::ServiceExt;
 
 use cynic_kernel::api::rest::{self, AppState, PerIpRateLimiter, StorageInfo};
 
+use cynic_inference::embedding::NullEmbedding;
 use cynic_kernel::domain::coord::NullCoord;
-use cynic_kernel::domain::embedding::NullEmbedding;
 use cynic_kernel::domain::metrics::Metrics;
 use cynic_kernel::domain::storage::NullStorage;
 use cynic_kernel::domain::usage::DogUsageTracker;
@@ -74,12 +74,11 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
             cynic_kernel::domain::slot_semaphore::SlotSemaphoreMap::new(),
         ),
         proxy_targets: std::sync::Arc::new(
-            cynic_kernel::api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
+            cynic_inference::application::proxy_routing::ProxyTargets::from_fleet_meta(
                 &std::collections::HashMap::new(),
                 &std::collections::HashMap::new(),
             ),
         ),
-        project_root: ".".to_string(),
         mail: None,
         node_registry: std::sync::Arc::new(cynic_kernel::api::websocket::NodeRegistry::new(120)),
         zones: std::sync::Arc::new(cynic_kernel::domain::zones::ZoneConfig::default()),
@@ -863,12 +862,11 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
             cynic_kernel::domain::slot_semaphore::SlotSemaphoreMap::new(),
         ),
         proxy_targets: std::sync::Arc::new(
-            cynic_kernel::api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
+            cynic_inference::application::proxy_routing::ProxyTargets::from_fleet_meta(
                 &std::collections::HashMap::new(),
                 &std::collections::HashMap::new(),
             ),
         ),
-        project_root: ".".to_string(),
         mail: None,
         node_registry: std::sync::Arc::new(cynic_kernel::api::websocket::NodeRegistry::new(120)),
         zones: std::sync::Arc::new(cynic_kernel::domain::zones::ZoneConfig::default()),

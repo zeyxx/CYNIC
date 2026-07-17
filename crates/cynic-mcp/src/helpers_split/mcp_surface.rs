@@ -18,13 +18,13 @@ fn load_agent_exposure(project_root: &str) -> Result<serde_json::Value, McpError
     })
 }
 
-fn cynic_coord_exposed_tools(exposure: &serde_json::Value) -> Vec<String> {
+fn active_mcp_exposed_tools(exposure: &serde_json::Value) -> Vec<String> {
     exposure
         .get("mcp_servers")
         .and_then(|value| value.as_array())
         .into_iter()
         .flatten()
-        .find(|server| server.get("name").and_then(|value| value.as_str()) == Some("cynic-coord"))
+        .find(|server| server.get("name").and_then(|value| value.as_str()) == Some("cynic"))
         .and_then(|server| server.get("tools"))
         .and_then(|value| value.as_array())
         .into_iter()
@@ -59,7 +59,7 @@ fn mcp_domain_surface(exposure: &serde_json::Value) -> Vec<serde_json::Value> {
 }
 
 fn mcp_surface_findings(exposure: &serde_json::Value) -> Vec<serde_json::Value> {
-    let exposed_tools = cynic_coord_exposed_tools(exposure);
+    let exposed_tools = active_mcp_exposed_tools(exposure);
     let exposed_set: std::collections::BTreeSet<String> = exposed_tools.iter().cloned().collect();
     let mut domain_tools = std::collections::BTreeSet::new();
     let mut findings = Vec::new();
@@ -69,7 +69,7 @@ fn mcp_surface_findings(exposure: &serde_json::Value) -> Vec<serde_json::Value> 
             "severity": "critical",
             "kind": "mcp_tool_domains_missing",
             "path": "infra/agent-exposure.json",
-            "detail": "agent exposure SSOT must classify cynic-coord MCP tools by domain"
+            "detail": "agent exposure SSOT must classify active cynic MCP tools by domain"
         }));
         return findings;
     };
@@ -107,7 +107,7 @@ fn mcp_surface_findings(exposure: &serde_json::Value) -> Vec<serde_json::Value> 
 
 fn mcp_surface_manifest(project_root: &str) -> Result<serde_json::Value, McpError> {
     let exposure = load_agent_exposure(project_root)?;
-    let exposed_tools = cynic_coord_exposed_tools(&exposure);
+    let exposed_tools = active_mcp_exposed_tools(&exposure);
     let domains = mcp_domain_surface(&exposure);
     let findings = mcp_surface_findings(&exposure);
     let exposed_tool_count = exposed_tools.len();

@@ -4,6 +4,9 @@ After=network.target
 Wants=cynic-kernel.service
 
 [Service]
+# projection_class: operator_projection
+# This unit is a developer/operator user projection rooted in %h and the checkout.
+# Installed runtime authority belongs to /etc/cynic, /var/lib/cynic, and root-owned services.
 Type=simple
 WorkingDirectory=@CYNIC_PROJECT_ROOT@
 ExecStart=%h/bin/cynic-node

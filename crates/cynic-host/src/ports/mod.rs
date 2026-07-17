@@ -1,3 +1,4 @@
+pub mod metabolism;
 use crate::domain::filesystem::FilesystemPolicy;
 use crate::domain::packages::PackageObservedState;
 use crate::domain::packages::PackagePolicy;
@@ -8,6 +9,7 @@ use crate::domain::privilege::PrivilegePolicy;
 use crate::domain::services::ServiceObservedState;
 use crate::domain::services::ServicePolicy;
 use crate::domain::shared::SubstrateDomainContract;
+pub use metabolism::{MetabolicState, MetabolismProvider, OsMetabolism};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HostOperation {

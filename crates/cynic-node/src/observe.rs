@@ -1,24 +1,24 @@
 use crate::adapters::host_observation::{CommandObservation, TcpObservation};
-#[cfg(test)]
+#[cfg(any(test, kani))]
 use crate::build_attestation::runtime_binary_attestation;
 use crate::build_attestation::{BinaryAttestation, RuntimeArtifactDeclarationDrift};
 use crate::domain::network_projection::{
     CanonicalNetworkMeshStatusProjection, DnsProjectionObservation, SharedRuntimeObservation,
     WireguardTransportObservation,
 };
-#[cfg(test)]
+#[cfg(any(test, kani))]
 use crate::domain::network_projection::{
     DnsProjectionChecks, DnsProjectionState, WireguardTransportChecks, WireguardTransportState,
     canonical_network_mesh_status_projection, shared_runtime_observation,
 };
-#[cfg(test)]
+#[cfg(any(test, kani))]
 use crate::domain::node_observation::{NODE_OBSERVATION_SCHEMA, classify_runtime};
 use crate::domain::node_observation::{
     NodeRuntimeBlocker, NodeRuntimeCapabilities, NodeRuntimeRemediation, NodeRuntimeSeverity,
     NodeRuntimeStatus,
 };
 use crate::domain::observation_runtime::DnsResolutionObservation;
-#[cfg(test)]
+#[cfg(any(test, kani))]
 use cynic_host::runtime_layout::current_runtime_layout;
 use serde::Serialize;
 
@@ -81,7 +81,7 @@ pub(crate) struct NodeObservation {
     pub(crate) services: ServiceObservation,
 }
 
-#[cfg(test)]
+#[cfg(any(test, kani))]
 #[derive(Debug, Clone)]
 pub(crate) struct SyntheticNodeObservationContext {
     pub(crate) wg_quick_unit: String,
@@ -91,7 +91,7 @@ pub(crate) struct SyntheticNodeObservationContext {
     pub(crate) systemctl_bin: String,
 }
 
-#[cfg(test)]
+#[cfg(any(test, kani))]
 impl SyntheticNodeObservationContext {
     pub(crate) fn from_current_runtime() -> Self {
         let runtime_layout = current_runtime_layout();
@@ -119,7 +119,7 @@ impl NodeObservation {
         self.binary_attestation.declaration_drift()
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, kani))]
     pub(crate) fn synthetic_for_tests(
         capabilities: NodeRuntimeCapabilities,
         provider_fallback_gateway: Option<String>,
@@ -131,7 +131,7 @@ impl NodeObservation {
         )
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, kani))]
     pub(crate) fn synthetic_for_tests_with_context(
         capabilities: NodeRuntimeCapabilities,
         provider_fallback_gateway: Option<String>,
@@ -229,7 +229,7 @@ impl NodeObservation {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, kani))]
 fn command_observation_for_tests(command: &str, args: &[&str]) -> CommandObservation {
     CommandObservation {
         command: command.to_string(),

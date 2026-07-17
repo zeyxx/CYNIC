@@ -9,15 +9,20 @@
 
 use std::time::Instant;
 
-/// Result of a full validate cycle — mirrors the pre-commit gate
-/// (fmt + build + clippy --all-targets + test --release).
+/// Result of the canonical repository validation gate (`make check`).
+///
+/// Authority: `AGENTS.md`, `contracts/foundation.json` evolutive_policies.build.
+/// This intentionally does **not** reimplement a parallel fmt/build/clippy/test
+/// stack — agents and operators share one living gate.
 #[derive(Debug, serde::Serialize)]
 pub struct ValidateResult {
+    pub schema: &'static str,
+    pub gate: &'static str,
     pub passed: bool,
-    pub fmt_ok: bool,
-    pub build_ok: bool,
-    pub clippy_ok: bool,
-    pub test_ok: bool,
+    pub authority_json_ok: bool,
+    pub cargo_check_ok: bool,
+    pub surface_audit_ok: bool,
+    pub exit_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
     pub duration_ms: u64,
@@ -57,130 +62,73 @@ pub enum GitOp {
 
 pub async fn run_validate(project_root: &str) -> ValidateResult {
     let start = Instant::now();
-    let mut all_stdout = String::new();
-    let mut all_stderr = String::new();
     let elapsed_ms = |start: Instant| start.elapsed().as_millis() as u64;
 
-    // Step 1: cargo fmt -p cynic-kernel -- --check
-    //   Mirrors scripts/git-hooks/pre-commit step 1 — fails fast on formatting drift.
-    let fmt = run_cargo(
-        project_root,
-        &["fmt", "-p", "cynic-kernel", "--", "--check"],
-    )
-    .await;
-    all_stdout.push_str(&format!("=== FMT ===\n{}\n", fmt.stdout));
-    all_stderr.push_str(&fmt.stderr);
-    if !fmt.success {
-        return ValidateResult {
-            passed: false,
-            fmt_ok: false,
-            build_ok: false,
-            clippy_ok: false,
-            test_ok: false,
-            stdout: all_stdout,
-            stderr: all_stderr,
-            duration_ms: elapsed_ms(start),
-        };
-    }
-
-    // Step 2: cargo build --tests
-    let build = run_cargo(project_root, &["build", "--tests"]).await;
-    all_stdout.push_str(&format!("=== BUILD ===\n{}\n", build.stdout));
-    all_stderr.push_str(&build.stderr);
-    if !build.success {
-        return ValidateResult {
-            passed: false,
-            fmt_ok: true,
-            build_ok: false,
-            clippy_ok: false,
-            test_ok: false,
-            stdout: all_stdout,
-            stderr: all_stderr,
-            duration_ms: elapsed_ms(start),
-        };
-    }
-
-    // Step 3: cargo clippy --workspace --all-targets -- -D warnings
-    //   Matches the promoted R20 gate (pre-commit + Makefile + workflow.md):
-    //   --all-targets covers test modules/examples/benches, -D warnings fails hard.
-    let clippy = run_cargo(
-        project_root,
-        &[
-            "clippy",
-            "--workspace",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings",
-        ],
-    )
-    .await;
-    all_stdout.push_str(&format!("=== CLIPPY ===\n{}\n", clippy.stdout));
-    all_stderr.push_str(&clippy.stderr);
-    if !clippy.success {
-        return ValidateResult {
-            passed: false,
-            fmt_ok: true,
-            build_ok: true,
-            clippy_ok: false,
-            test_ok: false,
-            stdout: all_stdout,
-            stderr: all_stderr,
-            duration_ms: elapsed_ms(start),
-        };
-    }
-
-    // Step 4: cargo test -p cynic-kernel --lib --release
-    //   Release mode required: debug mode hits rmcp linker bug (A1 debt).
-    let test = run_cargo(
-        project_root,
-        &["test", "-p", "cynic-kernel", "--lib", "--release"],
-    )
-    .await;
-    all_stdout.push_str(&format!("=== TEST ===\n{}\n", test.stdout));
-    all_stderr.push_str(&test.stderr);
+    // Single canonical gate. Make injects CYNIC_ALLOW_LOCAL_DEV_BUILD, stack,
+    // offline cargo mode, and surface-audit. Do not invent a second stack here.
+    let result = run_make_check(project_root).await;
+    let (authority_json_ok, cargo_check_ok, surface_audit_ok) =
+        infer_make_check_steps(&result.stdout, &result.stderr, result.success);
 
     ValidateResult {
-        passed: test.success,
-        fmt_ok: true,
-        build_ok: true,
-        clippy_ok: true,
-        test_ok: test.success,
-        stdout: all_stdout,
-        stderr: all_stderr,
+        schema: "cynic.mcp.validate.v1",
+        gate: "make check",
+        passed: result.success,
+        authority_json_ok,
+        cargo_check_ok,
+        surface_audit_ok,
+        exit_code: result.exit_code,
+        stdout: result.stdout,
+        stderr: result.stderr,
         duration_ms: elapsed_ms(start),
     }
 }
 
+/// Best-effort step inference from make check logs for agent-readable reports.
+fn infer_make_check_steps(stdout: &str, stderr: &str, passed: bool) -> (bool, bool, bool) {
+    if passed {
+        return (true, true, true);
+    }
+    let combined = format!("{stdout}\n{stderr}");
+    let cargo_started = combined.contains("cargo check core crates");
+    let audit_started = combined.contains("auditing canonical CLI surfaces");
+    // Fail-closed: a later stage starting means earlier stages succeeded.
+    let authority_json_ok = cargo_started || audit_started;
+    let cargo_check_ok = audit_started;
+    let surface_audit_ok = false;
+    (authority_json_ok, cargo_check_ok, surface_audit_ok)
+}
+
 struct CmdResult {
     success: bool,
+    exit_code: Option<i32>,
     stdout: String,
     stderr: String,
 }
 
-async fn run_cargo(project_root: &str, args: &[&str]) -> CmdResult {
-    // RUST_MIN_STACK + RUSTFLAGS match CLAUDE.md § VII + .cargo/config.toml —
-    // rmcp monomorphization needs the larger stack, and debuginfo=1 works around
-    // the DWARF overflow in debug builds (A1 infra debt).
-    let child = tokio::process::Command::new("cargo")
-        .args(args)
+async fn run_make_check(project_root: &str) -> CmdResult {
+    let child = tokio::process::Command::new("make")
+        .arg("check")
         .current_dir(project_root)
-        .env("RUST_MIN_STACK", "67108864")
-        .env("RUSTFLAGS", "-C debuginfo=1")
-        .kill_on_drop(true) // K18: timed-out children must not become zombies
+        // Defense in depth: Makefile also sets this for nested cargo.
+        .env("CYNIC_ALLOW_LOCAL_DEV_BUILD", "1")
+        .kill_on_drop(true)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn();
 
     let result = match child {
         Ok(c) => {
-            tokio::time::timeout(std::time::Duration::from_secs(300), c.wait_with_output()).await
+            tokio::time::timeout(std::time::Duration::from_secs(900), c.wait_with_output()).await
         }
         Err(e) => {
             return CmdResult {
                 success: false,
+                exit_code: None,
                 stdout: String::new(),
-                stderr: format!("Failed to spawn cargo: {e}"),
+                stderr: format!(
+                    "Failed to spawn `make check` (canonical gate). Install make or run from a checkout with Makefile: {e}"
+                ),
             };
         }
     };
@@ -188,18 +136,21 @@ async fn run_cargo(project_root: &str, args: &[&str]) -> CmdResult {
     match result {
         Ok(Ok(output)) => CmdResult {
             success: output.status.success(),
+            exit_code: output.status.code(),
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
         },
         Ok(Err(e)) => CmdResult {
             success: false,
+            exit_code: None,
             stdout: String::new(),
-            stderr: format!("Failed to spawn cargo: {e}"),
+            stderr: format!("Failed to run make check: {e}"),
         },
         Err(_elapsed) => CmdResult {
             success: false,
+            exit_code: None,
             stdout: String::new(),
-            stderr: "Cargo timed out (300s)".to_string(),
+            stderr: "make check timed out (900s)".to_string(),
         },
     }
 }
@@ -522,5 +473,35 @@ mod tests {
         let result = run_git("/tmp", &op).await;
         assert!(!result.success);
         assert!(result.stderr.contains("Invalid file path"));
+    }
+
+    #[test]
+    fn infer_steps_marks_all_ok_when_gate_passes() {
+        let (a, c, s) = infer_make_check_steps("ok", "", true);
+        assert!(a && c && s);
+    }
+
+    #[test]
+    fn infer_steps_fails_closed_before_cargo() {
+        let (a, c, s) = infer_make_check_steps(
+            "==> checking foundation, runtime authority, and registry\n",
+            "jq: parse error",
+            false,
+        );
+        assert!(!a);
+        assert!(!c);
+        assert!(!s);
+    }
+
+    #[test]
+    fn infer_steps_authority_ok_when_cargo_started() {
+        let (a, c, s) = infer_make_check_steps(
+            "==> checking foundation, runtime authority, and registry\n==> cargo check core crates\n",
+            "error: could not compile",
+            false,
+        );
+        assert!(a);
+        assert!(!c);
+        assert!(!s);
     }
 }

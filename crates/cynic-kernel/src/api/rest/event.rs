@@ -6,6 +6,7 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
+use cynic_node::fleet_observability::{project_fleet_stats, validate_event_identity};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -31,14 +32,7 @@ pub struct FleetStatsResponse {
     pub window_secs: u64,
 }
 
-#[derive(Debug, Serialize)]
-pub struct NodeStats {
-    pub node: String,
-    pub avg_latency_ms: u64,
-    pub success_rate: f64,
-    pub last_seen_secs: u64,
-    pub quality: String, // "excellent" | "good" | "degraded" | "dead"
-}
+pub use cynic_node::fleet_observability::FleetNodeStats as NodeStats;
 
 /// POST /events — log infrastructure event (node latency, output size, success).
 /// Fire-and-forget with bounded background task pool (K6 timeout enforcement).
@@ -46,20 +40,11 @@ pub async fn event_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<EventRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    // Validate required fields
-    if req.tool.is_empty() || req.tool.len() > 64 {
+    if let Err(error) = validate_event_identity(&req.tool, &req.node) {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                error: "tool must be 1-64 characters".into(),
-            }),
-        ));
-    }
-    if req.node.is_empty() || req.node.len() > 64 {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "node must be 1-64 characters".into(),
+                error: error.message().into(),
             }),
         ));
     }
@@ -128,31 +113,7 @@ pub async fn fleet_stats_handler(
 
     match state.storage.fleet_stats(window_secs, limit).await {
         Ok(stats) => {
-            let nodes = stats
-                .into_iter()
-                .map(
-                    |(node, avg_latency, success_rate, last_seen_secs, failure_reason)| {
-                        let quality = match failure_reason.as_str() {
-                            "none" => match (last_seen_secs, success_rate) {
-                                (0..=5, sr) if sr >= 0.95 => "excellent",
-                                (0..=60, sr) if sr >= 0.9 => "good",
-                                (_, sr) if sr >= 0.7 => "degraded",
-                                _ => "dead",
-                            },
-                            "port_conflict" | "config_error" | "firewall" => "degraded",
-                            "unknown" => "degraded",
-                            _ => "dead",
-                        };
-                        NodeStats {
-                            node,
-                            avg_latency_ms: avg_latency,
-                            success_rate,
-                            last_seen_secs,
-                            quality: quality.to_string(),
-                        }
-                    },
-                )
-                .collect();
+            let nodes = project_fleet_stats(stats);
 
             Ok(Json(FleetStatsResponse {
                 nodes,

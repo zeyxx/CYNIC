@@ -5,6 +5,7 @@ pub mod host_observation;
 pub(crate) mod local_network_mesh_bundle;
 pub(crate) mod local_network_mesh_bundle_writer;
 pub(crate) mod local_network_mesh_registry;
+pub mod local_runtime_federation_queue_store;
 pub mod local_system_probe;
 pub mod provider_fallback_probe;
 pub mod proxmox;

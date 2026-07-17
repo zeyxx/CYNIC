@@ -1,5 +1,22 @@
 use serde_json::Value;
 
+pub(super) fn runtime_paths_explicit_registry_is_operator_projection(
+    value: &Value,
+) -> Result<(), String> {
+    if value.get("schema").and_then(Value::as_str) != Some("cynic.runtime_paths.v1") {
+        return Err("runtime paths schema missing".to_string());
+    }
+    if value.get("mode").and_then(Value::as_str) != Some("explicit_flag") {
+        return Err("runtime paths explicit registry did not resolve as explicit_flag".to_string());
+    }
+    if value.get("projection_class").and_then(Value::as_str) != Some("operator_projection") {
+        return Err(
+            "runtime paths explicit registry must remain an operator_projection".to_string(),
+        );
+    }
+    Ok(())
+}
+
 pub(super) fn suite_covers_cloud_prisms(value: &Value) -> Result<(), String> {
     require_array_contains(value, "/cloud_characteristics", "on_demand_self_service")?;
     require_array_contains(value, "/cloud_characteristics", "broad_network_access")?;

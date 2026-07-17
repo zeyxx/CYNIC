@@ -277,7 +277,6 @@ pub trait ActivityStorage: Send + Sync {
         &self,
         path_prefixes: &[String],
         exclude_agent: &str,
-        project_root: &str,
     ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError>;
 }
 

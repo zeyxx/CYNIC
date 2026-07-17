@@ -58,7 +58,7 @@ pub fn build_transport_matrix_report() -> TransportMatrixReport {
                 authority_boundary: "kernel/MCP tool -> bounded node action",
                 canonical_use: "remote bounded execution on registered nodes",
                 industrial_grade: "target",
-                command_surface: "fleet_node_exec via cynic-coord MCP",
+                command_surface: "fleet_node_exec via cynic MCP",
                 notes: vec![
                     "preferred remote transport in registry contracts",
                     "must stay bounded and evidence-producing",

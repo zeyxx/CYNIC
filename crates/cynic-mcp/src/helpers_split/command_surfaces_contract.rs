@@ -1,41 +1,45 @@
-fn command_surfaces_contract_path(project_root: &str) -> PathBuf {
+fn deleted_command_surfaces_contract_path(project_root: &str) -> PathBuf {
     PathBuf::from(project_root).join("axioms/command-surfaces-v1.json")
 }
 
+/// Living replacement for the deleted `axioms/command-surfaces-v1.json` authority.
+///
+/// Validates `infra/agent-exposure.json` domain/tool coherence (same rules as
+/// `cynic_mcp_surface` / CLI agent-exposure audit) and records that axioms are
+/// no longer runtime law.
 fn validate_command_surfaces_contract(project_root: &str) -> Vec<serde_json::Value> {
-    let path = command_surfaces_contract_path(project_root);
-    let content = match fs::read_to_string(&path) {
-        Ok(content) => content,
-        Err(e) => {
-            return vec![serde_json::json!({
-                "severity": "critical",
-                "kind": "command_surfaces_contract_missing",
-                "path": path.display().to_string(),
-                "detail": format!("cannot read command surfaces contract: {e}"),
-            })];
-        }
-    };
+    let mut findings = Vec::new();
+    let deleted = deleted_command_surfaces_contract_path(project_root);
+    if deleted.exists() {
+        findings.push(serde_json::json!({
+            "severity": "critical",
+            "kind": "deleted_axioms_command_surfaces_resurrected",
+            "path": deleted.display().to_string(),
+            "detail": "axioms/command-surfaces-v1.json is deleted authority. Remove it; living surfaces are infra/agent-exposure.json + cynic commands --json + cynic dev surface-audit --json",
+        }));
+    } else {
+        findings.push(serde_json::json!({
+            "severity": "info",
+            "kind": "axioms_command_surfaces_deleted",
+            "path": "axioms/command-surfaces-v1.json",
+            "detail": "deleted authority acknowledged; living projection is infra/agent-exposure.json",
+        }));
+    }
 
-    let contract: serde_json::Value = match serde_json::from_str(&content) {
-        Ok(contract) => contract,
-        Err(e) => {
-            return vec![serde_json::json!({
-                "severity": "critical",
-                "kind": "command_surfaces_contract_invalid_json",
-                "path": path.display().to_string(),
-                "detail": e.to_string(),
-            })];
+    match load_agent_exposure(project_root) {
+        Ok(exposure) => {
+            findings.extend(mcp_surface_findings(&exposure));
         }
-    };
-
-    let exposure = load_agent_exposure(project_root).unwrap_or_else(|_| serde_json::json!({}));
-    let make_targets = command_surface_make_targets(project_root);
-    command_surface_findings(
-        "axioms/command-surfaces-v1.json",
-        &contract,
-        &exposure,
-        &make_targets,
-    )
+        Err(err) => {
+            findings.push(serde_json::json!({
+                "severity": "critical",
+                "kind": "agent_exposure_unreadable",
+                "path": "infra/agent-exposure.json",
+                "detail": format!("{err}"),
+            }));
+        }
+    }
+    findings
 }
 
 fn command_surface_findings(

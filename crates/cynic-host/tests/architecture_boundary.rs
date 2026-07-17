@@ -20,6 +20,66 @@ fn host_exec_binary_stays_a_thin_adapter() {
 }
 
 #[test]
+fn runtime_network_preflight_stays_a_read_only_host_surface() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let lib = fs::read_to_string(root.join("src/lib.rs")).expect("read lib.rs");
+    let surface = fs::read_to_string(root.join("src/runtime_network_preflight.rs"))
+        .expect("read runtime_network_preflight.rs");
+
+    assert!(
+        lib.contains("pub mod runtime_network_preflight;"),
+        "cynic-host must export the runtime network preflight surface"
+    );
+    assert!(
+        lib.contains("pub mod runtime_resolver_plan;"),
+        "cynic-host must export the upstream resolver planning surface"
+    );
+    assert!(
+        surface.contains("conformance_context()")
+            && surface.contains("resolve_host(host)")
+            && surface.contains("tcp_probe(host, port)"),
+        "runtime network preflight must be a bounded observation surface over existing host probes"
+    );
+    assert!(
+        !surface.contains("std::process::Command::new(\"cargo\")")
+            && !surface.contains("cargo vendor")
+            && !surface.contains("cynic network dns plan")
+            && !surface.contains("apply"),
+        "runtime network preflight must not own cargo remediation, internal DNS planning, or mutation behavior"
+    );
+    assert!(
+        surface.contains("cynic runtime resolver-plan --json"),
+        "runtime network preflight must route upstream resolver planning to the host resolver plan surface"
+    );
+}
+
+#[test]
+fn runtime_execution_context_stays_a_read_only_host_surface() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let lib = fs::read_to_string(root.join("src/lib.rs")).expect("read lib.rs");
+    let surface = fs::read_to_string(root.join("src/runtime_execution_context.rs"))
+        .expect("read runtime_execution_context.rs");
+
+    assert!(
+        lib.contains("pub mod runtime_execution_context;"),
+        "cynic-host must export the runtime execution context surface"
+    );
+    assert!(
+        surface.contains("observe_runtime_network_preflight")
+            && surface.contains("current_repo_access_status")
+            && surface.contains("HostRuntimeLayout::from_env"),
+        "execution context must aggregate existing host observation primitives"
+    );
+    assert!(
+        !surface.contains("std::fs::write")
+            && !surface.contains("create_dir")
+            && !surface.contains("--apply")
+            && !surface.contains("std::process::Command::new(\"sudo\")"),
+        "execution context must remain read-only and must not perform host mutation"
+    );
+}
+
+#[test]
 fn host_exec_cli_surface_stays_decomposed_by_responsibility() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let surface =

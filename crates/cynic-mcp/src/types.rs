@@ -296,19 +296,7 @@ fn node_name_for_role(
 }
 
 fn load_registry() -> Option<serde_json::Value> {
-    let project_root = std::env::var("CYNIC_PROJECT_ROOT")
-        .map(std::path::PathBuf::from)
-        .ok()
-        .or_else(|| {
-            std::process::Command::new("git")
-                .args(["rev-parse", "--show-toplevel"])
-                .output()
-                .ok()
-                .and_then(|output| String::from_utf8(output.stdout).ok())
-                .map(|path| std::path::PathBuf::from(path.trim()))
-        })
-        .or_else(|| std::env::current_dir().ok());
-    let registry_path = project_root?.join("infra/registry.json");
+    let registry_path = cynic_host::runtime_registry::resolve_runtime_registry_path(None).ok()?;
     std::fs::read_to_string(registry_path)
         .ok()
         .and_then(|content| serde_json::from_str(&content).ok())

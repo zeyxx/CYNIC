@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-use tokio::sync::RwLock;
+use tokio::sync::Mutex;
 
 use super::PendingVerdict;
 
@@ -11,7 +11,7 @@ pub(super) fn spawn_native_handler(
     domain: &str,
     stimulus_id: String,
     content: serde_json::Value,
-    verdicts_queue: Arc<RwLock<VecDeque<PendingVerdict>>>,
+    verdicts_queue: Arc<Mutex<VecDeque<PendingVerdict>>>,
 ) -> bool {
     match domain {
         "fleet.lxc_exec" => {
@@ -55,11 +55,11 @@ pub(super) fn spawn_native_handler(
 }
 
 async fn queue_native_verdict(
-    verdicts_queue: Arc<RwLock<VecDeque<PendingVerdict>>>,
+    verdicts_queue: Arc<Mutex<VecDeque<PendingVerdict>>>,
     stimulus_id: String,
     verdict: serde_json::Value,
 ) {
-    let mut queue = verdicts_queue.write().await;
+    let mut queue = verdicts_queue.lock().await;
     queue.push_back(PendingVerdict {
         stimulus_id,
         verdict,

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::process_observation::command_stdout;
+use crate::runtime_authority::default_runtime_authority_paths;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostCapabilities {
@@ -162,29 +163,64 @@ pub struct HostRuntimeLayout {
 
 impl HostRuntimeLayout {
     pub fn from_env() -> Self {
+        let authority = default_runtime_authority_paths();
         Self {
-            config_dir: env_path("CYNIC_CONFIG_ROOT", "/etc/cynic"),
-            helper_dir: env_path("CYNIC_LIBEXEC_ROOT", "/usr/local/libexec"),
-            sudoers_dir: env_path("CYNIC_SUDOERS_DIR", "/etc/sudoers.d"),
-            service_unit_dir: env_path("CYNIC_SERVICE_UNIT_DIR", "/etc/systemd/system"),
-            runtime_home_dir: env_path("CYNIC_RUNTIME_HOME", "/home/cynic"),
-            state_dir: env_path("CYNIC_STATE_ROOT", "/var/lib/cynic"),
-            log_dir: env_path("CYNIC_LOG_ROOT", "/var/log/cynic"),
-            host_exec_bundle_dir: env_path("CYNIC_HOST_EXEC_BUNDLE_DIR", "/tmp/cynic-host-exec"),
+            config_dir: env_path(
+                "CYNIC_CONFIG_ROOT",
+                &authority.config_root.display().to_string(),
+            ),
+            helper_dir: env_path(
+                "CYNIC_LIBEXEC_ROOT",
+                &authority.helper_root.display().to_string(),
+            ),
+            sudoers_dir: env_path(
+                "CYNIC_SUDOERS_DIR",
+                &authority.sudoers_dir.display().to_string(),
+            ),
+            service_unit_dir: env_path(
+                "CYNIC_SERVICE_UNIT_DIR",
+                &authority.service_unit_dir.display().to_string(),
+            ),
+            runtime_home_dir: env_path(
+                "CYNIC_RUNTIME_HOME",
+                &authority.principal.home_dir.display().to_string(),
+            ),
+            state_dir: env_path(
+                "CYNIC_STATE_ROOT",
+                &authority.principal.state_root.display().to_string(),
+            ),
+            log_dir: env_path(
+                "CYNIC_LOG_ROOT",
+                &authority.principal.log_root.display().to_string(),
+            ),
+            host_exec_bundle_dir: env_path(
+                "CYNIC_HOST_EXEC_BUNDLE_DIR",
+                &authority.host_exec_bundle_dir.display().to_string(),
+            ),
             network_actuator_bundle_dir: env_path(
                 "CYNIC_NETWORK_ACTUATOR_BUNDLE_DIR",
-                "/tmp/cynic-network-actuator",
+                &authority.network_actuator_bundle_dir.display().to_string(),
             ),
-            dns_bundle_dir: env_path("CYNIC_DNS_BUNDLE_DIR", "/tmp/cynic-synapse-dns"),
+            dns_bundle_dir: env_path(
+                "CYNIC_DNS_BUNDLE_DIR",
+                &authority.dns_bundle_dir.display().to_string(),
+            ),
             provider_fallback_bundle_dir: env_path(
                 "CYNIC_PROVIDER_FALLBACK_BUNDLE_DIR",
-                "/tmp/cynic-provider-fallback-hosts",
+                &authority.provider_fallback_bundle_dir.display().to_string(),
             ),
         }
     }
 
     pub fn state_dirs(&self) -> Vec<String> {
-        vec![self.state_dir.clone(), self.log_dir.clone()]
+        vec![
+            self.state_dir.clone(),
+            self.log_dir.clone(),
+            PathBuf::from(&self.state_dir)
+                .join("reports")
+                .display()
+                .to_string(),
+        ]
     }
 
     pub fn host_exec_helper_path(&self) -> String {
@@ -245,14 +281,20 @@ impl HostRuntimeLayout {
     }
 
     pub fn dns_service_path(&self) -> String {
-        PathBuf::from(&self.service_unit_dir)
-            .join("coredns-synapse.service")
-            .display()
-            .to_string()
+        match self.service_manager_kind().as_str() {
+            "openrc" => "/etc/init.d/coredns-synapse".to_string(),
+            _ => PathBuf::from(&self.service_unit_dir)
+                .join("coredns-synapse.service")
+                .display()
+                .to_string(),
+        }
     }
 
     pub fn dns_resolved_dropin_path(&self) -> String {
-        "/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf".to_string()
+        match self.service_manager_kind().as_str() {
+            "openrc" => "/etc/cynic/resolver/openrc-synapse-dns.adapter-required".to_string(),
+            _ => "/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf".to_string(),
+        }
     }
 
     pub fn hostname_path(&self) -> String {
@@ -268,11 +310,17 @@ impl HostRuntimeLayout {
     }
 
     pub fn dns_service_unit(&self) -> String {
-        "coredns-synapse.service".to_string()
+        match self.service_manager_kind().as_str() {
+            "openrc" => "coredns-synapse".to_string(),
+            _ => "coredns-synapse.service".to_string(),
+        }
     }
 
     pub fn resolved_service_unit(&self) -> String {
-        "systemd-resolved.service".to_string()
+        match self.service_manager_kind().as_str() {
+            "openrc" => "resolver-adapter-required".to_string(),
+            _ => "systemd-resolved.service".to_string(),
+        }
     }
 
     pub fn capabilities(&self) -> HostCapabilities {
@@ -497,7 +545,7 @@ mod tests {
             helper_dir: "/opt/cynic/libexec".to_string(),
             sudoers_dir: "/opt/cynic/sudoers.d".to_string(),
             service_unit_dir: "/etc/systemd/system".to_string(),
-            runtime_home_dir: "/home/cynic".to_string(),
+            runtime_home_dir: "/var/lib/cynic".to_string(),
             state_dir: "/var/lib/cynic".to_string(),
             log_dir: "/var/log/cynic".to_string(),
             host_exec_bundle_dir: "/tmp/cynic-host-exec".to_string(),
@@ -513,6 +561,14 @@ mod tests {
         assert_eq!(
             layout.network_actuator_sudoers_path(),
             "/opt/cynic/sudoers.d/cynic-network-actuator"
+        );
+        assert_eq!(
+            layout.state_dirs(),
+            vec![
+                "/var/lib/cynic".to_string(),
+                "/var/log/cynic".to_string(),
+                "/var/lib/cynic/reports".to_string(),
+            ]
         );
     }
 
@@ -530,6 +586,25 @@ mod tests {
 
         assert_eq!(capabilities.service_manager.kind, "openrc");
         assert_eq!(capabilities.service_manager.command, "rc-service-test");
+    }
+
+    #[test]
+    fn dns_paths_follow_openrc_service_manager() {
+        unsafe {
+            std::env::set_var("CYNIC_SERVICE_MANAGER_KIND", "openrc");
+        }
+        let layout = HostRuntimeLayout::from_env();
+
+        assert_eq!(layout.dns_service_unit(), "coredns-synapse");
+        assert_eq!(layout.resolved_service_unit(), "resolver-adapter-required");
+        assert_eq!(layout.dns_service_path(), "/etc/init.d/coredns-synapse");
+        assert_eq!(
+            layout.dns_resolved_dropin_path(),
+            "/etc/cynic/resolver/openrc-synapse-dns.adapter-required"
+        );
+        unsafe {
+            std::env::remove_var("CYNIC_SERVICE_MANAGER_KIND");
+        }
     }
 
     #[test]

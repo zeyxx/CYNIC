@@ -9,6 +9,10 @@ publish = false
 default = []
 
 [dependencies]
+cynic-host = { path = "../cynic-host" }
+cynic-inference = { path = "../cynic-inference" }
+cynic-intel = { path = "../cynic-intel" }
+cynic-node = { path = "../cynic-node" }
 dotenvy = "0.15"
 chrono = "0.4"
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "stream"] }

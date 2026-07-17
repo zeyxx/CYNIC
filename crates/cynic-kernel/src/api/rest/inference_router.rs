@@ -4,25 +4,21 @@
 //! Live probing: each list-models call probes actual node state + emits observations.
 
 use axum::{extract::State, http::StatusCode, response::Json};
+use cynic_inference::application::fleet_routing::{
+    FleetNodeStat, InferenceRouteDecisionView, project_candidate_views, project_route_response,
+};
+use cynic_inference::application::model_catalog::{
+    ListModelsResponse, ModelInfo, ModelProbeObservation, deterministic_model_info,
+    project_model_info, should_probe_model,
+};
+use cynic_node::inference_operations::{
+    probe_model_runtime, remediate_dog_runtime, start_dog_runtime,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use super::inference_observation::{store_probe_observation, store_recovery_observation};
 use super::types::{AppState, ErrorResponse};
-use crate::backends::node_probe;
-
-/// Compute quality tier from failure reason, probe age, and success rate (K3/K11: single source).
-fn node_quality(failure_reason: &str, age: u64, sr: f64) -> &'static str {
-    match failure_reason {
-        "none" => match (age, sr) {
-            (0..=5, sr) if sr >= 0.95 => "excellent",
-            (0..=60, sr) if sr >= 0.9 => "good",
-            (_, sr) if sr >= 0.7 => "degraded",
-            _ => "dead",
-        },
-        "port_conflict" | "config_error" | "firewall" | "unknown" => "degraded",
-        _ => "dead", // process_crash, not_started, others
-    }
-}
 
 #[derive(Debug, Deserialize)]
 pub struct DogOperationRequest {
@@ -38,38 +34,10 @@ pub struct DogOperationResponse {
     pub timestamp: i64,
 }
 
-#[derive(Debug, Serialize)]
-pub struct ModelInfo {
-    pub dog: String,
-    pub node: String,
-    pub expected_model: String,
-    pub actual_model: String,
-    pub mismatch: bool,
-    pub reachable: bool,
-    pub latency_ms: u64,
-    pub capabilities: serde_json::Value,
-    pub performance: serde_json::Value,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ListModelsResponse {
-    pub models: Vec<ModelInfo>,
-    pub timestamp: i64,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct InferenceRouteRequest {
     pub domain: Option<String>, // Optional domain hint for Dog selection
     pub content_len: usize,     // Content length (for load estimation)
-}
-
-#[derive(Debug, Serialize)]
-pub struct InferenceRouteResponse {
-    pub selected_node: String,
-    pub reason: String,
-    pub avg_latency_ms: u64,
-    pub success_rate: f64,
-    pub quality: String,
 }
 
 /// POST /inference/route — select best node for inference work.
@@ -78,7 +46,7 @@ pub struct InferenceRouteResponse {
 pub async fn inference_route_handler(
     State(state): State<Arc<AppState>>,
     Json(_req): Json<InferenceRouteRequest>,
-) -> Result<Json<InferenceRouteResponse>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<Json<InferenceRouteDecisionView>, (StatusCode, Json<ErrorResponse>)> {
     // Query fleet stats: 1-hour window, top 20 nodes
     let window_secs = 3600u64;
     let limit = 20u32;
@@ -96,55 +64,16 @@ pub async fn inference_route_handler(
             )
         })?;
 
-    // Filter for healthy nodes: quality != "dead", success_rate >= 0.7
-    // Skip nodes with fatal failures (process_crash, not_started)
-    let mut candidates: Vec<_> = nodes
-        .into_iter()
-        .filter(|(_, _, sr, _, failure_reason)| {
-            // Skip nodes that are dead (process crashed or never started)
-            if failure_reason == "process_crash" || failure_reason == "not_started" {
-                return false;
-            }
-            // Require minimum success rate
-            *sr >= 0.7
-        })
-        .collect();
-
-    if candidates.is_empty() {
+    let Some(route) = project_route_response(storage_fleet_stats_to_domain(nodes)) else {
         return Err((
             StatusCode::SERVICE_UNAVAILABLE,
             Json(ErrorResponse {
                 error: "no healthy nodes available (all below 70% success rate)".into(),
             }),
         ));
-    }
+    };
 
-    // Sort by: success_rate DESC, latency ASC (best to worst)
-    candidates.sort_by(|a, b| {
-        match b.2.partial_cmp(&a.2) {
-            Some(std::cmp::Ordering::Equal) => a.1.cmp(&b.1), // equal SR → lower latency wins
-            Some(ord) => ord,                                 // higher SR wins
-            None => std::cmp::Ordering::Equal,                // NaN fallback
-        }
-    });
-
-    let (node, avg_latency, sr, _age, failure_reason) = &candidates[0];
-
-    let quality = node_quality(failure_reason.as_str(), *_age, *sr);
-
-    Ok(Json(InferenceRouteResponse {
-        selected_node: node.clone(),
-        reason: format!(
-            "ranked #{} of {} healthy nodes: success_rate={:.1}%, avg_latency={}ms",
-            1,
-            candidates.len(),
-            sr * 100.0,
-            avg_latency
-        ),
-        avg_latency_ms: *avg_latency,
-        success_rate: *sr,
-        quality: quality.to_string(),
-    }))
+    Ok(Json(route))
 }
 
 /// GET /inference/candidates?domain=token — list candidate nodes ranked by health.
@@ -169,36 +98,30 @@ pub async fn inference_candidates_handler(
             )
         })?;
 
-    // Filter healthy + rank (skip fatal failures)
-    let mut candidates: Vec<_> = nodes
-        .into_iter()
-        .filter(|(_, _, sr, _, failure_reason)| {
-            // Skip nodes that are dead
-            if failure_reason == "process_crash" || failure_reason == "not_started" {
-                return false;
-            }
-            *sr >= 0.7
-        })
-        .map(|(node, latency, sr, age, failure_reason)| {
-            let quality = node_quality(failure_reason.as_str(), age, sr);
-            serde_json::json!({
-                "node": node,
-                "avg_latency_ms": latency,
-                "success_rate": sr,
-                "quality": quality,
-                "failure_reason": failure_reason,
-            })
-        })
-        .collect();
-
-    // Limit to top 5
-    candidates.truncate(5);
+    let candidates = project_candidate_views(storage_fleet_stats_to_domain(nodes), 5);
 
     Ok(Json(serde_json::json!({
         "candidates": candidates,
         "window_secs": window_secs,
         "timestamp": chrono::Utc::now().timestamp_millis(),
     })))
+}
+
+fn storage_fleet_stats_to_domain(
+    nodes: Vec<(String, u64, f64, u64, String)>,
+) -> Vec<FleetNodeStat> {
+    nodes
+        .into_iter()
+        .map(
+            |(node, avg_latency_ms, success_rate, age_secs, failure_reason)| FleetNodeStat {
+                node,
+                avg_latency_ms,
+                success_rate,
+                age_secs,
+                failure_reason,
+            },
+        )
+        .collect()
 }
 
 #[derive(Debug, Serialize)]
@@ -242,24 +165,23 @@ pub async fn remediate_handler(
     let mut remediated: Vec<DegradedNodeInfo> = Vec::new();
 
     for (node, failure_reason, fatal_count, _last_fatal_secs) in degraded_nodes {
-        // Attempt recovery via ts_exec (systemctl restart llama-server)
-        let recovery_status = attempt_node_recovery(&node).await;
+        let recovery = remediate_dog_runtime(&node).await;
 
         // Emit observation of recovery attempt
-        let obs_status = if recovery_status.contains("succeeded") {
+        let obs_status = if recovery.status.contains("succeeded") {
             "succeeded"
-        } else if recovery_status.contains("timed_out") {
+        } else if recovery.status.contains("timed_out") {
             "timed_out"
         } else {
             "failed"
         };
-        let _ = emit_recovery_observation(&state, &node, obs_status).await;
+        let _ = store_recovery_observation(state.storage.as_ref(), &node, obs_status).await;
 
         remediated.push(DegradedNodeInfo {
             node,
             failure_reason,
             fatal_count,
-            remediation_status: recovery_status,
+            remediation_status: recovery.status,
         });
     }
 
@@ -272,77 +194,7 @@ pub async fn remediate_handler(
 
 /// Attempt to recover a degraded node by restarting llama-server.
 /// Returns: "succeeded", "failed", "timed_out", or "circuit_broken".
-pub(crate) async fn attempt_node_recovery(node: &str) -> String {
-    let timeout_duration = std::time::Duration::from_secs(30);
-    let command = "systemctl --user restart llama-server";
-
-    // Resolve script path: prefer explicit env var, fallback to relative path
-    let script_path = std::env::var("CYNIC_SCRIPTS").unwrap_or_else(|_| "scripts".to_string())
-        + "/ts_exec_call.sh";
-
-    let mut cmd = tokio::process::Command::new(&script_path);
-    cmd.arg(node).arg(command).arg("30");
-
-    // Execute with bounded timeout (30s + 5s buffer)
-    let result = tokio::time::timeout(
-        timeout_duration + std::time::Duration::from_secs(5),
-        cmd.output(),
-    )
-    .await;
-
-    match result {
-        Err(_elapsed) => "timed_out".to_string(),
-        Ok(Err(_cmd_err)) => "failed".to_string(),
-        Ok(Ok(output)) => {
-            // Parse JSON response from ts_exec_call.sh
-            if let Ok(response_text) = String::from_utf8(output.stdout)
-                && let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text)
-                && let Some(exit_code) = json.get("exit_code").and_then(|v| v.as_i64())
-                && exit_code == 0
-            {
-                return "succeeded".to_string();
-            }
-            "failed".to_string()
-        }
-    }
-}
-
 /// Emit an observation of recovery attempt for observability.
-async fn emit_recovery_observation(
-    state: &Arc<AppState>,
-    node: &str,
-    status: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    use crate::domain::storage::Observation;
-
-    let obs = Observation {
-        project: "cynic".to_string(),
-        agent_id: "kernel-remediation".to_string(),
-        tool: "ts_exec".to_string(),
-        target: node.to_string(),
-        domain: "infrastructure".to_string(),
-        status: status.to_string(),
-        context: "Attempted llama-server restart on degraded node".to_string(),
-        session_id: "".to_string(),
-        timestamp: chrono::Utc::now().timestamp_millis(),
-        tags: vec!["k15-recovery".to_string(), "remediation".to_string()],
-        source_tier: "permanent".to_string(),
-        value: None,
-        confidence: None,
-        consumer: None,
-        action: None,
-        depends_on: vec![],
-        maturity: None,
-        hash: String::new(),
-        prev_hash: String::new(),
-        observers: vec![],
-        consensus_score: None,
-    };
-
-    state.storage.store_observation(&obs).await?;
-    Ok(())
-}
-
 /// POST /lifecycle/inference/start — start a specific dog (llama-server service).
 /// body: {"dog": "qwen25-7b-core"}
 /// Returns: operation status (succeeded, failed, timed_out).
@@ -352,16 +204,16 @@ pub async fn inference_start_handler(
 ) -> Result<Json<DogOperationResponse>, (StatusCode, Json<ErrorResponse>)> {
     let node = dog_to_node(&req.dog);
 
-    // Execute: systemctl start llama-server
-    let status = attempt_node_start(&node).await;
+    let outcome = start_dog_runtime(&node).await;
 
     // Emit observation
-    let _ = emit_recovery_observation(&state, &node, &status).await;
+    let _ =
+        store_recovery_observation(state.storage.as_ref(), &outcome.node, &outcome.status).await;
 
     Ok(Json(DogOperationResponse {
         dog: req.dog,
         operation: "start".to_string(),
-        status,
+        status: outcome.status,
         timestamp: chrono::Utc::now().timestamp_millis(),
     }))
 }
@@ -374,128 +226,23 @@ pub async fn inference_remediate_handler(
     Json(req): Json<DogOperationRequest>,
 ) -> Result<Json<DogOperationResponse>, (StatusCode, Json<ErrorResponse>)> {
     let node = dog_to_node(&req.dog);
-    let status = attempt_node_recovery(&node).await;
+    let outcome = remediate_dog_runtime(&node).await;
 
-    let _ = emit_recovery_observation(&state, &node, &status).await;
+    let _ =
+        store_recovery_observation(state.storage.as_ref(), &outcome.node, &outcome.status).await;
 
     Ok(Json(DogOperationResponse {
         dog: req.dog,
         operation: "remediate".to_string(),
-        status,
+        status: outcome.status,
         timestamp: chrono::Utc::now().timestamp_millis(),
     }))
 }
 
-static BACKEND_CONFIGS: std::sync::OnceLock<Vec<crate::infra::config::BackendConfig>> =
-    std::sync::OnceLock::new();
-
 /// Returns the node assigned to a Dog.
 /// Dynamically queries the fleet configuration rather than hardcoding names.
 pub(crate) fn dog_to_node(dog: &str) -> String {
-    let configs = BACKEND_CONFIGS.get_or_init(|| {
-        let path = std::path::PathBuf::from(
-            std::env::var("CYNIC_PROJECT_ROOT").unwrap_or_else(|_| ".".to_string()),
-        )
-        .join("backends.toml");
-        crate::infra::config::load_backends(&path)
-    });
-
-    for config in configs {
-        if config.name == dog
-            && let Some(node) = &config.fleet_node
-        {
-            return node.clone();
-        }
-    }
-
-    // Fallback if not found in backends.toml
-    if dog.contains("qwen-72b") || dog.contains("nemotron") {
-        "cynic-host-gpu".to_string()
-    } else {
-        "cynic-vm-anvil".to_string()
-    }
-}
-
-/// Attempt to start a node's llama-server (systemctl start).
-/// Returns: "succeeded", "failed", "timed_out".
-async fn attempt_node_start(node: &str) -> String {
-    let timeout_duration = std::time::Duration::from_secs(30);
-    let command = "systemctl start llama-server";
-
-    let script_path = std::env::var("CYNIC_SCRIPTS").unwrap_or_else(|_| "scripts".to_string())
-        + "/ts_exec_call.sh";
-
-    let mut cmd = tokio::process::Command::new(&script_path);
-    cmd.arg(node).arg(command).arg("30");
-
-    let result = tokio::time::timeout(
-        timeout_duration + std::time::Duration::from_secs(5),
-        cmd.output(),
-    )
-    .await;
-
-    match result {
-        Err(_elapsed) => "timed_out".to_string(),
-        Ok(Err(_cmd_err)) => "failed".to_string(),
-        Ok(Ok(output)) => {
-            if let Ok(response_text) = String::from_utf8(output.stdout)
-                && let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text)
-                && let Some(exit_code) = json.get("exit_code").and_then(|v| v.as_i64())
-                && exit_code == 0
-            {
-                return "succeeded".to_string();
-            }
-            "failed".to_string()
-        }
-    }
-}
-
-/// Emit observation for node probe result.
-async fn emit_probe_observation(
-    state: &Arc<AppState>,
-    dog: &str,
-    node: &str,
-    reachable: bool,
-    failure_reason: &str,
-    latency_ms: u64,
-) -> Result<(), Box<dyn std::error::Error>> {
-    use crate::domain::storage::Observation;
-
-    if failure_reason == "none" {
-        return Ok(()); // Don't emit for healthy nodes
-    }
-
-    let obs = Observation {
-        project: "cynic".to_string(),
-        agent_id: "kernel-probe".to_string(),
-        tool: "llama_server_probe".to_string(),
-        target: format!("{node}/{dog}"),
-        domain: "infrastructure".to_string(),
-        status: if reachable { "degraded" } else { "unreachable" }.to_string(),
-        context: format!(
-            "Dog probe failed: failure_type={failure_reason}, latency_ms={latency_ms}"
-        ),
-        session_id: "".to_string(),
-        timestamp: chrono::Utc::now().timestamp_millis(),
-        tags: vec![
-            "k15-observability".to_string(),
-            format!("failure_type:{failure_reason}"),
-        ],
-        source_tier: "permanent".to_string(),
-        value: None,
-        confidence: None,
-        consumer: None,
-        action: None,
-        depends_on: vec![],
-        maturity: None,
-        hash: String::new(),
-        prev_hash: String::new(),
-        observers: vec![],
-        consensus_score: None,
-    };
-
-    state.storage.store_observation(&obs).await?;
-    Ok(())
+    crate::infra::dog_node_resolver::resolve_runtime_dog_node(dog)
 }
 
 /// LIVE PROBING: queries actual llama-server on each node.
@@ -503,81 +250,31 @@ async fn emit_probe_observation(
 pub async fn list_models_handler(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<ListModelsResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let mut models: Vec<ModelInfo> = Vec::new();
+    let mut models: Vec<ModelInfo> = vec![deterministic_model_info()];
 
-    // 1. Manually add deterministic-dog
-    models.push(ModelInfo {
-        dog: "deterministic-dog".to_string(),
-        node: "deterministic".to_string(),
-        expected_model: "deterministic".to_string(),
-        actual_model: "N/A".to_string(),
-        mismatch: false,
-        reachable: true,
-        latency_ms: 0,
-        capabilities: serde_json::json!({
-            "context_size": 0,
-            "thinking_mode": false,
-            "json_mode": false,
-        }),
-        performance: serde_json::json!({
-            "success_count": 0,
-            "failures": 0,
-            "json_valid_rate": 0.0,
-        }),
-    });
-
-    // 2. Dynamically add all loaded backends
     for cfg in &state.backend_configs {
         let dog = &cfg.name;
         let node = cfg.fleet_node.as_deref().unwrap_or(dog);
         let expected = &cfg.model;
+        let inference_config = cfg.to_inference_backend_config();
 
-        // Skip probing non-inference/CLI dogs
-        let (actual_model, reachable, latency_ms, failure_reason) =
-            if cfg.backend_type == crate::infra::config::BackendType::Cli {
-                ("N/A".to_string(), true, 0, "none".to_string())
-            } else {
-                // Live probe inference nodes (K2: via backends layer)
-                node_probe::probe_node(node, expected).await
-            };
+        let probe = if should_probe_model(&inference_config) {
+            let probe = probe_model_runtime(node, expected).await;
+            ModelProbeObservation {
+                actual_model: probe.actual_model,
+                reachable: probe.reachable,
+                latency_ms: probe.latency_ms,
+                failure_reason: probe.failure_reason,
+            }
+        } else {
+            ModelProbeObservation::skipped()
+        };
 
-        // Emit observation if degraded
-        if let Err(e) =
-            emit_probe_observation(&state, dog, node, reachable, &failure_reason, latency_ms).await
-        {
+        if let Err(e) = store_probe_observation(state.storage.as_ref(), dog, node, &probe).await {
             tracing::warn!("probe observation emit failed for {}/{}: {}", node, dog, e);
         }
 
-        let mismatch = expected != &actual_model
-            && expected != "N/A"
-            && actual_model != "N/A"
-            && actual_model != "unknown"
-            && actual_model != "parse_error";
-
-        // capabilities are derived from the boot-loaded configuration without hardcoding
-        let capabilities = serde_json::json!({
-            "context_size": cfg.context_size,
-            "thinking_mode": !cfg.disable_thinking,
-            "json_mode": cfg.json_mode,
-        });
-
-        let performance = serde_json::json!({
-            "success_count": 0,
-            "failures": 0,
-            "json_valid_rate": 0.0,
-        });
-
-        models.push(ModelInfo {
-            dog: dog.clone(),
-            node: node.to_string(),
-            expected_model: expected.clone(),
-            actual_model,
-            mismatch,
-            reachable,
-            latency_ms,
-            capabilities,
-            performance,
-        });
+        models.push(project_model_info(&inference_config, node, probe));
     }
 
     Ok(Json(ListModelsResponse {

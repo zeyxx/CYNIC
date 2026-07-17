@@ -367,10 +367,9 @@ impl ActivityStorage for ReconnectableStorage {
         &self,
         path_prefixes: &[String],
         exclude_agent: &str,
-        project_root: &str,
     ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
         self.current()
-            .zone_activity(path_prefixes, exclude_agent, project_root)
+            .zone_activity(path_prefixes, exclude_agent)
             .await
     }
 }

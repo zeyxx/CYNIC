@@ -24,7 +24,8 @@ make check
 ```
 
 `make check` validates the machine-readable baseline and runs `cargo check` on
-the active runtime crates with bounded rustc settings.
+the active runtime crates with bounded rustc settings, including
+`CARGO_INCREMENTAL=0` as the current compiler-stability workaround.
 
 Useful local commands:
 
@@ -35,14 +36,37 @@ make run-mcp
 make systemd-list
 ```
 
-`make test` is intentionally not the canonical gate yet: rustc 1.96.1 currently
-ICEs while compiling `cynic-kernel` tests in this workspace. Treat that as
-toolchain/test-harness debt; use `make check` as the baseline proof until the
-test harness is made stable.
+Cargo execution is repo-scoped. The workspace uses `scripts/cargo`, a repo-local
+`CARGO_HOME`, and explicit source/network modes instead of relying directly on
+the host user's `~/.cargo`.
 
-`make build` and `make build-release` are not canonical gates yet: rustc 1.96.1
-currently SIGSEGVs/ICEs while compiling `cynic-kernel` binaries in this
-workspace. Resolve by pinning a non-ICE toolchain or reducing the kernel compile
+Default mode:
+
+```bash
+make check
+```
+
+Vendored mode after a one-time online bootstrap:
+
+```bash
+./scripts/cargo-vendor-bootstrap
+CARGO_SOURCE_MODE=vendor make check
+```
+
+When network access is genuinely available and a registry refresh is intended:
+
+```bash
+CARGO_NETWORK_MODE=online make local-check
+```
+
+`make test` is intentionally not the canonical gate yet: on Thursday, July 16,
+2026, `rustc 1.96.0` can still ICE while compiling workspace tests. Treat that
+as toolchain/test-harness debt; use `make check` as the baseline proof until
+the test harness is made stable.
+
+`make build` and `make build-release` are not canonical gates yet: on Thursday,
+July 16, 2026, `rustc 1.96.0` still shows workspace binary-instability paths.
+Resolve by pinning a non-ICE toolchain or reducing the kernel/node compile
 surface before treating binary build as runtime proof.
 
 ## Authority

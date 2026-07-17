@@ -1,6 +1,10 @@
 //! Backend + storage configuration — loaded from backends.toml or env vars.
 //! Lives in infrastructure layer. NEVER imported by domain core.
 
+use cynic_host::runtime_registry::{
+    resolve_runtime_project_root_path, resolve_runtime_registry_path,
+};
+use cynic_inference::domain::backend_config as inference_backend_config;
 use serde::Deserialize;
 use std::path::Path;
 
@@ -114,6 +118,38 @@ pub struct BackendConfig {
     /// Daily call budget (0 = unlimited). When exhausted, Dog is skipped until UTC midnight.
     /// Designed for quota-constrained backends (e.g. Gemini free tier: ~1500 RPD).
     pub daily_budget: u32,
+}
+
+impl BackendConfig {
+    pub fn to_inference_backend_config(&self) -> inference_backend_config::InferenceBackendConfig {
+        inference_backend_config::InferenceBackendConfig {
+            name: self.name.clone(),
+            backend_type: match self.backend_type {
+                BackendType::OpenAi => inference_backend_config::BackendType::OpenAi,
+                BackendType::Cli => inference_backend_config::BackendType::Cli,
+            },
+            base_url: self.base_url.clone(),
+            api_key: self.api_key.clone(),
+            model: self.model.clone(),
+            auth_style: match &self.auth_style {
+                AuthStyle::Bearer => inference_backend_config::AuthStyle::Bearer,
+                AuthStyle::QueryParam(value) => inference_backend_config::AuthStyle::QueryParam {
+                    param: value.clone(),
+                },
+                AuthStyle::None => inference_backend_config::AuthStyle::None,
+            },
+            context_size: self.context_size,
+            timeout_secs: self.timeout_secs,
+            max_tokens: self.max_tokens,
+            temperature: self.temperature,
+            disable_thinking: self.disable_thinking,
+            json_mode: self.json_mode,
+            supports_tool_use: self.supports_tool_use,
+            health_url: self.health_url.clone(),
+            cli_extra_args: self.cli_extra_args.clone(),
+            sovereign: self.sovereign,
+        }
+    }
 }
 
 // ── DOG THRESHOLDS (from backends.toml [defaults], [dog.*], [error_detection], etc.) ──
@@ -577,22 +613,8 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
     };
 
     // Dynamically resolve placeholders using infra/registry.json (SSoT)
-    let project_root = std::env::var("CYNIC_PROJECT_ROOT")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| {
-            std::process::Command::new("git")
-                .args(["rev-parse", "--show-toplevel"])
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
-                .map(|s| std::path::PathBuf::from(s.trim()))
-                .unwrap_or_else(|| {
-                    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
-                })
-        });
-
-    let registry_path = project_root.join("infra/registry.json");
-    if let Ok(registry_content) = std::fs::read_to_string(&registry_path)
+    if let Ok(registry_path) = resolve_runtime_registry_path(None)
+        && let Ok(registry_content) = std::fs::read_to_string(&registry_path)
         && let Ok(json) = serde_json::from_str::<serde_json::Value>(&registry_content)
         && let Some(nodes) = json.get("nodes").and_then(|n| n.as_array())
     {
@@ -1057,52 +1079,59 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
     configs
 }
 
-// Boot-time HTTP probing of configured backends lives in backends/health_probe.rs
-// (K2: HTTP client construction is an adapter concern, not a config concern).
+// Boot-time backend verification is projected by backends/health_probe.rs and
+// delegated to cynic-node::verify.
 
 // ── DOMAIN PROMPTS ───────────────────────────────────────────
 
 /// Load domain-specific axiom evaluation prompts.
 /// Priority: filesystem (runtime, editable) → embedded (compile-time, fallback).
-/// Filesystem prompts live in `{project_root}/domains/*.md`.
+/// Filesystem prompts live in `{runtime_project_root}/domains/*.md`.
 /// This enables prompt iteration without rebuild: edit file → restart kernel.
-pub fn load_domain_prompts(project_root: &Path) -> std::collections::HashMap<String, String> {
-    let domains_dir = project_root.join("domains");
+pub fn load_domain_prompts() -> std::collections::HashMap<String, String> {
     let mut prompts = std::collections::HashMap::new();
 
     // Try filesystem first — enables prompt iteration without rebuild
-    if domains_dir.is_dir()
-        && let Ok(entries) = std::fs::read_dir(&domains_dir)
-    {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) != Some("md") {
-                continue;
-            }
-            let Some(name) = path.file_stem().and_then(|s| s.to_str()) else {
-                continue;
-            };
-            match std::fs::read_to_string(&path) {
-                Ok(content) => {
-                    let stripped = crate::infra::embedded_domains::strip_domain_heading(&content);
-                    if !stripped.is_empty() {
-                        klog!(
-                            "[config] Domain prompt loaded (filesystem): '{}' ({} chars)",
-                            name,
-                            stripped.len()
-                        );
-                        prompts.insert(name.to_string(), stripped);
-                    }
+    if let Some(project_root) = resolve_runtime_project_root_path() {
+        let domains_dir = project_root.join("domains");
+        if domains_dir.is_dir()
+            && let Ok(entries) = std::fs::read_dir(&domains_dir)
+        {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) != Some("md") {
+                    continue;
                 }
-                Err(e) => {
-                    tracing::warn!(
-                        path = %path.display(),
-                        error = %e,
-                        "failed to read domain prompt file"
-                    );
+                let Some(name) = path.file_stem().and_then(|s| s.to_str()) else {
+                    continue;
+                };
+                match std::fs::read_to_string(&path) {
+                    Ok(content) => {
+                        let stripped =
+                            crate::infra::embedded_domains::strip_domain_heading(&content);
+                        if !stripped.is_empty() {
+                            klog!(
+                                "[config] Domain prompt loaded (filesystem): '{}' ({} chars)",
+                                name,
+                                stripped.len()
+                            );
+                            prompts.insert(name.to_string(), stripped);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            path = %path.display(),
+                            error = %e,
+                            "failed to read domain prompt file"
+                        );
+                    }
                 }
             }
         }
+    } else {
+        tracing::warn!(
+            "runtime project root unresolved — filesystem domain prompts disabled, using embedded fallback"
+        );
     }
 
     // Fallback: embedded prompts for any domain not found on filesystem

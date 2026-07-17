@@ -278,7 +278,6 @@ mod tests {
             &self,
             _: &[String],
             _: &str,
-            _: &str,
         ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
             Ok(vec![])
         }
@@ -495,11 +494,11 @@ mod tests {
         let storage = Arc::new(NullStorage) as Arc<dyn StoragePort>;
         let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
         let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
-        let embedding = Arc::new(crate::domain::embedding::NullEmbedding)
-            as Arc<dyn crate::domain::embedding::EmbeddingPort>;
+        let embedding = Arc::new(cynic_inference::embedding::NullEmbedding)
+            as Arc<dyn cynic_inference::embedding::EmbeddingPort>;
         let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
-        let infer = Arc::new(crate::domain::inference::NullInfer)
-            as Arc<dyn crate::domain::inference::InferPort>;
+        let infer = Arc::new(cynic_inference::inference::NullInfer)
+            as Arc<dyn cynic_inference::inference::InferPort>;
         let metrics = Arc::new(crate::domain::metrics::Metrics::new());
         let domain_router = Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[]));
         let routing_calc = Arc::new(crate::infra::routing_calc::RoutingCalculator::new());
@@ -692,11 +691,11 @@ mod tests {
         let storage = Arc::new(DownStorage) as Arc<dyn StoragePort>;
         let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
         let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
-        let embedding = Arc::new(crate::domain::embedding::NullEmbedding)
-            as Arc<dyn crate::domain::embedding::EmbeddingPort>;
+        let embedding = Arc::new(cynic_inference::embedding::NullEmbedding)
+            as Arc<dyn cynic_inference::embedding::EmbeddingPort>;
         let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
-        let infer = Arc::new(crate::domain::inference::NullInfer)
-            as Arc<dyn crate::domain::inference::InferPort>;
+        let infer = Arc::new(cynic_inference::inference::NullInfer)
+            as Arc<dyn cynic_inference::inference::InferPort>;
         let metrics = Arc::new(crate::domain::metrics::Metrics::new());
         let domain_router = Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[]));
         let routing_calc = Arc::new(crate::infra::routing_calc::RoutingCalculator::new());

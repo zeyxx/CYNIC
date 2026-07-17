@@ -1,5 +1,12 @@
 fn load_infra_registry() -> Result<serde_json::Value, McpError> {
-    let full_path = project_root().join("infra/registry.json");
+    let full_path = cynic_host::runtime_registry::resolve_runtime_registry_path(None).map_err(
+        |error| {
+            McpError::internal_error(
+                format!("Infrastructure registry unresolved: {error}"),
+                None,
+            )
+        },
+    )?;
     let content = std::fs::read_to_string(&full_path).map_err(|e| {
         McpError::internal_error(
             format!("Infrastructure registry unavailable ({full_path:?}): {e}"),

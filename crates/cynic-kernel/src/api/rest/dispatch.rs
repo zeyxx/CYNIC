@@ -7,6 +7,7 @@ use axum::{
     extract::{Query, State},
     http::StatusCode,
 };
+use cynic_host::runtime_registry::resolve_runtime_project_root_path;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -83,11 +84,21 @@ pub async fn zone_activity_handler(
 
     // 3. Query observations — who was active in these paths recently?
     let exclude_agent = params.agent_id.as_deref().unwrap_or("");
-    let project_root = &state.project_root;
+    let Some(project_root) = resolve_runtime_project_root_path() else {
+        return Ok(Json(ZoneActivityResponse {
+            zone: Some(zone),
+            active_agents: vec![],
+            observation_count: 0,
+        }));
+    };
+    let absolute_zone_paths: Vec<String> = zone_paths
+        .iter()
+        .map(|path| project_root.join(path).display().to_string())
+        .collect();
 
     let agents = state
         .storage
-        .zone_activity(&zone_paths, exclude_agent, project_root)
+        .zone_activity(&absolute_zone_paths, exclude_agent)
         .await
         .unwrap_or_default();
 

@@ -49,6 +49,7 @@ mod provider_fallback_status;
 mod runtime_supervision;
 mod supervise;
 mod system_probe;
+#[allow(dead_code, unreachable_pub)]
 mod verify;
 mod watchdog;
 mod websocket;

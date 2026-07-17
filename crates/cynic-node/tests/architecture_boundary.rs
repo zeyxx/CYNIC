@@ -88,12 +88,23 @@ fn runtime_federation_has_domain_port_and_adapter_boundaries() {
         .expect("read domain/runtime_federation.rs");
     let port = fs::read_to_string(root.join("src/ports/runtime_federation_port.rs"))
         .expect("read ports/runtime_federation_port.rs");
+    let queue_store_port =
+        fs::read_to_string(root.join("src/ports/runtime_federation_queue_store_port.rs"))
+            .expect("read ports/runtime_federation_queue_store_port.rs");
     let adapter = fs::read_to_string(root.join("src/adapters/websocket_federation/mod.rs"))
         .expect("read adapters/websocket_federation/mod.rs");
+    let queue_store_adapter =
+        fs::read_to_string(root.join("src/adapters/local_runtime_federation_queue_store/mod.rs"))
+            .expect("read adapters/local_runtime_federation_queue_store/mod.rs");
     let lifecycle = fs::read_to_string(root.join("src/runtime_supervision/lifecycle.rs"))
         .expect("read runtime_supervision/lifecycle.rs");
     let config_load =
         fs::read_to_string(root.join("src/config/load.rs")).expect("read config/load.rs");
+    let websocket = fs::read_to_string(root.join("src/websocket.rs")).expect("read websocket.rs");
+    let websocket_inbox =
+        fs::read_to_string(root.join("src/websocket/inbox.rs")).expect("read websocket/inbox.rs");
+    let websocket_wire =
+        fs::read_to_string(root.join("src/websocket/wire.rs")).expect("read websocket/wire.rs");
 
     assert!(
         domain.contains("pub struct RuntimeFederationConfig")
@@ -106,10 +117,23 @@ fn runtime_federation_has_domain_port_and_adapter_boundaries() {
         "runtime federation must expose port and factory boundaries"
     );
     assert!(
+        queue_store_port.contains("pub trait RuntimeFederationQueueStorePort"),
+        "runtime federation queue persistence must expose a dedicated storage port"
+    );
+    assert!(
         adapter.contains("impl RuntimeFederationFactory for WebSocketFederationFactory")
             && adapter.contains("impl RuntimeFederationPort for WebSocketFederationAdapter")
             && adapter.contains("WebSocketClient::new"),
         "WebSocket client wiring must live in the concrete federation adapter"
+    );
+    assert!(
+        adapter.contains("LocalRuntimeFederationQueueStore::new(config.queue_dir)"),
+        "WebSocket federation adapter must wire the local queue-store adapter explicitly"
+    );
+    assert!(
+        queue_store_adapter
+            .contains("impl RuntimeFederationQueueStorePort for LocalRuntimeFederationQueueStore"),
+        "filesystem-backed queue persistence must live in a local runtime federation queue-store adapter"
     );
     let factory_impl = adapter
         .split("impl RuntimeFederationFactory for WebSocketFederationFactory")
@@ -132,6 +156,27 @@ fn runtime_federation_has_domain_port_and_adapter_boundaries() {
         config_load.contains("pub(crate) fn runtime_federation_config")
             && config_load.contains("std::env::var(\"CYNIC_API_KEY\")"),
         "runtime federation env fallback must be isolated in config loading"
+    );
+    for forbidden in ["PathBuf", "pending_stimuli.json", "pending_verdicts.json"] {
+        assert!(
+            !websocket.contains(forbidden),
+            "websocket.rs must not own direct filesystem queue persistence detail: {forbidden}"
+        );
+    }
+    assert!(
+        websocket.contains("mod wire;"),
+        "websocket facade must expose a dedicated wire parsing submodule"
+    );
+    assert!(
+        websocket_wire.contains("enum IncomingWireMessage")
+            && websocket_wire.contains("parse_incoming_wire_message"),
+        "wire parsing must live in websocket/wire.rs"
+    );
+    assert!(
+        websocket_inbox.contains("handle_incoming_wire_message")
+            && websocket_inbox.contains("parse_incoming_wire_message")
+            && !websocket_inbox.contains("serde_json::from_str::<NodeMessage>"),
+        "inbox handling must consume parsed wire messages instead of decoding transport inline"
     );
 }
 
@@ -182,6 +227,81 @@ fn system_probe_has_domain_port_and_local_adapter_boundaries() {
             && adapter.contains("capture_command"),
         "sysinfo and local command probing must live in the local adapter"
     );
+}
+
+#[test]
+fn fleet_and_mesh_runtime_rules_are_node_owned() {
+    let root = crate_root();
+    let lib = fs::read_to_string(root.join("src/lib.rs")).expect("read lib.rs");
+    let fleet = fs::read_to_string(root.join("src/fleet_observability.rs"))
+        .expect("read fleet_observability.rs");
+    let mesh =
+        fs::read_to_string(root.join("src/mesh_registry.rs")).expect("read mesh_registry.rs");
+
+    assert!(
+        lib.contains("pub mod fleet_observability;") && lib.contains("pub mod mesh_registry;"),
+        "cynic-node must export fleet and mesh runtime rule surfaces"
+    );
+    assert!(
+        fleet.contains("validate_event_identity")
+            && fleet.contains("classify_node_quality")
+            && fleet.contains("FleetEventValidationError"),
+        "fleet observability validation and quality rules must live in cynic-node"
+    );
+    assert!(
+        mesh.contains("validate_mesh_key_publication") && mesh.contains("MeshKeyValidationError"),
+        "mesh key publication validation must live in cynic-node"
+    );
+}
+
+#[test]
+fn dns_contract_keeps_pure_kani_proofs_outside_runtime_module() {
+    let root = crate_root();
+    let contract =
+        fs::read_to_string(root.join("src/dns_contract.rs")).expect("read dns_contract.rs");
+    let verification = fs::read_to_string(root.join("src/dns_contract/verification.rs"))
+        .expect("read dns_contract/verification.rs");
+
+    assert!(
+        contract.contains("mod verification;") && !contract.contains("#[kani::proof]"),
+        "dns_contract.rs must delegate Kani proofs to a dedicated submodule"
+    );
+    assert!(
+        verification.contains("#[kani::proof]")
+            && verification.contains("proof_dns_bundle_files_shape_is_stable")
+            && verification
+                .contains("proof_dns_activation_readme_uses_explicit_probe_and_service_unit"),
+        "dns contract Kani proofs must live in dns_contract/verification.rs"
+    );
+}
+
+#[test]
+fn fleet_inventory_provider_collection_is_owned_by_cynic_node() {
+    let root = crate_root();
+    let lib_rs = fs::read_to_string(root.join("src/lib.rs")).expect("read lib.rs");
+    let fleet_inventory =
+        fs::read_to_string(root.join("src/fleet_inventory.rs")).expect("read fleet_inventory.rs");
+
+    assert!(
+        lib_rs.contains("pub mod fleet_inventory;"),
+        "cynic-node must expose fleet inventory as a node-owned surface"
+    );
+    assert!(
+        fleet_inventory.contains("pub async fn build_fleet_inventory_details")
+            && fleet_inventory.contains("struct ProxmoxInventoryProvider")
+            && fleet_inventory.contains("struct KubernetesInventoryProvider"),
+        "provider-facing fleet inventory collection must live in cynic-node"
+    );
+    for forbidden in [
+        "crate::domain::probe::",
+        "ProbeDetails::FleetInventory",
+        "ProbeStatus::",
+    ] {
+        assert!(
+            !fleet_inventory.contains(forbidden),
+            "cynic-node fleet inventory must not depend on kernel probe framing: {forbidden}"
+        );
+    }
 }
 
 #[test]

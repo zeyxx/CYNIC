@@ -344,8 +344,8 @@ pub trait Dog: Send + Sync {
     /// Backend health — cascades from the underlying inference provider.
     /// Default: Healthy (correct for DeterministicDog and any in-process evaluator).
     /// InferenceDog delegates to its ChatPort's BackendPort::health().
-    async fn health(&self) -> crate::domain::inference::BackendStatus {
-        crate::domain::inference::BackendStatus::Healthy
+    async fn health(&self) -> cynic_inference::inference::BackendStatus {
+        cynic_inference::inference::BackendStatus::Healthy
     }
 
     /// Evaluate a stimulus, return raw axiom scores (NOT phi-bounded)

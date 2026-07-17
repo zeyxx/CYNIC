@@ -2,6 +2,7 @@ use crate::domain::packages::PackagePolicy;
 use crate::domain::principal::PrincipalPolicy;
 use crate::domain::privilege::PrivilegePolicy;
 use crate::domain::services::{ServiceManagerKind, ServicePolicy, ServiceUnitPolicy};
+use crate::runtime_authority::default_runtime_principal_layout;
 use crate::runtime_layout::{PackageManagerKind, current_runtime_layout};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -223,11 +224,12 @@ impl HostFamilyProfile {
 
     pub fn principal_policy(&self) -> PrincipalPolicy {
         let layout = current_runtime_layout();
+        let principal = default_runtime_principal_layout();
         let state_dirs = layout.state_dirs();
         PrincipalPolicy {
-            runtime_user: "cynic".to_string(),
-            runtime_group: "cynic".to_string(),
-            home_dir: layout.runtime_home_dir,
+            runtime_user: principal.runtime_user,
+            runtime_group: principal.runtime_group,
+            home_dir: principal.home_dir.display().to_string(),
             config_dir: self.config_dir.clone(),
             state_dirs,
         }

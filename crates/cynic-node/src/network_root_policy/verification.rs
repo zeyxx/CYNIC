@@ -4,6 +4,7 @@ use super::{
 };
 use crate::domain::node_observation::{
     NodeRuntimeAction, NodeRuntimeCapabilities, NodeRuntimeRemediation,
+    SURFACE_NETWORK_MESH_DNS_ACTIVATION_STATUS, SURFACE_NETWORK_MESH_STATUS,
 };
 use crate::observe::NodeObservation;
 
@@ -51,9 +52,11 @@ fn proof_remediation_to_profile_maps_only_root_network_actions() {
     let helper = "/portable/bin/cynic-network-actuator";
     let remediation = NodeRuntimeRemediation {
         action: NodeRuntimeAction::ActivateWireguardMesh,
-        reason: "mesh missing".to_string(),
+        reason: "mesh missing",
         requires_root: true,
         mutates_host: true,
+        canonical_surface: SURFACE_NETWORK_MESH_STATUS,
+        fallback_surface: "provider fallback".to_string(),
     };
 
     let profile = remediation_to_profile(&remediation, helper).expect("profile");
@@ -67,9 +70,11 @@ fn proof_dns_remediation_never_becomes_root_profile() {
     let helper = "/portable/bin/cynic-network-actuator";
     let remediation = NodeRuntimeRemediation {
         action: NodeRuntimeAction::RestoreCriticalDns,
-        reason: "dns degraded".to_string(),
+        reason: "dns degraded",
         requires_root: false,
         mutates_host: false,
+        canonical_surface: SURFACE_NETWORK_MESH_DNS_ACTIVATION_STATUS,
+        fallback_surface: "provider fallback dns".to_string(),
     };
 
     assert!(remediation_to_profile(&remediation, helper).is_none());
@@ -81,15 +86,19 @@ fn proof_allowed_profiles_only_contains_root_remediations() {
         remediation: vec![
             NodeRuntimeRemediation {
                 action: NodeRuntimeAction::ActivateSynapseRoute,
-                reason: "route missing".to_string(),
+                reason: "route missing",
                 requires_root: true,
                 mutates_host: true,
+                canonical_surface: SURFACE_NETWORK_MESH_STATUS,
+                fallback_surface: "provider fallback route".to_string(),
             },
             NodeRuntimeRemediation {
                 action: NodeRuntimeAction::RestoreCriticalDns,
-                reason: "dns missing".to_string(),
+                reason: "dns missing",
                 requires_root: false,
                 mutates_host: false,
+                canonical_surface: SURFACE_NETWORK_MESH_DNS_ACTIVATION_STATUS,
+                fallback_surface: "provider fallback dns".to_string(),
             },
         ],
         ..NodeObservation::synthetic_for_tests(

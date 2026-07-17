@@ -31,6 +31,10 @@ fn cli_delegates_lab_runtime_to_cynic_host() {
         !main_rs.contains("mod lab_plan;"),
         "cynic-cli must not own a local lab_plan module"
     );
+    assert!(
+        main_rs.contains("mod crate_audit;"),
+        "crate audit support must live outside main.rs"
+    );
 }
 
 #[test]
@@ -52,6 +56,23 @@ fn cli_exposes_framework_bootstrap_as_canonical_surface() {
     assert!(
         command_manifest.contains("cynic bootstrap framework bundle --json --output-dir <dir>"),
         "CLI manifest must expose the canonical framework bootstrap surface"
+    );
+    assert!(
+        command_manifest
+            .contains("cynic bootstrap framework install-cli --json [--apply] [--source <path>] [--target <path>]"),
+        "CLI manifest must expose the standalone CLI install surface"
+    );
+    assert!(
+        command_manifest.contains("cynic dev crate-audit --json"),
+        "CLI manifest must expose the crate audit development surface"
+    );
+    assert!(
+        command_manifest.contains("cynic dev kernel-audit --json"),
+        "CLI manifest must expose the kernel audit development surface"
+    );
+    assert!(
+        command_manifest.contains("cynic dev check --json [--target-root <path>]"),
+        "CLI manifest must expose the dev check proof surface"
     );
 }
 
@@ -108,6 +129,112 @@ fn cli_delegates_runtime_metrics_to_cynic_host() {
 }
 
 #[test]
+fn cli_delegates_runtime_network_preflight_to_cynic_host() {
+    let root = crate_root();
+    let runtime_surface =
+        fs::read_to_string(root.join("src/runtime_surface.rs")).expect("read runtime_surface.rs");
+    let network_preflight =
+        fs::read_to_string(root.join("src/runtime_surface/network_preflight.rs"))
+            .expect("read runtime_surface/network_preflight.rs");
+    assert!(
+        network_preflight
+            .contains("cynic_host::runtime_network_preflight::observe_runtime_network_preflight"),
+        "runtime network preflight must be owned by cynic-host, not cynic-cli"
+    );
+    assert!(
+        runtime_surface.contains("RuntimeCommand::NetworkPreflight"),
+        "CLI manifest must expose the canonical runtime network preflight surface"
+    );
+}
+
+#[test]
+fn cli_delegates_runtime_execution_context_to_cynic_host() {
+    let root = crate_root();
+    let runtime_surface =
+        fs::read_to_string(root.join("src/runtime_surface.rs")).expect("read runtime_surface.rs");
+    let execution_context =
+        fs::read_to_string(root.join("src/runtime_surface/execution_context.rs"))
+            .expect("read runtime_surface/execution_context.rs");
+    assert!(
+        execution_context
+            .contains("cynic_host::runtime_execution_context::observe_runtime_execution_context"),
+        "runtime execution context must be owned by cynic-host, not cynic-cli"
+    );
+    assert!(
+        runtime_surface.contains("RuntimeCommand::ExecutionContext"),
+        "CLI manifest must expose the canonical runtime execution context surface"
+    );
+}
+
+#[test]
+fn cli_delegates_runtime_resolver_plan_to_cynic_host() {
+    let root = crate_root();
+    let runtime_surface =
+        fs::read_to_string(root.join("src/runtime_surface.rs")).expect("read runtime_surface.rs");
+    let resolver_plan = fs::read_to_string(root.join("src/runtime_surface/resolver_plan.rs"))
+        .expect("read runtime_surface/resolver_plan.rs");
+    assert!(
+        resolver_plan.contains("cynic_host::runtime_resolver_plan::build_runtime_resolver_plan"),
+        "runtime resolver planning must be owned by cynic-host, not cynic-cli"
+    );
+    assert!(
+        runtime_surface.contains("RuntimeCommand::ResolverPlan"),
+        "CLI manifest must expose the canonical runtime resolver planning surface"
+    );
+}
+
+#[test]
+fn dev_check_declares_isolated_cargo_target_policy() {
+    let root = crate_root();
+    let check =
+        fs::read_to_string(root.join("src/dev_surface/check.rs")).expect("read dev check surface");
+
+    assert!(
+        check.contains("CargoTargetPolicy")
+            && check.contains("per_step_target_dir")
+            && check.contains("shared_worktree_target_allowed: false")
+            && check.contains("make_check")
+            && check.contains("CANONICAL_GATE"),
+        "dev check must expose a machine-readable isolated Cargo target policy and delegate to make check"
+    );
+    assert!(
+        check.contains("invalid symbol index")
+            && check.contains("internal compiler error: Segmentation fault")
+            && check.contains("compiler_or_linker_artifact_corruption"),
+        "dev check must classify linker artifact corruption explicitly"
+    );
+    assert!(
+        check.contains("CARGO_BUILD_JOBS")
+            && check.contains("CMAKE_BUILD_PARALLEL_LEVEL")
+            && check.contains("\"1\".to_string()"),
+        "dev check must serialize Rust/native build jobs for deterministic validation"
+    );
+}
+
+#[test]
+fn makefile_uses_isolated_cargo_target_dir_for_automated_surfaces() {
+    let root = crate_root();
+    let makefile = fs::read_to_string(root.join("../../Makefile")).expect("read Makefile");
+
+    assert!(
+        makefile.contains("CYNIC_CARGO_TARGET_ROOT ?= /tmp/cynic-cargo-targets")
+            && makefile.contains("CYNIC_CARGO_BUILD_JOBS ?= 1")
+            && makefile.contains(
+                "CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNIC_CARGO_TARGET_ROOT)/$(CYNIC_CARGO_TARGET_PROFILE))"
+            )
+            && makefile.contains("CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS)")
+            && makefile.contains("CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS)")
+            && makefile.contains("CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)"),
+        "Makefile automation must use isolated targets and serialized native build jobs"
+    );
+    assert!(
+        makefile.contains("$(CARGO_TARGET_DIR)/debug/cynic")
+            && !makefile.contains("sudo target/debug/cynic bootstrap framework install-cli"),
+        "install-cli must install the binary from the declared isolated Cargo target dir"
+    );
+}
+
+#[test]
 fn cli_runtime_surface_is_split_out_of_main() {
     let root = crate_root();
     let main_rs = fs::read_to_string(root.join("src/main.rs")).expect("read main.rs");
@@ -123,8 +250,12 @@ fn cli_runtime_surface_is_split_out_of_main() {
         root.join("src/runtime_surface/paths.rs").exists()
             && root.join("src/runtime_surface/suite.rs").exists()
             && root.join("src/runtime_surface/host_checks.rs").exists()
+            && root
+                .join("src/runtime_surface/network_preflight.rs")
+                .exists()
+            && root.join("src/runtime_surface/report.rs").exists()
             && root.join("src/runtime_surface/validation.rs").exists(),
-        "runtime surface must remain split by paths, suite, host_checks, and validation responsibilities"
+        "runtime surface must remain split by paths, suite, host_checks, network_preflight, report, and validation responsibilities"
     );
     assert!(
         root.join("src/command_manifest.rs").exists(),
@@ -133,6 +264,10 @@ fn cli_runtime_surface_is_split_out_of_main() {
     assert!(
         main_rs.contains("mod dev_surface;") && !main_rs.contains("enum DevCommand"),
         "dev command handling must live in dev_surface, not main.rs"
+    );
+    assert!(
+        root.join("src/dev_surface/check.rs").exists(),
+        "dev check execution must live in a granular dev_surface module"
     );
     assert!(
         main_rs.contains("mod audit_surface;") && !main_rs.contains("enum AuditCommand"),
@@ -186,6 +321,8 @@ fn cli_runtime_surface_is_a_facade_over_granular_modules() {
         fs::read_to_string(root.join("src/runtime_surface/paths.rs")).expect("read paths.rs");
     let suite_surface =
         fs::read_to_string(root.join("src/runtime_surface/suite.rs")).expect("read suite.rs");
+    let report_surface =
+        fs::read_to_string(root.join("src/runtime_surface/report.rs")).expect("read report.rs");
     let validation_surface = fs::read_to_string(root.join("src/runtime_surface/validation.rs"))
         .expect("read validation.rs");
     let validation_steps = fs::read_to_string(root.join("src/runtime_surface/validation/steps.rs"))
@@ -204,6 +341,8 @@ fn cli_runtime_surface_is_a_facade_over_granular_modules() {
         runtime_surface.contains("mod paths;")
             && runtime_surface.contains("mod suite;")
             && runtime_surface.contains("mod host_checks;")
+            && runtime_surface.contains("mod network_preflight;")
+            && runtime_surface.contains("mod report;")
             && runtime_surface.contains("mod validation;"),
         "runtime_surface.rs must stay a facade over granular runtime modules"
     );
@@ -214,13 +353,23 @@ fn cli_runtime_surface_is_a_facade_over_granular_modules() {
         "runtime_surface.rs must not contain validation internals or path rendering details"
     );
     assert!(
-        paths_surface.contains("RuntimePathsView") && paths_surface.contains("RuntimeMode"),
+        paths_surface.contains("RuntimePathsView")
+            && paths_surface.contains("projection_class")
+            && paths_surface.contains("resolve_runtime_paths"),
         "runtime paths rendering must live in runtime_surface/paths.rs"
     );
     assert!(
         suite_surface.contains("build_runtime_execution_suite")
             && suite_surface.contains("build_runtime_execution_plan"),
         "runtime suite and plan command adapters must live in runtime_surface/suite.rs"
+    );
+    assert!(
+        report_surface.contains("/var/lib/cynic/reports/runtime-report.json")
+            && report_surface.contains("written_path")
+            && !report_surface.contains("~/.config")
+            && !report_surface.contains("/home/user")
+            && !report_surface.contains(".config/cynic"),
+        "runtime report persistence must target installed runtime state, not user home"
     );
     assert!(
         validation_surface.contains("RuntimeValidationReport")
@@ -476,6 +625,36 @@ fn canonical_surface_audit_executes_against_real_modules() {
                         })
             })),
         "all declared surfaces must have passing checks"
+    );
+    assert!(
+        report
+            .get("external_projection_findings")
+            .and_then(Value::as_array)
+            .is_some_and(|findings| {
+                findings.iter().any(|finding| {
+                    finding.get("id").and_then(Value::as_str) == Some("systemd_kernel_user_unit")
+                        && finding.get("status").and_then(Value::as_str) == Some("ok")
+                        && finding.get("projection_class").and_then(Value::as_str)
+                            == Some("operator_projection")
+                }) && findings.iter().any(|finding| {
+                    finding.get("id").and_then(Value::as_str) == Some("systemd_node_user_unit")
+                        && finding.get("status").and_then(Value::as_str) == Some("ok")
+                        && finding.get("projection_class").and_then(Value::as_str)
+                            == Some("operator_projection")
+                }) && findings.iter().any(|finding| {
+                    finding.get("id").and_then(Value::as_str)
+                        == Some("systemd_kernel_installed_unit")
+                        && finding.get("status").and_then(Value::as_str) == Some("ok")
+                        && finding.get("projection_class").and_then(Value::as_str)
+                            == Some("runtime_authority_adapter")
+                }) && findings.iter().any(|finding| {
+                    finding.get("id").and_then(Value::as_str) == Some("systemd_node_installed_unit")
+                        && finding.get("status").and_then(Value::as_str) == Some("ok")
+                        && finding.get("projection_class").and_then(Value::as_str)
+                            == Some("runtime_authority_adapter")
+                })
+            }),
+        "systemd user units and installed system units must expose distinct projection classes"
     );
 }
 

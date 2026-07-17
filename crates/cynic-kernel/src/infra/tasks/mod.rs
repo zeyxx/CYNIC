@@ -13,6 +13,8 @@ mod runtime_loops;
 mod state_log;
 mod submission_queue;
 
+use cynic_inference::embedding::EmbeddingPort;
+use cynic_inference::inference::BackendPort;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -199,7 +201,7 @@ pub fn spawn_usage_flush_with_organ(
 #[allow(clippy::needless_pass_by_value, unused_variables)]
 pub fn spawn_session_summarizer(
     storage: Arc<dyn StoragePort>,
-    summarizer: crate::backends::summarizer::SovereignSummarizer,
+    summarizer_backend: Arc<dyn BackendPort>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
@@ -222,8 +224,8 @@ pub fn spawn_session_summarizer(
                     // Timeout on health check — prevents 60s stall on unresponsive LLM
                     let available = tokio::time::timeout(
                         std::time::Duration::from_secs(5),
-                        summarizer.is_available(),
-                    ).await.unwrap_or(false);
+                        summarizer_backend.health(),
+                    ).await.map(|status| status.is_available()).unwrap_or(false);
                     if !available {
                         tracing::info!(organ = "summarizer", result = "llm_unavailable", "summarizer cycle: LLM not reachable — skipping");
                         task_health.touch_summarizer("llm_unavailable");
@@ -256,7 +258,7 @@ pub fn spawn_session_summarizer(
 #[allow(clippy::needless_pass_by_value, unused_variables)]
 pub fn spawn_backfill(
     storage: Arc<dyn StoragePort>,
-    embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
+    embedding: Arc<dyn EmbeddingPort>,
     metrics: Arc<Metrics>,
     task_health: Arc<TaskHealth>,
     event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
@@ -609,7 +611,7 @@ async fn run_auto_remediation(storage: &Arc<dyn StoragePort>) {
             failure_reason,
             fatal_count
         );
-        let result = crate::api::rest::inference_router::attempt_node_recovery(&node).await;
+        let result = cynic_node::inference_node_ops::attempt_node_recovery(&node).await;
         klog!(
             "[AutoRemediation] recovery result: node={} status={}",
             node,

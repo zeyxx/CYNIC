@@ -1011,7 +1011,7 @@ mod mcp_surface_tests {
             },
             "mcp_servers": [
                 {
-                    "name": "cynic-coord",
+                    "name": "cynic",
                     "tools": [
                         {"name": "cynic_api_contracts"},
                         {"name": "cynic_mcp_surface"},

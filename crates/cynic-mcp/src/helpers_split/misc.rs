@@ -89,19 +89,7 @@ const COORDINATION_OPERATION_ARTIFACT_SHARE: &str = "coordination.artifact.share
 const COORDINATION_OPERATION_DECISION_RECORD: &str = "coordination.decision.record";
 
 fn project_root() -> PathBuf {
-    std::env::var("CYNIC_PROJECT_ROOT")
-        .map(PathBuf::from)
-        .ok()
-        .or_else(|| {
-            std::process::Command::new("git")
-                .args(["rev-parse", "--show-toplevel"])
-                .output()
-                .ok()
-                .and_then(|output| String::from_utf8(output.stdout).ok())
-                .map(|path| PathBuf::from(path.trim()))
-        })
-        .or_else(|| std::env::current_dir().ok())
-        .unwrap_or_else(|| PathBuf::from("."))
+    cynic_host::runtime_registry::resolve_runtime_project_root_or_cwd_fallback().path
 }
 
 fn unsupported_minimal_baseline(operation: &str, reason: &str) -> serde_json::Value {

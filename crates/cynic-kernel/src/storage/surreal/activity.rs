@@ -721,21 +721,15 @@ pub(crate) async fn zone_activity(
     storage: &SurrealHttpStorage,
     path_prefixes: &[String],
     exclude_agent: &str,
-    project_root: &str,
 ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
     if path_prefixes.is_empty() {
         return Ok(vec![]);
     }
 
-    // Build CONTAINS conditions for path prefixes.
-    // Observations store full paths (/home/user/Bureau/CYNIC/scripts/foo.sh)
-    // Zone prefixes are relative (scripts/). Prepend project_root for matching.
+    // Build absolute path-prefix conditions for observation targets.
     let conditions: Vec<String> = path_prefixes
         .iter()
-        .map(|p| {
-            let full = format!("{project_root}/{p}");
-            format!("string::starts_with(target, '{}')", escape_surreal(&full))
-        })
+        .map(|path| format!("string::starts_with(target, '{}')", escape_surreal(path)))
         .collect();
     let path_filter = conditions.join(" OR ");
 

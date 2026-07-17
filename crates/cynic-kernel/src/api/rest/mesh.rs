@@ -1,6 +1,7 @@
 //! REST handlers for mesh network coordination (WireGuard V3).
 
 use axum::{extract::State, http::StatusCode, response::Json};
+use cynic_node::mesh_registry::validate_mesh_key_publication;
 use std::sync::Arc;
 
 use super::types::{AppState, ErrorResponse, PublishMeshKeyRequest, PublishMeshKeyResponse};
@@ -12,19 +13,11 @@ pub async fn mesh_publish_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<PublishMeshKeyRequest>,
 ) -> Result<Json<PublishMeshKeyResponse>, (StatusCode, Json<ErrorResponse>)> {
-    if req.mesh_ip.is_empty() || req.mesh_ip.len() > 20 {
+    if let Err(error) = validate_mesh_key_publication(&req.mesh_ip, &req.public_key) {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                error: "mesh_ip must be 1-20 characters".into(),
-            }),
-        ));
-    }
-    if req.public_key.is_empty() || req.public_key.len() > 128 {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "public_key must be 1-128 characters".into(),
+                error: error.message().into(),
             }),
         ));
     }

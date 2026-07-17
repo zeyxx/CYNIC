@@ -287,15 +287,21 @@ mod tests {
     use super::{normalize_execution, principal_prepare_plan};
     use crate::domain::principal::PrincipalPolicy;
     use crate::execution::HostCommandExecution;
+    use crate::runtime_authority::default_runtime_principal_layout;
 
     #[test]
     fn principal_prepare_plan_contains_user_and_owned_dirs() {
+        let principal = default_runtime_principal_layout();
         let report = principal_prepare_plan(&PrincipalPolicy {
-            runtime_user: "cynic".to_string(),
-            runtime_group: "cynic".to_string(),
-            home_dir: "/home/cynic".to_string(),
+            runtime_user: principal.runtime_user,
+            runtime_group: principal.runtime_group,
+            home_dir: principal.home_dir.display().to_string(),
             config_dir: "/etc/cynic".to_string(),
-            state_dirs: vec!["/var/lib/cynic".to_string(), "/var/log/cynic".to_string()],
+            state_dirs: vec![
+                "/var/lib/cynic".to_string(),
+                "/var/log/cynic".to_string(),
+                "/var/lib/cynic/reports".to_string(),
+            ],
         });
 
         assert_eq!(report.schema, "cynic.host.principal_prepare.v1");
@@ -323,6 +329,12 @@ mod tests {
         assert!(report.execution_plan.steps.iter().any(|step| {
             step.role == "ensure_state_dir"
                 && step.proof_paths.contains(&"/var/lib/cynic".to_string())
+        }));
+        assert!(report.execution_plan.steps.iter().any(|step| {
+            step.role == "ensure_state_dir"
+                && step
+                    .proof_paths
+                    .contains(&"/var/lib/cynic/reports".to_string())
         }));
     }
 

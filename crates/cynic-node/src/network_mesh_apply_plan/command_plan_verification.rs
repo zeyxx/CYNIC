@@ -5,7 +5,7 @@ use super::command_plan::{
     rollback_plan, route_install,
 };
 use crate::domain::network_mesh_apply::{
-    MeshPlanAclFile, MeshPlanDnsFile, MeshPlanFile, MeshPlanRouteFile,
+    MeshPlanAclRuleFile, MeshPlanDnsRecordFile, MeshPlanFile, MeshPlanRouteFile,
 };
 use crate::network_command_surface::NetworkCommandInvocation;
 
@@ -21,21 +21,13 @@ fn sample_plan(with_dns: bool) -> MeshPlanFile {
             provider: "wireguard".to_string(),
         }],
         dns: if with_dns {
-            vec![MeshPlanDnsFile {
+            vec![MeshPlanDnsRecordFile {
                 name: "node-a.labmesh.example".to_string(),
-                address: "10.30.0.10".to_string(),
             }]
         } else {
             Vec::new()
         },
-        acl: vec![MeshPlanAclFile {
-            id: "allow:ssh".to_string(),
-            source: "mesh".to_string(),
-            destination: "node-a".to_string(),
-            port: Some(22),
-            protocol: "tcp".to_string(),
-            action: "allow".to_string(),
-        }],
+        acl: vec![MeshPlanAclRuleFile {}],
     }
 }
 
@@ -86,13 +78,13 @@ fn proof_firewall_preflight_reports_acl_cardinality_and_cidr() {
     assert_eq!(checks.len(), 3);
     assert!(matches!(
         &checks[1].invocation,
-        NetworkCommandInvocation::Expectation { detail }
-        if detail.contains("10.30.0.0/24")
+        NetworkCommandInvocation::Expectation { text, .. }
+        if text.contains("10.30.0.0/24")
     ));
     assert!(matches!(
         &checks[2].invocation,
-        NetworkCommandInvocation::Expectation { detail }
-        if detail.contains("1 declared mesh service ACL entries")
+        NetworkCommandInvocation::Expectation { text, .. }
+        if text.contains("1 declared mesh service ACL entries")
     ));
 }
 
@@ -112,8 +104,8 @@ fn proof_rollback_plan_includes_route_removal_and_tail_expectations() {
     }
     assert!(matches!(
         &commands[3].invocation,
-        NetworkCommandInvocation::Expectation { detail }
-        if detail.contains("deactivate newly installed provider tunnel config")
+        NetworkCommandInvocation::Expectation { text, .. }
+        if text.contains("deactivate newly installed provider tunnel config")
     ));
 }
 
@@ -124,7 +116,7 @@ fn proof_dns_install_is_bundle_relative() {
     assert_eq!(commands.len(), 1);
     assert!(matches!(
         &commands[0].invocation,
-        NetworkCommandInvocation::Expectation { detail }
-        if detail.contains("/virtual/bundle/dns-records.json")
+        NetworkCommandInvocation::Expectation { text, .. }
+        if text.contains("/virtual/bundle/dns-records.json")
     ));
 }

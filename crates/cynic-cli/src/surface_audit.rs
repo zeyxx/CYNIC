@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
+use crate::agent_exposure_audit::{AgentExposureAuditReport, audit_agent_exposure};
 use crate::surface_registry::{CanonicalCliSurface, canonical_cli_surfaces};
 
 #[derive(Serialize)]
@@ -14,6 +15,8 @@ pub(crate) struct SurfaceAuditReport {
     pub(crate) ok_count: usize,
     pub(crate) blocked_count: usize,
     pub(crate) surfaces: Vec<SurfaceAuditEntry>,
+    pub(crate) external_projection_findings: Vec<ExternalProjectionFinding>,
+    pub(crate) agent_exposure: AgentExposureAuditReport,
 }
 
 #[derive(Serialize)]
@@ -36,6 +39,16 @@ pub(crate) struct SurfaceAuditCheck {
     pub(crate) detail: String,
 }
 
+#[derive(Serialize)]
+pub(crate) struct ExternalProjectionFinding {
+    pub(crate) id: &'static str,
+    pub(crate) status: &'static str,
+    pub(crate) projection_class: &'static str,
+    pub(crate) file_path: String,
+    pub(crate) evidence: Vec<&'static str>,
+    pub(crate) detail: String,
+}
+
 pub(crate) fn audit_canonical_surfaces() -> SurfaceAuditReport {
     let surfaces = canonical_cli_surfaces();
     let ids = duplicate_ids(&surfaces);
@@ -43,16 +56,145 @@ pub(crate) fn audit_canonical_surfaces() -> SurfaceAuditReport {
         .iter()
         .map(|surface| audit_surface(surface, &ids))
         .collect::<Vec<_>>();
+    let external_projection_findings = audit_external_projection_files();
+    let agent_exposure = audit_agent_exposure();
     let ok_count = entries.iter().filter(|entry| entry.status == "ok").count();
-    let blocked_count = entries.len().saturating_sub(ok_count);
+    let blocked_surface_count = entries.len().saturating_sub(ok_count);
+    let blocked_projection_count = external_projection_findings
+        .iter()
+        .filter(|finding| finding.status != "ok")
+        .count();
+    let blocked_agent_exposure = if agent_exposure.status == "ok" {
+        0
+    } else {
+        agent_exposure.blocked_count
+    };
+    let blocked_count = blocked_surface_count + blocked_projection_count + blocked_agent_exposure;
     SurfaceAuditReport {
         schema: "cynic.cli.surface_audit.v1",
         status: if blocked_count == 0 { "ok" } else { "blocked" },
-        rule: "canonical CLI surfaces must be backed by real adapter modules, declared owners, mutation policies, evidence, and anti-responsibilities",
+        rule: "canonical CLI surfaces must be backed by real adapter modules, declared owners, mutation policies, evidence, anti-responsibilities, and a faithful portable agent-exposure projection",
         surface_count: entries.len(),
         ok_count,
         blocked_count,
         surfaces: entries,
+        external_projection_findings,
+        agent_exposure,
+    }
+}
+
+fn audit_external_projection_files() -> Vec<ExternalProjectionFinding> {
+    vec![
+        audit_projection_file(
+            "systemd_kernel_user_unit",
+            "infra/systemd/cynic-kernel.service",
+            "operator_projection",
+            &[
+                "WorkingDirectory=@CYNIC_PROJECT_ROOT@",
+                "ExecStart=%h/bin/cynic-kernel",
+                "EnvironmentFile=%h/.config/cynic/env",
+            ],
+            "user-scoped systemd projection is explicitly labeled as operator_projection",
+            "user-scoped systemd projection must keep its %h/@CYNIC_PROJECT_ROOT@ markers and declare operator_projection explicitly",
+        ),
+        audit_projection_file(
+            "systemd_node_user_unit",
+            "infra/systemd/cynic-node.service",
+            "operator_projection",
+            &[
+                "WorkingDirectory=@CYNIC_PROJECT_ROOT@",
+                "ExecStart=%h/bin/cynic-node",
+                "EnvironmentFile=%h/.config/cynic/env",
+            ],
+            "user-scoped systemd projection is explicitly labeled as operator_projection",
+            "user-scoped systemd projection must keep its %h/@CYNIC_PROJECT_ROOT@ markers and declare operator_projection explicitly",
+        ),
+        audit_projection_file(
+            "systemd_kernel_installed_unit",
+            "infra/systemd/installed/cynic-kernel.service",
+            "runtime_authority_adapter",
+            &[
+                "User=cynic",
+                "Group=cynic",
+                "WorkingDirectory=/var/lib/cynic",
+                "ExecStart=/usr/local/bin/cynic-kernel",
+                "Environment=\"CYNIC_REGISTRY=/etc/cynic/registry.json\"",
+                "Environment=\"CYNIC_INFERENCE_CONFIG=/etc/cynic/inference.toml\"",
+            ],
+            "installed kernel systemd unit is explicitly labeled as runtime_authority_adapter",
+            "installed kernel systemd unit must use the cynic principal, installed paths, and declare runtime_authority_adapter explicitly",
+        ),
+        audit_projection_file(
+            "systemd_node_installed_unit",
+            "infra/systemd/installed/cynic-node.service",
+            "runtime_authority_adapter",
+            &[
+                "User=cynic",
+                "Group=cynic",
+                "WorkingDirectory=/var/lib/cynic",
+                "ExecStart=/usr/local/bin/cynic-node",
+                "Environment=\"CYNIC_REGISTRY=/etc/cynic/registry.json\"",
+                "Environment=\"CYNIC_INFERENCE_CONFIG=/etc/cynic/inference.toml\"",
+            ],
+            "installed node systemd unit is explicitly labeled as runtime_authority_adapter",
+            "installed node systemd unit must use the cynic principal, installed paths, and declare runtime_authority_adapter explicitly",
+        ),
+    ]
+}
+
+fn audit_projection_file(
+    id: &'static str,
+    relative_path: &'static str,
+    projection_class: &'static str,
+    required_markers: &[&'static str],
+    ok_detail: &'static str,
+    blocked_detail: &'static str,
+) -> ExternalProjectionFinding {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(relative_path);
+    let file_path = path.display().to_string();
+    let Ok(source) = std::fs::read_to_string(&path) else {
+        return ExternalProjectionFinding {
+            id,
+            status: "blocked",
+            projection_class,
+            file_path,
+            evidence: vec!["file_missing"],
+            detail: "cannot read external projection file".to_string(),
+        };
+    };
+    let matched_markers = required_markers
+        .iter()
+        .copied()
+        .filter(|marker| source.contains(marker))
+        .collect::<Vec<_>>();
+    let projection_marker = format!("# projection_class: {projection_class}");
+    let has_projection_marker = source.contains(&projection_marker);
+    let status = if matched_markers.len() == required_markers.len() && has_projection_marker {
+        "ok"
+    } else {
+        "blocked"
+    };
+    let mut evidence = matched_markers;
+    if has_projection_marker {
+        evidence.push(match projection_class {
+            "operator_projection" => "# projection_class: operator_projection",
+            "runtime_authority_adapter" => "# projection_class: runtime_authority_adapter",
+            _ => "projection_class_marker",
+        });
+    }
+    ExternalProjectionFinding {
+        id,
+        status,
+        projection_class,
+        file_path,
+        evidence,
+        detail: if status == "ok" {
+            ok_detail.to_string()
+        } else {
+            blocked_detail.to_string()
+        },
     }
 }
 
@@ -145,7 +287,7 @@ fn check_unique_id(
 fn check_known_owner(surface: &CanonicalCliSurface) -> SurfaceAuditCheck {
     let known = matches!(
         surface.owner_crate,
-        "cynic-cli" | "cynic-host" | "cynic-node" | "cynic-protocol"
+        "cynic-cli" | "cynic-host" | "cynic-node" | "cynic-protocol" | "cynic-inference"
     );
     SurfaceAuditCheck {
         name: "known_owner_crate",
@@ -417,7 +559,7 @@ fn owner_module_path(owner_crate: &str, module: &str) -> PathBuf {
     if let Some((crate_name, module_name)) = module.split_once("::")
         && matches!(
             crate_name,
-            "cynic-host" | "cynic-node" | "cynic-protocol" | "cynic-cli"
+            "cynic-host" | "cynic-node" | "cynic-protocol" | "cynic-cli" | "cynic-inference"
         )
     {
         return crate_module_path(crate_name, module_name);
@@ -431,6 +573,7 @@ fn crate_module_path(crate_name: &str, module: &str) -> PathBuf {
         "cynic-host" => format!("{}/../cynic-host", env!("CARGO_MANIFEST_DIR")),
         "cynic-node" => format!("{}/../cynic-node", env!("CARGO_MANIFEST_DIR")),
         "cynic-protocol" => format!("{}/../cynic-protocol", env!("CARGO_MANIFEST_DIR")),
+        "cynic-inference" => format!("{}/../cynic-inference", env!("CARGO_MANIFEST_DIR")),
         _ => env!("CARGO_MANIFEST_DIR").to_string(),
     };
     let mut path = PathBuf::from(crate_dir).join("src");

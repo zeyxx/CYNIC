@@ -48,6 +48,7 @@ fn installed_runtime_paths_are_resolved_outside_repo() {
         serde_json::from_slice(&output.stdout).expect("runtime paths json");
 
     assert_eq!(payload["mode"], "installed");
+    assert_eq!(payload["projection_class"], "runtime_authority");
     assert_eq!(
         payload["registry_path"],
         registry_path.to_string_lossy().to_string()
@@ -72,6 +73,39 @@ fn installed_runtime_paths_are_resolved_outside_repo() {
     assert_eq!(
         payload["provider_hosts_path"],
         provider_hosts_path.to_string_lossy().to_string()
+    );
+}
+
+#[test]
+fn network_dns_plan_runs_outside_repo_without_project_root() {
+    let root = temp_fixture("installed-runtime-dns-plan");
+    let outside_repo = root.join("outside");
+    fs::create_dir_all(&outside_repo).expect("outside repo");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_cynic"))
+        .current_dir(&outside_repo)
+        .env_remove("CYNIC_PROJECT_ROOT")
+        .env_remove("CYNIC_REGISTRY")
+        .arg("network")
+        .arg("dns")
+        .arg("plan")
+        .output()
+        .expect("run cynic network dns plan");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let payload: serde_json::Value = serde_json::from_slice(&output.stdout).expect("dns plan json");
+
+    assert_eq!(
+        payload["schema"],
+        "cynic.organ_fleet.dns_activation_plan.v1"
+    );
+    assert!(
+        !String::from_utf8_lossy(&output.stderr).contains("CYNIC_PROJECT_ROOT"),
+        "standalone dns plan must not require a checkout root"
     );
 }
 

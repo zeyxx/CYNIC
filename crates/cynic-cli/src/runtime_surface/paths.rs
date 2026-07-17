@@ -2,13 +2,14 @@ use std::process::ExitCode;
 
 use serde::Serialize;
 
-use crate::runtime_paths::{RuntimeContext, RuntimeMode, resolve_runtime_paths};
+use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use crate::{emit_json, runtime_paths};
 
 #[derive(Serialize)]
 struct RuntimePathsView {
     schema: &'static str,
     mode: &'static str,
+    projection_class: &'static str,
     registry_path: String,
     config_root: String,
     policy_root: String,
@@ -39,14 +40,8 @@ pub(crate) fn execute_paths(json: bool, registry: Option<String>) -> ExitCode {
 fn runtime_paths_view(paths: &runtime_paths::RuntimePaths) -> RuntimePathsView {
     RuntimePathsView {
         schema: "cynic.runtime_paths.v1",
-        mode: match paths.mode {
-            RuntimeMode::ExplicitFlag => "explicit_flag",
-            RuntimeMode::Environment => "environment",
-            RuntimeMode::Installed => "installed",
-            RuntimeMode::ProjectRootEnv => "project_root_env",
-            RuntimeMode::DevWorktree => "dev_worktree",
-            RuntimeMode::UnresolvedFallback => "unresolved_fallback",
-        },
+        mode: paths.mode.as_str(),
+        projection_class: paths.projection_class.as_str(),
         registry_path: paths.registry_path.to_string_lossy().to_string(),
         config_root: paths.config_root.to_string_lossy().to_string(),
         policy_root: paths.policy_root.to_string_lossy().to_string(),

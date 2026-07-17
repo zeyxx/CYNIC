@@ -1,8 +1,4 @@
-// Verify concern: health check, identity check
-
-// WHY: IdentityResult + probe functions consumed by the watch loop (Task 5).
-// Until the loop wires these, they appear unused to the compiler.
-#![allow(dead_code)]
+//! Runtime verification helpers for node-managed inference backends.
 
 use reqwest::Client;
 use tokio::time::{Duration, timeout};
@@ -10,8 +6,8 @@ use tokio::time::{Duration, timeout};
 // ── IdentityResult ────────────────────────────────────────────────────────────
 
 /// Result of a model-identity probe against an inference backend.
-#[derive(Debug)]
-pub(crate) enum IdentityResult {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum IdentityResult {
     /// At least one loaded model id contains the expected string.
     Match,
     /// Models responded but none matched; carries expected vs actual.
@@ -22,13 +18,20 @@ pub(crate) enum IdentityResult {
     Unreachable,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContextResult {
+    Observed { n_ctx: u32 },
+    Unknown,
+    Unreachable,
+}
+
 // ── check_health ─────────────────────────────────────────────────────────────
 
 /// Probe `health_url` with a GET request.
 ///
 /// Returns `true` only if the backend responds with a 2xx status within
 /// `timeout_secs`. Returns `false` on timeout, connection error, or non-2xx.
-pub(crate) async fn check_health(client: &Client, health_url: &str, timeout_secs: u64) -> bool {
+pub async fn check_health(client: &Client, health_url: &str, timeout_secs: u64) -> bool {
     let fut = client.get(health_url).send();
     match timeout(Duration::from_secs(timeout_secs), fut).await {
         Ok(Ok(resp)) => resp.status().is_success(),
@@ -51,13 +54,27 @@ pub(crate) async fn check_health(client: &Client, health_url: &str, timeout_secs
 /// - `Mismatch`    — models responded but none matched
 /// - `Unknown`     — response arrived but JSON shape was unexpected
 /// - `Unreachable` — request timed out or connection failed
-pub(crate) async fn check_identity(
+pub async fn check_identity(
     client: &Client,
     models_url: &str,
     expected_model: &str,
     timeout_secs: u64,
 ) -> IdentityResult {
-    let fut = client.get(models_url).send();
+    check_identity_with_bearer(client, models_url, expected_model, timeout_secs, None).await
+}
+
+pub async fn check_identity_with_bearer(
+    client: &Client,
+    models_url: &str,
+    expected_model: &str,
+    timeout_secs: u64,
+    bearer_token: Option<&str>,
+) -> IdentityResult {
+    let request = match bearer_token {
+        Some(token) => client.get(models_url).bearer_auth(token),
+        None => client.get(models_url),
+    };
+    let fut = request.send();
     let Ok(Ok(resp)) = timeout(Duration::from_secs(timeout_secs), fut).await else {
         return IdentityResult::Unreachable;
     };
@@ -76,7 +93,10 @@ pub(crate) async fn check_identity(
         .filter_map(|entry| entry.get("id")?.as_str().map(String::from))
         .collect();
 
-    if ids.iter().any(|id| id.contains(expected_model)) {
+    if ids
+        .iter()
+        .any(|id| model_identity_matches(id, expected_model))
+    {
         IdentityResult::Match
     } else if ids.is_empty() {
         IdentityResult::Unknown
@@ -86,6 +106,47 @@ pub(crate) async fn check_identity(
             actual: ids.join(", "),
         }
     }
+}
+
+pub fn model_identity_matches(actual_model: &str, expected_model: &str) -> bool {
+    if actual_model.is_empty() || expected_model.is_empty() {
+        return false;
+    }
+    let actual_lower = actual_model.to_lowercase();
+    let expected_lower = expected_model.to_lowercase();
+    actual_lower.contains(&expected_lower) || expected_lower.contains(&actual_lower)
+}
+
+pub async fn check_context(client: &Client, props_url: &str, timeout_secs: u64) -> ContextResult {
+    check_context_with_bearer(client, props_url, timeout_secs, None).await
+}
+
+pub async fn check_context_with_bearer(
+    client: &Client,
+    props_url: &str,
+    timeout_secs: u64,
+    bearer_token: Option<&str>,
+) -> ContextResult {
+    let request = match bearer_token {
+        Some(token) => client.get(props_url).bearer_auth(token),
+        None => client.get(props_url),
+    };
+    let fut = request.send();
+    let Ok(Ok(resp)) = timeout(Duration::from_secs(timeout_secs), fut).await else {
+        return ContextResult::Unreachable;
+    };
+
+    let json: serde_json::Value = match resp.json().await {
+        Ok(v) => v,
+        Err(_) => return ContextResult::Unknown,
+    };
+
+    json.pointer("/default_generation_settings/n_ctx")
+        .and_then(|value| value.as_u64())
+        .map(|n_ctx| ContextResult::Observed {
+            n_ctx: n_ctx as u32,
+        })
+        .unwrap_or(ContextResult::Unknown)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -173,6 +234,32 @@ mod tests {
         // Port 1 is reserved/privileged — connection will be refused immediately.
         let result = check_health(&client, "http://127.0.0.1:1/health", 1).await;
         assert!(!result, "expected false for unreachable host");
+    }
+
+    #[test]
+    fn model_identity_matching_is_case_insensitive_and_bidirectional() {
+        assert!(model_identity_matches(
+            "Qwen/Qwen2.5-7B-Instruct",
+            "qwen2.5-7b"
+        ));
+        assert!(model_identity_matches(
+            "qwen2.5-7b",
+            "Qwen/Qwen2.5-7B-Instruct"
+        ));
+        assert!(!model_identity_matches("gemma-3-4b-it", "Mistral-7B-v0.3"));
+        assert!(!model_identity_matches("", "Mistral-7B-v0.3"));
+    }
+
+    #[test]
+    fn context_result_shape_is_stable() {
+        assert_eq!(
+            ContextResult::Observed { n_ctx: 32768 },
+            ContextResult::Observed { n_ctx: 32768 }
+        );
+        assert_ne!(
+            ContextResult::Observed { n_ctx: 2048 },
+            ContextResult::Unknown
+        );
     }
 
     // ── identity_match ────────────────────────────────────────────────────────

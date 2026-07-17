@@ -8,9 +8,14 @@ use cynic_protocol::{
     score_outcomes,
 };
 
+use crate::agent_exposure_audit::audit_agent_exposure;
 use crate::command_manifest::commands_manifest;
+use crate::crate_audit::audit_core_crates;
 use crate::emit_json;
+use crate::kernel_boundary_audit::audit_kernel_surfaces;
 use crate::surface_audit::audit_canonical_surfaces;
+
+mod check;
 
 #[derive(Subcommand)]
 pub(crate) enum DevCommand {
@@ -30,9 +35,27 @@ pub(crate) enum DevCommand {
         #[arg(long)]
         json: bool,
     },
+    CrateAudit {
+        #[arg(long)]
+        json: bool,
+    },
+    KernelAudit {
+        #[arg(long)]
+        json: bool,
+    },
     SurfaceAudit {
         #[arg(long)]
         json: bool,
+    },
+    AgentExposure {
+        #[arg(long)]
+        json: bool,
+    },
+    Check {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        target_root: Option<std::path::PathBuf>,
     },
 }
 
@@ -65,11 +88,39 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
             }
             emit_json(&framework_spec(), false)
         }
+        DevCommand::CrateAudit { json } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let report = audit_core_crates();
+            emit_json(&report, report.status != "ok")
+        }
+        DevCommand::KernelAudit { json } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let report = audit_kernel_surfaces();
+            emit_json(&report, report.status != "ok")
+        }
         DevCommand::SurfaceAudit { json } => {
             if !json {
                 return ExitCode::FAILURE;
             }
             let report = audit_canonical_surfaces();
+            emit_json(&report, report.status != "ok")
+        }
+        DevCommand::AgentExposure { json } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let report = audit_agent_exposure();
+            emit_json(&report, report.status != "ok")
+        }
+        DevCommand::Check { json, target_root } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let report = check::run_dev_check(target_root);
             emit_json(&report, report.status != "ok")
         }
     }

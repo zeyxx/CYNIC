@@ -6,7 +6,7 @@
 //! Miss → evaluate normally, then store embedding + verdict for future lookups.
 
 use crate::domain::dog::Verdict;
-use crate::domain::embedding::Embedding;
+use cynic_inference::embedding::Embedding;
 use std::collections::VecDeque;
 use std::sync::RwLock;
 

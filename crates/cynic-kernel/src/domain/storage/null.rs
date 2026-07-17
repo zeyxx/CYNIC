@@ -306,7 +306,6 @@ impl ActivityStorage for NullStorage {
         &self,
         _path_prefixes: &[String],
         _exclude_agent: &str,
-        _project_root: &str,
     ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
         Ok(vec![])
     }
