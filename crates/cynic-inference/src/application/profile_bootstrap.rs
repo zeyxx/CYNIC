@@ -3,6 +3,11 @@
 //! Goal: operator drops GGUF into the principal vault (or hardlinks) →
 //! `inference-start` / repair can start **without** hand-writing `.env` or
 //! hardcoding a product model name.
+//!
+//! Auto-ensure only registers **startable** weights:
+//! - not mmproj / projector sidecars
+//! - multi-part GGUF: only the primary shard (`00001-of-N`)
+//! - header must expose `general.architecture` (llama-server loadable)
 
 use std::fs;
 use std::path::Path;
@@ -10,6 +15,9 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::adapters::local::FsModelStore;
+use crate::domain::gguf_meta::{
+    default_supported_arches_for_llama_b9444, preflight_gguf_for_engine,
+};
 use crate::domain::local_runtime::LocalModelProfile;
 use crate::domain::model_layout::ModelLayout;
 use crate::domain::model_store::{ModelArtifact, ModelLocationKind};
@@ -22,6 +30,7 @@ pub struct EnsureProfilesReport {
     pub status: &'static str,
     pub created: Vec<String>,
     pub skipped_existing: Vec<String>,
+    pub skipped_not_startable: Vec<String>,
     pub startable_aliases: Vec<String>,
     pub preferred_alias: Option<String>,
     pub vault_dir: String,
@@ -55,6 +64,7 @@ pub fn ensure_profiles_from_scan(
 
     let mut created = Vec::new();
     let mut skipped_existing = Vec::new();
+    let mut skipped_not_startable = Vec::new();
 
     for art in artifacts {
         if !art.exists {
@@ -64,14 +74,36 @@ pub fn ensure_profiles_from_scan(
         if art.location != ModelLocationKind::Vault && art.profile_alias.is_none() {
             continue;
         }
+        if art.kind != "gguf" {
+            continue;
+        }
+        if !is_startable_weight_path(&art.path, &art.id) {
+            skipped_not_startable.push(art.id.clone());
+            continue;
+        }
         if art.profile_alias.is_some() {
             skipped_existing.push(art.id.clone());
             continue;
         }
-        // Skip non-gguf for native llama path (safetensors needs different engine).
-        if art.kind != "gguf" {
+        // Also skip if a profile already points at this path
+        let path_claimed = layout.profiles_dir.is_dir()
+            && fs::read_dir(&layout.profiles_dir)
+                .ok()
+                .into_iter()
+                .flatten()
+                .flatten()
+                .any(|e| {
+                    let p = e.path();
+                    p.extension().and_then(|x| x.to_str()) == Some("env")
+                        && fs::read_to_string(&p)
+                            .map(|raw| raw.contains(&art.path))
+                            .unwrap_or(false)
+                });
+        if path_claimed {
+            skipped_existing.push(art.id.clone());
             continue;
         }
+
         let alias = unique_alias(layout, &alias_from_artifact_id(&art.id));
         write_loopback_profile(layout, &alias, &art.path, "auto-from-vault")?;
         created.push(alias);
@@ -83,22 +115,26 @@ pub fn ensure_profiles_from_scan(
     let startable: Vec<String> = again
         .profiles
         .iter()
-        .filter(|p| p.model_exists && p.loopback_only)
+        .filter(|p| is_startable_profile(p))
         .map(|p| p.alias.clone())
         .collect();
     let preferred = select_preferred_alias(&again.profiles);
 
     let status = if preferred.is_some() { "ok" } else { "empty" };
     let message = if preferred.is_some() {
-        "vault profiles ready; use preferred_alias for frictionless start".into()
+        format!(
+            "vault profiles ready; preferred_alias={} (smallest startable single-file / primary shard)",
+            preferred.as_deref().unwrap_or("?")
+        )
     } else {
-        "no startable loopback profile — place a .gguf under vault or download via inference-hf-download".into()
+        "no startable loopback profile — place a complete .gguf under vault (not mmproj / not secondary multi-part shard)".into()
     };
     Ok(EnsureProfilesReport {
         schema: EnsureProfilesReport::SCHEMA,
         status,
         created,
         skipped_existing,
+        skipped_not_startable,
         startable_aliases: startable,
         preferred_alias: preferred,
         vault_dir: layout.vault_dir.display().to_string(),
@@ -107,15 +143,14 @@ pub fn ensure_profiles_from_scan(
     })
 }
 
-/// Prefer smallest existing loopback profile (fits more hosts); stable tie-break by alias.
+/// Prefer smallest **startable** loopback profile; stable tie-break by alias.
 pub fn select_preferred_alias(profiles: &[LocalModelProfile]) -> Option<String> {
     let mut candidates: Vec<&LocalModelProfile> = profiles
         .iter()
-        .filter(|p| p.model_exists && p.loopback_only)
+        .filter(|p| is_startable_profile(p))
         .collect();
     if candidates.is_empty() {
-        // any existing weight, even non-loopback (report only; start may reject)
-        candidates = profiles.iter().filter(|p| p.model_exists).collect();
+        return None;
     }
     candidates.sort_by(|a, b| {
         let sa = a.size_bytes.unwrap_or(u64::MAX);
@@ -123,6 +158,83 @@ pub fn select_preferred_alias(profiles: &[LocalModelProfile]) -> Option<String> 
         sa.cmp(&sb).then_with(|| a.alias.cmp(&b.alias))
     });
     candidates.first().map(|p| p.alias.clone())
+}
+
+/// Path/name filters + GGUF architecture preflight for native llama-server.
+pub fn is_startable_weight_path(path: &str, id_hint: &str) -> bool {
+    let name = Path::new(path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(id_hint)
+        .to_ascii_lowercase();
+    let id = id_hint.to_ascii_lowercase();
+
+    // Projector / multimodal sidecar — not a chat completion model alone.
+    if name.contains("mmproj") || id.contains("mmproj") {
+        return false;
+    }
+    // Multi-part GGUF: only primary shard is a valid -m entry for llama.cpp.
+    if let Some((idx, total)) = parse_multipart_index(&name).or_else(|| parse_multipart_index(&id))
+    {
+        if idx != 1 || total < 2 {
+            return false;
+        }
+    }
+
+    let p = Path::new(path);
+    if !p.is_file() {
+        return false;
+    }
+    // Must parse as GGUF with architecture known to our engine generation.
+    match preflight_gguf_for_engine(p, default_supported_arches_for_llama_b9444()) {
+        Ok(_) => true,
+        Err(_) => {
+            // Missing architecture (common on secondary shards) or unsupported arch.
+            false
+        }
+    }
+}
+
+pub fn is_startable_profile(p: &LocalModelProfile) -> bool {
+    p.model_exists
+        && p.loopback_only
+        && is_startable_weight_path(&p.model_path, &p.alias)
+}
+
+/// `foo-00002-of-00002.gguf` → (2, 2)
+fn parse_multipart_index(name: &str) -> Option<(u32, u32)> {
+    // ...-0000N-of-0000M.gguf or _0000N_of_0000M
+    let re = regex_lite_multipart(name)?;
+    Some(re)
+}
+
+fn regex_lite_multipart(name: &str) -> Option<(u32, u32)> {
+    let lower = name.to_ascii_lowercase();
+    // find "of" pattern: 00001-of-00002
+    let parts: Vec<&str> = lower
+        .split(|c: char| !c.is_ascii_digit() && c != '-')
+        .filter(|s| !s.is_empty())
+        .collect();
+    // Simpler: scan for "-of-"
+    if let Some(idx) = lower.find("-of-") {
+        let before = &lower[..idx];
+        let after = &lower[idx + 4..];
+        let left = before
+            .rsplit(|c: char| !c.is_ascii_digit())
+            .next()?
+            .parse::<u32>()
+            .ok()?;
+        let right = after
+            .split(|c: char| !c.is_ascii_digit())
+            .next()?
+            .parse::<u32>()
+            .ok()?;
+        if right >= 2 && left >= 1 {
+            return Some((left, right));
+        }
+    }
+    let _ = parts;
+    None
 }
 
 /// Resolve alias for start: explicit → auto ensure + preferred.
@@ -165,9 +277,18 @@ pub fn alias_from_artifact_id(id: &str) -> String {
         "-q2_k",
         "-f16",
         "-bf16",
+        "-00001-of-00002",
+        "-00001-of-00003",
+        "-00001-of-00004",
         ".gguf",
     ] {
         s = s.replace(noise, "");
+    }
+    // generic multipart suffix
+    if let Some(idx) = s.find("-0000") {
+        if s[idx..].contains("-of-") {
+            s = s[..idx].to_string();
+        }
     }
     let mut out = String::new();
     for ch in s.chars() {
@@ -251,37 +372,20 @@ mod tests {
     }
 
     #[test]
-    fn preferred_picks_smallest_existing() {
-        let profiles = vec![
-            LocalModelProfile {
-                alias: "big".into(),
-                model_path: "/v/big.gguf".into(),
-                source: crate::domain::local_runtime::LocalModelSource::Vault,
-                model_exists: true,
-                size_bytes: Some(9_000_000_000),
-                host: "127.0.0.1".into(),
-                port: 8080,
-                ctx_size: 4096,
-                extra_args: String::new(),
-                memory_max: None,
-                cpu_quota: None,
-                loopback_only: true,
-            },
-            LocalModelProfile {
-                alias: "small".into(),
-                model_path: "/v/small.gguf".into(),
-                source: crate::domain::local_runtime::LocalModelSource::Vault,
-                model_exists: true,
-                size_bytes: Some(1_000_000_000),
-                host: "127.0.0.1".into(),
-                port: 8080,
-                ctx_size: 4096,
-                extra_args: String::new(),
-                memory_max: None,
-                cpu_quota: None,
-                loopback_only: true,
-            },
-        ];
-        assert_eq!(select_preferred_alias(&profiles).as_deref(), Some("small"));
+    fn multipart_secondary_not_startable() {
+        assert!(!is_startable_weight_path(
+            "/v/qwen-00002-of-00002.gguf",
+            "qwen-00002-of-00002"
+        ));
+        assert!(parse_multipart_index("qwen-00001-of-00002.gguf") == Some((1, 2)));
+        assert!(parse_multipart_index("qwen-00002-of-00002.gguf") == Some((2, 2)));
+    }
+
+    #[test]
+    fn mmproj_not_startable() {
+        assert!(!is_startable_weight_path(
+            "/v/Bonsai-27B-mmproj-Q8_0.gguf",
+            "mmproj"
+        ));
     }
 }

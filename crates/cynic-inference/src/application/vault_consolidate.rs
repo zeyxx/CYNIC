@@ -132,6 +132,13 @@ pub fn consolidate_vault(apply: bool) -> Result<VaultConsolidateReport, LocalRun
         if is_under(&from, &layout.vault_dir) {
             continue;
         }
+        // Skip hardlinks that already share an inode with a vault file (no physical work).
+        if let Some(name) = from.file_name() {
+            let vault_peer = layout.vault_dir.join(name);
+            if vault_peer.is_file() && same_file(&from, &vault_peer) {
+                continue;
+            }
+        }
 
         let to = unique_dest(&layout.vault_dir, &from)?;
         let aliases: Vec<String> = report
