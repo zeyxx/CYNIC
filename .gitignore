@@ -45,6 +45,9 @@ __pycache__/
 **/__pycache__/
 **/.gradle-user-home/
 .gradle/
+# Repo-local Cargo home (offline registry cache; never commit)
+.cargo-home/
+/vendor/
 
 # Local reference material, not repo authority
 /docs/*.pptx
