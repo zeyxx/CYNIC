@@ -164,6 +164,11 @@ pub(crate) fn execute_inference_start(alias: Option<&str>, json: bool) -> ExitCo
         eprintln!("Use --json. This command is designed for machine consumption.");
         return ExitCode::FAILURE;
     }
+    // Progress on stderr; final machine report on stdout only.
+    cynic_inference::progress::progress(
+        "resolve",
+        "selecting startable vault profile (auto ensures profiles if needed)",
+    );
     let resolved = match cynic_inference::resolve_start_alias(alias) {
         Ok(a) => a,
         Err(error) => {
@@ -171,7 +176,12 @@ pub(crate) fn execute_inference_start(alias: Option<&str>, json: bool) -> ExitCo
             return ExitCode::FAILURE;
         }
     };
+    cynic_inference::progress::progress("resolve", format!("alias={resolved}"));
     let service = LocalRuntimeServiceAny::from_env();
+    cynic_inference::progress::progress(
+        "supervisor",
+        format!("{:?}", service.supervisor_kind().as_str()),
+    );
     match service.start(&resolved) {
         Ok(mut report) => {
             // Surface which alias auto-resolution chose (frictionless audit trail).

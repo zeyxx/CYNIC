@@ -199,43 +199,45 @@ impl SystemdUserLocalRuntime {
         let start = std::time::Instant::now();
         let api_key_path = dirs_api_key_path();
         let api_key = std::fs::read_to_string(&api_key_path).ok();
+        let mut wait = crate::progress::WaitProgress::new(
+            format!("model HTTP {endpoint} (load can take 1–3 min)"),
+            5,
+        );
 
         while start.elapsed() < timeout {
             // Unit failed?
             if let Ok(st) = self.status_for_unit(&Self::unit_name(&profile.alias)) {
                 if st.state == LocalRuntimeState::Failed {
+                    wait.done(false);
                     return Ok(false);
                 }
                 // crash loop: inactive after having started
-                if st.state == LocalRuntimeState::Inactive && start.elapsed() > Duration::from_secs(3)
+                if st.state == LocalRuntimeState::Inactive
+                    && start.elapsed() > Duration::from_secs(3)
                 {
                     // may be restarting — check a few more times
                 }
             }
 
             let mut cmd = Command::new("curl");
-            cmd.args([
-                "-sS",
-                "-m",
-                "2",
-                "-o",
-                "/dev/null",
-                "-w",
-                "%{http_code}",
-            ]);
+            cmd.args(["-sS", "-m", "2", "-o", "/dev/null", "-w", "%{http_code}"]);
             if let Some(ref key) = api_key {
-                cmd.arg("-H").arg(format!("Authorization: Bearer {}", key.trim()));
+                cmd.arg("-H")
+                    .arg(format!("Authorization: Bearer {}", key.trim()));
             }
             cmd.arg(&endpoint);
             if let Ok(out) = cmd.output() {
                 let code = String::from_utf8_lossy(&out.stdout);
                 if code.trim() == "200" {
+                    wait.done(true);
                     return Ok(true);
                 }
                 // 503 Loading model — keep waiting
             }
+            wait.tick();
             thread::sleep(Duration::from_millis(500));
         }
+        wait.done(false);
         Ok(false)
     }
 }
@@ -265,6 +267,7 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
     }
 
     fn start(&self, alias: &str) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
+        crate::progress::progress("start", format!("alias={alias} supervisor=systemd-user"));
         let profile = self.inventory.get_profile(alias)?;
         if !profile.model_exists {
             return Err(LocalRuntimeError::Rejected(format!(
@@ -280,6 +283,7 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         }
 
         // GGUF architecture preflight — fail closed before systemd restart storms.
+        crate::progress::progress("preflight", format!("gguf {}", profile.model_path));
         let model_path = std::path::Path::new(&profile.model_path);
         let gguf_meta = crate::domain::gguf_meta::preflight_gguf_for_engine(
             model_path,
@@ -288,6 +292,7 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
 
         // Probe-driven plan: regenerate runtime env + resource drop-in every start.
+        crate::progress::progress("plan", "probe hardware + materialize runtime env/drop-in");
         let planner = crate::application::runtime_planner::RuntimePlanner::from_env();
         let plan = planner.plan_for_alias(alias)?;
         let materialize = planner.materialize(&plan)?;
@@ -295,6 +300,7 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         self.stop_legacy_fixed_unit();
         for other in self.list_running_aliases()? {
             if other != alias {
+                crate::progress::progress("stop", format!("unit {}", Self::unit_name(&other)));
                 let _ = Self::systemctl(&["--user", "stop", &Self::unit_name(&other)]);
             }
         }
@@ -302,6 +308,7 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         let _ = Self::systemctl(&["--user", "daemon-reload"]);
         // Clear failed state from previous crash loops
         let _ = Self::systemctl(&["--user", "reset-failed", &Self::unit_name(alias)]);
+        crate::progress::progress("spawn", format!("systemctl --user start {}", Self::unit_name(alias)));
         Self::systemctl(&["--user", "start", &Self::unit_name(alias)])?;
 
         let plan_msg = format!(
@@ -316,6 +323,10 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         );
 
         // Wait for unit active, then for model readiness (HTTP /v1/models != Loading).
+        crate::progress::progress(
+            "load",
+            "waiting for llama-server to finish loading weights into memory/VRAM",
+        );
         let ready = self.wait_model_ready(&profile, Duration::from_secs(180))?;
         let st = self.status_for_unit(&Self::unit_name(alias))?;
         let ok = ready && st.state == LocalRuntimeState::Active;

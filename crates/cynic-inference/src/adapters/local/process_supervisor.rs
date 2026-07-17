@@ -127,16 +127,29 @@ impl ProcessLocalRuntime {
     }
 
     fn build_argv(profile: &LocalModelProfile) -> Result<(PathBuf, Vec<String>), LocalRuntimeError> {
-        // Re-read env file for bin + extra args (profile struct only keeps summary fields).
+        // Prefer probe-generated runtime env (principal layout), then static profile.
         let inventory = FsLocalModelInventory::from_env();
         let full = inventory.get_profile(&profile.alias)?;
         let layout = crate::domain::model_layout::ModelLayout::from_env();
-        let env_path = layout.profiles_dir.join(format!("{}.env", profile.alias));
+        let runtime_env = layout
+            .profiles_dir
+            .join("runtime")
+            .join(format!("{}.env", profile.alias));
+        let static_env = layout.profiles_dir.join(format!("{}.env", profile.alias));
+        let env_path = if runtime_env.is_file() {
+            runtime_env
+        } else {
+            static_env
+        };
         let raw = fs::read_to_string(&env_path).map_err(|e| {
             LocalRuntimeError::Inventory(format!("read {}: {e}", env_path.display()))
         })?;
         let mut bin = PathBuf::from("/usr/local/bin/llama-server");
         let mut extra = String::new();
+        let mut model_path = full.model_path.clone();
+        let mut host = full.host.clone();
+        let mut port = full.port.to_string();
+        let mut ctx = full.ctx_size.to_string();
         for line in raw.lines() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
@@ -146,26 +159,30 @@ impl ProcessLocalRuntime {
                 match k.trim() {
                     "LLAMA_SERVER_BIN" => bin = PathBuf::from(v.trim()),
                     "LLAMA_EXTRA_ARGS" => extra = v.trim().to_string(),
+                    "LLAMA_MODEL_PATH" => model_path = v.trim().to_string(),
+                    "LLAMA_HOST" => host = v.trim().to_string(),
+                    "LLAMA_PORT" => port = v.trim().to_string(),
+                    "LLAMA_CTX_SIZE" => ctx = v.trim().to_string(),
                     _ => {}
                 }
             }
         }
         let mut argv = vec![
             "-m".into(),
-            full.model_path.clone(),
+            model_path,
             "--host".into(),
-            full.host.clone(),
+            host,
             "--port".into(),
-            full.port.to_string(),
+            port,
             "--ctx-size".into(),
-            full.ctx_size.to_string(),
+            ctx,
         ];
         if !extra.is_empty() {
             for tok in extra.split_whitespace() {
                 argv.push(tok.to_string());
             }
         }
-        // API key file convention when present
+        // API key file convention when present (principal membrane).
         let principal = PrincipalPaths::resolve();
         for key_path in [
             principal.config_dir.join("llama-api-key"),
@@ -177,13 +194,17 @@ impl ProcessLocalRuntime {
                 break;
             }
         }
-        let _ = profile; // fields used via full
+        let _ = profile;
         Ok((bin, argv))
     }
 
     fn wait_http_ready(profile: &LocalModelProfile, timeout: Duration) -> bool {
         let url = format!("http://{}:{}/v1/models", profile.host, profile.port);
         let start = std::time::Instant::now();
+        let mut wait = crate::progress::WaitProgress::new(
+            format!("model HTTP {} (load can take 1–3 min for large GGUF)", url),
+            5,
+        );
         while start.elapsed() < timeout {
             let ok = Command::new("curl")
                 .args(["-sS", "-m", "2", "-o", "/dev/null", "-w", "%{http_code}", &url])
@@ -194,10 +215,13 @@ impl ProcessLocalRuntime {
                 .unwrap_or(false);
             // 401 means server is up but wants key — still ready for chat with key
             if ok {
+                wait.done(true);
                 return true;
             }
+            wait.tick();
             thread::sleep(Duration::from_millis(500));
         }
+        wait.done(false);
         false
     }
 }
@@ -226,6 +250,7 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
     }
 
     fn start(&self, alias: &str) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
+        crate::progress::progress("start", format!("alias={alias} supervisor=process"));
         let profile = self.inventory.get_profile(alias)?;
         if !profile.model_exists {
             return Err(LocalRuntimeError::Rejected(format!(
@@ -240,16 +265,32 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
             )));
         }
 
+        crate::progress::progress("preflight", format!("gguf {}", profile.model_path));
         let model_path = Path::new(&profile.model_path);
         let gguf_meta = crate::domain::gguf_meta::preflight_gguf_for_engine(
             model_path,
             crate::domain::gguf_meta::default_supported_arches_for_llama_b9444(),
         )
         .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
+        crate::progress::progress(
+            "preflight",
+            format!(
+                "arch={}",
+                gguf_meta.architecture.as_deref().unwrap_or("?")
+            ),
+        );
+
+        // Probe plan → principal runtime env (same materialization membrane as systemd).
+        crate::progress::progress("plan", "probe hardware + materialize runtime env");
+        let planner = crate::application::runtime_planner::RuntimePlanner::from_env();
+        let plan = planner.plan_for_alias(alias)?;
+        let materialize = planner.materialize(&plan)?;
+        crate::progress::progress("plan", format!("env={}", materialize.runtime_env));
 
         // Stop others on same port policy (one local engine)
         for other in self.list_running_aliases() {
             if other != alias {
+                crate::progress::progress("stop", format!("previous instance {other}"));
                 if let Some(pid) = self.read_pid(&other) {
                     Self::kill_pid(pid);
                     let _ = fs::remove_file(self.pid_path(&other));
@@ -280,14 +321,27 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         if plugin_cwd.is_dir() {
             cmd.current_dir(&plugin_cwd);
         }
+        crate::progress::progress(
+            "spawn",
+            format!(
+                "{} (log {})",
+                bin.display(),
+                self.log_path(alias).display()
+            ),
+        );
         let child = cmd.spawn().map_err(|e| {
             LocalRuntimeError::Control(format!("spawn {}: {e}", bin.display()))
         })?;
         let pid = child.id();
         self.write_pid(alias, pid)?;
+        crate::progress::progress("spawn", format!("pid={pid}"));
         // detach: drop child without wait — process stays
         std::mem::forget(child);
 
+        crate::progress::progress(
+            "load",
+            "waiting for llama-server to finish loading weights into memory/VRAM",
+        );
         let ready = Self::wait_http_ready(&profile, Duration::from_secs(180));
         let st = self.status_for_alias(alias, &profile);
         let ok = ready && st.state == LocalRuntimeState::Active;
@@ -312,10 +366,11 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
             unit: format!("process:{alias}"),
             status: st,
             message: Some(format!(
-                "process supervisor: arch={} pid={} log={} ready={ready}",
+                "process supervisor: arch={} pid={} log={} env={} ready={ready}",
                 gguf_meta.architecture.as_deref().unwrap_or("?"),
                 pid,
-                self.log_path(alias).display()
+                self.log_path(alias).display(),
+                materialize.runtime_env
             )),
         })
     }
@@ -363,21 +418,10 @@ impl InferenceSupervisorKind {
         match raw.as_str() {
             "process" | "argv" | "direct" | "pidfile" => Self::Process,
             "systemd" | "systemd-user" | "user" => Self::SystemdUser,
-            "" => {
-                // Prefer process when no user bus (rootless lab / principal without login).
-                if std::env::var_os("XDG_RUNTIME_DIR").is_some()
-                    && Path::new(&format!(
-                        "{}/bus",
-                        std::env::var("XDG_RUNTIME_DIR").unwrap_or_default()
-                    ))
-                    .exists()
-                {
-                    Self::SystemdUser
-                } else {
-                    Self::Process
-                }
-            }
-            _ => Self::SystemdUser,
+            // Default durable path: process supervisor (principal pidfile).
+            // Opt into systemd explicitly when linger + user bus is intentional.
+            "" => Self::Process,
+            _ => Self::Process,
         }
     }
 

@@ -8,6 +8,7 @@ pub mod inference;
 /// Prefer `adapters::ods` (documents ODS as external bootstrap framework).
 pub mod ods_discovery;
 pub mod ports;
+pub mod progress;
 
 // Convenience re-exports for downstream crates (CLI, MCP).
 pub use adapters::discovery::model_registry::InMemoryModelRegistry;
