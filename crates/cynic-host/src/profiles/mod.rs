@@ -9,10 +9,12 @@ use crate::ports::{
     HostServicePort,
 };
 
+pub mod build_runner;
 pub mod families;
 pub mod network_node;
 pub mod proxmox_hypervisor;
 
+use build_runner::BuildRunnerHostProfile;
 use network_node::NetworkNodeHostProfile;
 use proxmox_hypervisor::ProxmoxHypervisorHostProfile;
 
@@ -21,6 +23,8 @@ pub enum HostProfile {
     NetworkNode,
     AlpineOpenRcNetworkNode,
     ProxmoxHypervisor,
+    /// CI / compile host: principal + privilege, no mesh substrate.
+    BuildRunner,
 }
 
 impl HostProfile {
@@ -29,6 +33,7 @@ impl HostProfile {
             "network-node" | "network-baseline" => Ok(Self::NetworkNode),
             "alpine-openrc" | "network-node-openrc" => Ok(Self::AlpineOpenRcNetworkNode),
             "proxmox-hypervisor" | "proxmox-host" => Ok(Self::ProxmoxHypervisor),
+            "build-runner" | "build_runner" => Ok(Self::BuildRunner),
             other => Err(format!("unknown host profile: {other}")),
         }
     }
@@ -38,6 +43,7 @@ impl HostProfile {
             Self::NetworkNode => "network-node",
             Self::AlpineOpenRcNetworkNode => "alpine-openrc",
             Self::ProxmoxHypervisor => "proxmox-hypervisor",
+            Self::BuildRunner => "build-runner",
         }
     }
 }
@@ -50,6 +56,7 @@ impl HostPrincipalPort for HostProfile {
                 families::HostFamilyProfile::alpine_openrc().principal_policy()
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_principal(),
+            Self::BuildRunner => BuildRunnerHostProfile.desired_principal(),
         }
     }
 }
@@ -62,6 +69,7 @@ impl HostPrivilegePort for HostProfile {
                 families::HostFamilyProfile::alpine_openrc().privilege_policy()
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_privilege(),
+            Self::BuildRunner => BuildRunnerHostProfile.desired_privilege(),
         }
     }
 }
@@ -74,6 +82,7 @@ impl HostPackagePort for HostProfile {
                 families::HostFamilyProfile::alpine_openrc().package_policy()
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_packages(),
+            Self::BuildRunner => BuildRunnerHostProfile.desired_packages(),
         }
     }
 }
@@ -84,6 +93,7 @@ impl HostFilesystemPort for HostProfile {
             Self::NetworkNode => NetworkNodeHostProfile.desired_filesystem(),
             Self::AlpineOpenRcNetworkNode => NetworkNodeHostProfile.desired_filesystem(),
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_filesystem(),
+            Self::BuildRunner => BuildRunnerHostProfile.desired_filesystem(),
         }
     }
 }
@@ -96,6 +106,7 @@ impl HostServicePort for HostProfile {
                 families::HostFamilyProfile::alpine_openrc().service_policy()
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_services(),
+            Self::BuildRunner => BuildRunnerHostProfile.desired_services(),
         }
     }
 }
@@ -112,6 +123,7 @@ impl HostContractPort for HostProfile {
                 self.desired_services().contract(),
             ],
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.declared_contracts(),
+            Self::BuildRunner => BuildRunnerHostProfile.declared_contracts(),
         }
     }
 }

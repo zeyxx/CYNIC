@@ -273,6 +273,8 @@ fn profile_for_node(node: &RegistryNode) -> HostProfile {
 
     match node.role.as_deref() {
         Some("hypervisor") => HostProfile::ProxmoxHypervisor,
+        // Build runners must not inherit mesh DNS/WireGuard substrate.
+        Some("build_runner") | Some("builder") | Some("ci") => HostProfile::BuildRunner,
         _ if node.services.iter().any(|service| {
             service
                 .supervisor
@@ -293,9 +295,11 @@ fn service_manager_for_node(
 ) -> ServiceManagerKind {
     match declared_host_family(node).and_then(host_profile_for_family) {
         Some(HostProfile::AlpineOpenRcNetworkNode) => ServiceManagerKind::OpenRc,
-        Some(HostProfile::NetworkNode | HostProfile::ProxmoxHypervisor) => {
-            ServiceManagerKind::Systemd
-        }
+        Some(
+            HostProfile::NetworkNode
+            | HostProfile::ProxmoxHypervisor
+            | HostProfile::BuildRunner,
+        ) => ServiceManagerKind::Systemd,
         None if units
             .iter()
             .any(|unit| unit.supervisor_provider.as_deref() == Some("openrc")) =>

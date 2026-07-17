@@ -45,8 +45,15 @@ impl HostPrivilegeObservationPort for LocalHostObservationAdapter {
         let helper_dir_present = Path::new(&policy.helper_dir).is_dir();
         let sudoers_projection_present = Path::new(&policy.sudoers_dir).is_dir();
         let sudo = current_runtime_layout().sudo_bin();
-        let denial_proof_ready =
-            command_exit_success(&sudo, &["-n", "/bin/sh", "-c", "true"]).is_some_and(|ok| !ok);
+        // Denial proof is about the *runtime principal*, not the operator:
+        // `sudo -u <subject> sudo -n /bin/sh -c true` must fail (no passwordless
+        // unrestricted shell for cynic). Operator NOPASSWD:ALL must not mask this.
+        let subject = policy.sudoers_subject.as_str();
+        let denial_proof_ready = command_exit_success(
+            &sudo,
+            &["-u", subject, &sudo, "-n", "/bin/sh", "-c", "true"],
+        )
+        .is_some_and(|ok| !ok);
 
         PrivilegeObservedState {
             helper_dir_present,
