@@ -9,6 +9,7 @@ pub mod model_catalog;
 pub mod model_selection;
 pub mod model_store_service;
 pub mod model_sync_pipeline;
+pub mod profile_bootstrap;
 pub mod proxy_routing;
 pub mod routing_policy;
 pub mod runtime_planner;

@@ -42,7 +42,9 @@ pub fn ops_report(state_path: &Path, runner: &dyn ArgvRunner) -> OpsReport {
         });
     }
 
-    let deps_allows = policy.allowed_mutations.contains(&MutationClass::DepsScripted);
+    let deps_allows = policy
+        .allowed_mutations
+        .contains(&MutationClass::DepsScripted);
     collect_deps_findings(runner, deps_allows, &mut findings);
     let inf_allows = policy
         .allowed_mutations
@@ -116,7 +118,11 @@ pub fn ops_report(state_path: &Path, runner: &dyn ArgvRunner) -> OpsReport {
     }
 }
 
-fn collect_deps_findings(runner: &dyn ArgvRunner, deps_allows: bool, findings: &mut Vec<OpsFinding>) {
+fn collect_deps_findings(
+    runner: &dyn ArgvRunner,
+    deps_allows: bool,
+    findings: &mut Vec<OpsFinding>,
+) {
     let out = runner.run(&["cynic", "deps", "--json"]);
     if let Some(err) = out.spawn_error {
         findings.push(OpsFinding {
@@ -237,7 +243,10 @@ fn collect_inference_findings(
         return;
     }
     if let Some(v) = parse_json(&out.stdout) {
-        let st = v.get("status").and_then(|x| x.as_str()).unwrap_or("unknown");
+        let st = v
+            .get("status")
+            .and_then(|x| x.as_str())
+            .unwrap_or("unknown");
         let path = v.get("config_path").and_then(|x| x.as_str()).unwrap_or("-");
         if st == "not_found" || st == "error" || st == "blocked" {
             findings.push(OpsFinding {
@@ -286,14 +295,18 @@ fn collect_inference_findings(
     if let Some(v) = parse_json(&out.stdout) {
         let st = v.get("state").and_then(|x| x.as_str()).unwrap_or("?");
         if st == "inactive" || st == "failed" {
+            // Frictionless: auto ensure+select inside inference-start (no product model hardcode).
             findings.push(OpsFinding {
                 id: "inference.unit_inactive".into(),
                 severity: FindingSeverity::Warning,
                 surface: "inference".into(),
                 summary: format!("native inference unit state={st}"),
                 evidence: v.to_string().chars().take(200).collect(),
-                repair_id: Some("inference_start_hint".into()),
-                repair_command: Some("cynic runtime inference-start <alias> --json".into()),
+                repair_id: Some("inference_start_auto".into()),
+                repair_command: Some(
+                    "CYNIC_INFERENCE_SUPERVISOR=process cynic runtime inference-start auto --json"
+                        .into(),
+                ),
                 phase_allows_repair: inf_allows,
             });
         }

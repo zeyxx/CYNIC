@@ -36,6 +36,9 @@ pub use application::chat_service::{
 pub use application::hf_discovery::HfDiscoveryService;
 pub use application::local_runtime_service::{LocalRuntimeService, LocalRuntimeServiceAny};
 pub use application::model_store_service::ModelStoreService;
+pub use application::profile_bootstrap::{
+    EnsureProfilesReport, ensure_profiles_from_vault, resolve_start_alias, select_preferred_alias,
+};
 pub use application::model_sync_pipeline::ModelSyncPipeline;
 pub use application::runtime_planner::{MaterializeReport, RuntimePlanner};
 pub use config_loader::load_inference_config_from_path_public;

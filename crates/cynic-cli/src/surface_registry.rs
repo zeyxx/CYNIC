@@ -27,7 +27,7 @@ pub(crate) fn canonical_cli_surfaces() -> Vec<CanonicalCliSurface> {
             owner_modules: vec!["runtime_paths"],
             owner_call_markers: vec!["resolve_runtime_paths"],
             responsibility: "Resolve portable runtime paths from flags, environment, installed layout, or development worktree.",
-            mutation_policy: "read_only",
+            mutation_policy: "read_only_temp_artifacts",
             canonical_entrypoints: vec!["cynic runtime paths --json [--registry <path>]"],
             evidence: vec!["cynic.runtime_paths.v1"],
             anti_responsibilities: vec![
@@ -405,14 +405,16 @@ pub(crate) fn canonical_cli_surfaces() -> Vec<CanonicalCliSurface> {
                 "run_dev_check",
             ],
             responsibility: "Expose development surfaces, outcome KPIs, framework specification, and the single make check gate to agents.",
-            mutation_policy: "read_only",
+            mutation_policy: "read_only_temp_artifacts",
             canonical_entrypoints: vec![
                 "cynic dev surfaces --json",
                 "cynic dev outcomes --json",
                 "cynic dev kpi-score --json",
                 "cynic dev framework --json",
-                "cynic dev surface-audit --json",
-                "cynic dev agent-exposure --json",
+                "cynic dev crate-audit --json [--output <path>] [--persist]",
+                "cynic dev kernel-audit --json [--output <path>] [--persist]",
+                "cynic dev surface-audit --json [--output <path>] [--persist]",
+                "cynic dev agent-exposure --json [--output <path>] [--persist]",
                 "cynic dev check --json [--target-root <path>]",
             ],
             evidence: vec![
@@ -468,7 +470,8 @@ pub(crate) fn canonical_cli_surfaces() -> Vec<CanonicalCliSurface> {
             canonical_entrypoints: vec![
                 "cynic runtime inference --json",
                 "cynic runtime inference-status --json",
-                "cynic runtime inference-start <alias> --json",
+                "cynic runtime inference-start [auto|<alias>] --json",
+                "cynic runtime inference-models --json --ensure-profiles",
                 "cynic runtime inference-plan <alias> --json [--apply]",
             ],
             evidence: vec![

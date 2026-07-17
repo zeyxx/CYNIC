@@ -94,9 +94,12 @@ pub fn plan_report(state_path: &Path) -> LifecyclePlanReport {
                 requires_yes: true,
             }),
             MutationClass::InferenceRuntime => planned.push(PlannedAction {
-                id: "inference_start".into(),
+                id: "inference_start_auto".into(),
                 kind: "apply",
-                command: "cynic runtime inference-start <alias> --json".into(),
+                // ensure profiles + pick preferred alias (smallest startable loopback).
+                command:
+                    "CYNIC_INFERENCE_SUPERVISOR=process cynic runtime inference-start auto --json"
+                        .into(),
                 mutates: true,
                 mutation_class: Some(m.clone()),
                 requires_yes: true,

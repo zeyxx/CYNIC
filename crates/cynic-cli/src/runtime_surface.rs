@@ -119,9 +119,11 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Start a native local model profile (systemd --user llama-server@<alias>).
+    /// Start a native local model profile (process|systemd supervisor).
+    /// Omit alias / pass `auto` to ensure vault profiles and start the preferred model.
     InferenceStart {
-        /// Profile alias from `cynic runtime inference-vault --json`.
+        /// Profile alias, or `auto` (default) for frictionless inventory pick.
+        #[arg(default_value = "auto")]
         alias: String,
         #[arg(long)]
         json: bool,
@@ -143,9 +145,12 @@ pub(crate) enum RuntimeCommand {
     InferenceModels {
         #[arg(long)]
         json: bool,
-        /// Persist scan to CYNIC_MODEL_REGISTRY (default: ~/.config/cynic/model-registry.json).
+        /// Persist scan to CYNIC_MODEL_REGISTRY (default: principal model-registry.json).
         #[arg(long)]
         persist: bool,
+        /// Auto-create loopback profiles for vault GGUFs that have none (frictionless).
+        #[arg(long = "ensure-profiles")]
+        ensure_profiles: bool,
     },
     /// Hugging Face CLI status (binary, version, auth) relative to model layout.
     InferenceHfStatus {
@@ -299,7 +304,7 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             inference_surface::execute_inference_status(json)
         }
         RuntimeCommand::InferenceStart { alias, json } => {
-            inference_surface::execute_inference_start(&alias, json)
+            inference_surface::execute_inference_start(Some(alias.as_str()), json)
         }
         RuntimeCommand::InferenceStop { alias, json } => {
             inference_surface::execute_inference_stop(alias.as_deref(), json)
@@ -307,9 +312,11 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::InferenceDiscover { json } => {
             inference_surface::execute_inference_discover(json)
         }
-        RuntimeCommand::InferenceModels { json, persist } => {
-            inference_surface::execute_inference_models(json, persist)
-        }
+        RuntimeCommand::InferenceModels {
+            json,
+            persist,
+            ensure_profiles,
+        } => inference_surface::execute_inference_models(json, persist, ensure_profiles),
         RuntimeCommand::InferenceHfStatus { json } => {
             inference_surface::execute_inference_hf_status(json)
         }

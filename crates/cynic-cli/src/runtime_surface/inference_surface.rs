@@ -158,14 +158,36 @@ pub(crate) fn execute_inference_status(json: bool) -> ExitCode {
     }
 }
 
-pub(crate) fn execute_inference_start(alias: &str, json: bool) -> ExitCode {
+pub(crate) fn execute_inference_start(alias: Option<&str>, json: bool) -> ExitCode {
     if !json {
         eprintln!("Use --json. This command is designed for machine consumption.");
         return ExitCode::FAILURE;
     }
+    let resolved = match cynic_inference::resolve_start_alias(alias) {
+        Ok(a) => a,
+        Err(error) => {
+            eprintln!("inference start resolve: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
     let service = LocalRuntimeServiceAny::from_env();
-    match service.start(alias) {
-        Ok(report) => {
+    match service.start(&resolved) {
+        Ok(mut report) => {
+            // Surface which alias auto-resolution chose (frictionless audit trail).
+            if alias.is_none()
+                || alias.is_some_and(|a| {
+                    matches!(
+                        a.to_ascii_lowercase().as_str(),
+                        "auto" | "default" | "any" | "" | "_" | "-"
+                    )
+                })
+            {
+                if let Some(msg) = report.message.take() {
+                    report.message = Some(format!("resolved_alias={resolved}; {msg}"));
+                } else {
+                    report.message = Some(format!("resolved_alias={resolved}"));
+                }
+            }
             let code = if report.ok {
                 ExitCode::SUCCESS
             } else {
@@ -239,10 +261,40 @@ pub(crate) fn execute_inference_discover(json: bool) -> ExitCode {
     emit_json(&report)
 }
 
-pub(crate) fn execute_inference_models(json: bool, persist: bool) -> ExitCode {
+pub(crate) fn execute_inference_models(
+    json: bool,
+    persist: bool,
+    ensure_profiles: bool,
+) -> ExitCode {
     if !json {
         eprintln!("Use --json. This command is designed for machine consumption.");
         return ExitCode::FAILURE;
+    }
+    if ensure_profiles {
+        match cynic_inference::ensure_profiles_from_vault() {
+            Ok(ensured) => {
+                // Still emit full store after ensure for one-shot UX.
+                let service = ModelStoreService::from_env();
+                match service.scan() {
+                    Ok(_report) => {
+                        let _ = emit_json(&ensured);
+                        if persist {
+                            let _ = service.scan_and_persist();
+                        }
+                        return ExitCode::SUCCESS;
+                    }
+                    Err(e) => {
+                        let _ = emit_json(&ensured);
+                        eprintln!("scan after ensure: {e}");
+                        return ExitCode::SUCCESS;
+                    }
+                }
+            }
+            Err(error) => {
+                eprintln!("ensure-profiles error: {error}");
+                return ExitCode::FAILURE;
+            }
+        }
     }
     let service = ModelStoreService::from_env();
     let result = if persist {
