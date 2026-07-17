@@ -152,6 +152,15 @@ pub(crate) enum RuntimeCommand {
         #[arg(long = "ensure-profiles")]
         ensure_profiles: bool,
     },
+    /// Move stray GGUF weights into the principal vault and rewrite profile paths.
+    /// Default is plan-only; pass `--yes` to apply physical moves.
+    InferenceModelsConsolidate {
+        #[arg(long)]
+        json: bool,
+        /// Apply moves (default: plan only).
+        #[arg(long)]
+        yes: bool,
+    },
     /// Hugging Face CLI status (binary, version, auth) relative to model layout.
     InferenceHfStatus {
         #[arg(long)]
@@ -317,6 +326,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             persist,
             ensure_profiles,
         } => inference_surface::execute_inference_models(json, persist, ensure_profiles),
+        RuntimeCommand::InferenceModelsConsolidate { json, yes } => {
+            inference_surface::execute_inference_models_consolidate(json, yes)
+        }
         RuntimeCommand::InferenceHfStatus { json } => {
             inference_surface::execute_inference_hf_status(json)
         }

@@ -472,6 +472,7 @@ pub(crate) fn canonical_cli_surfaces() -> Vec<CanonicalCliSurface> {
                 "cynic runtime inference-status --json",
                 "cynic runtime inference-start [auto|<alias>] --json",
                 "cynic runtime inference-models --json --ensure-profiles",
+                "cynic runtime inference-models-consolidate --json [--yes]",
                 "cynic runtime inference-plan <alias> --json [--apply]",
             ],
             evidence: vec![

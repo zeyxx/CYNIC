@@ -39,6 +39,9 @@ pub use application::model_store_service::ModelStoreService;
 pub use application::profile_bootstrap::{
     EnsureProfilesReport, ensure_profiles_from_vault, resolve_start_alias, select_preferred_alias,
 };
+pub use application::vault_consolidate::{
+    VaultConsolidateReport, consolidate_vault, discovery_roots,
+};
 pub use application::model_sync_pipeline::ModelSyncPipeline;
 pub use application::runtime_planner::{MaterializeReport, RuntimePlanner};
 pub use config_loader::load_inference_config_from_path_public;

@@ -13,6 +13,7 @@
 //! | `runtime inference-stop` | native — stop local unit | yes |
 //! | `runtime inference-discover` | **ODS integration** — probe ODS/peers + publish | yes (config) |
 //! | `runtime inference-models` | native — centralized model store | optional persist |
+//! | `runtime inference-models-consolidate` | native — move stray GGUF into vault | yes (`--yes`) |
 //! | `runtime inference-hf-status` | HF CLI — version/auth vs vault layout | no |
 //! | `runtime inference-hf-download` | HF CLI — download into vault | yes |
 //!
@@ -24,7 +25,7 @@ use serde::Serialize;
 
 use cynic_inference::{
     HardwareProfile, HfDiscoveryService, InferenceConfigError, LocalRuntimeServiceAny,
-    ModelStoreService, RuntimePlanner, category_catalog, load_inference_config,
+    ModelStoreService, RuntimePlanner, category_catalog, consolidate_vault, load_inference_config,
 };
 
 /// One backend entry in the JSON output.
@@ -306,6 +307,28 @@ pub(crate) fn execute_inference_models(
         Ok(report) => emit_json(&report),
         Err(error) => {
             eprintln!("inference models error: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+pub(crate) fn execute_inference_models_consolidate(json: bool, yes: bool) -> ExitCode {
+    if !json {
+        eprintln!("Use --json. This command is designed for machine consumption.");
+        return ExitCode::FAILURE;
+    }
+    match consolidate_vault(yes) {
+        Ok(report) => {
+            let code = match report.status {
+                "ok" | "planned" => ExitCode::SUCCESS,
+                "degraded" => ExitCode::FAILURE,
+                _ => ExitCode::FAILURE,
+            };
+            let _ = emit_json(&report);
+            code
+        }
+        Err(error) => {
+            eprintln!("inference-models-consolidate error: {error}");
             ExitCode::FAILURE
         }
     }
