@@ -4,4 +4,5 @@ args = []
 
 [mcp_servers.cynic.env]
 CYNIC_ALLOW_LOCAL_KERNEL = "1"
-CYNIC_PROJECT_ROOT = "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC"
+# Project root is resolved by cynic-mcp from the worktree / CYNIC_PROJECT_ROOT env.
+# Do not commit machine-local absolute paths here.

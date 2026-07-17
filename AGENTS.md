@@ -129,7 +129,7 @@ Agent work must reduce fragmentation.
   boundary cannot absorb the capability.
 - Keep CLI entrypoints thin; business logic belongs in crates with clear roles.
 - Prefer one canonical command path over aliases unless the alias is a
-  compatibility projection.
+  compatibility surface.
 - Every non-trivial change should move one concrete capability closer to:
   standalone bootstrap, OS portability, agnostic execution, distributed runtime
   formation, or runtime proof.
@@ -137,6 +137,63 @@ Agent work must reduce fragmentation.
   the organism remembered the session.
 - Do not create backlog Markdown as memory; use executable tests, contracts, or
   runtime state instead.
+- Treat `docs/` as quarantined historical prose (`docs/README.md`). Never use
+  docs, deleted `axioms/`, or deleted `organs/` as runtime law.
+- When adding or renaming an MCP tool, update `infra/agent-exposure.json` in the
+  same change and keep `cynic dev agent-exposure --json` green.
+- Do not commit machine-local absolute paths in agent projections
+  (`.codex/config.toml`, `infra/agent-exposure.json`, repo-access profiles).
+- Prefer `make check` / MCP `cynic_validate` / `cynic dev check --json` as the
+  same validation gate. Do not invent a parallel fmt/build/clippy/test path.
+- For kernel extraction debt, consult `cynic dev kernel-audit --json` before
+  growing product-domain logic in `cynic-kernel`. Leave `cynic-inference`
+  extraction to the owner currently working that surface unless asked otherwise.
+- Product domain prompt files under `crates/cynic-kernel/domains/` are residual
+  product material (`domains/README.md`), not low-layer runtime law.
+
+## Agent CLI / Host Surface Patterns (anti-monolith)
+
+These rules are durable agent law for both Grok and Codex sessions. They exist
+because large single-file "surfaces" reintroduce the patterns we are deleting.
+
+### Structure
+
+- Prefer layered modules over one file that owns types + policy + I/O + spawn +
+  reports. Reference layouts:
+  - `crates/cynic-host/src/domain/ecosystem_package/`
+  - `crates/cynic-host/src/update_lifecycle/`
+- Split at least: `types` (pure shapes), `policy`/`plan` (pure tables/logic),
+  `port` (traits for execution/observation), adapters, and thin CLI glue.
+- Do not grow a domain file past ~400 lines without extracting a port or a pure
+  submodule. If a change would force that, split first.
+
+### Execution ports
+
+- Domain/host logic must **not** hard-wire `std::process::Command::new("cynic")`
+  (or shell composition) for sibling CLI surfaces. Inject an argv runner port
+  (`ArgvRunner` / local adapter / map stub for tests).
+- CLI crates inject the production runner; unit tests inject fakes that return
+  fixed JSON. Gate/repair/apply paths must be unit-testable without a real
+  `cynic` binary on PATH.
+- Mutable work still requires explicit `--yes` / `--apply`. No silent auto-repair,
+  no fail-closed mock that pretends success when an endpoint is missing.
+
+### CLI thinness
+
+- `cynic-cli` surfaces: clap parse → inject ports → call host/crate API → print
+  human or JSON. No phase policy tables, no finding classifiers, no state schema
+  ownership in the CLI crate.
+- One canonical command path; register it in `surface_registry` +
+  `infra/agent-exposure.json` when the surface is agent-facing.
+- Machine-readable reports are the proof surface; human text is a projection.
+
+### What not to reintroduce
+
+- Monolith `*_lifecycle.rs` / `*_surface.rs` that re-implements half the runtime.
+- Python organs or docs as runtime authority.
+- Hardcoded operator machine paths, distro names, or principal homes in domain
+  code when a layout/capability can be injected.
+- Parallel "agent helper" shells that bypass argv-typed execution.
 
 ## Industrial Bar
 
@@ -163,6 +220,15 @@ make check
 
 This validates the minimal authority files and runs `cargo check` on the core
 runtime crates with deterministic rustc settings.
+
+Cargo policy:
+
+- Prefer `make ...` or `./scripts/cargo ...` over raw `cargo ...`.
+- Default repo mode is offline registry use through a repo-local `CARGO_HOME`.
+- Use `CARGO_SOURCE_MODE=vendor` once `./scripts/cargo-vendor-bootstrap` has
+  populated `vendor/`.
+- Use `CARGO_NETWORK_MODE=online` only when the execution environment truly has
+  Cargo network access and a dependency refresh is intentional.
 
 ## Rules
 
