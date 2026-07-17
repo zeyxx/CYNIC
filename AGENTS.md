@@ -161,6 +161,19 @@ Agent work must reduce fragmentation.
   synapse / `/etc/hosts` (`forgejo.synapse.cynic`, `10.10.10.101`).
 - Prefer fixing reachability with cynic network/bootstrap surfaces over hardcoding
   operator machine names in domain code.
+- Bootstrap Forgejo push (create repo + push) once you have a token:
+  `FORGEJO_TOKEN=… ./scripts/forgejo-bootstrap`
+
+## Inference supervisor (systemd is optional)
+
+- Native local engines are behind `LocalInferenceRuntimePort` — **not** hardwired
+  to systemd forever.
+- Default adapters:
+  - `CYNIC_INFERENCE_SUPERVISOR=systemd` — `llama-server@` user units
+  - `CYNIC_INFERENCE_SUPERVISOR=process` — pidfile/process spawn (lab, no user bus)
+- Auto: if `XDG_RUNTIME_DIR` bus missing → prefer `process`.
+- Principal linger (`loginctl enable-linger cynic`) only needed for the systemd
+  path under user `cynic`.
 
 ## Agent CLI / Host Surface Patterns (anti-monolith)
 

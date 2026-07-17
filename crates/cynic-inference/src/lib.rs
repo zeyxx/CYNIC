@@ -14,38 +14,36 @@ pub use adapters::discovery::model_registry::InMemoryModelRegistry;
 pub use adapters::hf::HfCliAdapter;
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;
 pub use adapters::local::{
-    FsChatSessionStore, FsLocalModelInventory, FsModelStore, SystemdUserLocalRuntime,
+    FsChatSessionStore, FsLocalModelInventory, FsModelStore, InferenceSupervisorKind,
+    ProcessLocalRuntime, SystemdUserLocalRuntime,
+};
+pub use adapters::ods::{
+    DiscoveredService, DiscoveryReport, ODS_DISCOVERY_SCHEMA, ODS_SURFACE, ODS_UPSTREAM,
+    discover_ods_services, run_sync_pipeline, sync_discovered_backends,
+};
+pub use adapters::publishers::{
+    inference_toml::InferenceTomlPublisher, null::NullPublisher, open_webui::OpenWebUiPublisher,
 };
 pub use application::chat_endpoint::{
-    ChatEndpointResolution, ChatEndpointSource, dns_inference_hostnames, inference_config_candidates,
-    resolve_chat_endpoint,
+    ChatEndpointResolution, ChatEndpointSource, dns_inference_hostnames,
+    inference_config_candidates, resolve_chat_endpoint,
 };
-pub use config_loader::load_inference_config_from_path_public;
 pub use application::chat_service::{
     BuiltinToolInvoker, ChatCompletionClient, ChatService, ChatServiceError, ChatTurnReport,
     CompletionOutcome, InferenceReadyReport, MockChatClient, ToolCallRequest, ToolInvoker,
     default_tool_specs,
 };
-pub use domain::chat_session::{
-    ChatEvent, ChatEventKind, ChatMessage, SessionMeta, StreamChunk, ToolSpec, messages_from_events,
-};
-pub use domain::model_layout::resolve_chat_state_dir;
-pub use domain::principal_paths::{PathAuthority, PrincipalPaths};
-pub use ports::chat_session_port::{ChatSessionStore, SessionStoreError};
-pub use adapters::ods::{
-    DiscoveredService, DiscoveryReport, ODS_DISCOVERY_SCHEMA, ODS_SURFACE, ODS_UPSTREAM,
-    discover_ods_services, sync_discovered_backends, run_sync_pipeline,
-};
-pub use adapters::publishers::{
-    inference_toml::InferenceTomlPublisher, null::NullPublisher, open_webui::OpenWebUiPublisher,
-};
 pub use application::hf_discovery::HfDiscoveryService;
-pub use application::local_runtime_service::LocalRuntimeService;
+pub use application::local_runtime_service::{LocalRuntimeService, LocalRuntimeServiceAny};
 pub use application::model_store_service::ModelStoreService;
 pub use application::model_sync_pipeline::ModelSyncPipeline;
 pub use application::runtime_planner::{MaterializeReport, RuntimePlanner};
+pub use config_loader::load_inference_config_from_path_public;
 pub use config_loader::{InferenceConfigError, LoadedInferenceConfig, load_inference_config};
 pub use domain::backend_config::InferenceBackendConfig;
+pub use domain::chat_session::{
+    ChatEvent, ChatEventKind, ChatMessage, SessionMeta, StreamChunk, ToolSpec, messages_from_events,
+};
 pub use domain::gguf_meta::{
     GgufMeta, default_supported_arches_for_llama_b9444, preflight_gguf_for_engine, read_gguf_meta,
 };
@@ -54,10 +52,13 @@ pub use domain::hf_catalog::{ModelCategory, category_catalog, short_alias_from_r
 pub use domain::local_runtime::{
     LocalModelInventory, LocalModelProfile, LocalRuntimeMutationReport, LocalRuntimeStatus,
 };
+pub use domain::model_layout::resolve_chat_state_dir;
 pub use domain::model_layout::{ModelLayout, ModelLayoutReport};
 pub use domain::model_registry::{InferenceEngine, ModelBackend, ModelCapability, ModelHealth};
 pub use domain::model_store::{ModelArtifact, ModelStoreReport};
+pub use domain::principal_paths::{PathAuthority, PrincipalPaths};
 pub use domain::runtime_plan::{EnginePlugins, RuntimeLaunchPlan};
+pub use ports::chat_session_port::{ChatSessionStore, SessionStoreError};
 pub use ports::hf_hub_port::{
     HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit,
     HfSearchReport, HfSearchRequest,

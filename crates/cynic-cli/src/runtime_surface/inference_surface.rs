@@ -23,7 +23,7 @@ use std::process::ExitCode;
 use serde::Serialize;
 
 use cynic_inference::{
-    HardwareProfile, HfDiscoveryService, InferenceConfigError, LocalRuntimeService,
+    HardwareProfile, HfDiscoveryService, InferenceConfigError, LocalRuntimeServiceAny,
     ModelStoreService, RuntimePlanner, category_catalog, load_inference_config,
 };
 
@@ -133,7 +133,7 @@ pub(crate) fn execute_inference_vault(json: bool) -> ExitCode {
         eprintln!("Use --json. This command is designed for machine consumption.");
         return ExitCode::FAILURE;
     }
-    let service = LocalRuntimeService::from_env();
+    let service = LocalRuntimeServiceAny::from_env();
     match service.list_inventory() {
         Ok(inventory) => emit_json(&inventory),
         Err(error) => {
@@ -148,7 +148,7 @@ pub(crate) fn execute_inference_status(json: bool) -> ExitCode {
         eprintln!("Use --json. This command is designed for machine consumption.");
         return ExitCode::FAILURE;
     }
-    let service = LocalRuntimeService::from_env();
+    let service = LocalRuntimeServiceAny::from_env();
     match service.status() {
         Ok(status) => emit_json(&status),
         Err(error) => {
@@ -163,7 +163,7 @@ pub(crate) fn execute_inference_start(alias: &str, json: bool) -> ExitCode {
         eprintln!("Use --json. This command is designed for machine consumption.");
         return ExitCode::FAILURE;
     }
-    let service = LocalRuntimeService::from_env();
+    let service = LocalRuntimeServiceAny::from_env();
     match service.start(alias) {
         Ok(report) => {
             let code = if report.ok {
@@ -186,7 +186,7 @@ pub(crate) fn execute_inference_stop(alias: Option<&str>, json: bool) -> ExitCod
         eprintln!("Use --json. This command is designed for machine consumption.");
         return ExitCode::FAILURE;
     }
-    let service = LocalRuntimeService::from_env();
+    let service = LocalRuntimeServiceAny::from_env();
     match service.stop(alias) {
         Ok(report) => {
             let code = if report.ok {
@@ -221,7 +221,9 @@ pub(crate) fn execute_inference_discover(json: bool) -> ExitCode {
         }
     };
 
-    let results = rt.block_on(cynic_inference::adapters::ods::run_sync_pipeline("local-node"));
+    let results = rt.block_on(cynic_inference::adapters::ods::run_sync_pipeline(
+        "local-node",
+    ));
     let status = if results.iter().any(|r| r.error.is_some()) {
         "degraded"
     } else {
