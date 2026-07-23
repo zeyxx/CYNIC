@@ -66,8 +66,8 @@
     },
     {
       "path": "dashboard",
-      "status": "operator_projection_candidate",
-      "deletion": "defer_until_runtime_reference_audit"
+      "status": "quarantined_removed",
+      "deletion": "completed_after_runtime_reference_audit"
     }
   ],
   "current_proof_state": {
