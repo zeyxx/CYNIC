@@ -111,7 +111,7 @@ impl<'a, R: ArgvRunner> KernelProofPersistencePort for CurlKernelProofPersistenc
             get_args.extend(["-H".to_string(), header]);
         }
         let read_back = self.curl("read_back", &get_args);
-        let read_back_success = read_back.success() && contains_persisted_record(&read_back.stdout, record);
+        let read_back_success = read_back.success && contains_persisted_record(&read_back.stdout, record);
         if !read_back_success {
             blockers.push("kernel_proof_read_back_missing".to_string());
         }
@@ -120,7 +120,7 @@ impl<'a, R: ArgvRunner> KernelProofPersistencePort for CurlKernelProofPersistenc
             status: if blockers.is_empty() { "proved" } else { "blocked" },
             endpoint: self.endpoint.clone(),
             target,
-            post_success: post.success(),
+            post_success: post.success,
             read_back_success,
             commands: vec![post, read_back],
             blockers,

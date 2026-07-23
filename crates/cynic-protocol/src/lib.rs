@@ -1,5 +1,6 @@
 pub mod agent_recursion;
 pub mod artifact_release;
+pub mod build;
 pub mod coord;
 pub mod convergence;
 pub mod coordination_lease;
