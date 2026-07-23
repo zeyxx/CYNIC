@@ -1,0 +1,91 @@
+{
+  "schema": "cynic.framework_state_inventory.v1",
+  "inventory_id": "2026-07-23-framework-state",
+  "history": {
+    "recovery_snapshot": "c52ffe1",
+    "checkpoint_identity": "636353e",
+    "generated_artifact_cleanup": "058e930",
+    "interpretation": "recovery_snapshot_is_broad_not_semantic",
+    "rewrite_policy": "do_not_rewrite_recovery_history"
+  },
+  "cynic_os_runtime": {
+    "purpose": "sovereign execution substrate and proof pipeline",
+    "surfaces": [
+      "crates/cynic-protocol",
+      "crates/cynic-host",
+      "crates/cynic-node",
+      "crates/cynic-kernel",
+      "crates/cynic-cli",
+      "crates/cynic-mcp",
+      "contracts/foundation.json",
+      "infra/registry.json",
+      "infra/runtime-authority.json",
+      "infra/runtime-basket.json"
+    ],
+    "vertical_order": [
+      "source_worktree",
+      "source_push",
+      "build",
+      "artifact",
+      "deployment",
+      "node_conformance",
+      "fleet_convergence",
+      "federation"
+    ]
+  },
+  "organism_extensions": {
+    "purpose": "capabilities hosted by the OS, not authority over the OS",
+    "surfaces": [
+      {
+        "id": "inference",
+        "path": "crates/cynic-inference",
+        "status": "experimental_extracting"
+      },
+      {
+        "id": "proof_history",
+        "path": "crates/cynic-askesis",
+        "status": "runtime_authority_for_history"
+      },
+      {
+        "id": "intelligence",
+        "path": "crates/cynic-intel",
+        "status": "kernel_compatibility_dependency"
+      },
+      {
+        "id": "observer",
+        "path": "crates/cynic-observer",
+        "status": "experimental_not_canonical"
+      }
+    ]
+  },
+  "non_authoritative_projections": [
+    {
+      "path": "docs",
+      "status": "historical_quarantine",
+      "deletion": "defer_until_content_recovery_decision"
+    },
+    {
+      "path": "dashboard",
+      "status": "operator_projection_candidate",
+      "deletion": "defer_until_runtime_reference_audit"
+    }
+  ],
+  "current_proof_state": {
+    "source_push": "contracted_but_real_remote_auth_pending",
+    "build": "runner_and_digest_contracted_real_build_pending",
+    "persistence": "kernel_adapter_and_readback_contract_present_surface_pending",
+    "artifact_release": "blocked_until_build_proof",
+    "fleet": "matrix_primitive_present_multi_node_collection_pending"
+  },
+  "commit_policy": {
+    "next_commits": "one_vertical_or_quarantine_decision_per_commit",
+    "required_message_prefixes": [
+      "state:",
+      "source:",
+      "build:",
+      "kernel:",
+      "fleet:",
+      "quarantine:"
+    ]
+  }
+}
