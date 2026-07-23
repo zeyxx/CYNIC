@@ -39,6 +39,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic runtime harness --json [--kind <closed_local_lab|conformance|staging|canary|production>]",
                     "cynic runtime conformance --json [--profile <name> | --node <name>] [--registry <path>]",
                     "cynic runtime metrics --json [--profile <name> | --node <name>] [--registry <path>] [--proof <runtime-proof-bundle.json>]",
+                    "cynic runtime proof-persist --json --proof <runtime-proof-persistence.json> [--endpoint <kernel-url>]",
                     "cynic runtime storage-capabilities --json [--url <surrealdb-url>]",
                     "cynic runtime execution-context --json [--host <name>]...",
                     "cynic runtime network-preflight --json [--host <name>]...",

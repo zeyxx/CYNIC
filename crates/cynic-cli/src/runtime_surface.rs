@@ -12,6 +12,7 @@ mod host_checks;
 mod inference_dispatch;
 mod inference_surface;
 mod network_preflight;
+mod persistence;
 mod paths;
 mod report;
 mod registry_observation;
@@ -113,6 +114,15 @@ pub(crate) enum RuntimeCommand {
         json: bool,
         #[arg(long)]
         profile: Option<String>,
+    },
+    /// Persist an existing runtime proof record through the kernel and require read-back.
+    ProofPersist {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        proof: String,
+        #[arg(long)]
+        endpoint: Option<String>,
     },
     /// Aggregate runtime phase, report, and inference SSOT status.
     Report {
@@ -389,6 +399,11 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::RepoAccess { json, profile } => {
             host_checks::execute_repo_access(json, profile)
         }
+        RuntimeCommand::ProofPersist {
+            json,
+            proof,
+            endpoint,
+        } => persistence::execute_persistence(json, &proof, endpoint.as_deref()),
         RuntimeCommand::Report {
             json,
             output,
