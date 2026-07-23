@@ -11,7 +11,7 @@ use cynic_inference::application::model_catalog::{
     ListModelsResponse, ModelInfo, ModelProbeObservation, deterministic_model_info,
     project_model_info, should_probe_model,
 };
-use cynic_node::inference_operations::{
+use cynic_inference::application::node_runtime_ops::{
     probe_model_runtime, remediate_dog_runtime, start_dog_runtime,
 };
 use serde::{Deserialize, Serialize};
@@ -202,7 +202,7 @@ pub async fn inference_start_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<DogOperationRequest>,
 ) -> Result<Json<DogOperationResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let node = dog_to_node(&req.dog);
+    let node = dog_to_node(&state.backend_configs, &req.dog);
 
     let outcome = start_dog_runtime(&node).await;
 
@@ -225,7 +225,7 @@ pub async fn inference_remediate_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<DogOperationRequest>,
 ) -> Result<Json<DogOperationResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let node = dog_to_node(&req.dog);
+    let node = dog_to_node(&state.backend_configs, &req.dog);
     let outcome = remediate_dog_runtime(&node).await;
 
     let _ =
@@ -241,8 +241,8 @@ pub async fn inference_remediate_handler(
 
 /// Returns the node assigned to a Dog.
 /// Dynamically queries the fleet configuration rather than hardcoding names.
-pub(crate) fn dog_to_node(dog: &str) -> String {
-    crate::infra::dog_node_resolver::resolve_runtime_dog_node(dog)
+pub(crate) fn dog_to_node(backends: &[crate::infra::config::BackendConfig], dog: &str) -> String {
+    crate::infra::dog_node_resolver::resolve_dog_node(dog, backends)
 }
 
 /// LIVE PROBING: queries actual llama-server on each node.
@@ -309,6 +309,16 @@ pub async fn inference_slots_handler(
         "backends": backends,
         "timestamp": chrono::Utc::now().timestamp_millis(),
     }))
+}
+
+pub async fn dogs_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<String>>, (StatusCode, Json<ErrorResponse>)> {
+    let mut dogs = vec!["deterministic-dog".to_string()];
+    for cfg in &state.backend_configs {
+        dogs.push(cfg.name.clone());
+    }
+    Ok(Json(dogs))
 }
 
 #[cfg(test)]

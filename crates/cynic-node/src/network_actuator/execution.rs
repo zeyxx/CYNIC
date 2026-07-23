@@ -1,4 +1,4 @@
-use crate::network_actuator::types::CommandExecution;
+use crate::network_actuator::CommandExecution;
 use crate::network_command_surface::{NetworkCommandInvocation, NetworkCommandSurface};
 use cynic_host::execution::{HostArgvCommand, execute_argv_commands};
 use cynic_host::runtime_layout::current_runtime_layout;

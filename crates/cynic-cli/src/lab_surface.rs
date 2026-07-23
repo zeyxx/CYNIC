@@ -94,7 +94,7 @@ pub(crate) fn execute_lab(command: LabCommand) -> ExitCode {
                 return ExitCode::FAILURE;
             }
             if !apply {
-                return fail("lab provision requires --apply to make intent explicit".to_string());
+                return fail("lab provision requires --apply to make intent explicit");
             }
             let registry = registry.unwrap_or_else(|| "infra/registries/lab.json".to_string());
             match lab_plan::build_lab_provision_report(&registry, apply) {
@@ -157,9 +157,7 @@ pub(crate) fn execute_lab(command: LabCommand) -> ExitCode {
                     return ExitCode::FAILURE;
                 }
                 if !apply {
-                    return fail(
-                        "lab image fetch requires --apply to make intent explicit".to_string(),
-                    );
+                    return fail("lab image fetch requires --apply to make intent explicit");
                 }
                 let registry = registry.unwrap_or_else(|| "infra/registries/lab.json".to_string());
                 match lab_plan::build_lab_image_report(&registry, true) {

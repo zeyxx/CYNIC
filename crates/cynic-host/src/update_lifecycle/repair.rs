@@ -153,7 +153,16 @@ pub fn repair_apply(state_path: &Path, yes: bool, runner: &dyn ArgvRunner) -> Re
         any_fail,
         state.updated_at_unix_ms
     ));
-    let _ = save_state(state_path, &state);
+    if let Err(error) = save_state(state_path, &state) {
+        any_fail = true;
+        results.push(RepairResult {
+            id: "lifecycle_state_persisted".into(),
+            attempted: true,
+            ok: false,
+            exit_code: None,
+            detail: error,
+        });
+    }
 
     plan.mutates = true;
     plan.results = results;

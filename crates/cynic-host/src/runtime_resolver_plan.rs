@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
 use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
 use crate::runtime_network_preflight::{
     RuntimeNetworkPreflightReport, observe_runtime_network_preflight,
@@ -11,12 +12,17 @@ pub struct RuntimeResolverPlanReport {
     pub status: &'static str,
     pub mutates: bool,
     pub context: RuntimeHarnessContext,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub authority_owner: &'static str,
     pub desired_state: ResolverDesiredState,
     pub preflight: RuntimeNetworkPreflightReport,
     pub phases: Vec<ResolverPlanPhase>,
     pub rules: Vec<&'static str>,
-    pub next_actions: Vec<&'static str>,
+    pub next_actions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -44,12 +50,22 @@ pub fn build_runtime_resolver_plan(targets: &[String]) -> RuntimeResolverPlanRep
     } else {
         "planned"
     };
+    let next_command = if status == "not_required" {
+        None
+    } else {
+        Some("cynic runtime resolver-plan --json".to_string())
+    };
 
     RuntimeResolverPlanReport {
         schema: "cynic.host.runtime_resolver_plan.v1",
         status,
         mutates: false,
         context: conformance_context(),
+        lifecycle_status: preflight.lifecycle_status,
+        lifecycle_disposition: preflight.lifecycle_disposition,
+        next_boundary_kind: preflight.next_boundary_kind,
+        next_boundary_reason: preflight.next_boundary_reason.clone(),
+        next_command: next_command.clone(),
         authority_owner: "cynic-host",
         desired_state: ResolverDesiredState {
             scope: "host upstream resolver for external package, registry, and artifact reachability",
@@ -70,7 +86,7 @@ pub fn build_runtime_resolver_plan(targets: &[String]) -> RuntimeResolverPlanRep
             "this plan is read-only and must not mutate resolver files or services",
             "a future execution surface must capture before-state, exact argv, post-state, and rollback proof",
         ],
-        next_actions: next_actions(status),
+        next_actions: next_actions(status, next_command.as_deref()),
     }
 }
 
@@ -111,16 +127,22 @@ fn resolver_plan_phases() -> Vec<ResolverPlanPhase> {
     ]
 }
 
-fn next_actions(status: &str) -> Vec<&'static str> {
+fn next_actions(status: &str, canonical_next_command: Option<&str>) -> Vec<String> {
     if status == "not_required" {
-        return vec!["preserve current resolver baseline as fetch-readiness evidence"];
+        return vec!["preserve current resolver baseline as fetch-readiness evidence".to_string()];
     }
 
-    vec![
-        "inspect preflight resolver and probe failure details",
-        "choose or implement the smallest host resolver adapter for the observed service manager and distro",
-        "do not route this through cynic-node internal DNS planning",
-    ]
+    let mut actions = vec![
+        "inspect preflight resolver and probe failure details".to_string(),
+        "choose or implement the smallest host resolver adapter for the observed service manager and distro".to_string(),
+        "do not route this through cynic-node internal DNS planning".to_string(),
+    ];
+    if let Some(command) = canonical_next_command {
+        actions.push(command.to_string());
+    }
+    actions.sort();
+    actions.dedup();
+    actions
 }
 
 #[cfg(test)]

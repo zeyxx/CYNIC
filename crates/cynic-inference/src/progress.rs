@@ -34,6 +34,7 @@ pub fn progress(stage: &str, detail: impl AsRef<str>) {
 }
 
 /// Periodic wait reporter (e.g. model HTTP readiness).
+#[derive(Debug)]
 pub struct WaitProgress {
     label: String,
     started: Instant,
@@ -64,10 +65,7 @@ impl WaitProgress {
         }
         self.last_emit = now;
         let elapsed = now.duration_since(self.started).as_secs();
-        progress(
-            "waiting",
-            format!("{} ({}s elapsed)", self.label, elapsed),
-        );
+        progress("waiting", format!("{} ({}s elapsed)", self.label, elapsed));
     }
 
     pub fn done(&self, ok: bool) {

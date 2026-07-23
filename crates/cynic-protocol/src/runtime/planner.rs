@@ -143,7 +143,7 @@ fn planned_layer_reason(
 }
 
 fn runtime_dry_run_is_implemented(argv: &[String]) -> bool {
-    !argv.first().is_some_and(|program| program == "surreal")
+    argv.first().is_none_or(|program| program != "surreal")
 }
 
 #[cfg(test)]

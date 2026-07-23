@@ -26,7 +26,11 @@ pub fn phase_policy(phase: &LifecyclePhase) -> PhasePolicy {
         LifecyclePhase::ClosedLocalLab => PhasePolicy {
             phase: phase.clone(),
             harness,
-            allowed_mutations: vec![MutationClass::ObserveOnly, MutationClass::DepsScripted],
+            allowed_mutations: vec![
+                MutationClass::ObserveOnly,
+                MutationClass::DepsScripted,
+                MutationClass::KernelRuntime,
+            ],
             gates: vec![
                 GateCheck {
                     id: "runtime_validate",
@@ -53,7 +57,11 @@ pub fn phase_policy(phase: &LifecyclePhase) -> PhasePolicy {
         LifecyclePhase::Conformance => PhasePolicy {
             phase: phase.clone(),
             harness,
-            allowed_mutations: vec![MutationClass::ObserveOnly, MutationClass::DepsScripted],
+            allowed_mutations: vec![
+                MutationClass::ObserveOnly,
+                MutationClass::DepsScripted,
+                MutationClass::KernelRuntime,
+            ],
             gates: vec![
                 GateCheck {
                     id: "conformance",
@@ -84,6 +92,7 @@ pub fn phase_policy(phase: &LifecyclePhase) -> PhasePolicy {
                 MutationClass::ObserveOnly,
                 MutationClass::DepsScripted,
                 MutationClass::InferenceRuntime,
+                MutationClass::KernelRuntime,
                 MutationClass::HostBootstrap,
             ],
             gates: vec![
@@ -116,6 +125,7 @@ pub fn phase_policy(phase: &LifecyclePhase) -> PhasePolicy {
                 MutationClass::ObserveOnly,
                 MutationClass::DepsScripted,
                 MutationClass::InferenceRuntime,
+                MutationClass::KernelRuntime,
                 MutationClass::HostBootstrap,
                 MutationClass::FleetNetwork,
             ],
@@ -149,6 +159,7 @@ pub fn phase_policy(phase: &LifecyclePhase) -> PhasePolicy {
                 MutationClass::ObserveOnly,
                 MutationClass::DepsScripted,
                 MutationClass::InferenceRuntime,
+                MutationClass::KernelRuntime,
                 MutationClass::HostBootstrap,
                 MutationClass::FleetNetwork,
             ],
@@ -172,8 +183,7 @@ pub fn phase_policy(phase: &LifecyclePhase) -> PhasePolicy {
                     required: true,
                 },
             ],
-            promotion_gate:
-                "already at production authority; further changes require new lifecycle cycle",
+            promotion_gate: "already at production authority; further changes require new lifecycle cycle",
             rollback_intent: "controlled rollback via previous artifact + proof bundle",
         },
     }

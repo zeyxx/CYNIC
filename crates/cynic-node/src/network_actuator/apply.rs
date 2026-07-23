@@ -1,11 +1,12 @@
 use chrono::Utc;
+use cynic_host::network_actuation::{NetworkActuationRuntime, build_network_actuation_commands};
 use cynic_host::runtime_layout::current_runtime_layout;
 
 use crate::network_actuator::execution::run_command;
 use crate::network_actuator::policy::build_policy_document;
 use crate::network_actuator::types::{NetworkActuatorApplyReport, NetworkActuatorPolicyDocument};
-use crate::network_actuator_contract::NETWORK_ACTUATOR_HELPER_CONTRACT;
-use crate::network_command_surface::{NetworkCommandSurface, argv_command};
+use crate::network_actuator_contract::{NETWORK_ACTUATOR_HELPER_CONTRACT, helper_path};
+use crate::network_command_surface::NetworkCommandSurface;
 use crate::network_diagnostic_surface::{NetworkDiagnostic, diagnostic};
 use crate::observe::NodeObservation;
 
@@ -16,6 +17,7 @@ struct NetworkActuatorApplyContext {
     systemctl_bin: String,
     ip_bin: String,
     wg_bin: String,
+    nmcli_bin: String,
 }
 
 impl NetworkActuatorApplyContext {
@@ -28,6 +30,20 @@ impl NetworkActuatorApplyContext {
             systemctl_bin: capabilities.service_manager.command.clone(),
             ip_bin: capabilities.route_tool.command.clone(),
             wg_bin: capabilities.wireguard_tool.command.clone(),
+            nmcli_bin: capabilities.network_manager.command.clone(),
+        }
+    }
+
+    fn runtime(&self) -> NetworkActuationRuntime {
+        NetworkActuationRuntime {
+            helper_path: helper_path(),
+            sudoers_subject: "cynic",
+            max_timeout_seconds: 60,
+            service_manager_bin: self.systemctl_bin.clone(),
+            wireguard_unit: self.wg_quick_unit.clone(),
+            route_bin: self.ip_bin.clone(),
+            wireguard_bin: self.wg_bin.clone(),
+            network_manager_bin: self.nmcli_bin.clone(),
         }
     }
 }
@@ -121,83 +137,9 @@ fn profile_commands_with_context(
     profile: &str,
     context: &NetworkActuatorApplyContext,
 ) -> Option<Vec<NetworkCommandSurface>> {
-    match profile {
-        "provider-fallback-route" => {
-            observation
-                .topology
-                .provider_fallback_gateway
-                .as_ref()
-                .map(|gateway| {
-                    vec![
-                        argv_command(
-                            "mutate_route",
-                            vec![
-                                context.ip_bin.clone(),
-                                "route".to_string(),
-                                "replace".to_string(),
-                                observation.topology.provider_fallback_cidr.clone(),
-                                "via".to_string(),
-                                gateway.clone(),
-                            ],
-                        ),
-                        argv_command(
-                            "inspect_route",
-                            vec![
-                                context.ip_bin.clone(),
-                                "route".to_string(),
-                                "show".to_string(),
-                                observation.topology.provider_fallback_cidr.clone(),
-                            ],
-                        ),
-                    ]
-                })
-        }
-        "synapse-route" => Some(vec![
-            argv_command(
-                "mutate_route",
-                vec![
-                    context.ip_bin.clone(),
-                    "route".to_string(),
-                    "replace".to_string(),
-                    observation.topology.synapse_cidr.clone(),
-                    "dev".to_string(),
-                    context.mesh_interface.clone(),
-                ],
-            ),
-            argv_command(
-                "inspect_route",
-                vec![
-                    context.ip_bin.clone(),
-                    "route".to_string(),
-                    "show".to_string(),
-                    observation.topology.synapse_cidr.clone(),
-                ],
-            ),
-        ]),
-        "wireguard-mesh" => Some(vec![
-            argv_command(
-                "restart_service",
-                vec![
-                    context.systemctl_bin.clone(),
-                    "restart".to_string(),
-                    context.wg_quick_unit.clone(),
-                ],
-            ),
-            argv_command(
-                "service_status",
-                vec![
-                    context.systemctl_bin.clone(),
-                    "is-active".to_string(),
-                    context.wg_quick_unit.clone(),
-                ],
-            ),
-            argv_command(
-                "inspect_wireguard",
-                vec![context.wg_bin.clone(), "show".to_string()],
-            ),
-        ]),
-        _ => None,
-    }
+    let host_observation =
+        observation.network_actuation_observation(context.mesh_interface.clone());
+    build_network_actuation_commands(profile, &host_observation.target, &context.runtime())
 }
 
 #[cfg(test)]
@@ -215,6 +157,7 @@ mod tests {
             systemctl_bin: "/portable/bin/systemctl".to_string(),
             ip_bin: "/portable/bin/ip".to_string(),
             wg_bin: "/portable/bin/wg".to_string(),
+            nmcli_bin: "/portable/bin/nmcli".to_string(),
         }
     }
 

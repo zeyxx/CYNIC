@@ -1,9 +1,11 @@
-pub mod watcher;
-pub mod delegation;
 pub mod consensus;
-pub mod wal;
-pub mod parser;
+pub mod dashboard;
+pub mod delegation;
 pub mod federation;
+pub mod parser;
+pub mod signal_mapper;
+pub mod wal;
+pub mod watcher;
 
 use serde::{Deserialize, Serialize};
 

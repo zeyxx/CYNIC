@@ -1,5 +1,6 @@
 use std::process::ExitCode;
 
+use cynic_host::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
 use serde::Serialize;
 
 use crate::{emit_json, fail, registry_path};
@@ -46,6 +47,11 @@ struct RuntimeValidationReport {
     registry_path: String,
     lab_registry_path: String,
     rule: &'static str,
+    lifecycle_status: LifecycleStatus,
+    lifecycle_disposition: LifecycleDisposition,
+    next_boundary_kind: BoundaryKind,
+    next_boundary_reason: String,
+    next_command: Option<String>,
     steps: Vec<RuntimeValidationStep>,
 }
 
@@ -257,6 +263,64 @@ fn build_runtime_validation_report(
     } else {
         "blocked"
     };
+    let first_blocked = steps.iter().find(|step| step.status != "ok");
+    let (
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command,
+    ) = if status == "ok" {
+        (
+            LifecycleStatus::Ready,
+            LifecycleDisposition::ObservableCandidate,
+            BoundaryKind::Observe,
+            "runtime validation steps completed without blocked portability or proof failures"
+                .to_string(),
+            None,
+        )
+    } else if let Some(step) = first_blocked {
+        let next_command = match step.name {
+            "host_conformance_probe" => Some(format!(
+                "cynic runtime conformance --json --registry {registry_path}"
+            )),
+            "fleet_constellation_projection" => Some(format!(
+                "cynic bootstrap constellation --json --registry {registry_path}"
+            )),
+            "fleet_network_runtime_probe" => {
+                Some(format!("cynic network runtime --registry {registry_path}"))
+            }
+            "lab_network_runtime_probe" => Some(format!(
+                "cynic network runtime --registry {lab_registry_path}"
+            )),
+            _ => Some("cynic runtime validate --json".to_string()),
+        };
+        let boundary = if step.name.contains("network") {
+            BoundaryKind::Connect
+        } else {
+            BoundaryKind::Adopt
+        };
+        let lifecycle_status = if step.name.contains("network") {
+            LifecycleStatus::ConnectionRequired
+        } else {
+            LifecycleStatus::PrincipalMismatch
+        };
+        (
+            lifecycle_status,
+            lifecycle_status.default_disposition(),
+            boundary,
+            format!("runtime validation is blocked at step {}", step.name),
+            next_command,
+        )
+    } else {
+        (
+            LifecycleStatus::Missing,
+            LifecycleDisposition::NotDiscovered,
+            BoundaryKind::Observe,
+            "runtime validation reported blocked without a failing step".to_string(),
+            Some("cynic runtime validate --json".to_string()),
+        )
+    };
 
     Ok(RuntimeValidationReport {
         schema: "cynic.runtime_validation.v1",
@@ -264,6 +328,11 @@ fn build_runtime_validation_report(
         registry_path: registry_path.to_string(),
         lab_registry_path: lab_registry_path.to_string(),
         rule: "validation must execute runtime surfaces and accept honest blocked states, but fail portability leaks",
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command,
         steps,
     })
 }

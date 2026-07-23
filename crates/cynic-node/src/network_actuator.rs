@@ -6,7 +6,10 @@ mod types;
 
 pub(crate) use apply::apply_profile;
 pub(crate) use bundle::{activation_plan, write_install_bundle};
-pub(crate) use types::CommandExecution;
+// Execution records are host substrate proof: node code only adapts and
+// schedules them. Keeping this alias preserves node call sites while removing
+// a duplicate execution schema from the node layer.
+pub(crate) use cynic_host::execution::HostCommandExecution as CommandExecution;
 
 #[cfg(test)]
 mod tests {

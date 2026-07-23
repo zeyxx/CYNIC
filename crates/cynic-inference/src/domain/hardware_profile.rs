@@ -163,10 +163,10 @@ fn read_cpu_flags() -> Vec<String> {
         return Vec::new();
     };
     for line in raw.lines() {
-        if let Some(rest) = line.strip_prefix("flags") {
-            if let Some(flags) = rest.split(':').nth(1) {
-                return flags.split_whitespace().map(|s| s.to_string()).collect();
-            }
+        if let Some(rest) = line.strip_prefix("flags")
+            && let Some(flags) = rest.split(':').nth(1)
+        {
+            return flags.split_whitespace().map(|s| s.to_string()).collect();
         }
     }
     Vec::new()
@@ -195,17 +195,17 @@ fn probe_gpu() -> (GpuInfo, Option<u64>) {
                 vendor_id = Some(v.trim().to_string());
                 notes.push(format!("drm:{name} vendor={}", v.trim()));
             }
-            if let Ok(v) = std::fs::read_to_string(base.join("mem_info_gtt_total")) {
-                if let Ok(n) = v.trim().parse::<u64>() {
-                    gtt_total = Some(n);
-                    notes.push(format!("gtt_total={n}"));
-                }
+            if let Ok(v) = std::fs::read_to_string(base.join("mem_info_gtt_total"))
+                && let Ok(n) = v.trim().parse::<u64>()
+            {
+                gtt_total = Some(n);
+                notes.push(format!("gtt_total={n}"));
             }
-            if let Ok(v) = std::fs::read_to_string(base.join("mem_info_vram_total")) {
-                if let Ok(n) = v.trim().parse::<u64>() {
-                    vram_total = Some(n);
-                    notes.push(format!("vram_total={n}"));
-                }
+            if let Ok(v) = std::fs::read_to_string(base.join("mem_info_vram_total"))
+                && let Ok(n) = v.trim().parse::<u64>()
+            {
+                vram_total = Some(n);
+                notes.push(format!("vram_total={n}"));
             }
         }
     }

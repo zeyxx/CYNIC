@@ -518,7 +518,7 @@ mod tests {
                     "build_runner_role": "build_runner",
                     "deploy_target_role": "kernel_primary",
                     "runtime_paths": {
-                        "repo_root": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}"
+                        "repo_root": "/var/lib/cynic/repos/${CYNIC_PROJECT_SLUG}"
                     },
                     "runtime_path_proofs": {
                         "repo_root": {"kind": "git_worktree"}

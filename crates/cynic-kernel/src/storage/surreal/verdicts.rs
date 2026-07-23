@@ -103,6 +103,13 @@ fn verdict_to_sql(v: &Verdict) -> String {
     let integrity = v.integrity_hash.as_deref().unwrap_or("");
     let prev = v.prev_hash.as_deref().unwrap_or("");
 
+    let created_at_str = chrono::DateTime::from_timestamp(
+        v.timestamp / 1000,
+        ((v.timestamp % 1000) * 1_000_000) as u32,
+    )
+    .map(|dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+    .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string());
+
     format!(
         "CREATE verdict SET \
             verdict_id = '{}', \
@@ -162,7 +169,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
         escape(&serde_json::to_string(&v.dog_scores).unwrap_or_else(|_| "[]".to_string())),
         serde_json::to_string(&v.failed_dogs).unwrap_or_else(|_| "[]".to_string()),
         escape(&serde_json::to_string(&v.failed_dog_errors).unwrap_or_else(|_| "{}".to_string())),
-        v.timestamp,
+        created_at_str,
     )
 }
 
@@ -370,7 +377,7 @@ mod tests {
             "reasoning_sovereignty": "no vendor lock",
             "dog_id": "inference-gemini",
             "stimulus": "test claim",
-            "created_at": "2026-03-13T10:00:00Z"
+            "created_at": "2025-03-13T10:00:00Z"
         });
 
         let v = row_to_verdict(&row);

@@ -8,18 +8,24 @@ pub fn activation_request_targets(action: &Value) -> (Vec<String>, Vec<String>) 
         | "record_service_activation_evidence"
         | "activate_registry_node"
         | "materialize_runtime_path" => vec!["infra/registry.json".to_string()],
-        "refresh_fleet_inventory" | "restore_fleet_probe" => vec!["organs/fleet".to_string()],
+        "refresh_fleet_inventory" | "restore_fleet_probe" => vec!["crates/cynic-node".to_string()],
         "provide_runtime_observation" | "join_or_wake_synapse_peer" => {
-            vec!["organs/fleet".to_string(), "crates/cynic-node".to_string()]
+            vec![
+                "crates/cynic-node".to_string(),
+                "crates/cynic-kernel".to_string(),
+            ]
         }
         "restore_canonical_dns_projection"
         | "install_network_actuator_bundle"
         | "activate_synapse_route"
         | "activate_wireguard_mesh" => {
-            vec!["organs/fleet".to_string(), "crates/cynic-node".to_string()]
+            vec![
+                "crates/cynic-node".to_string(),
+                "crates/cynic-kernel".to_string(),
+            ]
         }
         _ => vec![
-            "organs/forge".to_string(),
+            "crates/cynic-kernel".to_string(),
             "infra/registry.json".to_string(),
         ],
     };

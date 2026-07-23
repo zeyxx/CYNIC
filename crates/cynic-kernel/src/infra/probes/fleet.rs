@@ -1,34 +1,26 @@
-//! FleetProbe — HTTP health probes to Dog backend endpoints.
-//! Reads health_url from backends.toml (via constructor) and probes each.
-//! Reports ALL dog states (not just first failure). Checks HTTP status, not just connection.
+//! Fleet probe orchestration for Dog backend observability.
 
-use crate::domain::probe::{
-    DogHealthDetails, FleetDetails, ProbeDetails, ProbeError, ProbeResult, ProbeStatus,
-};
+mod config;
+mod worker;
+
+#[cfg(test)]
+mod tests;
+
+pub use config::FleetTarget;
+
+use crate::domain::probe::{FleetDetails, ProbeDetails, ProbeError, ProbeResult, ProbeStatus};
 use async_trait::async_trait;
-use cynic_node::verify::{
-    ContextResult, IdentityResult, check_context_with_bearer, check_identity_with_bearer,
+pub use cynic_node::verify::{
+    ContextResult, check_context_with_bearer, check_identity_with_bearer,
 };
 use std::time::{Duration, Instant};
 
-#[cfg(test)]
-use crate::domain::probe::Probe;
-
-/// A Dog endpoint to health-check.
-#[derive(Debug, Clone)]
-pub struct FleetTarget {
-    pub dog_name: String,
-    pub health_url: String,
-    /// Explicit properties URL to check actual context limits.
-    pub props_url: Option<String>,
-    /// URL to query loaded model identity (e.g. /v1/models).
-    pub models_url: Option<String>,
-    /// Expected context tokens from configuration.
-    pub expected_n_ctx: u32,
-    /// Expected model name from backends.toml. Used for identity verification.
-    pub expected_model: String,
-    /// API key for authenticated endpoints (/props, /v1/models on some backends).
-    pub api_key: Option<String>,
+#[allow(clippy::match_same_arms)]
+pub(crate) fn context_n_ctx_from_result(result: &ContextResult) -> Option<u32> {
+    match result {
+        ContextResult::Observed { n_ctx } => Some(*n_ctx),
+        ContextResult::Unknown | ContextResult::Unreachable => None,
+    }
 }
 
 /// Probe that HTTP GETs the health endpoint of each configured Dog backend.
@@ -73,372 +65,25 @@ impl crate::domain::probe::Probe for FleetProbe {
             });
         }
 
-        // Probe all targets in parallel.
         let futures: Vec<_> = self
             .targets
             .iter()
-            .map(|t| {
+            .map(|target| {
                 let client = self.client.clone();
-                let url = t.health_url.clone();
-                let name = t.dog_name.clone();
-                let props_url = t.props_url.clone();
-                let models_url = t.models_url.clone();
-                let expected_n_ctx = t.expected_n_ctx;
-                let expected_model = t.expected_model.clone();
-                let api_key = t.api_key.clone();
-                async move {
-                    let probe_start = Instant::now();
-
-                    // Helper: build a GET request, adding auth header if api_key is set.
-                    let auth_get = |url: &str| -> reqwest::RequestBuilder {
-                        let req = client.get(url);
-                        match &api_key {
-                            Some(key) => req.bearer_auth(key),
-                            None => req,
-                        }
-                    };
-
-                    // Check HTTP status code, not just connection success.
-                    let reachable = match auth_get(&url).send().await {
-                        Ok(resp) => resp.status().is_success(),
-                        Err(_) => false,
-                    };
-
-                    let mut actual_n_ctx = None;
-                    if let Some(ref p_url) = props_url {
-                        if let ContextResult::Observed { n_ctx } =
-                            check_context_with_bearer(&client, p_url, 5, api_key.as_deref()).await
-                        {
-                            actual_n_ctx = Some(n_ctx);
-                        }
-                    }
-
-                    // Model identity observation belongs to cynic-node; this probe only projects
-                    // node verification into the kernel's FleetDetails report.
-                    let mut actual_model = None;
-                    let mut model_mismatch = false;
-                    if reachable && let Some(ref m_url) = models_url {
-                        match check_identity_with_bearer(
-                            &client,
-                            m_url,
-                            &expected_model,
-                            5,
-                            api_key.as_deref(),
-                        )
-                        .await
-                        {
-                            IdentityResult::Match | IdentityResult::Unknown => {}
-                            IdentityResult::Unreachable => {
-                                actual_model = Some("unreachable".to_string());
-                            }
-                            IdentityResult::Mismatch { actual, .. } => {
-                                actual_model = Some(actual);
-                                model_mismatch = !expected_model.is_empty();
-                            }
-                        }
-                    }
-
-                    let latency_ms = Some(probe_start.elapsed().as_millis() as u64);
-                    DogHealthDetails {
-                        dog_name: name,
-                        reachable,
-                        latency_ms,
-                        actual_n_ctx,
-                        expected_n_ctx: if expected_n_ctx > 0 {
-                            Some(expected_n_ctx)
-                        } else {
-                            None
-                        },
-                        actual_model,
-                        expected_model: if expected_model.is_empty() {
-                            None
-                        } else {
-                            Some(expected_model)
-                        },
-                        model_mismatch,
-                    }
-                }
+                let target = target.clone();
+                async move { worker::probe_target(client, target).await }
             })
             .collect();
 
         let results = futures_util::future::join_all(futures).await;
-
-        let duration_ms = start.elapsed().as_millis() as u64;
-        let timestamp = chrono::Utc::now().timestamp_millis();
-
-        let reachable_count = results.iter().filter(|r| r.reachable).count();
-        let total = results.len();
-
-        let status = if reachable_count == total {
-            ProbeStatus::Ok
-        } else if reachable_count == 0 {
-            ProbeStatus::Unavailable
-        } else {
-            ProbeStatus::Degraded
-        };
-
-        // Log unreachable dogs (state-transition logging is a follow-up).
-        for r in &results {
-            if !r.reachable {
-                tracing::warn!(
-                    dog = %r.dog_name,
-                    latency_ms = ?r.latency_ms,
-                    "fleet probe: Dog unreachable"
-                );
-            }
-            if let (Some(actual), Some(expected)) = (r.actual_n_ctx, r.expected_n_ctx)
-                && actual < expected
-            {
-                tracing::error!(
-                    dog = %r.dog_name,
-                    actual = actual,
-                    expected = expected,
-                    "fleet probe: CONTEXT DRIFT DETECTED — backend running with reduced context"
-                );
-                klog!(
-                    "[fleet] ⚠ {} CONTEXT DRIFT: running {} (configured {})",
-                    r.dog_name,
-                    actual,
-                    expected
-                );
-            }
-            // B4: Model identity mismatch — the root cause of "two models on :8080" invisible for days.
-            if r.model_mismatch {
-                tracing::error!(
-                    dog = %r.dog_name,
-                    actual_model = ?r.actual_model,
-                    expected_model = ?r.expected_model,
-                    "fleet probe: MODEL IDENTITY MISMATCH — wrong model loaded on backend"
-                );
-                klog!(
-                    "[fleet] ⚠ {} MODEL MISMATCH: running {:?} (configured {:?})",
-                    r.dog_name,
-                    r.actual_model,
-                    r.expected_model
-                );
-            }
-        }
+        worker::log_health_findings(&results);
 
         Ok(ProbeResult {
             name: "fleet".to_string(),
-            status,
+            status: worker::derive_status(&results),
             details: ProbeDetails::Fleet(FleetDetails { dogs: results }),
-            duration_ms,
-            timestamp,
+            duration_ms: start.elapsed().as_millis() as u64,
+            timestamp: chrono::Utc::now().timestamp_millis(),
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn fleet_probe_no_targets_returns_ok() {
-        let probe = FleetProbe::new(vec![]);
-        let result = probe.sense().await.expect("should not error");
-        assert_eq!(result.status, ProbeStatus::Ok);
-    }
-
-    #[tokio::test]
-    async fn fleet_probe_unreachable_target() {
-        let probe = FleetProbe::new(vec![FleetTarget {
-            dog_name: "test-dog".into(),
-            health_url: "http://127.0.0.1:19999/health".into(),
-            props_url: None,
-            models_url: None,
-            expected_n_ctx: 0,
-            expected_model: String::new(),
-            api_key: None,
-        }]);
-        let result = probe.sense().await.expect("should not error");
-        assert_eq!(result.status, ProbeStatus::Unavailable);
-        match result.details {
-            ProbeDetails::Fleet(ref f) => {
-                assert_eq!(f.dogs.len(), 1);
-                assert_eq!(f.dogs[0].dog_name, "test-dog");
-                assert!(!f.dogs[0].reachable);
-            }
-            _ => panic!("expected Fleet details"),
-        }
-    }
-
-    /// Spins up a minimal Axum server that simulates a llama-server with
-    /// context drift: /health → 200, /props → n_ctx=2048 (less than expected 8192).
-    #[tokio::test]
-    async fn fleet_probe_detects_context_drift() {
-        use axum::{Json, Router, routing::get};
-
-        let app = Router::new()
-            .route("/health", get(|| async { "ok" }))
-            .route(
-                "/props",
-                get(|| async {
-                    Json(serde_json::json!({
-                        "default_generation_settings": { "n_ctx": 2048 }
-                    }))
-                }),
-            );
-
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind test server");
-        let addr = listener.local_addr().expect("local addr");
-        tokio::spawn(async move {
-            axum::serve(listener, app).await.expect("serve");
-        });
-
-        let base = format!("http://{addr}");
-        let probe = FleetProbe::new(vec![FleetTarget {
-            dog_name: "drifted-dog".into(),
-            health_url: format!("{base}/health"),
-            props_url: Some(format!("{base}/props")),
-            models_url: None,
-            expected_n_ctx: 8192,
-            expected_model: String::new(),
-            api_key: None,
-        }]);
-
-        let result = probe.sense().await.expect("should not error");
-        assert_eq!(result.status, ProbeStatus::Ok);
-
-        match result.details {
-            ProbeDetails::Fleet(ref f) => {
-                assert_eq!(f.dogs.len(), 1);
-                let dog = &f.dogs[0];
-                assert!(dog.reachable);
-                assert_eq!(
-                    dog.actual_n_ctx,
-                    Some(2048),
-                    "should read actual n_ctx from /props"
-                );
-                assert_eq!(
-                    dog.expected_n_ctx,
-                    Some(8192),
-                    "should carry expected n_ctx"
-                );
-                // Drift: 2048 < 8192 — logged as error (verified by log output, not assertion)
-            }
-            _ => panic!("expected Fleet details"),
-        }
-    }
-
-    /// When expected_n_ctx is 0 (unconfigured), both fields should be None.
-    #[tokio::test]
-    async fn fleet_probe_no_expected_ctx_yields_none() {
-        let probe = FleetProbe::new(vec![FleetTarget {
-            dog_name: "unconfigured-dog".into(),
-            health_url: "http://127.0.0.1:19999/health".into(),
-            props_url: None,
-            models_url: None,
-            expected_n_ctx: 0,
-            expected_model: String::new(),
-            api_key: None,
-        }]);
-        let result = probe.sense().await.expect("should not error");
-        match result.details {
-            ProbeDetails::Fleet(ref f) => {
-                assert_eq!(f.dogs[0].expected_n_ctx, None, "0 sentinel → None");
-                assert_eq!(f.dogs[0].actual_n_ctx, None, "no props_url → no actual");
-            }
-            _ => panic!("expected Fleet details"),
-        }
-    }
-
-    /// B4: Detects when /v1/models returns a different model than backends.toml declares.
-    #[tokio::test]
-    async fn fleet_probe_detects_model_mismatch() {
-        use axum::{Json, Router, routing::get};
-
-        let app = Router::new()
-            .route("/health", get(|| async { "ok" }))
-            .route(
-                "/v1/models",
-                get(|| async {
-                    Json(serde_json::json!({
-                        "data": [{"id": "gemma-3-4b-it", "object": "model"}]
-                    }))
-                }),
-            );
-
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind test server");
-        let addr = listener.local_addr().expect("local addr");
-        tokio::spawn(async move {
-            axum::serve(listener, app).await.expect("serve");
-        });
-
-        let base = format!("http://{addr}");
-        let probe = FleetProbe::new(vec![FleetTarget {
-            dog_name: "identity-test-dog".into(),
-            health_url: format!("{base}/health"),
-            props_url: None,
-            models_url: Some(format!("{base}/v1/models")),
-            expected_n_ctx: 0,
-            expected_model: "Mistral-7B-v0.3".into(), // different from what's loaded
-            api_key: None,
-        }]);
-
-        let result = probe.sense().await.expect("should not error");
-        assert_eq!(result.status, ProbeStatus::Ok);
-
-        match result.details {
-            ProbeDetails::Fleet(ref f) => {
-                let dog = &f.dogs[0];
-                assert!(dog.reachable);
-                assert_eq!(dog.actual_model.as_deref(), Some("gemma-3-4b-it"));
-                assert_eq!(dog.expected_model.as_deref(), Some("Mistral-7B-v0.3"));
-                assert!(dog.model_mismatch, "should detect model identity mismatch");
-            }
-            _ => panic!("expected Fleet details"),
-        }
-    }
-
-    /// Model identity match should pass when names contain each other (substring).
-    #[tokio::test]
-    async fn fleet_probe_model_match_by_substring() {
-        use axum::{Json, Router, routing::get};
-
-        let app = Router::new()
-            .route("/health", get(|| async { "ok" }))
-            .route(
-                "/v1/models",
-                get(|| async {
-                    Json(serde_json::json!({
-                        "data": [{"id": "Qwen/Qwen2.5-7B-Instruct", "object": "model"}]
-                    }))
-                }),
-            );
-
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind test server");
-        let addr = listener.local_addr().expect("local addr");
-        tokio::spawn(async move {
-            axum::serve(listener, app).await.expect("serve");
-        });
-
-        let base = format!("http://{addr}");
-        let probe = FleetProbe::new(vec![FleetTarget {
-            dog_name: "match-test-dog".into(),
-            health_url: format!("{base}/health"),
-            props_url: None,
-            models_url: Some(format!("{base}/v1/models")),
-            expected_n_ctx: 0,
-            expected_model: "Qwen2.5-7B".into(), // substring of what's loaded
-            api_key: None,
-        }]);
-
-        let result = probe.sense().await.expect("should not error");
-        match result.details {
-            ProbeDetails::Fleet(ref f) => {
-                assert!(
-                    !f.dogs[0].model_mismatch,
-                    "substring match should not be flagged as mismatch"
-                );
-            }
-            _ => panic!("expected Fleet details"),
-        }
     }
 }

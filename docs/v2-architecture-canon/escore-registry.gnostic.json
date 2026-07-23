@@ -1,0 +1,34 @@
+{
+  "registry_id": "gnostic",
+  "version": "0.1",
+  "status": "canonical",
+  "name": "GNOSTIC",
+  "description": "Pour les communautés à cause forte. La résistance numérique comme acte de foi. Chaque badge est un témoignage. Langage universel et trans-culturel, ancré dans l'archétype du porteur de lumière contre les systèmes opaques.",
+  "futarchy_proposal_id": null,
+  "stats": {
+    "karteria":      { "display": "Perseverance", "subtitle": null, "motto": "The light holds. Even in darkness." },
+    "parrhesia":     { "display": "Prophecy",     "subtitle": null, "motto": "Speak truth. Even at cost." },
+    "anaideia":      { "display": "Courage",      "subtitle": null, "motto": "First witness. No guarantees." },
+    "philanthropia": { "display": "Mercy",        "subtitle": null, "motto": "Give as if it were the last time." },
+    "autarkeia":     { "display": "Stewardship",  "subtitle": null, "motto": "Care for the temple. No one else will." },
+    "poiesis":       { "display": "Creation",     "subtitle": null, "motto": "Build the world you want to inhabit." },
+    "koinonia":      { "display": "Fellowship",   "subtitle": null, "motto": "No one is free until all are free." }
+  },
+  "classes": {
+    "spartiate": { "display": "Martyr",     "subtitle": null, "flavor": "Tient sous pression, témoin jusqu'au bout" },
+    "oracle":    { "display": "Prophet",    "subtitle": null, "flavor": "Voit et maintient. Garde la flamme." },
+    "promethee": { "display": "Apostle",    "subtitle": null, "flavor": "Va le premier, porte la bonne nouvelle" },
+    "hermes":    { "display": "Evangelist", "subtitle": null, "flavor": "Crée et propage la vision" },
+    "dedale":    { "display": "Architect",  "subtitle": null, "flavor": "Bâtit et entretient le sanctuaire" },
+    "socrate":   { "display": "Shepherd",   "subtitle": null, "flavor": "Guide la communauté par la vérité" },
+    "agathon":   { "display": "Deacon",     "subtitle": null, "flavor": "Serviteur du collectif, invisible et essentiel" },
+    "apex":      { "display": "Patriarch",  "subtitle": null, "flavor": "Gardien des gardiens. Témoin ultime." }
+  },
+  "tiers": {
+    "t0": { "display": "Seeker",    "subtitle": null },
+    "t1": { "display": "Initiate",  "subtitle": null },
+    "t2": { "display": "Disciple",  "subtitle": null },
+    "t3": { "display": "Apostle",   "subtitle": null },
+    "t4": { "display": "Patriarch", "subtitle": null }
+  }
+}

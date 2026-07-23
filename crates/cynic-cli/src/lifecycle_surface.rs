@@ -8,23 +8,36 @@
 //! cynic lifecycle report          # end operational black box
 //! cynic lifecycle repair [--yes]  # phase-filtered repairs
 //! cynic lifecycle apply [--yes]   # phase-allowed mutations
+//! cynic lifecycle kernel-release --spec <path> [--state <path>] [--yes]  # immutable artifact reconciliation
 //! ```
 
 use std::process::ExitCode;
 
-use clap::Subcommand;
-use cynic_host::update_lifecycle::{
-    ApplyReport, LocalArgvRunner, OpsReport, RepairReport, apply_phase, default_state_path,
-    ops_report, plan_report, promote, repair_apply, repair_plan, run_gates, status_report,
+use crate::cli_exit::{success_if_status, success_if_status_in};
+use crate::cli_json::emit_pretty_json;
+use crate::lifecycle_surface_context::{runner, state_path};
+use crate::lifecycle_surface_execute::{
+    execute_apply, execute_evidence, execute_gate, execute_kernel_release, execute_plan,
+    execute_promote, execute_repair, execute_report, execute_status,
 };
-use serde::Serialize;
-
-fn runner() -> LocalArgvRunner {
-    LocalArgvRunner
-}
+use crate::lifecycle_surface_render::{
+    print_apply_human, print_gate_human, print_kernel_release_human, print_ops_human,
+    print_plan_human, print_promote_human, print_repair_human, print_status_human,
+};
+use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum LifecycleCommand {
+    /// Host-owned lifecycle evidence compatibility surface.
+    ///
+    /// The payload grammar remains in `cynic-host`; this adapter only removes
+    /// the former standalone evidence binary from the installed runtime.
+    Evidence {
+        /// Evidence operation and its arguments. Use `--` before flags passed
+        /// to the host-owned operation, for example `evidence runtime-paths -- --registry <path>`.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Current phase, policy, promotion eligibility.
     Status {
         #[arg(long)]
@@ -84,339 +97,67 @@ pub(crate) enum LifecycleCommand {
         #[arg(long)]
         state: Option<String>,
     },
+    /// Reconcile one immutable kernel artifact, verify identity, and record release PoH.
+    KernelRelease {
+        /// Path to a cynic.kernel_release.spec.v1 JSON desired-state file.
+        #[arg(long)]
+        spec: String,
+        #[arg(long)]
+        json: bool,
+        /// Apply staging, atomic activation, restart, observation, and rollback policy.
+        #[arg(long)]
+        yes: bool,
+        #[arg(long)]
+        state: Option<String>,
+    },
 }
 
 pub(crate) fn execute_lifecycle(command: LifecycleCommand) -> ExitCode {
+    lifecycle_surface_contract_smoke();
     match command {
-        LifecycleCommand::Status { json, state } => {
-            let path = state_path(state);
-            let report = status_report(&path);
-            if json {
-                return emit(&report);
-            }
-            print_status_human(&report);
-            ExitCode::SUCCESS
-        }
-        LifecycleCommand::Plan { json, state } => {
-            let path = state_path(state);
-            let report = plan_report(&path);
-            if json {
-                return emit(&report);
-            }
-            print_plan_human(&report);
-            ExitCode::SUCCESS
-        }
-        LifecycleCommand::Gate { json, yes, state } => {
-            let path = state_path(state);
-            let report = run_gates(&path, yes, &runner());
-            if json {
-                let code = emit(&report);
-                return if report.status == "ok" || report.status == "planned" {
-                    code
-                } else {
-                    ExitCode::FAILURE
-                };
-            }
-            print_gate_human(&report, yes);
-            if report.status == "blocked" {
-                ExitCode::FAILURE
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
+        LifecycleCommand::Evidence { args } => execute_evidence(args),
+        LifecycleCommand::Status { json, state } => execute_status(json, state),
+        LifecycleCommand::Plan { json, state } => execute_plan(json, state),
+        LifecycleCommand::Gate { json, yes, state } => execute_gate(json, yes, state),
         LifecycleCommand::Promote {
             json,
             to,
             yes,
             state,
-        } => {
-            let path = state_path(state);
-            match promote(&path, to.as_deref(), yes) {
-                Ok(report) => {
-                    if json {
-                        let code = emit(&report);
-                        return if report.status == "ok" || report.status == "planned" {
-                            code
-                        } else {
-                            ExitCode::FAILURE
-                        };
-                    }
-                    print_promote_human(&report);
-                    if report.status == "ok" || report.status == "planned" {
-                        ExitCode::SUCCESS
-                    } else {
-                        ExitCode::FAILURE
-                    }
-                }
-                Err(e) => {
-                    eprintln!("{e}");
-                    ExitCode::FAILURE
-                }
-            }
-        }
-        LifecycleCommand::Report { json, state } => {
-            let path = state_path(state);
-            let report = ops_report(&path, &runner());
-            if json {
-                let code = emit(&report);
-                return if report.status == "ok" {
-                    code
-                } else {
-                    ExitCode::FAILURE
-                };
-            }
-            print_ops_human(&report);
-            if report.status == "ok" {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
-            }
-        }
-        LifecycleCommand::Repair { json, yes, state } => {
-            let path = state_path(state);
-            let r = runner();
-            let report = if yes {
-                repair_apply(&path, true, &r)
-            } else {
-                repair_plan(&path, &r)
-            };
-            if json {
-                let code = emit(&report);
-                return exit_for_repair(&report, code);
-            }
-            print_repair_human(&report, yes);
-            exit_for_repair(&report, ExitCode::SUCCESS)
-        }
-        LifecycleCommand::Apply { json, yes, state } => {
-            let path = state_path(state);
-            let report = apply_phase(&path, yes, &runner());
-            if json {
-                let code = emit(&report);
-                return exit_for_apply(&report, code);
-            }
-            print_apply_human(&report, yes);
-            exit_for_apply(&report, ExitCode::SUCCESS)
-        }
+        } => execute_promote(json, to, yes, state),
+        LifecycleCommand::Report { json, state } => execute_report(json, state),
+        LifecycleCommand::Repair { json, yes, state } => execute_repair(json, yes, state),
+        LifecycleCommand::Apply { json, yes, state } => execute_apply(json, yes, state),
+        LifecycleCommand::KernelRelease {
+            spec,
+            json,
+            yes,
+            state,
+        } => execute_kernel_release(spec, json, yes, state),
     }
 }
 
-fn exit_for_repair(report: &RepairReport, ok_code: ExitCode) -> ExitCode {
-    match report.status {
-        "ok" | "planned" => ok_code,
-        _ => ExitCode::FAILURE,
+fn lifecycle_surface_contract_smoke() {
+    struct ReportProbe {
+        status: &'static str,
     }
-}
 
-fn exit_for_apply(report: &ApplyReport, ok_code: ExitCode) -> ExitCode {
-    match report.status {
-        "ok" | "planned" => ok_code,
-        _ => ExitCode::FAILURE,
-    }
-}
-
-fn state_path(override_path: Option<String>) -> std::path::PathBuf {
-    override_path
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(default_state_path)
-}
-
-fn emit(value: &impl Serialize) -> ExitCode {
-    match serde_json::to_string_pretty(value) {
-        Ok(s) => {
-            println!("{s}");
-            ExitCode::SUCCESS
-        }
-        Err(e) => {
-            eprintln!("json: {e}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-fn print_status_human(r: &cynic_host::update_lifecycle::LifecycleStatusReport) {
-    println!("CYNIC update lifecycle");
-    println!("  state:  {}", r.state_path);
-    println!(
-        "  phase:  {}  (authority={:?})",
-        r.state.current_phase.as_str(),
-        r.policy.harness.authority
+    let report = ReportProbe { status: "blocked" };
+    let code = success_if_status_in(&report.status, &["ok", "planned"], ExitCode::SUCCESS);
+    let _ = success_if_status_in(&report.status, &["ok", "planned"], code);
+    let _ = success_if_status(&report.status, "ok", code);
+    let _emit_pretty_json: fn(&serde_json::Value) -> ExitCode = emit_pretty_json;
+    let _ = (
+        _emit_pretty_json,
+        runner,
+        state_path,
+        print_status_human,
+        print_plan_human,
+        print_gate_human,
+        print_promote_human,
+        print_ops_human,
+        print_repair_human,
+        print_apply_human,
+        print_kernel_release_human,
     );
-    println!(
-        "  next:   {}",
-        r.next_phase.unwrap_or("(production — cycle complete)")
-    );
-    println!(
-        "  gate:   last_ok={:?}  can_promote={}",
-        r.state.last_gate_ok, r.can_promote
-    );
-    if let Some(b) = &r.promote_blocked_reason {
-        println!("  blocked promote: {b}");
-    }
-    println!("\n  progression:");
-    for p in &r.progression {
-        let mark = if *p == r.state.current_phase.as_str() {
-            "*"
-        } else {
-            " "
-        };
-        println!("   {mark} {p}");
-    }
-    println!("\n  allowed mutations:");
-    for m in &r.policy.allowed_mutations {
-        println!("   · {m:?}");
-    }
-    println!("\nNext:");
-    println!("  cynic lifecycle report          # open the black box");
-    println!("  cynic lifecycle repair          # plan fixes");
-    println!("  cynic lifecycle repair --yes    # apply phase-safe fixes");
-    println!("  cynic lifecycle gate --yes");
-    println!("  cynic lifecycle plan");
-    if r.can_promote {
-        if let Some(n) = r.next_phase {
-            println!("  cynic lifecycle promote --to {n} --yes");
-        }
-    }
-    println!("  JSON: cynic lifecycle status --json");
-}
-
-fn print_plan_human(r: &cynic_host::update_lifecycle::LifecyclePlanReport) {
-    println!("CYNIC lifecycle plan  phase={}\n", r.phase);
-    for a in &r.planned_actions {
-        let tag = if a.mutates { "MUTATE" } else { "read  " };
-        let yes = if a.requires_yes { " [--yes]" } else { "" };
-        println!("  [{tag}] {}{yes}", a.command);
-        println!("          id={}", a.id);
-    }
-    println!("\nFrictionless:");
-    for h in &r.human {
-        println!("  {h}");
-    }
-}
-
-fn print_gate_human(r: &cynic_host::update_lifecycle::LifecycleGateReport, executed: bool) {
-    println!(
-        "CYNIC lifecycle gate  phase={}  status={}\n",
-        r.phase, r.status
-    );
-    if !executed {
-        println!("  (plan only — re-run with --yes to execute)\n");
-    }
-    for g in &r.results {
-        let mark = if !g.ran {
-            "·"
-        } else if g.ok {
-            "ok"
-        } else {
-            "FAIL"
-        };
-        let req = if g.required { "required" } else { "optional" };
-        println!("  [{mark}] {} ({req})  {}", g.id, g.command);
-        println!("         {}", g.detail);
-    }
-    println!("\nNext:");
-    for n in &r.next {
-        println!("  {n}");
-    }
-}
-
-fn print_promote_human(r: &cynic_host::update_lifecycle::LifecyclePromoteReport) {
-    println!("CYNIC lifecycle promote");
-    println!("  status: {}", r.status);
-    println!("  {} → {}", r.from, r.to.unwrap_or("(none)"));
-    println!("  {}", r.message);
-    if r.status == "ok" {
-        println!("\n  current phase: {}", r.state.current_phase.as_str());
-        println!("  re-gate: cynic lifecycle gate --yes");
-    }
-}
-
-fn print_ops_human(r: &OpsReport) {
-    println!("CYNIC operational report");
-    println!(
-        "  phase={}  authority={}  status={}  black_box={}",
-        r.phase, r.authority, r.status, r.black_box
-    );
-    println!(
-        "  findings: info={} warn={} error={} critical={} repairable={}",
-        r.finding_counts.info,
-        r.finding_counts.warning,
-        r.finding_counts.error,
-        r.finding_counts.critical,
-        r.finding_counts.repairable
-    );
-    println!();
-    for f in &r.findings {
-        if matches!(
-            f.severity,
-            cynic_host::update_lifecycle::FindingSeverity::Info
-        ) && f.repair_command.is_none()
-        {
-            continue; // keep human view signal-dense
-        }
-        let sev = format!("{:?}", f.severity).to_lowercase();
-        let repair = if f.phase_allows_repair {
-            f.repair_command.as_deref().unwrap_or("-")
-        } else {
-            "(not allowed in phase)"
-        };
-        println!("  [{sev}] {}  {}", f.surface, f.summary);
-        println!("         repair: {repair}");
-    }
-    println!("\nNext:");
-    for n in &r.next {
-        println!("  • {n}");
-    }
-}
-
-fn print_repair_human(r: &RepairReport, applied: bool) {
-    println!(
-        "CYNIC lifecycle repair  phase={}  status={}\n",
-        r.phase, r.status
-    );
-    println!("  {}\n", r.message);
-    if !applied {
-        println!("  (plan only — re-run with --yes)\n");
-    }
-    for a in &r.actions {
-        let tag = if a.mutates { "MUTATE" } else { "read  " };
-        println!("  [{tag}] {}", a.command);
-        println!("          id={}  {}", a.id, a.purpose);
-    }
-    if !r.results.is_empty() {
-        println!("\nResults:");
-        for res in &r.results {
-            println!(
-                "  {}  {}  {}",
-                if res.ok { "ok  " } else { "FAIL" },
-                res.id,
-                res.detail.chars().take(120).collect::<String>()
-            );
-        }
-    }
-}
-
-fn print_apply_human(r: &ApplyReport, applied: bool) {
-    println!(
-        "CYNIC lifecycle apply  phase={}  status={}\n",
-        r.phase, r.status
-    );
-    println!("  {}\n", r.message);
-    if !applied {
-        println!("  (plan only — re-run with --yes)\n");
-    }
-    for a in &r.actions {
-        let tag = if a.mutates { "MUTATE" } else { "read  " };
-        println!("  [{tag}] {}", a.command);
-    }
-    if !r.results.is_empty() {
-        println!("\nResults:");
-        for res in &r.results {
-            println!(
-                "  {}  {}  exit={:?}",
-                if res.ok { "ok  " } else { "FAIL" },
-                res.id,
-                res.exit_code
-            );
-        }
-    }
 }

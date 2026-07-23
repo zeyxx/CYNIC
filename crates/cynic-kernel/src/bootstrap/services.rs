@@ -4,7 +4,6 @@ use std::sync::Arc;
 use crate::backends;
 use crate::domain;
 use crate::infra;
-use cynic_host::runtime_registry::resolve_runtime_project_root_path;
 use cynic_inference::application::proxy_routing::ProxyTargets;
 
 pub struct RuntimeServices {
@@ -37,9 +36,7 @@ pub fn build_runtime_services(
     backend_configs: &[infra::config::BackendConfig],
     dog_thresholds: &Arc<infra::config::DogThresholds>,
 ) -> RuntimeServices {
-    let curation_dir = std::env::var("CYNIC_CURATION_DIR")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::path::PathBuf::from("cynic-python/curation"));
+    let curation_dir = selected_curation_dir();
     let domain_curations = match domain::wisdom::DomainCurations::load_from_path(&curation_dir) {
         Ok(curations) => {
             crate::klog!(
@@ -122,10 +119,9 @@ pub fn build_runtime_services(
     };
 
     let zones = {
-        match resolve_runtime_project_root_path() {
-            Some(project_root) => {
-                let zones_path = project_root.join(".claude").join("zones.json");
-                let zones_str = zones_path.display().to_string();
+        match selected_zones_path() {
+            Some(path) => {
+                let zones_str = path.display().to_string();
                 match domain::zones::ZoneConfig::from_file(&zones_str) {
                     Ok(zones) => {
                         crate::klog!("[Ring 2] Zones: loaded {} zone(s)", zones.zone_count());
@@ -139,7 +135,7 @@ pub fn build_runtime_services(
             }
             None => {
                 crate::klog!(
-                    "[Ring 2] Zones: runtime project root unresolved — zone activity disabled"
+                    "[Ring 2] Zones: no configured zone manifest — zone activity disabled"
                 );
                 Arc::new(domain::zones::ZoneConfig::default())
             }
@@ -156,4 +152,25 @@ pub fn build_runtime_services(
         mail,
         zones,
     }
+}
+
+fn selected_curation_dir() -> std::path::PathBuf {
+    std::env::var("CYNIC_CURATION_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from("/etc/cynic/curation"))
+}
+
+fn selected_zones_path() -> Option<std::path::PathBuf> {
+    std::env::var("CYNIC_ZONES_PATH")
+        .ok()
+        .map(std::path::PathBuf::from)
+        .filter(|path| path.is_file())
+        .or_else(|| {
+            let fallback = std::path::PathBuf::from("/etc/cynic/zones.json");
+            if fallback.is_file() {
+                Some(fallback)
+            } else {
+                None
+            }
+        })
 }

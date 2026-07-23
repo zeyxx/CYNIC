@@ -11,7 +11,9 @@ use http_body_util::BodyExt;
 use std::sync::Arc;
 
 use super::auth::auth_sessions;
-use super::types::{AppState, ErrorResponse, Role};
+use super::types::{
+    AppState, AuthenticatedPrincipal, AuthenticationMechanism, ErrorResponse, Role,
+};
 use crate::infra::crypto;
 
 /// Constant-time comparison to prevent timing attacks on API key.
@@ -36,6 +38,7 @@ pub async fn auth_middleware(
 ) -> Response {
     let path = request.uri().path();
     if path == "/live"
+        || path == "/identity"
         || path == "/ready"
         || path == "/openapi.json"
         || path == "/api/topology"
@@ -63,6 +66,11 @@ pub async fn auth_middleware(
         if let Some(session) = session.filter(|s| s.expires_at >= now) {
             let mut request = request;
             request.extensions_mut().insert(session.role);
+            request.extensions_mut().insert(AuthenticatedPrincipal {
+                subject: None,
+                role: session.role,
+                mechanism: AuthenticationMechanism::WalletSession,
+            });
             return next.run(request).await;
         }
 
@@ -114,6 +122,11 @@ pub async fn auth_middleware(
                 let role = Role::Cortex; // Default to Cortex for signed requests for now
                 let mut request = Request::from_parts(parts, Body::from(body_bytes));
                 request.extensions_mut().insert(role);
+                request.extensions_mut().insert(AuthenticatedPrincipal {
+                    subject: Some(format!("ed25519:{pk}")),
+                    role,
+                    mechanism: AuthenticationMechanism::Ed25519,
+                });
                 return next.run(request).await;
             }
             Err(e) => {
@@ -156,7 +169,7 @@ pub async fn auth_middleware(
             .into_response();
     };
 
-    let Some(role) = state.role_keys.resolve(&token) else {
+    let Some(principal) = state.role_keys.resolve(&token) else {
         return (
             StatusCode::UNAUTHORIZED,
             Json(ErrorResponse {
@@ -167,7 +180,7 @@ pub async fn auth_middleware(
     };
 
     // Role-based endpoint gating (kept from original)
-    match role {
+    match principal.role {
         Role::Organ => {
             let allowed = path == "/observe"
                 || path.starts_with("/coord/")
@@ -189,7 +202,8 @@ pub async fn auth_middleware(
     }
 
     let mut request = request;
-    request.extensions_mut().insert(role);
+    request.extensions_mut().insert(principal.role);
+    request.extensions_mut().insert(principal);
     next.run(request).await
 }
 
@@ -206,6 +220,7 @@ pub async fn rate_limit_middleware(
     // that organs and hooks call continuously. Rate-limiting them blocks organ
     // lifecycle (Hermes X 429 incident 2026-04-26).
     if path == "/health"
+        || path == "/identity"
         || path == "/live"
         || path == "/ready"
         || path == "/observe"
@@ -253,7 +268,7 @@ pub async fn audit_middleware(
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health" || path == "/live" || path == "/ready" {
+    if path == "/health" || path == "/identity" || path == "/live" || path == "/ready" {
         return next.run(request).await;
     }
 

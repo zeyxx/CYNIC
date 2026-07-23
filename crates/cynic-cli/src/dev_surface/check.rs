@@ -10,6 +10,7 @@ const DEFAULT_TARGET_ROOT: &str = "/tmp/cynic-dev-check-targets";
 const OUTPUT_TAIL_LIMIT: usize = 12_000;
 const CARGO_FETCH_TARGETS: &[&str] = &["index.crates.io", "crates.io", "static.crates.io"];
 const CANONICAL_GATE: &str = "make check";
+const ARCHITECTURE_BOUNDARY_GATE: &str = "cargo test -q -p cynic-cli --test architecture_boundary";
 
 #[derive(Debug, Serialize)]
 pub(crate) struct DevCheckReport {
@@ -31,6 +32,9 @@ pub(crate) struct DevCheckReport {
     pub(crate) authority_json_ok: bool,
     pub(crate) cargo_check_ok: bool,
     pub(crate) surface_audit_ok: bool,
+    pub(crate) architecture_only: bool,
+    pub(crate) architecture_boundary_ok: bool,
+    pub(crate) architecture_boundary_fallback_ok: bool,
     pub(crate) steps: Vec<DevCheckStepReport>,
 }
 
@@ -70,9 +74,31 @@ struct DevCheckStep {
     target_dir: Option<PathBuf>,
 }
 
-pub(crate) fn run_dev_check(target_root: Option<PathBuf>) -> DevCheckReport {
+enum DevCheckMode {
+    Canonical,
+    ArchitectureOnly,
+}
+
+impl DevCheckMode {
+    fn gate(&self) -> &'static str {
+        match self {
+            Self::Canonical => CANONICAL_GATE,
+            Self::ArchitectureOnly => ARCHITECTURE_BOUNDARY_GATE,
+        }
+    }
+}
+
+pub(crate) fn run_dev_check(
+    target_root: Option<PathBuf>,
+    architecture_only: bool,
+) -> DevCheckReport {
     let workspace_root = workspace_root();
     let target_root = target_root.unwrap_or_else(|| PathBuf::from(DEFAULT_TARGET_ROOT));
+    let mode = if architecture_only {
+        DevCheckMode::ArchitectureOnly
+    } else {
+        DevCheckMode::Canonical
+    };
     let cargo_fetch_preflight =
         cynic_host::runtime_network_preflight::observe_runtime_network_preflight(
             &CARGO_FETCH_TARGETS
@@ -82,7 +108,7 @@ pub(crate) fn run_dev_check(target_root: Option<PathBuf>) -> DevCheckReport {
         );
     // One living gate only — same as MCP cynic_validate and AGENTS.md.
     // Optional target_root isolates make/cargo artifacts from shared worktree target/.
-    let planned = planned_steps(&target_root);
+    let planned = planned_steps(&target_root, &mode);
     let planned_count = planned.len();
     let mut steps = Vec::with_capacity(planned_count);
     let mut failed = false;
@@ -96,18 +122,48 @@ pub(crate) fn run_dev_check(target_root: Option<PathBuf>) -> DevCheckReport {
         steps.push(report);
     }
 
+    let architecture_boundary_fallback_ok = if matches!(mode, DevCheckMode::Canonical)
+        && failed
+        && steps
+            .last()
+            .map(should_run_architecture_boundary_fallback)
+            .unwrap_or(false)
+    {
+        let fallback_report = run_step(
+            &workspace_root,
+            architecture_boundary_step(&target_root, "architecture_boundary_fallback"),
+        );
+        let ok = fallback_report.status == "ok";
+        steps.push(fallback_report);
+        ok
+    } else {
+        false
+    };
+
     let executed_count = steps.len();
-    let (authority_json_ok, cargo_check_ok, surface_audit_ok) = steps
-        .first()
-        .map(|step| {
-            infer_make_check_steps(&step.stdout_tail, &step.stderr_tail, step.status == "ok")
-        })
-        .unwrap_or((false, false, false));
+    let (authority_json_ok, cargo_check_ok, surface_audit_ok) =
+        if matches!(mode, DevCheckMode::Canonical) {
+            steps
+                .first()
+                .map(|step| {
+                    infer_make_check_steps(
+                        &step.stdout_tail,
+                        &step.stderr_tail,
+                        step.status == "ok",
+                    )
+                })
+                .unwrap_or((false, false, false))
+        } else {
+            (false, false, false)
+        };
+    let architecture_boundary_ok = steps
+        .iter()
+        .any(|step| is_architecture_boundary_step(step.id) && step.status == "ok");
 
     DevCheckReport {
         schema: SCHEMA,
         status: if failed { "blocked" } else { "ok" },
-        gate: CANONICAL_GATE,
+        gate: mode.gate(),
         generated_at_unix_ms: now_unix_ms(),
         workspace_root: workspace_root.display().to_string(),
         target_root: target_root.display().to_string(),
@@ -130,18 +186,45 @@ pub(crate) fn run_dev_check(target_root: Option<PathBuf>) -> DevCheckReport {
         authority_json_ok,
         cargo_check_ok,
         surface_audit_ok,
+        architecture_only,
+        architecture_boundary_ok,
+        architecture_boundary_fallback_ok,
         steps,
     }
 }
 
-fn planned_steps(target_root: &Path) -> Vec<DevCheckStep> {
-    vec![DevCheckStep {
-        id: "make_check",
-        program: "make",
-        args: vec!["check"],
-        // Isolate cargo artifacts for this gate invocation.
-        target_dir: Some(target_root.join("make_check")),
-    }]
+fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
+    match mode {
+        DevCheckMode::Canonical => vec![DevCheckStep {
+            id: "make_check",
+            program: "make",
+            args: vec!["check"],
+            // Isolate cargo artifacts for this gate invocation.
+            target_dir: Some(target_root.join("make_check")),
+        }],
+        DevCheckMode::ArchitectureOnly => {
+            vec![architecture_boundary_step(
+                target_root,
+                "architecture_boundary_primary",
+            )]
+        }
+    }
+}
+
+fn architecture_boundary_step(target_root: &Path, id: &'static str) -> DevCheckStep {
+    DevCheckStep {
+        id,
+        program: "scripts/cargo",
+        args: vec![
+            "test",
+            "-q",
+            "-p",
+            "cynic-cli",
+            "--test",
+            "architecture_boundary",
+        ],
+        target_dir: Some(target_root.join(id)),
+    }
 }
 
 fn run_step(workspace_root: &Path, step: DevCheckStep) -> DevCheckStepReport {
@@ -239,6 +322,19 @@ fn infer_make_check_steps(stdout: &str, stderr: &str, passed: bool) -> (bool, bo
     (authority_json_ok, cargo_check_ok, surface_audit_ok)
 }
 
+fn should_run_architecture_boundary_fallback(step: &DevCheckStepReport) -> bool {
+    step.id == "make_check"
+        && step.status == "blocked"
+        && step.failure_kind.as_deref() == Some("compiler_or_linker_artifact_corruption")
+}
+
+fn is_architecture_boundary_step(id: &str) -> bool {
+    matches!(
+        id,
+        "architecture_boundary_primary" | "architecture_boundary_fallback"
+    )
+}
+
 fn classify_failure(stderr: &[u8]) -> String {
     let stderr = String::from_utf8_lossy(stderr);
     if stderr.contains("Could not resolve host") || stderr.contains("Could not resolve hostname") {
@@ -250,6 +346,10 @@ fn classify_failure(stderr: &[u8]) -> String {
         || stderr.contains("invalid symbol index")
         || stderr.contains("internal compiler error: Segmentation fault")
         || stderr.contains("error occurred in cc-rs")
+        || stderr.contains("rustc interrupted by SIGSEGV")
+        || stderr.contains("ld terminated with signal 11")
+        || stderr.contains("rust-lld")
+        || stderr.contains("libLLVM")
     {
         "compiler_or_linker_artifact_corruption".to_string()
     } else if stderr.contains("no matching package") || stderr.contains("not found in registry") {
@@ -265,18 +365,19 @@ fn tail_lossy(bytes: &[u8]) -> String {
 }
 
 fn workspace_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    manifest
         .parent()
         .and_then(Path::parent)
-        .expect("cynic-cli must live under crates/cynic-cli")
+        .unwrap_or_else(|| manifest.parent().unwrap_or_else(|| Path::new(".")))
         .to_path_buf()
 }
 
 fn now_unix_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("system time must be after unix epoch")
-        .as_millis()
+        .map(|instant| instant.as_millis())
+        .unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -285,11 +386,36 @@ mod tests {
 
     #[test]
     fn planned_steps_are_single_make_check_gate() {
-        let steps = planned_steps(Path::new("/tmp/cynic-dev-check-targets"));
+        let steps = planned_steps(
+            Path::new("/tmp/cynic-dev-check-targets"),
+            &DevCheckMode::Canonical,
+        );
         assert_eq!(steps.len(), 1);
         assert_eq!(steps[0].id, "make_check");
         assert_eq!(steps[0].program, "make");
         assert_eq!(steps[0].args, vec!["check"]);
+    }
+
+    #[test]
+    fn architecture_only_mode_plans_single_architecture_gate() {
+        let steps = planned_steps(
+            Path::new("/tmp/cynic-dev-check-targets"),
+            &DevCheckMode::ArchitectureOnly,
+        );
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0].id, "architecture_boundary_primary");
+        assert_eq!(steps[0].program, "scripts/cargo");
+        assert_eq!(
+            steps[0].args,
+            vec![
+                "test",
+                "-q",
+                "-p",
+                "cynic-cli",
+                "--test",
+                "architecture_boundary"
+            ]
+        );
     }
 
     #[test]
@@ -302,5 +428,62 @@ mod tests {
         assert!(!a);
         assert!(!c);
         assert!(!s);
+    }
+
+    #[test]
+    fn architecture_boundary_fallback_step_uses_isolated_target() {
+        let step = architecture_boundary_step(
+            Path::new("/tmp/cynic-dev-check-targets"),
+            "architecture_boundary_fallback",
+        );
+        assert_eq!(step.id, "architecture_boundary_fallback");
+        assert_eq!(step.program, "scripts/cargo");
+        assert_eq!(
+            step.args,
+            vec![
+                "test",
+                "-q",
+                "-p",
+                "cynic-cli",
+                "--test",
+                "architecture_boundary"
+            ]
+        );
+        assert_eq!(
+            step.target_dir,
+            Some(PathBuf::from(
+                "/tmp/cynic-dev-check-targets/architecture_boundary_fallback"
+            ))
+        );
+    }
+
+    #[test]
+    fn linker_crash_runs_architecture_boundary_fallback() {
+        let step = DevCheckStepReport {
+            id: "make_check",
+            status: "blocked",
+            command: vec!["make".to_string(), "check".to_string()],
+            env: vec![],
+            cwd: ".".to_string(),
+            target_dir: Some("/tmp/cynic-dev-check-targets/make_check".to_string()),
+            exit_code: Some(101),
+            duration_ms: 1,
+            stdout_tail: String::new(),
+            stderr_tail: "rustc interrupted by SIGSEGV".to_string(),
+            failure_kind: Some("compiler_or_linker_artifact_corruption".to_string()),
+        };
+        assert!(should_run_architecture_boundary_fallback(&step));
+    }
+
+    #[test]
+    fn classify_failure_recognizes_rustc_and_linker_sigsegv() {
+        assert_eq!(
+            classify_failure(b"rustc interrupted by SIGSEGV"),
+            "compiler_or_linker_artifact_corruption"
+        );
+        assert_eq!(
+            classify_failure(b"collect2: fatal error: ld terminated with signal 11"),
+            "compiler_or_linker_artifact_corruption"
+        );
     }
 }

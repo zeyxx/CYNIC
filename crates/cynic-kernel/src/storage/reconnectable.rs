@@ -411,11 +411,12 @@ impl TaskStorage for ReconnectableStorage {
     async fn update_agent_task_result(
         &self,
         task_id: &str,
+        agent_id: &str,
         result: Option<String>,
         error: Option<String>,
-    ) -> Result<(), StorageError> {
+    ) -> Result<bool, StorageError> {
         self.current()
-            .update_agent_task_result(task_id, result, error)
+            .update_agent_task_result(task_id, agent_id, result, error)
             .await
     }
     async fn claim_agent_task(&self, task_id: &str, agent_id: &str) -> Result<bool, StorageError> {
@@ -694,8 +695,24 @@ impl CoordPort for ReconnectableCoord {
     ) -> Result<ClaimResult, CoordError> {
         self.current().claim(agent_id, target, claim_type).await
     }
-    async fn release(&self, agent_id: &str, target: Option<&str>) -> Result<String, CoordError> {
-        self.current().release(agent_id, target).await
+    async fn renew_lease(
+        &self,
+        guard: &crate::domain::coord::LeaseGuard,
+    ) -> Result<crate::domain::coord::LeaseMutationResult, CoordError> {
+        self.current().renew_lease(guard).await
+    }
+    async fn release(
+        &self,
+        guard: &crate::domain::coord::LeaseGuard,
+    ) -> Result<crate::domain::coord::LeaseMutationResult, CoordError> {
+        self.current().release(guard).await
+    }
+    async fn finalize_lease(
+        &self,
+        guard: &crate::domain::coord::LeaseGuard,
+        proof: &crate::domain::lease_proof::ValidatedLeaseProof,
+    ) -> Result<crate::domain::coord::LeaseMutationResult, CoordError> {
+        self.current().finalize_lease(guard, proof).await
     }
     async fn who(&self, agent_id_filter: Option<&str>) -> Result<CoordSnapshot, CoordError> {
         self.current().who(agent_id_filter).await

@@ -59,13 +59,20 @@ impl ProxyTargets {
         self.targets.keys().cloned().collect()
     }
 
+    pub fn entries(&self) -> Vec<(String, ProxyTarget)> {
+        self.targets
+            .iter()
+            .map(|(backend_id, target)| (backend_id.clone(), target.clone()))
+            .collect()
+    }
+
     pub fn select(
         &self,
         requested_backend: Option<&str>,
         requested_model: Option<&str>,
         requires_tools: bool,
     ) -> Result<SelectedProxyTarget, ProxyTargetSelectionError> {
-        if let Some(requested) = requested_backend.or(requested_model) {
+        if let Some(requested) = requested_backend {
             return self
                 .targets
                 .get(requested)
@@ -73,6 +80,22 @@ impl ProxyTargets {
                 .map(|target| SelectedProxyTarget {
                     backend_id: requested.to_string(),
                     target,
+                })
+                .ok_or_else(|| ProxyTargetSelectionError::BackendNotFound {
+                    requested: requested.to_string(),
+                    available: self.available(),
+                });
+        }
+
+        if let Some(requested) = requested_model {
+            let requested_model = requested.to_ascii_lowercase();
+            return self
+                .targets
+                .iter()
+                .find(|(_, target)| target.model_name.eq_ignore_ascii_case(&requested_model))
+                .map(|(backend_id, target)| SelectedProxyTarget {
+                    backend_id: backend_id.clone(),
+                    target: target.clone(),
                 })
                 .ok_or_else(|| ProxyTargetSelectionError::BackendNotFound {
                     requested: requested.to_string(),
@@ -180,6 +203,31 @@ mod tests {
         let selected = targets.select(None, None, false).unwrap();
 
         assert_eq!(selected.backend_id, "a-dog");
+    }
+
+    #[test]
+    fn proxy_targets_select_by_model_name_when_requested() {
+        let mut fleet = HashMap::new();
+        fleet.insert(
+            "qwen-a".to_string(),
+            fleet_entry("http://a:8080/v1", "Qwen2.5-7B-Instruct", false),
+        );
+        fleet.insert(
+            "llama-b".to_string(),
+            fleet_entry("http://b:8080/v1", "llama3", false),
+        );
+
+        let mut sovereign = HashMap::new();
+        sovereign.insert("qwen-a".to_string(), true);
+        sovereign.insert("llama-b".to_string(), true);
+
+        let targets = ProxyTargets::from_fleet_meta(&fleet, &sovereign);
+        let selected = targets
+            .select(None, Some("qwen2.5-7b-instruct"), false)
+            .unwrap();
+
+        assert_eq!(selected.backend_id, "qwen-a");
+        assert_eq!(selected.target.model_name, "Qwen2.5-7B-Instruct");
     }
 
     #[test]

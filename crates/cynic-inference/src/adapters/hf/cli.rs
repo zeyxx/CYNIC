@@ -180,7 +180,7 @@ impl HfHubPort for HfCliAdapter {
             repo_id: req.repo_id.clone(),
             local_dir,
             argv: std::iter::once(self.bin.display().to_string())
-                .chain(argv.into_iter())
+                .chain(argv.iter().cloned())
                 .collect(),
             stdout_tail: Self::tail(&stdout, 2000),
             stderr_tail: Self::tail(&stderr, 2000),
@@ -204,11 +204,11 @@ impl HfHubPort for HfCliAdapter {
             "--limit".into(),
             req.limit.max(1).to_string(),
         ];
-        if let Some(q) = &req.query {
-            if !q.is_empty() {
-                args.push("--search".into());
-                args.push(q.clone());
-            }
+        if let Some(q) = &req.query
+            && !q.is_empty()
+        {
+            args.push("--search".into());
+            args.push(q.clone());
         }
         if let Some(a) = &req.author {
             args.push("--author".into());
@@ -281,19 +281,16 @@ impl HfHubPort for HfCliAdapter {
         // Output may be array of file objects or lines
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(&stdout) {
             let mut files = Vec::new();
-            match val {
-                serde_json::Value::Array(arr) => {
-                    for item in arr {
-                        if let Some(p) = item.get("path").and_then(|x| x.as_str()) {
-                            files.push(p.to_string());
-                        } else if let Some(p) = item.get("rfilename").and_then(|x| x.as_str()) {
-                            files.push(p.to_string());
-                        } else if let Some(s) = item.as_str() {
-                            files.push(s.to_string());
-                        }
+            if let serde_json::Value::Array(arr) = val {
+                for item in arr {
+                    if let Some(p) = item.get("path").and_then(|x| x.as_str()) {
+                        files.push(p.to_string());
+                    } else if let Some(p) = item.get("rfilename").and_then(|x| x.as_str()) {
+                        files.push(p.to_string());
+                    } else if let Some(s) = item.as_str() {
+                        files.push(s.to_string());
                     }
                 }
-                _ => {}
             }
             if !files.is_empty() {
                 return Ok(files);

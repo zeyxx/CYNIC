@@ -2,17 +2,45 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
 use crate::domain::services::openrc_service_name;
+use crate::execution::AdmittedHostOperation;
 use crate::ports::{HostCommandResult, HostCommandRunnerPort, HostOperation};
 use crate::process_observation::capture_command;
 use crate::runtime_layout::current_runtime_layout;
+
+use super::principal_manager::{ensure_owned_dir, ensure_system_group, ensure_system_user};
+use super::privilege_projection::{install_owned_file, validate_projection};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalHostCommandRunner;
 
 impl HostCommandRunnerPort for LocalHostCommandRunner {
-    fn run_operation(&self, operation: &HostOperation) -> HostCommandResult {
+    fn run_operation(&self, admitted: &AdmittedHostOperation) -> HostCommandResult {
+        let operation = admitted.operation();
         let capabilities = current_runtime_layout().capabilities();
         match operation {
+            HostOperation::EnsureSystemGroup { group } => ensure_system_group(group),
+            HostOperation::EnsureSystemUser {
+                user,
+                group,
+                home,
+                shell,
+            } => ensure_system_user(user, group, home, shell),
+            HostOperation::EnsureOwnedDir {
+                path,
+                user,
+                group,
+                mode,
+            } => ensure_owned_dir(path, user, group, *mode),
+            HostOperation::InstallOwnedFile {
+                source,
+                target,
+                user,
+                group,
+                mode,
+            } => install_owned_file(source, target, user, group, *mode),
+            HostOperation::ValidatePrivilegeProjection { provider, path } => {
+                validate_projection(provider, path)
+            }
             HostOperation::EnsureDir { path, mode } => ensure_dir(path, *mode),
             HostOperation::WritePackageSourceProjection {
                 path,
@@ -201,7 +229,7 @@ fn install_bootstrap_packages(
     }
 }
 
-fn run_command(command: &str, args: &[&str]) -> HostCommandResult {
+pub(super) fn run_command(command: &str, args: &[&str]) -> HostCommandResult {
     match capture_command(command, args) {
         Ok(output) => HostCommandResult {
             command: format!("{command} {}", args.join(" ")).trim().to_string(),

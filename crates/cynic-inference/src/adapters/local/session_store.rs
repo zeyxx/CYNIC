@@ -20,7 +20,8 @@ pub struct FsChatSessionStore {
 impl FsChatSessionStore {
     pub fn new(root: impl Into<PathBuf>) -> Result<Self, SessionStoreError> {
         let root = root.into();
-        fs::create_dir_all(root.join("sessions")).map_err(|e| SessionStoreError::Io(e.to_string()))?;
+        fs::create_dir_all(root.join("sessions"))
+            .map_err(|e| SessionStoreError::Io(e.to_string()))?;
         let store = Self { root };
         if !store.index_path().exists() {
             store.write_index(&[])?;
@@ -69,7 +70,7 @@ impl FsChatSessionStore {
         } else {
             sessions.push(meta.clone());
         }
-        sessions.sort_by(|a, b| b.updated_at_unix_ms.cmp(&a.updated_at_unix_ms));
+        sessions.sort_by_key(|a| std::cmp::Reverse(a.updated_at_unix_ms));
         self.write_index(&sessions)
     }
 }
@@ -145,9 +146,8 @@ impl ChatSessionStore for FsChatSessionStore {
             if line.is_empty() {
                 continue;
             }
-            let e: ChatEvent = serde_json::from_str(line).map_err(|e| {
-                SessionStoreError::Protocol(format!("line {}: {e}", i + 1))
-            })?;
+            let e: ChatEvent = serde_json::from_str(line)
+                .map_err(|e| SessionStoreError::Protocol(format!("line {}: {e}", i + 1)))?;
             events.push(e);
         }
         Ok(events)
@@ -184,7 +184,12 @@ mod tests {
         let dir = tempdir().unwrap();
         let store = FsChatSessionStore::new(dir.path()).unwrap();
         let meta = store
-            .create_session("sess-1", Some("test"), Some("mock-model"), Some("http://local"))
+            .create_session(
+                "sess-1",
+                Some("test"),
+                Some("mock-model"),
+                Some("http://local"),
+            )
             .unwrap();
         assert_eq!(meta.id, "sess-1");
         assert_eq!(meta.event_count, 0);
@@ -214,7 +219,10 @@ mod tests {
 
         let events = store.load_events("sess-1").unwrap();
         assert_eq!(events.len(), 4);
-        assert_eq!(events[0].kind, crate::domain::chat_session::ChatEventKind::User);
+        assert_eq!(
+            events[0].kind,
+            crate::domain::chat_session::ChatEventKind::User
+        );
         assert_eq!(
             events[1].kind,
             crate::domain::chat_session::ChatEventKind::ToolCall

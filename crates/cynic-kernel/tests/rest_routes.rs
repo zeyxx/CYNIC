@@ -12,6 +12,7 @@ use tower::ServiceExt;
 use cynic_kernel::api::rest::{self, AppState, PerIpRateLimiter, StorageInfo};
 
 use cynic_inference::embedding::NullEmbedding;
+use cynic_inference::{SlotSemaphoreMap, SlotTracker};
 use cynic_kernel::domain::coord::NullCoord;
 use cynic_kernel::domain::metrics::Metrics;
 use cynic_kernel::domain::storage::NullStorage;
@@ -20,6 +21,41 @@ use cynic_kernel::domain::verdict_cache::VerdictCache;
 use cynic_kernel::infra::task_health::TaskHealth;
 
 fn test_state(api_key: Option<&str>) -> Arc<AppState> {
+    test_state_with_role_keys(
+        api_key,
+        cynic_kernel::api::rest::types::RoleKeyMap {
+            cortex: None,
+            organ: None,
+            internal: None,
+            legacy: api_key.map(|s| s.to_string()),
+            agent_bindings: Vec::new(),
+        },
+    )
+}
+
+fn test_agent_state(agent_id: &str, api_key: &str) -> Arc<AppState> {
+    let binding = cynic_kernel::api::rest::types::AgentCredentialBinding::new(
+        agent_id.to_string(),
+        cynic_kernel::api::rest::types::Role::Cortex,
+        api_key.to_string(),
+    )
+    .expect("valid test agent credential");
+    test_state_with_role_keys(
+        Some(api_key),
+        cynic_kernel::api::rest::types::RoleKeyMap {
+            cortex: None,
+            organ: None,
+            internal: None,
+            legacy: None,
+            agent_bindings: vec![binding],
+        },
+    )
+}
+
+fn test_state_with_role_keys(
+    api_key: Option<&str>,
+    role_keys: cynic_kernel::api::rest::types::RoleKeyMap,
+) -> Arc<AppState> {
     Arc::new(AppState {
         registered_services: Default::default(),
         storage: Arc::new(NullStorage),
@@ -30,12 +66,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         task_health: Arc::new(TaskHealth::new()),
         metrics: Arc::new(Metrics::new()),
         api_key: api_key.map(|s| s.to_string()),
-        role_keys: cynic_kernel::api::rest::types::RoleKeyMap {
-            cortex: None,
-            organ: None,
-            internal: None,
-            legacy: api_key.map(|s| s.to_string()),
-        },
+        role_keys,
         storage_info: StorageInfo {
             namespace: "test".into(),
             database: "test".into(),
@@ -69,10 +100,8 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         dog_perf_collector: std::sync::Arc::new(
             cynic_kernel::infra::dog_performance::DogPerformanceCollector::new(),
         ),
-        slot_tracker: std::sync::Arc::new(cynic_kernel::domain::slot_tracker::SlotTracker::new()),
-        slot_semaphores: std::sync::Arc::new(
-            cynic_kernel::domain::slot_semaphore::SlotSemaphoreMap::new(),
-        ),
+        slot_tracker: std::sync::Arc::new(SlotTracker::new()),
+        slot_semaphores: std::sync::Arc::new(SlotSemaphoreMap::new()),
         proxy_targets: std::sync::Arc::new(
             cynic_inference::application::proxy_routing::ProxyTargets::from_fleet_meta(
                 &std::collections::HashMap::new(),
@@ -131,7 +160,7 @@ async fn api_topology_contract_is_publicly_discoverable() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     let v = body_json(resp.into_body()).await;
-    assert_eq!(v["schema"], "cynic.api_topology.v1");
+    assert_eq!(v["schema"], "cynic.api_topology.v1.minimal");
 }
 
 #[tokio::test]
@@ -149,7 +178,7 @@ async fn api_layer_alignment_contract_is_publicly_discoverable() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     let v = body_json(resp.into_body()).await;
-    assert_eq!(v["schema"], "cynic.api_layer_alignment.v1");
+    assert_eq!(v["schema"], "cynic.api_layer_alignment.v1.minimal");
 }
 
 // ── /health ─────────────────────────────────────────────────
@@ -644,6 +673,9 @@ fn claim_entry_json_shape() {
         claim_type: "file".into(),
         active: true,
         claimed_at: "2026-03-23T00:00:00Z".into(),
+        lease_id: "lease-1".into(),
+        fencing_token: 1,
+        expires_at: "2026-03-23T00:05:00Z".into(),
     };
     let v: serde_json::Value = serde_json::to_value(&claim).unwrap();
     for field in [
@@ -653,6 +685,9 @@ fn claim_entry_json_shape() {
         "claim_type",
         "active",
         "claimed_at",
+        "lease_id",
+        "fencing_token",
+        "expires_at",
     ] {
         assert!(
             v.get(field).is_some(),
@@ -755,11 +790,11 @@ async fn ready_cache_returns_cached_value_within_ttl() {
 
 #[tokio::test]
 async fn coord_register_rejects_oversized_intent() {
-    let state = test_state(Some("key"));
+    let state = test_agent_state("test-agent", "key");
     let app = rest::router(state);
 
     let long_intent: String = "x".repeat(501);
-    let body = serde_json::json!({"agent_id": "test", "intent": long_intent});
+    let body = serde_json::json!({"agent_id": "test-agent", "intent": long_intent});
     let resp = app
         .oneshot(
             axum::http::Request::builder()
@@ -782,7 +817,7 @@ async fn coord_register_rejects_oversized_intent() {
 
 #[tokio::test]
 async fn coord_register_accepts_valid_intent() {
-    let state = test_state(Some("key"));
+    let state = test_agent_state("test-agent", "key");
     let app = rest::router(state);
 
     let body = serde_json::json!({"agent_id": "test-agent", "intent": "implementing feature X"});
@@ -823,6 +858,7 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
             organ: None,
             internal: None,
             legacy: Some("sse-test-key".to_string()),
+            agent_bindings: Vec::new(),
         },
         storage_info: StorageInfo {
             namespace: "test".into(),
@@ -857,10 +893,8 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         dog_perf_collector: std::sync::Arc::new(
             cynic_kernel::infra::dog_performance::DogPerformanceCollector::new(),
         ),
-        slot_tracker: std::sync::Arc::new(cynic_kernel::domain::slot_tracker::SlotTracker::new()),
-        slot_semaphores: std::sync::Arc::new(
-            cynic_kernel::domain::slot_semaphore::SlotSemaphoreMap::new(),
-        ),
+        slot_tracker: std::sync::Arc::new(SlotTracker::new()),
+        slot_semaphores: std::sync::Arc::new(SlotSemaphoreMap::new()),
         proxy_targets: std::sync::Arc::new(
             cynic_inference::application::proxy_routing::ProxyTargets::from_fleet_meta(
                 &std::collections::HashMap::new(),
@@ -1396,6 +1430,7 @@ async fn coord_upgrade_rejects_empty_payload() {
             axum::http::Request::builder()
                 .method("POST")
                 .uri("/lifecycle/upgrade")
+                .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),
@@ -1431,6 +1466,7 @@ async fn lifecycle_upgrade_alias_rejects_empty_payload() {
             axum::http::Request::builder()
                 .method("POST")
                 .uri("/lifecycle/upgrade")
+                .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),

@@ -353,10 +353,11 @@ impl TaskStorage for NullStorage {
     async fn update_agent_task_result(
         &self,
         _task_id: &str,
+        _agent_id: &str,
         _result: Option<String>,
         _error: Option<String>,
-    ) -> Result<(), StorageError> {
-        Ok(())
+    ) -> Result<bool, StorageError> {
+        Ok(false)
     }
 }
 

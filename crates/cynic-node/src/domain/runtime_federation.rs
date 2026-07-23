@@ -29,8 +29,20 @@ pub fn kernel_websocket_url(kernel_http_url: &str) -> String {
 }
 
 pub fn default_queue_dir(home: Option<PathBuf>) -> PathBuf {
-    home.map(|path| path.join(".cynic/node"))
-        .unwrap_or_else(|| PathBuf::from(".cynic/node"))
+    if std::env::var("CYNIC_ALLOW_LOCAL_DEV_BUILD").is_ok() {
+        return home
+            .map(|path| path.join(".cynic/node"))
+            .unwrap_or_else(|| PathBuf::from("/tmp/cynic/node"));
+    }
+
+    if let Ok(state_root) = std::env::var("CYNIC_STATE_ROOT") {
+        return PathBuf::from(state_root).join("node");
+    }
+
+    match home {
+        Some(path) if !path.starts_with("/home/") => path.join("node"),
+        _ => PathBuf::from("/var/lib/cynic/node"),
+    }
 }
 
 pub fn deterministic_fallback_verdict(stimulus_id: &str, now_secs: i64) -> FallbackVerdict {
@@ -76,11 +88,23 @@ mod tests {
 
     #[test]
     fn queue_dir_is_derived_without_reading_environment() {
+        let local_mode = std::env::var("CYNIC_ALLOW_LOCAL_DEV_BUILD")
+            .is_ok_and(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"));
+        let expected = if local_mode {
+            PathBuf::from("/tmp/home/.cynic/node")
+        } else {
+            PathBuf::from("/tmp/home/node")
+        };
         assert_eq!(
             default_queue_dir(Some(PathBuf::from("/tmp/home"))),
-            PathBuf::from("/tmp/home/.cynic/node")
+            expected
         );
-        assert_eq!(default_queue_dir(None), PathBuf::from(".cynic/node"));
+        let expected_default = if local_mode {
+            PathBuf::from("/tmp/cynic/node")
+        } else {
+            PathBuf::from("/var/lib/cynic/node")
+        };
+        assert_eq!(default_queue_dir(None), expected_default);
     }
 
     #[test]

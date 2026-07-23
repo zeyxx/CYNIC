@@ -34,6 +34,48 @@ make run-kernel
 make run-node
 make run-mcp
 make systemd-list
+make install-cli
+make audit-runtime-phases
+```
+
+Recommended operator loop after CLI edits:
+
+```bash
+make operator-loop
+```
+
+Equivalent manual loop:
+
+```bash
+make install-cli
+make check-installed-runtime
+make audit-runtime-phases
+make audit-surface-matrix
+```
+
+For explicit root refresh without touching the source discovery path:
+
+```bash
+make install-cli-system-refresh
+```
+
+Or force a custom artifact path directly:
+
+```bash
+CYNIC_CLI_INSTALL_SOURCE=target/debug/cynic make install-cli-system-refresh
+```
+
+`make install-cli` is idempotent:
+- it updates only when the compiled artifact changes,
+- it avoids a no-op failure when source and target are already the same file,
+- and in non-writable hosts it avoids blind repeated root actions: choose an explicit writable `CLI_USER_TARGET`, or set `CYNIC_CLI_AUTO_SYSTEM=1` to route a controlled root install.
+
+If you must run `cynic bootstrap framework install-cli` manually outside the repo root,
+set `CYNIC_STANDALONE_CLI_SOURCE` (or `CYNIC_CLI_ARTIFACT`) to the built binary path and set
+`--target` explicitly when you intentionally want to reinstall over the installed artifact path.
+
+```bash
+CYNIC_STANDALONE_CLI_SOURCE=target/debug/cynic sudo cynic bootstrap framework install-cli --json --apply
 ```
 
 Cargo execution is repo-scoped. The workspace uses `scripts/cargo`, a repo-local

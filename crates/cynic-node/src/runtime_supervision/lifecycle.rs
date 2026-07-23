@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::time::Duration;
 
 use process_wrap::tokio::ChildWrapper;
@@ -254,7 +255,10 @@ async fn register_with_kernel(
                                 tokio::time::sleep(Duration::from_secs(5)).await;
                             }
                             announce::HeartbeatResult::Error(e) => {
-                                tracing::warn!("heartbeat fallback failed: {e} - retrying registration");
+                                tracing::warn!(
+                                    error = %e,
+                                    "heartbeat fallback failed - retrying registration"
+                                );
                                 tokio::time::sleep(Duration::from_secs(5)).await;
                             }
                         }

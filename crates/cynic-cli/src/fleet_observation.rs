@@ -10,7 +10,7 @@ pub(crate) struct ObservationInputs<'a> {
 }
 
 pub(crate) fn load_observed_resources(
-    inputs: ObservationInputs<'_>,
+    inputs: &ObservationInputs<'_>,
 ) -> Result<Vec<ObservedResource>, String> {
     let mut resources = Vec::new();
 
@@ -192,6 +192,7 @@ fn parse_watchdog_json(path: &Path) -> Result<Vec<ObservedResource>, String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::{ObservationInputs, load_observed_resources};
     use std::fs;
@@ -207,7 +208,7 @@ mod tests {
         )
         .unwrap();
 
-        let resources = load_observed_resources(ObservationInputs {
+        let resources = load_observed_resources(&ObservationInputs {
             proxmox_json: Some(path.to_str().unwrap()),
             proxmox_list_text: None,
             watchdog_json: None,
@@ -231,7 +232,7 @@ mod tests {
         )
         .unwrap();
 
-        let resources = load_observed_resources(ObservationInputs {
+        let resources = load_observed_resources(&ObservationInputs {
             proxmox_json: None,
             proxmox_list_text: None,
             watchdog_json: Some(path.to_str().unwrap()),

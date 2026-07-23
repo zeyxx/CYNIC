@@ -14,6 +14,7 @@ mod policy;
 #[cfg(kani)]
 mod policy_verification;
 mod profile_execution;
+mod target_transaction;
 
 use command_plan::{
     dns_install, firewall_preflight, post_apply_observation, preflight, rollback_conditions,
@@ -21,7 +22,11 @@ use command_plan::{
 };
 use context::NetworkMeshApplyPlanContext;
 use policy::{MeshActuatorPolicyProjection, mesh_actuator_policy};
-use profile_execution::{NetworkMeshApplyProfileReport, apply_network_mesh_profile_from_plan};
+pub(crate) use profile_execution::NetworkMeshApplyProfileReport;
+use profile_execution::apply_network_mesh_profile_from_plan;
+pub(crate) use target_transaction::{
+    apply_network_mesh_target_transaction_with_runner, target_transaction_argv,
+};
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct NetworkMeshApplyPlanReport {
@@ -140,15 +145,139 @@ pub(crate) fn apply_network_mesh_profile(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::network_execution::NetworkExecutionBoundary;
     use crate::domain::network_mesh_apply::{
-        MeshApplyBundle, MeshBundleManifest, MeshPlanFile, MeshPlanRouteFile,
+        MeshApplyBundle, MeshBundleManifest, MeshPlanFile, MeshPlanPeerFile, MeshPlanRouteFile,
     };
+    use crate::network_actuator::CommandExecution;
     use crate::network_command_surface::NetworkCommandInvocation;
     use crate::network_mesh_apply_plan::command_plan::MeshApplyRuntimeContext;
+    use crate::network_mesh_apply_plan::profile_execution::apply_network_mesh_profile_from_plan_with_runner;
+    use crate::network_mesh_apply_plan::target_transaction::{
+        apply_network_mesh_target_transaction_with_runner, target_transaction_argv,
+    };
     use crate::network_mesh_bundle::build_network_mesh_bundle;
+    use crate::ports::network_command_runner_port::NetworkCommandRunnerPort;
+    use cynic_host::runtime_harness::{
+        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
+        RuntimeHarnessTargetAttestation, closed_local_lab_context,
+    };
+    use std::cell::Cell;
+    use std::collections::VecDeque;
     use std::path::Path;
+    use std::sync::Mutex;
 
     struct FakeBundleReader;
+
+    struct FakeIsolatedNetworkRunner {
+        calls: Cell<usize>,
+        attestation: RuntimeHarnessTargetAttestation,
+        exit_code: i32,
+    }
+
+    struct ScriptedIsolatedNetworkRunner {
+        calls: Mutex<Vec<String>>,
+        outcomes: Mutex<VecDeque<(Option<i32>, String)>>,
+        attestation: RuntimeHarnessTargetAttestation,
+    }
+
+    impl NetworkCommandRunnerPort for FakeIsolatedNetworkRunner {
+        fn execution_boundary(&self) -> NetworkExecutionBoundary {
+            NetworkExecutionBoundary::IsolatedHarnessTarget
+        }
+
+        fn target_attestation(&self) -> Option<&RuntimeHarnessTargetAttestation> {
+            Some(&self.attestation)
+        }
+
+        fn run_command(
+            &self,
+            command: &crate::network_command_surface::NetworkCommandSurface,
+        ) -> CommandExecution {
+            self.calls.set(self.calls.get() + 1);
+            let argv = match &command.invocation {
+                NetworkCommandInvocation::Argv { argv } => argv.clone(),
+                _ => Vec::new(),
+            };
+            CommandExecution {
+                role: command.role.clone(),
+                argv,
+                exit_code: Some(self.exit_code),
+                stdout: String::new(),
+                stderr: String::new(),
+            }
+        }
+    }
+
+    impl NetworkCommandRunnerPort for ScriptedIsolatedNetworkRunner {
+        fn execution_boundary(&self) -> NetworkExecutionBoundary {
+            NetworkExecutionBoundary::IsolatedHarnessTarget
+        }
+
+        fn target_attestation(&self) -> Option<&RuntimeHarnessTargetAttestation> {
+            Some(&self.attestation)
+        }
+
+        fn run_command(
+            &self,
+            command: &crate::network_command_surface::NetworkCommandSurface,
+        ) -> CommandExecution {
+            self.calls.lock().expect("calls").push(command.role.clone());
+            let (exit_code, stdout) = self
+                .outcomes
+                .lock()
+                .expect("outcomes")
+                .pop_front()
+                .expect("scripted outcome");
+            let argv = match &command.invocation {
+                NetworkCommandInvocation::Argv { argv } => argv.clone(),
+                _ => Vec::new(),
+            };
+            CommandExecution {
+                role: command.role.clone(),
+                argv,
+                exit_code,
+                stdout,
+                stderr: String::new(),
+            }
+        }
+    }
+
+    fn scripted_runner(
+        outcomes: impl IntoIterator<Item = (Option<i32>, &'static str)>,
+    ) -> ScriptedIsolatedNetworkRunner {
+        ScriptedIsolatedNetworkRunner {
+            calls: Mutex::new(Vec::new()),
+            outcomes: Mutex::new(
+                outcomes
+                    .into_iter()
+                    .map(|(exit_code, stdout)| (exit_code, stdout.to_string()))
+                    .collect(),
+            ),
+            attestation: attested_lab_target(),
+        }
+    }
+
+    fn attested_lab_target() -> RuntimeHarnessTargetAttestation {
+        let context = closed_local_lab_context();
+        RuntimeHarnessTargetAttestation {
+            schema: RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA.to_string(),
+            harness_kind: RuntimeHarnessKind::ClosedLocalLab,
+            observed_at_unix_ms: 1,
+            expires_at_unix_ms: u64::MAX,
+            target_id: "lab-kernel".to_string(),
+            provider: "qemu-libvirt".to_string(),
+            transport: "ssh".to_string(),
+            transport_target: "cynic@172.30.41.10".to_string(),
+            declared_isolation_boundary: context.isolation_boundary.to_string(),
+            observed_target_boundary: "libvirt-network:cynic-lab-isolated".to_string(),
+            target_identity_verified: true,
+            transport_verified: true,
+            isolated_network_verified: true,
+            operator_host_network_unchanged: true,
+            proof_refs: vec!["runtime-proof://lab/target/lab-kernel".to_string()],
+        }
+    }
 
     impl NetworkMeshBundlePort for FakeBundleReader {
         fn load_mesh_bundle(
@@ -158,15 +287,19 @@ mod tests {
             Ok(MeshApplyBundle {
                 manifest: MeshBundleManifest {
                     schema: "cynic.network_mesh_bundle.v1".to_string(),
-                    status: "ready".to_string(),
+                    status: "planned".to_string(),
                     provider: "static".to_string(),
                     bundle_files: Vec::new(),
                 },
                 plan: MeshPlanFile {
+                    schema: "cynic.network_mesh_plan.v1".to_string(),
+                    status: "planned".to_string(),
                     provider: "static".to_string(),
                     cidr: Some("10.10.10.0/24".to_string()),
                     desired_peer_count: 1,
-                    desired_peers: Vec::new(),
+                    desired_peers: vec![MeshPlanPeerFile {
+                        id: "node-a".to_string(),
+                    }],
                     routes: vec![MeshPlanRouteFile {
                         destination: "10.10.10.0/24".to_string(),
                         via_peer: "node-a".to_string(),
@@ -266,6 +399,306 @@ mod tests {
                 .iter()
                 .any(|item| item.code == "closed_environment_required")
         );
+    }
+
+    #[test]
+    fn closed_environment_flag_alone_never_executes_local_network_mutation() {
+        let plan = build_network_mesh_apply_plan_with_reader_and_context(
+            "/virtual/bundle",
+            &FakeBundleReader,
+            NetworkMeshApplyPlanContext {
+                runtime: MeshApplyRuntimeContext {
+                    mesh_interface: "cynic-mesh0".to_string(),
+                    ip_bin: "/portable/bin/ip".to_string(),
+                    wg_bin: "/portable/bin/wg".to_string(),
+                    getent_bin: "/portable/bin/getent".to_string(),
+                },
+            },
+        )
+        .expect("apply plan");
+
+        let report = apply_network_mesh_profile_from_plan(
+            "/virtual/bundle",
+            "mesh-route-install",
+            true,
+            true,
+            plan,
+        );
+
+        assert_eq!(report.status, "refused");
+        assert!(report.executions.is_empty());
+        assert!(!report.execution_admission.admitted);
+        assert!(
+            report
+                .violations
+                .iter()
+                .any(|violation| { violation.code == "network_execution_boundary_unverified" })
+        );
+    }
+
+    #[test]
+    fn isolated_runner_executes_only_after_harness_target_admission() {
+        let plan = build_network_mesh_apply_plan_with_reader_and_context(
+            "/virtual/bundle",
+            &FakeBundleReader,
+            NetworkMeshApplyPlanContext {
+                runtime: MeshApplyRuntimeContext {
+                    mesh_interface: "cynic-mesh0".to_string(),
+                    ip_bin: "/portable/bin/ip".to_string(),
+                    wg_bin: "/portable/bin/wg".to_string(),
+                    getent_bin: "/portable/bin/getent".to_string(),
+                },
+            },
+        )
+        .expect("apply plan");
+        let harness = closed_local_lab_context();
+        let runner = FakeIsolatedNetworkRunner {
+            calls: Cell::new(0),
+            attestation: attested_lab_target(),
+            exit_code: 0,
+        };
+
+        let report = apply_network_mesh_profile_from_plan_with_runner(
+            "/virtual/bundle",
+            "mesh-route-install",
+            true,
+            true,
+            Some(&harness),
+            &runner,
+            plan,
+        );
+
+        assert_eq!(report.status, "completed");
+        assert!(report.execution_admission.admitted);
+        assert_eq!(runner.calls.get(), report.commands.len());
+        assert_eq!(report.executions.len(), report.commands.len());
+    }
+
+    #[test]
+    fn profile_execution_stops_after_first_failed_command() {
+        let mut plan = build_network_mesh_apply_plan_with_reader_and_context(
+            "/virtual/bundle",
+            &FakeBundleReader,
+            NetworkMeshApplyPlanContext {
+                runtime: MeshApplyRuntimeContext {
+                    mesh_interface: "cynic-mesh0".to_string(),
+                    ip_bin: "/portable/bin/ip".to_string(),
+                    wg_bin: "/portable/bin/wg".to_string(),
+                    getent_bin: "/portable/bin/getent".to_string(),
+                },
+            },
+        )
+        .expect("apply plan");
+        let profile = plan
+            .actuator_policy
+            .allowed_profiles
+            .iter_mut()
+            .find(|profile| profile.name == "mesh-route-install")
+            .expect("profile");
+        profile
+            .command_prefixes
+            .push(profile.command_prefixes[0].clone());
+        profile.command_count = profile.command_prefixes.len();
+        let harness = closed_local_lab_context();
+        let runner = FakeIsolatedNetworkRunner {
+            calls: Cell::new(0),
+            attestation: attested_lab_target(),
+            exit_code: 1,
+        };
+
+        let report = apply_network_mesh_profile_from_plan_with_runner(
+            "/virtual/bundle",
+            "mesh-route-install",
+            true,
+            true,
+            Some(&harness),
+            &runner,
+            plan,
+        );
+
+        assert_eq!(report.status, "failed");
+        assert_eq!(report.commands.len(), 2);
+        assert_eq!(report.executions.len(), 1);
+        assert_eq!(runner.calls.get(), 1);
+    }
+
+    #[test]
+    fn target_transaction_proves_empty_before_and_expected_route_after() {
+        let plan = fake_apply_plan();
+        let harness = closed_local_lab_context();
+        let runner = scripted_runner([
+            (Some(0), ""),
+            (Some(0), ""),
+            (Some(0), "10.10.10.0/24 dev cynic-mesh0 scope link\n"),
+        ]);
+
+        let report = apply_network_mesh_target_transaction_with_runner(
+            "/virtual/bundle",
+            "mesh-route-install",
+            true,
+            &harness,
+            &runner,
+            plan,
+        );
+
+        assert_eq!(report.status, "completed");
+        assert!(report.mutates);
+        assert_eq!(report.proof_refs.len(), 3);
+        assert!(report.rollback.executions.is_empty());
+        assert_eq!(runner.calls.lock().expect("calls").len(), 3);
+    }
+
+    #[test]
+    fn target_transaction_rolls_back_when_poststate_is_not_proven() {
+        let plan = fake_apply_plan();
+        let harness = closed_local_lab_context();
+        let runner = scripted_runner([
+            (Some(0), ""),
+            (Some(0), ""),
+            (Some(0), ""),
+            (Some(0), ""),
+            (Some(0), ""),
+        ]);
+
+        let report = apply_network_mesh_target_transaction_with_runner(
+            "/virtual/bundle",
+            "mesh-route-install",
+            true,
+            &harness,
+            &runner,
+            plan,
+        );
+
+        assert_eq!(report.status, "rolled_back");
+        assert_eq!(report.rollback.executions.len(), 1);
+        assert_eq!(report.rollback_verification.executions.len(), 1);
+        assert_eq!(report.proof_refs.len(), 5);
+        assert_eq!(runner.calls.lock().expect("calls").len(), 5);
+    }
+
+    #[test]
+    fn target_transaction_rolls_back_an_attempted_route_after_apply_failure() {
+        let plan = fake_apply_plan();
+        let harness = closed_local_lab_context();
+        let runner = scripted_runner([(Some(0), ""), (Some(1), ""), (Some(0), ""), (Some(0), "")]);
+
+        let report = apply_network_mesh_target_transaction_with_runner(
+            "/virtual/bundle",
+            "mesh-route-install",
+            true,
+            &harness,
+            &runner,
+            plan,
+        );
+
+        assert_eq!(report.status, "rolled_back");
+        assert_eq!(report.apply_phase.executions.len(), 1);
+        assert_eq!(report.rollback.executions.len(), 1);
+        assert_eq!(runner.calls.lock().expect("calls").len(), 4);
+    }
+
+    #[test]
+    fn target_transaction_reports_unrecoverable_rollback_failure() {
+        let plan = fake_apply_plan();
+        let harness = closed_local_lab_context();
+        let runner = scripted_runner([(Some(0), ""), (Some(0), ""), (Some(0), ""), (Some(1), "")]);
+
+        let report = apply_network_mesh_target_transaction_with_runner(
+            "/virtual/bundle",
+            "mesh-route-install",
+            true,
+            &harness,
+            &runner,
+            plan,
+        );
+
+        assert_eq!(report.status, "rollback_failed");
+        assert!(
+            report
+                .violations
+                .iter()
+                .any(|violation| violation.code == "route_rollback_failed")
+        );
+        assert!(report.rollback_verification.executions.is_empty());
+        assert_eq!(runner.calls.lock().expect("calls").len(), 4);
+    }
+
+    #[test]
+    fn target_transaction_never_replaces_a_preexisting_route() {
+        let plan = fake_apply_plan();
+        let harness = closed_local_lab_context();
+        let runner = scripted_runner([(Some(0), "10.10.10.0/24 dev eth0\n")]);
+
+        let report = apply_network_mesh_target_transaction_with_runner(
+            "/virtual/bundle",
+            "mesh-route-install",
+            true,
+            &harness,
+            &runner,
+            plan,
+        );
+
+        assert_eq!(report.status, "preflight_refused");
+        assert!(!report.mutates);
+        assert!(report.apply_phase.executions.is_empty());
+        assert_eq!(runner.calls.lock().expect("calls").len(), 1);
+    }
+
+    #[test]
+    fn target_transaction_without_apply_never_reaches_the_transport() {
+        let plan = fake_apply_plan();
+        let harness = closed_local_lab_context();
+        let runner = scripted_runner([]);
+
+        let report = apply_network_mesh_target_transaction_with_runner(
+            "/virtual/bundle",
+            "mesh-route-install",
+            false,
+            &harness,
+            &runner,
+            plan,
+        );
+
+        assert_eq!(report.status, "refused");
+        assert!(!report.mutates);
+        assert!(
+            report
+                .violations
+                .iter()
+                .any(|violation| violation.code == "apply_flag_required")
+        );
+        assert!(runner.calls.lock().expect("calls").is_empty());
+    }
+
+    #[test]
+    fn target_transaction_allowlist_contains_only_exact_route_transaction_argv() {
+        let plan = fake_apply_plan();
+
+        let allowed = target_transaction_argv(&plan, "mesh-route-install");
+
+        assert_eq!(allowed.len(), 3);
+        assert!(
+            allowed
+                .iter()
+                .all(|argv| argv.first().is_some_and(|bin| bin == "/portable/bin/ip"))
+        );
+        assert!(target_transaction_argv(&plan, "mesh-dns-install").is_empty());
+    }
+
+    fn fake_apply_plan() -> NetworkMeshApplyPlanReport {
+        build_network_mesh_apply_plan_with_reader_and_context(
+            "/virtual/bundle",
+            &FakeBundleReader,
+            NetworkMeshApplyPlanContext {
+                runtime: MeshApplyRuntimeContext {
+                    mesh_interface: "cynic-mesh0".to_string(),
+                    ip_bin: "/portable/bin/ip".to_string(),
+                    wg_bin: "/portable/bin/wg".to_string(),
+                    getent_bin: "/portable/bin/getent".to_string(),
+                },
+            },
+        )
+        .expect("apply plan")
     }
 
     #[test]

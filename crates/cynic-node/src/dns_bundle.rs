@@ -96,14 +96,13 @@ pub(crate) fn build_dns_bundle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 
     #[test]
     fn bundle_writes_manifest_and_hosts() {
         let out = tempfile::tempdir().expect("tempdir");
         let registry = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
-            .join(DEFAULT_REGISTRY_PATH);
+            .join("infra/registry.json");
         let report = build_dns_bundle(
             registry.to_str().expect("registry path"),
             out.path().to_str().expect("path"),

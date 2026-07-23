@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! L0 node watchdog: publish local node evidence without requiring a Dog backend.
 
 mod host_runtime;

@@ -16,8 +16,8 @@ fn append_then_range_returns_entries() {
     let now = Utc::now();
     let entries = store
         .range(
-            (now - Duration::hours(1)).timestamp(),
-            (now + Duration::hours(1)).timestamp(),
+            (now - Duration::hours(1)).timestamp_millis(),
+            (now + Duration::hours(1)).timestamp_millis(),
         )
         .unwrap();
     assert_eq!(entries.len(), 1);
@@ -36,7 +36,7 @@ fn range_filters_by_timestamp() {
     let future_from = Utc::now() + Duration::days(1);
     let future_to = future_from + Duration::hours(1);
     let entries = store
-        .range(future_from.timestamp(), future_to.timestamp())
+        .range(future_from.timestamp_millis(), future_to.timestamp_millis())
         .unwrap();
     assert_eq!(entries.len(), 0);
 }

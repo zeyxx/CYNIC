@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::command_surface::{HostCommandSurface, argv_command, install_dir_command};
 use crate::domain::shared::{
-    HostSubstrateDomain, SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence,
-    SurfaceContract, SurfaceStatus,
+    BoundaryKind, HostSubstrateDomain, LifecycleDisposition, LifecycleProjection, LifecycleStatus,
+    SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
+    SurfaceStatus,
 };
 use crate::install_contract::{MODE_0644, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
@@ -44,6 +45,11 @@ pub struct ServicePolicy {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceStatusReport {
     pub status: SurfaceStatus,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub missing_units: Vec<String>,
     pub disabled_units: Vec<String>,
     pub inactive_units: Vec<String>,
@@ -246,9 +252,39 @@ impl ServicePolicy {
             } else {
                 SurfaceStatus::Blocked
             };
+        let lifecycle_status = if !missing_units.is_empty() {
+            LifecycleStatus::Missing
+        } else if !disabled_units.is_empty() || !inactive_units.is_empty() {
+            LifecycleStatus::PrincipalMismatch
+        } else {
+            LifecycleStatus::Ready
+        };
+        let projection = match lifecycle_status {
+            LifecycleStatus::Ready => LifecycleProjection::ready_observe(
+                "declared services are present, enabled as required, and active",
+            ),
+            LifecycleStatus::Missing => LifecycleProjection::missing_adopt(
+                "one or more declared service units are missing from observation",
+                Some("cynic host network-baseline plan".to_string()),
+            ),
+            LifecycleStatus::PrincipalMismatch => LifecycleProjection::principal_mismatch_adopt(
+                "declared service units are present but not yet enabled or active as required",
+                Some("cynic host network-baseline plan".to_string()),
+            ),
+            LifecycleStatus::ConnectionRequired => {
+                LifecycleProjection::connection_required_observe(
+                    "service lifecycle does not model a connection boundary",
+                )
+            }
+        };
 
         ServiceStatusReport {
             status,
+            lifecycle_status,
+            lifecycle_disposition: projection.disposition,
+            next_boundary_kind: projection.next_boundary_kind,
+            next_boundary_reason: projection.next_boundary_reason,
+            next_command: projection.next_command,
             missing_units,
             disabled_units,
             inactive_units,

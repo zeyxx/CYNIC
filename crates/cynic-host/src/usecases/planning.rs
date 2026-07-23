@@ -7,7 +7,7 @@ use super::reports::{
     HOST_ACTIVATION_PLAN_SCHEMA, HOST_APPLY_REPORT_SCHEMA, HOST_BUNDLE_SCHEMA,
     HostActivationPlanReport, HostApplyReport, HostBundleReport, HostObservationReports,
 };
-use super::status::{blocked_domains, next_actions, overall_status};
+use super::status::{blocked_domains, canonical_projection, next_actions, overall_status};
 
 pub fn build_host_bundle(port: &impl HostContractPort) -> HostBundleReport {
     build_host_bundle_with_resolution(port, None)
@@ -73,11 +73,23 @@ pub fn build_host_activation_plan_with_resolution_and_context(
     command_context: &HostCommandContext,
 ) -> HostActivationPlanReport {
     let blocked_domains = blocked_domains(observed);
+    let (
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command,
+    ) = canonical_projection(observed);
     HostActivationPlanReport {
         schema: HOST_ACTIVATION_PLAN_SCHEMA,
         host_resolution,
         status: overall_status(observed),
-        next_actions: next_actions(&blocked_domains),
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command: next_command.clone(),
+        next_actions: next_actions(&blocked_domains, next_command.as_deref()),
         blocked_domains,
         principal: port
             .desired_principal()
@@ -145,12 +157,24 @@ pub fn build_host_apply_report_with_resolution_and_context(
     command_context: &HostCommandContext,
 ) -> HostApplyReport {
     let blocked_domains = blocked_domains(observed);
+    let (
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command,
+    ) = canonical_projection(observed);
     HostApplyReport {
         schema: HOST_APPLY_REPORT_SCHEMA,
         host_resolution,
         status: overall_status(observed),
         dry_run,
-        next_actions: next_actions(&blocked_domains),
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command: next_command.clone(),
+        next_actions: next_actions(&blocked_domains, next_command.as_deref()),
         blocked_domains,
         principal: port
             .desired_principal()

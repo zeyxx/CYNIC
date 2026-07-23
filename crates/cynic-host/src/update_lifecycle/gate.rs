@@ -91,8 +91,17 @@ pub fn run_gates(state_path: &Path, execute: bool, runner: &dyn ArgvRunner) -> L
     state.last_gate_ok = Some(all_required_ok);
     state.last_gate_at_unix_ms = Some(now_ms());
     state.updated_at_unix_ms = now_ms();
-    if execute {
-        let _ = save_state(state_path, &state);
+    if execute && let Err(error) = save_state(state_path, &state) {
+        all_required_ok = false;
+        results.push(GateResult {
+            id: "lifecycle_state_persisted",
+            command: "persist lifecycle gate evidence",
+            required: true,
+            ran: true,
+            ok: false,
+            exit_code: None,
+            detail: error,
+        });
     }
 
     let mut next = vec![

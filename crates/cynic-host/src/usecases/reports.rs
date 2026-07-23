@@ -1,7 +1,8 @@
+use cynic_protocol::{PolicyAdmissionReport, RequiredProof};
 use serde::Serialize;
 
 use crate::command_surface::HostCommandSurface;
-use crate::domain::shared::SurfaceStatus;
+use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus, SurfaceStatus};
 use crate::registry::HostProfileResolution;
 
 pub const HOST_OBSERVATION_SCHEMA: &str = "cynic.host_substrate.observation.v1";
@@ -16,6 +17,11 @@ pub struct HostObservationReports {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub host_resolution: Option<HostProfileResolution>,
     pub status: SurfaceStatus,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub blocked_domains: Vec<&'static str>,
     pub principal: crate::domain::principal::PrincipalStatusReport,
     pub privilege: crate::domain::privilege::PrivilegeStatusReport,
@@ -42,8 +48,13 @@ pub struct HostActivationPlanReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub host_resolution: Option<HostProfileResolution>,
     pub status: SurfaceStatus,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub blocked_domains: Vec<&'static str>,
-    pub next_actions: Vec<&'static str>,
+    pub next_actions: Vec<String>,
     pub principal: crate::domain::principal::PrincipalActivationPlan,
     pub privilege: crate::domain::privilege::PrivilegeActivationPlan,
     pub packages: crate::domain::packages::PackageActivationPlan,
@@ -57,8 +68,13 @@ pub struct HostApplyReport {
     pub host_resolution: Option<HostProfileResolution>,
     pub status: SurfaceStatus,
     pub dry_run: bool,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub blocked_domains: Vec<&'static str>,
-    pub next_actions: Vec<&'static str>,
+    pub next_actions: Vec<String>,
     pub principal: crate::domain::principal::PrincipalApplyReport,
     pub privilege: crate::domain::privilege::PrivilegeApplyReport,
     pub packages: crate::domain::packages::PackageApplyReport,
@@ -72,8 +88,18 @@ pub struct HostApplyExecutionReport {
     pub host_resolution: Option<HostProfileResolution>,
     pub status: SurfaceStatus,
     pub dry_run: bool,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub blocked_domains: Vec<&'static str>,
-    pub next_actions: Vec<&'static str>,
+    pub next_actions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub admission: Option<PolicyAdmissionReport>,
+    pub blockers: Vec<String>,
+    pub proofs_required: Vec<RequiredProof>,
+    pub proofs_observed: Vec<RequiredProof>,
     pub commands: Vec<ExecutedHostCommand>,
 }
 

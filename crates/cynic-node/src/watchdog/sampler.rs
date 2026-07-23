@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::adapters::local_system_probe::SysinfoMetricsSampler;
 use crate::build_attestation::runtime_binary_attestation;
 use crate::config::WatchdogConfig;

@@ -1,8 +1,6 @@
-use cynic_host::process_observation::capture_command;
+use cynic_host::process_observation::{capture_command, tcp_probe};
 use cynic_host::runtime_layout::current_runtime_layout;
 use std::error::Error;
-use std::net::{SocketAddr, TcpStream};
-use std::time::Duration;
 
 use crate::ports::network_interfaces_port::{
     ProviderFallbackProbePort, ProviderFallbackRoute, ProviderFallbackRouteStatus,
@@ -92,41 +90,37 @@ impl ProviderFallbackProbePort for LocalProviderFallbackProbe {
     ) -> Result<Vec<ProviderServiceConnectivity>, Box<dyn Error>> {
         let mut results = Vec::new();
         for check in checks {
-            let address: SocketAddr = format!("{}:{}", check.host, check.port)
-                .parse()
-                .or_else(|_| format!("{}:{}", check.ip, check.port).parse())?;
-
-            let result = match TcpStream::connect_timeout(&address, Duration::from_secs(2)) {
-                Ok(stream) => {
-                    let _ = stream.shutdown(std::net::Shutdown::Both);
-                    ProviderServiceConnectivity {
-                        node: check.node.clone(),
-                        service: check.service.clone(),
-                        host: check.host.clone(),
-                        ip: check.ip.clone(),
-                        port: check.port,
-                        status: "open".to_string(),
-                        network_status: "reachable".to_string(),
-                        error: None,
-                    }
-                }
-                Err(error) => {
-                    let error_text = error.to_string();
-                    ProviderServiceConnectivity {
-                        node: check.node.clone(),
-                        service: check.service.clone(),
-                        host: check.host.clone(),
-                        ip: check.ip.clone(),
-                        port: check.port,
-                        status: "closed".to_string(),
-                        network_status: if error_text.to_lowercase().contains("timed out") {
-                            "blocked".to_string()
-                        } else {
-                            "reachable".to_string()
-                        },
-                        error: Some(error_text),
-                    }
-                }
+            let canonical = tcp_probe(&check.host, check.port);
+            let observation = if canonical.status == "unresolved" {
+                tcp_probe(&check.ip, check.port)
+            } else {
+                canonical
+            };
+            let result = match observation.status.as_str() {
+                "open" => ProviderServiceConnectivity {
+                    node: check.node.clone(),
+                    service: check.service.clone(),
+                    host: check.host.clone(),
+                    ip: check.ip.clone(),
+                    port: check.port,
+                    status: "open".to_string(),
+                    network_status: "reachable".to_string(),
+                    error: None,
+                },
+                status => ProviderServiceConnectivity {
+                    node: check.node.clone(),
+                    service: check.service.clone(),
+                    host: check.host.clone(),
+                    ip: check.ip.clone(),
+                    port: check.port,
+                    status: "closed".to_string(),
+                    network_status: if status == "timeout" {
+                        "blocked".to_string()
+                    } else {
+                        "reachable".to_string()
+                    },
+                    error: Some(format!("tcp_{status}")),
+                },
             };
             results.push(result);
         }

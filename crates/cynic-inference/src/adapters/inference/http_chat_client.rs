@@ -21,6 +21,9 @@ pub struct HttpOpenAiChatClient {
     model: String,
     api_key: Option<String>,
     timeout_secs: u64,
+    default_max_tokens: Option<u32>,
+    default_temperature: Option<f32>,
+    default_top_p: Option<f32>,
 }
 
 impl HttpOpenAiChatClient {
@@ -41,16 +44,33 @@ impl HttpOpenAiChatClient {
             .timeout(std::time::Duration::from_secs(timeout_secs))
             .build()
             .map_err(|e| ChatServiceError::Model(format!("http client: {e}")))?;
-        let api_key = api_key
-            .filter(|k| !k.trim().is_empty())
-            .or_else(|| std::env::var("CYNIC_CHAT_API_KEY").ok().filter(|k| !k.is_empty()));
+        let api_key = api_key.filter(|k| !k.trim().is_empty()).or_else(|| {
+            std::env::var("CYNIC_CHAT_API_KEY")
+                .ok()
+                .filter(|k| !k.is_empty())
+        });
         Ok(Self {
             client,
             base_url: base_url.into().trim_end_matches('/').to_string(),
             model: model.into(),
             api_key,
             timeout_secs,
+            default_max_tokens: None,
+            default_temperature: None,
+            default_top_p: None,
         })
+    }
+
+    pub fn with_runtime_params(
+        mut self,
+        max_tokens: Option<u32>,
+        temperature: Option<f32>,
+        top_p: Option<f32>,
+    ) -> Self {
+        self.default_max_tokens = max_tokens;
+        self.default_temperature = temperature;
+        self.default_top_p = top_p;
+        self
     }
 
     fn url(&self) -> String {
@@ -64,6 +84,12 @@ struct RequestBody {
     messages: Vec<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    top_p: Option<f32>,
     stream: bool,
 }
 
@@ -83,6 +109,10 @@ struct Choice {
 struct ChoiceMessage {
     #[serde(default)]
     content: Option<String>,
+    /// Thinking / reasoning models (llama.cpp MiniCPM, Qwen3, etc.) often put
+    /// the visible answer here when `content` is empty.
+    #[serde(default)]
+    reasoning_content: Option<String>,
     #[serde(default)]
     tool_calls: Option<Vec<ApiToolCall>>,
 }
@@ -156,6 +186,9 @@ impl ChatCompletionClient for HttpOpenAiChatClient {
             model: self.model.clone(),
             messages: msgs,
             tools: tool_defs,
+            max_tokens: self.default_max_tokens,
+            temperature: self.default_temperature,
+            top_p: self.default_top_p,
             stream: false,
         };
 
@@ -207,7 +240,16 @@ impl ChatCompletionClient for HttpOpenAiChatClient {
             })
             .unwrap_or_default();
 
-        let content = msg.content.clone().filter(|s| !s.is_empty());
+        // Prefer non-empty content; fall back to reasoning_content for thinking models.
+        let content = msg
+            .content
+            .clone()
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| {
+                msg.reasoning_content
+                    .clone()
+                    .filter(|s| !s.trim().is_empty())
+            });
         let stream_chunks = if stream {
             if let Some(ref c) = content {
                 synthesize_chunks(c)

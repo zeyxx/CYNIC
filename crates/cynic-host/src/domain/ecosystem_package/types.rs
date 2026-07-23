@@ -24,10 +24,64 @@ pub enum ProviderChannel {
 pub enum InstallPrincipalKind {
     /// Runtime user declared in runtime authority (`cynic`).
     RuntimeUser,
-    /// Current process owner user-local tree (`$HOME/.local`).
+    /// Runtime authority explicitly forced to operator-local development mode.
     OperatorLocal,
     /// Root / system paths (`/usr`, `/opt` under distro control).
     SystemManaged,
+}
+
+/// Observable Python packaging authority for a CLI installed from Python.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PythonInstallProvenance {
+    UvTool,
+    UvVenv,
+    VirtualEnv,
+    Pipx,
+    PipUserSite,
+    SystemPython,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolingAuthorityFamily {
+    Python,
+    Node,
+    Brew,
+    Rustup,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolingInstallProvenance {
+    UvTool,
+    UvVenv,
+    VirtualEnv,
+    Pipx,
+    PipUserSite,
+    SystemPython,
+    NpmGlobal,
+    HomebrewCellar,
+    HomebrewCask,
+    RustupToolchain,
+    Unknown,
+}
+
+/// Observed authority match for a Python CLI install.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PythonInstallAuthority {
+    pub observed_provenance: Option<PythonInstallProvenance>,
+    pub expected_provenance: Option<PythonInstallProvenance>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolingAuthority {
+    pub family: ToolingAuthorityFamily,
+    pub observed_provenance: Option<ToolingInstallProvenance>,
+    pub expected_provenance: Option<ToolingInstallProvenance>,
+    pub status: String,
 }
 
 /// How to execute argv for the principal.
@@ -46,11 +100,11 @@ pub struct PrincipalInstallLayout {
     pub principal: InstallPrincipalKind,
     pub runtime_user: String,
     pub home_dir: PathBuf,
-    /// `$HOME/.local/bin` (or operator equivalent).
+    /// `{home_dir}/.local/bin`.
     pub bin_dir: PathBuf,
-    /// `$HOME/.local/share/cynic/src` — git checkouts / build trees.
+    /// `{home_dir}/.local/share/cynic/src` — git checkouts / build trees.
     pub src_dir: PathBuf,
-    /// `$HOME/.local/share/cynic` — shared state for ecosystem tooling.
+    /// `{home_dir}/.local/share/cynic` — shared state for ecosystem tooling.
     pub share_dir: PathBuf,
     pub run_as: RunAs,
     /// True when apply can write to principal paths (directly or via sudo -u).
@@ -117,6 +171,16 @@ pub struct ObservedBinary {
     pub version: Option<String>,
     /// true when path is under principal layout (preferred).
     pub under_principal: bool,
+}
+
+/// Observable Python/uv authority surface used by ecosystem packages.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ObservedPythonTooling {
+    pub uv: ObservedBinary,
+    pub python3: ObservedBinary,
+    pub uv_tools_dir: PathBuf,
+    pub principal_local_bin_dir: PathBuf,
+    pub notes: Vec<String>,
 }
 
 /// True when `cynic deps upgrade --yes` may run a first-class apply path.

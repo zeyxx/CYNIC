@@ -5,6 +5,13 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+use crate::domain::lease_proof::ValidatedLeaseProof;
+
+pub use cynic_protocol::{
+    BatchClaimResult, LeaseAction, LeaseConflict as ConflictInfo, LeaseGrant as ClaimGrant,
+    LeaseGuard, LeaseMutationOutcome as LeaseMutationResult, TargetClaimOutcome,
+};
+
 #[derive(Debug, thiserror::Error)]
 pub enum CoordError {
     #[error("Coordination storage failed: {0}")]
@@ -13,23 +20,10 @@ pub enum CoordError {
     InvalidInput(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ClaimResult {
-    Claimed,
+    Claimed(ClaimGrant),
     Conflict(Vec<ConflictInfo>),
-}
-
-/// Result of a batch claim — per-target outcome.
-#[derive(Debug)]
-pub struct BatchClaimResult {
-    pub claimed: Vec<String>,
-    pub conflicts: Vec<(String, Vec<ConflictInfo>)>,
-}
-
-#[derive(Debug)]
-pub struct ConflictInfo {
-    pub agent_id: String,
-    pub claimed_at: String,
 }
 
 /// Agent session info returned by who().
@@ -64,6 +58,12 @@ pub struct ClaimEntry {
     pub active: bool,
     #[serde(default)]
     pub claimed_at: String,
+    #[serde(default)]
+    pub lease_id: String,
+    #[serde(default)]
+    pub fencing_token: u64,
+    #[serde(default)]
+    pub expires_at: String,
     #[serde(default)]
     pub id: String,
 }
@@ -134,7 +134,13 @@ pub trait CoordPort: Send + Sync {
         target: &str,
         claim_type: &str,
     ) -> Result<ClaimResult, CoordError>;
-    async fn release(&self, agent_id: &str, target: Option<&str>) -> Result<String, CoordError>;
+    async fn renew_lease(&self, guard: &LeaseGuard) -> Result<LeaseMutationResult, CoordError>;
+    async fn release(&self, guard: &LeaseGuard) -> Result<LeaseMutationResult, CoordError>;
+    async fn finalize_lease(
+        &self,
+        guard: &LeaseGuard,
+        proof: &ValidatedLeaseProof,
+    ) -> Result<LeaseMutationResult, CoordError>;
     async fn who(&self, agent_id_filter: Option<&str>) -> Result<CoordSnapshot, CoordError>;
     async fn store_audit(
         &self,
@@ -167,14 +173,19 @@ pub trait CoordPort: Send + Sync {
         targets: &[String],
         claim_type: &str,
     ) -> Result<BatchClaimResult, CoordError> {
-        let mut result = BatchClaimResult {
-            claimed: Vec::new(),
-            conflicts: Vec::new(),
-        };
+        let mut result = BatchClaimResult::default();
         for target in targets {
             match self.claim(agent_id, target, claim_type).await? {
-                ClaimResult::Claimed => result.claimed.push(target.clone()),
-                ClaimResult::Conflict(infos) => result.conflicts.push((target.clone(), infos)),
+                ClaimResult::Claimed(grant) => result.outcomes.push(TargetClaimOutcome::Claimed {
+                    target: target.clone(),
+                    grant,
+                }),
+                ClaimResult::Conflict(conflicts) => {
+                    result.outcomes.push(TargetClaimOutcome::Conflict {
+                        target: target.clone(),
+                        conflicts,
+                    })
+                }
             }
         }
         Ok(result)
@@ -190,10 +201,42 @@ impl CoordPort for NullCoord {
         Ok(())
     }
     async fn claim(&self, _: &str, _: &str, _: &str) -> Result<ClaimResult, CoordError> {
-        Ok(ClaimResult::Claimed)
+        Ok(ClaimResult::Claimed(ClaimGrant {
+            lease_id: "degraded-no-authority".into(),
+            fencing_token: 1,
+            expires_at: String::new(),
+        }))
     }
-    async fn release(&self, _: &str, _: Option<&str>) -> Result<String, CoordError> {
-        Ok("Released (degraded mode)".into())
+    async fn renew_lease(&self, guard: &LeaseGuard) -> Result<LeaseMutationResult, CoordError> {
+        Ok(LeaseMutationResult::applied(
+            LeaseAction::Renew,
+            &guard.target,
+            guard.fencing_token,
+            Some(String::new()),
+            None,
+        ))
+    }
+    async fn release(&self, guard: &LeaseGuard) -> Result<LeaseMutationResult, CoordError> {
+        Ok(LeaseMutationResult::applied(
+            LeaseAction::Release,
+            &guard.target,
+            guard.fencing_token,
+            None,
+            None,
+        ))
+    }
+    async fn finalize_lease(
+        &self,
+        guard: &LeaseGuard,
+        proof: &ValidatedLeaseProof,
+    ) -> Result<LeaseMutationResult, CoordError> {
+        Ok(LeaseMutationResult::applied(
+            LeaseAction::Finalize,
+            &guard.target,
+            guard.fencing_token,
+            None,
+            Some(proof.proof_ref().into()),
+        ))
     }
     async fn who(&self, _: Option<&str>) -> Result<CoordSnapshot, CoordError> {
         Ok(CoordSnapshot {
@@ -225,5 +268,84 @@ impl CoordPort for NullCoord {
     }
     async fn scope_update(&self, _: &str, _: &str) -> Result<(), CoordError> {
         Ok(())
+    }
+}
+
+/// Production degraded adapter. Unlike `NullCoord`, it never fabricates
+/// coordination success when the durable store is unavailable.
+#[derive(Debug)]
+pub struct UnavailableCoord {
+    reason: String,
+}
+
+impl UnavailableCoord {
+    pub fn new(reason: impl Into<String>) -> Self {
+        Self {
+            reason: reason.into(),
+        }
+    }
+
+    fn error(&self) -> CoordError {
+        CoordError::StorageFailed(format!("coordination unavailable: {}", self.reason))
+    }
+}
+
+#[async_trait]
+impl CoordPort for UnavailableCoord {
+    async fn register_agent(&self, _: &str, _: &str, _: &str) -> Result<(), CoordError> {
+        Err(self.error())
+    }
+
+    async fn claim(&self, _: &str, _: &str, _: &str) -> Result<ClaimResult, CoordError> {
+        Err(self.error())
+    }
+
+    async fn renew_lease(&self, _: &LeaseGuard) -> Result<LeaseMutationResult, CoordError> {
+        Err(self.error())
+    }
+    async fn release(&self, _: &LeaseGuard) -> Result<LeaseMutationResult, CoordError> {
+        Err(self.error())
+    }
+    async fn finalize_lease(
+        &self,
+        _: &LeaseGuard,
+        _: &ValidatedLeaseProof,
+    ) -> Result<LeaseMutationResult, CoordError> {
+        Err(self.error())
+    }
+
+    async fn who(&self, _: Option<&str>) -> Result<CoordSnapshot, CoordError> {
+        Err(self.error())
+    }
+
+    async fn store_audit(&self, _: &str, _: &str, _: &str) -> Result<(), CoordError> {
+        Err(self.error())
+    }
+
+    async fn query_audit(
+        &self,
+        _: Option<&str>,
+        _: Option<&str>,
+        _: Option<&str>,
+        _: Option<&str>,
+        _: u32,
+    ) -> Result<Vec<AuditEntry>, CoordError> {
+        Err(self.error())
+    }
+
+    async fn heartbeat(&self, _: &str) -> Result<(), CoordError> {
+        Err(self.error())
+    }
+
+    async fn deactivate_agent(&self, _: &str) -> Result<(), CoordError> {
+        Err(self.error())
+    }
+
+    async fn expire_stale(&self) -> Result<(), CoordError> {
+        Err(self.error())
+    }
+
+    async fn scope_update(&self, _: &str, _: &str) -> Result<(), CoordError> {
+        Err(self.error())
     }
 }

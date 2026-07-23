@@ -159,6 +159,7 @@ mod tests {
             health_url: Some("http://127.0.0.1:8080/health".to_string()),
             cli_extra_args: vec![],
             sovereign: true,
+            fleet_node: None,
         }
     }
 }

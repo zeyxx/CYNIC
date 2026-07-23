@@ -1,6 +1,7 @@
 use cynic_host::adapters::local_command_runner::LocalHostCommandRunner;
 use cynic_host::adapters::local_observation::LocalHostObservationAdapter;
 use cynic_host::domain::shared::SurfaceStatus;
+use cynic_host::host_bootstrap_evidence;
 use cynic_host::runtime_proof;
 use cynic_host::usecases::{
     HostActivationPlanReport, HostApplyExecutionReport, HostApplyReport, HostObservationReports,
@@ -26,6 +27,10 @@ pub(crate) struct HostBootstrapE2eReport {
     pub(crate) observed_gates: Vec<String>,
     pub(crate) blocked_gates: Vec<String>,
     pub(crate) next_actions: Vec<String>,
+    pub(crate) lifecycle_status: String,
+    pub(crate) next_boundary_kind: String,
+    pub(crate) next_boundary_reason: String,
+    pub(crate) next_command: Option<String>,
     pub(crate) observation: HostObservationReports,
     pub(crate) activation_plan: HostActivationPlanReport,
     pub(crate) apply_report: HostApplyReport,
@@ -44,6 +49,9 @@ pub(crate) fn build_host_bootstrap_e2e_report(
         observe_host_with_resolution(&selected, &LocalHostObservationAdapter, resolution.clone());
     let activation_plan =
         build_host_activation_plan_with_resolution(&selected, &observation, resolution.clone());
+    let bootstrap_evidence =
+        host_bootstrap_evidence::observe_host_bootstrap_evidence(selected, resolution.clone())
+            .map_err(|error| error.to_string())?;
     let apply_report =
         build_host_apply_report_with_resolution(&selected, &observation, true, resolution);
     let apply_execution =
@@ -58,7 +66,11 @@ pub(crate) fn build_host_bootstrap_e2e_report(
         runtime_gates,
     )?;
     let blocked_gates = blocked_runtime_gates(&runtime_plan);
-    let next_actions = next_actions(&activation_plan, &blocked_gates);
+    let next_actions = next_actions(
+        &activation_plan,
+        &blocked_gates,
+        bootstrap_evidence.next_command.as_deref(),
+    );
     let status = if observation.status == SurfaceStatus::Active
         && apply_execution.status == SurfaceStatus::Active
         && proof_bundle.status == "satisfied"
@@ -79,6 +91,10 @@ pub(crate) fn build_host_bootstrap_e2e_report(
         observed_gates: runtime_plan.observed_gates.clone(),
         blocked_gates,
         next_actions,
+        lifecycle_status: bootstrap_evidence.lifecycle_status.as_str().to_string(),
+        next_boundary_kind: bootstrap_evidence.next_boundary_kind.as_str().to_string(),
+        next_boundary_reason: bootstrap_evidence.next_boundary_reason,
+        next_command: bootstrap_evidence.next_command,
         observation,
         activation_plan,
         apply_report,
@@ -100,12 +116,19 @@ fn blocked_runtime_gates(plan: &RuntimeExecutionPlan) -> Vec<String> {
     gates
 }
 
-fn next_actions(plan: &HostActivationPlanReport, blocked_gates: &[String]) -> Vec<String> {
+fn next_actions(
+    plan: &HostActivationPlanReport,
+    blocked_gates: &[String],
+    canonical_next_command: Option<&str>,
+) -> Vec<String> {
     let mut actions = plan
         .next_actions
         .iter()
         .map(|action| (*action).to_string())
         .collect::<Vec<_>>();
+    if let Some(command) = canonical_next_command {
+        actions.push(command.to_string());
+    }
     actions.extend(
         blocked_gates
             .iter()

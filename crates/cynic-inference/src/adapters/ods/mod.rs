@@ -1,45 +1,47 @@
-//! Integration boundary with **[Osmantic ODS](https://github.com/Osmantic/ODS)**.
+//! Integration boundary with **OpenAI-compat peers** (optional
+//! **[Osmantic ODS](https://github.com/Osmantic/ODS)** bootstrap).
 //!
-//! ## Authority split
+//! ## Authority split (loose coupling)
 //!
 //! | Layer | Owner | Role |
 //! |---|---|---|
-//! | **CYNIC native** | this crate (`adapters::local`, routing SSOT) | Organism inference law: vault, profiles, start/stop, sovereign routing |
-//! | **ODS** | [Osmantic/ODS](https://github.com/Osmantic/ODS) (external product) | Maintained framework to **bootstrap** a full local AI environment (llama-server, Open WebUI, dashboard, agents, …) |
-//! | **This adapter** | CYNIC | Observe ODS-compatible endpoints and publish them into CYNIC routing — **does not** reimplement or replace ODS |
+//! | **CYNIC native** | `adapters::local`, routing SSOT | vault, profiles, start/stop, sovereign routing |
+//! | **Peer plane** | this adapter + `application::peer_attach` | probe `/v1` listeners; optional publish into SSOT |
+//! | **ODS product** | [Osmantic/ODS](https://github.com/Osmantic/ODS) (external) | optional full-stack bootstrap (WebUI, agents, …) |
+//! | **Install** | `cynic-host` ecosystem provider `ods` | clone pin + `install.sh` — **not** this crate |
 //!
-//! CYNIC builds its own system. ODS is not a CYNIC subsystem: it is a first-class
-//! external bootstrap/runtime for the host AI stack, maintained upstream, that
-//! CYNIC may consume when present.
+//! CYNIC does **not** own ODS lifecycle. Any OpenAI-compat peer works the same way.
 //!
-//! ## What this module does today
+//! ## Operator surface
 //!
-//! Probe common local OpenAI-compatible listeners (including those ODS exposes,
-//! e.g. host `11434` / `8080`) and optionally merge models into `inference.toml`.
+//! ```text
+//! cynic runtime inference-discover --json            # probe-only (default)
+//! cynic runtime inference-discover --json --apply    # publish → inference.toml
+//! cynic runtime inference-discover --json --apply --open-webui
+//! cynic chat --ods                                   # prefer live peer for chat
+//! cynic deps upgrade --yes --only ods                # optional product install
+//! ```
 //!
-//! ## What this module does **not** do
-//!
-//! - install or upgrade ODS
-//! - own ODS model catalog / `ods model swap` / dashboard lifecycle
-//! - replace native vault + `llama-server@` control
-//!
-//! Native control: `adapters::local`.
-//! Historical entrypoint: `crate::ods_discovery` (prefer this module for new code).
+//! Prefer `crate::application::peer_attach` for new call sites (stable report).
+//! Historical entrypoint: `crate::ods_discovery`.
 
+pub use crate::application::peer_attach::{
+    PeerAttachOptions, PeerAttachReport, peer_attach, peer_attach_apply, peer_attach_status,
+};
 pub use crate::ods_discovery::{
-    DiscoveredService, DiscoveryReport, discover_ods_services, sync_discovered_backends,
-    run_sync_pipeline,
+    DiscoveredService, DiscoveryReport, discover_ods_services, run_sync_pipeline,
+    sync_discovered_backends,
 };
 
-/// Surface label: CYNIC integration with Osmantic ODS (or compatible peers).
+/// Surface label: peer / ODS integration (not native vault).
 pub const ODS_SURFACE: &str = "ods_integration";
 
-/// Upstream product identity (not a CYNIC crate).
+/// Upstream product identity (hint only — not a hard dependency).
 pub const ODS_UPSTREAM: &str = "https://github.com/Osmantic/ODS";
 
-/// Schema id for ODS integration discovery reports.
+/// Schema id for peer attach / discovery reports.
 pub const ODS_DISCOVERY_SCHEMA: &str = "cynic.inference.ods_discovery.v1";
 
-/// Host API ports commonly used by ODS (see upstream README).
+/// Host API ports commonly used by ODS and native llama (README defaults).
 /// Linux Docker host often maps llama-server to **11434**; native paths use **8080**.
 pub const ODS_DEFAULT_HOST_PORTS: &[u16] = &[11434, 8080];

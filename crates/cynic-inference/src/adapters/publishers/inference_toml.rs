@@ -20,7 +20,7 @@ impl ModelPublisherPort for InferenceTomlPublisher {
     }
 
     async fn publish(&self, model: &NormalisedModel) -> PublishResult {
-        let result = self.upsert(model);
+        let result = Self::upsert(model);
         PublishResult {
             publisher: self.name().to_string(),
             model_id: model.model_id.clone(),
@@ -40,7 +40,7 @@ struct UpsertOutcome {
 }
 
 impl InferenceTomlPublisher {
-    fn upsert(&self, model: &NormalisedModel) -> Result<UpsertOutcome, String> {
+    fn upsert(model: &NormalisedModel) -> Result<UpsertOutcome, String> {
         let config_path = resolve_config_path();
 
         let mut current_backends = match load_inference_config() {
@@ -60,11 +60,7 @@ impl InferenceTomlPublisher {
         let name = format!(
             "{}-{}",
             model.engine,
-            model
-                .model_id
-                .replace(':', "-")
-                .replace('.', "-")
-                .replace('/', "-")
+            model.model_id.replace([':', '.', '/'], "-")
         );
 
         current_backends.push(InferenceBackendConfig {
@@ -84,6 +80,7 @@ impl InferenceTomlPublisher {
             health_url: None,
             cli_extra_args: vec![],
             sovereign: model.sovereign,
+            fleet_node: None,
         });
 
         #[derive(Serialize)]

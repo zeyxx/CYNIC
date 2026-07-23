@@ -41,10 +41,11 @@ pub fn read_gguf_meta(path: &Path) -> Result<GgufMeta, GgufMetaError> {
     })?;
 
     let mut magic = [0u8; 4];
-    f.read_exact(&mut magic).map_err(|source| GgufMetaError::Io {
-        path: path_s.clone(),
-        source,
-    })?;
+    f.read_exact(&mut magic)
+        .map_err(|source| GgufMetaError::Io {
+            path: path_s.clone(),
+            source,
+        })?;
     if &magic != b"GGUF" {
         return Err(GgufMetaError::NotGguf(path_s));
     }
@@ -138,21 +139,29 @@ pub fn preflight_gguf_for_engine(
     let meta = read_gguf_meta(path).map_err(|e| LocalRuntimeCompatError::Meta(e.to_string()))?;
     let Some(arch) = meta.architecture.as_deref() else {
         return Err(LocalRuntimeCompatError::UnknownArch {
-            path: meta.path.clone(),
+            path: meta.path,
             detail: "GGUF missing general.architecture".into(),
         });
     };
-    if supported.iter().any(|a| *a == arch) {
+    if supported.contains(&arch) {
         return Ok(meta);
     }
-    Err(LocalRuntimeCompatError::UnsupportedArch {
-        path: meta.path.clone(),
-        architecture: arch.to_string(),
-        hint: format!(
-            "engine build does not list arch '{arch}'. Upgrade llama-server or pick another quant \
-             (e.g. non-dspark). Supported examples: {}",
-            supported.iter().take(12).copied().collect::<Vec<_>>().join(", ")
-        ),
+    Err({
+        let meta_path = meta.path;
+        LocalRuntimeCompatError::UnsupportedArch {
+            path: meta_path,
+            architecture: arch.to_string(),
+            hint: format!(
+                "engine build does not list arch '{arch}'. Upgrade llama-server or pick another quant \
+                 (e.g. non-dspark). Supported examples: {}",
+                supported
+                    .iter()
+                    .take(12)
+                    .copied()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        }
     })
 }
 
@@ -239,7 +248,7 @@ fn read_value(f: &mut File, vtype: u32, path: &str) -> Result<Val, GgufMetaError
             })?;
             Ok(Val::Other)
         }
-        4 | 5 | 6 => {
+        4..=6 => {
             let mut b = [0u8; 4];
             f.read_exact(&mut b).map_err(|source| GgufMetaError::Io {
                 path: path.to_string(),
@@ -256,7 +265,7 @@ fn read_value(f: &mut File, vtype: u32, path: &str) -> Result<Val, GgufMetaError
             }
             Ok(Val::Other)
         }
-        10 | 11 | 12 => {
+        10..=12 => {
             let mut b = [0u8; 8];
             f.read_exact(&mut b).map_err(|source| GgufMetaError::Io {
                 path: path.to_string(),
@@ -266,7 +275,10 @@ fn read_value(f: &mut File, vtype: u32, path: &str) -> Result<Val, GgufMetaError
         }
         other => Err(GgufMetaError::Parse {
             path: path.to_string(),
-            detail: format!("unknown value type {other} at pos {:?}", f.stream_position()),
+            detail: format!(
+                "unknown value type {other} at pos {:?}",
+                f.stream_position()
+            ),
         }),
     }
 }

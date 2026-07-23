@@ -40,8 +40,6 @@ pub(super) fn write_bridge_bundle_with_context(
     fs::set_permissions(&sudoers_target, fs::Permissions::from_mode(MODE_0440.unix))?;
 
     let manifest = bundle_manifest_for_context(
-        &helper_source.to_string_lossy(),
-        &output_dir.to_string_lossy(),
         &context,
         prepare_directories.unwrap_or_else(|| context.helper_runtime.prepare_directories()),
     );
@@ -54,21 +52,13 @@ pub(super) fn write_bridge_bundle_with_context(
 }
 
 pub(super) fn bundle_manifest_for_context(
-    helper_source: &str,
-    bundle_dir: &str,
     context: &BridgeBundleContext,
     prepare_directories: Vec<HostCommandSurface>,
 ) -> HostExecBridgeBundleManifest {
     let bundle_files = BTreeMap::from([
-        (
-            "helper",
-            format!("{bundle_dir}/{}", context.helper_filename),
-        ),
-        (
-            "sudoers",
-            format!("{bundle_dir}/{}", context.sudoers_filename),
-        ),
-        ("manifest", format!("{bundle_dir}/manifest.json")),
+        ("helper", context.helper_filename.to_string()),
+        ("sudoers", context.sudoers_filename.to_string()),
+        ("manifest", "manifest.json".to_string()),
     ]);
     let helper_path = context.helper_runtime.helper_target.clone();
     let sudoers_path = context.helper_runtime.sudoers_target.clone();
@@ -91,7 +81,7 @@ pub(super) fn bundle_manifest_for_context(
     HostExecBridgeBundleManifest {
         schema: "cynic.host_exec_bridge.bundle_manifest.v1",
         mutates: true,
-        helper_source: helper_source.to_string(),
+        helper_source: context.helper_filename.to_string(),
         helper_target: helper_path.clone(),
         sudoers_target: sudoers_path.clone(),
         sudoers_rule: context.projection.sudoers_rule(),
@@ -112,7 +102,7 @@ pub(super) fn bundle_manifest_for_context(
                 render_command(&prove_denied_service_status),
             ),
         ],
-        bundle_dir: bundle_dir.to_string(),
+        bundle_dir: ".".to_string(),
         bundle_files,
     }
 }

@@ -3,9 +3,11 @@ use serde_json::Value;
 
 use crate::adapters::local_observation::LocalHostObservationAdapter;
 use crate::bridge;
-use crate::command_surface::{HostCommandSurface, shell_command};
+use crate::command_surface::{HostCommandSurface, render_command, shell_command};
 use crate::domain::bootstrap::{build_bootstrap_plan, build_bootstrap_status};
-use crate::domain::shared::SurfaceStatus;
+use crate::domain::shared::{
+    BoundaryKind, LifecycleDisposition, LifecycleProjection, LifecycleStatus, SurfaceStatus,
+};
 use crate::ports::{
     HostPackageObservationPort, HostPrincipalObservationPort, HostPrivilegeObservationPort,
     HostServiceObservationPort,
@@ -23,6 +25,11 @@ use crate::usecases::{
 pub struct HostBootstrapChainReport {
     pub schema: &'static str,
     pub status: SurfaceStatus,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub host_profile: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub host_resolution: Option<HostProfileResolution>,
@@ -75,7 +82,18 @@ pub fn build_bootstrap_chain_report_with_observer(
         build_host_apply_report_with_resolution(&profile, &observed, true, resolution.clone());
     let bridge_status = bridge::bridge_status();
     let runtime_layout = current_runtime_layout();
-    let bridge_plan = bridge::bridge_activation_plan(&runtime_layout.host_exec_bundle_dir);
+    let bridge_target = resolution
+        .as_ref()
+        .and_then(|item| item.matched_node.clone())
+        .or_else(|| {
+            resolution
+                .as_ref()
+                .map(|item| item.hostname_observed.clone())
+        })
+        .unwrap_or_else(|| "local-host".to_string());
+    let bridge_spec =
+        bridge::privilege_bridge_install_spec(&runtime_layout.host_exec_bundle_dir, bridge_target);
+    let bridge_plan = bridge::privilege_bridge_plan(&bridge_spec);
     let bootstrap_status = build_bootstrap_status(
         bridge_status.status == "active",
         host_substrate_active(&host_context),
@@ -172,10 +190,45 @@ pub fn build_bootstrap_chain_report_with_observer(
     } else {
         SurfaceStatus::Blocked
     };
+    let first_blocked = stages
+        .iter()
+        .find(|stage| stage.status != SurfaceStatus::Active);
+    let lifecycle_status = if status == SurfaceStatus::Active {
+        LifecycleStatus::Ready
+    } else if matches!(first_blocked.map(|stage| stage.id), Some("host_bridge")) {
+        LifecycleStatus::Missing
+    } else {
+        LifecycleStatus::PrincipalMismatch
+    };
+    let projection = match lifecycle_status {
+        LifecycleStatus::Ready => LifecycleProjection::ready_observe(
+            "bootstrap chain stages are active through the runtime boundary proof",
+        ),
+        LifecycleStatus::Missing => LifecycleProjection::missing_adopt(
+            "bootstrap chain is blocked at bridge installation or activation",
+            first_blocked
+                .and_then(|stage| stage.commands.first())
+                .map(render_command),
+        ),
+        LifecycleStatus::PrincipalMismatch => LifecycleProjection::principal_mismatch_adopt(
+            "bootstrap chain is partially satisfied but at least one declared stage remains blocked",
+            first_blocked
+                .and_then(|stage| stage.commands.first())
+                .map(render_command),
+        ),
+        LifecycleStatus::ConnectionRequired => LifecycleProjection::connection_required_observe(
+            "bootstrap chain does not model a connection boundary",
+        ),
+    };
 
     Ok(HostBootstrapChainReport {
         schema: "cynic.host_bootstrap.chain.v1",
         status,
+        lifecycle_status,
+        lifecycle_disposition: projection.disposition,
+        next_boundary_kind: projection.next_boundary_kind,
+        next_boundary_reason: projection.next_boundary_reason,
+        next_command: projection.next_command,
         host_profile: profile.name(),
         host_resolution: resolution,
         stages,
@@ -255,6 +308,7 @@ mod tests {
                 group_present: true,
                 observed_home_dir: Some(policy.home_dir.clone()),
                 present_state_dirs: policy.state_dirs.clone(),
+                owned_paths: policy.managed_paths(),
             }
         }
     }
@@ -321,5 +375,19 @@ mod tests {
             report.stages.last().map(|stage| stage.id),
             Some("bootstrap_proof")
         );
+        match report.status {
+            SurfaceStatus::Active => {
+                assert_eq!(report.lifecycle_status, LifecycleStatus::Ready);
+                assert_eq!(report.next_boundary_kind, BoundaryKind::Observe);
+                assert!(report.next_command.is_none());
+            }
+            SurfaceStatus::Blocked => {
+                assert_ne!(report.lifecycle_status, LifecycleStatus::Ready);
+                assert_ne!(report.next_boundary_kind, BoundaryKind::Observe);
+                assert!(report.next_command.is_some());
+            }
+            other => panic!("unexpected bootstrap chain status: {other:?}"),
+        }
+        assert!(!report.next_boundary_reason.is_empty());
     }
 }

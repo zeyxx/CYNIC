@@ -11,7 +11,7 @@
 //! | `runtime inference-status` | native — local unit lifecycle | no |
 //! | `runtime inference-start` | native — start local profile | yes |
 //! | `runtime inference-stop` | native — stop local unit | yes |
-//! | `runtime inference-discover` | **ODS integration** — probe ODS/peers + publish | yes (config) |
+//! | `runtime inference-discover` | peer attach (ODS optional) — probe; `--apply` publishes | optional |
 //! | `runtime inference-models` | native — centralized model store | optional persist |
 //! | `runtime inference-models-consolidate` | native — move stray GGUF into vault | yes (`--yes`) |
 //! | `runtime inference-hf-status` | HF CLI — version/auth vs vault layout | no |
@@ -23,10 +23,10 @@ use std::process::ExitCode;
 
 use serde::Serialize;
 
-use cynic_inference::{
-    HardwareProfile, HfDiscoveryService, InferenceConfigError, LocalRuntimeServiceAny,
-    ModelStoreService, RuntimePlanner, category_catalog, consolidate_vault, load_inference_config,
-};
+use cynic_inference::{InferenceConfigError, load_inference_config};
+
+mod hf;
+mod local_runtime;
 
 /// One backend entry in the JSON output.
 #[derive(Serialize)]
@@ -57,12 +57,6 @@ struct InferenceConfigView {
 }
 
 pub(crate) fn execute_inference(json: bool) -> ExitCode {
-    if !json {
-        // This surface is machine-only; human-friendly output is out of scope.
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-
     match load_inference_config() {
         Ok(loaded) => {
             let sovereign_count = loaded.backends.iter().filter(|b| b.sovereign).count();
@@ -91,7 +85,35 @@ pub(crate) fn execute_inference(json: bool) -> ExitCode {
                 sovereign_count,
             };
 
-            emit_json(&view)
+            if json {
+                emit_json(&view)
+            } else {
+                println!(
+                    "Sovereign Inference Routing SSOT ({} backends, {} sovereign):",
+                    view.backends.len(),
+                    view.sovereign_count
+                );
+                if let Some(path) = &view.config_path {
+                    println!("  Config Path: {}", path);
+                }
+                println!();
+                println!(
+                    "{:<24} {:<10} {:<10} {:<30} {}",
+                    "NAME", "SOVEREIGN", "TYPE", "MODEL", "BASE URL"
+                );
+                println!("{}", "-".repeat(90));
+                for b in &view.backends {
+                    println!(
+                        "{:<24} {:<10} {:<10} {:<30} {}",
+                        b.name,
+                        if b.sovereign { "yes" } else { "no" },
+                        b.backend_type,
+                        b.model,
+                        b.base_url
+                    );
+                }
+                ExitCode::SUCCESS
+            }
         }
 
         Err(InferenceConfigError::NotFound { path }) => {
@@ -106,10 +128,17 @@ pub(crate) fn execute_inference(json: bool) -> ExitCode {
                 backends: vec![],
                 sovereign_count: 0,
             };
-            // Emit JSON and exit 0 — "not found" is a valid state, not an error
-            // for machine consumers (MCP, CI) that must distinguish it from a
-            // parse failure.
-            emit_json(&view)
+            if json {
+                emit_json(&view)
+            } else {
+                eprintln!(
+                    "{}",
+                    view.message
+                        .as_deref()
+                        .unwrap_or("Inference config not found.")
+                );
+                ExitCode::SUCCESS
+            }
         }
 
         Err(error) => {
@@ -121,409 +150,27 @@ pub(crate) fn execute_inference(json: bool) -> ExitCode {
                 backends: vec![],
                 sovereign_count: 0,
             };
-            eprintln!("inference config error: {error}");
-            // Emit JSON for machine consumers even on error, then fail.
-            let _ = serde_json::to_string_pretty(&view).map(|payload| println!("{payload}"));
-            ExitCode::FAILURE
-        }
-    }
-}
-
-pub(crate) fn execute_inference_vault(json: bool) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    let service = LocalRuntimeServiceAny::from_env();
-    match service.list_inventory() {
-        Ok(inventory) => emit_json(&inventory),
-        Err(error) => {
-            eprintln!("inference vault error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-pub(crate) fn execute_inference_status(json: bool) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    let service = LocalRuntimeServiceAny::from_env();
-    match service.status() {
-        Ok(status) => emit_json(&status),
-        Err(error) => {
-            eprintln!("inference status error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-pub(crate) fn execute_inference_start(alias: Option<&str>, json: bool) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    // Progress on stderr; final machine report on stdout only.
-    cynic_inference::progress::progress(
-        "resolve",
-        "selecting startable vault profile (auto ensures profiles if needed)",
-    );
-    let resolved = match cynic_inference::resolve_start_alias(alias) {
-        Ok(a) => a,
-        Err(error) => {
-            eprintln!("inference start resolve: {error}");
-            return ExitCode::FAILURE;
-        }
-    };
-    cynic_inference::progress::progress("resolve", format!("alias={resolved}"));
-    let service = LocalRuntimeServiceAny::from_env();
-    cynic_inference::progress::progress(
-        "supervisor",
-        format!("{:?}", service.supervisor_kind().as_str()),
-    );
-
-    let auto_mode = alias.is_none()
-        || alias.is_some_and(|a| {
-            matches!(
-                a.to_ascii_lowercase().as_str(),
-                "auto" | "default" | "any" | "" | "_" | "-"
-            )
-        });
-
-    // Ordered start attempts: preferred first, then other startable profiles.
-    let mut candidates = vec![resolved.clone()];
-    if auto_mode {
-        if let Ok(ensured) = cynic_inference::ensure_profiles_from_vault() {
-            for a in ensured.startable_aliases {
-                if !candidates.contains(&a) {
-                    candidates.push(a);
-                }
-            }
-        }
-    }
-
-    let mut last_report = None;
-    for (i, try_alias) in candidates.iter().enumerate() {
-        if i > 0 {
-            cynic_inference::progress::progress(
-                "fallback",
-                format!("previous alias failed; trying {try_alias}"),
-            );
-        }
-        match service.start(try_alias) {
-            Ok(mut report) => {
-                if let Some(msg) = report.message.take() {
-                    report.message = Some(format!("resolved_alias={try_alias}; {msg}"));
-                } else {
-                    report.message = Some(format!("resolved_alias={try_alias}"));
-                }
-                if report.ok {
-                    let _ = emit_json(&report);
-                    return ExitCode::SUCCESS;
-                }
-                last_report = Some(report);
-            }
-            Err(error) => {
-                cynic_inference::progress::progress("error", format!("{try_alias}: {error}"));
-                if !auto_mode {
-                    eprintln!("inference start error: {error}");
-                    return ExitCode::FAILURE;
-                }
-            }
-        }
-    }
-
-    if let Some(report) = last_report {
-        let _ = emit_json(&report);
-        ExitCode::FAILURE
-    } else {
-        eprintln!("inference start error: no startable alias succeeded");
-        ExitCode::FAILURE
-    }
-}
-
-pub(crate) fn execute_inference_stop(alias: Option<&str>, json: bool) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    let service = LocalRuntimeServiceAny::from_env();
-    match service.stop(alias) {
-        Ok(report) => {
-            let code = if report.ok {
-                ExitCode::SUCCESS
+            if json {
+                let _ = serde_json::to_string_pretty(&view).map(|payload| println!("{payload}"));
             } else {
-                ExitCode::FAILURE
-            };
-            let _ = emit_json(&report);
-            code
-        }
-        Err(error) => {
-            eprintln!("inference stop error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-pub(crate) fn execute_inference_discover(json: bool) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-
-    let rt = match tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-    {
-        Ok(rt) => rt,
-        Err(e) => {
-            eprintln!("Failed to start tokio runtime: {e}");
-            return ExitCode::FAILURE;
-        }
-    };
-
-    let results = rt.block_on(cynic_inference::adapters::ods::run_sync_pipeline(
-        "local-node",
-    ));
-    let status = if results.iter().any(|r| r.error.is_some()) {
-        "degraded"
-    } else {
-        "ok"
-    };
-
-    let report = serde_json::json!({
-        "schema": "cynic.inference.multi_publish.v1",
-        "status": status,
-        "results": results,
-    });
-
-    emit_json(&report)
-}
-
-pub(crate) fn execute_inference_models(
-    json: bool,
-    persist: bool,
-    ensure_profiles: bool,
-) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    if ensure_profiles {
-        match cynic_inference::ensure_profiles_from_vault() {
-            Ok(ensured) => {
-                // Still emit full store after ensure for one-shot UX.
-                let service = ModelStoreService::from_env();
-                match service.scan() {
-                    Ok(_report) => {
-                        let _ = emit_json(&ensured);
-                        if persist {
-                            let _ = service.scan_and_persist();
-                        }
-                        return ExitCode::SUCCESS;
-                    }
-                    Err(e) => {
-                        let _ = emit_json(&ensured);
-                        eprintln!("scan after ensure: {e}");
-                        return ExitCode::SUCCESS;
-                    }
-                }
+                eprintln!("inference config error: {error}");
             }
-            Err(error) => {
-                eprintln!("ensure-profiles error: {error}");
-                return ExitCode::FAILURE;
-            }
-        }
-    }
-    let service = ModelStoreService::from_env();
-    let result = if persist {
-        service.scan_and_persist()
-    } else {
-        service.scan()
-    };
-    match result {
-        Ok(report) => emit_json(&report),
-        Err(error) => {
-            eprintln!("inference models error: {error}");
             ExitCode::FAILURE
         }
     }
 }
 
-pub(crate) fn execute_inference_models_consolidate(json: bool, yes: bool) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    match consolidate_vault(yes) {
-        Ok(report) => {
-            let code = match report.status {
-                "ok" | "planned" => ExitCode::SUCCESS,
-                "degraded" => ExitCode::FAILURE,
-                _ => ExitCode::FAILURE,
-            };
-            let _ = emit_json(&report);
-            code
-        }
-        Err(error) => {
-            eprintln!("inference-models-consolidate error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
+pub(crate) use hf::{
+    HfDownloadArgs, execute_inference_hardware, execute_inference_hf_categories,
+    execute_inference_hf_download, execute_inference_hf_search, execute_inference_hf_status,
+    execute_inference_hf_suggest,
+};
 
-pub(crate) fn execute_inference_hf_status(json: bool) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    let service = ModelStoreService::from_env();
-    match service.hf_status() {
-        Ok(status) => emit_json(&status),
-        Err(error) => {
-            eprintln!("hf status error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-pub(crate) fn execute_inference_hf_download(
-    repo: &str,
-    json: bool,
-    revision: Option<&str>,
-    include: &[String],
-    exclude: &[String],
-    repo_type: Option<&str>,
-    cache_only: bool,
-    alias: Option<&str>,
-    register_profile: bool,
-) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    let service = HfDiscoveryService::from_env();
-    match service.download_and_register(
-        repo,
-        revision,
-        include,
-        exclude,
-        repo_type,
-        cache_only,
-        alias,
-        register_profile,
-    ) {
-        Ok(report) => {
-            // Refresh centralized registry after successful download
-            if report.ok {
-                let _ = ModelStoreService::from_env().scan_and_persist();
-            }
-            let code = if report.ok {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
-            };
-            let _ = emit_json(&report);
-            code
-        }
-        Err(error) => {
-            eprintln!("hf download error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-pub(crate) fn execute_inference_hf_categories(json: bool) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    let body = serde_json::json!({
-        "schema": "cynic.inference.hf_categories.v1",
-        "surface": "hf_cli",
-        "categories": category_catalog(),
-    });
-    emit_json(&body)
-}
-
-pub(crate) fn execute_inference_hardware(json: bool) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    emit_json(&HardwareProfile::probe())
-}
-
-pub(crate) fn execute_inference_hf_search(
-    json: bool,
-    category: Option<&str>,
-    query: Option<&str>,
-    author: Option<&str>,
-    limit: u32,
-) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    let service = HfDiscoveryService::from_env();
-    match service.search(category, query, limit, author) {
-        Ok(report) => emit_json(&report),
-        Err(error) => {
-            eprintln!("hf search error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-pub(crate) fn execute_inference_hf_suggest(json: bool, category: &str, limit: u32) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    let service = HfDiscoveryService::from_env();
-    match service.suggest(Some(category), limit) {
-        Ok(report) => emit_json(&report),
-        Err(error) => {
-            eprintln!("hf suggest error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-pub(crate) fn execute_inference_plan(alias: &str, json: bool, apply: bool) -> ExitCode {
-    if !json {
-        eprintln!("Use --json. This command is designed for machine consumption.");
-        return ExitCode::FAILURE;
-    }
-    let planner = RuntimePlanner::from_env();
-    match planner.plan_for_alias(alias) {
-        Ok(plan) => {
-            if apply {
-                match planner.materialize(&plan) {
-                    Ok(mat) => {
-                        let body = serde_json::json!({
-                            "plan": plan,
-                            "materialized": mat,
-                            "applied": true,
-                        });
-                        emit_json(&body)
-                    }
-                    Err(e) => {
-                        eprintln!("plan apply error: {e}");
-                        ExitCode::FAILURE
-                    }
-                }
-            } else {
-                emit_json(&plan)
-            }
-        }
-        Err(error) => {
-            eprintln!("inference plan error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
+pub(crate) use local_runtime::{
+    execute_inference_discover, execute_inference_models, execute_inference_models_consolidate,
+    execute_inference_plan, execute_inference_start, execute_inference_status,
+    execute_inference_stop, execute_inference_vault,
+};
 
 fn emit_json(value: &impl serde::Serialize) -> ExitCode {
     match serde_json::to_string_pretty(value) {

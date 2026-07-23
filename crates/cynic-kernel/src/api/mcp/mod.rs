@@ -31,6 +31,9 @@ use crate::domain::coord::CoordPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::storage::StoragePort;
 
+#[cfg(test)]
+mod tests;
+
 // ── MCP Rate Limiter ──────────────────────────────────────────
 
 pub(crate) struct McpRateLimit {
@@ -184,7 +187,26 @@ pub struct BatchClaimParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ReleaseParams {
     pub agent_id: String,
-    pub target: Option<String>,
+    pub target: String,
+    pub lease_id: String,
+    pub fencing_token: u64,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RenewLeaseParams {
+    pub agent_id: String,
+    pub target: String,
+    pub lease_id: String,
+    pub fencing_token: u64,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct FinalizeLeaseParams {
+    pub agent_id: String,
+    pub target: String,
+    pub lease_id: String,
+    pub fencing_token: u64,
+    pub proof_bundle: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -255,6 +277,8 @@ pub struct UpdateAgentTaskResultParams {
     pub result: Option<String>,
     pub error: Option<String>,
     pub agent_id: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -305,6 +329,7 @@ pub struct CynicMcp {
     pub(crate) rate_limit: Arc<McpRateLimit>,
     pub(crate) bg_semaphore: Arc<tokio::sync::Semaphore>,
     pub(crate) authenticated: Arc<AtomicBool>,
+    pub(crate) coord_principal: Option<String>,
 
     // WHY: K12 — tool_router is used via trait dispatch, compiler misses direct usage
     #[allow(dead_code)]
@@ -362,8 +387,17 @@ impl CynicMcp {
                         .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
                         .unwrap_or(false),
             )),
+            coord_principal: std::env::var("CYNIC_AGENT_ID")
+                .ok()
+                .filter(|value| !value.is_empty()),
             tool_router: Self::tool_router(),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_coord_principal(mut self, agent_id: impl Into<String>) -> Self {
+        self.coord_principal = Some(agent_id.into());
+        self
     }
 
     pub(crate) fn require_auth(&self) -> Result<(), McpError> {
@@ -375,6 +409,22 @@ impl CynicMcp {
             ));
         }
         Ok(())
+    }
+
+    pub(crate) fn require_coord_principal(&self, asserted_agent_id: &str) -> Result<(), McpError> {
+        match self.coord_principal.as_deref() {
+            Some(principal) if principal == asserted_agent_id => Ok(()),
+            Some(_) => Err(McpError::new(
+                rmcp::model::ErrorCode(-32000),
+                "authenticated MCP principal does not own the asserted agent_id",
+                None,
+            )),
+            None => Err(McpError::new(
+                rmcp::model::ErrorCode(-32000),
+                "coordination unavailable: CYNIC_AGENT_ID is not bound to this MCP process",
+                None,
+            )),
+        }
     }
 
     pub(crate) async fn touch(&self, agent_id: &str) {

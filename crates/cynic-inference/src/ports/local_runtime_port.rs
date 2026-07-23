@@ -34,5 +34,12 @@ pub trait LocalModelInventoryPort: Send + Sync {
 pub trait LocalInferenceRuntimePort: Send + Sync {
     fn status(&self) -> Result<LocalRuntimeStatus, LocalRuntimeError>;
     fn start(&self, alias: &str) -> Result<LocalRuntimeMutationReport, LocalRuntimeError>;
+    fn start_with_readiness(
+        &self,
+        alias: &str,
+        _wait_for_ready: bool,
+    ) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
+        self.start(alias)
+    }
     fn stop(&self, alias: Option<&str>) -> Result<LocalRuntimeMutationReport, LocalRuntimeError>;
 }

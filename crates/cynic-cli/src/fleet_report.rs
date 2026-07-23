@@ -32,7 +32,7 @@ pub(crate) fn emit_fleet_report(
     })?;
     let organ_dirs = discover_organ_dirs(&project_root)?;
 
-    observed_resources.append(&mut load_observed_resources(ObservationInputs {
+    observed_resources.append(&mut load_observed_resources(&ObservationInputs {
         proxmox_json,
         proxmox_list_text,
         watchdog_json,

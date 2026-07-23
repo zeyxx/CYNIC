@@ -7,6 +7,7 @@ use crate::domain;
 use crate::infra;
 use cynic_inference::adapters::embedding::auto_recovery::AutoRecoveryEmbedding;
 use cynic_inference::embedding::EmbeddingPort;
+use cynic_inference::{SlotSemaphoreMap, SlotTracker};
 
 pub struct RestStateInputs {
     pub storage: Arc<dyn domain::storage::StoragePort>,
@@ -25,8 +26,8 @@ pub struct RestStateInputs {
     pub backend_configs: Vec<infra::config::BackendConfig>,
     pub senses: Vec<Arc<dyn domain::organ::OrganPort>>,
     pub routing_calc: Arc<infra::routing_calc::RoutingCalculator>,
-    pub slot_semaphores: Arc<domain::slot_semaphore::SlotSemaphoreMap>,
-    pub slot_tracker: Arc<domain::slot_tracker::SlotTracker>,
+    pub slot_semaphores: Arc<SlotSemaphoreMap>,
+    pub slot_tracker: Arc<SlotTracker>,
 }
 
 impl fmt::Debug for RestStateInputs {

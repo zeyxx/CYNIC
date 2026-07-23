@@ -8,7 +8,6 @@ pub(crate) enum RuntimeMode {
     ExplicitFlag,
     Environment,
     Installed,
-    ProjectRootEnv,
     DevWorktree,
     UnresolvedFallback,
 }
@@ -17,9 +16,7 @@ impl RuntimeMode {
     pub(crate) fn projection_class(self) -> RuntimeProjectionClass {
         match self {
             Self::Installed => RuntimeProjectionClass::RuntimeAuthority,
-            Self::ExplicitFlag | Self::Environment | Self::ProjectRootEnv => {
-                RuntimeProjectionClass::OperatorProjection
-            }
+            Self::ExplicitFlag | Self::Environment => RuntimeProjectionClass::OperatorProjection,
             Self::DevWorktree | Self::UnresolvedFallback => {
                 RuntimeProjectionClass::DevWorktreeFallback
             }
@@ -31,7 +28,6 @@ impl RuntimeMode {
             Self::ExplicitFlag => "explicit_flag",
             Self::Environment => "environment",
             Self::Installed => "installed",
-            Self::ProjectRootEnv => "project_root_env",
             Self::DevWorktree => "dev_worktree",
             Self::UnresolvedFallback => "unresolved_fallback",
         }
@@ -65,7 +61,6 @@ pub(crate) struct RuntimePaths {
 pub(crate) struct RuntimeContext {
     pub(crate) explicit_registry: Option<PathBuf>,
     pub(crate) env_registry: Option<PathBuf>,
-    pub(crate) project_root_env: Option<PathBuf>,
     pub(crate) current_dir: Option<PathBuf>,
     pub(crate) current_exe: Option<PathBuf>,
     pub(crate) installed_config_root: Option<PathBuf>,
@@ -88,7 +83,6 @@ impl RuntimeContext {
         Self {
             explicit_registry: explicit_registry.map(PathBuf::from),
             env_registry: env::var("CYNIC_REGISTRY").ok().map(PathBuf::from),
-            project_root_env: env::var("CYNIC_PROJECT_ROOT").ok().map(PathBuf::from),
             current_dir: env::current_dir().ok(),
             current_exe: env::current_exe().ok(),
             installed_config_root: Some(authority.config_root),
@@ -200,37 +194,6 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
         }
     }
 
-    if let Some(project_root) = context.project_root_env.as_ref() {
-        let candidate = project_root.join("infra/registry.json");
-        if candidate.exists() {
-            let config_root = effective_config_root(context, project_root);
-            return RuntimePaths {
-                registry_path: candidate,
-                config_root: config_root.clone(),
-                policy_root: effective_policy_root(context, &config_root),
-                libexec_root: effective_libexec_root(context),
-                sudoers_dir: effective_sudoers_dir(context),
-                state_root: effective_state_root(context),
-                log_root: effective_log_root(context),
-                provider_hosts_path: effective_provider_hosts_path(context, &config_root),
-                dns_hosts_path: effective_dns_hosts_path(context),
-                dns_corefile_path: effective_dns_corefile_path(context),
-                dns_service_path: effective_dns_service_path(context),
-                resolved_dropin_path: effective_resolved_dropin_path(context),
-                host_exec_helper_path: effective_host_exec_helper_path(context),
-                host_exec_sudoers_path: effective_host_exec_sudoers_path(context),
-                network_actuator_helper_path: effective_network_actuator_helper_path(context),
-                network_actuator_policy_path: effective_network_actuator_policy_path(
-                    context,
-                    &config_root,
-                ),
-                network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
-                mode: RuntimeMode::ProjectRootEnv,
-                projection_class: RuntimeMode::ProjectRootEnv.projection_class(),
-            };
-        }
-    }
-
     if let Some(path) = find_registry_from(context.current_dir.as_deref()) {
         let config_root = effective_config_root(context, &path);
         return RuntimePaths {
@@ -293,7 +256,7 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
         .or_else(|| context.installed_config_root.clone())
         .unwrap_or_else(|| PathBuf::from("/etc/cynic"));
     RuntimePaths {
-        registry_path: PathBuf::from("infra/registry.json"),
+        registry_path: config_root.join("registry.json"),
         config_root: config_root.clone(),
         policy_root: effective_policy_root(context, &config_root),
         libexec_root: effective_libexec_root(context),
@@ -465,6 +428,7 @@ fn find_registry_from(origin: Option<&Path>) -> Option<PathBuf> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use std::fs;
@@ -627,6 +591,30 @@ mod tests {
             resolved.network_actuator_sudoers_path,
             PathBuf::from("/etc/sudoers.d/cynic-network-actuator")
         );
+    }
+
+    #[test]
+    fn unresolved_fallback_uses_installed_config_root_registry() {
+        let root = temp_fixture("unresolved");
+        let config_root = root.join("etc").join("cynic");
+        fs::create_dir_all(&config_root).expect("config root");
+        fs::create_dir_all(root.join("etc/cynic").join("state")).expect("state");
+
+        let resolved = resolve_runtime_paths(&RuntimeContext {
+            installed_config_root: Some(config_root.clone()),
+            env_registry: None,
+            current_dir: Some(root.join("nowhere")),
+            current_exe: None,
+            ..RuntimeContext::default()
+        });
+
+        assert_eq!(resolved.mode, RuntimeMode::UnresolvedFallback);
+        assert_eq!(
+            resolved.projection_class,
+            RuntimeMode::UnresolvedFallback.projection_class()
+        );
+        assert_eq!(resolved.config_root, config_root);
+        assert_eq!(resolved.registry_path, config_root.join("registry.json"));
     }
 
     fn temp_fixture(name: &str) -> PathBuf {

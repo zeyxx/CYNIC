@@ -34,7 +34,7 @@ struct WalletBehaviorAdapter<'a>(&'a WalletBehavior);
 
 impl cynic_intel::kscore::WalletBehaviorView for WalletBehaviorAdapter<'_> {
     fn class(&self) -> kscore_intel::HolderClass {
-        map_holder_class_to_intel(self.0.class.clone())
+        map_holder_class_to_intel(&self.0.class)
     }
 
     fn hold_time_hours(&self) -> Option<f64> {
@@ -42,7 +42,7 @@ impl cynic_intel::kscore::WalletBehaviorView for WalletBehaviorAdapter<'_> {
     }
 }
 
-fn map_holder_class_to_intel(class: HolderClass) -> kscore_intel::HolderClass {
+fn map_holder_class_to_intel(class: &HolderClass) -> kscore_intel::HolderClass {
     match class {
         HolderClass::Accumulator => kscore_intel::HolderClass::Accumulator,
         HolderClass::Holder => kscore_intel::HolderClass::Holder,

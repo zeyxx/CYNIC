@@ -4,6 +4,7 @@ pub const RUNTIME_EXECUTION_SUITE_SCHEMA: &str = "cynic.runtime_execution_suite.
 pub const RUNTIME_EXECUTION_PLAN_SCHEMA: &str = "cynic.runtime_execution_plan.v1";
 pub const RUNTIME_PROOF_SCHEMA: &str = "cynic.runtime_proof.v1";
 pub const RUNTIME_PROOF_BUNDLE_SCHEMA: &str = "cynic.runtime_proof_bundle.v1";
+pub const RUNTIME_PROOF_PERSISTENCE_SCHEMA: &str = "cynic.runtime_proof_persistence.v1";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeExecutionSuite {

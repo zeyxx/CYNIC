@@ -2,6 +2,8 @@
 //! Mirrors MCP agent_tools for HTTP clients (Python daemons, curl, future brain agent).
 
 use axum::{extract::State, http::StatusCode, response::Json};
+use cynic_protocol::agent_recursion::AgentEvidenceRef;
+use cynic_protocol::validate_evidence_refs;
 use serde::Deserialize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -36,6 +38,8 @@ pub struct UpdateTaskResultRequest {
     pub result: Option<String>,
     #[serde(default)]
     pub error: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<AgentEvidenceRef>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -757,12 +761,44 @@ pub async fn complete_task_handler(
     .await;
 
     let has_error = req.error.is_some();
+    let completion_status = if has_error { "failed" } else { "completed" };
+    let result_value = req.result.clone();
+    let error_value = req.error.clone();
+    let evidence_refs = req.evidence_refs.clone();
+    if evidence_refs.len() > 64 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "evidence_refs must contain at most 64 entries".into(),
+            }),
+        ));
+    }
+    let evidence_violations = validate_evidence_refs(&evidence_refs);
+    if !evidence_violations.is_empty() {
+        let codes = evidence_violations
+            .iter()
+            .map(|violation| violation.code.as_str())
+            .collect::<Vec<_>>();
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: format!("invalid evidence_refs: {}", codes.join(",")),
+            }),
+        ));
+    }
+    let completion_payload = serde_json::json!({
+        "task_id": task_id.clone(),
+        "status": completion_status,
+        "result": result_value.clone(),
+        "error": error_value.clone(),
+        "evidence_refs": evidence_refs,
+    });
 
     tokio::time::timeout(
         AGENT_TASK_STORAGE_TIMEOUT,
         state
             .storage
-            .update_agent_task_result(&task_id, req.result, req.error),
+            .update_agent_task_result(&task_id, "rest_api", result_value, error_value),
     )
     .await
     .map_err(|_e| {
@@ -784,6 +820,67 @@ pub async fn complete_task_handler(
         )
     })?;
 
+    let mut completion_observation = crate::domain::ccm::build_observation_with_ledger(
+        "agent_task_result".to_string(),
+        Some(task_id.clone()),
+        Some("agent-tasks".to_string()),
+        Some(completion_status.to_string()),
+        Some(completion_payload.to_string()),
+        Some("CYNIC".to_string()),
+        Some("rest_api".to_string()),
+        None,
+        Some(vec![format!("agent-task:{task_id}")]),
+        Some(completion_payload),
+        Some(if has_error {
+            "inferred".to_string()
+        } else {
+            "observed".to_string()
+        }),
+        Some("agent-task-completion-loop".to_string()),
+        Some("record_agent_task_result".to_string()),
+        Some(vec![format!("agent-task:{task_id}")]),
+        None,
+    );
+    completion_observation.source_tier =
+        crate::introspection::classify_source_tier("rest_api").to_string();
+
+    match state.bg_semaphore.clone().try_acquire_owned() {
+        Ok(permit) => {
+            let storage = Arc::clone(&state.storage);
+            let task_id_clone = task_id.clone();
+            let obs_clone = completion_observation;
+            state.metrics.inc_observation_ingested();
+            state.bg_tasks.spawn(async move {
+                let _permit = permit;
+                match tokio::time::timeout(
+                    std::time::Duration::from_secs(5),
+                    storage.store_observation(&obs_clone),
+                )
+                .await
+                {
+                    Ok(Err(e)) => {
+                        tracing::warn!(error = %e, task_id = task_id_clone, "agent task completion observation store failed")
+                    }
+                    Err(_) => tracing::warn!(
+                        task_id = task_id_clone,
+                        "agent task completion observation store timed out (5s)"
+                    ),
+                    Ok(Ok(_)) => {
+                        tracing::debug!(task_id = task_id_clone, "agent task completion observation stored")
+                    }
+                }
+            });
+        }
+        Err(_) => {
+            state.metrics.inc_observation_dropped();
+            tracing::warn!(
+                task_id = task_id,
+                "agent task completion observation dropped: background limit reached"
+            );
+            state.metrics.inc_observation_post_failed();
+        }
+    }
+
     let _ = state
         .event_tx
         .send(crate::domain::events::KernelEvent::AgentTaskCompleted {
@@ -802,7 +899,7 @@ mod tests {
         ReviewAgentProposalRequest, agent_proposal_review_value, event_matches_pending_task_watch,
         extract_agent_proposal, filter_proposal_projection, task_proposal_projection,
         validate_agent_proposal_review_request, validate_agent_task_content,
-        validate_forge_lifecycle_contract, wait_for_matching_task_event,
+        wait_for_matching_task_event,
     };
     use crate::domain::events::KernelEvent;
     use crate::domain::storage::AgentTask;
@@ -828,7 +925,7 @@ mod tests {
                     "build_runner_role": "build_runner",
                     "deploy_target_role": "kernel_primary",
                     "deploy_target_flag": "deploy_target",
-                    "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+                    "runtime_paths": {"repo_root": "/var/lib/cynic/repos/CYNIC"},
                     "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
                     "activation_evidence_contract": activation_evidence_contract()
                 }
@@ -846,13 +943,16 @@ mod tests {
             "build_runner_role": "build_runner",
             "deploy_target": "cynic-vm-core",
             "deploy_target_role": "kernel_primary",
-            "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+            "runtime_paths": {"repo_root": "/var/lib/cynic/repos/CYNIC"},
             "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
             "activation_evidence_contract": activation_evidence_contract(),
             "coord_targets": ["crates/cynic-kernel", "infra/registry.json"]
         });
 
-        let result = validate_forge_lifecycle_contract(&content, Some(&registry));
+        let result = cynic_host::lifecycle::forge_task_contract::validate_forge_lifecycle_contract(
+            &content,
+            Some(&registry),
+        );
 
         assert!(result.is_ok());
     }
@@ -1033,7 +1133,7 @@ mod tests {
                     "build_runner_role": "builder",
                     "deploy_target_role": "primary",
                     "deploy_target_flag": "ships_kernel",
-                    "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+                    "runtime_paths": {"repo_root": "/var/lib/cynic/repos/CYNIC"},
                     "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
                     "activation_evidence_contract": activation_evidence_contract()
                 }
@@ -1050,13 +1150,16 @@ mod tests {
             "build_runner_role": "builder",
             "deploy_target": "node-primary",
             "deploy_target_role": "primary",
-            "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+            "runtime_paths": {"repo_root": "/var/lib/cynic/repos/CYNIC"},
             "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
             "activation_evidence_contract": activation_evidence_contract(),
             "coord_targets": ["infra/registry.json"]
         });
 
-        let result = validate_forge_lifecycle_contract(&content, Some(&registry));
+        let result = cynic_host::lifecycle::forge_task_contract::validate_forge_lifecycle_contract(
+            &content,
+            Some(&registry),
+        );
 
         assert!(result.is_ok());
     }
@@ -1070,7 +1173,7 @@ mod tests {
                     "build_runner_role": "builder",
                     "deploy_target_role": "primary",
                     "deploy_target_flag": "ships_kernel",
-                    "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+                    "runtime_paths": {"repo_root": "/var/lib/cynic/repos/CYNIC"},
                     "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
                     "activation_evidence_contract": activation_evidence_contract()
                 }
@@ -1087,13 +1190,16 @@ mod tests {
             "build_runner_role": "builder",
             "deploy_target": "node-primary",
             "deploy_target_role": "primary",
-            "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+            "runtime_paths": {"repo_root": "/var/lib/cynic/repos/CYNIC"},
             "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
             "activation_evidence_contract": activation_evidence_contract(),
             "coord_targets": ["infra/registry.json"]
         });
 
-        let result = validate_forge_lifecycle_contract(&content, Some(&registry));
+        let result = cynic_host::lifecycle::forge_task_contract::validate_forge_lifecycle_contract(
+            &content,
+            Some(&registry),
+        );
 
         assert!(result.is_err());
         assert!(

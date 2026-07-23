@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use crate::repo_access::current_project_root;
 use crate::runtime_authority::RuntimeProjectionClass;
 
+const ALLOW_LOCAL_DEV_BUILD_ENV: &str = "CYNIC_ALLOW_LOCAL_DEV_BUILD";
+
 pub const DEFAULT_REGISTRY_PATH: &str = "/etc/cynic/registry.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -11,7 +13,6 @@ pub enum RuntimeRegistryMode {
     ExplicitPath,
     Environment,
     InstalledAuthority,
-    ProjectRootEnv,
     DevWorktreeFallback,
 }
 
@@ -19,9 +20,7 @@ impl RuntimeRegistryMode {
     pub fn projection_class(self) -> RuntimeProjectionClass {
         match self {
             Self::InstalledAuthority => RuntimeProjectionClass::RuntimeAuthority,
-            Self::ExplicitPath | Self::Environment | Self::ProjectRootEnv => {
-                RuntimeProjectionClass::OperatorProjection
-            }
+            Self::ExplicitPath | Self::Environment => RuntimeProjectionClass::OperatorProjection,
             Self::DevWorktreeFallback => RuntimeProjectionClass::DevWorktreeFallback,
         }
     }
@@ -31,7 +30,6 @@ impl RuntimeRegistryMode {
             Self::ExplicitPath => "explicit_path",
             Self::Environment => "environment",
             Self::InstalledAuthority => "installed_authority",
-            Self::ProjectRootEnv => "project_root_env",
             Self::DevWorktreeFallback => "dev_worktree_fallback",
         }
     }
@@ -46,7 +44,6 @@ pub struct ResolvedRuntimeRegistry {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeProjectRootMode {
-    ProjectRootEnv,
     DevWorktreeFallback,
     CurrentDirectoryFallback,
 }
@@ -54,7 +51,6 @@ pub enum RuntimeProjectRootMode {
 impl RuntimeProjectRootMode {
     pub fn projection_class(self) -> RuntimeProjectionClass {
         match self {
-            Self::ProjectRootEnv => RuntimeProjectionClass::OperatorProjection,
             Self::DevWorktreeFallback | Self::CurrentDirectoryFallback => {
                 RuntimeProjectionClass::DevWorktreeFallback
             }
@@ -63,7 +59,6 @@ impl RuntimeProjectRootMode {
 
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::ProjectRootEnv => "project_root_env",
             Self::DevWorktreeFallback => "dev_worktree_fallback",
             Self::CurrentDirectoryFallback => "current_directory_fallback",
         }
@@ -82,11 +77,8 @@ pub fn resolve_runtime_registry_path(explicit_path: Option<&Path>) -> Result<Pat
 }
 
 pub fn resolve_runtime_project_root() -> Option<ResolvedRuntimeProjectRoot> {
-    if let Ok(project_root) = env::var("CYNIC_PROJECT_ROOT") {
-        return Some(resolved_project_root(
-            PathBuf::from(project_root),
-            RuntimeProjectRootMode::ProjectRootEnv,
-        ));
+    if !allow_local_dev_build() {
+        return None;
     }
 
     current_project_root().map(|project_root| {
@@ -103,6 +95,12 @@ pub fn resolve_runtime_project_root_or_cwd_fallback() -> ResolvedRuntimeProjectR
         let fallback = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         resolved_project_root(fallback, RuntimeProjectRootMode::CurrentDirectoryFallback)
     })
+}
+
+pub fn load_runtime_registry(explicit_path: Option<&Path>) -> Option<serde_json::Value> {
+    let path = resolve_runtime_registry(explicit_path).ok()?;
+    let content = std::fs::read_to_string(path.path).ok()?;
+    serde_json::from_str(&content).ok()
 }
 
 pub fn resolve_runtime_registry(
@@ -132,14 +130,9 @@ pub fn resolve_runtime_registry(
         ));
     }
 
-    if let Ok(project_root) = env::var("CYNIC_PROJECT_ROOT") {
-        let candidate = PathBuf::from(project_root).join("infra/registry.json");
-        if candidate.is_file() {
-            return Ok(resolved(candidate, RuntimeRegistryMode::ProjectRootEnv));
-        }
-    }
-
-    if let Some(project_root) = current_project_root() {
+    if allow_local_dev_build()
+        && let Some(project_root) = current_project_root()
+    {
         let candidate = project_root.join("infra/registry.json");
         if candidate.is_file() {
             return Ok(resolved(
@@ -150,9 +143,20 @@ pub fn resolve_runtime_registry(
     }
 
     Err(
-        "registry path required: set CYNIC_REGISTRY/CYNIC_REGISTRY_PATH, install /etc/cynic/registry.json, or run from a valid CYNIC worktree"
+        "registry path required: set CYNIC_REGISTRY/CYNIC_REGISTRY_PATH, install /etc/cynic/registry.json, or set CYNIC_ALLOW_LOCAL_DEV_BUILD=1 when resolving from a workspace"
             .to_string(),
     )
+}
+
+fn allow_local_dev_build() -> bool {
+    env::var(ALLOW_LOCAL_DEV_BUILD_ENV)
+        .map(|value| {
+            matches!(
+                value.as_str(),
+                "1" | "true" | "TRUE" | "yes" | "YES" | "on" | "ON"
+            )
+        })
+        .unwrap_or(false)
 }
 
 fn resolved(path: PathBuf, mode: RuntimeRegistryMode) -> ResolvedRuntimeRegistry {

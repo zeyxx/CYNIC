@@ -84,12 +84,12 @@ fn resolve_llama_bin() -> String {
             if Path::new(c).is_file() {
                 return c.to_string();
             }
-        } else if let Ok(out) = Command::new("which").arg(c).output() {
-            if out.status.success() {
-                let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                if !p.is_empty() {
-                    return p;
-                }
+        } else if let Ok(out) = Command::new("which").arg(c).output()
+            && out.status.success()
+        {
+            let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !p.is_empty() {
+                return p;
             }
         }
     }
@@ -106,10 +106,10 @@ fn find_plugin_dir(bin: &str) -> Option<PathBuf> {
     // sibling of binary: /usr/local/bin/llama-server → try /usr/local/lib/llama
     if let Some(parent) = Path::new(bin).parent() {
         let candidate = parent.join("../lib/llama");
-        if let Ok(c) = candidate.canonicalize() {
-            if c.is_dir() {
-                return Some(c);
-            }
+        if let Ok(c) = candidate.canonicalize()
+            && c.is_dir()
+        {
+            return Some(c);
         }
     }
     for c in PLUGIN_CANDIDATES {

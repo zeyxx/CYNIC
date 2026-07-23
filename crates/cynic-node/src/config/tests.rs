@@ -146,6 +146,17 @@ fn runtime_federation_config_derives_defaults_when_section_missing() {
 
     assert_eq!(federation.kernel_ws_url, "ws://127.0.0.1:3030/events/ws");
     assert_eq!(federation.node_identity, "test-dog");
+
+    let local_mode = std::env::var("CYNIC_ALLOW_LOCAL_DEV_BUILD")
+        .is_ok_and(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"));
+    let expected_queue_dir = if local_mode {
+        let home = std::env::var("HOME").ok().map(std::path::PathBuf::from);
+        home.map(|path| path.join(".cynic/node"))
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp/cynic/node"))
+    } else {
+        std::path::PathBuf::from("/var/lib/cynic/node")
+    };
+    assert_eq!(federation.queue_dir, expected_queue_dir);
 }
 
 #[test]

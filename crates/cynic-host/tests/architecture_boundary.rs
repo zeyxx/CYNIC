@@ -176,7 +176,7 @@ fn host_usecases_surface_stays_a_thin_orchestrator() {
         "host usecase status helpers must live in status.rs"
     );
     assert!(
-        execution.contains("pub fn execute_host_apply") && execution.contains("fn extend_commands"),
+        execution.contains("pub fn execute_host_apply") && execution.contains("fn extend_dry_run"),
         "host apply execution must live in execution.rs"
     );
     assert!(

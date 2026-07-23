@@ -23,6 +23,16 @@ pub(crate) enum BootstrapFrameworkCommand {
         #[arg(long)]
         target: Option<String>,
     },
+    EnrollmentRequest {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        seed_manifest: String,
+        #[arg(long)]
+        machine_id: String,
+        #[arg(long)]
+        role: String,
+    },
 }
 
 pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode {
@@ -51,6 +61,28 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
                 apply,
             ) {
                 Ok(report) => emit_json(&report, report.status == "blocked"),
+                Err(error) => fail(error),
+            }
+        }
+        BootstrapFrameworkCommand::EnrollmentRequest {
+            json,
+            seed_manifest,
+            machine_id,
+            role,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let role = match framework_bootstrap::FrameworkRole::parse(&role) {
+                Ok(role) => role,
+                Err(error) => return fail(error),
+            };
+            match framework_bootstrap::build_framework_enrollment_request(
+                &seed_manifest,
+                &machine_id,
+                role,
+            ) {
+                Ok(report) => emit_json(&report, true),
                 Err(error) => fail(error),
             }
         }

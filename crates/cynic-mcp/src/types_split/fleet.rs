@@ -1,7 +1,39 @@
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct OperatorTransportStatusParams {}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SshTargetInspectParams {
+    /// DNS name or IP literal. The adapter rejects shell syntax and never persists trust.
+    pub host: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct FleetNodeStatusParams {
     /// Registry node name, alias, or Proxmox resource id.
     pub node: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct FleetInventoryParams {
+    /// Optional registry path. Defaults to the canonical infra/registry.json under the MCP project root.
+    pub registry: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct FleetReconcilePlanParams {
+    /// Identifier declared under infra/registry.json fleet_desired.targets[].id.
+    pub target_id: String,
+    /// Optional registry path. Defaults to the canonical infra/registry.json under the MCP project root.
+    pub registry: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct FleetReconcileApplyParams {
+    pub target_id: String,
+    pub actor: String,
+    /// Must be true before any provider mutation is attempted.
+    pub apply: bool,
+    pub registry: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -61,4 +93,3 @@ pub struct ServiceHealthParams {
     /// HTTP timeout. Defaults to 5 seconds.
     pub timeout_seconds: Option<u64>,
 }
-

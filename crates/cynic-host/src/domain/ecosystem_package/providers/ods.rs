@@ -96,16 +96,97 @@ pub fn plan_ods(
         as_principal: true,
     });
 
-    // Official path: ODS/ods/install.sh (or repo-root install.sh). Prefer nested.
-    let install_sh = if src.join("ods/install.sh").exists() || !src.exists() {
+    // Dream Server / ODS layout (v2.5+): repo-root install.sh → dream-server/install.sh.
+    // Legacy nested ods/install.sh kept as fallback for older pins.
+    let install_sh = if src.join("install.sh").exists() {
+        src.join("install.sh")
+    } else if src.join("dream-server/install.sh").exists() {
+        src.join("dream-server/install.sh")
+    } else if src.join("ods/install.sh").exists() {
         src.join("ods/install.sh")
     } else {
+        // Pre-clone: prefer root entrypoint documented by upstream.
         src.join("install.sh")
     };
+    let install_cwd = install_sh
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| src.clone());
+    // Non-interactive full stack: installer owns docker compose + optional services.
+    // Flags are product-side; CYNIC only invokes — no ODS logic reimplementation.
+    let mut install_argv = vec![
+        "bash".into(),
+        install_sh.display().to_string(),
+        "--non-interactive".into(),
+        "--skip-docker".into(), // host docker already present (CYNIC ops host)
+        "--all".into(),
+    ];
+    if let Ok(extra) = std::env::var("CYNIC_ODS_INSTALL_FLAGS") {
+        for tok in extra.split_whitespace() {
+            if !tok.is_empty() {
+                install_argv.push(tok.to_string());
+            }
+        }
+    }
     steps.push(ApplyStep {
         role: "ods_install".into(),
-        argv: vec!["bash".into(), install_sh.display().to_string()],
-        cwd: Some(src.join("ods")),
+        argv: install_argv,
+        cwd: Some(install_cwd),
+        mutates: true,
+        privilege_required: false,
+        as_principal: true,
+    });
+
+    // Symlink CLI into principal bin when product exposes dream / ods / dream-server.
+    steps.push(ApplyStep {
+        role: "ods_link_cli".into(),
+        argv: vec![
+            "bash".into(),
+            "-c".into(),
+            format!(
+                r#"set -euo pipefail
+BIN="{bin}"
+SRC="{src}"
+PRINCIPAL_HOME="{home}"
+mkdir -p "$BIN"
+for name in dream ods dream-server; do
+  for cand in \
+    "$SRC/dream-server/bin/$name" \
+    "$SRC/dream-server/cli/$name" \
+    "$SRC/bin/$name" \
+    "$PRINCIPAL_HOME/.local/bin/$name" \
+    "/usr/local/bin/$name"; do
+    if [ -x "$cand" ]; then
+      ln -sfn "$cand" "$BIN/$name"
+      break
+    fi
+  done
+done
+# always leave a discoverable shim that re-enters install dir
+if [ ! -e "$BIN/ods" ]; then
+  cat > "$BIN/ods" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="${{CYNIC_ODS_ROOT:-$PRINCIPAL_HOME/.local/share/cynic/src/ODS}}"
+if [ -x "$ROOT/dream-server/install.sh" ]; then
+  exec bash "$ROOT/dream-server/install.sh" "$@"
+fi
+if [ -x "$ROOT/install.sh" ]; then
+  exec bash "$ROOT/install.sh" "$@"
+fi
+echo "ods shim: no install entry at $ROOT" >&2
+exit 127
+SH
+  chmod +x "$BIN/ods"
+fi
+command -v docker >/dev/null
+"#,
+                bin = layout.bin_dir.display(),
+                src = src.display(),
+                home = layout.home_dir.display(),
+            ),
+        ],
+        cwd: None,
         mutates: true,
         privilege_required: false,
         as_principal: true,
@@ -121,13 +202,20 @@ pub fn plan_ods(
         steps,
         auto_applicable: auto,
         proofs: vec![
-            format!("test -x {}/ods || command -v ods", layout.bin_dir.display()),
+            format!(
+                "test -x {}/ods || command -v ods || test -f {}/install.sh",
+                layout.bin_dir.display(),
+                src.display()
+            ),
             "cynic runtime inference-discover --json".into(),
+            "cynic runtime inference-discover --json --apply".into(),
         ],
         summary_commands: vec![
             format!("# principal={} pin={}", layout.runtime_user, pin_tag),
             "cynic deps upgrade --yes --only ods".into(),
             "cynic runtime inference-discover --json".into(),
+            "cynic runtime inference-discover --json --apply".into(),
+            "cynic chat --ods".into(),
         ],
     }
 }
@@ -142,10 +230,10 @@ mod tests {
         PrincipalInstallLayout {
             principal: InstallPrincipalKind::RuntimeUser,
             runtime_user: "cynic".into(),
-            home_dir: PathBuf::from("/home/cynic"),
-            bin_dir: PathBuf::from("/home/cynic/.local/bin"),
-            src_dir: PathBuf::from("/home/cynic/.local/share/cynic/src"),
-            share_dir: PathBuf::from("/home/cynic/.local/share/cynic"),
+            home_dir: PathBuf::from("/var/lib/cynic"),
+            bin_dir: PathBuf::from("/var/lib/cynic/.local/bin"),
+            src_dir: PathBuf::from("/var/lib/cynic/.local/share/cynic/src"),
+            share_dir: PathBuf::from("/var/lib/cynic/.local/share/cynic"),
             run_as: RunAs::SudoUser("cynic".into()),
             writable: true,
             notes: vec![],

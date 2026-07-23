@@ -1,5 +1,5 @@
 //! Embedded domain prompts — compiled into the binary.
-//! Eliminates runtime path discovery fragility: domains work from any cwd, no CYNIC_PROJECT_ROOT needed.
+//! Domain prompts are bundled in the artifact to avoid runtime path-drift.
 
 use std::collections::HashMap;
 

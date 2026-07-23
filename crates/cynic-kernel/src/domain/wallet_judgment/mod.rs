@@ -30,10 +30,3 @@ pub fn deterministic_dog(profile: &WalletProfile) -> (VerdictKind, AxiomScores) 
         },
     )
 }
-
-impl WalletProfile {
-    /// Convert wallet profile to a structured stimulus for Dogs to evaluate.
-    pub fn to_stimulus(&self) -> String {
-        crate::domain::stimulus::build_wallet_stimulus(self)
-    }
-}

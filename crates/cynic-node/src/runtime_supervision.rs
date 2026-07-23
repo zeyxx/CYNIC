@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::process::ExitCode;
 
 use process_wrap::tokio::ChildWrapper;

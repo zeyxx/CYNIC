@@ -13,7 +13,7 @@
       "path": "/var/lib/cynic/lab/images/ubuntu-24.04-server-cloudimg-amd64.img",
       "source_url": "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img",
       "sha256_url": "https://cloud-images.ubuntu.com/noble/current/SHA256SUMS",
-      "sha256": "5fa5b05e5ec239858c4531485d6023b0896448c2df7c63b34f8dae6ea6051a44"
+      "sha256": "ffe6203da54deeb6db5d2a98a83f9ec8e55f149d3f7ba622e1abe5fa966ee3d6"
     },
     "guest_bootstrap": {
       "transport": "ssh",

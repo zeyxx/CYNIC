@@ -10,7 +10,7 @@ use super::port::{ArgvRunner, split_command};
 use super::state_store::{load_state, save_state};
 use super::time::now_ms;
 use super::types::{
-    MutationClass, RepairAction, ApplyReport, RepairResult, UPDATE_LIFECYCLE_APPLY_SCHEMA,
+    ApplyReport, MutationClass, RepairAction, RepairResult, UPDATE_LIFECYCLE_APPLY_SCHEMA,
 };
 
 /// Plan or apply scripted mutations allowed by the current phase.
@@ -39,12 +39,15 @@ pub fn apply_phase(state_path: &Path, yes: bool, runner: &dyn ArgvRunner) -> App
             }),
             MutationClass::InferenceRuntime => actions.push(RepairAction {
                 id: "inference_discover".into(),
-                command: "cynic runtime inference-discover --json".into(),
+                command: "cynic runtime inference-discover --json --apply".into(),
                 mutates: true,
                 mutation_class: m.clone(),
                 finding_ids: vec![],
-                purpose: "attach ODS/peers into inference SSOT when available".into(),
+                purpose: "attach OpenAI-compat peers (optional ODS) into inference SSOT".into(),
             }),
+            MutationClass::KernelRuntime => {
+                // Applied only through `lifecycle kernel-release` with an explicit versioned spec.
+            }
             MutationClass::HostBootstrap | MutationClass::FleetNetwork => {
                 // Not auto-applied — too wide; visible via lifecycle plan only.
             }
@@ -105,7 +108,16 @@ pub fn apply_phase(state_path: &Path, yes: bool, runner: &dyn ArgvRunner) -> App
     let mut state = load_state(state_path);
     state.last_apply_at_unix_ms = Some(now_ms());
     state.updated_at_unix_ms = now_ms();
-    let _ = save_state(state_path, &state);
+    if let Err(error) = save_state(state_path, &state) {
+        any_fail = true;
+        results.push(RepairResult {
+            id: "lifecycle_state_persisted".into(),
+            attempted: true,
+            ok: false,
+            exit_code: None,
+            detail: error,
+        });
+    }
 
     ApplyReport {
         schema: UPDATE_LIFECYCLE_APPLY_SCHEMA,

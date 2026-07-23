@@ -3,6 +3,7 @@ use std::path::Path;
 
 use serde::Serialize;
 
+use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
 use crate::process_observation::command_json;
 use crate::repo_access::{current_project_root, current_repo_access_status};
 use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
@@ -17,6 +18,11 @@ pub struct RuntimeExecutionContextReport {
     pub status: &'static str,
     pub mutates: bool,
     pub context: RuntimeHarnessContext,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub execution_boundary: ExecutionBoundary,
     pub process: ProcessIdentity,
     pub paths: RuntimePathEvidence,
@@ -25,7 +31,7 @@ pub struct RuntimeExecutionContextReport {
     pub network_preflight: RuntimeNetworkPreflightReport,
     pub classification: Vec<&'static str>,
     pub rules: Vec<&'static str>,
-    pub next_actions: Vec<&'static str>,
+    pub next_actions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -75,7 +81,6 @@ pub struct PathStatus {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct EnvironmentEvidence {
-    pub project_root_env_present: bool,
     pub cynic_env: BTreeMap<String, String>,
     pub sandbox_env: BTreeMap<String, String>,
 }
@@ -120,12 +125,24 @@ pub fn observe_runtime_execution_context(
     } else {
         "ready"
     };
+    let (
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command,
+    ) = projection(&execution_boundary, &network_preflight, status);
 
     RuntimeExecutionContextReport {
         schema: "cynic.host.runtime_execution_context.v1",
         status,
         mutates: false,
         context: conformance_context(),
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command: next_command.clone(),
         execution_boundary,
         process,
         paths,
@@ -139,7 +156,7 @@ pub fn observe_runtime_execution_context(
             "worktree context can build and audit but cannot prove host runtime authority alone",
             "network failures must be classified against the observed execution boundary before remediation",
         ],
-        next_actions: next_actions(status),
+        next_actions: next_actions(status, next_command.as_deref()),
     }
 }
 
@@ -177,7 +194,6 @@ fn observe_environment() -> EnvironmentEvidence {
     }
 
     EnvironmentEvidence {
-        project_root_env_present: std::env::var("CYNIC_PROJECT_ROOT").is_ok(),
         cynic_env,
         sandbox_env,
     }
@@ -208,7 +224,7 @@ fn classify_execution_boundary(
         return ExecutionBoundary {
             kind: "dev_worktree",
             confidence: "high",
-            reason: "a CYNIC project root is discoverable from cwd or executable",
+            reason: "a project root is discoverable from cwd or executable",
         };
     }
     if paths.installed_cli.exists {
@@ -251,15 +267,79 @@ fn classify_blockers(
     classification
 }
 
-fn next_actions(status: &str) -> Vec<&'static str> {
+fn projection(
+    execution_boundary: &ExecutionBoundary,
+    network_preflight: &RuntimeNetworkPreflightReport,
+    status: &str,
+) -> (
+    LifecycleStatus,
+    LifecycleDisposition,
+    BoundaryKind,
+    String,
+    Option<String>,
+) {
     if status == "ready" {
-        return vec!["use this execution context as current fetch/runtime evidence"];
+        return (
+            LifecycleStatus::Ready,
+            LifecycleDisposition::ObservableCandidate,
+            BoundaryKind::Observe,
+            "execution context is suitable for current fetch and runtime evidence".to_string(),
+            None,
+        );
     }
-    vec![
-        "compare this report with the same command run from the installed /usr/local/bin/cynic",
-        "do not mutate host networking from a dev worktree or sandbox report",
-        "if installed runtime also reports blocked network, proceed to runtime resolver-plan before any apply surface",
-    ]
+
+    if execution_boundary.kind == "dev_worktree" || execution_boundary.kind == "unknown" {
+        return (
+            LifecycleStatus::Missing,
+            LifecycleDisposition::NotDiscovered,
+            BoundaryKind::Adopt,
+            "execution context is not an installed runtime authority boundary".to_string(),
+            Some(
+                "compare this report with the same command run from the installed /usr/local/bin/cynic"
+                    .to_string(),
+            ),
+        );
+    }
+
+    if network_preflight.status != "ready" {
+        return (
+            LifecycleStatus::ConnectionRequired,
+            LifecycleDisposition::RequiresConnection,
+            BoundaryKind::Connect,
+            "execution context is present but network preflight is not yet ready".to_string(),
+            Some("cynic runtime resolver-plan --json".to_string()),
+        );
+    }
+
+    (
+        LifecycleStatus::PrincipalMismatch,
+        LifecycleDisposition::RequiresPrincipalAdoption,
+        BoundaryKind::Adopt,
+        "installed CLI or runtime authority paths are incomplete for this execution context"
+            .to_string(),
+        Some(
+            "compare this report with the same command run from the installed /usr/local/bin/cynic"
+                .to_string(),
+        ),
+    )
+}
+
+fn next_actions(status: &str, canonical_next_command: Option<&str>) -> Vec<String> {
+    if status == "ready" {
+        return vec!["use this execution context as current fetch/runtime evidence".to_string()];
+    }
+    let mut actions = vec![
+        "compare this report with the same command run from the installed /usr/local/bin/cynic"
+            .to_string(),
+        "do not mutate host networking from a dev worktree or sandbox report".to_string(),
+        "if installed runtime also reports blocked network, proceed to runtime resolver-plan before any apply surface".to_string(),
+    ];
+    if let Some(command) = canonical_next_command {
+        actions.push(command.to_string());
+    }
+    actions.sort();
+    actions.dedup();
+    actions
 }
 
 fn command_summary(value: crate::process_observation::CommandObservation) -> CommandSummary {
@@ -305,7 +385,7 @@ mod tests {
             current_exe: Some(exe.to_string()),
             current_dir: Some("/tmp".to_string()),
             user: Some("user".to_string()),
-            home: Some("/home/user".to_string()),
+            home: Some("/tmp/home".to_string()),
             uid: CommandSummary {
                 command: "id".to_string(),
                 args: vec!["-u".to_string()],
@@ -376,7 +456,6 @@ mod tests {
             &process("/usr/local/bin/cynic"),
             &paths(true),
             &EnvironmentEvidence {
-                project_root_env_present: false,
                 cynic_env: BTreeMap::new(),
                 sandbox_env: BTreeMap::new(),
             },
@@ -398,7 +477,6 @@ mod tests {
             &process("/tmp/cynic/target/debug/cynic"),
             &paths(false),
             &EnvironmentEvidence {
-                project_root_env_present: false,
                 cynic_env: BTreeMap::new(),
                 sandbox_env: BTreeMap::new(),
             },
@@ -422,7 +500,6 @@ mod tests {
             &process("/usr/local/bin/cynic"),
             &paths(true),
             &EnvironmentEvidence {
-                project_root_env_present: false,
                 cynic_env: BTreeMap::new(),
                 sandbox_env,
             },
@@ -445,7 +522,6 @@ mod tests {
             "1".to_string(),
         );
         let environment = EnvironmentEvidence {
-            project_root_env_present: false,
             cynic_env: BTreeMap::new(),
             sandbox_env,
         };

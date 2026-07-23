@@ -32,12 +32,13 @@ use rmcp::{
 };
 
 use crate::types::{
-    AttentionParams, AuditQueryParams, AuthParams, BatchClaimParams, ClaimAgentTaskParams,
-    ClaimParams, ComplianceParams, CoordinationArtifactShareParams,
+    AskesisLogParams, AttentionParams, AuditQueryParams, AuthParams, BatchClaimParams,
+    ClaimAgentTaskParams, ClaimParams, ComplianceParams, CoordinationArtifactShareParams,
     CoordinationContractManifestParams, CoordinationDecisionRecordParams,
     CoordinationStatusPublishParams, CoordinationStatusReadParams, CoordinationThreadReplyParams,
     DispatchAgentTaskParams, DockerContainerInspectParams, DockerContainerListParams,
-    DockerContainerLogsParams, FleetNodeExecParams, FleetNodeStatusParams, GitParams,
+    DockerContainerLogsParams, FinalizeLeaseParams, FleetInventoryParams, FleetNodeExecParams,
+    FleetNodeStatusParams, FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams, SourceControlParams,
     IdentityAttestParams, IdentitySmokeCheckParams, InferParams, InfraProvisionParams,
     InfraRegistryReadParams, InfraRegistryValidateParams, JudgeParams, LibraryQueryParams,
     ListParams, ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
@@ -45,12 +46,12 @@ use crate::types::{
     NetworkMeshDnsActivationBundleParams, NetworkMeshDnsActivationPlanParams,
     NetworkMeshDnsActivationStatusParams, NetworkMeshDnsRenderParams,
     NetworkMeshProviderFallbackHostsParams, NetworkMeshProviderFallbackStatusParams,
-    NetworkMeshStatusParams, ObserveParams, ProxmoxActionParams, ProxmoxExecParams,
-    ProxmoxProvisionParams, RegisterParams, ReleaseParams, ServiceHealthParams,
-    ServiceStatusParams, StoragePrimaryBundleParams, StoragePrimaryPlanParams,
-    StoragePrimaryReadinessParams, StoragePrimaryStatusParams, UpdateAgentTaskResultParams,
-    ValidateParams, WatchPendingAgentTasksParams, WhoParams, validate_agent_id,
-    validate_agent_task_content,
+    NetworkMeshStatusParams, ObserveParams, OperatorTransportStatusParams, ProxmoxActionParams,
+    ProxmoxExecParams, ProxmoxProvisionParams, RegisterParams, ReleaseParams, RenewLeaseParams,
+    ServiceHealthParams, ServiceStatusParams, SshTargetInspectParams, StoragePrimaryBundleParams,
+    StoragePrimaryPlanParams, StoragePrimaryReadinessParams, StoragePrimaryStatusParams,
+    UpdateAgentTaskResultParams, ValidateParams, WatchPendingAgentTasksParams, WhoParams,
+    validate_agent_id, validate_agent_task_content,
 };
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -96,6 +97,8 @@ impl CynicMcpProxy {
             + Self::tool_router_coord()
             + Self::tool_router_identity()
             + Self::tool_router_local()
+            + Self::tool_router_eval()
+            + Self::tool_router_agent_loop_audit()
             + Self::tool_router_docker()
     }
 
@@ -135,6 +138,21 @@ impl CynicMcpProxy {
             ));
         }
         Ok(())
+    }
+
+    fn coordination_principal(&self) -> Result<String, McpError> {
+        let agent_id = std::env::var("CYNIC_AGENT_ID")
+            .ok()
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                McpError::new(
+                    rmcp::model::ErrorCode(-32000),
+                    "coordination unavailable: CYNIC_AGENT_ID is not bound to this MCP process",
+                    None,
+                )
+            })?;
+        validate_agent_id(&Some(agent_id.clone()))?;
+        Ok(agent_id)
     }
 
     async fn proxmox_cluster_resources(&self) -> serde_json::Value {
@@ -701,5 +719,6 @@ impl CynicMcpProxy {
 include!("routers/forward.rs");
 include!("routers/coord.rs");
 include!("routers/local.rs");
+include!("routers/eval.rs");
 include!("routers/docker.rs");
 include!("handler.rs");

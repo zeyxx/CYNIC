@@ -35,7 +35,10 @@ impl WebSocketFederationAdapter {
         });
         let node_public_key = std::env::var("CYNIC_NODE_PUBLIC_KEY")
             .unwrap_or_else(|_| DEFAULT_NODE_PUBLIC_KEY.to_string());
-        let queue_home = std::env::var("HOME").ok().map(PathBuf::from);
+        let queue_home = std::env::var("CYNIC_STATE_ROOT")
+            .or_else(|_| std::env::var("HOME"))
+            .ok()
+            .map(PathBuf::from);
         Self::new(RuntimeFederationConfig {
             kernel_ws_url: kernel_websocket_url(kernel_http_url),
             api_key,
@@ -153,7 +156,7 @@ mod tests {
             api_key: "key".to_string(),
             node_public_key: "public-key".to_string(),
             node_identity: "node-a".to_string(),
-            queue_dir: std::path::PathBuf::from(".cynic/node"),
+            queue_dir: std::path::PathBuf::from("/var/lib/cynic/node"),
         });
     }
 }

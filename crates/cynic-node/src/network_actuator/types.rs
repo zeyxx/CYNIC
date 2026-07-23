@@ -2,25 +2,11 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
+pub(crate) use cynic_host::network_actuation::NetworkActuationPolicyDocument as NetworkActuatorPolicyDocument;
+
+use crate::network_actuator::CommandExecution;
 use crate::network_command_surface::NetworkCommandSurface;
 use crate::network_diagnostic_surface::NetworkDiagnostic;
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkActuatorPolicyDocument {
-    pub(crate) schema: &'static str,
-    pub(crate) status: &'static str,
-    pub(crate) helper_path: String,
-    pub(crate) sudoers_subject: &'static str,
-    pub(crate) max_timeout_seconds: u64,
-    pub(crate) allowed_profiles: BTreeMap<String, NetworkActuatorAllowedProfile>,
-    pub(crate) forbidden_tokens: Vec<&'static str>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(super) struct NetworkActuatorAllowedProfile {
-    pub(super) description: &'static str,
-    pub(super) command_prefixes: Vec<NetworkCommandSurface>,
-}
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct NetworkActuatorBundleManifest {
@@ -65,13 +51,4 @@ pub(crate) struct NetworkActuatorApplyReport {
     pub(crate) commands: Vec<NetworkCommandSurface>,
     pub(crate) executions: Vec<CommandExecution>,
     pub(crate) violations: Vec<NetworkDiagnostic>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct CommandExecution {
-    pub(crate) role: String,
-    pub(crate) argv: Vec<String>,
-    pub(crate) exit_code: Option<i32>,
-    pub(crate) stdout: String,
-    pub(crate) stderr: String,
 }

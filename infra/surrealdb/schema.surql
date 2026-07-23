@@ -157,10 +157,30 @@ DEFINE FIELD active ON work_claim TYPE bool PERMISSIONS FULL;
 DEFINE FIELD agent_id ON work_claim TYPE string PERMISSIONS FULL;
 DEFINE FIELD claim_type ON work_claim TYPE string PERMISSIONS FULL;
 DEFINE FIELD claimed_at ON work_claim TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD lease_id ON work_claim TYPE string PERMISSIONS FULL;
+DEFINE FIELD fencing_token ON work_claim TYPE int PERMISSIONS FULL;
+DEFINE FIELD expires_at ON work_claim TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD completed_at ON work_claim TYPE option<datetime> PERMISSIONS FULL;
+DEFINE FIELD proof_ref ON work_claim TYPE option<string> PERMISSIONS FULL;
 DEFINE FIELD target ON work_claim TYPE string PERMISSIONS FULL;
 
 DEFINE INDEX work_claim_active_idx ON work_claim FIELDS active;
 DEFINE INDEX work_claim_target_idx ON work_claim FIELDS target;
+
+DEFINE TABLE runtime_proof_commit TYPE ANY SCHEMAFULL PERMISSIONS NONE;
+DEFINE FIELD proof_ref ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD schema ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD status ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD agent_id ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD target ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD lease_id ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD fencing_token ON runtime_proof_commit TYPE int PERMISSIONS FULL;
+DEFINE FIELD bundle ON runtime_proof_commit TYPE object FLEXIBLE PERMISSIONS FULL;
+DEFINE FIELD hash_algorithm ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD kernel_signature ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD created_at ON runtime_proof_commit TYPE datetime PERMISSIONS FULL;
+DEFINE INDEX runtime_proof_commit_ref_idx ON runtime_proof_commit FIELDS proof_ref UNIQUE;
+DEFINE INDEX runtime_proof_commit_target_idx ON runtime_proof_commit FIELDS target, created_at;
 
 -- ── Ouroboros nightly evaluation ────────────────────────────
 

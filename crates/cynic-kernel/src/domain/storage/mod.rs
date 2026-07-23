@@ -310,9 +310,10 @@ pub trait TaskStorage: Send + Sync {
     async fn update_agent_task_result(
         &self,
         task_id: &str,
+        agent_id: &str,
         result: Option<String>,
         error: Option<String>,
-    ) -> Result<(), StorageError>;
+    ) -> Result<bool, StorageError>;
 }
 
 #[async_trait]

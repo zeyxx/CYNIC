@@ -27,6 +27,15 @@ pub enum AskesisError {
 
     #[error("oauth2 error: {0}")]
     OAuth(String),
+
+    #[error("agent eval dataset error: {0}")]
+    EvalDataset(String),
+
+    #[error("agent eval policy error: {0}")]
+    EvalPolicy(String),
+
+    #[error("agent eval backend error: {0}")]
+    EvalBackend(String),
 }
 
 pub type Result<T> = std::result::Result<T, AskesisError>;

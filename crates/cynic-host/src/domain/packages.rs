@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::command_surface::{HostCommandSurface, argv_command, expectation, install_dir_command};
 use crate::domain::shared::{
-    HostSubstrateDomain, SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence,
-    SurfaceContract, SurfaceStatus,
+    BoundaryKind, HostSubstrateDomain, LifecycleDisposition, LifecycleProjection, LifecycleStatus,
+    SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
+    SurfaceStatus,
 };
 use crate::install_contract::{MODE_0644, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
@@ -23,6 +24,11 @@ pub struct PackagePolicy {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PackageStatusReport {
     pub status: SurfaceStatus,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub approved_sources_declared: bool,
     pub installed_packages: Vec<String>,
     pub missing_packages: Vec<String>,
@@ -217,8 +223,38 @@ impl PackagePolicy {
         } else {
             SurfaceStatus::Degraded
         };
+        let lifecycle_status = if !approved_sources_declared {
+            LifecycleStatus::Missing
+        } else if !missing_packages.is_empty() {
+            LifecycleStatus::PrincipalMismatch
+        } else {
+            LifecycleStatus::Ready
+        };
+        let projection = match lifecycle_status {
+            LifecycleStatus::Ready => LifecycleProjection::ready_observe(
+                "approved package sources are declared and bootstrap packages are present",
+            ),
+            LifecycleStatus::Missing => LifecycleProjection::missing_adopt(
+                "approved package source projection is not yet declared",
+                Some("cynic host bootstrap packages --json".to_string()),
+            ),
+            LifecycleStatus::PrincipalMismatch => LifecycleProjection::principal_mismatch_adopt(
+                "approved package sources are declared but one or more bootstrap packages are still missing",
+                Some("cynic host bootstrap packages --json".to_string()),
+            ),
+            LifecycleStatus::ConnectionRequired => {
+                LifecycleProjection::connection_required_observe(
+                    "package lifecycle does not model a connection boundary",
+                )
+            }
+        };
         PackageStatusReport {
             status,
+            lifecycle_status,
+            lifecycle_disposition: projection.disposition,
+            next_boundary_kind: projection.next_boundary_kind,
+            next_boundary_reason: projection.next_boundary_reason,
+            next_command: projection.next_command,
             approved_sources_declared,
             installed_packages: observed.installed_packages.clone(),
             missing_packages,

@@ -31,6 +31,12 @@ impl OsMetabolism {
     }
 }
 
+impl Default for OsMetabolism {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetabolismProvider for OsMetabolism {
     fn current_state(&mut self) -> MetabolicState {
         self.system.refresh_cpu_usage();

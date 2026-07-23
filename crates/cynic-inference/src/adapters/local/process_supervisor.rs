@@ -102,16 +102,17 @@ impl ProcessLocalRuntime {
         for e in rd.flatten() {
             let name = e.file_name();
             let name = name.to_string_lossy();
-            if let Some(alias) = name.strip_suffix(".pid") {
-                if self.read_pid(alias).is_some() {
-                    out.push(alias.to_string());
-                }
+            if let Some(alias) = name.strip_suffix(".pid")
+                && self.read_pid(alias).is_some()
+            {
+                out.push(alias.to_string());
             }
         }
         out
     }
 
     fn status_for_alias(&self, alias: &str, profile: &LocalModelProfile) -> LocalRuntimeStatus {
+        let log_path = self.log_path(alias).display().to_string();
         match self.read_pid(alias) {
             Some(pid) => LocalRuntimeStatus {
                 schema: LocalRuntimeStatus::SCHEMA,
@@ -124,9 +125,9 @@ impl ProcessLocalRuntime {
                 endpoint: Some(format!("http://{}:{}/v1", profile.host, profile.port)),
                 listen_host: Some(profile.host.clone()),
                 listen_port: Some(profile.port),
-                message: None,
+                message: Some(format!("log={log_path}")),
             },
-            None => LocalRuntimeStatus::inactive(format!("no process for {alias}")),
+            None => LocalRuntimeStatus::inactive(format!("no process for {alias}; log={log_path}")),
         }
     }
 
@@ -204,15 +205,137 @@ impl ProcessLocalRuntime {
         Ok((bin, argv))
     }
 
+    fn expected_model_ids(profile: &LocalModelProfile) -> Vec<String> {
+        let mut ids = Vec::new();
+        ids.push(profile.alias.clone());
+
+        let model_path = Path::new(&profile.model_path);
+        if let Some(name) = model_path.file_name().and_then(|p| p.to_str()) {
+            let stem = Path::new(name)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or(name);
+            ids.push(name.to_string());
+            ids.push(stem.to_string());
+        }
+
+        ids.into_iter()
+            .map(|s| s.to_lowercase())
+            .collect::<std::collections::HashSet<_>>() // dedupe + stable dedupe later
+            .into_iter()
+            .collect()
+    }
+
+    fn parse_model_ids(body: &str) -> Vec<String> {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(body) else {
+            return Vec::new();
+        };
+
+        let mut ids = Vec::new();
+        if let Some(models) = v.get("data").and_then(|d| d.as_array()) {
+            for m in models {
+                if let Some(id) = m
+                    .get("id")
+                    .and_then(|x| x.as_str())
+                    .filter(|x| !x.is_empty())
+                {
+                    ids.push(id.to_string());
+                }
+            }
+        }
+
+        if let Some(models) = v.get("models").and_then(|d| d.as_array()) {
+            for m in models {
+                let Some(id) = m
+                    .get("id")
+                    .or_else(|| m.get("name"))
+                    .and_then(|x| x.as_str())
+                    .filter(|x| !x.is_empty())
+                else {
+                    continue;
+                };
+                ids.push(id.to_string());
+            }
+        }
+
+        ids.sort();
+        ids.dedup();
+        ids
+    }
+
+    fn model_matches_target(loaded: &[String], expected: &[String]) -> bool {
+        if loaded.is_empty() || expected.is_empty() {
+            return false;
+        }
+        let loaded_lc: Vec<String> = loaded.iter().map(|s| s.to_lowercase()).collect();
+        for e in expected {
+            let e_lc = e.to_lowercase();
+            for l in &loaded_lc {
+                if l == &e_lc || l.contains(&e_lc) || e_lc.contains(l) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn fetch_models_for_wait(url: &str) -> (String, Vec<String>) {
+        let out = Command::new("curl")
+            .args([
+                "-sS",
+                "-m",
+                "2",
+                "-o",
+                "-",
+                "-H",
+                "Accept: application/json",
+            ])
+            .arg(url)
+            .output()
+            .ok();
+
+        let body = out
+            .as_ref()
+            .and_then(|o| String::from_utf8(o.stdout.clone()).ok())
+            .unwrap_or_default();
+
+        if out.is_none() {
+            return ("".to_string(), Vec::new());
+        }
+
+        let code = Command::new("curl")
+            .args(["-sS", "-m", "2", "-o", "/dev/null", "-w", "%{http_code}"])
+            .arg(url)
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_else(|| "".into())
+            .trim()
+            .to_string();
+
+        let ids = Self::parse_model_ids(&body);
+        (code, ids)
+    }
+
+    fn estimate_model_ready_timeout(profile: &LocalModelProfile) -> Duration {
+        let size_gb = profile.size_bytes.unwrap_or(0) as f64 / (1024.0 * 1024.0 * 1024.0);
+        let extra = (size_gb * 45.0).round() as u64;
+        let timeout_secs = 180u64 + extra;
+        Duration::from_secs(timeout_secs.min(1200))
+    }
     fn wait_http_ready(&self, alias: &str, profile: &LocalModelProfile, timeout: Duration) -> bool {
         let url = format!("http://{}:{}/v1/models", profile.host, profile.port);
         let start = std::time::Instant::now();
+        let expected = Self::expected_model_ids(profile);
+        let mut last_seen = Vec::<String>::new();
         let mut wait = crate::progress::WaitProgress::new(
-            format!("model HTTP {} (load can take 1–3 min for large GGUF)", url),
+            format!(
+                "model HTTP {url} (load can take ~{}s for large GGUF)",
+                timeout.as_secs()
+            ),
             5,
         );
         while start.elapsed() < timeout {
-            // Fail fast if process crashed (corrupt GGUF, OOM, etc.)
             if self.read_pid(alias).is_none() {
                 crate::progress::progress(
                     "dead",
@@ -241,27 +364,33 @@ impl ProcessLocalRuntime {
                 wait.done(false);
                 return false;
             }
-            let ok = Command::new("curl")
-                .args([
-                    "-sS",
-                    "-m",
-                    "2",
-                    "-o",
-                    "/dev/null",
-                    "-w",
-                    "%{http_code}",
-                    &url,
-                ])
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
-                .map(|c| c.trim() == "200" || c.trim() == "401")
-                .unwrap_or(false);
-            // 401 means server is up but wants key — still ready for chat with key
-            if ok {
-                wait.done(true);
-                return true;
+
+            let (code, models) = Self::fetch_models_for_wait(&url);
+            if !models.is_empty() {
+                last_seen = models.clone();
             }
+
+            let code_ok = matches!(code.as_str(), "200" | "401");
+            if code_ok {
+                if Self::model_matches_target(&models, &expected) {
+                    wait.done(true);
+                    return true;
+                }
+                if models.is_empty() {
+                    crate::progress::progress(
+                        "loading",
+                        format!("HTTP {code} but /v1/models returned no model id yet; waiting"),
+                    );
+                } else {
+                    let preview = last_seen.join(", ");
+                    let shown = preview.chars().take(180).collect::<String>();
+                    crate::progress::progress(
+                        "mismatch",
+                        format!("HTTP {code} but loaded models={shown}"),
+                    );
+                }
+            }
+
             wait.tick();
             thread::sleep(Duration::from_millis(500));
         }
@@ -294,6 +423,14 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
     }
 
     fn start(&self, alias: &str) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
+        self.start_with_readiness(alias, true)
+    }
+
+    fn start_with_readiness(
+        &self,
+        alias: &str,
+        wait_for_ready: bool,
+    ) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
         crate::progress::progress("start", format!("alias={alias} supervisor=process"));
         let profile = self.inventory.get_profile(alias)?;
         if !profile.model_exists {
@@ -373,13 +510,22 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         self.write_pid(alias, pid)?;
         crate::progress::progress("spawn", format!("pid={pid}"));
         // detach: drop child without wait — process stays
-        std::mem::forget(child);
+        std::mem::drop(child);
 
-        crate::progress::progress(
-            "load",
-            "waiting for llama-server to finish loading weights into memory/VRAM",
-        );
-        let ready = self.wait_http_ready(alias, &profile, Duration::from_secs(180));
+        let ready_timeout = Self::estimate_model_ready_timeout(&profile);
+        let ready = if wait_for_ready {
+            crate::progress::progress(
+                "load",
+                "waiting for llama-server to finish loading weights into memory/VRAM",
+            );
+            self.wait_http_ready(alias, &profile, ready_timeout)
+        } else {
+            crate::progress::progress(
+                "ready",
+                "readiness probe skipped by CLI (inference start --no-wait)",
+            );
+            true
+        };
         let st = self.status_for_alias(alias, &profile);
         let ok = ready && st.state == LocalRuntimeState::Active;
         let log_hint = self.log_path(alias).display().to_string();
@@ -414,6 +560,7 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
                 .unwrap_or_default()
         };
 
+        let ready_label = if wait_for_ready { "true" } else { "deferred" };
         Ok(LocalRuntimeMutationReport {
             schema: LocalRuntimeMutationReport::SCHEMA,
             surface: SUPERVISOR_SURFACE,
@@ -423,11 +570,13 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
             unit: format!("process:{alias}"),
             status: st,
             message: Some(format!(
-                "process supervisor: arch={} pid={} log={} env={} ready={ready}{fail_tail}",
+                "process supervisor: arch={} pid={} log={} env={} ready={}{}",
                 gguf_meta.architecture.as_deref().unwrap_or("?"),
                 pid,
                 log_hint,
-                materialize.runtime_env
+                materialize.runtime_env,
+                ready_label,
+                fail_tail,
             )),
         })
     }
@@ -469,6 +618,7 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
 pub enum InferenceSupervisorKind {
     SystemdUser,
     Process,
+    Docker,
 }
 
 impl InferenceSupervisorKind {
@@ -479,6 +629,7 @@ impl InferenceSupervisorKind {
         match raw.as_str() {
             "process" | "argv" | "direct" | "pidfile" => Self::Process,
             "systemd" | "systemd-user" | "user" => Self::SystemdUser,
+            "docker" | "container" | "podman" => Self::Docker,
             // Default durable path: process supervisor (principal pidfile).
             // Opt into systemd explicitly when linger + user bus is intentional.
             "" => Self::Process,
@@ -490,6 +641,7 @@ impl InferenceSupervisorKind {
         match self {
             Self::SystemdUser => "systemd-user",
             Self::Process => "process",
+            Self::Docker => "docker",
         }
     }
 }

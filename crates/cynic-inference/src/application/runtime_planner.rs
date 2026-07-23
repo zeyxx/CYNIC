@@ -1,6 +1,7 @@
 //! Build probe-driven launch plans and materialize runtime env + systemd drop-ins.
 
 use std::fs;
+use std::io::ErrorKind;
 use std::path::PathBuf;
 
 use crate::adapters::local::engine_probe::probe_engine_plugins;
@@ -86,7 +87,7 @@ impl RuntimePlanner {
     ) -> Result<MaterializeReport, LocalRuntimeError> {
         let runtime_dir = runtime_env_dir();
         fs::create_dir_all(&runtime_dir)
-            .map_err(|e| LocalRuntimeError::Control(format!("create runtime env dir: {e}")))?;
+            .map_err(|e| LocalRuntimeError::Control(io_write_hint("create runtime env dir", e)))?;
 
         let env_path = runtime_dir.join(format!("{}.env", plan.alias));
         let env_body = format!(
@@ -116,27 +117,29 @@ CYNIC_PLAN_SCHEMA={schema}
             cpu = plan.cpu_quota,
         );
         fs::write(&env_path, env_body)
-            .map_err(|e| LocalRuntimeError::Control(format!("write runtime env: {e}")))?;
+            .map_err(|e| LocalRuntimeError::Control(io_write_hint("write runtime env", e)))?;
 
         // systemd drop-in: MemoryMax + CPUQuota from probe; EnvironmentFile runtime
         let drop_dir = systemd_dropin_dir(&plan.alias);
         fs::create_dir_all(&drop_dir)
-            .map_err(|e| LocalRuntimeError::Control(format!("create drop-in dir: {e}")))?;
+            .map_err(|e| LocalRuntimeError::Control(io_write_hint("create drop-in dir", e)))?;
         let drop_path = drop_dir.join("50-probe.conf");
+        // Absolute EnvironmentFile so principal home != operator %h still works.
+        let env_for_unit = env_path.display();
         let drop_body = format!(
             r#"[Service]
 # probe-generated resource bounds (agnostic — not frozen 400%)
 MemoryMax={mem}
 CPUQuota={cpu}
 EnvironmentFile=
-EnvironmentFile=%h/.config/cynic/models/runtime/{alias}.env
+EnvironmentFile={env}
 "#,
             mem = plan.memory_max,
             cpu = plan.cpu_quota,
-            alias = plan.alias,
+            env = env_for_unit,
         );
         fs::write(&drop_path, drop_body)
-            .map_err(|e| LocalRuntimeError::Control(format!("write systemd drop-in: {e}")))?;
+            .map_err(|e| LocalRuntimeError::Control(io_write_hint("write systemd drop-in", e)))?;
 
         Ok(MaterializeReport {
             runtime_env: env_path.display().to_string(),
@@ -152,33 +155,32 @@ pub struct MaterializeReport {
 }
 
 fn runtime_env_dir() -> PathBuf {
-    if let Ok(p) = std::env::var("CYNIC_MODEL_PROFILES") {
-        return PathBuf::from(p).join("runtime");
-    }
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::var_os("HOME")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join(".config")
-        });
-    base.join("cynic/models/runtime")
+    // Always under model layout / principal — never operator $HOME as authority.
+    crate::domain::model_layout::ModelLayout::from_env()
+        .profiles_dir
+        .join("runtime")
 }
 
 fn systemd_dropin_dir(alias: &str) -> PathBuf {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::var_os("HOME")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join(".config")
-        });
-    base.join(format!("systemd/user/llama-server@{alias}.service.d"))
+    // Principal home (.config/systemd/user), so linger user cynic can load drop-ins.
+    let principal = crate::domain::principal_paths::PrincipalPaths::resolve();
+    principal.home_dir.join(format!(
+        ".config/systemd/user/llama-server@{alias}.service.d"
+    ))
+}
+
+fn io_write_hint(action: &str, error: std::io::Error) -> String {
+    match error.kind() {
+        ErrorKind::ReadOnlyFilesystem | ErrorKind::PermissionDenied => {
+            format!(
+                "{action}: {error}; runtime layout is not writable. Set CYNIC_PRINCIPAL_HOME=<writable path> or CYNIC_FORCE_OPERATOR_HOME=1 for operator-local bootstrap."
+            )
+        }
+        _ => format!("{action}: {error}"),
+    }
 }
 
 fn shell_escape_env(s: &str) -> String {
     // EnvironmentFile values: avoid raw newlines; keep spaces (systemd tolerates unquoted)
-    s.replace('\n', " ").replace('\r', " ")
+    s.replace(['\n', '\r'], " ")
 }

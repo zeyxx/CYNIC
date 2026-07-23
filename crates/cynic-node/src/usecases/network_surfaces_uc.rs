@@ -1,9 +1,16 @@
+use std::path::Path;
 use std::process::ExitCode;
+use std::time::Duration;
 
+use crate::adapters::libvirt_harness_target_attestor::LibvirtHarnessTargetAttestor;
+use crate::adapters::local_harness_target_attestation_reader::LocalHarnessTargetAttestationReader;
+use crate::adapters::local_network_actuation_request_reader::read_network_actuation_request;
+use crate::adapters::qemu_guest_agent_network_runner::QemuGuestAgentNetworkRunner;
 use crate::cli::NetworkCommands;
 use crate::dns_activation_status;
 use crate::dns_bundle;
 use crate::dns_plan;
+use crate::domain::network_execution::build_harness_target_attestation_report;
 use crate::network_activation_chain;
 use crate::network_actuator;
 use crate::network_actuator_status;
@@ -16,14 +23,42 @@ use crate::network_root_policy;
 use crate::network_runtime_status;
 use crate::network_shadow_proof;
 use crate::observe;
+use crate::ports::harness_target_attestation_port::{
+    HarnessTargetAttestationPort, HarnessTargetAttestationRequest,
+};
+use crate::ports::harness_target_attestation_reader_port::HarnessTargetAttestationReaderPort;
 use crate::provider_fallback_hosts;
 use crate::provider_fallback_status;
+use crate::usecases::network_actuation_target_uc::{
+    QemuNetworkActuationConfig, execute_qemu_network_actuation,
+};
+use cynic_host::runtime_harness::runtime_harness_catalog;
+use cynic_host::update_lifecycle::LocalArgvRunner;
 
 pub fn execute_observe(registry: &str, fail_on_warning: bool, fail_on_critical: bool) -> ExitCode {
     let observation = observe::observe_payload(Some(registry));
     let should_fail = (fail_on_warning && observation.is_warning_or_worse())
         || (fail_on_critical && observation.is_critical());
     emit_json("observe", &observation, should_fail)
+}
+
+pub fn execute_registry_observation(registry: &str, output: Option<&str>) -> ExitCode {
+    let observation = observe::observe_payload(Some(registry));
+    let envelope = observation.registry_observation(registry);
+    if let Some(output) = output {
+        let bytes = match serde_json::to_vec_pretty(&envelope) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                tracing::error!("registry observation serialization failed: {error}");
+                return ExitCode::FAILURE;
+            }
+        };
+        if let Err(error) = std::fs::write(output, bytes) {
+            tracing::error!("registry observation write failed: {error}");
+            return ExitCode::FAILURE;
+        }
+    }
+    emit_json("registry observation", &envelope, false)
 }
 
 pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
@@ -77,6 +112,16 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             let observation = observe::observe_payload(Some(registry));
             let policy = network_root_policy::build_root_policy(&observation);
             emit_json("network root policy", &policy, false)
+        }
+        NetworkCommands::ActuationObservation { json: _, registry } => {
+            let observation = observe::observe_payload(Some(registry));
+            let projection = observation.network_actuation_observation(
+                cynic_host::runtime_layout::current_runtime_layout()
+                    .capabilities()
+                    .wireguard_tool
+                    .mesh_interface,
+            );
+            emit_json("network actuation observation", &projection, false)
         }
         NetworkCommands::ActuatorStatus { json: _, registry } => {
             let observation = observe::observe_payload(Some(registry));
@@ -162,6 +207,179 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        NetworkCommands::MeshTargetAttestation {
+            json: _,
+            harness_kind,
+            target_id,
+            transport,
+            transport_target,
+            expected_network_boundary,
+            virsh_bin,
+            ip_bin,
+        } => {
+            let context = match runtime_harness_catalog(Some(harness_kind)) {
+                Ok(mut catalog) => match catalog.contexts.pop() {
+                    Some(context) => context,
+                    None => {
+                        tracing::error!("runtime harness catalog returned no selected context");
+                        return ExitCode::FAILURE;
+                    }
+                },
+                Err(error) => {
+                    tracing::error!("runtime harness selection failed: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let attestor = LibvirtHarnessTargetAttestor::new(
+                LocalArgvRunner,
+                virsh_bin.clone(),
+                ip_bin.clone(),
+            );
+            match attestor.attest_target(
+                &context,
+                &HarnessTargetAttestationRequest {
+                    target_id: target_id.clone(),
+                    provider: "qemu-libvirt".to_string(),
+                    transport: transport.clone(),
+                    transport_target: transport_target.clone(),
+                    expected_network_boundary: expected_network_boundary.clone(),
+                },
+            ) {
+                Ok(attestation) => {
+                    let report = build_harness_target_attestation_report(&context, attestation);
+                    let should_fail = report.status != "attested";
+                    emit_json("network mesh target attestation", &report, should_fail)
+                }
+                Err(error) => {
+                    tracing::error!("network mesh target attestation failed: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        NetworkCommands::MeshApplyTarget {
+            json: _,
+            bundle_dir,
+            profile,
+            apply,
+            harness_kind,
+            target_attestation,
+            virsh_bin,
+            qga_timeout_seconds,
+            qga_max_status_polls,
+        } => {
+            let context = match selected_harness_context(harness_kind) {
+                Ok(context) => context,
+                Err(error) => {
+                    tracing::error!("runtime harness selection failed: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let attestation = match LocalHarnessTargetAttestationReader
+                .read_attestation(Path::new(target_attestation))
+            {
+                Ok(attestation) => attestation,
+                Err(error) => {
+                    tracing::error!("network mesh target attestation load failed: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let plan = match network_mesh_apply_plan::build_network_mesh_apply_plan(bundle_dir) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    tracing::error!("network mesh apply plan failed: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let allowed_argv = network_mesh_apply_plan::target_transaction_argv(&plan, profile);
+            let runner = match QemuGuestAgentNetworkRunner::new(
+                LocalArgvRunner,
+                context.clone(),
+                attestation,
+                virsh_bin.clone(),
+                allowed_argv,
+                *qga_timeout_seconds,
+                *qga_max_status_polls,
+                Duration::from_millis(50),
+            ) {
+                Ok(runner) => runner,
+                Err(error) => {
+                    tracing::error!("network mesh target transport refused: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let report = network_mesh_apply_plan::apply_network_mesh_target_transaction_with_runner(
+                bundle_dir, profile, *apply, &context, &runner, plan,
+            );
+            let should_fail = report.status != "completed";
+            emit_json("network mesh apply target", &report, should_fail)
+        }
+        NetworkCommands::ActuateTarget {
+            json: _,
+            request,
+            apply,
+            harness_kind,
+            target_attestation,
+            observer_bin,
+            virsh_bin,
+            qga_timeout_seconds,
+            qga_max_status_polls,
+        } => {
+            if !apply {
+                tracing::error!("network actuation target requires --apply");
+                return ExitCode::FAILURE;
+            }
+            let context = match selected_harness_context(harness_kind) {
+                Ok(context) => context,
+                Err(error) => {
+                    tracing::error!("runtime harness selection failed: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let attestation = match LocalHarnessTargetAttestationReader
+                .read_attestation(Path::new(target_attestation))
+            {
+                Ok(attestation) => attestation,
+                Err(error) => {
+                    tracing::error!("network actuation target attestation load failed: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let request = match read_network_actuation_request(Path::new(request)) {
+                Ok(request) => request,
+                Err(error) => {
+                    tracing::error!("network actuation request load failed: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let config = QemuNetworkActuationConfig {
+                virsh_bin: virsh_bin.clone(),
+                observation_argv: vec![
+                    observer_bin.clone(),
+                    "network".to_string(),
+                    "actuation-observation".to_string(),
+                    "--json".to_string(),
+                ],
+                timeout_seconds: *qga_timeout_seconds,
+                max_status_polls: *qga_max_status_polls,
+                poll_interval: Duration::from_millis(50),
+            };
+            match execute_qemu_network_actuation(
+                &request,
+                context,
+                attestation,
+                LocalArgvRunner,
+                config,
+            ) {
+                Ok(report) => {
+                    let should_fail = report.status != "proved";
+                    emit_json("network actuation target", &report, should_fail)
+                }
+                Err(error) => {
+                    tracing::error!("network actuation target failed: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         NetworkCommands::MeshApplyProfile {
             json: _,
             bundle_dir,
@@ -323,6 +541,15 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             }
         },
     }
+}
+
+fn selected_harness_context(
+    harness_kind: &str,
+) -> Result<cynic_host::runtime_harness::RuntimeHarnessContext, String> {
+    runtime_harness_catalog(Some(harness_kind))?
+        .contexts
+        .pop()
+        .ok_or_else(|| "runtime harness catalog returned no selected context".to_string())
 }
 
 fn should_fail_runtime_status(status: &str) -> bool {

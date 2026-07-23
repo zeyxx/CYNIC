@@ -43,7 +43,7 @@ impl BoundedHelperProjection {
 
     pub fn sudoers_rule(&self) -> String {
         if self.allowed_invocations.is_empty() {
-            return format!("{} ALL=(root) NOPASSWD: {}", self.subject, self.helper_path);
+            return String::new();
         }
         self.allowed_invocations
             .iter()
@@ -146,15 +146,8 @@ mod tests {
             allowed_invocations: Vec::new(),
         };
 
-        assert_eq!(
-            projection.sudoers_rule(),
-            "cynic ALL=(root) NOPASSWD: /usr/local/bin/helper"
-        );
-        assert!(
-            projection
-                .sudoers_projection()
-                .contains("/usr/local/bin/helper")
-        );
+        assert!(projection.sudoers_rule().is_empty());
+        assert!(!projection.sudoers_projection().contains("NOPASSWD"));
         assert!(
             projection
                 .sudoers_projection()

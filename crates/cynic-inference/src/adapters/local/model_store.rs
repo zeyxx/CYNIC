@@ -1,7 +1,7 @@
 //! Filesystem scan for the centralized model store.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::adapters::local::vault_inventory::FsLocalModelInventory;
 use crate::domain::model_layout::ModelLayout;
@@ -31,11 +31,11 @@ impl FsModelStore {
 
     fn classify(&self, path: &Path) -> ModelLocationKind {
         let p = path.to_string_lossy();
-        if p.starts_with(&self.layout.vault_dir.to_string_lossy().as_ref()) {
+        if p.starts_with(self.layout.vault_dir.to_string_lossy().as_ref()) {
             ModelLocationKind::Vault
-        } else if p.starts_with(&self.layout.hf_cache_dir.to_string_lossy().as_ref()) {
+        } else if p.starts_with(self.layout.hf_cache_dir.to_string_lossy().as_ref()) {
             ModelLocationKind::HfCache
-        } else if p.starts_with(&self.layout.llama_cache_dir.to_string_lossy().as_ref()) {
+        } else if p.starts_with(self.layout.llama_cache_dir.to_string_lossy().as_ref()) {
             ModelLocationKind::LlamaCache
         } else {
             ModelLocationKind::External
@@ -97,8 +97,7 @@ impl ModelStorePort for FsModelStore {
         // Link profile aliases
         for profile in &inv.models {
             if let Some(art) = artifacts.iter_mut().find(|a| {
-                a.path == profile.model_path
-                    || PathBuf::from(&a.path) == PathBuf::from(&profile.model_path)
+                a.path == profile.model_path || Path::new(&a.path) == Path::new(&profile.model_path)
             }) {
                 art.profile_alias = Some(profile.alias.clone());
             } else if profile.model_exists {

@@ -287,8 +287,13 @@ pub fn lifecycle_blockers(
                     == Some("synapse_cli_unavailable")
                     && let Some(obj) = blocker.as_object_mut()
                 {
-                    obj.insert("operator_action".to_string(), Value::String("restore the organ-fleet synapse probe surface on the registry build runner environment".to_string()));
-                    obj.insert("command".to_string(), Value::String("python3 organs/fleet/src/entrypoints/cli.py report --json --registry infra/registry.json".to_string()));
+                    obj.insert("operator_action".to_string(), Value::String("rerun fleet evidence projection through Rust CLI (registry build runner profile)".to_string()));
+                    obj.insert(
+                        "command".to_string(),
+                        Value::String(
+                            "cynic fleet report --json --registry infra/registry.json".to_string(),
+                        ),
+                    );
                 }
                 blockers.push(blocker);
             }
@@ -349,7 +354,7 @@ pub fn lifecycle_blockers(
                 "code": format!("fleet_inventory:{inventory_status}"),
                 "resolver_organ": "organ-fleet",
                 "resolver_consumer": "organ-forge-hermes-agent",
-                "command": "python3 organs/fleet/src/entrypoints/cli.py report --json --registry infra/registry.json"
+                "command": "cynic fleet report --json --registry infra/registry.json"
             }));
         }
         let summary = fleet_inventory_probe
@@ -481,7 +486,7 @@ mod tests {
                     "required_node_status": "active",
                     "build_runner_role": "build_runner",
                     "deploy_target_role": "kernel_primary",
-                    "runtime_paths": {"repo_root": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}"},
+                    "runtime_paths": {"repo_root": "/var/lib/cynic/repos/${CYNIC_PROJECT_SLUG}"},
                     "runtime_path_proofs": {"repo_root": {"kind": "git_worktree"}},
                     "activation_requirements": {
                         "build_runner": {"network": ["synapse"], "filesystem": ["repo_root"], "services": ["organ-forge", "cargo-build", "gate-2"]},

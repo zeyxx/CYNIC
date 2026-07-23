@@ -12,18 +12,21 @@ use super::types::{InstallPrincipalKind, PrincipalInstallLayout, RunAs};
 /// Override:
 /// - `CYNIC_RUNTIME_USER` — principal username
 /// - `CYNIC_PRINCIPAL_HOME` — force home root
+/// - `CYNIC_ALLOW_LOCAL_DEV_BUILD` — dev fallback to operator `$HOME`
 pub fn resolve_principal_install_layout() -> PrincipalInstallLayout {
     let declared = default_runtime_principal_layout();
     let runtime_user =
         std::env::var("CYNIC_RUNTIME_USER").unwrap_or_else(|_| declared.runtime_user.clone());
+    let allow_local_dev = std::env::var("CYNIC_ALLOW_LOCAL_DEV_BUILD").is_ok();
 
     let home_dir = if let Ok(forced) = std::env::var("CYNIC_PRINCIPAL_HOME") {
         PathBuf::from(forced)
-    } else if let Some(home) = passwd_home(&runtime_user) {
-        home
-    } else if let Some(home) = std::env::var_os("HOME") {
-        // Dev fallback when principal account is absent
-        PathBuf::from(home)
+    } else if allow_local_dev {
+        if let Some(home) = std::env::var_os("HOME") {
+            PathBuf::from(home)
+        } else {
+            declared.home_dir.clone()
+        }
     } else {
         declared.home_dir.clone()
     };
@@ -48,8 +51,7 @@ pub fn resolve_principal_install_layout() -> PrincipalInstallLayout {
         (RunAs::SudoUser(runtime_user.clone()), true)
     } else if path_is_writable(&bin_dir) || path_is_writable(bin_dir.parent().unwrap_or(&bin_dir)) {
         notes.push(
-            "principal sudo unavailable; using current user write access to principal paths"
-                .into(),
+            "principal sudo unavailable; using current user write access to principal paths".into(),
         );
         (RunAs::Current, true)
     } else {
@@ -59,10 +61,10 @@ pub fn resolve_principal_install_layout() -> PrincipalInstallLayout {
         (RunAs::SudoUser(runtime_user.clone()), false)
     };
 
-    let principal = if passwd_home(&runtime_user).is_some() {
-        InstallPrincipalKind::RuntimeUser
-    } else {
+    let principal = if allow_local_dev && std::env::var("CYNIC_PRINCIPAL_HOME").is_err() {
         InstallPrincipalKind::OperatorLocal
+    } else {
+        InstallPrincipalKind::RuntimeUser
     };
 
     PrincipalInstallLayout {
@@ -78,37 +80,18 @@ pub fn resolve_principal_install_layout() -> PrincipalInstallLayout {
     }
 }
 
-fn passwd_home(user: &str) -> Option<PathBuf> {
-    let out = Command::new("getent").args(["passwd", user]).output().ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let line = String::from_utf8_lossy(&out.stdout);
-    // name:x:uid:gid:gecos:home:shell
-    let home = line.trim().split(':').nth(5)?;
-    if home.is_empty() {
-        None
-    } else {
-        Some(PathBuf::from(home))
-    }
-}
-
 fn current_username() -> Option<String> {
-    if let Ok(u) = std::env::var("USER") {
-        if !u.is_empty() {
-            return Some(u);
-        }
+    if let Ok(u) = std::env::var("USER")
+        && !u.is_empty()
+    {
+        return Some(u);
     }
     let out = Command::new("id").args(["-un"]).output().ok()?;
     if !out.status.success() {
         return None;
     }
     let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if s.is_empty() {
-        None
-    } else {
-        Some(s)
-    }
+    if s.is_empty() { None } else { Some(s) }
 }
 
 fn can_sudo_as(user: &str) -> bool {
@@ -124,6 +107,7 @@ fn path_is_writable(path: &Path) -> bool {
         let probe = path.join(".cynic-write-probe");
         match std::fs::OpenOptions::new()
             .create(true)
+            .truncate(true)
             .write(true)
             .open(&probe)
         {

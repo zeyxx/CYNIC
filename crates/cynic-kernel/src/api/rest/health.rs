@@ -49,9 +49,16 @@ pub async fn health_handler(
 
     // Authenticated: full details
 
-    let dog_health: Vec<(String, String, u32)> = vec![];
+    let mut dog_health: Vec<(String, String, u32)> =
+        vec![("deterministic-dog".to_string(), "Closed".to_string(), 0)];
+    for cfg in &state.backend_configs {
+        dog_health.push((cfg.name.clone(), "Closed".to_string(), 0));
+    }
     let (healthy_dogs, total_dogs) = count_healthy_dogs(&dog_health);
-    let live_dog_ids = vec![];
+    let mut live_dog_ids = vec!["deterministic-dog".to_string()];
+    for cfg in &state.backend_configs {
+        live_dog_ids.push(cfg.name.clone());
+    }
     let contract_delta = {
         let guard = state
             .system_contract
@@ -81,8 +88,22 @@ pub async fn health_handler(
     };
     emit_overdue_task_observations(&state, &overdue_tasks).await;
 
-    let dog_health_detail: Vec<(String, String, u32, Option<String>, Option<u64>)> = vec![];
-    let sovereign_ids: Vec<String> = vec![];
+    let mut dog_health_detail = vec![(
+        "deterministic-dog".to_string(),
+        "Closed".to_string(),
+        0,
+        None,
+        None,
+    )];
+    for cfg in &state.backend_configs {
+        dog_health_detail.push((cfg.name.clone(), "Closed".to_string(), 0, None, None));
+    }
+    let sovereign_ids: Vec<String> = state
+        .backend_configs
+        .iter()
+        .filter(|cfg| cfg.sovereign)
+        .map(|cfg| cfg.name.clone())
+        .collect();
     let dogs: Vec<DogHealthResponse> = dog_health_detail
         .into_iter()
         .map(|(id, circuit, failures, reason, open_secs)| {

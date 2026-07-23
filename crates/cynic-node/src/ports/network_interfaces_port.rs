@@ -55,6 +55,10 @@ pub trait ProviderFallbackProbePort {
 pub(crate) trait NodeRuntimeObservationPort {
     fn observe_interfaces(&self) -> CommandObservation;
     fn observe_routes(&self) -> CommandObservation;
+    fn observe_network_manager_connections(&self) -> CommandObservation;
+    fn observe_policy_routes(&self) -> CommandObservation;
+    fn observe_network_namespaces(&self) -> CommandObservation;
+    fn observe_firewall(&self) -> CommandObservation;
     fn observe_provider_fallback_route(&self, cidr: &str) -> CommandObservation;
     fn observe_synapse_route(&self, cidr: &str) -> CommandObservation;
     fn observe_wireguard(&self) -> CommandObservation;

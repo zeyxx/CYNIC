@@ -1,7 +1,7 @@
 //! Boot-time backend health logging.
 //!
-//! Runtime HTTP verification belongs to `cynic-node::verify`; this kernel
-//! adapter keeps the non-blocking boot log projection only.
+//! Runtime HTTP verification belongs to `cynic-node::verify`;
+//! this kernel adapter keeps the non-blocking boot log projection only.
 
 use crate::infra::config::BackendConfig;
 use cynic_node::verify::{IdentityResult, check_health, check_identity_with_bearer};
@@ -21,7 +21,7 @@ pub async fn validate_config(configs: Vec<BackendConfig>) {
     };
 
     for cfg in &configs {
-        let Some(ref health_url) = cfg.health_url else {
+        let Some(health_url) = cfg.health_url.as_deref() else {
             klog!(
                 "[config] — {} no health probe (cloud API, error-driven circuit breaker)",
                 cfg.name

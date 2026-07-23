@@ -4,7 +4,16 @@
 
 use cynic_kernel::domain::organ::{MetricKind, MetricValue, OrganHealth, OrganPort};
 use cynic_kernel::senses::rtk::RtkReader;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+fn cynic_repo_root() -> String {
+    let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = manifest_root
+        .parent()
+        .and_then(Path::parent)
+        .map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+    repo_root.to_string_lossy().to_string()
+}
 
 fn rtk_db_path() -> PathBuf {
     dirs::data_local_dir()
@@ -20,7 +29,7 @@ async fn rtk_health_alive_with_real_db() {
         eprintln!("SKIP: RTK history.db not found at {}", db.display());
         return;
     }
-    let reader = RtkReader::new(db, "/home/user/Bureau/CYNIC".to_string());
+    let reader = RtkReader::new(db, Some(cynic_repo_root()));
     assert!(matches!(reader.health().await, OrganHealth::Alive));
 }
 
@@ -31,7 +40,7 @@ async fn rtk_freshness_returns_reasonable_duration() {
     if !db.exists() {
         return;
     }
-    let reader = RtkReader::new(db, "/home/user/Bureau/CYNIC".to_string());
+    let reader = RtkReader::new(db, Some(cynic_repo_root()));
     let fresh = reader.freshness().await.unwrap();
     assert!(
         fresh.as_secs() < 7 * 24 * 3600,
@@ -46,7 +55,7 @@ async fn rtk_snapshot_returns_7_metrics() {
     if !db.exists() {
         return;
     }
-    let reader = RtkReader::new(db, "/home/user/Bureau/CYNIC".to_string());
+    let reader = RtkReader::new(db, Some(cynic_repo_root()));
     let snap = reader.snapshot().await.unwrap();
 
     assert_eq!(snap.metrics.len(), 7);
@@ -89,7 +98,7 @@ async fn rtk_readonly_preserves_data_across_reads() {
     if !db.exists() {
         return;
     }
-    let reader = RtkReader::new(db, "/home/user/Bureau/CYNIC".to_string());
+    let reader = RtkReader::new(db, Some(cynic_repo_root()));
 
     let before = reader.snapshot().await.unwrap();
     let count_before = before

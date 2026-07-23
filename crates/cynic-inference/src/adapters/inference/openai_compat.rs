@@ -522,6 +522,7 @@ mod tests {
             health_url: None,
             cli_extra_args: vec![],
             sovereign: false,
+            fleet_node: None,
         })
         .unwrap();
         assert_eq!(
@@ -551,6 +552,7 @@ mod tests {
             health_url: None,
             cli_extra_args: vec![],
             sovereign: false,
+            fleet_node: None,
         })
         .unwrap();
         assert_eq!(
@@ -578,6 +580,7 @@ mod tests {
             health_url: None,
             cli_extra_args: vec![],
             sovereign: true,
+            fleet_node: None,
         })
         .unwrap();
         assert_eq!(
@@ -605,6 +608,7 @@ mod tests {
             health_url: None,
             cli_extra_args: vec![],
             sovereign: false,
+            fleet_node: None,
         })
         .unwrap();
         assert_eq!(

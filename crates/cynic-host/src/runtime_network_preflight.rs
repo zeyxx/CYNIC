@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
 use crate::process_observation::{CommandObservation, TcpObservation, resolve_host, tcp_probe};
 use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
 
@@ -11,11 +12,16 @@ pub struct RuntimeNetworkPreflightReport {
     pub status: &'static str,
     pub mutates: bool,
     pub context: RuntimeHarnessContext,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub resolver: ResolverBaseline,
     pub probes: Vec<NetworkProbe>,
     pub remediation_plan: NetworkRemediationPlan,
     pub rules: Vec<&'static str>,
-    pub next_actions: Vec<&'static str>,
+    pub next_actions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -92,12 +98,24 @@ fn observe_runtime_network_preflight_with_observer(
         })
         .collect::<Vec<_>>();
     let status = overall_status(&resolver, &probes);
+    let (
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command,
+    ) = projection(status);
 
     RuntimeNetworkPreflightReport {
         schema: "cynic.host.runtime_network_preflight.v1",
         status,
         mutates: false,
         context: conformance_context(),
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command: next_command.clone(),
         resolver,
         probes,
         remediation_plan: remediation_plan(status),
@@ -107,7 +125,7 @@ fn observe_runtime_network_preflight_with_observer(
             "a local resolver stub is not proof of upstream dns health; external resolution still has to be observed",
             "dns remediation must be performed through an explicit network or host activation surface, never implicitly by diagnostics",
         ],
-        next_actions: next_actions(status),
+        next_actions: next_actions(status, next_command.as_deref()),
     }
 }
 
@@ -191,18 +209,72 @@ fn overall_status(resolver: &ResolverBaseline, probes: &[NetworkProbe]) -> &'sta
     }
 }
 
-fn next_actions(status: &str) -> Vec<&'static str> {
+fn projection(
+    status: &str,
+) -> (
+    LifecycleStatus,
+    LifecycleDisposition,
+    BoundaryKind,
+    String,
+    Option<String>,
+) {
     match status {
-        "ready" => vec!["network substrate is usable for fetch-dependent runtime surfaces"],
-        "degraded" => vec![
-            "inspect tcp reachability for partially resolved targets",
-            "verify upstream firewall or egress policy before promoting this host as a fetch authority",
-        ],
-        _ => vec![
-            "inspect resolver baseline and failed probes",
-            "repair upstream dns or sandbox egress before retrying fetch-dependent runtime surfaces",
-            "do not treat package download failures as application bugs until network preflight is ready",
-        ],
+        "ready" => (
+            LifecycleStatus::Ready,
+            LifecycleDisposition::ObservableCandidate,
+            BoundaryKind::Observe,
+            "network substrate is usable for fetch-dependent runtime surfaces".to_string(),
+            None,
+        ),
+        "degraded" => (
+            LifecycleStatus::ConnectionRequired,
+            LifecycleDisposition::RequiresConnection,
+            BoundaryKind::Connect,
+            "name resolution is partially available but end-to-end reachability is incomplete"
+                .to_string(),
+            Some("cynic runtime resolver-plan --json".to_string()),
+        ),
+        _ => (
+            LifecycleStatus::ConnectionRequired,
+            LifecycleDisposition::RequiresConnection,
+            BoundaryKind::Connect,
+            "network preflight is blocked and fetch-dependent runtime surfaces should not be trusted yet"
+                .to_string(),
+            Some("cynic runtime resolver-plan --json".to_string()),
+        ),
+    }
+}
+
+fn next_actions(status: &str, canonical_next_command: Option<&str>) -> Vec<String> {
+    match status {
+        "ready" => {
+            vec!["network substrate is usable for fetch-dependent runtime surfaces".to_string()]
+        }
+        "degraded" => {
+            let mut actions = vec![
+            "inspect tcp reachability for partially resolved targets".to_string(),
+            "verify upstream firewall or egress policy before promoting this host as a fetch authority".to_string(),
+        ];
+            if let Some(command) = canonical_next_command {
+                actions.push(command.to_string());
+            }
+            actions.sort();
+            actions.dedup();
+            actions
+        }
+        _ => {
+            let mut actions = vec![
+            "inspect resolver baseline and failed probes".to_string(),
+            "repair upstream dns or sandbox egress before retrying fetch-dependent runtime surfaces".to_string(),
+            "do not treat package download failures as application bugs until network preflight is ready".to_string(),
+        ];
+            if let Some(command) = canonical_next_command {
+                actions.push(command.to_string());
+            }
+            actions.sort();
+            actions.dedup();
+            actions
+        }
     }
 }
 

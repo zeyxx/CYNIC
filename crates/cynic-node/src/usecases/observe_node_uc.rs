@@ -28,6 +28,10 @@ use crate::ports::network_interfaces_port::{
 struct NodeObservationRuntimeInputs {
     interfaces: crate::adapters::host_observation::CommandObservation,
     routes: crate::adapters::host_observation::CommandObservation,
+    network_manager_connections: crate::adapters::host_observation::CommandObservation,
+    policy_routes: crate::adapters::host_observation::CommandObservation,
+    namespaces: crate::adapters::host_observation::CommandObservation,
+    firewall: crate::adapters::host_observation::CommandObservation,
     provider_fallback_route: crate::adapters::host_observation::CommandObservation,
     synapse_route: crate::adapters::host_observation::CommandObservation,
     wireguard: crate::adapters::host_observation::CommandObservation,
@@ -44,6 +48,7 @@ struct NodeObservationRuntimeInputs {
 #[derive(Debug, Clone)]
 struct NodeObservationCommandContext {
     ip_bin: String,
+    network_manager_bin: String,
     wg_bin: String,
     systemctl_bin: String,
     mesh_interface: String,
@@ -57,6 +62,7 @@ impl NodeObservationCommandContext {
         let capabilities = runtime_layout.capabilities();
         Self {
             ip_bin: capabilities.route_tool.command.clone(),
+            network_manager_bin: capabilities.network_manager.command.clone(),
             wg_bin: capabilities.wireguard_tool.command.clone(),
             systemctl_bin: capabilities.service_manager.command.clone(),
             mesh_interface: capabilities.wireguard_tool.mesh_interface.clone(),
@@ -68,6 +74,7 @@ impl NodeObservationCommandContext {
 
 struct LocalNodeRuntimeObservationPort {
     ip_bin: String,
+    network_manager_bin: String,
     wg_bin: String,
     systemctl_bin: String,
     mesh_interface: String,
@@ -79,6 +86,7 @@ impl LocalNodeRuntimeObservationPort {
     fn from_context(context: &NodeObservationCommandContext) -> Self {
         Self {
             ip_bin: context.ip_bin.clone(),
+            network_manager_bin: context.network_manager_bin.clone(),
             wg_bin: context.wg_bin.clone(),
             systemctl_bin: context.systemctl_bin.clone(),
             mesh_interface: context.mesh_interface.clone(),
@@ -95,6 +103,30 @@ impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
 
     fn observe_routes(&self) -> crate::adapters::host_observation::CommandObservation {
         command_json(&self.ip_bin, &["route"])
+    }
+
+    fn observe_network_manager_connections(
+        &self,
+    ) -> crate::adapters::host_observation::CommandObservation {
+        command_json(
+            &self.network_manager_bin,
+            &["-t", "-f", "NAME,UUID,TYPE,DEVICE", "connection", "show", "--active"],
+        )
+    }
+
+    fn observe_policy_routes(&self) -> crate::adapters::host_observation::CommandObservation {
+        command_json(&self.ip_bin, &["rule"])
+    }
+
+    fn observe_network_namespaces(
+        &self,
+    ) -> crate::adapters::host_observation::CommandObservation {
+        command_json(&self.ip_bin, &["netns", "list"])
+    }
+
+    fn observe_firewall(&self) -> crate::adapters::host_observation::CommandObservation {
+        let nft_bin = std::env::var("CYNIC_NFT_BIN").unwrap_or_else(|_| "nft".to_string());
+        command_json(&nft_bin, &["list", "ruleset"])
     }
 
     fn observe_provider_fallback_route(
@@ -276,6 +308,10 @@ fn build_node_observation_with_port(
 ) -> NodeObservation {
     let interfaces = port.observe_interfaces();
     let routes = port.observe_routes();
+    let network_manager_connections = port.observe_network_manager_connections();
+    let policy_routes = port.observe_policy_routes();
+    let namespaces = port.observe_network_namespaces();
+    let firewall = port.observe_firewall();
     let provider_fallback_route =
         port.observe_provider_fallback_route(&plan.provider_fallback_cidr);
     let synapse_route = port.observe_synapse_route(&plan.synapse_cidr);
@@ -307,6 +343,10 @@ fn build_node_observation_with_port(
         NodeObservationRuntimeInputs {
             interfaces,
             routes,
+            network_manager_connections,
+            policy_routes,
+            namespaces,
+            firewall,
             provider_fallback_route,
             synapse_route,
             wireguard,
@@ -385,6 +425,10 @@ fn build_node_observation_with_runtime(
         network: NetworkObservation {
             interfaces: inputs.interfaces,
             routes: inputs.routes,
+            network_manager_connections: inputs.network_manager_connections,
+            policy_routes: inputs.policy_routes,
+            namespaces: inputs.namespaces,
+            firewall: inputs.firewall,
             provider_fallback_route: inputs.provider_fallback_route,
             synapse_route: inputs.synapse_route,
             wireguard: inputs.wireguard,

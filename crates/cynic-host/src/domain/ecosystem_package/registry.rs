@@ -31,8 +31,14 @@ pub fn ecosystem_provider_specs() -> &'static [EcosystemProviderSpec] {
         EcosystemProviderSpec {
             id: "huggingface-cli",
             channel: ProviderChannel::External,
-            principal: InstallPrincipalKind::OperatorLocal,
+            principal: InstallPrincipalKind::RuntimeUser,
             role: "model_hub_download",
+        },
+        EcosystemProviderSpec {
+            id: "uv",
+            channel: ProviderChannel::External,
+            principal: InstallPrincipalKind::OperatorLocal,
+            role: "python_tooling_authority",
         },
         EcosystemProviderSpec {
             id: "ods",
@@ -67,7 +73,7 @@ pub fn ecosystem_provider_specs() -> &'static [EcosystemProviderSpec] {
         EcosystemProviderSpec {
             id: "hermes-agent",
             channel: ProviderChannel::External,
-            principal: InstallPrincipalKind::OperatorLocal,
+            principal: InstallPrincipalKind::RuntimeUser,
             role: "agent_runtime",
         },
         EcosystemProviderSpec {
@@ -122,8 +128,12 @@ mod tests {
     fn provider_table_covers_llama_and_ods_as_scripted() {
         let llama = provider_spec("llama.cpp").unwrap();
         let ods = provider_spec("ods").unwrap();
+        let hf = provider_spec("huggingface-cli").unwrap();
+        let hermes = provider_spec("hermes-agent").unwrap();
         assert_eq!(llama.channel, ProviderChannel::Scripted);
         assert_eq!(ods.channel, ProviderChannel::Scripted);
+        assert_eq!(hf.principal, InstallPrincipalKind::RuntimeUser);
+        assert_eq!(hermes.principal, InstallPrincipalKind::RuntimeUser);
         assert_eq!(llama.principal, InstallPrincipalKind::RuntimeUser);
         assert!(!matches!(
             provider_spec("systemd").unwrap().channel,

@@ -33,7 +33,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
             if !json {
                 return ExitCode::FAILURE;
             }
-            let runtime = resolve_runtime_paths(&RuntimeContext::from_env(registry.clone()));
+            let runtime = resolve_runtime_paths(&RuntimeContext::from_env(registry));
             fleet_report::emit_result(fleet_report::emit_fleet_report(
                 &runtime.registry_path,
                 proxmox_json.as_deref(),

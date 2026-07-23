@@ -51,10 +51,7 @@ pub struct NormalisedModel {
 impl NormalisedModel {
     /// Build from a DiscoveredService + model name.
     pub fn from_discovered(service: &DiscoveredService, model_id: &str, node_id: &str) -> Self {
-        let slug = model_id
-            .replace(':', "-")
-            .replace('.', "-")
-            .replace('/', "-");
+        let slug = model_id.replace([':', '.', '/'], "-");
         let engine = service.name.to_lowercase().replace(' ', "_");
         let backend_id = format!("{engine}/{node_id}/{slug}");
         let discovered_at = std::time::SystemTime::now()

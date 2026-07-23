@@ -120,6 +120,15 @@ pub fn plan_report(state_path: &Path) -> LifecyclePlanReport {
                 mutation_class: Some(m.clone()),
                 requires_yes: true,
             }),
+            MutationClass::KernelRuntime => planned.push(PlannedAction {
+                id: "kernel_release".into(),
+                kind: "apply",
+                command: "cynic lifecycle kernel-release --spec <kernel-release-spec.json> --yes"
+                    .into(),
+                mutates: true,
+                mutation_class: Some(m.clone()),
+                requires_yes: true,
+            }),
         }
     }
 

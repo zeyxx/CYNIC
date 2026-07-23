@@ -9,6 +9,8 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
+use serde_json;
+
 use crate::adapters::local::vault_inventory::FsLocalModelInventory;
 use crate::domain::local_runtime::{
     LocalRuntimeMutationReport, LocalRuntimeState, LocalRuntimeStatus,
@@ -65,17 +67,17 @@ impl SystemdUserLocalRuntime {
                 match k {
                     "ActiveState" => active = v.to_string(),
                     "MainPID" => {
-                        if let Ok(p) = v.parse::<u32>() {
-                            if p > 0 {
-                                main_pid = Some(p);
-                            }
+                        if let Ok(p) = v.parse::<u32>()
+                            && p > 0
+                        {
+                            main_pid = Some(p);
                         }
                     }
                     "MemoryCurrent" => {
-                        if v != "[not set]" {
-                            if let Ok(m) = v.parse::<u64>() {
-                                memory = Some(m);
-                            }
+                        if v != "[not set]"
+                            && let Ok(m) = v.parse::<u64>()
+                        {
+                            memory = Some(m);
                         }
                     }
                     "Id" => id = v.to_string(),
@@ -133,7 +135,7 @@ impl SystemdUserLocalRuntime {
         let mut status = LocalRuntimeStatus {
             schema: LocalRuntimeStatus::SCHEMA,
             surface: LocalRuntimeStatus::SURFACE,
-            alias: alias.clone(),
+            alias,
             state,
             unit: if id.is_empty() {
                 Some(unit.to_string())
@@ -148,17 +150,17 @@ impl SystemdUserLocalRuntime {
             message: None,
         };
 
-        if let Some(ref a) = status.alias {
-            if let Ok(profile) = self.inventory.get_profile(a) {
-                status.listen_host = Some(profile.host.clone());
-                status.listen_port = Some(profile.port);
-                status.endpoint = Some(format!("http://{}:{}/v1", profile.host, profile.port));
-            }
+        if let Some(ref a) = status.alias
+            && let Ok(profile) = self.inventory.get_profile(a)
+        {
+            status.listen_host = Some(profile.host.clone());
+            status.listen_port = Some(profile.port);
+            status.endpoint = Some(format!("http://{}:{}/v1", profile.host, profile.port));
         }
         Ok(status)
     }
 
-    fn list_running_aliases(&self) -> Result<Vec<String>, LocalRuntimeError> {
+    fn list_running_aliases() -> Result<Vec<String>, LocalRuntimeError> {
         let out = Command::new("systemctl")
             .args([
                 "--user",
@@ -185,11 +187,136 @@ impl SystemdUserLocalRuntime {
         Ok(aliases)
     }
 
-    fn stop_legacy_fixed_unit(&self) {
+    fn stop_legacy_fixed_unit() {
         let _ = Self::systemctl(&["--user", "stop", "llama-server.service"]);
     }
 
-    /// Poll until OpenAI-compat `/v1/models` returns success (model finished loading).
+    fn expected_model_ids(
+        profile: &crate::domain::local_runtime::LocalModelProfile,
+    ) -> Vec<String> {
+        let mut ids = Vec::new();
+        ids.push(profile.alias.clone());
+
+        if let Some(name) = std::path::Path::new(&profile.model_path)
+            .file_name()
+            .and_then(|p| p.to_str())
+        {
+            let stem = std::path::Path::new(name)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or(name);
+            ids.push(name.to_string());
+            ids.push(stem.to_string());
+        }
+
+        ids.into_iter()
+            .map(|s| s.to_lowercase())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect()
+    }
+
+    fn parse_model_ids(body: &str) -> Vec<String> {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(body) else {
+            return Vec::new();
+        };
+
+        let mut ids = Vec::new();
+        if let Some(models) = v.get("data").and_then(|d| d.as_array()) {
+            for m in models {
+                if let Some(id) = m
+                    .get("id")
+                    .and_then(|x| x.as_str())
+                    .filter(|x| !x.is_empty())
+                {
+                    ids.push(id.to_string());
+                }
+            }
+        }
+
+        if let Some(models) = v.get("models").and_then(|d| d.as_array()) {
+            for m in models {
+                let Some(id) = m
+                    .get("id")
+                    .or_else(|| m.get("name"))
+                    .or_else(|| m.get("model"))
+                    .and_then(|x| x.as_str())
+                    .filter(|x| !x.is_empty())
+                else {
+                    continue;
+                };
+                ids.push(id.to_string());
+            }
+        }
+
+        ids.sort();
+        ids.dedup();
+        ids
+    }
+
+    fn model_matches_target(loaded: &[String], expected: &[String]) -> bool {
+        if loaded.is_empty() || expected.is_empty() {
+            return false;
+        }
+        let loaded_lc: Vec<String> = loaded.iter().map(|s| s.to_lowercase()).collect();
+        for e in expected {
+            let e_lc = e.to_lowercase();
+            for l in &loaded_lc {
+                if l == &e_lc || l.contains(&e_lc) || e_lc.contains(l) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn fetch_models_for_wait(endpoint: &str) -> (String, Vec<String>) {
+        let body = Command::new("curl")
+            .args([
+                "-sS",
+                "-m",
+                "2",
+                "-o",
+                "-",
+                "-H",
+                "Accept: application/json",
+                endpoint,
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        let code = Command::new("curl")
+            .args([
+                "-sS",
+                "-m",
+                "2",
+                "-o",
+                "/dev/null",
+                "-w",
+                "%{http_code}",
+                endpoint,
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+
+        (code, Self::parse_model_ids(&body))
+    }
+
+    fn estimate_model_ready_timeout(
+        profile: &crate::domain::local_runtime::LocalModelProfile,
+    ) -> Duration {
+        let size_gb = profile.size_bytes.unwrap_or(0) as f64 / (1024.0 * 1024.0 * 1024.0);
+        let extra = (size_gb * 45.0).round() as u64;
+        let timeout_secs = 180u64 + extra;
+        Duration::from_secs(timeout_secs.min(1200))
+    }
+
     fn wait_model_ready(
         &self,
         profile: &crate::domain::local_runtime::LocalModelProfile,
@@ -197,66 +324,78 @@ impl SystemdUserLocalRuntime {
     ) -> Result<bool, LocalRuntimeError> {
         let endpoint = format!("http://{}:{}/v1/models", profile.host, profile.port);
         let start = std::time::Instant::now();
-        let api_key_path = dirs_api_key_path();
-        let api_key = std::fs::read_to_string(&api_key_path).ok();
+
+        let expected = Self::expected_model_ids(profile);
+        let mut last_seen = Vec::<String>::new();
+        let mut last_state = String::from("initializing");
         let mut wait = crate::progress::WaitProgress::new(
-            format!("model HTTP {endpoint} (load can take 1–3 min)"),
+            format!(
+                "model HTTP {endpoint} (load can take ~{}s for large GGUF)",
+                timeout.as_secs()
+            ),
             5,
         );
 
         while start.elapsed() < timeout {
-            // Unit failed?
             if let Ok(st) = self.status_for_unit(&Self::unit_name(&profile.alias)) {
                 if st.state == LocalRuntimeState::Failed {
+                    crate::progress::progress(
+                        "failed",
+                        format!(
+                            "llama-server unit failed for {} — check journalctl --user -u {}",
+                            profile.alias,
+                            Self::unit_name(&profile.alias)
+                        ),
+                    );
                     wait.done(false);
                     return Ok(false);
                 }
-                // crash loop: inactive after having started
-                if st.state == LocalRuntimeState::Inactive
-                    && start.elapsed() > Duration::from_secs(3)
-                {
-                    // may be restarting — check a few more times
-                }
+                last_state = st.state.as_str().into();
             }
 
-            let mut cmd = Command::new("curl");
-            cmd.args(["-sS", "-m", "2", "-o", "/dev/null", "-w", "%{http_code}"]);
-            if let Some(ref key) = api_key {
-                cmd.arg("-H")
-                    .arg(format!("Authorization: Bearer {}", key.trim()));
+            let (code, models) = Self::fetch_models_for_wait(&endpoint);
+            if !models.is_empty() {
+                last_seen = models.clone();
             }
-            cmd.arg(&endpoint);
-            if let Ok(out) = cmd.output() {
-                let code = String::from_utf8_lossy(&out.stdout);
-                if code.trim() == "200" {
+
+            let code_ok = matches!(code.as_str(), "200" | "401");
+            if code_ok {
+                if Self::model_matches_target(&models, &expected) {
                     wait.done(true);
                     return Ok(true);
                 }
-                // 503 Loading model — keep waiting
+
+                if models.is_empty() {
+                    crate::progress::progress(
+                        "loading",
+                        format!("HTTP {code} ({last_state}) but no model ids yet"),
+                    );
+                } else {
+                    let shown = last_seen.join(", ");
+                    crate::progress::progress(
+                        "loading",
+                        format!(
+                            "HTTP {code} ({last_state}) loading different models={}",
+                            shown.chars().take(160).collect::<String>()
+                        ),
+                    );
+                }
+            } else {
+                crate::progress::progress("wait", format!("HTTP {code} ({last_state})"));
             }
+
             wait.tick();
             thread::sleep(Duration::from_millis(500));
         }
+
         wait.done(false);
         Ok(false)
     }
 }
 
-fn dirs_api_key_path() -> std::path::PathBuf {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::var_os("HOME")
-                .map(std::path::PathBuf::from)
-                .unwrap_or_else(|| std::path::PathBuf::from("."))
-                .join(".config")
-        });
-    base.join("cynic/llama-api-key")
-}
-
 impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
     fn status(&self) -> Result<LocalRuntimeStatus, LocalRuntimeError> {
-        let running = self.list_running_aliases()?;
+        let running = Self::list_running_aliases()?;
         if running.is_empty() {
             return Ok(LocalRuntimeStatus::inactive(
                 "no native llama-server@ instance running",
@@ -297,8 +436,8 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         let plan = planner.plan_for_alias(alias)?;
         let materialize = planner.materialize(&plan)?;
 
-        self.stop_legacy_fixed_unit();
-        for other in self.list_running_aliases()? {
+        Self::stop_legacy_fixed_unit();
+        for other in Self::list_running_aliases()? {
             if other != alias {
                 crate::progress::progress("stop", format!("unit {}", Self::unit_name(&other)));
                 let _ = Self::systemctl(&["--user", "stop", &Self::unit_name(&other)]);
@@ -308,7 +447,10 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         let _ = Self::systemctl(&["--user", "daemon-reload"]);
         // Clear failed state from previous crash loops
         let _ = Self::systemctl(&["--user", "reset-failed", &Self::unit_name(alias)]);
-        crate::progress::progress("spawn", format!("systemctl --user start {}", Self::unit_name(alias)));
+        crate::progress::progress(
+            "spawn",
+            format!("systemctl --user start {}", Self::unit_name(alias)),
+        );
         Self::systemctl(&["--user", "start", &Self::unit_name(alias)])?;
 
         let plan_msg = format!(
@@ -327,7 +469,8 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
             "load",
             "waiting for llama-server to finish loading weights into memory/VRAM",
         );
-        let ready = self.wait_model_ready(&profile, Duration::from_secs(180))?;
+        let ready_timeout = Self::estimate_model_ready_timeout(&profile);
+        let ready = self.wait_model_ready(&profile, ready_timeout)?;
         let st = self.status_for_unit(&Self::unit_name(alias))?;
         let ok = ready && st.state == LocalRuntimeState::Active;
         if !ok {
@@ -359,7 +502,7 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         let alias = match alias {
             Some(a) => a.to_string(),
             None => {
-                let running = self.list_running_aliases()?;
+                let running = Self::list_running_aliases()?;
                 running.into_iter().next().ok_or_else(|| {
                     LocalRuntimeError::Rejected("no running native instance to stop".into())
                 })?
@@ -375,7 +518,7 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
             schema: LocalRuntimeMutationReport::SCHEMA,
             surface: LocalRuntimeMutationReport::SURFACE,
             operation: "stop".into(),
-            alias: alias.clone(),
+            alias,
             ok: matches!(
                 st.state,
                 LocalRuntimeState::Inactive | LocalRuntimeState::Unknown

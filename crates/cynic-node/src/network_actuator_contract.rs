@@ -71,6 +71,20 @@ fn bounded_helper_projection(context: &NetworkActuatorContractContext) -> Bounde
         context.sudoers_path.clone(),
         "Allows the cynic service user to invoke only the root-owned network actuator helper.",
     )
+    .with_allowed_invocations(
+        ["provider-fallback-route", "synapse-route", "wireguard-mesh"]
+            .into_iter()
+            .map(|profile| {
+                vec![
+                    context.helper_path.clone(),
+                    "apply".to_string(),
+                    "--profile".to_string(),
+                    profile.to_string(),
+                    "--apply".to_string(),
+                ]
+            })
+            .collect(),
+    )
 }
 
 #[cfg(test)]
@@ -96,7 +110,9 @@ mod tests {
         );
         assert_eq!(
             sudoers_rule_with_context(&context),
-            "cynic ALL=(root) NOPASSWD: /portable/bin/cynic-network-actuator"
+            "cynic ALL=(root) NOPASSWD: /portable/bin/cynic-network-actuator apply --profile provider-fallback-route --apply\
+\ncynic ALL=(root) NOPASSWD: /portable/bin/cynic-network-actuator apply --profile synapse-route --apply\
+\ncynic ALL=(root) NOPASSWD: /portable/bin/cynic-network-actuator apply --profile wireguard-mesh --apply"
         );
     }
 
@@ -105,5 +121,7 @@ mod tests {
         let projection = sudoers_projection_with_context(&test_context());
         assert!(projection.contains("/portable/bin/cynic-network-actuator"));
         assert!(projection.contains("Allows the cynic service user"));
+        assert!(!projection.contains("cynic-network-actuator\n"));
+        assert!(!projection.contains("--registry"));
     }
 }

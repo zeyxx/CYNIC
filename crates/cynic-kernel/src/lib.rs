@@ -33,7 +33,6 @@ pub mod api;
 pub mod backends;
 pub mod bootstrap;
 pub mod domain;
-pub mod escore;
 pub mod infra;
 pub mod introspection;
 pub mod json;

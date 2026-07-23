@@ -6,7 +6,9 @@ use cynic_protocol::{
 };
 
 use crate::domain::shared::SurfaceStatus;
+use crate::build::BuildProof;
 use crate::usecases::HostObservationReports;
+use crate::vertical_conformance::VerticalConformanceReport;
 
 pub fn host_identity_runtime_proof(observed: &HostObservationReports) -> RuntimeProof {
     let evidence = vec![
@@ -78,6 +80,87 @@ pub fn host_identity_runtime_proof_bundle(observed: &HostObservationReports) -> 
     }
 }
 
+pub fn assemble_runtime_proof_bundle(
+    identity: RuntimeProof,
+    verticals: &VerticalConformanceReport,
+) -> RuntimeProofBundle {
+    let vertical_status = match verticals.status {
+        "complete" => "satisfied",
+        "partial" => "partial",
+        "blocked" => "blocked",
+        _ => "unknown",
+    };
+    let vertical_proof = RuntimeProof {
+        schema: RUNTIME_PROOF_SCHEMA.to_string(),
+        gate: "vertical_conformance".to_string(),
+        status: vertical_status.to_string(),
+        producer: "cynic-host".to_string(),
+        subject: identity.subject.clone(),
+        observed_at_unix_ms: observed_at_unix_ms(),
+        evidence: verticals
+            .verticals
+            .iter()
+            .map(|vertical| RuntimeProofEvidence {
+                id: vertical.id.clone(),
+                status: vertical.status.to_string(),
+                detail: if vertical.blockers.is_empty() {
+                    format!("coverage={}", vertical.declared_coverage)
+                } else {
+                    format!("blockers={}", vertical.blockers.join(","))
+                },
+            })
+            .collect(),
+    };
+    let status = if identity.status != "satisfied" || vertical_status != "satisfied" {
+        if identity.status == "blocked" || vertical_status == "blocked" {
+            "blocked"
+        } else if identity.status == "unknown" || vertical_status == "unknown" {
+            "unknown"
+        } else {
+            "partial"
+        }
+    } else {
+        "satisfied"
+    };
+    RuntimeProofBundle {
+        schema: RUNTIME_PROOF_BUNDLE_SCHEMA.to_string(),
+        status: status.to_string(),
+        proofs: vec![identity, vertical_proof],
+    }
+}
+
+pub fn assemble_runtime_proof_persistence_record(
+    bundle: &RuntimeProofBundle,
+    verticals: &VerticalConformanceReport,
+    build_proof: Option<&BuildProof>,
+) -> cynic_protocol::RuntimeProofPersistenceRecord {
+    let node = bundle
+        .proofs
+        .first()
+        .map(|proof| proof.subject.clone())
+        .unwrap_or_else(|| "unknown-node".to_string());
+    let revision = build_proof
+        .map(|proof| proof.source_commit.clone())
+        .filter(|revision| !revision.is_empty())
+        .unwrap_or_else(|| "observation-only".to_string());
+    let evidence_refs = verticals
+        .verticals
+        .iter()
+        .flat_map(|vertical| vertical.evidence_refs.iter().cloned())
+        .chain(build_proof.into_iter().map(|_| "build_proof".to_string()))
+        .collect();
+    cynic_protocol::runtime_proof_persistence_record(
+        node,
+        revision,
+        observed_at_unix_ms(),
+        bundle.status.clone(),
+        verticals.residual_unknowns.clone(),
+        verticals.blockers.clone(),
+        evidence_refs,
+        bundle.clone(),
+    )
+}
+
 fn host_identity_satisfied(observed: &HostObservationReports) -> bool {
     observed.principal.status == SurfaceStatus::Active
         && observed.privilege.status == SurfaceStatus::Active
@@ -116,6 +199,7 @@ mod tests {
     use crate::domain::principal::PrincipalStatusReport;
     use crate::domain::privilege::PrivilegeStatusReport;
     use crate::domain::services::ServiceStatusReport;
+    use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
 
     #[test]
     fn host_identity_proof_is_satisfied_only_when_all_host_surfaces_are_active() {
@@ -123,17 +207,37 @@ mod tests {
             schema: crate::usecases::HOST_OBSERVATION_SCHEMA,
             host_resolution: None,
             status: SurfaceStatus::Blocked,
+            lifecycle_status: LifecycleStatus::Missing,
+            lifecycle_disposition: LifecycleDisposition::NotDiscovered,
+            next_boundary_kind: BoundaryKind::Adopt,
+            next_boundary_reason:
+                "one or more declared service units are missing from observation".to_string(),
+            next_command: Some("cynic host network-baseline plan".to_string()),
             blocked_domains: vec!["services"],
             principal: PrincipalStatusReport {
                 status: SurfaceStatus::Active,
+                lifecycle_status: LifecycleStatus::Ready,
+                lifecycle_disposition: LifecycleDisposition::ObservableCandidate,
+                next_boundary_kind: BoundaryKind::Observe,
+                next_boundary_reason:
+                    "runtime principal is present, aligned, and observable".to_string(),
+                next_command: None,
                 user_present: true,
                 group_present: true,
                 home_matches: true,
                 missing_state_dirs: Vec::new(),
+                misowned_paths: Vec::new(),
                 evidences: Vec::new(),
             },
             privilege: PrivilegeStatusReport {
                 status: SurfaceStatus::Active,
+                lifecycle_status: LifecycleStatus::Ready,
+                lifecycle_disposition: LifecycleDisposition::ObservableCandidate,
+                next_boundary_kind: BoundaryKind::Observe,
+                next_boundary_reason:
+                    "privilege boundary is present, denial proof is satisfied, and the surface is observable"
+                        .to_string(),
+                next_command: None,
                 helper_dir_present: true,
                 sudoers_projection_present: true,
                 denial_proof_ready: true,
@@ -141,6 +245,13 @@ mod tests {
             },
             packages: PackageStatusReport {
                 status: SurfaceStatus::Active,
+                lifecycle_status: LifecycleStatus::Ready,
+                lifecycle_disposition: LifecycleDisposition::ObservableCandidate,
+                next_boundary_kind: BoundaryKind::Observe,
+                next_boundary_reason:
+                    "approved package sources are declared and bootstrap packages are present"
+                        .to_string(),
+                next_command: None,
                 approved_sources_declared: true,
                 installed_packages: Vec::new(),
                 missing_packages: Vec::new(),
@@ -148,6 +259,12 @@ mod tests {
             },
             services: ServiceStatusReport {
                 status: SurfaceStatus::Blocked,
+                lifecycle_status: LifecycleStatus::Missing,
+                lifecycle_disposition: LifecycleDisposition::NotDiscovered,
+                next_boundary_kind: BoundaryKind::Adopt,
+                next_boundary_reason:
+                    "one or more declared service units are missing from observation".to_string(),
+                next_command: Some("cynic host network-baseline plan".to_string()),
                 missing_units: vec!["cynic-node.service".to_string()],
                 disabled_units: Vec::new(),
                 inactive_units: Vec::new(),

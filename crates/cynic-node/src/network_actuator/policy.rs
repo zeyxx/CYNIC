@@ -1,12 +1,8 @@
-use std::collections::BTreeMap;
-
+use cynic_host::network_actuation::{NetworkActuationRuntime, build_network_actuation_policy};
 use cynic_host::runtime_layout::current_runtime_layout;
 
-use crate::network_actuator::types::{
-    NetworkActuatorAllowedProfile, NetworkActuatorPolicyDocument,
-};
+use crate::network_actuator::types::NetworkActuatorPolicyDocument;
 use crate::network_actuator_contract::{NETWORK_ACTUATOR_SUDOERS_SUBJECT, helper_path};
-use crate::network_command_surface::argv_command;
 use crate::network_root_policy::build_root_policy;
 use crate::observe::NodeObservation;
 
@@ -17,6 +13,7 @@ struct NetworkActuatorPolicyContext {
     wg_quick_unit: String,
     ip_bin: String,
     wg_bin: String,
+    nmcli_bin: String,
 }
 
 impl NetworkActuatorPolicyContext {
@@ -29,6 +26,7 @@ impl NetworkActuatorPolicyContext {
             wg_quick_unit: runtime_layout.wg_quick_unit(),
             ip_bin: capabilities.route_tool.command.clone(),
             wg_bin: capabilities.wireguard_tool.command.clone(),
+            nmcli_bin: capabilities.network_manager.command.clone(),
         }
     }
 }
@@ -47,86 +45,23 @@ fn build_policy_document_with_context(
     root_policy: &crate::network_root_policy::NetworkRootPolicy,
     context: NetworkActuatorPolicyContext,
 ) -> NetworkActuatorPolicyDocument {
-    let mut allowed_profiles = BTreeMap::new();
-    for profile in root_policy.allowed_profiles.iter().map(|item| item.profile) {
-        let allowed = match profile {
-            "provider-fallback-route" => route_profile(
-                "Restore temporary provider fallback route for resurrection only.",
-                &context.ip_bin,
-            ),
-            "synapse-route" => route_profile(
-                "Restore canonical Synapse route on the local node.",
-                &context.ip_bin,
-            ),
-            "wireguard-mesh" => NetworkActuatorAllowedProfile {
-                description: "Activate or inspect canonical WireGuard mesh on the local node.",
-                command_prefixes: vec![
-                    argv_command(
-                        "start_service",
-                        vec![
-                            context.systemctl_bin.clone(),
-                            "start".to_string(),
-                            context.wg_quick_unit.clone(),
-                        ],
-                    ),
-                    argv_command(
-                        "restart_service",
-                        vec![
-                            context.systemctl_bin.clone(),
-                            "restart".to_string(),
-                            context.wg_quick_unit.clone(),
-                        ],
-                    ),
-                    argv_command(
-                        "service_status",
-                        vec![
-                            context.systemctl_bin.clone(),
-                            "is-active".to_string(),
-                            context.wg_quick_unit.clone(),
-                        ],
-                    ),
-                    argv_command(
-                        "inspect_wireguard",
-                        vec![context.wg_bin.clone(), "show".to_string()],
-                    ),
-                ],
-            },
-            _ => continue,
-        };
-        allowed_profiles.insert(profile.to_string(), allowed);
-    }
-    NetworkActuatorPolicyDocument {
-        schema: "cynic.network_actuator.policy.v1",
-        status: "planned",
+    let runtime = NetworkActuationRuntime {
         helper_path: context.helper_path,
         sudoers_subject: NETWORK_ACTUATOR_SUDOERS_SUBJECT,
         max_timeout_seconds: 60,
-        allowed_profiles,
-        forbidden_tokens: vec![
-            "sh", "bash", "-c", "curl", "wget", "nc", "python", "python3", "perl", "ruby", ">",
-            ">>", "|", "&&", ";",
-        ],
-    }
-}
-
-fn route_profile(description: &'static str, ip_bin: &str) -> NetworkActuatorAllowedProfile {
-    NetworkActuatorAllowedProfile {
-        description,
-        command_prefixes: vec![
-            argv_command(
-                "mutate_route",
-                vec![
-                    ip_bin.to_string(),
-                    "route".to_string(),
-                    "replace".to_string(),
-                ],
-            ),
-            argv_command(
-                "inspect_route",
-                vec![ip_bin.to_string(), "route".to_string(), "show".to_string()],
-            ),
-        ],
-    }
+        service_manager_bin: context.systemctl_bin,
+        wireguard_unit: context.wg_quick_unit,
+        route_bin: context.ip_bin,
+        wireguard_bin: context.wg_bin,
+        network_manager_bin: context.nmcli_bin,
+    };
+    build_network_actuation_policy(
+        root_policy
+            .allowed_profiles
+            .iter()
+            .map(|profile| profile.profile),
+        &runtime,
+    )
 }
 
 #[cfg(test)]
@@ -157,6 +92,7 @@ mod tests {
                 wg_quick_unit: "wg-quick@wg-portable".to_string(),
                 ip_bin: "/portable/bin/ip".to_string(),
                 wg_bin: "/portable/bin/wg".to_string(),
+                nmcli_bin: "/portable/bin/nmcli".to_string(),
             },
         );
 

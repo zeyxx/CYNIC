@@ -8,7 +8,7 @@ pub use cynic_intel::token_postprocessor::{TokenClass, TokenMetadata};
 
 pub fn postprocess_token_verdict(
     stimulus: &Stimulus,
-    scores: AxiomScores,
+    scores: &AxiomScores,
 ) -> (AxiomScores, QScore) {
     let metadata = cynic_intel::token_postprocessor::infer_token_metadata_from_context(
         stimulus.context.as_deref(),

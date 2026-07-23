@@ -13,10 +13,11 @@ impl CynicMcpProxy {
         self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
+        let agent_id = self.coordination_principal()?;
         self.post(
             "/coord/register",
             &serde_json::json!({
-                "agent_id": p.agent_id,
+                "agent_id": agent_id,
                 "intent": p.intent,
                 "agent_type": p.agent_type,
             }),
@@ -35,10 +36,11 @@ impl CynicMcpProxy {
         self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
+        let agent_id = self.coordination_principal()?;
         self.post(
             "/coord/claim",
             &serde_json::json!({
-                "agent_id": p.agent_id,
+                "agent_id": agent_id,
                 "target": p.target,
                 "claim_type": p.claim_type,
             }),
@@ -57,10 +59,11 @@ impl CynicMcpProxy {
         self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
+        let agent_id = self.coordination_principal()?;
         self.post(
             "/coord/claim-batch",
             &serde_json::json!({
-                "agent_id": p.agent_id,
+                "agent_id": agent_id,
                 "targets": p.targets,
                 "claim_type": p.claim_type,
             }),
@@ -69,8 +72,32 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_coord_renew",
+        description = "Renew an active claim using its exact lease id and fencing token."
+    )]
+    async fn cynic_coord_renew(
+        &self,
+        params: Parameters<RenewLeaseParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let agent_id = self.coordination_principal()?;
+        self.post(
+            "/coord/renew",
+            &serde_json::json!({
+                "agent_id": agent_id,
+                "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
         name = "cynic_coord_release",
-        description = "Release claimed files/resources."
+        description = "Release a claim using target, lease_id, and fencing_token."
     )]
     async fn cynic_coord_release(
         &self,
@@ -79,11 +106,39 @@ impl CynicMcpProxy {
         self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
+        let agent_id = self.coordination_principal()?;
         self.post(
             "/coord/release",
             &serde_json::json!({
-                "agent_id": p.agent_id,
+                "agent_id": agent_id,
                 "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_coord_finalize",
+        description = "Validate and atomically commit a runtime proof bundle while finalizing an active claim."
+    )]
+    async fn cynic_coord_finalize(
+        &self,
+        params: Parameters<FinalizeLeaseParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let agent_id = self.coordination_principal()?;
+        self.post(
+            "/coord/finalize",
+            &serde_json::json!({
+                "agent_id": agent_id,
+                "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+                "proof_bundle": p.proof_bundle,
             }),
         )
         .await

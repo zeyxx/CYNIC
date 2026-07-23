@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "cynic/escore-registry/v0.1",
+  "title": "CYNIC E-Score Registry",
+  "description": "Schema for a skinnable naming registry for the CYNIC E-Score system. The underlying stat engine is invariant. Only display names, mottos, and cultural framing change per registry.",
+  "type": "object",
+  "required": ["registry_id", "version", "status", "stats", "classes", "tiers"],
+  "additionalProperties": false,
+  "properties": {
+    "registry_id": {
+      "type": "string",
+      "description": "Unique identifier. Lowercase, no spaces. Reserved: cynic, cypherpunk, nordic, degen, bushido, gnostic.",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "examples": ["cynic", "cypherpunk", "nordic", "degen", "bushido", "gnostic"]
+    },
+    "version": {
+      "type": "string",
+      "description": "Semver of this registry definition.",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "examples": ["0.1", "1.0"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["canonical", "community", "draft"],
+      "description": "canonical = shipped by Odysseum. community = approved via futarchy proposal. draft = pending approval."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable display name for the registry.",
+      "examples": ["CYNIC", "CYPHERPUNK", "NORDIC"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Short description of the cultural vibe and intended community."
+    },
+    "futarchy_proposal_id": {
+      "type": ["string", "null"],
+      "description": "On-chain proposal ID that approved this registry. Null for canonical registries."
+    },
+    "stats": {
+      "type": "object",
+      "description": "Display names and mottos for the 7 invariant stat dimensions.",
+      "required": ["karteria", "parrhesia", "anaideia", "philanthropia", "autarkeia", "poiesis", "koinonia"],
+      "additionalProperties": false,
+      "properties": {
+        "karteria":      { "$ref": "#/$defs/stat_entry" },
+        "parrhesia":     { "$ref": "#/$defs/stat_entry" },
+        "anaideia":      { "$ref": "#/$defs/stat_entry" },
+        "philanthropia": { "$ref": "#/$defs/stat_entry" },
+        "autarkeia":     { "$ref": "#/$defs/stat_entry" },
+        "poiesis":       { "$ref": "#/$defs/stat_entry" },
+        "koinonia":      { "$ref": "#/$defs/stat_entry" }
+      }
+    },
+    "classes": {
+      "type": "object",
+      "description": "Display names for the 8 emergent class archetypes.",
+      "required": ["spartiate", "oracle", "promethee", "hermes", "dedale", "socrate", "agathon", "apex"],
+      "additionalProperties": false,
+      "properties": {
+        "spartiate":  { "$ref": "#/$defs/class_entry", "description": "Karteria + Anaideia dominant" },
+        "oracle":     { "$ref": "#/$defs/class_entry", "description": "Parrhesia + Autarkeia dominant" },
+        "promethee":  { "$ref": "#/$defs/class_entry", "description": "Anaideia + Philanthropia dominant" },
+        "hermes":     { "$ref": "#/$defs/class_entry", "description": "Poiesis + Koinonia dominant" },
+        "dedale":     { "$ref": "#/$defs/class_entry", "description": "Autarkeia + Poiesis dominant" },
+        "socrate":    { "$ref": "#/$defs/class_entry", "description": "Koinonia + Parrhesia dominant" },
+        "agathon":    { "$ref": "#/$defs/class_entry", "description": "Philanthropia + Koinonia dominant" },
+        "apex": {
+          "$ref": "#/$defs/class_entry",
+          "description": "Apex class: >= 5 stats above 60th percentile. The sovereign archetype of this registry."
+        }
+      }
+    },
+    "tiers": {
+      "type": "object",
+      "description": "Display names for the 5 access tiers (0 to 4).",
+      "required": ["t0", "t1", "t2", "t3", "t4"],
+      "additionalProperties": false,
+      "properties": {
+        "t0": { "$ref": "#/$defs/tier_entry", "description": "Visitor tier. E-Score < 100. Read-only." },
+        "t1": { "$ref": "#/$defs/tier_entry", "description": "Citizen tier. E-Score 100-499." },
+        "t2": { "$ref": "#/$defs/tier_entry", "description": "Steward tier. E-Score 500-999." },
+        "t3": { "$ref": "#/$defs/tier_entry", "description": "Archon tier. E-Score 1000-2499. Percentile-gated at scale." },
+        "t4": { "$ref": "#/$defs/tier_entry", "description": "Sovereign tier. E-Score >= 2500. Apex percentile." }
+      }
+    }
+  },
+  "$defs": {
+    "stat_entry": {
+      "type": "object",
+      "required": ["display"],
+      "additionalProperties": false,
+      "properties": {
+        "display": {
+          "type": "string",
+          "description": "Short display name shown in the UI."
+        },
+        "subtitle": {
+          "type": ["string", "null"],
+          "description": "Optional secondary label (e.g. kanji for BUSHIDO)."
+        },
+        "motto": {
+          "type": ["string", "null"],
+          "description": "Optional flavor text shown on the character sheet."
+        }
+      }
+    },
+    "class_entry": {
+      "type": "object",
+      "required": ["display"],
+      "additionalProperties": false,
+      "properties": {
+        "display": {
+          "type": "string",
+          "description": "Class name shown in the UI."
+        },
+        "subtitle": {
+          "type": ["string", "null"],
+          "description": "Optional subtitle or kanji equivalent."
+        },
+        "flavor": {
+          "type": ["string", "null"],
+          "description": "Optional one-line flavor text for the class tooltip."
+        }
+      }
+    },
+    "tier_entry": {
+      "type": "object",
+      "required": ["display"],
+      "additionalProperties": false,
+      "properties": {
+        "display": {
+          "type": "string",
+          "description": "Tier name shown in the UI."
+        },
+        "subtitle": {
+          "type": ["string", "null"],
+          "description": "Optional subtitle or translation."
+        }
+      }
+    }
+  }
+}

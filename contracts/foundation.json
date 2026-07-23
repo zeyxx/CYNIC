@@ -17,7 +17,7 @@
       "canonical Rust crates",
       "infra/agent-exposure.json"
     ],
-    "hard_boundaries": [
+      "hard_boundaries": [
       {
         "name": "low_layer_first",
         "rule": "Kernel, host, node, protocol, MCP, CLI, storage, and service supervision take precedence over UX and product layers."
@@ -41,6 +41,10 @@
       {
         "name": "no_contract_forest",
         "rule": "Do not create broad contract trees. Add a new contract only when a stable boundary cannot be expressed in Rust types, tests, registry, or this file."
+      },
+      {
+        "name": "fractal_agent_recursion",
+        "rule": "Every node may own a local recursive agent tree. Child delegations must preserve node lineage, monotonically reduce authority and budgets, consume content-addressed context, and return proofs or explicit unknowns upward. Cross-node delegation is federation and requires an explicit coordination contract."
       }
     ],
     "deleted_authorities": [
@@ -87,11 +91,22 @@
         "binary build after rustc ICE/toolchain pin is resolved",
         "systemd unit inventory matches infra/registry.json service names"
       ],
+      "vertical_contracts": {
+        "schema": "cynic.vertical_contract_catalog.v1",
+        "rule": "Every runtime vertical must name desired state, observation, reconciliation, bounded action, read-back proof, owner, and coverage. Unknown coverage is data and cannot be promoted to success.",
+        "catalog_owner": "cynic-protocol::FrameworkSpec",
+        "coverage_values": ["partial", "complete", "unknown", "blocked"],
+        "required_verticals": [
+          "process", "principal", "filesystem", "source", "build", "artifact", "service", "host_os",
+          "network", "node", "provider", "orchestrator", "project", "fleet", "federation", "human_boundary"
+        ]
+      },
       "future_distributed_proof": [
         "cynic bootstrap constellation --json reads registry targets and reports missing proof without mutating",
         "node runtime emits host/service proof",
         "kernel stores observations and task read-back",
-        "MCP exposes read-only runtime status to agents"
+        "MCP exposes read-only runtime status to agents",
+        "node-owned recursive agent schedulers admit cynic.agent_delegation_envelope.v1 without authority or budget amplification and persist cynic.agent_completion_envelope.v1"
       ]
     }
   }

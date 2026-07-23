@@ -1,27 +1,37 @@
 use crate::bounded_helper::{BoundedHelperInstallRuntime, BoundedHelperProjection};
 use crate::command_surface::{
-    HostCommandSurface, argv_command, install_dir_command, install_file_command,
-    validate_sudoers_command,
+    HostCommandSurface, install_dir_command, install_file_command, validate_sudoers_command,
 };
 use crate::install_contract::{
     InstallMode, InstallOwnership, InstallPathPolicy, MODE_0440, MODE_0755,
 };
 use crate::process_observation::capture_argv;
 use crate::runtime_layout::current_runtime_layout;
+use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
+pub mod admitted;
 pub mod bundle;
 pub mod installer;
 pub mod status;
 pub mod types;
 
-use bundle::{BridgeBundleContext, bundle_manifest_for_context, write_bridge_bundle_with_context};
+#[cfg(test)]
+mod admitted_tests;
+#[cfg(test)]
+mod tests;
+
+pub use admitted::{
+    PrivilegeBridgeExecutionReport, PrivilegeBridgeOperationReport, PrivilegeBridgeOperationResult,
+    privilege_bridge_apply, privilege_bridge_plan,
+};
+use bundle::{BridgeBundleContext, write_bridge_bundle_with_context};
 use installer::bridge_install_report_from_commands;
 use status::bridge_status_for_projection;
 pub use types::{
-    HostExecBridgeActivationPlan, HostExecBridgeBundleManifest, HostExecBridgeInstallReport,
-    HostExecBridgeRootlessSmokeReport, HostExecBridgeStatus,
+    HostExecBridgeBundleManifest, HostExecBridgeInstallReport, HostExecBridgeRootlessSmokeReport,
+    HostExecBridgeStatus, PrivilegeBridgeInstallSpec, PrivilegeBridgeObservedState,
 };
 
 const HOST_EXEC_HELPER_FILENAME: &str = "cynic-host-exec";
@@ -62,160 +72,53 @@ fn write_bridge_bundle_with_runtime(
     )
 }
 
-pub fn bridge_activation_plan(bundle_dir: impl AsRef<Path>) -> HostExecBridgeActivationPlan {
-    let bundle_dir = bundle_dir.as_ref();
-    let manifest = bundle_manifest("<current_executable>", &bundle_dir.to_string_lossy());
-    let bundle_dir_str = bundle_dir.to_string_lossy().to_string();
-    let runtime_layout = current_runtime_layout();
-    let helper_runtime = helper_install_runtime();
-    let sudo_bin = runtime_layout.sudo_bin();
-
-    HostExecBridgeActivationPlan {
-        schema: "cynic.host_exec_bridge.activation_plan.v1",
-        mutates: false,
-        bundle_dir: bundle_dir_str.clone(),
-        bundle_expected_complete: bundle_complete(bundle_dir),
-        bundle_files: manifest.bundle_files.clone(),
-        preflight: vec![
-            argv_command(
-                "build",
-                vec![
-                    "cargo".to_string(),
-                    "build".to_string(),
-                    "-q".to_string(),
-                    "--manifest-path".to_string(),
-                    "crates/cynic-host/Cargo.toml".to_string(),
-                    "--bin".to_string(),
-                    "cynic-host-exec".to_string(),
-                ],
-            ),
-            argv_command(
-                "bundle",
-                vec![
-                    "cargo".to_string(),
-                    "run".to_string(),
-                    "-q".to_string(),
-                    "--manifest-path".to_string(),
-                    "crates/cynic-host/Cargo.toml".to_string(),
-                    "--bin".to_string(),
-                    "cynic-host-exec".to_string(),
-                    "--".to_string(),
-                    "bridge-bundle".to_string(),
-                    "--output-dir".to_string(),
-                    bundle_dir_str.clone(),
-                ],
-            ),
-            argv_command(
-                "status",
-                vec![
-                    "cargo".to_string(),
-                    "run".to_string(),
-                    "-q".to_string(),
-                    "--manifest-path".to_string(),
-                    "crates/cynic-host/Cargo.toml".to_string(),
-                    "--bin".to_string(),
-                    "cynic-host-exec".to_string(),
-                    "--".to_string(),
-                    "bridge-status".to_string(),
-                ],
-            ),
-        ],
-        install_commands: manifest
-            .prepare_directories
-            .into_iter()
-            .chain([
-                helper_runtime.install_helper_command(&bundle_dir_str, HOST_EXEC_HELPER_FILENAME),
-                helper_runtime.install_sudoers_command(&bundle_dir_str, HOST_EXEC_SUDOERS_FILENAME),
-                helper_runtime.validate_sudoers_command(),
-            ])
-            .collect(),
-        postflight: vec![
-            argv_command(
-                "status",
-                vec![
-                    "cargo".to_string(),
-                    "run".to_string(),
-                    "-q".to_string(),
-                    "--manifest-path".to_string(),
-                    "crates/cynic-host/Cargo.toml".to_string(),
-                    "--bin".to_string(),
-                    "cynic-host-exec".to_string(),
-                    "--".to_string(),
-                    "bridge-status".to_string(),
-                ],
-            ),
-            argv_command(
-                "observe_baseline",
-                vec![
-                    sudo_bin.clone(),
-                    "-n".to_string(),
-                    host_exec_helper_path(),
-                    "network-baseline".to_string(),
-                    "observe".to_string(),
-                ],
-            ),
-            argv_command(
-                "plan_principal_prepare",
-                vec![
-                    sudo_bin,
-                    "-n".to_string(),
-                    host_exec_helper_path(),
-                    "principal-prepare".to_string(),
-                ],
-            ),
-        ],
-        denial_checks: vec![
-            argv_command(
-                "deny_shell",
-                vec![
-                    runtime_layout.sudo_bin(),
-                    "-n".to_string(),
-                    "/bin/sh".to_string(),
-                    "-c".to_string(),
-                    "true".to_string(),
-                ],
-            ),
-            argv_command(
-                "deny_service_status",
-                vec![
-                    runtime_layout.sudo_bin(),
-                    "-n".to_string(),
-                    runtime_layout.systemctl_bin(),
-                    "status".to_string(),
-                    "cynic-node.service".to_string(),
-                ],
-            ),
-            argv_command(
-                "deny_package_update",
-                vec![
-                    runtime_layout.sudo_bin(),
-                    "-n".to_string(),
-                    runtime_layout.package_install_bin(),
-                    "update".to_string(),
-                ],
-            ),
-        ],
-        success_criteria: vec![
-            "bridge-status reports status=active",
-            "cynic can invoke only the host-exec helper through sudo",
-            "direct shell/systemctl/apt-get sudo invocations remain denied",
-        ],
-    }
-}
-
 pub fn bridge_install_report(
     bundle_dir: impl AsRef<Path>,
     apply: bool,
-) -> HostExecBridgeInstallReport {
-    let bundle_dir = bundle_dir.as_ref();
-    let plan = bridge_activation_plan(bundle_dir);
-    bridge_install_report_from_commands(
-        bundle_dir,
-        apply,
-        plan.bundle_expected_complete,
-        plan.install_commands,
-        true,
+) -> PrivilegeBridgeExecutionReport {
+    let spec = privilege_bridge_install_spec(bundle_dir, "local-host");
+    privilege_bridge_apply(
+        &spec,
+        ExecutionAuthorization::new(
+            "bridge-install-compatibility",
+            PolicyAuthority::HumanAdmin,
+            apply,
+            crate::execution::privilege_bridge_preconditions(),
+        ),
+        &crate::adapters::local_command_runner::LocalHostCommandRunner,
+        &crate::adapters::local_observation::LocalHostObservationAdapter,
     )
+}
+
+pub fn privilege_bridge_install_spec(
+    bundle_dir: impl AsRef<Path>,
+    target: impl Into<String>,
+) -> PrivilegeBridgeInstallSpec {
+    let bundle_dir = bundle_dir.as_ref();
+    let runtime = helper_install_runtime();
+    let projection = helper_projection();
+    PrivilegeBridgeInstallSpec {
+        target: target.into(),
+        bundle_complete: bundle_complete(bundle_dir),
+        subject: projection.subject.clone(),
+        authority_user: "root".to_string(),
+        authority_group: "root".to_string(),
+        provider: "sudoers".to_string(),
+        helper_source: bundle_dir
+            .join(HOST_EXEC_HELPER_FILENAME)
+            .display()
+            .to_string(),
+        helper_target: runtime.helper_target,
+        helper_mode: MODE_0755.unix,
+        projection_source: bundle_dir
+            .join(HOST_EXEC_SUDOERS_FILENAME)
+            .display()
+            .to_string(),
+        projection_target: runtime.sudoers_target,
+        projection_mode: MODE_0440.unix,
+        expected_projection: projection.sudoers_projection(),
+        proof_invocation: vec![projection.helper_path, "principal-prepare".to_string()],
+    }
 }
 
 pub fn bridge_rootless_smoke(
@@ -287,15 +190,34 @@ pub fn bridge_status() -> HostExecBridgeStatus {
     bridge_status_for_projection(&helper_projection())
 }
 
-fn bundle_manifest(helper_source: &str, bundle_dir: &str) -> HostExecBridgeBundleManifest {
-    let helper_runtime = helper_install_runtime();
-    let projection = helper_projection();
-    bundle_manifest_for_context(
-        helper_source,
-        bundle_dir,
-        &bridge_bundle_context(projection, helper_runtime.clone()),
-        helper_runtime.prepare_directories(),
-    )
+pub fn bridge_status_via_helper() -> Result<HostExecBridgeStatus, String> {
+    let layout = current_runtime_layout();
+    let argv = vec![
+        layout.sudo_bin(),
+        "-n".to_string(),
+        host_exec_helper_path(),
+        "bridge-status".to_string(),
+    ];
+    let output = capture_argv(&argv)?;
+    if !output.success {
+        return Err(output.stderr);
+    }
+    let helper_status: serde_json::Value =
+        serde_json::from_str(&output.stdout).map_err(|error| error.to_string())?;
+    if helper_status
+        .get("status")
+        .and_then(serde_json::Value::as_str)
+        != Some("active")
+    {
+        return Err("bounded helper did not report an active bridge".to_string());
+    }
+    let mut report = bridge_status();
+    report.status = "active".to_string();
+    report.checks.sudoers_rule_matches = true;
+    report
+        .missing
+        .retain(|check| check != "sudoers_rule_matches");
+    Ok(report)
 }
 
 fn install_commands_for_runtime(
@@ -416,17 +338,24 @@ fn helper_projection_for_paths(
         "Allows the cynic service user to invoke only bounded host-exec subprofiles.",
     )
     .with_allowed_invocations(vec![
+        vec![helper_path.clone(), "bridge-status".to_string()],
         vec![helper_path.clone(), "principal-prepare".to_string()],
         vec![
             helper_path.clone(),
-            "principal-prepare".to_string(),
+            "hardware-baseline-enroll".to_string(),
             "--apply".to_string(),
         ],
         vec![
-            helper_path,
+            helper_path.clone(),
+            "service-reconcile".to_string(),
+            "--apply".to_string(),
+        ],
+        vec![
+            helper_path.clone(),
             "network-baseline".to_string(),
             "observe".to_string(),
         ],
+        vec![helper_path.clone(), "network-actuate".to_string()],
     ])
 }
 
@@ -464,60 +393,4 @@ fn observed_group() -> String {
         .filter(|output| output.success && !output.stdout.is_empty())
         .map(|output| output.stdout)
         .unwrap_or_else(observed_user)
-}
-
-#[allow(dead_code)]
-fn _sudo_available() -> bool {
-    crate::process_observation::command_exit_success("sudo", &["-n", "true"]) == Some(true)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::command_surface::install_dir_command;
-    use crate::install_contract::root_owned_path;
-    use std::fs;
-
-    #[test]
-    fn bridge_install_requires_apply() {
-        let bundle_dir =
-            std::env::temp_dir().join(format!("cynic-bridge-test-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&bundle_dir);
-        fs::create_dir_all(&bundle_dir).expect("create bundle dir");
-        fs::write(bundle_dir.join("manifest.json"), "{}").expect("manifest");
-        fs::write(bundle_dir.join(HOST_EXEC_HELPER_FILENAME), "").expect("helper");
-        fs::write(bundle_dir.join(HOST_EXEC_SUDOERS_FILENAME), "").expect("sudoers");
-
-        let report = bridge_install_report(&bundle_dir, false);
-
-        assert_eq!(report.status, "blocked");
-        assert!(report.blockers.contains(&"apply_flag_required".to_string()));
-        let _ = fs::remove_dir_all(&bundle_dir);
-    }
-
-    #[test]
-    fn bridge_install_dir_surface_becomes_argv_without_shell() {
-        let command = install_dir_command(
-            "prepare_directory",
-            "/tmp/cynic-test",
-            root_owned_path(MODE_0755),
-        );
-
-        let argv = crate::execution::command_to_argv(&command).expect("install_dir is executable");
-
-        assert_eq!(
-            argv,
-            vec![
-                "install",
-                "-d",
-                "-o",
-                "root",
-                "-g",
-                "root",
-                "-m",
-                "0755",
-                "/tmp/cynic-test"
-            ]
-        );
-    }
 }

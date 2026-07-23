@@ -9,7 +9,6 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use cynic_host::runtime_registry::resolve_runtime_project_root_or_cwd_fallback;
 use rmcp::{
     ErrorData as McpError, ServerHandler, handler::server::tool::ToolRouter,
     handler::server::wrapper::Parameters, model::*, tool, tool_handler, tool_router,
@@ -18,9 +17,9 @@ use rmcp::{
 use super::{
     AuditQueryParams, AuthParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
     ComplianceParams, CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams,
-    JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit, MetabolismParams,
-    ObserveParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, WhoParams,
-    validate_agent_id, validate_agent_task_content,
+    FinalizeLeaseParams, JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit,
+    MetabolismParams, ObserveParams, RegisterParams, ReleaseParams, RenewLeaseParams,
+    UpdateAgentTaskResultParams, WhoParams, validate_agent_id, validate_agent_task_content,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -494,6 +493,7 @@ impl CynicMcpProxy {
                 "result": p.result,
                 "error": p.error,
                 "agent_id": p.agent_id,
+                "evidence_refs": p.evidence_refs,
             }),
         )
         .await
@@ -571,8 +571,31 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_coord_renew",
+        description = "Renew an active claim using its exact lease id and fencing token."
+    )]
+    async fn cynic_coord_renew(
+        &self,
+        params: Parameters<RenewLeaseParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            "/coord/renew",
+            &serde_json::json!({
+                "agent_id": p.agent_id,
+                "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
         name = "cynic_coord_release",
-        description = "Release claimed files/resources."
+        description = "Release claimed files/resources using target, lease_id, and fencing_token."
     )]
     async fn cynic_coord_release(
         &self,
@@ -586,6 +609,32 @@ impl CynicMcpProxy {
             &serde_json::json!({
                 "agent_id": p.agent_id,
                 "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_coord_finalize",
+        description = "Finalize an active claim with a proof reference using its exact lease id and fencing token."
+    )]
+    async fn cynic_coord_finalize(
+        &self,
+        params: Parameters<FinalizeLeaseParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            "/coord/finalize",
+            &serde_json::json!({
+                "agent_id": p.agent_id,
+                "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+                "proof_bundle": p.proof_bundle,
             }),
         )
         .await
@@ -640,59 +689,6 @@ impl CynicMcpProxy {
             r#"{"authenticated": true}"#,
         )]))
     }
-
-    #[tool(
-        name = "cynic_askesis_log",
-        description = "Log a reflection or interaction directly to the human Askesis journal (.cynic/memory/logs/human-kernel.jsonl). Use this to frictionlessly save the human's axioms and semantic footprint."
-    )]
-    async fn cynic_askesis_log(
-        &self,
-        params: Parameters<AskesisParams>,
-    ) -> Result<CallToolResult, McpError> {
-        let p = params.0;
-        let project_root = resolve_runtime_project_root_or_cwd_fallback().path;
-        let logfile = project_root.join(".cynic/memory/logs/human-kernel.jsonl");
-        let askesis_bin = project_root.join("target/debug/cynic-askesis");
-
-        // Si le binaire n'existe pas, on fail gracefuly
-        if !askesis_bin.exists() {
-            return Err(McpError::internal_error(
-                "cynic-askesis binary not found. Please run 'cargo build -p cynic-askesis' first.",
-                None,
-            ));
-        }
-
-        let output = std::process::Command::new(&askesis_bin)
-            .arg("log")
-            .arg("--content")
-            .arg(&p.content)
-            .arg("--domain")
-            .arg(&p.domain)
-            .arg("--logfile")
-            .arg(&logfile)
-            .output()
-            .map_err(|e| {
-                McpError::internal_error(format!("Failed to execute cynic-askesis: {e}"), None)
-            })?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(McpError::internal_error(
-                format!("cynic-askesis failed: {stderr}"),
-                None,
-            ));
-        }
-
-        Ok(CallToolResult::success(vec![Content::text(
-            r#"{"status": "askesis_logged"}"#,
-        )]))
-    }
-}
-
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct AskesisParams {
-    pub content: String,
-    pub domain: String,
 }
 
 // ── MCP ServerHandler ───────────────────────────────────────

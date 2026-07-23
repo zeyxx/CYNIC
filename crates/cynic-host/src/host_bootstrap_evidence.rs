@@ -1,8 +1,13 @@
 use serde::Serialize;
+use sha2::{Digest, Sha256};
+use std::fs;
 
 use crate::adapters::local_observation::LocalHostObservationAdapter;
 use crate::bootstrap_chain::build_bootstrap_chain_report_with_observer;
-use crate::domain::shared::SurfaceStatus;
+use crate::bridge::{HostExecBridgeStatus, bridge_status};
+use crate::domain::shared::{
+    BoundaryKind, LifecycleDisposition, LifecycleProjection, LifecycleStatus, SurfaceStatus,
+};
 use crate::filesystem_observation::path_exists;
 use crate::ports::{
     HostFilesystemPort, HostPackageObservationPort, HostPrincipalObservationPort,
@@ -16,12 +21,19 @@ use crate::runtime_context::observe_host_runtime_context_with_observer;
 pub struct HostBootstrapEvidenceReport {
     pub schema: &'static str,
     pub status: SurfaceStatus,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub host_profile: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub host_resolution: Option<HostProfileResolution>,
     pub target_stage: String,
     pub reached_stage: String,
     pub target_satisfied: bool,
+    pub bridge: HostExecBridgeStatus,
+    pub installed_cli_sha256: Option<String>,
     pub stages: Vec<HostBootstrapStageEvidence>,
 }
 
@@ -54,6 +66,8 @@ pub fn observe_host_bootstrap_evidence_with_observer(
     let host_chain =
         build_bootstrap_chain_report_with_observer(profile, resolution.clone(), observed)?;
     let filesystem_policy = profile.desired_filesystem();
+    let bridge = bridge_status();
+    let installed_cli_sha256 = file_sha256("/usr/local/bin/cynic");
     let managed_paths = filesystem_policy.managed_paths;
     let existing_paths = managed_paths
         .iter()
@@ -158,6 +172,29 @@ pub fn observe_host_bootstrap_evidence_with_observer(
         .and_then(|value| value.host_bootstrap_target_stage.clone())
         .unwrap_or_else(|| "h6_host_actionable".to_string());
     let target_satisfied = reached_or_exceeds_stage(&reached_stage, &target_stage);
+    let lifecycle_status = if target_satisfied {
+        LifecycleStatus::Ready
+    } else if reached_stage == "none" {
+        LifecycleStatus::Missing
+    } else {
+        LifecycleStatus::PrincipalMismatch
+    };
+    let projection = match lifecycle_status {
+        LifecycleStatus::Ready => LifecycleProjection::ready_observe(
+            "declared bootstrap target stage is reached and the host is actionable at the current authority boundary",
+        ),
+        LifecycleStatus::Missing => LifecycleProjection::missing_adopt(
+            "bootstrap evidence has not reached the first declared stage yet",
+            Some("cynic bootstrap host plan --json".to_string()),
+        ),
+        LifecycleStatus::PrincipalMismatch => LifecycleProjection::principal_mismatch_adopt(
+            "bootstrap evidence reached a partial stage but has not yet satisfied the declared target",
+            Some("cynic bootstrap host plan --json".to_string()),
+        ),
+        LifecycleStatus::ConnectionRequired => LifecycleProjection::connection_required_observe(
+            "bootstrap evidence does not model a connection boundary",
+        ),
+    };
 
     Ok(HostBootstrapEvidenceReport {
         schema: "cynic.host_bootstrap_evidence.v1",
@@ -166,13 +203,26 @@ pub fn observe_host_bootstrap_evidence_with_observer(
         } else {
             SurfaceStatus::Blocked
         },
+        lifecycle_status,
+        lifecycle_disposition: projection.disposition,
+        next_boundary_kind: projection.next_boundary_kind,
+        next_boundary_reason: projection.next_boundary_reason,
+        next_command: projection.next_command,
         host_profile: profile.name(),
         host_resolution: resolution,
         target_stage,
         reached_stage,
         target_satisfied,
+        bridge,
+        installed_cli_sha256,
         stages,
     })
+}
+
+fn file_sha256(path: &str) -> Option<String> {
+    fs::read(path)
+        .ok()
+        .map(|bytes| format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
 fn host_identity_ready(context: &crate::runtime_context::HostRuntimeContext) -> bool {
@@ -240,6 +290,7 @@ mod tests {
                 group_present: true,
                 observed_home_dir: Some(policy.home_dir.clone()),
                 present_state_dirs: policy.state_dirs.clone(),
+                owned_paths: policy.managed_paths(),
             }
         }
     }
@@ -352,6 +403,8 @@ mod tests {
         assert_eq!(report.schema, "cynic.host_bootstrap_evidence.v1");
         assert!(report.target_satisfied);
         assert_eq!(report.reached_stage, "h5_services_projected");
+        assert_eq!(report.lifecycle_status, LifecycleStatus::Ready);
+        assert_eq!(report.next_boundary_kind, BoundaryKind::Observe);
     }
 
     #[test]
@@ -376,5 +429,11 @@ mod tests {
         assert_eq!(report.status, SurfaceStatus::Blocked);
         assert!(!report.target_satisfied);
         assert_eq!(report.reached_stage, "h3_packages_ready");
+        assert_eq!(report.lifecycle_status, LifecycleStatus::PrincipalMismatch);
+        assert_eq!(report.next_boundary_kind, BoundaryKind::Adopt);
+        assert_eq!(
+            report.next_command.as_deref(),
+            Some("cynic bootstrap host plan --json")
+        );
     }
 }

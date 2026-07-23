@@ -1,4 +1,5 @@
 pub mod bootstrap;
+pub mod disk;
 pub mod ecosystem_package;
 pub mod filesystem;
 pub mod packages;

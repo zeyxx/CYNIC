@@ -1,14 +1,22 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn crate_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
+fn read_required_file(root: &Path, relative: &str) -> String {
+    let path = root.join(relative);
+    match fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(error) => panic!("read {}: {error}", path.display()),
+    }
+}
+
 #[test]
 fn mcp_binary_stays_a_thin_stdio_bootstrap_adapter() {
     let root = crate_root();
-    let main_rs = fs::read_to_string(root.join("src/main.rs")).expect("read main.rs");
+    let main_rs = read_required_file(&root, "src/main.rs");
     let line_count = main_rs.lines().count();
 
     assert!(
@@ -38,9 +46,9 @@ fn mcp_binary_stays_a_thin_stdio_bootstrap_adapter() {
 #[test]
 fn proxy_owns_router_composition_and_rest_forwarding() {
     let root = crate_root();
-    let lib_rs = fs::read_to_string(root.join("src/lib.rs")).expect("read lib.rs");
-    let proxy_rs = fs::read_to_string(root.join("src/proxy.rs")).expect("read proxy.rs");
-    let handler_rs = fs::read_to_string(root.join("src/handler.rs")).expect("read handler.rs");
+    let lib_rs = read_required_file(&root, "src/lib.rs");
+    let proxy_rs = read_required_file(&root, "src/proxy.rs");
+    let handler_rs = read_required_file(&root, "src/handler.rs");
 
     assert!(
         lib_rs.contains("pub mod local_tools;")
@@ -65,16 +73,11 @@ fn proxy_owns_router_composition_and_rest_forwarding() {
 #[test]
 fn routers_and_local_tools_split_local_vs_forwarded_surfaces() {
     let root = crate_root();
-    let local_router =
-        fs::read_to_string(root.join("src/routers/local.rs")).expect("read routers/local.rs");
-    let forward_router =
-        fs::read_to_string(root.join("src/routers/forward.rs")).expect("read routers/forward.rs");
-    let coord_router =
-        fs::read_to_string(root.join("src/routers/coord.rs")).expect("read routers/coord.rs");
-    let docker_router =
-        fs::read_to_string(root.join("src/routers/docker.rs")).expect("read routers/docker.rs");
-    let local_tools =
-        fs::read_to_string(root.join("src/local_tools.rs")).expect("read local_tools.rs");
+    let local_router = read_required_file(&root, "src/routers/local.rs");
+    let forward_router = read_required_file(&root, "src/routers/forward.rs");
+    let coord_router = read_required_file(&root, "src/routers/coord.rs");
+    let docker_router = read_required_file(&root, "src/routers/docker.rs");
+    let local_tools = read_required_file(&root, "src/local_tools.rs");
 
     assert!(
         local_router.contains("#[tool_router(router = tool_router_local")
@@ -107,8 +110,8 @@ fn routers_and_local_tools_split_local_vs_forwarded_surfaces() {
 #[test]
 fn helper_and_types_modules_are_still_split_aggregators() {
     let root = crate_root();
-    let helpers_rs = fs::read_to_string(root.join("src/helpers.rs")).expect("read helpers.rs");
-    let types_rs = fs::read_to_string(root.join("src/types.rs")).expect("read types.rs");
+    let helpers_rs = read_required_file(&root, "src/helpers.rs");
+    let types_rs = read_required_file(&root, "src/types.rs");
 
     assert!(
         helpers_rs.contains("include!(\"helpers_split/network.rs\")")
@@ -126,16 +129,20 @@ fn helper_and_types_modules_are_still_split_aggregators() {
 fn mcp_project_root_resolution_stays_host_owned() {
     let root = crate_root();
     for relative in ["src/main.rs", "src/helpers_split/misc.rs"] {
-        let content = fs::read_to_string(root.join(relative))
-            .unwrap_or_else(|err| panic!("read {relative}: {err}"));
+        let content = read_required_file(&root, relative);
         assert!(
             !content.contains("repo_access::current_project_root")
                 && !content.contains("use cynic_host::repo_access::current_project_root"),
             "{relative} must not bypass cynic-host runtime_registry for project root resolution"
         );
         assert!(
-            content.contains("resolve_runtime_project_root_or_cwd_fallback"),
-            "{relative} must use host-owned classified project root resolution"
+            !content.contains("resolve_runtime_project_root_or_cwd_fallback")
+                && !content.contains("CYNIC_REPO_ROOT")
+                && (content.contains("CYNIC_MCP_PROJECT_ROOT")
+                    || content.contains("resolve_mcp_project_root")
+                    || content.contains("current_dir()")
+                    || content.contains("std::env::current_dir")),
+            "{relative} must resolve project root through explicit env/cwd projection, not host runtime_registry"
         );
     }
 }

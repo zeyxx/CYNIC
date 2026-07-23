@@ -4,9 +4,7 @@ use std::path::Path;
 
 use super::state_store::{load_state, save_state};
 use super::time::now_ms;
-use super::types::{
-    LifecyclePhase, LifecyclePromoteReport, UPDATE_LIFECYCLE_PROMOTE_SCHEMA,
-};
+use super::types::{LifecyclePhase, LifecyclePromoteReport, UPDATE_LIFECYCLE_PROMOTE_SCHEMA};
 
 pub fn promote(
     state_path: &Path,

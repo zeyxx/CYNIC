@@ -245,10 +245,11 @@ fn parse_params_from_tag(tag: &str) -> Option<f64> {
     let upper = t.to_ascii_uppercase();
     if upper.ends_with('B') && upper.len() < 8 {
         let num = &upper[..upper.len() - 1];
-        if let Ok(n) = num.parse::<f64>() {
-            if n > 0.0 && n < 1000.0 {
-                return Some(n * 1e9);
-            }
+        if let Ok(n) = num.parse::<f64>()
+            && n > 0.0
+            && n < 1000.0
+        {
+            return Some(n * 1e9);
         }
     }
     // Fallback: find NNB patterns in the string
@@ -261,12 +262,12 @@ fn parse_params_from_tag(tag: &str) -> Option<f64> {
             while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == b'.') {
                 i += 1;
             }
-            if i < bytes.len() && bytes[i] == b'B' {
-                if let Ok(n) = upper[start..i].parse::<f64>() {
-                    if (1.0..200.0).contains(&n) {
-                        best = Some(n * 1e9);
-                    }
-                }
+            if i < bytes.len()
+                && bytes[i] == b'B'
+                && let Ok(n) = upper[start..i].parse::<f64>()
+                && (1.0..200.0).contains(&n)
+            {
+                best = Some(n * 1e9);
             }
         }
         i += 1;
@@ -295,9 +296,7 @@ fn quant_bits_per_weight(tags: &[String]) -> Option<f64> {
         Some(6.5)
     } else if joined.contains("q8") {
         Some(8.5)
-    } else if joined.contains("f16") || joined.contains("fp16") {
-        Some(16.0)
-    } else if joined.contains("bf16") {
+    } else if joined.contains("f16") || joined.contains("fp16") || joined.contains("bf16") {
         Some(16.0)
     } else {
         None

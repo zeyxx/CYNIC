@@ -99,7 +99,11 @@ pub fn consolidate_vault(apply: bool) -> Result<VaultConsolidateReport, LocalRun
     for profile in &report.profiles {
         if profile.model_exists {
             let p = PathBuf::from(&profile.model_path);
-            if !report.artifacts.iter().any(|a| a.path == profile.model_path) {
+            if !report
+                .artifacts
+                .iter()
+                .any(|a| a.path == profile.model_path)
+            {
                 report.artifacts.push(ModelArtifact {
                     id: profile.alias.clone(),
                     path: profile.model_path.clone(),
@@ -149,10 +153,10 @@ pub fn consolidate_vault(apply: bool) -> Result<VaultConsolidateReport, LocalRun
             .collect();
         // Also profiles that resolve to same file via alias linkage
         let mut aliases = aliases;
-        if let Some(a) = &art.profile_alias {
-            if !aliases.contains(a) {
-                aliases.push(a.clone());
-            }
+        if let Some(a) = &art.profile_alias
+            && !aliases.contains(a)
+        {
+            aliases.push(a.clone());
         }
 
         actions.push(VaultConsolidateAction {
@@ -178,10 +182,7 @@ pub fn consolidate_vault(apply: bool) -> Result<VaultConsolidateReport, LocalRun
 
     if apply {
         fs::create_dir_all(&layout.vault_dir).map_err(|e| {
-            LocalRuntimeError::Control(format!(
-                "create vault {}: {e}",
-                layout.vault_dir.display()
-            ))
+            LocalRuntimeError::Control(format!("create vault {}: {e}", layout.vault_dir.display()))
         })?;
         for action in &mut actions {
             match physical_move(Path::new(&action.from), Path::new(&action.to)) {
@@ -239,10 +240,7 @@ pub fn consolidate_vault(apply: bool) -> Result<VaultConsolidateReport, LocalRun
         mutates: apply,
         applied: apply,
         vault_dir: layout.vault_dir.display().to_string(),
-        discovery_roots: roots
-            .iter()
-            .map(|p| p.display().to_string())
-            .collect(),
+        discovery_roots: roots.iter().map(|p| p.display().to_string()).collect(),
         actions,
         moved,
         skipped: if apply { 0 } else { skipped },
@@ -299,11 +297,11 @@ fn scan_gguf_into(dir: &Path, layout: &ModelLayout, out: &mut Vec<ModelArtifact>
 
 fn classify_path(layout: &ModelLayout, path: &Path) -> ModelLocationKind {
     let p = path.to_string_lossy();
-    if p.starts_with(&layout.vault_dir.to_string_lossy().as_ref()) {
+    if p.starts_with(layout.vault_dir.to_string_lossy().as_ref()) {
         ModelLocationKind::Vault
-    } else if p.starts_with(&layout.hf_cache_dir.to_string_lossy().as_ref()) {
+    } else if p.starts_with(layout.hf_cache_dir.to_string_lossy().as_ref()) {
         ModelLocationKind::HfCache
-    } else if p.starts_with(&layout.llama_cache_dir.to_string_lossy().as_ref()) {
+    } else if p.starts_with(layout.llama_cache_dir.to_string_lossy().as_ref()) {
         ModelLocationKind::LlamaCache
     } else {
         ModelLocationKind::External
@@ -339,14 +337,8 @@ fn unique_dest(vault: &Path, from: &Path) -> Result<PathBuf, LocalRuntimeError> 
     if same_file(from, &dest) {
         return Ok(dest);
     }
-    let stem = from
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("model");
-    let ext = from
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("gguf");
+    let stem = from.file_stem().and_then(|s| s.to_str()).unwrap_or("model");
+    let ext = from.extension().and_then(|s| s.to_str()).unwrap_or("gguf");
     for n in 2u32..1000 {
         dest = vault.join(format!("{stem}-{n}.{ext}"));
         if !dest.exists() {
@@ -368,7 +360,7 @@ fn same_file(a: &Path, b: &Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
-        return ma.dev() == mb.dev() && ma.ino() == mb.ino();
+        ma.dev() == mb.dev() && ma.ino() == mb.ino()
     }
     #[cfg(not(unix))]
     {
@@ -387,7 +379,8 @@ fn physical_move(from: &Path, to: &Path) -> Result<String, String> {
     match fs::rename(from, to) {
         Ok(()) => Ok("renamed into vault".into()),
         Err(rename_err) => {
-            fs::copy(from, to).map_err(|e| format!("copy to vault: {e} (rename was: {rename_err})"))?;
+            fs::copy(from, to)
+                .map_err(|e| format!("copy to vault: {e} (rename was: {rename_err})"))?;
             fs::remove_file(from).map_err(|e| {
                 format!(
                     "copied to vault but failed to remove source {}: {e}",
@@ -425,36 +418,34 @@ fn rewrite_profiles_model_path(
         if !path.is_file() {
             continue;
         }
-        let raw = fs::read_to_string(&path).map_err(|e| {
-            LocalRuntimeError::Inventory(format!("read {}: {e}", path.display()))
-        })?;
+        let raw = fs::read_to_string(&path)
+            .map_err(|e| LocalRuntimeError::Inventory(format!("read {}: {e}", path.display())))?;
         if !raw.contains(old) {
             continue;
         }
         let updated = raw.replace(old, new);
-        fs::write(&path, updated).map_err(|e| {
-            LocalRuntimeError::Inventory(format!("write {}: {e}", path.display()))
-        })?;
+        fs::write(&path, updated)
+            .map_err(|e| LocalRuntimeError::Inventory(format!("write {}: {e}", path.display())))?;
         n += 1;
     }
     // runtime env copies
     let runtime_dir = layout.profiles_dir.join("runtime");
-    if runtime_dir.is_dir() {
-        if let Ok(rd) = fs::read_dir(&runtime_dir) {
-            for e in rd.flatten() {
-                let p = e.path();
-                if p.extension().and_then(|x| x.to_str()) != Some("env") {
-                    continue;
-                }
-                let Ok(raw) = fs::read_to_string(&p) else {
-                    continue;
-                };
-                if !raw.contains(old) {
-                    continue;
-                }
-                let _ = fs::write(&p, raw.replace(old, new));
-                n += 1;
+    if runtime_dir.is_dir()
+        && let Ok(rd) = fs::read_dir(&runtime_dir)
+    {
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.extension().and_then(|x| x.to_str()) != Some("env") {
+                continue;
             }
+            let Ok(raw) = fs::read_to_string(&p) else {
+                continue;
+            };
+            if !raw.contains(old) {
+                continue;
+            }
+            let _ = fs::write(&p, raw.replace(old, new));
+            n += 1;
         }
     }
     Ok(n)
@@ -476,11 +467,7 @@ mod tests {
         fs::create_dir_all(&vault).unwrap();
         fs::write(vault.join("m.gguf"), b"other").unwrap();
         let dest = unique_dest(&vault, &from).unwrap();
-        assert!(dest
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .contains("m-2"));
+        assert!(dest.file_name().unwrap().to_string_lossy().contains("m-2"));
         let _ = fs::remove_dir_all(&root);
     }
 

@@ -141,7 +141,13 @@ pub(crate) fn runtime_federation_config(cfg: &Config) -> RuntimeFederationConfig
         node_identity: cfg.dog.name.clone(),
         queue_dir: federation
             .and_then(|config| config.queue_dir.clone())
-            .unwrap_or_else(|| default_queue_dir(std::env::var("HOME").ok().map(Into::into))),
+            .unwrap_or_else(|| {
+                let queue_home = std::env::var("CYNIC_STATE_ROOT")
+                    .ok()
+                    .or_else(|| std::env::var("HOME").ok())
+                    .map(Into::into);
+                default_queue_dir(queue_home)
+            }),
     }
 }
 

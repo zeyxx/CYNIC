@@ -227,7 +227,10 @@ mod tests {
         let vault = principal.data_dir.join("models");
         let profiles = principal.config_dir.join("models");
         let chat = principal.chat_state_dir.clone();
-        assert!(vault.starts_with("/var/lib/cynic-ml-test"), "vault={vault:?}");
+        assert!(
+            vault.starts_with("/var/lib/cynic-ml-test"),
+            "vault={vault:?}"
+        );
         assert!(profiles.starts_with("/var/lib/cynic-ml-test"));
         assert!(chat.starts_with("/var/lib/cynic-ml-test"));
         assert!(!vault.starts_with(&op));

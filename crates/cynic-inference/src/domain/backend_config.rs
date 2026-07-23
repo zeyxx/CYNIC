@@ -59,6 +59,9 @@ pub struct InferenceBackendConfig {
     /// Default sampling temperature.
     #[serde(default = "default_temperature")]
     pub temperature: f32,
+    /// Optional remote node that hosts this backend (for start/remediate/probe).
+    #[serde(default)]
+    pub fleet_node: Option<String>,
     /// Disable extended thinking/reasoning tokens (local models only).
     #[serde(default)]
     pub disable_thinking: bool,

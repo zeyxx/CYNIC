@@ -18,7 +18,7 @@ use super::diagnostics::{
 };
 use super::runtime_paths::{build_lifecycle_runtime_paths, verify_lifecycle_runtime_paths};
 
-pub const USAGE: &str = "usage: cynic-host-lifecycle-evidence <activation-gap-details|activation-gaps|lifecycle-blockers|runtime-paths|verify-runtime-paths|service-patch|apply-patch|activate-node|validate-activation-request|activation-request-identity|activation-request-summary|pending-activation-index> [...]";
+pub const USAGE: &str = "usage: cynic lifecycle evidence <activation-gap-details|activation-gaps|lifecycle-blockers|runtime-paths|verify-runtime-paths|service-patch|apply-patch|activate-node|validate-activation-request|activation-request-identity|activation-request-summary|pending-activation-index> [-- <operation-flags>]";
 
 pub fn main_from_env() -> ExitCode {
     match run(std::env::args().skip(1)) {

@@ -1,5 +1,3 @@
-use serde::Serialize;
-
 use cynic_host::command_surface::{
     HostCommandInvocation, HostCommandSurface, argv_command as host_argv_command,
     expectation as host_expectation, install_dir_command as host_install_dir_command,
@@ -9,20 +7,14 @@ use cynic_host::command_surface::{
 };
 use cynic_host::install_contract::InstallPathPolicy;
 
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkCommandSurface {
-    pub(crate) role: String,
-    #[serde(flatten)]
-    pub(crate) invocation: NetworkCommandInvocation,
-}
+// Network plans use the host command contract directly. The node owns only
+// observation/adaptation, never a second command schema.
+pub(crate) type NetworkCommandSurface = HostCommandSurface;
 
 pub(crate) type NetworkCommandInvocation = HostCommandInvocation;
 
 pub(crate) fn from_host_command(command: HostCommandSurface) -> NetworkCommandSurface {
-    NetworkCommandSurface {
-        role: command.role,
-        invocation: command.invocation,
-    }
+    command
 }
 
 pub(crate) fn shell_command(

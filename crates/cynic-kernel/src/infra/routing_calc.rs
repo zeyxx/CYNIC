@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use crate::domain::storage::{Event, StoragePort};
+use crate::infra::config::BackendConfig;
 
 /// Live routing calculator — selects suitable Dogs based on recent performance.
 #[derive(Clone)]
@@ -19,6 +20,7 @@ pub struct RoutingCalculator {
     cache: Arc<RwLock<HashMap<String, Vec<DogPerformance>>>>,
     /// Persistent storage for observations
     storage: Option<Arc<dyn StoragePort>>,
+    dog_nodes: HashMap<String, String>,
 }
 
 impl std::fmt::Debug for RoutingCalculator {
@@ -46,13 +48,32 @@ impl RoutingCalculator {
         Self {
             cache: Arc::new(RwLock::new(HashMap::new())),
             storage: None,
+            dog_nodes: HashMap::new(),
         }
     }
 
     pub fn with_storage(storage: Arc<dyn StoragePort>) -> Self {
+        Self::with_storage_and_backends(storage, &[])
+    }
+
+    pub fn with_storage_and_backends(
+        storage: Arc<dyn StoragePort>,
+        backends: &[BackendConfig],
+    ) -> Self {
+        let dog_nodes = backends
+            .iter()
+            .filter_map(|backend| {
+                backend
+                    .fleet_node
+                    .as_ref()
+                    .map(|node| (backend.name.clone(), node.clone()))
+            })
+            .collect();
+
         Self {
             cache: Arc::new(RwLock::new(HashMap::new())),
             storage: Some(storage),
+            dog_nodes,
         }
     }
 
@@ -64,7 +85,11 @@ impl RoutingCalculator {
         if let Some(storage) = &self.storage {
             let event = Event {
                 tool: "dog_evaluation".to_string(),
-                node: crate::infra::dog_node_resolver::resolve_runtime_dog_node(dog_id),
+                node: self
+                    .dog_nodes
+                    .get(dog_id)
+                    .cloned()
+                    .unwrap_or_else(|| dog_id.to_string()),
                 elapsed_ms: latency_ms as u64,
                 output_bytes: 0,
                 success,

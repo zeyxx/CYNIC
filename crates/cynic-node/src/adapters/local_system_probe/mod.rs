@@ -24,6 +24,12 @@ impl SysinfoMetricsSampler {
     }
 }
 
+impl Default for SysinfoMetricsSampler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SystemMetricsPort for SysinfoMetricsSampler {
     fn sample_metrics(&mut self) -> SystemMetricsSample {
         self.sys.refresh_all();

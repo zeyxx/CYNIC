@@ -1,3 +1,5 @@
+use crate::project_root::resolve_mcp_project_root;
+
 fn repo_relative_arg(
     value: &Option<String>,
     default: &str,
@@ -39,8 +41,8 @@ fn relative_project_path(project_root: &str, path: &std::path::Path) -> String {
         .unwrap_or_else(|| path.display().to_string())
 }
 
-#[cfg_attr(not(feature = "legacy_infra_tools"), allow(dead_code))]
-fn require_legacy_infra_tool(tool_name: &str) -> Result<(), McpError> {
+#[allow(dead_code)]
+pub(crate) fn require_legacy_infra_tool(tool_name: &str) -> Result<(), McpError> {
     const LEGACY_INFRA_TOOL_ENV: &str = "CYNIC_ALLOW_LEGACY_INFRA_TOOLS";
     if std::env::var(LEGACY_INFRA_TOOL_ENV).unwrap_or_default() == "1" {
         return Ok(());
@@ -89,7 +91,7 @@ const COORDINATION_OPERATION_ARTIFACT_SHARE: &str = "coordination.artifact.share
 const COORDINATION_OPERATION_DECISION_RECORD: &str = "coordination.decision.record";
 
 fn project_root() -> PathBuf {
-    cynic_host::runtime_registry::resolve_runtime_project_root_or_cwd_fallback().path
+    resolve_mcp_project_root()
 }
 
 fn unsupported_minimal_baseline(operation: &str, reason: &str) -> serde_json::Value {

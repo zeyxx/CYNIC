@@ -56,6 +56,13 @@ pub fn plan_external(
         privilege_required: false,
         as_principal,
     }];
+    let mut summary = vec![argv.join(" ")];
+    if as_principal && !layout.writable {
+        summary.push(format!(
+            "# blocked until writable as {}: sudo -u {} true",
+            layout.runtime_user, layout.runtime_user
+        ));
+    }
     EcosystemPackagePlan {
         dep_id: dep_id.into(),
         channel: ProviderChannel::External,
@@ -67,16 +74,28 @@ pub fn plan_external(
         layout: layout.clone(),
         reason: reason.to_string(),
         steps,
-        auto_applicable: true,
+        auto_applicable: !as_principal || layout.writable,
         proofs: vec![format!("re-probe {dep_id} via cynic deps")],
-        summary_commands: vec![argv.join(" ")],
+        summary_commands: summary,
     }
 }
 
 pub static HUGGINGFACE_CLI: ExternalCliProvider = ExternalCliProvider {
     id: "huggingface-cli",
     argv: &["hf", "update"],
+    as_principal: true,
+};
+
+pub static UV: ExternalCliProvider = ExternalCliProvider {
+    id: "uv",
+    argv: &["uv", "self", "update"],
     as_principal: false,
+};
+
+pub static HERMES_AGENT: ExternalCliProvider = ExternalCliProvider {
+    id: "hermes-agent",
+    argv: &["uv", "tool", "install", "--force", "hermes-agent"],
+    as_principal: true,
 };
 
 pub static CODEX_CLI: ExternalCliProvider = ExternalCliProvider {

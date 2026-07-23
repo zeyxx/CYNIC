@@ -8,6 +8,7 @@ use crate::domain::probe::{
     FleetInventoryDetails, ProbeDetails, ProbeError, ProbeResult, ProbeStatus,
 };
 use async_trait::async_trait;
+use cynic_host::runtime_registry::DEFAULT_REGISTRY_PATH;
 use cynic_host::runtime_registry::resolve_runtime_registry_path;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -18,8 +19,8 @@ pub struct FleetInventoryProbe {
 }
 
 pub fn build_default_fleet_inventory_probe() -> FleetInventoryProbe {
-    let registry_path = resolve_runtime_registry_path(None)
-        .unwrap_or_else(|_| PathBuf::from("infra/registry.json"));
+    let fallback = PathBuf::from(DEFAULT_REGISTRY_PATH);
+    let registry_path = resolve_runtime_registry_path(None).unwrap_or(fallback);
     FleetInventoryProbe { registry_path }
 }
 

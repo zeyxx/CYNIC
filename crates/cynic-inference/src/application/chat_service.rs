@@ -103,6 +103,76 @@ pub struct ChatService {
     max_tool_turns: u32,
     /// When false, complete() is fail-closed with NotReady.
     inference_ready: bool,
+    context_turns: Option<usize>,
+    max_tokens: Option<u32>,
+    temperature: Option<f32>,
+    top_p: Option<f32>,
+    reasoning_profile: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ChatServiceConfig {
+    pub endpoint: Option<String>,
+    pub model: Option<String>,
+    pub max_tool_turns: u32,
+    pub inference_ready: bool,
+    /// Optional max number of recent messages to keep in-context (0/None = full history).
+    pub context_turns: Option<usize>,
+    pub max_tokens: Option<u32>,
+    pub temperature: Option<f32>,
+    pub top_p: Option<f32>,
+    pub reasoning_profile: Option<String>,
+}
+
+impl ChatServiceConfig {
+    pub fn new(
+        endpoint: Option<String>,
+        model: Option<String>,
+        max_tool_turns: u32,
+        inference_ready: bool,
+    ) -> Self {
+        Self {
+            endpoint,
+            model,
+            max_tool_turns,
+            inference_ready,
+            context_turns: None,
+            max_tokens: None,
+            temperature: None,
+            top_p: None,
+            reasoning_profile: None,
+        }
+    }
+
+    pub fn context_turns(mut self, context_turns: Option<usize>) -> Self {
+        self.context_turns = context_turns;
+        self
+    }
+
+    pub fn max_tokens(mut self, max_tokens: Option<u32>) -> Self {
+        self.max_tokens = max_tokens;
+        self
+    }
+
+    pub fn temperature(mut self, temperature: Option<f32>) -> Self {
+        self.temperature = temperature;
+        self
+    }
+
+    pub fn top_p(mut self, top_p: Option<f32>) -> Self {
+        self.top_p = top_p;
+        self
+    }
+
+    pub fn reasoning_profile(mut self, profile: impl Into<String>) -> Self {
+        let normalized = profile.into().trim().to_string();
+        if normalized.is_empty() {
+            self.reasoning_profile = None;
+        } else {
+            self.reasoning_profile = Some(normalized);
+        }
+        self
+    }
 }
 
 impl std::fmt::Debug for ChatService {
@@ -123,24 +193,32 @@ impl ChatService {
         client: Arc<dyn ChatCompletionClient>,
         tools: Arc<dyn ToolInvoker>,
         tool_specs: Vec<ToolSpec>,
-        endpoint: Option<String>,
-        model: Option<String>,
-        max_tool_turns: u32,
-        inference_ready: bool,
+        config: ChatServiceConfig,
     ) -> Self {
         Self {
             store,
             client,
             tools,
             tool_specs,
-            endpoint,
-            model,
-            max_tool_turns: max_tool_turns.max(1),
-            inference_ready,
+            endpoint: config.endpoint,
+            model: config.model,
+            max_tool_turns: config.max_tool_turns.max(1),
+            inference_ready: config.inference_ready,
+            context_turns: config.context_turns,
+            max_tokens: config.max_tokens,
+            temperature: config.temperature,
+            top_p: config.top_p,
+            reasoning_profile: config.reasoning_profile,
         }
     }
 
     pub fn ready_report(&self) -> InferenceReadyReport {
+        let _runtime_params = (
+            self.max_tokens,
+            self.temperature,
+            self.top_p,
+            self.reasoning_profile.as_deref(),
+        );
         if self.inference_ready {
             InferenceReadyReport {
                 schema: "cynic.chat.ready.v1",
@@ -167,7 +245,9 @@ impl ChatService {
         }
     }
 
-    pub fn list_sessions(&self) -> Result<Vec<crate::domain::chat_session::SessionMeta>, ChatServiceError> {
+    pub fn list_sessions(
+        &self,
+    ) -> Result<Vec<crate::domain::chat_session::SessionMeta>, ChatServiceError> {
         Ok(self.store.list_sessions()?)
     }
 
@@ -242,7 +322,8 @@ impl ChatService {
                 Ok(e) => e,
                 Err(e) => return self.err_report(&sid, e.to_string()),
             };
-            let messages = messages_from_events(&history);
+            let messages =
+                messages_with_runtime_context(&self.context_turns, messages_from_events(&history));
             let outcome = match self
                 .client
                 .complete(&messages, &self.tool_specs, stream)
@@ -255,13 +336,8 @@ impl ChatService {
 
             if !outcome.tool_calls.is_empty() {
                 for tc in &outcome.tool_calls {
-                    let call_ev = ChatEvent::tool_call(
-                        seq,
-                        &tc.id,
-                        &tc.name,
-                        &tc.arguments_json,
-                        now_ms(),
-                    );
+                    let call_ev =
+                        ChatEvent::tool_call(seq, &tc.id, &tc.name, &tc.arguments_json, now_ms());
                     seq += 1;
                     if let Err(e) = self.store.append(&sid, call_ev) {
                         return self.err_report(&sid, e.to_string());
@@ -272,8 +348,7 @@ impl ChatService {
                         Ok(r) => r,
                         Err(e) => format!("tool error: {e}"),
                     };
-                    let res_ev =
-                        ChatEvent::tool_result(seq, &tc.id, &tc.name, &result, now_ms());
+                    let res_ev = ChatEvent::tool_result(seq, &tc.id, &tc.name, &result, now_ms());
                     seq += 1;
                     if let Err(e) = self.store.append(&sid, res_ev) {
                         return self.err_report(&sid, e.to_string());
@@ -331,11 +406,85 @@ impl ChatService {
     }
 }
 
+fn messages_with_runtime_context(
+    context_turns: &Option<usize>,
+    mut messages: Vec<ChatMessage>,
+) -> Vec<ChatMessage> {
+    if messages.is_empty() {
+        return messages;
+    }
+
+    let Some(limit) = context_turns else {
+        return messages;
+    };
+    let limit = std::cmp::max(*limit, 1);
+    if messages.len() <= limit {
+        return messages;
+    }
+
+    let split_at = messages.len().saturating_sub(limit);
+    messages.drain(0..split_at);
+    messages
+}
+
 fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod context_tests {
+    use super::messages_with_runtime_context;
+    use crate::domain::chat_session::ChatMessage;
+
+    #[test]
+    fn keeps_all_messages_when_no_context_limit() {
+        let messages = vec![
+            ChatMessage {
+                role: "system".into(),
+                content: "a".into(),
+                tool_call_id: None,
+                name: None,
+                tool_calls: None,
+            },
+            ChatMessage {
+                role: "user".into(),
+                content: "b".into(),
+                tool_call_id: None,
+                name: None,
+                tool_calls: None,
+            },
+            ChatMessage {
+                role: "assistant".into(),
+                content: "c".into(),
+                tool_call_id: None,
+                name: None,
+                tool_calls: None,
+            },
+        ];
+        let trimmed = messages_with_runtime_context(&None, messages.clone());
+        assert_eq!(trimmed.len(), 3);
+        assert_eq!(trimmed, messages);
+    }
+
+    #[test]
+    fn keeps_tail_for_context_window() {
+        let messages: Vec<ChatMessage> = (0..5)
+            .map(|i| ChatMessage {
+                role: "user".into(),
+                content: i.to_string(),
+                tool_call_id: None,
+                name: None,
+                tool_calls: None,
+            })
+            .collect();
+        let trimmed = messages_with_runtime_context(&Some(2), messages.clone());
+        assert_eq!(trimmed.len(), 2);
+        assert_eq!(trimmed[0].content, "3");
+        assert_eq!(trimmed[1].content, "4");
+    }
 }
 
 // ── Mock client + tools for tests and offline CLI ───────────────────────────
@@ -375,7 +524,10 @@ impl ChatCompletionClient for MockChatClient {
         _tools: &[ToolSpec],
         stream: bool,
     ) -> Result<CompletionOutcome, ChatServiceError> {
-        let mut n = self.calls.lock().map_err(|e| ChatServiceError::Protocol(e.to_string()))?;
+        let mut n = self
+            .calls
+            .lock()
+            .map_err(|e| ChatServiceError::Protocol(e.to_string()))?;
         *n += 1;
         let last_user = messages
             .iter()
@@ -385,14 +537,14 @@ impl ChatCompletionClient for MockChatClient {
             .unwrap_or("");
         let last_role = messages.last().map(|m| m.role.as_str()).unwrap_or("");
         // Scripted single-shot tool (unit tests): only on first complete.
-        if *n == 1 {
-            if let Some(tc) = &self.tool_on_first {
-                return Ok(CompletionOutcome {
-                    content: None,
-                    tool_calls: vec![tc.clone()],
-                    stream_chunks: vec![],
-                });
-            }
+        if *n == 1
+            && let Some(tc) = &self.tool_on_first
+        {
+            return Ok(CompletionOutcome {
+                content: None,
+                tool_calls: vec![tc.clone()],
+                stream_chunks: vec![],
+            });
         }
         // Interactive mock: tool keyword only when the latest message is the user turn
         // (avoids infinite tool loops after tool_result is appended).
@@ -471,8 +623,8 @@ impl ToolInvoker for BuiltinToolInvoker {
     fn invoke(&self, name: &str, arguments_json: &str) -> Result<String, ChatServiceError> {
         match name {
             "echo" => {
-                let v: serde_json::Value = serde_json::from_str(arguments_json)
-                    .unwrap_or_else(|_| serde_json::json!({}));
+                let v: serde_json::Value =
+                    serde_json::from_str(arguments_json).unwrap_or_else(|_| serde_json::json!({}));
                 let text = v
                     .get("text")
                     .and_then(|x| x.as_str())
@@ -480,7 +632,9 @@ impl ToolInvoker for BuiltinToolInvoker {
                 Ok(text.to_string())
             }
             "get_time" => Ok(format!("unix_ms={}", now_ms())),
-            other => Err(ChatServiceError::Tool(format!("tool not allowlisted: {other}"))),
+            other => Err(ChatServiceError::Tool(format!(
+                "tool not allowlisted: {other}"
+            ))),
         }
     }
 }
@@ -529,19 +683,18 @@ mod tests {
             client,
             tools,
             default_tool_specs(),
-            Some("mock://local".into()),
-            Some("mock-model".into()),
-            4,
-            true,
+            ChatServiceConfig::new(
+                Some("mock://local".into()),
+                Some("mock-model".into()),
+                4,
+                true,
+            ),
         );
 
         let report = svc.turn(Some("s1"), "use the tool", true).await;
         assert_eq!(report.status, "ok");
         assert!(report.tool_turns >= 1);
-        assert_eq!(
-            report.content.as_deref(),
-            Some("final answer after tool")
-        );
+        assert_eq!(report.content.as_deref(), Some("final answer after tool"));
         // stream chunks from final content completion
         assert!(
             !report.stream_chunks.is_empty(),
@@ -571,10 +724,7 @@ mod tests {
             client,
             tools,
             vec![],
-            None,
-            None,
-            2,
-            false,
+            ChatServiceConfig::new(None, None, 2, false),
         );
         let report = svc.turn(None, "hi", false).await;
         assert_eq!(report.status, "blocked");
@@ -594,10 +744,7 @@ mod tests {
             client,
             tools,
             vec![],
-            Some("mock://".into()),
-            Some("m".into()),
-            2,
-            true,
+            ChatServiceConfig::new(Some("mock://".into()), Some("m".into()), 2, true),
         );
         let r1 = svc.turn(Some("resume-me"), "first", false).await;
         assert_eq!(r1.status, "ok");
@@ -609,6 +756,9 @@ mod tests {
             .filter(|e| e.kind == ChatEventKind::User)
             .map(|e| e.content.clone().unwrap_or_default())
             .collect();
-        assert_eq!(users, vec!["first".to_string(), "second prompt".to_string()]);
+        assert_eq!(
+            users,
+            vec!["first".to_string(), "second prompt".to_string()]
+        );
     }
 }

@@ -18,11 +18,12 @@ LOCAL_REGISTRY := infra/registries/single-node.json
 # CYNIC_ALLOW_LOCAL_DEV_BUILD: kernel build.rs blocks Cortex-local compiles by default.
 # The repo check/build gates are intentional local-dev paths and must set the override.
 LOCAL_DEV_BUILD := CYNIC_ALLOW_LOCAL_DEV_BUILD=1
-# rustc 1.96 stack/ICE: check and surface-audit need >=512MiB for kernel/cli monomorphization.
-RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=536870912 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
-BUILD_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=536870912 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
-RELEASE_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=1073741824 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
-TEST_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=536870912 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+# Keep a bounded large compiler stack for kernel/CLI monomorphization. The
+# repository toolchain is pinned because rustc 1.96 exhibited ICE/SIGSEGV here.
+RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+BUILD_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+RELEASE_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+TEST_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
 
 .PHONY: check
 check: ## Validate the living low-layer Rust runtime baseline
@@ -35,11 +36,31 @@ check: ## Validate the living low-layer Rust runtime baseline
 	@echo "==> cargo check core crates"
 	@$(RUST_ENV) $(CARGO) check $(foreach crate,$(CORE_CRATES),-p $(crate))
 	@$(MAKE) --no-print-directory surface-audit
+	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
+
+.PHONY: check-installed-runtime
+check-installed-runtime: ## Validate installed-runtime portability invariants (`CYNIC_PROJECT_ROOT` absent, runtime mode persistence)
+	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
+
+.PHONY: check-strict
+check-strict: ## cargo check core crates with -D warnings (signal engineering debt)
+	@echo "==> strict warning check on core crates"
+	@$(RUST_ENV) RUSTFLAGS='-D warnings' $(CARGO) check $(foreach crate,$(CORE_CRATES),-p $(crate))
 
 .PHONY: surface-audit
 surface-audit: ## Verify canonical CLI surfaces are backed by real modules and mutation policies
 	@echo "==> auditing canonical CLI surfaces"
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev surface-audit --json | jq -e '.schema == "cynic.cli.surface_audit.v1" and .status == "ok" and .blocked_count == 0' >/dev/null
+
+.PHONY: audit-surface-matrix
+audit-surface-matrix: ## Emit reusable JSON+Markdown surface matrix (surface, ownership, kernel-audit, runtime phases)
+	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix
+	@jq -e '.summary.status == "ok" and .summary.blocked_count == 0' target-cynic-ci/cynic-surface-audit-matrix.json >/dev/null
+
+.PHONY: audit-runtime-phases
+audit-runtime-phases: ## Emit and print machine-readable runtime phase statuses (harness/conformance/metrics)
+	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix >/dev/null
+	@jq '.runtime_phases' target-cynic-ci/cynic-surface-audit-matrix.json
 
 .PHONY: lab-check
 lab-check: ## Validate portable lab registry and low-layer crates used by lab smoke tests
@@ -93,10 +114,18 @@ framework-bootstrap-bundle: ## Generate framework bootstrap kit for a fresh Linu
 	@tmpdir="$$(mktemp -d)"
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap framework bundle --json --output-dir "$$tmpdir"
 
-# User-local CLI wins over /usr/local/bin when ~/.local/bin is earlier in PATH
-# (standard on this host). No sudo loop for day-to-day rebuilds.
-CLI_USER_TARGET ?= $(HOME)/.local/bin/cynic
+# System-path CLI is the preferred default target.
+CLI_USER_TARGET ?= /usr/local/bin/cynic
 CLI_SYSTEM_TARGET ?= /usr/local/bin/cynic
+CYNIC_CLI_ARTIFACT ?= $(CARGO_TARGET_DIR)/debug/cynic
+# Rebuild cynic when any workspace Rust source or crate manifest changes.
+WORKSPACE_RUST_SOURCES := $(shell find crates -name '*.rs' | tr '\n' ' ')
+WORKSPACE_CARGO_MANIFESTS := $(shell find crates -name 'Cargo.toml' | tr '\n' ' ')
+# Explicit source path passed to `bootstrap framework install-cli`.
+# Keep this aligned with the artifact unless an operator override is required.
+CYNIC_CLI_INSTALL_SOURCE ?= $(CYNIC_CLI_ARTIFACT)
+CLI_USER_FALLBACK_TARGET ?= /usr/local/bin/cynic
+CYNIC_CLI_AUTO_SYSTEM ?= 0
 
 # Thin wrappers — canonical surface is `cynic deps` (human text, no make required).
 .PHONY: deps
@@ -114,30 +143,116 @@ operator-day: ## Morning loop via native cynic deps
 	@echo "One-click scripted upgrades:  cynic deps upgrade --yes"
 
 .PHONY: install-cli
-install-cli: install-cli-user ## Default: install cynic to $$HOME/.local/bin (no sudo)
+install-cli: install-cli-auto ## Default install with preferred system-like target, with controlled fallback when unavailable
+
+.PHONY: operator-loop
+operator-loop: ## Fast operator iteration cycle: install CLI and refresh authoritative surface/kernel/runtime reports
+	@echo "==> operator loop: install CLI + refresh reports"
+	@$(MAKE) --no-print-directory install-cli
+	@$(MAKE) --no-print-directory check-installed-runtime
+	@$(MAKE) --no-print-directory audit-surface-matrix
+	@$(MAKE) --no-print-directory audit-runtime-phases
+	@echo "==> artifacts:"
+	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.json"
+	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.md"
+	@echo "  - target-cynic-ci/cynic-ownership-audit.json"
+	@if [ -f target-cynic-ci/cynic-kernel-audit.json ]; then echo "  - target-cynic-ci/cynic-kernel-audit.json"; fi
+
+.PHONY: operator-reports
+operator-reports: ## Emit operator-consumable report artifacts (surface matrix + proof bundle + metrics snapshot)
+	@mkdir -p target-cynic-ci
+	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix
+	@$(PATH := /bin:$(PATH)) ./scripts/runtime-evidence-bundle target-cynic-ci/cynic-runtime-proof-bundle.json
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime metrics --json --proof target-cynic-ci/cynic-runtime-proof-bundle.json > target-cynic-ci/cynic-runtime-metrics.json
+	@echo "==> operator reports:"
+	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.json"
+	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.md"
+	@echo "  - target-cynic-ci/cynic-runtime-proof-bundle.json"
+	@echo "  - target-cynic-ci/cynic-runtime-metrics.json"
+	@jq -r '"  status=\(.status)\n  maturity_percent=\(.maturity_percent)\n  residual_unknown_percent=\(.residual_unknown_percent)"' \
+		target-cynic-ci/cynic-runtime-metrics.json
+
+.PHONY: install-cli-auto
+install-cli-auto:
+	@if [ -w "$$(dirname "$(CLI_USER_TARGET)")" ] && [ -x "$$(dirname "$(CLI_USER_TARGET)")" ]; then \
+		$(MAKE) --no-print-directory install-cli-user CLI_USER_TARGET="$(CLI_USER_TARGET)"; \
+	else \
+		echo "==> user cli target not writable: $$(dirname "$(CLI_USER_TARGET)")"; \
+		if mkdir -p "$$(dirname "$(CLI_USER_FALLBACK_TARGET)")" 2>/dev/null \
+			&& [ -w "$$(dirname "$(CLI_USER_FALLBACK_TARGET)")" ] \
+			&& [ -x "$$(dirname "$(CLI_USER_FALLBACK_TARGET)")" ]; then \
+			echo "==> using writable fallback user target: $(CLI_USER_FALLBACK_TARGET)"; \
+			$(MAKE) --no-print-directory install-cli-user CLI_USER_TARGET="$(CLI_USER_FALLBACK_TARGET)"; \
+		elif [ "$(CYNIC_CLI_AUTO_SYSTEM)" = "1" ]; then \
+			echo "==> falling back to system install surface (requires sudo)"; \
+			$(MAKE) --no-print-directory install-cli-system; \
+		else \
+			echo "==> blocked: set CLI_USER_TARGET to a writable path, set CLI_USER_FALLBACK_TARGET, or run CYNIC_CLI_AUTO_SYSTEM=1 make install-cli"; \
+			exit 1; \
+		fi; \
+	fi
 
 .PHONY: install-cli-user
-install-cli-user: ## Build and install cynic to $$HOME/.local/bin/cynic (no sudo; preferred for dev)
-	@echo "==> building cynic-cli"
-	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-cli --bin cynic
-	@echo "==> installing to $(CLI_USER_TARGET) (user-local, precedes /usr/local/bin on PATH)"
-	@"$(CARGO_TARGET_DIR)/debug/cynic" bootstrap framework install-cli --json --apply \
-		--source "$(CARGO_TARGET_DIR)/debug/cynic" \
+$(CLI_USER_TARGET): $(CYNIC_CLI_INSTALL_SOURCE)
+	@if [ ! -x "$(CYNIC_CLI_INSTALL_SOURCE)" ]; then \
+		echo "==> blocked: source binary is not executable: $(CYNIC_CLI_INSTALL_SOURCE)"; \
+		echo "    set CYNIC_CLI_INSTALL_SOURCE explicitly to a valid cynic artifact, or rebuild default target"; \
+		exit 1; \
+	fi
+	@if ! mkdir -p "$$(dirname "$(CLI_USER_TARGET)")" 2>/dev/null; then \
+		echo "==> blocked: cannot create user target directory: $$(dirname "$(CLI_USER_TARGET)")"; \
+		echo "    set CLI_USER_TARGET to a writable path, or run install-cli-system"; \
+		exit 1; \
+	fi
+	@if [ -f "$(CLI_USER_TARGET)" ] && cmp -s "$(CLI_USER_TARGET)" "$(CYNIC_CLI_INSTALL_SOURCE)"; then \
+		echo "==> user target already matches source ($(CLI_USER_TARGET)); skipping install"; \
+		exit 0; \
+	fi
+	@if [ ! -w "$$(dirname "$(CLI_USER_TARGET)")" ]; then \
+		echo "==> blocked: user install target directory is not writable: $$(dirname "$(CLI_USER_TARGET)")"; \
+		echo "    set CLI_USER_TARGET to a writable path, or run install-cli-system"; \
+		exit 1; \
+	fi
+	@echo "==> installing to $(CLI_USER_TARGET)"
+	@"$(CYNIC_CLI_INSTALL_SOURCE)" bootstrap framework install-cli --json --apply \
+		--source "$(CYNIC_CLI_INSTALL_SOURCE)" \
 		--target "$(CLI_USER_TARGET)"
-	@command -v cynic >/dev/null
-	@echo "==> which cynic => $$(command -v cynic)"
-	@cynic runtime --help 2>/dev/null | grep -q inference-start \
+
+install-cli-user: $(CLI_USER_TARGET) ## Build and install cynic to the chosen target path (no sudo; preferred for dev)
+	@echo "==> which installed cynic target => $(CLI_USER_TARGET)"
+	@command -v "$(CLI_USER_TARGET)" >/dev/null && "$(CLI_USER_TARGET)" runtime --help 2>/dev/null | grep -q inference-start \
 		&& echo "==> ok: inference-start present" \
-		|| echo "==> warn: PATH still points at an older cynic; ensure ~/.local/bin is first"
+		|| echo "==> warn: runtime entrypoint probe unavailable (PATH may still point to older cynic)"
+	@if [ "$$(dirname "$(CLI_USER_TARGET)")" = "/tmp/cynic/bin" ]; then \
+		echo "==> if needed, expose this binary with: export PATH=$$PATH:/tmp/cynic/bin"; \
+	fi
+
+.PHONY: install-cli-system-refresh
+install-cli-system-refresh: ## Rebuild from artifact and force a CLI refresh with explicit source declaration
+	@$(MAKE) --no-print-directory install-cli-system \
+		CYNIC_CLI_INSTALL_SOURCE="$(CYNIC_CLI_ARTIFACT)"
 
 .PHONY: install-cli-system
-install-cli-system: ## Build and install cynic to /usr/local/bin (requires sudo)
+install-cli-system: $(CYNIC_CLI_INSTALL_SOURCE)
+	@if [ ! -x "$(CYNIC_CLI_INSTALL_SOURCE)" ]; then \
+		echo "==> blocked: source binary is not executable: $(CYNIC_CLI_INSTALL_SOURCE)"; \
+		echo "    set CYNIC_CLI_INSTALL_SOURCE explicitly to a valid cynic artifact, or rebuild default target"; \
+		exit 1; \
+	fi
+	@if [ -f "$(CLI_SYSTEM_TARGET)" ] && cmp -s "$(CLI_SYSTEM_TARGET)" "$(CYNIC_CLI_INSTALL_SOURCE)"; then \
+		echo "==> system target already matches source ($(CLI_SYSTEM_TARGET)); skipping install"; \
+		exit 0; \
+	fi
+	@echo "==> installing to $(CLI_SYSTEM_TARGET) (root)"
+	@sudo "$(CYNIC_CLI_INSTALL_SOURCE)" bootstrap framework install-cli --json --apply \
+		--source "$(CYNIC_CLI_INSTALL_SOURCE)" \
+		--target "$(CLI_SYSTEM_TARGET)"
+	@if [ ! -x "$(CLI_SYSTEM_TARGET)" ]; then echo "==> warning: installed file not yet executable"; fi
+	@echo "==> which cynic => $$(command -v cynic)"
+
+$(CYNIC_CLI_ARTIFACT): $(WORKSPACE_RUST_SOURCES) $(WORKSPACE_CARGO_MANIFESTS) Cargo.toml Cargo.lock
 	@echo "==> building cynic-cli"
 	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-cli --bin cynic
-	@echo "==> installing to $(CLI_SYSTEM_TARGET) (root)"
-	@sudo "$(CARGO_TARGET_DIR)/debug/cynic" bootstrap framework install-cli --json --apply \
-		--source "$(CARGO_TARGET_DIR)/debug/cynic" \
-		--target "$(CLI_SYSTEM_TARGET)"
 
 .PHONY: lab-guest-bootstrap-bundle
 lab-guest-bootstrap-bundle: framework-bootstrap-bundle ## Compatibility alias for the closed lab bootstrap usecase

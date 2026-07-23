@@ -1,12 +1,14 @@
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 use crate::command_surface::{HostCommandSurface, argv_command, install_dir_command};
 use crate::domain::shared::{
-    HostSubstrateDomain, SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence,
-    SurfaceContract, SurfaceStatus,
+    BoundaryKind, HostSubstrateDomain, LifecycleDisposition, LifecycleProjection, LifecycleStatus,
+    SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
+    SurfaceStatus,
 };
-use crate::install_contract::{MODE_0755, root_owned_path};
-use crate::ports::HostOperation;
+use crate::install_contract::{InstallOwnership, InstallPathPolicy, MODE_0755};
+use crate::ports::{HostOperation, PrincipalLoginShell};
 use crate::runtime_layout::current_runtime_layout;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,10 +23,16 @@ pub struct PrincipalPolicy {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrincipalStatusReport {
     pub status: SurfaceStatus,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub user_present: bool,
     pub group_present: bool,
     pub home_matches: bool,
     pub missing_state_dirs: Vec<String>,
+    pub misowned_paths: Vec<String>,
     pub evidences: Vec<SubstrateEvidence>,
 }
 
@@ -57,6 +65,8 @@ pub struct PrincipalObservedState {
     pub group_present: bool,
     pub observed_home_dir: Option<String>,
     pub present_state_dirs: Vec<String>,
+    #[serde(default)]
+    pub owned_paths: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -218,21 +228,61 @@ impl PrincipalPolicy {
             .filter(|path| !observed.present_state_dirs.contains(*path))
             .cloned()
             .collect::<Vec<_>>();
+        let misowned_paths = self
+            .managed_paths()
+            .into_iter()
+            .filter(|path| !observed.owned_paths.contains(path))
+            .collect::<Vec<_>>();
         let status = if observed.user_present
             && observed.group_present
             && home_matches
             && missing_state_dirs.is_empty()
+            && misowned_paths.is_empty()
         {
             SurfaceStatus::Active
         } else {
             SurfaceStatus::Blocked
         };
+        let lifecycle_status = if !observed.user_present
+            || !observed.group_present
+            || !missing_state_dirs.is_empty()
+        {
+            LifecycleStatus::Missing
+        } else if !home_matches || !misowned_paths.is_empty() {
+            LifecycleStatus::PrincipalMismatch
+        } else {
+            LifecycleStatus::Ready
+        };
+        let projection = match lifecycle_status {
+            LifecycleStatus::Ready => LifecycleProjection::ready_observe(
+                "runtime principal is present, aligned, and observable",
+            ),
+            LifecycleStatus::Missing => LifecycleProjection::missing_adopt(
+                "runtime principal or required owned paths are missing",
+                Some("cynic host bootstrap principal-prepare --json".to_string()),
+            ),
+            LifecycleStatus::PrincipalMismatch => LifecycleProjection::principal_mismatch_adopt(
+                "runtime principal exists but home alignment or path ownership still mismatches policy",
+                Some("cynic host bootstrap principal-prepare --json".to_string()),
+            ),
+            LifecycleStatus::ConnectionRequired => {
+                LifecycleProjection::connection_required_observe(
+                    "principal lifecycle does not model a connection boundary",
+                )
+            }
+        };
         PrincipalStatusReport {
             status,
+            lifecycle_status,
+            lifecycle_disposition: projection.disposition,
+            next_boundary_kind: projection.next_boundary_kind,
+            next_boundary_reason: projection.next_boundary_reason,
+            next_command: projection.next_command,
             user_present: observed.user_present,
             group_present: observed.group_present,
             home_matches,
             missing_state_dirs,
+            misowned_paths,
             evidences: vec![
                 SubstrateEvidence {
                     id: "principal_user_presence".to_string(),
@@ -257,36 +307,53 @@ impl PrincipalPolicy {
     }
 
     pub fn apply_operations(&self) -> Vec<HostOperation> {
-        let mut operations = vec![HostOperation::EnsureDir {
-            path: self.config_dir.clone(),
-            mode: MODE_0755.unix,
-        }];
-        operations.extend(
-            self.state_dirs
-                .iter()
-                .cloned()
-                .map(|path| HostOperation::EnsureDir {
-                    path,
-                    mode: MODE_0755.unix,
-                }),
-        );
+        let mut operations = vec![
+            HostOperation::EnsureSystemGroup {
+                group: self.runtime_group.clone(),
+            },
+            HostOperation::EnsureSystemUser {
+                user: self.runtime_user.clone(),
+                group: self.runtime_group.clone(),
+                home: self.home_dir.clone(),
+                shell: PrincipalLoginShell::NoLogin,
+            },
+        ];
+        operations.extend(self.managed_paths().into_iter().map(|path| {
+            HostOperation::EnsureOwnedDir {
+                path,
+                user: self.runtime_user.clone(),
+                group: self.runtime_group.clone(),
+                mode: MODE_0755.unix,
+            }
+        }));
         operations
     }
 
+    pub fn managed_paths(&self) -> Vec<String> {
+        let mut paths = vec![self.home_dir.clone(), self.config_dir.clone()];
+        paths.extend(self.state_dirs.clone());
+        paths.sort();
+        paths.dedup();
+        paths
+    }
+
     fn install_commands(&self) -> Vec<HostCommandSurface> {
-        let mut commands = vec![install_dir_command(
-            "prepare_directory",
-            self.config_dir.clone(),
-            root_owned_path(MODE_0755),
-        )];
-        commands.extend(self.state_dirs.iter().map(|path| {
-            install_dir_command(
-                "prepare_directory",
-                path.clone(),
-                root_owned_path(MODE_0755),
-            )
-        }));
-        commands
+        self.managed_paths()
+            .into_iter()
+            .map(|path| {
+                install_dir_command(
+                    "prepare_directory",
+                    path,
+                    InstallPathPolicy {
+                        owner: InstallOwnership {
+                            user: Cow::Owned(self.runtime_user.clone()),
+                            group: Cow::Owned(self.runtime_group.clone()),
+                        },
+                        mode: MODE_0755,
+                    },
+                )
+            })
+            .collect()
     }
 }
 
@@ -346,6 +413,7 @@ mod tests {
             group_present: true,
             observed_home_dir: Some("/wrong".to_string()),
             present_state_dirs: vec!["/var/lib/cynic/state".to_string()],
+            owned_paths: policy().managed_paths(),
         });
 
         assert_eq!(report.status, SurfaceStatus::Blocked);

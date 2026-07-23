@@ -111,6 +111,7 @@ pub enum MutationClass {
     ObserveOnly,
     DepsScripted,
     InferenceRuntime,
+    KernelRuntime,
     HostBootstrap,
     FleetNetwork,
 }

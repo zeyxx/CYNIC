@@ -311,7 +311,7 @@ mod tests {
                 "kernel_release": {
                     "required_node_status": "active",
                     "runtime_paths": {
-                        "repo_root": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}"
+                        "repo_root": "/var/lib/cynic/repos/${CYNIC_PROJECT_SLUG}"
                     },
                     "runtime_path_proofs": {
                         "repo_root": {
@@ -369,9 +369,23 @@ mod tests {
         fs::create_dir_all(repo_root.join("infra")).expect("infra");
         fs::write(repo_root.join("infra/registry.json"), "{}\n").expect("registry");
 
+        let mut registry = registry_fixture();
+        if let Some(lifecycle) = registry
+            .get_mut("lifecycle")
+            .and_then(|value| value.get_mut("kernel_release"))
+            .and_then(|value| value.as_object_mut())
+        {
+            lifecycle.insert(
+                "runtime_paths".into(),
+                json!({
+                    "repo_root": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}"
+                }),
+            );
+        }
+
         let payload = verify_lifecycle_runtime_paths(
             "cynic-vm-anvil",
-            &registry_fixture(),
+            &registry,
             dir.path().to_str(),
             Some("CYNIC"),
         )

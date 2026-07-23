@@ -1,27 +1,39 @@
 {
   "schema": "cynic.repo_remotes.v1",
   "purpose": "Git placement authority for sovereignty: Forgejo is the candidate sovereign SSOT; GitHub is an optional public relay.",
-  "updated_at": "2026-07-17",
+  "updated_at": "2026-07-22",
   "remotes": [
     {
       "id": "forgejo",
       "role": "sovereign_candidate",
-      "url": "http://10.10.10.101:3000/jeanterre13/CYNIC.git",
-      "http_port": 3000,
-      "host_ip": "10.10.10.101",
-      "host_aliases": [
-        "forgejo",
-        "forgejo.synapse.cynic",
-        "cynic-lxc-git",
-        "cynic-lxc-git.synapse.cynic",
-        "jeanterre13"
-      ],
-      "status_observed": "reachable_http_ui_repo_missing_or_auth_required",
+      "owner": "jeanterre13",
+      "repository": "CYNIC",
+      "backend_service_ref": {
+        "node": "forgejo",
+        "service": "forgejo-backend"
+      },
+      "admin_service_ref": {
+        "node": "forgejo",
+        "service": "forgejo-api-tls"
+      },
+      "git_service_ref": {
+        "node": "forgejo",
+        "service": "ssh"
+      },
+      "ssh_host_key_fingerprint": "SHA256:OJDMToiHPEVJ7QVdufmpjyP5EYm5aOtBvYG2qGEEQ88",
+      "machine_key_fingerprint": "SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU",
+      "status_observed": "reachable_http_ui_git_auth_unavailable_noninteractive",
       "notes": [
         "Wrong legacy URL used port 18300 — Forgejo serves on 3000.",
         "User jeanterre13 exists (active=false until first login).",
         "Push requires token or SSH key; empty public repo search returned no CYNIC clone.",
-        "Chicken-egg: restore synapse DNS so forgejo.synapse.cynic works without /etc/hosts pins."
+        "Observed 2026-07-22: HTTP UI returns 200; unauthenticated git ls-remote cannot acquire credentials non-interactively.",
+        "Canonical service identity is forgejo.synapse.cynic; host_ip is observed topology evidence and must not become the desired transport identity.",
+        "Administrative API authority is HTTPS on the service DNS identity; port 3000 HTTP is backend reachability only and must never carry a HumanAdmin token.",
+        "Current sovereign candidate transport is plaintext HTTP and is blocked for trusted source promotion until TLS/SSH host identity is proven.",
+        "Observed SSH host fingerprint: SHA256:OJDMToiHPEVJ7QVdufmpjyP5EYm5aOtBvYG2qGEEQ88 (ED25519); the IP host key is already present in Cortex known_hosts.",
+        "Cortex machine key fingerprint is SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU and still requires Forgejo enrollment.",
+        "Resolver/bootstrap must prove forgejo.synapse.cynic dynamically; static /etc/hosts may only be an explicitly bounded bootstrap adapter."
       ]
     },
     {

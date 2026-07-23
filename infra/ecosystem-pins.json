@@ -7,19 +7,19 @@
     "mutation": "human_validated_apply",
     "pin_meaning": "min_acceptable — observed below pin is status=stale; missing required is status=missing",
     "upgrade_flow": "cynic deps upgrade --yes  (or --apply --confirm <token>). Channels: scripted | external | distro_managed. Principal-owned tools install as runtime user cynic.",
-    "principal": "runtime_user=cynic; layout $HOME/.local/{bin,share/cynic/src}; override CYNIC_RUNTIME_USER / CYNIC_PRINCIPAL_HOME"
+    "principal": "runtime_user=cynic; layout $CYNIC_RUNTIME_LAYOUT_DEFAULT; override CYNIC_RUNTIME_USER / CYNIC_PRINCIPAL_HOME"
   },
   "pins": [
     {
       "id": "cynic",
       "min_capability": "inference-start",
-      "notes": "Scripted: cynic deps upgrade --yes --only cynic → ~/.local/bin"
+      "notes": "Scripted: cynic deps upgrade --yes --only cynic → /usr/local/bin/cynic"
     },
     {
       "id": "llama.cpp",
       "min_build": 9444,
       "desired_build": 9600,
-      "notes": "Scripted provider under principal cynic: git+cmake → $HOME_cynic/.local/bin/llama-server. desired_build for newer GGUF arches (dspark)."
+      "notes": "Scripted provider under principal cynic: git+cmake → /var/lib/cynic/.local/bin/llama-server. desired_build for newer GGUF arches (dspark)."
     },
     {
       "id": "huggingface-cli",
@@ -30,7 +30,7 @@
       "id": "ods",
       "min_version": null,
       "required": false,
-      "notes": "Scripted provider under principal cynic: clone Osmantic/ODS @ CYNIC_ODS_PIN (default v2.5.3) + install.sh; attach via inference-discover"
+      "notes": "Optional AI env bootstrap (loose coupling). Scripted: clone Osmantic/ODS @ CYNIC_ODS_PIN (default v2.5.3) + install.sh. Attach: cynic runtime inference-discover --json [--apply]. Chat: cynic chat --ods. Native vault independent."
     },
     {
       "id": "codex-cli",

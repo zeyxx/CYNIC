@@ -1,9 +1,15 @@
+use cynic_protocol::ForgejoDesiredState;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::endpoint_observation::observe_tcp_endpoint;
+use crate::service_catalog::{ServiceRef, resolve_service_ref};
+
 const REPO_ACCESS_STATUS_SCHEMA: &str = "cynic.runtime_principals.repo_access.status.v1";
+const REPO_REMOTES_AUTHORITY_REL: &str = "infra/repo-remotes.json";
+const REGISTRY_AUTHORITY_REL: &str = "infra/registry.json";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct RepoAccessEntry {
@@ -34,7 +40,39 @@ pub struct RepoAccessStatusReport {
     pub profile_exists: bool,
     pub canonical_project_root: Option<String>,
     pub known_repos: Vec<String>,
+    pub sovereign_remotes: Vec<SovereignRemoteReadiness>,
     pub entries: Vec<RepoAccessReadiness>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SovereignRemoteReadiness {
+    pub id: String,
+    pub role: String,
+    pub owner: Option<String>,
+    pub repository: Option<String>,
+    pub api_url: Option<String>,
+    pub api_host: Option<String>,
+    pub api_resolved_addresses: Vec<String>,
+    pub api_resolution_status: String,
+    pub api_tcp_reachability_status: String,
+    pub url: String,
+    pub desired_git_url: Option<String>,
+    pub http_port: Option<u16>,
+    pub endpoint_host: Option<String>,
+    pub resolved_addresses: Vec<String>,
+    pub desired_git_host: Option<String>,
+    pub desired_git_resolved_addresses: Vec<String>,
+    pub desired_git_resolution_status: String,
+    pub machine_key_fingerprint: Option<String>,
+    pub ssh_host_key_fingerprint: Option<String>,
+    pub host_ip: Option<String>,
+    pub host_aliases: Vec<String>,
+    pub host_resolution_status: String,
+    pub tcp_reachability_status: String,
+    pub service_health_status: String,
+    pub repo_auth_readiness: String,
+    pub status_observed: Option<String>,
+    pub notes: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -42,6 +80,83 @@ struct RepoAccessProfileDocument {
     #[allow(dead_code)]
     schema: Option<String>,
     repositories: Option<Vec<RepoAccessEntryRaw>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RepoRemotesDocument {
+    remotes: Option<Vec<RepoRemoteRaw>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RepoRemoteRaw {
+    id: Option<String>,
+    role: Option<String>,
+    owner: Option<String>,
+    repository: Option<String>,
+    api_url: Option<String>,
+    url: Option<String>,
+    desired_git_url: Option<String>,
+    backend_service_ref: Option<ServiceRef>,
+    admin_service_ref: Option<ServiceRef>,
+    git_service_ref: Option<ServiceRef>,
+    machine_key_fingerprint: Option<String>,
+    ssh_host_key_fingerprint: Option<String>,
+    http_port: Option<u16>,
+    host_ip: Option<String>,
+    host_aliases: Option<Vec<String>>,
+    status_observed: Option<String>,
+    notes: Option<Vec<String>>,
+}
+
+pub fn load_forgejo_desired_state(
+    canonical_project_root: &Path,
+) -> Result<ForgejoDesiredState, String> {
+    let path = canonical_project_root.join(REPO_REMOTES_AUTHORITY_REL);
+    let raw =
+        fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    let document: RepoRemotesDocument =
+        serde_json::from_str(&raw).map_err(|error| format!("parse {}: {error}", path.display()))?;
+    let remote = document
+        .remotes
+        .unwrap_or_default()
+        .into_iter()
+        .find(|remote| remote.id.as_deref() == Some("forgejo"))
+        .ok_or_else(|| "forgejo remote authority missing".to_string())?;
+    let admin = resolve_service_ref(
+        &canonical_project_root.join(REGISTRY_AUTHORITY_REL),
+        &remote
+            .admin_service_ref
+            .clone()
+            .ok_or_else(|| "forgejo admin_service_ref missing".to_string())?,
+    )?;
+    let git = resolve_service_ref(
+        &canonical_project_root.join(REGISTRY_AUTHORITY_REL),
+        &remote
+            .git_service_ref
+            .clone()
+            .ok_or_else(|| "forgejo git_service_ref missing".to_string())?,
+    )?;
+    let owner = required(remote.owner, "owner")?;
+    let repository = required(remote.repository, "repository")?;
+
+    Ok(ForgejoDesiredState {
+        instance_id: required(remote.id, "id")?,
+        owner: owner.clone(),
+        repository: repository.clone(),
+        api_url: format!("{}/api/v1", admin.endpoint),
+        git_ssh_url: format!(
+            "ssh://git@{}:{}/{owner}/{repository}.git",
+            git.host, git.port
+        ),
+        machine_key_fingerprint: required(
+            remote.machine_key_fingerprint,
+            "machine_key_fingerprint",
+        )?,
+    })
+}
+
+fn required(value: Option<String>, field: &str) -> Result<String, String> {
+    none_if_empty(value).ok_or_else(|| format!("forgejo authority field missing: {field}"))
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,11 +184,7 @@ pub fn current_repo_access_profile_path() -> PathBuf {
 }
 
 pub fn current_project_root() -> Option<PathBuf> {
-    current_project_root_from(
-        env::var("CYNIC_PROJECT_ROOT").map(PathBuf::from).ok(),
-        env::current_dir().ok(),
-        env::current_exe().ok(),
-    )
+    current_project_root_from(env::current_dir().ok(), env::current_exe().ok())
 }
 
 pub fn repo_access_status(
@@ -81,6 +192,7 @@ pub fn repo_access_status(
     canonical_project_root: Option<&Path>,
 ) -> RepoAccessStatusReport {
     let entries = load_repo_access_entries(profile_path);
+    let sovereign_remotes = load_sovereign_remotes(canonical_project_root);
     let canonical = canonical_project_root
         .and_then(resolve_existing_dir)
         .map(path_to_string);
@@ -121,6 +233,7 @@ pub fn repo_access_status(
         profile_exists: profile_path.is_file(),
         canonical_project_root: canonical,
         known_repos,
+        sovereign_remotes,
         entries: readiness,
     }
 }
@@ -167,6 +280,154 @@ pub fn load_repo_access_entries(profile_path: &Path) -> Vec<RepoAccessEntry> {
     entries
 }
 
+fn load_sovereign_remotes(canonical_project_root: Option<&Path>) -> Vec<SovereignRemoteReadiness> {
+    let Some(root) = canonical_project_root else {
+        return Vec::new();
+    };
+    let path = root.join(REPO_REMOTES_AUTHORITY_REL);
+    let raw = match fs::read_to_string(&path) {
+        Ok(raw) => raw,
+        Err(_) => return Vec::new(),
+    };
+    let document = match serde_json::from_str::<RepoRemotesDocument>(&raw) {
+        Ok(document) => document,
+        Err(_) => return Vec::new(),
+    };
+    document
+        .remotes
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|remote| {
+            let id = none_if_empty(remote.id)?;
+            let role = none_if_empty(remote.role).unwrap_or_else(|| "unknown".to_string());
+            let owner = none_if_empty(remote.owner.clone());
+            let repository = none_if_empty(remote.repository.clone());
+            let (url, api_url, desired_git_url, http_port, host_aliases) = if id == "forgejo" {
+                let backend = resolve_service_ref(
+                    &root.join(REGISTRY_AUTHORITY_REL),
+                    remote.backend_service_ref.as_ref()?,
+                )
+                .ok()?;
+                let admin = resolve_service_ref(
+                    &root.join(REGISTRY_AUTHORITY_REL),
+                    remote.admin_service_ref.as_ref()?,
+                )
+                .ok()?;
+                let git = resolve_service_ref(
+                    &root.join(REGISTRY_AUTHORITY_REL),
+                    remote.git_service_ref.as_ref()?,
+                )
+                .ok()?;
+                let owner = owner.as_deref()?;
+                let repository = repository.as_deref()?;
+                (
+                    format!("{}/{owner}/{repository}.git", backend.endpoint),
+                    Some(format!("{}/api/v1", admin.endpoint)),
+                    Some(format!(
+                        "ssh://git@{}:{}/{owner}/{repository}.git",
+                        git.host, git.port
+                    )),
+                    Some(backend.port),
+                    vec![backend.host, admin.host, git.host],
+                )
+            } else {
+                (
+                    none_if_empty(remote.url.clone())?,
+                    none_if_empty(remote.api_url.clone()),
+                    none_if_empty(remote.desired_git_url.clone()),
+                    remote.http_port,
+                    remote.host_aliases.clone().unwrap_or_default(),
+                )
+            };
+            Some(SovereignRemoteReadiness {
+                endpoint_host: endpoint_host(&url),
+                resolved_addresses: resolved_address_strings(&url, remote.http_port),
+                desired_git_host: desired_git_url.as_deref().and_then(endpoint_host),
+                desired_git_resolved_addresses: desired_git_url
+                    .as_deref()
+                    .map(|url| resolved_address_strings(url, None))
+                    .unwrap_or_default(),
+                desired_git_resolution_status: desired_git_url
+                    .as_deref()
+                    .map(|url| host_resolution_status(url, None))
+                    .unwrap_or_else(|| "undeclared".to_string()),
+                id,
+                role,
+                owner,
+                repository,
+                api_host: api_url.as_deref().and_then(endpoint_host),
+                api_resolved_addresses: api_url
+                    .as_deref()
+                    .map(|url| resolved_address_strings(url, None))
+                    .unwrap_or_default(),
+                api_resolution_status: api_url
+                    .as_deref()
+                    .map(|url| host_resolution_status(url, None))
+                    .unwrap_or_else(|| "undeclared".to_string()),
+                api_tcp_reachability_status: api_url
+                    .as_deref()
+                    .map(|url| tcp_reachability_status(url, None))
+                    .unwrap_or_else(|| "undeclared".to_string()),
+                api_url,
+                url: url.clone(),
+                desired_git_url,
+                machine_key_fingerprint: none_if_empty(remote.machine_key_fingerprint),
+                ssh_host_key_fingerprint: none_if_empty(remote.ssh_host_key_fingerprint),
+                http_port,
+                host_ip: none_if_empty(remote.host_ip),
+                host_aliases: host_aliases
+                    .into_iter()
+                    .filter_map(|alias| none_if_empty(Some(alias)))
+                    .collect(),
+                host_resolution_status: host_resolution_status(&url, http_port),
+                tcp_reachability_status: tcp_reachability_status(&url, http_port),
+                service_health_status: service_health_status(&url, http_port),
+                repo_auth_readiness: repo_auth_readiness(none_if_empty(
+                    remote.status_observed.clone(),
+                )),
+                status_observed: none_if_empty(remote.status_observed),
+                notes: remote.notes.unwrap_or_default(),
+            })
+        })
+        .collect()
+}
+
+fn endpoint_host(url: &str) -> Option<String> {
+    observe_tcp_endpoint(url, None).host
+}
+
+fn host_resolution_status(url: &str, declared_http_port: Option<u16>) -> String {
+    observe_tcp_endpoint(url, declared_http_port).resolution_status
+}
+
+fn resolved_address_strings(url: &str, declared_port: Option<u16>) -> Vec<String> {
+    observe_tcp_endpoint(url, declared_port).resolved_addresses
+}
+
+fn tcp_reachability_status(url: &str, declared_http_port: Option<u16>) -> String {
+    observe_tcp_endpoint(url, declared_http_port).tcp_reachability_status
+}
+
+fn service_health_status(url: &str, declared_http_port: Option<u16>) -> String {
+    let tcp = tcp_reachability_status(url, declared_http_port);
+    if tcp == "open" {
+        "reachable".to_string()
+    } else {
+        "unreachable".to_string()
+    }
+}
+
+fn repo_auth_readiness(status_observed: Option<String>) -> String {
+    match status_observed.as_deref() {
+        Some(status) if status.contains("auth_required") || status.contains("repo_missing") => {
+            "auth_or_repo_action_required".to_string()
+        }
+        Some(status) if status.contains("reachable") => "service_only_observed".to_string(),
+        Some(_) => "unknown".to_string(),
+        None => "unknown".to_string(),
+    }
+}
+
 fn find_project_root(start: Option<&Path>) -> Option<PathBuf> {
     let start = start?;
     let initial = if start.is_dir() {
@@ -187,13 +448,10 @@ fn find_project_root(start: Option<&Path>) -> Option<PathBuf> {
 }
 
 fn current_project_root_from(
-    project_root_env: Option<PathBuf>,
     current_dir: Option<PathBuf>,
     current_exe: Option<PathBuf>,
 ) -> Option<PathBuf> {
-    project_root_env
-        .or_else(|| find_project_root(current_dir.as_deref()))
-        .or_else(|| find_project_root(current_exe.as_deref()))
+    find_project_root(current_dir.as_deref()).or_else(|| find_project_root(current_exe.as_deref()))
 }
 
 fn resolve_existing_dir(path: &Path) -> Option<PathBuf> {
@@ -234,10 +492,12 @@ fn default_added_at() -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        REPO_ACCESS_STATUS_SCHEMA, current_project_root_from, load_repo_access_entries,
-        repo_access_status,
+        REPO_ACCESS_STATUS_SCHEMA, current_project_root_from, endpoint_host,
+        host_resolution_status, load_repo_access_entries, repo_access_status,
+        service_health_status, tcp_reachability_status,
     };
     use std::fs;
+    use std::net::TcpListener;
     use std::path::Path;
 
     #[test]
@@ -311,10 +571,81 @@ mod tests {
                 .iter()
                 .any(|item| item == &extra.to_string_lossy())
         );
+        assert!(report.sovereign_remotes.is_empty());
     }
 
     #[test]
-    fn current_project_root_prefers_env() {
+    fn repo_access_status_exposes_sovereign_forgejo_remote_authority() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let canonical = tempdir.path().join("canonical");
+        fs::create_dir_all(canonical.join("infra")).unwrap();
+        let profile = tempdir.path().join("repo-access.json");
+        fs::write(
+            &profile,
+            r#"{"schema":"cynic.runtime_principals.repo_access.v1","repositories":[]}"#,
+        )
+        .unwrap();
+        fs::write(
+            canonical.join("infra/registry.json"),
+            r#"{
+  "network_policy":{"reservations":[{"name":"forgejo","dns":["forgejo.synapse.cynic"]}]},
+  "nodes":[{"id":"forgejo","services":[
+    {"name":"ssh","scheme":"ssh","port":22},
+    {"name":"forgejo-backend","scheme":"http","port":3000},
+    {"name":"forgejo-api-tls","scheme":"https","port":443}
+  ]}]
+}"#,
+        )
+        .unwrap();
+        fs::write(
+            canonical.join("infra/repo-remotes.json"),
+            r#"{
+  "schema": "cynic.repo_remotes.v1",
+  "remotes": [
+    {
+      "id": "forgejo",
+      "role": "sovereign_candidate",
+      "owner": "jeanterre13",
+      "repository": "CYNIC",
+      "backend_service_ref":{"node":"forgejo","service":"forgejo-backend"},
+      "admin_service_ref":{"node":"forgejo","service":"forgejo-api-tls"},
+      "git_service_ref":{"node":"forgejo","service":"ssh"},
+      "status_observed": "reachable_http_ui_repo_missing_or_auth_required",
+      "notes": ["Forgejo serves on 3000."]
+    }
+  ]
+}"#,
+        )
+        .unwrap();
+
+        let report = repo_access_status(&profile, Some(&canonical));
+        assert_eq!(report.sovereign_remotes.len(), 1);
+        let forgejo = &report.sovereign_remotes[0];
+        assert_eq!(forgejo.id, "forgejo");
+        assert_eq!(forgejo.role, "sovereign_candidate");
+        assert_eq!(forgejo.http_port, Some(3000));
+        assert_eq!(
+            forgejo.desired_git_url.as_deref(),
+            Some("ssh://git@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git")
+        );
+        assert_eq!(
+            forgejo.endpoint_host.as_deref(),
+            Some("forgejo.synapse.cynic")
+        );
+        assert_eq!(
+            forgejo.desired_git_host.as_deref(),
+            Some("forgejo.synapse.cynic")
+        );
+        assert!(!forgejo.desired_git_resolution_status.is_empty());
+        assert_eq!(forgejo.host_ip, None);
+        assert!(!forgejo.host_resolution_status.is_empty());
+        assert!(!forgejo.tcp_reachability_status.is_empty());
+        assert!(!forgejo.service_health_status.is_empty());
+        assert_eq!(forgejo.repo_auth_readiness, "auth_or_repo_action_required");
+    }
+
+    #[test]
+    fn current_project_root_discovers_from_current_dir() {
         let tempdir = tempfile::tempdir().unwrap();
         let root = tempdir.path().join("root");
         fs::create_dir_all(root.join("contracts")).unwrap();
@@ -322,7 +653,40 @@ mod tests {
         fs::create_dir_all(root.join("infra")).unwrap();
         fs::write(root.join("Cargo.toml"), "").unwrap();
         fs::write(root.join("contracts/foundation.json"), "{}").unwrap();
-        let current = current_project_root_from(Some(root.clone()), None, None);
+        let current = current_project_root_from(Some(root.clone()), None);
         assert_eq!(current.as_deref(), Some(Path::new(&root)));
+    }
+
+    #[test]
+    fn endpoint_host_extracts_host_from_http_remote() {
+        assert_eq!(
+            endpoint_host("http://10.10.10.101:3000/jeanterre13/CYNIC.git").as_deref(),
+            Some("10.10.10.101")
+        );
+    }
+
+    #[test]
+    fn endpoint_host_extracts_host_from_ssh_remote() {
+        assert_eq!(
+            endpoint_host("ssh://git@forgejo.synapse.cynic:22/owner/repo.git").as_deref(),
+            Some("forgejo.synapse.cynic")
+        );
+    }
+
+    #[test]
+    fn sovereign_remote_health_observes_local_listener() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let url = format!("http://127.0.0.1:{}/repo.git", addr.port());
+        assert_eq!(host_resolution_status(&url, Some(addr.port())), "resolved");
+        assert_eq!(tcp_reachability_status(&url, Some(addr.port())), "open");
+    }
+
+    #[test]
+    fn stale_declared_status_cannot_override_failed_runtime_probe() {
+        assert_eq!(
+            service_health_status("http://127.0.0.1:1/repo.git", Some(1)),
+            "unreachable"
+        );
     }
 }

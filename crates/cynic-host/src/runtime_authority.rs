@@ -58,6 +58,7 @@ pub fn default_runtime_principal_layout() -> RuntimePrincipalLayout {
 
 pub fn default_runtime_authority_paths() -> RuntimeAuthorityPaths {
     let principal = default_runtime_principal_layout();
+    let staging_root = principal.state_root.join("staging");
     RuntimeAuthorityPaths {
         config_root: PathBuf::from("/etc/cynic"),
         policy_root: PathBuf::from("/etc/cynic"),
@@ -68,10 +69,12 @@ pub fn default_runtime_authority_paths() -> RuntimeAuthorityPaths {
         dns_corefile_path: PathBuf::from("/etc/coredns/Corefile"),
         dns_service_path: PathBuf::from("/etc/systemd/system/coredns-synapse.service"),
         resolved_dropin_path: PathBuf::from("/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf"),
-        host_exec_bundle_dir: PathBuf::from("/tmp/cynic-host-exec"),
-        network_actuator_bundle_dir: PathBuf::from("/tmp/cynic-network-actuator"),
-        dns_bundle_dir: PathBuf::from("/tmp/cynic-synapse-dns"),
-        provider_fallback_bundle_dir: PathBuf::from("/tmp/cynic-provider-fallback-hosts"),
+        // Install bundles are durable, inspectable activation artifacts. `/tmp`
+        // is suitable only when an explicit lab layout injects it.
+        host_exec_bundle_dir: staging_root.join("host-exec"),
+        network_actuator_bundle_dir: staging_root.join("network-actuator"),
+        dns_bundle_dir: staging_root.join("synapse-dns"),
+        provider_fallback_bundle_dir: staging_root.join("provider-fallback-hosts"),
         principal,
     }
 }
@@ -99,6 +102,14 @@ mod tests {
         assert_eq!(
             authority.principal.log_root,
             PathBuf::from("/var/log/cynic")
+        );
+        assert_eq!(
+            authority.host_exec_bundle_dir,
+            PathBuf::from("/var/lib/cynic/staging/host-exec")
+        );
+        assert_eq!(
+            authority.network_actuator_bundle_dir,
+            PathBuf::from("/var/lib/cynic/staging/network-actuator")
         );
     }
 

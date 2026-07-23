@@ -1,0 +1,55 @@
+{
+  "schema": "cynic.runtime_basket.v1",
+  "status": "normative",
+  "purpose": "Canonical versioned artifact basket projected into role-specific runtime bundles.",
+  "artifacts": [
+    {
+      "id": "cynic",
+      "crate": "cynic-cli",
+      "binary": "cynic",
+      "install_path": "/usr/local/bin/cynic",
+      "roles": ["cortex_host", "hypervisor", "kernel_primary", "build_runner"]
+    },
+    {
+      "id": "cynic-node",
+      "crate": "cynic-node",
+      "binary": "cynic-node",
+      "install_path": "/usr/local/bin/cynic-node",
+      "roles": ["cortex_host", "hypervisor", "kernel_primary"]
+    },
+    {
+      "id": "cynic-kernel",
+      "crate": "cynic-kernel",
+      "binary": "cynic-kernel",
+      "install_path": "/usr/local/bin/cynic-kernel",
+      "roles": ["kernel_primary"]
+    },
+    {
+      "id": "cynic-mcp",
+      "crate": "cynic-mcp",
+      "binary": "cynic-mcp",
+      "install_path": "/usr/local/bin/cynic-mcp",
+      "roles": ["cortex_host", "operator"]
+    },
+    {
+      "id": "cynic-host-exec",
+      "crate": "cynic-host",
+      "binary": "cynic-host-exec",
+      "install_path": "/usr/local/libexec/cynic-host-exec",
+      "roles": ["cortex_host", "hypervisor", "kernel_primary"]
+    }
+  ],
+  "bundle_rules": {
+    "selection": "observed_registry_role",
+    "unknown_role": "blocked",
+    "missing_required_artifact": "blocked",
+    "activation": "versioned_install_then_atomic_current_switch",
+    "proofs": [
+      "runtime_basket_manifest_verified",
+      "runtime_artifact_hashes_verified",
+      "runtime_role_projection_verified",
+      "runtime_postflight_observed"
+    ],
+    "rollback_intent": "restore previous versioned runtime basket when postflight proof fails"
+  }
+}

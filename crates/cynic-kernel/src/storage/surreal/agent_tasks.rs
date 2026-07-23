@@ -237,9 +237,10 @@ pub(super) async fn claim_agent_task(
 pub(super) async fn update_agent_task_result(
     storage: &SurrealHttpStorage,
     task_id: &str,
+    agent_id: &str,
     result: Option<&str>,
     error: Option<&str>,
-) -> Result<(), StorageError> {
+) -> Result<bool, StorageError> {
     let status = if error.is_some() {
         "failed"
     } else {
@@ -254,10 +255,14 @@ pub(super) async fn update_agent_task_result(
         .unwrap_or_else(|| "null".to_string());
 
     let record_id = task_record_id(task_id)?;
+    let escaped_agent_id = crate::storage::escape_surreal(agent_id);
     let query = format!(
-        "UPDATE agent_tasks SET status = '{status}', result = {result_str}, error = {error_str}, completed_at = '{now}' WHERE id = {record_id};"
+        "UPDATE agent_tasks SET status = '{status}', result = {result_str}, error = {error_str}, completed_at = '{now}' WHERE id = {record_id} AND status = 'processing' AND claimed_by = '{escaped_agent_id}';"
     );
-    storage.query_one(&query).await?;
+    let updated = storage.query_one(&query).await?;
+    if updated.is_empty() {
+        return Ok(false);
+    }
 
     // K15: Observe the task result as a crystal to close audit→observation loop.
     // Fire-and-forget: error in observation should not fail the task update.
@@ -288,5 +293,5 @@ pub(super) async fn update_agent_task_result(
         let _ = super::proof_of_history::store_proof_of_history(storage, &poh).await;
     }
 
-    Ok(())
+    Ok(true)
 }

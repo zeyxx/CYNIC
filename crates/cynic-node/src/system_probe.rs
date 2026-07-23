@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! SystemProbe concern: collect hardware metrics (CPU, RAM, Disk)
 //! and POST them as observations to the kernel.
 

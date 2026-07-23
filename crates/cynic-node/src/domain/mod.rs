@@ -1,7 +1,10 @@
 pub mod bootstrap;
+pub mod discovery_candidate;
+pub mod fleet_reconcile;
 pub mod fleet_truth;
 pub mod homeostasis;
 pub mod mesh;
+pub(crate) mod network_execution;
 pub(crate) mod network_mesh_apply;
 pub mod network_projection;
 pub mod node_observation;

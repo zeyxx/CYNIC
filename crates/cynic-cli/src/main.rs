@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout, clippy::print_stderr)]
 use std::process::ExitCode;
 
 use clap::{CommandFactory, Parser, Subcommand};
@@ -6,37 +7,59 @@ mod audit_surface;
 mod bootstrap_surface;
 mod chat_surface;
 mod chat_tui;
+mod cli_exit;
+mod cli_json;
 mod command_manifest;
 mod crate_audit;
 mod deps_surface;
+mod deps_surface_audit;
+mod deps_surface_model;
+mod deps_surface_pins;
+mod deps_surface_plan;
+mod deps_surface_probe;
+mod deps_surface_render;
+mod deps_surface_report;
+mod deps_surface_specs;
+mod deps_surface_upgrade;
 mod dev_surface;
 mod fleet_observation;
 mod fleet_report;
 mod fleet_surface;
+mod fs_json;
 mod host_exec_alias_surface;
+mod integrations_readonly_surface;
+mod integrations_surface;
+mod integrations_surface_render;
 mod kernel_boundary_audit;
 mod lab_surface;
 mod lifecycle_surface;
+mod lifecycle_surface_context;
+mod lifecycle_surface_execute;
+mod lifecycle_surface_render;
 mod network_surface;
 mod node_host_audit;
+mod ownership_audit;
+mod root_dispatch;
 mod runtime_paths;
 mod runtime_suite;
 mod runtime_surface;
+mod rust_source;
 mod surface_audit;
 mod surface_registry;
 mod transport_surface;
-use audit_surface::{AuditCommand, execute_audit};
-use bootstrap_surface::{BootstrapCommand, execute_bootstrap};
-use command_manifest::commands_manifest;
-use dev_surface::{DevCommand, execute_dev};
-use fleet_surface::{FleetCommand, execute_fleet};
+use audit_surface::AuditCommand;
+use bootstrap_surface::BootstrapCommand;
+use dev_surface::DevCommand;
+use fleet_surface::FleetCommand;
 use host_exec_alias_surface::maybe_run_host_exec_alias;
-use lab_surface::{LabCommand, execute_lab};
-use network_surface::{NetworkCommand, execute_network};
+use integrations_surface::IntegrationsCommand;
+use lab_surface::LabCommand;
+use network_surface::NetworkCommand;
+use root_dispatch::{execute_root_command, print_cli_help};
 use runtime_paths::{RuntimeContext, resolve_runtime_paths};
-use runtime_surface::{RuntimeCommand, execute_runtime};
+use runtime_surface::RuntimeCommand;
 use serde::Serialize;
-use transport_surface::{TransportCommand, execute_transport};
+use transport_surface::TransportCommand;
 
 #[derive(Parser)]
 #[command(name = "cynic", about = "Portable CYNIC operator CLI")]
@@ -83,6 +106,11 @@ enum Command {
         #[command(subcommand)]
         command: AuditCommand,
     },
+    /// Observe CYNIC-managed services and external provider connections.
+    Integrations {
+        #[command(subcommand)]
+        command: IntegrationsCommand,
+    },
     /// Ecosystem tech-watch and human-validated upgrades (canonical).
     Deps {
         #[command(subcommand)]
@@ -125,6 +153,9 @@ enum Command {
         /// Prefer Osmantic ODS OpenAI-compat discovery for the chat endpoint.
         #[arg(long)]
         ods: bool,
+        /// Force model selector (local alias when present, otherwise model id).
+        #[arg(long)]
+        model: Option<String>,
         /// Do not open the interactive TUI when prompt is omitted.
         #[arg(long = "no-tui")]
         no_tui: bool,
@@ -135,6 +166,8 @@ enum Command {
 enum DepsCommand {
     /// Ordered upgrade plan (manual + one-click items).
     Plan,
+    /// Prioritized normalization audit for Python/system CLI authorities.
+    Audit,
     /// Preview or apply scripted upgrades (`--yes` = one-click human consent).
     Upgrade {
         /// Apply all allowlisted scripted upgrades (explicit human consent).
@@ -160,62 +193,9 @@ fn main() -> ExitCode {
     match cli.command {
         None => {
             let mut command = Cli::command();
-            match command.print_help() {
-                Ok(()) => {
-                    println!();
-                    ExitCode::SUCCESS
-                }
-                Err(_) => ExitCode::FAILURE,
-            }
+            print_cli_help(&mut command)
         }
-        Some(Command::Commands { json }) => {
-            if !json {
-                return ExitCode::FAILURE;
-            }
-            emit_json(&commands_manifest(), false)
-        }
-        Some(Command::Fleet { command }) => execute_fleet(command),
-        Some(Command::Runtime { command }) => execute_runtime(command),
-        Some(Command::Dev { command }) => execute_dev(command),
-        Some(Command::Lab { command }) => execute_lab(command),
-        Some(Command::Transport { command }) => execute_transport(command),
-        Some(Command::Bootstrap { command }) => execute_bootstrap(command),
-        Some(Command::Network { command }) => execute_network(command),
-        Some(Command::Audit { command }) => execute_audit(command),
-        Some(Command::Deps { command, json }) => match command {
-            None => deps_surface::execute_deps(json),
-            Some(DepsCommand::Plan) => deps_surface::execute_deps_plan(json),
-            Some(DepsCommand::Upgrade {
-                yes,
-                apply,
-                confirm,
-                only,
-            }) => deps_surface::execute_deps_upgrade(json, apply, yes, confirm.as_deref(), &only),
-        },
-        Some(Command::Lifecycle { command }) => lifecycle_surface::execute_lifecycle(command),
-        Some(Command::Chat {
-            prompt,
-            resume,
-            session_id,
-            stream,
-            json,
-            list_sessions,
-            export,
-            mock,
-            ods,
-            no_tui,
-        }) => chat_surface::execute_chat(chat_surface::ChatArgs {
-            prompt,
-            resume,
-            session_id,
-            stream,
-            json,
-            list_sessions,
-            export,
-            mock,
-            ods,
-            no_tui,
-        }),
+        Some(command) => execute_root_command(command),
     }
 }
 
@@ -226,7 +206,7 @@ fn registry_path(value: Option<String>) -> String {
         .to_string()
 }
 
-fn emit_json(value: &impl Serialize, should_fail: bool) -> ExitCode {
+pub(crate) fn emit_json(value: &impl Serialize, should_fail: bool) -> ExitCode {
     match serde_json::to_string_pretty(value) {
         Ok(payload) => {
             println!("{payload}");
@@ -240,7 +220,7 @@ fn emit_json(value: &impl Serialize, should_fail: bool) -> ExitCode {
     }
 }
 
-fn fail(error: String) -> ExitCode {
-    eprintln!("{error}");
+pub(crate) fn fail(error: impl AsRef<str>) -> ExitCode {
+    eprintln!("{}", error.as_ref());
     ExitCode::FAILURE
 }

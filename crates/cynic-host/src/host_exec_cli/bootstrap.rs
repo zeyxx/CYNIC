@@ -1,5 +1,8 @@
+use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
 use std::process::ExitCode;
 
+use crate::adapters::local_command_runner::LocalHostCommandRunner;
+use crate::adapters::local_observation::LocalHostObservationAdapter;
 use crate::bootstrap_chain;
 use crate::bridge;
 use crate::domain::bootstrap::{build_bootstrap_plan, build_bootstrap_status};
@@ -52,14 +55,30 @@ pub(crate) fn execute_bootstrap_evidence(args: &[String]) -> Result<ExitCode, St
 
 pub(crate) fn execute_principal_prepare(args: &[String]) -> Result<ExitCode, String> {
     let selected = selected_profile(args)?;
+    let resolution = selected_resolution(args);
     if !has_flag(args, "--apply") {
         return emit_json(
-            &crate::principal_prepare::principal_prepare_plan(&selected.desired_principal()),
+            &crate::principal_prepare::principal_prepare_plan_with_resolution(
+                &selected.desired_principal(),
+                resolution.as_ref(),
+            ),
             false,
         );
     }
 
-    let report = crate::principal_prepare::principal_prepare_apply(&selected.desired_principal());
+    let authorization = ExecutionAuthorization::new(
+        "host-exec-bootstrap-admin",
+        PolicyAuthority::HumanAdmin,
+        true,
+        crate::principal_prepare::principal_prepare_preconditions(),
+    );
+    let report = crate::principal_prepare::principal_prepare_apply(
+        &selected.desired_principal(),
+        resolution.as_ref(),
+        authorization,
+        &LocalHostCommandRunner,
+        &LocalHostObservationAdapter,
+    );
     emit_json(&report, report.status != "completed")
 }
 

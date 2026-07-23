@@ -17,7 +17,7 @@ use crate::infra::task_health::TaskHealth;
 
 /// Organ remediation loop — restarts silent organs via ssh_restart().
 /// Independent from Dog remediation (different trigger: silence, not circuit open).
-pub fn spawn_organ_remediation(
+pub(super) fn spawn_organ_remediation(
     organ_configs: Vec<OrganRemediation>,
     storage: Arc<dyn crate::domain::storage::StoragePort>,
     task_health: Arc<TaskHealth>,

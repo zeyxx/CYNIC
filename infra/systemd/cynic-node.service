@@ -5,18 +5,17 @@ Wants=cynic-kernel.service
 
 [Service]
 # projection_class: operator_projection
-# This unit is a developer/operator user projection rooted in %h and the checkout.
-# Installed runtime authority belongs to /etc/cynic, /var/lib/cynic, and root-owned services.
+# Runtime projection for node process supervision.
 Type=simple
-WorkingDirectory=@CYNIC_PROJECT_ROOT@
-ExecStart=%h/bin/cynic-node
+WorkingDirectory=/var/lib/cynic
+ExecStart=/usr/local/bin/cynic-node
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30
 Restart=on-failure
 RestartSec=5
-# Environment from ~/.cynic-env (Bearer token, REST addr, API key)
-EnvironmentFile=%h/.config/cynic/env
+# Environment from /etc/cynic/env (Bearer token, REST addr, API key)
+EnvironmentFile=/etc/cynic/env
 LimitNOFILE=65535
 MemoryMax=1G
 

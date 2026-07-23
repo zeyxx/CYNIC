@@ -4,6 +4,7 @@ pub mod agent_tasks;
 pub mod attention;
 pub mod auth;
 pub mod coord;
+pub mod coord_lease;
 pub mod data;
 pub mod discovery;
 pub mod dispatch;
@@ -41,16 +42,18 @@ use self::attention::attention_handler;
 use self::auth::{auth_input_handler, auth_verify_handler};
 use self::coord::{
     coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
-    coord_register_handler, coord_release_handler, coord_scope_handler, coord_topology_handler,
-    coord_who_handler,
+    coord_register_handler, coord_scope_handler, coord_topology_handler, coord_who_handler,
 };
+use self::coord_lease::{coord_finalize_handler, coord_release_handler, coord_renew_handler};
 use self::data::{
     audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
     crystal_handler, crystals_handler, delete_crystal_handler, observations_handler,
     observe_crystal_hypha_handler, proof_of_history_handler, public_observations_handler,
-    sessions_handler, shatter_crystal_handler, usage_handler,
+    sessions_handler, shatter_crystal_handler, usage_handler, verdicts_handler,
 };
-use self::discovery::{api_layer_alignment_handler, api_topology_handler, openapi_handler};
+use self::discovery::{
+    api_layer_alignment_handler, api_topology_handler, identity_handler, openapi_handler,
+};
 use self::event::{event_handler, fleet_stats_handler};
 use self::health::{
     agents_handler, health_handler, liveness_handler, metrics_handler, readiness_handler,
@@ -58,8 +61,9 @@ use self::health::{
 };
 use self::inference_proxy::{proxy_chat_completions, proxy_models};
 use self::inference_router::{
-    inference_candidates_handler, inference_remediate_handler, inference_route_handler,
-    inference_slots_handler, inference_start_handler, list_models_handler, remediate_handler,
+    dogs_handler, inference_candidates_handler, inference_remediate_handler,
+    inference_route_handler, inference_slots_handler, inference_start_handler, list_models_handler,
+    remediate_handler,
 };
 use self::mail::{
     fetch_message, health as mail_health, inbox, mark_read, search, send, sync, unread,
@@ -67,7 +71,7 @@ use self::mail::{
 use self::mesh::{list_mesh_nodes_handler, list_mesh_routes_handler, mesh_publish_handler};
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
 use self::mint_permit::mint_permit_handler;
-use self::observe::observe_handler;
+use self::observe::{judge_handler, observe_handler};
 use self::services::{
     list_services_handler, register_service_handler, service_heartbeat_handler,
     unregister_service_handler,
@@ -121,6 +125,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 
     Router::new()
         .route("/openapi.json", get(openapi_handler))
+        .route("/identity", get(identity_handler))
         .route("/api/topology", get(api_topology_handler))
         .route("/api/layer-alignment", get(api_layer_alignment_handler))
         .route("/events/ws", axum::routing::get(ws_handler))
@@ -179,6 +184,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(agent_tasks::claim_task_handler),
         )
         .route("/observe", post(observe_handler))
+        .route("/judge", post(judge_handler))
         .route("/fleet/stats", get(fleet_stats_handler))
         .route("/inference/route", post(inference_route_handler))
         .route("/inference/candidates", get(inference_candidates_handler))
@@ -188,6 +194,9 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/lifecycle/inference/remediate-dog",
             post(inference_remediate_handler),
         )
+        .route("/lifecycle/upgrade", post(inference_start_handler))
+        .route("/dogs", get(dogs_handler))
+        .route("/verdicts", get(verdicts_handler))
         .route("/inference/list-models", get(list_models_handler))
         .route("/inference/slots", get(inference_slots_handler))
         .route("/v1/chat/completions", post(proxy_chat_completions))
@@ -195,7 +204,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))
         .route("/coord/claim-batch", post(coord_claim_batch_handler))
+        .route("/coord/renew", post(coord_renew_handler))
         .route("/coord/release", post(coord_release_handler))
+        .route("/coord/finalize", post(coord_finalize_handler))
         .route("/coord/heartbeat", post(coord_heartbeat_handler))
         .route("/coord/scope", post(coord_scope_handler))
         .route("/coord/who", get(coord_who_handler))

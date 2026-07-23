@@ -1,3 +1,4 @@
+use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
 use std::process::ExitCode;
 
 use crate::adapters::local_command_runner::LocalHostCommandRunner;
@@ -11,7 +12,8 @@ use crate::profiles::HostProfile;
 use crate::usecases::{
     HostObservationReports, build_host_activation_plan_with_resolution,
     build_host_apply_report_with_resolution, build_host_bundle_with_resolution,
-    observe_host_with_resolution,
+    execute_admitted_service_apply, execute_host_apply, observe_host_with_resolution,
+    service_apply_satisfied_preconditions,
 };
 
 pub(crate) fn execute_network_baseline(args: &[String]) -> Result<ExitCode, String> {
@@ -55,8 +57,23 @@ fn execute_network_apply(
         return Err("apply requires exactly one of --dry-run or --apply".to_string());
     }
 
-    let report =
-        crate::usecases::execute_host_apply(selected, observed, dry_run, &LocalHostCommandRunner);
+    let report = if dry_run {
+        execute_host_apply(selected, observed, true, &LocalHostCommandRunner)
+    } else {
+        let authorization = ExecutionAuthorization::new(
+            "host-exec-human-operator",
+            PolicyAuthority::HumanOperator,
+            true,
+            service_apply_satisfied_preconditions(observed),
+        );
+        execute_admitted_service_apply(
+            selected,
+            observed,
+            authorization,
+            &LocalHostCommandRunner,
+            &LocalHostObservationAdapter,
+        )
+    };
     let should_fail = !dry_run && report.status != SurfaceStatus::Active;
     emit_json(&report, should_fail)
 }

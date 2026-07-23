@@ -5,21 +5,21 @@ use cynic_protocol::RuntimeProofBundle;
 use crate::bootstrap_surface::{ProfileArgs, selected_host_context};
 use crate::{emit_json, fail};
 
-pub(crate) fn execute_harness(json: bool, kind: Option<String>) -> ExitCode {
+pub(crate) fn execute_harness(json: bool, kind: Option<&str>) -> ExitCode {
     if !json {
         return ExitCode::FAILURE;
     }
-    match cynic_host::runtime_harness::runtime_harness_catalog(kind.as_deref()) {
+    match cynic_host::runtime_harness::runtime_harness_catalog(kind) {
         Ok(report) => emit_json(&report, false),
         Err(error) => fail(error),
     }
 }
 
-pub(crate) fn execute_conformance(json: bool, profile: ProfileArgs) -> ExitCode {
+pub(crate) fn execute_conformance(json: bool, profile: &ProfileArgs) -> ExitCode {
     if !json {
         return ExitCode::FAILURE;
     }
-    let (selected, resolution) = match selected_host_context(&profile) {
+    let (selected, resolution) = match selected_host_context(profile) {
         Ok(value) => value,
         Err(error) => return fail(error),
     };
@@ -29,16 +29,16 @@ pub(crate) fn execute_conformance(json: bool, profile: ProfileArgs) -> ExitCode 
     }
 }
 
-pub(crate) fn execute_metrics(json: bool, profile: ProfileArgs, proof: Option<String>) -> ExitCode {
+pub(crate) fn execute_metrics(json: bool, profile: &ProfileArgs, proof: Option<&str>) -> ExitCode {
     if !json {
         return ExitCode::FAILURE;
     }
-    let (selected, resolution) = match selected_host_context(&profile) {
+    let (selected, resolution) = match selected_host_context(profile) {
         Ok(value) => value,
         Err(error) => return fail(error),
     };
     let external_proof = match proof {
-        Some(path) => match load_runtime_proof_bundle(&path) {
+        Some(path) => match load_runtime_proof_bundle(path) {
             Ok(bundle) => Some(bundle),
             Err(error) => return fail(error),
         },
@@ -68,6 +68,19 @@ pub(crate) fn execute_repo_access(json: bool, profile: Option<String>) -> ExitCo
         None => cynic_host::repo_access::current_repo_access_status(),
     };
     emit_json(&report, false)
+}
+
+pub(crate) fn execute_storage_capabilities(json: bool, url: Option<&str>) -> ExitCode {
+    if !json {
+        return ExitCode::FAILURE;
+    }
+
+    let endpoint = url
+        .map(str::to_string)
+        .or_else(|| std::env::var("SURREALDB_URL").ok())
+        .unwrap_or_else(|| "http://localhost:8000".into());
+    let report = cynic_host::storage_capabilities::observe_storage_capabilities(&endpoint);
+    emit_json(&report, report.status == "blocked")
 }
 
 fn load_runtime_proof_bundle(path: &str) -> Result<RuntimeProofBundle, String> {

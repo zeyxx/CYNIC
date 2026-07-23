@@ -8,6 +8,7 @@ use rmcp::{
 
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
 use crate::domain::health_gate::count_healthy_dogs;
+use cynic_inference::domain::SlotPriority;
 
 use super::{
     AuditQueryParams, AuthParams, ComplianceParams, CrystalObserveParams, CrystalShatterParams,
@@ -138,8 +139,8 @@ impl CynicMcp {
             priority: p
                 .priority
                 .as_deref()
-                .and_then(crate::domain::slot_semaphore::SlotPriority::from_str_opt)
-                .unwrap_or(crate::domain::slot_semaphore::SlotPriority::User),
+                .and_then(SlotPriority::from_str_opt)
+                .unwrap_or(SlotPriority::User),
         };
         let result = crate::pipeline::run(
             p.content.clone(),

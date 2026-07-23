@@ -27,6 +27,24 @@ pub trait EcosystemPackageProvider: Send + Sync {
 
 /// Execute a package plan step-by-step (argv only; principal wrap via sudo -u).
 pub fn apply_package_plan(plan: &EcosystemPackagePlan) -> EcosystemPackageApplyResult {
+    let requires_runtime_principal = plan.steps.iter().any(|step| step.as_principal)
+        || matches!(plan.principal, InstallPrincipalKind::RuntimeUser);
+    if requires_runtime_principal && !plan.layout.writable {
+        return EcosystemPackageApplyResult {
+            dep_id: plan.dep_id.clone(),
+            attempted: false,
+            ok: false,
+            channel: plan.channel,
+            principal: plan.principal,
+            steps_run: vec![],
+            message: format!(
+                "principal `{}` not writable — run as that user or enable passwordless sudo -u {}",
+                plan.layout.runtime_user, plan.layout.runtime_user
+            ),
+            proofs: plan.proofs.clone(),
+        };
+    }
+
     if !plan.auto_applicable {
         return EcosystemPackageApplyResult {
             dep_id: plan.dep_id.clone(),
@@ -151,10 +169,10 @@ mod tests {
         PrincipalInstallLayout {
             principal: InstallPrincipalKind::RuntimeUser,
             runtime_user: "cynic".into(),
-            home_dir: PathBuf::from("/home/cynic"),
-            bin_dir: PathBuf::from("/home/cynic/.local/bin"),
-            src_dir: PathBuf::from("/home/cynic/.local/share/cynic/src"),
-            share_dir: PathBuf::from("/home/cynic/.local/share/cynic"),
+            home_dir: PathBuf::from("/var/lib/cynic"),
+            bin_dir: PathBuf::from("/var/lib/cynic/.local/bin"),
+            src_dir: PathBuf::from("/var/lib/cynic/.local/share/cynic/src"),
+            share_dir: PathBuf::from("/var/lib/cynic/.local/share/cynic"),
             run_as: RunAs::SudoUser("cynic".into()),
             writable: true,
             notes: vec![],
@@ -174,5 +192,38 @@ mod tests {
         };
         let argv = materialize_argv(&step, &layout);
         assert_eq!(argv, vec!["sudo", "-u", "cynic", "--", "true"]);
+    }
+
+    #[test]
+    fn blocks_apply_when_principal_is_not_writable() {
+        let mut layout = test_layout();
+        layout.writable = false;
+        let step = ApplyStep {
+            role: "non_writable".into(),
+            argv: vec!["true".into()],
+            cwd: None,
+            mutates: true,
+            privilege_required: false,
+            as_principal: true,
+        };
+        let plan = EcosystemPackagePlan {
+            dep_id: "test".into(),
+            channel: crate::domain::ecosystem_package::types::ProviderChannel::External,
+            principal: layout.principal,
+            layout: layout.clone(),
+            reason: "test".into(),
+            steps: vec![step],
+            auto_applicable: true,
+            proofs: vec![],
+            summary_commands: vec!["test".into()],
+        };
+
+        let result = apply_package_plan(&plan);
+        assert!(!result.ok);
+        assert!(!result.attempted);
+        assert_eq!(
+            result.message,
+            "principal `cynic` not writable — run as that user or enable passwordless sudo -u cynic"
+        );
     }
 }

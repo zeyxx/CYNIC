@@ -28,7 +28,7 @@ impl EcosystemPackageProvider for LlamaCppProvider {
     }
 }
 
-/// Build a principal-local plan for llama.cpp (git + cmake → ~/.local/bin/llama-server).
+/// Build a principal-local plan for llama.cpp (git + cmake → {home_dir}/.local/bin/llama-server).
 pub fn plan_llama_cpp(reason: &str, layout: &PrincipalInstallLayout) -> EcosystemPackagePlan {
     let src = layout.src_dir.join("llama.cpp");
     let bin = layout.bin_dir.join("llama-server");
@@ -93,8 +93,7 @@ pub fn plan_llama_cpp(reason: &str, layout: &PrincipalInstallLayout) -> Ecosyste
         "-DLLAMA_BUILD_SERVER=ON".into(),
         "-DGGML_NATIVE=ON".into(),
     ];
-    if Path::new("/usr/include/vulkan/vulkan.h").exists()
-        || Path::new("/usr/share/vulkan").exists()
+    if Path::new("/usr/include/vulkan/vulkan.h").exists() || Path::new("/usr/share/vulkan").exists()
     {
         cmake_cfg.push("-DGGML_VULKAN=ON".into());
     }
@@ -181,10 +180,10 @@ mod tests {
         PrincipalInstallLayout {
             principal: InstallPrincipalKind::RuntimeUser,
             runtime_user: "cynic".into(),
-            home_dir: PathBuf::from("/home/cynic"),
-            bin_dir: PathBuf::from("/home/cynic/.local/bin"),
-            src_dir: PathBuf::from("/home/cynic/.local/share/cynic/src"),
-            share_dir: PathBuf::from("/home/cynic/.local/share/cynic"),
+            home_dir: PathBuf::from("/var/lib/cynic"),
+            bin_dir: PathBuf::from("/var/lib/cynic/.local/bin"),
+            src_dir: PathBuf::from("/var/lib/cynic/.local/share/cynic/src"),
+            share_dir: PathBuf::from("/var/lib/cynic/.local/share/cynic"),
             run_as: RunAs::SudoUser("cynic".into()),
             writable: true,
             notes: vec![],

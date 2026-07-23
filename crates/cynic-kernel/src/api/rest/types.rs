@@ -19,6 +19,7 @@ use crate::domain::wisdom::DomainCurations;
 use crate::infra::task_health::TaskHealth;
 use crate::introspection::Alert;
 use cynic_inference::embedding::EmbeddingPort;
+use cynic_inference::{SlotSemaphoreMap, SlotTracker};
 
 // ── ROLE-SCOPED AUTH ──────────────────────────────────────
 // Three roles match the organism's communication patterns:
@@ -37,6 +38,34 @@ pub enum Role {
     Internal,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthenticationMechanism {
+    AgentBearer,
+    SharedBearer,
+    Ed25519,
+    WalletSession,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthenticatedPrincipal {
+    pub subject: Option<String>,
+    pub role: Role,
+    pub mechanism: AuthenticationMechanism,
+}
+
+impl AuthenticatedPrincipal {
+    pub fn require_agent(&self, asserted_agent_id: &str) -> Result<(), &'static str> {
+        if self.mechanism != AuthenticationMechanism::AgentBearer {
+            return Err("coordination mutation requires an agent-bound bearer credential");
+        }
+        match self.subject.as_deref() {
+            Some(subject) if subject == asserted_agent_id => Ok(()),
+            Some(_) => Err("authenticated principal does not own the asserted agent_id"),
+            None => Err("coordination mutation requires an agent-bound credential"),
+        }
+    }
+}
+
 impl std::fmt::Display for Role {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -49,19 +78,116 @@ impl std::fmt::Display for Role {
 
 /// Three bearer tokens, one per role. Loaded from env at boot.
 /// `legacy` holds the old CYNIC_API_KEY for backward-compat (grants Cortex).
-#[derive(Debug)]
+pub struct AgentCredentialBinding {
+    pub subject: String,
+    pub role: Role,
+    token: String,
+}
+
+impl AgentCredentialBinding {
+    pub fn new(subject: String, role: Role, token: String) -> Result<Self, String> {
+        crate::domain::coord::validate_agent_id(&subject)
+            .map_err(|error| format!("invalid agent credential subject `{subject}`: {error}"))?;
+        if token.is_empty() {
+            return Err(format!("agent credential `{subject}` has an empty token"));
+        }
+        Ok(Self {
+            subject,
+            role,
+            token,
+        })
+    }
+}
+
+impl std::fmt::Debug for AgentCredentialBinding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AgentCredentialBinding")
+            .field("subject", &self.subject)
+            .field("role", &self.role)
+            .field("has_token", &!self.token.is_empty())
+            .finish()
+    }
+}
+
 pub struct RoleKeyMap {
     pub cortex: Option<String>,
     pub organ: Option<String>,
     pub internal: Option<String>,
     pub legacy: Option<String>,
+    pub agent_bindings: Vec<AgentCredentialBinding>,
+}
+
+impl std::fmt::Debug for RoleKeyMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RoleKeyMap")
+            .field("has_cortex", &self.cortex.is_some())
+            .field("has_organ", &self.organ.is_some())
+            .field("has_internal", &self.internal.is_some())
+            .field("has_legacy", &self.legacy.is_some())
+            .field("agent_bindings", &self.agent_bindings)
+            .finish()
+    }
 }
 
 impl RoleKeyMap {
-    /// Match a bearer token to a role. Returns None if no match.
+    pub fn from_environment(legacy: Option<String>) -> Result<Self, String> {
+        #[derive(Deserialize)]
+        struct AgentCredentialSpec {
+            token: String,
+            role: String,
+        }
+
+        let agent_bindings = match std::env::var("CYNIC_AGENT_KEYS_JSON") {
+            Ok(raw) if !raw.trim().is_empty() => {
+                let specs: HashMap<String, AgentCredentialSpec> = serde_json::from_str(&raw)
+                    .map_err(|error| format!("invalid CYNIC_AGENT_KEYS_JSON: {error}"))?;
+                let mut bindings = Vec::with_capacity(specs.len());
+                for (subject, spec) in specs {
+                    let role = match spec.role.as_str() {
+                        "cortex" => Role::Cortex,
+                        "organ" => Role::Organ,
+                        "internal" => Role::Internal,
+                        _ => {
+                            return Err(format!(
+                                "agent credential `{subject}` has unsupported role `{}`",
+                                spec.role
+                            ));
+                        }
+                    };
+                    if bindings.iter().any(|binding: &AgentCredentialBinding| {
+                        super::middleware::constant_time_eq(
+                            binding.token.as_bytes(),
+                            spec.token.as_bytes(),
+                        )
+                    }) {
+                        return Err("agent credential tokens must be unique".into());
+                    }
+                    bindings.push(AgentCredentialBinding::new(subject, role, spec.token)?);
+                }
+                bindings
+            }
+            _ => Vec::new(),
+        };
+
+        Ok(Self {
+            cortex: std::env::var("CYNIC_API_KEY_CORTEX")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            organ: std::env::var("CYNIC_API_KEY_ORGAN")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            internal: std::env::var("CYNIC_API_KEY_INTERNAL")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            legacy,
+            agent_bindings,
+        })
+    }
+
+    /// Match a bearer token to an authenticated principal. Returns None if no match.
     /// Checks all slots with constant-time comparison — no early exit on match
     /// to prevent timing leaks about which role a token belongs to.
-    pub fn resolve(&self, token: &str) -> Option<Role> {
+    pub fn resolve(&self, token: &str) -> Option<AuthenticatedPrincipal> {
         let token_bytes = token.as_bytes();
         let mut result: Option<Role> = None;
 
@@ -97,7 +223,21 @@ impl RoleKeyMap {
         {
             result = Some(Role::Cortex);
         }
-        result
+        let mut principal = result.map(|role| AuthenticatedPrincipal {
+            subject: None,
+            role,
+            mechanism: AuthenticationMechanism::SharedBearer,
+        });
+        for binding in &self.agent_bindings {
+            if super::middleware::constant_time_eq(token_bytes, binding.token.as_bytes()) {
+                principal = Some(AuthenticatedPrincipal {
+                    subject: Some(binding.subject.clone()),
+                    role: binding.role,
+                    mechanism: AuthenticationMechanism::AgentBearer,
+                });
+            }
+        }
+        principal
     }
 
     /// True if at least one key is configured.
@@ -106,6 +246,7 @@ impl RoleKeyMap {
             || self.organ.is_some()
             || self.internal.is_some()
             || self.legacy.is_some()
+            || !self.agent_bindings.is_empty()
     }
 }
 
@@ -199,11 +340,11 @@ pub struct AppState {
     pub dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
     /// Soma L2: Slot semaphore map — per-Dog permit tracking for slot coordination.
     /// Initialized by the health loop at boot; Judge::evaluate acquires/releases permits.
-    pub slot_semaphores: Arc<crate::domain::slot_semaphore::SlotSemaphoreMap>,
+    pub slot_semaphores: Arc<SlotSemaphoreMap>,
     /// Soma L2: Slot utilization tracker — updated by health loop every 30s.
     /// Consumers: /judge (skip saturated Dogs), /health (expose utilization),
     /// GET /inference/slots (external dispatch query).
-    pub slot_tracker: Arc<crate::domain::slot_tracker::SlotTracker>,
+    pub slot_tracker: Arc<SlotTracker>,
     /// Soma L4: Inference proxy routing table — maps dog_id → upstream llama-server URL.
     pub proxy_targets: Arc<cynic_inference::application::proxy_routing::ProxyTargets>,
     /// Mail service — organis email operations (inbox, send, sync).

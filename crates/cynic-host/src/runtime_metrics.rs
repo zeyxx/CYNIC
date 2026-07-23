@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use crate::conformance::HostConformanceReport;
 use crate::domain::shared::SurfaceStatus;
+use crate::forgejo_control::current_forgejo_plan;
 use cynic_protocol::RuntimeProofBundle;
 
 pub const HOST_RUNTIME_METRICS_SCHEMA: &str = "cynic.host.runtime_metrics.v1";
@@ -78,6 +79,7 @@ fn host_runtime_metrics_with_now(
         portability_metric(),
         distributed_formation_metric(external_proof),
         architecture_boundary_metric(external_proof),
+        sovereign_git_metric(),
         security_posture_metric(report),
         observability_coverage_metric(report),
     ];
@@ -148,16 +150,16 @@ fn conformance_metric(report: &HostConformanceReport) -> RuntimeMetric {
         .iter()
         .filter(|gate| gate.status == "satisfied")
         .count();
-    measured_metric(
-        "host_conformance_percent",
-        "Host conformance",
+    measured_metric(MeasuredMetricSpec {
+        id: "host_conformance_percent",
+        label: "Host conformance",
         numerator,
         denominator,
-        "cynic.host.conformance.v1/gates",
-        95,
-        true,
-        format!("satisfied_gates={numerator}/{denominator}"),
-    )
+        source: "cynic.host.conformance.v1/gates",
+        target_percent: 95,
+        critical: true,
+        detail: format!("satisfied_gates={numerator}/{denominator}"),
+    })
 }
 
 fn bootstrap_stage_metric(report: &HostConformanceReport) -> RuntimeMetric {
@@ -171,19 +173,19 @@ fn bootstrap_stage_metric(report: &HostConformanceReport) -> RuntimeMetric {
             } else {
                 usize::min(reached + 1, denominator)
             };
-            measured_metric(
-                "bootstrap_stage_percent",
-                "Bootstrap stage",
+            measured_metric(MeasuredMetricSpec {
+                id: "bootstrap_stage_percent",
+                label: "Bootstrap stage",
                 numerator,
                 denominator,
-                "cynic.host_bootstrap_evidence.v1",
-                90,
-                true,
-                format!(
+                source: "cynic.host_bootstrap_evidence.v1",
+                target_percent: 90,
+                critical: true,
+                detail: format!(
                     "target_stage={} reached_stage={}",
                     report.bootstrap_evidence.target_stage, report.bootstrap_evidence.reached_stage
                 ),
-            )
+            })
         }
         _ => unknown_metric(
             "bootstrap_stage_percent",
@@ -213,16 +215,16 @@ fn proof_freshness_metric(
             now_unix_ms.saturating_sub(proof.observed_at_unix_ms) <= proof_freshness_max_age_ms
         })
         .count();
-    measured_metric(
-        "proof_freshness_percent",
-        "Proof freshness",
+    measured_metric(MeasuredMetricSpec {
+        id: "proof_freshness_percent",
+        label: "Proof freshness",
         numerator,
         denominator,
-        "cynic.runtime_proof_bundle.v1",
-        95,
-        true,
-        format!("fresh_proofs={numerator}/{denominator}"),
-    )
+        source: "cynic.runtime_proof_bundle.v1",
+        target_percent: 95,
+        critical: true,
+        detail: format!("fresh_proofs={numerator}/{denominator}"),
+    })
 }
 
 fn desired_vs_observed_metric(report: &HostConformanceReport) -> RuntimeMetric {
@@ -237,16 +239,16 @@ fn desired_vs_observed_metric(report: &HostConformanceReport) -> RuntimeMetric {
         .iter()
         .filter(|status| **status == SurfaceStatus::Active)
         .count();
-    measured_metric(
-        "desired_vs_observed_percent",
-        "Desired vs observed",
+    measured_metric(MeasuredMetricSpec {
+        id: "desired_vs_observed_percent",
+        label: "Desired vs observed",
         numerator,
         denominator,
-        "cynic-host/usecases/HostObservationReports",
-        95,
-        true,
-        format!("active_host_domains={numerator}/{denominator}"),
-    )
+        source: "cynic-host/usecases/HostObservationReports",
+        target_percent: 95,
+        critical: true,
+        detail: format!("active_host_domains={numerator}/{denominator}"),
+    })
 }
 
 fn security_posture_metric(report: &HostConformanceReport) -> RuntimeMetric {
@@ -259,16 +261,16 @@ fn security_posture_metric(report: &HostConformanceReport) -> RuntimeMetric {
         .iter()
         .filter(|status| **status == SurfaceStatus::Active)
         .count();
-    measured_metric(
-        "security_posture_percent",
-        "Security posture",
+    measured_metric(MeasuredMetricSpec {
+        id: "security_posture_percent",
+        label: "Security posture",
         numerator,
         denominator,
-        "principal+privilege observation",
-        95,
-        true,
-        format!("active_security_domains={numerator}/{denominator}"),
-    )
+        source: "principal+privilege observation",
+        target_percent: 95,
+        critical: true,
+        detail: format!("active_security_domains={numerator}/{denominator}"),
+    })
 }
 
 fn observability_coverage_metric(report: &HostConformanceReport) -> RuntimeMetric {
@@ -280,16 +282,16 @@ fn observability_coverage_metric(report: &HostConformanceReport) -> RuntimeMetri
     numerator += 1; // services observation emitted
     numerator += usize::from(!report.bootstrap_evidence.stages.is_empty());
     numerator += usize::from(!report.proof_bundle.proofs.is_empty());
-    measured_metric(
-        "observability_coverage_percent",
-        "Observability coverage",
+    measured_metric(MeasuredMetricSpec {
+        id: "observability_coverage_percent",
+        label: "Observability coverage",
         numerator,
         denominator,
-        "host observation + bootstrap evidence + proof bundle",
-        80,
-        false,
-        format!("observable_surfaces={numerator}/{denominator}"),
-    )
+        source: "host observation + bootstrap evidence + proof bundle",
+        target_percent: 80,
+        critical: false,
+        detail: format!("observable_surfaces={numerator}/{denominator}"),
+    })
 }
 
 fn runtime_uptime_metric() -> RuntimeMetric {
@@ -339,31 +341,63 @@ fn portability_metric() -> RuntimeMetric {
 fn distributed_formation_metric(external_proof: Option<&RuntimeProofBundle>) -> RuntimeMetric {
     proof_gate_metric(
         external_proof,
-        "distributed_formation_percent",
-        "Distributed formation",
-        "distributed_formation_observed",
-        "network/constellation runtime proof",
-        90,
-        true,
-        "requires N-node reachability and service-formation evidence",
+        &ProofGateMetricSpec {
+            id: "distributed_formation_percent",
+            label: "Distributed formation",
+            gate: "distributed_formation_observed",
+            source: "network/constellation runtime proof",
+            target_percent: 90,
+            critical: true,
+            missing_detail: "requires N-node reachability and service-formation evidence",
+        },
     )
 }
 
 fn architecture_boundary_metric(external_proof: Option<&RuntimeProofBundle>) -> RuntimeMetric {
     proof_gate_metric(
         external_proof,
-        "architecture_boundary_percent",
-        "Architecture boundary",
-        "architecture_boundary_verified",
-        "architecture tests",
-        95,
-        true,
-        "requires test execution evidence, not host runtime observation",
+        &ProofGateMetricSpec {
+            id: "architecture_boundary_percent",
+            label: "Architecture boundary",
+            gate: "architecture_boundary_verified",
+            source: "architecture tests",
+            target_percent: 95,
+            critical: true,
+            missing_detail: "requires test execution evidence, not host runtime observation",
+        },
     )
 }
 
-fn proof_gate_metric(
-    external_proof: Option<&RuntimeProofBundle>,
+fn sovereign_git_metric() -> RuntimeMetric {
+    match current_forgejo_plan() {
+        Ok(plan) => measured_metric(MeasuredMetricSpec {
+            id: "sovereign_git_percent",
+            label: "Sovereign git",
+            numerator: usize::from(plan.status == "ready" && plan.actions.is_empty()),
+            denominator: 1,
+            source: "cynic.forgejo.plan.v1",
+            target_percent: 95,
+            critical: true,
+            detail: format!(
+                "forgejo status={} pending_actions={} blockers={}",
+                plan.status,
+                plan.actions.len(),
+                plan.blockers.join(",")
+            ),
+        }),
+        Err(error) => unknown_metric(
+            "sovereign_git_percent",
+            "Sovereign git",
+            "cynic.forgejo.plan.v1",
+            95,
+            true,
+            error,
+        ),
+    }
+}
+
+#[derive(Debug)]
+struct ProofGateMetricSpec {
     id: &'static str,
     label: &'static str,
     gate: &'static str,
@@ -371,35 +405,55 @@ fn proof_gate_metric(
     target_percent: u8,
     critical: bool,
     missing_detail: &'static str,
+}
+
+#[derive(Debug)]
+struct MeasuredMetricSpec {
+    id: &'static str,
+    label: &'static str,
+    numerator: usize,
+    denominator: usize,
+    source: &'static str,
+    target_percent: u8,
+    critical: bool,
+    detail: String,
+}
+
+fn proof_gate_metric(
+    external_proof: Option<&RuntimeProofBundle>,
+    spec: &ProofGateMetricSpec,
 ) -> RuntimeMetric {
-    match external_proof.and_then(|bundle| proof_gate_state(bundle, gate)) {
-        Some(ProofGateState::Satisfied) => measured_metric(
-            id,
-            label,
-            1,
-            1,
-            source,
-            target_percent,
-            critical,
-            format!("external proof gate {gate} is satisfied"),
-        ),
-        Some(ProofGateState::Blocked) => measured_metric(
-            id,
-            label,
-            0,
-            1,
-            source,
-            target_percent,
-            critical,
-            format!("external proof gate {gate} is present but not satisfied"),
-        ),
+    match external_proof.and_then(|bundle| proof_gate_state(bundle, spec.gate)) {
+        Some(ProofGateState::Satisfied) => measured_metric(MeasuredMetricSpec {
+            id: spec.id,
+            label: spec.label,
+            numerator: 1,
+            denominator: 1,
+            source: spec.source,
+            target_percent: spec.target_percent,
+            critical: spec.critical,
+            detail: format!("external proof gate {} is satisfied", spec.gate),
+        }),
+        Some(ProofGateState::Blocked) => measured_metric(MeasuredMetricSpec {
+            id: spec.id,
+            label: spec.label,
+            numerator: 0,
+            denominator: 1,
+            source: spec.source,
+            target_percent: spec.target_percent,
+            critical: spec.critical,
+            detail: format!(
+                "external proof gate {} is present but not satisfied",
+                spec.gate
+            ),
+        }),
         None => unknown_metric(
-            id,
-            label,
-            source,
-            target_percent,
-            critical,
-            missing_detail.to_string(),
+            spec.id,
+            spec.label,
+            spec.source,
+            spec.target_percent,
+            spec.critical,
+            spec.missing_detail.to_string(),
         ),
     }
 }
@@ -424,35 +478,26 @@ fn proof_gate_state(bundle: &RuntimeProofBundle, gate: &str) -> Option<ProofGate
         })
 }
 
-fn measured_metric(
-    id: &'static str,
-    label: &'static str,
-    numerator: usize,
-    denominator: usize,
-    source: &'static str,
-    target_percent: u8,
-    critical: bool,
-    detail: String,
-) -> RuntimeMetric {
-    let percent = percent(numerator, denominator);
-    let status = if percent >= target_percent {
+fn measured_metric(spec: MeasuredMetricSpec) -> RuntimeMetric {
+    let percent = percent(spec.numerator, spec.denominator);
+    let status = if percent >= spec.target_percent {
         "within_target"
-    } else if critical {
+    } else if spec.critical {
         "below_target"
     } else {
         "watch"
     };
     RuntimeMetric {
-        id,
-        label,
+        id: spec.id,
+        label: spec.label,
         percent: Some(percent),
-        target_percent,
-        critical,
+        target_percent: spec.target_percent,
+        critical: spec.critical,
         status,
-        numerator: Some(numerator),
-        denominator: Some(denominator),
-        source,
-        detail,
+        numerator: Some(spec.numerator),
+        denominator: Some(spec.denominator),
+        source: spec.source,
+        detail: spec.detail,
     }
 }
 
@@ -479,11 +524,12 @@ fn unknown_metric(
 }
 
 fn percent(numerator: usize, denominator: usize) -> u8 {
-    if denominator == 0 {
-        0
-    } else {
-        ((numerator * 100) / denominator) as u8
-    }
+    let percent = match numerator.checked_mul(100) {
+        Some(numerator_x100) => numerator_x100.checked_div(denominator).unwrap_or(0),
+        None => u8::MAX as usize,
+    };
+    let percent = percent.min(100);
+    u8::try_from(percent).unwrap_or(u8::MAX)
 }
 
 fn bootstrap_stage_index(stage: &str) -> Option<usize> {
@@ -534,6 +580,7 @@ mod tests {
                 group_present: true,
                 observed_home_dir: Some(policy.home_dir.clone()),
                 present_state_dirs: policy.state_dirs.clone(),
+                owned_paths: policy.managed_paths(),
             }
         }
     }
@@ -578,6 +625,52 @@ mod tests {
                         active: true,
                     })
                     .collect(),
+            }
+        }
+    }
+
+    impl crate::ports::HostHardwareObservationPort for ReadyObserver {
+        fn observe_hardware(&self) -> crate::hardware_conformance::HardwareObservation {
+            let inventory = crate::hardware_conformance::HardwareInventory {
+                board_name: Some("fixture".to_string()),
+                cpu_model: Some("fixture".to_string()),
+                devices: vec![crate::hardware_conformance::HardwareDevice {
+                    bus: "fixture".to_string(),
+                    address: "0".to_string(),
+                    class: None,
+                    vendor_id: None,
+                    device_id: None,
+                    model: None,
+                    firmware: None,
+                    driver: None,
+                }],
+                ..Default::default()
+            };
+            crate::hardware_conformance::HardwareObservation {
+                baseline_digest: cynic_protocol::digest_json(&inventory).ok(),
+                inventory,
+                firmware_version: Some("test-firmware".to_string()),
+                max_temperature_millicelsius: Some(40_000),
+                corrected_memory_errors: Some(0),
+                uncorrected_memory_errors: Some(0),
+                storage_device_count: 1,
+                offline_memory_test: crate::hardware_conformance::EvidenceState::Satisfied,
+                memory_tuning: crate::hardware_conformance::EvidenceState::Satisfied,
+                runtime_tuning_overrides: Vec::new(),
+            }
+        }
+    }
+
+    impl crate::ports::PreOsPlatformObservationPort for ReadyObserver {
+        fn observe_pre_os_platform(&self) -> cynic_protocol::PreOsPlatformObservation {
+            cynic_protocol::PreOsPlatformObservation {
+                schema: cynic_protocol::PRE_OS_PLATFORM_OBSERVATION_SCHEMA.to_string(),
+                platform: "test".to_string(),
+                controls: vec![cynic_protocol::PreOsControlKind::Hypervisor],
+                boot_once: cynic_protocol::SecurityEvidenceState::Proven,
+                artifact_discovery: cynic_protocol::SecurityEvidenceState::Proven,
+                attestation_sink: cynic_protocol::SecurityEvidenceState::Proven,
+                evidence_refs: vec!["fixture:pre-os".to_string()],
             }
         }
     }

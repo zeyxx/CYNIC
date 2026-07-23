@@ -42,6 +42,7 @@ mod network_repair;
 mod network_root_policy;
 mod network_runtime_proof;
 mod network_runtime_status;
+mod network_surface_inventory;
 mod network_shadow_proof;
 mod observe;
 mod provider_fallback_hosts;
@@ -67,8 +68,9 @@ use clap::Parser;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
-use crate::cli::{Cli, Commands};
+use crate::cli::{Cli, Commands, ReleaseCommands};
 use crate::usecases::network_surfaces_uc;
+use crate::usecases::runtime_artifact_release_uc;
 
 // ── Signal handler ────────────────────────────────────────────────────────────
 
@@ -129,8 +131,29 @@ async fn main() -> ExitCode {
                 fail_on_critical,
             );
         }
+        Some(Commands::RegistryObservation {
+            json: _,
+            registry,
+            output,
+        }) => {
+            return network_surfaces_uc::execute_registry_observation(&registry, output.as_deref());
+        }
         Some(Commands::Network { command }) => {
             return network_surfaces_uc::execute_network_command(&command);
+        }
+        Some(Commands::Release { command }) => {
+            return match command {
+                ReleaseCommands::Reconcile {
+                    spec,
+                    lifecycle_state,
+                    yes,
+                    json: _,
+                } => runtime_artifact_release_uc::execute_reconcile(
+                    &spec,
+                    lifecycle_state.as_deref(),
+                    yes,
+                ),
+            };
         }
         None => {}
     }
@@ -203,44 +226,6 @@ async fn main() -> ExitCode {
 
     let shutdown = CancellationToken::new();
     install_signal_handler(shutdown.clone());
-
-    // ── Optional MCP proxy (--mcp flag, requires `mcp` feature) ──
-    #[cfg(feature = "mcp")]
-    if cli.mcp {
-        let rest_addr = cfg.kernel.url.clone();
-        let api_key = cfg.kernel.api_key.clone();
-        let project_root = std::env::current_dir()
-            .unwrap_or_else(|_| std::path::PathBuf::from("."))
-            .display()
-            .to_string();
-
-        tracing::info!("MCP proxy enabled — serving on stdio alongside supervision");
-
-        let proxy = cynic_mcp::proxy::CynicMcpProxy::new(rest_addr, api_key, project_root);
-        let sd = shutdown.clone();
-
-        tokio::spawn(async move {
-            use rmcp::ServiceExt;
-            let transport = rmcp::transport::io::stdio();
-            match proxy.serve(transport).await {
-                Ok(server) => {
-                    tokio::select! {
-                        _ = server.waiting() => {}
-                        _ = sd.cancelled() => {
-                            tracing::info!("MCP proxy shutting down");
-                        }
-                    }
-                }
-                Err(e) => tracing::error!("MCP proxy failed to start: {e}"),
-            }
-        });
-    }
-
-    #[cfg(not(feature = "mcp"))]
-    if cli.mcp {
-        tracing::error!("--mcp requires building with --features mcp");
-        return ExitCode::FAILURE;
-    }
 
     runtime_supervision::run_node(&client, config_path, cfg, &shutdown).await
 }

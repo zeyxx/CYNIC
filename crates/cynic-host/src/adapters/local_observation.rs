@@ -1,3 +1,4 @@
+use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
 use crate::domain::packages::PackageObservedState;
@@ -5,8 +6,9 @@ use crate::domain::principal::{PrincipalObservedState, PrincipalPolicy};
 use crate::domain::privilege::{PrivilegeObservedState, PrivilegePolicy};
 use crate::domain::services::{ServiceObservedState, ServiceObservedUnit, ServicePolicy};
 use crate::ports::{
-    HostPackageObservationPort, HostPrincipalObservationPort, HostPrivilegeObservationPort,
-    HostServiceObservationPort,
+    HostHardwareObservationPort, HostPackageObservationPort, HostPrincipalObservationPort,
+    HostPrivilegeBridgeObservationPort, HostPrivilegeObservationPort, HostServiceObservationPort,
+    PreOsPlatformObservationPort,
 };
 use crate::process_observation::{command_exit_success, command_stdout};
 use crate::runtime_layout::current_runtime_layout;
@@ -14,6 +16,202 @@ use crate::service_supervisor_observation::observe_service_supervisor;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalHostObservationAdapter;
+
+impl PreOsPlatformObservationPort for LocalHostObservationAdapter {
+    fn observe_pre_os_platform(&self) -> cynic_protocol::PreOsPlatformObservation {
+        crate::adapters::local_pre_os::LocalPreOsAdapter.observe_pre_os_platform()
+    }
+}
+
+impl HostHardwareObservationPort for LocalHostObservationAdapter {
+    fn observe_hardware(&self) -> crate::hardware_conformance::HardwareObservation {
+        crate::hardware_conformance::HardwareObservation {
+            inventory: observe_hardware_inventory(),
+            baseline_digest: load_hardware_baseline_digest(),
+            firmware_version: std::fs::read_to_string("/sys/class/dmi/id/bios_version")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty()),
+            max_temperature_millicelsius: read_numeric_children("/sys/class/thermal", "temp")
+                .into_iter()
+                .max(),
+            corrected_memory_errors: sum_numeric_children(
+                "/sys/devices/system/edac/mc",
+                "ce_count",
+            ),
+            uncorrected_memory_errors: sum_numeric_children(
+                "/sys/devices/system/edac/mc",
+                "ue_count",
+            ),
+            storage_device_count: std::fs::read_dir("/sys/class/block")
+                .map(|entries| entries.filter_map(Result::ok).count())
+                .unwrap_or(0),
+            offline_memory_test: crate::hardware_conformance::EvidenceState::Unknown,
+            memory_tuning: crate::hardware_conformance::EvidenceState::Unknown,
+            runtime_tuning_overrides: observe_runtime_tuning_overrides(),
+        }
+    }
+}
+
+fn observe_runtime_tuning_overrides() -> Vec<String> {
+    [
+        (
+            "amdgpu.ppfeaturemask",
+            "/sys/module/amdgpu/parameters/ppfeaturemask",
+        ),
+        ("amdgpu.gttsize", "/sys/module/amdgpu/parameters/gttsize"),
+        ("ttm.pages_limit", "/sys/module/ttm/parameters/pages_limit"),
+        (
+            "ttm.page_pool_size",
+            "/sys/module/ttm/parameters/page_pool_size",
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(name, path)| read_trimmed(path).map(|value| format!("{name}={value}")))
+    .collect()
+}
+
+fn load_hardware_baseline_digest() -> Option<String> {
+    let path = Path::new(&current_runtime_layout().config_dir).join("hardware-baseline.json");
+    let payload = std::fs::read(path).ok()?;
+    let baseline =
+        serde_json::from_slice::<crate::hardware_conformance::HardwareBaseline>(&payload).ok()?;
+    (baseline.schema == crate::hardware_conformance::HARDWARE_BASELINE_SCHEMA)
+        .then_some(baseline.inventory_digest)
+}
+
+fn observe_hardware_inventory() -> crate::hardware_conformance::HardwareInventory {
+    let mut devices = observe_pci_devices()
+        .into_iter()
+        .chain(observe_storage_devices())
+        .collect::<Vec<_>>();
+    devices.sort_by(|left, right| (&left.bus, &left.address).cmp(&(&right.bus, &right.address)));
+    crate::hardware_conformance::HardwareInventory {
+        system_vendor: read_trimmed("/sys/class/dmi/id/sys_vendor"),
+        system_product: read_trimmed("/sys/class/dmi/id/product_name"),
+        board_vendor: read_trimmed("/sys/class/dmi/id/board_vendor"),
+        board_name: read_trimmed("/sys/class/dmi/id/board_name"),
+        board_version: read_trimmed("/sys/class/dmi/id/board_version"),
+        firmware_vendor: read_trimmed("/sys/class/dmi/id/bios_vendor"),
+        firmware_date: read_trimmed("/sys/class/dmi/id/bios_date"),
+        cpu_model: cpu_model(),
+        cpu_microcode: read_trimmed("/sys/devices/system/cpu/cpu0/microcode/version"),
+        logical_cpu_count: std::thread::available_parallelism()
+            .map(std::num::NonZeroUsize::get)
+            .unwrap_or(0),
+        kernel_release: read_trimmed("/proc/sys/kernel/osrelease"),
+        devices,
+    }
+}
+
+fn read_trimmed(path: impl AsRef<Path>) -> Option<String> {
+    std::fs::read_to_string(path)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn cpu_model() -> Option<String> {
+    std::fs::read_to_string("/proc/cpuinfo")
+        .ok()?
+        .lines()
+        .find_map(|line| line.strip_prefix("model name\t:").map(str::trim))
+        .map(str::to_string)
+}
+
+fn observe_pci_devices() -> Vec<crate::hardware_conformance::HardwareDevice> {
+    let Ok(entries) = std::fs::read_dir("/sys/bus/pci/devices") else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| {
+            let path = entry.path();
+            crate::hardware_conformance::HardwareDevice {
+                bus: "pci".to_string(),
+                address: entry.file_name().to_string_lossy().into_owned(),
+                class: read_trimmed(path.join("class")),
+                vendor_id: read_trimmed(path.join("vendor")),
+                device_id: read_trimmed(path.join("device")),
+                model: None,
+                firmware: None,
+                driver: std::fs::read_link(path.join("driver"))
+                    .ok()
+                    .and_then(|driver| {
+                        driver
+                            .file_name()
+                            .map(|name| name.to_string_lossy().into_owned())
+                    }),
+            }
+        })
+        .collect()
+}
+
+fn observe_storage_devices() -> Vec<crate::hardware_conformance::HardwareDevice> {
+    let Ok(entries) = std::fs::read_dir("/sys/class/block") else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(Result::ok)
+        .filter(|entry| !entry.path().join("partition").exists())
+        .filter(|entry| !entry.file_name().to_string_lossy().starts_with("loop"))
+        .map(|entry| {
+            let path = entry.path();
+            crate::hardware_conformance::HardwareDevice {
+                bus: "block".to_string(),
+                address: entry.file_name().to_string_lossy().into_owned(),
+                class: None,
+                vendor_id: read_trimmed(path.join("device/vendor")),
+                device_id: None,
+                model: read_trimmed(path.join("device/model")),
+                firmware: read_trimmed(path.join("device/firmware_rev"))
+                    .or_else(|| read_trimmed(path.join("device/rev"))),
+                driver: std::fs::read_link(path.join("device/driver"))
+                    .ok()
+                    .and_then(|driver| {
+                        driver
+                            .file_name()
+                            .map(|name| name.to_string_lossy().into_owned())
+                    }),
+            }
+        })
+        .collect()
+}
+
+fn read_numeric_children(root: &str, file_name: &str) -> Vec<i64> {
+    let mut values = Vec::new();
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return values;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path().join(file_name);
+        if let Ok(value) = std::fs::read_to_string(path)
+            && let Ok(value) = value.trim().parse()
+        {
+            values.push(value);
+        }
+    }
+    values
+}
+
+fn sum_numeric_children(root: &str, file_name: &str) -> Option<u64> {
+    let values = read_numeric_children(root, file_name);
+    (!values.is_empty()).then(|| {
+        values
+            .into_iter()
+            .filter_map(|value| u64::try_from(value).ok())
+            .sum()
+    })
+}
+
+impl HostPrivilegeBridgeObservationPort for LocalHostObservationAdapter {
+    fn observe_privilege_bridge(
+        &self,
+        spec: &crate::bridge::PrivilegeBridgeInstallSpec,
+    ) -> crate::bridge::PrivilegeBridgeObservedState {
+        super::privilege_bridge::observe(spec)
+    }
+}
 
 impl HostPrincipalObservationPort for LocalHostObservationAdapter {
     fn observe_principal(&self, policy: &PrincipalPolicy) -> PrincipalObservedState {
@@ -25,6 +223,14 @@ impl HostPrincipalObservationPort for LocalHostObservationAdapter {
             .as_deref()
             .and_then(|line| line.split(':').nth(5))
             .map(str::to_string);
+        let expected_uid = passwd
+            .as_deref()
+            .and_then(|line| line.split(':').nth(2))
+            .and_then(|value| value.parse::<u32>().ok());
+        let expected_gid = group
+            .as_deref()
+            .and_then(|line| line.split(':').nth(2))
+            .and_then(|value| value.parse::<u32>().ok());
 
         PrincipalObservedState {
             user_present: passwd.is_some(),
@@ -36,8 +242,21 @@ impl HostPrincipalObservationPort for LocalHostObservationAdapter {
                 .filter(|path| Path::new(path.as_str()).is_dir())
                 .cloned()
                 .collect(),
+            owned_paths: policy
+                .managed_paths()
+                .into_iter()
+                .filter(|path| path_owned_by(path, expected_uid, expected_gid))
+                .collect(),
         }
     }
+}
+
+fn path_owned_by(path: &str, expected_uid: Option<u32>, expected_gid: Option<u32>) -> bool {
+    let (Some(expected_uid), Some(expected_gid)) = (expected_uid, expected_gid) else {
+        return false;
+    };
+    std::fs::metadata(path)
+        .is_ok_and(|metadata| metadata.uid() == expected_uid && metadata.gid() == expected_gid)
 }
 
 impl HostPrivilegeObservationPort for LocalHostObservationAdapter {

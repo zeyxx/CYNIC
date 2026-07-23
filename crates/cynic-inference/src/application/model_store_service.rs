@@ -43,8 +43,8 @@ impl ModelStoreService {
         self.hf.status(&self.layout)
     }
 
-    pub fn hf_download(&self, req: HfDownloadRequest) -> Result<HfDownloadReport, HfHubError> {
-        let report = self.hf.download(&self.layout, &req)?;
+    pub fn hf_download(&self, req: &HfDownloadRequest) -> Result<HfDownloadReport, HfHubError> {
+        let report = self.hf.download(&self.layout, req)?;
         // Refresh registry after successful vault download
         if report.ok {
             let _ = self.scan_and_persist();

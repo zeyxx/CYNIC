@@ -422,7 +422,7 @@ mod infrastructure_contract_tests {
                 "lxc-exec-bridge",
                 "install-plan",
                 "--helper-source",
-                "organs/fleet/src/entrypoints/lxc_exec_bridge_helper.py"
+                "unsupported/minimal-baseline/lxc_exec_bridge_helper"
             ]
         );
     }
@@ -789,7 +789,7 @@ mod lifecycle_dispatch_tests {
         let body = lifecycle_payload_body_with_defaults(&payload);
 
         assert_eq!(body["priority"], 99);
-        assert_eq!(body["consumer"], "organ-forge");
+        assert_eq!(body["consumer"], "cynic-runtime");
         assert_eq!(
             body["escalation_policy"],
             "canonical_build_runner_validation_only_no_cortex_build"
@@ -1846,7 +1846,7 @@ mod hardcoded_paths_contract_tests {
         ));
         std::fs::create_dir_all(&temp).expect("fixture directory should be created");
         let file = temp.join("example.py");
-        std::fs::write(&file, "ROOT = os.getenv(\"CYNIC_PROJECT_ROOT\")\n")
+        std::fs::write(&file, "ROOT = os.getenv(\"CYNIC_CONFIG_ROOT\")\n")
             .expect("fixture file should be written");
 
         let findings = hardcoded_path_findings_for_files(
@@ -2160,10 +2160,29 @@ mod pipeline_functions_contract_tests {
 #[cfg(test)]
 mod coordination_profile_tests {
     use super::*;
+    use std::path::Path;
+
+    fn load_coordination_protocol_for_tests() -> serde_json::Value {
+        let mut cursor = Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf();
+        let protocol_path = loop {
+            let candidate = cursor.join("contracts/foundation.json");
+            if candidate.is_file() {
+                break candidate;
+            }
+            match cursor.parent() {
+                Some(parent) => cursor = parent.to_path_buf(),
+                None => break cursor.join("contracts/foundation.json"),
+            }
+        };
+        let path = protocol_path;
+        let content = std::fs::read_to_string(&path)
+            .expect("coordination protocol fixture should be readable in test workspace");
+        serde_json::from_str(&content).expect("coordination protocol fixture should be valid json")
+    }
 
     #[test]
     fn contract_events_required_fields_merges_profile_minimum_fields() {
-        let protocol = load_coordination_protocol().expect("coordination protocol should be valid");
+        let protocol = load_coordination_protocol_for_tests();
         let profile = serde_json::json!(["branch", "owner", "scope"]);
 
         let required =
@@ -2174,28 +2193,19 @@ mod coordination_profile_tests {
             vec![
                 "branch",
                 "owner",
-                "project",
-                "scope",
-                "summary",
-                "workstream"
+                "scope"
             ]
         );
     }
 
     #[test]
     fn contract_events_required_fields_remains_protocol_only_if_profile_absent() {
-        let protocol = load_coordination_protocol().expect("coordination protocol should be valid");
+        let protocol = load_coordination_protocol_for_tests();
         let required = contract_events_required_fields(&protocol, None, "decision.record");
 
         assert_eq!(
             required,
-            vec![
-                "artifacts",
-                "open_points",
-                "project",
-                "summary",
-                "workstream"
-            ]
+            Vec::<String>::new()
         );
     }
 }

@@ -11,6 +11,8 @@ use crate::network_command_surface::NetworkCommandInvocation;
 
 fn sample_plan(with_dns: bool) -> MeshPlanFile {
     MeshPlanFile {
+        schema: "cynic.network_mesh_plan.v1".to_string(),
+        status: "planned".to_string(),
         provider: "wireguard".to_string(),
         cidr: Some("10.30.0.0/24".to_string()),
         desired_peer_count: 2,

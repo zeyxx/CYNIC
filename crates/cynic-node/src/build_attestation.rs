@@ -106,9 +106,22 @@ pub(crate) fn runtime_binary_attestation(registry_path: Option<&str>) -> BinaryA
 
     BinaryAttestation {
         crate_version: env!("CARGO_PKG_VERSION"),
-        git_hash: option_env!("CYNIC_BUILD_GIT_HASH").unwrap_or("unknown_hash"),
-        git_branch: option_env!("CYNIC_BUILD_GIT_BRANCH").unwrap_or("unknown_branch"),
-        build_date: option_env!("CYNIC_BUILD_DATE").unwrap_or("unknown_date"),
+        git_hash: {
+            let val = option_env!("CYNIC_BUILD_GIT_HASH").unwrap_or("unknown_hash");
+            if val.is_empty() { "unknown_hash" } else { val }
+        },
+        git_branch: {
+            let val = option_env!("CYNIC_BUILD_GIT_BRANCH").unwrap_or("unknown_branch");
+            if val.is_empty() {
+                "unknown_branch"
+            } else {
+                val
+            }
+        },
+        build_date: {
+            let val = option_env!("CYNIC_BUILD_DATE").unwrap_or("unknown_date");
+            if val.is_empty() { "unknown_date" } else { val }
+        },
         executable_path: executable_path.map(path_to_string),
         executable_sha256,
         executable_size_bytes,
@@ -135,7 +148,7 @@ impl BinaryAttestation {
             path_matches_expected: self.path_matches_expected,
             evidence_sources: vec![
                 format!("{DEFAULT_REGISTRY_PATH}:lifecycle.kernel_release.runtime_artifacts"),
-                "infra/systemd/cynic-node.service:ExecStart=%h/bin/cynic-node".to_string(),
+                "infra/systemd/cynic-node.service:ExecStart=/usr/local/bin/cynic-node".to_string(),
                 "contracts/foundation.json:constitutional.runtime_authority_order".to_string(),
                 "Cargo.toml:workspace.members includes crates/cynic-node".to_string(),
             ],
@@ -150,10 +163,10 @@ fn proposed_runtime_artifact() -> RuntimeArtifactProposal {
         kind: "rust_binary",
         owner: "cynic-node",
         build_targets: vec!["crates/cynic-node"],
-        publish_path: "%h/bin/cynic-node",
+        publish_path: "/usr/local/bin/cynic-node",
         primary_runtime_role: "all_runtime_nodes",
         rationale_sources: vec![
-            "infra/systemd/cynic-node.service:ExecStart=%h/bin/cynic-node",
+            "infra/systemd/cynic-node.service:ExecStart=/usr/local/bin/cynic-node",
             "contracts/foundation.json:constitutional.runtime_authority_order",
             "Cargo.toml:workspace.members includes crates/cynic-node",
         ],
@@ -258,11 +271,11 @@ mod tests {
             r#"{{
               "lifecycle": {{
                 "kernel_release": {{
-                  "runtime_artifacts": [
+                    "runtime_artifacts": [
                     {{
                       "name": "cynic-node",
                       "publish": {{
-                        "path": "%h/bin/cynic-node"
+                        "path": "/usr/local/bin/cynic-node"
                       }}
                     }}
                   ]
@@ -272,10 +285,9 @@ mod tests {
         )
         .expect("write registry");
 
-        let expected = std::env::var("HOME").unwrap_or_else(|_| "%h".to_string());
         assert_eq!(
             expected_publish_path(Some(&file.path().to_string_lossy())),
-            Some(format!("{expected}/bin/cynic-node"))
+            Some("/usr/local/bin/cynic-node".to_string())
         );
     }
 

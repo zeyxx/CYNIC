@@ -252,6 +252,7 @@ pub fn resolve_host(name: &str) -> CommandObservation {
     command_json(&resolver_command, &["hosts", name])
 }
 
+#[cfg(test)]
 fn tcp_status_from_connection_result(connection_result: std::io::Result<()>) -> &'static str {
     match connection_result {
         Ok(()) => "open",
@@ -277,24 +278,48 @@ where
 }
 
 pub fn tcp_probe(host: &str, port: u16) -> TcpObservation {
-    let address = format!("{host}:{port}");
-    let status = std::net::ToSocketAddrs::to_socket_addrs(&address)
-        .ok()
-        .and_then(|addrs| addrs.into_iter().next())
-        .map(|addr| {
-            tcp_status_from_connection_result(
-                std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(2)).map(|_| ()),
-            )
-            .to_string()
-        })
-        .unwrap_or_else(|| {
-            tcp_status_from_resolution::<Vec<std::net::SocketAddr>>(None).to_string()
-        });
+    tcp_probe_with_timeout(host, port, Duration::from_secs(2))
+}
+
+pub fn tcp_probe_with_timeout(host: &str, port: u16, timeout: Duration) -> TcpObservation {
+    let addresses = resolve_socket_addresses(host, port);
+    let status = if addresses.is_empty() {
+        tcp_status_from_resolution::<Vec<std::net::SocketAddr>>(None).to_string()
+    } else {
+        let mut saw_timeout = false;
+        let mut open = false;
+        for address in addresses {
+            match std::net::TcpStream::connect_timeout(&address, timeout) {
+                Ok(_) => {
+                    open = true;
+                    break;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::TimedOut => {
+                    saw_timeout = true;
+                }
+                Err(_) => {}
+            }
+        }
+        if open {
+            "open"
+        } else if saw_timeout {
+            "timeout"
+        } else {
+            "closed"
+        }
+        .to_string()
+    };
     TcpObservation {
         host: host.to_string(),
         port,
         status,
     }
+}
+
+pub fn resolve_socket_addresses(host: &str, port: u16) -> Vec<std::net::SocketAddr> {
+    std::net::ToSocketAddrs::to_socket_addrs(&(host, port))
+        .map(|addresses| addresses.collect())
+        .unwrap_or_default()
 }
 
 pub fn tcp_open(value: &TcpObservation) -> bool {

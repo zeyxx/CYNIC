@@ -13,7 +13,12 @@ mod reports;
 mod status;
 
 pub use command_context::HostCommandContext;
-pub use execution::execute_host_apply;
+#[cfg(test)]
+pub(crate) use execution::execute_service_apply_with_admission;
+pub use execution::{
+    execute_admitted_service_apply, execute_host_apply, execute_runtime_service_reconcile,
+    service_apply_satisfied_preconditions,
+};
 pub use planning::{
     build_host_activation_plan, build_host_activation_plan_with_context,
     build_host_activation_plan_with_resolution,
@@ -28,7 +33,7 @@ pub use reports::{
     HOST_OBSERVATION_SCHEMA, HostActivationPlanReport, HostApplyExecutionReport, HostApplyReport,
     HostBundleReport, HostObservationReports,
 };
-use status::blocked_domain_statuses;
+use status::{blocked_domain_statuses, canonical_projection};
 
 pub fn collect_contracts(port: &impl HostContractPort) -> Vec<SubstrateDomainContract> {
     port.declared_contracts()
@@ -75,16 +80,36 @@ pub fn observe_host_with_resolution(
     } else {
         SurfaceStatus::Blocked
     };
-
-    HostObservationReports {
+    let observed = HostObservationReports {
         schema: HOST_OBSERVATION_SCHEMA,
         host_resolution,
         status,
+        lifecycle_status: principal.lifecycle_status,
+        lifecycle_disposition: principal.lifecycle_disposition,
+        next_boundary_kind: principal.next_boundary_kind,
+        next_boundary_reason: principal.next_boundary_reason.clone(),
+        next_command: principal.next_command.clone(),
         blocked_domains,
         principal,
         privilege,
         packages,
         services,
+    };
+    let (
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command,
+    ) = canonical_projection(&observed);
+
+    HostObservationReports {
+        lifecycle_status,
+        lifecycle_disposition,
+        next_boundary_kind,
+        next_boundary_reason,
+        next_command,
+        ..observed
     }
 }
 

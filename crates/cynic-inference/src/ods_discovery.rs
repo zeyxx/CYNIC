@@ -51,17 +51,17 @@ pub async fn discover_ods_services() -> Vec<DiscoveredService> {
     for base in crate::domain::model_layout::default_ods_probe_bases() {
         let base = base.trim_end_matches('/').to_string();
         // Prefer OpenAI-compat /v1/models (ODS llama-server, many peers)
-        if let Some(s) = probe_openai_compat(&client, &base).await {
-            if seen_endpoints.insert(s.endpoint.clone()) {
-                services.push(s);
-            }
+        if let Some(s) = probe_openai_compat(&client, &base).await
+            && seen_endpoints.insert(s.endpoint.clone())
+        {
+            services.push(s);
             continue;
         }
         // Ollama native tags API (legacy / non-ODS peers on 11434)
-        if let Some(s) = probe_ollama(&client, &base).await {
-            if seen_endpoints.insert(s.endpoint.clone()) {
-                services.push(s);
-            }
+        if let Some(s) = probe_ollama(&client, &base).await
+            && seen_endpoints.insert(s.endpoint.clone())
+        {
+            services.push(s);
         }
     }
 
@@ -96,6 +96,8 @@ async fn probe_ollama(client: &reqwest::Client, base_url: &str) -> Option<Discov
 }
 
 /// Probe OpenAI-compatible `/v1/models` (ODS llama-server host API, native llama-server).
+///
+/// Tries with principal chat API key then without — peers differ on auth for `/models`.
 async fn probe_openai_compat(
     client: &reqwest::Client,
     base_url: &str,
@@ -106,22 +108,57 @@ async fn probe_openai_compat(
     } else {
         format!("{base_url}/v1/models")
     };
-    let resp = client.get(&models_url).send().await.ok()?;
-    if !resp.status().is_success() {
-        return None;
-    }
 
-    #[derive(Deserialize)]
-    struct LlamaModel {
-        id: String,
+    let api_key = crate::application::chat_endpoint::resolve_chat_api_key(None);
+    let mut auths: Vec<Option<String>> = Vec::new();
+    if let Some(k) = api_key.filter(|s| !s.is_empty()) {
+        auths.push(Some(k));
     }
-    #[derive(Deserialize)]
-    struct LlamaModelsList {
-        data: Vec<LlamaModel>,
-    }
+    auths.push(None);
 
-    let list = resp.json::<LlamaModelsList>().await.ok()?;
-    let models: Vec<String> = list.data.into_iter().map(|m| m.id).collect();
+    let mut body: Option<serde_json::Value> = None;
+    for auth in auths {
+        let mut req = client.get(&models_url);
+        if let Some(k) = auth {
+            req = req.header("Authorization", format!("Bearer {k}"));
+        }
+        let Ok(resp) = req.send().await else {
+            continue;
+        };
+        if !resp.status().is_success() {
+            continue;
+        }
+        if let Ok(v) = resp.json::<serde_json::Value>().await {
+            body = Some(v);
+            break;
+        }
+    }
+    let body = body?;
+
+    let mut models: Vec<String> = Vec::new();
+    if let Some(arr) = body.get("data").and_then(|d| d.as_array()) {
+        for m in arr {
+            if let Some(id) = m.get("id").and_then(|x| x.as_str())
+                && !id.is_empty()
+            {
+                models.push(id.to_string());
+            }
+        }
+    }
+    if models.is_empty()
+        && let Some(arr) = body.get("models").and_then(|d| d.as_array())
+    {
+        for m in arr {
+            let id = m
+                .get("model")
+                .or_else(|| m.get("name"))
+                .or_else(|| m.get("id"))
+                .and_then(|x| x.as_str());
+            if let Some(id) = id.filter(|s| !s.is_empty()) {
+                models.push(id.to_string());
+            }
+        }
+    }
 
     let endpoint = if base_url.ends_with("/v1") {
         base_url.to_string()
@@ -129,11 +166,11 @@ async fn probe_openai_compat(
         format!("{base_url}/v1")
     };
 
-    // Label by port heuristics for operator clarity
+    // Loose labels: product-agnostic first; port is a hint only (no hard ODS claim).
     let name = if endpoint.contains(":11434") {
-        "ods-llama-server".to_string()
+        "peer-11434".to_string()
     } else if endpoint.contains(":8080") {
-        "llama-server".to_string()
+        "peer-8080".to_string()
     } else {
         "openai-compat".to_string()
     };
@@ -166,7 +203,7 @@ pub async fn sync_discovered_backends() -> Result<DiscoveryReport, String> {
             let backend_name = format!(
                 "{}-{}",
                 service.name.to_lowercase(),
-                model.replace(':', "-").replace('.', "-")
+                model.replace([':', '.'], "-")
             );
 
             // Avoid duplicate name or model on the same endpoint
@@ -192,6 +229,7 @@ pub async fn sync_discovered_backends() -> Result<DiscoveryReport, String> {
                     health_url: None,
                     cli_extra_args: vec![],
                     sovereign: true,
+                    fleet_node: None,
                 });
                 backends_created += 1;
                 updated = true;
@@ -233,9 +271,9 @@ pub async fn sync_discovered_backends() -> Result<DiscoveryReport, String> {
 /// Helper that instantiates the agnostic ModelSyncPipeline with TOML and Open WebUI targets,
 /// and returns the collective results.
 pub async fn run_sync_pipeline(node_id: &str) -> Vec<PublishResult> {
-    use crate::application::model_sync_pipeline::ModelSyncPipeline;
     use crate::adapters::publishers::inference_toml::InferenceTomlPublisher;
     use crate::adapters::publishers::open_webui::OpenWebUiPublisher;
+    use crate::application::model_sync_pipeline::ModelSyncPipeline;
 
     let pipeline = ModelSyncPipeline::new(node_id.to_string())
         .with_publisher(std::sync::Arc::new(InferenceTomlPublisher))
@@ -243,4 +281,3 @@ pub async fn run_sync_pipeline(node_id: &str) -> Vec<PublishResult> {
 
     pipeline.run_sync().await
 }
-

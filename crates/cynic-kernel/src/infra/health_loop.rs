@@ -14,11 +14,10 @@ use tokio::time::{MissedTickBehavior, interval};
 use tokio_util::sync::CancellationToken;
 
 use crate::domain::health_gate::HealthGate;
-use crate::domain::slot_semaphore::SlotSemaphoreMap;
-use crate::domain::slot_tracker::SlotTracker;
 use crate::domain::storage::StoragePort;
 use crate::infra::circuit_breaker::PROBE_INTERVAL;
 use crate::infra::task_health::TaskHealth;
+use cynic_inference::{BackendSlots, SlotSemaphoreMap, SlotTracker, build_backend_slots};
 
 /// Configuration for probing a single Dog backend.
 #[derive(Debug)]
@@ -91,7 +90,7 @@ async fn probe_slots(
     client: &Client,
     slots_url: &str,
     api_key: Option<&str>,
-) -> Option<crate::domain::slot_tracker::BackendSlots> {
+) -> Option<BackendSlots> {
     let timeout = Duration::from_secs(3);
     let mut req = client.get(slots_url);
     if let Some(key) = api_key {
@@ -112,9 +111,7 @@ async fn probe_slots(
     }
     let json: serde_json::Value = resp.json().await.ok()?; // R2-exempt: parse error → None
     let descriptors = parse_slots_json(&json)?;
-    Some(crate::domain::slot_tracker::build_backend_slots(
-        descriptors,
-    ))
+    Some(build_backend_slots(descriptors))
 }
 
 /// Spawn a background Tokio task that probes all dogs every `PROBE_INTERVAL`.

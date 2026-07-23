@@ -230,6 +230,14 @@ impl HostRuntimeLayout {
             .to_string()
     }
 
+    pub fn hardware_baseline_path(&self) -> PathBuf {
+        PathBuf::from(&self.config_dir).join("hardware-baseline.json")
+    }
+
+    pub fn hardware_baseline_bundle_path(&self) -> PathBuf {
+        PathBuf::from(&self.host_exec_bundle_dir).join("hardware-baseline-bundle.json")
+    }
+
     pub fn host_exec_sudoers_path(&self) -> String {
         PathBuf::from(&self.sudoers_dir)
             .join("cynic-host-exec")
@@ -536,7 +544,34 @@ fn env_path(key: &str, default: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
+    use std::sync::Mutex;
+
     use super::HostRuntimeLayout;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    struct EnvOverride {
+        key: &'static str,
+        original: Option<OsString>,
+    }
+
+    impl EnvOverride {
+        fn set(key: &'static str, value: &str) -> Self {
+            let original = std::env::var_os(key);
+            unsafe { std::env::set_var(key, value) };
+            Self { key, original }
+        }
+    }
+
+    impl Drop for EnvOverride {
+        fn drop(&mut self) {
+            match &self.original {
+                Some(value) => unsafe { std::env::set_var(self.key, value) },
+                None => unsafe { std::env::remove_var(self.key) },
+            }
+        }
+    }
 
     #[test]
     fn derives_helper_and_sudoers_paths_from_layout_roots() {
@@ -574,15 +609,10 @@ mod tests {
 
     #[test]
     fn capabilities_can_select_openrc_service_manager_from_env() {
-        unsafe {
-            std::env::set_var("CYNIC_SERVICE_MANAGER_KIND", "openrc");
-            std::env::set_var("CYNIC_RC_SERVICE_BIN", "rc-service-test");
-        }
+        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _service_manager = EnvOverride::set("CYNIC_SERVICE_MANAGER_KIND", "openrc");
+        let _service_binary = EnvOverride::set("CYNIC_RC_SERVICE_BIN", "rc-service-test");
         let capabilities = HostRuntimeLayout::from_env().capabilities();
-        unsafe {
-            std::env::remove_var("CYNIC_SERVICE_MANAGER_KIND");
-            std::env::remove_var("CYNIC_RC_SERVICE_BIN");
-        }
 
         assert_eq!(capabilities.service_manager.kind, "openrc");
         assert_eq!(capabilities.service_manager.command, "rc-service-test");
@@ -590,9 +620,8 @@ mod tests {
 
     #[test]
     fn dns_paths_follow_openrc_service_manager() {
-        unsafe {
-            std::env::set_var("CYNIC_SERVICE_MANAGER_KIND", "openrc");
-        }
+        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _service_manager = EnvOverride::set("CYNIC_SERVICE_MANAGER_KIND", "openrc");
         let layout = HostRuntimeLayout::from_env();
 
         assert_eq!(layout.dns_service_unit(), "coredns-synapse");
@@ -602,17 +631,13 @@ mod tests {
             layout.dns_resolved_dropin_path(),
             "/etc/cynic/resolver/openrc-synapse-dns.adapter-required"
         );
-        unsafe {
-            std::env::remove_var("CYNIC_SERVICE_MANAGER_KIND");
-        }
     }
 
     #[test]
     fn package_manager_can_select_apk_from_env() {
-        unsafe {
-            std::env::set_var("CYNIC_PACKAGE_MANAGER_KIND", "apk");
-            std::env::set_var("CYNIC_APK_BIN", "apk-test");
-        }
+        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _package_manager = EnvOverride::set("CYNIC_PACKAGE_MANAGER_KIND", "apk");
+        let _package_binary = EnvOverride::set("CYNIC_APK_BIN", "apk-test");
         let layout = HostRuntimeLayout::from_env();
         let capabilities = layout.capabilities();
 
@@ -634,9 +659,5 @@ mod tests {
                 .install_argv(&["coredns".to_string()], &layout),
             vec!["apk-test", "add", "--no-cache", "coredns"]
         );
-        unsafe {
-            std::env::remove_var("CYNIC_PACKAGE_MANAGER_KIND");
-            std::env::remove_var("CYNIC_APK_BIN");
-        }
     }
 }

@@ -36,7 +36,10 @@ impl ArgvRunner for LocalArgvRunner {
                 spawn_error: Some("empty argv".into()),
             };
         }
-        match std::process::Command::new(argv[0]).args(&argv[1..]).output() {
+        match std::process::Command::new(argv[0])
+            .args(&argv[1..])
+            .output()
+        {
             Ok(o) => ArgvOutput {
                 exit_code: o.status.code(),
                 stdout: String::from_utf8_lossy(&o.stdout).into_owned(),

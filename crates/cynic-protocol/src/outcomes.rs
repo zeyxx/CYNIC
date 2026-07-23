@@ -410,11 +410,11 @@ pub fn score_outcomes(
             outcome.validation_commands.len() - missing_validation_commands.len();
         let required = outcome.required_evidence.len() + outcome.validation_commands.len();
         let available = evidence_available + commands_available;
-        let score_percent = if required == 0 {
-            0
-        } else {
-            ((available * 100) / required) as u8
-        };
+        let score_percent = available
+            .checked_mul(100)
+            .and_then(|value| value.checked_div(required))
+            .and_then(|value| u8::try_from(value).ok())
+            .unwrap_or(0);
         let status = if available == required {
             ready_count += 1;
             "ready_for_validation"

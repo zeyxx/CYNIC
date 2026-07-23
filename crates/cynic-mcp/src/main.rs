@@ -12,137 +12,13 @@
     clippy::uninlined_format_args
 )]
 
-use cynic_host::runtime_registry::{
-    resolve_runtime_project_root_or_cwd_fallback, resolve_runtime_registry_path,
-};
+mod kernel_discovery;
+mod project_root;
+
+use kernel_discovery::{ResolvedKernelEndpoint, resolve_kernel_endpoint};
 use rmcp::ServiceExt;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
-
-#[derive(Debug)]
-struct ResolvedRestAddr {
-    url: String,
-    source: String,
-}
-
-fn normalize_rest_addr(raw_addr: &str) -> Result<String, Box<dyn std::error::Error>> {
-    if raw_addr.trim().is_empty() {
-        return Err("CYNIC_REST_ADDR is empty".into());
-    }
-
-    let rest_addr = if raw_addr.starts_with("http://") || raw_addr.starts_with("https://") {
-        raw_addr.to_string()
-    } else {
-        format!("http://{raw_addr}")
-    };
-
-    Ok(rest_addr)
-}
-
-fn rest_addr_host(rest_addr: &str) -> &str {
-    let hostport = rest_addr
-        .split("://")
-        .nth(1)
-        .unwrap_or(&rest_addr)
-        .split('/')
-        .next()
-        .unwrap_or("");
-    hostport.split(':').next().unwrap_or("")
-}
-
-fn is_local_rest_addr(rest_addr: &str) -> bool {
-    matches!(rest_addr_host(rest_addr), "127.0.0.1" | "localhost" | "::1")
-}
-
-fn project_root() -> std::path::PathBuf {
-    resolve_runtime_project_root_or_cwd_fallback().path
-}
-
-fn registry_kernel_rest_addr() -> Result<ResolvedRestAddr, Box<dyn std::error::Error>> {
-    let registry_path = resolve_runtime_registry_path(None)?;
-    let content = std::fs::read_to_string(&registry_path)
-        .map_err(|e| format!("cannot read {}: {e}", registry_path.display()))?;
-    let registry: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| format!("cannot parse {}: {e}", registry_path.display()))?;
-
-    let deploy_role = registry
-        .pointer("/lifecycle/kernel_release/deploy_target_role")
-        .and_then(|v| v.as_str())
-        .unwrap_or("kernel_primary");
-
-    let nodes = registry
-        .get("nodes")
-        .and_then(|v| v.as_array())
-        .ok_or("infra/registry.json has no nodes array")?;
-
-    let node = nodes
-        .iter()
-        .find(|node| {
-            node.get("role").and_then(|v| v.as_str()) == Some(deploy_role)
-                && node
-                    .get("deploy_target")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false)
-        })
-        .or_else(|| {
-            nodes
-                .iter()
-                .find(|node| node.get("role").and_then(|v| v.as_str()) == Some(deploy_role))
-        })
-        .ok_or_else(|| format!("infra/registry.json has no node with role={deploy_role}"))?;
-
-    let host = node
-        .pointer("/network/synapse")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            format!("registry node role={deploy_role} has no network.synapse address")
-        })?;
-
-    let port = node
-        .get("services")
-        .and_then(|v| v.as_array())
-        .and_then(|services| {
-            services.iter().find_map(|service| {
-                if service.get("name").and_then(|v| v.as_str()) == Some("cynic-kernel") {
-                    service.get("port").and_then(|v| v.as_u64())
-                } else {
-                    None
-                }
-            })
-        })
-        .ok_or_else(|| {
-            format!("registry node role={deploy_role} has no cynic-kernel service port")
-        })?;
-
-    Ok(ResolvedRestAddr {
-        url: format!("http://{host}:{port}"),
-        source: format!("registry:{deploy_role}.network.synapse+cynic-kernel.port"),
-    })
-}
-
-fn resolve_rest_addr() -> Result<ResolvedRestAddr, Box<dyn std::error::Error>> {
-    if let Ok(raw_addr) = std::env::var("CYNIC_REST_ADDR") {
-        let env_addr = normalize_rest_addr(&raw_addr)?;
-        let local_allowed = std::env::var("CYNIC_ALLOW_LOCAL_KERNEL").unwrap_or_default() == "1";
-        if !is_local_rest_addr(&env_addr) || local_allowed {
-            return Ok(ResolvedRestAddr {
-                url: env_addr,
-                source: "env:CYNIC_REST_ADDR".to_string(),
-            });
-        }
-
-        if let Ok(registry_addr) = registry_kernel_rest_addr() {
-            return Ok(registry_addr);
-        }
-
-        return Err(format!(
-            "SSOT rejected local kernel address: {env_addr}; set CYNIC_ALLOW_LOCAL_KERNEL=1 for dev or fix infra/registry.json discovery"
-        )
-        .into());
-    }
-
-    registry_kernel_rest_addr()
-}
 
 #[tokio::main]
 #[allow(clippy::print_stderr)]
@@ -159,8 +35,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("USAGE: cynic-mcp");
         eprintln!();
         eprintln!("ENVIRONMENT:");
-        eprintln!("  CYNIC_REST_ADDR   Kernel REST address (no localhost default under SSOT)");
+        eprintln!("  CYNIC_REST_ADDR   Explicit kernel origin, verified before MCP startup");
+        eprintln!("  CYNIC_KERNEL_SEEDS   Comma-separated kernel origins to scan");
+        eprintln!("  CYNIC_KERNEL_DISCOVERY_TIMEOUT_MS   Probe timeout (100-10000, default 1500)");
         eprintln!("  CYNIC_API_KEY     Bearer token for kernel auth");
+        eprintln!("  CYNIC_AGENT_ID    Agent principal bound to this MCP process");
+        eprintln!(
+            "  CYNIC_MCP_PROJECT_ROOT   Optional explicit MCP project root for local diagnostics tooling"
+        );
         eprintln!("  RUST_LOG          Log filter (default: cynic_mcp=info,warn)");
         return Ok(());
     }
@@ -173,14 +55,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(fmt::layer().json().with_writer(std::io::stderr))
         .init();
 
-    let resolved_rest_addr = resolve_rest_addr()?;
-    let rest_addr = resolved_rest_addr.url;
+    let resolved_kernel = resolve_rest_addr().await?;
+    let rest_addr = resolved_kernel.url;
+    let project_root = project_root::resolve_mcp_project_root()
+        .display()
+        .to_string();
     let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
-    let project_root = project_root().display().to_string();
 
     tracing::info!(
         rest_addr,
-        rest_addr_source = resolved_rest_addr.source,
+        rest_addr_source = resolved_kernel.source,
+        kernel_node_id = resolved_kernel.node_id,
+        kernel_node_name = resolved_kernel.node_name,
+        kernel_role = resolved_kernel.role,
+        kernel_registry_status = resolved_kernel.status,
+        kernel_discovery_proof = resolved_kernel.proof,
+        kernel_hostname = resolved_kernel.hostname,
+        kernel_pid = resolved_kernel.pid,
+        kernel_version = resolved_kernel.version,
+        kernel_git_sha = resolved_kernel.git_sha,
+        kernel_build_profile = resolved_kernel.build_profile,
         "cynic-mcp starting — forwarding to REST kernel"
     );
 
@@ -209,4 +103,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+async fn resolve_rest_addr() -> Result<ResolvedKernelEndpoint, Box<dyn std::error::Error>> {
+    let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+    resolve_kernel_endpoint(&api_key)
+        .await
+        .map_err(|error| error.into())
 }

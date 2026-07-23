@@ -380,12 +380,13 @@ impl TaskStorage for SurrealHttpStorage {
     async fn update_agent_task_result(
         &self,
         task_id: &str,
+        agent_id: &str,
         result: Option<String>,
         error: Option<String>,
-    ) -> Result<(), StorageError> {
+    ) -> Result<bool, StorageError> {
         let result_ref = result.as_deref();
         let error_ref = error.as_deref();
-        agent_tasks::update_agent_task_result(self, task_id, result_ref, error_ref).await
+        agent_tasks::update_agent_task_result(self, task_id, agent_id, result_ref, error_ref).await
     }
 }
 
@@ -632,53 +633,5 @@ impl StoragePort for SurrealHttpStorage {
         &self,
     ) -> Result<Vec<crate::storage::TableOpMetrics>, StorageError> {
         Ok(self.metrics.snapshot_table_ops())
-    }
-}
-
-// ── TESTS ────────────────────────────────────────────────────
-
-#[cfg(test)]
-// WHY: Integration tests use eprintln! for SurrealDB connection diagnostics during
-// local development — these are never reached in production code paths.
-#[allow(clippy::print_stderr)]
-mod tests {
-    use super::*;
-    use crate::storage::{escape_surreal, sanitize_id};
-
-    #[test]
-    fn sanitize_id_rejects_injection() {
-        assert!(sanitize_id("'; DROP TABLE verdict; --").is_err());
-        assert!(sanitize_id("abc\0def").is_err());
-        assert!(sanitize_id("abc`def").is_err());
-        assert!(sanitize_id("abc;def").is_err());
-        assert!(sanitize_id("abc def").is_err());
-        assert!(sanitize_id("").is_err());
-        assert!(sanitize_id(&"a".repeat(129)).is_err());
-    }
-
-    #[test]
-    fn sanitize_id_accepts_valid() {
-        assert!(sanitize_id("abc-123_def").is_ok());
-        assert!(sanitize_id("verdict-001").is_ok());
-        assert!(sanitize_id("a1b2c3d4e5f6").is_ok());
-        assert!(sanitize_id(&"a".repeat(128)).is_ok());
-    }
-
-    #[test]
-    fn escape_surreal_handles_special_chars() {
-        assert_eq!(escape_surreal("it's"), "it\\'s");
-        assert_eq!(escape_surreal("a\\b"), "a\\\\b");
-        assert_eq!(escape_surreal("a\0b"), "ab");
-        assert_eq!(escape_surreal("a\nb"), "a\\nb");
-        assert_eq!(escape_surreal("a\rb"), "a\\rb");
-        assert_eq!(escape_surreal("a\tb"), "a\\tb");
-    }
-
-    #[test]
-    fn safe_limit_clamps() {
-        assert_eq!(safe_limit(20), 20);
-        assert_eq!(safe_limit(100), 100);
-        assert_eq!(safe_limit(101), 100);
-        assert_eq!(safe_limit(u32::MAX), 100);
     }
 }

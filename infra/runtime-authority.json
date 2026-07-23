@@ -72,6 +72,19 @@
         "payload helpers"
       ]
     },
+    "runtime_basket": {
+      "owner": "infra/runtime-basket.json",
+      "artifact": "role-specific runtime bundle",
+      "owns": [
+        "canonical runtime artifact catalog",
+        "role-based artifact projection",
+        "artifact verification and rollback contract"
+      ],
+      "must_consume": [
+        "observed registry role",
+        "runtime artifact proof"
+      ]
+    },
     "proof_history": {
       "owner": "crates/cynic-askesis",
       "artifact": null,
@@ -149,9 +162,9 @@
         "infra/systemd/cynic-node.service"
       ],
       "signals": [
-        "%h user home expansion",
-        "@CYNIC_PROJECT_ROOT@ checkout working directory",
-        "%h/.config/cynic/env operator environment file"
+        "/home (operator-facing fallback only)",
+        "/var/lib/cynic operator working directory",
+        "/etc/cynic/env operator environment file"
       ],
       "migration_rule": "Keep these units explicit as operator projections. Installed service manager adapters are declared separately under installed_service_projections."
     }
@@ -167,12 +180,11 @@
     "cynic-inference": {
       "owner": "crates/cynic-inference",
       "status": "extracting",
-      "role": "CYNIC native model adapters, routing, embeddings, and local vault lifecycle. Integrates with Osmantic ODS (https://github.com/Osmantic/ODS) as an external maintained framework to bootstrap the host AI environment — ODS is not reimplemented here.",
+      "role": "CYNIC native model adapters, routing, embeddings, and local vault lifecycle. Peer attach plane (OpenAI-compat) optionally consumes Osmantic ODS (https://github.com/Osmantic/ODS) as an external bootstrap product — not reimplemented. Install via host ecosystem pin `ods`; attach via inference-discover probe/apply.",
       "not_yet": [
         "canonical runtime authority surface",
         "make check core package gate",
-        "agent exposure domain ownership",
-        "first-class ODS install/lifecycle adapter beyond port discovery"
+        "agent exposure domain ownership"
       ]
     },
     "cynic-observer": {
@@ -197,4 +209,3 @@
     "deletion_rule": "Anything outside the authority map must prove current runtime use before it is kept."
   }
 }
-

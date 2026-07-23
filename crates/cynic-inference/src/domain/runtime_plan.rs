@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 
 use super::hardware_profile::{GpuClass, HardwareProfile};
 
+const INFERENCE_DEVICE_ENV: &str = "CYNIC_INFERENCE_DEVICE";
+
 /// Observed engine plugin inventory on the host (paths may vary).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnginePlugins {
@@ -195,11 +197,12 @@ pub fn plan_launch(
             engine_args.push("-ctv".into());
             engine_args.push("q4_0".into());
         }
-        if plugins.has_vulkan && n_gpu_layers > 0 {
-            // Prefer Vulkan0 when present; engine still validates
+        if let Some(device) = explicit_device() {
             engine_args.push("--device".into());
-            engine_args.push("Vulkan0".into());
-            rationale.push("device=Vulkan0 when vulkan plugin present".into());
+            engine_args.push(device.clone());
+            rationale.push(format!(
+                "device override from {INFERENCE_DEVICE_ENV}={device}"
+            ));
         }
     }
 
@@ -277,6 +280,17 @@ fn default_ctx(hw: &HardwareProfile, model_size: Option<u64>) -> u32 {
     } else {
         2048
     }
+}
+
+fn explicit_device() -> Option<String> {
+    let raw = match std::env::var(INFERENCE_DEVICE_ENV) {
+        Ok(raw) => raw.trim().to_string(),
+        Err(_) => return None,
+    };
+    if raw.is_empty() || raw.eq_ignore_ascii_case("auto") {
+        return None;
+    }
+    Some(raw)
 }
 
 #[cfg(test)]

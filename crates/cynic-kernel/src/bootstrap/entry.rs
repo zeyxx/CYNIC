@@ -114,16 +114,3 @@ pub async fn run_mcp_proxy_mode_if_requested(
     shutdown.cancel();
     Ok(true)
 }
-
-pub fn resolve_runtime_project_root() -> std::path::PathBuf {
-    let resolved = cynic_host::runtime_registry::resolve_runtime_project_root_or_cwd_fallback();
-    if resolved.mode
-        == cynic_host::runtime_registry::RuntimeProjectRootMode::CurrentDirectoryFallback
-    {
-        crate::klog!(
-            "[Ring 1] runtime project root unresolved — using cwd fallback: {}",
-            resolved.path.display()
-        );
-    }
-    resolved.path
-}

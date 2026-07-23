@@ -15,13 +15,13 @@ pub(crate) enum AuditCommand {
     },
 }
 
-pub(crate) fn execute_audit(command: AuditCommand) -> ExitCode {
+pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
     match command {
         AuditCommand::NodeHost { json, max_commits } => {
             if !json {
                 return ExitCode::FAILURE;
             }
-            match node_host_audit::build_node_host_audit(max_commits) {
+            match node_host_audit::build_node_host_audit(*max_commits) {
                 Ok(report) => emit_json(&report, false),
                 Err(error) => fail(error),
             }

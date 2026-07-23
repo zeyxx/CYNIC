@@ -18,8 +18,8 @@ timeout_secs = 30
 # ctx-size 8192 for long document embeddings.
 # parallel 4 to handle burst backfill requests.
 command = [
-    "/home/user/bin/llama-server",
-    "-m", "/home/user/.cache/llama.cpp/Qwen3-4B-Q4_K_M.gguf",
+    "/usr/bin/llama-server",
+    "-m", "/var/lib/cynic/models/Qwen3-4B-Q4_K_M.gguf",
     "--host", "0.0.0.0",
     "--port", "8081",
     "--ctx-size", "8192",

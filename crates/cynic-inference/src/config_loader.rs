@@ -127,6 +127,7 @@ fn load_inference_config_from_path(
     })
 }
 
+/// SSOT: `/etc/cynic/inference.toml`
 const DEFAULT_INFERENCE_CONFIG_PATH: &str = "/etc/cynic/inference.toml";
 
 /// Determine the config path, honouring only an explicit env-var override.
@@ -173,7 +174,7 @@ mod tests {
     fn default_config_path_uses_installed_runtime_ssot() {
         assert_eq!(
             resolve_config_path_inner(None),
-            std::path::PathBuf::from("/etc/cynic/inference.toml")
+            std::path::PathBuf::from(DEFAULT_INFERENCE_CONFIG_PATH)
         );
     }
 
@@ -203,6 +204,23 @@ sovereign = true
         assert_eq!(b.name, "llama-local");
         assert!(b.sovereign);
         assert_eq!(b.timeout_secs, 120); // default
+    }
+
+    #[test]
+    fn parses_fleet_node_override_if_present() {
+        let toml = r#"
+[[backend]]
+name = "qwen-node"
+base_url = "http://10.0.0.20:8080/v1"
+model = "qwen3-0.6b"
+fleet_node = "cynic-host-gpu"
+"#;
+        let path = write_tmp("fleet", toml);
+        let loaded = load_inference_config_from_path(path.clone(), |_| None).expect("should parse");
+        let _ = std::fs::remove_file(&path);
+
+        let b = &loaded.backends[0];
+        assert_eq!(b.fleet_node.as_deref(), Some("cynic-host-gpu"));
     }
 
     #[test]

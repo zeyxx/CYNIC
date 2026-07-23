@@ -21,6 +21,43 @@ pub struct HfDiscoveryService {
     hf: HfCliAdapter,
 }
 
+#[derive(Debug, Clone)]
+pub struct HfDownloadCommand {
+    pub revision: Option<String>,
+    pub include: Vec<String>,
+    pub exclude: Vec<String>,
+    pub repo_type: Option<String>,
+    pub cache_only: bool,
+    pub alias: Option<String>,
+    pub register_profile: bool,
+}
+
+impl HfDownloadCommand {
+    pub fn new(
+        revision: Option<&str>,
+        include: &[String],
+        exclude: &[String],
+        repo_type: Option<&str>,
+        cache_only: bool,
+        alias: Option<&str>,
+        register_profile: bool,
+    ) -> Self {
+        Self {
+            revision: revision.map(|s| s.to_string()),
+            include: if include.is_empty() {
+                vec!["*.gguf".into()]
+            } else {
+                include.to_vec()
+            },
+            exclude: exclude.to_vec(),
+            repo_type: repo_type.map(|s| s.to_string()),
+            cache_only,
+            alias: alias.map(|s| s.to_string()),
+            register_profile,
+        }
+    }
+}
+
 impl HfDiscoveryService {
     pub fn from_env() -> Self {
         let layout = ModelLayout::from_env();
@@ -83,7 +120,7 @@ impl HfDiscoveryService {
             limit: limit.clamp(1, 50),
             sort: Some("downloads".into()),
             gguf_only: true,
-            num_parameters: num_parameters.clone(),
+            num_parameters,
         };
 
         let raw = match self.hf.search(&req) {
@@ -143,38 +180,33 @@ impl HfDiscoveryService {
     pub fn download_and_register(
         &self,
         repo: &str,
-        revision: Option<&str>,
-        include: &[String],
-        exclude: &[String],
-        repo_type: Option<&str>,
-        cache_only: bool,
-        alias: Option<&str>,
-        register_profile: bool,
+        command: HfDownloadCommand,
     ) -> Result<HfDownloadReport, HfHubError> {
-        let mut include = include.to_vec();
-        if include.is_empty() {
-            include.push("*.gguf".into());
-        }
+        let revision_for_profile = command.revision.clone();
         let req = HfDownloadRequest {
             repo_id: repo.to_string(),
-            revision: revision.map(|s| s.to_string()),
-            include,
-            exclude: exclude.to_vec(),
-            into_vault: !cache_only,
-            repo_type: repo_type.map(|s| s.to_string()),
+            revision: revision_for_profile.clone(),
+            include: command.include,
+            exclude: command.exclude,
+            into_vault: !command.cache_only,
+            repo_type: command.repo_type,
         };
         let mut report = self.hf.download(&self.layout, &req)?;
         if !report.ok {
             return Ok(report);
         }
 
-        let alias = alias
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| short_alias_from_repo(repo));
+        let alias = command.alias.unwrap_or_else(|| short_alias_from_repo(repo));
 
-        if register_profile {
+        if command.register_profile {
             if let Some(ref gguf) = report.primary_gguf {
-                match write_profile(&self.layout, &alias, gguf, repo, revision) {
+                match write_profile(
+                    &self.layout,
+                    &alias,
+                    gguf,
+                    repo,
+                    revision_for_profile.as_deref(),
+                ) {
                     Ok(path) => {
                         report.profile_alias = Some(alias);
                         report.profile_path = Some(path);

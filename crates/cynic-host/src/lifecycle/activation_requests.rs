@@ -37,7 +37,7 @@ mod tests {
                     "required_node_status": "active",
                     "activation_requirements": {"build_runner": {"network": ["synapse"]}},
                     "fleet_requirements": {"required": true, "provider": "synapse"},
-                    "runtime_paths": {"repo_root": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}"},
+                    "runtime_paths": {"repo_root": "/var/lib/cynic/repos/${CYNIC_PROJECT_SLUG}"},
                     "runtime_path_proofs": {"repo_root": {"kind": "git_worktree"}},
                     "activation_evidence_contract": {"patch_field": "activation_evidence_patch"}
                 }
@@ -65,7 +65,7 @@ mod tests {
             "required_node_status": "active",
             "activation_requirements": {"build_runner": {"network": ["synapse"]}},
             "fleet_requirements": {"required": true, "provider": "synapse"},
-            "runtime_paths": {"repo_root": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}"},
+            "runtime_paths": {"repo_root": "/var/lib/cynic/repos/${CYNIC_PROJECT_SLUG}"},
             "runtime_path_proofs": {"repo_root": {"kind": "git_worktree"}},
             "activation_evidence_contract": {"patch_field": "activation_evidence_patch"},
             "targets": targets,
@@ -95,6 +95,34 @@ mod tests {
     }
 
     #[test]
+    fn targets_route_network_actions_to_node_and_kernel() {
+        let (targets, coord_targets) =
+            activation_request_targets(&json!({"action": "activate_synapse_route"}));
+        assert_eq!(
+            targets,
+            vec![
+                "crates/cynic-node".to_string(),
+                "crates/cynic-kernel".to_string()
+            ]
+        );
+        assert_eq!(
+            coord_targets,
+            vec![
+                "crates/cynic-node".to_string(),
+                "crates/cynic-kernel".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn targets_route_fleet_actions_to_node_scope() {
+        let (targets, coord_targets) =
+            activation_request_targets(&json!({"action": "refresh_fleet_inventory"}));
+        assert_eq!(targets, vec!["crates/cynic-node".to_string()]);
+        assert_eq!(coord_targets, vec!["crates/cynic-node".to_string()]);
+    }
+
+    #[test]
     fn validation_accepts_registry_derived_payload() {
         let validated =
             validate_activation_request_payload(&payload_fixture(), &registry_fixture())
@@ -113,8 +141,8 @@ mod tests {
                 .expect("content"),
         )
         .expect("parse");
-        content["targets"] = json!(["organs/forge", "infra/registry.json"]);
-        content["coord_targets"] = json!(["organs/forge", "infra/registry.json"]);
+        content["targets"] = json!(["crates/cynic-kernel", "infra/registry.json"]);
+        content["coord_targets"] = json!(["crates/cynic-kernel", "infra/registry.json"]);
         payload["content"] = json!(serde_json::to_string(&content).expect("content"));
 
         let error = validate_activation_request_payload(&payload, &registry).expect_err("error");

@@ -80,11 +80,11 @@ fn read_directory_text(dir: &Path) -> String {
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_file()
-                && let Ok(text) = std::fs::read_to_string(&path)
-            {
-                output.push_str(&text);
-                output.push('\n');
+            if path.is_file() {
+                if let Ok(text) = std::fs::read_to_string(&path) {
+                    output.push_str(&text);
+                    output.push('\n');
+                }
             }
         }
     }

@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::net::{SocketAddr, TcpStream};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::{
@@ -11,7 +10,7 @@ use cynic_protocol::{
 use crate::domain::services::{
     ServicePolicy, ServiceUnitPolicy, openrc_service_name as openrc_unit_name,
 };
-use crate::process_observation::{capture_command, command_exit_success};
+use crate::process_observation::{capture_command, command_exit_success, tcp_probe_with_timeout};
 use crate::runtime_layout::current_runtime_layout;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -298,22 +297,28 @@ fn probe_openrc(unit: &ServiceUnitPolicy) -> ProbeAttempt {
 
 fn probe_process_port(unit: &ServiceUnitPolicy) -> ProbeAttempt {
     if let Some(port) = unit.health_port {
-        let addr = SocketAddr::from(([127, 0, 0, 1], port));
-        return match TcpStream::connect_timeout(&addr, Duration::from_millis(500)) {
-            Ok(_) => ProbeAttempt {
+        let observation = tcp_probe_with_timeout("127.0.0.1", port, Duration::from_millis(500));
+        return match observation.status.as_str() {
+            "open" => ProbeAttempt {
                 provider: "process_port".to_string(),
                 scope: "local_tcp".to_string(),
                 probe_status: "ok",
-                probe_detail: format!("tcp connect succeeded addr={addr}"),
+                probe_detail: format!(
+                    "tcp probe host={} port={} status={}",
+                    observation.host, observation.port, observation.status
+                ),
                 status: "active",
                 active_state: Some("tcp_open".to_string()),
                 fields: None,
             },
-            Err(error) => ProbeAttempt {
+            _ => ProbeAttempt {
                 provider: "process_port".to_string(),
                 scope: "local_tcp".to_string(),
                 probe_status: "blocked",
-                probe_detail: format!("tcp connect failed addr={addr} error={error}"),
+                probe_detail: format!(
+                    "tcp probe host={} port={} status={}",
+                    observation.host, observation.port, observation.status
+                ),
                 status: "unknown",
                 active_state: Some("tcp_closed".to_string()),
                 fields: None,

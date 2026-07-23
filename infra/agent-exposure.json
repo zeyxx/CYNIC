@@ -7,7 +7,7 @@
     "mutation_default": "local_operator_only",
     "transport": "mcp_stdio",
     "fallback": "kernel_rest_when_explicitly_configured",
-    "project_root": "Inject CYNIC_PROJECT_ROOT at runtime or resolve from repo checkout; never commit machine-local absolute paths.",
+    "project_root": "Inject runtime paths through operator deployment context; never commit machine-local absolute paths.",
     "honesty": "This projection is complete for the current cynic-mcp binary. Tier labels mark product/legacy surfaces that are not low-layer runtime baseline."
   },
   "projection_targets": {
@@ -30,6 +30,7 @@
         { "name": "cynic_attention", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_metabolism", "tier": "product_domain", "mutation": "read_only" },
         { "name": "cynic_compliance", "tier": "product_domain", "mutation": "read_only" },
+        { "name": "cynic_askesis_log", "tier": "operator_local", "mutation": "local_mutation" },
         { "name": "cynic_verdicts", "tier": "product_domain", "mutation": "read_only" },
         { "name": "cynic_crystals", "tier": "product_domain", "mutation": "read_only" },
         { "name": "cynic_audit_query", "tier": "baseline_runtime", "mutation": "read_only" },
@@ -37,12 +38,16 @@
         { "name": "cynic_judge", "tier": "product_domain", "mutation": "local_mutation" },
         { "name": "cynic_observe", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_infer", "tier": "baseline_runtime", "mutation": "local_mutation" },
+        { "name": "cynic_agent_eval", "tier": "baseline_runtime", "mutation": "local_mutation" },
+        { "name": "cynic_agent_loop_audit", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_inference_backends", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_inference_discover", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_coord_register", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_coord_claim", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_coord_claim_batch", "tier": "baseline_runtime", "mutation": "local_mutation" },
+        { "name": "cynic_coord_renew", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_coord_release", "tier": "baseline_runtime", "mutation": "local_mutation" },
+        { "name": "cynic_coord_finalize", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_coord_who", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "coordination_contract_manifest", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "coordination_status_publish", "tier": "baseline_runtime", "mutation": "local_mutation" },
@@ -63,7 +68,13 @@
         { "name": "identity_smoke_check", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_auth", "tier": "operator_local", "mutation": "local_mutation" },
         { "name": "cynic_validate", "tier": "operator_local", "mutation": "local_mutation" },
-        { "name": "cynic_git", "tier": "operator_local", "mutation": "local_mutation" },
+        { "name": "cynic_git", "tier": "operator_local", "mutation": "read_only" },
+        { "name": "cynic_source_control", "tier": "baseline_runtime", "mutation": "local_mutation" },
+        { "name": "cynic_operator_transport_status", "tier": "operator_local", "mutation": "read_only" },
+        { "name": "cynic_transport_security_audit", "tier": "operator_local", "mutation": "read_only" },
+        { "name": "cynic_forgejo_status", "tier": "operator_local", "mutation": "read_only" },
+        { "name": "cynic_forgejo_plan", "tier": "operator_local", "mutation": "read_only" },
+        { "name": "cynic_ssh_target_inspect", "tier": "operator_local", "mutation": "read_only" },
         { "name": "docker_container_list", "tier": "operator_local", "mutation": "read_only" },
         { "name": "docker_container_logs", "tier": "operator_local", "mutation": "read_only" },
         { "name": "docker_container_inspect", "tier": "operator_local", "mutation": "read_only" },
@@ -78,6 +89,9 @@
         { "name": "network_mesh_provider_fallback_hosts", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "network_mesh_provider_fallback_status", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "network_mesh_dns_activation_status", "tier": "baseline_runtime", "mutation": "read_only" },
+        { "name": "cynic_fleet_inventory", "tier": "baseline_runtime", "mutation": "read_only" },
+        { "name": "cynic_fleet_reconcile_plan", "tier": "baseline_runtime", "mutation": "read_only" },
+        { "name": "cynic_fleet_reconcile_apply", "tier": "baseline_runtime", "mutation": "privileged_mutation" },
         { "name": "fleet_node_status", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "fleet_node_exec", "tier": "baseline_runtime", "mutation": "privileged_mutation" },
         { "name": "lxc_exec_bridge_plan", "tier": "baseline_runtime", "mutation": "read_only" },
@@ -119,8 +133,9 @@
     "inference": {
       "description": "CYNIC native sovereign inference (routing SSOT) plus optional attach to an Osmantic ODS-bootstrapped local AI environment (https://github.com/Osmantic/ODS).",
       "tier": "baseline_runtime",
-      "tools": ["cynic_infer", "cynic_inference_backends", "cynic_inference_discover"],
+      "tools": ["cynic_infer", "cynic_agent_eval", "cynic_agent_loop_audit", "cynic_inference_backends", "cynic_inference_discover"],
       "fallback_tools": [
+        "cynic-askesis eval <dataset.jsonl> --endpoint <openai-base-url> --model <model> --json",
         "cynic runtime inference --json",
         "cynic runtime inference-vault --json",
         "cynic runtime inference-status --json",
@@ -145,7 +160,9 @@
         "cynic_coord_register",
         "cynic_coord_claim",
         "cynic_coord_claim_batch",
+        "cynic_coord_renew",
         "cynic_coord_release",
+        "cynic_coord_finalize",
         "cynic_coord_who",
         "coordination_contract_manifest",
         "coordination_status_publish",
@@ -186,11 +203,17 @@
       "fallback_tools": []
     },
     "operator_local": {
-      "description": "Local operator helpers (validate/git/docker). Not organism runtime authority.",
+      "description": "Local operator helpers (validate/git/docker/transport evidence). Not organism runtime authority.",
       "tier": "operator_local",
       "tools": [
         "cynic_validate",
         "cynic_git",
+        "cynic_operator_transport_status",
+        "cynic_transport_security_audit",
+        "cynic_forgejo_status",
+        "cynic_forgejo_plan",
+        "cynic_ssh_target_inspect",
+        "cynic_askesis_log",
         "docker_container_list",
         "docker_container_logs",
         "docker_container_inspect"
@@ -222,6 +245,9 @@
       "description": "Fleet node status/exec and LXC exec bridge plans.",
       "tier": "baseline_runtime",
       "tools": [
+        "cynic_fleet_inventory",
+        "cynic_fleet_reconcile_plan",
+        "cynic_fleet_reconcile_apply",
         "fleet_node_status",
         "fleet_node_exec",
         "lxc_exec_bridge_plan",
@@ -241,7 +267,7 @@
         "storage_primary_readiness",
         "storage_primary_status"
       ],
-      "fallback_tools": []
+      "fallback_tools": ["cynic runtime storage-capabilities --json"]
     }
   },
   "exposed_domains": [
@@ -250,6 +276,8 @@
     "runtime read-back via active cynic MCP binary",
     "network/fleet/storage observation and bounded plans",
     "sovereign inference via cynic_inference_* tools",
+    "empirical agent evaluation and controlled fixture tool execution via cynic_agent_eval",
+    "machine-readable agent execution, sovereign data-learning, and industrial ML loop gaps via cynic_agent_loop_audit",
     "product-domain judgment/library surfaces (explicitly tiered, not baseline law)"
   ],
   "inference_tools": [
@@ -264,8 +292,8 @@
       "name": "cynic_inference_discover",
       "kind": "local_mutation",
       "ssot": "/etc/cynic/inference.toml",
-      "cli_equivalent": "cynic runtime inference-discover --json",
-      "description": "Attach to a running Osmantic ODS (or compatible) local AI environment: probe OpenAI-compatible ports and publish backends into inference.toml. Does not install ODS or start CYNIC vault profiles."
+      "cli_equivalent": "cynic runtime inference-discover --json --apply",
+      "description": "Peer attach plane (loose coupling): probe OpenAI-compat peers (ODS optional product) and publish into inference.toml. Schema cynic.inference.ods_discovery.v1. Does not install ODS or start native vault profiles. CLI probe-only: inference-discover --json; chat prefer: cynic chat --ods."
     }
   ],
   "tier_policy": {
@@ -291,8 +319,7 @@
     "antigravity projection",
     "legacy organ tools as durable authority",
     "UX/product-layer tools as low-layer proof",
-    "machine-local absolute CYNIC_PROJECT_ROOT commits",
+    "machine-local absolute home/Users paths",
     "legacy Proxmox breakglass tools when the active cynic-mcp binary is built without legacy_infra_tools"
   ]
 }
-

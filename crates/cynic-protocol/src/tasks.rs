@@ -96,9 +96,9 @@ pub fn task_id_in_agent_task_listings(task_id: &str, listings: &[Value]) -> bool
 
 fn result_value(value: Value) -> Value {
     match value {
-        Value::Object(_) | Value::Array(_) => {
-            Value::String(serde_json::to_string(&value).expect("json serialization should succeed"))
-        }
+        Value::Object(_) | Value::Array(_) => serde_json::to_string(&value)
+            .map(Value::String)
+            .unwrap_or_else(|_| Value::String("{}".to_string())),
         other => other,
     }
 }

@@ -8,6 +8,8 @@ use cynic_askesis::log::LogStore;
 use cynic_askesis::log::jsonl::JsonlLog;
 use std::path::PathBuf;
 
+mod eval_cli;
+
 #[derive(Parser)]
 #[command(name = "cynic-askesis")]
 #[command(about = "Askesis: discipline through exercise")]
@@ -61,6 +63,8 @@ enum Command {
         #[arg(long, default_value = ".cynic/memory/logs/human-kernel.jsonl")]
         logfile: PathBuf,
     },
+    /// Run a reproducible agent evaluation against an OpenAI-compatible endpoint
+    Eval(eval_cli::EvalArgs),
 }
 
 #[tokio::main]
@@ -141,10 +145,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             logfile,
             domain,
         } => {
-            let mut store = JsonlLog::new(&logfile)?;
-            let entry = cynic_askesis::log::ObservationEvent::new(content).with_domain(&domain);
-
-            store.append(entry)?;
+            cynic_askesis::append_human_log_entry(&logfile, &content, &domain)?;
             println!("Successfully logged to domain: {domain}");
 
             Ok(())
@@ -176,5 +177,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             Ok(())
         }
+        Command::Eval(args) => eval_cli::run(args).await,
     }
 }

@@ -80,11 +80,15 @@ impl TaskStorage for InMemoryStorage {
     async fn update_agent_task_result(
         &self,
         task_id: &str,
+        agent_id: &str,
         result: Option<String>,
         error: Option<String>,
-    ) -> Result<(), StorageError> {
+    ) -> Result<bool, StorageError> {
         let mut s = self.state.lock().await;
-        if let Some(t) = s.tasks.get_mut(task_id) {
+        if let Some(t) = s.tasks.get_mut(task_id)
+            && t.status == "processing"
+            && t.claimed_by.as_deref() == Some(agent_id)
+        {
             t.status = if error.is_some() {
                 "failed".into()
             } else {
@@ -92,8 +96,9 @@ impl TaskStorage for InMemoryStorage {
             };
             t.result = result;
             t.error = error;
+            return Ok(true);
         }
-        Ok(())
+        Ok(false)
     }
 }
 

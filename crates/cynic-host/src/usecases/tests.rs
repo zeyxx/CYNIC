@@ -2,8 +2,9 @@ use super::{
     HOST_ACTIVATION_PLAN_SCHEMA, HOST_APPLY_EXECUTION_SCHEMA, HOST_APPLY_REPORT_SCHEMA,
     HOST_BUNDLE_SCHEMA, HOST_OBSERVATION_SCHEMA, HostCommandContext, build_host_activation_plan,
     build_host_activation_plan_with_context, build_host_apply_report,
-    build_host_apply_report_with_context, build_host_bundle, collect_contracts, execute_host_apply,
-    observe_host,
+    build_host_apply_report_with_context, build_host_bundle, collect_contracts,
+    execute_admitted_service_apply, execute_host_apply, execute_runtime_service_reconcile,
+    execute_service_apply_with_admission, observe_host, service_apply_satisfied_preconditions,
 };
 use crate::command_surface::{HostCommandInvocation, HostCommandSurface, render_command};
 use crate::domain::filesystem::FilesystemPolicy;
@@ -18,6 +19,7 @@ use crate::domain::services::{
     ServicePolicy, ServiceUnitPolicy,
 };
 use crate::domain::shared::{SubstrateBundleFile, SubstrateDomainContract, SurfaceStatus};
+use crate::execution::AdmittedHostOperation;
 use crate::ports::{
     HostCommandResult, HostCommandRunnerPort, HostContractPort, HostFilesystemPort, HostOperation,
     HostPackageObservationPort, HostPackagePort, HostPrincipalObservationPort, HostPrincipalPort,
@@ -25,10 +27,17 @@ use crate::ports::{
 };
 use crate::runtime_authority::default_runtime_principal_layout;
 use crate::runtime_layout::current_runtime_layout;
+use cynic_protocol::{ExecutionAuthorization, PolicyAuthority, PolicyDecision};
+use std::cell::Cell;
 
 struct StaticHostContractPort;
 struct FakeCommandRunner;
 struct FakeObservationAdapter;
+struct ReadyForServiceObservation;
+struct ActiveServiceObservation;
+struct RecordingCommandRunner {
+    calls: Cell<usize>,
+}
 
 fn portable_command_context() -> HostCommandContext {
     HostCommandContext {
@@ -151,8 +160,24 @@ impl HostContractPort for StaticHostContractPort {
 }
 
 impl HostCommandRunnerPort for FakeCommandRunner {
-    fn run_operation(&self, operation: &HostOperation) -> HostCommandResult {
+    fn run_operation(&self, admitted: &AdmittedHostOperation) -> HostCommandResult {
+        let operation = admitted.operation();
         let command = match operation {
+            HostOperation::EnsureSystemGroup { group } => {
+                format!("ensure_system_group group={group}")
+            }
+            HostOperation::EnsureSystemUser { user, .. } => {
+                format!("ensure_system_user user={user}")
+            }
+            HostOperation::EnsureOwnedDir { path, .. } => {
+                format!("ensure_owned_dir path={path}")
+            }
+            HostOperation::InstallOwnedFile { target, .. } => {
+                format!("install_owned_file target={target}")
+            }
+            HostOperation::ValidatePrivilegeProjection { path, .. } => {
+                format!("validate_privilege_projection path={path}")
+            }
             HostOperation::EnsureDir { path, mode } => {
                 format!("ensure_dir path={path} mode={mode:o}")
             }
@@ -188,6 +213,19 @@ impl HostCommandRunnerPort for FakeCommandRunner {
     }
 }
 
+impl HostCommandRunnerPort for RecordingCommandRunner {
+    fn run_operation(&self, admitted: &AdmittedHostOperation) -> HostCommandResult {
+        self.calls.set(self.calls.get() + 1);
+        HostCommandResult {
+            command: format!("admitted:{:?}", admitted.operation()),
+            success: true,
+            exit_code: Some(0),
+            stdout: String::new(),
+            stderr: String::new(),
+        }
+    }
+}
+
 impl HostPrincipalObservationPort for FakeObservationAdapter {
     fn observe_principal(&self, policy: &PrincipalPolicy) -> PrincipalObservedState {
         PrincipalObservedState {
@@ -195,6 +233,7 @@ impl HostPrincipalObservationPort for FakeObservationAdapter {
             group_present: true,
             observed_home_dir: Some(policy.home_dir.clone()),
             present_state_dirs: policy.state_dirs.clone(),
+            owned_paths: policy.managed_paths(),
         }
     }
 }
@@ -230,6 +269,70 @@ impl HostServiceObservationPort for FakeObservationAdapter {
     }
 }
 
+impl HostPrincipalObservationPort for ReadyForServiceObservation {
+    fn observe_principal(&self, policy: &PrincipalPolicy) -> PrincipalObservedState {
+        PrincipalObservedState {
+            user_present: true,
+            group_present: true,
+            observed_home_dir: Some(policy.home_dir.clone()),
+            present_state_dirs: policy.state_dirs.clone(),
+            owned_paths: policy.managed_paths(),
+        }
+    }
+}
+
+impl HostPrivilegeObservationPort for ReadyForServiceObservation {
+    fn observe_privilege(&self, _policy: &PrivilegePolicy) -> PrivilegeObservedState {
+        PrivilegeObservedState {
+            helper_dir_present: true,
+            sudoers_projection_present: true,
+            denial_proof_ready: true,
+        }
+    }
+}
+
+impl HostPackageObservationPort for ReadyForServiceObservation {
+    fn observe_packages(&self, policy: &PackagePolicy) -> PackageObservedState {
+        PackageObservedState {
+            installed_packages: policy.bootstrap_packages.clone(),
+        }
+    }
+}
+
+impl HostServiceObservationPort for ReadyForServiceObservation {
+    fn observe_services(&self, policy: &ServicePolicy) -> ServiceObservedState {
+        ServiceObservedState {
+            units: policy
+                .units
+                .iter()
+                .map(|unit| ServiceObservedUnit {
+                    unit_name: unit.unit_name.clone(),
+                    present: true,
+                    enabled: false,
+                    active: false,
+                })
+                .collect(),
+        }
+    }
+}
+
+impl HostServiceObservationPort for ActiveServiceObservation {
+    fn observe_services(&self, policy: &ServicePolicy) -> ServiceObservedState {
+        ServiceObservedState {
+            units: policy
+                .units
+                .iter()
+                .map(|unit| ServiceObservedUnit {
+                    unit_name: unit.unit_name.clone(),
+                    present: true,
+                    enabled: true,
+                    active: true,
+                })
+                .collect(),
+        }
+    }
+}
+
 #[test]
 fn collects_host_substrate_contracts() {
     let contracts = collect_contracts(&StaticHostContractPort);
@@ -246,6 +349,7 @@ fn principal_status_is_active_when_observed_state_matches_policy() {
         group_present: true,
         observed_home_dir: Some(policy.home_dir.clone()),
         present_state_dirs,
+        owned_paths: policy.managed_paths(),
     });
     assert_eq!(report.status, SurfaceStatus::Active);
 }
@@ -357,6 +461,62 @@ fn local_observer_returns_four_domain_reports() {
     let reports = observe_host(&StaticHostContractPort, &FakeObservationAdapter);
     assert_eq!(reports.schema, HOST_OBSERVATION_SCHEMA);
     assert_eq!(reports.status, SurfaceStatus::Blocked);
+    let first_blocked = reports
+        .blocked_domains
+        .first()
+        .copied()
+        .expect("expected at least one blocked host domain");
+    match first_blocked {
+        "principal" => {
+            assert_eq!(reports.lifecycle_status, reports.principal.lifecycle_status);
+            assert_eq!(
+                reports.lifecycle_disposition,
+                reports.principal.lifecycle_disposition
+            );
+            assert_eq!(
+                reports.next_boundary_kind,
+                reports.principal.next_boundary_kind
+            );
+            assert_eq!(reports.next_command, reports.principal.next_command);
+        }
+        "privilege" => {
+            assert_eq!(reports.lifecycle_status, reports.privilege.lifecycle_status);
+            assert_eq!(
+                reports.lifecycle_disposition,
+                reports.privilege.lifecycle_disposition
+            );
+            assert_eq!(
+                reports.next_boundary_kind,
+                reports.privilege.next_boundary_kind
+            );
+            assert_eq!(reports.next_command, reports.privilege.next_command);
+        }
+        "packages" => {
+            assert_eq!(reports.lifecycle_status, reports.packages.lifecycle_status);
+            assert_eq!(
+                reports.lifecycle_disposition,
+                reports.packages.lifecycle_disposition
+            );
+            assert_eq!(
+                reports.next_boundary_kind,
+                reports.packages.next_boundary_kind
+            );
+            assert_eq!(reports.next_command, reports.packages.next_command);
+        }
+        "services" => {
+            assert_eq!(reports.lifecycle_status, reports.services.lifecycle_status);
+            assert_eq!(
+                reports.lifecycle_disposition,
+                reports.services.lifecycle_disposition
+            );
+            assert_eq!(
+                reports.next_boundary_kind,
+                reports.services.next_boundary_kind
+            );
+            assert_eq!(reports.next_command, reports.services.next_command);
+        }
+        other => panic!("unexpected blocked domain: {other}"),
+    }
     assert!(!reports.blocked_domains.is_empty());
     assert!(!reports.principal.evidences.is_empty());
     assert!(!reports.privilege.evidences.is_empty());
@@ -490,7 +650,7 @@ fn execute_host_apply_in_dry_run_emits_commands_without_running_them() {
 }
 
 #[test]
-fn execute_host_apply_reports_runner_failures_when_mutating() {
+fn legacy_host_apply_cannot_reach_runner_when_mutating() {
     let observed = observe_host(&StaticHostContractPort, &FakeObservationAdapter);
     let report = execute_host_apply(
         &StaticHostContractPort,
@@ -498,11 +658,238 @@ fn execute_host_apply_reports_runner_failures_when_mutating() {
         false,
         &FakeCommandRunner,
     );
-    assert!(report.commands.iter().any(|item| item.executed));
+    assert!(report.commands.iter().all(|item| !item.executed));
     assert_eq!(report.status, SurfaceStatus::Blocked);
-    assert!(report.commands.iter().any(|item| {
-        item.result
-            .as_ref()
-            .is_some_and(|result| !result.success && result.stderr == "package source unresolved")
-    }));
+    assert_eq!(report.blockers, vec!["policy_admission_required"]);
+    assert!(report.admission.is_none());
+}
+
+#[test]
+fn admitted_service_apply_runs_exact_plan_and_requires_postflight_proofs() {
+    let observed = observe_host(&StaticHostContractPort, &ReadyForServiceObservation);
+    let runner = RecordingCommandRunner {
+        calls: Cell::new(0),
+    };
+    let authorization = ExecutionAuthorization::new(
+        "operator-a",
+        PolicyAuthority::HumanOperator,
+        true,
+        service_apply_satisfied_preconditions(&observed),
+    );
+
+    let report = execute_admitted_service_apply(
+        &StaticHostContractPort,
+        &observed,
+        authorization,
+        &runner,
+        &ActiveServiceObservation,
+    );
+
+    assert_eq!(runner.calls.get(), 3);
+    assert_eq!(report.status, SurfaceStatus::Active);
+    assert!(report.blockers.is_empty());
+    assert_eq!(report.proofs_observed, report.proofs_required);
+    assert!(report.commands.iter().all(|command| command.executed));
+}
+
+#[test]
+fn runtime_service_reconcile_requires_runtime_authority_and_exact_policy() {
+    let observed = observe_host(&StaticHostContractPort, &ReadyForServiceObservation);
+    let runner = RecordingCommandRunner {
+        calls: Cell::new(0),
+    };
+    let authorization = ExecutionAuthorization::new(
+        "runtime-host-helper",
+        PolicyAuthority::RuntimeAuthority,
+        true,
+        service_apply_satisfied_preconditions(&observed),
+    );
+
+    let report = execute_runtime_service_reconcile(
+        &StaticHostContractPort,
+        &observed,
+        authorization,
+        &runner,
+        &ActiveServiceObservation,
+    );
+
+    assert_eq!(runner.calls.get(), 3);
+    assert_eq!(report.status, SurfaceStatus::Active);
+    let admission = report.admission.expect("runtime admission");
+    assert_eq!(
+        admission.policy_set.id,
+        "cynic.host.services.runtime_reconcile"
+    );
+    assert_eq!(
+        admission.mutation.required_authority,
+        PolicyAuthority::RuntimeAuthority
+    );
+}
+
+#[test]
+fn operator_principal_or_missing_apply_cannot_use_runtime_reconcile() {
+    let observed = observe_host(&StaticHostContractPort, &ReadyForServiceObservation);
+    for (authority, apply) in [
+        (PolicyAuthority::HumanOperator, true),
+        (PolicyAuthority::HumanAdmin, true),
+        (PolicyAuthority::RuntimePrincipal, true),
+        (PolicyAuthority::RuntimeAuthority, false),
+    ] {
+        let runner = RecordingCommandRunner {
+            calls: Cell::new(0),
+        };
+        let authorization = ExecutionAuthorization::new(
+            "runtime-host-helper",
+            authority,
+            apply,
+            service_apply_satisfied_preconditions(&observed),
+        );
+
+        let report = execute_runtime_service_reconcile(
+            &StaticHostContractPort,
+            &observed,
+            authorization,
+            &runner,
+            &ActiveServiceObservation,
+        );
+
+        assert_eq!(runner.calls.get(), 0);
+        assert_eq!(report.status, SurfaceStatus::Blocked);
+    }
+}
+
+#[test]
+fn successful_mutation_without_postflight_proof_remains_blocked() {
+    let observed = observe_host(&StaticHostContractPort, &ReadyForServiceObservation);
+    let runner = RecordingCommandRunner {
+        calls: Cell::new(0),
+    };
+
+    let report = execute_admitted_service_apply(
+        &StaticHostContractPort,
+        &observed,
+        valid_service_authorization(&observed),
+        &runner,
+        &ReadyForServiceObservation,
+    );
+
+    assert_eq!(runner.calls.get(), 3);
+    assert_eq!(report.status, SurfaceStatus::Blocked);
+    assert!(
+        report
+            .blockers
+            .iter()
+            .any(|blocker| blocker.starts_with("postflight_proof_missing:"))
+    );
+}
+
+#[test]
+fn denied_unknown_tampered_or_under_authorized_plan_never_reaches_runner() {
+    let observed = observe_host(&StaticHostContractPort, &ReadyForServiceObservation);
+    let policy = StaticHostContractPort.desired_services();
+    let base_plan = crate::execution::build_service_operation_plan(&policy, "local-host");
+    let base_admission =
+        crate::execution::service_operation_policy_admission(&base_plan, "operator-a");
+
+    for decision in [
+        PolicyDecision::Deny {
+            violations: Vec::new(),
+        },
+        PolicyDecision::Unknown {
+            missing_evidence: vec!["runtime_registry".to_string()],
+        },
+    ] {
+        let runner = RecordingCommandRunner {
+            calls: Cell::new(0),
+        };
+        let mut admission = base_admission.clone();
+        admission.decision = decision;
+        let report = execute_service_apply_with_admission(
+            &observed,
+            &policy,
+            base_plan.clone(),
+            admission,
+            valid_service_authorization(&observed),
+            &runner,
+            &ActiveServiceObservation,
+        );
+        assert_eq!(runner.calls.get(), 0);
+        assert_eq!(report.status, SurfaceStatus::Blocked);
+    }
+
+    let runner = RecordingCommandRunner {
+        calls: Cell::new(0),
+    };
+    let mut tampered = base_plan.clone();
+    tampered.operations.push(HostOperation::ServiceStart {
+        unit: "unadmitted.service".to_string(),
+    });
+    let report = execute_service_apply_with_admission(
+        &observed,
+        &policy,
+        tampered,
+        base_admission.clone(),
+        valid_service_authorization(&observed),
+        &runner,
+        &ActiveServiceObservation,
+    );
+    assert_eq!(runner.calls.get(), 0);
+    assert!(
+        report
+            .blockers
+            .contains(&"plan_not_derived_from_desired_service_policy".to_string())
+    );
+
+    let runner = RecordingCommandRunner {
+        calls: Cell::new(0),
+    };
+    let mut weak = valid_service_authorization(&observed);
+    weak.authority = PolicyAuthority::RuntimePrincipal;
+    let report = execute_service_apply_with_admission(
+        &observed,
+        &policy,
+        base_plan,
+        base_admission,
+        weak,
+        &runner,
+        &ActiveServiceObservation,
+    );
+    assert_eq!(runner.calls.get(), 0);
+    assert!(
+        report
+            .blockers
+            .contains(&"authority_insufficient".to_string())
+    );
+
+    let runner = RecordingCommandRunner {
+        calls: Cell::new(0),
+    };
+    let mut no_apply = valid_service_authorization(&observed);
+    no_apply.explicit_apply = false;
+    let plan = crate::execution::build_service_operation_plan(&policy, "local-host");
+    let admission = crate::execution::service_operation_policy_admission(&plan, "operator-a");
+    let report = execute_service_apply_with_admission(
+        &observed,
+        &policy,
+        plan,
+        admission,
+        no_apply,
+        &runner,
+        &ActiveServiceObservation,
+    );
+    assert_eq!(runner.calls.get(), 0);
+    assert!(
+        report
+            .blockers
+            .contains(&"explicit_apply_required".to_string())
+    );
+}
+
+fn valid_service_authorization(observed: &super::HostObservationReports) -> ExecutionAuthorization {
+    ExecutionAuthorization::new(
+        "operator-a",
+        PolicyAuthority::HumanOperator,
+        true,
+        service_apply_satisfied_preconditions(observed),
+    )
 }

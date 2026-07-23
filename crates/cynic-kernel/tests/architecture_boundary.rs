@@ -2,11 +2,14 @@ use std::fs;
 use std::path::PathBuf;
 
 fn repo_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let crates_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workspace_root = crates_dir
         .parent()
-        .expect("workspace crates dir")
+        .unwrap_or_else(|| panic!("failed to resolve workspace crates dir"));
+
+    workspace_root
         .parent()
-        .expect("workspace root")
+        .unwrap_or_else(|| panic!("failed to resolve workspace root"))
         .to_path_buf()
 }
 
@@ -53,14 +56,27 @@ fn kernel_main_remains_the_runtime_composition_root() {
         "#[tokio::main]",
         "KernelEntryFlags::from_env_args()",
         "run_mcp_proxy_mode_if_requested(entry_flags).await?",
-        "infra::tasks::spawn_signal_handler(shutdown.clone());",
-        "load_kernel_config_bundle()",
-        "connect_storage_runtime(&storage_config).await",
-        "axum::serve(",
+        "bootstrap::runtime_orchestrator::run_runtime(entry_flags).await",
     ] {
         assert!(
             main_rs.contains(expected),
             "kernel main.rs should contain `{expected}`"
+        );
+    }
+}
+
+#[test]
+fn kernel_runtime_orchestrator_hosts_bootstrap_composition_logic() {
+    let bootstrap_rs = read_repo_file("crates/cynic-kernel/src/bootstrap/runtime_orchestrator.rs");
+
+    for expected in [
+        "bootstrap::server::run_rest_servers(bootstrap::server::RestServeInputs",
+        "load_kernel_config_bundle()",
+        "connect_storage_runtime(&storage_config).await",
+    ] {
+        assert!(
+            bootstrap_rs.contains(expected),
+            "bootstrap runtime orchestrator should contain `{expected}`"
         );
     }
 }
@@ -173,10 +189,6 @@ fn kernel_lifecycle_surface_stays_host_owned() {
             "pub use cynic_host::lifecycle::diagnostics::*;",
         ),
         (
-            "crates/cynic-kernel/src/domain/lifecycle_runtime_paths.rs",
-            "pub use cynic_host::lifecycle::runtime_paths::*;",
-        ),
-        (
             "crates/cynic-kernel/src/domain/lifecycle_workflow_state.rs",
             "pub use cynic_host::lifecycle::workflow_state::*;",
         ),
@@ -186,24 +198,6 @@ fn kernel_lifecycle_surface_stays_host_owned() {
             content.trim(),
             expected,
             "{path} must stay a compatibility facade over cynic-host"
-        );
-    }
-
-    let bin = read_repo_file("crates/cynic-kernel/src/bin/cynic-kernel-lifecycle-evidence.rs");
-    assert!(
-        bin.contains("cynic_host::lifecycle::evidence_cli::main_from_env()"),
-        "kernel lifecycle binary must delegate to cynic-host"
-    );
-    for forbidden in [
-        "build_lifecycle_runtime_paths",
-        "apply_lifecycle_activation_evidence_patch",
-        "validate_activation_request_payload",
-        "std::fs",
-        "serde_json::",
-    ] {
-        assert!(
-            !bin.contains(forbidden),
-            "kernel lifecycle binary must not re-own host lifecycle behavior: {forbidden}"
         );
     }
 }
@@ -454,14 +448,14 @@ fn kernel_inference_router_delegates_observation_persistence() {
 }
 
 #[test]
-fn kernel_inference_router_delegates_node_operations_to_cynic_node_application() {
+fn kernel_inference_router_delegates_node_operations_to_cynic_inference_application() {
     let router = read_repo_file("crates/cynic-kernel/src/api/rest/inference_router.rs");
     assert!(
-        router.contains("cynic_node::inference_operations")
+        router.contains("cynic_inference::application::node_runtime_ops")
             && router.contains("start_dog_runtime")
             && router.contains("remediate_dog_runtime")
             && router.contains("probe_model_runtime"),
-        "kernel inference router must call cynic-node application operations"
+        "kernel inference router must call cynic-inference node runtime operations"
     );
 
     for forbidden in [
@@ -476,18 +470,20 @@ fn kernel_inference_router_delegates_node_operations_to_cynic_node_application()
         );
     }
 
+    let node_ops = read_repo_file("crates/cynic-node/src/inference_node_ops.rs");
     let node_lib = read_repo_file("crates/cynic-node/src/lib.rs");
-    let operations = read_repo_file("crates/cynic-node/src/inference_operations.rs");
+    let inference_ops =
+        read_repo_file("crates/cynic-inference/src/application/node_runtime_ops.rs");
     assert!(
-        node_lib.contains("pub mod inference_operations;")
-            && operations.contains("pub async fn start_dog_runtime")
-            && operations.contains("pub async fn remediate_dog_runtime")
-            && operations.contains("pub async fn probe_model_runtime"),
-        "cynic-node must expose inference operation application surface"
+        node_lib.contains("pub mod inference_node_ops;")
+            && node_ops.contains("pub use cynic_inference::application::node_runtime_ops"),
+        "cynic-node must expose a compatibility inference operation application surface"
     );
     assert!(
-        operations.contains("crate::inference_node_ops"),
-        "cynic-node application surface should wrap the low-level node ops adapter"
+        inference_ops.contains("pub async fn start_dog_runtime")
+            && inference_ops.contains("pub async fn remediate_dog_runtime")
+            && inference_ops.contains("pub async fn probe_model_runtime"),
+        "cynic-inference should own node runtime operation application primitives"
     );
 }
 
@@ -938,27 +934,22 @@ fn kernel_runtime_project_root_resolution_stays_host_owned() {
     for path in [
         "crates/cynic-kernel/src/api/rest/dispatch.rs",
         "crates/cynic-kernel/src/api/mcp/proxy.rs",
-        "crates/cynic-kernel/src/bootstrap/entry.rs",
         "crates/cynic-kernel/src/bootstrap/services.rs",
-        "crates/cynic-kernel/src/infra/config.rs",
+        "crates/cynic-kernel/src/bootstrap/entry.rs",
+        "crates/cynic-kernel/src/infra/config/mod.rs",
+        "crates/cynic-kernel/src/infra/domain_prompts.rs",
     ] {
         let content = read_repo_file(path);
         assert!(
             !content.contains("cynic_host::repo_access::current_project_root")
                 && !content.contains("use cynic_host::repo_access::current_project_root"),
-            "{path} must resolve runtime project roots through cynic-host runtime_registry"
+            "{path} must not resolve host project roots from repo-access path discovery"
+        );
+        assert!(
+            !content.contains("resolve_runtime_project_root_or_cwd_fallback")
+                && !content.contains("resolve_runtime_project_root_path")
+                && !content.contains("RuntimeProjectRootMode"),
+            "{path} must not own project-root resolution policy"
         );
     }
-
-    let entry = read_repo_file("crates/cynic-kernel/src/bootstrap/entry.rs");
-    assert!(
-        entry.contains("resolve_runtime_project_root_or_cwd_fallback"),
-        "kernel entry fallback policy must stay host-owned and explicitly classified"
-    );
-
-    let config = read_repo_file("crates/cynic-kernel/src/infra/config.rs");
-    assert!(
-        config.contains("resolve_runtime_project_root_path"),
-        "kernel filesystem prompt discovery must use host-owned runtime project root resolution"
-    );
 }

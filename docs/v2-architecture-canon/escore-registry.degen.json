@@ -1,0 +1,34 @@
+{
+  "registry_id": "degen",
+  "version": "0.1",
+  "status": "canonical",
+  "name": "DEGEN",
+  "description": "La langue de la rue Solana. Aucune friction culturelle. Le plus accessible pour onboarder des communautés qui découvrent Odysseum sans background philosophique. Paper hands rekt, diamond hands eat.",
+  "futarchy_proposal_id": null,
+  "stats": {
+    "karteria":      { "display": "Diamond", "subtitle": null, "motto": "Paper hands rekt. Diamond hands eat." },
+    "parrhesia":     { "display": "Alpha",   "subtitle": null, "motto": "Real alpha doesn't ask permission" },
+    "anaideia":      { "display": "Chad",    "subtitle": null, "motto": "First in, first blessed" },
+    "philanthropia": { "display": "Based",   "subtitle": null, "motto": "Genuinely based: gives without wanting clout" },
+    "autarkeia":     { "display": "Node",    "subtitle": null, "motto": "You run the machine. You are the machine." },
+    "poiesis":       { "display": "Cook",    "subtitle": null, "motto": "Always cooking. Never slop." },
+    "koinonia":      { "display": "Fren",    "subtitle": null, "motto": "Not your fren, not your community" }
+  },
+  "classes": {
+    "spartiate": { "display": "Diamond-Handed",  "subtitle": null, "flavor": "Tient ET va en premier. Le holder ultime." },
+    "oracle":    { "display": "Alpha Node",       "subtitle": null, "flavor": "L'alpha caller qui fait aussi tourner l'infra" },
+    "promethee": { "display": "Based Chad",       "subtitle": null, "flavor": "Prend le risque pour aider les autres" },
+    "hermes":    { "display": "Content Fren",     "subtitle": null, "flavor": "Crée du contenu ET connecte le réseau" },
+    "dedale":    { "display": "Builder",          "subtitle": null, "flavor": "Infra + création. Le dev silencieux." },
+    "socrate":   { "display": "Alpha Caller",     "subtitle": null, "flavor": "Partage l'alpha à la communauté" },
+    "agathon":   { "display": "Gigabased",        "subtitle": null, "flavor": "Maximum générosité + communauté" },
+    "apex":      { "display": "Sovereign Fren",   "subtitle": null, "flavor": "Le degen complet. Respecté de tous." }
+  },
+  "tiers": {
+    "t0": { "display": "Lurker",      "subtitle": null },
+    "t1": { "display": "Holder",      "subtitle": null },
+    "t2": { "display": "Degen",       "subtitle": null },
+    "t3": { "display": "Whale",       "subtitle": null },
+    "t4": { "display": "Gigachad",    "subtitle": null }
+  }
+}

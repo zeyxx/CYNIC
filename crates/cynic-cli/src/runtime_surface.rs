@@ -4,12 +4,17 @@ use clap::Subcommand;
 
 use crate::bootstrap_surface::ProfileArgs;
 
+mod agent_matrix;
+mod compat_aliases;
+mod disk;
 mod execution_context;
 mod host_checks;
+mod inference_dispatch;
 mod inference_surface;
 mod network_preflight;
 mod paths;
 mod report;
+mod registry_observation;
 mod resolver_plan;
 mod suite;
 mod validation;
@@ -21,6 +26,16 @@ pub(crate) enum RuntimeCommand {
         json: bool,
         #[arg(long)]
         registry: Option<String>,
+    },
+    RegistryObservation {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        observation: String,
+        #[arg(long)]
+        apply: bool,
     },
     Validate {
         #[arg(long)]
@@ -68,6 +83,13 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         proof: Option<String>,
     },
+    /// Discover the active SurrealDB runtime, engine, transport, and capability proof levels.
+    StorageCapabilities {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        url: Option<String>,
+    },
     ExecutionContext {
         #[arg(long)]
         json: bool,
@@ -101,6 +123,11 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         persist: bool,
     },
+    /// Report which runtime/bootstrap surfaces are safe to expose to bounded agent autonomy now vs later.
+    AgentMatrix {
+        #[arg(long)]
+        json: bool,
+    },
     /// Report the sovereign inference configuration as machine-readable JSON.
     /// Native surface: declared routing SSOT (not a live probe).
     /// SSOT path: CYNIC_INFERENCE_CONFIG or /etc/cynic/inference.toml
@@ -118,6 +145,9 @@ pub(crate) enum RuntimeCommand {
     InferenceStatus {
         #[arg(long)]
         json: bool,
+        /// Show the last N log lines for the running local process (requires process supervisor).
+        #[arg(long, default_value_t = 0)]
+        tail: usize,
     },
     /// Start a native local model profile (process|systemd supervisor).
     /// Omit alias / pass `auto` to ensure vault profiles and start the preferred model.
@@ -127,6 +157,10 @@ pub(crate) enum RuntimeCommand {
         alias: String,
         #[arg(long)]
         json: bool,
+        /// Return immediately after process spawn, and keep probing for readiness async.
+        /// Useful when models are large and you want to keep the TUI responsive.
+        #[arg(long)]
+        no_wait: bool,
     },
     /// Stop the native local inference unit (optional alias; default = running).
     InferenceStop {
@@ -134,12 +168,23 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Integrate with a running [Osmantic ODS](https://github.com/Osmantic/ODS)
-    /// (or compatible) environment: probe local endpoints and publish into inference.toml.
-    /// ODS bootstraps the AI stack; this does not install ODS or start vault profiles.
+    /// Peer / optional ODS attach plane (loose coupling).
+    ///
+    /// Default: **probe-only** status (`cynic.inference.ods_discovery.v1`).
+    /// `--apply` publishes peers into inference.toml (mutation).
+    /// `--open-webui` (with `--apply`) also tries Open WebUI publisher.
+    ///
+    /// Does **not** install ODS — use `cynic deps upgrade --yes --only ods`.
+    /// Native vault remains independent: `inference-start`.
     InferenceDiscover {
         #[arg(long)]
         json: bool,
+        /// Publish discovered peers into routing SSOT (inference.toml).
+        #[arg(long)]
+        apply: bool,
+        /// With `--apply`, also attempt Open WebUI connection publish (opt-in).
+        #[arg(long = "open-webui")]
+        open_webui: bool,
     },
     /// Centralized model store: layout + vault artifacts + profiles (+ optional registry write).
     InferenceModels {
@@ -247,6 +292,11 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Compatibility alias → `cynic deps audit`.
+    DepsAudit {
+        #[arg(long)]
+        json: bool,
+    },
     /// Compatibility alias → `cynic deps upgrade`.
     DepsUpgrade {
         #[arg(long)]
@@ -260,11 +310,43 @@ pub(crate) enum RuntimeCommand {
         #[arg(long = "only")]
         only: Vec<String>,
     },
+    /// Probe host storage capacity, filesystems, caches and large files.
+    Disk {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Plan or execute host disk space cleanup.
+    DiskClean {
+        #[arg(long)]
+        json: bool,
+        /// Apply the cleanup plan (mutation).
+        #[arg(long)]
+        apply: bool,
+    },
 }
 
 pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
+    let command = match inference_dispatch::try_execute_inference(command) {
+        Ok(exit) => return exit,
+        Err(command) => command,
+    };
+    let command = match compat_aliases::try_execute_compat_alias(command) {
+        Ok(exit) => return exit,
+        Err(command) => command,
+    };
     match command {
         RuntimeCommand::Paths { json, registry } => paths::execute_paths(json, registry),
+        RuntimeCommand::RegistryObservation {
+            json,
+            registry,
+            observation,
+            apply,
+        } => registry_observation::execute_registry_observation(
+            json,
+            registry,
+            &observation,
+            apply,
+        ),
         RuntimeCommand::Validate {
             json,
             registry,
@@ -274,30 +356,35 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             json,
             registry,
             profile,
-        } => suite::execute_suite(json, registry, profile),
+        } => suite::execute_suite(json, registry.as_deref(), &profile),
         RuntimeCommand::Plan {
             json,
             registry,
             profile,
             proof,
-        } => suite::execute_plan(json, registry, profile, proof),
-        RuntimeCommand::Harness { json, kind } => host_checks::execute_harness(json, kind),
+        } => suite::execute_plan(json, registry.as_deref(), &profile, proof.as_deref()),
+        RuntimeCommand::Harness { json, kind } => {
+            host_checks::execute_harness(json, kind.as_deref())
+        }
         RuntimeCommand::Conformance { json, profile } => {
-            host_checks::execute_conformance(json, profile)
+            host_checks::execute_conformance(json, &profile)
         }
         RuntimeCommand::Metrics {
             json,
             profile,
             proof,
-        } => host_checks::execute_metrics(json, profile, proof),
+        } => host_checks::execute_metrics(json, &profile, proof.as_deref()),
+        RuntimeCommand::StorageCapabilities { json, url } => {
+            host_checks::execute_storage_capabilities(json, url.as_deref())
+        }
         RuntimeCommand::ExecutionContext { json, hosts } => {
-            execution_context::execute_execution_context(json, hosts)
+            execution_context::execute_execution_context(json, &hosts)
         }
         RuntimeCommand::NetworkPreflight { json, hosts } => {
-            network_preflight::execute_network_preflight(json, hosts)
+            network_preflight::execute_network_preflight(json, &hosts)
         }
         RuntimeCommand::ResolverPlan { json, hosts } => {
-            resolver_plan::execute_resolver_plan(json, hosts)
+            resolver_plan::execute_resolver_plan(json, &hosts)
         }
         RuntimeCommand::RepoAccess { json, profile } => {
             host_checks::execute_repo_access(json, profile)
@@ -306,89 +393,28 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             json,
             output,
             persist,
-        } => report::execute_report(json, output, persist),
-        RuntimeCommand::Inference { json } => inference_surface::execute_inference(json),
-        RuntimeCommand::InferenceVault { json } => inference_surface::execute_inference_vault(json),
-        RuntimeCommand::InferenceStatus { json } => {
-            inference_surface::execute_inference_status(json)
-        }
-        RuntimeCommand::InferenceStart { alias, json } => {
-            inference_surface::execute_inference_start(Some(alias.as_str()), json)
-        }
-        RuntimeCommand::InferenceStop { alias, json } => {
-            inference_surface::execute_inference_stop(alias.as_deref(), json)
-        }
-        RuntimeCommand::InferenceDiscover { json } => {
-            inference_surface::execute_inference_discover(json)
-        }
-        RuntimeCommand::InferenceModels {
-            json,
-            persist,
-            ensure_profiles,
-        } => inference_surface::execute_inference_models(json, persist, ensure_profiles),
-        RuntimeCommand::InferenceModelsConsolidate { json, yes } => {
-            inference_surface::execute_inference_models_consolidate(json, yes)
-        }
-        RuntimeCommand::InferenceHfStatus { json } => {
-            inference_surface::execute_inference_hf_status(json)
-        }
-        RuntimeCommand::InferenceHfDownload {
-            repo,
-            json,
-            revision,
-            include,
-            exclude,
-            repo_type,
-            cache_only,
-            alias,
-            register_profile,
-            no_profile,
-        } => inference_surface::execute_inference_hf_download(
-            &repo,
-            json,
-            revision.as_deref(),
-            &include,
-            &exclude,
-            repo_type.as_deref(),
-            cache_only,
-            alias.as_deref(),
-            register_profile && !no_profile,
-        ),
-        RuntimeCommand::InferenceHfCategories { json } => {
-            inference_surface::execute_inference_hf_categories(json)
-        }
-        RuntimeCommand::InferenceHardware { json } => {
-            inference_surface::execute_inference_hardware(json)
-        }
-        RuntimeCommand::InferenceHfSearch {
-            json,
-            category,
-            query,
-            author,
-            limit,
-        } => inference_surface::execute_inference_hf_search(
-            json,
-            category.as_deref(),
-            query.as_deref(),
-            author.as_deref(),
-            limit,
-        ),
-        RuntimeCommand::InferenceHfSuggest {
-            json,
-            category,
-            limit,
-        } => inference_surface::execute_inference_hf_suggest(json, &category, limit),
-        RuntimeCommand::InferencePlan { alias, json, apply } => {
-            inference_surface::execute_inference_plan(&alias, json, apply)
-        }
-        RuntimeCommand::Deps { json } => crate::deps_surface::execute_deps(json),
-        RuntimeCommand::DepsPlan { json } => crate::deps_surface::execute_deps_plan(json),
-        RuntimeCommand::DepsUpgrade {
-            json,
-            yes,
-            apply,
-            confirm,
-            only,
-        } => crate::deps_surface::execute_deps_upgrade(json, apply, yes, confirm.as_deref(), &only),
+        } => report::execute_report(json, output.as_deref(), persist),
+        RuntimeCommand::AgentMatrix { json } => agent_matrix::execute_agent_matrix(json),
+        RuntimeCommand::Inference { .. }
+        | RuntimeCommand::InferenceVault { .. }
+        | RuntimeCommand::InferenceStatus { .. }
+        | RuntimeCommand::InferenceStart { .. }
+        | RuntimeCommand::InferenceStop { .. }
+        | RuntimeCommand::InferenceDiscover { .. }
+        | RuntimeCommand::InferenceModels { .. }
+        | RuntimeCommand::InferenceModelsConsolidate { .. }
+        | RuntimeCommand::InferenceHfStatus { .. }
+        | RuntimeCommand::InferenceHfDownload { .. }
+        | RuntimeCommand::InferenceHfCategories { .. }
+        | RuntimeCommand::InferenceHardware { .. }
+        | RuntimeCommand::InferenceHfSearch { .. }
+        | RuntimeCommand::InferenceHfSuggest { .. }
+        | RuntimeCommand::InferencePlan { .. }
+        | RuntimeCommand::Deps { .. }
+        | RuntimeCommand::DepsPlan { .. }
+        | RuntimeCommand::DepsAudit { .. }
+        | RuntimeCommand::DepsUpgrade { .. }
+        | RuntimeCommand::Disk { .. }
+        | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
     }
 }

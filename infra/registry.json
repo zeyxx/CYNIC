@@ -2,7 +2,80 @@
   "version": 1,
   "schema": "cynic.registry.v1.minimal",
   "purpose": "Minimal runtime placement registry for the rebuilt low-layer organism.",
+  "network_policy": {
+    "canonical_service_plane": "synapse",
+    "planes": {
+      "management": {
+        "cidr": "192.168.100.0/24",
+        "canonical": false,
+        "purpose": "direct bare-metal management transport"
+      },
+      "synapse": {
+        "cidr": "10.10.10.0/24",
+        "dns_zone": "synapse.cynic",
+        "canonical": true
+      }
+    },
+    "reservations": [
+      {
+        "name": "cynic-host-proxmox",
+        "addresses": {
+          "management": "192.168.100.1",
+          "synapse": "10.10.10.1"
+        }
+      },
+      {
+        "name": "cynic-host-cortex",
+        "addresses": {
+          "management": "192.168.100.2"
+        }
+      },
+      {
+        "name": "forgejo",
+        "dns": [
+          "forgejo.synapse.cynic"
+        ]
+      }
+    ]
+  },
   "nodes": [
+    {
+      "id": "cynic-host-proxmox",
+      "name": "cynic-host-proxmox",
+      "aliases": ["pve"],
+      "role": "hypervisor",
+      "status": "observed",
+      "deploy_target": false,
+      "network": {
+        "management": "192.168.100.1",
+        "synapse": "10.10.10.1"
+      },
+      "services": []
+    },
+    {
+      "id": "cynic-host-cortex",
+      "name": "cynic-host-cortex",
+      "aliases": [],
+      "role": "cortex_host",
+      "status": "candidate",
+      "deploy_target": false,
+      "network": {
+        "management": "192.168.100.2"
+      },
+      "network_links": [
+        {
+          "plane": "management",
+          "provider": "network-manager",
+          "interface": "enp42s0",
+          "connection": "Connexion filaire 1",
+          "address": "192.168.100.2/24",
+          "gateway": "192.168.100.1",
+          "routes": ["10.10.10.0/24"],
+          "default_route": false
+        }
+      ],
+      "services": []
+    },
     {
       "id": "local-kernel",
       "name": "local-kernel",
@@ -65,8 +138,52 @@
         "synapse": "127.0.0.1"
       },
       "services": []
+    },
+    {
+      "id": "forgejo",
+      "name": "forgejo",
+      "aliases": [
+        "organ-forgejo",
+        "cynic-lxc-git"
+      ],
+      "role": "forge_primary",
+      "status": "candidate",
+      "deploy_target": true,
+      "proxmox_id": "lxc/101",
+      "network": {
+        "local": "10.10.10.101",
+        "synapse": "10.10.10.101"
+      },
+      "services": [
+        {
+          "name": "ssh",
+          "scheme": "ssh",
+          "port": 22
+        },
+        {
+          "name": "forgejo-backend",
+          "scheme": "http",
+          "port": 3000
+        },
+        {
+          "name": "forgejo-api-tls",
+          "scheme": "https",
+          "port": 443
+        }
+      ]
     }
   ],
+  "fleet_desired": {
+    "targets": [
+      {
+        "id": "forgejo-primary",
+        "provider": "proxmox",
+        "resource_id": "lxc/101",
+        "role": "forge_primary",
+        "desired_power": "running"
+      }
+    ]
+  },
   "lifecycle": {
     "kernel_release": {
       "build_runner_role": "build_runner",
@@ -112,6 +229,21 @@
               "host_identity_observed",
               "host_bootstrap_target_satisfied",
               "storage_health_observed"
+            ]
+          },
+          "forge_primary": {
+            "target_stage": "h5_services_projected",
+            "required_domains": [
+              "host",
+              "services",
+              "network",
+              "forge"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "forgejo_backend_observed",
+              "forgejo_tls_identity_observed"
             ]
           }
         }

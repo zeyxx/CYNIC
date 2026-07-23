@@ -3,6 +3,244 @@
 #[tool_router(router = tool_router_local, vis = "pub(crate)")]
 impl CynicMcpProxy {
     #[tool(
+        name = "cynic_fleet_reconcile_apply",
+        description = "Apply one declared fleet power reconciliation only after rebuilding its plan, binding admission to its digest, and receiving explicit apply=true. Produces provider task/read-back evidence."
+    )]
+    async fn cynic_fleet_reconcile_apply(
+        &self,
+        params: Parameters<FleetReconcileApplyParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let registry = p.registry.unwrap_or_else(|| {
+            std::path::Path::new(&self.project_root)
+                .join("infra/registry.json")
+                .display()
+                .to_string()
+        });
+        let targets = cynic_node::domain::fleet_reconcile::load_desired_targets(
+            std::path::Path::new(&registry),
+        )
+        .map_err(|error| McpError::invalid_params(error, None))?;
+        let desired = targets
+            .into_iter()
+            .find(|target| target.id == p.target_id)
+            .ok_or_else(|| McpError::invalid_params("fleet desired target not found", None))?;
+        let inventory = cynic_node::fleet_inventory::build_fleet_inventory_details(
+            std::path::Path::new(&registry),
+        )
+        .await
+        .map_err(|error| McpError::internal_error(error, None))?;
+        let observed = inventory
+            .nodes
+            .into_iter()
+            .map(|node| cynic_node::domain::fleet_truth::ObservedResource {
+                provider: node.provider,
+                name: node.name,
+                status: node.status,
+                resource_id: Some(node.node_id),
+                kind: None,
+                constellation: None,
+            })
+            .collect::<Vec<_>>();
+        let plan = cynic_node::domain::fleet_reconcile::build_plan(&desired, &observed);
+        let admission = cynic_node::domain::fleet_reconcile::admit_plan(&plan, p.actor.clone());
+        let authorization = cynic_protocol::ExecutionAuthorization::new(
+            p.actor,
+            cynic_protocol::PolicyAuthority::RuntimeAuthority,
+            p.apply,
+            Vec::new(),
+        );
+        let gate =
+            cynic_node::domain::fleet_reconcile::authorize_apply(&plan, &admission, &authorization);
+        if !gate.admitted() {
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(
+                    &serde_json::json!({"plan": plan, "admission": admission, "gate": gate}),
+                )
+                .unwrap_or_default(),
+            )]));
+        }
+        let action = plan
+            .actions
+            .first()
+            .ok_or_else(|| McpError::internal_error("admitted plan has no action", None))?;
+        let result = cynic_node::fleet_inventory::apply_proxmox_power_action(action, true)
+            .await
+            .map_err(|error| McpError::internal_error(error, None))?;
+        Ok(CallToolResult::success(vec![Content::text(serde_json::to_string_pretty(&serde_json::json!({"plan": plan, "admission": admission, "gate": gate, "proof": result})).unwrap_or_default())]))
+    }
+
+    #[tool(
+        name = "cynic_fleet_reconcile_plan",
+        description = "Build a non-mutating provider-agnostic fleet reconciliation plan from registry desired state and live provider observation. It never starts, stops, creates, or destroys a guest."
+    )]
+    async fn cynic_fleet_reconcile_plan(
+        &self,
+        params: Parameters<FleetReconcilePlanParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let registry = p.registry.unwrap_or_else(|| {
+            std::path::Path::new(&self.project_root)
+                .join("infra/registry.json")
+                .display()
+                .to_string()
+        });
+        let targets = cynic_node::domain::fleet_reconcile::load_desired_targets(
+            std::path::Path::new(&registry),
+        )
+        .map_err(|error| McpError::invalid_params(error, None))?;
+        let desired = targets
+            .into_iter()
+            .find(|target| target.id == p.target_id)
+            .ok_or_else(|| {
+                McpError::invalid_params(
+                    format!("fleet desired target not found: {}", p.target_id),
+                    None,
+                )
+            })?;
+        let inventory = cynic_node::fleet_inventory::build_fleet_inventory_details(
+            std::path::Path::new(&registry),
+        )
+        .await
+        .map_err(|error| McpError::internal_error(error, None))?;
+        let observed = inventory
+            .nodes
+            .into_iter()
+            .map(|node| cynic_node::domain::fleet_truth::ObservedResource {
+                provider: node.provider,
+                name: node.name,
+                status: node.status,
+                resource_id: Some(node.node_id),
+                kind: node
+                    .meta
+                    .as_ref()
+                    .and_then(|meta| meta.get("vm_type"))
+                    .cloned(),
+                constellation: None,
+            })
+            .collect::<Vec<_>>();
+        let plan = cynic_node::domain::fleet_reconcile::build_plan(&desired, &observed);
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&plan).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_fleet_inventory",
+        description = "Observe declared fleet state against configured provider adapters. Read-only: provider credentials are injected, never returned; standard TLS or an injected CA bundle is required."
+    )]
+    async fn cynic_fleet_inventory(
+        &self,
+        params: Parameters<FleetInventoryParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let registry = params.0.registry.unwrap_or_else(|| {
+            std::path::Path::new(&self.project_root)
+                .join("infra/registry.json")
+                .display()
+                .to_string()
+        });
+        let result = cynic_node::fleet_inventory::build_fleet_inventory_details(
+            std::path::Path::new(&registry),
+        )
+        .await
+        .map_err(|error| McpError::internal_error(error, None))?;
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_operator_transport_status",
+        description = "Read local SSH bootstrap and tmux operator-harness evidence. Read-only: SSH remains fallback-only and tmux never grants runtime mutation authority."
+    )]
+    async fn cynic_operator_transport_status(
+        &self,
+        _params: Parameters<OperatorTransportStatusParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let observer =
+            cynic_host::adapters::local_operator_transport::LocalOperatorTransportObserver;
+        let result = cynic_host::transport::build_transport_matrix_report(&observer);
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_transport_security_audit",
+        description = "Audit organism transport membranes and fail closed for remote mutation when confidentiality, peer identity, mutual authentication, or authorization binding is not proven. Read-only; unknowns remain explicit."
+    )]
+    async fn cynic_transport_security_audit(
+        &self,
+        _params: Parameters<OperatorTransportStatusParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let result = cynic_host::transport::build_transport_security_report();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_forgejo_status",
+        description = "Observe the declared sovereign Forgejo endpoint, desired Git-over-SSH remote, reachability, and authentication readiness without reading or returning credentials. Read-only; observed service health is not treated as source-promotion authority."
+    )]
+    async fn cynic_forgejo_status(
+        &self,
+        _params: Parameters<OperatorTransportStatusParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let result = cynic_host::repo_access::current_repo_access_status();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_forgejo_plan",
+        description = "Build the read-only convergence plan for the sovereign Forgejo service from typed authority and observed runtime evidence. Unknown API, repository, key, or SSH authentication state remains blocking; no token is read and no mutation is performed."
+    )]
+    async fn cynic_forgejo_plan(
+        &self,
+        _params: Parameters<OperatorTransportStatusParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let result = cynic_host::forgejo_control::current_forgejo_plan()
+            .map_err(|error| McpError::internal_error(error, None))?;
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_ssh_target_inspect",
+        description = "Read public SSH host-key fingerprints for a bootstrap target without accepting or persisting trust. Agents must return the fingerprint for independent operator comparison before any connection attempt."
+    )]
+    async fn cynic_ssh_target_inspect(
+        &self,
+        params: Parameters<SshTargetInspectParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let observer =
+            cynic_host::adapters::local_operator_transport::LocalOperatorTransportObserver;
+        let result = cynic_host::transport::inspect_ssh_target(&observer, &params.0.host);
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_mcp_surface",
         description = "Read the agent-facing CYNIC MCP surface manifest grouped by domain from infra/agent-exposure.json. Use this to discover coordination, memory/tasks, lifecycle, organism/status, and infra tools without shell inspection."
     )]
@@ -42,6 +280,38 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_askesis_log",
+        description = "Append a typed human observation to Askesis memory for governance and reflection."
+    )]
+    async fn cynic_askesis_log(
+        &self,
+        params: Parameters<AskesisLogParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        let p = params.0;
+        let logfile = p
+            .logfile
+            .filter(|path| !path.trim().is_empty())
+            .unwrap_or_else(|| {
+                cynic_askesis::resolve_human_log_path()
+                    .to_string_lossy()
+                    .to_string()
+            });
+
+        cynic_askesis::append_human_log_entry(&logfile, &p.content, &p.domain).map_err(
+            |error| {
+                McpError::internal_error(format!("Failed to append Askesis log: {error}"), None)
+            },
+        )?;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            r#"{"status": "askesis_logged"}"#,
+        )]))
+    }
+
+    #[tool(
         name = "cynic_validate",
         description = "Run the canonical repository gate `make check` (authority JSON + cargo check core crates + surface-audit including agent-exposure). Prefer this over inventing a parallel validate stack. Returns cynic.mcp.validate.v1."
     )]
@@ -67,6 +337,22 @@ impl CynicMcpProxy {
         self.rate_limit.check_other()?;
         // Local: runs git commands
         let result = crate::local_tools::run_git(&self.project_root, &params.0.op).await;
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_source_control",
+        description = "Govern source material through proposal admission, worktree locking, explicit commit, and separately authorized push. Secrets and generated artifacts are rejected by the canonical protocol policy."
+    )]
+    async fn cynic_source_control(
+        &self,
+        params: Parameters<SourceControlParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_source_control(&self.project_root, &params.0.op);
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))
@@ -1488,8 +1774,7 @@ impl CynicMcpProxy {
                     "backends": [],
                 });
                 return Ok(CallToolResult::success(vec![Content::text(
-                    serde_json::to_string_pretty(&result)
-                        .unwrap_or_else(|_| result.to_string()),
+                    serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
                 )]));
             }
             Err(error) => {
@@ -1512,9 +1797,7 @@ impl CynicMcpProxy {
             let health_url = backend
                 .health_url
                 .clone()
-                .unwrap_or_else(|| {
-                    format!("{}/models", backend.base_url.trim_end_matches('/'))
-                });
+                .unwrap_or_else(|| format!("{}/models", backend.base_url.trim_end_matches('/')));
 
             let health_status = match http.get(&health_url).send().await {
                 Ok(resp) if resp.status().is_success() => "healthy",
@@ -1556,33 +1839,28 @@ impl CynicMcpProxy {
         });
 
         Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result)
-                .unwrap_or_else(|_| result.to_string()),
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
         )]))
     }
 
     #[tool(
         name = "cynic_inference_discover",
-        description = "Scan local ports for running ODS/Ollama/llama-server instances and register them in the user config (~/.config/cynic/inference.toml). Returns the scan results, newly registered backends, and status."
+        description = "Peer attach plane (loose coupling): probe local OpenAI-compat peers (ODS optional). Default applies into inference.toml SSOT. Schema cynic.inference.ods_discovery.v1. Does not install ODS."
     )]
     async fn cynic_inference_discover(&self) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
 
-        use cynic_inference::sync_discovered_backends;
-
-        match sync_discovered_backends().await {
-            Ok(report) => {
-                let result = serde_json::to_value(&report).unwrap_or_default();
-                Ok(CallToolResult::success(vec![Content::text(
-                    serde_json::to_string_pretty(&result)
-                        .unwrap_or_else(|_| result.to_string()),
-                )]))
-            }
-            Err(error) => Err(McpError::internal_error(
-                format!("Inference discovery failed: {error}"),
-                None,
-            )),
-        }
+        // MCP tools are mutation-tier: apply into SSOT (toml only; no Open WebUI side effect).
+        let report = cynic_inference::peer_attach(cynic_inference::PeerAttachOptions {
+            apply: true,
+            open_webui: false,
+            node_id: "local-node".into(),
+        })
+        .await;
+        let result = serde_json::to_value(&report).unwrap_or_default();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+        )]))
     }
 }

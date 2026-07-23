@@ -65,7 +65,20 @@ pub(crate) fn build_activation_chain_report(
     let runtime_layout = current_runtime_layout();
     let host_context = observe_current_host_runtime_context();
     let bridge_status = bridge::bridge_status();
-    let bridge_plan = bridge::bridge_activation_plan(&runtime_layout.host_exec_bundle_dir);
+    let bridge_target = host_context
+        .host_resolution
+        .as_ref()
+        .and_then(|item| item.matched_node.clone())
+        .or_else(|| {
+            host_context
+                .host_resolution
+                .as_ref()
+                .map(|item| item.hostname_observed.clone())
+        })
+        .unwrap_or_else(|| "local-host".to_string());
+    let bridge_spec =
+        bridge::privilege_bridge_install_spec(&runtime_layout.host_exec_bundle_dir, bridge_target);
+    let bridge_plan = bridge::privilege_bridge_plan(&bridge_spec);
     let dns_status = dns_activation_status::build_dns_activation_status(
         registry,
         hosts_path,

@@ -56,7 +56,7 @@ mod tests {
         let entry = ObservationEvent::new("pas fait de sport");
         assert_eq!(entry.content, "pas fait de sport");
         assert!(entry.domain.is_none());
-        assert!(entry.timestamp <= Utc::now().timestamp());
+        assert!(entry.timestamp <= Utc::now().timestamp_millis());
     }
 
     #[test]

@@ -2,7 +2,7 @@ mod tests {
     use super::*;
     use rmcp::handler::server::wrapper::Parameters;
 
-        use crate::domain::coord::NullCoord;
+    use crate::domain::coord::NullCoord;
     use crate::domain::dog::PHI_INV;
     use crate::domain::storage::{
         ActivityStorage, CrystalStorage, DispatchStorage, NullStorage, ProofOfHistory,
@@ -524,7 +524,7 @@ mod tests {
             routing_calc,
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
-        mcp
+        mcp.with_coord_principal("test-1")
     }
 
     fn text_of(result: &CallToolResult) -> &str {
@@ -615,12 +615,26 @@ mod tests {
             }))
             .await
             .unwrap();
-        assert!(text_of(&claim).contains("Claimed"));
+        assert!(
+            text_of(&claim).contains("\"status\":\"claimed\""),
+            "claim should return json status"
+        );
+        let claim_value: serde_json::Value =
+            serde_json::from_str(&text_of(&claim)).expect("claim response should be json");
+        let lease_id = claim_value["lease"]["lease_id"]
+            .as_str()
+            .expect("lease_id present")
+            .to_string();
+        let fencing_token = claim_value["lease"]["fencing_token"]
+            .as_u64()
+            .expect("fencing_token present");
 
         let rel = mcp
             .cynic_coord_release(Parameters(ReleaseParams {
                 agent_id: "test-1".into(),
-                target: None,
+                target: "mod.rs".into(),
+                lease_id,
+                fencing_token,
             }))
             .await
             .unwrap();
@@ -834,7 +848,7 @@ mod tests {
             "build_runner_role": "build_runner",
             "deploy_target": "cynic-vm-core",
             "deploy_target_role": "kernel_primary",
-            "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+            "runtime_paths": {"repo_root": "/var/lib/cynic/repos/CYNIC"},
             "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
             "activation_evidence_contract": activation_evidence_contract(),
             "coord_targets": ["crates/cynic-kernel", "infra/registry.json"]
@@ -886,7 +900,7 @@ mod tests {
                     "build_runner_role": "builder",
                     "deploy_target_role": "primary",
                     "deploy_target_flag": "ships_kernel",
-                    "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+                    "runtime_paths": {"repo_root": "/var/lib/cynic/repos/CYNIC"},
                     "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
                     "activation_evidence_contract": activation_evidence_contract()
                 }
@@ -903,13 +917,16 @@ mod tests {
             "build_runner_role": "builder",
             "deploy_target": "node-primary",
             "deploy_target_role": "primary",
-            "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+            "runtime_paths": {"repo_root": "/var/lib/cynic/repos/CYNIC"},
             "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
             "activation_evidence_contract": activation_evidence_contract(),
             "coord_targets": ["infra/registry.json"]
         });
 
-        let result = validate_forge_lifecycle_contract(&content, Some(&registry));
+        let result = cynic_host::lifecycle::forge_task_contract::validate_forge_lifecycle_contract(
+            &content,
+            Some(&registry),
+        );
 
         assert!(result.is_ok());
     }
@@ -952,6 +969,31 @@ mod tests {
             r.is_err(),
             "UpdateAgentTaskResultParams should require 'task_id'"
         );
+    }
+
+    #[test]
+    fn task_result_params_accepts_evidence_refs() {
+        let r = serde_json::from_value::<UpdateAgentTaskResultParams>(serde_json::json!({
+            "task_id": "agent-task:7",
+            "result": "ok",
+            "evidence_refs": [{
+                "kind": "runtime_proof",
+                "subject": "agent-task:7",
+                "digest": format!("sha256:{}", "a".repeat(64)),
+                "lineage": {
+                    "producer_id": "producer-a",
+                    "producer_attestation_digest": format!("sha256:{}", "b".repeat(64)),
+                    "origin_digests": [format!("sha256:{}", "c".repeat(64))],
+                    "derivation_digests": [],
+                    "influence_digests": [],
+                },
+            }]
+        }));
+        assert!(
+            r.is_ok(),
+            "evidence_refs should be deserializable on task completion payloads"
+        );
+        assert_eq!(r.unwrap().evidence_refs.len(), 1);
     }
 
     // -- (b) All-optional structs accept empty JSON safely --

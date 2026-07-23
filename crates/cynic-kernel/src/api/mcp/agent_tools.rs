@@ -5,6 +5,8 @@ use rmcp::{
 };
 
 use crate::domain::storage::AgentTask;
+use cynic_protocol::AgentEvidenceRef;
+use cynic_protocol::validate_evidence_refs;
 
 use super::{
     ClaimAgentTaskParams, CynicMcp, DispatchAgentTaskParams, ListPendingAgentTasksParams,
@@ -290,16 +292,49 @@ impl CynicMcp {
                 None,
             ));
         }
+        if p.evidence_refs.len() > 64 {
+            return Err(McpError::invalid_params(
+                "evidence_refs must contain at most 64 entries",
+                None,
+            ));
+        }
+        let evidence_refs: Vec<AgentEvidenceRef> = p
+            .evidence_refs
+            .iter()
+            .map(|value| {
+                serde_json::from_value(value.clone()).map_err(|_e| {
+                    McpError::invalid_params(
+                        "evidence_refs must contain valid agent evidence objects",
+                        None,
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        if !validate_evidence_refs(&evidence_refs).is_empty() {
+            return Err(McpError::invalid_params(
+                "evidence_refs contain invalid evidence metadata",
+                None,
+            ));
+        }
 
         let has_result = p.result.is_some();
         let has_error = p.error.is_some();
+        let evidence_ref_count = p.evidence_refs.len();
+        let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
 
-        self.storage
-            .update_agent_task_result(&p.task_id, p.result, p.error)
+        let updated = self
+            .storage
+            .update_agent_task_result(&p.task_id, &agent_id, p.result, p.error)
             .await
             .map_err(|_e| sanitize_error("Agent task result update"))?;
+        if !updated {
+            return Err(McpError::invalid_params(
+                "task is not processing or is claimed by another agent",
+                None,
+            ));
+        }
 
-        let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
         self.audit(
             "cynic_update_agent_task_result",
             &agent_id,
@@ -307,6 +342,7 @@ impl CynicMcp {
                 "task_id": p.task_id,
                 "has_result": has_result,
                 "has_error": has_error,
+                "evidence_ref_count": evidence_ref_count,
             }),
         )
         .await;

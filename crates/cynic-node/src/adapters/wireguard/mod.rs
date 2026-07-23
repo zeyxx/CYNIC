@@ -36,6 +36,37 @@ impl WireguardAdapter {
         }
         Ok(())
     }
+
+    fn create_interface_if_missing(&self, ip_bin: &str) {
+        let args = [
+            "link",
+            "add",
+            "dev",
+            self.interface_name.as_str(),
+            "type",
+            "wireguard",
+        ];
+        // Creation is idempotent at this boundary: a pre-existing interface is
+        // reconciled by the following address/key/up operations.
+        let _ = capture_command(ip_bin, &args);
+    }
+
+    fn install_private_key(&self, wg_bin: &str, private_key: &str) -> Result<(), Box<dyn Error>> {
+        use std::io::Write;
+
+        let mut temp_file = tempfile::NamedTempFile::new()?;
+        write!(temp_file, "{}", private_key)?;
+        let temp_key_path = temp_file.path().to_string_lossy().to_string();
+        self.execute(
+            wg_bin,
+            &[
+                "set",
+                self.interface_name.as_str(),
+                "private-key",
+                &temp_key_path,
+            ],
+        )
+    }
 }
 
 impl MeshAdapter for WireguardAdapter {
@@ -53,17 +84,7 @@ impl MeshAdapter for WireguardAdapter {
         let wg_bin = capabilities.wireguard_tool.command;
 
         // 1. Create interface (ignore error if it already exists)
-        let _ = capture_command(
-            &ip_bin,
-            &[
-                "link",
-                "add",
-                "dev",
-                &self.interface_name,
-                "type",
-                "wireguard",
-            ],
-        );
+        self.create_interface_if_missing(&ip_bin);
 
         // 2. Assign IP
         self.execute(
@@ -71,18 +92,8 @@ impl MeshAdapter for WireguardAdapter {
             &["address", "replace", local_ip, "dev", &self.interface_name],
         )?;
 
-        // 3. Set private key (using a temporary file for security is better, but this is a PoC)
-        // In a real frictionless OS, we'd use netlink directly to avoid dropping keys to disk.
-        // But for now, we'll pipe it using bash or a temp file.
-        use std::io::Write;
-        let mut temp_file = tempfile::NamedTempFile::new()?;
-        write!(temp_file, "{}", private_key)?;
-        let temp_key_path = temp_file.path().to_string_lossy().to_string();
-
-        self.execute(
-            &wg_bin,
-            &["set", &self.interface_name, "private-key", &temp_key_path],
-        )?;
+        // 3. Set private key through a short-lived file.
+        self.install_private_key(&wg_bin, private_key)?;
 
         // 4. Bring interface up
         self.execute(&ip_bin, &["link", "set", "up", "dev", &self.interface_name])?;

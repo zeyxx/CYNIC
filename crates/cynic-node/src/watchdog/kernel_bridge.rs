@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::time::Duration;
 
 use cynic_protocol::{KernelEndpointPolicy, OBSERVE_PATH, kernel_url as build_kernel_url};

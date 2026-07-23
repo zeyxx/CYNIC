@@ -14,6 +14,16 @@ pub fn execute_execution_plan(plan: &HostExecutionPlan, apply: bool) -> HostExec
     if !apply {
         blockers.push("apply_flag_required".to_string());
     }
+    if plan.mutates {
+        blockers.push("policy_admission_required".to_string());
+    }
+    if !plan.steps.is_empty()
+        && !blockers
+            .iter()
+            .any(|item| item == "policy_admission_required")
+    {
+        blockers.push("policy_admission_required".to_string());
+    }
 
     if blockers.is_empty() {
         for step in &plan.steps {
@@ -70,6 +80,16 @@ pub fn execute_host_commands(
     if !apply {
         blockers.push("apply_flag_required".to_string());
     }
+    if mutates {
+        blockers.push("policy_admission_required".to_string());
+    }
+    if !commands.is_empty()
+        && !blockers
+            .iter()
+            .any(|item| item == "policy_admission_required")
+    {
+        blockers.push("policy_admission_required".to_string());
+    }
 
     if blockers.is_empty() {
         for command in commands {
@@ -112,6 +132,16 @@ pub fn execute_argv_commands(
 
     if !apply {
         blockers.push("apply_flag_required".to_string());
+    }
+    if mutates {
+        blockers.push("policy_admission_required".to_string());
+    }
+    if !commands.is_empty()
+        && !blockers
+            .iter()
+            .any(|item| item == "policy_admission_required")
+    {
+        blockers.push("policy_admission_required".to_string());
     }
 
     if blockers.is_empty() {
@@ -280,10 +310,9 @@ mod tests {
     fn refuses_non_executable_surfaces() {
         let command = expectation("prove", "human proof");
 
-        let report = execute_host_commands(&[command], true, true);
+        let error = command_to_argv(&command).expect_err("expectation must not become argv");
 
-        assert_eq!(report.status, "blocked");
-        assert!(report.blockers[0].contains("host execution supports only"));
+        assert!(error.contains("host execution supports only"));
     }
 
     #[test]
@@ -295,7 +324,7 @@ mod tests {
     }
 
     #[test]
-    fn execute_argv_commands_uses_same_report_contract() {
+    fn raw_argv_execution_is_blocked_even_when_caller_marks_it_read_only() {
         let report = execute_argv_commands(
             &[HostArgvCommand {
                 role: "probe".to_string(),
@@ -306,9 +335,13 @@ mod tests {
         );
 
         assert_eq!(report.schema, "cynic.host.execution_report.v1");
-        assert_eq!(report.status, "completed");
-        assert_eq!(report.execution_count, 1);
-        assert_eq!(report.executions[0].role, "probe");
+        assert_eq!(report.status, "blocked");
+        assert_eq!(report.execution_count, 0);
+        assert!(
+            report
+                .blockers
+                .contains(&"policy_admission_required".to_string())
+        );
     }
 
     #[test]
@@ -353,5 +386,10 @@ mod tests {
         assert_eq!(report.plan_id, "probe");
         assert_eq!(report.step_count, 1);
         assert!(report.blockers.contains(&"apply_flag_required".to_string()));
+        assert!(
+            report
+                .blockers
+                .contains(&"policy_admission_required".to_string())
+        );
     }
 }

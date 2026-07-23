@@ -11,6 +11,7 @@ default = []
 [dependencies]
 cynic-host = { path = "../cynic-host" }
 cynic-inference = { path = "../cynic-inference" }
+cynic-protocol = { path = "../cynic-protocol" }
 cynic-intel = { path = "../cynic-intel" }
 cynic-node = { path = "../cynic-node" }
 dotenvy = "0.15"

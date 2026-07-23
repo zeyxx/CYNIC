@@ -39,7 +39,24 @@ impl ZoneConfig {
     pub fn from_file(path: &str) -> Result<Self, String> {
         let content =
             std::fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
-        Self::from_json(&content)
+        let mut config = Self::from_json(&content)?;
+
+        if let Some(base_dir) = std::path::Path::new(path).parent() {
+            config.normalize_prefixes_to_absolute(base_dir);
+        }
+
+        Ok(config)
+    }
+
+    fn normalize_prefixes_to_absolute(&mut self, base_dir: &std::path::Path) {
+        for (_, paths) in self.zones.iter_mut() {
+            for path in paths.iter_mut() {
+                let current = std::path::Path::new(path.as_str());
+                if current.is_relative() {
+                    *path = base_dir.join(current).to_string_lossy().to_string();
+                }
+            }
+        }
     }
 
     /// Resolve a file path to its zone. Longest prefix match wins.

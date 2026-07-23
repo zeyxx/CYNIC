@@ -4,19 +4,20 @@
 //! config, and chat session state land under that principal — not the operator
 //! process `$HOME`.
 
-use std::path::{Path, PathBuf};
-use std::process::Command;
-
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 /// Env overrides (portable, documented).
 pub mod env_keys {
     pub const RUNTIME_USER: &str = "CYNIC_RUNTIME_USER";
     pub const PRINCIPAL_HOME: &str = "CYNIC_PRINCIPAL_HOME";
     pub const CHAT_STATE: &str = "CYNIC_CHAT_STATE";
+    pub const ALLOW_LOCAL_DEV_BUILD: &str = "CYNIC_ALLOW_LOCAL_DEV_BUILD";
     /// Force operator-local paths (tests / explicit break-glass only).
     pub const FORCE_OPERATOR_HOME: &str = "CYNIC_FORCE_OPERATOR_HOME";
 }
+
+const DEFAULT_PRINCIPAL_HOME: &str = "/var/lib/cynic";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -49,9 +50,9 @@ pub struct PrincipalPaths {
 impl PrincipalPaths {
     pub const SCHEMA: &'static str = "cynic.inference.principal_paths.v1";
 
-    /// Resolve from process environment and optional passwd lookup.
+    /// Resolve from process environment with canonical root fallback.
     pub fn resolve() -> Self {
-        Self::resolve_with(|user| passwd_home(user))
+        Self::resolve_with(|_| Some(PathBuf::from(DEFAULT_PRINCIPAL_HOME)))
     }
 
     /// Injectable lookup for tests (no real getent required).
@@ -88,18 +89,18 @@ impl PrincipalPaths {
 
         if let Some(home) = passwd_home_fn(&runtime_user) {
             notes.push(format!(
-                "authority=runtime_principal (passwd home for `{runtime_user}`)"
+                "authority=runtime_principal (injected principal home for `{runtime_user}`)"
             ));
             return Self::from_home(PathAuthority::RuntimePrincipal, runtime_user, home, notes);
         }
 
         notes.push(format!(
-            "authority=operator_local (principal `{runtime_user}` not resolvable)"
+            "authority=runtime_principal (fallback to default principal home)"
         ));
         Self::from_home(
-            PathAuthority::OperatorLocal,
+            PathAuthority::RuntimePrincipal,
             runtime_user,
-            operator_home(),
+            PathBuf::from(DEFAULT_PRINCIPAL_HOME),
             notes,
         )
     }
@@ -153,20 +154,6 @@ fn operator_home() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
-fn passwd_home(user: &str) -> Option<PathBuf> {
-    let out = Command::new("getent").args(["passwd", user]).output().ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let line = String::from_utf8_lossy(&out.stdout);
-    let home = line.trim().split(':').nth(5)?;
-    if home.is_empty() {
-        None
-    } else {
-        Some(PathBuf::from(home))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,45 +168,51 @@ mod tests {
             vec![],
         );
         assert_eq!(paths.authority, PathAuthority::RuntimePrincipal);
-        assert_eq!(paths.home_dir, PathBuf::from("/var/lib/cynic-principal-test"));
+        assert_eq!(
+            paths.home_dir,
+            PathBuf::from("/var/lib/cynic-principal-test")
+        );
         assert!(
             !paths.chat_state_dir.starts_with(&op_home),
             "chat state must not use operator HOME when principal home is set"
         );
-        assert!(paths.chat_state_dir.starts_with("/var/lib/cynic-principal-test"));
+        assert!(
+            paths
+                .chat_state_dir
+                .starts_with("/var/lib/cynic-principal-test")
+        );
         assert!(paths.data_dir.starts_with("/var/lib/cynic-principal-test"));
         assert!(paths.bin_dir.starts_with("/var/lib/cynic-principal-test"));
     }
 
     #[test]
-    fn passwd_resolved_principal_beats_missing_operator_default() {
-        // Injectable passwd: when principal resolves, authority is RuntimePrincipal.
+    fn injectable_resolved_principal_beats_missing_operator_default() {
+        // Injectable principal lookup: when principal resolves, authority is RuntimePrincipal.
         let paths = PrincipalPaths::resolve_with(|u| {
             if u == "cynic" || std::env::var(env_keys::RUNTIME_USER).as_deref() == Ok(u) {
-                Some(PathBuf::from("/home/cynic-fixture"))
+                Some(PathBuf::from("/tmp/cynic-fixture"))
             } else {
                 // Still return principal if default user is cynic
                 if u == std::env::var(env_keys::RUNTIME_USER).unwrap_or_else(|_| "cynic".into()) {
-                    Some(PathBuf::from("/home/cynic-fixture"))
+                    Some(PathBuf::from("/tmp/cynic-fixture"))
                 } else {
                     None
                 }
             }
         });
-        // If CYNIC_PRINCIPAL_HOME is set in the real env, still principal; otherwise passwd path.
+        // If CYNIC_PRINCIPAL_HOME is set in the real env, still principal; otherwise injected path.
         assert!(
-            paths.is_principal_authority()
-                || paths.authority == PathAuthority::OperatorLocal,
+            paths.is_principal_authority() || paths.authority == PathAuthority::OperatorLocal,
             "resolver must return a defined authority"
         );
         // Direct from_home is the contract for "principal present".
         let forced = PrincipalPaths::from_home(
             PathAuthority::RuntimePrincipal,
             "cynic".into(),
-            PathBuf::from("/home/cynic-fixture"),
+            PathBuf::from("/tmp/cynic-fixture"),
             vec![],
         );
-        assert_eq!(forced.home_dir, PathBuf::from("/home/cynic-fixture"));
+        assert_eq!(forced.home_dir, PathBuf::from("/tmp/cynic-fixture"));
         assert!(!forced.data_dir.starts_with("/tmp/cynic-test-operator"));
     }
 }

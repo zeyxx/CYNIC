@@ -1,4 +1,4 @@
-#![cfg_attr(test, allow(dead_code, clippy::expect_used))]
+#![cfg_attr(test, allow(clippy::expect_used))]
 #![allow(
     dead_code,
     clippy::needless_borrows_for_generic_args,
@@ -43,6 +43,7 @@ mod network_root_policy;
 mod network_runtime_proof;
 mod network_runtime_status;
 mod network_shadow_proof;
+mod network_surface_inventory;
 mod observe;
 mod provider_fallback_hosts;
 mod provider_fallback_status;

@@ -1,3 +1,4 @@
+use crate::domain::fleet_reconcile::FleetReconcileAction;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -66,6 +67,120 @@ pub struct FleetInventorySummary {
 pub struct FleetInventoryDetails {
     pub nodes: Vec<FleetNodeObservation>,
     pub summary: FleetInventorySummary,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ProviderPowerApplyReport {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub mutates: bool,
+    pub provider: String,
+    pub resource_id: String,
+    pub requested_action: String,
+    pub operation_id: Option<String>,
+    pub task_status: Option<String>,
+    pub task_exit_status: Option<String>,
+    pub observed_status: Option<String>,
+}
+
+pub async fn apply_proxmox_power_action(
+    action: &FleetReconcileAction,
+    explicit_apply: bool,
+) -> Result<ProviderPowerApplyReport, String> {
+    if !explicit_apply {
+        return Err("explicit_apply_required".to_string());
+    }
+    let (requested_action, resource_id) = match action {
+        FleetReconcileAction::Start {
+            provider,
+            resource_id,
+        } if provider == "proxmox" => ("start", resource_id),
+        FleetReconcileAction::Stop {
+            provider,
+            resource_id,
+        } if provider == "proxmox" => ("stop", resource_id),
+        _ => return Err("unsupported_provider_action".to_string()),
+    };
+    let provider = ProxmoxInventoryProvider::from_env()
+        .ok_or_else(|| "proxmox_credentials_or_tls_configuration_unavailable".to_string())?;
+    let (kind, vmid) = resource_id
+        .split_once('/')
+        .ok_or_else(|| "invalid_proxmox_resource_id".to_string())?;
+    if !matches!(kind, "qemu" | "lxc") || vmid.parse::<u64>().is_err() {
+        return Err("invalid_proxmox_resource_id".to_string());
+    }
+    let resources = provider.request_json("/cluster/resources?type=vm").await?;
+    let item = resources
+        .get("data")
+        .and_then(Value::as_array)
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|item| item.get("id").and_then(Value::as_str) == Some(resource_id.as_str()))
+        })
+        .ok_or_else(|| "proxmox_resource_unobserved".to_string())?;
+    let node = item
+        .get("node")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "proxmox_resource_node_unobserved".to_string())?;
+    let url = format!(
+        "{}/api2/json/nodes/{node}/{kind}/{vmid}/status/{requested_action}",
+        provider.base_url
+    );
+    let response = provider
+        .client
+        .post(url)
+        .header("Authorization", provider.auth_header())
+        .send()
+        .await
+        .map_err(|error| format!("proxmox power action failed: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "proxmox power action returned HTTP {}",
+            response.status().as_u16()
+        ));
+    }
+    let payload = response
+        .json::<Value>()
+        .await
+        .map_err(|error| format!("invalid Proxmox power action JSON: {error}"))?;
+    let operation_id = payload
+        .get("data")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| "proxmox_power_action_missing_upid".to_string())?;
+    let (task_status, task_exit_status) = provider.await_task(node, &operation_id).await?;
+    if task_status != "stopped" || task_exit_status.as_deref() != Some("OK") {
+        return Err("proxmox_power_task_not_successful".to_string());
+    }
+    let read_back = provider
+        .request_json("/cluster/resources?type=vm")
+        .await
+        .ok();
+    let observed_status = read_back
+        .as_ref()
+        .and_then(|value| value.get("data"))
+        .and_then(Value::as_array)
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|entry| entry.get("id").and_then(Value::as_str) == Some(resource_id.as_str()))
+        })
+        .and_then(|entry| entry.get("status"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    Ok(ProviderPowerApplyReport {
+        schema: "cynic.fleet.provider_power_apply.v1",
+        status: "applied",
+        mutates: true,
+        provider: "proxmox".to_string(),
+        resource_id: resource_id.clone(),
+        requested_action: requested_action.to_string(),
+        operation_id: Some(operation_id),
+        task_status: Some(task_status),
+        task_exit_status,
+        observed_status,
+    })
 }
 
 enum FleetInventoryProvider {
@@ -313,11 +428,16 @@ impl ProxmoxInventoryProvider {
         let client_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").ok()?;
         let credential = Self::proxmox_credential()?;
         let target_nodes = bool_env_csv("CYNIC_PROXMOX_NODES");
-        let client = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
-            .timeout(Duration::from_secs(10))
-            .build()
-            .ok()?;
+        let mut client = reqwest::Client::builder().timeout(Duration::from_secs(10));
+        if let Some(ca_path) = std::env::var("CYNIC_PROXMOX_CA_FILE")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+        {
+            let ca_pem = std::fs::read(&ca_path).ok()?;
+            let certificate = reqwest::Certificate::from_pem(&ca_pem).ok()?;
+            client = client.add_root_certificate(certificate);
+        }
+        let client = client.build().ok()?;
 
         if base_url.trim().is_empty() || client_id.trim().is_empty() || credential.trim().is_empty()
         {
@@ -374,6 +494,31 @@ impl ProxmoxInventoryProvider {
             .json::<Value>()
             .await
             .map_err(|e| format!("invalid JSON from {path}: {e}"))
+    }
+
+    async fn await_task(&self, node: &str, upid: &str) -> Result<(String, Option<String>), String> {
+        for _ in 0..30 {
+            let payload = self
+                .request_json(&format!("/nodes/{node}/tasks/{upid}/status"))
+                .await?;
+            let data = payload
+                .get("data")
+                .ok_or_else(|| "proxmox_task_status_missing_data".to_string())?;
+            let status = data
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown")
+                .to_string();
+            let exit_status = data
+                .get("exitstatus")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            if status == "stopped" {
+                return Ok((status, exit_status));
+            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+        Err("proxmox_task_timeout".to_string())
     }
 
     async fn list_nodes(&self) -> Result<Vec<String>, ProviderError> {

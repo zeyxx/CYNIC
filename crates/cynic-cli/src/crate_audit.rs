@@ -1,6 +1,8 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::Serialize;
+
+use crate::rust_source::{line_count, relative_to_workspace, rust_files_under, workspace_root};
 
 const CORE_CRATES: &[(&str, usize, usize)] = &[
     ("cynic-cli", 300, 220),
@@ -88,8 +90,8 @@ fn audit_crate(
     let rust_files = rust_files_under(&crate_root);
     let has_architecture_boundary_test = crate_root.join("tests/architecture_boundary.rs").exists();
     let entrypoints = vec![
-        audit_entrypoint(crate_root.join("src/main.rs"), main_threshold),
-        audit_entrypoint(crate_root.join("src/lib.rs"), lib_threshold),
+        audit_entrypoint(&crate_root.join("src/main.rs"), main_threshold),
+        audit_entrypoint(&crate_root.join("src/lib.rs"), lib_threshold),
     ]
     .into_iter()
     .flatten()
@@ -163,11 +165,11 @@ fn audit_crate(
     }
 }
 
-fn audit_entrypoint(path: PathBuf, threshold: usize) -> Option<EntrypointAudit> {
+fn audit_entrypoint(path: &Path, threshold: usize) -> Option<EntrypointAudit> {
     path.exists().then(|| {
-        let line_count = line_count(&path).unwrap_or_default();
+        let line_count = line_count(path).unwrap_or_default();
         EntrypointAudit {
-            file_path: relative_to_workspace(&path),
+            file_path: relative_to_workspace(path),
             line_count,
             status: if line_count <= threshold {
                 "ok"
@@ -177,47 +179,6 @@ fn audit_entrypoint(path: PathBuf, threshold: usize) -> Option<EntrypointAudit> 
             threshold,
         }
     })
-}
-
-fn rust_files_under(root: &Path) -> Vec<PathBuf> {
-    let mut files = Vec::new();
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(current) = stack.pop() {
-        let Ok(entries) = std::fs::read_dir(&current) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                stack.push(path);
-            } else if path.extension().and_then(|value| value.to_str()) == Some("rs") {
-                files.push(path);
-            }
-        }
-    }
-    files.sort();
-    files
-}
-
-fn line_count(path: &Path) -> Option<usize> {
-    std::fs::read_to_string(path)
-        .ok()
-        .map(|contents| contents.lines().count())
-}
-
-fn workspace_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(Path::parent)
-        .expect("workspace root")
-        .to_path_buf()
-}
-
-fn relative_to_workspace(path: &Path) -> String {
-    path.strip_prefix(workspace_root())
-        .unwrap_or(path)
-        .display()
-        .to_string()
 }
 
 #[cfg(test)]

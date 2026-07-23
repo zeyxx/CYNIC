@@ -4,8 +4,9 @@ use crate::command_surface::{
     HostCommandSurface, argv_command, install_dir_command, render_command, validate_sudoers_command,
 };
 use crate::domain::shared::{
-    HostSubstrateDomain, SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence,
-    SurfaceContract, SurfaceStatus,
+    BoundaryKind, HostSubstrateDomain, LifecycleDisposition, LifecycleProjection, LifecycleStatus,
+    SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
+    SurfaceStatus,
 };
 use crate::install_contract::{MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
@@ -26,6 +27,11 @@ pub struct PrivilegePolicy {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrivilegeStatusReport {
     pub status: SurfaceStatus,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
     pub helper_dir_present: bool,
     pub sudoers_projection_present: bool,
     pub denial_proof_ready: bool,
@@ -135,7 +141,6 @@ impl PrivilegePolicy {
         let mut files = self
             .dedicated_helpers
             .iter()
-            .cloned()
             .map(|helper| SubstrateBundleFile {
                 logical_name: "helper-binary".to_string(),
                 install_path: format!("{}/{}", self.helper_dir, helper),
@@ -265,8 +270,39 @@ impl PrivilegePolicy {
         } else {
             SurfaceStatus::Blocked
         };
+        let lifecycle_status =
+            if !observed.helper_dir_present || !observed.sudoers_projection_present {
+                LifecycleStatus::Missing
+            } else if self.denial_proof_required && !observed.denial_proof_ready {
+                LifecycleStatus::PrincipalMismatch
+            } else {
+                LifecycleStatus::Ready
+            };
+        let projection = match lifecycle_status {
+            LifecycleStatus::Ready => LifecycleProjection::ready_observe(
+                "privilege boundary is present, denial proof is satisfied, and the surface is observable",
+            ),
+            LifecycleStatus::Missing => LifecycleProjection::missing_adopt(
+                "helper directory or sudoers projection is missing",
+                Some("cynic host bootstrap privilege --json".to_string()),
+            ),
+            LifecycleStatus::PrincipalMismatch => LifecycleProjection::principal_mismatch_adopt(
+                "privilege denial proof is still missing or not yet satisfied",
+                Some("cynic host bootstrap privilege --json".to_string()),
+            ),
+            LifecycleStatus::ConnectionRequired => {
+                LifecycleProjection::connection_required_observe(
+                    "privilege lifecycle does not model a connection boundary",
+                )
+            }
+        };
         PrivilegeStatusReport {
             status,
+            lifecycle_status,
+            lifecycle_disposition: projection.disposition,
+            next_boundary_kind: projection.next_boundary_kind,
+            next_boundary_reason: projection.next_boundary_reason,
+            next_command: projection.next_command,
             helper_dir_present: observed.helper_dir_present,
             sudoers_projection_present: observed.sudoers_projection_present,
             denial_proof_ready: observed.denial_proof_ready,

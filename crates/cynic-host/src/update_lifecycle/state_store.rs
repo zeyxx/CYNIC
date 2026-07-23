@@ -25,7 +25,10 @@ pub fn default_state_path() -> PathBuf {
 }
 
 fn passwd_home(user: &str) -> Option<PathBuf> {
-    let out = Command::new("getent").args(["passwd", user]).output().ok()?;
+    let out = Command::new("getent")
+        .args(["passwd", user])
+        .output()
+        .ok()?;
     if !out.status.success() {
         return None;
     }

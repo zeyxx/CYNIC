@@ -25,26 +25,40 @@ pub use adapters::ods::{
 pub use adapters::publishers::{
     inference_toml::InferenceTomlPublisher, null::NullPublisher, open_webui::OpenWebUiPublisher,
 };
+pub use application::backend_verification::{
+    ContextResult, IdentityResult, check_context, check_context_with_bearer, check_health,
+    check_identity, check_identity_with_bearer, model_identity_matches,
+};
 pub use application::chat_endpoint::{
     ChatEndpointResolution, ChatEndpointSource, dns_inference_hostnames,
-    inference_config_candidates, resolve_chat_endpoint,
+    inference_config_candidates, probe_live_model_id, probe_live_model_ids, resolve_chat_api_key,
+    resolve_chat_endpoint, resolve_chat_model_id,
 };
 pub use application::chat_service::{
-    BuiltinToolInvoker, ChatCompletionClient, ChatService, ChatServiceError, ChatTurnReport,
-    CompletionOutcome, InferenceReadyReport, MockChatClient, ToolCallRequest, ToolInvoker,
-    default_tool_specs,
+    BuiltinToolInvoker, ChatCompletionClient, ChatService, ChatServiceConfig, ChatServiceError,
+    ChatTurnReport, CompletionOutcome, InferenceReadyReport, MockChatClient, ToolCallRequest,
+    ToolInvoker, default_tool_specs,
 };
-pub use application::hf_discovery::HfDiscoveryService;
+pub use application::hf_discovery::{HfDiscoveryService, HfDownloadCommand};
 pub use application::local_runtime_service::{LocalRuntimeService, LocalRuntimeServiceAny};
 pub use application::model_store_service::ModelStoreService;
-pub use application::profile_bootstrap::{
-    EnsureProfilesReport, ensure_profiles_from_vault, resolve_start_alias, select_preferred_alias,
+pub use application::model_sync_pipeline::ModelSyncPipeline;
+pub use application::node_runtime_ops::{
+    DogNodeBinding, DogOperationOutcome, ModelProbeResult, attempt_node_recovery,
+    attempt_node_start, dog_to_node, dog_to_node as resolve_dog_node, probe_model_runtime,
+    probe_node_model, remediate_dog_runtime, start_dog_runtime,
 };
+pub use application::peer_attach::{
+    PeerAttachOptions, PeerAttachReport, peer_attach, peer_attach_apply, peer_attach_status,
+};
+pub use application::profile_bootstrap::{
+    EnsureProfilesReport, PreferredChatBind, bind_preferred_chat_model, ensure_profiles_from_vault,
+    pin_preferred_alias, resolve_start_alias, select_preferred_alias,
+};
+pub use application::runtime_planner::{MaterializeReport, RuntimePlanner};
 pub use application::vault_consolidate::{
     VaultConsolidateReport, consolidate_vault, discovery_roots,
 };
-pub use application::model_sync_pipeline::ModelSyncPipeline;
-pub use application::runtime_planner::{MaterializeReport, RuntimePlanner};
 pub use config_loader::load_inference_config_from_path_public;
 pub use config_loader::{InferenceConfigError, LoadedInferenceConfig, load_inference_config};
 pub use domain::backend_config::InferenceBackendConfig;
@@ -56,6 +70,7 @@ pub use domain::gguf_meta::{
 };
 pub use domain::hardware_profile::HardwareProfile;
 pub use domain::hf_catalog::{ModelCategory, category_catalog, short_alias_from_repo};
+pub use domain::inference_queue::{InferenceQueue, InferenceQueueMap, QueuePermit};
 pub use domain::local_runtime::{
     LocalModelInventory, LocalModelProfile, LocalRuntimeMutationReport, LocalRuntimeStatus,
 };
@@ -65,6 +80,8 @@ pub use domain::model_registry::{InferenceEngine, ModelBackend, ModelCapability,
 pub use domain::model_store::{ModelArtifact, ModelStoreReport};
 pub use domain::principal_paths::{PathAuthority, PrincipalPaths};
 pub use domain::runtime_plan::{EnginePlugins, RuntimeLaunchPlan};
+pub use domain::slot_semaphore::{SlotPermit, SlotPriority, SlotSemaphore, SlotSemaphoreMap};
+pub use domain::slot_tracker::{BackendSlots, SlotHealthEntry, SlotTracker, build_backend_slots};
 pub use ports::chat_session_port::{ChatSessionStore, SessionStoreError};
 pub use ports::hf_hub_port::{
     HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit,

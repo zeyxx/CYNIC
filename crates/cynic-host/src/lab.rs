@@ -30,7 +30,10 @@ pub fn build_lab_plan(registry_path: &str) -> Result<LabPlanReport, String> {
     let network_policy = registry.get("network_policy");
     let provider = provider_plan();
     let isolation = isolation_plan(network_policy);
+    let image = image_preflight(&registry);
+    let guest_bootstrap = guest_bootstrap_preflight(&registry);
     let vms = nodes.iter().map(vm_plan).collect::<Result<Vec<_>, _>>()?;
+    let blockers = provision_blockers(&provider, &image, &guest_bootstrap);
 
     Ok(LabPlanReport {
         schema: "cynic.lab.plan.v1",
@@ -44,11 +47,7 @@ pub fn build_lab_plan(registry_path: &str) -> Result<LabPlanReport, String> {
         vm_count: vms.len(),
         vms,
         execution_suite: execution_suite(registry_path),
-        blockers: vec![
-            "base image path and checksum are not declared in registry",
-            "guest bootstrap transport is not declared",
-            "closed lab network must be created before mutating guest routes",
-        ],
+        blockers,
         safety_rules: vec![
             "host routing table must not be mutated by lab mesh apply",
             "host firewall and DNS must not be changed by lab mesh apply",
@@ -131,7 +130,15 @@ mod tests {
         assert!(!plan.can_apply);
         assert_eq!(plan.vm_count, 3);
         assert!(plan.vms.iter().any(|vm| vm.name == "lab-kernel"));
-        assert_eq!(plan.isolation.host_routing_mutation, false);
+        assert!(!plan.isolation.host_routing_mutation);
+        assert!(plan.blockers.iter().all(|blocker| {
+            *blocker != "base image path and checksum are not declared in registry"
+                && *blocker != "guest bootstrap transport is not declared"
+        }));
+        assert!(
+            plan.blockers
+                .contains(&"registry lab.base_image.path does not exist on host")
+        );
     }
 
     #[test]
@@ -149,8 +156,7 @@ mod tests {
         assert!(
             report
                 .blockers
-                .iter()
-                .any(|blocker| *blocker == "registry lab.base_image.path does not exist on host")
+                .contains(&"registry lab.base_image.path does not exist on host")
         );
         assert!(report.blockers.iter().all(|blocker| *blocker
             != "registry lab.base_image.sha256 must be a 64-character lowercase hex digest"));

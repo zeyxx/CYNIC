@@ -12,6 +12,8 @@ use crate::runtime_registry::resolve_runtime_registry_path;
 #[derive(Debug, Deserialize)]
 struct RegistryDocument {
     #[serde(default)]
+    network_policy: Option<RegistryNetworkPolicy>,
+    #[serde(default)]
     lifecycle: Option<RegistryLifecycle>,
     nodes: Vec<RegistryNode>,
 }
@@ -30,6 +32,40 @@ struct RegistryNode {
     substrate: Option<RegistryNodeSubstrate>,
     #[serde(default)]
     services: Vec<RegistryNodeService>,
+    #[serde(default)]
+    network_links: Vec<RegistryNetworkLink>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegistryNetworkPolicy {
+    #[serde(default)]
+    planes: BTreeMap<String, RegistryNetworkPlane>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegistryNetworkPlane {
+    #[serde(default)]
+    cidr: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegistryNetworkLink {
+    #[serde(default)]
+    plane: Option<String>,
+    #[serde(default)]
+    provider: Option<String>,
+    #[serde(default)]
+    interface: Option<String>,
+    #[serde(default)]
+    connection: Option<String>,
+    #[serde(default)]
+    address: Option<String>,
+    #[serde(default)]
+    gateway: Option<String>,
+    #[serde(default)]
+    routes: Vec<String>,
+    #[serde(default)]
+    default_route: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,6 +113,191 @@ struct RegistryKernelRelease {
 struct RegistryHostBootstrap {
     #[serde(default)]
     role_profiles: BTreeMap<String, RegistryHostBootstrapRoleProfile>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ResolvedDirectManagementLink {
+    pub interface: String,
+    pub connection: String,
+    pub address: String,
+    pub gateway: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ObservedManagementLink {
+    pub interface: String,
+    pub connection: String,
+    pub address: String,
+    pub gateway: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ResolvedHostIdentity {
+    pub node: String,
+    pub role: Option<String>,
+    pub match_source: String,
+    pub hostname_match: bool,
+    pub network_match: bool,
+    pub metadata: Vec<String>,
+    pub link: ResolvedDirectManagementLink,
+}
+
+impl RegistryNetworkLink {
+    fn to_direct_management_link(&self) -> Option<ResolvedDirectManagementLink> {
+        let interface = self.interface.as_ref()?.trim();
+        let connection = self.connection.as_ref()?.trim();
+        let address = self.address.as_ref()?.trim();
+        let gateway = self.gateway.as_ref()?.trim();
+        if interface.is_empty() || connection.is_empty() || address.is_empty() || gateway.is_empty() {
+            return None;
+        }
+        Some(ResolvedDirectManagementLink {
+            interface: interface.to_string(),
+            connection: connection.to_string(),
+            address: address.to_string(),
+            gateway: gateway.to_string(),
+        })
+    }
+}
+
+impl RegistryDocument {
+    fn synapse_cidr(&self) -> Option<&str> {
+        self.network_policy.as_ref().and_then(|policy| {
+            policy
+                .planes
+                .get("synapse")
+                .and_then(|plane| plane.cidr.as_deref())
+        })
+    }
+}
+
+impl RegistryNode {
+    fn matching_direct_management_link(
+        &self,
+        synapse_cidr: &str,
+    ) -> Option<ResolvedDirectManagementLink> {
+        self.network_links.iter().find_map(|link| {
+            let Some(plane) = link.plane.as_deref() else {
+                return None;
+            };
+            if plane != "management" {
+                return None;
+            }
+            if let Some(provider) = link.provider.as_deref() {
+                if provider != "network-manager" {
+                    return None;
+                }
+            }
+            let route_match = link.routes.iter().any(|route| route.trim() == synapse_cidr);
+            if !route_match {
+                return None;
+            }
+            link.to_direct_management_link()
+        })
+    }
+
+}
+
+pub fn resolve_current_host_direct_management_link(
+    synapse_cidr: &str,
+    registry_path: Option<&str>,
+) -> Result<Option<ResolvedDirectManagementLink>, String> {
+    let hostname = current_hostname()?;
+    resolve_host_direct_management_link(
+        &hostname,
+        Some(synapse_cidr),
+        registry_path,
+    )
+}
+
+pub fn resolve_observed_direct_management_link(
+    hostname: &str,
+    synapse_cidr: &str,
+    observed: Option<&ObservedManagementLink>,
+    registry_path: Option<&str>,
+) -> Result<ResolvedHostIdentity, String> {
+    let path = resolve_registry_path(registry_path)?;
+    let registry = load_registry(&path)?;
+    let hostname_node = registry
+        .nodes
+        .iter()
+        .find(|node| node_matches(node, hostname));
+    let network_matches = observed.map(|observed| {
+        registry
+            .nodes
+            .iter()
+            .filter_map(|node| {
+                let link = node.matching_direct_management_link(synapse_cidr)?;
+                (link.interface == observed.interface
+                    && link.connection == observed.connection
+                    && link.address == observed.address
+                    && link.gateway == observed.gateway)
+                    .then_some((node, link))
+            })
+            .collect::<Vec<_>>()
+    });
+
+    let (node, link, match_source, network_match) = match network_matches {
+        Some(matches) if matches.len() == 1 => {
+            let (node, link) = matches.into_iter().next().expect("one match");
+            (node, link, "management_network", true)
+        }
+        Some(matches) if matches.is_empty() => {
+            return Err("observed_management_link_not_declared_in_registry".to_string())
+        }
+        Some(_) => return Err("observed_management_identity_ambiguous".to_string()),
+        None => {
+            let node = hostname_node
+                .ok_or_else(|| format!("node not found in registry: {hostname}"))?;
+            let link = node
+                .matching_direct_management_link(synapse_cidr)
+                .ok_or_else(|| "direct_management_link_not_declared_in_registry".to_string())?;
+            (node, link, "hostname", false)
+        }
+    };
+    let node_name = node
+        .name
+        .clone()
+        .or_else(|| node.id.clone())
+        .ok_or_else(|| "registry_node_missing_name".to_string())?;
+    let hostname_match = node_matches(node, hostname);
+    let mut metadata = vec![format!("identity_observation_source={match_source}")];
+    if network_match && !hostname_match {
+        metadata.push("hostname_registry_alias_mismatch".to_string());
+    }
+    Ok(ResolvedHostIdentity {
+        node: node_name,
+        role: node.role.clone().or_else(|| node.canonical_role.clone()),
+        match_source: match_source.to_string(),
+        hostname_match,
+        network_match,
+        metadata,
+        link,
+    })
+}
+
+pub fn resolve_host_direct_management_link(
+    node_name: &str,
+    synapse_cidr: Option<&str>,
+    registry_path: Option<&str>,
+) -> Result<Option<ResolvedDirectManagementLink>, String> {
+    let path = resolve_registry_path(registry_path)?;
+    let registry = load_registry(&path)?;
+    let node = registry
+        .nodes
+        .iter()
+        .find(|node| node_matches(node, node_name))
+        .ok_or_else(|| format!("node not found in registry: {node_name}"))?;
+    let Some(cidr) = synapse_cidr
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| registry.synapse_cidr())
+    else {
+        return Ok(None);
+    };
+    if cidr.is_empty() {
+        return Ok(None);
+    }
+    Ok(node.matching_direct_management_link(cidr.trim()))
 }
 
 #[derive(Debug, Deserialize)]
@@ -296,9 +517,7 @@ fn service_manager_for_node(
     match declared_host_family(node).and_then(host_profile_for_family) {
         Some(HostProfile::AlpineOpenRcNetworkNode) => ServiceManagerKind::OpenRc,
         Some(
-            HostProfile::NetworkNode
-            | HostProfile::ProxmoxHypervisor
-            | HostProfile::BuildRunner,
+            HostProfile::NetworkNode | HostProfile::ProxmoxHypervisor | HostProfile::BuildRunner,
         ) => ServiceManagerKind::Systemd,
         None if units
             .iter()
@@ -391,8 +610,8 @@ fn current_hostname() -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        resolve_current_host_profile, resolve_current_host_profile_resolution,
-        resolve_host_profile, resolve_registry_service_policy,
+        resolve_current_host_direct_management_link, resolve_current_host_profile,
+        resolve_current_host_profile_resolution, resolve_host_profile, resolve_registry_service_policy,
     };
     use crate::profiles::HostProfile;
     use std::path::PathBuf;
@@ -472,6 +691,87 @@ mod tests {
         );
         assert_eq!(resolution.profile_applied, "network-node");
         assert_eq!(resolution.match_source, "alias");
+    }
+
+    #[test]
+    fn resolves_current_host_direct_management_link_from_network_links() {
+        let path = write_registry_fixture(
+            r#"{
+              "network_policy": {
+                "planes": {
+                  "synapse": { "cidr": "10.10.10.0/24" }
+                }
+              },
+              "nodes": [
+                {
+                  "name":"cynic-host-cortex",
+                  "role":"cortex_host",
+                  "network_links": [
+                    {
+                      "plane": "management",
+                      "provider": "network-manager",
+                      "interface": "enp42s0",
+                      "connection": "Connexion filaire 1",
+                      "address": "192.168.100.2/24",
+                      "gateway": "192.168.100.1",
+                      "routes": ["10.10.10.0/24"],
+                      "default_route": false
+                    }
+                  ]
+                }
+              ]
+            }"#,
+        );
+        unsafe {
+            std::env::set_var("HOSTNAME", "cynic-host-cortex");
+        }
+        let link = resolve_current_host_direct_management_link(
+            "10.10.10.0/24",
+            Some(path.to_str().expect("utf8 temp path")),
+        )
+        .expect("projection resolves");
+        let link = link.expect("link present");
+
+        assert_eq!(link.interface, "enp42s0");
+        assert_eq!(link.connection, "Connexion filaire 1");
+        assert_eq!(link.address, "192.168.100.2/24");
+        assert_eq!(link.gateway, "192.168.100.1");
+    }
+
+    #[test]
+    fn returns_no_direct_management_link_when_registry_missing_match() {
+        let path = write_registry_fixture(
+            r#"{
+              "nodes": [
+                {
+                  "name":"cynic-host-cortex",
+                  "role":"cortex_host",
+                  "network_links": [
+                    {
+                      "plane": "management",
+                      "provider": "network-manager",
+                      "interface": "enp42s0",
+                      "connection": "Connexion filaire 1",
+                      "address": "192.168.100.2/24",
+                      "gateway": "192.168.100.1",
+                      "routes": ["10.11.11.0/24"],
+                      "default_route": false
+                    }
+                  ]
+                }
+              ]
+            }"#,
+        );
+        unsafe {
+            std::env::set_var("HOSTNAME", "cynic-host-cortex");
+        }
+        let link = resolve_current_host_direct_management_link(
+            "10.10.10.0/24",
+            Some(path.to_str().expect("utf8 temp path")),
+        )
+        .expect("projection resolves");
+
+        assert!(link.is_none());
     }
 
     #[test]

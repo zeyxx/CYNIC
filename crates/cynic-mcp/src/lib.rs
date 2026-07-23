@@ -6,5 +6,6 @@
 #![cfg_attr(test, allow(dead_code, clippy::unwrap_used))]
 
 pub mod local_tools;
+mod project_root;
 pub mod proxy;
 pub mod types;

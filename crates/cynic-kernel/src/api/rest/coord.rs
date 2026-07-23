@@ -1,15 +1,15 @@
-//! REST handlers for coordination — POST /coord/register, /coord/claim, /coord/release.
+//! REST handlers for coordination registration, claims, heartbeats, and observation.
 //! These expose the same CoordPort methods as MCP, enabling hooks and external
 //! clients to coordinate without MCP stdio.
 
-use axum::{extract::State, http::StatusCode, response::Json};
+use axum::{Extension, extract::State, http::StatusCode, response::Json};
 use cynic_host::runtime_registry::resolve_runtime_registry_path;
 use serde::Deserialize;
 use std::sync::Arc;
 use std::time::Duration;
 
 use super::response::coordination_error;
-use super::types::{AppState, ErrorResponse};
+use super::types::{AppState, AuthenticatedPrincipal, ErrorResponse};
 use crate::domain::coord::ClaimResult;
 
 const COORD_HANDLER_TIMEOUT: Duration = Duration::from_secs(5);
@@ -19,6 +19,20 @@ fn validate_agent_id(id: &str) -> Result<(), (StatusCode, Json<ErrorResponse>)> 
         (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse { error: msg.into() }),
+        )
+    })
+}
+
+fn require_agent_principal(
+    principal: &AuthenticatedPrincipal,
+    agent_id: &str,
+) -> Result<(), (StatusCode, Json<ErrorResponse>)> {
+    principal.require_agent(agent_id).map_err(|message| {
+        (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: message.into(),
+            }),
         )
     })
 }
@@ -47,12 +61,6 @@ pub struct BatchClaimRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ReleaseRequest {
-    pub agent_id: String,
-    pub target: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct CoordHeartbeatRequest {
     pub agent_id: String,
 }
@@ -67,9 +75,11 @@ pub struct ScopeRequest {
 
 pub async fn coord_register_handler(
     State(state): State<Arc<AppState>>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     validate_agent_id(&req.agent_id)?;
+    require_agent_principal(&principal, &req.agent_id)?;
     if req.intent.is_empty() || req.intent.chars().count() > 500 {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -125,9 +135,11 @@ pub async fn coord_register_handler(
 
 pub async fn coord_claim_handler(
     State(state): State<Arc<AppState>>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Json(req): Json<ClaimRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     validate_agent_id(&req.agent_id)?;
+    require_agent_principal(&principal, &req.agent_id)?;
     if req.target.is_empty() || req.target.len() > 256 {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -174,21 +186,19 @@ pub async fn coord_claim_handler(
         .claim(&req.agent_id, &req.target, &claim_type)
         .await
     {
-        Ok(ClaimResult::Claimed) => {
+        Ok(ClaimResult::Claimed(grant)) => {
             let _ = state.coord.heartbeat(&req.agent_id).await; // ok: fire-and-forget
             let _ = state.coord.store_audit( // ok: fire-and-forget
                 "cynic_coord_claim", &req.agent_id,
-                &serde_json::json!({"target": req.target, "claim_type": claim_type, "source": "rest"}).to_string(),
+                &serde_json::json!({"target": req.target, "claim_type": claim_type, "grant": &grant, "source": "rest"}).to_string(),
             ).await;
             Ok(Json(serde_json::json!({
                 "status": "claimed",
                 "agent_id": req.agent_id,
                 "target": req.target,
+                "lease": grant,
             })))
         }
-        // Agent Protocol v1 (T1): claim as signal, not lock.
-        // Claim succeeds, conflicts reported. The cost of ignoring
-        // (wasted tokens at PROPOSE) is the natural incentive.
         Ok(ClaimResult::Conflict(conflicts)) => {
             let conflict_list: Vec<_> = conflicts
                 .iter()
@@ -199,7 +209,7 @@ pub async fn coord_claim_handler(
                 &serde_json::json!({"target": req.target, "claim_type": claim_type, "conflicts": &conflict_list, "source": "rest"}).to_string(),
             ).await;
             Ok(Json(serde_json::json!({
-                "status": "claimed_with_conflicts",
+                "status": "conflict",
                 "agent_id": req.agent_id,
                 "target": req.target,
                 "conflicts": conflict_list,
@@ -219,9 +229,11 @@ pub async fn coord_claim_handler(
 
 pub async fn coord_claim_batch_handler(
     State(state): State<Arc<AppState>>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Json(req): Json<BatchClaimRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     validate_agent_id(&req.agent_id)?;
+    require_agent_principal(&principal, &req.agent_id)?;
     if req.targets.is_empty() || req.targets.len() > 20 {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -265,74 +277,22 @@ pub async fn coord_claim_batch_handler(
 
     let _ = state.coord.store_audit( // ok: fire-and-forget
         "cynic_coord_claim_batch", &req.agent_id,
-        &serde_json::json!({"targets": req.targets, "claimed": result.claimed.len(), "conflicts": result.conflicts.len(), "source": "rest"}).to_string(),
+        &serde_json::json!({"targets": req.targets, "claimed": result.claimed_count(), "conflicts": result.conflict_count(), "source": "rest"}).to_string(),
     ).await;
 
-    let conflicts: Vec<serde_json::Value> = result
-        .conflicts
-        .iter()
-        .map(|(target, infos)| {
-            serde_json::json!({
-                "target": target,
-                "held_by": infos.iter().map(|c| &c.agent_id).collect::<Vec<_>>(),
-            })
-        })
-        .collect();
-
     Ok(Json(serde_json::json!({
         "agent_id": req.agent_id,
-        "claimed": result.claimed,
-        "conflicts": conflicts,
-    })))
-}
-
-pub async fn coord_release_handler(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ReleaseRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    validate_agent_id(&req.agent_id)?;
-    if let Some(ref t) = req.target
-        && (t.is_empty() || t.len() > 256)
-    {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "target must be 1-256 characters".into(),
-            }),
-        ));
-    }
-
-    let desc = state
-        .coord
-        .release(&req.agent_id, req.target.as_deref())
-        .await
-        .map_err(|e| {
-            tracing::warn!(error = %e, "coord release failed");
-            coordination_error()
-        })?;
-
-    let _ = state
-        .coord
-        .store_audit(
-            // ok: fire-and-forget
-            "cynic_coord_release",
-            &req.agent_id,
-            &serde_json::json!({"target": req.target, "source": "rest"}).to_string(),
-        )
-        .await;
-
-    Ok(Json(serde_json::json!({
-        "status": "released",
-        "agent_id": req.agent_id,
-        "detail": desc,
+        "result": result,
     })))
 }
 
 pub async fn coord_heartbeat_handler(
     State(state): State<Arc<AppState>>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Json(req): Json<CoordHeartbeatRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     validate_agent_id(&req.agent_id)?;
+    require_agent_principal(&principal, &req.agent_id)?;
 
     state.coord.heartbeat(&req.agent_id).await.map_err(|e| {
         tracing::warn!(error = %e, "coord heartbeat failed");
@@ -347,9 +307,11 @@ pub async fn coord_heartbeat_handler(
 
 pub async fn coord_scope_handler(
     State(state): State<Arc<AppState>>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Json(req): Json<ScopeRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     validate_agent_id(&req.agent_id)?;
+    require_agent_principal(&principal, &req.agent_id)?;
     if req.scope.is_empty() || req.scope.chars().count() > 500 {
         return Err((
             StatusCode::BAD_REQUEST,

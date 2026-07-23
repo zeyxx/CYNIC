@@ -15,6 +15,7 @@
 
 mod apply;
 mod gate;
+pub mod kernel_release;
 mod observe;
 mod plan;
 mod policy;
@@ -27,6 +28,10 @@ mod types;
 
 pub use apply::apply_phase;
 pub use gate::run_gates;
+pub use kernel_release::{
+    KernelReleaseReport, KernelReleaseSpec, reconcile_kernel_release,
+    reconcile_runtime_artifact_release,
+};
 pub use observe::ops_report;
 pub use plan::{plan_report, promote_eligibility, status_report};
 pub use policy::phase_policy;
@@ -104,8 +109,10 @@ mod tests {
     #[test]
     fn promote_one_step_after_gate() {
         let path = tmp_state();
-        let mut state = UpdateLifecycleState::default();
-        state.last_gate_ok = Some(true);
+        let state = UpdateLifecycleState {
+            last_gate_ok: Some(true),
+            ..UpdateLifecycleState::default()
+        };
         save_state(&path, &state).unwrap();
         let r = promote(&path, None, true).unwrap();
         assert_eq!(r.status, "ok");
@@ -236,7 +243,13 @@ mod tests {
         let r = run_gates(&path, true, &runner);
         assert_eq!(r.status, "blocked");
         assert!(!r.all_required_ok);
-        assert!(!r.results.iter().find(|g| g.id == "runtime_validate").unwrap().ok);
+        assert!(
+            !r.results
+                .iter()
+                .find(|g| g.id == "runtime_validate")
+                .unwrap()
+                .ok
+        );
     }
 
     #[test]

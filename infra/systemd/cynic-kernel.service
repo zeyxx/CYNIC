@@ -4,11 +4,10 @@ After=network.target
 
 [Service]
 # projection_class: operator_projection
-# This unit is a developer/operator user projection rooted in %h and the checkout.
-# Installed runtime authority belongs to /etc/cynic, /var/lib/cynic, and root-owned services.
+# This unit is a runtime-authority projection; adjust paths in /etc/cynic/env.
 Type=simple
-WorkingDirectory=@CYNIC_PROJECT_ROOT@
-ExecStart=%h/bin/cynic-kernel
+WorkingDirectory=/var/lib/cynic
+ExecStart=/usr/local/bin/cynic-kernel
 # Keep boot simple and authoritative: the kernel already reports storage
 # readiness through /ready and degrades honestly if remote storage is unavailable.
 # Do not pull in a local surrealdb.service from cortex/operator machines. Storage
@@ -21,10 +20,10 @@ KillSignal=SIGTERM
 TimeoutStopSec=30
 Restart=on-failure
 RestartSec=5
-# Generated from ~/.cynic-env: sed 's/^export //' ~/.cynic-env > ~/.config/cynic/env
+# Generated from /etc/cynic/env
 # systemd does NOT support `export` prefix — Rule 12 maintained via generation.
-EnvironmentFile=%h/.config/cynic/env
-Environment="PATH=%h/.local/bin:%h/.npm-global/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/etc/cynic/env
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 LimitNOFILE=65535
 MemoryMax=2G
 

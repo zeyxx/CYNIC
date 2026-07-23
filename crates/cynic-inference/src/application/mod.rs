@@ -1,3 +1,4 @@
+pub mod backend_verification;
 pub mod chat_endpoint;
 pub mod chat_service;
 pub mod embedding_runtime;
@@ -9,9 +10,11 @@ pub mod model_catalog;
 pub mod model_selection;
 pub mod model_store_service;
 pub mod model_sync_pipeline;
+pub mod node_runtime_ops;
+pub mod peer_attach;
 pub mod profile_bootstrap;
 pub mod proxy_routing;
-pub mod vault_consolidate;
 pub mod routing_policy;
 pub mod runtime_planner;
 pub mod summarization_service;
+pub mod vault_consolidate;

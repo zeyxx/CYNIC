@@ -13,9 +13,6 @@ path = "src/main.rs"
 name = "cynic-network-actuator"
 path = "src/actuator_main.rs"
 
-[features]
-mcp = ["dep:cynic-mcp", "dep:rmcp"]
-
 [dependencies]
 tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread", "process", "time", "signal", "sync"] }
 tokio-util = "0.7"
@@ -37,10 +34,10 @@ sysinfo = "0.33"
 tempfile = "3"
 sha2 = "0.10.8"
 hex = "0.4"
+base64 = "0.22"
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-host = { path = "../cynic-host" }
-cynic-mcp = { path = "../cynic-mcp", optional = true }
-rmcp = { version = "1.2", features = ["server", "transport-io"], optional = true }
+cynic-inference = { path = "../cynic-inference" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

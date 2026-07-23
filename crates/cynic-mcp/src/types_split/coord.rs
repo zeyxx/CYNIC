@@ -55,36 +55,66 @@ pub struct ValidateParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct AskesisLogParams {
+    /// Free-form operator observation to append.
+    pub content: String,
+    /// Log domain for this observation.
+    pub domain: String,
+    /// Override the destination log path (optional).
+    /// Defaults to CYNIC_ASKESIS_LOG_FILE or /var/lib/cynic/memory/logs/human-kernel.jsonl.
+    pub logfile: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct GitParams {
     pub op: crate::local_tools::GitOp,
     pub agent_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct SourceControlParams {
+    pub op: crate::local_tools::SourceControlOp,
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct RegisterParams {
-    pub agent_id: String,
     pub intent: String,
     pub agent_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ClaimParams {
-    pub agent_id: String,
     pub target: String,
     pub claim_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct BatchClaimParams {
-    pub agent_id: String,
     pub targets: Vec<String>,
     pub claim_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ReleaseParams {
-    pub agent_id: String,
-    pub target: Option<String>,
+    pub target: String,
+    pub lease_id: String,
+    pub fencing_token: u64,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RenewLeaseParams {
+    pub target: String,
+    pub lease_id: String,
+    pub fencing_token: u64,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct FinalizeLeaseParams {
+    pub target: String,
+    pub lease_id: String,
+    pub fencing_token: u64,
+    pub proof_bundle: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

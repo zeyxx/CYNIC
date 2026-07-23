@@ -7,8 +7,11 @@ edition = "2024"
 legacy_infra_tools = []
 
 [dependencies]
+cynic-askesis = { path = "../cynic-askesis" }
 cynic-host = { path = "../cynic-host" }
 cynic-inference = { path = "../cynic-inference" }
+cynic-node = { path = "../cynic-node" }
+cynic-protocol = { path = "../cynic-protocol" }
 rmcp = { version = "1.2", features = ["server", "transport-io", "macros"] }
 reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
