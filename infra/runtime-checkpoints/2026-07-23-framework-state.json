@@ -77,6 +77,30 @@
     "artifact_release": "blocked_until_build_proof",
     "fleet": "matrix_primitive_present_multi_node_collection_pending"
   },
+  "last_runtime_probe": {
+    "command": "CARGO_INCREMENTAL=0 ./scripts/cargo run -p cynic-cli -- runtime conformance --json",
+    "status": "blocked",
+    "compile_status": "passed_after_fixes",
+    "subject": "local-builder",
+    "proved_or_partial": [
+      "harness_is_conformance_gate",
+      "service_surface_observed",
+      "sovereign_git_service_observed",
+      "firmware_observed",
+      "hardware_inventory_observed",
+      "thermal_sensor_observed",
+      "storage_devices_observed"
+    ],
+    "blockers": [
+      "runtime_owner_mismatch",
+      "hardware_identity_stable_unknown",
+      "offline_memory_test_passed_unknown",
+      "build_proof_not_consumed",
+      "network_vertical_not_consumed_by_host_conformance",
+      "fleet_vertical_requires_multi_node_proof"
+    ],
+    "interpretation": "runtime evidence now exists; do not add architecture before repairing the first blocked substrate boundary"
+  },
   "commit_policy": {
     "next_commits": "one_vertical_or_quarantine_decision_per_commit",
     "required_message_prefixes": [
