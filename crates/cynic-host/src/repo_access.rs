@@ -1,4 +1,4 @@
-use cynic_protocol::ForgejoDesiredState;
+use cynic_protocol::{ForgejoDesiredState, ForgejoRepositoryPermission};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
@@ -96,6 +96,9 @@ struct RepoRemoteRaw {
     api_url: Option<String>,
     url: Option<String>,
     desired_git_url: Option<String>,
+    git_user: Option<String>,
+    machine_principal: Option<String>,
+    repository_permission: Option<ForgejoRepositoryPermission>,
     backend_service_ref: Option<ServiceRef>,
     admin_service_ref: Option<ServiceRef>,
     git_service_ref: Option<ServiceRef>,
@@ -138,6 +141,7 @@ pub fn load_forgejo_desired_state(
     )?;
     let owner = required(remote.owner, "owner")?;
     let repository = required(remote.repository, "repository")?;
+    let git_user = required(remote.git_user, "git_user")?;
 
     Ok(ForgejoDesiredState {
         instance_id: required(remote.id, "id")?,
@@ -145,9 +149,13 @@ pub fn load_forgejo_desired_state(
         repository: repository.clone(),
         api_url: format!("{}/api/v1", admin.endpoint),
         git_ssh_url: format!(
-            "ssh://git@{}:{}/{owner}/{repository}.git",
-            git.host, git.port
+            "ssh://{git_user}@{}:{}/{owner}/{repository}.git",
+            git.host, git.port,
         ),
+        machine_principal: required(remote.machine_principal, "machine_principal")?,
+        repository_permission: remote
+            .repository_permission
+            .ok_or_else(|| "forgejo authority field missing: repository_permission".to_string())?,
         machine_key_fingerprint: required(
             remote.machine_key_fingerprint,
             "machine_key_fingerprint",
@@ -320,12 +328,13 @@ fn load_sovereign_remotes(canonical_project_root: Option<&Path>) -> Vec<Sovereig
                 .ok()?;
                 let owner = owner.as_deref()?;
                 let repository = repository.as_deref()?;
+                let git_user = none_if_empty(remote.git_user.clone())?;
                 (
                     format!("{}/{owner}/{repository}.git", backend.endpoint),
                     Some(format!("{}/api/v1", admin.endpoint)),
                     Some(format!(
-                        "ssh://git@{}:{}/{owner}/{repository}.git",
-                        git.host, git.port
+                        "ssh://{git_user}@{}:{}/{owner}/{repository}.git",
+                        git.host, git.port,
                     )),
                     Some(backend.port),
                     vec![backend.host, admin.host, git.host],
@@ -607,6 +616,9 @@ mod tests {
       "role": "sovereign_candidate",
       "owner": "jeanterre13",
       "repository": "CYNIC",
+      "git_user": "forgejo",
+      "machine_principal": "cynic-cortex",
+      "repository_permission": "write",
       "backend_service_ref":{"node":"forgejo","service":"forgejo-backend"},
       "admin_service_ref":{"node":"forgejo","service":"forgejo-api-tls"},
       "git_service_ref":{"node":"forgejo","service":"ssh"},
@@ -626,7 +638,7 @@ mod tests {
         assert_eq!(forgejo.http_port, Some(3000));
         assert_eq!(
             forgejo.desired_git_url.as_deref(),
-            Some("ssh://git@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git")
+            Some("ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git")
         );
         assert_eq!(
             forgejo.endpoint_host.as_deref(),

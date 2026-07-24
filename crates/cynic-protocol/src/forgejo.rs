@@ -10,7 +10,17 @@ pub struct ForgejoDesiredState {
     pub repository: String,
     pub api_url: String,
     pub git_ssh_url: String,
+    pub machine_principal: String,
+    pub repository_permission: ForgejoRepositoryPermission,
     pub machine_key_fingerprint: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForgejoRepositoryPermission {
+    Read,
+    Write,
+    Admin,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,9 +28,12 @@ pub struct ForgejoObservedState {
     pub admin_path: NetworkPathEvidence,
     pub owner_active: ForgejoEvidenceState,
     pub repository_exists: ForgejoEvidenceState,
+    pub machine_principal_ready: ForgejoEvidenceState,
     pub machine_key_enrolled: ForgejoEvidenceState,
+    pub repository_permission_granted: ForgejoEvidenceState,
     pub ssh_host_identity: ForgejoEvidenceState,
     pub git_ssh_authenticated: ForgejoEvidenceState,
+    pub bootstrap_authority_revoked: ForgejoEvidenceState,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
 }
@@ -31,9 +44,12 @@ pub enum ForgejoActionKind {
     ObserveApiIdentity,
     ActivateOwner,
     CreateRepository,
+    EnsureMachinePrincipal,
     EnrollMachineKey,
+    GrantRepositoryPermission,
     VerifySshHostIdentity,
     VerifyGitSshAuthentication,
+    RevokeBootstrapAuthority,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -107,6 +123,27 @@ pub fn plan_forgejo_convergence(
         }
     }
 
+    match observed.machine_principal_ready {
+        ForgejoEvidenceState::Proven => {}
+        ForgejoEvidenceState::Absent => actions.push(mutation(
+            ForgejoActionKind::EnsureMachinePrincipal,
+            true,
+            "forgejo_machine_principal_restricted_non_admin",
+        )),
+        ForgejoEvidenceState::Refuted => {
+            blockers.push("forgejo_machine_principal_state_refuted".to_string())
+        }
+        ForgejoEvidenceState::Declared => {
+            blockers.push("forgejo_machine_principal_state_only_declared".to_string())
+        }
+        ForgejoEvidenceState::NotApplicable => {
+            blockers.push("forgejo_machine_principal_state_not_applicable".to_string())
+        }
+        ForgejoEvidenceState::Unknown => {
+            blockers.push("forgejo_machine_principal_state_unknown".to_string())
+        }
+    }
+
     match observed.machine_key_enrolled {
         ForgejoEvidenceState::Proven => {}
         ForgejoEvidenceState::Refuted => {
@@ -128,6 +165,27 @@ pub fn plan_forgejo_convergence(
         }
     }
 
+    match observed.repository_permission_granted {
+        ForgejoEvidenceState::Proven => {}
+        ForgejoEvidenceState::Absent => actions.push(mutation(
+            ForgejoActionKind::GrantRepositoryPermission,
+            true,
+            "forgejo_repository_permission",
+        )),
+        ForgejoEvidenceState::Refuted => {
+            blockers.push("forgejo_repository_permission_refuted".to_string())
+        }
+        ForgejoEvidenceState::Declared => {
+            blockers.push("forgejo_repository_permission_only_declared".to_string())
+        }
+        ForgejoEvidenceState::NotApplicable => {
+            blockers.push("forgejo_repository_permission_not_applicable".to_string())
+        }
+        ForgejoEvidenceState::Unknown => {
+            blockers.push("forgejo_repository_permission_unknown".to_string())
+        }
+    }
+
     if observed.ssh_host_identity != ForgejoEvidenceState::Proven {
         actions.push(observe(
             ForgejoActionKind::VerifySshHostIdentity,
@@ -139,6 +197,26 @@ pub fn plan_forgejo_convergence(
             ForgejoActionKind::VerifyGitSshAuthentication,
             "forgejo_git_ssh_authentication",
         ));
+    }
+    match observed.bootstrap_authority_revoked {
+        ForgejoEvidenceState::Proven => {}
+        ForgejoEvidenceState::Absent => actions.push(mutation(
+            ForgejoActionKind::RevokeBootstrapAuthority,
+            true,
+            "forgejo_bootstrap_authority_revoked",
+        )),
+        ForgejoEvidenceState::Refuted => {
+            blockers.push("forgejo_bootstrap_authority_still_active".to_string())
+        }
+        ForgejoEvidenceState::Declared => {
+            blockers.push("forgejo_bootstrap_revocation_only_declared".to_string())
+        }
+        ForgejoEvidenceState::NotApplicable => {
+            blockers.push("forgejo_bootstrap_revocation_not_applicable".to_string())
+        }
+        ForgejoEvidenceState::Unknown => {
+            blockers.push("forgejo_bootstrap_revocation_unknown".to_string())
+        }
     }
 
     ForgejoPlan {
@@ -189,6 +267,8 @@ mod tests {
             repository: "CYNIC".into(),
             api_url: "http://forgejo:3000/api/v1".into(),
             git_ssh_url: "ssh://git@forgejo:22/cynic/CYNIC.git".into(),
+            machine_principal: "cynic-cortex".into(),
+            repository_permission: ForgejoRepositoryPermission::Write,
             machine_key_fingerprint: "SHA256:machine".into(),
         }
     }
@@ -211,19 +291,25 @@ mod tests {
             },
             owner_active: ForgejoEvidenceState::Proven,
             repository_exists: ForgejoEvidenceState::Absent,
+            machine_principal_ready: ForgejoEvidenceState::Absent,
             machine_key_enrolled: ForgejoEvidenceState::Absent,
+            repository_permission_granted: ForgejoEvidenceState::Absent,
             ssh_host_identity: ForgejoEvidenceState::Proven,
             git_ssh_authenticated: ForgejoEvidenceState::Absent,
+            bootstrap_authority_revoked: ForgejoEvidenceState::Absent,
             evidence_refs: vec!["probe.json".into()],
         };
 
         let plan = plan_forgejo_convergence(desired(), &observed);
         assert_eq!(plan.status, "ready");
-        assert_eq!(plan.actions.len(), 3);
+        assert_eq!(plan.actions.len(), 6);
         assert_eq!(plan.actions[0].kind, ForgejoActionKind::CreateRepository);
-        assert_eq!(plan.actions[1].kind, ForgejoActionKind::EnrollMachineKey);
         assert_eq!(
-            plan.actions[2].kind,
+            plan.actions[1].kind,
+            ForgejoActionKind::EnsureMachinePrincipal
+        );
+        assert_eq!(
+            plan.actions[4].kind,
             ForgejoActionKind::VerifyGitSshAuthentication
         );
         assert!(plan.actions[0].requires_human_admin_secret);
@@ -248,15 +334,18 @@ mod tests {
             },
             owner_active: ForgejoEvidenceState::Unknown,
             repository_exists: ForgejoEvidenceState::Unknown,
+            machine_principal_ready: ForgejoEvidenceState::Unknown,
             machine_key_enrolled: ForgejoEvidenceState::Unknown,
+            repository_permission_granted: ForgejoEvidenceState::Unknown,
             ssh_host_identity: ForgejoEvidenceState::Unknown,
             git_ssh_authenticated: ForgejoEvidenceState::Unknown,
+            bootstrap_authority_revoked: ForgejoEvidenceState::Unknown,
             evidence_refs: Vec::new(),
         };
 
         let plan = plan_forgejo_convergence(desired(), &observed);
         assert_eq!(plan.status, "blocked");
-        assert_eq!(plan.blockers.len(), 4);
+        assert_eq!(plan.blockers.len(), 7);
         assert!(plan.actions.iter().all(|action| !action.mutates));
     }
 }

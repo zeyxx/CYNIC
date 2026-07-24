@@ -65,7 +65,7 @@ pub use endpoint::{
 pub use evidence::{EVIDENCE_ENVELOPE_SCHEMA, EvidenceEnvelope, build_evidence_envelope};
 pub use forgejo::{
     FORGEJO_PLAN_SCHEMA, ForgejoActionKind, ForgejoDesiredState, ForgejoObservedState, ForgejoPlan,
-    ForgejoPlannedAction, plan_forgejo_convergence,
+    ForgejoPlannedAction, ForgejoRepositoryPermission, plan_forgejo_convergence,
 };
 pub use framework::{
     FRAMEWORK_SPEC_SCHEMA, FrameworkIdentity, FrameworkLayer, FrameworkPrimitiveFamily,

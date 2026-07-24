@@ -78,9 +78,12 @@ impl ForgejoObservationPort for RuntimeForgejoObserver {
             },
             owner_active: ForgejoEvidenceState::Unknown,
             repository_exists: ForgejoEvidenceState::Unknown,
+            machine_principal_ready: ForgejoEvidenceState::Unknown,
             machine_key_enrolled: ForgejoEvidenceState::Unknown,
+            repository_permission_granted: ForgejoEvidenceState::Unknown,
             ssh_host_identity: ForgejoEvidenceState::Unknown,
             git_ssh_authenticated: ForgejoEvidenceState::Unknown,
+            bootstrap_authority_revoked: ForgejoEvidenceState::Unknown,
             evidence_refs,
         }
     }
@@ -114,6 +117,8 @@ mod tests {
             repository: "repo".into(),
             api_url: "http://forgejo:3000/api/v1".into(),
             git_ssh_url: "ssh://git@forgejo:22/owner/repo.git".into(),
+            machine_principal: "cynic-machine".into(),
+            repository_permission: cynic_protocol::ForgejoRepositoryPermission::Write,
             machine_key_fingerprint: "SHA256:key".into(),
         };
         let observer = FixedObserver(ForgejoObservedState {
@@ -132,9 +137,12 @@ mod tests {
             },
             owner_active: ForgejoEvidenceState::Proven,
             repository_exists: ForgejoEvidenceState::Proven,
+            machine_principal_ready: ForgejoEvidenceState::Proven,
             machine_key_enrolled: ForgejoEvidenceState::Proven,
+            repository_permission_granted: ForgejoEvidenceState::Proven,
             ssh_host_identity: ForgejoEvidenceState::Proven,
             git_ssh_authenticated: ForgejoEvidenceState::Proven,
+            bootstrap_authority_revoked: ForgejoEvidenceState::Proven,
             evidence_refs: vec!["proof.json".into()],
         });
 
@@ -161,6 +169,8 @@ mod tests {
             repository: "repo".into(),
             api_url: "http://forgejo:3000/api/v1".into(),
             git_ssh_url: "ssh://git@forgejo:22/owner/repo.git".into(),
+            machine_principal: "cynic-machine".into(),
+            repository_permission: cynic_protocol::ForgejoRepositoryPermission::Write,
             machine_key_fingerprint: "SHA256:key".into(),
         });
         assert_eq!(

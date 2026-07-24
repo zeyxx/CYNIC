@@ -1,13 +1,16 @@
 {
   "schema": "cynic.repo_remotes.v1",
   "purpose": "Git placement authority for sovereignty: Forgejo is the candidate sovereign SSOT; GitHub is an optional public relay.",
-  "updated_at": "2026-07-22",
+  "updated_at": "2026-07-24",
   "remotes": [
     {
       "id": "forgejo",
       "role": "sovereign_candidate",
       "owner": "jeanterre13",
       "repository": "CYNIC",
+      "git_user": "forgejo",
+      "machine_principal": "cynic-cortex",
+      "repository_permission": "write",
       "backend_service_ref": {
         "node": "forgejo",
         "service": "forgejo-backend"
@@ -22,17 +25,17 @@
       },
       "ssh_host_key_fingerprint": "SHA256:OJDMToiHPEVJ7QVdufmpjyP5EYm5aOtBvYG2qGEEQ88",
       "machine_key_fingerprint": "SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU",
-      "status_observed": "reachable_http_ui_git_auth_unavailable_noninteractive",
+      "status_observed": "machine_rbac_enrolled_ssh_authenticated",
       "notes": [
         "Wrong legacy URL used port 18300 — Forgejo serves on 3000.",
-        "User jeanterre13 exists (active=false until first login).",
-        "Push requires token or SSH key; empty public repo search returned no CYNIC clone.",
-        "Observed 2026-07-22: HTTP UI returns 200; unauthenticated git ls-remote cannot acquire credentials non-interactively.",
+        "Observed 2026-07-24: owner jeanterre13 is active and repository CYNIC exists as private sovereign storage.",
+        "Machine principal cynic-cortex is restricted, non-admin, and has repository-scoped write permission.",
         "Canonical service identity is forgejo.synapse.cynic; host_ip is observed topology evidence and must not become the desired transport identity.",
         "Administrative API authority is HTTPS on the service DNS identity; port 3000 HTTP is backend reachability only and must never carry a HumanAdmin token.",
-        "Current sovereign candidate transport is plaintext HTTP and is blocked for trusted source promotion until TLS/SSH host identity is proven.",
+        "Trusted source promotion uses the proven SSH transport; plaintext HTTP remains backend health only.",
         "Observed SSH host fingerprint: SHA256:OJDMToiHPEVJ7QVdufmpjyP5EYm5aOtBvYG2qGEEQ88 (ED25519); the IP host key is already present in Cortex known_hosts.",
-        "Cortex machine key fingerprint is SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU and still requires Forgejo enrollment.",
+        "Cortex machine key fingerprint SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU is enrolled under cynic-cortex.",
+        "Observed RBAC read-back: restricted=true, admin=false, repository permission=write, bootstrap tokens remaining=0.",
         "Resolver/bootstrap must prove forgejo.synapse.cynic dynamically; static /etc/hosts may only be an explicitly bounded bootstrap adapter."
       ]
     },
