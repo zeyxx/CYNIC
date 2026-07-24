@@ -14,6 +14,9 @@ pub(super) fn ensure_system_group(group: &str) -> HostCommandResult {
     if identity_exists("group", group) {
         return idempotent_identity_result("group", group);
     }
+    if !has_root_authority() {
+        return missing_root_authority("group", group);
+    }
     match detected_manager() {
         Some(PrincipalManagerKind::Shadow) => {
             run_command("groupadd", &["--system", "--force", group])
@@ -31,6 +34,9 @@ pub(super) fn ensure_system_user(
 ) -> HostCommandResult {
     if identity_exists("passwd", user) {
         return idempotent_identity_result("user", user);
+    }
+    if !has_root_authority() {
+        return missing_root_authority("user", user);
     }
     let shell = resolve_login_shell(shell);
     match detected_manager() {
@@ -62,6 +68,9 @@ pub(super) fn ensure_owned_dir(
     group: &str,
     mode: u32,
 ) -> HostCommandResult {
+    if !has_root_authority() {
+        return missing_root_authority("owned_dir", path);
+    }
     let mode = format!("{mode:04o}");
     run_command(
         "install",
@@ -76,6 +85,10 @@ fn detected_manager() -> Option<PrincipalManagerKind> {
         command_available("addgroup"),
         command_available("adduser"),
     )
+}
+
+fn has_root_authority() -> bool {
+    unsafe { libc::geteuid() == 0 }
 }
 
 fn select_manager(
@@ -133,6 +146,16 @@ fn unsupported_principal_manager(kind: &str, identity: &str) -> HostCommandResul
         exit_code: Some(2),
         stdout: String::new(),
         stderr: "no supported principal manager capability detected".to_string(),
+    }
+}
+
+fn missing_root_authority(kind: &str, target: &str) -> HostCommandResult {
+    HostCommandResult {
+        command: format!("ensure_system_{kind} {target}"),
+        success: false,
+        exit_code: Some(126),
+        stdout: String::new(),
+        stderr: "root authority is required; refusing user-namespace ownership as proof".to_string(),
     }
 }
 

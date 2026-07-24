@@ -259,11 +259,11 @@ impl PrincipalPolicy {
             ),
             LifecycleStatus::Missing => LifecycleProjection::missing_adopt(
                 "runtime principal or required owned paths are missing",
-                Some("cynic host bootstrap principal-prepare --json".to_string()),
+                Some("cynic bootstrap host principal".to_string()),
             ),
             LifecycleStatus::PrincipalMismatch => LifecycleProjection::principal_mismatch_adopt(
                 "runtime principal exists but home alignment or path ownership still mismatches policy",
-                Some("cynic host bootstrap principal-prepare --json".to_string()),
+                Some("cynic bootstrap host principal".to_string()),
             ),
             LifecycleStatus::ConnectionRequired => {
                 LifecycleProjection::connection_required_observe(
