@@ -11,6 +11,7 @@ pub mod evidence;
 pub mod forgejo;
 pub mod framework;
 pub mod integrity;
+pub mod kyon;
 pub mod network;
 pub mod observe;
 pub mod outcomes;
@@ -39,7 +40,10 @@ pub use artifact_release::{
     RuntimeArtifactSpec, RuntimeBuildEvidence, ServiceIdentityEvidence,
 };
 pub use build::{BUILD_INPUT_ADMISSION_SCHEMA, BuildInputAdmission, admit_build_input};
-pub use coord::{coord_claim_path, coord_register_path, coord_release_path, coord_who_path};
+pub use coord::{
+    LEASE_VERIFICATION_SCHEMA, LeaseVerification, coord_claim_path, coord_register_path,
+    coord_release_path, coord_verify_path, coord_who_path,
+};
 pub use convergence::{
     CONVERGENCE_MATRIX_SCHEMA, ConvergenceCell, ConvergenceMatrixReport, ConvergenceStatus,
     assess_convergence_matrix, merge_convergence_matrices,
@@ -72,6 +76,12 @@ pub use framework::{
     FrameworkPrinciple, FrameworkRule, FrameworkSpec, FrameworkUseCase, framework_spec,
 };
 pub use integrity::{canonical_json_bytes, digest_json};
+pub use kyon::{
+    KYON_FEDERATED_DISCLOSURE_SCHEMA, KYON_MIRROR_SIGNAL_SCHEMA, KYON_PROTECTIVE_PLAN_SCHEMA,
+    ConsentGrant, DataClass, DisclosureAdmission, DisclosureRequest, KyonAction, MirrorSignal,
+    ObservationRef, ProtectivePlan, ShieldPolicy, SignalAssessment, admit_federated_disclosure,
+    reconcile_signal,
+};
 pub use network::{
     NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer,
     NetworkMeshPlan, NetworkMeshRoute, NetworkMeshService,
@@ -80,7 +90,7 @@ pub use observe::OBSERVE_PATH;
 pub use source_control::{
     SOURCE_ADMISSION_REPORT_SCHEMA, SOURCE_CHANGE_PROPOSAL_SCHEMA, SourceChangeAdmission,
     SourceChangeProposal, SourceMatterClass, SourcePromotionStage, SourceSnapshot,
-    admit_source_change, admit_source_stage,
+    admit_source_change, admit_source_stage, source_worktree_lease_target,
 };
 pub use outcomes::{
     KPI_SCORE_SCHEMA, KpiScoreReport, OUTCOME_SPEC_SCHEMA, Outcome, OutcomeScore, OutcomeSpec,

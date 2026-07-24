@@ -14,6 +14,7 @@ use serde::Serialize;
 
 use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
 use crate::repo_access::current_repo_access_status;
+use crate::source_lease::SourceLeaseVerifier;
 
 pub const SOURCE_CONTROL_PROOF_SCHEMA: &str = "cynic.host.source_control_proof.v1";
 
@@ -183,11 +184,20 @@ pub trait SourceControlPort {
 pub struct GitSourceControlAdapter<'a, R: ArgvRunner> {
     root: PathBuf,
     runner: &'a R,
+    lease_verifier: &'a dyn SourceLeaseVerifier,
 }
 
 impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
-    pub fn new(root: impl Into<PathBuf>, runner: &'a R) -> Self {
-        Self { root: root.into(), runner }
+    pub fn new(
+        root: impl Into<PathBuf>,
+        runner: &'a R,
+        lease_verifier: &'a dyn SourceLeaseVerifier,
+    ) -> Self {
+        Self {
+            root: root.into(),
+            runner,
+            lease_verifier,
+        }
     }
 
     fn git(&self, args: &[&str]) -> (Vec<String>, ArgvOutput) {
@@ -292,6 +302,11 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
         if proposal.fencing_token == 0 {
             blockers.push("worktree_fencing_token_missing".to_string());
         }
+        if blockers.is_empty() {
+            if let Err(blocker) = self.lease_verifier.verify(&proposal.lease_guard()) {
+                blockers.push(blocker);
+            }
+        }
         let _lock = if blockers.is_empty() { self.lock(&proposal.worktree_id).ok() } else { None };
         if blockers.is_empty() && _lock.is_none() {
             blockers.push("source_lock_unavailable".to_string());
@@ -342,6 +357,11 @@ impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
         }
         if before.unmerged_paths.len() > 0 { blockers.push("unmerged_paths_present".to_string()); }
         if proposal.fencing_token == 0 { blockers.push("worktree_fencing_token_missing".to_string()); }
+        if blockers.is_empty() {
+            if let Err(blocker) = self.lease_verifier.verify(&proposal.lease_guard()) {
+                blockers.push(blocker);
+            }
+        }
         if proposal.matter == SourceMatterClass::Evidence && proposal.paths.iter().any(|p| p.ends_with(".json")) {
             // Evidence may be versioned, but only after validation; the protocol admission already enforces it.
         }

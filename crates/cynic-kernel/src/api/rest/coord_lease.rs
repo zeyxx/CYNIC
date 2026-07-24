@@ -34,6 +34,18 @@ pub async fn coord_renew_handler(
     })?;
     lease_response(&state, "cynic_coord_renew", &guard, result).await
 }
+pub async fn coord_verify_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Json(req): Json<LeaseGuardRequest>,
+) -> Result<Json<cynic_protocol::LeaseVerification>, (StatusCode, Json<ErrorResponse>)> {
+    let guard = validated_guard(&principal, req)?;
+    let verification = state.coord.verify_lease(&guard).await.map_err(|error| {
+        tracing::warn!(error = ?error, "verify_lease failed");
+        coordination_error()
+    })?;
+    Ok(Json(verification))
+}
 pub async fn coord_release_handler(
     State(state): State<Arc<AppState>>,
     Extension(principal): Extension<AuthenticatedPrincipal>,

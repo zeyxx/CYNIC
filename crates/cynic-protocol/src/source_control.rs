@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::SecurityEvidenceState;
+use crate::{LeaseGuard, SecurityEvidenceState};
 
 pub const SOURCE_ADMISSION_REPORT_SCHEMA: &str = "cynic.source.admission.v1";
 pub const SOURCE_CHANGE_PROPOSAL_SCHEMA: &str = "cynic.source.change_proposal.v1";
@@ -34,6 +34,21 @@ pub struct SourceChangeProposal {
     pub rollback: String,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
+}
+
+impl SourceChangeProposal {
+    pub fn lease_guard(&self) -> LeaseGuard {
+        LeaseGuard {
+            agent_id: self.actor.clone(),
+            target: source_worktree_lease_target(&self.repository_id, &self.worktree_id),
+            lease_id: self.lease_id.clone(),
+            fencing_token: self.fencing_token,
+        }
+    }
+}
+
+pub fn source_worktree_lease_target(repository_id: &str, worktree_id: &str) -> String {
+    format!("source-worktree:{repository_id}:{worktree_id}")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

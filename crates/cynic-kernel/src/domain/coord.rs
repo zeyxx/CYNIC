@@ -9,7 +9,8 @@ use crate::domain::lease_proof::ValidatedLeaseProof;
 
 pub use cynic_protocol::{
     BatchClaimResult, LeaseAction, LeaseConflict as ConflictInfo, LeaseGrant as ClaimGrant,
-    LeaseGuard, LeaseMutationOutcome as LeaseMutationResult, TargetClaimOutcome,
+    LeaseGuard, LeaseMutationOutcome as LeaseMutationResult, LeaseVerification,
+    TargetClaimOutcome,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -134,6 +135,7 @@ pub trait CoordPort: Send + Sync {
         target: &str,
         claim_type: &str,
     ) -> Result<ClaimResult, CoordError>;
+    async fn verify_lease(&self, guard: &LeaseGuard) -> Result<LeaseVerification, CoordError>;
     async fn renew_lease(&self, guard: &LeaseGuard) -> Result<LeaseMutationResult, CoordError>;
     async fn release(&self, guard: &LeaseGuard) -> Result<LeaseMutationResult, CoordError>;
     async fn finalize_lease(
@@ -206,6 +208,12 @@ impl CoordPort for NullCoord {
             fencing_token: 1,
             expires_at: String::new(),
         }))
+    }
+    async fn verify_lease(&self, guard: &LeaseGuard) -> Result<LeaseVerification, CoordError> {
+        Ok(LeaseVerification::unavailable(
+            guard.clone(),
+            "coordination_lease_authority_unavailable",
+        ))
     }
     async fn renew_lease(&self, guard: &LeaseGuard) -> Result<LeaseMutationResult, CoordError> {
         Ok(LeaseMutationResult::applied(
@@ -300,6 +308,9 @@ impl CoordPort for UnavailableCoord {
         Err(self.error())
     }
 
+    async fn verify_lease(&self, _: &LeaseGuard) -> Result<LeaseVerification, CoordError> {
+        Err(self.error())
+    }
     async fn renew_lease(&self, _: &LeaseGuard) -> Result<LeaseMutationResult, CoordError> {
         Err(self.error())
     }

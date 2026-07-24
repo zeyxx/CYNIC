@@ -10,8 +10,9 @@
 use std::time::Instant;
 
 use cynic_host::source_control::{GitSourceControlAdapter, SourceControlPort, SourcePushAuthorization, observe_source_push_target, observe_source_worktree};
+use cynic_host::source_lease::SourceLeaseVerifier;
 use cynic_host::update_lifecycle::LocalArgvRunner;
-use cynic_protocol::{SecurityEvidenceState, SourceChangeProposal, SourceMatterClass};
+use cynic_protocol::{LeaseGuard, SecurityEvidenceState, SourceChangeProposal, SourceMatterClass};
 
 /// Result of the canonical repository validation gate (`make check`).
 ///
@@ -211,9 +212,22 @@ pub async fn run_git(project_root: &str, op: &GitOp) -> GitResult {
     }
 }
 
-pub fn run_source_control(project_root: &str, op: &SourceControlOp) -> serde_json::Value {
+pub fn source_control_lease_guard(op: &SourceControlOp) -> Result<Option<LeaseGuard>, String> {
+    match op {
+        SourceControlOp::Commit { proposal } | SourceControlOp::Push { proposal, .. } => {
+            proposal.to_protocol().map(|proposal| Some(proposal.lease_guard()))
+        }
+        SourceControlOp::Observe { .. } | SourceControlOp::Propose { .. } => Ok(None),
+    }
+}
+
+pub fn run_source_control(
+    project_root: &str,
+    op: &SourceControlOp,
+    lease_verifier: &dyn SourceLeaseVerifier,
+) -> serde_json::Value {
     let runner = LocalArgvRunner;
-    let adapter = GitSourceControlAdapter::new(project_root, &runner);
+    let adapter = GitSourceControlAdapter::new(project_root, &runner, lease_verifier);
     match op {
         SourceControlOp::Observe { expected_owner } => serde_json::json!({
             "schema": "cynic.mcp.source_control_observation.v1",

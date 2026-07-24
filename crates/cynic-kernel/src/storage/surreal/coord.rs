@@ -1,7 +1,8 @@
 use super::{build_where_clause, sanitize_record_id};
 use crate::domain::coord::{
     AgentInfo, AuditEntry, BatchClaimResult, ClaimEntry, ClaimResult, ConflictInfo, CoordError,
-    CoordPort, CoordSnapshot, LeaseAction, LeaseGuard, LeaseMutationResult, TargetClaimOutcome,
+    CoordPort, CoordSnapshot, LeaseAction, LeaseGuard, LeaseMutationResult, LeaseVerification,
+    TargetClaimOutcome,
 };
 use crate::domain::lease_proof::ValidatedLeaseProof;
 use crate::storage::{SurrealHttpStorage, escape_surreal};
@@ -85,6 +86,30 @@ impl CoordPort for SurrealHttpStorage {
             })
             .collect();
         Ok(ClaimResult::Conflict(conflicts))
+    }
+
+    async fn verify_lease(&self, guard: &LeaseGuard) -> Result<LeaseVerification, CoordError> {
+        let sql = format!(
+            "SELECT expires_at FROM work_claim:`{key}` WHERE active = true AND agent_id = '{agent}' AND target = '{target}' AND lease_id = '{lease}' AND fencing_token = {token} AND expires_at > time::now();",
+            key = sanitize_record_id(&guard.target),
+            agent = escape_surreal(&guard.agent_id),
+            target = escape_surreal(&guard.target),
+            lease = escape_surreal(&guard.lease_id),
+            token = guard.fencing_token,
+        );
+        let rows = self
+            .query_one(&sql)
+            .await
+            .map_err(|error| CoordError::StorageFailed(format!("Lease verify: {error}")))?;
+        Ok(rows.first().map_or_else(
+            || LeaseVerification::rejected(guard.clone()),
+            |row| {
+                LeaseVerification::proved(
+                    guard.clone(),
+                    row["expires_at"].as_str().map(str::to_string),
+                )
+            },
+        ))
     }
 
     async fn renew_lease(&self, guard: &LeaseGuard) -> Result<LeaseMutationResult, CoordError> {

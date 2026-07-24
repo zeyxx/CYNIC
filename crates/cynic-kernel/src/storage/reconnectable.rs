@@ -695,6 +695,12 @@ impl CoordPort for ReconnectableCoord {
     ) -> Result<ClaimResult, CoordError> {
         self.current().claim(agent_id, target, claim_type).await
     }
+    async fn verify_lease(
+        &self,
+        guard: &crate::domain::coord::LeaseGuard,
+    ) -> Result<cynic_protocol::LeaseVerification, CoordError> {
+        self.current().verify_lease(guard).await
+    }
     async fn renew_lease(
         &self,
         guard: &crate::domain::coord::LeaseGuard,

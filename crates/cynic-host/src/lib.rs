@@ -46,6 +46,7 @@ pub mod runtime_resolver_plan;
 pub mod service_catalog;
 pub mod service_supervisor_observation;
 pub mod source_control;
+pub mod source_lease;
 pub mod source_worktree;
 pub mod vertical_conformance;
 pub mod storage_capabilities;

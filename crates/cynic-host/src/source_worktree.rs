@@ -6,26 +6,16 @@
 
 use std::path::{Path, PathBuf};
 
-use cynic_protocol::LeaseGuard;
+use cynic_protocol::{LeaseGuard, source_worktree_lease_target};
 use serde::Serialize;
 
 use crate::source_control::{SourceWorktreeObservation, observe_source_worktree};
+use crate::source_lease::SourceLeaseVerifier;
+#[cfg(test)]
+use crate::source_lease::UnavailableSourceLeaseVerifier;
 use crate::update_lifecycle::ArgvRunner;
 
 pub const SOURCE_WORKTREE_REPORT_SCHEMA: &str = "cynic.host.source_worktree_report.v1";
-
-pub trait SourceWorktreeLeaseVerifier: Send + Sync {
-    fn verify(&self, guard: &LeaseGuard) -> Result<(), String>;
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct UnavailableSourceWorktreeLeaseVerifier;
-
-impl SourceWorktreeLeaseVerifier for UnavailableSourceWorktreeLeaseVerifier {
-    fn verify(&self, _guard: &LeaseGuard) -> Result<(), String> {
-        Err("coordination_lease_authority_unavailable".to_string())
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct SourceWorktreeMaterializationRequest {
@@ -66,7 +56,7 @@ pub struct SourceWorktreeCommandProof {
 pub fn materialize_source_worktree(
     request: &SourceWorktreeMaterializationRequest,
     runner: &impl ArgvRunner,
-    verifier: &impl SourceWorktreeLeaseVerifier,
+    verifier: &impl SourceLeaseVerifier,
 ) -> SourceWorktreeMaterializationReport {
     let source = observe_source_worktree(
         &request.source_root,
@@ -76,7 +66,7 @@ pub fn materialize_source_worktree(
         &request.target_root,
         Some(request.expected_owner.as_str()),
     );
-    let lease_target = format!("source-worktree:{}:{}", request.repository_id, request.worktree_id);
+    let lease_target = source_worktree_lease_target(&request.repository_id, &request.worktree_id);
     let mut blockers = Vec::new();
     if request.lease.target != lease_target {
         blockers.push("worktree_lease_target_mismatch".to_string());
@@ -159,7 +149,7 @@ mod tests {
     use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
 
     struct Verified;
-    impl SourceWorktreeLeaseVerifier for Verified {
+    impl SourceLeaseVerifier for Verified {
         fn verify(&self, _guard: &LeaseGuard) -> Result<(), String> { Ok(()) }
     }
 
@@ -177,7 +167,11 @@ mod tests {
             apply: true,
         };
         let runner = MapArgvRunner { responses: Vec::<(Vec<String>, ArgvOutput)>::new() };
-        let report = materialize_source_worktree(&request, &runner, &UnavailableSourceWorktreeLeaseVerifier);
+        let report = materialize_source_worktree(
+            &request,
+            &runner,
+            &UnavailableSourceLeaseVerifier::default(),
+        );
         assert_eq!(report.status, "blocked");
         assert!(report.blockers.contains(&"coordination_lease_authority_unavailable".to_string()));
         assert!(report.command.is_none());

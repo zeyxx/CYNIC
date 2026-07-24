@@ -352,7 +352,42 @@ impl CynicMcpProxy {
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
-        let result = crate::local_tools::run_source_control(&self.project_root, &params.0.op);
+        let guard = crate::local_tools::source_control_lease_guard(&params.0.op)
+            .map_err(|error| McpError::invalid_params(error, None))?;
+        let verifier: Box<dyn cynic_host::source_lease::SourceLeaseVerifier> = match guard {
+            Some(guard) => {
+                let principal = self.coordination_principal()?;
+                if guard.agent_id != principal {
+                    Box::new(cynic_host::source_lease::UnavailableSourceLeaseVerifier::new(
+                        "proposal_actor_not_authenticated_principal",
+                    ))
+                } else {
+                    let body = serde_json::json!({
+                        "agent_id": guard.agent_id,
+                        "target": guard.target,
+                        "lease_id": guard.lease_id,
+                        "fencing_token": guard.fencing_token,
+                    });
+                    match self.post_json(cynic_protocol::coord_verify_path(), &body).await {
+                        Ok(value) => match serde_json::from_value::<cynic_protocol::LeaseVerification>(value) {
+                            Ok(verification) => Box::new(verification),
+                            Err(_) => Box::new(cynic_host::source_lease::UnavailableSourceLeaseVerifier::new(
+                                "coordination_lease_verification_response_invalid",
+                            )),
+                        },
+                        Err(_) => Box::new(cynic_host::source_lease::UnavailableSourceLeaseVerifier::new(
+                            "coordination_lease_authority_unavailable",
+                        )),
+                    }
+                }
+            }
+            None => Box::new(cynic_host::source_lease::UnavailableSourceLeaseVerifier::default()),
+        };
+        let result = crate::local_tools::run_source_control(
+            &self.project_root,
+            &params.0.op,
+            verifier.as_ref(),
+        );
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))

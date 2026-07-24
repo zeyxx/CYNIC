@@ -44,7 +44,9 @@ use self::coord::{
     coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
     coord_register_handler, coord_scope_handler, coord_topology_handler, coord_who_handler,
 };
-use self::coord_lease::{coord_finalize_handler, coord_release_handler, coord_renew_handler};
+use self::coord_lease::{
+    coord_finalize_handler, coord_release_handler, coord_renew_handler, coord_verify_handler,
+};
 use self::data::{
     audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
     crystal_handler, crystals_handler, delete_crystal_handler, observations_handler,
@@ -204,6 +206,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))
         .route("/coord/claim-batch", post(coord_claim_batch_handler))
+        .route("/coord/verify", post(coord_verify_handler))
         .route("/coord/renew", post(coord_renew_handler))
         .route("/coord/release", post(coord_release_handler))
         .route("/coord/finalize", post(coord_finalize_handler))
