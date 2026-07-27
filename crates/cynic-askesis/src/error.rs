@@ -36,6 +36,9 @@ pub enum AskesisError {
 
     #[error("agent eval backend error: {0}")]
     EvalBackend(String),
+
+    #[error("kyon scenario error: {0}")]
+    KyonScenario(String),
 }
 
 pub type Result<T> = std::result::Result<T, AskesisError>;
