@@ -32,7 +32,13 @@ authority-check: ## Read-only local validation of machine-readable authorities
 	@jq empty infra/agent-exposure.json
 	@jq empty infra/ecosystem-pins.json
 	@jq empty infra/runtime-basket.json
-	@test -x scripts/build-admission-check
+	@for script in $$(grep -rl '^#!' scripts); do
+		mode="$$(git ls-files -s -- "$$script" | awk '{print $$1}')"
+		if [[ "$$mode" != "100755" ]]; then
+			echo "tracked script is not executable in Git: $$script ($${mode:-untracked})" >&2
+			exit 1
+		fi
+	done
 	@./scripts/surface-registry-assemble --check
 
 .PHONY: check
