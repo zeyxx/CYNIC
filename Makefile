@@ -32,6 +32,7 @@ authority-check: ## Read-only local validation of machine-readable authorities
 	@jq empty infra/agent-exposure.json
 	@jq empty infra/ecosystem-pins.json
 	@jq empty infra/runtime-basket.json
+	@test -x scripts/build-admission-check
 	@./scripts/surface-registry-assemble --check
 
 .PHONY: check
