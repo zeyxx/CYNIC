@@ -15,28 +15,36 @@ CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNI
 CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-mcp cynic-cli cynic-askesis
 LAB_REGISTRY := infra/registries/lab.json
 LOCAL_REGISTRY := infra/registries/single-node.json
-# CYNIC_ALLOW_LOCAL_DEV_BUILD: kernel build.rs blocks Cortex-local compiles by default.
-# The repo check/build gates are intentional local-dev paths and must set the override.
-LOCAL_DEV_BUILD := CYNIC_ALLOW_LOCAL_DEV_BUILD=1
+CYNIC_BUILD_ADMISSION_GRANT ?=
 # Keep a bounded large compiler stack for kernel/CLI monomorphization. The
 # repository toolchain is pinned because rustc 1.96 exhibited ICE/SIGSEGV here.
-RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
-BUILD_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
-RELEASE_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
-TEST_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+RUST_ENV := CYNIC_BUILD_ADMISSION_GRANT=$(CYNIC_BUILD_ADMISSION_GRANT) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+BUILD_RUST_ENV := $(RUST_ENV)
+RELEASE_RUST_ENV := $(RUST_ENV)
+TEST_RUST_ENV := $(RUST_ENV)
 
-.PHONY: check
-check: ## Validate the living low-layer Rust runtime baseline
+.PHONY: authority-check
+authority-check: ## Read-only local validation of machine-readable authorities
 	@echo "==> checking foundation, runtime authority, and registry"
 	@jq empty contracts/foundation.json
 	@jq empty infra/runtime-authority.json
 	@jq empty infra/registry.json
 	@jq empty infra/agent-exposure.json
 	@jq empty infra/ecosystem-pins.json
+	@jq empty infra/runtime-basket.json
+	@./scripts/surface-registry-assemble --check
+
+.PHONY: check
+check: authority-check build-admission-check ## Build-runner validation of the living low-layer Rust runtime baseline
 	@echo "==> cargo check core crates"
 	@$(RUST_ENV) $(CARGO) check $(foreach crate,$(CORE_CRATES),-p $(crate))
 	@$(MAKE) --no-print-directory surface-audit
 	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
+
+.PHONY: build-admission-check
+build-admission-check:
+	@CYNIC_BUILD_ADMISSION_GRANT="$(CYNIC_BUILD_ADMISSION_GRANT)" \
+		./scripts/build-admission-check make:check
 
 .PHONY: check-installed-runtime
 check-installed-runtime: ## Validate installed-runtime portability invariants (`CYNIC_PROJECT_ROOT` absent, runtime mode persistence)

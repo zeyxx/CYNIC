@@ -58,11 +58,11 @@
   },
   "evolutive_policies": {
     "build": {
-      "default_gate": "make check",
-      "build_gate": "blocked: on Thursday, July 16, 2026, make build still hits rustc 1.96.0 instability in workspace binary compilation",
-      "release_gate": "experimental: on Thursday, July 16, 2026, make build-release still hits rustc 1.96.0 release-profile instability",
-      "test_gate": "experimental: on Thursday, July 16, 2026, make test can still hit a rustc 1.96.0 ICE during workspace test compilation",
-      "check_stack": "make check uses RUST_MIN_STACK=536870912 and CARGO_INCREMENTAL=0 to avoid known rustc 1.96.0 stack pressure and incremental ICE paths in this workspace",
+      "default_gate": "make check on a build runner holding a signed, node-bound, commit-bound, expiring bootstrap grant; make authority-check is the read-only local authority gate",
+      "build_gate": "blocked until a real registry-selected build runner returns argv execution and artifact digest evidence",
+      "release_gate": "blocked until admitted build proof and artifact read-back are satisfied",
+      "test_gate": "build-runner only; local Cortex execution is not test proof",
+      "check_stack": "make check and the Cargo wrapper refuse compiling actions unless CYNIC_BUILD_ADMISSION_GRANT names an authorized SSH-signed grant bound to the observed hostname, checkout HEAD, expiry, and requested action; admitted execution uses CARGO_INCREMENTAL=0 and the repository-pinned toolchain",
       "build_stack": "make build uses RUST_MIN_STACK=536870912 and CARGO_INCREMENTAL=0 because rustc 1.96.0 remains unstable while linking workspace debug binaries",
       "release_stack": "make build-release uses RUST_MIN_STACK=1073741824 and CARGO_INCREMENTAL=0 because rustc 1.96.0 remains unstable during release/profile compilation",
       "policy": "Build policy may evolve, but it must stay executable from the repository root. A compiler ICE is toolchain debt, not runtime proof, and the canonical local workaround must stay explicit."
@@ -87,7 +87,7 @@
     },
     "proof": {
       "minimum_local_proof": [
-        "make check",
+        "make check from an explicitly admitted build runner",
         "binary build after rustc ICE/toolchain pin is resolved",
         "systemd unit inventory matches infra/registry.json service names"
       ],

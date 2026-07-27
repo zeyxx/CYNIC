@@ -9,6 +9,8 @@ RUNTIME_GROUP="${CYNIC_RUNTIME_GROUP:-cynic}"
 HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
 SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
 CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
+NODE_TARGET="${CYNIC_NODE_BINARY:-/usr/local/bin/cynic-node}"
+REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-/etc/cynic/registry.json}"
 
 if [ "$(id -u)" != "0" ]; then
   echo "install.sh must run as root" >&2
@@ -63,6 +65,14 @@ if [ -x "$ROOT/bin/cynic" ]; then
   install -d -o root -g root -m 0755 "$(dirname "$CLI_TARGET")"
   install -o root -g root -m 0755 "$ROOT/bin/cynic" "$CLI_TARGET"
 fi
+if [ -x "$ROOT/bin/cynic-node" ]; then
+  install -d -o root -g root -m 0755 "$(dirname "$NODE_TARGET")"
+  install -o root -g root -m 0755 "$ROOT/bin/cynic-node" "$NODE_TARGET"
+fi
+if [ -f "$ROOT/etc/registry.json" ]; then
+  install -d -o root -g "$RUNTIME_GROUP" -m 0755 "$(dirname "$REGISTRY_TARGET")"
+  install -o root -g "$RUNTIME_GROUP" -m 0644 "$ROOT/etc/registry.json" "$REGISTRY_TARGET"
+fi
 visudo -cf "$SUDOERS_TARGET"
 
 "$HELPER_TARGET" principal-prepare --apply > /var/lib/cynic/bootstrap/principal-prepare.json
@@ -82,6 +92,8 @@ HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
 SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
 EVIDENCE_DIR="${CYNIC_BOOTSTRAP_EVIDENCE_DIR:-/var/lib/cynic/bootstrap}"
 CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
+NODE_TARGET="${CYNIC_NODE_BINARY:-/usr/local/bin/cynic-node}"
+REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-/etc/cynic/registry.json}"
 
 install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 "$EVIDENCE_DIR"
 test -x "$HELPER_TARGET"
@@ -89,6 +101,10 @@ test -f "$SUDOERS_TARGET"
 visudo -cf "$SUDOERS_TARGET"
 if [ -x "$CLI_TARGET" ]; then
   "$CLI_TARGET" runtime paths --json > "$EVIDENCE_DIR/standalone-cli-runtime-paths.json"
+fi
+if [ -x "$NODE_TARGET" ]; then
+  test -f "$REGISTRY_TARGET"
+  "$NODE_TARGET" registry-observation --json --registry "$REGISTRY_TARGET" > "$EVIDENCE_DIR/node-registry-observation.json"
 fi
 
 "$HELPER_TARGET" bridge-status > "$EVIDENCE_DIR/bridge-status.json"

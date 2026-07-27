@@ -1,0 +1,66 @@
+{
+  "schema": "cynic.build_runner_toolchain.observation.v1",
+  "status": "observed",
+  "node_id": "cynic-builder",
+  "observed_at_unix_ms": 1785165606315,
+  "principal": {
+    "name": "cynic",
+    "uid": 999,
+    "home": "/var/lib/cynic",
+    "login_shell": "/usr/sbin/nologin"
+  },
+  "install_authority": {
+    "rustup": {
+      "channel": "distro_managed",
+      "package": "rustup",
+      "package_version": "1.26.0-5ubuntu0.1"
+    },
+    "toolchain": {
+      "channel": "rustup_managed",
+      "pin": "1.95.0-x86_64-unknown-linux-gnu",
+      "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+      "owner": "cynic",
+      "rustup_home": "/var/lib/cynic/.rustup",
+      "cargo_home": "/var/lib/cynic/.cargo"
+    }
+  },
+  "bootstrap_dependencies": {
+    "channel": "distro_managed",
+    "packages": [
+      "build-essential",
+      "pkg-config",
+      "libssl-dev",
+      "clang",
+      "cmake",
+      "git",
+      "jq",
+      "openssh-client",
+      "curl"
+    ]
+  },
+  "build_admission_authority": {
+    "allowed_signers_path": "/etc/cynic/build-admission-allowed-signers",
+    "mode": "0644",
+    "owner": "root",
+    "group": "cynic",
+    "signer": "cynic-build-authority",
+    "fingerprint": "SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU",
+    "authority_class": "HumanAdmin",
+    "rotation_required_after_bootstrap": true
+  },
+  "source_admission": {
+    "status": "blocked",
+    "blockers": [
+      "source_snapshot_not_materialized",
+      "source_worktree_not_clean",
+      "sovereign_remote_commit_read_back_missing"
+    ]
+  },
+  "evidence_refs": [
+    "dpkg:rustup:1.26.0-5ubuntu0.1",
+    "rustup:toolchain:1.95.0-x86_64-unknown-linux-gnu",
+    "sha256:32d99b8237d5832435d362c395422d69f52348a9fd1a154f70336d2991403064",
+    "sha256:f6b03e248a6f5ad938b3d61a92d31b901e21840fa839dfa9cfaccc63ebc5f298"
+  ]
+}

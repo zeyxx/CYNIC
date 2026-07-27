@@ -233,10 +233,6 @@ fn run_step(workspace_root: &Path, step: DevCheckStep) -> DevCheckStepReport {
         .collect::<Vec<_>>();
     let mut env = vec![
         DevCheckEnv {
-            key: "CYNIC_ALLOW_LOCAL_DEV_BUILD",
-            value: "1".to_string(),
-        },
-        DevCheckEnv {
             key: "CARGO_INCREMENTAL",
             value: "0".to_string(),
         },
@@ -256,7 +252,6 @@ fn run_step(workspace_root: &Path, step: DevCheckStep) -> DevCheckStepReport {
     let mut process = Command::new(step.program);
     process.current_dir(workspace_root);
     process.args(&step.args);
-    process.env("CYNIC_ALLOW_LOCAL_DEV_BUILD", "1");
     process.env("CARGO_INCREMENTAL", "0");
     process.env("CARGO_BUILD_JOBS", "1");
     process.env("CMAKE_BUILD_PARALLEL_LEVEL", "1");

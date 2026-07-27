@@ -3,6 +3,15 @@ set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "${script_dir}/.." && pwd)"
+subcommand="${1:-}"
+
+case "${subcommand}" in
+  build|check|clippy|doc|install|run|rustc|test)
+    "${script_dir}/build-admission-check" "cargo:${subcommand}" >/dev/null
+    export CYNIC_BUILD_ADMISSION_VERIFIED=1
+    export CYNIC_ALLOW_LOCAL_DEV_BUILD=1
+    ;;
+esac
 
 if [[ "${CARGO_WRAPPER_ACTIVE:-0}" == "1" ]]; then
   echo "cargo wrapper recursion detected" >&2
@@ -62,7 +71,6 @@ fi
 network_mode="${CYNIC_CARGO_NETWORK_MODE:-offline}"
 source_mode="${CYNIC_CARGO_SOURCE_MODE:-registry}"
 args=("$@")
-subcommand="${1:-}"
 
 if [[ "${network_mode}" == "offline" && "${subcommand}" != "fmt" ]]; then
   has_network_flag=0

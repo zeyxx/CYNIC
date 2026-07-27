@@ -110,8 +110,8 @@ pub async fn run_validate(project_root: &str) -> ValidateResult {
     let start = Instant::now();
     let elapsed_ms = |start: Instant| start.elapsed().as_millis() as u64;
 
-    // Single canonical gate. Make injects CYNIC_ALLOW_LOCAL_DEV_BUILD, stack,
-    // offline cargo mode, and surface-audit. Do not invent a second stack here.
+    // Single canonical build-runner gate. Make owns stack, offline Cargo mode,
+    // and surface-audit, but must not manufacture build admission.
     let result = run_make_check(project_root).await;
     let (authority_json_ok, cargo_check_ok, surface_audit_ok) =
         infer_make_check_steps(&result.stdout, &result.stderr, result.success);
@@ -156,8 +156,6 @@ async fn run_make_check(project_root: &str) -> CmdResult {
     let child = tokio::process::Command::new("make")
         .arg("check")
         .current_dir(project_root)
-        // Defense in depth: Makefile also sets this for nested cargo.
-        .env("CYNIC_ALLOW_LOCAL_DEV_BUILD", "1")
         .kill_on_drop(true)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

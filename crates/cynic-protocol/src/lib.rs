@@ -1,8 +1,8 @@
 pub mod agent_recursion;
 pub mod artifact_release;
 pub mod build;
-pub mod coord;
 pub mod convergence;
+pub mod coord;
 pub mod coordination_lease;
 pub mod development;
 pub mod discovery;
@@ -39,14 +39,20 @@ pub use artifact_release::{
     RuntimeArtifactReleaseEvent, RuntimeArtifactReleaseReport, RuntimeArtifactReleaseSpec,
     RuntimeArtifactSpec, RuntimeBuildEvidence, ServiceIdentityEvidence,
 };
-pub use build::{BUILD_INPUT_ADMISSION_SCHEMA, BuildInputAdmission, admit_build_input};
-pub use coord::{
-    LEASE_VERIFICATION_SCHEMA, LeaseVerification, coord_claim_path, coord_register_path,
-    coord_release_path, coord_verify_path, coord_who_path,
+pub use build::{
+    BUILD_BOOTSTRAP_GRANT_SCHEMA, BUILD_INPUT_ADMISSION_SCHEMA, BUILD_RUNNER_ADMISSION_SCHEMA,
+    BUILD_RUNNER_ENVELOPE_SCHEMA, BUILD_RUNNER_OBSERVATION_MAX_AGE_MS,
+    BUILD_RUNNER_OBSERVATION_SCHEMA, BuildBootstrapGrant, BuildInputAdmission,
+    BuildRunnerAdmission, BuildRunnerEnvelope, BuildRunnerObservation, RuntimeNodeObservation,
+    admit_build_input, admit_build_runner, compose_build_runner_envelope, plan_build_runner,
 };
 pub use convergence::{
     CONVERGENCE_MATRIX_SCHEMA, ConvergenceCell, ConvergenceMatrixReport, ConvergenceStatus,
     assess_convergence_matrix, merge_convergence_matrices,
+};
+pub use coord::{
+    LEASE_VERIFICATION_SCHEMA, LeaseVerification, coord_claim_path, coord_register_path,
+    coord_release_path, coord_verify_path, coord_who_path,
 };
 pub use coordination_lease::{
     BatchClaimResult, LeaseAction, LeaseConflict, LeaseGrant, LeaseGuard, LeaseMutationOutcome,
@@ -75,23 +81,23 @@ pub use framework::{
     FRAMEWORK_SPEC_SCHEMA, FrameworkIdentity, FrameworkLayer, FrameworkPrimitiveFamily,
     FrameworkPrinciple, FrameworkRule, FrameworkSpec, FrameworkUseCase, framework_spec,
 };
+pub use provider::{
+    NODE_SUBSTRATE_DECISION_SCHEMA, NODE_SUBSTRATE_OBSERVATION_SCHEMA, NodeNetworkAttachment,
+    NodeSubstrateAction, NodeSubstrateDecision, NodeSubstrateDesiredState, NodeSubstrateExistence,
+    NodeSubstrateObservation, NodeSubstratePower, reconcile_node_substrate,
+};
 pub use integrity::{canonical_json_bytes, digest_json};
 pub use kyon::{
+    ConsentGrant, DataClass, DisclosureAdmission, DisclosureRequest,
     KYON_FEDERATED_DISCLOSURE_SCHEMA, KYON_MIRROR_SIGNAL_SCHEMA, KYON_PROTECTIVE_PLAN_SCHEMA,
-    ConsentGrant, DataClass, DisclosureAdmission, DisclosureRequest, KyonAction, MirrorSignal,
-    ObservationRef, ProtectivePlan, ShieldPolicy, SignalAssessment, admit_federated_disclosure,
-    reconcile_signal,
+    KyonAction, MirrorSignal, ObservationRef, ProtectivePlan, ShieldPolicy, SignalAssessment,
+    admit_federated_disclosure, reconcile_signal,
 };
 pub use network::{
     NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer,
     NetworkMeshPlan, NetworkMeshRoute, NetworkMeshService,
 };
 pub use observe::OBSERVE_PATH;
-pub use source_control::{
-    SOURCE_ADMISSION_REPORT_SCHEMA, SOURCE_CHANGE_PROPOSAL_SCHEMA, SourceChangeAdmission,
-    SourceChangeProposal, SourceMatterClass, SourcePromotionStage, SourceSnapshot,
-    admit_source_change, admit_source_stage, source_worktree_lease_target,
-};
 pub use outcomes::{
     KPI_SCORE_SCHEMA, KpiScoreReport, OUTCOME_SPEC_SCHEMA, Outcome, OutcomeScore, OutcomeSpec,
     SuccessKpi, outcome_spec, score_outcomes,
@@ -123,6 +129,11 @@ pub use runtime::{
     runtime_shared_responsibility,
 };
 pub use source_control::SourceAdmissionReport;
+pub use source_control::{
+    SOURCE_ADMISSION_REPORT_SCHEMA, SOURCE_CHANGE_PROPOSAL_SCHEMA, SourceChangeAdmission,
+    SourceChangeProposal, SourceMatterClass, SourcePromotionStage, SourceSnapshot,
+    admit_source_change, admit_source_stage, source_worktree_lease_target,
+};
 pub use supervision::{
     SERVICE_SUPERVISOR_OBSERVATION_EVIDENCE_ID, SERVICE_SUPERVISOR_OBSERVATION_SCHEMA,
     ServiceSupervisorObservation, ServiceSupervisorProviderAttempt,

@@ -1,0 +1,37 @@
+{
+  "schema": "cynic.node_substrate.observation.v1",
+  "status": "observed",
+  "node_id": "cynic-builder",
+  "provider": "proxmox",
+  "resource_id": "lxc/105",
+  "existence": "present",
+  "power": "stopped",
+  "network_attachment": "attached",
+  "observed_addresses": [],
+  "management_reachable": false,
+  "observation_authority": "proxmox:pvesh:root-via-cynic-sudo",
+  "observed_at_unix_ms": 1785164777440,
+  "evidence_refs": [
+    "proxmox:/nodes/pve/lxc",
+    "proxmox:/nodes/pve/lxc/105/config",
+    "proxmox:/nodes/pve/lxc/105/status/current"
+  ],
+  "unknowns": [
+    "dhcp_lease_while_stopped"
+  ],
+  "provider_evidence": {
+    "name": "cynic-builder",
+    "type": "lxc",
+    "vmid": 105,
+    "status": "stopped",
+    "hostname": "cynic-builder",
+    "unprivileged": true,
+    "network": {
+      "interface": "eth0",
+      "bridge": "vmbr0",
+      "address_mode": "dhcp",
+      "mac": "BC:24:11:B2:36:14",
+      "kind": "veth"
+    }
+  }
+}

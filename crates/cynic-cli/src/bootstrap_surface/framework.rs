@@ -1,9 +1,14 @@
+use std::path::Path;
 use std::process::ExitCode;
 
 use clap::Subcommand;
 use cynic_host::framework_bootstrap;
+use cynic_host::update_lifecycle::LocalArgvRunner;
 
+use crate::fs_json::write_pretty_json_file;
 use crate::{emit_json, fail};
+
+mod substrate;
 
 #[derive(Subcommand)]
 pub(crate) enum BootstrapFrameworkCommand {
@@ -12,6 +17,54 @@ pub(crate) enum BootstrapFrameworkCommand {
         json: bool,
         #[arg(long)]
         output_dir: String,
+        #[arg(long, default_value = "unassigned")]
+        role: String,
+        #[arg(long)]
+        artifact_dir: Option<String>,
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    PropagationPlan {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        bundle_dir: String,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        output: Option<String>,
+    },
+    Propagate {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        bundle_dir: String,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        yes: bool,
+        #[arg(long)]
+        output: Option<String>,
+    },
+    SubstratePlan {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        node: String,
+        #[arg(long)]
+        observation: Option<String>,
+    },
+    SubstrateApply {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        node: String,
+        #[arg(long)]
+        yes: bool,
     },
     InstallCli {
         #[arg(long)]
@@ -37,11 +90,22 @@ pub(crate) enum BootstrapFrameworkCommand {
 
 pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode {
     match command {
-        BootstrapFrameworkCommand::Bundle { json, output_dir } => {
+        BootstrapFrameworkCommand::Bundle {
+            json,
+            output_dir,
+            role,
+            artifact_dir,
+            registry,
+        } => {
             if !json {
                 return ExitCode::FAILURE;
             }
-            match framework_bootstrap::write_framework_bootstrap_bundle(&output_dir) {
+            match framework_bootstrap::write_framework_bootstrap_bundle_for_role(
+                &output_dir,
+                &role,
+                artifact_dir.as_deref(),
+                registry.as_deref(),
+            ) {
                 Ok(report) => emit_json(&report, report.status != "written"),
                 Err(error) => fail(error),
             }
@@ -64,6 +128,74 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
                 Err(error) => fail(error),
             }
         }
+        BootstrapFrameworkCommand::PropagationPlan {
+            json,
+            bundle_dir,
+            registry,
+            output,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            match framework_bootstrap::plan_framework_propagation(&bundle_dir, registry.as_deref())
+            {
+                Ok(plan) => {
+                    if let Some(output) = output
+                        && let Err(error) = write_pretty_json_file(
+                            Path::new(&output),
+                            &plan,
+                            "framework propagation plan",
+                        )
+                    {
+                        return fail(error);
+                    }
+                    emit_json(&plan, plan.status != "planned")
+                }
+                Err(error) => fail(error),
+            }
+        }
+        BootstrapFrameworkCommand::Propagate {
+            json,
+            bundle_dir,
+            registry,
+            yes,
+            output,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let plan = match framework_bootstrap::plan_framework_propagation(
+                &bundle_dir,
+                registry.as_deref(),
+            ) {
+                Ok(plan) => plan,
+                Err(error) => return fail(error),
+            };
+            let report =
+                framework_bootstrap::apply_framework_propagation(&plan, yes, &LocalArgvRunner);
+            if let Some(output) = output
+                && let Err(error) = write_pretty_json_file(
+                    Path::new(&output),
+                    &report,
+                    "framework propagation report",
+                )
+            {
+                return fail(error);
+            }
+            emit_json(&report, report.status != "applied")
+        }
+        BootstrapFrameworkCommand::SubstratePlan {
+            json,
+            registry,
+            node,
+            observation,
+        } => substrate::execute_substrate_plan(json, registry, node, observation),
+        BootstrapFrameworkCommand::SubstrateApply {
+            json,
+            registry,
+            node,
+            yes,
+        } => substrate::execute_substrate_apply(json, registry, node, yes),
         BootstrapFrameworkCommand::EnrollmentRequest {
             json,
             seed_manifest,

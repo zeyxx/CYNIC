@@ -1,0 +1,44 @@
+{
+  "schema": "cynic.node_substrate.observation.v1",
+  "status": "observed",
+  "node_id": "cynic-builder",
+  "provider": "proxmox",
+  "resource_id": "lxc/105",
+  "existence": "present",
+  "power": "running",
+  "network_attachment": "attached",
+  "observed_addresses": [
+    "10.10.10.119"
+  ],
+  "management_reachable": true,
+  "observation_authority": "proxmox:pvesh+ssh-read-back",
+  "observed_at_unix_ms": 1785165132502,
+  "evidence_refs": [
+    "proxmox:UPID:pve:00010A87:1D50CEF0:6A677529:vzstart:105:root@pam:",
+    "proxmox:/nodes/pve/lxc/105/status/current",
+    "ssh:cynic-builder:hostname",
+    "ssh:cynic-builder:principal"
+  ],
+  "unknowns": [
+    "runtime_registry_absent",
+    "cynic_binary_absent",
+    "cynic_node_binary_absent",
+    "cargo_binary_absent"
+  ],
+  "provider_evidence": {
+    "name": "cynic-builder",
+    "type": "lxc",
+    "vmid": 105,
+    "status": "running",
+    "pid": 68278,
+    "uptime_seconds": 17
+  },
+  "management_evidence": {
+    "hostname": "cynic-builder",
+    "principal": "root",
+    "registry_present": false,
+    "cynic_present": false,
+    "cynic_node_present": false,
+    "cargo_present": false
+  }
+}

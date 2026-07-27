@@ -1,5 +1,6 @@
 pub mod evidence_store;
 pub mod metabolism;
+pub mod provider_substrate;
 use crate::bridge::{PrivilegeBridgeInstallSpec, PrivilegeBridgeObservedState};
 use crate::domain::filesystem::FilesystemPolicy;
 use crate::domain::packages::PackageObservedState;
@@ -15,6 +16,7 @@ use crate::execution::AdmittedHostOperation;
 use crate::hardware_conformance::HardwareObservation;
 use cynic_protocol::PreOsPlatformObservation;
 pub use metabolism::{MetabolicState, MetabolismProvider, OsMetabolism};
+pub use provider_substrate::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

@@ -15,7 +15,7 @@
       "crate": "cynic-node",
       "binary": "cynic-node",
       "install_path": "/usr/local/bin/cynic-node",
-      "roles": ["cortex_host", "hypervisor", "kernel_primary"]
+      "roles": ["cortex_host", "hypervisor", "kernel_primary", "build_runner"]
     },
     {
       "id": "cynic-kernel",

@@ -132,6 +132,16 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         source_snapshot: String,
         #[arg(long)]
+        registry: String,
+        #[arg(long)]
+        kernel_endpoint: String,
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long)]
+        lease_id: String,
+        #[arg(long)]
+        fencing_token: u64,
+        #[arg(long)]
         artifact: String,
         #[arg(long)]
         apply: bool,
@@ -421,10 +431,26 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::Build {
             json,
             source_snapshot,
+            registry,
+            kernel_endpoint,
+            agent_id,
+            lease_id,
+            fencing_token,
             artifact,
             apply,
             command,
-        } => build::execute_build(json, &source_snapshot, &artifact, apply, &command),
+        } => build::execute_build(
+            json,
+            &source_snapshot,
+            &registry,
+            &kernel_endpoint,
+            &agent_id,
+            &lease_id,
+            fencing_token,
+            &artifact,
+            apply,
+            &command,
+        ),
         RuntimeCommand::Report {
             json,
             output,

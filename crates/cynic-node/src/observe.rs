@@ -85,17 +85,6 @@ pub(crate) struct NodeObservation {
     pub(crate) services: ServiceObservation,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct RegistryNodeObservation {
-    pub(crate) schema: &'static str,
-    pub(crate) node_id: String,
-    pub(crate) hostname: String,
-    pub(crate) observed_at_unix_ms: u64,
-    pub(crate) registry_path: String,
-    pub(crate) role: Option<String>,
-    pub(crate) evidence: serde_json::Value,
-}
-
 #[cfg(any(test, kani))]
 #[derive(Debug, Clone)]
 pub(crate) struct SyntheticNodeObservationContext {
@@ -122,22 +111,40 @@ impl SyntheticNodeObservationContext {
 }
 
 impl NodeObservation {
-    pub(crate) fn registry_observation(&self, registry_path: &str) -> RegistryNodeObservation {
-        let machine_id_path = std::env::var("CYNIC_MACHINE_ID_PATH")
-            .unwrap_or_else(|_| "/etc/machine-id".to_string());
-        let machine_id = std::fs::read_to_string(machine_id_path)
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| format!("hostname:{}", self.hostname));
+    pub(crate) fn registry_observation(
+        &self,
+        registry_path: &str,
+    ) -> cynic_protocol::RuntimeNodeObservation {
         let observed_at_unix_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
-        RegistryNodeObservation {
-            schema: "cynic.runtime.node_observation.v1",
-            node_id: machine_id,
+        let resolution = cynic_host::registry::resolve_host_profile_resolution(
+            &self.hostname,
+            Some(registry_path),
+        );
+        let (status, node_id, declared_role, identity_match) = match resolution {
+            Ok(resolution) => (
+                "observed".to_string(),
+                resolution
+                    .matched_node
+                    .unwrap_or_else(|| self.hostname.clone()),
+                resolution.matched_role,
+                cynic_protocol::SecurityEvidenceState::Proven,
+            ),
+            Err(_) => (
+                "blocked".to_string(),
+                self.hostname.clone(),
+                None,
+                cynic_protocol::SecurityEvidenceState::Unknown,
+            ),
+        };
+        cynic_protocol::RuntimeNodeObservation {
+            schema: "cynic.runtime.node_observation.v1".to_string(),
+            status,
+            node_id,
             hostname: self.hostname.clone(),
             observed_at_unix_ms,
             registry_path: registry_path.to_string(),
-            role: None,
+            declared_role,
+            identity_match,
             evidence: serde_json::json!({
                 "node_status": self.status,
                 "node_severity": self.severity,
@@ -153,6 +160,10 @@ impl NodeObservation {
                 ),
                 "topology": self.topology,
             }),
+            evidence_refs: vec![format!(
+                "node-local-observation:{}:{}",
+                self.hostname, observed_at_unix_ms
+            )],
         }
     }
 

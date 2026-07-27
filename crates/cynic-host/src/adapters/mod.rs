@@ -7,6 +7,7 @@ pub mod local_integration;
 pub mod local_observation;
 pub mod local_operator_transport;
 pub mod local_pre_os;
+pub mod proxmox_substrate;
 mod principal_manager;
 mod privilege_bridge;
 mod privilege_projection;

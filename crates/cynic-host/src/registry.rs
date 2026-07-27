@@ -8,6 +8,7 @@ use crate::profiles::HostProfile;
 use crate::runtime_layout::current_runtime_layout;
 pub use crate::runtime_registry::DEFAULT_REGISTRY_PATH;
 use crate::runtime_registry::resolve_runtime_registry_path;
+use cynic_protocol::{NodeSubstrateDesiredState, NodeSubstratePower};
 
 #[derive(Debug, Deserialize)]
 struct RegistryDocument {
@@ -16,6 +17,23 @@ struct RegistryDocument {
     #[serde(default)]
     lifecycle: Option<RegistryLifecycle>,
     nodes: Vec<RegistryNode>,
+    #[serde(default)]
+    fleet_desired: Option<RegistryFleetDesired>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegistryFleetDesired {
+    #[serde(default)]
+    targets: Vec<RegistryFleetTarget>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegistryFleetTarget {
+    id: Option<String>,
+    provider: Option<String>,
+    resource_id: Option<String>,
+    role: Option<String>,
+    desired_power: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,6 +45,10 @@ struct RegistryNode {
     role: Option<String>,
     canonical_role: Option<String>,
     #[serde(default)]
+    provider_controls: Vec<String>,
+    #[serde(default)]
+    transports: Option<RegistryNodeTransports>,
+    #[serde(default)]
     host_family: Option<String>,
     #[serde(default)]
     substrate: Option<RegistryNodeSubstrate>,
@@ -34,6 +56,18 @@ struct RegistryNode {
     services: Vec<RegistryNodeService>,
     #[serde(default)]
     network_links: Vec<RegistryNetworkLink>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegistryNodeTransports {
+    #[serde(default)]
+    ssh: Option<RegistrySshTransport>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegistrySshTransport {
+    target: Option<String>,
+    trust: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -106,6 +140,8 @@ struct RegistryLifecycle {
 #[derive(Debug, Deserialize)]
 struct RegistryKernelRelease {
     #[serde(default)]
+    build_runner_role: Option<String>,
+    #[serde(default)]
     host_bootstrap: Option<RegistryHostBootstrap>,
 }
 
@@ -142,13 +178,199 @@ pub struct ResolvedHostIdentity {
     pub link: ResolvedDirectManagementLink,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ResolvedBuildRunnerTransport {
+    pub node_id: String,
+    pub role: String,
+    pub ssh_target: String,
+    pub trust: String,
+    pub registry_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ResolvedProviderControlTransport {
+    pub provider: String,
+    pub node_id: String,
+    pub ssh_target: String,
+    pub trust: String,
+    pub registry_path: String,
+}
+
+pub fn resolve_provider_control_transport(
+    registry_path: Option<&str>,
+    provider: &str,
+) -> Result<ResolvedProviderControlTransport, String> {
+    let path = resolve_registry_path(registry_path)?;
+    let registry = load_registry(&path)?;
+    let candidates = registry
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.provider_controls
+                .iter()
+                .any(|candidate| candidate == provider)
+        })
+        .collect::<Vec<_>>();
+    let [node] = candidates.as_slice() else {
+        return Err(if candidates.is_empty() {
+            "provider_control_node_missing".to_string()
+        } else {
+            "provider_control_node_ambiguous".to_string()
+        });
+    };
+    let node_id = node
+        .id
+        .clone()
+        .or_else(|| node.name.clone())
+        .ok_or_else(|| "provider_control_node_id_missing".to_string())?;
+    let ssh = node
+        .transports
+        .as_ref()
+        .and_then(|transports| transports.ssh.as_ref())
+        .ok_or_else(|| "provider_control_transport_missing".to_string())?;
+    let ssh_target = ssh
+        .target
+        .clone()
+        .filter(|target| !target.trim().is_empty() && !target.starts_with('-'))
+        .ok_or_else(|| "provider_control_ssh_target_missing".to_string())?;
+    let trust = ssh
+        .trust
+        .clone()
+        .filter(|trust| trust == "known_hosts")
+        .ok_or_else(|| "provider_control_ssh_trust_unproven".to_string())?;
+    Ok(ResolvedProviderControlTransport {
+        provider: provider.to_string(),
+        node_id,
+        ssh_target,
+        trust,
+        registry_path: path.display().to_string(),
+    })
+}
+
+pub fn resolve_node_substrate_desired_state(
+    registry_path: Option<&str>,
+    node_id: &str,
+) -> Result<NodeSubstrateDesiredState, String> {
+    let path = resolve_registry_path(registry_path)?;
+    let registry = load_registry(&path)?;
+    let node = registry
+        .nodes
+        .iter()
+        .find(|node| {
+            node.id.as_deref() == Some(node_id)
+                || node.name.as_deref() == Some(node_id)
+                || node.aliases.iter().any(|alias| alias == node_id)
+        })
+        .ok_or_else(|| "node_substrate_registry_node_missing".to_string())?;
+    let canonical_node_id = node
+        .id
+        .clone()
+        .or_else(|| node.name.clone())
+        .ok_or_else(|| "node_substrate_registry_node_id_missing".to_string())?;
+    let node_role = node.role.as_deref().or(node.canonical_role.as_deref());
+    let targets = registry
+        .fleet_desired
+        .as_ref()
+        .map(|fleet| {
+            fleet
+                .targets
+                .iter()
+                .filter(|target| {
+                    target.id.as_deref() == Some(canonical_node_id.as_str())
+                        || target
+                            .role
+                            .as_deref()
+                            .is_some_and(|role| Some(role) == node_role)
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let target = match targets.as_slice() {
+        [] => None,
+        [target] => Some(*target),
+        _ => return Err("node_substrate_fleet_target_ambiguous".to_string()),
+    };
+    Ok(NodeSubstrateDesiredState {
+        node_id: canonical_node_id,
+        provider: target.and_then(|target| target.provider.clone()),
+        resource_id: target.and_then(|target| target.resource_id.clone()),
+        desired_power: target
+            .and_then(|target| target.desired_power.as_deref())
+            .map(parse_desired_power)
+            .unwrap_or(NodeSubstratePower::Unknown),
+    })
+}
+
+fn parse_desired_power(value: &str) -> NodeSubstratePower {
+    match value {
+        "running" => NodeSubstratePower::Running,
+        "stopped" => NodeSubstratePower::Stopped,
+        _ => NodeSubstratePower::Unknown,
+    }
+}
+
+pub fn resolve_build_runner_transport(
+    registry_path: Option<&str>,
+) -> Result<ResolvedBuildRunnerTransport, String> {
+    let path = resolve_registry_path(registry_path)?;
+    let registry = load_registry(&path)?;
+    let role = registry
+        .lifecycle
+        .as_ref()
+        .and_then(|lifecycle| lifecycle.kernel_release.as_ref())
+        .and_then(|release| release.build_runner_role.as_deref())
+        .filter(|role| !role.trim().is_empty())
+        .ok_or_else(|| "build_runner_role_missing".to_string())?;
+    let candidates = registry
+        .nodes
+        .iter()
+        .filter(|node| node.role.as_deref().or(node.canonical_role.as_deref()) == Some(role))
+        .collect::<Vec<_>>();
+    let [node] = candidates.as_slice() else {
+        return Err(if candidates.is_empty() {
+            "build_runner_node_missing".to_string()
+        } else {
+            "build_runner_node_ambiguous".to_string()
+        });
+    };
+    let node_id = node
+        .id
+        .clone()
+        .or_else(|| node.name.clone())
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "build_runner_node_id_missing".to_string())?;
+    let ssh = node
+        .transports
+        .as_ref()
+        .and_then(|transports| transports.ssh.as_ref())
+        .ok_or_else(|| "build_runner_transport_missing".to_string())?;
+    let ssh_target = ssh
+        .target
+        .clone()
+        .filter(|value| !value.trim().is_empty() && !value.starts_with('-'))
+        .ok_or_else(|| "build_runner_ssh_target_missing".to_string())?;
+    let trust = ssh
+        .trust
+        .clone()
+        .filter(|value| value == "known_hosts")
+        .ok_or_else(|| "build_runner_ssh_trust_unproven".to_string())?;
+    Ok(ResolvedBuildRunnerTransport {
+        node_id,
+        role: role.to_string(),
+        ssh_target,
+        trust,
+        registry_path: path.display().to_string(),
+    })
+}
+
 impl RegistryNetworkLink {
     fn to_direct_management_link(&self) -> Option<ResolvedDirectManagementLink> {
         let interface = self.interface.as_ref()?.trim();
         let connection = self.connection.as_ref()?.trim();
         let address = self.address.as_ref()?.trim();
         let gateway = self.gateway.as_ref()?.trim();
-        if interface.is_empty() || connection.is_empty() || address.is_empty() || gateway.is_empty() {
+        if interface.is_empty() || connection.is_empty() || address.is_empty() || gateway.is_empty()
+        {
             return None;
         }
         Some(ResolvedDirectManagementLink {
@@ -195,7 +417,6 @@ impl RegistryNode {
             link.to_direct_management_link()
         })
     }
-
 }
 
 pub fn resolve_current_host_direct_management_link(
@@ -203,11 +424,7 @@ pub fn resolve_current_host_direct_management_link(
     registry_path: Option<&str>,
 ) -> Result<Option<ResolvedDirectManagementLink>, String> {
     let hostname = current_hostname()?;
-    resolve_host_direct_management_link(
-        &hostname,
-        Some(synapse_cidr),
-        registry_path,
-    )
+    resolve_host_direct_management_link(&hostname, Some(synapse_cidr), registry_path)
 }
 
 pub fn resolve_observed_direct_management_link(
@@ -243,12 +460,12 @@ pub fn resolve_observed_direct_management_link(
             (node, link, "management_network", true)
         }
         Some(matches) if matches.is_empty() => {
-            return Err("observed_management_link_not_declared_in_registry".to_string())
+            return Err("observed_management_link_not_declared_in_registry".to_string());
         }
         Some(_) => return Err("observed_management_identity_ambiguous".to_string()),
         None => {
-            let node = hostname_node
-                .ok_or_else(|| format!("node not found in registry: {hostname}"))?;
+            let node =
+                hostname_node.ok_or_else(|| format!("node not found in registry: {hostname}"))?;
             let link = node
                 .matching_direct_management_link(synapse_cidr)
                 .ok_or_else(|| "direct_management_link_not_declared_in_registry".to_string())?;
@@ -610,8 +827,9 @@ fn current_hostname() -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        resolve_current_host_direct_management_link, resolve_current_host_profile,
-        resolve_current_host_profile_resolution, resolve_host_profile, resolve_registry_service_policy,
+        resolve_build_runner_transport, resolve_current_host_direct_management_link,
+        resolve_current_host_profile, resolve_current_host_profile_resolution,
+        resolve_host_profile, resolve_registry_service_policy,
     };
     use crate::profiles::HostProfile;
     use std::path::PathBuf;
@@ -647,6 +865,39 @@ mod tests {
         let profile = resolve_host_profile("pve", Some(path.to_str().expect("utf8 temp path")))
             .expect("profile resolved");
         assert_eq!(profile, HostProfile::ProxmoxHypervisor);
+    }
+
+    #[test]
+    fn resolves_unique_trusted_build_runner_transport() {
+        let path = write_registry_fixture(
+            r#"{
+              "nodes": [{
+                "id":"builder-1",
+                "role":"build_runner",
+                "transports":{"ssh":{"target":"cynic@builder.internal","trust":"known_hosts"}}
+              }],
+              "lifecycle":{"kernel_release":{"build_runner_role":"build_runner"}}
+            }"#,
+        );
+        let transport =
+            resolve_build_runner_transport(Some(path.to_str().expect("utf8 temp path")))
+                .expect("transport resolves");
+        assert_eq!(transport.node_id, "builder-1");
+        assert_eq!(transport.ssh_target, "cynic@builder.internal");
+        assert_eq!(transport.trust, "known_hosts");
+    }
+
+    #[test]
+    fn missing_build_runner_transport_remains_blocked() {
+        let path = write_registry_fixture(
+            r#"{
+              "nodes": [{"id":"builder-1","role":"build_runner"}],
+              "lifecycle":{"kernel_release":{"build_runner_role":"build_runner"}}
+            }"#,
+        );
+        let error = resolve_build_runner_transport(Some(path.to_str().expect("utf8 temp path")))
+            .expect_err("missing transport must block");
+        assert_eq!(error, "build_runner_transport_missing");
     }
 
     #[test]
@@ -960,6 +1211,66 @@ mod tests {
             .expect("profile resolved");
 
         assert_eq!(profile, HostProfile::AlpineOpenRcNetworkNode);
+    }
+
+    #[test]
+    fn substrate_desired_state_preserves_missing_provider_mapping_as_unknown() {
+        let path = write_registry_fixture(
+            r#"{
+              "nodes": [
+                {"id":"builder","role":"build_runner"}
+              ]
+            }"#,
+        );
+
+        let desired = super::resolve_node_substrate_desired_state(
+            Some(path.to_str().expect("path")),
+            "builder",
+        )
+        .expect("desired state");
+
+        assert_eq!(desired.node_id, "builder");
+        assert_eq!(desired.provider, None);
+        assert_eq!(desired.resource_id, None);
+        assert_eq!(
+            desired.desired_power,
+            cynic_protocol::NodeSubstratePower::Unknown
+        );
+    }
+
+    #[test]
+    fn substrate_desired_state_projects_role_target_from_fleet_registry() {
+        let path = write_registry_fixture(
+            r#"{
+              "nodes": [
+                {"id":"builder","role":"build_runner"}
+              ],
+              "fleet_desired": {
+                "targets": [
+                  {
+                    "id":"builder-primary",
+                    "provider":"provider-adapter",
+                    "resource_id":"machine/42",
+                    "role":"build_runner",
+                    "desired_power":"running"
+                  }
+                ]
+              }
+            }"#,
+        );
+
+        let desired = super::resolve_node_substrate_desired_state(
+            Some(path.to_str().expect("path")),
+            "builder",
+        )
+        .expect("desired state");
+
+        assert_eq!(desired.provider.as_deref(), Some("provider-adapter"));
+        assert_eq!(desired.resource_id.as_deref(), Some("machine/42"));
+        assert_eq!(
+            desired.desired_power,
+            cynic_protocol::NodeSubstratePower::Running
+        );
     }
 
     fn write_registry_fixture(contents: &str) -> PathBuf {

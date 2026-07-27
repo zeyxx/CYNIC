@@ -141,19 +141,26 @@
     {
       "adapter_module": "bootstrap_surface::framework",
       "anti_responsibilities": [
+        "invent provider resource identity when the registry omits it",
         "require checked-out repo to bootstrap a fresh node",
         "silently mutate /usr/local/bin without explicit apply",
-        "treat bundle generation as host installation proof"
+        "treat bundle generation or transport invocation as host installation proof"
       ],
       "canonical_entrypoints": [
-        "cynic bootstrap framework bundle --json [--output-dir <path>]",
-        "cynic bootstrap framework install-status --json",
+        "cynic bootstrap framework substrate-plan --json --node <id> [--registry <path>] [--observation <path>]",
+        "cynic bootstrap framework substrate-apply --json --node <id> [--registry <path>] --yes",
+        "cynic bootstrap framework bundle --json --output-dir <path> [--role <role>] [--artifact-dir <dir>] [--registry <path>]",
+        "cynic bootstrap framework propagation-plan --json --bundle-dir <dir> [--registry <path>] [--output <path>]",
+        "cynic bootstrap framework propagate --json --bundle-dir <dir> [--registry <path>] [--output <path>] --yes",
         "cynic bootstrap framework install-cli --json [--apply]"
       ],
       "domain_owner": "cynic-host::framework_bootstrap",
       "evidence": [
-        "cynic.framework_bootstrap_bundle.v1",
-        "cynic.framework_install_status.v1",
+        "cynic.node_substrate.assessment.v1",
+        "cynic.node_substrate.apply_report.v1",
+        "cynic.framework_bootstrap.bundle.v2",
+        "cynic.framework_bootstrap.propagation_plan.v1",
+        "cynic.framework_bootstrap.propagation_report.v1",
         "cynic.framework_install_apply.v1"
       ],
       "id": "framework_bootstrap",
@@ -161,14 +168,19 @@
       "mutation_policy": "explicit_apply_only",
       "owner_call_markers": [
         "write_framework_bootstrap_bundle",
+        "plan_framework_propagation",
+        "apply_framework_propagation",
+        "assess_node_substrate",
+        "apply_node_substrate",
         "install_standalone_cli",
         "build_framework_enrollment_request"
       ],
       "owner_crate": "cynic-host",
       "owner_modules": [
-        "framework_bootstrap"
+        "framework_bootstrap",
+        "node_substrate"
       ],
-      "responsibility": "Write, observe, and apply standalone framework bootstrap artifacts for fresh-node installation."
+      "responsibility": "Observe and reconcile the node substrate, then write, plan controlled transport, and apply standalone framework bootstrap artifacts for fresh-node installation."
     },
     {
       "adapter_module": "chat_surface",

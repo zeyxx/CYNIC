@@ -44,8 +44,16 @@
       "name": "cynic-host-proxmox",
       "aliases": ["pve"],
       "role": "hypervisor",
+      "host_family": "linux.proxmox.systemd",
+      "provider_controls": ["proxmox"],
       "status": "observed",
       "deploy_target": false,
+      "transports": {
+        "ssh": {
+          "target": "proxmox-forge",
+          "trust": "known_hosts"
+        }
+      },
       "network": {
         "management": "192.168.100.1",
         "synapse": "10.10.10.1"
@@ -55,7 +63,7 @@
     {
       "id": "cynic-host-cortex",
       "name": "cynic-host-cortex",
-      "aliases": [],
+      "aliases": ["ubuntu"],
       "role": "cortex_host",
       "status": "candidate",
       "deploy_target": false,
@@ -126,16 +134,24 @@
       ]
     },
     {
-      "id": "local-builder",
-      "name": "local-builder",
+      "id": "cynic-builder",
+      "name": "cynic-builder",
       "aliases": [
-        "ubuntu"
+        "10.10.10.119"
       ],
       "role": "build_runner",
+      "host_family": "linux.ubuntu.systemd",
       "status": "candidate",
       "deploy_target": false,
+      "proxmox_id": "lxc/105",
+      "transports": {
+        "ssh": {
+          "target": "cynic-builder",
+          "trust": "known_hosts"
+        }
+      },
       "network": {
-        "synapse": "127.0.0.1"
+        "synapse": "10.10.10.119"
       },
       "services": []
     },
@@ -175,6 +191,13 @@
   ],
   "fleet_desired": {
     "targets": [
+      {
+        "id": "cynic-builder-bootstrap",
+        "provider": "proxmox",
+        "resource_id": "lxc/105",
+        "role": "build_runner",
+        "desired_power": "running"
+      },
       {
         "id": "forgejo-primary",
         "provider": "proxmox",

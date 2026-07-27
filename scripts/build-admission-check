@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+action="${1:-}"
+grant="${CYNIC_BUILD_ADMISSION_GRANT:-}"
+allowed_signers="/etc/cynic/build-admission-allowed-signers"
+signer_identity="cynic-build-authority"
+
+blocked() {
+  echo "build admission blocked: $1" >&2
+  exit 1
+}
+
+[[ -n "${action}" ]] || blocked "requested action is missing"
+[[ -n "${grant}" ]] || blocked "CYNIC_BUILD_ADMISSION_GRANT is missing"
+[[ -f "${grant}" ]] || blocked "grant file does not exist"
+[[ -f "${grant}.sig" ]] || blocked "detached grant signature does not exist"
+[[ -f "${allowed_signers}" ]] || blocked "allowed signers authority is not installed"
+command -v jq >/dev/null 2>&1 || blocked "jq is unavailable"
+command -v ssh-keygen >/dev/null 2>&1 || blocked "ssh-keygen is unavailable"
+
+ssh-keygen -Y verify \
+  -f "${allowed_signers}" \
+  -I "${signer_identity}" \
+  -n cynic-build-admission \
+  -s "${grant}.sig" < "${grant}" >/dev/null \
+  || blocked "grant signature is not authorized"
+
+schema="$(jq -r '.schema // empty' "${grant}")"
+status="$(jq -r '.status // empty' "${grant}")"
+grant_id="$(jq -r '.grant_id // empty' "${grant}")"
+node_id="$(jq -r '.node_id // empty' "${grant}")"
+role="$(jq -r '.role // empty' "${grant}")"
+source_commit="$(jq -r '.source_commit // empty' "${grant}")"
+issued_at="$(jq -r '.issued_at_unix_s // empty' "${grant}")"
+expires_at="$(jq -r '.expires_at_unix_s // empty' "${grant}")"
+observed_hostname="$(hostname)"
+observed_commit="$(git rev-parse HEAD 2>/dev/null || true)"
+now_unix_s="$(date +%s)"
+
+[[ "${schema}" == "cynic.build.bootstrap_grant.v1" ]] || blocked "grant schema mismatch"
+[[ "${status}" == "admitted" ]] || blocked "grant status is not admitted"
+[[ -n "${grant_id}" ]] || blocked "grant_id is missing"
+[[ "${role}" == "build_runner" ]] || blocked "grant role is not build_runner"
+[[ -n "${node_id}" && "${node_id}" == "${observed_hostname}" ]] \
+  || blocked "grant node_id does not match observed hostname"
+[[ -n "${source_commit}" && "${source_commit}" == "${observed_commit}" ]] \
+  || blocked "grant source_commit does not match checkout HEAD"
+[[ -z "$(git status --porcelain --untracked-files=all)" ]] \
+  || blocked "checkout contains content outside the admitted source commit"
+[[ "${issued_at}" =~ ^[0-9]+$ && "${expires_at}" =~ ^[0-9]+$ ]] \
+  || blocked "grant timestamps are invalid"
+[[ "${issued_at}" -le "${now_unix_s}" && "${expires_at}" -gt "${now_unix_s}" ]] \
+  || blocked "grant is expired or has an invalid expiration"
+[[ $((expires_at - issued_at)) -le 3600 ]] \
+  || blocked "grant lifetime exceeds the one-hour bootstrap bound"
+jq -e --arg action "${action}" \
+  '.allowed_actions | type == "array" and index($action) != null' \
+  "${grant}" >/dev/null \
+  || blocked "requested action is outside the grant"
+jq -e '.evidence_refs | type == "array" and length > 0' "${grant}" >/dev/null \
+  || blocked "grant evidence is missing"
+
+echo "build admission proved: node=${node_id} action=${action} commit=${source_commit}"
