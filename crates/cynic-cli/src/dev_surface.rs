@@ -33,6 +33,8 @@ pub(crate) enum DevCommand {
     Framework {
         #[arg(long)]
         json: bool,
+        #[arg(long)]
+        markdown: bool,
     },
     CrateAudit {
         #[arg(long)]
@@ -97,7 +99,7 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
         DevCommand::Surfaces { json } => execute_surfaces(json),
         DevCommand::Outcomes { json } => execute_outcomes(json),
         DevCommand::KpiScore { json } => execute_kpi_score(json),
-        DevCommand::Framework { json } => execute_framework(json),
+        DevCommand::Framework { json, markdown } => execute_framework(json, markdown),
         DevCommand::CrateAudit {
             json,
             output,

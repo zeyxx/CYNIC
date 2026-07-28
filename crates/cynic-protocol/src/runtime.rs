@@ -13,9 +13,10 @@ pub use proofs::{
 };
 pub use types::{
     RUNTIME_EXECUTION_PLAN_SCHEMA, RUNTIME_EXECUTION_SUITE_SCHEMA, RUNTIME_PROOF_BUNDLE_SCHEMA,
-    RUNTIME_PROOF_PERSISTENCE_SCHEMA, RUNTIME_PROOF_SCHEMA, RuntimeExecutionCommand, RuntimeExecutionLayer, RuntimeExecutionPlan,
-    RuntimeExecutionSuite, RuntimePlannedExecutionLayer, RuntimeRegistrySummary,
-    RuntimeSharedResponsibility, runtime_shared_responsibility,
+    RUNTIME_PROOF_PERSISTENCE_SCHEMA, RUNTIME_PROOF_SCHEMA, RuntimeExecutionCommand,
+    RuntimeExecutionLayer, RuntimeExecutionPlan, RuntimeExecutionSuite,
+    RuntimePlannedExecutionLayer, RuntimeRegistrySummary, RuntimeSharedResponsibility,
+    runtime_shared_responsibility,
 };
 
 #[cfg(test)]

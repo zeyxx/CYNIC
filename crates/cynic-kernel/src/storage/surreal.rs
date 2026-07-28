@@ -12,6 +12,7 @@ mod proof_of_history;
 mod state_log;
 mod verdict_queue;
 mod verdicts;
+mod workspace_claims;
 
 use super::{SurrealHttpStorage, safe_limit};
 use crate::domain::ccm::Crystal;
@@ -570,6 +571,78 @@ impl ProofOfHistoryStorage for SurrealHttpStorage {
 
 #[async_trait::async_trait]
 impl StoragePort for SurrealHttpStorage {
+    async fn reserve_agent_workspace_claim(
+        &self,
+        intent: &cynic_protocol::AgentWorkspaceClaimIntent,
+        admission: &cynic_protocol::AgentWorkspaceClaimAdmission,
+        now_ms: u64,
+    ) -> Result<
+        cynic_protocol::AgentWorkspaceClaimOutcome,
+        cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
+    > {
+        cynic_node::ports::agent_workspace_port::AgentWorkspaceClaimStorePort::reserve(
+            self, intent, admission, now_ms,
+        )
+        .await
+    }
+
+    async fn list_agent_workspace_claims(
+        &self,
+        repository_id: &str,
+        now_ms: u64,
+    ) -> Result<
+        Vec<cynic_protocol::AgentWorkspaceClaimObservation>,
+        cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
+    > {
+        cynic_node::ports::agent_workspace_port::AgentWorkspaceClaimStorePort::repository_claims(
+            self,
+            repository_id,
+            now_ms,
+        )
+        .await
+    }
+
+    async fn renew_agent_workspace_claim(
+        &self,
+        guard: &cynic_protocol::LeaseGuard,
+        requested_ttl_ms: u64,
+        now_ms: u64,
+    ) -> Result<
+        cynic_protocol::AgentWorkspaceClaimObservation,
+        cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
+    > {
+        cynic_node::ports::agent_workspace_port::AgentWorkspaceClaimStorePort::renew(
+            self,
+            guard,
+            requested_ttl_ms,
+            now_ms,
+        )
+        .await
+    }
+
+    async fn release_agent_workspace_claim(
+        &self,
+        guard: &cynic_protocol::LeaseGuard,
+        now_ms: u64,
+    ) -> Result<(), cynic_node::ports::agent_workspace_port::AgentWorkspacePortError> {
+        cynic_node::ports::agent_workspace_port::AgentWorkspaceClaimStorePort::release(
+            self, guard, now_ms,
+        )
+        .await
+    }
+
+    async fn finalize_agent_workspace_claim(
+        &self,
+        guard: &cynic_protocol::LeaseGuard,
+        proof_ref: &str,
+        now_ms: u64,
+    ) -> Result<(), cynic_node::ports::agent_workspace_port::AgentWorkspacePortError> {
+        cynic_node::ports::agent_workspace_port::AgentWorkspaceClaimStorePort::finalize(
+            self, guard, proof_ref, now_ms,
+        )
+        .await
+    }
+
     #[tracing::instrument(skip(self), err)]
     async fn ping(&self) -> Result<(), StorageError> {
         self.query("INFO FOR DB;").await?;

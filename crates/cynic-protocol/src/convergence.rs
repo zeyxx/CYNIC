@@ -57,9 +57,14 @@ pub fn assess_convergence_matrix(
     }
     let status = if !blockers.is_empty() {
         ConvergenceStatus::Blocked
-    } else if cells.iter().any(|cell| cell.status == ConvergenceStatus::Unknown) {
+    } else if cells
+        .iter()
+        .any(|cell| cell.status == ConvergenceStatus::Unknown)
+    {
         ConvergenceStatus::Unknown
-    } else if cells.iter().all(|cell| cell.status == ConvergenceStatus::Complete)
+    } else if cells
+        .iter()
+        .all(|cell| cell.status == ConvergenceStatus::Complete)
         && cells.len() >= expected
     {
         ConvergenceStatus::Complete
@@ -77,9 +82,7 @@ pub fn assess_convergence_matrix(
     }
 }
 
-pub fn merge_convergence_matrices(
-    matrices: &[ConvergenceMatrixReport],
-) -> ConvergenceMatrixReport {
+pub fn merge_convergence_matrices(matrices: &[ConvergenceMatrixReport]) -> ConvergenceMatrixReport {
     let mut subjects = BTreeSet::new();
     let mut verticals = BTreeSet::new();
     let mut cells = BTreeMap::new();
@@ -88,9 +91,12 @@ pub fn merge_convergence_matrices(
     for matrix in matrices {
         subjects.extend(matrix.subjects.iter().cloned());
         verticals.extend(matrix.verticals.iter().cloned());
-        blockers.extend(matrix.blockers.iter().map(|blocker| {
-            format!("source_matrix:{}:{blocker}", matrix.schema)
-        }));
+        blockers.extend(
+            matrix
+                .blockers
+                .iter()
+                .map(|blocker| format!("source_matrix:{}:{blocker}", matrix.schema)),
+        );
         for cell in &matrix.cells {
             let key = (cell.subject_id.clone(), cell.vertical_id.clone());
             if cells.insert(key.clone(), cell.clone()).is_some() {
@@ -109,10 +115,7 @@ pub fn merge_convergence_matrices(
     } else {
         ConvergenceMatrixReport {
             status: ConvergenceStatus::Blocked,
-            blockers: blockers
-                .into_iter()
-                .chain(report.blockers)
-                .collect(),
+            blockers: blockers.into_iter().chain(report.blockers).collect(),
             ..report
         }
     }
@@ -136,7 +139,11 @@ mod tests {
             }],
         );
         assert_eq!(report.status, ConvergenceStatus::Blocked);
-        assert!(report.blockers.contains(&"matrix_cells_missing".to_string()));
+        assert!(
+            report
+                .blockers
+                .contains(&"matrix_cells_missing".to_string())
+        );
     }
 
     #[test]

@@ -593,6 +593,68 @@ impl SubmissionStorage for ReconnectableStorage {
 
 #[async_trait]
 impl StoragePort for ReconnectableStorage {
+    async fn reserve_agent_workspace_claim(
+        &self,
+        intent: &cynic_protocol::AgentWorkspaceClaimIntent,
+        admission: &cynic_protocol::AgentWorkspaceClaimAdmission,
+        now_ms: u64,
+    ) -> Result<
+        cynic_protocol::AgentWorkspaceClaimOutcome,
+        cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
+    > {
+        self.current()
+            .reserve_agent_workspace_claim(intent, admission, now_ms)
+            .await
+    }
+
+    async fn list_agent_workspace_claims(
+        &self,
+        repository_id: &str,
+        now_ms: u64,
+    ) -> Result<
+        Vec<cynic_protocol::AgentWorkspaceClaimObservation>,
+        cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
+    > {
+        self.current()
+            .list_agent_workspace_claims(repository_id, now_ms)
+            .await
+    }
+
+    async fn renew_agent_workspace_claim(
+        &self,
+        guard: &cynic_protocol::LeaseGuard,
+        requested_ttl_ms: u64,
+        now_ms: u64,
+    ) -> Result<
+        cynic_protocol::AgentWorkspaceClaimObservation,
+        cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
+    > {
+        self.current()
+            .renew_agent_workspace_claim(guard, requested_ttl_ms, now_ms)
+            .await
+    }
+
+    async fn release_agent_workspace_claim(
+        &self,
+        guard: &cynic_protocol::LeaseGuard,
+        now_ms: u64,
+    ) -> Result<(), cynic_node::ports::agent_workspace_port::AgentWorkspacePortError> {
+        self.current()
+            .release_agent_workspace_claim(guard, now_ms)
+            .await
+    }
+
+    async fn finalize_agent_workspace_claim(
+        &self,
+        guard: &cynic_protocol::LeaseGuard,
+        proof_ref: &str,
+        now_ms: u64,
+    ) -> Result<(), cynic_node::ports::agent_workspace_port::AgentWorkspacePortError> {
+        self.current()
+            .finalize_agent_workspace_claim(guard, proof_ref, now_ms)
+            .await
+    }
+
     async fn ping(&self) -> Result<(), StorageError> {
         self.current().ping().await
     }

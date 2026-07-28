@@ -4,8 +4,11 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::PathBuf;
 
+mod agent_workspace_layout;
 mod model;
 mod projections;
+
+pub use agent_workspace_layout::RegistryAgentWorkspaceLayoutAdapter;
 
 use model::Registry;
 use projections::{

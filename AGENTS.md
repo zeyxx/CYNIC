@@ -2,6 +2,70 @@
 
 This repo has been reduced to a low-layer Rust runtime baseline.
 
+## Long-Horizon Direction
+
+This section preserves product direction for agents. It is not evidence that a
+capability exists and it does not outrank the runtime authorities below.
+Detailed ambition status belongs in `FrameworkSpec`; runtime truth still comes
+from observation and read-back proof.
+
+```text
+the human remains the sovereign authority
+Talaria writes and proposes code
+CYNIC bounds, connects, executes, observes, and proves
+Askesis projects a durable digital companion
+CYNIC Inference supplies portable sovereign intelligence
+Solana commits and settles explicitly disclosed public matter
+Futard.io projects that matter to a futarchic audience
+markets estimate consequences; they do not manufacture facts
+```
+
+CYNIC aims to be the private sovereign membrane for one-person futarchy. It
+connects host, source, build, artifact, agent, inference, fleet, evidence, and
+public-settlement planes without collapsing their authorities into one global
+controller.
+
+Durable direction:
+
+- coordinate multiple agents without implicit global enforcement;
+- reuse Kubernetes-like typed-resource, controller, reconciliation, and
+  operator patterns in Rust without cloning Kubernetes as the framework;
+- make important intent, delegation, mutation, provenance, outcome, and
+  residual unknowns inspectable;
+- let non-expert operators use their own data and common ML capabilities
+  through simple portable ports;
+- keep model, inference engine, accelerator, provider, chain, repository,
+  scheduler, and public audience as injected adapters;
+- let Talaria propose changes to CYNIC through the same isolated workspace,
+  build, conformance, admission, canary, read-back, and rollback boundaries
+  imposed on every other code-producing workload;
+- disclose user activity only through explicit opt-in publication policy,
+  minimization, consent, and evidence-preserving projection.
+
+Guardrails:
+
+- coordination without global enforcement does not remove enforcement at an
+  explicit capability or mutation boundary;
+- Kubernetes-like does not mean a Kubernetes clone;
+- digital companion does not mean an omnipotent agent or opaque memory;
+- simple ML does not hide provenance, consent, quality, cost, or uncertainty;
+- sovereign inference may be local or remote and must remain adapter-driven;
+- Rust-native implementation is justified by ownership, safety, portability,
+  or observability, not by a mandate to rewrite every dependency;
+- Solana is the strategic public commitment and settlement target, not the
+  source of observed host truth;
+- Futard.io is an audience projection, not private runtime authority;
+- E-Score is a contextual, versioned, contestable interpretation of attributed
+  evidence, never a universal measure of human worth;
+- no token, market, score, company, agent, or model may silently amplify its own
+  authority.
+
+Public narrative projections live in `MANIFESTO.md` and `WHITEPAPER.md`. They
+must label claims honestly and remain subordinate to contracts and runtime
+proof. Capability status must not be maintained as a second editorial ledger;
+project it from `FrameworkSpec` with `cynic dev framework --json` or
+`cynic dev framework --markdown`.
+
 ## Authority
 
 Use this order when files disagree:
@@ -344,6 +408,29 @@ the current host cannot observe directly; they must not fabricate those proofs.
 ## Agent Session Practice
 
 Agent work must reduce fragmentation.
+
+### CYNIC session handshake
+
+When the CYNIC MCP surface is available, an agent session must:
+
+1. observe `cynic_mcp_surface`;
+2. register through `cynic_coord_register`;
+3. read back its identity through `cynic_coord_who`;
+4. claim the affected source target before mutation;
+5. use `cynic_source_control` for admitted commit/push work;
+6. use `cynic_validate` to plan validation for `build_runner`.
+
+`cynic_validate` must not dispatch through the legacy `AgentTask` queue. Agent
+mutation execution remains inactive until a node-owned scheduler durably
+enforces `cynic.agent_workload_envelope.v1`, including policy admission,
+monotonic budgets, lease fencing, cancellation, recovery, and completion
+evidence. A handshake or queue acknowledgement is not execution authority.
+
+An agent host must not run a repository build as fallback. If the CYNIC MCP
+surface or its coordination authority is unavailable, report
+`blocked_disconnected` and retain the missing capability as an explicit
+unknown. The machine-readable handshake and tool ownership remain in
+`infra/agent-exposure.json`; this section only instructs agent projection.
 
 - Before adding a new crate, command, document, or contract, prove an existing
   boundary cannot absorb the capability.

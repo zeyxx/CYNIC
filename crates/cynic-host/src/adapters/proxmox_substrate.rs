@@ -21,7 +21,10 @@ impl<'a, R: ArgvRunner> ProxmoxSshSubstrateAdapter<'a, R> {
         Ok(Self { runner, ssh_target })
     }
 
-    fn resource(&self, desired: &NodeSubstrateDesiredState) -> Result<(&str, &str), String> {
+    fn resource<'b>(
+        &self,
+        desired: &'b NodeSubstrateDesiredState,
+    ) -> Result<(&'b str, &'b str), String> {
         if desired.provider.as_deref() != Some("proxmox") {
             return Err("unsupported_node_substrate_provider".to_string());
         }

@@ -1,6 +1,9 @@
 pub mod agent_recursion;
+pub mod agent_scheduler;
+pub mod agent_workload;
 pub mod artifact_release;
 pub mod build;
+pub mod capability_responsibility;
 pub mod convergence;
 pub mod coord;
 pub mod coordination_lease;
@@ -20,6 +23,7 @@ pub mod pre_os;
 pub mod provider;
 pub mod runtime;
 pub mod source_control;
+pub mod source_repository_bootstrap;
 pub mod supervision;
 pub mod surface_registry;
 pub mod tasks;
@@ -30,8 +34,38 @@ pub use agent_recursion::{
     AGENT_RECURSION_ADMISSION_SCHEMA, AgentBudget, AgentCapabilityGrant, AgentCompletionEnvelope,
     AgentCompletionStatus, AgentDelegationEnvelope, AgentEvidenceDependency, AgentEvidenceLineage,
     AgentEvidenceRef, AgentEvidenceRelation, AgentRecursionAdmission, AgentRecursionDecision,
-    AgentRecursionViolation, admit_child_delegation, admit_completion,
+    AgentRecursionViolation, admit_child_delegation, admit_completion, admit_root_delegation,
     classify_agent_evidence_dependency, relate_agent_evidence, validate_evidence_refs,
+};
+pub use agent_scheduler::{
+    AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AGENT_SCHEDULER_STEP_OBSERVATION_SCHEMA,
+    AGENT_SCHEDULER_STEP_PLAN_SCHEMA, AgentSchedulerAction, AgentSchedulerJournalRecord,
+    AgentSchedulerJournalStatus, AgentSchedulerStepDecision, AgentSchedulerStepObservation,
+    AgentSchedulerStepPlan, reconcile_agent_scheduler_step,
+    validate_agent_scheduler_journal_record,
+};
+pub use agent_workload::{
+    AGENT_WORKLOAD_ADMISSION_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
+    AGENT_WORKSPACE_APPLY_REPORT_SCHEMA, AGENT_WORKSPACE_CAPABILITY_ID,
+    AGENT_WORKSPACE_CLAIM_ADMISSION_SCHEMA, AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA,
+    AGENT_WORKSPACE_LIFECYCLE_OBSERVATION_SCHEMA, AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA,
+    AGENT_WORKSPACE_LIFECYCLE_RECORD_SCHEMA, AGENT_WORKSPACE_OBSERVATION_SCHEMA,
+    AGENT_WORKSPACE_RECONCILIATION_SCHEMA, AGENT_WORKSPACE_REQUEST_SCHEMA, AgentBoundedAction,
+    AgentWorkloadAdmission, AgentWorkloadClaim, AgentWorkloadDecision, AgentWorkloadEnvelope,
+    AgentWorkloadRecord, AgentWorkloadState, AgentWorkloadViolation, AgentWorkspaceApplyReport,
+    AgentWorkspaceApplyStatus, AgentWorkspaceChange, AgentWorkspaceClaimAdmission,
+    AgentWorkspaceClaimDecision, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
+    AgentWorkspaceClaimOutcome, AgentWorkspaceDecision, AgentWorkspaceLifecycleDecision,
+    AgentWorkspaceLifecycleObservation, AgentWorkspaceLifecyclePlan, AgentWorkspaceLifecycleRecord,
+    AgentWorkspaceMutationKind, AgentWorkspaceObservation, AgentWorkspacePathObservation,
+    AgentWorkspaceReadBack, AgentWorkspaceReconciliation, AgentWorkspaceRequest,
+    AgentWorkspaceRetentionRoot, AgentWorkspaceViolation, AgentWorkspaceZone,
+    AgentWorkspaceZoneKind, admit_agent_workload, admit_agent_workload_dispatch,
+    admit_agent_workspace_claim, admit_workload_action, agent_workspace_target,
+    claim_agent_workload, complete_agent_workload, consume_agent_workload_action,
+    reconcile_agent_workspace, reconcile_agent_workspace_lifecycle,
+    request_agent_workload_cancellation, validate_agent_workspace_lifecycle_record,
+    workspace_claim_admission_matches, zones_overlap,
 };
 pub use artifact_release::{
     RUNTIME_ARTIFACT_RELEASE_EVENT_SCHEMA, RUNTIME_ARTIFACT_RELEASE_REPORT_SCHEMA,
@@ -40,19 +74,26 @@ pub use artifact_release::{
     RuntimeArtifactSpec, RuntimeBuildEvidence, ServiceIdentityEvidence,
 };
 pub use build::{
-    BUILD_BOOTSTRAP_GRANT_SCHEMA, BUILD_INPUT_ADMISSION_SCHEMA, BUILD_RUNNER_ADMISSION_SCHEMA,
-    BUILD_RUNNER_ENVELOPE_SCHEMA, BUILD_RUNNER_OBSERVATION_MAX_AGE_MS,
-    BUILD_RUNNER_OBSERVATION_SCHEMA, BuildBootstrapGrant, BuildInputAdmission,
-    BuildRunnerAdmission, BuildRunnerEnvelope, BuildRunnerObservation, RuntimeNodeObservation,
-    admit_build_input, admit_build_runner, compose_build_runner_envelope, plan_build_runner,
+    BUILD_AGENT_REQUEST_ADMISSION_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA, BUILD_BOOTSTRAP_GRANT_SCHEMA,
+    BUILD_INPUT_ADMISSION_SCHEMA, BUILD_RUNNER_ADMISSION_SCHEMA, BUILD_RUNNER_ENVELOPE_SCHEMA,
+    BUILD_RUNNER_OBSERVATION_MAX_AGE_MS, BUILD_RUNNER_OBSERVATION_SCHEMA, BuildAgentRequest,
+    BuildAgentRequestAdmission, BuildBootstrapGrant, BuildInputAdmission, BuildRunnerAdmission,
+    BuildRunnerEnvelope, BuildRunnerObservation, RuntimeNodeObservation, admit_build_agent_request,
+    admit_build_input, admit_build_runner, compose_build_runner_envelope, plan_build_agent_request,
+    plan_build_runner,
+};
+pub use capability_responsibility::{
+    CAPABILITY_RESPONSIBILITY_CATALOG_SCHEMA, CapabilityResponsibilityCatalog,
+    CapabilityResponsibilityContract, CapabilityResponsibilityViolation,
+    capability_responsibility_catalog,
 };
 pub use convergence::{
     CONVERGENCE_MATRIX_SCHEMA, ConvergenceCell, ConvergenceMatrixReport, ConvergenceStatus,
     assess_convergence_matrix, merge_convergence_matrices,
 };
 pub use coord::{
-    LEASE_VERIFICATION_SCHEMA, LeaseVerification, coord_claim_path, coord_register_path,
-    coord_release_path, coord_verify_path, coord_who_path,
+    LEASE_VERIFICATION_SCHEMA, LeaseVerification, coord_claim_path, coord_finalize_path,
+    coord_register_path, coord_release_path, coord_verify_path, coord_who_path,
 };
 pub use coordination_lease::{
     BatchClaimResult, LeaseAction, LeaseConflict, LeaseGrant, LeaseGuard, LeaseMutationOutcome,
@@ -78,13 +119,9 @@ pub use forgejo::{
     ForgejoPlannedAction, ForgejoRepositoryPermission, plan_forgejo_convergence,
 };
 pub use framework::{
-    FRAMEWORK_SPEC_SCHEMA, FrameworkIdentity, FrameworkLayer, FrameworkPrimitiveFamily,
+    FRAMEWORK_SPEC_SCHEMA, FrameworkAmbitionClass, FrameworkAmbitionStatus,
+    FrameworkAmbitionTranslation, FrameworkIdentity, FrameworkLayer, FrameworkPrimitiveFamily,
     FrameworkPrinciple, FrameworkRule, FrameworkSpec, FrameworkUseCase, framework_spec,
-};
-pub use provider::{
-    NODE_SUBSTRATE_DECISION_SCHEMA, NODE_SUBSTRATE_OBSERVATION_SCHEMA, NodeNetworkAttachment,
-    NodeSubstrateAction, NodeSubstrateDecision, NodeSubstrateDesiredState, NodeSubstrateExistence,
-    NodeSubstrateObservation, NodeSubstratePower, reconcile_node_substrate,
 };
 pub use integrity::{canonical_json_bytes, digest_json};
 pub use kyon::{
@@ -115,6 +152,11 @@ pub use pre_os::{
     verify_pre_os_attestation,
 };
 pub use provider::{
+    NODE_SUBSTRATE_DECISION_SCHEMA, NODE_SUBSTRATE_OBSERVATION_SCHEMA, NodeNetworkAttachment,
+    NodeSubstrateAction, NodeSubstrateDecision, NodeSubstrateDesiredState, NodeSubstrateExistence,
+    NodeSubstrateObservation, NodeSubstratePower, reconcile_node_substrate,
+};
+pub use provider::{
     PROVIDER_CONTROL_CAPABILITY_SCHEMA, PROVIDER_MACHINE_IDENTITY_SCHEMA,
     ProviderControlCapability, ProviderIdentityKind, ProviderMachineIdentity,
 };
@@ -133,6 +175,13 @@ pub use source_control::{
     SOURCE_ADMISSION_REPORT_SCHEMA, SOURCE_CHANGE_PROPOSAL_SCHEMA, SourceChangeAdmission,
     SourceChangeProposal, SourceMatterClass, SourcePromotionStage, SourceSnapshot,
     admit_source_change, admit_source_stage, source_worktree_lease_target,
+};
+pub use source_repository_bootstrap::{
+    SOURCE_REPOSITORY_BOOTSTRAP_OBSERVATION_SCHEMA, SOURCE_REPOSITORY_BOOTSTRAP_REPORT_SCHEMA,
+    SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA, SourceRepositoryBootstrapDecision,
+    SourceRepositoryBootstrapObservation, SourceRepositoryBootstrapProofAuthority,
+    SourceRepositoryBootstrapReport, SourceRepositoryBootstrapRequest,
+    SourceRepositoryBootstrapStatus, reconcile_source_repository_bootstrap,
 };
 pub use supervision::{
     SERVICE_SUPERVISOR_OBSERVATION_EVIDENCE_ID, SERVICE_SUPERVISOR_OBSERVATION_SCHEMA,

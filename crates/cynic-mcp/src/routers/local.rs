@@ -313,18 +313,72 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_validate",
-        description = "Run the canonical repository gate `make check` (authority JSON + cargo check core crates + surface-audit including agent-exposure). Prefer this over inventing a parallel validate stack. Returns cynic.mcp.validate.v1."
+        description = "Plan the canonical `make check` gate for build_runner without compiling locally. Dispatch remains blocked until a node-owned scheduler durably enforces cynic.agent_workload_envelope.v1."
     )]
     async fn cynic_validate(
         &self,
-        _params: Parameters<ValidateParams>,
+        params: Parameters<ValidateParams>,
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
-        // Local: runs filesystem commands
-        let result = crate::local_tools::run_validate(&self.project_root).await;
+        let p = params.0;
+        let principal = self.coordination_principal()?;
+        if p.agent_id
+            .as_deref()
+            .is_some_and(|agent_id| agent_id != principal)
+        {
+            return Err(McpError::invalid_params(
+                "validate agent_id does not match the authenticated coordination principal",
+                None,
+            ));
+        }
+        let request_id = p.request_id.unwrap_or_else(|| {
+            let short_commit = p.source_commit.chars().take(12).collect::<String>();
+            format!("validate-{short_commit}-{principal}")
+        });
+        let request = cynic_protocol::BuildAgentRequest {
+            schema: cynic_protocol::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            request_id,
+            requested_by: principal.clone(),
+            source_commit: p.source_commit,
+            action: "make:check".to_string(),
+            desired_role: "build_runner".to_string(),
+            mutation_authorized: false,
+            proof_requirements: vec![
+                "canonical_gate_report".to_string(),
+                "source_commit_read_back".to_string(),
+                "build_runner_observation".to_string(),
+            ],
+            evidence_refs: p.evidence_refs,
+        };
+        let admission = cynic_protocol::plan_build_agent_request(&request);
+        let dispatch_requested = p.dispatch;
+        let result = serde_json::json!({
+            "schema": "cynic.mcp.validate_dispatch.v1",
+            "status": if dispatch_requested {
+                "blocked_scheduler_unavailable"
+            } else {
+                admission.status.as_str()
+            },
+            "mutates": false,
+            "dispatch_requested": dispatch_requested,
+            "request": request,
+            "admission": admission,
+            "constitutional_execution": {
+                "schema": cynic_protocol::AGENT_WORKLOAD_ENVELOPE_SCHEMA,
+                "scheduler_status": "inactive",
+                "legacy_agent_task_dispatch_used": false,
+                "missing_capabilities": [
+                    "durable_agent_workload_store",
+                    "aggregate_sibling_budget_accounting",
+                    "lease_fenced_claim_and_recovery",
+                    "durable_cancellation",
+                    "completion_evidence_persistence"
+                ]
+            }
+        });
         Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_default(),
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
         )]))
     }
 
@@ -358,9 +412,11 @@ impl CynicMcpProxy {
             Some(guard) => {
                 let principal = self.coordination_principal()?;
                 if guard.agent_id != principal {
-                    Box::new(cynic_host::source_lease::UnavailableSourceLeaseVerifier::new(
-                        "proposal_actor_not_authenticated_principal",
-                    ))
+                    Box::new(
+                        cynic_host::source_lease::UnavailableSourceLeaseVerifier::new(
+                            "proposal_actor_not_authenticated_principal",
+                        ),
+                    )
                 } else {
                     let body = serde_json::json!({
                         "agent_id": guard.agent_id,
@@ -368,16 +424,26 @@ impl CynicMcpProxy {
                         "lease_id": guard.lease_id,
                         "fencing_token": guard.fencing_token,
                     });
-                    match self.post_json(cynic_protocol::coord_verify_path(), &body).await {
-                        Ok(value) => match serde_json::from_value::<cynic_protocol::LeaseVerification>(value) {
-                            Ok(verification) => Box::new(verification),
-                            Err(_) => Box::new(cynic_host::source_lease::UnavailableSourceLeaseVerifier::new(
-                                "coordination_lease_verification_response_invalid",
-                            )),
-                        },
-                        Err(_) => Box::new(cynic_host::source_lease::UnavailableSourceLeaseVerifier::new(
-                            "coordination_lease_authority_unavailable",
-                        )),
+                    match self
+                        .post_json(cynic_protocol::coord_verify_path(), &body)
+                        .await
+                    {
+                        Ok(value) => {
+                            match serde_json::from_value::<cynic_protocol::LeaseVerification>(value)
+                            {
+                                Ok(verification) => Box::new(verification),
+                                Err(_) => Box::new(
+                                    cynic_host::source_lease::UnavailableSourceLeaseVerifier::new(
+                                        "coordination_lease_verification_response_invalid",
+                                    ),
+                                ),
+                            }
+                        }
+                        Err(_) => Box::new(
+                            cynic_host::source_lease::UnavailableSourceLeaseVerifier::new(
+                                "coordination_lease_authority_unavailable",
+                            ),
+                        ),
                     }
                 }
             }
@@ -1683,7 +1749,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_lifecycle_dispatch",
-        description = "Dispatch a canonical lifecycle task (e.g. 'deploy' or 'gate-2') to the organism's registry via the Kernel mempool, bypassing local execution."
+        description = "Plan a canonical lifecycle workload. Execution dispatch is blocked until the node-owned constitutional scheduler is active."
     )]
     async fn cynic_lifecycle_dispatch(
         &self,
@@ -1696,72 +1762,26 @@ impl CynicMcpProxy {
 
         let payload_plan = run_lifecycle_payload_plan(&profile)?;
         let payloads = lifecycle_payloads_from_plan(&payload_plan)?;
-
-        let mut dispatched = Vec::new();
-        for payload in payloads {
-            let body = lifecycle_payload_body_with_defaults(payload);
-            let response = self.post_json("/agent-tasks", &body).await?;
-            let task_id = response
-                .get("task_id")
-                .and_then(|value| value.as_str())
-                .ok_or_else(|| {
-                    McpError::internal_error(
-                        format!("Lifecycle task dispatch response missing task_id: {response}"),
-                        None,
-                    )
-                })?
-                .to_string();
-            dispatched.push(serde_json::json!({
-                "task_id": task_id,
-                "kind": body.get("kind"),
-                "domain": body.get("domain"),
-                "intent": lifecycle_payload_intent(&body),
-            }));
-        }
-
         let domain = lifecycle_payload_domain(payloads, &profile);
-        let pending = self
-            .get_query_json(
-                "/agent-tasks",
-                &[
-                    ("kind", "hermes".to_string()),
-                    ("domain", domain.clone()),
-                    ("limit", "50".to_string()),
-                ],
-            )
-            .await?;
-        let completed = self
-            .get_query_json(
-                "/agent-tasks/completed",
-                &[
-                    ("kind", "hermes".to_string()),
-                    ("domain", domain.clone()),
-                    ("limit", "50".to_string()),
-                ],
-            )
-            .await?;
-        let (dispatched_ids, visible_dispatched_ids) =
-            visible_dispatched_task_ids(&dispatched, &pending, &completed);
-        let missing_dispatched_ids =
-            missing_dispatched_task_ids(&dispatched_ids, &visible_dispatched_ids);
-        if !missing_dispatched_ids.is_empty() {
-            return Err(McpError::internal_error(
-                format!(
-                    "Lifecycle dispatch read-back incomplete; missing_dispatched_ids={missing_dispatched_ids:?}, visible_dispatched_ids={visible_dispatched_ids:?}, domain={domain}"
-                ),
-                None,
-            ));
-        }
 
         let result = serde_json::json!({
-            "status": "dispatched",
+            "status": "blocked_scheduler_unavailable",
+            "mutates": false,
             "profile": profile,
             "domain": domain,
-            "dispatched": dispatched,
-            "visible_dispatched_ids": visible_dispatched_ids,
-            "missing_dispatched_ids": missing_dispatched_ids,
-            "pending_count": pending.get("count"),
-            "completed_count": completed.get("count"),
+            "plan": payload_plan,
+            "constitutional_execution": {
+                "schema": cynic_protocol::AGENT_WORKLOAD_ENVELOPE_SCHEMA,
+                "scheduler_status": "inactive",
+                "legacy_agent_task_dispatch_used": false
+            },
+            "unknowns": [
+                "durable_agent_workload_store",
+                "aggregate_sibling_budget_accounting",
+                "lease_fenced_claim_and_recovery",
+                "durable_cancellation",
+                "completion_evidence_persistence"
+            ]
         });
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),

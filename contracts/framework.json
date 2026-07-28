@@ -24,6 +24,278 @@
       "rule": "CYNIC may use Kubernetes-like semantics, but the domain model must also run on one host, systemd, VMs, LXC, or another substrate."
     }
   ],
+  "ambition_translation": [
+    {
+      "id": "sovereign_membrane",
+      "classification": "core",
+      "current_owner": "cynic-protocol + cynic-host + cynic-node",
+      "runtime_status": "partial",
+      "translated_primitives": [
+        "typed crossings between independently authoritative planes",
+        "identity, capability, policy, adapter, and proof boundaries",
+        "truth-upward and intent-downward propagation"
+      ],
+      "forbidden_substitutions": [
+        "one global controller as owner of every source of truth",
+        "a shared database presented as proof of external reality",
+        "projection-layer policy replacing lower-layer contracts"
+      ],
+      "required_proof": "one request crossing source, build, deployment, and runtime planes with linked lower-layer read-back evidence"
+    },
+    {
+      "id": "askesis_companion",
+      "classification": "upper_layer",
+      "current_owner": "cynic-askesis",
+      "runtime_status": "absent",
+      "translated_primitives": [
+        "content-addressed context assembly",
+        "source-visible suggestion, decision, and action separation",
+        "reversible private memory policy"
+      ],
+      "forbidden_substitutions": [
+        "raw chat history as durable memory or authority",
+        "provider session state as user identity",
+        "an omnipotent agent with implicit mutation rights"
+      ],
+      "required_proof": "a companion session reconstructed from evidence refs that performs a bounded delegated action and remains usable after provider replacement"
+    },
+    {
+      "id": "accessible_personal_ml",
+      "classification": "upper_layer",
+      "current_owner": "cynic-inference + cynic-askesis",
+      "runtime_status": "absent",
+      "translated_primitives": [
+        "task-oriented ML ports independent of provider APIs",
+        "typed data authority, consent, retention, cost, and evaluation",
+        "operator recipes with observable inputs and outputs"
+      ],
+      "forbidden_substitutions": [
+        "a provider-specific API presented as a universal ML contract",
+        "simplicity that hides provenance, consent, cost, or uncertainty",
+        "automatic training or publication from merely observable data"
+      ],
+      "required_proof": "a non-expert completes one personal-data ML task through the same port with two interchangeable adapters and receives provenance and evaluation evidence"
+    },
+    {
+      "id": "sovereign_inference",
+      "classification": "core",
+      "current_owner": "cynic-inference",
+      "runtime_status": "partial",
+      "translated_primitives": [
+        "portable inference capability ports",
+        "local and remote runtime adapters",
+        "model revision, resource, cost, and output evidence"
+      ],
+      "forbidden_substitutions": [
+        "local-only execution as the definition of sovereignty",
+        "one model, engine, accelerator, or provider embedded in policy",
+        "successful generation presented as evaluated truth"
+      ],
+      "required_proof": "the same typed inference request runs through local and remote adapters with bounded secrets, measured resources, and comparable output evidence"
+    },
+    {
+      "id": "talaria_code_evolution",
+      "classification": "core",
+      "current_owner": "source, build, admission, deployment, and outcome verticals",
+      "runtime_status": "blocked",
+      "translated_primitives": [
+        "typed evolution hypothesis and attributed source mutation",
+        "isolated workspace, reproducible build, and comparative conformance",
+        "independent admission, canary, outcome read-back, and rollback"
+      ],
+      "forbidden_substitutions": [
+        "Talaria writing directly into an authoritative runtime worktree",
+        "a code-producing agent approving its own authority increase",
+        "tests optimized as a substitute for measured runtime outcomes"
+      ],
+      "required_proof": "a Talaria-produced CYNIC change traverses workspace, source authority, build, admission, canary, outcome comparison, and rollback without bypass"
+    },
+    {
+      "id": "opt_in_disclosure",
+      "classification": "core",
+      "current_owner": "no canonical owner; target cynic-protocol policy plus publication adapters",
+      "runtime_status": "absent",
+      "translated_primitives": [
+        "typed data classification and disclosure proposal",
+        "explicit consent or pre-authorized publication policy",
+        "minimization, redaction, commitment, publication, and read-back"
+      ],
+      "forbidden_substitutions": [
+        "technical observability treated as permission to publish",
+        "blanket consent without subject, purpose, audience, or expiration",
+        "raw private evidence copied into a public proof"
+      ],
+      "required_proof": "one private event is minimized under an inspectable consent policy, published through an adapter, read back, and linked without leaking the source payload"
+    },
+    {
+      "id": "solana_public_settlement",
+      "classification": "external_authority",
+      "current_owner": "no canonical owner; target CYNIC Solana adapter",
+      "runtime_status": "absent",
+      "translated_primitives": [
+        "offline-first idempotent commitment plan",
+        "wallet authority separated from runtime machine identity",
+        "transaction submission, confirmation, and account read-back"
+      ],
+      "forbidden_substitutions": [
+        "transaction inclusion presented as proof of an off-chain fact",
+        "one RPC, indexer, wallet, or SDK embedded in domain policy",
+        "Solana availability required for private local operation"
+      ],
+      "required_proof": "a consented evidence commitment survives RPC loss, is replayed idempotently, confirmed on Solana, and linked to its private source proof"
+    },
+    {
+      "id": "futard_audience_projection",
+      "classification": "external_authority",
+      "current_owner": "Futard.io integration plus CYNIC publication port",
+      "runtime_status": "absent",
+      "translated_primitives": [
+        "public-safe evidence and decision projection",
+        "audience interaction imported as sourced events",
+        "projection read-back without ownership of private runtime truth"
+      ],
+      "forbidden_substitutions": [
+        "a Futard.io page or database as CYNIC runtime authority",
+        "audience engagement presented as factual outcome",
+        "market visibility used as implicit disclosure consent"
+      ],
+      "required_proof": "a minimized CYNIC publication is displayed and read back through Futard.io while private evidence and authority remain locally verifiable"
+    },
+    {
+      "id": "one_person_futarchy",
+      "classification": "upper_layer",
+      "current_owner": "Talaria decision loop plus CYNIC evidence and publication contracts",
+      "runtime_status": "absent",
+      "translated_primitives": [
+        "typed thesis, alternatives, metric, resolver, and time window",
+        "pre-decision commitment and bounded execution evidence",
+        "post-decision outcome observation, dispute, and policy update"
+      ],
+      "forbidden_substitutions": [
+        "market price or popularity presented as universal success",
+        "a market outcome presented as proof that execution occurred",
+        "an unverifiable KPI selected after the decision"
+      ],
+      "required_proof": "one personal decision links a precommitted resolution rule to bounded execution, independently observed outcome, resolution, and subsequent policy update"
+    },
+    {
+      "id": "sovereign_runtime",
+      "classification": "core",
+      "current_owner": ["cynic-protocol", "cynic-host", "cynic-node"],
+      "runtime_status": "partial",
+      "translated_primitives": ["runtime principal", "portable host ports", "bounded mutation", "read-back proof"],
+      "forbidden_substitutions": ["operator-home execution presented as installed authority", "provider control plane presented as organism authority"],
+      "required_proof": ["fresh-node standalone bootstrap", "steady-state execution without HumanAdmin secrets"]
+    },
+    {
+      "id": "closed_evolution",
+      "classification": "core",
+      "current_owner": ["cynic-protocol", "cynic-host", "cynic-node", "cynic-kernel"],
+      "runtime_status": "blocked",
+      "translated_primitives": ["source claim", "build admission", "artifact release", "runtime proof"],
+      "forbidden_substitutions": ["commit presented as deployment", "successful build presented as runtime convergence"],
+      "required_proof": ["intent-to-source-to-build-to-release-to-runtime closure", "rollback and final claim release"]
+    },
+    {
+      "id": "contestable_judgment",
+      "classification": "core",
+      "current_owner": ["cynic-protocol", "cynic-kernel", "cynic-askesis"],
+      "runtime_status": "absent",
+      "translated_primitives": ["evidence envelopes", "proof bundles", "unknown states"],
+      "forbidden_substitutions": ["kernel interpretation presented as primary truth", "single validator result presented as unchallengeable fact"],
+      "required_proof": ["versioned judge identity and rule", "challenge, correction, and judgment lineage"]
+    },
+    {
+      "id": "multi_source_truth",
+      "classification": "external_authority",
+      "current_owner": ["cynic-protocol"],
+      "runtime_status": "partial",
+      "translated_primitives": ["evidence refs", "registry intent", "runtime observation"],
+      "forbidden_substitutions": ["runtime observation overriding legal, protocol, Git, or market authority", "untyped evidence ref presented as verified primary evidence"],
+      "required_proof": ["typed source authority and claim binding", "source-specific verification and freshness"]
+    },
+    {
+      "id": "resource_metabolism",
+      "classification": "core",
+      "current_owner": ["cynic-protocol", "cynic-host", "cynic-node"],
+      "runtime_status": "blocked",
+      "translated_primitives": ["runtime budgets", "host metrics"],
+      "forbidden_substitutions": ["unbounded cache growth", "cleanup without protected-artifact classification"],
+      "required_proof": ["resource admission before mutation", "bounded reclamation and capacity read-back"]
+    },
+    {
+      "id": "replayable_memory",
+      "classification": "core",
+      "current_owner": ["cynic-kernel", "cynic-askesis"],
+      "runtime_status": "partial",
+      "translated_primitives": ["content-addressed evidence", "runtime proof history", "persistence records"],
+      "forbidden_substitutions": ["chat history presented as organism memory", "append-only accumulation without retention or replay policy"],
+      "required_proof": ["schema-aware replay", "reference-aware retention, compaction, and migration"]
+    },
+    {
+      "id": "node_recursion",
+      "classification": "core",
+      "current_owner": ["cynic-protocol", "cynic-node", "cynic-kernel"],
+      "runtime_status": "blocked",
+      "translated_primitives": ["delegation envelope", "completion envelope", "monotonic budgets"],
+      "forbidden_substitutions": ["prompt-only delegation", "child authority greater than parent authority"],
+      "required_proof": ["durable scheduler with aggregate sibling budgets", "cancellation, recovery, and completion evidence"]
+    },
+    {
+      "id": "fleet_coordination",
+      "classification": "core",
+      "current_owner": ["cynic-node", "cynic-kernel"],
+      "runtime_status": "blocked",
+      "translated_primitives": ["registry placement", "node proof", "lease fencing"],
+      "forbidden_substitutions": ["declared node presented as live node", "single-node proof presented as fleet rollout"],
+      "required_proof": ["two-node canary with rollback", "aggregate rollout history and residual unknown budget"]
+    },
+    {
+      "id": "runtime_federation",
+      "classification": "core",
+      "current_owner": ["cynic-protocol", "cynic-node", "cynic-kernel"],
+      "runtime_status": "absent",
+      "translated_primitives": ["peer identity", "reduced delegation authority"],
+      "forbidden_substitutions": ["LAN reachability presented as federation", "shared root credential presented as peer trust"],
+      "required_proof": ["explicit cross-node transport and trust contract", "remote completion evidence bound to peer identity"]
+    },
+    {
+      "id": "operator_federation",
+      "classification": "upper_layer",
+      "current_owner": ["future operator and protocol adapters"],
+      "runtime_status": "absent",
+      "translated_primitives": ["node roles", "runtime metrics"],
+      "forbidden_substitutions": ["runtime federation presented as economic decentralization", "payment or slashing without published service proof rules"],
+      "required_proof": ["external operator admission and dispute process", "measured service, payment, and slashing receipts"]
+    },
+    {
+      "id": "generalized_ownership",
+      "classification": "core",
+      "current_owner": ["cynic-protocol", "cynic-host"],
+      "runtime_status": "partial",
+      "translated_primitives": ["Unix principal ownership", "workspace claims", "artifact authority"],
+      "forbidden_substitutions": ["filesystem owner presented as policy authority", "resource without named duties, budget, and receipts"],
+      "required_proof": ["typed owner, custodian, authority, duties, and retention", "ownership transfer and read-back evidence"]
+    },
+    {
+      "id": "decision_outcome_loop",
+      "classification": "upper_layer",
+      "current_owner": ["cynic-protocol", "cynic-kernel"],
+      "runtime_status": "partial",
+      "translated_primitives": ["outcome spec", "KPI score", "runtime observations"],
+      "forbidden_substitutions": ["activity presented as outcome", "plan or artifact existence presented as adoption or value"],
+      "required_proof": ["hypothesis, metric, deadline, execution, and observation window", "falsification and policy consequence"]
+    },
+    {
+      "id": "public_legibility",
+      "classification": "upper_layer",
+      "current_owner": ["cynic-cli", "future product projection"],
+      "runtime_status": "absent",
+      "translated_primitives": ["JSON reports", "proof refs", "explicit unknowns"],
+      "forbidden_substitutions": ["UI presented as runtime proof", "private build activity presented as public usage"],
+      "required_proof": ["inspectable claim bound to primary source", "forbidden reading and public action"]
+    }
+  ],
   "canonical_layers": [
     {
       "id": "l0_protocol",

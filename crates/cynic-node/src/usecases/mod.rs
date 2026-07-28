@@ -1,6 +1,10 @@
+pub mod agent_scheduler_step_uc;
+pub mod agent_source_change_uc;
+pub mod agent_workspace_lifecycle_uc;
 pub mod homeostasis_uc;
 pub mod mesh_sync_uc;
 pub mod network_actuation_target_uc;
 pub mod network_surfaces_uc;
 pub mod observe_node_uc;
 pub mod runtime_artifact_release_uc;
+pub mod source_repository_bootstrap_uc;

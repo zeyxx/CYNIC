@@ -1,0 +1,66 @@
+{
+  "id": "agent_workspace",
+  "layer": "l2_node_apply_boundary",
+  "owner_crate": "cynic-node",
+  "adapter_module": "usecases::{agent_source_change_uc,agent_scheduler_step_uc,agent_workspace_lifecycle_uc,source_repository_bootstrap_uc}",
+  "domain_owner": "cynic-protocol::{agent_workload,source_repository_bootstrap}",
+  "owner_modules": [
+    "source_change_transaction",
+    "ports::agent_workspace_port",
+    "ports::source_repository_bootstrap_port",
+    "adapters::local_agent_workspace_observer",
+    "adapters::local_agent_workspace_provision",
+    "adapters::local_agent_workspace_lifecycle_observer",
+    "adapters::local_agent_workspace_lifecycle_store",
+    "adapters::local_agent_workspace_collection",
+    "adapters::local_agent_scheduler_journal",
+    "adapters::local_source_repository_bootstrap",
+    "adapters::kernel_agent_workspace_claim_store"
+  ],
+  "owner_call_markers": [
+    "execute_agent_source_change_transaction",
+    "execute_agent_workspace_lifecycle",
+    "execute_agent_scheduler_step",
+    "reconcile_agent_workspace",
+    "reconcile_agent_workspace_lifecycle",
+    "reconcile_source_repository_bootstrap",
+    "reserve_agent_workspace_claim",
+    "finalize_agent_workspace_claim"
+  ],
+  "responsibility": "Observe and materialize an exact registry-declared source revision under the runtime principal, reserve durable hierarchical claims, apply one preimage-bound source change, persist append-once completion and retention evidence, reconcile terminal workspace lifecycle, and collect only an expired clean workspace under a fresh fenced claim with capacity read-back.",
+  "mutation_policy": "explicit_apply_only",
+  "canonical_entrypoints": [
+    "cynic-node source-bootstrap --json --node <node> --repository <id> --source <git-source> --revision <commit> [--registry <path>] [--state-root <path>] --apply",
+    "cynic-node agent-workspace --json --request <transaction.json> [--result-file <path>] [--registry <path>] [--state-root <path>] [--kernel-endpoint <url>] --apply",
+    "cynic-node agent-workspace-lifecycle --json --workload-id <id> --agent-id <id> [--registry <path>] [--state-root <path>] [--kernel-endpoint <url>] [--apply]"
+    ,
+    "cynic-node agent-scheduler-step --json --observation <scheduler-step.json> [--state-root <path>]"
+  ],
+  "evidence": [
+    "cynic.source_repository_bootstrap_observation.v1",
+    "cynic.source_repository_bootstrap_report.v1",
+    "cynic.agent_workspace_observation.v1",
+    "cynic.agent_workspace_reconciliation.v1",
+    "cynic.agent_workspace_apply_report.v1",
+    "cynic.agent_workspace_lifecycle_record.v1",
+    "cynic.agent_workspace_lifecycle_observation.v1",
+    "cynic.agent_workspace_lifecycle_plan.v1",
+    "cynic.node.agent_workspace_lifecycle_report.v1",
+    "cynic.agent_scheduler_step_observation.v1",
+    "cynic.agent_scheduler_step_plan.v1",
+    "cynic.agent_scheduler_journal_record.v1",
+    "cynic.node.agent_scheduler_step_report.v1",
+    "cynic.agent_source_change_transaction_result.v1"
+  ],
+  "anti_responsibilities": [
+    "create or replace the runtime state root",
+    "embed credentials in a Git source",
+    "replace an existing repository with drift",
+    "create a worktree without a durable admitted claim",
+    "mutate a human checkout",
+    "collect a dirty, shared, protected, retained, unproved, or unfenced workspace",
+    "execute renewal, cancellation, or recovery outside the node-owned scheduler",
+    "accept source content whose digest does not match the admitted change",
+    "treat command success as ownership, HEAD, source, collection, or capacity read-back proof"
+  ]
+}

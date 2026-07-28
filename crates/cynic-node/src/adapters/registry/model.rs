@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -49,8 +49,26 @@ pub(super) struct RegistryNode {
     pub(super) vms: Option<Vec<RegistryVm>>,
     pub(super) proxmox_id: Option<String>,
     pub(super) proxmox: Option<RegistryProxmox>,
+    pub(super) source_workspace_layout: Option<RegistrySourceWorkspaceLayout>,
     #[serde(default)]
     pub(super) energy_profile: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub(super) struct RegistrySourceWorkspaceLayout {
+    pub(super) repository_store: String,
+    pub(super) workspace_store: String,
+    pub(super) principal: String,
+    #[serde(default)]
+    pub(super) dedicated_worktrees: bool,
+    #[serde(default)]
+    pub(super) repositories: Vec<RegistrySourceRepository>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub(super) struct RegistrySourceRepository {
+    pub(super) id: String,
+    pub(super) relative_path: String,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

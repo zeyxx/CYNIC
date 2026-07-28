@@ -49,6 +49,7 @@ mod network_shadow_proof;
 mod network_surface_inventory;
 mod observe;
 pub mod ports;
+pub mod source_change_transaction;
 mod provider_fallback_hosts;
 mod provider_fallback_status;
 pub mod usecases;
@@ -92,6 +93,29 @@ pub fn execute_observe_command(
 
 pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
     usecases::network_surfaces_uc::execute_network_command(command)
+}
+
+pub fn execute_network_actuator_apply(
+    registry: &str,
+    profile: &str,
+    apply: bool,
+) -> ExitCode {
+    let observation = observe::observe_payload(Some(registry));
+    let report = network_actuator::apply_profile(&observation, profile, apply);
+    match serde_json::to_string_pretty(&report) {
+        Ok(payload) => {
+            println!("{payload}");
+            if report.status == "completed" {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
+        Err(error) => {
+            eprintln!("network actuator apply serialization failed: {error}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 /// Observe a libvirt-backed harness target and emit the attestation consumed by

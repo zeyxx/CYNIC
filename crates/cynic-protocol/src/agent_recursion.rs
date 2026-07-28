@@ -180,6 +180,23 @@ pub fn admit_child_delegation(
     admission(child.delegation_id.clone(), violations, missing_evidence)
 }
 
+pub fn admit_root_delegation(delegation: &AgentDelegationEnvelope) -> AgentRecursionAdmission {
+    let mut violations = validate_delegation(delegation);
+    if delegation.parent_agent_id.is_some() {
+        violations.push(violation(
+            "root_has_parent",
+            "a root delegation must not name a parent agent",
+        ));
+    }
+    if delegation.depth != 0 {
+        violations.push(violation(
+            "invalid_root_depth",
+            "a root delegation must have depth zero",
+        ));
+    }
+    admission(delegation.delegation_id.clone(), violations, Vec::new())
+}
+
 pub fn admit_completion(
     delegation: &AgentDelegationEnvelope,
     completion: &AgentCompletionEnvelope,

@@ -4,6 +4,13 @@ use crate::{
     LEASE_VERIFICATION_SCHEMA, LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot,
 };
 
+mod agent_request;
+
+pub use agent_request::{
+    BUILD_AGENT_REQUEST_ADMISSION_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA, BuildAgentRequest,
+    BuildAgentRequestAdmission, admit_build_agent_request, plan_build_agent_request,
+};
+
 pub const BUILD_INPUT_ADMISSION_SCHEMA: &str = "cynic.build.input_admission.v1";
 pub const BUILD_RUNNER_ENVELOPE_SCHEMA: &str = "cynic.build.runner_envelope.v1";
 pub const BUILD_RUNNER_ADMISSION_SCHEMA: &str = "cynic.build.runner_admission.v1";

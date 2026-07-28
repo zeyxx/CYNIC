@@ -38,7 +38,10 @@ pub(crate) fn inventory_network_surfaces(
         let destination = fields.first().copied().unwrap_or_default();
         let default_route = destination == "default";
         let route = line.trim().to_string();
-        if let Some(surface) = surfaces.iter_mut().find(|surface| surface.interface == *interface) {
+        if let Some(surface) = surfaces
+            .iter_mut()
+            .find(|surface| surface.interface == *interface)
+        {
             surface.routes.push(route);
             surface.default_route |= default_route;
         } else {
@@ -158,9 +161,11 @@ mod tests {
         assert_eq!(routes.len(), 1);
         assert_eq!(routes[0].status, "multiple_paths");
         assert_eq!(routes[0].candidates.len(), 2);
-        assert!(routes[0]
-            .preferred
-            .as_deref()
-            .is_some_and(|route| route.contains("enp42s0")));
+        assert!(
+            routes[0]
+                .preferred
+                .as_deref()
+                .is_some_and(|route| route.contains("enp42s0"))
+        );
     }
 }

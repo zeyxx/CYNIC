@@ -1,6 +1,7 @@
 //! REST API — JSON interface for external clients (React, curl, etc.)
 
 pub mod agent_tasks;
+pub mod agent_workspace;
 pub mod attention;
 pub mod auth;
 pub mod coord;
@@ -39,6 +40,11 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
 use self::attention::attention_handler;
+use self::agent_workspace::{
+    finalize_handler as workspace_finalize_handler, list_handler as workspace_list_handler,
+    release_handler as workspace_release_handler, renew_handler as workspace_renew_handler,
+    reserve_handler as workspace_reserve_handler,
+};
 use self::auth::{auth_input_handler, auth_verify_handler};
 use self::coord::{
     coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
@@ -119,10 +125,12 @@ pub fn router(state: Arc<AppState>) -> Router {
             axum::http::header::ACCEPT,
         ]);
 
-    if state.api_key.is_some() {
+    if state.role_keys.has_any_key() {
         tracing::info!("REST Bearer auth ENABLED");
     } else {
-        tracing::warn!("REST Bearer auth DISABLED via explicit CYNIC_ALLOW_OPEN_API=1");
+        tracing::warn!(
+            "REST Bearer auth has no configured keys; unsigned requests will be rejected"
+        );
     }
 
     Router::new()
@@ -171,6 +179,26 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(agent_tasks::review_agent_proposal_handler),
         )
         .route("/agent-tasks", post(agent_tasks::dispatch_task_handler))
+        .route(
+            "/agent-workspace/claims/reserve",
+            post(workspace_reserve_handler),
+        )
+        .route(
+            "/agent-workspace/claims/list",
+            post(workspace_list_handler),
+        )
+        .route(
+            "/agent-workspace/claims/renew",
+            post(workspace_renew_handler),
+        )
+        .route(
+            "/agent-workspace/claims/release",
+            post(workspace_release_handler),
+        )
+        .route(
+            "/agent-workspace/claims/finalize",
+            post(workspace_finalize_handler),
+        )
         .route("/agent-tasks", get(agent_tasks::list_tasks_handler))
         .route("/agent-tasks/watch", get(agent_tasks::watch_tasks_handler))
         .route(

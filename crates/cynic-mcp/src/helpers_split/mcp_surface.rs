@@ -35,7 +35,10 @@ fn active_mcp_exposed_tools(exposure: &serde_json::Value) -> Vec<String> {
 }
 
 fn mcp_domain_surface(exposure: &serde_json::Value) -> Vec<serde_json::Value> {
-    let Some(domains) = exposure.get("mcp_tool_domains").and_then(|value| value.as_object()) else {
+    let Some(domains) = exposure
+        .get("mcp_tool_domains")
+        .and_then(|value| value.as_object())
+    else {
         return Vec::new();
     };
 
@@ -63,8 +66,22 @@ fn mcp_surface_findings(exposure: &serde_json::Value) -> Vec<serde_json::Value> 
     let exposed_set: std::collections::BTreeSet<String> = exposed_tools.iter().cloned().collect();
     let mut domain_tools = std::collections::BTreeSet::new();
     let mut findings = Vec::new();
+    if exposure
+        .pointer("/constitutional_execution/execution_contract")
+        .and_then(|value| value.as_str())
+        != Some("cynic.agent_workload_envelope.v1")
+    {
+        findings.push(serde_json::json!({
+            "severity": "critical",
+            "kind": "agent_constitution_contract_missing",
+            "path": "infra/agent-exposure.json",
+        }));
+    }
 
-    let Some(domains) = exposure.get("mcp_tool_domains").and_then(|value| value.as_object()) else {
+    let Some(domains) = exposure
+        .get("mcp_tool_domains")
+        .and_then(|value| value.as_object())
+    else {
         findings.push(serde_json::json!({
             "severity": "critical",
             "kind": "mcp_tool_domains_missing",
@@ -109,13 +126,40 @@ fn mcp_surface_manifest(project_root: &str) -> Result<serde_json::Value, McpErro
     let exposure = load_agent_exposure(project_root)?;
     let exposed_tools = active_mcp_exposed_tools(&exposure);
     let domains = mcp_domain_surface(&exposure);
-    let findings = mcp_surface_findings(&exposure);
+    let mut findings = mcp_surface_findings(&exposure);
+    let desired_command = exposure
+        .pointer("/mcp_servers/0/command")
+        .and_then(|value| value.as_str())
+        .unwrap_or_default();
+    let observed_executable = std::env::current_exe()
+        .ok()
+        .map(|path| path.display().to_string());
+    let observed_binary = observed_executable
+        .as_deref()
+        .and_then(|path| std::path::Path::new(path).file_name())
+        .and_then(|name| name.to_str());
+    if observed_binary != Some(desired_command) {
+        findings.push(serde_json::json!({
+            "severity": "critical",
+            "kind": "runtime_binary_identity_mismatch",
+            "desired_command": desired_command,
+            "observed_executable": observed_executable.clone(),
+        }));
+    }
     let exposed_tool_count = exposed_tools.len();
-    let status = if findings.is_empty() { "ok" } else { "violation" };
+    let status = if findings.is_empty() {
+        "observed"
+    } else {
+        "violation"
+    };
     Ok(serde_json::json!({
         "schema": "cynic.mcp_surface_manifest.v1",
         "server": "cynic",
         "canonical_binary": "crates/cynic-mcp",
+        "desired_command": desired_command,
+        "observed_executable": observed_executable,
+        "session_handshake": exposure.get("session_handshake").cloned().unwrap_or(serde_json::Value::Null),
+        "constitutional_execution": exposure.get("constitutional_execution").cloned().unwrap_or(serde_json::Value::Null),
         "exposure_ssot": "infra/agent-exposure.json",
         "fallback": serde_json::Value::Null,
         "policy": {

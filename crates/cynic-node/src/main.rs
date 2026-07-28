@@ -42,12 +42,13 @@ mod network_repair;
 mod network_root_policy;
 mod network_runtime_proof;
 mod network_runtime_status;
-mod network_surface_inventory;
 mod network_shadow_proof;
+mod network_surface_inventory;
 mod observe;
 mod provider_fallback_hosts;
 mod provider_fallback_status;
 mod runtime_supervision;
+mod source_change_transaction;
 mod supervise;
 mod system_probe;
 #[allow(dead_code, unreachable_pub)]
@@ -69,8 +70,12 @@ use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
 use crate::cli::{Cli, Commands, ReleaseCommands};
+use crate::usecases::agent_scheduler_step_uc;
+use crate::usecases::agent_source_change_uc;
+use crate::usecases::agent_workspace_lifecycle_uc;
 use crate::usecases::network_surfaces_uc;
 use crate::usecases::runtime_artifact_release_uc;
+use crate::usecases::source_repository_bootstrap_uc;
 
 // ── Signal handler ────────────────────────────────────────────────────────────
 
@@ -154,6 +159,87 @@ async fn main() -> ExitCode {
                     yes,
                 ),
             };
+        }
+        Some(Commands::AgentWorkspace {
+            request,
+            result_file,
+            registry,
+            state_root,
+            kernel_endpoint,
+            max_claim_ttl_ms,
+            max_retention_ms,
+            apply,
+            json: _,
+        }) => {
+            return agent_source_change_uc::execute_agent_source_change(
+                &request,
+                result_file.as_deref(),
+                &registry,
+                &state_root,
+                &kernel_endpoint,
+                max_claim_ttl_ms,
+                max_retention_ms,
+                apply,
+            )
+            .await;
+        }
+        Some(Commands::AgentWorkspaceLifecycle {
+            workload_id,
+            registry,
+            state_root,
+            kernel_endpoint,
+            agent_id,
+            renewal_window_ms,
+            renewal_ttl_ms,
+            apply,
+            json: _,
+        }) => {
+            return agent_workspace_lifecycle_uc::execute_agent_workspace_lifecycle(
+                &workload_id,
+                &registry,
+                &state_root,
+                &kernel_endpoint,
+                &agent_id,
+                renewal_window_ms,
+                renewal_ttl_ms,
+                apply,
+            )
+            .await;
+        }
+        Some(Commands::AgentSchedulerStep {
+            observation,
+            state_root,
+            json: _,
+        }) => {
+            return agent_scheduler_step_uc::execute_agent_scheduler_step(
+                &observation,
+                &state_root,
+            );
+        }
+        Some(Commands::SourceBootstrap {
+            node,
+            repository,
+            source,
+            revision,
+            registry,
+            state_root,
+            agent_id,
+            kernel_endpoint,
+            apply,
+            json: _,
+        }) => {
+            return source_repository_bootstrap_uc::execute_source_repository_bootstrap(
+                &node,
+                &repository,
+                &source,
+                &revision,
+                &registry,
+                &state_root,
+                &agent_id,
+                &kernel_endpoint,
+                apply,
+            )
+            .await;
         }
         None => {}
     }

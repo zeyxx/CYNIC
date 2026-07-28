@@ -13,16 +13,98 @@
   "projection_targets": {
     "codex": ".codex/config.toml"
   },
+  "session_handshake": {
+    "schema": "cynic.agent_session_handshake.v1",
+    "required_sequence": [
+      "cynic_mcp_surface",
+      "cynic_coord_register",
+      "cynic_coord_who"
+    ],
+    "source_mutation_requires": [
+      "cynic_coord_claim",
+      "cynic_source_control"
+    ],
+    "validation_surface": "cynic_validate",
+    "validation_execution_role": "build_runner",
+    "mutation_execution_contract": "cynic.agent_workload_envelope.v1",
+    "recursive_scheduler_status": "inactive",
+    "legacy_agent_task_runtime_authority": false,
+    "mcp_unavailable_status": "blocked_disconnected",
+    "shell_build_fallback": false
+  },
+  "constitutional_execution": {
+    "schema": "cynic.agent_constitution_status.v1",
+    "owner": "crates/cynic-protocol::agent_workload",
+    "execution_contract": "cynic.agent_workload_envelope.v1",
+    "scheduler_owner": "node_local",
+    "status": "inactive",
+    "required_invariants": [
+      "admitted_delegation_and_policy",
+      "monotonic_capabilities_and_budgets",
+      "durable_idempotency",
+      "aggregate_sibling_budget_accounting",
+      "lease_fencing_and_expiry",
+      "isolated_workspace_and_hierarchical_source_zones",
+      "content_addressed_source_preconditions",
+      "durable_cancellation",
+      "recovery_after_claimant_or_node_failure",
+      "content_addressed_completion_evidence"
+    ],
+    "implemented_protocol_primitives": [
+      "workload_admission",
+      "content_addressed_bounded_argv",
+      "content_addressed_semantic_action_input",
+      "policy_action_binding",
+      "dispatch_idempotency_admission",
+      "lease_fenced_claim_and_reclaim",
+      "action_budget_consumption",
+      "cancellation_generation",
+      "completion_admission",
+      "pure_workspace_reconciliation",
+      "hierarchical_source_zone_conflict_detection",
+      "source_base_and_preimage_drift_rejection",
+      "workspace_claim_intent_admission_and_digest_binding",
+      "atomic_workspace_claim_store_port",
+      "injected_read_only_local_workspace_observer",
+      "portable_registry_workspace_layout_adapter",
+      "surreal_atomic_hierarchical_workspace_claim_store",
+      "workspace_claim_hard_expiry_and_stale_fence_rejection"
+    ],
+    "missing_runtime_capabilities": [
+      "durable_agent_workload_store",
+      "aggregate_sibling_budget_accounting",
+      "scheduler_claim_renewal",
+      "scheduler_cancellation_delivery",
+      "scheduler_crash_recovery",
+      "completion_evidence_persistence",
+      "node_workspace_observer_wiring_and_proof",
+      "workspace_claim_store_wiring_and_conformance_proof",
+      "bounded_source_change_apply_adapter",
+      "post_apply_source_read_back"
+    ],
+    "legacy_agent_task": {
+      "runtime_authority": false,
+      "classification": "coordination_message_queue_only",
+      "observed_gaps": [
+        "stringly_typed_state",
+        "no_idempotency_key",
+        "no_delegation_or_policy_binding",
+        "no_budget_accounting",
+        "no_claim_expiry_or_fencing",
+        "no_cancellation",
+        "completion_evidence_not_persisted_with_task",
+        "rest_completion_claims_as_constant_principal"
+      ]
+    },
+    "activation_gate": "all missing_runtime_capabilities must have node-owned durable read-back proof before status may become active"
+  },
   "mcp_servers": [
     {
       "name": "cynic",
-      "command": "target/debug/cynic-mcp",
+      "command": "cynic-mcp",
       "args": [],
-      "env": {
-        "CYNIC_ALLOW_LOCAL_KERNEL": "1"
-      },
       "owned_by": "crates/cynic-mcp",
-      "status": "active_baseline",
+      "status": "desired_unproven",
       "tools": [
         { "name": "cynic_mcp_surface", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_api_contracts", "tier": "baseline_runtime", "mutation": "read_only" },
@@ -62,12 +144,12 @@
         { "name": "cynic_claim_agent_task", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_update_agent_task_result", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_lifecycle_status", "tier": "baseline_runtime", "mutation": "read_only" },
-        { "name": "cynic_lifecycle_dispatch", "tier": "baseline_runtime", "mutation": "privileged_mutation" },
+        { "name": "cynic_lifecycle_dispatch", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_lifecycle_payloads", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "identity_attest", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "identity_smoke_check", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_auth", "tier": "operator_local", "mutation": "local_mutation" },
-        { "name": "cynic_validate", "tier": "operator_local", "mutation": "local_mutation" },
+        { "name": "cynic_validate", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_git", "tier": "operator_local", "mutation": "read_only" },
         { "name": "cynic_source_control", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_operator_transport_status", "tier": "operator_local", "mutation": "read_only" },
@@ -203,10 +285,9 @@
       "fallback_tools": []
     },
     "operator_local": {
-      "description": "Local operator helpers (validate/git/docker/transport evidence). Not organism runtime authority.",
+      "description": "Local operator helpers (git/docker/transport evidence). Not organism runtime authority.",
       "tier": "operator_local",
       "tools": [
-        "cynic_validate",
         "cynic_git",
         "cynic_operator_transport_status",
         "cynic_transport_security_audit",
@@ -218,7 +299,15 @@
         "docker_container_logs",
         "docker_container_inspect"
       ],
-      "fallback_tools": ["make check"]
+      "fallback_tools": []
+    },
+    "build_dispatch": {
+      "description": "Agent validation requests are planned for build_runner, but dispatch remains blocked until the node-owned scheduler persists and enforces the constitutional workload contract.",
+      "status": "blocked_scheduler_unavailable",
+      "required_contract": "cynic.agent_workload_envelope.v1",
+      "tier": "baseline_runtime",
+      "tools": ["cynic_validate"],
+      "fallback_tools": []
     },
     "infra_registry": {
       "description": "Registry read/validate and provision projection.",

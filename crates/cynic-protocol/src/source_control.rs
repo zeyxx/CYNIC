@@ -126,7 +126,12 @@ pub fn admit_source_change(proposal: &SourceChangeProposal) -> SourceChangeAdmis
     }
     SourceChangeAdmission {
         schema: "cynic.source.change_admission.v1".to_string(),
-        status: if blockers.is_empty() { "admitted" } else { "blocked" }.to_string(),
+        status: if blockers.is_empty() {
+            "admitted"
+        } else {
+            "blocked"
+        }
+        .to_string(),
         proposal_id: proposal.proposal_id.clone(),
         blockers,
         evidence_refs: proposal.evidence_refs.clone(),
@@ -298,11 +303,18 @@ mod tests {
         };
         let report = admit_source_change(&proposal);
         assert_eq!(report.status, "blocked");
-        assert!(report.blockers.iter().any(|v| v == "sensitive_path_not_versioned:.env"));
-        assert!(report
-            .blockers
-            .iter()
-            .any(|v| v == "generated_artifact_requires_release_store"));
+        assert!(
+            report
+                .blockers
+                .iter()
+                .any(|v| v == "sensitive_path_not_versioned:.env")
+        );
+        assert!(
+            report
+                .blockers
+                .iter()
+                .any(|v| v == "generated_artifact_requires_release_store")
+        );
     }
 
     #[test]

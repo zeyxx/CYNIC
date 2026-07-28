@@ -17,7 +17,8 @@
       "artifact": "cynic-kernel",
       "owns": [
         "coordination",
-        "agent tasks",
+        "legacy agent coordination messages (not mutation execution authority)",
+        "durable constitutional workload journal once implemented",
         "observations",
         "health",
         "runtime read-back"
@@ -39,12 +40,14 @@
       "artifact": "cynic-node",
       "owns": [
         "node-local supervision",
+        "node-local constitutional agent scheduler once activation gates are proved",
         "runtime probes",
         "network and DNS status",
         "node proof emission"
       ],
       "must_consume": [
-        "crates/cynic-host"
+        "crates/cynic-host",
+        "crates/cynic-protocol::agent_workload"
       ]
     },
     "operator_cli": {
@@ -61,7 +64,8 @@
       "artifact": "cynic-mcp",
       "owns": [
         "agent-facing MCP tools",
-        "portable tool projection"
+        "portable tool projection",
+        "planning and projection only; never agent mutation policy or execution authority"
       ]
     },
     "protocol_contracts": {
@@ -69,7 +73,8 @@
       "artifact": null,
       "owns": [
         "shared no-I/O protocol types",
-        "payload helpers"
+        "payload helpers",
+        "agent workload admission and pure lifecycle transitions"
       ]
     },
     "runtime_basket": {

@@ -94,8 +94,8 @@ pub fn write_framework_bootstrap_bundle_for_role(
             seed_id: String::new(),
             seed_manifest: "seed-manifest.json".to_string(),
             entrypoint: "install.sh".to_string(),
-            operator_command: "provide the role-projected artifacts and runtime registry",
-            maintenance_command: "",
+            operator_command: "provide the role-projected artifacts and runtime registry".to_string(),
+            maintenance_command: String::new(),
             target_runtime: "fresh_linux_node",
             security_invariants: Vec::new(),
         });

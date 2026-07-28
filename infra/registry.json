@@ -153,6 +153,18 @@
       "network": {
         "synapse": "10.10.10.119"
       },
+      "source_workspace_layout": {
+        "repository_store": "source/repositories",
+        "workspace_store": "source/workspaces",
+        "principal": "cynic",
+        "dedicated_worktrees": true,
+        "repositories": [
+          {
+            "id": "cynic",
+            "relative_path": "CYNIC"
+          }
+        ]
+      },
       "services": []
     },
     {

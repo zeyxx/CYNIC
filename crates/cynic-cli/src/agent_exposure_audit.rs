@@ -3,8 +3,8 @@ use std::path::Path;
 
 use crate::agent_exposure_audit::checks::{
     check_agent_env_paths, check_codex_projection, check_docs_quarantine,
-    check_kernel_domains_quarantine, check_no_machine_local_paths, check_repo_access_profile,
-    finding, repo_root,
+    check_kernel_domains_quarantine, check_mcp_command_projection, check_no_machine_local_paths,
+    check_repo_access_profile, check_session_handshake, finding, repo_root,
 };
 use crate::agent_exposure_audit::json_scan::{count_tiers, domain_tools, exposed_tools, load_json};
 use crate::agent_exposure_audit::source_scan::scan_mcp_tool_names;
@@ -58,6 +58,14 @@ pub(crate) fn audit_agent_exposure() -> AgentExposureAuditReport {
 
     check_no_machine_local_paths(&exposure_path, &exposure.to_string(), &mut findings);
     check_codex_projection(&root, CODEX_CONFIG_REL, &mut findings);
+    check_mcp_command_projection(
+        &root,
+        CODEX_CONFIG_REL,
+        &exposure,
+        EXPOSURE_REL,
+        &mut findings,
+    );
+    check_session_handshake(&exposure, EXPOSURE_REL, &mut findings);
     check_repo_access_profile(&root, REPO_ACCESS_REL, &mut findings);
     check_docs_quarantine(&root, DOCS_README_REL, &mut findings);
     check_kernel_domains_quarantine(&root, KERNEL_DOMAINS_README_REL, &mut findings);

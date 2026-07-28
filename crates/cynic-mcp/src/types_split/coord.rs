@@ -52,6 +52,12 @@ pub struct AuthParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ValidateParams {
     pub agent_id: Option<String>,
+    pub source_commit: String,
+    pub request_id: Option<String>,
+    #[serde(default)]
+    pub dispatch: bool,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

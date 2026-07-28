@@ -30,6 +30,10 @@
       "path": "fragments/agent_development.json"
     },
     {
+      "id": "agent_workspace",
+      "path": "fragments/agent_workspace.json"
+    },
+    {
       "id": "ecosystem_deps",
       "path": "fragments/ecosystem_deps.json"
     },

@@ -11,6 +11,7 @@ pub mod node_observation;
 pub mod observation_plan;
 pub mod observation_runtime;
 pub mod runtime_federation;
+pub mod source_repository_proof;
 pub mod supervision;
 pub mod system_observation;
 pub mod version;

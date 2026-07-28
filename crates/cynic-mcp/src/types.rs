@@ -430,12 +430,9 @@ mod tests {
     }
 
     #[test]
-    fn poison_validate_params_accepts_empty() {
+    fn poison_validate_params_requires_source_commit() {
         let r = serde_json::from_value::<ValidateParams>(serde_json::json!({}));
-        assert!(
-            r.is_ok(),
-            "ValidateParams (all optional) should accept {{}}"
-        );
+        assert!(r.is_err(), "ValidateParams must bind a sovereign source commit");
     }
 
     // -- validate_agent_id logic --

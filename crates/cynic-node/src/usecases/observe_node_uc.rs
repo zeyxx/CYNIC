@@ -110,7 +110,14 @@ impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
     ) -> crate::adapters::host_observation::CommandObservation {
         command_json(
             &self.network_manager_bin,
-            &["-t", "-f", "NAME,UUID,TYPE,DEVICE", "connection", "show", "--active"],
+            &[
+                "-t",
+                "-f",
+                "NAME,UUID,TYPE,DEVICE",
+                "connection",
+                "show",
+                "--active",
+            ],
         )
     }
 
@@ -118,9 +125,7 @@ impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
         command_json(&self.ip_bin, &["rule"])
     }
 
-    fn observe_network_namespaces(
-        &self,
-    ) -> crate::adapters::host_observation::CommandObservation {
+    fn observe_network_namespaces(&self) -> crate::adapters::host_observation::CommandObservation {
         command_json(&self.ip_bin, &["netns", "list"])
     }
 

@@ -80,6 +80,107 @@ pub(crate) fn check_codex_projection(
     }
 }
 
+pub(crate) fn check_mcp_command_projection(
+    root: &Path,
+    codex_config_rel: &str,
+    exposure: &Value,
+    exposure_rel: &str,
+    findings: &mut Vec<AgentExposureFinding>,
+) {
+    let command = exposure
+        .pointer("/mcp_servers/0/command")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if command.is_empty() {
+        findings.push(finding(
+            "critical",
+            "mcp_command_missing",
+            exposure_rel,
+            "CYNIC MCP desired command is missing",
+            None,
+        ));
+        return;
+    }
+    if command.contains('/') || command.starts_with('.') {
+        findings.push(finding(
+            "critical",
+            "mcp_command_not_path_agnostic",
+            exposure_rel,
+            "CYNIC MCP must resolve an installed runtime-basket binary from PATH",
+            Some(command.to_string()),
+        ));
+    }
+    let config = fs::read_to_string(root.join(codex_config_rel)).unwrap_or_default();
+    let expected = format!("command = \"{command}\"");
+    if !config.lines().any(|line| line.trim() == expected) {
+        findings.push(finding(
+            "critical",
+            "codex_mcp_command_drift",
+            codex_config_rel,
+            "Codex projection does not use the command declared by agent exposure",
+            Some(command.to_string()),
+        ));
+    }
+}
+
+pub(crate) fn check_session_handshake(
+    exposure: &Value,
+    exposure_rel: &str,
+    findings: &mut Vec<AgentExposureFinding>,
+) {
+    let handshake = exposure.get("session_handshake");
+    let required_sequence = handshake
+        .and_then(|value| value.get("required_sequence"))
+        .and_then(Value::as_array);
+    let validation_role = handshake
+        .and_then(|value| value.get("validation_execution_role"))
+        .and_then(Value::as_str);
+    let shell_fallback = handshake
+        .and_then(|value| value.get("shell_build_fallback"))
+        .and_then(Value::as_bool);
+    let workload_contract = handshake
+        .and_then(|value| value.get("mutation_execution_contract"))
+        .and_then(Value::as_str);
+    let scheduler_status = handshake
+        .and_then(|value| value.get("recursive_scheduler_status"))
+        .and_then(Value::as_str);
+    let legacy_task_authority = handshake
+        .and_then(|value| value.get("legacy_agent_task_runtime_authority"))
+        .and_then(Value::as_bool);
+    let constitution = exposure.get("constitutional_execution");
+    let constitution_contract = constitution
+        .and_then(|value| value.get("execution_contract"))
+        .and_then(Value::as_str);
+    let constitution_status = constitution
+        .and_then(|value| value.get("status"))
+        .and_then(Value::as_str);
+    let legacy_queue_authority = constitution
+        .and_then(|value| value.pointer("/legacy_agent_task/runtime_authority"))
+        .and_then(Value::as_bool);
+    let missing_runtime_capabilities = constitution
+        .and_then(|value| value.get("missing_runtime_capabilities"))
+        .and_then(Value::as_array);
+    if required_sequence.is_none_or(|items| items.is_empty())
+        || validation_role != Some("build_runner")
+        || shell_fallback != Some(false)
+        || workload_contract != Some("cynic.agent_workload_envelope.v1")
+        || scheduler_status != Some("inactive")
+        || legacy_task_authority != Some(false)
+        || constitution_contract != Some("cynic.agent_workload_envelope.v1")
+        || constitution_status != Some("inactive")
+        || legacy_queue_authority != Some(false)
+        || missing_runtime_capabilities.is_none_or(|items| items.is_empty())
+    {
+        findings.push(finding(
+            "critical",
+            "agent_session_handshake_incomplete",
+            exposure_rel,
+            "agent handshake must declare startup tools, build_runner planning, the inactive constitutional scheduler, and forbid legacy queue or shell execution authority",
+            None,
+        ));
+    }
+}
+
 pub(crate) fn check_agent_env_paths(
     exposure: &Value,
     exposure_rel: &str,

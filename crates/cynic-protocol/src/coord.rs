@@ -64,3 +64,7 @@ pub fn coord_release_path() -> &'static str {
 pub fn coord_verify_path() -> &'static str {
     "/coord/verify"
 }
+
+pub fn coord_finalize_path() -> &'static str {
+    "/coord/finalize"
+}

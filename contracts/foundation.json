@@ -76,8 +76,8 @@
       "source": "infra/agent-exposure.json",
       "audit": "cynic dev agent-exposure --json (also folded into cynic dev surface-audit --json)",
       "docs_quarantine": "docs/README.md",
-      "validate_gate": "MCP tool cynic_validate runs `make check` only — no parallel fmt/build/clippy/test stack",
-      "policy": "Expose every currently implemented Rust MCP tool with domain and tier labels. Keep projections portable (no committed machine-local absolute paths). Legacy Python proxies are not valid exposure. docs/ prose is historical and not runtime authority. Agent validation must share the same gate as operators (`make check`)."
+      "validate_gate": "MCP tool cynic_validate plans the canonical `make check` workload for build_runner and never compiles in the agent worktree; execution remains blocked until the node-owned scheduler enforces cynic.agent_workload_envelope.v1",
+      "policy": "Expose every currently implemented Rust MCP tool with domain and tier labels. Keep projections portable (no committed machine-local absolute paths). Legacy Python proxies and the legacy AgentTask queue are not mutation execution authority. docs/ prose is historical and not runtime authority. Agent and operator validation share `make check`, but only an admitted build runner may execute it."
     },
 
 
@@ -106,7 +106,7 @@
         "node runtime emits host/service proof",
         "kernel stores observations and task read-back",
         "MCP exposes read-only runtime status to agents",
-        "node-owned recursive agent schedulers admit cynic.agent_delegation_envelope.v1 without authority or budget amplification and persist cynic.agent_completion_envelope.v1"
+        "node-owned recursive agent schedulers persist and enforce cynic.agent_workload_envelope.v1, including admitted delegation and policy, idempotency, aggregate budgets, cancellation, lease fencing, recovery, and completion evidence"
       ]
     }
   }

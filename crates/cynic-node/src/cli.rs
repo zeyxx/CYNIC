@@ -53,6 +53,103 @@ pub(crate) enum Commands {
         #[command(subcommand)]
         command: ReleaseCommands,
     },
+    /// Plan or apply one lease-fenced source change in a sovereign agent worktree.
+    AgentWorkspace {
+        /// Path to a JSON cynic.agent_source_change_transaction_request file.
+        #[arg(long)]
+        request: String,
+        /// Result content for create/replace. Omit for delete.
+        #[arg(long)]
+        result_file: Option<String>,
+        /// Runtime registry containing the node-local portable workspace layout.
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+        /// Injected node-local CYNIC state root.
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        /// Kernel REST authority used for claims; Bearer comes from CYNIC_KERNEL_API_KEY.
+        #[arg(long, default_value = "http://127.0.0.1:3030")]
+        kernel_endpoint: String,
+        /// Node policy upper bound for one workspace claim.
+        #[arg(long, default_value_t = 3_600_000)]
+        max_claim_ttl_ms: u64,
+        /// Node policy upper bound for completed workspace retention.
+        #[arg(long, default_value_t = 604_800_000)]
+        max_retention_ms: u64,
+        /// Required mutation consent.
+        #[arg(long)]
+        apply: bool,
+        /// Emit machine-readable JSON. This command always emits JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Observe, plan, or collect one completed sovereign agent workspace.
+    AgentWorkspaceLifecycle {
+        /// Workload whose append-once completion lifecycle record is consumed.
+        #[arg(long)]
+        workload_id: String,
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        #[arg(long, default_value = "http://127.0.0.1:3030")]
+        kernel_endpoint: String,
+        /// Agent identity authorized to observe repository claims.
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value_t = 300_000)]
+        renewal_window_ms: u64,
+        #[arg(long, default_value_t = 3_600_000)]
+        renewal_ttl_ms: u64,
+        /// Execute only an already-admitted Collect plan.
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Reconcile and durably journal one scheduler step without executing it.
+    AgentSchedulerStep {
+        /// cynic.agent_scheduler_step_observation.v1 JSON input.
+        #[arg(long)]
+        observation: String,
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Observe, plan or materialize one registry-declared source repository.
+    SourceBootstrap {
+        /// Registry node that owns the source workspace layout.
+        #[arg(long)]
+        node: String,
+        /// Repository identifier declared in the node source workspace layout.
+        #[arg(long)]
+        repository: String,
+        /// Explicit Git source without embedded credentials.
+        #[arg(long)]
+        source: String,
+        /// Exact commit to check out and read back.
+        #[arg(long)]
+        revision: String,
+        /// Runtime registry containing the portable source workspace layout.
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+        /// Existing principal-owned CYNIC state root.
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        /// Agent principal bound to the kernel Bearer token.
+        #[arg(long)]
+        agent_id: String,
+        /// Kernel REST authority for lease verification and proof commit.
+        #[arg(long, default_value = "http://127.0.0.1:3030")]
+        kernel_endpoint: String,
+        /// Required mutation consent.
+        #[arg(long)]
+        apply: bool,
+        /// Emit machine-readable JSON. This command always emits JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
