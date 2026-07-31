@@ -63,8 +63,8 @@ fn render_framework_ambition_ledger(spec: &cynic_protocol::FrameworkSpec) -> Str
             markdown_cell(ambition.id),
             markdown_cell(&classification),
             markdown_cell(&status),
-            markdown_cell(ambition.current_owner),
-            markdown_cell(ambition.required_proof),
+            markdown_list_cell(&ambition.current_owner),
+            markdown_list_cell(&ambition.required_proof),
         ));
     }
 
@@ -80,6 +80,23 @@ fn serialized_label<T: serde::Serialize>(value: &T) -> String {
 
 fn markdown_cell(value: &str) -> String {
     value.replace('|', "\\|").replace('\n', "<br>")
+}
+
+fn markdown_list_cell(values: &[&str]) -> String {
+    markdown_cell(&values.join("<br>"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::markdown_list_cell;
+
+    #[test]
+    fn markdown_list_cell_preserves_all_items_and_escapes_tables() {
+        assert_eq!(
+            markdown_list_cell(&["owner|one", "owner two"]),
+            "owner\\|one<br>owner two"
+        );
+    }
 }
 
 fn available_evidence() -> Vec<&'static str> {
