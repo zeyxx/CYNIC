@@ -81,6 +81,7 @@ fn lifecycle_payload_domain(payloads: &[serde_json::Value], fallback_profile: &s
         .to_string()
 }
 
+#[cfg(test)]
 fn lifecycle_payload_body_with_defaults(payload: &serde_json::Value) -> serde_json::Value {
     let mut body = payload.clone();
     if let Some(object) = body.as_object_mut() {
@@ -97,6 +98,7 @@ fn lifecycle_payload_body_with_defaults(payload: &serde_json::Value) -> serde_js
     body
 }
 
+#[cfg(test)]
 fn lifecycle_payload_intent(payload_body: &serde_json::Value) -> Option<serde_json::Value> {
     payload_body
         .get("content")
