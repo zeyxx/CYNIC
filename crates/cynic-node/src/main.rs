@@ -75,7 +75,10 @@ use crate::usecases::agent_source_change_uc;
 use crate::usecases::agent_workspace_lifecycle_uc;
 use crate::usecases::network_surfaces_uc;
 use crate::usecases::runtime_artifact_release_uc;
+use crate::usecases::source_admission_uc;
+use crate::usecases::source_materialization_uc;
 use crate::usecases::source_repository_bootstrap_uc;
+use crate::usecases::storage_lifecycle_uc;
 
 // ── Signal handler ────────────────────────────────────────────────────────────
 
@@ -214,6 +217,48 @@ async fn main() -> ExitCode {
             return agent_scheduler_step_uc::execute_agent_scheduler_step(
                 &observation,
                 &state_root,
+            );
+        }
+        Some(Commands::StorageReconcile {
+            state_dir,
+            warmup_seconds,
+            restart_window_seconds,
+            max_restarts_per_window,
+            apply,
+            json: _,
+        }) => {
+            return storage_lifecycle_uc::execute_storage_reconcile(
+                &state_dir,
+                warmup_seconds,
+                restart_window_seconds,
+                max_restarts_per_window,
+                apply,
+            )
+            .await;
+        }
+        Some(Commands::SourceAdmissionPlan {
+            request,
+            observation,
+            json: _,
+        }) => {
+            return source_admission_uc::execute_source_admission_plan(&request, &observation);
+        }
+        Some(Commands::SourceMaterialize {
+            request,
+            state_root,
+            snapshot_root,
+            snapshot_base_url,
+            node_id,
+            apply,
+            json: _,
+        }) => {
+            return source_materialization_uc::execute_source_materialization(
+                &request,
+                &state_root,
+                &snapshot_root,
+                snapshot_base_url.as_deref(),
+                &node_id,
+                apply,
             );
         }
         Some(Commands::SourceBootstrap {

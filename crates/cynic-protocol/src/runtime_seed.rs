@@ -1,0 +1,359 @@
+use serde::{Deserialize, Serialize};
+
+use crate::SecurityEvidenceState;
+
+pub const RUNTIME_SEED_REQUEST_SCHEMA: &str = "cynic.runtime_seed.request.v1";
+pub const RUNTIME_SEED_OBSERVATION_SCHEMA: &str = "cynic.runtime_seed.observation.v1";
+pub const RUNTIME_SEED_PLAN_SCHEMA: &str = "cynic.runtime_seed.plan.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeSeedRequest {
+    pub schema: String,
+    pub node_id: String,
+    pub release_id: String,
+    pub release_epoch: u64,
+    pub basket_digest: String,
+    pub basket_path: String,
+    pub detached_signature_path: String,
+    pub allowed_signers_path: String,
+    pub signer_identity: String,
+    pub signature_namespace: String,
+    pub required_seed_contract_revision: u64,
+    pub install_root: String,
+    pub staged_slot: String,
+    pub current_link: String,
+    pub previous_link: String,
+    pub postflight_argv: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeSeedObservation {
+    pub schema: String,
+    pub observed_at_unix_ms: u64,
+    pub node_id: String,
+    pub seed_contract_revision: Option<u64>,
+    pub trust_root: SecurityEvidenceState,
+    pub signature: SecurityEvidenceState,
+    pub basket_present: bool,
+    pub basket_digest_read_back: Option<String>,
+    pub current_release_id: Option<String>,
+    pub current_release_epoch: Option<u64>,
+    pub current_basket_digest: Option<String>,
+    pub previous_release_id: Option<String>,
+    pub slot_layout: SecurityEvidenceState,
+    pub postflight: SecurityEvidenceState,
+    pub evidence_refs: Vec<String>,
+    pub unknowns: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeSeedAction {
+    StageBasket,
+    VerifySignatureAndDigest,
+    ActivateStagedSlot,
+    RunPostflight,
+    CommitPreviousPointer,
+    RollbackToPrevious,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeSeedPlan {
+    pub schema: String,
+    pub status: String,
+    pub node_id: String,
+    pub release_id: String,
+    pub release_epoch: u64,
+    pub actions: Vec<RuntimeSeedAction>,
+    pub blockers: Vec<String>,
+    pub unknowns: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub rollback_intent: String,
+}
+
+pub fn reconcile_runtime_seed(
+    request: &RuntimeSeedRequest,
+    observation: &RuntimeSeedObservation,
+) -> RuntimeSeedPlan {
+    let mut blockers = Vec::new();
+    let mut unknowns = observation.unknowns.clone();
+    if request.schema != RUNTIME_SEED_REQUEST_SCHEMA {
+        blockers.push("runtime_seed_request_schema_mismatch".to_string());
+    }
+    if observation.schema != RUNTIME_SEED_OBSERVATION_SCHEMA {
+        unknowns.push("runtime_seed_observation_schema_mismatch".to_string());
+    }
+    if request.node_id.is_empty() || request.node_id != observation.node_id {
+        blockers.push("runtime_seed_node_identity_mismatch".to_string());
+    }
+    if request.release_id.is_empty() || request.release_epoch == 0 {
+        blockers.push("runtime_seed_release_identity_invalid".to_string());
+    }
+    if !valid_sha256(&request.basket_digest) {
+        blockers.push("runtime_seed_basket_digest_invalid".to_string());
+    }
+    if request.signature_namespace != "cynic-runtime-seed" {
+        blockers.push("runtime_seed_signature_namespace_mismatch".to_string());
+    }
+    if request.basket_path.is_empty()
+        || request.detached_signature_path.is_empty()
+        || request.allowed_signers_path.is_empty()
+        || request.signer_identity.is_empty()
+        || request.install_root.is_empty()
+    {
+        blockers.push("runtime_seed_verification_input_missing".to_string());
+    }
+    if [
+        &request.basket_path,
+        &request.detached_signature_path,
+        &request.allowed_signers_path,
+        &request.install_root,
+    ]
+    .iter()
+    .any(|path| !std::path::Path::new(path).is_absolute())
+    {
+        blockers.push("runtime_seed_operational_path_must_be_absolute".to_string());
+    }
+    if request.required_seed_contract_revision == 0 {
+        blockers.push("runtime_seed_contract_revision_invalid".to_string());
+    }
+    match observation.seed_contract_revision {
+        Some(revision) if revision < request.required_seed_contract_revision => {
+            blockers.push("runtime_seed_contract_too_old".to_string());
+        }
+        None => unknowns.push("runtime_seed_contract_unobserved".to_string()),
+        _ => {}
+    }
+    if observation.trust_root == SecurityEvidenceState::Absent {
+        blockers.push("runtime_seed_trust_root_absent".to_string());
+    } else if observation.trust_root == SecurityEvidenceState::Unknown {
+        unknowns.push("runtime_seed_trust_root_unproved".to_string());
+    }
+    if observation.slot_layout == SecurityEvidenceState::Absent {
+        blockers.push("runtime_seed_slot_layout_unsafe".to_string());
+    } else if observation.slot_layout == SecurityEvidenceState::Unknown {
+        unknowns.push("runtime_seed_slot_layout_unproved".to_string());
+    }
+    if request.staged_slot == request.current_link
+        || request.staged_slot == request.previous_link
+        || request.current_link == request.previous_link
+    {
+        blockers.push("runtime_seed_slots_not_distinct".to_string());
+    }
+    if !safe_relative_path(&request.staged_slot)
+        || !safe_relative_path(&request.current_link)
+        || !safe_relative_path(&request.previous_link)
+    {
+        blockers.push("runtime_seed_slot_path_unsafe".to_string());
+    }
+    if std::path::Path::new(&request.current_link)
+        .components()
+        .count()
+        != 1
+        || std::path::Path::new(&request.previous_link)
+            .components()
+            .count()
+            != 1
+    {
+        blockers.push("runtime_seed_activation_link_must_be_root_relative".to_string());
+    }
+    if std::path::Path::new(&request.staged_slot)
+        .components()
+        .next()
+        != Some(std::path::Component::Normal(std::ffi::OsStr::new(
+            "releases",
+        )))
+    {
+        blockers.push("runtime_seed_staged_slot_outside_release_namespace".to_string());
+    }
+    if request.postflight_argv.is_empty()
+        || request
+            .postflight_argv
+            .iter()
+            .any(|argument| argument.trim().is_empty())
+    {
+        blockers.push("runtime_seed_postflight_argv_invalid".to_string());
+    }
+    if request
+        .postflight_argv
+        .first()
+        .is_some_and(|command| matches!(command.as_str(), "sh" | "bash" | "dash" | "zsh"))
+        || request
+            .postflight_argv
+            .iter()
+            .any(|argument| argument == "-c" || argument == "--command")
+    {
+        blockers.push("runtime_seed_postflight_shell_forbidden".to_string());
+    }
+    if observation
+        .current_release_epoch
+        .is_some_and(|epoch| request.release_epoch < epoch)
+    {
+        blockers.push("runtime_seed_epoch_rollback_forbidden".to_string());
+    }
+    if observation.basket_present {
+        if observation.basket_digest_read_back.as_deref() != Some(&request.basket_digest) {
+            blockers.push("runtime_seed_basket_digest_mismatch".to_string());
+        }
+        if observation.signature == SecurityEvidenceState::Absent {
+            blockers.push("runtime_seed_signature_invalid".to_string());
+        } else if observation.signature == SecurityEvidenceState::Unknown {
+            unknowns.push("runtime_seed_signature_unproved".to_string());
+        }
+    }
+
+    unknowns.sort();
+    unknowns.dedup();
+    let converged = observation.current_release_id.as_deref() == Some(&request.release_id)
+        && observation.current_release_epoch == Some(request.release_epoch)
+        && observation.current_basket_digest.as_deref() == Some(&request.basket_digest)
+        && observation.postflight == SecurityEvidenceState::Proven;
+    let actions = if !blockers.is_empty() || !unknowns.is_empty() || converged {
+        Vec::new()
+    } else if observation.basket_present {
+        vec![
+            RuntimeSeedAction::VerifySignatureAndDigest,
+            RuntimeSeedAction::ActivateStagedSlot,
+            RuntimeSeedAction::RunPostflight,
+            RuntimeSeedAction::CommitPreviousPointer,
+        ]
+    } else {
+        vec![
+            RuntimeSeedAction::StageBasket,
+            RuntimeSeedAction::VerifySignatureAndDigest,
+            RuntimeSeedAction::ActivateStagedSlot,
+            RuntimeSeedAction::RunPostflight,
+            RuntimeSeedAction::CommitPreviousPointer,
+        ]
+    };
+    let status = if !blockers.is_empty() {
+        "blocked"
+    } else if !unknowns.is_empty() {
+        "unknown"
+    } else if converged {
+        "converged"
+    } else {
+        "planned"
+    };
+
+    RuntimeSeedPlan {
+        schema: RUNTIME_SEED_PLAN_SCHEMA.to_string(),
+        status: status.to_string(),
+        node_id: request.node_id.clone(),
+        release_id: request.release_id.clone(),
+        release_epoch: request.release_epoch,
+        actions,
+        blockers,
+        unknowns,
+        evidence_refs: observation.evidence_refs.clone(),
+        rollback_intent:
+            "restore previous_link atomically when activation or postflight read-back fails"
+                .to_string(),
+    }
+}
+
+fn valid_sha256(value: &str) -> bool {
+    value.strip_prefix("sha256:").is_some_and(|digest| {
+        digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+    })
+}
+
+fn safe_relative_path(value: &str) -> bool {
+    !value.is_empty()
+        && std::path::Path::new(value)
+            .components()
+            .all(|component| matches!(component, std::path::Component::Normal(_)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn request() -> RuntimeSeedRequest {
+        RuntimeSeedRequest {
+            schema: RUNTIME_SEED_REQUEST_SCHEMA.to_string(),
+            node_id: "cynic-builder".to_string(),
+            release_id: "release-2".to_string(),
+            release_epoch: 2,
+            basket_digest: format!("sha256:{}", "a".repeat(64)),
+            basket_path: "/var/lib/cynic/incoming/release-2.tar".to_string(),
+            detached_signature_path: "/var/lib/cynic/incoming/release-2.tar.sig".to_string(),
+            allowed_signers_path: "/etc/cynic/runtime-seed-allowed-signers".to_string(),
+            signer_identity: "cynic-runtime-release".to_string(),
+            signature_namespace: "cynic-runtime-seed".to_string(),
+            required_seed_contract_revision: 1,
+            install_root: "/opt/cynic/runtime".to_string(),
+            staged_slot: "releases/release-2".to_string(),
+            current_link: "current".to_string(),
+            previous_link: "previous".to_string(),
+            postflight_argv: vec![
+                "current/bin/cynic-mcp".to_string(),
+                "--contract-json".to_string(),
+            ],
+        }
+    }
+
+    fn observation() -> RuntimeSeedObservation {
+        RuntimeSeedObservation {
+            schema: RUNTIME_SEED_OBSERVATION_SCHEMA.to_string(),
+            observed_at_unix_ms: 1,
+            node_id: "cynic-builder".to_string(),
+            seed_contract_revision: Some(1),
+            trust_root: SecurityEvidenceState::Proven,
+            signature: SecurityEvidenceState::Proven,
+            basket_present: true,
+            basket_digest_read_back: Some(format!("sha256:{}", "a".repeat(64))),
+            current_release_id: Some("release-1".to_string()),
+            current_release_epoch: Some(1),
+            current_basket_digest: Some(format!("sha256:{}", "b".repeat(64))),
+            previous_release_id: None,
+            slot_layout: SecurityEvidenceState::Proven,
+            postflight: SecurityEvidenceState::Unknown,
+            evidence_refs: vec!["seed:/usr/local/libexec/cynic-host-exec".to_string()],
+            unknowns: vec![],
+        }
+    }
+
+    #[test]
+    fn plans_atomic_activation_after_signature_and_digest_proof() {
+        let plan = reconcile_runtime_seed(&request(), &observation());
+
+        assert_eq!(plan.status, "planned");
+        assert_eq!(
+            plan.actions,
+            vec![
+                RuntimeSeedAction::VerifySignatureAndDigest,
+                RuntimeSeedAction::ActivateStagedSlot,
+                RuntimeSeedAction::RunPostflight,
+                RuntimeSeedAction::CommitPreviousPointer,
+            ]
+        );
+    }
+
+    #[test]
+    fn forbids_epoch_rollback_even_with_a_valid_signature() {
+        let mut desired = request();
+        desired.release_epoch = 1;
+        let mut observed = observation();
+        observed.current_release_epoch = Some(2);
+
+        let plan = reconcile_runtime_seed(&desired, &observed);
+
+        assert_eq!(plan.status, "blocked");
+        assert!(
+            plan.blockers
+                .contains(&"runtime_seed_epoch_rollback_forbidden".to_string())
+        );
+    }
+
+    #[test]
+    fn unknown_trust_root_never_produces_actions() {
+        let mut observed = observation();
+        observed.trust_root = SecurityEvidenceState::Unknown;
+
+        let plan = reconcile_runtime_seed(&request(), &observed);
+
+        assert_eq!(plan.status, "unknown");
+        assert!(plan.actions.is_empty());
+    }
+}

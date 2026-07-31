@@ -22,7 +22,11 @@ pub mod policy;
 pub mod pre_os;
 pub mod provider;
 pub mod runtime;
+pub mod runtime_compatibility;
+pub mod runtime_seed;
 pub mod source_control;
+pub mod source_materialization;
+pub mod source_release;
 pub mod source_repository_bootstrap;
 pub mod supervision;
 pub mod surface_registry;
@@ -170,11 +174,31 @@ pub use runtime::{
     runtime_initial_observed_gates, runtime_missing_gates, runtime_proof_persistence_record,
     runtime_shared_responsibility,
 };
+pub use runtime_compatibility::{
+    RUNTIME_COMPATIBILITY_PLAN_SCHEMA, RuntimeCompatibilityPlan, RuntimeCompatibilityStatus,
+    RuntimeContractObservation, RuntimeContractRequirement, reconcile_runtime_compatibility,
+};
+pub use runtime_seed::{
+    RUNTIME_SEED_OBSERVATION_SCHEMA, RUNTIME_SEED_PLAN_SCHEMA, RUNTIME_SEED_REQUEST_SCHEMA,
+    RuntimeSeedAction, RuntimeSeedObservation, RuntimeSeedPlan, RuntimeSeedRequest,
+    reconcile_runtime_seed,
+};
 pub use source_control::SourceAdmissionReport;
 pub use source_control::{
     SOURCE_ADMISSION_REPORT_SCHEMA, SOURCE_CHANGE_PROPOSAL_SCHEMA, SourceChangeAdmission,
     SourceChangeProposal, SourceMatterClass, SourcePromotionStage, SourceSnapshot,
     admit_source_change, admit_source_stage, source_worktree_lease_target,
+};
+pub use source_materialization::{
+    SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA,
+    SOURCE_MATERIALIZATION_PLAN_SCHEMA, SOURCE_MATERIALIZATION_REQUEST_SCHEMA,
+    SourceMaterializationAction, SourceMaterializationObservation, SourceMaterializationPlan,
+    SourceMaterializationRequest, plan_source_materialization,
+};
+pub use source_release::{
+    SOURCE_RELEASE_OBSERVATION_SCHEMA, SOURCE_RELEASE_PLAN_SCHEMA, SOURCE_RELEASE_REQUEST_SCHEMA,
+    SourceReleaseAction, SourceReleaseObservation, SourceReleasePlan, SourceReleaseRequest,
+    plan_source_release,
 };
 pub use source_repository_bootstrap::{
     SOURCE_REPOSITORY_BOOTSTRAP_OBSERVATION_SCHEMA, SOURCE_REPOSITORY_BOOTSTRAP_REPORT_SCHEMA,

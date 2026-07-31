@@ -124,7 +124,17 @@ fn mcp_surface_findings(exposure: &serde_json::Value) -> Vec<serde_json::Value> 
 
 fn mcp_surface_manifest(project_root: &str) -> Result<serde_json::Value, McpError> {
     let exposure = load_agent_exposure(project_root)?;
+    let compiled_exposure: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../infra/agent-exposure.json"
+    ))
+    .map_err(|error| {
+        McpError::internal_error(
+            format!("cannot parse compiled agent exposure contract: {error}"),
+            None,
+        )
+    })?;
     let exposed_tools = active_mcp_exposed_tools(&exposure);
+    let compiled_capabilities = active_mcp_exposed_tools(&compiled_exposure);
     let domains = mcp_domain_surface(&exposure);
     let mut findings = mcp_surface_findings(&exposure);
     let desired_command = exposure
@@ -146,6 +156,57 @@ fn mcp_surface_manifest(project_root: &str) -> Result<serde_json::Value, McpErro
             "observed_executable": observed_executable.clone(),
         }));
     }
+    let handshake = exposure
+        .get("session_handshake")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let requirement = cynic_protocol::RuntimeContractRequirement {
+        contract_id: handshake
+            .get("contract_id")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default()
+            .to_string(),
+        contract_revision: handshake
+            .get("contract_revision")
+            .and_then(|value| value.as_u64())
+            .unwrap_or_default(),
+        required_capabilities: handshake
+            .get("required_capabilities")
+            .and_then(|value| value.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|value| value.as_str())
+            .map(ToString::to_string)
+            .collect(),
+    };
+    let compiled_handshake = compiled_exposure
+        .get("session_handshake")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let compatibility = cynic_protocol::reconcile_runtime_compatibility(
+        &requirement,
+        &cynic_protocol::RuntimeContractObservation {
+            component: "cynic-mcp".to_string(),
+            artifact_version: Some(env!("CYNIC_VERSION").to_string()),
+            contract_id: compiled_handshake
+                .get("contract_id")
+                .and_then(|value| value.as_str())
+                .map(ToString::to_string),
+            contract_revision: compiled_handshake
+                .get("contract_revision")
+                .and_then(|value| value.as_u64()),
+            capabilities: Some(compiled_capabilities),
+            evidence_refs: vec![format!("artifact:cynic-mcp:{}", env!("CYNIC_VERSION"))],
+            unknowns: Vec::new(),
+        },
+    );
+    if compatibility.status != cynic_protocol::RuntimeCompatibilityStatus::Compatible {
+        findings.push(serde_json::json!({
+            "severity": "critical",
+            "kind": "runtime_contract_incompatible",
+            "compatibility": compatibility,
+        }));
+    }
     let exposed_tool_count = exposed_tools.len();
     let status = if findings.is_empty() {
         "observed"
@@ -158,7 +219,8 @@ fn mcp_surface_manifest(project_root: &str) -> Result<serde_json::Value, McpErro
         "canonical_binary": "crates/cynic-mcp",
         "desired_command": desired_command,
         "observed_executable": observed_executable,
-        "session_handshake": exposure.get("session_handshake").cloned().unwrap_or(serde_json::Value::Null),
+        "session_handshake": handshake,
+        "runtime_compatibility": compatibility,
         "constitutional_execution": exposure.get("constitutional_execution").cloned().unwrap_or(serde_json::Value::Null),
         "exposure_ssot": "infra/agent-exposure.json",
         "fallback": serde_json::Value::Null,

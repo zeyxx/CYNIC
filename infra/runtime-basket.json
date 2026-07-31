@@ -2,6 +2,22 @@
   "schema": "cynic.runtime_basket.v1",
   "status": "normative",
   "purpose": "Canonical versioned artifact basket projected into role-specific runtime bundles.",
+  "runtime_seed": {
+    "id": "cynic-host-exec",
+    "crate": "cynic-host",
+    "binary": "cynic-host-exec",
+    "install_path": "/usr/local/libexec/cynic-host-exec",
+    "contract_revision": 1,
+    "signature_namespace": "cynic-runtime-seed",
+    "lifecycle": "installed once through HumanAdmin bootstrap and rotated only through a separately signed seed-rotation ceremony",
+    "runtime_basket_member": false,
+    "owns": [
+      "runtime basket signature and digest verification",
+      "release epoch anti-rollback",
+      "two-slot atomic activation",
+      "postflight-triggered rollback"
+    ]
+  },
   "artifacts": [
     {
       "id": "cynic",
@@ -30,13 +46,6 @@
       "binary": "cynic-mcp",
       "install_path": "/usr/local/bin/cynic-mcp",
       "roles": ["cortex_host", "operator"]
-    },
-    {
-      "id": "cynic-host-exec",
-      "crate": "cynic-host",
-      "binary": "cynic-host-exec",
-      "install_path": "/usr/local/libexec/cynic-host-exec",
-      "roles": ["cortex_host", "hypervisor", "kernel_primary"]
     }
   ],
   "bundle_rules": {
@@ -44,6 +53,8 @@
     "unknown_role": "blocked",
     "missing_required_artifact": "blocked",
     "activation": "versioned_install_then_atomic_current_switch",
+    "activation_authority": "runtime_seed",
+    "release_epoch": "strictly monotonic",
     "proofs": [
       "runtime_basket_manifest_verified",
       "runtime_artifact_hashes_verified",

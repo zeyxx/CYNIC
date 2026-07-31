@@ -7,4 +7,7 @@ pub mod network_actuation_target_uc;
 pub mod network_surfaces_uc;
 pub mod observe_node_uc;
 pub mod runtime_artifact_release_uc;
+pub mod source_admission_uc;
+pub mod source_materialization_uc;
 pub mod source_repository_bootstrap_uc;
+pub mod storage_lifecycle_uc;

@@ -35,6 +35,17 @@
         "dns": [
           "forgejo.synapse.cynic"
         ]
+      },
+      {
+        "name": "cynic-lxc-surrealdb",
+        "addresses": {
+          "synapse": "10.10.10.103"
+        },
+        "dns": [
+          "cynic-lxc-surrealdb.synapse.cynic",
+          "cynic-storage-primary.synapse.cynic",
+          "organ-surrealdb.synapse.cynic"
+        ]
       }
     ]
   },
@@ -118,16 +129,43 @@
             "kind": "process",
             "process": "cynic-node"
           }
-        },
+        }
+      ]
+    },
+    {
+      "id": "cynic-lxc-surrealdb",
+      "name": "cynic-lxc-surrealdb",
+      "aliases": [
+        "cynic-storage-primary",
+        "organ-surrealdb"
+      ],
+      "role": "storage_primary",
+      "host_family": "linux.debian.systemd",
+      "status": "candidate",
+      "deploy_target": true,
+      "proxmox_id": "lxc/103",
+      "transports": {
+        "ssh": {
+          "target": "cynic-storage-primary.synapse.cynic",
+          "trust": "known_hosts"
+        }
+      },
+      "network": {
+        "synapse": "10.10.10.103"
+      },
+      "services": [
         {
           "name": "surrealdb",
-          "unit": "surrealdb.service",
+          "artifact": "surreal",
+          "scheme": "http",
           "port": 8000,
+          "unit": "surrealdb.service",
           "supervisor": {
-            "provider": "process-port"
+            "provider": "systemd"
           },
           "health": {
-            "kind": "tcp",
+            "kind": "http",
+            "path": "/health",
             "port": 8000
           }
         }
@@ -215,6 +253,13 @@
         "provider": "proxmox",
         "resource_id": "lxc/101",
         "role": "forge_primary",
+        "desired_power": "running"
+      },
+      {
+        "id": "storage-primary",
+        "provider": "proxmox",
+        "resource_id": "lxc/103",
+        "role": "storage_primary",
         "desired_power": "running"
       }
     ]

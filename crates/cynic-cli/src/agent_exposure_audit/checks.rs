@@ -132,6 +132,21 @@ pub(crate) fn check_session_handshake(
     let required_sequence = handshake
         .and_then(|value| value.get("required_sequence"))
         .and_then(Value::as_array);
+    let contract_id = handshake
+        .and_then(|value| value.get("contract_id"))
+        .and_then(Value::as_str);
+    let contract_revision = handshake
+        .and_then(|value| value.get("contract_revision"))
+        .and_then(Value::as_u64);
+    let required_capabilities = handshake
+        .and_then(|value| value.get("required_capabilities"))
+        .and_then(Value::as_array);
+    let incompatible_status = handshake
+        .and_then(|value| value.get("incompatible_status"))
+        .and_then(Value::as_str);
+    let unknown_status = handshake
+        .and_then(|value| value.get("unknown_status"))
+        .and_then(Value::as_str);
     let validation_role = handshake
         .and_then(|value| value.get("validation_execution_role"))
         .and_then(Value::as_str);
@@ -160,7 +175,12 @@ pub(crate) fn check_session_handshake(
     let missing_runtime_capabilities = constitution
         .and_then(|value| value.get("missing_runtime_capabilities"))
         .and_then(Value::as_array);
-    if required_sequence.is_none_or(|items| items.is_empty())
+    if contract_id != Some("cynic.agent_mcp")
+        || contract_revision.is_none_or(|revision| revision == 0)
+        || required_capabilities.is_none_or(|items| items.is_empty())
+        || incompatible_status != Some("blocked_incompatible")
+        || unknown_status != Some("blocked_unknown_compatibility")
+        || required_sequence.is_none_or(|items| items.is_empty())
         || validation_role != Some("build_runner")
         || shell_fallback != Some(false)
         || workload_contract != Some("cynic.agent_workload_envelope.v1")
@@ -175,7 +195,7 @@ pub(crate) fn check_session_handshake(
             "critical",
             "agent_session_handshake_incomplete",
             exposure_rel,
-            "agent handshake must declare startup tools, build_runner planning, the inactive constitutional scheduler, and forbid legacy queue or shell execution authority",
+            "agent handshake must declare a capability-based compatibility contract, startup tools, build_runner planning, the inactive constitutional scheduler, and forbid legacy queue or shell execution authority",
             None,
         ));
     }

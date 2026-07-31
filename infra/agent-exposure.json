@@ -15,6 +15,19 @@
   },
   "session_handshake": {
     "schema": "cynic.agent_session_handshake.v1",
+    "contract_id": "cynic.agent_mcp",
+    "contract_revision": 2,
+    "required_capabilities": [
+      "cynic_mcp_surface",
+      "cynic_coord_register",
+      "cynic_coord_who",
+      "cynic_coord_claim",
+      "cynic_source_control",
+      "cynic_validate"
+    ],
+    "compatibility_policy": "contract revision is a minimum floor and every required capability must be observed from the running artifact; artifact version alone never proves compatibility",
+    "incompatible_status": "blocked_incompatible",
+    "unknown_status": "blocked_unknown_compatibility",
     "required_sequence": [
       "cynic_mcp_surface",
       "cynic_coord_register",
@@ -356,7 +369,10 @@
         "storage_primary_readiness",
         "storage_primary_status"
       ],
-      "fallback_tools": ["cynic runtime storage-capabilities --json"]
+      "fallback_tools": [
+        "cynic runtime storage-capabilities --json",
+        "cynic-node storage-reconcile --json [--apply]"
+      ]
     }
   },
   "exposed_domains": [

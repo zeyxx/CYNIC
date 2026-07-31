@@ -1,10 +1,11 @@
 [Unit]
-Description=SurrealDB watchdog timer — probe every 60s
+Description=Trigger CYNIC node-local storage reconciliation
 
 [Timer]
-OnBootSec=30
+OnBootSec=120
 OnUnitActiveSec=60
 AccuracySec=5
+Persistent=true
 
 [Install]
 WantedBy=timers.target

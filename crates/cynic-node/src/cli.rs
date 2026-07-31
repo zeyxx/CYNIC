@@ -117,6 +117,55 @@ pub(crate) enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Observe or reconcile one node-local storage service with a bounded restart budget.
+    StorageReconcile {
+        #[arg(long, default_value = "/var/lib/cynic/storage-lifecycle")]
+        state_dir: String,
+        #[arg(long, default_value_t = 30)]
+        warmup_seconds: u64,
+        #[arg(long, default_value_t = 300)]
+        restart_window_seconds: u64,
+        #[arg(long, default_value_t = 1)]
+        max_restarts_per_window: u32,
+        /// Required consent for a bounded service restart.
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Compose a non-mutating source-to-build-runner admission plan.
+    SourceAdmissionPlan {
+        /// cynic.source.release_request.v1 JSON.
+        #[arg(long)]
+        request: String,
+        /// cynic.source.release_observation.v1 JSON.
+        #[arg(long)]
+        observation: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Plan or apply one digest-addressed source materialization on a build runner.
+    SourceMaterialize {
+        /// cynic.source.materialization_request.v1 JSON.
+        #[arg(long)]
+        request: String,
+        /// Existing principal-owned node state root.
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        /// Node-local content-addressed snapshot store.
+        #[arg(long, default_value = "/var/lib/cynic/source/snapshots")]
+        snapshot_root: String,
+        /// Optional HTTPS base URL for digest-derived `.bundle` acquisition.
+        #[arg(long)]
+        snapshot_base_url: Option<String>,
+        /// Registry-observed identity expected from hostname read-back.
+        #[arg(long)]
+        node_id: String,
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        json: bool,
+    },
     /// Observe, plan or materialize one registry-declared source repository.
     SourceBootstrap {
         /// Registry node that owns the source workspace layout.

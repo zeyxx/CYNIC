@@ -1,16 +1,16 @@
 [Unit]
-Description=SurrealDB watchdog — restart on /health timeout
+Description=CYNIC node-local storage reconciliation
 After=surrealdb.service
-Requires=surrealdb.service
 
 [Service]
 Type=oneshot
-# Probe /health with 10s timeout. If it fails, restart the canonical storage unit.
-ExecStart=/bin/sh -c '\
-  if ! timeout 10 curl -sf http://127.0.0.1:8000/health >/dev/null 2>&1; then \
-    echo "SurrealDB health check FAILED — restarting"; \
-    systemctl restart surrealdb; \
-  fi'
+ExecStart=/usr/local/bin/cynic-node storage-reconcile --state-dir /var/lib/cynic/storage-lifecycle --warmup-seconds 30 --restart-window-seconds 300 --max-restarts-per-window 1 --apply --json
+TimeoutStartSec=90
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/cynic/storage-lifecycle
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=surreal-watchdog

@@ -36,6 +36,7 @@ pub mod registry;
 pub mod registry_observation;
 pub mod repo_access;
 pub mod runtime_authority;
+pub mod runtime_seed;
 pub mod runtime_context;
 pub mod runtime_execution_context;
 pub mod runtime_harness;

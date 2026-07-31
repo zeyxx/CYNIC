@@ -78,6 +78,10 @@
       "path": "fragments/runtime_execution_context.json"
     },
     {
+      "id": "runtime_seed",
+      "path": "fragments/runtime_seed.json"
+    },
+    {
       "id": "runtime_execution_suite",
       "path": "fragments/runtime_execution_suite.json"
     },
@@ -100,6 +104,14 @@
     {
       "id": "runtime_report",
       "path": "fragments/runtime_report.json"
+    },
+    {
+      "id": "source_admission",
+      "path": "fragments/source_admission.json"
+    },
+    {
+      "id": "storage_lifecycle",
+      "path": "fragments/storage_lifecycle.json"
     },
     {
       "id": "runtime_resolver_plan",

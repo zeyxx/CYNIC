@@ -25,7 +25,16 @@ pub fn write_framework_bootstrap_bundle(
 
 #[derive(Deserialize)]
 struct RuntimeBasket {
+    runtime_seed: RuntimeSeed,
     artifacts: Vec<RuntimeArtifact>,
+}
+
+#[derive(Deserialize)]
+struct RuntimeSeed {
+    binary: String,
+    contract_revision: u64,
+    signature_namespace: String,
+    runtime_basket_member: bool,
 }
 
 #[derive(Deserialize)]
@@ -44,6 +53,7 @@ pub fn write_framework_bootstrap_bundle_for_role(
     let basket: RuntimeBasket =
         serde_json::from_str(include_str!("../../../../infra/runtime-basket.json"))
             .map_err(|error| format!("failed to parse runtime basket: {error}"))?;
+    validate_runtime_seed_boundary(&basket)?;
     let required = if role == "unassigned" {
         Vec::new()
     } else {
@@ -94,7 +104,8 @@ pub fn write_framework_bootstrap_bundle_for_role(
             seed_id: String::new(),
             seed_manifest: "seed-manifest.json".to_string(),
             entrypoint: "install.sh".to_string(),
-            operator_command: "provide the role-projected artifacts and runtime registry".to_string(),
+            operator_command: "provide the role-projected artifacts and runtime registry"
+                .to_string(),
             maintenance_command: String::new(),
             target_runtime: "fresh_linux_node",
             security_invariants: Vec::new(),
@@ -211,6 +222,24 @@ pub fn write_framework_bootstrap_bundle_for_role(
             "install verifies every seed artifact checksum before host mutation",
         ],
     })
+}
+
+fn validate_runtime_seed_boundary(basket: &RuntimeBasket) -> Result<(), String> {
+    if basket.runtime_seed.binary != "cynic-host-exec"
+        || basket.runtime_seed.contract_revision == 0
+        || basket.runtime_seed.signature_namespace != "cynic-runtime-seed"
+        || basket.runtime_seed.runtime_basket_member
+        || basket
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.binary == basket.runtime_seed.binary)
+    {
+        return Err(
+            "runtime seed must be independently governed and excluded from mutable baskets"
+                .to_string(),
+        );
+    }
+    Ok(())
 }
 
 #[cfg(test)]

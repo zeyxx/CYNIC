@@ -8,6 +8,7 @@ mod io;
 mod network_actuate;
 mod network_baseline;
 mod profile_selection;
+mod runtime_seed;
 mod service_reconcile;
 mod validation;
 
@@ -45,6 +46,8 @@ pub fn execute(args: Vec<String>) -> Result<ExitCode, String> {
         "bootstrap-chain" => bootstrap::execute_bootstrap_chain(&args[1..]),
         "bootstrap-evidence" => bootstrap::execute_bootstrap_evidence(&args[1..]),
         "principal-prepare" => bootstrap::execute_principal_prepare(&args[1..]),
+        "runtime-seed-plan" => runtime_seed::execute_plan(&args[1..]),
+        "runtime-seed-reconcile" => runtime_seed::execute_reconcile(&args[1..]),
         "hardware-baseline-enroll" => hardware_baseline::execute(&args[1..]),
         "service-reconcile" => service_reconcile::execute(&args[1..]),
         "network-baseline" => network_baseline::execute_network_baseline(&args[1..]),

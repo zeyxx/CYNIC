@@ -24,6 +24,15 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 #[allow(clippy::print_stderr)]
 // WHY: MCP binary must write to stderr for --version/--help; stdout is the JSON-RPC channel.
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    if std::env::args().any(|a| a == "--contract-json") {
+        let report = runtime_contract_report()?;
+        println!("{}", serde_json::to_string(&report)?);
+        if report.status != cynic_protocol::RuntimeCompatibilityStatus::Compatible {
+            std::process::exit(3);
+        }
+        return Ok(());
+    }
+
     if std::env::args().any(|a| a == "--version") {
         eprintln!("cynic-mcp {}", env!("CYNIC_VERSION"));
         return Ok(());
@@ -33,6 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("cynic-mcp — MCP-to-REST proxy for CYNIC kernel");
         eprintln!();
         eprintln!("USAGE: cynic-mcp");
+        eprintln!("       cynic-mcp --contract-json");
         eprintln!();
         eprintln!("ENVIRONMENT:");
         eprintln!("  CYNIC_REST_ADDR   Explicit kernel origin, verified before MCP startup");
@@ -103,6 +113,75 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+fn runtime_contract_report() -> Result<cynic_protocol::RuntimeCompatibilityPlan, String> {
+    let compiled: serde_json::Value =
+        serde_json::from_str(include_str!("../../../infra/agent-exposure.json"))
+            .map_err(|error| format!("compiled MCP contract is invalid: {error}"))?;
+    let project_root = project_root::resolve_mcp_project_root();
+    let desired_bytes = std::fs::read(project_root.join("infra/agent-exposure.json"))
+        .map_err(|error| format!("desired MCP contract is unobservable: {error}"))?;
+    let desired: serde_json::Value = serde_json::from_slice(&desired_bytes)
+        .map_err(|error| format!("desired MCP contract is invalid: {error}"))?;
+    let desired_handshake = desired
+        .get("session_handshake")
+        .ok_or_else(|| "desired MCP handshake is absent".to_string())?;
+    let compiled_handshake = compiled
+        .get("session_handshake")
+        .ok_or_else(|| "compiled MCP handshake is absent".to_string())?;
+    let requirement = cynic_protocol::RuntimeContractRequirement {
+        contract_id: desired_handshake
+            .get("contract_id")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default()
+            .to_string(),
+        contract_revision: desired_handshake
+            .get("contract_revision")
+            .and_then(|value| value.as_u64())
+            .unwrap_or_default(),
+        required_capabilities: desired_handshake
+            .get("required_capabilities")
+            .and_then(|value| value.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|value| value.as_str())
+            .map(ToString::to_string)
+            .collect(),
+    };
+    Ok(cynic_protocol::reconcile_runtime_compatibility(
+        &requirement,
+        &cynic_protocol::RuntimeContractObservation {
+            component: "cynic-mcp".to_string(),
+            artifact_version: Some(env!("CYNIC_VERSION").to_string()),
+            contract_id: compiled_handshake
+                .get("contract_id")
+                .and_then(|value| value.as_str())
+                .map(ToString::to_string),
+            contract_revision: compiled_handshake
+                .get("contract_revision")
+                .and_then(|value| value.as_u64()),
+            capabilities: Some(active_mcp_tools(&compiled)),
+            evidence_refs: vec![format!("artifact:cynic-mcp:{}", env!("CYNIC_VERSION"))],
+            unknowns: Vec::new(),
+        },
+    ))
+}
+
+fn active_mcp_tools(exposure: &serde_json::Value) -> Vec<String> {
+    exposure
+        .get("mcp_servers")
+        .and_then(|value| value.as_array())
+        .into_iter()
+        .flatten()
+        .find(|server| server.get("name").and_then(|value| value.as_str()) == Some("cynic"))
+        .and_then(|server| server.get("tools"))
+        .and_then(|value| value.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|tool| tool.get("name").and_then(|value| value.as_str()))
+        .map(ToString::to_string)
+        .collect()
 }
 
 async fn resolve_rest_addr() -> Result<ResolvedKernelEndpoint, Box<dyn std::error::Error>> {

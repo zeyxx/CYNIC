@@ -690,6 +690,49 @@
       "responsibility": "Project bounded execution membranes, principal constraints, and target-scope runtime context before mutating work."
     },
     {
+      "adapter_module": "cynic-host::host_exec_cli::runtime_seed",
+      "anti_responsibilities": [
+        "include the runtime seed in the mutable runtime basket",
+        "use MCP availability as upgrade authority",
+        "activate an unsigned or digest-mismatched basket",
+        "permit release epoch rollback",
+        "claim convergence before postflight read-back"
+      ],
+      "canonical_entrypoints": [
+        "cynic-host-exec runtime-seed-plan --request <request.json> --observation <observation.json>",
+        "cynic-host-exec runtime-seed-reconcile --request <request.json> [--apply]"
+      ],
+      "domain_owner": "cynic-protocol::runtime_seed",
+      "evidence": [
+        "cynic.runtime_seed.request.v1",
+        "cynic.runtime_seed.observation.v1",
+        "cynic.runtime_seed.plan.v1",
+        "cynic.host.runtime_seed.apply_report.v1"
+      ],
+      "id": "runtime_seed",
+      "layer": "l1_host_apply_boundary",
+      "mutation_policy": "explicit_apply_only_after_signature_digest_epoch_node_and_slot_preflight",
+      "owner_call_markers": [
+        "reconcile_runtime_seed",
+        "RuntimeSeedSignatureVerifier",
+        "RuntimeSeedActivationPort",
+        "apply_runtime_seed",
+        "persist_runtime_seed_evidence",
+        "execute_plan",
+        "validate_runtime_seed_boundary"
+      ],
+      "owner_crate": "cynic-host",
+      "owner_modules": [
+        "cynic-protocol::runtime_seed",
+        "cynic-host::runtime_seed::signature",
+        "cynic-host::runtime_seed::filesystem",
+        "cynic-host::runtime_seed",
+        "cynic-host::host_exec_cli::runtime_seed",
+        "cynic-host::framework_bootstrap::bundle"
+      ],
+      "responsibility": "Keep a separately governed bootstrap root capable of admitting signed content-addressed runtime baskets through monotonic epochs, two-slot activation, postflight read-back, and rollback without depending on the MCP version being replaced."
+    },
+    {
       "adapter_module": "runtime_surface::suite",
       "anti_responsibilities": [
         "execute host mutation",
@@ -880,6 +923,86 @@
         "runtime_surface::report::types"
       ],
       "responsibility": "Aggregate runtime phases, evidence commands, inference SSOT state, and sovereign git readiness into a machine-readable runtime index."
+    },
+    {
+      "adapter_module": "cynic-node::usecases::source_admission_uc",
+      "anti_responsibilities": [
+        "copy source through scp",
+        "create a checkout directly over ssh",
+        "issue a grant before checkout digest read-back",
+        "treat a local commit as sovereign remote proof",
+        "retain snapshots without an explicit expiry"
+      ],
+      "canonical_entrypoints": [
+        "cynic-node source-admission-plan --json --request <release-request.json> --observation <release-observation.json>",
+        "cynic-node source-materialize --json --request <materialization-request.json> --node-id <node> [--state-root <path>] [--snapshot-root <path>] [--snapshot-base-url <https-base>] [--apply]"
+      ],
+      "domain_owner": "cynic-protocol::{source_control,source_release,source_materialization}",
+      "evidence": [
+        "cynic.source.release_request.v1",
+        "cynic.source.release_observation.v1",
+        "cynic.source.release_plan.v1",
+        "cynic.source.materialization_request.v1",
+        "cynic.source.materialization_observation.v1",
+        "cynic.source.materialization_plan.v1"
+      ],
+      "id": "source_admission",
+      "layer": "l2_node_apply_boundary",
+      "mutation_policy": "plan_only_no_transfer_no_checkout_no_grant_emission",
+      "owner_call_markers": [
+        "plan_source_release",
+        "plan_source_materialization",
+        "execute_source_materialization",
+        "execute_source_admission_plan"
+      ],
+      "owner_crate": "cynic-protocol",
+      "owner_modules": [
+        "cynic-protocol::source_control",
+        "cynic-protocol::source_release",
+        "cynic-protocol::source_materialization",
+        "cynic-node::ports::source_materialization_port",
+        "cynic-node::adapters::source_snapshot_store",
+        "cynic-node::adapters::source_materialization_marker",
+        "cynic-node::adapters::local_source_snapshot_acquisition",
+        "cynic-node::adapters::https_source_snapshot_acquisition",
+        "cynic-node::adapters::local_source_materialization",
+        "cynic-node::usecases::source_materialization_uc",
+        "cynic-node::usecases::source_admission_uc"
+      ],
+      "responsibility": "Admit a sovereign source commit, then plan digest-addressed acquisition, isolated materialization, commit read-back, digest read-back, retention, and build-runner handoff through injected ports."
+    },
+    {
+      "adapter_module": "adapters::local_storage_lifecycle",
+      "anti_responsibilities": [
+        "restart a service from a shell health probe",
+        "treat an open port as database readiness",
+        "restart when the durable budget is missing or invalid",
+        "perform more than one mutation without a new observation",
+        "claim convergence without post-restart read-back"
+      ],
+      "canonical_entrypoints": [
+        "cynic-node storage-reconcile --json [--state-dir <path>] [--apply]"
+      ],
+      "domain_owner": "domain::storage_lifecycle",
+      "evidence": [
+        "cynic.storage_reconcile_report.v1",
+        "cynic.storage_restart_budget.v1"
+      ],
+      "id": "storage_lifecycle",
+      "layer": "l2_node_apply_boundary",
+      "mutation_policy": "read_only_by_default_explicit_apply_bounded_restart",
+      "owner_call_markers": [
+        "reconcile_storage",
+        "execute_storage_reconcile"
+      ],
+      "owner_crate": "cynic-node",
+      "owner_modules": [
+        "domain::storage_lifecycle",
+        "ports::storage_lifecycle_port",
+        "adapters::local_storage_lifecycle",
+        "usecases::storage_lifecycle_uc"
+      ],
+      "responsibility": "Observe one node-local storage service, select a pure next action, enforce a durable restart budget, execute at most one explicit restart, and retain post-action health read-back."
     },
     {
       "adapter_module": "runtime_surface::resolver_plan",

@@ -1,0 +1,43 @@
+{
+  "id": "runtime_seed",
+  "layer": "l1_host_apply_boundary",
+  "owner_crate": "cynic-host",
+  "adapter_module": "cynic-host::host_exec_cli::runtime_seed",
+  "domain_owner": "cynic-protocol::runtime_seed",
+  "owner_modules": [
+    "cynic-protocol::runtime_seed",
+    "cynic-host::runtime_seed::signature",
+    "cynic-host::runtime_seed::filesystem",
+    "cynic-host::runtime_seed",
+    "cynic-host::host_exec_cli::runtime_seed",
+    "cynic-host::framework_bootstrap::bundle"
+  ],
+  "owner_call_markers": [
+    "reconcile_runtime_seed",
+    "RuntimeSeedSignatureVerifier",
+    "RuntimeSeedActivationPort",
+    "apply_runtime_seed",
+    "persist_runtime_seed_evidence",
+    "execute_plan",
+    "validate_runtime_seed_boundary"
+  ],
+  "responsibility": "Keep a separately governed bootstrap root capable of admitting signed content-addressed runtime baskets through monotonic epochs, two-slot activation, postflight read-back, and rollback without depending on the MCP version being replaced.",
+  "mutation_policy": "explicit_apply_only_after_signature_digest_epoch_node_and_slot_preflight",
+  "canonical_entrypoints": [
+    "cynic-host-exec runtime-seed-plan --request <request.json> --observation <observation.json>",
+    "cynic-host-exec runtime-seed-reconcile --request <request.json> [--apply]"
+  ],
+  "evidence": [
+    "cynic.runtime_seed.request.v1",
+    "cynic.runtime_seed.observation.v1",
+    "cynic.runtime_seed.plan.v1",
+    "cynic.host.runtime_seed.apply_report.v1"
+  ],
+  "anti_responsibilities": [
+    "include the runtime seed in the mutable runtime basket",
+    "use MCP availability as upgrade authority",
+    "activate an unsigned or digest-mismatched basket",
+    "permit release epoch rollback",
+    "claim convergence before postflight read-back"
+  ]
+}
