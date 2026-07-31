@@ -281,7 +281,7 @@
       "responsibility": "Project architecture, ownership, exposure, crate, and validation audits as machine-readable governance proof."
     },
     {
-      "adapter_module": "usecases::{agent_source_change_uc,agent_scheduler_step_uc,agent_workspace_lifecycle_uc,source_repository_bootstrap_uc}",
+      "adapter_module": "cynic-node::main",
       "anti_responsibilities": [
         "create or replace the runtime state root",
         "embed credentials in a Git source",
@@ -320,14 +320,10 @@
       "layer": "l2_node_apply_boundary",
       "mutation_policy": "explicit_apply_only",
       "owner_call_markers": [
-        "execute_agent_source_change_transaction",
+        "execute_agent_source_change",
         "execute_agent_workspace_lifecycle",
         "execute_agent_scheduler_step",
-        "reconcile_agent_workspace",
-        "reconcile_agent_workspace_lifecycle",
-        "reconcile_source_repository_bootstrap",
-        "reserve_agent_workspace_claim",
-        "finalize_agent_workspace_claim"
+        "execute_source_repository_bootstrap"
       ],
       "owner_crate": "cynic-node",
       "owner_modules": [
@@ -972,7 +968,7 @@
       "responsibility": "Admit a sovereign source commit, then plan digest-addressed acquisition, isolated materialization, commit read-back, digest read-back, retention, and build-runner handoff through injected ports."
     },
     {
-      "adapter_module": "adapters::local_storage_lifecycle",
+      "adapter_module": "cynic-node::main",
       "anti_responsibilities": [
         "restart a service from a shell health probe",
         "treat an open port as database readiness",
@@ -992,7 +988,6 @@
       "layer": "l2_node_apply_boundary",
       "mutation_policy": "read_only_by_default_explicit_apply_bounded_restart",
       "owner_call_markers": [
-        "reconcile_storage",
         "execute_storage_reconcile"
       ],
       "owner_crate": "cynic-node",

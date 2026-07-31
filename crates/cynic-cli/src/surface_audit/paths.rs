@@ -34,7 +34,18 @@ pub(crate) fn read_adapter_source(path: &Path) -> Result<String, std::io::Error>
     Ok(source)
 }
 
-pub(crate) fn adapter_module_path(adapter_module: &str) -> PathBuf {
+pub(crate) fn adapter_module_path(owner_crate: &str, adapter_module: &str) -> PathBuf {
+    if let Some((crate_name, module_name)) = adapter_module.split_once("::") {
+        if matches!(
+            crate_name,
+            "cynic-host" | "cynic-node" | "cynic-protocol" | "cynic-cli" | "cynic-inference"
+        ) {
+            return crate_module_path(crate_name, module_name);
+        }
+    }
+    if owner_crate == "cynic-cli" {
+        return crate_module_path(owner_crate, adapter_module);
+    }
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
     let parts = adapter_module.split("::").collect::<Vec<_>>();
     match parts.as_slice() {

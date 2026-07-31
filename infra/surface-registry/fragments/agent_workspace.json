@@ -2,7 +2,7 @@
   "id": "agent_workspace",
   "layer": "l2_node_apply_boundary",
   "owner_crate": "cynic-node",
-  "adapter_module": "usecases::{agent_source_change_uc,agent_scheduler_step_uc,agent_workspace_lifecycle_uc,source_repository_bootstrap_uc}",
+  "adapter_module": "cynic-node::main",
   "domain_owner": "cynic-protocol::{agent_workload,source_repository_bootstrap}",
   "owner_modules": [
     "source_change_transaction",
@@ -18,14 +18,10 @@
     "adapters::kernel_agent_workspace_claim_store"
   ],
   "owner_call_markers": [
-    "execute_agent_source_change_transaction",
+    "execute_agent_source_change",
     "execute_agent_workspace_lifecycle",
     "execute_agent_scheduler_step",
-    "reconcile_agent_workspace",
-    "reconcile_agent_workspace_lifecycle",
-    "reconcile_source_repository_bootstrap",
-    "reserve_agent_workspace_claim",
-    "finalize_agent_workspace_claim"
+    "execute_source_repository_bootstrap"
   ],
   "responsibility": "Observe and materialize an exact registry-declared source revision under the runtime principal, reserve durable hierarchical claims, apply one preimage-bound source change, persist append-once completion and retention evidence, reconcile terminal workspace lifecycle, and collect only an expired clean workspace under a fresh fenced claim with capacity read-back.",
   "mutation_policy": "explicit_apply_only",

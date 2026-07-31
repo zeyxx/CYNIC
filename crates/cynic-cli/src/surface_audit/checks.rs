@@ -20,7 +20,7 @@ pub(crate) fn audit_surface(
     surface: &CanonicalCliSurface,
     duplicate_ids: &BTreeSet<String>,
 ) -> SurfaceAuditEntry {
-    let adapter_path = adapter_module_path(&surface.adapter_module);
+    let adapter_path = adapter_module_path(&surface.owner_crate, &surface.adapter_module);
     let owner_module_paths = surface
         .owner_modules
         .iter()
@@ -110,6 +110,9 @@ fn check_known_mutation_policy(surface: &CanonicalCliSurface) -> SurfaceAuditChe
             | "read_only_temp_artifacts"
             | "artifact_generation"
             | "explicit_apply_only"
+            | "explicit_apply_only_after_signature_digest_epoch_node_and_slot_preflight"
+            | "plan_only_no_transfer_no_checkout_no_grant_emission"
+            | "read_only_by_default_explicit_apply_bounded_restart"
             | "read_only_by_default_explicit_apply_for_actuators"
     );
     SurfaceAuditCheck {
@@ -173,7 +176,7 @@ fn check_mutation_policy_matches_source(
     };
     let signals = mutation_signals(source, surface);
     let allowed = match surface.mutation_policy.as_str() {
-        "read_only" => signals
+        "read_only" | "plan_only_no_transfer_no_checkout_no_grant_emission" => signals
             .iter()
             .all(|signal| matches!(signal.as_str(), "process_execution")),
         "read_only_temp_artifacts" => signals.iter().all(|signal| {
@@ -188,7 +191,8 @@ fn check_mutation_policy_matches_source(
                 "artifact_generation" | "filesystem_temp_artifact"
             )
         }),
-        "explicit_apply_only" => {
+        "explicit_apply_only"
+        | "explicit_apply_only_after_signature_digest_epoch_node_and_slot_preflight" => {
             let has_apply_guard = source.contains("requires --apply")
                 || source.contains("--apply")
                 || surface
@@ -203,7 +207,8 @@ fn check_mutation_policy_matches_source(
                     )
                 })
         }
-        "read_only_by_default_explicit_apply_for_actuators" => {
+        "read_only_by_default_explicit_apply_for_actuators"
+        | "read_only_by_default_explicit_apply_bounded_restart" => {
             let has_apply_guard = surface
                 .canonical_entrypoints
                 .iter()

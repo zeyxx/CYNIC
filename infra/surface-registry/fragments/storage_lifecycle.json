@@ -2,7 +2,7 @@
   "id": "storage_lifecycle",
   "layer": "l2_node_apply_boundary",
   "owner_crate": "cynic-node",
-  "adapter_module": "adapters::local_storage_lifecycle",
+  "adapter_module": "cynic-node::main",
   "domain_owner": "domain::storage_lifecycle",
   "owner_modules": [
     "domain::storage_lifecycle",
@@ -11,7 +11,6 @@
     "usecases::storage_lifecycle_uc"
   ],
   "owner_call_markers": [
-    "reconcile_storage",
     "execute_storage_reconcile"
   ],
   "responsibility": "Observe one node-local storage service, select a pure next action, enforce a durable restart budget, execute at most one explicit restart, and retain post-action health read-back.",
