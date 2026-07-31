@@ -16,10 +16,7 @@
     "reconcile_runtime_seed",
     "RuntimeSeedSignatureVerifier",
     "RuntimeSeedActivationPort",
-    "apply_runtime_seed",
-    "persist_runtime_seed_evidence",
-    "execute_plan",
-    "validate_runtime_seed_boundary"
+    "execute_plan"
   ],
   "responsibility": "Keep a separately governed bootstrap root capable of admitting signed content-addressed runtime baskets through monotonic epochs, two-slot activation, postflight read-back, and rollback without depending on the MCP version being replaced.",
   "mutation_policy": "explicit_apply_only_after_signature_digest_epoch_node_and_slot_preflight",

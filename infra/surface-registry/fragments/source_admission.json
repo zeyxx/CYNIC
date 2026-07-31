@@ -2,7 +2,7 @@
   "id": "source_admission",
   "layer": "l2_node_apply_boundary",
   "owner_crate": "cynic-protocol",
-  "adapter_module": "cynic-node::usecases::source_admission_uc",
+  "adapter_module": "cynic-node::main",
   "domain_owner": "cynic-protocol::{source_control,source_release,source_materialization}",
   "owner_modules": [
     "cynic-protocol::source_control",
@@ -18,10 +18,8 @@
     "cynic-node::usecases::source_admission_uc"
   ],
   "owner_call_markers": [
-    "plan_source_release",
-    "plan_source_materialization",
-    "execute_source_materialization",
-    "execute_source_admission_plan"
+    "execute_source_admission_plan",
+    "execute_source_materialization"
   ],
   "responsibility": "Admit a sovereign source commit, then plan digest-addressed acquisition, isolated materialization, commit read-back, digest read-back, retention, and build-runner handoff through injected ports.",
   "mutation_policy": "plan_only_no_transfer_no_checkout_no_grant_emission",
