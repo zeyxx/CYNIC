@@ -143,7 +143,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "sovereign_membrane",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: "cynic-protocol + cynic-host + cynic-node",
+                current_owner: vec!["cynic-protocol", "cynic-host", "cynic-node"],
                 runtime_status: FrameworkAmbitionStatus::Partial,
                 translated_primitives: vec![
                     "typed crossings between independently authoritative planes",
@@ -155,12 +155,14 @@ pub fn framework_spec() -> FrameworkSpec {
                     "a shared database presented as proof of external reality",
                     "projection-layer policy replacing lower-layer contracts",
                 ],
-                required_proof: "one request crossing source, build, deployment, and runtime planes with linked lower-layer read-back evidence",
+                required_proof: vec![
+                    "one request crossing source, build, deployment, and runtime planes with linked lower-layer read-back evidence",
+                ],
             },
             FrameworkAmbitionTranslation {
                 id: "askesis_companion",
                 classification: FrameworkAmbitionClass::UpperLayer,
-                current_owner: "cynic-askesis",
+                current_owner: vec!["cynic-askesis"],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "content-addressed context assembly",
@@ -172,12 +174,14 @@ pub fn framework_spec() -> FrameworkSpec {
                     "provider session state as user identity",
                     "an omnipotent agent with implicit mutation rights",
                 ],
-                required_proof: "a companion session reconstructed from evidence refs that performs a bounded delegated action and remains usable after provider replacement",
+                required_proof: vec![
+                    "a companion session reconstructed from evidence refs that performs a bounded delegated action and remains usable after provider replacement",
+                ],
             },
             FrameworkAmbitionTranslation {
                 id: "accessible_personal_ml",
                 classification: FrameworkAmbitionClass::UpperLayer,
-                current_owner: "cynic-inference + cynic-askesis",
+                current_owner: vec!["cynic-inference", "cynic-askesis"],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "task-oriented ML ports independent of provider APIs",
@@ -189,12 +193,14 @@ pub fn framework_spec() -> FrameworkSpec {
                     "simplicity that hides provenance, consent, cost, or uncertainty",
                     "automatic training or publication from merely observable data",
                 ],
-                required_proof: "a non-expert completes one personal-data ML task through the same port with two interchangeable adapters and receives provenance and evaluation evidence",
+                required_proof: vec![
+                    "a non-expert completes one personal-data ML task through the same port with two interchangeable adapters and receives provenance and evaluation evidence",
+                ],
             },
             FrameworkAmbitionTranslation {
                 id: "sovereign_inference",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: "cynic-inference",
+                current_owner: vec!["cynic-inference"],
                 runtime_status: FrameworkAmbitionStatus::Partial,
                 translated_primitives: vec![
                     "portable inference capability ports",
@@ -206,12 +212,14 @@ pub fn framework_spec() -> FrameworkSpec {
                     "one model, engine, accelerator, or provider embedded in policy",
                     "successful generation presented as evaluated truth",
                 ],
-                required_proof: "the same typed inference request runs through local and remote adapters with bounded secrets, measured resources, and comparable output evidence",
+                required_proof: vec![
+                    "the same typed inference request runs through local and remote adapters with bounded secrets, measured resources, and comparable output evidence",
+                ],
             },
             FrameworkAmbitionTranslation {
                 id: "talaria_code_evolution",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: "source, build, admission, deployment, and outcome verticals",
+                current_owner: vec!["source", "build", "admission", "deployment", "outcome"],
                 runtime_status: FrameworkAmbitionStatus::Blocked,
                 translated_primitives: vec![
                     "typed evolution hypothesis and attributed source mutation",
@@ -223,12 +231,16 @@ pub fn framework_spec() -> FrameworkSpec {
                     "a code-producing agent approving its own authority increase",
                     "tests optimized as a substitute for measured runtime outcomes",
                 ],
-                required_proof: "a Talaria-produced CYNIC change traverses workspace, source authority, build, admission, canary, outcome comparison, and rollback without bypass",
+                required_proof: vec![
+                    "a Talaria-produced CYNIC change traverses workspace, source authority, build, admission, canary, outcome comparison, and rollback without bypass",
+                ],
             },
             FrameworkAmbitionTranslation {
                 id: "opt_in_disclosure",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: "no canonical owner; target cynic-protocol policy plus publication adapters",
+                current_owner: vec![
+                    "unowned: target cynic-protocol policy plus publication adapters",
+                ],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "typed data classification and disclosure proposal",
@@ -240,12 +252,14 @@ pub fn framework_spec() -> FrameworkSpec {
                     "blanket consent without subject, purpose, audience, or expiration",
                     "raw private evidence copied into a public proof",
                 ],
-                required_proof: "one private event is minimized under an inspectable consent policy, published through an adapter, read back, and linked without leaking the source payload",
+                required_proof: vec![
+                    "one private event is minimized under an inspectable consent policy, published through an adapter, read back, and linked without leaking the source payload",
+                ],
             },
             FrameworkAmbitionTranslation {
                 id: "solana_public_settlement",
                 classification: FrameworkAmbitionClass::ExternalAuthority,
-                current_owner: "no canonical owner; target CYNIC Solana adapter",
+                current_owner: vec!["unowned: target CYNIC Solana adapter"],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "offline-first idempotent commitment plan",
@@ -257,12 +271,14 @@ pub fn framework_spec() -> FrameworkSpec {
                     "one RPC, indexer, wallet, or SDK embedded in domain policy",
                     "Solana availability required for private local operation",
                 ],
-                required_proof: "a consented evidence commitment survives RPC loss, is replayed idempotently, confirmed on Solana, and linked to its private source proof",
+                required_proof: vec![
+                    "a consented evidence commitment survives RPC loss, is replayed idempotently, confirmed on Solana, and linked to its private source proof",
+                ],
             },
             FrameworkAmbitionTranslation {
                 id: "futard_audience_projection",
                 classification: FrameworkAmbitionClass::ExternalAuthority,
-                current_owner: "Futard.io integration plus CYNIC publication port",
+                current_owner: vec!["Futard.io integration", "CYNIC publication port"],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "public-safe evidence and decision projection",
@@ -274,12 +290,18 @@ pub fn framework_spec() -> FrameworkSpec {
                     "audience engagement presented as factual outcome",
                     "market visibility used as implicit disclosure consent",
                 ],
-                required_proof: "a minimized CYNIC publication is displayed and read back through Futard.io while private evidence and authority remain locally verifiable",
+                required_proof: vec![
+                    "a minimized CYNIC publication is displayed and read back through Futard.io while private evidence and authority remain locally verifiable",
+                ],
             },
             FrameworkAmbitionTranslation {
                 id: "one_person_futarchy",
                 classification: FrameworkAmbitionClass::UpperLayer,
-                current_owner: "Talaria decision loop plus CYNIC evidence and publication contracts",
+                current_owner: vec![
+                    "Talaria decision loop",
+                    "CYNIC evidence contracts",
+                    "CYNIC publication contracts",
+                ],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "typed thesis, alternatives, metric, resolver, and time window",
@@ -291,7 +313,9 @@ pub fn framework_spec() -> FrameworkSpec {
                     "a market outcome presented as proof that execution occurred",
                     "an unverifiable KPI selected after the decision",
                 ],
-                required_proof: "one personal decision links a precommitted resolution rule to bounded execution, independently observed outcome, resolution, and subsequent policy update",
+                required_proof: vec![
+                    "one personal decision links a precommitted resolution rule to bounded execution, independently observed outcome, resolution, and subsequent policy update",
+                ],
             },
             FrameworkAmbitionTranslation {
                 id: "sovereign_runtime",

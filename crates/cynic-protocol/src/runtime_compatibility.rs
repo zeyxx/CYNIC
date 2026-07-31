@@ -52,7 +52,7 @@ pub fn reconcile_runtime_compatibility(
         .capabilities
         .as_ref()
         .map(|items| items.iter().map(String::as_str).collect::<BTreeSet<_>>());
-    let missing_capabilities = observed_capabilities
+    let missing_capabilities: Vec<String> = observed_capabilities
         .as_ref()
         .map(|observed| {
             requirement
