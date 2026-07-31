@@ -22,7 +22,7 @@
     "execute_source_materialization"
   ],
   "responsibility": "Admit a sovereign source commit, then plan digest-addressed acquisition, isolated materialization, commit read-back, digest read-back, retention, and build-runner handoff through injected ports.",
-  "mutation_policy": "plan_only_no_transfer_no_checkout_no_grant_emission",
+  "mutation_policy": "read_only_by_default_explicit_apply_for_actuators",
   "canonical_entrypoints": [
     "cynic-node source-admission-plan --json --request <release-request.json> --observation <release-observation.json>",
     "cynic-node source-materialize --json --request <materialization-request.json> --node-id <node> [--state-root <path>] [--snapshot-root <path>] [--snapshot-base-url <https-base>] [--apply]"
