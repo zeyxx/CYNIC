@@ -842,10 +842,10 @@
       ],
       "domain_owner": "cynic-protocol::runtime_seed",
       "evidence": [
-        "cynic.runtime_seed.request.v1",
-        "cynic.runtime_seed.observation.v1",
-        "cynic.runtime_seed.plan.v1",
-        "cynic.host.runtime_seed.apply_report.v1"
+        "cynic.runtime_seed.request.v2",
+        "cynic.runtime_seed.observation.v2",
+        "cynic.runtime_seed.plan.v2",
+        "cynic.host.runtime_seed.apply_report.v2"
       ],
       "id": "runtime_seed",
       "layer": "l1_host_apply_boundary",
@@ -865,7 +865,7 @@
         "cynic-host::host_exec_cli::runtime_seed",
         "cynic-host::framework_bootstrap::bundle"
       ],
-      "responsibility": "Keep a separately governed bootstrap root capable of admitting signed content-addressed runtime baskets through monotonic epochs, two-slot activation, postflight read-back, and rollback without depending on the MCP version being replaced."
+      "responsibility": "Keep a separately governed bootstrap root capable of admitting signed content-addressed runtime baskets bound to an exact source commit and admitted build proof through monotonic epochs, two-slot activation, postflight read-back, and rollback without depending on the MCP version being replaced."
     },
     {
       "adapter_module": "runtime_surface::suite",

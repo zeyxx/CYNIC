@@ -18,17 +18,17 @@
     "RuntimeSeedActivationPort",
     "execute_plan"
   ],
-  "responsibility": "Keep a separately governed bootstrap root capable of admitting signed content-addressed runtime baskets through monotonic epochs, two-slot activation, postflight read-back, and rollback without depending on the MCP version being replaced.",
+  "responsibility": "Keep a separately governed bootstrap root capable of admitting signed content-addressed runtime baskets bound to an exact source commit and admitted build proof through monotonic epochs, two-slot activation, postflight read-back, and rollback without depending on the MCP version being replaced.",
   "mutation_policy": "explicit_apply_only_after_signature_digest_epoch_node_and_slot_preflight",
   "canonical_entrypoints": [
     "cynic-host-exec runtime-seed-plan --request <request.json> --observation <observation.json>",
     "cynic-host-exec runtime-seed-reconcile --request <request.json> [--apply]"
   ],
   "evidence": [
-    "cynic.runtime_seed.request.v1",
-    "cynic.runtime_seed.observation.v1",
-    "cynic.runtime_seed.plan.v1",
-    "cynic.host.runtime_seed.apply_report.v1"
+    "cynic.runtime_seed.request.v2",
+    "cynic.runtime_seed.observation.v2",
+    "cynic.runtime_seed.plan.v2",
+    "cynic.host.runtime_seed.apply_report.v2"
   ],
   "anti_responsibilities": [
     "include the runtime seed in the mutable runtime basket",

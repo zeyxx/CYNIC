@@ -17,20 +17,31 @@ use filesystem::{
 };
 pub use signature::{RuntimeSeedSignatureVerifier, SshRuntimeSeedSignatureVerifier};
 
-pub const RUNTIME_SEED_CONTRACT_REVISION: u64 = 1;
+pub const RUNTIME_SEED_CONTRACT_REVISION: u64 = 2;
+const BUNDLE_MARKER_SCHEMA: &str = "cynic.runtime_seed.bundle_marker.v2";
+const RELEASE_MARKER_SCHEMA: &str = "cynic.runtime_seed.release_marker.v2";
 const BUNDLE_MARKER: &str = ".cynic-runtime-bundle.json";
 const RELEASE_MARKER: &str = ".cynic-runtime-release.json";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuntimeSeedBundleMarker {
+    pub schema: String,
     pub release_id: String,
     pub release_epoch: u64,
+    pub source_commit: String,
+    pub build_proof_digest: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuntimeSeedReleaseMarker {
+    #[serde(default)]
+    pub schema: Option<String>,
     pub release_id: String,
     pub release_epoch: u64,
+    #[serde(default)]
+    pub source_commit: Option<String>,
+    #[serde(default)]
+    pub build_proof_digest: Option<String>,
     pub basket_digest: String,
 }
 
@@ -153,6 +164,12 @@ pub fn observe_runtime_seed(
         basket_digest_read_back,
         current_release_id: current.as_ref().map(|marker| marker.release_id.clone()),
         current_release_epoch: current.as_ref().map(|marker| marker.release_epoch),
+        current_source_commit: current
+            .as_ref()
+            .and_then(|marker| marker.source_commit.clone()),
+        current_build_proof_digest: current
+            .as_ref()
+            .and_then(|marker| marker.build_proof_digest.clone()),
         current_basket_digest: current.as_ref().map(|marker| marker.basket_digest.clone()),
         previous_release_id: previous.map(|marker| marker.release_id),
         slot_layout,
@@ -188,7 +205,7 @@ pub fn apply_runtime_seed<R: ArgvRunner>(
 ) -> RuntimeSeedApplyReport {
     let before = observe_runtime_seed(request, verifier);
     let mut report = RuntimeSeedApplyReport {
-        schema: "cynic.host.runtime_seed.apply_report.v1",
+        schema: "cynic.host.runtime_seed.apply_report.v2",
         status: "blocked".to_string(),
         before,
         after: None,
@@ -290,6 +307,8 @@ pub fn apply_runtime_seed<R: ArgvRunner>(
     let mut after = observe_runtime_seed(request, verifier);
     let converged = after.current_release_id.as_deref() == Some(&request.release_id)
         && after.current_release_epoch == Some(request.release_epoch)
+        && after.current_source_commit.as_deref() == Some(&request.source_commit)
+        && after.current_build_proof_digest.as_deref() == Some(&request.build_proof_digest)
         && after.current_basket_digest.as_deref() == Some(&request.basket_digest);
     after.postflight = if converged {
         SecurityEvidenceState::Proven

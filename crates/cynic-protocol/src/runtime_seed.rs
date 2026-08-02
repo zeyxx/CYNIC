@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::SecurityEvidenceState;
 
-pub const RUNTIME_SEED_REQUEST_SCHEMA: &str = "cynic.runtime_seed.request.v1";
-pub const RUNTIME_SEED_OBSERVATION_SCHEMA: &str = "cynic.runtime_seed.observation.v1";
-pub const RUNTIME_SEED_PLAN_SCHEMA: &str = "cynic.runtime_seed.plan.v1";
+pub const RUNTIME_SEED_REQUEST_SCHEMA: &str = "cynic.runtime_seed.request.v2";
+pub const RUNTIME_SEED_OBSERVATION_SCHEMA: &str = "cynic.runtime_seed.observation.v2";
+pub const RUNTIME_SEED_PLAN_SCHEMA: &str = "cynic.runtime_seed.plan.v2";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuntimeSeedRequest {
@@ -12,6 +12,8 @@ pub struct RuntimeSeedRequest {
     pub node_id: String,
     pub release_id: String,
     pub release_epoch: u64,
+    pub source_commit: String,
+    pub build_proof_digest: String,
     pub basket_digest: String,
     pub basket_path: String,
     pub detached_signature_path: String,
@@ -38,6 +40,8 @@ pub struct RuntimeSeedObservation {
     pub basket_digest_read_back: Option<String>,
     pub current_release_id: Option<String>,
     pub current_release_epoch: Option<u64>,
+    pub current_source_commit: Option<String>,
+    pub current_build_proof_digest: Option<String>,
     pub current_basket_digest: Option<String>,
     pub previous_release_id: Option<String>,
     pub slot_layout: SecurityEvidenceState,
@@ -64,6 +68,8 @@ pub struct RuntimeSeedPlan {
     pub node_id: String,
     pub release_id: String,
     pub release_epoch: u64,
+    pub source_commit: String,
+    pub build_proof_digest: String,
     pub actions: Vec<RuntimeSeedAction>,
     pub blockers: Vec<String>,
     pub unknowns: Vec<String>,
@@ -88,6 +94,12 @@ pub fn reconcile_runtime_seed(
     }
     if request.release_id.is_empty() || request.release_epoch == 0 {
         blockers.push("runtime_seed_release_identity_invalid".to_string());
+    }
+    if !valid_source_commit(&request.source_commit) {
+        blockers.push("runtime_seed_source_commit_invalid".to_string());
+    }
+    if !valid_sha256(&request.build_proof_digest) {
+        blockers.push("runtime_seed_build_proof_digest_invalid".to_string());
     }
     if !valid_sha256(&request.basket_digest) {
         blockers.push("runtime_seed_basket_digest_invalid".to_string());
@@ -206,6 +218,8 @@ pub fn reconcile_runtime_seed(
     unknowns.dedup();
     let converged = observation.current_release_id.as_deref() == Some(&request.release_id)
         && observation.current_release_epoch == Some(request.release_epoch)
+        && observation.current_source_commit.as_deref() == Some(&request.source_commit)
+        && observation.current_build_proof_digest.as_deref() == Some(&request.build_proof_digest)
         && observation.current_basket_digest.as_deref() == Some(&request.basket_digest)
         && observation.postflight == SecurityEvidenceState::Proven;
     let actions = if !blockers.is_empty() || !unknowns.is_empty() || converged {
@@ -242,6 +256,8 @@ pub fn reconcile_runtime_seed(
         node_id: request.node_id.clone(),
         release_id: request.release_id.clone(),
         release_epoch: request.release_epoch,
+        source_commit: request.source_commit.clone(),
+        build_proof_digest: request.build_proof_digest.clone(),
         actions,
         blockers,
         unknowns,
@@ -256,6 +272,10 @@ fn valid_sha256(value: &str) -> bool {
     value.strip_prefix("sha256:").is_some_and(|digest| {
         digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
     })
+}
+
+fn valid_source_commit(value: &str) -> bool {
+    value.len() == 40 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn safe_relative_path(value: &str) -> bool {
@@ -275,13 +295,15 @@ mod tests {
             node_id: "cynic-builder".to_string(),
             release_id: "release-2".to_string(),
             release_epoch: 2,
+            source_commit: "c".repeat(40),
+            build_proof_digest: format!("sha256:{}", "d".repeat(64)),
             basket_digest: format!("sha256:{}", "a".repeat(64)),
             basket_path: "/var/lib/cynic/incoming/release-2.tar".to_string(),
             detached_signature_path: "/var/lib/cynic/incoming/release-2.tar.sig".to_string(),
             allowed_signers_path: "/etc/cynic/runtime-seed-allowed-signers".to_string(),
             signer_identity: "cynic-runtime-release".to_string(),
             signature_namespace: "cynic-runtime-seed".to_string(),
-            required_seed_contract_revision: 1,
+            required_seed_contract_revision: 2,
             install_root: "/opt/cynic/runtime".to_string(),
             staged_slot: "releases/release-2".to_string(),
             current_link: "current".to_string(),
@@ -298,13 +320,15 @@ mod tests {
             schema: RUNTIME_SEED_OBSERVATION_SCHEMA.to_string(),
             observed_at_unix_ms: 1,
             node_id: "cynic-builder".to_string(),
-            seed_contract_revision: Some(1),
+            seed_contract_revision: Some(2),
             trust_root: SecurityEvidenceState::Proven,
             signature: SecurityEvidenceState::Proven,
             basket_present: true,
             basket_digest_read_back: Some(format!("sha256:{}", "a".repeat(64))),
             current_release_id: Some("release-1".to_string()),
             current_release_epoch: Some(1),
+            current_source_commit: Some("b".repeat(40)),
+            current_build_proof_digest: Some(format!("sha256:{}", "c".repeat(64))),
             current_basket_digest: Some(format!("sha256:{}", "b".repeat(64))),
             previous_release_id: None,
             slot_layout: SecurityEvidenceState::Proven,
@@ -355,5 +379,35 @@ mod tests {
 
         assert_eq!(plan.status, "unknown");
         assert!(plan.actions.is_empty());
+    }
+
+    #[test]
+    fn release_without_admitted_build_proof_digest_is_blocked() {
+        let mut desired = request();
+        desired.build_proof_digest = "missing".to_string();
+
+        let plan = reconcile_runtime_seed(&desired, &observation());
+
+        assert_eq!(plan.status, "blocked");
+        assert!(
+            plan.blockers
+                .contains(&"runtime_seed_build_proof_digest_invalid".to_string())
+        );
+    }
+
+    #[test]
+    fn matching_release_identity_without_matching_source_never_converges() {
+        let desired = request();
+        let mut observed = observation();
+        observed.current_release_id = Some(desired.release_id.clone());
+        observed.current_release_epoch = Some(desired.release_epoch);
+        observed.current_basket_digest = Some(desired.basket_digest.clone());
+        observed.current_build_proof_digest = Some(desired.build_proof_digest.clone());
+        observed.postflight = SecurityEvidenceState::Proven;
+
+        let plan = reconcile_runtime_seed(&desired, &observed);
+
+        assert_eq!(plan.status, "planned");
+        assert!(!plan.actions.is_empty());
     }
 }

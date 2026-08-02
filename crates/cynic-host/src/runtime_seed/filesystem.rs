@@ -11,8 +11,8 @@ use sha2::{Digest, Sha256};
 use crate::update_lifecycle::ArgvRunner;
 
 use super::{
-    BUNDLE_MARKER, RELEASE_MARKER, RuntimeSeedBundleMarker, RuntimeSeedReleaseMarker,
-    signature::RuntimeSeedSignatureVerifier,
+    BUNDLE_MARKER, BUNDLE_MARKER_SCHEMA, RELEASE_MARKER, RELEASE_MARKER_SCHEMA,
+    RuntimeSeedBundleMarker, RuntimeSeedReleaseMarker, signature::RuntimeSeedSignatureVerifier,
 };
 
 pub(super) fn verify_apply_preconditions(
@@ -129,7 +129,12 @@ pub(super) fn verify_bundle_marker(
             .map_err(|error| format!("runtime_seed_bundle_marker_read_failed:{error}"))?,
     )
     .map_err(|error| format!("runtime_seed_bundle_marker_invalid:{error}"))?;
-    if marker.release_id != request.release_id || marker.release_epoch != request.release_epoch {
+    if marker.schema != BUNDLE_MARKER_SCHEMA
+        || marker.release_id != request.release_id
+        || marker.release_epoch != request.release_epoch
+        || marker.source_commit != request.source_commit
+        || marker.build_proof_digest != request.build_proof_digest
+    {
         return Err("runtime_seed_bundle_marker_mismatch".to_string());
     }
     Ok(())
@@ -140,8 +145,11 @@ pub(super) fn persist_release_marker(
     staging: &Path,
 ) -> Result<(), String> {
     let bytes = serde_json::to_vec_pretty(&RuntimeSeedReleaseMarker {
+        schema: Some(RELEASE_MARKER_SCHEMA.to_string()),
         release_id: request.release_id.clone(),
         release_epoch: request.release_epoch,
+        source_commit: Some(request.source_commit.clone()),
+        build_proof_digest: Some(request.build_proof_digest.clone()),
         basket_digest: request.basket_digest.clone(),
     })
     .map_err(|error| format!("runtime_seed_release_marker_encode_failed:{error}"))?;
@@ -195,11 +203,19 @@ pub(super) fn read_link_marker(
     {
         return Err("runtime_seed_link_target_unsafe".to_string());
     }
-    serde_json::from_slice(
+    let marker: RuntimeSeedReleaseMarker = serde_json::from_slice(
         &fs::read(root.join(target).join(RELEASE_MARKER))
             .map_err(|error| format!("runtime_seed_release_marker_read_failed:{error}"))?,
     )
-    .map_err(|error| format!("runtime_seed_release_marker_invalid:{error}"))
+    .map_err(|error| format!("runtime_seed_release_marker_invalid:{error}"))?;
+    if marker
+        .schema
+        .as_deref()
+        .is_some_and(|schema| schema != RELEASE_MARKER_SCHEMA)
+    {
+        return Err("runtime_seed_release_marker_schema_mismatch".to_string());
+    }
+    Ok(marker)
 }
 
 pub(super) fn ensure_root(root: &Path) -> Result<(), String> {
@@ -261,4 +277,75 @@ pub(super) fn observed_hostname() -> String {
                 .map(|value| value.trim().to_string())
         })
         .unwrap_or_else(|| "unknown".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_release_marker_is_observable_but_has_no_source_proof() {
+        let root = tempfile::tempdir().expect("runtime root");
+        let release = root.path().join("releases/legacy");
+        fs::create_dir_all(&release).expect("release directory");
+        fs::write(
+            release.join(RELEASE_MARKER),
+            serde_json::to_vec(&serde_json::json!({
+                "release_id": "legacy",
+                "release_epoch": 1,
+                "basket_digest": format!("sha256:{}", "a".repeat(64))
+            }))
+            .expect("legacy marker"),
+        )
+        .expect("write marker");
+        symlink("releases/legacy", root.path().join("current")).expect("current link");
+
+        let marker = read_link_marker(root.path(), "current").expect("observe legacy marker");
+
+        assert_eq!(marker.release_id, "legacy");
+        assert_eq!(marker.source_commit, None);
+        assert_eq!(marker.build_proof_digest, None);
+    }
+
+    #[test]
+    fn bundle_marker_must_bind_source_and_build_proof() {
+        let root = tempfile::tempdir().expect("staging root");
+        let request = RuntimeSeedRequest {
+            schema: cynic_protocol::RUNTIME_SEED_REQUEST_SCHEMA.to_string(),
+            node_id: "node-a".to_string(),
+            release_id: "release-2".to_string(),
+            release_epoch: 2,
+            source_commit: "b".repeat(40),
+            build_proof_digest: format!("sha256:{}", "c".repeat(64)),
+            basket_digest: format!("sha256:{}", "d".repeat(64)),
+            basket_path: "/inbox/release-2.tar".to_string(),
+            detached_signature_path: "/inbox/release-2.tar.sig".to_string(),
+            allowed_signers_path: "/etc/cynic/allowed-signers".to_string(),
+            signer_identity: "release-authority".to_string(),
+            signature_namespace: "cynic-runtime-seed".to_string(),
+            required_seed_contract_revision: 2,
+            install_root: "/var/lib/cynic/runtime".to_string(),
+            staged_slot: "releases/release-2".to_string(),
+            current_link: "current".to_string(),
+            previous_link: "previous".to_string(),
+            postflight_argv: vec!["/bin/true".to_string()],
+        };
+        fs::write(
+            root.path().join(BUNDLE_MARKER),
+            serde_json::to_vec(&RuntimeSeedBundleMarker {
+                schema: BUNDLE_MARKER_SCHEMA.to_string(),
+                release_id: request.release_id.clone(),
+                release_epoch: request.release_epoch,
+                source_commit: "e".repeat(40),
+                build_proof_digest: request.build_proof_digest.clone(),
+            })
+            .expect("bundle marker"),
+        )
+        .expect("write bundle marker");
+
+        assert_eq!(
+            verify_bundle_marker(&request, root.path()),
+            Err("runtime_seed_bundle_marker_mismatch".to_string())
+        );
+    }
 }

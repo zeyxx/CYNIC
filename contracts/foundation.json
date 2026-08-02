@@ -70,7 +70,7 @@
     "runtime": {
       "registry": "infra/registry.json",
       "systemd_projection": "infra/systemd",
-      "runtime_seed": "cynic-host-exec is a separately governed bootstrap root, excluded from ordinary runtime baskets; it admits signed content-addressed baskets through monotonic release epochs, two-slot atomic activation, postflight read-back, and rollback",
+      "runtime_seed": "cynic-host-exec is a separately governed bootstrap root, excluded from ordinary runtime baskets; it admits signed content-addressed baskets bound to an exact source commit and admitted build proof through monotonic release epochs, two-slot atomic activation, postflight read-back, and rollback",
       "policy": "Runtime placement may evolve through registry and service templates, not through stale narrative docs. Registry nodes are targets until local proof promotes them to observed/locked."
     },
     "agent_exposure": {
