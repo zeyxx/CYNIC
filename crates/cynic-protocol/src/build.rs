@@ -5,13 +5,14 @@ use crate::{
 };
 
 mod agent_request;
+mod agent_workload;
 mod workload_grant;
 
 pub use agent_request::{
     BUILD_AGENT_REQUEST_ADMISSION_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA, BuildAgentRequest,
-    BuildAgentRequestAdmission, admit_build_agent_request, compose_build_agent_workload,
-    plan_build_agent_request,
+    BuildAgentRequestAdmission, admit_build_agent_request, plan_build_agent_request,
 };
+pub use agent_workload::compose_build_agent_workload;
 pub use workload_grant::{
     BUILD_WORKLOAD_GRANT_MAX_TTL_SECONDS, BUILD_WORKLOAD_GRANT_SCHEMA,
     BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE, BuildWorkloadGrant,
