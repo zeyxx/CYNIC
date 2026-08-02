@@ -98,6 +98,7 @@
         "session_issue_read_back",
         "mcp_unix_transport_client",
         "capability_scoped_request_authorization",
+        "agent_workload_delivery_capability",
         "process_start_bound_peer_identity",
         "explicit_self_revocation",
         "host_agent_access_policy_and_observer",
@@ -162,9 +163,16 @@
       "build_grant_revision_fence_and_cancellation_binding",
       "canonical_build_grant_signing_payload",
       "injected_build_grant_signer_and_verifier_ports",
-      "ed25519_machine_build_grant_adapter"
+      "ed25519_machine_build_grant_adapter",
+      "append_only_build_grant_store",
+      "idempotent_build_grant_reconciliation_and_read_back",
+      "canonical_build_request_workload_composition",
+      "kernel_durable_workload_delivery",
+      "node_control_workload_ingress",
+      "target_node_delivery_persistence_before_ack"
     ],
     "missing_runtime_capabilities": [
+      "kernel_to_node_workload_delivery_read_back",
       "scheduler_claim_renewal",
       "scheduler_cancellation_delivery",
       "scheduler_crash_recovery",
@@ -244,7 +252,7 @@
         { "name": "cynic_lifecycle_payloads", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "identity_attest", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "identity_smoke_check", "tier": "baseline_runtime", "mutation": "read_only" },
-        { "name": "cynic_validate", "tier": "baseline_runtime", "mutation": "read_only" },
+        { "name": "cynic_validate", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_git", "tier": "operator_local", "mutation": "read_only" },
         { "name": "cynic_source_control", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_operator_transport_status", "tier": "operator_local", "mutation": "read_only" },
@@ -400,8 +408,8 @@
       "operator_tools": []
     },
     "build_dispatch": {
-      "description": "Agent validation requests are planned for build_runner. Node-local workload status, revision-fenced transitions, and machine-owned grant reconciliation are declared; automatic transport and execution remain blocked until the scheduler loop is built and proven.",
-      "status": "blocked_scheduler_unavailable",
+      "description": "Agent validation requests are composed as admitted content-addressed workloads, persisted by the kernel, and pulled by the registry-selected build_runner; the target node persists the exact envelope before acknowledging delivery. Claim, grant, execution, cancellation, recovery, completion, and deployment proof remain separate gates.",
+      "status": "delivery_implemented_unproven",
       "required_contract": "cynic.agent_workload_envelope.v1",
       "tier": "baseline_runtime",
       "tools": ["cynic_validate"],

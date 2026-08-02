@@ -4,6 +4,7 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 use crate::adapters::http_node_control::HttpNodeControlAdapter;
+use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
 use crate::adapters::local_node_control_observer::LocalNodeControlObserver;
 use crate::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
 use crate::{config, shutdown::install_signal_handler, usecases};
@@ -67,6 +68,15 @@ pub(crate) async fn start_tasks(
     let control_shutdown = shutdown.clone();
     let control_adapter = adapter.clone();
     let control_config = control.clone();
+    let delivery_adapter = control_adapter.clone();
+    let delivery_node_id = control_config.node_id.clone();
+    let delivery_interval = Duration::from_secs(control_config.interval_secs);
+    let delivery_store = LocalAgentWorkloadStore::new(
+        control_config
+            .agent_workload_state_root
+            .join("agent-scheduler/workloads"),
+    );
+    let delivery_shutdown = control_shutdown.clone();
     let control_task = tokio::spawn(async move {
         usecases::node_control_plane_uc::run_node_control_loop(
             &control_config.node_id,
@@ -86,7 +96,17 @@ pub(crate) async fn start_tasks(
             shutdown,
         ),
     );
-    Ok(vec![control_task, renewal_task])
+    let delivery_task = tokio::spawn(async move {
+        usecases::agent_workload_delivery_uc::run_delivery_loop(
+            &delivery_node_id,
+            delivery_interval,
+            &delivery_adapter,
+            &delivery_store,
+            &delivery_shutdown,
+        )
+        .await;
+    });
+    Ok(vec![control_task, renewal_task, delivery_task])
 }
 
 pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {

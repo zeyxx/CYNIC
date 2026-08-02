@@ -1,5 +1,6 @@
 mod admission;
 mod capability_status;
+mod delivery;
 mod durability;
 mod lifecycle;
 mod shared;
@@ -16,6 +17,10 @@ pub use capability_status::{
     AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA, AgentConstitutionRuntimeStatus,
     AgentConstitutionStatus, AgentExecutionRuntimeObservation, LegacyAgentTaskStatus,
     reconcile_agent_execution_capabilities,
+};
+pub use delivery::{
+    AGENT_WORKLOAD_DELIVERY_SCHEMA, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
+    validate_agent_workload_delivery,
 };
 pub use durability::{
     AGENT_WORKLOAD_TRANSITION_REQUEST_SCHEMA, AgentWorkloadTransition,

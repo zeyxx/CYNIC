@@ -49,6 +49,7 @@ enrollment_authority_public_key_path = \"/etc/cynic/enrollment-authority.pub\"\n
 enrollment_token_path = \"/var/lib/cynic/identity/enrollment-token\"\n\
 enrollment_seed_id = \"${{CYNIC_ENROLLMENT_SEED_ID}}\"\n\
 enrollment_role = {target_role}\n\
+agent_workload_state_root = \"${{CYNIC_STATE_ROOT}}\"\n\
 enrollment_requested_capabilities = {capabilities}\n\
 observed_capabilities = {capabilities}\n\
 observed_services = {observed_services}\n"

@@ -77,7 +77,7 @@
       "source": "infra/agent-exposure.json",
       "audit": "cynic dev agent-exposure --json (also folded into cynic dev surface-audit --json)",
       "docs_quarantine": "docs/README.md",
-      "validate_gate": "MCP tool cynic_validate plans the canonical `make check` workload for build_runner and never compiles in the agent worktree; after durable claim the node-owned scheduler derives and signs the machine grant without HumanAdmin input; execution remains blocked until signer, verifier, transport, cancellation, recovery, and completion read-back are wired",
+      "validate_gate": "MCP tool cynic_validate plans or durably submits the canonical `make check` workload to the registry-selected build_runner and never compiles in the agent worktree; the target node must persist the exact admitted envelope before acknowledging delivery; after durable claim the node-owned scheduler derives and signs the machine grant without HumanAdmin input; execution remains blocked until signer, verifier, executor transport, cancellation, recovery, and completion read-back are wired",
       "policy": "Expose every currently implemented Rust MCP tool with domain and tier labels. Keep projections portable (no committed machine-local absolute paths). Legacy Python proxies and the legacy AgentTask queue are not mutation execution authority. docs/ prose is historical and not runtime authority. Agent and operator validation share `make check`, but only an admitted build runner may execute it."
     },
 

@@ -48,6 +48,7 @@ pub enum RuntimeCapability {
     ObservationWrite,
     InferenceUse,
     RuntimeRead,
+    AgentWorkloadDelivery,
     JudgmentInvoke,
     RuntimeAdmin,
 }
@@ -76,7 +77,9 @@ pub(crate) fn required_capability(method: &str, path: &str) -> RuntimeCapability
             RuntimeCapability::CoordinationWrite
         };
     }
-    if path == "/observe" || (path.starts_with("/crystals/") && path.ends_with("/observe")) {
+    if path == "/agent-workloads" || path.starts_with("/agent-workloads/") {
+        RuntimeCapability::AgentWorkloadDelivery
+    } else if path == "/observe" || (path.starts_with("/crystals/") && path.ends_with("/observe")) {
         RuntimeCapability::ObservationWrite
     } else if path.starts_with("/v1/") {
         RuntimeCapability::InferenceUse
@@ -100,6 +103,7 @@ pub(crate) fn authorize_agent_session_request(
         RuntimeCapability::ObservationWrite => ("observation.write", true),
         RuntimeCapability::InferenceUse => ("inference.use", false),
         RuntimeCapability::RuntimeRead => ("runtime.read", false),
+        RuntimeCapability::AgentWorkloadDelivery => ("agent_workload.delivery", method != "GET"),
         RuntimeCapability::JudgmentInvoke => ("judgment.invoke", true),
         RuntimeCapability::RuntimeAdmin => ("runtime.admin", true),
     };
@@ -425,7 +429,7 @@ fn parse_role(subject: &str, role: &str) -> Result<Role, String> {
 
 #[cfg(test)]
 mod authorization_tests {
-    use super::{Role, authorize_role_request};
+    use super::{Role, RuntimeCapability, authorize_role_request, required_capability};
 
     #[test]
     fn organ_role_is_bounded_by_the_canonical_capability_mapping() {
@@ -442,6 +446,18 @@ mod authorization_tests {
             "POST",
             "/lifecycle/upgrade"
         ));
+    }
+
+    #[test]
+    fn agent_workload_delivery_does_not_require_runtime_admin() {
+        assert_eq!(
+            required_capability("POST", "/agent-workloads"),
+            RuntimeCapability::AgentWorkloadDelivery
+        );
+        assert_eq!(
+            required_capability("GET", "/agent-workloads/build-123"),
+            RuntimeCapability::AgentWorkloadDelivery
+        );
     }
 }
 

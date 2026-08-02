@@ -1,5 +1,6 @@
 pub mod agent_scheduler_step_uc;
 pub mod agent_source_change_uc;
+pub mod agent_workload_delivery_uc;
 pub mod agent_workload_store_uc;
 pub mod agent_workspace_lifecycle_uc;
 pub mod build_workload_grant_reconcile_uc;

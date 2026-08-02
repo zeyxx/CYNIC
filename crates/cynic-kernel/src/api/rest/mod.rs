@@ -2,6 +2,7 @@
 
 pub mod agent_session;
 pub mod agent_tasks;
+pub mod agent_workloads;
 pub mod agent_workspace;
 pub mod attention;
 pub mod auth;
@@ -260,6 +261,19 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/scope", post(coord_scope_handler))
         .route("/coord/who", get(coord_who_handler))
         .route("/coord/topology", get(coord_topology_handler))
+        .route("/agent-workloads", post(agent_workloads::submit_handler))
+        .route(
+            "/agent-workloads/{workload_id}",
+            get(agent_workloads::read_handler),
+        )
+        .route(
+            "/node-control/{node_id}/agent-workloads",
+            get(agent_workloads::pending_handler),
+        )
+        .route(
+            "/node-control/{node_id}/agent-workloads/{workload_id}/accept",
+            post(agent_workloads::accept_handler),
+        )
         .route(
             "/node-control/{node_id}/desired-state",
             get(node_control::desired_state_handler),

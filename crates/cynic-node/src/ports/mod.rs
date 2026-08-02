@@ -1,4 +1,5 @@
 pub mod agent_scheduler_port;
+pub mod agent_workload_delivery_port;
 pub mod agent_workload_store_port;
 pub mod agent_workspace_port;
 pub mod build_workload_grant_port;

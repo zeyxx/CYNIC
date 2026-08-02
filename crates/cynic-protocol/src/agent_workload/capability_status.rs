@@ -9,6 +9,7 @@ pub const AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA: &str =
     "cynic.agent_execution_runtime_observation.v1";
 
 pub const AGENT_EXECUTION_REQUIRED_RUNTIME_CAPABILITIES: &[&str] = &[
+    "kernel_to_node_workload_delivery_read_back",
     "scheduler_claim_renewal",
     "scheduler_cancellation_delivery",
     "scheduler_crash_recovery",
@@ -67,6 +68,10 @@ const IMPLEMENTED_PROTOCOL_PRIMITIVES: &[&str] = &[
     "ed25519_machine_build_grant_adapter",
     "append_only_build_grant_store",
     "idempotent_build_grant_reconciliation_and_read_back",
+    "canonical_build_request_workload_composition",
+    "kernel_durable_workload_delivery",
+    "node_control_workload_ingress",
+    "target_node_delivery_persistence_before_ack",
 ];
 
 const LEGACY_AGENT_TASK_GAPS: &[&str] = &[

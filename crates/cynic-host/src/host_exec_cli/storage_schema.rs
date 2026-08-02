@@ -71,6 +71,7 @@ pub(crate) fn execute(args: &[String]) -> Result<ExitCode, String> {
         schema_bytes,
         if completed {
             vec![
+                "agent_workload_delivery_schemafull_read_back".to_string(),
                 "agent_workspace_claim_schemafull_read_back".to_string(),
                 "runtime_proof_commit_schemafull_read_back".to_string(),
             ]
@@ -83,19 +84,23 @@ pub(crate) fn execute(args: &[String]) -> Result<ExitCode, String> {
 
 fn schema_blockers(info: &serde_json::Value) -> Vec<String> {
     let tables = info.get("tables").and_then(serde_json::Value::as_object);
-    ["agent_workspace_claim", "runtime_proof_commit"]
-        .into_iter()
-        .filter_map(|table| {
-            let definition = tables
-                .and_then(|values| values.get(table))
-                .and_then(serde_json::Value::as_str);
-            match definition {
-                Some(value) if value.contains("SCHEMAFULL") => None,
-                Some(_) => Some(format!("table_not_schemafull:{table}")),
-                None => Some(format!("table_missing:{table}")),
-            }
-        })
-        .collect()
+    [
+        "agent_workload_delivery",
+        "agent_workspace_claim",
+        "runtime_proof_commit",
+    ]
+    .into_iter()
+    .filter_map(|table| {
+        let definition = tables
+            .and_then(|values| values.get(table))
+            .and_then(serde_json::Value::as_str);
+        match definition {
+            Some(value) if value.contains("SCHEMAFULL") => None,
+            Some(_) => Some(format!("table_not_schemafull:{table}")),
+            None => Some(format!("table_missing:{table}")),
+        }
+    })
+    .collect()
 }
 
 fn report(
@@ -113,7 +118,11 @@ fn report(
         requested_apply,
         schema_sha256,
         schema_bytes,
-        required_tables: vec!["agent_workspace_claim", "runtime_proof_commit"],
+        required_tables: vec![
+            "agent_workload_delivery",
+            "agent_workspace_claim",
+            "runtime_proof_commit",
+        ],
         proofs,
         blockers,
         secret_exposed: false,
@@ -245,6 +254,7 @@ mod tests {
     #[test]
     fn schema_read_back_requires_exact_schemafull_tables() {
         let info = serde_json::json!({"tables": {
+            "agent_workload_delivery": "DEFINE TABLE agent_workload_delivery SCHEMAFULL",
             "agent_workspace_claim": "DEFINE TABLE agent_workspace_claim SCHEMALESS",
             "runtime_proof_commit": "DEFINE TABLE runtime_proof_commit SCHEMAFULL"
         }});

@@ -80,6 +80,7 @@ fn expand_node_control(cfg: &mut NodeControlConfig) -> Result<(), String> {
     cfg.enrollment_authority_public_key_path =
         expand_path(&cfg.enrollment_authority_public_key_path)?;
     cfg.enrollment_token_path = expand_path(&cfg.enrollment_token_path)?;
+    cfg.agent_workload_state_root = expand_path(&cfg.agent_workload_state_root)?;
     Ok(())
 }
 
@@ -113,6 +114,7 @@ pub(crate) fn validate_node_control(cfg: &NodeControlConfig) -> Result<(), Strin
             &cfg.enrollment_authority_public_key_path,
         ),
         ("enrollment_token_path", &cfg.enrollment_token_path),
+        ("agent_workload_state_root", &cfg.agent_workload_state_root),
     ] {
         if !path.is_absolute() {
             return Err(format!("node_control.{name} must be an absolute path"));

@@ -24,6 +24,7 @@ pub fn default_local_agent_capabilities() -> Vec<AgentCapabilityGrant> {
         capability("coord.write", true),
         capability("observation.write", true),
         capability("runtime.read", false),
+        capability("agent_workload.delivery", true),
     ]
 }
 
@@ -117,7 +118,7 @@ mod tests {
     #[test]
     fn default_capabilities_match_the_local_mcp_session_contract() {
         let capabilities = default_local_agent_capabilities();
-        assert_eq!(capabilities.len(), 4);
+        assert_eq!(capabilities.len(), 5);
         assert!(
             capabilities
                 .iter()
@@ -127,6 +128,11 @@ mod tests {
             capabilities
                 .iter()
                 .any(|grant| grant.id == "runtime.read" && !grant.mutates)
+        );
+        assert!(
+            capabilities
+                .iter()
+                .any(|grant| grant.id == "agent_workload.delivery" && grant.mutates)
         );
     }
 }

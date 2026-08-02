@@ -46,7 +46,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_validate",
-        description = "Plan the canonical `make check` gate for build_runner without compiling locally. Dispatch remains blocked until a node-owned scheduler durably enforces cynic.agent_workload_envelope.v1."
+        description = "Plan or durably deliver the canonical `make check` workload to build_runner without compiling locally. Delivery is content-addressed and requires node read-back before execution."
     )]
     async fn cynic_validate(
         &self,
@@ -69,6 +69,7 @@ impl CynicMcpProxy {
             let short_commit = p.source_commit.chars().take(12).collect::<String>();
             format!("validate-{short_commit}-{principal}")
         });
+        let dispatch_requested = p.dispatch;
         let request = cynic_protocol::BuildAgentRequest {
             schema: cynic_protocol::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
             request_id,
@@ -76,7 +77,7 @@ impl CynicMcpProxy {
             source_commit: p.source_commit,
             action: "make:check".to_string(),
             desired_role: "build_runner".to_string(),
-            mutation_authorized: false,
+            mutation_authorized: dispatch_requested,
             proof_requirements: vec![
                 "canonical_gate_report".to_string(),
                 "source_commit_read_back".to_string(),
@@ -84,21 +85,84 @@ impl CynicMcpProxy {
             ],
             evidence_refs: p.evidence_refs,
         };
-        let admission = cynic_protocol::plan_build_agent_request(&request);
-        let dispatch_requested = p.dispatch;
+        let admission = if dispatch_requested {
+            cynic_protocol::admit_build_agent_request(&request)
+        } else {
+            cynic_protocol::plan_build_agent_request(&request)
+        };
         let constitutional_execution = agent_constitution_status();
+        if !dispatch_requested || admission.status == "blocked" {
+            let result = serde_json::json!({
+                "schema": "cynic.mcp.validate_dispatch.v2",
+                "status": admission.status,
+                "mutates": false,
+                "dispatch_requested": dispatch_requested,
+                "request": request,
+                "admission": admission,
+                "constitutional_execution": constitutional_execution
+            });
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+            )]));
+        }
+        let registry = std::path::Path::new(&self.project_root).join("infra/registry.json");
+        let registry = registry.to_string_lossy().to_string();
+        let transport = cynic_host::registry::resolve_build_runner_transport(Some(&registry))
+            .map_err(|error| McpError::internal_error(error, None))?;
+        let envelope = cynic_protocol::compose_build_agent_workload(
+            &request,
+            &transport.node_id,
+            "/var/lib/cynic/source/workspaces",
+        )
+        .map_err(|blockers| {
+            McpError::invalid_params(
+                format!("build workload composition blocked: {}", blockers.join(",")),
+                None,
+            )
+        })?;
+        let delivery = cynic_protocol::AgentWorkloadDelivery {
+            schema: cynic_protocol::AGENT_WORKLOAD_DELIVERY_SCHEMA.to_string(),
+            target_node_id: transport.node_id,
+            submitted_by: principal,
+            submitted_at_ms: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+                .min(u128::from(u64::MAX)) as u64,
+            status: cynic_protocol::AgentWorkloadDeliveryStatus::Pending,
+            accepted_at_ms: None,
+            accepted_record_digest: None,
+            evidence_refs: request.evidence_refs.clone(),
+            envelope,
+        };
+        let response = self
+            .kernel
+            .client()
+            .post(self.kernel.url("/agent-workloads"))
+            .json(&delivery)
+            .send()
+            .await
+            .map_err(|error| {
+                McpError::internal_error(format!("workload delivery failed: {error}"), None)
+            })?;
+        let response_status = response.status();
+        let body = response.text().await.map_err(|error| {
+            McpError::internal_error(format!("workload delivery read-back failed: {error}"), None)
+        })?;
+        let delivery_read_back = serde_json::from_str::<serde_json::Value>(&body)
+            .unwrap_or_else(|_| serde_json::json!({"raw": body}));
         let result = serde_json::json!({
-            "schema": "cynic.mcp.validate_dispatch.v1",
-            "status": if dispatch_requested {
-                "blocked_scheduler_unavailable"
-            } else {
-                admission.status.as_str()
-            },
-            "mutates": false,
+            "schema": "cynic.mcp.validate_dispatch.v2",
+            "status": if response_status.is_success() { "delivered" } else { "blocked_delivery_unavailable" },
+            "mutates": response_status.is_success(),
             "dispatch_requested": dispatch_requested,
             "request": request,
             "admission": admission,
-            "constitutional_execution": constitutional_execution
+            "delivery": delivery,
+            "delivery_read_back": delivery_read_back,
+            "kernel_http_status": response_status.as_u16(),
+            "constitutional_execution": constitutional_execution,
+            "execution_status": "waiting_for_target_node_acceptance"
         });
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),

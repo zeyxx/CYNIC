@@ -46,6 +46,10 @@ pub(super) fn default_node_control_timeout_secs() -> u64 {
     10
 }
 
+pub(super) fn default_agent_workload_state_root() -> std::path::PathBuf {
+    "/var/lib/cynic".into()
+}
+
 pub(super) fn default_enrollment_request_ttl_secs() -> u64 {
     600
 }

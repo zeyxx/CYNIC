@@ -1,8 +1,7 @@
 use std::path::{Path, PathBuf};
 
 pub(crate) fn workspace_root() -> PathBuf {
-    resolve_workspace_root(None)
-        .unwrap_or_else(|_| PathBuf::from(".cynic-source-root-unobserved"))
+    resolve_workspace_root(None).unwrap_or_else(|_| PathBuf::from(".cynic-source-root-unobserved"))
 }
 
 pub(crate) fn resolve_workspace_root(explicit: Option<&Path>) -> Result<PathBuf, String> {

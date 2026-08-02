@@ -139,6 +139,7 @@ fn build_runner_bundle_projects_node_and_registry() {
     assert!(control.contains("node_id = \"cynic-builder\""));
     assert!(control.contains("enrollment_role = \"build_runner\""));
     assert!(control.contains("kernel_url = \"${CYNIC_KERNEL_URL}\""));
+    assert!(control.contains("agent_workload_state_root = \"${CYNIC_STATE_ROOT}\""));
     assert!(!control.contains("[dog]"));
     let service =
         std::fs::read_to_string(out.join("etc/systemd/cynic-node.service")).expect("service");

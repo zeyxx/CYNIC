@@ -6,11 +6,15 @@ use reqwest::{Client, Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::ports::node_control_plane_port::{NodeDesiredStatePullPort, NodeStatusPublishPort};
+use crate::ports::{
+    agent_workload_delivery_port::AgentWorkloadDeliveryPort,
+    node_control_plane_port::{NodeDesiredStatePullPort, NodeStatusPublishPort},
+};
 use cynic_protocol::{
-    NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA, NodeControlPlan,
-    NodeDesiredState, NodeEnrollmentRenewalRequest, NodeEnrollmentRequest,
-    SignedNodeEnrollmentGrant, validate_node_control_plan, validate_node_desired_state,
+    AgentWorkloadDelivery, NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA,
+    NodeControlPlan, NodeDesiredState, NodeEnrollmentRenewalRequest, NodeEnrollmentRequest,
+    SignedNodeEnrollmentGrant, validate_agent_workload_delivery, validate_node_control_plan,
+    validate_node_desired_state,
 };
 
 #[derive(Debug, Clone)]
@@ -44,6 +48,19 @@ struct EnrollmentResponse {
     schema: String,
     status: String,
     grant: SignedNodeEnrollmentGrant,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorkloadDeliveryResponse<T> {
+    schema: String,
+    status: String,
+    value: T,
+}
+
+#[derive(Debug, Serialize)]
+struct WorkloadDeliveryAcceptRequest<'a> {
+    record_digest: &'a str,
+    accepted_at_ms: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -361,6 +378,77 @@ impl NodeStatusPublishPort for HttpNodeControlAdapter {
             "sha256:{}",
             hex::encode(Sha256::digest(&read_back_body))
         ))
+    }
+}
+
+impl AgentWorkloadDeliveryPort for HttpNodeControlAdapter {
+    async fn pending_deliveries(
+        &self,
+        node_id: &str,
+    ) -> Result<Vec<AgentWorkloadDelivery>, String> {
+        let path = format!("/node-control/{node_id}/agent-workloads");
+        let response = self.execute(Method::GET, &path, Vec::new()).await?;
+        let status = response.status();
+        let body = response
+            .bytes()
+            .await
+            .map_err(|error| format!("read workload delivery response: {error}"))?;
+        if !status.is_success() {
+            return Err(format!("workload delivery endpoint returned {status}"));
+        }
+        let envelope: WorkloadDeliveryResponse<Vec<AgentWorkloadDelivery>> =
+            serde_json::from_slice(&body)
+                .map_err(|error| format!("decode workload deliveries: {error}"))?;
+        if envelope.schema != "cynic.agent_workload_delivery_list_response.v1"
+            || envelope.status != "observed"
+        {
+            return Err("workload delivery list envelope is invalid".to_string());
+        }
+        for delivery in &envelope.value {
+            let violations = validate_agent_workload_delivery(delivery);
+            if !violations.is_empty() || delivery.target_node_id != node_id {
+                return Err(format!(
+                    "workload delivery is invalid: {}",
+                    violations.join(",")
+                ));
+            }
+        }
+        Ok(envelope.value)
+    }
+
+    async fn accept_delivery(
+        &self,
+        node_id: &str,
+        workload_id: &str,
+        record_digest: &str,
+        accepted_at_ms: u64,
+    ) -> Result<AgentWorkloadDelivery, String> {
+        let path = format!("/node-control/{node_id}/agent-workloads/{workload_id}/accept");
+        let body = serde_json::to_vec(&WorkloadDeliveryAcceptRequest {
+            record_digest,
+            accepted_at_ms,
+        })
+        .map_err(|error| format!("encode workload acceptance: {error}"))?;
+        let response = self.execute(Method::POST, &path, body).await?;
+        let status = response.status();
+        let body = response
+            .bytes()
+            .await
+            .map_err(|error| format!("read workload acceptance response: {error}"))?;
+        if !status.is_success() {
+            return Err(format!("workload acceptance endpoint returned {status}"));
+        }
+        let envelope: WorkloadDeliveryResponse<AgentWorkloadDelivery> =
+            serde_json::from_slice(&body)
+                .map_err(|error| format!("decode workload acceptance: {error}"))?;
+        if envelope.schema != "cynic.agent_workload_delivery_response.v1"
+            || envelope.status != "accepted"
+            || envelope.value.envelope.workload_id != workload_id
+            || envelope.value.accepted_record_digest.as_deref() != Some(record_digest)
+        {
+            return Err("workload acceptance read-back is invalid".to_string());
+        }
+        Ok(envelope.value)
     }
 }
 

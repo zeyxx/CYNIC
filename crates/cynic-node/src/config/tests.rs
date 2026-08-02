@@ -272,6 +272,10 @@ observed_capabilities = ["build_runner"]
     assert_eq!(config.node_id, "cynic-builder");
     assert_eq!(config.enrollment_role, "build_runner");
     assert_eq!(config.observed_capabilities, vec!["build_runner"]);
+    assert_eq!(
+        config.agent_workload_state_root,
+        std::path::PathBuf::from("/var/lib/cynic")
+    );
 }
 
 #[test]

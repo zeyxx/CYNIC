@@ -30,6 +30,8 @@ pub(crate) struct NodeControlConfig {
     pub(crate) enrollment_token_path: PathBuf,
     pub(crate) enrollment_seed_id: String,
     pub(crate) enrollment_role: String,
+    #[serde(default = "defaults::default_agent_workload_state_root")]
+    pub(crate) agent_workload_state_root: PathBuf,
     #[serde(default)]
     pub(crate) enrollment_requested_capabilities: Vec<String>,
     #[serde(default = "defaults::default_enrollment_request_ttl_secs")]

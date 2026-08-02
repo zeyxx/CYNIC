@@ -31,6 +31,7 @@ fn required_schema_blockers(info: &serde_json::Value) -> Option<Vec<String>> {
     let mut blockers = Vec::new();
     for table in [
         "agent_session",
+        "agent_workload_delivery",
         "agent_workspace_claim",
         "runtime_proof_commit",
     ] {
@@ -41,8 +42,10 @@ fn required_schema_blockers(info: &serde_json::Value) -> Option<Vec<String>> {
             blockers.push(format!("table_missing:{table}"));
             continue;
         };
-        if matches!(table, "agent_workspace_claim" | "runtime_proof_commit")
-            && !definition.contains("SCHEMAFULL")
+        if matches!(
+            table,
+            "agent_workload_delivery" | "agent_workspace_claim" | "runtime_proof_commit"
+        ) && !definition.contains("SCHEMAFULL")
         {
             blockers.push(format!("table_not_schemafull:{table}"));
         }
@@ -59,6 +62,7 @@ mod tests {
     fn runtime_schema_observer_requires_exact_table_modes_without_mutating() {
         let valid = json!({"tables": {
             "agent_session": "DEFINE TABLE agent_session TYPE NORMAL SCHEMAFULL PERMISSIONS NONE",
+            "agent_workload_delivery": "DEFINE TABLE agent_workload_delivery TYPE NORMAL SCHEMAFULL PERMISSIONS NONE",
             "agent_workspace_claim": "DEFINE TABLE agent_workspace_claim TYPE NORMAL SCHEMAFULL PERMISSIONS NONE",
             "runtime_proof_commit": "DEFINE TABLE runtime_proof_commit TYPE NORMAL SCHEMAFULL PERMISSIONS NONE"
         }});
@@ -66,6 +70,7 @@ mod tests {
 
         let drifted = json!({"tables": {
             "agent_session": "DEFINE TABLE agent_session SCHEMAFULL",
+            "agent_workload_delivery": "DEFINE TABLE agent_workload_delivery SCHEMAFULL",
             "agent_workspace_claim": "DEFINE TABLE agent_workspace_claim SCHEMALESS",
             "runtime_proof_commit": "DEFINE TABLE runtime_proof_commit SCHEMAFULL"
         }});

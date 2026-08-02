@@ -700,6 +700,43 @@ impl SubmissionStorage for ReconnectableStorage {
 
 #[async_trait]
 impl StoragePort for ReconnectableStorage {
+    async fn submit_agent_workload_delivery(
+        &self,
+        delivery: &cynic_protocol::AgentWorkloadDelivery,
+    ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
+        self.current()
+            .submit_agent_workload_delivery(delivery)
+            .await
+    }
+
+    async fn agent_workload_delivery(
+        &self,
+        workload_id: &str,
+    ) -> Result<Option<cynic_protocol::AgentWorkloadDelivery>, StorageError> {
+        self.current().agent_workload_delivery(workload_id).await
+    }
+
+    async fn pending_agent_workload_deliveries(
+        &self,
+        node_id: &str,
+    ) -> Result<Vec<cynic_protocol::AgentWorkloadDelivery>, StorageError> {
+        self.current()
+            .pending_agent_workload_deliveries(node_id)
+            .await
+    }
+
+    async fn accept_agent_workload_delivery(
+        &self,
+        workload_id: &str,
+        node_id: &str,
+        record_digest: &str,
+        accepted_at_ms: u64,
+    ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
+        self.current()
+            .accept_agent_workload_delivery(workload_id, node_id, record_digest, accepted_at_ms)
+            .await
+    }
+
     async fn reserve_agent_workspace_claim(
         &self,
         intent: &cynic_protocol::AgentWorkspaceClaimIntent,
