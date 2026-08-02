@@ -420,12 +420,20 @@ build-admission-check-build:
 		CYNIC_BUILD_ADMISSION_VERIFIER="$(CYNIC_BUILD_ADMISSION_VERIFIER)" \
 		./scripts/build-admission-check make:build
 
+.PHONY: build-admission-check-release
+build-admission-check-release:
+	@CYNIC_BUILD_ADMISSION_GRANT="$(CYNIC_BUILD_ADMISSION_GRANT)" \
+		CYNIC_BUILD_WORKLOAD_RECORD="$(CYNIC_BUILD_WORKLOAD_RECORD)" \
+		CYNIC_BUILD_AUTHORITY_PUBLIC_KEY="$(CYNIC_BUILD_AUTHORITY_PUBLIC_KEY)" \
+		CYNIC_BUILD_ADMISSION_VERIFIER="$(CYNIC_BUILD_ADMISSION_VERIFIER)" \
+		./scripts/build-admission-check make:build-release
+
 .PHONY: build
 build: build-admission-check-build ## Experimental binary build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
 	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli
 
 .PHONY: build-release
-build-release: ## Experimental release build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
+build-release: build-admission-check-release ## Admitted release build on the registry-selected build runner
 	@$(RELEASE_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli --release
 
 .PHONY: test

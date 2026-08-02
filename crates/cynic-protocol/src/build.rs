@@ -39,6 +39,10 @@ pub fn canonical_build_actions(requested_action: &str) -> Result<Vec<String>, St
             .into_iter()
             .map(str::to_string)
             .collect()),
+        "make:build-release" => Ok(["make:build-release", "cargo:build"]
+            .into_iter()
+            .map(str::to_string)
+            .collect()),
         _ => Err(format!(
             "unsupported canonical build action: {requested_action}"
         )),
@@ -357,6 +361,14 @@ mod tests {
             vec!["make:check", "cargo:check", "cargo:run", "cargo:test"]
         );
         assert!(canonical_build_actions("bash -c make check").is_err());
+    }
+
+    #[test]
+    fn release_build_expands_to_its_exact_make_and_cargo_actions() {
+        assert_eq!(
+            canonical_build_actions("make:build-release").expect("release build"),
+            vec!["make:build-release", "cargo:build"]
+        );
     }
 
     #[test]

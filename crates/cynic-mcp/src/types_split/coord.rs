@@ -48,10 +48,40 @@ pub struct ValidateParams {
     pub agent_id: Option<String>,
     pub source_commit: String,
     pub request_id: Option<String>,
+    /// Canonical workload requested from build_runner. Defaults to check.
+    #[serde(default)]
+    pub action: BuildRequestAction,
     #[serde(default)]
     pub dispatch: bool,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BuildRequestAction {
+    #[default]
+    Check,
+    Build,
+    BuildRelease,
+}
+
+impl BuildRequestAction {
+    pub fn canonical_action(&self) -> &'static str {
+        match self {
+            Self::Check => "make:check",
+            Self::Build => "make:build",
+            Self::BuildRelease => "make:build-release",
+        }
+    }
+
+    pub fn request_prefix(&self) -> &'static str {
+        match self {
+            Self::Check => "validate",
+            Self::Build => "build",
+            Self::BuildRelease => "release",
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

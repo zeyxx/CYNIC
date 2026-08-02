@@ -46,7 +46,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_validate",
-        description = "Plan or durably deliver the canonical `make check` workload to build_runner without compiling locally. Delivery is content-addressed and requires node read-back before execution."
+        description = "Plan or durably deliver a canonical check, build, or release-build workload to build_runner without compiling locally. Select action=check|build|build_release; delivery is content-addressed and requires node read-back before execution."
     )]
     async fn cynic_validate(
         &self,
@@ -65,24 +65,35 @@ impl CynicMcpProxy {
                 None,
             ));
         }
+        let action = p.action.canonical_action();
+        let request_prefix = p.action.request_prefix();
         let request_id = p.request_id.unwrap_or_else(|| {
             let short_commit = p.source_commit.chars().take(12).collect::<String>();
-            format!("validate-{short_commit}-{principal}")
+            format!("{request_prefix}-{short_commit}-{principal}")
         });
         let dispatch_requested = p.dispatch;
+        let proof_requirements = if action == "make:build-release" {
+            vec![
+                "runtime_basket_artifact_read_back".to_string(),
+                "source_commit_read_back".to_string(),
+                "build_runner_observation".to_string(),
+            ]
+        } else {
+            vec![
+                "canonical_gate_report".to_string(),
+                "source_commit_read_back".to_string(),
+                "build_runner_observation".to_string(),
+            ]
+        };
         let request = cynic_protocol::BuildAgentRequest {
             schema: cynic_protocol::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
             request_id,
             requested_by: principal.clone(),
             source_commit: p.source_commit,
-            action: "make:check".to_string(),
+            action: action.to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: dispatch_requested,
-            proof_requirements: vec![
-                "canonical_gate_report".to_string(),
-                "source_commit_read_back".to_string(),
-                "build_runner_observation".to_string(),
-            ],
+            proof_requirements,
             evidence_refs: p.evidence_refs,
         };
         let admission = if dispatch_requested {

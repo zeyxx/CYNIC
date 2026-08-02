@@ -16,7 +16,7 @@
   "session_handshake": {
     "schema": "cynic.agent_session_handshake.v1",
     "contract_id": "cynic.agent_mcp",
-    "contract_revision": 6,
+    "contract_revision": 7,
     "session_identity": {
       "schema": "cynic.agent_session_identity.v1",
       "declared_override": "CYNIC_AGENT_ID",

@@ -437,6 +437,22 @@ mod tests {
         );
     }
 
+    #[test]
+    fn validate_params_defaults_to_check_and_accepts_release_build() {
+        let default = serde_json::from_value::<ValidateParams>(serde_json::json!({
+            "source_commit": "a".repeat(40)
+        }))
+        .expect("default validate action");
+        assert_eq!(default.action.canonical_action(), "make:check");
+
+        let release = serde_json::from_value::<ValidateParams>(serde_json::json!({
+            "source_commit": "b".repeat(40),
+            "action": "build_release"
+        }))
+        .expect("release action");
+        assert_eq!(release.action.canonical_action(), "make:build-release");
+    }
+
     // -- validate_agent_id logic --
 
     #[test]

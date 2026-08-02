@@ -60,7 +60,7 @@
     "build": {
       "default_gate": "make check on a build runner holding a signed, workload-derived machine grant bound to the durable record revision, lease fence, cancellation generation, node, commit, canonical action set, and expiry; make authority-check is the read-only local authority gate",
       "build_gate": "blocked until a real registry-selected build runner verifies the machine signature plus the live durable workload and returns argv execution and artifact digest evidence",
-      "release_gate": "blocked until admitted build proof and artifact read-back are satisfied",
+      "release_gate": "cynic_validate action=build_release is the canonical release-build request; release remains blocked until its admitted build proof and artifact read-back are satisfied",
       "test_gate": "build-runner only; local Cortex execution is not test proof",
       "check_stack": "make check and the Cargo wrapper must refuse compiling actions unless CYNIC_BUILD_ADMISSION_GRANT names a machine-signed cynic.build.workload_grant.v1 derived from a live claimed workload; HumanAdmin may enroll or rotate the machine build authority but may not mint routine build grants; admitted execution uses CARGO_INCREMENTAL=0 and the repository-pinned toolchain",
       "build_stack": "make build uses RUST_MIN_STACK=536870912 and CARGO_INCREMENTAL=0 because rustc 1.96.0 remains unstable while linking workspace debug binaries",
@@ -77,7 +77,7 @@
       "source": "infra/agent-exposure.json",
       "audit": "cynic dev agent-exposure --json (also folded into cynic dev surface-audit --json)",
       "docs_quarantine": "docs/README.md",
-      "validate_gate": "MCP tool cynic_validate plans or durably submits the canonical `make check` workload to the registry-selected build_runner and never compiles in the agent worktree; the target node must persist the exact admitted envelope before acknowledging delivery; after durable claim the node-owned scheduler derives and signs the machine grant without HumanAdmin input; execution remains blocked until signer, verifier, executor transport, cancellation, recovery, and completion read-back are wired",
+      "validate_gate": "MCP tool cynic_validate plans or durably submits canonical `make check`, `make build`, or `make build-release` workloads to the registry-selected build_runner and never compiles in the agent worktree; the target node must persist the exact admitted envelope before acknowledging delivery; after durable claim the node-owned scheduler derives and signs the machine grant without HumanAdmin input; execution remains blocked until signer, verifier, executor transport, cancellation, recovery, and completion read-back are wired",
       "policy": "Expose every currently implemented Rust MCP tool with domain and tier labels. Keep projections portable (no committed machine-local absolute paths). Legacy Python proxies and the legacy AgentTask queue are not mutation execution authority. docs/ prose is historical and not runtime authority. Agent and operator validation share `make check`, but only an admitted build runner may execute it."
     },
 

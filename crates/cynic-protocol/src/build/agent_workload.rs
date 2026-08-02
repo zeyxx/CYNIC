@@ -27,6 +27,7 @@ pub fn compose_build_agent_workload(
     let argv = match request.action.as_str() {
         "make:check" => vec!["make".to_string(), "check".to_string()],
         "make:build" => vec!["make".to_string(), "build".to_string()],
+        "make:build-release" => vec!["make".to_string(), "build-release".to_string()],
         _ => return Err(vec!["build_agent_request_action_not_allowed".to_string()]),
     };
     let input_digest = digest_json(&serde_json::json!({
@@ -57,8 +58,8 @@ pub fn compose_build_agent_workload(
         .map_err(|_| vec!["build_agent_workload_plan_digest_failed".to_string()])?;
     let policy_digest = digest_json(&serde_json::json!({
         "id": "build.repository_validation",
-        "version": "v1",
-        "actions": ["make:check", "make:build"],
+        "version": "v2",
+        "actions": ["make:check", "make:build", "make:build-release"],
         "authority": "runtime_principal",
     }))
     .map_err(|_| vec!["build_agent_workload_policy_digest_failed".to_string()])?;
@@ -130,7 +131,7 @@ pub fn compose_build_agent_workload(
             schema: POLICY_ADMISSION_REPORT_SCHEMA.to_string(),
             policy_set: PolicySetRef {
                 id: "build.repository_validation".to_string(),
-                version: "v1".to_string(),
+                version: "v2".to_string(),
                 digest: policy_digest,
             },
             intent: PolicyIntentRef {
@@ -186,5 +187,30 @@ mod tests {
         assert_eq!(envelope.action.argv, vec!["make", "check"]);
         assert_eq!(envelope.delegation.node_id, "cynic-builder");
         assert!(crate::admit_agent_workload(&envelope).admitted());
+    }
+
+    #[test]
+    fn release_build_is_one_bounded_scheduler_action() {
+        let request = BuildAgentRequest {
+            schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            request_id: "release-abc".to_string(),
+            requested_by: "release-controller".to_string(),
+            source_commit: "b".repeat(40),
+            action: "make:build-release".to_string(),
+            desired_role: "build_runner".to_string(),
+            mutation_authorized: true,
+            proof_requirements: vec!["runtime_basket_artifact_read_back".to_string()],
+            evidence_refs: vec!["forgejo:refs/heads/main@bbbbbbbb".to_string()],
+        };
+
+        let envelope = compose_build_agent_workload(
+            &request,
+            "cynic-builder",
+            "/var/lib/cynic/source/workspaces",
+        )
+        .expect("release workload");
+
+        assert_eq!(envelope.action.argv, vec!["make", "build-release"]);
+        assert_eq!(envelope.delegation.budget.actions, 1);
     }
 }

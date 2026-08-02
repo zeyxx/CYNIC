@@ -277,6 +277,9 @@ pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str>
     match argv {
         [program, target] if program == "make" && target == "check" => Some("make:check"),
         [program, target] if program == "make" && target == "build" => Some("make:build"),
+        [program, target] if program == "make" && target == "build-release" => {
+            Some("make:build-release")
+        }
         _ => None,
     }
 }
@@ -308,6 +311,10 @@ mod action_tests {
                 "make check".to_string()
             ]),
             None
+        );
+        assert_eq!(
+            canonical_build_action_from_argv(&["make".to_string(), "build-release".to_string()]),
+            Some("make:build-release")
         );
     }
 }
