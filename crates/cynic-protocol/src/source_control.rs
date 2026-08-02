@@ -51,6 +51,39 @@ pub fn source_worktree_lease_target(repository_id: &str, worktree_id: &str) -> S
     format!("source-worktree:{repository_id}:{worktree_id}")
 }
 
+fn is_sensitive_source_path(path: &str) -> bool {
+    let normalized = path.replace('\\', "/");
+    let mut components = normalized.split('/').filter(|part| !part.is_empty());
+    let Some(file_name) = components.next_back() else {
+        return false;
+    };
+    let file_name = file_name.to_ascii_lowercase();
+
+    if components.any(|part| {
+        matches!(
+            part.to_ascii_lowercase().as_str(),
+            "secrets" | ".secrets" | "private-keys"
+        )
+    }) {
+        return true;
+    }
+
+    file_name == ".env"
+        || file_name.starts_with(".env.")
+        || matches!(
+            file_name.as_str(),
+            "credentials.json"
+                | "credentials.toml"
+                | "id_ed25519"
+                | "id_rsa"
+                | "token"
+                | "token.txt"
+        )
+        || [".key", ".pem", ".p12", ".pfx"]
+            .iter()
+            .any(|suffix| file_name.ends_with(suffix))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceChangeAdmission {
     pub schema: String,
@@ -115,12 +148,7 @@ pub fn admit_source_change(proposal: &SourceChangeProposal) -> SourceChangeAdmis
         if path.starts_with('/') || path.split('/').any(|part| part == "..") {
             blockers.push(format!("path_outside_repository:{path}"));
         }
-        if path == ".env"
-            || path.ends_with(".key")
-            || path.ends_with(".pem")
-            || path.to_ascii_lowercase().contains("secret")
-            || path.to_ascii_lowercase().contains("token")
-        {
+        if is_sensitive_source_path(path) {
             blockers.push(format!("sensitive_path_not_versioned:{path}"));
         }
     }
@@ -275,11 +303,9 @@ mod tests {
 
         assert_eq!(report.status, "blocked");
         assert!(report.blockers.contains(&"worktree_not_clean".to_string()));
-        assert!(
-            report
-                .blockers
-                .contains(&"sovereign_transport_identity_unproven".to_string())
-        );
+        assert!(report
+            .blockers
+            .contains(&"sovereign_transport_identity_unproven".to_string()));
     }
 
     #[test]
@@ -303,18 +329,47 @@ mod tests {
         };
         let report = admit_source_change(&proposal);
         assert_eq!(report.status, "blocked");
-        assert!(
-            report
-                .blockers
-                .iter()
-                .any(|v| v == "sensitive_path_not_versioned:.env")
-        );
-        assert!(
-            report
-                .blockers
-                .iter()
-                .any(|v| v == "generated_artifact_requires_release_store")
-        );
+        assert!(report
+            .blockers
+            .iter()
+            .any(|v| v == "sensitive_path_not_versioned:.env"));
+        assert!(report
+            .blockers
+            .iter()
+            .any(|v| v == "generated_artifact_requires_release_store"));
+    }
+
+    #[test]
+    fn secret_handling_source_names_are_not_secret_material() {
+        for path in [
+            "crates/cynic-host/src/runtime_secret.rs",
+            "crates/cynic-protocol/src/secret_material.rs",
+            "scripts/secret-literal-check",
+            "crates/cynic-protocol/src/token_policy.rs",
+        ] {
+            assert!(
+                !is_sensitive_source_path(path),
+                "unexpected rejection: {path}"
+            );
+        }
+    }
+
+    #[test]
+    fn secret_material_paths_are_rejected_structurally() {
+        for path in [
+            ".env.local",
+            "config/credentials.json",
+            "infra/secrets/runtime.toml",
+            "keys/node.key",
+            "keys/node.PEM",
+            "private-keys/node.pub",
+            "bootstrap/token.txt",
+        ] {
+            assert!(
+                is_sensitive_source_path(path),
+                "unexpected admission: {path}"
+            );
+        }
     }
 
     #[test]
