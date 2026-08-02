@@ -138,7 +138,6 @@ pub(super) fn draw(f: &mut Frame, app: &App) {
         Span::styled("/temp [0..2] ", Style::default().fg(Theme::ACCENT)),
         Span::styled("/tail [n] ", Style::default().fg(Theme::ACCENT)),
         Span::styled("/help ", Style::default().fg(Theme::MUTED)),
-
         Span::styled("Esc ", Style::default().fg(Theme::ACCENT)),
         Span::styled("quit  ", Style::default().fg(Theme::MUTED)),
         Span::styled(" · F2 ", Style::default().fg(Theme::ACCENT)),

@@ -408,13 +408,19 @@ fn inference_status_reports_inactive_when_nothing_is_running_for_clean_principal
     let status = run_cynic_cli(
         root,
         Some(("CYNIC_INFERENCE_SUPERVISOR", "process")),
-        vec![("CYNIC_PRINCIPAL_HOME", principal_home.to_string_lossy().into_owned())],
+        vec![(
+            "CYNIC_PRINCIPAL_HOME",
+            principal_home.to_string_lossy().into_owned(),
+        )],
         &["runtime", "inference-status", "--json"],
     );
 
     assert_success_output(&status, "inference-status when idle");
     let payload = parse_json_payload(&status.stdout, "inference-status payload");
-    assert_eq!(payload["state"], serde_json::Value::String("inactive".into()));
+    assert_eq!(
+        payload["state"],
+        serde_json::Value::String("inactive".into())
+    );
     assert!(payload["alias"].is_null());
 }
 
@@ -427,14 +433,19 @@ fn inference_stop_requires_running_instance_or_alias() {
     let stop = run_cynic_cli(
         root,
         Some(("CYNIC_INFERENCE_SUPERVISOR", "process")),
-        vec![("CYNIC_PRINCIPAL_HOME", principal_home.to_string_lossy().into_owned())],
+        vec![(
+            "CYNIC_PRINCIPAL_HOME",
+            principal_home.to_string_lossy().into_owned(),
+        )],
         &["runtime", "inference-stop", "--json"],
     );
 
-    assert!(!stop.status.success(), "inference stop without running instance should fail");
     assert!(
-        String::from_utf8_lossy(&stop.stderr)
-            .contains("no running process instance to stop"),
+        !stop.status.success(),
+        "inference stop without running instance should fail"
+    );
+    assert!(
+        String::from_utf8_lossy(&stop.stderr).contains("no running process instance to stop"),
         "stop failure should be explicit"
     );
 }

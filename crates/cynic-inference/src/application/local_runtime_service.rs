@@ -135,7 +135,10 @@ impl LocalRuntimeServiceAny {
         }
     }
 
-    pub fn stop(&self, alias: Option<&str>) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
+    pub fn stop(
+        &self,
+        alias: Option<&str>,
+    ) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
         match self {
             Self::Systemd(s) => s.runtime.stop(alias),
             Self::Process(s) => s.runtime.stop(alias),

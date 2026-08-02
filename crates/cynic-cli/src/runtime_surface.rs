@@ -13,10 +13,10 @@ mod host_checks;
 mod inference_dispatch;
 mod inference_surface;
 mod network_preflight;
-mod persistence;
 mod paths;
-mod report;
+mod persistence;
 mod registry_observation;
+mod report;
 mod resolver_plan;
 mod suite;
 mod validation;
@@ -375,12 +375,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             registry,
             observation,
             apply,
-        } => registry_observation::execute_registry_observation(
-            json,
-            registry,
-            &observation,
-            apply,
-        ),
+        } => {
+            registry_observation::execute_registry_observation(json, registry, &observation, apply)
+        }
         RuntimeCommand::Validate {
             json,
             registry,

@@ -445,16 +445,13 @@ impl App {
             }
 
             let service = cynic_inference::LocalRuntimeServiceAny::from_env();
-            let profile_size = service
-                .list_inventory()
-                .ok()
-                .and_then(|inventory| {
-                    inventory
-                        .models
-                        .iter()
-                        .find(|p| p.alias == alias)
-                        .and_then(|p| p.size_bytes)
-                });
+            let profile_size = service.list_inventory().ok().and_then(|inventory| {
+                inventory
+                    .models
+                    .iter()
+                    .find(|p| p.alias == alias)
+                    .and_then(|p| p.size_bytes)
+            });
 
             let wait_for_ready =
                 !crate::chat_surface::runtime::should_defer_local_readiness_for_chat(profile_size);
@@ -711,13 +708,12 @@ impl App {
         let lines = read_log_tail(log_path, tail);
         self.agent_log.clear();
         if lines.is_empty() {
-            self.agent_log.push_front("runtime log tail unavailable".into());
+            self.agent_log
+                .push_front("runtime log tail unavailable".into());
             return;
         }
-        self.agent_log.push_front(format!(
-            "runtime log tail (latest {}):",
-            lines.len()
-        ));
+        self.agent_log
+            .push_front(format!("runtime log tail (latest {}):", lines.len()));
         for line in lines.iter().rev() {
             self.push_agent_line(format!("  {}", line));
         }
@@ -726,15 +722,14 @@ impl App {
     fn push_runtime_status_tail_to_agent_log(&mut self, tail: usize) {
         self.agent_log.clear();
         if let Some(lines) = local_runtime_status_tail(&self.runtime, tail) {
-            self.agent_log.push_front(format!(
-                "runtime log tail (latest {}):",
-                lines.len()
-            ));
+            self.agent_log
+                .push_front(format!("runtime log tail (latest {}):", lines.len()));
             for line in lines.iter().rev() {
                 self.push_agent_line(format!("  {}", line));
             }
         } else {
-            self.agent_log.push_front("runtime log tail unavailable".into());
+            self.agent_log
+                .push_front("runtime log tail unavailable".into());
         }
     }
 
@@ -1299,17 +1294,17 @@ fn short_id(id: &str) -> &str {
     }
 }
 
-fn parse_tail_lines_from_command(
-    raw: &str,
-    default: usize,
-) -> Result<usize, String> {
+fn parse_tail_lines_from_command(raw: &str, default: usize) -> Result<usize, String> {
     if raw.is_empty() {
         return Ok(chat_tui_log_tail_lines(default));
     }
 
     match raw.parse::<usize>() {
         Ok(value) => Ok(value),
-        Err(_) => Err("/tail expects optional positive integer (default from CYNIC_CHAT_LOG_TAIL_LINES)".into()),
+        Err(_) => Err(
+            "/tail expects optional positive integer (default from CYNIC_CHAT_LOG_TAIL_LINES)"
+                .into(),
+        ),
     }
 }
 
@@ -1324,7 +1319,11 @@ fn chat_tui_log_tail_lines(default: usize) -> usize {
 fn extract_log_path_from_message(message: &str) -> Option<String> {
     message
         .split(';')
-        .find_map(|part| part.trim().strip_prefix("log=").map(|value| value.to_string()))
+        .find_map(|part| {
+            part.trim()
+                .strip_prefix("log=")
+                .map(|value| value.to_string())
+        })
         .or_else(|| {
             message
                 .split_once("log=")
@@ -1341,15 +1340,9 @@ fn read_log_tail(log_path: &str, tail: usize) -> Vec<String> {
         Ok(content) => content,
         Err(_) => return Vec::new(),
     };
-    let lines: Vec<&str> = content
-        .lines()
-        .filter(|line| !line.is_empty())
-        .collect();
+    let lines: Vec<&str> = content.lines().filter(|line| !line.is_empty()).collect();
     let start = lines.len().saturating_sub(tail);
-    lines[start..]
-        .iter()
-        .map(|line| line.to_string())
-        .collect()
+    lines[start..].iter().map(|line| line.to_string()).collect()
 }
 
 fn local_runtime_status_tail(runtime: &ChatRuntime, tail: usize) -> Option<Vec<String>> {

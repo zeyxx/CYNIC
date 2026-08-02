@@ -1,6 +1,6 @@
-use std::time::Duration;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use cynic_inference::{
     BuiltinToolInvoker, ChatEndpointSource, ChatService, ChatSessionStore, FsChatSessionStore,
@@ -76,7 +76,11 @@ fn parse_env_bool(name: &str) -> Option<bool> {
 fn extract_log_path_from_message(message: &str) -> Option<String> {
     message
         .split(';')
-        .find_map(|part| part.trim().strip_prefix("log=").map(|value| value.to_string()))
+        .find_map(|part| {
+            part.trim()
+                .strip_prefix("log=")
+                .map(|value| value.to_string())
+        })
         .or_else(|| {
             message
                 .split_once("log=")
@@ -433,13 +437,7 @@ async fn bind_preferred_local_alias(
             endpoint = await_local_endpoint(service, alias).await;
         }
         let endpoint = endpoint?;
-        return bind_alias_to_chat_model(
-            &endpoint,
-            alias,
-            &log_path,
-            readiness_deferred,
-        )
-        .await;
+        return bind_alias_to_chat_model(&endpoint, alias, &log_path, readiness_deferred).await;
     }
 
     let endpoint = endpoint?;
@@ -706,12 +704,16 @@ mod tests {
         let four_gib = 4_u64 * 1024 * 1024 * 1024;
         assert!(should_defer_local_readiness_for_chat(Some(four_gib)));
         assert!(should_defer_local_readiness_for_chat(Some(four_gib + 1)));
-        assert!(should_defer_local_readiness_for_chat(Some(4_u64 * 1024 * 1024 * 1024 + 1)));
+        assert!(should_defer_local_readiness_for_chat(Some(
+            4_u64 * 1024 * 1024 * 1024 + 1
+        )));
     }
 
     #[test]
     fn should_not_defer_local_readiness_for_chat_for_small_model_sizes() {
-        assert!(!should_defer_local_readiness_for_chat(Some(2_u64 * 1024 * 1024 * 1024)));
+        assert!(!should_defer_local_readiness_for_chat(Some(
+            2_u64 * 1024 * 1024 * 1024
+        )));
         assert!(!should_defer_local_readiness_for_chat(Some(1)));
         assert!(!should_defer_local_readiness_for_chat(None));
     }

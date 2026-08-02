@@ -88,13 +88,7 @@ fn extract_log_path(msg: &str) -> String {
         })
         .or_else(|| {
             msg.split_once("log=")
-                .map(|(_, v)| {
-                    v.split_whitespace()
-                        .next()
-                        .unwrap_or("")
-                        .trim()
-                        .to_string()
-                })
+                .map(|(_, v)| v.split_whitespace().next().unwrap_or("").trim().to_string())
         })
         .unwrap_or_default()
 }
@@ -117,18 +111,18 @@ fn print_recent_log_tail(log_path: &str, tail: usize) {
     let keep = tail.max(1);
     let lines: Vec<&str> = raw.lines().collect();
     let start = lines.len().saturating_sub(keep);
-    let preview = lines[start..].iter().copied().collect::<Vec<_>>().join("\n");
+    let preview = lines[start..]
+        .iter()
+        .copied()
+        .collect::<Vec<_>>()
+        .join("\n");
     println!("  Logs (last {keep} lines):");
     for line in preview.lines() {
         println!("    {line}");
     }
 }
 
-pub(crate) fn execute_inference_start(
-    alias: Option<&str>,
-    json: bool,
-    no_wait: bool,
-) -> ExitCode {
+pub(crate) fn execute_inference_start(alias: Option<&str>, json: bool, no_wait: bool) -> ExitCode {
     cynic_inference::progress::progress(
         "resolve",
         "selecting startable vault profile (auto ensures profiles if needed)",

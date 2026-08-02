@@ -25,4 +25,6 @@ pub(crate) use command::execute_chat;
 pub(crate) use handlers::{
     blocked_not_ready, emit_chat_json, export_session, list_sessions, print_human,
 };
-pub(crate) use runtime::{ChatRuntime, build_chat_runtime, rebind_chat_service, resolve_selector_to_alias};
+pub(crate) use runtime::{
+    ChatRuntime, build_chat_runtime, rebind_chat_service, resolve_selector_to_alias,
+};
