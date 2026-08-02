@@ -82,6 +82,10 @@ pub(super) fn write_file(
     output_dir: &Path,
     files: &mut Vec<String>,
 ) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
+    }
     fs::write(&path, content)
         .map_err(|error| format!("failed to write {}: {error}", path.display()))?;
     let relative = path

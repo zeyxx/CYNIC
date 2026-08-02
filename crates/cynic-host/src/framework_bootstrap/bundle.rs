@@ -111,12 +111,17 @@ pub fn write_framework_bootstrap_bundle_for_role(
             security_invariants: Vec::new(),
         });
     }
-    if let Some(registry) = registry {
+    let registry_value = if let Some(registry) = registry {
         let content = fs::read(registry)
             .map_err(|error| format!("failed to read runtime registry {registry}: {error}"))?;
-        serde_json::from_slice::<serde_json::Value>(&content)
-            .map_err(|error| format!("runtime registry {registry} is not valid JSON: {error}"))?;
-    }
+        Some(
+            serde_json::from_slice::<serde_json::Value>(&content).map_err(|error| {
+                format!("runtime registry {registry} is not valid JSON: {error}")
+            })?,
+        )
+    } else {
+        None
+    };
     let host_exec_bundle_dir = output_dir.join("host-exec-bundle");
     fs::create_dir_all(&host_exec_bundle_dir)
         .map_err(|error| format!("failed to create host-exec-bundle dir: {error}"))?;
@@ -143,6 +148,34 @@ pub fn write_framework_bootstrap_bundle_for_role(
     }
     if let Some(registry) = registry {
         copy_registry(Path::new(registry), output_dir, &mut files)?;
+    }
+    if role == "hypervisor" {
+        let report = crate::lxc_exec_bridge::bundle(
+            output_dir.join("lxc-exec-bridge-bundle"),
+            output_dir.join("bin/cynic-lxc-exec-bridge"),
+        );
+        if report.status != "completed" {
+            return Err(format!(
+                "failed to build Rust-native LXC bridge bundle: {}",
+                report.unknowns.join(",")
+            ));
+        }
+        files.extend([
+            "lxc-exec-bridge-bundle/cynic-lxc-exec-bridge".to_string(),
+            "lxc-exec-bridge-bundle/cynic-lxc-exec-bridge.sudoers".to_string(),
+            "lxc-exec-bridge-bundle/manifest.json".to_string(),
+        ]);
+    }
+    if let Some(storage_config) = registry_value
+        .as_ref()
+        .and_then(|registry| render_storage_config(registry, role))
+    {
+        write_file(
+            output_dir.join("etc/storage.toml"),
+            storage_config,
+            output_dir,
+            &mut files,
+        )?;
     }
     write_executable_file(
         output_dir.join("install.sh"),
@@ -222,6 +255,36 @@ pub fn write_framework_bootstrap_bundle_for_role(
             "install verifies every seed artifact checksum before host mutation",
         ],
     })
+}
+
+fn render_storage_config(registry: &serde_json::Value, target_role: &str) -> Option<String> {
+    let node = registry.get("nodes")?.as_array()?.iter().find(|node| {
+        node.get("role").and_then(serde_json::Value::as_str) == Some("storage_primary")
+    })?;
+    let service = node.get("services")?.as_array()?.iter().find(|service| {
+        service.get("name").and_then(serde_json::Value::as_str) == Some("surrealdb")
+    })?;
+    let scheme = service.get("scheme")?.as_str()?;
+    if !matches!(scheme, "http" | "https") {
+        return None;
+    }
+    let port = service.get("port")?.as_u64()?;
+    let host = if target_role == "storage_primary" {
+        "127.0.0.1"
+    } else {
+        node.pointer("/transports/ssh/target")?.as_str()?
+    };
+    if host.is_empty()
+        || !host
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b':'))
+    {
+        return None;
+    }
+    let allow_loopback = target_role == "storage_primary";
+    Some(format!(
+        "# Generated from infra/registry.json placement; contains no secret.\n[storage]\nurl = \"{scheme}://{host}:{port}\"\nallow_loopback = {allow_loopback}\nnamespace = \"cynic\"\ndatabase = \"main\"\nusername = \"cynic-runtime\"\nsecret_file = \"/etc/cynic/secrets/storage-runtime-password\"\n"
+    ))
 }
 
 fn validate_runtime_seed_boundary(basket: &RuntimeBasket) -> Result<(), String> {

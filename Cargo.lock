@@ -881,16 +881,19 @@ dependencies = [
 name = "cynic-host"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "cynic-protocol",
  "hex",
  "libc",
+ "reqwest 0.13.4",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "sysinfo 0.39.6",
  "tempfile",
  "tokio",
+ "zeroize",
 ]
 
 [[package]]
@@ -947,9 +950,7 @@ dependencies = [
  "hyper-util",
  "rand 0.9.4",
  "reqwest 0.13.4",
- "rmcp",
  "rusqlite",
- "schemars",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -967,6 +968,7 @@ dependencies = [
  "tracing-subscriber",
  "walkdir",
  "which",
+ "zeroize",
 ]
 
 [[package]]
@@ -991,6 +993,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -1004,6 +1007,7 @@ dependencies = [
  "cynic-host",
  "cynic-inference",
  "cynic-protocol",
+ "ed25519-dalek",
  "futures-util",
  "hex",
  "http",
@@ -3904,6 +3908,7 @@ dependencies = [
  "base64",
  "bytes",
  "encoding_rs",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "h2",
@@ -3926,6 +3931,7 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "sync_wrapper",
  "tokio",
  "tokio-native-tls",

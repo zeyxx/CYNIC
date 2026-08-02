@@ -530,18 +530,6 @@ fn matches_scope(relative_path: &str, scope: &str) -> bool {
 fn repeated_surface_findings() -> Vec<KernelRepeatedSurfaceFinding> {
     vec![
         KernelRepeatedSurfaceFinding {
-            id: "forge_task_registry_contract_duplication",
-            category: "duplicate_registry_lifecycle_contract_validation",
-            status: "blocked",
-            canonical_owner: "cynic-host or shared kernel coordination module",
-            detail: "registry-backed forge task contract validation is duplicated between REST and MCP transports",
-            correction: "extract the lifecycle/registry contract checks into one shared coordination-facing module, then let REST and MCP project it",
-            source_paths: vec![
-                "crates/cynic-kernel/src/api/rest/agent_tasks.rs",
-                "crates/cynic-kernel/src/api/mcp/mod.rs",
-            ],
-        },
-        KernelRepeatedSurfaceFinding {
             id: "storage_self_healing_python_projection",
             category: "obsolete_runtime_authority_projection",
             status: "blocked",
@@ -606,10 +594,12 @@ mod tests {
                 && area.target_owner == "cynic-host"
                 && area.matched_file_count > 0
         }));
-        assert!(report.repeated_surface_findings.iter().any(|finding| {
-            finding.id == "forge_task_registry_contract_duplication"
-                && finding.canonical_owner.contains("cynic-host")
-        }));
+        assert!(
+            !report
+                .repeated_surface_findings
+                .iter()
+                .any(|finding| { finding.id == "forge_task_registry_contract_duplication" })
+        );
         assert!(report.repeated_surface_findings.iter().any(|finding| {
             finding.id == "storage_self_healing_python_projection"
                 && finding

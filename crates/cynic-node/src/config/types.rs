@@ -15,6 +15,35 @@ pub(crate) struct Config {
     pub(crate) health: HealthConfig,
     #[serde(default)]
     pub(crate) federation: Option<FederationConfig>,
+    #[serde(default)]
+    pub(crate) node_control: Option<NodeControlConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct NodeControlConfig {
+    pub(crate) kernel_url: String,
+    pub(crate) node_id: String,
+    pub(crate) signing_key_path: PathBuf,
+    pub(crate) enrollment_request_path: PathBuf,
+    pub(crate) enrollment_grant_path: PathBuf,
+    pub(crate) enrollment_authority_public_key_path: PathBuf,
+    pub(crate) enrollment_token_path: PathBuf,
+    pub(crate) enrollment_seed_id: String,
+    pub(crate) enrollment_role: String,
+    #[serde(default)]
+    pub(crate) enrollment_requested_capabilities: Vec<String>,
+    #[serde(default = "defaults::default_enrollment_request_ttl_secs")]
+    pub(crate) enrollment_request_ttl_secs: u64,
+    #[serde(default = "defaults::default_enrollment_renewal_window_secs")]
+    pub(crate) enrollment_renewal_window_secs: u64,
+    #[serde(default = "defaults::default_node_control_interval_secs")]
+    pub(crate) interval_secs: u64,
+    #[serde(default = "defaults::default_node_control_timeout_secs")]
+    pub(crate) timeout_secs: u64,
+    #[serde(default)]
+    pub(crate) observed_capabilities: Vec<String>,
+    #[serde(default)]
+    pub(crate) observed_services: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]

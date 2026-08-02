@@ -8,12 +8,12 @@ use crate::adapters::dns_renderer::SynapseDnsRenderer;
 use crate::adapters::registry::LocalRegistryAdapter;
 use crate::dns_contract::{
     DnsPackagePrecondition, DnsProviderPolicySurface, DnsRequiredModes, DnsTargetPaths,
-    SYNAPSE_DNS_COREFILE_FILENAME, SYNAPSE_DNS_HOSTS_FILENAME, SYNAPSE_DNS_MANIFEST_FILENAME,
-    SYNAPSE_DNS_README_FILENAME, SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME,
-    SYNAPSE_DNS_SERVICE_FILENAME, coredns_systemd_unit_for_zone, dns_activation_checks_for_zone,
-    dns_activation_readme_for_zone, dns_bundle_files, dns_forbidden_patterns,
-    dns_package_preconditions, dns_provider_policy_surface_for_zone, dns_required_modes,
-    dns_target_paths_for_zone,
+    SYNAPSE_DNS_HOSTS_FILENAME, SYNAPSE_DNS_MANIFEST_FILENAME, SYNAPSE_DNS_README_FILENAME,
+    SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME, dns_activation_checks_for_zone,
+    dns_activation_readme_for_zone, dns_bundle_config_filename, dns_bundle_files,
+    dns_bundle_service_filename, dns_forbidden_patterns, dns_package_preconditions,
+    dns_provider_config_for_zone, dns_provider_policy_surface_for_zone, dns_required_modes,
+    dns_systemd_unit_for_zone, dns_target_paths_for_zone,
 };
 use crate::network_command_surface::NetworkCommandSurface;
 use crate::ports::network_interfaces_port::{DnsBundleRendererPort, RegistryTopologyPort};
@@ -57,12 +57,12 @@ pub(crate) fn build_dns_bundle(
         renderer.render_hosts(&topology)?,
     )?;
     fs::write(
-        out.join(SYNAPSE_DNS_COREFILE_FILENAME),
-        renderer.render_corefile()?,
+        out.join(dns_bundle_config_filename()),
+        dns_provider_config_for_zone(&zone),
     )?;
     fs::write(
-        out.join(SYNAPSE_DNS_SERVICE_FILENAME),
-        coredns_systemd_unit_for_zone(&zone),
+        out.join(dns_bundle_service_filename()),
+        dns_systemd_unit_for_zone(&zone),
     )?;
     fs::write(
         out.join(SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME),

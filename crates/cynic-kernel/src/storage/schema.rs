@@ -1,30 +1,77 @@
-//! Schema bootstrap and backward-compatible SurrealQL migrations.
+//! Read-only runtime schema observation.
+//!
+//! Schema mutation belongs to a separately authorized migrator identity. The
+//! steady-state runtime identity observes the required contract and fails
+//! closed when an operator migration is required.
 
 use crate::storage::SurrealHttpStorage;
 
-const MAIN_SCHEMA_SQL: &str = include_str!("schema_bootstrap.sql");
-const OBSERVATION_MIGRATION_SQL: &str = include_str!("schema_observation_migration.sql");
-const AGENT_TASK_MIGRATION_SQL: &str = include_str!("schema_agent_task_migration.sql");
+pub(crate) async fn observe_schema(
+    storage: &SurrealHttpStorage,
+) -> Result<(), crate::domain::storage::StorageError> {
+    let result = storage.query_one("INFO FOR DB;").await.map_err(|error| {
+        crate::domain::storage::StorageError::ConnectionFailed(format!(
+            "runtime identity cannot observe the database schema: {error}"
+        ))
+    })?;
+    let info = result.first().ok_or_else(|| {
+        crate::domain::storage::StorageError::ConnectionFailed(
+            "database schema observation returned no proof".to_string(),
+        )
+    })?;
+    required_schema_blockers(info).map_or(Ok(()), |blockers| {
+        Err(crate::domain::storage::StorageError::ConnectionFailed(
+            format!("storage schema migration required: {}", blockers.join(",")),
+        ))
+    })
+}
 
-pub(crate) async fn bootstrap_schema(storage: &SurrealHttpStorage) {
-    if let Err(e) = storage.query(MAIN_SCHEMA_SQL).await {
-        // CRITICAL, not WARNING: HNSW vector index (crystal_vec_idx) is in this batch.
-        // Without it, search_crystals_semantic can fall back to non-semantic listing.
-        tracing::error!(error = %e, "schema bootstrap failed — vector search may not work");
+fn required_schema_blockers(info: &serde_json::Value) -> Option<Vec<String>> {
+    let tables = info.get("tables").and_then(serde_json::Value::as_object);
+    let mut blockers = Vec::new();
+    for table in [
+        "agent_session",
+        "agent_workspace_claim",
+        "runtime_proof_commit",
+    ] {
+        let Some(definition) = tables
+            .and_then(|tables| tables.get(table))
+            .and_then(serde_json::Value::as_str)
+        else {
+            blockers.push(format!("table_missing:{table}"));
+            continue;
+        };
+        if matches!(table, "agent_workspace_claim" | "runtime_proof_commit")
+            && !definition.contains("SCHEMAFULL")
+        {
+            blockers.push(format!("table_not_schemafull:{table}"));
+        }
     }
+    (!blockers.is_empty()).then_some(blockers)
+}
 
-    // Historical Surreal schemas used stricter optional observation fields.
-    // `IF NOT EXISTS` does not migrate preexisting schema.
-    if let Err(e) = storage.query(OBSERVATION_MIGRATION_SQL).await {
-        tracing::error!(
-            error = %e,
-            "observation optional field schema migration failed"
+#[cfg(test)]
+mod tests {
+    use super::required_schema_blockers;
+    use serde_json::json;
+
+    #[test]
+    fn runtime_schema_observer_requires_exact_table_modes_without_mutating() {
+        let valid = json!({"tables": {
+            "agent_session": "DEFINE TABLE agent_session TYPE NORMAL SCHEMAFULL PERMISSIONS NONE",
+            "agent_workspace_claim": "DEFINE TABLE agent_workspace_claim TYPE NORMAL SCHEMAFULL PERMISSIONS NONE",
+            "runtime_proof_commit": "DEFINE TABLE runtime_proof_commit TYPE NORMAL SCHEMAFULL PERMISSIONS NONE"
+        }});
+        assert!(required_schema_blockers(&valid).is_none());
+
+        let drifted = json!({"tables": {
+            "agent_session": "DEFINE TABLE agent_session SCHEMAFULL",
+            "agent_workspace_claim": "DEFINE TABLE agent_workspace_claim SCHEMALESS",
+            "runtime_proof_commit": "DEFINE TABLE runtime_proof_commit SCHEMAFULL"
+        }});
+        assert_eq!(
+            required_schema_blockers(&drifted).unwrap(),
+            vec!["table_not_schemafull:agent_workspace_claim"]
         );
-    }
-
-    // Historical kernels wrote task timestamps as RFC3339 strings and omitted
-    // nullable fields, which SurrealDB represents as NONE rather than NULL.
-    if let Err(e) = storage.query(AGENT_TASK_MIGRATION_SQL).await {
-        tracing::error!(error = %e, "agent task schema migration failed");
     }
 }

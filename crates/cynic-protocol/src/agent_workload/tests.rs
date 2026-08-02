@@ -2,15 +2,20 @@ use crate::{
     AGENT_COMPLETION_ENVELOPE_SCHEMA, AGENT_DELEGATION_ENVELOPE_SCHEMA, AgentBoundedAction,
     AgentBudget, AgentCapabilityGrant, AgentCompletionEnvelope, AgentCompletionStatus,
     AgentDelegationEnvelope, AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkloadRecord,
-    AgentWorkloadState, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, LeaseGuard,
-    MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority,
-    PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
+    AgentWorkloadState, BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE,
+    DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA, DurableAgentWorkloadRecord,
+    EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, LeaseGuard, MutationContract,
+    POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
+    PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA,
+    SignedBuildWorkloadGrant, build_workload_grant_signing_bytes, derive_build_workload_grant,
+    digest_json, validate_build_workload_grant, validate_signed_build_workload_grant,
 };
 
 use super::{
     AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, admit_agent_workload,
     admit_agent_workload_dispatch, admit_workload_action, claim_agent_workload,
-    complete_agent_workload, consume_agent_workload_action, request_agent_workload_cancellation,
+    complete_agent_workload, consume_agent_workload_action, renew_agent_workload_claim,
+    request_agent_workload_cancellation,
 };
 
 fn evidence(kind: &str) -> AgentEvidenceRef {
@@ -113,7 +118,7 @@ pub(super) fn test_envelope() -> AgentWorkloadEnvelope {
     }
 }
 
-fn record() -> AgentWorkloadRecord {
+pub(super) fn record() -> AgentWorkloadRecord {
     AgentWorkloadRecord {
         schema: AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
         envelope: test_envelope(),
@@ -193,6 +198,15 @@ fn stale_claim_cannot_act_after_recovery() {
 }
 
 #[test]
+fn claim_renewal_preserves_fence_and_moves_expiry_forward() {
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
+    assert!(renew_agent_workload_claim(&claimed, &guard(1), 19, 11).is_err());
+    let renewed = renew_agent_workload_claim(&claimed, &guard(1), 40, 11).unwrap();
+    assert_eq!(renewed.claim.unwrap().expires_at_ms, 40);
+    assert_eq!(renewed.last_fencing_token, 1);
+}
+
+#[test]
 fn cancellation_invalidates_the_active_claim() {
     let claimed = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
     let cancelled = request_agent_workload_cancellation(&claimed).unwrap();
@@ -205,6 +219,99 @@ fn action_budget_is_retained_in_the_record() {
     claimed = consume_agent_workload_action(&claimed, &guard(1), 11).unwrap();
     claimed = consume_agent_workload_action(&claimed, &guard(1), 12).unwrap();
     assert!(consume_agent_workload_action(&claimed, &guard(1), 13).is_err());
+}
+
+#[test]
+fn build_grant_is_derived_from_the_live_durable_workload() {
+    let now_unix_s = 10;
+    let source_commit = "a".repeat(40);
+    let mut dispatched = record();
+    dispatched.envelope.policy_admission.intent.subject = source_commit.clone();
+    dispatched.envelope.policy_admission.mutation.scope.target = source_commit.clone();
+    let claimed = claim_agent_workload(&dispatched, guard(1), 40_000, now_unix_s * 1_000)
+        .expect("claim workload");
+    let durable = DurableAgentWorkloadRecord {
+        schema: DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
+        revision: 2,
+        previous_record_digest: Some(format!("sha256:{}", "e".repeat(64))),
+        record_digest: digest_json(&claimed).expect("record digest"),
+        record: claimed,
+        committed_at_ms: now_unix_s * 1_000,
+    };
+
+    let grant = derive_build_workload_grant(&durable, "scheduler-1", now_unix_s)
+        .expect("derive workload grant");
+
+    assert_eq!(grant.source_commit, source_commit);
+    assert_eq!(
+        grant.allowed_actions,
+        vec!["make:check", "cargo:check", "cargo:run", "cargo:test"]
+    );
+    assert_eq!(grant.workload_record_digest, durable.record_digest);
+    assert!(
+        validate_build_workload_grant(
+            &grant,
+            &durable,
+            "builder-1",
+            &source_commit,
+            "make:check",
+            now_unix_s + 1,
+        )
+        .is_ok()
+    );
+
+    let mut signed = SignedBuildWorkloadGrant {
+        schema: SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA.to_string(),
+        authority_key_id: format!("sha256:{}", "c".repeat(64)),
+        signature_namespace: BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE.to_string(),
+        grant,
+        signature_hex: "d".repeat(128),
+    };
+    let signing_bytes = build_workload_grant_signing_bytes(&signed).expect("signing bytes");
+    signed.signature_hex = "e".repeat(128);
+    assert_eq!(
+        signing_bytes,
+        build_workload_grant_signing_bytes(&signed).expect("stable signing bytes")
+    );
+    assert!(validate_signed_build_workload_grant(&signed).is_empty());
+}
+
+#[test]
+fn cancellation_or_fence_change_revokes_a_derived_build_grant() {
+    let now_unix_s = 10;
+    let source_commit = "b".repeat(40);
+    let mut dispatched = record();
+    dispatched.envelope.policy_admission.intent.subject = source_commit.clone();
+    dispatched.envelope.policy_admission.mutation.scope.target = source_commit.clone();
+    let claimed = claim_agent_workload(&dispatched, guard(1), 40_000, now_unix_s * 1_000)
+        .expect("claim workload");
+    let mut durable = DurableAgentWorkloadRecord {
+        schema: DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
+        revision: 2,
+        previous_record_digest: Some(format!("sha256:{}", "e".repeat(64))),
+        record_digest: digest_json(&claimed).expect("record digest"),
+        record: claimed,
+        committed_at_ms: now_unix_s * 1_000,
+    };
+    let grant = derive_build_workload_grant(&durable, "scheduler-1", now_unix_s)
+        .expect("derive workload grant");
+
+    durable.record = request_agent_workload_cancellation(&durable.record).expect("cancel");
+    durable.revision += 1;
+    durable.previous_record_digest = Some(durable.record_digest.clone());
+    durable.record_digest = digest_json(&durable.record).expect("cancelled digest");
+
+    assert!(
+        validate_build_workload_grant(
+            &grant,
+            &durable,
+            "builder-1",
+            &source_commit,
+            "make:check",
+            now_unix_s + 1,
+        )
+        .is_err()
+    );
 }
 
 #[test]

@@ -112,9 +112,11 @@ mod tests {
         )
         .expect("projection");
         assert_eq!(report.status, "planned");
-        assert!(!std::fs::read_to_string(&registry)
-            .expect("read registry")
-            .contains("cortex-1"));
+        assert!(
+            !std::fs::read_to_string(&registry)
+                .expect("read registry")
+                .contains("cortex-1")
+        );
     }
 
     #[test]

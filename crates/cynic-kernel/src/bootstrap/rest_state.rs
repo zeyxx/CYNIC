@@ -10,6 +10,9 @@ use cynic_inference::embedding::EmbeddingPort;
 use cynic_inference::{SlotSemaphoreMap, SlotTracker};
 
 pub struct RestStateInputs {
+    pub agent_sessions: Option<Arc<domain::agent_session::AgentSessionRuntime>>,
+    pub node_control: Option<Arc<domain::node_control::NodeControlRuntime>>,
+    pub node_enrollment: Option<Arc<domain::node_enrollment::NodeEnrollmentRuntime>>,
     pub storage: Arc<dyn domain::storage::StoragePort>,
     pub coord: Arc<dyn domain::coord::CoordPort>,
     pub embedding: Arc<AutoRecoveryEmbedding>,
@@ -33,6 +36,9 @@ pub struct RestStateInputs {
 impl fmt::Debug for RestStateInputs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RestStateInputs")
+            .field("agent_sessions", &self.agent_sessions)
+            .field("node_control", &self.node_control)
+            .field("node_enrollment", &self.node_enrollment)
             .field("storage", &"Arc<dyn StoragePort>")
             .field("coord", &"Arc<dyn CoordPort>")
             .field("embedding", &"Arc<AutoRecoveryEmbedding>")
@@ -48,6 +54,7 @@ impl fmt::Debug for RestStateInputs {
                     ("organ", self.role_keys.organ.is_some()),
                     ("internal", self.role_keys.internal.is_some()),
                     ("legacy", self.role_keys.legacy.is_some()),
+                    ("bound_signers", !self.role_keys.signing_bindings.is_empty()),
                 ],
             )
             .field("storage_config", &self.storage_config)
@@ -68,6 +75,9 @@ pub fn build_rest_state(
     runtime_services: RuntimeServices,
 ) -> Arc<api::rest::AppState> {
     Arc::new(api::rest::AppState {
+        agent_sessions: inputs.agent_sessions,
+        node_control: inputs.node_control,
+        node_enrollment: inputs.node_enrollment,
         storage: inputs.storage,
         coord: inputs.coord,
         embedding: inputs.embedding as Arc<dyn EmbeddingPort>,

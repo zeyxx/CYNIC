@@ -6,21 +6,36 @@
 
 use crate::domain::storage::StorageError;
 use crate::infra::config::StorageConfig;
+use crate::infra::runtime_secret::{
+    LocalRuntimeSecretSource, SecretMaterial, resolve_runtime_secret,
+};
+use crate::storage::auth::{SensitiveString, StorageCredentials, signin};
 use crate::storage::validation::parse_sql_table_op;
 
-use base64::Engine;
 use reqwest::Client;
 use serde::Deserialize;
 
-#[derive(Debug)]
 pub struct SurrealHttpStorage {
     pub(crate) client: Client,
     pub(crate) url: String,
     pub(crate) ns: String,
     pub(crate) db: String,
-    pub(crate) auth: std::sync::RwLock<String>,
-    basic_auth: String,
+    auth: std::sync::RwLock<SensitiveString>,
+    credentials: StorageCredentials,
     pub(crate) metrics: crate::storage::StorageMetrics,
+}
+
+impl std::fmt::Debug for SurrealHttpStorage {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("SurrealHttpStorage")
+            .field("url", &self.url)
+            .field("namespace", &self.ns)
+            .field("database", &self.db)
+            .field("username", &self.credentials.username())
+            .field("credential_present", &true)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -39,20 +54,43 @@ impl SurrealHttpStorage {
     }
 
     pub async fn init(config: &StorageConfig) -> Result<Self, StorageError> {
-        Self::init_with(&config.url, &config.namespace, &config.database).await
+        validate_runtime_storage_endpoint(&config.url, config.allow_loopback)?;
+        let resolved =
+            resolve_runtime_secret(&config.identity.secret_sources, &LocalRuntimeSecretSource)
+                .map_err(StorageError::ConnectionFailed)?;
+        tracing::info!(
+            identity = %config.identity.username,
+            secret_source = %resolved.source.id,
+            provider = ?resolved.source.provider,
+            "storage runtime machine identity resolved"
+        );
+        Self::init_with_identity(
+            &config.url,
+            &config.namespace,
+            &config.database,
+            &config.identity.username,
+            resolved.material,
+        )
+        .await
     }
 
     pub async fn init_with(url: &str, ns: &str, db: &str) -> Result<Self, StorageError> {
-        let user = std::env::var("SURREALDB_USER").unwrap_or_else(|_| "root".to_string());
-        let pass = std::env::var("SURREALDB_PASS").map_err(|e| {
-            StorageError::ConnectionFailed(format!("SURREALDB_PASS must be set: {e}"))
-        })?;
+        let mut config = StorageConfig::default();
+        config.url = url.to_string();
+        config.namespace = ns.to_string();
+        config.database = db.to_string();
+        Self::init(&config).await
+    }
 
-        let credentials = format!("{user}:{pass}");
-        let basic_auth = format!(
-            "Basic {}",
-            base64::engine::general_purpose::STANDARD.encode(&credentials)
-        );
+    async fn init_with_identity(
+        url: &str,
+        ns: &str,
+        db: &str,
+        user: &str,
+        pass: SecretMaterial,
+    ) -> Result<Self, StorageError> {
+        let credentials = StorageCredentials::new(user, pass)?;
+        let basic_auth = credentials.basic_auth();
 
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(10))
@@ -60,28 +98,7 @@ impl SurrealHttpStorage {
             .map_err(|e| StorageError::ConnectionFailed(format!("HTTP client: {e}")))?;
         let url = url.trim_end_matches('/').to_string();
 
-        let bootstrap_sql = format!(
-            "DEFINE NAMESPACE IF NOT EXISTS `{ns}`; USE NS `{ns}`; DEFINE DATABASE IF NOT EXISTS `{db}`;"
-        );
-        let resp = client
-            .post(format!("{url}/sql"))
-            .header("Accept", "application/json")
-            .header("Authorization", &basic_auth)
-            .body(bootstrap_sql)
-            .send()
-            .await
-            .map_err(|e| {
-                StorageError::ConnectionFailed(format!("SurrealDB unreachable at {url}: {e}"))
-            })?;
-
-        if !resp.status().is_success() {
-            let body = resp.text().await.unwrap_or_default();
-            return Err(StorageError::ConnectionFailed(format!(
-                "Bootstrap failed: {body}"
-            )));
-        }
-
-        let bearer_auth = Self::signin(&client, &url, &user, &pass)
+        let bearer_auth = signin(&client, &url, ns, db, &credentials)
             .await
             .map_err(|e| {
                 tracing::warn!(error = %e, "JWT signin failed, falling back to Basic auth");
@@ -95,7 +112,7 @@ impl SurrealHttpStorage {
             ns: ns.to_string(),
             db: db.to_string(),
             auth: std::sync::RwLock::new(bearer_auth),
-            basic_auth,
+            credentials,
             metrics: crate::storage::StorageMetrics::new(),
         };
 
@@ -103,7 +120,7 @@ impl SurrealHttpStorage {
             StorageError::ConnectionFailed(format!("SurrealDB unreachable at {url}: {e}"))
         })?;
 
-        crate::storage::schema::bootstrap_schema(&storage).await;
+        crate::storage::schema::observe_schema(&storage).await?;
 
         klog!(
             "[Ring 1 / UAL] Linked to SurrealDB (HTTP) at {}",
@@ -113,59 +130,15 @@ impl SurrealHttpStorage {
         Ok(storage)
     }
 
-    async fn signin(
-        client: &Client,
-        url: &str,
-        user: &str,
-        pass: &str,
-    ) -> Result<String, StorageError> {
-        let body = serde_json::json!({"user": user, "pass": pass});
-        let resp = client
-            .post(format!("{url}/signin"))
-            .header("Content-Type", "application/json")
-            .header("Accept", "application/json")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| StorageError::ConnectionFailed(format!("/signin failed: {e}")))?;
-
-        let status = resp.status();
-        let json: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| StorageError::ConnectionFailed(format!("/signin parse: {e}")))?;
-
-        if !status.is_success() {
-            return Err(StorageError::ConnectionFailed(format!(
-                "/signin returned {status}: {}",
-                json.get("details")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-            )));
-        }
-
-        let token = json.get("token").and_then(|v| v.as_str()).ok_or_else(|| {
-            StorageError::ConnectionFailed("/signin: no token in response".into())
-        })?;
-
-        Ok(format!("Bearer {token}"))
-    }
-
     async fn refresh_token(&self) -> Result<(), StorageError> {
-        let encoded = self
-            .basic_auth
-            .strip_prefix("Basic ")
-            .ok_or_else(|| StorageError::ConnectionFailed("corrupt basic_auth".into()))?;
-        let decoded = base64::engine::general_purpose::STANDARD
-            .decode(encoded)
-            .map_err(|e| StorageError::ConnectionFailed(format!("base64 decode: {e}")))?;
-        let cred_str = String::from_utf8(decoded)
-            .map_err(|e| StorageError::ConnectionFailed(format!("utf8: {e}")))?;
-        let (user, pass) = cred_str
-            .split_once(':')
-            .ok_or_else(|| StorageError::ConnectionFailed("bad credentials format".into()))?;
-
-        let new_auth = Self::signin(&self.client, &self.url, user, pass).await?;
+        let new_auth = signin(
+            &self.client,
+            &self.url,
+            &self.ns,
+            &self.db,
+            &self.credentials,
+        )
+        .await?;
         if let Ok(mut guard) = self.auth.write() {
             *guard = new_auth;
         }
@@ -217,8 +190,8 @@ impl SurrealHttpStorage {
             let current_auth = self
                 .auth
                 .read()
-                .map(|g| g.clone())
-                .unwrap_or_else(|_| self.basic_auth.clone());
+                .map(|guard| guard.clone())
+                .unwrap_or_else(|_| self.credentials.basic_auth());
 
             let resp = self
                 .client
@@ -226,7 +199,7 @@ impl SurrealHttpStorage {
                 .header("Accept", "application/json")
                 .header("surreal-ns", &self.ns)
                 .header("surreal-db", &self.db)
-                .header("Authorization", &current_auth)
+                .header("Authorization", current_auth.as_str())
                 .body(sql.to_string())
                 .send()
                 .await
@@ -285,5 +258,73 @@ impl SurrealHttpStorage {
     pub async fn query_one(&self, sql: &str) -> Result<Vec<serde_json::Value>, StorageError> {
         let mut results = self.query(sql).await?;
         Ok(results.pop().unwrap_or_default())
+    }
+}
+
+fn validate_runtime_storage_endpoint(
+    url: &str,
+    declared_local_authority: bool,
+) -> Result<(), StorageError> {
+    let endpoint = reqwest::Url::parse(url).map_err(|_| {
+        StorageError::ConnectionFailed(
+            "storage endpoint is absent or invalid; declare CYNIC_STORAGE_CONFIG or SURREALDB_URL"
+                .to_string(),
+        )
+    })?;
+    if !matches!(endpoint.scheme(), "http" | "https") || endpoint.host_str().is_none() {
+        return Err(StorageError::ConnectionFailed(
+            "storage endpoint must be an absolute http(s) URL".to_string(),
+        ));
+    }
+    let loopback = endpoint
+        .host_str()
+        .is_some_and(|host| matches!(host, "localhost" | "127.0.0.1" | "::1"));
+    if loopback && !loopback_storage_authorized(declared_local_authority) {
+        return Err(StorageError::ConnectionFailed(
+            "loopback storage is not authorized for this node role or harness".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn loopback_storage_authorized(declared_local_authority: bool) -> bool {
+    declared_local_authority
+        || std::env::var("CYNIC_RUNTIME_HARNESS_KIND").ok().as_deref() == Some("lab")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn storage_debug_never_projects_password_or_session_token() {
+        let storage = SurrealHttpStorage {
+            client: Client::new(),
+            url: "http://localhost:8000".to_string(),
+            ns: "cynic".to_string(),
+            db: "main".to_string(),
+            auth: std::sync::RwLock::new(SensitiveString::new(
+                "Bearer session-token-value".to_string(),
+            )),
+            credentials: StorageCredentials::new(
+                "cynic-runtime",
+                SecretMaterial::new("runtime-password-value".to_string()),
+            )
+            .unwrap(),
+            metrics: crate::storage::StorageMetrics::new(),
+        };
+
+        let debug = format!("{storage:?}");
+        assert!(!debug.contains("runtime-password-value"));
+        assert!(!debug.contains("session-token-value"));
+        assert!(debug.contains("credential_present"));
+    }
+
+    #[test]
+    fn runtime_endpoint_policy_rejects_missing_and_undeclared_loopback_storage() {
+        assert!(validate_runtime_storage_endpoint("", false).is_err());
+        assert!(validate_runtime_storage_endpoint("http://127.0.0.1:8000", false).is_err());
+        assert!(validate_runtime_storage_endpoint("http://127.0.0.1:8000", true).is_ok());
+        assert!(validate_runtime_storage_endpoint("https://storage.internal:8000", false).is_ok());
     }
 }

@@ -10,6 +10,7 @@ mod bridge;
 mod constellation;
 mod framework;
 mod host;
+mod host_agent_access;
 mod host_e2e;
 pub(crate) mod selection;
 

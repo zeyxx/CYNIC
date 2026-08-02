@@ -1,5 +1,8 @@
 pub mod agent_scheduler_port;
+pub mod agent_workload_store_port;
 pub mod agent_workspace_port;
+pub mod build_workload_grant_port;
+pub mod build_workload_grant_store_port;
 pub(crate) mod harness_target_attestation_port;
 pub(crate) mod harness_target_attestation_reader_port;
 pub mod hypervisor_port;
@@ -9,6 +12,7 @@ pub mod network_interfaces_port;
 pub(crate) mod network_mesh_bundle_port;
 pub(crate) mod network_mesh_bundle_writer_port;
 pub(crate) mod network_mesh_registry_port;
+pub mod node_control_plane_port;
 pub mod provider_control_port;
 pub mod runtime_federation_port;
 pub mod runtime_federation_queue_store_port;

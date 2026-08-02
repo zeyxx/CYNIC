@@ -1,3 +1,4 @@
+#[cfg(test)]
 fn storage_primary_plan_args(params: &StoragePrimaryPlanParams) -> Result<Vec<String>, McpError> {
     Ok(vec![
         "storage-primary".to_string(),
@@ -7,6 +8,7 @@ fn storage_primary_plan_args(params: &StoragePrimaryPlanParams) -> Result<Vec<St
     ])
 }
 
+#[cfg(test)]
 fn storage_primary_bundle_args(
     params: &StoragePrimaryBundleParams,
 ) -> Result<Vec<String>, McpError> {
@@ -16,7 +18,11 @@ fn storage_primary_bundle_args(
         "--registry".to_string(),
         repo_relative_arg(&params.registry, "infra/registry.json", "registry")?,
         "--schema".to_string(),
-        repo_relative_arg(&params.schema, "infra/surrealdb/schema.surql", "schema")?,
+        repo_relative_arg(
+            &params.schema,
+            "crates/cynic-kernel/src/storage/schema_bootstrap.sql",
+            "schema",
+        )?,
         "--output-dir".to_string(),
         tmp_output_dir_arg(
             &params.output_dir,
@@ -26,25 +32,44 @@ fn storage_primary_bundle_args(
     ])
 }
 
-fn run_organ_keep_json(_args: &[String], operation: &str) -> Result<serde_json::Value, McpError> {
-    Ok(unsupported_minimal_baseline(
-        operation,
-        "legacy organ-keep Python CLI was removed from the low-layer baseline",
-    ))
-}
-
 fn run_storage_primary_plan(
     params: &StoragePrimaryPlanParams,
 ) -> Result<serde_json::Value, McpError> {
-    let args = storage_primary_plan_args(params)?;
-    run_organ_keep_json(&args, "storage.primary.plan")
+    let registry = project_root().join(repo_relative_arg(
+        &params.registry,
+        "infra/registry.json",
+        "registry",
+    )?);
+    let schema = project_root().join("crates/cynic-kernel/src/storage/schema_bootstrap.sql");
+    serde_json::to_value(cynic_host::storage_primary::build_plan(&registry, &schema))
+        .map_err(|error| McpError::internal_error(error.to_string(), None))
 }
 
 fn run_storage_primary_bundle(
     params: &StoragePrimaryBundleParams,
 ) -> Result<serde_json::Value, McpError> {
-    let args = storage_primary_bundle_args(params)?;
-    run_organ_keep_json(&args, "storage.primary.bundle")
+    let registry = project_root().join(repo_relative_arg(
+        &params.registry,
+        "infra/registry.json",
+        "registry",
+    )?);
+    let schema = project_root().join(repo_relative_arg(
+        &params.schema,
+        "crates/cynic-kernel/src/storage/schema_bootstrap.sql",
+        "schema",
+    )?);
+    let output_dir = tmp_output_dir_arg(
+        &params.output_dir,
+        "/tmp/cynic-storage-primary",
+        "output_dir",
+    )?;
+    let plan = cynic_host::storage_primary::build_plan(&registry, &schema);
+    let report = cynic_host::storage_primary::write_activation_bundle(
+        &plan,
+        std::path::Path::new(&output_dir),
+    )
+    .map_err(|error| McpError::internal_error(error, None))?;
+    serde_json::to_value(report).map_err(|error| McpError::internal_error(error.to_string(), None))
 }
 
 fn storage_primary_readiness_status_params(
@@ -73,25 +98,38 @@ fn storage_primary_readiness_result(mut status: serde_json::Value) -> serde_json
         .and_then(|value| value.as_array())
         .cloned()
         .unwrap_or_default();
-    let ready = missing.is_empty()
-        && status.get("status").and_then(|value| value.as_str()) == Some("active");
-    let next_actions: Vec<serde_json::Value> = missing
-        .iter()
-        .filter_map(|value| value.as_str())
-        .map(|item| {
-            let action = match item {
-                "bridge_active" => "activate_lxc_exec_bridge_on_proxmox_host",
-                "fleet_observes_node_running" => "start_or_observe_cynic_lxc_surrealdb",
-                "mesh_reaches_storage" => {
-                    "activate_synapse_dns_with_network_mesh_dns_activation_bundle"
-                }
-                "bundle_complete" => "run_storage_primary_bundle",
-                "service_health_healthy" => "start_surrealdb_and_verify_synapse_health",
-                other => other,
-            };
-            serde_json::json!(action)
-        })
-        .collect();
+    let ready = status
+        .get("ready")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or_else(|| {
+            missing.is_empty()
+                && status.get("status").and_then(|value| value.as_str()) == Some("active")
+        });
+    let next_actions: Vec<serde_json::Value> = if missing.is_empty() {
+        status
+            .get("next_actions")
+            .and_then(serde_json::Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+    } else {
+        missing
+            .iter()
+            .filter_map(|value| value.as_str())
+            .map(|item| {
+                let action = match item {
+                    "bridge_active" => "activate_lxc_exec_bridge_on_proxmox_host",
+                    "fleet_observes_node_running" => "start_or_observe_cynic_lxc_surrealdb",
+                    "mesh_reaches_storage" => {
+                        "activate_synapse_dns_with_network_mesh_dns_activation_bundle"
+                    }
+                    "bundle_complete" => "run_storage_primary_bundle",
+                    "service_health_healthy" => "start_surrealdb_and_verify_synapse_health",
+                    other => other,
+                };
+                serde_json::json!(action)
+            })
+            .collect()
+    };
     if let Some(object) = status.as_object_mut() {
         object.insert(
             "schema".to_string(),
@@ -148,92 +186,15 @@ fn run_storage_primary_status(
     params: &StoragePrimaryStatusParams,
     evidence: Option<serde_json::Value>,
 ) -> Result<serde_json::Value, McpError> {
-    let bundle_dir = storage_primary_status_bundle_dir(params)?;
-    let use_evidence = evidence.is_some();
-    let mut missing = Vec::new();
-    if bundle_dir.is_some() && params.bundle_dir.is_none() && storage_primary_status_uses_auto_bundle(params) {
-        missing.push(serde_json::json!("bundle_complete"));
-    }
-    if storage_primary_status_uses_auto_bridge(params) {
-        missing.push(serde_json::json!("bridge_active"));
-    }
-    if storage_primary_status_uses_auto_fleet(params) {
-        missing.push(serde_json::json!("fleet_observes_node_running"));
-    }
-    if storage_primary_status_uses_auto_mesh(params) {
-        missing.push(serde_json::json!("mesh_reaches_storage"));
-    }
-    if storage_primary_status_uses_auto_health(params) {
-        missing.push(serde_json::json!("service_health_healthy"));
-    }
-
-    let mut payload = serde_json::json!({
-        "schema": "cynic.storage_primary_activation.status.v1.minimal",
-        "status": if missing.is_empty() { "active" } else { "incomplete" },
-        "mcp_operation": "storage.primary.status",
-        "missing": missing,
-        "bundle_dir": bundle_dir,
-        "evidence": evidence,
-        "authority": "infra/registry.json",
-        "note": "Legacy organ-keep CLI was removed; this minimal status reports only MCP-composed evidence and explicit inputs."
-    });
-    if let Some(object) = payload.as_object_mut() {
-        object.insert(
-            "bundle_evidence_source".to_string(),
-            serde_json::json!(if params.bundle_dir.is_some() {
-                "explicit_bundle_dir"
-            } else if storage_primary_status_uses_auto_bundle(params) {
-                "default_bundle_dir"
-            } else {
-                "none"
-            }),
-        );
-        object.insert(
-            "mesh_evidence_source".to_string(),
-            serde_json::json!(if storage_primary_status_uses_auto_mesh(params) {
-                "mcp_auto_evidence_stdin"
-            } else if params.mesh_status_json.is_some() {
-                "json_file"
-            } else {
-                "none"
-            }),
-        );
-        object.insert(
-            "bridge_evidence_source".to_string(),
-            serde_json::json!(if storage_primary_status_uses_auto_bridge(params) {
-                "mcp_auto_evidence_stdin"
-            } else if params.bridge_status_json.is_some() {
-                "json_file"
-            } else {
-                "none"
-            }),
-        );
-        object.insert(
-            "fleet_evidence_source".to_string(),
-            serde_json::json!(if storage_primary_status_uses_auto_fleet(params) {
-                "mcp_auto_evidence_stdin"
-            } else if params.fleet_report_json.is_some() {
-                "json_file"
-            } else {
-                "none"
-            }),
-        );
-        object.insert(
-            "health_evidence_source".to_string(),
-            serde_json::json!(if storage_primary_status_uses_auto_health(params) {
-                "mcp_auto_evidence_stdin"
-            } else if params.health_json.is_some() {
-                "json_file"
-            } else {
-                "none"
-            }),
-        );
-        object.insert(
-            "evidence_stdin".to_string(),
-            serde_json::json!(use_evidence),
-        );
-    }
-    Ok(payload)
+    let _ = storage_primary_status_bundle_dir(params)?;
+    let registry = project_root().join("infra/registry.json");
+    let schema = project_root().join("crates/cynic-kernel/src/storage/schema_bootstrap.sql");
+    let plan = cynic_host::storage_primary::build_plan(&registry, &schema);
+    let report = cynic_host::storage_primary::evaluate_status(
+        &plan,
+        evidence.unwrap_or_else(|| serde_json::json!({})),
+    );
+    serde_json::to_value(report).map_err(|error| McpError::internal_error(error.to_string(), None))
 }
 
 #[cfg(test)]

@@ -49,7 +49,7 @@ fn mcp_domain_surface(exposure: &serde_json::Value) -> Vec<serde_json::Value> {
                 "name": name,
                 "description": payload.get("description").cloned().unwrap_or_else(|| serde_json::json!("")),
                 "tools": payload.get("tools").cloned().unwrap_or_else(|| serde_json::json!([])),
-                "fallback_tools": payload.get("fallback_tools").cloned().unwrap_or_else(|| serde_json::json!([])),
+                "operator_tools": payload.get("operator_tools").cloned().unwrap_or_else(|| serde_json::json!([])),
             })
         })
         .collect();
@@ -122,7 +122,16 @@ fn mcp_surface_findings(exposure: &serde_json::Value) -> Vec<serde_json::Value> 
     findings
 }
 
-fn mcp_surface_manifest(project_root: &str) -> Result<serde_json::Value, McpError> {
+fn agent_constitution_status() -> cynic_protocol::AgentConstitutionStatus {
+    cynic_protocol::reconcile_agent_execution_capabilities(
+        &cynic_protocol::AgentExecutionRuntimeObservation::unobserved(),
+    )
+}
+
+fn mcp_surface_manifest(
+    project_root: &str,
+    session_identity: &crate::session_identity::SessionIdentity,
+) -> Result<serde_json::Value, McpError> {
     let exposure = load_agent_exposure(project_root)?;
     let compiled_exposure: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../infra/agent-exposure.json"
@@ -221,14 +230,15 @@ fn mcp_surface_manifest(project_root: &str) -> Result<serde_json::Value, McpErro
         "observed_executable": observed_executable,
         "session_handshake": handshake,
         "runtime_compatibility": compatibility,
-        "constitutional_execution": exposure.get("constitutional_execution").cloned().unwrap_or(serde_json::Value::Null),
+        "session_identity": session_identity,
+        "constitutional_execution": agent_constitution_status(),
         "exposure_ssot": "infra/agent-exposure.json",
-        "fallback": serde_json::Value::Null,
+        "agent_shell_fallback": serde_json::Value::Null,
         "policy": {
             "agent_primary_surface": "mcp",
             "operator_primary_surface": "cynic",
             "make_surface": "validation_dev_only",
-            "entrypoints": "internal_or_fallback_transport"
+            "entrypoints": "role_separated_no_agent_shell_fallback"
         },
         "domains": domains,
         "exposed_tool_count": exposed_tool_count,

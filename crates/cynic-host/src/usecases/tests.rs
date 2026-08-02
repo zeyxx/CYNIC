@@ -169,6 +169,9 @@ impl HostCommandRunnerPort for FakeCommandRunner {
             HostOperation::EnsureSystemUser { user, .. } => {
                 format!("ensure_system_user user={user}")
             }
+            HostOperation::EnsureSupplementaryGroupMember { user, group } => {
+                format!("ensure_supplementary_group_member user={user} group={group}")
+            }
             HostOperation::EnsureOwnedDir { path, .. } => {
                 format!("ensure_owned_dir path={path}")
             }
@@ -234,6 +237,7 @@ impl HostPrincipalObservationPort for FakeObservationAdapter {
             observed_home_dir: Some(policy.home_dir.clone()),
             present_state_dirs: policy.state_dirs.clone(),
             owned_paths: policy.managed_paths(),
+            ownership_unknown_paths: Vec::new(),
         }
     }
 }
@@ -277,6 +281,7 @@ impl HostPrincipalObservationPort for ReadyForServiceObservation {
             observed_home_dir: Some(policy.home_dir.clone()),
             present_state_dirs: policy.state_dirs.clone(),
             owned_paths: policy.managed_paths(),
+            ownership_unknown_paths: Vec::new(),
         }
     }
 }
@@ -350,6 +355,7 @@ fn principal_status_is_active_when_observed_state_matches_policy() {
         observed_home_dir: Some(policy.home_dir.clone()),
         present_state_dirs,
         owned_paths: policy.managed_paths(),
+        ownership_unknown_paths: Vec::new(),
     });
     assert_eq!(report.status, SurfaceStatus::Active);
 }

@@ -7,7 +7,9 @@ use crate::ports::{HostCommandResult, HostCommandRunnerPort, HostOperation};
 use crate::process_observation::capture_command;
 use crate::runtime_layout::current_runtime_layout;
 
-use super::principal_manager::{ensure_owned_dir, ensure_system_group, ensure_system_user};
+use super::principal_manager::{
+    ensure_owned_dir, ensure_supplementary_group_member, ensure_system_group, ensure_system_user,
+};
 use super::privilege_projection::{install_owned_file, validate_projection};
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -25,6 +27,9 @@ impl HostCommandRunnerPort for LocalHostCommandRunner {
                 home,
                 shell,
             } => ensure_system_user(user, group, home, shell),
+            HostOperation::EnsureSupplementaryGroupMember { user, group } => {
+                ensure_supplementary_group_member(user, group)
+            }
             HostOperation::EnsureOwnedDir {
                 path,
                 user,

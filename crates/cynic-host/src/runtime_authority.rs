@@ -29,6 +29,8 @@ pub struct RuntimePrincipalLayout {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeAuthorityPaths {
     pub config_root: PathBuf,
+    pub kernel_socket_path: PathBuf,
+    pub agent_access_group: String,
     pub policy_root: PathBuf,
     pub helper_root: PathBuf,
     pub sudoers_dir: PathBuf,
@@ -61,6 +63,8 @@ pub fn default_runtime_authority_paths() -> RuntimeAuthorityPaths {
     let staging_root = principal.state_root.join("staging");
     RuntimeAuthorityPaths {
         config_root: PathBuf::from("/etc/cynic"),
+        kernel_socket_path: PathBuf::from("/run/cynic/kernel.sock"),
+        agent_access_group: "cynic-agent".to_string(),
         policy_root: PathBuf::from("/etc/cynic"),
         helper_root: PathBuf::from("/usr/local/libexec"),
         sudoers_dir: PathBuf::from("/etc/sudoers.d"),
@@ -98,6 +102,11 @@ mod tests {
     fn default_authority_paths_are_root_and_runtime_split() {
         let authority = default_runtime_authority_paths();
         assert_eq!(authority.config_root, PathBuf::from("/etc/cynic"));
+        assert_eq!(
+            authority.kernel_socket_path,
+            PathBuf::from("/run/cynic/kernel.sock")
+        );
+        assert_eq!(authority.agent_access_group, "cynic-agent");
         assert_eq!(authority.helper_root, PathBuf::from("/usr/local/libexec"));
         assert_eq!(
             authority.principal.log_root,

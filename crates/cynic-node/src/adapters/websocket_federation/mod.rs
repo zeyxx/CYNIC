@@ -145,7 +145,8 @@ mod tests {
 
         assert_eq!(verdict.stimulus_id, "stim-1");
         assert_eq!(verdict.verdict["id"], "verd_stim-1");
-        assert_eq!(verdict.verdict["kind"], "DETERMINISTIC_FALLBACK");
+        assert_eq!(verdict.verdict["status"], "blocked_unsigned");
+        assert_eq!(verdict.verdict["mutates"], false);
     }
 
     #[test]

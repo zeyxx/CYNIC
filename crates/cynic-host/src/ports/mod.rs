@@ -1,3 +1,4 @@
+pub mod argv_execution;
 pub mod evidence_store;
 pub mod metabolism;
 pub mod provider_substrate;
@@ -30,6 +31,10 @@ pub enum HostOperation {
         group: String,
         home: String,
         shell: PrincipalLoginShell,
+    },
+    EnsureSupplementaryGroupMember {
+        user: String,
+        group: String,
     },
     EnsureOwnedDir {
         path: String,

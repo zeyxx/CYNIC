@@ -94,13 +94,17 @@ fn observed_hostname() -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
+pub(crate) fn observed_node_id() -> String {
+    std::env::var("CYNIC_NODE_ID")
+        .ok()
+        .filter(|node_id| !node_id.trim().is_empty())
+        .unwrap_or_else(observed_hostname)
+}
+
 /// Minimal unauthenticated process identity for bounded service discovery.
 pub async fn identity_handler() -> Json<KernelIdentity> {
     let hostname = observed_hostname();
-    let node_id = std::env::var("CYNIC_NODE_ID")
-        .ok()
-        .filter(|node_id| !node_id.trim().is_empty())
-        .unwrap_or_else(|| hostname.clone());
+    let node_id = observed_node_id();
     Json(KernelIdentity {
         schema: "cynic.kernel.identity.v1",
         service: "cynic-kernel",

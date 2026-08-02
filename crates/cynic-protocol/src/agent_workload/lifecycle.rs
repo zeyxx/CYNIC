@@ -86,6 +86,31 @@ pub fn admit_workload_action(
     admission(record.envelope.workload_id.clone(), violations, Vec::new())
 }
 
+pub fn renew_agent_workload_claim(
+    record: &AgentWorkloadRecord,
+    guard: &LeaseGuard,
+    expires_at_ms: u64,
+    now_ms: u64,
+) -> Result<AgentWorkloadRecord, AgentWorkloadViolation> {
+    require_live_claim(record, guard, now_ms)?;
+    let current_expiry = record
+        .claim
+        .as_ref()
+        .map(|claim| claim.expires_at_ms)
+        .ok_or_else(|| violation("claim_missing", "claimed workload has no durable claim"))?;
+    if expires_at_ms <= current_expiry {
+        return Err(violation(
+            "claim_renewal_not_extended",
+            "renewal must move the durable expiry forward",
+        ));
+    }
+    let mut next = record.clone();
+    if let Some(claim) = next.claim.as_mut() {
+        claim.expires_at_ms = expires_at_ms;
+    }
+    Ok(next)
+}
+
 pub fn consume_agent_workload_action(
     record: &AgentWorkloadRecord,
     guard: &LeaseGuard,
@@ -137,6 +162,12 @@ pub fn complete_agent_workload(
         return Err(violation(
             "completion_not_admitted",
             "completion violates delegation, budget, lineage, or evidence requirements",
+        ));
+    }
+    if completion.consumed_budget.actions < record.consumed_actions {
+        return Err(violation(
+            "completion_action_budget_underreported",
+            "completion consumed budget cannot be lower than durable action accounting",
         ));
     }
     if completion.status == AgentCompletionStatus::Completed {

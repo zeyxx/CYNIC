@@ -5,8 +5,8 @@ use cynic_protocol::{
     RuntimeProofEvidence,
 };
 
-use crate::domain::shared::SurfaceStatus;
 use crate::build::BuildProof;
+use crate::domain::shared::SurfaceStatus;
 use crate::usecases::HostObservationReports;
 use crate::vertical_conformance::VerticalConformanceReport;
 

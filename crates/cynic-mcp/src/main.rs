@@ -12,10 +12,8 @@
     clippy::uninlined_format_args
 )]
 
-mod kernel_discovery;
 mod project_root;
 
-use kernel_discovery::{ResolvedKernelEndpoint, resolve_kernel_endpoint};
 use rmcp::ServiceExt;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
@@ -45,11 +43,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("       cynic-mcp --contract-json");
         eprintln!();
         eprintln!("ENVIRONMENT:");
-        eprintln!("  CYNIC_REST_ADDR   Explicit kernel origin, verified before MCP startup");
-        eprintln!("  CYNIC_KERNEL_SEEDS   Comma-separated kernel origins to scan");
-        eprintln!("  CYNIC_KERNEL_DISCOVERY_TIMEOUT_MS   Probe timeout (100-10000, default 1500)");
-        eprintln!("  CYNIC_API_KEY     Bearer token for kernel auth");
+        eprintln!("  CYNIC_KERNEL_SOCKET   Injected local kernel Unix socket path");
+        eprintln!("  CYNIC_AGENT_SESSION_TTL_MS   Bounded local session TTL (10000-3600000)");
+        eprintln!("  CYNIC_AGENT_CAPABILITIES_JSON   Explicit requested capability grants");
         eprintln!("  CYNIC_AGENT_ID    Agent principal bound to this MCP process");
+        eprintln!("  CYNIC_AGENT_TYPE  Agent kind used when generating a process principal");
         eprintln!(
             "  CYNIC_MCP_PROJECT_ROOT   Optional explicit MCP project root for local diagnostics tooling"
         );
@@ -65,30 +63,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(fmt::layer().json().with_writer(std::io::stderr))
         .init();
 
-    let resolved_kernel = resolve_rest_addr().await?;
-    let rest_addr = resolved_kernel.url;
     let project_root = project_root::resolve_mcp_project_root()
         .display()
         .to_string();
-    let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+    let session_identity =
+        cynic_mcp::session_identity::SessionIdentity::resolve().map_err(std::io::Error::other)?;
+    let socket_path = cynic_mcp::kernel_session::declared_kernel_socket();
+    let kernel =
+        cynic_mcp::kernel_session::KernelSessionClient::bootstrap(&socket_path, &session_identity)
+            .await
+            .map_err(|error| std::io::Error::other(format!("blocked_disconnected: {error}")))?;
 
     tracing::info!(
-        rest_addr,
-        rest_addr_source = resolved_kernel.source,
-        kernel_node_id = resolved_kernel.node_id,
-        kernel_node_name = resolved_kernel.node_name,
-        kernel_role = resolved_kernel.role,
-        kernel_registry_status = resolved_kernel.status,
-        kernel_discovery_proof = resolved_kernel.proof,
-        kernel_hostname = resolved_kernel.hostname,
-        kernel_pid = resolved_kernel.pid,
-        kernel_version = resolved_kernel.version,
-        kernel_git_sha = resolved_kernel.git_sha,
-        kernel_build_profile = resolved_kernel.build_profile,
-        "cynic-mcp starting — forwarding to REST kernel"
+        socket_path = %socket_path.display(),
+        kernel_node_id = kernel.node_id(),
+        agent_id = %session_identity.agent_id,
+        "cynic-mcp starting with a bounded local agent session"
     );
 
-    let proxy = cynic_mcp::proxy::CynicMcpProxy::new(rest_addr, api_key, project_root);
+    let session_for_shutdown = kernel.clone();
+    let proxy = cynic_mcp::proxy::CynicMcpProxy::new(kernel, session_identity, project_root);
 
     let shutdown = CancellationToken::new();
     {
@@ -99,17 +93,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
+    let renewal_task = {
+        let session = session_for_shutdown.clone();
+        let renewal_shutdown = shutdown.clone();
+        tokio::spawn(async move {
+            if let Err(error) = session.maintain(renewal_shutdown.clone()).await {
+                tracing::error!(error, "agent session renewal stopped");
+                renewal_shutdown.cancel();
+            }
+        })
+    };
+
     let transport = rmcp::transport::io::stdio();
     let server = proxy
         .serve(transport)
         .await
-        .map_err(|e| format!("MCP proxy error: {e}"))?;
+        .map_err(|error| std::io::Error::other(format!("MCP proxy error: {error}")))?;
 
     tokio::select! {
         _ = server.waiting() => {}
         _ = shutdown.cancelled() => {
             tracing::info!("cynic-mcp shutting down");
         }
+    }
+
+    shutdown.cancel();
+    if let Err(error) = renewal_task.await {
+        tracing::warn!(%error, "agent session renewal task join failed");
+    }
+
+    if let Err(error) = session_for_shutdown.revoke().await {
+        tracing::warn!(error, "agent session revocation read-back failed");
     }
 
     Ok(())
@@ -182,11 +196,4 @@ fn active_mcp_tools(exposure: &serde_json::Value) -> Vec<String> {
         .filter_map(|tool| tool.get("name").and_then(|value| value.as_str()))
         .map(ToString::to_string)
         .collect()
-}
-
-async fn resolve_rest_addr() -> Result<ResolvedKernelEndpoint, Box<dyn std::error::Error>> {
-    let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
-    resolve_kernel_endpoint(&api_key)
-        .await
-        .map_err(|error| error.into())
 }

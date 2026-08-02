@@ -136,3 +136,16 @@ fn build_runner_bundle_projects_node_and_registry() {
     assert!(checksums.contains("  etc/registry.json"));
     std::fs::remove_dir_all(root).expect("cleanup");
 }
+
+#[test]
+fn registry_storage_placement_projects_nonsecret_storage_config() {
+    let registry = serde_json::json!({"nodes": [{
+        "role": "storage_primary",
+        "transports": {"ssh": {"target": "storage.synapse.cynic"}},
+        "services": [{"name": "surrealdb", "scheme": "http", "port": 8000}]
+    }]});
+    let config = super::render_storage_config(&registry, "kernel_primary").unwrap();
+    assert!(config.contains("url = \"http://storage.synapse.cynic:8000\""));
+    assert!(config.contains("username = \"cynic-runtime\""));
+    assert!(!config.to_ascii_lowercase().contains("password ="));
+}

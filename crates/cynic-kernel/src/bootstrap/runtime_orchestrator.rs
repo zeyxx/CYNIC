@@ -38,6 +38,8 @@ pub async fn run_runtime(entry_flags: KernelEntryFlags) -> Result<(), Box<dyn st
     let storage_port = storage_runtime.storage_port;
     let coord = storage_runtime.coord;
     let reconnector = storage_runtime.reconnector;
+    let node_control_store = storage_runtime.node_control;
+    let node_enrollment_store = storage_runtime.node_enrollment;
 
     {
         let configs = backend_configs.clone();
@@ -99,6 +101,12 @@ pub async fn run_runtime(entry_flags: KernelEntryFlags) -> Result<(), Box<dyn st
 
     let role_keys = api::rest::types::RoleKeyMap::from_environment(api_key.clone())
         .map_err(std::io::Error::other)?;
+    let agent_sessions =
+        bootstrap::agent_session::load_agent_session_runtime().map_err(std::io::Error::other)?;
+    let node_control = bootstrap::node_control::load_node_control_runtime(node_control_store);
+    let node_enrollment =
+        bootstrap::node_enrollment::load_node_enrollment_runtime(node_enrollment_store)
+            .map_err(std::io::Error::other)?;
 
     let verdict_cache = Arc::new(domain::verdict_cache::VerdictCache::new());
     let metrics = Arc::new(domain::metrics::Metrics::new());
@@ -116,6 +124,9 @@ pub async fn run_runtime(entry_flags: KernelEntryFlags) -> Result<(), Box<dyn st
     let event_tx = runtime_services.event_tx.clone();
     let rest_state = bootstrap::rest_state::build_rest_state(
         bootstrap::rest_state::RestStateInputs {
+            agent_sessions,
+            node_control,
+            node_enrollment,
             storage: Arc::clone(&storage_port),
             coord: Arc::clone(&coord),
             embedding: Arc::clone(&embedding),
@@ -166,7 +177,10 @@ pub async fn run_runtime(entry_flags: KernelEntryFlags) -> Result<(), Box<dyn st
     klog!("╔══════════════════════════════════════╗");
     klog!("║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
     klog!("║   REST/WS: http://{} / ws://{}", rest_addr, rest_addr);
-    klog!("║   UDS:     unix://{}    ║", "/tmp/cynic-kernel.sock");
+    klog!(
+        "║   UDS:     unix://{}    ║",
+        bootstrap::server::declared_kernel_socket().display()
+    );
     klog!("║   Max confidence: phi^-1 = 0.618     ║");
     klog!("╚══════════════════════════════════════╝");
 

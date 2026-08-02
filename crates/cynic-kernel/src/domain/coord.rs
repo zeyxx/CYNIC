@@ -9,8 +9,7 @@ use crate::domain::lease_proof::ValidatedLeaseProof;
 
 pub use cynic_protocol::{
     BatchClaimResult, LeaseAction, LeaseConflict as ConflictInfo, LeaseGrant as ClaimGrant,
-    LeaseGuard, LeaseMutationOutcome as LeaseMutationResult, LeaseVerification,
-    TargetClaimOutcome,
+    LeaseGuard, LeaseMutationOutcome as LeaseMutationResult, LeaseVerification, TargetClaimOutcome,
 };
 
 #[derive(Debug, thiserror::Error)]

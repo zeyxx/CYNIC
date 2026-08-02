@@ -1,5 +1,4 @@
-fn validate_hardcoded_paths(project_root: &str) -> Vec<serde_json::Value> {
-    let staged_files = staged_files_for_hardcoded_path_check(project_root);
+fn validate_hardcoded_paths(project_root: &str, staged_files: &[String]) -> Vec<serde_json::Value> {
     let mut findings = Vec::new();
     let path_regex = hardcoded_path_regex();
 
@@ -26,22 +25,37 @@ fn validate_hardcoded_paths(project_root: &str) -> Vec<serde_json::Value> {
 fn hardcoded_path_regex() -> regex::Regex {
     let unix_home = format!("/{}/", "home");
     let mac_home = format!("/{}/", "Users");
-    regex::Regex::new(&format!("{}|{}", regex::escape(&unix_home), regex::escape(&mac_home)))
-        .expect("hardcoded path regex must compile")
+    regex::Regex::new(&format!(
+        "{}|{}",
+        regex::escape(&unix_home),
+        regex::escape(&mac_home)
+    ))
+    .expect("hardcoded path regex must compile")
 }
 
-fn staged_files_for_hardcoded_path_check(project_root: &str) -> Vec<String> {
-    let output = std::process::Command::new("git")
-        .args(["diff", "--cached", "--name-only", "--diff-filter=ACM"])
-        .current_dir(project_root)
-        .output();
-    let Ok(output) = output else {
-        return Vec::new();
-    };
-    if !output.status.success() {
+async fn staged_files_for_hardcoded_path_check(
+    runner: &dyn ArgvExecutionPort,
+    project_root: &str,
+) -> Vec<String> {
+    let output = runner
+        .execute(ArgvExecutionRequest {
+            argv: vec![
+                "git".to_string(),
+                "diff".to_string(),
+                "--cached".to_string(),
+                "--name-only".to_string(),
+                "--diff-filter=ACM".to_string(),
+            ],
+            current_dir: Some(PathBuf::from(project_root)),
+            stdin: None,
+            timeout: std::time::Duration::from_secs(30),
+        })
+        .await;
+    if !output.success() {
         return Vec::new();
     }
-    String::from_utf8_lossy(&output.stdout)
+    output
+        .stdout
         .lines()
         .filter(|line| !line.trim().is_empty())
         .map(str::to_string)
@@ -49,10 +63,7 @@ fn staged_files_for_hardcoded_path_check(project_root: &str) -> Vec<String> {
 }
 
 #[cfg(test)]
-fn hardcoded_path_findings_for_files(
-    project_root: &str,
-    files: &[&str],
-) -> Vec<serde_json::Value> {
+fn hardcoded_path_findings_for_files(project_root: &str, files: &[&str]) -> Vec<serde_json::Value> {
     let mut findings = Vec::new();
     let path_regex = hardcoded_path_regex();
     for file_path in files {

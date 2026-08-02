@@ -86,15 +86,19 @@ fn kernel_api_and_infra_surfaces_stay_split_by_role() {
     let api_mod = read_repo_file("crates/cynic-kernel/src/api/mod.rs");
     let rest_mod = read_repo_file("crates/cynic-kernel/src/api/rest/mod.rs");
     let infra_mod = read_repo_file("crates/cynic-kernel/src/infra/mod.rs");
-    let mcp_proxy = read_repo_file("crates/cynic-kernel/src/api/mcp/proxy.rs");
+    let bootstrap_entry = read_repo_file("crates/cynic-kernel/src/bootstrap/entry.rs");
     let tasks_mod = read_repo_file("crates/cynic-kernel/src/infra/tasks/mod.rs");
 
-    for expected in ["pub mod mcp;", "pub mod rest;", "pub mod websocket;"] {
+    for expected in ["pub mod rest;", "pub mod websocket;"] {
         assert!(
             api_mod.contains(expected),
             "api/mod.rs should contain `{expected}`"
         );
     }
+    assert!(
+        !api_mod.contains("pub mod mcp;"),
+        "standalone cynic-mcp must remain the single MCP command surface"
+    );
 
     for expected in [
         "pub mod agent_tasks;",
@@ -128,17 +132,12 @@ fn kernel_api_and_infra_surfaces_stay_split_by_role() {
         );
     }
 
-    for expected in [
-        "pub struct CynicMcpProxy",
-        "tool_router()",
-        "async fn get(",
-        "async fn post(",
-    ] {
-        assert!(
-            mcp_proxy.contains(expected),
-            "api/mcp/proxy.rs should contain `{expected}`"
-        );
-    }
+    assert!(
+        bootstrap_entry.contains("blocked_deprecated_surface")
+            && bootstrap_entry.contains("standalone cynic-mcp")
+            && !bootstrap_entry.contains("CYNIC_API_KEY"),
+        "deprecated kernel --mcp mode must fail explicitly without API-key fallback"
+    );
 
     for expected in [
         "pub fn spawn_signal_handler",
@@ -263,6 +262,34 @@ fn kernel_storage_must_not_own_inference_model_registry() {
                 .contains("impl ModelRegistryPort for InMemoryModelRegistry"),
         "cynic-inference must own the in-memory model registry adapter"
     );
+}
+
+#[test]
+fn workload_identity_surfaces_fail_closed_and_share_rbac_policy() {
+    let middleware = read_repo_file("crates/cynic-kernel/src/api/rest/middleware.rs");
+    let websocket = read_repo_file("crates/cynic-kernel/src/api/websocket/mod.rs");
+    let node_dispatch = read_repo_file("crates/cynic-node/src/websocket/domain_dispatch.rs");
+    let types = read_repo_file("crates/cynic-kernel/src/api/rest/types.rs");
+
+    assert!(types.contains("pub fn authorize_role_request("));
+    assert!(middleware.contains("authorize_role_request(principal.role"));
+    assert!(middleware.contains("resolve_signer(&pk)"));
+    assert!(websocket.contains("resolve_signer(&public_key)"));
+    assert!(websocket.contains("verify_signature("));
+    for forbidden in [
+        "Default to Cortex for signed requests",
+        "TODO: Implement Ed25519 signature verification",
+        "For now, just acknowledge",
+        "bearer != api_key",
+        "NATIVE_ADAPTER_UNSIGNED_YET",
+    ] {
+        assert!(
+            !middleware.contains(forbidden)
+                && !websocket.contains(forbidden)
+                && !node_dispatch.contains(forbidden),
+            "workload identity must not regress to `{forbidden}`"
+        );
+    }
 }
 
 #[test]
@@ -933,7 +960,6 @@ fn kernel_fleet_and_mesh_rest_handlers_delegate_runtime_rules_to_node() {
 fn kernel_runtime_project_root_resolution_stays_host_owned() {
     for path in [
         "crates/cynic-kernel/src/api/rest/dispatch.rs",
-        "crates/cynic-kernel/src/api/mcp/proxy.rs",
         "crates/cynic-kernel/src/bootstrap/services.rs",
         "crates/cynic-kernel/src/bootstrap/entry.rs",
         "crates/cynic-kernel/src/infra/config/mod.rs",

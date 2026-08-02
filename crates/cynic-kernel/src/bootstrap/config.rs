@@ -5,10 +5,43 @@ use crate::infra::config::{self, BackendConfig, DogThresholds, StorageConfig};
 #[derive(Debug, Clone)]
 pub struct KernelConfigBundle {
     pub backends_path: std::path::PathBuf,
+    pub storage_path: std::path::PathBuf,
     pub storage_config: StorageConfig,
     pub backend_configs: Vec<BackendConfig>,
     pub system_contract: crate::domain::contract::SystemContract,
     pub dog_thresholds: Arc<DogThresholds>,
+}
+
+pub fn resolve_kernel_storage_path() -> std::path::PathBuf {
+    resolve_kernel_storage_path_with_env(|name| std::env::var(name).ok())
+}
+
+fn resolve_kernel_storage_path_with_env(
+    mut env_var: impl FnMut(&str) -> Option<String>,
+) -> std::path::PathBuf {
+    if let Some(path) = env_var("CYNIC_STORAGE_CONFIG") {
+        return std::path::PathBuf::from(path);
+    }
+
+    for root in ["CYNIC_CONFIG_ROOT", "CYNIC_RUNTIME_HOME"] {
+        if let Some(root) = env_var(root) {
+            let candidate = std::path::PathBuf::from(root).join("storage.toml");
+            if candidate.exists() {
+                return candidate;
+            }
+        }
+    }
+
+    for fallback in [
+        std::path::PathBuf::from("/etc/cynic/storage.toml"),
+        std::path::PathBuf::from("/var/lib/cynic/storage.toml"),
+    ] {
+        if fallback.exists() {
+            return fallback;
+        }
+    }
+
+    std::path::PathBuf::from("/etc/cynic/storage.toml")
 }
 
 pub fn resolve_kernel_backends_path() -> std::path::PathBuf {
@@ -72,8 +105,10 @@ fn resolve_kernel_backends_path_with_env(
 
 pub fn load_kernel_config_bundle() -> KernelConfigBundle {
     let backends_path = resolve_kernel_backends_path();
-    let storage_config = config::load_storage_config(&backends_path);
-    crate::klog!("[Ring 1] Config: {}", backends_path.display());
+    let storage_path = resolve_kernel_storage_path();
+    let storage_config = config::load_storage_config(&storage_path);
+    crate::klog!("[Ring 1] Inference config: {}", backends_path.display());
+    crate::klog!("[Ring 1] Storage config: {}", storage_path.display());
     crate::klog!(
         "[Ring 1] Storage: url={} ns={} db={}",
         storage_config.url,
@@ -112,6 +147,7 @@ pub fn load_kernel_config_bundle() -> KernelConfigBundle {
 
     KernelConfigBundle {
         backends_path,
+        storage_path,
         storage_config,
         backend_configs,
         system_contract,
@@ -141,7 +177,7 @@ fn filter_disabled_backends(
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_kernel_backends_path_with_env;
+    use super::{resolve_kernel_backends_path_with_env, resolve_kernel_storage_path_with_env};
     use std::collections::HashMap;
     use std::path::PathBuf;
     use tempfile::NamedTempFile;
@@ -225,5 +261,35 @@ mod tests {
 
         explicit.close().ok();
         fallback_toml.close().ok();
+    }
+
+    #[test]
+    fn storage_path_never_falls_back_to_inference_configuration() {
+        let config_root = tempfile::tempdir().unwrap();
+        std::fs::write(config_root.path().join("inference.toml"), "[[backend]]\n").unwrap();
+        let mut env_map = HashMap::new();
+        env_map.insert(
+            "CYNIC_CONFIG_ROOT",
+            Some(config_root.path().to_string_lossy().to_string()),
+        );
+        env_map.insert(
+            "CYNIC_INFERENCE_CONFIG",
+            Some("/tmp/inference-only.toml".to_string()),
+        );
+        assert_eq!(
+            resolve_kernel_storage_path_with_env(|key| {
+                env_map.get(key).and_then(|value| value.as_ref()).cloned()
+            }),
+            PathBuf::from("/etc/cynic/storage.toml")
+        );
+
+        let storage = config_root.path().join("storage.toml");
+        std::fs::write(&storage, "[storage]\nurl='https://storage.internal:8000'\n").unwrap();
+        assert_eq!(
+            resolve_kernel_storage_path_with_env(|key| {
+                env_map.get(key).and_then(|value| value.as_ref()).cloned()
+            }),
+            storage
+        );
     }
 }

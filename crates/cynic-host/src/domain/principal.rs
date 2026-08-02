@@ -33,6 +33,7 @@ pub struct PrincipalStatusReport {
     pub home_matches: bool,
     pub missing_state_dirs: Vec<String>,
     pub misowned_paths: Vec<String>,
+    pub ownership_unknown_paths: Vec<String>,
     pub evidences: Vec<SubstrateEvidence>,
 }
 
@@ -67,6 +68,8 @@ pub struct PrincipalObservedState {
     pub present_state_dirs: Vec<String>,
     #[serde(default)]
     pub owned_paths: Vec<String>,
+    #[serde(default)]
+    pub ownership_unknown_paths: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -231,13 +234,18 @@ impl PrincipalPolicy {
         let misowned_paths = self
             .managed_paths()
             .into_iter()
-            .filter(|path| !observed.owned_paths.contains(path))
+            .filter(|path| {
+                !observed.owned_paths.contains(path)
+                    && !observed.ownership_unknown_paths.contains(path)
+            })
             .collect::<Vec<_>>();
+        let ownership_unknown_paths = observed.ownership_unknown_paths.clone();
         let status = if observed.user_present
             && observed.group_present
             && home_matches
             && missing_state_dirs.is_empty()
             && misowned_paths.is_empty()
+            && ownership_unknown_paths.is_empty()
         {
             SurfaceStatus::Active
         } else {
@@ -250,6 +258,8 @@ impl PrincipalPolicy {
             LifecycleStatus::Missing
         } else if !home_matches || !misowned_paths.is_empty() {
             LifecycleStatus::PrincipalMismatch
+        } else if !ownership_unknown_paths.is_empty() {
+            LifecycleStatus::ConnectionRequired
         } else {
             LifecycleStatus::Ready
         };
@@ -267,7 +277,7 @@ impl PrincipalPolicy {
             ),
             LifecycleStatus::ConnectionRequired => {
                 LifecycleProjection::connection_required_observe(
-                    "principal lifecycle does not model a connection boundary",
+                    "path ownership cannot be proven inside the current identity namespace; observe through a host-authoritative adapter",
                 )
             }
         };
@@ -283,6 +293,7 @@ impl PrincipalPolicy {
             home_matches,
             missing_state_dirs,
             misowned_paths,
+            ownership_unknown_paths,
             evidences: vec![
                 SubstrateEvidence {
                     id: "principal_user_presence".to_string(),
@@ -361,7 +372,7 @@ impl PrincipalPolicy {
 mod tests {
     use super::{PrincipalCommandContext, PrincipalObservedState, PrincipalPolicy};
     use crate::command_surface::render_command;
-    use crate::domain::shared::SurfaceStatus;
+    use crate::domain::shared::{LifecycleStatus, SurfaceStatus};
     use crate::runtime_authority::default_runtime_principal_layout;
 
     fn context() -> PrincipalCommandContext {
@@ -414,8 +425,29 @@ mod tests {
             observed_home_dir: Some("/wrong".to_string()),
             present_state_dirs: vec!["/var/lib/cynic/state".to_string()],
             owned_paths: policy().managed_paths(),
+            ownership_unknown_paths: Vec::new(),
         });
 
         assert_eq!(report.status, SurfaceStatus::Blocked);
+    }
+
+    #[test]
+    fn unknown_namespace_ownership_never_becomes_principal_mismatch() {
+        let policy = policy();
+        let unknown_paths = policy.managed_paths();
+        let report = policy.status(&PrincipalObservedState {
+            user_present: true,
+            group_present: true,
+            observed_home_dir: Some(policy.home_dir.clone()),
+            present_state_dirs: policy.state_dirs.clone(),
+            owned_paths: Vec::new(),
+            ownership_unknown_paths: unknown_paths.clone(),
+        });
+
+        assert_eq!(report.status, SurfaceStatus::Blocked);
+        assert_eq!(report.lifecycle_status, LifecycleStatus::ConnectionRequired);
+        assert!(report.misowned_paths.is_empty());
+        assert_eq!(report.ownership_unknown_paths, unknown_paths);
+        assert!(report.next_command.is_none());
     }
 }

@@ -109,7 +109,7 @@ pub async fn apply_proxmox_power_action(
     if !matches!(kind, "qemu" | "lxc") || vmid.parse::<u64>().is_err() {
         return Err("invalid_proxmox_resource_id".to_string());
     }
-    let resources = provider.request_json("/cluster/resources?type=vm").await?;
+    let resources = provider.adapter.cluster_resources_raw().await?;
     let item = resources
         .get("data")
         .and_then(Value::as_array)
@@ -123,27 +123,10 @@ pub async fn apply_proxmox_power_action(
         .get("node")
         .and_then(Value::as_str)
         .ok_or_else(|| "proxmox_resource_node_unobserved".to_string())?;
-    let url = format!(
-        "{}/api2/json/nodes/{node}/{kind}/{vmid}/status/{requested_action}",
-        provider.base_url
-    );
-    let response = provider
-        .client
-        .post(url)
-        .header("Authorization", provider.auth_header())
-        .send()
-        .await
-        .map_err(|error| format!("proxmox power action failed: {error}"))?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "proxmox power action returned HTTP {}",
-            response.status().as_u16()
-        ));
-    }
-    let payload = response
-        .json::<Value>()
-        .await
-        .map_err(|error| format!("invalid Proxmox power action JSON: {error}"))?;
+    let payload = provider
+        .adapter
+        .resource_action(node, kind, vmid, requested_action)
+        .await?;
     let operation_id = payload
         .get("data")
         .and_then(Value::as_str)
@@ -153,10 +136,7 @@ pub async fn apply_proxmox_power_action(
     if task_status != "stopped" || task_exit_status.as_deref() != Some("OK") {
         return Err("proxmox_power_task_not_successful".to_string());
     }
-    let read_back = provider
-        .request_json("/cluster/resources?type=vm")
-        .await
-        .ok();
+    let read_back = provider.adapter.cluster_resources_raw().await.ok();
     let observed_status = read_back
         .as_ref()
         .and_then(|value| value.get("data"))
@@ -404,57 +384,21 @@ fn bool_flag(key: &str) -> Option<bool> {
 
 #[derive(Debug)]
 struct ProxmoxInventoryProvider {
-    base_url: String,
-    client_id: String,
-    credential: String,
+    adapter: crate::adapters::proxmox_control::ProxmoxControlAdapter,
     target_nodes: Vec<String>,
-    client: reqwest::Client,
 }
 
 impl ProxmoxInventoryProvider {
-    fn proxmox_credential_from(env_lookup: impl Fn(&str) -> Option<String>) -> Option<String> {
-        env_lookup("CYNIC_PROXMOX_TOKEN_SECRET")
-            .or_else(|| env_lookup("CYNIC_PROXMOX_SECRET"))
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-    }
-
-    fn proxmox_credential() -> Option<String> {
-        Self::proxmox_credential_from(|key| std::env::var(key).ok())
-    }
-
     fn from_env() -> Option<Self> {
-        let base_url = std::env::var("CYNIC_PROXMOX_URL").ok()?;
-        let client_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").ok()?;
-        let credential = Self::proxmox_credential()?;
+        let adapter = crate::adapters::proxmox_control::ProxmoxControlAdapter::from_env(
+            Duration::from_secs(10),
+        )
+        .ok()?;
         let target_nodes = bool_env_csv("CYNIC_PROXMOX_NODES");
-        let mut client = reqwest::Client::builder().timeout(Duration::from_secs(10));
-        if let Some(ca_path) = std::env::var("CYNIC_PROXMOX_CA_FILE")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-        {
-            let ca_pem = std::fs::read(&ca_path).ok()?;
-            let certificate = reqwest::Certificate::from_pem(&ca_pem).ok()?;
-            client = client.add_root_certificate(certificate);
-        }
-        let client = client.build().ok()?;
-
-        if base_url.trim().is_empty() || client_id.trim().is_empty() || credential.trim().is_empty()
-        {
-            return None;
-        }
-
         Some(Self {
-            base_url: base_url.trim_end_matches('/').to_string(),
-            client_id,
-            credential,
+            adapter,
             target_nodes,
-            client,
         })
-    }
-
-    fn auth_header(&self) -> String {
-        format!("PVEAPIToken={}={}", self.client_id, self.credential)
     }
 
     fn declared_by_id(declared_nodes: &[FleetNodeObservation]) -> HashSet<&str> {
@@ -473,34 +417,9 @@ impl ProxmoxInventoryProvider {
         }
     }
 
-    async fn request_json(&self, path: &str) -> Result<Value, ProviderError> {
-        let url = format!("{}/api2/json{}", self.base_url, path);
-        let response = self
-            .client
-            .get(&url)
-            .header("Authorization", self.auth_header())
-            .send()
-            .await
-            .map_err(|e| format!("request failed for {path}: {e}"))?;
-
-        if !response.status().is_success() {
-            return Err(format!(
-                "request {path} returned HTTP {}",
-                response.status().as_u16()
-            ));
-        }
-
-        response
-            .json::<Value>()
-            .await
-            .map_err(|e| format!("invalid JSON from {path}: {e}"))
-    }
-
     async fn await_task(&self, node: &str, upid: &str) -> Result<(String, Option<String>), String> {
         for _ in 0..30 {
-            let payload = self
-                .request_json(&format!("/nodes/{node}/tasks/{upid}/status"))
-                .await?;
+            let payload = self.adapter.task_status(node, upid).await?;
             let data = payload
                 .get("data")
                 .ok_or_else(|| "proxmox_task_status_missing_data".to_string())?;
@@ -526,7 +445,7 @@ impl ProxmoxInventoryProvider {
             return Ok(self.target_nodes.clone());
         }
 
-        let body = self.request_json("/nodes").await?;
+        let body = self.adapter.nodes().await?;
         let data = body
             .get("data")
             .and_then(|d| d.as_array())
@@ -592,9 +511,7 @@ impl ProxmoxInventoryProvider {
         vm_type: &str,
         declared_by_id: &HashSet<&str>,
     ) -> Result<Vec<FleetNodeObservation>, ProviderError> {
-        let payload = self
-            .request_json(&format!("/nodes/{node_name}/{vm_type}"))
-            .await?;
+        let payload = self.adapter.node_resources(node_name, vm_type).await?;
         let data = payload
             .get("data")
             .and_then(|d| d.as_array())
@@ -995,19 +912,5 @@ mod tests {
             Some("127.0.0.1".to_string())
         );
         assert_eq!(parse_inline_network_ip("noip"), None);
-    }
-
-    #[test]
-    fn proxmox_credential_prefers_secret_with_legacy_fallback() {
-        let lookup_canonical = |key: &str| match key {
-            "CYNIC_PROXMOX_TOKEN_SECRET" => Some("canonical".to_string()),
-            "CYNIC_PROXMOX_SECRET" => Some("legacy".to_string()),
-            _ => None,
-        };
-
-        assert_eq!(
-            ProxmoxInventoryProvider::proxmox_credential_from(lookup_canonical),
-            Some("canonical".to_string())
-        );
     }
 }

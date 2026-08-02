@@ -187,6 +187,7 @@ pub enum NodeMessage {
         verdict: serde_json::Value,
         signature: String,
         node_public_key: String,
+        timestamp: i64,
     },
 
     /// Kernel → Node: Acknowledgment of verdict
@@ -273,30 +274,6 @@ pub async fn ws_handler(
     ws: WebSocketUpgrade,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> Result<Response, (StatusCode, String)> {
-    // Verify Bearer token from headers
-    let auth_header = headers
-        .get("Authorization")
-        .and_then(|v| v.to_str().ok())
-        .ok_or((
-            StatusCode::UNAUTHORIZED,
-            "Missing Authorization header".to_string(),
-        ))?;
-
-    if !auth_header.starts_with("Bearer ") {
-        return Err((
-            StatusCode::UNAUTHORIZED,
-            "Invalid Authorization format".to_string(),
-        ));
-    }
-
-    let bearer = &auth_header[7..];
-    if let Some(api_key) = &state.api_key
-        && bearer != api_key
-    {
-        return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
-    }
-
-    // Get public key from header
     let public_key = headers
         .get("X-Node-Public-Key")
         .and_then(|v| v.to_str().ok())
@@ -305,8 +282,6 @@ pub async fn ws_handler(
             "Missing X-Node-Public-Key header".to_string(),
         ))?
         .to_string();
-
-    // Get node identity from header
     let node_identity = headers
         .get("X-Node-Identity")
         .and_then(|v| v.to_str().ok())
@@ -315,6 +290,45 @@ pub async fn ws_handler(
             "Missing X-Node-Identity header".to_string(),
         ))?
         .to_string();
+    let timestamp = headers
+        .get("X-Cynic-Timestamp")
+        .and_then(|value| value.to_str().ok())
+        .ok_or((
+            StatusCode::UNAUTHORIZED,
+            "Missing workload signature timestamp".to_string(),
+        ))?;
+    let signature = headers
+        .get("X-Cynic-Signature")
+        .and_then(|value| value.to_str().ok())
+        .ok_or((
+            StatusCode::UNAUTHORIZED,
+            "Missing workload signature".to_string(),
+        ))?;
+    let payload = crate::infra::crypto::build_rest_payload("GET", "/events/ws", &[]);
+    crate::infra::crypto::verify_signature(&public_key, signature, timestamp, &payload).map_err(
+        |error| {
+            (
+                StatusCode::UNAUTHORIZED,
+                format!("WebSocket workload signature rejected: {error}"),
+            )
+        },
+    )?;
+    let principal = state.role_keys.resolve_signer(&public_key).ok_or((
+        StatusCode::UNAUTHORIZED,
+        "WebSocket signing key is not bound to a workload principal".to_string(),
+    ))?;
+    principal
+        .require_agent(&node_identity)
+        .map_err(|message| (StatusCode::FORBIDDEN, message.to_string()))?;
+    if !matches!(
+        principal.role,
+        crate::api::rest::types::Role::Organ | crate::api::rest::types::Role::Internal
+    ) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "WebSocket federation requires organ or internal role".to_string(),
+        ));
+    }
 
     info!(
         client_addr = %addr,
@@ -401,20 +415,38 @@ async fn handle_node_connection(
                                 }
                                 NodeMessage::Verdict {
                                     stimulus_id,
-                                    verdict: _,
-                                    signature: _,
-                                    node_public_key: _,
+                                    verdict,
+                                    signature,
+                                    node_public_key,
+                                    timestamp,
                                 } => {
-                                    // Verify signature and store verdict
-                                    // TODO: Implement Ed25519 signature verification
-                                    // For now, just acknowledge
-                                    let verdict_id = crate::infra::crypto::generate_secure_id();
-                                    let ack = NodeMessage::Ack {
-                                        stimulus_id,
-                                        status: "received".to_string(),
-                                        verdict_id,
+                                    let registered = node_registry.get(&node_id).await;
+                                    let key_matches = registered
+                                        .as_ref()
+                                        .is_some_and(|record| record.public_key == node_public_key);
+                                    let payload = websocket_verdict_payload(&stimulus_id, &verdict);
+                                    let verified = key_matches
+                                        && crate::infra::crypto::verify_signature(
+                                            &node_public_key,
+                                            &signature,
+                                            &timestamp.to_string(),
+                                            &payload,
+                                        )
+                                        .is_ok();
+                                    let response = if verified {
+                                        NodeMessage::Ack {
+                                            stimulus_id,
+                                            status: "signature_verified".to_string(),
+                                            verdict_id: crate::infra::crypto::generate_secure_id(),
+                                        }
+                                    } else {
+                                        NodeMessage::Error {
+                                            error_code: "verdict_identity_proof_rejected".to_string(),
+                                            stimulus_id: Some(stimulus_id),
+                                            message: "verdict signature, freshness, or registered key binding is invalid".to_string(),
+                                        }
                                     };
-                                    if let Ok(json) = serde_json::to_string(&ack) {
+                                    if let Ok(json) = serde_json::to_string(&response) {
                                         let _ = sender.send(axum::extract::ws::Message::Text(json.into())).await;
                                     }
                                 }
@@ -479,4 +511,12 @@ async fn handle_node_connection(
     // Cleanup on disconnect
     node_registry.deregister(&node_id).await;
     info!(node_id = %node_id, "Node WebSocket handler closed");
+}
+
+fn websocket_verdict_payload(stimulus_id: &str, verdict: &serde_json::Value) -> Vec<u8> {
+    let mut payload = b"WEBSOCKET_VERDICT|".to_vec();
+    payload.extend_from_slice(stimulus_id.as_bytes());
+    payload.push(b'|');
+    payload.extend_from_slice(&serde_json::to_vec(verdict).unwrap_or_else(|_| b"null".to_vec()));
+    payload
 }

@@ -106,6 +106,7 @@ mod tests {
                 observed_home_dir: Some(policy.home_dir.clone()),
                 present_state_dirs: policy.state_dirs.clone(),
                 owned_paths: policy.managed_paths(),
+                ownership_unknown_paths: Vec::new(),
             }
         }
     }

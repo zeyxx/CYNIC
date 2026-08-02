@@ -1,16 +1,10 @@
 use serde::{Deserialize, Serialize};
 
+pub use cynic_protocol::SecretClass;
+
 use crate::domain::shared::{
     BoundaryKind, LifecycleDisposition, LifecycleProjection, LifecycleStatus, SurfaceStatus,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SecretClass {
-    HumanAdmin,
-    MachineEnrollment,
-    RuntimeMachineIdentity,
-    RecoveryBreakglass,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BootstrapFinding {

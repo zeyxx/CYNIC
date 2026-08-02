@@ -4,6 +4,7 @@
 //! The split below keeps protocol, bootstrap, metrics, and validation concerns in
 //! dedicated modules.
 
+mod auth;
 mod client;
 mod metrics;
 mod schema;

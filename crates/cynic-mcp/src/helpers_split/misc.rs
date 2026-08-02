@@ -69,16 +69,6 @@ fn registry_ref_arg(value: &Option<String>) -> Result<String, McpError> {
     Ok(registry_ref)
 }
 
-fn run_network_surface_json(
-    _args: &[String],
-    operation: &str,
-) -> Result<serde_json::Value, McpError> {
-    Ok(unsupported_minimal_baseline(
-        operation,
-        "legacy network Python surface was removed from the low-layer baseline",
-    ))
-}
-
 const COORDINATION_DOMAIN: &str = "coordination";
 const COORDINATION_TOOL: &str = "coordination";
 const COORDINATION_SCHEMA: &str = "coordination-event-v1";
@@ -92,17 +82,6 @@ const COORDINATION_OPERATION_DECISION_RECORD: &str = "coordination.decision.reco
 
 fn project_root() -> PathBuf {
     resolve_mcp_project_root()
-}
-
-fn unsupported_minimal_baseline(operation: &str, reason: &str) -> serde_json::Value {
-    serde_json::json!({
-        "schema": "cynic.unsupported_minimal_baseline.v1",
-        "status": "unsupported",
-        "operation": operation,
-        "reason": reason,
-        "authority": "contracts/foundation.json",
-        "policy": "Implement this capability as a Rust port/adapter or registry-backed runtime proof before exposing it as active."
-    })
 }
 
 fn load_consumer_profile(project: &str) -> Result<Option<serde_json::Value>, McpError> {

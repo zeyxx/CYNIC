@@ -18,6 +18,7 @@ pub use loading::{
 pub use model::{
     AuthStyle, BackendConfig, BackendRemediation, BackendType, CircuitBreakerConfig,
     ConvergenceConfig, DogDefaults, DogThreshold, DogThresholds, ErrorDetection, KScoreConfig,
-    MonitoringConfig, OrganRemediation, PromptTier, StorageConfig, VerdictSettings,
+    MonitoringConfig, OrganRemediation, PromptTier, StorageConfig, StorageIdentityConfig,
+    VerdictSettings,
 };
 pub use prompts::load_domain_prompts;

@@ -25,7 +25,8 @@ pub struct ProxmoxProvisionParams {
 pub struct ProxmoxExecParams {
     pub node: String,
     pub vmid: u64,
-    pub command: String,
+    /// Exact guest-agent argv. It is never parsed as a command line or shell input.
+    pub argv: Vec<String>,
 }
 
 #[derive(Debug, serde::Serialize, Deserialize, JsonSchema)]
@@ -33,4 +34,3 @@ pub struct InfraProvisionParams {
     /// The target node or service to provision (e.g. kernel_primary, storage_primary)
     pub target: String,
 }
-

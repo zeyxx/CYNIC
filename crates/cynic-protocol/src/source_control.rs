@@ -303,9 +303,11 @@ mod tests {
 
         assert_eq!(report.status, "blocked");
         assert!(report.blockers.contains(&"worktree_not_clean".to_string()));
-        assert!(report
-            .blockers
-            .contains(&"sovereign_transport_identity_unproven".to_string()));
+        assert!(
+            report
+                .blockers
+                .contains(&"sovereign_transport_identity_unproven".to_string())
+        );
     }
 
     #[test]
@@ -329,14 +331,18 @@ mod tests {
         };
         let report = admit_source_change(&proposal);
         assert_eq!(report.status, "blocked");
-        assert!(report
-            .blockers
-            .iter()
-            .any(|v| v == "sensitive_path_not_versioned:.env"));
-        assert!(report
-            .blockers
-            .iter()
-            .any(|v| v == "generated_artifact_requires_release_store"));
+        assert!(
+            report
+                .blockers
+                .iter()
+                .any(|v| v == "sensitive_path_not_versioned:.env")
+        );
+        assert!(
+            report
+                .blockers
+                .iter()
+                .any(|v| v == "generated_artifact_requires_release_store")
+        );
     }
 
     #[test]

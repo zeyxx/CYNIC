@@ -1,7 +1,9 @@
+#[cfg(test)]
 fn network_mesh_dns_activation_plan_args() -> Vec<String> {
     vec!["dns".to_string(), "plan".to_string()]
 }
 
+#[cfg(test)]
 fn network_mesh_dns_activation_bundle_args(
     params: &NetworkMeshDnsActivationBundleParams,
 ) -> Result<Vec<String>, McpError> {
@@ -15,6 +17,7 @@ fn network_mesh_dns_activation_bundle_args(
     ])
 }
 
+#[cfg(test)]
 fn network_mesh_provider_fallback_hosts_args(
     params: &NetworkMeshProviderFallbackHostsParams,
 ) -> Result<Vec<String>, McpError> {
@@ -23,10 +26,15 @@ fn network_mesh_provider_fallback_hosts_args(
         "--registry".to_string(),
         registry_ref_arg(&params.registry_ref)?,
         "--output-dir".to_string(),
-        tmp_output_dir_arg(&params.output_dir, "/tmp/cynic-provider-fallback", "output_dir")?,
+        tmp_output_dir_arg(
+            &params.output_dir,
+            "/tmp/cynic-provider-fallback",
+            "output_dir",
+        )?,
     ])
 }
 
+#[cfg(test)]
 fn network_mesh_provider_fallback_status_args(
     params: &NetworkMeshProviderFallbackStatusParams,
 ) -> Result<Vec<String>, McpError> {
@@ -46,6 +54,7 @@ fn network_mesh_provider_fallback_status_args(
     Ok(args)
 }
 
+#[cfg(test)]
 fn network_mesh_dns_activation_status_args(
     params: &NetworkMeshDnsActivationStatusParams,
 ) -> Vec<String> {
@@ -71,46 +80,61 @@ fn network_mesh_dns_activation_status_args(
 fn run_network_mesh_dns_activation_plan(
     _params: &NetworkMeshDnsActivationPlanParams,
 ) -> Result<serde_json::Value, McpError> {
-    run_network_surface_json(
-        &network_mesh_dns_activation_plan_args(),
-        "network.mesh.dns.activation_plan",
-    )
+    cynic_node::build_dns_activation_plan_value()
+        .map_err(|error| McpError::internal_error(error, None))
 }
 
 fn run_network_mesh_dns_activation_bundle(
     params: &NetworkMeshDnsActivationBundleParams,
 ) -> Result<serde_json::Value, McpError> {
-    run_network_surface_json(
-        &network_mesh_dns_activation_bundle_args(params)?,
-        "network.mesh.dns.activation_bundle",
-    )
+    let registry = project_root().join(registry_ref_arg(&params.registry_ref)?);
+    let output_dir =
+        tmp_output_dir_arg(&params.output_dir, "/tmp/cynic-synapse-dns", "output_dir")?;
+    cynic_node::build_dns_activation_bundle_value(registry.to_string_lossy().as_ref(), &output_dir)
+        .map_err(|error| McpError::internal_error(error, None))
 }
 
 fn run_network_mesh_provider_fallback_hosts(
     params: &NetworkMeshProviderFallbackHostsParams,
 ) -> Result<serde_json::Value, McpError> {
-    run_network_surface_json(
-        &network_mesh_provider_fallback_hosts_args(params)?,
-        "network.mesh.provider_fallback_hosts",
+    let registry = project_root().join(registry_ref_arg(&params.registry_ref)?);
+    let output_dir = tmp_output_dir_arg(
+        &params.output_dir,
+        "/tmp/cynic-provider-fallback",
+        "output_dir",
+    )?;
+    cynic_node::build_provider_fallback_hosts_value(
+        registry.to_string_lossy().as_ref(),
+        &output_dir,
     )
+    .map_err(|error| McpError::internal_error(error, None))
 }
 
 fn run_network_mesh_provider_fallback_status(
     params: &NetworkMeshProviderFallbackStatusParams,
 ) -> Result<serde_json::Value, McpError> {
-    run_network_surface_json(
-        &network_mesh_provider_fallback_status_args(params)?,
-        "network.mesh.provider_fallback_status",
+    let registry = project_root().join(registry_ref_arg(&params.registry_ref)?);
+    cynic_node::build_provider_fallback_status_value(
+        registry.to_string_lossy().as_ref(),
+        params.hosts_path.as_deref().unwrap_or("/etc/hosts"),
+        params.check_connectivity.unwrap_or(false),
     )
+    .map_err(|error| McpError::internal_error(error, None))
 }
 
 fn run_network_mesh_dns_activation_status(
     params: &NetworkMeshDnsActivationStatusParams,
 ) -> Result<serde_json::Value, McpError> {
-    run_network_surface_json(
-        &network_mesh_dns_activation_status_args(params),
-        "network.mesh.dns.activation_status",
+    let registry = project_root().join("infra/registry.json");
+    cynic_node::build_dns_activation_status_value(
+        registry.to_string_lossy().as_ref(),
+        params.hosts_path.as_deref(),
+        params.corefile_path.as_deref(),
+        params.service_path.as_deref(),
+        params.resolved_dropin_path.as_deref(),
+        params.resolve_dns.unwrap_or(true),
     )
+    .map_err(|error| McpError::internal_error(error, None))
 }
 
 fn synapse_cidr(registry: &serde_json::Value) -> Option<&str> {

@@ -1,13 +1,11 @@
-fn validate_ips(project_root: &str) -> Vec<serde_json::Value> {
-    let staged_content = staged_diff_content(project_root);
-    let mut findings = ip_findings_from_diff(&staged_content);
+fn validate_ips(project_root: &str, staged_content: &str) -> Vec<serde_json::Value> {
+    let mut findings = ip_findings_from_diff(staged_content);
     findings.extend(ip_findings_from_backends(project_root));
     findings
 }
 
 fn ip_regex() -> regex::Regex {
-    regex::Regex::new(r"100\.(74|75|119)\.\d{1,3}\.\d{1,3}")
-        .expect("IP regex must compile")
+    regex::Regex::new(r"100\.(74|75|119)\.\d{1,3}\.\d{1,3}").expect("IP regex must compile")
 }
 
 fn ip_findings_from_diff(diff: &str) -> Vec<serde_json::Value> {

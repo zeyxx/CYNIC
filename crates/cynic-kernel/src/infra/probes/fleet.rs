@@ -15,6 +15,7 @@ pub use cynic_node::verify::{
 };
 use std::time::{Duration, Instant};
 
+// WHY: keep Unknown and Unreachable exhaustive so a future ContextResult cannot silently map to None.
 #[allow(clippy::match_same_arms)]
 pub(crate) fn context_n_ctx_from_result(result: &ContextResult) -> Option<u32> {
     match result {

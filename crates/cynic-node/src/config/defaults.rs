@@ -38,6 +38,22 @@ pub(super) fn default_health_timeout_secs() -> u64 {
     5
 }
 
+pub(super) fn default_node_control_interval_secs() -> u64 {
+    30
+}
+
+pub(super) fn default_node_control_timeout_secs() -> u64 {
+    10
+}
+
+pub(super) fn default_enrollment_request_ttl_secs() -> u64 {
+    600
+}
+
+pub(super) fn default_enrollment_renewal_window_secs() -> u64 {
+    300
+}
+
 pub(super) fn default_max_failures() -> u32 {
     3
 }

@@ -25,6 +25,10 @@ use cynic_host::usecases::{
 use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
 // surface_audit_marker: build_host_activation_plan_with_resolution
 
+use crate::bootstrap_surface::host_agent_access::{
+    AgentAccessArgs, AgentAuthorityArgs, AgentAuthorityBundleArgs, execute_agent_access,
+    execute_agent_authority, execute_agent_authority_bundle,
+};
 use crate::bootstrap_surface::host_e2e::build_host_bootstrap_e2e_report;
 use crate::bootstrap_surface::selection::{ProfileArgs, observed_blocked, selected_host_context};
 use crate::{emit_json, fail, registry_path};
@@ -48,6 +52,9 @@ pub(crate) enum BootstrapHostCommand {
         #[arg(long)]
         apply: bool,
     },
+    AgentAccess(AgentAccessArgs),
+    AgentAuthorityBundle(AgentAuthorityBundleArgs),
+    AgentAuthority(AgentAuthorityArgs),
     #[command(name = "e2e")]
     E2e {
         #[command(flatten)]
@@ -197,6 +204,9 @@ pub(crate) fn execute_bootstrap_host(command: BootstrapHostCommand) -> ExitCode 
                 emit_json(&report, false)
             }
         }
+        BootstrapHostCommand::AgentAccess(args) => execute_agent_access(args),
+        BootstrapHostCommand::AgentAuthorityBundle(args) => execute_agent_authority_bundle(args),
+        BootstrapHostCommand::AgentAuthority(args) => execute_agent_authority(args),
         BootstrapHostCommand::E2e {
             profile,
             runtime_profile,

@@ -15,9 +15,7 @@ pub use admission::{
     FrameworkEnrollmentVerification, UnavailableFrameworkEnrollmentAuthority,
     admit_framework_enrollment,
 };
-pub use bundle::{
-    write_framework_bootstrap_bundle, write_framework_bootstrap_bundle_for_role,
-};
+pub use bundle::{write_framework_bootstrap_bundle, write_framework_bootstrap_bundle_for_role};
 pub use cli_install::install_standalone_cli;
 pub use enrollment::{FrameworkRole, build_framework_enrollment_request};
 pub use propagation::{

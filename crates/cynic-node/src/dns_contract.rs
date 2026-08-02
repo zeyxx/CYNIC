@@ -13,6 +13,8 @@ mod verification;
 
 #[derive(Debug, Clone)]
 struct DnsRuntimeContext {
+    provider: DnsProviderKind,
+    provider_package: &'static str,
     zone: String,
     storage_probe_fqdn: Option<String>,
     package_query_bin: String,
@@ -28,6 +30,8 @@ struct DnsRuntimeContext {
     corefile_path: String,
     service_path: String,
     resolved_dropin_path: String,
+    bundle_config_filename: &'static str,
+    bundle_service_filename: &'static str,
 }
 
 pub(crate) const DEFAULT_DNS_ZONE: &str = "synapse.cynic";
@@ -38,6 +42,33 @@ pub(crate) const SYNAPSE_DNS_SERVICE_FILENAME: &str = "coredns-synapse.service";
 pub(crate) const SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME: &str = "cynic-synapse-dns.conf";
 pub(crate) const SYNAPSE_DNS_MANIFEST_FILENAME: &str = "manifest.json";
 pub(crate) const SYNAPSE_DNS_README_FILENAME: &str = "README.activation.md";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum DnsProviderKind {
+    CoreDns,
+    Dnsmasq,
+}
+
+impl DnsProviderKind {
+    fn name(self) -> &'static str {
+        match self {
+            Self::CoreDns => "coredns",
+            Self::Dnsmasq => "dnsmasq",
+        }
+    }
+
+    fn binary(self) -> &'static str {
+        self.name()
+    }
+
+    fn package(self) -> &'static str {
+        match self {
+            Self::CoreDns => "coredns",
+            Self::Dnsmasq => "dnsmasq-base",
+        }
+    }
+}
 
 pub(crate) const CANONICAL_DNS_PROVIDER: &str = "coredns";
 pub(crate) const CANONICAL_DNS_BINARY: &str = "coredns";
@@ -63,12 +94,13 @@ pub(crate) struct DnsRequiredModes {
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct DnsProviderPolicySurface {
-    pub(crate) canonical_provider: &'static str,
-    pub(crate) canonical_binary: &'static str,
+    pub(crate) preferred_provider: &'static str,
+    pub(crate) preferred_binary: &'static str,
+    pub(crate) supported_adapters: Vec<&'static str>,
     pub(crate) selection_source: &'static str,
     pub(crate) service_contract: String,
     pub(crate) approved_sources: Vec<&'static str>,
-    pub(crate) known_noncanonical_candidates: Vec<&'static str>,
+    pub(crate) known_unadapted_candidates: Vec<&'static str>,
     pub(crate) promotion_rule: &'static str,
 }
 
@@ -89,14 +121,21 @@ pub(crate) struct DnsProviderObservedStatus {
     pub(crate) observed_binaries: BTreeMap<&'static str, Option<String>>,
     pub(crate) noncanonical_available: Vec<&'static str>,
     pub(crate) blocked_reason: Option<&'static str>,
+    pub(crate) selected_provider: Option<&'static str>,
+    pub(crate) selected_package: Option<&'static str>,
+    pub(crate) package_provenance_verified: bool,
 }
 
 pub(crate) fn approved_dns_sources() -> Vec<&'static str> {
     vec!["distribution_package", "approved_internal_package_mirror"]
 }
 
-pub(crate) fn noncanonical_dns_candidates() -> Vec<&'static str> {
-    vec!["dnsmasq", "unbound", "bind9", "systemd-resolved"]
+pub(crate) fn supported_dns_adapters() -> Vec<&'static str> {
+    vec!["coredns", "dnsmasq"]
+}
+
+pub(crate) fn unadapted_dns_candidates() -> Vec<&'static str> {
+    vec!["unbound", "bind9", "systemd-resolved"]
 }
 
 pub(crate) fn forbidden_dns_sources() -> Vec<&'static str> {
@@ -122,11 +161,14 @@ fn dns_activation_checks_with_context(context: &DnsRuntimeContext) -> Vec<Networ
     let mut checks = vec![
         expectation(
             "package_source_policy",
-            "install CoreDNS from a distribution package or approved internal package mirror",
+            format!(
+                "use {} only from a distribution package or approved internal package mirror",
+                context.provider_package
+            ),
         ),
         package_presence_command(
             "package_presence",
-            CANONICAL_DNS_BINARY,
+            context.provider_package,
             context.package_query_bin.clone(),
             context.rpm_query_bin.clone(),
         ),
@@ -238,20 +280,22 @@ pub(crate) fn dns_provider_policy_surface() -> DnsProviderPolicySurface {
 
 pub(crate) fn dns_provider_policy_surface_for_zone(zone: &str) -> DnsProviderPolicySurface {
     DnsProviderPolicySurface {
-        canonical_provider: CANONICAL_DNS_PROVIDER,
-        canonical_binary: CANONICAL_DNS_BINARY,
+        preferred_provider: CANONICAL_DNS_PROVIDER,
+        preferred_binary: CANONICAL_DNS_BINARY,
+        supported_adapters: supported_dns_adapters(),
         selection_source: DNS_SELECTION_SOURCE,
         service_contract: format!("*.{zone}"),
         approved_sources: approved_dns_sources(),
-        known_noncanonical_candidates: noncanonical_dns_candidates(),
+        known_unadapted_candidates: unadapted_dns_candidates(),
         promotion_rule: DNS_PROMOTION_RULE,
     }
 }
 
 pub(crate) fn dns_package_preconditions() -> Vec<DnsPackagePrecondition> {
+    let context = dns_runtime_context();
     vec![DnsPackagePrecondition {
-        name: CANONICAL_DNS_PROVIDER,
-        binary: CANONICAL_DNS_BINARY,
+        name: context.provider_package,
+        binary: context.provider.binary(),
         allowed_sources: approved_dns_sources(),
         forbidden_sources: forbidden_dns_sources(),
     }]
@@ -271,15 +315,60 @@ pub(crate) fn observe_dns_provider_status() -> DnsProviderObservedStatus {
         .get(CANONICAL_DNS_BINARY)
         .and_then(|value| value.as_ref())
         .is_some();
+    let coredns_provenance = observed_binaries
+        .get(CANONICAL_DNS_BINARY)
+        .and_then(|value| value.as_deref())
+        .is_some_and(|path| package_owns_binary("coredns", path));
+    let dnsmasq_path = observed_binaries
+        .get("dnsmasq")
+        .and_then(|value| value.as_deref());
+    let dnsmasq_provenance =
+        dnsmasq_path.is_some_and(|path| package_owns_binary("dnsmasq-base", path));
+    let selected = if coredns_provenance {
+        Some(DnsProviderKind::CoreDns)
+    } else if dnsmasq_provenance {
+        Some(DnsProviderKind::Dnsmasq)
+    } else {
+        None
+    };
 
     DnsProviderObservedStatus {
         canonical_provider: CANONICAL_DNS_PROVIDER,
         canonical_binary: CANONICAL_DNS_BINARY,
         canonical_available,
-        usable_provider: canonical_available.then_some(CANONICAL_DNS_PROVIDER),
+        usable_provider: selected.map(DnsProviderKind::name),
         observed_binaries,
         noncanonical_available,
-        blocked_reason: (!canonical_available).then_some("canonical_dns_provider_missing"),
+        blocked_reason: selected
+            .is_none()
+            .then_some("supported_dns_provider_missing"),
+        selected_provider: selected.map(DnsProviderKind::name),
+        selected_package: selected.map(DnsProviderKind::package),
+        package_provenance_verified: selected.is_some(),
+    }
+}
+
+fn package_owns_binary(package: &str, binary: &str) -> bool {
+    let layout = current_runtime_layout();
+    let package_manager = layout.capabilities().package_manager;
+    match package_manager.kind {
+        cynic_host::runtime_layout::PackageManagerKind::Apt => {
+            cynic_host::process_observation::command_stdout(&package_manager.query, &["-S", binary])
+                .is_some_and(|output| {
+                    output
+                        .lines()
+                        .any(|line| line.starts_with(&format!("{package}:")))
+                })
+        }
+        cynic_host::runtime_layout::PackageManagerKind::Dnf
+        | cynic_host::runtime_layout::PackageManagerKind::Rpm => {
+            cynic_host::process_observation::command_stdout(
+                &package_manager.rpm_query,
+                &["-qf", binary],
+            )
+            .is_some_and(|output| output.trim().starts_with(package))
+        }
+        _ => false,
     }
 }
 
@@ -322,26 +411,57 @@ pub(crate) fn dns_forbidden_patterns() -> Vec<&'static str> {
 }
 
 pub(crate) fn dns_bundle_files() -> Vec<String> {
+    let context = dns_runtime_context();
     vec![
-        SYNAPSE_DNS_COREFILE_FILENAME.to_string(),
+        context.bundle_config_filename.to_string(),
         SYNAPSE_DNS_README_FILENAME.to_string(),
-        SYNAPSE_DNS_SERVICE_FILENAME.to_string(),
+        context.bundle_service_filename.to_string(),
         SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME.to_string(),
         SYNAPSE_DNS_MANIFEST_FILENAME.to_string(),
         SYNAPSE_DNS_HOSTS_FILENAME.to_string(),
     ]
 }
 
-pub(crate) fn coredns_systemd_unit_for_zone(zone: &str) -> String {
-    coredns_systemd_unit_with_context(&dns_runtime_context_for_zone(zone, None))
+pub(crate) fn dns_bundle_config_filename() -> &'static str {
+    dns_runtime_context().bundle_config_filename
 }
 
-fn coredns_systemd_unit_with_context(context: &DnsRuntimeContext) -> String {
+pub(crate) fn dns_bundle_service_filename() -> &'static str {
+    dns_runtime_context().bundle_service_filename
+}
+
+pub(crate) fn dns_provider_config_for_zone(zone: &str) -> String {
+    let context = dns_runtime_context_for_zone(zone, None);
+    match context.provider {
+        DnsProviderKind::CoreDns => format!(
+            ".:1053 {{\n    errors\n    hosts {} {{\n        fallthrough\n    }}\n}}\n",
+            context.hosts_path
+        ),
+        DnsProviderKind::Dnsmasq => format!(
+            "# Generated by CYNIC for {zone}.\nno-resolv\nno-hosts\ndomain-needed\nbogus-priv\nbind-interfaces\nlisten-address=127.0.0.1\nport=1053\naddn-hosts={}\ncache-size=0\n",
+            context.hosts_path
+        ),
+    }
+}
+
+pub(crate) fn dns_systemd_unit_for_zone(zone: &str) -> String {
+    dns_systemd_unit_with_context(&dns_runtime_context_for_zone(zone, None))
+}
+
+fn dns_systemd_unit_with_context(context: &DnsRuntimeContext) -> String {
+    let exec_start = match context.provider {
+        DnsProviderKind::CoreDns => format!(
+            "{} -conf {}",
+            context.dns_binary_command, context.corefile_path
+        ),
+        DnsProviderKind::Dnsmasq => format!(
+            "{} --keep-in-foreground --conf-file={} --pid-file=",
+            context.dns_binary_command, context.corefile_path
+        ),
+    };
     format!(
-        "[Unit]\nDescription=CYNIC CoreDNS projection for {}\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/env {} -conf {corefile}\nRestart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n",
-        context.zone,
-        context.dns_binary_command,
-        corefile = context.corefile_path,
+        "[Unit]\nDescription=CYNIC Synapse DNS adapter ({provider})\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=cynic\nGroup=cynic\nExecStart={exec_start}\nRestart=on-failure\nRestartSec=5\nNoNewPrivileges=true\nPrivateTmp=true\nProtectHome=true\nProtectSystem=strict\nProtectKernelTunables=true\nProtectKernelModules=true\nProtectControlGroups=true\nRestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK\n\n[Install]\nWantedBy=multi-user.target\n",
+        provider = context.provider.name(),
     )
 }
 
@@ -351,7 +471,9 @@ pub(crate) fn dns_activation_readme_for_zone(zone: &str, probe_fqdn: Option<Stri
 
 fn dns_activation_readme_with_context(context: &DnsRuntimeContext) -> String {
     format!(
-        "# cynic-node DNS activation bundle\n\nThis bundle is non-mutating. Install it only through an approved activation path.\nDo not install these files directly as root without an explicit operator action.\n\nCoreDNS binary policy:\n\n- Allowed: distribution package or approved internal package mirror.\n- Forbidden: remote installer piped to shell, unverified upstream binary drops.\n- Noncanonical providers such as dnsmasq, unbound or bind9 require their own\n  adapter contract before they can activate this DNS zone.\n\nAfter installation, verify:\n\n1. `systemctl is-active {}`\n2. `getent hosts {}`\n3. `cargo run -q -p cynic-node -- network runtime-status --json --resolve-dns`\n",
+        "# cynic-node DNS activation bundle\n\nThis bundle is non-mutating. Install it only through an approved activation path.\nDo not install these files directly as root without an explicit operator action.\n\nSelected adapter: {} ({})\n\n- Allowed: distribution package or approved internal package mirror.\n- Forbidden: remote installer piped to shell, unverified upstream binary drops.\n- Provider selection requires both a dedicated adapter contract and observed package provenance.\n\nAfter installation, verify:\n\n1. `systemctl is-active {}`\n2. `getent hosts {}`\n3. `cynic network runtime --resolve-dns`\n",
+        context.provider.name(),
+        context.provider_package,
         context.dns_service_unit,
         context
             .storage_probe_fqdn
@@ -378,7 +500,46 @@ fn dns_runtime_context_for_zone(
 ) -> DnsRuntimeContext {
     let runtime_layout = current_runtime_layout();
     let capabilities = runtime_layout.capabilities();
+    let observed = observe_dns_provider_status();
+    let provider = match observed.selected_provider {
+        Some("dnsmasq") => DnsProviderKind::Dnsmasq,
+        _ => DnsProviderKind::CoreDns,
+    };
+    let (
+        dns_service_unit,
+        dns_binary_command,
+        hosts_path,
+        corefile_path,
+        service_path,
+        bundle_config_filename,
+        bundle_service_filename,
+    ) = match provider {
+        DnsProviderKind::CoreDns => (
+            capabilities.dns_provider.service_unit.clone(),
+            capabilities.dns_provider.command.clone(),
+            runtime_layout.dns_hosts_path(),
+            runtime_layout.dns_corefile_path(),
+            runtime_layout.dns_service_path(),
+            SYNAPSE_DNS_COREFILE_FILENAME,
+            SYNAPSE_DNS_SERVICE_FILENAME,
+        ),
+        DnsProviderKind::Dnsmasq => (
+            "cynic-dns-synapse.service".to_string(),
+            observed
+                .observed_binaries
+                .get("dnsmasq")
+                .and_then(Clone::clone)
+                .unwrap_or_else(|| "/usr/sbin/dnsmasq".to_string()),
+            "/etc/cynic/dns/synapse.hosts".to_string(),
+            "/etc/cynic/dns/dnsmasq.conf".to_string(),
+            "/etc/systemd/system/cynic-dns-synapse.service".to_string(),
+            "dnsmasq.conf",
+            "cynic-dns-synapse.service",
+        ),
+    };
     DnsRuntimeContext {
+        provider,
+        provider_package: provider.package(),
         zone: zone.to_string(),
         storage_probe_fqdn,
         package_query_bin: capabilities.package_manager.query.clone(),
@@ -386,26 +547,31 @@ fn dns_runtime_context_for_zone(
         service_manager_kind: capabilities.service_manager.kind.clone(),
         service_manager_bin: capabilities.service_manager.command.clone(),
         service_enable_bin: runtime_layout.rc_update_bin(),
-        dns_service_unit: capabilities.dns_provider.service_unit.clone(),
+        dns_service_unit,
         resolved_unit: capabilities.dns_provider.resolved_unit.clone(),
         resolver_command: capabilities.name_service.resolver_command.clone(),
-        dns_binary_command: capabilities.dns_provider.command.clone(),
-        hosts_path: runtime_layout.dns_hosts_path(),
-        corefile_path: runtime_layout.dns_corefile_path(),
-        service_path: runtime_layout.dns_service_path(),
+        dns_binary_command,
+        hosts_path,
+        corefile_path,
+        service_path,
         resolved_dropin_path: runtime_layout.dns_resolved_dropin_path(),
+        bundle_config_filename,
+        bundle_service_filename,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        DnsRuntimeContext, coredns_systemd_unit_with_context, dns_activation_checks_with_context,
-        dns_activation_readme_with_context, dns_target_paths_with_context,
+        DnsProviderKind, DnsRuntimeContext, dns_activation_checks_with_context,
+        dns_activation_readme_with_context, dns_systemd_unit_with_context,
+        dns_target_paths_with_context,
     };
 
     fn context() -> DnsRuntimeContext {
         DnsRuntimeContext {
+            provider: DnsProviderKind::CoreDns,
+            provider_package: "coredns",
             zone: "test.zone".to_string(),
             storage_probe_fqdn: Some("storage.test.zone".to_string()),
             package_query_bin: "/usr/bin/dpkg".to_string(),
@@ -421,6 +587,8 @@ mod tests {
             corefile_path: "/etc/coredns/Corefile".to_string(),
             service_path: "/etc/systemd/system/coredns-synapse.service".to_string(),
             resolved_dropin_path: "/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf".to_string(),
+            bundle_config_filename: "Corefile",
+            bundle_service_filename: "coredns-synapse.service",
         }
     }
 
@@ -445,7 +613,7 @@ mod tests {
 
     #[test]
     fn dns_unit_and_readme_use_injected_context() {
-        let unit = coredns_systemd_unit_with_context(&context());
+        let unit = dns_systemd_unit_with_context(&context());
         let readme = dns_activation_readme_with_context(&context());
         assert!(unit.contains("/usr/bin/coredns -conf /etc/coredns/Corefile"));
         assert!(readme.contains("coredns-synapse.service"));

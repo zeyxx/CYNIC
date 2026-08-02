@@ -54,6 +54,9 @@ pub(crate) fn audit_surface(
             .iter()
             .map(|path| check_owner_module_exists(path)),
     );
+    if let Some(architecture) = &surface.architecture {
+        checks.extend(check_architecture_contract(surface, architecture));
+    }
     let status = if checks.iter().all(|check| check.status == "ok") {
         "ok"
     } else {
@@ -73,6 +76,88 @@ pub(crate) fn audit_surface(
         mutation_policy: surface.mutation_policy.clone(),
         checks,
     }
+}
+
+fn check_architecture_contract(
+    surface: &CanonicalCliSurface,
+    architecture: &cynic_protocol::SurfaceArchitectureContract,
+) -> Vec<SurfaceAuditCheck> {
+    let mut checks = vec![
+        check_vec_non_empty("owned_ports_declared", &architecture.owned_ports),
+        check_vec_non_empty("owned_decisions_declared", &architecture.owned_decisions),
+        check_vec_non_empty("allowed_adapters_declared", &architecture.allowed_adapters),
+        check_vec_non_empty(
+            "projection_modules_declared",
+            &architecture.projection_modules,
+        ),
+        check_vec_non_empty(
+            "forbidden_projection_markers_declared",
+            &architecture.forbidden_projection_markers,
+        ),
+    ];
+    let owner_sources = surface
+        .owner_modules
+        .iter()
+        .filter_map(|module| {
+            let path = owner_module_path(&surface.owner_crate, module);
+            read_adapter_source(&path).ok()
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    for (kind, symbols) in [
+        ("owned_port_present", &architecture.owned_ports),
+        ("owned_decision_present", &architecture.owned_decisions),
+    ] {
+        for symbol in symbols {
+            checks.push(SurfaceAuditCheck {
+                name: kind,
+                status: if owner_sources.contains(symbol) {
+                    "ok"
+                } else {
+                    "blocked"
+                },
+                detail: format!("symbol={symbol}"),
+            });
+        }
+    }
+    for adapter in &architecture.allowed_adapters {
+        let path = owner_module_path(&surface.owner_crate, adapter);
+        checks.push(SurfaceAuditCheck {
+            name: "allowed_adapter_exists",
+            status: if path.exists() { "ok" } else { "blocked" },
+            detail: format!("adapter={adapter} path={}", path.display()),
+        });
+    }
+    for module in &architecture.projection_modules {
+        let path = owner_module_path(&surface.owner_crate, module);
+        checks.push(check_owner_module_exists(&path));
+        let source = read_adapter_source(&path).ok();
+        let violations = source
+            .as_deref()
+            .map(|source| {
+                architecture
+                    .forbidden_projection_markers
+                    .iter()
+                    .filter(|marker| source.contains(marker.as_str()))
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_else(|| vec!["projection_source_unreadable".to_string()]);
+        checks.push(SurfaceAuditCheck {
+            name: "projection_respects_authority_boundary",
+            status: if violations.is_empty() {
+                "ok"
+            } else {
+                "blocked"
+            },
+            detail: if violations.is_empty() {
+                format!("module={module}")
+            } else {
+                format!("module={module} forbidden_markers={violations:?}")
+            },
+        });
+    }
+    checks
 }
 
 fn check_unique_id(
@@ -194,10 +279,9 @@ fn check_mutation_policy_matches_source(
         | "explicit_apply_only_after_signature_digest_epoch_node_and_slot_preflight" => {
             let has_apply_guard = source.contains("requires --apply")
                 || source.contains("--apply")
-                || surface
-                    .canonical_entrypoints
-                    .iter()
-                    .any(|entrypoint| entrypoint.contains("--apply"));
+                || surface.canonical_entrypoints.iter().any(|entrypoint| {
+                    entrypoint.contains("--apply") || entrypoint.contains("--yes")
+                });
             has_apply_guard
                 && signals.iter().all(|signal| {
                     matches!(

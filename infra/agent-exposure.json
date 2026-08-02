@@ -6,7 +6,7 @@
     "secrets": "Do not store real endpoints, API keys, cookies, wallet secrets, or personal account data in this file.",
     "mutation_default": "local_operator_only",
     "transport": "mcp_stdio",
-    "fallback": "kernel_rest_when_explicitly_configured",
+    "fallback": "none",
     "project_root": "Inject runtime paths through operator deployment context; never commit machine-local absolute paths.",
     "honesty": "This projection is complete for the current cynic-mcp binary. Tier labels mark product/legacy surfaces that are not low-layer runtime baseline."
   },
@@ -16,7 +16,18 @@
   "session_handshake": {
     "schema": "cynic.agent_session_handshake.v1",
     "contract_id": "cynic.agent_mcp",
-    "contract_revision": 2,
+    "contract_revision": 6,
+    "session_identity": {
+      "schema": "cynic.agent_session_identity.v1",
+      "declared_override": "CYNIC_AGENT_ID",
+      "agent_type_input": "CYNIC_AGENT_TYPE",
+      "default_agent_type": "codex",
+      "fallback": "generate_unique_identity_once_per_mcp_process",
+      "concurrency": "distinct_processes_must_have_distinct_generated_principals",
+      "lifetime": "mcp_process",
+      "secret": false,
+      "read_back": "cynic_mcp_surface.session_identity"
+    },
     "required_capabilities": [
       "cynic_mcp_surface",
       "cynic_coord_register",
@@ -43,7 +54,66 @@
     "recursive_scheduler_status": "inactive",
     "legacy_agent_task_runtime_authority": false,
     "mcp_unavailable_status": "blocked_disconnected",
-    "shell_build_fallback": false
+    "shell_build_fallback": false,
+    "build_authority": {
+      "schema": "cynic.build.authority_status.v1",
+      "runtime_grant_schema": "cynic.build.workload_grant.v1",
+      "manual_runtime_grants": false,
+      "human_admin_scope": "machine_build_authority_enrollment_and_rotation_only",
+      "derivation": "live durable workload record plus canonical action policy",
+      "status": "implemented_unwired",
+      "missing_runtime_capabilities": [
+        "node_owned_build_grant_machine_signer",
+        "build_runner_signature_and_live_workload_verifier",
+        "scheduler_to_build_runner_execution_transport",
+        "build_completion_and_artifact_read_back"
+      ],
+      "blocked_status": "blocked_missing_machine_build_authority"
+    },
+    "authentication": {
+      "schema": "cynic.agent_session_authority.v1",
+      "owner": "cynic-protocol::agent_session",
+      "runtime_status": "implemented_unproven",
+      "local_transport": "local_unix_peer",
+      "local_credential_kind": "local_peer_binding",
+      "federation_credential_kind": "signed_jwt",
+      "shared_api_key": "kernel_compatibility_only_not_mcp_transport",
+      "manual_secret_tool": false,
+      "shell_identity_loader": false,
+      "implemented_protocol_primitives": [
+        "delegation_digest_binding",
+        "monotonic_capability_admission",
+        "bounded_ttl",
+        "peer_observation_freshness",
+        "credential_digest_only_record",
+        "revocation_generation",
+        "sqlite_session_store_adapter",
+        "atomic_revocation_fencing",
+        "durable_expiry_transition",
+        "content_addressed_enrollment_authority",
+        "root_agent_launch_admission",
+        "linux_so_peercred_observation",
+        "boot_and_process_bound_local_session",
+        "kernel_session_store_wiring",
+        "session_issue_read_back",
+        "mcp_unix_transport_client",
+        "capability_scoped_request_authorization",
+        "process_start_bound_peer_identity",
+        "explicit_self_revocation",
+        "host_agent_access_policy_and_observer",
+        "host_agent_access_argv_operations",
+        "observed_uid_enrollment_authority_composition",
+        "atomic_session_rotation",
+        "fencing_bound_session_renewal",
+        "mcp_session_renewal_loop",
+        "agent_enrollment_authority_install_apply_and_read_back"
+      ],
+      "missing_runtime_capabilities": [
+        "installed_agent_enrollment_authority_apply_read_back_proof",
+        "installed_artifact_conformance_proof",
+        "federation_issuer_and_audience_keys"
+      ]
+    }
   },
   "constitutional_execution": {
     "schema": "cynic.agent_constitution_status.v1",
@@ -61,7 +131,8 @@
       "content_addressed_source_preconditions",
       "durable_cancellation",
       "recovery_after_claimant_or_node_failure",
-      "content_addressed_completion_evidence"
+      "content_addressed_completion_evidence",
+      "workload_derived_machine_build_authority"
     ],
     "implemented_protocol_primitives": [
       "workload_admission",
@@ -81,15 +152,26 @@
       "injected_read_only_local_workspace_observer",
       "portable_registry_workspace_layout_adapter",
       "surreal_atomic_hierarchical_workspace_claim_store",
-      "workspace_claim_hard_expiry_and_stale_fence_rejection"
-    ],
-    "missing_runtime_capabilities": [
+      "workspace_claim_hard_expiry_and_stale_fence_rejection",
       "durable_agent_workload_store",
       "aggregate_sibling_budget_accounting",
+      "durable_workload_cancellation",
+      "completion_evidence_persistence",
+      "canonical_build_action_expansion",
+      "workload_derived_build_grant",
+      "build_grant_revision_fence_and_cancellation_binding",
+      "canonical_build_grant_signing_payload",
+      "injected_build_grant_signer_and_verifier_ports",
+      "ed25519_machine_build_grant_adapter"
+    ],
+    "missing_runtime_capabilities": [
       "scheduler_claim_renewal",
       "scheduler_cancellation_delivery",
       "scheduler_crash_recovery",
-      "completion_evidence_persistence",
+      "node_owned_build_grant_machine_signer",
+      "build_runner_signature_and_live_workload_verifier",
+      "scheduler_to_build_runner_execution_transport",
+      "build_completion_and_artifact_read_back",
       "node_workspace_observer_wiring_and_proof",
       "workspace_claim_store_wiring_and_conformance_proof",
       "bounded_source_change_apply_adapter",
@@ -137,6 +219,7 @@
         { "name": "cynic_agent_loop_audit", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_inference_backends", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_inference_discover", "tier": "baseline_runtime", "mutation": "local_mutation" },
+        { "name": "cynic_agent_connection_status", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_coord_register", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_coord_claim", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_coord_claim_batch", "tier": "baseline_runtime", "mutation": "local_mutation" },
@@ -161,7 +244,6 @@
         { "name": "cynic_lifecycle_payloads", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "identity_attest", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "identity_smoke_check", "tier": "baseline_runtime", "mutation": "read_only" },
-        { "name": "cynic_auth", "tier": "operator_local", "mutation": "local_mutation" },
         { "name": "cynic_validate", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_git", "tier": "operator_local", "mutation": "read_only" },
         { "name": "cynic_source_control", "tier": "baseline_runtime", "mutation": "local_mutation" },
@@ -187,6 +269,7 @@
         { "name": "cynic_fleet_inventory", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_fleet_reconcile_plan", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_fleet_reconcile_apply", "tier": "baseline_runtime", "mutation": "privileged_mutation" },
+        { "name": "provider_control_status", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "fleet_node_status", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "fleet_node_exec", "tier": "baseline_runtime", "mutation": "privileged_mutation" },
         { "name": "lxc_exec_bridge_plan", "tier": "baseline_runtime", "mutation": "read_only" },
@@ -217,19 +300,19 @@
         "cynic_audit_query",
         "cynic_library_query"
       ],
-      "fallback_tools": []
+      "operator_tools": []
     },
     "judgment_and_observation": {
       "description": "Kernel judgment and observation intake. Judge remains product-domain epistemology, not low-layer proof.",
       "tier": "mixed_baseline_and_product",
       "tools": ["cynic_judge", "cynic_observe"],
-      "fallback_tools": []
+      "operator_tools": []
     },
     "inference": {
       "description": "CYNIC native sovereign inference (routing SSOT) plus optional attach to an Osmantic ODS-bootstrapped local AI environment (https://github.com/Osmantic/ODS).",
       "tier": "baseline_runtime",
       "tools": ["cynic_infer", "cynic_agent_eval", "cynic_agent_loop_audit", "cynic_inference_backends", "cynic_inference_discover"],
-      "fallback_tools": [
+      "operator_tools": [
         "cynic-askesis eval <dataset.jsonl> --endpoint <openai-base-url> --model <model> --json",
         "cynic runtime inference --json",
         "cynic runtime inference-vault --json",
@@ -252,6 +335,7 @@
       "description": "Multi-agent claims, registration, and structured coordination events.",
       "tier": "baseline_runtime",
       "tools": [
+        "cynic_agent_connection_status",
         "cynic_coord_register",
         "cynic_coord_claim",
         "cynic_coord_claim_batch",
@@ -267,7 +351,7 @@
         "coordination_artifact_share",
         "coordination_decision_record"
       ],
-      "fallback_tools": []
+      "operator_tools": []
     },
     "agent_tasks": {
       "description": "Kernel-backed agent task dispatch, claim, and result publication.",
@@ -280,7 +364,7 @@
         "cynic_claim_agent_task",
         "cynic_update_agent_task_result"
       ],
-      "fallback_tools": []
+      "operator_tools": []
     },
     "lifecycle": {
       "description": "Lifecycle status and bounded dispatch surfaces.",
@@ -290,13 +374,13 @@
         "cynic_lifecycle_dispatch",
         "cynic_lifecycle_payloads"
       ],
-      "fallback_tools": ["cynic bootstrap constellation --json"]
+      "operator_tools": ["cynic bootstrap constellation --json"]
     },
     "identity": {
       "description": "Credential presence and smoke checks without secret leakage.",
       "tier": "baseline_runtime",
-      "tools": ["identity_attest", "identity_smoke_check", "cynic_auth"],
-      "fallback_tools": []
+      "tools": ["identity_attest", "identity_smoke_check"],
+      "operator_tools": []
     },
     "operator_local": {
       "description": "Local operator helpers (git/docker/transport evidence). Not organism runtime authority.",
@@ -313,21 +397,26 @@
         "docker_container_logs",
         "docker_container_inspect"
       ],
-      "fallback_tools": []
+      "operator_tools": []
     },
     "build_dispatch": {
-      "description": "Agent validation requests are planned for build_runner, but dispatch remains blocked until the node-owned scheduler persists and enforces the constitutional workload contract.",
+      "description": "Agent validation requests are planned for build_runner. Node-local workload status, revision-fenced transitions, and machine-owned grant reconciliation are declared; automatic transport and execution remain blocked until the scheduler loop is built and proven.",
       "status": "blocked_scheduler_unavailable",
       "required_contract": "cynic.agent_workload_envelope.v1",
       "tier": "baseline_runtime",
       "tools": ["cynic_validate"],
-      "fallback_tools": []
+      "operator_tools": [
+        "cynic-node agent-workload-status --json --workload-id <id> [--state-root <path>]",
+        "cynic-node agent-workload-transition --json --request <transition.json> [--state-root <path>] [--apply]",
+        "cynic-node build-workload-grant-reconcile --json --workload-id <id> --signing-key <private-key> [--registry <path>] [--state-root <path>] [--apply]",
+        "cynic-node build-workload-grant-verify --json --grant <signed-grant.json> --workload-record <record.json> --authority-public-key <public-key> --node-id <node> --source-commit <commit> --action <make:check|make:build>"
+      ]
     },
     "infra_registry": {
       "description": "Registry read/validate and provision projection.",
       "tier": "baseline_runtime",
       "tools": ["infra_registry_read", "infra_registry_validate", "infra_provision"],
-      "fallback_tools": ["cynic runtime paths --json"]
+      "operator_tools": ["cynic runtime paths --json"]
     },
     "network_mesh": {
       "description": "Network mesh DNS, IPAM, and provider-fallback observation/planning.",
@@ -342,7 +431,7 @@
         "network_mesh_provider_fallback_status",
         "network_mesh_dns_activation_status"
       ],
-      "fallback_tools": ["cynic network dns bundle --json"]
+      "operator_tools": ["cynic network dns bundle --json"]
     },
     "fleet_and_bridge": {
       "description": "Fleet node status/exec and LXC exec bridge plans.",
@@ -351,13 +440,14 @@
         "cynic_fleet_inventory",
         "cynic_fleet_reconcile_plan",
         "cynic_fleet_reconcile_apply",
+        "provider_control_status",
         "fleet_node_status",
         "fleet_node_exec",
         "lxc_exec_bridge_plan",
         "lxc_exec_bridge_bundle",
         "lxc_exec_bridge_status"
       ],
-      "fallback_tools": ["cynic fleet observe --json"]
+      "operator_tools": ["cynic fleet observe --json"]
     },
     "services_and_storage": {
       "description": "Service health and storage-primary readiness surfaces.",
@@ -370,7 +460,7 @@
         "storage_primary_readiness",
         "storage_primary_status"
       ],
-      "fallback_tools": [
+      "operator_tools": [
         "cynic runtime storage-capabilities --json",
         "cynic-node storage-reconcile --json [--apply]"
       ]
@@ -424,6 +514,7 @@
     "claude projection",
     "antigravity projection",
     "legacy organ tools as durable authority",
+    "Python or wildcard-pct LXC exec helpers as durable authority",
     "UX/product-layer tools as low-layer proof",
     "machine-local absolute home/Users paths",
     "legacy Proxmox breakglass tools when the active cynic-mcp binary is built without legacy_infra_tools"

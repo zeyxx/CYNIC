@@ -1,0 +1,63 @@
+{
+  "id": "provider_substrate_control",
+  "layer": "l1_to_l2_provider_apply_boundary",
+  "owner_crate": "cynic-host",
+  "adapter_module": "cynic-cli::bootstrap_surface::framework::substrate",
+  "domain_owner": "cynic-host::node_substrate",
+  "owner_modules": [
+    "ports::provider_substrate",
+    "node_substrate",
+    "adapters::proxmox_substrate",
+    "lxc_exec_bridge",
+    "cynic-protocol::provider::decision"
+  ],
+  "owner_call_markers": [
+    "assess_node_substrate",
+    "apply_node_substrate"
+  ],
+  "responsibility": "Observe and reconcile provider-owned node substrate through canonical ports while CLI and MCP remain projections.",
+  "mutation_policy": "explicit_apply_only",
+  "canonical_entrypoints": [
+    "cynic bootstrap framework substrate-plan --json --node <id>",
+    "cynic bootstrap framework substrate-apply --json --node <id> --yes",
+    "MCP fleet_node_exec"
+  ],
+  "evidence": [
+    "cynic.node_substrate.observation.v1",
+    "cynic.node_substrate.apply_report.v1",
+    "cynic.infrastructure_mcp.fleet_node_exec.v1"
+    ,"cynic.lxc_exec_bridge.response.v1"
+  ],
+  "anti_responsibilities": [
+    "let CLI or MCP own provider credentials",
+    "let CLI or MCP construct provider API clients",
+    "accept raw shell command strings as provider actions"
+    ,"use Python helpers or wildcard pct sudoers rules as runtime authority"
+  ],
+  "architecture": {
+    "owned_ports": [
+      "NodeSubstrateObservationPort",
+      "NodeSubstrateControlPort"
+    ],
+    "owned_decisions": [
+      "assess_node_substrate",
+      "reconcile_node_substrate"
+    ],
+    "allowed_adapters": [
+      "cynic-host::adapters::proxmox_substrate",
+      "cynic-node::adapters::proxmox_control",
+      "cynic-host::lxc_exec_bridge",
+      "cynic-node::adapters::qemu_guest_agent_network_runner"
+    ],
+    "projection_modules": [
+      "cynic-cli::bootstrap_surface::framework::substrate",
+      "cynic-mcp::routers::local",
+      "cynic-mcp::proxy"
+    ],
+    "forbidden_projection_markers": [
+      "proxmox_qemu_agent_exec",
+      "proxmox_cluster_resources",
+      "(\"command\", \"sh\".to_string())"
+    ]
+  }
+}

@@ -33,6 +33,7 @@ pub(super) struct RegistryPlane {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(super) struct RegistryReservation {
     pub(super) name: Option<String>,
+    pub(super) synapse: Option<String>,
     pub(super) dns: Option<Vec<String>>,
 }
 

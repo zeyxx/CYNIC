@@ -62,6 +62,22 @@ pub(super) fn ensure_system_user(
     }
 }
 
+pub(super) fn ensure_supplementary_group_member(user: &str, group: &str) -> HostCommandResult {
+    if group_has_member(group, user) {
+        return idempotent_identity_result("group_member", &format!("{group}:{user}"));
+    }
+    if !has_root_authority() {
+        return missing_root_authority("group_member", &format!("{group}:{user}"));
+    }
+    match detected_manager() {
+        Some(PrincipalManagerKind::Shadow) if command_available("usermod") => {
+            run_command("usermod", &["--append", "--groups", group, user])
+        }
+        Some(PrincipalManagerKind::BusyBox) => run_command("addgroup", &[user, group]),
+        _ => unsupported_principal_manager("group_member", &format!("{group}:{user}")),
+    }
+}
+
 pub(super) fn ensure_owned_dir(
     path: &str,
     user: &str,
@@ -114,6 +130,15 @@ fn identity_exists(database: &str, identity: &str) -> bool {
     .is_ok_and(|output| output.success)
 }
 
+fn group_has_member(group: &str, user: &str) -> bool {
+    capture_command(&current_runtime_layout().getent_bin(), &["group", group])
+        .ok()
+        .filter(|output| output.success)
+        .and_then(|output| output.stdout.lines().next().map(str::to_string))
+        .and_then(|line| line.split(':').nth(3).map(str::to_string))
+        .is_some_and(|members| members.split(',').any(|member| member == user))
+}
+
 fn command_available(command: &str) -> bool {
     capture_command(&current_runtime_layout().which_bin(), &[command])
         .is_ok_and(|output| output.success)
@@ -155,7 +180,8 @@ fn missing_root_authority(kind: &str, target: &str) -> HostCommandResult {
         success: false,
         exit_code: Some(126),
         stdout: String::new(),
-        stderr: "root authority is required; refusing user-namespace ownership as proof".to_string(),
+        stderr: "root authority is required; refusing user-namespace ownership as proof"
+            .to_string(),
     }
 }
 

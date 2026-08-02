@@ -12,7 +12,8 @@ pub use agent_workspace_layout::RegistryAgentWorkspaceLayoutAdapter;
 
 use model::Registry;
 use projections::{
-    canonical_names_for, preferred_node_host, reservation_hosts_by_name, vm_aliases_by_name,
+    canonical_names_for, preferred_node_host, reservation_hosts_by_name,
+    reservation_synapse_by_name, vm_aliases_by_name,
 };
 
 use crate::domain::fleet_truth::{Node, ObservedResource};
@@ -296,6 +297,7 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
         let registry = self.load_registry()?;
         let dns_zone = registry_dns_zone(&registry);
         let reservation_hosts = reservation_hosts_by_name(&registry, &dns_zone);
+        let reservation_synapse = reservation_synapse_by_name(&registry);
         let mut records = Vec::new();
         let vm_aliases = vm_aliases_by_name(registry.nodes.as_deref().unwrap_or(&[]));
         for node in registry.nodes.unwrap_or_default() {
@@ -312,6 +314,16 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
             let Some(primary_name) = node.name.clone().filter(|value| !value.is_empty()) else {
                 continue;
             };
+            if reservation_synapse.get(&primary_name).map(String::as_str) != Some(synapse_ip) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!(
+                        "Synapse reservation missing or mismatched for {primary_name}: node={synapse_ip} reservation={:?}",
+                        reservation_synapse.get(&primary_name)
+                    ),
+                )
+                .into());
+            }
             records.push(RegistryNodeRecord {
                 node: primary_name.clone(),
                 ip: synapse_ip.to_string(),

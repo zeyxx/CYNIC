@@ -22,4 +22,15 @@ pub struct CanonicalCliSurface {
     pub canonical_entrypoints: Vec<String>,
     pub evidence: Vec<String>,
     pub anti_responsibilities: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub architecture: Option<SurfaceArchitectureContract>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SurfaceArchitectureContract {
+    pub owned_ports: Vec<String>,
+    pub owned_decisions: Vec<String>,
+    pub allowed_adapters: Vec<String>,
+    pub projection_modules: Vec<String>,
+    pub forbidden_projection_markers: Vec<String>,
 }

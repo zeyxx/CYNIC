@@ -3,6 +3,7 @@
 //! This module owns host-binding concerns (TCP/UDS listeners, graceful shutdown,
 //! and final usage flush/drain sequence). It keeps `main.rs` focused on composition.
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,6 +12,7 @@ use tokio::time::MissedTickBehavior;
 use tokio_util::sync::CancellationToken;
 
 use crate::api::rest::AppState;
+use crate::api::rest::local_peer::LocalPeerCredentials;
 use crate::domain;
 use crate::infra;
 
@@ -58,7 +60,7 @@ pub async fn run_rest_servers(
         shutdown,
     } = inputs;
 
-    let uds_path = "/tmp/cynic-kernel.sock".to_string();
+    let uds_path = declared_kernel_socket();
     {
         let rs = Arc::clone(&rest_state);
         let th = Arc::clone(&task_health);
@@ -90,14 +92,31 @@ pub async fn run_rest_servers(
     }
 
     let rest_listener = tokio::net::TcpListener::bind(&rest_addr).await?;
-    let _ = std::fs::remove_file(&uds_path);
+    let parent = uds_path
+        .parent()
+        .ok_or("kernel socket path has no parent")?;
+    if !parent.is_dir() {
+        return Err(format!(
+            "kernel socket runtime directory is absent: {}",
+            parent.display()
+        )
+        .into());
+    }
+    if uds_path.exists() {
+        std::fs::remove_file(&uds_path)?;
+    }
     let uds_listener = tokio::net::UnixListener::bind(&uds_path)?;
-    let _ = std::fs::set_permissions(
+    std::fs::set_permissions(
         &uds_path,
-        std::os::unix::fs::PermissionsExt::from_mode(0o600),
-    );
+        std::os::unix::fs::PermissionsExt::from_mode(0o660),
+    )?;
+    let socket_group_id = observed_socket_group_id()?;
+    std::os::unix::fs::chown(&uds_path, None, Some(socket_group_id))?;
 
-    crate::klog!("Setting up runtime serving on rest_addr={rest_addr} uds_path={uds_path}");
+    crate::klog!(
+        "Setting up runtime serving on rest_addr={rest_addr} uds_path={}",
+        uds_path.display()
+    );
     infra::tasks::spawn_signal_handler(shutdown.clone());
 
     let uds_rest_app = rest_app.clone();
@@ -112,12 +131,23 @@ pub async fn run_rest_servers(
                         break;
                     }
                     accept_result = uds_listener.accept() => {
-                            if let Ok((socket, _addr)) = accept_result {
+                        if let Ok((socket, _addr)) = accept_result {
+                            let peer_credentials = socket
+                                .peer_cred()
+                                .ok()
+                                .map(|credential| LocalPeerCredentials::observed(&credential));
                             let io = hyper_util::rt::TokioIo::new(socket);
                             let Ok(tower_service) = tower::Service::call(&mut make_service, ()).await;
                             let svc = hyper::service::service_fn(move |req| {
                                 let mut svc = tower_service.clone();
-                                async move { tower::Service::call(&mut svc, req).await }
+                                async move {
+                                    let (mut parts, body) = req.into_parts();
+                                    if let Some(peer_credentials) = peer_credentials {
+                                        parts.extensions.insert(peer_credentials);
+                                    }
+                                    let req = hyper::Request::from_parts(parts, body);
+                                    tower::Service::call(&mut svc, req).await
+                                }
                             });
                             tokio::spawn(async move {
                                 if let Err(e) = hyper::server::conn::http1::Builder::new()
@@ -154,5 +184,44 @@ pub async fn run_rest_servers(
         Err(_) => tracing::warn!("background tasks did not drain within 5s"),
     }
 
-    Ok(RestServeOutputs { uds_path })
+    Ok(RestServeOutputs {
+        uds_path: uds_path.display().to_string(),
+    })
+}
+
+pub fn declared_kernel_socket() -> PathBuf {
+    std::env::var_os("CYNIC_KERNEL_SOCKET")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            cynic_host::runtime_authority::default_runtime_authority_paths().kernel_socket_path
+        })
+}
+
+fn observed_socket_group_id() -> Result<u32, Box<dyn std::error::Error>> {
+    if let Some(group_id) = std::env::var("CYNIC_AGENT_SOCKET_GID")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+    {
+        return group_id
+            .parse::<u32>()
+            .map_err(|_| "CYNIC_AGENT_SOCKET_GID must be a numeric group id".into());
+    }
+    let group_name = std::env::var("CYNIC_AGENT_SOCKET_GROUP")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| {
+            cynic_host::runtime_authority::default_runtime_authority_paths().agent_access_group
+        });
+    let groups = std::fs::read_to_string(Path::new("/etc/group"))?;
+    groups
+        .lines()
+        .filter_map(|line| {
+            let mut fields = line.split(':');
+            let name = fields.next()?;
+            let _password = fields.next()?;
+            let gid = fields.next()?.parse::<u32>().ok()?;
+            (name == group_name).then_some(gid)
+        })
+        .next()
+        .ok_or_else(|| format!("agent socket group `{group_name}` is not observable").into())
 }

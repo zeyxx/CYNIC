@@ -325,13 +325,13 @@ fn change_set_must_be_bound_by_the_workload_action() {
 
 #[test]
 fn unrelated_workload_capability_cannot_mutate_source() {
-    let workload = test_envelope();
+    let unrelated_workload = test_envelope();
     let source_workload = workload();
     let desired = request(&source_workload);
     let observed = observation(&desired);
 
     assert!(matches!(
-        reconcile_agent_workspace(&workload, &desired, &observed, 10).decision,
+        reconcile_agent_workspace(&unrelated_workload, &desired, &observed, 10).decision,
         AgentWorkspaceDecision::Deny { violations }
             if violations
                 .iter()

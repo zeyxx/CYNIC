@@ -1,5 +1,7 @@
 use super::backend::{derive_health_url, load_backends};
+use super::storage::load_storage_config;
 use crate::infra::config_types::{AuthStyle, BackendType};
+use cynic_protocol::{SecretClass, SecretProvider};
 use std::io::Write;
 use std::path::Path;
 
@@ -30,6 +32,54 @@ auth_style = "none"
 fn missing_file_returns_empty() {
     let configs = load_backends(Path::new("/nonexistent/backends.toml"));
     assert!(configs.is_empty());
+}
+
+#[test]
+fn storage_config_retains_only_runtime_secret_references() {
+    let toml_content = r#"
+[storage]
+url = "http://storage.internal:8000"
+namespace = "cynic"
+database = "main"
+username = "cynic-runtime"
+secret_env = "CYNIC_STORAGE_RUNTIME_PASSWORD"
+secret_file = "/run/cynic-test/storage-runtime-password"
+os_credential = "storage-runtime-password"
+
+[backend.local]
+base_url = "http://localhost:8080/v1"
+model = "test"
+"#;
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("inference.toml");
+    std::fs::write(&path, toml_content).unwrap();
+
+    let config = load_storage_config(&path);
+    assert_eq!(config.identity.username, "cynic-runtime");
+    assert_eq!(config.identity.secret_sources.len(), 5);
+    assert_eq!(
+        config.identity.secret_sources[0].provider,
+        SecretProvider::ProcessEnvironment
+    );
+    assert_eq!(
+        config.identity.secret_sources[0].locator,
+        "CYNIC_STORAGE_RUNTIME_PASSWORD"
+    );
+    assert_eq!(
+        config.identity.secret_sources[1].provider,
+        SecretProvider::PrincipalOwnedFile
+    );
+    assert_eq!(
+        config.identity.secret_sources[1].locator,
+        "/run/cynic-test/storage-runtime-password"
+    );
+    assert!(
+        config
+            .identity
+            .secret_sources
+            .iter()
+            .all(|source| source.class == SecretClass::RuntimeMachineIdentity)
+    );
 }
 
 #[test]

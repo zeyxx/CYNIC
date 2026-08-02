@@ -1,4 +1,5 @@
 use std::fs;
+use std::net::{IpAddr, ToSocketAddrs};
 use std::path::Path;
 
 use cynic_host::registry::HostProfileResolution;
@@ -37,8 +38,8 @@ struct DnsActivationChecks {
     corefile_exists: bool,
     service_exists: bool,
     resolved_dropin_exists: bool,
-    coredns_binary_available: bool,
-    canonical_dns_provider_available: bool,
+    selected_provider_available: bool,
+    selected_provider_provenance_verified: bool,
     hosts_contains_storage_record: bool,
     corefile_references_hosts: bool,
     service_references_corefile: bool,
@@ -107,7 +108,7 @@ fn build_dns_activation_status_with_runtime(
         .and_then(|summary| summary.synapse_dns_zone)
         .unwrap_or_else(default_dns_zone);
     let synapse_dns_resolves = if resolve_dns {
-        let dns_ok = !topology.is_empty();
+        let dns_ok = topology_resolves_to_declared_addresses(&topology, &dns_zone);
         mesh_status = serde_json::json!({
             "schema": "cynic.infrastructure_mcp.network_mesh_status.v1",
             "dns_status": if dns_ok { "ok" } else { "violation" }
@@ -122,8 +123,8 @@ fn build_dns_activation_status_with_runtime(
         corefile_exists: Path::new(corefile_path).exists(),
         service_exists: Path::new(service_path).exists(),
         resolved_dropin_exists: Path::new(resolved_dropin_path).exists(),
-        coredns_binary_available: provider_status.canonical_available,
-        canonical_dns_provider_available: provider_status.canonical_available,
+        selected_provider_available: provider_status.selected_provider.is_some(),
+        selected_provider_provenance_verified: provider_status.package_provenance_verified,
         hosts_contains_storage_record: hosts_contains_any_topology_record(hosts_path, &topology),
         corefile_references_hosts: file_contains(corefile_path, hosts_path)
             || file_contains(corefile_path, &synapse_dns_hosts_path()),
@@ -146,11 +147,11 @@ fn build_dns_activation_status_with_runtime(
     if !checks.resolved_dropin_exists {
         missing.push("resolved_dropin_exists");
     }
-    if !checks.coredns_binary_available {
-        missing.push("coredns_binary_available");
+    if !checks.selected_provider_available {
+        missing.push("selected_provider_available");
     }
-    if !checks.canonical_dns_provider_available {
-        missing.push("canonical_dns_provider_available");
+    if !checks.selected_provider_provenance_verified {
+        missing.push("selected_provider_provenance_verified");
     }
     if !checks.hosts_contains_storage_record {
         missing.push("hosts_contains_storage_record");
@@ -196,6 +197,32 @@ fn build_dns_activation_status_with_runtime(
     })
 }
 
+fn topology_resolves_to_declared_addresses(
+    topology: &[crate::ports::network_interfaces_port::RegistryNodeRecord],
+    dns_zone: &str,
+) -> bool {
+    !topology.is_empty()
+        && topology.iter().all(|record| {
+            let Ok(expected) = record.ip.parse::<IpAddr>() else {
+                return false;
+            };
+            record
+                .names
+                .iter()
+                .filter(|name| name.ends_with(dns_zone))
+                .any(|name| {
+                    (name.as_str(), 0)
+                        .to_socket_addrs()
+                        .map(|addresses| {
+                            addresses
+                                .into_iter()
+                                .any(|address| address.ip() == expected)
+                        })
+                        .unwrap_or(false)
+                })
+        })
+}
+
 fn file_contains(path: &str, needle: &str) -> bool {
     fs::read_to_string(path)
         .map(|value| value.contains(needle))
@@ -236,7 +263,10 @@ mod tests {
                 usable_provider: None,
                 observed_binaries: Default::default(),
                 noncanonical_available: Vec::new(),
-                blocked_reason: Some("canonical_dns_provider_missing"),
+                blocked_reason: Some("supported_dns_provider_missing"),
+                selected_provider: None,
+                selected_package: None,
+                package_provenance_verified: false,
             },
             dns_provider_policy_surface(),
             "test-host",

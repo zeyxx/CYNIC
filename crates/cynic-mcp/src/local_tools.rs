@@ -7,7 +7,11 @@
 //! Using `.output()` directly inside `timeout()` leaves zombie processes
 //! when the timeout fires (the child survives SIGTERM and pollutes the cgroup).
 
-use cynic_host::source_control::{GitSourceControlAdapter, SourceControlPort, SourcePushAuthorization, observe_source_push_target, observe_source_worktree};
+use cynic_host::ports::argv_execution::{ArgvExecutionPort, ArgvExecutionRequest};
+use cynic_host::source_control::{
+    GitSourceControlAdapter, SourceControlPort, SourcePushAuthorization,
+    observe_source_push_target, observe_source_worktree,
+};
 use cynic_host::source_lease::SourceLeaseVerifier;
 use cynic_host::update_lifecycle::LocalArgvRunner;
 use cynic_protocol::{LeaseGuard, SecurityEvidenceState, SourceChangeProposal, SourceMatterClass};
@@ -46,13 +50,20 @@ pub enum GitOp {
 #[serde(tag = "op")]
 pub enum SourceControlOp {
     #[serde(rename = "observe")]
-    Observe { #[serde(default)] expected_owner: Option<String> },
+    Observe {
+        #[serde(default)]
+        expected_owner: Option<String>,
+    },
     #[serde(rename = "propose")]
     Propose { proposal: SourceChangeProposalInput },
     #[serde(rename = "commit")]
     Commit { proposal: SourceChangeProposalInput },
     #[serde(rename = "push")]
-    Push { proposal: SourceChangeProposalInput, remote: String, branch: String },
+    Push {
+        proposal: SourceChangeProposalInput,
+        remote: String,
+        branch: String,
+    },
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -77,30 +88,55 @@ pub struct SourceChangeProposalInput {
 
 impl SourceChangeProposalInput {
     fn to_protocol(&self) -> Result<SourceChangeProposal, String> {
-        let matter = serde_json::from_value::<SourceMatterClass>(serde_json::Value::String(self.matter.clone()))
-            .map_err(|error| format!("invalid matter class: {error}"))?;
-        let validation = serde_json::from_value::<SecurityEvidenceState>(serde_json::Value::String(self.validation.clone()))
-            .map_err(|error| format!("invalid validation state: {error}"))?;
-        Ok(SourceChangeProposal { schema: self.schema.clone(), proposal_id: self.proposal_id.clone(), repository_id: self.repository_id.clone(), worktree_id: self.worktree_id.clone(), lease_id: self.lease_id.clone(), fencing_token: self.fencing_token, base_commit: self.base_commit.clone(), actor: self.actor.clone(), node_id: self.node_id.clone(), intent: self.intent.clone(), matter, paths: self.paths.clone(), validation, rollback: self.rollback.clone(), evidence_refs: self.evidence_refs.clone() })
+        let matter = serde_json::from_value::<SourceMatterClass>(serde_json::Value::String(
+            self.matter.clone(),
+        ))
+        .map_err(|error| format!("invalid matter class: {error}"))?;
+        let validation = serde_json::from_value::<SecurityEvidenceState>(
+            serde_json::Value::String(self.validation.clone()),
+        )
+        .map_err(|error| format!("invalid validation state: {error}"))?;
+        Ok(SourceChangeProposal {
+            schema: self.schema.clone(),
+            proposal_id: self.proposal_id.clone(),
+            repository_id: self.repository_id.clone(),
+            worktree_id: self.worktree_id.clone(),
+            lease_id: self.lease_id.clone(),
+            fencing_token: self.fencing_token,
+            base_commit: self.base_commit.clone(),
+            actor: self.actor.clone(),
+            node_id: self.node_id.clone(),
+            intent: self.intent.clone(),
+            matter,
+            paths: self.paths.clone(),
+            validation,
+            rollback: self.rollback.clone(),
+            evidence_refs: self.evidence_refs.clone(),
+        })
     }
 }
 
-pub async fn run_git(project_root: &str, op: &GitOp) -> GitResult {
+pub async fn run_git(runner: &dyn ArgvExecutionPort, project_root: &str, op: &GitOp) -> GitResult {
     match op {
-        GitOp::Status => run_git_cmd(project_root, &["status", "--short"]).await,
+        GitOp::Status => run_git_cmd(runner, project_root, &["status", "--short"]).await,
         GitOp::Log { count } => {
             let n = count.unwrap_or(10).min(100).to_string();
-            run_git_cmd(project_root, &["log", "--oneline", &format!("-{n}")]).await
+            run_git_cmd(
+                runner,
+                project_root,
+                &["log", "--oneline", &format!("-{n}")],
+            )
+            .await
         }
-        GitOp::Diff => run_git_cmd(project_root, &["diff"]).await,
+        GitOp::Diff => run_git_cmd(runner, project_root, &["diff"]).await,
     }
 }
 
 pub fn source_control_lease_guard(op: &SourceControlOp) -> Result<Option<LeaseGuard>, String> {
     match op {
-        SourceControlOp::Commit { proposal } | SourceControlOp::Push { proposal, .. } => {
-            proposal.to_protocol().map(|proposal| Some(proposal.lease_guard()))
-        }
+        SourceControlOp::Commit { proposal } | SourceControlOp::Push { proposal, .. } => proposal
+            .to_protocol()
+            .map(|proposal| Some(proposal.lease_guard())),
         SourceControlOp::Observe { .. } | SourceControlOp::Propose { .. } => Ok(None),
     }
 }
@@ -118,9 +154,29 @@ pub fn run_source_control(
             "snapshot": adapter.observe(),
             "worktree": observe_source_worktree(std::path::Path::new(project_root), expected_owner.as_deref()),
         }),
-        SourceControlOp::Propose { proposal } => source_control_with_input(proposal, |proposal| adapter.admit(&proposal)),
-        SourceControlOp::Commit { proposal } => source_control_with_input(proposal, |proposal| adapter.commit(&proposal)),
-        SourceControlOp::Push { proposal, remote, branch } => source_control_with_input(proposal, |proposal| adapter.push(&proposal, remote, branch, SourcePushAuthorization { remote_target: observe_source_push_target(&proposal.repository_id, remote), transport_identity: SecurityEvidenceState::Unknown, authentication: SecurityEvidenceState::Unknown, remote_commit_matches: SecurityEvidenceState::Unknown })),
+        SourceControlOp::Propose { proposal } => {
+            source_control_with_input(proposal, |proposal| adapter.admit(&proposal))
+        }
+        SourceControlOp::Commit { proposal } => {
+            source_control_with_input(proposal, |proposal| adapter.commit(&proposal))
+        }
+        SourceControlOp::Push {
+            proposal,
+            remote,
+            branch,
+        } => source_control_with_input(proposal, |proposal| {
+            adapter.push(
+                &proposal,
+                remote,
+                branch,
+                SourcePushAuthorization {
+                    remote_target: observe_source_push_target(&proposal.repository_id, remote),
+                    transport_identity: SecurityEvidenceState::Unknown,
+                    authentication: SecurityEvidenceState::Unknown,
+                    remote_commit_matches: SecurityEvidenceState::Unknown,
+                },
+            )
+        }),
     }
 }
 
@@ -129,53 +185,37 @@ fn source_control_with_input<T: serde::Serialize>(
     operation: impl FnOnce(SourceChangeProposal) -> T,
 ) -> serde_json::Value {
     match input.to_protocol() {
-        Ok(proposal) => serde_json::to_value(operation(proposal)).unwrap_or_else(|_| serde_json::json!({"status":"error"})),
-        Err(error) => serde_json::json!({"schema":"cynic.mcp.source_control.v1","status":"blocked","blockers":[error]}),
+        Ok(proposal) => serde_json::to_value(operation(proposal))
+            .unwrap_or_else(|_| serde_json::json!({"status":"error"})),
+        Err(error) => {
+            serde_json::json!({"schema":"cynic.mcp.source_control.v1","status":"blocked","blockers":[error]})
+        }
     }
 }
 
-async fn run_git_cmd(project_root: &str, args: &[&str]) -> GitResult {
-    let child = tokio::process::Command::new("git")
-        .args(args)
-        .current_dir(project_root)
-        .kill_on_drop(true) // K18: timed-out children must not become zombies
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn();
-
-    let result = match child {
-        Ok(c) => {
-            tokio::time::timeout(std::time::Duration::from_secs(30), c.wait_with_output()).await
-        }
-        Err(e) => {
-            return GitResult {
-                success: false,
-                stdout: String::new(),
-                stderr: format!("Failed to spawn git: {e}"),
-            };
-        }
-    };
-
-    match result {
-        Ok(Ok(output)) => GitResult {
-            success: output.status.success(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        },
-        Ok(Err(e)) => GitResult {
-            success: false,
-            stdout: String::new(),
-            stderr: format!("Failed to spawn git: {e}"),
-        },
-        Err(_elapsed) => GitResult {
-            success: false,
-            stdout: String::new(),
-            stderr: "Git timed out (30s)".to_string(),
-        },
+async fn run_git_cmd(
+    runner: &dyn ArgvExecutionPort,
+    project_root: &str,
+    args: &[&str],
+) -> GitResult {
+    let output = runner
+        .execute(ArgvExecutionRequest {
+            argv: std::iter::once("git".to_string())
+                .chain(args.iter().map(|argument| (*argument).to_string()))
+                .collect(),
+            current_dir: Some(std::path::PathBuf::from(project_root)),
+            stdin: None,
+            timeout: std::time::Duration::from_secs(30),
+        })
+        .await;
+    GitResult {
+        success: output.success(),
+        stdout: output.stdout,
+        stderr: output.spawn_error.unwrap_or_else(|| output.stderr),
     }
 }
 
-pub async fn run_docker_container_list(all: bool) -> DockerResult {
+pub async fn run_docker_container_list(runner: &dyn ArgvExecutionPort, all: bool) -> DockerResult {
     let args = if all {
         vec![
             "ps".to_string(),
@@ -193,7 +233,7 @@ pub async fn run_docker_container_list(all: bool) -> DockerResult {
         ]
     };
     let command = format!("docker {}", args.join(" "));
-    let raw = run_docker_cmd(&args).await;
+    let raw = run_docker_cmd(runner, &args).await;
     if !raw.success {
         return DockerResult {
             success: false,
@@ -227,6 +267,7 @@ pub async fn run_docker_container_list(all: bool) -> DockerResult {
 }
 
 pub async fn run_docker_container_logs(
+    runner: &dyn ArgvExecutionPort,
     container: &str,
     tail: Option<u32>,
     timestamps: bool,
@@ -240,7 +281,7 @@ pub async fn run_docker_container_logs(
     args.push(tail.to_string());
     args.push(container.to_string());
     let command = format!("docker {}", args.join(" "));
-    let raw = run_docker_cmd(&args).await;
+    let raw = run_docker_cmd(runner, &args).await;
     if !raw.success {
         return DockerResult {
             success: false,
@@ -267,10 +308,13 @@ pub async fn run_docker_container_logs(
     }
 }
 
-pub async fn run_docker_container_inspect(container: &str) -> DockerResult {
+pub async fn run_docker_container_inspect(
+    runner: &dyn ArgvExecutionPort,
+    container: &str,
+) -> DockerResult {
     let args = vec!["inspect".to_string(), container.to_string()];
     let command = format!("docker {}", args.join(" "));
-    let raw = run_docker_cmd(&args).await;
+    let raw = run_docker_cmd(runner, &args).await;
     if !raw.success {
         return DockerResult {
             success: false,
@@ -304,47 +348,22 @@ struct DockerCmdResult {
     exit_code: Option<i32>,
 }
 
-async fn run_docker_cmd(args: &[String]) -> DockerCmdResult {
-    let child = tokio::process::Command::new("docker")
-        .args(args)
-        .kill_on_drop(true)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn();
-
-    let result = match child {
-        Ok(c) => {
-            tokio::time::timeout(std::time::Duration::from_secs(30), c.wait_with_output()).await
-        }
-        Err(e) => {
-            return DockerCmdResult {
-                success: false,
-                stdout: String::new(),
-                stderr: format!("Failed to spawn docker: {e}"),
-                exit_code: None,
-            };
-        }
-    };
-
-    match result {
-        Ok(Ok(output)) => DockerCmdResult {
-            success: output.status.success(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-            exit_code: output.status.code(),
-        },
-        Ok(Err(e)) => DockerCmdResult {
-            success: false,
-            stdout: String::new(),
-            stderr: format!("Failed to read docker output: {e}"),
-            exit_code: None,
-        },
-        Err(_elapsed) => DockerCmdResult {
-            success: false,
-            stdout: String::new(),
-            stderr: "Docker timed out (30s)".to_string(),
-            exit_code: None,
-        },
+async fn run_docker_cmd(runner: &dyn ArgvExecutionPort, args: &[String]) -> DockerCmdResult {
+    let output = runner
+        .execute(ArgvExecutionRequest {
+            argv: std::iter::once("docker".to_string())
+                .chain(args.iter().cloned())
+                .collect(),
+            current_dir: None,
+            stdin: None,
+            timeout: std::time::Duration::from_secs(30),
+        })
+        .await;
+    DockerCmdResult {
+        success: output.success(),
+        stdout: output.stdout,
+        stderr: output.spawn_error.unwrap_or_else(|| output.stderr),
+        exit_code: output.exit_code,
     }
 }
 
@@ -375,5 +394,4 @@ mod tests {
         let json = r#"{"op":"commit","message":"x","files":["a.rs"]}"#;
         assert!(serde_json::from_str::<GitOp>(json).is_err());
     }
-
 }

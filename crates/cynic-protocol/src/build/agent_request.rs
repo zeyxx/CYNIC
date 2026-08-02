@@ -52,7 +52,7 @@ fn assess(
     if !is_commit_id(&request.source_commit) {
         blockers.push("build_agent_request_source_commit_invalid".to_string());
     }
-    if request.action != "make:check" {
+    if !matches!(request.action.as_str(), "make:check" | "make:build") {
         blockers.push("build_agent_request_action_not_allowed".to_string());
     }
     if request.desired_role != "build_runner" {
@@ -136,5 +136,12 @@ mod tests {
                 .blockers
                 .contains(&"build_agent_request_action_not_allowed".to_string())
         );
+    }
+
+    #[test]
+    fn canonical_artifact_build_is_admissible() {
+        let mut request = request(true);
+        request.action = "make:build".to_string();
+        assert_eq!(admit_build_agent_request(&request).status, "admitted");
     }
 }

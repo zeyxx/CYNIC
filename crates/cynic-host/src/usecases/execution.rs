@@ -289,6 +289,7 @@ fn rendered_service_operation(operation: &HostOperation) -> ExecutedHostCommand 
         | HostOperation::InstallBootstrapPackages { .. }
         | HostOperation::EnsureSystemGroup { .. }
         | HostOperation::EnsureSystemUser { .. }
+        | HostOperation::EnsureSupplementaryGroupMember { .. }
         | HostOperation::EnsureOwnedDir { .. }
         | HostOperation::InstallOwnedFile { .. }
         | HostOperation::ValidatePrivilegeProjection { .. } => {

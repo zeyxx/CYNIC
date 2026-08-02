@@ -7,10 +7,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tokio::sync::Mutex;
 
+use crate::domain::agent_session::AgentSessionRuntime;
 use crate::domain::coord::CoordPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::mail::MailPort;
 use crate::domain::metrics::Metrics;
+use crate::domain::node_control::NodeControlRuntime;
+use crate::domain::node_enrollment::NodeEnrollmentRuntime;
 use crate::domain::organ::OrganPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
@@ -39,10 +42,79 @@ pub enum Role {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeCapability {
+    CoordinationRead,
+    CoordinationWrite,
+    ObservationWrite,
+    InferenceUse,
+    RuntimeRead,
+    JudgmentInvoke,
+    RuntimeAdmin,
+}
+
+pub fn authorize_role_request(role: Role, method: &str, path: &str) -> bool {
+    let required = required_capability(method, path);
+    match role {
+        Role::Internal => true,
+        Role::Cortex => true,
+        Role::Organ => matches!(
+            required,
+            RuntimeCapability::CoordinationRead
+                | RuntimeCapability::CoordinationWrite
+                | RuntimeCapability::ObservationWrite
+                | RuntimeCapability::InferenceUse
+                | RuntimeCapability::RuntimeRead
+        ),
+    }
+}
+
+pub(crate) fn required_capability(method: &str, path: &str) -> RuntimeCapability {
+    if path.starts_with("/coord/") {
+        return if method == "GET" {
+            RuntimeCapability::CoordinationRead
+        } else {
+            RuntimeCapability::CoordinationWrite
+        };
+    }
+    if path == "/observe" || (path.starts_with("/crystals/") && path.ends_with("/observe")) {
+        RuntimeCapability::ObservationWrite
+    } else if path.starts_with("/v1/") {
+        RuntimeCapability::InferenceUse
+    } else if matches!(path, "/health" | "/events") {
+        RuntimeCapability::RuntimeRead
+    } else if path == "/judge" {
+        RuntimeCapability::JudgmentInvoke
+    } else {
+        RuntimeCapability::RuntimeAdmin
+    }
+}
+
+pub(crate) fn authorize_agent_session_request(
+    record: &cynic_protocol::AgentSessionRecord,
+    method: &str,
+    path: &str,
+) -> bool {
+    let (id, mutates) = match required_capability(method, path) {
+        RuntimeCapability::CoordinationRead => ("coord.read", false),
+        RuntimeCapability::CoordinationWrite => ("coord.write", true),
+        RuntimeCapability::ObservationWrite => ("observation.write", true),
+        RuntimeCapability::InferenceUse => ("inference.use", false),
+        RuntimeCapability::RuntimeRead => ("runtime.read", false),
+        RuntimeCapability::JudgmentInvoke => ("judgment.invoke", true),
+        RuntimeCapability::RuntimeAdmin => ("runtime.admin", true),
+    };
+    record
+        .capabilities
+        .iter()
+        .any(|grant| grant.id == id && (!mutates || grant.mutates))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthenticationMechanism {
+    LocalAgentSession,
     AgentBearer,
     SharedBearer,
-    Ed25519,
+    BoundEd25519,
     WalletSession,
 }
 
@@ -55,14 +127,56 @@ pub struct AuthenticatedPrincipal {
 
 impl AuthenticatedPrincipal {
     pub fn require_agent(&self, asserted_agent_id: &str) -> Result<(), &'static str> {
-        if self.mechanism != AuthenticationMechanism::AgentBearer {
-            return Err("coordination mutation requires an agent-bound bearer credential");
+        if !matches!(
+            self.mechanism,
+            AuthenticationMechanism::LocalAgentSession
+                | AuthenticationMechanism::AgentBearer
+                | AuthenticationMechanism::BoundEd25519
+        ) {
+            return Err("coordination mutation requires an agent-bound workload identity");
         }
         match self.subject.as_deref() {
             Some(subject) if subject == asserted_agent_id => Ok(()),
             Some(_) => Err("authenticated principal does not own the asserted agent_id"),
             None => Err("coordination mutation requires an agent-bound credential"),
         }
+    }
+}
+
+pub struct SigningPrincipalBinding {
+    pub subject: String,
+    pub role: Role,
+    public_key: String,
+}
+
+impl SigningPrincipalBinding {
+    pub fn new(subject: String, role: Role, public_key: String) -> Result<Self, String> {
+        crate::domain::coord::validate_agent_id(&subject)
+            .map_err(|error| format!("invalid signing principal subject `{subject}`: {error}"))?;
+        if public_key.len() != 64 || !public_key.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(format!(
+                "signing principal `{subject}` must declare one Ed25519 public key as 64 hexadecimal characters"
+            ));
+        }
+        Ok(Self {
+            subject,
+            role,
+            public_key: public_key.to_ascii_lowercase(),
+        })
+    }
+}
+
+impl std::fmt::Debug for SigningPrincipalBinding {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("SigningPrincipalBinding")
+            .field("subject", &self.subject)
+            .field("role", &self.role)
+            .field(
+                "public_key_fingerprint",
+                &format_args!("{}…", &self.public_key[..12]),
+            )
+            .finish()
     }
 }
 
@@ -76,8 +190,10 @@ impl std::fmt::Display for Role {
     }
 }
 
-/// Three bearer tokens, one per role. Loaded from env at boot.
-/// `legacy` holds the old CYNIC_API_KEY for backward-compat (grants Cortex).
+/// Authentication authority loaded at boot.
+///
+/// Bound signing principals are the preferred workload path. Bearer slots are
+/// compatibility inputs and must not be treated as durable workload identity.
 pub struct AgentCredentialBinding {
     pub subject: String,
     pub role: Role,
@@ -115,6 +231,7 @@ pub struct RoleKeyMap {
     pub internal: Option<String>,
     pub legacy: Option<String>,
     pub agent_bindings: Vec<AgentCredentialBinding>,
+    pub signing_bindings: Vec<SigningPrincipalBinding>,
 }
 
 impl std::fmt::Debug for RoleKeyMap {
@@ -125,6 +242,7 @@ impl std::fmt::Debug for RoleKeyMap {
             .field("has_internal", &self.internal.is_some())
             .field("has_legacy", &self.legacy.is_some())
             .field("agent_bindings", &self.agent_bindings)
+            .field("signing_bindings", &self.signing_bindings)
             .finish()
     }
 }
@@ -134,6 +252,12 @@ impl RoleKeyMap {
         #[derive(Deserialize)]
         struct AgentCredentialSpec {
             token: String,
+            role: String,
+        }
+
+        #[derive(Deserialize)]
+        struct SigningPrincipalSpec {
+            public_key: String,
             role: String,
         }
 
@@ -169,6 +293,26 @@ impl RoleKeyMap {
             _ => Vec::new(),
         };
 
+        let signing_bindings = match std::env::var("CYNIC_SIGNING_PRINCIPALS_JSON") {
+            Ok(raw) if !raw.trim().is_empty() => {
+                let specs: HashMap<String, SigningPrincipalSpec> = serde_json::from_str(&raw)
+                    .map_err(|error| format!("invalid CYNIC_SIGNING_PRINCIPALS_JSON: {error}"))?;
+                let mut bindings = Vec::with_capacity(specs.len());
+                for (subject, spec) in specs {
+                    let role = parse_role(&subject, &spec.role)?;
+                    let binding = SigningPrincipalBinding::new(subject, role, spec.public_key)?;
+                    if bindings.iter().any(|candidate: &SigningPrincipalBinding| {
+                        candidate.public_key == binding.public_key
+                    }) {
+                        return Err("signing principal public keys must be unique".into());
+                    }
+                    bindings.push(binding);
+                }
+                bindings
+            }
+            _ => Vec::new(),
+        };
+
         Ok(Self {
             cortex: std::env::var("CYNIC_API_KEY_CORTEX")
                 .ok()
@@ -181,6 +325,7 @@ impl RoleKeyMap {
                 .filter(|value| !value.is_empty()),
             legacy,
             agent_bindings,
+            signing_bindings,
         })
     }
 
@@ -240,13 +385,63 @@ impl RoleKeyMap {
         principal
     }
 
-    /// True if at least one key is configured.
-    pub fn has_any_key(&self) -> bool {
+    pub fn resolve_signer(&self, public_key: &str) -> Option<AuthenticatedPrincipal> {
+        let normalized = public_key.to_ascii_lowercase();
+        self.signing_bindings
+            .iter()
+            .find(|binding| {
+                super::middleware::constant_time_eq(
+                    normalized.as_bytes(),
+                    binding.public_key.as_bytes(),
+                )
+            })
+            .map(|binding| AuthenticatedPrincipal {
+                subject: Some(binding.subject.clone()),
+                role: binding.role,
+                mechanism: AuthenticationMechanism::BoundEd25519,
+            })
+    }
+
+    pub fn has_any_authentication_authority(&self) -> bool {
         self.cortex.is_some()
             || self.organ.is_some()
             || self.internal.is_some()
             || self.legacy.is_some()
             || !self.agent_bindings.is_empty()
+            || !self.signing_bindings.is_empty()
+    }
+}
+
+fn parse_role(subject: &str, role: &str) -> Result<Role, String> {
+    match role {
+        "cortex" => Ok(Role::Cortex),
+        "organ" => Ok(Role::Organ),
+        "internal" => Ok(Role::Internal),
+        _ => Err(format!(
+            "principal `{subject}` has unsupported role `{role}`"
+        )),
+    }
+}
+
+#[cfg(test)]
+mod authorization_tests {
+    use super::{Role, authorize_role_request};
+
+    #[test]
+    fn organ_role_is_bounded_by_the_canonical_capability_mapping() {
+        assert!(authorize_role_request(Role::Organ, "POST", "/observe"));
+        assert!(authorize_role_request(Role::Organ, "GET", "/coord/who"));
+        assert!(authorize_role_request(
+            Role::Organ,
+            "POST",
+            "/coord/register"
+        ));
+        assert!(!authorize_role_request(Role::Organ, "POST", "/judge"));
+        assert!(!authorize_role_request(
+            Role::Organ,
+            "POST",
+            "/lifecycle/upgrade"
+        ));
     }
 }
 
@@ -267,6 +462,9 @@ pub struct ProducerHeartbeat {
 // ── SHARED STATE ───────────────────────────────────────────
 
 pub struct AppState {
+    pub agent_sessions: Option<Arc<AgentSessionRuntime>>,
+    pub node_control: Option<Arc<NodeControlRuntime>>,
+    pub node_enrollment: Option<Arc<NodeEnrollmentRuntime>>,
     pub storage: Arc<dyn StoragePort>,
     pub coord: Arc<dyn CoordPort>,
     pub embedding: Arc<dyn EmbeddingPort>,

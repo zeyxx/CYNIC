@@ -1,6 +1,9 @@
+pub mod agent_session;
 pub mod background;
 pub mod config;
 pub mod entry;
+pub mod node_control;
+pub mod node_enrollment;
 pub mod rest_state;
 pub mod runtime_orchestrator;
 pub mod runtime_state;

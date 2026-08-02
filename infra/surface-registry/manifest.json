@@ -30,6 +30,10 @@
       "path": "fragments/agent_development.json"
     },
     {
+      "id": "storage_identity_enrollment",
+      "path": "fragments/storage_identity_enrollment.json"
+    },
+    {
       "id": "agent_workspace",
       "path": "fragments/agent_workspace.json"
     },
@@ -60,6 +64,10 @@
     {
       "id": "fleet_observation",
       "path": "fragments/fleet_observation.json"
+    },
+    {
+      "id": "provider_substrate_control",
+      "path": "fragments/provider_substrate_control.json"
     },
     {
       "id": "network_runtime",

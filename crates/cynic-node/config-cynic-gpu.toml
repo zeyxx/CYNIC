@@ -27,7 +27,7 @@ command = [
   "--reasoning-budget", "0",
   "--port", "8080",
   "--host", "0.0.0.0",
-  "--api-key", "GX7qO4nlG1DrQF0KuDBNxLeKxh7H_5EhWmHiucvwVAk"
+  "--api-key", "${CYNIC_LLAMA_API_KEY}"
 ]
 working_dir = "C:\\llama.cpp"
 startup_timeout_secs = 180

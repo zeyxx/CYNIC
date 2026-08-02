@@ -232,6 +232,16 @@ impl HostPrincipalObservationPort for LocalHostObservationAdapter {
             .and_then(|line| line.split(':').nth(2))
             .and_then(|value| value.parse::<u32>().ok());
 
+        let mut owned_paths = Vec::new();
+        let mut ownership_unknown_paths = Vec::new();
+        for path in policy.managed_paths() {
+            match path_ownership(&path, expected_uid, expected_gid) {
+                PathOwnership::Owned => owned_paths.push(path),
+                PathOwnership::Unknown => ownership_unknown_paths.push(path),
+                PathOwnership::Mismatch => {}
+            }
+        }
+
         PrincipalObservedState {
             user_present: passwd.is_some(),
             group_present: group.is_some(),
@@ -242,21 +252,58 @@ impl HostPrincipalObservationPort for LocalHostObservationAdapter {
                 .filter(|path| Path::new(path.as_str()).is_dir())
                 .cloned()
                 .collect(),
-            owned_paths: policy
-                .managed_paths()
-                .into_iter()
-                .filter(|path| path_owned_by(path, expected_uid, expected_gid))
-                .collect(),
+            owned_paths,
+            ownership_unknown_paths,
         }
     }
 }
 
-fn path_owned_by(path: &str, expected_uid: Option<u32>, expected_gid: Option<u32>) -> bool {
+enum PathOwnership {
+    Owned,
+    Mismatch,
+    Unknown,
+}
+
+fn path_ownership(
+    path: &str,
+    expected_uid: Option<u32>,
+    expected_gid: Option<u32>,
+) -> PathOwnership {
     let (Some(expected_uid), Some(expected_gid)) = (expected_uid, expected_gid) else {
-        return false;
+        return PathOwnership::Unknown;
     };
-    std::fs::metadata(path)
-        .is_ok_and(|metadata| metadata.uid() == expected_uid && metadata.gid() == expected_gid)
+    if identity_is_mapped("/proc/self/uid_map", expected_uid) != Some(true)
+        || identity_is_mapped("/proc/self/gid_map", expected_gid) != Some(true)
+    {
+        return PathOwnership::Unknown;
+    }
+    match std::fs::metadata(path) {
+        Ok(metadata) if metadata.uid() == expected_uid && metadata.gid() == expected_gid => {
+            PathOwnership::Owned
+        }
+        Ok(_) | Err(_) => PathOwnership::Mismatch,
+    }
+}
+
+fn identity_is_mapped(map_path: &str, identity: u32) -> Option<bool> {
+    let content = std::fs::read_to_string(map_path).ok()?;
+    Some(identity_in_map(&content, identity))
+}
+
+fn identity_in_map(content: &str, identity: u32) -> bool {
+    content.lines().any(|line| {
+        let mut fields = line.split_whitespace();
+        let inside = fields.next().and_then(|value| value.parse::<u64>().ok());
+        let _outside = fields.next().and_then(|value| value.parse::<u64>().ok());
+        let length = fields.next().and_then(|value| value.parse::<u64>().ok());
+        match (inside, length) {
+            (Some(inside), Some(length)) => {
+                let identity = u64::from(identity);
+                identity >= inside && identity < inside.saturating_add(length)
+            }
+            _ => false,
+        }
+    })
 }
 
 impl HostPrivilegeObservationPort for LocalHostObservationAdapter {
@@ -359,7 +406,7 @@ fn unit_enabled(unit: &cynic_protocol::ServiceSupervisorUnitObservation) -> bool
 
 #[cfg(test)]
 mod tests {
-    use super::service_observation_to_substrate_unit;
+    use super::{identity_in_map, service_observation_to_substrate_unit};
     use cynic_protocol::ServiceSupervisorUnitObservation;
 
     fn unit(
@@ -424,5 +471,15 @@ mod tests {
         assert!(!observed.present);
         assert!(!observed.enabled);
         assert!(!observed.active);
+    }
+
+    #[test]
+    fn identity_mapping_rejects_ids_outside_the_visible_namespace() {
+        let map = "1000 0 1\n";
+
+        assert!(identity_in_map(map, 1000));
+        assert!(!identity_in_map(map, 0));
+        assert!(!identity_in_map(map, 1001));
+        assert!(identity_in_map("0 0 4294967295\n", 1001));
     }
 }

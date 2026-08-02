@@ -1,5 +1,6 @@
 //! REST API — JSON interface for external clients (React, curl, etc.)
 
+pub mod agent_session;
 pub mod agent_tasks;
 pub mod agent_workspace;
 pub mod attention;
@@ -15,10 +16,13 @@ pub mod health;
 pub mod inference_observation;
 pub mod inference_proxy;
 pub mod inference_router;
+pub mod local_peer;
 pub mod mail;
 pub mod mesh;
 pub mod middleware;
 pub mod mint_permit;
+pub mod node_control;
+pub mod node_enrollment;
 pub mod observe;
 pub mod phone_numbers;
 pub mod response;
@@ -39,12 +43,12 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
-use self::attention::attention_handler;
 use self::agent_workspace::{
     finalize_handler as workspace_finalize_handler, list_handler as workspace_list_handler,
     release_handler as workspace_release_handler, renew_handler as workspace_renew_handler,
     reserve_handler as workspace_reserve_handler,
 };
+use self::attention::attention_handler;
 use self::auth::{auth_input_handler, auth_verify_handler};
 use self::coord::{
     coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
@@ -86,6 +90,9 @@ use self::services::{
 };
 use self::soma::soma_request_handler;
 
+use self::agent_session::{
+    renew_agent_session_handler, revoke_agent_session_handler, root_agent_launch_handler,
+};
 use crate::api::websocket::ws_handler;
 
 // ── ROUTER ─────────────────────────────────────────────────
@@ -125,7 +132,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             axum::http::header::ACCEPT,
         ]);
 
-    if state.role_keys.has_any_key() {
+    if state.role_keys.has_any_authentication_authority() {
         tracing::info!("REST Bearer auth ENABLED");
     } else {
         tracing::warn!(
@@ -143,6 +150,20 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/attention", get(attention_handler))
         .route("/auth/input", get(auth_input_handler))
         .route("/auth/verify", post(auth_verify_handler))
+        .route("/auth/agent/root-launch", post(root_agent_launch_handler))
+        .route("/node-enrollment", post(node_enrollment::enroll_handler))
+        .route(
+            "/node-enrollment/renew",
+            post(node_enrollment::renew_handler),
+        )
+        .route(
+            "/auth/agent/session/renew",
+            post(renew_agent_session_handler),
+        )
+        .route(
+            "/auth/agent/session/revoke",
+            post(revoke_agent_session_handler),
+        )
         .route("/live", get(liveness_handler))
         .route("/ready", get(readiness_handler))
         .route("/metrics", get(metrics_handler))
@@ -183,10 +204,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/agent-workspace/claims/reserve",
             post(workspace_reserve_handler),
         )
-        .route(
-            "/agent-workspace/claims/list",
-            post(workspace_list_handler),
-        )
+        .route("/agent-workspace/claims/list", post(workspace_list_handler))
         .route(
             "/agent-workspace/claims/renew",
             post(workspace_renew_handler),
@@ -242,6 +260,14 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/scope", post(coord_scope_handler))
         .route("/coord/who", get(coord_who_handler))
         .route("/coord/topology", get(coord_topology_handler))
+        .route(
+            "/node-control/{node_id}/desired-state",
+            get(node_control::desired_state_handler),
+        )
+        .route(
+            "/node-control/{node_id}/status",
+            get(node_control::status_handler).post(node_control::publish_status_handler),
+        )
         .route(
             "/dispatch/zone-activity",
             get(dispatch::zone_activity_handler),

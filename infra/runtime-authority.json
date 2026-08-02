@@ -117,6 +117,7 @@
     "owner": "crates/cynic-host",
     "runtime_user": "cynic",
     "runtime_group": "cynic",
+    "agent_access_group": "cynic-agent",
     "paths": [
       "/etc/cynic",
       "/var/lib/cynic",
@@ -138,6 +139,9 @@
       "signals": [
         "User=cynic",
         "Group=cynic",
+        "SupplementaryGroups=cynic-agent",
+        "RuntimeDirectory=cynic",
+        "CYNIC_KERNEL_SOCKET=/run/cynic/kernel.sock",
         "WorkingDirectory=/var/lib/cynic",
         "Environment=\"CYNIC_REGISTRY=/etc/cynic/registry.json\"",
         "root-owned systemd unit target"

@@ -1,5 +1,6 @@
 pub mod agent_recursion;
 pub mod agent_scheduler;
+pub mod agent_session;
 pub mod agent_workload;
 pub mod artifact_release;
 pub mod build;
@@ -15,7 +16,10 @@ pub mod forgejo;
 pub mod framework;
 pub mod integrity;
 pub mod kyon;
+pub mod machine_identity;
 pub mod network;
+pub mod node_control;
+pub mod node_enrollment;
 pub mod observe;
 pub mod outcomes;
 pub mod policy;
@@ -28,6 +32,7 @@ pub mod source_control;
 pub mod source_materialization;
 pub mod source_release;
 pub mod source_repository_bootstrap;
+pub mod storage_identity;
 pub mod supervision;
 pub mod surface_registry;
 pub mod tasks;
@@ -48,27 +53,47 @@ pub use agent_scheduler::{
     AgentSchedulerStepPlan, reconcile_agent_scheduler_step,
     validate_agent_scheduler_journal_record,
 };
+pub use agent_session::{
+    AGENT_ROOT_LAUNCH_PLAN_SCHEMA, AGENT_ROOT_LAUNCH_REQUEST_SCHEMA,
+    AGENT_SESSION_AUTHORITY_SCHEMA, AGENT_SESSION_PEER_OBSERVATION_SCHEMA,
+    AGENT_SESSION_PLAN_SCHEMA, AGENT_SESSION_RECORD_SCHEMA, AGENT_SESSION_RENEWAL_PLAN_SCHEMA,
+    AGENT_SESSION_RENEWAL_REQUEST_SCHEMA, AGENT_SESSION_REQUEST_SCHEMA, AgentRootLaunchPlan,
+    AgentRootLaunchRequest, AgentSessionAction, AgentSessionAuthority, AgentSessionCredentialKind,
+    AgentSessionEnrollment, AgentSessionPeerObservation, AgentSessionPlan, AgentSessionRecord,
+    AgentSessionRenewalPlan, AgentSessionRenewalRequest, AgentSessionRequest, AgentSessionState,
+    AgentSessionTransport, agent_session_authority_digest, compose_root_agent_launch,
+    reconcile_agent_session, reconcile_agent_session_renewal, validate_agent_session_record,
+    validate_agent_session_rotation,
+};
 pub use agent_workload::{
-    AGENT_WORKLOAD_ADMISSION_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
-    AGENT_WORKSPACE_APPLY_REPORT_SCHEMA, AGENT_WORKSPACE_CAPABILITY_ID,
-    AGENT_WORKSPACE_CLAIM_ADMISSION_SCHEMA, AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA,
-    AGENT_WORKSPACE_LIFECYCLE_OBSERVATION_SCHEMA, AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA,
-    AGENT_WORKSPACE_LIFECYCLE_RECORD_SCHEMA, AGENT_WORKSPACE_OBSERVATION_SCHEMA,
-    AGENT_WORKSPACE_RECONCILIATION_SCHEMA, AGENT_WORKSPACE_REQUEST_SCHEMA, AgentBoundedAction,
-    AgentWorkloadAdmission, AgentWorkloadClaim, AgentWorkloadDecision, AgentWorkloadEnvelope,
-    AgentWorkloadRecord, AgentWorkloadState, AgentWorkloadViolation, AgentWorkspaceApplyReport,
-    AgentWorkspaceApplyStatus, AgentWorkspaceChange, AgentWorkspaceClaimAdmission,
-    AgentWorkspaceClaimDecision, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
-    AgentWorkspaceClaimOutcome, AgentWorkspaceDecision, AgentWorkspaceLifecycleDecision,
-    AgentWorkspaceLifecycleObservation, AgentWorkspaceLifecyclePlan, AgentWorkspaceLifecycleRecord,
-    AgentWorkspaceMutationKind, AgentWorkspaceObservation, AgentWorkspacePathObservation,
-    AgentWorkspaceReadBack, AgentWorkspaceReconciliation, AgentWorkspaceRequest,
-    AgentWorkspaceRetentionRoot, AgentWorkspaceViolation, AgentWorkspaceZone,
-    AgentWorkspaceZoneKind, admit_agent_workload, admit_agent_workload_dispatch,
-    admit_agent_workspace_claim, admit_workload_action, agent_workspace_target,
+    AGENT_CONSTITUTION_STATUS_SCHEMA, AGENT_EXECUTION_REQUIRED_RUNTIME_CAPABILITIES,
+    AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA, AGENT_WORKLOAD_ADMISSION_SCHEMA,
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
+    AGENT_WORKLOAD_TRANSITION_REQUEST_SCHEMA, AGENT_WORKSPACE_APPLY_REPORT_SCHEMA,
+    AGENT_WORKSPACE_CAPABILITY_ID, AGENT_WORKSPACE_CLAIM_ADMISSION_SCHEMA,
+    AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA, AGENT_WORKSPACE_LIFECYCLE_OBSERVATION_SCHEMA,
+    AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA, AGENT_WORKSPACE_LIFECYCLE_RECORD_SCHEMA,
+    AGENT_WORKSPACE_OBSERVATION_SCHEMA, AGENT_WORKSPACE_RECONCILIATION_SCHEMA,
+    AGENT_WORKSPACE_REQUEST_SCHEMA, AgentBoundedAction, AgentConstitutionRuntimeStatus,
+    AgentConstitutionStatus, AgentExecutionRuntimeObservation, AgentWorkloadAdmission,
+    AgentWorkloadClaim, AgentWorkloadDecision, AgentWorkloadEnvelope, AgentWorkloadRecord,
+    AgentWorkloadState, AgentWorkloadTransition, AgentWorkloadTransitionRequest,
+    AgentWorkloadViolation, AgentWorkspaceApplyReport, AgentWorkspaceApplyStatus,
+    AgentWorkspaceChange, AgentWorkspaceClaimAdmission, AgentWorkspaceClaimDecision,
+    AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation, AgentWorkspaceClaimOutcome,
+    AgentWorkspaceDecision, AgentWorkspaceLifecycleDecision, AgentWorkspaceLifecycleObservation,
+    AgentWorkspaceLifecyclePlan, AgentWorkspaceLifecycleRecord, AgentWorkspaceMutationKind,
+    AgentWorkspaceObservation, AgentWorkspacePathObservation, AgentWorkspaceReadBack,
+    AgentWorkspaceReconciliation, AgentWorkspaceRequest, AgentWorkspaceRetentionRoot,
+    AgentWorkspaceViolation, AgentWorkspaceZone, AgentWorkspaceZoneKind,
+    DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA, DurableAgentWorkloadRecord, LegacyAgentTaskStatus,
+    admit_agent_workload, admit_agent_workload_dispatch, admit_agent_workspace_claim,
+    admit_aggregate_sibling_budget, admit_workload_action, agent_workspace_target,
     claim_agent_workload, complete_agent_workload, consume_agent_workload_action,
-    reconcile_agent_workspace, reconcile_agent_workspace_lifecycle,
-    request_agent_workload_cancellation, validate_agent_workspace_lifecycle_record,
+    reconcile_agent_execution_capabilities, reconcile_agent_workspace,
+    reconcile_agent_workspace_lifecycle, renew_agent_workload_claim,
+    request_agent_workload_cancellation, validate_agent_workload_record,
+    validate_agent_workspace_lifecycle_record, validate_durable_agent_workload_record,
     workspace_claim_admission_matches, zones_overlap,
 };
 pub use artifact_release::{
@@ -80,11 +105,16 @@ pub use artifact_release::{
 pub use build::{
     BUILD_AGENT_REQUEST_ADMISSION_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA, BUILD_BOOTSTRAP_GRANT_SCHEMA,
     BUILD_INPUT_ADMISSION_SCHEMA, BUILD_RUNNER_ADMISSION_SCHEMA, BUILD_RUNNER_ENVELOPE_SCHEMA,
-    BUILD_RUNNER_OBSERVATION_MAX_AGE_MS, BUILD_RUNNER_OBSERVATION_SCHEMA, BuildAgentRequest,
-    BuildAgentRequestAdmission, BuildBootstrapGrant, BuildInputAdmission, BuildRunnerAdmission,
-    BuildRunnerEnvelope, BuildRunnerObservation, RuntimeNodeObservation, admit_build_agent_request,
-    admit_build_input, admit_build_runner, compose_build_runner_envelope, plan_build_agent_request,
-    plan_build_runner,
+    BUILD_RUNNER_OBSERVATION_MAX_AGE_MS, BUILD_RUNNER_OBSERVATION_SCHEMA,
+    BUILD_WORKLOAD_GRANT_MAX_TTL_SECONDS, BUILD_WORKLOAD_GRANT_SCHEMA,
+    BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE, BuildAgentRequest, BuildAgentRequestAdmission,
+    BuildBootstrapGrant, BuildInputAdmission, BuildRunnerAdmission, BuildRunnerEnvelope,
+    BuildRunnerObservation, BuildWorkloadGrant, RuntimeNodeObservation,
+    SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA, SignedBuildWorkloadGrant, admit_build_agent_request,
+    admit_build_input, admit_build_runner, build_workload_grant_signing_bytes,
+    canonical_build_action_from_argv, canonical_build_actions, compose_build_runner_envelope,
+    derive_build_workload_grant, plan_build_agent_request, plan_build_runner,
+    validate_build_workload_grant, validate_signed_build_workload_grant,
 };
 pub use capability_responsibility::{
     CAPABILITY_RESPONSIBILITY_CATALOG_SCHEMA, CapabilityResponsibilityCatalog,
@@ -134,9 +164,31 @@ pub use kyon::{
     KyonAction, MirrorSignal, ObservationRef, ProtectivePlan, ShieldPolicy, SignalAssessment,
     admit_federated_disclosure, reconcile_signal,
 };
+pub use machine_identity::{
+    MACHINE_IDENTITY_OBSERVATION_SCHEMA, MACHINE_IDENTITY_PLAN_SCHEMA,
+    MACHINE_IDENTITY_SPEC_SCHEMA, MachineIdentityDecision, MachineIdentityObservation,
+    MachineIdentityPlan, MachineIdentitySpec, SecretClass, SecretProvider, SecretReference,
+    reconcile_machine_identity,
+};
 pub use network::{
     NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer,
     NetworkMeshPlan, NetworkMeshRoute, NetworkMeshService,
+};
+pub use node_control::{
+    NODE_CONTROL_OBSERVATION_SCHEMA, NODE_CONTROL_PLAN_SCHEMA, NODE_DESIRED_STATE_SCHEMA,
+    NodeControlConnectionState, NodeControlDecision, NodeControlObservation, NodeControlPlan,
+    NodeDesiredState, reconcile_node_control, validate_node_control_plan,
+    validate_node_desired_state,
+};
+pub use node_enrollment::{
+    MachineEnrollmentAuthority, NODE_ENROLLMENT_GRANT_SCHEMA, NODE_ENROLLMENT_OBSERVATION_SCHEMA,
+    NODE_ENROLLMENT_PLAN_SCHEMA, NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA,
+    NODE_ENROLLMENT_REQUEST_SCHEMA, NODE_ENROLLMENT_SIGNATURE_NAMESPACE, NodeEnrollmentAdmission,
+    NodeEnrollmentDecision, NodeEnrollmentGrant, NodeEnrollmentObservation, NodeEnrollmentPlan,
+    NodeEnrollmentRenewalRequest, NodeEnrollmentRequest, SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA,
+    SignedNodeEnrollmentGrant, admit_node_enrollment, admit_node_enrollment_renewal,
+    node_enrollment_grant_signing_bytes, reconcile_node_enrollment,
+    validate_signed_node_enrollment_grant,
 };
 pub use observe::OBSERVE_PATH;
 pub use outcomes::{
@@ -207,12 +259,21 @@ pub use source_repository_bootstrap::{
     SourceRepositoryBootstrapReport, SourceRepositoryBootstrapRequest,
     SourceRepositoryBootstrapStatus, reconcile_source_repository_bootstrap,
 };
+pub use storage_identity::{
+    STORAGE_IDENTITY_OBSERVATION_SCHEMA, STORAGE_IDENTITY_PLAN_SCHEMA,
+    STORAGE_IDENTITY_SPEC_SCHEMA, StorageEvidenceState, StorageIdentityDecision,
+    StorageIdentityObservation, StorageIdentityPlan, StorageIdentityRole, StorageIdentitySpec,
+    reconcile_storage_identity, storage_identity_spec_blockers,
+};
 pub use supervision::{
     SERVICE_SUPERVISOR_OBSERVATION_EVIDENCE_ID, SERVICE_SUPERVISOR_OBSERVATION_SCHEMA,
     ServiceSupervisorObservation, ServiceSupervisorProviderAttempt,
     ServiceSupervisorUnitObservation, service_supervisor_status,
 };
-pub use surface_registry::{CanonicalCliSurface, SURFACE_REGISTRY_SCHEMA, SurfaceRegistryDocument};
+pub use surface_registry::{
+    CanonicalCliSurface, SURFACE_REGISTRY_SCHEMA, SurfaceArchitectureContract,
+    SurfaceRegistryDocument,
+};
 pub use tasks::{
     AGENT_TASKS_COMPLETED_PATH, AGENT_TASKS_PATH, agent_task_claim_path, agent_task_claim_payload,
     agent_task_collection_path, agent_task_listing_params, agent_task_listing_query,
@@ -223,3 +284,4 @@ pub use transport_security::{
     TRANSPORT_SECURITY_REPORT_SCHEMA, TransportScope, TransportSecurityReport,
     TransportSecuritySurface,
 };
+pub mod agent_connection;

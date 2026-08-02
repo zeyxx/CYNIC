@@ -1,3 +1,4 @@
+pub mod agent_session;
 pub mod ccm;
 pub mod chat;
 pub mod compliance;
@@ -10,6 +11,8 @@ pub mod dog_health;
 pub mod enrichment;
 pub mod epoche;
 pub mod events;
+pub mod node_control;
+pub mod node_enrollment;
 
 pub mod health_gate;
 pub mod helius_credit;

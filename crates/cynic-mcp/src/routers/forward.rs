@@ -197,9 +197,9 @@ impl CynicMcpProxy {
         // Metabolism is embedded in /health — extract it server-side.
         // We call /health and extract the metabolism + crystals + alerts subset.
         let resp = self
-            .client
-            .get(format!("{}/health", self.base_url))
-            .bearer_auth(&self.api_key)
+            .kernel
+            .client()
+            .get(self.kernel.url("/health"))
             .send()
             .await
             .map_err(|e| McpError::internal_error(format!("REST kernel unreachable: {e}"), None))?;

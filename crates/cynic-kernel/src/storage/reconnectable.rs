@@ -15,6 +15,8 @@ use async_trait::async_trait;
 use crate::domain::coord::{
     AuditEntry, BatchClaimResult, ClaimResult, CoordError, CoordPort, CoordSnapshot,
 };
+use crate::domain::node_control::{NodeControlStoreError, NodeControlStorePort};
+use crate::domain::node_enrollment::{NodeEnrollmentStoreError, NodeEnrollmentStorePort};
 use crate::domain::storage::{
     ActivityStorage, CrystalStorage, DispatchStorage, MeshNode, MeshRoute, MeshStorage,
     Observation, ProofOfHistory, ProofOfHistoryStorage, RawObservation, StateLogStorage,
@@ -23,6 +25,111 @@ use crate::domain::storage::{
 };
 use crate::domain::verdict_queue::QueuedVerdict;
 use crate::infra::config::StorageConfig;
+use cynic_protocol::{NodeControlPlan, NodeDesiredState, SignedNodeEnrollmentGrant};
+
+#[derive(Debug)]
+pub struct ReconnectableNodeControl {
+    inner: Arc<RwLock<Option<Arc<dyn NodeControlStorePort>>>>,
+}
+
+impl ReconnectableNodeControl {
+    pub fn new(inner: Option<Arc<dyn NodeControlStorePort>>) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(inner)),
+        }
+    }
+    pub fn shared_lock(&self) -> Arc<RwLock<Option<Arc<dyn NodeControlStorePort>>>> {
+        Arc::clone(&self.inner)
+    }
+    fn current(&self) -> Result<Arc<dyn NodeControlStorePort>, NodeControlStoreError> {
+        self.inner
+            .read()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone()
+            .ok_or_else(|| {
+                NodeControlStoreError::Storage("storage_primary is unavailable".to_string())
+            })
+    }
+}
+
+#[async_trait]
+impl NodeControlStorePort for ReconnectableNodeControl {
+    async fn put_desired_state(
+        &self,
+        desired: NodeDesiredState,
+    ) -> Result<(), NodeControlStoreError> {
+        self.current()?.put_desired_state(desired).await
+    }
+    async fn desired_state(
+        &self,
+        node_id: &str,
+    ) -> Result<Option<NodeDesiredState>, NodeControlStoreError> {
+        self.current()?.desired_state(node_id).await
+    }
+    async fn put_status(&self, status: NodeControlPlan) -> Result<(), NodeControlStoreError> {
+        self.current()?.put_status(status).await
+    }
+    async fn latest_status(
+        &self,
+        node_id: &str,
+    ) -> Result<Option<NodeControlPlan>, NodeControlStoreError> {
+        self.current()?.latest_status(node_id).await
+    }
+}
+
+#[derive(Debug)]
+pub struct ReconnectableNodeEnrollment {
+    inner: Arc<RwLock<Option<Arc<dyn NodeEnrollmentStorePort>>>>,
+}
+
+impl ReconnectableNodeEnrollment {
+    pub fn new(inner: Option<Arc<dyn NodeEnrollmentStorePort>>) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(inner)),
+        }
+    }
+    pub fn shared_lock(&self) -> Arc<RwLock<Option<Arc<dyn NodeEnrollmentStorePort>>>> {
+        Arc::clone(&self.inner)
+    }
+    fn current(&self) -> Result<Arc<dyn NodeEnrollmentStorePort>, NodeEnrollmentStoreError> {
+        self.inner
+            .read()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone()
+            .ok_or_else(|| {
+                NodeEnrollmentStoreError::Storage("storage_primary is unavailable".to_string())
+            })
+    }
+}
+
+#[async_trait]
+impl NodeEnrollmentStorePort for ReconnectableNodeEnrollment {
+    async fn consume_token_and_store_grant(
+        &self,
+        token_digest: &str,
+        grant: SignedNodeEnrollmentGrant,
+    ) -> Result<(), NodeEnrollmentStoreError> {
+        self.current()?
+            .consume_token_and_store_grant(token_digest, grant)
+            .await
+    }
+    async fn grant(
+        &self,
+        node_id: &str,
+    ) -> Result<Option<SignedNodeEnrollmentGrant>, NodeEnrollmentStoreError> {
+        self.current()?.grant(node_id).await
+    }
+    async fn replace_grant(
+        &self,
+        expected_grant_id: &str,
+        expected_generation: u64,
+        grant: SignedNodeEnrollmentGrant,
+    ) -> Result<(), NodeEnrollmentStoreError> {
+        self.current()?
+            .replace_grant(expected_grant_id, expected_generation, grant)
+            .await
+    }
+}
 
 // ── ReconnectableStorage ────────────────────────────────────
 
@@ -840,6 +947,8 @@ impl CoordPort for ReconnectableCoord {
 pub struct StorageReconnector {
     storage_lock: Arc<RwLock<Arc<dyn StoragePort>>>,
     coord_lock: Arc<RwLock<Arc<dyn CoordPort>>>,
+    node_control_lock: Arc<RwLock<Option<Arc<dyn NodeControlStorePort>>>>,
+    node_enrollment_lock: Arc<RwLock<Option<Arc<dyn NodeEnrollmentStorePort>>>>,
     config: StorageConfig,
 }
 
@@ -855,11 +964,15 @@ impl StorageReconnector {
     pub fn new(
         storage_lock: Arc<RwLock<Arc<dyn StoragePort>>>,
         coord_lock: Arc<RwLock<Arc<dyn CoordPort>>>,
+        node_control_lock: Arc<RwLock<Option<Arc<dyn NodeControlStorePort>>>>,
+        node_enrollment_lock: Arc<RwLock<Option<Arc<dyn NodeEnrollmentStorePort>>>>,
         config: StorageConfig,
     ) -> Self {
         Self {
             storage_lock,
             coord_lock,
+            node_control_lock,
+            node_enrollment_lock,
             config,
         }
     }
@@ -905,6 +1018,12 @@ impl StorageReconnector {
                         // Storage already swapped — coord will catch up next tick.
                         // Not rolling back storage because the DB IS available.
                     }
+                }
+                if let Ok(mut guard) = self.node_control_lock.write() {
+                    *guard = Some(Arc::clone(&db) as Arc<dyn NodeControlStorePort>);
+                }
+                if let Ok(mut guard) = self.node_enrollment_lock.write() {
+                    *guard = Some(Arc::clone(&db) as Arc<dyn NodeEnrollmentStorePort>);
                 }
 
                 tracing::info!(
@@ -955,9 +1074,13 @@ mod tests {
     async fn reconnector_is_degraded_with_null_storage() {
         let storage = ReconnectableStorage::new(Arc::new(NullStorage));
         let coord = ReconnectableCoord::new(Arc::new(NullCoord));
+        let node_control = ReconnectableNodeControl::new(None);
+        let node_enrollment = ReconnectableNodeEnrollment::new(None);
         let reconnector = StorageReconnector::new(
             storage.shared_lock(),
             coord.shared_lock(),
+            node_control.shared_lock(),
+            node_enrollment.shared_lock(),
             StorageConfig::default(),
         );
         assert!(reconnector.is_degraded().await);
@@ -967,13 +1090,18 @@ mod tests {
     async fn reconnector_try_reconnect_fails_without_db() {
         let storage = ReconnectableStorage::new(Arc::new(NullStorage));
         let coord = ReconnectableCoord::new(Arc::new(NullCoord));
+        let node_control = ReconnectableNodeControl::new(None);
+        let node_enrollment = ReconnectableNodeEnrollment::new(None);
         let reconnector = StorageReconnector::new(
             storage.shared_lock(),
             coord.shared_lock(),
+            node_control.shared_lock(),
+            node_enrollment.shared_lock(),
             StorageConfig {
                 url: "http://127.0.0.1:19999".to_string(), // unreachable
                 namespace: "test".to_string(),
                 database: "test".to_string(),
+                ..StorageConfig::default()
             },
         );
         // Should attempt (is_degraded=true) but fail (no DB at that port)

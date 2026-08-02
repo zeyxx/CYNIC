@@ -260,7 +260,10 @@ impl HostFamilyProfile {
                 "cynic-dns-actuator".to_string(),
                 "cynic-host-exec".to_string(),
             ],
-            HostFamilyKind::ProxmoxHypervisor => vec!["cynic-host-exec".to_string()],
+            HostFamilyKind::ProxmoxHypervisor => vec![
+                "cynic-host-exec".to_string(),
+                "cynic-lxc-exec-bridge".to_string(),
+            ],
         }
     }
 }

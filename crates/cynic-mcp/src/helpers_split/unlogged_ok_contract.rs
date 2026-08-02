@@ -1,7 +1,8 @@
-fn validate_unlogged_ok(project_root: &str) -> Vec<serde_json::Value> {
-    let rust_files: Vec<String> = staged_files_for_hardcoded_path_check(project_root)
-        .into_iter()
+fn validate_unlogged_ok(project_root: &str, staged_files: &[String]) -> Vec<serde_json::Value> {
+    let rust_files: Vec<String> = staged_files
+        .iter()
         .filter(|file| file.ends_with(".rs"))
+        .cloned()
         .collect();
     unlogged_ok_findings_for_files(project_root, &rust_files)
 }
@@ -30,8 +31,9 @@ fn unlogged_ok_findings_for_files(
     .into_iter()
     .map(|pattern| regex::Regex::new(pattern).expect("exclusion regex must compile"))
     .collect::<Vec<_>>();
-    let logging_keywords = regex::Regex::new(r"inspect_err|tracing::|eprintln!|warn!|env::var|WHY:|K14|poison")
-        .expect("logging regex must compile");
+    let logging_keywords =
+        regex::Regex::new(r"inspect_err|tracing::|eprintln!|warn!|env::var|WHY:|K14|poison")
+            .expect("logging regex must compile");
 
     let mut findings = Vec::new();
     for file_path in rust_files {
@@ -47,7 +49,10 @@ fn unlogged_ok_findings_for_files(
             if !line.contains(".ok()") {
                 continue;
             }
-            if exclusion_patterns.iter().any(|pattern| pattern.is_match(line)) {
+            if exclusion_patterns
+                .iter()
+                .any(|pattern| pattern.is_match(line))
+            {
                 continue;
             }
             let start = index.saturating_sub(8);

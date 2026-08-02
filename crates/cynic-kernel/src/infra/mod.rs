@@ -1,9 +1,11 @@
+pub mod agent_session_sqlite;
 pub mod alerts;
 pub mod boot;
 pub mod circuit_breaker;
 pub mod config;
 mod config_loader;
 mod config_schema;
+mod config_storage;
 mod config_types;
 pub mod crypto;
 pub mod dog_node_resolver;
@@ -13,9 +15,14 @@ pub mod domain_router;
 pub mod embedded_domains;
 pub mod error_classifier;
 pub mod health_loop;
+#[cfg(test)]
+pub mod node_control_sqlite;
+#[cfg(test)]
+pub mod node_enrollment_sqlite;
 pub mod organism_recovery;
 pub mod probes;
 pub mod remediation;
 pub mod routing_calc;
+pub mod runtime_secret;
 pub mod task_health;
 pub mod tasks;

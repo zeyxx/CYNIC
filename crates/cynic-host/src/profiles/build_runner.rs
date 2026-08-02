@@ -62,7 +62,7 @@ impl HostServicePort for BuildRunnerHostProfile {
         ServicePolicy {
             manager: ServiceManagerKind::Systemd,
             unit_dir: current_runtime_layout().service_unit_dir,
-            // Empty: registry may still declare process-port services separately.
+            // Empty until the resident node controller owns a supervisor-agnostic lifecycle.
             units: vec![],
         }
     }

@@ -19,32 +19,40 @@
     "reservations": [
       {
         "name": "cynic-host-proxmox",
-        "addresses": {
-          "management": "192.168.100.1",
-          "synapse": "10.10.10.1"
-        }
+        "management": "192.168.100.1",
+        "synapse": "10.10.10.1",
+        "dns": [
+          "cynic-host-proxmox.synapse.cynic",
+          "pve.synapse.cynic"
+        ]
       },
       {
         "name": "cynic-host-cortex",
-        "addresses": {
-          "management": "192.168.100.2"
-        }
+        "management": "192.168.100.2"
       },
       {
         "name": "forgejo",
+        "synapse": "10.10.10.101",
         "dns": [
-          "forgejo.synapse.cynic"
+          "forgejo.synapse.cynic",
+          "organ-forgejo.synapse.cynic",
+          "cynic-lxc-git.synapse.cynic"
         ]
       },
       {
         "name": "cynic-lxc-surrealdb",
-        "addresses": {
-          "synapse": "10.10.10.103"
-        },
+        "synapse": "10.10.10.103",
         "dns": [
           "cynic-lxc-surrealdb.synapse.cynic",
           "cynic-storage-primary.synapse.cynic",
           "organ-surrealdb.synapse.cynic"
+        ]
+      },
+      {
+        "name": "cynic-builder",
+        "synapse": "10.10.10.119",
+        "dns": [
+          "cynic-builder.synapse.cynic"
         ]
       }
     ]
@@ -101,9 +109,6 @@
       "role": "kernel_primary",
       "status": "candidate",
       "deploy_target": true,
-      "network": {
-        "synapse": "127.0.0.1"
-      },
       "services": [
         {
           "name": "cynic-kernel",
@@ -174,9 +179,6 @@
     {
       "id": "cynic-builder",
       "name": "cynic-builder",
-      "aliases": [
-        "10.10.10.119"
-      ],
       "role": "build_runner",
       "host_family": "linux.ubuntu.systemd",
       "status": "candidate",

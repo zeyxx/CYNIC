@@ -46,6 +46,13 @@
       "binary": "cynic-mcp",
       "install_path": "/usr/local/bin/cynic-mcp",
       "roles": ["cortex_host", "operator"]
+    },
+    {
+      "id": "cynic-lxc-exec-bridge",
+      "crate": "cynic-host",
+      "binary": "cynic-lxc-exec-bridge",
+      "install_path": "/usr/local/libexec/cynic-lxc-exec-bridge",
+      "roles": ["hypervisor"]
     }
   ],
   "bundle_rules": {

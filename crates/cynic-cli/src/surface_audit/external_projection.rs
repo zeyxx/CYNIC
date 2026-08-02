@@ -39,6 +39,7 @@ pub(crate) fn audit_external_projection_files() -> Vec<ExternalProjectionFinding
                 "ExecStart=/usr/local/bin/cynic-kernel",
                 "Environment=\"CYNIC_REGISTRY=/etc/cynic/registry.json\"",
                 "Environment=\"CYNIC_INFERENCE_CONFIG=/etc/cynic/inference.toml\"",
+                "Environment=\"CYNIC_STORAGE_CONFIG=/etc/cynic/storage.toml\"",
             ],
             "installed kernel systemd unit is explicitly labeled as runtime_authority_adapter",
             "installed kernel systemd unit must use the cynic principal, installed paths, and declare runtime_authority_adapter explicitly",

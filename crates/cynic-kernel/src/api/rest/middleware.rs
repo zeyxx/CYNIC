@@ -1,5 +1,7 @@
 //! REST API middleware — auth, rate limiting, audit logging.
 
+mod agent_session;
+
 use axum::{
     body::Body,
     extract::{Request, State},
@@ -12,7 +14,8 @@ use std::sync::Arc;
 
 use super::auth::auth_sessions;
 use super::types::{
-    AppState, AuthenticatedPrincipal, AuthenticationMechanism, ErrorResponse, Role,
+    AppState, AuthenticatedPrincipal, AuthenticationMechanism, ErrorResponse,
+    authorize_role_request,
 };
 use crate::infra::crypto;
 
@@ -30,13 +33,14 @@ pub(crate) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 /// Unified authentication middleware.
 /// Supports:
 /// 1. Ed25519 Cryptographic Signatures (X-Cynic-* headers)
-/// 2. Bearer Tokens (Legacy/Simple clients)
+/// 2. Compatibility bearer tokens while workload identity migration is active.
 pub async fn auth_middleware(
     State(state): State<Arc<AppState>>,
     request: Request,
     next: Next,
 ) -> Response {
-    let path = request.uri().path();
+    let path = request.uri().path().to_string();
+    let method = request.method().as_str().to_string();
     if path == "/live"
         || path == "/identity"
         || path == "/ready"
@@ -47,6 +51,28 @@ pub async fn auth_middleware(
         || path == "/auth/verify"
         || path == "/state-history"
     {
+        return next.run(request).await;
+    }
+
+    if path == "/auth/agent/root-launch"
+        && request
+            .extensions()
+            .get::<super::local_peer::LocalPeerCredentials>()
+            .is_some()
+    {
+        return next.run(request).await;
+    }
+
+    if path == "/node-enrollment" || path == "/node-enrollment/renew" {
+        return next.run(request).await;
+    }
+
+    let (request, agent_session_authenticated) =
+        match agent_session::authenticate(&state, request, &method, &path).await {
+            Ok(outcome) => outcome,
+            Err(response) => return response,
+        };
+    if agent_session_authenticated {
         return next.run(request).await;
     }
 
@@ -116,17 +142,29 @@ pub async fn auth_middleware(
 
         match crypto::verify_signature(&pk, &sig, &ts, &payload) {
             Ok(_) => {
-                // Signature valid.
-                // For now, any valid signature grants Cortex/Admin role if it matches a trusted key,
-                // or Organ role otherwise. In Phase 2, we will map pubkeys to specific roles.
-                let role = Role::Cortex; // Default to Cortex for signed requests for now
+                let Some(principal) = state.role_keys.resolve_signer(&pk) else {
+                    return (
+                        StatusCode::UNAUTHORIZED,
+                        Json(ErrorResponse {
+                            error: "Valid signature belongs to an unregistered workload identity"
+                                .into(),
+                        }),
+                    )
+                        .into_response();
+                };
+                let role = principal.role;
+                if !authorize_role_request(role, &method, &path) {
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(ErrorResponse {
+                            error: format!("principal role is not authorized for {method} {path}"),
+                        }),
+                    )
+                        .into_response();
+                }
                 let mut request = Request::from_parts(parts, Body::from(body_bytes));
                 request.extensions_mut().insert(role);
-                request.extensions_mut().insert(AuthenticatedPrincipal {
-                    subject: Some(format!("ed25519:{pk}")),
-                    role,
-                    mechanism: AuthenticationMechanism::Ed25519,
-                });
+                request.extensions_mut().insert(principal);
                 return next.run(request).await;
             }
             Err(e) => {
@@ -142,11 +180,11 @@ pub async fn auth_middleware(
     }
 
     // 2. Fallback to Bearer Token (Backward compatibility)
-    if !state.role_keys.has_any_key() {
+    if !state.role_keys.has_any_authentication_authority() {
         return (
             StatusCode::UNAUTHORIZED,
             Json(ErrorResponse {
-                error: "API keys not configured and no signature provided".into(),
+                error: "No workload identity or compatibility bearer authority configured".into(),
             }),
         )
             .into_response();
@@ -179,26 +217,14 @@ pub async fn auth_middleware(
             .into_response();
     };
 
-    // Role-based endpoint gating (kept from original)
-    match principal.role {
-        Role::Organ => {
-            let allowed = path == "/observe"
-                || path.starts_with("/coord/")
-                || path == "/health"
-                || path == "/events"
-                || path.starts_with("/v1/")
-                || (path.starts_with("/crystals/") && path.ends_with("/observe"));
-            if !allowed {
-                return (
-                    StatusCode::FORBIDDEN,
-                    Json(ErrorResponse {
-                        error: format!("ORGAN role cannot access {path}"),
-                    }),
-                )
-                    .into_response();
-            }
-        }
-        Role::Cortex | Role::Internal => {}
+    if !authorize_role_request(principal.role, &method, &path) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: format!("principal role is not authorized for {method} {path}"),
+            }),
+        )
+            .into_response();
     }
 
     let mut request = request;

@@ -1,4 +1,6 @@
 mod admission;
+mod capability_status;
+mod durability;
 mod lifecycle;
 mod shared;
 mod types;
@@ -9,9 +11,21 @@ mod workspace_lifecycle;
 mod workspace_types;
 
 pub use admission::{admit_agent_workload, admit_agent_workload_dispatch};
+pub use capability_status::{
+    AGENT_CONSTITUTION_STATUS_SCHEMA, AGENT_EXECUTION_REQUIRED_RUNTIME_CAPABILITIES,
+    AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA, AgentConstitutionRuntimeStatus,
+    AgentConstitutionStatus, AgentExecutionRuntimeObservation, LegacyAgentTaskStatus,
+    reconcile_agent_execution_capabilities,
+};
+pub use durability::{
+    AGENT_WORKLOAD_TRANSITION_REQUEST_SCHEMA, AgentWorkloadTransition,
+    AgentWorkloadTransitionRequest, DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA,
+    DurableAgentWorkloadRecord, admit_aggregate_sibling_budget, validate_agent_workload_record,
+    validate_durable_agent_workload_record,
+};
 pub use lifecycle::{
     admit_workload_action, claim_agent_workload, complete_agent_workload,
-    consume_agent_workload_action, request_agent_workload_cancellation,
+    consume_agent_workload_action, renew_agent_workload_claim, request_agent_workload_cancellation,
 };
 pub use types::{
     AGENT_WORKLOAD_ADMISSION_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,

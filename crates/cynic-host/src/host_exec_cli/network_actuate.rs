@@ -3,14 +3,14 @@ use std::process::ExitCode;
 
 use cynic_protocol::{ExecutionAuthorization, PolicyAuthority, RequiredProof};
 
+use crate::execution::HostCommandExecution;
 use crate::host_exec_cli::args::flag_value;
 use crate::host_exec_cli::io::emit_json;
 use crate::network_actuation::{
-    execute_network_actuation_with_readback, NetworkActuationExecutor, NetworkActuationObservation,
+    NETWORK_ACTUATION_REQUEST_SCHEMA, NetworkActuationExecutor, NetworkActuationObservation,
     NetworkActuationObserver, NetworkActuationPlan, NetworkActuationRequest,
-    NetworkActuationRuntime, admit_network_actuation_plan,
-    build_network_actuation_commands, gate_network_actuation_plan,
-    NETWORK_ACTUATION_REQUEST_SCHEMA,
+    NetworkActuationRuntime, admit_network_actuation_plan, build_network_actuation_commands,
+    execute_network_actuation_with_readback, gate_network_actuation_plan,
 };
 use crate::registry::{
     ObservedManagementLink, ResolvedDirectManagementLink, ResolvedHostIdentity,
@@ -18,7 +18,6 @@ use crate::registry::{
 };
 use crate::runtime_layout::current_runtime_layout;
 use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
-use crate::execution::HostCommandExecution;
 
 pub(crate) fn execute(args: &[String]) -> Result<ExitCode, String> {
     let layout = current_runtime_layout();
@@ -75,18 +74,18 @@ fn execute_with_runner(
                         projection_blockers.push(format!("registry_projection_failed:{error}"))
                     }
                 },
-                None => projection_blockers
-                    .push("local_management_observation_unavailable".to_string()),
+                None => {
+                    projection_blockers.push("local_management_observation_unavailable".to_string())
+                }
             }
         } else {
-            projection_blockers.push("registry_projection_failed:observation_unavailable".to_string());
+            projection_blockers
+                .push("registry_projection_failed:observation_unavailable".to_string());
         }
     }
     let observation_allows = observation
         .as_ref()
-        .is_some_and(|value| {
-            projection_blockers.is_empty() && value.allows_profile(&profile)
-        });
+        .is_some_and(|value| projection_blockers.is_empty() && value.allows_profile(&profile));
     let plan = if projection_blockers.is_empty() {
         observation.as_ref().and_then(|observed| {
             let layout = current_runtime_layout();
@@ -101,8 +100,8 @@ fn execute_with_runner(
                 wireguard_bin: capabilities.wireguard_tool.command,
                 network_manager_bin: capabilities.network_manager.command,
             };
-            build_network_actuation_commands(&profile, &observed.target, &runtime).map(
-                |commands| NetworkActuationPlan {
+            build_network_actuation_commands(&profile, &observed.target, &runtime).map(|commands| {
+                NetworkActuationPlan {
                     schema: "cynic.host.network_actuation_plan.v1",
                     id: format!("network-actuate:{profile}:{target}"),
                     profile: profile.clone(),
@@ -118,8 +117,8 @@ fn execute_with_runner(
                         gate: "postflight_network_observation".to_string(),
                         subject: target.clone(),
                     }],
-                },
-            )
+                }
+            })
         })
     } else {
         None
@@ -173,10 +172,9 @@ fn execute_with_runner(
                     ],
                 },
             );
-            proof.postflight_controls.insert(
-                "firewall".to_string(),
-                observe_root_firewall(runner),
-            );
+            proof
+                .postflight_controls
+                .insert("firewall".to_string(), observe_root_firewall(runner));
             return emit_json(&proof, proof.status != "proved");
         }
     }
@@ -291,8 +289,9 @@ impl<'a> NetworkActuationObserver for NetworkActuationObserverLocal<'a> {
                 output.exit_code
             ));
         }
-        serde_json::from_str(&output.stdout)
-            .map_err(|error| format!("postflight observation command returned invalid JSON: {error}"))
+        serde_json::from_str(&output.stdout).map_err(|error| {
+            format!("postflight observation command returned invalid JSON: {error}")
+        })
     }
 }
 
@@ -301,8 +300,8 @@ fn project_direct_management_target_from_registry(
     local_link: Option<&ObservedManagementLink>,
     registry_path: Option<&str>,
 ) -> Result<ResolvedHostIdentity, String> {
-    let hostname = std::env::var("HOSTNAME")
-        .map_err(|_| "hostname_observation_unavailable".to_string())?;
+    let hostname =
+        std::env::var("HOSTNAME").map_err(|_| "hostname_observation_unavailable".to_string())?;
     let identity = resolve_observed_direct_management_link(
         &hostname,
         &observation.target.synapse_cidr,
@@ -337,15 +336,15 @@ fn observe_local_management_link(
     if !route_output.success() {
         return None;
     }
-    let (route_interface, gateway) = route_output
-        .stdout
-        .lines()
-        .find_map(|line| {
-            let fields = line.split_whitespace().collect::<Vec<_>>();
-            let via = fields.iter().position(|field| *field == "via")?;
-            let dev = fields.iter().position(|field| *field == "dev")?;
-            Some((fields.get(dev + 1)?.to_string(), fields.get(via + 1)?.to_string()))
-        })?;
+    let (route_interface, gateway) = route_output.stdout.lines().find_map(|line| {
+        let fields = line.split_whitespace().collect::<Vec<_>>();
+        let via = fields.iter().position(|field| *field == "via")?;
+        let dev = fields.iter().position(|field| *field == "dev")?;
+        Some((
+            fields.get(dev + 1)?.to_string(),
+            fields.get(via + 1)?.to_string(),
+        ))
+    })?;
     let mut connection = None;
     let mut interface = None;
     let mut address = None;
@@ -604,8 +603,10 @@ mod tests {
         assert_eq!(identity.match_source, "management_network");
         assert!(!identity.hostname_match);
         assert!(identity.network_match);
-        assert!(identity
-            .metadata
-            .contains(&"hostname_registry_alias_mismatch".to_string()));
+        assert!(
+            identity
+                .metadata
+                .contains(&"hostname_registry_alias_mismatch".to_string())
+        );
     }
 }

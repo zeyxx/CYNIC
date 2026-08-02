@@ -548,10 +548,12 @@ pub trait StoragePort:
         cynic_protocol::AgentWorkspaceClaimOutcome,
         cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
     > {
-        Err(cynic_node::ports::agent_workspace_port::AgentWorkspacePortError::new(
-            "workspace_claim_storage_unavailable",
-            "durable workspace claim storage is unavailable",
-        ))
+        Err(
+            cynic_node::ports::agent_workspace_port::AgentWorkspacePortError::new(
+                "workspace_claim_storage_unavailable",
+                "durable workspace claim storage is unavailable",
+            ),
+        )
     }
 
     async fn list_agent_workspace_claims(
@@ -562,10 +564,12 @@ pub trait StoragePort:
         Vec<cynic_protocol::AgentWorkspaceClaimObservation>,
         cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
     > {
-        Err(cynic_node::ports::agent_workspace_port::AgentWorkspacePortError::new(
-            "workspace_claim_storage_unavailable",
-            "durable workspace claim storage is unavailable",
-        ))
+        Err(
+            cynic_node::ports::agent_workspace_port::AgentWorkspacePortError::new(
+                "workspace_claim_storage_unavailable",
+                "durable workspace claim storage is unavailable",
+            ),
+        )
     }
 
     async fn renew_agent_workspace_claim(
@@ -577,10 +581,12 @@ pub trait StoragePort:
         cynic_protocol::AgentWorkspaceClaimObservation,
         cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
     > {
-        Err(cynic_node::ports::agent_workspace_port::AgentWorkspacePortError::new(
-            "workspace_claim_storage_unavailable",
-            "durable workspace claim storage is unavailable",
-        ))
+        Err(
+            cynic_node::ports::agent_workspace_port::AgentWorkspacePortError::new(
+                "workspace_claim_storage_unavailable",
+                "durable workspace claim storage is unavailable",
+            ),
+        )
     }
 
     async fn release_agent_workspace_claim(
@@ -588,10 +594,12 @@ pub trait StoragePort:
         _guard: &cynic_protocol::LeaseGuard,
         _now_ms: u64,
     ) -> Result<(), cynic_node::ports::agent_workspace_port::AgentWorkspacePortError> {
-        Err(cynic_node::ports::agent_workspace_port::AgentWorkspacePortError::new(
-            "workspace_claim_storage_unavailable",
-            "durable workspace claim storage is unavailable",
-        ))
+        Err(
+            cynic_node::ports::agent_workspace_port::AgentWorkspacePortError::new(
+                "workspace_claim_storage_unavailable",
+                "durable workspace claim storage is unavailable",
+            ),
+        )
     }
 
     async fn finalize_agent_workspace_claim(
@@ -600,9 +608,11 @@ pub trait StoragePort:
         _proof_ref: &str,
         _now_ms: u64,
     ) -> Result<(), cynic_node::ports::agent_workspace_port::AgentWorkspacePortError> {
-        Err(cynic_node::ports::agent_workspace_port::AgentWorkspacePortError::new(
-            "workspace_claim_storage_unavailable",
-            "durable workspace claim storage is unavailable",
-        ))
+        Err(
+            cynic_node::ports::agent_workspace_port::AgentWorkspacePortError::new(
+                "workspace_claim_storage_unavailable",
+                "durable workspace claim storage is unavailable",
+            ),
+        )
     }
 }

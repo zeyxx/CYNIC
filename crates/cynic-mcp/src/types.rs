@@ -173,12 +173,6 @@ mod tests {
     }
 
     #[test]
-    fn poison_auth_params_rejects_empty() {
-        let r = serde_json::from_value::<AuthParams>(serde_json::json!({}));
-        assert!(r.is_err(), "AuthParams should require 'api_key'");
-    }
-
-    #[test]
     fn poison_infer_params_rejects_empty() {
         let r = serde_json::from_value::<InferParams>(serde_json::json!({}));
         assert!(r.is_err(), "InferParams should require 'prompt'");
@@ -290,7 +284,12 @@ mod tests {
         })
         .to_string();
 
-        let r = validate_agent_task_content("hermes", "organ-forge", &content);
+        let r = cynic_host::lifecycle::forge_task_contract::validate_repo_affecting_hermes_task(
+            "hermes",
+            "organ-forge",
+            &content,
+            None,
+        );
 
         assert!(r.is_ok());
     }
@@ -432,7 +431,10 @@ mod tests {
     #[test]
     fn poison_validate_params_requires_source_commit() {
         let r = serde_json::from_value::<ValidateParams>(serde_json::json!({}));
-        assert!(r.is_err(), "ValidateParams must bind a sovereign source commit");
+        assert!(
+            r.is_err(),
+            "ValidateParams must bind a sovereign source commit"
+        );
     }
 
     // -- validate_agent_id logic --

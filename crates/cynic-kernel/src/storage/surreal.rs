@@ -7,6 +7,8 @@ mod crystals;
 mod dispatch;
 mod maintenance;
 mod mesh;
+mod node_control;
+mod node_enrollment;
 mod ops;
 mod proof_of_history;
 mod state_log;

@@ -81,3 +81,22 @@ pub(super) fn reservation_hosts_by_name(
     }
     hosts
 }
+
+pub(super) fn reservation_synapse_by_name(registry: &Registry) -> BTreeMap<String, String> {
+    registry
+        .network_policy
+        .as_ref()
+        .and_then(|policy| policy.reservations.as_ref())
+        .into_iter()
+        .flatten()
+        .filter_map(|reservation| {
+            Some((
+                reservation.name.clone().filter(|value| !value.is_empty())?,
+                reservation
+                    .synapse
+                    .clone()
+                    .filter(|value| !value.is_empty())?,
+            ))
+        })
+        .collect()
+}

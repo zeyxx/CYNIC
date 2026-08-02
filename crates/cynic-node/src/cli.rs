@@ -117,6 +117,70 @@ pub(crate) enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Read one append-only node-local workload record.
+    AgentWorkloadStatus {
+        #[arg(long)]
+        workload_id: String,
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Plan or apply one revision-fenced workload state transition.
+    AgentWorkloadTransition {
+        /// cynic.agent_workload_transition_request.v1 JSON input.
+        #[arg(long)]
+        request: String,
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        /// Required before the append-only store is mutated.
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Derive, machine-sign, persist, and read back a grant from a claimed workload.
+    BuildWorkloadGrantReconcile {
+        /// Workload identity in the node-local append-only scheduler store.
+        #[arg(long)]
+        workload_id: String,
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        /// Injected node-owned Ed25519 private key file.
+        #[arg(long)]
+        signing_key: String,
+        /// Runtime registry used to resolve the observed scheduler node identity.
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+        /// Required before an immutable signed grant is persisted.
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Verify a machine-signed build grant against its live durable workload record.
+    BuildWorkloadGrantVerify {
+        /// cynic.signed_build_workload_grant.v1 JSON input.
+        #[arg(long)]
+        grant: String,
+        /// Current cynic.durable_agent_workload_record.v1 JSON input.
+        #[arg(long)]
+        workload_record: String,
+        /// Injected Ed25519 authority public key file; never the private signer.
+        #[arg(long)]
+        authority_public_key: String,
+        /// Hostname observed by the build admission gate.
+        #[arg(long)]
+        node_id: String,
+        /// Checkout HEAD observed by the build admission gate.
+        #[arg(long)]
+        source_commit: String,
+        /// Exact canonical action requested by Make or its Cargo wrapper.
+        #[arg(long)]
+        action: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// Observe or reconcile one node-local storage service with a bounded restart budget.
     StorageReconcile {
         #[arg(long, default_value = "/var/lib/cynic/storage-lifecycle")]

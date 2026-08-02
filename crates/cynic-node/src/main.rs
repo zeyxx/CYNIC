@@ -69,10 +69,16 @@ use clap::Parser;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
+use crate::adapters::http_node_control::HttpNodeControlAdapter;
+use crate::adapters::local_node_control_observer::LocalNodeControlObserver;
+use crate::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
 use crate::cli::{Cli, Commands, ReleaseCommands};
 use crate::usecases::agent_scheduler_step_uc;
 use crate::usecases::agent_source_change_uc;
+use crate::usecases::agent_workload_store_uc;
 use crate::usecases::agent_workspace_lifecycle_uc;
+use crate::usecases::build_workload_grant_reconcile_uc;
+use crate::usecases::build_workload_grant_uc;
 use crate::usecases::network_surfaces_uc;
 use crate::usecases::runtime_artifact_release_uc;
 use crate::usecases::source_admission_uc;
@@ -219,6 +225,62 @@ async fn main() -> ExitCode {
                 &state_root,
             );
         }
+        Some(Commands::AgentWorkloadStatus {
+            workload_id,
+            state_root,
+            json: _,
+        }) => {
+            return agent_workload_store_uc::execute_agent_workload_status(
+                &workload_id,
+                &state_root,
+            );
+        }
+        Some(Commands::AgentWorkloadTransition {
+            request,
+            state_root,
+            apply,
+            json: _,
+        }) => {
+            return agent_workload_store_uc::execute_agent_workload_transition(
+                &request,
+                &state_root,
+                apply,
+            );
+        }
+        Some(Commands::BuildWorkloadGrantReconcile {
+            workload_id,
+            state_root,
+            signing_key,
+            registry,
+            apply,
+            json: _,
+        }) => {
+            return build_workload_grant_reconcile_uc::execute_build_workload_grant_reconcile(
+                &workload_id,
+                &state_root,
+                &signing_key,
+                &registry,
+                apply,
+            );
+        }
+        Some(Commands::BuildWorkloadGrantVerify {
+            grant,
+            workload_record,
+            authority_public_key,
+            node_id,
+            source_commit,
+            action,
+            json: _,
+        }) => {
+            return build_workload_grant_uc::execute_build_workload_grant_verify(
+                &grant,
+                &workload_record,
+                &authority_public_key,
+                &node_id,
+                &source_commit,
+                &action,
+            );
+        }
         Some(Commands::StorageReconcile {
             state_dir,
             warmup_seconds,
@@ -358,5 +420,96 @@ async fn main() -> ExitCode {
     let shutdown = CancellationToken::new();
     install_signal_handler(shutdown.clone());
 
-    runtime_supervision::run_node(&client, config_path, cfg, &shutdown).await
+    let node_tasks = if let Some(control) = cfg.node_control.clone() {
+        let adapter = match HttpNodeControlAdapter::new(
+            control.kernel_url,
+            control.signing_key_path.clone(),
+            Duration::from_secs(control.timeout_secs),
+        ) {
+            Ok(adapter) => adapter,
+            Err(error) => {
+                tracing::error!("node-control configuration is invalid: {error}");
+                return ExitCode::FAILURE;
+            }
+        };
+        let enrollment_reader = LocalNodeEnrollmentReader::new(
+            control.enrollment_request_path.clone(),
+            control.enrollment_grant_path.clone(),
+            control.enrollment_authority_public_key_path.clone(),
+            control.signing_key_path.clone(),
+        );
+        let mut enrollment = enrollment_reader.read_back(&control.node_id);
+        let mut enrollment_issued = false;
+        if enrollment.state != cynic_protocol::SecurityEvidenceState::Proven
+            && !control.enrollment_grant_path.is_file()
+        {
+            match adapter
+                .bootstrap_enrollment(
+                    &control.node_id,
+                    &control.enrollment_role,
+                    &control.enrollment_seed_id,
+                    control.enrollment_requested_capabilities.clone(),
+                    control.enrollment_request_ttl_secs,
+                    &control.enrollment_token_path,
+                    &control.enrollment_request_path,
+                    &control.enrollment_grant_path,
+                )
+                .await
+            {
+                Ok(()) => {
+                    enrollment = enrollment_reader.read_back(&control.node_id);
+                    enrollment_issued = true;
+                }
+                Err(error) => enrollment
+                    .unknowns
+                    .push(format!("automatic_enrollment_failed:{error}")),
+            }
+        }
+        if enrollment_issued && enrollment.state == cynic_protocol::SecurityEvidenceState::Proven {
+            if let Err(error) = std::fs::remove_file(&control.enrollment_token_path) {
+                enrollment
+                    .unknowns
+                    .push(format!("consumed_enrollment_token_cleanup_failed:{error}"));
+            }
+        }
+        let observer = LocalNodeControlObserver::new(
+            control.node_id.clone(),
+            enrollment_reader.clone(),
+            control.observed_capabilities.clone(),
+            control.observed_services.clone(),
+        );
+        let control_shutdown = shutdown.clone();
+        let control_adapter = adapter.clone();
+        let control_config = control.clone();
+        let control_task = tokio::spawn(async move {
+            usecases::node_control_plane_uc::run_node_control_loop(
+                &control_config.node_id,
+                Duration::from_secs(control_config.interval_secs),
+                &control_adapter,
+                &observer,
+                &control_adapter,
+                &control_shutdown,
+            )
+            .await;
+        });
+        let renewal_task = tokio::spawn(
+            usecases::node_enrollment_lifecycle_uc::run_enrollment_renewal_loop(
+                adapter,
+                enrollment_reader,
+                control,
+                shutdown.clone(),
+            ),
+        );
+        vec![control_task, renewal_task]
+    } else {
+        tracing::warn!("node_control is not configured; desired-state reconciliation is inactive");
+        Vec::new()
+    };
+
+    let exit = runtime_supervision::run_node(&client, config_path, cfg, &shutdown).await;
+    shutdown.cancel();
+    for task in node_tasks {
+        let _ = task.await;
+    }
+    exit
 }

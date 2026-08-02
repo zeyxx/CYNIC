@@ -59,7 +59,14 @@ struct RegistryLifecycle {
 
 #[derive(Debug, Deserialize)]
 struct KernelRelease {
-    runtime_artifacts: Option<Vec<RuntimeArtifact>>,
+    runtime_artifacts: Option<Vec<RuntimeArtifactDeclaration>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum RuntimeArtifactDeclaration {
+    Id(String),
+    Detailed(RuntimeArtifact),
 }
 
 #[derive(Debug, Deserialize)]
@@ -71,6 +78,17 @@ struct RuntimeArtifact {
 #[derive(Debug, Deserialize)]
 struct RuntimePublish {
     path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RuntimeBasket {
+    artifacts: Vec<RuntimeBasketArtifact>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RuntimeBasketArtifact {
+    id: String,
+    install_path: String,
 }
 
 pub(crate) fn runtime_binary_attestation(registry_path: Option<&str>) -> BinaryAttestation {
@@ -190,12 +208,28 @@ fn expected_publish_path(registry_path: Option<&str>) -> Option<String> {
     let raw = fs::read_to_string(path).ok()?;
     let registry: Registry = serde_json::from_str(&raw).ok()?;
     let artifacts = registry.lifecycle?.kernel_release?.runtime_artifacts?;
-    let publish = artifacts
-        .into_iter()
-        .find(|artifact| artifact.name.as_deref() == Some("cynic-node"))?
-        .publish?
-        .path?;
+    let publish = artifacts.into_iter().find_map(|artifact| match artifact {
+        RuntimeArtifactDeclaration::Id(id) if id == "cynic-node" => {
+            runtime_basket_install_path(&id)
+        }
+        RuntimeArtifactDeclaration::Detailed(artifact)
+            if artifact.name.as_deref() == Some("cynic-node") =>
+        {
+            artifact.publish.and_then(|publish| publish.path)
+        }
+        _ => None,
+    })?;
     Some(expand_home_placeholder(&publish))
+}
+
+fn runtime_basket_install_path(artifact_id: &str) -> Option<String> {
+    let basket: RuntimeBasket =
+        serde_json::from_str(include_str!("../../../infra/runtime-basket.json")).ok()?;
+    basket
+        .artifacts
+        .into_iter()
+        .find(|artifact| artifact.id == artifact_id)
+        .map(|artifact| artifact.install_path)
 }
 
 fn sha256_file(path: &PathBuf) -> Result<String, String> {
@@ -279,6 +313,27 @@ mod tests {
                       }}
                     }}
                   ]
+                }}
+              }}
+            }}"#
+        )
+        .expect("write registry");
+
+        assert_eq!(
+            expected_publish_path(Some(&file.path().to_string_lossy())),
+            Some("/usr/local/bin/cynic-node".to_string())
+        );
+    }
+
+    #[test]
+    fn resolves_compact_registry_artifact_through_runtime_basket() {
+        let mut file = tempfile::NamedTempFile::new().expect("temp registry");
+        write!(
+            file,
+            r#"{{
+              "lifecycle": {{
+                "kernel_release": {{
+                  "runtime_artifacts": ["cynic", "cynic-node"]
                 }}
               }}
             }}"#

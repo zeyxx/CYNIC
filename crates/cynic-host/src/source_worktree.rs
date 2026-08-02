@@ -58,14 +58,10 @@ pub fn materialize_source_worktree(
     runner: &impl ArgvRunner,
     verifier: &impl SourceLeaseVerifier,
 ) -> SourceWorktreeMaterializationReport {
-    let source = observe_source_worktree(
-        &request.source_root,
-        Some(request.expected_owner.as_str()),
-    );
-    let target = observe_source_worktree(
-        &request.target_root,
-        Some(request.expected_owner.as_str()),
-    );
+    let source =
+        observe_source_worktree(&request.source_root, Some(request.expected_owner.as_str()));
+    let target =
+        observe_source_worktree(&request.target_root, Some(request.expected_owner.as_str()));
     let lease_target = source_worktree_lease_target(&request.repository_id, &request.worktree_id);
     let mut blockers = Vec::new();
     if request.lease.target != lease_target {
@@ -83,7 +79,10 @@ pub fn materialize_source_worktree(
     if target.root_exists {
         blockers.push("target_worktree_already_exists".to_string());
     }
-    let parent = request.target_root.parent().unwrap_or_else(|| Path::new("."));
+    let parent = request
+        .target_root
+        .parent()
+        .unwrap_or_else(|| Path::new("."));
     let parent_observation = observe_source_worktree(parent, Some(request.expected_owner.as_str()));
     if parent_observation.ownership_status != "matched" {
         blockers.push("target_parent_owner_mismatch".to_string());
@@ -102,26 +101,55 @@ pub fn materialize_source_worktree(
         blockers.push("explicit_apply_required".to_string());
     }
     if !blockers.is_empty() {
-        return report(request, source, target, lease_target, lease_verified, None, blockers);
+        return report(
+            request,
+            source,
+            target,
+            lease_target,
+            lease_verified,
+            None,
+            blockers,
+        );
     }
     let source_text = request.source_root.to_string_lossy().to_string();
     let target_text = request.target_root.to_string_lossy().to_string();
     let argv = vec![
-        "git".to_string(), "-C".to_string(), source_text,
-        "worktree".to_string(), "add".to_string(), "--detach".to_string(),
-        target_text, request.base_ref.clone(),
+        "git".to_string(),
+        "-C".to_string(),
+        source_text,
+        "worktree".to_string(),
+        "add".to_string(),
+        "--detach".to_string(),
+        target_text,
+        request.base_ref.clone(),
     ];
     let args = argv.iter().map(String::as_str).collect::<Vec<_>>();
     let output = runner.run(&args);
     let proof = SourceWorktreeCommandProof {
-        argv, success: output.success(), exit_code: output.exit_code,
-        stdout: output.stdout, stderr: output.spawn_error.unwrap_or(output.stderr),
+        argv,
+        success: output.success(),
+        exit_code: output.exit_code,
+        stdout: output.stdout,
+        stderr: output.spawn_error.unwrap_or(output.stderr),
     };
-    let after = observe_source_worktree(&request.target_root, Some(request.expected_owner.as_str()));
+    let after =
+        observe_source_worktree(&request.target_root, Some(request.expected_owner.as_str()));
     let mut blockers = Vec::new();
-    if !proof.success { blockers.push("worktree_materialization_failed".to_string()); }
-    if proof.success && after.status != "ready" { blockers.push("worktree_readback_unproven".to_string()); }
-    report(request, source, after, lease_target, lease_verified, Some(proof), blockers)
+    if !proof.success {
+        blockers.push("worktree_materialization_failed".to_string());
+    }
+    if proof.success && after.status != "ready" {
+        blockers.push("worktree_readback_unproven".to_string());
+    }
+    report(
+        request,
+        source,
+        after,
+        lease_target,
+        lease_verified,
+        Some(proof),
+        blockers,
+    )
 }
 
 fn report(
@@ -135,11 +163,22 @@ fn report(
 ) -> SourceWorktreeMaterializationReport {
     SourceWorktreeMaterializationReport {
         schema: SOURCE_WORKTREE_REPORT_SCHEMA,
-        status: if blockers.is_empty() { "proved" } else if command.is_none() { "blocked" } else { "failed" },
+        status: if blockers.is_empty() {
+            "proved"
+        } else if command.is_none() {
+            "blocked"
+        } else {
+            "failed"
+        },
         mutates: command.is_some(),
         repository_id: request.repository_id.clone(),
         worktree_id: request.worktree_id.clone(),
-        source, target, lease_target, lease_verified, command, blockers,
+        source,
+        target,
+        lease_target,
+        lease_verified,
+        command,
+        blockers,
     }
 }
 
@@ -150,7 +189,9 @@ mod tests {
 
     struct Verified;
     impl SourceLeaseVerifier for Verified {
-        fn verify(&self, _guard: &LeaseGuard) -> Result<(), String> { Ok(()) }
+        fn verify(&self, _guard: &LeaseGuard) -> Result<(), String> {
+            Ok(())
+        }
     }
 
     #[test]
@@ -160,20 +201,34 @@ mod tests {
         let target = temp.path().join("worktree");
         std::fs::create_dir_all(source.join(".git")).unwrap();
         let request = SourceWorktreeMaterializationRequest {
-            repository_id: "cynic".into(), worktree_id: "agent-a".into(),
-            source_root: source, target_root: target, base_ref: "HEAD".into(),
+            repository_id: "cynic".into(),
+            worktree_id: "agent-a".into(),
+            source_root: source,
+            target_root: target,
+            base_ref: "HEAD".into(),
             expected_owner: "user".into(),
-            lease: LeaseGuard { agent_id: "agent-a".into(), target: "source-worktree:cynic:agent-a".into(), lease_id: "lease".into(), fencing_token: 1 },
+            lease: LeaseGuard {
+                agent_id: "agent-a".into(),
+                target: "source-worktree:cynic:agent-a".into(),
+                lease_id: "lease".into(),
+                fencing_token: 1,
+            },
             apply: true,
         };
-        let runner = MapArgvRunner { responses: Vec::<(Vec<String>, ArgvOutput)>::new() };
+        let runner = MapArgvRunner {
+            responses: Vec::<(Vec<String>, ArgvOutput)>::new(),
+        };
         let report = materialize_source_worktree(
             &request,
             &runner,
             &UnavailableSourceLeaseVerifier::default(),
         );
         assert_eq!(report.status, "blocked");
-        assert!(report.blockers.contains(&"coordination_lease_authority_unavailable".to_string()));
+        assert!(
+            report
+                .blockers
+                .contains(&"coordination_lease_authority_unavailable".to_string())
+        );
         assert!(report.command.is_none());
         let _ = Verified;
     }

@@ -16,15 +16,18 @@ CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-mcp cynic
 LAB_REGISTRY := infra/registries/lab.json
 LOCAL_REGISTRY := infra/registries/single-node.json
 CYNIC_BUILD_ADMISSION_GRANT ?=
+CYNIC_BUILD_WORKLOAD_RECORD ?=
+CYNIC_BUILD_AUTHORITY_PUBLIC_KEY ?=
+CYNIC_BUILD_ADMISSION_VERIFIER ?= cynic-node
 # Keep a bounded large compiler stack for kernel/CLI monomorphization. The
 # repository toolchain is pinned because rustc 1.96 exhibited ICE/SIGSEGV here.
-RUST_ENV := CYNIC_BUILD_ADMISSION_GRANT=$(CYNIC_BUILD_ADMISSION_GRANT) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+RUST_ENV := CYNIC_BUILD_ADMISSION_GRANT=$(CYNIC_BUILD_ADMISSION_GRANT) CYNIC_BUILD_WORKLOAD_RECORD=$(CYNIC_BUILD_WORKLOAD_RECORD) CYNIC_BUILD_AUTHORITY_PUBLIC_KEY=$(CYNIC_BUILD_AUTHORITY_PUBLIC_KEY) CYNIC_BUILD_ADMISSION_VERIFIER=$(CYNIC_BUILD_ADMISSION_VERIFIER) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
 BUILD_RUST_ENV := $(RUST_ENV)
 RELEASE_RUST_ENV := $(RUST_ENV)
 TEST_RUST_ENV := $(RUST_ENV)
 
 .PHONY: authority-check
-authority-check: ## Read-only local validation of machine-readable authorities
+authority-check: secret-literal-check ## Read-only local validation of machine-readable authorities
 	@echo "==> checking foundation, runtime authority, and registry"
 	@jq empty contracts/foundation.json
 	@jq empty infra/runtime-authority.json
@@ -32,7 +35,7 @@ authority-check: ## Read-only local validation of machine-readable authorities
 	@jq empty infra/agent-exposure.json
 	@jq empty infra/ecosystem-pins.json
 	@jq empty infra/runtime-basket.json
-	@for script in $$(grep -rl '^#!' scripts); do
+	@for script in $$(git grep -l '^#!' -- scripts); do
 		mode="$$(git ls-files -s -- "$$script" | awk '{print $$1}')"
 		if [[ "$$mode" != "100755" ]]; then
 			echo "tracked script is not executable in Git: $$script ($${mode:-untracked})" >&2
@@ -40,6 +43,10 @@ authority-check: ## Read-only local validation of machine-readable authorities
 		fi
 	done
 	@./scripts/surface-registry-assemble --check
+
+.PHONY: secret-literal-check
+secret-literal-check: ## Reject high-confidence literal credentials in Git-tracked source
+	@./scripts/secret-literal-check
 
 .PHONY: check
 check: authority-check build-admission-check ## Build-runner validation of the living low-layer Rust runtime baseline
@@ -51,6 +58,9 @@ check: authority-check build-admission-check ## Build-runner validation of the l
 .PHONY: build-admission-check
 build-admission-check:
 	@CYNIC_BUILD_ADMISSION_GRANT="$(CYNIC_BUILD_ADMISSION_GRANT)" \
+		CYNIC_BUILD_WORKLOAD_RECORD="$(CYNIC_BUILD_WORKLOAD_RECORD)" \
+		CYNIC_BUILD_AUTHORITY_PUBLIC_KEY="$(CYNIC_BUILD_AUTHORITY_PUBLIC_KEY)" \
+		CYNIC_BUILD_ADMISSION_VERIFIER="$(CYNIC_BUILD_ADMISSION_VERIFIER)" \
 		./scripts/build-admission-check make:check
 
 .PHONY: check-installed-runtime
@@ -402,8 +412,16 @@ e2e: ## Execute the local single-node E2E proof chain without pretending blocked
 		--slurpfile plan "$$tmpdir/plan.with-proofs.json" \
 		'{schema:"cynic.local_e2e.v1", status:"ok", artifacts:$$artifacts, host_proof_status:$$host[0].status, network_proof_status:$$network[0].status, plan_status:$$plan[0].status, observed_gates:$$plan[0].observed_gates, first_blocked_layer: ($$plan[0].layers | map(select(.status == "blocked")) | first // null)}'
 
+.PHONY: build-admission-check-build
+build-admission-check-build:
+	@CYNIC_BUILD_ADMISSION_GRANT="$(CYNIC_BUILD_ADMISSION_GRANT)" \
+		CYNIC_BUILD_WORKLOAD_RECORD="$(CYNIC_BUILD_WORKLOAD_RECORD)" \
+		CYNIC_BUILD_AUTHORITY_PUBLIC_KEY="$(CYNIC_BUILD_AUTHORITY_PUBLIC_KEY)" \
+		CYNIC_BUILD_ADMISSION_VERIFIER="$(CYNIC_BUILD_ADMISSION_VERIFIER)" \
+		./scripts/build-admission-check make:build
+
 .PHONY: build
-build: ## Experimental binary build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
+build: build-admission-check-build ## Experimental binary build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
 	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli
 
 .PHONY: build-release

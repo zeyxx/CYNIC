@@ -49,9 +49,9 @@ mod network_shadow_proof;
 mod network_surface_inventory;
 mod observe;
 pub mod ports;
-pub mod source_change_transaction;
 mod provider_fallback_hosts;
 mod provider_fallback_status;
+pub mod source_change_transaction;
 pub mod usecases;
 pub mod verify;
 pub mod websocket;
@@ -83,6 +83,72 @@ pub fn build_network_runtime_status_value(
     Ok(serde_json::to_value(report)?)
 }
 
+pub fn build_dns_activation_plan_value() -> Result<serde_json::Value, String> {
+    serde_json::to_value(dns_plan::build_dns_plan())
+        .map_err(|error| format!("DNS activation plan serialization failed: {error}"))
+}
+
+pub fn build_dns_activation_bundle_value(
+    registry: &str,
+    output_dir: &str,
+) -> Result<serde_json::Value, String> {
+    let report = dns_bundle::build_dns_bundle(registry, output_dir)
+        .map_err(|error| format!("DNS activation bundle failed: {error}"))?;
+    serde_json::to_value(report)
+        .map_err(|error| format!("DNS activation bundle serialization failed: {error}"))
+}
+
+pub fn build_dns_activation_status_value(
+    registry: &str,
+    hosts_path: Option<&str>,
+    corefile_path: Option<&str>,
+    service_path: Option<&str>,
+    resolved_dropin_path: Option<&str>,
+    resolve_dns: bool,
+) -> Result<serde_json::Value, String> {
+    let defaults = dns_contract::dns_target_paths();
+    let hosts_path = hosts_path.unwrap_or(&defaults.hosts);
+    let corefile_path = corefile_path.unwrap_or(&defaults.corefile);
+    let service_path = service_path.unwrap_or(&defaults.service);
+    let resolved_dropin_path = resolved_dropin_path.unwrap_or(&defaults.resolved_dropin);
+    let report = dns_activation_status::build_dns_activation_status(
+        registry,
+        hosts_path,
+        corefile_path,
+        service_path,
+        resolved_dropin_path,
+        resolve_dns,
+    )
+    .map_err(|error| format!("DNS activation status failed: {error}"))?;
+    serde_json::to_value(report)
+        .map_err(|error| format!("DNS activation status serialization failed: {error}"))
+}
+
+pub fn build_provider_fallback_hosts_value(
+    registry: &str,
+    output_dir: &str,
+) -> Result<serde_json::Value, String> {
+    let report = provider_fallback_hosts::build_provider_fallback_hosts(registry, output_dir)
+        .map_err(|error| format!("provider fallback hosts bundle failed: {error}"))?;
+    serde_json::to_value(report)
+        .map_err(|error| format!("provider fallback hosts serialization failed: {error}"))
+}
+
+pub fn build_provider_fallback_status_value(
+    registry: &str,
+    hosts_path: &str,
+    check_connectivity: bool,
+) -> Result<serde_json::Value, String> {
+    let report = provider_fallback_status::build_provider_fallback_status(
+        registry,
+        hosts_path,
+        check_connectivity,
+    )
+    .map_err(|error| format!("provider fallback status failed: {error}"))?;
+    serde_json::to_value(report)
+        .map_err(|error| format!("provider fallback status serialization failed: {error}"))
+}
+
 pub fn execute_observe_command(
     registry: &str,
     fail_on_warning: bool,
@@ -95,11 +161,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
     usecases::network_surfaces_uc::execute_network_command(command)
 }
 
-pub fn execute_network_actuator_apply(
-    registry: &str,
-    profile: &str,
-    apply: bool,
-) -> ExitCode {
+pub fn execute_network_actuator_apply(registry: &str, profile: &str, apply: bool) -> ExitCode {
     let observation = observe::observe_payload(Some(registry));
     let report = network_actuator::apply_profile(&observation, profile, apply);
     match serde_json::to_string_pretty(&report) {

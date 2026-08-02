@@ -141,6 +141,7 @@ impl WebSocketClient {
                 verdict: pending.verdict.clone(),
                 signature: pending.signature.clone(),
                 node_public_key: self.node_public_key.clone(),
+                timestamp: pending.queued_at,
             };
             self.send_message(write, &verdict).await?;
             info!(stimulus_id = %pending.stimulus_id, "Sent pending verdict to kernel");

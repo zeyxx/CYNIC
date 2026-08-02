@@ -2,6 +2,12 @@
 pub struct OperatorTransportStatusParams {}
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct ProviderControlStatusParams {}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct AgentConnectionStatusParams {}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct SshTargetInspectParams {
     /// DNS name or IP literal. The adapter rejects shell syntax and never persists trust.
     pub host: String,
@@ -40,14 +46,19 @@ pub struct FleetReconcileApplyParams {
 pub struct FleetNodeExecParams {
     /// Registry node name, alias, or Proxmox resource id.
     pub node: String,
-    /// Command to run through the canonical provider adapter.
-    pub command: String,
+    /// Exact argv admitted for execution through the canonical provider adapter.
+    pub argv: Vec<String>,
     /// Human/machine purpose used for audit and policy review.
     pub purpose: String,
     /// Maximum command runtime. Defaults to 30 seconds.
     pub timeout_seconds: Option<u64>,
     /// Optional caller id for bridge audit payloads.
     pub agent_id: Option<String>,
+    /// Must be true for an admitted mutating operation.
+    pub apply: Option<bool>,
+    /// Runtime authority class. Defaults to runtime_operator; breakglass does
+    /// not widen the helper command catalog.
+    pub authority: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

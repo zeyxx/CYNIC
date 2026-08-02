@@ -81,8 +81,21 @@ pub(crate) struct MonitoringEntry {
 #[derive(Deserialize)]
 pub(crate) struct StorageEntry {
     pub url: Option<String>,
+    pub allow_loopback: Option<bool>,
     pub namespace: Option<String>,
     pub database: Option<String>,
+    pub username: Option<String>,
+    pub secret_env: Option<String>,
+    pub secret_file: Option<String>,
+    pub os_credential: Option<String>,
+}
+
+/// Dedicated storage runtime document. Storage deliberately has its own
+/// parser so inference schema changes cannot redirect the kernel to a fallback
+/// database endpoint.
+#[derive(Deserialize)]
+pub(crate) struct StorageFile {
+    pub storage: Option<StorageEntry>,
 }
 
 /// Backend remediation block.

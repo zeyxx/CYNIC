@@ -21,7 +21,9 @@ use crate::runtime_proof::{
     host_identity_runtime_proof,
 };
 use crate::usecases::{HostObservationReports, observe_host_with_resolution};
-use crate::vertical_conformance::{VerticalConformanceReport, evaluate_vertical_conformance, observe_vertical_evidence};
+use crate::vertical_conformance::{
+    VerticalConformanceReport, evaluate_vertical_conformance, observe_vertical_evidence,
+};
 
 #[derive(Debug, Serialize)]
 pub struct HostConformanceReport {
@@ -84,12 +86,7 @@ pub fn observe_host_conformance_with_observer(
          + PreOsPlatformObservationPort
      ),
 ) -> Result<HostConformanceReport, Box<dyn std::error::Error>> {
-    observe_host_conformance_with_observer_and_build_proof(
-        profile,
-        resolution,
-        observed_port,
-        None,
-    )
+    observe_host_conformance_with_observer_and_build_proof(profile, resolution, observed_port, None)
 }
 
 pub fn observe_host_conformance_with_build_proof(
@@ -151,13 +148,11 @@ fn observe_host_conformance_with_observer_and_build_proof(
     let vertical_evidence = observe_vertical_evidence(build_proof);
     let verticals = evaluate_vertical_conformance(&context, &gates, &vertical_evidence);
     let subject = identity_proof.subject.clone();
-    let convergence = crate::vertical_conformance::convergence_matrix_for_subject(&subject, &verticals);
+    let convergence =
+        crate::vertical_conformance::convergence_matrix_for_subject(&subject, &verticals);
     let proof_bundle = assemble_runtime_proof_bundle(identity_proof, &verticals);
-    let persistence_record = assemble_runtime_proof_persistence_record(
-        &proof_bundle,
-        &verticals,
-        build_proof,
-    );
+    let persistence_record =
+        assemble_runtime_proof_persistence_record(&proof_bundle, &verticals, build_proof);
     let status = if gates.iter().all(|gate| gate.status == "satisfied") {
         "qualified"
     } else {
@@ -336,6 +331,7 @@ mod tests {
                 observed_home_dir: Some(policy.home_dir.clone()),
                 present_state_dirs: policy.state_dirs.clone(),
                 owned_paths: policy.managed_paths(),
+                ownership_unknown_paths: Vec::new(),
             }
         }
     }

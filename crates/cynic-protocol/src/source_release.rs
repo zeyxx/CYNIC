@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::SecurityEvidenceState;
+use crate::{SecurityEvidenceState, canonical_build_actions};
 
 pub const SOURCE_RELEASE_REQUEST_SCHEMA: &str = "cynic.source.release_request.v1";
 pub const SOURCE_RELEASE_OBSERVATION_SCHEMA: &str = "cynic.source.release_observation.v1";
@@ -17,7 +17,7 @@ pub struct SourceReleaseRequest {
     pub source_commit: String,
     pub build_runner_node_id: String,
     pub retention_until_unix_ms: u64,
-    pub requested_actions: Vec<String>,
+    pub requested_action: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,10 +70,10 @@ pub enum SourceReleaseAction {
         snapshot_digest: String,
         target_node_id: String,
     },
-    IssueBuildGrant {
+    DispatchBuildWorkload {
         source_commit: String,
         target_node_id: String,
-        allowed_actions: Vec<String>,
+        requested_action: String,
         retention_until_unix_ms: u64,
     },
 }
@@ -118,14 +118,7 @@ pub fn plan_source_release(
     if request.retention_until_unix_ms <= now_unix_ms {
         blockers.push("source_release_retention_expired".to_string());
     }
-    if request.requested_actions.is_empty()
-        || request.requested_actions.iter().any(|action| {
-            !matches!(
-                action.as_str(),
-                "make:check" | "cargo:check" | "cargo:build"
-            )
-        })
-    {
+    if canonical_build_actions(&request.requested_action).is_err() {
         blockers.push("source_release_action_outside_build_authority".to_string());
     }
     for (state, blocker) in [
@@ -194,10 +187,10 @@ pub fn plan_source_release(
                 snapshot_digest: digest,
                 target_node_id: request.build_runner_node_id.clone(),
             },
-            SourceReleaseAction::IssueBuildGrant {
+            SourceReleaseAction::DispatchBuildWorkload {
                 source_commit: request.source_commit.clone(),
                 target_node_id: request.build_runner_node_id.clone(),
-                allowed_actions: request.requested_actions.clone(),
+                requested_action: request.requested_action.clone(),
                 retention_until_unix_ms: request.retention_until_unix_ms,
             },
         ]
@@ -244,7 +237,7 @@ mod tests {
             source_commit: "0123456789abcdef0123456789abcdef01234567".to_string(),
             build_runner_node_id: "cynic-builder".to_string(),
             retention_until_unix_ms: 20_000,
-            requested_actions: vec!["make:check".to_string(), "cargo:build".to_string()],
+            requested_action: "make:check".to_string(),
         }
     }
 
@@ -297,7 +290,22 @@ mod tests {
         assert_eq!(plan.actions.len(), 3);
         assert!(matches!(
             plan.actions.last(),
-            Some(SourceReleaseAction::IssueBuildGrant { .. })
+            Some(SourceReleaseAction::DispatchBuildWorkload { .. })
         ));
+    }
+
+    #[test]
+    fn caller_cannot_supply_nested_or_arbitrary_grant_actions() {
+        let mut request = release_request();
+        request.requested_action = "cargo:build".to_string();
+
+        let plan = plan_source_release(&request, &release_observation(), 10_000);
+
+        assert_eq!(plan.status, "blocked");
+        assert!(plan.actions.is_empty());
+        assert!(
+            plan.blockers
+                .contains(&"source_release_action_outside_build_authority".to_string())
+        );
     }
 }

@@ -13,7 +13,8 @@ impl CynicMcpProxy {
         self.require_auth()?;
         self.rate_limit.check_other()?;
         let all = params.0.all.unwrap_or(true);
-        let result = crate::local_tools::run_docker_container_list(all).await;
+        let result =
+            crate::local_tools::run_docker_container_list(self.argv_execution.as_ref(), all).await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))
@@ -31,6 +32,7 @@ impl CynicMcpProxy {
         self.rate_limit.check_other()?;
         let p = params.0;
         let result = crate::local_tools::run_docker_container_logs(
+            self.argv_execution.as_ref(),
             &p.container,
             p.tail,
             p.timestamps.unwrap_or(true),
@@ -51,7 +53,11 @@ impl CynicMcpProxy {
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
-        let result = crate::local_tools::run_docker_container_inspect(&params.0.container).await;
+        let result = crate::local_tools::run_docker_container_inspect(
+            self.argv_execution.as_ref(),
+            &params.0.container,
+        )
+        .await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))

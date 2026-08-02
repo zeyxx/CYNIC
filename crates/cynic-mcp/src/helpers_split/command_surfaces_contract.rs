@@ -212,7 +212,10 @@ fn command_surface_findings(
         }
 
         if name.starts_with("make ")
-            && command_obj.get("canonical").and_then(|value| value.as_bool()) == Some(true)
+            && command_obj
+                .get("canonical")
+                .and_then(|value| value.as_bool())
+                == Some(true)
             && command_obj.get("domain").and_then(|value| value.as_str()) == Some("lifecycle")
             && command_obj.get("mutates").and_then(|value| value.as_bool()) == Some(true)
         {
@@ -228,23 +231,34 @@ fn command_surface_findings(
     findings
 }
 
-fn command_surface_exposed_tools(exposure: &serde_json::Value) -> std::collections::BTreeSet<String> {
+fn command_surface_exposed_tools(
+    exposure: &serde_json::Value,
+) -> std::collections::BTreeSet<String> {
     let mut names = std::collections::BTreeSet::new();
-    if let Some(domains) = exposure.get("mcp_tool_domains").and_then(|value| value.as_object()) {
+    if let Some(domains) = exposure
+        .get("mcp_tool_domains")
+        .and_then(|value| value.as_object())
+    {
         for domain in domains.values() {
             if let Some(tools) = domain.get("tools").and_then(|value| value.as_array()) {
                 for tool in tools.iter().filter_map(|value| value.as_str()) {
                     names.insert(tool.to_string());
                 }
             }
-            if let Some(tools) = domain.get("fallback_tools").and_then(|value| value.as_array()) {
+            if let Some(tools) = domain
+                .get("operator_tools")
+                .and_then(|value| value.as_array())
+            {
                 for tool in tools.iter().filter_map(|value| value.as_str()) {
                     names.insert(tool.to_string());
                 }
             }
         }
     }
-    if let Some(servers) = exposure.get("mcp_servers").and_then(|value| value.as_array()) {
+    if let Some(servers) = exposure
+        .get("mcp_servers")
+        .and_then(|value| value.as_array())
+    {
         for server in servers {
             if let Some(tools) = server.get("tools").and_then(|value| value.as_array()) {
                 for tool in tools {
@@ -256,33 +270,4 @@ fn command_surface_exposed_tools(exposure: &serde_json::Value) -> std::collectio
         }
     }
     names
-}
-
-fn command_surface_make_targets(project_root: &str) -> std::collections::BTreeSet<String> {
-    let output = std::process::Command::new("make")
-        .arg("-pn")
-        .current_dir(project_root)
-        .stderr(Stdio::null())
-        .output();
-
-    let Ok(output) = output else {
-        return std::collections::BTreeSet::new();
-    };
-    if !output.status.success() {
-        return std::collections::BTreeSet::new();
-    }
-
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .filter_map(|line| {
-            if !line.contains(':') || line.starts_with(['\t', '.', '#']) {
-                return None;
-            }
-            let target = line.split(':').next()?.trim();
-            if target.is_empty() || target.contains(' ') || target.starts_with('%') {
-                return None;
-            }
-            Some(target.to_string())
-        })
-        .collect()
 }

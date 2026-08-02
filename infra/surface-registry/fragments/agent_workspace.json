@@ -14,6 +14,13 @@
     "adapters::local_agent_workspace_lifecycle_store",
     "adapters::local_agent_workspace_collection",
     "adapters::local_agent_scheduler_journal",
+    "ports::build_workload_grant_port",
+    "ports::build_workload_grant_store_port",
+    "adapters::ed25519_build_workload_grant",
+    "adapters::local_build_workload_grant_store",
+    "usecases::build_workload_grant_reconcile_uc",
+    "ports::agent_workload_store_port",
+    "adapters::local_agent_workload_store",
     "adapters::local_source_repository_bootstrap",
     "adapters::kernel_agent_workspace_claim_store"
   ],
@@ -21,16 +28,23 @@
     "execute_agent_source_change",
     "execute_agent_workspace_lifecycle",
     "execute_agent_scheduler_step",
+    "execute_agent_workload_status",
+    "execute_agent_workload_transition",
+    "execute_build_workload_grant_reconcile",
+    "execute_build_workload_grant_verify",
     "execute_source_repository_bootstrap"
   ],
-  "responsibility": "Observe and materialize an exact registry-declared source revision under the runtime principal, reserve durable hierarchical claims, apply one preimage-bound source change, persist append-once completion and retention evidence, reconcile terminal workspace lifecycle, and collect only an expired clean workspace under a fresh fenced claim with capacity read-back.",
+  "responsibility": "Observe and materialize an exact registry-declared source revision under the runtime principal, reserve durable hierarchical claims, persist revision-fenced workload dispatch, claims, renewals, budget consumption, cancellation, and completion evidence, reconcile append-only machine-signed build grants directly from live claimed workload records, apply one preimage-bound source change, reconcile terminal workspace lifecycle, and collect only an expired clean workspace under a fresh fenced claim with capacity read-back.",
   "mutation_policy": "explicit_apply_only",
   "canonical_entrypoints": [
     "cynic-node source-bootstrap --json --node <node> --repository <id> --source <git-source> --revision <commit> [--registry <path>] [--state-root <path>] --apply",
     "cynic-node agent-workspace --json --request <transaction.json> [--result-file <path>] [--registry <path>] [--state-root <path>] [--kernel-endpoint <url>] --apply",
-    "cynic-node agent-workspace-lifecycle --json --workload-id <id> --agent-id <id> [--registry <path>] [--state-root <path>] [--kernel-endpoint <url>] [--apply]"
-    ,
-    "cynic-node agent-scheduler-step --json --observation <scheduler-step.json> [--state-root <path>]"
+    "cynic-node agent-workspace-lifecycle --json --workload-id <id> --agent-id <id> [--registry <path>] [--state-root <path>] [--kernel-endpoint <url>] [--apply]",
+    "cynic-node agent-scheduler-step --json --observation <scheduler-step.json> [--state-root <path>]",
+    "cynic-node agent-workload-status --json --workload-id <id> [--state-root <path>]",
+    "cynic-node agent-workload-transition --json --request <transition.json> [--state-root <path>] [--apply]",
+    "cynic-node build-workload-grant-reconcile --json --workload-id <id> --signing-key <private-key> [--registry <path>] [--state-root <path>] [--apply]",
+    "cynic-node build-workload-grant-verify --json --grant <signed-grant.json> --workload-record <record.json> --authority-public-key <public-key> --node-id <node> --source-commit <commit> --action <make:check|make:build>"
   ],
   "evidence": [
     "cynic.source_repository_bootstrap_observation.v1",
@@ -46,6 +60,14 @@
     "cynic.agent_scheduler_step_plan.v1",
     "cynic.agent_scheduler_journal_record.v1",
     "cynic.node.agent_scheduler_step_report.v1",
+    "cynic.agent_workload_transition_request.v1",
+    "cynic.durable_agent_workload_record.v1",
+    "cynic.node.agent_workload_status.v1",
+    "cynic.node.agent_workload_transition_report.v1",
+    "cynic.build.workload_grant.v1",
+    "cynic.signed_build_workload_grant.v1",
+    "cynic.node.build_workload_grant_reconcile.v1",
+    "cynic.node.build_workload_grant_verification.v1",
     "cynic.agent_source_change_transaction_result.v1"
   ],
   "anti_responsibilities": [
@@ -55,7 +77,7 @@
     "create a worktree without a durable admitted claim",
     "mutate a human checkout",
     "collect a dirty, shared, protected, retained, unproved, or unfenced workspace",
-    "execute renewal, cancellation, or recovery outside the node-owned scheduler",
+    "persist renewal, cancellation, recovery, or completion outside the revision-fenced node-owned workload store",
     "accept source content whose digest does not match the admitted change",
     "treat command success as ownership, HEAD, source, collection, or capacity read-back proof"
   ]

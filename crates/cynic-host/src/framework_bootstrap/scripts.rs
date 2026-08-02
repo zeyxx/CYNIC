@@ -11,6 +11,9 @@ SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
 CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
 NODE_TARGET="${CYNIC_NODE_BINARY:-/usr/local/bin/cynic-node}"
 REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-/etc/cynic/registry.json}"
+STORAGE_CONFIG_TARGET="${CYNIC_STORAGE_CONFIG:-/etc/cynic/storage.toml}"
+LXC_BRIDGE_TARGET="${CYNIC_LXC_EXEC_BRIDGE_HELPER:-/usr/local/libexec/cynic-lxc-exec-bridge}"
+LXC_BRIDGE_SUDOERS="${CYNIC_LXC_EXEC_BRIDGE_SUDOERS:-/etc/sudoers.d/cynic-lxc-exec-bridge}"
 
 if [ "$(id -u)" != "0" ]; then
   echo "install.sh must run as root" >&2
@@ -73,6 +76,16 @@ if [ -f "$ROOT/etc/registry.json" ]; then
   install -d -o root -g "$RUNTIME_GROUP" -m 0755 "$(dirname "$REGISTRY_TARGET")"
   install -o root -g "$RUNTIME_GROUP" -m 0644 "$ROOT/etc/registry.json" "$REGISTRY_TARGET"
 fi
+if [ -f "$ROOT/etc/storage.toml" ]; then
+  install -d -o root -g "$RUNTIME_GROUP" -m 0755 "$(dirname "$STORAGE_CONFIG_TARGET")"
+  install -o root -g "$RUNTIME_GROUP" -m 0644 "$ROOT/etc/storage.toml" "$STORAGE_CONFIG_TARGET"
+fi
+if [ -f "$ROOT/lxc-exec-bridge-bundle/cynic-lxc-exec-bridge" ]; then
+  install -d -o root -g root -m 0755 "$(dirname "$LXC_BRIDGE_TARGET")" "$(dirname "$LXC_BRIDGE_SUDOERS")"
+  install -o root -g root -m 0755 "$ROOT/lxc-exec-bridge-bundle/cynic-lxc-exec-bridge" "$LXC_BRIDGE_TARGET"
+  install -o root -g root -m 0440 "$ROOT/lxc-exec-bridge-bundle/cynic-lxc-exec-bridge.sudoers" "$LXC_BRIDGE_SUDOERS"
+  visudo -cf "$LXC_BRIDGE_SUDOERS"
+fi
 visudo -cf "$SUDOERS_TARGET"
 
 "$HELPER_TARGET" principal-prepare --apply > /var/lib/cynic/bootstrap/principal-prepare.json
@@ -94,6 +107,8 @@ EVIDENCE_DIR="${CYNIC_BOOTSTRAP_EVIDENCE_DIR:-/var/lib/cynic/bootstrap}"
 CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
 NODE_TARGET="${CYNIC_NODE_BINARY:-/usr/local/bin/cynic-node}"
 REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-/etc/cynic/registry.json}"
+STORAGE_CONFIG_TARGET="${CYNIC_STORAGE_CONFIG:-/etc/cynic/storage.toml}"
+LXC_BRIDGE_TARGET="${CYNIC_LXC_EXEC_BRIDGE_HELPER:-/usr/local/libexec/cynic-lxc-exec-bridge}"
 
 install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 "$EVIDENCE_DIR"
 test -x "$HELPER_TARGET"
@@ -104,9 +119,12 @@ if [ -x "$CLI_TARGET" ]; then
 fi
 if [ -x "$NODE_TARGET" ]; then
   test -f "$REGISTRY_TARGET"
+  test -f "$STORAGE_CONFIG_TARGET"
   "$NODE_TARGET" registry-observation --json --registry "$REGISTRY_TARGET" > "$EVIDENCE_DIR/node-registry-observation.json"
 fi
-
+if [ -x "$LXC_BRIDGE_TARGET" ]; then
+  sudo -u "$RUNTIME_USER" sudo -n "$LXC_BRIDGE_TARGET" --status > "$EVIDENCE_DIR/lxc-exec-bridge-status.json"
+fi
 "$HELPER_TARGET" bridge-status > "$EVIDENCE_DIR/bridge-status.json"
 sudo -u "$RUNTIME_USER" sudo -n "$HELPER_TARGET" principal-prepare > "$EVIDENCE_DIR/principal-plan-through-sudo.json"
 sudo -u "$RUNTIME_USER" sudo -n "$HELPER_TARGET" network-baseline observe > "$EVIDENCE_DIR/network-baseline-observe.json" || true

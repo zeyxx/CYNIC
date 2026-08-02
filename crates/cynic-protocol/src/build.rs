@@ -5,10 +5,19 @@ use crate::{
 };
 
 mod agent_request;
+mod workload_grant;
 
 pub use agent_request::{
     BUILD_AGENT_REQUEST_ADMISSION_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA, BuildAgentRequest,
     BuildAgentRequestAdmission, admit_build_agent_request, plan_build_agent_request,
+};
+pub use workload_grant::{
+    BUILD_WORKLOAD_GRANT_MAX_TTL_SECONDS, BUILD_WORKLOAD_GRANT_SCHEMA,
+    BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE, BuildWorkloadGrant,
+    SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA, SignedBuildWorkloadGrant,
+    build_workload_grant_signing_bytes, canonical_build_action_from_argv,
+    derive_build_workload_grant, validate_build_workload_grant,
+    validate_signed_build_workload_grant,
 };
 
 pub const BUILD_INPUT_ADMISSION_SCHEMA: &str = "cynic.build.input_admission.v1";
@@ -17,6 +26,22 @@ pub const BUILD_RUNNER_ADMISSION_SCHEMA: &str = "cynic.build.runner_admission.v1
 pub const BUILD_RUNNER_OBSERVATION_SCHEMA: &str = "cynic.runtime.node_observation.v1";
 pub const BUILD_BOOTSTRAP_GRANT_SCHEMA: &str = "cynic.build.bootstrap_grant.v1";
 pub const BUILD_RUNNER_OBSERVATION_MAX_AGE_MS: u64 = 300_000;
+
+pub fn canonical_build_actions(requested_action: &str) -> Result<Vec<String>, String> {
+    match requested_action {
+        "make:check" => Ok(["make:check", "cargo:check", "cargo:run", "cargo:test"]
+            .into_iter()
+            .map(str::to_string)
+            .collect()),
+        "make:build" => Ok(["make:build", "cargo:build"]
+            .into_iter()
+            .map(str::to_string)
+            .collect()),
+        _ => Err(format!(
+            "unsupported canonical build action: {requested_action}"
+        )),
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BuildInputAdmission {
@@ -322,6 +347,15 @@ pub fn admit_build_input(snapshot: &SourceSnapshot) -> BuildInputAdmission {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn make_check_expands_to_the_exact_nested_gate_actions() {
+        assert_eq!(
+            canonical_build_actions("make:check").expect("known gate"),
+            vec!["make:check", "cargo:check", "cargo:run", "cargo:test"]
+        );
+        assert!(canonical_build_actions("bash -c make check").is_err());
+    }
 
     #[test]
     fn build_requires_post_push_source_proof() {

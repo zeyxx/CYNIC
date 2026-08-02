@@ -1,11 +1,6 @@
 use std::sync::Arc;
 
-use axum::{
-    Extension,
-    extract::State,
-    http::StatusCode,
-    response::Json,
-};
+use axum::{Extension, extract::State, http::StatusCode, response::Json};
 use cynic_protocol::{
     AgentWorkspaceClaimAdmission, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
     AgentWorkspaceClaimOutcome, LeaseGuard,
@@ -84,11 +79,7 @@ pub async fn renew_handler(
     require_agent(&principal, &request.guard.agent_id)?;
     state
         .storage
-        .renew_agent_workspace_claim(
-            &request.guard,
-            request.requested_ttl_ms,
-            request.now_ms,
-        )
+        .renew_agent_workspace_claim(&request.guard, request.requested_ttl_ms, request.now_ms)
         .await
         .map(Json)
         .map_err(workspace_error)

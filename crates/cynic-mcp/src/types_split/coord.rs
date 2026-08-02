@@ -44,12 +44,6 @@ pub struct LibraryQueryParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct AuthParams {
-    pub api_key: String,
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
 pub struct ValidateParams {
     pub agent_id: Option<String>,
     pub source_commit: String,

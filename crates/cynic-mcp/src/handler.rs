@@ -270,43 +270,34 @@ mod infrastructure_contract_tests {
         assert_eq!(argv, vec!["/tmp/cynic-host-helper"]);
     }
 
-    #[test]
-    fn run_host_exec_transport_executes_declared_helper() {
-        let helper = std::env::temp_dir().join(format!(
-            "cynic-host-exec-helper-{}-{}",
+    #[tokio::test]
+    async fn run_host_exec_transport_executes_declared_helper() {
+        let capture = std::env::temp_dir().join(format!(
+            "cynic-host-exec-capture-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .expect("system clock should be after epoch")
                 .as_nanos()
         ));
-        std::fs::write(
-            &helper,
-            "#!/usr/bin/env python3\nimport json,sys\nreq=json.load(sys.stdin)\njson.dump({\"schema\":\"cynic.host_exec_transport.response.v1\",\"status\":\"completed\",\"node\":req.get(\"node\"),\"purpose\":req.get(\"purpose\"),\"command\":req.get(\"command\")}, sys.stdout)\n",
-        )
-        .expect("helper script should be written");
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(&helper)
-                .expect("helper metadata should be readable")
-                .permissions();
-            perms.set_mode(0o755);
-            std::fs::set_permissions(&helper, perms).expect("helper should be executable");
-        }
-
         let request = serde_json::json!({
             "schema": "cynic.host_exec_transport.request.v1",
+            "status": "completed",
             "node": "cynic-host-cortex",
             "purpose": "unit-test",
             "command": ["systemctl", "status", "cynic-node"]
         });
         let result = CynicMcpProxy::run_host_exec_transport(
-            &[helper.to_string_lossy().to_string()],
+            &cynic_host::ports::argv_execution::LocalArgvExecutionAdapter,
+            &[
+                "/usr/bin/tee".to_string(),
+                capture.to_string_lossy().to_string(),
+            ],
             &request,
         )
+        .await
         .expect("host exec helper should run");
-        let _ = std::fs::remove_file(&helper);
+        let _ = std::fs::remove_file(&capture);
 
         assert_eq!(result["status"], "completed");
         assert_eq!(result["provider"], "host_exec_transport");
@@ -403,27 +394,28 @@ mod infrastructure_contract_tests {
     }
 
     #[test]
-    fn lxc_command_argv_rejects_shell_syntax() {
-        assert_eq!(lxc_command_argv("hostname").unwrap(), vec!["hostname"]);
-        assert!(lxc_command_argv("sh -c hostname").is_err());
-        assert!(lxc_command_argv("hostname && cat /etc/passwd").is_err());
-        assert!(lxc_command_argv("cat /etc/os-release").is_ok());
+    fn lxc_argv_rejects_shell_syntax() {
+        assert_eq!(
+            validate_lxc_argv(&["hostname".into()]).unwrap(),
+            vec!["hostname"]
+        );
+        assert!(validate_lxc_argv(&["sh".into(), "-c".into(), "hostname".into()]).is_err());
+        assert!(validate_lxc_argv(&["hostname".into(), "&&".into()]).is_err());
+        assert!(validate_lxc_argv(&["cat".into(), "/etc/os-release".into()]).is_ok());
     }
 
     #[test]
-    fn lxc_exec_bridge_plan_args_use_default_helper_source() {
+    fn lxc_exec_bridge_plan_is_rust_native_and_bounded() {
         let params = LxcExecBridgePlanParams {
             helper_source: None,
         };
-
-        assert_eq!(
-            lxc_exec_bridge_plan_args(&params),
-            vec![
-                "lxc-exec-bridge",
-                "install-plan",
-                "--helper-source",
-                "unsupported/minimal-baseline/lxc_exec_bridge_helper"
-            ]
+        let plan = run_lxc_exec_bridge_plan(&params).unwrap();
+        assert_eq!(plan["schema"], "cynic.lxc_exec_bridge.install_plan.v1");
+        assert_eq!(plan["status"], "planned");
+        assert!(
+            plan["helper_source"]
+                .as_str()
+                .is_some_and(|path| path.ends_with("cynic-lxc-exec-bridge"))
         );
     }
 
@@ -536,7 +528,7 @@ mod infrastructure_contract_tests {
                 "--registry",
                 "infra/registry.json",
                 "--schema",
-                "infra/surrealdb/schema.surql",
+                "crates/cynic-kernel/src/storage/schema_bootstrap.sql",
                 "--output-dir",
                 "/tmp/cynic-storage-primary"
             ]
@@ -997,16 +989,19 @@ mod mcp_surface_tests {
 
     fn exposure_fixture() -> serde_json::Value {
         serde_json::json!({
+            "constitutional_execution": {
+                "execution_contract": "cynic.agent_workload_envelope.v1"
+            },
             "mcp_tool_domains": {
                 "organism_status": {
                     "description": "status",
                     "tools": ["cynic_api_contracts", "cynic_mcp_surface"],
-                    "fallback_tools": []
+                    "operator_tools": []
                 },
                 "lifecycle": {
                     "description": "lifecycle",
                     "tools": ["cynic_lifecycle_status", "cynic_lifecycle_dispatch"],
-                    "fallback_tools": ["cynic_lifecycle_status", "cynic_lifecycle_dispatch"]
+                    "operator_tools": ["cynic_lifecycle_status", "cynic_lifecycle_dispatch"]
                 }
             },
             "mcp_servers": [
@@ -1055,7 +1050,7 @@ mod mcp_surface_tests {
         let mut exposure = exposure_fixture();
         exposure["mcp_tool_domains"]["coordination"] = serde_json::json!({
             "tools": ["cynic_coord_claim"],
-            "fallback_tools": ["cynic_coord_claim"]
+            "operator_tools": ["cynic_coord_claim"]
         });
 
         let findings = mcp_surface_findings(&exposure);
@@ -1887,7 +1882,7 @@ mod reqwest_usage_contract_tests {
     }
 
     #[test]
-    fn reqwest_usage_contract_allows_proxy_exemption() {
+    fn reqwest_usage_contract_rejects_removed_kernel_proxy_path() {
         let temp = std::env::temp_dir().join(format!(
             "cynic-mcp-reqwest-ok-{}-{}",
             std::process::id(),
@@ -1904,7 +1899,9 @@ mod reqwest_usage_contract_tests {
         let findings = validate_reqwest_usage(temp.to_str().expect("temp path should be utf-8"));
         let _ = std::fs::remove_dir_all(&temp);
 
-        assert!(findings.is_empty());
+        assert!(findings.iter().any(|finding| {
+            finding.get("kind").and_then(|value| value.as_str()) == Some("misplaced_reqwest_usage")
+        }));
     }
 }
 
@@ -2188,14 +2185,7 @@ mod coordination_profile_tests {
         let required =
             contract_events_required_fields(&protocol, Some(&profile), "workstream.started");
 
-        assert_eq!(
-            required,
-            vec![
-                "branch",
-                "owner",
-                "scope"
-            ]
-        );
+        assert_eq!(required, vec!["branch", "owner", "scope"]);
     }
 
     #[test]
@@ -2203,9 +2193,6 @@ mod coordination_profile_tests {
         let protocol = load_coordination_protocol_for_tests();
         let required = contract_events_required_fields(&protocol, None, "decision.record");
 
-        assert_eq!(
-            required,
-            Vec::<String>::new()
-        );
+        assert_eq!(required, Vec::<String>::new());
     }
 }
