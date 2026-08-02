@@ -22,7 +22,7 @@ pub(crate) fn audit_external_projection_files() -> Vec<ExternalProjectionFinding
             "operator_projection",
             &[
                 "WorkingDirectory=/var/lib/cynic",
-                "ExecStart=/usr/local/bin/cynic-node",
+                "ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml",
                 "EnvironmentFile=/etc/cynic/env",
             ],
             "runtime systemd projection is explicitly labeled as operator_projection",
@@ -52,7 +52,7 @@ pub(crate) fn audit_external_projection_files() -> Vec<ExternalProjectionFinding
                 "User=cynic",
                 "Group=cynic",
                 "WorkingDirectory=/var/lib/cynic",
-                "ExecStart=/usr/local/bin/cynic-node",
+                "ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml",
                 "Environment=\"CYNIC_REGISTRY=/etc/cynic/registry.json\"",
                 "Environment=\"CYNIC_INFERENCE_CONFIG=/etc/cynic/inference.toml\"",
             ],

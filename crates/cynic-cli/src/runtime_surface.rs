@@ -5,7 +5,6 @@ use clap::Subcommand;
 use crate::bootstrap_surface::ProfileArgs;
 
 mod agent_matrix;
-mod build;
 mod compat_aliases;
 mod disk;
 mod execution_context;
@@ -124,29 +123,6 @@ pub(crate) enum RuntimeCommand {
         proof: String,
         #[arg(long)]
         endpoint: Option<String>,
-    },
-    /// Plan or explicitly execute a bounded build from a source proof snapshot.
-    Build {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        source_snapshot: String,
-        #[arg(long)]
-        registry: String,
-        #[arg(long)]
-        kernel_endpoint: String,
-        #[arg(long)]
-        agent_id: String,
-        #[arg(long)]
-        lease_id: String,
-        #[arg(long)]
-        fencing_token: u64,
-        #[arg(long)]
-        artifact: String,
-        #[arg(long)]
-        apply: bool,
-        #[arg(last = true, required = true)]
-        command: Vec<String>,
     },
     /// Aggregate runtime phase, report, and inference SSOT status.
     Report {
@@ -425,29 +401,6 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             proof,
             endpoint,
         } => persistence::execute_persistence(json, &proof, endpoint.as_deref()),
-        RuntimeCommand::Build {
-            json,
-            source_snapshot,
-            registry,
-            kernel_endpoint,
-            agent_id,
-            lease_id,
-            fencing_token,
-            artifact,
-            apply,
-            command,
-        } => build::execute_build(
-            json,
-            &source_snapshot,
-            &registry,
-            &kernel_endpoint,
-            &agent_id,
-            &lease_id,
-            fencing_token,
-            &artifact,
-            apply,
-            &command,
-        ),
         RuntimeCommand::Report {
             json,
             output,

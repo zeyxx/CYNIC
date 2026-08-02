@@ -89,10 +89,11 @@ impl DevCheckMode {
 }
 
 pub(crate) fn run_dev_check(
+    source_root: Option<PathBuf>,
     target_root: Option<PathBuf>,
     architecture_only: bool,
-) -> DevCheckReport {
-    let workspace_root = workspace_root();
+) -> Result<DevCheckReport, String> {
+    let workspace_root = crate::rust_source::resolve_workspace_root(source_root.as_deref())?;
     let target_root = target_root.unwrap_or_else(|| PathBuf::from(DEFAULT_TARGET_ROOT));
     let mode = if architecture_only {
         DevCheckMode::ArchitectureOnly
@@ -160,7 +161,7 @@ pub(crate) fn run_dev_check(
         .iter()
         .any(|step| is_architecture_boundary_step(step.id) && step.status == "ok");
 
-    DevCheckReport {
+    Ok(DevCheckReport {
         schema: SCHEMA,
         status: if failed { "blocked" } else { "ok" },
         gate: mode.gate(),
@@ -190,7 +191,7 @@ pub(crate) fn run_dev_check(
         architecture_boundary_ok,
         architecture_boundary_fallback_ok,
         steps,
-    }
+    })
 }
 
 fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
@@ -357,15 +358,6 @@ fn classify_failure(stderr: &[u8]) -> String {
 fn tail_lossy(bytes: &[u8]) -> String {
     let start = bytes.len().saturating_sub(OUTPUT_TAIL_LIMIT);
     String::from_utf8_lossy(&bytes[start..]).into_owned()
-}
-
-fn workspace_root() -> PathBuf {
-    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    manifest
-        .parent()
-        .and_then(Path::parent)
-        .unwrap_or_else(|| manifest.parent().unwrap_or_else(|| Path::new(".")))
-        .to_path_buf()
 }
 
 fn now_unix_ms() -> u128 {

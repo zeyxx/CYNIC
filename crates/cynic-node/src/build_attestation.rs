@@ -166,7 +166,7 @@ impl BinaryAttestation {
             path_matches_expected: self.path_matches_expected,
             evidence_sources: vec![
                 format!("{DEFAULT_REGISTRY_PATH}:lifecycle.kernel_release.runtime_artifacts"),
-                "infra/systemd/cynic-node.service:ExecStart=/usr/local/bin/cynic-node".to_string(),
+                "infra/systemd/installed/cynic-node.service:ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml".to_string(),
                 "contracts/foundation.json:constitutional.runtime_authority_order".to_string(),
                 "Cargo.toml:workspace.members includes crates/cynic-node".to_string(),
             ],
@@ -184,7 +184,7 @@ fn proposed_runtime_artifact() -> RuntimeArtifactProposal {
         publish_path: "/usr/local/bin/cynic-node",
         primary_runtime_role: "all_runtime_nodes",
         rationale_sources: vec![
-            "infra/systemd/cynic-node.service:ExecStart=/usr/local/bin/cynic-node",
+            "infra/systemd/installed/cynic-node.service:ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml",
             "contracts/foundation.json:constitutional.runtime_authority_order",
             "Cargo.toml:workspace.members includes crates/cynic-node",
         ],

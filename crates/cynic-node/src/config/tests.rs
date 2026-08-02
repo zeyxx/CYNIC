@@ -247,6 +247,34 @@ fn expand_env_vars_dollar_without_brace() {
 }
 
 #[test]
+fn node_control_config_loads_without_inference_sections() {
+    use std::io::Write;
+
+    let mut file = tempfile::NamedTempFile::new().unwrap();
+    file.write_all(
+        br#"
+[node_control]
+kernel_url = "http://kernel.synapse.cynic:3030"
+node_id = "cynic-builder"
+signing_key_path = "/var/lib/cynic/identity/node-signing.key"
+enrollment_request_path = "/var/lib/cynic/identity/enrollment-request.json"
+enrollment_grant_path = "/var/lib/cynic/identity/enrollment-grant.json"
+enrollment_authority_public_key_path = "/etc/cynic/enrollment-authority.pub"
+enrollment_token_path = "/var/lib/cynic/identity/enrollment-token"
+enrollment_seed_id = "cynic-builder"
+enrollment_role = "build_runner"
+observed_capabilities = ["build_runner"]
+"#,
+    )
+    .unwrap();
+
+    let config = load_node_control(file.path().to_str().unwrap()).unwrap();
+    assert_eq!(config.node_id, "cynic-builder");
+    assert_eq!(config.enrollment_role, "build_runner");
+    assert_eq!(config.observed_capabilities, vec!["build_runner"]);
+}
+
+#[test]
 fn load_fails_if_api_key_env_not_set() {
     use std::io::Write;
 

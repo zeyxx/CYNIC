@@ -142,10 +142,31 @@ fn mcp_surface_manifest(
             None,
         )
     })?;
-    let exposed_tools = active_mcp_exposed_tools(&exposure);
+    let desired_contract_digest = cynic_protocol::digest_json(&exposure).map_err(|error| {
+        McpError::internal_error(format!("cannot digest desired agent exposure: {error}"), None)
+    })?;
+    let compiled_contract_digest =
+        cynic_protocol::digest_json(&compiled_exposure).map_err(|error| {
+            McpError::internal_error(
+                format!("cannot digest compiled agent exposure: {error}"),
+                None,
+            )
+        })?;
+    let desired_tools = active_mcp_exposed_tools(&exposure);
     let compiled_capabilities = active_mcp_exposed_tools(&compiled_exposure);
-    let domains = mcp_domain_surface(&exposure);
+    let exposed_tools = compiled_capabilities.clone();
+    let domains = mcp_domain_surface(&compiled_exposure);
     let mut findings = mcp_surface_findings(&exposure);
+    findings.extend(mcp_surface_findings(&compiled_exposure));
+    if desired_contract_digest != compiled_contract_digest {
+        findings.push(serde_json::json!({
+            "severity": "critical",
+            "kind": "runtime_contract_projection_mismatch",
+            "desired_contract_digest": desired_contract_digest,
+            "compiled_contract_digest": compiled_contract_digest,
+            "detail": "the running artifact was not compiled from the currently desired agent exposure contract"
+        }));
+    }
     let desired_command = exposure
         .pointer("/mcp_servers/0/command")
         .and_then(|value| value.as_str())
@@ -157,29 +178,33 @@ fn mcp_surface_manifest(
         .as_deref()
         .and_then(|path| std::path::Path::new(path).file_name())
         .and_then(|name| name.to_str());
-    if observed_binary != Some(desired_command) {
+    let compiled_command = compiled_exposure
+        .pointer("/mcp_servers/0/command")
+        .and_then(|value| value.as_str())
+        .unwrap_or_default();
+    if observed_binary != Some(compiled_command) {
         findings.push(serde_json::json!({
             "severity": "critical",
             "kind": "runtime_binary_identity_mismatch",
-            "desired_command": desired_command,
+            "compiled_command": compiled_command,
             "observed_executable": observed_executable.clone(),
         }));
     }
-    let handshake = exposure
+    let desired_handshake = exposure
         .get("session_handshake")
         .cloned()
         .unwrap_or(serde_json::Value::Null);
     let requirement = cynic_protocol::RuntimeContractRequirement {
-        contract_id: handshake
+        contract_id: desired_handshake
             .get("contract_id")
             .and_then(|value| value.as_str())
             .unwrap_or_default()
             .to_string(),
-        contract_revision: handshake
+        contract_revision: desired_handshake
             .get("contract_revision")
             .and_then(|value| value.as_u64())
             .unwrap_or_default(),
-        required_capabilities: handshake
+        required_capabilities: desired_handshake
             .get("required_capabilities")
             .and_then(|value| value.as_array())
             .into_iter()
@@ -187,6 +212,7 @@ fn mcp_surface_manifest(
             .filter_map(|value| value.as_str())
             .map(ToString::to_string)
             .collect(),
+        contract_digest: Some(desired_contract_digest.clone()),
     };
     let compiled_handshake = compiled_exposure
         .get("session_handshake")
@@ -205,6 +231,7 @@ fn mcp_surface_manifest(
                 .get("contract_revision")
                 .and_then(|value| value.as_u64()),
             capabilities: Some(compiled_capabilities),
+            contract_digest: Some(compiled_contract_digest.clone()),
             evidence_refs: vec![format!("artifact:cynic-mcp:{}", env!("CYNIC_VERSION"))],
             unknowns: Vec::new(),
         },
@@ -227,12 +254,20 @@ fn mcp_surface_manifest(
         "server": "cynic",
         "canonical_binary": "crates/cynic-mcp",
         "desired_command": desired_command,
+        "compiled_command": compiled_command,
         "observed_executable": observed_executable,
-        "session_handshake": handshake,
+        "session_handshake": compiled_handshake,
         "runtime_compatibility": compatibility,
         "session_identity": session_identity,
         "constitutional_execution": agent_constitution_status(),
         "exposure_ssot": "infra/agent-exposure.json",
+        "compiled_contract_digest": compiled_contract_digest,
+        "desired_projection": {
+            "contract_digest": desired_contract_digest,
+            "session_handshake": desired_handshake,
+            "exposed_tool_count": desired_tools.len(),
+            "exposed_tools": desired_tools
+        },
         "agent_shell_fallback": serde_json::Value::Null,
         "policy": {
             "agent_primary_surface": "mcp",

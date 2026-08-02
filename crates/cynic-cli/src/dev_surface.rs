@@ -90,6 +90,8 @@ pub(crate) enum DevCommand {
         #[arg(long)]
         architecture_only: bool,
         #[arg(long)]
+        source_root: Option<std::path::PathBuf>,
+        #[arg(long)]
         target_root: Option<std::path::PathBuf>,
     },
 }
@@ -194,13 +196,16 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
         DevCommand::Check {
             json,
             architecture_only,
+            source_root,
             target_root,
         } => {
             if !json {
                 return ExitCode::FAILURE;
             }
-            let report = check::run_dev_check(target_root, architecture_only);
-            emit_json(&report, report.status != "ok")
+            match check::run_dev_check(source_root, target_root, architecture_only) {
+                Ok(report) => emit_json(&report, report.status != "ok"),
+                Err(error) => crate::fail(error),
+            }
         }
     }
 }

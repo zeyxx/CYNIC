@@ -83,9 +83,51 @@ fn cli_exposes_framework_bootstrap_as_canonical_surface() {
     );
     assert!(
         command_manifest
-            .contains("cynic dev check --json [--architecture-only] [--target-root <path>]"),
+            .contains("cynic dev check --json [--architecture-only] [--source-root <path>] [--target-root <path>]"),
         "CLI manifest must expose the dev check proof surface"
     );
+}
+
+#[test]
+fn dev_check_resolves_source_at_runtime_and_never_captures_the_build_checkout() {
+    let root = crate_root();
+    let rust_source = fs::read_to_string(root.join("src/rust_source.rs")).expect("rust source");
+    let dev_check =
+        fs::read_to_string(root.join("src/dev_surface/check.rs")).expect("dev check source");
+
+    assert!(!rust_source.contains("env!(\"CARGO_MANIFEST_DIR\")"));
+    assert!(!dev_check.contains("env!(\"CARGO_MANIFEST_DIR\")"));
+    assert!(rust_source.contains("CYNIC_SOURCE_ROOT"));
+    assert!(dev_check.contains("resolve_workspace_root(source_root.as_deref())"));
+}
+
+#[test]
+fn runtime_cli_cannot_claim_remote_build_proof_from_a_local_runner() {
+    let root = crate_root();
+    let runtime_surface =
+        fs::read_to_string(root.join("src/runtime_surface.rs")).expect("runtime surface");
+    let command_manifest =
+        fs::read_to_string(root.join("src/command_manifest.rs")).expect("command manifest");
+
+    assert!(!root.join("src/runtime_surface/build.rs").exists());
+    assert!(!runtime_surface.contains("RuntimeCommand::Build"));
+    assert!(!command_manifest.contains("cynic runtime build"));
+}
+
+#[test]
+fn installed_node_service_uses_the_role_control_runtime() {
+    let root = crate_root();
+    let service = fs::read_to_string(root.join("../../infra/systemd/installed/cynic-node.service"))
+        .expect("installed node service");
+    let bundle = fs::read_to_string(root.join("../cynic-host/src/framework_bootstrap/bundle.rs"))
+        .expect("framework bundle");
+
+    assert!(service.contains(
+        "ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml"
+    ));
+    assert!(bundle.contains("render_node_control_config"));
+    assert!(bundle.contains("etc/systemd/cynic-node.service"));
+    assert!(bundle.contains("etc/node-control.toml"));
 }
 
 #[test]

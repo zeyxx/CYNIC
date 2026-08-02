@@ -182,7 +182,7 @@
       "role": "build_runner",
       "host_family": "linux.ubuntu.systemd",
       "status": "candidate",
-      "deploy_target": false,
+      "deploy_target": true,
       "proxmox_id": "lxc/105",
       "transports": {
         "ssh": {
@@ -205,7 +205,20 @@
           }
         ]
       },
-      "services": []
+      "services": [
+        {
+          "name": "cynic-node",
+          "artifact": "cynic-node",
+          "unit": "cynic-node.service",
+          "supervisor": {
+            "provider": "systemd"
+          },
+          "health": {
+            "kind": "process",
+            "process": "cynic-node"
+          }
+        }
+      ]
     },
     {
       "id": "forgejo",

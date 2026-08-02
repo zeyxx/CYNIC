@@ -115,7 +115,11 @@ fn build_runner_bundle_projects_node_and_registry() {
     std::fs::write(artifacts.join("cynic"), b"cli payload").expect("cli artifact");
     std::fs::write(artifacts.join("cynic-node"), b"node payload").expect("node artifact");
     let registry = root.join("registry.json");
-    std::fs::write(&registry, br#"{"schema":"test"}"#).expect("registry");
+    std::fs::write(
+        &registry,
+        br#"{"schema":"test","nodes":[{"id":"cynic-builder","role":"build_runner","services":[]}]}"#,
+    )
+    .expect("registry");
 
     let report = super::write_framework_bootstrap_bundle_for_role(
         out.to_str().expect("path"),
@@ -129,11 +133,25 @@ fn build_runner_bundle_projects_node_and_registry() {
     assert_eq!(report.required_role, "build_runner");
     assert!(out.join("bin/cynic-node").is_file());
     assert!(out.join("etc/registry.json").is_file());
+    assert!(out.join("etc/node-control.toml").is_file());
+    assert!(out.join("etc/systemd/cynic-node.service").is_file());
+    let control = std::fs::read_to_string(out.join("etc/node-control.toml")).expect("control");
+    assert!(control.contains("node_id = \"cynic-builder\""));
+    assert!(control.contains("enrollment_role = \"build_runner\""));
+    assert!(control.contains("kernel_url = \"${CYNIC_KERNEL_URL}\""));
+    assert!(!control.contains("[dog]"));
+    let service =
+        std::fs::read_to_string(out.join("etc/systemd/cynic-node.service")).expect("service");
+    assert!(service.contains(
+        "ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml"
+    ));
     let seed = std::fs::read_to_string(out.join("seed-manifest.json")).expect("seed");
     assert!(seed.contains(r#""target_role": "build_runner""#));
     let checksums = std::fs::read_to_string(out.join("seed-artifacts.sha256")).expect("checksums");
     assert!(checksums.contains("  bin/cynic-node"));
     assert!(checksums.contains("  etc/registry.json"));
+    assert!(checksums.contains("  etc/node-control.toml"));
+    assert!(checksums.contains("  etc/systemd/cynic-node.service"));
     std::fs::remove_dir_all(root).expect("cleanup");
 }
 

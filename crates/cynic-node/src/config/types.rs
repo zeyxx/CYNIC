@@ -47,6 +47,11 @@ pub(crate) struct NodeControlConfig {
 }
 
 #[derive(Debug, Deserialize)]
+pub(crate) struct NodeControlRuntimeConfig {
+    pub(crate) node_control: NodeControlConfig,
+}
+
+#[derive(Debug, Deserialize)]
 pub(crate) struct WatchdogConfig {
     pub(crate) kernel: KernelConfig,
     pub(crate) node: NodeConfig,

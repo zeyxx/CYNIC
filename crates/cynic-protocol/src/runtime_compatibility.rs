@@ -2,13 +2,15 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-pub const RUNTIME_COMPATIBILITY_PLAN_SCHEMA: &str = "cynic.runtime_compatibility.plan.v1";
+pub const RUNTIME_COMPATIBILITY_PLAN_SCHEMA: &str = "cynic.runtime_compatibility.plan.v2";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuntimeContractRequirement {
     pub contract_id: String,
     pub contract_revision: u64,
     pub required_capabilities: Vec<String>,
+    #[serde(default)]
+    pub contract_digest: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,6 +20,8 @@ pub struct RuntimeContractObservation {
     pub contract_id: Option<String>,
     pub contract_revision: Option<u64>,
     pub capabilities: Option<Vec<String>>,
+    #[serde(default)]
+    pub contract_digest: Option<String>,
     pub evidence_refs: Vec<String>,
     pub unknowns: Vec<String>,
 }
@@ -38,6 +42,8 @@ pub struct RuntimeCompatibilityPlan {
     pub required_revision: u64,
     pub observed_revision: Option<u64>,
     pub artifact_version: Option<String>,
+    pub required_contract_digest: Option<String>,
+    pub observed_contract_digest: Option<String>,
     pub missing_capabilities: Vec<String>,
     pub evidence_refs: Vec<String>,
     pub unknowns: Vec<String>,
@@ -73,6 +79,9 @@ pub fn reconcile_runtime_compatibility(
     if observation.capabilities.is_none() {
         unknowns.push("runtime_capabilities_unobserved".to_string());
     }
+    if requirement.contract_digest.is_some() && observation.contract_digest.is_none() {
+        unknowns.push("runtime_contract_digest_unobserved".to_string());
+    }
     unknowns.sort();
     unknowns.dedup();
 
@@ -83,7 +92,16 @@ pub fn reconcile_runtime_compatibility(
     let revision_too_old = observation
         .contract_revision
         .is_some_and(|observed| observed < requirement.contract_revision);
-    let status = if identity_mismatch || revision_too_old || !missing_capabilities.is_empty() {
+    let digest_mismatch = requirement
+        .contract_digest
+        .as_ref()
+        .zip(observation.contract_digest.as_ref())
+        .is_some_and(|(required, observed)| required != observed);
+    let status = if identity_mismatch
+        || revision_too_old
+        || digest_mismatch
+        || !missing_capabilities.is_empty()
+    {
         RuntimeCompatibilityStatus::Incompatible
     } else if !unknowns.is_empty() {
         RuntimeCompatibilityStatus::Unknown
@@ -98,6 +116,8 @@ pub fn reconcile_runtime_compatibility(
         required_revision: requirement.contract_revision,
         observed_revision: observation.contract_revision,
         artifact_version: observation.artifact_version.clone(),
+        required_contract_digest: requirement.contract_digest.clone(),
+        observed_contract_digest: observation.contract_digest.clone(),
         missing_capabilities,
         evidence_refs: observation.evidence_refs.clone(),
         unknowns,
@@ -116,6 +136,7 @@ mod tests {
                 "cynic_mcp_surface".to_string(),
                 "cynic_source_control".to_string(),
             ],
+            contract_digest: Some("sha256:desired".to_string()),
         }
     }
 
@@ -129,6 +150,7 @@ mod tests {
                 contract_id: Some("cynic.agent_mcp".to_string()),
                 contract_revision: Some(2),
                 capabilities: Some(vec!["cynic_mcp_surface".to_string()]),
+                contract_digest: Some("sha256:desired".to_string()),
                 evidence_refs: vec!["binary:sha256:abc".to_string()],
                 unknowns: vec![],
             },
@@ -148,6 +170,7 @@ mod tests {
                 contract_id: Some("cynic.agent_mcp".to_string()),
                 contract_revision: Some(2),
                 capabilities: None,
+                contract_digest: Some("sha256:desired".to_string()),
                 evidence_refs: vec![],
                 unknowns: vec![],
             },
@@ -173,11 +196,42 @@ mod tests {
                     "cynic_source_control".to_string(),
                     "cynic_mcp_surface".to_string(),
                 ]),
+                contract_digest: Some("sha256:desired".to_string()),
                 evidence_refs: vec![],
                 unknowns: vec![],
             },
         );
 
         assert_eq!(plan.status, RuntimeCompatibilityStatus::Compatible);
+    }
+
+    #[test]
+    fn rejects_same_revision_and_capabilities_when_the_compiled_contract_differs() {
+        let plan = reconcile_runtime_compatibility(
+            &requirement(),
+            &RuntimeContractObservation {
+                component: "cynic-mcp".to_string(),
+                artifact_version: Some("v2".to_string()),
+                contract_id: Some("cynic.agent_mcp".to_string()),
+                contract_revision: Some(2),
+                capabilities: Some(vec![
+                    "cynic_source_control".to_string(),
+                    "cynic_mcp_surface".to_string(),
+                ]),
+                contract_digest: Some("sha256:compiled-old".to_string()),
+                evidence_refs: vec![],
+                unknowns: vec![],
+            },
+        );
+
+        assert_eq!(plan.status, RuntimeCompatibilityStatus::Incompatible);
+        assert_eq!(
+            plan.required_contract_digest.as_deref(),
+            Some("sha256:desired")
+        );
+        assert_eq!(
+            plan.observed_contract_digest.as_deref(),
+            Some("sha256:compiled-old")
+        );
     }
 }

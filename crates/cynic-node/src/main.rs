@@ -44,10 +44,12 @@ mod network_runtime_proof;
 mod network_runtime_status;
 mod network_shadow_proof;
 mod network_surface_inventory;
+mod node_control_runtime;
 mod observe;
 mod provider_fallback_hosts;
 mod provider_fallback_status;
 mod runtime_supervision;
+mod shutdown;
 mod source_change_transaction;
 mod supervise;
 mod system_probe;
@@ -69,9 +71,6 @@ use clap::Parser;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
-use crate::adapters::http_node_control::HttpNodeControlAdapter;
-use crate::adapters::local_node_control_observer::LocalNodeControlObserver;
-use crate::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
 use crate::cli::{Cli, Commands, ReleaseCommands};
 use crate::usecases::agent_scheduler_step_uc;
 use crate::usecases::agent_source_change_uc;
@@ -85,42 +84,7 @@ use crate::usecases::source_admission_uc;
 use crate::usecases::source_materialization_uc;
 use crate::usecases::source_repository_bootstrap_uc;
 use crate::usecases::storage_lifecycle_uc;
-
-// ── Signal handler ────────────────────────────────────────────────────────────
-
-/// Install OS signal handlers and cancel `shutdown` when a signal arrives.
-///
-/// On Unix: listens for SIGTERM and SIGINT.
-/// On Windows: listens for Ctrl-C.
-fn install_signal_handler(shutdown: CancellationToken) {
-    #[cfg(unix)]
-    tokio::spawn(async move {
-        use tokio::signal::unix::{SignalKind, signal};
-        match signal(SignalKind::terminate()) {
-            Err(e) => {
-                // WHY: If we cannot install SIGTERM, log the failure but continue.
-                // SIGINT (ctrl-c) is still available. The process can still be stopped
-                // via SIGKILL if needed. Aborting here would be worse than degraded mode.
-                tracing::warn!("SIGTERM handler install failed ({e}) — only SIGINT will work");
-                tokio::signal::ctrl_c().await.ok();
-            }
-            Ok(mut sigterm) => {
-                tokio::select! {
-                    _ = sigterm.recv() => tracing::info!("SIGTERM received — shutting down"),
-                    _ = tokio::signal::ctrl_c() => tracing::info!("SIGINT received — shutting down"),
-                }
-            }
-        }
-        shutdown.cancel();
-    });
-
-    #[cfg(windows)]
-    tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.ok();
-        tracing::info!("Ctrl-C received — shutting down");
-        shutdown.cancel();
-    });
-}
+use shutdown::install_signal_handler;
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
@@ -133,6 +97,9 @@ async fn main() -> ExitCode {
     let cli = Cli::parse();
 
     match cli.command {
+        Some(Commands::Control { config, check }) => {
+            return node_control_runtime::run(&config, check).await;
+        }
         Some(Commands::Observe {
             json: _,
             registry,
@@ -369,28 +336,7 @@ async fn main() -> ExitCode {
             tracing::error!("--config is required for --watchdog");
             return ExitCode::FAILURE;
         };
-        let cfg = match config::load_watchdog(config_path) {
-            Ok(c) => c,
-            Err(e) => {
-                tracing::error!("watchdog config error: {e}");
-                return ExitCode::FAILURE;
-            }
-        };
-
-        let client = match reqwest::Client::builder()
-            .timeout(Duration::from_secs(cfg.watchdog.http_timeout_secs))
-            .build()
-        {
-            Ok(c) => c,
-            Err(e) => {
-                tracing::error!("HTTP client init failed: {e}");
-                return ExitCode::FAILURE;
-            }
-        };
-
-        let shutdown = CancellationToken::new();
-        install_signal_handler(shutdown.clone());
-        return watchdog::run_watchdog(&client, cfg, &shutdown).await;
+        return watchdog::execute(config_path).await;
     }
 
     let Some(config_path) = cli.config.as_deref() else {
@@ -421,86 +367,13 @@ async fn main() -> ExitCode {
     install_signal_handler(shutdown.clone());
 
     let node_tasks = if let Some(control) = cfg.node_control.clone() {
-        let adapter = match HttpNodeControlAdapter::new(
-            control.kernel_url,
-            control.signing_key_path.clone(),
-            Duration::from_secs(control.timeout_secs),
-        ) {
-            Ok(adapter) => adapter,
+        match node_control_runtime::start_tasks(control, shutdown.clone()).await {
+            Ok(tasks) => tasks,
             Err(error) => {
-                tracing::error!("node-control configuration is invalid: {error}");
+                tracing::error!("{error}");
                 return ExitCode::FAILURE;
             }
-        };
-        let enrollment_reader = LocalNodeEnrollmentReader::new(
-            control.enrollment_request_path.clone(),
-            control.enrollment_grant_path.clone(),
-            control.enrollment_authority_public_key_path.clone(),
-            control.signing_key_path.clone(),
-        );
-        let mut enrollment = enrollment_reader.read_back(&control.node_id);
-        let mut enrollment_issued = false;
-        if enrollment.state != cynic_protocol::SecurityEvidenceState::Proven
-            && !control.enrollment_grant_path.is_file()
-        {
-            match adapter
-                .bootstrap_enrollment(
-                    &control.node_id,
-                    &control.enrollment_role,
-                    &control.enrollment_seed_id,
-                    control.enrollment_requested_capabilities.clone(),
-                    control.enrollment_request_ttl_secs,
-                    &control.enrollment_token_path,
-                    &control.enrollment_request_path,
-                    &control.enrollment_grant_path,
-                )
-                .await
-            {
-                Ok(()) => {
-                    enrollment = enrollment_reader.read_back(&control.node_id);
-                    enrollment_issued = true;
-                }
-                Err(error) => enrollment
-                    .unknowns
-                    .push(format!("automatic_enrollment_failed:{error}")),
-            }
         }
-        if enrollment_issued && enrollment.state == cynic_protocol::SecurityEvidenceState::Proven {
-            if let Err(error) = std::fs::remove_file(&control.enrollment_token_path) {
-                enrollment
-                    .unknowns
-                    .push(format!("consumed_enrollment_token_cleanup_failed:{error}"));
-            }
-        }
-        let observer = LocalNodeControlObserver::new(
-            control.node_id.clone(),
-            enrollment_reader.clone(),
-            control.observed_capabilities.clone(),
-            control.observed_services.clone(),
-        );
-        let control_shutdown = shutdown.clone();
-        let control_adapter = adapter.clone();
-        let control_config = control.clone();
-        let control_task = tokio::spawn(async move {
-            usecases::node_control_plane_uc::run_node_control_loop(
-                &control_config.node_id,
-                Duration::from_secs(control_config.interval_secs),
-                &control_adapter,
-                &observer,
-                &control_adapter,
-                &control_shutdown,
-            )
-            .await;
-        });
-        let renewal_task = tokio::spawn(
-            usecases::node_enrollment_lifecycle_uc::run_enrollment_renewal_loop(
-                adapter,
-                enrollment_reader,
-                control,
-                shutdown.clone(),
-            ),
-        );
-        vec![control_task, renewal_task]
     } else {
         tracing::warn!("node_control is not configured; desired-state reconciliation is inactive");
         Vec::new()

@@ -19,6 +19,15 @@ pub(crate) struct Cli {
 
 #[derive(Subcommand)]
 pub(crate) enum Commands {
+    /// Run only the node-owned control and enrollment loops for a declared runtime role.
+    Control {
+        /// Role-projected node-control TOML; no inference backend fields are required.
+        #[arg(long, default_value = "/etc/cynic/node-control.toml")]
+        config: String,
+        /// Validate and project the resolved role config without starting loops.
+        #[arg(long)]
+        check: bool,
+    },
     /// Emit local node observation JSON and exit.
     Observe {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.

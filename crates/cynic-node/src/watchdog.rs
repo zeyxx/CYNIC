@@ -12,9 +12,33 @@ use reqwest::Client;
 use tokio_util::sync::CancellationToken;
 
 use crate::config::WatchdogConfig;
+use crate::{config, shutdown::install_signal_handler};
 
 use kernel_bridge::post_observation;
 use sampler::LocalSampler;
+
+pub(crate) async fn execute(config_path: &str) -> ExitCode {
+    let cfg = match config::load_watchdog(config_path) {
+        Ok(config) => config,
+        Err(error) => {
+            tracing::error!("watchdog config error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let client = match Client::builder()
+        .timeout(Duration::from_secs(cfg.watchdog.http_timeout_secs))
+        .build()
+    {
+        Ok(client) => client,
+        Err(error) => {
+            tracing::error!("HTTP client init failed: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let shutdown = CancellationToken::new();
+    install_signal_handler(shutdown.clone());
+    run_watchdog(&client, cfg, &shutdown).await
+}
 
 pub(crate) async fn run_watchdog(
     client: &Client,

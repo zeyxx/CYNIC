@@ -10,6 +10,8 @@ HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
 SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
 CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
 NODE_TARGET="${CYNIC_NODE_BINARY:-/usr/local/bin/cynic-node}"
+NODE_CONTROL_CONFIG_TARGET="${CYNIC_NODE_CONTROL_CONFIG:-/etc/cynic/node-control.toml}"
+NODE_SERVICE_TARGET="${CYNIC_NODE_SERVICE_UNIT:-/etc/systemd/system/cynic-node.service}"
 REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-/etc/cynic/registry.json}"
 STORAGE_CONFIG_TARGET="${CYNIC_STORAGE_CONFIG:-/etc/cynic/storage.toml}"
 LXC_BRIDGE_TARGET="${CYNIC_LXC_EXEC_BRIDGE_HELPER:-/usr/local/libexec/cynic-lxc-exec-bridge}"
@@ -72,6 +74,14 @@ if [ -x "$ROOT/bin/cynic-node" ]; then
   install -d -o root -g root -m 0755 "$(dirname "$NODE_TARGET")"
   install -o root -g root -m 0755 "$ROOT/bin/cynic-node" "$NODE_TARGET"
 fi
+if [ -f "$ROOT/etc/node-control.toml" ]; then
+  install -d -o root -g "$RUNTIME_GROUP" -m 0755 "$(dirname "$NODE_CONTROL_CONFIG_TARGET")"
+  install -o root -g "$RUNTIME_GROUP" -m 0640 "$ROOT/etc/node-control.toml" "$NODE_CONTROL_CONFIG_TARGET"
+fi
+if [ -f "$ROOT/etc/systemd/cynic-node.service" ]; then
+  install -d -o root -g root -m 0755 "$(dirname "$NODE_SERVICE_TARGET")"
+  install -o root -g root -m 0644 "$ROOT/etc/systemd/cynic-node.service" "$NODE_SERVICE_TARGET"
+fi
 if [ -f "$ROOT/etc/registry.json" ]; then
   install -d -o root -g "$RUNTIME_GROUP" -m 0755 "$(dirname "$REGISTRY_TARGET")"
   install -o root -g "$RUNTIME_GROUP" -m 0644 "$ROOT/etc/registry.json" "$REGISTRY_TARGET"
@@ -106,6 +116,8 @@ SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
 EVIDENCE_DIR="${CYNIC_BOOTSTRAP_EVIDENCE_DIR:-/var/lib/cynic/bootstrap}"
 CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
 NODE_TARGET="${CYNIC_NODE_BINARY:-/usr/local/bin/cynic-node}"
+NODE_CONTROL_CONFIG_TARGET="${CYNIC_NODE_CONTROL_CONFIG:-/etc/cynic/node-control.toml}"
+NODE_SERVICE_TARGET="${CYNIC_NODE_SERVICE_UNIT:-/etc/systemd/system/cynic-node.service}"
 REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-/etc/cynic/registry.json}"
 STORAGE_CONFIG_TARGET="${CYNIC_STORAGE_CONFIG:-/etc/cynic/storage.toml}"
 LXC_BRIDGE_TARGET="${CYNIC_LXC_EXEC_BRIDGE_HELPER:-/usr/local/libexec/cynic-lxc-exec-bridge}"
@@ -119,8 +131,15 @@ if [ -x "$CLI_TARGET" ]; then
 fi
 if [ -x "$NODE_TARGET" ]; then
   test -f "$REGISTRY_TARGET"
-  test -f "$STORAGE_CONFIG_TARGET"
+  if [ -f "$STORAGE_CONFIG_TARGET" ]; then
+    test -r "$STORAGE_CONFIG_TARGET"
+  fi
   "$NODE_TARGET" registry-observation --json --registry "$REGISTRY_TARGET" > "$EVIDENCE_DIR/node-registry-observation.json"
+  if [ -f "$NODE_CONTROL_CONFIG_TARGET" ]; then
+    test -f "$NODE_SERVICE_TARGET"
+    grep -F "ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml" "$NODE_SERVICE_TARGET" >/dev/null
+    "$NODE_TARGET" control --config "$NODE_CONTROL_CONFIG_TARGET" --check > "$EVIDENCE_DIR/node-control-config-check.json"
+  fi
 fi
 if [ -x "$LXC_BRIDGE_TARGET" ]; then
   sudo -u "$RUNTIME_USER" sudo -n "$LXC_BRIDGE_TARGET" --status > "$EVIDENCE_DIR/lxc-exec-bridge-status.json"

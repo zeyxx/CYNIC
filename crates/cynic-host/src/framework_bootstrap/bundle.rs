@@ -15,7 +15,10 @@ use crate::framework_bootstrap::scripts::{
 use crate::framework_bootstrap::types::FrameworkBootstrapBundleReport;
 
 mod files;
+mod node_control;
 mod seed;
+
+use node_control::render_node_control_config;
 
 pub fn write_framework_bootstrap_bundle(
     output_dir: &str,
@@ -173,6 +176,22 @@ pub fn write_framework_bootstrap_bundle_for_role(
         write_file(
             output_dir.join("etc/storage.toml"),
             storage_config,
+            output_dir,
+            &mut files,
+        )?;
+    }
+    if let Some(registry) = registry_value.as_ref()
+        && let Some(node_control_config) = render_node_control_config(registry, role)?
+    {
+        write_file(
+            output_dir.join("etc/node-control.toml"),
+            node_control_config,
+            output_dir,
+            &mut files,
+        )?;
+        write_file(
+            output_dir.join("etc/systemd/cynic-node.service"),
+            include_str!("../../../../infra/systemd/installed/cynic-node.service").to_string(),
             output_dir,
             &mut files,
         )?;

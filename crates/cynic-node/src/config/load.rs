@@ -1,4 +1,6 @@
-use super::{Config, FederationConfig, WatchdogConfig};
+use super::{
+    Config, FederationConfig, NodeControlConfig, NodeControlRuntimeConfig, WatchdogConfig,
+};
 use crate::domain::runtime_federation::{
     DEFAULT_NODE_PUBLIC_KEY, RuntimeFederationConfig, default_queue_dir, kernel_websocket_url,
 };
@@ -55,6 +57,68 @@ pub(crate) fn load_watchdog(path: &str) -> Result<WatchdogConfig, String> {
     resolve_kernel_api_key(&mut cfg.kernel.api_key, &cfg.kernel.api_key_env)?;
     validate_watchdog(&cfg)?;
     Ok(cfg)
+}
+
+pub(crate) fn load_node_control(path: &str) -> Result<NodeControlConfig, String> {
+    let raw =
+        std::fs::read_to_string(path).map_err(|e| format!("cannot read config {path}: {e}"))?;
+    let mut cfg: NodeControlRuntimeConfig =
+        toml::from_str(&raw).map_err(|e| format!("config parse error in {path}: {e}"))?;
+    expand_node_control(&mut cfg.node_control)?;
+    validate_node_control(&cfg.node_control)?;
+    Ok(cfg.node_control)
+}
+
+fn expand_node_control(cfg: &mut NodeControlConfig) -> Result<(), String> {
+    cfg.kernel_url = expand_env_vars(&cfg.kernel_url)?;
+    cfg.node_id = expand_env_vars(&cfg.node_id)?;
+    cfg.enrollment_seed_id = expand_env_vars(&cfg.enrollment_seed_id)?;
+    cfg.enrollment_role = expand_env_vars(&cfg.enrollment_role)?;
+    cfg.signing_key_path = expand_path(&cfg.signing_key_path)?;
+    cfg.enrollment_request_path = expand_path(&cfg.enrollment_request_path)?;
+    cfg.enrollment_grant_path = expand_path(&cfg.enrollment_grant_path)?;
+    cfg.enrollment_authority_public_key_path =
+        expand_path(&cfg.enrollment_authority_public_key_path)?;
+    cfg.enrollment_token_path = expand_path(&cfg.enrollment_token_path)?;
+    Ok(())
+}
+
+fn expand_path(path: &std::path::Path) -> Result<std::path::PathBuf, String> {
+    expand_env_vars(&path.display().to_string()).map(std::path::PathBuf::from)
+}
+
+pub(crate) fn validate_node_control(cfg: &NodeControlConfig) -> Result<(), String> {
+    for (name, value) in [
+        ("node_control.kernel_url", cfg.kernel_url.as_str()),
+        ("node_control.node_id", cfg.node_id.as_str()),
+        (
+            "node_control.enrollment_seed_id",
+            cfg.enrollment_seed_id.as_str(),
+        ),
+        ("node_control.enrollment_role", cfg.enrollment_role.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            return Err(format!("{name} must be non-empty"));
+        }
+    }
+    if cfg.interval_secs == 0 || cfg.timeout_secs == 0 {
+        return Err("node_control interval_secs and timeout_secs must be > 0".to_string());
+    }
+    for (name, path) in [
+        ("signing_key_path", &cfg.signing_key_path),
+        ("enrollment_request_path", &cfg.enrollment_request_path),
+        ("enrollment_grant_path", &cfg.enrollment_grant_path),
+        (
+            "enrollment_authority_public_key_path",
+            &cfg.enrollment_authority_public_key_path,
+        ),
+        ("enrollment_token_path", &cfg.enrollment_token_path),
+    ] {
+        if !path.is_absolute() {
+            return Err(format!("node_control.{name} must be an absolute path"));
+        }
+    }
+    Ok(())
 }
 
 fn resolve_kernel_api_key(api_key: &mut String, env_name: &str) -> Result<(), String> {

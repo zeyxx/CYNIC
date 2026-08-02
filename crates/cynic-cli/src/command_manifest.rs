@@ -40,7 +40,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic runtime conformance --json [--profile <name> | --node <name>] [--registry <path>]",
                     "cynic runtime metrics --json [--profile <name> | --node <name>] [--registry <path>] [--proof <runtime-proof-bundle.json>]",
                     "cynic runtime proof-persist --json --proof <runtime-proof-persistence.json> [--endpoint <kernel-url>]",
-                    "cynic runtime build --json --source-snapshot <source-snapshot.json> --registry <registry.json> --kernel-endpoint <url> --agent-id <id> --lease-id <id> --fencing-token <n> --artifact <path> [--apply] -- <argv...>",
                     "cynic runtime storage-capabilities --json [--url <surrealdb-url>]",
                     "cynic runtime execution-context --json [--host <name>]...",
                     "cynic runtime network-preflight --json [--host <name>]...",
@@ -84,7 +83,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic dev surface-audit --json [--output <path>] [--persist]",
                     "cynic dev surface-matrix --json [--output <path>] [--persist]",
                     "cynic dev agent-exposure --json [--output <path>] [--persist]",
-                    "cynic dev check --json [--architecture-only] [--target-root <path>]",
+                    "cynic dev check --json [--architecture-only] [--source-root <path>] [--target-root <path>]",
                 ],
             },
             CommandDomain {

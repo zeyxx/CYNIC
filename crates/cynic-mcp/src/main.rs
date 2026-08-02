@@ -144,6 +144,10 @@ fn runtime_contract_report() -> Result<cynic_protocol::RuntimeCompatibilityPlan,
     let compiled_handshake = compiled
         .get("session_handshake")
         .ok_or_else(|| "compiled MCP handshake is absent".to_string())?;
+    let desired_contract_digest = cynic_protocol::digest_json(&desired)
+        .map_err(|error| format!("cannot digest desired MCP contract: {error}"))?;
+    let compiled_contract_digest = cynic_protocol::digest_json(&compiled)
+        .map_err(|error| format!("cannot digest compiled MCP contract: {error}"))?;
     let requirement = cynic_protocol::RuntimeContractRequirement {
         contract_id: desired_handshake
             .get("contract_id")
@@ -162,6 +166,7 @@ fn runtime_contract_report() -> Result<cynic_protocol::RuntimeCompatibilityPlan,
             .filter_map(|value| value.as_str())
             .map(ToString::to_string)
             .collect(),
+        contract_digest: Some(desired_contract_digest),
     };
     Ok(cynic_protocol::reconcile_runtime_compatibility(
         &requirement,
@@ -176,6 +181,7 @@ fn runtime_contract_report() -> Result<cynic_protocol::RuntimeCompatibilityPlan,
                 .get("contract_revision")
                 .and_then(|value| value.as_u64()),
             capabilities: Some(active_mcp_tools(&compiled)),
+            contract_digest: Some(compiled_contract_digest),
             evidence_refs: vec![format!("artifact:cynic-mcp:{}", env!("CYNIC_VERSION"))],
             unknowns: Vec::new(),
         },
