@@ -18,19 +18,20 @@
 
 use schemars::JsonSchema;
 use serde::Deserialize;
-use std::{fs, path::PathBuf, sync::Arc};
+use std::{borrow::Cow, fs, path::PathBuf, sync::Arc};
 
 use rmcp::{
-    ErrorData as McpError, ServerHandler, handler::server::tool::ToolRouter,
-    handler::server::wrapper::Parameters, model::*, tool, tool_handler, tool_router,
+    handler::server::tool::ToolRouter, handler::server::wrapper::Parameters, model::*,
+    service::MaybeSendFuture, tool, tool_handler, tool_router, ErrorData as McpError,
+    ServerHandler,
 };
 
 use crate::kernel_session::KernelSessionClient;
 use crate::session_identity::SessionIdentity;
 use crate::types::{
-    AgentConnectionStatusParams, AskesisLogParams, AttentionParams, AuditQueryParams,
-    BatchClaimParams, ClaimAgentTaskParams, ClaimParams, ComplianceParams,
-    CoordinationArtifactShareParams, CoordinationContractManifestParams,
+    validate_agent_id, validate_agent_task_content, AgentConnectionStatusParams, AskesisLogParams,
+    AttentionParams, AuditQueryParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
+    ComplianceParams, CoordinationArtifactShareParams, CoordinationContractManifestParams,
     CoordinationDecisionRecordParams, CoordinationStatusPublishParams,
     CoordinationStatusReadParams, CoordinationThreadReplyParams, DispatchAgentTaskParams,
     DockerContainerInspectParams, DockerContainerListParams, DockerContainerLogsParams,
@@ -49,7 +50,6 @@ use crate::types::{
     SourceControlParams, SshTargetInspectParams, StoragePrimaryBundleParams,
     StoragePrimaryPlanParams, StoragePrimaryReadinessParams, StoragePrimaryStatusParams,
     UpdateAgentTaskResultParams, ValidateParams, WatchPendingAgentTasksParams, WhoParams,
-    validate_agent_id, validate_agent_task_content,
 };
 use cynic_host::ports::argv_execution::{
     ArgvExecutionPort, ArgvExecutionRequest, LocalArgvExecutionAdapter,

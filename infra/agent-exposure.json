@@ -13,6 +13,7 @@
   },
   "mcp_protocol_profile": {
     "target_revision": "2026-07-28",
+    "rust_sdk": "rmcp-3.1.0",
     "transport": "streamable_http",
     "runtime_transport_modes": {
       "compatibility": "stdio",
@@ -42,7 +43,7 @@
       "transport": "stdio",
       "status": "compatibility_only"
     },
-    "implementation_status": "migration_required",
+    "implementation_status": "source_ready_runtime_unproven",
     "block_until": [
       "stateless_streamable_http_read_back",
       "final_response_wire_read_back",

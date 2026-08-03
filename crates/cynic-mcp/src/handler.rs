@@ -2,36 +2,26 @@
 
 #[tool_handler]
 impl ServerHandler for CynicMcpProxy {
-    async fn on_custom_request(
+    fn supported_protocol_versions(
         &self,
-        request: CustomRequest,
-        context: rmcp::service::RequestContext<rmcp::RoleServer>,
-    ) -> Result<CustomResult, McpError> {
-        if request.method != crate::protocol::DISCOVERY_METHOD {
-            return Err(McpError::new(
-                ErrorCode::METHOD_NOT_FOUND,
-                request.method,
-                None,
-            ));
-        }
+    ) -> std::borrow::Cow<'static, [rmcp::model::ProtocolVersion]> {
+        Cow::Owned(vec![
+            rmcp::model::ProtocolVersion::V_2025_11_25,
+            rmcp::model::ProtocolVersion::V_2026_07_28,
+        ])
+    }
 
-        let exposure = load_agent_exposure(&self.project_root)?;
-        let request_meta_observed = !context.meta.0.is_empty()
-            || request
-                .params
-                .as_ref()
-                .and_then(|params| params.get("_meta"))
-                .is_some_and(serde_json::Value::is_object);
-        let transport = if std::env::var("CYNIC_MCP_TRANSPORT")
-            .ok()
-            .is_some_and(|value| value.trim().eq_ignore_ascii_case("streamable_http"))
-        {
-            crate::transport::STREAMABLE_HTTP_TRANSPORT_LABEL
-        } else {
-            "stdio_legacy"
-        };
-        let result = crate::protocol::discovery_result(&exposure, request_meta_observed, transport);
-        Ok(CustomResult::new(result))
+    fn discover(
+        &self,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> impl std::future::Future<Output = Result<rmcp::model::DiscoverResult, McpError>>
+           + MaybeSendFuture
+           + '_ {
+        let result = rmcp::model::DiscoverResult::from_server_info(
+            self.supported_protocol_versions().into_owned(),
+            self.get_info(),
+        );
+        std::future::ready(Ok(result))
     }
 
     fn get_info(&self) -> ServerInfo {
@@ -189,16 +179,12 @@ mod infrastructure_contract_tests {
             .and_then(|value| value.as_array())
             .expect("names should be an array");
 
-        assert!(
-            names
-                .iter()
-                .any(|name| name.as_str() == Some("organ-surrealdb.synapse.cynic"))
-        );
-        assert!(
-            !names
-                .iter()
-                .any(|name| name.as_str() == Some("organ-surrealdb"))
-        );
+        assert!(names
+            .iter()
+            .any(|name| name.as_str() == Some("organ-surrealdb.synapse.cynic")));
+        assert!(!names
+            .iter()
+            .any(|name| name.as_str() == Some("organ-surrealdb")));
     }
 
     #[test]
@@ -209,11 +195,9 @@ mod infrastructure_contract_tests {
         assert_eq!(report["policy_status"], "ok");
         assert_eq!(report["dns_status"], "not_checked");
         assert_eq!(report["runtime_status"], "not_observed");
-        assert!(
-            report["records"]
-                .as_array()
-                .is_some_and(|items| !items.is_empty())
-        );
+        assert!(report["records"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
     }
 
     #[test]
@@ -444,11 +428,9 @@ mod infrastructure_contract_tests {
         let plan = run_lxc_exec_bridge_plan(&params).unwrap();
         assert_eq!(plan["schema"], "cynic.lxc_exec_bridge.install_plan.v1");
         assert_eq!(plan["status"], "planned");
-        assert!(
-            plan["helper_source"]
-                .as_str()
-                .is_some_and(|path| path.ends_with("cynic-lxc-exec-bridge"))
-        );
+        assert!(plan["helper_source"]
+            .as_str()
+            .is_some_and(|path| path.ends_with("cynic-lxc-exec-bridge")));
     }
 
     #[test]
@@ -1227,8 +1209,8 @@ mod infrastructure_mcp_contract_tests {
     #[test]
     fn infrastructure_mcp_contract_rejects_tool_drift() {
         let mut contract = contract_fixture();
-        contract["operation_families"]["storage"]["operations"]["storage.primary.status"]["mcp_tool"] =
-            serde_json::json!("wrong_tool");
+        contract["operation_families"]["storage"]["operations"]["storage.primary.status"]
+            ["mcp_tool"] = serde_json::json!("wrong_tool");
 
         let findings =
             infrastructure_mcp_contract_findings("axioms/infrastructure-mcp-v1.json", &contract);
@@ -1242,8 +1224,8 @@ mod infrastructure_mcp_contract_tests {
     #[test]
     fn infrastructure_mcp_contract_rejects_missing_readiness_dependency() {
         let mut contract = contract_fixture();
-        contract["operation_families"]["storage"]["operations"]["storage.primary.readiness"]["composes"] =
-            serde_json::json!(["storage.primary.status"]);
+        contract["operation_families"]["storage"]["operations"]["storage.primary.readiness"]
+            ["composes"] = serde_json::json!(["storage.primary.status"]);
 
         let findings =
             infrastructure_mcp_contract_findings("axioms/infrastructure-mcp-v1.json", &contract);

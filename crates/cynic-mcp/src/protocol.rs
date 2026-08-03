@@ -1,8 +1,8 @@
 //! MCP protocol-profile projections that are independent of transport adapters.
 //!
-//! The runtime currently serves the legacy stdio compatibility path.  This
-//! module exposes the 2026-07-28 discovery contract without claiming that the
-//! stateless Streamable HTTP implementation is complete.
+//! The runtime uses the official rmcp 3.x wire implementation for the
+//! 2026-07-28 target and retains stdio as an explicit compatibility path. This
+//! module projects the same profile without claiming installed-artifact proof.
 
 use serde_json::{json, Value};
 
@@ -112,7 +112,7 @@ mod tests {
                 "request_metadata": "per_request_meta",
                 "tasks": "extension",
                 "tool_schema": "json_schema_2020_12",
-                "implementation_status": "migration_required"
+                "implementation_status": "source_ready_runtime_unproven"
             },
             "mcp_servers": [{"name": "cynic", "tools": [{"name": "cynic_mcp_surface"}]}]
         });
@@ -129,7 +129,10 @@ mod tests {
         );
         assert_eq!(result["ttlMs"], 0);
         assert_eq!(result["cacheScope"], "private");
-        assert_eq!(result["implementation_status"], "migration_required");
+        assert_eq!(
+            result["implementation_status"],
+            "source_ready_runtime_unproven"
+        );
         assert_eq!(result["read_back"]["discovery_method_served"], true);
         assert_eq!(result["read_back"]["stateless_transport_read_back"], false);
         assert_eq!(
