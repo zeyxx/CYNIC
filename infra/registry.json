@@ -54,6 +54,16 @@
         "mode": "permanent",
         "expires_at_ms": null
       }
+    ],
+    "bindings": [
+      {
+        "schema": "cynic.storage_binding.v1",
+        "id": "runtime_artifact_store_binding",
+        "volume_id": "storage_primary_artifacts",
+        "claim_id": "runtime_artifact_store_claim",
+        "mount_path": "/data",
+        "service": "runtime-artifact-store"
+      }
     ]
   },
   "node_enrollment": {

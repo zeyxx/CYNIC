@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 pub const STORAGE_CLASS_SCHEMA: &str = "cynic.storage_class.v1";
 pub const STORAGE_VOLUME_SCHEMA: &str = "cynic.storage_volume.v1";
 pub const STORAGE_CLAIM_SCHEMA: &str = "cynic.storage_claim.v1";
+pub const STORAGE_BINDING_SCHEMA: &str = "cynic.storage_binding.v1";
 pub const STORAGE_RESIZE_REQUEST_SCHEMA: &str = "cynic.storage_resize_request.v1";
 pub const STORAGE_OBSERVATION_SCHEMA: &str = "cynic.storage_observation.v1";
 pub const STORAGE_PLAN_SCHEMA: &str = "cynic.storage_plan.v1";
@@ -77,6 +78,16 @@ pub struct StorageClaimSpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageBindingSpec {
+    pub schema: String,
+    pub id: String,
+    pub volume_id: String,
+    pub claim_id: String,
+    pub mount_path: String,
+    pub service: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageResizeRequest {
     pub schema: String,
     pub request_id: String,
@@ -129,6 +140,8 @@ pub struct StorageRegistry {
     pub classes: Vec<StorageClassSpec>,
     pub volumes: Vec<StorageVolumeSpec>,
     pub claims: Vec<StorageClaimSpec>,
+    #[serde(default)]
+    pub bindings: Vec<StorageBindingSpec>,
 }
 
 pub fn validate_storage_registry(registry: &StorageRegistry) -> Vec<String> {
@@ -157,6 +170,33 @@ pub fn validate_storage_registry(registry: &StorageRegistry) -> Vec<String> {
     for claim in &registry.claims {
         if !class_ids.contains(claim.class_id.as_str()) {
             blockers.push(format!("storage_claim_class_missing:{}", claim.id));
+        }
+    }
+    let volume_ids = registry
+        .volumes
+        .iter()
+        .map(|volume| volume.id.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let claim_ids = registry
+        .claims
+        .iter()
+        .map(|claim| claim.id.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    if registry.bindings.is_empty() {
+        blockers.push("storage_bindings_missing".to_string());
+    }
+    for binding in &registry.bindings {
+        if binding.schema != STORAGE_BINDING_SCHEMA {
+            blockers.push(format!("storage_binding_schema_mismatch:{}", binding.id));
+        }
+        if !volume_ids.contains(binding.volume_id.as_str()) {
+            blockers.push(format!("storage_binding_volume_missing:{}", binding.id));
+        }
+        if !claim_ids.contains(binding.claim_id.as_str()) {
+            blockers.push(format!("storage_binding_claim_missing:{}", binding.id));
+        }
+        if binding.mount_path.is_empty() || binding.service.is_empty() {
+            blockers.push(format!("storage_binding_target_incomplete:{}", binding.id));
         }
     }
     blockers
@@ -397,6 +437,7 @@ mod tests {
             classes: vec![class],
             volumes: vec![volume],
             claims: vec![claim],
+            bindings: Vec::new(),
         };
         let blockers = validate_storage_registry(&registry);
         assert!(
