@@ -10,6 +10,21 @@ pub const TARGET_REVISION: &str = "2026-07-28";
 pub const DISCOVERY_METHOD: &str = "server/discover";
 pub const SDK_VERSION_CAPABILITY: &str = "mcp_sdk:rmcp-3.1.0";
 
+/// Whether the checked-in source implements the target protocol.
+///
+/// Capability advertisement is a statement about the compiled implementation;
+/// runtime freshness and deployment proof are separate observations. Keeping
+/// those dimensions distinct prevents a freshly rebuilt artifact from being
+/// unable to advertise the very capability needed for its read-back check.
+pub fn source_implements_target(exposure: &Value) -> bool {
+    matches!(
+        exposure
+            .pointer("/mcp_protocol_profile/implementation_status")
+            .and_then(Value::as_str),
+        Some("ready") | Some("source_ready_runtime_unproven")
+    )
+}
+
 /// Return the active CYNIC tool definitions from the exposure SSOT.
 ///
 /// Compatibility checks, discovery, and surface projections must all consume
@@ -152,5 +167,25 @@ mod tests {
             ]
         });
         assert_eq!(exposed_tool_names(&exposure), vec!["first", "second"]);
+    }
+
+    #[test]
+    fn source_capability_is_separate_from_runtime_read_back() {
+        let source_ready = json!({
+            "mcp_protocol_profile": {
+                "implementation_status": "source_ready_runtime_unproven"
+            }
+        });
+        assert!(source_implements_target(&source_ready));
+
+        let runtime_ready = json!({
+            "mcp_protocol_profile": {"implementation_status": "ready"}
+        });
+        assert!(source_implements_target(&runtime_ready));
+
+        let unknown = json!({
+            "mcp_protocol_profile": {"implementation_status": "unknown"}
+        });
+        assert!(!source_implements_target(&unknown));
     }
 }

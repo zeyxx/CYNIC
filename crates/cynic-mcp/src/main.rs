@@ -197,11 +197,7 @@ fn runtime_contract_report() -> Result<cynic_protocol::RuntimeCompatibilityPlan,
         contract_digest: Some(desired_contract_digest),
     };
     let mut compatibility_capabilities = cynic_mcp::protocol::exposed_tool_names(&compiled);
-    if compiled
-        .pointer("/mcp_protocol_profile/implementation_status")
-        .and_then(|value| value.as_str())
-        == Some("ready")
-    {
+    if cynic_mcp::protocol::source_implements_target(&compiled) {
         compatibility_capabilities.push("mcp_protocol_profile:2026-07-28".to_string());
         compatibility_capabilities.push(cynic_mcp::protocol::SDK_VERSION_CAPABILITY.to_string());
     }
