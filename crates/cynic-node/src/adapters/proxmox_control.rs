@@ -198,6 +198,26 @@ impl ProxmoxControlAdapter {
             .await
     }
 
+    pub async fn lxc_resize(
+        &self,
+        node: &str,
+        vmid: &str,
+        disk: &str,
+        size_gib: u64,
+    ) -> Result<Value, String> {
+        validate_provider_component("node", node)?;
+        validate_provider_component("vmid", vmid)?;
+        validate_provider_component("disk", disk)?;
+        if size_gib == 0 {
+            return Err("Proxmox LXC resize size must be non-zero".to_string());
+        }
+        self.post_form_json(
+            &format!("/api2/json/nodes/{node}/lxc/{vmid}/resize"),
+            &[("disk", disk.to_string()), ("size", format!("{size_gib}G"))],
+        )
+        .await
+    }
+
     pub async fn task_status(&self, node: &str, upid: &str) -> Result<Value, String> {
         validate_provider_component("node", node)?;
         if upid.is_empty()

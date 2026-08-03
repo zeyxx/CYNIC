@@ -33,6 +33,7 @@ pub mod storage_controller_store_port;
 pub mod storage_guest_port;
 pub mod storage_lease_port;
 pub mod storage_lifecycle_port;
+pub mod storage_mutation_port;
 pub mod storage_provider_port;
 pub mod system_probe_port;
 pub mod target_discovery_port;

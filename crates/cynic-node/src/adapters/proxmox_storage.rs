@@ -2,6 +2,9 @@ use cynic_protocol::{STORAGE_OBSERVATION_SCHEMA, StorageObservation, StoragePhas
 use serde_json::Value;
 
 use crate::adapters::proxmox_control::ProxmoxControlAdapter;
+use crate::ports::storage_mutation_port::{
+    StorageMutationPort, StorageMutationRequest, StorageMutationResult,
+};
 use crate::ports::storage_provider_port::{StorageProviderPort, StorageProviderTarget};
 
 #[derive(Debug, Clone, Copy)]
@@ -93,6 +96,43 @@ impl StorageProviderPort for ProxmoxStorageAdapter<'_> {
                 "guest_free_space_not_observed".to_string(),
                 "storage_service_health_not_observed".to_string(),
             ],
+        })
+    }
+}
+
+impl StorageMutationPort for ProxmoxStorageAdapter<'_> {
+    async fn resize_volume(
+        &self,
+        request: &StorageMutationRequest,
+    ) -> Result<StorageMutationResult, String> {
+        if !request.approved {
+            return Err("storage_mutation_requires_explicit_approval".to_string());
+        }
+        if request.target_bytes <= request.observed_provider_bytes {
+            return Err("storage_provider_resize_must_grow".to_string());
+        }
+        let gib = 1024_u64.pow(3);
+        if request.target_bytes % gib != 0 {
+            return Err("storage_provider_resize_requires_gib_alignment".to_string());
+        }
+        let payload = self
+            .provider
+            .lxc_resize(
+                &request.node,
+                &request.vmid,
+                &request.disk_key,
+                request.target_bytes / gib,
+            )
+            .await?;
+        let operation_ref = payload
+            .pointer("/data")
+            .and_then(Value::as_str)
+            .unwrap_or("proxmox_resize_task")
+            .to_string();
+        Ok(StorageMutationResult {
+            accepted: true,
+            operation_ref,
+            evidence_refs: vec!["proxmox_lxc_resize_accepted".to_string()],
         })
     }
 }
