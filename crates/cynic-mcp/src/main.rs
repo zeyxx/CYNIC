@@ -48,6 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("  CYNIC_AGENT_CAPABILITIES_JSON   Explicit requested capability grants");
         eprintln!("  CYNIC_AGENT_ID    Agent principal bound to this MCP process");
         eprintln!("  CYNIC_AGENT_TYPE  Agent kind used when generating a process principal");
+        eprintln!("  CYNIC_MCP_TRANSPORT  stdio (default) or streamable_http");
+        eprintln!("  CYNIC_MCP_LISTEN  Bind address for streamable_http (default 127.0.0.1:8787)");
         eprintln!(
             "  CYNIC_MCP_PROJECT_ROOT   Optional explicit MCP project root for local diagnostics tooling"
         );
@@ -104,16 +106,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
     };
 
-    let transport = rmcp::transport::io::stdio();
-    let server = proxy
-        .serve(transport)
-        .await
-        .map_err(|error| std::io::Error::other(format!("MCP proxy error: {error}")))?;
+    let transport_mode = std::env::var("CYNIC_MCP_TRANSPORT")
+        .unwrap_or_else(|_| "stdio".to_string())
+        .trim()
+        .to_ascii_lowercase();
+    match transport_mode.as_str() {
+        "stdio" => {
+            let transport = rmcp::transport::io::stdio();
+            let server = proxy
+                .serve(transport)
+                .await
+                .map_err(|error| std::io::Error::other(format!("MCP proxy error: {error}")))?;
 
-    tokio::select! {
-        _ = server.waiting() => {}
-        _ = shutdown.cancelled() => {
-            tracing::info!("cynic-mcp shutting down");
+            tokio::select! {
+                _ = server.waiting() => {}
+                _ = shutdown.cancelled() => {
+                    tracing::info!("cynic-mcp shutting down");
+                }
+            }
+        }
+        cynic_mcp::transport::STREAMABLE_HTTP_MODE => {
+            let listen =
+                std::env::var("CYNIC_MCP_LISTEN").unwrap_or_else(|_| "127.0.0.1:8787".to_string());
+            cynic_mcp::transport::serve_streamable_http(proxy, &listen, shutdown.clone())
+                .await
+                .map_err(|error| {
+                    std::io::Error::other(format!("MCP HTTP transport error: {error}"))
+                })?;
+        }
+        other => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "unsupported CYNIC_MCP_TRANSPORT={other}; expected stdio or streamable_http"
+                ),
+            )
+            .into());
         }
     }
 

@@ -16,11 +16,16 @@ impl ServerHandler for CynicMcpProxy {
         }
 
         let exposure = load_agent_exposure(&self.project_root)?;
-        let result = crate::protocol::discovery_result(
-            &exposure,
-            !context.meta.0.is_empty(),
-            "stdio_legacy",
-        );
+        let transport = if std::env::var("CYNIC_MCP_TRANSPORT")
+            .ok()
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("streamable_http"))
+        {
+            crate::transport::STREAMABLE_HTTP_TRANSPORT_LABEL
+        } else {
+            "stdio_legacy"
+        };
+        let result =
+            crate::protocol::discovery_result(&exposure, !context.meta.0.is_empty(), transport);
         Ok(CustomResult::new(result))
     }
 

@@ -13,6 +13,13 @@
   "mcp_protocol_profile": {
     "target_revision": "2026-07-28",
     "transport": "streamable_http",
+    "runtime_transport_modes": {
+      "compatibility": "stdio",
+      "target": "streamable_http",
+      "selection": "CYNIC_MCP_TRANSPORT",
+      "listen_env": "CYNIC_MCP_LISTEN",
+      "default_mode": "stdio"
+    },
     "stateless_core": true,
     "discovery_method": "server/discover",
     "request_metadata": "per_request_meta",
