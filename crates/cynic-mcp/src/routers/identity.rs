@@ -21,10 +21,13 @@ impl CynicMcpProxy {
         let all_known_present = identities.iter().all(|identity| identity.present);
         let result = serde_json::json!({
             "schema": "cynic.identity.attestation.v2",
-            "status": if all_known_present { "ready" } else { "enrollment_required" },
+            "status": if all_known_present { "process_identity_ready" } else { "process_identity_incomplete" },
+            "scope": "mcp_process",
+            "authority": "local_process_environment_and_secret_presence",
             "all_known_present": all_known_present,
             "identities": identities,
             "secret_exposed": false,
+            "next_action": "observe provider_control_status and node enrollment separately; process identity does not prove provider enrollment",
         });
         Ok(CallToolResult::success(vec![Content::text(
             result.to_string(),
