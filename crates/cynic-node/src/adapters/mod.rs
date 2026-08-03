@@ -40,6 +40,7 @@ pub mod local_source_materialization;
 pub mod local_source_repository_bootstrap;
 pub mod local_source_snapshot_acquisition;
 pub mod local_storage_lifecycle;
+pub mod local_storage_guest;
 pub mod local_system_probe;
 pub mod provider_fallback_probe;
 pub mod proxmox;

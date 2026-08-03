@@ -15,6 +15,57 @@ impl<'a> ProxmoxStorageAdapter<'a> {
     }
 }
 
+/// Join provider and guest read-backs without allowing either adapter to
+/// manufacture the other's evidence. Missing dimensions remain unknown.
+pub fn merge_storage_observations(
+    provider: &StorageObservation,
+    guest: &StorageObservation,
+) -> Result<StorageObservation, String> {
+    if provider.volume_id != guest.volume_id {
+        return Err("storage provider and guest observations target different volumes".to_string());
+    }
+    let mut evidence_refs = provider.evidence_refs.clone();
+    evidence_refs.extend(guest.evidence_refs.iter().cloned());
+    let mut unknowns = provider.unknowns.clone();
+    unknowns.extend(guest.unknowns.iter().cloned());
+    if guest.filesystem_bytes.is_some() {
+        unknowns.retain(|unknown| {
+            unknown != "guest_filesystem_size_not_observed"
+                && unknown != "guest_filesystem_capacity_not_read_back"
+        });
+    }
+    if guest.free_bytes.is_some() {
+        unknowns.retain(|unknown| {
+            unknown != "guest_free_space_not_observed"
+                && unknown != "guest_filesystem_capacity_not_read_back"
+        });
+    }
+    if guest.service_ready == Some(true) {
+        unknowns.retain(|unknown| {
+            unknown != "storage_service_health_not_observed"
+                && unknown != "storage_service_health_not_ready"
+                && unknown != "storage_service_state_not_read_back"
+        });
+    }
+    unknowns.sort();
+    unknowns.dedup();
+    Ok(StorageObservation {
+        schema: STORAGE_OBSERVATION_SCHEMA.to_string(),
+        volume_id: provider.volume_id.clone(),
+        phase: if unknowns.is_empty() {
+            StoragePhase::Ready
+        } else {
+            StoragePhase::Unknown
+        },
+        provider_bytes: provider.provider_bytes,
+        filesystem_bytes: guest.filesystem_bytes.or(provider.filesystem_bytes),
+        free_bytes: guest.free_bytes.or(provider.free_bytes),
+        service_ready: guest.service_ready.or(provider.service_ready),
+        evidence_refs,
+        unknowns,
+    })
+}
+
 impl StorageProviderPort for ProxmoxStorageAdapter<'_> {
     async fn observe_volume(
         &self,
