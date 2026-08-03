@@ -41,6 +41,8 @@ pub struct RuntimeReleaseAdmission {
     pub desired_state_digest: Option<String>,
     pub terminal_record_digest: Option<String>,
     pub build_proof_digest: String,
+    #[serde(default)]
+    pub deployment_epoch_id: Option<String>,
     pub publication_proof_digest: Option<String>,
     #[serde(default)]
     pub violations: Vec<String>,
@@ -166,6 +168,9 @@ pub fn admit_runtime_release(
         desired_state_digest: digest_json(&declaration.desired_state).ok(),
         terminal_record_digest: delivery.terminal_record_digest.clone(),
         build_proof_digest: proof_digest.clone(),
+        deployment_epoch_id: runtime_release_deployment_epoch(declaration, 1)
+            .ok()
+            .map(|epoch| epoch.epoch_id),
         publication_proof_digest: publication_ref.map(|reference| reference.digest.clone()),
         violations,
     }
