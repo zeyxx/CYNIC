@@ -230,6 +230,7 @@ fn mcp_surface_manifest(
             unknowns: Vec::new(),
         },
     );
+    let compatibility_actions = cynic_protocol::runtime_compatibility_actions(&compatibility);
     if compatibility.status != cynic_protocol::RuntimeCompatibilityStatus::Compatible {
         findings.push(serde_json::json!({
             "severity": "critical",
@@ -276,6 +277,7 @@ fn mcp_surface_manifest(
         "protocol_profile": compiled_exposure.get("mcp_protocol_profile").cloned().unwrap_or(serde_json::Value::Null),
         "server_discovery": protocol_discovery,
         "runtime_compatibility": compatibility,
+        "runtime_compatibility_actions": compatibility_actions,
         "registry_read_back": registry_read_back,
         "session_identity": session_identity,
         "constitutional_execution": agent_constitution_status(),

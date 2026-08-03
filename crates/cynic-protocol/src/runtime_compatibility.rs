@@ -124,6 +124,24 @@ pub fn reconcile_runtime_compatibility(
     }
 }
 
+/// Project bounded operator actions from an observed compatibility result.
+/// These are instructions only; applying them remains owned by the release
+/// federation and requires its own admission/read-back proof.
+pub fn runtime_compatibility_actions(plan: &RuntimeCompatibilityPlan) -> Vec<String> {
+    match plan.status {
+        RuntimeCompatibilityStatus::Compatible => Vec::new(),
+        RuntimeCompatibilityStatus::Incompatible => vec![
+            "publish_canonical_runtime_artifact_through_release_federation".to_string(),
+            "read_back_runtime_contract_revision_capabilities_and_digest".to_string(),
+            "activate_scheduler_only_after_runtime_read_back_proof".to_string(),
+        ],
+        RuntimeCompatibilityStatus::Unknown => vec![
+            "observe_runtime_contract_revision_capabilities_and_digest".to_string(),
+            "retain_unknown_until_runtime_read_back_is_proven".to_string(),
+        ],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
