@@ -6,6 +6,7 @@ pub const STORAGE_CLAIM_SCHEMA: &str = "cynic.storage_claim.v1";
 pub const STORAGE_RESIZE_REQUEST_SCHEMA: &str = "cynic.storage_resize_request.v1";
 pub const STORAGE_OBSERVATION_SCHEMA: &str = "cynic.storage_observation.v1";
 pub const STORAGE_PLAN_SCHEMA: &str = "cynic.storage_plan.v1";
+pub const STORAGE_REGISTRY_SCHEMA: &str = "cynic.storage_registry.v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -120,6 +121,45 @@ pub struct StoragePlan {
     pub blockers: Vec<String>,
     pub expected_proofs: Vec<String>,
     pub rollback_intent: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageRegistry {
+    pub schema: String,
+    pub classes: Vec<StorageClassSpec>,
+    pub volumes: Vec<StorageVolumeSpec>,
+    pub claims: Vec<StorageClaimSpec>,
+}
+
+pub fn validate_storage_registry(registry: &StorageRegistry) -> Vec<String> {
+    let mut blockers = Vec::new();
+    if registry.schema != STORAGE_REGISTRY_SCHEMA {
+        blockers.push("storage_registry_schema_mismatch".to_string());
+    }
+    if registry.classes.is_empty() || registry.volumes.is_empty() || registry.claims.is_empty() {
+        blockers.push("storage_registry_resources_missing".to_string());
+    }
+    let class_ids = registry
+        .classes
+        .iter()
+        .map(|class| class.id.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    for class in &registry.classes {
+        if class.minimum_bytes > class.maximum_bytes {
+            blockers.push(format!("storage_class_bounds_invalid:{}", class.id));
+        }
+    }
+    for volume in &registry.volumes {
+        if !class_ids.contains(volume.class_id.as_str()) {
+            blockers.push(format!("storage_volume_class_missing:{}", volume.id));
+        }
+    }
+    for claim in &registry.claims {
+        if !class_ids.contains(claim.class_id.as_str()) {
+            blockers.push(format!("storage_claim_class_missing:{}", claim.id));
+        }
+    }
+    blockers
 }
 
 pub fn reconcile_storage(
@@ -345,6 +385,24 @@ mod tests {
             plan.blockers
                 .iter()
                 .any(|item| item == "storage_resize_below_claim_request")
+        );
+    }
+
+    #[test]
+    fn registry_rejects_claims_for_unknown_classes() {
+        let (class, volume, mut claim, _, _) = fixtures();
+        claim.class_id = "missing".to_string();
+        let registry = StorageRegistry {
+            schema: STORAGE_REGISTRY_SCHEMA.to_string(),
+            classes: vec![class],
+            volumes: vec![volume],
+            claims: vec![claim],
+        };
+        let blockers = validate_storage_registry(&registry);
+        assert!(
+            blockers
+                .iter()
+                .any(|item| item == "storage_claim_class_missing:claim-1")
         );
     }
 }

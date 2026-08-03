@@ -137,6 +137,19 @@ fn build_desired_state(
         fs::read(registry_path).map_err(|error| vec![format!("registry_unavailable:{error}")])?;
     let registry: serde_json::Value = serde_json::from_slice(&bytes)
         .map_err(|error| vec![format!("registry_invalid_json:{error}")])?;
+    let mut unknowns = Vec::new();
+    match registry.get("storage_registry") {
+        Some(value) => {
+            let storage_registry =
+                serde_json::from_value::<cynic_protocol::StorageRegistry>(value.clone())
+                    .map_err(|error| vec![format!("storage_registry_invalid:{error}")])?;
+            let blockers = cynic_protocol::validate_storage_registry(&storage_registry);
+            if !blockers.is_empty() {
+                return Err(blockers);
+            }
+        }
+        None => unknowns.push("storage_registry_not_declared".to_string()),
+    }
     let nodes = registry
         .get("nodes")
         .and_then(serde_json::Value::as_array)
@@ -247,7 +260,6 @@ fn build_desired_state(
     let provider = required_string(target, "provider", "storage_primary_provider_missing")?;
     let resource_id =
         required_string(target, "resource_id", "storage_primary_resource_id_missing")?;
-    let mut unknowns = Vec::new();
     if !schema_path.is_file() {
         unknowns.push("storage_schema_source_not_observed".to_string());
     }

@@ -321,10 +321,11 @@ pub use storage_identity::{
 };
 pub use storage_lifecycle::{
     STORAGE_CLAIM_SCHEMA, STORAGE_CLASS_SCHEMA, STORAGE_OBSERVATION_SCHEMA, STORAGE_PLAN_SCHEMA,
-    STORAGE_RESIZE_REQUEST_SCHEMA, STORAGE_VOLUME_SCHEMA, StorageClaimSpec, StorageClassSpec,
-    StorageDecision, StorageManagementAction, StorageObservation, StoragePhase, StoragePlan,
-    StorageReclaimPolicy, StorageResizeMode, StorageResizeRequest, StorageVolumeSpec,
-    reconcile_storage,
+    STORAGE_REGISTRY_SCHEMA, STORAGE_RESIZE_REQUEST_SCHEMA, STORAGE_VOLUME_SCHEMA,
+    StorageClaimSpec, StorageClassSpec, StorageDecision, StorageManagementAction,
+    StorageObservation, StoragePhase, StoragePlan, StorageReclaimPolicy, StorageRegistry,
+    StorageResizeMode, StorageResizeRequest, StorageVolumeSpec, reconcile_storage,
+    validate_storage_registry,
 };
 pub use supervision::{
     SERVICE_SUPERVISOR_OBSERVATION_EVIDENCE_ID, SERVICE_SUPERVISOR_OBSERVATION_SCHEMA,

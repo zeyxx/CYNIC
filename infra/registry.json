@@ -20,6 +20,42 @@
     "signer_identity": "cynic-release",
     "signature_namespace": "cynic-runtime-seed"
   },
+  "storage_registry": {
+    "schema": "cynic.storage_registry.v1",
+    "classes": [
+      {
+        "schema": "cynic.storage_class.v1",
+        "id": "artifact_store",
+        "provider": "proxmox",
+        "management_policy": ["observe", "update"],
+        "reclaim_policy": "retain",
+        "allow_expansion": true,
+        "allow_shrink": false,
+        "minimum_bytes": 10737418240,
+        "maximum_bytes": 1099511627776
+      }
+    ],
+    "volumes": [
+      {
+        "schema": "cynic.storage_volume.v1",
+        "id": "storage_primary_artifacts",
+        "class_id": "artifact_store",
+        "provider_resource_id": "lxc/103:mp0",
+        "owner": "runtime-artifact-store"
+      }
+    ],
+    "claims": [
+      {
+        "schema": "cynic.storage_claim.v1",
+        "id": "runtime_artifact_store_claim",
+        "owner": "runtime-artifact-store",
+        "class_id": "artifact_store",
+        "requested_bytes": 8589934592,
+        "mode": "permanent",
+        "expires_at_ms": null
+      }
+    ]
+  },
   "node_enrollment": {
     "schema": "cynic.node_enrollment.desired_state.v1",
     "authority_role": "kernel_primary",
