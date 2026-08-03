@@ -146,6 +146,7 @@
     {
       "id": "local-kernel",
       "name": "local-kernel",
+      "host_node_id": "cynic-host-cortex",
       "role": "kernel_primary",
       "status": "candidate",
       "deploy_target": true,

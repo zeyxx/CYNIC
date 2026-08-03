@@ -23,10 +23,12 @@ pub fn resolve_local_machine_enrollment_authority_spec(
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|error| format!("machine_enrollment_clock_invalid:{error}"))?
         .as_secs();
+    let observed_hostname = crate::runtime_layout::observed_hostname();
     resolve_machine_enrollment_authority_spec(
         registry_path,
         seed_manifest_path,
         node_id,
+        &observed_hostname,
         &authority.config_root,
         staging_root,
         owner_id,
@@ -45,6 +47,9 @@ struct RegistryDocument {
 struct RegistryNode {
     id: Option<String>,
     name: Option<String>,
+    host_node_id: Option<String>,
+    #[serde(default)]
+    aliases: Vec<String>,
     role: Option<String>,
     #[serde(default)]
     services: Vec<RegistryService>,
@@ -75,6 +80,7 @@ pub fn resolve_machine_enrollment_authority_spec(
     registry_path: &Path,
     seed_manifest_path: &Path,
     node_id: &str,
+    observed_hostname: &str,
     config_root: &Path,
     staging_root: &Path,
     owner_id: u32,
@@ -124,6 +130,23 @@ pub fn resolve_machine_enrollment_authority_spec(
     let [authority_node] = authority_nodes.as_slice() else {
         return Err("machine_enrollment_authority_node_not_unique".to_string());
     };
+    let authority_host_selector = authority_node
+        .host_node_id
+        .as_deref()
+        .or(authority_node.id.as_deref())
+        .or(authority_node.name.as_deref())
+        .ok_or_else(|| "machine_enrollment_authority_host_placement_missing".to_string())?;
+    let authority_hosts = registry
+        .nodes
+        .iter()
+        .filter(|node| node_matches(node, authority_host_selector))
+        .collect::<Vec<_>>();
+    let [authority_host] = authority_hosts.as_slice() else {
+        return Err("machine_enrollment_authority_host_placement_not_unique".to_string());
+    };
+    if observed_hostname.trim().is_empty() || !node_matches(authority_host, observed_hostname) {
+        return Err("machine_enrollment_authority_host_identity_mismatch".to_string());
+    }
     let endpoint_count = authority_node
         .services
         .iter()
@@ -165,4 +188,10 @@ fn valid_sha256(value: &str) -> bool {
     value.strip_prefix("sha256:").is_some_and(|digest| {
         digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
     })
+}
+
+fn node_matches(node: &RegistryNode, value: &str) -> bool {
+    node.id.as_deref() == Some(value)
+        || node.name.as_deref() == Some(value)
+        || node.aliases.iter().any(|alias| alias == value)
 }
