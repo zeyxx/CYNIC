@@ -25,15 +25,17 @@ impl CynicMcpProxy {
         let provider_control_process_configured = provider_control_process.endpoint
             && provider_control_process.client_identity
             && provider_control_process.credential;
+        let process_identity_ready = all_known_present && provider_control_process_configured;
         let result = serde_json::json!({
             "schema": "cynic.identity.attestation.v2",
-            "status": if all_known_present { "process_identity_ready" } else { "process_identity_incomplete" },
+            "status": if process_identity_ready { "process_identity_ready" } else { "process_identity_incomplete" },
             "scope": "mcp_process",
             "authority": "local_process_environment_and_secret_presence",
             "all_known_present": all_known_present,
             "identities": identities,
             "provider_control_process": provider_control_process,
             "provider_control_process_configured": provider_control_process_configured,
+            "process_identity_ready": process_identity_ready,
             "secret_exposed": false,
             "next_action": "observe provider_control_status and node enrollment separately; process identity does not prove provider enrollment",
         });
