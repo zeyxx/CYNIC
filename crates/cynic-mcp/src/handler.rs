@@ -5,10 +5,19 @@ impl ServerHandler for CynicMcpProxy {
     fn supported_protocol_versions(
         &self,
     ) -> std::borrow::Cow<'static, [rmcp::model::ProtocolVersion]> {
-        Cow::Owned(vec![
-            rmcp::model::ProtocolVersion::V_2026_07_28,
-            rmcp::model::ProtocolVersion::V_2025_11_25,
-        ])
+        let versions = crate::protocol::supported_protocol_revisions()
+            .into_iter()
+            .filter_map(|revision| match revision {
+                crate::protocol::TARGET_REVISION => {
+                    Some(rmcp::model::ProtocolVersion::V_2026_07_28)
+                }
+                crate::protocol::LEGACY_REVISION => {
+                    Some(rmcp::model::ProtocolVersion::V_2025_11_25)
+                }
+                _ => None,
+            })
+            .collect();
+        Cow::Owned(versions)
     }
 
     fn discover(
