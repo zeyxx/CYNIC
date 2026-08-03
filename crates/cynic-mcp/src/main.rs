@@ -196,7 +196,7 @@ fn runtime_contract_report() -> Result<cynic_protocol::RuntimeCompatibilityPlan,
             .collect(),
         contract_digest: Some(desired_contract_digest),
     };
-    let mut compatibility_capabilities = active_mcp_tools(&compiled);
+    let mut compatibility_capabilities = cynic_mcp::protocol::exposed_tool_names(&compiled);
     if compiled
         .pointer("/mcp_protocol_profile/implementation_status")
         .and_then(|value| value.as_str())
@@ -222,20 +222,4 @@ fn runtime_contract_report() -> Result<cynic_protocol::RuntimeCompatibilityPlan,
             unknowns: Vec::new(),
         },
     ))
-}
-
-fn active_mcp_tools(exposure: &serde_json::Value) -> Vec<String> {
-    exposure
-        .get("mcp_servers")
-        .and_then(|value| value.as_array())
-        .into_iter()
-        .flatten()
-        .find(|server| server.get("name").and_then(|value| value.as_str()) == Some("cynic"))
-        .and_then(|server| server.get("tools"))
-        .and_then(|value| value.as_array())
-        .into_iter()
-        .flatten()
-        .filter_map(|tool| tool.get("name").and_then(|value| value.as_str()))
-        .map(ToString::to_string)
-        .collect()
 }

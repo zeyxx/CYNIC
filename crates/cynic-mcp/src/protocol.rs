@@ -9,6 +9,36 @@ use serde_json::{Value, json};
 pub const TARGET_REVISION: &str = "2026-07-28";
 pub const DISCOVERY_METHOD: &str = "server/discover";
 
+/// Return the active CYNIC tool definitions from the exposure SSOT.
+///
+/// Compatibility checks, discovery, and surface projections must all consume
+/// this one decision primitive instead of rebuilding the registry traversal.
+pub fn exposed_tool_definitions(exposure: &Value) -> Vec<Value> {
+    exposure
+        .get("mcp_servers")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .find(|server| server.get("name").and_then(Value::as_str) == Some("cynic"))
+        .and_then(|server| server.get("tools"))
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect()
+}
+
+pub fn exposed_tool_names(exposure: &Value) -> Vec<String> {
+    exposed_tool_definitions(exposure)
+        .into_iter()
+        .filter_map(|tool| {
+            tool.get("name")
+                .and_then(Value::as_str)
+                .map(ToString::to_string)
+        })
+        .collect()
+}
+
 /// Build the machine-readable discovery result from the same exposure SSOT
 /// used by the runtime contract and the client projections.
 pub fn discovery_result(exposure: &Value, request_meta_observed: bool, transport: &str) -> Value {
@@ -16,15 +46,7 @@ pub fn discovery_result(exposure: &Value, request_meta_observed: bool, transport
         .get("mcp_protocol_profile")
         .cloned()
         .unwrap_or_else(|| json!({}));
-    let tools = exposure
-        .get("mcp_servers")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .find(|server| server.get("name").and_then(Value::as_str) == Some("cynic"))
-        .and_then(|server| server.get("tools"))
-        .cloned()
-        .unwrap_or_else(|| json!([]));
+    let tools = Value::Array(exposed_tool_definitions(exposure));
     let implementation_status = profile
         .get("implementation_status")
         .and_then(Value::as_str)
@@ -88,5 +110,16 @@ mod tests {
             "blocked_scheduler_runtime_unproven"
         );
         assert_eq!(result["request_metadata"]["observed"], true);
+    }
+
+    #[test]
+    fn exposed_tools_are_selected_from_the_cynic_server_only() {
+        let exposure = json!({
+            "mcp_servers": [
+                {"name": "other", "tools": [{"name": "ignore"}]},
+                {"name": "cynic", "tools": [{"name": "first"}, {"name": "second"}]}
+            ]
+        });
+        assert_eq!(exposed_tool_names(&exposure), vec!["first", "second"]);
     }
 }

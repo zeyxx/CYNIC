@@ -18,22 +18,6 @@ fn load_agent_exposure(project_root: &str) -> Result<serde_json::Value, McpError
     })
 }
 
-fn active_mcp_exposed_tools(exposure: &serde_json::Value) -> Vec<String> {
-    exposure
-        .get("mcp_servers")
-        .and_then(|value| value.as_array())
-        .into_iter()
-        .flatten()
-        .find(|server| server.get("name").and_then(|value| value.as_str()) == Some("cynic"))
-        .and_then(|server| server.get("tools"))
-        .and_then(|value| value.as_array())
-        .into_iter()
-        .flatten()
-        .filter_map(|tool| tool.get("name").and_then(|value| value.as_str()))
-        .map(ToString::to_string)
-        .collect()
-}
-
 fn mcp_protocol_capabilities(exposure: &serde_json::Value) -> Vec<String> {
     if exposure
         .pointer("/mcp_protocol_profile/implementation_status")
@@ -74,7 +58,7 @@ fn mcp_domain_surface(exposure: &serde_json::Value) -> Vec<serde_json::Value> {
 }
 
 fn mcp_surface_findings(exposure: &serde_json::Value) -> Vec<serde_json::Value> {
-    let exposed_tools = active_mcp_exposed_tools(exposure);
+    let exposed_tools = crate::protocol::exposed_tool_names(exposure);
     let exposed_set: std::collections::BTreeSet<String> = exposed_tools.iter().cloned().collect();
     let mut domain_tools = std::collections::BTreeSet::new();
     let mut findings = Vec::new();
@@ -168,8 +152,8 @@ fn mcp_surface_manifest(
                 None,
             )
         })?;
-    let desired_tools = active_mcp_exposed_tools(&exposure);
-    let compiled_capabilities = active_mcp_exposed_tools(&compiled_exposure);
+    let desired_tools = crate::protocol::exposed_tool_names(&exposure);
+    let compiled_capabilities = crate::protocol::exposed_tool_names(&compiled_exposure);
     let mut compatibility_capabilities = compiled_capabilities.clone();
     compatibility_capabilities.extend(mcp_protocol_capabilities(&compiled_exposure));
     let exposed_tools = compiled_capabilities.clone();
