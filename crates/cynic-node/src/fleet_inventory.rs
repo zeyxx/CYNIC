@@ -1,4 +1,8 @@
-use crate::domain::fleet_reconcile::FleetReconcileAction;
+use cynic_protocol::{
+    NODE_SUBSTRATE_OBSERVATION_SCHEMA, NodeNetworkAttachment, NodeSubstrateAction,
+    NodeSubstrateDesiredState, NodeSubstrateExistence, NodeSubstrateObservation,
+    NodeSubstratePower,
+};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -77,28 +81,28 @@ pub struct ProviderPowerApplyReport {
     pub provider: String,
     pub resource_id: String,
     pub requested_action: String,
+    pub expected_status: String,
     pub operation_id: Option<String>,
     pub task_status: Option<String>,
     pub task_exit_status: Option<String>,
     pub observed_status: Option<String>,
+    pub blockers: Vec<String>,
+    pub evidence_refs: Vec<String>,
 }
 
 pub async fn apply_proxmox_power_action(
-    action: &FleetReconcileAction,
+    desired: &NodeSubstrateDesiredState,
+    action: &NodeSubstrateAction,
     explicit_apply: bool,
 ) -> Result<ProviderPowerApplyReport, String> {
     if !explicit_apply {
         return Err("explicit_apply_required".to_string());
     }
-    let (requested_action, resource_id) = match action {
-        FleetReconcileAction::Start {
-            provider,
-            resource_id,
-        } if provider == "proxmox" => ("start", resource_id),
-        FleetReconcileAction::Stop {
-            provider,
-            resource_id,
-        } if provider == "proxmox" => ("stop", resource_id),
+    let provider_name = desired.provider.as_deref().unwrap_or_default();
+    let resource_id = desired.resource_id.as_deref().unwrap_or_default();
+    let (requested_action, expected_status) = match action {
+        NodeSubstrateAction::Start if provider_name == "proxmox" => ("start", "running"),
+        NodeSubstrateAction::Stop if provider_name == "proxmox" => ("stop", "stopped"),
         _ => return Err("unsupported_provider_action".to_string()),
     };
     let provider = ProxmoxInventoryProvider::from_env()
@@ -116,7 +120,7 @@ pub async fn apply_proxmox_power_action(
         .and_then(|items| {
             items
                 .iter()
-                .find(|item| item.get("id").and_then(Value::as_str) == Some(resource_id.as_str()))
+                .find(|item| item.get("id").and_then(Value::as_str) == Some(resource_id))
         })
         .ok_or_else(|| "proxmox_resource_unobserved".to_string())?;
     let node = item
@@ -144,23 +148,146 @@ pub async fn apply_proxmox_power_action(
         .and_then(|items| {
             items
                 .iter()
-                .find(|entry| entry.get("id").and_then(Value::as_str) == Some(resource_id.as_str()))
+                .find(|entry| entry.get("id").and_then(Value::as_str) == Some(resource_id))
         })
         .and_then(|entry| entry.get("status"))
         .and_then(Value::as_str)
         .map(str::to_string);
+    let blockers = if observed_status.as_deref() == Some(expected_status) {
+        Vec::new()
+    } else {
+        vec!["provider_power_read_back_mismatch".to_string()]
+    };
     Ok(ProviderPowerApplyReport {
         schema: "cynic.fleet.provider_power_apply.v1",
-        status: "applied",
+        status: if blockers.is_empty() {
+            "applied"
+        } else {
+            "unknown_after_mutation"
+        },
         mutates: true,
         provider: "proxmox".to_string(),
-        resource_id: resource_id.clone(),
+        resource_id: resource_id.to_string(),
         requested_action: requested_action.to_string(),
+        expected_status: expected_status.to_string(),
         operation_id: Some(operation_id),
         task_status: Some(task_status),
         task_exit_status,
         observed_status,
+        evidence_refs: if blockers.is_empty() {
+            vec![
+                "provider_action_task_read_back".to_string(),
+                "desired_power_observed".to_string(),
+            ]
+        } else {
+            vec!["provider_action_task_read_back".to_string()]
+        },
+        blockers,
     })
+}
+
+pub fn node_substrate_observation(
+    desired: &NodeSubstrateDesiredState,
+    inventory: &FleetInventoryDetails,
+) -> NodeSubstrateObservation {
+    let provider = desired.provider.as_deref();
+    let resource_id = desired.resource_id.as_deref();
+    let provider_proved = provider.is_some_and(|provider| {
+        inventory
+            .summary
+            .providers
+            .iter()
+            .any(|summary| summary.provider == provider && summary.status == "ok")
+    });
+    let resource = provider_proved.then(|| {
+        inventory.nodes.iter().find(|node| {
+            node.observed
+                && Some(node.provider.as_str()) == provider
+                && Some(node.node_id.as_str()) == resource_id
+        })
+    });
+    let resource = resource.flatten();
+    let observed_at_unix_ms = provider_proved.then(now_unix_ms);
+    match resource {
+        Some(resource) => {
+            let power = match resource.status.as_str() {
+                "running" => NodeSubstratePower::Running,
+                "stopped" => NodeSubstratePower::Stopped,
+                _ => NodeSubstratePower::Unknown,
+            };
+            let network_attachment = if resource.ip.is_some() {
+                NodeNetworkAttachment::Attached
+            } else {
+                NodeNetworkAttachment::Unknown
+            };
+            let mut unknowns = Vec::new();
+            if power == NodeSubstratePower::Unknown {
+                unknowns.push("node_substrate_power_unknown".to_string());
+            }
+            if network_attachment == NodeNetworkAttachment::Unknown {
+                unknowns.push("node_network_attachment_unknown".to_string());
+            }
+            unknowns.push("node_management_reachability_unobserved".to_string());
+            NodeSubstrateObservation {
+                schema: NODE_SUBSTRATE_OBSERVATION_SCHEMA.to_string(),
+                status: "observed".to_string(),
+                node_id: desired.node_id.clone(),
+                provider: desired.provider.clone(),
+                resource_id: desired.resource_id.clone(),
+                existence: NodeSubstrateExistence::Present,
+                power,
+                network_attachment,
+                observed_addresses: resource.ip.clone().into_iter().collect(),
+                management_reachable: None,
+                observation_authority: provider.map(|provider| format!("provider:{provider}:api")),
+                observed_at_unix_ms,
+                evidence_refs: vec![
+                    "provider_inventory_read_back".to_string(),
+                    format!("provider_resource_observed:{}", resource.node_id),
+                ],
+                unknowns,
+            }
+        }
+        None if provider_proved => NodeSubstrateObservation {
+            schema: NODE_SUBSTRATE_OBSERVATION_SCHEMA.to_string(),
+            status: "observed".to_string(),
+            node_id: desired.node_id.clone(),
+            provider: desired.provider.clone(),
+            resource_id: desired.resource_id.clone(),
+            existence: NodeSubstrateExistence::Absent,
+            power: NodeSubstratePower::Unknown,
+            network_attachment: NodeNetworkAttachment::Unknown,
+            observed_addresses: Vec::new(),
+            management_reachable: None,
+            observation_authority: provider.map(|provider| format!("provider:{provider}:api")),
+            observed_at_unix_ms,
+            evidence_refs: vec!["provider_inventory_read_back".to_string()],
+            unknowns: vec!["provider_resource_absent".to_string()],
+        },
+        None => NodeSubstrateObservation {
+            schema: NODE_SUBSTRATE_OBSERVATION_SCHEMA.to_string(),
+            status: "unknown".to_string(),
+            node_id: desired.node_id.clone(),
+            provider: None,
+            resource_id: None,
+            existence: NodeSubstrateExistence::Unknown,
+            power: NodeSubstratePower::Unknown,
+            network_attachment: NodeNetworkAttachment::Unknown,
+            observed_addresses: Vec::new(),
+            management_reachable: None,
+            observation_authority: None,
+            observed_at_unix_ms: None,
+            evidence_refs: Vec::new(),
+            unknowns: vec!["provider_observer_unavailable".to_string()],
+        },
+    }
+}
+
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 enum FleetInventoryProvider {
@@ -901,6 +1028,15 @@ fn parse_inline_network_ip(raw: &str) -> Option<String> {
 mod tests {
     use super::*;
 
+    fn desired() -> NodeSubstrateDesiredState {
+        NodeSubstrateDesiredState {
+            node_id: "builder".to_string(),
+            provider: Some("proxmox".to_string()),
+            resource_id: Some("lxc/105".to_string()),
+            desired_power: NodeSubstratePower::Running,
+        }
+    }
+
     #[test]
     fn parse_inline_network_ip_works() {
         assert_eq!(
@@ -912,5 +1048,71 @@ mod tests {
             Some("127.0.0.1".to_string())
         );
         assert_eq!(parse_inline_network_ip("noip"), None);
+    }
+
+    #[test]
+    fn unavailable_provider_remains_an_unproven_unknown() {
+        let observation = node_substrate_observation(
+            &desired(),
+            &FleetInventoryDetails {
+                nodes: Vec::new(),
+                summary: FleetInventorySummary::default(),
+            },
+        );
+
+        assert_eq!(observation.status, "unknown");
+        assert_eq!(observation.existence, NodeSubstrateExistence::Unknown);
+        assert!(observation.evidence_refs.is_empty());
+    }
+
+    #[test]
+    fn successful_provider_inventory_proves_exact_resource_power() {
+        let inventory = FleetInventoryDetails {
+            nodes: vec![FleetNodeObservation {
+                provider: "proxmox".to_string(),
+                provider_node: Some("pve".to_string()),
+                node_id: "lxc/105".to_string(),
+                name: "cynic-builder".to_string(),
+                status: "stopped".to_string(),
+                liveness: "down".to_string(),
+                ip: None,
+                desired: true,
+                observed: true,
+                meta: None,
+            }],
+            summary: FleetInventorySummary {
+                providers: vec![FleetInventoryProviderSummary::ok("proxmox", 1)],
+                ..FleetInventorySummary::default()
+            },
+        };
+
+        let observation = node_substrate_observation(&desired(), &inventory);
+
+        assert_eq!(observation.status, "observed");
+        assert_eq!(observation.existence, NodeSubstrateExistence::Present);
+        assert_eq!(observation.power, NodeSubstratePower::Stopped);
+        assert!(!observation.evidence_refs.is_empty());
+    }
+
+    #[test]
+    fn complete_provider_inventory_proves_resource_absence_without_fabricating_power() {
+        let inventory = FleetInventoryDetails {
+            nodes: Vec::new(),
+            summary: FleetInventorySummary {
+                providers: vec![FleetInventoryProviderSummary::ok("proxmox", 0)],
+                ..FleetInventorySummary::default()
+            },
+        };
+
+        let observation = node_substrate_observation(&desired(), &inventory);
+
+        assert_eq!(observation.status, "observed");
+        assert_eq!(observation.existence, NodeSubstrateExistence::Absent);
+        assert_eq!(observation.power, NodeSubstratePower::Unknown);
+        assert!(
+            observation
+                .unknowns
+                .contains(&"provider_resource_absent".to_string())
+        );
     }
 }

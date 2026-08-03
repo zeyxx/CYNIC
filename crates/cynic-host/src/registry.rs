@@ -206,6 +206,81 @@ pub struct ResolvedProviderControlTransport {
     pub registry_path: String,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ResolvedNodeSubstrateTarget {
+    pub target_id: String,
+    pub role: String,
+    pub desired: NodeSubstrateDesiredState,
+}
+
+pub fn resolve_node_substrate_targets(
+    registry_path: Option<&str>,
+) -> Result<Vec<ResolvedNodeSubstrateTarget>, String> {
+    let path = resolve_registry_path(registry_path)?;
+    let registry = load_registry(&path)?;
+    resolve_node_substrate_targets_from_registry(&registry)
+}
+
+fn resolve_node_substrate_targets_from_registry(
+    registry: &RegistryDocument,
+) -> Result<Vec<ResolvedNodeSubstrateTarget>, String> {
+    let targets = registry
+        .fleet_desired
+        .as_ref()
+        .map(|fleet| fleet.targets.as_slice())
+        .unwrap_or_default();
+    let mut resolved = Vec::with_capacity(targets.len());
+    for target in targets {
+        let target_id = required_registry_value(target.id.as_deref(), "fleet_target_id_missing")?;
+        let role = required_registry_value(target.role.as_deref(), "fleet_target_role_missing")?;
+        let nodes = registry
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.id.as_deref() == Some(target_id.as_str())
+                    || node.name.as_deref() == Some(target_id.as_str())
+                    || node.aliases.iter().any(|alias| alias == &target_id)
+                    || node.role.as_deref() == Some(role.as_str())
+                    || node.canonical_role.as_deref() == Some(role.as_str())
+            })
+            .collect::<Vec<_>>();
+        let [node] = nodes.as_slice() else {
+            return Err(if nodes.is_empty() {
+                format!("node_substrate_target_node_missing:{target_id}")
+            } else {
+                format!("node_substrate_target_node_ambiguous:{target_id}")
+            });
+        };
+        let node_id = node
+            .id
+            .clone()
+            .or_else(|| node.name.clone())
+            .ok_or_else(|| format!("node_substrate_target_node_id_missing:{target_id}"))?;
+        resolved.push(ResolvedNodeSubstrateTarget {
+            target_id,
+            role,
+            desired: NodeSubstrateDesiredState {
+                node_id,
+                provider: target.provider.clone(),
+                resource_id: target.resource_id.clone(),
+                desired_power: target
+                    .desired_power
+                    .as_deref()
+                    .map(parse_desired_power)
+                    .unwrap_or(NodeSubstratePower::Unknown),
+            },
+        });
+    }
+    Ok(resolved)
+}
+
+fn required_registry_value(value: Option<&str>, blocker: &str) -> Result<String, String> {
+    value
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| blocker.to_string())
+}
+
 pub fn resolve_provider_control_transport(
     registry_path: Option<&str>,
     provider: &str,
@@ -277,36 +352,21 @@ pub fn resolve_node_substrate_desired_state(
         .clone()
         .or_else(|| node.name.clone())
         .ok_or_else(|| "node_substrate_registry_node_id_missing".to_string())?;
-    let node_role = node.role.as_deref().or(node.canonical_role.as_deref());
-    let targets = registry
-        .fleet_desired
-        .as_ref()
-        .map(|fleet| {
-            fleet
-                .targets
-                .iter()
-                .filter(|target| {
-                    target.id.as_deref() == Some(canonical_node_id.as_str())
-                        || target
-                            .role
-                            .as_deref()
-                            .is_some_and(|role| Some(role) == node_role)
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
+    let targets = resolve_node_substrate_targets_from_registry(&registry)?
+        .into_iter()
+        .filter(|target| target.desired.node_id == canonical_node_id)
+        .collect::<Vec<_>>();
     let target = match targets.as_slice() {
         [] => None,
-        [target] => Some(*target),
+        [target] => Some(target),
         _ => return Err("node_substrate_fleet_target_ambiguous".to_string()),
     };
     Ok(NodeSubstrateDesiredState {
         node_id: canonical_node_id,
-        provider: target.and_then(|target| target.provider.clone()),
-        resource_id: target.and_then(|target| target.resource_id.clone()),
+        provider: target.and_then(|target| target.desired.provider.clone()),
+        resource_id: target.and_then(|target| target.desired.resource_id.clone()),
         desired_power: target
-            .and_then(|target| target.desired_power.as_deref())
-            .map(parse_desired_power)
+            .map(|target| target.desired.desired_power.clone())
             .unwrap_or(NodeSubstratePower::Unknown),
     })
 }
@@ -1375,6 +1435,12 @@ mod tests {
             desired.desired_power,
             cynic_protocol::NodeSubstratePower::Running
         );
+        let targets = super::resolve_node_substrate_targets(Some(path.to_str().expect("path")))
+            .expect("targets");
+        assert_eq!(targets.len(), 1);
+        assert_eq!(targets[0].target_id, "builder-primary");
+        assert_eq!(targets[0].role, "build_runner");
+        assert_eq!(targets[0].desired, desired);
     }
 
     fn write_registry_fixture(contents: &str) -> PathBuf {

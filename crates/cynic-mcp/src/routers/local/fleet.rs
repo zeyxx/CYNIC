@@ -23,26 +23,16 @@ impl CynicMcpProxy {
         .map_err(|error| McpError::invalid_params(error, None))?;
         let desired = targets
             .into_iter()
-            .find(|target| target.id == p.target_id)
+            .find(|target| target.target_id == p.target_id)
             .ok_or_else(|| McpError::invalid_params("fleet desired target not found", None))?;
         let inventory = cynic_node::fleet_inventory::build_fleet_inventory_details(
             std::path::Path::new(&registry),
         )
         .await
         .map_err(|error| McpError::internal_error(error, None))?;
-        let observed = inventory
-            .nodes
-            .into_iter()
-            .map(|node| cynic_node::domain::fleet_truth::ObservedResource {
-                provider: node.provider,
-                name: node.name,
-                status: node.status,
-                resource_id: Some(node.node_id),
-                kind: None,
-                constellation: None,
-            })
-            .collect::<Vec<_>>();
-        let plan = cynic_node::domain::fleet_reconcile::build_plan(&desired, &observed);
+        let observed =
+            cynic_node::fleet_inventory::node_substrate_observation(&desired.desired, &inventory);
+        let plan = cynic_node::domain::fleet_reconcile::build_plan(&desired, observed);
         let admission = cynic_node::domain::fleet_reconcile::admit_plan(&plan, p.actor.clone());
         let authorization = cynic_protocol::ExecutionAuthorization::new(
             p.actor,
@@ -64,9 +54,10 @@ impl CynicMcpProxy {
             .actions
             .first()
             .ok_or_else(|| McpError::internal_error("admitted plan has no action", None))?;
-        let result = cynic_node::fleet_inventory::apply_proxmox_power_action(action, true)
-            .await
-            .map_err(|error| McpError::internal_error(error, None))?;
+        let result =
+            cynic_node::fleet_inventory::apply_proxmox_power_action(&plan.desired, action, true)
+                .await
+                .map_err(|error| McpError::internal_error(error, None))?;
         Ok(CallToolResult::success(vec![Content::text(serde_json::to_string_pretty(&serde_json::json!({"plan": plan, "admission": admission, "gate": gate, "proof": result})).unwrap_or_default())]))
     }
 
@@ -93,7 +84,7 @@ impl CynicMcpProxy {
         .map_err(|error| McpError::invalid_params(error, None))?;
         let desired = targets
             .into_iter()
-            .find(|target| target.id == p.target_id)
+            .find(|target| target.target_id == p.target_id)
             .ok_or_else(|| {
                 McpError::invalid_params(
                     format!("fleet desired target not found: {}", p.target_id),
@@ -105,23 +96,9 @@ impl CynicMcpProxy {
         )
         .await
         .map_err(|error| McpError::internal_error(error, None))?;
-        let observed = inventory
-            .nodes
-            .into_iter()
-            .map(|node| cynic_node::domain::fleet_truth::ObservedResource {
-                provider: node.provider,
-                name: node.name,
-                status: node.status,
-                resource_id: Some(node.node_id),
-                kind: node
-                    .meta
-                    .as_ref()
-                    .and_then(|meta| meta.get("vm_type"))
-                    .cloned(),
-                constellation: None,
-            })
-            .collect::<Vec<_>>();
-        let plan = cynic_node::domain::fleet_reconcile::build_plan(&desired, &observed);
+        let observed =
+            cynic_node::fleet_inventory::node_substrate_observation(&desired.desired, &inventory);
+        let plan = cynic_node::domain::fleet_reconcile::build_plan(&desired, observed);
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&plan).unwrap_or_default(),
         )]))
