@@ -8,6 +8,7 @@ registry_path="/etc/cynic/registry.json"
 state_root="/var/lib/cynic"
 apply=0
 network_mode="offline"
+target_phase="activate"
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -17,6 +18,7 @@ while [[ "$#" -gt 0 ]]; do
     --registry) registry_path="${2:-}"; shift 2 ;;
     --state-root) state_root="${2:-}"; shift 2 ;;
     --network-mode) network_mode="${2:-}"; shift 2 ;;
+    --target-phase) target_phase="${2:-}"; shift 2 ;;
     --yes) apply=1; shift ;;
     *) echo "unknown build-runner bootstrap argument: $1" >&2; exit 2 ;;
   esac
@@ -32,6 +34,8 @@ blocked() {
 [[ "${source_commit}" =~ ^[0-9a-f]{40}$ ]] || blocked "exact source commit is required"
 [[ "${network_mode}" == "offline" || "${network_mode}" == "online" ]] \
   || blocked "network mode must be offline or online"
+[[ "${target_phase}" == "build" || "${target_phase}" == "activate" ]] \
+  || blocked "target phase must be build or activate"
 if [[ -n "${source_bundle}" ]]; then
   [[ "${source_bundle}" == "${state_root}/bootstrap/"*.bundle && -f "${source_bundle}" ]] \
     || blocked "source bundle must be a staged bootstrap artifact"
@@ -58,12 +62,36 @@ workspace_relative="$(jq -r --arg node "${node_id}" \
 workspace="${state_root}/source/repositories/${workspace_relative}"
 admission="${state_root}/bootstrap/build-runner-bootstrap-admission.json"
 completion="${state_root}/bootstrap/build-runner-bootstrap-completion.json"
+build_proof="${state_root}/bootstrap/build-runner-bootstrap-build.json"
 target_root="${state_root}/build-targets/bootstrap"
 bundle_root="${state_root}/bootstrap/framework-${source_commit:0:12}"
 [[ -d "${workspace}/.git" ]] || blocked "declared source workspace is absent"
 [[ ! -e "${completion}" ]] || blocked "bootstrap was already completed"
-[[ ! -e "${state_root}/runtime/current/.cynic-runtime-release.json" ]] \
-  || blocked "runtime is already seeded"
+
+kernel_url=""
+enrollment_stage="${state_root}/bootstrap/node-enrollment"
+if [[ "${target_phase}" == "activate" ]]; then
+  kernel_url="$(jq -r '
+    [.nodes[] | select(.role == "kernel_primary") |
+      .services[] | select(.name == "cynic-kernel") |
+      select((.scheme == "http" or .scheme == "https")
+        and (.endpoint_host | type == "string" and length > 0)
+        and (.port | type == "number" and . > 0 and . <= 65535)) |
+      "\(.scheme)://\(.endpoint_host):\(.port)"] |
+    if length == 1 then .[0] else empty end
+  ' "${registry_path}")"
+  [[ -n "${kernel_url}" ]] || blocked "kernel runtime endpoint desired state is incomplete"
+  jq -e '
+    .node_enrollment.schema == "cynic.node_enrollment.desired_state.v1"
+      and .node_enrollment.authority_role == "kernel_primary"
+      and .node_enrollment.credential_delivery == "machine_enrollment_staging"
+  ' "${registry_path}" >/dev/null \
+    || blocked "canonical node enrollment desired state is incomplete"
+  [[ -f "${enrollment_stage}/enrollment-authority.pub" ]] \
+    || blocked "staged enrollment authority public key is missing"
+  [[ -f "${enrollment_stage}/enrollment-token" ]] \
+    || blocked "staged one-time enrollment token is missing"
+fi
 
 sudo -u cynic git -C "${workspace}" status --porcelain --untracked-files=all | \
   grep -q . && blocked "source workspace is not clean"
@@ -86,7 +114,8 @@ jq -n \
   --arg commit "${source_commit}" \
   --arg registry "${registry_path}" \
   --arg registry_digest "${registry_digest}" \
-  '{schema:"cynic.build_runner.bootstrap_admission.v1",status:"admitted",authority_class:"MachineEnrollment",node_id:$node,source_commit:$commit,registry_path:$registry,registry_digest:$registry_digest,allowed_actions:["make:build-release","cargo:build"]}' \
+  --arg target_phase "${target_phase}" \
+  '{schema:"cynic.build_runner.bootstrap_admission.v1",status:"admitted",authority_class:"MachineEnrollment",node_id:$node,source_commit:$commit,registry_path:$registry,registry_digest:$registry_digest,target_phase:$target_phase,allowed_actions:["make:build-release","cargo:build"]}' \
   > "${admission}"
 chown root:cynic "${admission}"
 chmod 0640 "${admission}"
@@ -100,12 +129,39 @@ sudo -u cynic env \
   CYNIC_BUILD_BOOTSTRAP_RECEIPT="${admission}" \
   make -C "${workspace}" build-release
 
+node_digest="sha256:$(sha256sum "${target_root}/release/cynic-node" | awk '{print $1}')"
+cli_digest="sha256:$(sha256sum "${target_root}/release/cynic" | awk '{print $1}')"
+jq -n \
+  --arg node "${node_id}" \
+  --arg commit "${source_commit}" \
+  --arg node_digest "${node_digest}" \
+  --arg cli_digest "${cli_digest}" \
+  '{schema:"cynic.build_runner.bootstrap_build.v1",status:"proved",node_id:$node,source_commit:$commit,target_phase:"build",artifacts:{"cynic-node":$node_digest,"cynic":$cli_digest},proofs:["source_commit_read_back","release_build_completed","artifact_digest_read_back"]}' \
+  > "${build_proof}"
+chown root:cynic "${build_proof}"
+chmod 0640 "${build_proof}"
+if [[ "${target_phase}" == "build" ]]; then
+  echo "build-runner bootstrap build proved: node=${node_id} commit=${source_commit} proof=${build_proof}"
+  exit 0
+fi
+
 sudo -u cynic "${target_root}/release/cynic" bootstrap framework bundle \
   --json \
   --output-dir "${bundle_root}" \
   --role build_runner \
   --artifact-dir "${target_root}/release" \
   --registry "${registry_path}" >/dev/null
+seed_id="$(jq -r '.seed_id // empty' "${bundle_root}/seed-manifest.json")"
+[[ "${seed_id}" =~ ^sha256:[0-9a-f]{64}$ ]] || blocked "generated seed id is invalid"
+install -d -o root -g cynic -m 0750 /etc/cynic "${state_root}/identity"
+install -o root -g cynic -m 0644 \
+  "${enrollment_stage}/enrollment-authority.pub" /etc/cynic/enrollment-authority.pub
+install -o cynic -g cynic -m 0600 \
+  "${enrollment_stage}/enrollment-token" "${state_root}/identity/enrollment-token"
+printf 'CYNIC_KERNEL_URL=%s\nCYNIC_ENROLLMENT_SEED_ID=%s\n' \
+  "${kernel_url}" "${seed_id}" > /etc/cynic/env
+chown root:cynic /etc/cynic/env
+chmod 0640 /etc/cynic/env
 "${bundle_root}/enroll.sh"
 systemctl is-active --quiet cynic-node.service || blocked "cynic-node service is not active"
 "/usr/local/bin/cynic-node" control --config /etc/cynic/node-control.toml --check >/dev/null
@@ -119,4 +175,5 @@ jq -n \
 chown root:cynic "${completion}"
 chmod 0640 "${completion}"
 mv "${admission}" "${admission}.consumed"
+rm -f "${enrollment_stage}/enrollment-token"
 echo "build-runner bootstrap proved: node=${node_id} commit=${source_commit} completion=${completion}"

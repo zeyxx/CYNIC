@@ -22,8 +22,6 @@ if [[ -n "${bootstrap_receipt}" ]]; then
   [[ -f "${bootstrap_receipt}" ]] || blocked "bootstrap admission is unobservable"
   [[ ! -e "/var/lib/cynic/bootstrap/build-runner-bootstrap-completion.json" ]] \
     || blocked "bootstrap admission was already consumed"
-  [[ ! -e "/var/lib/cynic/runtime/current/.cynic-runtime-release.json" ]] \
-    || blocked "runtime is already seeded; routine workload admission is required"
   receipt_mode="$(stat -c '%u:%a' "${bootstrap_receipt}")"
   [[ "${receipt_mode}" == "0:640" ]] || blocked "bootstrap admission ownership or mode is invalid"
   observed_hostname="$(hostname)"
@@ -42,6 +40,7 @@ if [[ -n "${bootstrap_receipt}" ]]; then
       and .authority_class == "MachineEnrollment"
       and .node_id == $node
       and .source_commit == $commit
+      and (.target_phase == "build" or .target_phase == "activate")
       and (.allowed_actions | index($action) != null)' \
     "${bootstrap_receipt}" >/dev/null \
     || blocked "bootstrap admission binding is invalid"
