@@ -109,8 +109,12 @@ pub(crate) async fn start_tasks(
                     .iter()
                     .any(|granted| granted == capability)
             });
+    // A one-time enrollment token is bootstrap input only.  Once the node is
+    // proven enrolled, the scheduler must be fenced by the durable grant;
+    // accepting the token here would allow a stale/replayed bootstrap secret
+    // to masquerade as steady-state build authority.
     let build_scheduler_inputs_ready = control.signing_key_path.is_file()
-        && (control.enrollment_grant_path.is_file() || control.enrollment_token_path.is_file())
+        && control.enrollment_grant_path.is_file()
         && control
             .build_scheduler
             .as_ref()
