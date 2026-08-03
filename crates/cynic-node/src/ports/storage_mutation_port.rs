@@ -1,5 +1,6 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorageMutationRequest {
+    pub resource_id: String,
     pub node: String,
     pub vmid: String,
     pub disk_key: String,
