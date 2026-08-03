@@ -3,11 +3,11 @@ use sha2::{Digest, Sha256};
 use std::path::Path;
 
 use crate::registry::resolve_framework_transport;
-use crate::{adapters::remote_execution::SshRemoteExecutionAdapter, ports::RemoteExecutionPort};
 use crate::update_lifecycle::ArgvRunner;
+use crate::{adapters::remote_execution::SshRemoteExecutionAdapter, ports::RemoteExecutionPort};
 
 use super::decision::decide_framework_propagation;
-use super::observe::{observe_framework_propagation, ssh_argv};
+use super::observe::observe_framework_propagation_with_transport;
 use super::types::{FrameworkPropagationOperation, FrameworkPropagationPlan};
 
 const REMOTE_SEED_ROOT: &str = "/tmp/cynic-framework-bootstrap";
@@ -27,6 +27,20 @@ pub fn plan_framework_propagation(
     bundle_dir: &str,
     registry_path: Option<&str>,
     runner: &dyn ArgvRunner,
+) -> Result<FrameworkPropagationPlan, String> {
+    plan_framework_propagation_with_transport(
+        bundle_dir,
+        registry_path,
+        runner,
+        &SshRemoteExecutionAdapter,
+    )
+}
+
+pub fn plan_framework_propagation_with_transport(
+    bundle_dir: &str,
+    registry_path: Option<&str>,
+    runner: &dyn ArgvRunner,
+    remote_execution: &dyn RemoteExecutionPort,
 ) -> Result<FrameworkPropagationPlan, String> {
     let bundle = Path::new(bundle_dir);
     let manifest_path = bundle.join("seed-manifest.json");
@@ -75,7 +89,11 @@ pub fn plan_framework_propagation(
         .as_ref()
         .map(|content| format!("sha256:{}", hex::encode(Sha256::digest(content))))
         .unwrap_or_default();
-    let observation = observe_framework_propagation(&transport.ssh_target, runner);
+    let observation = observe_framework_propagation_with_transport(
+        &transport.ssh_target,
+        runner,
+        remote_execution,
+    );
     let decision = decide_framework_propagation(
         &expected_runtime_basket_digest,
         &transport.node_id,
@@ -85,11 +103,12 @@ pub fn plan_framework_propagation(
         blockers,
     );
     let operations = if decision.status == "enroll_with_machine_authority" {
-        enrollment_operations(
+        enrollment_operations_with_transport(
             bundle_dir,
             &transport.ssh_target,
             &seed_id,
             &expected_runtime_basket_digest,
+            remote_execution,
         )
     } else {
         Vec::new()
@@ -127,21 +146,42 @@ pub(super) fn enrollment_operations(
     seed_id: &str,
     expected_runtime_basket_digest: &str,
 ) -> Vec<FrameworkPropagationOperation> {
-    let remote_seed_dir = remote_seed_dir(seed_id);
-    let mut prepare = ssh_argv(ssh_target, &["mkdir", "-p", &remote_seed_dir]);
-    debug_assert_eq!(prepare.first().map(String::as_str), Some("ssh"));
-    let read_back = ssh_argv(
+    enrollment_operations_with_transport(
+        bundle_dir,
         ssh_target,
-        &[
-            "sha256sum",
-            &format!("{remote_seed_dir}/seed-manifest.json"),
-        ],
-    );
+        seed_id,
+        expected_runtime_basket_digest,
+        &SshRemoteExecutionAdapter,
+    )
+}
+
+pub(super) fn enrollment_operations_with_transport(
+    bundle_dir: &str,
+    ssh_target: &str,
+    seed_id: &str,
+    expected_runtime_basket_digest: &str,
+    remote_execution: &dyn RemoteExecutionPort,
+) -> Vec<FrameworkPropagationOperation> {
+    let remote_seed_dir = remote_seed_dir(seed_id);
+    let mut prepare = remote_execution
+        .exec_argv(ssh_target, &["mkdir", "-p", &remote_seed_dir])
+        .unwrap_or_default();
+    let read_back = remote_execution
+        .exec_argv(
+            ssh_target,
+            &[
+                "sha256sum",
+                &format!("{remote_seed_dir}/seed-manifest.json"),
+            ],
+        )
+        .unwrap_or_default();
 
     vec![
         FrameworkPropagationOperation {
             phase: "preflight",
-            argv: ssh_argv(ssh_target, &["id", "-un"]),
+            argv: remote_execution
+                .exec_argv(ssh_target, &["id", "-un"])
+                .unwrap_or_default(),
             mutates: false,
             requires_privilege: false,
             proof: Some("machine_enrollment_principal_read_back"),
@@ -157,7 +197,7 @@ pub(super) fn enrollment_operations(
         },
         FrameworkPropagationOperation {
             phase: "transfer",
-            argv: SshRemoteExecutionAdapter
+            argv: remote_execution
                 .copy_argv(
                     &format!("{bundle_dir}/."),
                     &format!("{ssh_target}:{remote_seed_dir}"),
@@ -178,7 +218,9 @@ pub(super) fn enrollment_operations(
         },
         FrameworkPropagationOperation {
             phase: "machine_enrollment",
-            argv: ssh_argv(ssh_target, &[&format!("{remote_seed_dir}/enroll.sh")]),
+            argv: remote_execution
+                .exec_argv(ssh_target, &[&format!("{remote_seed_dir}/enroll.sh")])
+                .unwrap_or_default(),
             mutates: true,
             requires_privilege: true,
             proof: Some("machine_enrollment_completed"),
@@ -186,13 +228,15 @@ pub(super) fn enrollment_operations(
         },
         FrameworkPropagationOperation {
             phase: "runtime_marker_read_back",
-            argv: ssh_argv(
-                ssh_target,
-                &[
-                    "cat",
-                    "/var/lib/cynic/runtime/current/.cynic-runtime-release.json",
-                ],
-            ),
+            argv: remote_execution
+                .exec_argv(
+                    ssh_target,
+                    &[
+                        "cat",
+                        "/var/lib/cynic/runtime/current/.cynic-runtime-release.json",
+                    ],
+                )
+                .unwrap_or_default(),
             mutates: false,
             requires_privilege: false,
             proof: None,
@@ -200,13 +244,15 @@ pub(super) fn enrollment_operations(
         },
         FrameworkPropagationOperation {
             phase: "node_observation_read_back",
-            argv: ssh_argv(
-                ssh_target,
-                &[
-                    "cat",
-                    "/var/lib/cynic/bootstrap/node-registry-observation.json",
-                ],
-            ),
+            argv: remote_execution
+                .exec_argv(
+                    ssh_target,
+                    &[
+                        "cat",
+                        "/var/lib/cynic/bootstrap/node-registry-observation.json",
+                    ],
+                )
+                .unwrap_or_default(),
             mutates: false,
             requires_privilege: false,
             proof: None,

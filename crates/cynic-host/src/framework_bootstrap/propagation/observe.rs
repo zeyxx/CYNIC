@@ -10,10 +10,20 @@ pub(super) fn observe_framework_propagation(
     ssh_target: &str,
     runner: &dyn ArgvRunner,
 ) -> FrameworkPropagationObservation {
+    observe_framework_propagation_with_transport(ssh_target, runner, &SshRemoteExecutionAdapter)
+}
+
+pub(super) fn observe_framework_propagation_with_transport(
+    ssh_target: &str,
+    runner: &dyn ArgvRunner,
+    transport: &dyn RemoteExecutionPort,
+) -> FrameworkPropagationObservation {
     let mut probes = Vec::new();
     let ssh = run_probe(
         "ssh_authentication",
-        ssh_argv(ssh_target, &["true"]),
+        transport
+            .exec_argv(ssh_target, &["true"])
+            .unwrap_or_default(),
         runner,
     );
     let ssh_authenticated = ssh.status == "observed";
@@ -37,7 +47,9 @@ pub(super) fn observe_framework_propagation(
         };
     }
 
-    let principal_argv = ssh_argv(ssh_target, &["id", "-un"]);
+    let principal_argv = transport
+        .exec_argv(ssh_target, &["id", "-un"])
+        .unwrap_or_default();
     let principal_output = runner.run(
         &principal_argv
             .iter()
@@ -61,11 +73,21 @@ pub(super) fn observe_framework_propagation(
         stderr: principal_output.stderr,
     });
 
-    let (runtime_marker_status, runtime_marker, marker_probe) =
-        observe_json("runtime_marker", ssh_target, RUNTIME_MARKER, runner);
+    let (runtime_marker_status, runtime_marker, marker_probe) = observe_json(
+        "runtime_marker",
+        ssh_target,
+        RUNTIME_MARKER,
+        runner,
+        transport,
+    );
     probes.push(marker_probe);
-    let (node_observation_status, node_observation, node_probe) =
-        observe_json("node_observation", ssh_target, NODE_OBSERVATION, runner);
+    let (node_observation_status, node_observation, node_probe) = observe_json(
+        "node_observation",
+        ssh_target,
+        NODE_OBSERVATION,
+        runner,
+        transport,
+    );
     probes.push(node_probe);
 
     let mut unknowns = [
@@ -104,12 +126,15 @@ fn observe_json(
     ssh_target: &str,
     path: &str,
     runner: &dyn ArgvRunner,
+    transport: &dyn RemoteExecutionPort,
 ) -> (
     &'static str,
     Option<serde_json::Value>,
     FrameworkPropagationProbe,
 ) {
-    let argv = ssh_argv(ssh_target, &["cat", path]);
+    let argv = transport
+        .exec_argv(ssh_target, &["cat", path])
+        .unwrap_or_default();
     let output = runner.run(&argv.iter().map(String::as_str).collect::<Vec<_>>());
     let status = if output.success() {
         "observed"
@@ -133,12 +158,6 @@ fn observe_json(
         stderr: output.stderr,
     };
     (status, evidence, probe)
-}
-
-pub(super) fn ssh_argv(ssh_target: &str, remote_argv: &[&str]) -> Vec<String> {
-    SshRemoteExecutionAdapter
-        .exec_argv(ssh_target, remote_argv)
-        .unwrap_or_default()
 }
 
 fn run_probe(
