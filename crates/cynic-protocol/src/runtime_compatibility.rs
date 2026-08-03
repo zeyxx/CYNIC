@@ -252,4 +252,34 @@ mod tests {
             Some("sha256:compiled-old")
         );
     }
+
+    #[test]
+    fn remediation_actions_follow_compatibility_status_without_mutating() {
+        let compatible = RuntimeCompatibilityPlan {
+            schema: RUNTIME_COMPATIBILITY_PLAN_SCHEMA.to_string(),
+            status: RuntimeCompatibilityStatus::Compatible,
+            contract_id: "cynic.agent_mcp".to_string(),
+            required_revision: 1,
+            observed_revision: Some(1),
+            artifact_version: Some("v1".to_string()),
+            required_contract_digest: None,
+            observed_contract_digest: None,
+            missing_capabilities: Vec::new(),
+            evidence_refs: Vec::new(),
+            unknowns: Vec::new(),
+        };
+        assert!(runtime_compatibility_actions(&compatible).is_empty());
+
+        let incompatible = RuntimeCompatibilityPlan {
+            status: RuntimeCompatibilityStatus::Incompatible,
+            ..compatible.clone()
+        };
+        assert_eq!(runtime_compatibility_actions(&incompatible).len(), 3);
+
+        let unknown = RuntimeCompatibilityPlan {
+            status: RuntimeCompatibilityStatus::Unknown,
+            ..compatible
+        };
+        assert_eq!(runtime_compatibility_actions(&unknown).len(), 2);
+    }
 }
