@@ -58,7 +58,7 @@ workspace_relative="$(jq -r --arg node "${node_id}" \
 workspace="${state_root}/source/repositories/${workspace_relative}"
 admission="${state_root}/bootstrap/build-runner-bootstrap-admission.json"
 completion="${state_root}/bootstrap/build-runner-bootstrap-completion.json"
-target_root="${state_root}/build-targets/bootstrap-${source_commit:0:12}"
+target_root="${state_root}/build-targets/bootstrap"
 bundle_root="${state_root}/bootstrap/framework-${source_commit:0:12}"
 [[ -d "${workspace}/.git" ]] || blocked "declared source workspace is absent"
 [[ ! -e "${completion}" ]] || blocked "bootstrap was already completed"
