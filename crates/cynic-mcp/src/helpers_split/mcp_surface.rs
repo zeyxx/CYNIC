@@ -261,6 +261,16 @@ fn mcp_surface_manifest(
         }));
     }
     let exposed_tool_count = exposed_tools.len();
+    let transport = if std::env::var("CYNIC_MCP_TRANSPORT")
+        .ok()
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case("streamable_http"))
+    {
+        crate::transport::STREAMABLE_HTTP_TRANSPORT_LABEL
+    } else {
+        "stdio_legacy"
+    };
+    let protocol_discovery =
+        crate::protocol::discovery_result(&compiled_exposure, false, transport);
     let status = if findings.is_empty() {
         "observed"
     } else {
@@ -274,6 +284,8 @@ fn mcp_surface_manifest(
         "compiled_command": compiled_command,
         "observed_executable": observed_executable,
         "session_handshake": compiled_handshake,
+        "protocol_profile": compiled_exposure.get("mcp_protocol_profile").cloned().unwrap_or(serde_json::Value::Null),
+        "server_discovery": protocol_discovery,
         "runtime_compatibility": compatibility,
         "session_identity": session_identity,
         "constitutional_execution": agent_constitution_status(),
