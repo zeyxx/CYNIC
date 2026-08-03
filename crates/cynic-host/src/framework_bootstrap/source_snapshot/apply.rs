@@ -186,15 +186,19 @@ pub fn create_source_snapshot(
     ];
     let heads = runner.run(&heads_argv.iter().map(String::as_str).collect::<Vec<_>>());
     executed.push(heads_argv);
-    let commit_read_back = heads
+    let advertised_commit = heads
         .stdout
         .lines()
         .filter_map(|line| line.split_whitespace().next())
         .find(|commit| *commit == source_commit)
         .map(str::to_string);
+    let import_read_back =
+        prove_snapshot_import(&final_path, source_commit, output, runner, &mut executed);
+    let commit_read_back = import_read_back.as_ref().ok().cloned();
     let digest_read_back = sha256_file(&final_path).ok();
     let proved = verify.success()
         && heads.success()
+        && advertised_commit.as_deref() == Some(source_commit)
         && commit_read_back.as_deref() == Some(source_commit)
         && digest_read_back.as_deref() == Some(digest.as_str());
     if !proved && created_final {
@@ -209,11 +213,86 @@ pub fn create_source_snapshot(
         executed,
         if proved {
             Vec::new()
+        } else if let Err(error) = import_read_back {
+            vec![error]
         } else {
             vec!["source_snapshot_read_back_failed".to_string()]
         },
         if proved { "proved" } else { "unknown" },
     )
+}
+
+pub(super) fn prove_snapshot_import(
+    snapshot_path: &Path,
+    source_commit: &str,
+    output_dir: &Path,
+    runner: &dyn ArgvRunner,
+    executed: &mut Vec<Vec<String>>,
+) -> Result<String, String> {
+    let probe = output_dir.join(format!(
+        ".cynic-source-snapshot-import-{}",
+        std::process::id()
+    ));
+    fs::create_dir(&probe)
+        .map_err(|error| format!("source_snapshot_consumer_probe_create_failed:{error}"))?;
+
+    let proof_ref = "refs/cynic/source-snapshot-import-proof";
+    let init_argv = vec![
+        "git".to_string(),
+        "-C".to_string(),
+        probe.display().to_string(),
+        "init".to_string(),
+        "--bare".to_string(),
+    ];
+    let init = runner.run(&init_argv.iter().map(String::as_str).collect::<Vec<_>>());
+    executed.push(init_argv);
+
+    let mut result = if !init.success() {
+        Err("source_snapshot_consumer_probe_init_failed".to_string())
+    } else {
+        let fetch_argv = vec![
+            "git".to_string(),
+            "-C".to_string(),
+            probe.display().to_string(),
+            "fetch".to_string(),
+            "--no-tags".to_string(),
+            snapshot_path.display().to_string(),
+            format!("{source_commit}:{proof_ref}"),
+        ];
+        let fetch = runner.run(&fetch_argv.iter().map(String::as_str).collect::<Vec<_>>());
+        executed.push(fetch_argv);
+        if !fetch.success() {
+            Err("source_snapshot_consumer_import_failed".to_string())
+        } else {
+            let read_back_argv = vec![
+                "git".to_string(),
+                "-C".to_string(),
+                probe.display().to_string(),
+                "rev-parse".to_string(),
+                format!("{proof_ref}^{{commit}}"),
+            ];
+            let read_back = runner.run(
+                &read_back_argv
+                    .iter()
+                    .map(String::as_str)
+                    .collect::<Vec<_>>(),
+            );
+            executed.push(read_back_argv);
+            let observed = read_back.stdout.trim();
+            if read_back.success() && observed == source_commit {
+                Ok(observed.to_string())
+            } else {
+                Err("source_snapshot_consumer_commit_read_back_failed".to_string())
+            }
+        }
+    };
+
+    if let Err(error) = fs::remove_dir_all(&probe) {
+        result = Err(format!(
+            "source_snapshot_consumer_probe_cleanup_failed:{error}"
+        ));
+    }
+    result
 }
 
 fn temporary_ref(source_commit: &str) -> String {
