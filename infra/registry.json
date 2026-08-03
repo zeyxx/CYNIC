@@ -2,6 +2,13 @@
   "version": 1,
   "schema": "cynic.registry.v1.minimal",
   "purpose": "Minimal runtime placement registry for the rebuilt low-layer organism.",
+  "provider_control": {
+    "schema": "cynic.provider_control.desired_state.v1",
+    "provider": "proxmox",
+    "endpoint": "https://pve.synapse.cynic:8006",
+    "token_identity": "cynic@pve!runtime",
+    "credential_ref": "/etc/cynic/secrets/proxmox-token"
+  },
   "release_publication": {
     "schema": "cynic.release_publication.desired_state.v1",
     "storage_role": "storage_primary",

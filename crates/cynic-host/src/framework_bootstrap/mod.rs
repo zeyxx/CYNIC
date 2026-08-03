@@ -4,6 +4,7 @@ pub mod lifecycle;
 pub mod machine_enrollment;
 mod placement;
 pub mod propagation;
+pub mod provider_enrollment;
 pub mod runtime_binding;
 pub mod scripts;
 pub mod source_snapshot;
@@ -22,6 +23,12 @@ pub use machine_enrollment::{
 pub use propagation::{
     FrameworkPropagationExecution, FrameworkPropagationOperation, FrameworkPropagationPlan,
     FrameworkPropagationReport, apply_framework_propagation, plan_framework_propagation,
+};
+pub use provider_enrollment::{
+    ProviderControlEnrollmentPlan, ProviderControlEnrollmentReport,
+    apply_provider_control_enrollment, observe_provider_control_enrollment,
+    plan_provider_control_enrollment, resolve_local_provider_control_enrollment_spec,
+    resolve_local_provider_control_enrollment_spec_from_registry,
 };
 pub use runtime_binding::{
     RuntimeBindingApplyReport, RuntimeBindingPlan, apply_runtime_binding,

@@ -143,6 +143,28 @@ pub(crate) enum BootstrapFrameworkCommand {
         #[arg(long)]
         yes: bool,
     },
+    ProviderEnrollmentPlan {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        token_secret_file: String,
+        #[arg(long)]
+        ca_file: Option<String>,
+    },
+    ProviderEnrollmentApply {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        token_secret_file: String,
+        #[arg(long)]
+        ca_file: Option<String>,
+        #[arg(long)]
+        yes: bool,
+    },
     LifecycleAudit {
         #[arg(long)]
         json: bool,
@@ -381,6 +403,54 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
                 Err(error) => return fail(error),
             };
             let report = framework_bootstrap::apply_runtime_binding(&spec, yes, &LocalArgvRunner);
+            emit_json(&report, report.status == "blocked")
+        }
+        BootstrapFrameworkCommand::ProviderEnrollmentPlan {
+            json,
+            registry,
+            token_secret_file,
+            ca_file,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let registry = registry
+                .as_deref()
+                .unwrap_or(cynic_host::registry::DEFAULT_REGISTRY_PATH);
+            let spec = match framework_bootstrap::resolve_local_provider_control_enrollment_spec_from_registry(
+                Path::new(registry),
+                Path::new(&token_secret_file),
+                ca_file.as_deref().map(Path::new),
+            ) {
+                Ok(spec) => spec,
+                Err(error) => return fail(error),
+            };
+            let observed = framework_bootstrap::observe_provider_control_enrollment(&spec);
+            let plan = framework_bootstrap::plan_provider_control_enrollment(&spec, &observed);
+            emit_json(&plan, plan.status == "blocked")
+        }
+        BootstrapFrameworkCommand::ProviderEnrollmentApply {
+            json,
+            registry,
+            token_secret_file,
+            ca_file,
+            yes,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let registry = registry
+                .as_deref()
+                .unwrap_or(cynic_host::registry::DEFAULT_REGISTRY_PATH);
+            let spec = match framework_bootstrap::resolve_local_provider_control_enrollment_spec_from_registry(
+                Path::new(registry),
+                Path::new(&token_secret_file),
+                ca_file.as_deref().map(Path::new),
+            ) {
+                Ok(spec) => spec,
+                Err(error) => return fail(error),
+            };
+            let report = framework_bootstrap::apply_provider_control_enrollment(&spec, yes);
             emit_json(&report, report.status == "blocked")
         }
         BootstrapFrameworkCommand::LifecycleAudit {

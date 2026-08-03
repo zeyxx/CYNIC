@@ -19,7 +19,7 @@ pub struct RuntimeSecretInstallSpec {
 impl RuntimeSecretInstallSpec {
     pub fn storage_runtime() -> Self {
         let authority = crate::runtime_authority::default_runtime_authority_paths();
-        let group = authority.principal.runtime_user;
+        let group = authority.principal.runtime_group;
         Self {
             identity_id: "storage-runtime".to_string(),
             target: authority
@@ -29,6 +29,21 @@ impl RuntimeSecretInstallSpec {
             group_id: crate::identity_database::resolve_identity_id("/etc/group", &group),
             mode: 0o640,
         }
+    }
+
+    pub fn provider_control(provider: &str) -> Result<Self, String> {
+        if provider != "proxmox" {
+            return Err("provider runtime secret adapter is unavailable".to_string());
+        }
+        let authority = crate::runtime_authority::default_runtime_authority_paths();
+        let group = authority.principal.runtime_group;
+        Ok(Self {
+            identity_id: "provider-control:proxmox".to_string(),
+            target: authority.config_root.join("secrets/proxmox-token"),
+            owner_id: 0,
+            group_id: crate::identity_database::resolve_identity_id("/etc/group", &group),
+            mode: 0o640,
+        })
     }
 }
 
@@ -106,7 +121,14 @@ pub(crate) fn install_runtime_secret(
         );
     }
 
-    install_atomically(spec, material.expose_bytes())?;
+    install_protected_runtime_file(
+        &spec.identity_id,
+        &spec.target,
+        spec.owner_id,
+        spec.group_id.expect("validated group"),
+        spec.mode,
+        material.expose_bytes(),
+    )?;
     let after = observe_runtime_secret(spec);
     let mut unknowns = after.unknowns.clone();
     let converged = after.present
@@ -138,7 +160,10 @@ pub(crate) fn install_runtime_secret(
         } else {
             Vec::new()
         },
-        rollback_intent: "delete the newly enrolled database identity before removing this first-install credential; rotation requires a separate atomic database-and-file contract".to_string(),
+        rollback_intent: format!(
+            "remove only the newly installed {} credential if the enclosing enrollment transaction fails; rotation requires a separate atomic authority-and-file contract",
+            spec.identity_id
+        ),
         unknowns,
     })
 }
@@ -151,56 +176,19 @@ pub(crate) fn remove_runtime_secret_if_matches(
     if unsafe { libc::geteuid() } != 0 {
         return Err("runtime secret compensation requires the admitted root helper".to_string());
     }
-    let before = observe_runtime_secret(spec);
-    if !before.present || before.regular_file != Some(true) || before.symlink != Some(false) {
-        return Err(
-            "runtime secret compensation target is not a regular installed file".to_string(),
-        );
-    }
-    let mut file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-        .open(&spec.target)
-        .map_err(|error| format!("runtime secret compensation open failed: {error}"))?;
-    let metadata_before = file
-        .metadata()
-        .map_err(|error| format!("runtime secret compensation metadata failed: {error}"))?;
-    if !metadata_before.file_type().is_file() || metadata_before.len() > 64 * 1024 {
-        return Err("runtime secret compensation target is not a bounded regular file".to_string());
-    }
-    let mut installed = Vec::with_capacity(metadata_before.len() as usize);
-    file.read_to_end(&mut installed)
-        .map_err(|error| format!("runtime secret compensation read failed: {error}"))?;
-    let matches = installed == material.expose_bytes();
-    installed.zeroize();
-    if !matches {
-        return Err("runtime secret compensation refused a non-matching credential".to_string());
-    }
-    let metadata_after = fs::symlink_metadata(&spec.target)
-        .map_err(|error| format!("runtime secret compensation revalidation failed: {error}"))?;
-    if !metadata_after.file_type().is_file()
-        || metadata_before.dev() != metadata_after.dev()
-        || metadata_before.ino() != metadata_after.ino()
-    {
-        return Err("runtime secret changed during compensation".to_string());
-    }
-    fs::remove_file(&spec.target)
-        .map_err(|error| format!("runtime secret compensation removal failed: {error}"))?;
-    if let Some(parent) = spec.target.parent() {
-        sync_directory(parent)?;
-    }
+    remove_protected_runtime_file_if_matches(&spec.target, material.expose_bytes())?;
     Ok(observe_runtime_secret(spec))
 }
 
 fn validate_spec(spec: &RuntimeSecretInstallSpec) -> Result<(), String> {
-    if spec.identity_id != "storage-runtime"
-        || spec.owner_id != 0
-        || spec.group_id.is_none()
-        || spec.mode != 0o640
-    {
+    if spec.owner_id != 0 || spec.group_id.is_none() || spec.mode != 0o640 {
         return Err("runtime secret install spec is not admitted".to_string());
     }
-    let canonical = RuntimeSecretInstallSpec::storage_runtime();
+    let canonical = match spec.identity_id.as_str() {
+        "storage-runtime" => RuntimeSecretInstallSpec::storage_runtime(),
+        "provider-control:proxmox" => RuntimeSecretInstallSpec::provider_control("proxmox")?,
+        _ => return Err("runtime secret identity is not admitted".to_string()),
+    };
     if spec.target != canonical.target || spec.group_id != canonical.group_id {
         return Err(
             "runtime secret target or principal differs from runtime authority".to_string(),
@@ -209,27 +197,93 @@ fn validate_spec(spec: &RuntimeSecretInstallSpec) -> Result<(), String> {
     Ok(())
 }
 
-fn install_atomically(spec: &RuntimeSecretInstallSpec, material: &[u8]) -> Result<(), String> {
-    let parent = spec
-        .target
+pub(crate) fn install_protected_runtime_file(
+    identity_id: &str,
+    target: &Path,
+    owner_id: u32,
+    group_id: u32,
+    mode: u32,
+    material: &[u8],
+) -> Result<(), String> {
+    if unsafe { libc::geteuid() } != 0 {
+        return Err("protected runtime file installation requires root authority".to_string());
+    }
+    if material.is_empty() || material.len() > 64 * 1024 {
+        return Err("protected runtime file material is empty or exceeds the bound".to_string());
+    }
+    let authority = crate::runtime_authority::default_runtime_authority_paths();
+    if !target.starts_with(&authority.config_root)
+        || target
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err("protected runtime file target is outside runtime authority".to_string());
+    }
+    let parent = target
         .parent()
         .ok_or_else(|| "runtime secret target has no parent".to_string())?;
-    prepare_secret_directory(spec, parent)?;
+    let directory_spec = RuntimeSecretInstallSpec {
+        identity_id: identity_id.to_string(),
+        target: target.to_path_buf(),
+        owner_id,
+        group_id: Some(group_id),
+        mode,
+    };
+    prepare_secret_directory(&directory_spec, parent)?;
 
-    let temporary = temporary_path(parent, &spec.identity_id);
+    let temporary = temporary_path(parent, identity_id);
     let mut file = OpenOptions::new()
         .create_new(true)
         .write(true)
         .mode(0o600)
         .open(&temporary)
         .map_err(|error| format!("runtime secret staging failed: {error}"))?;
-    let result = install_open_file(&mut file, spec, material)
-        .and_then(|()| rename_noreplace(&temporary, &spec.target));
+    let result = install_open_file(&mut file, &directory_spec, material)
+        .and_then(|()| rename_noreplace(&temporary, target));
     if result.is_err() {
         let _ = fs::remove_file(&temporary);
     }
     result.map_err(|error| format!("runtime secret atomic install failed: {error}"))?;
     sync_directory(parent)
+}
+
+pub(crate) fn remove_protected_runtime_file_if_matches(
+    target: &Path,
+    material: &[u8],
+) -> Result<(), String> {
+    let mut file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(target)
+        .map_err(|error| format!("protected runtime compensation open failed: {error}"))?;
+    let metadata_before = file
+        .metadata()
+        .map_err(|error| format!("protected runtime compensation metadata failed: {error}"))?;
+    if !metadata_before.file_type().is_file() || metadata_before.len() > 64 * 1024 {
+        return Err("protected runtime compensation target is not a bounded file".to_string());
+    }
+    let mut installed = Vec::with_capacity(metadata_before.len() as usize);
+    file.read_to_end(&mut installed)
+        .map_err(|error| format!("protected runtime compensation read failed: {error}"))?;
+    let matches = installed == material;
+    installed.zeroize();
+    if !matches {
+        return Err("protected runtime compensation refused non-matching material".to_string());
+    }
+    let metadata_after = fs::symlink_metadata(target)
+        .map_err(|error| format!("protected runtime compensation revalidation failed: {error}"))?;
+    if !metadata_after.file_type().is_file()
+        || metadata_before.dev() != metadata_after.dev()
+        || metadata_before.ino() != metadata_after.ino()
+    {
+        return Err("protected runtime file changed during compensation".to_string());
+    }
+    fs::remove_file(target)
+        .map_err(|error| format!("protected runtime compensation removal failed: {error}"))?;
+    if let Some(parent) = target.parent() {
+        sync_directory(parent)?;
+    }
+    Ok(())
 }
 
 fn prepare_secret_directory(spec: &RuntimeSecretInstallSpec, parent: &Path) -> Result<(), String> {

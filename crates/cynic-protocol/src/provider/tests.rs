@@ -29,6 +29,37 @@ fn observed() -> NodeSubstrateObservation {
     }
 }
 
+fn provider_control_desired(endpoint: &str) -> ProviderControlDesiredState {
+    ProviderControlDesiredState {
+        schema: PROVIDER_CONTROL_DESIRED_STATE_SCHEMA.to_string(),
+        provider: "proxmox".to_string(),
+        endpoint: endpoint.to_string(),
+        token_identity: "cynic@pve!runtime".to_string(),
+        credential_ref: "/etc/cynic/secrets/proxmox-token".to_string(),
+        ca_ref: None,
+    }
+}
+
+#[test]
+fn provider_control_endpoint_is_a_credential_free_https_origin() {
+    assert!(
+        validate_provider_control_desired_state(&provider_control_desired(
+            "https://pve.internal:8006"
+        ))
+        .is_empty()
+    );
+    for endpoint in [
+        "http://pve.internal:8006",
+        "https://root:secret@pve.internal:8006",
+        "https://pve.internal:8006/api2/json",
+    ] {
+        assert!(
+            validate_provider_control_desired_state(&provider_control_desired(endpoint))
+                .contains(&"provider_endpoint_not_credential_free_https_origin".to_string())
+        );
+    }
+}
+
 #[test]
 fn missing_provider_resource_ref_stays_blocked() {
     let mut desired = desired();

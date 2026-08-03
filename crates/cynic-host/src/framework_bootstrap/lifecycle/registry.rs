@@ -465,6 +465,18 @@ impl<'a> LifecycleRegistry<'a> {
         blockers
     }
 
+    pub(super) fn provider_control_blockers(&self) -> Vec<String> {
+        let Some(desired) = self.root.get("provider_control").cloned() else {
+            return vec!["provider_control_desired_state_missing".to_string()];
+        };
+        let Ok(desired) =
+            serde_json::from_value::<cynic_protocol::ProviderControlDesiredState>(desired)
+        else {
+            return vec!["provider_control_desired_state_invalid".to_string()];
+        };
+        cynic_protocol::validate_provider_control_desired_state(&desired)
+    }
+
     pub(super) fn enrollment_blockers(&self) -> Vec<String> {
         if self.role == "kernel_primary" {
             return Vec::new();

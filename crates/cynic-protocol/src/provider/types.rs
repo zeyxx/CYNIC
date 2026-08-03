@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 pub const PROVIDER_MACHINE_IDENTITY_SCHEMA: &str = "cynic.provider_machine_identity.v1";
 pub const PROVIDER_CONTROL_CAPABILITY_SCHEMA: &str = "cynic.provider_control_capability.v1";
+pub const PROVIDER_CONTROL_DESIRED_STATE_SCHEMA: &str = "cynic.provider_control.desired_state.v1";
 pub const NODE_SUBSTRATE_OBSERVATION_SCHEMA: &str = "cynic.node_substrate.observation.v1";
 pub const NODE_SUBSTRATE_DECISION_SCHEMA: &str = "cynic.node_substrate.decision.v1";
 pub const NODE_SUBSTRATE_PROVISIONING_SCHEMA: &str = "cynic.node_substrate.provisioning.v1";
@@ -33,6 +34,17 @@ pub struct ProviderControlCapability {
     pub operation: String,
     pub requires_explicit_apply: bool,
     pub produces_read_back_proof: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderControlDesiredState {
+    pub schema: String,
+    pub provider: String,
+    pub endpoint: String,
+    pub token_identity: String,
+    pub credential_ref: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ca_ref: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

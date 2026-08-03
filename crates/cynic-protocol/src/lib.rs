@@ -244,8 +244,9 @@ pub use provider::{
     reconcile_node_substrate, validate_node_substrate_provisioning,
 };
 pub use provider::{
-    PROVIDER_CONTROL_CAPABILITY_SCHEMA, PROVIDER_MACHINE_IDENTITY_SCHEMA,
-    ProviderControlCapability, ProviderIdentityKind, ProviderMachineIdentity,
+    PROVIDER_CONTROL_CAPABILITY_SCHEMA, PROVIDER_CONTROL_DESIRED_STATE_SCHEMA,
+    PROVIDER_MACHINE_IDENTITY_SCHEMA, ProviderControlCapability, ProviderControlDesiredState,
+    ProviderIdentityKind, ProviderMachineIdentity, validate_provider_control_desired_state,
 };
 pub use release_publication::{
     RELEASE_PUBLICATION_DESIRED_STATE_SCHEMA, RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA,

@@ -85,6 +85,18 @@ pub(super) fn decide(
             vec!["kernel_endpoint_observed".to_string()],
         ),
         (
+            "provider_control_identity",
+            "cynic-host::framework_bootstrap::provider_enrollment",
+            registry.provider_control_blockers(),
+            vec![
+                "provider_config_owner_group_mode_read_back".to_string(),
+                "provider_token_presence_without_value".to_string(),
+                "provider_configuration_binding_read_back".to_string(),
+                "provider_ca_binding_read_back".to_string(),
+                "provider_api_authentication_read_back".to_string(),
+            ],
+        ),
+        (
             "machine_enrollment",
             "cynic-protocol::node_enrollment",
             registry.enrollment_blockers(),
@@ -159,6 +171,14 @@ pub(super) fn decide(
             | "node_enrollment_credential_delivery_missing" => {
                 "declare_canonical_node_enrollment_desired_state"
             }
+            "provider_control_desired_state_missing"
+            | "provider_control_desired_state_invalid"
+            | "provider_control_desired_state_schema_mismatch"
+            | "provider_control_provider_missing"
+            | "provider_endpoint_not_credential_free_https_origin"
+            | "provider_token_identity_invalid"
+            | "provider_credential_ref_missing"
+            | "provider_ca_ref_invalid" => "declare_canonical_provider_control_desired_state",
             "artifact_store_desired_state_missing"
             | "artifact_store_https_endpoint_missing"
             | "artifact_store_endpoint_host_missing"

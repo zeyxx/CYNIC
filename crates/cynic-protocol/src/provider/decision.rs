@@ -3,7 +3,47 @@ use super::types::{
     NODE_SUBSTRATE_PROVISIONING_SCHEMA, NodeNetworkAttachment, NodeSubstrateAction,
     NodeSubstrateDecision, NodeSubstrateDesiredState, NodeSubstrateExistence,
     NodeSubstrateObservation, NodeSubstratePower, NodeSubstrateProvisioningSpec,
+    PROVIDER_CONTROL_DESIRED_STATE_SCHEMA, ProviderControlDesiredState,
 };
+
+pub fn validate_provider_control_desired_state(
+    desired: &ProviderControlDesiredState,
+) -> Vec<String> {
+    let mut blockers = Vec::new();
+    if desired.schema != PROVIDER_CONTROL_DESIRED_STATE_SCHEMA {
+        blockers.push("provider_control_desired_state_schema_mismatch".to_string());
+    }
+    if desired.provider.trim().is_empty() {
+        blockers.push("provider_control_provider_missing".to_string());
+    }
+    let endpoint_valid = url::Url::parse(&desired.endpoint).is_ok_and(|url| {
+        url.scheme() == "https"
+            && url.host_str().is_some()
+            && url.username().is_empty()
+            && url.password().is_none()
+            && url.query().is_none()
+            && url.fragment().is_none()
+            && matches!(url.path(), "" | "/")
+    });
+    if !endpoint_valid {
+        blockers.push("provider_endpoint_not_credential_free_https_origin".to_string());
+    }
+    if desired.token_identity.is_empty()
+        || desired.token_identity.len() > 255
+        || !desired.token_identity.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'@' | b'!' | b'.' | b'_' | b'-')
+        })
+    {
+        blockers.push("provider_token_identity_invalid".to_string());
+    }
+    if desired.credential_ref.trim().is_empty() {
+        blockers.push("provider_credential_ref_missing".to_string());
+    }
+    if desired.ca_ref.as_deref().is_some_and(str::is_empty) {
+        blockers.push("provider_ca_ref_invalid".to_string());
+    }
+    blockers
+}
 
 pub fn validate_node_substrate_provisioning(
     provisioning: &NodeSubstrateProvisioningSpec,

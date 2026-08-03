@@ -128,10 +128,24 @@ impl ProxmoxControlAdapter {
         let base_url = resolved
             .endpoint
             .ok_or_else(|| "Proxmox endpoint is not configured".to_string())?;
-        validate_control_endpoint(&base_url)?;
         let client_id = resolved
             .token_id
             .ok_or_else(|| "Proxmox token identity is not configured".to_string())?;
+        let desired = cynic_protocol::provider::ProviderControlDesiredState {
+            schema: cynic_protocol::provider::PROVIDER_CONTROL_DESIRED_STATE_SCHEMA.to_string(),
+            provider: "proxmox".to_string(),
+            endpoint: base_url.clone(),
+            token_identity: client_id.clone(),
+            credential_ref: resolved.token_secret_file.display().to_string(),
+            ca_ref: resolved.ca_file.clone(),
+        };
+        let blockers = cynic_protocol::provider::validate_provider_control_desired_state(&desired);
+        if !blockers.is_empty() {
+            return Err(format!(
+                "Proxmox control desired state is invalid: {}",
+                blockers.join(",")
+            ));
+        }
         let credential = resolve_credential(&resolved.token_secret_file)?;
         let mut client = reqwest::Client::builder().timeout(timeout.max(Duration::from_secs(5)));
         if let Some(ca_path) = resolved.ca_file {
@@ -417,22 +431,6 @@ fn validate_provider_component(label: &str, value: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_control_endpoint(value: &str) -> Result<(), String> {
-    let url = reqwest::Url::parse(value)
-        .map_err(|_| "Proxmox endpoint is not an absolute URL".to_string())?;
-    if url.scheme() != "https"
-        || url.host_str().is_none()
-        || !url.username().is_empty()
-        || url.password().is_some()
-        || url.query().is_some()
-        || url.fragment().is_some()
-        || !matches!(url.path(), "" | "/")
-    {
-        return Err("Proxmox endpoint must be a credential-free HTTPS origin".to_string());
-    }
-    Ok(())
-}
-
 async fn response_json(response: reqwest::Response, path: &str) -> Result<Value, String> {
     let status = response.status();
     let text = response
@@ -450,10 +448,7 @@ async fn response_json(response: reqwest::Response, path: &str) -> Result<Value,
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        ProxmoxControlConfiguration, configuration_blockers, validate_control_endpoint,
-        validate_provider_component,
-    };
+    use super::{ProxmoxControlConfiguration, configuration_blockers, validate_provider_component};
 
     #[test]
     fn provider_path_components_are_bounded() {
@@ -482,9 +477,21 @@ mod tests {
 
     #[test]
     fn provider_endpoint_requires_a_credential_free_https_origin() {
-        assert!(validate_control_endpoint("https://pve.internal:8006").is_ok());
-        assert!(validate_control_endpoint("http://pve.internal:8006").is_err());
-        assert!(validate_control_endpoint("https://user:secret@pve.internal:8006").is_err());
-        assert!(validate_control_endpoint("https://pve.internal:8006/api2/json").is_err());
+        let desired = |endpoint: &str| cynic_protocol::provider::ProviderControlDesiredState {
+            schema: cynic_protocol::provider::PROVIDER_CONTROL_DESIRED_STATE_SCHEMA.to_string(),
+            provider: "proxmox".to_string(),
+            endpoint: endpoint.to_string(),
+            token_identity: "cynic@pve!runtime".to_string(),
+            credential_ref: "/etc/cynic/secrets/proxmox-token".to_string(),
+            ca_ref: None,
+        };
+        let valid = |endpoint: &str| {
+            cynic_protocol::provider::validate_provider_control_desired_state(&desired(endpoint))
+                .is_empty()
+        };
+        assert!(valid("https://pve.internal:8006"));
+        assert!(!valid("http://pve.internal:8006"));
+        assert!(!valid("https://user:secret@pve.internal:8006"));
+        assert!(!valid("https://pve.internal:8006/api2/json"));
     }
 }
