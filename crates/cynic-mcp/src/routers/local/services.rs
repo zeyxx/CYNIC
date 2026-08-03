@@ -87,7 +87,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "storage_primary_plan",
-        description = "Render the non-mutating dedicated storage primary activation plan from organ-keep. Does not install or start storage."
+        description = "Render the non-mutating dedicated storage primary activation plan from the Rust-native storage controller. Does not install or start storage."
     )]
     async fn storage_primary_plan(
         &self,

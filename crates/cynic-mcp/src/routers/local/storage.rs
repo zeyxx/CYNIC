@@ -2,7 +2,7 @@
 impl CynicMcpProxy {
     #[tool(
         name = "storage_primary_status",
-        description = "Read organ-keep storage primary activation status. Non-mutating canonical storage.primary.status operation."
+        description = "Read the Rust-native storage primary activation status. Non-mutating canonical storage.primary.status operation."
     )]
     async fn storage_primary_status(
         &self,
