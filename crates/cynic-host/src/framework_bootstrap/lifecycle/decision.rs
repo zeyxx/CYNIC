@@ -33,7 +33,7 @@ pub(super) fn decide(
         ),
         (
             "runtime_binding",
-            "cynic-host::framework_bootstrap",
+            "cynic-host::framework_bootstrap::runtime_binding",
             registry.runtime_binding_blockers(),
             vec!["kernel_endpoint_observed".to_string()],
         ),

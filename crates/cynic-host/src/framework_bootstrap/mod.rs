@@ -2,7 +2,9 @@ pub mod bundle;
 pub mod cli_install;
 pub mod lifecycle;
 pub mod machine_enrollment;
+mod placement;
 pub mod propagation;
+pub mod runtime_binding;
 pub mod scripts;
 mod types;
 
@@ -19,5 +21,9 @@ pub use machine_enrollment::{
 pub use propagation::{
     FrameworkPropagationExecution, FrameworkPropagationOperation, FrameworkPropagationPlan,
     FrameworkPropagationReport, apply_framework_propagation, plan_framework_propagation,
+};
+pub use runtime_binding::{
+    RuntimeBindingApplyReport, RuntimeBindingPlan, apply_runtime_binding,
+    resolve_local_runtime_binding_spec,
 };
 pub use types::{FrameworkBootstrapBundleReport, StandaloneCliInstallReport};

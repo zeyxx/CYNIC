@@ -40,24 +40,7 @@ pub fn resolve_local_machine_enrollment_authority_spec(
 #[derive(Deserialize)]
 struct RegistryDocument {
     node_enrollment: NodeEnrollmentDesiredState,
-    nodes: Vec<RegistryNode>,
-}
-
-#[derive(Deserialize)]
-struct RegistryNode {
-    id: Option<String>,
-    name: Option<String>,
-    host_node_id: Option<String>,
-    #[serde(default)]
-    aliases: Vec<String>,
-    role: Option<String>,
-    #[serde(default)]
-    services: Vec<RegistryService>,
-}
-
-#[derive(Deserialize)]
-struct RegistryService {
-    name: Option<String>,
+    nodes: Vec<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -120,38 +103,25 @@ pub fn resolve_machine_enrollment_authority_spec(
     }) {
         return Err("machine_enrollment_capability_not_allowed".to_string());
     }
-    let authority_nodes = registry
-        .nodes
-        .iter()
-        .filter(|node| {
-            node.role.as_deref() == Some(registry.node_enrollment.authority_role.as_str())
-        })
-        .collect::<Vec<_>>();
-    let [authority_node] = authority_nodes.as_slice() else {
-        return Err("machine_enrollment_authority_node_not_unique".to_string());
-    };
-    let authority_host_selector = authority_node
-        .host_node_id
-        .as_deref()
-        .or(authority_node.id.as_deref())
-        .or(authority_node.name.as_deref())
-        .ok_or_else(|| "machine_enrollment_authority_host_placement_missing".to_string())?;
-    let authority_hosts = registry
-        .nodes
-        .iter()
-        .filter(|node| node_matches(node, authority_host_selector))
-        .collect::<Vec<_>>();
-    let [authority_host] = authority_hosts.as_slice() else {
-        return Err("machine_enrollment_authority_host_placement_not_unique".to_string());
-    };
-    if observed_hostname.trim().is_empty() || !node_matches(authority_host, observed_hostname) {
-        return Err("machine_enrollment_authority_host_identity_mismatch".to_string());
-    }
+    let authority_node = super::super::placement::unique_role_node(
+        &registry.nodes,
+        &registry.node_enrollment.authority_role,
+        "machine_enrollment_authority",
+    )?;
+    super::super::placement::ensure_local_placement(
+        &registry.nodes,
+        authority_node,
+        observed_hostname,
+        "machine_enrollment_authority",
+    )?;
     let endpoint_count = authority_node
-        .services
-        .iter()
+        .get("services")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
         .filter(|service| {
-            service.name.as_deref() == Some(registry.node_enrollment.endpoint_service.as_str())
+            service.get("name").and_then(serde_json::Value::as_str)
+                == Some(registry.node_enrollment.endpoint_service.as_str())
         })
         .count();
     if endpoint_count != 1 {
@@ -188,10 +158,4 @@ fn valid_sha256(value: &str) -> bool {
     value.strip_prefix("sha256:").is_some_and(|digest| {
         digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
     })
-}
-
-fn node_matches(node: &RegistryNode, value: &str) -> bool {
-    node.id.as_deref() == Some(value)
-        || node.name.as_deref() == Some(value)
-        || node.aliases.iter().any(|alias| alias == value)
 }

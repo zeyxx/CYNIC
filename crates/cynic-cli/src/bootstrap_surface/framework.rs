@@ -102,6 +102,20 @@ pub(crate) enum BootstrapFrameworkCommand {
         #[arg(long)]
         yes: bool,
     },
+    RuntimeBindingPlan {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    RuntimeBindingApply {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        yes: bool,
+    },
     LifecycleAudit {
         #[arg(long)]
         json: bool,
@@ -279,6 +293,43 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
                 Err(error) => return fail(error),
             };
             let report = framework_bootstrap::apply_machine_enrollment_authority(&spec, yes);
+            emit_json(&report, report.status == "blocked")
+        }
+        BootstrapFrameworkCommand::RuntimeBindingPlan { json, registry } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let registry = registry
+                .as_deref()
+                .unwrap_or(cynic_host::registry::DEFAULT_REGISTRY_PATH);
+            let spec = match framework_bootstrap::resolve_local_runtime_binding_spec(Path::new(
+                registry,
+            )) {
+                Ok(spec) => spec,
+                Err(error) => return fail(error),
+            };
+            let observed = framework_bootstrap::runtime_binding::observe_runtime_binding(&spec);
+            let plan = framework_bootstrap::runtime_binding::plan_runtime_binding(&spec, &observed);
+            emit_json(&plan, plan.status == "blocked")
+        }
+        BootstrapFrameworkCommand::RuntimeBindingApply {
+            json,
+            registry,
+            yes,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let registry = registry
+                .as_deref()
+                .unwrap_or(cynic_host::registry::DEFAULT_REGISTRY_PATH);
+            let spec = match framework_bootstrap::resolve_local_runtime_binding_spec(Path::new(
+                registry,
+            )) {
+                Ok(spec) => spec,
+                Err(error) => return fail(error),
+            };
+            let report = framework_bootstrap::apply_runtime_binding(&spec, yes, &LocalArgvRunner);
             emit_json(&report, report.status == "blocked")
         }
         BootstrapFrameworkCommand::LifecycleAudit {

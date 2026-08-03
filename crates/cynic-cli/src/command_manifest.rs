@@ -100,6 +100,8 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic bootstrap framework lifecycle-audit --json --role <role> [--registry <path>]",
                     "cynic bootstrap framework enrollment-authority-plan --json --seed-manifest <path> --node <id> --staging-root <path> [--registry <path>]",
                     "cynic bootstrap framework enrollment-authority-apply --json --seed-manifest <path> --node <id> --staging-root <path> [--registry <path>] --yes",
+                    "cynic bootstrap framework runtime-binding-plan --json [--registry <path>]",
+                    "cynic bootstrap framework runtime-binding-apply --json [--registry <path>] --yes",
                     "cynic bootstrap framework install-cli --json [--apply] [--source <path>] [--target <path>]",
                     "cynic bootstrap host <observe|bundle|plan|evidence|proof|supervisor|principal|e2e|apply-report|apply> [--profile <name> | --node <name>] [--registry <path>] [--dry-run|--apply]",
                     "cynic bootstrap host e2e [--profile <name> | --node <name>] [--registry <path>] [--runtime-profile <name>] --dry-run",
