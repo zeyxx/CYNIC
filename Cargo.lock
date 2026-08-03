@@ -894,6 +894,7 @@ dependencies = [
  "sysinfo 0.39.6",
  "tempfile",
  "tokio",
+ "toml",
  "zeroize",
 ]
 
