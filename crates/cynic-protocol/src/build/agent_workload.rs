@@ -7,11 +7,11 @@ use crate::{
     PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
 };
 
+use super::agent_request::BUILD_SOURCE_SNAPSHOT_REFERENCE_LEGACY_SCHEMA;
 use super::{
     BUILD_AGENT_REQUEST_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA,
-    BUILD_SOURCE_SNAPSHOT_REFERENCE_LEGACY_SCHEMA, BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA,
-    BuildAgentRequest, BuildSourceReference, BuildSourceSnapshotReference,
-    admit_build_agent_request, validate_build_source_reference,
+    BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA, BuildAgentRequest, BuildSourceReference,
+    BuildSourceSnapshotReference, admit_build_agent_request, validate_build_source_reference,
 };
 
 pub fn build_agent_request_from_workload(
