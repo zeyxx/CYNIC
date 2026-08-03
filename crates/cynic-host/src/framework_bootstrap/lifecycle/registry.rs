@@ -266,7 +266,7 @@ impl<'a> LifecycleRegistry<'a> {
         };
         required
             .iter()
-            .filter(|proof| !proofs.iter().any(|candidate| candidate.as_str() == *proof))
+            .filter(|proof| !proofs.iter().any(|candidate| candidate.as_str() == **proof))
             .map(|proof| format!("lifecycle_required_proof_missing:{proof}"))
             .collect()
     }
