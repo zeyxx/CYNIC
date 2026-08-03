@@ -25,7 +25,6 @@ mod build_scheduler;
 mod cli;
 mod config;
 mod config_watch;
-mod dns_activation;
 mod dns_activation_status;
 mod dns_bundle;
 mod dns_contract;
@@ -90,6 +89,14 @@ use crate::usecases::source_materialization_uc;
 use crate::usecases::source_repository_bootstrap_uc;
 use crate::usecases::storage_lifecycle_uc;
 use shutdown::install_signal_handler;
+
+fn apply_dns_activation_value(
+    registry: &str,
+    bundle_dir: &str,
+    yes: bool,
+) -> Result<serde_json::Value, String> {
+    cynic_node::apply_dns_activation_value(registry, bundle_dir, yes)
+}
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
