@@ -199,7 +199,7 @@ impl CynicMcpProxy {
         }))
     }
 
-    async fn observe_lxc_exec_bridge_transport(
+    pub(crate) async fn observe_lxc_exec_bridge_transport(
         runner: &dyn ArgvExecutionPort,
         local_projection: serde_json::Value,
     ) -> serde_json::Value {

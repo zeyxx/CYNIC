@@ -19,14 +19,17 @@ impl CynicMcpProxy {
             let registry = load_infra_registry()?;
             let mut evidence = serde_json::Map::new();
             if use_auto_bridge {
-                evidence.insert(
-                    "bridge_status".to_string(),
-                    run_lxc_exec_bridge_status(&LxcExecBridgeStatusParams {
-                        helper_path: None,
-                        installed_policy_path: None,
-                        sudoers_path: None,
-                    })?,
-                );
+                let local_projection = run_lxc_exec_bridge_status(&LxcExecBridgeStatusParams {
+                    helper_path: None,
+                    installed_policy_path: None,
+                    sudoers_path: None,
+                })?;
+                let bridge_status = Self::observe_lxc_exec_bridge_transport(
+                    self.argv_execution.as_ref(),
+                    local_projection,
+                )
+                .await;
+                evidence.insert("bridge_status".to_string(), bridge_status);
             }
             if use_auto_mesh {
                 evidence.insert(
