@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LeaseGuard,
-    storage_lifecycle::{StorageObservation, StoragePhase, StoragePlan},
+    storage_lifecycle::{StorageObservation, StoragePhase, StoragePlan, StorageReclaimPolicy},
 };
 
 pub const STORAGE_CONTROLLER_RECORD_SCHEMA: &str = "cynic.storage_controller_record.v1";
@@ -25,7 +25,10 @@ pub struct StorageMetadata {
     pub finalizers: Vec<String>,
     pub lease_id: Option<String>,
     pub lease_expires_at_ms: Option<u64>,
+    #[serde(default)]
     pub lease_fencing_token: Option<u64>,
+    #[serde(default)]
+    pub deletion_requested: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,6 +88,74 @@ pub fn new_storage_metadata(id: impl Into<String>) -> StorageMetadata {
         lease_id: None,
         lease_expires_at_ms: None,
         lease_fencing_token: None,
+        deletion_requested: false,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageDeletionDecision {
+    RetainPendingProof,
+    Quarantine,
+    Delete,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageDeletionRequest {
+    pub resource_id: String,
+    pub reclaim_policy: StorageReclaimPolicy,
+    pub backup_restore_proof: Option<String>,
+    pub cutover_proof: Option<String>,
+}
+
+pub fn reconcile_storage_deletion(
+    metadata: &StorageMetadata,
+    request: &StorageDeletionRequest,
+) -> (StorageDeletionDecision, Vec<String>) {
+    let mut blockers = Vec::new();
+    if !metadata.deletion_requested {
+        blockers.push("storage_deletion_not_requested".to_string());
+    }
+    match request.reclaim_policy {
+        StorageReclaimPolicy::Retain if request.backup_restore_proof.is_none() => {
+            blockers.push("storage_backup_restore_proof_missing".to_string())
+        }
+        StorageReclaimPolicy::Quarantine if request.cutover_proof.is_none() => {
+            blockers.push("storage_cutover_proof_missing".to_string())
+        }
+        StorageReclaimPolicy::Delete
+            if request.backup_restore_proof.is_none() || request.cutover_proof.is_none() =>
+        {
+            blockers.push("storage_delete_proofs_missing".to_string())
+        }
+        _ => {}
+    }
+    let decision = if !blockers.is_empty() {
+        StorageDeletionDecision::RetainPendingProof
+    } else if request.reclaim_policy == StorageReclaimPolicy::Delete {
+        StorageDeletionDecision::Delete
+    } else {
+        StorageDeletionDecision::Quarantine
+    };
+    (decision, blockers)
+}
+
+#[cfg(test)]
+mod deletion_tests {
+    use super::*;
+    #[test]
+    fn finalizer_blocks_delete_without_restore_and_cutover_proofs() {
+        let mut metadata = new_storage_metadata("artifact");
+        metadata.deletion_requested = true;
+        let request = StorageDeletionRequest {
+            resource_id: "artifact".to_string(),
+            reclaim_policy: StorageReclaimPolicy::Delete,
+            backup_restore_proof: None,
+            cutover_proof: None,
+        };
+        let (decision, blockers) = reconcile_storage_deletion(&metadata, &request);
+        assert_eq!(decision, StorageDeletionDecision::RetainPendingProof);
+        assert!(!blockers.is_empty());
     }
 }
 
