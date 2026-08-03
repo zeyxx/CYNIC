@@ -161,7 +161,11 @@ pub fn classify_python_install_provenance(
 
 #[cfg(test)]
 mod tests {
-    use super::{PythonInstallProvenance, classify_python_install_provenance};
+    use super::{
+        PythonInstallProvenance, classify_python_install_provenance, read_installer_marker,
+    };
+    use std::fs;
+    use std::path::PathBuf;
 
     #[test]
     fn classify_pip_user_site_install() {
@@ -191,5 +195,22 @@ mod tests {
             ),
             PythonInstallProvenance::UvVenv
         );
+    }
+
+    #[test]
+    fn reads_dist_info_installer_marker_without_python() {
+        let root = std::env::temp_dir().join(format!("cynic-python-probe-{}", std::process::id()));
+        let site = root.join(".local/lib/python3.12/site-packages/demo_tool-1.0.dist-info");
+        fs::create_dir_all(&site).expect("create package metadata");
+        fs::write(site.join("INSTALLER"), "uv\n").expect("write installer marker");
+        let binary = root.join(".local/bin/demo-tool");
+        fs::create_dir_all(binary.parent().expect("binary parent")).expect("create bin");
+        fs::write(&binary, b"shim").expect("write binary marker");
+
+        assert_eq!(
+            read_installer_marker("demo-tool", &PathBuf::from(&binary).display().to_string()),
+            Some("uv".to_string())
+        );
+        let _ = fs::remove_dir_all(root);
     }
 }
