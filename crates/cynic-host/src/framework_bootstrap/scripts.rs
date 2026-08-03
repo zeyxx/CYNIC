@@ -15,6 +15,10 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 "$ROOT/install.sh"
+if [ -f /etc/systemd/system/cynic-node.service ]; then
+  systemctl daemon-reload
+  systemctl enable --now cynic-node.service
+fi
 "$ROOT/verify.sh"
 "#
     .to_string()

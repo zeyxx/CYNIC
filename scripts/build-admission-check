@@ -6,6 +6,7 @@ grant="${CYNIC_BUILD_ADMISSION_GRANT:-}"
 workload_record="${CYNIC_BUILD_WORKLOAD_RECORD:-}"
 authority_public_key="${CYNIC_BUILD_AUTHORITY_PUBLIC_KEY:-}"
 verifier="${CYNIC_BUILD_ADMISSION_VERIFIER:-cynic-node}"
+bootstrap_receipt="${CYNIC_BUILD_BOOTSTRAP_RECEIPT:-}"
 
 blocked() {
   echo "build admission blocked: $1" >&2
@@ -13,6 +14,53 @@ blocked() {
 }
 
 [[ -n "${action}" ]] || blocked "requested action is missing"
+
+if [[ -n "${bootstrap_receipt}" ]]; then
+  command -v jq >/dev/null 2>&1 || blocked "jq is unavailable"
+  [[ "${bootstrap_receipt}" == "/var/lib/cynic/bootstrap/build-runner-bootstrap-admission.json" ]] \
+    || blocked "bootstrap admission path is not canonical"
+  [[ -f "${bootstrap_receipt}" ]] || blocked "bootstrap admission is unobservable"
+  [[ ! -e "/var/lib/cynic/bootstrap/build-runner-bootstrap-completion.json" ]] \
+    || blocked "bootstrap admission was already consumed"
+  [[ ! -e "/var/lib/cynic/runtime/current/.cynic-runtime-release.json" ]] \
+    || blocked "runtime is already seeded; routine workload admission is required"
+  receipt_mode="$(stat -c '%u:%a' "${bootstrap_receipt}")"
+  [[ "${receipt_mode}" == "0:640" ]] || blocked "bootstrap admission ownership or mode is invalid"
+  observed_hostname="$(hostname)"
+  observed_commit="$(git rev-parse HEAD 2>/dev/null || true)"
+  registry_path="$(jq -r '.registry_path // empty' "${bootstrap_receipt}")"
+  registry_digest="$(jq -r '.registry_digest // empty' "${bootstrap_receipt}")"
+  [[ -f "${registry_path}" ]] || blocked "bootstrap registry is unobservable"
+  [[ "sha256:$(sha256sum "${registry_path}" | awk '{print $1}')" == "${registry_digest}" ]] \
+    || blocked "bootstrap registry digest mismatch"
+  jq -e \
+    --arg node "${observed_hostname}" \
+    --arg commit "${observed_commit}" \
+    --arg action "${action}" \
+    '.schema == "cynic.build_runner.bootstrap_admission.v1"
+      and .status == "admitted"
+      and .authority_class == "MachineEnrollment"
+      and .node_id == $node
+      and .source_commit == $commit
+      and (.allowed_actions | index($action) != null)' \
+    "${bootstrap_receipt}" >/dev/null \
+    || blocked "bootstrap admission binding is invalid"
+  jq -e \
+    --arg node "${observed_hostname}" \
+    '.nodes[] | select((.id // .name) == $node) |
+      (.role == "build_runner")
+      and (.transports.ssh.enrollment_authority.class == "machine_enrollment")
+      and (.transports.ssh.enrollment_authority.principal == "root")' \
+    "${registry_path}" >/dev/null \
+    || blocked "registry does not authorize build-runner MachineEnrollment"
+  [[ -n "${observed_hostname}" && -n "${observed_commit}" ]] \
+    || blocked "bootstrap node or checkout identity is unobservable"
+  [[ -z "$(git status --porcelain --untracked-files=all)" ]] \
+    || blocked "bootstrap checkout contains content outside the admitted source commit"
+  echo "build bootstrap admission proved: node=${observed_hostname} action=${action} commit=${observed_commit}"
+  exit 0
+fi
+
 [[ -n "${grant}" ]] || blocked "CYNIC_BUILD_ADMISSION_GRANT is missing"
 [[ -f "${grant}" ]] || blocked "grant file does not exist"
 [[ -n "${workload_record}" && -f "${workload_record}" ]] \

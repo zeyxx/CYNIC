@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source_commit=""
+source_url=""
+source_bundle=""
+registry_path="/etc/cynic/registry.json"
+state_root="/var/lib/cynic"
+apply=0
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --source-commit) source_commit="${2:-}"; shift 2 ;;
+    --source-url) source_url="${2:-}"; shift 2 ;;
+    --source-bundle) source_bundle="${2:-}"; shift 2 ;;
+    --registry) registry_path="${2:-}"; shift 2 ;;
+    --state-root) state_root="${2:-}"; shift 2 ;;
+    --yes) apply=1; shift ;;
+    *) echo "unknown build-runner bootstrap argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+blocked() {
+  echo "build-runner bootstrap blocked: $1" >&2
+  exit 1
+}
+
+[[ "$(id -u)" == "0" ]] || blocked "MachineEnrollment principal must have uid 0"
+[[ "${apply}" == "1" ]] || blocked "explicit --yes is required"
+[[ "${source_commit}" =~ ^[0-9a-f]{40}$ ]] || blocked "exact source commit is required"
+if [[ -n "${source_bundle}" ]]; then
+  [[ "${source_bundle}" == "${state_root}/bootstrap/"*.bundle && -f "${source_bundle}" ]] \
+    || blocked "source bundle must be a staged bootstrap artifact"
+elif [[ "${source_url}" != ssh://* && "${source_url}" != https://* ]]; then
+  blocked "source URL must use ssh or https when no staged bundle is provided"
+fi
+[[ -f "${registry_path}" ]] || blocked "runtime registry is missing"
+command -v jq >/dev/null 2>&1 || blocked "jq is unavailable"
+command -v sha256sum >/dev/null 2>&1 || blocked "sha256sum is unavailable"
+
+node_id="$(hostname)"
+workspace_relative="$(jq -r --arg node "${node_id}" \
+  '.nodes[] | select((.id // .name) == $node) |
+   select(.role == "build_runner") |
+   select(.transports.ssh.enrollment_authority.class == "machine_enrollment") |
+   select(.transports.ssh.enrollment_authority.principal == "root") |
+   .source_workspace_layout.repositories[] | select(.id == "cynic") | .relative_path' \
+  "${registry_path}")"
+[[ -n "${workspace_relative}" && "${workspace_relative}" != "null" ]] \
+  || blocked "registry build-runner source layout or MachineEnrollment authority is absent"
+[[ "${workspace_relative}" != /* && "${workspace_relative}" != *".."* ]] \
+  || blocked "registry source workspace path is unsafe"
+
+workspace="${state_root}/source/repositories/${workspace_relative}"
+admission="${state_root}/bootstrap/build-runner-bootstrap-admission.json"
+completion="${state_root}/bootstrap/build-runner-bootstrap-completion.json"
+target_root="${state_root}/build-targets/bootstrap-${source_commit:0:12}"
+bundle_root="${state_root}/bootstrap/framework-${source_commit:0:12}"
+[[ -d "${workspace}/.git" ]] || blocked "declared source workspace is absent"
+[[ ! -e "${completion}" ]] || blocked "bootstrap was already completed"
+[[ ! -e "${state_root}/runtime/current/.cynic-runtime-release.json" ]] \
+  || blocked "runtime is already seeded"
+
+sudo -u cynic git -C "${workspace}" status --porcelain --untracked-files=all | \
+  grep -q . && blocked "source workspace is not clean"
+if [[ -n "${source_bundle}" ]]; then
+  sudo -u cynic git -C "${workspace}" fetch --force "${source_bundle}" "${source_commit}"
+else
+  sudo -u cynic git -C "${workspace}" fetch --force "${source_url}" main
+fi
+sudo -u cynic git -C "${workspace}" cat-file -e "${source_commit}^{commit}"
+sudo -u cynic git -C "${workspace}" checkout --detach "${source_commit}"
+[[ "$(sudo -u cynic git -C "${workspace}" rev-parse HEAD)" == "${source_commit}" ]] \
+  || blocked "source commit read-back failed"
+[[ -z "$(sudo -u cynic git -C "${workspace}" status --porcelain --untracked-files=all)" ]] \
+  || blocked "materialized source is not exact"
+
+install -d -o root -g cynic -m 0750 "${state_root}/bootstrap"
+registry_digest="sha256:$(sha256sum "${registry_path}" | awk '{print $1}')"
+jq -n \
+  --arg node "${node_id}" \
+  --arg commit "${source_commit}" \
+  --arg registry "${registry_path}" \
+  --arg registry_digest "${registry_digest}" \
+  '{schema:"cynic.build_runner.bootstrap_admission.v1",status:"admitted",authority_class:"MachineEnrollment",node_id:$node,source_commit:$commit,registry_path:$registry,registry_digest:$registry_digest,allowed_actions:["make:build-release","cargo:build"]}' \
+  > "${admission}"
+chown root:cynic "${admission}"
+chmod 0640 "${admission}"
+
+install -d -o cynic -g cynic -m 0750 "${target_root}" "${bundle_root}"
+sudo -u cynic env \
+  HOME="${state_root}" \
+  CARGO_HOME="${state_root}/.cargo" \
+  CARGO_TARGET_DIR="${target_root}" \
+  CYNIC_BUILD_BOOTSTRAP_RECEIPT="${admission}" \
+  make -C "${workspace}" build-release
+
+sudo -u cynic "${target_root}/release/cynic" bootstrap framework bundle \
+  --json \
+  --output-dir "${bundle_root}" \
+  --role build_runner \
+  --artifact-dir "${target_root}/release" \
+  --registry "${registry_path}" >/dev/null
+"${bundle_root}/enroll.sh"
+systemctl is-active --quiet cynic-node.service || blocked "cynic-node service is not active"
+"/usr/local/bin/cynic-node" control --config /etc/cynic/node-control.toml --check >/dev/null
+
+jq -n \
+  --arg node "${node_id}" \
+  --arg commit "${source_commit}" \
+  --arg node_digest "sha256:$(sha256sum /usr/local/bin/cynic-node | awk '{print $1}')" \
+  '{schema:"cynic.build_runner.bootstrap_completion.v1",status:"proved",node_id:$node,source_commit:$commit,cynic_node_digest:$node_digest,proofs:["source_commit_read_back","release_build_completed","runtime_marker_read_back","cynic_node_service_active","node_control_config_read_back"]}' \
+  > "${completion}"
+chown root:cynic "${completion}"
+chmod 0640 "${completion}"
+mv "${admission}" "${admission}.consumed"
+echo "build-runner bootstrap proved: node=${node_id} commit=${source_commit} completion=${completion}"
