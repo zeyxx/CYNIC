@@ -201,7 +201,7 @@ fn successful_machine_enrollment_requires_exact_read_back_before_convergence() {
                     ),
                     "runtime_marker_read_back" => serde_json::json!({
                         "schema": "cynic.runtime_seed.release_marker.v3",
-                        "release_epoch": 0,
+                        "release_epoch": 1,
                         "basket_digest": BASKET_DIGEST,
                     })
                     .to_string(),

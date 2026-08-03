@@ -71,7 +71,9 @@ pub fn apply_framework_propagation(
     let node = read_back_json(&executions, "node_observation_read_back");
     let marker_valid = marker.as_ref().is_some_and(|marker| {
         marker["schema"].as_str() == Some("cynic.runtime_seed.release_marker.v3")
-            && marker["release_epoch"].as_u64() == Some(0)
+            && marker["release_epoch"]
+                .as_u64()
+                .is_some_and(|epoch| epoch > 0)
             && marker["basket_digest"].as_str()
                 == Some(plan.expected_runtime_basket_digest.as_str())
     });

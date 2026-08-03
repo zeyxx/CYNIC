@@ -73,7 +73,9 @@ pub(super) fn decide_framework_propagation(
 
 fn valid_runtime_marker(marker: &serde_json::Value, expected_basket_digest: &str) -> bool {
     marker["schema"].as_str() == Some("cynic.runtime_seed.release_marker.v3")
-        && marker["release_epoch"].as_u64() == Some(0)
+        && marker["release_epoch"]
+            .as_u64()
+            .is_some_and(|epoch| epoch > 0)
         && marker["basket_digest"].as_str() == Some(expected_basket_digest)
 }
 

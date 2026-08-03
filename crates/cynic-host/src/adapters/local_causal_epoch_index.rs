@@ -1,9 +1,10 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::os::fd::AsRawFd;
 use std::path::PathBuf;
 
 use cynic_protocol::{
-    digest_json, CausalEpochIndex, CausalEpochIndexAppend, CausalEpochIndexEntry,
+    CausalEpochIndex, CausalEpochIndexAppend, CausalEpochIndexEntry, digest_json,
 };
 
 use crate::ports::causal_epoch_index::CausalEpochIndexStorePort;
@@ -67,10 +68,40 @@ impl LocalCausalEpochIndexStore {
         }
         Ok(())
     }
+
+    fn lock(&self) -> Result<EpochIndexLock, String> {
+        fs::create_dir_all(&self.root)
+            .map_err(|error| format!("create epoch index {}: {error}", self.root.display()))?;
+        let path = self.root.join(".index.lock");
+        let file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .map_err(|error| format!("open epoch index lock {}: {error}", path.display()))?;
+        let result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
+        if result != 0 {
+            return Err(format!(
+                "lock epoch index {}: {}",
+                path.display(),
+                std::io::Error::last_os_error()
+            ));
+        }
+        Ok(EpochIndexLock(file))
+    }
+}
+
+struct EpochIndexLock(std::fs::File);
+
+impl Drop for EpochIndexLock {
+    fn drop(&mut self) {
+        let _ = unsafe { libc::flock(self.0.as_raw_fd(), libc::LOCK_UN) };
+    }
 }
 
 impl CausalEpochIndexStorePort for LocalCausalEpochIndexStore {
     fn append(&self, entry: &CausalEpochIndexEntry) -> Result<CausalEpochIndexAppend, String> {
+        let _lock = self.lock()?;
         let mut current = self.read_index()?;
         let outcome = current.append(entry.clone())?;
         if outcome == CausalEpochIndexAppend::AlreadyPresent {
