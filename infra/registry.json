@@ -424,7 +424,7 @@
   "fleet_desired": {
     "targets": [
       {
-        "id": "cynic-builder-bootstrap",
+      "id": "cynic-builder",
         "provider": "proxmox",
         "resource_id": "lxc/105",
         "role": "build_runner",
