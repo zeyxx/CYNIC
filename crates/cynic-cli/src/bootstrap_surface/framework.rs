@@ -173,6 +173,18 @@ pub(crate) enum BootstrapFrameworkCommand {
         #[arg(long)]
         registry: Option<String>,
     },
+    EpochPlan {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        source_commit: String,
+        #[arg(long)]
+        desired_state_digest: String,
+        #[arg(long)]
+        target_scope: String,
+        #[arg(long)]
+        created_at_unix_ms: u64,
+    },
 }
 
 pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode {
@@ -463,6 +475,26 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
             }
             match framework_bootstrap::audit_framework_lifecycle(registry.as_deref(), &role) {
                 Ok(report) => emit_json(&report, report.status == "blocked"),
+                Err(error) => fail(error),
+            }
+        }
+        BootstrapFrameworkCommand::EpochPlan {
+            json,
+            source_commit,
+            desired_state_digest,
+            target_scope,
+            created_at_unix_ms,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            match framework_bootstrap::plan_framework_epoch(
+                &source_commit,
+                &desired_state_digest,
+                &target_scope,
+                created_at_unix_ms,
+            ) {
+                Ok(plan) => emit_json(&plan, plan.status == "blocked"),
                 Err(error) => fail(error),
             }
         }

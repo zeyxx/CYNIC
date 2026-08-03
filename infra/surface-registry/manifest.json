@@ -22,6 +22,10 @@
       "path": "fragments/framework_bootstrap.json"
     },
     {
+      "id": "framework_epoch",
+      "path": "fragments/framework_epoch.json"
+    },
+    {
       "id": "chat_operator_surface",
       "path": "fragments/chat_operator_surface.json"
     },

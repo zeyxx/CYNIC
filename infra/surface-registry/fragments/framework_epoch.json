@@ -1,0 +1,49 @@
+{
+  "id": "framework_epoch",
+  "layer": "l1_to_l3_reconciliation",
+  "owner_crate": "cynic-host",
+  "adapter_module": "framework_bootstrap::epoch",
+  "domain_owner": "cynic-host::framework_bootstrap",
+  "owner_modules": [
+    "framework_bootstrap::epoch"
+  ],
+  "owner_call_markers": [
+    "plan_framework_epoch",
+    "advance_framework_epoch"
+  ],
+  "responsibility": "Bind one deployment epoch to the existing bootstrap proof owners and advance exactly one phase only after matching read-back observation.",
+  "mutation_policy": "read_only",
+  "canonical_entrypoints": [
+    "cynic bootstrap framework epoch-plan --json --source-commit <commit> --desired-state-digest <digest> --target-scope <scope> --created-at-unix-ms <ms>"
+  ],
+  "evidence": [
+    "cynic.framework_bootstrap.epoch_plan.v1",
+    "cynic.deployment_epoch.v1",
+    "cynic.deployment_transition.v1"
+  ],
+  "anti_responsibilities": [
+    "apply provider mutations directly",
+    "skip a deployment phase",
+    "treat a planned epoch as runtime proof",
+    "replace node-owned scheduler recovery"
+  ],
+  "architecture": {
+    "owned_ports": [
+      "advance_framework_epoch"
+    ],
+    "owned_decisions": [
+      "plan_framework_epoch"
+    ],
+    "allowed_adapters": [
+      "framework_bootstrap::epoch"
+    ],
+    "projection_modules": [
+      "framework_bootstrap::epoch"
+    ],
+    "forbidden_projection_markers": [
+      "std::process::Command",
+      "ssh_argv",
+      "ProxmoxSshSubstrateAdapter"
+    ]
+  }
+}
