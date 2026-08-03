@@ -4,6 +4,7 @@ set -euo pipefail
 source_commit=""
 source_url=""
 source_bundle=""
+source_bundle_digest=""
 registry_path="/etc/cynic/registry.json"
 state_root="/var/lib/cynic"
 apply=0
@@ -15,6 +16,7 @@ while [[ "$#" -gt 0 ]]; do
     --source-commit) source_commit="${2:-}"; shift 2 ;;
     --source-url) source_url="${2:-}"; shift 2 ;;
     --source-bundle) source_bundle="${2:-}"; shift 2 ;;
+    --source-bundle-digest) source_bundle_digest="${2:-}"; shift 2 ;;
     --registry) registry_path="${2:-}"; shift 2 ;;
     --state-root) state_root="${2:-}"; shift 2 ;;
     --network-mode) network_mode="${2:-}"; shift 2 ;;
@@ -34,18 +36,34 @@ blocked() {
 [[ "${source_commit}" =~ ^[0-9a-f]{40}$ ]] || blocked "exact source commit is required"
 [[ "${network_mode}" == "offline" || "${network_mode}" == "online" ]] \
   || blocked "network mode must be offline or online"
-[[ "${target_phase}" == "build" || "${target_phase}" == "activate" ]] \
-  || blocked "target phase must be build or activate"
-if [[ -n "${source_bundle}" ]]; then
-  [[ "${source_bundle}" == "${state_root}/bootstrap/"*.bundle && -f "${source_bundle}" ]] \
-    || blocked "source bundle must be a staged bootstrap artifact"
-elif [[ "${source_url}" != ssh://* && "${source_url}" != https://* ]]; then
-  blocked "source URL must use ssh or https when no staged bundle is provided"
-fi
-[[ -f "${registry_path}" ]] || blocked "runtime registry is missing"
+[[ "${target_phase}" == "check" || "${target_phase}" == "build" || "${target_phase}" == "activate" ]] \
+  || blocked "target phase must be check, build, or activate"
 command -v jq >/dev/null 2>&1 || blocked "jq is unavailable"
 command -v sha256sum >/dev/null 2>&1 || blocked "sha256sum is unavailable"
 command -v df >/dev/null 2>&1 || blocked "df is unavailable"
+command -v stat >/dev/null 2>&1 || blocked "stat is unavailable"
+command -v sudo >/dev/null 2>&1 || blocked "sudo is unavailable"
+command -v git >/dev/null 2>&1 || blocked "git is unavailable"
+command -v make >/dev/null 2>&1 || blocked "make is unavailable"
+if [[ -n "${source_bundle}" ]]; then
+  [[ "${source_bundle}" == "${state_root}/bootstrap/"*.bundle && -f "${source_bundle}" ]] \
+    || blocked "source bundle must be a staged bootstrap artifact"
+  [[ "${source_bundle_digest}" =~ ^sha256:[0-9a-f]{64}$ ]] \
+    || blocked "source bundle digest must be an exact sha256 content address"
+  [[ "sha256:$(sha256sum "${source_bundle}" | awk '{print $1}')" == "${source_bundle_digest}" ]] \
+    || blocked "source bundle digest read-back failed"
+  [[ "$(stat -c '%U:%G' "${source_bundle}")" == "root:cynic" ]] \
+    || blocked "source bundle ownership must be root:cynic"
+  [[ "$(stat -c '%a' "${source_bundle}")" == "440" ]] \
+    || blocked "source bundle mode must be 0440"
+  sudo -u cynic test -r "${source_bundle}" \
+    || blocked "source bundle is not readable by the build principal"
+elif [[ "${source_url}" != ssh://* && "${source_url}" != https://* ]]; then
+  blocked "source URL must use ssh or https when no staged bundle is provided"
+elif [[ -n "${source_bundle_digest}" ]]; then
+  blocked "source bundle digest is invalid without a staged bundle"
+fi
+[[ -f "${registry_path}" ]] || blocked "runtime registry is missing"
 
 node_id="$(hostname)"
 workspace_relative="$(jq -r --arg node "${node_id}" \
@@ -64,6 +82,7 @@ workspace="${state_root}/source/repositories/${workspace_relative}"
 admission="${state_root}/bootstrap/build-runner-bootstrap-admission.json"
 completion="${state_root}/bootstrap/build-runner-bootstrap-completion.json"
 build_proof="${state_root}/bootstrap/build-runner-bootstrap-build.json"
+check_proof="${state_root}/bootstrap/build-runner-bootstrap-check.json"
 resource_proof="${state_root}/bootstrap/build-runner-resource-observation.json"
 minimum_available_bytes="$(jq -r --arg node "${node_id}" '
   .nodes[] | select((.id // .name) == $node and .role == "build_runner") |
@@ -116,6 +135,11 @@ elif (( available_bytes < minimum_available_bytes )); then
   resource_blocker="build_runner_available_bytes_below_policy"
 fi
 install -d -o root -g cynic -m 0750 "${state_root}/bootstrap"
+if [[ "${target_phase}" == "check" ]]; then
+  allowed_actions='["make:check","cargo:check","cargo:run","cargo:test"]'
+else
+  allowed_actions='["make:build-release","cargo:build"]'
+fi
 jq -n \
   --arg node "${node_id}" \
   --arg status "${resource_status}" \
@@ -180,12 +204,32 @@ jq -n \
   --arg registry "${registry_path}" \
   --arg registry_digest "${registry_digest}" \
   --arg target_phase "${target_phase}" \
-  '{schema:"cynic.build_runner.bootstrap_admission.v1",status:"admitted",authority_class:"MachineEnrollment",node_id:$node,source_commit:$commit,registry_path:$registry,registry_digest:$registry_digest,target_phase:$target_phase,allowed_actions:["make:build-release","cargo:build"]}' \
+  --argjson allowed_actions "${allowed_actions}" \
+  '{schema:"cynic.build_runner.bootstrap_admission.v1",status:"admitted",authority_class:"MachineEnrollment",node_id:$node,source_commit:$commit,registry_path:$registry,registry_digest:$registry_digest,target_phase:$target_phase,allowed_actions:$allowed_actions}' \
   > "${admission}"
 chown root:cynic "${admission}"
 chmod 0640 "${admission}"
 
 install -d -o cynic -g cynic -m 0750 "${target_root}" "${bundle_root}"
+if [[ "${target_phase}" == "check" ]]; then
+  sudo -u cynic env \
+    HOME="${state_root}" \
+    CARGO_HOME="${state_root}/.cargo" \
+    CARGO_TARGET_DIR="${target_root}" \
+    CARGO_NETWORK_MODE="${network_mode}" \
+    CYNIC_BUILD_BOOTSTRAP_RECEIPT="${admission}" \
+    make -C "${workspace}" check
+  jq -n \
+    --arg node "${node_id}" \
+    --arg commit "${source_commit}" \
+    --arg registry_digest "${registry_digest}" \
+    '{schema:"cynic.build_runner.bootstrap_check.v1",status:"proved",node_id:$node,source_commit:$commit,registry_digest:$registry_digest,target_phase:"check",proofs:["source_commit_read_back","source_bundle_digest_read_back","build_resource_preflight_read_back","canonical_make_check_completed"]}' \
+    > "${check_proof}"
+  chown root:cynic "${check_proof}"
+  chmod 0640 "${check_proof}"
+  echo "build-runner bootstrap check proved: node=${node_id} commit=${source_commit} proof=${check_proof}"
+  exit 0
+fi
 sudo -u cynic env \
   HOME="${state_root}" \
   CARGO_HOME="${state_root}/.cargo" \
