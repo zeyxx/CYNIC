@@ -1,10 +1,10 @@
 //! Principal install layout resolution (runtime user `cynic` by default).
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use crate::runtime_authority::default_runtime_principal_layout;
 
+use super::authority::{LocalPrincipalAuthority, PrincipalAuthorityPort};
 use super::types::{InstallPrincipalKind, PrincipalInstallLayout, RunAs};
 
 /// Resolve the runtime principal install layout (user `cynic` by default).
@@ -14,6 +14,13 @@ use super::types::{InstallPrincipalKind, PrincipalInstallLayout, RunAs};
 /// - `CYNIC_PRINCIPAL_HOME` — force home root
 /// - `CYNIC_ALLOW_LOCAL_DEV_BUILD` — dev fallback to operator `$HOME`
 pub fn resolve_principal_install_layout() -> PrincipalInstallLayout {
+    let authority = LocalPrincipalAuthority;
+    resolve_principal_install_layout_with_authority(&authority)
+}
+
+pub fn resolve_principal_install_layout_with_authority(
+    authority: &dyn PrincipalAuthorityPort,
+) -> PrincipalInstallLayout {
     let declared = default_runtime_principal_layout();
     let runtime_user =
         std::env::var("CYNIC_RUNTIME_USER").unwrap_or_else(|_| declared.runtime_user.clone());
@@ -35,7 +42,7 @@ pub fn resolve_principal_install_layout() -> PrincipalInstallLayout {
     let share_dir = home_dir.join(".local/share/cynic");
     let src_dir = share_dir.join("src");
 
-    let current = current_username();
+    let current = authority.current_username();
     let mut notes = Vec::new();
     notes.push(format!(
         "ecosystem packages install under principal user `{runtime_user}` layout"
@@ -46,7 +53,7 @@ pub fn resolve_principal_install_layout() -> PrincipalInstallLayout {
     let (run_as, writable) = if current.as_deref() == Some(runtime_user.as_str()) {
         notes.push("run_as=current (already principal)".into());
         (RunAs::Current, true)
-    } else if can_sudo_as(&runtime_user) {
+    } else if authority.can_run_as(&runtime_user) == Some(true) {
         notes.push(format!("run_as=sudo -u {runtime_user}"));
         (RunAs::SudoUser(runtime_user.clone()), true)
     } else if path_is_writable(&bin_dir) || path_is_writable(bin_dir.parent().unwrap_or(&bin_dir)) {
@@ -78,28 +85,6 @@ pub fn resolve_principal_install_layout() -> PrincipalInstallLayout {
         writable,
         notes,
     }
-}
-
-fn current_username() -> Option<String> {
-    if let Ok(u) = std::env::var("USER")
-        && !u.is_empty()
-    {
-        return Some(u);
-    }
-    let out = Command::new("id").args(["-un"]).output().ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if s.is_empty() { None } else { Some(s) }
-}
-
-fn can_sudo_as(user: &str) -> bool {
-    Command::new("sudo")
-        .args(["-n", "-u", user, "--", "true"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
 }
 
 fn path_is_writable(path: &Path) -> bool {
