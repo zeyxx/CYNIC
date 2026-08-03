@@ -143,6 +143,7 @@ fn agent_constitution_status() -> cynic_protocol::AgentConstitutionStatus {
 fn mcp_surface_manifest(
     project_root: &str,
     session_identity: &crate::session_identity::SessionIdentity,
+    request_meta_observed: bool,
 ) -> Result<serde_json::Value, McpError> {
     let exposure = load_agent_exposure(project_root)?;
     let compiled_exposure: serde_json::Value = serde_json::from_str(include_str!(
@@ -270,7 +271,7 @@ fn mcp_surface_manifest(
         "stdio_legacy"
     };
     let protocol_discovery =
-        crate::protocol::discovery_result(&compiled_exposure, false, transport);
+        crate::protocol::discovery_result(&compiled_exposure, request_meta_observed, transport);
     let status = if findings.is_empty() {
         "observed"
     } else {

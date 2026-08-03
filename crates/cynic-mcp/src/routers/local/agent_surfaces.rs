@@ -4,9 +4,16 @@ impl CynicMcpProxy {
         name = "cynic_mcp_surface",
         description = "Read the agent-facing CYNIC MCP surface manifest grouped by domain from infra/agent-exposure.json. Use this to discover coordination, memory/tasks, lifecycle, organism/status, and infra tools without shell inspection."
     )]
-    async fn cynic_mcp_surface(&self) -> Result<CallToolResult, McpError> {
+    async fn cynic_mcp_surface(
+        &self,
+        context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
-        let result = mcp_surface_manifest(&self.project_root, &self.session_identity)?;
+        let result = mcp_surface_manifest(
+            &self.project_root,
+            &self.session_identity,
+            !context.meta.0.is_empty(),
+        )?;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
         )]))
