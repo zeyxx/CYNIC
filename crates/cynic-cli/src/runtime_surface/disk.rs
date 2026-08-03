@@ -2,7 +2,11 @@
 
 use std::process::ExitCode;
 
+use cynic_host::adapters::local_build_cache::LocalBuildCacheAdapter;
 use cynic_host::adapters::local_disk::LocalDiskAdapter;
+use cynic_host::domain::disk::build_runner::{
+    load_build_cache_desired_state, reconcile_build_cache_resources,
+};
 use cynic_host::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
 use cynic_host::domain::disk::{DiskCleanupPlan, DiskCleanupResult, DiskReport};
 
@@ -26,7 +30,17 @@ pub(crate) fn execute_disk(json: bool) -> ExitCode {
     }
 }
 
-pub(crate) fn execute_disk_clean(json: bool, apply: bool) -> ExitCode {
+pub(crate) fn execute_disk_clean(
+    json: bool,
+    apply: bool,
+    build_runner: bool,
+    registry: &str,
+    node: Option<&str>,
+    state_root: &str,
+) -> ExitCode {
+    if build_runner {
+        return execute_build_runner_cache(json, apply, registry, node, state_root);
+    }
     let adapter = LocalDiskAdapter;
     let report = match adapter.observe_disk() {
         Ok(r) => r,
@@ -57,6 +71,61 @@ pub(crate) fn execute_disk_clean(json: bool, apply: bool) -> ExitCode {
             print_cleanup_plan_human(&plan);
             ExitCode::SUCCESS
         }
+    }
+}
+
+fn execute_build_runner_cache(
+    json: bool,
+    apply: bool,
+    registry: &str,
+    node: Option<&str>,
+    state_root: &str,
+) -> ExitCode {
+    let observed_hostname = cynic_host::runtime_layout::observed_hostname();
+    let node_id = node.unwrap_or(&observed_hostname);
+    let temporary_root = std::env::temp_dir();
+    let desired = match load_build_cache_desired_state(
+        std::path::Path::new(registry),
+        node_id,
+        std::path::Path::new(state_root),
+        &temporary_root,
+    ) {
+        Ok(desired) => desired,
+        Err(error) => {
+            let report = serde_json::json!({
+                "schema": "cynic.build_runner.cache_report.v1",
+                "status": "blocked",
+                "mutates": false,
+                "blockers": [error]
+            });
+            if json {
+                return emit_json(&report, true);
+            }
+            eprintln!("Build-runner cache reconciliation blocked: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let report = reconcile_build_cache_resources(
+        &desired,
+        apply,
+        &LocalBuildCacheAdapter,
+        &LocalBuildCacheAdapter,
+    );
+    if json {
+        return emit_json(&report, report.status == "blocked");
+    }
+    println!(
+        "Build-runner cache: {} (available={:?}, target={})",
+        report.status, report.before.available_bytes, report.plan.target_path
+    );
+    if report.status == "planned" {
+        println!("Apply with: cynic runtime disk-clean --build-runner --apply");
+    }
+    if report.status == "blocked" {
+        eprintln!("Blockers: {}", report.blockers.join(", "));
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
     }
 }
 

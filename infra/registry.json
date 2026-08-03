@@ -293,6 +293,14 @@
         "schema": "cynic.build_runner.resource_policy.v1",
         "minimum_available_bytes": 4294967296,
         "canonical_target_relative_path": "build-targets/bootstrap",
+        "canonical_cache_reclaim": {
+          "schema": "cynic.build_runner.cache_reclaim_policy.v1",
+          "trigger": "available_bytes_below_minimum",
+          "action": "rust_remove_bounded_profile",
+          "target_profile": "debug",
+          "preserve_profiles": ["release"],
+          "rollback_intent": "none_reproducible_build_cache_only"
+        },
         "noncanonical_cache_candidates": [
           {
             "base": "temporary_directory",
@@ -465,6 +473,7 @@
         "cynic-kernel",
         "cynic-node",
         "cynic-mcp",
+        "cynic-lxc-exec-bridge",
         "cynic"
       ]
     }

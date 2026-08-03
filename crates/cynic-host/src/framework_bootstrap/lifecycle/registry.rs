@@ -242,6 +242,34 @@ impl<'a> LifecycleRegistry<'a> {
         if cache_candidates.is_none_or(|candidates| candidates.is_empty()) {
             blockers.push("build_runner_cache_reconciliation_policy_missing".to_string());
         }
+        let reclaim = resource_policy.and_then(|policy| policy.get("canonical_cache_reclaim"));
+        if reclaim
+            .and_then(|value| value.get("schema"))
+            .and_then(Value::as_str)
+            != Some("cynic.build_runner.cache_reclaim_policy.v1")
+            || reclaim
+                .and_then(|value| value.get("trigger"))
+                .and_then(Value::as_str)
+                != Some("available_bytes_below_minimum")
+            || reclaim
+                .and_then(|value| value.get("action"))
+                .and_then(Value::as_str)
+                != Some("rust_remove_bounded_profile")
+            || reclaim
+                .and_then(|value| value.get("target_profile"))
+                .and_then(Value::as_str)
+                != Some("debug")
+            || !reclaim
+                .and_then(|value| value.get("preserve_profiles"))
+                .and_then(Value::as_array)
+                .is_some_and(|profiles| {
+                    profiles
+                        .iter()
+                        .any(|profile| profile.as_str() == Some("release"))
+                })
+        {
+            blockers.push("build_runner_canonical_cache_reclaim_policy_invalid".to_string());
+        }
         blockers
     }
 
@@ -272,8 +300,12 @@ impl<'a> LifecycleRegistry<'a> {
             .flatten()
             .filter_map(Value::as_str)
             .collect::<std::collections::BTreeSet<_>>();
-        let expected = ["cynic", "cynic-kernel", "cynic-mcp", "cynic-node"]
-            .into_iter()
+        let Ok(expected) = cynic_protocol::runtime_release_artifact_names() else {
+            return vec!["runtime_basket_desired_state_invalid".to_string()];
+        };
+        let expected = expected
+            .iter()
+            .map(String::as_str)
             .collect::<std::collections::BTreeSet<_>>();
         if artifacts == expected {
             Vec::new()

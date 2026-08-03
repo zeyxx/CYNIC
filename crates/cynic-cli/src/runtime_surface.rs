@@ -1,6 +1,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
+use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 
 use crate::bootstrap_surface::ProfileArgs;
 
@@ -332,6 +333,16 @@ pub(crate) enum RuntimeCommand {
         /// Apply the cleanup plan (mutation).
         #[arg(long)]
         apply: bool,
+        /// Reconcile only the registry-declared build-runner cache profile.
+        #[arg(long)]
+        build_runner: bool,
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+        /// Build-runner node id; defaults to the observed hostname.
+        #[arg(long)]
+        node: Option<String>,
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
     },
 }
 

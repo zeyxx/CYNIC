@@ -23,9 +23,21 @@ pub(crate) fn try_execute_compat_alias(
             &only,
         )),
         RuntimeCommand::Disk { json } => Ok(super::disk::execute_disk(json)),
-        RuntimeCommand::DiskClean { json, apply } => {
-            Ok(super::disk::execute_disk_clean(json, apply))
-        }
+        RuntimeCommand::DiskClean {
+            json,
+            apply,
+            build_runner,
+            registry,
+            node,
+            state_root,
+        } => Ok(super::disk::execute_disk_clean(
+            json,
+            apply,
+            build_runner,
+            &registry,
+            node.as_deref(),
+            &state_root,
+        )),
         other => Err(other),
     }
 }
