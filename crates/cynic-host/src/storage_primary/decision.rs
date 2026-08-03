@@ -138,7 +138,7 @@ fn build_desired_state(
     let registry: serde_json::Value = serde_json::from_slice(&bytes)
         .map_err(|error| vec![format!("registry_invalid_json:{error}")])?;
     let mut unknowns = Vec::new();
-    match registry.get("storage_registry") {
+    let storage_registry = match registry.get("storage_registry") {
         Some(value) => {
             let storage_registry =
                 serde_json::from_value::<cynic_protocol::StorageRegistry>(value.clone())
@@ -147,9 +147,14 @@ fn build_desired_state(
             if !blockers.is_empty() {
                 return Err(blockers);
             }
+            storage_registry
         }
-        None => unknowns.push("storage_registry_not_declared".to_string()),
-    }
+        None => return Err(vec!["storage_registry_not_declared".to_string()]),
+    };
+    let binding = storage_registry
+        .bindings
+        .first()
+        .ok_or_else(|| vec!["storage_binding_missing".to_string()])?;
     let nodes = registry
         .get("nodes")
         .and_then(serde_json::Value::as_array)
@@ -274,6 +279,9 @@ fn build_desired_state(
             artifact_endpoint: format!("{artifact_scheme}://{artifact_host}:{artifact_port}"),
             artifact_unit,
             artifact_base_path,
+            binding_id: binding.id.clone(),
+            binding_mount_path: binding.mount_path.clone(),
+            binding_service: binding.service.clone(),
             schema_path: schema_path.display().to_string(),
             runtime_identity: "cynic-runtime".to_string(),
             secret_class: "RuntimeMachineIdentity",
@@ -316,6 +324,9 @@ mod tests {
                 artifact_endpoint: "https://storage.synapse.cynic:8443".to_string(),
                 artifact_unit: "runtime-artifact-store.service".to_string(),
                 artifact_base_path: "/runtime-releases".to_string(),
+                binding_id: "binding".to_string(),
+                binding_mount_path: "/data".to_string(),
+                binding_service: "runtime-artifact-store".to_string(),
                 schema_path: "schema.surql".to_string(),
                 runtime_identity: "cynic-runtime".to_string(),
                 secret_class: "RuntimeMachineIdentity",
