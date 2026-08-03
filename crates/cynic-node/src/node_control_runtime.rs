@@ -249,6 +249,23 @@ pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {
         let has_enrollment_token = control.enrollment_token_path.is_file();
         let has_enrollment_authority_public_key =
             control.enrollment_authority_public_key_path.is_file();
+        let enrollment = LocalNodeEnrollmentReader::new(
+            control.enrollment_request_path.clone(),
+            control.enrollment_grant_path.clone(),
+            control.enrollment_authority_public_key_path.clone(),
+            control.signing_key_path.clone(),
+        )
+        .read_back(&node_id);
+        let enrollment_proven = enrollment.state == cynic_protocol::SecurityEvidenceState::Proven;
+        let scheduler_capabilities_proven = enrollment_proven
+            && cynic_protocol::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
+                .iter()
+                .all(|capability| {
+                    enrollment
+                        .granted_capabilities
+                        .iter()
+                        .any(|granted| granted == capability)
+                });
         let mut missing = Vec::new();
         if !has_signing_key {
             missing.push("node_signing_key");
@@ -264,13 +281,21 @@ pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {
             .build_scheduler
             .as_ref()
             .is_none_or(|scheduler| scheduler.registry_path.is_file());
-        let build_scheduler_activation_ready = !build_scheduler_configured
+        let build_scheduler_inputs_present = !build_scheduler_configured
             || (has_signing_key && has_enrollment_grant && build_scheduler_registry_present);
+        let build_scheduler_activation_ready = !build_scheduler_configured
+            || (build_scheduler_inputs_present && scheduler_capabilities_proven);
         if build_scheduler_configured && !has_enrollment_grant {
             missing.push("build_scheduler_durable_enrollment_grant");
         }
         if !build_scheduler_registry_present {
             missing.push("build_scheduler_runtime_registry");
+        }
+        if build_scheduler_configured && !enrollment_proven {
+            missing.push("build_scheduler_enrollment_read_back");
+        }
+        if build_scheduler_configured && enrollment_proven && !scheduler_capabilities_proven {
+            missing.push("build_scheduler_capability_read_back");
         }
         let status = if missing.is_empty() {
             "ready"
@@ -292,7 +317,11 @@ pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {
                 "has_enrollment_authority_public_key": has_enrollment_authority_public_key,
                 "build_scheduler_configured": build_scheduler_configured,
                 "build_scheduler_registry_present": build_scheduler_registry_present,
+                "build_scheduler_inputs_present": build_scheduler_inputs_present,
+                "build_scheduler_enrollment_proven": enrollment_proven,
+                "build_scheduler_capabilities_proven": scheduler_capabilities_proven,
                 "build_scheduler_activation_ready": build_scheduler_activation_ready,
+                "enrollment_read_back_unknowns": enrollment.unknowns,
                 "runtime_artifact_inbox_root": control.runtime_artifact_inbox_root,
                 "runtime_artifact_max_bytes": control.runtime_artifact_max_bytes,
                 "runtime_artifact_timeout_secs": control.runtime_artifact_timeout_secs,
