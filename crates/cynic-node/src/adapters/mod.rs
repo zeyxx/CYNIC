@@ -44,6 +44,7 @@ pub mod local_system_probe;
 pub mod provider_fallback_probe;
 pub mod proxmox;
 pub mod proxmox_control;
+pub mod proxmox_storage;
 pub mod qemu_guest_agent_network_runner;
 pub mod registry;
 pub mod runtime_observation;

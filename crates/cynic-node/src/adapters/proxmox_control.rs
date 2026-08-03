@@ -191,6 +191,13 @@ impl ProxmoxControlAdapter {
             .await
     }
 
+    pub async fn lxc_config(&self, node: &str, vmid: &str) -> Result<Value, String> {
+        validate_provider_component("node", node)?;
+        validate_provider_component("vmid", vmid)?;
+        self.get_json(&format!("/api2/json/nodes/{node}/lxc/{vmid}/config"))
+            .await
+    }
+
     pub async fn task_status(&self, node: &str, upid: &str) -> Result<Value, String> {
         validate_provider_component("node", node)?;
         if upid.is_empty()
