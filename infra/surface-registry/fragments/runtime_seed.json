@@ -18,7 +18,6 @@
   ],
   "owner_call_markers": [
     "reconcile_runtime_seed",
-    "admit_runtime_release",
     "RuntimeSeedSignatureVerifier",
     "RuntimeSeedActivationPort",
     "execute_plan"

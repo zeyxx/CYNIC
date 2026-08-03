@@ -44,6 +44,7 @@ pub(crate) fn adapter_module_path(owner_crate: &str, adapter_module: &str) -> Pa
                 | "cynic-cli"
                 | "cynic-inference"
                 | "cynic-mcp"
+                | "cynic-kernel"
         ) {
             return crate_module_path(crate_name, module_name);
         }
@@ -86,6 +87,7 @@ pub(crate) fn owner_module_path(owner_crate: &str, module: &str) -> PathBuf {
                 | "cynic-cli"
                 | "cynic-inference"
                 | "cynic-mcp"
+                | "cynic-kernel"
         ) {
             return crate_module_path(crate_name, module_name);
         }
@@ -101,6 +103,7 @@ fn crate_module_path(crate_name: &str, module: &str) -> PathBuf {
         "cynic-protocol" => format!("{}/../cynic-protocol", env!("CARGO_MANIFEST_DIR")),
         "cynic-inference" => format!("{}/../cynic-inference", env!("CARGO_MANIFEST_DIR")),
         "cynic-mcp" => format!("{}/../cynic-mcp", env!("CARGO_MANIFEST_DIR")),
+        "cynic-kernel" => format!("{}/../cynic-kernel", env!("CARGO_MANIFEST_DIR")),
         _ => env!("CARGO_MANIFEST_DIR").to_string(),
     };
     let mut path = PathBuf::from(crate_dir).join("src");

@@ -25,6 +25,7 @@ pub(crate) struct SurfaceAuditEntry {
     pub(crate) adapter_path: String,
     pub(crate) owner_module_paths: Vec<String>,
     pub(crate) mutation_policy: String,
+    pub(crate) mutation_dimensions: cynic_protocol::SurfaceMutationDimensions,
     pub(crate) checks: Vec<SurfaceAuditCheck>,
 }
 

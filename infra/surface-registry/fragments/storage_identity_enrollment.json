@@ -2,7 +2,7 @@
   "id": "storage_identity_enrollment",
   "layer": "l1_host_apply_boundary",
   "owner_crate": "cynic-host",
-  "adapter_module": "cynic-host::storage_identity::{surreal_admin,secret_adapter}",
+  "adapter_module": "cynic-host::host_exec_cli::storage_identity",
   "domain_owner": "cynic-protocol::storage_identity",
   "owner_modules": [
     "cynic-protocol::storage_identity",

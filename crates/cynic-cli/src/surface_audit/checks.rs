@@ -4,6 +4,7 @@ use std::path::Path;
 use crate::surface_audit::paths::{adapter_module_path, owner_module_path, read_adapter_source};
 use crate::surface_audit::types::{SurfaceAuditCheck, SurfaceAuditEntry};
 use crate::surface_registry::CanonicalCliSurface;
+use cynic_protocol::SurfaceMutationPolicy;
 
 pub(crate) fn duplicate_ids(surfaces: &[CanonicalCliSurface]) -> BTreeSet<String> {
     let mut seen = BTreeSet::new();
@@ -73,7 +74,8 @@ pub(crate) fn audit_surface(
             .iter()
             .map(|path| path.display().to_string())
             .collect(),
-        mutation_policy: surface.mutation_policy.clone(),
+        mutation_policy: surface.mutation_policy.as_str().to_string(),
+        mutation_dimensions: surface.mutation_policy.dimensions(),
         checks,
     }
 }
@@ -189,20 +191,10 @@ fn check_known_owner(surface: &CanonicalCliSurface) -> SurfaceAuditCheck {
 }
 
 fn check_known_mutation_policy(surface: &CanonicalCliSurface) -> SurfaceAuditCheck {
-    let known = matches!(
-        surface.mutation_policy.as_str(),
-        "read_only"
-            | "read_only_temp_artifacts"
-            | "artifact_generation"
-            | "explicit_apply_only"
-            | "explicit_apply_only_after_signature_digest_epoch_node_and_slot_preflight"
-            | "read_only_by_default_explicit_apply_bounded_restart"
-            | "read_only_by_default_explicit_apply_for_actuators"
-    );
     SurfaceAuditCheck {
         name: "known_mutation_policy",
-        status: if known { "ok" } else { "blocked" },
-        detail: format!("mutation_policy={}", surface.mutation_policy),
+        status: "ok",
+        detail: format!("mutation_policy={}", surface.mutation_policy.as_str()),
     }
 }
 
@@ -259,56 +251,21 @@ fn check_mutation_policy_matches_source(
         };
     };
     let signals = mutation_signals(source, surface);
-    let allowed = match surface.mutation_policy.as_str() {
-        "read_only" => signals
+    let dimensions = surface.mutation_policy.dimensions();
+    let has_apply_guard = source.contains("requires --apply")
+        || source.contains("--apply")
+        || surface
+            .canonical_entrypoints
             .iter()
-            .all(|signal| matches!(signal.as_str(), "process_execution")),
-        "read_only_temp_artifacts" => signals.iter().all(|signal| {
-            matches!(
-                signal.as_str(),
-                "process_execution" | "filesystem_temp_artifact"
-            )
-        }),
-        "artifact_generation" => signals.iter().all(|signal| {
-            matches!(
-                signal.as_str(),
-                "artifact_generation" | "filesystem_temp_artifact"
-            )
-        }),
-        "explicit_apply_only"
-        | "explicit_apply_only_after_signature_digest_epoch_node_and_slot_preflight" => {
-            let has_apply_guard = source.contains("requires --apply")
-                || source.contains("--apply")
-                || surface.canonical_entrypoints.iter().any(|entrypoint| {
-                    entrypoint.contains("--apply") || entrypoint.contains("--yes")
-                });
-            has_apply_guard
-                && signals.iter().all(|signal| {
-                    matches!(
-                        signal.as_str(),
-                        "explicit_apply" | "artifact_generation" | "filesystem_temp_artifact"
-                    )
-                })
-        }
-        "read_only_by_default_explicit_apply_for_actuators"
-        | "read_only_by_default_explicit_apply_bounded_restart" => {
-            let has_apply_guard = surface
-                .canonical_entrypoints
-                .iter()
-                .any(|entrypoint| entrypoint.contains("--apply"));
-            has_apply_guard
-                && signals.iter().all(|signal| {
-                    matches!(
-                        signal.as_str(),
-                        "explicit_apply"
-                            | "artifact_generation"
-                            | "filesystem_temp_artifact"
-                            | "process_execution"
-                    )
-                })
-        }
-        _ => false,
-    };
+            .any(|entrypoint| entrypoint.contains("--apply") || entrypoint.contains("--yes"));
+    let allowed = (!dimensions.requires_explicit_apply || has_apply_guard)
+        && signals.iter().all(|signal| match signal.as_str() {
+            "explicit_apply" => dimensions.requires_explicit_apply,
+            "artifact_generation" => dimensions.allows_artifact_generation,
+            "filesystem_temp_artifact" => dimensions.allows_temporary_files,
+            "process_execution" => dimensions.allows_process_execution,
+            _ => false,
+        });
     SurfaceAuditCheck {
         name: "mutation_policy_matches_source",
         status: if allowed { "ok" } else { "blocked" },
@@ -384,7 +341,7 @@ fn mutation_signals(source: &str, surface: &CanonicalCliSurface) -> Vec<String> 
         signals.insert("process_execution".to_string());
     }
 
-    if surface.mutation_policy == "artifact_generation" {
+    if surface.mutation_policy == SurfaceMutationPolicy::ArtifactGeneration {
         signals.remove("explicit_apply");
     }
 

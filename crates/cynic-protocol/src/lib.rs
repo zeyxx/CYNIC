@@ -313,7 +313,7 @@ pub use supervision::{
 };
 pub use surface_registry::{
     CanonicalCliSurface, SURFACE_REGISTRY_SCHEMA, SurfaceArchitectureContract,
-    SurfaceRegistryDocument,
+    SurfaceMutationDimensions, SurfaceMutationPolicy, SurfaceRegistryDocument,
 };
 pub use tasks::{
     AGENT_TASKS_COMPLETED_PATH, AGENT_TASKS_PATH, agent_task_claim_path, agent_task_claim_payload,

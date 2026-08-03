@@ -2,7 +2,7 @@
   "id": "node_identity",
   "layer": "l2_node_apply_boundary",
   "owner_crate": "cynic-node",
-  "adapter_module": "adapters::local_node_identity",
+  "adapter_module": "cynic-node::main",
   "domain_owner": "cynic-protocol::node_identity",
   "owner_modules": [
     "ports::node_identity_port",
