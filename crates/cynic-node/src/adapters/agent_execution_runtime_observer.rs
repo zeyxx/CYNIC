@@ -9,17 +9,13 @@ use cynic_protocol::{
 };
 use sha2::{Digest, Sha256};
 
+pub const DEFAULT_AGENT_EXECUTION_RUNTIME_PROOF: &str =
+    "/var/lib/cynic/agent-scheduler/runtime-proof.json";
+
 /// Read the node-owned execution proof supplied by the deployed scheduler.
 /// An absent or malformed proof never promotes the runtime to readiness.
 pub fn observe_from_env() -> AgentExecutionRuntimeObservation {
-    let Some(path) = std::env::var_os("CYNIC_AGENT_EXECUTION_RUNTIME_PROOF") else {
-        let mut observation = AgentExecutionRuntimeObservation::unobserved();
-        observation
-            .unknowns
-            .push("node_owned_agent_execution_proof_path_missing".to_string());
-        return observation;
-    };
-    let path = PathBuf::from(path);
+    let path = configured_path();
     let bytes = match std::fs::read(&path) {
         Ok(bytes) => bytes,
         Err(error) => {
@@ -62,9 +58,7 @@ pub fn persist_capabilities(
     capabilities: &[&str],
     evidence_refs: &[String],
 ) -> Result<AgentExecutionRuntimeObservation, String> {
-    let path = std::env::var_os("CYNIC_AGENT_EXECUTION_RUNTIME_PROOF")
-        .map(PathBuf::from)
-        .ok_or_else(|| "node_owned_agent_execution_proof_path_missing".to_string())?;
+    let path = configured_path();
     if fs::symlink_metadata(&path)
         .map(|metadata| metadata.file_type().is_symlink())
         .unwrap_or(false)
@@ -135,4 +129,10 @@ pub fn persist_capabilities(
         return Err("node_owned_agent_execution_proof_read_back_missing".to_string());
     }
     Ok(read_back)
+}
+
+fn configured_path() -> PathBuf {
+    std::env::var_os("CYNIC_AGENT_EXECUTION_RUNTIME_PROOF")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(DEFAULT_AGENT_EXECUTION_RUNTIME_PROOF))
 }
