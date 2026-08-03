@@ -205,7 +205,9 @@ pub(crate) fn check_mcp_command_projection(
         && codex_policy
             .pointer("/client_config/mcp_servers/cynic/command")
             .and_then(Value::as_str)
-            == Some(command);
+            == Some(command)
+        && codex_policy.pointer("/client_config/mcp_servers/cynic/args")
+            == Some(&Value::Array(Vec::new()));
     if !codex_policy_matches {
         findings.push(finding(
             "critical",
@@ -213,6 +215,35 @@ pub(crate) fn check_mcp_command_projection(
             codex_policy_rel,
             "Codex and Antigravity must consume the same command, SSOT, and runtime-discovery policy",
             Some(command.to_string()),
+        ));
+    }
+
+    let shared_projection_keys = [
+        "server",
+        "transport",
+        "command",
+        "args",
+        "tool_source",
+        "tool_cache",
+        "exposure_ssot",
+        "protocol_profile",
+        "runtime_selection",
+    ];
+    let drifted_keys: Vec<&str> = shared_projection_keys
+        .iter()
+        .copied()
+        .filter(|key| antigravity.get(*key) != codex_policy.get(*key))
+        .collect();
+    if !drifted_keys.is_empty() {
+        findings.push(finding(
+            "critical",
+            "agent_projection_parity_drift",
+            codex_policy_rel,
+            format!(
+                "Codex and Antigravity projections must share identical runtime-discovery fields: {}",
+                drifted_keys.join(", ")
+            ),
+            None,
         ));
     }
 }
