@@ -67,6 +67,24 @@ impl CynicMcpProxy {
                     )
                     .await?,
                 );
+                let artifact_store = find_declared_service(node, "runtime-artifact-store")
+                    .ok_or_else(|| {
+                        McpError::internal_error(
+                            "runtime artifact store service missing from storage primary node",
+                            None,
+                        )
+                    })?;
+                evidence.insert(
+                    "artifact_store".to_string(),
+                    service_health_report(
+                        node,
+                        "runtime-artifact-store",
+                        artifact_store,
+                        None,
+                        params.service_health_timeout_seconds,
+                    )
+                    .await?,
+                );
             }
             Some(serde_json::Value::Object(evidence))
         } else {

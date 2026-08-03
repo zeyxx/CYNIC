@@ -1,12 +1,8 @@
 fn load_infra_registry() -> Result<serde_json::Value, McpError> {
-    let full_path = cynic_host::runtime_registry::resolve_runtime_registry_path(None).map_err(
-        |error| {
-            McpError::internal_error(
-                format!("Infrastructure registry unresolved: {error}"),
-                None,
-            )
-        },
-    )?;
+    let full_path =
+        cynic_host::runtime_registry::resolve_runtime_registry_path(None).map_err(|error| {
+            McpError::internal_error(format!("Infrastructure registry unresolved: {error}"), None)
+        })?;
     let content = std::fs::read_to_string(&full_path).map_err(|e| {
         McpError::internal_error(
             format!("Infrastructure registry unavailable ({full_path:?}): {e}"),
@@ -114,9 +110,22 @@ fn service_endpoint_from_registry(
     service: &serde_json::Value,
 ) -> Option<String> {
     let port = service.get("port").and_then(|value| value.as_u64())?;
-    let host = node_aliases(node)
-        .into_iter()
-        .find(|alias| alias.starts_with("organ-"))
+    let host = service
+        .get("endpoint_host")
+        .and_then(|value| value.as_str())
+        .or_else(|| {
+            node_aliases(node)
+                .into_iter()
+                .find(|alias| alias.starts_with("organ-"))
+        })
         .or_else(|| node_name(node))?;
-    Some(format!("http://{host}.synapse.cynic:{port}/health"))
+    let scheme = service
+        .get("scheme")
+        .and_then(|value| value.as_str())
+        .unwrap_or("http");
+    let path = service
+        .pointer("/health/path")
+        .and_then(|value| value.as_str())
+        .unwrap_or("/health");
+    Some(format!("{scheme}://{host}:{port}{path}"))
 }

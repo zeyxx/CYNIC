@@ -41,6 +41,10 @@ pub fn evaluate_status(
         .pointer("/health/healthy")
         .and_then(serde_json::Value::as_bool)
         == Some(true);
+    let artifact_store_ok = evidence
+        .pointer("/artifact_store/healthy")
+        .and_then(serde_json::Value::as_bool)
+        == Some(true);
     let dns_ok = plan.desired.as_ref().is_some_and(|desired| {
         evidence
             .pointer("/mesh_status/dns_checks")
@@ -62,6 +66,9 @@ pub fn evaluate_status(
     if !health_ok {
         blockers.push("storage_service_health_not_proven".to_string());
     }
+    if !artifact_store_ok {
+        blockers.push("storage_artifact_store_health_not_proven".to_string());
+    }
     if !dns_ok {
         blockers.push("storage_synapse_dns_not_proven".to_string());
     }
@@ -76,6 +83,9 @@ pub fn evaluate_status(
         .iter()
         .map(|blocker| match blocker.as_str() {
             "storage_service_health_not_proven" => "observe_or_reconcile_surrealdb_service",
+            "storage_artifact_store_health_not_proven" => {
+                "observe_or_reconcile_runtime_artifact_store"
+            }
             "storage_synapse_dns_not_proven" => "repair_storage_primary_dns_record",
             "provider_reports_storage_not_running" => "plan_provider_power_reconciliation",
             _ => "repair_storage_primary_desired_state",
@@ -90,6 +100,7 @@ pub fn evaluate_status(
         desired: plan.desired.clone(),
         checks: serde_json::json!({
             "service_health": health_ok,
+            "artifact_store_health": artifact_store_ok,
             "storage_dns": dns_ok,
             "provider_running": provider_running,
             "bootstrap_bundle_required_for_steady_state": false,
@@ -150,6 +161,39 @@ fn build_desired_state(
         .and_then(serde_json::Value::as_str)
         .unwrap_or("http");
     let unit = required_string(service, "unit", "storage_primary_unit_missing")?;
+    let artifact_service = node
+        .get("services")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .find(|service| {
+            service.get("name").and_then(serde_json::Value::as_str)
+                == Some("runtime-artifact-store")
+        })
+        .ok_or_else(|| vec!["storage_primary_artifact_store_missing".to_string()])?;
+    let artifact_scheme = artifact_service
+        .get("scheme")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("https");
+    let artifact_host = required_string(
+        artifact_service,
+        "endpoint_host",
+        "storage_primary_artifact_store_host_missing",
+    )?;
+    let artifact_port = artifact_service
+        .get("port")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| vec!["storage_primary_artifact_store_port_missing".to_string()])?;
+    let artifact_unit = required_string(
+        artifact_service,
+        "unit",
+        "storage_primary_artifact_store_unit_missing",
+    )?;
+    let artifact_base_path = required_string(
+        artifact_service,
+        "base_path",
+        "storage_primary_artifact_store_base_path_missing",
+    )?;
     let reservation = registry
         .pointer("/network_policy/reservations")
         .and_then(serde_json::Value::as_array)
@@ -198,6 +242,9 @@ fn build_desired_state(
             resource_id,
             endpoint: format!("{scheme}://{host}:{port}"),
             unit,
+            artifact_endpoint: format!("{artifact_scheme}://{artifact_host}:{artifact_port}"),
+            artifact_unit,
+            artifact_base_path,
             schema_path: schema_path.display().to_string(),
             runtime_identity: "cynic-runtime".to_string(),
             secret_class: "RuntimeMachineIdentity",
@@ -237,6 +284,9 @@ mod tests {
                 resource_id: "lxc/103".to_string(),
                 endpoint: "http://storage.synapse.cynic:8000".to_string(),
                 unit: "surrealdb.service".to_string(),
+                artifact_endpoint: "https://storage.synapse.cynic:8443".to_string(),
+                artifact_unit: "runtime-artifact-store.service".to_string(),
+                artifact_base_path: "/runtime-releases".to_string(),
                 schema_path: "schema.surql".to_string(),
                 runtime_identity: "cynic-runtime".to_string(),
                 secret_class: "RuntimeMachineIdentity",
@@ -249,6 +299,7 @@ mod tests {
             &plan,
             serde_json::json!({
                 "health": {"healthy": true},
+                "artifact_store": {"healthy": true},
                 "mesh_status": {"dns_checks": [{"node": "storage", "status": "ok"}]},
                 "fleet_report": {"effective": [{"observed_status": null}]}
             }),
