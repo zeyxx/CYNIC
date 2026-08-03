@@ -40,7 +40,7 @@ if [[ -n "${bootstrap_receipt}" ]]; then
       and .authority_class == "MachineEnrollment"
       and .node_id == $node
       and .source_commit == $commit
-      and (.target_phase == "build" or .target_phase == "activate")
+      and (.target_phase == "check" or .target_phase == "build" or .target_phase == "activate")
       and (.allowed_actions | index($action) != null)' \
     "${bootstrap_receipt}" >/dev/null \
     || blocked "bootstrap admission binding is invalid"
