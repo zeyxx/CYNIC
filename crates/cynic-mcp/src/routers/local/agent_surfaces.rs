@@ -262,7 +262,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_git",
-        description = "Run safe git operations: status, diff, log, branch, stash."
+        description = "Run read-only git observations: status, diff, and log. Source mutation uses cynic_source_control with an admitted lease."
     )]
     async fn cynic_git(&self, params: Parameters<GitParams>) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
