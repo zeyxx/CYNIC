@@ -1,18 +1,26 @@
-use std::process::Command;
-
 use crate::deps_surface_model::{
     DepEntry, DepSpec, DepWatch, PinEntry, PinView, PythonCliUpdateAuthorityView, VersionFrom,
 };
 use cynic_host::domain::ecosystem_package::{
-    InstallPrincipalKind, PrincipalInstallLayout, ProviderChannel,
-    observe_python_install_authority, observe_tooling_authority, plan_for_dep, provider_spec,
-    python_cli_policy, resolve_binary,
+    EcosystemPackageExecutionPort, InstallPrincipalKind, LocalEcosystemPackageExecution,
+    PrincipalInstallLayout, ProviderChannel, observe_python_install_authority,
+    observe_tooling_authority, plan_for_dep, provider_spec, python_cli_policy, resolve_binary,
 };
 
 pub(crate) fn probe_and_evaluate(
     spec: &DepSpec,
     pin: Option<&PinEntry>,
     layout: &PrincipalInstallLayout,
+) -> DepEntry {
+    let executor = LocalEcosystemPackageExecution;
+    probe_and_evaluate_with_executor(spec, pin, layout, &executor)
+}
+
+fn probe_and_evaluate_with_executor(
+    spec: &DepSpec,
+    pin: Option<&PinEntry>,
+    layout: &PrincipalInstallLayout,
+    executor: &dyn EcosystemPackageExecutionPort,
 ) -> DepEntry {
     let channel = channel_for_dep(spec.id);
     let install_principal = principal_for_dep(spec.id);
@@ -99,7 +107,7 @@ pub(crate) fn probe_and_evaluate(
         };
     };
 
-    let version = read_version(spec, &path);
+    let version = read_version(spec, &path, executor);
     let status = evaluate_status(spec.id, version.as_deref(), pin);
     let tooling_authority = spec.tooling_authority_family.map(|family| {
         observe_tooling_authority(
@@ -344,27 +352,35 @@ fn parse_version_triple(s: &str) -> Option<(u64, u64, u64)> {
     None
 }
 
-fn read_version(spec: &DepSpec, path: &str) -> Option<String> {
+fn read_version(
+    spec: &DepSpec,
+    path: &str,
+    executor: &dyn EcosystemPackageExecutionPort,
+) -> Option<String> {
+    let argv = std::iter::once(path.to_string())
+        .chain(spec.version_args.iter().map(|arg| (*arg).to_string()))
+        .collect::<Vec<_>>();
+    let output = executor.execute(&argv, None);
+    if output.spawn_error.is_some() {
+        return None;
+    }
     match spec.version_from {
         VersionFrom::HelpPresence => {
-            let output = Command::new(path).args(spec.version_args).output().ok()?;
-            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stdout = output.stdout.as_str();
             if stdout.contains("inference-start") {
                 Some("cynic-cli+inference-start".into())
-            } else if output.status.success() {
+            } else if output.success() {
                 Some("present-old-surface".into())
             } else {
                 Some("present".into())
             }
         }
         VersionFrom::StdoutFirstLine => {
-            let output = Command::new(path).args(spec.version_args).output().ok()?;
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let line = stdout
+            let line = output
+                .stdout
                 .lines()
                 .next()
-                .or_else(|| stderr.lines().next())
+                .or_else(|| output.stderr.lines().next())
                 .unwrap_or("")
                 .trim();
             if line.is_empty() {
@@ -373,14 +389,16 @@ fn read_version(spec: &DepSpec, path: &str) -> Option<String> {
                 Some(line.chars().take(120).collect())
             }
         }
-        VersionFrom::JsonField(field) => {
-            let output = Command::new(path).args(spec.version_args).output().ok()?;
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            serde_json::from_str::<serde_json::Value>(&stdout)
-                .ok()
-                .and_then(|value| value.get(field)?.as_str().map(|s| s.to_string()))
-                .or_else(|| stdout.lines().next().map(|line| line.trim().to_string()))
-        }
+        VersionFrom::JsonField(field) => serde_json::from_str::<serde_json::Value>(&output.stdout)
+            .ok()
+            .and_then(|value| value.get(field)?.as_str().map(|s| s.to_string()))
+            .or_else(|| {
+                output
+                    .stdout
+                    .lines()
+                    .next()
+                    .map(|line| line.trim().to_string())
+            }),
     }
 }
 
