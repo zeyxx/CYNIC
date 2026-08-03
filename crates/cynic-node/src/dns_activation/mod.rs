@@ -1,7 +1,9 @@
 mod apply;
 mod decision;
+mod filesystem;
 mod observe;
 mod registry;
+mod rollback;
 mod types;
 
 pub(crate) use apply::apply_dns_activation;

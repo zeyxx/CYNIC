@@ -1,5 +1,6 @@
 use super::decision::plan_dns_activation;
 use super::registry::resolve_dns_activation_spec;
+use super::rollback::rollback_matches;
 use super::types::{
     DnsActivationFileObservation, DnsActivationFileSpec, DnsActivationObservation,
     DnsActivationSpec,
@@ -106,4 +107,14 @@ fn bundle_tampering_is_a_pre_mutation_blocker() {
             .iter()
             .any(|blocker| blocker == "dns_activation_bundle_digest_mismatch:synapse.hosts")
     );
+}
+
+#[test]
+fn rollback_requires_exact_service_state_read_back() {
+    let before = observation(true);
+    let mut after = before.clone();
+    after.service_enabled = Some(false);
+
+    assert!(!rollback_matches(&before, &after));
+    assert!(rollback_matches(&before, &before));
 }
