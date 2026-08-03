@@ -10,8 +10,9 @@ mod workload_grant;
 
 pub use agent_request::{
     BUILD_AGENT_REQUEST_ADMISSION_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA,
-    BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest,
-    BuildAgentRequestAdmission, BuildReleasePublicationIntent, BuildSourceReference,
+    BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA,
+    BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA, BuildAgentRequest, BuildAgentRequestAdmission,
+    BuildReleasePublicationIntent, BuildSourceReference, BuildSourceSnapshotReference,
     admit_build_agent_request, plan_build_agent_request, valid_release_publication_id,
     validate_build_source_reference, validate_release_publication_intent,
 };
