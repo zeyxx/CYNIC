@@ -1,7 +1,7 @@
 {
   "schema": "cynic.agent_exposure.v1.minimal",
   "status": "normative",
-  "purpose": "Faithful agent-visible projection of the Rust MCP surface. This file must list every active cynic MCP tool and classify it by domain/tier; cynic_mcp_surface and cynic dev surface-audit validate that contract.",
+  "purpose": "Faithful agent-visible projection of the Rust MCP surface. This file lists the desired active cynic MCP tools and classifies them by domain/tier; runtime read-back decides whether the installed artifact is compatible. cynic_mcp_surface and cynic dev surface-audit validate that contract.",
   "policy": {
     "secrets": "Do not store real endpoints, API keys, cookies, wallet secrets, or personal account data in this file.",
     "mutation_default": "local_operator_only",
@@ -9,7 +9,7 @@
     "default_transport": "mcp_stdio",
     "fallback": "none",
     "project_root": "Inject runtime paths through operator deployment context; never commit machine-local absolute paths.",
-    "honesty": "This projection is complete for the current cynic-mcp binary. Tier labels mark product/legacy surfaces that are not low-layer runtime baseline."
+    "honesty": "This projection is source-of-truth for the desired cynic-mcp surface; an installed artifact must prove compatibility and freshness before it is treated as active. Tier labels mark product/legacy surfaces that are not low-layer runtime baseline."
   },
   "mcp_protocol_profile": {
     "target_revision": "2026-07-28",
@@ -619,7 +619,6 @@
   "deleted_exposures": [
     "deleted Python MCP proxies",
     "claude projection",
-    "antigravity projection",
     "legacy organ tools as durable authority",
     "Python or wildcard-pct LXC exec helpers as durable authority",
     "UX/product-layer tools as low-layer proof",

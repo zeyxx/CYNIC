@@ -120,6 +120,15 @@ mod tests {
         let result = discovery_result(&exposure, true, "stdio_legacy");
 
         assert_eq!(result["protocol_revision"], TARGET_REVISION);
+        assert_eq!(result["resultType"], "complete");
+        assert_eq!(result["supportedVersions"][0], TARGET_REVISION);
+        assert_eq!(result["capabilities"]["tools"], json!({}));
+        assert_eq!(
+            result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"],
+            "cynic"
+        );
+        assert_eq!(result["ttlMs"], 0);
+        assert_eq!(result["cacheScope"], "private");
         assert_eq!(result["implementation_status"], "migration_required");
         assert_eq!(result["read_back"]["discovery_method_served"], true);
         assert_eq!(result["read_back"]["stateless_transport_read_back"], false);
