@@ -17,6 +17,7 @@ use rmcp::transport::{
     streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
     StreamableHttpService,
 };
+use rmcp::{model::ErrorCode, ErrorData as McpError};
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
@@ -95,20 +96,62 @@ fn validate_2026_request(
     Ok(())
 }
 
+fn protocol_error_response(status: StatusCode, code: ErrorCode, message: &'static str) -> Response {
+    let error = rmcp::model::JsonRpcError::new(None, McpError::new(code, message, None));
+    let body = match serde_json::to_vec(&error) {
+        Ok(body) => body,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "MCP error serialization failed",
+            )
+                .into_response()
+        }
+    };
+    Response::builder()
+        .status(status)
+        .header("content-type", "application/json")
+        .body(Body::from(body))
+        .expect("valid MCP protocol error response")
+}
+
 async fn enforce_2026_wire(request: Request<Body>, next: Next) -> Response {
     let (parts, body) = request.into_parts();
     let bytes = match to_bytes(body, 1024 * 1024).await {
         Ok(bytes) => bytes,
-        Err(_) => return (StatusCode::BAD_REQUEST, "invalid MCP request body").into_response(),
+        Err(_) => {
+            return protocol_error_response(
+                StatusCode::BAD_REQUEST,
+                ErrorCode::PARSE_ERROR,
+                "invalid MCP request body",
+            )
+        }
     };
     let value: Value = match serde_json::from_slice(&bytes) {
         Ok(value) => value,
         Err(_) => {
-            return (StatusCode::BAD_REQUEST, "MCP request must be valid JSON").into_response();
+            return protocol_error_response(
+                StatusCode::BAD_REQUEST,
+                ErrorCode::PARSE_ERROR,
+                "MCP request must be valid JSON",
+            );
         }
     };
     if let Err(reason) = validate_2026_request(&parts.headers, &parts.method, &value) {
-        return (StatusCode::BAD_REQUEST, reason).into_response();
+        let code = if reason.contains("header")
+            || reason.contains("Header")
+            || reason.contains("POST")
+            || reason.starts_with("MCP-Protocol-Version")
+            || reason.starts_with("Mcp-Method")
+            || reason.starts_with("Mcp-Name")
+        {
+            ErrorCode::HEADER_MISMATCH
+        } else if reason.contains("initialize") {
+            ErrorCode::METHOD_NOT_FOUND
+        } else {
+            ErrorCode::INVALID_PARAMS
+        };
+        return protocol_error_response(StatusCode::BAD_REQUEST, code, reason);
     }
     next.run(Request::from_parts(parts, Body::from(bytes)))
         .await
