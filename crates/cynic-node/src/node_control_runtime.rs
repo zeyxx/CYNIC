@@ -121,7 +121,7 @@ pub(crate) async fn start_tasks(
     let scheduler_control = control.clone();
     let scheduler_shutdown = shutdown.clone();
     let renewal_task = tokio::spawn(
-        usecases::node_enrollment_lifecycle_uc::run_enrollment_renewal_loop(
+        crate::node_enrollment_lifecycle_uc::run_enrollment_renewal_loop(
             adapter,
             enrollment_reader,
             control,
@@ -149,7 +149,7 @@ pub(crate) async fn start_tasks(
         );
     }
     if scheduler_control.build_scheduler.is_some() && build_scheduler_authorized {
-        tasks.push(tokio::spawn(usecases::build_scheduler::run_loop(
+        tasks.push(tokio::spawn(crate::build_scheduler::run_loop(
             scheduler_control,
             scheduler_shutdown,
         )));

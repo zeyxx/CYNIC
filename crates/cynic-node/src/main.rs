@@ -20,6 +20,8 @@
 
 mod announce;
 mod build_attestation;
+#[path = "usecases/build_scheduler/mod.rs"]
+mod build_scheduler;
 mod cli;
 mod config;
 mod config_watch;
@@ -45,6 +47,8 @@ mod network_runtime_status;
 mod network_shadow_proof;
 mod network_surface_inventory;
 mod node_control_runtime;
+#[path = "usecases/node_enrollment_lifecycle_uc.rs"]
+mod node_enrollment_lifecycle_uc;
 mod observe;
 mod provider_fallback_hosts;
 mod provider_fallback_status;

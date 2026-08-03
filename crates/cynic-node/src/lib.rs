@@ -20,7 +20,6 @@
 pub mod adapters;
 mod build_attestation;
 mod cli;
-pub(crate) mod config;
 mod dns_activation_status;
 mod dns_bundle;
 mod dns_contract;
