@@ -235,7 +235,7 @@ impl CynicMcpProxy {
             "remote_exit_code": output.exit_code,
             "remote_timed_out": output.timed_out,
             "local_projection": local_projection,
-            "blockers": if active { Vec::<String>::new() } else { vec!["remote_rust_helper_read_back_failed"] },
+            "blockers": if active { Vec::<String>::new() } else { vec!["remote_rust_helper_read_back_failed".to_string()] },
             "secret_exposed": false,
         })
     }

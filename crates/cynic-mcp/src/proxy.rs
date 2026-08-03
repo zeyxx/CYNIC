@@ -18,7 +18,7 @@
 
 use schemars::JsonSchema;
 use serde::Deserialize;
-use std::sync::Arc;
+use std::{fs, path::PathBuf, sync::Arc};
 
 use rmcp::{
     ErrorData as McpError, ServerHandler, handler::server::tool::ToolRouter,
