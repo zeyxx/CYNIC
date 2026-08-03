@@ -17,7 +17,10 @@ use rmcp::transport::{
     streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
     StreamableHttpService,
 };
-use rmcp::{model::ErrorCode, ErrorData as McpError};
+use rmcp::{
+    model::{ErrorCode, RequestId},
+    ErrorData as McpError,
+};
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
@@ -96,8 +99,13 @@ fn validate_2026_request(
     Ok(())
 }
 
-fn protocol_error_response(status: StatusCode, code: ErrorCode, message: &'static str) -> Response {
-    let error = rmcp::model::JsonRpcError::new(None, McpError::new(code, message, None));
+fn protocol_error_response(
+    status: StatusCode,
+    code: ErrorCode,
+    message: &'static str,
+    id: Option<RequestId>,
+) -> Response {
+    let error = rmcp::model::JsonRpcError::new(id, McpError::new(code, message, None));
     let body = match serde_json::to_vec(&error) {
         Ok(body) => body,
         Err(_) => {
@@ -115,6 +123,13 @@ fn protocol_error_response(status: StatusCode, code: ErrorCode, message: &'stati
         .expect("valid MCP protocol error response")
 }
 
+fn request_id(value: &Value) -> Option<RequestId> {
+    value
+        .get("id")
+        .cloned()
+        .and_then(|value| serde_json::from_value::<RequestId>(value).ok())
+}
+
 async fn enforce_2026_wire(request: Request<Body>, next: Next) -> Response {
     let (parts, body) = request.into_parts();
     let bytes = match to_bytes(body, 1024 * 1024).await {
@@ -124,6 +139,7 @@ async fn enforce_2026_wire(request: Request<Body>, next: Next) -> Response {
                 StatusCode::BAD_REQUEST,
                 ErrorCode::PARSE_ERROR,
                 "invalid MCP request body",
+                None,
             )
         }
     };
@@ -134,6 +150,7 @@ async fn enforce_2026_wire(request: Request<Body>, next: Next) -> Response {
                 StatusCode::BAD_REQUEST,
                 ErrorCode::PARSE_ERROR,
                 "MCP request must be valid JSON",
+                None,
             );
         }
     };
@@ -151,7 +168,7 @@ async fn enforce_2026_wire(request: Request<Body>, next: Next) -> Response {
         } else {
             ErrorCode::INVALID_PARAMS
         };
-        return protocol_error_response(StatusCode::BAD_REQUEST, code, reason);
+        return protocol_error_response(StatusCode::BAD_REQUEST, code, reason, request_id(&value));
     }
     next.run(Request::from_parts(parts, Body::from(bytes)))
         .await
@@ -294,6 +311,15 @@ mod tests {
             validate_2026_request(&headers, &Method::POST, &body),
             Err("params._meta protocolVersion must match 2026-07-28")
         );
+    }
+
+    #[test]
+    fn protocol_error_keeps_valid_json_rpc_request_id() {
+        let value = serde_json::json!({"jsonrpc":"2.0", "id":"req-7", "method":"tools/list"});
+        assert!(request_id(&value).is_some());
+
+        let invalid = serde_json::json!({"jsonrpc":"2.0", "id":null, "method":"tools/list"});
+        assert!(request_id(&invalid).is_none());
     }
 
     #[test]
