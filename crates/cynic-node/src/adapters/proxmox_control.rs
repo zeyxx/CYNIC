@@ -67,6 +67,14 @@ impl std::fmt::Debug for ProxmoxControlAdapter {
 }
 
 impl ProxmoxControlAdapter {
+    /// Observe only the process-visible provider configuration.  This is
+    /// deliberately shared with identity projections so they cannot invent a
+    /// second enrollment interpretation; it performs no network I/O and never
+    /// returns credential material.
+    pub fn observe_process_configuration() -> ProxmoxControlConfiguration {
+        observe_configuration()
+    }
+
     /// Observe provider-control readiness without returning credentials or
     /// machine-local secret paths. This is the read-back surface used by CLI
     /// and MCP projections before they propose any provider mutation.
