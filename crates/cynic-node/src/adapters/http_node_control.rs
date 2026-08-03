@@ -11,11 +11,11 @@ use crate::ports::{
     node_control_plane_port::{NodeDesiredStatePullPort, NodeStatusPublishPort},
 };
 use cynic_protocol::{
-    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
-    NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA, NodeControlPlan,
-    NodeDesiredState, NodeEnrollmentRenewalRequest, NodeEnrollmentRequest,
-    SignedNodeEnrollmentGrant, validate_agent_workload_delivery, validate_node_control_plan,
-    validate_node_desired_state,
+    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
+    AgentWorkloadDeliveryStatus, NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA,
+    NODE_ENROLLMENT_REQUEST_SCHEMA, NodeControlPlan, NodeDesiredState,
+    NodeEnrollmentRenewalRequest, NodeEnrollmentRequest, SignedNodeEnrollmentGrant,
+    validate_agent_workload_delivery, validate_node_control_plan, validate_node_desired_state,
 };
 
 #[derive(Debug, Clone)]
@@ -60,8 +60,11 @@ struct WorkloadDeliveryResponse<T> {
 
 #[derive(Debug, Serialize)]
 struct WorkloadDeliveryAcceptRequest<'a> {
+    consumer_instance_id: &'a str,
     record_digest: &'a str,
-    accepted_at_ms: u64,
+    lease_ttl_ms: u64,
+    prior_lease_id: Option<&'a str>,
+    prior_fencing_token: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -421,13 +424,15 @@ impl AgentWorkloadDeliveryPort for HttpNodeControlAdapter {
         &self,
         node_id: &str,
         workload_id: &str,
-        record_digest: &str,
-        accepted_at_ms: u64,
+        acceptance: &AgentWorkloadDeliveryAcceptance,
     ) -> Result<AgentWorkloadDelivery, String> {
         let path = format!("/node-control/{node_id}/agent-workloads/{workload_id}/accept");
         let body = serde_json::to_vec(&WorkloadDeliveryAcceptRequest {
-            record_digest,
-            accepted_at_ms,
+            consumer_instance_id: &acceptance.consumer_instance_id,
+            record_digest: &acceptance.record_digest,
+            lease_ttl_ms: acceptance.lease_ttl_ms,
+            prior_lease_id: acceptance.prior_lease_id.as_deref(),
+            prior_fencing_token: acceptance.prior_fencing_token,
         })
         .map_err(|error| format!("encode workload acceptance: {error}"))?;
         let response = self.execute(Method::POST, &path, body).await?;
@@ -445,7 +450,13 @@ impl AgentWorkloadDeliveryPort for HttpNodeControlAdapter {
         if envelope.schema != "cynic.agent_workload_delivery_response.v1"
             || envelope.status != "accepted"
             || envelope.value.envelope.workload_id != workload_id
-            || envelope.value.accepted_record_digest.as_deref() != Some(record_digest)
+            || envelope.value.accepted_record_digest.as_deref()
+                != Some(acceptance.record_digest.as_str())
+            || envelope
+                .value
+                .acceptance_lease
+                .as_ref()
+                .is_none_or(|lease| lease.consumer_instance_id != acceptance.consumer_instance_id)
         {
             return Err("workload acceptance read-back is invalid".to_string());
         }

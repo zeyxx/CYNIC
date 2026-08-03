@@ -10,8 +10,33 @@ use crate::{
 };
 
 pub const AGENT_WORKLOAD_DELIVERY_SCHEMA: &str = "cynic.agent_workload_delivery.v1";
+pub const AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA: &str = "cynic.agent_workload_delivery_lease.v1";
+pub const AGENT_WORKLOAD_DELIVERY_LEASE_MAX_TTL_MS: u64 = 15 * 60 * 1_000;
 pub const AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA: &str =
     "cynic.agent_workload_completion_publication.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentWorkloadDeliveryLease {
+    pub schema: String,
+    pub lease_id: String,
+    pub fencing_token: u64,
+    pub consumer_instance_id: String,
+    pub accepted_at_ms: u64,
+    pub expires_at_ms: u64,
+    pub record_digest: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentWorkloadDeliveryAcceptance {
+    pub consumer_instance_id: String,
+    pub record_digest: String,
+    pub requested_at_ms: u64,
+    pub lease_ttl_ms: u64,
+    #[serde(default)]
+    pub prior_lease_id: Option<String>,
+    #[serde(default)]
+    pub prior_fencing_token: Option<u64>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -27,6 +52,7 @@ pub struct AgentWorkloadCompletionPublication {
     pub node_id: String,
     pub workload_id: String,
     pub published_at_ms: u64,
+    pub delivery_lease: AgentWorkloadDeliveryLease,
     pub durable_record: DurableAgentWorkloadRecord,
     #[serde(default)]
     pub evidence: Vec<EvidenceEnvelope>,
@@ -44,6 +70,8 @@ pub struct AgentWorkloadDelivery {
     pub accepted_at_ms: Option<u64>,
     #[serde(default)]
     pub accepted_record_digest: Option<String>,
+    #[serde(default)]
+    pub acceptance_lease: Option<AgentWorkloadDeliveryLease>,
     #[serde(default)]
     pub terminal_at_ms: Option<u64>,
     #[serde(default)]
@@ -142,6 +170,12 @@ pub fn validate_agent_workload_completion_publication(
     if delivery.status != AgentWorkloadDeliveryStatus::Accepted {
         violations.push("agent_workload_completion_delivery_not_accepted".to_string());
     }
+    if delivery.acceptance_lease.as_ref() != Some(&publication.delivery_lease) {
+        violations.push("agent_workload_completion_delivery_lease_mismatch".to_string());
+    }
+    if publication.delivery_lease.record_digest != publication.durable_record.record_digest {
+        violations.push("agent_workload_completion_delivery_record_mismatch".to_string());
+    }
     if publication.node_id != delivery.target_node_id
         || publication.workload_id != delivery.envelope.workload_id
         || publication.durable_record.record.envelope != delivery.envelope
@@ -154,6 +188,9 @@ pub fn validate_agent_workload_completion_publication(
             .is_some_and(|accepted| publication.published_at_ms < accepted)
     {
         violations.push("agent_workload_completion_publication_time_invalid".to_string());
+    }
+    if publication.published_at_ms > publication.delivery_lease.expires_at_ms {
+        violations.push("agent_workload_completion_delivery_lease_expired".to_string());
     }
     violations.extend(validate_durable_agent_workload_record(
         &publication.durable_record,
@@ -171,6 +208,121 @@ pub fn validate_agent_workload_completion_publication(
     violations.sort();
     violations.dedup();
     violations
+}
+
+pub fn agent_workload_delivery_available(delivery: &AgentWorkloadDelivery, now_ms: u64) -> bool {
+    match delivery.status {
+        AgentWorkloadDeliveryStatus::Pending => true,
+        AgentWorkloadDeliveryStatus::Accepted => delivery
+            .acceptance_lease
+            .as_ref()
+            .is_none_or(|lease| lease.expires_at_ms <= now_ms),
+        AgentWorkloadDeliveryStatus::Terminal => false,
+    }
+}
+
+pub fn validate_agent_workload_delivery_lease(lease: &AgentWorkloadDeliveryLease) -> Vec<String> {
+    let mut violations = Vec::new();
+    if lease.schema != AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA
+        || !valid_sha256(&lease.lease_id)
+        || lease.fencing_token == 0
+        || lease.consumer_instance_id.trim().is_empty()
+        || lease.accepted_at_ms == 0
+        || lease.expires_at_ms <= lease.accepted_at_ms
+        || !valid_sha256(&lease.record_digest)
+    {
+        violations.push("agent_workload_delivery_lease_invalid".to_string());
+    }
+    violations
+}
+
+pub fn accept_agent_workload_delivery(
+    delivery: &AgentWorkloadDelivery,
+    acceptance: &AgentWorkloadDeliveryAcceptance,
+) -> Result<AgentWorkloadDelivery, Vec<String>> {
+    let mut violations = validate_agent_workload_delivery(delivery);
+    if delivery.status == AgentWorkloadDeliveryStatus::Terminal {
+        violations.push("terminal_agent_workload_delivery_cannot_be_accepted".to_string());
+    }
+    if acceptance.consumer_instance_id.trim().is_empty()
+        || !valid_sha256(&acceptance.record_digest)
+        || acceptance.requested_at_ms < delivery.submitted_at_ms
+        || acceptance.lease_ttl_ms == 0
+        || acceptance.lease_ttl_ms > AGENT_WORKLOAD_DELIVERY_LEASE_MAX_TTL_MS
+        || acceptance
+            .requested_at_ms
+            .checked_add(acceptance.lease_ttl_ms)
+            .is_none()
+    {
+        violations.push("agent_workload_delivery_acceptance_request_invalid".to_string());
+    }
+    let renewing = delivery.acceptance_lease.as_ref().is_some_and(|lease| {
+        lease.expires_at_ms > acceptance.requested_at_ms
+            && lease.consumer_instance_id == acceptance.consumer_instance_id
+            && acceptance.prior_lease_id.as_deref() == Some(lease.lease_id.as_str())
+            && acceptance.prior_fencing_token == Some(lease.fencing_token)
+    });
+    let active_conflict = delivery
+        .acceptance_lease
+        .as_ref()
+        .is_some_and(|lease| lease.expires_at_ms > acceptance.requested_at_ms && !renewing);
+    if active_conflict {
+        violations.push("agent_workload_delivery_lease_active".to_string());
+    }
+    if !violations.is_empty() {
+        violations.sort();
+        violations.dedup();
+        return Err(violations);
+    }
+
+    let prior = delivery.acceptance_lease.as_ref();
+    let fencing_token = if renewing {
+        prior.map_or(1, |lease| lease.fencing_token)
+    } else {
+        prior.map_or(1, |lease| lease.fencing_token.saturating_add(1))
+    };
+    let accepted_at_ms = if renewing {
+        prior.map_or(acceptance.requested_at_ms, |lease| lease.accepted_at_ms)
+    } else {
+        acceptance.requested_at_ms
+    };
+    let lease_id = if renewing {
+        prior.map_or_else(String::new, |lease| lease.lease_id.clone())
+    } else {
+        crate::digest_json(&serde_json::json!({
+            "workload_id": delivery.envelope.workload_id,
+            "consumer_instance_id": acceptance.consumer_instance_id,
+            "fencing_token": fencing_token,
+            "accepted_at_ms": accepted_at_ms,
+            "record_digest": acceptance.record_digest,
+        }))
+        .expect("workload delivery lease material is serializable")
+    };
+    let lease = AgentWorkloadDeliveryLease {
+        schema: AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA.to_string(),
+        lease_id,
+        fencing_token,
+        consumer_instance_id: acceptance.consumer_instance_id.clone(),
+        accepted_at_ms,
+        expires_at_ms: acceptance.requested_at_ms + acceptance.lease_ttl_ms,
+        record_digest: acceptance.record_digest.clone(),
+    };
+    let mut accepted = delivery.clone();
+    accepted.status = AgentWorkloadDeliveryStatus::Accepted;
+    accepted.accepted_at_ms = Some(lease.accepted_at_ms);
+    accepted.accepted_record_digest = Some(lease.record_digest.clone());
+    accepted.acceptance_lease = Some(lease.clone());
+    let evidence = format!("workload-delivery-lease:{}", lease.lease_id);
+    accepted
+        .evidence_refs
+        .retain(|reference| !reference.starts_with("workload-delivery-lease:"));
+    accepted.evidence_refs.push(evidence);
+    let violations = validate_agent_workload_delivery(&accepted);
+    if violations.is_empty() {
+        Ok(accepted)
+    } else {
+        Err(violations)
+    }
 }
 
 pub fn complete_agent_workload_delivery(
@@ -238,7 +390,9 @@ fn validate_completion_evidence(
 }
 
 fn has_acceptance(delivery: &AgentWorkloadDelivery) -> bool {
-    delivery.accepted_at_ms.is_some() || delivery.accepted_record_digest.is_some()
+    delivery.accepted_at_ms.is_some()
+        || delivery.accepted_record_digest.is_some()
+        || delivery.acceptance_lease.is_some()
 }
 
 fn has_completion(delivery: &AgentWorkloadDelivery) -> bool {
@@ -250,13 +404,20 @@ fn has_completion(delivery: &AgentWorkloadDelivery) -> bool {
 }
 
 fn valid_acceptance(delivery: &AgentWorkloadDelivery) -> bool {
-    delivery
+    let legacy_fields_valid = delivery
         .accepted_at_ms
         .is_some_and(|value| value >= delivery.submitted_at_ms)
         && delivery
             .accepted_record_digest
             .as_deref()
-            .is_some_and(valid_sha256)
+            .is_some_and(valid_sha256);
+    legacy_fields_valid
+        && delivery.acceptance_lease.as_ref().is_none_or(|lease| {
+            validate_agent_workload_delivery_lease(lease).is_empty()
+                && lease.accepted_at_ms >= delivery.submitted_at_ms
+                && delivery.accepted_at_ms == Some(lease.accepted_at_ms)
+                && delivery.accepted_record_digest.as_deref() == Some(lease.record_digest.as_str())
+        })
 }
 
 fn valid_sha256(value: &str) -> bool {
@@ -312,6 +473,7 @@ mod tests {
             status: AgentWorkloadDeliveryStatus::Pending,
             accepted_at_ms: None,
             accepted_record_digest: None,
+            acceptance_lease: None,
             terminal_at_ms: None,
             terminal_record_digest: None,
             terminal_record: None,
@@ -341,9 +503,18 @@ mod tests {
 
     fn publication() -> (AgentWorkloadDelivery, AgentWorkloadCompletionPublication) {
         let mut accepted = delivery();
-        accepted.status = AgentWorkloadDeliveryStatus::Accepted;
-        accepted.accepted_at_ms = Some(2);
-        accepted.accepted_record_digest = Some(format!("sha256:{}", "1".repeat(64)));
+        accepted = accept_agent_workload_delivery(
+            &accepted,
+            &AgentWorkloadDeliveryAcceptance {
+                consumer_instance_id: "builder-incarnation-a".to_string(),
+                record_digest: format!("sha256:{}", "1".repeat(64)),
+                requested_at_ms: 2,
+                lease_ttl_ms: 10,
+                prior_lease_id: None,
+                prior_fencing_token: None,
+            },
+        )
+        .unwrap();
         let evidence = build_evidence_envelope(
             "build-workload:delivery-test:canonical_gate_report",
             "cynic-node/build-scheduler:cynic-builder",
@@ -391,11 +562,25 @@ mod tests {
             record,
             committed_at_ms: 3,
         };
+        let prior = accepted.acceptance_lease.clone().unwrap();
+        accepted = accept_agent_workload_delivery(
+            &accepted,
+            &AgentWorkloadDeliveryAcceptance {
+                consumer_instance_id: prior.consumer_instance_id,
+                record_digest: durable.record_digest.clone(),
+                requested_at_ms: 3,
+                lease_ttl_ms: 10,
+                prior_lease_id: Some(prior.lease_id),
+                prior_fencing_token: Some(prior.fencing_token),
+            },
+        )
+        .unwrap();
         let publication = AgentWorkloadCompletionPublication {
             schema: AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA.to_string(),
             node_id: accepted.target_node_id.clone(),
             workload_id: accepted.envelope.workload_id.clone(),
             published_at_ms: 4,
+            delivery_lease: accepted.acceptance_lease.clone().unwrap(),
             durable_record: durable,
             evidence: vec![evidence],
         };
@@ -425,5 +610,81 @@ mod tests {
             validate_agent_workload_completion_publication(&accepted, &publication),
             vec!["agent_workload_completion_evidence_digest_invalid"]
         );
+    }
+
+    #[test]
+    fn expired_acceptance_is_recoverable_and_fenced() {
+        let first = accept_agent_workload_delivery(
+            &delivery(),
+            &AgentWorkloadDeliveryAcceptance {
+                consumer_instance_id: "builder-incarnation-a".to_string(),
+                record_digest: format!("sha256:{}", "1".repeat(64)),
+                requested_at_ms: 2,
+                lease_ttl_ms: 10,
+                prior_lease_id: None,
+                prior_fencing_token: None,
+            },
+        )
+        .unwrap();
+        assert!(!agent_workload_delivery_available(&first, 11));
+        assert!(agent_workload_delivery_available(&first, 12));
+
+        let reclaimed = accept_agent_workload_delivery(
+            &first,
+            &AgentWorkloadDeliveryAcceptance {
+                consumer_instance_id: "builder-incarnation-b".to_string(),
+                record_digest: format!("sha256:{}", "1".repeat(64)),
+                requested_at_ms: 12,
+                lease_ttl_ms: 10,
+                prior_lease_id: None,
+                prior_fencing_token: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(reclaimed.acceptance_lease.unwrap().fencing_token, 2);
+    }
+
+    #[test]
+    fn active_acceptance_only_renews_with_exact_fence() {
+        let first = accept_agent_workload_delivery(
+            &delivery(),
+            &AgentWorkloadDeliveryAcceptance {
+                consumer_instance_id: "builder-incarnation-a".to_string(),
+                record_digest: format!("sha256:{}", "1".repeat(64)),
+                requested_at_ms: 2,
+                lease_ttl_ms: 10,
+                prior_lease_id: None,
+                prior_fencing_token: None,
+            },
+        )
+        .unwrap();
+        let lease = first.acceptance_lease.as_ref().unwrap();
+        let renewed = accept_agent_workload_delivery(
+            &first,
+            &AgentWorkloadDeliveryAcceptance {
+                consumer_instance_id: lease.consumer_instance_id.clone(),
+                record_digest: lease.record_digest.clone(),
+                requested_at_ms: 5,
+                lease_ttl_ms: 10,
+                prior_lease_id: Some(lease.lease_id.clone()),
+                prior_fencing_token: Some(lease.fencing_token),
+            },
+        )
+        .unwrap();
+        assert_eq!(renewed.acceptance_lease.unwrap().fencing_token, 1);
+
+        let conflict = accept_agent_workload_delivery(
+            &first,
+            &AgentWorkloadDeliveryAcceptance {
+                consumer_instance_id: "builder-incarnation-b".to_string(),
+                record_digest: format!("sha256:{}", "1".repeat(64)),
+                requested_at_ms: 5,
+                lease_ttl_ms: 10,
+                prior_lease_id: None,
+                prior_fencing_token: None,
+            },
+        )
+        .unwrap_err();
+        assert!(conflict.contains(&"agent_workload_delivery_lease_active".to_string()));
     }
 }

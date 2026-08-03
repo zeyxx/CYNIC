@@ -570,8 +570,7 @@ pub trait StoragePort:
         &self,
         _workload_id: &str,
         _node_id: &str,
-        _record_digest: &str,
-        _accepted_at_ms: u64,
+        _acceptance: &cynic_protocol::AgentWorkloadDeliveryAcceptance,
     ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
         Err(StorageError::ConnectionFailed(
             "durable agent workload delivery storage is unavailable".to_string(),

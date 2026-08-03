@@ -729,11 +729,10 @@ impl StoragePort for ReconnectableStorage {
         &self,
         workload_id: &str,
         node_id: &str,
-        record_digest: &str,
-        accepted_at_ms: u64,
+        acceptance: &cynic_protocol::AgentWorkloadDeliveryAcceptance,
     ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
         self.current()
-            .accept_agent_workload_delivery(workload_id, node_id, record_digest, accepted_at_ms)
+            .accept_agent_workload_delivery(workload_id, node_id, acceptance)
             .await
     }
 

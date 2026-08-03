@@ -19,10 +19,13 @@ pub use capability_status::{
     reconcile_agent_execution_capabilities,
 };
 pub use delivery::{
-    AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA, AGENT_WORKLOAD_DELIVERY_SCHEMA,
-    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
-    complete_agent_workload_delivery, validate_agent_workload_completion_publication,
-    validate_agent_workload_delivery,
+    AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA, AGENT_WORKLOAD_DELIVERY_LEASE_MAX_TTL_MS,
+    AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA, AGENT_WORKLOAD_DELIVERY_SCHEMA,
+    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
+    AgentWorkloadDeliveryLease, AgentWorkloadDeliveryStatus, accept_agent_workload_delivery,
+    agent_workload_delivery_available, complete_agent_workload_delivery,
+    validate_agent_workload_completion_publication, validate_agent_workload_delivery,
+    validate_agent_workload_delivery_lease,
 };
 pub use durability::{
     AGENT_WORKLOAD_TRANSITION_REQUEST_SCHEMA, AgentWorkloadTransition,

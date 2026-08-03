@@ -5,25 +5,89 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
 use cynic_protocol::{
     AGENT_WORKLOAD_RECORD_SCHEMA, AgentWorkloadDecision, AgentWorkloadDelivery,
-    AgentWorkloadRecord, AgentWorkloadState, admit_agent_workload_dispatch,
-    admit_aggregate_sibling_budget,
+    AgentWorkloadDeliveryAcceptance, AgentWorkloadRecord, AgentWorkloadState,
+    admit_agent_workload_dispatch, admit_aggregate_sibling_budget,
 };
 use tokio_util::sync::CancellationToken;
 
 use crate::ports::{
     agent_workload_completion_receipt_port::AgentWorkloadCompletionReceiptPort,
+    agent_workload_delivery_lease_port::AgentWorkloadDeliveryLeasePort,
     agent_workload_delivery_port::AgentWorkloadDeliveryPort,
     agent_workload_store_port::AgentWorkloadStorePort,
 };
 
 pub async fn reconcile_deliveries<D>(
     node_id: &str,
+    consumer_instance_id: &str,
+    lease_ttl_ms: u64,
     delivery_port: &D,
     store: &dyn AgentWorkloadStorePort,
+    leases: &dyn AgentWorkloadDeliveryLeasePort,
+    receipts: &dyn AgentWorkloadCompletionReceiptPort,
 ) -> serde_json::Value
 where
     D: AgentWorkloadDeliveryPort,
 {
+    let mut renewed = Vec::new();
+    let mut blockers = Vec::new();
+    let mut unknowns = Vec::new();
+    match store.durable_records() {
+        Ok(records) => {
+            for durable in records {
+                let workload_id = durable.record.envelope.workload_id.clone();
+                if durable.record.state.terminal() {
+                    match receipts.contains(&durable.record_digest) {
+                        Ok(true) => continue,
+                        Ok(false) => {}
+                        Err(error) => {
+                            blockers
+                                .push(format!("completion_receipt_invalid:{workload_id}:{error}"));
+                            continue;
+                        }
+                    }
+                }
+                let lease = match leases.read(&workload_id) {
+                    Ok(Some(lease)) => lease,
+                    Ok(None) => continue,
+                    Err(error) => {
+                        blockers.push(format!(
+                            "workload_delivery_lease_read_failed:{workload_id}:{error}"
+                        ));
+                        continue;
+                    }
+                };
+                let acceptance = AgentWorkloadDeliveryAcceptance {
+                    consumer_instance_id: consumer_instance_id.to_string(),
+                    record_digest: durable.record_digest.clone(),
+                    requested_at_ms: now_unix_ms(),
+                    lease_ttl_ms,
+                    prior_lease_id: Some(lease.lease_id),
+                    prior_fencing_token: Some(lease.fencing_token),
+                };
+                match delivery_port
+                    .accept_delivery(node_id, &workload_id, &acceptance)
+                    .await
+                {
+                    Ok(read_back) => match read_back.acceptance_lease.as_ref() {
+                        Some(lease) => match leases.persist(&workload_id, lease) {
+                            Ok(()) => renewed.push(workload_id),
+                            Err(error) => unknowns.push(format!(
+                                "workload_delivery_lease_persistence_failed:{workload_id}:{error}"
+                            )),
+                        },
+                        None => unknowns.push(format!(
+                            "workload_delivery_renewal_read_back_missing:{workload_id}"
+                        )),
+                    },
+                    Err(error) => unknowns.push(format!(
+                        "workload_delivery_renewal_failed:{workload_id}:{error}"
+                    )),
+                }
+            }
+        }
+        Err(error) => blockers.push(format!("durable_workload_scan_failed:{}", error.code)),
+    }
     let deliveries = match delivery_port.pending_deliveries(node_id).await {
         Ok(deliveries) => deliveries,
         Err(error) => {
@@ -38,25 +102,40 @@ where
         }
     };
     let mut accepted = Vec::new();
-    let mut blockers = Vec::new();
-    let mut unknowns = Vec::new();
     for delivery in deliveries {
         match persist_delivery(store, &delivery) {
             Ok(durable) => {
+                let acceptance = AgentWorkloadDeliveryAcceptance {
+                    consumer_instance_id: consumer_instance_id.to_string(),
+                    record_digest: durable.record_digest.clone(),
+                    requested_at_ms: now_unix_ms(),
+                    lease_ttl_ms,
+                    prior_lease_id: None,
+                    prior_fencing_token: None,
+                };
                 match delivery_port
-                    .accept_delivery(
-                        node_id,
-                        &delivery.envelope.workload_id,
-                        &durable.record_digest,
-                        now_unix_ms(),
-                    )
+                    .accept_delivery(node_id, &delivery.envelope.workload_id, &acceptance)
                     .await
                 {
-                    Ok(read_back) => accepted.push(serde_json::json!({
-                        "workload_id": delivery.envelope.workload_id,
-                        "record_digest": durable.record_digest,
-                        "delivery": read_back,
-                    })),
+                    Ok(read_back) => match read_back.acceptance_lease.as_ref() {
+                        Some(lease) => {
+                            match leases.persist(&delivery.envelope.workload_id, lease) {
+                                Ok(()) => accepted.push(serde_json::json!({
+                                    "workload_id": delivery.envelope.workload_id,
+                                    "record_digest": durable.record_digest,
+                                    "delivery": read_back,
+                                })),
+                                Err(error) => unknowns.push(format!(
+                                    "workload_delivery_lease_persistence_failed:{}:{error}",
+                                    delivery.envelope.workload_id
+                                )),
+                            }
+                        }
+                        None => unknowns.push(format!(
+                            "workload_delivery_acceptance_read_back_missing:{}",
+                            delivery.envelope.workload_id
+                        )),
+                    },
                     Err(error) => unknowns.push(format!(
                         "workload_delivery_acceptance_failed:{}:{error}",
                         delivery.envelope.workload_id
@@ -73,7 +152,7 @@ where
         "blocked"
     } else if !unknowns.is_empty() {
         "unknown"
-    } else if accepted.is_empty() {
+    } else if accepted.is_empty() && renewed.is_empty() {
         "idle"
     } else {
         "accepted"
@@ -83,6 +162,7 @@ where
         "status": status,
         "node_id": node_id,
         "accepted": accepted,
+        "renewed": renewed,
         "blockers": blockers,
         "unknowns": unknowns
     })
@@ -90,9 +170,12 @@ where
 
 pub async fn run_delivery_loop<D>(
     node_id: &str,
+    consumer_instance_id: &str,
+    lease_ttl_ms: u64,
     interval: Duration,
     delivery_port: &D,
     store: &dyn AgentWorkloadStorePort,
+    leases: &dyn AgentWorkloadDeliveryLeasePort,
     evidence_store: &dyn ContentAddressedEvidenceStorePort,
     receipts: &dyn AgentWorkloadCompletionReceiptPort,
     shutdown: &CancellationToken,
@@ -104,7 +187,15 @@ pub async fn run_delivery_loop<D>(
     loop {
         tokio::select! {
             _ = ticker.tick() => {
-                let report = reconcile_deliveries(node_id, delivery_port, store).await;
+                let report = reconcile_deliveries(
+                    node_id,
+                    consumer_instance_id,
+                    lease_ttl_ms,
+                    delivery_port,
+                    store,
+                    leases,
+                    receipts,
+                ).await;
                 match report.get("status").and_then(serde_json::Value::as_str) {
                     Some("blocked" | "unknown") => tracing::warn!(report = %report, "agent workload delivery degraded"),
                     Some("accepted") => tracing::info!(report = %report, "agent workload delivered and read back"),
@@ -114,6 +205,7 @@ pub async fn run_delivery_loop<D>(
                     node_id,
                     delivery_port,
                     store,
+                    leases,
                     evidence_store,
                     receipts,
                 ).await;
@@ -183,10 +275,12 @@ fn now_unix_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::adapters::local_agent_workload_completion_receipt::LocalAgentWorkloadCompletionReceipt;
+    use crate::adapters::local_agent_workload_delivery_lease::LocalAgentWorkloadDeliveryLeaseStore;
     use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
     use cynic_protocol::{
         AGENT_WORKLOAD_DELIVERY_SCHEMA, AgentWorkloadDeliveryStatus, BUILD_AGENT_REQUEST_SCHEMA,
-        BuildAgentRequest, compose_build_agent_workload,
+        BuildAgentRequest, accept_agent_workload_delivery, compose_build_agent_workload,
     };
     use std::sync::Mutex;
 
@@ -207,15 +301,11 @@ mod tests {
             &self,
             _node_id: &str,
             workload_id: &str,
-            record_digest: &str,
-            accepted_at_ms: u64,
+            acceptance: &AgentWorkloadDeliveryAcceptance,
         ) -> Result<AgentWorkloadDelivery, String> {
             self.accepted.lock().unwrap().push(workload_id.to_string());
-            let mut delivery = self.pending[0].clone();
-            delivery.status = AgentWorkloadDeliveryStatus::Accepted;
-            delivery.accepted_at_ms = Some(accepted_at_ms);
-            delivery.accepted_record_digest = Some(record_digest.to_string());
-            Ok(delivery)
+            accept_agent_workload_delivery(&self.pending[0], acceptance)
+                .map_err(|violations| violations.join(","))
         }
 
         async fn publish_completion(
@@ -262,6 +352,7 @@ mod tests {
             status: AgentWorkloadDeliveryStatus::Pending,
             accepted_at_ms: None,
             accepted_record_digest: None,
+            acceptance_lease: None,
             terminal_at_ms: None,
             terminal_record_digest: None,
             terminal_record: None,
@@ -275,6 +366,8 @@ mod tests {
     async fn persists_before_acknowledging_delivery() {
         let root = tempfile::tempdir().unwrap();
         let store = LocalAgentWorkloadStore::new(root.path());
+        let leases = LocalAgentWorkloadDeliveryLeaseStore::new(root.path().join("leases"));
+        let receipts = LocalAgentWorkloadCompletionReceipt::new(root.path().join("receipts"));
         let delivery = delivery();
         let workload_id = delivery.envelope.workload_id.clone();
         let port = DeliveryStub {
@@ -282,7 +375,16 @@ mod tests {
             accepted: Mutex::new(Vec::new()),
         };
 
-        let report = reconcile_deliveries("cynic-builder", &port, &store).await;
+        let report = reconcile_deliveries(
+            "cynic-builder",
+            "builder-incarnation-a",
+            10_000,
+            &port,
+            &store,
+            &leases,
+            &receipts,
+        )
+        .await;
 
         assert_eq!(report["status"], "accepted");
         assert!(store.read(&workload_id).unwrap().is_some());

@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AgentCompletionStatus, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, NodeDesiredState,
-    SignedReleaseBasketReadBack, build_agent_request_from_workload,
+    AgentCompletionStatus, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
+    AgentWorkloadDeliveryStatus, NodeDesiredState, SignedReleaseBasketReadBack,
+    accept_agent_workload_delivery, build_agent_request_from_workload,
     build_source_reference_from_workload, canonical_build_action_from_argv, digest_json,
     validate_agent_workload_delivery, validate_node_desired_state,
     validate_signed_release_basket_read_back,
@@ -436,15 +437,16 @@ mod tests {
             record,
             committed_at_ms: 3,
         };
-        let accepted = AgentWorkloadDelivery {
+        let pending = AgentWorkloadDelivery {
             schema: AGENT_WORKLOAD_DELIVERY_SCHEMA.to_string(),
             envelope,
             target_node_id: "cynic-builder".to_string(),
             submitted_by: "release-agent".to_string(),
             submitted_at_ms: 1,
-            status: AgentWorkloadDeliveryStatus::Accepted,
-            accepted_at_ms: Some(2),
-            accepted_record_digest: Some(format!("sha256:{}", "6".repeat(64))),
+            status: AgentWorkloadDeliveryStatus::Pending,
+            accepted_at_ms: None,
+            accepted_record_digest: None,
+            acceptance_lease: None,
             terminal_at_ms: None,
             terminal_record_digest: None,
             terminal_record: None,
@@ -452,11 +454,24 @@ mod tests {
             completion_evidence: Vec::new(),
             evidence_refs: vec!["git:commit:release-a".to_string()],
         };
+        let accepted = accept_agent_workload_delivery(
+            &pending,
+            &AgentWorkloadDeliveryAcceptance {
+                consumer_instance_id: "builder-incarnation-a".to_string(),
+                record_digest: durable.record_digest.clone(),
+                requested_at_ms: 2,
+                lease_ttl_ms: 10,
+                prior_lease_id: None,
+                prior_fencing_token: None,
+            },
+        )
+        .unwrap();
         let publication = crate::AgentWorkloadCompletionPublication {
             schema: crate::AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA.to_string(),
             node_id: "cynic-builder".to_string(),
             workload_id,
             published_at_ms: 4,
+            delivery_lease: accepted.acceptance_lease.clone().unwrap(),
             durable_record: durable,
             evidence,
         };

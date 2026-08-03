@@ -48,6 +48,8 @@ pub(crate) struct NodeControlConfig {
     pub(crate) interval_secs: u64,
     #[serde(default = "defaults::default_node_control_timeout_secs")]
     pub(crate) timeout_secs: u64,
+    #[serde(default = "defaults::default_workload_delivery_lease_ttl_secs")]
+    pub(crate) workload_delivery_lease_ttl_secs: u64,
     #[serde(default)]
     pub(crate) observed_capabilities: Vec<String>,
     #[serde(default)]

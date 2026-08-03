@@ -1,7 +1,9 @@
 use cynic_protocol::{
-    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
+    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
+    AgentWorkloadDeliveryStatus, accept_agent_workload_delivery, agent_workload_delivery_available,
     complete_agent_workload_delivery, validate_agent_workload_delivery,
 };
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::sanitize_record_id;
 use crate::domain::storage::StorageError;
@@ -58,21 +60,30 @@ pub(super) async fn pending(
     node_id: &str,
 ) -> Result<Vec<AgentWorkloadDelivery>, StorageError> {
     let sql = format!(
-        "SELECT record_json FROM agent_workload_delivery WHERE node_id = '{}' AND status = 'pending' ORDER BY submitted_at_ms ASC;",
+        "SELECT record_json FROM agent_workload_delivery WHERE node_id = '{}' AND (status = 'pending' OR status = 'accepted') ORDER BY submitted_at_ms ASC;",
         escape_surreal(node_id)
     );
     let rows = storage.query_one(&sql).await?;
-    rows.iter().map(parse_row).collect()
+    let now_ms = now_unix_ms();
+    rows.iter()
+        .map(parse_row)
+        .filter_map(|delivery| match delivery {
+            Ok(delivery) if agent_workload_delivery_available(&delivery, now_ms) => {
+                Some(Ok(delivery))
+            }
+            Ok(_) => None,
+            Err(error) => Some(Err(error)),
+        })
+        .collect()
 }
 
 pub(super) async fn accept(
     storage: &SurrealHttpStorage,
     workload_id: &str,
     node_id: &str,
-    record_digest: &str,
-    accepted_at_ms: u64,
+    acceptance: &AgentWorkloadDeliveryAcceptance,
 ) -> Result<AgentWorkloadDelivery, StorageError> {
-    let mut delivery = read(storage, workload_id)
+    let delivery = read(storage, workload_id)
         .await?
         .ok_or_else(|| StorageError::NotFound("workload delivery".to_string()))?;
     if delivery.target_node_id != node_id {
@@ -80,35 +91,23 @@ pub(super) async fn accept(
             "workload delivery target mismatch".to_string(),
         ));
     }
-    if delivery.status == AgentWorkloadDeliveryStatus::Accepted {
-        return (delivery.accepted_record_digest.as_deref() == Some(record_digest))
-            .then_some(delivery)
-            .ok_or_else(|| {
-                StorageError::InvalidInput("workload delivery acceptance conflict".to_string())
-            });
-    }
-    delivery.status = AgentWorkloadDeliveryStatus::Accepted;
-    delivery.accepted_at_ms = Some(accepted_at_ms);
-    delivery.accepted_record_digest = Some(record_digest.to_string());
-    delivery
-        .evidence_refs
-        .push(format!("durable-workload-record:{record_digest}"));
-    validate(&delivery)?;
-    let json = encode(&delivery)?;
+    let accepted = accept_agent_workload_delivery(&delivery, acceptance)
+        .map_err(|violations| StorageError::InvalidInput(violations.join(",")))?;
+    let old_json = encode(&delivery)?;
+    let json = encode(&accepted)?;
     let sql = format!(
-        "UPDATE agent_workload_delivery:`{id}` SET status = 'accepted', accepted_at_ms = {accepted_at_ms}, record_json = '{json}' WHERE status = 'pending' RETURN AFTER;",
+        "UPDATE agent_workload_delivery:`{id}` SET status = 'accepted', accepted_at_ms = {accepted_at_ms}, record_json = '{json}' WHERE record_json = '{old_json}' RETURN AFTER;",
         id = sanitize_record_id(workload_id),
-        accepted_at_ms = accepted_at_ms,
+        accepted_at_ms = accepted.accepted_at_ms.unwrap_or_default(),
         json = escape_surreal(&json),
+        old_json = escape_surreal(&old_json),
     );
     let rows = storage.query_one(&sql).await?;
     if rows.is_empty() {
         let concurrent = read(storage, workload_id).await?.ok_or_else(|| {
             StorageError::QueryFailed("workload delivery acceptance race".to_string())
         })?;
-        if concurrent.status == AgentWorkloadDeliveryStatus::Accepted
-            && concurrent.accepted_record_digest.as_deref() == Some(record_digest)
-        {
+        if concurrent == accepted {
             return Ok(concurrent);
         }
         return Err(StorageError::InvalidInput(
@@ -118,12 +117,20 @@ pub(super) async fn accept(
     let read_back = read(storage, workload_id)
         .await?
         .ok_or_else(|| StorageError::QueryFailed("workload acceptance read-back missing".into()))?;
-    if read_back != delivery {
+    if read_back != accepted {
         return Err(StorageError::QueryFailed(
             "workload acceptance read-back mismatch".to_string(),
         ));
     }
     Ok(read_back)
+}
+
+fn now_unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .min(u128::from(u64::MAX)) as u64
 }
 
 pub(super) async fn complete(
@@ -143,12 +150,14 @@ pub(super) async fn complete(
     }
     let terminal = complete_agent_workload_delivery(&observed, publication)
         .map_err(|violations| StorageError::InvalidInput(violations.join(",")))?;
+    let observed_json = encode(&observed)?;
     let json = encode(&terminal)?;
     let sql = format!(
-        "UPDATE agent_workload_delivery:`{id}` SET status = 'terminal', terminal_at_ms = {terminal_at_ms}, record_json = '{json}' WHERE status = 'accepted' RETURN AFTER;",
+        "UPDATE agent_workload_delivery:`{id}` SET status = 'terminal', terminal_at_ms = {terminal_at_ms}, record_json = '{json}' WHERE record_json = '{observed_json}' RETURN AFTER;",
         id = sanitize_record_id(&publication.workload_id),
         terminal_at_ms = publication.published_at_ms,
         json = escape_surreal(&json),
+        observed_json = escape_surreal(&observed_json),
     );
     let rows = storage.query_one(&sql).await?;
     if rows.is_empty() {

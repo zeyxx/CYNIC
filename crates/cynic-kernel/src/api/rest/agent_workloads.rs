@@ -6,16 +6,23 @@ use axum::{
     http::StatusCode,
 };
 use cynic_protocol::{
-    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
+    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
+    AgentWorkloadDeliveryStatus,
 };
 use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::types::{AppState, AuthenticatedPrincipal, ErrorResponse};
 
 #[derive(Debug, Deserialize)]
 pub struct AcceptRequest {
+    pub consumer_instance_id: String,
     pub record_digest: String,
-    pub accepted_at_ms: u64,
+    pub lease_ttl_ms: u64,
+    #[serde(default)]
+    pub prior_lease_id: Option<String>,
+    #[serde(default)]
+    pub prior_fencing_token: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -99,14 +106,17 @@ pub async fn accept_handler(
     principal
         .require_agent(&node_id)
         .map_err(|error| failure(StatusCode::FORBIDDEN, error))?;
+    let acceptance = AgentWorkloadDeliveryAcceptance {
+        consumer_instance_id: request.consumer_instance_id,
+        record_digest: request.record_digest,
+        requested_at_ms: now_unix_ms(),
+        lease_ttl_ms: request.lease_ttl_ms,
+        prior_lease_id: request.prior_lease_id,
+        prior_fencing_token: request.prior_fencing_token,
+    };
     let delivery = state
         .storage
-        .accept_agent_workload_delivery(
-            &workload_id,
-            &node_id,
-            &request.record_digest,
-            request.accepted_at_ms,
-        )
+        .accept_agent_workload_delivery(&workload_id, &node_id, &acceptance)
         .await
         .map_err(storage_failure)?;
     Ok(Json(DeliveryResponse {
@@ -114,6 +124,14 @@ pub async fn accept_handler(
         status: "accepted",
         value: delivery,
     }))
+}
+
+fn now_unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .min(u128::from(u64::MAX)) as u64
 }
 
 pub async fn completion_handler(

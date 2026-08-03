@@ -12,6 +12,7 @@ pub mod kernel_source_repository_proof_commit;
 pub(crate) mod libvirt_harness_target_attestor;
 pub mod local_agent_scheduler_journal;
 pub mod local_agent_workload_completion_receipt;
+pub mod local_agent_workload_delivery_lease;
 pub mod local_agent_workload_store;
 pub mod local_agent_workspace_apply;
 mod local_agent_workspace_apply_support;

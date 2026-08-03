@@ -119,6 +119,19 @@ pub(crate) fn validate_node_control(cfg: &NodeControlConfig) -> Result<(), Strin
     if cfg.interval_secs == 0 || cfg.timeout_secs == 0 {
         return Err("node_control interval_secs and timeout_secs must be > 0".to_string());
     }
+    if cfg.workload_delivery_lease_ttl_secs < cfg.interval_secs.saturating_mul(3) {
+        return Err(
+            "node_control.workload_delivery_lease_ttl_secs must cover at least three control intervals"
+                .to_string(),
+        );
+    }
+    if cfg.workload_delivery_lease_ttl_secs.saturating_mul(1_000)
+        > cynic_protocol::AGENT_WORKLOAD_DELIVERY_LEASE_MAX_TTL_MS
+    {
+        return Err(
+            "node_control.workload_delivery_lease_ttl_secs exceeds protocol maximum".into(),
+        );
+    }
     if cfg.runtime_artifact_max_bytes == 0 || cfg.runtime_artifact_timeout_secs == 0 {
         return Err(
             "node_control runtime_artifact_max_bytes and runtime_artifact_timeout_secs must be > 0"

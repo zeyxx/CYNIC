@@ -5,6 +5,7 @@ use cynic_protocol::{
 
 use crate::ports::{
     agent_workload_completion_receipt_port::AgentWorkloadCompletionReceiptPort,
+    agent_workload_delivery_lease_port::AgentWorkloadDeliveryLeasePort,
     agent_workload_delivery_port::AgentWorkloadDeliveryPort,
     agent_workload_store_port::AgentWorkloadStorePort,
 };
@@ -13,6 +14,7 @@ pub(super) async fn reconcile<D>(
     node_id: &str,
     delivery_port: &D,
     store: &dyn AgentWorkloadStorePort,
+    leases: &dyn AgentWorkloadDeliveryLeasePort,
     evidence_store: &dyn ContentAddressedEvidenceStorePort,
     receipts: &dyn AgentWorkloadCompletionReceiptPort,
 ) -> serde_json::Value
@@ -56,6 +58,19 @@ where
             ));
             continue;
         };
+        let delivery_lease = match leases.read(&workload_id) {
+            Ok(Some(lease)) => lease,
+            Ok(None) => {
+                blockers.push(format!("workload_delivery_lease_missing:{workload_id}"));
+                continue;
+            }
+            Err(error) => {
+                blockers.push(format!(
+                    "workload_delivery_lease_invalid:{workload_id}:{error}"
+                ));
+                continue;
+            }
+        };
         let mut evidence = Vec::new();
         let mut evidence_missing = false;
         for reference in &completion.evidence_refs {
@@ -85,6 +100,7 @@ where
             node_id: node_id.to_string(),
             workload_id: workload_id.clone(),
             published_at_ms: super::now_unix_ms(),
+            delivery_lease,
             durable_record: durable,
             evidence,
         };

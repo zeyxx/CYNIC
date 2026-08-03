@@ -6,12 +6,42 @@ use tokio_util::sync::CancellationToken;
 use crate::adapters::http_node_control::HttpNodeControlAdapter;
 use crate::adapters::http_runtime_artifact_transport::HttpRuntimeArtifactTransport;
 use crate::adapters::local_agent_workload_completion_receipt::LocalAgentWorkloadCompletionReceipt;
+use crate::adapters::local_agent_workload_delivery_lease::LocalAgentWorkloadDeliveryLeaseStore;
 use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
 use crate::adapters::local_node_control_observer::LocalNodeControlObserver;
 use crate::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
+use crate::adapters::local_node_identity::LocalNodeIdentity;
 use crate::adapters::local_runtime_seed_actuation::LocalRuntimeSeedActuation;
+use crate::ports::node_identity_port::NodeIdentityPort;
 use crate::{config, shutdown::install_signal_handler, usecases};
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
+
+fn load_or_create_incarnation(control: &config::NodeControlConfig) -> Result<String, String> {
+    let desired = cynic_protocol::NodeIdentityDesiredState {
+        schema: cynic_protocol::NODE_IDENTITY_DESIRED_STATE_SCHEMA.to_string(),
+        node_id: format!("{}-incarnation", control.node_id),
+        signing_key_path: control
+            .agent_workload_state_root
+            .join("identity/node-incarnation.key")
+            .display()
+            .to_string(),
+    };
+    let adapter = LocalNodeIdentity;
+    let mut observed = adapter.observe(&desired);
+    if observed.key_state == cynic_protocol::SecurityEvidenceState::Absent {
+        adapter.generate(&desired)?;
+        observed = adapter.observe(&desired);
+    }
+    if observed.key_state != cynic_protocol::SecurityEvidenceState::Proven {
+        return Err(format!(
+            "node incarnation is not proven: {}",
+            observed.unknowns.join(",")
+        ));
+    }
+    observed
+        .machine_identity_digest
+        .ok_or_else(|| "node incarnation digest missing after read-back".to_string())
+}
 
 pub(crate) async fn start_tasks(
     control: config::NodeControlConfig,
@@ -96,6 +126,16 @@ pub(crate) async fn start_tasks(
             .agent_workload_state_root
             .join("agent-scheduler/workloads"),
     );
+    let delivery_leases = LocalAgentWorkloadDeliveryLeaseStore::new(
+        control_config
+            .agent_workload_state_root
+            .join("agent-scheduler/delivery-leases"),
+    );
+    let delivery_consumer_instance_id = load_or_create_incarnation(&control_config)?;
+    let delivery_lease_ttl_ms = control_config
+        .workload_delivery_lease_ttl_secs
+        .checked_mul(1_000)
+        .ok_or_else(|| "workload delivery lease TTL overflows milliseconds".to_string())?;
     let delivery_evidence_store = LocalContentAddressedEvidenceStore::new(
         control_config.agent_workload_state_root.join("evidence"),
     );
@@ -133,9 +173,12 @@ pub(crate) async fn start_tasks(
         tasks.push(tokio::spawn(async move {
             usecases::agent_workload_delivery_uc::run_delivery_loop(
                 &delivery_node_id,
+                &delivery_consumer_instance_id,
+                delivery_lease_ttl_ms,
                 delivery_interval,
                 &delivery_adapter,
                 &delivery_store,
+                &delivery_leases,
                 &delivery_evidence_store,
                 &delivery_receipts,
                 &delivery_shutdown,

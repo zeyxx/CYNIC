@@ -202,6 +202,7 @@ impl CynicMcpProxy {
             status: cynic_protocol::AgentWorkloadDeliveryStatus::Pending,
             accepted_at_ms: None,
             accepted_record_digest: None,
+            acceptance_lease: None,
             terminal_at_ms: None,
             terminal_record_digest: None,
             terminal_record: None,
