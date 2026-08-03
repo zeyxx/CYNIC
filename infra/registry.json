@@ -295,7 +295,21 @@
             "base": "state_root",
             "relative_path": "source/repositories/CYNIC/target"
           }
-        ]
+        ],
+        "bootstrap_containment": {
+          "schema": "cynic.build_runner.bootstrap_containment.v1",
+          "authority_class": "MachineEnrollment",
+          "adapter": "ssh_machine_enrollment",
+          "scope": "n_minus_one_seed_only",
+          "entrypoint": "scripts/build-runner-bootstrap",
+          "removal_requires": [
+            "node_substrate_provisioning_read_back",
+            "source_snapshot_transport_read_back",
+            "durable_workload_delivery_read_back",
+            "machine_enrollment_without_operator_transport",
+            "canonical_build_completion_read_back"
+          ]
+        }
       },
       "services": [
         {

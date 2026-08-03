@@ -34,6 +34,8 @@ struct RegistryFleetTarget {
     resource_id: Option<String>,
     role: Option<String>,
     desired_power: Option<String>,
+    #[serde(default)]
+    provisioning: Option<cynic_protocol::NodeSubstrateProvisioningSpec>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -268,6 +270,7 @@ fn resolve_node_substrate_targets_from_registry(
                     .as_deref()
                     .map(parse_desired_power)
                     .unwrap_or(NodeSubstratePower::Unknown),
+                provisioning: target.provisioning.clone(),
             },
         });
     }
@@ -368,6 +371,7 @@ pub fn resolve_node_substrate_desired_state(
         desired_power: target
             .map(|target| target.desired.desired_power.clone())
             .unwrap_or(NodeSubstratePower::Unknown),
+        provisioning: target.and_then(|target| target.desired.provisioning.clone()),
     })
 }
 

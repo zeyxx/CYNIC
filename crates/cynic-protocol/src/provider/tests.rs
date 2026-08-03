@@ -6,6 +6,7 @@ fn desired() -> NodeSubstrateDesiredState {
         provider: Some("provider-adapter".to_string()),
         resource_id: Some("machine/42".to_string()),
         desired_power: NodeSubstratePower::Running,
+        provisioning: None,
     }
 }
 
@@ -63,4 +64,53 @@ fn present_running_attached_reachable_node_is_converged() {
     assert_eq!(decision.status, "converged");
     assert_eq!(decision.action, None);
     assert!(!decision.mutates);
+}
+
+#[test]
+fn absent_substrate_without_reconstruction_identity_stays_blocked() {
+    let mut observation = observed();
+    observation.existence = NodeSubstrateExistence::Absent;
+    observation.power = NodeSubstratePower::Unknown;
+
+    let decision = reconcile_node_substrate(&desired(), &observation);
+
+    assert_eq!(decision.status, "blocked");
+    assert_eq!(decision.action, None);
+    assert!(
+        decision
+            .blockers
+            .contains(&"node_substrate_provisioning_spec_missing".to_string())
+    );
+}
+
+#[test]
+fn absent_substrate_with_content_addressed_reconstruction_plans_provisioning() {
+    let mut desired = desired();
+    desired.provisioning = Some(NodeSubstrateProvisioningSpec {
+        schema: NODE_SUBSTRATE_PROVISIONING_SCHEMA.to_string(),
+        image_ref: "artifact://images/builder".to_string(),
+        image_digest: format!("sha256:{}", "a".repeat(64)),
+        runtime_seed_ref: "artifact://runtime-seeds/builder".to_string(),
+        runtime_seed_digest: format!("sha256:{}", "b".repeat(64)),
+        network_profile_ref: "registry://network_profiles/build_runner".to_string(),
+    });
+    let mut observation = observed();
+    observation.existence = NodeSubstrateExistence::Absent;
+    observation.power = NodeSubstratePower::Unknown;
+
+    let decision = reconcile_node_substrate(&desired, &observation);
+
+    assert_eq!(decision.status, "planned");
+    assert_eq!(decision.action, Some(NodeSubstrateAction::Provision));
+    assert!(decision.mutates);
+    assert!(
+        decision
+            .required_read_back
+            .contains(&"provisioned_image_digest_observed".to_string())
+    );
+    assert!(
+        decision
+            .required_read_back
+            .contains(&"runtime_seed_digest_observed".to_string())
+    );
 }

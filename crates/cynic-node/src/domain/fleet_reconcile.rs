@@ -189,6 +189,7 @@ mod tests {
                 provider: Some("proxmox".into()),
                 resource_id: Some("qemu/120".into()),
                 desired_power: NodeSubstratePower::Running,
+                provisioning: None,
             },
         }
     }

@@ -237,9 +237,11 @@ pub use pre_os::{
     verify_pre_os_attestation,
 };
 pub use provider::{
-    NODE_SUBSTRATE_DECISION_SCHEMA, NODE_SUBSTRATE_OBSERVATION_SCHEMA, NodeNetworkAttachment,
-    NodeSubstrateAction, NodeSubstrateDecision, NodeSubstrateDesiredState, NodeSubstrateExistence,
-    NodeSubstrateObservation, NodeSubstratePower, reconcile_node_substrate,
+    NODE_SUBSTRATE_DECISION_SCHEMA, NODE_SUBSTRATE_OBSERVATION_SCHEMA,
+    NODE_SUBSTRATE_PROVISIONING_SCHEMA, NodeNetworkAttachment, NodeSubstrateAction,
+    NodeSubstrateDecision, NodeSubstrateDesiredState, NodeSubstrateExistence,
+    NodeSubstrateObservation, NodeSubstratePower, NodeSubstrateProvisioningSpec,
+    reconcile_node_substrate, validate_node_substrate_provisioning,
 };
 pub use provider::{
     PROVIDER_CONTROL_CAPABILITY_SCHEMA, PROVIDER_MACHINE_IDENTITY_SCHEMA,

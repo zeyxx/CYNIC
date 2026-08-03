@@ -1034,6 +1034,7 @@ mod tests {
             provider: Some("proxmox".to_string()),
             resource_id: Some("lxc/105".to_string()),
             desired_power: NodeSubstratePower::Running,
+            provisioning: None,
         }
     }
 

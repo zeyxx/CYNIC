@@ -82,13 +82,108 @@ impl<'a> LifecycleRegistry<'a> {
         if !repository_declared {
             blockers.push("build_runner_source_workspace_undeclared".to_string());
         }
-        let ssh = node.pointer("/transports/ssh");
-        if ssh
-            .and_then(|value| value.get("target"))
-            .and_then(Value::as_str)
-            .is_none_or(str::is_empty)
-        {
-            blockers.push("build_runner_source_transport_undeclared".to_string());
+        blockers
+    }
+
+    pub(super) fn substrate_reconstruction_blockers(&self) -> Vec<String> {
+        if self.role != "build_runner" {
+            return Vec::new();
+        }
+        let targets = self
+            .root
+            .pointer("/fleet_desired/targets")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter(|target| target.get("role").and_then(Value::as_str) == Some(self.role))
+            .collect::<Vec<_>>();
+        let [target] = targets.as_slice() else {
+            return vec![format!(
+                "node_substrate_fleet_target_cardinality:{}",
+                targets.len()
+            )];
+        };
+        let Some(provisioning) = target.get("provisioning").cloned() else {
+            return vec!["node_substrate_provisioning_spec_missing".to_string()];
+        };
+        let Ok(provisioning) =
+            serde_json::from_value::<cynic_protocol::NodeSubstrateProvisioningSpec>(provisioning)
+        else {
+            return vec!["node_substrate_provisioning_spec_invalid".to_string()];
+        };
+        cynic_protocol::validate_node_substrate_provisioning(&provisioning)
+    }
+
+    pub(super) fn workload_delivery_blockers(&self) -> Vec<String> {
+        if self.role != "build_runner" {
+            return Vec::new();
+        }
+        let capabilities = self
+            .root
+            .pointer("/node_enrollment/authority_policy/allowed_capabilities")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect::<std::collections::BTreeSet<_>>();
+        cynic_protocol::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
+            .iter()
+            .filter(|capability| !capabilities.contains(**capability))
+            .map(|capability| format!("build_scheduler_capability_missing:{capability}"))
+            .collect()
+    }
+
+    pub(super) fn bootstrap_containment_blockers(&self) -> Vec<String> {
+        if self.role != "build_runner" {
+            return Vec::new();
+        }
+        let containment = self
+            .node
+            .and_then(|node| node.pointer("/build_lifecycle/bootstrap_containment"));
+        let Some(containment) = containment else {
+            return vec!["build_runner_bootstrap_containment_undeclared".to_string()];
+        };
+        let mut blockers = Vec::new();
+        for (pointer, expected, blocker) in [
+            (
+                "/schema",
+                "cynic.build_runner.bootstrap_containment.v1",
+                "build_runner_bootstrap_containment_schema_mismatch",
+            ),
+            (
+                "/authority_class",
+                "MachineEnrollment",
+                "build_runner_bootstrap_containment_authority_mismatch",
+            ),
+            (
+                "/scope",
+                "n_minus_one_seed_only",
+                "build_runner_bootstrap_containment_scope_mismatch",
+            ),
+        ] {
+            if containment.pointer(pointer).and_then(Value::as_str) != Some(expected) {
+                blockers.push(blocker.to_string());
+            }
+        }
+        let removal = containment
+            .get("removal_requires")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect::<std::collections::BTreeSet<_>>();
+        for proof in [
+            "node_substrate_provisioning_read_back",
+            "source_snapshot_transport_read_back",
+            "durable_workload_delivery_read_back",
+            "machine_enrollment_without_operator_transport",
+            "canonical_build_completion_read_back",
+        ] {
+            if !removal.contains(proof) {
+                blockers.push(format!(
+                    "build_runner_bootstrap_removal_condition_missing:{proof}"
+                ));
+            }
         }
         blockers
     }

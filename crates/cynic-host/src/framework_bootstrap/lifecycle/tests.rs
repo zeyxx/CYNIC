@@ -1,24 +1,34 @@
 use super::audit_framework_lifecycle;
 
 #[test]
-fn current_registry_declares_every_dimension_but_requires_runtime_observation() {
+fn current_registry_exposes_missing_builder_reconstruction_identity() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../infra/registry.json");
     let audit = audit_framework_lifecycle(root.to_str(), "build_runner").expect("audit");
 
-    assert_eq!(audit.status, "observation_required");
-    assert!(audit.blockers.is_empty());
-    assert!(
-        audit
-            .dimensions
-            .iter()
-            .all(|dimension| dimension.convergence_status == "observation_required")
+    assert_eq!(audit.status, "blocked");
+    assert_eq!(
+        audit.blockers,
+        vec!["node_substrate_provisioning_spec_missing"]
     );
-    assert_eq!(audit.dimensions.len(), 10);
+    assert_eq!(audit.dimensions.len(), 14);
+    let reconstruction = audit
+        .dimensions
+        .iter()
+        .find(|dimension| dimension.name == "substrate_reconstruction")
+        .expect("reconstruction dimension");
+    assert_eq!(reconstruction.convergence_status, "blocked_desired_state");
+    assert_eq!(
+        audit.next_actions,
+        vec!["declare_content_addressed_substrate_reconstruction"]
+    );
     for expected in [
         "artifact_packaging",
         "release_signing",
         "artifact_store",
         "artifact_publication",
+        "source_snapshot_recovery",
+        "workload_delivery_recovery",
+        "bootstrap_containment_retirement",
     ] {
         assert!(
             audit

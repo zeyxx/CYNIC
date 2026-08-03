@@ -8,12 +8,41 @@ pub(super) fn decide(
     let required_proofs = registry.required_proofs();
     let specs = [
         (
+            "substrate_reconstruction",
+            "cynic-protocol::provider",
+            registry.substrate_reconstruction_blockers(),
+            vec![
+                "node_substrate_provisioning_read_back".to_string(),
+                "provisioned_image_digest_observed".to_string(),
+                "runtime_seed_digest_observed".to_string(),
+            ],
+        ),
+        (
             "source_materialization",
             "cynic-host::source_materialization",
             registry.source_blockers(),
             vec![
                 "source_commit_read_back".to_string(),
                 "source_worktree_clean".to_string(),
+            ],
+        ),
+        (
+            "source_snapshot_recovery",
+            "cynic-node::runtime_artifact_transport",
+            Vec::new(),
+            vec![
+                "source_snapshot_transport_read_back".to_string(),
+                "source_snapshot_digest_read_back".to_string(),
+            ],
+        ),
+        (
+            "workload_delivery_recovery",
+            "cynic-node::build_scheduler",
+            registry.workload_delivery_blockers(),
+            vec![
+                "durable_workload_delivery_read_back".to_string(),
+                "delivery_lease_fence_read_back".to_string(),
+                "scheduler_recovery_read_back".to_string(),
             ],
         ),
         (
@@ -77,6 +106,15 @@ pub(super) fn decide(
             registry.read_back_blockers(),
             required_proofs,
         ),
+        (
+            "bootstrap_containment_retirement",
+            "cynic-host::framework_bootstrap",
+            registry.bootstrap_containment_blockers(),
+            vec![
+                "bootstrap_containment_scope_read_back".to_string(),
+                "bootstrap_removal_conditions_read_back".to_string(),
+            ],
+        ),
     ];
     let dimensions = specs
         .into_iter()
@@ -127,6 +165,16 @@ pub(super) fn decide(
             | "artifact_store_endpoint_port_invalid"
             | "artifact_store_health_contract_missing" => {
                 "declare_and_observe_runtime_artifact_store"
+            }
+            "node_substrate_provisioning_spec_missing"
+            | "node_substrate_provisioning_spec_invalid" => {
+                "declare_content_addressed_substrate_reconstruction"
+            }
+            blocker if blocker.starts_with("build_scheduler_capability_missing:") => {
+                "complete_node_owned_scheduler_capability_contract"
+            }
+            blocker if blocker.starts_with("build_runner_bootstrap_") => {
+                "bound_and_retire_n_minus_one_bootstrap_containment"
             }
             blocker if blocker.starts_with("lifecycle_required_proof_missing:") => {
                 "extend_role_terminal_read_back_contract"
