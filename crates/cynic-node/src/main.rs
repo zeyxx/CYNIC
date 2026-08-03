@@ -25,6 +25,7 @@ mod build_scheduler;
 mod cli;
 mod config;
 mod config_watch;
+mod dns_activation;
 mod dns_activation_status;
 mod dns_bundle;
 mod dns_contract;

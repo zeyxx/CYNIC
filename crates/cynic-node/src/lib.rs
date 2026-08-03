@@ -143,13 +143,7 @@ pub fn apply_dns_activation_value(
     bundle_dir: &str,
     yes: bool,
 ) -> Result<serde_json::Value, String> {
-    let spec = dns_activation::resolve_dns_activation_spec(registry, bundle_dir)?;
-    serde_json::to_value(dns_activation::apply_dns_activation(
-        &spec,
-        yes,
-        &cynic_host::update_lifecycle::LocalArgvRunner,
-    ))
-    .map_err(|error| format!("DNS activation apply serialization failed: {error}"))
+    dns_activation::apply_dns_activation_value(registry, bundle_dir, yes)
 }
 
 pub fn build_provider_fallback_hosts_value(

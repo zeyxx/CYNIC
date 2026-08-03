@@ -7,6 +7,7 @@ use crate::adapters::local_harness_target_attestation_reader::LocalHarnessTarget
 use crate::adapters::local_network_actuation_request_reader::read_network_actuation_request;
 use crate::adapters::qemu_guest_agent_network_runner::QemuGuestAgentNetworkRunner;
 use crate::cli::NetworkCommands;
+use crate::dns_activation;
 use crate::dns_activation_status;
 use crate::dns_bundle;
 use crate::dns_plan;
@@ -108,7 +109,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             registry,
             bundle_dir,
             yes,
-        } => match crate::apply_dns_activation_value(registry, bundle_dir, *yes) {
+        } => match dns_activation::apply_dns_activation_value(registry, bundle_dir, *yes) {
             Ok(report) => {
                 let should_fail = report["status"].as_str() != Some("proved")
                     && report["status"].as_str() != Some("converged");
