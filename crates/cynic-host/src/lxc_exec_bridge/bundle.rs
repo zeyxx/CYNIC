@@ -88,7 +88,7 @@ fn write_bundle(output_dir: &Path, helper_source: &Path) -> Result<String, Strin
     fs::set_permissions(&helper, fs::Permissions::from_mode(0o755))
         .map_err(|error| error.to_string())?;
     let bytes = fs::read(&helper).map_err(|error| error.to_string())?;
-    let hash = format!("{:x}", Sha256::digest(&bytes));
+    let hash = hex::encode(Sha256::digest(&bytes));
     let sudoers = format!(
         "# CYNIC Rust-native bounded LXC bridge\ncynic ALL=(root) NOPASSWD: {HELPER_TARGET}\ncynic ALL=(root) NOPASSWD: {HELPER_TARGET} --status\n"
     );

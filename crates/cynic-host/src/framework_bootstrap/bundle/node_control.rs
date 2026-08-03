@@ -32,7 +32,7 @@ pub(super) fn render_node_control_config(
         .flatten()
         .filter_map(|service| service.get("name").and_then(serde_json::Value::as_str))
         .map(ToString::to_string)
-        .collect();
+        .collect::<Vec<String>>();
     let mut capabilities = vec!["node_control".to_string(), target_role.to_string()];
     if target_role == "build_runner" {
         capabilities.extend(

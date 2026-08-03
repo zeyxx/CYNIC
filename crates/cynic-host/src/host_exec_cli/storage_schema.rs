@@ -29,7 +29,7 @@ pub(crate) fn execute(args: &[String]) -> Result<ExitCode, String> {
     let parsed = ParsedArgs::parse(args)?;
     let bytes = std::fs::read(&parsed.schema_file)
         .map_err(|error| format!("storage schema file unavailable: {error}"))?;
-    let digest = format!("sha256:{:x}", Sha256::digest(&bytes));
+    let digest = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
     let schema_bytes = bytes.len() as u64;
     if digest != parsed.expected_sha256 {
         return emit(report(
