@@ -246,8 +246,10 @@ fn cli_delegates_runtime_agent_matrix_to_cynic_host() {
         .expect("read runtime_surface/agent_matrix.rs");
     let command_manifest =
         fs::read_to_string(root.join("src/command_manifest.rs")).expect("read command_manifest.rs");
-    let surface_registry = fs::read_to_string(root.join("../../infra/surface-registry.json"))
-        .expect("read infra/surface-registry.json");
+    let agent_matrix_fragment = fs::read_to_string(
+        root.join("../../infra/surface-registry/fragments/runtime_agent_matrix.json"),
+    )
+    .expect("read runtime_agent_matrix fragment");
 
     assert!(
         agent_matrix.contains("cynic_host::agent_matrix::build_agent_matrix_report"),
@@ -262,8 +264,8 @@ fn cli_delegates_runtime_agent_matrix_to_cynic_host() {
         "CLI manifest must expose the canonical runtime agent-matrix surface"
     );
     assert!(
-        surface_registry.contains("\"id\":\"runtime_agent_matrix\"")
-            || surface_registry.contains("\"id\": \"runtime_agent_matrix\""),
+        agent_matrix_fragment.contains("\"id\":\"runtime_agent_matrix\"")
+            || agent_matrix_fragment.contains("\"id\": \"runtime_agent_matrix\""),
         "surface registry must declare the runtime agent-matrix canonical surface"
     );
 }
@@ -1438,8 +1440,6 @@ fn surface_registry_is_split_into_catalog_and_types() {
     let protocol_surface_registry =
         fs::read_to_string(root.join("../cynic-protocol/src/surface_registry.rs"))
             .expect("read cynic-protocol/src/surface_registry.rs");
-    let infra_surface_registry = fs::read_to_string(root.join("../../infra/surface-registry.json"))
-        .expect("read infra/surface-registry.json");
     let infra_surface_manifest =
         fs::read_to_string(root.join("../../infra/surface-registry/manifest.json"))
             .expect("read infra/surface-registry/manifest.json");
@@ -1476,21 +1476,6 @@ fn surface_registry_is_split_into_catalog_and_types() {
         );
     }
 
-    let parsed_assembled_registry = serde_json::from_str::<Value>(&infra_surface_registry)
-        .expect("infra/surface-registry.json must be valid JSON");
-    let assembled_ids: BTreeSet<String> = parsed_assembled_registry
-        .get("surfaces")
-        .and_then(Value::as_array)
-        .expect("assembled registry must expose a surfaces array")
-        .iter()
-        .filter_map(|surface| {
-            surface
-                .get("id")
-                .and_then(Value::as_str)
-                .map(ToString::to_string)
-        })
-        .collect();
-
     assert!(
         registry.contains("mod catalog;")
             && registry.contains("mod types;")
@@ -1509,8 +1494,6 @@ fn surface_registry_is_split_into_catalog_and_types() {
             && registry_catalog.contains("env!(\"CARGO_MANIFEST_DIR\")")
             && registry_catalog.contains("SURFACE_REGISTRY_FRAGMENT_INDEX")
             && registry_catalog.contains("pub(crate) fn canonical_cli_surfaces()")
-            && (infra_surface_registry.contains("\"schema\":\"cynic.surface_registry.v1\"")
-                || infra_surface_registry.contains("\"schema\": \"cynic.surface_registry.v1\""))
             && parsed_manifest
                 .get("schema")
                 .and_then(Value::as_str)
@@ -1519,12 +1502,5 @@ fn surface_registry_is_split_into_catalog_and_types() {
         "surface registry catalog must load canonical data from infra and the facade must remain thin"
     );
 
-    assert!(
-        manifest_entries.len() == assembled_ids.len(),
-        "manifest surface count must match assembled registry surface count"
-    );
-    assert_eq!(
-        manifest_ids, assembled_ids,
-        "surface ids in manifest must match ids in assembled surface registry"
-    );
+    assert_eq!(manifest_entries.len(), manifest_ids.len());
 }

@@ -57,6 +57,11 @@ pub struct ValidateParams {
     pub release_id: Option<String>,
     /// Monotonic release epoch. Required only for action=build_release.
     pub release_epoch: Option<u64>,
+    /// Optional pre-staged git bundle digest. When present, build_runner must
+    /// materialize this snapshot instead of fetching the live Git remote.
+    pub snapshot_digest: Option<String>,
+    /// Authority that produced and proved snapshot_digest. Required with snapshot_digest.
+    pub snapshot_authority_ref: Option<String>,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
 }

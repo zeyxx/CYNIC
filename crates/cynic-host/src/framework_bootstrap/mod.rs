@@ -6,6 +6,7 @@ mod placement;
 pub mod propagation;
 pub mod runtime_binding;
 pub mod scripts;
+pub mod source_snapshot;
 mod types;
 
 pub use bundle::{write_framework_bootstrap_bundle, write_framework_bootstrap_bundle_for_role};
@@ -25,5 +26,8 @@ pub use propagation::{
 pub use runtime_binding::{
     RuntimeBindingApplyReport, RuntimeBindingPlan, apply_runtime_binding,
     resolve_local_runtime_binding_spec,
+};
+pub use source_snapshot::{
+    SourceSnapshotPlan, SourceSnapshotReport, create_source_snapshot, plan_source_snapshot,
 };
 pub use types::{FrameworkBootstrapBundleReport, StandaloneCliInstallReport};

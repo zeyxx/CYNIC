@@ -294,6 +294,7 @@ mod tests {
                 transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".to_string(),
                 revision: source_commit.clone(),
                 authority_ref: "infra/repo-remotes.json:forgejo".to_string(),
+                snapshot: None,
             },
             action: "make:build-release".to_string(),
             desired_role: "build_runner".to_string(),

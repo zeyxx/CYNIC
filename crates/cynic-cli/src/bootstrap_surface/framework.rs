@@ -8,6 +8,7 @@ use cynic_host::update_lifecycle::LocalArgvRunner;
 use crate::fs_json::write_pretty_json_file;
 use crate::{emit_json, fail};
 
+mod source_snapshot;
 mod substrate;
 
 #[derive(Subcommand)]
@@ -41,6 +42,32 @@ pub(crate) enum BootstrapFrameworkCommand {
         bundle_dir: String,
         #[arg(long)]
         registry: Option<String>,
+        #[arg(long)]
+        yes: bool,
+        #[arg(long)]
+        output: Option<String>,
+    },
+    SourceSnapshotPlan {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        repository_root: String,
+        #[arg(long)]
+        source_commit: String,
+        #[arg(long)]
+        output_dir: String,
+        #[arg(long)]
+        output: Option<String>,
+    },
+    SourceSnapshotCreate {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        repository_root: String,
+        #[arg(long)]
+        source_commit: String,
+        #[arg(long)]
+        output_dir: String,
         #[arg(long)]
         yes: bool,
         #[arg(long)]
@@ -226,6 +253,30 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
             }
             emit_json(&report, report.status != "converged")
         }
+        BootstrapFrameworkCommand::SourceSnapshotPlan {
+            json,
+            repository_root,
+            source_commit,
+            output_dir,
+            output,
+        } => {
+            source_snapshot::execute_plan(json, repository_root, source_commit, output_dir, output)
+        }
+        BootstrapFrameworkCommand::SourceSnapshotCreate {
+            json,
+            repository_root,
+            source_commit,
+            output_dir,
+            yes,
+            output,
+        } => source_snapshot::execute_create(
+            json,
+            repository_root,
+            source_commit,
+            output_dir,
+            yes,
+            output,
+        ),
         BootstrapFrameworkCommand::SubstratePlan {
             json,
             registry,

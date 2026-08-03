@@ -2,6 +2,7 @@ mod evidence;
 mod lifecycle;
 mod prepare;
 mod release_publication;
+mod source_prepare;
 
 use std::time::{Duration, Instant};
 

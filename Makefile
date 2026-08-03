@@ -36,6 +36,14 @@ authority-check: secret-literal-check ## Read-only local validation of machine-r
 	@jq empty infra/agent-exposure.json
 	@jq empty infra/ecosystem-pins.json
 	@jq empty infra/runtime-basket.json
+	@jq -e '.schema == "cynic.surface_registry.v1" and (.surfaces | type == "array" and length > 0) and (([.surfaces[].id] | length) == ([.surfaces[].id] | unique | length))' infra/surface-registry/manifest.json >/dev/null
+	@while IFS=$$'\t' read -r surface_id fragment_path; do
+		if [[ "$$fragment_path" == /* || "$$fragment_path" == *..* || "$$fragment_path" == *\\* ]]; then
+			echo "unsafe surface registry fragment path: $$fragment_path" >&2
+			exit 1
+		fi
+		jq -e --arg id "$$surface_id" '.id == $$id' "infra/surface-registry/$$fragment_path" >/dev/null
+	done < <(jq -r '.surfaces[] | [.id, .path] | @tsv' infra/surface-registry/manifest.json)
 	@for script in $$(git grep -l '^#!' -- scripts); do
 		mode="$$(git ls-files -s -- "$$script" | awk '{print $$1}')"
 		if [[ "$$mode" != "100755" ]]; then
@@ -43,7 +51,6 @@ authority-check: secret-literal-check ## Read-only local validation of machine-r
 			exit 1
 		fi
 	done
-	@./scripts/surface-registry-assemble --check
 
 .PHONY: secret-literal-check
 secret-literal-check: ## Reject high-confidence literal credentials in Git-tracked source
@@ -81,12 +88,12 @@ surface-audit: ## Verify canonical CLI surfaces are backed by real modules and m
 
 .PHONY: audit-surface-matrix
 audit-surface-matrix: ## Emit reusable JSON+Markdown surface matrix (surface, ownership, kernel-audit, runtime phases)
-	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix
-	@jq -e '.summary.status == "ok" and .summary.blocked_count == 0' target-cynic-ci/cynic-surface-audit-matrix.json >/dev/null
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev surface-matrix --json --output target-cynic-ci >/dev/null
+	@jq -e '.status == "ok" and .summary.blocked_count == 0' target-cynic-ci/cynic-surface-audit-matrix.json >/dev/null
 
 .PHONY: audit-runtime-phases
 audit-runtime-phases: ## Emit and print machine-readable runtime phase statuses (harness/conformance/metrics)
-	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix >/dev/null
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev surface-matrix --json --output target-cynic-ci >/dev/null
 	@jq '.runtime_phases' target-cynic-ci/cynic-surface-audit-matrix.json
 
 .PHONY: lab-check
@@ -188,12 +195,15 @@ operator-loop: ## Fast operator iteration cycle: install CLI and refresh authori
 .PHONY: operator-reports
 operator-reports: ## Emit operator-consumable report artifacts (surface matrix + proof bundle + metrics snapshot)
 	@mkdir -p target-cynic-ci
-	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix
-	@$(PATH := /bin:$(PATH)) ./scripts/runtime-evidence-bundle target-cynic-ci/cynic-runtime-proof-bundle.json
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev surface-matrix --json --output target-cynic-ci >/dev/null
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime conformance --json > target-cynic-ci/cynic-runtime-conformance.json || true
+	@test -s target-cynic-ci/cynic-runtime-conformance.json
+	@jq -e '.proof_bundle | select(.schema == "cynic.runtime_proof_bundle.v1")' target-cynic-ci/cynic-runtime-conformance.json > target-cynic-ci/cynic-runtime-proof-bundle.json
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime metrics --json --proof target-cynic-ci/cynic-runtime-proof-bundle.json > target-cynic-ci/cynic-runtime-metrics.json
 	@echo "==> operator reports:"
 	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.json"
 	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.md"
+	@echo "  - target-cynic-ci/cynic-runtime-conformance.json"
 	@echo "  - target-cynic-ci/cynic-runtime-proof-bundle.json"
 	@echo "  - target-cynic-ci/cynic-runtime-metrics.json"
 	@jq -r '"  status=\(.status)\n  maturity_percent=\(.maturity_percent)\n  residual_unknown_percent=\(.residual_unknown_percent)"' \

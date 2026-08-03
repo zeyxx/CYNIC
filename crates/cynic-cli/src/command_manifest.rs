@@ -95,6 +95,8 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic bootstrap framework bundle --json --output-dir <dir> [--role <role>] [--artifact-dir <dir>] [--registry <path>]",
                     "cynic bootstrap framework propagation-plan --json --bundle-dir <dir> [--registry <path>] [--output <path>]",
                     "cynic bootstrap framework propagate --json --bundle-dir <dir> [--registry <path>] [--output <path>] --yes",
+                    "cynic bootstrap framework source-snapshot-plan --json --repository-root <dir> --source-commit <commit> --output-dir <dir> [--output <path>]",
+                    "cynic bootstrap framework source-snapshot-create --json --repository-root <dir> --source-commit <commit> --output-dir <dir> [--output <path>] --yes",
                     "cynic bootstrap framework substrate-plan --json --node <id> [--registry <path>] [--observation <path>]",
                     "cynic bootstrap framework substrate-apply --json --node <id> [--registry <path>] --yes",
                     "cynic bootstrap framework lifecycle-audit --json --role <role> [--registry <path>]",

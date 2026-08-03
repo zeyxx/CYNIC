@@ -6,10 +6,8 @@ use std::{
 
 use cynic_host::update_lifecycle::LocalArgvRunner;
 use cynic_protocol::{
-    DurableAgentWorkloadRecord, LeaseGuard, SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA,
-    SourceRepositoryBootstrapDecision, SourceRepositoryBootstrapRequest,
-    build_source_reference_from_workload, consume_agent_workload_action, digest_json,
-    reconcile_source_repository_bootstrap,
+    DurableAgentWorkloadRecord, LeaseGuard, build_source_reference_from_workload,
+    consume_agent_workload_action, digest_json,
 };
 
 use crate::{
@@ -17,9 +15,7 @@ use crate::{
         ed25519_build_workload_grant::Ed25519BuildWorkloadGrantSigner,
         local_agent_workload_store::LocalAgentWorkloadStore,
         local_build_workload_grant_store::LocalBuildWorkloadGrantStore,
-        local_build_workspace::LocalBuildWorkspace,
-        local_source_repository_bootstrap::LocalSourceRepositoryBootstrap,
-        registry::RegistryAgentWorkspaceLayoutAdapter,
+        local_build_workspace::LocalBuildWorkspace, registry::RegistryAgentWorkspaceLayoutAdapter,
     },
     config::{BuildSchedulerConfig, NodeControlConfig},
     ports::{
@@ -27,10 +23,11 @@ use crate::{
         agent_workspace_port::AgentWorkspaceLayoutPort,
         build_scheduler_port::{BuildExecutionRequest, BuildWorkspacePort, BuildWorkspaceReadBack},
         build_workload_grant_store_port::BuildWorkloadGrantStorePort,
-        source_repository_bootstrap_port::SourceRepositoryBootstrapPort,
     },
     usecases::build_workload_grant_uc::issue_signed_build_workload_grant,
 };
+
+use super::source_prepare::prepare_build_source;
 
 pub(super) struct PreparedBuild {
     pub durable: DurableAgentWorkloadRecord,
@@ -78,54 +75,20 @@ pub(super) fn prepare(
     }
 
     let runner = LocalArgvRunner;
-    let source_request = SourceRepositoryBootstrapRequest {
-        schema: SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA.into(),
-        node_id: control.node_id.clone(),
-        repository_id: source.repository_id,
-        source: source.transport_uri,
-        revision: source.revision.clone(),
-    };
-    let source_adapter = LocalSourceRepositoryBootstrap::new(
+    let (source_layout, mut source_provenance) = prepare_build_source(
+        control,
+        scheduler,
+        &source,
+        &claimed.record.envelope.workload_id,
+        layout,
         &runner,
-        &control.agent_workload_state_root,
-        "git",
-        "id",
-    );
-    let before = source_adapter
-        .observe(&layout, &source_request)
-        .map_err(|error| error.code)?;
-    match reconcile_source_repository_bootstrap(&source_request, &before) {
-        SourceRepositoryBootstrapDecision::Converged => {}
-        SourceRepositoryBootstrapDecision::BootstrapRequired
-        | SourceRepositoryBootstrapDecision::SyncRequired => {
-            if cancellation.is_cancelled() {
-                return Err("build_scheduler_cancelled_before_source_sync".into());
-            }
-            source_adapter
-                .apply(&layout, &source_request)
-                .map_err(|error| error.code)?;
-            let after = source_adapter
-                .observe(&layout, &source_request)
-                .map_err(|error| error.code)?;
-            if !matches!(
-                reconcile_source_repository_bootstrap(&source_request, &after),
-                SourceRepositoryBootstrapDecision::Converged
-            ) {
-                return Err("build_scheduler_source_read_back_not_converged".into());
-            }
-        }
-        SourceRepositoryBootstrapDecision::Blocked { blockers } => {
-            return Err(blockers.join(","));
-        }
-        SourceRepositoryBootstrapDecision::Unknown { unknowns } => {
-            return Err(unknowns.join(","));
-        }
-    }
+        cancellation,
+    )?;
     if cancellation.is_cancelled() {
         return Err("build_scheduler_cancelled_before_workspace".into());
     }
     let workspace = LocalBuildWorkspace::new(&runner, "git")
-        .prepare(&layout, &source.revision)
+        .prepare(&source_layout, &source.revision)
         .map_err(|error| error.code)?;
 
     let signer = Ed25519BuildWorkloadGrantSigner::load_hex_file(&control.signing_key_path)
@@ -174,11 +137,11 @@ pub(super) fn prepare(
         "CYNIC_BUILD_ADMISSION_VERIFIER".into(),
         verifier.to_string_lossy().into_owned(),
     );
-    let provenance = vec![
+    source_provenance.extend([
         consumed.record_digest.clone(),
         digest_json(&signed).map_err(|_| "build_grant_digest_failed".to_string())?,
-        layout.evidence_digest,
-    ];
+        source_layout.evidence_digest,
+    ]);
     Ok(PreparedBuild {
         durable: consumed,
         execution: BuildExecutionRequest {
@@ -188,7 +151,7 @@ pub(super) fn prepare(
             timeout: Duration::from_secs(scheduler.command_timeout_secs),
         },
         workspace,
-        provenance,
+        provenance: source_provenance,
     })
 }
 

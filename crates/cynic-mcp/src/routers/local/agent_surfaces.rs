@@ -93,7 +93,7 @@ impl CynicMcpProxy {
             }
             None
         };
-        let proof_requirements = if action == "make:build-release" {
+        let mut proof_requirements = if action == "make:build-release" {
             vec![
                 "release_binary_artifact_read_back".to_string(),
                 "signed_release_basket_read_back".to_string(),
@@ -117,6 +117,24 @@ impl CynicMcpProxy {
             )
         })?;
         let source_commit = p.source_commit;
+        let snapshot = match (p.snapshot_digest, p.snapshot_authority_ref) {
+            (Some(digest), Some(authority_ref)) => {
+                proof_requirements.push("source_snapshot_digest_read_back".to_string());
+                Some(cynic_protocol::BuildSourceSnapshotReference {
+                    schema: cynic_protocol::BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string(),
+                    digest,
+                    format: cynic_protocol::SOURCE_MATERIALIZATION_FORMAT.to_string(),
+                    authority_ref,
+                })
+            }
+            (None, None) => None,
+            _ => {
+                return Err(McpError::invalid_params(
+                    "snapshot_digest and snapshot_authority_ref must be supplied together",
+                    None,
+                ));
+            }
+        };
         let request = cynic_protocol::BuildAgentRequest {
             schema: cynic_protocol::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
             request_id,
@@ -128,6 +146,7 @@ impl CynicMcpProxy {
                 transport_uri: source.git_ssh_url,
                 revision: source_commit,
                 authority_ref: "infra/repo-remotes.json:forgejo".to_string(),
+                snapshot,
             },
             action: action.to_string(),
             desired_role: "build_runner".to_string(),

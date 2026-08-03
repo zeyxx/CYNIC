@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 pub const BUILD_AGENT_REQUEST_SCHEMA: &str = "cynic.build.agent_request.v3";
 pub const BUILD_AGENT_REQUEST_ADMISSION_SCHEMA: &str = "cynic.build.agent_request_admission.v1";
 pub const BUILD_SOURCE_REFERENCE_SCHEMA: &str = "cynic.build.source_reference.v1";
+pub const BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA: &str = "cynic.build.source_snapshot_reference.v1";
 pub const BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA: &str =
     "cynic.build.release_publication_intent.v1";
 
@@ -12,6 +13,16 @@ pub struct BuildSourceReference {
     pub repository_id: String,
     pub transport_uri: String,
     pub revision: String,
+    pub authority_ref: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot: Option<BuildSourceSnapshotReference>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BuildSourceSnapshotReference {
+    pub schema: String,
+    pub digest: String,
+    pub format: String,
     pub authority_ref: String,
 }
 
@@ -179,6 +190,26 @@ pub fn validate_build_source_reference(source: &BuildSourceReference) -> Vec<Str
     if source.authority_ref.trim().is_empty() {
         blockers.push("build_source_authority_missing".to_string());
     }
+    if let Some(snapshot) = &source.snapshot {
+        if snapshot.schema != BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA {
+            blockers.push("build_source_snapshot_schema_mismatch".to_string());
+        }
+        if snapshot.format != "git_bundle_v1" {
+            blockers.push("build_source_snapshot_format_unsupported".to_string());
+        }
+        if snapshot
+            .digest
+            .strip_prefix("sha256:")
+            .is_none_or(|digest| {
+                digest.len() != 64 || !digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
+        {
+            blockers.push("build_source_snapshot_digest_invalid".to_string());
+        }
+        if snapshot.authority_ref.trim().is_empty() {
+            blockers.push("build_source_snapshot_authority_missing".to_string());
+        }
+    }
     blockers
 }
 
@@ -221,6 +252,7 @@ mod tests {
                 transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".to_string(),
                 revision: "a".repeat(40),
                 authority_ref: "infra/repo-remotes.json:forgejo".to_string(),
+                snapshot: None,
             },
             action: "make:check".to_string(),
             desired_role: "build_runner".to_string(),

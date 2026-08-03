@@ -8,8 +8,9 @@ use crate::{
 };
 
 use super::{
-    BUILD_AGENT_REQUEST_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest,
-    BuildSourceReference, admit_build_agent_request, validate_build_source_reference,
+    BUILD_AGENT_REQUEST_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA,
+    BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA, BuildAgentRequest, BuildSourceReference,
+    BuildSourceSnapshotReference, admit_build_agent_request, validate_build_source_reference,
 };
 
 pub fn build_agent_request_from_workload(
@@ -59,9 +60,20 @@ pub fn build_source_reference_from_workload(
         .iter()
         .filter(|reference| reference.kind == "source_commit")
         .collect::<Vec<_>>();
+    let snapshots = envelope
+        .delegation
+        .context_refs
+        .iter()
+        .filter(|reference| reference.kind == "source_snapshot")
+        .collect::<Vec<_>>();
     let ([repository], [commit]) = (repositories.as_slice(), commits.as_slice()) else {
         return Err(vec!["build_workload_source_context_ambiguous".to_string()]);
     };
+    if snapshots.len() > 1 {
+        return Err(vec![
+            "build_workload_snapshot_context_ambiguous".to_string(),
+        ]);
+    }
     let source = BuildSourceReference {
         schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
         repository_id: commit
@@ -76,6 +88,18 @@ pub fn build_source_reference_from_workload(
             .as_ref()
             .map(|lineage| lineage.producer_id.clone())
             .unwrap_or_default(),
+        snapshot: snapshots
+            .first()
+            .map(|snapshot| BuildSourceSnapshotReference {
+                schema: BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string(),
+                digest: snapshot.subject.clone(),
+                format: crate::SOURCE_MATERIALIZATION_FORMAT.to_string(),
+                authority_ref: snapshot
+                    .lineage
+                    .as_ref()
+                    .map(|lineage| lineage.producer_id.clone())
+                    .unwrap_or_default(),
+            }),
     };
     let mut blockers = validate_build_source_reference(&source);
     if source.revision != envelope.policy_admission.intent.subject {
@@ -84,6 +108,9 @@ pub fn build_source_reference_from_workload(
     let digest = digest_json(&source).ok();
     if digest.as_deref() != Some(repository.digest.as_str())
         || digest.as_deref() != Some(commit.digest.as_str())
+        || snapshots
+            .iter()
+            .any(|snapshot| digest.as_deref() != Some(snapshot.digest.as_str()))
         || digest.as_deref() != envelope.action.input_digest.as_deref()
     {
         blockers.push("build_workload_source_digest_mismatch".to_string());
@@ -202,32 +229,7 @@ pub fn compose_build_agent_workload(
                 digest: request_digest.clone(),
                 lineage: None,
             },
-            context_refs: vec![
-                AgentEvidenceRef {
-                    kind: "source_repository".to_string(),
-                    subject: request.source.transport_uri.clone(),
-                    digest: input_digest.clone(),
-                    lineage: Some(AgentEvidenceLineage {
-                        producer_id: request.source.authority_ref.clone(),
-                        producer_attestation_digest: input_digest.clone(),
-                        origin_digests: vec![input_digest.clone()],
-                        derivation_digests: Vec::new(),
-                        influence_digests: Vec::new(),
-                    }),
-                },
-                AgentEvidenceRef {
-                    kind: "source_commit".to_string(),
-                    subject: request.source_commit.clone(),
-                    digest: input_digest.clone(),
-                    lineage: Some(AgentEvidenceLineage {
-                        producer_id: request.source.repository_id.clone(),
-                        producer_attestation_digest: input_digest.clone(),
-                        origin_digests: vec![input_digest.clone()],
-                        derivation_digests: Vec::new(),
-                        influence_digests: Vec::new(),
-                    }),
-                },
-            ],
+            context_refs: build_source_context_refs(request, &input_digest),
             capabilities: vec![AgentCapabilityGrant {
                 id: "repository_validation".to_string(),
                 mutates: true,
@@ -272,6 +274,42 @@ pub fn compose_build_agent_workload(
     })
 }
 
+fn build_source_context_refs(
+    request: &BuildAgentRequest,
+    input_digest: &str,
+) -> Vec<AgentEvidenceRef> {
+    let lineage = |producer_id: String| AgentEvidenceLineage {
+        producer_id,
+        producer_attestation_digest: input_digest.to_string(),
+        origin_digests: vec![input_digest.to_string()],
+        derivation_digests: Vec::new(),
+        influence_digests: Vec::new(),
+    };
+    let mut refs = vec![
+        AgentEvidenceRef {
+            kind: "source_repository".to_string(),
+            subject: request.source.transport_uri.clone(),
+            digest: input_digest.to_string(),
+            lineage: Some(lineage(request.source.authority_ref.clone())),
+        },
+        AgentEvidenceRef {
+            kind: "source_commit".to_string(),
+            subject: request.source_commit.clone(),
+            digest: input_digest.to_string(),
+            lineage: Some(lineage(request.source.repository_id.clone())),
+        },
+    ];
+    if let Some(snapshot) = &request.source.snapshot {
+        refs.push(AgentEvidenceRef {
+            kind: "source_snapshot".to_string(),
+            subject: snapshot.digest.clone(),
+            digest: input_digest.to_string(),
+            lineage: Some(lineage(snapshot.authority_ref.clone())),
+        });
+    }
+    refs
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -290,6 +328,7 @@ mod tests {
                 transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
                 revision: "a".repeat(40),
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
+                snapshot: None,
             },
             action: "make:check".to_string(),
             desired_role: "build_runner".to_string(),
@@ -316,6 +355,59 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_reference_round_trips_through_workload_context() {
+        let snapshot = crate::BuildSourceSnapshotReference {
+            schema: crate::BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string(),
+            digest: format!("sha256:{}", "c".repeat(64)),
+            format: crate::SOURCE_MATERIALIZATION_FORMAT.to_string(),
+            authority_ref: "source-release:release-abc".to_string(),
+        };
+        let request = BuildAgentRequest {
+            schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            request_id: "validate-snapshot".to_string(),
+            requested_by: "codex-session-1".to_string(),
+            source_commit: "a".repeat(40),
+            source: crate::BuildSourceReference {
+                schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+                revision: "a".repeat(40),
+                authority_ref: "infra/repo-remotes.json:forgejo".into(),
+                snapshot: Some(snapshot.clone()),
+            },
+            action: "make:check".to_string(),
+            desired_role: "build_runner".to_string(),
+            mutation_authorized: true,
+            proof_requirements: vec!["source_snapshot_digest_read_back".to_string()],
+            release_publication: None,
+            evidence_refs: vec![snapshot.digest.clone()],
+        };
+
+        let envelope = compose_build_agent_workload(
+            &request,
+            "cynic-builder",
+            "/var/lib/cynic/source/workspaces/build-test",
+        )
+        .expect("snapshot workload");
+
+        assert_eq!(
+            build_source_reference_from_workload(&envelope)
+                .expect("source")
+                .snapshot,
+            Some(snapshot)
+        );
+        assert_eq!(
+            envelope
+                .delegation
+                .context_refs
+                .iter()
+                .filter(|reference| reference.kind == "source_snapshot")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
     fn build_request_payload_tampering_is_rejected_before_execution() {
         let request = BuildAgentRequest {
             schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
@@ -328,6 +420,7 @@ mod tests {
                 transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
                 revision: "a".repeat(40),
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
+                snapshot: None,
             },
             action: "make:check".to_string(),
             desired_role: "build_runner".to_string(),
@@ -362,6 +455,7 @@ mod tests {
                 transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
                 revision: "b".repeat(40),
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
+                snapshot: None,
             },
             action: "make:build-release".to_string(),
             desired_role: "build_runner".to_string(),
