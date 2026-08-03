@@ -97,6 +97,22 @@ fn canonical_mcp_startup_is_the_rust_binary_not_a_shell_wrapper() {
 }
 
 #[test]
+fn mcp_pins_the_final_rust_sdk_and_native_discovery_surface() {
+    let root = crate_root();
+    let manifest = read_required_file(&root, "Cargo.toml");
+    let lock = read_required_file(&root, "../../Cargo.lock");
+    let handler = read_required_file(&root, "src/handler.rs");
+    let transport = read_required_file(&root, "src/transport.rs");
+
+    assert!(manifest.contains("rmcp = { version = \"=3.1.0\""));
+    assert!(lock.contains("name = \"rmcp\"\nversion = \"3.1.0\""));
+    assert!(handler.contains("DiscoverResult::from_server_info"));
+    assert!(transport.contains("with_legacy_session_mode(false)"));
+    assert!(transport.contains("with_stateless_protocol_metadata_required(true)"));
+    assert!(!transport.contains("with_stateful_mode(false)"));
+}
+
+#[test]
 fn mcp_process_execution_terminates_in_an_injected_host_port() {
     let root = crate_root();
     let mut pending = vec![root.join("src")];
