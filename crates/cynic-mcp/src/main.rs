@@ -197,10 +197,7 @@ fn runtime_contract_report() -> Result<cynic_protocol::RuntimeCompatibilityPlan,
         contract_digest: Some(desired_contract_digest),
     };
     let mut compatibility_capabilities = cynic_mcp::protocol::exposed_tool_names(&compiled);
-    if cynic_mcp::protocol::source_implements_target(&compiled) {
-        compatibility_capabilities.push("mcp_protocol_profile:2026-07-28".to_string());
-        compatibility_capabilities.push(cynic_mcp::protocol::SDK_VERSION_CAPABILITY.to_string());
-    }
+    compatibility_capabilities.extend(cynic_mcp::protocol::source_capabilities(&compiled));
     Ok(cynic_protocol::reconcile_runtime_compatibility(
         &requirement,
         &cynic_protocol::RuntimeContractObservation {

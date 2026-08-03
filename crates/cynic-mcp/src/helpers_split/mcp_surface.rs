@@ -19,14 +19,7 @@ fn load_agent_exposure(project_root: &str) -> Result<serde_json::Value, McpError
 }
 
 fn mcp_protocol_capabilities(exposure: &serde_json::Value) -> Vec<String> {
-    if crate::protocol::source_implements_target(exposure) {
-        vec![
-            "mcp_protocol_profile:2026-07-28".to_string(),
-            crate::protocol::SDK_VERSION_CAPABILITY.to_string(),
-        ]
-    } else {
-        Vec::new()
-    }
+    crate::protocol::source_capabilities(exposure)
 }
 
 fn mcp_domain_surface(exposure: &serde_json::Value) -> Vec<serde_json::Value> {

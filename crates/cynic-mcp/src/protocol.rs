@@ -30,6 +30,17 @@ pub fn source_implements_target(exposure: &Value) -> bool {
     )
 }
 
+pub fn source_capabilities(exposure: &Value) -> Vec<String> {
+    if source_implements_target(exposure) {
+        vec![
+            format!("mcp_protocol_profile:{TARGET_REVISION}"),
+            SDK_VERSION_CAPABILITY.to_string(),
+        ]
+    } else {
+        Vec::new()
+    }
+}
+
 /// Return the active CYNIC tool definitions from the exposure SSOT.
 ///
 /// Compatibility checks, discovery, and surface projections must all consume
@@ -195,5 +206,12 @@ mod tests {
             "mcp_protocol_profile": {"implementation_status": "unknown"}
         });
         assert!(!source_implements_target(&unknown));
+        assert_eq!(
+            source_capabilities(&source_ready),
+            vec![
+                "mcp_protocol_profile:2026-07-28".to_string(),
+                SDK_VERSION_CAPABILITY.to_string()
+            ]
+        );
     }
 }
