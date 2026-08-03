@@ -144,6 +144,7 @@ fn mcp_surface_manifest(
                 None,
             )
         })?;
+    let registry_read_back = registry_read_back(project_root);
     let desired_tools = crate::protocol::exposed_tool_names(&exposure);
     let compiled_capabilities = crate::protocol::exposed_tool_names(&compiled_exposure);
     let mut compatibility_capabilities = compiled_capabilities.clone();
@@ -237,6 +238,18 @@ fn mcp_surface_manifest(
             "compatibility": compatibility,
         }));
     }
+    if registry_read_back
+        .get("status")
+        .and_then(serde_json::Value::as_str)
+        != Some("match")
+    {
+        findings.push(serde_json::json!({
+            "severity": "critical",
+            "kind": "runtime_registry_readback_unproven",
+            "detail": "the installed runtime registry does not match the desired source registry; node/scheduler activation cannot be trusted",
+            "registry": registry_read_back,
+        }));
+    }
     let exposed_tool_count = exposed_tools.len();
     let transport = if std::env::var("CYNIC_MCP_TRANSPORT")
         .ok()
@@ -264,6 +277,7 @@ fn mcp_surface_manifest(
         "protocol_profile": compiled_exposure.get("mcp_protocol_profile").cloned().unwrap_or(serde_json::Value::Null),
         "server_discovery": protocol_discovery,
         "runtime_compatibility": compatibility,
+        "registry_read_back": registry_read_back,
         "session_identity": session_identity,
         "constitutional_execution": agent_constitution_status(),
         "exposure_ssot": "infra/agent-exposure.json",
@@ -287,4 +301,36 @@ fn mcp_surface_manifest(
         "findings": findings,
         "status": status,
     }))
+}
+
+fn registry_read_back(project_root: &str) -> serde_json::Value {
+    let desired_path = std::path::Path::new(project_root).join("infra/registry.json");
+    let desired = std::fs::read_to_string(&desired_path)
+        .ok()
+        .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok());
+    let runtime_path = cynic_host::runtime_registry::resolve_runtime_registry_path(None).ok();
+    let runtime = runtime_path
+        .as_ref()
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok());
+    let desired_digest = desired
+        .as_ref()
+        .and_then(|value| cynic_protocol::digest_json(value).ok());
+    let runtime_digest = runtime
+        .as_ref()
+        .and_then(|value| cynic_protocol::digest_json(value).ok());
+    let status = match (&desired_digest, &runtime_digest) {
+        (Some(desired), Some(runtime)) if desired == runtime => "match",
+        (Some(_), Some(_)) => "mismatch",
+        _ => "unknown",
+    };
+    serde_json::json!({
+        "status": status,
+        "desired_path": desired_path.display().to_string(),
+        "runtime_path": runtime_path
+            .as_ref()
+            .map(|path| path.display().to_string()),
+        "desired_digest": desired_digest,
+        "runtime_digest": runtime_digest,
+    })
 }
