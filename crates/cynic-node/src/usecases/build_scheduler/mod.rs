@@ -73,12 +73,24 @@ async fn run_iteration(
                 &current,
                 "cancellation_observed_before_execution",
             )?;
+            persist_cancellation_proof(&current.record.envelope.workload_id, current.revision);
             continue;
         }
+        let recovery_candidate = current.record.claim.as_ref().is_some_and(|claim| {
+            current.record.state == AgentWorkloadState::Claimed
+                && claim.expires_at_ms <= lifecycle::current_unix_ms()
+        });
         let Some(claimed) = lifecycle::claim_if_available(control, scheduler, store, &current)?
         else {
             continue;
         };
+        if recovery_candidate {
+            persist_recovery_proof(
+                &claimed.record.envelope.workload_id,
+                current.revision,
+                claimed.revision,
+            );
+        }
         execute_claimed(control, scheduler, store, claimed, shutdown).await?;
     }
     Ok(())
@@ -120,7 +132,8 @@ async fn execute_claimed(
         Ok(prepared) => prepared,
         Err(error) => {
             execution_cancel.cancel();
-            let _ = monitor.await;
+            let renewal_count = monitor.await.unwrap_or(0);
+            persist_renewal_proof(&claimed.record.envelope.workload_id, &guard, renewal_count);
             lifecycle::finish_blocked(store, &claimed.record.envelope.workload_id, &guard, error)?;
             return Ok(());
         }
@@ -135,12 +148,14 @@ async fn execute_claimed(
         .ok_or_else(|| "build_scheduler_workload_disappeared".to_string())?;
     if after_execution.record.state == AgentWorkloadState::CancelRequested {
         execution_cancel.cancel();
-        let _ = monitor.await;
+        let renewal_count = monitor.await.unwrap_or(0);
+        persist_renewal_proof(workload_id, &guard, renewal_count);
         lifecycle::acknowledge_cancelled(
             store,
             &after_execution,
             "workload_cancelled_during_execution",
         )?;
+        persist_cancellation_proof(workload_id, after_execution.revision);
         return Ok(());
     }
     let evidence_store =
@@ -239,22 +254,97 @@ async fn execute_claimed(
         }
     };
     execution_cancel.cancel();
-    let _ = monitor.await;
+    let renewal_count = monitor.await.unwrap_or(0);
     let latest = store
         .read(workload_id)
         .map_err(|error| error.code)?
         .ok_or_else(|| "build_scheduler_workload_disappeared".to_string())?;
     if latest.record.state == AgentWorkloadState::CancelRequested {
-        lifecycle::acknowledge_cancelled(store, &latest, "workload_cancelled_during_proof")
+        lifecycle::acknowledge_cancelled(store, &latest, "workload_cancelled_during_proof")?;
+        persist_cancellation_proof(workload_id, latest.revision);
+        Ok(())
     } else {
         lifecycle::finish(
             store,
             &latest,
             &guard,
             status,
-            evidence_refs,
+            evidence_refs.clone(),
             unknowns,
             started.elapsed(),
-        )
+        )?;
+        if status == AgentCompletionStatus::Completed {
+            let proof_refs = evidence_refs
+                .iter()
+                .map(|reference| format!("{}:{}", reference.kind, reference.digest))
+                .collect::<Vec<_>>();
+            crate::adapters::agent_execution_runtime_observer::persist_capabilities(
+                &["build_completion_and_artifact_read_back"],
+                &proof_refs,
+            )
+            .map_err(|error| format!("build_scheduler_runtime_proof:{error}"))?;
+        }
+        persist_renewal_proof(workload_id, &guard, renewal_count);
+        Ok(())
+    }
+}
+
+fn persist_renewal_proof(
+    workload_id: &str,
+    guard: &cynic_protocol::LeaseGuard,
+    renewal_count: u64,
+) {
+    if renewal_count == 0 {
+        return;
+    }
+    let proof = serde_json::json!({
+        "workload_id": workload_id,
+        "lease_id": guard.lease_id.as_str(),
+        "fencing_token": guard.fencing_token,
+        "successful_renewals": renewal_count,
+    });
+    let evidence_ref = cynic_protocol::digest_json(&proof)
+        .map(|digest| format!("scheduler-claim-renewal:{digest}"))
+        .unwrap_or_else(|_| format!("scheduler-claim-renewal:{workload_id}"));
+    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
+        &["scheduler_claim_renewal"],
+        &[evidence_ref],
+    ) {
+        tracing::warn!(%error, workload_id, "scheduler renewal proof read-back unavailable");
+    }
+}
+
+fn persist_cancellation_proof(workload_id: &str, revision: u64) {
+    let proof = serde_json::json!({
+        "workload_id": workload_id,
+        "store_revision": revision,
+        "transition": "cancel_requested_to_terminal_acknowledged",
+    });
+    let evidence_ref = cynic_protocol::digest_json(&proof)
+        .map(|digest| format!("scheduler-cancellation-delivery:{digest}"))
+        .unwrap_or_else(|_| format!("scheduler-cancellation-delivery:{workload_id}"));
+    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
+        &["scheduler_cancellation_delivery"],
+        &[evidence_ref],
+    ) {
+        tracing::warn!(%error, workload_id, "scheduler cancellation proof read-back unavailable");
+    }
+}
+
+fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: u64) {
+    let proof = serde_json::json!({
+        "workload_id": workload_id,
+        "prior_store_revision": prior_revision,
+        "new_store_revision": new_revision,
+        "transition": "expired_claim_reclaimed_with_new_fence",
+    });
+    let evidence_ref = cynic_protocol::digest_json(&proof)
+        .map(|digest| format!("scheduler-crash-recovery:{digest}"))
+        .unwrap_or_else(|_| format!("scheduler-crash-recovery:{workload_id}"));
+    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
+        &["scheduler_crash_recovery"],
+        &[evidence_ref],
+    ) {
+        tracing::warn!(%error, workload_id, "scheduler recovery proof read-back unavailable");
     }
 }

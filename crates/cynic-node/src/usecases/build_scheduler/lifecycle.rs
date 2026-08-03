@@ -68,27 +68,28 @@ pub(super) async fn monitor_claim(
     claim_ttl_secs: u64,
     cancellation: CancellationToken,
     shutdown: CancellationToken,
-) {
+) -> u64 {
+    let mut successful_renewals = 0;
     loop {
         tokio::select! {
             () = shutdown.cancelled() => {
                 cancellation.cancel();
-                break;
+                break successful_renewals;
             }
-            () = cancellation.cancelled() => break,
+            () = cancellation.cancelled() => break successful_renewals,
             () = tokio::time::sleep(Duration::from_secs(1)) => {
                 let durable = match store.read(&workload_id) {
                     Ok(Some(durable)) => durable,
                     _ => {
                         cancellation.cancel();
-                        break;
+                        break successful_renewals;
                     }
                 };
                 if durable.record.state == AgentWorkloadState::CancelRequested
                     || durable.record.claim.as_ref().map(|claim| &claim.guard) != Some(&guard)
                 {
                     cancellation.cancel();
-                    break;
+                    break successful_renewals;
                 }
                 let now_ms = current_unix_ms();
                 let ttl_ms = claim_ttl_secs.saturating_mul(1_000);
@@ -107,17 +108,21 @@ pub(super) async fn monitor_claim(
                         Ok(renewed) => renewed,
                         Err(_) => {
                             cancellation.cancel();
-                            break;
+                            break successful_renewals;
                         }
                     };
-                    if let Err(error) = store.compare_and_swap(
+                    match store.compare_and_swap(
                         &workload_id,
                         Some(durable.revision),
                         &renewed,
                         now_ms,
-                    ) && error.code != "workload_store_revision_conflict" {
-                        cancellation.cancel();
-                        break;
+                    ) {
+                        Ok(_) => successful_renewals += 1,
+                        Err(error) if error.code == "workload_store_revision_conflict" => {}
+                        Err(_) => {
+                            cancellation.cancel();
+                            break successful_renewals;
+                        }
                     }
                 }
             }

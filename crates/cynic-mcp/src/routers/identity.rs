@@ -26,6 +26,9 @@ impl CynicMcpProxy {
             && provider_control_process.client_identity
             && provider_control_process.credential;
         let process_identity_ready = all_known_present && provider_control_process_configured;
+        let credential_lease =
+            cynic_node::adapters::proxmox_control::ProxmoxControlAdapter::
+                observe_runtime_credential_lease();
         let result = serde_json::json!({
             "schema": "cynic.identity.attestation.v2",
             "status": if process_identity_ready { "process_identity_ready" } else { "process_identity_incomplete" },
@@ -36,6 +39,7 @@ impl CynicMcpProxy {
             "provider_control_process": provider_control_process,
             "provider_control_process_configured": provider_control_process_configured,
             "process_identity_ready": process_identity_ready,
+            "credential_lease": credential_lease,
             "secret_exposed": false,
             "next_action": "observe provider_control_status and node enrollment separately; process identity does not prove provider enrollment",
         });

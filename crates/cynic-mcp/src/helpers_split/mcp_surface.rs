@@ -111,9 +111,8 @@ fn mcp_surface_findings(exposure: &serde_json::Value) -> Vec<serde_json::Value> 
 }
 
 fn agent_constitution_status() -> cynic_protocol::AgentConstitutionStatus {
-    cynic_protocol::reconcile_agent_execution_capabilities(
-        &cynic_protocol::AgentExecutionRuntimeObservation::unobserved(),
-    )
+    let observation = cynic_node::adapters::agent_execution_runtime_observer::observe_from_env();
+    cynic_protocol::reconcile_agent_execution_capabilities(&observation)
 }
 
 fn mcp_surface_manifest(
