@@ -54,8 +54,13 @@ pub fn discovery_result(exposure: &Value, request_meta_observed: bool, transport
 
     json!({
         "schema": "cynic.mcp.server_discover.v1",
+        "resultType": "complete",
         "protocol_revision": TARGET_REVISION,
         "method": DISCOVERY_METHOD,
+        "supportedVersions": [TARGET_REVISION],
+        "capabilities": {
+            "tools": {}
+        },
         "_meta": {
             "io.modelcontextprotocol/serverInfo": {
                 "name": "cynic",

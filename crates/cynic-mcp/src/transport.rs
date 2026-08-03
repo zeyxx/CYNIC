@@ -28,6 +28,9 @@ pub const STREAMABLE_HTTP_TRANSPORT_LABEL: &str = "streamable_http_stateless";
 const MCP_PROTOCOL_VERSION_HEADER: &str = "MCP-Protocol-Version";
 const MCP_METHOD_HEADER: &str = "Mcp-Method";
 const MCP_NAME_HEADER: &str = "Mcp-Name";
+const REQUEST_PROTOCOL_VERSION_META: &str = "io.modelcontextprotocol/protocolVersion";
+const REQUEST_CLIENT_INFO_META: &str = "io.modelcontextprotocol/clientInfo";
+const REQUEST_CLIENT_CAPABILITIES_META: &str = "io.modelcontextprotocol/clientCapabilities";
 
 fn validate_2026_request(
     headers: &HeaderMap,
@@ -61,7 +64,20 @@ fn validate_2026_request(
     let Some(meta) = body.pointer("/params/_meta").and_then(Value::as_object) else {
         return Err("every MCP 2026 request requires params._meta");
     };
-    if let Some(client_info) = meta.get("io.modelcontextprotocol/clientInfo") {
+    if meta
+        .get(REQUEST_PROTOCOL_VERSION_META)
+        .and_then(Value::as_str)
+        != Some(crate::protocol::TARGET_REVISION)
+    {
+        return Err("params._meta protocolVersion must match 2026-07-28");
+    }
+    if !meta
+        .get(REQUEST_CLIENT_CAPABILITIES_META)
+        .is_some_and(Value::is_object)
+    {
+        return Err("params._meta must include clientCapabilities");
+    }
+    if let Some(client_info) = meta.get(REQUEST_CLIENT_INFO_META) {
         if !client_info.is_object() {
             return Err("io.modelcontextprotocol/clientInfo must be an object when present");
         }
@@ -154,7 +170,11 @@ mod tests {
         let mut params = serde_json::Map::new();
         params.insert(
             "_meta".to_string(),
-            serde_json::json!({"clientInfo": {"name": "test"}}),
+            serde_json::json!({
+                "io.modelcontextprotocol/protocolVersion": crate::protocol::TARGET_REVISION,
+                "io.modelcontextprotocol/clientInfo": {"name": "test", "version": "1"},
+                "io.modelcontextprotocol/clientCapabilities": {}
+            }),
         );
         if let Some(tool_name) = tool_name {
             params.insert("name".to_string(), Value::String(tool_name.to_string()));
@@ -198,7 +218,10 @@ mod tests {
     #[test]
     fn wire_2026_accepts_optional_client_info() {
         let (headers, mut body) = request("server/discover", None);
-        body["params"]["_meta"] = serde_json::json!({});
+        body["params"]["_meta"] = serde_json::json!({
+            "io.modelcontextprotocol/protocolVersion": crate::protocol::TARGET_REVISION,
+            "io.modelcontextprotocol/clientCapabilities": {}
+        });
         assert!(validate_2026_request(&headers, &Method::POST, &body).is_ok());
     }
 
@@ -206,11 +229,25 @@ mod tests {
     fn wire_2026_rejects_malformed_optional_client_info() {
         let (headers, mut body) = request("server/discover", None);
         body["params"]["_meta"] = serde_json::json!({
+            "io.modelcontextprotocol/protocolVersion": crate::protocol::TARGET_REVISION,
+            "io.modelcontextprotocol/clientCapabilities": {},
             "io.modelcontextprotocol/clientInfo": "not-an-object"
         });
         assert_eq!(
             validate_2026_request(&headers, &Method::POST, &body),
             Err("io.modelcontextprotocol/clientInfo must be an object when present")
+        );
+    }
+
+    #[test]
+    fn wire_2026_rejects_missing_protocol_envelope() {
+        let (headers, mut body) = request("server/discover", None);
+        body["params"]["_meta"] = serde_json::json!({
+            "io.modelcontextprotocol/clientCapabilities": {}
+        });
+        assert_eq!(
+            validate_2026_request(&headers, &Method::POST, &body),
+            Err("params._meta protocolVersion must match 2026-07-28")
         );
     }
 
