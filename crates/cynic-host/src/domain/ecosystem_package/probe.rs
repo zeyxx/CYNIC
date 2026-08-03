@@ -1,5 +1,6 @@
 //! Principal-aware binary resolution (prefer layout bin over ambient PATH).
 
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use super::types::{ObservedBinary, PrincipalInstallLayout, PythonInstallProvenance};
@@ -51,27 +52,80 @@ pub fn observe_python_install_provenance(
     distribution: &str,
     binary_path: &str,
 ) -> Option<PythonInstallProvenance> {
-    let output = Command::new("python3")
-        .args([
-            "-c",
-            "import importlib.metadata as m, sys; d=m.distribution(sys.argv[1]); print((d.read_text('INSTALLER') or '').strip())",
-            distribution,
-        ])
-        .output()
-        .ok()?;
-    let installer = if output.status.success() {
-        String::from_utf8_lossy(&output.stdout).trim().to_string()
-    } else {
-        String::new()
-    };
+    let installer = read_installer_marker(distribution, binary_path);
     Some(classify_python_install_provenance(
-        if installer.is_empty() {
-            None
-        } else {
-            Some(installer.as_str())
-        },
+        installer.as_deref(),
         binary_path,
     ))
+}
+
+/// Read Python package provenance without importing or executing Python.
+/// Installers expose a small `INSTALLER` marker in a `*.dist-info` directory;
+/// the layout is observed from the executable's installation root.
+fn read_installer_marker(distribution: &str, binary_path: &str) -> Option<String> {
+    let executable = Path::new(binary_path);
+    let bin_dir = executable.parent()?;
+    let mut roots = Vec::new();
+    if let Some(root) = bin_dir.parent() {
+        roots.push(root.to_path_buf());
+        if let Some(parent) = root.parent() {
+            roots.push(parent.to_path_buf());
+        }
+    }
+    roots.sort();
+    roots.dedup();
+    let distribution_key = normalize_distribution(distribution);
+    for root in roots {
+        for lib_name in ["lib", "lib64"] {
+            let lib_root = root.join(lib_name);
+            let Ok(entries) = std::fs::read_dir(lib_root) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let python_root = entry.path();
+                let Ok(kind) = entry.file_type() else {
+                    continue;
+                };
+                if !kind.is_dir() || !entry.file_name().to_string_lossy().starts_with("python") {
+                    continue;
+                }
+                for site_name in ["site-packages", "dist-packages"] {
+                    let site = python_root.join(site_name);
+                    let Ok(packages) = std::fs::read_dir(site) else {
+                        continue;
+                    };
+                    for package in packages.flatten() {
+                        let name = package.file_name().to_string_lossy().to_string();
+                        if !name.ends_with(".dist-info") {
+                            continue;
+                        }
+                        let prefix = name.trim_end_matches(".dist-info");
+                        let package_key = prefix.rsplit_once('-').map_or(prefix, |(name, _)| name);
+                        if normalize_distribution(package_key) != distribution_key {
+                            continue;
+                        }
+                        let marker = package.path().join("INSTALLER");
+                        let value = std::fs::read_to_string(marker).ok()?;
+                        let value = value.trim();
+                        if !value.is_empty() {
+                            return Some(value.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn normalize_distribution(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| match character {
+            '-' | '_' | '.' => '-',
+            other => other.to_ascii_lowercase(),
+        })
+        .collect()
 }
 
 pub fn classify_python_install_provenance(
