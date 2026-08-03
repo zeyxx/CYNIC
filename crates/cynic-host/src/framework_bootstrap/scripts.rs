@@ -142,6 +142,22 @@ echo "cynic framework bootstrap installed: $HELPER_TARGET"
 }
 
 pub(crate) fn bootstrap_verify_script(artifacts: &[BootstrapRuntimeArtifact]) -> String {
+    let node_artifact_required = artifacts
+        .iter()
+        .any(|artifact| artifact.binary == "cynic-node");
+    let node_read_back = if node_artifact_required {
+        r#"
+test -x "$NODE_TARGET"
+test -f "$REGISTRY_TARGET"
+test -f "$NODE_CONTROL_CONFIG_TARGET"
+test -f "$NODE_SERVICE_TARGET"
+grep -F "ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml" "$NODE_SERVICE_TARGET" >/dev/null
+"$NODE_TARGET" registry-observation --json --registry "$REGISTRY_TARGET" > "$EVIDENCE_DIR/node-registry-observation.json"
+"$NODE_TARGET" control --config "$NODE_CONTROL_CONFIG_TARGET" --check > "$EVIDENCE_DIR/node-control-config-check.json"
+"#
+    } else {
+        ""
+    };
     r#"#!/bin/sh
 set -eu
 
@@ -170,18 +186,7 @@ visudo -cf "$SUDOERS_TARGET"
 if [ -x "$CLI_TARGET" ]; then
   "$CLI_TARGET" runtime paths --json > "$EVIDENCE_DIR/standalone-cli-runtime-paths.json"
 fi
-if [ -x "$NODE_TARGET" ]; then
-  test -f "$REGISTRY_TARGET"
-  if [ -f "$STORAGE_CONFIG_TARGET" ]; then
-    test -r "$STORAGE_CONFIG_TARGET"
-  fi
-  "$NODE_TARGET" registry-observation --json --registry "$REGISTRY_TARGET" > "$EVIDENCE_DIR/node-registry-observation.json"
-  if [ -f "$NODE_CONTROL_CONFIG_TARGET" ]; then
-    test -f "$NODE_SERVICE_TARGET"
-    grep -F "ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml" "$NODE_SERVICE_TARGET" >/dev/null
-    "$NODE_TARGET" control --config "$NODE_CONTROL_CONFIG_TARGET" --check > "$EVIDENCE_DIR/node-control-config-check.json"
-  fi
-fi
+__CYNIC_NODE_READ_BACK__
 if [ -x "$LXC_BRIDGE_TARGET" ]; then
   sudo -u "$RUNTIME_USER" sudo -n "$LXC_BRIDGE_TARGET" --status > "$EVIDENCE_DIR/lxc-exec-bridge-status.json"
 fi
@@ -193,6 +198,7 @@ __CYNIC_RUNTIME_READ_BACK__
 chown "$RUNTIME_USER:$RUNTIME_GROUP" "$EVIDENCE_DIR"/*.json
 echo "cynic framework bootstrap verified: $EVIDENCE_DIR"
 "#
+    .replace("__CYNIC_NODE_READ_BACK__", node_read_back)
     .replace("__CYNIC_RUNTIME_READ_BACK__", &verify_fragment(artifacts))
 }
 
@@ -237,7 +243,7 @@ echo "cynic framework bootstrap security maintenance passed"
 
 #[cfg(test)]
 mod tests {
-    use super::{BootstrapRuntimeArtifact, bootstrap_install_script, bootstrap_verify_script};
+    use super::{bootstrap_install_script, bootstrap_verify_script, BootstrapRuntimeArtifact};
 
     fn artifacts() -> Vec<BootstrapRuntimeArtifact> {
         vec![BootstrapRuntimeArtifact {
@@ -278,6 +284,26 @@ mod tests {
     }
 
     #[test]
+    fn build_runner_verification_cannot_skip_the_node_scheduler() {
+        let script = bootstrap_verify_script(&[
+            BootstrapRuntimeArtifact {
+                binary: "cynic-node".to_string(),
+                install_path: "/usr/local/bin/cynic-node".to_string(),
+            },
+            BootstrapRuntimeArtifact {
+                binary: "cynic-mcp".to_string(),
+                install_path: "/usr/local/bin/cynic-mcp".to_string(),
+            },
+        ]);
+
+        assert!(script.contains("test -x \"$NODE_TARGET\""));
+        assert!(script.contains("test -f \"$NODE_CONTROL_CONFIG_TARGET\""));
+        assert!(script.contains("test -f \"$NODE_SERVICE_TARGET\""));
+        assert!(script.contains("node-control-config-check.json"));
+        assert!(!script.contains("if [ -x \"$NODE_TARGET\" ]; then"));
+    }
+
+    #[test]
     fn bootstrap_can_resume_only_the_same_content_addressed_seed() {
         let script = bootstrap_install_script(&artifacts());
 
@@ -286,9 +312,7 @@ mod tests {
             "test \"$(readlink \"$RUNTIME_INSTALL_ROOT/current\")\" = \"$desired_release\""
         ));
         assert!(script.contains("active runtime seed marker does not match the requested seed"));
-        assert!(
-            !script
-                .contains("runtime is already seeded; use the signed release activation surface")
-        );
+        assert!(!script
+            .contains("runtime is already seeded; use the signed release activation surface"));
     }
 }
