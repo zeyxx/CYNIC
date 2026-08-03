@@ -7,8 +7,13 @@
 use serde_json::{json, Value};
 
 pub const TARGET_REVISION: &str = "2026-07-28";
+pub const LEGACY_REVISION: &str = "2025-11-25";
 pub const DISCOVERY_METHOD: &str = "server/discover";
 pub const SDK_VERSION_CAPABILITY: &str = "mcp_sdk:rmcp-3.1.0";
+
+pub fn supported_protocol_revisions() -> Vec<&'static str> {
+    vec![TARGET_REVISION, LEGACY_REVISION]
+}
 
 /// Whether the checked-in source implements the target protocol.
 ///
@@ -73,7 +78,7 @@ pub fn discovery_result(exposure: &Value, request_meta_observed: bool, transport
         "resultType": "complete",
         "protocol_revision": TARGET_REVISION,
         "method": DISCOVERY_METHOD,
-        "supportedVersions": [TARGET_REVISION],
+        "supportedVersions": supported_protocol_revisions(),
         "capabilities": {
             "tools": {}
         },
@@ -137,7 +142,10 @@ mod tests {
 
         assert_eq!(result["protocol_revision"], TARGET_REVISION);
         assert_eq!(result["resultType"], "complete");
-        assert_eq!(result["supportedVersions"][0], TARGET_REVISION);
+        assert_eq!(
+            result["supportedVersions"],
+            json!([TARGET_REVISION, LEGACY_REVISION])
+        );
         assert_eq!(result["capabilities"]["tools"], json!({}));
         assert_eq!(
             result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"],

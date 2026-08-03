@@ -14,6 +14,7 @@
   "mcp_protocol_profile": {
     "target_revision": "2026-07-28",
     "rust_sdk": "rmcp-3.1.0",
+    "supported_versions": ["2026-07-28", "2025-11-25"],
     "transport": "streamable_http",
     "runtime_transport_modes": {
       "compatibility": "stdio",

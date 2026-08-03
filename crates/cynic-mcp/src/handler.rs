@@ -6,8 +6,8 @@ impl ServerHandler for CynicMcpProxy {
         &self,
     ) -> std::borrow::Cow<'static, [rmcp::model::ProtocolVersion]> {
         Cow::Owned(vec![
-            rmcp::model::ProtocolVersion::V_2025_11_25,
             rmcp::model::ProtocolVersion::V_2026_07_28,
+            rmcp::model::ProtocolVersion::V_2025_11_25,
         ])
     }
 
