@@ -153,7 +153,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "network_mesh_dns_activation_bundle",
-        description = "Build a local non-mutating Synapse DNS activation bundle under /tmp from the canonical cynic-node network surface. Does not install CoreDNS or resolver configuration."
+        description = "Build a local Synapse DNS activation bundle under /tmp. Writes only the local artifact; does not mutate the host network, install CoreDNS, or change resolver configuration."
     )]
     async fn network_mesh_dns_activation_bundle(
         &self,
@@ -185,7 +185,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "network_mesh_provider_fallback_hosts",
-        description = "Build a local non-mutating provider-plane hosts fallback bundle under /tmp from the canonical cynic-node network surface. Temporary only while Synapse DNS is inactive."
+        description = "Build a local provider-plane hosts fallback bundle under /tmp. Writes only the local artifact; does not mutate hosts/routes. Temporary only while Synapse DNS is inactive."
     )]
     async fn network_mesh_provider_fallback_hosts(
         &self,

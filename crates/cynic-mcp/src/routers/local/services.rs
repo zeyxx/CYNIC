@@ -103,7 +103,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "storage_primary_bundle",
-        description = "Build a local non-mutating dedicated storage activation bundle under /tmp. Does not install or start storage."
+        description = "Build a local dedicated storage activation bundle under /tmp. Writes only the local artifact; does not install or start storage."
     )]
     async fn storage_primary_bundle(
         &self,

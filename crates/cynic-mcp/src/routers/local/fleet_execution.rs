@@ -59,7 +59,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "lxc_exec_bridge_bundle",
-        description = "Build a local non-mutating LXC exec bridge activation bundle under /tmp. Does not install helper, policy, or sudoers."
+        description = "Build a local LXC exec bridge activation bundle under /tmp. Writes only the local artifact; does not install helper, policy, or sudoers."
     )]
     async fn lxc_exec_bridge_bundle(
         &self,
