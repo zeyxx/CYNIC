@@ -24,7 +24,10 @@ fn mcp_protocol_capabilities(exposure: &serde_json::Value) -> Vec<String> {
         .and_then(|value| value.as_str())
         == Some("ready")
     {
-        vec!["mcp_protocol_profile:2026-07-28".to_string()]
+        vec![
+            "mcp_protocol_profile:2026-07-28".to_string(),
+            crate::protocol::SDK_VERSION_CAPABILITY.to_string(),
+        ]
     } else {
         Vec::new()
     }

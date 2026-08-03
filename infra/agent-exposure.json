@@ -79,7 +79,8 @@
       "cynic_coord_claim",
       "cynic_source_control",
       "cynic_validate",
-      "mcp_protocol_profile:2026-07-28"
+      "mcp_protocol_profile:2026-07-28",
+      "mcp_sdk:rmcp-3.1.0"
     ],
     "compatibility_policy": "contract revision is a minimum floor and every required capability must be observed from the running artifact; artifact version alone never proves compatibility",
     "incompatible_status": "blocked_incompatible",

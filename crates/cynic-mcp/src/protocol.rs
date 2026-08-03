@@ -8,6 +8,7 @@ use serde_json::{json, Value};
 
 pub const TARGET_REVISION: &str = "2026-07-28";
 pub const DISCOVERY_METHOD: &str = "server/discover";
+pub const SDK_VERSION_CAPABILITY: &str = "mcp_sdk:rmcp-3.1.0";
 
 /// Return the active CYNIC tool definitions from the exposure SSOT.
 ///

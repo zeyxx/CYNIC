@@ -103,6 +103,7 @@ fn mcp_pins_the_final_rust_sdk_and_native_discovery_surface() {
     let lock = read_required_file(&root, "../../Cargo.lock");
     let handler = read_required_file(&root, "src/handler.rs");
     let transport = read_required_file(&root, "src/transport.rs");
+    let exposure = read_required_file(&root, "../../infra/agent-exposure.json");
 
     assert!(manifest.contains("rmcp = { version = \"=3.1.0\""));
     assert!(lock.contains("name = \"rmcp\"\nversion = \"3.1.0\""));
@@ -110,6 +111,7 @@ fn mcp_pins_the_final_rust_sdk_and_native_discovery_surface() {
     assert!(transport.contains("with_legacy_session_mode(false)"));
     assert!(transport.contains("with_stateless_protocol_metadata_required(true)"));
     assert!(!transport.contains("with_stateful_mode(false)"));
+    assert!(exposure.contains("mcp_sdk:rmcp-3.1.0"));
 }
 
 #[test]

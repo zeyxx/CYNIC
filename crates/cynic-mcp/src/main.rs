@@ -16,7 +16,7 @@ mod project_root;
 
 use rmcp::ServiceExt;
 use tokio_util::sync::CancellationToken;
-use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[tokio::main]
 #[allow(clippy::print_stderr)]
@@ -203,6 +203,7 @@ fn runtime_contract_report() -> Result<cynic_protocol::RuntimeCompatibilityPlan,
         == Some("ready")
     {
         compatibility_capabilities.push("mcp_protocol_profile:2026-07-28".to_string());
+        compatibility_capabilities.push(cynic_mcp::protocol::SDK_VERSION_CAPABILITY.to_string());
     }
     Ok(cynic_protocol::reconcile_runtime_compatibility(
         &requirement,
