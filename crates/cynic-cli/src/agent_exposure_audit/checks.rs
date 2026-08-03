@@ -175,6 +175,46 @@ pub(crate) fn check_mcp_command_projection(
             Some(command.to_string()),
         ));
     }
+
+    let codex_policy_rel = "infra/agent-projections/codex-mcp.json";
+    let codex_policy_path = root.join(codex_policy_rel);
+    let Ok(codex_policy_bytes) = fs::read(&codex_policy_path) else {
+        findings.push(finding(
+            "critical",
+            "codex_policy_projection_missing",
+            codex_policy_rel,
+            "Codex must have the same canonical runtime-discovery policy projection as Antigravity",
+            None,
+        ));
+        return;
+    };
+    let Ok(codex_policy) = serde_json::from_slice::<Value>(&codex_policy_bytes) else {
+        findings.push(finding(
+            "critical",
+            "codex_policy_projection_invalid",
+            codex_policy_rel,
+            "Codex MCP policy projection must be valid JSON",
+            None,
+        ));
+        return;
+    };
+    let codex_policy_matches = codex_policy.get("command").and_then(Value::as_str) == Some(command)
+        && codex_policy.get("tool_source").and_then(Value::as_str) == Some("runtime_discovery")
+        && codex_policy.get("tool_cache").and_then(Value::as_str) == Some("forbidden")
+        && codex_policy.get("exposure_ssot").and_then(Value::as_str) == Some(exposure_rel)
+        && codex_policy
+            .pointer("/client_config/mcp_servers/cynic/command")
+            .and_then(Value::as_str)
+            == Some(command);
+    if !codex_policy_matches {
+        findings.push(finding(
+            "critical",
+            "codex_policy_projection_drift",
+            codex_policy_rel,
+            "Codex and Antigravity must consume the same command, SSOT, and runtime-discovery policy",
+            Some(command.to_string()),
+        ));
+    }
 }
 
 pub(crate) fn check_session_handshake(

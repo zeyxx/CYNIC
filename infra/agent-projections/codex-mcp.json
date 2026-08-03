@@ -1,0 +1,21 @@
+{
+  "schema": "cynic.agent_projection.codex.v1",
+  "server": "cynic",
+  "transport": "stdio",
+  "command": "cynic-mcp",
+  "args": [],
+  "client_config": {
+    "mcp_servers": {
+      "cynic": {
+        "command": "cynic-mcp",
+        "args": []
+      }
+    }
+  },
+  "tool_source": "runtime_discovery",
+  "tool_cache": "forbidden",
+  "exposure_ssot": "infra/agent-exposure.json",
+  "protocol_profile": "infra/agent-exposure.json#/mcp_protocol_profile",
+  "runtime_selection": "versioned_runtime_current_then_fail_closed",
+  "notes": "The Codex client must discover tools from the running cynic-mcp artifact; per-tool approval tables are not part of the projection."
+}
