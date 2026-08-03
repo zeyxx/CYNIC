@@ -107,8 +107,6 @@ struct RegistryNetworkLink {
     gateway: Option<String>,
     #[serde(default)]
     routes: Vec<String>,
-    #[serde(default)]
-    default_route: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

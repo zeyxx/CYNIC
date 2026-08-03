@@ -179,8 +179,8 @@ pub async fn execute_source_repository_bootstrap(
             ));
         }
     };
-    let verification = match coordination.verify(&guard).await {
-        Ok(verification) if verification.status == "proved" => verification,
+    match coordination.verify(&guard).await {
+        Ok(verification) if verification.status == "proved" => {}
         Ok(verification) => {
             let _ = coordination.release(&guard).await;
             let mut result = report(
@@ -216,7 +216,7 @@ pub async fn execute_source_repository_bootstrap(
                 format!("{}:{}", failure.code, failure.message),
             ));
         }
-    };
+    }
     let after = if mutation_required {
         if let Err(failure) = adapter.apply(&layout, &request) {
             let _ = coordination.release(&guard).await;

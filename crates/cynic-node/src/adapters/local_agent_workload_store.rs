@@ -5,7 +5,7 @@ use std::{
 };
 
 #[cfg(unix)]
-use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};
+use std::os::unix::fs::OpenOptionsExt;
 
 use cynic_protocol::{
     AgentWorkloadRecord, DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA, DurableAgentWorkloadRecord,
@@ -309,12 +309,7 @@ fn open_lock(path: &Path) -> Result<File, AgentWorkloadStoreError> {
 
 #[cfg(unix)]
 fn lock_exclusive(file: &File) -> Result<(), AgentWorkloadStoreError> {
-    let status = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
-    if status == 0 {
-        Ok(())
-    } else {
-        Err(error("workload_store_lock_failed"))
-    }
+    file.lock().map_err(|_| error("workload_store_lock_failed"))
 }
 
 #[cfg(not(unix))]

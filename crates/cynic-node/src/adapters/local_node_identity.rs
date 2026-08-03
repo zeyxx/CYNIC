@@ -92,7 +92,7 @@ fn observe_path(desired: &NodeIdentityDesiredState) -> NodeIdentityObservation {
             );
         }
     };
-    let public = SigningKey::from_bytes(&*secret).verifying_key().to_bytes();
+    let public = SigningKey::from_bytes(&secret).verifying_key().to_bytes();
     let public_hex = hex::encode(public);
     let digest = format!("sha256:{}", hex::encode(Sha256::digest(public)));
     observation(

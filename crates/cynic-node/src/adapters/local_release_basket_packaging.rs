@@ -91,7 +91,9 @@ fn package_sync(
         })?;
     }
     let marker_path = staging.join(RUNTIME_SEED_BUNDLE_MARKER_FILE);
-    fs::write(&marker_path, canonical_json_bytes(&plan.marker)?)
+    let marker_bytes = canonical_json_bytes(&plan.marker)
+        .map_err(|error| format!("release_packaging_marker_serialization_failed:{error}"))?;
+    fs::write(&marker_path, marker_bytes)
         .map_err(|error| format!("release_packaging_marker_write_failed:{error}"))?;
     fs::set_permissions(&marker_path, fs::Permissions::from_mode(0o644))
         .map_err(|error| format!("release_packaging_marker_permissions_failed:{error}"))?;

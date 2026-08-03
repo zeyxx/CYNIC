@@ -216,8 +216,11 @@ impl ReleaseArtifactPublicationPort for HttpReleaseArtifactPublication {
                 return Err("release_publication_manifest_binding_mismatch".to_string());
             }
             let credential = self.credential()?;
-            let manifest_bytes = canonical_json_bytes(manifest)?;
-            let manifest_digest = digest_json(manifest)?;
+            let manifest_bytes = canonical_json_bytes(manifest).map_err(|error| {
+                format!("release_publication_manifest_serialization_failed:{error}")
+            })?;
+            let manifest_digest = digest_json(manifest)
+                .map_err(|error| format!("release_publication_manifest_digest_failed:{error}"))?;
             self.put_file(&targets.basket.locator, &basket.path, &credential)
                 .await?;
             self.read_back(
