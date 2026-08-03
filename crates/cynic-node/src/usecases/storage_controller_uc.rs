@@ -18,6 +18,7 @@ pub fn reconcile_storage_controller(
     if metadata
         .lease_expires_at_ms
         .is_none_or(|expires| expires <= now_ms)
+        || metadata.lease_fencing_token.is_none_or(|token| token == 0)
     {
         return Err(StorageControllerStoreError {
             code: "storage_controller_lease_missing_or_expired".to_string(),

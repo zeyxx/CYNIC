@@ -41,6 +41,7 @@ pub mod local_source_repository_bootstrap;
 pub mod local_source_snapshot_acquisition;
 pub mod local_storage_controller_store;
 pub mod local_storage_guest;
+pub mod local_storage_lease;
 pub mod local_storage_lifecycle;
 pub mod local_system_probe;
 pub mod provider_fallback_probe;

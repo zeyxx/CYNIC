@@ -1,3 +1,5 @@
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
 use std::{fs, path::PathBuf};
 
 use cynic_protocol::{
@@ -67,6 +69,9 @@ impl StorageControllerStorePort for LocalStorageControllerStore {
     ) -> Result<StorageControllerRecord, StorageControllerStoreError> {
         validate_record(record)?;
         let root = self.resource_root(&record.metadata.id)?;
+        fs::create_dir_all(&root)
+            .map_err(|_| error("storage_controller_store_root_create_failed"))?;
+        let _lock = acquire_lock(&root.join(".lock"))?;
         let previous = self.read_latest(&record.metadata.id)?;
         if previous.as_ref().map(|item| item.metadata.generation) != expected_generation {
             return Err(error("storage_controller_store_generation_conflict"));
@@ -79,8 +84,6 @@ impl StorageControllerStorePort for LocalStorageControllerStore {
                 return Err(error("storage_controller_store_chain_mismatch"));
             }
         }
-        fs::create_dir_all(&root)
-            .map_err(|_| error("storage_controller_store_root_create_failed"))?;
         let revision = format!("revision-{:020}.json", record.metadata.generation);
         let temporary = root.join(format!(".{revision}.tmp"));
         let bytes = serde_json::to_vec_pretty(record)
@@ -118,4 +121,20 @@ fn error(code: &str) -> StorageControllerStoreError {
     StorageControllerStoreError {
         code: code.to_string(),
     }
+}
+
+fn acquire_lock(path: &std::path::Path) -> Result<std::fs::File, StorageControllerStoreError> {
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(path)
+        .map_err(|_| error("storage_controller_store_lock_open_failed"))?;
+    #[cfg(unix)]
+    {
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } != 0 {
+            return Err(error("storage_controller_store_lock_failed"));
+        }
+    }
+    Ok(file)
 }

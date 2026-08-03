@@ -315,10 +315,10 @@ pub use source_repository_bootstrap::{
     SourceRepositoryBootstrapStatus, reconcile_source_repository_bootstrap,
 };
 pub use storage_controller::{
-    STORAGE_CONTROLLER_RECORD_SCHEMA, STORAGE_FINALIZER, STORAGE_OPERATION_SCHEMA,
-    StorageControllerRecord, StorageMetadata, StorageOperation, StorageOperationPhase,
-    StorageStatus, new_storage_metadata, reconcile_storage_status,
-    validate_storage_controller_record,
+    STORAGE_CONTROLLER_RECORD_SCHEMA, STORAGE_FINALIZER, STORAGE_LEASE_SCHEMA,
+    STORAGE_OPERATION_SCHEMA, StorageControllerRecord, StorageLeaseGrant, StorageMetadata,
+    StorageOperation, StorageOperationPhase, StorageStatus, new_storage_metadata,
+    reconcile_storage_status, validate_storage_controller_record,
 };
 pub use storage_identity::{
     STORAGE_IDENTITY_OBSERVATION_SCHEMA, STORAGE_IDENTITY_PLAN_SCHEMA,

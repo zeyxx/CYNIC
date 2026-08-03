@@ -31,6 +31,7 @@ pub mod source_repository_proof_commit_port;
 pub mod ssot_port;
 pub mod storage_controller_store_port;
 pub mod storage_guest_port;
+pub mod storage_lease_port;
 pub mod storage_lifecycle_port;
 pub mod storage_provider_port;
 pub mod system_probe_port;

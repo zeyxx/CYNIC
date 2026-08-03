@@ -1,10 +1,21 @@
 use serde::{Deserialize, Serialize};
 
-use crate::storage_lifecycle::{StorageObservation, StoragePhase, StoragePlan};
+use crate::{
+    LeaseGuard,
+    storage_lifecycle::{StorageObservation, StoragePhase, StoragePlan},
+};
 
 pub const STORAGE_CONTROLLER_RECORD_SCHEMA: &str = "cynic.storage_controller_record.v1";
 pub const STORAGE_OPERATION_SCHEMA: &str = "cynic.storage_operation.v1";
 pub const STORAGE_FINALIZER: &str = "storage.cynic.io/protect-binding";
+pub const STORAGE_LEASE_SCHEMA: &str = "cynic.storage_lease.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageLeaseGrant {
+    pub schema: String,
+    pub guard: LeaseGuard,
+    pub expires_at_ms: u64,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageMetadata {
@@ -14,6 +25,7 @@ pub struct StorageMetadata {
     pub finalizers: Vec<String>,
     pub lease_id: Option<String>,
     pub lease_expires_at_ms: Option<u64>,
+    pub lease_fencing_token: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,6 +84,7 @@ pub fn new_storage_metadata(id: impl Into<String>) -> StorageMetadata {
         finalizers: vec![STORAGE_FINALIZER.to_string()],
         lease_id: None,
         lease_expires_at_ms: None,
+        lease_fencing_token: None,
     }
 }
 
@@ -124,6 +137,12 @@ pub fn validate_storage_controller_record(record: &StorageControllerRecord) -> V
     }
     if record.metadata.id.trim().is_empty() || record.metadata.generation == 0 {
         blockers.push("storage_controller_metadata_invalid".to_string());
+    }
+    if record.metadata.lease_id.is_some() != record.metadata.lease_expires_at_ms.is_some()
+        || record.metadata.lease_id.is_some() != record.metadata.lease_fencing_token.is_some()
+        || record.metadata.lease_fencing_token == Some(0)
+    {
+        blockers.push("storage_controller_lease_invalid".to_string());
     }
     if !record
         .metadata
