@@ -1,7 +1,6 @@
 //! Principal-aware binary resolution (prefer layout bin over ambient PATH).
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use super::types::{ObservedBinary, PrincipalInstallLayout, PythonInstallProvenance};
 
@@ -40,12 +39,14 @@ pub fn resolve_binary(name: &str, layout: &PrincipalInstallLayout) -> ObservedBi
 }
 
 pub fn which(bin: &str) -> Option<String> {
-    let out = Command::new("which").arg(bin).output().ok()?;
-    if !out.status.success() {
+    if bin.is_empty() || bin.contains('/') {
         return None;
     }
-    let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if p.is_empty() { None } else { Some(p) }
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(&path)
+        .map(|directory| directory.join(bin))
+        .find(|candidate| candidate.is_file())
+        .map(|candidate| candidate.display().to_string())
 }
 
 pub fn observe_python_install_provenance(
