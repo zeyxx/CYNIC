@@ -84,21 +84,6 @@ completion="${state_root}/bootstrap/build-runner-bootstrap-completion.json"
 build_proof="${state_root}/bootstrap/build-runner-bootstrap-build.json"
 check_proof="${state_root}/bootstrap/build-runner-bootstrap-check.json"
 resource_proof="${state_root}/bootstrap/build-runner-resource-observation.json"
-minimum_available_bytes="$(jq -r --arg node "${node_id}" '
-  .nodes[] | select((.id // .name) == $node and .role == "build_runner") |
-  .build_lifecycle |
-  select(.schema == "cynic.build_runner.resource_policy.v1") |
-  .minimum_available_bytes
-' "${registry_path}")"
-target_relative="$(jq -r --arg node "${node_id}" '
-  .nodes[] | select((.id // .name) == $node and .role == "build_runner") |
-  .build_lifecycle.canonical_target_relative_path
-' "${registry_path}")"
-[[ "${minimum_available_bytes}" =~ ^[1-9][0-9]*$ ]] \
-  || blocked "build runner minimum available bytes policy is invalid"
-[[ -n "${target_relative}" && "${target_relative}" != /* && "${target_relative}" != *".."* ]] \
-  || blocked "build runner canonical target path is invalid"
-target_root="${state_root}/${target_relative}"
 bundle_root="${state_root}/bootstrap/framework-${source_commit:0:12}"
 [[ -d "${workspace}/.git" ]] || blocked "declared source workspace is absent"
 [[ ! -e "${completion}" ]] || blocked "bootstrap was already completed"
@@ -122,6 +107,22 @@ registry_digest="sha256:$(sha256sum "${registry_path}" | awk '{print $1}')"
 source_registry_digest="sha256:$(sha256sum "${workspace}/infra/registry.json" | awk '{print $1}')"
 [[ "${registry_digest}" == "${source_registry_digest}" ]] \
   || blocked "runtime registry does not match the exact source commit"
+
+minimum_available_bytes="$(jq -r --arg node "${node_id}" '
+  .nodes[] | select((.id // .name) == $node and .role == "build_runner") |
+  .build_lifecycle |
+  select(.schema == "cynic.build_runner.resource_policy.v1") |
+  .minimum_available_bytes
+' "${registry_path}")"
+target_relative="$(jq -r --arg node "${node_id}" '
+  .nodes[] | select((.id // .name) == $node and .role == "build_runner") |
+  .build_lifecycle.canonical_target_relative_path
+' "${registry_path}")"
+[[ "${minimum_available_bytes}" =~ ^[1-9][0-9]*$ ]] \
+  || blocked "build runner minimum available bytes policy is invalid"
+[[ -n "${target_relative}" && "${target_relative}" != /* && "${target_relative}" != *".."* ]] \
+  || blocked "build runner canonical target path is invalid"
+target_root="${state_root}/${target_relative}"
 
 temporary_root="${TMPDIR:-/tmp}"
 [[ "${temporary_root}" == /* && "${temporary_root}" != *".."* ]] \
