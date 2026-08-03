@@ -26,6 +26,24 @@ pub(super) fn decide(
             ],
         ),
         (
+            "artifact_packaging",
+            "cynic-node::local_release_basket_packaging",
+            registry.artifact_packaging_blockers(),
+            vec!["release_basket_digest_read_back".to_string()],
+        ),
+        (
+            "release_signing",
+            "cynic-node::release_basket_signing",
+            registry.release_signing_blockers(),
+            vec!["detached_signature_read_back".to_string()],
+        ),
+        (
+            "artifact_store",
+            "storage_primary::runtime_artifact_store",
+            registry.artifact_store_blockers(),
+            vec!["artifact_store_health_read_back".to_string()],
+        ),
+        (
             "artifact_publication",
             "cynic-node::release_publication",
             registry.publication_blockers(),
@@ -102,6 +120,13 @@ pub(super) fn decide(
             | "node_enrollment_authority_role_missing"
             | "node_enrollment_credential_delivery_missing" => {
                 "declare_canonical_node_enrollment_desired_state"
+            }
+            "artifact_store_desired_state_missing"
+            | "artifact_store_https_endpoint_missing"
+            | "artifact_store_endpoint_host_missing"
+            | "artifact_store_endpoint_port_invalid"
+            | "artifact_store_health_contract_missing" => {
+                "declare_and_observe_runtime_artifact_store"
             }
             blocker if blocker.starts_with("lifecycle_required_proof_missing:") => {
                 "extend_role_terminal_read_back_contract"

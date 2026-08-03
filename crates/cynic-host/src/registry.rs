@@ -331,6 +331,27 @@ pub fn resolve_build_runner_transport(
         .and_then(|release| release.build_runner_role.as_deref())
         .filter(|role| !role.trim().is_empty())
         .ok_or_else(|| "build_runner_role_missing".to_string())?;
+    resolve_role_transport(&path, &registry, role, "build_runner")
+}
+
+pub fn resolve_framework_transport(
+    registry_path: Option<&str>,
+    role: &str,
+) -> Result<ResolvedBuildRunnerTransport, String> {
+    if role.trim().is_empty() {
+        return Err("framework_target_role_missing".to_string());
+    }
+    let path = resolve_registry_path(registry_path)?;
+    let registry = load_registry(&path)?;
+    resolve_role_transport(&path, &registry, role, "framework_target")
+}
+
+fn resolve_role_transport(
+    path: &Path,
+    registry: &RegistryDocument,
+    role: &str,
+    concern: &str,
+) -> Result<ResolvedBuildRunnerTransport, String> {
     let candidates = registry
         .nodes
         .iter()
@@ -338,9 +359,9 @@ pub fn resolve_build_runner_transport(
         .collect::<Vec<_>>();
     let [node] = candidates.as_slice() else {
         return Err(if candidates.is_empty() {
-            "build_runner_node_missing".to_string()
+            format!("{concern}_node_missing")
         } else {
-            "build_runner_node_ambiguous".to_string()
+            format!("{concern}_node_ambiguous")
         });
     };
     let node_id = node
@@ -348,41 +369,41 @@ pub fn resolve_build_runner_transport(
         .clone()
         .or_else(|| node.name.clone())
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| "build_runner_node_id_missing".to_string())?;
+        .ok_or_else(|| format!("{concern}_node_id_missing"))?;
     let ssh = node
         .transports
         .as_ref()
         .and_then(|transports| transports.ssh.as_ref())
-        .ok_or_else(|| "build_runner_transport_missing".to_string())?;
+        .ok_or_else(|| format!("{concern}_transport_missing"))?;
     let ssh_target = ssh
         .target
         .clone()
         .filter(|value| !value.trim().is_empty() && !value.starts_with('-'))
-        .ok_or_else(|| "build_runner_ssh_target_missing".to_string())?;
+        .ok_or_else(|| format!("{concern}_ssh_target_missing"))?;
     let trust = ssh
         .trust
         .clone()
         .filter(|value| value == "known_hosts")
-        .ok_or_else(|| "build_runner_ssh_trust_unproven".to_string())?;
+        .ok_or_else(|| format!("{concern}_ssh_trust_unproven"))?;
     let enrollment = ssh
         .enrollment_authority
         .as_ref()
-        .ok_or_else(|| "build_runner_enrollment_authority_missing".to_string())?;
+        .ok_or_else(|| format!("{concern}_enrollment_authority_missing"))?;
     let enrollment_authority_class = enrollment
         .class
         .clone()
         .filter(|value| value == "machine_enrollment")
-        .ok_or_else(|| "build_runner_enrollment_authority_not_machine".to_string())?;
+        .ok_or_else(|| format!("{concern}_enrollment_authority_not_machine"))?;
     let enrollment_principal = enrollment
         .principal
         .clone()
         .filter(|value| safe_transport_identity(value))
-        .ok_or_else(|| "build_runner_enrollment_principal_invalid".to_string())?;
+        .ok_or_else(|| format!("{concern}_enrollment_principal_invalid"))?;
     let enrollment_credential_ref = enrollment
         .credential_ref
         .clone()
         .filter(|value| safe_transport_identity(value))
-        .ok_or_else(|| "build_runner_enrollment_credential_ref_invalid".to_string())?;
+        .ok_or_else(|| format!("{concern}_enrollment_credential_ref_invalid"))?;
     Ok(ResolvedBuildRunnerTransport {
         node_id,
         role: role.to_string(),
@@ -945,6 +966,29 @@ mod tests {
         let error = resolve_build_runner_transport(Some(path.to_str().expect("utf8 temp path")))
             .expect_err("implicit enrollment authority must block");
         assert_eq!(error, "build_runner_enrollment_authority_missing");
+    }
+
+    #[test]
+    fn framework_transport_resolves_the_explicit_seed_role() {
+        let path = write_registry_fixture(
+            r#"{
+              "nodes": [{
+                "id":"storage-1",
+                "role":"storage_primary",
+                "transports":{"ssh":{"target":"storage.internal","trust":"known_hosts","enrollment_authority":{"class":"machine_enrollment","principal":"root","credential_ref":"registry-machine-ssh-identity"}}}
+              }]
+            }"#,
+        );
+
+        let transport = resolve_framework_transport(
+            Some(path.to_str().expect("utf8 temp path")),
+            "storage_primary",
+        )
+        .expect("transport resolves");
+
+        assert_eq!(transport.node_id, "storage-1");
+        assert_eq!(transport.role, "storage_primary");
+        assert_eq!(transport.ssh_target, "storage.internal");
     }
 
     #[test]

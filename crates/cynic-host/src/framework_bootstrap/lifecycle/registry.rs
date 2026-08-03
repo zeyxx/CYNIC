@@ -151,7 +151,7 @@ impl<'a> LifecycleRegistry<'a> {
     }
 
     pub(super) fn publication_blockers(&self) -> Vec<String> {
-        if self.role != "build_runner" {
+        if !self.participates_in_runtime_release() {
             return Vec::new();
         }
         let Some(desired) = self.root.get("release_publication").cloned() else {
@@ -163,6 +163,146 @@ impl<'a> LifecycleRegistry<'a> {
             return vec!["release_publication_desired_state_invalid".to_string()];
         };
         cynic_protocol::validate_release_publication_desired_state(&desired)
+    }
+
+    pub(super) fn artifact_packaging_blockers(&self) -> Vec<String> {
+        if !self.participates_in_runtime_release() {
+            return Vec::new();
+        }
+        let artifacts = self
+            .root
+            .pointer("/lifecycle/kernel_release/runtime_artifacts")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect::<std::collections::BTreeSet<_>>();
+        let expected = ["cynic", "cynic-kernel", "cynic-mcp", "cynic-node"]
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>();
+        if artifacts == expected {
+            Vec::new()
+        } else {
+            vec!["release_artifact_set_incomplete".to_string()]
+        }
+    }
+
+    pub(super) fn release_signing_blockers(&self) -> Vec<String> {
+        if !self.participates_in_runtime_release() {
+            return Vec::new();
+        }
+        let Some(desired) = self.release_publication_desired() else {
+            return vec!["release_signing_desired_state_missing".to_string()];
+        };
+        let mut blockers = Vec::new();
+        if desired.signer_identity.trim().is_empty() {
+            blockers.push("release_signer_identity_missing".to_string());
+        }
+        if desired.signature_namespace != cynic_protocol::RUNTIME_RELEASE_SIGNATURE_NAMESPACE {
+            blockers.push("release_signature_namespace_mismatch".to_string());
+        }
+        if !std::path::Path::new(&desired.signing_key_path).is_absolute() {
+            blockers.push("release_signing_key_path_not_absolute".to_string());
+        }
+        blockers
+    }
+
+    pub(super) fn artifact_store_blockers(&self) -> Vec<String> {
+        if !self.participates_in_runtime_release() {
+            return Vec::new();
+        }
+        let Some(desired) = self.release_publication_desired() else {
+            return vec!["artifact_store_desired_state_missing".to_string()];
+        };
+        let nodes = self
+            .root
+            .get("nodes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter(|node| {
+                node.get("role").and_then(Value::as_str) == Some(desired.storage_role.as_str())
+            })
+            .collect::<Vec<_>>();
+        let [node] = nodes.as_slice() else {
+            return vec![format!("artifact_store_node_cardinality:{}", nodes.len())];
+        };
+        let services = node
+            .get("services")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter(|service| {
+                service.get("name").and_then(Value::as_str) == Some(desired.service_name.as_str())
+            })
+            .collect::<Vec<_>>();
+        let [service] = services.as_slice() else {
+            return vec![format!(
+                "artifact_store_service_cardinality:{}",
+                services.len()
+            )];
+        };
+        let mut blockers = Vec::new();
+        if service.get("scheme").and_then(Value::as_str) != Some("https") {
+            blockers.push("artifact_store_https_endpoint_missing".to_string());
+        }
+        if service
+            .get("endpoint_host")
+            .and_then(Value::as_str)
+            .is_none_or(str::is_empty)
+        {
+            blockers.push("artifact_store_endpoint_host_missing".to_string());
+        }
+        if service
+            .get("port")
+            .and_then(Value::as_u64)
+            .is_none_or(|port| port == 0 || port > u64::from(u16::MAX))
+        {
+            blockers.push("artifact_store_endpoint_port_invalid".to_string());
+        }
+        if service
+            .get("base_path")
+            .and_then(Value::as_str)
+            .is_none_or(|path| !path.starts_with('/') || path.contains(".."))
+        {
+            blockers.push("artifact_store_base_path_invalid".to_string());
+        }
+        for (field, expected, blocker) in [
+            (
+                "protocol",
+                desired.protocol.as_str(),
+                "artifact_store_protocol_mismatch",
+            ),
+            (
+                "authentication_kind",
+                desired.authentication_kind.as_str(),
+                "artifact_store_authentication_mismatch",
+            ),
+        ] {
+            if service.get(field).and_then(Value::as_str) != Some(expected) {
+                blockers.push(blocker.to_string());
+            }
+        }
+        if service
+            .pointer("/install_authority/channel")
+            .and_then(Value::as_str)
+            .is_none()
+            || service
+                .pointer("/install_authority/provenance")
+                .and_then(Value::as_str)
+                .is_none()
+        {
+            blockers.push("artifact_store_install_authority_missing".to_string());
+        }
+        if service.pointer("/health/kind").and_then(Value::as_str) != Some("https")
+            || service
+                .pointer("/health/path")
+                .and_then(Value::as_str)
+                .is_none_or(|path| !path.starts_with('/'))
+        {
+            blockers.push("artifact_store_health_contract_missing".to_string());
+        }
+        blockers
     }
 
     pub(super) fn runtime_binding_blockers(&self) -> Vec<String> {
@@ -305,5 +445,32 @@ impl<'a> LifecycleRegistry<'a> {
             .filter(|proof| !proofs.iter().any(|candidate| candidate.as_str() == **proof))
             .map(|proof| format!("lifecycle_required_proof_missing:{proof}"))
             .collect()
+    }
+
+    fn release_publication_desired(
+        &self,
+    ) -> Option<cynic_protocol::ReleasePublicationDesiredState> {
+        self.root
+            .get("release_publication")
+            .cloned()
+            .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    fn participates_in_runtime_release(&self) -> bool {
+        let runtime_artifacts = self
+            .root
+            .pointer("/lifecycle/kernel_release/runtime_artifacts")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect::<std::collections::BTreeSet<_>>();
+        self.node
+            .and_then(|node| node.get("services"))
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|service| service.get("artifact").and_then(Value::as_str))
+            .any(|artifact| runtime_artifacts.contains(artifact))
     }
 }

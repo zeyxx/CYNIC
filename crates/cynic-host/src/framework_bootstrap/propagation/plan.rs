@@ -2,7 +2,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
-use crate::registry::resolve_build_runner_transport;
+use crate::registry::resolve_framework_transport;
 use crate::update_lifecycle::ArgvRunner;
 
 use super::decision::decide_framework_propagation;
@@ -27,7 +27,6 @@ pub fn plan_framework_propagation(
     registry_path: Option<&str>,
     runner: &dyn ArgvRunner,
 ) -> Result<FrameworkPropagationPlan, String> {
-    let transport = resolve_build_runner_transport(registry_path)?;
     let bundle = Path::new(bundle_dir);
     let manifest_path = bundle.join("seed-manifest.json");
     let checksum_path = bundle.join("seed-artifacts.sha256");
@@ -55,12 +54,12 @@ pub fn plan_framework_propagation(
                 .map_err(|error| format!("invalid seed manifest: {error}"))
         })
         .transpose()?;
-    if manifest
+    let target_role = manifest
         .as_ref()
-        .is_some_and(|manifest| manifest.enrollment.target_role != transport.role)
-    {
-        blockers.push("seed_role_does_not_match_registry_role".to_string());
-    }
+        .map(|manifest| manifest.enrollment.target_role.as_str())
+        .filter(|role| !role.trim().is_empty())
+        .ok_or_else(|| "seed_target_role_missing".to_string())?;
+    let transport = resolve_framework_transport(registry_path, target_role)?;
     let seed_id = manifest
         .as_ref()
         .map(|manifest| manifest.seed_id.clone())
