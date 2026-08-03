@@ -20,61 +20,6 @@
     "signer_identity": "cynic-release",
     "signature_namespace": "cynic-runtime-seed"
   },
-  "storage_policy": {
-    "schema": "cynic.storage.desired_state.v1",
-    "authority": "storage_primary",
-    "artifact_store": {
-      "service_name": "runtime-artifact-store",
-      "minimum_free_bytes": 4294967296,
-      "reserved_free_bytes": 8589934592,
-      "retention": {
-        "release_baskets": "retain_signed_active_and_previous",
-        "build_caches": "never_store_on_artifact_store",
-        "unreferenced_artifacts": "quarantine_then_expire_after_days",
-        "quarantine_days": 14
-      },
-      "proof": [
-        "service_health_read_back",
-        "authenticated_put_get_digest_read_back",
-        "free_space_observation",
-        "retention_policy_read_back"
-      ]
-    },
-    "runtime_state": {
-      "state_root": "/var/lib/cynic",
-      "evidence_root": "/var/lib/cynic/evidence",
-      "append_only": true,
-      "minimum_free_bytes": 1073741824,
-      "proof": ["filesystem_ownership", "free_space_observation", "append_only_read_back"]
-    },
-    "unknown_policy": "block_activation_and_report_unknown"
-  },
-  "scheduler_activation": {
-    "schema": "cynic.scheduler.activation.desired_state.v1",
-    "owner": "node_local",
-    "target_role": "build_runner",
-    "desired_status": "gated",
-    "activation_mode": "durable_node_owned",
-    "state_root": "/var/lib/cynic/scheduler",
-    "required_capabilities": [
-      "durable_agent_workload_store",
-      "aggregate_sibling_budget_accounting",
-      "lease_fenced_claim_and_recovery",
-      "durable_cancellation",
-      "completion_evidence_persistence",
-      "scheduler_to_build_runner_execution_transport"
-    ],
-    "required_proof": [
-      "scheduler_journal_append_read_back",
-      "claim_recovery_after_node_restart",
-      "cancellation_delivery_read_back",
-      "completion_evidence_read_back",
-      "build_artifact_read_back"
-    ],
-    "legacy_agent_task_runtime_authority": false,
-    "activation_requires": "all_required_capabilities_and_proofs",
-    "unknown_policy": "remain_gated"
-  },
   "node_enrollment": {
     "schema": "cynic.node_enrollment.desired_state.v1",
     "authority_role": "kernel_primary",

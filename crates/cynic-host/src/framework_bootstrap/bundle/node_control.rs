@@ -41,9 +41,8 @@ pub(super) fn render_node_control_config(
     let observed_services = toml_string_array(&observed_services)?;
     let build_scheduler = if build_scheduler_enabled {
         let release_publication = render_release_publication_config(registry)?;
-        let scheduler_activation = render_scheduler_activation_config(registry)?;
         format!(
-            "\n[node_control.build_scheduler]\nregistry_path = \"/etc/cynic/registry.json\"\nrepository_id = \"cynic\"\n{scheduler_activation}{release_publication}"
+            "\n[node_control.build_scheduler]\nregistry_path = \"/etc/cynic/registry.json\"\nrepository_id = \"cynic\"\n{release_publication}"
         )
     } else {
         String::new()
@@ -68,48 +67,6 @@ observed_capabilities = {capabilities}\n\
 observed_services = {observed_services}\n\
 {build_scheduler}"
     )))
-}
-
-fn render_scheduler_activation_config(registry: &serde_json::Value) -> Result<String, String> {
-    let desired = registry
-        .get("scheduler_activation")
-        .ok_or_else(|| "scheduler activation desired state is absent".to_string())?;
-    let target_role = desired
-        .get("target_role")
-        .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| "scheduler activation target role is absent".to_string())?;
-    if target_role != "build_runner" {
-        return Err("scheduler activation target role must be build_runner".to_string());
-    }
-    let state_root = desired
-        .get("state_root")
-        .and_then(serde_json::Value::as_str)
-        .filter(|value| value.starts_with("/var/lib/cynic/"))
-        .ok_or_else(|| "scheduler activation state root is invalid".to_string())?;
-    let status = desired
-        .get("desired_status")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("gated");
-    let capabilities = desired
-        .get("required_capabilities")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| "scheduler activation capabilities are absent".to_string())?
-        .iter()
-        .map(serde_json::Value::as_str)
-        .collect::<Option<Vec<_>>>()
-        .ok_or_else(|| "scheduler activation capabilities are invalid".to_string())?;
-    let capabilities = toml_string_array(
-        &capabilities
-            .iter()
-            .map(|value| (*value).to_string())
-            .collect::<Vec<_>>(),
-    )?;
-    Ok(format!(
-        "[node_control.build_scheduler.activation]\nstatus = {}\nmode = \"durable_node_owned\"\nstate_root = {}\nrequired_capabilities = {}\nlegacy_agent_task_runtime_authority = false\nactivation_requires_read_back = true\n",
-        toml_string(status)?,
-        toml_string(state_root)?,
-        capabilities,
-    ))
 }
 
 fn render_release_publication_config(registry: &serde_json::Value) -> Result<String, String> {

@@ -1,9 +1,26 @@
 use std::fs;
 use std::path::Path;
 
+use cynic_protocol::{
+    StorageClaimSpec, StorageClassSpec, StorageObservation, StoragePlan, StorageResizeRequest,
+    StorageVolumeSpec, reconcile_storage,
+};
+
 use super::types::{
     StoragePrimaryDesiredState, StoragePrimaryPlanReport, StoragePrimaryStatusReport,
 };
+
+/// Canonical storage-capacity use case. Provider adapters must observe first and
+/// pass the typed evidence here; this function never shells out or mutates.
+pub fn plan_storage_resize(
+    class: &StorageClassSpec,
+    volume: &StorageVolumeSpec,
+    claim: &StorageClaimSpec,
+    request: &StorageResizeRequest,
+    observed: &StorageObservation,
+) -> StoragePlan {
+    reconcile_storage(class, volume, claim, request, observed)
+}
 
 pub fn build_plan(registry_path: &Path, schema_path: &Path) -> StoragePrimaryPlanReport {
     match build_desired_state(registry_path, schema_path) {

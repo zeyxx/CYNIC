@@ -184,10 +184,6 @@ fn build_runner_bundle_projects_node_and_registry() {
     );
     assert!(control.contains("runtime_artifact_max_bytes = 4294967296"));
     assert!(control.contains("[node_control.build_scheduler]"));
-    assert!(control.contains("[node_control.build_scheduler.activation]"));
-    assert!(control.contains("status = \"gated\""));
-    assert!(control.contains("mode = \"durable_node_owned\""));
-    assert!(control.contains("activation_requires_read_back = true"));
     assert!(control.contains("registry_path = \"/etc/cynic/registry.json\""));
     assert!(control.contains("[node_control.build_scheduler.release_publication]"));
     assert!(

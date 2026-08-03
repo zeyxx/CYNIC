@@ -37,6 +37,7 @@ pub mod source_materialization;
 pub mod source_release;
 pub mod source_repository_bootstrap;
 pub mod storage_identity;
+pub mod storage_lifecycle;
 pub mod supervision;
 pub mod surface_registry;
 pub mod tasks;
@@ -317,6 +318,13 @@ pub use storage_identity::{
     STORAGE_IDENTITY_SPEC_SCHEMA, StorageEvidenceState, StorageIdentityDecision,
     StorageIdentityObservation, StorageIdentityPlan, StorageIdentityRole, StorageIdentitySpec,
     reconcile_storage_identity, storage_identity_spec_blockers,
+};
+pub use storage_lifecycle::{
+    STORAGE_CLAIM_SCHEMA, STORAGE_CLASS_SCHEMA, STORAGE_OBSERVATION_SCHEMA, STORAGE_PLAN_SCHEMA,
+    STORAGE_RESIZE_REQUEST_SCHEMA, STORAGE_VOLUME_SCHEMA, StorageClaimSpec, StorageClassSpec,
+    StorageDecision, StorageManagementAction, StorageObservation, StoragePhase, StoragePlan,
+    StorageReclaimPolicy, StorageResizeMode, StorageResizeRequest, StorageVolumeSpec,
+    reconcile_storage,
 };
 pub use supervision::{
     SERVICE_SUPERVISOR_OBSERVATION_EVIDENCE_ID, SERVICE_SUPERVISOR_OBSERVATION_SCHEMA,
