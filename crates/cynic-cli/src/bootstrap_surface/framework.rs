@@ -86,6 +86,14 @@ pub(crate) enum BootstrapFrameworkCommand {
         #[arg(long)]
         role: String,
     },
+    LifecycleAudit {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        role: String,
+        #[arg(long)]
+        registry: Option<String>,
+    },
 }
 
 pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode {
@@ -219,6 +227,19 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
                 role,
             ) {
                 Ok(report) => emit_json(&report, true),
+                Err(error) => fail(error),
+            }
+        }
+        BootstrapFrameworkCommand::LifecycleAudit {
+            json,
+            role,
+            registry,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            match framework_bootstrap::audit_framework_lifecycle(registry.as_deref(), &role) {
+                Ok(report) => emit_json(&report, report.status == "blocked"),
                 Err(error) => fail(error),
             }
         }

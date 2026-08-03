@@ -97,6 +97,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic bootstrap framework propagate --json --bundle-dir <dir> [--registry <path>] [--output <path>] --yes",
                     "cynic bootstrap framework substrate-plan --json --node <id> [--registry <path>] [--observation <path>]",
                     "cynic bootstrap framework substrate-apply --json --node <id> [--registry <path>] --yes",
+                    "cynic bootstrap framework lifecycle-audit --json --role <role> [--registry <path>]",
                     "cynic bootstrap framework install-cli --json [--apply] [--source <path>] [--target <path>]",
                     "cynic bootstrap host <observe|bundle|plan|evidence|proof|supervisor|principal|e2e|apply-report|apply> [--profile <name> | --node <name>] [--registry <path>] [--dry-run|--apply]",
                     "cynic bootstrap host e2e [--profile <name> | --node <name>] [--registry <path>] [--runtime-profile <name>] --dry-run",

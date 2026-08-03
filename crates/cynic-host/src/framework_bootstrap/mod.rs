@@ -3,6 +3,7 @@ pub mod admission;
 pub mod bundle;
 pub mod cli_install;
 pub mod enrollment;
+pub mod lifecycle;
 pub mod propagation;
 pub mod scripts;
 mod types;
@@ -18,6 +19,9 @@ pub use admission::{
 pub use bundle::{write_framework_bootstrap_bundle, write_framework_bootstrap_bundle_for_role};
 pub use cli_install::install_standalone_cli;
 pub use enrollment::{FrameworkRole, build_framework_enrollment_request};
+pub use lifecycle::{
+    FrameworkLifecycleAudit, FrameworkLifecycleDimension, audit_framework_lifecycle,
+};
 pub use propagation::{
     FrameworkPropagationExecution, FrameworkPropagationOperation, FrameworkPropagationPlan,
     FrameworkPropagationReport, apply_framework_propagation, plan_framework_propagation,
