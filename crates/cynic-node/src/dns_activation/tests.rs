@@ -1,3 +1,6 @@
+use cynic_host::update_lifecycle::{ArgvOutput, MapArgvRunner};
+
+use super::apply::root_authority_blocker;
 use super::decision::plan_dns_activation;
 use super::registry::resolve_dns_activation_spec;
 use super::rollback::rollback_matches;
@@ -117,4 +120,31 @@ fn rollback_requires_exact_service_state_read_back() {
 
     assert!(!rollback_matches(&before, &after));
     assert!(rollback_matches(&before, &before));
+}
+
+#[test]
+fn root_authority_is_observed_through_the_injected_runner() {
+    let runner = MapArgvRunner {
+        responses: vec![(
+            vec!["id".to_string(), "-u".to_string()],
+            ArgvOutput {
+                exit_code: Some(0),
+                stdout: "0\n".to_string(),
+                stderr: String::new(),
+                spawn_error: None,
+            },
+        )],
+    };
+
+    assert_eq!(root_authority_blocker(&runner), None);
+}
+
+#[test]
+fn missing_root_observation_never_authorizes_mutation() {
+    let runner = MapArgvRunner::default();
+
+    assert_eq!(
+        root_authority_blocker(&runner).as_deref(),
+        Some("dns_activation_root_authority_unobservable")
+    );
 }

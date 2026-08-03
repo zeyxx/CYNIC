@@ -52,8 +52,8 @@ pub(crate) fn apply_dns_activation(
     if !yes {
         blockers.push("explicit_yes_required".to_string());
     }
-    if unsafe { libc::geteuid() } != 0 {
-        blockers.push("dns_activation_root_authority_required".to_string());
+    if let Some(blocker) = root_authority_blocker(runner) {
+        blockers.push(blocker);
     }
     if !blockers.is_empty() {
         return report(
@@ -206,6 +206,14 @@ pub(crate) fn apply_dns_activation(
         residual,
         rollback_status(rolled_back),
     )
+}
+
+pub(super) fn root_authority_blocker(runner: &dyn ArgvRunner) -> Option<String> {
+    let observed = runner.run(&["id", "-u"]);
+    if !observed.success() {
+        return Some("dns_activation_root_authority_unobservable".to_string());
+    }
+    (observed.stdout.trim() != "0").then(|| "dns_activation_root_authority_required".to_string())
 }
 
 fn append_rollback_failure(
