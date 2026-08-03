@@ -107,14 +107,36 @@ impl CynicMcpProxy {
     }
 
     fn lxc_exec_bridge_config() -> Option<(String, String, String)> {
+        let registry = cynic_host::runtime_registry::load_runtime_registry(None);
+        let hypervisor_ssh = registry
+            .as_ref()
+            .and_then(|value| value.get("nodes"))
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .find(|node| node.get("role").and_then(serde_json::Value::as_str) == Some("hypervisor"))
+            .and_then(|node| node.get("transports"))
+            .and_then(|value| value.get("ssh"));
         let ssh_target = std::env::var("CYNIC_LXC_EXEC_BRIDGE_SSH_TARGET")
             .ok()
+            .or_else(|| {
+                hypervisor_ssh
+                    .and_then(|value| value.get("target"))
+                    .and_then(serde_json::Value::as_str)
+                    .map(ToString::to_string)
+            })
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())?;
         let helper = std::env::var("CYNIC_LXC_EXEC_BRIDGE_HELPER")
             .unwrap_or_else(|_| "/usr/local/libexec/cynic-lxc-exec-bridge".to_string());
         let known_hosts = std::env::var("CYNIC_LXC_EXEC_BRIDGE_KNOWN_HOSTS")
             .ok()
+            .or_else(|| {
+                hypervisor_ssh
+                    .and_then(|value| value.get("known_hosts_ref"))
+                    .and_then(serde_json::Value::as_str)
+                    .map(ToString::to_string)
+            })
             .map(|value| value.trim().to_string())
             .filter(|value| value.starts_with('/') && !value.contains(".."))?;
         Some((ssh_target, helper, known_hosts))
