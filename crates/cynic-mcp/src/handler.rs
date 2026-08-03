@@ -16,6 +16,12 @@ impl ServerHandler for CynicMcpProxy {
         }
 
         let exposure = load_agent_exposure(&self.project_root)?;
+        let request_meta_observed = !context.meta.0.is_empty()
+            || request
+                .params
+                .as_ref()
+                .and_then(|params| params.get("_meta"))
+                .is_some_and(serde_json::Value::is_object);
         let transport = if std::env::var("CYNIC_MCP_TRANSPORT")
             .ok()
             .is_some_and(|value| value.trim().eq_ignore_ascii_case("streamable_http"))
@@ -24,8 +30,7 @@ impl ServerHandler for CynicMcpProxy {
         } else {
             "stdio_legacy"
         };
-        let result =
-            crate::protocol::discovery_result(&exposure, !context.meta.0.is_empty(), transport);
+        let result = crate::protocol::discovery_result(&exposure, request_meta_observed, transport);
         Ok(CustomResult::new(result))
     }
 
