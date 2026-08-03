@@ -32,7 +32,8 @@
       "tool_name_header": "Mcp-Name matches tools/call params.name",
       "request_meta": "params._meta.io.modelcontextprotocol/clientInfo required",
       "initialize": "rejected",
-      "session_header": "not emitted"
+      "session_header": "not emitted",
+      "authorization": "loopback_only_until_oauth_adapter"
     },
     "legacy_compatibility": {
       "revision": "2025-11-25",

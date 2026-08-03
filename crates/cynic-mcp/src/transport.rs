@@ -110,6 +110,13 @@ pub async fn serve_streamable_http(
     shutdown: CancellationToken,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let address = listen.parse::<std::net::SocketAddr>()?;
+    if !address.ip().is_loopback() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "blocked_http_auth_unimplemented: Streamable HTTP must remain loopback-only until an authorization adapter is proven",
+        )
+        .into());
+    }
     let config = StreamableHttpServerConfig::default()
         .with_stateful_mode(false)
         .with_json_response(true)
@@ -197,5 +204,11 @@ mod tests {
             validate_2026_request(&headers, &Method::POST, &body),
             Err("params._meta must include io.modelcontextprotocol/clientInfo")
         );
+    }
+
+    #[test]
+    fn remote_bind_is_not_allowed_without_authorization_adapter() {
+        let remote = "10.0.0.5:8787".parse::<std::net::SocketAddr>().unwrap();
+        assert!(!remote.ip().is_loopback());
     }
 }
