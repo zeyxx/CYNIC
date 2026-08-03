@@ -12,6 +12,7 @@
 //! `scripted` | `external` | `distro_managed`.
 
 pub mod authority;
+pub mod execution;
 pub mod integration_apply;
 pub mod integration_apply_types;
 pub mod integration_catalog;
@@ -35,6 +36,9 @@ pub mod types;
 pub mod upstream_probe;
 
 pub use authority::{LocalPrincipalAuthority, PrincipalAuthorityPort};
+pub use execution::{
+    EcosystemPackageExecutionPort, LocalEcosystemPackageExecution, PackageCommandOutput,
+};
 pub use upstream_probe::{
     UpstreamSourceKind, UpstreamVersionInfo, probe_github_latest_release, probe_npm_latest_version,
     probe_pypi_latest_version, probe_upstream_version,
@@ -68,7 +72,10 @@ pub use integration_types::{
 pub use layout::{
     resolve_principal_install_layout, resolve_principal_install_layout_with_authority,
 };
-pub use port::{EcosystemPackageProvider, apply_package_plan, materialize_argv};
+pub use port::{
+    EcosystemPackageProvider, apply_package_plan, apply_package_plan_with_executor,
+    materialize_argv,
+};
 pub use probe::{
     classify_python_install_provenance, observe_python_install_provenance, resolve_binary, which,
 };

@@ -3,8 +3,7 @@
 //! Adapters implement [`EcosystemPackageProvider`]. The engine only executes
 //! planned argv steps (with principal wrap). No tool-specific recipes here.
 
-use std::process::Command;
-
+use super::execution::{EcosystemPackageExecutionPort, LocalEcosystemPackageExecution};
 use super::types::{
     ApplyStep, EcosystemPackageApplyResult, EcosystemPackagePlan, InstallPrincipalKind,
     PrincipalInstallLayout, ProviderChannel, RunAs, StepExecution,
@@ -27,6 +26,14 @@ pub trait EcosystemPackageProvider: Send + Sync {
 
 /// Execute a package plan step-by-step (argv only; principal wrap via sudo -u).
 pub fn apply_package_plan(plan: &EcosystemPackagePlan) -> EcosystemPackageApplyResult {
+    let executor = LocalEcosystemPackageExecution;
+    apply_package_plan_with_executor(plan, &executor)
+}
+
+pub fn apply_package_plan_with_executor(
+    plan: &EcosystemPackagePlan,
+    executor: &dyn EcosystemPackageExecutionPort,
+) -> EcosystemPackageApplyResult {
     let requires_runtime_principal = plan.steps.iter().any(|step| step.as_principal)
         || matches!(plan.principal, InstallPrincipalKind::RuntimeUser);
     if requires_runtime_principal && !plan.layout.writable {
@@ -68,47 +75,35 @@ pub fn apply_package_plan(plan: &EcosystemPackagePlan) -> EcosystemPackageApplyR
     let mut steps_run = Vec::new();
     for step in &plan.steps {
         let argv = materialize_argv(step, &plan.layout);
-        let mut cmd = Command::new(&argv[0]);
-        if argv.len() > 1 {
-            cmd.args(&argv[1..]);
+        let output = executor.execute(&argv, step.cwd.as_deref());
+        if let Some(error) = output.spawn_error.as_deref() {
+            steps_run.push(StepExecution {
+                role: step.role.clone(),
+                argv: argv.clone(),
+                exit_code: None,
+                ok: false,
+                stdout_tail: String::new(),
+                stderr_tail: error.to_string(),
+            });
+            return EcosystemPackageApplyResult {
+                dep_id: plan.dep_id.clone(),
+                attempted: true,
+                ok: false,
+                channel: plan.channel,
+                principal: plan.principal,
+                steps_run,
+                message: format!("failed at {}", step.role),
+                proofs: plan.proofs.clone(),
+            };
         }
-        if let Some(cwd) = &step.cwd {
-            // cwd may not exist until clone — only set when present
-            if cwd.is_dir() {
-                cmd.current_dir(cwd);
-            }
-        }
-        let output = match cmd.output() {
-            Ok(o) => o,
-            Err(e) => {
-                steps_run.push(StepExecution {
-                    role: step.role.clone(),
-                    argv: argv.clone(),
-                    exit_code: None,
-                    ok: false,
-                    stdout_tail: String::new(),
-                    stderr_tail: format!("spawn failed: {e}"),
-                });
-                return EcosystemPackageApplyResult {
-                    dep_id: plan.dep_id.clone(),
-                    attempted: true,
-                    ok: false,
-                    channel: plan.channel,
-                    principal: plan.principal,
-                    steps_run,
-                    message: format!("failed at {}", step.role),
-                    proofs: plan.proofs.clone(),
-                };
-            }
-        };
-        let ok = output.status.success();
+        let ok = output.success();
         steps_run.push(StepExecution {
             role: step.role.clone(),
             argv: argv.clone(),
-            exit_code: output.status.code(),
+            exit_code: output.exit_code,
             ok,
-            stdout_tail: tail(&String::from_utf8_lossy(&output.stdout), 1200),
-            stderr_tail: tail(&String::from_utf8_lossy(&output.stderr), 1200),
+            stdout_tail: tail(&output.stdout, 1200),
+            stderr_tail: tail(&output.stderr, 1200),
         });
         if !ok {
             return EcosystemPackageApplyResult {
