@@ -1,4 +1,6 @@
-use std::{ffi::CString, fs, os::unix::ffi::OsStrExt, path::Path};
+use std::{fs, path::Path};
+
+use sysinfo::Disks;
 
 use crate::domain::disk::build_runner::{
     BUILD_CACHE_OBSERVATION_SCHEMA, BuildCacheDesiredState, BuildCacheMutationPort,
@@ -128,16 +130,15 @@ fn directory_chain_state(
 }
 
 fn available_bytes(path: &Path) -> Result<u64, String> {
-    let path = CString::new(path.as_os_str().as_bytes())
-        .map_err(|_| "build_cache_state_root_invalid".to_string())?;
-    let mut stats = std::mem::MaybeUninit::<libc::statvfs>::uninit();
-    // SAFETY: `path` is NUL-terminated and `stats` points to writable memory.
-    if unsafe { libc::statvfs(path.as_ptr(), stats.as_mut_ptr()) } != 0 {
-        return Err("build_cache_available_bytes_unobservable".to_string());
+    if !path.is_absolute() {
+        return Err("build_cache_state_root_invalid".to_string());
     }
-    // SAFETY: statvfs returned success and initialized `stats`.
-    let stats = unsafe { stats.assume_init() };
-    Ok(stats.f_bavail.saturating_mul(stats.f_frsize))
+    Disks::new_with_refreshed_list()
+        .iter()
+        .filter(|disk| path.starts_with(disk.mount_point()))
+        .max_by_key(|disk| disk.mount_point().components().count())
+        .map(sysinfo::Disk::available_space)
+        .ok_or_else(|| "build_cache_available_bytes_unobservable".to_string())
 }
 
 #[cfg(test)]

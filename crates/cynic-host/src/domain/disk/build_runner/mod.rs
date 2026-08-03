@@ -45,6 +45,6 @@ mod tests {
         assert_eq!(plan.decision, BuildCacheDecision::ReclaimCanonicalProfile);
         assert!(plan.mutates);
         assert_eq!(plan.target_profile, "debug");
-        assert_eq!(plan.preserved_profiles, ["release"]);
+        assert_eq!(plan.preserved_profiles, vec!["release".to_string()]);
     }
 }
