@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ProxmoxControlStatus {
@@ -22,6 +22,12 @@ pub struct ProxmoxControlConfiguration {
     pub client_identity: bool,
     pub credential: bool,
     pub custom_ca: bool,
+    /// Scope and provenance are part of the observation contract.  Presence
+    /// alone must never be mistaken for provider enrollment.
+    pub identity_scope: &'static str,
+    pub endpoint_source: Option<&'static str>,
+    pub client_identity_source: Option<&'static str>,
+    pub credential_source: Option<&'static str>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -391,14 +397,39 @@ fn resolve_credential(path: &std::path::Path) -> Result<String, String> {
 
 fn observe_configuration() -> ProxmoxControlConfiguration {
     let resolved = resolve_control_configuration();
+    let endpoint_source = if optional_env("CYNIC_PROXMOX_URL").is_some() {
+        Some("process_environment")
+    } else if resolved.endpoint.is_some() {
+        Some("principal_or_installed_config")
+    } else {
+        None
+    };
+    let client_identity_source = if optional_env("CYNIC_PROXMOX_TOKEN_ID").is_some() {
+        Some("process_environment")
+    } else if resolved.token_id.is_some() {
+        Some("principal_or_installed_config")
+    } else {
+        None
+    };
+    let credential_source = if ["CYNIC_PROXMOX_TOKEN_SECRET", "CYNIC_PROXMOX_SECRET"]
+        .into_iter()
+        .any(|key| optional_env(key).is_some())
+    {
+        Some("process_environment")
+    } else if resolved.token_secret_file.is_file() {
+        Some("principal_or_installed_secret")
+    } else {
+        None
+    };
     ProxmoxControlConfiguration {
         endpoint: resolved.endpoint.is_some(),
         client_identity: resolved.token_id.is_some(),
-        credential: ["CYNIC_PROXMOX_TOKEN_SECRET", "CYNIC_PROXMOX_SECRET"]
-            .into_iter()
-            .any(|key| optional_env(key).is_some())
-            || resolved.token_secret_file.is_file(),
+        credential: credential_source.is_some(),
         custom_ca: resolved.ca_file.is_some(),
+        identity_scope: "node_provider_control_process",
+        endpoint_source,
+        client_identity_source,
+        credential_source,
     }
 }
 
@@ -475,7 +506,7 @@ async fn response_json(response: reqwest::Response, path: &str) -> Result<Value,
 
 #[cfg(test)]
 mod tests {
-    use super::{ProxmoxControlConfiguration, configuration_blockers, validate_provider_component};
+    use super::{configuration_blockers, validate_provider_component, ProxmoxControlConfiguration};
 
     #[test]
     fn provider_path_components_are_bounded() {
@@ -492,6 +523,10 @@ mod tests {
             client_identity: false,
             credential: false,
             custom_ca: false,
+            identity_scope: "node_provider_control_process",
+            endpoint_source: Some("process_environment"),
+            client_identity_source: None,
+            credential_source: None,
         });
         assert_eq!(
             blockers,
