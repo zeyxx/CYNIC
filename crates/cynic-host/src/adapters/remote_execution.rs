@@ -11,7 +11,7 @@ pub fn remote_execution_adapter(
     transport_kind: &str,
 ) -> Result<Box<dyn RemoteExecutionPort>, String> {
     match transport_kind {
-        "ssh" => Ok(Box::new(SshRemoteExecutionAdapter)),
+        "ssh_bootstrap" => Ok(Box::new(SshRemoteExecutionAdapter)),
         other => Err(format!("remote_execution_adapter_unavailable:{other}")),
     }
 }

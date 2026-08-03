@@ -472,7 +472,7 @@ fn resolve_role_transport(
     Ok(ResolvedBuildRunnerTransport {
         node_id,
         role: role.to_string(),
-        transport_kind: "ssh".to_string(),
+        transport_kind: "ssh_bootstrap".to_string(),
         ssh_target,
         trust,
         enrollment_authority_class,
