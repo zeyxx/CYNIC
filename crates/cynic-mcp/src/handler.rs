@@ -2,6 +2,28 @@
 
 #[tool_handler]
 impl ServerHandler for CynicMcpProxy {
+    async fn on_custom_request(
+        &self,
+        request: CustomRequest,
+        context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<CustomResult, McpError> {
+        if request.method != crate::protocol::DISCOVERY_METHOD {
+            return Err(McpError::new(
+                ErrorCode::METHOD_NOT_FOUND,
+                request.method,
+                None,
+            ));
+        }
+
+        let exposure = load_agent_exposure(&self.project_root)?;
+        let result = crate::protocol::discovery_result(
+            &exposure,
+            !context.meta.0.is_empty(),
+            "stdio_legacy",
+        );
+        Ok(CustomResult::new(result))
+    }
+
     fn get_info(&self) -> ServerInfo {
         InitializeResult::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("cynic-mcp", env!("CYNIC_VERSION")))
