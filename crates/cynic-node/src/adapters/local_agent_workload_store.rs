@@ -165,6 +165,32 @@ impl AgentWorkloadStorePort for LocalAgentWorkloadStore {
         if read_back != durable {
             return Err(error("workload_store_read_back_mismatch"));
         }
+        let mut capabilities = vec!["durable_agent_workload_store"];
+        if expected_revision.is_none() {
+            capabilities.push("aggregate_sibling_budget_accounting");
+        }
+        if next.claim.is_some() {
+            capabilities.push("lease_fenced_claim_and_recovery");
+        }
+        if next.completion.is_some() {
+            capabilities.push("completion_evidence_persistence");
+        }
+        let evidence_ref = format!(
+            "agent-workload-store:{}:{}",
+            workload_id, read_back.record_digest
+        );
+        if let Err(proof_error) =
+            crate::adapters::agent_execution_runtime_observer::persist_capabilities(
+                &capabilities,
+                &[evidence_ref],
+            )
+        {
+            tracing::debug!(
+                workload_id,
+                error = %proof_error,
+                "agent workload store proof publication unavailable"
+            );
+        }
         Ok(read_back)
     }
 }
