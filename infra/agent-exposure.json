@@ -32,7 +32,8 @@
     ]
   },
   "projection_targets": {
-    "codex": ".codex/config.toml"
+    "codex": ".codex/config.toml",
+    "antigravity": "infra/agent-projections/antigravity-mcp.json"
   },
   "session_handshake": {
     "schema": "cynic.agent_session_handshake.v1",

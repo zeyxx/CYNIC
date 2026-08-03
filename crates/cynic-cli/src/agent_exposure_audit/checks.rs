@@ -121,6 +121,42 @@ pub(crate) fn check_mcp_command_projection(
             Some(command.to_string()),
         ));
     }
+
+    let antigravity_rel = "infra/agent-projections/antigravity-mcp.json";
+    let antigravity_path = root.join(antigravity_rel);
+    let Ok(antigravity_bytes) = fs::read(&antigravity_path) else {
+        findings.push(finding(
+            "critical",
+            "antigravity_projection_missing",
+            antigravity_rel,
+            "Antigravity must use the canonical runtime-discovery MCP projection",
+            None,
+        ));
+        return;
+    };
+    let Ok(antigravity) = serde_json::from_slice::<Value>(&antigravity_bytes) else {
+        findings.push(finding(
+            "critical",
+            "antigravity_projection_invalid",
+            antigravity_rel,
+            "Antigravity MCP projection must be valid JSON",
+            None,
+        ));
+        return;
+    };
+    let projection_matches = antigravity.get("command").and_then(Value::as_str) == Some(command)
+        && antigravity.get("tool_source").and_then(Value::as_str) == Some("runtime_discovery")
+        && antigravity.get("tool_cache").and_then(Value::as_str) == Some("forbidden")
+        && antigravity.get("exposure_ssot").and_then(Value::as_str) == Some(exposure_rel);
+    if !projection_matches {
+        findings.push(finding(
+            "critical",
+            "antigravity_projection_drift",
+            antigravity_rel,
+            "Antigravity must point at the canonical MCP command and discover tools at runtime without a duplicated cache",
+            Some(command.to_string()),
+        ));
+    }
 }
 
 pub(crate) fn check_session_handshake(
