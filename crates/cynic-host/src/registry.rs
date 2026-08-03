@@ -191,6 +191,7 @@ pub struct ResolvedHostIdentity {
 pub struct ResolvedBuildRunnerTransport {
     pub node_id: String,
     pub role: String,
+    pub transport_kind: String,
     pub ssh_target: String,
     pub trust: String,
     pub enrollment_authority_class: String,
@@ -471,6 +472,7 @@ fn resolve_role_transport(
     Ok(ResolvedBuildRunnerTransport {
         node_id,
         role: role.to_string(),
+        transport_kind: "ssh".to_string(),
         ssh_target,
         trust,
         enrollment_authority_class,

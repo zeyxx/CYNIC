@@ -7,6 +7,15 @@ use crate::ports::RemoteExecutionPort;
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SshRemoteExecutionAdapter;
 
+pub fn remote_execution_adapter(
+    transport_kind: &str,
+) -> Result<Box<dyn RemoteExecutionPort>, String> {
+    match transport_kind {
+        "ssh" => Ok(Box::new(SshRemoteExecutionAdapter)),
+        other => Err(format!("remote_execution_adapter_unavailable:{other}")),
+    }
+}
+
 impl RemoteExecutionPort for SshRemoteExecutionAdapter {
     fn exec_argv(&self, target: &str, remote_argv: &[&str]) -> Result<Vec<String>, String> {
         validate_target(target)?;
