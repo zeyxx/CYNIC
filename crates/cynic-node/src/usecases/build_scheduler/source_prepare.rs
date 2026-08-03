@@ -13,38 +13,45 @@ use crate::{
     adapters::{
         local_source_materialization::LocalSourceMaterialization,
         local_source_repository_bootstrap::LocalSourceRepositoryBootstrap,
+        source_snapshot_store::snapshot_path,
     },
     config::{BuildSchedulerConfig, NodeControlConfig},
     ports::{
         agent_workspace_port::AgentWorkspaceLayout,
+        runtime_artifact_transport_port::RuntimeArtifactTransportPort,
         source_materialization_port::SourceMaterializationPort,
         source_repository_bootstrap_port::SourceRepositoryBootstrapPort,
     },
 };
 
-pub(super) fn prepare_build_source<R: ArgvRunner>(
+pub(super) async fn prepare_build_source<R: ArgvRunner, T: RuntimeArtifactTransportPort>(
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     source: &BuildSourceReference,
     workload_id: &str,
     layout: AgentWorkspaceLayout,
     runner: &R,
+    artifact_transport: &T,
     cancellation: &tokio_util::sync::CancellationToken,
 ) -> Result<(AgentWorkspaceLayout, Vec<String>), String> {
     if source.schema != BUILD_SOURCE_REFERENCE_SCHEMA {
         return Err("build_source_reference_schema_mismatch".to_string());
     }
     match &source.snapshot {
-        Some(snapshot) => prepare_snapshot_source(
-            control,
-            scheduler,
-            source,
-            snapshot,
-            workload_id,
-            layout,
-            runner,
-            cancellation,
-        ),
+        Some(snapshot) => {
+            prepare_snapshot_source(
+                control,
+                scheduler,
+                source,
+                snapshot,
+                workload_id,
+                layout,
+                runner,
+                artifact_transport,
+                cancellation,
+            )
+            .await
+        }
         None => prepare_live_git_source(control, source, layout, runner, cancellation),
     }
 }
@@ -102,7 +109,7 @@ fn prepare_live_git_source<R: ArgvRunner>(
     Ok((layout, vec![source.authority_ref.clone()]))
 }
 
-fn prepare_snapshot_source<R: ArgvRunner>(
+async fn prepare_snapshot_source<R: ArgvRunner, T: RuntimeArtifactTransportPort>(
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     source: &BuildSourceReference,
@@ -110,6 +117,7 @@ fn prepare_snapshot_source<R: ArgvRunner>(
     workload_id: &str,
     mut layout: AgentWorkspaceLayout,
     runner: &R,
+    artifact_transport: &T,
     cancellation: &tokio_util::sync::CancellationToken,
 ) -> Result<(AgentWorkspaceLayout, Vec<String>), String> {
     let target_relative_path = format!("source/materializations/{workload_id}");
@@ -136,24 +144,52 @@ fn prepare_snapshot_source<R: ArgvRunner>(
         &control.node_id,
         "build_runner",
     );
-    let before = adapter.observe(&request).map_err(|error| error.code)?;
-    let initial = plan_source_materialization(&request, &before, now_unix_ms());
-    match initial.status.as_str() {
-        "converged" => {}
-        "planned" if before.snapshot_present => {
-            if cancellation.is_cancelled() {
-                return Err("build_scheduler_cancelled_before_snapshot_materialization".to_string());
-            }
-            adapter.materialize(&request).map_err(|error| error.code)?;
-            let after = adapter.observe(&request).map_err(|error| error.code)?;
-            let read_back = plan_source_materialization(&request, &after, now_unix_ms());
-            if read_back.status != "converged" {
-                return Err("build_source_snapshot_materialization_read_back_failed".to_string());
-            }
+    let mut provenance = vec![snapshot.digest.clone(), snapshot.authority_ref.clone()];
+    let mut observed = adapter.observe(&request).map_err(|error| error.code)?;
+    let initial = plan_source_materialization(&request, &observed, now_unix_ms());
+    if initial.status == "blocked" {
+        return Err(initial.blockers.join(","));
+    }
+    if initial.status == "unknown" {
+        return Err(initial.unknowns.join(","));
+    }
+    if initial.status == "planned" && !observed.snapshot_present {
+        if cancellation.is_cancelled() {
+            return Err("build_scheduler_cancelled_before_snapshot_acquisition".to_string());
         }
-        "planned" => return Err("build_source_snapshot_not_staged".to_string()),
-        "blocked" => return Err(initial.blockers.join(",")),
-        _ => return Err(initial.unknowns.join(",")),
+        let destination =
+            snapshot_path(&snapshot_root, &snapshot.digest).map_err(|error| error.code)?;
+        let source = snapshot
+            .source
+            .as_ref()
+            .ok_or_else(|| "build_source_snapshot_recovery_source_missing".to_string())?;
+        let receipt = artifact_transport
+            .stage(source, &destination, Some(&snapshot.digest))
+            .await?;
+        if receipt.status != "proved" || receipt.observed_digest != snapshot.digest {
+            return Err("build_source_snapshot_acquisition_read_back_failed".to_string());
+        }
+        provenance.push(receipt.evidence_ref);
+        observed = adapter.observe(&request).map_err(|error| error.code)?;
+    }
+    let acquired = plan_source_materialization(&request, &observed, now_unix_ms());
+    if acquired.status == "planned" {
+        if cancellation.is_cancelled() {
+            return Err("build_scheduler_cancelled_before_snapshot_materialization".to_string());
+        }
+        adapter.materialize(&request).map_err(|error| error.code)?;
+        let after = adapter.observe(&request).map_err(|error| error.code)?;
+        let read_back = plan_source_materialization(&request, &after, now_unix_ms());
+        if read_back.status != "converged" {
+            return Err("build_source_snapshot_materialization_read_back_failed".to_string());
+        }
+    } else if acquired.status != "converged" {
+        return Err(acquired
+            .blockers
+            .into_iter()
+            .chain(acquired.unknowns)
+            .collect::<Vec<_>>()
+            .join(","));
     }
     layout.repository_root = control
         .agent_workload_state_root
@@ -164,10 +200,7 @@ fn prepare_snapshot_source<R: ArgvRunner>(
         "commit": source.revision,
     }))
     .map_err(|_| "build_source_snapshot_layout_digest_failed".to_string())?;
-    Ok((
-        layout,
-        vec![snapshot.digest.clone(), snapshot.authority_ref.clone()],
-    ))
+    Ok((layout, provenance))
 }
 
 fn retention_deadline(command_timeout_secs: u64) -> u64 {

@@ -62,6 +62,8 @@ pub struct ValidateParams {
     pub snapshot_digest: Option<String>,
     /// Authority that produced and proved snapshot_digest. Required with snapshot_digest.
     pub snapshot_authority_ref: Option<String>,
+    /// Secret-free HTTPS locator for the content-addressed git bundle. Required with snapshot_digest.
+    pub snapshot_locator: Option<String>,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
 }

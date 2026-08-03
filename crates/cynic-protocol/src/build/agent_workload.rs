@@ -9,8 +9,9 @@ use crate::{
 
 use super::{
     BUILD_AGENT_REQUEST_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA,
-    BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA, BuildAgentRequest, BuildSourceReference,
-    BuildSourceSnapshotReference, admit_build_agent_request, validate_build_source_reference,
+    BUILD_SOURCE_SNAPSHOT_REFERENCE_LEGACY_SCHEMA, BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA,
+    BuildAgentRequest, BuildSourceReference, BuildSourceSnapshotReference,
+    admit_build_agent_request, validate_build_source_reference,
 };
 
 pub fn build_agent_request_from_workload(
@@ -66,10 +67,17 @@ pub fn build_source_reference_from_workload(
         .iter()
         .filter(|reference| reference.kind == "source_snapshot")
         .collect::<Vec<_>>();
+    let snapshot_sources = envelope
+        .delegation
+        .context_refs
+        .iter()
+        .filter(|reference| reference.kind == "source_snapshot_transport")
+        .collect::<Vec<_>>();
     let ([repository], [commit]) = (repositories.as_slice(), commits.as_slice()) else {
         return Err(vec!["build_workload_source_context_ambiguous".to_string()]);
     };
-    if snapshots.len() > 1 {
+    if snapshots.len() > 1 || snapshot_sources.len() > 1 || snapshot_sources.len() > snapshots.len()
+    {
         return Err(vec![
             "build_workload_snapshot_context_ambiguous".to_string(),
         ]);
@@ -88,10 +96,16 @@ pub fn build_source_reference_from_workload(
             .as_ref()
             .map(|lineage| lineage.producer_id.clone())
             .unwrap_or_default(),
-        snapshot: snapshots
-            .first()
-            .map(|snapshot| BuildSourceSnapshotReference {
-                schema: BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string(),
+        snapshot: snapshots.first().map(|snapshot| {
+            let source = snapshot_sources
+                .first()
+                .and_then(|snapshot_source| serde_json::from_str(&snapshot_source.subject).ok());
+            BuildSourceSnapshotReference {
+                schema: if source.is_some() {
+                    BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string()
+                } else {
+                    BUILD_SOURCE_SNAPSHOT_REFERENCE_LEGACY_SCHEMA.to_string()
+                },
                 digest: snapshot.subject.clone(),
                 format: crate::SOURCE_MATERIALIZATION_FORMAT.to_string(),
                 authority_ref: snapshot
@@ -99,7 +113,9 @@ pub fn build_source_reference_from_workload(
                     .as_ref()
                     .map(|lineage| lineage.producer_id.clone())
                     .unwrap_or_default(),
-            }),
+                source,
+            }
+        }),
     };
     let mut blockers = validate_build_source_reference(&source);
     if source.revision != envelope.policy_admission.intent.subject {
@@ -111,6 +127,9 @@ pub fn build_source_reference_from_workload(
         || snapshots
             .iter()
             .any(|snapshot| digest.as_deref() != Some(snapshot.digest.as_str()))
+        || snapshot_sources
+            .iter()
+            .any(|source| digest.as_deref() != Some(source.digest.as_str()))
         || digest.as_deref() != envelope.action.input_digest.as_deref()
     {
         blockers.push("build_workload_source_digest_mismatch".to_string());
@@ -306,6 +325,15 @@ fn build_source_context_refs(
             digest: input_digest.to_string(),
             lineage: Some(lineage(snapshot.authority_ref.clone())),
         });
+        if let Some(source) = &snapshot.source {
+            refs.push(AgentEvidenceRef {
+                kind: "source_snapshot_transport".to_string(),
+                subject: serde_json::to_string(source)
+                    .expect("admitted snapshot source is serializable"),
+                digest: input_digest.to_string(),
+                lineage: Some(lineage(snapshot.authority_ref.clone())),
+            });
+        }
     }
     refs
 }
@@ -361,6 +389,11 @@ mod tests {
             digest: format!("sha256:{}", "c".repeat(64)),
             format: crate::SOURCE_MATERIALIZATION_FORMAT.to_string(),
             authority_ref: "source-release:release-abc".to_string(),
+            source: Some(crate::RuntimeArtifactSource {
+                transport: crate::RuntimeArtifactTransportKind::Https,
+                locator: "https://cynic-storage-primary.synapse.cynic/source-snapshots/cccc.bundle"
+                    .to_string(),
+            }),
         };
         let request = BuildAgentRequest {
             schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
@@ -402,6 +435,15 @@ mod tests {
                 .context_refs
                 .iter()
                 .filter(|reference| reference.kind == "source_snapshot")
+                .count(),
+            1
+        );
+        assert_eq!(
+            envelope
+                .delegation
+                .context_refs
+                .iter()
+                .filter(|reference| reference.kind == "source_snapshot_transport")
                 .count(),
             1
         );

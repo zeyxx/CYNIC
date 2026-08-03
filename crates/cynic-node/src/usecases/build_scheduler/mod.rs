@@ -114,7 +114,9 @@ async fn execute_claimed(
         &claimed,
         &guard,
         &execution_cancel,
-    ) {
+    )
+    .await
+    {
         Ok(prepared) => prepared,
         Err(error) => {
             execution_cancel.cancel();

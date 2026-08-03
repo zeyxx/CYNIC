@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 pub const BUILD_AGENT_REQUEST_SCHEMA: &str = "cynic.build.agent_request.v3";
 pub const BUILD_AGENT_REQUEST_ADMISSION_SCHEMA: &str = "cynic.build.agent_request_admission.v1";
 pub const BUILD_SOURCE_REFERENCE_SCHEMA: &str = "cynic.build.source_reference.v1";
-pub const BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA: &str = "cynic.build.source_snapshot_reference.v1";
+pub const BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA: &str = "cynic.build.source_snapshot_reference.v2";
+pub(crate) const BUILD_SOURCE_SNAPSHOT_REFERENCE_LEGACY_SCHEMA: &str =
+    "cynic.build.source_snapshot_reference.v1";
 pub const BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA: &str =
     "cynic.build.release_publication_intent.v1";
 
@@ -24,6 +26,8 @@ pub struct BuildSourceSnapshotReference {
     pub digest: String,
     pub format: String,
     pub authority_ref: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<crate::RuntimeArtifactSource>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -191,7 +195,9 @@ pub fn validate_build_source_reference(source: &BuildSourceReference) -> Vec<Str
         blockers.push("build_source_authority_missing".to_string());
     }
     if let Some(snapshot) = &source.snapshot {
-        if snapshot.schema != BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA {
+        if snapshot.schema != BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA
+            && snapshot.schema != BUILD_SOURCE_SNAPSHOT_REFERENCE_LEGACY_SCHEMA
+        {
             blockers.push("build_source_snapshot_schema_mismatch".to_string());
         }
         if snapshot.format != "git_bundle_v1" {
@@ -209,8 +215,32 @@ pub fn validate_build_source_reference(source: &BuildSourceReference) -> Vec<Str
         if snapshot.authority_ref.trim().is_empty() {
             blockers.push("build_source_snapshot_authority_missing".to_string());
         }
+        match &snapshot.source {
+            Some(source) if snapshot.schema == BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA => {
+                if source.transport != crate::RuntimeArtifactTransportKind::Https {
+                    blockers.push("build_source_snapshot_transport_unsupported".to_string());
+                }
+                if !secret_free_https_locator(&source.locator) {
+                    blockers.push("build_source_snapshot_locator_invalid".to_string());
+                }
+            }
+            None if snapshot.schema == BUILD_SOURCE_SNAPSHOT_REFERENCE_LEGACY_SCHEMA => {}
+            _ => blockers.push("build_source_snapshot_recovery_source_invalid".to_string()),
+        }
     }
     blockers
+}
+
+fn secret_free_https_locator(locator: &str) -> bool {
+    let Some(remainder) = locator.strip_prefix("https://") else {
+        return false;
+    };
+    let authority = remainder.split('/').next().unwrap_or_default();
+    !authority.is_empty()
+        && !authority.contains('@')
+        && !locator.contains('?')
+        && !locator.contains('#')
+        && !locator.bytes().any(|byte| byte.is_ascii_whitespace())
 }
 
 fn is_commit_id(value: &str) -> bool {
@@ -313,6 +343,41 @@ mod tests {
             release_id: "release-a".to_string(),
             release_epoch: 1,
         });
+        assert_eq!(admit_build_agent_request(&request).status, "admitted");
+    }
+
+    #[test]
+    fn snapshot_recovery_locator_must_be_secret_free_https() {
+        let mut request = request(true);
+        request.source.snapshot = Some(BuildSourceSnapshotReference {
+            schema: BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string(),
+            digest: format!("sha256:{}", "a".repeat(64)),
+            format: "git_bundle_v1".to_string(),
+            authority_ref: "source-release:test".to_string(),
+            source: Some(crate::RuntimeArtifactSource {
+                transport: crate::RuntimeArtifactTransportKind::Https,
+                locator: "https://storage.invalid/snapshot.bundle?token=secret".to_string(),
+            }),
+        });
+
+        assert!(
+            admit_build_agent_request(&request)
+                .blockers
+                .contains(&"build_source_snapshot_locator_invalid".to_string())
+        );
+    }
+
+    #[test]
+    fn legacy_snapshot_without_recovery_source_remains_parseable() {
+        let mut request = request(true);
+        request.source.snapshot = Some(BuildSourceSnapshotReference {
+            schema: BUILD_SOURCE_SNAPSHOT_REFERENCE_LEGACY_SCHEMA.to_string(),
+            digest: format!("sha256:{}", "a".repeat(64)),
+            format: "git_bundle_v1".to_string(),
+            authority_ref: "source-release:test".to_string(),
+            source: None,
+        });
+
         assert_eq!(admit_build_agent_request(&request).status, "admitted");
     }
 

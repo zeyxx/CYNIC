@@ -13,6 +13,7 @@ use cynic_protocol::{
 use crate::{
     adapters::{
         ed25519_build_workload_grant::Ed25519BuildWorkloadGrantSigner,
+        http_runtime_artifact_transport::HttpRuntimeArtifactTransport,
         local_agent_workload_store::LocalAgentWorkloadStore,
         local_build_workload_grant_store::LocalBuildWorkloadGrantStore,
         local_build_workspace::LocalBuildWorkspace, registry::RegistryAgentWorkspaceLayoutAdapter,
@@ -36,7 +37,7 @@ pub(super) struct PreparedBuild {
     pub provenance: Vec<String>,
 }
 
-pub(super) fn prepare(
+pub(super) async fn prepare(
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     store: &LocalAgentWorkloadStore,
@@ -75,6 +76,12 @@ pub(super) fn prepare(
     }
 
     let runner = LocalArgvRunner;
+    let snapshot_root = control.agent_workload_state_root.join("source/snapshots");
+    let artifact_transport = HttpRuntimeArtifactTransport::new(
+        snapshot_root,
+        control.runtime_artifact_max_bytes,
+        Duration::from_secs(control.runtime_artifact_timeout_secs),
+    )?;
     let (source_layout, mut source_provenance) = prepare_build_source(
         control,
         scheduler,
@@ -82,8 +89,10 @@ pub(super) fn prepare(
         &claimed.record.envelope.workload_id,
         layout,
         &runner,
+        &artifact_transport,
         cancellation,
-    )?;
+    )
+    .await?;
     if cancellation.is_cancelled() {
         return Err("build_scheduler_cancelled_before_workspace".into());
     }
