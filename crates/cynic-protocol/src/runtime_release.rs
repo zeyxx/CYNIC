@@ -43,6 +43,7 @@ pub fn runtime_release_policy_digest(desired: &NodeDesiredState) -> Result<Strin
         "required_services": desired.required_services,
         "paused": desired.paused,
     }))
+    .map_err(|error| format!("failed to digest runtime release policy: {error}"))
 }
 
 pub fn admit_runtime_release(

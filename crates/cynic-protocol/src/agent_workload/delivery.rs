@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AgentCompletionEnvelope, AgentWorkloadEnvelope, DurableAgentWorkloadRecord,
-    admit_agent_workload, validate_durable_agent_workload_record,
+    AgentWorkloadEnvelope, DurableAgentWorkloadRecord, admit_agent_workload,
+    validate_durable_agent_workload_record,
 };
-use crate::{EvidenceEnvelope, admit_completion, build_evidence_envelope_with_lineage};
+use crate::{
+    AgentCompletionEnvelope, EvidenceEnvelope, admit_completion,
+    build_evidence_envelope_with_lineage,
+};
 
 pub const AGENT_WORKLOAD_DELIVERY_SCHEMA: &str = "cynic.agent_workload_delivery.v1";
 pub const AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA: &str =
