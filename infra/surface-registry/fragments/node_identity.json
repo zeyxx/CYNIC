@@ -10,8 +10,7 @@
     "usecases::node_identity_uc"
   ],
   "owner_call_markers": [
-    "execute_node_identity",
-    "reconcile_node_identity"
+    "execute_node_identity"
   ],
   "responsibility": "Generate a node-local Ed25519 machine identity exactly once, observe only its public commitment and private-file safety, and require post-generation read-back before enrollment may continue.",
   "mutation_policy": "read_only_by_default_explicit_apply_create_once",

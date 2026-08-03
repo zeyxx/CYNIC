@@ -18,7 +18,6 @@
   "owner_call_markers": [
     "reconcile_storage_identity",
     "enroll_storage_identity",
-    "StorageIdentityAdminPort",
     "StorageIdentitySecretPort"
   ],
   "responsibility": "Enroll one least-privilege SurrealDB runtime identity and, through a separate content-addressed HumanAdmin command, migrate schema before steady-state runtime startup.",
