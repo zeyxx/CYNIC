@@ -41,7 +41,11 @@ pub fn discovery_result(exposure: &Value, request_meta_observed: bool, transport
             "mode": profile.get("request_metadata").cloned().unwrap_or(Value::Null),
             "observed": request_meta_observed,
         },
-        "tasks": profile.get("tasks").cloned().unwrap_or(Value::Null),
+        "tasks": {
+            "profile": profile.get("tasks").cloned().unwrap_or(Value::Null),
+            "implementation_status": "blocked_scheduler_runtime_unproven",
+            "conformance_read_back": false,
+        },
         "tool_schema": profile.get("tool_schema").cloned().unwrap_or(Value::Null),
         "tools": tools,
         "implementation_status": implementation_status,
@@ -50,6 +54,7 @@ pub fn discovery_result(exposure: &Value, request_meta_observed: bool, transport
             "discovery_method_served": true,
             "request_metadata_read_back": request_meta_observed,
             "stateless_transport_read_back": transport == "streamable_http_stateless",
+            "tasks_extension_conformance_read_back": false,
         },
         "legacy_compatibility": profile.get("legacy_compatibility").cloned().unwrap_or(Value::Null),
     })
@@ -78,6 +83,10 @@ mod tests {
         assert_eq!(result["implementation_status"], "migration_required");
         assert_eq!(result["read_back"]["discovery_method_served"], true);
         assert_eq!(result["read_back"]["stateless_transport_read_back"], false);
+        assert_eq!(
+            result["tasks"]["implementation_status"],
+            "blocked_scheduler_runtime_unproven"
+        );
         assert_eq!(result["request_metadata"]["observed"], true);
     }
 }
