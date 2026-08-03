@@ -13,7 +13,7 @@ cynic-inference = { path = "../cynic-inference" }
 cynic-node = { path = "../cynic-node" }
 cynic-observer = { path = "../cynic-observer" }
 cynic-protocol = { path = "../cynic-protocol" }
-rmcp = { version = "1.2", features = ["server", "transport-io", "macros"] }
+rmcp = { version = "=1.8.0", features = ["server", "transport-io", "macros"] }
 reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"

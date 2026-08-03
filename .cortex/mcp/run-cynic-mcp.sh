@@ -10,11 +10,8 @@ if [[ -z "${mcp_binary}" && -x "${runtime_mcp}" ]]; then
 fi
 
 if [[ -z "${mcp_binary}" ]]; then
-  mcp_binary="cynic-mcp"
-fi
-
-if [[ "${mcp_binary}" != */* ]]; then
-  mcp_binary="$(command -v "${mcp_binary}" || true)"
+  echo "cynic MCP blocked: no versioned runtime artifact at ${runtime_mcp}; refusing PATH fallback" >&2
+  exit 1
 fi
 
 if [[ -z "${mcp_binary}" || ! -x "${mcp_binary}" ]]; then
