@@ -103,6 +103,26 @@ bundle_root="${state_root}/bootstrap/framework-${source_commit:0:12}"
 [[ -d "${workspace}/.git" ]] || blocked "declared source workspace is absent"
 [[ ! -e "${completion}" ]] || blocked "bootstrap was already completed"
 
+sudo -u cynic git -C "${workspace}" status --porcelain --untracked-files=all | \
+  grep -q . && blocked "source workspace is not clean"
+if [[ -n "${source_bundle}" ]]; then
+  sudo -u cynic git -C "${workspace}" fetch --force "${source_bundle}" "${source_commit}"
+else
+  sudo -u cynic git -C "${workspace}" fetch --force "${source_url}" main
+fi
+sudo -u cynic git -C "${workspace}" cat-file -e "${source_commit}^{commit}"
+sudo -u cynic git -C "${workspace}" checkout --detach "${source_commit}"
+[[ "$(sudo -u cynic git -C "${workspace}" rev-parse HEAD)" == "${source_commit}" ]] \
+  || blocked "source commit read-back failed"
+[[ -z "$(sudo -u cynic git -C "${workspace}" status --porcelain --untracked-files=all)" ]] \
+  || blocked "materialized source is not exact"
+[[ -f "${workspace}/infra/registry.json" ]] \
+  || blocked "source commit does not contain the canonical registry"
+registry_digest="sha256:$(sha256sum "${registry_path}" | awk '{print $1}')"
+source_registry_digest="sha256:$(sha256sum "${workspace}/infra/registry.json" | awk '{print $1}')"
+[[ "${registry_digest}" == "${source_registry_digest}" ]] \
+  || blocked "runtime registry does not match the exact source commit"
+
 temporary_root="${TMPDIR:-/tmp}"
 [[ "${temporary_root}" == /* && "${temporary_root}" != *".."* ]] \
   || blocked "temporary root is unsafe"
@@ -182,30 +202,16 @@ if [[ "${target_phase}" == "activate" ]]; then
     || blocked "staged one-time enrollment token is missing"
 fi
 
-sudo -u cynic git -C "${workspace}" status --porcelain --untracked-files=all | \
-  grep -q . && blocked "source workspace is not clean"
-if [[ -n "${source_bundle}" ]]; then
-  sudo -u cynic git -C "${workspace}" fetch --force "${source_bundle}" "${source_commit}"
-else
-  sudo -u cynic git -C "${workspace}" fetch --force "${source_url}" main
-fi
-sudo -u cynic git -C "${workspace}" cat-file -e "${source_commit}^{commit}"
-sudo -u cynic git -C "${workspace}" checkout --detach "${source_commit}"
-[[ "$(sudo -u cynic git -C "${workspace}" rev-parse HEAD)" == "${source_commit}" ]] \
-  || blocked "source commit read-back failed"
-[[ -z "$(sudo -u cynic git -C "${workspace}" status --porcelain --untracked-files=all)" ]] \
-  || blocked "materialized source is not exact"
-
 install -d -o root -g cynic -m 0750 "${state_root}/bootstrap"
-registry_digest="sha256:$(sha256sum "${registry_path}" | awk '{print $1}')"
 jq -n \
   --arg node "${node_id}" \
   --arg commit "${source_commit}" \
   --arg registry "${registry_path}" \
   --arg registry_digest "${registry_digest}" \
+  --arg source_bundle_digest "${source_bundle_digest}" \
   --arg target_phase "${target_phase}" \
   --argjson allowed_actions "${allowed_actions}" \
-  '{schema:"cynic.build_runner.bootstrap_admission.v1",status:"admitted",authority_class:"MachineEnrollment",node_id:$node,source_commit:$commit,registry_path:$registry,registry_digest:$registry_digest,target_phase:$target_phase,allowed_actions:$allowed_actions}' \
+  '{schema:"cynic.build_runner.bootstrap_admission.v1",status:"admitted",authority_class:"MachineEnrollment",node_id:$node,source_commit:$commit,registry_path:$registry,registry_digest:$registry_digest,source_bundle_digest:(if $source_bundle_digest == "" then null else $source_bundle_digest end),target_phase:$target_phase,allowed_actions:$allowed_actions}' \
   > "${admission}"
 chown root:cynic "${admission}"
 chmod 0640 "${admission}"
@@ -223,7 +229,8 @@ if [[ "${target_phase}" == "check" ]]; then
     --arg node "${node_id}" \
     --arg commit "${source_commit}" \
     --arg registry_digest "${registry_digest}" \
-    '{schema:"cynic.build_runner.bootstrap_check.v1",status:"proved",node_id:$node,source_commit:$commit,registry_digest:$registry_digest,target_phase:"check",proofs:["source_commit_read_back","source_bundle_digest_read_back","build_resource_preflight_read_back","canonical_make_check_completed"]}' \
+    --arg source_bundle_digest "${source_bundle_digest}" \
+    '{schema:"cynic.build_runner.bootstrap_check.v1",status:"proved",node_id:$node,source_commit:$commit,registry_digest:$registry_digest,source_bundle_digest:(if $source_bundle_digest == "" then null else $source_bundle_digest end),target_phase:"check",proofs:(["source_commit_read_back"] + (if $source_bundle_digest == "" then ["source_transport_read_back"] else ["source_bundle_digest_read_back"] end) + ["registry_source_read_back","build_resource_preflight_read_back","canonical_make_check_completed"])}' \
     > "${check_proof}"
   chown root:cynic "${check_proof}"
   chmod 0640 "${check_proof}"
@@ -243,9 +250,11 @@ cli_digest="sha256:$(sha256sum "${target_root}/release/cynic" | awk '{print $1}'
 jq -n \
   --arg node "${node_id}" \
   --arg commit "${source_commit}" \
+  --arg registry_digest "${registry_digest}" \
+  --arg source_bundle_digest "${source_bundle_digest}" \
   --arg node_digest "${node_digest}" \
   --arg cli_digest "${cli_digest}" \
-  '{schema:"cynic.build_runner.bootstrap_build.v1",status:"proved",node_id:$node,source_commit:$commit,target_phase:"build",artifacts:{"cynic-node":$node_digest,"cynic":$cli_digest},proofs:["source_commit_read_back","build_resource_preflight_read_back","release_build_completed","artifact_digest_read_back"]}' \
+  '{schema:"cynic.build_runner.bootstrap_build.v1",status:"proved",node_id:$node,source_commit:$commit,registry_digest:$registry_digest,source_bundle_digest:(if $source_bundle_digest == "" then null else $source_bundle_digest end),target_phase:"build",artifacts:{"cynic-node":$node_digest,"cynic":$cli_digest},proofs:(["source_commit_read_back"] + (if $source_bundle_digest == "" then ["source_transport_read_back"] else ["source_bundle_digest_read_back"] end) + ["registry_source_read_back","build_resource_preflight_read_back","release_build_completed","artifact_digest_read_back"])}' \
   > "${build_proof}"
 chown root:cynic "${build_proof}"
 chmod 0640 "${build_proof}"
