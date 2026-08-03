@@ -4,7 +4,7 @@
 //! module exposes the 2026-07-28 discovery contract without claiming that the
 //! stateless Streamable HTTP implementation is complete.
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 pub const TARGET_REVISION: &str = "2026-07-28";
 pub const DISCOVERY_METHOD: &str = "server/discover";
@@ -56,7 +56,12 @@ pub fn discovery_result(exposure: &Value, request_meta_observed: bool, transport
         "schema": "cynic.mcp.server_discover.v1",
         "protocol_revision": TARGET_REVISION,
         "method": DISCOVERY_METHOD,
-        "server": "cynic",
+        "_meta": {
+            "io.modelcontextprotocol/serverInfo": {
+                "name": "cynic",
+                "version": "runtime"
+            }
+        },
         "transport_observed": transport,
         "stateless_core": profile.get("stateless_core").cloned().unwrap_or(Value::Null),
         "request_metadata": {
@@ -78,7 +83,14 @@ pub fn discovery_result(exposure: &Value, request_meta_observed: bool, transport
             "request_metadata_read_back": request_meta_observed,
             "stateless_transport_read_back": transport == "streamable_http_stateless",
             "tasks_extension_conformance_read_back": false,
+            "server_info_in_result_meta": true,
+            "cache_hints": {
+                "ttlMs": 0,
+                "cacheScope": "private"
+            },
         },
+        "ttlMs": 0,
+        "cacheScope": "private",
         "legacy_compatibility": profile.get("legacy_compatibility").cloned().unwrap_or(Value::Null),
     })
 }

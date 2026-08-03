@@ -7,15 +7,15 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    body::{Body, to_bytes},
+    body::{to_bytes, Body},
     http::{HeaderMap, Method, Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
+    Router,
 };
 use rmcp::transport::{
-    StreamableHttpServerConfig, StreamableHttpService,
-    streamable_http_server::session::local::LocalSessionManager,
+    streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
+    StreamableHttpService,
 };
 use serde_json::Value;
 use tokio::net::TcpListener;
@@ -61,11 +61,10 @@ fn validate_2026_request(
     let Some(meta) = body.pointer("/params/_meta").and_then(Value::as_object) else {
         return Err("every MCP 2026 request requires params._meta");
     };
-    if !meta
-        .get("io.modelcontextprotocol/clientInfo")
-        .is_some_and(Value::is_object)
-    {
-        return Err("params._meta must include io.modelcontextprotocol/clientInfo");
+    if let Some(client_info) = meta.get("io.modelcontextprotocol/clientInfo") {
+        if !client_info.is_object() {
+            return Err("io.modelcontextprotocol/clientInfo must be an object when present");
+        }
     }
     if rpc_method == "tools/call" {
         let tool_name = body.pointer("/params/name").and_then(Value::as_str);
@@ -197,12 +196,21 @@ mod tests {
     }
 
     #[test]
-    fn wire_2026_rejects_unscoped_metadata() {
+    fn wire_2026_accepts_optional_client_info() {
         let (headers, mut body) = request("server/discover", None);
-        body["params"]["_meta"] = serde_json::json!({"other": true});
+        body["params"]["_meta"] = serde_json::json!({});
+        assert!(validate_2026_request(&headers, &Method::POST, &body).is_ok());
+    }
+
+    #[test]
+    fn wire_2026_rejects_malformed_optional_client_info() {
+        let (headers, mut body) = request("server/discover", None);
+        body["params"]["_meta"] = serde_json::json!({
+            "io.modelcontextprotocol/clientInfo": "not-an-object"
+        });
         assert_eq!(
             validate_2026_request(&headers, &Method::POST, &body),
-            Err("params._meta must include io.modelcontextprotocol/clientInfo")
+            Err("io.modelcontextprotocol/clientInfo must be an object when present")
         );
     }
 
