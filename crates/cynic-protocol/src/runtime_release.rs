@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AgentCompletionStatus, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
-    AgentWorkloadDeliveryStatus, NodeDesiredState, SignedReleaseBasketReadBack,
-    accept_agent_workload_delivery, build_agent_request_from_workload,
+    AgentCompletionStatus, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, NodeDesiredState,
+    SignedReleaseBasketReadBack, build_agent_request_from_workload,
     build_source_reference_from_workload, canonical_build_action_from_argv, digest_json,
     validate_agent_workload_delivery, validate_node_desired_state,
     validate_signed_release_basket_read_back,
@@ -219,6 +218,7 @@ mod tests {
         SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA, SignedReleaseBasketReadBack,
         build_evidence_envelope, complete_agent_workload_delivery, compose_build_agent_workload,
     };
+    use crate::{AgentWorkloadDeliveryAcceptance, accept_agent_workload_delivery};
 
     fn desired(source_commit: String, proof_digest: String) -> NodeDesiredState {
         let mut desired = NodeDesiredState {
