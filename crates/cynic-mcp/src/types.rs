@@ -521,3 +521,4 @@ include!("types_split/infra.rs");
 include!("types_split/fleet.rs");
 include!("types_split/storage.rs");
 include!("types_split/identity.rs");
+include!("types_split/inference.rs");

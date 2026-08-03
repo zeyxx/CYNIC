@@ -163,15 +163,18 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_inference_discover",
-        description = "Peer attach plane (loose coupling): probe local OpenAI-compat peers (ODS optional). Default applies into inference.toml SSOT. Schema cynic.inference.ods_discovery.v1. Does not install ODS."
+        description = "Peer attach plane (loose coupling): probe local OpenAI-compat peers (ODS optional). Dry-run by default; persist into inference.toml SSOT only with apply=true. Schema cynic.inference.ods_discovery.v1. Does not install ODS."
     )]
-    async fn cynic_inference_discover(&self) -> Result<CallToolResult, McpError> {
+    async fn cynic_inference_discover(
+        &self,
+        params: Parameters<InferenceDiscoverParams>,
+    ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
 
-        // MCP tools are mutation-tier: apply into SSOT (toml only; no Open WebUI side effect).
+        let apply = params.0.apply;
         let report = cynic_inference::peer_attach(cynic_inference::PeerAttachOptions {
-            apply: true,
+            apply,
             open_webui: false,
             node_id: "local-node".into(),
         })
