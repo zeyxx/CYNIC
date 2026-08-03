@@ -10,6 +10,27 @@
     "project_root": "Inject runtime paths through operator deployment context; never commit machine-local absolute paths.",
     "honesty": "This projection is complete for the current cynic-mcp binary. Tier labels mark product/legacy surfaces that are not low-layer runtime baseline."
   },
+  "mcp_protocol_profile": {
+    "target_revision": "2026-07-28",
+    "transport": "streamable_http",
+    "stateless_core": true,
+    "discovery_method": "server/discover",
+    "request_metadata": "per_request_meta",
+    "tasks": "extension",
+    "tool_schema": "json_schema_2020_12",
+    "legacy_compatibility": {
+      "revision": "2025-11-25",
+      "transport": "stdio",
+      "status": "compatibility_only"
+    },
+    "implementation_status": "migration_required",
+    "block_until": [
+      "stateless_streamable_http_read_back",
+      "server_discover_read_back",
+      "per_request_metadata_read_back",
+      "tasks_extension_conformance_read_back"
+    ]
+  },
   "projection_targets": {
     "codex": ".codex/config.toml"
   },
@@ -34,7 +55,8 @@
       "cynic_coord_who",
       "cynic_coord_claim",
       "cynic_source_control",
-      "cynic_validate"
+      "cynic_validate",
+      "mcp_protocol_profile:2026-07-28"
     ],
     "compatibility_policy": "contract revision is a minimum floor and every required capability must be observed from the running artifact; artifact version alone never proves compatibility",
     "incompatible_status": "blocked_incompatible",
@@ -356,7 +378,8 @@
       "tier": "product_domain",
       "tools": ["cynic_solana_plan"],
       "operator_tools": [
-        "cynic solana plan --json --cluster <cluster> --target <address>"
+        "cynic solana plan --json --cluster <cluster> --target <address>",
+        "cynic solana probe-plan --json --registry <path> --cluster <cluster> --target <address> --corpus-id <id>"
       ]
     },
     "inference": {

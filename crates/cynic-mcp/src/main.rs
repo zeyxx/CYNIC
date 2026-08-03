@@ -168,6 +168,14 @@ fn runtime_contract_report() -> Result<cynic_protocol::RuntimeCompatibilityPlan,
             .collect(),
         contract_digest: Some(desired_contract_digest),
     };
+    let mut compatibility_capabilities = active_mcp_tools(&compiled);
+    if compiled
+        .pointer("/mcp_protocol_profile/implementation_status")
+        .and_then(|value| value.as_str())
+        == Some("ready")
+    {
+        compatibility_capabilities.push("mcp_protocol_profile:2026-07-28".to_string());
+    }
     Ok(cynic_protocol::reconcile_runtime_compatibility(
         &requirement,
         &cynic_protocol::RuntimeContractObservation {
@@ -180,7 +188,7 @@ fn runtime_contract_report() -> Result<cynic_protocol::RuntimeCompatibilityPlan,
             contract_revision: compiled_handshake
                 .get("contract_revision")
                 .and_then(|value| value.as_u64()),
-            capabilities: Some(active_mcp_tools(&compiled)),
+            capabilities: Some(compatibility_capabilities),
             contract_digest: Some(compiled_contract_digest),
             evidence_refs: vec![format!("artifact:cynic-mcp:{}", env!("CYNIC_VERSION"))],
             unknowns: Vec::new(),

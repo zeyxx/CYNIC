@@ -34,6 +34,18 @@ fn active_mcp_exposed_tools(exposure: &serde_json::Value) -> Vec<String> {
         .collect()
 }
 
+fn mcp_protocol_capabilities(exposure: &serde_json::Value) -> Vec<String> {
+    if exposure
+        .pointer("/mcp_protocol_profile/implementation_status")
+        .and_then(|value| value.as_str())
+        == Some("ready")
+    {
+        vec!["mcp_protocol_profile:2026-07-28".to_string()]
+    } else {
+        Vec::new()
+    }
+}
+
 fn mcp_domain_surface(exposure: &serde_json::Value) -> Vec<serde_json::Value> {
     let Some(domains) = exposure
         .get("mcp_tool_domains")
@@ -143,7 +155,10 @@ fn mcp_surface_manifest(
         )
     })?;
     let desired_contract_digest = cynic_protocol::digest_json(&exposure).map_err(|error| {
-        McpError::internal_error(format!("cannot digest desired agent exposure: {error}"), None)
+        McpError::internal_error(
+            format!("cannot digest desired agent exposure: {error}"),
+            None,
+        )
     })?;
     let compiled_contract_digest =
         cynic_protocol::digest_json(&compiled_exposure).map_err(|error| {
@@ -154,6 +169,8 @@ fn mcp_surface_manifest(
         })?;
     let desired_tools = active_mcp_exposed_tools(&exposure);
     let compiled_capabilities = active_mcp_exposed_tools(&compiled_exposure);
+    let mut compatibility_capabilities = compiled_capabilities.clone();
+    compatibility_capabilities.extend(mcp_protocol_capabilities(&compiled_exposure));
     let exposed_tools = compiled_capabilities.clone();
     let domains = mcp_domain_surface(&compiled_exposure);
     let mut findings = mcp_surface_findings(&exposure);
@@ -230,7 +247,7 @@ fn mcp_surface_manifest(
             contract_revision: compiled_handshake
                 .get("contract_revision")
                 .and_then(|value| value.as_u64()),
-            capabilities: Some(compiled_capabilities),
+            capabilities: Some(compatibility_capabilities),
             contract_digest: Some(compiled_contract_digest.clone()),
             evidence_refs: vec![format!("artifact:cynic-mcp:{}", env!("CYNIC_VERSION"))],
             unknowns: Vec::new(),
