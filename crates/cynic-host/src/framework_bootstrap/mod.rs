@@ -1,5 +1,6 @@
 pub mod bundle;
 pub mod cli_install;
+pub mod epoch;
 pub mod lifecycle;
 pub mod machine_enrollment;
 mod placement;
@@ -12,6 +13,9 @@ mod types;
 
 pub use bundle::{write_framework_bootstrap_bundle, write_framework_bootstrap_bundle_for_role};
 pub use cli_install::install_standalone_cli;
+pub use epoch::{
+    FrameworkEpochPhase, FrameworkEpochPlan, advance_framework_epoch, plan_framework_epoch,
+};
 pub use lifecycle::{
     FrameworkLifecycleAudit, FrameworkLifecycleDimension, audit_framework_lifecycle,
 };
