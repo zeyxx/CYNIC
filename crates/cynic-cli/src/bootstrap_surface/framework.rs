@@ -76,15 +76,31 @@ pub(crate) enum BootstrapFrameworkCommand {
         #[arg(long)]
         target: Option<String>,
     },
-    EnrollmentRequest {
+    EnrollmentAuthorityPlan {
         #[arg(long)]
         json: bool,
         #[arg(long)]
         seed_manifest: String,
         #[arg(long)]
-        machine_id: String,
+        node: String,
         #[arg(long)]
-        role: String,
+        staging_root: String,
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    EnrollmentAuthorityApply {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        seed_manifest: String,
+        #[arg(long)]
+        node: String,
+        #[arg(long)]
+        staging_root: String,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        yes: bool,
     },
     LifecycleAudit {
         #[arg(long)]
@@ -208,27 +224,62 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
             node,
             yes,
         } => substrate::execute_substrate_apply(json, registry, node, yes),
-        BootstrapFrameworkCommand::EnrollmentRequest {
+        BootstrapFrameworkCommand::EnrollmentAuthorityPlan {
             json,
             seed_manifest,
-            machine_id,
-            role,
+            node,
+            staging_root,
+            registry,
         } => {
             if !json {
                 return ExitCode::FAILURE;
             }
-            let role = match framework_bootstrap::FrameworkRole::parse(&role) {
-                Ok(role) => role,
+            let registry = registry
+                .as_deref()
+                .unwrap_or(cynic_host::registry::DEFAULT_REGISTRY_PATH);
+            let spec = match framework_bootstrap::resolve_local_machine_enrollment_authority_spec(
+                Path::new(registry),
+                Path::new(&seed_manifest),
+                &node,
+                Path::new(&staging_root),
+            ) {
+                Ok(spec) => spec,
                 Err(error) => return fail(error),
             };
-            match framework_bootstrap::build_framework_enrollment_request(
-                &seed_manifest,
-                &machine_id,
-                role,
-            ) {
-                Ok(report) => emit_json(&report, true),
-                Err(error) => fail(error),
+            let observed =
+                framework_bootstrap::machine_enrollment::observe_machine_enrollment_authority(
+                    &spec,
+                );
+            let plan = framework_bootstrap::machine_enrollment::plan_machine_enrollment_authority(
+                &spec, &observed,
+            );
+            emit_json(&plan, plan.status == "blocked")
+        }
+        BootstrapFrameworkCommand::EnrollmentAuthorityApply {
+            json,
+            seed_manifest,
+            node,
+            staging_root,
+            registry,
+            yes,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
             }
+            let registry = registry
+                .as_deref()
+                .unwrap_or(cynic_host::registry::DEFAULT_REGISTRY_PATH);
+            let spec = match framework_bootstrap::resolve_local_machine_enrollment_authority_spec(
+                Path::new(registry),
+                Path::new(&seed_manifest),
+                &node,
+                Path::new(&staging_root),
+            ) {
+                Ok(spec) => spec,
+                Err(error) => return fail(error),
+            };
+            let report = framework_bootstrap::apply_machine_enrollment_authority(&spec, yes);
+            emit_json(&report, report.status == "blocked")
         }
         BootstrapFrameworkCommand::LifecycleAudit {
             json,

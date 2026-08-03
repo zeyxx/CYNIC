@@ -17,6 +17,7 @@ tokio = { version = "1.50.0", features = ["process", "io-util", "time"] }
 async-trait = "0.1"
 sysinfo = "0.39.6"
 zeroize = "1"
+ed25519-dalek = "2"
 
 [dev-dependencies]
 tempfile = "3"

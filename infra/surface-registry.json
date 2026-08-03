@@ -145,7 +145,8 @@
         "require checked-out repo to bootstrap a fresh node",
         "silently mutate /usr/local/bin without explicit apply",
         "collapse build success, installation success, activation, enrollment, and terminal read-back into one boolean",
-        "treat bundle generation or transport invocation as host installation proof"
+        "treat bundle generation or transport invocation as host installation proof",
+        "return one-time enrollment tokens through reports or stdout"
       ],
       "canonical_entrypoints": [
         "cynic bootstrap framework substrate-plan --json --node <id> [--registry <path>] [--observation <path>]",
@@ -154,6 +155,8 @@
         "cynic bootstrap framework propagation-plan --json --bundle-dir <dir> [--registry <path>] [--output <path>]",
         "cynic bootstrap framework propagate --json --bundle-dir <dir> [--registry <path>] [--output <path>] --yes",
         "cynic bootstrap framework lifecycle-audit --json --role <role> [--registry <path>]",
+        "cynic bootstrap framework enrollment-authority-plan --json --seed-manifest <path> --node <id> --staging-root <path> [--registry <path>]",
+        "cynic bootstrap framework enrollment-authority-apply --json --seed-manifest <path> --node <id> --staging-root <path> [--registry <path>] --yes",
         "cynic bootstrap framework install-cli --json [--apply]"
       ],
       "domain_owner": "cynic-host::framework_bootstrap",
@@ -166,6 +169,8 @@
         "cynic.framework_bootstrap.propagation_plan.v2",
         "cynic.framework_bootstrap.propagation_report.v2",
         "cynic.framework_bootstrap.lifecycle_audit.v1",
+        "cynic.machine_enrollment.authority_plan.v1",
+        "cynic.machine_enrollment.authority_apply_report.v1",
         "cynic.framework_install_apply.v1"
       ],
       "id": "framework_bootstrap",
@@ -178,7 +183,8 @@
         "assess_node_substrate",
         "apply_node_substrate",
         "install_standalone_cli",
-        "build_framework_enrollment_request",
+        "plan_machine_enrollment_authority",
+        "apply_machine_enrollment_authority",
         "audit_framework_lifecycle"
       ],
       "owner_crate": "cynic-host",

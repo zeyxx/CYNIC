@@ -18,6 +18,19 @@ pub struct NodeEnrollmentDesiredState {
     pub endpoint_service: String,
     pub credential_delivery: String,
     pub public_key_delivery: String,
+    pub authority_policy: MachineEnrollmentAuthorityPolicy,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MachineEnrollmentAuthorityPolicy {
+    pub authority_id: String,
+    pub token_ttl_s: u64,
+    pub renewal_authority_ttl_s: u64,
+    pub max_grant_ttl_s: u64,
+    #[serde(default)]
+    pub allowed_roles: Vec<String>,
+    #[serde(default)]
+    pub allowed_capabilities: Vec<String>,
 }
 
 pub fn validate_node_enrollment_desired_state(desired: &NodeEnrollmentDesiredState) -> Vec<String> {
@@ -47,7 +60,58 @@ pub fn validate_node_enrollment_desired_state(desired: &NodeEnrollmentDesiredSta
         "node_enrollment_public_key_delivery_unsupported",
         &mut blockers,
     );
+    let policy = &desired.authority_policy;
+    check(
+        !policy.authority_id.trim().is_empty(),
+        "node_enrollment_authority_id_missing",
+        &mut blockers,
+    );
+    check(
+        policy.token_ttl_s > 0,
+        "node_enrollment_token_ttl_invalid",
+        &mut blockers,
+    );
+    check(
+        policy.renewal_authority_ttl_s >= policy.token_ttl_s,
+        "node_enrollment_renewal_ttl_invalid",
+        &mut blockers,
+    );
+    check(
+        policy.max_grant_ttl_s > 0 && policy.max_grant_ttl_s <= policy.renewal_authority_ttl_s,
+        "node_enrollment_grant_ttl_invalid",
+        &mut blockers,
+    );
+    check(
+        !policy.allowed_roles.is_empty()
+            && policy
+                .allowed_roles
+                .iter()
+                .all(|role| !role.trim().is_empty()),
+        "node_enrollment_allowed_roles_missing",
+        &mut blockers,
+    );
+    check(
+        !policy.allowed_capabilities.is_empty()
+            && policy
+                .allowed_capabilities
+                .iter()
+                .all(|capability| !capability.trim().is_empty()),
+        "node_enrollment_allowed_capabilities_missing",
+        &mut blockers,
+    );
     blockers
+}
+
+pub fn required_node_enrollment_capabilities(role: &str) -> Vec<String> {
+    let mut capabilities = vec!["node_control".to_string(), role.to_string()];
+    if role == "build_runner" {
+        capabilities.extend(
+            crate::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
+                .iter()
+                .map(|capability| (*capability).to_string()),
+        );
+    }
+    capabilities
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -602,6 +666,14 @@ mod tests {
             endpoint_service: "cynic-kernel".to_string(),
             credential_delivery: "machine_enrollment_staging".to_string(),
             public_key_delivery: "machine_enrollment_staging".to_string(),
+            authority_policy: MachineEnrollmentAuthorityPolicy {
+                authority_id: "cynic-runtime-machine-enrollment".to_string(),
+                token_ttl_s: 900,
+                renewal_authority_ttl_s: 2_592_000,
+                max_grant_ttl_s: 86_400,
+                allowed_roles: vec!["build_runner".to_string()],
+                allowed_capabilities: vec!["build.execute".to_string()],
+            },
         };
         assert!(validate_node_enrollment_desired_state(&desired).is_empty());
 

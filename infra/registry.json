@@ -18,7 +18,29 @@
     "authority_role": "kernel_primary",
     "endpoint_service": "cynic-kernel",
     "credential_delivery": "machine_enrollment_staging",
-    "public_key_delivery": "machine_enrollment_staging"
+    "public_key_delivery": "machine_enrollment_staging",
+    "authority_policy": {
+      "authority_id": "cynic-runtime-machine-enrollment",
+      "token_ttl_s": 900,
+      "renewal_authority_ttl_s": 2592000,
+      "max_grant_ttl_s": 86400,
+      "allowed_roles": [
+        "build_runner"
+      ],
+      "allowed_capabilities": [
+        "node_control",
+        "build_runner",
+        "kernel_to_node_workload_delivery_read_back",
+        "scheduler_claim_renewal",
+        "scheduler_cancellation_delivery",
+        "scheduler_crash_recovery",
+        "node_owned_build_grant_machine_signer",
+        "build_runner_signature_and_live_workload_verifier",
+        "scheduler_to_build_runner_execution_transport",
+        "build_completion_and_artifact_read_back",
+        "node_workspace_observer_wiring_and_proof"
+      ]
+    }
   },
   "network_policy": {
     "canonical_service_plane": "synapse",
