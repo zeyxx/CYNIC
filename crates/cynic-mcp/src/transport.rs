@@ -58,9 +58,14 @@ fn validate_2026_request(
     {
         return Err("Mcp-Method must match the JSON-RPC method");
     }
-    let meta = body.pointer("/params/_meta");
-    if !meta.is_some_and(Value::is_object) {
+    let Some(meta) = body.pointer("/params/_meta").and_then(Value::as_object) else {
         return Err("every MCP 2026 request requires params._meta");
+    };
+    if !meta
+        .get("io.modelcontextprotocol/clientInfo")
+        .is_some_and(Value::is_object)
+    {
+        return Err("params._meta must include io.modelcontextprotocol/clientInfo");
     }
     if rpc_method == "tools/call" {
         let tool_name = body.pointer("/params/name").and_then(Value::as_str);
@@ -181,6 +186,16 @@ mod tests {
         assert_eq!(
             validate_2026_request(&headers, &Method::POST, &body),
             Err("Mcp-Name must match params.name for tools/call")
+        );
+    }
+
+    #[test]
+    fn wire_2026_rejects_unscoped_metadata() {
+        let (headers, mut body) = request("server/discover", None);
+        body["params"]["_meta"] = serde_json::json!({"other": true});
+        assert_eq!(
+            validate_2026_request(&headers, &Method::POST, &body),
+            Err("params._meta must include io.modelcontextprotocol/clientInfo")
         );
     }
 }

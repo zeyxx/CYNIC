@@ -30,7 +30,7 @@
       "protocol_header": "MCP-Protocol-Version: 2026-07-28",
       "method_header": "Mcp-Method matches JSON-RPC method",
       "tool_name_header": "Mcp-Name matches tools/call params.name",
-      "request_meta": "params._meta required",
+      "request_meta": "params._meta.io.modelcontextprotocol/clientInfo required",
       "initialize": "rejected",
       "session_header": "not emitted"
     },
