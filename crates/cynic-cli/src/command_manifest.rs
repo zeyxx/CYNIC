@@ -29,6 +29,13 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "solana",
+                commands: vec![
+                    "cynic solana plan --json --cluster <cluster> --target <address> [--helius-plan <free|developer|business|professional|enterprise|unknown>] [--commitment <confirmed|finalized>] [--signature-page-limit <n>] [--max-signature-pages <n>] [--max-transactions <n>] [--expected-transactions <n>]",
+                    "cynic solana probe-plan --json --registry <path> --cluster <cluster> --target <address> --corpus-id <id>",
+                ],
+            },
+            CommandDomain {
                 name: "runtime",
                 commands: vec![
                     "cynic runtime paths --json [--registry <path>]",
@@ -66,6 +73,8 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic deps plan [--json]",
                     "cynic deps audit [--json]",
                     "cynic deps upgrade [--yes] [--json] [--apply --confirm <token>] [--only <id>]...",
+                    "cynic update [<target>] [--json]",
+                    "cynic status [--json]",
                     "cynic runtime deps [--json]  # alias",
                     "cynic runtime deps-audit [--json]  # alias",
                 ],

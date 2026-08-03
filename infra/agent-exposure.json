@@ -242,6 +242,7 @@
       "status": "desired_unproven",
       "tools": [
         { "name": "cynic_mcp_surface", "tier": "baseline_runtime", "mutation": "read_only" },
+        { "name": "cynic_solana_plan", "tier": "product_domain", "mutation": "read_only" },
         { "name": "cynic_api_contracts", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_health", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_attention", "tier": "baseline_runtime", "mutation": "read_only" },
@@ -349,6 +350,14 @@
       "tier": "mixed_baseline_and_product",
       "tools": ["cynic_judge", "cynic_observe"],
       "operator_tools": []
+    },
+    "solana_observation": {
+      "description": "Read-only Solana ingestion planning with explicit provider strategy, budget and credit estimates.",
+      "tier": "product_domain",
+      "tools": ["cynic_solana_plan"],
+      "operator_tools": [
+        "cynic solana plan --json --cluster <cluster> --target <address>"
+      ]
     },
     "inference": {
       "description": "CYNIC native sovereign inference (routing SSOT) plus optional attach to an Osmantic ODS-bootstrapped local AI environment (https://github.com/Osmantic/ODS).",

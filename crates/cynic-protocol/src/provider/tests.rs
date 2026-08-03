@@ -68,11 +68,9 @@ fn missing_provider_resource_ref_stays_blocked() {
     let decision = reconcile_node_substrate(&desired, &observed());
 
     assert_eq!(decision.status, "blocked");
-    assert!(
-        decision
-            .blockers
-            .contains(&"provider_resource_ref_missing".to_string())
-    );
+    assert!(decision
+        .blockers
+        .contains(&"provider_resource_ref_missing".to_string()));
 }
 
 #[test]
@@ -107,11 +105,9 @@ fn absent_substrate_without_reconstruction_identity_stays_blocked() {
 
     assert_eq!(decision.status, "blocked");
     assert_eq!(decision.action, None);
-    assert!(
-        decision
-            .blockers
-            .contains(&"node_substrate_provisioning_spec_missing".to_string())
-    );
+    assert!(decision
+        .blockers
+        .contains(&"node_substrate_provisioning_spec_missing".to_string()));
 }
 
 #[test]
@@ -134,14 +130,10 @@ fn absent_substrate_with_content_addressed_reconstruction_plans_provisioning() {
     assert_eq!(decision.status, "planned");
     assert_eq!(decision.action, Some(NodeSubstrateAction::Provision));
     assert!(decision.mutates);
-    assert!(
-        decision
-            .required_read_back
-            .contains(&"provisioned_image_digest_observed".to_string())
-    );
-    assert!(
-        decision
-            .required_read_back
-            .contains(&"runtime_seed_digest_observed".to_string())
-    );
+    assert!(decision
+        .required_read_back
+        .contains(&"provisioned_image_digest_observed".to_string()));
+    assert!(decision
+        .required_read_back
+        .contains(&"runtime_seed_digest_observed".to_string()));
 }

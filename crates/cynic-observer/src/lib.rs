@@ -4,6 +4,7 @@ pub mod delegation;
 pub mod federation;
 pub mod parser;
 pub mod signal_mapper;
+pub mod solana_archive;
 pub mod wal;
 pub mod watcher;
 

@@ -41,16 +41,15 @@ use crate::types::{
     ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
     LxcExecBridgeStatusParams, McpRateLimit, MetabolismParams, NetworkIpamCheckParams,
     NetworkMeshDnsActivationApplyParams, NetworkMeshDnsActivationBundleParams,
-    NetworkMeshDnsActivationPlanParams,
-    NetworkMeshDnsActivationStatusParams, NetworkMeshDnsRenderParams,
-    NetworkMeshProviderFallbackHostsParams, NetworkMeshProviderFallbackStatusParams,
-    NetworkMeshStatusParams, ObserveParams, OperatorTransportStatusParams,
-    ProviderControlStatusParams, RegisterParams, ReleaseParams, RenewLeaseParams,
-    RuntimeReleaseDeclareParams, ServiceHealthParams, ServiceStatusParams, SourceControlParams,
-    SshTargetInspectParams, StoragePrimaryBundleParams, StoragePrimaryPlanParams,
-    StoragePrimaryReadinessParams, StoragePrimaryStatusParams, UpdateAgentTaskResultParams,
-    ValidateParams, WatchPendingAgentTasksParams, WhoParams, validate_agent_id,
-    validate_agent_task_content,
+    NetworkMeshDnsActivationPlanParams, NetworkMeshDnsActivationStatusParams,
+    NetworkMeshDnsRenderParams, NetworkMeshProviderFallbackHostsParams,
+    NetworkMeshProviderFallbackStatusParams, NetworkMeshStatusParams, ObserveParams,
+    OperatorTransportStatusParams, ProviderControlStatusParams, RegisterParams, ReleaseParams,
+    RenewLeaseParams, RuntimeReleaseDeclareParams, ServiceHealthParams, ServiceStatusParams,
+    SourceControlParams, SshTargetInspectParams, StoragePrimaryBundleParams,
+    StoragePrimaryPlanParams, StoragePrimaryReadinessParams, StoragePrimaryStatusParams,
+    UpdateAgentTaskResultParams, ValidateParams, WatchPendingAgentTasksParams, WhoParams,
+    validate_agent_id, validate_agent_task_content,
 };
 use cynic_host::ports::argv_execution::{
     ArgvExecutionPort, ArgvExecutionRequest, LocalArgvExecutionAdapter,
@@ -111,6 +110,7 @@ impl CynicMcpProxy {
             + Self::tool_router_local_network()
             + Self::tool_router_local_fleet_execution()
             + Self::tool_router_local_services()
+            + Self::tool_router_local_solana()
             + Self::tool_router_local_storage()
             + Self::tool_router_local_legacy_proxmox()
             + Self::tool_router_local_lifecycle_inference()

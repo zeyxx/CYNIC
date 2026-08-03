@@ -12,6 +12,7 @@ use crate::integrations_surface::{IntegrationsCommand, execute_integrations};
 use crate::lab_surface::{LabCommand, execute_lab};
 use crate::network_surface::{NetworkCommand, execute_network};
 use crate::runtime_surface::{RuntimeCommand, execute_runtime};
+use crate::solana_surface::{SolanaCommand, execute_solana};
 use crate::transport_surface::{TransportCommand, execute_transport};
 use crate::{Command, DepsCommand};
 
@@ -30,6 +31,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Commands { json } => execute_commands_manifest(json),
         Command::Fleet { command } => execute_fleet_command(command),
         Command::Runtime { command } => execute_runtime_command(command),
+        Command::Solana { command } => execute_solana_command(command),
         Command::Dev { command } => execute_dev_command(command),
         Command::Bootstrap { command } => execute_bootstrap_command(command),
         Command::Lab { command } => execute_lab_command(command),
@@ -38,6 +40,11 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Audit { command } => execute_audit_command(command),
         Command::Integrations { command } => execute_integrations_command(command),
         Command::Deps { command, json } => execute_deps_command(command, json),
+        Command::Update { target, json } => {
+            let only = target.map(|t| vec![t]).unwrap_or_default();
+            deps_surface::execute_deps_upgrade(json, false, true, None, &only)
+        }
+        Command::Status { json } => deps_surface::execute_deps(json),
         Command::Lifecycle { command } => crate::lifecycle_surface::execute_lifecycle(command),
         Command::Chat {
             prompt,
@@ -80,6 +87,10 @@ fn execute_fleet_command(command: FleetCommand) -> ExitCode {
 
 fn execute_runtime_command(command: RuntimeCommand) -> ExitCode {
     execute_runtime(command)
+}
+
+fn execute_solana_command(command: SolanaCommand) -> ExitCode {
+    execute_solana(command)
 }
 
 fn execute_dev_command(command: DevCommand) -> ExitCode {

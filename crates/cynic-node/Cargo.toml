@@ -43,6 +43,8 @@ cynic-inference = { path = "../cynic-inference" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+rustix = { version = "1", features = ["fs"] }
+
 
 [dev-dependencies]
 axum = "0.8"

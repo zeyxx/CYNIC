@@ -1,4 +1,5 @@
 pub mod argv_execution;
+pub mod causal_epoch_index;
 pub mod evidence_store;
 pub mod metabolism;
 pub mod provider_substrate;

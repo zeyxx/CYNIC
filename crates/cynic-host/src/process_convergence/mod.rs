@@ -1,16 +1,19 @@
 mod decision;
 mod observer;
 mod port;
+mod query;
 mod record;
 mod types;
 
 pub use decision::decide_process_convergence;
 pub use observer::LocalProcessConvergenceObserver;
 pub use port::ProcessConvergenceObservationPort;
+pub use query::{PROCESS_CONVERGENCE_PROJECTION_SCHEMA, project_process_convergence};
 pub use record::record_process_convergence_epoch;
 pub use types::{
     PROCESS_CONVERGENCE_DECISION_SCHEMA, PROCESS_CONVERGENCE_RECORD_SCHEMA,
-    ProcessConvergenceDecision, ProcessConvergenceRecord, ProcessConvergenceRequest,
+    ProcessConvergenceDecision, ProcessConvergenceHistoryItem, ProcessConvergenceProjection,
+    ProcessConvergenceRecord, ProcessConvergenceRequest,
 };
 
 use crate::ports::evidence_store::ContentAddressedEvidenceStorePort;

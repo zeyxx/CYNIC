@@ -1,9 +1,9 @@
 use super::types::{
-    NODE_SUBSTRATE_DECISION_SCHEMA, NODE_SUBSTRATE_OBSERVATION_SCHEMA,
-    NODE_SUBSTRATE_PROVISIONING_SCHEMA, NodeNetworkAttachment, NodeSubstrateAction,
-    NodeSubstrateDecision, NodeSubstrateDesiredState, NodeSubstrateExistence,
-    NodeSubstrateObservation, NodeSubstratePower, NodeSubstrateProvisioningSpec,
-    PROVIDER_CONTROL_DESIRED_STATE_SCHEMA, ProviderControlDesiredState,
+    NodeNetworkAttachment, NodeSubstrateAction, NodeSubstrateDecision, NodeSubstrateDesiredState,
+    NodeSubstrateExistence, NodeSubstrateObservation, NodeSubstratePower,
+    NodeSubstrateProvisioningSpec, ProviderControlDesiredState, NODE_SUBSTRATE_DECISION_SCHEMA,
+    NODE_SUBSTRATE_OBSERVATION_SCHEMA, NODE_SUBSTRATE_PROVISIONING_SCHEMA,
+    PROVIDER_CONTROL_DESIRED_STATE_SCHEMA,
 };
 
 pub fn validate_provider_control_desired_state(

@@ -1,7 +1,5 @@
 use crate::ports::storage_lease_port::StorageLeasePort;
 use cynic_protocol::{LeaseGuard, STORAGE_LEASE_SCHEMA, StorageLeaseGrant};
-#[cfg(unix)]
-use std::os::fd::AsRawFd;
 use std::{fs, path::PathBuf};
 
 #[derive(Debug, Clone)]
@@ -127,7 +125,7 @@ fn acquire_lock(path: &std::path::Path) -> Result<std::fs::File, String> {
         .open(path)
         .map_err(|_| "storage_lease_lock_open_failed".to_string())?;
     #[cfg(unix)]
-    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } != 0 {
+    if rustix::fs::flock(&file, rustix::fs::FlockOperation::LockExclusive).is_err() {
         return Err("storage_lease_lock_failed".to_string());
     }
     Ok(file)

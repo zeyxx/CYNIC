@@ -44,6 +44,7 @@ mod runtime_paths;
 mod runtime_suite;
 mod runtime_surface;
 mod rust_source;
+mod solana_surface;
 mod surface_audit;
 mod surface_registry;
 mod transport_surface;
@@ -59,6 +60,7 @@ use root_dispatch::{execute_root_command, print_cli_help};
 use runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use runtime_surface::RuntimeCommand;
 use serde::Serialize;
+use solana_surface::SolanaCommand;
 use transport_surface::TransportCommand;
 
 #[derive(Parser)]
@@ -81,6 +83,11 @@ enum Command {
     Runtime {
         #[command(subcommand)]
         command: RuntimeCommand,
+    },
+    /// Read-only Solana observation planning surfaces.
+    Solana {
+        #[command(subcommand)]
+        command: SolanaCommand,
     },
     Dev {
         #[command(subcommand)]
@@ -123,6 +130,20 @@ enum Command {
     Lifecycle {
         #[command(subcommand)]
         command: lifecycle_surface::LifecycleCommand,
+    },
+    /// One-word frictionless update for ecosystem components (hermes-agent, llama.cpp, cynic, etc.).
+    Update {
+        /// Optional target component id (e.g. hermes-agent). Omit to upgrade all stale components.
+        target: Option<String>,
+        /// Machine-readable JSON report.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Frictionless unified status report.
+    Status {
+        /// Machine-readable JSON report.
+        #[arg(long)]
+        json: bool,
     },
     /// Operator chat against the inference plane (session history under principal).
     /// Default with no prompt: interactive TUI. Does not require cynic-kernel.

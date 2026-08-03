@@ -47,9 +47,9 @@ pub fn reconcile_storage_controller(
     )
 }
 
-pub async fn apply_pending_storage_operation(
+pub async fn apply_pending_storage_operation<M: StorageMutationPort + ?Sized>(
     store: &dyn StorageControllerStorePort,
-    mutation: &dyn StorageMutationPort,
+    mutation: &M,
     request: &StorageMutationRequest,
     now_ms: u64,
     accepted_at_ms: u64,
@@ -120,9 +120,9 @@ pub async fn apply_pending_storage_operation(
     store.append(Some(current.metadata.generation), &verifying)
 }
 
-pub async fn verify_storage_operation(
+pub async fn verify_storage_operation<R: StorageOperationReadBackPort + ?Sized>(
     store: &dyn StorageControllerStorePort,
-    read_back: &dyn StorageOperationReadBackPort,
+    read_back: &R,
     node: &str,
     resource_id: &str,
     guest_observation: &cynic_protocol::StorageObservation,

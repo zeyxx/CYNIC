@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mcp_binary="${CYNIC_MCP_BINARY:-cynic-mcp}"
+runtime_root="${CYNIC_RUNTIME_INSTALL_ROOT:-/var/lib/cynic/runtime}"
+runtime_mcp="$runtime_root/current/cynic-mcp"
+mcp_binary="${CYNIC_MCP_BINARY:-}"
+
+if [[ -z "${mcp_binary}" && -x "${runtime_mcp}" ]]; then
+  mcp_binary="${runtime_mcp}"
+fi
+
+if [[ -z "${mcp_binary}" ]]; then
+  mcp_binary="cynic-mcp"
+fi
 
 if [[ "${mcp_binary}" != */* ]]; then
   mcp_binary="$(command -v "${mcp_binary}" || true)"

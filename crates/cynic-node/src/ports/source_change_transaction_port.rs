@@ -6,7 +6,7 @@ use super::agent_workspace_port::{AgentWorkspaceLayout, AgentWorkspacePortError}
 
 pub trait AgentSourceBlobStorePort: Send + Sync {
     fn persist(&self, expected_digest: &str, content: &[u8])
-    -> Result<(), AgentWorkspacePortError>;
+        -> Result<(), AgentWorkspacePortError>;
     fn load(&self, digest: &str) -> Result<Vec<u8>, AgentWorkspacePortError>;
 }
 

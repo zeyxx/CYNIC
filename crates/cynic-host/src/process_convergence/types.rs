@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::{CausalConvergenceEpoch, ConvergenceStatus, EvidenceEnvelope};
+use cynic_protocol::{
+    CausalConvergenceEpoch, CausalEpochIndexEntry, ConvergenceStatus, EvidenceEnvelope,
+};
 
 use crate::domain::services::{ServicePolicy, ServiceUnitPolicy};
 
@@ -48,4 +50,24 @@ pub struct ProcessConvergenceRecord {
     pub epoch: CausalConvergenceEpoch,
     pub epoch_evidence: EvidenceEnvelope,
     pub persisted_evidence_digests: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProcessConvergenceHistoryItem {
+    pub index: CausalEpochIndexEntry,
+    pub epoch: Option<CausalConvergenceEpoch>,
+    #[serde(default)]
+    pub residual_unknowns: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProcessConvergenceProjection {
+    pub schema: String,
+    pub subject_id: String,
+    pub vertical_id: String,
+    pub status: ConvergenceStatus,
+    pub latest: Option<CausalConvergenceEpoch>,
+    pub history: Vec<ProcessConvergenceHistoryItem>,
+    #[serde(default)]
+    pub residual_unknowns: Vec<String>,
 }

@@ -6,6 +6,18 @@ use rmcp::ErrorData as McpError;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SolanaPlanParams {
+    pub cluster: String,
+    pub target: String,
+    pub helius_plan: Option<String>,
+    pub signature_page_limit: Option<u16>,
+    pub max_signature_pages: Option<u32>,
+    pub max_transactions: Option<u64>,
+    pub expected_transactions: Option<u64>,
+    pub commitment: Option<String>,
+}
+
 // ── API discovery ─────────────────────────────────────────────
 
 #[derive(Debug, Deserialize, JsonSchema)]

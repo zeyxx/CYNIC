@@ -141,10 +141,12 @@ pub use capability_responsibility::{
     capability_responsibility_catalog,
 };
 pub use convergence::{
-    CAUSAL_CONVERGENCE_EPOCH_SCHEMA, CONVERGENCE_MATRIX_SCHEMA, CausalConvergenceEpoch,
-    CausalConvergenceEpochInput, CausalEvidenceRefs, ConvergenceCell, ConvergenceMatrixReport,
-    ConvergenceStatus, TrustAssessment, TrustDimensionStatus, TrustRequirements,
-    assess_causal_convergence_epoch, assess_convergence_matrix, merge_convergence_matrices,
+    CAUSAL_CONVERGENCE_EPOCH_SCHEMA, CAUSAL_EPOCH_INDEX_SCHEMA, CONVERGENCE_MATRIX_SCHEMA,
+    CausalConvergenceEpoch, CausalConvergenceEpochInput, CausalEpochIndex, CausalEpochIndexAppend,
+    CausalEpochIndexEntry, CausalEpochKey, CausalEvidenceRefs, ConvergenceCell,
+    ConvergenceMatrixReport, ConvergenceStatus, TrustAssessment, TrustDimensionStatus,
+    TrustRequirements, assess_causal_convergence_epoch, assess_convergence_matrix,
+    merge_convergence_matrices,
 };
 pub use coord::{
     LEASE_VERIFICATION_SCHEMA, LeaseVerification, coord_claim_path, coord_finalize_path,

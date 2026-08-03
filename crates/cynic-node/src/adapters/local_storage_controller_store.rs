@@ -1,5 +1,3 @@
-#[cfg(unix)]
-use std::os::fd::AsRawFd;
 use std::{fs, path::PathBuf};
 
 use cynic_protocol::{
@@ -132,7 +130,7 @@ fn acquire_lock(path: &std::path::Path) -> Result<std::fs::File, StorageControll
         .map_err(|_| error("storage_controller_store_lock_open_failed"))?;
     #[cfg(unix)]
     {
-        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } != 0 {
+        if rustix::fs::flock(&file, rustix::fs::FlockOperation::LockExclusive).is_err() {
             return Err(error("storage_controller_store_lock_failed"));
         }
     }
