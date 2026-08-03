@@ -3,7 +3,8 @@ use serde_json::Value;
 
 use crate::adapters::proxmox_control::ProxmoxControlAdapter;
 use crate::ports::storage_mutation_port::{
-    StorageMutationPort, StorageMutationRequest, StorageMutationResult,
+    StorageMutationPort, StorageMutationRequest, StorageMutationResult, StorageOperationReadBack,
+    StorageOperationReadBackPort,
 };
 use crate::ports::storage_provider_port::{StorageProviderPort, StorageProviderTarget};
 
@@ -133,6 +134,31 @@ impl StorageMutationPort for ProxmoxStorageAdapter<'_> {
             accepted: true,
             operation_ref,
             evidence_refs: vec!["proxmox_lxc_resize_accepted".to_string()],
+        })
+    }
+}
+
+impl StorageOperationReadBackPort for ProxmoxStorageAdapter<'_> {
+    async fn observe_operation(
+        &self,
+        node: &str,
+        operation_ref: &str,
+    ) -> Result<StorageOperationReadBack, String> {
+        let status = self.provider.task_status(node, operation_ref).await?;
+        let data = status.get("data").unwrap_or(&status);
+        let terminal = data
+            .get("status")
+            .and_then(Value::as_str)
+            .is_some_and(|value| matches!(value, "stopped" | "OK" | "completed"));
+        let succeeded = terminal
+            && data
+                .get("exitstatus")
+                .and_then(Value::as_str)
+                .is_none_or(|value| value == "OK");
+        Ok(StorageOperationReadBack {
+            terminal,
+            succeeded,
+            evidence_refs: vec!["proxmox_resize_task_read_back".to_string()],
         })
     }
 }

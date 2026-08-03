@@ -22,3 +22,18 @@ pub trait StorageMutationPort {
         request: &StorageMutationRequest,
     ) -> Result<StorageMutationResult, String>;
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StorageOperationReadBack {
+    pub terminal: bool,
+    pub succeeded: bool,
+    pub evidence_refs: Vec<String>,
+}
+
+pub trait StorageOperationReadBackPort {
+    async fn observe_operation(
+        &self,
+        node: &str,
+        operation_ref: &str,
+    ) -> Result<StorageOperationReadBack, String>;
+}

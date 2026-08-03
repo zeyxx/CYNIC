@@ -7,7 +7,9 @@ use crate::adapters::local_storage_controller_store::seal_storage_controller_rec
 use crate::ports::storage_controller_store_port::{
     StorageControllerStoreError, StorageControllerStorePort,
 };
-use crate::ports::storage_mutation_port::{StorageMutationPort, StorageMutationRequest};
+use crate::ports::storage_mutation_port::{
+    StorageMutationPort, StorageMutationRequest, StorageOperationReadBackPort,
+};
 use cynic_protocol::{StorageOperationEvent, advance_storage_operation};
 
 pub fn reconcile_storage_controller(
@@ -116,4 +118,82 @@ pub async fn apply_pending_storage_operation(
     seal_storage_controller_record(&mut verifying)
         .map_err(|code| StorageControllerStoreError { code })?;
     store.append(Some(current.metadata.generation), &verifying)
+}
+
+pub async fn verify_storage_operation(
+    store: &dyn StorageControllerStorePort,
+    read_back: &dyn StorageOperationReadBackPort,
+    node: &str,
+    resource_id: &str,
+    guest_observation: &cynic_protocol::StorageObservation,
+    now_ms: u64,
+) -> Result<StorageControllerRecord, StorageControllerStoreError> {
+    let current = store
+        .read_latest(resource_id)?
+        .ok_or_else(|| StorageControllerStoreError {
+            code: "storage_controller_record_missing".to_string(),
+        })?;
+    let operation = current
+        .operation
+        .as_ref()
+        .filter(|operation| operation.phase == cynic_protocol::StorageOperationPhase::Verifying)
+        .ok_or_else(|| StorageControllerStoreError {
+            code: "storage_operation_not_verifying".to_string(),
+        })?;
+    let task = read_back
+        .observe_operation(node, &operation.id)
+        .await
+        .map_err(|code| StorageControllerStoreError { code })?;
+    if !task.terminal {
+        return Err(StorageControllerStoreError {
+            code: "storage_operation_not_terminal".to_string(),
+        });
+    }
+    let mut evidence = task.evidence_refs;
+    evidence.extend(guest_observation.evidence_refs.iter().cloned());
+    let mut next = current.clone();
+    next.metadata.generation = current.metadata.generation.saturating_add(1);
+    next.metadata.observed_generation = (task.succeeded
+        && guest_observation.service_ready == Some(true)
+        && guest_observation.unknowns.is_empty())
+    .then_some(next.metadata.generation);
+    next.status.provider_bytes = guest_observation
+        .provider_bytes
+        .or(next.status.provider_bytes);
+    next.status.filesystem_bytes = guest_observation.filesystem_bytes;
+    next.status.free_bytes = guest_observation.free_bytes;
+    next.status.service_ready = guest_observation.service_ready;
+    next.status.evidence_refs.extend(evidence.iter().cloned());
+    next.status.unknowns = guest_observation.unknowns.clone();
+    next.operation = Some(advance_storage_operation(
+        operation,
+        if task.succeeded
+            && guest_observation.service_ready == Some(true)
+            && guest_observation.unknowns.is_empty()
+        {
+            StorageOperationEvent::ReadBack
+        } else {
+            StorageOperationEvent::Fail
+        },
+        &evidence,
+        now_ms,
+    ));
+    if let Some(operation) = next.operation.as_mut() {
+        operation.generation = next.metadata.generation;
+        if !task.succeeded {
+            operation
+                .blockers
+                .push("storage_provider_task_failed".to_string());
+        }
+        if guest_observation.service_ready != Some(true) || !guest_observation.unknowns.is_empty() {
+            operation
+                .blockers
+                .push("storage_guest_read_back_incomplete".to_string());
+        }
+    }
+    next.previous_record_digest = Some(current.record_digest.clone());
+    next.committed_at_ms = now_ms;
+    seal_storage_controller_record(&mut next)
+        .map_err(|code| StorageControllerStoreError { code })?;
+    store.append(Some(current.metadata.generation), &next)
 }
