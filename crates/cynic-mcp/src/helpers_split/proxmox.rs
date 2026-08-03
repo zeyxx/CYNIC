@@ -2,6 +2,25 @@ fn proxmox_resource_id_for_node(
     registry: &serde_json::Value,
     node: &serde_json::Value,
 ) -> Option<String> {
+    // The node declaration is the canonical identity binding.  Falling back
+    // to the host's VM list is only an observation aid; ignoring this field
+    // makes a declared resource disappear whenever provider inventory is
+    // unavailable or the display name changes.
+    if let Some(id) = node
+        .get("proxmox_id")
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.is_empty())
+    {
+        return Some(id.to_string());
+    }
+    if let Some(id) = node
+        .get("proxmox")
+        .and_then(|value| value.get("id"))
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.is_empty())
+    {
+        return Some(id.to_string());
+    }
     let name = node_name(node)?;
     for host in registry_nodes(registry) {
         for vm in host
@@ -45,7 +64,8 @@ fn node_requires_host_exec_transport(node: &serde_json::Value) -> bool {
 }
 
 fn host_exec_transport_for_node(node: &serde_json::Value) -> Option<&serde_json::Value> {
-    node.get("host_exec_transport").filter(|value| value.is_object())
+    node.get("host_exec_transport")
+        .filter(|value| value.is_object())
 }
 
 fn host_exec_transport_kind(node: &serde_json::Value) -> Option<&str> {
