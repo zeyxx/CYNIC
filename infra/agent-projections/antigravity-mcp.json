@@ -4,6 +4,14 @@
   "transport": "stdio",
   "command": "cynic-mcp",
   "args": [],
+  "client_config": {
+    "mcpServers": {
+      "cynic": {
+        "command": "cynic-mcp",
+        "args": []
+      }
+    }
+  },
   "env": {
     "CYNIC_AGENT_TYPE": "antigravity"
   },

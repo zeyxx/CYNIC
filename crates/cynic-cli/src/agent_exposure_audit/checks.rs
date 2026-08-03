@@ -159,7 +159,13 @@ pub(crate) fn check_mcp_command_projection(
     let projection_matches = antigravity.get("command").and_then(Value::as_str) == Some(command)
         && antigravity.get("tool_source").and_then(Value::as_str) == Some("runtime_discovery")
         && antigravity.get("tool_cache").and_then(Value::as_str) == Some("forbidden")
-        && antigravity.get("exposure_ssot").and_then(Value::as_str) == Some(exposure_rel);
+        && antigravity.get("exposure_ssot").and_then(Value::as_str) == Some(exposure_rel)
+        && antigravity
+            .pointer("/client_config/mcpServers/cynic/command")
+            .and_then(Value::as_str)
+            == Some(command)
+        && antigravity.pointer("/client_config/mcpServers/cynic/args")
+            == Some(&Value::Array(Vec::new()));
     if !projection_matches {
         findings.push(finding(
             "critical",
