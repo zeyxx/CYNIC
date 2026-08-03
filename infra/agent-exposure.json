@@ -5,7 +5,8 @@
   "policy": {
     "secrets": "Do not store real endpoints, API keys, cookies, wallet secrets, or personal account data in this file.",
     "mutation_default": "local_operator_only",
-    "transport": "mcp_stdio",
+    "transport": "mcp_streamable_http_target_with_stdio_compatibility",
+    "default_transport": "mcp_stdio",
     "fallback": "none",
     "project_root": "Inject runtime paths through operator deployment context; never commit machine-local absolute paths.",
     "honesty": "This projection is complete for the current cynic-mcp binary. Tier labels mark product/legacy surfaces that are not low-layer runtime baseline."
