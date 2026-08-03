@@ -227,6 +227,7 @@ mod tests {
                 home_matches: true,
                 missing_state_dirs: Vec::new(),
                 misowned_paths: Vec::new(),
+                ownership_unknown_paths: Vec::new(),
                 evidences: Vec::new(),
             },
             privilege: PrivilegeStatusReport {

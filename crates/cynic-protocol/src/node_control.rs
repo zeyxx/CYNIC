@@ -334,6 +334,7 @@ fn valid_sha256(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{RuntimeArtifactSource, RuntimeArtifactTransportKind};
 
     fn release_request() -> RuntimeSeedRequest {
         RuntimeSeedRequest {

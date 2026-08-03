@@ -505,6 +505,21 @@ mod tests {
             NodeObservationRuntimeInputs {
                 interfaces: command_ok("ip", &["-brief", "addr"], "wg0 UP 10.20.0.2/24"),
                 routes: command_ok("ip", &["route"], "10.20.0.0/24 dev wg0"),
+                network_manager_connections: command_ok(
+                    "nmcli",
+                    &[
+                        "-t",
+                        "-f",
+                        "NAME,UUID,TYPE,DEVICE",
+                        "connection",
+                        "show",
+                        "--active",
+                    ],
+                    "synapse:uuid:wireguard:wg0",
+                ),
+                policy_routes: command_ok("ip", &["rule"], "0: from all lookup local"),
+                namespaces: command_ok("ip", &["netns", "list"], ""),
+                firewall: command_ok("nft", &["list", "ruleset"], "table inet filter"),
                 provider_fallback_route: command_fail("ip", &["route", "show", "10.10.10.0/24"]),
                 synapse_route: command_ok(
                     "ip",

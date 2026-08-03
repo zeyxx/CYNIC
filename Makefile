@@ -448,7 +448,7 @@ build: build-admission-check-build ## Experimental binary build; on 2026-07-16 r
 
 .PHONY: build-release
 build-release: build-admission-check-release ## Admitted release build on the registry-selected build runner
-	@$(RELEASE_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli --release
+	@$(RELEASE_RUST_ENV) $(CARGO) build -p cynic-host -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli --release
 
 .PHONY: test
 test: ## Run tests for low-layer core crates

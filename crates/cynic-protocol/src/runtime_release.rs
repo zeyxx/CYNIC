@@ -188,11 +188,13 @@ fn valid_release_proof_payload(payload: &serde_json::Value, source_commit: &str)
     let Some(artifacts) = payload["artifacts"].as_object() else {
         return false;
     };
-    ["cynic", "cynic-node", "cynic-kernel", "cynic-mcp"]
-        .iter()
-        .all(|name| {
+    let Ok(required) = crate::runtime_release_artifact_names() else {
+        return false;
+    };
+    artifacts.len() == required.len()
+        && required.iter().all(|name| {
             artifacts
-                .get(*name)
+                .get(name)
                 .and_then(serde_json::Value::as_str)
                 .is_some_and(valid_sha256)
         })
@@ -333,6 +335,7 @@ mod tests {
                     "cynic-node": format!("sha256:{}", "2".repeat(64)),
                     "cynic-kernel": format!("sha256:{}", "3".repeat(64)),
                     "cynic-mcp": format!("sha256:{}", "4".repeat(64)),
+                    "cynic-lxc-exec-bridge": format!("sha256:{}", "5".repeat(64)),
                 }
             }),
         )

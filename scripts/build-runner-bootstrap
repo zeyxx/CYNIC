@@ -246,16 +246,29 @@ sudo -u cynic env \
   CYNIC_BUILD_BOOTSTRAP_RECEIPT="${admission}" \
   make -C "${workspace}" build-release
 
-node_digest="sha256:$(sha256sum "${target_root}/release/cynic-node" | awk '{print $1}')"
-cli_digest="sha256:$(sha256sum "${target_root}/release/cynic" | awk '{print $1}')"
+artifacts_json='{}'
+while IFS= read -r binary; do
+  [[ -n "${binary}" && "${binary}" =~ ^[a-zA-Z0-9_-]+$ ]] \
+    || blocked "runtime basket contains an unsafe release artifact name"
+  artifact_path="${target_root}/release/${binary}"
+  [[ -f "${artifact_path}" && ! -L "${artifact_path}" && -s "${artifact_path}" ]] \
+    || blocked "release artifact is missing or unsafe: ${binary}"
+  artifact_digest="sha256:$(sha256sum "${artifact_path}" | awk '{print $1}')"
+  artifacts_json="$(jq -c --arg binary "${binary}" --arg digest "${artifact_digest}" \
+    '. + {($binary): $digest}' <<<"${artifacts_json}")"
+done < <(jq -r '
+  select(.schema == "cynic.runtime_basket.v1" and .status == "normative") |
+  .artifacts[].binary
+' "${workspace}/infra/runtime-basket.json")
+[[ "$(jq 'length' <<<"${artifacts_json}")" -gt 0 ]] \
+  || blocked "runtime basket declares no release artifacts"
 jq -n \
   --arg node "${node_id}" \
   --arg commit "${source_commit}" \
   --arg registry_digest "${registry_digest}" \
   --arg source_bundle_digest "${source_bundle_digest}" \
-  --arg node_digest "${node_digest}" \
-  --arg cli_digest "${cli_digest}" \
-  '{schema:"cynic.build_runner.bootstrap_build.v1",status:"proved",node_id:$node,source_commit:$commit,registry_digest:$registry_digest,source_bundle_digest:(if $source_bundle_digest == "" then null else $source_bundle_digest end),target_phase:"build",artifacts:{"cynic-node":$node_digest,"cynic":$cli_digest},proofs:(["source_commit_read_back"] + (if $source_bundle_digest == "" then ["source_transport_read_back"] else ["source_bundle_digest_read_back"] end) + ["registry_source_read_back","build_resource_preflight_read_back","release_build_completed","artifact_digest_read_back"])}' \
+  --argjson artifacts "${artifacts_json}" \
+  '{schema:"cynic.build_runner.bootstrap_build.v2",status:"proved",node_id:$node,source_commit:$commit,registry_digest:$registry_digest,source_bundle_digest:(if $source_bundle_digest == "" then null else $source_bundle_digest end),target_phase:"build",artifacts:$artifacts,proofs:(["source_commit_read_back"] + (if $source_bundle_digest == "" then ["source_transport_read_back"] else ["source_bundle_digest_read_back"] end) + ["registry_source_read_back","build_resource_preflight_read_back","release_build_completed","runtime_basket_artifact_set_read_back","artifact_digest_read_back"])}' \
   > "${build_proof}"
 chown root:cynic "${build_proof}"
 chmod 0640 "${build_proof}"

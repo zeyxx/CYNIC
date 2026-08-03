@@ -91,6 +91,8 @@ pub(crate) struct SyntheticNodeObservationContext {
     pub(crate) wg_quick_unit: String,
     pub(crate) resolved_unit: String,
     pub(crate) ip_bin: String,
+    pub(crate) network_manager_bin: String,
+    pub(crate) nft_bin: String,
     pub(crate) wg_bin: String,
     pub(crate) systemctl_bin: String,
 }
@@ -104,6 +106,8 @@ impl SyntheticNodeObservationContext {
             wg_quick_unit: runtime_layout.wg_quick_unit(),
             resolved_unit: host_capabilities.dns_provider.resolved_unit.clone(),
             ip_bin: host_capabilities.route_tool.command.clone(),
+            network_manager_bin: host_capabilities.network_manager.command.clone(),
+            nft_bin: std::env::var("CYNIC_NFT_BIN").unwrap_or_else(|_| "nft".to_string()),
             wg_bin: host_capabilities.wireguard_tool.command.clone(),
             systemctl_bin: host_capabilities.service_manager.command.clone(),
         }
@@ -275,6 +279,20 @@ impl NodeObservation {
             network: NetworkObservation {
                 interfaces: command_observation_for_tests(&context.ip_bin, &["-brief", "addr"]),
                 routes: command_observation_for_tests(&context.ip_bin, &["route"]),
+                network_manager_connections: command_observation_for_tests(
+                    &context.network_manager_bin,
+                    &[
+                        "-t",
+                        "-f",
+                        "NAME,UUID,TYPE,DEVICE",
+                        "connection",
+                        "show",
+                        "--active",
+                    ],
+                ),
+                policy_routes: command_observation_for_tests(&context.ip_bin, &["rule"]),
+                namespaces: command_observation_for_tests(&context.ip_bin, &["netns", "list"]),
+                firewall: command_observation_for_tests(&context.nft_bin, &["list", "ruleset"]),
                 provider_fallback_route: command_observation_for_tests(
                     &context.ip_bin,
                     &["route", "show", "10.10.10.0/24"],
@@ -347,6 +365,8 @@ mod tests {
                 wg_quick_unit: "wg-quick@wg-portable".to_string(),
                 resolved_unit: "portable-resolved".to_string(),
                 ip_bin: "/portable/bin/ip".to_string(),
+                network_manager_bin: "/portable/bin/nmcli".to_string(),
+                nft_bin: "/portable/bin/nft".to_string(),
                 wg_bin: "/portable/bin/wg".to_string(),
                 systemctl_bin: "/portable/bin/systemctl".to_string(),
             },

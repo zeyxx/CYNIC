@@ -28,6 +28,7 @@ pub mod pre_os;
 pub mod provider;
 pub mod release_publication;
 pub mod runtime;
+pub mod runtime_basket;
 pub mod runtime_compatibility;
 pub mod runtime_release;
 pub mod runtime_seed;
@@ -266,6 +267,11 @@ pub use runtime::{
     build_runtime_execution_plan_from_gates, runtime_execution_layers,
     runtime_initial_observed_gates, runtime_missing_gates, runtime_proof_persistence_record,
     runtime_shared_responsibility,
+};
+pub use runtime_basket::{
+    RUNTIME_BASKET_SCHEMA, RuntimeBasketArtifact, RuntimeBasketDesiredState,
+    RuntimeSeedDeclaration, runtime_basket_desired_state, runtime_release_artifact_names,
+    validate_runtime_basket,
 };
 pub use runtime_compatibility::{
     RUNTIME_COMPATIBILITY_PLAN_SCHEMA, RuntimeCompatibilityPlan, RuntimeCompatibilityStatus,

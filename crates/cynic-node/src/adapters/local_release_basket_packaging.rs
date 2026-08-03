@@ -243,10 +243,10 @@ mod tests {
         let release = workspace.join("target/release");
         fs::create_dir_all(&release).unwrap();
         let mut artifacts = BTreeMap::new();
-        for name in ["cynic", "cynic-kernel", "cynic-mcp", "cynic-node"] {
-            let path = release.join(name);
+        for name in cynic_protocol::runtime_release_artifact_names().unwrap() {
+            let path = release.join(&name);
             fs::write(&path, format!("binary:{name}")).unwrap();
-            artifacts.insert(name.to_string(), digest_file(&path, 1024).unwrap().0);
+            artifacts.insert(name, digest_file(&path, 1024).unwrap().0);
         }
         let registry = workspace.join("infra/registry.json");
         fs::create_dir_all(registry.parent().unwrap()).unwrap();

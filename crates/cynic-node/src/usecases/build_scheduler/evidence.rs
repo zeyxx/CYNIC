@@ -92,8 +92,10 @@ pub(super) fn persist_execution_failure(
 
 fn release_artifacts(workspace: &Path) -> Result<BTreeMap<String, String>, String> {
     let mut artifacts = BTreeMap::new();
-    for name in ["cynic", "cynic-node", "cynic-kernel", "cynic-mcp"] {
-        let path = workspace.join("target/release").join(name);
+    for name in cynic_protocol::runtime_release_artifact_names()
+        .map_err(|error| format!("release_runtime_basket_invalid:{error}"))?
+    {
+        let path = workspace.join("target/release").join(&name);
         let metadata =
             fs::symlink_metadata(&path).map_err(|_| format!("release_artifact_missing:{name}"))?;
         if metadata.file_type().is_symlink() || !metadata.is_file() || metadata.len() == 0 {
@@ -101,7 +103,7 @@ fn release_artifacts(workspace: &Path) -> Result<BTreeMap<String, String>, Strin
         }
         let bytes = fs::read(&path).map_err(|_| format!("release_artifact_unreadable:{name}"))?;
         artifacts.insert(
-            name.to_string(),
+            name,
             format!("sha256:{}", hex::encode(Sha256::digest(bytes))),
         );
     }

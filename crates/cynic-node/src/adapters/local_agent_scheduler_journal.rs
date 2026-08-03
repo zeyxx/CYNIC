@@ -192,7 +192,7 @@ fn error(code: &str) -> AgentWorkspacePortError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA;
+    use cynic_protocol::{AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AgentSchedulerStepPlan};
 
     fn planned(recorded_at_ms: u64) -> AgentSchedulerJournalRecord {
         AgentSchedulerJournalRecord {

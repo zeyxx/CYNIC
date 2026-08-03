@@ -17,8 +17,6 @@ pub const RUNTIME_RELEASE_SIGNATURE_NAMESPACE: &str = "cynic-runtime-seed";
 pub const RELEASE_PUBLICATION_DESIRED_STATE_SCHEMA: &str =
     "cynic.release_publication.desired_state.v1";
 
-const RELEASE_BINARIES: [&str; 4] = ["cynic", "cynic-kernel", "cynic-mcp", "cynic-node"];
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReleasePublicationDesiredState {
     pub schema: String,
@@ -226,8 +224,10 @@ fn validate_request(request: &SignedReleaseBasketRequest) -> Vec<String> {
         .keys()
         .map(String::as_str)
         .collect::<Vec<_>>();
-    if names != RELEASE_BINARIES {
-        blockers.push("signed_release_artifact_set_mismatch".to_string());
+    match crate::runtime_release_artifact_names() {
+        Ok(required) if names == required.iter().map(String::as_str).collect::<Vec<_>>() => {}
+        Ok(_) => blockers.push("signed_release_artifact_set_mismatch".to_string()),
+        Err(error) => blockers.push(format!("signed_release_runtime_basket_invalid:{error}")),
     }
     if request
         .artifacts
@@ -274,7 +274,8 @@ mod tests {
                 release_id: "release-a".to_string(),
                 release_epoch: 1,
             },
-            artifacts: RELEASE_BINARIES
+            artifacts: crate::runtime_release_artifact_names()
+                .unwrap()
                 .into_iter()
                 .map(|name| (name.to_string(), format!("sha256:{}", "c".repeat(64))))
                 .collect(),

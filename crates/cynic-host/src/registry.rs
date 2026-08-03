@@ -954,7 +954,7 @@ mod tests {
     use super::{
         resolve_build_runner_transport, resolve_current_host_direct_management_link,
         resolve_current_host_profile, resolve_current_host_profile_resolution,
-        resolve_host_profile, resolve_registry_service_policy,
+        resolve_framework_transport, resolve_host_profile, resolve_registry_service_policy,
     };
     use crate::profiles::HostProfile;
     use std::path::PathBuf;
