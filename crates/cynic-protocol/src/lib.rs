@@ -36,6 +36,7 @@ pub mod source_control;
 pub mod source_materialization;
 pub mod source_release;
 pub mod source_repository_bootstrap;
+pub mod storage_controller;
 pub mod storage_identity;
 pub mod storage_lifecycle;
 pub mod supervision;
@@ -312,6 +313,12 @@ pub use source_repository_bootstrap::{
     SourceRepositoryBootstrapObservation, SourceRepositoryBootstrapProofAuthority,
     SourceRepositoryBootstrapReport, SourceRepositoryBootstrapRequest,
     SourceRepositoryBootstrapStatus, reconcile_source_repository_bootstrap,
+};
+pub use storage_controller::{
+    STORAGE_CONTROLLER_RECORD_SCHEMA, STORAGE_FINALIZER, STORAGE_OPERATION_SCHEMA,
+    StorageControllerRecord, StorageMetadata, StorageOperation, StorageOperationPhase,
+    StorageStatus, new_storage_metadata, reconcile_storage_status,
+    validate_storage_controller_record,
 };
 pub use storage_identity::{
     STORAGE_IDENTITY_OBSERVATION_SCHEMA, STORAGE_IDENTITY_PLAN_SCHEMA,
