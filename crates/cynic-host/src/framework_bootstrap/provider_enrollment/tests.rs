@@ -12,6 +12,8 @@ fn spec() -> ProviderControlEnrollmentSpec {
             token_identity: "cynic@pve!runtime".to_string(),
             credential_ref: "/etc/cynic/secrets/proxmox-token".to_string(),
             ca_ref: None,
+            credential_lease_metadata_ref: None,
+            credential_authority_public_key_ref: None,
         },
         token_secret_source: PathBuf::from("/run/cynic-enrollment/proxmox-token"),
         ca_source: None,

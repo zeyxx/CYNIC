@@ -7,7 +7,9 @@
     "provider": "proxmox",
     "endpoint": "https://pve.synapse.cynic:8006",
     "token_identity": "cynic@pve!runtime",
-    "credential_ref": "/etc/cynic/secrets/proxmox-token"
+    "credential_ref": "/etc/cynic/secrets/proxmox-token",
+    "credential_lease_metadata_ref": "/etc/cynic/identity/proxmox-credential-lease.json",
+    "credential_authority_public_key_ref": "/etc/cynic/identity/proxmox-credential-authority.pub"
   },
   "release_publication": {
     "schema": "cynic.release_publication.desired_state.v1",

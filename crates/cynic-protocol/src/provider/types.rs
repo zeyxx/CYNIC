@@ -45,6 +45,10 @@ pub struct ProviderControlDesiredState {
     pub credential_ref: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ca_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_lease_metadata_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_authority_public_key_ref: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

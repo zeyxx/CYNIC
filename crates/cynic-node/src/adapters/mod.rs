@@ -1,5 +1,9 @@
 pub mod dns_renderer;
+pub mod agent_execution_runtime_observer;
+pub mod local_credential_material_sink;
 pub mod ed25519_build_workload_grant;
+pub mod ed25519_credential_lease_verifier;
+pub mod verified_credential_broker;
 pub mod headscale;
 pub mod host;
 pub mod host_observation;
@@ -44,6 +48,7 @@ pub mod local_storage_guest;
 pub mod local_storage_lease;
 pub mod local_storage_lifecycle;
 pub mod local_system_probe;
+pub mod local_workload_identity;
 pub mod provider_fallback_probe;
 pub mod proxmox;
 pub mod proxmox_control;

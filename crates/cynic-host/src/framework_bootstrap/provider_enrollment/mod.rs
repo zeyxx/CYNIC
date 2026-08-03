@@ -39,6 +39,8 @@ pub fn resolve_local_provider_control_enrollment_spec(
         token_identity: token_id.to_string(),
         credential_ref: secret.target.display().to_string(),
         ca_ref: ca_source.map(|_| ca_target.display().to_string()),
+        credential_lease_metadata_ref: None,
+        credential_authority_public_key_ref: None,
     };
     Ok(ProviderControlEnrollmentSpec {
         desired,
