@@ -137,8 +137,11 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
             if !json {
                 return ExitCode::FAILURE;
             }
-            match framework_bootstrap::plan_framework_propagation(&bundle_dir, registry.as_deref())
-            {
+            match framework_bootstrap::plan_framework_propagation(
+                &bundle_dir,
+                registry.as_deref(),
+                &LocalArgvRunner,
+            ) {
                 Ok(plan) => {
                     if let Some(output) = output
                         && let Err(error) = write_pretty_json_file(
@@ -149,7 +152,7 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
                     {
                         return fail(error);
                     }
-                    emit_json(&plan, plan.status != "planned")
+                    emit_json(&plan, plan.status == "blocked")
                 }
                 Err(error) => fail(error),
             }
@@ -167,6 +170,7 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
             let plan = match framework_bootstrap::plan_framework_propagation(
                 &bundle_dir,
                 registry.as_deref(),
+                &LocalArgvRunner,
             ) {
                 Ok(plan) => plan,
                 Err(error) => return fail(error),
@@ -182,7 +186,7 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
             {
                 return fail(error);
             }
-            emit_json(&report, report.status != "applied")
+            emit_json(&report, report.status != "converged")
         }
         BootstrapFrameworkCommand::SubstratePlan {
             json,

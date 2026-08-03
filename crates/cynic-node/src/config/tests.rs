@@ -264,6 +264,16 @@ enrollment_token_path = "/var/lib/cynic/identity/enrollment-token"
 enrollment_seed_id = "cynic-builder"
 enrollment_role = "build_runner"
 observed_capabilities = ["build_runner"]
+
+[node_control.build_scheduler]
+
+[node_control.build_scheduler.release_publication]
+artifact_base_url = "https://artifacts.synapse.cynic/releases"
+authentication_kind = "bearer_file"
+work_root = "/var/lib/cynic/release-publication"
+signing_key_path = "/var/lib/cynic/identity/release-signing-key"
+credential_path = "/var/lib/cynic/identity/artifact-store-token"
+signer_identity = "cynic-release"
 "#,
     )
     .unwrap();
@@ -272,10 +282,34 @@ observed_capabilities = ["build_runner"]
     assert_eq!(config.node_id, "cynic-builder");
     assert_eq!(config.enrollment_role, "build_runner");
     assert_eq!(config.observed_capabilities, vec!["build_runner"]);
+    let scheduler = config.build_scheduler.expect("build scheduler config");
+    assert_eq!(scheduler.repository_id, "cynic");
+    assert_eq!(
+        scheduler.registry_path,
+        std::path::PathBuf::from("/etc/cynic/registry.json")
+    );
+    let publication = scheduler
+        .release_publication
+        .expect("release publication config");
+    assert_eq!(
+        publication.artifact_base_url,
+        "https://artifacts.synapse.cynic/releases"
+    );
+    assert_eq!(publication.authentication_kind, "bearer_file");
+    assert_eq!(
+        publication.signature_namespace,
+        cynic_protocol::RUNTIME_RELEASE_SIGNATURE_NAMESPACE
+    );
     assert_eq!(
         config.agent_workload_state_root,
         std::path::PathBuf::from("/var/lib/cynic")
     );
+    assert_eq!(
+        config.runtime_artifact_inbox_root,
+        std::path::PathBuf::from("/var/lib/cynic/runtime-artifacts/inbox")
+    );
+    assert_eq!(config.runtime_artifact_max_bytes, 4 * 1024 * 1024 * 1024);
+    assert_eq!(config.runtime_artifact_timeout_secs, 900);
 }
 
 #[test]

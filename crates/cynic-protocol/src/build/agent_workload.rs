@@ -1,12 +1,101 @@
 use crate::{
-    AGENT_DELEGATION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AgentBoundedAction,
-    AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope, AgentEvidenceRef,
-    AgentWorkloadEnvelope, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization,
-    MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority,
-    PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
+    AGENT_DELEGATION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_INPUT_SCHEMA,
+    AgentBoundedAction, AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope,
+    AgentEvidenceLineage, AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkloadInput,
+    EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, MutationContract,
+    POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
+    PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
 };
 
-use super::{BuildAgentRequest, admit_build_agent_request};
+use super::{
+    BUILD_AGENT_REQUEST_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest,
+    BuildSourceReference, admit_build_agent_request, validate_build_source_reference,
+};
+
+pub fn build_agent_request_from_workload(
+    envelope: &AgentWorkloadEnvelope,
+) -> Result<BuildAgentRequest, Vec<String>> {
+    let Some(input) = &envelope.input else {
+        return Err(vec!["build_workload_input_missing".to_string()]);
+    };
+    if input.schema != AGENT_WORKLOAD_INPUT_SCHEMA || input.kind != BUILD_AGENT_REQUEST_SCHEMA {
+        return Err(vec!["build_workload_input_schema_mismatch".to_string()]);
+    }
+    let digest = digest_json(&input.payload).ok();
+    if digest.as_deref() != Some(input.digest.as_str())
+        || input.digest != envelope.delegation.authority_snapshot.digest
+        || input.digest != envelope.policy_admission.intent.digest
+    {
+        return Err(vec!["build_workload_request_digest_mismatch".to_string()]);
+    }
+    let request = serde_json::from_value::<BuildAgentRequest>(input.payload.clone())
+        .map_err(|_| vec!["build_workload_request_invalid".to_string()])?;
+    let admission = admit_build_agent_request(&request);
+    if !admission.blockers.is_empty() {
+        return Err(admission.blockers);
+    }
+    let source = build_source_reference_from_workload(envelope)?;
+    if request.source != source
+        || request.requested_by != envelope.delegation.agent_id
+        || request.source_commit != envelope.policy_admission.intent.subject
+    {
+        return Err(vec!["build_workload_request_binding_mismatch".to_string()]);
+    }
+    Ok(request)
+}
+
+pub fn build_source_reference_from_workload(
+    envelope: &AgentWorkloadEnvelope,
+) -> Result<BuildSourceReference, Vec<String>> {
+    let repositories = envelope
+        .delegation
+        .context_refs
+        .iter()
+        .filter(|reference| reference.kind == "source_repository")
+        .collect::<Vec<_>>();
+    let commits = envelope
+        .delegation
+        .context_refs
+        .iter()
+        .filter(|reference| reference.kind == "source_commit")
+        .collect::<Vec<_>>();
+    let ([repository], [commit]) = (repositories.as_slice(), commits.as_slice()) else {
+        return Err(vec!["build_workload_source_context_ambiguous".to_string()]);
+    };
+    let source = BuildSourceReference {
+        schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+        repository_id: commit
+            .lineage
+            .as_ref()
+            .map(|lineage| lineage.producer_id.clone())
+            .unwrap_or_default(),
+        transport_uri: repository.subject.clone(),
+        revision: commit.subject.clone(),
+        authority_ref: repository
+            .lineage
+            .as_ref()
+            .map(|lineage| lineage.producer_id.clone())
+            .unwrap_or_default(),
+    };
+    let mut blockers = validate_build_source_reference(&source);
+    if source.revision != envelope.policy_admission.intent.subject {
+        blockers.push("build_workload_source_intent_mismatch".to_string());
+    }
+    let digest = digest_json(&source).ok();
+    if digest.as_deref() != Some(repository.digest.as_str())
+        || digest.as_deref() != Some(commit.digest.as_str())
+        || digest.as_deref() != envelope.action.input_digest.as_deref()
+    {
+        blockers.push("build_workload_source_digest_mismatch".to_string());
+    }
+    if blockers.is_empty() {
+        Ok(source)
+    } else {
+        blockers.sort();
+        blockers.dedup();
+        Err(blockers)
+    }
+}
 
 pub fn compose_build_agent_workload(
     request: &BuildAgentRequest,
@@ -30,11 +119,8 @@ pub fn compose_build_agent_workload(
         "make:build-release" => vec!["make".to_string(), "build-release".to_string()],
         _ => return Err(vec!["build_agent_request_action_not_allowed".to_string()]),
     };
-    let input_digest = digest_json(&serde_json::json!({
-        "repository_id": "cynic",
-        "source_commit": request.source_commit,
-    }))
-    .map_err(|_| vec!["build_agent_workload_input_digest_failed".to_string()])?;
+    let input_digest = digest_json(&request.source)
+        .map_err(|_| vec!["build_agent_workload_input_digest_failed".to_string()])?;
     let request_digest = digest_json(request)
         .map_err(|_| vec!["build_agent_workload_request_digest_failed".to_string()])?;
     let suffix = request_digest.trim_start_matches("sha256:");
@@ -43,8 +129,9 @@ pub fn compose_build_agent_workload(
     let action = AgentBoundedAction {
         argv,
         working_directory: Some(format!(
-            "{}/{}",
+            "{}/{}/{}",
             workspace_root.trim_end_matches('/'),
+            request.source.repository_id,
             workload_id
         )),
         input_digest: Some(input_digest.clone()),
@@ -90,6 +177,13 @@ pub fn compose_build_agent_workload(
         workload_id: workload_id.clone(),
         idempotency_key: format!("build-request-{short}"),
         plan_digest: plan_digest.clone(),
+        input: Some(AgentWorkloadInput {
+            schema: AGENT_WORKLOAD_INPUT_SCHEMA.to_string(),
+            kind: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            digest: request_digest.clone(),
+            payload: serde_json::to_value(request)
+                .map_err(|_| vec!["build_agent_workload_request_encode_failed".to_string()])?,
+        }),
         action,
         delegation: AgentDelegationEnvelope {
             schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
@@ -108,12 +202,32 @@ pub fn compose_build_agent_workload(
                 digest: request_digest.clone(),
                 lineage: None,
             },
-            context_refs: vec![AgentEvidenceRef {
-                kind: "source_commit".to_string(),
-                subject: request.source_commit.clone(),
-                digest: input_digest,
-                lineage: None,
-            }],
+            context_refs: vec![
+                AgentEvidenceRef {
+                    kind: "source_repository".to_string(),
+                    subject: request.source.transport_uri.clone(),
+                    digest: input_digest.clone(),
+                    lineage: Some(AgentEvidenceLineage {
+                        producer_id: request.source.authority_ref.clone(),
+                        producer_attestation_digest: input_digest.clone(),
+                        origin_digests: vec![input_digest.clone()],
+                        derivation_digests: Vec::new(),
+                        influence_digests: Vec::new(),
+                    }),
+                },
+                AgentEvidenceRef {
+                    kind: "source_commit".to_string(),
+                    subject: request.source_commit.clone(),
+                    digest: input_digest.clone(),
+                    lineage: Some(AgentEvidenceLineage {
+                        producer_id: request.source.repository_id.clone(),
+                        producer_attestation_digest: input_digest.clone(),
+                        origin_digests: vec![input_digest.clone()],
+                        derivation_digests: Vec::new(),
+                        influence_digests: Vec::new(),
+                    }),
+                },
+            ],
             capabilities: vec![AgentCapabilityGrant {
                 id: "repository_validation".to_string(),
                 mutates: true,
@@ -170,10 +284,18 @@ mod tests {
             request_id: "validate-abc".to_string(),
             requested_by: "codex-session-1".to_string(),
             source_commit: "a".repeat(40),
+            source: crate::BuildSourceReference {
+                schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+                revision: "a".repeat(40),
+                authority_ref: "infra/repo-remotes.json:forgejo".into(),
+            },
             action: "make:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["canonical_gate_report".to_string()],
+            release_publication: None,
             evidence_refs: vec!["forgejo:refs/heads/change@aaaaaaaa".to_string()],
         };
 
@@ -187,6 +309,44 @@ mod tests {
         assert_eq!(envelope.action.argv, vec!["make", "check"]);
         assert_eq!(envelope.delegation.node_id, "cynic-builder");
         assert!(crate::admit_agent_workload(&envelope).admitted());
+        assert_eq!(
+            build_source_reference_from_workload(&envelope).unwrap(),
+            request.source
+        );
+    }
+
+    #[test]
+    fn build_request_payload_tampering_is_rejected_before_execution() {
+        let request = BuildAgentRequest {
+            schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            request_id: "validate-tamper".to_string(),
+            requested_by: "codex-session-1".to_string(),
+            source_commit: "a".repeat(40),
+            source: crate::BuildSourceReference {
+                schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+                revision: "a".repeat(40),
+                authority_ref: "infra/repo-remotes.json:forgejo".into(),
+            },
+            action: "make:check".to_string(),
+            desired_role: "build_runner".to_string(),
+            mutation_authorized: true,
+            proof_requirements: vec!["canonical_gate_report".to_string()],
+            release_publication: None,
+            evidence_refs: vec!["forgejo:refs/heads/change@aaaaaaaa".to_string()],
+        };
+        let mut envelope = compose_build_agent_workload(
+            &request,
+            "cynic-builder",
+            "/var/lib/cynic/source/workspaces/build-test",
+        )
+        .unwrap();
+        envelope.input.as_mut().unwrap().payload["action"] =
+            serde_json::Value::String("make:build-release".to_string());
+
+        assert!(!crate::admit_agent_workload(&envelope).admitted());
+        assert!(build_agent_request_from_workload(&envelope).is_err());
     }
 
     #[test]
@@ -196,10 +356,25 @@ mod tests {
             request_id: "release-abc".to_string(),
             requested_by: "release-controller".to_string(),
             source_commit: "b".repeat(40),
+            source: crate::BuildSourceReference {
+                schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+                revision: "b".repeat(40),
+                authority_ref: "infra/repo-remotes.json:forgejo".into(),
+            },
             action: "make:build-release".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
-            proof_requirements: vec!["runtime_basket_artifact_read_back".to_string()],
+            proof_requirements: vec![
+                "release_binary_artifact_read_back".to_string(),
+                "signed_release_basket_read_back".to_string(),
+            ],
+            release_publication: Some(crate::BuildReleasePublicationIntent {
+                schema: crate::BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA.to_string(),
+                release_id: "release-abc".to_string(),
+                release_epoch: 1,
+            }),
             evidence_refs: vec!["forgejo:refs/heads/main@bbbbbbbb".to_string()],
         };
 
@@ -212,5 +387,9 @@ mod tests {
 
         assert_eq!(envelope.action.argv, vec!["make", "build-release"]);
         assert_eq!(envelope.delegation.budget.actions, 1);
+        assert_eq!(
+            build_agent_request_from_workload(&envelope).unwrap(),
+            request
+        );
     }
 }

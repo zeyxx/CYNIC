@@ -90,6 +90,9 @@ pub fn derive_build_workload_grant(
     if record.state != AgentWorkloadState::Claimed {
         blockers.push("build_workload_not_claimed".to_string());
     }
+    if record.consumed_actions != 1 {
+        blockers.push("build_workload_action_not_reserved".to_string());
+    }
     let claim = record.claim.as_ref();
     let claim_expiry_unix_s = claim.map(|claim| claim.expires_at_ms / 1_000);
     if claim_expiry_unix_s.is_none_or(|expiry| expiry <= now_unix_s) {

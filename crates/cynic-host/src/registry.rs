@@ -68,6 +68,15 @@ struct RegistryNodeTransports {
 struct RegistrySshTransport {
     target: Option<String>,
     trust: Option<String>,
+    #[serde(default)]
+    enrollment_authority: Option<RegistrySshEnrollmentAuthority>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegistrySshEnrollmentAuthority {
+    class: Option<String>,
+    principal: Option<String>,
+    credential_ref: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -184,6 +193,9 @@ pub struct ResolvedBuildRunnerTransport {
     pub role: String,
     pub ssh_target: String,
     pub trust: String,
+    pub enrollment_authority_class: String,
+    pub enrollment_principal: String,
+    pub enrollment_credential_ref: String,
     pub registry_path: String,
 }
 
@@ -354,13 +366,43 @@ pub fn resolve_build_runner_transport(
         .clone()
         .filter(|value| value == "known_hosts")
         .ok_or_else(|| "build_runner_ssh_trust_unproven".to_string())?;
+    let enrollment = ssh
+        .enrollment_authority
+        .as_ref()
+        .ok_or_else(|| "build_runner_enrollment_authority_missing".to_string())?;
+    let enrollment_authority_class = enrollment
+        .class
+        .clone()
+        .filter(|value| value == "machine_enrollment")
+        .ok_or_else(|| "build_runner_enrollment_authority_not_machine".to_string())?;
+    let enrollment_principal = enrollment
+        .principal
+        .clone()
+        .filter(|value| safe_transport_identity(value))
+        .ok_or_else(|| "build_runner_enrollment_principal_invalid".to_string())?;
+    let enrollment_credential_ref = enrollment
+        .credential_ref
+        .clone()
+        .filter(|value| safe_transport_identity(value))
+        .ok_or_else(|| "build_runner_enrollment_credential_ref_invalid".to_string())?;
     Ok(ResolvedBuildRunnerTransport {
         node_id,
         role: role.to_string(),
         ssh_target,
         trust,
+        enrollment_authority_class,
+        enrollment_principal,
+        enrollment_credential_ref,
         registry_path: path.display().to_string(),
     })
+}
+
+fn safe_transport_identity(value: &str) -> bool {
+    !value.is_empty()
+        && !value.starts_with('-')
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b'@'))
 }
 
 impl RegistryNetworkLink {
@@ -874,7 +916,7 @@ mod tests {
               "nodes": [{
                 "id":"builder-1",
                 "role":"build_runner",
-                "transports":{"ssh":{"target":"cynic@builder.internal","trust":"known_hosts"}}
+                "transports":{"ssh":{"target":"cynic@builder.internal","trust":"known_hosts","enrollment_authority":{"class":"machine_enrollment","principal":"cynic-enroll","credential_ref":"operator-ssh-agent"}}}
               }],
               "lifecycle":{"kernel_release":{"build_runner_role":"build_runner"}}
             }"#,
@@ -885,6 +927,26 @@ mod tests {
         assert_eq!(transport.node_id, "builder-1");
         assert_eq!(transport.ssh_target, "cynic@builder.internal");
         assert_eq!(transport.trust, "known_hosts");
+        assert_eq!(transport.enrollment_authority_class, "machine_enrollment");
+        assert_eq!(transport.enrollment_principal, "cynic-enroll");
+        assert_eq!(transport.enrollment_credential_ref, "operator-ssh-agent");
+    }
+
+    #[test]
+    fn build_runner_transport_without_machine_enrollment_authority_is_blocked() {
+        let path = write_registry_fixture(
+            r#"{
+              "nodes": [{
+                "id":"builder-1",
+                "role":"build_runner",
+                "transports":{"ssh":{"target":"builder.internal","trust":"known_hosts"}}
+              }],
+              "lifecycle":{"kernel_release":{"build_runner_role":"build_runner"}}
+            }"#,
+        );
+        let error = resolve_build_runner_transport(Some(path.to_str().expect("utf8 temp path")))
+            .expect_err("implicit enrollment authority must block");
+        assert_eq!(error, "build_runner_enrollment_authority_missing");
     }
 
     #[test]

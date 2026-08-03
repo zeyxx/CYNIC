@@ -3,9 +3,13 @@
   "layer": "l1_host_apply_boundary",
   "owner_crate": "cynic-host",
   "adapter_module": "cynic-host::host_exec_cli::runtime_seed",
-  "domain_owner": "cynic-protocol::runtime_seed",
+  "domain_owner": "cynic-protocol::{runtime_seed,runtime_release,release_publication}",
   "owner_modules": [
     "cynic-protocol::runtime_seed",
+    "cynic-protocol::runtime_release",
+    "cynic-protocol::release_publication",
+    "cynic-kernel::api::rest::node_control",
+    "cynic-mcp::routers::local::runtime_release",
     "cynic-host::runtime_seed::signature",
     "cynic-host::runtime_seed::filesystem",
     "cynic-host::runtime_seed",
@@ -14,20 +18,28 @@
   ],
   "owner_call_markers": [
     "reconcile_runtime_seed",
+    "admit_runtime_release",
     "RuntimeSeedSignatureVerifier",
     "RuntimeSeedActivationPort",
     "execute_plan"
   ],
   "responsibility": "Keep a separately governed bootstrap root capable of admitting signed content-addressed runtime baskets bound to an exact source commit and admitted build proof through monotonic epochs, two-slot activation, postflight read-back, and rollback without depending on the MCP version being replaced.",
-  "mutation_policy": "explicit_apply_only_after_signature_digest_epoch_node_and_slot_preflight",
+  "mutation_policy": "explicit_apply_or_admitted_node_desired_state_after_signature_digest_epoch_node_and_slot_preflight",
   "canonical_entrypoints": [
+    "cynic_runtime_release_declare",
+    "PUT /node-control/{node_id}/desired-state with cynic.runtime_release_declaration.v1",
     "cynic-host-exec runtime-seed-plan --request <request.json> --observation <observation.json>",
     "cynic-host-exec runtime-seed-reconcile --request <request.json> [--apply]"
   ],
   "evidence": [
-    "cynic.runtime_seed.request.v2",
-    "cynic.runtime_seed.observation.v2",
-    "cynic.runtime_seed.plan.v2",
+    "cynic.runtime_seed.request.v4",
+    "cynic.release_publication.desired_state.v1",
+    "cynic.runtime_release_declaration.v1",
+    "cynic.runtime_release_admission.v2",
+    "cynic.release.signed_basket_read_back.v2",
+    "cynic.release.publication_manifest.v2",
+    "cynic.runtime_seed.observation.v4",
+    "cynic.runtime_seed.plan.v4",
     "cynic.host.runtime_seed.apply_report.v2"
   ],
   "anti_responsibilities": [

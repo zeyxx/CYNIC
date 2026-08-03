@@ -1,5 +1,6 @@
 use cynic_protocol::{
-    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, validate_agent_workload_delivery,
+    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
+    complete_agent_workload_delivery, validate_agent_workload_delivery,
 };
 
 use super::sanitize_record_id;
@@ -123,6 +124,72 @@ pub(super) async fn accept(
         ));
     }
     Ok(read_back)
+}
+
+pub(super) async fn complete(
+    storage: &SurrealHttpStorage,
+    publication: &AgentWorkloadCompletionPublication,
+) -> Result<AgentWorkloadDelivery, StorageError> {
+    let observed = read(storage, &publication.workload_id)
+        .await?
+        .ok_or_else(|| StorageError::NotFound("workload delivery".to_string()))?;
+    if observed.status == AgentWorkloadDeliveryStatus::Terminal {
+        let accepted = accepted_projection(&observed, &publication.durable_record.record_digest);
+        let expected = complete_agent_workload_delivery(&accepted, publication)
+            .map_err(|violations| StorageError::InvalidInput(violations.join(",")))?;
+        return (expected == observed).then_some(observed).ok_or_else(|| {
+            StorageError::InvalidInput("workload completion publication conflict".to_string())
+        });
+    }
+    let terminal = complete_agent_workload_delivery(&observed, publication)
+        .map_err(|violations| StorageError::InvalidInput(violations.join(",")))?;
+    let json = encode(&terminal)?;
+    let sql = format!(
+        "UPDATE agent_workload_delivery:`{id}` SET status = 'terminal', terminal_at_ms = {terminal_at_ms}, record_json = '{json}' WHERE status = 'accepted' RETURN AFTER;",
+        id = sanitize_record_id(&publication.workload_id),
+        terminal_at_ms = publication.published_at_ms,
+        json = escape_surreal(&json),
+    );
+    let rows = storage.query_one(&sql).await?;
+    if rows.is_empty() {
+        let concurrent = read(storage, &publication.workload_id)
+            .await?
+            .ok_or_else(|| StorageError::QueryFailed("workload completion race".to_string()))?;
+        let accepted = accepted_projection(&concurrent, &publication.durable_record.record_digest);
+        let expected = complete_agent_workload_delivery(&accepted, publication)
+            .map_err(|violations| StorageError::InvalidInput(violations.join(",")))?;
+        return (concurrent == expected)
+            .then_some(concurrent)
+            .ok_or_else(|| {
+                StorageError::InvalidInput("workload completion publication conflict".to_string())
+            });
+    }
+    let read_back = read(storage, &publication.workload_id)
+        .await?
+        .ok_or_else(|| StorageError::QueryFailed("workload completion read-back missing".into()))?;
+    if read_back != terminal {
+        return Err(StorageError::QueryFailed(
+            "workload completion read-back mismatch".to_string(),
+        ));
+    }
+    Ok(read_back)
+}
+
+fn accepted_projection(
+    terminal: &AgentWorkloadDelivery,
+    record_digest: &str,
+) -> AgentWorkloadDelivery {
+    let mut accepted = terminal.clone();
+    accepted.status = AgentWorkloadDeliveryStatus::Accepted;
+    accepted.terminal_at_ms = None;
+    accepted.terminal_record_digest = None;
+    accepted.terminal_record = None;
+    accepted.completion = None;
+    accepted.completion_evidence.clear();
+    accepted
+        .evidence_refs
+        .retain(|reference| reference != &format!("durable-workload-completion:{record_digest}"));
+    accepted
 }
 
 fn validate(delivery: &AgentWorkloadDelivery) -> Result<(), StorageError> {

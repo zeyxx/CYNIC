@@ -81,6 +81,20 @@ fn expand_node_control(cfg: &mut NodeControlConfig) -> Result<(), String> {
         expand_path(&cfg.enrollment_authority_public_key_path)?;
     cfg.enrollment_token_path = expand_path(&cfg.enrollment_token_path)?;
     cfg.agent_workload_state_root = expand_path(&cfg.agent_workload_state_root)?;
+    cfg.runtime_artifact_inbox_root = expand_path(&cfg.runtime_artifact_inbox_root)?;
+    if let Some(scheduler) = cfg.build_scheduler.as_mut() {
+        scheduler.registry_path = expand_path(&scheduler.registry_path)?;
+        scheduler.repository_id = expand_env_vars(&scheduler.repository_id)?;
+        if let Some(publication) = scheduler.release_publication.as_mut() {
+            publication.artifact_base_url = expand_env_vars(&publication.artifact_base_url)?;
+            publication.authentication_kind = expand_env_vars(&publication.authentication_kind)?;
+            publication.work_root = expand_path(&publication.work_root)?;
+            publication.signing_key_path = expand_path(&publication.signing_key_path)?;
+            publication.credential_path = expand_path(&publication.credential_path)?;
+            publication.signer_identity = expand_env_vars(&publication.signer_identity)?;
+            publication.signature_namespace = expand_env_vars(&publication.signature_namespace)?;
+        }
+    }
     Ok(())
 }
 
@@ -105,6 +119,12 @@ pub(crate) fn validate_node_control(cfg: &NodeControlConfig) -> Result<(), Strin
     if cfg.interval_secs == 0 || cfg.timeout_secs == 0 {
         return Err("node_control interval_secs and timeout_secs must be > 0".to_string());
     }
+    if cfg.runtime_artifact_max_bytes == 0 || cfg.runtime_artifact_timeout_secs == 0 {
+        return Err(
+            "node_control runtime_artifact_max_bytes and runtime_artifact_timeout_secs must be > 0"
+                .to_string(),
+        );
+    }
     for (name, path) in [
         ("signing_key_path", &cfg.signing_key_path),
         ("enrollment_request_path", &cfg.enrollment_request_path),
@@ -115,9 +135,78 @@ pub(crate) fn validate_node_control(cfg: &NodeControlConfig) -> Result<(), Strin
         ),
         ("enrollment_token_path", &cfg.enrollment_token_path),
         ("agent_workload_state_root", &cfg.agent_workload_state_root),
+        (
+            "runtime_artifact_inbox_root",
+            &cfg.runtime_artifact_inbox_root,
+        ),
     ] {
         if !path.is_absolute() {
             return Err(format!("node_control.{name} must be an absolute path"));
+        }
+    }
+    if let Some(scheduler) = &cfg.build_scheduler {
+        if cfg.enrollment_role != "build_runner" {
+            return Err(
+                "node_control.build_scheduler requires enrollment_role=build_runner".into(),
+            );
+        }
+        if !scheduler.registry_path.is_absolute() {
+            return Err("node_control.build_scheduler.registry_path must be absolute".into());
+        }
+        if scheduler.repository_id.trim().is_empty()
+            || scheduler.interval_secs == 0
+            || scheduler.claim_ttl_secs == 0
+            || scheduler.command_timeout_secs == 0
+        {
+            return Err(
+                "node_control.build_scheduler repository_id and durations must be non-empty".into(),
+            );
+        }
+        if scheduler.claim_ttl_secs >= scheduler.command_timeout_secs {
+            return Err(
+                "node_control.build_scheduler claim_ttl_secs must be shorter than command_timeout_secs"
+                    .into(),
+            );
+        }
+        if let Some(publication) = &scheduler.release_publication {
+            for (name, path) in [
+                ("work_root", &publication.work_root),
+                ("signing_key_path", &publication.signing_key_path),
+                ("credential_path", &publication.credential_path),
+            ] {
+                if !path.is_absolute() {
+                    return Err(format!(
+                        "node_control.build_scheduler.release_publication.{name} must be absolute"
+                    ));
+                }
+            }
+            let url = reqwest::Url::parse(&publication.artifact_base_url).map_err(|_| {
+                "node_control.build_scheduler.release_publication.artifact_base_url must be a valid HTTPS URL"
+                    .to_string()
+            })?;
+            if url.scheme() != "https"
+                || !url.username().is_empty()
+                || url.password().is_some()
+                || url.query().is_some()
+                || url.fragment().is_some()
+            {
+                return Err(
+                    "node_control.build_scheduler.release_publication.artifact_base_url must be secret-free HTTPS"
+                        .to_string(),
+                );
+            }
+            if publication.authentication_kind != "bearer_file"
+                || publication.signer_identity.trim().is_empty()
+                || publication.signature_namespace
+                    != cynic_protocol::RUNTIME_RELEASE_SIGNATURE_NAMESPACE
+                || publication.max_bytes == 0
+                || publication.timeout_secs == 0
+            {
+                return Err(
+                    "node_control.build_scheduler.release_publication contract is invalid"
+                        .to_string(),
+                );
+            }
         }
     }
     Ok(())

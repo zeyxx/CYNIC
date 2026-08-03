@@ -737,6 +737,15 @@ impl StoragePort for ReconnectableStorage {
             .await
     }
 
+    async fn complete_agent_workload_delivery(
+        &self,
+        publication: &cynic_protocol::AgentWorkloadCompletionPublication,
+    ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
+        self.current()
+            .complete_agent_workload_delivery(publication)
+            .await
+    }
+
     async fn reserve_agent_workspace_claim(
         &self,
         intent: &cynic_protocol::AgentWorkspaceClaimIntent,

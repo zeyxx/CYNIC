@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use cynic_protocol::SignedBuildWorkloadGrant;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,6 +21,7 @@ impl BuildWorkloadGrantStoreError {
 pub struct PersistedBuildWorkloadGrant {
     pub grant: SignedBuildWorkloadGrant,
     pub evidence_ref: String,
+    pub path: PathBuf,
 }
 
 pub trait BuildWorkloadGrantStorePort: Send + Sync {

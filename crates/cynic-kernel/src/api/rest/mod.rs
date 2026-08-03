@@ -124,6 +124,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .allow_methods([
             axum::http::Method::GET,
             axum::http::Method::POST,
+            axum::http::Method::PUT,
             axum::http::Method::DELETE,
             axum::http::Method::OPTIONS,
         ])
@@ -275,8 +276,12 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(agent_workloads::accept_handler),
         )
         .route(
+            "/node-control/{node_id}/agent-workloads/{workload_id}/completion",
+            post(agent_workloads::completion_handler),
+        )
+        .route(
             "/node-control/{node_id}/desired-state",
-            get(node_control::desired_state_handler),
+            get(node_control::desired_state_handler).put(node_control::declare_release_handler),
         )
         .route(
             "/node-control/{node_id}/status",

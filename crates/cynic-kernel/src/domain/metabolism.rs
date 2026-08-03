@@ -33,9 +33,13 @@ pub struct MetabolicState {
     pub crystal_observations: u64,
 
     // ── Derived ratios (the organism's vital signs) ──
-    /// K15 ratio: fraction of verdicts served to consumers (verdicts_served / verdicts).
-    /// Healthy: > 0.90. This represents consumption opportunity, not actual consumption.
-    pub digestion_ratio: f64,
+    /// Fraction of accepted observations that have been digested (digested / ingested).
+    /// `None` means there is no ingestion denominator yet; unknown is not failure.
+    pub observation_digestion_ratio: Option<f64>,
+    /// Fraction of issued verdicts served to consumers (verdicts_served / verdicts).
+    /// This measures consumption opportunity, not observation digestion.
+    /// `None` means no verdict has been issued yet.
+    pub verdict_consumption_ratio: Option<f64>,
     /// Fraction of verdicts that produced crystals (crystal_obs / verdicts).
     /// Healthy: > 0.01. Low: < 0.005.
     pub crystallization_rate: f64,
@@ -57,12 +61,15 @@ pub fn snapshot(metrics: &Metrics) -> MetabolicState {
     let verdicts_served = metrics.verdicts_served_total.load(Ordering::Relaxed);
     let crystal_observations = metrics.crystal_observations_total.load(Ordering::Relaxed);
 
-    // K15 digestion ratio: verdicts served to clients / verdicts created
-    // Represents consumption opportunity (serving verdicts to potential consumers)
-    let digestion_ratio = if verdicts > 0 {
-        verdicts_served as f64 / verdicts as f64
+    let observation_digestion_ratio = if ingested > 0 {
+        Some(digested as f64 / ingested as f64)
     } else {
-        0.0
+        None
+    };
+    let verdict_consumption_ratio = if verdicts > 0 {
+        Some(verdicts_served as f64 / verdicts as f64)
+    } else {
+        None
     };
 
     let crystallization_rate = if verdicts > 0 {
@@ -89,7 +96,8 @@ pub fn snapshot(metrics: &Metrics) -> MetabolicState {
         verdicts,
         verdicts_served,
         crystal_observations,
-        digestion_ratio,
+        observation_digestion_ratio,
+        verdict_consumption_ratio,
         crystallization_rate,
         drop_rate,
         backlog,
@@ -110,16 +118,21 @@ pub fn diagnose(state: &MetabolicState) -> Vec<MetabolicAlert> {
     let mut alerts = Vec::new();
 
     // Digestion starvation: organism accumulates faster than it processes
-    if state.ingested > 100 && state.digestion_ratio < 0.10 {
+    if state.ingested > 100
+        && state
+            .observation_digestion_ratio
+            .is_some_and(|ratio| ratio < 0.10)
+    {
+        let ratio = state.observation_digestion_ratio.unwrap_or_default();
         alerts.push(MetabolicAlert {
             kind: "digestion_starvation",
             message: format!(
                 "Digestion ratio {:.1}% — organism accumulates {:.0}x faster than it digests (backlog: {})",
-                state.digestion_ratio * 100.0,
-                if state.digestion_ratio > 0.0 { 1.0 / state.digestion_ratio } else { f64::INFINITY },
+                ratio * 100.0,
+                if ratio > 0.0 { 1.0 / ratio } else { f64::INFINITY },
                 state.backlog,
             ),
-            severity: if state.digestion_ratio < 0.01 { "critical" } else { "warning" },
+            severity: if ratio < 0.01 { "critical" } else { "warning" },
         });
     }
 
@@ -179,13 +192,17 @@ mod tests {
         let s = snapshot(&m);
         assert_eq!(s.ingested, 0);
         assert_eq!(s.backlog, 0);
-        assert_eq!(s.digestion_ratio, 0.0);
+        assert_eq!(s.observation_digestion_ratio, None);
+        assert_eq!(s.verdict_consumption_ratio, None);
     }
 
     #[test]
-    fn digestion_ratio_computed() {
+    fn digestion_and_consumption_ratios_are_independent() {
         let m = Metrics::new();
-        // digestion_ratio is now verdicts_served / verdicts (K15 consumption metric)
+        for _ in 0..100 {
+            m.inc_observation_ingested();
+        }
+        m.add_nightshift_digested(25);
         for _ in 0..100 {
             m.inc_verdict();
         }
@@ -193,9 +210,12 @@ mod tests {
             m.inc_verdict_served();
         }
         let s = snapshot(&m);
+        assert_eq!(s.ingested, 100);
+        assert_eq!(s.digested, 25);
         assert_eq!(s.verdicts, 100);
         assert_eq!(s.verdicts_served, 30);
-        assert!((s.digestion_ratio - 0.3).abs() < 0.001);
+        assert_eq!(s.observation_digestion_ratio, Some(0.25));
+        assert_eq!(s.verdict_consumption_ratio, Some(0.3));
     }
 
     #[test]

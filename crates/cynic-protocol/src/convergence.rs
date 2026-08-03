@@ -1,6 +1,14 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod causal;
+
+pub use causal::{
+    CAUSAL_CONVERGENCE_EPOCH_SCHEMA, CausalConvergenceEpoch, CausalConvergenceEpochInput,
+    CausalEvidenceRefs, TrustAssessment, TrustDimensionStatus, TrustRequirements,
+    assess_causal_convergence_epoch,
+};
+
 pub const CONVERGENCE_MATRIX_SCHEMA: &str = "cynic.convergence_matrix.v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

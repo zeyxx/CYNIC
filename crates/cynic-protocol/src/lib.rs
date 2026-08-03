@@ -20,13 +20,16 @@ pub mod machine_identity;
 pub mod network;
 pub mod node_control;
 pub mod node_enrollment;
+pub mod node_identity;
 pub mod observe;
 pub mod outcomes;
 pub mod policy;
 pub mod pre_os;
 pub mod provider;
+pub mod release_publication;
 pub mod runtime;
 pub mod runtime_compatibility;
+pub mod runtime_release;
 pub mod runtime_seed;
 pub mod source_control;
 pub mod source_materialization;
@@ -68,7 +71,8 @@ pub use agent_session::{
 pub use agent_workload::{
     AGENT_CONSTITUTION_STATUS_SCHEMA, AGENT_EXECUTION_REQUIRED_RUNTIME_CAPABILITIES,
     AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA, AGENT_WORKLOAD_ADMISSION_SCHEMA,
-    AGENT_WORKLOAD_DELIVERY_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
+    AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA, AGENT_WORKLOAD_DELIVERY_SCHEMA,
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_INPUT_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
     AGENT_WORKLOAD_TRANSITION_REQUEST_SCHEMA, AGENT_WORKSPACE_APPLY_REPORT_SCHEMA,
     AGENT_WORKSPACE_CAPABILITY_ID, AGENT_WORKSPACE_CLAIM_ADMISSION_SCHEMA,
     AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA, AGENT_WORKSPACE_LIFECYCLE_OBSERVATION_SCHEMA,
@@ -76,8 +80,9 @@ pub use agent_workload::{
     AGENT_WORKSPACE_OBSERVATION_SCHEMA, AGENT_WORKSPACE_RECONCILIATION_SCHEMA,
     AGENT_WORKSPACE_REQUEST_SCHEMA, AgentBoundedAction, AgentConstitutionRuntimeStatus,
     AgentConstitutionStatus, AgentExecutionRuntimeObservation, AgentWorkloadAdmission,
-    AgentWorkloadClaim, AgentWorkloadDecision, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
-    AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState, AgentWorkloadTransition,
+    AgentWorkloadClaim, AgentWorkloadCompletionPublication, AgentWorkloadDecision,
+    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, AgentWorkloadEnvelope, AgentWorkloadInput,
+    AgentWorkloadRecord, AgentWorkloadState, AgentWorkloadTransition,
     AgentWorkloadTransitionRequest, AgentWorkloadViolation, AgentWorkspaceApplyReport,
     AgentWorkspaceApplyStatus, AgentWorkspaceChange, AgentWorkspaceClaimAdmission,
     AgentWorkspaceClaimDecision, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
@@ -87,14 +92,16 @@ pub use agent_workload::{
     AgentWorkspaceReadBack, AgentWorkspaceReconciliation, AgentWorkspaceRequest,
     AgentWorkspaceRetentionRoot, AgentWorkspaceViolation, AgentWorkspaceZone,
     AgentWorkspaceZoneKind, DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA, DurableAgentWorkloadRecord,
-    LegacyAgentTaskStatus, admit_agent_workload, admit_agent_workload_dispatch,
-    admit_agent_workspace_claim, admit_aggregate_sibling_budget, admit_workload_action,
-    agent_workspace_target, claim_agent_workload, complete_agent_workload,
-    consume_agent_workload_action, reconcile_agent_execution_capabilities,
+    LegacyAgentTaskStatus, acknowledge_agent_workload_cancellation, admit_agent_workload,
+    admit_agent_workload_dispatch, admit_agent_workspace_claim, admit_aggregate_sibling_budget,
+    admit_workload_action, agent_workspace_target, claim_agent_workload, complete_agent_workload,
+    complete_agent_workload_delivery, consume_agent_workload_action,
+    finalize_unclaimed_agent_workload_cancellation, reconcile_agent_execution_capabilities,
     reconcile_agent_workspace, reconcile_agent_workspace_lifecycle, renew_agent_workload_claim,
-    request_agent_workload_cancellation, validate_agent_workload_delivery,
-    validate_agent_workload_record, validate_agent_workspace_lifecycle_record,
-    validate_durable_agent_workload_record, workspace_claim_admission_matches, zones_overlap,
+    request_agent_workload_cancellation, validate_agent_workload_completion_publication,
+    validate_agent_workload_delivery, validate_agent_workload_record,
+    validate_agent_workspace_lifecycle_record, validate_durable_agent_workload_record,
+    workspace_claim_admission_matches, zones_overlap,
 };
 pub use artifact_release::{
     RUNTIME_ARTIFACT_RELEASE_EVENT_SCHEMA, RUNTIME_ARTIFACT_RELEASE_REPORT_SCHEMA,
@@ -104,17 +111,22 @@ pub use artifact_release::{
 };
 pub use build::{
     BUILD_AGENT_REQUEST_ADMISSION_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA, BUILD_BOOTSTRAP_GRANT_SCHEMA,
-    BUILD_INPUT_ADMISSION_SCHEMA, BUILD_RUNNER_ADMISSION_SCHEMA, BUILD_RUNNER_ENVELOPE_SCHEMA,
+    BUILD_INPUT_ADMISSION_SCHEMA, BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA,
+    BUILD_RUNNER_ADMISSION_SCHEMA, BUILD_RUNNER_ENVELOPE_SCHEMA,
     BUILD_RUNNER_OBSERVATION_MAX_AGE_MS, BUILD_RUNNER_OBSERVATION_SCHEMA,
+    BUILD_SCHEDULER_RUNTIME_CAPABILITIES, BUILD_SOURCE_REFERENCE_SCHEMA,
     BUILD_WORKLOAD_GRANT_MAX_TTL_SECONDS, BUILD_WORKLOAD_GRANT_SCHEMA,
     BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE, BuildAgentRequest, BuildAgentRequestAdmission,
-    BuildBootstrapGrant, BuildInputAdmission, BuildRunnerAdmission, BuildRunnerEnvelope,
-    BuildRunnerObservation, BuildWorkloadGrant, RuntimeNodeObservation,
-    SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA, SignedBuildWorkloadGrant, admit_build_agent_request,
-    admit_build_input, admit_build_runner, build_workload_grant_signing_bytes,
-    canonical_build_action_from_argv, canonical_build_actions, compose_build_agent_workload,
-    compose_build_runner_envelope, derive_build_workload_grant, plan_build_agent_request,
-    plan_build_runner, validate_build_workload_grant, validate_signed_build_workload_grant,
+    BuildBootstrapGrant, BuildInputAdmission, BuildReleasePublicationIntent, BuildRunnerAdmission,
+    BuildRunnerEnvelope, BuildRunnerObservation, BuildSourceReference, BuildWorkloadGrant,
+    RuntimeNodeObservation, SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA, SignedBuildWorkloadGrant,
+    admit_build_agent_request, admit_build_input, admit_build_runner,
+    build_agent_request_from_workload, build_source_reference_from_workload,
+    build_workload_grant_signing_bytes, canonical_build_action_from_argv, canonical_build_actions,
+    compose_build_agent_workload, compose_build_runner_envelope, derive_build_workload_grant,
+    plan_build_agent_request, plan_build_runner, valid_release_publication_id,
+    validate_build_source_reference, validate_build_workload_grant,
+    validate_release_publication_intent, validate_signed_build_workload_grant,
 };
 pub use capability_responsibility::{
     CAPABILITY_RESPONSIBILITY_CATALOG_SCHEMA, CapabilityResponsibilityCatalog,
@@ -147,7 +159,10 @@ pub use endpoint::{
     KernelEndpointError, KernelEndpointPolicy, auth_header_value, kernel_url,
     normalize_kernel_base_url,
 };
-pub use evidence::{EVIDENCE_ENVELOPE_SCHEMA, EvidenceEnvelope, build_evidence_envelope};
+pub use evidence::{
+    EVIDENCE_ENVELOPE_SCHEMA, EvidenceEnvelope, build_evidence_envelope,
+    build_evidence_envelope_with_lineage,
+};
 pub use forgejo::{
     FORGEJO_PLAN_SCHEMA, ForgejoActionKind, ForgejoDesiredState, ForgejoObservedState, ForgejoPlan,
     ForgejoPlannedAction, ForgejoRepositoryPermission, plan_forgejo_convergence,
@@ -176,9 +191,9 @@ pub use network::{
 };
 pub use node_control::{
     NODE_CONTROL_OBSERVATION_SCHEMA, NODE_CONTROL_PLAN_SCHEMA, NODE_DESIRED_STATE_SCHEMA,
-    NodeControlConnectionState, NodeControlDecision, NodeControlObservation, NodeControlPlan,
-    NodeDesiredState, reconcile_node_control, validate_node_control_plan,
-    validate_node_desired_state,
+    NodeControlConnectionState, NodeControlDecision, NodeControlExecutionEvidence,
+    NodeControlObservation, NodeControlPlan, NodeDesiredState, reconcile_node_control,
+    validate_node_control_plan, validate_node_desired_state,
 };
 pub use node_enrollment::{
     MachineEnrollmentAuthority, NODE_ENROLLMENT_GRANT_SCHEMA, NODE_ENROLLMENT_OBSERVATION_SCHEMA,
@@ -189,6 +204,11 @@ pub use node_enrollment::{
     SignedNodeEnrollmentGrant, admit_node_enrollment, admit_node_enrollment_renewal,
     node_enrollment_grant_signing_bytes, reconcile_node_enrollment,
     validate_signed_node_enrollment_grant,
+};
+pub use node_identity::{
+    NODE_IDENTITY_DESIRED_STATE_SCHEMA, NODE_IDENTITY_OBSERVATION_SCHEMA,
+    NODE_IDENTITY_PLAN_SCHEMA, NodeIdentityDecision, NodeIdentityDesiredState,
+    NodeIdentityObservation, NodeIdentityPlan, reconcile_node_identity,
 };
 pub use observe::OBSERVE_PATH;
 pub use outcomes::{
@@ -216,6 +236,15 @@ pub use provider::{
     PROVIDER_CONTROL_CAPABILITY_SCHEMA, PROVIDER_MACHINE_IDENTITY_SCHEMA,
     ProviderControlCapability, ProviderIdentityKind, ProviderMachineIdentity,
 };
+pub use release_publication::{
+    RELEASE_PUBLICATION_DESIRED_STATE_SCHEMA, RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA,
+    RUNTIME_RELEASE_SIGNATURE_NAMESPACE, ReleasePublicationDesiredState,
+    RuntimeReleasePublicationManifest, SIGNED_RELEASE_BASKET_PLAN_SCHEMA,
+    SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA, SIGNED_RELEASE_BASKET_REQUEST_SCHEMA,
+    SignedReleaseBasketPlan, SignedReleaseBasketReadBack, SignedReleaseBasketRequest,
+    plan_signed_release_basket, validate_release_publication_desired_state,
+    validate_signed_release_basket_read_back,
+};
 pub use runtime::{
     RUNTIME_EXECUTION_PLAN_SCHEMA, RUNTIME_EXECUTION_SUITE_SCHEMA, RUNTIME_PROOF_BUNDLE_SCHEMA,
     RUNTIME_PROOF_PERSISTENCE_SCHEMA, RUNTIME_PROOF_SCHEMA, RuntimeExecutionCommand,
@@ -230,10 +259,16 @@ pub use runtime_compatibility::{
     RUNTIME_COMPATIBILITY_PLAN_SCHEMA, RuntimeCompatibilityPlan, RuntimeCompatibilityStatus,
     RuntimeContractObservation, RuntimeContractRequirement, reconcile_runtime_compatibility,
 };
+pub use runtime_release::{
+    RUNTIME_RELEASE_ADMISSION_SCHEMA, RUNTIME_RELEASE_DECLARATION_SCHEMA, RuntimeReleaseAdmission,
+    RuntimeReleaseDeclaration, admit_runtime_release, runtime_release_policy_digest,
+};
 pub use runtime_seed::{
+    RUNTIME_SEED_BUNDLE_MARKER_FILE, RUNTIME_SEED_BUNDLE_MARKER_SCHEMA,
     RUNTIME_SEED_OBSERVATION_SCHEMA, RUNTIME_SEED_PLAN_SCHEMA, RUNTIME_SEED_REQUEST_SCHEMA,
-    RuntimeSeedAction, RuntimeSeedObservation, RuntimeSeedPlan, RuntimeSeedRequest,
-    reconcile_runtime_seed,
+    RuntimeArtifactSource, RuntimeArtifactTransportKind, RuntimeSeedAction,
+    RuntimeSeedBundleMarker, RuntimeSeedObservation, RuntimeSeedPlan, RuntimeSeedRequest,
+    reconcile_runtime_seed, validate_runtime_seed_request,
 };
 pub use source_control::SourceAdmissionReport;
 pub use source_control::{

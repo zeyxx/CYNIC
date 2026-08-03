@@ -159,8 +159,10 @@
         "cynic.node_substrate.assessment.v1",
         "cynic.node_substrate.apply_report.v1",
         "cynic.framework_bootstrap.bundle.v2",
-        "cynic.framework_bootstrap.propagation_plan.v1",
-        "cynic.framework_bootstrap.propagation_report.v1",
+        "cynic.framework_bootstrap.propagation_observation.v1",
+        "cynic.framework_bootstrap.propagation_decision.v1",
+        "cynic.framework_bootstrap.propagation_plan.v2",
+        "cynic.framework_bootstrap.propagation_report.v2",
         "cynic.framework_install_apply.v1"
       ],
       "id": "framework_bootstrap",
@@ -180,7 +182,7 @@
         "framework_bootstrap",
         "node_substrate"
       ],
-      "responsibility": "Observe and reconcile the node substrate, then write, plan controlled transport, and apply standalone framework bootstrap artifacts for fresh-node installation."
+      "responsibility": "Observe and reconcile the node substrate, then stage and enroll content-addressed bootstrap artifacts through a registry-declared MachineEnrollment transport; require remote-principal, deployed-marker, and node-identity read-back before convergence."
     },
     {
       "adapter_module": "chat_surface",
@@ -339,7 +341,8 @@
         "persist renewal, cancellation, recovery, or completion outside the revision-fenced node-owned workload store",
         "acknowledge a workload delivery before exact envelope persistence and durable record read-back",
         "accept source content whose digest does not match the admitted change",
-        "treat command success as ownership, HEAD, source, collection, or capacity read-back proof"
+        "treat command success as ownership, HEAD, source, collection, or capacity read-back proof",
+        "issue a build grant through an operator-supplied private-key command"
       ],
       "canonical_entrypoints": [
         "cynic-node control --config /etc/cynic/node-control.toml",
@@ -349,10 +352,9 @@
         "cynic-node agent-scheduler-step --json --observation <scheduler-step.json> [--state-root <path>]",
         "cynic-node agent-workload-status --json --workload-id <id> [--state-root <path>]",
         "cynic-node agent-workload-transition --json --request <transition.json> [--state-root <path>] [--apply]",
-        "cynic-node build-workload-grant-reconcile --json --workload-id <id> --signing-key <private-key> [--registry <path>] [--state-root <path>] [--apply]",
-        "cynic-node build-workload-grant-verify --json --grant <signed-grant.json> --workload-record <record.json> --authority-public-key <public-key> --node-id <node> --source-commit <commit> --action <make:check|make:build>"
+        "cynic-node build-workload-grant-verify --json --grant <signed-grant.json> --workload-record <record.json> --authority-public-key <public-key> --node-id <node> --source-commit <commit> --action <make:check|make:build|make:build-release>"
       ],
-      "domain_owner": "cynic-protocol::{agent_workload,source_repository_bootstrap}",
+      "domain_owner": "cynic-protocol::{agent_workload,build,release_publication,source_repository_bootstrap,runtime_seed}",
       "evidence": [
         "cynic.source_repository_bootstrap_observation.v1",
         "cynic.source_repository_bootstrap_report.v1",
@@ -373,10 +375,21 @@
         "cynic.node.agent_workload_transition_report.v1",
         "cynic.agent_workload_delivery.v1",
         "cynic.node.agent_workload_delivery_tick.v1",
+        "cynic.agent_workload_completion_publication.v1",
+        "cynic.node.agent_workload_completion_tick.v1",
+        "cynic.runtime_artifact.transfer_receipt.v1",
+        "cynic.runtime_artifact.deployment_report.v1",
+        "cynic.node_control.execution_evidence.v1",
         "cynic.build.workload_grant.v1",
         "cynic.signed_build_workload_grant.v1",
-        "cynic.node.build_workload_grant_reconcile.v1",
         "cynic.node.build_workload_grant_verification.v1",
+        "cynic.agent_workload_input.v1",
+        "cynic.build.agent_request.v3",
+        "cynic.build.release_binary_artifact_read_back.v1",
+        "cynic.release.signed_basket_request.v2",
+        "cynic.release.signed_basket_plan.v2",
+        "cynic.release.signed_basket_read_back.v2",
+        "cynic.release.publication_manifest.v2",
         "cynic.agent_source_change_transaction_result.v1"
       ],
       "id": "agent_workspace",
@@ -388,7 +401,6 @@
         "execute_agent_scheduler_step",
         "execute_agent_workload_status",
         "execute_agent_workload_transition",
-        "execute_build_workload_grant_reconcile",
         "execute_build_workload_grant_verify",
         "execute_source_repository_bootstrap"
       ],
@@ -405,11 +417,26 @@
         "adapters::local_agent_scheduler_journal",
         "ports::build_workload_grant_port",
         "ports::build_workload_grant_store_port",
+        "ports::build_scheduler_port",
+        "ports::release_publication_port",
+        "ports::runtime_artifact_transport_port",
+        "ports::runtime_seed_actuation_port",
         "adapters::ed25519_build_workload_grant",
         "adapters::local_build_workload_grant_store",
-        "usecases::build_workload_grant_reconcile_uc",
+        "adapters::local_build_workspace",
+        "adapters::tokio_build_execution",
+        "adapters::local_release_basket_packaging",
+        "adapters::ssh_release_basket_signing",
+        "adapters::http_release_artifact_publication",
+        "adapters::http_runtime_artifact_transport",
+        "adapters::local_runtime_seed_actuation",
+        "usecases::build_scheduler",
+        "usecases::build_scheduler::release_publication",
+        "usecases::runtime_artifact_deployment_uc",
         "ports::agent_workload_store_port",
         "adapters::local_agent_workload_store",
+        "ports::agent_workload_completion_receipt_port",
+        "adapters::local_agent_workload_completion_receipt",
         "ports::agent_workload_delivery_port",
         "usecases::agent_workload_delivery_uc",
         "adapters::http_node_control",
@@ -418,7 +445,40 @@
         "adapters::local_source_repository_bootstrap",
         "adapters::kernel_agent_workspace_claim_store"
       ],
-      "responsibility": "Observe and materialize an exact registry-declared source revision under the runtime principal, durably deliver an admitted workload from kernel storage to the target node store with persistence-before-ack read-back, reserve durable hierarchical claims, persist revision-fenced workload dispatch, claims, renewals, budget consumption, cancellation, and completion evidence, reconcile append-only machine-signed build grants directly from live claimed workload records, apply one preimage-bound source change, reconcile terminal workspace lifecycle, and collect only an expired clean workspace under a fresh fenced claim with capacity read-back."
+      "responsibility": "Observe and reconcile an exact registry-declared source revision under the runtime principal, durably deliver an admitted content-addressed workload from kernel storage to the target node store with persistence-before-ack read-back, reserve and renew revision-fenced claims through execution and proof publication, acknowledge cancellation, derive append-only machine-signed build grants only after action reservation, execute canonical argv in an isolated worktree, persist content-addressed completion evidence, deterministically package and machine-sign release baskets, publish them through injected file-backed machine authentication with exact remote read-back, transport desired runtime release artifacts into a bounded node inbox, activate them through the runtime-seed port, publish post-action read-back, apply one preimage-bound source change, reconcile terminal workspace lifecycle, and collect only an expired clean workspace under a fresh fenced claim with capacity read-back."
+    },
+    {
+      "adapter_module": "adapters::local_node_identity",
+      "anti_responsibilities": [
+        "return or transport the private signing key",
+        "replace an existing key",
+        "claim machine enrollment before authority-signed grant read-back",
+        "generate build grants directly"
+      ],
+      "canonical_entrypoints": [
+        "cynic-node node-identity --json --node-id <node> [--signing-key-path <path>] [--apply]"
+      ],
+      "domain_owner": "cynic-protocol::node_identity",
+      "evidence": [
+        "cynic.node_identity.desired_state.v1",
+        "cynic.node_identity.observation.v1",
+        "cynic.node_identity.plan.v1",
+        "cynic.node_identity.report.v1"
+      ],
+      "id": "node_identity",
+      "layer": "l2_node_apply_boundary",
+      "mutation_policy": "read_only_by_default_explicit_apply_create_once",
+      "owner_call_markers": [
+        "execute_node_identity",
+        "reconcile_node_identity"
+      ],
+      "owner_crate": "cynic-node",
+      "owner_modules": [
+        "ports::node_identity_port",
+        "adapters::local_node_identity",
+        "usecases::node_identity_uc"
+      ],
+      "responsibility": "Generate a node-local Ed25519 machine identity exactly once, observe only its public commitment and private-file safety, and require post-generation read-back before enrollment may continue."
     },
     {
       "adapter_module": "deps_surface",
@@ -837,21 +897,29 @@
         "claim convergence before postflight read-back"
       ],
       "canonical_entrypoints": [
+        "cynic_runtime_release_declare",
+        "PUT /node-control/{node_id}/desired-state with cynic.runtime_release_declaration.v1",
         "cynic-host-exec runtime-seed-plan --request <request.json> --observation <observation.json>",
         "cynic-host-exec runtime-seed-reconcile --request <request.json> [--apply]"
       ],
-      "domain_owner": "cynic-protocol::runtime_seed",
+      "domain_owner": "cynic-protocol::{runtime_seed,runtime_release,release_publication}",
       "evidence": [
-        "cynic.runtime_seed.request.v2",
-        "cynic.runtime_seed.observation.v2",
-        "cynic.runtime_seed.plan.v2",
+        "cynic.runtime_seed.request.v4",
+        "cynic.release_publication.desired_state.v1",
+        "cynic.runtime_release_declaration.v1",
+        "cynic.runtime_release_admission.v2",
+        "cynic.release.signed_basket_read_back.v2",
+        "cynic.release.publication_manifest.v2",
+        "cynic.runtime_seed.observation.v4",
+        "cynic.runtime_seed.plan.v4",
         "cynic.host.runtime_seed.apply_report.v2"
       ],
       "id": "runtime_seed",
       "layer": "l1_host_apply_boundary",
-      "mutation_policy": "explicit_apply_only_after_signature_digest_epoch_node_and_slot_preflight",
+      "mutation_policy": "explicit_apply_or_admitted_node_desired_state_after_signature_digest_epoch_node_and_slot_preflight",
       "owner_call_markers": [
         "reconcile_runtime_seed",
+        "admit_runtime_release",
         "RuntimeSeedSignatureVerifier",
         "RuntimeSeedActivationPort",
         "execute_plan"
@@ -859,6 +927,10 @@
       "owner_crate": "cynic-host",
       "owner_modules": [
         "cynic-protocol::runtime_seed",
+        "cynic-protocol::runtime_release",
+        "cynic-protocol::release_publication",
+        "cynic-kernel::api::rest::node_control",
+        "cynic-mcp::routers::local::runtime_release",
         "cynic-host::runtime_seed::signature",
         "cynic-host::runtime_seed::filesystem",
         "cynic-host::runtime_seed",

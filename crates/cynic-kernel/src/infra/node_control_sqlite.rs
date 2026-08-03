@@ -182,7 +182,8 @@ mod tests {
     use super::*;
     use cynic_protocol::{
         NODE_CONTROL_PLAN_SCHEMA, NODE_DESIRED_STATE_SCHEMA, NodeControlConnectionState,
-        NodeControlDecision, RUNTIME_SEED_REQUEST_SCHEMA, RuntimeSeedRequest,
+        NodeControlDecision, RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource,
+        RuntimeArtifactTransportKind, RuntimeSeedRequest,
     };
 
     fn desired(generation: u64) -> NodeDesiredState {
@@ -200,12 +201,22 @@ mod tests {
                 source_commit: "c".repeat(40),
                 build_proof_digest: format!("sha256:{}", "d".repeat(64)),
                 basket_digest: format!("sha256:{}", "b".repeat(64)),
+                registry_digest: format!("sha256:{}", "e".repeat(64)),
+                basket_source: RuntimeArtifactSource {
+                    transport: RuntimeArtifactTransportKind::LocalFile,
+                    locator: "/source/release-a.tar".to_string(),
+                },
                 basket_path: "/inbox/release-a.tar".to_string(),
+                detached_signature_source: RuntimeArtifactSource {
+                    transport: RuntimeArtifactTransportKind::LocalFile,
+                    locator: "/source/release-a.tar.sig".to_string(),
+                },
                 detached_signature_path: "/inbox/release-a.tar.sig".to_string(),
                 allowed_signers_path: "/etc/cynic/allowed-signers".to_string(),
+                registry_path: "/etc/cynic/registry.json".to_string(),
                 signer_identity: "release-authority".to_string(),
                 signature_namespace: "cynic-runtime-seed".to_string(),
-                required_seed_contract_revision: 2,
+                required_seed_contract_revision: 4,
                 install_root: "/var/lib/cynic/runtime".to_string(),
                 staged_slot: "releases/release-a".to_string(),
                 current_link: "current".to_string(),
@@ -228,6 +239,7 @@ mod tests {
             observed_generation: Some(generation),
             connection: NodeControlConnectionState::Connected,
             decision: NodeControlDecision::Converged,
+            execution: None,
             evidence_refs: vec!["sha256:proof".to_string()],
             unknowns: Vec::new(),
         }

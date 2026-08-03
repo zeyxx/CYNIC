@@ -1,4 +1,26 @@
-pub(crate) fn bootstrap_install_script() -> String {
+mod runtime_artifacts;
+
+pub(crate) use runtime_artifacts::BootstrapRuntimeArtifact;
+use runtime_artifacts::{install_activation_fragment, install_preflight_fragment, verify_fragment};
+
+pub(crate) fn bootstrap_enroll_script() -> String {
+    r#"#!/bin/sh
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+
+if [ "$(id -u)" != "0" ]; then
+  echo "enroll.sh requires the registry-declared MachineEnrollment principal with uid 0" >&2
+  exit 1
+fi
+
+"$ROOT/install.sh"
+"$ROOT/verify.sh"
+"#
+    .to_string()
+}
+
+pub(crate) fn bootstrap_install_script(artifacts: &[BootstrapRuntimeArtifact]) -> String {
     r#"#!/bin/sh
 set -eu
 
@@ -16,6 +38,10 @@ REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-/etc/cynic/registry.json}"
 STORAGE_CONFIG_TARGET="${CYNIC_STORAGE_CONFIG:-/etc/cynic/storage.toml}"
 LXC_BRIDGE_TARGET="${CYNIC_LXC_EXEC_BRIDGE_HELPER:-/usr/local/libexec/cynic-lxc-exec-bridge}"
 LXC_BRIDGE_SUDOERS="${CYNIC_LXC_EXEC_BRIDGE_SUDOERS:-/etc/sudoers.d/cynic-lxc-exec-bridge}"
+STATE_ROOT="${CYNIC_STATE_ROOT:-/var/lib/cynic}"
+RUNTIME_INSTALL_ROOT="${CYNIC_RUNTIME_INSTALL_ROOT:-$STATE_ROOT/runtime}"
+RUNTIME_ARTIFACT_INBOX="${CYNIC_RUNTIME_ARTIFACT_INBOX:-$STATE_ROOT/runtime-artifacts/inbox}"
+BOOTSTRAP_RELEASE=""
 
 if [ "$(id -u)" != "0" ]; then
   echo "install.sh must run as root" >&2
@@ -38,6 +64,7 @@ verify_seed_integrity() {
 }
 
 verify_seed_integrity
+__CYNIC_RUNTIME_PREFLIGHT__
 
 install_bootstrap_packages() {
   if command -v sudo >/dev/null 2>&1 && command -v visudo >/dev/null 2>&1; then
@@ -66,14 +93,6 @@ command -v sudo >/dev/null 2>&1 || { echo "sudo is required after package bootst
 install -d -o root -g root -m 0755 "$(dirname "$HELPER_TARGET")" "$(dirname "$SUDOERS_TARGET")"
 install -o root -g root -m 0755 "$BUNDLE/cynic-host-exec" "$HELPER_TARGET"
 install -o root -g root -m 0440 "$BUNDLE/cynic-host-exec.sudoers" "$SUDOERS_TARGET"
-if [ -x "$ROOT/bin/cynic" ]; then
-  install -d -o root -g root -m 0755 "$(dirname "$CLI_TARGET")"
-  install -o root -g root -m 0755 "$ROOT/bin/cynic" "$CLI_TARGET"
-fi
-if [ -x "$ROOT/bin/cynic-node" ]; then
-  install -d -o root -g root -m 0755 "$(dirname "$NODE_TARGET")"
-  install -o root -g root -m 0755 "$ROOT/bin/cynic-node" "$NODE_TARGET"
-fi
 if [ -f "$ROOT/etc/node-control.toml" ]; then
   install -d -o root -g "$RUNTIME_GROUP" -m 0755 "$(dirname "$NODE_CONTROL_CONFIG_TARGET")"
   install -o root -g "$RUNTIME_GROUP" -m 0640 "$ROOT/etc/node-control.toml" "$NODE_CONTROL_CONFIG_TARGET"
@@ -100,12 +119,25 @@ visudo -cf "$SUDOERS_TARGET"
 
 "$HELPER_TARGET" principal-prepare --apply > /var/lib/cynic/bootstrap/principal-prepare.json
 chown "$RUNTIME_USER:$RUNTIME_GROUP" /var/lib/cynic/bootstrap/principal-prepare.json
+install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0750 \
+  "$RUNTIME_ARTIFACT_INBOX"
+install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 \
+  "$RUNTIME_INSTALL_ROOT" "$RUNTIME_INSTALL_ROOT/releases"
+__CYNIC_RUNTIME_ACTIVATION__
 
 echo "cynic framework bootstrap installed: $HELPER_TARGET"
-"#.to_string()
+"#
+    .replace(
+        "__CYNIC_RUNTIME_PREFLIGHT__",
+        &install_preflight_fragment(artifacts),
+    )
+    .replace(
+        "__CYNIC_RUNTIME_ACTIVATION__",
+        &install_activation_fragment(artifacts),
+    )
 }
 
-pub(crate) fn bootstrap_verify_script() -> String {
+pub(crate) fn bootstrap_verify_script(artifacts: &[BootstrapRuntimeArtifact]) -> String {
     r#"#!/bin/sh
 set -eu
 
@@ -121,8 +153,13 @@ NODE_SERVICE_TARGET="${CYNIC_NODE_SERVICE_UNIT:-/etc/systemd/system/cynic-node.s
 REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-/etc/cynic/registry.json}"
 STORAGE_CONFIG_TARGET="${CYNIC_STORAGE_CONFIG:-/etc/cynic/storage.toml}"
 LXC_BRIDGE_TARGET="${CYNIC_LXC_EXEC_BRIDGE_HELPER:-/usr/local/libexec/cynic-lxc-exec-bridge}"
+STATE_ROOT="${CYNIC_STATE_ROOT:-/var/lib/cynic}"
+RUNTIME_INSTALL_ROOT="${CYNIC_RUNTIME_INSTALL_ROOT:-$STATE_ROOT/runtime}"
+RUNTIME_ARTIFACT_INBOX="${CYNIC_RUNTIME_ARTIFACT_INBOX:-$STATE_ROOT/runtime-artifacts/inbox}"
 
 install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 "$EVIDENCE_DIR"
+test -d "$RUNTIME_INSTALL_ROOT"
+test -d "$RUNTIME_ARTIFACT_INBOX"
 test -x "$HELPER_TARGET"
 test -f "$SUDOERS_TARGET"
 visudo -cf "$SUDOERS_TARGET"
@@ -147,10 +184,12 @@ fi
 "$HELPER_TARGET" bridge-status > "$EVIDENCE_DIR/bridge-status.json"
 sudo -u "$RUNTIME_USER" sudo -n "$HELPER_TARGET" principal-prepare > "$EVIDENCE_DIR/principal-plan-through-sudo.json"
 sudo -u "$RUNTIME_USER" sudo -n "$HELPER_TARGET" network-baseline observe > "$EVIDENCE_DIR/network-baseline-observe.json" || true
+__CYNIC_RUNTIME_READ_BACK__
 
 chown "$RUNTIME_USER:$RUNTIME_GROUP" "$EVIDENCE_DIR"/*.json
 echo "cynic framework bootstrap verified: $EVIDENCE_DIR"
-"#.to_string()
+"#
+    .replace("__CYNIC_RUNTIME_READ_BACK__", &verify_fragment(artifacts))
 }
 
 pub(crate) fn bootstrap_security_maintenance_script() -> String {
@@ -190,4 +229,47 @@ fi
 
 echo "cynic framework bootstrap security maintenance passed"
 "#.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{BootstrapRuntimeArtifact, bootstrap_install_script, bootstrap_verify_script};
+
+    fn artifacts() -> Vec<BootstrapRuntimeArtifact> {
+        vec![BootstrapRuntimeArtifact {
+            binary: "cynic-mcp".to_string(),
+            install_path: "/usr/local/bin/cynic-mcp".to_string(),
+        }]
+    }
+
+    #[test]
+    fn bootstrap_activates_a_versioned_slot_behind_the_stable_mcp_entrypoint() {
+        let script = bootstrap_install_script(&artifacts());
+
+        assert!(script.contains("$RUNTIME_INSTALL_ROOT/releases/bootstrap-$seed_digest"));
+        assert!(script.contains("ln -s \"releases/bootstrap-$seed_digest\" \"$current_next\""));
+        assert!(
+            script.contains("preflight_runtime_artifact 'cynic-mcp' '/usr/local/bin/cynic-mcp'")
+        );
+        assert!(script.contains("stage_runtime_artifact 'cynic-mcp' '/usr/local/bin/cynic-mcp'"));
+        assert!(
+            script.contains("activate_runtime_entrypoint 'cynic-mcp' '/usr/local/bin/cynic-mcp'")
+        );
+        assert!(script.contains(
+            "test \"$(readlink \"$entrypoint\")\" = \"$RUNTIME_INSTALL_ROOT/current/$binary\""
+        ));
+        assert!(script.contains("cynic.runtime_seed.release_marker.v3"));
+        assert!(script.contains("\"release_epoch\": 0"));
+    }
+
+    #[test]
+    fn verification_reads_back_the_mcp_entrypoint_instead_of_trusting_install_exit() {
+        let script = bootstrap_verify_script(&artifacts());
+
+        assert!(
+            script.contains("read_back_runtime_entrypoint 'cynic-mcp' '/usr/local/bin/cynic-mcp'")
+        );
+        assert!(script.contains("test -L \"$entrypoint\""));
+        assert!(script.contains("test -x \"$entrypoint\""));
+    }
 }

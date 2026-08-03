@@ -19,7 +19,9 @@ pub use capability_status::{
     reconcile_agent_execution_capabilities,
 };
 pub use delivery::{
-    AGENT_WORKLOAD_DELIVERY_SCHEMA, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
+    AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA, AGENT_WORKLOAD_DELIVERY_SCHEMA,
+    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
+    complete_agent_workload_delivery, validate_agent_workload_completion_publication,
     validate_agent_workload_delivery,
 };
 pub use durability::{
@@ -29,13 +31,16 @@ pub use durability::{
     validate_durable_agent_workload_record,
 };
 pub use lifecycle::{
-    admit_workload_action, claim_agent_workload, complete_agent_workload,
-    consume_agent_workload_action, renew_agent_workload_claim, request_agent_workload_cancellation,
+    acknowledge_agent_workload_cancellation, admit_workload_action, claim_agent_workload,
+    complete_agent_workload, consume_agent_workload_action,
+    finalize_unclaimed_agent_workload_cancellation, renew_agent_workload_claim,
+    request_agent_workload_cancellation,
 };
 pub use types::{
-    AGENT_WORKLOAD_ADMISSION_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
-    AgentBoundedAction, AgentWorkloadAdmission, AgentWorkloadClaim, AgentWorkloadDecision,
-    AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState, AgentWorkloadViolation,
+    AGENT_WORKLOAD_ADMISSION_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_INPUT_SCHEMA,
+    AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction, AgentWorkloadAdmission, AgentWorkloadClaim,
+    AgentWorkloadDecision, AgentWorkloadEnvelope, AgentWorkloadInput, AgentWorkloadRecord,
+    AgentWorkloadState, AgentWorkloadViolation,
 };
 pub use workspace::reconcile_agent_workspace;
 pub use workspace_checks::{agent_workspace_target, zones_overlap};

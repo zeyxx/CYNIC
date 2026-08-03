@@ -11,8 +11,9 @@ use crate::ports::{
     node_control_plane_port::{NodeDesiredStatePullPort, NodeStatusPublishPort},
 };
 use cynic_protocol::{
-    AgentWorkloadDelivery, NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA,
-    NodeControlPlan, NodeDesiredState, NodeEnrollmentRenewalRequest, NodeEnrollmentRequest,
+    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
+    NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA, NodeControlPlan,
+    NodeDesiredState, NodeEnrollmentRenewalRequest, NodeEnrollmentRequest,
     SignedNodeEnrollmentGrant, validate_agent_workload_delivery, validate_node_control_plan,
     validate_node_desired_state,
 };
@@ -447,6 +448,41 @@ impl AgentWorkloadDeliveryPort for HttpNodeControlAdapter {
             || envelope.value.accepted_record_digest.as_deref() != Some(record_digest)
         {
             return Err("workload acceptance read-back is invalid".to_string());
+        }
+        Ok(envelope.value)
+    }
+
+    async fn publish_completion(
+        &self,
+        publication: &AgentWorkloadCompletionPublication,
+    ) -> Result<AgentWorkloadDelivery, String> {
+        let path = format!(
+            "/node-control/{}/agent-workloads/{}/completion",
+            publication.node_id, publication.workload_id
+        );
+        let body = serde_json::to_vec(publication)
+            .map_err(|error| format!("encode workload completion publication: {error}"))?;
+        let response = self.execute(Method::POST, &path, body).await?;
+        let status = response.status();
+        let body = response
+            .bytes()
+            .await
+            .map_err(|error| format!("read workload completion response: {error}"))?;
+        if !status.is_success() {
+            return Err(format!("workload completion endpoint returned {status}"));
+        }
+        let envelope: WorkloadDeliveryResponse<AgentWorkloadDelivery> =
+            serde_json::from_slice(&body)
+                .map_err(|error| format!("decode workload completion: {error}"))?;
+        if envelope.schema != "cynic.agent_workload_delivery_response.v1"
+            || envelope.status != "terminal"
+            || envelope.value.status != AgentWorkloadDeliveryStatus::Terminal
+            || envelope.value.envelope.workload_id != publication.workload_id
+            || envelope.value.terminal_record_digest.as_deref()
+                != Some(publication.durable_record.record_digest.as_str())
+            || !validate_agent_workload_delivery(&envelope.value).is_empty()
+        {
+            return Err("workload completion read-back is invalid".to_string());
         }
         Ok(envelope.value)
     }

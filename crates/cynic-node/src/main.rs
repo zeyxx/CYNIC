@@ -76,9 +76,9 @@ use crate::usecases::agent_scheduler_step_uc;
 use crate::usecases::agent_source_change_uc;
 use crate::usecases::agent_workload_store_uc;
 use crate::usecases::agent_workspace_lifecycle_uc;
-use crate::usecases::build_workload_grant_reconcile_uc;
 use crate::usecases::build_workload_grant_uc;
 use crate::usecases::network_surfaces_uc;
+use crate::usecases::node_identity_uc;
 use crate::usecases::runtime_artifact_release_uc;
 use crate::usecases::source_admission_uc;
 use crate::usecases::source_materialization_uc;
@@ -97,6 +97,14 @@ async fn main() -> ExitCode {
     let cli = Cli::parse();
 
     match cli.command {
+        Some(Commands::NodeIdentity {
+            node_id,
+            signing_key_path,
+            apply,
+            json: _,
+        }) => {
+            return node_identity_uc::execute_node_identity(&node_id, &signing_key_path, apply);
+        }
         Some(Commands::Control { config, check }) => {
             return node_control_runtime::run(&config, check).await;
         }
@@ -211,22 +219,6 @@ async fn main() -> ExitCode {
             return agent_workload_store_uc::execute_agent_workload_transition(
                 &request,
                 &state_root,
-                apply,
-            );
-        }
-        Some(Commands::BuildWorkloadGrantReconcile {
-            workload_id,
-            state_root,
-            signing_key,
-            registry,
-            apply,
-            json: _,
-        }) => {
-            return build_workload_grant_reconcile_uc::execute_build_workload_grant_reconcile(
-                &workload_id,
-                &state_root,
-                &signing_key,
-                &registry,
                 apply,
             );
         }

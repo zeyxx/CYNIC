@@ -1,4 +1,4 @@
-use cynic_protocol::AgentWorkloadDelivery;
+use cynic_protocol::{AgentWorkloadCompletionPublication, AgentWorkloadDelivery};
 
 pub trait AgentWorkloadDeliveryPort: Send + Sync {
     async fn pending_deliveries(&self, node_id: &str)
@@ -10,5 +10,10 @@ pub trait AgentWorkloadDeliveryPort: Send + Sync {
         workload_id: &str,
         record_digest: &str,
         accepted_at_ms: u64,
+    ) -> Result<AgentWorkloadDelivery, String>;
+
+    async fn publish_completion(
+        &self,
+        publication: &AgentWorkloadCompletionPublication,
     ) -> Result<AgentWorkloadDelivery, String>;
 }

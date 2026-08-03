@@ -45,10 +45,11 @@ use crate::types::{
     NetworkMeshProviderFallbackHostsParams, NetworkMeshProviderFallbackStatusParams,
     NetworkMeshStatusParams, ObserveParams, OperatorTransportStatusParams,
     ProviderControlStatusParams, RegisterParams, ReleaseParams, RenewLeaseParams,
-    ServiceHealthParams, ServiceStatusParams, SourceControlParams, SshTargetInspectParams,
-    StoragePrimaryBundleParams, StoragePrimaryPlanParams, StoragePrimaryReadinessParams,
-    StoragePrimaryStatusParams, UpdateAgentTaskResultParams, ValidateParams,
-    WatchPendingAgentTasksParams, WhoParams, validate_agent_id, validate_agent_task_content,
+    RuntimeReleaseDeclareParams, ServiceHealthParams, ServiceStatusParams, SourceControlParams,
+    SshTargetInspectParams, StoragePrimaryBundleParams, StoragePrimaryPlanParams,
+    StoragePrimaryReadinessParams, StoragePrimaryStatusParams, UpdateAgentTaskResultParams,
+    ValidateParams, WatchPendingAgentTasksParams, WhoParams, validate_agent_id,
+    validate_agent_task_content,
 };
 use cynic_host::ports::argv_execution::{
     ArgvExecutionPort, ArgvExecutionRequest, LocalArgvExecutionAdapter,
@@ -104,6 +105,7 @@ impl CynicMcpProxy {
             + Self::tool_router_local_fleet()
             + Self::tool_router_local_operator_transport()
             + Self::tool_router_local_agent_surfaces()
+            + Self::tool_router_local_runtime_release()
             + Self::tool_router_local_infra_registry()
             + Self::tool_router_local_network()
             + Self::tool_router_local_fleet_execution()

@@ -1,8 +1,12 @@
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use std::path::Path;
 
 use crate::registry::resolve_build_runner_transport;
+use crate::update_lifecycle::ArgvRunner;
 
+use super::decision::decide_framework_propagation;
+use super::observe::{observe_framework_propagation, ssh_argv};
 use super::types::{FrameworkPropagationOperation, FrameworkPropagationPlan};
 
 const REMOTE_SEED_ROOT: &str = "/tmp/cynic-framework-bootstrap";
@@ -21,6 +25,7 @@ struct SeedEnrollment {
 pub fn plan_framework_propagation(
     bundle_dir: &str,
     registry_path: Option<&str>,
+    runner: &dyn ArgvRunner,
 ) -> Result<FrameworkPropagationPlan, String> {
     let transport = resolve_build_runner_transport(registry_path)?;
     let bundle = Path::new(bundle_dir);
@@ -33,20 +38,23 @@ pub fn plan_framework_propagation(
     if !checksum_path.is_file() {
         blockers.push("seed_checksums_missing".to_string());
     }
-    let manifest = if manifest_path.is_file() {
-        let content = std::fs::read(&manifest_path).map_err(|error| {
+    let manifest_bytes = if manifest_path.is_file() {
+        Some(std::fs::read(&manifest_path).map_err(|error| {
             format!(
                 "failed to read seed manifest {}: {error}",
                 manifest_path.display()
             )
-        })?;
-        Some(
-            serde_json::from_slice::<SeedManifest>(&content)
-                .map_err(|error| format!("invalid seed manifest: {error}"))?,
-        )
+        })?)
     } else {
         None
     };
+    let manifest = manifest_bytes
+        .as_ref()
+        .map(|content| {
+            serde_json::from_slice::<SeedManifest>(content)
+                .map_err(|error| format!("invalid seed manifest: {error}"))
+        })
+        .transpose()?;
     if manifest
         .as_ref()
         .is_some_and(|manifest| manifest.enrollment.target_role != transport.role)
@@ -63,89 +71,89 @@ pub fn plan_framework_propagation(
     {
         blockers.push("seed_id_invalid".to_string());
     }
-    let operations = if blockers.is_empty() {
-        propagation_operations(bundle_dir, &transport.ssh_target, &seed_id)
+    let expected_runtime_basket_digest = manifest_bytes
+        .as_ref()
+        .map(|content| format!("sha256:{}", hex::encode(Sha256::digest(content))))
+        .unwrap_or_default();
+    let observation = observe_framework_propagation(&transport.ssh_target, runner);
+    let decision = decide_framework_propagation(
+        &expected_runtime_basket_digest,
+        &transport.node_id,
+        &transport.enrollment_authority_class,
+        &transport.enrollment_principal,
+        &observation,
+        blockers,
+    );
+    let operations = if decision.status == "enroll_with_machine_authority" {
+        enrollment_operations(
+            bundle_dir,
+            &transport.ssh_target,
+            &seed_id,
+            &expected_runtime_basket_digest,
+        )
     } else {
         Vec::new()
     };
-
     Ok(FrameworkPropagationPlan {
-        schema: "cynic.framework_bootstrap.propagation_plan.v1",
-        status: if blockers.is_empty() {
-            "planned"
-        } else {
-            "blocked"
+        schema: "cynic.framework_bootstrap.propagation_plan.v2",
+        status: match decision.status {
+            "enroll_with_machine_authority" => "planned_enrollment",
+            "converged" => "converged",
+            _ => "blocked",
         },
         mutates: false,
         node_id: transport.node_id,
         role: transport.role,
         ssh_target: transport.ssh_target,
         trust: transport.trust,
+        enrollment_authority_class: transport.enrollment_authority_class,
+        enrollment_principal: transport.enrollment_principal,
+        enrollment_credential_ref: transport.enrollment_credential_ref,
         bundle_dir: bundle_dir.to_string(),
         seed_id,
-        blockers,
+        expected_runtime_basket_digest,
+        blockers: decision.blockers.clone(),
+        observation,
+        decision,
         operations,
-        stop_condition: "stop on the first non-zero transport, install, integrity, or read-back command",
-        rollback_intent: "remove the transferred seed; installed role activation remains forbidden until node read-back and enrollment admission succeed",
+        stop_condition: "stop on the first non-zero transport, enrollment, or read-back command; execute only through the registry-declared machine enrollment principal",
+        rollback_intent: "remove only the content-addressed transferred seed; installed runtime state is reconciled through signed release surfaces",
     })
 }
 
-pub(super) fn propagation_operations(
+pub(super) fn enrollment_operations(
     bundle_dir: &str,
     ssh_target: &str,
     seed_id: &str,
+    expected_runtime_basket_digest: &str,
 ) -> Vec<FrameworkPropagationOperation> {
-    let seed_digest = seed_id.trim_start_matches("sha256:");
-    let remote_seed_dir = format!("{REMOTE_SEED_ROOT}/{seed_digest}");
-    let ssh_base = || {
-        vec![
-            "ssh".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            ssh_target.to_string(),
-        ]
-    };
-    let mut prepare = ssh_base();
-    prepare.extend([
-        "mkdir".to_string(),
-        "-p".to_string(),
-        remote_seed_dir.clone(),
-    ]);
-    let mut install = ssh_base();
-    install.extend(["sudo".to_string(), format!("{remote_seed_dir}/install.sh")]);
-    let mut verify = ssh_base();
-    verify.extend(["sudo".to_string(), format!("{remote_seed_dir}/verify.sh")]);
-    let mut read_back = ssh_base();
-    read_back.extend([
-        "sudo".to_string(),
-        "cat".to_string(),
-        "/var/lib/cynic/bootstrap/node-registry-observation.json".to_string(),
-    ]);
+    let remote_seed_dir = remote_seed_dir(seed_id);
+    let mut prepare = ssh_argv(ssh_target, &["mkdir", "-p", &remote_seed_dir]);
+    debug_assert_eq!(prepare.first().map(String::as_str), Some("ssh"));
+    let read_back = ssh_argv(
+        ssh_target,
+        &[
+            "sha256sum",
+            &format!("{remote_seed_dir}/seed-manifest.json"),
+        ],
+    );
 
     vec![
         FrameworkPropagationOperation {
             phase: "preflight",
-            argv: vec![
-                "ssh".to_string(),
-                "-o".to_string(),
-                "BatchMode=yes".to_string(),
-                "-o".to_string(),
-                "StrictHostKeyChecking=yes".to_string(),
-                ssh_target.to_string(),
-                "true".to_string(),
-            ],
+            argv: ssh_argv(ssh_target, &["id", "-un"]),
             mutates: false,
             requires_privilege: false,
-            proof: Some("ssh_identity_and_authentication_observed"),
+            proof: Some("machine_enrollment_principal_read_back"),
+            expected_stdout_sha256: None,
         },
         FrameworkPropagationOperation {
             phase: "prepare",
-            argv: prepare,
+            argv: std::mem::take(&mut prepare),
             mutates: true,
             requires_privilege: false,
             proof: None,
+            expected_stdout_sha256: None,
         },
         FrameworkPropagationOperation {
             phase: "transfer",
@@ -156,35 +164,66 @@ pub(super) fn propagation_operations(
                 "BatchMode=yes".to_string(),
                 "-o".to_string(),
                 "StrictHostKeyChecking=yes".to_string(),
+                "-o".to_string(),
+                "ConnectTimeout=10".to_string(),
                 format!("{bundle_dir}/."),
                 format!("{ssh_target}:{remote_seed_dir}"),
             ],
             mutates: true,
             requires_privilege: false,
             proof: Some("seed_transferred"),
+            expected_stdout_sha256: None,
         },
         FrameworkPropagationOperation {
-            phase: "install",
-            argv: install,
-            mutates: true,
-            requires_privilege: true,
-            proof: Some("seed_artifacts_integrity_verified"),
-        },
-        FrameworkPropagationOperation {
-            phase: "read_back",
-            argv: verify,
-            mutates: false,
-            requires_privilege: true,
-            proof: Some("bootstrap_verification_completed"),
-        },
-        FrameworkPropagationOperation {
-            phase: "evidence_read_back",
+            phase: "stage_read_back",
             argv: read_back,
             mutates: false,
+            requires_privilege: false,
+            proof: Some("seed_manifest_digest_read_back"),
+            expected_stdout_sha256: Some(expected_runtime_basket_digest.to_string()),
+        },
+        FrameworkPropagationOperation {
+            phase: "machine_enrollment",
+            argv: ssh_argv(ssh_target, &[&format!("{remote_seed_dir}/enroll.sh")]),
+            mutates: true,
             requires_privilege: true,
+            proof: Some("machine_enrollment_completed"),
+            expected_stdout_sha256: None,
+        },
+        FrameworkPropagationOperation {
+            phase: "runtime_marker_read_back",
+            argv: ssh_argv(
+                ssh_target,
+                &[
+                    "cat",
+                    "/var/lib/cynic/runtime/current/.cynic-runtime-release.json",
+                ],
+            ),
+            mutates: false,
+            requires_privilege: false,
             proof: None,
+            expected_stdout_sha256: None,
+        },
+        FrameworkPropagationOperation {
+            phase: "node_observation_read_back",
+            argv: ssh_argv(
+                ssh_target,
+                &[
+                    "cat",
+                    "/var/lib/cynic/bootstrap/node-registry-observation.json",
+                ],
+            ),
+            mutates: false,
+            requires_privilege: false,
+            proof: None,
+            expected_stdout_sha256: None,
         },
     ]
+}
+
+fn remote_seed_dir(seed_id: &str) -> String {
+    let seed_digest = seed_id.trim_start_matches("sha256:");
+    format!("{REMOTE_SEED_ROOT}/{seed_digest}")
 }
 
 pub(super) fn valid_seed_id(seed_id: &str) -> bool {

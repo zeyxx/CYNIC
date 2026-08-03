@@ -2,7 +2,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 
-use cynic_protocol::EvidenceEnvelope;
+use cynic_protocol::{EvidenceEnvelope, build_evidence_envelope_with_lineage};
 
 use crate::ports::evidence_store::ContentAddressedEvidenceStorePort;
 
@@ -48,5 +48,60 @@ impl ContentAddressedEvidenceStorePort for LocalContentAddressedEvidenceStore {
             Err(error) => return Err(format!("create evidence {}: {error}", path.display())),
         }
         Ok(path.display().to_string())
+    }
+
+    fn read(&self, digest: &str) -> Result<Option<EvidenceEnvelope>, String> {
+        let path = self.record_path(digest)?;
+        let bytes = match fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => {
+                return Err(format!("read evidence {}: {error}", path.display()));
+            }
+        };
+        let envelope = serde_json::from_slice::<EvidenceEnvelope>(&bytes)
+            .map_err(|error| format!("decode evidence {}: {error}", path.display()))?;
+        let rebuilt = build_evidence_envelope_with_lineage(
+            &envelope.subject,
+            &envelope.producer,
+            envelope.observed_at_unix_ms,
+            envelope.provenance.clone(),
+            envelope.lineage.clone(),
+            &envelope.payload,
+        )?;
+        if rebuilt != envelope || envelope.digest != digest {
+            return Err("evidence_read_back_digest_mismatch".to_string());
+        }
+        Ok(Some(envelope))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cynic_protocol::build_evidence_envelope;
+
+    #[test]
+    fn reads_back_only_the_exact_content_addressed_envelope() {
+        let root = tempfile::tempdir().unwrap();
+        let store = LocalContentAddressedEvidenceStore::new(root.path());
+        let envelope = build_evidence_envelope(
+            "build:test",
+            "builder:test",
+            1,
+            vec!["test".to_string()],
+            &serde_json::json!({"status": "passed"}),
+        )
+        .unwrap();
+
+        store.persist(&envelope).unwrap();
+
+        assert_eq!(store.read(&envelope.digest).unwrap(), Some(envelope));
+        assert!(
+            store
+                .read(&format!("sha256:{}", "0".repeat(64)))
+                .unwrap()
+                .is_none()
+        );
     }
 }

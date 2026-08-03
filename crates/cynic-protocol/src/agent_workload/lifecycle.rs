@@ -157,6 +157,82 @@ pub fn complete_agent_workload(
     now_ms: u64,
 ) -> Result<AgentWorkloadRecord, AgentWorkloadViolation> {
     require_live_claim(record, guard, now_ms)?;
+    validate_completion(record, completion)?;
+
+    let mut next = record.clone();
+    next.state = completion_state(completion.status);
+    next.claim = None;
+    next.completion = Some(completion.clone());
+    Ok(next)
+}
+
+pub fn acknowledge_agent_workload_cancellation(
+    record: &AgentWorkloadRecord,
+    guard: &LeaseGuard,
+    completion: &AgentCompletionEnvelope,
+) -> Result<AgentWorkloadRecord, AgentWorkloadViolation> {
+    require_valid_record(record)?;
+    if record.state != AgentWorkloadState::CancelRequested {
+        return Err(violation(
+            "workload_cancellation_not_requested",
+            "only a cancel-requested workload can acknowledge cancellation",
+        ));
+    }
+    let claim = record.claim.as_ref().ok_or_else(|| {
+        violation(
+            "cancellation_claim_missing",
+            "cancellation acknowledgement requires the fenced executing claim",
+        )
+    })?;
+    if &claim.guard != guard || guard.fencing_token != record.last_fencing_token {
+        return Err(violation(
+            "cancellation_claim_guard_rejected",
+            "cancellation acknowledgement guard or fencing token is stale",
+        ));
+    }
+    if completion.status == AgentCompletionStatus::Completed {
+        return Err(violation(
+            "cancelled_workload_completed",
+            "cancelled work cannot acknowledge cancellation as completed",
+        ));
+    }
+    validate_completion(record, completion)?;
+
+    let mut next = record.clone();
+    next.state = completion_state(completion.status);
+    next.claim = None;
+    next.completion = Some(completion.clone());
+    Ok(next)
+}
+
+pub fn finalize_unclaimed_agent_workload_cancellation(
+    record: &AgentWorkloadRecord,
+    completion: &AgentCompletionEnvelope,
+) -> Result<AgentWorkloadRecord, AgentWorkloadViolation> {
+    require_valid_record(record)?;
+    if record.state != AgentWorkloadState::CancelRequested || record.claim.is_some() {
+        return Err(violation(
+            "unclaimed_cancellation_state_mismatch",
+            "only an unclaimed cancel-requested workload can be finalized without a guard",
+        ));
+    }
+    if record.consumed_actions != 0 || completion.status != AgentCompletionStatus::Blocked {
+        return Err(violation(
+            "unclaimed_cancellation_completion_rejected",
+            "an unclaimed cancellation must consume no actions and complete as blocked",
+        ));
+    }
+    validate_completion(record, completion)?;
+    let mut next = record.clone();
+    next.state = AgentWorkloadState::Blocked;
+    next.completion = Some(completion.clone());
+    Ok(next)
+}
+
+fn validate_completion(
+    record: &AgentWorkloadRecord,
+    completion: &AgentCompletionEnvelope,
+) -> Result<(), AgentWorkloadViolation> {
     let completion_admission = admit_completion(&record.envelope.delegation, completion);
     if !completion_admission.admitted() {
         return Err(violation(
@@ -190,14 +266,15 @@ pub fn complete_agent_workload(
         }
     }
 
-    let mut next = record.clone();
-    next.state = match completion.status {
+    Ok(())
+}
+
+fn completion_state(status: AgentCompletionStatus) -> AgentWorkloadState {
+    match status {
         AgentCompletionStatus::Completed => AgentWorkloadState::Completed,
         AgentCompletionStatus::Blocked => AgentWorkloadState::Blocked,
         AgentCompletionStatus::Failed => AgentWorkloadState::Failed,
-    };
-    next.claim = None;
-    Ok(next)
+    }
 }
 
 fn require_valid_record(record: &AgentWorkloadRecord) -> Result<(), AgentWorkloadViolation> {

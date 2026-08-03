@@ -7,7 +7,7 @@
     "crate": "cynic-host",
     "binary": "cynic-host-exec",
     "install_path": "/usr/local/libexec/cynic-host-exec",
-    "contract_revision": 2,
+    "contract_revision": 4,
     "signature_namespace": "cynic-runtime-seed",
     "lifecycle": "installed once through HumanAdmin bootstrap and rotated only through a separately signed seed-rotation ceremony",
     "runtime_basket_member": false,

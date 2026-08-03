@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AgentBudget, AgentCompletionEnvelope, LeaseGuard, digest_json};
+use crate::{
+    AgentBudget, AgentCompletionEnvelope, AgentCompletionStatus, LeaseGuard, admit_completion,
+    digest_json,
+};
 
 use super::{
     AGENT_WORKLOAD_RECORD_SCHEMA, AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
@@ -52,6 +55,15 @@ pub enum AgentWorkloadTransition {
     RequestCancellation {
         workload_id: String,
     },
+    AcknowledgeCancellation {
+        workload_id: String,
+        guard: LeaseGuard,
+        completion: AgentCompletionEnvelope,
+    },
+    FinalizeUnclaimedCancellation {
+        workload_id: String,
+        completion: AgentCompletionEnvelope,
+    },
     Complete {
         workload_id: String,
         guard: LeaseGuard,
@@ -67,6 +79,8 @@ impl AgentWorkloadTransition {
             | Self::RenewClaim { workload_id, .. }
             | Self::ConsumeAction { workload_id, .. }
             | Self::RequestCancellation { workload_id }
+            | Self::AcknowledgeCancellation { workload_id, .. }
+            | Self::FinalizeUnclaimedCancellation { workload_id, .. }
             | Self::Complete { workload_id, .. } => workload_id,
         }
     }
@@ -123,6 +137,22 @@ pub fn validate_agent_workload_record(record: &AgentWorkloadRecord) -> Vec<Strin
             || claim.cancellation_generation > record.cancellation_generation
         {
             violations.push("agent_workload_claim_guard_mismatch".to_string());
+        }
+    }
+    if let Some(completion) = &record.completion {
+        if !admit_completion(&record.envelope.delegation, completion).admitted() {
+            violations.push("agent_workload_completion_not_admitted".to_string());
+        }
+        let state_matches = matches!(
+            (record.state, completion.status),
+            (
+                AgentWorkloadState::Completed,
+                AgentCompletionStatus::Completed
+            ) | (AgentWorkloadState::Blocked, AgentCompletionStatus::Blocked)
+                | (AgentWorkloadState::Failed, AgentCompletionStatus::Failed)
+        );
+        if !state_matches {
+            violations.push("agent_workload_completion_state_mismatch".to_string());
         }
     }
     violations

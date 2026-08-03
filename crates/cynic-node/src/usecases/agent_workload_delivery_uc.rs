@@ -1,5 +1,8 @@
+mod completion;
+
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
 use cynic_protocol::{
     AGENT_WORKLOAD_RECORD_SCHEMA, AgentWorkloadDecision, AgentWorkloadDelivery,
     AgentWorkloadRecord, AgentWorkloadState, admit_agent_workload_dispatch,
@@ -8,6 +11,7 @@ use cynic_protocol::{
 use tokio_util::sync::CancellationToken;
 
 use crate::ports::{
+    agent_workload_completion_receipt_port::AgentWorkloadCompletionReceiptPort,
     agent_workload_delivery_port::AgentWorkloadDeliveryPort,
     agent_workload_store_port::AgentWorkloadStorePort,
 };
@@ -89,6 +93,8 @@ pub async fn run_delivery_loop<D>(
     interval: Duration,
     delivery_port: &D,
     store: &dyn AgentWorkloadStorePort,
+    evidence_store: &dyn ContentAddressedEvidenceStorePort,
+    receipts: &dyn AgentWorkloadCompletionReceiptPort,
     shutdown: &CancellationToken,
 ) where
     D: AgentWorkloadDeliveryPort,
@@ -102,6 +108,18 @@ pub async fn run_delivery_loop<D>(
                 match report.get("status").and_then(serde_json::Value::as_str) {
                     Some("blocked" | "unknown") => tracing::warn!(report = %report, "agent workload delivery degraded"),
                     Some("accepted") => tracing::info!(report = %report, "agent workload delivered and read back"),
+                    _ => {}
+                }
+                let report = completion::reconcile(
+                    node_id,
+                    delivery_port,
+                    store,
+                    evidence_store,
+                    receipts,
+                ).await;
+                match report.get("status").and_then(serde_json::Value::as_str) {
+                    Some("blocked" | "unknown") => tracing::warn!(report = %report, "agent workload completion publication degraded"),
+                    Some("published") => tracing::info!(report = %report, "agent workload completion published and retained"),
                     _ => {}
                 }
             }
@@ -147,6 +165,7 @@ fn persist_delivery(
         last_fencing_token: 0,
         cancellation_generation: 0,
         consumed_actions: 0,
+        completion: None,
     };
     store
         .compare_and_swap(&delivery.envelope.workload_id, None, &record, now_unix_ms())
@@ -198,6 +217,13 @@ mod tests {
             delivery.accepted_record_digest = Some(record_digest.to_string());
             Ok(delivery)
         }
+
+        async fn publish_completion(
+            &self,
+            _publication: &cynic_protocol::AgentWorkloadCompletionPublication,
+        ) -> Result<AgentWorkloadDelivery, String> {
+            Err("not exercised".to_string())
+        }
     }
 
     fn delivery() -> AgentWorkloadDelivery {
@@ -206,10 +232,18 @@ mod tests {
             request_id: "validate-test".to_string(),
             requested_by: "agent-test".to_string(),
             source_commit: "a".repeat(40),
+            source: cynic_protocol::BuildSourceReference {
+                schema: cynic_protocol::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".into(),
+                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+                revision: "a".repeat(40),
+                authority_ref: "infra/repo-remotes.json:forgejo".into(),
+            },
             action: "make:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["canonical_gate_report".to_string()],
+            release_publication: None,
             evidence_refs: vec!["git:commit:test".to_string()],
         };
         let envelope = compose_build_agent_workload(
@@ -227,6 +261,11 @@ mod tests {
             status: AgentWorkloadDeliveryStatus::Pending,
             accepted_at_ms: None,
             accepted_record_digest: None,
+            terminal_at_ms: None,
+            terminal_record_digest: None,
+            terminal_record: None,
+            completion: None,
+            completion_evidence: Vec::new(),
             evidence_refs: vec!["git:commit:test".to_string()],
         }
     }

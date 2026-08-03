@@ -16,7 +16,7 @@
   "session_handshake": {
     "schema": "cynic.agent_session_handshake.v1",
     "contract_id": "cynic.agent_mcp",
-    "contract_revision": 7,
+    "contract_revision": 8,
     "session_identity": {
       "schema": "cynic.agent_session_identity.v1",
       "declared_override": "CYNIC_AGENT_ID",
@@ -61,14 +61,47 @@
       "manual_runtime_grants": false,
       "human_admin_scope": "machine_build_authority_enrollment_and_rotation_only",
       "derivation": "live durable workload record plus canonical action policy",
-      "status": "implemented_unwired",
+      "status": "node_scheduler_wired_runtime_unproven",
       "missing_runtime_capabilities": [
-        "node_owned_build_grant_machine_signer",
-        "build_runner_signature_and_live_workload_verifier",
-        "scheduler_to_build_runner_execution_transport",
-        "build_completion_and_artifact_read_back"
+        "build_runner_node_enrollment",
+        "build_runner_source_authentication",
+        "deployed_build_scheduler_runtime_read_back"
       ],
-      "blocked_status": "blocked_missing_machine_build_authority"
+      "blocked_status": "blocked_scheduler_runtime_unproven"
+    },
+    "release_federation": {
+      "schema": "cynic.release_federation.authority_status.v1",
+      "status": "node_consumer_wired_runtime_unproven",
+      "manual_breakglass": false,
+      "desired_state_schema": "cynic.node_desired_state.v1",
+      "runtime_seed_schema": "cynic.runtime_seed.request.v4",
+      "implemented_protocol_primitives": [
+        "typed_local_file_or_https_artifact_source",
+        "secret_free_artifact_locator_policy",
+        "bounded_atomic_artifact_transport",
+        "basket_digest_read_back",
+        "node_owned_runtime_seed_actuation",
+        "post_action_node_read_back",
+        "published_node_control_execution_evidence",
+        "authenticated_terminal_build_completion_publication",
+        "content_addressed_completion_evidence_retention",
+        "durable_idempotent_node_publication_receipt",
+        "retained_build_proof_release_admission",
+        "complete_release_policy_digest_binding",
+        "admitted_release_to_node_desired_state_projection",
+        "content_addressed_build_request_input",
+        "deterministic_runtime_basket_packaging",
+        "injected_ssh_release_signer",
+        "file_backed_machine_artifact_store_client_authentication",
+        "registry_derived_proxmox_storage_service_placement",
+        "basket_signature_and_manifest_exact_remote_read_back",
+        "retained_signed_publication_release_admission"
+      ],
+      "missing_runtime_capabilities": [
+        "proxmox_artifact_store_service_install_and_auth_read_back",
+        "deployed_release_federation_read_back"
+      ],
+      "blocked_status": "blocked_release_authority_unproven"
     },
     "authentication": {
       "schema": "cynic.agent_session_authority.v1",
@@ -169,17 +202,16 @@
       "canonical_build_request_workload_composition",
       "kernel_durable_workload_delivery",
       "node_control_workload_ingress",
-      "target_node_delivery_persistence_before_ack"
+      "target_node_delivery_persistence_before_ack",
+      "node_owned_scheduler_claim_renewal_and_recovery",
+      "node_identity_signed_build_grant_derivation",
+      "bounded_build_execution_and_artifact_read_back",
+      "authenticated_terminal_completion_publication",
+      "kernel_completion_evidence_retention_and_read_back"
     ],
     "missing_runtime_capabilities": [
-      "kernel_to_node_workload_delivery_read_back",
-      "scheduler_claim_renewal",
       "scheduler_cancellation_delivery",
-      "scheduler_crash_recovery",
-      "node_owned_build_grant_machine_signer",
-      "build_runner_signature_and_live_workload_verifier",
-      "scheduler_to_build_runner_execution_transport",
-      "build_completion_and_artifact_read_back",
+      "deployed_scheduler_and_completion_federation_read_back",
       "node_workspace_observer_wiring_and_proof",
       "workspace_claim_store_wiring_and_conformance_proof",
       "bounded_source_change_apply_adapter",
@@ -253,6 +285,7 @@
         { "name": "identity_attest", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "identity_smoke_check", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "cynic_validate", "tier": "baseline_runtime", "mutation": "local_mutation" },
+        { "name": "cynic_runtime_release_declare", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_git", "tier": "operator_local", "mutation": "read_only" },
         { "name": "cynic_source_control", "tier": "baseline_runtime", "mutation": "local_mutation" },
         { "name": "cynic_operator_transport_status", "tier": "operator_local", "mutation": "read_only" },
@@ -408,16 +441,24 @@
       "operator_tools": []
     },
     "build_dispatch": {
-      "description": "Agent validation requests are composed as admitted content-addressed workloads, persisted by the kernel, and pulled by the registry-selected build_runner; the target node persists the exact envelope before acknowledging delivery. Claim, grant, execution, cancellation, recovery, completion, and deployment proof remain separate gates.",
-      "status": "delivery_implemented_unproven",
+      "description": "Agent validation requests are composed as admitted content-addressed workloads, persisted by the kernel, and pulled by the registry-selected build_runner; release builds additionally package a deterministic basket, sign it with injected machine identity, publish through file-backed machine authentication, and require exact remote read-back before completion.",
+      "status": "node_scheduler_wired_runtime_unproven",
       "required_contract": "cynic.agent_workload_envelope.v1",
       "tier": "baseline_runtime",
       "tools": ["cynic_validate"],
       "operator_tools": [
         "cynic-node agent-workload-status --json --workload-id <id> [--state-root <path>]",
         "cynic-node agent-workload-transition --json --request <transition.json> [--state-root <path>] [--apply]",
-        "cynic-node build-workload-grant-reconcile --json --workload-id <id> --signing-key <private-key> [--registry <path>] [--state-root <path>] [--apply]",
-        "cynic-node build-workload-grant-verify --json --grant <signed-grant.json> --workload-record <record.json> --authority-public-key <public-key> --node-id <node> --source-commit <commit> --action <make:check|make:build>"
+        "cynic-node build-workload-grant-verify --json --grant <signed-grant.json> --workload-record <record.json> --authority-public-key <public-key> --node-id <node> --source-commit <commit> --action <make:check|make:build|make:build-release>"
+      ]
+    },
+    "runtime_release": {
+      "description": "Release declarations are planned or applied only from retained terminal build and signed-publication read-back proofs; CYNIC binds the basket digest, artifact locators, signer identity and namespace, derives the policy digest, then atomically projects admitted desired state.",
+      "status": "producer_admission_wired_runtime_unproven",
+      "tier": "baseline_runtime",
+      "tools": ["cynic_runtime_release_declare"],
+      "operator_tools": [
+        "PUT /node-control/{node_id}/desired-state with cynic.runtime_release_declaration.v1"
       ]
     },
     "infra_registry": {

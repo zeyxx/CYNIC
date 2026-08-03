@@ -28,6 +28,19 @@ impl LocalAgentWorkloadStore {
         validate_id(workload_id)?;
         Ok(self.root.join(workload_id))
     }
+
+    pub fn durable_path(
+        &self,
+        durable: &DurableAgentWorkloadRecord,
+    ) -> Result<PathBuf, AgentWorkloadStoreError> {
+        let path = self
+            .workload_root(&durable.record.envelope.workload_id)?
+            .join(revision_name(durable.revision));
+        match read_revision(&path)? {
+            Some(read_back) if read_back == *durable => Ok(path),
+            _ => Err(error("workload_store_durable_path_read_back_mismatch")),
+        }
+    }
 }
 
 impl AgentWorkloadStorePort for LocalAgentWorkloadStore {
@@ -50,6 +63,12 @@ impl AgentWorkloadStorePort for LocalAgentWorkloadStore {
     }
 
     fn active_records(&self) -> Result<Vec<AgentWorkloadRecord>, AgentWorkloadStoreError> {
+        let mut records = self.durable_records()?;
+        records.retain(|record| !record.record.state.terminal());
+        Ok(records.into_iter().map(|record| record.record).collect())
+    }
+
+    fn durable_records(&self) -> Result<Vec<DurableAgentWorkloadRecord>, AgentWorkloadStoreError> {
         let entries = match fs::read_dir(&self.root) {
             Ok(entries) => entries,
             Err(failure) if failure.kind() == std::io::ErrorKind::NotFound => {
@@ -65,14 +84,17 @@ impl AgentWorkloadStorePort for LocalAgentWorkloadStore {
                 .map_err(|_| error("workload_store_entry_type_unknown"))?
                 .is_dir()
             {
-                if let Some(record) = read_latest(&entry.path())?
-                    && !record.record.state.terminal()
-                {
-                    records.push(record.record);
+                if let Some(record) = read_latest(&entry.path())? {
+                    records.push(record);
                 }
             }
         }
-        records.sort_by(|left, right| left.envelope.workload_id.cmp(&right.envelope.workload_id));
+        records.sort_by(|left, right| {
+            left.record
+                .envelope
+                .workload_id
+                .cmp(&right.record.envelope.workload_id)
+        });
         Ok(records)
     }
 

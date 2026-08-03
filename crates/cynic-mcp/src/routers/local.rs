@@ -2,6 +2,7 @@
 include!("local/fleet.rs");
 include!("local/operator_transport.rs");
 include!("local/agent_surfaces.rs");
+include!("local/runtime_release.rs");
 include!("local/infra_registry.rs");
 include!("local/network.rs");
 include!("local/fleet_execution.rs");

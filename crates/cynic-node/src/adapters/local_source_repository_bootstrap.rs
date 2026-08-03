@@ -129,10 +129,7 @@ impl<R: ArgvRunner> SourceRepositoryBootstrapPort for LocalSourceRepositoryBoots
         request: &SourceRepositoryBootstrapRequest,
     ) -> Result<(), SourceRepositoryBootstrapPortError> {
         if layout.repository_root.exists() {
-            return Err(error(
-                "source_bootstrap_repository_already_exists",
-                "refusing to replace an existing repository",
-            ));
+            return sync_existing_repository(self.runner, self.git_bin, layout, request);
         }
         let parent = layout.repository_root.parent().ok_or_else(|| {
             error(
@@ -219,6 +216,86 @@ impl<R: ArgvRunner> SourceRepositoryBootstrapPort for LocalSourceRepositoryBoots
             )
         })
     }
+}
+
+fn sync_existing_repository<R: ArgvRunner>(
+    runner: &R,
+    git_bin: &str,
+    layout: &AgentWorkspaceLayout,
+    request: &SourceRepositoryBootstrapRequest,
+) -> Result<(), SourceRepositoryBootstrapPortError> {
+    let metadata = fs::symlink_metadata(&layout.repository_root).map_err(|failure| {
+        error(
+            "source_sync_repository_unobservable",
+            format!("cannot observe managed repository: {failure}"),
+        )
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(error(
+            "source_sync_repository_rejected",
+            "managed repository is a symlink or not a directory",
+        ));
+    }
+    let repository = path_text(&layout.repository_root, "repository_root")?;
+    let source = runner.run(&[git_bin, "-C", repository, "remote", "get-url", "origin"]);
+    if !source.success() || source.stdout.trim() != request.source {
+        return Err(error(
+            "source_sync_origin_mismatch",
+            "managed repository origin does not match desired source authority",
+        ));
+    }
+    let before = runner.run(&[git_bin, "-C", repository, "rev-parse", "HEAD"]);
+    let before_revision = before.success().then(|| before.stdout.trim().to_string());
+    let fetch = runner.run(&[
+        git_bin,
+        "-C",
+        repository,
+        "fetch",
+        "--prune",
+        "--no-tags",
+        "origin",
+    ]);
+    if !fetch.success() {
+        return Err(error(
+            "source_sync_fetch_failed",
+            fetch.spawn_error.as_deref().unwrap_or(fetch.stderr.trim()),
+        ));
+    }
+    let checkout = runner.run(&[
+        git_bin,
+        "-C",
+        repository,
+        "checkout",
+        "--detach",
+        &request.revision,
+    ]);
+    if !checkout.success() {
+        return Err(error(
+            "source_sync_checkout_failed",
+            checkout
+                .spawn_error
+                .as_deref()
+                .unwrap_or(checkout.stderr.trim()),
+        ));
+    }
+    let read_back = runner.run(&[git_bin, "-C", repository, "rev-parse", "HEAD"]);
+    if read_back.success() && read_back.stdout.trim() == request.revision {
+        return Ok(());
+    }
+    if let Some(before_revision) = before_revision {
+        let _ = runner.run(&[
+            git_bin,
+            "-C",
+            repository,
+            "checkout",
+            "--detach",
+            &before_revision,
+        ]);
+    }
+    Err(error(
+        "source_sync_revision_read_back_failed",
+        "managed repository did not read back the exact requested revision",
+    ))
 }
 
 fn observed_uid<R: ArgvRunner>(

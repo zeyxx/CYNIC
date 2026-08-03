@@ -1,11 +1,14 @@
 mod apply;
+mod decision;
+mod observe;
 mod plan;
 mod types;
 
 pub use apply::apply_framework_propagation;
 pub use plan::plan_framework_propagation;
 pub use types::{
-    FrameworkPropagationExecution, FrameworkPropagationOperation, FrameworkPropagationPlan,
+    FrameworkPropagationDecision, FrameworkPropagationExecution, FrameworkPropagationObservation,
+    FrameworkPropagationOperation, FrameworkPropagationPlan, FrameworkPropagationProbe,
     FrameworkPropagationReport,
 };
 

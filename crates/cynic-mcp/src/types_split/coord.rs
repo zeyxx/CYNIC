@@ -53,8 +53,22 @@ pub struct ValidateParams {
     pub action: BuildRequestAction,
     #[serde(default)]
     pub dispatch: bool,
+    /// Stable release identifier. Required only for action=build_release.
+    pub release_id: Option<String>,
+    /// Monotonic release epoch. Required only for action=build_release.
+    pub release_epoch: Option<u64>,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RuntimeReleaseDeclareParams {
+    pub workload_id: String,
+    /// Complete desired state. CYNIC derives the canonical policy_digest.
+    pub desired_state: serde_json::Value,
+    /// Persist the admitted projection. Defaults to plan-only.
+    #[serde(default)]
+    pub apply: bool,
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]

@@ -5,7 +5,9 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use cynic_protocol::{AgentWorkloadDelivery, AgentWorkloadDeliveryStatus};
+use cynic_protocol::{
+    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
+};
 use serde::{Deserialize, Serialize};
 
 use super::types::{AppState, AuthenticatedPrincipal, ErrorResponse};
@@ -110,6 +112,33 @@ pub async fn accept_handler(
     Ok(Json(DeliveryResponse {
         schema: "cynic.agent_workload_delivery_response.v1",
         status: "accepted",
+        value: delivery,
+    }))
+}
+
+pub async fn completion_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path((node_id, workload_id)): Path<(String, String)>,
+    Json(publication): Json<AgentWorkloadCompletionPublication>,
+) -> Result<Json<DeliveryResponse<AgentWorkloadDelivery>>, (StatusCode, Json<ErrorResponse>)> {
+    principal
+        .require_agent(&node_id)
+        .map_err(|error| failure(StatusCode::FORBIDDEN, error))?;
+    if publication.node_id != node_id || publication.workload_id != workload_id {
+        return Err(failure(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "workload completion publication path binding mismatch",
+        ));
+    }
+    let delivery = state
+        .storage
+        .complete_agent_workload_delivery(&publication)
+        .await
+        .map_err(storage_failure)?;
+    Ok(Json(DeliveryResponse {
+        schema: "cynic.agent_workload_delivery_response.v1",
+        status: "terminal",
         value: delivery,
     }))
 }

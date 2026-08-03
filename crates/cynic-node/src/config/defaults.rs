@@ -50,6 +50,50 @@ pub(super) fn default_agent_workload_state_root() -> std::path::PathBuf {
     "/var/lib/cynic".into()
 }
 
+pub(super) fn default_runtime_artifact_inbox_root() -> std::path::PathBuf {
+    "/var/lib/cynic/runtime-artifacts/inbox".into()
+}
+
+pub(super) fn default_runtime_artifact_max_bytes() -> u64 {
+    4 * 1024 * 1024 * 1024
+}
+
+pub(super) fn default_runtime_artifact_timeout_secs() -> u64 {
+    900
+}
+
+pub(super) fn default_runtime_registry_path() -> std::path::PathBuf {
+    "/etc/cynic/registry.json".into()
+}
+
+pub(super) fn default_build_repository_id() -> String {
+    "cynic".into()
+}
+
+pub(super) fn default_build_scheduler_interval_secs() -> u64 {
+    5
+}
+
+pub(super) fn default_build_claim_ttl_secs() -> u64 {
+    60
+}
+
+pub(super) fn default_build_command_timeout_secs() -> u64 {
+    900
+}
+
+pub(super) fn default_release_signature_namespace() -> String {
+    cynic_protocol::RUNTIME_RELEASE_SIGNATURE_NAMESPACE.to_string()
+}
+
+pub(super) fn default_release_publication_max_bytes() -> u64 {
+    4 * 1024 * 1024 * 1024
+}
+
+pub(super) fn default_release_publication_timeout_secs() -> u64 {
+    900
+}
+
 pub(super) fn default_enrollment_request_ttl_secs() -> u64 {
     600
 }

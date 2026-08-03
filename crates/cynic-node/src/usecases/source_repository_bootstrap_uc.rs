@@ -98,6 +98,9 @@ pub async fn execute_source_repository_bootstrap(
             SourceRepositoryBootstrapDecision::BootstrapRequired => {
                 SourceRepositoryBootstrapStatus::Planned
             }
+            SourceRepositoryBootstrapDecision::SyncRequired => {
+                SourceRepositoryBootstrapStatus::Planned
+            }
             SourceRepositoryBootstrapDecision::Blocked { .. } => {
                 SourceRepositoryBootstrapStatus::Blocked
             }
@@ -117,7 +120,8 @@ pub async fn execute_source_repository_bootstrap(
 
     let mutation_required = match &decision {
         SourceRepositoryBootstrapDecision::Converged => false,
-        SourceRepositoryBootstrapDecision::BootstrapRequired => true,
+        SourceRepositoryBootstrapDecision::BootstrapRequired
+        | SourceRepositoryBootstrapDecision::SyncRequired => true,
         SourceRepositoryBootstrapDecision::Blocked { .. }
         | SourceRepositoryBootstrapDecision::Unknown { .. } => {
             let status = match &decision {

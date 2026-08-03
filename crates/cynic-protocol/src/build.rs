@@ -9,10 +9,16 @@ mod agent_workload;
 mod workload_grant;
 
 pub use agent_request::{
-    BUILD_AGENT_REQUEST_ADMISSION_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA, BuildAgentRequest,
-    BuildAgentRequestAdmission, admit_build_agent_request, plan_build_agent_request,
+    BUILD_AGENT_REQUEST_ADMISSION_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA,
+    BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest,
+    BuildAgentRequestAdmission, BuildReleasePublicationIntent, BuildSourceReference,
+    admit_build_agent_request, plan_build_agent_request, valid_release_publication_id,
+    validate_build_source_reference, validate_release_publication_intent,
 };
-pub use agent_workload::compose_build_agent_workload;
+pub use agent_workload::{
+    build_agent_request_from_workload, build_source_reference_from_workload,
+    compose_build_agent_workload,
+};
 pub use workload_grant::{
     BUILD_WORKLOAD_GRANT_MAX_TTL_SECONDS, BUILD_WORKLOAD_GRANT_SCHEMA,
     BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE, BuildWorkloadGrant,
@@ -28,6 +34,17 @@ pub const BUILD_RUNNER_ADMISSION_SCHEMA: &str = "cynic.build.runner_admission.v1
 pub const BUILD_RUNNER_OBSERVATION_SCHEMA: &str = "cynic.runtime.node_observation.v1";
 pub const BUILD_BOOTSTRAP_GRANT_SCHEMA: &str = "cynic.build.bootstrap_grant.v1";
 pub const BUILD_RUNNER_OBSERVATION_MAX_AGE_MS: u64 = 300_000;
+pub const BUILD_SCHEDULER_RUNTIME_CAPABILITIES: &[&str] = &[
+    "kernel_to_node_workload_delivery_read_back",
+    "scheduler_claim_renewal",
+    "scheduler_cancellation_delivery",
+    "scheduler_crash_recovery",
+    "node_owned_build_grant_machine_signer",
+    "build_runner_signature_and_live_workload_verifier",
+    "scheduler_to_build_runner_execution_transport",
+    "build_completion_and_artifact_read_back",
+    "node_workspace_observer_wiring_and_proof",
+];
 
 pub fn canonical_build_actions(requested_action: &str) -> Result<Vec<String>, String> {
     match requested_action {

@@ -19,6 +19,21 @@ pub(crate) struct Cli {
 
 #[derive(Subcommand)]
 pub(crate) enum Commands {
+    /// Observe or create the node-local Ed25519 identity used for machine enrollment.
+    NodeIdentity {
+        /// Registry-bound node identity whose private key remains local.
+        #[arg(long)]
+        node_id: String,
+        /// Principal-owned private signing key path.
+        #[arg(long, default_value = "/var/lib/cynic/identity/node-signing.key")]
+        signing_key_path: String,
+        /// Generate only when observation proves the identity is absent.
+        #[arg(long)]
+        apply: bool,
+        /// Emit machine-readable JSON. This command always emits JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Run only the node-owned control and enrollment loops for a declared runtime role.
     Control {
         /// Role-projected node-control TOML; no inference backend fields are required.
@@ -143,25 +158,6 @@ pub(crate) enum Commands {
         #[arg(long, default_value = "/var/lib/cynic")]
         state_root: String,
         /// Required before the append-only store is mutated.
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Derive, machine-sign, persist, and read back a grant from a claimed workload.
-    BuildWorkloadGrantReconcile {
-        /// Workload identity in the node-local append-only scheduler store.
-        #[arg(long)]
-        workload_id: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
-        state_root: String,
-        /// Injected node-owned Ed25519 private key file.
-        #[arg(long)]
-        signing_key: String,
-        /// Runtime registry used to resolve the observed scheduler node identity.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
-        registry: String,
-        /// Required before an immutable signed grant is persisted.
         #[arg(long)]
         apply: bool,
         #[arg(long)]

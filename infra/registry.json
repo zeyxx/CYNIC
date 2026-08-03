@@ -2,6 +2,17 @@
   "version": 1,
   "schema": "cynic.registry.v1.minimal",
   "purpose": "Minimal runtime placement registry for the rebuilt low-layer organism.",
+  "release_publication": {
+    "schema": "cynic.release_publication.desired_state.v1",
+    "storage_role": "storage_primary",
+    "service_name": "runtime-artifact-store",
+    "protocol": "generic_https_put_get",
+    "authentication_kind": "bearer_file",
+    "credential_path": "/var/lib/cynic/identity/artifact-store-token",
+    "signing_key_path": "/var/lib/cynic/identity/release-signing-key",
+    "signer_identity": "cynic-release",
+    "signature_namespace": "cynic-runtime-seed"
+  },
   "network_policy": {
     "canonical_service_plane": "synapse",
     "planes": {
@@ -173,6 +184,29 @@
             "path": "/health",
             "port": 8000
           }
+        },
+        {
+          "name": "runtime-artifact-store",
+          "artifact": "external-runtime-artifact-store",
+          "install_authority": {
+            "channel": "external",
+            "provenance": "storage_primary_image"
+          },
+          "scheme": "https",
+          "endpoint_host": "cynic-storage-primary.synapse.cynic",
+          "port": 8443,
+          "base_path": "/runtime-releases",
+          "protocol": "generic_https_put_get",
+          "authentication_kind": "bearer_file",
+          "unit": "runtime-artifact-store.service",
+          "supervisor": {
+            "provider": "systemd"
+          },
+          "health": {
+            "kind": "https",
+            "path": "/health",
+            "port": 8443
+          }
         }
       ]
     },
@@ -187,7 +221,12 @@
       "transports": {
         "ssh": {
           "target": "cynic-builder",
-          "trust": "known_hosts"
+          "trust": "known_hosts",
+          "enrollment_authority": {
+            "class": "machine_enrollment",
+            "principal": "root",
+            "credential_ref": "registry-machine-ssh-identity"
+          }
         }
       },
       "network": {

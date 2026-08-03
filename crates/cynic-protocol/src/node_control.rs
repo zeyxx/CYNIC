@@ -2,12 +2,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     RuntimeSeedObservation, RuntimeSeedPlan, RuntimeSeedRequest, SecurityEvidenceState,
-    reconcile_runtime_seed,
+    reconcile_runtime_seed, validate_runtime_seed_request,
 };
 
 pub const NODE_DESIRED_STATE_SCHEMA: &str = "cynic.node_desired_state.v1";
 pub const NODE_CONTROL_OBSERVATION_SCHEMA: &str = "cynic.node_control_observation.v1";
-pub const NODE_CONTROL_PLAN_SCHEMA: &str = "cynic.node_control_plan.v1";
+pub const NODE_CONTROL_PLAN_SCHEMA: &str = "cynic.node_control_plan.v2";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeDesiredState {
@@ -76,6 +76,18 @@ pub enum NodeControlDecision {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeControlExecutionEvidence {
+    pub schema: String,
+    pub operation: String,
+    pub status: String,
+    pub mutates: bool,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+    #[serde(default)]
+    pub blockers: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeControlPlan {
     pub schema: String,
     pub status: String,
@@ -85,6 +97,8 @@ pub struct NodeControlPlan {
     pub observed_generation: Option<u64>,
     pub connection: NodeControlConnectionState,
     pub decision: NodeControlDecision,
+    #[serde(default)]
+    pub execution: Option<NodeControlExecutionEvidence>,
     pub evidence_refs: Vec<String>,
     pub unknowns: Vec<String>,
 }
@@ -121,6 +135,9 @@ pub fn validate_node_desired_state(desired: &NodeDesiredState) -> Vec<String> {
         "node_desired_state_release_schema_mismatch",
         &mut violations,
     );
+    violations.extend(validate_runtime_seed_request(&desired.release));
+    violations.sort();
+    violations.dedup();
     violations
 }
 
@@ -160,6 +177,18 @@ pub fn validate_node_control_plan(plan: &NodeControlPlan) -> Vec<String> {
         "node_control_plan_status_invalid",
         &mut violations,
     );
+    if let Some(execution) = &plan.execution {
+        check(
+            execution.schema == "cynic.node_control.execution_evidence.v1",
+            "node_control_execution_schema_mismatch",
+            &mut violations,
+        );
+        check(
+            matches!(execution.status.as_str(), "proved" | "blocked" | "unknown"),
+            "node_control_execution_status_invalid",
+            &mut violations,
+        );
+    }
     violations
 }
 
@@ -273,6 +302,7 @@ pub fn reconcile_node_control(
         observed_generation: observed.observed_generation,
         connection: observed.connection,
         decision,
+        execution: None,
         evidence_refs: observed.evidence_refs.clone(),
         unknowns,
     }
@@ -314,12 +344,22 @@ mod tests {
             source_commit: "c".repeat(40),
             build_proof_digest: format!("sha256:{}", "d".repeat(64)),
             basket_digest: format!("sha256:{}", "a".repeat(64)),
+            registry_digest: format!("sha256:{}", "e".repeat(64)),
+            basket_source: RuntimeArtifactSource {
+                transport: RuntimeArtifactTransportKind::Https,
+                locator: "https://artifacts.synapse.cynic/release-2.tar".to_string(),
+            },
             basket_path: "/var/lib/cynic/inbox/release-2.tar".to_string(),
+            detached_signature_source: RuntimeArtifactSource {
+                transport: RuntimeArtifactTransportKind::Https,
+                locator: "https://artifacts.synapse.cynic/release-2.tar.sig".to_string(),
+            },
             detached_signature_path: "/var/lib/cynic/inbox/release-2.tar.sig".to_string(),
             allowed_signers_path: "/etc/cynic/runtime-allowed-signers".to_string(),
+            registry_path: "/etc/cynic/registry.json".to_string(),
             signer_identity: "cynic-release-authority".to_string(),
             signature_namespace: "cynic-runtime-seed".to_string(),
-            required_seed_contract_revision: 2,
+            required_seed_contract_revision: 4,
             install_root: "/var/lib/cynic/runtime".to_string(),
             staged_slot: "releases/release-2".to_string(),
             current_link: "current".to_string(),
@@ -339,16 +379,19 @@ mod tests {
             schema: crate::RUNTIME_SEED_OBSERVATION_SCHEMA.to_string(),
             observed_at_unix_ms: 10,
             node_id: "node-a".to_string(),
-            seed_contract_revision: Some(2),
+            seed_contract_revision: Some(4),
             trust_root: SecurityEvidenceState::Proven,
             signature: SecurityEvidenceState::Proven,
             basket_present: true,
+            detached_signature_present: true,
             basket_digest_read_back: Some(request.basket_digest.clone()),
             current_release_id: converged.then_some(request.release_id),
             current_release_epoch: converged.then_some(request.release_epoch),
             current_source_commit: converged.then_some(request.source_commit),
             current_build_proof_digest: converged.then_some(request.build_proof_digest),
             current_basket_digest: converged.then_some(request.basket_digest),
+            current_registry_digest: converged.then_some(request.registry_digest.clone()),
+            installed_registry_digest: converged.then_some(request.registry_digest),
             previous_release_id: Some("release-1".to_string()),
             slot_layout: SecurityEvidenceState::Proven,
             postflight: if converged {

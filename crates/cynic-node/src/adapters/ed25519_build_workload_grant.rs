@@ -1,4 +1,11 @@
-use std::{fs, path::Path};
+use std::{
+    fs::{self, OpenOptions},
+    io::Write,
+    path::Path,
+};
+
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use sha2::{Digest, Sha256};
@@ -49,6 +56,52 @@ impl Ed25519BuildWorkloadGrantSigner {
 
     pub fn verifier(&self) -> Ed25519BuildWorkloadGrantVerifier {
         Ed25519BuildWorkloadGrantVerifier::new(self.signing_key.verifying_key())
+    }
+
+    pub fn public_key_hex(&self) -> String {
+        hex::encode(self.signing_key.verifying_key().as_bytes())
+    }
+
+    pub fn persist_public_key(&self, path: &Path) -> Result<(), String> {
+        let parent = path
+            .parent()
+            .ok_or_else(|| "build grant public key parent missing".to_string())?;
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("build grant public key parent create: {error}"))?;
+        let parent_metadata = fs::symlink_metadata(parent)
+            .map_err(|error| format!("build grant public key parent metadata: {error}"))?;
+        if parent_metadata.file_type().is_symlink() || !parent_metadata.is_dir() {
+            return Err("build grant public key parent rejected".to_string());
+        }
+        let desired = format!("{}\n", self.public_key_hex());
+        if fs::read_to_string(path).ok().as_deref() == Some(desired.as_str()) {
+            return Ok(());
+        }
+        if fs::symlink_metadata(path)
+            .ok()
+            .is_some_and(|metadata| metadata.file_type().is_symlink() || !metadata.is_file())
+        {
+            return Err("build grant public key path rejected".to_string());
+        }
+        let temporary = parent.join(format!(".build-authority.{}.tmp", std::process::id()));
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        options.mode(0o640);
+        let mut file = options
+            .open(&temporary)
+            .map_err(|error| format!("build grant public key temp create: {error}"))?;
+        file.write_all(desired.as_bytes())
+            .and_then(|_| file.sync_all())
+            .map_err(|error| format!("build grant public key temp write: {error}"))?;
+        fs::rename(&temporary, path)
+            .map_err(|error| format!("build grant public key publish: {error}"))?;
+        let read_back = fs::read_to_string(path)
+            .map_err(|error| format!("build grant public key read back: {error}"))?;
+        if read_back != desired {
+            return Err("build grant public key read back mismatch".to_string());
+        }
+        Ok(())
     }
 }
 

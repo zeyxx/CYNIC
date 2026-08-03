@@ -12,10 +12,11 @@ use crate::{
 };
 
 use super::{
-    AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, admit_agent_workload,
-    admit_agent_workload_dispatch, admit_workload_action, claim_agent_workload,
-    complete_agent_workload, consume_agent_workload_action, renew_agent_workload_claim,
-    request_agent_workload_cancellation,
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
+    acknowledge_agent_workload_cancellation, admit_agent_workload, admit_agent_workload_dispatch,
+    admit_workload_action, claim_agent_workload, complete_agent_workload,
+    consume_agent_workload_action, finalize_unclaimed_agent_workload_cancellation,
+    renew_agent_workload_claim, request_agent_workload_cancellation,
 };
 
 fn evidence(kind: &str) -> AgentEvidenceRef {
@@ -63,6 +64,7 @@ pub(super) fn test_envelope() -> AgentWorkloadEnvelope {
         workload_id: "workload-1".to_string(),
         idempotency_key: "validate-commit-a".to_string(),
         plan_digest: plan_digest.clone(),
+        input: None,
         action,
         delegation: AgentDelegationEnvelope {
             schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
@@ -127,6 +129,7 @@ pub(super) fn record() -> AgentWorkloadRecord {
         last_fencing_token: 0,
         cancellation_generation: 0,
         consumed_actions: 0,
+        completion: None,
     }
 }
 
@@ -214,6 +217,61 @@ fn cancellation_invalidates_the_active_claim() {
 }
 
 #[test]
+fn executor_can_durably_acknowledge_the_exact_cancelled_claim() {
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
+    let cancelled = request_agent_workload_cancellation(&claimed).unwrap();
+    let completion = AgentCompletionEnvelope {
+        schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
+        delegation_id: "delegation-1".to_string(),
+        node_id: "builder-1".to_string(),
+        agent_id: "build-agent-1".to_string(),
+        parent_agent_id: None,
+        status: AgentCompletionStatus::Blocked,
+        evidence_refs: Vec::new(),
+        unknowns: vec!["workload_cancelled_generation_1".to_string()],
+        consumed_budget: AgentBudget {
+            context_tokens: 0,
+            actions: 0,
+            children: 0,
+            wall_time_ms: 1,
+        },
+    };
+
+    let acknowledged =
+        acknowledge_agent_workload_cancellation(&cancelled, &guard(1), &completion).unwrap();
+    assert_eq!(acknowledged.state, AgentWorkloadState::Blocked);
+    assert!(acknowledged.claim.is_none());
+    assert_eq!(acknowledged.completion, Some(completion.clone()));
+    assert!(acknowledge_agent_workload_cancellation(&cancelled, &guard(2), &completion).is_err());
+}
+
+#[test]
+fn unclaimed_cancellation_is_finalized_without_inventing_a_lease() {
+    let cancelled = request_agent_workload_cancellation(&record()).unwrap();
+    let completion = AgentCompletionEnvelope {
+        schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
+        delegation_id: "delegation-1".to_string(),
+        node_id: "builder-1".to_string(),
+        agent_id: "build-agent-1".to_string(),
+        parent_agent_id: None,
+        status: AgentCompletionStatus::Blocked,
+        evidence_refs: Vec::new(),
+        unknowns: vec!["cancelled_before_claim".to_string()],
+        consumed_budget: AgentBudget {
+            context_tokens: 0,
+            actions: 0,
+            children: 0,
+            wall_time_ms: 0,
+        },
+    };
+
+    let finalized =
+        finalize_unclaimed_agent_workload_cancellation(&cancelled, &completion).unwrap();
+    assert_eq!(finalized.state, AgentWorkloadState::Blocked);
+    assert_eq!(finalized.completion, Some(completion));
+}
+
+#[test]
 fn action_budget_is_retained_in_the_record() {
     let mut claimed = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
     claimed = consume_agent_workload_action(&claimed, &guard(1), 11).unwrap();
@@ -230,6 +288,8 @@ fn build_grant_is_derived_from_the_live_durable_workload() {
     dispatched.envelope.policy_admission.mutation.scope.target = source_commit.clone();
     let claimed = claim_agent_workload(&dispatched, guard(1), 40_000, now_unix_s * 1_000)
         .expect("claim workload");
+    let claimed = consume_agent_workload_action(&claimed, &guard(1), now_unix_s * 1_000)
+        .expect("reserve build action");
     let durable = DurableAgentWorkloadRecord {
         schema: DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
         revision: 2,
@@ -285,6 +345,8 @@ fn cancellation_or_fence_change_revokes_a_derived_build_grant() {
     dispatched.envelope.policy_admission.mutation.scope.target = source_commit.clone();
     let claimed = claim_agent_workload(&dispatched, guard(1), 40_000, now_unix_s * 1_000)
         .expect("claim workload");
+    let claimed = consume_agent_workload_action(&claimed, &guard(1), now_unix_s * 1_000)
+        .expect("reserve build action");
     let mut durable = DurableAgentWorkloadRecord {
         schema: DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
         revision: 2,

@@ -25,6 +25,8 @@ pub trait AgentWorkloadStorePort: Send + Sync {
 
     fn active_records(&self) -> Result<Vec<AgentWorkloadRecord>, AgentWorkloadStoreError>;
 
+    fn durable_records(&self) -> Result<Vec<DurableAgentWorkloadRecord>, AgentWorkloadStoreError>;
+
     fn compare_and_swap(
         &self,
         workload_id: &str,

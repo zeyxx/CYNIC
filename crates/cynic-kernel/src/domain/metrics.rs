@@ -274,19 +274,33 @@ impl Metrics {
             self.psi_high_pressure_ticks.load(Ordering::Relaxed),
         );
 
-        // Derived: K15 digestion ratio (verdicts served to consumers vs created)
-        let verdicts_created = self.verdicts_total.load(Ordering::Relaxed);
-        let verdicts_served = self.verdicts_served_total.load(Ordering::Relaxed);
-        let digestion_ratio = if verdicts_created > 0 {
-            verdicts_served as f64 / verdicts_created as f64
+        let observations_ingested = self.observations_ingested_total.load(Ordering::Relaxed);
+        let observations_digested = self.nightshift_digested_total.load(Ordering::Relaxed);
+        let observation_digestion_ratio = if observations_ingested > 0 {
+            observations_digested as f64 / observations_ingested as f64
         } else {
-            0.0
+            f64::NAN
         };
         prom_gauge(
             &mut out,
-            "cynic_digestion_ratio",
-            "K15 ratio: verdicts served to clients / verdicts created (consumption opportunity)",
-            digestion_ratio,
+            "cynic_observation_digestion_ratio",
+            "Fraction of accepted observations digested; NaN means no observations ingested",
+            observation_digestion_ratio,
+        );
+
+        // Derived: K15 verdict consumption opportunity (served vs created).
+        let verdicts_created = self.verdicts_total.load(Ordering::Relaxed);
+        let verdicts_served = self.verdicts_served_total.load(Ordering::Relaxed);
+        let verdict_consumption_ratio = if verdicts_created > 0 {
+            verdicts_served as f64 / verdicts_created as f64
+        } else {
+            f64::NAN
+        };
+        prom_gauge(
+            &mut out,
+            "cynic_verdict_consumption_ratio",
+            "Fraction of verdicts served to clients; NaN means no verdicts created",
+            verdict_consumption_ratio,
         );
 
         // Derived: crystallization rate
@@ -526,6 +540,23 @@ mod tests {
         let m = Metrics::new();
         let output = m.render_prometheus();
         assert!(output.contains("cynic_cache_hit_ratio 0.000000"));
+    }
+
+    #[test]
+    fn prometheus_separates_observation_digestion_from_verdict_consumption() {
+        let m = Metrics::new();
+        for _ in 0..4 {
+            m.inc_observation_ingested();
+            m.inc_verdict();
+        }
+        m.add_nightshift_digested(1);
+        m.inc_verdict_served();
+        m.inc_verdict_served();
+
+        let output = m.render_prometheus();
+        assert!(output.contains("cynic_observation_digestion_ratio 0.250000"));
+        assert!(output.contains("cynic_verdict_consumption_ratio 0.500000"));
+        assert!(!output.contains("cynic_digestion_ratio"));
     }
 
     #[test]

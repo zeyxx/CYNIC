@@ -182,10 +182,11 @@ fn build_attention_summary(
         .get("backlog")
         .and_then(|value| value.as_u64())
         .unwrap_or(0);
-    let digestion_ratio = metabolism
-        .get("digestion_ratio")
-        .and_then(|value| value.as_f64())
-        .unwrap_or(0.0);
+    let observation_digestion_ratio = metabolism
+        .get("observation_digestion_ratio")
+        .and_then(|value| value.as_f64());
+    let digestion_degraded =
+        observation_digestion_ratio.is_some_and(|ratio| ratio < 0.381_966_011_250_105);
 
     let attention_level = if !critical_alerts.is_empty()
         || !overdue_task_sample.is_empty()
@@ -199,7 +200,7 @@ fn build_attention_summary(
         "critical"
     } else if readiness.get("healthy").and_then(|value| value.as_bool()) != Some(true)
         || backlog > 100
-        || digestion_ratio < 38.2
+        || digestion_degraded
     {
         "degraded"
     } else {
@@ -222,7 +223,7 @@ fn build_attention_summary(
             "Claim or escalate overdue mempool tasks before starting lower-priority work"
         ));
     }
-    if backlog > 100 || digestion_ratio < 38.2 {
+    if backlog > 100 || digestion_degraded {
         recommended_actions.push(serde_json::json!(
             "Prioritize digestion/metabolism work; the organism is accumulating observations faster than it processes them"
         ));
@@ -237,7 +238,7 @@ fn build_attention_summary(
             "missing_node_count": missing_node_count,
             "degraded_dog_count": degraded_dogs.len(),
             "backlog": backlog,
-            "digestion_ratio": digestion_ratio,
+            "observation_digestion_ratio": observation_digestion_ratio,
         },
         "fleet": {
             "status": fleet_status,
@@ -328,7 +329,7 @@ mod tests {
         });
         let metabolism = serde_json::json!({
             "backlog": 1229,
-            "digestion_ratio": 0.0,
+            "observation_digestion_ratio": 0.0,
         });
         let overdue_tasks = vec![task("agent_tasks:offline", "fleet", true)];
         let pending_tasks = vec![task("agent_tasks:fleet", "fleet", false)];
@@ -352,5 +353,40 @@ mod tests {
             summary["mempool"]["pending_tasks_sample"][0]["domain"],
             "fleet"
         );
+    }
+
+    #[test]
+    fn attention_uses_fractional_digestion_threshold_and_preserves_unknown() {
+        let readiness = serde_json::json!({"healthy": true});
+        let alerts = serde_json::json!([]);
+
+        for metabolism in [
+            serde_json::json!({
+                "backlog": 0,
+                "observation_digestion_ratio": 0.5,
+            }),
+            serde_json::json!({
+                "backlog": 0,
+                "observation_digestion_ratio": null,
+            }),
+        ] {
+            let summary = build_attention_summary(
+                &readiness,
+                &alerts,
+                &[],
+                None,
+                &metabolism,
+                &[],
+                &[],
+                "cortex",
+            );
+
+            assert_eq!(summary["attention_level"], "normal");
+            assert!(
+                summary["recommended_actions"]
+                    .as_array()
+                    .is_some_and(Vec::is_empty)
+            );
+        }
     }
 }

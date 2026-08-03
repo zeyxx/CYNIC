@@ -46,7 +46,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_validate",
-        description = "Plan or durably deliver a canonical check, build, or release-build workload to build_runner without compiling locally. Select action=check|build|build_release; delivery is content-addressed and requires node read-back before execution."
+        description = "Plan or durably deliver a canonical check, build, or release-build workload to build_runner without compiling locally. Select action=check|build|build_release; build_release also requires release_id and release_epoch and cannot complete before signed artifact-store read-back."
     )]
     async fn cynic_validate(
         &self,
@@ -72,9 +72,31 @@ impl CynicMcpProxy {
             format!("{request_prefix}-{short_commit}-{principal}")
         });
         let dispatch_requested = p.dispatch;
+        let release_publication = if action == "make:build-release" {
+            let release_id = p.release_id.ok_or_else(|| {
+                McpError::invalid_params("release_id is required for action=build_release", None)
+            })?;
+            let release_epoch = p.release_epoch.ok_or_else(|| {
+                McpError::invalid_params("release_epoch is required for action=build_release", None)
+            })?;
+            Some(cynic_protocol::BuildReleasePublicationIntent {
+                schema: cynic_protocol::BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA.to_string(),
+                release_id,
+                release_epoch,
+            })
+        } else {
+            if p.release_id.is_some() || p.release_epoch.is_some() {
+                return Err(McpError::invalid_params(
+                    "release_id and release_epoch are only valid for action=build_release",
+                    None,
+                ));
+            }
+            None
+        };
         let proof_requirements = if action == "make:build-release" {
             vec![
-                "runtime_basket_artifact_read_back".to_string(),
+                "release_binary_artifact_read_back".to_string(),
+                "signed_release_basket_read_back".to_string(),
                 "source_commit_read_back".to_string(),
                 "build_runner_observation".to_string(),
             ]
@@ -85,15 +107,33 @@ impl CynicMcpProxy {
                 "build_runner_observation".to_string(),
             ]
         };
+        let source = cynic_host::repo_access::load_forgejo_desired_state(std::path::Path::new(
+            &self.project_root,
+        ))
+        .map_err(|error| {
+            McpError::internal_error(
+                format!("build source authority is unavailable: {error}"),
+                None,
+            )
+        })?;
+        let source_commit = p.source_commit;
         let request = cynic_protocol::BuildAgentRequest {
             schema: cynic_protocol::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
             request_id,
             requested_by: principal.clone(),
-            source_commit: p.source_commit,
+            source_commit: source_commit.clone(),
+            source: cynic_protocol::BuildSourceReference {
+                schema: cynic_protocol::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                transport_uri: source.git_ssh_url,
+                revision: source_commit,
+                authority_ref: "infra/repo-remotes.json:forgejo".to_string(),
+            },
             action: action.to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: dispatch_requested,
             proof_requirements,
+            release_publication,
             evidence_refs: p.evidence_refs,
         };
         let admission = if dispatch_requested {
@@ -143,6 +183,11 @@ impl CynicMcpProxy {
             status: cynic_protocol::AgentWorkloadDeliveryStatus::Pending,
             accepted_at_ms: None,
             accepted_record_digest: None,
+            terminal_at_ms: None,
+            terminal_record_digest: None,
+            terminal_record: None,
+            completion: None,
+            completion_evidence: Vec::new(),
             evidence_refs: request.evidence_refs.clone(),
             envelope,
         };

@@ -5,14 +5,17 @@ use std::{
     path::{Component, Path},
 };
 
-use cynic_protocol::RuntimeSeedRequest;
+use cynic_protocol::{
+    RUNTIME_SEED_BUNDLE_MARKER_FILE, RUNTIME_SEED_BUNDLE_MARKER_SCHEMA, RuntimeSeedBundleMarker,
+    RuntimeSeedRequest,
+};
 use sha2::{Digest, Sha256};
 
 use crate::update_lifecycle::ArgvRunner;
 
 use super::{
-    BUNDLE_MARKER, BUNDLE_MARKER_SCHEMA, RELEASE_MARKER, RELEASE_MARKER_SCHEMA,
-    RuntimeSeedBundleMarker, RuntimeSeedReleaseMarker, signature::RuntimeSeedSignatureVerifier,
+    RELEASE_MARKER, RELEASE_MARKER_SCHEMA, RuntimeSeedReleaseMarker,
+    signature::RuntimeSeedSignatureVerifier,
 };
 
 pub(super) fn verify_apply_preconditions(
@@ -125,15 +128,16 @@ pub(super) fn verify_bundle_marker(
     staging: &Path,
 ) -> Result<(), String> {
     let marker: RuntimeSeedBundleMarker = serde_json::from_slice(
-        &fs::read(staging.join(BUNDLE_MARKER))
+        &fs::read(staging.join(RUNTIME_SEED_BUNDLE_MARKER_FILE))
             .map_err(|error| format!("runtime_seed_bundle_marker_read_failed:{error}"))?,
     )
     .map_err(|error| format!("runtime_seed_bundle_marker_invalid:{error}"))?;
-    if marker.schema != BUNDLE_MARKER_SCHEMA
+    if marker.schema != RUNTIME_SEED_BUNDLE_MARKER_SCHEMA
         || marker.release_id != request.release_id
         || marker.release_epoch != request.release_epoch
         || marker.source_commit != request.source_commit
         || marker.build_proof_digest != request.build_proof_digest
+        || marker.registry_digest != request.registry_digest
     {
         return Err("runtime_seed_bundle_marker_mismatch".to_string());
     }
@@ -151,6 +155,7 @@ pub(super) fn persist_release_marker(
         source_commit: Some(request.source_commit.clone()),
         build_proof_digest: Some(request.build_proof_digest.clone()),
         basket_digest: request.basket_digest.clone(),
+        registry_digest: Some(request.registry_digest.clone()),
     })
     .map_err(|error| format!("runtime_seed_release_marker_encode_failed:{error}"))?;
     let path = staging.join(RELEASE_MARKER);
@@ -318,12 +323,22 @@ mod tests {
             source_commit: "b".repeat(40),
             build_proof_digest: format!("sha256:{}", "c".repeat(64)),
             basket_digest: format!("sha256:{}", "d".repeat(64)),
+            registry_digest: format!("sha256:{}", "f".repeat(64)),
+            basket_source: cynic_protocol::RuntimeArtifactSource {
+                transport: cynic_protocol::RuntimeArtifactTransportKind::LocalFile,
+                locator: "/source/release-2.tar".to_string(),
+            },
             basket_path: "/inbox/release-2.tar".to_string(),
+            detached_signature_source: cynic_protocol::RuntimeArtifactSource {
+                transport: cynic_protocol::RuntimeArtifactTransportKind::LocalFile,
+                locator: "/source/release-2.tar.sig".to_string(),
+            },
             detached_signature_path: "/inbox/release-2.tar.sig".to_string(),
             allowed_signers_path: "/etc/cynic/allowed-signers".to_string(),
+            registry_path: "/etc/cynic/registry.json".to_string(),
             signer_identity: "release-authority".to_string(),
             signature_namespace: "cynic-runtime-seed".to_string(),
-            required_seed_contract_revision: 2,
+            required_seed_contract_revision: 4,
             install_root: "/var/lib/cynic/runtime".to_string(),
             staged_slot: "releases/release-2".to_string(),
             current_link: "current".to_string(),
@@ -331,13 +346,14 @@ mod tests {
             postflight_argv: vec!["/bin/true".to_string()],
         };
         fs::write(
-            root.path().join(BUNDLE_MARKER),
+            root.path().join(RUNTIME_SEED_BUNDLE_MARKER_FILE),
             serde_json::to_vec(&RuntimeSeedBundleMarker {
-                schema: BUNDLE_MARKER_SCHEMA.to_string(),
+                schema: RUNTIME_SEED_BUNDLE_MARKER_SCHEMA.to_string(),
                 release_id: request.release_id.clone(),
                 release_epoch: request.release_epoch,
                 source_commit: "e".repeat(40),
                 build_proof_digest: request.build_proof_digest.clone(),
+                registry_digest: request.registry_digest.clone(),
             })
             .expect("bundle marker"),
         )

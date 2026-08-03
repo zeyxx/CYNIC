@@ -21,6 +21,7 @@ KillSignal=SIGTERM
 TimeoutStopSec=30
 Restart=on-failure
 RestartSec=5
+EnvironmentFile=/etc/cynic/env
 Environment="SURREALDB_PASS_FILE=/etc/cynic/secrets/storage-runtime-password"
 Environment="CYNIC_STORAGE_CONFIG=/etc/cynic/storage.toml"
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"

@@ -33,6 +33,7 @@ pub mod node_substrate;
 pub mod ports;
 pub mod pre_os_control;
 pub mod principal_prepare;
+pub mod process_convergence;
 pub mod process_observation;
 pub mod profiles;
 pub mod registry;

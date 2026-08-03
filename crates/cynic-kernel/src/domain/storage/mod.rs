@@ -578,6 +578,15 @@ pub trait StoragePort:
         ))
     }
 
+    async fn complete_agent_workload_delivery(
+        &self,
+        _publication: &cynic_protocol::AgentWorkloadCompletionPublication,
+    ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
+        Err(StorageError::ConnectionFailed(
+            "durable agent workload completion storage is unavailable".to_string(),
+        ))
+    }
+
     async fn reserve_agent_workspace_claim(
         &self,
         _intent: &cynic_protocol::AgentWorkspaceClaimIntent,

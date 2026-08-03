@@ -72,6 +72,16 @@ const IMPLEMENTED_PROTOCOL_PRIMITIVES: &[&str] = &[
     "kernel_durable_workload_delivery",
     "node_control_workload_ingress",
     "target_node_delivery_persistence_before_ack",
+    "build_source_transport_and_revision_binding",
+    "managed_repository_fetch_and_commit_read_back",
+    "node_owned_build_scheduler_loop",
+    "scheduler_claim_renewal_and_cancellation_monitor",
+    "isolated_build_workspace_read_back",
+    "scheduler_derived_machine_grant_after_action_reservation",
+    "cancellable_argv_build_execution_adapter",
+    "content_addressed_build_completion_proofs",
+    "durable_completion_envelope_retention",
+    "claimed_and_unclaimed_cancellation_acknowledgement",
 ];
 
 const LEGACY_AGENT_TASK_GAPS: &[&str] = &[

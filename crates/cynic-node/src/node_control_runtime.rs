@@ -4,10 +4,14 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 use crate::adapters::http_node_control::HttpNodeControlAdapter;
+use crate::adapters::http_runtime_artifact_transport::HttpRuntimeArtifactTransport;
+use crate::adapters::local_agent_workload_completion_receipt::LocalAgentWorkloadCompletionReceipt;
 use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
 use crate::adapters::local_node_control_observer::LocalNodeControlObserver;
 use crate::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
+use crate::adapters::local_runtime_seed_actuation::LocalRuntimeSeedActuation;
 use crate::{config, shutdown::install_signal_handler, usecases};
+use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
 
 pub(crate) async fn start_tasks(
     control: config::NodeControlConfig,
@@ -65,6 +69,22 @@ pub(crate) async fn start_tasks(
         control.observed_capabilities.clone(),
         control.observed_services.clone(),
     );
+    let enrollment_proven = enrollment.state == cynic_protocol::SecurityEvidenceState::Proven;
+    let build_scheduler_authorized = enrollment_proven
+        && cynic_protocol::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
+            .iter()
+            .all(|capability| {
+                enrollment
+                    .granted_capabilities
+                    .iter()
+                    .any(|granted| granted == capability)
+            });
+    let artifact_transport = HttpRuntimeArtifactTransport::new(
+        control.runtime_artifact_inbox_root.clone(),
+        control.runtime_artifact_max_bytes,
+        Duration::from_secs(control.runtime_artifact_timeout_secs),
+    )?;
+    let release_actuation = LocalRuntimeSeedActuation;
     let control_shutdown = shutdown.clone();
     let control_adapter = adapter.clone();
     let control_config = control.clone();
@@ -76,6 +96,14 @@ pub(crate) async fn start_tasks(
             .agent_workload_state_root
             .join("agent-scheduler/workloads"),
     );
+    let delivery_evidence_store = LocalContentAddressedEvidenceStore::new(
+        control_config.agent_workload_state_root.join("evidence"),
+    );
+    let delivery_receipts = LocalAgentWorkloadCompletionReceipt::new(
+        control_config
+            .agent_workload_state_root
+            .join("agent-scheduler/completion-receipts"),
+    );
     let delivery_shutdown = control_shutdown.clone();
     let control_task = tokio::spawn(async move {
         usecases::node_control_plane_uc::run_node_control_loop(
@@ -84,10 +112,14 @@ pub(crate) async fn start_tasks(
             &control_adapter,
             &observer,
             &control_adapter,
+            &artifact_transport,
+            &release_actuation,
             &control_shutdown,
         )
         .await;
     });
+    let scheduler_control = control.clone();
+    let scheduler_shutdown = shutdown.clone();
     let renewal_task = tokio::spawn(
         usecases::node_enrollment_lifecycle_uc::run_enrollment_renewal_loop(
             adapter,
@@ -96,17 +128,38 @@ pub(crate) async fn start_tasks(
             shutdown,
         ),
     );
-    let delivery_task = tokio::spawn(async move {
-        usecases::agent_workload_delivery_uc::run_delivery_loop(
-            &delivery_node_id,
-            delivery_interval,
-            &delivery_adapter,
-            &delivery_store,
-            &delivery_shutdown,
-        )
-        .await;
-    });
-    Ok(vec![control_task, renewal_task, delivery_task])
+    let mut tasks = vec![control_task, renewal_task];
+    if enrollment_proven {
+        tasks.push(tokio::spawn(async move {
+            usecases::agent_workload_delivery_uc::run_delivery_loop(
+                &delivery_node_id,
+                delivery_interval,
+                &delivery_adapter,
+                &delivery_store,
+                &delivery_evidence_store,
+                &delivery_receipts,
+                &delivery_shutdown,
+            )
+            .await;
+        }));
+    } else {
+        tracing::warn!(
+            node_id = %scheduler_control.node_id,
+            "workload delivery remains inactive until machine enrollment is proved"
+        );
+    }
+    if scheduler_control.build_scheduler.is_some() && build_scheduler_authorized {
+        tasks.push(tokio::spawn(usecases::build_scheduler::run_loop(
+            scheduler_control,
+            scheduler_shutdown,
+        )));
+    } else if scheduler_control.build_scheduler.is_some() {
+        tracing::warn!(
+            node_id = %scheduler_control.node_id,
+            "build scheduler remains inactive until enrollment and scheduler capabilities are proved"
+        );
+    }
+    Ok(tasks)
 }
 
 pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {
@@ -147,6 +200,14 @@ pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {
         if !has_enrollment_grant && !has_enrollment_token {
             missing.push("enrollment_grant_or_one_time_token");
         }
+        let build_scheduler_configured = control.build_scheduler.is_some();
+        let build_scheduler_registry_present = control
+            .build_scheduler
+            .as_ref()
+            .is_none_or(|scheduler| scheduler.registry_path.is_file());
+        if !build_scheduler_registry_present {
+            missing.push("build_scheduler_runtime_registry");
+        }
         let status = if missing.is_empty() {
             "ready"
         } else {
@@ -165,6 +226,11 @@ pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {
                 "has_enrollment_grant": has_enrollment_grant,
                 "has_enrollment_token": has_enrollment_token,
                 "has_enrollment_authority_public_key": has_enrollment_authority_public_key,
+                "build_scheduler_configured": build_scheduler_configured,
+                "build_scheduler_registry_present": build_scheduler_registry_present,
+                "runtime_artifact_inbox_root": control.runtime_artifact_inbox_root,
+                "runtime_artifact_max_bytes": control.runtime_artifact_max_bytes,
+                "runtime_artifact_timeout_secs": control.runtime_artifact_timeout_secs,
                 "missing_requirements": missing
             })
         );

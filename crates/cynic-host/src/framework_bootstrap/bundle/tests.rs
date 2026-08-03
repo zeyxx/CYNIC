@@ -14,6 +14,11 @@ fn framework_bootstrap_bundle_writes_security_kit() {
     assert_eq!(report.status, "written");
     assert!(out.join("host-exec-bundle/cynic-host-exec").is_file());
     assert!(out.join("install.sh").is_file());
+    assert!(out.join("enroll.sh").is_file());
+    let enroll_script = std::fs::read_to_string(out.join("enroll.sh")).expect("read enroll.sh");
+    assert!(enroll_script.contains("\"$ROOT/install.sh\""));
+    assert!(enroll_script.contains("\"$ROOT/verify.sh\""));
+    assert!(enroll_script.contains("one-time HumanAdmin boundary"));
     let install_script = std::fs::read_to_string(out.join("install.sh")).expect("read install.sh");
     assert!(install_script.contains("principal-prepare --apply"));
     assert!(install_script.contains("/usr/local/bin/cynic"));
@@ -68,6 +73,7 @@ fn framework_bootstrap_bundle_writes_security_kit() {
     let checksums =
         std::fs::read_to_string(out.join("seed-artifacts.sha256")).expect("read seed checksums");
     assert!(checksums.contains("  install.sh"));
+    assert!(checksums.contains("  enroll.sh"));
     assert!(checksums.contains("  seed-manifest.json"));
     assert!(!checksums.contains(out.to_string_lossy().as_ref()));
     std::fs::remove_dir_all(out).expect("cleanup");
@@ -117,7 +123,38 @@ fn build_runner_bundle_projects_node_and_registry() {
     let registry = root.join("registry.json");
     std::fs::write(
         &registry,
-        br#"{"schema":"test","nodes":[{"id":"cynic-builder","role":"build_runner","services":[]}]}"#,
+        serde_json::json!({
+            "schema": "test",
+            "release_publication": {
+                "schema": "cynic.release_publication.desired_state.v1",
+                "storage_role": "storage_primary",
+                "service_name": "runtime-artifact-store",
+                "protocol": "generic_https_put_get",
+                "authentication_kind": "bearer_file",
+                "credential_path": "/var/lib/cynic/identity/artifact-store-token",
+                "signing_key_path": "/var/lib/cynic/identity/release-signing-key",
+                "signer_identity": "cynic-release",
+                "signature_namespace": "cynic-runtime-seed"
+            },
+            "nodes": [
+                {"id": "cynic-builder", "role": "build_runner", "services": []},
+                {
+                    "id": "storage-a",
+                    "role": "storage_primary",
+                    "proxmox_id": "lxc/103",
+                    "services": [{
+                        "name": "runtime-artifact-store",
+                        "scheme": "https",
+                        "endpoint_host": "storage.synapse.cynic",
+                        "port": 8443,
+                        "base_path": "/runtime-releases",
+                        "protocol": "generic_https_put_get",
+                        "authentication_kind": "bearer_file"
+                    }]
+                }
+            ]
+        })
+        .to_string(),
     )
     .expect("registry");
 
@@ -140,6 +177,23 @@ fn build_runner_bundle_projects_node_and_registry() {
     assert!(control.contains("enrollment_role = \"build_runner\""));
     assert!(control.contains("kernel_url = \"${CYNIC_KERNEL_URL}\""));
     assert!(control.contains("agent_workload_state_root = \"${CYNIC_STATE_ROOT}\""));
+    assert!(
+        control.contains(
+            "runtime_artifact_inbox_root = \"${CYNIC_STATE_ROOT}/runtime-artifacts/inbox\""
+        )
+    );
+    assert!(control.contains("runtime_artifact_max_bytes = 4294967296"));
+    assert!(control.contains("[node_control.build_scheduler]"));
+    assert!(control.contains("registry_path = \"/etc/cynic/registry.json\""));
+    assert!(control.contains("[node_control.build_scheduler.release_publication]"));
+    assert!(
+        control.contains(
+            "artifact_base_url = \"https://storage.synapse.cynic:8443/runtime-releases\""
+        )
+    );
+    assert!(control.contains("authentication_kind = \"bearer_file\""));
+    assert!(control.contains("credential_path = \"/var/lib/cynic/identity/artifact-store-token\""));
+    assert!(!control.contains("cynic-host-cortex"));
     assert!(!control.contains("[dog]"));
     let service =
         std::fs::read_to_string(out.join("etc/systemd/cynic-node.service")).expect("service");
@@ -151,9 +205,49 @@ fn build_runner_bundle_projects_node_and_registry() {
     let checksums = std::fs::read_to_string(out.join("seed-artifacts.sha256")).expect("checksums");
     assert!(checksums.contains("  bin/cynic-node"));
     assert!(checksums.contains("  etc/registry.json"));
+    let install = std::fs::read_to_string(out.join("install.sh")).expect("install script");
+    assert!(install.contains("RUNTIME_INSTALL_ROOT"));
+    assert!(install.contains("RUNTIME_ARTIFACT_INBOX"));
+    assert!(install.contains("stage_runtime_artifact 'cynic-node' '/usr/local/bin/cynic-node'"));
+    assert!(
+        install.contains("prepare_runtime_entrypoint 'cynic-node' '/usr/local/bin/cynic-node'")
+    );
+    assert!(
+        install.contains("activate_runtime_entrypoint 'cynic-node' '/usr/local/bin/cynic-node'")
+    );
+    assert!(
+        install.contains("read_back_runtime_entrypoint 'cynic-node' '/usr/local/bin/cynic-node'")
+    );
+    assert!(install.contains("$RUNTIME_INSTALL_ROOT/current/$binary"));
+    assert!(
+        !install
+            .contains("install -o root -g root -m 0755 \"$ROOT/bin/cynic-node\" \"$NODE_TARGET\"")
+    );
+    let verify = std::fs::read_to_string(out.join("verify.sh")).expect("verify script");
+    assert!(
+        verify.contains("read_back_runtime_entrypoint 'cynic-node' '/usr/local/bin/cynic-node'")
+    );
     assert!(checksums.contains("  etc/node-control.toml"));
     assert!(checksums.contains("  etc/systemd/cynic-node.service"));
     std::fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn build_runner_projection_requires_proxmox_placed_artifact_storage_desired_state() {
+    let registry = serde_json::json!({
+        "nodes": [
+            {"id": "builder-a", "role": "build_runner", "services": []},
+            {
+                "id": "storage-a",
+                "role": "storage_primary",
+                "services": [{"name": "runtime-artifact-store"}]
+            }
+        ]
+    });
+
+    let error = super::render_node_control_config(&registry, "build_runner").unwrap_err();
+
+    assert!(error.contains("release publication desired state is absent"));
 }
 
 #[test]

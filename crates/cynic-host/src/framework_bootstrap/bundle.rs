@@ -10,7 +10,8 @@ use crate::framework_bootstrap::bundle::files::{
 };
 use crate::framework_bootstrap::bundle::seed::{write_seed_checksums, write_seed_manifest};
 use crate::framework_bootstrap::scripts::{
-    bootstrap_install_script, bootstrap_security_maintenance_script, bootstrap_verify_script,
+    BootstrapRuntimeArtifact, bootstrap_enroll_script, bootstrap_install_script,
+    bootstrap_security_maintenance_script, bootstrap_verify_script,
 };
 use crate::framework_bootstrap::types::FrameworkBootstrapBundleReport;
 
@@ -40,9 +41,10 @@ struct RuntimeSeed {
     runtime_basket_member: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct RuntimeArtifact {
     binary: String,
+    install_path: String,
     roles: Vec<String>,
 }
 
@@ -57,20 +59,31 @@ pub fn write_framework_bootstrap_bundle_for_role(
         serde_json::from_str(include_str!("../../../../infra/runtime-basket.json"))
             .map_err(|error| format!("failed to parse runtime basket: {error}"))?;
     validate_runtime_seed_boundary(&basket)?;
-    let required = if role == "unassigned" {
+    let required_artifacts = if role == "unassigned" {
         Vec::new()
     } else {
         let required = basket
             .artifacts
             .iter()
             .filter(|artifact| artifact.roles.iter().any(|candidate| candidate == role))
-            .map(|artifact| artifact.binary.clone())
+            .cloned()
             .collect::<Vec<_>>();
         if required.is_empty() {
             return Err(format!("runtime basket does not declare role {role}"));
         }
         required
     };
+    let required = required_artifacts
+        .iter()
+        .map(|artifact| artifact.binary.clone())
+        .collect::<Vec<_>>();
+    let bootstrap_runtime_artifacts = required_artifacts
+        .iter()
+        .map(|artifact| BootstrapRuntimeArtifact {
+            binary: artifact.binary.clone(),
+            install_path: artifact.install_path.clone(),
+        })
+        .collect::<Vec<_>>();
     let current_exe_is_cynic = std::env::current_exe()
         .ok()
         .and_then(|path| {
@@ -106,7 +119,7 @@ pub fn write_framework_bootstrap_bundle_for_role(
             blockers,
             seed_id: String::new(),
             seed_manifest: "seed-manifest.json".to_string(),
-            entrypoint: "install.sh".to_string(),
+            entrypoint: "enroll.sh".to_string(),
             operator_command: "provide the role-projected artifacts and runtime registry"
                 .to_string(),
             maintenance_command: String::new(),
@@ -198,13 +211,19 @@ pub fn write_framework_bootstrap_bundle_for_role(
     }
     write_executable_file(
         output_dir.join("install.sh"),
-        bootstrap_install_script(),
+        bootstrap_install_script(&bootstrap_runtime_artifacts),
         output_dir,
         &mut files,
     )?;
     write_executable_file(
         output_dir.join("verify.sh"),
-        bootstrap_verify_script(),
+        bootstrap_verify_script(&bootstrap_runtime_artifacts),
+        output_dir,
+        &mut files,
+    )?;
+    write_executable_file(
+        output_dir.join("enroll.sh"),
+        bootstrap_enroll_script(),
         output_dir,
         &mut files,
     )?;
@@ -259,8 +278,8 @@ pub fn write_framework_bootstrap_bundle_for_role(
         blockers: Vec::new(),
         seed_id: seed_manifest.seed_id,
         seed_manifest: "seed-manifest.json".to_string(),
-        entrypoint: "install.sh".to_string(),
-        operator_command: "explicit bootstrap transport enrollment is required; SSH may transfer the initial seed but is not a canonical runtime mutation plane".to_string(),
+        entrypoint: "enroll.sh".to_string(),
+            operator_command: "use framework propagation with the registry-declared MachineEnrollment transport; subsequent mutation uses the installed machine authority and signed release surfaces".to_string(),
         maintenance_command: "sudo /tmp/cynic-framework-bootstrap/security-maintenance.sh".to_string(),
         target_runtime: "fresh_linux_node",
         security_invariants: vec![
@@ -309,12 +328,33 @@ fn render_storage_config(registry: &serde_json::Value, target_role: &str) -> Opt
 fn validate_runtime_seed_boundary(basket: &RuntimeBasket) -> Result<(), String> {
     if basket.runtime_seed.binary != "cynic-host-exec"
         || basket.runtime_seed.contract_revision == 0
-        || basket.runtime_seed.signature_namespace != "cynic-runtime-seed"
+        || basket.runtime_seed.signature_namespace
+            != cynic_protocol::RUNTIME_RELEASE_SIGNATURE_NAMESPACE
         || basket.runtime_seed.runtime_basket_member
+        || basket.artifacts.iter().any(|artifact| {
+            artifact.binary == basket.runtime_seed.binary
+                || artifact.binary.is_empty()
+                || !artifact
+                    .binary
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+                || !Path::new(&artifact.install_path).is_absolute()
+                || Path::new(&artifact.install_path)
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    != Some(artifact.binary.as_str())
+                || artifact.install_path.contains('\n')
+        })
         || basket
             .artifacts
             .iter()
-            .any(|artifact| artifact.binary == basket.runtime_seed.binary)
+            .enumerate()
+            .any(|(index, artifact)| {
+                basket.artifacts[index + 1..].iter().any(|candidate| {
+                    candidate.binary == artifact.binary
+                        || candidate.install_path == artifact.install_path
+                })
+            })
     {
         return Err(
             "runtime seed must be independently governed and excluded from mutable baskets"

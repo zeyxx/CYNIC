@@ -605,6 +605,13 @@ impl StoragePort for SurrealHttpStorage {
         workload_delivery::accept(self, workload_id, node_id, record_digest, accepted_at_ms).await
     }
 
+    async fn complete_agent_workload_delivery(
+        &self,
+        publication: &cynic_protocol::AgentWorkloadCompletionPublication,
+    ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
+        workload_delivery::complete(self, publication).await
+    }
+
     async fn reserve_agent_workspace_claim(
         &self,
         intent: &cynic_protocol::AgentWorkspaceClaimIntent,

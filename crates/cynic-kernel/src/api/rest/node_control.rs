@@ -6,7 +6,9 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use cynic_protocol::NodeControlPlan;
+use cynic_protocol::{
+    NodeControlPlan, RuntimeReleaseAdmission, RuntimeReleaseDeclaration, admit_runtime_release,
+};
 use serde::Serialize;
 
 use super::types::{AppState, AuthenticatedPrincipal, ErrorResponse};
@@ -16,6 +18,14 @@ struct NodeControlResponse<T> {
     schema: &'static str,
     status: &'static str,
     value: T,
+}
+
+#[derive(Debug, Serialize)]
+struct RuntimeReleaseResponse {
+    schema: &'static str,
+    status: &'static str,
+    admission: RuntimeReleaseAdmission,
+    value: cynic_protocol::NodeDesiredState,
 }
 
 pub async fn desired_state_handler(
@@ -43,6 +53,60 @@ pub async fn desired_state_handler(
             }),
         )
             .into_response(),
+        Err(_) => unavailable(),
+    }
+}
+
+pub async fn declare_release_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path(node_id): Path<String>,
+    Json(declaration): Json<RuntimeReleaseDeclaration>,
+) -> Response {
+    if let Err(error) = principal.require_agent(&declaration.requested_by) {
+        return forbidden(error);
+    }
+    if declaration.desired_state.node_id != node_id {
+        return invalid("runtime release target does not match the desired-state path");
+    }
+    let delivery = match state
+        .storage
+        .agent_workload_delivery(&declaration.workload_id)
+        .await
+    {
+        Ok(Some(delivery)) => delivery,
+        Ok(None) => return not_found("terminal build workload delivery is not retained"),
+        Err(_) => return unavailable(),
+    };
+    let admission = admit_runtime_release(&declaration, &delivery);
+    if !admission.admitted {
+        return (StatusCode::UNPROCESSABLE_ENTITY, Json(admission)).into_response();
+    }
+    let desired = declaration.desired_state;
+    let Some(runtime) = state.node_control.as_ref() else {
+        return unavailable();
+    };
+    match runtime.store.put_desired_state(desired.clone()).await {
+        Ok(()) => {}
+        Err(crate::domain::node_control::NodeControlStoreError::Invalid(error)) => {
+            return invalid(&error);
+        }
+        Err(crate::domain::node_control::NodeControlStoreError::Conflict(error)) => {
+            return (StatusCode::CONFLICT, Json(ErrorResponse { error })).into_response();
+        }
+        Err(crate::domain::node_control::NodeControlStoreError::Storage(_)) => {
+            return unavailable();
+        }
+    }
+    match runtime.store.desired_state(&node_id).await {
+        Ok(Some(read_back)) if read_back == desired => Json(RuntimeReleaseResponse {
+            schema: "cynic.runtime_release_response.v1",
+            status: "admitted_persisted_and_read_back",
+            admission,
+            value: read_back,
+        })
+        .into_response(),
+        Ok(_) => unavailable(),
         Err(_) => unavailable(),
     }
 }
@@ -113,6 +177,26 @@ pub async fn status_handler(
 fn forbidden(error: &str) -> Response {
     (
         StatusCode::FORBIDDEN,
+        Json(ErrorResponse {
+            error: error.to_string(),
+        }),
+    )
+        .into_response()
+}
+
+fn invalid(error: &str) -> Response {
+    (
+        StatusCode::UNPROCESSABLE_ENTITY,
+        Json(ErrorResponse {
+            error: error.to_string(),
+        }),
+    )
+        .into_response()
+}
+
+fn not_found(error: &str) -> Response {
+    (
+        StatusCode::NOT_FOUND,
         Json(ErrorResponse {
             error: error.to_string(),
         }),

@@ -129,6 +129,7 @@ fn read_grant(
     Ok(PersistedBuildWorkloadGrant {
         grant,
         evidence_ref: format!("file:build-grants/{workload_id}/{}", file_name(path)?),
+        path: path.to_path_buf(),
     })
 }
 

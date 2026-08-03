@@ -47,6 +47,21 @@ pub fn admit_agent_workload(envelope: &AgentWorkloadEnvelope) -> AgentWorkloadAd
             "bounded action could not be canonicalized",
         )),
     }
+    if let Some(input) = &envelope.input {
+        if input.schema != crate::AGENT_WORKLOAD_INPUT_SCHEMA || input.kind.trim().is_empty() {
+            violations.push(violation(
+                "invalid_workload_input",
+                "workload input requires the canonical schema and a typed kind",
+            ));
+        }
+        match crate::digest_json(&input.payload) {
+            Ok(digest) if digest == input.digest && valid_sha256_digest(&input.digest) => {}
+            _ => violations.push(violation(
+                "workload_input_digest_mismatch",
+                "workload input digest must bind the exact canonical payload",
+            )),
+        }
+    }
     if envelope.action.argv.is_empty()
         || envelope
             .action
