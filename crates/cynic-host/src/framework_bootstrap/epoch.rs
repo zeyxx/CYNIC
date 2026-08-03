@@ -66,16 +66,16 @@ pub fn advance_framework_epoch(
 }
 
 fn phase_catalog() -> Vec<FrameworkEpochPhase> {
-    [
+    vec![
         (
             DeploymentPhase::Proposed,
             "cynic-protocol::deployment_epoch",
-            &["source_commit_read_back", "desired_state_digest_read_back"],
+            &["source_commit_read_back", "desired_state_digest_read_back"][..],
         ),
         (
             DeploymentPhase::Admitted,
             "cynic-host::framework_bootstrap::lifecycle",
-            &["admission_read_back", "policy_digest_read_back"],
+            &["admission_read_back", "policy_digest_read_back"][..],
         ),
         (
             DeploymentPhase::Building,
@@ -83,12 +83,12 @@ fn phase_catalog() -> Vec<FrameworkEpochPhase> {
             &[
                 "durable_workload_delivery_read_back",
                 "build_grant_read_back",
-            ],
+            ][..],
         ),
         (
             DeploymentPhase::Built,
             "cynic-node::build_scheduler",
-            &["binary_build_observed", "completion_evidence_read_back"],
+            &["binary_build_observed", "completion_evidence_read_back"][..],
         ),
         (
             DeploymentPhase::Staging,
@@ -96,12 +96,12 @@ fn phase_catalog() -> Vec<FrameworkEpochPhase> {
             &[
                 "artifact_store_health_read_back",
                 "artifact_transport_read_back",
-            ],
+            ][..],
         ),
         (
             DeploymentPhase::Staged,
             "cynic-host::framework_bootstrap::runtime_binding",
-            &["runtime_seed_read_back", "registry_generation_read_back"],
+            &["runtime_seed_read_back", "registry_generation_read_back"][..],
         ),
         (
             DeploymentPhase::Canary,
@@ -109,12 +109,12 @@ fn phase_catalog() -> Vec<FrameworkEpochPhase> {
             &[
                 "node_service_active_read_back",
                 "mcp_compatibility_read_back",
-            ],
+            ][..],
         ),
         (
             DeploymentPhase::RollingOut,
             "cynic-node::fleet_scheduler",
-            &["fleet_rollout_read_back", "lease_fence_read_back"],
+            &["fleet_rollout_read_back", "lease_fence_read_back"][..],
         ),
         (
             DeploymentPhase::Verifying,
