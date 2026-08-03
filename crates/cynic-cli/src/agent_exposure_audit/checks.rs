@@ -51,6 +51,18 @@ pub(crate) fn check_no_machine_local_paths(
             None,
         ));
     }
+    if content
+        .lines()
+        .any(|line| line.trim_start().starts_with("[mcp_servers.cynic.tools."))
+    {
+        findings.push(finding(
+            "critical",
+            "codex_manual_tool_projection",
+            codex_config_rel,
+            "Codex must discover the canonical MCP tool set at runtime; per-tool approval tables are a duplicated grant surface",
+            None,
+        ));
+    }
 }
 
 pub(crate) fn check_codex_projection(
