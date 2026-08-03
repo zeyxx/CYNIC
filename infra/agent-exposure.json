@@ -10,6 +10,21 @@
     "project_root": "Inject runtime paths through operator deployment context; never commit machine-local absolute paths.",
     "honesty": "This projection is complete for the current cynic-mcp binary. Tier labels mark product/legacy surfaces that are not low-layer runtime baseline."
   },
+  "mcp_protocol": {
+    "desired_revision": "2026-07-28",
+    "current_runtime_revision": "2025-11-25-compatible",
+    "status": "upgrade_required",
+    "transport_mode": "stdio_legacy_session_compatible",
+    "required_upgrade_surfaces": [
+      "stateless_streamable_http",
+      "server_discover",
+      "per_request_protocol_version_and_client_metadata",
+      "oauth_2_1_authorization_metadata",
+      "tasks_extension_or_explicit_unsupported_response",
+      "deprecated_roots_sampling_logging_audit"
+    ],
+    "unknown_policy": "do_not_claim_2026_07_28_conformance_without_wire_read_back"
+  },
   "projection_targets": {
     "codex": ".codex/config.toml"
   },

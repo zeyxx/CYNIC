@@ -13,14 +13,19 @@
   "owner_call_markers": [
     "execute_storage_reconcile"
   ],
-  "responsibility": "Observe one node-local storage service, select a pure next action, enforce a durable restart budget, execute at most one explicit restart, and retain post-action health read-back.",
+  "responsibility": "Observe node-local storage services and registry-declared capacity/retention policy, select a pure next action, enforce a durable restart budget, execute at most one explicit restart, and retain post-action health and storage read-back.",
   "mutation_policy": "read_only_by_default_explicit_apply_bounded_restart",
   "canonical_entrypoints": [
     "cynic-node storage-reconcile --json [--state-dir <path>] [--apply]"
   ],
   "evidence": [
     "cynic.storage_reconcile_report.v1",
-    "cynic.storage_restart_budget.v1"
+    "cynic.storage_restart_budget.v1",
+    "cynic.storage.desired_state.v1",
+    "service_health_read_back",
+    "authenticated_put_get_digest_read_back",
+    "free_space_observation",
+    "retention_policy_read_back"
   ],
   "anti_responsibilities": [
     "restart a service from a shell health probe",
