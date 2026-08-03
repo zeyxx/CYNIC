@@ -47,7 +47,8 @@ impl LocalAgentWorkloadDeliveryLeaseStore {
             "schema": LOCAL_LEASE_SCHEMA,
             "workload_id": workload_id,
             "lease": lease,
-        }))?;
+        }))
+        .map_err(|error| format!("digest workload delivery lease: {error}"))?;
         Ok(LocalLeaseRecord {
             schema: LOCAL_LEASE_SCHEMA.to_string(),
             workload_id: workload_id.to_string(),
