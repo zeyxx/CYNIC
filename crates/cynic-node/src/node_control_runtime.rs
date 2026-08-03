@@ -264,6 +264,11 @@ pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {
             .build_scheduler
             .as_ref()
             .is_none_or(|scheduler| scheduler.registry_path.is_file());
+        let build_scheduler_activation_ready = !build_scheduler_configured
+            || (has_signing_key && has_enrollment_grant && build_scheduler_registry_present);
+        if build_scheduler_configured && !has_enrollment_grant {
+            missing.push("build_scheduler_durable_enrollment_grant");
+        }
         if !build_scheduler_registry_present {
             missing.push("build_scheduler_runtime_registry");
         }
@@ -287,6 +292,7 @@ pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {
                 "has_enrollment_authority_public_key": has_enrollment_authority_public_key,
                 "build_scheduler_configured": build_scheduler_configured,
                 "build_scheduler_registry_present": build_scheduler_registry_present,
+                "build_scheduler_activation_ready": build_scheduler_activation_ready,
                 "runtime_artifact_inbox_root": control.runtime_artifact_inbox_root,
                 "runtime_artifact_max_bytes": control.runtime_artifact_max_bytes,
                 "runtime_artifact_timeout_secs": control.runtime_artifact_timeout_secs,
