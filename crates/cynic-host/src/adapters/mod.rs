@@ -14,3 +14,4 @@ mod principal_manager;
 mod privilege_bridge;
 mod privilege_projection;
 pub mod proxmox_substrate;
+pub mod remote_execution;

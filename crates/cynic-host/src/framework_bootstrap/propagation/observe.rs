@@ -1,4 +1,5 @@
 use crate::update_lifecycle::ArgvRunner;
+use crate::{adapters::remote_execution::SshRemoteExecutionAdapter, ports::RemoteExecutionPort};
 
 use super::types::{FrameworkPropagationObservation, FrameworkPropagationProbe};
 
@@ -135,18 +136,9 @@ fn observe_json(
 }
 
 pub(super) fn ssh_argv(ssh_target: &str, remote_argv: &[&str]) -> Vec<String> {
-    let mut argv = vec![
-        "ssh".to_string(),
-        "-o".to_string(),
-        "BatchMode=yes".to_string(),
-        "-o".to_string(),
-        "StrictHostKeyChecking=yes".to_string(),
-        "-o".to_string(),
-        "ConnectTimeout=10".to_string(),
-        ssh_target.to_string(),
-    ];
-    argv.extend(remote_argv.iter().map(|argument| (*argument).to_string()));
-    argv
+    SshRemoteExecutionAdapter
+        .exec_argv(ssh_target, remote_argv)
+        .unwrap_or_default()
 }
 
 fn run_probe(

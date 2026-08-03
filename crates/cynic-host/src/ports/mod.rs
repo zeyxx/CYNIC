@@ -3,6 +3,7 @@ pub mod causal_epoch_index;
 pub mod evidence_store;
 pub mod metabolism;
 pub mod provider_substrate;
+pub mod remote_execution;
 use crate::bridge::{PrivilegeBridgeInstallSpec, PrivilegeBridgeObservedState};
 use crate::domain::filesystem::FilesystemPolicy;
 use crate::domain::packages::PackageObservedState;
@@ -19,6 +20,7 @@ use crate::hardware_conformance::HardwareObservation;
 use cynic_protocol::PreOsPlatformObservation;
 pub use metabolism::{MetabolicState, MetabolismProvider, OsMetabolism};
 pub use provider_substrate::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
+pub use remote_execution::RemoteExecutionPort;
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

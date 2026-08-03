@@ -3,6 +3,7 @@ use sha2::{Digest, Sha256};
 use std::path::Path;
 
 use crate::registry::resolve_framework_transport;
+use crate::{adapters::remote_execution::SshRemoteExecutionAdapter, ports::RemoteExecutionPort};
 use crate::update_lifecycle::ArgvRunner;
 
 use super::decision::decide_framework_propagation;
@@ -156,18 +157,12 @@ pub(super) fn enrollment_operations(
         },
         FrameworkPropagationOperation {
             phase: "transfer",
-            argv: vec![
-                "scp".to_string(),
-                "-r".to_string(),
-                "-o".to_string(),
-                "BatchMode=yes".to_string(),
-                "-o".to_string(),
-                "StrictHostKeyChecking=yes".to_string(),
-                "-o".to_string(),
-                "ConnectTimeout=10".to_string(),
-                format!("{bundle_dir}/."),
-                format!("{ssh_target}:{remote_seed_dir}"),
-            ],
+            argv: SshRemoteExecutionAdapter
+                .copy_argv(
+                    &format!("{bundle_dir}/."),
+                    &format!("{ssh_target}:{remote_seed_dir}"),
+                )
+                .unwrap_or_default(),
             mutates: true,
             requires_privilege: false,
             proof: Some("seed_transferred"),
