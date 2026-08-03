@@ -9,6 +9,7 @@ pub const STORAGE_CONTROLLER_RECORD_SCHEMA: &str = "cynic.storage_controller_rec
 pub const STORAGE_OPERATION_SCHEMA: &str = "cynic.storage_operation.v1";
 pub const STORAGE_FINALIZER: &str = "storage.cynic.io/protect-binding";
 pub const STORAGE_LEASE_SCHEMA: &str = "cynic.storage_lease.v1";
+pub const STORAGE_OPERATION_EVENT_SCHEMA: &str = "cynic.storage_operation_event.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageLeaseGrant {
@@ -53,6 +54,67 @@ pub struct StorageOperation {
     pub completed_at_ms: Option<u64>,
     pub evidence_refs: Vec<String>,
     pub blockers: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageOperationEvent {
+    StartApply,
+    ApplyAccepted,
+    ReadBack,
+    Fail,
+    Cancel,
+}
+
+pub fn advance_storage_operation(
+    operation: &StorageOperation,
+    event: StorageOperationEvent,
+    evidence_refs: &[String],
+    now_ms: u64,
+) -> StorageOperation {
+    let mut next = operation.clone();
+    next.evidence_refs.extend(evidence_refs.iter().cloned());
+    next.evidence_refs.sort();
+    next.evidence_refs.dedup();
+    match (operation.phase, event) {
+        (StorageOperationPhase::Pending, StorageOperationEvent::StartApply) => {
+            next.phase = StorageOperationPhase::Applying
+        }
+        (StorageOperationPhase::Applying, StorageOperationEvent::ApplyAccepted) => {
+            next.phase = StorageOperationPhase::Verifying
+        }
+        (StorageOperationPhase::Verifying, StorageOperationEvent::ReadBack)
+            if next.blockers.is_empty() && !evidence_refs.is_empty() =>
+        {
+            next.phase = StorageOperationPhase::Succeeded;
+            next.completed_at_ms = Some(now_ms);
+        }
+        (StorageOperationPhase::Verifying, StorageOperationEvent::ReadBack) => next
+            .blockers
+            .push("storage_operation_read_back_incomplete".to_string()),
+        (
+            StorageOperationPhase::Pending
+            | StorageOperationPhase::Applying
+            | StorageOperationPhase::Verifying,
+            StorageOperationEvent::Fail,
+        ) => {
+            next.phase = StorageOperationPhase::Failed;
+            next.completed_at_ms = Some(now_ms);
+        }
+        (
+            StorageOperationPhase::Pending
+            | StorageOperationPhase::Applying
+            | StorageOperationPhase::Verifying,
+            StorageOperationEvent::Cancel,
+        ) => {
+            next.phase = StorageOperationPhase::Cancelled;
+            next.completed_at_ms = Some(now_ms);
+        }
+        _ => next
+            .blockers
+            .push("storage_operation_transition_invalid".to_string()),
+    }
+    next
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -156,6 +218,47 @@ mod deletion_tests {
         let (decision, blockers) = reconcile_storage_deletion(&metadata, &request);
         assert_eq!(decision, StorageDeletionDecision::RetainPendingProof);
         assert!(!blockers.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod operation_tests {
+    use super::*;
+    #[test]
+    fn operation_cannot_skip_apply_and_read_back() {
+        let operation = StorageOperation {
+            schema: STORAGE_OPERATION_SCHEMA.to_string(),
+            id: "op".to_string(),
+            generation: 1,
+            phase: StorageOperationPhase::Pending,
+            target_bytes: 10,
+            started_at_ms: 1,
+            completed_at_ms: None,
+            evidence_refs: Vec::new(),
+            blockers: Vec::new(),
+        };
+        let invalid = advance_storage_operation(
+            &operation,
+            StorageOperationEvent::ReadBack,
+            &["proof".to_string()],
+            2,
+        );
+        assert_ne!(invalid.phase, StorageOperationPhase::Succeeded);
+        let applying =
+            advance_storage_operation(&operation, StorageOperationEvent::StartApply, &[], 2);
+        let verifying = advance_storage_operation(
+            &applying,
+            StorageOperationEvent::ApplyAccepted,
+            &["apply".to_string()],
+            3,
+        );
+        let done = advance_storage_operation(
+            &verifying,
+            StorageOperationEvent::ReadBack,
+            &["capacity".to_string()],
+            4,
+        );
+        assert_eq!(done.phase, StorageOperationPhase::Succeeded);
     }
 }
 
