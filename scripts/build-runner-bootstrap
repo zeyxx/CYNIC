@@ -96,7 +96,7 @@ sudo -u cynic env \
   HOME="${state_root}" \
   CARGO_HOME="${state_root}/.cargo" \
   CARGO_TARGET_DIR="${target_root}" \
-  CYNIC_CARGO_NETWORK_MODE="${network_mode}" \
+  CARGO_NETWORK_MODE="${network_mode}" \
   CYNIC_BUILD_BOOTSTRAP_RECEIPT="${admission}" \
   make -C "${workspace}" build-release
 
