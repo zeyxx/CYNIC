@@ -6,7 +6,7 @@ pub struct InfraProvisionParams {
 
 #[tool(
     name = "infra_provision",
-    description = "Provisions infrastructure targets (like storage_primary or kernel_primary) autonomously. Use this when you detect an infrastructure outage. If MCP is unavailable, fallback to the local 'cynic infra provision <target>' command."
+    description = "Provisions infrastructure targets (like storage_primary or kernel_primary) through the authenticated kernel control-plane. If MCP is unavailable, report blocked_disconnected; never fall back to local execution."
 )]
 async fn infra_provision(
     &self,
