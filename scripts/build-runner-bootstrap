@@ -7,6 +7,7 @@ source_bundle=""
 registry_path="/etc/cynic/registry.json"
 state_root="/var/lib/cynic"
 apply=0
+network_mode="offline"
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -15,6 +16,7 @@ while [[ "$#" -gt 0 ]]; do
     --source-bundle) source_bundle="${2:-}"; shift 2 ;;
     --registry) registry_path="${2:-}"; shift 2 ;;
     --state-root) state_root="${2:-}"; shift 2 ;;
+    --network-mode) network_mode="${2:-}"; shift 2 ;;
     --yes) apply=1; shift ;;
     *) echo "unknown build-runner bootstrap argument: $1" >&2; exit 2 ;;
   esac
@@ -28,6 +30,8 @@ blocked() {
 [[ "$(id -u)" == "0" ]] || blocked "MachineEnrollment principal must have uid 0"
 [[ "${apply}" == "1" ]] || blocked "explicit --yes is required"
 [[ "${source_commit}" =~ ^[0-9a-f]{40}$ ]] || blocked "exact source commit is required"
+[[ "${network_mode}" == "offline" || "${network_mode}" == "online" ]] \
+  || blocked "network mode must be offline or online"
 if [[ -n "${source_bundle}" ]]; then
   [[ "${source_bundle}" == "${state_root}/bootstrap/"*.bundle && -f "${source_bundle}" ]] \
     || blocked "source bundle must be a staged bootstrap artifact"
@@ -92,6 +96,7 @@ sudo -u cynic env \
   HOME="${state_root}" \
   CARGO_HOME="${state_root}/.cargo" \
   CARGO_TARGET_DIR="${target_root}" \
+  CYNIC_CARGO_NETWORK_MODE="${network_mode}" \
   CYNIC_BUILD_BOOTSTRAP_RECEIPT="${admission}" \
   make -C "${workspace}" build-release
 
