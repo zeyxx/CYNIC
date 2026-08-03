@@ -140,7 +140,7 @@ async fn prepare_snapshot_source<R: ArgvRunner, T: RuntimeArtifactTransportPort>
     let adapter = LocalSourceMaterialization::new(
         runner,
         &control.agent_workload_state_root,
-        snapshot_root,
+        snapshot_root.clone(),
         &control.node_id,
         "build_runner",
     );
