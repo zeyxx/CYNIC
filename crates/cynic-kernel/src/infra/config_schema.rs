@@ -155,7 +155,6 @@ pub(crate) struct ConvergenceEntry {
 #[derive(Deserialize)]
 pub(crate) struct BackendsFile {
     pub backend: std::collections::HashMap<String, BackendEntry>,
-    pub storage: Option<StorageEntry>,
     pub defaults: Option<DefaultsEntry>,
     #[serde(default)]
     pub dog: std::collections::HashMap<String, DogEntry>,

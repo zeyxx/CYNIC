@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const CONTENT_ENVELOPE_SCHEMA: &str = "cynic.askesis.kyon_content_envelope.v1";
+pub(super) const CONTENT_ENVELOPE_SCHEMA: &str = "cynic.askesis.kyon_content_envelope.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ContentReference {
