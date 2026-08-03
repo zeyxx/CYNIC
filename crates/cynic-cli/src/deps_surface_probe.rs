@@ -28,15 +28,6 @@ pub(crate) fn probe_and_evaluate(
             break;
         }
     }
-    if path.is_none() {
-        for bin in spec.bins {
-            if let Some(resolved_path) = which(bin) {
-                path = Some(resolved_path);
-                break;
-            }
-        }
-    }
-
     let watch = DepWatch {
         upstream: spec.upstream,
         check_hint: spec.check_hint,
@@ -391,15 +382,6 @@ fn read_version(spec: &DepSpec, path: &str) -> Option<String> {
                 .or_else(|| stdout.lines().next().map(|line| line.trim().to_string()))
         }
     }
-}
-
-fn which(bin: &str) -> Option<String> {
-    let output = Command::new("which").arg(bin).output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if path.is_empty() { None } else { Some(path) }
 }
 
 #[cfg(test)]
