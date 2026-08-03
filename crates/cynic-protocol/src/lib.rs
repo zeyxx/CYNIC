@@ -198,14 +198,15 @@ pub use node_control::{
     validate_node_control_plan, validate_node_desired_state,
 };
 pub use node_enrollment::{
-    MachineEnrollmentAuthority, NODE_ENROLLMENT_GRANT_SCHEMA, NODE_ENROLLMENT_OBSERVATION_SCHEMA,
-    NODE_ENROLLMENT_PLAN_SCHEMA, NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA,
-    NODE_ENROLLMENT_REQUEST_SCHEMA, NODE_ENROLLMENT_SIGNATURE_NAMESPACE, NodeEnrollmentAdmission,
-    NodeEnrollmentDecision, NodeEnrollmentGrant, NodeEnrollmentObservation, NodeEnrollmentPlan,
+    MachineEnrollmentAuthority, NODE_ENROLLMENT_DESIRED_STATE_SCHEMA, NODE_ENROLLMENT_GRANT_SCHEMA,
+    NODE_ENROLLMENT_OBSERVATION_SCHEMA, NODE_ENROLLMENT_PLAN_SCHEMA,
+    NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA,
+    NODE_ENROLLMENT_SIGNATURE_NAMESPACE, NodeEnrollmentAdmission, NodeEnrollmentDecision,
+    NodeEnrollmentDesiredState, NodeEnrollmentGrant, NodeEnrollmentObservation, NodeEnrollmentPlan,
     NodeEnrollmentRenewalRequest, NodeEnrollmentRequest, SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA,
     SignedNodeEnrollmentGrant, admit_node_enrollment, admit_node_enrollment_renewal,
     node_enrollment_grant_signing_bytes, reconcile_node_enrollment,
-    validate_signed_node_enrollment_grant,
+    validate_node_enrollment_desired_state, validate_signed_node_enrollment_grant,
 };
 pub use node_identity::{
     NODE_IDENTITY_DESIRED_STATE_SCHEMA, NODE_IDENTITY_OBSERVATION_SCHEMA,

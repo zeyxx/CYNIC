@@ -137,13 +137,26 @@ impl<'a> LifecycleRegistry<'a> {
         if self.role == "kernel_primary" {
             return Vec::new();
         }
+        let desired = self
+            .root
+            .get("node_enrollment")
+            .cloned()
+            .and_then(|desired| {
+                serde_json::from_value::<cynic_protocol::NodeEnrollmentDesiredState>(desired).ok()
+            });
+        let authority_role = desired
+            .as_ref()
+            .map_or("kernel_primary", |desired| desired.authority_role.as_str());
+        let endpoint_service = desired
+            .as_ref()
+            .map_or("cynic-kernel", |desired| desired.endpoint_service.as_str());
         let kernels = self
             .root
             .get("nodes")
             .and_then(Value::as_array)
             .into_iter()
             .flatten()
-            .filter(|node| node.get("role").and_then(Value::as_str) == Some("kernel_primary"))
+            .filter(|node| node.get("role").and_then(Value::as_str) == Some(authority_role))
             .collect::<Vec<_>>();
         let [kernel] = kernels.as_slice() else {
             return vec![format!("kernel_runtime_node_cardinality:{}", kernels.len())];
@@ -153,7 +166,7 @@ impl<'a> LifecycleRegistry<'a> {
             .and_then(Value::as_array)
             .into_iter()
             .flatten()
-            .filter(|service| service.get("name").and_then(Value::as_str) == Some("cynic-kernel"))
+            .filter(|service| service.get("name").and_then(Value::as_str) == Some(endpoint_service))
             .collect::<Vec<_>>();
         let [service] = services.as_slice() else {
             return vec![format!(
@@ -200,28 +213,19 @@ impl<'a> LifecycleRegistry<'a> {
         {
             blockers.push("machine_enrollment_transport_authority_missing".to_string());
         }
-        let desired = self.root.get("node_enrollment");
-        if desired
-            .and_then(|value| value.get("schema"))
-            .and_then(Value::as_str)
-            != Some("cynic.node_enrollment.desired_state.v1")
-        {
+        let Some(desired) = self.root.get("node_enrollment").cloned() else {
             blockers.push("node_enrollment_desired_state_missing".to_string());
-        }
-        if desired
-            .and_then(|value| value.get("authority_role"))
-            .and_then(Value::as_str)
-            != Some("kernel_primary")
-        {
-            blockers.push("node_enrollment_authority_role_missing".to_string());
-        }
-        if desired
-            .and_then(|value| value.get("credential_delivery"))
-            .and_then(Value::as_str)
-            != Some("machine_enrollment_staging")
-        {
-            blockers.push("node_enrollment_credential_delivery_missing".to_string());
-        }
+            return blockers;
+        };
+        let Ok(desired) =
+            serde_json::from_value::<cynic_protocol::NodeEnrollmentDesiredState>(desired)
+        else {
+            blockers.push("node_enrollment_desired_state_invalid".to_string());
+            return blockers;
+        };
+        blockers.extend(cynic_protocol::validate_node_enrollment_desired_state(
+            &desired,
+        ));
         blockers
     }
 

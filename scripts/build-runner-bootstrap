@@ -72,8 +72,9 @@ kernel_url=""
 enrollment_stage="${state_root}/bootstrap/node-enrollment"
 if [[ "${target_phase}" == "activate" ]]; then
   kernel_url="$(jq -r '
-    [.nodes[] | select(.role == "kernel_primary") |
-      .services[] | select(.name == "cynic-kernel") |
+    .node_enrollment as $enrollment |
+    [.nodes[] | select(.role == $enrollment.authority_role) |
+      .services[] | select(.name == $enrollment.endpoint_service) |
       select((.scheme == "http" or .scheme == "https")
         and (.endpoint_host | type == "string" and length > 0)
         and (.port | type == "number" and . > 0 and . <= 65535)) |
@@ -85,6 +86,7 @@ if [[ "${target_phase}" == "activate" ]]; then
     .node_enrollment.schema == "cynic.node_enrollment.desired_state.v1"
       and .node_enrollment.authority_role == "kernel_primary"
       and .node_enrollment.credential_delivery == "machine_enrollment_staging"
+      and .node_enrollment.public_key_delivery == "machine_enrollment_staging"
   ' "${registry_path}" >/dev/null \
     || blocked "canonical node enrollment desired state is incomplete"
   [[ -f "${enrollment_stage}/enrollment-authority.pub" ]] \

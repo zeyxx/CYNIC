@@ -9,6 +9,46 @@ pub const NODE_ENROLLMENT_PLAN_SCHEMA: &str = "cynic.node_enrollment_plan.v1";
 pub const SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA: &str = "cynic.signed_node_enrollment_grant.v1";
 pub const NODE_ENROLLMENT_SIGNATURE_NAMESPACE: &str = "cynic-node-enrollment";
 pub const NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA: &str = "cynic.node_enrollment_renewal_request.v1";
+pub const NODE_ENROLLMENT_DESIRED_STATE_SCHEMA: &str = "cynic.node_enrollment.desired_state.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeEnrollmentDesiredState {
+    pub schema: String,
+    pub authority_role: String,
+    pub endpoint_service: String,
+    pub credential_delivery: String,
+    pub public_key_delivery: String,
+}
+
+pub fn validate_node_enrollment_desired_state(desired: &NodeEnrollmentDesiredState) -> Vec<String> {
+    let mut blockers = Vec::new();
+    check(
+        desired.schema == NODE_ENROLLMENT_DESIRED_STATE_SCHEMA,
+        "node_enrollment_desired_state_schema_mismatch",
+        &mut blockers,
+    );
+    check(
+        !desired.authority_role.trim().is_empty(),
+        "node_enrollment_authority_role_missing",
+        &mut blockers,
+    );
+    check(
+        !desired.endpoint_service.trim().is_empty(),
+        "node_enrollment_endpoint_service_missing",
+        &mut blockers,
+    );
+    check(
+        desired.credential_delivery == "machine_enrollment_staging",
+        "node_enrollment_credential_delivery_unsupported",
+        &mut blockers,
+    );
+    check(
+        desired.public_key_delivery == "machine_enrollment_staging",
+        "node_enrollment_public_key_delivery_unsupported",
+        &mut blockers,
+    );
+    blockers
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeEnrollmentRequest {
@@ -552,6 +592,25 @@ mod tests {
             allowed_roles: vec!["build_runner".to_string()],
             allowed_capabilities: vec!["build.execute".to_string(), "proof.publish".to_string()],
         }
+    }
+
+    #[test]
+    fn desired_state_requires_one_canonical_staging_contract() {
+        let desired = NodeEnrollmentDesiredState {
+            schema: NODE_ENROLLMENT_DESIRED_STATE_SCHEMA.to_string(),
+            authority_role: "kernel_primary".to_string(),
+            endpoint_service: "cynic-kernel".to_string(),
+            credential_delivery: "machine_enrollment_staging".to_string(),
+            public_key_delivery: "machine_enrollment_staging".to_string(),
+        };
+        assert!(validate_node_enrollment_desired_state(&desired).is_empty());
+
+        let mut unsupported = desired;
+        unsupported.credential_delivery = "manual_grant".to_string();
+        assert_eq!(
+            validate_node_enrollment_desired_state(&unsupported),
+            vec!["node_enrollment_credential_delivery_unsupported"]
+        );
     }
 
     #[test]

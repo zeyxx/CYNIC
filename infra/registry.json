@@ -13,6 +13,13 @@
     "signer_identity": "cynic-release",
     "signature_namespace": "cynic-runtime-seed"
   },
+  "node_enrollment": {
+    "schema": "cynic.node_enrollment.desired_state.v1",
+    "authority_role": "kernel_primary",
+    "endpoint_service": "cynic-kernel",
+    "credential_delivery": "machine_enrollment_staging",
+    "public_key_delivery": "machine_enrollment_staging"
+  },
   "network_policy": {
     "canonical_service_plane": "synapse",
     "planes": {
@@ -124,6 +131,9 @@
         {
           "name": "cynic-kernel",
           "artifact": "cynic-kernel",
+          "scheme": "http",
+          "endpoint_host": "192.168.100.2",
+          "network_plane": "management",
           "port": 3030,
           "unit": "cynic-kernel.service",
           "supervisor": {
@@ -350,7 +360,11 @@
               "host_identity_observed",
               "host_bootstrap_target_satisfied",
               "cargo_check_observed",
-              "binary_build_observed"
+              "binary_build_observed",
+              "runtime_marker_read_back",
+              "node_control_config_read_back",
+              "node_service_active_read_back",
+              "bootstrap_completion_read_back"
             ]
           },
           "storage_primary": {
