@@ -884,6 +884,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "cynic-protocol",
+ "ed25519-dalek",
  "hex",
  "libc",
  "reqwest 0.13.4",
