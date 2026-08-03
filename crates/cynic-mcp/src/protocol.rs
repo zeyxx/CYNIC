@@ -69,6 +69,7 @@ pub fn discovery_result(exposure: &Value, request_meta_observed: bool, transport
             "conformance_read_back": false,
         },
         "tool_schema": profile.get("tool_schema").cloned().unwrap_or(Value::Null),
+        "wire_requirements": profile.get("wire_requirements").cloned().unwrap_or(Value::Null),
         "tools": tools,
         "implementation_status": implementation_status,
         "read_back": {

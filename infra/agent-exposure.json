@@ -26,6 +26,14 @@
     "request_metadata": "per_request_meta",
     "tasks": "extension",
     "tool_schema": "json_schema_2020_12",
+    "wire_requirements": {
+      "protocol_header": "MCP-Protocol-Version: 2026-07-28",
+      "method_header": "Mcp-Method matches JSON-RPC method",
+      "tool_name_header": "Mcp-Name matches tools/call params.name",
+      "request_meta": "params._meta required",
+      "initialize": "rejected",
+      "session_header": "not emitted"
+    },
     "legacy_compatibility": {
       "revision": "2025-11-25",
       "transport": "stdio",
