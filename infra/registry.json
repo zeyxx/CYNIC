@@ -277,6 +277,21 @@
           }
         ]
       },
+      "build_lifecycle": {
+        "schema": "cynic.build_runner.resource_policy.v1",
+        "minimum_available_bytes": 4294967296,
+        "canonical_target_relative_path": "build-targets/bootstrap",
+        "noncanonical_cache_candidates": [
+          {
+            "base": "temporary_directory",
+            "relative_path": "cynic-cargo-targets"
+          },
+          {
+            "base": "state_root",
+            "relative_path": "source/repositories/CYNIC/target"
+          }
+        ]
+      },
       "services": [
         {
           "name": "cynic-node",
@@ -384,6 +399,7 @@
               "host_bootstrap_target_satisfied",
               "cargo_check_observed",
               "binary_build_observed",
+              "build_resource_preflight_read_back",
               "runtime_marker_read_back",
               "node_control_config_read_back",
               "node_service_active_read_back",

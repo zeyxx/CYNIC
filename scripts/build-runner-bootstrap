@@ -45,6 +45,7 @@ fi
 [[ -f "${registry_path}" ]] || blocked "runtime registry is missing"
 command -v jq >/dev/null 2>&1 || blocked "jq is unavailable"
 command -v sha256sum >/dev/null 2>&1 || blocked "sha256sum is unavailable"
+command -v df >/dev/null 2>&1 || blocked "df is unavailable"
 
 node_id="$(hostname)"
 workspace_relative="$(jq -r --arg node "${node_id}" \
@@ -63,10 +64,72 @@ workspace="${state_root}/source/repositories/${workspace_relative}"
 admission="${state_root}/bootstrap/build-runner-bootstrap-admission.json"
 completion="${state_root}/bootstrap/build-runner-bootstrap-completion.json"
 build_proof="${state_root}/bootstrap/build-runner-bootstrap-build.json"
-target_root="${state_root}/build-targets/bootstrap"
+resource_proof="${state_root}/bootstrap/build-runner-resource-observation.json"
+minimum_available_bytes="$(jq -r --arg node "${node_id}" '
+  .nodes[] | select((.id // .name) == $node and .role == "build_runner") |
+  .build_lifecycle |
+  select(.schema == "cynic.build_runner.resource_policy.v1") |
+  .minimum_available_bytes
+' "${registry_path}")"
+target_relative="$(jq -r --arg node "${node_id}" '
+  .nodes[] | select((.id // .name) == $node and .role == "build_runner") |
+  .build_lifecycle.canonical_target_relative_path
+' "${registry_path}")"
+[[ "${minimum_available_bytes}" =~ ^[1-9][0-9]*$ ]] \
+  || blocked "build runner minimum available bytes policy is invalid"
+[[ -n "${target_relative}" && "${target_relative}" != /* && "${target_relative}" != *".."* ]] \
+  || blocked "build runner canonical target path is invalid"
+target_root="${state_root}/${target_relative}"
 bundle_root="${state_root}/bootstrap/framework-${source_commit:0:12}"
 [[ -d "${workspace}/.git" ]] || blocked "declared source workspace is absent"
 [[ ! -e "${completion}" ]] || blocked "bootstrap was already completed"
+
+temporary_root="${TMPDIR:-/tmp}"
+[[ "${temporary_root}" == /* && "${temporary_root}" != *".."* ]] \
+  || blocked "temporary root is unsafe"
+noncanonical_paths=""
+while IFS=$'\t' read -r cache_base cache_relative; do
+  [[ -n "${cache_relative}" && "${cache_relative}" != /* && "${cache_relative}" != *".."* ]] \
+    || blocked "noncanonical cache candidate is unsafe"
+  case "${cache_base}" in
+    state_root) cache_path="${state_root}/${cache_relative}" ;;
+    temporary_directory) cache_path="${temporary_root}/${cache_relative}" ;;
+    *) blocked "noncanonical cache candidate base is unsupported" ;;
+  esac
+  if [[ -e "${cache_path}" || -L "${cache_path}" ]]; then
+    noncanonical_paths="${noncanonical_paths}${cache_path}|"
+  fi
+done < <(jq -r --arg node "${node_id}" '
+  .nodes[] | select((.id // .name) == $node and .role == "build_runner") |
+  .build_lifecycle.noncanonical_cache_candidates[] |
+  [.base, .relative_path] | @tsv
+' "${registry_path}")
+available_bytes="$(df -PB1 "${state_root}" | awk 'NR == 2 {print $4}')"
+[[ "${available_bytes}" =~ ^[0-9]+$ ]] || blocked "build runner available bytes observation failed"
+resource_status="proved"
+resource_blocker=""
+if [[ -n "${noncanonical_paths}" ]]; then
+  resource_status="blocked"
+  resource_blocker="noncanonical_build_cache_present"
+elif (( available_bytes < minimum_available_bytes )); then
+  resource_status="blocked"
+  resource_blocker="build_runner_available_bytes_below_policy"
+fi
+install -d -o root -g cynic -m 0750 "${state_root}/bootstrap"
+jq -n \
+  --arg node "${node_id}" \
+  --arg status "${resource_status}" \
+  --arg canonical_target "${target_root}" \
+  --argjson minimum_available_bytes "${minimum_available_bytes}" \
+  --argjson available_bytes "${available_bytes}" \
+  --arg paths "${noncanonical_paths%|}" \
+  --arg blocker "${resource_blocker}" \
+  '{schema:"cynic.build_runner.resource_observation.v1",status:$status,node_id:$node,canonical_target:$canonical_target,minimum_available_bytes:$minimum_available_bytes,available_bytes:$available_bytes,noncanonical_cache_paths:(if $paths == "" then [] else ($paths | split("|")) end),blockers:(if $blocker == "" then [] else [$blocker] end)}' \
+  > "${resource_proof}"
+chown root:cynic "${resource_proof}"
+chmod 0640 "${resource_proof}"
+[[ "${resource_status}" == "proved" ]] \
+  || blocked "build runner resource preflight failed; inspect ${resource_proof}"
 
 kernel_url=""
 enrollment_stage="${state_root}/bootstrap/node-enrollment"
@@ -138,7 +201,7 @@ jq -n \
   --arg commit "${source_commit}" \
   --arg node_digest "${node_digest}" \
   --arg cli_digest "${cli_digest}" \
-  '{schema:"cynic.build_runner.bootstrap_build.v1",status:"proved",node_id:$node,source_commit:$commit,target_phase:"build",artifacts:{"cynic-node":$node_digest,"cynic":$cli_digest},proofs:["source_commit_read_back","release_build_completed","artifact_digest_read_back"]}' \
+  '{schema:"cynic.build_runner.bootstrap_build.v1",status:"proved",node_id:$node,source_commit:$commit,target_phase:"build",artifacts:{"cynic-node":$node_digest,"cynic":$cli_digest},proofs:["source_commit_read_back","build_resource_preflight_read_back","release_build_completed","artifact_digest_read_back"]}' \
   > "${build_proof}"
 chown root:cynic "${build_proof}"
 chmod 0640 "${build_proof}"

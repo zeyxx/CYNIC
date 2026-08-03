@@ -110,10 +110,42 @@ impl<'a> LifecycleRegistry<'a> {
         if !has_build_domain {
             blockers.push("build_runner_build_domain_missing".to_string());
         }
-        for proof in ["cargo_check_observed", "binary_build_observed"] {
+        for proof in [
+            "cargo_check_observed",
+            "binary_build_observed",
+            "build_resource_preflight_read_back",
+        ] {
             if !proofs.iter().any(|candidate| candidate == proof) {
                 blockers.push(format!("build_runner_required_proof_missing:{proof}"));
             }
+        }
+        let resource_policy = self.node.and_then(|node| node.get("build_lifecycle"));
+        if resource_policy
+            .and_then(|policy| policy.get("schema"))
+            .and_then(Value::as_str)
+            != Some("cynic.build_runner.resource_policy.v1")
+        {
+            blockers.push("build_runner_resource_policy_missing".to_string());
+        }
+        if resource_policy
+            .and_then(|policy| policy.get("minimum_available_bytes"))
+            .and_then(Value::as_u64)
+            .is_none_or(|bytes| bytes == 0)
+        {
+            blockers.push("build_runner_minimum_available_bytes_missing".to_string());
+        }
+        if resource_policy
+            .and_then(|policy| policy.get("canonical_target_relative_path"))
+            .and_then(Value::as_str)
+            .is_none_or(|path| path.is_empty() || path.starts_with('/') || path.contains(".."))
+        {
+            blockers.push("build_runner_canonical_target_invalid".to_string());
+        }
+        let cache_candidates = resource_policy
+            .and_then(|policy| policy.get("noncanonical_cache_candidates"))
+            .and_then(Value::as_array);
+        if cache_candidates.is_none_or(|candidates| candidates.is_empty()) {
+            blockers.push("build_runner_cache_reconciliation_policy_missing".to_string());
         }
         blockers
     }

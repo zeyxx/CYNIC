@@ -276,4 +276,19 @@ mod tests {
         assert!(script.contains("test -L \"$entrypoint\""));
         assert!(script.contains("test -x \"$entrypoint\""));
     }
+
+    #[test]
+    fn bootstrap_can_resume_only_the_same_content_addressed_seed() {
+        let script = bootstrap_install_script(&artifacts());
+
+        assert!(script.contains("desired_release=\"releases/bootstrap-$seed_digest\""));
+        assert!(script.contains(
+            "test \"$(readlink \"$RUNTIME_INSTALL_ROOT/current\")\" = \"$desired_release\""
+        ));
+        assert!(script.contains("active runtime seed marker does not match the requested seed"));
+        assert!(
+            !script
+                .contains("runtime is already seeded; use the signed release activation surface")
+        );
+    }
 }
