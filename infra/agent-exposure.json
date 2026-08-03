@@ -45,6 +45,7 @@
     "implementation_status": "migration_required",
     "block_until": [
       "stateless_streamable_http_read_back",
+      "final_response_wire_read_back",
       "server_discover_read_back",
       "per_request_metadata_read_back",
       "tasks_extension_conformance_read_back"

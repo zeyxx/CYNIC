@@ -114,6 +114,68 @@ async fn enforce_2026_wire(request: Request<Body>, next: Next) -> Response {
         .await
 }
 
+fn stamp_2026_result(mut message: Value, cacheable: bool) -> Value {
+    let Some(result) = message.get_mut("result").and_then(Value::as_object_mut) else {
+        return message;
+    };
+    result
+        .entry("resultType")
+        .or_insert_with(|| Value::String("complete".to_string()));
+    let meta = result
+        .entry("_meta")
+        .or_insert_with(|| Value::Object(serde_json::Map::new()));
+    if let Some(meta) = meta.as_object_mut() {
+        meta.entry("io.modelcontextprotocol/serverInfo")
+            .or_insert_with(
+                || serde_json::json!({"name": "cynic-mcp", "version": env!("CYNIC_VERSION")}),
+            );
+    }
+    if cacheable {
+        result
+            .entry("ttlMs")
+            .or_insert_with(|| serde_json::json!(0));
+        result
+            .entry("cacheScope")
+            .or_insert_with(|| Value::String("private".to_string()));
+    }
+    message
+}
+
+async fn normalize_2026_response(request: Request<Body>, next: Next) -> Response {
+    let (parts, body) = request.into_parts();
+    let request_bytes = match to_bytes(body, 1024 * 1024).await {
+        Ok(bytes) => bytes,
+        Err(_) => return (StatusCode::BAD_REQUEST, "invalid MCP request body").into_response(),
+    };
+    let rpc_method = serde_json::from_slice::<Value>(&request_bytes)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("method")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        });
+    let cacheable = matches!(
+        rpc_method.as_deref(),
+        Some("server/discover") | Some("tools/list") | Some("resources/list")
+    );
+    let response = next
+        .run(Request::from_parts(parts, Body::from(request_bytes)))
+        .await;
+    let (parts, body) = response.into_parts();
+    let Ok(bytes) = to_bytes(body, 2 * 1024 * 1024).await else {
+        return Response::from_parts(parts, Body::empty());
+    };
+    let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
+        return Response::from_parts(parts, Body::from(bytes));
+    };
+    let stamped = stamp_2026_result(value, cacheable);
+    match serde_json::to_vec(&stamped) {
+        Ok(bytes) => Response::from_parts(parts, Body::from(bytes)),
+        Err(_) => Response::from_parts(parts, Body::from(bytes)),
+    }
+}
+
 /// Serve the MCP endpoint with the 2026-compatible stateless HTTP mode.
 ///
 /// The underlying rmcp compatibility layer still accepts the legacy
@@ -144,6 +206,7 @@ pub async fn serve_streamable_http(
     );
     let router = Router::new()
         .nest_service("/mcp", service)
+        .layer(middleware::from_fn(normalize_2026_response))
         .layer(middleware::from_fn(enforce_2026_wire));
     let listener = TcpListener::bind(address).await?;
     tracing::info!(%address, transport = STREAMABLE_HTTP_TRANSPORT_LABEL, "cynic-mcp Streamable HTTP endpoint ready");
@@ -255,5 +318,32 @@ mod tests {
     fn remote_bind_is_not_allowed_without_authorization_adapter() {
         let remote = "10.0.0.5:8787".parse::<std::net::SocketAddr>().unwrap();
         assert!(!remote.ip().is_loopback());
+    }
+
+    #[test]
+    fn response_membrane_stamps_final_wire_fields_without_overwriting_metadata() {
+        let message = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {"tools": []}
+        });
+        let stamped = stamp_2026_result(message, true);
+        assert_eq!(stamped["result"]["resultType"], "complete");
+        assert_eq!(stamped["result"]["ttlMs"], 0);
+        assert_eq!(stamped["result"]["cacheScope"], "private");
+        assert_eq!(
+            stamped["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"],
+            "cynic-mcp"
+        );
+    }
+
+    #[test]
+    fn response_membrane_leaves_json_rpc_errors_untouched() {
+        let message = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {"code": -32602, "message": "invalid params"}
+        });
+        assert_eq!(stamp_2026_result(message.clone(), true), message);
     }
 }
