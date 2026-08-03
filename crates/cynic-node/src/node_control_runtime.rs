@@ -109,6 +109,12 @@ pub(crate) async fn start_tasks(
                     .iter()
                     .any(|granted| granted == capability)
             });
+    let build_scheduler_inputs_ready = control.signing_key_path.is_file()
+        && (control.enrollment_grant_path.is_file() || control.enrollment_token_path.is_file())
+        && control
+            .build_scheduler
+            .as_ref()
+            .is_none_or(|scheduler| scheduler.registry_path.is_file());
     let artifact_transport = HttpRuntimeArtifactTransport::new(
         control.runtime_artifact_inbox_root.clone(),
         control.runtime_artifact_max_bytes,
@@ -191,7 +197,10 @@ pub(crate) async fn start_tasks(
             "workload delivery remains inactive until machine enrollment is proved"
         );
     }
-    if scheduler_control.build_scheduler.is_some() && build_scheduler_authorized {
+    if scheduler_control.build_scheduler.is_some()
+        && build_scheduler_authorized
+        && build_scheduler_inputs_ready
+    {
         tasks.push(tokio::spawn(crate::build_scheduler::run_loop(
             scheduler_control,
             scheduler_shutdown,
@@ -199,7 +208,10 @@ pub(crate) async fn start_tasks(
     } else if scheduler_control.build_scheduler.is_some() {
         tracing::warn!(
             node_id = %scheduler_control.node_id,
-            "build scheduler remains inactive until enrollment and scheduler capabilities are proved"
+            enrollment_proven,
+            build_scheduler_authorized,
+            build_scheduler_inputs_ready,
+            "build scheduler remains inactive until enrollment, capabilities, and runtime inputs are proved"
         );
     }
     Ok(tasks)
