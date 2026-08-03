@@ -93,7 +93,7 @@ pub async fn execute_agent_source_change(
         Some(kernel_api_key),
         &request.workload.delegation.agent_id,
     );
-    let result: AgentSourceChangeTransactionResult = execute_agent_source_change_transaction(
+    let mut result: AgentSourceChangeTransactionResult = execute_agent_source_change_transaction(
         &request,
         &claim_store,
         &layout,
@@ -107,8 +107,32 @@ pub async fn execute_agent_source_change(
         max_retention_ms,
     )
     .await;
-    let success = result.schema == AGENT_SOURCE_CHANGE_TRANSACTION_RESULT_SCHEMA
+    let mut success = result.schema == AGENT_SOURCE_CHANGE_TRANSACTION_RESULT_SCHEMA
         && result.status == AgentSourceChangeTransactionStatus::Completed;
+    if success {
+        let evidence_refs = result.proof_ref.clone().into_iter().collect::<Vec<_>>();
+        let evidence_refs = if evidence_refs.is_empty() {
+            cynic_protocol::digest_json(&result)
+                .map(|digest| vec![format!("source-change-transaction:{digest}")])
+                .unwrap_or_default()
+        } else {
+            evidence_refs
+        };
+        if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
+            &[
+                "node_workspace_observer_wiring_and_proof",
+                "workspace_claim_store_wiring_and_conformance_proof",
+                "bounded_source_change_apply_adapter",
+                "post_apply_source_read_back",
+            ],
+            &evidence_refs,
+        ) {
+            result
+                .unknowns
+                .push(format!("source_change_runtime_proof:{error}"));
+            success = false;
+        }
+    }
     emit_value(&result, success)
 }
 
