@@ -304,6 +304,7 @@
         { "name": "network_mesh_status", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "network_mesh_dns_activation_plan", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "network_mesh_dns_activation_bundle", "tier": "baseline_runtime", "mutation": "read_only" },
+        { "name": "network_mesh_dns_activation_apply", "tier": "baseline_runtime", "mutation": "privileged_mutation" },
         { "name": "network_mesh_provider_fallback_hosts", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "network_mesh_provider_fallback_status", "tier": "baseline_runtime", "mutation": "read_only" },
         { "name": "network_mesh_dns_activation_status", "tier": "baseline_runtime", "mutation": "read_only" },
@@ -476,11 +477,15 @@
         "network_mesh_status",
         "network_mesh_dns_activation_plan",
         "network_mesh_dns_activation_bundle",
+        "network_mesh_dns_activation_apply",
         "network_mesh_provider_fallback_hosts",
         "network_mesh_provider_fallback_status",
         "network_mesh_dns_activation_status"
       ],
-      "operator_tools": ["cynic network dns bundle --json"]
+      "operator_tools": [
+        "cynic network dns bundle --json --output-dir <dir>",
+        "cynic network dns activate --bundle-dir <dir> --yes"
+      ]
     },
     "fleet_and_bridge": {
       "description": "Fleet node status/exec and LXC exec bridge plans.",

@@ -94,6 +94,20 @@ fn run_network_mesh_dns_activation_bundle(
         .map_err(|error| McpError::internal_error(error, None))
 }
 
+fn run_network_mesh_dns_activation_apply(
+    params: &NetworkMeshDnsActivationApplyParams,
+) -> Result<serde_json::Value, McpError> {
+    let registry = project_root().join(registry_ref_arg(&params.registry_ref)?);
+    let bundle_dir =
+        tmp_output_dir_arg(&params.bundle_dir, "/tmp/cynic-synapse-dns", "bundle_dir")?;
+    cynic_node::apply_dns_activation_value(
+        registry.to_string_lossy().as_ref(),
+        &bundle_dir,
+        params.apply,
+    )
+    .map_err(|error| McpError::internal_error(error, None))
+}
+
 fn run_network_mesh_provider_fallback_hosts(
     params: &NetworkMeshProviderFallbackHostsParams,
 ) -> Result<serde_json::Value, McpError> {

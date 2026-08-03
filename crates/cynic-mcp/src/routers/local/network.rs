@@ -168,6 +168,22 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "network_mesh_dns_activation_apply",
+        description = "Plan or apply the exact digest-bound Synapse DNS bundle on the current node. Mutation requires apply=true and root bootstrap authority; every file and service action is read back and rolled back on failure."
+    )]
+    async fn network_mesh_dns_activation_apply(
+        &self,
+        params: Parameters<NetworkMeshDnsActivationApplyParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let result = run_network_mesh_dns_activation_apply(&params.0)?;
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
         name = "network_mesh_provider_fallback_hosts",
         description = "Build a local non-mutating provider-plane hosts fallback bundle under /tmp from the canonical cynic-node network surface. Temporary only while Synapse DNS is inactive."
     )]

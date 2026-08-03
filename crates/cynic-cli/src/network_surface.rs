@@ -85,6 +85,14 @@ pub(crate) enum NetworkDnsCommand {
         #[arg(long)]
         json: bool,
     },
+    Activate {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        bundle_dir: String,
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]

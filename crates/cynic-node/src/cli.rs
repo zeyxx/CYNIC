@@ -333,6 +333,18 @@ pub enum NetworkCommands {
         #[arg(long)]
         resolve_dns: bool,
     },
+    /// Plan or apply the exact digest-bound Synapse DNS bundle on this node.
+    DnsActivate {
+        #[arg(long)]
+        json: bool,
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+        #[arg(long)]
+        bundle_dir: String,
+        /// Required before any privileged file or service mutation.
+        #[arg(long)]
+        yes: bool,
+    },
     /// Emit network evidence: current observation, dry-run plan, and DevSecOps gaps.
     Evidence {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.

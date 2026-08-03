@@ -136,7 +136,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic network runtime [--registry <path>] [--resolve-dns] [--check-provider-connectivity]",
                     "cynic network proof [--registry <path>] [--resolve-dns] [--check-provider-connectivity]",
                     "cynic network evidence [--registry <path>]",
-                    "cynic network dns <status|bundle|plan> [--registry <path>] [--resolve-dns] [--json] [--output-dir <dir>]",
+                    "cynic network dns <status|bundle|plan|activate> [--registry <path>] [--resolve-dns] [--json] [--output-dir <dir> | --bundle-dir <dir> --yes]",
                     "cynic network mesh plan [--registry <path>] [--provider <wireguard|headscale|tailscale|static>]",
                     "cynic network mesh bundle [--registry <path>] [--provider <wireguard|headscale|tailscale|static>] --output-dir <dir>",
                     "cynic network mesh apply-plan --bundle-dir <dir>",

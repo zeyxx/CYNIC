@@ -103,6 +103,22 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        NetworkCommands::DnsActivate {
+            json: _,
+            registry,
+            bundle_dir,
+            yes,
+        } => match crate::apply_dns_activation_value(registry, bundle_dir, *yes) {
+            Ok(report) => {
+                let should_fail = report["status"].as_str() != Some("proved")
+                    && report["status"].as_str() != Some("converged");
+                emit_json("dns activation apply", &report, should_fail)
+            }
+            Err(error) => {
+                tracing::error!("dns activation apply failed: {error}");
+                ExitCode::FAILURE
+            }
+        },
         NetworkCommands::Evidence { json: _, registry } => {
             let observation = observe::observe_payload(Some(registry));
             let evidence = network_evidence::build_evidence(&observation);

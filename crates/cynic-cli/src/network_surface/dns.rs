@@ -46,6 +46,16 @@ pub(crate) fn try_execute_dns(
         NetworkDnsCommand::Plan { .. } => {
             cynic_node::execute_network_command(&NetworkCommands::DnsPlan { json: true })
         }
+        NetworkDnsCommand::Activate {
+            registry,
+            bundle_dir,
+            yes,
+        } => cynic_node::execute_network_command(&NetworkCommands::DnsActivate {
+            json: true,
+            registry: registry_path(registry),
+            bundle_dir,
+            yes,
+        }),
     };
 
     Ok(exit)

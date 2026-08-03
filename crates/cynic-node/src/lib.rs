@@ -20,6 +20,7 @@
 pub mod adapters;
 mod build_attestation;
 mod cli;
+mod dns_activation;
 mod dns_activation_status;
 mod dns_bundle;
 mod dns_contract;
@@ -122,6 +123,33 @@ pub fn build_dns_activation_status_value(
     .map_err(|error| format!("DNS activation status failed: {error}"))?;
     serde_json::to_value(report)
         .map_err(|error| format!("DNS activation status serialization failed: {error}"))
+}
+
+pub fn plan_dns_activation_value(
+    registry: &str,
+    bundle_dir: &str,
+) -> Result<serde_json::Value, String> {
+    let spec = dns_activation::resolve_dns_activation_spec(registry, bundle_dir)?;
+    let observation = dns_activation::observe_dns_activation(
+        &spec,
+        &cynic_host::update_lifecycle::LocalArgvRunner,
+    );
+    serde_json::to_value(dns_activation::plan_dns_activation(&spec, &observation))
+        .map_err(|error| format!("DNS activation plan serialization failed: {error}"))
+}
+
+pub fn apply_dns_activation_value(
+    registry: &str,
+    bundle_dir: &str,
+    yes: bool,
+) -> Result<serde_json::Value, String> {
+    let spec = dns_activation::resolve_dns_activation_spec(registry, bundle_dir)?;
+    serde_json::to_value(dns_activation::apply_dns_activation(
+        &spec,
+        yes,
+        &cynic_host::update_lifecycle::LocalArgvRunner,
+    ))
+    .map_err(|error| format!("DNS activation apply serialization failed: {error}"))
 }
 
 pub fn build_provider_fallback_hosts_value(

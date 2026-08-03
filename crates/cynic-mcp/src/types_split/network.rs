@@ -36,6 +36,17 @@ pub struct NetworkMeshDnsActivationBundleParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct NetworkMeshDnsActivationApplyParams {
+    /// Existing digest-bound bundle directory under /tmp.
+    pub bundle_dir: Option<String>,
+    /// Registry reference. Only infra/registry.json is supported in v1.
+    pub registry_ref: Option<String>,
+    /// Must be true before file installation or service activation is attempted.
+    #[serde(default)]
+    pub apply: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct NetworkMeshProviderFallbackHostsParams {
     /// Output directory for the non-mutating provider fallback hosts bundle. Defaults to /tmp/cynic-provider-fallback.
     pub output_dir: Option<String>,

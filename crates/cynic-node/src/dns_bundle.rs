@@ -1,8 +1,10 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
 use cynic_host::install_contract::{ROOT_OWNERSHIP, owner_string};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 use crate::adapters::dns_renderer::SynapseDnsRenderer;
 use crate::adapters::registry::LocalRegistryAdapter;
@@ -31,6 +33,7 @@ pub(crate) struct DnsBundleReport {
     forbidden: Vec<&'static str>,
     bundle_dir: String,
     bundle_files: Vec<String>,
+    digests: BTreeMap<String, String>,
 }
 
 pub(crate) fn build_dns_bundle(
@@ -73,6 +76,18 @@ pub(crate) fn build_dns_bundle(
         dns_activation_readme_for_zone(&zone, probe_fqdn.clone()),
     )?;
 
+    let bundle_files = dns_bundle_files();
+    let digests = bundle_files
+        .iter()
+        .filter(|name| name.as_str() != SYNAPSE_DNS_MANIFEST_FILENAME)
+        .map(|name| {
+            let bytes = fs::read(out.join(name))?;
+            Ok::<_, std::io::Error>((
+                name.clone(),
+                format!("sha256:{}", hex::encode(Sha256::digest(bytes))),
+            ))
+        })
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
     let report = DnsBundleReport {
         schema: "cynic.organ_fleet.dns_activation_bundle.v1",
         mutates: false,
@@ -84,7 +99,8 @@ pub(crate) fn build_dns_bundle(
         activation_checks: dns_activation_checks_for_zone(&zone, probe_fqdn),
         forbidden: dns_forbidden_patterns(),
         bundle_dir: out.to_string_lossy().to_string(),
-        bundle_files: dns_bundle_files(),
+        bundle_files,
+        digests,
     };
     fs::write(
         out.join(SYNAPSE_DNS_MANIFEST_FILENAME),
@@ -111,5 +127,12 @@ mod tests {
         assert_eq!(report.schema, "cynic.organ_fleet.dns_activation_bundle.v1");
         assert!(out.path().join(SYNAPSE_DNS_MANIFEST_FILENAME).exists());
         assert!(out.path().join(SYNAPSE_DNS_HOSTS_FILENAME).exists());
+        assert_eq!(report.digests.len(), 5);
+        assert!(
+            report
+                .digests
+                .values()
+                .all(|digest| digest.starts_with("sha256:"))
+        );
     }
 }
