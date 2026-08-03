@@ -4,11 +4,11 @@ use cynic_protocol::{
 };
 use serde::{Deserialize, Serialize};
 
-pub const AGENT_SOURCE_CHANGE_TRANSACTION_RESULT_SCHEMA: &str =
+pub(crate) const AGENT_SOURCE_CHANGE_TRANSACTION_RESULT_SCHEMA: &str =
     "cynic.agent_source_change_transaction_result.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AgentSourceChangeTransactionRequest {
+pub(crate) struct AgentSourceChangeTransactionRequest {
     pub workload: AgentWorkloadEnvelope,
     pub repository_id: String,
     pub workspace_id: String,
@@ -23,7 +23,7 @@ pub struct AgentSourceChangeTransactionRequest {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AgentSourceChangeTransactionStatus {
+pub(crate) enum AgentSourceChangeTransactionStatus {
     Completed,
     Blocked,
     RolledBack,
@@ -31,7 +31,7 @@ pub enum AgentSourceChangeTransactionStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AgentSourceChangeTransactionResult {
+pub(crate) struct AgentSourceChangeTransactionResult {
     pub schema: String,
     pub workload_id: String,
     pub status: AgentSourceChangeTransactionStatus,

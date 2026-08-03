@@ -51,7 +51,7 @@ mod observe;
 pub mod ports;
 mod provider_fallback_hosts;
 mod provider_fallback_status;
-pub mod source_change_transaction;
+pub(crate) mod source_change_transaction;
 pub mod usecases;
 pub mod verify;
 pub mod websocket;

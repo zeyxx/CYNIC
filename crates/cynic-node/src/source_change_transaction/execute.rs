@@ -20,7 +20,7 @@ use super::types::{
     AgentSourceChangeTransactionResult, AgentSourceChangeTransactionStatus,
 };
 
-pub async fn execute_agent_source_change_transaction<C, L, O, P, A, E, S>(
+pub(crate) async fn execute_agent_source_change_transaction<C, L, O, P, A, E, S>(
     request: &AgentSourceChangeTransactionRequest,
     claim_store: &C,
     layout_port: &L,

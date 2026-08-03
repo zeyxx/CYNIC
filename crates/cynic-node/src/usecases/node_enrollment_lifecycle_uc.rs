@@ -7,7 +7,7 @@ use crate::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
 use crate::config::NodeControlConfig;
 use cynic_protocol::SecurityEvidenceState;
 
-pub async fn run_enrollment_renewal_loop(
+pub(crate) async fn run_enrollment_renewal_loop(
     adapter: HttpNodeControlAdapter,
     reader: LocalNodeEnrollmentReader,
     config: NodeControlConfig,
