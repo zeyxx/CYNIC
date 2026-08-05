@@ -1,0 +1,40 @@
+{
+  "schema": "cynic.inference.hardware_class.v1",
+  "hardware_classes": [
+    {
+      "id": "amd-renoir-apu-16t-29gb",
+      "description": "AMD Renoir/Cezanne APU — 16 threads CPU, 29 GB RAM, 4 GB VRAM + 19 GB GTT (unified)",
+      "match": {
+        "gpu_vendor": "0x1002",
+        "gpu_class": "integrated",
+        "gpu_name_pattern": "RENOIR|CEZANNE|Cezanne",
+        "ram_min_gb": 24,
+        "cpu_threads_min": 12
+      },
+      "vulkan": {
+        "device_name": "Vulkan0",
+        "driver": "RADV",
+        "total_mib": 22265,
+        "notes": [
+          "GTT (mapped system RAM) + 4 GB dedicated VRAM reported as unified 22 GiB pool",
+          "flash-attn: requires runtime probe — RADV support varies by mesa version",
+          "KV quantization (-ctk/-ctv): supported on Vulkan in llama b9600+",
+          "No CUDA/ROCm — Vulkan compute only (ggml-vulkan backend)"
+        ]
+      },
+      "cpu": {
+        "threads": 16,
+        "avx2": true,
+        "governor_default": "powersave",
+        "note": "governor should be set to 'performance' during inference for best throughput"
+      },
+      "weight_budget": {
+        "recommended_max_mib": 7500,
+        "absolute_max_mib": 13000,
+        "vulkan_pool_mib": 22265,
+        "vulkan_free_baseline_mib": 15000,
+        "note": "For single-model load: weights + KV(f16) must fit in vulkan_pool_mib. For concurrent backends: sum of active models must fit."
+      }
+    }
+  ]
+}

@@ -1,10 +1,14 @@
 //! Sovereign inference configuration loader.
 //!
-//! SSOT: `/etc/cynic/inference.toml`
-//!
 //! ## Lookup order
 //! 1. `CYNIC_INFERENCE_CONFIG` env var (absolute path override)
-//! 2. `/etc/cynic/inference.toml`
+//! 2. `$XDG_CONFIG_HOME/cynic/inference.toml` (user/principal SSOT, default `~/.config/cynic`)
+//! 3. `/etc/cynic/inference.toml` (system-wide fallback)
+//!
+//! Principal user config takes precedence over the system file, allowing
+//! the operator to maintain their own multi-backend routing without
+//! requiring root. Set `CYNIC_INFERENCE_CONFIG` for an explicit breakglass
+//! override (e.g. pointing at a staging config).
 //!
 //! ## API-key injection
 //! Secrets are never stored in the TOML file. The loader reads the
@@ -127,19 +131,45 @@ fn load_inference_config_from_path(
     })
 }
 
-/// SSOT: `/etc/cynic/inference.toml`
-const DEFAULT_INFERENCE_CONFIG_PATH: &str = "/etc/cynic/inference.toml";
+/// System-wide fallback path.
+const SYSTEM_INFERENCE_CONFIG_PATH: &str = "/etc/cynic/inference.toml";
 
-/// Determine the config path, honouring only an explicit env-var override.
+/// Determine the config path using the priority chain:
+/// 1. `CYNIC_INFERENCE_CONFIG` env var
+/// 2. `$XDG_CONFIG_HOME/cynic/inference.toml` (user principal SSOT)
+/// 3. `/etc/cynic/inference.toml` (system fallback)
 pub(crate) fn resolve_config_path() -> PathBuf {
-    resolve_config_path_inner(std::env::var("CYNIC_INFERENCE_CONFIG").ok())
+    resolve_config_path_inner(
+        std::env::var("CYNIC_INFERENCE_CONFIG").ok(),
+        std::env::var("XDG_CONFIG_HOME").ok(),
+        std::env::var("HOME").ok(),
+    )
 }
 
-fn resolve_config_path_inner(override_path: Option<String>) -> PathBuf {
-    if let Some(override_path) = override_path {
-        return PathBuf::from(override_path);
+fn resolve_config_path_inner(
+    override_path: Option<String>,
+    xdg_config_home: Option<String>,
+    home: Option<String>,
+) -> PathBuf {
+    // 1. Explicit env override (breakglass)
+    if let Some(p) = override_path {
+        return PathBuf::from(p);
     }
-    PathBuf::from(DEFAULT_INFERENCE_CONFIG_PATH)
+
+    // 2. User/principal SSOT: $XDG_CONFIG_HOME/cynic/inference.toml
+    let user_config = xdg_config_home
+        .map(PathBuf::from)
+        .or_else(|| home.map(|h| PathBuf::from(h).join(".config")))
+        .map(|base| base.join("cynic").join("inference.toml"));
+
+    if let Some(ref p) = user_config {
+        if p.exists() {
+            return p.clone();
+        }
+    }
+
+    // 3. System-wide fallback
+    PathBuf::from(SYSTEM_INFERENCE_CONFIG_PATH)
 }
 
 #[cfg(test)]
@@ -171,19 +201,33 @@ mod tests {
     }
 
     #[test]
-    fn default_config_path_uses_installed_runtime_ssot() {
+    fn default_config_path_falls_back_to_system_when_user_absent() {
         assert_eq!(
-            resolve_config_path_inner(None),
-            std::path::PathBuf::from(DEFAULT_INFERENCE_CONFIG_PATH)
+            resolve_config_path_inner(None, None, None),
+            std::path::PathBuf::from(SYSTEM_INFERENCE_CONFIG_PATH)
         );
     }
 
     #[test]
     fn explicit_config_override_is_honored() {
         assert_eq!(
-            resolve_config_path_inner(Some("/tmp/cynic-inference.toml".to_string())),
+            resolve_config_path_inner(Some("/tmp/cynic-inference.toml".to_string()), None, None),
             std::path::PathBuf::from("/tmp/cynic-inference.toml")
         );
+    }
+
+    #[test]
+    fn user_xdg_config_takes_precedence_over_system_when_file_exists() {
+        // Create a temp file to simulate user config being present
+        let tmp = std::env::temp_dir().join(format!("cynic_xdg_test_{}", std::process::id()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        let user_cfg = tmp.join("cynic").join("inference.toml");
+        std::fs::create_dir_all(user_cfg.parent().unwrap()).unwrap();
+        std::fs::write(&user_cfg, "# test").unwrap();
+
+        let result = resolve_config_path_inner(None, Some(tmp.display().to_string()), None);
+        let _ = std::fs::remove_file(&user_cfg);
+        assert_eq!(result, user_cfg);
     }
 
     #[test]

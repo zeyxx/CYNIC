@@ -1,0 +1,397 @@
+{
+  "schema": "cynic.inference.model_profiles.v1",
+  "description": "Canonical model profiles — hardware-agnostic intent. Runtime planner materializes actual flags from hardware class observation. Do not hardcode machine paths here.",
+  "note": "weights_path is resolved at materialize time: vault_dir/<filename>. Never store absolute paths here.",
+
+  "profiles": [
+    {
+      "alias": "qwythos-9b-q4",
+      "filename": "Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf",
+      "port": 8080,
+      "use_case": "agent-principal",
+      "description": "Qwythos 9B Q4_K_M — agent principal, cynic chat, Hermes sessions longues, tool-use",
+      "quant": "Q4_K_M",
+      "param_b": 9,
+      "architecture": "qwen2",
+      "ctx_target": 32768,
+      "temperature": 0.7,
+      "max_tokens": 4096,
+      "timeout_secs": 180,
+      "supports_tool_use": true,
+      "thinking": {
+        "capable": true,
+        "disable_by_default": false,
+        "operator_note": "Modèle MTP — thinking actif par défaut. Désactiver avec disable_thinking=true pour réponses rapides."
+      },
+      "offload_policy": {
+        "strategy": "full",
+        "note": "ngl 99 — tous les layers sur Vulkan si budget disponible",
+        "fallback": "partial",
+        "kv_quant": "q8_0",
+        "flash_attn": "probe",
+        "kv_offload": true
+      },
+      "resource_caps": {
+        "memory_max": "12G",
+        "cpu_quota_pct": 400,
+        "parallel_slots": 1
+      },
+      "memory_estimate": {
+        "weights_mib": 5632,
+        "kv_f16_at_max_ctx_mib": 4608,
+        "kv_q8_at_max_ctx_mib": 2304,
+        "total_f16_mib": 10240,
+        "total_q8_mib": 7936
+      }
+    },
+    {
+      "alias": "qwen3-4b-instruct",
+      "filename": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "port": 8081,
+      "use_case": "code-fast",
+      "description": "Qwen3 4B Instruct 2507 Q4_K_M — complétion code, réponses rapides, tool-use, JSON",
+      "quant": "Q4_K_M",
+      "param_b": 4,
+      "architecture": "qwen3",
+      "ctx_target": 8192,
+      "temperature": 0.3,
+      "max_tokens": 4096,
+      "timeout_secs": 120,
+      "supports_tool_use": true,
+      "thinking": {
+        "capable": true,
+        "disable_by_default": true,
+        "operator_note": "Thinking désactivé par défaut pour vitesse. Activer pour tâches d'analyse."
+      },
+      "offload_policy": {
+        "strategy": "full",
+        "note": "petit modèle — tient entièrement en Vulkan",
+        "fallback": "full",
+        "kv_quant": "q4_0",
+        "flash_attn": "probe",
+        "kv_offload": true
+      },
+      "resource_caps": {
+        "memory_max": "8G",
+        "cpu_quota_pct": 400,
+        "parallel_slots": 2
+      },
+      "memory_estimate": {
+        "weights_mib": 2355,
+        "kv_f16_at_max_ctx_mib": 1152,
+        "kv_q4_at_max_ctx_mib": 288,
+        "total_f16_mib": 3507,
+        "total_q4_mib": 2643
+      }
+    },
+    {
+      "alias": "minicpm-1b-q8",
+      "filename": "MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q8_0.gguf",
+      "port": 8082,
+      "use_case": "nano-thinking",
+      "description": "MiniCPM 1B Q8_0 — nano/edge, thinking rapide, résumés, classification",
+      "quant": "Q8_0",
+      "param_b": 1,
+      "architecture": "minicpm",
+      "ctx_target": 8192,
+      "temperature": 0.7,
+      "max_tokens": 2048,
+      "timeout_secs": 60,
+      "supports_tool_use": false,
+      "thinking": {
+        "capable": true,
+        "disable_by_default": false,
+        "operator_note": "Modèle thinking. CoT rapide malgré la taille réduite."
+      },
+      "offload_policy": {
+        "strategy": "full",
+        "note": "1 GB — tient largement en Vulkan",
+        "fallback": "full",
+        "kv_quant": "f16",
+        "flash_attn": "probe",
+        "kv_offload": true
+      },
+      "resource_caps": {
+        "memory_max": "4G",
+        "cpu_quota_pct": 300,
+        "parallel_slots": 4
+      },
+      "memory_estimate": {
+        "weights_mib": 1126,
+        "kv_f16_at_max_ctx_mib": 640,
+        "total_f16_mib": 1766
+      }
+    },
+    {
+      "alias": "bonsai-27b-q1",
+      "filename": "Bonsai-27B-Q1_0.gguf",
+      "port": 8083,
+      "use_case": "creative-large-ctx",
+      "description": "Bonsai 27B Q1_0 — génération longue, creative writing, brainstorm, grand contexte. Q1 = qualité dégradée mais taille réduite.",
+      "quant": "Q1_0",
+      "param_b": 27,
+      "architecture": "llama",
+      "ctx_target": 16384,
+      "temperature": 0.9,
+      "max_tokens": 8192,
+      "timeout_secs": 300,
+      "supports_tool_use": false,
+      "thinking": {
+        "capable": false,
+        "disable_by_default": true
+      },
+      "offload_policy": {
+        "strategy": "full",
+        "note": "3.5 GB Q1 — tient en Vulkan. KV 16K ctx = ~4 GB f16 soit ~7.5 GB total",
+        "fallback": "partial",
+        "kv_quant": "q8_0",
+        "flash_attn": "probe",
+        "kv_offload": true
+      },
+      "resource_caps": {
+        "memory_max": "12G",
+        "cpu_quota_pct": 400,
+        "parallel_slots": 1
+      },
+      "memory_estimate": {
+        "weights_mib": 3584,
+        "kv_f16_at_max_ctx_mib": 3968,
+        "kv_q8_at_max_ctx_mib": 1984,
+        "total_f16_mib": 7552,
+        "total_q8_mib": 5568
+      }
+    },
+    {
+      "alias": "shieldstral-3b-q8",
+      "filename": "Shieldstral-1.0-3B-Q8_0.gguf",
+      "port": 8084,
+      "use_case": "safety-moderation",
+      "description": "Shieldstral 3B Q8 — modération contenu, audit sécurité, classification risque. Température basse, JSON mode.",
+      "quant": "Q8_0",
+      "param_b": 3,
+      "architecture": "mistral",
+      "ctx_target": 8192,
+      "temperature": 0.1,
+      "max_tokens": 2048,
+      "timeout_secs": 120,
+      "supports_tool_use": false,
+      "json_mode": true,
+      "thinking": {
+        "capable": false,
+        "disable_by_default": true
+      },
+      "offload_policy": {
+        "strategy": "full",
+        "kv_quant": "q4_0",
+        "flash_attn": "probe",
+        "kv_offload": true
+      },
+      "resource_caps": {
+        "memory_max": "6G",
+        "cpu_quota_pct": 300,
+        "parallel_slots": 2
+      },
+      "memory_estimate": {
+        "weights_mib": 3584,
+        "kv_f16_at_max_ctx_mib": 1024,
+        "total_f16_mib": 4608
+      }
+    },
+    {
+      "alias": "lfm25-2b-q4",
+      "filename": "LFM2.5-2.6B-Q4_K_M.gguf",
+      "port": 8085,
+      "use_case": "lightweight",
+      "description": "LFM 2.5 2.6B Q4 — léger polyvalent, structured output, extraction JSON rapide.",
+      "quant": "Q4_K_M",
+      "param_b": 2.6,
+      "architecture": "lfm",
+      "ctx_target": 8192,
+      "temperature": 0.5,
+      "max_tokens": 2048,
+      "timeout_secs": 60,
+      "supports_tool_use": false,
+      "thinking": {
+        "capable": false,
+        "disable_by_default": true
+      },
+      "offload_policy": {
+        "strategy": "full",
+        "kv_quant": "f16",
+        "flash_attn": "probe",
+        "kv_offload": true
+      },
+      "resource_caps": {
+        "memory_max": "4G",
+        "cpu_quota_pct": 300,
+        "parallel_slots": 2
+      },
+      "memory_estimate": {
+        "weights_mib": 1638,
+        "kv_f16_at_max_ctx_mib": 832,
+        "total_f16_mib": 2470
+      }
+    },
+    {
+      "alias": "qwen36-35b-iq2",
+      "filename": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ2_M.gguf",
+      "port": 8086,
+      "use_case": "reasoning-moe",
+      "description": "Qwen3.6 35B MoE IQ2_M — raisonnement profond, architecture MoE sparse A3B. 11 GB weights, GTT AMD requis.",
+      "quant": "IQ2_M",
+      "param_b": 35,
+      "param_b_active": 3,
+      "architecture": "qwen3-moe",
+      "ctx_target": 16384,
+      "temperature": 0.7,
+      "max_tokens": 8192,
+      "timeout_secs": 600,
+      "supports_tool_use": true,
+      "thinking": {
+        "capable": true,
+        "disable_by_default": false,
+        "operator_note": "Modèle MoE avancé — thinking actif conseillé."
+      },
+      "offload_policy": {
+        "strategy": "full",
+        "note": "11 GB weights + 6 GB KV(f16) à 16K ctx = 17 GB. Requiert Vulkan pool >17 GiB (RADV RENOIR = 22 GiB OK)",
+        "fallback": "partial",
+        "kv_quant": "q8_0",
+        "flash_attn": "probe",
+        "kv_offload": false,
+        "kv_offload_note": "KV hors GPU conseillé pour laisser du budget aux weights sur grand modèle"
+      },
+      "resource_caps": {
+        "memory_max": "20G",
+        "cpu_quota_pct": 400,
+        "parallel_slots": 1
+      },
+      "memory_estimate": {
+        "weights_mib": 11264,
+        "kv_f16_at_max_ctx_mib": 6016,
+        "kv_q8_at_max_ctx_mib": 3008,
+        "total_f16_mib": 17280,
+        "total_q8_mib": 14272,
+        "critical_note": "Modèle limite — ne pas lancer simultanément avec d'autres backends actifs"
+      }
+    },
+    {
+      "alias": "vibethinker-3b-q4",
+      "filename": "VibeThinker-3B-Q4_K_M.gguf",
+      "port": 8087,
+      "use_case": "creative-thinking",
+      "description": "VibeThinker 3B Q4 — réflexion pas-à-pas créative, exploration, CoT léger.",
+      "quant": "Q4_K_M",
+      "param_b": 3,
+      "architecture": "qwen2",
+      "ctx_target": 8192,
+      "temperature": 0.8,
+      "max_tokens": 4096,
+      "timeout_secs": 120,
+      "supports_tool_use": false,
+      "thinking": {
+        "capable": true,
+        "disable_by_default": false,
+        "operator_note": "Le thinking est le point fort de ce modèle."
+      },
+      "offload_policy": {
+        "strategy": "full",
+        "kv_quant": "f16",
+        "flash_attn": "probe",
+        "kv_offload": true
+      },
+      "resource_caps": {
+        "memory_max": "4G",
+        "cpu_quota_pct": 300,
+        "parallel_slots": 1
+      },
+      "memory_estimate": {
+        "weights_mib": 1843,
+        "kv_f16_at_max_ctx_mib": 1152,
+        "total_f16_mib": 2995
+      }
+    },
+    {
+      "alias": "qwen35-2b-q4",
+      "filename": "Qwen3.5-2B-Q4_K_M.gguf",
+      "port": 8088,
+      "use_case": "ultra-lightweight",
+      "description": "Qwen3.5 2B Q4 — ultra-léger, warmup, sanity-check, batch simple, prompt routing.",
+      "quant": "Q4_K_M",
+      "param_b": 2,
+      "architecture": "qwen3",
+      "ctx_target": 8192,
+      "temperature": 0.7,
+      "max_tokens": 2048,
+      "timeout_secs": 60,
+      "supports_tool_use": false,
+      "thinking": {
+        "capable": false,
+        "disable_by_default": true
+      },
+      "offload_policy": {
+        "strategy": "full",
+        "kv_quant": "f16",
+        "flash_attn": "probe",
+        "kv_offload": true
+      },
+      "resource_caps": {
+        "memory_max": "4G",
+        "cpu_quota_pct": 300,
+        "parallel_slots": 4
+      },
+      "memory_estimate": {
+        "weights_mib": 1229,
+        "kv_f16_at_max_ctx_mib": 896,
+        "total_f16_mib": 2125
+      }
+    },
+    {
+      "alias": "qwen36-27b-iq2",
+      "filename": "Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-IQ2_M.gguf",
+      "port": 8089,
+      "use_case": "creative-large-fable",
+      "description": "Qwen3.6 27B Fable IQ2_M — lore, fiction, narration, fine-tune Fable. 12 GB weights, GTT AMD requis.",
+      "quant": "IQ2_M",
+      "param_b": 27,
+      "architecture": "qwen3",
+      "ctx_target": 16384,
+      "temperature": 0.85,
+      "max_tokens": 8192,
+      "timeout_secs": 600,
+      "supports_tool_use": false,
+      "thinking": {
+        "capable": true,
+        "disable_by_default": false
+      },
+      "offload_policy": {
+        "strategy": "full",
+        "note": "12 GB weights + 4 GB KV(q8) à 16K ctx = 16 GB. Tient dans Vulkan pool 22 GiB",
+        "fallback": "partial",
+        "kv_quant": "q8_0",
+        "flash_attn": "probe",
+        "kv_offload": false,
+        "kv_offload_note": "KV CPU pour préserver budget GPU aux weights"
+      },
+      "resource_caps": {
+        "memory_max": "20G",
+        "cpu_quota_pct": 400,
+        "parallel_slots": 1
+      },
+      "memory_estimate": {
+        "weights_mib": 11776,
+        "kv_f16_at_max_ctx_mib": 3968,
+        "kv_q8_at_max_ctx_mib": 1984,
+        "total_f16_mib": 15744,
+        "total_q8_mib": 13760,
+        "critical_note": "Modèle limite — ne pas lancer simultanément avec d'autres backends actifs"
+      }
+    }
+  ],
+
+  "versioning": {
+    "note": "Ce fichier est le SSOT canonique des profils. Les .env dans ~/.config/cynic/models/ sont matérialisés à partir d'ici par: cynic runtime inference-plan <alias> --json --apply",
+    "materialize_cmd": "cynic runtime inference-plan <alias> --json --apply",
+    "sync_all_cmd": "cynic runtime inference-models --json --persist"
+  }
+}
