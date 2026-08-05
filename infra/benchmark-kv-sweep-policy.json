@@ -1,0 +1,77 @@
+{
+  "schema": "cynic.inference.benchmark_policy.v1",
+  "policy_id": "cynic-kv-sweep-policy-v1",
+  "description": "Versioned benchmark policy for CYNIC sovereign inference calibration on AMD APU / Vulkan substrate.",
+  "last_updated": "2026-08-05",
+
+  "acceptance_baseline": {
+    "min_context_baseline": 65536,
+    "context_baseline_note": "A model MUST run successfully at 64K context (65536) standalone on host to be admitted into active profiles.",
+    "extended_contexts": [131072, 262144],
+    "extended_contexts_note": "128K and 256K context sweeps are evaluated across all KV cache quantizations, batching parameters, and temperatures."
+  },
+
+  "use_cases": [
+    {
+      "id": "agent-hermes",
+      "priority": 1,
+      "description": "Agent/Hermes long sessions with tool calls and context accumulation. Heavy PP, high context.",
+      "target_metrics": ["pp_tok_s", "tg_tok_s", "64k_stability"]
+    },
+    {
+      "id": "cynic-chat-interactive",
+      "priority": 1,
+      "description": "Interactive Cynic chat (1-3 turns). High TG fluidity.",
+      "target_metrics": ["tg_tok_s", "first_token_latency"]
+    },
+    {
+      "id": "code-completion",
+      "priority": 1,
+      "description": "Code completion with short prompts and long output generation.",
+      "target_metrics": ["tg_tok_s", "pp_tok_s"]
+    },
+    {
+      "id": "security-audit",
+      "priority": 1,
+      "description": "Security & audit single-pass JSON classification.",
+      "target_metrics": ["pp_tok_s", "json_validity"]
+    },
+    {
+      "id": "batch-offline",
+      "priority": 1,
+      "description": "Offline non-interactive batch generation.",
+      "target_metrics": ["throughput_total"]
+    }
+  ],
+
+  "kv_cache_sweep": {
+    "standard_types": ["f16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"],
+    "micro_model_types": ["bf16", "f32"],
+    "micro_model_threshold_b": 2.0
+  },
+
+  "execution_parameter_sweep": {
+    "batch_sizes": [512, 1024, 2048, 4096],
+    "ubatch_sizes": [128, 256, 512],
+    "thread_counts": [4, 8, 12, 16],
+    "temperatures": [0.1, 0.7, 0.9],
+    "thinking_modes": [true, false]
+  },
+
+  "governance": {
+    "result_directory": "infra/benchmark-results",
+    "raw_format": "jsonl",
+    "generate_markdown_report": true,
+    "record_system_state": {
+      "git_commit": true,
+      "vulkan_driver": true,
+      "cpu_governor": true,
+      "gtt_vram_pool": true
+    },
+    "auto_detect_new_gguf": {
+      "enabled": true,
+      "vault_directory": "~/.local/share/cynic/models",
+      "action": "propose_benchmark_on_new_file"
+    }
+  }
+}
