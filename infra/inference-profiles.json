@@ -48,50 +48,6 @@
       }
     },
     {
-      "alias": "qwen3-4b-instruct",
-      "filename": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
-      "port": 8081,
-      "use_case": "code-fast",
-      "description": "Qwen3 4B Instruct 2507 Q4_K_M — complétion code, réponses rapides, tool-use, JSON",
-      "quant": "Q4_K_M",
-      "param_b": 4,
-      "architecture": "qwen3",
-      "ctx_target": 8192,
-      "temperature": 0.3,
-      "max_tokens": 4096,
-      "timeout_secs": 120,
-      "supports_tool_use": true,
-      "thinking": {
-        "capable": true,
-        "disable_by_default": true,
-        "operator_note": "Thinking désactivé par défaut pour vitesse. Activer pour tâches d'analyse."
-      },
-      "offload_policy": {
-        "strategy": "full",
-        "note": "petit modèle — tient entièrement en Vulkan",
-        "fallback": "full",
-        "kv_quant": "q4_0",
-        "flash_attn": "on",
-        "kv_offload": true,
-        "flash_attn_probe_result": "confirmed: no error on RADV RENOIR mesa b9600, llama b9600",
-        "kv_offload_note_apu": "kv_unified=true confirmed on AMD APU — llama manages KV in unified pool automatically; --no-kv-offload not needed",
-        "device_flag": "Vulkan0",
-        "device_note": "must be explicit — device 1 = llvmpipe (software fallback)"
-      },
-      "resource_caps": {
-        "memory_max": "8G",
-        "cpu_quota_pct": 400,
-        "parallel_slots": 2
-      },
-      "memory_estimate": {
-        "weights_mib": 2355,
-        "kv_f16_at_max_ctx_mib": 1152,
-        "kv_q4_at_max_ctx_mib": 288,
-        "total_f16_mib": 3507,
-        "total_q4_mib": 2643
-      }
-    },
-    {
       "alias": "minicpm-1b-q8",
       "filename": "MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q8_0.gguf",
       "port": 8082,
