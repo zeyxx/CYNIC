@@ -2,7 +2,6 @@
   "schema": "cynic.inference.model_profiles.v1",
   "description": "Canonical model profiles — hardware-agnostic intent. Runtime planner materializes actual flags from hardware class observation. Do not hardcode machine paths here.",
   "note": "weights_path is resolved at materialize time: vault_dir/<filename>. Never store absolute paths here.",
-
   "profiles": [
     {
       "alias": "qwythos-9b-q4",
@@ -28,8 +27,12 @@
         "note": "ngl 99 — tous les layers sur Vulkan si budget disponible",
         "fallback": "partial",
         "kv_quant": "q8_0",
-        "flash_attn": "probe",
-        "kv_offload": true
+        "flash_attn": "on",
+        "kv_offload": true,
+        "flash_attn_probe_result": "confirmed: no error on RADV RENOIR mesa b9600, llama b9600",
+        "kv_offload_note_apu": "kv_unified=true confirmed on AMD APU — llama manages KV in unified pool automatically; --no-kv-offload not needed",
+        "device_flag": "Vulkan0",
+        "device_note": "must be explicit — device 1 = llvmpipe (software fallback)"
       },
       "resource_caps": {
         "memory_max": "12G",
@@ -68,8 +71,12 @@
         "note": "petit modèle — tient entièrement en Vulkan",
         "fallback": "full",
         "kv_quant": "q4_0",
-        "flash_attn": "probe",
-        "kv_offload": true
+        "flash_attn": "on",
+        "kv_offload": true,
+        "flash_attn_probe_result": "confirmed: no error on RADV RENOIR mesa b9600, llama b9600",
+        "kv_offload_note_apu": "kv_unified=true confirmed on AMD APU — llama manages KV in unified pool automatically; --no-kv-offload not needed",
+        "device_flag": "Vulkan0",
+        "device_note": "must be explicit — device 1 = llvmpipe (software fallback)"
       },
       "resource_caps": {
         "memory_max": "8G",
@@ -108,8 +115,12 @@
         "note": "1 GB — tient largement en Vulkan",
         "fallback": "full",
         "kv_quant": "f16",
-        "flash_attn": "probe",
-        "kv_offload": true
+        "flash_attn": "on",
+        "kv_offload": true,
+        "flash_attn_probe_result": "confirmed: no error on RADV RENOIR mesa b9600, llama b9600",
+        "kv_offload_note_apu": "kv_unified=true confirmed on AMD APU — llama manages KV in unified pool automatically; --no-kv-offload not needed",
+        "device_flag": "Vulkan0",
+        "device_note": "must be explicit — device 1 = llvmpipe (software fallback)"
       },
       "resource_caps": {
         "memory_max": "4G",
@@ -145,8 +156,12 @@
         "note": "3.5 GB Q1 — tient en Vulkan. KV 16K ctx = ~4 GB f16 soit ~7.5 GB total",
         "fallback": "partial",
         "kv_quant": "q8_0",
-        "flash_attn": "probe",
-        "kv_offload": true
+        "flash_attn": "on",
+        "kv_offload": true,
+        "flash_attn_probe_result": "confirmed: no error on RADV RENOIR mesa b9600, llama b9600",
+        "kv_offload_note_apu": "kv_unified=true confirmed on AMD APU — llama manages KV in unified pool automatically; --no-kv-offload not needed",
+        "device_flag": "Vulkan0",
+        "device_note": "must be explicit — device 1 = llvmpipe (software fallback)"
       },
       "resource_caps": {
         "memory_max": "12G",
@@ -183,8 +198,12 @@
       "offload_policy": {
         "strategy": "full",
         "kv_quant": "q4_0",
-        "flash_attn": "probe",
-        "kv_offload": true
+        "flash_attn": "on",
+        "kv_offload": true,
+        "flash_attn_probe_result": "confirmed: no error on RADV RENOIR mesa b9600, llama b9600",
+        "kv_offload_note_apu": "kv_unified=true confirmed on AMD APU — llama manages KV in unified pool automatically; --no-kv-offload not needed",
+        "device_flag": "Vulkan0",
+        "device_note": "must be explicit — device 1 = llvmpipe (software fallback)"
       },
       "resource_caps": {
         "memory_max": "6G",
@@ -218,8 +237,12 @@
       "offload_policy": {
         "strategy": "full",
         "kv_quant": "f16",
-        "flash_attn": "probe",
-        "kv_offload": true
+        "flash_attn": "on",
+        "kv_offload": true,
+        "flash_attn_probe_result": "confirmed: no error on RADV RENOIR mesa b9600, llama b9600",
+        "kv_offload_note_apu": "kv_unified=true confirmed on AMD APU — llama manages KV in unified pool automatically; --no-kv-offload not needed",
+        "device_flag": "Vulkan0",
+        "device_note": "must be explicit — device 1 = llvmpipe (software fallback)"
       },
       "resource_caps": {
         "memory_max": "4G",
@@ -257,9 +280,13 @@
         "note": "11 GB weights + 6 GB KV(f16) à 16K ctx = 17 GB. Requiert Vulkan pool >17 GiB (RADV RENOIR = 22 GiB OK)",
         "fallback": "partial",
         "kv_quant": "q8_0",
-        "flash_attn": "probe",
+        "flash_attn": "on",
         "kv_offload": false,
-        "kv_offload_note": "KV hors GPU conseillé pour laisser du budget aux weights sur grand modèle"
+        "kv_offload_note": "KV hors GPU conseillé pour laisser du budget aux weights sur grand modèle",
+        "flash_attn_probe_result": "confirmed: no error on RADV RENOIR mesa b9600, llama b9600",
+        "kv_offload_note_apu": "kv_unified=true confirmed on AMD APU — llama manages KV in unified pool automatically; --no-kv-offload not needed",
+        "device_flag": "Vulkan0",
+        "device_note": "must be explicit — device 1 = llvmpipe (software fallback)"
       },
       "resource_caps": {
         "memory_max": "20G",
@@ -297,8 +324,12 @@
       "offload_policy": {
         "strategy": "full",
         "kv_quant": "f16",
-        "flash_attn": "probe",
-        "kv_offload": true
+        "flash_attn": "on",
+        "kv_offload": true,
+        "flash_attn_probe_result": "confirmed: no error on RADV RENOIR mesa b9600, llama b9600",
+        "kv_offload_note_apu": "kv_unified=true confirmed on AMD APU — llama manages KV in unified pool automatically; --no-kv-offload not needed",
+        "device_flag": "Vulkan0",
+        "device_note": "must be explicit — device 1 = llvmpipe (software fallback)"
       },
       "resource_caps": {
         "memory_max": "4G",
@@ -332,8 +363,12 @@
       "offload_policy": {
         "strategy": "full",
         "kv_quant": "f16",
-        "flash_attn": "probe",
-        "kv_offload": true
+        "flash_attn": "on",
+        "kv_offload": true,
+        "flash_attn_probe_result": "confirmed: no error on RADV RENOIR mesa b9600, llama b9600",
+        "kv_offload_note_apu": "kv_unified=true confirmed on AMD APU — llama manages KV in unified pool automatically; --no-kv-offload not needed",
+        "device_flag": "Vulkan0",
+        "device_note": "must be explicit — device 1 = llvmpipe (software fallback)"
       },
       "resource_caps": {
         "memory_max": "4G",
@@ -369,9 +404,13 @@
         "note": "12 GB weights + 4 GB KV(q8) à 16K ctx = 16 GB. Tient dans Vulkan pool 22 GiB",
         "fallback": "partial",
         "kv_quant": "q8_0",
-        "flash_attn": "probe",
+        "flash_attn": "on",
         "kv_offload": false,
-        "kv_offload_note": "KV CPU pour préserver budget GPU aux weights"
+        "kv_offload_note": "KV CPU pour préserver budget GPU aux weights",
+        "flash_attn_probe_result": "confirmed: no error on RADV RENOIR mesa b9600, llama b9600",
+        "kv_offload_note_apu": "kv_unified=true confirmed on AMD APU — llama manages KV in unified pool automatically; --no-kv-offload not needed",
+        "device_flag": "Vulkan0",
+        "device_note": "must be explicit — device 1 = llvmpipe (software fallback)"
       },
       "resource_caps": {
         "memory_max": "20G",
@@ -388,10 +427,26 @@
       }
     }
   ],
-
   "versioning": {
     "note": "Ce fichier est le SSOT canonique des profils. Les .env dans ~/.config/cynic/models/ sont matérialisés à partir d'ici par: cynic runtime inference-plan <alias> --json --apply",
     "materialize_cmd": "cynic runtime inference-plan <alias> --json --apply",
     "sync_all_cmd": "cynic runtime inference-models --json --persist"
+  },
+  "hardware_probe_evidence": {
+    "date": "2026-08-05",
+    "host": "AMD Renoir/Cezanne APU",
+    "llama_version": "b9600",
+    "mesa_radv": "Vulkan 1.3.275",
+    "confirmed_flags": [
+      "--device Vulkan0 (must be explicit)",
+      "-ngl 99 (full offload via Vulkan)",
+      "-fa on (flash attention: no error on RADV)",
+      "-ctk q8_0 / q4_0 / f16 (KV cache quantization: accepted)",
+      "-ctv q8_0 / q4_0 / f16 (idem)"
+    ],
+    "kv_unified": true,
+    "kv_unified_note": "AMD APU unified memory — llama reports kv_unified=true, KV managed in shared pool",
+    "vulkan_pool_mib_observed": 22265,
+    "vulkan_free_mib_observed": 15881
   }
 }
