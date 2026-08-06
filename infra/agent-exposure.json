@@ -322,6 +322,11 @@
           "mutation": "read_only"
         },
         {
+          "name": "cynic_evaluate_solana_sop",
+          "tier": "product_domain",
+          "mutation": "read_only"
+        },
+        {
           "name": "cynic_storage_census",
           "tier": "baseline_runtime",
           "mutation": "read_only"
@@ -740,6 +745,11 @@
           "name": "cynic_inference_switch",
           "tier": "baseline_runtime",
           "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_operational_benchmark",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
         }
       ]
     }
@@ -776,6 +786,7 @@
       "tier": "product_domain",
       "tools": [
         "cynic_solana_plan",
+        "cynic_evaluate_solana_sop",
         "cynic_storage_census"
       ],
       "operator_tools": [
@@ -795,7 +806,8 @@
         "cynic_inference_vault",
         "cynic_inference_start",
         "cynic_inference_stop",
-        "cynic_inference_switch"
+        "cynic_inference_switch",
+        "cynic_operational_benchmark"
       ],
       "operator_tools": [
         "cynic-askesis eval <dataset.jsonl> --endpoint <openai-base-url> --model <model> --json",
@@ -1042,6 +1054,13 @@
       "ssot": "~/.config/cynic/models",
       "cli_equivalent": "cynic runtime inference-start <target_alias> --json",
       "description": "Switch active inference backend to a target model alias."
+    },
+    {
+      "name": "cynic_operational_benchmark",
+      "kind": "read_only",
+      "ssot": "infra/operational-benchmarks.json",
+      "cli_equivalent": "cynic runtime inference-benchmark --json",
+      "description": "Execute CYNIC native operational benchmarks against a target model profile endpoint using infra/operational-benchmarks.json datasets."
     }
   ],
   "tier_policy": {

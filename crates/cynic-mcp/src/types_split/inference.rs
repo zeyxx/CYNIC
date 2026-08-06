@@ -28,3 +28,14 @@ pub struct InferenceSwitchParams {
 fn default_true() -> bool {
     true
 }
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct OperationalBenchmarkParams {
+    /// Model alias to benchmark (e.g. 'lfm25-2b-q8', 'minicpm-1b-q8').
+    pub alias: String,
+    /// Target endpoint base URL (default http://127.0.0.1:8080).
+    pub endpoint: Option<String>,
+    /// Optional specific task_id from infra/operational-benchmarks.json.
+    pub task_id: Option<String>,
+}
+

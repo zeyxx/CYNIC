@@ -36,7 +36,7 @@ use crate::types::{
     FleetInventoryParams, FleetKernelCandidatesParams, FleetNodeExecParams, FleetNodeStatusParams,
     FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams, IdentityAttestParams,
     IdentitySmokeCheckParams, InferParams, InferenceDiscoverParams, InferenceStartParams,
-    InferenceSwitchParams, InfraProvisionParams,
+    InferenceSwitchParams, OperationalBenchmarkParams, InfraProvisionParams,
     InfraRegistryReadParams, InfraRegistryValidateParams, JudgeParams, LibraryQueryParams,
     ListParams, ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
     LxcExecBridgeStatusParams, McpRateLimit, MetabolismParams, NetworkIpamCheckParams,

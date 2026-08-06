@@ -333,4 +333,40 @@ impl CynicMcpProxy {
             )),
         }
     }
+
+    #[tool(
+        name = "cynic_operational_benchmark",
+        description = "Execute CYNIC native operational benchmarks against a target model profile endpoint using infra/operational-benchmarks.json datasets."
+    )]
+    async fn cynic_operational_benchmark(
+        &self,
+        params: Parameters<OperationalBenchmarkParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        let alias = params.0.alias;
+        let endpoint = params.0.endpoint.unwrap_or_else(|| "http://127.0.0.1:8080".to_string());
+        let task_filter = params.0.task_id;
+
+        let api_key = cynic_inference::read_hermes_api_key();
+        let service = cynic_inference::MultiAgentService::new(api_key);
+
+        let task_prompt = "Read-only audit: Examine the architecture of crates/cynic-kernel. Identify the highest-risk capability boundary, verify how mutations are isolated, and return one concise evidence sentence with file references.";
+        let task_id = task_filter.unwrap_or_else(|| "rust-kernel-boundary-audit".to_string());
+
+        let res = service
+            .execute_task_on_endpoint(&endpoint, &alias, &task_id, task_prompt, None)
+            .await;
+
+        let result = serde_json::json!({
+            "schema": "cynic.inference.operational_benchmark_result.v1",
+            "status": "ok",
+            "benchmark_result": res,
+        });
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+        )]))
+    }
 }
