@@ -21,25 +21,24 @@ use serde::Deserialize;
 use std::{borrow::Cow, fs, path::PathBuf, sync::Arc};
 
 use rmcp::{
-    handler::server::tool::ToolRouter, handler::server::wrapper::Parameters, model::*,
-    service::MaybeSendFuture, tool, tool_handler, tool_router, ErrorData as McpError,
-    ServerHandler,
+    ErrorData as McpError, ServerHandler, handler::server::tool::ToolRouter,
+    handler::server::wrapper::Parameters, model::*, service::MaybeSendFuture, tool, tool_handler,
+    tool_router,
 };
 
 use crate::kernel_session::KernelSessionClient;
 use crate::session_identity::SessionIdentity;
 use crate::types::{
-    validate_agent_id, validate_agent_task_content, AgentConnectionStatusParams, AskesisLogParams,
-    AttentionParams, AuditQueryParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
-    ComplianceParams, CoordinationArtifactShareParams, CoordinationContractManifestParams,
-    CoordinationDecisionRecordParams, CoordinationStatusPublishParams,
-    CoordinationStatusReadParams, CoordinationThreadReplyParams, DispatchAgentTaskParams,
-    DockerContainerInspectParams, DockerContainerListParams, DockerContainerLogsParams,
-    FinalizeLeaseParams, FleetInventoryParams, FleetNodeExecParams, FleetNodeStatusParams,
+    AgentConnectionStatusParams, ApiContractsParams, AskesisLogParams, AttentionParams,
+    AuditQueryParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams, ComplianceParams,
+    DispatchAgentTaskParams, DockerContainerInspectParams, DockerContainerListParams,
+    DockerContainerLogsParams, FederatedBootstrapStatusParams, FinalizeLeaseParams,
+    FleetInventoryParams, FleetKernelCandidatesParams, FleetNodeExecParams, FleetNodeStatusParams,
     FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams, IdentityAttestParams,
-    IdentitySmokeCheckParams, InferParams, InfraProvisionParams, InfraRegistryReadParams,
-    InfraRegistryValidateParams, JudgeParams, LibraryQueryParams, ListParams,
-    ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
+    IdentitySmokeCheckParams, InferParams, InferenceDiscoverParams, InferenceStartParams,
+    InferenceSwitchParams, InfraProvisionParams,
+    InfraRegistryReadParams, InfraRegistryValidateParams, JudgeParams, LibraryQueryParams,
+    ListParams, ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
     LxcExecBridgeStatusParams, McpRateLimit, MetabolismParams, NetworkIpamCheckParams,
     NetworkMeshDnsActivationApplyParams, NetworkMeshDnsActivationBundleParams,
     NetworkMeshDnsActivationPlanParams, NetworkMeshDnsActivationStatusParams,
@@ -49,7 +48,8 @@ use crate::types::{
     RenewLeaseParams, RuntimeReleaseDeclareParams, ServiceHealthParams, ServiceStatusParams,
     SourceControlParams, SshTargetInspectParams, StoragePrimaryBundleParams,
     StoragePrimaryPlanParams, StoragePrimaryReadinessParams, StoragePrimaryStatusParams,
-    UpdateAgentTaskResultParams, ValidateParams, WatchPendingAgentTasksParams, WhoParams,
+    SourceChangeSubmitParams, UpdateAgentTaskResultParams, ValidateParams, WatchPendingAgentTasksParams, WhoParams,
+    validate_agent_id,
 };
 use cynic_host::ports::argv_execution::{
     ArgvExecutionPort, ArgvExecutionRequest, LocalArgvExecutionAdapter,
@@ -57,6 +57,12 @@ use cynic_host::ports::argv_execution::{
 
 #[cfg(feature = "legacy_infra_tools")]
 use crate::types::{ProxmoxActionParams, ProxmoxExecParams, ProxmoxProvisionParams};
+
+type Content = rmcp::model::ContentBlock;
+
+fn project_root() -> PathBuf {
+    crate::project_root::resolve_mcp_project_root()
+}
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct LifecycleDispatchParams {
@@ -119,6 +125,14 @@ impl CynicMcpProxy {
             + Self::tool_router_docker()
     }
 
+    pub fn tool_router_forward() -> ToolRouter<Self> {
+        Self::tool_router_forward_contracts()
+            + Self::tool_router_forward_health()
+            + Self::tool_router_forward_infer()
+            + Self::tool_router_forward_legacy_tasks()
+            + Self::tool_router_forward_observe()
+    }
+
     pub fn new(
         kernel: KernelSessionClient,
         session_identity: SessionIdentity,
@@ -162,6 +176,33 @@ impl CynicMcpProxy {
             return Err(McpError::new(
                 rmcp::model::ErrorCode(-32000),
                 "MCP agent session is expired or unavailable",
+                None,
+            ));
+        }
+        Ok(())
+    }
+
+    /// Admit a mutation only when this MCP artifact proves compatibility with
+    /// the desired agent contract.  Read-only observation and plan projection
+    /// deliberately remain available while reconciliation is blocked.
+    fn require_mutation_contract(&self) -> Result<(), McpError> {
+        let plan = crate::runtime_contract::observe_runtime_contract(
+            std::path::Path::new(&self.project_root),
+        )
+        .map_err(|error| {
+            McpError::new(
+                rmcp::model::ErrorCode(-32001),
+                format!("MCP runtime contract is unobservable: {error}"),
+                None,
+            )
+        })?;
+        if !crate::runtime_contract::admits_mutation(&plan) {
+            return Err(McpError::new(
+                rmcp::model::ErrorCode(-32001),
+                format!(
+                    "MCP runtime contract blocks mutation: status={:?}; reconcile the admitted runtime artifact and read back its contract before retrying",
+                    plan.status
+                ),
                 None,
             ));
         }

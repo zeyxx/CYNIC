@@ -184,4 +184,119 @@ impl CynicMcpProxy {
             serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
         )]))
     }
+
+    #[tool(
+        name = "cynic_inference_vault",
+        description = "List all sovereign local model profiles, GGUF file locations, assigned ports, context sizes, and whether weight files exist in the vault directory."
+    )]
+    async fn cynic_inference_vault(&self) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        use cynic_inference::LocalRuntimeServiceAny;
+
+        let service = LocalRuntimeServiceAny::from_env();
+        match service.list_inventory() {
+            Ok(inventory) => {
+                let result = serde_json::to_value(&inventory).unwrap_or_default();
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+                )]))
+            }
+            Err(error) => Err(McpError::internal_error(
+                format!("failed to list model vault inventory: {error}"),
+                None,
+            )),
+        }
+    }
+
+    #[tool(
+        name = "cynic_inference_start",
+        description = "Start a specific sovereign inference model profile by alias (e.g. 'qwythos-9b-q4', 'minicpm-1b-q8'). Returns convergence report with proof."
+    )]
+    async fn cynic_inference_start(
+        &self,
+        params: Parameters<InferenceStartParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        use cynic_inference::LocalRuntimeServiceAny;
+
+        let alias = &params.0.alias;
+        let wait_for_ready = params.0.wait_for_ready;
+        let service = LocalRuntimeServiceAny::from_env();
+
+        match service.start_with_transition(alias, wait_for_ready, "mcp-inference-start") {
+            Ok(report) => {
+                let result = serde_json::to_value(&report).unwrap_or_default();
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+                )]))
+            }
+            Err(error) => Err(McpError::internal_error(
+                format!("failed to start model profile '{alias}': {error}"),
+                None,
+            )),
+        }
+    }
+
+    #[tool(
+        name = "cynic_inference_stop",
+        description = "Stop the currently active sovereign local inference process on the host."
+    )]
+    async fn cynic_inference_stop(&self) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        use cynic_inference::LocalRuntimeServiceAny;
+
+        let service = LocalRuntimeServiceAny::from_env();
+        match service.stop(None) {
+            Ok(report) => {
+                let result = serde_json::to_value(&report).unwrap_or_default();
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+                )]))
+            }
+            Err(error) => Err(McpError::internal_error(
+                format!("failed to stop active inference process: {error}"),
+                None,
+            )),
+        }
+    }
+
+    #[tool(
+        name = "cynic_inference_switch",
+        description = "Switch active inference backend to a target model alias (stops currently running backend if any, then activates target model)."
+    )]
+    async fn cynic_inference_switch(
+        &self,
+        params: Parameters<InferenceSwitchParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        use cynic_inference::LocalRuntimeServiceAny;
+
+        let target_alias = &params.0.target_alias;
+        let wait_for_ready = params.0.wait_for_ready;
+        let service = LocalRuntimeServiceAny::from_env();
+
+        // Best effort stop active
+        let _ = service.stop(None);
+
+        match service.start_with_transition(target_alias, wait_for_ready, "mcp-inference-switch") {
+            Ok(report) => {
+                let result = serde_json::to_value(&report).unwrap_or_default();
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+                )]))
+            }
+            Err(error) => Err(McpError::internal_error(
+                format!("failed to switch to model profile '{target_alias}': {error}"),
+                None,
+            )),
+        }
+    }
 }
