@@ -1,0 +1,74 @@
+# CYNIC Empirical Benchmark Matrix Summary
+
+Measured performance across real CYNIC use cases on host hardware (AMD Ryzen 7 5700G APU / Vulkan0 iGPU).
+
+| Model Profile | Use Case / Task ID | Thinking | Avg TTFT (ms) | Avg PP (tok/s) | Avg TG (tok/s) | Samples |
+|---|---|---|---|---|---|---|
+| `bonsai-27b-q1` | `fleet-topology-reconciliation-cot` | `OFF` | **2991.0** | **19.1** | **5.7** | 1 |
+| `bonsai-27b-q1` | `fleet-topology-reconciliation-cot` | `ON` | **4448.0** | **12.4** | **5.4** | 1 |
+| `bonsai-27b-q1` | `inference-adapter-refactoring-plan` | `OFF` | **3153.0** | **13.0** | **5.4** | 1 |
+| `bonsai-27b-q1` | `inference-adapter-refactoring-plan` | `ON` | **4894.0** | **8.0** | **5.3** | 1 |
+| `bonsai-27b-q1` | `rust-kernel-boundary-audit` | `OFF` | **2941.0** | **17.3** | **5.0** | 1 |
+| `bonsai-27b-q1` | `rust-kernel-boundary-audit` | `ON` | **3348.0** | **14.6** | **5.6** | 1 |
+| `bonsai-27b-q1` | `safety-capability-json-extraction` | `OFF` | **2952.0** | **25.1** | **5.7** | 1 |
+| `bonsai-27b-q1` | `safety-capability-json-extraction` | `ON` | **6978.0** | **10.3** | **5.2** | 1 |
+| `lfm25-2b-q8` | `fleet-topology-reconciliation-cot` | `OFF` | **339.0** | **165.2** | **13.5** | 1 |
+| `lfm25-2b-q8` | `inference-adapter-refactoring-plan` | `OFF` | **365.0** | **115.1** | **12.7** | 1 |
+| `lfm25-2b-q8` | `rust-kernel-boundary-audit` | `OFF` | **350.0** | **142.9** | **13.9** | 1 |
+| `lfm25-2b-q8` | `safety-capability-json-extraction` | `OFF` | **356.0** | **188.2** | **13.4** | 1 |
+| `minicpm-1b-q8` | `fleet-topology-reconciliation-cot` | `OFF` | **78.0** | **756.4** | **35.6** | 1 |
+| `minicpm-1b-q8` | `fleet-topology-reconciliation-cot` | `ON` | **96.0** | **593.8** | **36.1** | 1 |
+| `minicpm-1b-q8` | `inference-adapter-refactoring-plan` | `OFF` | **66.0** | **681.8** | **41.8** | 1 |
+| `minicpm-1b-q8` | `inference-adapter-refactoring-plan` | `ON` | **112.0** | **383.9** | **35.3** | 1 |
+| `minicpm-1b-q8` | `rust-kernel-boundary-audit` | `OFF` | **81.0** | **629.6** | **34.7** | 1 |
+| `minicpm-1b-q8` | `rust-kernel-boundary-audit` | `ON` | **120.0** | **408.3** | **35.0** | 1 |
+| `minicpm-1b-q8` | `safety-capability-json-extraction` | `OFF` | **47.0** | **1531.9** | **44.7** | 1 |
+| `minicpm-1b-q8` | `safety-capability-json-extraction` | `ON` | **175.0** | **400.0** | **41.8** | 1 |
+| `qwen35-2b-q4` | `fleet-topology-reconciliation-cot` | `OFF` | **483.0** | **118.0** | **23.5** | 1 |
+| `qwen35-2b-q4` | `fleet-topology-reconciliation-cot` | `ON` | **515.0** | **106.8** | **23.5** | 1 |
+| `qwen35-2b-q4` | `inference-adapter-refactoring-plan` | `OFF` | **476.0** | **86.1** | **23.1** | 1 |
+| `qwen35-2b-q4` | `inference-adapter-refactoring-plan` | `ON` | **507.0** | **76.9** | **23.5** | 1 |
+| `qwen35-2b-q4` | `rust-kernel-boundary-audit` | `OFF` | **474.0** | **107.6** | **23.5** | 1 |
+| `qwen35-2b-q4` | `rust-kernel-boundary-audit` | `ON` | **489.0** | **100.2** | **22.7** | 1 |
+| `qwen35-2b-q4` | `safety-capability-json-extraction` | `OFF` | **503.0** | **147.1** | **23.3** | 1 |
+| `qwen35-2b-q4` | `safety-capability-json-extraction` | `ON` | **646.0** | **111.5** | **23.3** | 1 |
+| `qwen35-9b-iq2` | `fleet-topology-reconciliation-cot` | `OFF` | **7613.0** | **7.5** | **5.7** | 1 |
+| `qwen35-9b-iq2` | `fleet-topology-reconciliation-cot` | `ON` | **6013.0** | **9.1** | **5.7** | 1 |
+| `qwen35-9b-iq2` | `inference-adapter-refactoring-plan` | `OFF` | **8907.0** | **4.6** | **5.7** | 1 |
+| `qwen35-9b-iq2` | `inference-adapter-refactoring-plan` | `ON` | **6737.0** | **5.8** | **5.7** | 1 |
+| `qwen35-9b-iq2` | `rust-kernel-boundary-audit` | `OFF` | **7507.0** | **6.8** | **5.8** | 1 |
+| `qwen35-9b-iq2` | `rust-kernel-boundary-audit` | `ON` | **6969.0** | **7.0** | **5.7** | 1 |
+| `qwen35-9b-iq2` | `safety-capability-json-extraction` | `OFF` | **7915.0** | **9.3** | **5.7** | 1 |
+| `qwen35-9b-iq2` | `safety-capability-json-extraction` | `ON` | **6860.0** | **10.5** | **5.7** | 1 |
+| `qwen35-9b-iq3` | `fleet-topology-reconciliation-cot` | `OFF` | **7982.0** | **7.1** | **4.8** | 1 |
+| `qwen35-9b-iq3` | `fleet-topology-reconciliation-cot` | `ON` | **6606.0** | **8.3** | **4.9** | 1 |
+| `qwen35-9b-iq3` | `inference-adapter-refactoring-plan` | `OFF` | **7051.0** | **5.8** | **4.9** | 1 |
+| `qwen35-9b-iq3` | `inference-adapter-refactoring-plan` | `ON` | **6104.0** | **6.4** | **4.8** | 1 |
+| `qwen35-9b-iq3` | `rust-kernel-boundary-audit` | `OFF` | **9027.0** | **5.6** | **4.9** | 1 |
+| `qwen35-9b-iq3` | `rust-kernel-boundary-audit` | `ON` | **6501.0** | **7.5** | **4.9** | 1 |
+| `qwen35-9b-iq3` | `safety-capability-json-extraction` | `OFF` | **7183.0** | **10.3** | **4.9** | 1 |
+| `qwen35-9b-iq3` | `safety-capability-json-extraction` | `ON` | **6493.0** | **11.1** | **4.9** | 1 |
+| `qwen36-27b-iq2` | `fleet-topology-reconciliation-cot` | `OFF` | **21167.0** | **2.7** | **2.3** | 1 |
+| `qwen36-27b-iq2` | `fleet-topology-reconciliation-cot` | `ON` | **16145.0** | **3.4** | **2.4** | 1 |
+| `qwen36-27b-iq2` | `inference-adapter-refactoring-plan` | `OFF` | **18131.0** | **2.3** | **2.4** | 1 |
+| `qwen36-27b-iq2` | `inference-adapter-refactoring-plan` | `ON` | **15743.0** | **2.5** | **2.4** | 1 |
+| `qwen36-27b-iq2` | `rust-kernel-boundary-audit` | `OFF` | **14835.0** | **3.4** | **2.4** | 1 |
+| `qwen36-27b-iq2` | `rust-kernel-boundary-audit` | `ON` | **14743.0** | **3.3** | **2.4** | 1 |
+| `qwen36-27b-iq2` | `safety-capability-json-extraction` | `OFF` | **18066.0** | **4.1** | **2.4** | 1 |
+| `qwen36-27b-iq2` | `safety-capability-json-extraction` | `ON` | **18327.0** | **3.9** | **2.4** | 1 |
+| `qwythos-9b-q4` | `fleet-topology-reconciliation-cot` | `OFF` | **9185.0** | **9.5** | **5.5** | 1 |
+| `qwythos-9b-q4` | `fleet-topology-reconciliation-cot` | `ON` | **6601.0** | **12.9** | **5.4** | 1 |
+| `qwythos-9b-q4` | `inference-adapter-refactoring-plan` | `OFF` | **8490.0** | **8.4** | **5.2** | 1 |
+| `qwythos-9b-q4` | `inference-adapter-refactoring-plan` | `ON` | **8181.0** | **8.4** | **5.0** | 1 |
+| `qwythos-9b-q4` | `rust-kernel-boundary-audit` | `OFF` | **9032.0** | **9.0** | **5.0** | 1 |
+| `qwythos-9b-q4` | `rust-kernel-boundary-audit` | `ON` | **12801.0** | **6.2** | **5.1** | 1 |
+| `qwythos-9b-q4` | `safety-capability-json-extraction` | `OFF` | **7094.0** | **14.7** | **5.3** | 1 |
+| `qwythos-9b-q4` | `safety-capability-json-extraction` | `ON` | **8244.0** | **12.4** | **5.2** | 1 |
+| `vibethinker-3b-q4` | `fleet-topology-reconciliation-cot` | `OFF` | **93.0** | **688.2** | **18.7** | 1 |
+| `vibethinker-3b-q4` | `fleet-topology-reconciliation-cot` | `ON` | **339.0** | **188.8** | **20.6** | 1 |
+| `vibethinker-3b-q4` | `inference-adapter-refactoring-plan` | `OFF` | **109.0** | **440.4** | **17.2** | 1 |
+| `vibethinker-3b-q4` | `inference-adapter-refactoring-plan` | `ON` | **353.0** | **136.0** | **16.9** | 1 |
+| `vibethinker-3b-q4` | `rust-kernel-boundary-audit` | `OFF` | **105.0** | **552.4** | **17.1** | 1 |
+| `vibethinker-3b-q4` | `rust-kernel-boundary-audit` | `ON` | **346.0** | **167.6** | **17.0** | 1 |
+| `vibethinker-3b-q4` | `safety-capability-json-extraction` | `OFF` | **108.0** | **750.0** | **18.8** | 1 |
+| `vibethinker-3b-q4` | `safety-capability-json-extraction` | `ON` | **643.0** | **126.0** | **16.9** | 1 |

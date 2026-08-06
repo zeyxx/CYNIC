@@ -1,7 +1,30 @@
 {
   "schema": "cynic.inference.operational_benchmark_dataset.v1",
-  "dataset_id": "cynic-operational-tasks-v1",
-  "description": "Real operational benchmark workload dataset for CYNIC sovereign inference calibration based on host codebase and agent tasks.",
+  "dataset_id": "cynic-operational-tasks-v2",
+  "description": "Comprehensive operational benchmark workload dataset across 4 explicit use-case domains for CYNIC sovereign inference matrix calibration.",
+
+  "use_cases": [
+    {
+      "id": "audit",
+      "name": "Security & Architecture Boundary Audit",
+      "description": "Complex read-only inspection of Rust kernel boundaries and capability isolation."
+    },
+    {
+      "id": "coding",
+      "name": "Rust Systems Code Generation & Refactoring Plan",
+      "description": "Generation of traits, state machine transitions, and architectural refactoring plans."
+    },
+    {
+      "id": "json_extraction",
+      "name": "High-Throughput Structured Data & Schema Extraction",
+      "description": "Strict JSON extraction and schema parsing under tight latency constraints."
+    },
+    {
+      "id": "agentic_cot",
+      "name": "Long-Horizon Multi-Step Tool Reasoning & Fleet CoT",
+      "description": "Step-by-step chain of thought reasoning for fleet placement, topology reconciliation, and multi-turn agent tasks."
+    }
+  ],
 
   "tasks": [
     {
