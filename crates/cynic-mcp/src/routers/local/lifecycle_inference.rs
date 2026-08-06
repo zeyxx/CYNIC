@@ -268,7 +268,7 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_inference_switch",
-        description = "Switch active inference backend to a target model alias (stops currently running backend if any, then activates target model)."
+        description = "Switch active inference backend to a target model alias (stops currently running backend if any, then activates target model). Enforces Human-in-the-loop confirmation for heavy models (9B+ params or >= 4GB VRAM) unless confirmed=true is passed."
     )]
     async fn cynic_inference_switch(
         &self,
@@ -277,11 +277,35 @@ impl CynicMcpProxy {
         self.require_auth()?;
         self.rate_limit.check_other()?;
 
-        use cynic_inference::LocalRuntimeServiceAny;
+        use cynic_inference::{LocalRuntimeServiceAny, SupervisionPolicy};
 
         let target_alias = &params.0.target_alias;
         let wait_for_ready = params.0.wait_for_ready;
+        let confirmed = params.0.confirmed.unwrap_or(false);
         let service = LocalRuntimeServiceAny::from_env();
+
+        let mut target_size = None;
+        if let Ok(inventory) = service.list_inventory() {
+            if let Some(profile) = inventory.models.iter().find(|p| p.alias == *target_alias) {
+                target_size = profile.size_bytes;
+            }
+        }
+
+        let policy = SupervisionPolicy::default();
+        if policy.requires_confirmation(target_size, target_alias) && !confirmed {
+            let reason = policy.confirmation_reason(target_size, target_alias).unwrap_or_default();
+            let result = serde_json::json!({
+                "schema": "cynic.inference.human_confirmation_required.v1",
+                "status": "confirmation_required",
+                "target_alias": target_alias,
+                "reason": reason,
+                "message": format!("Heavy model transition to '{target_alias}' requires operator confirmation. Re-run cynic_inference_switch with confirmed=true once approved."),
+                "action": "pass confirmed=true to proceed with switch"
+            });
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+            )]));
+        }
 
         // Best effort stop active
         let _ = service.stop(None);

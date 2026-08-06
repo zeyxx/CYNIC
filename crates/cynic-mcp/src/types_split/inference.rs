@@ -21,6 +21,8 @@ pub struct InferenceSwitchParams {
     /// Wait for server readiness before returning (default true).
     #[serde(default = "default_true")]
     pub wait_for_ready: bool,
+    /// Explicit human-in-the-loop operator confirmation for heavy model switches (>= 4GB VRAM or 9B+ param class).
+    pub confirmed: Option<bool>,
 }
 
 fn default_true() -> bool {
