@@ -41,6 +41,15 @@ struct RequestBody<'a> {
     top_p: Option<f32>,
     stream: bool,
     stream_options: StreamOptions,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    chat_template_kwargs: Option<ChatTemplateKwargs>,
+}
+
+#[derive(Serialize)]
+struct ChatTemplateKwargs {
+    enable_thinking: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_thinking_tokens: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -59,6 +68,21 @@ impl HarnessExecutor for HttpHarnessExecutor {
     async fn execute(&self, scenario: &ScenarioSpec, task: &TaskSpec) -> InferenceReply {
         let started = Instant::now();
         let url = format!("{}/chat/completions", self.base_url);
+
+        let chat_template_kwargs = scenario.model.parameters.reasoning_budget.map(|budget| {
+            if budget == 0 {
+                ChatTemplateKwargs {
+                    enable_thinking: false,
+                    max_thinking_tokens: None,
+                }
+            } else {
+                ChatTemplateKwargs {
+                    enable_thinking: true,
+                    max_thinking_tokens: Some(budget),
+                }
+            }
+        });
+
         let body = RequestBody {
             model: &scenario.model.parameters.model_id,
             messages: [Message {
@@ -70,6 +94,7 @@ impl HarnessExecutor for HttpHarnessExecutor {
             top_p: scenario.model.parameters.top_p,
             stream: true,
             stream_options: StreamOptions { include_usage: true },
+            chat_template_kwargs,
         };
         let mut request = self.client.post(url).json(&body);
         if let Some(correlation_id) = &scenario.correlation_id {

@@ -107,6 +107,12 @@ pub fn generate_plan_from_policy(
         .copied()
         .unwrap_or(8);
 
+    let thinking_modes = if policy.execution_parameter_sweep.thinking_modes.is_empty() {
+        vec![true, false]
+    } else {
+        policy.execution_parameter_sweep.thinking_modes.clone()
+    };
+
     for profile in profiles {
         if !profile.model_exists {
             continue;
@@ -116,59 +122,71 @@ pub fn generate_plan_from_policy(
 
         for &ctx in &contexts {
             for kv_type in kv_types {
-                let scenario_id = format!("{}-{}-ctx{}-kv{}", profile.alias, policy.policy_id, ctx / 1024, kv_type);
+                for &think_enabled in &thinking_modes {
+                    let think_tag = if think_enabled { "think-on" } else { "think-off" };
+                    let reasoning_budget = if think_enabled { Some(1024) } else { Some(0) };
 
-                let spec = ScenarioSpec {
-                    scenario_id: scenario_id.clone(),
-                    correlation_id: Some(scenario_id.clone()),
-                    coordination_id: None,
-                    probe_runtime_plan: false,
-                    runtime_kind: super::types::RuntimeKind::DirectLlama,
-                    runtime_id: Some(profile.alias.clone()),
-                    runtime_version: None,
-                    coordination_kind: None,
-                    tool_count: None,
-                    max_agent_steps: None,
-                    model: ModelSpec {
-                        role: "primary".to_string(),
-                        parameters: ModelParameters {
-                            model_id: profile.alias.clone(),
-                            model_path: profile.model_path.clone(),
-                            model_digest: None,
-                            architecture: None,
-                            quantization: None,
-                            context_requested: ctx,
-                            parallel_slots: 1,
-                            context_per_slot: Some(ctx),
-                            kv_cache_type_k: Some(kv_type.clone()),
-                            kv_cache_type_v: Some(kv_type.clone()),
-                            flash_attention: Some(true),
-                            gpu_layers: Some(99),
-                            fit_mode: None,
-                            threads: Some(threads),
-                            batch_size: Some(batch),
-                            ubatch_size: Some(ubatch),
-                            temperature: Some(0.7),
-                            top_p: Some(0.95),
-                            reasoning_budget: None,
+                    let scenario_id = format!(
+                        "{}-{}-ctx{}-kv{}-{}",
+                        profile.alias,
+                        policy.policy_id,
+                        ctx / 1024,
+                        kv_type,
+                        think_tag
+                    );
+
+                    let spec = ScenarioSpec {
+                        scenario_id: scenario_id.clone(),
+                        correlation_id: Some(scenario_id.clone()),
+                        coordination_id: None,
+                        probe_runtime_plan: false,
+                        runtime_kind: super::types::RuntimeKind::DirectLlama,
+                        runtime_id: Some(profile.alias.clone()),
+                        runtime_version: None,
+                        coordination_kind: None,
+                        tool_count: None,
+                        max_agent_steps: None,
+                        model: ModelSpec {
+                            role: "primary".to_string(),
+                            parameters: ModelParameters {
+                                model_id: profile.alias.clone(),
+                                model_path: profile.model_path.clone(),
+                                model_digest: None,
+                                architecture: None,
+                                quantization: None,
+                                context_requested: ctx,
+                                parallel_slots: 1,
+                                context_per_slot: Some(ctx),
+                                kv_cache_type_k: Some(kv_type.clone()),
+                                kv_cache_type_v: Some(kv_type.clone()),
+                                flash_attention: Some(true),
+                                gpu_layers: Some(99),
+                                fit_mode: None,
+                                threads: Some(threads),
+                                batch_size: Some(batch),
+                                ubatch_size: Some(ubatch),
+                                temperature: Some(0.7),
+                                top_p: Some(0.95),
+                                reasoning_budget,
+                            },
                         },
-                    },
-                    tasks: vec![TaskSpec {
-                        task_id: format!("kv-sweep-{}", kv_type),
-                        kind: TaskKind::PromptOnly,
-                        prompt: "CYNIC native benchmark sweep verification prompt.".to_string(),
-                        max_output_tokens: 128,
-                        expected_proof: "ok".to_string(),
-                    }],
-                    thresholds: Thresholds {
-                        min_available_memory_bytes: None,
-                        min_available_memory_percent: Some(5.0),
-                        max_rss_bytes: None,
-                        max_rss_percent: Some(95.0),
-                        max_wall_time_ms: Some(300_000),
-                    },
-                };
-                scenarios.push(spec);
+                        tasks: vec![TaskSpec {
+                            task_id: format!("kv-sweep-{}-{}", kv_type, think_tag),
+                            kind: TaskKind::PromptOnly,
+                            prompt: "CYNIC native benchmark sweep verification prompt.".to_string(),
+                            max_output_tokens: 128,
+                            expected_proof: "ok".to_string(),
+                        }],
+                        thresholds: Thresholds {
+                            min_available_memory_bytes: None,
+                            min_available_memory_percent: Some(5.0),
+                            max_rss_bytes: None,
+                            max_rss_percent: Some(95.0),
+                            max_wall_time_ms: Some(300_000),
+                        },
+                    };
+                    scenarios.push(spec);
+                }
             }
         }
     }
@@ -208,5 +226,6 @@ mod tests {
         assert_eq!(plan.plan_id, "cynic-kv-sweep-policy-v1-generated");
         let first_scenario = &plan.scenarios[0].scenario;
         assert_eq!(first_scenario.model.parameters.context_requested, 65536);
+        assert!(first_scenario.model.parameters.reasoning_budget.is_some());
     }
 }
