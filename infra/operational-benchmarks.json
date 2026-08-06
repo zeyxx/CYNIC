@@ -1,0 +1,36 @@
+{
+  "schema": "cynic.inference.operational_benchmark_dataset.v1",
+  "dataset_id": "cynic-operational-tasks-v1",
+  "description": "Real operational benchmark workload dataset for CYNIC sovereign inference calibration based on host codebase and agent tasks.",
+
+  "tasks": [
+    {
+      "task_id": "rust-kernel-boundary-audit",
+      "kind": "audit",
+      "prompt": "Read-only audit: Examine the architecture of crates/cynic-kernel. Identify the highest-risk capability boundary, verify how mutations are isolated, and return one concise evidence sentence with file references.",
+      "max_output_tokens": 256,
+      "expected_proof": "evidence sentence with file reference"
+    },
+    {
+      "task_id": "inference-adapter-refactoring-plan",
+      "kind": "coding",
+      "prompt": "Draft an explicit Rust architecture plan to decouple model inference providers from systemd supervisor logic. Outline necessary traits, state machine transitions, and rollback intent.",
+      "max_output_tokens": 512,
+      "expected_proof": "architecture plan with traits and transitions"
+    },
+    {
+      "task_id": "safety-capability-json-extraction",
+      "kind": "prompt_only",
+      "prompt": "Extract the capability and security permissions from the following profile statement into valid JSON: 'Model qwythos-9b operates on port 8080 with 32K context. High precision, tool-use enabled, loopback-only binding, memory max 12G.' Output JSON only.",
+      "max_output_tokens": 256,
+      "expected_proof": "valid JSON object"
+    },
+    {
+      "task_id": "fleet-topology-reconciliation-cot",
+      "kind": "agentic",
+      "prompt": "You are observing a 3-node CYNIC fleet where node 2 reports degraded Vulkan memory baseline while node 1 is over-subscribed. Think step-by-step to reconcile placement without violating host sovereignty or dropping active sessions.",
+      "max_output_tokens": 512,
+      "expected_proof": "step-by-step reasoning and placement plan"
+    }
+  ]
+}

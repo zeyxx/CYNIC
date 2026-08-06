@@ -855,7 +855,7 @@ dependencies = [
  "chrono",
  "clap",
  "dirs",
- "reqwest 0.13.4",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -871,6 +871,7 @@ dependencies = [
 name = "cynic-cli"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "clap",
  "crossterm",
  "cynic-host",
@@ -894,7 +895,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "libc",
- "reqwest 0.13.4",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -911,7 +912,10 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum",
- "reqwest 0.13.4",
+ "cynic-protocol",
+ "futures-util",
+ "process-wrap",
+ "reqwest",
  "serde",
  "serde_json",
  "tempfile",
@@ -958,7 +962,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "rand 0.9.5",
- "reqwest 0.13.4",
+ "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
@@ -984,6 +988,7 @@ dependencies = [
 name = "cynic-mcp"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "axum",
  "chrono",
  "cynic-askesis",
@@ -994,11 +999,12 @@ dependencies = [
  "cynic-protocol",
  "glob",
  "regex",
- "reqwest 0.12.28",
+ "reqwest",
  "rmcp",
  "schemars",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "tokio",
  "tokio-util",
  "tracing",
@@ -1010,6 +1016,7 @@ dependencies = [
 name = "cynic-node"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "axum",
  "base64 0.22.1",
  "chrono",
@@ -1024,7 +1031,7 @@ dependencies = [
  "libc",
  "notify",
  "process-wrap",
- "reqwest 0.13.4",
+ "reqwest",
  "rustix 1.1.4",
  "serde",
  "serde_json",
@@ -1038,6 +1045,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+ "url",
  "zeroize",
 ]
 
@@ -1054,7 +1062,7 @@ dependencies = [
  "futures-util",
  "libp2p",
  "log",
- "reqwest 0.13.4",
+ "reqwest",
  "rustls",
  "serde",
  "serde_json",
@@ -3882,46 +3890,6 @@ name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
-
-[[package]]
-name = "reqwest"
-version = "0.12.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
-dependencies = [
- "base64 0.22.1",
- "bytes",
- "encoding_rs",
- "futures-core",
- "h2",
- "http",
- "http-body",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-tls",
- "hyper-util",
- "js-sys",
- "log",
- "mime",
- "native-tls",
- "percent-encoding",
- "pin-project-lite",
- "rustls-pki-types",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "sync_wrapper",
- "tokio",
- "tokio-native-tls",
- "tower",
- "tower-http",
- "tower-service",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
 
 [[package]]
 name = "reqwest"
