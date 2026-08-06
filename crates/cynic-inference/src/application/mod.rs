@@ -1,8 +1,10 @@
+pub mod agent_harness;
 pub mod backend_verification;
 pub mod chat_endpoint;
 pub mod chat_service;
 pub mod embedding_runtime;
 pub mod fleet_routing;
+pub mod hermes_runtime_service;
 pub mod hf_discovery;
 pub mod inference_service;
 pub mod local_runtime_service;
@@ -16,5 +18,7 @@ pub mod profile_bootstrap;
 pub mod proxy_routing;
 pub mod routing_policy;
 pub mod runtime_planner;
+pub mod multi_agent_service;
 pub mod summarization_service;
 pub mod vault_consolidate;
+pub(crate) mod vault_consolidate_storage;

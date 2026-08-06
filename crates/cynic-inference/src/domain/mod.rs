@@ -19,5 +19,6 @@ pub mod routing;
 pub mod runtime_plan;
 pub mod slot_semaphore;
 pub mod slot_tracker;
+pub mod debate;
 pub mod summarization;
 pub mod supervision;

@@ -147,12 +147,22 @@ impl CynicMcpProxy {
             })
             .count();
 
+        let hw = cynic_inference::HardwareProfile::probe();
+
         let result = serde_json::json!({
             "schema": "cynic.inference_backends.v1",
             "status": "ok",
             "config_path": loaded.path.map(|p| p.to_string_lossy().into_owned()),
             "backend_count": backend_views.len(),
             "sovereign_healthy_count": sovereign_healthy,
+            "hardware_profile": {
+                "total_ram_bytes": hw.total_ram_bytes,
+                "available_ram_bytes": hw.available_ram_bytes,
+                "cpu_threads": hw.cpu_threads,
+                "tier": hw.tier,
+                "recommended_max_weight_bytes": hw.recommended_max_weight_bytes,
+                "absolute_max_weight_bytes": hw.absolute_max_weight_bytes,
+            },
             "backends": backend_views,
         });
 

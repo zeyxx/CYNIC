@@ -14,6 +14,10 @@ pub mod progress;
 pub use adapters::discovery::model_registry::InMemoryModelRegistry;
 pub use adapters::hf::HfCliAdapter;
 pub use adapters::inference::harness_executor::HttpHarnessExecutor;
+pub use application::multi_agent_service::{
+    ComparativeMatrixReport, ModelComparisonResult, MultiAgentService,
+};
+pub use domain::debate::{DebateParticipant, DebateRole, DebateSession, DebateTurn};
 pub use domain::supervision::SupervisionPolicy;
 pub use adapters::inference::hermes_process_supervisor::{
     ProcessHermesGateway, read_hermes_api_key,
