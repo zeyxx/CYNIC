@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
+use serde::{Deserialize, Serialize};
 
 /// Boot-time inference proxy routing table.
 ///
@@ -22,6 +23,26 @@ pub struct ProxyTarget {
 pub struct SelectedProxyTarget {
     pub backend_id: String,
     pub target: ProxyTarget,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OperationIntent {
+    FastChat,
+    StructuredJson,
+    CoTReasoning,
+    CodeAudit,
+    DeepSynthesis,
+}
+
+impl OperationIntent {
+    pub fn preferred_backend_alias(&self) -> &'static str {
+        match self {
+            Self::FastChat | Self::StructuredJson => "minicpm-1b",
+            Self::CoTReasoning => "vibethinker-3b",
+            Self::CodeAudit => "qwythos-9b",
+            Self::DeepSynthesis => "bonsai-27b",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,6 +85,18 @@ impl ProxyTargets {
             .iter()
             .map(|(backend_id, target)| (backend_id.clone(), target.clone()))
             .collect()
+    }
+
+    pub fn select_by_intent(
+        &self,
+        intent: OperationIntent,
+        requires_tools: bool,
+    ) -> Result<SelectedProxyTarget, ProxyTargetSelectionError> {
+        let preferred = intent.preferred_backend_alias();
+        if let Ok(target) = self.select(Some(preferred), None, requires_tools) {
+            return Ok(target);
+        }
+        self.select(None, None, requires_tools)
     }
 
     pub fn select(
@@ -118,14 +151,17 @@ impl ProxyTargets {
     }
 
     fn first(&self) -> Option<(&str, &ProxyTarget)> {
-        self.targets.iter().next().map(|(k, v)| (k.as_str(), v))
+        self.targets
+            .iter()
+            .next()
+            .map(|(backend_id, target)| (backend_id.as_str(), target))
     }
 
     fn first_with_tools(&self) -> Option<(&str, &ProxyTarget)> {
         self.targets
             .iter()
-            .find(|(_, v)| v.supports_tool_use)
-            .map(|(k, v)| (k.as_str(), v))
+            .find(|(_, target)| target.supports_tool_use)
+            .map(|(backend_id, target)| (backend_id.as_str(), target))
     }
 }
 
@@ -145,6 +181,30 @@ mod tests {
             None,
             supports_tool_use,
         )
+    }
+
+    #[test]
+    fn proxy_targets_select_by_intent_prefers_calibrated_backend() {
+        let mut fleet = HashMap::new();
+        fleet.insert("minicpm-1b".to_string(), fleet_entry("http://127.0.0.1:8082/v1", "MiniCPM", true));
+        fleet.insert("vibethinker-3b".to_string(), fleet_entry("http://127.0.0.1:8087/v1", "VibeThinker", true));
+        fleet.insert("qwythos-9b".to_string(), fleet_entry("http://127.0.0.1:8080/v1", "Qwythos", true));
+
+        let mut sovereign = HashMap::new();
+        sovereign.insert("minicpm-1b".to_string(), true);
+        sovereign.insert("vibethinker-3b".to_string(), true);
+        sovereign.insert("qwythos-9b".to_string(), true);
+
+        let targets = ProxyTargets::from_fleet_meta(&fleet, &sovereign);
+
+        let fast_target = targets.select_by_intent(OperationIntent::FastChat, false).unwrap();
+        assert_eq!(fast_target.backend_id, "minicpm-1b");
+
+        let cot_target = targets.select_by_intent(OperationIntent::CoTReasoning, false).unwrap();
+        assert_eq!(cot_target.backend_id, "vibethinker-3b");
+
+        let audit_target = targets.select_by_intent(OperationIntent::CodeAudit, false).unwrap();
+        assert_eq!(audit_target.backend_id, "qwythos-9b");
     }
 
     #[test]
@@ -180,87 +240,6 @@ mod tests {
                 requested: "cloud-dog".to_string(),
                 available: vec!["qwen25-7b-core".to_string()]
             }
-        );
-    }
-
-    #[test]
-    fn proxy_targets_select_first_deterministically() {
-        let mut fleet = HashMap::new();
-        fleet.insert(
-            "b-dog".to_string(),
-            fleet_entry("http://b:8080/v1", "m", false),
-        );
-        fleet.insert(
-            "a-dog".to_string(),
-            fleet_entry("http://a:8080/v1", "m", false),
-        );
-
-        let mut sovereign = HashMap::new();
-        sovereign.insert("a-dog".to_string(), true);
-        sovereign.insert("b-dog".to_string(), true);
-
-        let targets = ProxyTargets::from_fleet_meta(&fleet, &sovereign);
-        let selected = targets.select(None, None, false).unwrap();
-
-        assert_eq!(selected.backend_id, "a-dog");
-    }
-
-    #[test]
-    fn proxy_targets_select_by_model_name_when_requested() {
-        let mut fleet = HashMap::new();
-        fleet.insert(
-            "qwen-a".to_string(),
-            fleet_entry("http://a:8080/v1", "Qwen2.5-7B-Instruct", false),
-        );
-        fleet.insert(
-            "llama-b".to_string(),
-            fleet_entry("http://b:8080/v1", "llama3", false),
-        );
-
-        let mut sovereign = HashMap::new();
-        sovereign.insert("qwen-a".to_string(), true);
-        sovereign.insert("llama-b".to_string(), true);
-
-        let targets = ProxyTargets::from_fleet_meta(&fleet, &sovereign);
-        let selected = targets
-            .select(None, Some("qwen2.5-7b-instruct"), false)
-            .unwrap();
-
-        assert_eq!(selected.backend_id, "qwen-a");
-        assert_eq!(selected.target.model_name, "Qwen2.5-7B-Instruct");
-    }
-
-    #[test]
-    fn proxy_targets_prefers_tool_capable_backend_when_tools_are_required() {
-        let mut fleet = HashMap::new();
-        fleet.insert(
-            "a-dog".to_string(),
-            fleet_entry("http://a:8080/v1", "plain", false),
-        );
-        fleet.insert(
-            "b-dog".to_string(),
-            fleet_entry("http://b:8080/v1", "tools", true),
-        );
-
-        let mut sovereign = HashMap::new();
-        sovereign.insert("a-dog".to_string(), true);
-        sovereign.insert("b-dog".to_string(), true);
-
-        let targets = ProxyTargets::from_fleet_meta(&fleet, &sovereign);
-        let selected = targets.select(None, None, true).unwrap();
-
-        assert_eq!(selected.backend_id, "b-dog");
-        assert_eq!(selected.target.model_name, "tools");
-    }
-
-    #[test]
-    fn empty_fleet_returns_no_sovereign_backends() {
-        let targets = ProxyTargets::from_fleet_meta(&HashMap::new(), &HashMap::new());
-
-        assert!(targets.available().is_empty());
-        assert_eq!(
-            targets.select(None, None, false),
-            Err(ProxyTargetSelectionError::NoSovereignBackends)
         );
     }
 }

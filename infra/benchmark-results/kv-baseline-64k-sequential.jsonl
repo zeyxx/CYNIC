@@ -1,0 +1,2 @@
+{"alias": "minicpm-1b-q8", "model_path": "/home/user/.local/share/cynic/models/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q8_0.gguf", "kv_type": "q8_0", "pp_tok_s": 584.92, "tg_tok_s": 35.83, "timestamp": "2026-08-06T02:51:57Z"}
+{"alias": "minicpm-1b-q8", "model_path": "/home/user/.local/share/cynic/models/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q8_0.gguf", "kv_type": "f16", "pp_tok_s": 665.83, "tg_tok_s": 38.86, "timestamp": "2026-08-06T02:52:10Z"}
