@@ -18,6 +18,7 @@ pub mod profile_bootstrap;
 pub mod proxy_routing;
 pub mod routing_policy;
 pub mod runtime_planner;
+pub mod model_process_pool;
 pub mod multi_agent_service;
 pub mod summarization_service;
 pub mod vault_consolidate;

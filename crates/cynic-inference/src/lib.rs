@@ -14,6 +14,9 @@ pub mod progress;
 pub use adapters::discovery::model_registry::InMemoryModelRegistry;
 pub use adapters::hf::HfCliAdapter;
 pub use adapters::inference::harness_executor::HttpHarnessExecutor;
+pub use application::model_process_pool::{
+    ActivePoolSlot, ModelPoolReport, ModelProcessPool,
+};
 pub use application::multi_agent_service::{
     ComparativeMatrixReport, ModelComparisonResult, MultiAgentService,
 };
