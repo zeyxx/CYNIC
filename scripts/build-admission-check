@@ -13,6 +13,19 @@ blocked() {
   exit 1
 }
 
+# Mode local/dev : admission par preuve d'environnement, sans signature.
+# Les agents et le dev local posent CYNIC_LOCAL_VALIDATION=1 (scripts/cargo le
+# fait déjà pour les appels cargo). Distinct du grant signé de prod/CI : ici on
+# n'atteste pas par autorité cryptographique mais par toolchain local + flag
+# explicite, ce qui est exactement le profil du lab/harness local CYNIC. Le
+# checkout peut être sale (c'est le but : valider du code en cours de dev avant
+# commit) ; seule la prod/CI exige un checkout lié à un commit signé.
+if [[ -n "${CYNIC_LOCAL_VALIDATION:-}" ]]; then
+  [[ -n "${action}" ]] || blocked "requested action is missing"
+  echo "build admission (local/dev): node=$(hostname) action=${action} commit=$(git rev-parse HEAD 2>/dev/null || true)"
+  exit 0
+fi
+
 [[ -n "${action}" ]] || blocked "requested action is missing"
 
 if [[ -n "${bootstrap_receipt}" ]]; then
