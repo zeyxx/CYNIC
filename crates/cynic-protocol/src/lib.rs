@@ -386,3 +386,5 @@ pub use workload_identity::{
     reconcile_workload_identity,
 };
 pub mod agent_connection;
+pub mod agentic_tool_call;
+pub mod solana_ops;

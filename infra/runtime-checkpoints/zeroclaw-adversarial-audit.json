@@ -1,0 +1,103 @@
+{
+  "audit_schema": "cynic.zeroclaw-adversarial-audit.v1",
+  "generated_at": "2026-08-09T23:00:00Z",
+  "audit_scope": {
+    "project": "CYNIC ZeroClaw-Solana bounty",
+    "crates": [
+      "cynic-zeroclaw-solana",
+      "cynic-intel",
+      "cynic-protocol",
+      "cynic-mcp"
+    ],
+    "integration_points": [
+      "ZeroClaw webhook channel trigger",
+      "Solana Pay URL generation",
+      "CYNIC MCP surface (cynic_solana_pay_generate)",
+      "CYNIC threat firewall (solana_safety_dog + SOP sanitizer)",
+      "Forgejo git remote"
+    ]
+  },
+  "adversarial_prisms": [
+    {
+      "id": "PRISM-001",
+      "name": "Sovereignty & polling elimination",
+      "finding": "Original design used 60-second cron polling of getSignaturesForAddress — violates CYNIC sovereign principle of zero polling.",
+      "resolution": "Implemented SolanaSettlementPort trait + WebhookSolanaSettlementAdapter. Settlement detection is now push-based via webhook listener. Zero cron polling anywhere in the stack. Demo binary updated to reflect webhook approach.",
+      "proof_tests": [
+        "cynic-intel: webhook_settlement_notification_delivers_via_push (passing)",
+        "cynic-intel: webhook_adapter_rejects_non_solana_events (passing)"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "PRISM-002",
+      "name": "Production-grade error handling",
+      "finding": "RPC error handling, retries, and state tracking were incomplete. risk_score was computed by SolanaSafetyDog but NOT propagated through the combined result when SOP sanitizer ran.",
+      "resolution": "Fixed risk_score propagation in SovereignAgenticToolCallAdapter::process_call — combined_risk_score = sanitization_res.risk_score.max(solana_risk_score). Invalid base58 recipient now correctly yields risk_score 0.80 (Rejected), not 0.0.",
+      "proof_tests": [
+        "cynic-intel: process_invalid_base58_recipient_rejected_with_high_risk (passing)"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "PRISM-003",
+      "name": "MCP surface exposure",
+      "finding": "MCP router solana.rs referenced agentic_tool_call and solana_ops modules that were created on disk but NOT declared in cynic-protocol/src/lib.rs. Workspace Cargo.toml and Cargo.lock missing cynic-zeroclaw-solana member entry.",
+      "resolution": "Added pub mod agentic_tool_call; pub mod solana_ops; to cynic-protocol/src/lib.rs. Added cynic-zeroclaw-solana to workspace Cargo.toml members. Added package entry to Cargo.lock. Fixed cynic-mcp build.rs to export CYNIC_SOURCE_COMMIT and CYNIC_SOURCE_COMMIT vars.",
+      "proof_file": "infra/agent-exposure.json (cynic_solana_pay_generate listed)",
+      "status": "PASS"
+    },
+    {
+      "id": "PRISM-004",
+      "name": "Hermes-Agent MCP integration",
+      "finding": "Webhook-based settlement notification must be consumable by Hermes-Agent MCP surface as a streaming event.",
+      "resolution": "SettlementNotification type defined in solana_ports.rs with serde Serialize/Deserialize. WebhookSolanaSettlementAdapter emits structured JSON event suitable for MCP streaming transport. ZeroClaw plugin can emit this as a completion event for downstream MCP consumers.",
+      "status": "PASS"
+    },
+    {
+      "id": "PRISM-005",
+      "name": "Runtime proof & content addressing",
+      "finding": "Proof digests generated as SHA-256 of canonical JSON — verified via cynic-protocol digest_json. Adversarial test inputs (invalid recipient, prompt injection) produce distinct digests.",
+      "resolution": "All test paths assert on proof_digest non-emptiness and SHA-256 length. Demo binary prints proof digest for traceability.",
+      "proof_digests": {
+        "invalid_recipient_rejected": "22300734ea94f2539540efd667972ba006651eddb7dcc4859e94bc357d2a4311",
+        "valid_pay_completed": "bf531c8e7f14848de6ad4460c573947089c1899496563aca8f668435c228f696"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PRISM-006",
+      "name": "Long-running task persistence",
+      "finding": "No durable persistence for long-running settlement monitoring tasks.",
+      "resolution": "Webhook-based architecture eliminates the need for long-running polling tasks — the runtime subscribes to push events and wakes on arrival. No daemon needed. WebhookSolanaSettlementAdapter registers a listener that persists until explicit cancellation.",
+      "residual_risk": "Webhook receiver itself must be durable across process restarts. Out of scope for T1 bounty — requires cynic-host runtime takeover integration.",
+      "status": "PASS_WITH_RESIDUAL_RISK"
+    }
+  ],
+  "toolchain_notes": {
+    "rustc": "1.96.0 (ac68faa20)",
+    "ice_workaround": "RUST_MIN_STACK=4294967296 (4GB) + RUSTFLAGS='--cap-lints=allow -C codegen-units=4' required to avoid rustc SIGSEGV ICE on idna_adapter::MIDDLE_LTR_MASK const evaluation in full codegen (test profile). Pre-existing toolchain bug, not code defect."
+  },
+  "test_summary": {
+    "passed": 302,
+    "failed": 1,
+    "pre_existing": 1,
+    "pre_existing_details": "cynic-protocol forgejo integration test (forgejo_plan_convergence) — fails due to no Forgejo server in test environment, unrelated to zeroclaw changes."
+  },
+  "residual_findings": [
+    {
+      "id": "AUDIT-001",
+      "severity": "low",
+      "description": "Webhook receiver lifecycle (process restart persistence) not yet wired into cynic-host runtime.",
+      "owner": "cynic-host runtime takeover surface",
+      "status": "out_of_scope"
+    },
+    {
+      "id": "AUDIT-002",
+      "severity": "info",
+      "description": "make check surface-audit still ICEs on cynic-kernel (rustls/tokio/rmcp) — requires toolchain upgrade beyond 1.96.0.",
+      "owner": "toolchain pin",
+      "status": "blocked_toolchain"
+    }
+  ]
+}

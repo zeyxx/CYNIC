@@ -1,0 +1,23 @@
+[package]
+name = "cynic-zeroclaw-solana"
+version = "0.1.0"
+edition = "2024"
+description = "Sovereign Solana-native plugin and threat firewall for ZeroClaw agents"
+
+[dependencies]
+cynic-intel = { path = "../cynic-intel" }
+cynic-protocol = { path = "../cynic-protocol" }
+async-trait = "0.1"
+qrcodegen = "1.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+
+[[bin]]
+name = "zeroclaw-solana-demo"
+path = "src/bin/demo.rs"
+
+[lints]
+workspace = true
