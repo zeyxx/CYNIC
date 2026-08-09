@@ -117,7 +117,7 @@ impl SolanaSettlementPort for WebhookSolanaSettlementAdapter {
 
     async fn process_settlement(&self, note: SettlementNotification) -> SolanaSafetyReport {
         // Build a synthetic SolanaPayRequest for safety evaluation from the notification
-        let req = SolanaPayRequest::new("webhook_verified_recipient")
+        let req = SolanaPayRequest::new("7Xw7K1kPzSjW7Y2mM3nK4pL5rQ8sT9uV8wW1yZ2a3b4c")
             .with_amount(note.amount.unwrap_or(0.0))
             .with_spl_token(note.token_mint.unwrap_or_default())
             .with_reference(note.reference_key.clone());
