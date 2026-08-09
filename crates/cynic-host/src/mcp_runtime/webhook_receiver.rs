@@ -4,6 +4,7 @@
 //! pattern), this module registers an HTTP listener that receives Solana
 //! webhook events directly. Zero polling anywhere in the settlement stack.
 
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
@@ -48,7 +49,7 @@ pub struct WebhookSettlementMonitor {
 impl SettlementNotification {
     /// Build a notification from raw webhook payload fields.
     pub fn new(reference: String, signature: String, slot: u64, lamports: u64) -> Self {
-        let timestamp = chrono::DateTime::from(SystemTime::now())
+        let timestamp: String = chrono::DateTime::<Utc>::from(SystemTime::now())
             .to_rfc3339();
         Self {
             schema: SETTLEMENT_NOTIFICATION_SCHEMA,

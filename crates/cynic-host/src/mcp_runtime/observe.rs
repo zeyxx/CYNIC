@@ -1,4 +1,7 @@
-use cynic_protocol::{RuntimeCompatibilityPlan, RuntimeCompatibilityStatus, runtime_compatibility_actions};
+use cynic_protocol::{
+    RuntimeCompatibilityPlan, RuntimeCompatibilityStatus,
+    runtime_compatibility::runtime_compatibility_actions,
+};
 
 use crate::update_lifecycle::ArgvRunner;
 

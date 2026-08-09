@@ -77,10 +77,10 @@ impl ArgvRunner for MapArgvRunner {
             }
         }
         ArgvOutput {
-            exit_code: Some(127),
+            exit_code: None,
             stdout: String::new(),
             stderr: format!("MapArgvRunner: no stub for {argv:?}"),
-            spawn_error: None,
+            spawn_error: Some(format!("MapArgvRunner: no stub for {argv:?}")),
         }
     }
 }
