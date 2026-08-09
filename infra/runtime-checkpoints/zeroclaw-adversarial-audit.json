@@ -51,7 +51,7 @@
       "id": "PRISM-004",
       "name": "Hermes-Agent MCP integration",
       "finding": "Webhook-based settlement notification must be consumable by Hermes-Agent MCP surface as a streaming event.",
-      "resolution": "SettlementNotification type defined in solana_ports.rs with serde Serialize/Deserialize. WebhookSolanaSettlementAdapter emits structured JSON event suitable for MCP streaming transport. ZeroClaw plugin can emit this as a completion event for downstream MCP consumers.",
+      "resolution": "SettlementNotification + WebhookSettlementMonitor types defined in cynic-host/src/mcp_runtime/webhook_receiver.rs (new module: mod webhook_receiver in mcp_runtime/mod.rs) with serde Serialize/Deserialize. Push-based webhook receiver eliminates cron polling. ZeroClaw plugin emits this as a completion event for downstream MCP consumers.",
       "status": "PASS"
     },
     {
