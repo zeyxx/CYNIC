@@ -313,7 +313,7 @@ mod tests {
             ForgejoActionKind::VerifyGitSshAuthentication
         );
         assert!(plan.actions[0].requires_human_admin_secret);
-        assert!(!plan.actions[2].mutates);
+        assert!(!plan.actions[4].mutates);
     }
 
     #[test]
