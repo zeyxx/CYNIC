@@ -13,6 +13,7 @@ cynic-inference = { path = "../cynic-inference" }
 cynic-node = { path = "../cynic-node" }
 cynic-observer = { path = "../cynic-observer" }
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-zeroclaw-solana = { path = "../cynic-zeroclaw-solana" }
 rmcp = { version = "=3.1.0", features = ["server", "transport-io", "transport-streamable-http-server", "macros"] }
 axum = "0.8"
 reqwest = { version = "0.12", features = ["json"] }

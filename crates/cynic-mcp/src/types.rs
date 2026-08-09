@@ -522,3 +522,4 @@ include!("types_split/fleet.rs");
 include!("types_split/storage.rs");
 include!("types_split/identity.rs");
 include!("types_split/inference.rs");
+include!("types_split/solana_sop.rs");
