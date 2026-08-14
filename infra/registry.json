@@ -42,7 +42,9 @@
     {
       "id": "cynic-host-proxmox",
       "name": "cynic-host-proxmox",
-      "aliases": ["pve"],
+      "aliases": [
+        "pve"
+      ],
       "role": "hypervisor",
       "status": "observed",
       "deploy_target": false,
@@ -70,7 +72,9 @@
           "connection": "Connexion filaire 1",
           "address": "192.168.100.2/24",
           "gateway": "192.168.100.1",
-          "routes": ["10.10.10.0/24"],
+          "routes": [
+            "10.10.10.0/24"
+          ],
           "default_route": false
         }
       ],
@@ -254,6 +258,22 @@
         "cynic-mcp",
         "cynic"
       ]
+    }
+  },
+  "vertical_contracts": {
+    "schema": "cynic.vertical_contract_registry.v1",
+    "temporal": {
+      "id": "temporal",
+      "desired_state": "consistent logical epoch progression with checkpoint certification across all federated nodes",
+      "observer": "EpochClock probe, WAL epoch markers, federation EpochCertificate gossip",
+      "reconciliation": "admit only EpochCertificates with epoch > observed_epoch; reject divergent epoch views",
+      "bounded_action": "advance local Epoch by EpochCertificate or request rollback from peer with higher certified epoch",
+      "read_back_proof": "WAL epoch marker persisted, RuntimeProof.evidence[].epoch populated, TemporalSnapshot recoverable via replay_from_epoch",
+      "owner": [
+        "cynic-observer",
+        "cynic-protocol"
+      ],
+      "coverage": "partial"
     }
   }
 }

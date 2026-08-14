@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "schema": "cynic.registry.v1.minimal",
+  "purpose": "Home Fiber Sovereign Node Placement Registry for CYNIC.",
+  "network_policy": {
+    "canonical_service_plane": "synapse",
+    "public_ingress": {
+      "ipv4": "82.65.26.228",
+      "wireguard_port": 51820,
+      "ssh_port": 22,
+      "observed_latency_ms": 18
+    },
+    "planes": {
+      "management": {
+        "cidr": "192.168.1.0/24",
+        "canonical": false,
+        "purpose": "home lan underlay"
+      },
+      "synapse": {
+        "cidr": "10.10.10.0/24",
+        "dns_zone": "synapse.cynic",
+        "canonical": true
+      }
+    },
+    "reservations": [
+      {
+        "name": "cynic-host-proxmox",
+        "addresses": {
+          "management": "192.168.1.200",
+          "synapse": "10.10.10.1"
+        }
+      },
+      {
+        "name": "forgejo",
+        "addresses": {
+          "synapse": "10.10.10.101"
+        },
+        "dns": ["forgejo.synapse.cynic"]
+      },
+      {
+        "name": "surrealdb",
+        "addresses": {
+          "synapse": "10.10.10.10"
+        },
+        "dns": ["db.synapse.cynic"]
+      },
+      {
+        "name": "nomad-operator-laptop",
+        "addresses": {
+          "synapse": "10.10.10.50"
+        }
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "cynic-host-proxmox",
+      "name": "cynic-host-proxmox",
+      "aliases": ["pve"],
+      "role": "hypervisor",
+      "status": "active",
+      "deploy_target": true,
+      "network": {
+        "management": "192.168.1.200",
+        "synapse": "10.10.10.1",
+        "public_ingress": "82.65.26.228:51820"
+      },
+      "services": ["forgejo", "surrealdb", "llama-server"]
+    }
+  ]
+}

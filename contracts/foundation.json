@@ -17,7 +17,7 @@
       "canonical Rust crates",
       "infra/agent-exposure.json"
     ],
-      "hard_boundaries": [
+    "hard_boundaries": [
       {
         "name": "low_layer_first",
         "rule": "Kernel, host, node, protocol, MCP, CLI, storage, and service supervision take precedence over UX and product layers."
@@ -79,8 +79,6 @@
       "validate_gate": "MCP tool cynic_validate runs `make check` only — no parallel fmt/build/clippy/test stack",
       "policy": "Expose every currently implemented Rust MCP tool with domain and tier labels. Keep projections portable (no committed machine-local absolute paths). Legacy Python proxies are not valid exposure. docs/ prose is historical and not runtime authority. Agent validation must share the same gate as operators (`make check`)."
     },
-
-
     "infra_retention": {
       "keep_rule": "Keep infra files that deploy, secure, configure, or inspect the active low-layer runtime.",
       "delete_rule": "Delete committed runtime snapshots, UX containers, organ remnants, and provider experiments unless they are required by registry or systemd."
@@ -95,10 +93,30 @@
         "schema": "cynic.vertical_contract_catalog.v1",
         "rule": "Every runtime vertical must name desired state, observation, reconciliation, bounded action, read-back proof, owner, and coverage. Unknown coverage is data and cannot be promoted to success.",
         "catalog_owner": "cynic-protocol::FrameworkSpec",
-        "coverage_values": ["partial", "complete", "unknown", "blocked"],
+        "coverage_values": [
+          "partial",
+          "complete",
+          "unknown",
+          "blocked"
+        ],
         "required_verticals": [
-          "process", "principal", "filesystem", "source", "build", "artifact", "service", "host_os",
-          "network", "node", "provider", "orchestrator", "project", "fleet", "federation", "human_boundary"
+          "process",
+          "principal",
+          "filesystem",
+          "source",
+          "build",
+          "artifact",
+          "service",
+          "host_os",
+          "network",
+          "node",
+          "provider",
+          "orchestrator",
+          "project",
+          "fleet",
+          "federation",
+          "human_boundary",
+          "temporal"
         ]
       },
       "future_distributed_proof": [
