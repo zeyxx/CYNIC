@@ -22,6 +22,7 @@ pub struct FederationBehaviour {
 pub struct FederationNode {
     pub swarm: Swarm<FederationBehaviour>,
     pub gossip_topic: gossipsub::IdentTopic,
+    pub epoch_topic: gossipsub::IdentTopic,
 }
 
 impl core::fmt::Debug for FederationBehaviour {

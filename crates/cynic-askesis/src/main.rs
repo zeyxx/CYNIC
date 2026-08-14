@@ -9,6 +9,7 @@ use cynic_askesis::log::jsonl::JsonlLog;
 use std::path::PathBuf;
 
 mod eval_cli;
+mod experiment_cli;
 
 #[derive(Parser)]
 #[command(name = "cynic-askesis")]
@@ -65,6 +66,8 @@ enum Command {
     },
     /// Run a reproducible agent evaluation against an OpenAI-compatible endpoint
     Eval(eval_cli::EvalArgs),
+    /// Plan or execute provider-agnostic experimental pipelines
+    Experiment(experiment_cli::ExperimentArgs),
 }
 
 #[tokio::main]
@@ -178,5 +181,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(())
         }
         Command::Eval(args) => eval_cli::run(args).await,
+        Command::Experiment(args) => experiment_cli::run(args),
     }
 }
