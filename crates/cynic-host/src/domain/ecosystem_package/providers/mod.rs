@@ -14,7 +14,7 @@ use crate::domain::ecosystem_package::types::{
 };
 use crate::domain::ecosystem_package::{apply_package_plan, provider_spec, python_cli_policy};
 
-use self::distro::{DOCKER, SYSTEMD};
+use self::distro::{DOCKER, SYSTEMD, WIREGUARD_TOOLS};
 use self::external::{CARGO, CLAUDE_CODE, CODEX_CLI, HERMES_AGENT, HUGGINGFACE_CLI, RUSTC, UV};
 use self::llama_cpp::LlamaCppProvider;
 use self::ods::OdsProvider;
@@ -36,6 +36,7 @@ pub fn provider(id: &str) -> Option<&'static dyn EcosystemPackageProvider> {
         "cargo" => Some(&CARGO),
         "docker" => Some(&DOCKER),
         "systemd" => Some(&SYSTEMD),
+        "wireguard-tools" => Some(&WIREGUARD_TOOLS),
         _ => None,
     }
 }

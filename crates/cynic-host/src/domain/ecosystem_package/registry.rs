@@ -112,6 +112,12 @@ pub fn ecosystem_provider_specs() -> &'static [EcosystemProviderSpec] {
             principal: InstallPrincipalKind::SystemManaged,
             role: "service_manager",
         },
+        EcosystemProviderSpec {
+            id: "wireguard-tools",
+            channel: ProviderChannel::DistroManaged,
+            principal: InstallPrincipalKind::SystemManaged,
+            role: "synapse_p2p_mesh_actuator",
+        },
     ]
 }
 

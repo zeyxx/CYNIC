@@ -50,3 +50,8 @@ pub static SYSTEMD: DistroManagedProvider = DistroManagedProvider {
     id: "systemd",
     summary: "service manager (distro upgrade)",
 };
+
+pub static WIREGUARD_TOOLS: DistroManagedProvider = DistroManagedProvider {
+    id: "wireguard-tools",
+    summary: "synapse P2P mesh network tools (apt/dnf install wireguard-tools)",
+};
