@@ -1,7 +1,7 @@
 use cynic_observer::delegation::{ArgoNode, DelegationEngine, SwarmRegistry};
-use cynic_protocol::Epoch;
 use cynic_observer::parser::PumpFunAction;
 use cynic_observer::signal_mapper::map_action;
+use cynic_protocol::Epoch;
 
 #[test]
 fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
@@ -21,7 +21,7 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     };
 
     // Le Watcher / Mapper traduit en signaux (volume > 0.1 SOL donc non filtré)
-    let mapped = map_action(&action, now);
+    let mapped = map_action(&action, now, Epoch::new(0));
     assert!(!mapped.token_signals.is_empty());
     println!(
         "✓ Action Pump.fun (5 SOL) traduite en {} signaux E-Score",
@@ -151,7 +151,7 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
         is_buy: true,
     };
 
-    let mapped_micro = map_action(&micro_trade, now);
+    let mapped_micro = map_action(&micro_trade, now, Epoch::new(0));
     // Le mapper doit rejeter le micro-volume pour ne générer aucun signal E-score.
     assert!(
         mapped_micro.token_signals.is_empty(),

@@ -1,4 +1,5 @@
 pub mod agent_recursion;
+pub mod anchor_client;
 pub mod artifact_release;
 pub mod audit;
 pub mod build;

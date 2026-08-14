@@ -10,6 +10,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use cynic_protocol::Epoch;
+
 /// Le comportement réseau (Behavior) qui combine mDNS (découverte locale),
 /// Gossipsub (diffusion des messages) et Kademlia (Registre DHT distribué).
 #[derive(NetworkBehaviour)]
@@ -22,7 +24,16 @@ pub struct FederationBehaviour {
 pub struct FederationNode {
     pub swarm: Swarm<FederationBehaviour>,
     pub gossip_topic: gossipsub::IdentTopic,
+    /// Topic dédié au gossip des epoch certificates entre pairs P2P.
     pub epoch_topic: gossipsub::IdentTopic,
+    /// Clé d'élection pour signer les epoch certificates (élection de leader).
+    pub election_key: libp2p::identity::Keypair,
+    /// PeerId public associé à la clé d'élection.
+    pub election_pubkey: libp2p::identity::PublicKey,
+    /// Epoch logique courant du nœud.
+    pub current_epoch: cynic_protocol::Epoch,
+    /// Timestamp de la dernière diffusion d'epoch certificate.
+    pub last_epoch_broadcast: std::time::Instant,
 }
 
 impl core::fmt::Debug for FederationBehaviour {
@@ -99,20 +110,70 @@ impl FederationNode {
 
         // 3. Définition du Topic d'échange
         let gossip_topic = gossipsub::IdentTopic::new("cynic-odysseum-pumpfun-events");
+        let epoch_topic = gossipsub::IdentTopic::new("cynic-odysseum-epoch-certificates");
+
+        // 4. Génération de la clé de l'élection pour signer les epoch certificates
+        let election_key = identity::Keypair::generate_ed25519();
+        let election_pubkey = election_key.public();
 
         Ok(Self {
             swarm,
             gossip_topic,
+            epoch_topic,
+            election_key,
+            election_pubkey,
+            current_epoch: Epoch::ZERO,
+            last_epoch_broadcast: std::time::Instant::now(),
         })
     }
 
-    /// Lance le nœud P2P et s'abonne au topic de la fédération
+    /// Retourne l'epoch logique actuel du nœud.
+    pub fn current_epoch(&self) -> Epoch {
+        self.current_epoch
+    }
+
+    /// Publie un EpochCertificate sur le réseau via Gossipsub.
+    pub fn broadcast_epoch_certificate(
+        &mut self,
+        cert: &cynic_protocol::EpochCertificate,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let data = serde_json::to_vec(cert)?;
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .publish(self.epoch_topic.clone(), data)?;
+        Ok(())
+    }
+
+    /// Génère et broadcast un EpochCertificate pour l'epoch courant.
+    pub fn announce_epoch(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let cert = cynic_protocol::EpochCertificate {
+            epoch: self.current_epoch,
+            producer_id: self.election_pubkey.to_peer_id().to_string(),
+            proof_of_progress: format!("blockhash:{}:slot:{}", self.current_epoch.id(), self.current_epoch.id()),
+            signed_at_unix_ms: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0),
+        };
+        self.current_epoch = self.current_epoch.next();
+        self.broadcast_epoch_certificate(&cert)?;
+        self.last_epoch_broadcast = std::time::Instant::now();
+        log::info!("📢 Epoch {} annoncé sur le réseau P2P", cert.epoch.id());
+        Ok(())
+    }
+
+    /// Lance le nœud P2P et s'abonne aux topics de la fédération
     pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.swarm
             .behaviour_mut()
             .gossipsub
             .subscribe(&self.gossip_topic)?;
-
+        // S'abonner également au topic des epoch certificates
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .subscribe(&self.epoch_topic)?;
         // On écoute sur toutes les interfaces
         self.swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
         log::info!("🚀 Nœud Fédération (Kademlia+Gossip) Démarré.");
@@ -172,12 +233,31 @@ impl FederationNode {
                             message_id,
                             message,
                         })) => {
-                            log::info!(
-                                "✉️ P2P Gossipsub: Message reçu de {} (ID: {}): {:?}",
-                                propagation_source,
-                                message_id,
-                                String::from_utf8_lossy(&message.data)
-                            );
+                            // Vérifier si c'est un epoch certificate (topic epoch-certificates)
+                            if message.topic == Some(self.epoch_topic.hash()) {
+                                if let Ok(cert) = serde_json::from_slice::<cynic_protocol::EpochCertificate>(&message.data) {
+                                    // Valider et intégrer l'epoch certificate reçu
+                                    if cert.epoch.id() > self.current_epoch.id() {
+                                        self.current_epoch = cert.epoch;
+                                        log::info!(
+                                            "📥 Epoch certificate reçu de {} : epoch {} (nouveau max)",
+                                            propagation_source, cert.epoch.id()
+                                        );
+                                    }
+                                } else {
+                                    log::warn!(
+                                        "⚠️ Epoch certificate invalide reçu de {} (ID: {})",
+                                        propagation_source, message_id
+                                    );
+                                }
+                            } else {
+                                log::info!(
+                                    "✉️ P2P Gossipsub: Message reçu de {} (ID: {}): {:?}",
+                                    propagation_source,
+                                    message_id,
+                                    String::from_utf8_lossy(&message.data)
+                                );
+                            }
                         }
                         SwarmEvent::Behaviour(FederationBehaviourEvent::Kademlia(kad::Event::RoutingUpdated {
                             peer,

@@ -48,4 +48,3 @@ pub(crate) fn run(args: ExperimentArgs) -> Result<(), Box<dyn std::error::Error>
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
-

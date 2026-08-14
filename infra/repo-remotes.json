@@ -1,7 +1,8 @@
 {
   "schema": "cynic.repo_remotes.v1",
   "purpose": "Git placement authority for sovereignty: Forgejo is the candidate sovereign SSOT; GitHub is an optional public relay.",
-  "updated_at": "2026-07-22",
+  "updated_at": "2026-08-14",
+  "operator_context": "remote_offsite_github_relay_active",
   "remotes": [
     {
       "id": "forgejo",
@@ -22,8 +23,10 @@
       },
       "ssh_host_key_fingerprint": "SHA256:OJDMToiHPEVJ7QVdufmpjyP5EYm5aOtBvYG2qGEEQ88",
       "machine_key_fingerprint": "SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU",
-      "status_observed": "reachable_http_ui_git_auth_unavailable_noninteractive",
+      "status_observed": "remote_unreachable_offsite_github_relay_active",
       "notes": [
+        "Observed 2026-08-14: Operator working off-site outside Proxmox LAN; Forgejo endpoint unroutable from WAN without active VPN tunnel.",
+        "Public relay GitHub (origin) active, synchronized, and PR #327 merged.",
         "Wrong legacy URL used port 18300 — Forgejo serves on 3000.",
         "User jeanterre13 exists (active=false until first login).",
         "Push requires token or SSH key; empty public repo search returned no CYNIC clone.",

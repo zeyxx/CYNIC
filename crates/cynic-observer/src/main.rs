@@ -1,3 +1,4 @@
+use cynic_protocol::Epoch;
 use cynic_observer::parser::{PumpFunAction, PumpFunParser};
 use cynic_observer::watcher::Watcher;
 use log::{info, warn};
@@ -105,7 +106,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let current_epoch_shared = Arc::new(StdMutex::new(Epoch::ZERO));
 
     // 4. Démarrage de la boucle de Télémétrie et Preuves du Consensus en tâche de fond
-    use cynic_protocol::Epoch;
     let node_pubkey = std::env::var("CYNIC_NODE_PUBKEY")
         .unwrap_or_else(|_| "argo-sovereign-node-dev".to_string());
     let rpc_url_clone = rpc_url.clone();
@@ -286,10 +286,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     });
 
-    // Variable partagée pour l'epoch courant (accessible par la boucle principale)
-    use std::sync::Mutex as StdMutex;
-    let current_epoch_shared = Arc::new(StdMutex::new(Epoch::ZERO));
-
+    // Variable partagée pour l'epoch courant (déjà initialisée ci-dessus)
     info!("Le Cortex est en attente d'événements...");
 
     // Boucle principale du Cortex : réception et parsing

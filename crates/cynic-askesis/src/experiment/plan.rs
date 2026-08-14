@@ -88,8 +88,8 @@ mod tests {
             schema: "cynic.askesis.experiment.spec.v1".into(),
             id: "small-model-capabilities".into(),
             domains: vec![DomainSpec {
-                id: "wordle".into(),
-                task_kind: "interactive_search".into(),
+                id: "service-runtime".into(),
+                task_kind: "observe_reconcile_prove".into(),
             }],
             dimensions: vec![DimensionSpec {
                 id: "prompt".into(),
