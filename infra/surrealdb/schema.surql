@@ -16,6 +16,28 @@ DEFINE FIELD registered_at ON agent_session TYPE datetime PERMISSIONS FULL;
 
 DEFINE INDEX agent_session_active_idx ON agent_session FIELDS active;
 
+-- ── Agent task mempool ─────────────────────────────────────
+
+DEFINE TABLE agent_tasks TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD agent_id ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD claimed_by ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD completed_at ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD consumer ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD content ON agent_tasks TYPE string PERMISSIONS FULL;
+DEFINE FIELD created_at ON agent_tasks TYPE int | string PERMISSIONS FULL;
+DEFINE FIELD domain ON agent_tasks TYPE string PERMISSIONS FULL;
+DEFINE FIELD due_at ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD error ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD escalation_policy ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD kind ON agent_tasks TYPE string PERMISSIONS FULL;
+DEFINE FIELD priority ON agent_tasks TYPE option<int | null> PERMISSIONS FULL;
+DEFINE FIELD result ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD status ON agent_tasks TYPE string PERMISSIONS FULL;
+
+DEFINE INDEX agent_tasks_completed_idx ON agent_tasks FIELDS kind, domain, status, completed_at;
+DEFINE INDEX agent_tasks_pending_idx ON agent_tasks FIELDS kind, domain, status, created_at;
+
 -- ── Crystals (CCM pipeline) ─────────────────────────────────
 
 DEFINE TABLE crystal TYPE ANY SCHEMALESS PERMISSIONS NONE;
@@ -135,10 +157,30 @@ DEFINE FIELD active ON work_claim TYPE bool PERMISSIONS FULL;
 DEFINE FIELD agent_id ON work_claim TYPE string PERMISSIONS FULL;
 DEFINE FIELD claim_type ON work_claim TYPE string PERMISSIONS FULL;
 DEFINE FIELD claimed_at ON work_claim TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD lease_id ON work_claim TYPE string PERMISSIONS FULL;
+DEFINE FIELD fencing_token ON work_claim TYPE int PERMISSIONS FULL;
+DEFINE FIELD expires_at ON work_claim TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD completed_at ON work_claim TYPE option<datetime> PERMISSIONS FULL;
+DEFINE FIELD proof_ref ON work_claim TYPE option<string> PERMISSIONS FULL;
 DEFINE FIELD target ON work_claim TYPE string PERMISSIONS FULL;
 
 DEFINE INDEX work_claim_active_idx ON work_claim FIELDS active;
 DEFINE INDEX work_claim_target_idx ON work_claim FIELDS target;
+
+DEFINE TABLE runtime_proof_commit TYPE ANY SCHEMAFULL PERMISSIONS NONE;
+DEFINE FIELD proof_ref ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD schema ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD status ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD agent_id ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD target ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD lease_id ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD fencing_token ON runtime_proof_commit TYPE int PERMISSIONS FULL;
+DEFINE FIELD bundle ON runtime_proof_commit TYPE object FLEXIBLE PERMISSIONS FULL;
+DEFINE FIELD hash_algorithm ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD kernel_signature ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD created_at ON runtime_proof_commit TYPE datetime PERMISSIONS FULL;
+DEFINE INDEX runtime_proof_commit_ref_idx ON runtime_proof_commit FIELDS proof_ref UNIQUE;
+DEFINE INDEX runtime_proof_commit_target_idx ON runtime_proof_commit FIELDS target, created_at;
 
 -- ── Ouroboros nightly evaluation ────────────────────────────
 
@@ -192,3 +234,18 @@ DEFINE FIELD notes ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
 DEFINE INDEX ouroboros_repo_eval_run_idx ON ouroboros_repo_eval FIELDS run_id;
 DEFINE INDEX ouroboros_repo_eval_repo_idx ON ouroboros_repo_eval FIELDS repo_id;
 DEFINE INDEX ouroboros_repo_eval_created_idx ON ouroboros_repo_eval FIELDS created_at;
+
+-- ── RAG / National Library (Knowledge) ──────────────────────
+
+DEFINE TABLE knowledge TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD content ON knowledge TYPE string PERMISSIONS FULL;
+DEFINE FIELD decay_score ON knowledge TYPE float PERMISSIONS FULL;
+DEFINE FIELD source ON knowledge TYPE string PERMISSIONS FULL;
+DEFINE FIELD tags ON knowledge TYPE array PERMISSIONS FULL;
+DEFINE FIELD timestamp ON knowledge TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD embedding ON knowledge TYPE array PERMISSIONS FULL;
+
+DEFINE INDEX knowledge_source_idx ON knowledge FIELDS source;
+DEFINE INDEX knowledge_decay_idx ON knowledge FIELDS decay_score;
+DEFINE INDEX knowledge_vec_idx ON knowledge FIELDS embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32 EFC 150 M 12 M0 24 LM 0.40242960438184466f;

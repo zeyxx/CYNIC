@@ -9,8 +9,9 @@ mod types;
 
 pub use null::NullStorage;
 pub use types::{
-    AgentDispatch, AgentTask, AuditContext, Event, Observation, PRMetadata, RawEvent,
-    RawObservation, StorageError, StorageMetrics, SubmissionTaskContent, UsageRow,
+    AgentDispatch, AgentTask, AuditContext, Event, MeshNode, MeshRoute, Observation, PRMetadata,
+    ProofOfHistory, RawEvent, RawObservation, StorageError, StorageMetrics, SubmissionTaskContent,
+    UsageRow,
 };
 
 use crate::domain::ccm::Crystal;
@@ -101,7 +102,7 @@ pub trait CrystalStorage: Send + Sync {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         voter_count: usize,
         verdict_id: &str,
         verdict_kind: &str,
@@ -114,7 +115,7 @@ pub trait CrystalStorage: Send + Sync {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         source: &str,
         sentiment: Option<&str>,
     ) -> Result<(), StorageError>;
@@ -125,7 +126,7 @@ pub trait CrystalStorage: Send + Sync {
         id: &str,
         reason: &str,
         source: &str,
-        timestamp: &str,
+        timestamp: i64,
     ) -> Result<(), StorageError>;
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
@@ -198,6 +199,18 @@ pub trait ActivityStorage: Send + Sync {
         agent_id: Option<&str>,
         limit: u32,
     ) -> Result<Vec<RawObservation>, StorageError>;
+    // WHY: matches database schema, with contract-level filters for portable transport layers.
+    #[allow(clippy::too_many_arguments)]
+    async fn list_observations_filtered(
+        &self,
+        domain: Option<&str>,
+        agent_id: Option<&str>,
+        project: Option<&str>,
+        workstream: Option<&str>,
+        thread_id: Option<&str>,
+        target: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError>;
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
     async fn list_observations_by_target(
@@ -264,7 +277,6 @@ pub trait ActivityStorage: Send + Sync {
         &self,
         path_prefixes: &[String],
         exclude_agent: &str,
-        project_root: &str,
     ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError>;
 }
 
@@ -289,6 +301,7 @@ pub trait TaskStorage: Send + Sync {
         domain: Option<&str>,
         limit: u32,
     ) -> Result<Vec<AgentTask>, StorageError>;
+    async fn list_overdue_agent_tasks(&self, limit: u32) -> Result<Vec<AgentTask>, StorageError>;
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
     async fn claim_agent_task(&self, task_id: &str, agent_id: &str) -> Result<bool, StorageError>;
@@ -297,9 +310,22 @@ pub trait TaskStorage: Send + Sync {
     async fn update_agent_task_result(
         &self,
         task_id: &str,
+        agent_id: &str,
         result: Option<String>,
         error: Option<String>,
-    ) -> Result<(), StorageError>;
+    ) -> Result<bool, StorageError>;
+}
+
+#[async_trait]
+pub trait MeshStorage: Send + Sync {
+    /// Publish a mesh node's public key (IP is static).
+    async fn publish_mesh_key(
+        &self,
+        mesh_ip: &str,
+        public_key: &str,
+    ) -> Result<MeshNode, StorageError>;
+    async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError>;
+    async fn list_mesh_routes(&self) -> Result<Vec<MeshRoute>, StorageError>;
 }
 
 #[async_trait]
@@ -419,6 +445,18 @@ pub trait SubmissionStorage: Send + Sync {
     async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError>;
 }
 
+#[async_trait]
+pub trait ProofOfHistoryStorage: Send + Sync {
+    async fn store_proof_of_history(
+        &self,
+        poh: &crate::domain::storage::ProofOfHistory,
+    ) -> Result<String, StorageError>;
+    async fn list_proof_of_history(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::storage::ProofOfHistory>, StorageError>;
+}
+
 // ── COMPOSITE STORAGE PORT ──────────────────────────────────
 
 #[async_trait]
@@ -427,9 +465,11 @@ pub trait StoragePort:
     + CrystalStorage
     + ActivityStorage
     + TaskStorage
+    + MeshStorage
     + DispatchStorage
     + StateLogStorage
     + SubmissionStorage
+    + ProofOfHistoryStorage
 {
     /// Fast connectivity check — used by /health to verify DB is reachable.
     // WHY: matches database schema

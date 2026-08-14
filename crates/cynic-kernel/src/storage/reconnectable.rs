@@ -16,7 +16,8 @@ use crate::domain::coord::{
     AuditEntry, BatchClaimResult, ClaimResult, CoordError, CoordPort, CoordSnapshot,
 };
 use crate::domain::storage::{
-    ActivityStorage, CrystalStorage, DispatchStorage, Observation, RawObservation, StateLogStorage,
+    ActivityStorage, CrystalStorage, DispatchStorage, MeshNode, MeshRoute, MeshStorage,
+    Observation, ProofOfHistory, ProofOfHistoryStorage, RawObservation, StateLogStorage,
     StorageError, StorageMetrics, StoragePort, SubmissionStorage, TaskStorage, UsageRow,
     VerdictStorage,
 };
@@ -157,7 +158,7 @@ impl CrystalStorage for ReconnectableStorage {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         voter_count: usize,
         verdict_id: &str,
         verdict_kind: &str,
@@ -181,7 +182,7 @@ impl CrystalStorage for ReconnectableStorage {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         source: &str,
         sentiment: Option<&str>,
     ) -> Result<(), StorageError> {
@@ -194,7 +195,7 @@ impl CrystalStorage for ReconnectableStorage {
         id: &str,
         reason: &str,
         source: &str,
-        timestamp: &str,
+        timestamp: i64,
     ) -> Result<(), StorageError> {
         self.current()
             .shatter_crystal(id, reason, source, timestamp)
@@ -279,6 +280,22 @@ impl ActivityStorage for ReconnectableStorage {
             .list_observations_raw(domain, agent_id, limit)
             .await
     }
+    async fn list_observations_filtered(
+        &self,
+        domain: Option<&str>,
+        agent_id: Option<&str>,
+        project: Option<&str>,
+        workstream: Option<&str>,
+        thread_id: Option<&str>,
+        target: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError> {
+        self.current()
+            .list_observations_filtered(
+                domain, agent_id, project, workstream, thread_id, target, limit,
+            )
+            .await
+    }
     async fn list_observations_by_target(
         &self,
         domain: &str,
@@ -350,10 +367,9 @@ impl ActivityStorage for ReconnectableStorage {
         &self,
         path_prefixes: &[String],
         exclude_agent: &str,
-        project_root: &str,
     ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
         self.current()
-            .zone_activity(path_prefixes, exclude_agent, project_root)
+            .zone_activity(path_prefixes, exclude_agent)
             .await
     }
 }
@@ -386,18 +402,42 @@ impl TaskStorage for ReconnectableStorage {
             .list_completed_agent_tasks(kind, domain, limit)
             .await
     }
+    async fn list_overdue_agent_tasks(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
+        self.current().list_overdue_agent_tasks(limit).await
+    }
     async fn update_agent_task_result(
         &self,
         task_id: &str,
+        agent_id: &str,
         result: Option<String>,
         error: Option<String>,
-    ) -> Result<(), StorageError> {
+    ) -> Result<bool, StorageError> {
         self.current()
-            .update_agent_task_result(task_id, result, error)
+            .update_agent_task_result(task_id, agent_id, result, error)
             .await
     }
     async fn claim_agent_task(&self, task_id: &str, agent_id: &str) -> Result<bool, StorageError> {
         self.current().claim_agent_task(task_id, agent_id).await
+    }
+}
+
+#[async_trait]
+impl MeshStorage for ReconnectableStorage {
+    async fn publish_mesh_key(
+        &self,
+        mesh_ip: &str,
+        public_key: &str,
+    ) -> Result<MeshNode, StorageError> {
+        self.current().publish_mesh_key(mesh_ip, public_key).await
+    }
+    async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError> {
+        self.current().list_mesh_nodes().await
+    }
+    async fn list_mesh_routes(&self) -> Result<Vec<MeshRoute>, StorageError> {
+        self.current().list_mesh_routes().await
     }
 }
 
@@ -595,6 +635,17 @@ impl StoragePort for ReconnectableStorage {
     }
 }
 
+#[async_trait]
+impl ProofOfHistoryStorage for ReconnectableStorage {
+    async fn store_proof_of_history(&self, poh: &ProofOfHistory) -> Result<String, StorageError> {
+        self.current().store_proof_of_history(poh).await
+    }
+
+    async fn list_proof_of_history(&self, limit: u32) -> Result<Vec<ProofOfHistory>, StorageError> {
+        self.current().list_proof_of_history(limit).await
+    }
+}
+
 // ── ReconnectableCoord ──────────────────────────────────────
 
 /// CoordPort proxy — same pattern as ReconnectableStorage.
@@ -644,8 +695,24 @@ impl CoordPort for ReconnectableCoord {
     ) -> Result<ClaimResult, CoordError> {
         self.current().claim(agent_id, target, claim_type).await
     }
-    async fn release(&self, agent_id: &str, target: Option<&str>) -> Result<String, CoordError> {
-        self.current().release(agent_id, target).await
+    async fn renew_lease(
+        &self,
+        guard: &crate::domain::coord::LeaseGuard,
+    ) -> Result<crate::domain::coord::LeaseMutationResult, CoordError> {
+        self.current().renew_lease(guard).await
+    }
+    async fn release(
+        &self,
+        guard: &crate::domain::coord::LeaseGuard,
+    ) -> Result<crate::domain::coord::LeaseMutationResult, CoordError> {
+        self.current().release(guard).await
+    }
+    async fn finalize_lease(
+        &self,
+        guard: &crate::domain::coord::LeaseGuard,
+        proof: &crate::domain::lease_proof::ValidatedLeaseProof,
+    ) -> Result<crate::domain::coord::LeaseMutationResult, CoordError> {
+        self.current().finalize_lease(guard, proof).await
     }
     async fn who(&self, agent_id_filter: Option<&str>) -> Result<CoordSnapshot, CoordError> {
         self.current().who(agent_id_filter).await
@@ -662,10 +729,12 @@ impl CoordPort for ReconnectableCoord {
         &self,
         tool_filter: Option<&str>,
         agent_filter: Option<&str>,
+        since: Option<&str>,
+        until: Option<&str>,
         limit: u32,
     ) -> Result<Vec<AuditEntry>, CoordError> {
         self.current()
-            .query_audit(tool_filter, agent_filter, limit)
+            .query_audit(tool_filter, agent_filter, since, until, limit)
             .await
     }
     async fn heartbeat(&self, agent_id: &str) -> Result<(), CoordError> {

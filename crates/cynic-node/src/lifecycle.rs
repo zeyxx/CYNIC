@@ -11,8 +11,9 @@
 ///
 /// K18 compliance: Uses process-wrap for orphan safety in node lifecycle.
 use std::env;
-use std::process::{self, Command};
+use std::process;
 use std::time::Duration;
+use cynic_host::process_observation::reexec_current_process_with_env;
 use tracing;
 
 /// Self-healing context for node lifecycle management.
@@ -113,22 +114,12 @@ impl SelfHealingContext {
     /// This function calls `execve()` and does NOT return (process image is replaced).
     /// If exec fails, logs and exits.
     fn self_exec(&self) -> ! {
-        let exe = std::env::current_exe().unwrap_or_else(|e| {
-            tracing::error!("failed to get current executable path: {e}");
-            process::exit(1);
-        });
-
-        let args: Vec<_> = std::env::args().collect();
-
-        let mut cmd = Command::new(&exe);
-        // Pass through original arguments (--config, --mcp, etc.)
-        for arg in &args[1..] {
-            cmd.arg(arg);
-        }
-
         // Increment restart count for next iteration
         let next_count = self.restart_count + 1;
-        cmd.env("CYNIC_NODE_RESTART_COUNT", next_count.to_string());
+        let extra_env = std::collections::BTreeMap::from([(
+            "CYNIC_NODE_RESTART_COUNT".to_string(),
+            next_count.to_string(),
+        )]);
 
         tracing::info!(
             restart_count = self.restart_count,
@@ -136,7 +127,8 @@ impl SelfHealingContext {
             "executing self (replacing process image)"
         );
 
-        let err = cmd.exec(); // Never returns on success
+        let err = reexec_current_process_with_env(&extra_env)
+            .expect_err("reexec_current_process_with_env never returns on success");
         tracing::error!("failed to exec self: {err}");
         process::exit(1);
     }

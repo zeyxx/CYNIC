@@ -70,7 +70,7 @@ impl crate::domain::probe::Probe for PressureProbe {
         let io_psi = std::fs::read_to_string("/proc/pressure/io").ok();
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         // If none of the PSI files are readable, mark as unavailable.
         if cpu_psi.is_none() && mem_psi.is_none() && io_psi.is_none() {

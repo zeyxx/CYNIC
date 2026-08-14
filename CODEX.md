@@ -1,21 +1,19 @@
-# CYNIC — Codex Adapter Shim
+# CYNIC — Codex Adapter
 
-This file exists for discoverability. The shared protocol source of truth is `AGENTS.md`.
-
-Codex must read, in order:
+Read:
 
 1. `AGENTS.md`
-2. `.codex/CODEX-PROTOCOL.md`
-3. `.handoff.md` as dated context only
+2. `contracts/foundation.json`
+3. `infra/runtime-authority.json`
+4. `infra/registry.json`
 
-Operational reality: Codex coordination is manual unless the `cynic` MCP tools are visible in-session. If MCP is absent, use REST against `${CYNIC_REST_ADDR}` with Bearer auth from `~/.cynic-env`.
+Default validation:
 
-Minimum lifecycle:
+```bash
+make check
+```
 
-1. Register: `POST /coord/register`
-2. Inspect: `GET /coord/who`
-3. Claim every file before editing: `POST /coord/claim` or `/coord/claim-batch`
-4. Treat returned conflicts as blockers
-5. Release at session end: `POST /coord/release`
+Do not load deleted/stale surfaces as protocol. `axioms/`, `organs/`, legacy
+docs and Python lifecycle gates are no longer runtime authority.
 
-Do not put secrets, tailnet IPs, current sprint notes, or dirty-tree inventories in this file.
+MCP uses the Rust binary configured in `.codex/config.toml`.

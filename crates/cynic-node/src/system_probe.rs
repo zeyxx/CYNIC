@@ -1,11 +1,15 @@
+#![allow(dead_code)]
 //! SystemProbe concern: collect hardware metrics (CPU, RAM, Disk)
 //! and POST them as observations to the kernel.
 
+use cynic_protocol::{KernelEndpointPolicy, OBSERVE_PATH, kernel_url as build_kernel_url};
 use reqwest::Client;
-use serde_json::json;
 use std::time::Duration;
-use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, RefreshKind, System};
 use tracing::{error, info, warn};
+
+use crate::adapters::local_system_probe::{LinuxPlatformProbe, SysinfoMetricsSampler};
+use crate::domain::system_observation::{system_metrics_payload, system_observation_payload};
+use crate::ports::system_probe_port::{SystemMetricsPort, SystemProbePlatformPort};
 
 pub(crate) async fn run_system_probe(
     client: Client,
@@ -14,13 +18,27 @@ pub(crate) async fn run_system_probe(
     node_name: String,
     interval_secs: u64,
 ) {
-    let mut sys = System::new_with_specifics(
-        RefreshKind::nothing()
-            .with_cpu(CpuRefreshKind::everything())
-            .with_memory(MemoryRefreshKind::everything()),
-    );
-    let mut disks = Disks::new_with_refreshed_list();
+    run_system_probe_with_platform(
+        client,
+        kernel_url,
+        api_key,
+        node_name,
+        interval_secs,
+        SysinfoMetricsSampler::new(),
+        LinuxPlatformProbe,
+    )
+    .await;
+}
 
+async fn run_system_probe_with_platform(
+    client: Client,
+    kernel_url: String,
+    api_key: String,
+    node_name: String,
+    interval_secs: u64,
+    mut metrics_sampler: impl SystemMetricsPort,
+    platform: impl SystemProbePlatformPort,
+) {
     let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
 
     // Skip first tick (instant)
@@ -31,74 +49,34 @@ pub(crate) async fn run_system_probe(
     loop {
         interval.tick().await;
 
-        // Refresh metrics
-        sys.refresh_all();
-        disks.refresh(true);
-
-        let cpu_usage = sys.global_cpu_usage();
-        let mem_used = sys.used_memory() as f64 / 1024.0 / 1024.0 / 1024.0; // GB
-        let mem_total = sys.total_memory() as f64 / 1024.0 / 1024.0 / 1024.0; // GB
-
-        // Disk usage (sum of all disks)
-        let mut disk_total = 0.0;
-        let mut disk_available = 0.0;
-        for disk in &disks {
-            disk_total += disk.total_space() as f64 / 1024.0 / 1024.0 / 1024.0;
-            disk_available += disk.available_space() as f64 / 1024.0 / 1024.0 / 1024.0;
+        let sample = metrics_sampler.sample_metrics();
+        let platform_observation = platform.observe_platform();
+        for vmid in &platform_observation.critical_vmids_to_restart {
+            warn!(
+                "L0 Watchdog: Critical node cynic-vm-v2 is stopped. Requesting platform restart for resource {}.",
+                vmid
+            );
+            platform.restart_critical_vmid(vmid);
         }
 
-        // Load average (1m)
-        let load = System::load_average().one;
+        let metrics = system_metrics_payload(sample, platform_observation);
 
-        // Uptime
-        let uptime = System::uptime();
+        let payload = system_observation_payload(&node_name, metrics);
 
-        // Best-effort ZFS health check (Linux only)
-        let mut zfs_health = serde_json::Value::Null;
-        #[cfg(target_os = "linux")]
-        {
-            if let Ok(output) = std::process::Command::new("zpool")
-                .args(["list", "-H", "-o", "name,health"])
-                .output()
-                && output.status.success()
-            {
-                let text = String::from_utf8_lossy(&output.stdout);
-                let pools: Vec<_> = text
-                    .lines()
-                    .filter_map(|l| {
-                        let parts: Vec<&str> = l.split_whitespace().collect();
-                        if parts.len() >= 2 {
-                            Some(json!({ "name": parts[0], "health": parts[1] }))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                zfs_health = json!(pools);
+        let url = match build_kernel_url(
+            &kernel_url,
+            OBSERVE_PATH,
+            KernelEndpointPolicy {
+                allow_loopback: true,
+                ..KernelEndpointPolicy::default()
+            },
+        ) {
+            Ok(url) => url,
+            Err(e) => {
+                error!(error = %e, "Error building kernel observation URL");
+                continue;
             }
-        }
-
-        let metrics = json!({
-            "cpu_usage_percent": cpu_usage,
-            "memory_used_gb": mem_used,
-            "memory_total_gb": mem_total,
-            "disk_total_gb": disk_total,
-            "disk_available_gb": disk_available,
-            "load_average_1m": load,
-            "uptime_seconds": uptime,
-            "zfs_pools": zfs_health,
-        });
-
-        let payload = json!({
-            "tool": "SystemProbe",
-            "domain": "infra",
-            "status": "ok",
-            "agent_id": node_name,
-            "context": format!("System metrics for node {}", node_name),
-            "value": metrics,
-        });
-
-        let url = format!("{}/observe", kernel_url.trim_end_matches('/'));
+        };
 
         match client
             .post(&url)

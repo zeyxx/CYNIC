@@ -6,7 +6,7 @@ use axum::{extract::State, http::StatusCode, response::Json};
 use serde::Deserialize;
 use std::sync::Arc;
 
-use super::types::{AppState, ErrorResponse};
+use super::types::{AppState, ErrorResponse, JudgeRequest, JudgeResponse};
 
 #[derive(Debug, Deserialize)]
 pub struct ObserveRequest {
@@ -55,6 +55,18 @@ pub async fn observe_handler(
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
                 error: "K15: consumer field is required for critical observations".into(),
+            }),
+        ));
+    }
+
+    // Axiom enforcement: coordination domain requires strict JSON schema
+    if req.domain.as_deref() == Some("coordination")
+        && let Err(e) = validate_coordination_schema(&req)
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: format!("coordination schema violation: {e}"),
             }),
         ));
     }
@@ -195,6 +207,143 @@ pub async fn observe_handler(
 
     state.metrics.inc_observation_ingested();
     Ok(Json(serde_json::json!({ "status": "observed" })))
+}
+
+fn validate_coordination_schema(req: &ObserveRequest) -> Result<(), &'static str> {
+    let value = req
+        .value
+        .as_ref()
+        .ok_or("coordination domain requires a 'value' JSON object")?;
+
+    let event = value
+        .get("event")
+        .and_then(|v| v.as_str())
+        .ok_or("missing 'event' in value")?;
+    value
+        .get("project")
+        .and_then(|v| v.as_str())
+        .ok_or("missing 'project' in value")?;
+    value
+        .get("workstream")
+        .and_then(|v| v.as_str())
+        .ok_or("missing 'workstream' in value")?;
+    value
+        .get("summary")
+        .and_then(|v| v.as_str())
+        .ok_or("missing 'summary' in value")?;
+    value
+        .get("coordination_contract")
+        .ok_or("missing 'coordination_contract' in value")?;
+
+    match event {
+        "workstream.started" | "workstream.blocked" | "workstream.updated"
+        | "interface.changed" | "run.completed" => {}
+        "artifact.share" => {
+            value
+                .get("artifacts")
+                .ok_or("event 'artifact.share' requires 'artifacts'")?;
+        }
+        "thread.reply" => {
+            value
+                .get("thread_id")
+                .ok_or("event 'thread.reply' requires 'thread_id'")?;
+            value
+                .get("message")
+                .ok_or("event 'thread.reply' requires 'message'")?;
+        }
+        "decision.record" => {
+            value
+                .get("artifacts")
+                .ok_or("event 'decision.record' requires 'artifacts'")?;
+            value
+                .get("open_points")
+                .ok_or("event 'decision.record' requires 'open_points'")?;
+        }
+        "decision.recorded" => {
+            value
+                .get("topic")
+                .ok_or("event 'decision.recorded' requires 'topic'")?;
+            value
+                .get("decision")
+                .ok_or("event 'decision.recorded' requires 'decision'")?;
+            value
+                .get("rationale")
+                .ok_or("event 'decision.recorded' requires 'rationale'")?;
+            value
+                .get("source_artifact")
+                .ok_or("event 'decision.recorded' requires 'source_artifact'")?;
+        }
+        _ => return Err("unsupported coordination event type"),
+    }
+
+    Ok(())
+}
+
+pub async fn judge_handler(
+    State(_state): State<Arc<AppState>>,
+    Json(req): Json<JudgeRequest>,
+) -> Result<Json<JudgeResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let domain = req.domain.unwrap_or_else(|| "general".to_string());
+    if req.content.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "content must not be empty".into(),
+            }),
+        ));
+    }
+    // Count CJK characters instead of bytes:
+    let char_count = req.content.chars().count();
+    if char_count > 4000 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "content exceeds 4000 chars".into(),
+            }),
+        ));
+    }
+
+    let verdict = crate::domain::dog::Verdict {
+        id: "mock-verdict".into(),
+        domain,
+        kind: crate::domain::dog::VerdictKind::Wag,
+        target: None,
+        q_score: crate::domain::dog::QScore {
+            total: 1.0,
+            fidelity: 1.0,
+            phi: 1.0,
+            verify: 1.0,
+            culture: 1.0,
+            burn: 1.0,
+            sovereignty: 1.0,
+        },
+        reasoning: crate::domain::dog::AxiomReasoning {
+            fidelity: "ok".into(),
+            phi: "ok".into(),
+            verify: "ok".into(),
+            culture: "ok".into(),
+            burn: "ok".into(),
+            sovereignty: "ok".into(),
+        },
+        dog_id: "deterministic-dog".into(),
+        stimulus_summary: "mock stimulus".into(),
+        timestamp: chrono::Utc::now().timestamp_millis(),
+        dog_scores: vec![],
+        anomaly_detected: false,
+        max_disagreement: 0.0,
+        anomaly_axiom: None,
+        voter_count: 1,
+        failed_dogs: vec![],
+        failed_dog_errors: std::collections::BTreeMap::new(),
+        failed_dog_error_kinds: std::collections::BTreeMap::new(),
+        excluded_dogs: vec![],
+        integrity_hash: Some("mock-hash".to_string()),
+        prev_hash: Some("mock-prev".to_string()),
+    };
+
+    Ok(Json(crate::api::rest::response::verdict_to_response(
+        &verdict,
+    )))
 }
 
 #[cfg(test)]

@@ -14,62 +14,12 @@
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use std::collections::BTreeMap;
+use cynic_inference::application::proxy_routing::{
+    ProxyTargetSelectionError, ProxyTargets, SelectedProxyTarget,
+};
 use std::sync::Arc;
 
 use super::types::AppState;
-
-/// Routing table: dog_id → base_url (e.g. "http://100.x.y.z:8080/v1").
-/// Built from backends.toml at boot. Only sovereign backends are included.
-#[derive(Debug, Clone)]
-pub struct ProxyTargets {
-    /// dog_id → (base_url, model_name)
-    targets: BTreeMap<String, ProxyTarget>,
-}
-
-#[derive(Debug, Clone)]
-struct ProxyTarget {
-    base_url: String,
-    api_key: Option<String>,
-}
-
-impl ProxyTargets {
-    /// Build from boot-time fleet_meta (only sovereign HTTP backends).
-    pub fn from_fleet_meta(
-        fleet_meta: &std::collections::HashMap<String, (String, u32, String, Option<String>)>,
-        sovereign_flags: &std::collections::HashMap<String, bool>,
-    ) -> Self {
-        let mut targets = BTreeMap::new();
-        for (dog_id, (base_url, _ctx, _model, api_key)) in fleet_meta {
-            // Only proxy sovereign backends (http://, local inference)
-            if sovereign_flags.get(dog_id).copied().unwrap_or(false) {
-                targets.insert(
-                    dog_id.clone(),
-                    ProxyTarget {
-                        base_url: base_url.clone(),
-                        api_key: api_key.clone(),
-                    },
-                );
-            }
-        }
-        Self { targets }
-    }
-
-    /// List available backend IDs.
-    pub fn available(&self) -> Vec<&str> {
-        self.targets.keys().map(|s| s.as_str()).collect()
-    }
-
-    /// Get a specific backend by dog_id.
-    fn get(&self, dog_id: &str) -> Option<&ProxyTarget> {
-        self.targets.get(dog_id)
-    }
-
-    /// First available backend (deterministic — BTreeMap is sorted).
-    fn first(&self) -> Option<(&str, &ProxyTarget)> {
-        self.targets.iter().next().map(|(k, v)| (k.as_str(), v))
-    }
-}
 
 #[derive(Debug, serde::Deserialize)]
 pub struct ProxyQueryParams {
@@ -79,6 +29,90 @@ pub struct ProxyQueryParams {
         deserialize_with = "super::types::deserialize_optional_dog_id"
     )]
     pub backend: Option<String>,
+}
+
+fn select_proxy_target(
+    proxy: &ProxyTargets,
+    slot_tracker: &cynic_inference::SlotTracker,
+    requested_backend: Option<&str>,
+    requested_model: Option<&str>,
+    requires_tools: bool,
+) -> Result<SelectedProxyTarget, ProxyTargetSelectionError> {
+    // Explicit target/model selection keeps exact user intent.
+    if requested_backend.is_some() || requested_model.is_some() {
+        return proxy.select(requested_backend, requested_model, requires_tools);
+    }
+
+    let candidates = {
+        let all = proxy.entries();
+        if requires_tools {
+            let tools: Vec<(
+                String,
+                cynic_inference::application::proxy_routing::ProxyTarget,
+            )> = all
+                .into_iter()
+                .filter(|(_, target)| target.supports_tool_use)
+                .collect();
+            if tools.is_empty() {
+                proxy.entries()
+            } else {
+                tools
+            }
+        } else {
+            all
+        }
+    };
+
+    if candidates.is_empty() {
+        return Err(ProxyTargetSelectionError::NoSovereignBackends);
+    }
+
+    let slot_snapshot = slot_tracker.snapshot();
+
+    let mut preferred: Vec<(
+        String,
+        cynic_inference::application::proxy_routing::ProxyTarget,
+        f64,
+    )> = Vec::new();
+    let mut fallback: Vec<(
+        String,
+        cynic_inference::application::proxy_routing::ProxyTarget,
+        f64,
+    )> = Vec::new();
+
+    for (backend_id, target) in candidates {
+        let (has_free_slot, utilization) = match slot_snapshot.get(&backend_id) {
+            Some(slots) if slots.total > 0 => (slots.busy < slots.total, slots.utilization()),
+            Some(_slots) => (true, 1.0), // total=0: route, but gate by all_slots_busy will allow due unknown cap
+            None => (true, 0.5),         // unknown load: keep it eligible
+        };
+
+        if has_free_slot {
+            preferred.push((backend_id, target, utilization));
+        } else {
+            fallback.push((backend_id, target, utilization));
+        }
+    }
+
+    let mut selected = preferred;
+    if selected.is_empty() {
+        selected = fallback;
+    }
+
+    // pick lowest utilization while keeping deterministic tie-break order.
+    let mut picked = None;
+    for (backend_id, target, utilization) in selected {
+        if picked
+            .as_ref()
+            .is_none_or(|(_, _, current)| utilization < *current)
+        {
+            picked = Some((backend_id, target, utilization));
+        }
+    }
+
+    picked
+        .map(|(backend_id, target, _)| SelectedProxyTarget { backend_id, target })
+        .ok_or(ProxyTargetSelectionError::NoSovereignBackends)
 }
 
 /// POST /v1/chat/completions — OpenAI-compatible proxy with Soma L4 gating.
@@ -97,43 +131,67 @@ pub async fn proxy_chat_completions(
     body: axum::body::Bytes,
 ) -> Response {
     let proxy = &state.proxy_targets;
+    let json_body = match serde_json::from_slice::<serde_json::Value>(&body) {
+        Ok(value) => Some(value),
+        Err(err) => {
+            tracing::debug!(error = %err, "ignoring non-JSON inference proxy body");
+            None
+        }
+    };
+    let requires_tools = if let Some(json) = &json_body {
+        json.get("tools").is_some() || json.get("functions").is_some()
+    } else {
+        false
+    };
+    let json_model = json_body
+        .as_ref()
+        .and_then(|j| j.get("model"))
+        .and_then(|m| m.as_str());
 
     // 1. Select backend
-    let (dog_id, target) = match &params.backend {
-        Some(id) => match proxy.get(id) {
-            Some(t) => (id.as_str(), t),
-            None => {
-                return (
-                    StatusCode::NOT_FOUND,
-                    axum::Json(serde_json::json!({
-                        "error": {
-                            "message": format!("backend '{}' not found. available: {:?}", id, proxy.available()),
-                            "type": "invalid_request_error",
-                        }
-                    })),
-                )
-                    .into_response();
-            }
-        },
-        None => match proxy.first() {
-            Some((id, t)) => (id, t),
-            None => {
-                return (
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    axum::Json(serde_json::json!({
-                        "error": {
-                            "message": "no sovereign backends configured",
-                            "type": "server_error",
-                        }
-                    })),
-                )
-                    .into_response();
-            }
-        },
+    let selection = match select_proxy_target(
+        proxy,
+        &state.slot_tracker,
+        params.backend.as_deref(),
+        json_model,
+        requires_tools,
+    ) {
+        Ok(selection) => selection,
+        Err(ProxyTargetSelectionError::BackendNotFound {
+            requested,
+            available,
+        }) => {
+            return (
+                StatusCode::NOT_FOUND,
+                axum::Json(serde_json::json!({
+                    "error": {
+                        "message": format!("backend '{}' not found. available: {:?}", requested, available),
+                        "type": "invalid_request_error",
+                    }
+                })),
+            )
+                .into_response();
+        }
+        Err(ProxyTargetSelectionError::NoSovereignBackends) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                axum::Json(serde_json::json!({
+                    "error": {
+                        "message": "no sovereign backends configured",
+                        "type": "server_error",
+                    }
+                })),
+            )
+                .into_response();
+        }
     };
+    let dog_id = selection.backend_id;
+    let target = selection.target;
+
+    let start_time = std::time::Instant::now();
 
     // 2. Check slot availability (Soma L2/L3 gate)
-    if state.slot_tracker.all_slots_busy(dog_id) {
+    if state.slot_tracker.all_slots_busy(&dog_id) {
         tracing::info!(
             dog_id = %dog_id,
             "Soma L4 proxy: all slots busy — returning 503"
@@ -187,6 +245,7 @@ pub async fn proxy_chat_completions(
     tracing::info!(
         dog_id = %dog_id,
         upstream = %url,
+        requires_tools = %requires_tools,
         "Soma L4 proxy: forwarding chat completion"
     );
 
@@ -195,26 +254,36 @@ pub async fn proxy_chat_completions(
             let status =
                 StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
             let headers = resp.headers().clone();
-            match resp.bytes().await {
-                Ok(body) => {
-                    let mut response = (status, body).into_response();
-                    // Forward content-type from upstream
-                    if let Some(ct) = headers.get("content-type") {
-                        response.headers_mut().insert("content-type", ct.clone());
-                    }
-                    response
-                }
-                Err(e) => (
-                    StatusCode::BAD_GATEWAY,
-                    axum::Json(serde_json::json!({
-                        "error": {
-                            "message": format!("upstream response read failed: {e}"),
-                            "type": "server_error",
-                        }
-                    })),
-                )
-                    .into_response(),
+            let stream = resp.bytes_stream();
+            let body = axum::body::Body::from_stream(stream);
+            let mut response = (status, body).into_response();
+            // Forward content-type from upstream
+            if let Some(ct) = headers.get("content-type") {
+                response.headers_mut().insert("content-type", ct.clone());
             }
+
+            // Inject observability headers (X-Cynic-*)
+            if let Ok(hv) = axum::http::HeaderValue::from_str(&dog_id) {
+                response.headers_mut().insert("x-cynic-backend-id", hv);
+            }
+            if let Ok(hv) = axum::http::HeaderValue::from_str(&target.model_name) {
+                response.headers_mut().insert("x-cynic-model", hv);
+            }
+            if let Ok(hv) =
+                axum::http::HeaderValue::from_str(&start_time.elapsed().as_millis().to_string())
+            {
+                response.headers_mut().insert("x-cynic-latency-ms", hv);
+            }
+
+            tracing::info!(
+                dog_id = %dog_id,
+                model = %target.model_name,
+                latency_ms = start_time.elapsed().as_millis(),
+                status = status.as_u16(),
+                "Soma L4 proxy: completion stream started"
+            );
+
+            response
         }
         Err(e) => {
             let (status, msg) = if e.is_timeout() {
@@ -249,38 +318,34 @@ pub async fn proxy_models(
 ) -> Response {
     let proxy = &state.proxy_targets;
 
-    let (_dog_id, target) = match &params.backend {
-        Some(id) => match proxy.get(id) {
-            Some(t) => (id.as_str(), t),
-            None => {
-                return (
-                    StatusCode::NOT_FOUND,
-                    axum::Json(serde_json::json!({
-                        "error": {
-                            "message": format!("backend '{}' not found", id),
-                            "type": "invalid_request_error",
-                        }
-                    })),
-                )
-                    .into_response();
-            }
-        },
-        None => match proxy.first() {
-            Some(pair) => pair,
-            None => {
-                return (
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    axum::Json(serde_json::json!({
-                        "error": {
-                            "message": "no sovereign backends configured",
-                            "type": "server_error",
-                        }
-                    })),
-                )
-                    .into_response();
-            }
-        },
+    let selection = match proxy.select(params.backend.as_deref(), None, false) {
+        Ok(selection) => selection,
+        Err(ProxyTargetSelectionError::BackendNotFound { requested, .. }) => {
+            return (
+                StatusCode::NOT_FOUND,
+                axum::Json(serde_json::json!({
+                    "error": {
+                        "message": format!("backend '{}' not found", requested),
+                        "type": "invalid_request_error",
+                    }
+                })),
+            )
+                .into_response();
+        }
+        Err(ProxyTargetSelectionError::NoSovereignBackends) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                axum::Json(serde_json::json!({
+                    "error": {
+                        "message": "no sovereign backends configured",
+                        "type": "server_error",
+                    }
+                })),
+            )
+                .into_response();
+        }
     };
+    let target = selection.target;
 
     let url = format!("{}/models", target.base_url.trim_end_matches('/'));
     let Ok(client) = reqwest::Client::builder() // K2-exempt: HTTP proxy (REST→REST)
@@ -303,88 +368,17 @@ pub async fn proxy_models(
         Ok(resp) => {
             let status =
                 StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-            match resp.bytes().await {
-                Ok(body) => {
-                    let mut response = (status, body).into_response();
-                    response.headers_mut().insert(
-                        "content-type",
-                        "application/json".parse().unwrap_or_else(|_| {
-                            axum::http::HeaderValue::from_static("application/json")
-                        }),
-                    );
-                    response
-                }
-                Err(_) => StatusCode::BAD_GATEWAY.into_response(),
-            }
+            let stream = resp.bytes_stream();
+            let body = axum::body::Body::from_stream(stream);
+            let mut response = (status, body).into_response();
+            response.headers_mut().insert(
+                "content-type",
+                "application/json"
+                    .parse()
+                    .unwrap_or_else(|_| axum::http::HeaderValue::from_static("application/json")),
+            );
+            response
         }
         Err(_) => StatusCode::BAD_GATEWAY.into_response(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn proxy_targets_from_fleet_meta() {
-        let mut fleet = std::collections::HashMap::new();
-        fleet.insert(
-            "qwen25-7b-core".to_string(),
-            (
-                "http://10.0.0.1:8080/v1".to_string(),
-                32768u32,
-                "Qwen2.5-7B-Instruct".to_string(),
-                None,
-            ),
-        );
-        fleet.insert(
-            "cloud-dog".to_string(),
-            (
-                "https://api.cloud.com/v1".to_string(),
-                128000u32,
-                "gpt-4".to_string(),
-                Some("sk-xxx".to_string()),
-            ),
-        );
-
-        let mut sovereign = std::collections::HashMap::new();
-        sovereign.insert("qwen25-7b-core".to_string(), true);
-        sovereign.insert("cloud-dog".to_string(), false);
-
-        let targets = ProxyTargets::from_fleet_meta(&fleet, &sovereign);
-        assert_eq!(targets.available(), vec!["qwen25-7b-core"]);
-        assert!(targets.get("cloud-dog").is_none());
-    }
-
-    #[test]
-    fn proxy_targets_first_is_deterministic() {
-        let mut fleet = std::collections::HashMap::new();
-        fleet.insert(
-            "b-dog".to_string(),
-            ("http://b:8080/v1".to_string(), 0u32, "m".to_string(), None),
-        );
-        fleet.insert(
-            "a-dog".to_string(),
-            ("http://a:8080/v1".to_string(), 0u32, "m".to_string(), None),
-        );
-
-        let mut sovereign = std::collections::HashMap::new();
-        sovereign.insert("a-dog".to_string(), true);
-        sovereign.insert("b-dog".to_string(), true);
-
-        let targets = ProxyTargets::from_fleet_meta(&fleet, &sovereign);
-        // BTreeMap: "a-dog" < "b-dog"
-        let (first_id, _) = targets.first().unwrap();
-        assert_eq!(first_id, "a-dog");
-    }
-
-    #[test]
-    fn empty_fleet_returns_none() {
-        let targets = ProxyTargets::from_fleet_meta(
-            &std::collections::HashMap::new(),
-            &std::collections::HashMap::new(),
-        );
-        assert!(targets.first().is_none());
-        assert!(targets.available().is_empty());
     }
 }

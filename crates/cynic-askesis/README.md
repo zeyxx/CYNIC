@@ -29,9 +29,9 @@ cynic-askesis audit <logfile>
 ### Example
 
 ```bash
-$ cynic-askesis audit ~/.logs/2026-04-17.jsonl
+$ cynic-askesis audit /tmp/cynic/logs/2026-04-17.jsonl
 
-Auditing log: /home/user/.logs/2026-04-17.jsonl
+Auditing log: /tmp/cynic/logs/2026-04-17.jsonl
 
 === REFLECTION ===
 {

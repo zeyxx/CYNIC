@@ -1,5 +1,6 @@
 pub mod backup;
 pub mod fleet;
+pub mod fleet_inventory;
 pub mod network;
 pub mod pressure;
 pub mod process;
@@ -10,6 +11,7 @@ pub mod version;
 
 pub use backup::BackupProbe;
 pub use fleet::{FleetProbe, FleetTarget};
+pub use fleet_inventory::{FleetInventoryProbe, build_default_fleet_inventory_probe};
 pub use network::NetworkProbe;
 pub use pressure::PressureProbe;
 pub use process::ProcessProbe;
@@ -105,7 +107,7 @@ impl ProbeScheduler {
                                 status: ProbeStatus::Unavailable,
                                 details: ProbeDetails::Empty,
                                 duration_ms: 0,
-                                timestamp: chrono::Utc::now().to_rfc3339(),
+                                timestamp: chrono::Utc::now().timestamp_millis(),
                             }
                         }
                         Err(_) => {
@@ -115,7 +117,7 @@ impl ProbeScheduler {
                                 status: ProbeStatus::Unavailable,
                                 details: ProbeDetails::Empty,
                                 duration_ms: timeout_dur.as_millis() as u64,
-                                timestamp: chrono::Utc::now().to_rfc3339(),
+                                timestamp: chrono::Utc::now().timestamp_millis(),
                             }
                         }
                     }
@@ -132,7 +134,7 @@ impl ProbeScheduler {
         }
 
         let overall = EnvironmentSnapshot::worst_status(&results);
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         Some(EnvironmentSnapshot {
             timestamp,
@@ -183,7 +185,7 @@ mod tests {
             status: ProbeStatus::Ok,
             details: ProbeDetails::Empty,
             duration_ms: 0,
-            timestamp: "2026-01-01T00:00:00Z".into(),
+            timestamp: 1_767_225_600_000,
         }
     }
 

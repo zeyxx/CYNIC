@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CYNIC // Argo Node Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #06060c;
+      --panel-bg: rgba(13, 13, 25, 0.7);
+      --panel-border: rgba(255, 255, 255, 0.06);
+      --panel-border-hover: rgba(0, 240, 255, 0.2);
+      --text-main: #f3f4f6;
+      --text-muted: #8b9bb4;
+      --neon-cyan: #00f0ff;
+      --neon-violet: #8b5cf6;
+      --neon-green: #10b981;
+      --neon-red: #ef4444;
+      --neon-yellow: #f59e0b;
+      --glow-cyan: 0 0 15px rgba(0, 240, 255, 0.35);
+      --glow-violet: 0 0 15px rgba(139, 92, 246, 0.35);
+      --glow-green: 0 0 15px rgba(16, 185, 129, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-deep);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 85% 85%, rgba(0, 240, 255, 0.08) 0%, transparent 50%);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      font-size: 32px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-violet));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 2px;
+    }
+
+    .node-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--neon-green);
+      color: var(--neon-green);
+      padding: 4px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      box-shadow: var(--glow-green);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+
+    .node-badge::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background-color: var(--neon-green);
+      border-radius: 50%;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.2); }
+      50% { box-shadow: 0 0 15px rgba(16, 185, 129, 0.5); }
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 24px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .card:hover {
+      border-color: var(--panel-border-hover);
+      box-shadow: 0 12px 40px 0 rgba(0, 240, 255, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .col-4 { grid-column: span 4; }
+    .col-6 { grid-column: span 6; }
+    .col-8 { grid-column: span 8; }
+    .col-12 { grid-column: span 12; }
+
+    @media (max-width: 1024px) {
+      .col-4, .col-6, .col-8 { grid-column: span 12; }
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .metric-value {
+      font-size: 38px;
+      font-weight: 800;
+      font-family: 'Outfit', sans-serif;
+      margin-bottom: 6px;
+      background: linear-gradient(to right, #ffffff, #d1d5db);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .metric-subtext {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Status badge colors */
+    .status-satisfied { color: var(--neon-green); text-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
+    .status-watch { color: var(--neon-cyan); text-shadow: 0 0 10px rgba(0, 240, 255, 0.3); }
+    .status-warning { color: var(--neon-yellow); text-shadow: 0 0 10px rgba(245, 158, 11, 0.3); }
+    .status-blocked { color: var(--neon-red); text-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }
+
+    /* Custom progress bar */
+    .progress-container {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 12px;
+      position: relative;
+    }
+
+    .progress-bar {
+      height: 100%;
+      border-radius: 10px;
+      transition: width 1s ease-in-out;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-violet));
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+
+    /* Comparison panel styles */
+    .comparison-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .comparison-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+    }
+
+    .comp-label {
+      font-weight: 600;
+    }
+
+    .comp-value-pair {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .badge-helius {
+      background: rgba(139, 92, 246, 0.1);
+      border: 1px solid var(--neon-violet);
+      color: var(--neon-violet);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge-public {
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Interactive Radar chart (custom SVG) */
+    .radar-svg {
+      width: 100%;
+      height: 280px;
+      margin: 0 auto;
+    }
+
+    .radar-axis {
+      stroke: rgba(255, 255, 255, 0.1);
+      stroke-width: 1px;
+    }
+
+    .radar-grid {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.04);
+      stroke-width: 1px;
+    }
+
+    .radar-area {
+      fill: rgba(139, 92, 246, 0.2);
+      stroke: var(--neon-violet);
+      stroke-width: 2px;
+      filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
+      transition: all 0.5s ease-in-out;
+    }
+
+    .radar-point {
+      fill: var(--neon-cyan);
+      stroke: #fff;
+      stroke-width: 1.5px;
+      r: 4;
+      transition: all 0.5s ease-in-out;
+    }
+
+    .radar-text {
+      fill: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'Outfit', sans-serif;
+      text-anchor: middle;
+    }
+
+    /* Live feed console */
+    .feed-container {
+      height: 300px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    }
+
+    .feed-container::-webkit-scrollbar {
+      width: 4px;
+    }
+    .feed-container::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    .feed-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      padding-bottom: 8px;
+      animation: slide-in 0.3s ease-out;
+    }
+
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .feed-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .action-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .action-create { background: rgba(16, 185, 129, 0.15); border: 1px solid var(--neon-green); color: var(--neon-green); }
+    .action-buy { background: rgba(0, 240, 255, 0.15); border: 1px solid var(--neon-cyan); color: var(--neon-cyan); }
+    .action-sell { background: rgba(139, 92, 246, 0.15); border: 1px solid var(--neon-violet); color: var(--neon-violet); }
+    .action-complete { background: rgba(245, 158, 11, 0.15); border: 1px solid var(--neon-yellow); color: var(--neon-yellow); }
+
+    .tx-sig {
+      color: var(--neon-cyan);
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .tx-details {
+      color: var(--text-main);
+    }
+
+    /* Sparkline or inline bars */
+    .bar-comparison-container {
+      display: flex;
+      height: 20px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .bar-helius {
+      background: var(--neon-violet);
+      box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+      transition: width 0.5s ease-in-out;
+    }
+
+    .bar-public {
+      background: var(--neon-cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+      transition: width 0.5s ease-in-out;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo-container">
+      <div class="logo-icon">CYNIC</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--text-muted); font-weight: bold;">[ARGO_OBSERVER_NODE]</div>
+    </div>
+    <div class="node-badge" id="conn-badge">Fédération : En ligne</div>
+  </header>
+
+  <main class="grid-container">
+    <!-- P2P Peers Widget -->
+    <div class="card col-4">
+      <div class="card-title">Pairs Réseau Gossip</div>
+      <div class="metric-value" id="peer-count">0</div>
+      <div class="metric-subtext">Découverte mDNS & Gossipsub active</div>
+      <div class="progress-container">
+        <div class="progress-bar" id="peer-progress" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- RPC Latency & success -->
+    <div class="card col-4">
+      <div class="card-title">RPC Souverain (Public)</div>
+      <div class="metric-value" id="rpc-latency">-- ms</div>
+      <div class="metric-subtext" id="rpc-success">Observed success rate: --%</div>
+      <div class="progress-container">
+        <div class="progress-bar" id="rpc-progress" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- E-Score Processing Units -->
+    <div class="card col-4">
+      <div class="card-title">Signaux Accumulés</div>
+      <div class="metric-value" id="escore-signals">--</div>
+      <div class="metric-subtext" id="escore-units">Score units accumulated: --</div>
+      <div class="progress-container">
+        <div class="progress-bar" id="escore-progress" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Comparative Ingestion Baseline -->
+    <div class="card col-6">
+      <div class="card-title">Comparaison RPC Public vs Helius</div>
+      <div class="comparison-grid">
+        <div class="comparison-row">
+          <span class="comp-label">Complétude d'ingestion</span>
+          <div class="comp-value-pair">
+            <span class="status-satisfied" id="completeness-rate">--%</span>
+          </div>
+        </div>
+        <div class="comparison-row">
+          <span class="comp-label">Concordance des données</span>
+          <div class="comp-value-pair">
+            <span class="status-satisfied" id="accuracy-rate">--%</span>
+          </div>
+        </div>
+        <div class="comparison-row">
+          <span class="comp-label">Latence moyenne</span>
+          <div class="comp-value-pair">
+            <span class="badge-public" id="avg-public-lat">Public: -- ms</span>
+            <span class="badge-helius" id="avg-helius-lat">Helius: -- ms</span>
+          </div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 15px; font-size: 12px; color: var(--text-muted);">Répartition des parts d'ingestion (Txs capturées) :</div>
+      <div class="bar-comparison-container">
+        <div class="bar-public" id="ratio-public" style="width: 50%"></div>
+        <div class="bar-helius" id="ratio-helius" style="width: 50%"></div>
+      </div>
+    </div>
+
+    <!-- Radar Chart for Reputation Virtues -->
+    <div class="card col-6">
+      <div class="card-title">Radar des Vertus de Réputation (E-Score)</div>
+      <svg class="radar-svg" viewBox="0 0 300 300" id="radar-chart"></svg>
+    </div>
+
+    <!-- Real-time transaction feed log -->
+    <div class="card col-12">
+      <div class="card-title">
+        Flux de Transactions Ingestion (Pump.fun)
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--neon-cyan);">LIVE FEED</span>
+      </div>
+      <div class="feed-container" id="feed-log">
+        <div style="color: var(--text-muted); text-align: center; margin-top: 120px;">En attente de transactions Solana Mainnet...</div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Configuration du WebSocket de l'Observer
+    const wsUrl = `ws://${window.location.host}/ws`;
+    let ws;
+    let reconnectInterval = 3000;
+
+    // Définition des vertus pour le Radar Chart
+    const virtues = [
+      { name: "Karteria", label: "Endurance (Karteria)" },
+      { name: "Parrhesia", label: "Honnêteté (Parrhesia)" },
+      { name: "Anaideia", label: "Humilité (Anaideia)" },
+      { name: "Philanthropia", label: "Générosité" },
+      { name: "Autarkeia", label: "Autosuffisance" },
+      { name: "Poiesis", label: "Création (Poiesis)" },
+      { name: "Koinonia", label: "Communauté" }
+    ];
+
+    // Scores initiaux simulés des vertus (seront mis à jour par les signaux)
+    const virtueScores = {
+      Karteria: 65,
+      Parrhesia: 85,
+      Anaideia: 50,
+      Philanthropia: 70,
+      Autarkeia: 40,
+      Poiesis: 75,
+      Koinonia: 55
+    };
+
+    function connect() {
+      console.log(`Connexion au WebSocket Observer: ${wsUrl}`);
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        document.getElementById('conn-badge').className = 'node-badge';
+        document.getElementById('conn-badge').innerText = 'Fédération : En ligne';
+      };
+
+      ws.onclose = () => {
+        document.getElementById('conn-badge').className = 'node-badge status-blocked';
+        document.getElementById('conn-badge').innerText = 'Fédération : Déconnecté';
+        setTimeout(connect, reconnectInterval);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'telemetry') {
+            updateTelemetry(data);
+          } else if (data.type === 'transaction') {
+            addTransaction(data);
+          }
+        } catch (e) {
+          console.error("Erreur de parsing JSON sur le message WS:", e);
+        }
+      };
+    }
+
+    function updateTelemetry(data) {
+      // 1. Mise à jour des pairs
+      const peers = data.connected_peers || 0;
+      document.getElementById('peer-count').innerText = peers;
+      document.getElementById('peer-progress').style.width = `${Math.min(peers * 25, 100)}%`;
+
+      // 2. Mise à jour de la latence RPC
+      const latency = data.avg_public_latency_ms || 0;
+      const rpcVal = document.getElementById('rpc-latency');
+      if (latency === 9999 || latency === 0) {
+        rpcVal.innerText = 'CRITIQUE';
+        rpcVal.className = 'metric-value status-blocked';
+      } else {
+        rpcVal.innerText = `${latency} ms`;
+        rpcVal.className = 'metric-value';
+      }
+      const successRate = (data.rpc_success_rate * 100).toFixed(1);
+      document.getElementById('rpc-success').innerText = `Observed success rate: ${successRate}%`;
+      document.getElementById('rpc-progress').style.width = `${successRate}%`;
+
+      // 3. Mise à jour E-Score
+      document.getElementById('escore-signals').innerText = data.signals_processed || 0;
+      document.getElementById('escore-units').innerText = `Score units accumulated: ${data.total_score_units || 0}`;
+      document.getElementById('escore-progress').style.width = `${Math.min((data.signals_processed / 100), 100)}%`;
+
+      // 4. Comparaison
+      const compRate = data.completeness_rate || 0;
+      const accRate = data.accuracy_match_rate || 0;
+      document.getElementById('completeness-rate').innerText = `${compRate.toFixed(2)}%`;
+      document.getElementById('completeness-rate').className = compRate >= 95 ? 'status-satisfied' : 'status-warning';
+
+      document.getElementById('accuracy-rate').innerText = `${accRate.toFixed(2)}%`;
+      document.getElementById('accuracy-rate').className = accRate >= 99 ? 'status-satisfied' : 'status-warning';
+
+      document.getElementById('avg-public-lat').innerText = `Public: ${data.avg_public_latency_ms} ms`;
+      document.getElementById('avg-helius-lat').innerText = `Helius: ${data.avg_helius_latency_ms} ms`;
+
+      // Ratio d'ingestion bar
+      const totalTx = (data.public_rpc_tx_count || 0) + (data.helius_tx_count || 0);
+      if (totalTx > 0) {
+        const pubRatio = ((data.public_rpc_tx_count / totalTx) * 100).toFixed(1);
+        const helRatio = (100 - pubRatio).toFixed(1);
+        document.getElementById('ratio-public').style.width = `${pubRatio}%`;
+        document.getElementById('ratio-helius').style.width = `${helRatio}%`;
+      }
+    }
+
+    function addTransaction(tx) {
+      const container = document.getElementById('feed-log');
+      
+      // Retirer le message d'attente s'il existe
+      if (container.children.length === 1 && container.children[0].innerText.includes("En attente")) {
+        container.innerHTML = '';
+      }
+
+      const item = document.createElement('div');
+      item.className = 'feed-item';
+
+      let actionClass = 'action-complete';
+      let actionLabel = tx.action;
+      let detailsText = '';
+
+      if (tx.action.includes('Created')) {
+        actionClass = 'action-create';
+        actionLabel = 'TokenCreated';
+        detailsText = `Token ${tx.details.token_address} créé par ${tx.details.user.substring(0, 8)}...`;
+        
+        // Boost virtus Poiesis et Parrhesia
+        virtueScores.Poiesis = Math.min(virtueScores.Poiesis + 2, 100);
+        virtueScores.Parrhesia = Math.min(virtueScores.Parrhesia + 1, 100);
+      } else if (tx.action.includes('Trade')) {
+        const isBuy = tx.details.is_buy;
+        actionClass = isBuy ? 'action-buy' : 'action-sell';
+        actionLabel = isBuy ? 'Buy' : 'Sell';
+        const solVal = (tx.details.sol_amount / 1_000_000_000).toFixed(3);
+        detailsText = `${solVal} SOL contre ${tx.details.token_amount.toLocaleString()} tokens sur ${tx.details.token_address.substring(0, 8)}...`;
+
+        // Influence sur le Radar
+        if (isBuy) {
+          virtueScores.Karteria = Math.min(virtueScores.Karteria + 1, 100);
+          virtueScores.Philanthropia = Math.min(virtueScores.Philanthropia + 1, 100);
+          // Si gros achat, diminue Anaideia
+          if (tx.details.sol_amount > 2_000_000_000) {
+            virtueScores.Anaideia = Math.max(virtueScores.Anaideia - 2, 10);
+          }
+        } else {
+          virtueScores.Autarkeia = Math.min(virtueScores.Autarkeia + 1, 100);
+          // Si dump massif, pénalise Parrhesia
+          if (tx.details.sol_amount > 5_000_000_000) {
+            virtueScores.Parrhesia = Math.max(virtueScores.Parrhesia - 3, 10);
+          }
+        }
+      } else if (tx.action.includes('Completed')) {
+        actionClass = 'action-complete';
+        actionLabel = 'CurveCompleted';
+        detailsText = `Migré avec succès sur Raydium ! Token: ${tx.details.token_address.substring(0, 8)}...`;
+        virtueScores.Karteria = Math.min(virtueScores.Karteria + 5, 100);
+      }
+
+      // Mettre à jour le Radar
+      drawRadar();
+
+      const timeStr = new Date(tx.timestamp * 1000).toLocaleTimeString();
+      const shortSig = tx.signature.substring(0, 8) + '...' + tx.signature.substring(tx.signature.length - 8);
+
+      item.innerHTML = `
+        <div class="feed-meta">
+          <span>Slot: ${tx.slot}</span>
+          <span>${timeStr}</span>
+        </div>
+        <div class="tx-details">
+          <span class="action-badge ${actionClass}">${actionLabel}</span>
+          <a href="https://solscan.io/tx/${tx.signature}" target="_blank" class="tx-sig">${shortSig}</a>
+          <span>${detailsText}</span>
+        </div>
+      `;
+
+      container.insertBefore(item, container.firstChild);
+
+      // Limiter le nombre de logs
+      if (container.children.length > 30) {
+        container.removeChild(container.lastChild);
+      }
+    }
+
+    // Dessin du Radar Chart en SVG pur
+    function drawRadar() {
+      const svg = document.getElementById('radar-chart');
+      svg.innerHTML = ''; // Clear
+
+      const width = 300;
+      const height = 300;
+      const cx = width / 2;
+      const cy = height / 2;
+      const radius = 95;
+      const levels = 4;
+
+      // 1. Background grid concentric polygons
+      for (let j = 1; j <= levels; j++) {
+        const r = (radius / levels) * j;
+        const pts = [];
+        for (let i = 0; i < virtues.length; i++) {
+          const angle = (i * 2 * Math.PI) / virtues.length - Math.PI / 2;
+          const x = cx + r * Math.cos(angle);
+          const y = cy + r * Math.sin(angle);
+          pts.push(`${x},${y}`);
+        }
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', pts.join(' '));
+        poly.setAttribute('class', 'radar-grid');
+        svg.appendChild(poly);
+      }
+
+      // 2. Axes
+      for (let i = 0; i < virtues.length; i++) {
+        const angle = (i * 2 * Math.PI) / virtues.length - Math.PI / 2;
+        const x = cx + radius * Math.cos(angle);
+        const y = cy + radius * Math.sin(angle);
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', cx);
+        line.setAttribute('y1', cy);
+        line.setAttribute('x2', x);
+        line.setAttribute('y2', y);
+        line.setAttribute('class', 'radar-axis');
+        svg.appendChild(line);
+
+        // Axis labels
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const labelRadius = radius + 22;
+        const lx = cx + labelRadius * Math.cos(angle);
+        const ly = cy + labelRadius * Math.sin(angle) + 4; // Adjust vertical alignment
+        text.setAttribute('x', lx);
+        text.setAttribute('y', ly);
+        text.setAttribute('class', 'radar-text');
+        text.textContent = virtues[i].name;
+        svg.appendChild(text);
+      }
+
+      // 3. User score polygon
+      const pts = [];
+      const pointsElements = [];
+      for (let i = 0; i < virtues.length; i++) {
+        const score = virtueScores[virtues[i].name];
+        const r = (radius * score) / 100;
+        const angle = (i * 2 * Math.PI) / virtues.length - Math.PI / 2;
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        pts.push(`${x},${y}`);
+
+        // Individual point dots
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', x);
+        dot.setAttribute('cy', y);
+        dot.setAttribute('class', 'radar-point');
+        pointsElements.push(dot);
+      }
+
+      const scorePoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      scorePoly.setAttribute('points', pts.join(' '));
+      scorePoly.setAttribute('class', 'radar-area');
+      svg.appendChild(scorePoly);
+
+      // Append dots on top of polygon
+      pointsElements.forEach(dot => svg.appendChild(dot));
+    }
+
+    // Initialisation
+    drawRadar();
+    connect();
+  </script>
+</body>
+</html>

@@ -64,13 +64,13 @@ async fn process_pending_submissions(storage: &Arc<dyn StoragePort>) -> Result<(
         match result {
             Ok(msg) => {
                 let _ = storage
-                    .update_agent_task_result(&task.id, Some(msg), None)
+                    .update_agent_task_result(&task.id, "kernel_governance", Some(msg), None)
                     .await;
                 klog!("governance: submission successful for task {}", task.id);
             }
             Err(e) => {
                 let _ = storage
-                    .update_agent_task_result(&task.id, None, Some(e.clone()))
+                    .update_agent_task_result(&task.id, "kernel_governance", None, Some(e.clone()))
                     .await;
                 klog!("governance: submission failed for task {}: {}", task.id, e);
             }

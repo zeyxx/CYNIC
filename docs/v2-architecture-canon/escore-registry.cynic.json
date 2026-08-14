@@ -1,0 +1,34 @@
+{
+  "registry_id": "cynic",
+  "version": "0.1",
+  "status": "canonical",
+  "name": "CYNIC",
+  "description": "Registre natif de l'écosystème. Ancré dans la philosophie Cynique grecque. La vertu se prouve par l'acte, pas par le statut. Citoyen du monde (Kosmopolitês), non du système.",
+  "futarchy_proposal_id": null,
+  "stats": {
+    "karteria":      { "display": "Karteria",      "subtitle": null, "motto": "L'endurance est la seule richesse réelle" },
+    "parrhesia":     { "display": "Parrhesia",     "subtitle": null, "motto": "Dis la vérité même si ça brûle" },
+    "anaideia":      { "display": "Anaideia",      "subtitle": null, "motto": "L'éhontée bravoure du premier rang" },
+    "philanthropia": { "display": "Philanthropia", "subtitle": null, "motto": "Donne comme si tu n'en avais pas besoin" },
+    "autarkeia":     { "display": "Autarkeia",     "subtitle": null, "motto": "Être sa propre fondation" },
+    "poiesis":       { "display": "Poiesis",       "subtitle": null, "motto": "Créer, c'est résister" },
+    "koinonia":      { "display": "Koinonia",      "subtitle": null, "motto": "La tribu avant le capital" }
+  },
+  "classes": {
+    "spartiate": { "display": "Spartiate",  "subtitle": null, "flavor": "Tient la ligne ET frappe en premier" },
+    "oracle":    { "display": "Oracle",     "subtitle": null, "flavor": "Voit la vérité, maintient l'infra" },
+    "promethee": { "display": "Prométhée",  "subtitle": null, "flavor": "Prend le risque pour donner le feu" },
+    "hermes":    { "display": "Hermès",     "subtitle": null, "flavor": "Crée et propage la culture" },
+    "dedale":    { "display": "Dédale",     "subtitle": null, "flavor": "Bâtit en silence, infra + création" },
+    "socrate":   { "display": "Socrate",    "subtitle": null, "flavor": "Pose les bonnes questions à la communauté" },
+    "agathon":   { "display": "Agathon",    "subtitle": null, "flavor": "Le cœur généreux de la tribu" },
+    "apex":      { "display": "Odysseus",   "subtitle": null, "flavor": "Le citoyen souverain complet" }
+  },
+  "tiers": {
+    "t0": { "display": "Visiteur",   "subtitle": null },
+    "t1": { "display": "Citoyen",    "subtitle": null },
+    "t2": { "display": "Steward",    "subtitle": null },
+    "t3": { "display": "Archonte",   "subtitle": null },
+    "t4": { "display": "Souverain",  "subtitle": null }
+  }
+}

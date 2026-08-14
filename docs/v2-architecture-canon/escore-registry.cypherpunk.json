@@ -1,0 +1,34 @@
+{
+  "registry_id": "cypherpunk",
+  "version": "0.1",
+  "status": "canonical",
+  "name": "CYPHERPUNK",
+  "description": "Code is Speech. Le langage des bâtisseurs de systèmes incensurables, cryptographes, lanceurs d'alerte et opérateurs de nœuds underground. Chaque badge est un exploit. Chaque statut est un niveau d'accès.",
+  "futarchy_proposal_id": null,
+  "stats": {
+    "karteria":      { "display": "Patience",  "subtitle": null, "motto": "Les systèmes tombent, les daemons tiennent" },
+    "parrhesia":     { "display": "Signal",    "subtitle": null, "motto": "Sépare le signal du bruit. Toujours." },
+    "anaideia":      { "display": "Exploit",   "subtitle": null, "motto": "Zero-day : tu y vas avant que le patch sorte" },
+    "philanthropia": { "display": "Relay",     "subtitle": null, "motto": "Tu routes pour les autres. Sans logs." },
+    "autarkeia":     { "display": "Daemon",    "subtitle": null, "motto": "Tourne en background. Personne ne te voit." },
+    "poiesis":       { "display": "Commit",    "subtitle": null, "motto": "Le code est la seule preuve qui compte" },
+    "koinonia":      { "display": "Mesh",      "subtitle": null, "motto": "Le réseau, c'est toi et tes pairs" }
+  },
+  "classes": {
+    "spartiate": { "display": "Ghost",         "subtitle": null, "flavor": "Tient sa position, frappe au bon moment" },
+    "oracle":    { "display": "Oracle",        "subtitle": null, "flavor": "Lit la vérité dans le bruit, maintient l'infra" },
+    "promethee": { "display": "Zero-Day",      "subtitle": null, "flavor": "Prend le risque, partage l'exploit" },
+    "hermes":    { "display": "Contributor",   "subtitle": null, "flavor": "Code pour les autres, connecte le réseau" },
+    "dedale":    { "display": "Sysadmin",      "subtitle": null, "flavor": "L'infra tourne grâce à lui" },
+    "socrate":   { "display": "Whistleblower", "subtitle": null, "flavor": "Révèle la vérité à la communauté" },
+    "agathon":   { "display": "Coordinator",   "subtitle": null, "flavor": "Donne et connecte sans centraliser" },
+    "apex":      { "display": "Sovereign",     "subtitle": null, "flavor": "Root. Accès total. Aucune dépendance." }
+  },
+  "tiers": {
+    "t0": { "display": "Lurker",   "subtitle": null },
+    "t1": { "display": "User",     "subtitle": null },
+    "t2": { "display": "Operator", "subtitle": null },
+    "t3": { "display": "Admin",    "subtitle": null },
+    "t4": { "display": "Root",     "subtitle": null }
+  }
+}

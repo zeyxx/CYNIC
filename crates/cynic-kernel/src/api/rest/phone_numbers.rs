@@ -75,12 +75,12 @@ pub async fn blocklist_handler(
         .collect();
 
     let count = numbers.len();
-    let generated_at = chrono::Utc::now().to_rfc3339();
+    let generated_at = chrono::Utc::now().timestamp_millis();
 
     Ok(Json(BlocklistResponse {
         numbers,
         count,
-        generated_at,
+        generated_at: generated_at.to_string(),
     }))
 }
 

@@ -1,0 +1,31 @@
+{
+  "schema": "cynic.runtime_checkpoint.v1",
+  "checkpoint_id": "2026-07-23-source-build-fleet",
+  "base_commit": "e9d5869a371a11a323be1e2751b0987232baf958",
+  "checkpoint_commit": "c52ffe1",
+  "worktree": {
+    "status_entries_observed": 530,
+    "tracked_files_in_diff_stat": 344,
+    "history_status": "recovery_checkpoint_committed",
+    "loss_policy": "preserve_all_current_worktree_changes"
+  },
+  "completed_contracts": [
+    "source_worktree_ownership_lease_fencing",
+    "source_change_admission",
+    "source_push_registry_target_and_remote_readback",
+    "build_input_admission",
+    "argv_build_runner_and_artifact_digest",
+    "vertical_conformance_and_convergence_matrix",
+    "runtime_proof_bundle_assembly",
+    "kernel_proof_persistence_payload_and_readback_adapter"
+  ],
+  "current_blockers": [
+    "checkpoint_commit_is_broad_recovery_snapshot",
+    "kernel_persistence_surface_not_exposed_to_cli_or_mcp",
+    "build_proof_not_yet_collected_from_a_real_build",
+    "artifact_release_must_remain_blocked_until_build_proof",
+    "fleet_bundle_collection_not_yet_persisted_across_nodes"
+  ],
+  "next_boundary": "start_clean_vertical_commit_series_from_checkpoint_commit",
+  "remote_policy": "no_push_in_this_checkpoint"
+}

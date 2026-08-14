@@ -117,6 +117,10 @@ pub enum HealthCause {
     ReadinessTasksStale {
         tasks: Vec<&'static str>,
     },
+    OverdueAgentTasks {
+        count: usize,
+        task_ids: Vec<String>,
+    },
     /// Contract declares Dogs that are missing from the live roster.
     ContractGap {
         missing: Vec<String>,
@@ -147,12 +151,13 @@ pub fn system_health_assessment(
     probes_degraded: bool,
     stale_tasks: &[&'static str],
 ) -> HealthAssessment {
-    system_health_assessment_with_contract(
+    system_health_assessment_with_contract_and_overdue(
         healthy_dogs,
         total_dogs,
         storage_ok,
         probes_degraded,
         stale_tasks,
+        &[],
         None,
     )
 }
@@ -164,6 +169,27 @@ pub fn system_health_assessment_with_contract(
     storage_ok: bool,
     probes_degraded: bool,
     stale_tasks: &[&'static str],
+    contract_delta: Option<&ContractDelta>,
+) -> HealthAssessment {
+    system_health_assessment_with_contract_and_overdue(
+        healthy_dogs,
+        total_dogs,
+        storage_ok,
+        probes_degraded,
+        stale_tasks,
+        &[],
+        contract_delta,
+    )
+}
+
+/// Full assessment with optional contract comparison and overdue task pressure.
+pub fn system_health_assessment_with_contract_and_overdue(
+    healthy_dogs: usize,
+    total_dogs: usize,
+    storage_ok: bool,
+    probes_degraded: bool,
+    stale_tasks: &[&'static str],
+    overdue_task_ids: &[String],
     contract_delta: Option<&ContractDelta>,
 ) -> HealthAssessment {
     let mut causes = Vec::new();
@@ -194,6 +220,12 @@ pub fn system_health_assessment_with_contract(
             tasks: stale_tasks.to_vec(),
         });
     }
+    if !overdue_task_ids.is_empty() {
+        causes.push(HealthCause::OverdueAgentTasks {
+            count: overdue_task_ids.len(),
+            task_ids: overdue_task_ids.to_vec(),
+        });
+    }
 
     let contract_gap = contract_delta.is_some_and(|d| !d.fulfilled);
     if let Some(delta) = contract_delta
@@ -212,6 +244,7 @@ pub fn system_health_assessment_with_contract(
         || (total_dogs > 0 && healthy_dogs * 2 < total_dogs)
         || probes_degraded
         || !stale_tasks.is_empty()
+        || !overdue_task_ids.is_empty()
     {
         ("degraded", false)
     } else if contract_gap {
@@ -335,6 +368,30 @@ mod tests {
             assessment.causes,
             vec![HealthCause::ReadinessTasksStale {
                 tasks: vec!["health_loop"]
+            }]
+        );
+    }
+
+    #[test]
+    fn overdue_agent_tasks_degrade_health_with_structured_cause() {
+        let overdue = vec!["agent_tasks:abc".to_string()];
+        let assessment = system_health_assessment_with_contract_and_overdue(
+            5,
+            5,
+            true,
+            false,
+            &[],
+            &overdue,
+            None,
+        );
+
+        assert_eq!(assessment.status, "degraded");
+        assert!(!assessment.healthy);
+        assert_eq!(
+            assessment.causes,
+            vec![HealthCause::OverdueAgentTasks {
+                count: 1,
+                task_ids: vec!["agent_tasks:abc".to_string()],
             }]
         );
     }

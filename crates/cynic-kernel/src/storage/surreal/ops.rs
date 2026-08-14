@@ -70,7 +70,7 @@ pub(super) async fn flush_dog_stats(
         let id_key = sanitize_record_id(dog_id);
         let id_val = escape_surreal(dog_id);
         let last_success_sql = match &stats.last_success {
-            Some(ts) => format!("'{}'", escape_surreal(ts)),
+            Some(ts) => ts.to_string(),
             None => "NONE".to_string(),
         };
         let _ = write!(
@@ -129,10 +129,7 @@ pub(super) async fn load_dog_stats(
                     parse_error_count: r["parse_error_count"].as_u64().unwrap_or(0),
                     timeout_count: r["timeout_count"].as_u64().unwrap_or(0),
                     api_error_count: r["api_error_count"].as_u64().unwrap_or(0),
-                    last_success: r["last_success"]
-                        .as_str()
-                        .filter(|s| !s.is_empty())
-                        .map(|s| s.to_string()),
+                    last_success: r["last_success"].as_i64(),
                     total_latency_ms: r["total_latency_ms"].as_u64().unwrap_or(0),
                     total_completion_tokens: r["total_completion_tokens"].as_u64().unwrap_or(0),
                     max_completion_tokens: r["max_completion_tokens"].as_u64().unwrap_or(0) as u32,
@@ -159,10 +156,7 @@ pub(super) async fn load_dog_stat(
         parse_error_count: r["parse_error_count"].as_u64().unwrap_or(0),
         timeout_count: r["timeout_count"].as_u64().unwrap_or(0),
         api_error_count: r["api_error_count"].as_u64().unwrap_or(0),
-        last_success: r["last_success"]
-            .as_str()
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string()),
+        last_success: r["last_success"].as_i64(),
         total_latency_ms: r["total_latency_ms"].as_u64().unwrap_or(0),
         total_completion_tokens: r["total_completion_tokens"].as_u64().unwrap_or(0),
         max_completion_tokens: r["max_completion_tokens"].as_u64().unwrap_or(0) as u32,

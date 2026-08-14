@@ -49,7 +49,7 @@ pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         },
         dogs_used: v.dog_id.clone(),
         phi_max: PHI_INV,
-        timestamp: v.timestamp.clone(),
+        timestamp: v.timestamp,
         dog_scores: v.dog_scores.iter().map(dog_score_to_response).collect(),
         voter_count: v.voter_count,
         anomaly_detected: v.anomaly_detected,
@@ -133,7 +133,7 @@ mod tests {
             },
             dog_id: "test-dog".into(),
             stimulus_summary: "test stimulus".into(),
-            timestamp: "2026-03-15T00:00:00Z".into(),
+            timestamp: 1_773_532_800_000,
             dog_scores: vec![],
             anomaly_detected: false,
             max_disagreement: 0.0,
@@ -155,7 +155,7 @@ mod tests {
         assert_eq!(resp.reasoning.fidelity, "good");
         assert_eq!(resp.dogs_used, "test-dog");
         assert_eq!(resp.phi_max, PHI_INV);
-        assert_eq!(resp.timestamp, "2026-03-15T00:00:00Z");
+        assert_eq!(resp.timestamp, 1_773_532_800_000);
         assert!(!resp.anomaly_detected);
     }
 }

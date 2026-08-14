@@ -2,11 +2,13 @@
 #![allow(clippy::print_stdout)]
 
 use clap::Parser;
-use cynic_askesis::audit::gemini_wisdom::GeminiWisdomAudit;
+use cynic_askesis::audit::kernel_rest::KernelRestAudit;
 use cynic_askesis::audit::{AuditEngine, default_phase2_directives};
 use cynic_askesis::log::LogStore;
 use cynic_askesis::log::jsonl::JsonlLog;
 use std::path::PathBuf;
+
+mod eval_cli;
 
 #[derive(Parser)]
 #[command(name = "cynic-askesis")]
@@ -43,6 +45,26 @@ enum Command {
         #[arg(short, long)]
         domain: String,
     },
+    /// Inject a cryptographic Proof-of-Action to calibrate the E-Score
+    Proof {
+        /// Proof-of-Build metric (e.g., lines of code, PRs merged)
+        #[arg(long)]
+        build: Option<f64>,
+        /// Proof-of-Capital metric (e.g., USD spent)
+        #[arg(long)]
+        capital: Option<f64>,
+        /// Proof-of-Attention metric (e.g., public narrative output)
+        #[arg(long)]
+        attention: Option<f64>,
+        /// Brief explanation of the action
+        #[arg(short, long)]
+        desc: String,
+        /// Path to the target JSONL log file
+        #[arg(long, default_value = ".cynic/memory/logs/human-kernel.jsonl")]
+        logfile: PathBuf,
+    },
+    /// Run a reproducible agent evaluation against an OpenAI-compatible endpoint
+    Eval(eval_cli::EvalArgs),
 }
 
 #[tokio::main]
@@ -61,17 +83,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let store = JsonlLog::new(log_path)?;
             let to = chrono::Utc::now();
             let from = to - chrono::Duration::days(7);
-            let logs = store.range(from, to)?;
+            let logs = store.range(from.timestamp(), to.timestamp())?;
 
             if logs.is_empty() {
                 println!("No log entries found in the last 7 days.");
                 return Ok(());
             }
 
-            println!("Found {} entries. Running Gemini audit...", logs.len());
+            println!(
+                "Found {} entries. Requesting Kernel Evaluation (POST /judge)...",
+                logs.len()
+            );
 
-            // Run audit using Gemini Wisdom
-            let engine = GeminiWisdomAudit::default();
+            // Run audit using Kernel REST API
+            let engine = KernelRestAudit::default();
             let directives = default_phase2_directives();
             let reflection = engine.audit(&logs, &directives).await?;
 
@@ -97,7 +122,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // DE-DUPLICATION: Check if last entry is identical
             let to = chrono::Utc::now();
             let from = to - chrono::Duration::hours(1);
-            if let Ok(recent) = store.range(from, to)
+            if let Ok(recent) = store.range(from.timestamp(), to.timestamp())
                 && let Some(last) = recent.last()
                 && last.content == content
                 && last.domain.as_deref() == Some(&domain)
@@ -108,7 +133,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 return Ok(());
             }
 
-            let entry = cynic_askesis::log::LogEntry::new(content).with_domain(&domain);
+            let entry = cynic_askesis::log::ObservationEvent::new(content).with_domain(&domain);
 
             store.append(entry)?;
             println!("Successfully ingested as domain: {domain}");
@@ -120,13 +145,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             logfile,
             domain,
         } => {
-            let mut store = JsonlLog::new(&logfile)?;
-            let entry = cynic_askesis::log::LogEntry::new(content).with_domain(&domain);
-
-            store.append(entry)?;
+            cynic_askesis::append_human_log_entry(&logfile, &content, &domain)?;
             println!("Successfully logged to domain: {domain}");
 
             Ok(())
         }
+        Command::Proof {
+            build,
+            capital,
+            attention,
+            desc,
+            logfile,
+        } => {
+            let mut store = JsonlLog::new(&logfile)?;
+
+            // Format the payload as JSON for the State Engine
+            let payload = serde_json::json!({
+                "action": "E_SCORE_PROOF_INJECTION",
+                "proof_of_build": build.unwrap_or(0.0),
+                "proof_of_capital": capital.unwrap_or(0.0),
+                "proof_of_attention": attention.unwrap_or(0.0),
+                "description": desc,
+            });
+
+            let content = serde_json::to_string(&payload)?;
+            let entry = cynic_askesis::log::ObservationEvent::new(content).with_domain("ouroboros");
+            store.append(entry)?;
+
+            println!("Ouroboros Proof successfully injected to domain 'ouroboros'.");
+            println!("Kernel is recalculating Alpha E-Score...");
+
+            Ok(())
+        }
+        Command::Eval(args) => eval_cli::run(args).await,
     }
 }

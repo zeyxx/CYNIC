@@ -1,186 +1,259 @@
 {
-  "version": "1.1.0",
+  "version": 1,
+  "schema": "cynic.registry.v1.minimal",
+  "purpose": "Minimal runtime placement registry for the rebuilt low-layer organism.",
+  "network_policy": {
+    "canonical_service_plane": "synapse",
+    "planes": {
+      "management": {
+        "cidr": "192.168.100.0/24",
+        "canonical": false,
+        "purpose": "direct bare-metal management transport"
+      },
+      "synapse": {
+        "cidr": "10.10.10.0/24",
+        "dns_zone": "synapse.cynic",
+        "canonical": true
+      }
+    },
+    "reservations": [
+      {
+        "name": "cynic-host-proxmox",
+        "addresses": {
+          "management": "192.168.100.1",
+          "synapse": "10.10.10.1"
+        }
+      },
+      {
+        "name": "cynic-host-cortex",
+        "addresses": {
+          "management": "192.168.100.2"
+        }
+      },
+      {
+        "name": "forgejo",
+        "dns": [
+          "forgejo.synapse.cynic"
+        ]
+      }
+    ]
+  },
   "nodes": [
     {
+      "id": "cynic-host-proxmox",
       "name": "cynic-host-proxmox",
-      "role": "proxmox_host_kernel",
-      "os": "Proxmox VE 8.2",
+      "aliases": ["pve"],
+      "role": "hypervisor",
+      "status": "observed",
+      "deploy_target": false,
       "network": {
-        "local": "192.168.0.37",
-        "tailscale": "<TAILSCALE_HOST_PROXMOX>"
+        "management": "192.168.100.1",
+        "synapse": "10.10.10.1"
       },
-      "vms": [
+      "services": []
+    },
+    {
+      "id": "cynic-host-cortex",
+      "name": "cynic-host-cortex",
+      "aliases": [],
+      "role": "cortex_host",
+      "status": "candidate",
+      "deploy_target": false,
+      "network": {
+        "management": "192.168.100.2"
+      },
+      "network_links": [
         {
-          "id": "lxc/100",
-          "name": "cynic-lxc-vpn",
-          "ip": "192.168.0.40"
-        },
-        {
-          "id": "lxc/101",
-          "name": "cynic-lxc-git",
-          "ip": "192.168.0.41"
-        },
-        {
-          "id": "qemu/102",
-          "name": "cynic-vm-anvil",
-          "ip": "192.168.0.42"
+          "plane": "management",
+          "provider": "network-manager",
+          "interface": "enp42s0",
+          "connection": "Connexion filaire 1",
+          "address": "192.168.100.2/24",
+          "gateway": "192.168.100.1",
+          "routes": ["10.10.10.0/24"],
+          "default_route": false
         }
       ],
+      "services": []
+    },
+    {
+      "id": "local-kernel",
+      "name": "local-kernel",
+      "role": "kernel_primary",
+      "status": "candidate",
+      "deploy_target": true,
+      "network": {
+        "synapse": "127.0.0.1"
+      },
       "services": [
         {
-          "name": "llama-embed",
-          "port": 8081,
-          "description": "Sovereign embedding backend (Qwen3-Embed)"
+          "name": "cynic-kernel",
+          "artifact": "cynic-kernel",
+          "port": 3030,
+          "unit": "cynic-kernel.service",
+          "supervisor": {
+            "provider": "process-port"
+          },
+          "health": {
+            "kind": "tcp",
+            "port": 3030
+          }
         },
         {
-          "name": "surrealdb-replica",
-          "port": 8001,
-          "description": "Failover storage node"
+          "name": "cynic-node",
+          "artifact": "cynic-node",
+          "unit": "cynic-node.service",
+          "supervisor": {
+            "provider": "process-port"
+          },
+          "health": {
+            "kind": "process",
+            "process": "cynic-node"
+          }
+        },
+        {
+          "name": "surrealdb",
+          "unit": "surrealdb.service",
+          "port": 8000,
+          "supervisor": {
+            "provider": "process-port"
+          },
+          "health": {
+            "kind": "tcp",
+            "port": 8000
+          }
         }
+      ]
+    },
+    {
+      "id": "local-builder",
+      "name": "local-builder",
+      "aliases": [
+        "ubuntu"
       ],
-      "status": "active"
+      "role": "build_runner",
+      "status": "candidate",
+      "deploy_target": false,
+      "network": {
+        "synapse": "127.0.0.1"
+      },
+      "services": []
     },
     {
-      "name": "cynic-host-gpu",
-      "role": "inference_node",
+      "id": "forgejo",
+      "name": "forgejo",
+      "aliases": [
+        "organ-forgejo",
+        "cynic-lxc-git"
+      ],
+      "role": "forge_primary",
+      "status": "candidate",
+      "deploy_target": true,
+      "proxmox_id": "lxc/101",
       "network": {
-        "local": "192.168.0.67",
-        "tailscale": "100.64.0.5"
+        "local": "10.10.10.101",
+        "synapse": "10.10.10.101"
       },
-      "status": "active"
-    },
-    {
-      "name": "cynic-host-cortex",
-      "role": "cortex_host",
-      "network": {
-        "local": "192.168.0.12",
-        "tailscale": "100.64.0.1"
-      },
-      "status": "active"
+      "services": [
+        {
+          "name": "ssh",
+          "scheme": "ssh",
+          "port": 22
+        },
+        {
+          "name": "forgejo-backend",
+          "scheme": "http",
+          "port": 3000
+        },
+        {
+          "name": "forgejo-api-tls",
+          "scheme": "https",
+          "port": 443
+        }
+      ]
     }
   ],
-  "routing_rules": {
-    "primary_tunnel": "tailscale_100_64_0_0_24",
-    "management_fallback": "local_192_168_0_0_24"
+  "fleet_desired": {
+    "targets": [
+      {
+        "id": "forgejo-primary",
+        "provider": "proxmox",
+        "resource_id": "lxc/101",
+        "role": "forge_primary",
+        "desired_power": "running"
+      }
+    ]
   },
-  "organs": [
-    {
-      "name": "organ-forge",
-      "instance": "organ-forge-hermes-agent",
-      "role": "repo_lifecycle_manager",
-      "description": "Git repo hygiene, branch health, claim hygiene, and lifecycle triage.",
-      "scope": "github+cynic-lxc-git",
-      "cron": "every 30min",
-      "status": "active",
-      "depends_on": [
-        "cynic-kernel"
-      ],
-      "coord": "cynic_coord_register/release"
-    },
-    {
-      "name": "organ-docker",
-      "instance": "organ-docker-hermes-agent",
-      "role": "container_surface_manager",
-      "description": "Local container fallback operator surface and portal reproducibility manager.",
-      "scope": "local+tailscale",
-      "cron": "every 30min",
-      "status": "active",
-      "depends_on": [
-        "cynic-kernel"
-      ],
-      "coord": "cynic_coord_register/release"
-    },
-    {
-      "name": "organ-vercel",
-      "instance": "organ-vercel-hermes-agent",
-      "role": "deployment_surface_manager",
-      "description": "Public edge deployment manager for CYNIC frontends and Talaria surfaces.",
-      "scope": "vercel+github_deployments",
-      "cron": "every 30min",
-      "status": "active",
-      "depends_on": [
-        "cynic-kernel"
-      ],
-      "coord": "cynic_coord_register/release"
-    },
-    {
-      "name": "organ-telegram",
-      "instance": "organ-telegram-hermes-agent",
-      "role": "messaging_surface_manager",
-      "description": "Telegram runtime and public/ops messaging surface manager.",
-      "scope": "telegram+ops+public",
-      "cron": "every 30min",
-      "status": "active",
-      "depends_on": [
-        "cynic-kernel"
-      ],
-      "coord": "cynic_coord_register/release"
-    },
-    {
-      "name": "organ-twitter",
-      "instance": "organ-twitter-hermes-agent",
-      "role": "x_surface_manager",
-      "description": "X/Twitter perception, curation, and posting surface manager.",
-      "scope": "x+curation+alerts",
-      "cron": "every 30min",
-      "status": "active",
-      "depends_on": [
-        "cynic-kernel"
-      ],
-      "coord": "cynic_coord_register/release"
-    },
-    {
-      "name": "organ-discord",
-      "instance": "organ-discord-hermes-agent",
-      "role": "discord_surface_manager",
-      "description": "Discord passive capture and community opportunity manager for bounties, grants, and Solana infrastructure signals.",
-      "scope": "discord+community+superteam",
-      "cron": "every 30min",
-      "status": "planned",
-      "depends_on": [
-        "cynic-kernel"
-      ],
-      "coord": "cynic_coord_register/release"
-    },
-    {
-      "name": "organ-jupyter",
-      "instance": "organ-jupyter-hermes-agent",
-      "role": "notebook_surface_manager",
-      "description": "Jupyter Notebook / Data Science environment manager for exploratory coding and data analysis within the CYNIC ecosystem.",
-      "scope": "local+jupyterlab",
-      "cron": "every 30min",
-      "status": "active",
-      "depends_on": [
-        "cynic-kernel"
-      ],
-      "coord": "cynic_coord_register/release"
-    },
-    {
-      "name": "organ-prompt-enricher",
-      "instance": "organ-prompt-enricher-hermes-agent",
-      "role": "prompt_optimization_manager",
-      "description": "Dynamic prompt enrichment middleware. Uses retrieval augmentation, few-shot templating, and automated reasoning (CoT) structures to optimize raw prompts before dispatch to LLM backends.",
-      "scope": "kernel_middleware+inference",
-      "cron": "event-driven",
-      "status": "active",
-      "depends_on": [
+  "lifecycle": {
+    "kernel_release": {
+      "build_runner_role": "build_runner",
+      "deploy_target_role": "kernel_primary",
+      "host_bootstrap": {
+        "role_profiles": {
+          "kernel_primary": {
+            "target_stage": "h6_host_actionable",
+            "required_domains": [
+              "host",
+              "services",
+              "storage",
+              "kernel"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "kernel_service_observed",
+              "storage_health_observed"
+            ]
+          },
+          "build_runner": {
+            "target_stage": "h4_privilege_helpers_ready",
+            "required_domains": [
+              "host",
+              "toolchain",
+              "build"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "cargo_check_observed",
+              "binary_build_observed"
+            ]
+          },
+          "storage_primary": {
+            "target_stage": "h5_services_projected",
+            "required_domains": [
+              "host",
+              "storage"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "storage_health_observed"
+            ]
+          },
+          "forge_primary": {
+            "target_stage": "h5_services_projected",
+            "required_domains": [
+              "host",
+              "services",
+              "network",
+              "forge"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "forgejo_backend_observed",
+              "forgejo_tls_identity_observed"
+            ]
+          }
+        }
+      },
+      "runtime_artifacts": [
         "cynic-kernel",
-        "llama-embed"
-      ],
-      "coord": "cynic_coord_register/release"
-    },
-    {
-      "name": "organ-kanban-ui",
-      "instance": "organ-kanban-ui-hermes-agent",
-      "role": "dashboard_projection_manager",
-      "description": "One-way projector from Hermes Kanban JSON state to Obsidian Markdown UI.",
-      "scope": "local+obsidian",
-      "cron": "every 5min",
-      "status": "active",
-      "depends_on": [
-        "cynic-kernel"
-      ],
-      "coord": "cynic_coord_register/release"
+        "cynic-node",
+        "cynic-mcp",
+        "cynic"
+      ]
     }
-  ]
+  }
 }

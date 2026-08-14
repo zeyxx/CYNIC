@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  surrealdb-dev:
+    image: surrealdb/surrealdb:latest
+    container_name: cynic-surrealdb-staging
+    ports:
+      - "8000:8000"
+    command: start --bind 0.0.0.0:8000 --transaction-timeout 10s --query-timeout 30s surrealkv://data
+    volumes:
+      - ../.cynic/staging-surrealdb-data:/data
+    restart: unless-stopped
+    networks:
+      - cynic_staging_net
+
+networks:
+  cynic_staging_net:
+    driver: bridge

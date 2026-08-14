@@ -1,0 +1,68 @@
+# CYNIC sovereign inference configuration
+# ==========================================
+# Install to /etc/cynic/inference.toml and adjust.
+# Loaded by: cynic-inference::config_loader
+# Queried by: cynic runtime inference --json
+#             MCP tool: cynic_inference_backends
+#
+# Two complementary paths (not competitors):
+#   1) CYNIC native — vault + llama-server@ / cynic runtime inference-start
+#   2) Osmantic ODS — external framework that bootstraps a full local AI env
+#      https://github.com/Osmantic/ODS
+#      Attach with: cynic runtime inference-discover --json
+#
+# Centralized model locations (override via env; never commit machine paths):
+#   CYNIC_MODEL_VAULT      default: $XDG_DATA_HOME/cynic/models
+#   CYNIC_MODEL_PROFILES   default: $XDG_CONFIG_HOME/cynic/models
+#   CYNIC_MODEL_REGISTRY   default: $XDG_CONFIG_HOME/cynic/model-registry.json
+#   HF downloads land in:  $CYNIC_MODEL_VAULT/hf/<org__repo>/
+#   cynic runtime inference-models --json --persist
+#   cynic runtime inference-hf-download <repo> --json --include '*.gguf'
+#
+# Launch flags are NOT frozen in profiles: probed at start
+#   cynic runtime inference-plan <alias> --json [--apply]
+#   cynic runtime inference-start <alias> --json   # regenerates plan every start
+# Profile .env = model identity; runtime/ + systemd drop-in = live probe
+#
+# SECRETS: Never put API keys here. Use env vars instead:
+#   CYNIC_BACKEND_<NAME>_API_KEY   (name upper-cased, hyphens → underscores)
+# Example: for name = "hf-cloud" → CYNIC_BACKEND_HF_CLOUD_API_KEY
+
+# ── Sovereign (local) backend — llama.cpp / ODS-exposed OpenAI-compat ─────────
+# Native: cynic runtime inference-start <alias> --json
+# Or ODS-managed llama-server (often host :11434 on Linux Docker, :8080 native)
+# systemd unit template (native): llama-server@.service
+
+[[backend]]
+name        = "llama-local"
+base_url    = "http://localhost:8080/v1"
+# Prefer DNS when synapse is active, e.g.:
+# base_url  = "http://inference.synapse.cynic:8080/v1"
+# base_url  = "http://llama.synapse.cynic:8080/v1"
+model       = "qwen2.5-coder-7b-instruct-q6_k"
+sovereign   = true
+context_size = 8192
+timeout_secs = 120
+max_tokens  = 4096
+temperature = 0.7
+# disable_thinking = false   # set true to suppress <think> tokens on thinking models
+#
+# Chat TUI (`cynic chat`) resolves endpoint in this order:
+#   1. CYNIC_CHAT_ENDPOINT (breakglass only)
+#   2. this file (first sovereign backend) — /etc/cynic or principal config
+#   3. synapse DNS: inference|llama|llama-server|ods|chat.<zone> (default zone synapse.cynic)
+#   4. ODS / loopback OpenAI-compat probe
+
+# ── Optional: cloud fallback (only if you want non-sovereign routing) ─────────
+# API key via env: CYNIC_BACKEND_GEMINI_FLASH_API_KEY
+#
+# [[backend]]
+# name        = "gemini-flash"
+# base_url    = "https://generativelanguage.googleapis.com/v1beta/openai"
+# model       = "gemini-2.5-flash"
+# sovereign   = false
+# timeout_secs = 60
+# max_tokens  = 8192
+# [backend.auth_style]
+# kind  = "query_param"
+# param = "key"

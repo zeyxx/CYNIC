@@ -110,6 +110,81 @@ pub struct FleetDetails {
     pub dogs: Vec<DogHealthDetails>,
 }
 
+/// One node from the fleet inventory contract (infrastructure).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FleetNodeObservation {
+    pub provider: String,
+    pub provider_node: Option<String>,
+    pub node_id: String,
+    pub name: String,
+    pub status: String,
+    pub liveness: String,
+    /// Declared in registry or discovered dynamically.
+    pub ip: Option<String>,
+    /// Whether this VM/node is declared in infra/registry.json.
+    pub desired: bool,
+    /// Whether this node was observed in the current provider pass.
+    pub observed: bool,
+    /// Provider metadata for future extension.
+    #[serde(default)]
+    pub meta: Option<std::collections::BTreeMap<String, String>>,
+}
+
+/// Provider status captured by FleetInventoryProbe.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FleetInventoryProviderSummary {
+    pub provider: String,
+    pub status: String,
+    pub observed_nodes: u32,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+impl FleetInventoryProviderSummary {
+    pub fn ok(provider: &str, observed_nodes: usize) -> Self {
+        Self {
+            provider: provider.to_string(),
+            status: "ok".to_string(),
+            observed_nodes: observed_nodes as u32,
+            error: None,
+        }
+    }
+
+    pub fn degraded(provider: &str, observed_nodes: usize, error: String) -> Self {
+        Self {
+            provider: provider.to_string(),
+            status: "degraded".to_string(),
+            observed_nodes: observed_nodes as u32,
+            error: Some(error),
+        }
+    }
+}
+
+/// Fleet inventory evidence summary for activation/readiness checks.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FleetInventorySummary {
+    pub declared_nodes: u32,
+    pub observed_nodes: u32,
+    pub matched_nodes: u32,
+    pub missing_nodes: u32,
+    pub unexpected_nodes: u32,
+    pub providers: Vec<FleetInventoryProviderSummary>,
+    #[serde(default)]
+    pub provider_evidence_gaps: Vec<String>,
+    #[serde(default)]
+    pub declaration_missing_nodes: Vec<String>,
+    #[serde(default)]
+    pub declaration_unexpected_nodes: Vec<String>,
+}
+
+/// Fleet inventory details (platform provider-agnostic).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FleetInventoryDetails {
+    pub nodes: Vec<FleetNodeObservation>,
+    #[serde(default)]
+    pub summary: FleetInventorySummary,
+}
+
 /// A listening port observed on the host.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListeningPort {
@@ -170,6 +245,7 @@ pub enum ProbeDetails {
     Process(ProcessDetails),
     Pressure(PressureDetails),
     Fleet(FleetDetails),
+    FleetInventory(FleetInventoryDetails),
     Soma(SomaDetails),
     Version(VersionDetails),
     /// NullProbe and test doubles only. Real probes must use a typed variant.
@@ -186,7 +262,7 @@ pub struct ProbeResult {
     pub details: ProbeDetails,
     pub duration_ms: u64,
     /// RFC3339 timestamp of when the probe completed.
-    pub timestamp: String,
+    pub timestamp: i64,
 }
 
 // ─── EnvironmentSnapshot ─────────────────────────────────────────────────────
@@ -195,7 +271,7 @@ pub struct ProbeResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnvironmentSnapshot {
     /// RFC3339 timestamp of when the snapshot was assembled.
-    pub timestamp: String,
+    pub timestamp: i64,
     pub probes: Vec<ProbeResult>,
     pub overall: ProbeStatus,
 }
@@ -287,7 +363,7 @@ impl Probe for NullProbe {
             status: ProbeStatus::Unavailable,
             details: ProbeDetails::Empty,
             duration_ms: 0,
-            timestamp: "1970-01-01T00:00:00Z".to_string(),
+            timestamp: 0,
         })
     }
 }
@@ -313,7 +389,7 @@ mod tests {
             status,
             details: ProbeDetails::Empty,
             duration_ms: 0,
-            timestamp: "1970-01-01T00:00:00Z".to_string(),
+            timestamp: 0,
         };
 
         // Single-element cases

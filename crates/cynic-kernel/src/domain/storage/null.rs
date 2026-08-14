@@ -4,8 +4,9 @@
 //! mode returns explicit errors rather than silently succeeding.
 
 use super::{
-    ActivityStorage, CrystalStorage, DispatchStorage, Observation, StateLogStorage, StorageError,
-    StoragePort, SubmissionStorage, TaskStorage, UsageRow, VerdictStorage,
+    ActivityStorage, CrystalStorage, DispatchStorage, MeshNode, MeshRoute, MeshStorage,
+    Observation, StateLogStorage, StorageError, StoragePort, SubmissionStorage, TaskStorage,
+    UsageRow, VerdictStorage,
 };
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
@@ -118,7 +119,7 @@ impl CrystalStorage for NullStorage {
         _content: &str,
         _domain: &str,
         _score: f64,
-        _timestamp: &str,
+        _timestamp: i64,
         _voter_count: usize,
         _verdict_id: &str,
         _verdict_kind: &str,
@@ -133,7 +134,7 @@ impl CrystalStorage for NullStorage {
         _content: &str,
         _domain: &str,
         _score: f64,
-        _timestamp: &str,
+        _timestamp: i64,
         _source: &str,
         _sentiment: Option<&str>,
     ) -> Result<(), StorageError> {
@@ -146,7 +147,7 @@ impl CrystalStorage for NullStorage {
         _id: &str,
         _reason: &str,
         _source: &str,
-        _timestamp: &str,
+        _timestamp: i64,
     ) -> Result<(), StorageError> {
         Err(StorageError::ConnectionFailed(
             "NullStorage: shatter not persisted (DEGRADED mode)".into(),
@@ -228,6 +229,18 @@ impl ActivityStorage for NullStorage {
     ) -> Result<Vec<crate::domain::storage::RawObservation>, StorageError> {
         Ok(vec![])
     }
+    async fn list_observations_filtered(
+        &self,
+        _domain: Option<&str>,
+        _agent_id: Option<&str>,
+        _project: Option<&str>,
+        _workstream: Option<&str>,
+        _thread_id: Option<&str>,
+        _target: Option<&str>,
+        _limit: u32,
+    ) -> Result<Vec<crate::domain::storage::RawObservation>, StorageError> {
+        Ok(vec![])
+    }
     async fn list_observations_by_target(
         &self,
         _domain: &str,
@@ -293,7 +306,6 @@ impl ActivityStorage for NullStorage {
         &self,
         _path_prefixes: &[String],
         _exclude_agent: &str,
-        _project_root: &str,
     ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
         Ok(vec![])
     }
@@ -325,6 +337,12 @@ impl TaskStorage for NullStorage {
     ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
         Ok(vec![])
     }
+    async fn list_overdue_agent_tasks(
+        &self,
+        _limit: u32,
+    ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
+        Ok(vec![])
+    }
     async fn claim_agent_task(
         &self,
         _task_id: &str,
@@ -335,10 +353,32 @@ impl TaskStorage for NullStorage {
     async fn update_agent_task_result(
         &self,
         _task_id: &str,
+        _agent_id: &str,
         _result: Option<String>,
         _error: Option<String>,
-    ) -> Result<(), StorageError> {
-        Ok(())
+    ) -> Result<bool, StorageError> {
+        Ok(false)
+    }
+}
+
+#[async_trait]
+impl MeshStorage for NullStorage {
+    async fn publish_mesh_key(
+        &self,
+        _mesh_ip: &str,
+        _public_key: &str,
+    ) -> Result<MeshNode, StorageError> {
+        Err(StorageError::ConnectionFailed(
+            "Null storage cannot publish mesh key".to_string(),
+        ))
+    }
+
+    async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError> {
+        Ok(vec![])
+    }
+
+    async fn list_mesh_routes(&self) -> Result<Vec<MeshRoute>, StorageError> {
+        Ok(vec![])
     }
 }
 
@@ -466,6 +506,24 @@ impl SubmissionStorage for NullStorage {
     }
     async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError> {
         Ok((0, 0, 0, 0))
+    }
+}
+
+#[async_trait]
+impl crate::domain::storage::ProofOfHistoryStorage for NullStorage {
+    async fn store_proof_of_history(
+        &self,
+        _poh: &crate::domain::storage::ProofOfHistory,
+    ) -> Result<String, StorageError> {
+        Err(StorageError::ConnectionFailed(
+            "Null storage cannot store proof of history".to_string(),
+        ))
+    }
+    async fn list_proof_of_history(
+        &self,
+        _limit: u32,
+    ) -> Result<Vec<crate::domain::storage::ProofOfHistory>, StorageError> {
+        Ok(vec![])
     }
 }
 

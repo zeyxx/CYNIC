@@ -4,9 +4,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use cynic_inference::embedding::{Embedding, EmbeddingError, EmbeddingPort};
 use tokio::sync::RwLock;
-
-use crate::domain::embedding::{Embedding, EmbeddingError, EmbeddingPort};
 
 /// Wraps an EmbeddingPort that can be hot-swapped at runtime.
 /// Starts with NullEmbedding, upgrades to real backend when discovered.
@@ -50,7 +49,7 @@ impl EmbeddingPort for AutoRecoveryEmbedding {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::embedding::{FixedEmbedding, NullEmbedding};
+    use cynic_inference::embedding::{FixedEmbedding, NullEmbedding};
 
     #[tokio::test]
     async fn starts_null_then_upgrades() {

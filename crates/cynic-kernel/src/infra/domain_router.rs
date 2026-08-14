@@ -86,6 +86,7 @@ mod tests {
             temperature: 0.3,
             disable_thinking: false,
             json_mode: false,
+            supports_tool_use: false,
             prompt_tier: PromptTier::Full,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,

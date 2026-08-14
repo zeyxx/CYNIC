@@ -31,7 +31,7 @@ pub struct InboxResponse {
 #[derive(Debug, Serialize)]
 pub struct SendResponse {
     pub message_id: String,
-    pub sent: String,
+    pub sent: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -175,7 +175,7 @@ pub async fn send(
 
     Ok(Json(SendResponse {
         message_id,
-        sent: chrono::Utc::now().to_rfc3339(),
+        sent: chrono::Utc::now().timestamp_millis(),
     }))
 }
 

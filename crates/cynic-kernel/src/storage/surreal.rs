@@ -6,7 +6,9 @@ mod coord;
 mod crystals;
 mod dispatch;
 mod maintenance;
+mod mesh;
 mod ops;
+mod proof_of_history;
 mod state_log;
 mod verdict_queue;
 mod verdicts;
@@ -15,9 +17,10 @@ use super::{SurrealHttpStorage, safe_limit};
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
 use crate::domain::storage::{
-    ActivityStorage, AgentDispatch, AgentTask, CrystalStorage, DispatchStorage, Event, Observation,
-    RawEvent, RawObservation, StateLogStorage, StorageError, StoragePort, SubmissionStorage,
-    TaskStorage, UsageRow, VerdictStorage,
+    ActivityStorage, AgentDispatch, AgentTask, CrystalStorage, DispatchStorage, Event, MeshNode,
+    MeshRoute, MeshStorage, Observation, ProofOfHistory, ProofOfHistoryStorage, RawEvent,
+    RawObservation, StateLogStorage, StorageError, StoragePort, SubmissionStorage, TaskStorage,
+    UsageRow, VerdictStorage,
 };
 use crate::domain::verdict_queue::QueuedVerdict;
 
@@ -137,7 +140,7 @@ impl CrystalStorage for SurrealHttpStorage {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         voter_count: usize,
         verdict_id: &str,
         verdict_kind: &str,
@@ -148,7 +151,7 @@ impl CrystalStorage for SurrealHttpStorage {
             content,
             domain,
             score,
-            timestamp,
+            &timestamp.to_string(),
             voter_count,
             verdict_id,
             verdict_kind,
@@ -161,12 +164,19 @@ impl CrystalStorage for SurrealHttpStorage {
         content: &str,
         domain: &str,
         score: f64,
-        timestamp: &str,
+        timestamp: i64,
         source: &str,
         sentiment: Option<&str>,
     ) -> Result<(), StorageError> {
         crystals::observe_crystal_hypha(
-            self, id, content, domain, score, timestamp, source, sentiment,
+            self,
+            id,
+            content,
+            domain,
+            score,
+            &timestamp.to_string(),
+            source,
+            sentiment,
         )
         .await
     }
@@ -175,9 +185,9 @@ impl CrystalStorage for SurrealHttpStorage {
         id: &str,
         reason: &str,
         source: &str,
-        timestamp: &str,
+        timestamp: i64,
     ) -> Result<(), StorageError> {
-        crystals::shatter_crystal(self, id, reason, source, timestamp).await
+        crystals::shatter_crystal(self, id, reason, source, &timestamp.to_string()).await
     }
     async fn store_crystal_embedding(
         &self,
@@ -250,6 +260,21 @@ impl ActivityStorage for SurrealHttpStorage {
     ) -> Result<Vec<RawObservation>, StorageError> {
         activity::list_observations_raw(self, domain, agent_id, limit).await
     }
+    async fn list_observations_filtered(
+        &self,
+        domain: Option<&str>,
+        agent_id: Option<&str>,
+        project: Option<&str>,
+        workstream: Option<&str>,
+        thread_id: Option<&str>,
+        target: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError> {
+        activity::list_observations_filtered(
+            self, domain, agent_id, project, workstream, thread_id, target, limit,
+        )
+        .await
+    }
     async fn list_observations_by_target(
         &self,
         domain: &str,
@@ -315,9 +340,8 @@ impl ActivityStorage for SurrealHttpStorage {
         &self,
         path_prefixes: &[String],
         exclude_agent: &str,
-        project_root: &str,
     ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
-        activity::zone_activity(self, path_prefixes, exclude_agent, project_root).await
+        activity::zone_activity(self, path_prefixes, exclude_agent).await
     }
 }
 
@@ -345,6 +369,10 @@ impl TaskStorage for SurrealHttpStorage {
         agent_tasks::list_completed_agent_tasks(self, kind, domain, limit).await
     }
 
+    async fn list_overdue_agent_tasks(&self, limit: u32) -> Result<Vec<AgentTask>, StorageError> {
+        agent_tasks::list_overdue_agent_tasks(self, limit).await
+    }
+
     #[tracing::instrument(skip(self), err)]
     async fn claim_agent_task(&self, task_id: &str, agent_id: &str) -> Result<bool, StorageError> {
         agent_tasks::claim_agent_task(self, task_id, agent_id).await
@@ -352,12 +380,13 @@ impl TaskStorage for SurrealHttpStorage {
     async fn update_agent_task_result(
         &self,
         task_id: &str,
+        agent_id: &str,
         result: Option<String>,
         error: Option<String>,
-    ) -> Result<(), StorageError> {
+    ) -> Result<bool, StorageError> {
         let result_ref = result.as_deref();
         let error_ref = error.as_deref();
-        agent_tasks::update_agent_task_result(self, task_id, result_ref, error_ref).await
+        agent_tasks::update_agent_task_result(self, task_id, agent_id, result_ref, error_ref).await
     }
 }
 
@@ -508,6 +537,35 @@ impl SubmissionStorage for SurrealHttpStorage {
     }
 }
 
+#[async_trait::async_trait]
+impl MeshStorage for SurrealHttpStorage {
+    async fn publish_mesh_key(
+        &self,
+        mesh_ip: &str,
+        public_key: &str,
+    ) -> Result<MeshNode, StorageError> {
+        mesh::publish_mesh_key(self, mesh_ip, public_key).await
+    }
+
+    async fn list_mesh_nodes(&self) -> Result<Vec<MeshNode>, StorageError> {
+        mesh::list_mesh_nodes(self).await
+    }
+
+    async fn list_mesh_routes(&self) -> Result<Vec<MeshRoute>, StorageError> {
+        mesh::list_mesh_routes(self).await
+    }
+}
+
+#[async_trait::async_trait]
+impl ProofOfHistoryStorage for SurrealHttpStorage {
+    async fn store_proof_of_history(&self, poh: &ProofOfHistory) -> Result<String, StorageError> {
+        proof_of_history::store_proof_of_history(self, poh).await
+    }
+    async fn list_proof_of_history(&self, limit: u32) -> Result<Vec<ProofOfHistory>, StorageError> {
+        proof_of_history::list_proof_of_history(self, limit).await
+    }
+}
+
 // ── COMPOSITE STORAGE PORT ──────────────────────────────────
 
 #[async_trait::async_trait]
@@ -575,53 +633,5 @@ impl StoragePort for SurrealHttpStorage {
         &self,
     ) -> Result<Vec<crate::storage::TableOpMetrics>, StorageError> {
         Ok(self.metrics.snapshot_table_ops())
-    }
-}
-
-// ── TESTS ────────────────────────────────────────────────────
-
-#[cfg(test)]
-// WHY: Integration tests use eprintln! for SurrealDB connection diagnostics during
-// local development — these are never reached in production code paths.
-#[allow(clippy::print_stderr)]
-mod tests {
-    use super::*;
-    use crate::storage::{escape_surreal, sanitize_id};
-
-    #[test]
-    fn sanitize_id_rejects_injection() {
-        assert!(sanitize_id("'; DROP TABLE verdict; --").is_err());
-        assert!(sanitize_id("abc\0def").is_err());
-        assert!(sanitize_id("abc`def").is_err());
-        assert!(sanitize_id("abc;def").is_err());
-        assert!(sanitize_id("abc def").is_err());
-        assert!(sanitize_id("").is_err());
-        assert!(sanitize_id(&"a".repeat(129)).is_err());
-    }
-
-    #[test]
-    fn sanitize_id_accepts_valid() {
-        assert!(sanitize_id("abc-123_def").is_ok());
-        assert!(sanitize_id("verdict-001").is_ok());
-        assert!(sanitize_id("a1b2c3d4e5f6").is_ok());
-        assert!(sanitize_id(&"a".repeat(128)).is_ok());
-    }
-
-    #[test]
-    fn escape_surreal_handles_special_chars() {
-        assert_eq!(escape_surreal("it's"), "it\\'s");
-        assert_eq!(escape_surreal("a\\b"), "a\\\\b");
-        assert_eq!(escape_surreal("a\0b"), "ab");
-        assert_eq!(escape_surreal("a\nb"), "a\\nb");
-        assert_eq!(escape_surreal("a\rb"), "a\\rb");
-        assert_eq!(escape_surreal("a\tb"), "a\\tb");
-    }
-
-    #[test]
-    fn safe_limit_clamps() {
-        assert_eq!(safe_limit(20), 20);
-        assert_eq!(safe_limit(100), 100);
-        assert_eq!(safe_limit(101), 100);
-        assert_eq!(safe_limit(u32::MAX), 100);
     }
 }

@@ -15,10 +15,11 @@ use rmcp::{
 };
 
 use super::{
-    AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
-    CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams, JudgeParams, ListParams,
-    ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams, RegisterParams,
-    ReleaseParams, UpdateAgentTaskResultParams, WhoParams, validate_agent_id,
+    AuditQueryParams, AuthParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
+    ComplianceParams, CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams,
+    FinalizeLeaseParams, JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit,
+    MetabolismParams, ObserveParams, RegisterParams, ReleaseParams, RenewLeaseParams,
+    UpdateAgentTaskResultParams, WhoParams, validate_agent_id, validate_agent_task_content,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -30,7 +31,6 @@ pub struct CynicMcpProxy {
     api_key: String,
     authenticated: Arc<AtomicBool>,
     rate_limit: Arc<McpRateLimit>,
-    pub project_root: String,
     // WHY: K12 — tool_router is used via trait dispatch, compiler misses direct usage
     #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
@@ -49,7 +49,7 @@ impl CynicMcpProxy {
         Self::tool_router_forward() + Self::tool_router_coord() + Self::tool_router_local()
     }
 
-    pub fn new(base_url: String, api_key: String, project_root: String) -> Self {
+    pub fn new(base_url: String, api_key: String) -> Self {
         // WHY: reqwest::Client::builder().build() only fails on TLS init error,
         // which is unrecoverable. Unwrap is safe here but clippy wants map_err.
         #[allow(clippy::expect_used)] // WHY: TLS init failure = unrecoverable
@@ -71,7 +71,6 @@ impl CynicMcpProxy {
             // requiring the model to echo it back through cynic_auth adds exposure only.
             authenticated: Arc::new(AtomicBool::new(auto_auth)),
             rate_limit: Arc::new(McpRateLimit::new()),
-            project_root,
             tool_router: Self::tool_router(),
         }
     }
@@ -239,7 +238,7 @@ impl CynicMcpProxy {
             format!("{hash:x}")
         });
         self.post(
-            &format!("/crystal/{crystal_id}/observe"),
+            &format!("/crystals/{crystal_id}/observe"),
             &serde_json::json!({
                 "content": p.content,
                 "domain": p.domain,
@@ -264,7 +263,7 @@ impl CynicMcpProxy {
         self.rate_limit.check_other()?;
         let p = params.0;
         self.post(
-            &format!("/crystal/{}/shatter", p.crystal_id),
+            &format!("/crystals/{}/shatter", p.crystal_id),
             &serde_json::json!({
                 "reason": p.reason,
                 "source": p.source,
@@ -354,7 +353,7 @@ impl CynicMcpProxy {
         self.rate_limit.check_other()?;
         let p = params.0;
         if let Some(agent_id) = p.agent_id {
-            self.get(&format!("/session/{agent_id}/compliance")).await
+            self.get(&format!("/sessions/{agent_id}/compliance")).await
         } else {
             let limit = p.limit.unwrap_or(20).to_string();
             self.get_query("/compliance", &[("limit", limit)]).await
@@ -400,6 +399,7 @@ impl CynicMcpProxy {
         self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
+        validate_agent_task_content(&p.kind, &p.domain, &p.content)?;
         self.post(
             "/agent-tasks",
             &serde_json::json!({
@@ -432,6 +432,51 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_watch_pending_agent_tasks",
+        description = "Wait for pending tasks of a given agent kind via the kernel watch surface. Returns immediately when tasks already exist, otherwise waits until timeout."
+    )]
+    async fn cynic_watch_pending_agent_tasks(
+        &self,
+        params: Parameters<ListPendingAgentTasksParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let limit = p.limit.unwrap_or(10).to_string();
+        let timeout_secs = "30".to_string();
+        let mut query = vec![
+            ("kind", p.kind),
+            ("limit", limit),
+            ("timeout_secs", timeout_secs),
+        ];
+        if let Some(domain) = p.domain {
+            query.push(("domain", domain));
+        }
+        self.get_query("/agent-tasks/watch", &query).await
+    }
+
+    #[tool(
+        name = "cynic_claim_agent_task",
+        description = "Atomically claim a pending agent task. Returns claimed=false when another agent already owns it."
+    )]
+    async fn cynic_claim_agent_task(
+        &self,
+        params: Parameters<ClaimAgentTaskParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        validate_agent_id(&p.agent_id)?;
+        self.post(
+            &format!("/agent-tasks/{}/claim", p.task_id),
+            &serde_json::json!({
+                "agent_id": p.agent_id.unwrap_or_else(|| "unknown".to_string()),
+            }),
+        )
+        .await
+    }
+
+    #[tool(
         name = "cynic_update_agent_task_result",
         description = "Update an agent task with its result or error."
     )]
@@ -448,6 +493,7 @@ impl CynicMcpProxy {
                 "result": p.result,
                 "error": p.error,
                 "agent_id": p.agent_id,
+                "evidence_refs": p.evidence_refs,
             }),
         )
         .await
@@ -525,8 +571,31 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_coord_renew",
+        description = "Renew an active claim using its exact lease id and fencing token."
+    )]
+    async fn cynic_coord_renew(
+        &self,
+        params: Parameters<RenewLeaseParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            "/coord/renew",
+            &serde_json::json!({
+                "agent_id": p.agent_id,
+                "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
         name = "cynic_coord_release",
-        description = "Release claimed files/resources."
+        description = "Release claimed files/resources using target, lease_id, and fencing_token."
     )]
     async fn cynic_coord_release(
         &self,
@@ -540,6 +609,32 @@ impl CynicMcpProxy {
             &serde_json::json!({
                 "agent_id": p.agent_id,
                 "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_coord_finalize",
+        description = "Finalize an active claim with a proof reference using its exact lease id and fencing token."
+    )]
+    async fn cynic_coord_finalize(
+        &self,
+        params: Parameters<FinalizeLeaseParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            "/coord/finalize",
+            &serde_json::json!({
+                "agent_id": p.agent_id,
+                "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+                "proof_bundle": p.proof_bundle,
             }),
         )
         .await
@@ -594,61 +689,6 @@ impl CynicMcpProxy {
             r#"{"authenticated": true}"#,
         )]))
     }
-
-    #[tool(
-        name = "cynic_askesis_log",
-        description = "Log a reflection or interaction directly to the human Askesis journal (.cynic/memory/logs/human-kernel.jsonl). Use this to frictionlessly save the human's axioms and semantic footprint."
-    )]
-    async fn cynic_askesis_log(
-        &self,
-        params: Parameters<AskesisParams>,
-    ) -> Result<CallToolResult, McpError> {
-        let p = params.0;
-        let logfile = format!(
-            "{}/.cynic/memory/logs/human-kernel.jsonl",
-            self.project_root
-        );
-        let askesis_bin = format!("{}/target/debug/cynic-askesis", self.project_root);
-
-        // Si le binaire n'existe pas, on fail gracefuly
-        if !std::path::Path::new(&askesis_bin).exists() {
-            return Err(McpError::internal_error(
-                "cynic-askesis binary not found. Please run 'cargo build -p cynic-askesis' first.",
-                None,
-            ));
-        }
-
-        let output = std::process::Command::new(&askesis_bin)
-            .arg("log")
-            .arg("--content")
-            .arg(&p.content)
-            .arg("--domain")
-            .arg(&p.domain)
-            .arg("--logfile")
-            .arg(&logfile)
-            .output()
-            .map_err(|e| {
-                McpError::internal_error(format!("Failed to execute cynic-askesis: {e}"), None)
-            })?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(McpError::internal_error(
-                format!("cynic-askesis failed: {stderr}"),
-                None,
-            ));
-        }
-
-        Ok(CallToolResult::success(vec![Content::text(
-            r#"{"status": "askesis_logged"}"#,
-        )]))
-    }
-}
-
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct AskesisParams {
-    pub content: String,
-    pub domain: String,
 }
 
 // ── MCP ServerHandler ───────────────────────────────────────

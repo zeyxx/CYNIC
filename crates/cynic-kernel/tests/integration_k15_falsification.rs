@@ -30,8 +30,8 @@ mod k15_e2e_falsification {
             confidence: 0.95, // high but within phi-bounded
             observations: 141,
             state: CrystalState::Crystallized,
-            created_at: "2026-04-15T00:00:00Z".to_string(),
-            updated_at: "2026-04-25T10:00:00Z".to_string(),
+            created_at: 1776211200,
+            updated_at: 1777075200,
             contributing_verdicts: (0..141)
                 .map(|i| format!("v-{i:03}"))
                 .collect(),

@@ -1,0 +1,96 @@
+{
+  "schema": "cynic.ecosystem_pins.v1",
+  "status": "normative",
+  "purpose": "Minimum observed versions / capability pins for operator tech-watch. Compared by cynic deps; upgrades go through universal ecosystem providers under human consent.",
+  "policy": {
+    "auto_upgrade": false,
+    "mutation": "human_validated_apply",
+    "pin_meaning": "min_acceptable — observed below pin is status=stale; missing required is status=missing",
+    "upgrade_flow": "cynic deps upgrade --yes  (or --apply --confirm <token>). Channels: scripted | external | distro_managed. Principal-owned tools install as runtime user cynic.",
+    "principal": "runtime_user=cynic; layout $CYNIC_RUNTIME_LAYOUT_DEFAULT; override CYNIC_RUNTIME_USER / CYNIC_PRINCIPAL_HOME"
+  },
+  "pins": [
+    {
+      "id": "cynic",
+      "min_capability": "inference-start",
+      "notes": "Scripted: cynic deps upgrade --yes --only cynic → /usr/local/bin/cynic"
+    },
+    {
+      "id": "llama.cpp",
+      "min_build": 9444,
+      "desired_build": 9600,
+      "notes": "Scripted provider under principal cynic: git+cmake → /var/lib/cynic/.local/bin/llama-server. desired_build for newer GGUF arches (dspark)."
+    },
+    {
+      "id": "huggingface-cli",
+      "min_version": "1.17.0",
+      "notes": "External channel: hf update"
+    },
+    {
+      "id": "ods",
+      "min_version": null,
+      "required": false,
+      "notes": "Optional AI env bootstrap (loose coupling). Scripted: clone Osmantic/ODS @ CYNIC_ODS_PIN (default v2.5.3) + install.sh. Attach: cynic runtime inference-discover --json [--apply]. Chat: cynic chat --ods. Native vault independent."
+    },
+    {
+      "id": "codex-cli",
+      "min_version": "0.144.0",
+      "notes": "Agent coding surface"
+    },
+    {
+      "id": "grok-build",
+      "min_version": "0.2.0",
+      "notes": "Grok Build TUI"
+    },
+    {
+      "id": "hermes-agent",
+      "min_version": "0.15.0",
+      "notes": "Hermes agent runtime"
+    },
+    {
+      "id": "docker",
+      "min_version": "24.0.0",
+      "notes": "Containers / lab ETH / ODS docker path"
+    },
+    {
+      "id": "rustc",
+      "min_version": "1.96.0",
+      "notes": "Workspace pin; do not upgrade blindly if ICE risk documented in foundation.json"
+    },
+    {
+      "id": "cargo",
+      "min_version": "1.96.0",
+      "notes": "Track with rustc"
+    },
+    {
+      "id": "claude-code",
+      "min_version": null,
+      "required": false,
+      "notes": "Optional agent CLI"
+    },
+    {
+      "id": "antigravity-cli",
+      "min_version": null,
+      "required": false,
+      "notes": "Legacy; prefer cynic/hermes when possible"
+    },
+    {
+      "id": "ollama",
+      "min_version": null,
+      "required": false,
+      "notes": "Optional OpenAI-compat peer"
+    },
+    {
+      "id": "node",
+      "min_version": "20.0.0",
+      "required": false,
+      "notes": "JS tooling"
+    },
+    {
+      "id": "systemd",
+      "min_version": null,
+      "required": true,
+      "notes": "Service manager — distro managed"
+    }
+  ]
+}

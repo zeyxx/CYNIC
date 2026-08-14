@@ -1,9 +1,8 @@
-# CYNIC — Codex CLI configuration
-# Instructions: AGENTS.md (project root)
-# Coordination: via CYNIC kernel MCP proxy -> kernel REST API
+[mcp_servers.cynic]
+command = "target/debug/cynic-mcp"
+args = []
 
-[mcp.cynic-coord]
-type = "stdio"
-command = ["./.cortex/mcp/run-cynic-mcp.sh"]
-# Wrapper sources ~/.cynic-env locally, then execs /home/user/bin/cynic-kernel-mcp.
-# Do not put real CYNIC_REST_ADDR or CYNIC_API_KEY values in this repo.
+[mcp_servers.cynic.env]
+CYNIC_ALLOW_LOCAL_KERNEL = "1"
+# Project root is resolved by cynic-mcp from the worktree / CYNIC_PROJECT_ROOT env.
+# Do not commit machine-local absolute paths here.

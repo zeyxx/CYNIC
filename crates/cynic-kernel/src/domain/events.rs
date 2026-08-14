@@ -53,4 +53,32 @@ pub enum KernelEvent {
         reason: String,
     },
     StorageReconnected,
+    /// A service announced itself via POST /services/register.
+    /// Feeds the OS-level process table — absence of this event = unknown service.
+    ServiceRegistered {
+        service_id: String,
+        tier: u8,
+        node: String,
+    },
+    /// A service TTL expired or explicitly called DELETE /services/{id}.
+    /// Kernel process table evicts the entry; organism can react.
+    ServiceDown {
+        service_id: String,
+        reason: String, // "ttl_expired" | "explicit_unregister"
+    },
+    /// A new agent task was pushed to the mempool.
+    AgentTaskCreated {
+        task_id: String,
+        kind: String,
+        domain: String,
+    },
+    /// An agent atomically claimed a pending task.
+    AgentTaskClaimed {
+        task_id: String,
+        agent_id: String,
+    },
+    /// An agent task was completed or failed.
+    AgentTaskCompleted {
+        task_id: String,
+    },
 }

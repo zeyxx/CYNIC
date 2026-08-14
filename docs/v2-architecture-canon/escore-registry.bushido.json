@@ -1,0 +1,34 @@
+{
+  "registry_id": "bushido",
+  "version": "0.1",
+  "status": "canonical",
+  "name": "BUSHIDO",
+  "description": "Le code d'honneur du guerrier transposé on-chain. Chaque stat est une vertu du Bushido. Chaque badge est une épreuve. La classe apex n'est pas conquise — elle est reconnue par les autres.",
+  "futarchy_proposal_id": null,
+  "stats": {
+    "karteria":      { "display": "Kennin",  "subtitle": "堅忍", "motto": "石の意志 — La volonté de la pierre" },
+    "parrhesia":     { "display": "Dōsatsu", "subtitle": "洞察", "motto": "真実は隠せない — La vérité ne se cache pas" },
+    "anaideia":      { "display": "Yūmō",    "subtitle": "勇猛", "motto": "先陣を切る — Ouvrir la voie" },
+    "philanthropia": { "display": "Gi",      "subtitle": "義",   "motto": "与える喜び — La joie de donner" },
+    "autarkeia":     { "display": "Jiritsu", "subtitle": "自律", "motto": "自分が主人 — Être son propre maître" },
+    "poiesis":       { "display": "Sōzō",    "subtitle": "創造", "motto": "魂を込めて — Avec toute son âme" },
+    "koinonia":      { "display": "Kizuna",  "subtitle": "絆",   "motto": "絆は鋼より強い — Le lien plus fort que l'acier" }
+  },
+  "classes": {
+    "spartiate": { "display": "Samurai",  "subtitle": "侍",   "flavor": "Endure et tranche. Honneur absolu." },
+    "oracle":    { "display": "Kenja",    "subtitle": "賢者", "flavor": "Le sage souverain qui voit tout" },
+    "promethee": { "display": "Gikyō",   "subtitle": "義侠", "flavor": "Le héros chevaleresque, prend risque pour justice" },
+    "hermes":    { "display": "Geinin",   "subtitle": "芸人", "flavor": "L'artiste qui connecte les âmes" },
+    "dedale":    { "display": "Shokunin", "subtitle": "職人", "flavor": "Le maître artisan, perfection silencieuse" },
+    "socrate":   { "display": "Shi",      "subtitle": "師",   "flavor": "Le maître qui guide par la vérité" },
+    "agathon":   { "display": "Bosatsu",  "subtitle": "菩薩", "flavor": "Le bodhisattva, compassion sans limite" },
+    "apex":      { "display": "Daimyō",   "subtitle": "大名", "flavor": "Le seigneur reconnu par ses actes." }
+  },
+  "tiers": {
+    "t0": { "display": "Minarai", "subtitle": "見習い" },
+    "t1": { "display": "Shi",     "subtitle": "士" },
+    "t2": { "display": "Bushi",   "subtitle": "武士" },
+    "t3": { "display": "Shō",     "subtitle": "将" },
+    "t4": { "display": "Daimyō",  "subtitle": "大名" }
+  }
+}

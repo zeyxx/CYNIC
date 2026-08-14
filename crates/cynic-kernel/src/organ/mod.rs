@@ -347,7 +347,7 @@ impl InferenceOrgan {
                 // immediately trip the quality gate and lock out inference Dogs.
                 guard.stats.max_content_tokens = stats.max_content_tokens;
                 guard.stats.max_thinking_tokens = stats.max_thinking_tokens;
-                guard.stats.last_success = stats.last_success.clone();
+                guard.stats.last_success = stats.last_success;
 
                 // Push preserved budget to Dog's AtomicU32 so it doesn't fall back
                 // to the bootstrap formula.
@@ -976,7 +976,7 @@ mod tests {
                 parse_error_count: 0,
                 timeout_count: 20,
                 api_error_count: 0,
-                last_success: Some("2026-04-26T14:00:00Z".to_string()),
+                last_success: Some(1_777_212_000_000),
                 total_latency_ms: 300000,
                 total_completion_tokens: 0,
                 max_completion_tokens: 0,

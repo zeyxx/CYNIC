@@ -27,7 +27,7 @@ pub struct SessionCompliance {
     pub bash_retry_violations: u32,
     /// Number of unique files modified (Edit/Write).
     pub files_modified: u32,
-    pub created_at: String,
+    pub created_at: i64,
 }
 
 /// Score a session's workflow compliance from its raw observations.
@@ -37,7 +37,7 @@ pub fn score_session(
     agent_id: &str,
     observations: &[RawObservation],
 ) -> SessionCompliance {
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = chrono::Utc::now().timestamp_millis();
 
     if observations.is_empty() {
         return SessionCompliance {
@@ -193,7 +193,7 @@ mod tests {
             domain: String::new(),
             status: status.to_string(),
             context: String::new(),
-            created_at: String::new(),
+            created_at: 0,
             project: String::new(),
             agent_id: String::new(),
             session_id: String::new(),

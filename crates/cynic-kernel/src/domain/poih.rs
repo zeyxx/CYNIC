@@ -45,7 +45,7 @@ pub struct MintPermit {
     /// Empty string until full integrity chain is wired (Task 7+).
     pub verdict_hash: String,
     /// ISO 8601 timestamp of evaluation.
-    pub evaluated_at: String,
+    pub evaluated_at: i64,
 }
 
 #[cfg(test)]
@@ -78,7 +78,7 @@ mod tests {
             approved: true,
             verdict_id: "test-id".to_string(),
             verdict_hash: String::new(),
-            evaluated_at: "2026-05-28T00:00:00Z".to_string(),
+            evaluated_at: 1_779_926_400_000,
         };
         let json = serde_json::to_string(&permit).expect("serialize failed");
         assert!(json.contains("wallet_address"));

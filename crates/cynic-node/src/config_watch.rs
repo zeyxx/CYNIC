@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 // Config watch concern: detect TOML changes on disk, signal reload.
 //
 // L3: proactive config reload. Instead of waiting for a model mismatch

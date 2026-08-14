@@ -29,9 +29,9 @@ pub struct Crystal {
     /// Current state in the crystallization lifecycle
     pub state: CrystalState,
     /// Timestamp of creation
-    pub created_at: String,
+    pub created_at: i64,
     /// Timestamp of last update
-    pub updated_at: String,
+    pub updated_at: i64,
     /// Verdict IDs that contributed observations to this crystal (provenance trail).
     /// Enables auditing: "why did this crystal crystallize?" → trace back to verdicts.
     #[serde(default)]
@@ -226,8 +226,8 @@ impl MatureCrystal {
         &self.inner.state
     }
 
-    pub fn updated_at(&self) -> &str {
-        &self.inner.updated_at
+    pub fn updated_at(&self) -> i64 {
+        self.inner.updated_at
     }
 
     pub fn certainty(&self) -> f64 {
@@ -262,8 +262,8 @@ mod tests {
             confidence,
             observations,
             state,
-            created_at: "2026-03-13T00:00:00Z".into(),
-            updated_at: "2026-03-13T00:00:00Z".into(),
+            created_at: 1_773_360_000_000,
+            updated_at: 1_773_360_000_000,
             contributing_verdicts: vec![],
             certainty: 0.0,
             variance_m2: 0.0,

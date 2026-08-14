@@ -4,6 +4,90 @@ use crate::domain::compliance::SessionCompliance;
 use crate::domain::storage::{Event, Observation, RawEvent, RawObservation, StorageError};
 use crate::storage::{SurrealHttpStorage, escape_surreal};
 
+fn optional_string_sql(value: &Option<String>) -> String {
+    value
+        .as_ref()
+        .map(|item| format!("'{}'", escape_surreal(item)))
+        .unwrap_or_else(|| "''".into())
+}
+
+fn optional_float_sql(value: Option<f64>) -> String {
+    value.unwrap_or(0.0).to_string()
+}
+
+fn optional_non_empty_string(row: &serde_json::Value, key: &str) -> Option<String> {
+    row[key]
+        .as_str()
+        .filter(|value| !value.is_empty())
+        .map(String::from)
+}
+
+const OBSERVATION_SELECT_FIELDS: &str = "id, project, agent_id, tool, target, domain, status, \
+    context, session_id, timestamp, tags, source_tier, value, confidence, consumer, action, \
+    depends_on, maturity, hash, prev_hash, observers, consensus_score, created_at";
+
+fn extract_thread_from_coordination_target(target: &str) -> Option<&str> {
+    target.split_once('#').map(|(_, thread)| thread)
+}
+
+fn extract_workstream_from_coordination_target(target: &str) -> Option<&str> {
+    let after_prefix = target.strip_prefix("coord://")?;
+    let target_without_thread = after_prefix.split('#').next()?;
+    let mut parts = target_without_thread.split('/');
+    parts.next()?;
+    let workstream = parts.next()?;
+    if workstream.is_empty() {
+        None
+    } else {
+        Some(workstream)
+    }
+}
+
+// WHY: collapsible_if is allowed here to avoid compiler ICE on complex pattern bindings.
+#[allow(clippy::collapsible_if)]
+fn matches_coordination_filters(
+    row: &RawObservation,
+    project: Option<&str>,
+    workstream: Option<&str>,
+    thread_id: Option<&str>,
+) -> bool {
+    if let Some(project) = project {
+        if row.project != project {
+            return false;
+        }
+    }
+
+    if let Some(workstream_filter) = workstream {
+        if !workstream_filter.is_empty()
+            && row
+                .value
+                .as_ref()
+                .and_then(|value| value.get("workstream"))
+                .and_then(|value| value.as_str())
+                .or_else(|| extract_workstream_from_coordination_target(&row.target))
+                != Some(workstream_filter)
+        {
+            return false;
+        }
+    }
+
+    if let Some(thread_filter) = thread_id {
+        if !thread_filter.is_empty()
+            && row
+                .value
+                .as_ref()
+                .and_then(|value| value.get("thread_id"))
+                .and_then(|value| value.as_str())
+                .or_else(|| extract_thread_from_coordination_target(&row.target))
+                != Some(thread_filter)
+        {
+            return false;
+        }
+    }
+
+    true
+}
+
 fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
     let tags = row["tags"]
         .as_array()
@@ -36,7 +120,7 @@ fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
         domain: row["domain"].as_str().unwrap_or("").to_string(),
         status: row["status"].as_str().unwrap_or("").to_string(),
         context: row["context"].as_str().unwrap_or("").to_string(),
-        created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+        created_at: row["created_at"].as_i64().unwrap_or(0),
         project: row["project"].as_str().unwrap_or("").to_string(),
         agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
         session_id: row["session_id"].as_str().unwrap_or("").to_string(),
@@ -46,9 +130,9 @@ fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
         } else {
             Some(row["value"].clone())
         },
-        confidence: row["confidence"].as_str().map(String::from),
-        consumer: row["consumer"].as_str().map(String::from),
-        action: row["action"].as_str().map(String::from),
+        confidence: optional_non_empty_string(row, "confidence"),
+        consumer: optional_non_empty_string(row, "consumer"),
+        action: optional_non_empty_string(row, "action"),
         depends_on,
         maturity: row["maturity"].as_f64(),
         hash: row["hash"].as_str().unwrap_or("").to_string(),
@@ -101,6 +185,8 @@ pub(super) async fn store_observation(
         None => "null".into(),
     };
 
+    let consensus_score = obs.consensus_score.unwrap_or(0.0);
+
     let sql = format!(
         "CREATE observation SET project = '{}', agent_id = '{}', tool = '{}', target = '{}', \
          domain = '{}', status = '{}', context = '{}', session_id = '{}', timestamp = '{}', \
@@ -117,34 +203,26 @@ pub(super) async fn store_observation(
         escape_surreal(&obs.status),
         escape_surreal(&obs.context),
         escape_surreal(&obs.session_id),
-        escape_surreal(&obs.timestamp),
+        obs.timestamp,
         tags_sql,
         escape_surreal(&obs.source_tier),
         value_json,
-        obs.confidence
-            .as_ref()
-            .map(|c| format!("'{}'", escape_surreal(c)))
-            .unwrap_or_else(|| "null".into()),
-        obs.consumer
-            .as_ref()
-            .map(|c| format!("'{}'", escape_surreal(c)))
-            .unwrap_or_else(|| "null".into()),
-        obs.action
-            .as_ref()
-            .map(|a| format!("'{}'", escape_surreal(a)))
-            .unwrap_or_else(|| "null".into()),
+        optional_string_sql(&obs.confidence),
+        optional_string_sql(&obs.consumer),
+        optional_string_sql(&obs.action),
         depends_on_sql,
-        obs.maturity
-            .map(|m| m.to_string())
-            .unwrap_or_else(|| "null".into()),
+        optional_float_sql(obs.maturity),
         escape_surreal(&obs.hash),
         escape_surreal(&obs.prev_hash),
         observers_sql,
-        obs.consensus_score
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "null".into()),
+        consensus_score,
     );
     storage.query(&sql).await?;
+
+    use crate::domain::proof::Provable;
+    let poh = obs.to_proof_of_history();
+    let _ = super::proof_of_history::store_proof_of_history(storage, &poh).await;
+
     Ok(())
 }
 
@@ -186,7 +264,7 @@ pub(super) async fn list_session_summaries(
             agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
             summary: row["summary"].as_str().unwrap_or("").to_string(),
             observations_count: row["observations_count"].as_u64().unwrap_or(0) as u32,
-            created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+            created_at: row["created_at"].as_i64().unwrap_or(0),
         })
         .collect())
 }
@@ -233,7 +311,7 @@ pub(super) async fn get_session_observations(
     session_id: &str,
 ) -> Result<Vec<RawObservation>, StorageError> {
     let sql = format!(
-        "SELECT * FROM observation \
+        "SELECT {OBSERVATION_SELECT_FIELDS} FROM observation \
          WHERE session_id = '{}' ORDER BY created_at ASC LIMIT 50;",
         escape_surreal(session_id),
     );
@@ -296,7 +374,7 @@ pub(super) async fn list_session_compliance(
             read_before_edit: row["read_before_edit"].as_f64().unwrap_or(0.0),
             bash_retry_violations: row["bash_retry_violations"].as_u64().unwrap_or(0) as u32,
             files_modified: row["files_modified"].as_u64().unwrap_or(0) as u32,
-            created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+            created_at: row["created_at"].as_i64().unwrap_or(0),
         })
         .collect())
 }
@@ -316,11 +394,60 @@ pub(super) async fn list_observations_raw(
     }
     let where_clause = build_where_clause(&conditions);
     let sql = format!(
-        "SELECT * FROM observation{where_clause} ORDER BY created_at DESC LIMIT {}",
+        "SELECT {OBSERVATION_SELECT_FIELDS} FROM observation{where_clause} ORDER BY created_at DESC LIMIT {}",
         safe_limit(limit),
     );
     let rows = storage.query_one(&sql).await?;
     Ok(rows.iter().map(row_to_raw_observation).collect())
+}
+
+// WHY: list_observations_filtered requires passing all query filtering fields as parameters.
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn list_observations_filtered(
+    storage: &SurrealHttpStorage,
+    domain: Option<&str>,
+    agent_id: Option<&str>,
+    project: Option<&str>,
+    workstream: Option<&str>,
+    thread_id: Option<&str>,
+    target: Option<&str>,
+    limit: u32,
+) -> Result<Vec<RawObservation>, StorageError> {
+    let mut rows = if let Some(target) = target {
+        if let Some(domain) = domain {
+            list_observations_by_target(storage, domain, target, limit).await?
+        } else {
+            let mut rows = list_observations_raw(storage, None, agent_id, limit).await?;
+            rows.retain(|row| row.target == target);
+            rows
+        }
+    } else {
+        let mut conditions = Vec::new();
+        if let Some(d) = domain {
+            conditions.push(format!("domain = '{}'", escape_surreal(d)));
+        }
+        if let Some(a) = agent_id {
+            conditions.push(format!("agent_id = '{}'", escape_surreal(a)));
+        }
+        if let Some(p) = project {
+            conditions.push(format!("project = '{}'", escape_surreal(p)));
+        }
+        let where_clause = build_where_clause(&conditions);
+        let sql = format!(
+            "SELECT {OBSERVATION_SELECT_FIELDS} FROM observation{where_clause} ORDER BY created_at DESC LIMIT {}",
+            safe_limit(limit),
+        );
+        let rows = storage.query_one(&sql).await?;
+        rows.iter().map(row_to_raw_observation).collect::<Vec<_>>()
+    };
+
+    rows.retain(|row| matches_coordination_filters(row, project, workstream, thread_id));
+    rows.sort_by_key(|row| std::cmp::Reverse(row.created_at));
+    if rows.len() > limit as usize {
+        rows.truncate(limit as usize);
+    }
+
+    Ok(rows)
 }
 
 /// List observations filtered by domain + target — efficient single-target lookup.
@@ -333,7 +460,7 @@ pub(super) async fn list_observations_by_target(
     let domain_esc = escape_surreal(domain);
     let target_esc = escape_surreal(target);
     let sql = format!(
-        "SELECT * FROM observation WHERE domain = '{domain_esc}' AND target = '{target_esc}' ORDER BY created_at DESC LIMIT {}",
+        "SELECT {OBSERVATION_SELECT_FIELDS} FROM observation WHERE domain = '{domain_esc}' AND target = '{target_esc}' ORDER BY created_at DESC LIMIT {}",
         safe_limit(limit),
     );
     let rows = storage.query_one(&sql).await?;
@@ -350,7 +477,7 @@ pub(super) async fn list_observations_by_tag(
     let domain_esc = escape_surreal(domain);
     let tag_esc = escape_surreal(tag);
     let sql = format!(
-        "SELECT * FROM observation WHERE domain = '{domain_esc}' AND tags CONTAINS '{tag_esc}' ORDER BY created_at DESC LIMIT {}",
+        "SELECT {OBSERVATION_SELECT_FIELDS} FROM observation WHERE domain = '{domain_esc}' AND tags CONTAINS '{tag_esc}' ORDER BY created_at DESC LIMIT {}",
         safe_limit(limit),
     );
     let rows = storage.query_one(&sql).await?;
@@ -395,7 +522,7 @@ fn row_to_raw_event(row: &serde_json::Value) -> RawEvent {
         success: row["success"].as_bool().unwrap_or(false),
         metadata: row["metadata"].as_str().unwrap_or("").to_string(),
         agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
-        created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+        created_at: row["created_at"].as_i64().unwrap_or(0),
         failure_reason: row["failure_reason"].as_str().unwrap_or("").to_string(),
     }
 }
@@ -594,21 +721,15 @@ pub(crate) async fn zone_activity(
     storage: &SurrealHttpStorage,
     path_prefixes: &[String],
     exclude_agent: &str,
-    project_root: &str,
 ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
     if path_prefixes.is_empty() {
         return Ok(vec![]);
     }
 
-    // Build CONTAINS conditions for path prefixes.
-    // Observations store full paths (/home/user/Bureau/CYNIC/scripts/foo.sh)
-    // Zone prefixes are relative (scripts/). Prepend project_root for matching.
+    // Build absolute path-prefix conditions for observation targets.
     let conditions: Vec<String> = path_prefixes
         .iter()
-        .map(|p| {
-            let full = format!("{project_root}/{p}");
-            format!("string::starts_with(target, '{}')", escape_surreal(&full))
-        })
+        .map(|path| format!("string::starts_with(target, '{}')", escape_surreal(path)))
         .collect();
     let path_filter = conditions.join(" OR ");
 
@@ -663,4 +784,52 @@ pub(crate) async fn zone_activity(
         .collect();
 
     Ok(agents)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{optional_float_sql, optional_string_sql, row_to_raw_observation};
+
+    #[test]
+    fn optional_observation_fields_write_legacy_schema_compatible_defaults() {
+        assert_eq!(optional_string_sql(&None), "''");
+        assert_eq!(optional_string_sql(&Some("review".into())), "'review'");
+        assert_eq!(optional_float_sql(None), "0");
+        assert_eq!(optional_float_sql(Some(0.5)), "0.5");
+    }
+
+    #[test]
+    fn row_to_raw_observation_treats_empty_optional_strings_as_absent() {
+        let row = serde_json::json!({
+            "id": "observation:test",
+            "tool": "Observe",
+            "target": "target",
+            "domain": "ops",
+            "status": "ok",
+            "context": "ctx",
+            "created_at": "2026-06-15T00:00:00Z",
+            "project": "CYNIC",
+            "agent_id": "agent",
+            "session_id": "session",
+            "tags": [],
+            "value": null,
+            "confidence": "",
+            "consumer": "",
+            "action": "",
+            "depends_on": [],
+            "maturity": 0.0,
+            "hash": "hash",
+            "prev_hash": "prev",
+            "observers": [],
+            "consensus_score": 0.0,
+            "source_tier": "session"
+        });
+
+        let observation = row_to_raw_observation(&row);
+
+        assert_eq!(observation.confidence, None);
+        assert_eq!(observation.consumer, None);
+        assert_eq!(observation.action, None);
+        assert_eq!(observation.maturity, Some(0.0));
+    }
 }

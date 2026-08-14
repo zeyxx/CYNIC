@@ -7,11 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tokio::sync::Mutex;
 
-use arc_swap::ArcSwap;
-
-use super::judge_job::JudgeJobStore;
 use crate::domain::coord::CoordPort;
-use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::mail::MailPort;
 use crate::domain::metrics::Metrics;
@@ -22,7 +18,8 @@ use crate::domain::verdict_cache::VerdictCache;
 use crate::domain::wisdom::DomainCurations;
 use crate::infra::task_health::TaskHealth;
 use crate::introspection::Alert;
-use crate::judge::Judge;
+use cynic_inference::embedding::EmbeddingPort;
+use cynic_inference::{SlotSemaphoreMap, SlotTracker};
 
 // ── ROLE-SCOPED AUTH ──────────────────────────────────────
 // Three roles match the organism's communication patterns:
@@ -41,6 +38,34 @@ pub enum Role {
     Internal,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthenticationMechanism {
+    AgentBearer,
+    SharedBearer,
+    Ed25519,
+    WalletSession,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthenticatedPrincipal {
+    pub subject: Option<String>,
+    pub role: Role,
+    pub mechanism: AuthenticationMechanism,
+}
+
+impl AuthenticatedPrincipal {
+    pub fn require_agent(&self, asserted_agent_id: &str) -> Result<(), &'static str> {
+        if self.mechanism != AuthenticationMechanism::AgentBearer {
+            return Err("coordination mutation requires an agent-bound bearer credential");
+        }
+        match self.subject.as_deref() {
+            Some(subject) if subject == asserted_agent_id => Ok(()),
+            Some(_) => Err("authenticated principal does not own the asserted agent_id"),
+            None => Err("coordination mutation requires an agent-bound credential"),
+        }
+    }
+}
+
 impl std::fmt::Display for Role {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -53,19 +78,116 @@ impl std::fmt::Display for Role {
 
 /// Three bearer tokens, one per role. Loaded from env at boot.
 /// `legacy` holds the old CYNIC_API_KEY for backward-compat (grants Cortex).
-#[derive(Debug)]
+pub struct AgentCredentialBinding {
+    pub subject: String,
+    pub role: Role,
+    token: String,
+}
+
+impl AgentCredentialBinding {
+    pub fn new(subject: String, role: Role, token: String) -> Result<Self, String> {
+        crate::domain::coord::validate_agent_id(&subject)
+            .map_err(|error| format!("invalid agent credential subject `{subject}`: {error}"))?;
+        if token.is_empty() {
+            return Err(format!("agent credential `{subject}` has an empty token"));
+        }
+        Ok(Self {
+            subject,
+            role,
+            token,
+        })
+    }
+}
+
+impl std::fmt::Debug for AgentCredentialBinding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AgentCredentialBinding")
+            .field("subject", &self.subject)
+            .field("role", &self.role)
+            .field("has_token", &!self.token.is_empty())
+            .finish()
+    }
+}
+
 pub struct RoleKeyMap {
     pub cortex: Option<String>,
     pub organ: Option<String>,
     pub internal: Option<String>,
     pub legacy: Option<String>,
+    pub agent_bindings: Vec<AgentCredentialBinding>,
+}
+
+impl std::fmt::Debug for RoleKeyMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RoleKeyMap")
+            .field("has_cortex", &self.cortex.is_some())
+            .field("has_organ", &self.organ.is_some())
+            .field("has_internal", &self.internal.is_some())
+            .field("has_legacy", &self.legacy.is_some())
+            .field("agent_bindings", &self.agent_bindings)
+            .finish()
+    }
 }
 
 impl RoleKeyMap {
-    /// Match a bearer token to a role. Returns None if no match.
+    pub fn from_environment(legacy: Option<String>) -> Result<Self, String> {
+        #[derive(Deserialize)]
+        struct AgentCredentialSpec {
+            token: String,
+            role: String,
+        }
+
+        let agent_bindings = match std::env::var("CYNIC_AGENT_KEYS_JSON") {
+            Ok(raw) if !raw.trim().is_empty() => {
+                let specs: HashMap<String, AgentCredentialSpec> = serde_json::from_str(&raw)
+                    .map_err(|error| format!("invalid CYNIC_AGENT_KEYS_JSON: {error}"))?;
+                let mut bindings = Vec::with_capacity(specs.len());
+                for (subject, spec) in specs {
+                    let role = match spec.role.as_str() {
+                        "cortex" => Role::Cortex,
+                        "organ" => Role::Organ,
+                        "internal" => Role::Internal,
+                        _ => {
+                            return Err(format!(
+                                "agent credential `{subject}` has unsupported role `{}`",
+                                spec.role
+                            ));
+                        }
+                    };
+                    if bindings.iter().any(|binding: &AgentCredentialBinding| {
+                        super::middleware::constant_time_eq(
+                            binding.token.as_bytes(),
+                            spec.token.as_bytes(),
+                        )
+                    }) {
+                        return Err("agent credential tokens must be unique".into());
+                    }
+                    bindings.push(AgentCredentialBinding::new(subject, role, spec.token)?);
+                }
+                bindings
+            }
+            _ => Vec::new(),
+        };
+
+        Ok(Self {
+            cortex: std::env::var("CYNIC_API_KEY_CORTEX")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            organ: std::env::var("CYNIC_API_KEY_ORGAN")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            internal: std::env::var("CYNIC_API_KEY_INTERNAL")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            legacy,
+            agent_bindings,
+        })
+    }
+
+    /// Match a bearer token to an authenticated principal. Returns None if no match.
     /// Checks all slots with constant-time comparison — no early exit on match
     /// to prevent timing leaks about which role a token belongs to.
-    pub fn resolve(&self, token: &str) -> Option<Role> {
+    pub fn resolve(&self, token: &str) -> Option<AuthenticatedPrincipal> {
         let token_bytes = token.as_bytes();
         let mut result: Option<Role> = None;
 
@@ -101,7 +223,21 @@ impl RoleKeyMap {
         {
             result = Some(Role::Cortex);
         }
-        result
+        let mut principal = result.map(|role| AuthenticatedPrincipal {
+            subject: None,
+            role,
+            mechanism: AuthenticationMechanism::SharedBearer,
+        });
+        for binding in &self.agent_bindings {
+            if super::middleware::constant_time_eq(token_bytes, binding.token.as_bytes()) {
+                principal = Some(AuthenticatedPrincipal {
+                    subject: Some(binding.subject.clone()),
+                    role: binding.role,
+                    mechanism: AuthenticationMechanism::AgentBearer,
+                });
+            }
+        }
+        principal
     }
 
     /// True if at least one key is configured.
@@ -110,6 +246,7 @@ impl RoleKeyMap {
             || self.organ.is_some()
             || self.internal.is_some()
             || self.legacy.is_some()
+            || !self.agent_bindings.is_empty()
     }
 }
 
@@ -130,7 +267,6 @@ pub struct ProducerHeartbeat {
 // ── SHARED STATE ───────────────────────────────────────────
 
 pub struct AppState {
-    pub judge: ArcSwap<Judge>,
     pub storage: Arc<dyn StoragePort>,
     pub coord: Arc<dyn CoordPort>,
     pub embedding: Arc<dyn EmbeddingPort>,
@@ -172,8 +308,12 @@ pub struct AppState {
     /// Config-based Dogs are permanent and not tracked here.
     /// RwLock: read on every heartbeat, write on register/expire.
     pub registered_dogs: Arc<std::sync::RwLock<HashMap<String, RegisteredDog>>>,
+    /// OS-level service process table — tracks all registered organism services.
+    /// Services announce via POST /services/register; TTL-evicted on silence.
+    /// This is the kernel's equivalent of /proc — desired state = registry.json,
+    /// observed state = this map. Delta = what's missing or unknown.
+    pub registered_services: Arc<std::sync::RwLock<HashMap<String, RegisteredService>>>,
     /// D4: In-memory store for async judge jobs — progressive Dog arrival polling.
-    pub judge_jobs: Arc<JudgeJobStore>,
     /// Self-model: expected system state loaded from backends.toml at boot.
     /// Compared against live roster in /health to detect missing Dogs.
     pub system_contract: Arc<std::sync::RwLock<crate::domain::contract::SystemContract>>,
@@ -200,16 +340,13 @@ pub struct AppState {
     pub dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
     /// Soma L2: Slot semaphore map — per-Dog permit tracking for slot coordination.
     /// Initialized by the health loop at boot; Judge::evaluate acquires/releases permits.
-    pub slot_semaphores: Arc<crate::domain::slot_semaphore::SlotSemaphoreMap>,
+    pub slot_semaphores: Arc<SlotSemaphoreMap>,
     /// Soma L2: Slot utilization tracker — updated by health loop every 30s.
     /// Consumers: /judge (skip saturated Dogs), /health (expose utilization),
     /// GET /inference/slots (external dispatch query).
-    pub slot_tracker: Arc<crate::domain::slot_tracker::SlotTracker>,
+    pub slot_tracker: Arc<SlotTracker>,
     /// Soma L4: Inference proxy routing table — maps dog_id → upstream llama-server URL.
-    pub proxy_targets: Arc<super::inference_proxy::ProxyTargets>,
-    /// Project root (repository root — resolved at boot).
-    /// Used by `/git/state` endpoint to run git commands in the correct context.
-    pub project_root: String,
+    pub proxy_targets: Arc<cynic_inference::application::proxy_routing::ProxyTargets>,
     /// Mail service — organis email operations (inbox, send, sync).
     /// None if mail backend not configured.
     pub mail: Option<Arc<dyn MailPort>>,
@@ -223,6 +360,8 @@ pub struct AppState {
     /// K15 consumer: introspection alerts when permanent producers go silent.
     /// Absence of signal becomes signal of absence.
     pub producer_heartbeats: Arc<std::sync::RwLock<HashMap<String, ProducerHeartbeat>>>,
+    /// Deduplicates critical overdue-task observations emitted from health/introspection paths.
+    pub overdue_task_alerted: Arc<std::sync::RwLock<HashMap<String, String>>>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
@@ -303,30 +442,43 @@ impl AppState {
     /// Centralized system health assessment (SSoT for REST and MCP).
     /// Computes status from Dogs, storage, probes, background tasks, and contract.
     pub async fn system_health(&self) -> crate::domain::health_gate::HealthAssessment {
-        let judge = self.judge.load_full();
-        let dog_health = judge.dog_health();
+        let dog_health: Vec<(String, String, u32)> = vec![];
         let (healthy_dogs, total_dogs) =
             crate::domain::health_gate::count_healthy_dogs(&dog_health);
 
         let storage_ok = self.storage.ping().await.is_ok();
-        let live_dog_ids = judge.dog_ids();
+        let live_dog_ids = vec![];
 
-        let contract_guard = self
-            .system_contract
-            .read()
-            .unwrap_or_else(|e| e.into_inner());
-        let contract_delta = contract_guard.assess(&live_dog_ids);
+        let contract_delta = {
+            let contract_guard = self
+                .system_contract
+                .read()
+                .unwrap_or_else(|e| e.into_inner());
+            contract_guard.assess(&live_dog_ids)
+        };
 
         let probes_degraded =
             crate::domain::probe::EnvironmentSnapshot::is_degraded(&self.environment);
         let stale_tasks = self.task_health.readiness_stale_tasks();
+        let overdue_task_ids: Vec<String> = if storage_ok {
+            self.storage
+                .list_overdue_agent_tasks(100)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|task| task.id)
+                .collect()
+        } else {
+            Vec::new()
+        };
 
-        crate::domain::health_gate::system_health_assessment_with_contract(
+        crate::domain::health_gate::system_health_assessment_with_contract_and_overdue(
             healthy_dogs,
             total_dogs,
             storage_ok,
             probes_degraded,
             &stale_tasks,
+            &overdue_task_ids,
             Some(&contract_delta),
         )
     }
@@ -403,7 +555,7 @@ impl PerIpRateLimiter {
 
 // ── POIH (Proof of Intelligence on-chain) ─────────────────
 
-/// POST /mint-permit — request a behavioral wallet evaluation for PoIH attestation.
+/// POST /permits/mint — request a behavioral wallet evaluation for PoIH attestation.
 #[derive(Debug, Deserialize)]
 pub struct MintPermitRequest {
     /// Solana wallet address to evaluate (base58, 32-44 chars).
@@ -412,7 +564,7 @@ pub struct MintPermitRequest {
     pub proof_source: crate::domain::poih::ProofSource,
 }
 
-/// POST /mint-permit response.
+/// POST /permits/mint response.
 #[derive(Debug, Serialize)]
 pub struct MintPermitResponse {
     /// Permit details — present only when approved (WAG or HOWL).
@@ -500,6 +652,79 @@ pub struct RegisterDogResponse {
 pub struct RegisteredDog {
     pub registered_at: std::time::Instant,
     pub last_heartbeat: std::time::Instant,
+    pub ttl_secs: u64,
+}
+
+/// OS-level service entry — organism process table row.
+/// Every running service registers here on startup and heartbeats to stay visible.
+/// TTL: 120s default. Missing heartbeat = ServiceDown event + eviction.
+#[derive(Debug, Clone)]
+pub struct RegisteredService {
+    /// Unique service identifier — matches systemd unit name (without .service).
+    pub service_id: String,
+    /// Infrastructure tier: 0=kernel/storage, 1=nervous system, 2=organs, 3=secondary, 4=ui.
+    pub tier: u8,
+    /// Node where this service runs (matches registry.json node name).
+    pub node: String,
+    /// Declared capabilities — what this service can do (observe, claim, wait_for_tasks, etc.).
+    pub capabilities: Vec<String>,
+    /// Git SHA or semver at registration time — for drift detection.
+    pub version: Option<String>,
+    pub registered_at: std::time::Instant,
+    pub last_heartbeat: std::time::Instant,
+    /// TTL seconds — service must heartbeat within this window or it's evicted.
+    pub ttl_secs: u64,
+}
+
+// ── SERVICE API TYPES ─────────────────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+pub struct RegisterServiceRequest {
+    /// Unique service ID (e.g. "hermes-agent-executor", "organ-gasdf").
+    pub service_id: String,
+    /// Infrastructure tier 0-4.
+    pub tier: u8,
+    /// Node name from registry.json (e.g. "cynic-host-cortex", "cynic-vm-anvil").
+    pub node: String,
+    /// Declared capabilities (e.g. ["observe", "claim", "wait_for_tasks"]).
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    /// Optional version/git-sha for drift detection.
+    pub version: Option<String>,
+    /// Requested TTL in seconds (default: 120).
+    pub ttl_secs: Option<u64>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct RegisterServiceResponse {
+    pub service_id: String,
+    pub status: String,
+    pub ttl_secs: u64,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct ServiceHeartbeatResponse {
+    pub service_id: String,
+    pub status: String,
+    pub ttl_remaining_secs: u64,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct ServiceUnregisterResponse {
+    pub service_id: String,
+    pub status: String,
+}
+
+/// Snapshot of a registered service — returned by GET /services.
+#[derive(Debug, serde::Serialize)]
+pub struct ServiceSnapshot {
+    pub service_id: String,
+    pub tier: u8,
+    pub node: String,
+    pub capabilities: Vec<String>,
+    pub version: Option<String>,
+    pub uptime_secs: u64,
+    pub last_heartbeat_secs_ago: u64,
     pub ttl_secs: u64,
 }
 
@@ -612,7 +837,7 @@ pub struct JudgeResponse {
     pub reasoning: ReasoningResponse,
     pub dogs_used: String,
     pub phi_max: f64,
-    pub timestamp: String,
+    pub timestamp: i64,
     pub dog_scores: Vec<DogScoreResponse>,
     /// Number of Dogs that contributed to this verdict (T9: transparency).
     /// Consumers can distinguish single-Dog from consensus.
@@ -750,4 +975,17 @@ mod tests {
         let req: JudgeRequest = serde_json::from_str(json).unwrap();
         assert!(!req.crystals);
     }
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct PublishMeshKeyRequest {
+    pub mesh_ip: String,
+    pub public_key: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct PublishMeshKeyResponse {
+    pub status: String,
+    pub mesh_ip: String,
+    pub public_key: String,
 }

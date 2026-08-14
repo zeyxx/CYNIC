@@ -17,6 +17,7 @@ path = "src/lib.rs"
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10.8"
 tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread", "process", "fs", "io-util"] }
 thiserror = "2.0"
 clap = { version = "4", features = ["derive"] }

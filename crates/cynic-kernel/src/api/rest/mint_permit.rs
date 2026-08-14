@@ -1,4 +1,4 @@
-//! POST /mint-permit — Dogs-gated mint permit for PoIH attestation.
+//! POST /permits/mint — Dogs-gated mint permit for PoIH attestation.
 //!
 //! Flow: wallet → Helius enrich (temporal) → behavioral_dog → permit if WAG/HOWL.
 //! Does NOT use the full judge pipeline (no LLM Dogs, no CCM, no cache).
@@ -66,7 +66,7 @@ pub async fn mint_permit_handler(
             }));
         }
         Err(e) => {
-            tracing::warn!(wallet = %wallet, error = %e, "wallet enrichment failed for /mint-permit");
+            tracing::warn!(wallet = %wallet, error = %e, "wallet enrichment failed for /permits/mint");
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
@@ -103,7 +103,7 @@ pub async fn mint_permit_handler(
             verdict_id: crate::infra::crypto::generate_secure_id(),
             // Integrity chain not yet wired (Task 7+). Empty string is honest.
             verdict_hash: String::new(),
-            evaluated_at: chrono::Utc::now().to_rfc3339(),
+            evaluated_at: chrono::Utc::now().timestamp_millis(),
         })
     } else {
         None

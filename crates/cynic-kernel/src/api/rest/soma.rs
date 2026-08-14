@@ -29,8 +29,7 @@ pub async fn soma_request_handler(
     // The SlotSemaphore system inside Judge::evaluate handles all slot coordination.
     _body: axum::body::Body,
 ) -> Result<(StatusCode, Json<SomaStatusResponse>), (StatusCode, Json<ErrorResponse>)> {
-    let judge = state.judge.load_full();
-    let dog_ids = judge.dog_ids();
+    let dog_ids: Vec<String> = vec![];
 
     let dogs: Vec<DogSlotStatus> = dog_ids
         .iter()

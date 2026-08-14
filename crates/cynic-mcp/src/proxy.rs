@@ -6,6 +6,23 @@
 //! Local tools (validate, git) run in-process (filesystem access required).
 //! All other tools → HTTP to REST kernel.
 
+#![allow(
+    clippy::collapsible_if,
+    clippy::redundant_closure,
+    clippy::too_many_arguments,
+    clippy::needless_pass_by_value,
+    clippy::redundant_clone,
+    clippy::map_err_ignore,
+    clippy::unwrap_used
+)]
+
+use schemars::JsonSchema;
+use serde::Deserialize;
+use sha3::{Digest, Sha3_512};
+use std::fs;
+use std::io::Write;
+use std::path::PathBuf;
+use std::process::Stdio;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -15,12 +32,34 @@ use rmcp::{
 };
 
 use crate::types::{
-    AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
-    DispatchAgentTaskParams, GitParams, InferParams, JudgeParams, ListParams,
-    ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams,
-    ProxmoxActionParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams,
-    ValidateParams, WhoParams, validate_agent_id,
+    AskesisLogParams, AttentionParams, AuditQueryParams, AuthParams, BatchClaimParams,
+    ClaimAgentTaskParams, ClaimParams, ComplianceParams, CoordinationArtifactShareParams,
+    CoordinationContractManifestParams, CoordinationDecisionRecordParams,
+    CoordinationStatusPublishParams, CoordinationStatusReadParams, CoordinationThreadReplyParams,
+    DispatchAgentTaskParams, DockerContainerInspectParams, DockerContainerListParams,
+    DockerContainerLogsParams, FinalizeLeaseParams, FleetInventoryParams, FleetNodeExecParams,
+    FleetNodeStatusParams, FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams, SourceControlParams,
+    IdentityAttestParams, IdentitySmokeCheckParams, InferParams, InfraProvisionParams,
+    InfraRegistryReadParams, InfraRegistryValidateParams, JudgeParams, LibraryQueryParams,
+    ListParams, ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
+    LxcExecBridgeStatusParams, McpRateLimit, MetabolismParams, NetworkIpamCheckParams,
+    NetworkMeshDnsActivationBundleParams, NetworkMeshDnsActivationPlanParams,
+    NetworkMeshDnsActivationStatusParams, NetworkMeshDnsRenderParams,
+    NetworkMeshProviderFallbackHostsParams, NetworkMeshProviderFallbackStatusParams,
+    NetworkMeshStatusParams, ObserveParams, OperatorTransportStatusParams, ProxmoxActionParams,
+    ProxmoxExecParams, ProxmoxProvisionParams, RegisterParams, ReleaseParams, RenewLeaseParams,
+    ServiceHealthParams, ServiceStatusParams, SshTargetInspectParams, StoragePrimaryBundleParams,
+    StoragePrimaryPlanParams, StoragePrimaryReadinessParams, StoragePrimaryStatusParams,
+    UpdateAgentTaskResultParams, ValidateParams, WatchPendingAgentTasksParams, WhoParams,
+    validate_agent_id, validate_agent_task_content,
 };
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LifecycleDispatchParams {
+    pub profile: String,
+}
+
+include!("helpers.rs");
 
 // ── Proxy struct ────────────────────────────────────────────
 
@@ -46,8 +85,21 @@ impl std::fmt::Debug for CynicMcpProxy {
 }
 
 impl CynicMcpProxy {
+    fn proxmox_credential() -> String {
+        std::env::var("CYNIC_PROXMOX_TOKEN_SECRET")
+            .or_else(|_| std::env::var("CYNIC_PROXMOX_SECRET"))
+            .map(|value| value.trim().to_string())
+            .unwrap_or_default()
+    }
+
     pub fn tool_router() -> ToolRouter<Self> {
-        Self::tool_router_forward() + Self::tool_router_coord() + Self::tool_router_local()
+        Self::tool_router_forward()
+            + Self::tool_router_coord()
+            + Self::tool_router_identity()
+            + Self::tool_router_local()
+            + Self::tool_router_eval()
+            + Self::tool_router_agent_loop_audit()
+            + Self::tool_router_docker()
     }
 
     pub fn new(base_url: String, api_key: String, project_root: String) -> Self {
@@ -88,6 +140,286 @@ impl CynicMcpProxy {
         Ok(())
     }
 
+    fn coordination_principal(&self) -> Result<String, McpError> {
+        let agent_id = std::env::var("CYNIC_AGENT_ID")
+            .ok()
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                McpError::new(
+                    rmcp::model::ErrorCode(-32000),
+                    "coordination unavailable: CYNIC_AGENT_ID is not bound to this MCP process",
+                    None,
+                )
+            })?;
+        validate_agent_id(&Some(agent_id.clone()))?;
+        Ok(agent_id)
+    }
+
+    async fn proxmox_cluster_resources(&self) -> serde_json::Value {
+        let proxmox_url = std::env::var("CYNIC_PROXMOX_URL").unwrap_or_default();
+        let client_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
+        let credential_value = Self::proxmox_credential();
+        if proxmox_url.is_empty() || client_id.is_empty() || credential_value.is_empty() {
+            return serde_json::json!({
+                "status": "unavailable",
+                "reason": "Proxmox credentials not configured in CYNIC_PROXMOX_* env vars"
+            });
+        }
+
+        let client = match reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+        {
+            Ok(client) => client,
+            Err(e) => {
+                return serde_json::json!({
+                    "status": "error",
+                    "reason": format!("Proxmox client error: {e}")
+                });
+            }
+        };
+        let auth_header = format!("PVEAPIToken={client_id}={credential_value}");
+        match client
+            .get(format!("{proxmox_url}/api2/json/cluster/resources?type=vm"))
+            .header("Authorization", auth_header)
+            .send()
+            .await
+        {
+            Ok(response) => match response.json::<serde_json::Value>().await {
+                Ok(payload) => serde_json::json!({
+                    "status": "ok",
+                    "resources": payload.get("data").cloned().unwrap_or_else(|| serde_json::json!([]))
+                }),
+                Err(e) => serde_json::json!({
+                    "status": "error",
+                    "reason": format!("Invalid JSON from Proxmox: {e}")
+                }),
+            },
+            Err(e) => serde_json::json!({
+                "status": "error",
+                "reason": format!("Proxmox API failed: {e}")
+            }),
+        }
+    }
+
+    async fn proxmox_qemu_agent_exec(
+        &self,
+        node: &str,
+        vmid: &str,
+        command: &str,
+        timeout_seconds: u64,
+    ) -> Result<serde_json::Value, McpError> {
+        let proxmox_url = std::env::var("CYNIC_PROXMOX_URL").unwrap_or_default();
+        let client_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
+        let credential_value = Self::proxmox_credential();
+
+        if proxmox_url.is_empty() || client_id.is_empty() || credential_value.is_empty() {
+            return Err(McpError::internal_error(
+                "Proxmox credentials not configured in CYNIC_PROXMOX_* env vars",
+                None,
+            ));
+        }
+
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .timeout(std::time::Duration::from_secs(timeout_seconds.max(5)))
+            .build()
+            .map_err(|e| McpError::internal_error(format!("Proxmox client error: {e}"), None))?;
+
+        let auth_header = format!("PVEAPIToken={client_id}={credential_value}");
+        let exec_url = format!("{proxmox_url}/api2/json/nodes/{node}/qemu/{vmid}/agent/exec");
+        let form = vec![
+            ("command", "sh".to_string()),
+            ("command", "-lc".to_string()),
+            ("command", command.to_string()),
+        ];
+
+        let resp = client
+            .post(&exec_url)
+            .header("Authorization", &auth_header)
+            .form(&form)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("Proxmox API POST failed: {e}"), None))?;
+
+        let text = resp.text().await.unwrap_or_default();
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::json!({}));
+        let pid = json["data"]["pid"].as_i64().ok_or_else(|| {
+            McpError::internal_error(
+                format!("Failed to get PID from exec response: {text}"),
+                None,
+            )
+        })?;
+
+        let status_url =
+            format!("{proxmox_url}/api2/json/nodes/{node}/qemu/{vmid}/agent/exec-status?pid={pid}");
+        let start = std::time::Instant::now();
+        while start.elapsed() < std::time::Duration::from_secs(timeout_seconds.max(1)) {
+            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+            let status_resp = client
+                .get(&status_url)
+                .header("Authorization", &auth_header)
+                .send()
+                .await
+                .map_err(|e| {
+                    McpError::internal_error(format!("Proxmox API GET failed: {e}"), None)
+                })?;
+            let status_text = status_resp.text().await.unwrap_or_default();
+            let status_json: serde_json::Value =
+                serde_json::from_str(&status_text).unwrap_or(serde_json::json!({}));
+            if status_json["data"]["exited"].as_i64() == Some(1) {
+                return Ok(serde_json::json!({
+                    "status": "completed",
+                    "provider": "proxmox_qemu_guest_agent",
+                    "node": node,
+                    "vmid": vmid,
+                    "pid": pid,
+                    "exit_code": status_json["data"]["exitcode"].as_i64().unwrap_or(-1),
+                    "stdout": status_json["data"]["out-data"].as_str().unwrap_or(""),
+                    "stderr": status_json["data"]["err-data"].as_str().unwrap_or(""),
+                }));
+            }
+        }
+
+        Ok(serde_json::json!({
+            "status": "timeout",
+            "provider": "proxmox_qemu_guest_agent",
+            "node": node,
+            "vmid": vmid,
+            "pid": pid,
+            "timeout_seconds": timeout_seconds,
+        }))
+    }
+
+    fn lxc_exec_bridge_config() -> Option<(String, String)> {
+        let ssh_target = std::env::var("CYNIC_LXC_EXEC_BRIDGE_SSH_TARGET")
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())?;
+        let helper = std::env::var("CYNIC_LXC_EXEC_BRIDGE_HELPER")
+            .unwrap_or_else(|_| "/usr/local/libexec/cynic-lxc-exec-bridge".to_string());
+        Some((ssh_target, helper))
+    }
+
+    fn run_lxc_exec_bridge(
+        ssh_target: &str,
+        helper: &str,
+        request: &serde_json::Value,
+    ) -> Result<serde_json::Value, McpError> {
+        let mut child = std::process::Command::new("ssh")
+            .args([
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=5",
+                ssh_target,
+                "sudo",
+                "-n",
+                helper,
+            ])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| McpError::internal_error(format!("LXC bridge SSH failed: {e}"), None))?;
+
+        if let Some(stdin) = child.stdin.as_mut() {
+            stdin
+                .write_all(
+                    serde_json::to_string(request)
+                        .unwrap_or_default()
+                        .as_bytes(),
+                )
+                .map_err(|e| {
+                    McpError::internal_error(format!("LXC bridge stdin write failed: {e}"), None)
+                })?;
+        }
+        let output = child.wait_with_output().map_err(|e| {
+            McpError::internal_error(format!("LXC bridge SSH wait failed: {e}"), None)
+        })?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let parsed = serde_json::from_str::<serde_json::Value>(&stdout).unwrap_or_else(|_| {
+            serde_json::json!({
+                "schema": "cynic.lxc_exec_bridge.response.v1",
+                "status": "error",
+                "error": "bridge_output_not_json",
+                "stdout": stdout,
+                "stderr": stderr,
+                "ssh_exit_code": output.status.code()
+            })
+        });
+        Ok(serde_json::json!({
+            "status": if output.status.success() { "completed" } else { "bridge_failed" },
+            "provider": "lxc_exec_bridge_ssh",
+            "ssh_target": ssh_target,
+            "helper": helper,
+            "ssh_exit_code": output.status.code(),
+            "bridge": parsed,
+            "stderr": stderr,
+        }))
+    }
+
+    fn run_host_exec_transport(
+        argv: &[String],
+        request: &serde_json::Value,
+    ) -> Result<serde_json::Value, McpError> {
+        let Some(program) = argv.first() else {
+            return Err(McpError::internal_error(
+                "host exec transport command is empty",
+                None,
+            ));
+        };
+        let mut child = std::process::Command::new(program)
+            .args(&argv[1..])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| {
+                McpError::internal_error(format!("host exec transport spawn failed: {e}"), None)
+            })?;
+
+        if let Some(stdin) = child.stdin.as_mut() {
+            stdin
+                .write_all(
+                    serde_json::to_string(request)
+                        .unwrap_or_default()
+                        .as_bytes(),
+                )
+                .map_err(|e| {
+                    McpError::internal_error(
+                        format!("host exec transport stdin write failed: {e}"),
+                        None,
+                    )
+                })?;
+        }
+        let output = child.wait_with_output().map_err(|e| {
+            McpError::internal_error(format!("host exec transport wait failed: {e}"), None)
+        })?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let parsed = serde_json::from_str::<serde_json::Value>(&stdout).unwrap_or_else(|_| {
+            serde_json::json!({
+                "schema": "cynic.host_exec_transport.response.v1",
+                "status": "error",
+                "error": "transport_output_not_json",
+                "stdout": stdout,
+                "stderr": stderr,
+                "exit_code": output.status.code()
+            })
+        });
+        Ok(serde_json::json!({
+            "status": if output.status.success() { "completed" } else { "transport_failed" },
+            "provider": "host_exec_transport",
+            "command": argv,
+            "exit_code": output.status.code(),
+            "transport": parsed,
+            "stderr": stderr,
+        }))
+    }
+
     // ── HTTP helpers ────────────────────────────────────────
 
     async fn get(&self, path: &str) -> Result<CallToolResult, McpError> {
@@ -110,18 +442,7 @@ impl CynicMcpProxy {
         path: &str,
         params: &[(&str, String)],
     ) -> Result<CallToolResult, McpError> {
-        let mut url = format!("{}{}", self.base_url, path);
-        if !params.is_empty() {
-            url.push('?');
-            for (i, (k, v)) in params.iter().enumerate() {
-                if i > 0 {
-                    url.push('&');
-                }
-                url.push_str(k);
-                url.push('=');
-                url.push_str(v);
-            }
-        }
+        let url = query_url(&self.base_url, path, params)?;
         let resp = self
             .client
             .get(&url)
@@ -134,6 +455,35 @@ impl CynicMcpProxy {
             .await
             .unwrap_or_else(|_| r#"{"error":"response read failed"}"#.into());
         Ok(CallToolResult::success(vec![Content::text(body)]))
+    }
+
+    async fn get_query_json(
+        &self,
+        path: &str,
+        params: &[(&str, String)],
+    ) -> Result<serde_json::Value, McpError> {
+        let url = query_url(&self.base_url, path, params)?;
+        let resp = self
+            .client
+            .get(&url)
+            .bearer_auth(&self.api_key)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("REST kernel unreachable: {e}"), None))?;
+        let status = resp.status();
+        let text = resp
+            .text()
+            .await
+            .unwrap_or_else(|_| r#"{"error":"response read failed"}"#.into());
+        if !status.is_success() {
+            return Err(McpError::internal_error(
+                format!("REST kernel GET {path} failed with HTTP {status}: {text}"),
+                None,
+            ));
+        }
+        serde_json::from_str(&text).map_err(|e| {
+            McpError::internal_error(format!("REST kernel returned invalid JSON: {e}"), None)
+        })
     }
 
     async fn post(&self, path: &str, body: &serde_json::Value) -> Result<CallToolResult, McpError> {
@@ -151,622 +501,224 @@ impl CynicMcpProxy {
             .unwrap_or_else(|_| r#"{"error":"response read failed"}"#.into());
         Ok(CallToolResult::success(vec![Content::text(text)]))
     }
-}
 
-// ── Forwarded tools (REST kernel) ───────────────────────────
-
-#[tool_router(router = tool_router_forward, vis = "pub(crate)")]
-impl CynicMcpProxy {
-    #[tool(
-        name = "cynic_judge",
-        description = "Submit content for epistemic evaluation by CYNIC's independent AI validators (Dogs). Returns φ-bounded Q-Score, per-axiom breakdown (FIDELITY/PHI/VERIFY/CULTURE/BURN/SOVEREIGNTY), verdict (HOWL/WAG/GROWL/BARK), and multi-model reasoning. Max confidence: 61.8%."
-    )]
-    async fn cynic_judge(
+    async fn post_json(
         &self,
-        params: Parameters<JudgeParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_judge()?;
-        let p = params.0;
-        validate_agent_id(&p.agent_id)?;
-        self.post(
-            "/judge",
-            &serde_json::json!({
-                "content": p.content,
-                "context": p.context,
-                "domain": p.domain,
-                "dogs": p.dogs,
-                "crystals": p.crystals,
-                "priority": p.priority,
-            }),
-        )
-        .await
-    }
-
-    #[tool(
-        name = "cynic_health",
-        description = "Get CYNIC system health: Dog status, quality rates, crystal counts, version. No auth required."
-    )]
-    async fn cynic_health(&self) -> Result<CallToolResult, McpError> {
-        self.rate_limit.check_other()?;
-        self.get("/health").await
-    }
-
-    #[tool(
-        name = "cynic_verdicts",
-        description = "List recent verdicts (limit defaults to 10)."
-    )]
-    async fn cynic_verdicts(
-        &self,
-        params: Parameters<ListParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        let limit = p.limit.unwrap_or(10).to_string();
-        self.get_query("/verdicts", &[("limit", limit)]).await
-    }
-
-    #[tool(
-        name = "cynic_crystals",
-        description = "List crystals (coherence patterns learned from verdict history)."
-    )]
-    async fn cynic_crystals(
-        &self,
-        params: Parameters<ListParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        let limit = p.limit.unwrap_or(20).to_string();
-        self.get_query("/crystals", &[("limit", limit)]).await
-    }
-
-    #[tool(
-        name = "cynic_audit_query",
-        description = "Query MCP audit trail (tool calls, agent activity)."
-    )]
-    async fn cynic_audit_query(
-        &self,
-        params: Parameters<AuditQueryParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        let mut q: Vec<(&str, String)> = Vec::new();
-        if let Some(t) = p.tool {
-            q.push(("tool", t));
-        }
-        if let Some(a) = p.agent_id {
-            q.push(("agent_id", a));
-        }
-        let limit = p.limit.unwrap_or(20).to_string();
-        q.push(("limit", limit));
-        self.get_query("/audit", &q).await
-    }
-
-    #[tool(
-        name = "cynic_metabolism",
-        description = "Get the organism's metabolic state: observation intake, digestion ratio, crystallization rate, backlog, drops, verdict production. Zero-I/O snapshot of data flow health. Use to check if the organism is digesting its observations or starving."
-    )]
-    async fn cynic_metabolism(
-        &self,
-        _params: Parameters<MetabolismParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        // Metabolism is embedded in /health — extract it server-side.
-        // We call /health and extract the metabolism + crystals + alerts subset.
+        path: &str,
+        body: &serde_json::Value,
+    ) -> Result<serde_json::Value, McpError> {
         let resp = self
             .client
-            .get(format!("{}/health", self.base_url))
+            .post(format!("{}{}", self.base_url, path))
             .bearer_auth(&self.api_key)
+            .json(body)
             .send()
             .await
             .map_err(|e| McpError::internal_error(format!("REST kernel unreachable: {e}"), None))?;
-        let body = resp
+        let status = resp.status();
+        let text = resp
             .text()
             .await
             .unwrap_or_else(|_| r#"{"error":"response read failed"}"#.into());
+        if !status.is_success() {
+            return Err(McpError::internal_error(
+                format!("REST kernel POST {path} failed with HTTP {status}: {text}"),
+                None,
+            ));
+        }
+        serde_json::from_str(&text).map_err(|e| {
+            McpError::internal_error(format!("REST kernel returned invalid JSON: {e}"), None)
+        })
+    }
+}
 
-        // Extract metabolism subset from full health response
-        let extracted = match serde_json::from_str::<serde_json::Value>(&body) {
-            Ok(health) => {
-                serde_json::json!({
-                    "metabolism": health.get("metabolism"),
-                    "crystals": health.get("crystals"),
-                    "alerts": health.get("alerts"),
-                    "dogs": health.get("dogs").and_then(|d| d.as_array()).map(|dogs| {
-                        dogs.iter().map(|d| serde_json::json!({
-                            "id": d.get("id"),
-                            "kind": d.get("kind"),
-                            "circuit": d.get("circuit"),
-                        })).collect::<Vec<_>>()
-                    }),
-                    "status": health.get("status"),
-                    "uptime_seconds": health.get("uptime_seconds"),
-                })
+#[tool_router(router = tool_router_identity, vis = "pub(crate)")]
+impl CynicMcpProxy {
+    #[tool(
+        name = "identity_attest",
+        description = "Return credential presence and commitments from the local env membrane without exposing raw values."
+    )]
+    async fn identity_attest(
+        &self,
+        _params: Parameters<IdentityAttestParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let env_file = std::env::var("CYNIC_ENV_FILE")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| {
+                PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".to_string()))
+                    .join(".cynic-env")
+            });
+        let content = fs::read_to_string(&env_file).unwrap_or_default();
+        let mut entries = Vec::new();
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
             }
-            Err(_) => serde_json::json!({"raw": body}),
-        };
+            let stripped = trimmed.strip_prefix("export ").unwrap_or(trimmed);
+            let Some((key, value)) = stripped.split_once('=') else {
+                continue;
+            };
+            let key = key.trim();
+            if key.is_empty() {
+                continue;
+            }
+            let value = value
+                .trim()
+                .trim_matches('"')
+                .trim_matches('\'')
+                .to_string();
+            let shape = if value.len() <= 4 {
+                "****".to_string()
+            } else {
+                format!(
+                    "{}{}",
+                    &value[..4],
+                    "*".repeat(std::cmp::min(8, value.len().saturating_sub(4)))
+                )
+            };
+            entries.push(serde_json::json!({
+                "key": key,
+                "present": true,
+                "shape": shape,
+                "length": value.len(),
+                "commitment": format!("{:x}", Sha3_512::digest(value.as_bytes())),
+                "commitment_schema": "cynic.identity.commitment.v2",
+                "source": env_file.display().to_string(),
+            }));
+        }
+        let result = serde_json::json!({
+            "schema": "cynic.identity.attestation.v1",
+            "source": env_file.display().to_string(),
+            "all_known_present": !entries.is_empty(),
+            "groups": {
+                "env": entries,
+            },
+        });
         Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&extracted).unwrap_or_default(),
+            result.to_string(),
         )]))
     }
 
     #[tool(
-        name = "cynic_compliance",
-        description = "Query session compliance scores. With agent_id: score a specific agent's session (read-before-edit %, branch discipline, rule violations). Without: return recent compliance trend (last N sessions). Use to check if the organism is following its own rules."
+        name = "identity_smoke_check",
+        description = "Check credential validity against live provider APIs without exposing raw values."
     )]
-    async fn cynic_compliance(
+    async fn identity_smoke_check(
         &self,
-        params: Parameters<ComplianceParams>,
+        params: Parameters<IdentitySmokeCheckParams>,
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
-        let p = params.0;
-
-        if let Some(agent_id) = p.agent_id {
-            // Per-session compliance
-            self.get(&format!("/session/{agent_id}/compliance")).await
-        } else {
-            // Trend mode
-            let limit = p.limit.unwrap_or(20).to_string();
-            self.get_query("/compliance", &[("limit", limit)]).await
-        }
-    }
-
-    #[tool(
-        name = "cynic_infer",
-        description = "Run sovereign local inference via llama-server (no cloud API, no quota). Forwarded to kernel's OpenAI-compatible endpoint. Use for tasks that should stay local: summarization, classification, extraction."
-    )]
-    async fn cynic_infer(
-        &self,
-        params: Parameters<InferParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_judge()?;
-        let p = params.0;
-        validate_agent_id(&p.agent_id)?;
-
-        if p.prompt.trim().is_empty() {
-            return Err(McpError::invalid_params("prompt must not be empty", None));
-        }
-
-        // Build OpenAI-compatible chat completion request
-        let mut messages = Vec::new();
-        if let Some(sys) = &p.system {
-            messages.push(serde_json::json!({"role": "system", "content": sys}));
-        }
-        messages.push(serde_json::json!({"role": "user", "content": p.prompt}));
-
-        self.post(
-            "/v1/chat/completions",
-            &serde_json::json!({
-                "messages": messages,
-                "temperature": p.temperature.unwrap_or(0.7),
-                "max_tokens": p.max_tokens.unwrap_or(512),
-            }),
-        )
-        .await
-    }
-
-    #[tool(
-        name = "cynic_observe",
-        description = "Record a tool observation (Edit, Write, Bash, etc.) for the Crystal Coherence Machine. Fire-and-forget."
-    )]
-    async fn cynic_observe(
-        &self,
-        params: Parameters<ObserveParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        self.post(
-            "/observe",
-            &serde_json::json!({
-                "tool": p.tool,
-                "target": p.target,
-                "domain": p.domain,
-                "status": p.status,
-                "context": p.context,
-                "project": p.project,
-                "agent_id": p.agent_id,
-                "session_id": p.session_id,
-                "tags": p.tags,
-            }),
-        )
-        .await
-    }
-
-    #[tool(
-        name = "cynic_dispatch_agent_task",
-        description = "Dispatch a task for an agent (hermes, nightshift, etc.)."
-    )]
-    async fn cynic_dispatch_agent_task(
-        &self,
-        params: Parameters<DispatchAgentTaskParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        self.post(
-            "/agent-tasks",
-            &serde_json::json!({
-                "kind": p.kind,
-                "domain": p.domain,
-                "content": p.content,
-                "agent_id": p.agent_id,
-            }),
-        )
-        .await
-    }
-
-    #[tool(
-        name = "cynic_list_pending_agent_tasks",
-        description = "List pending tasks for a given agent kind."
-    )]
-    async fn cynic_list_pending_agent_tasks(
-        &self,
-        params: Parameters<ListPendingAgentTasksParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        let limit = p.limit.unwrap_or(10).to_string();
-        self.get_query("/agent-tasks", &[("kind", p.kind), ("limit", limit)])
-            .await
-    }
-
-    #[tool(
-        name = "cynic_update_agent_task_result",
-        description = "Update an agent task with its result or error."
-    )]
-    async fn cynic_update_agent_task_result(
-        &self,
-        params: Parameters<UpdateAgentTaskResultParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        self.post(
-            &format!("/agent-tasks/{}/result", p.task_id),
-            &serde_json::json!({
-                "result": p.result,
-                "error": p.error,
-                "agent_id": p.agent_id,
-            }),
-        )
-        .await
-    }
-}
-
-// ── Coord tools (REST kernel) ───────────────────────────────
-
-#[tool_router(router = tool_router_coord, vis = "pub(crate)")]
-impl CynicMcpProxy {
-    #[tool(
-        name = "cynic_coord_register",
-        description = "Register this agent with the kernel coordination system."
-    )]
-    async fn cynic_coord_register(
-        &self,
-        params: Parameters<RegisterParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        self.post(
-            "/coord/register",
-            &serde_json::json!({
-                "agent_id": p.agent_id,
-                "intent": p.intent,
-                "agent_type": p.agent_type,
-            }),
-        )
-        .await
-    }
-
-    #[tool(
-        name = "cynic_coord_claim",
-        description = "Claim a file or resource for exclusive editing."
-    )]
-    async fn cynic_coord_claim(
-        &self,
-        params: Parameters<ClaimParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        self.post(
-            "/coord/claim",
-            &serde_json::json!({
-                "agent_id": p.agent_id,
-                "target": p.target,
-                "claim_type": p.claim_type,
-            }),
-        )
-        .await
-    }
-
-    #[tool(
-        name = "cynic_coord_claim_batch",
-        description = "Claim multiple files/resources at once."
-    )]
-    async fn cynic_coord_claim_batch(
-        &self,
-        params: Parameters<BatchClaimParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        self.post(
-            "/coord/claim-batch",
-            &serde_json::json!({
-                "agent_id": p.agent_id,
-                "targets": p.targets,
-                "claim_type": p.claim_type,
-            }),
-        )
-        .await
-    }
-
-    #[tool(
-        name = "cynic_coord_release",
-        description = "Release claimed files/resources."
-    )]
-    async fn cynic_coord_release(
-        &self,
-        params: Parameters<ReleaseParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        self.post(
-            "/coord/release",
-            &serde_json::json!({
-                "agent_id": p.agent_id,
-                "target": p.target,
-            }),
-        )
-        .await
-    }
-
-    #[tool(
-        name = "cynic_coord_who",
-        description = "Query active agents and their claims. No auth required (aligns with kernel)."
-    )]
-    async fn cynic_coord_who(
-        &self,
-        params: Parameters<WhoParams>,
-    ) -> Result<CallToolResult, McpError> {
-        // No auth required — matches kernel behavior (coord_tools.rs:264).
-        // Coordination visibility helps all agents avoid conflicts.
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        let mut q: Vec<(&str, String)> = Vec::new();
-        if let Some(a) = p.agent_id {
-            q.push(("agent_id", a));
-        }
-        self.get_query("/coord/who", &q).await
-    }
-}
-
-// ── Local tools (no REST forwarding) ────────────────────────
-
-#[tool_router(router = tool_router_local, vis = "pub(crate)")]
-impl CynicMcpProxy {
-    #[tool(
-        name = "cynic_auth",
-        description = "Fallback manual authentication for MCP sessions missing CYNIC_API_KEY env forwarding. Prefer fixing the MCP wrapper instead of passing secrets through the model."
-    )]
-    async fn cynic_auth(&self, params: Parameters<AuthParams>) -> Result<CallToolResult, McpError> {
-        let p = params.0;
-        // Auth is local: compare against env var, don't forward to REST
-        let expected = std::env::var("CYNIC_API_KEY").unwrap_or_default();
-        if expected.is_empty() {
-            return Err(McpError::internal_error(
-                "Kernel has no CYNIC_API_KEY configured",
-                None,
-            ));
-        }
-        if p.api_key != expected {
-            return Err(McpError::new(
-                rmcp::model::ErrorCode(-32000),
-                "Authentication failed — invalid API key",
-                None,
-            ));
-        }
-        self.authenticated.store(true, Ordering::Relaxed);
-        Ok(CallToolResult::success(vec![Content::text(
-            r#"{"authenticated": true}"#,
-        )]))
-    }
-
-    #[tool(
-        name = "cynic_validate",
-        description = "Run cargo build + clippy + lint-rules on the kernel. Returns pass/fail with details."
-    )]
-    async fn cynic_validate(
-        &self,
-        _params: Parameters<ValidateParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        // Local: runs filesystem commands
-        let result = crate::local_tools::run_validate(&self.project_root).await;
-        Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_default(),
-        )]))
-    }
-
-    #[tool(
-        name = "cynic_git",
-        description = "Run safe git operations: status, diff, log, branch, stash."
-    )]
-    async fn cynic_git(&self, params: Parameters<GitParams>) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        // Local: runs git commands
-        let result = crate::local_tools::run_git(&self.project_root, &params.0.op).await;
-        Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_default(),
-        )]))
-    }
-
-    #[tool(
-        name = "cynic_proxmox_list",
-        description = "List all VMs and LXC containers on the Proxmox hypervisor. Returns their status, memory, and ID."
-    )]
-    async fn cynic_proxmox_list(&self) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-
-        let proxmox_url = std::env::var("CYNIC_PROXMOX_URL").unwrap_or_default();
-        let token_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
-        let secret = std::env::var("CYNIC_PROXMOX_SECRET").unwrap_or_default();
-
-        if proxmox_url.is_empty() || token_id.is_empty() || secret.is_empty() {
-            return Err(McpError::internal_error(
-                "Proxmox credentials not configured in CYNIC_PROXMOX_* env vars",
-                None,
-            ));
-        }
-
-        let client = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-            .map_err(|e| McpError::internal_error(format!("Proxmox client error: {e}"), None))?;
-
-        let auth_header = format!("PVEAPIToken={}={}", token_id, secret);
-
-        // 1. Get nodes
-        let nodes_resp = client
-            .get(format!("{proxmox_url}/api2/json/nodes"))
-            .header("Authorization", &auth_header)
-            .send()
-            .await
-            .map_err(|e| {
-                McpError::internal_error(format!("Proxmox API failed (nodes): {e}"), None)
-            })?;
-
-        let nodes_json: serde_json::Value = nodes_resp.json().await.map_err(|e| {
-            McpError::internal_error(format!("Invalid JSON from Proxmox: {e}"), None)
-        })?;
-
-        let mut output = String::new();
-
-        if let Some(nodes) = nodes_json["data"].as_array() {
-            for node in nodes {
-                if let Some(node_name) = node["node"].as_str() {
-                    output.push_str(&format!("=== Node: {} ===\n", node_name));
-
-                    // 2. Get VMs
-                    let qemu_resp = client
-                        .get(format!("{proxmox_url}/api2/json/nodes/{node_name}/qemu"))
-                        .header("Authorization", &auth_header)
-                        .send()
-                        .await;
-                    if let Ok(resp) = qemu_resp {
-                        if let Ok(qemu_json) = resp.json::<serde_json::Value>().await {
-                            output.push_str("VMs:\n");
-                            if let Some(vms) = qemu_json["data"].as_array() {
-                                for vm in vms {
-                                    let vmid = vm["vmid"].as_u64().unwrap_or(0);
-                                    let name = vm["name"].as_str().unwrap_or("unknown");
-                                    let status = vm["status"].as_str().unwrap_or("unknown");
-                                    let mem = vm["maxmem"].as_u64().unwrap_or(0) / 1024 / 1024;
-                                    output.push_str(&format!("- ID: {vmid}, Name: {name}, Status: {status}, Mem: {mem}MB\n"));
-                                }
-                            }
-                        }
+        let providers = params
+            .0
+            .providers
+            .unwrap_or_else(|| vec!["porkbun".to_string(), "cloudflare".to_string()]);
+        let mut results = Vec::new();
+        for provider in providers {
+            match provider.as_str() {
+                "porkbun" => {
+                    let api_key = std::env::var("PORKBUN_API_KEY").unwrap_or_default();
+                    let secret_key = std::env::var("PORKBUN_SECRET_API_KEY").unwrap_or_default();
+                    if api_key.is_empty() || secret_key.is_empty() {
+                        results.push(serde_json::json!({
+                            "provider": "porkbun",
+                            "ok": false,
+                            "message": "Missing: PORKBUN_API_KEY or PORKBUN_SECRET_API_KEY",
+                        }));
+                        continue;
                     }
-
-                    // 3. Get LXCs
-                    let lxc_resp = client
-                        .get(format!("{proxmox_url}/api2/json/nodes/{node_name}/lxc"))
-                        .header("Authorization", &auth_header)
+                    let body = serde_json::json!({
+                        "apikey": api_key,
+                        "secretapikey": secret_key,
+                    });
+                    let response = self
+                        .client
+                        .post("https://api.porkbun.com/api/json/v3/ping")
+                        .json(&body)
                         .send()
-                        .await;
-                    if let Ok(resp) = lxc_resp {
-                        if let Ok(lxc_json) = resp.json::<serde_json::Value>().await {
-                            output.push_str("Containers (LXC):\n");
-                            if let Some(lxcs) = lxc_json["data"].as_array() {
-                                for lxc in lxcs {
-                                    let vmid = lxc["vmid"].as_u64().unwrap_or(0);
-                                    let name = lxc["name"].as_str().unwrap_or("unknown");
-                                    let status = lxc["status"].as_str().unwrap_or("unknown");
-                                    let mem = lxc["maxmem"].as_u64().unwrap_or(0) / 1024 / 1024;
-                                    output.push_str(&format!("- ID: {vmid}, Name: {name}, Status: {status}, Mem: {mem}MB\n"));
-                                }
-                            }
-                        }
+                        .await
+                        .map_err(|e| {
+                            McpError::internal_error(format!("Porkbun ping failed: {e}"), None)
+                        })?;
+                    let payload: serde_json::Value = response
+                        .json()
+                        .await
+                        .unwrap_or_else(|_| serde_json::json!({}));
+                    let ok =
+                        payload.get("status").and_then(|value| value.as_str()) == Some("SUCCESS");
+                    results.push(serde_json::json!({
+                        "provider": "porkbun",
+                        "ok": ok,
+                        "message": if ok { "Porkbun ping OK".to_string() } else { format!("Porkbun ping failed: {}", payload.get("message").and_then(|value| value.as_str()).unwrap_or("unknown")) },
+                    }));
+                }
+                "cloudflare" => {
+                    let token = std::env::var("CF_API_TOKEN").unwrap_or_default();
+                    if token.is_empty() {
+                        results.push(serde_json::json!({
+                            "provider": "cloudflare",
+                            "ok": false,
+                            "message": "Missing: CF_API_TOKEN",
+                        }));
+                        continue;
                     }
+                    let response = self
+                        .client
+                        .get("https://api.cloudflare.com/client/v4/user/tokens/verify")
+                        .bearer_auth(token)
+                        .send()
+                        .await
+                        .map_err(|e| {
+                            McpError::internal_error(format!("Cloudflare verify failed: {e}"), None)
+                        })?;
+                    let payload: serde_json::Value = response
+                        .json()
+                        .await
+                        .unwrap_or_else(|_| serde_json::json!({}));
+                    let ok = payload
+                        .get("success")
+                        .and_then(|value| value.as_bool())
+                        .unwrap_or(false)
+                        && payload
+                            .get("result")
+                            .and_then(|value| value.get("status"))
+                            .and_then(|value| value.as_str())
+                            == Some("active");
+                    results.push(serde_json::json!({
+                        "provider": "cloudflare",
+                        "ok": ok,
+                        "message": if ok { "Cloudflare token active" } else { "Cloudflare token invalid" },
+                    }));
+                }
+                other => {
+                    results.push(serde_json::json!({
+                        "provider": other,
+                        "ok": false,
+                        "message": "Unsupported provider",
+                    }));
                 }
             }
         }
-
-        Ok(CallToolResult::success(vec![Content::text(output)]))
-    }
-
-    #[tool(
-        name = "cynic_proxmox_action",
-        description = "Perform actions (start, stop, reboot, suspend, resume) on Proxmox VMs and LXC containers."
-    )]
-    async fn cynic_proxmox_action(
-        &self,
-        params: Parameters<ProxmoxActionParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-
-        let proxmox_url = std::env::var("CYNIC_PROXMOX_URL").unwrap_or_default();
-        let token_id = std::env::var("CYNIC_PROXMOX_TOKEN_ID").unwrap_or_default();
-        let secret = std::env::var("CYNIC_PROXMOX_SECRET").unwrap_or_default();
-
-        if proxmox_url.is_empty() || token_id.is_empty() || secret.is_empty() {
-            return Err(McpError::internal_error(
-                "Proxmox credentials not configured in CYNIC_PROXMOX_* env vars",
-                None,
-            ));
-        }
-
-        let p = params.0;
-        let vmid = p.vmid;
-        let node = p.node;
-        let type_ = p.target_type; // "qemu" or "lxc"
-        let action = p.action; // "start", "stop", "reboot", "suspend", "resume"
-
-        let client = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-            .map_err(|e| McpError::internal_error(format!("Proxmox client error: {e}"), None))?;
-
-        let auth_header = format!("PVEAPIToken={}={}", token_id, secret);
-
-        let url = format!("{proxmox_url}/api2/json/nodes/{node}/{type_}/{vmid}/status/{action}");
-
-        let resp = client
-            .post(&url)
-            .header("Authorization", &auth_header)
-            .send()
-            .await
-            .map_err(|e| McpError::internal_error(format!("Proxmox API POST failed: {e}"), None))?;
-
-        let text = resp.text().await.unwrap_or_default();
-        Ok(CallToolResult::success(vec![Content::text(text)]))
+        let all_ok = results
+            .iter()
+            .all(|item| item.get("ok").and_then(|v| v.as_bool()).unwrap_or(false));
+        let result = serde_json::json!({
+            "op": "identity_smoke_check",
+            "all_ok": all_ok,
+            "results": results,
+        });
+        Ok(CallToolResult::success(vec![Content::text(
+            result.to_string(),
+        )]))
     }
 }
 
-// ── MCP ServerHandler ───────────────────────────────────────
-
-#[tool_handler]
-impl ServerHandler for CynicMcpProxy {
-    fn get_info(&self) -> ServerInfo {
-        InitializeResult::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new("cynic-mcp", env!("CYNIC_VERSION")))
-            .with_instructions("CYNIC MCP proxy — forwards to REST kernel. Zero local state.")
-    }
-}
+include!("routers/forward.rs");
+include!("routers/coord.rs");
+include!("routers/local.rs");
+include!("routers/eval.rs");
+include!("routers/docker.rs");
+include!("handler.rs");

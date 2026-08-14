@@ -1,0 +1,154 @@
+use cynic_host::process_observation::{capture_command, tcp_probe};
+use cynic_host::runtime_layout::current_runtime_layout;
+use std::error::Error;
+
+use crate::ports::network_interfaces_port::{
+    ProviderFallbackProbePort, ProviderFallbackRoute, ProviderFallbackRouteStatus,
+    ProviderServiceCheck, ProviderServiceConnectivity,
+};
+
+#[derive(Debug, Clone, Default)]
+pub struct LocalProviderFallbackProbe;
+
+impl LocalProviderFallbackProbe {
+    fn command_output(command: &str, args: &[&str]) -> (Option<String>, Option<String>) {
+        match capture_command(command, args) {
+            Ok(output) => {
+                if output.success {
+                    (
+                        Some(output.stdout),
+                        (!output.stderr.is_empty()).then_some(output.stderr),
+                    )
+                } else {
+                    (None, (!output.stderr.is_empty()).then_some(output.stderr))
+                }
+            }
+            Err(error) => (None, Some(error.to_string())),
+        }
+    }
+}
+
+impl ProviderFallbackProbePort for LocalProviderFallbackProbe {
+    fn observe_route(
+        &self,
+        route: &ProviderFallbackRoute,
+    ) -> Result<ProviderFallbackRouteStatus, Box<dyn Error>> {
+        let capabilities = current_runtime_layout().capabilities();
+        let cidr = route.cidr.as_str();
+        let gateway = route.gateway.clone().unwrap_or_default();
+
+        let (route_stdout, route_error) =
+            Self::command_output(&capabilities.route_tool.command, &["route", "show", cidr]);
+        let (active_connections, nmcli_active_error) = Self::command_output(
+            &capabilities.network_manager.command,
+            &["-t", "-f", "NAME", "connection", "show", "--active"],
+        );
+
+        let mut nmcli_outputs = Vec::new();
+        let mut nmcli_errors = Vec::new();
+        if let Some(stderr) = nmcli_active_error {
+            nmcli_errors.push(stderr);
+        }
+        for connection_name in active_connections.unwrap_or_default().lines() {
+            let connection_name = connection_name.trim();
+            if connection_name.is_empty() {
+                continue;
+            }
+            let (routes_stdout, routes_error) = Self::command_output(
+                &capabilities.network_manager.command,
+                &["-g", "ipv4.routes", "connection", "show", connection_name],
+            );
+            if let Some(stdout) = routes_stdout.filter(|value| !value.is_empty()) {
+                nmcli_outputs.push(stdout);
+            }
+            if let Some(stderr) = routes_error {
+                nmcli_errors.push(format!("{connection_name}: {stderr}"));
+            }
+        }
+
+        let observed_route = route_stdout.unwrap_or_default();
+        let observed_nmcli_routes = nmcli_outputs.join("\n");
+        let expected = format!("{cidr} {gateway}");
+        let active = !gateway.is_empty()
+            && observed_route.contains(cidr)
+            && observed_route.contains(&gateway);
+        let persistent = !gateway.is_empty() && observed_nmcli_routes.contains(&expected);
+
+        Ok(ProviderFallbackRouteStatus {
+            active,
+            persistent,
+            observed_route,
+            observed_nmcli_routes,
+            ip_route_error: route_error,
+            nmcli_error: (!nmcli_errors.is_empty()).then(|| nmcli_errors.join("\n")),
+        })
+    }
+
+    fn observe_connectivity(
+        &self,
+        checks: &[ProviderServiceCheck],
+    ) -> Result<Vec<ProviderServiceConnectivity>, Box<dyn Error>> {
+        let mut results = Vec::new();
+        for check in checks {
+            let canonical = tcp_probe(&check.host, check.port);
+            let observation = if canonical.status == "unresolved" {
+                tcp_probe(&check.ip, check.port)
+            } else {
+                canonical
+            };
+            let result = match observation.status.as_str() {
+                "open" => ProviderServiceConnectivity {
+                    node: check.node.clone(),
+                    service: check.service.clone(),
+                    host: check.host.clone(),
+                    ip: check.ip.clone(),
+                    port: check.port,
+                    status: "open".to_string(),
+                    network_status: "reachable".to_string(),
+                    error: None,
+                },
+                status => ProviderServiceConnectivity {
+                    node: check.node.clone(),
+                    service: check.service.clone(),
+                    host: check.host.clone(),
+                    ip: check.ip.clone(),
+                    port: check.port,
+                    status: "closed".to_string(),
+                    network_status: if status == "timeout" {
+                        "blocked".to_string()
+                    } else {
+                        "reachable".to_string()
+                    },
+                    error: Some(format!("tcp_{status}")),
+                },
+            };
+            results.push(result);
+        }
+        Ok(results)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn connectivity_payload_retains_check_identity() {
+        let probe = LocalProviderFallbackProbe;
+        let result = probe
+            .observe_connectivity(&[ProviderServiceCheck {
+                node: "forge".to_string(),
+                service: "ssh".to_string(),
+                host: "127.0.0.1".to_string(),
+                ip: "127.0.0.1".to_string(),
+                port: 9,
+            }])
+            .expect("connectivity");
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].node, "forge");
+        assert_eq!(result[0].service, "ssh");
+        assert_eq!(result[0].host, "127.0.0.1");
+        assert_eq!(result[0].port, 9);
+    }
+}

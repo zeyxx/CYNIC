@@ -1,0 +1,34 @@
+[Unit]
+Description=CYNIC Node Runtime
+After=network-online.target cynic-kernel.service
+Wants=network-online.target cynic-kernel.service
+
+[Service]
+# projection_class: runtime_authority_adapter
+# owner: crates/cynic-host
+# Installed systemd adapter for standalone runtime. Service manager projection
+# is selected by cynic-host capabilities; systemd is not the runtime model.
+Type=simple
+User=cynic
+Group=cynic
+WorkingDirectory=/var/lib/cynic
+ExecStart=/usr/local/bin/cynic-node
+EnvironmentFile=-/etc/cynic/env
+Environment="CYNIC_REGISTRY=/etc/cynic/registry.json"
+Environment="CYNIC_INFERENCE_CONFIG=/etc/cynic/inference.toml"
+Environment="CYNIC_CONFIG_ROOT=/etc/cynic"
+Environment="CYNIC_STATE_ROOT=/var/lib/cynic"
+Environment="CYNIC_LOG_ROOT=/var/log/cynic"
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ReadWritePaths=/var/lib/cynic /var/log/cynic
+
+[Install]
+WantedBy=multi-user.target

@@ -4,19 +4,18 @@ After=network.target
 Wants=cynic-kernel.service
 
 [Service]
+# projection_class: operator_projection
+# Runtime projection for node process supervision.
 Type=simple
-WorkingDirectory=%h/Bureau/CYNIC
-# Generate node_kernels.toml from fleet.toml at startup
-ExecStartPre=%h/Bureau/CYNIC/scripts/fleet-gen.py --mode node-kernels
-ExecStart=%h/bin/cynic-node
+WorkingDirectory=/var/lib/cynic
+ExecStart=/usr/local/bin/cynic-node
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30
 Restart=on-failure
 RestartSec=5
-# Environment from ~/.cynic-env (Bearer token, REST addr, API key)
-EnvironmentFile=%h/.config/cynic/env
-Environment="CYNIC_SCRIPTS=%h/Bureau/CYNIC/scripts"
+# Environment from /etc/cynic/env (Bearer token, REST addr, API key)
+EnvironmentFile=/etc/cynic/env
 LimitNOFILE=65535
 MemoryMax=1G
 

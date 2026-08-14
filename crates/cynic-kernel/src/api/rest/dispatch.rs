@@ -14,7 +14,7 @@ use super::{AppState, ErrorResponse};
 
 #[derive(Debug, Deserialize)]
 pub struct ZoneActivityQuery {
-    /// File path to resolve to zone (relative to project root)
+    /// File path to resolve to zone (absolute path or prefix configured from zone manifest)
     pub file_path: Option<String>,
     /// Or query a zone directly by name
     pub zone: Option<String>,
@@ -83,11 +83,11 @@ pub async fn zone_activity_handler(
 
     // 3. Query observations — who was active in these paths recently?
     let exclude_agent = params.agent_id.as_deref().unwrap_or("");
-    let project_root = &state.project_root;
+    let absolute_zone_paths: Vec<String> = zone_paths;
 
     let agents = state
         .storage
-        .zone_activity(&zone_paths, exclude_agent, project_root)
+        .zone_activity(&absolute_zone_paths, exclude_agent)
         .await
         .unwrap_or_default();
 

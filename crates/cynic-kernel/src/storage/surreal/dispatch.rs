@@ -40,9 +40,33 @@ fn row_to_agent_dispatch(row: &serde_json::Value) -> Option<AgentDispatch> {
             .to_string(),
         created_at: obj
             .get("created_at")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
+            .and_then(|v| {
+                v.as_i64()
+                    .or_else(|| {
+                        v.as_str().and_then(|s| {
+                            s.parse::<i64>()
+                                .inspect_err(|e| {
+                                    tracing::warn!("Failed to parse i64 from string '{}': {}", s, e)
+                                })
+                                .ok()
+                        })
+                    })
+                    .or_else(|| {
+                        v.as_str().and_then(|s| {
+                            chrono::DateTime::parse_from_rfc3339(s)
+                                .map(|ts| ts.timestamp_millis())
+                                .inspect_err(|e| {
+                                    tracing::warn!(
+                                        "Failed to parse RFC3339 timestamp from string '{}': {}",
+                                        s,
+                                        e
+                                    )
+                                })
+                                .ok()
+                        })
+                    })
+            })
+            .unwrap_or(0),
         completed_at: obj
             .get("completed_at")
             .and_then(|v| v.as_str())
@@ -110,6 +134,11 @@ pub(super) async fn store_agent_dispatch(
     );
 
     storage.query_one(&query).await?;
+
+    use crate::domain::proof::Provable;
+    let poh = dispatch.to_proof_of_history();
+    let _ = super::proof_of_history::store_proof_of_history(storage, &poh).await;
+
     Ok(dispatch.id.clone())
 }
 
@@ -171,7 +200,7 @@ pub(super) async fn update_dispatch_status(
     dispatch_id: &str,
     new_status: &str,
 ) -> Result<(), StorageError> {
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = chrono::Utc::now().timestamp_millis();
 
     let completed_at = if new_status == "COMPLETED" {
         format!("completed_at: '{now}',")
@@ -193,6 +222,10 @@ pub(super) async fn update_dispatch_status(
             dispatch_id
         );
         storage.query_one(&query).await?;
+
+        use crate::domain::proof::Provable;
+        let poh = dispatch.to_proof_of_history();
+        let _ = super::proof_of_history::store_proof_of_history(storage, &poh).await;
     }
 
     Ok(())
@@ -208,5 +241,12 @@ pub(super) async fn update_dispatch_pr(
         "UPDATE agent_dispatch SET status = 'PROPOSED', pr_number = {pr_number} WHERE id = {dispatch_id};"
     );
     storage.query_one(&query).await?;
+
+    if let Ok(Some(dispatch)) = get_dispatch(storage, dispatch_id).await {
+        use crate::domain::proof::Provable;
+        let poh = dispatch.to_proof_of_history();
+        let _ = super::proof_of_history::store_proof_of_history(storage, &poh).await;
+    }
+
     Ok(())
 }

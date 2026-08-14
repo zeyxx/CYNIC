@@ -1,3 +1,21 @@
+#![allow(
+    clippy::needless_borrow,
+    clippy::collapsible_if,
+    clippy::redundant_closure,
+    clippy::too_many_arguments,
+    clippy::needless_pass_by_value,
+    clippy::redundant_clone,
+    clippy::map_err_ignore,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::manual_let_else,
+    clippy::uninlined_format_args
+)]
+
+mod kernel_discovery;
+mod project_root;
+
+use kernel_discovery::{ResolvedKernelEndpoint, resolve_kernel_endpoint};
 use rmcp::ServiceExt;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
@@ -17,8 +35,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("USAGE: cynic-mcp");
         eprintln!();
         eprintln!("ENVIRONMENT:");
-        eprintln!("  CYNIC_REST_ADDR   Kernel REST address (default: http://127.0.0.1:3030)");
+        eprintln!("  CYNIC_REST_ADDR   Explicit kernel origin, verified before MCP startup");
+        eprintln!("  CYNIC_KERNEL_SEEDS   Comma-separated kernel origins to scan");
+        eprintln!("  CYNIC_KERNEL_DISCOVERY_TIMEOUT_MS   Probe timeout (100-10000, default 1500)");
         eprintln!("  CYNIC_API_KEY     Bearer token for kernel auth");
+        eprintln!("  CYNIC_AGENT_ID    Agent principal bound to this MCP process");
+        eprintln!(
+            "  CYNIC_MCP_PROJECT_ROOT   Optional explicit MCP project root for local diagnostics tooling"
+        );
         eprintln!("  RUST_LOG          Log filter (default: cynic_mcp=info,warn)");
         return Ok(());
     }
@@ -31,20 +55,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(fmt::layer().json().with_writer(std::io::stderr))
         .init();
 
-    let raw_addr =
-        std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "http://127.0.0.1:3030".into());
-    let rest_addr = if raw_addr.starts_with("http://") || raw_addr.starts_with("https://") {
-        raw_addr
-    } else {
-        format!("http://{raw_addr}")
-    };
-    let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
-    let project_root = std::env::current_dir()
-        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+    let resolved_kernel = resolve_rest_addr().await?;
+    let rest_addr = resolved_kernel.url;
+    let project_root = project_root::resolve_mcp_project_root()
         .display()
         .to_string();
+    let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
 
-    tracing::info!(rest_addr, "cynic-mcp starting — forwarding to REST kernel");
+    tracing::info!(
+        rest_addr,
+        rest_addr_source = resolved_kernel.source,
+        kernel_node_id = resolved_kernel.node_id,
+        kernel_node_name = resolved_kernel.node_name,
+        kernel_role = resolved_kernel.role,
+        kernel_registry_status = resolved_kernel.status,
+        kernel_discovery_proof = resolved_kernel.proof,
+        kernel_hostname = resolved_kernel.hostname,
+        kernel_pid = resolved_kernel.pid,
+        kernel_version = resolved_kernel.version,
+        kernel_git_sha = resolved_kernel.git_sha,
+        kernel_build_profile = resolved_kernel.build_profile,
+        "cynic-mcp starting — forwarding to REST kernel"
+    );
 
     let proxy = cynic_mcp::proxy::CynicMcpProxy::new(rest_addr, api_key, project_root);
 
@@ -71,4 +103,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+async fn resolve_rest_addr() -> Result<ResolvedKernelEndpoint, Box<dyn std::error::Error>> {
+    let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+    resolve_kernel_endpoint(&api_key)
+        .await
+        .map_err(|error| error.into())
 }

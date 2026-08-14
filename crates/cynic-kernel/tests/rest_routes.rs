@@ -10,30 +10,54 @@ use http_body_util::BodyExt;
 use tower::ServiceExt;
 
 use cynic_kernel::api::rest::{self, AppState, PerIpRateLimiter, StorageInfo};
-use cynic_kernel::dogs::deterministic::DeterministicDog;
+
+use cynic_inference::embedding::NullEmbedding;
+use cynic_inference::{SlotSemaphoreMap, SlotTracker};
 use cynic_kernel::domain::coord::NullCoord;
-use cynic_kernel::domain::embedding::NullEmbedding;
 use cynic_kernel::domain::metrics::Metrics;
 use cynic_kernel::domain::storage::NullStorage;
 use cynic_kernel::domain::usage::DogUsageTracker;
 use cynic_kernel::domain::verdict_cache::VerdictCache;
 use cynic_kernel::infra::task_health::TaskHealth;
-use cynic_kernel::judge::Judge;
 
 fn test_state(api_key: Option<&str>) -> Arc<AppState> {
-    let dogs: Vec<Arc<dyn cynic_kernel::domain::dog::Dog>> = vec![Arc::new(DeterministicDog)];
-    let breakers: Vec<Arc<dyn cynic_kernel::domain::health_gate::HealthGate>> = dogs
-        .iter()
-        .map(|d| {
-            Arc::new(cynic_kernel::infra::circuit_breaker::CircuitBreaker::new(
-                d.id().to_string(),
-            )) as Arc<dyn cynic_kernel::domain::health_gate::HealthGate>
-        })
-        .collect();
-    let judge = Arc::new(Judge::new(dogs, breakers));
-    let judge_swap = arc_swap::ArcSwap::from(judge);
+    test_state_with_role_keys(
+        api_key,
+        cynic_kernel::api::rest::types::RoleKeyMap {
+            cortex: None,
+            organ: None,
+            internal: None,
+            legacy: api_key.map(|s| s.to_string()),
+            agent_bindings: Vec::new(),
+        },
+    )
+}
+
+fn test_agent_state(agent_id: &str, api_key: &str) -> Arc<AppState> {
+    let binding = cynic_kernel::api::rest::types::AgentCredentialBinding::new(
+        agent_id.to_string(),
+        cynic_kernel::api::rest::types::Role::Cortex,
+        api_key.to_string(),
+    )
+    .expect("valid test agent credential");
+    test_state_with_role_keys(
+        Some(api_key),
+        cynic_kernel::api::rest::types::RoleKeyMap {
+            cortex: None,
+            organ: None,
+            internal: None,
+            legacy: None,
+            agent_bindings: vec![binding],
+        },
+    )
+}
+
+fn test_state_with_role_keys(
+    api_key: Option<&str>,
+    role_keys: cynic_kernel::api::rest::types::RoleKeyMap,
+) -> Arc<AppState> {
     Arc::new(AppState {
-        judge: judge_swap,
+        registered_services: Default::default(),
         storage: Arc::new(NullStorage),
         coord: Arc::new(NullCoord),
         embedding: Arc::new(NullEmbedding),
@@ -42,12 +66,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         task_health: Arc::new(TaskHealth::new()),
         metrics: Arc::new(Metrics::new()),
         api_key: api_key.map(|s| s.to_string()),
-        role_keys: cynic_kernel::api::rest::types::RoleKeyMap {
-            cortex: None,
-            organ: None,
-            internal: None,
-            legacy: api_key.map(|s| s.to_string()),
-        },
+        role_keys,
         storage_info: StorageInfo {
             namespace: "test".into(),
             database: "test".into(),
@@ -65,7 +84,6 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         registered_dogs: std::sync::Arc::new(std::sync::RwLock::new(
             std::collections::HashMap::new(),
         )),
-        judge_jobs: Arc::new(cynic_kernel::api::rest::judge_job::JudgeJobStore::new()),
         system_contract: std::sync::Arc::new(std::sync::RwLock::new(
             cynic_kernel::domain::contract::SystemContract::new(vec![], true),
         )),
@@ -82,21 +100,21 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         dog_perf_collector: std::sync::Arc::new(
             cynic_kernel::infra::dog_performance::DogPerformanceCollector::new(),
         ),
-        slot_tracker: std::sync::Arc::new(cynic_kernel::domain::slot_tracker::SlotTracker::new()),
-        slot_semaphores: std::sync::Arc::new(
-            cynic_kernel::domain::slot_semaphore::SlotSemaphoreMap::new(),
-        ),
+        slot_tracker: std::sync::Arc::new(SlotTracker::new()),
+        slot_semaphores: std::sync::Arc::new(SlotSemaphoreMap::new()),
         proxy_targets: std::sync::Arc::new(
-            cynic_kernel::api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
+            cynic_inference::application::proxy_routing::ProxyTargets::from_fleet_meta(
                 &std::collections::HashMap::new(),
                 &std::collections::HashMap::new(),
             ),
         ),
-        project_root: ".".to_string(),
         mail: None,
         node_registry: std::sync::Arc::new(cynic_kernel::api::websocket::NodeRegistry::new(120)),
         zones: std::sync::Arc::new(cynic_kernel::domain::zones::ZoneConfig::default()),
         producer_heartbeats: std::sync::Arc::new(std::sync::RwLock::new(
+            std::collections::HashMap::new(),
+        )),
+        overdue_task_alerted: std::sync::Arc::new(std::sync::RwLock::new(
             std::collections::HashMap::new(),
         )),
     })
@@ -105,6 +123,62 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
 async fn body_json(body: Body) -> serde_json::Value {
     let bytes = body.collect().await.unwrap().to_bytes();
     serde_json::from_slice(&bytes).unwrap()
+}
+
+// ── API discovery ────────────────────────────────────────────
+
+#[tokio::test]
+async fn openapi_contract_is_publicly_discoverable() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/openapi.json")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let v = body_json(resp.into_body()).await;
+    assert_eq!(v["openapi"], "3.1.0");
+}
+
+#[tokio::test]
+async fn api_topology_contract_is_publicly_discoverable() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/topology")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let v = body_json(resp.into_body()).await;
+    assert_eq!(v["schema"], "cynic.api_topology.v1.minimal");
+}
+
+#[tokio::test]
+async fn api_layer_alignment_contract_is_publicly_discoverable() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/layer-alignment")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let v = body_json(resp.into_body()).await;
+    assert_eq!(v["schema"], "cynic.api_layer_alignment.v1.minimal");
 }
 
 // ── /health ─────────────────────────────────────────────────
@@ -167,7 +241,7 @@ async fn health_with_auth_returns_full_details() {
     //   storage          → healthcheck.sh, /status skill
     //   version          → /status skill, deploy verification
     //   total_requests   → /status skill, cost tracking
-    //   total_tokens     → cost tracking, /usage
+    //   total_tokens     → cost tracking, /metrics/usage
     //   estimated_cost_usd → /status skill, cost dashboard
     //   uptime_seconds   → /status skill
     //   embedding        → /status skill
@@ -296,216 +370,6 @@ async fn dogs_with_auth_returns_list() {
     assert_eq!(dogs[0], "deterministic-dog");
 }
 
-// ── /judge ──────────────────────────────────────────────────
-
-#[tokio::test]
-async fn judge_requires_auth() {
-    let state = test_state(Some("secret-key"));
-    let app = rest::router(state);
-
-    let resp = app
-        .oneshot(
-            axum::http::Request::builder()
-                .method("POST")
-                .uri("/judge")
-                .header("Content-Type", "application/json")
-                .body(Body::from(r#"{"content":"test"}"#))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), 401);
-}
-
-#[tokio::test]
-async fn judge_async_requires_auth() {
-    let state = test_state(Some("secret-key"));
-    let app = rest::router(state);
-
-    let resp = app
-        .oneshot(
-            axum::http::Request::builder()
-                .method("POST")
-                .uri("/judge/async")
-                .header("Content-Type", "application/json")
-                .body(Body::from(r#"{"content":"test"}"#))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), 401);
-}
-
-#[tokio::test]
-async fn judge_produces_verdict() {
-    let state = test_state(Some("key"));
-    let app = rest::router(state);
-
-    let resp = app
-        .oneshot(
-            axum::http::Request::builder()
-                .method("POST")
-                .uri("/judge")
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer key")
-                .body(Body::from(
-                    r#"{"content":"The Sicilian Defense is strong","domain":"chess"}"#,
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), 200);
-    let v = body_json(resp.into_body()).await;
-
-    // ── API CONTRACT: /judge response ──
-    // Consumer map:
-    //   verdict_id     → frontend (link to detail), MCP cynic_judge
-    //   verdict        → frontend badge, MCP, CCM crystal domain
-    //   q_score.total  → frontend score display, MCP, CCM crystal confidence
-    //   q_score.{axiom} → frontend radar chart, MCP per-axiom breakdown
-    //   reasoning.{axiom} → frontend reasoning display, MCP
-    //   dogs_used      → frontend dog list, /status skill
-    //   stimulus_summary → CCM crystal content, verdict history
-    assert!(
-        v["verdict_id"].is_string(),
-        "CONTRACT: verdict_id must be string"
-    );
-    let verdict = v["verdict"]
-        .as_str()
-        .expect("CONTRACT: verdict must be string");
-    assert!(
-        ["Howl", "Wag", "Growl", "Bark"].contains(&verdict),
-        "CONTRACT: verdict must be Howl/Wag/Growl/Bark"
-    );
-
-    // Q-Score structure
-    let q = &v["q_score"];
-    assert!(
-        q["total"].is_number(),
-        "CONTRACT: q_score.total must be number"
-    );
-    assert!(
-        q["fidelity"].is_number(),
-        "CONTRACT: q_score.fidelity must be number"
-    );
-    assert!(q["phi"].is_number(), "CONTRACT: q_score.phi must be number");
-    assert!(
-        q["verify"].is_number(),
-        "CONTRACT: q_score.verify must be number"
-    );
-    assert!(
-        q["culture"].is_number(),
-        "CONTRACT: q_score.culture must be number"
-    );
-    assert!(
-        q["burn"].is_number(),
-        "CONTRACT: q_score.burn must be number"
-    );
-    assert!(
-        q["sovereignty"].is_number(),
-        "CONTRACT: q_score.sovereignty must be number"
-    );
-
-    // Reasoning structure
-    let r = &v["reasoning"];
-    assert!(
-        r["fidelity"].is_string(),
-        "CONTRACT: reasoning.fidelity must be string"
-    );
-
-    // Dogs
-    assert!(
-        v["dogs_used"].is_string(),
-        "CONTRACT: dogs_used must be string"
-    );
-    // dog_scores — per-Dog breakdown (v0.7.1: persisted to DB, round-trips correctly)
-    assert!(
-        v["dog_scores"].is_array(),
-        "CONTRACT: dog_scores must be array"
-    );
-    let scores = v["dog_scores"].as_array().unwrap();
-    assert!(
-        !scores.is_empty(),
-        "CONTRACT: dog_scores must have at least 1 entry (deterministic-dog)"
-    );
-    let ds = &scores[0];
-    assert!(
-        ds["dog_id"].is_string(),
-        "CONTRACT: dog_scores[].dog_id must be string"
-    );
-    assert!(
-        ds["fidelity"].is_number(),
-        "CONTRACT: dog_scores[].fidelity must be number"
-    );
-    assert!(
-        ds["sovereignty"].is_number(),
-        "CONTRACT: dog_scores[].sovereignty must be number"
-    );
-}
-
-#[tokio::test]
-async fn judge_async_round_trip_exposes_status() {
-    let state = test_state(Some("key"));
-    let app = rest::router(Arc::clone(&state));
-
-    let resp = app
-        .clone()
-        .oneshot(
-            axum::http::Request::builder()
-                .method("POST")
-                .uri("/judge/async")
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer key")
-                .body(Body::from(
-                    r#"{"content":"Short factual sentence.","domain":"general"}"#,
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), 202);
-    let accepted = body_json(resp.into_body()).await;
-    let request_id = accepted["request_id"]
-        .as_str()
-        .expect("CONTRACT: async judge must return request_id");
-    assert_eq!(accepted["status"], "pending");
-    assert_eq!(accepted["dogs_total"], 1);
-
-    tokio::time::sleep(std::time::Duration::from_millis(25)).await;
-
-    let status_resp = app
-        .oneshot(
-            axum::http::Request::builder()
-                .uri(format!("/judge/status/{request_id}"))
-                .header("Authorization", "Bearer key")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(status_resp.status(), 200);
-    let status = body_json(status_resp.into_body()).await;
-    assert_eq!(status["request_id"], request_id);
-    assert_eq!(status["dogs_total"], 1);
-    let phase = status["status"]
-        .as_str()
-        .expect("CONTRACT: async status must expose status string");
-    assert!(
-        ["evaluating", "complete"].contains(&phase),
-        "CONTRACT: async status must progress to evaluating/complete"
-    );
-    assert!(
-        status["dogs_arrived"].is_array(),
-        "CONTRACT: async status must expose dog arrivals"
-    );
-}
-
 // ── /health without auth config (open API) ──────────────────
 
 #[tokio::test]
@@ -564,7 +428,7 @@ async fn create_crystal_requires_auth() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/crystal")
+                .uri("/crystals")
                 .header("Content-Type", "application/json")
                 .body(Body::from(r#"{"content":"test insight","domain":"chess"}"#))
                 .unwrap(),
@@ -583,7 +447,7 @@ async fn create_crystal_returns_500_with_null_storage() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/crystal")
+                .uri("/crystals")
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
                 .body(Body::from(
@@ -596,7 +460,7 @@ async fn create_crystal_returns_500_with_null_storage() {
     assert_eq!(
         resp.status(),
         500,
-        "NullStorage: POST /crystal must return 500 (storage unavailable)"
+        "NullStorage: POST /crystals must return 500 (storage unavailable)"
     );
 }
 
@@ -608,7 +472,7 @@ async fn create_crystal_rejects_empty_content() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/crystal")
+                .uri("/crystals")
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
                 .body(Body::from(r#"{"content":"","domain":"chess"}"#))
@@ -632,7 +496,7 @@ async fn delete_crystal_returns_500_with_null_storage() {
         .oneshot(
             axum::http::Request::builder()
                 .method("DELETE")
-                .uri("/crystal/test-id")
+                .uri("/crystals/test-id")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),
@@ -642,13 +506,13 @@ async fn delete_crystal_returns_500_with_null_storage() {
     assert_eq!(
         resp.status(),
         500,
-        "NullStorage: DELETE /crystal must return 500"
+        "NullStorage: DELETE /crystals must return 500"
     );
 }
 
 #[tokio::test]
 async fn observe_crystal_hypha_rejects_missing_source() {
-    // /crystal/{id}/observe exists as hypha handler — requires `source` field.
+    // /crystals/{id}/observe exists as hypha handler — requires `source` field.
     // Missing source → 422 (unprocessable entity from axum JSON extractor).
     let state = test_state(Some("key"));
     let app = rest::router(state);
@@ -656,7 +520,7 @@ async fn observe_crystal_hypha_rejects_missing_source() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/crystal/test-id/observe")
+                .uri("/crystals/test-id/observe")
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
                 .body(Body::from(
@@ -669,7 +533,7 @@ async fn observe_crystal_hypha_rejects_missing_source() {
     assert_eq!(
         resp.status(),
         422,
-        "POST /crystal/id/observe without source field → 422"
+        "POST /crystals/id/observe without source field -> 422"
     );
 }
 
@@ -710,7 +574,7 @@ fn raw_observation_json_shape() {
         domain: "code".into(),
         status: "success".into(),
         context: "test".into(),
-        created_at: "2026-03-23T00:00:00Z".into(),
+        created_at: 1_742_688_000_000,
         project: "CYNIC".into(),
         agent_id: "agent-1".into(),
         session_id: "sess-1".into(),
@@ -809,6 +673,9 @@ fn claim_entry_json_shape() {
         claim_type: "file".into(),
         active: true,
         claimed_at: "2026-03-23T00:00:00Z".into(),
+        lease_id: "lease-1".into(),
+        fencing_token: 1,
+        expires_at: "2026-03-23T00:05:00Z".into(),
     };
     let v: serde_json::Value = serde_json::to_value(&claim).unwrap();
     for field in [
@@ -818,6 +685,9 @@ fn claim_entry_json_shape() {
         "claim_type",
         "active",
         "claimed_at",
+        "lease_id",
+        "fencing_token",
+        "expires_at",
     ] {
         assert!(
             v.get(field).is_some(),
@@ -920,11 +790,11 @@ async fn ready_cache_returns_cached_value_within_ttl() {
 
 #[tokio::test]
 async fn coord_register_rejects_oversized_intent() {
-    let state = test_state(Some("key"));
+    let state = test_agent_state("test-agent", "key");
     let app = rest::router(state);
 
     let long_intent: String = "x".repeat(501);
-    let body = serde_json::json!({"agent_id": "test", "intent": long_intent});
+    let body = serde_json::json!({"agent_id": "test-agent", "intent": long_intent});
     let resp = app
         .oneshot(
             axum::http::Request::builder()
@@ -947,7 +817,7 @@ async fn coord_register_rejects_oversized_intent() {
 
 #[tokio::test]
 async fn coord_register_accepts_valid_intent() {
-    let state = test_state(Some("key"));
+    let state = test_agent_state("test-agent", "key");
     let app = rest::router(state);
 
     let body = serde_json::json!({"agent_id": "test-agent", "intent": "implementing feature X"});
@@ -973,19 +843,8 @@ async fn coord_register_accepts_valid_intent() {
 #[tokio::test]
 async fn events_rejects_when_sse_semaphore_exhausted() {
     // Build state with 0 SSE permits — simulates all 32 slots taken.
-    let dogs: Vec<Arc<dyn cynic_kernel::domain::dog::Dog>> = vec![Arc::new(DeterministicDog)];
-    let breakers: Vec<Arc<dyn cynic_kernel::domain::health_gate::HealthGate>> = dogs
-        .iter()
-        .map(|d| {
-            Arc::new(cynic_kernel::infra::circuit_breaker::CircuitBreaker::new(
-                d.id().to_string(),
-            )) as Arc<dyn cynic_kernel::domain::health_gate::HealthGate>
-        })
-        .collect();
-    let judge = Arc::new(cynic_kernel::judge::Judge::new(dogs, breakers));
-    let judge_swap = arc_swap::ArcSwap::from(judge);
     let state = Arc::new(AppState {
-        judge: judge_swap,
+        registered_services: Default::default(),
         storage: Arc::new(NullStorage),
         coord: Arc::new(NullCoord),
         embedding: Arc::new(NullEmbedding),
@@ -999,6 +858,7 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
             organ: None,
             internal: None,
             legacy: Some("sse-test-key".to_string()),
+            agent_bindings: Vec::new(),
         },
         storage_info: StorageInfo {
             namespace: "test".into(),
@@ -1017,7 +877,6 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         registered_dogs: std::sync::Arc::new(std::sync::RwLock::new(
             std::collections::HashMap::new(),
         )),
-        judge_jobs: Arc::new(cynic_kernel::api::rest::judge_job::JudgeJobStore::new()),
         system_contract: std::sync::Arc::new(std::sync::RwLock::new(
             cynic_kernel::domain::contract::SystemContract::new(vec![], true),
         )),
@@ -1034,21 +893,21 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         dog_perf_collector: std::sync::Arc::new(
             cynic_kernel::infra::dog_performance::DogPerformanceCollector::new(),
         ),
-        slot_tracker: std::sync::Arc::new(cynic_kernel::domain::slot_tracker::SlotTracker::new()),
-        slot_semaphores: std::sync::Arc::new(
-            cynic_kernel::domain::slot_semaphore::SlotSemaphoreMap::new(),
-        ),
+        slot_tracker: std::sync::Arc::new(SlotTracker::new()),
+        slot_semaphores: std::sync::Arc::new(SlotSemaphoreMap::new()),
         proxy_targets: std::sync::Arc::new(
-            cynic_kernel::api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
+            cynic_inference::application::proxy_routing::ProxyTargets::from_fleet_meta(
                 &std::collections::HashMap::new(),
                 &std::collections::HashMap::new(),
             ),
         ),
-        project_root: ".".to_string(),
         mail: None,
         node_registry: std::sync::Arc::new(cynic_kernel::api::websocket::NodeRegistry::new(120)),
         zones: std::sync::Arc::new(cynic_kernel::domain::zones::ZoneConfig::default()),
         producer_heartbeats: std::sync::Arc::new(std::sync::RwLock::new(
+            std::collections::HashMap::new(),
+        )),
+        overdue_task_alerted: std::sync::Arc::new(std::sync::RwLock::new(
             std::collections::HashMap::new(),
         )),
     });
@@ -1100,7 +959,7 @@ async fn coord_register_rejects_control_chars_in_agent_id() {
     );
 }
 
-// ── /crystal/{id} ────────────────────────────────────────────
+// ── /crystals/{id} ───────────────────────────────────────────
 
 #[tokio::test]
 async fn get_crystal_returns_500_with_null_storage() {
@@ -1110,7 +969,7 @@ async fn get_crystal_returns_500_with_null_storage() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/crystal/abc123")
+                .uri("/crystals/abc123")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),
@@ -1120,7 +979,7 @@ async fn get_crystal_returns_500_with_null_storage() {
     assert_eq!(
         resp.status(),
         500,
-        "NullStorage: GET /crystal/{{id}} must return 500 (storage unavailable)"
+        "NullStorage: GET /crystals/{{id}} must return 500 (storage unavailable)"
     );
 }
 
@@ -1131,7 +990,7 @@ async fn get_crystal_requires_auth() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/crystal/abc123")
+                .uri("/crystals/abc123")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1140,7 +999,7 @@ async fn get_crystal_requires_auth() {
     assert_eq!(resp.status(), 401);
 }
 
-// ── /usage ───────────────────────────────────────────────────
+// ── /metrics/usage ───────────────────────────────────────────
 
 #[tokio::test]
 async fn usage_requires_auth() {
@@ -1149,7 +1008,7 @@ async fn usage_requires_auth() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/usage")
+                .uri("/metrics/usage")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1165,14 +1024,14 @@ async fn usage_returns_200_with_expected_shape() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/usage")
+                .uri("/metrics/usage")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), 200, "GET /usage must return 200");
+    assert_eq!(resp.status(), 200, "GET /metrics/usage must return 200");
     let v = body_json(resp.into_body()).await;
     // CONTRACT: these fields must exist — consumers: /status skill, cost tracking
     assert!(
@@ -1273,6 +1132,23 @@ async fn observations_accepts_domain_filter() {
     );
 }
 
+#[tokio::test]
+async fn observations_accepts_coordination_filters() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/observations?domain=coordination&project=privacy-ethereum-framework&workstream=launch&thread_id=t0")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+}
+
 // ── /sessions ────────────────────────────────────────────────
 
 #[tokio::test]
@@ -1314,7 +1190,7 @@ async fn sessions_returns_empty_array_with_null_storage() {
     );
 }
 
-// ── /session/{agent_id}/compliance ───────────────────────────
+// ── /sessions/{agent_id}/compliance ──────────────────────────
 
 #[tokio::test]
 async fn compliance_requires_auth() {
@@ -1323,7 +1199,7 @@ async fn compliance_requires_auth() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/session/claude-123/compliance")
+                .uri("/sessions/claude-123/compliance")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1341,7 +1217,7 @@ async fn compliance_returns_score_with_null_storage() {
     let resp = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/session/claude-123/compliance")
+                .uri("/sessions/claude-123/compliance")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),
@@ -1351,7 +1227,7 @@ async fn compliance_returns_score_with_null_storage() {
     assert_eq!(
         resp.status(),
         200,
-        "GET /session/{{agent_id}}/compliance must return 200"
+        "GET /sessions/{{agent_id}}/compliance must return 200"
     );
     let v = body_json(resp.into_body()).await;
     // CONTRACT: SessionCompliance fields — consumed by session-stop.sh and /status
@@ -1506,7 +1382,7 @@ async fn create_crystal_rejects_oversized_content() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/crystal")
+                .uri("/crystals")
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
                 .body(Body::from(body.to_string()))
@@ -1526,7 +1402,7 @@ async fn create_crystal_rejects_oversized_content() {
     );
 }
 
-// ── /coord/upgrade ──────────────────────────────────────────
+// ── /lifecycle/upgrade ──────────────────────────────────────
 
 #[tokio::test]
 async fn coord_upgrade_requires_auth() {
@@ -1536,7 +1412,7 @@ async fn coord_upgrade_requires_auth() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/coord/upgrade")
+                .uri("/lifecycle/upgrade")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1553,7 +1429,44 @@ async fn coord_upgrade_rejects_empty_payload() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/coord/upgrade")
+                .uri("/lifecycle/upgrade")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 400);
+}
+
+#[tokio::test]
+async fn lifecycle_upgrade_alias_requires_auth() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/lifecycle/upgrade")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn lifecycle_upgrade_alias_rejects_empty_payload() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/lifecycle/upgrade")
+                .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
                 .body(Body::empty())
                 .unwrap(),

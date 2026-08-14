@@ -1,1017 +1,454 @@
-# CYNIC — Universal Development Pipeline
-# Works for Claude Code, Antigravity CLI, humans, any machine.
-# One entry point per stage. No discipline required — the structure enforces the flow.
-#
-# Usage:
-#   make check    — build + test + clippy (validate before commit)
-#   make gate     — check + write marker (run BEFORE git push)
-#   make commit   — check + commit (validated commit)
-#   make ship     — commit + push (pre-push verifies gate marker)
-#   make deploy   — ship + backup DB + restart kernel + verify
-#   make deploy-only — deploy existing binary WITHOUT commit/push/check (fast-path)
-#   make hotfix   — deploy WITHOUT push (emergency only — skips ship)
-#   make rollback — restore previous binary
-#   make restore  — restore DB from backup file (F=path)
-#   make e2e      — end-to-end test against running kernel
-#   make status   — full system dashboard
-#   make runtime-truth — PID/PPID/binary/version/state/port truth for critical processes
-#   make runtime-check — fail on runtime drift or duplicate critical processes; warn on minimal unit profiles
-#   make deploy-systemd — idempotent symlink infra/systemd/* → ~/.config/systemd/user/
-#   make deploy-systemd-dry — dry-run: show what deploy-systemd would change
-#   make verify-systemd-units — fail if installed user units drift from the repo
-#   make backup   — manual DB backup
-#   make test-gates — R21: verify lint gates catch known violations
-#   make clean    — cargo clean (fix SIGSEGV/LLVM crashes)
-
 SHELL := /bin/bash
 .ONESHELL:
 .SHELLFLAGS := -eu -o pipefail -c
-MAKEFLAGS += --warn-undefined-variables
+.NOTPARALLEL:
 
-# ── Environment ──────────────────────────────────────────────
 PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
+PATH := $(PROJECT_DIR)/scripts:$(PATH)
+CARGO := $(PROJECT_DIR)/scripts/cargo
+CARGO_NETWORK_MODE ?= offline
+CARGO_SOURCE_MODE ?= registry
+CYNIC_CARGO_TARGET_ROOT ?= /tmp/cynic-cargo-targets
+CYNIC_CARGO_TARGET_PROFILE ?= default
+CYNIC_CARGO_BUILD_JOBS ?= 1
+CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNIC_CARGO_TARGET_ROOT)/$(CYNIC_CARGO_TARGET_PROFILE))
+CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-mcp cynic-cli cynic-askesis
+LAB_REGISTRY := infra/registries/lab.json
+LOCAL_REGISTRY := infra/registries/single-node.json
+# CYNIC_ALLOW_LOCAL_DEV_BUILD: kernel build.rs blocks Cortex-local compiles by default.
+# The repo check/build gates are intentional local-dev paths and must set the override.
+LOCAL_DEV_BUILD := CYNIC_ALLOW_LOCAL_DEV_BUILD=1
+# Keep a bounded large compiler stack for kernel/CLI monomorphization. The
+# repository toolchain is pinned because rustc 1.96 exhibited ICE/SIGSEGV here.
+RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+BUILD_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+RELEASE_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+TEST_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
 
-# 2 GiB: rmcp serde monomorphization (A1 debt)
-export RUST_MIN_STACK := 2147483648
-
-# Source env vars (CYNIC_REST_ADDR, CYNIC_API_KEY, etc.)
-define source_env
-	source ~/.cargo/env 2>/dev/null || true
-	source ~/.cynic-env 2>/dev/null || true
-	export RUST_MIN_STACK=2147483648  # 2 GiB: rmcp serde monomorphization (A1 debt). Source of truth: .cargo/config.toml
-
-
-endef
-
-# ── Stage 1: Validate (3-level gates) ────────────────────────
-# Level 0 — Instant (<2s): fmt + lint-rules + lint-drift + security
-#   Always runs. Pure static checks, no compilation.
-# Level 1 — Light (~25s): cargo clippy
-#   Runs once per session. Marker invalidated only by Rust source changes.
-# Level 2 — Full (~1m30s): cargo test + audit + integration
-#   Runs before deploy only. NOT at push time.
-
-.PHONY: gate-0
-gate-0: ## Level 0 — Instant: fmt + lints + security
-	@echo "══════════════════════════════════════════"
-	@echo "  Gate Level 0 — Instant checks"
-	@echo "══════════════════════════════════════════"
-	@$(MAKE) --no-print-directory verify-hooks
-	cargo fmt --all -- --check
-	@$(MAKE) --no-print-directory lint-rules
-	@$(MAKE) --no-print-directory lint-drift
-	@$(MAKE) --no-print-directory lint-subprocess-env
-	@$(MAKE) --no-print-directory lint-security
-	@$(MAKE) --no-print-directory lint-python-tiers
-	@$(MAKE) --no-print-directory lint-topology
-	@scripts/config-sync.sh check 2>/dev/null || true
-	@touch .gate-0
-	@echo ""
-	@echo "  ✓ Gate 0 passed — fmt + lints + security OK"
-
-.PHONY: gate-1
-gate-1: ## Level 1 — Light: cargo clippy
-	@$(source_env)
-	@echo "══════════════════════════════════════════"
-	@echo "  Gate Level 1 — Clippy"
-	@echo "══════════════════════════════════════════"
-	cargo clippy --workspace --all-targets -- -D warnings
-	@touch .gate-1
-	@echo "  ✓ Gate 1 passed — clippy OK"
-
-.PHONY: gate-2
-gate-2: ## Level 2 — Full: test + audit + integration (Distributed via Forge Organ)
-	@$(source_env)
-	@echo "══════════════════════════════════════════"
-	@echo "  Gate Level 2 — Distributed Validation"
-	@echo "══════════════════════════════════════════"
-	@echo "▶ Delegating tests to remote Organ-Anvil via Forge Organ..."
-	@python3 organs/forge/src/entrypoints/cli.py delegate "build-and-test"
-	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
-		echo "▶ Delegating Integration tests..."; \
-		python3 organs/forge/src/entrypoints/cli.py delegate "integration-test"; \
-	else \
-		echo "⚠ SurrealDB not running — skipping integration tests"; \
-	fi
-	@touch .gate-2
-	@echo "  ✓ Gate 2 passed — tests + audit + integration OK"
-
-# Backward compatibility: `make check` = all 3 levels
 .PHONY: check
-check: gate-0 gate-1 gate-2
-	@echo ""
-	@echo "  ✓ All gates passed"
+check: ## Validate the living low-layer Rust runtime baseline
+	@echo "==> checking foundation, runtime authority, and registry"
+	@jq empty contracts/foundation.json
+	@jq empty infra/runtime-authority.json
+	@jq empty infra/registry.json
+	@jq empty infra/agent-exposure.json
+	@jq empty infra/ecosystem-pins.json
+	@echo "==> cargo check core crates"
+	@$(RUST_ENV) $(CARGO) check $(foreach crate,$(CORE_CRATES),-p $(crate))
+	@$(MAKE) --no-print-directory surface-audit
+	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
 
-.PHONY: gate
-gate: check
-	@touch .gate-passed
-	@echo ""
-	@echo "══════════════════════════════════════════"
-	@echo "  ✓ All gates passed — markers written"
-	@echo "  Now run: git push"
-	@echo "══════════════════════════════════════════"
+.PHONY: check-installed-runtime
+check-installed-runtime: ## Validate installed-runtime portability invariants (`CYNIC_PROJECT_ROOT` absent, runtime mode persistence)
+	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
 
-.PHONY: lint-rules
-lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, which is unavailable in Make subshells)
-# Exemptions: probe/ (boot-time hardware discovery), infra/ (health loop, config validation)
-# These modules DO raw HTTP but are not backend adapters — they serve infrastructure purposes.
-# Requires .ONESHELL for set +e scope to work across the whole recipe.
-	@echo ""
-	@echo "▶ Checking grep-enforceable rules..."
-	@set +e; FAIL=0; \
-	K1=$$(grep -rn '#\[cfg(' crates/cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]' | grep -v '#\[cfg_attr(test'); \
-	if [ -n "$$K1" ]; then echo "FAIL K1: #[cfg] in domain/ (domain purity):"; echo "$$K1"; FAIL=1; fi; \
-	R1=$$(grep -rn '/home/\|/Users/' crates/cynic-kernel/src/ scripts/ .cortex/mcp/ --include='*.rs' --include='*.sh' --include='*.toml' | grep -v '//' | grep -v 'target/'); \
-	if [ -n "$$R1" ]; then echo "FAIL R1: hardcoded absolute paths:"; echo "$$R1"; FAIL=1; fi; \
-	R2=$$(grep -rn '\.ok()' crates/cynic-kernel/src/ --include='*.rs' | grep -v '//' | grep -v '/target/' | grep -v '#\[cfg(test)\]' | grep -v 'mod tests' \
-		| grep -v 'parse()\.ok()' | grep -v 'env::var.*\.ok()' | grep -v 'inspect_err' \
-		| grep -v 'to_str()\.ok()' | grep -v 'from_utf8.*\.ok()' | grep -v 'filter_map.*\.ok()' \
-		| grep -v 'create_dir_all.*\.ok()' | grep -v 'remove_file.*\.ok()' \
-		| grep -v '\.lock()\.ok()' | grep -v '\.read()\.ok()' \
-		| grep -v '\.output()' | grep -v 'read_to_string.*\.ok()'); \
-	if [ -n "$$R2" ]; then \
-		while IFS= read -r okline; do \
-			FILE=$$(echo "$$okline" | cut -d: -f1); LINENUM=$$(echo "$$okline" | cut -d: -f2); \
-			NEARBY=$$(sed -n "$$((LINENUM>8?LINENUM-8:1)),$$(( LINENUM+3 ))p" "$$FILE" 2>/dev/null || true); \
-			if echo "$$NEARBY" | grep -q 'inspect_err\|tracing::\|eprintln!\|warn!\|env::var\|WHY:\|K14\|poison'; then continue; fi; \
-			if echo "$$FILE" | grep -q 'probe/\|probes/'; then continue; fi; \
-			echo "FAIL R2: .ok() without adjacent logging: $$okline"; FAIL=1; \
-		done <<< "$$R2"; \
-	fi; \
-	K2=$$(grep -rn 'reqwest' crates/cynic-kernel/src/domain/ crates/cynic-kernel/src/api/ crates/cynic-kernel/src/main.rs --include='*.rs' | grep -v '//' | grep -v 'api/mcp/proxy.rs'); \
-	if [ -n "$$K2" ]; then echo "FAIL K2: reqwest outside backends/storage:"; echo "$$K2"; FAIL=1; fi; \
-	PIPELINE_FNS="format_crystal_context compute_qscore trimmed_mean"; \
-	for FN in $$PIPELINE_FNS; do \
-		HITS=$$(grep -rn "fn $$FN" crates/cynic-kernel/src/api/ --include='*.rs' | grep -v '//'); \
-		if [ -n "$$HITS" ]; then echo "FAIL K3/K11: pipeline function '$$FN' reimplemented in api/:"; echo "$$HITS"; FAIL=1; fi; \
-	done; \
-	K4=$$(grep -rn 'trait \w*Port' crates/cynic-kernel/src/domain/ --include='*.rs' | sed 's/.*trait //' | sed 's/<.*//' | sed 's/ .*//' | sort | uniq -d); \
-	if [ -n "$$K4" ]; then echo "FAIL K4: duplicate trait names in domain/:"; echo "$$K4"; FAIL=1; fi; \
-	K5=$$(grep -rn 'serde_json::Value\|reqwest::\|surrealdb::\|axum::' crates/cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]'); \
-	if [ -n "$$K5" ]; then echo "FAIL K5: infra type leakage in domain/:"; echo "$$K5"; FAIL=1; fi; \
-	K12=$$(grep -rn '#\[allow(' crates/cynic-kernel/src/ --include='*.rs' | grep -v '/target/' | grep -v '#\[cfg(test)\]' | grep -v '#\[cfg_attr(test'); \
-	if [ -n "$$K12" ]; then \
-		while IFS= read -r allowline; do \
-			FILE=$$(echo "$$allowline" | cut -d: -f1); LINENUM=$$(echo "$$allowline" | cut -d: -f2); \
-			NEARBY=$$(sed -n "$$(( LINENUM>2 ? LINENUM-2 : 1)),$$(( LINENUM+2 ))p" "$$FILE" 2>/dev/null); \
-			if ! echo "$$NEARBY" | grep -q 'WHY:'; then \
-				echo "FAIL K12: #[allow] without WHY: comment: $$allowline"; FAIL=1; \
-			fi; \
-		done <<< "$$K12"; \
-	fi; \
-	ADDED=$$(git diff --staged 2>/dev/null | grep '^+' | grep -v '^+++' | grep -v 'RAW_SECRETS=' | grep -v 'HARDCODED_CREDS=' | grep -v 'REAL_INFRA=' | grep -v 'grep -iE .*api\[_-\]?key' | grep -v 'grep -iE .*AIza' | grep -v 'grep -E .*100\\\.'); \
-	RAW_SECRETS=$$(printf '%s\n' "$$ADDED" | grep -iE 'AIza[[:alnum:]_-]{10,}|hf_[[:alnum:]_-]{10,}|sk-[[:alnum:]_-]{10,}'); \
-	HARDCODED_CREDS=$$(printf '%s\n' "$$ADDED" | grep -iE '(api[_-]?key|token|password|secret)[^[:alnum:]]*[:=][[:space:]]*["'"'"']?[^$$<[:space:]][^"'"'"'[:space:]]{6,}' | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken'); \
-	if [ -n "$$RAW_SECRETS$$HARDCODED_CREDS" ]; then echo "FAIL Security: possible hardcoded secrets in staged changes:"; echo "$$RAW_SECRETS"; echo "$$HARDCODED_CREDS"; FAIL=1; fi; \
-	REAL_INFRA=$$(printf '%s\n' "$$ADDED" | grep -E '100\.(74|75|119)\.[0-9]{1,3}\.[0-9]{1,3}'); \
-	if [ -n "$$REAL_INFRA" ]; then echo "FAIL Security: real Tailscale IPs in staged changes:"; echo "$$REAL_INFRA"; FAIL=1; fi; \
-	BACKEND_IPS=$$(grep -E '100\.(74|75|119)\.[0-9]{1,3}\.[0-9]{1,3}' backends.toml 2>/dev/null); \
-	if [ -n "$$BACKEND_IPS" ]; then echo "FAIL Rule 12: resolved Tailscale IPs in git backends.toml (use <TAILSCALE_*> placeholders):"; echo "$$BACKEND_IPS"; FAIL=1; fi; \
-	if [ $$FAIL -eq 0 ]; then echo "✓ All grep-enforceable rules pass"; fi; \
-	exit $$FAIL
+.PHONY: check-strict
+check-strict: ## cargo check core crates with -D warnings (signal engineering debt)
+	@echo "==> strict warning check on core crates"
+	@$(RUST_ENV) RUSTFLAGS='-D warnings' $(CARGO) check $(foreach crate,$(CORE_CRATES),-p $(crate))
 
-.PHONY: lint-services
-lint-services: ## Compare running user services vs expected list — catches zombie/missing services
-	@echo ""
-	@echo "▶ Checking service state..."
-	@EXPECTED="docs/ops/expected-services.txt"; \
-	if [ ! -f "$$EXPECTED" ]; then echo "⚠ $$EXPECTED not found — skipping"; exit 0; fi; \
-	FAIL=0; \
-	while IFS= read -r svc; do \
-		case "$$svc" in \#*|"") continue;; esac; \
-		if ! systemctl --user is-active --quiet "$$svc" 2>/dev/null; then \
-			echo "✗ MISSING: $$svc (expected active, not found)"; FAIL=1; \
-		fi; \
-	done < "$$EXPECTED"; \
-	for svc in $$(systemctl --user list-units --type=service --state=active --no-legend 2>/dev/null | awk '{print $$1}' | grep -E "cynic|llama|surreal|kairos|cloudflare"); do \
-		if ! grep -q "^$$svc$$" "$$EXPECTED" 2>/dev/null; then \
-			echo "✗ UNEXPECTED: $$svc (running but not in expected list)"; FAIL=1; \
-		fi; \
-	done; \
-	if [ $$FAIL -eq 0 ]; then echo "✓ All services match expected state"; fi; \
-	exit $$FAIL
+.PHONY: surface-audit
+surface-audit: ## Verify canonical CLI surfaces are backed by real modules and mutation policies
+	@echo "==> auditing canonical CLI surfaces"
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev surface-audit --json | jq -e '.schema == "cynic.cli.surface_audit.v1" and .status == "ok" and .blocked_count == 0' >/dev/null
 
-.PHONY: lint-drift
-lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules, phantom skills, unwired hooks
-	@echo ""
-	@echo "▶ Checking for drift..."
-	@set +e; FAIL=0; \
-	KERNEL_VERSION=$$(grep '^version' $(PROJECT_DIR)/crates/cynic-kernel/Cargo.toml | head -1 | sed 's/.*"\([^"]*\)".*/\1/'); \
-	CHANGELOG_HAS_VERSION=$$(grep -c "^\## \[$$KERNEL_VERSION\]" $(PROJECT_DIR)/CHANGELOG.md 2>/dev/null || true); \
-	VERSION_MD_HAS_VERSION=$$(grep -c "$$KERNEL_VERSION" $(PROJECT_DIR)/VERSION.md 2>/dev/null || true); \
-	if [ "$$CHANGELOG_HAS_VERSION" -eq 0 ]; then \
-		echo "FAIL SSOT: Cargo.toml version $$KERNEL_VERSION not in CHANGELOG.md"; FAIL=1; \
-	fi; \
-	if [ "$$VERSION_MD_HAS_VERSION" -eq 0 ]; then \
-		echo "FAIL SSOT: Cargo.toml version $$KERNEL_VERSION not in VERSION.md"; FAIL=1; \
-	fi; \
-	BACKENDS="$${HOME}/.config/cynic/backends.toml"; \
-	if [ -f "$$BACKENDS" ]; then \
-		while IFS= read -r line; do \
-			NAME=$$(echo "$$line" | grep -oP '(?<=\[backend\.)[^]]+' | sed 's/\.remediation//'); \
-			[ -z "$$NAME" ] && continue; \
-			MODEL=$$(sed -n "/\[backend\.$${NAME}\]/,/^\[/p" "$$BACKENDS" | grep '^model' | head -1 | sed 's/.*= *"//;s/".*//'); \
-			[ -z "$$MODEL" ] && continue; \
-			if [ "$$MODEL" = "auto" ]; then continue; fi; \
-		done < <(grep '^\[backend\.' "$$BACKENDS" | grep -v '\.remediation\]'); \
+.PHONY: audit-surface-matrix
+audit-surface-matrix: ## Emit reusable JSON+Markdown surface matrix (surface, ownership, kernel-audit, runtime phases)
+	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix
+	@jq -e '.summary.status == "ok" and .summary.blocked_count == 0' target-cynic-ci/cynic-surface-audit-matrix.json >/dev/null
+
+.PHONY: audit-runtime-phases
+audit-runtime-phases: ## Emit and print machine-readable runtime phase statuses (harness/conformance/metrics)
+	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix >/dev/null
+	@jq '.runtime_phases' target-cynic-ci/cynic-surface-audit-matrix.json
+
+.PHONY: lab-check
+lab-check: ## Validate portable lab registry and low-layer crates used by lab smoke tests
+	@echo "==> checking portable lab registry"
+	@jq empty $(LAB_REGISTRY)
+	@echo "==> cargo check lab-facing crates"
+	@$(RUST_ENV) $(CARGO) check -p cynic-host -p cynic-node -p cynic-cli
+
+.PHONY: local-check
+local-check: ## Validate single-node registry and local low-layer crates
+	@echo "==> checking single-node registry"
+	@jq empty $(LOCAL_REGISTRY)
+	@echo "==> cargo check local-facing crates"
+	@$(RUST_ENV) $(CARGO) check -p cynic-host -p cynic-node -p cynic-cli
+
+.PHONY: lab-smoke
+lab-smoke: lab-check ## Prove lab registry can drive N-case DNS and bootstrap projections without real VMs
+	@tmpdir="$$(mktemp -d)"
+	@echo "==> generating closed lab VM plan from $(LAB_REGISTRY)"
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- lab plan --json --registry $(LAB_REGISTRY) > "$$tmpdir/lab-plan.json"
+	@jq -e '.schema == "cynic.lab.plan.v1" and .mutates == false and .can_apply == false and .vm_count == 3 and .isolation.host_routing_mutation == false' "$$tmpdir/lab-plan.json" >/dev/null
+	@echo "==> generating closed lab VM bundle from $(LAB_REGISTRY)"
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- lab bundle --json --registry $(LAB_REGISTRY) --output-dir "$$tmpdir/lab-bundle" > "$$tmpdir/lab-bundle.json"
+	@jq -e '.schema == "cynic.lab.bundle.v1" and .mutates == false and .vm_count == 3' "$$tmpdir/lab-bundle.json" >/dev/null
+	@test -f "$$tmpdir/lab-bundle/manifest.json"
+	@test -f "$$tmpdir/lab-bundle/network.xml"
+	@echo "==> generating DNS bundle from $(LAB_REGISTRY)"
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- network dns bundle --registry $(LAB_REGISTRY) --output-dir "$$tmpdir/dns" > "$$tmpdir/dns-report.json"
+	@grep -R "labmesh.example" "$$tmpdir/dns" >/dev/null
+	@if grep -R "synapse.cynic" "$$tmpdir/dns" >/dev/null; then echo "lab DNS bundle leaked default synapse.cynic"; exit 1; fi
+	@echo "==> checking bootstrap projection from $(LAB_REGISTRY)"
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap constellation --json --registry $(LAB_REGISTRY) > "$$tmpdir/bootstrap.json" || test "$$?" = "1"
+	@jq -e '.status == "bootstrap_required" and (.nodes | length == 3)' "$$tmpdir/bootstrap.json" >/dev/null
+	@echo "lab smoke ok: $$tmpdir"
+
+.PHONY: lab-plan
+lab-plan: ## Emit the non-mutating closed VM lab plan
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- lab plan --json --registry $(LAB_REGISTRY)
+
+.PHONY: lab-provision
+lab-provision: ## Run closed VM lab provision preflight; refuses mutation until registry prerequisites are declared
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- lab provision --json --registry $(LAB_REGISTRY) --apply || test "$$?" = "1"
+
+.PHONY: lab-bundle
+lab-bundle: ## Generate non-mutating closed VM lab libvirt/cloud-init bundle under /tmp
+	@tmpdir="$$(mktemp -d)"
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- lab bundle --json --registry $(LAB_REGISTRY) --output-dir "$$tmpdir"
+
+.PHONY: framework-bootstrap-bundle
+framework-bootstrap-bundle: ## Generate framework bootstrap kit for a fresh Linux node
+	@tmpdir="$$(mktemp -d)"
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap framework bundle --json --output-dir "$$tmpdir"
+
+# System-path CLI is the preferred default target.
+CLI_USER_TARGET ?= /usr/local/bin/cynic
+CLI_SYSTEM_TARGET ?= /usr/local/bin/cynic
+CYNIC_CLI_ARTIFACT ?= $(CARGO_TARGET_DIR)/debug/cynic
+# Rebuild cynic when any workspace Rust source or crate manifest changes.
+WORKSPACE_RUST_SOURCES := $(shell find crates -name '*.rs' | tr '\n' ' ')
+WORKSPACE_CARGO_MANIFESTS := $(shell find crates -name 'Cargo.toml' | tr '\n' ' ')
+# Explicit source path passed to `bootstrap framework install-cli`.
+# Keep this aligned with the artifact unless an operator override is required.
+CYNIC_CLI_INSTALL_SOURCE ?= $(CYNIC_CLI_ARTIFACT)
+CLI_USER_FALLBACK_TARGET ?= /usr/local/bin/cynic
+CYNIC_CLI_AUTO_SYSTEM ?= 0
+
+# Thin wrappers — canonical surface is `cynic deps` (human text, no make required).
+.PHONY: deps
+deps:
+	@cynic deps 2>/dev/null || $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- deps
+
+.PHONY: operator-day
+operator-day: ## Morning loop via native cynic deps
+	@cynic deps
+	@echo
+	@cynic deps upgrade
+	@echo
+	@cynic runtime inference-status --json 2>/dev/null | head -c 400 || true
+	@echo
+	@echo "One-click scripted upgrades:  cynic deps upgrade --yes"
+
+.PHONY: install-cli
+install-cli: install-cli-auto ## Default install with preferred system-like target, with controlled fallback when unavailable
+
+.PHONY: operator-loop
+operator-loop: ## Fast operator iteration cycle: install CLI and refresh authoritative surface/kernel/runtime reports
+	@echo "==> operator loop: install CLI + refresh reports"
+	@$(MAKE) --no-print-directory install-cli
+	@$(MAKE) --no-print-directory check-installed-runtime
+	@$(MAKE) --no-print-directory audit-surface-matrix
+	@$(MAKE) --no-print-directory audit-runtime-phases
+	@echo "==> artifacts:"
+	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.json"
+	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.md"
+	@echo "  - target-cynic-ci/cynic-ownership-audit.json"
+	@if [ -f target-cynic-ci/cynic-kernel-audit.json ]; then echo "  - target-cynic-ci/cynic-kernel-audit.json"; fi
+
+.PHONY: operator-reports
+operator-reports: ## Emit operator-consumable report artifacts (surface matrix + proof bundle + metrics snapshot)
+	@mkdir -p target-cynic-ci
+	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix
+	@$(PATH := /bin:$(PATH)) ./scripts/runtime-evidence-bundle target-cynic-ci/cynic-runtime-proof-bundle.json
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime metrics --json --proof target-cynic-ci/cynic-runtime-proof-bundle.json > target-cynic-ci/cynic-runtime-metrics.json
+	@echo "==> operator reports:"
+	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.json"
+	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.md"
+	@echo "  - target-cynic-ci/cynic-runtime-proof-bundle.json"
+	@echo "  - target-cynic-ci/cynic-runtime-metrics.json"
+	@jq -r '"  status=\(.status)\n  maturity_percent=\(.maturity_percent)\n  residual_unknown_percent=\(.residual_unknown_percent)"' \
+		target-cynic-ci/cynic-runtime-metrics.json
+
+.PHONY: install-cli-auto
+install-cli-auto:
+	@if [ -w "$$(dirname "$(CLI_USER_TARGET)")" ] && [ -x "$$(dirname "$(CLI_USER_TARGET)")" ]; then \
+		$(MAKE) --no-print-directory install-cli-user CLI_USER_TARGET="$(CLI_USER_TARGET)"; \
 	else \
-		echo "SKIP: backends.toml not found at $$BACKENDS"; \
-	fi; \
-	DORMANT=$$(grep -nE '^\s*//\s*pub mod' $(PROJECT_DIR)/crates/cynic-kernel/src/domain/mod.rs | grep -v 'DORMANT:'); \
-	if [ -n "$$DORMANT" ]; then echo "FAIL Drift: commented module without DORMANT tag:"; echo "$$DORMANT"; FAIL=1; fi; \
-	WORKFLOW_SKILLS=$$(sed -n '/^## Workflow Triggers/,/^## /p' $(PROJECT_DIR)/.cortex/rules/workflow.md | grep -oP '(?<=`/)[a-z][-a-z0-9:]*(?=`)' | sort -u); \
-	for SKILL in $$WORKFLOW_SKILLS; do \
-		FOUND=0; \
-		if echo "$$SKILL" | grep -q ':'; then \
-			NS=$$(echo "$$SKILL" | cut -d: -f1); NAME=$$(echo "$$SKILL" | cut -d: -f2); \
-			[ -d "$${HOME}/.cortex/commands/$${NS}/$${NAME}" ] && FOUND=1; \
-			[ -f "$${HOME}/.cortex/commands/$${NS}/$${NAME}.md" ] && FOUND=1; \
+		echo "==> user cli target not writable: $$(dirname "$(CLI_USER_TARGET)")"; \
+		if mkdir -p "$$(dirname "$(CLI_USER_FALLBACK_TARGET)")" 2>/dev/null \
+			&& [ -w "$$(dirname "$(CLI_USER_FALLBACK_TARGET)")" ] \
+			&& [ -x "$$(dirname "$(CLI_USER_FALLBACK_TARGET)")" ]; then \
+			echo "==> using writable fallback user target: $(CLI_USER_FALLBACK_TARGET)"; \
+			$(MAKE) --no-print-directory install-cli-user CLI_USER_TARGET="$(CLI_USER_FALLBACK_TARGET)"; \
+		elif [ "$(CYNIC_CLI_AUTO_SYSTEM)" = "1" ]; then \
+			echo "==> falling back to system install surface (requires sudo)"; \
+			$(MAKE) --no-print-directory install-cli-system; \
 		else \
-			[ -f "$(PROJECT_DIR)/.cortex/commands/$${SKILL}.md" ] && FOUND=1; \
+			echo "==> blocked: set CLI_USER_TARGET to a writable path, set CLI_USER_FALLBACK_TARGET, or run CYNIC_CLI_AUTO_SYSTEM=1 make install-cli"; \
+			exit 1; \
 		fi; \
-		if [ $$FOUND -eq 0 ]; then \
-			echo "FAIL Drift: skill '/$${SKILL}' in workflow.md but not found on disk"; FAIL=1; \
-		fi; \
-	done; \
-	for HOOK in $(PROJECT_DIR)/.cortex/mcp/*.sh; do \
-		HOOK_BASE=$$(basename "$$HOOK"); \
-		if ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.claude/settings.json 2>/dev/null && \
-		   ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.claude/settings.local.json 2>/dev/null && \
-		   ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.mcp.json 2>/dev/null && \
-		   ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.antigravity/settings.json 2>/dev/null && \
-		   ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.codex/config.toml 2>/dev/null; then \
-			echo "WARN Drift: hook '$$HOOK_BASE' on disk but not wired in any adapter settings"; FAIL=1; \
-		fi; \
-	done; \
-	STORES=$$(grep -oP 'async fn \Kstore_\w+' $(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs | sort -u); \
-	for STORE in $$STORES; do \
-		ENTITY=$$(echo "$$STORE" | sed 's/^store_//'); \
-		STEM=$$(echo "$$ENTITY" | sed 's/y$$//' | sed 's/ing$$//'); \
-		CORE=$$(echo "$$ENTITY" | sed 's/^.*_//'); \
-		if ! grep -qE "async fn (list_|get_|load_|query_|count_|search_|find_)\w*($$STEM|$$CORE)" $(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs; then \
-			echo "FAIL Rule 33: '$$STORE' has no read path (searched '$$STEM' or '$$CORE')"; FAIL=1; \
-		fi; \
-	done; \
-	ROUTES=$$(grep -oP '\.route\("\K[^"]+' $(PROJECT_DIR)/crates/cynic-kernel/src/api/rest/mod.rs); \
-	for ROUTE in $$ROUTES; do \
-		if ! grep -qF "$$ROUTE" $(PROJECT_DIR)/API.md 2>/dev/null; then \
-			echo "FAIL Drift: route '$$ROUTE' registered in code but missing from API.md"; FAIL=1; \
-		fi; \
-	done; \
-	REF_DOGS=$$(sed -n '/^## Dogs/,/^##/p' $(PROJECT_DIR)/.cortex/rules/reference.md | grep -oP '(?<=\| )[a-z][-a-z0-9]+(?= +\|)' | sort -u); \
-	LIVE_DOGS="deterministic-dog"; \
-	if [ -f "$$BACKENDS" ]; then \
-		BACKEND_DOGS=$$(grep -E '^\[(backend|dog)\.' "$$BACKENDS" | sed -E 's/^\[(backend|dog)\.//;s/\].*//' | grep -v 'remediation'); \
-		LIVE_DOGS=$$(printf '%s\n' "$$LIVE_DOGS" $$BACKEND_DOGS | sort -u); \
-	fi; \
-	REF_ONLY=$$(comm -23 <(echo "$$REF_DOGS") <(echo "$$LIVE_DOGS")); \
-	LIVE_ONLY=$$(comm -13 <(echo "$$REF_DOGS") <(echo "$$LIVE_DOGS")); \
-	if [ -n "$$REF_ONLY" ]; then echo "WARN D4: Dogs in reference.md but not active: $$REF_ONLY"; fi; \
-	if [ -n "$$LIVE_ONLY" ]; then echo "WARN D4: Dogs active but not in reference.md: $$LIVE_ONLY"; fi; \
-	KERN="$(PROJECT_DIR)/crates/cynic-kernel/src"; \
-	DISSOLVED=$$(grep -rn "dissolved\|Dissolved" "$$KERN/storage/" "$$KERN/infra/" --include='*.rs' 2>/dev/null | grep -v 'test\|//\|Display\|FromStr\|Serialize\|Deserialize' | grep -i 'dissolved' | wc -l); \
-	if [ "$$DISSOLVED" -eq 0 ]; then echo "FAIL K15: CrystalState::Dissolved defined but never produced"; FAIL=1; fi; \
-	COMPLIANCE_GATES=$$(grep -rn 'compliance.*deny\|compliance.*block\|compliance.*throttle\|compliance.*reject' "$$KERN/" --include='*.rs' 2>/dev/null | grep -v 'test\|//' | wc -l); \
-	if [ "$$COMPLIANCE_GATES" -eq 0 ]; then echo "WARN K15: compliance_score computed but no gate enforces threshold"; fi; \
-	CV_READERS=$$(grep -rn 'contributing_verdicts' "$$KERN/" --include='*.rs' 2>/dev/null | grep -v 'test\|//\|push\|insert\|store\|array::union\|Vec<String>\|struct\|pub ' | wc -l); \
-	if [ "$$CV_READERS" -eq 0 ]; then echo "WARN K15: contributing_verdicts stored but never read"; fi; \
-	EVENT_VARIANTS=$$(grep -oP 'KernelEvent::\K\w+' "$$KERN/domain/events.rs" 2>/dev/null | sort -u); \
-	EVENT_HANDLERS=$$(grep -oP 'KernelEvent::\K\w+' "$$KERN/infra/tasks/runtime_loops.rs" 2>/dev/null | sort -u); \
-	for EV in $$EVENT_VARIANTS; do \
-		if ! echo "$$EVENT_HANDLERS" | grep -q "$$EV"; then \
-			EMITTERS=$$(grep -rn "KernelEvent::$$EV" "$$KERN/" --include='*.rs' 2>/dev/null | grep -v 'test\|//\|match\|=>' | wc -l); \
-			if [ "$$EMITTERS" -gt 0 ]; then \
-				echo "WARN K15: KernelEvent::$$EV emitted ($$EMITTERS site(s)) but not matched in event_consumer"; \
-			fi; \
-		fi; \
-	done; \
-	for RULE in $(PROJECT_DIR)/.cortex/rules/*.md; do \
-		grep -oP '`[a-zA-Z_/]+\.(rs|toml|sh|md)`' "$$RULE" 2>/dev/null | tr -d '`' | while read -r REF; do \
-			if echo "$$REF" | grep -qE '\.rs$$' && ! find "$$KERN" -path "*$$REF" 2>/dev/null | grep -q .; then \
-				if ! find "$(PROJECT_DIR)" -path "*$$REF" 2>/dev/null | grep -q .; then \
-					echo "WARN Drift: '$$REF' referenced in $$(basename $$RULE) but not found on disk"; \
-				fi; \
-			fi; \
-		done; \
-	done; \
-	PORT_METHODS=$$(grep -P '^\s+async fn \w+' $(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs | grep -oP 'fn \K\w+' | sort); \
-	RECON_METHODS=$$(grep -P '^\s+async fn \w+' $(PROJECT_DIR)/crates/cynic-kernel/src/storage/reconnectable.rs | grep -oP 'fn \K\w+' | sort); \
-	for PM in $$PORT_METHODS; do \
-		if ! echo "$$RECON_METHODS" | grep -qw "$$PM"; then \
-			echo "FAIL K17: StoragePort::$$PM not forwarded in ReconnectableStorage"; FAIL=1; \
-		fi; \
-	done; \
-	if [ $$FAIL -eq 0 ]; then echo "✓ No drift detected"; fi; \
-	exit $$FAIL
-
-.PHONY: lint-python-tiers
-lint-python-tiers: ## P1-P6: Python code lifecycle governance — new/modified files MUST have tier tag
-	@echo ""
-	@echo "▶ Checking Python tier governance..."
-	@set +e; FAIL=0; WARN_COUNT=0; \
-	CHANGED=$$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null; git diff --name-only --diff-filter=ACM 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null); \
-	NEW_PY=$$(echo "$$CHANGED" | grep '\.py$$' | sort -u); \
-	ALL_PY=$$(find services/cynic-python scripts -name '*.py' -type f \
-		-not -path '*__pycache__*' -not -path '*/venv/*' \
-		-not -path '*/tests/*' -not -name 'test_*.py' -not -name 'conftest.py' \
-		-not -name '__init__.py' 2>/dev/null); \
-	for PYFILE in $$ALL_PY; do \
-		CONTENT=$$(cat "$$PYFILE" 2>/dev/null); \
-		HAS_TIER=$$(echo "$$CONTENT" | grep -E 'EXPERIMENT|Tier [123]|INFRASTRUCTURE' | head -1); \
-		if [ -z "$$HAS_TIER" ]; then \
-			if echo "$$NEW_PY" | grep -qx "$$PYFILE" 2>/dev/null; then \
-				echo "FAIL P1-P6: new/modified '$$PYFILE' has no tier tag"; \
-				FAIL=1; \
-			else \
-				WARN_COUNT=$$((WARN_COUNT + 1)); \
-			fi; \
-		fi; \
-	done; \
-	if [ $$WARN_COUNT -gt 0 ]; then \
-		echo "  $$WARN_COUNT existing files untagged (grace period until 2026-06-01)"; \
-	fi; \
-	if [ $$FAIL -eq 0 ]; then echo "✓ Python tier governance OK"; fi; \
-	exit $$FAIL
-
-.PHONY: lint-subprocess-env
-lint-subprocess-env: ## R23 gate: hooks/scripts/Rust subprocess env is explicit (RUST_MIN_STACK, --edition)
-	@bash $(PROJECT_DIR)/scripts/lint-subprocess-env.sh
-
-.PHONY: lint-security
-lint-security: ## G1 gate: 0 OPEN findings in CRITICAL or HIGH sections of findings tracker
-	@echo ""
-	@echo "▶ Checking security findings (G1 gate)..."
-	@TRACKER="$(PROJECT_DIR)/docs/audit/CYNIC-FINDINGS-TRACKER.md"; \
-	if [ ! -f "$$TRACKER" ]; then echo "SKIP: findings tracker not found"; exit 0; fi; \
-	OPEN=$$(awk '/^## CRITICAL/{s=1} /^## HIGH/{s=1} /^## MEDIUM/{s=0} s && /^\|/ && !/^\| #/ && !/^\|---/ && / OPEN/' "$$TRACKER"); \
-	if [ -n "$$OPEN" ]; then \
-		echo "FAIL G1: CRIT/HIGH findings still OPEN:"; echo "$$OPEN"; exit 1; \
-	else \
-		echo "✓ G1: 0 OPEN findings in CRITICAL/HIGH"; \
 	fi
 
-.PHONY: lint-topology
-lint-topology: ## Verify MANIFEST.yaml declarations vs live state (crons exist, outputs exist)
-	@echo ""
-	@echo "▶ Checking organism topology (MANIFESTs vs live state)..."
-	@python3 $(PROJECT_DIR)/scripts/topology.py --verify --output /tmp/cynic-topology-verify.md 2>&1 | tail -1 || { \
-		echo "⚠ Topology verification found drift — not blocking (fix MANIFESTs later)"; \
-	}
-
-.PHONY: test-gates
-test-gates: ## R21: Verify lint gates catch known violations (inject → check → restore)
-	@echo ""
-	@echo "══════════════════════════════════════════"
-	@echo "  R21: Gate falsification tests"
-	@echo "══════════════════════════════════════════"
-	@set +e; PASS=0; FAIL=0; \
-	\
-	echo ""; echo "── lint-rules ──"; \
-	\
-	echo "[K1] Injecting #[cfg(feature)] in domain/..."; \
-	TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/mod.rs"; \
-	cp "$$TARGET" "$$TARGET.gate-bak"; \
-	echo '#[cfg(feature = "gate_test_k1")] mod _phantom;' >> "$$TARGET"; \
-	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
-		echo "  ✗ K1 gate MISSED #[cfg] in domain/ — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ K1 gate caught #[cfg] in domain/"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$TARGET.gate-bak" "$$TARGET"; \
-	\
-	echo "[K2] Injecting reqwest in domain/..."; \
-	cp "$$TARGET" "$$TARGET.gate-bak"; \
-	echo 'use reqwest;' >> "$$TARGET"; \
-	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
-		echo "  ✗ K2 gate MISSED reqwest in domain/ — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ K2 gate caught reqwest in domain/"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$TARGET.gate-bak" "$$TARGET"; \
-	\
-	echo "[K5] Injecting serde_json::Value in domain/..."; \
-	cp "$$TARGET" "$$TARGET.gate-bak"; \
-	echo 'fn _k5_test() -> serde_json::Value { todo!() }' >> "$$TARGET"; \
-	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
-		echo "  ✗ K5 gate MISSED serde_json::Value in domain/ — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ K5 gate caught serde_json::Value in domain/"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$TARGET.gate-bak" "$$TARGET"; \
-	\
-	echo "[K5+] Injecting axum:: in domain/..."; \
-	cp "$$TARGET" "$$TARGET.gate-bak"; \
-	echo 'fn _k5_test() -> axum::Router { todo!() }' >> "$$TARGET"; \
-	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
-		echo "  ✗ K5 gate MISSED axum:: in domain/ — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ K5 gate caught axum:: in domain/"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$TARGET.gate-bak" "$$TARGET"; \
-	\
-	echo "[K12] Injecting #[allow] without WHY:..."; \
-	ALLOW_TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/main.rs"; \
-	cp "$$ALLOW_TARGET" "$$ALLOW_TARGET.gate-bak"; \
-	echo '#[allow(unused_variables)]' >> "$$ALLOW_TARGET"; \
-	echo 'fn _k12_test() {}' >> "$$ALLOW_TARGET"; \
-	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
-		echo "  ✗ K12 gate MISSED #[allow] without WHY: — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ K12 gate caught #[allow] without WHY:"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$ALLOW_TARGET.gate-bak" "$$ALLOW_TARGET"; \
-	\
-	echo "[R2] Injecting .ok() without logging..."; \
-	R2_TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/mod.rs"; \
-	cp "$$R2_TARGET" "$$R2_TARGET.gate-bak"; \
-	printf '\n\n\n\n\n\n\n\n\n\nfn _r2_test() { std::fs::File::open("x").ok(); }\n' >> "$$R2_TARGET"; \
-	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
-		echo "  ✗ R2 gate MISSED .ok() without logging — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ R2 gate caught .ok() without logging"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$R2_TARGET.gate-bak" "$$R2_TARGET"; \
-	\
-	echo "[K3] Injecting pipeline fn in api/..."; \
-	API_TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/api/rest/mod.rs"; \
-	cp "$$API_TARGET" "$$API_TARGET.gate-bak"; \
-	echo 'fn format_crystal_context() {}' >> "$$API_TARGET"; \
-	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
-		echo "  ✗ K3 gate MISSED pipeline fn in api/ — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ K3 gate caught pipeline fn in api/"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$API_TARGET.gate-bak" "$$API_TARGET"; \
-	\
-	echo "[K4] Injecting duplicate Port trait name across domain/..."; \
-	K4_TARGET1="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/mod.rs"; \
-	K4_TARGET2="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs"; \
-	cp "$$K4_TARGET1" "$$K4_TARGET1.gate-bak"; \
-	cp "$$K4_TARGET2" "$$K4_TARGET2.gate-bak"; \
-	echo 'trait _K4PhantomPort {}' >> "$$K4_TARGET1"; \
-	echo 'trait _K4PhantomPort {}' >> "$$K4_TARGET2"; \
-	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
-		echo "  ✗ K4 gate MISSED duplicate Port trait — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ K4 gate caught duplicate Port trait"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$K4_TARGET1.gate-bak" "$$K4_TARGET1"; \
-	mv "$$K4_TARGET2.gate-bak" "$$K4_TARGET2"; \
-	\
-	echo "[R1] Injecting hardcoded /home/ path in scripts/..."; \
-	R1_STUB="$(PROJECT_DIR)/scripts/_r1_gate_probe.sh"; \
-	printf '%s\n' '#!/usr/bin/env bash' 'CYNIC=/home/user/cynic-hardcoded' > "$$R1_STUB"; \
-	chmod +x "$$R1_STUB"; \
-	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
-		echo "  ✗ R1 gate MISSED hardcoded /home/ path — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ R1 gate caught hardcoded /home/ path"; PASS=$$((PASS+1)); \
-	fi; \
-	rm -f "$$R1_STUB"; \
-	\
-	echo ""; echo "── lint-drift ──"; \
-	\
-	echo "[Dormant] Injecting commented module without DORMANT tag..."; \
-	cp "$$TARGET" "$$TARGET.gate-bak"; \
-	echo '// pub mod _gate_test_phantom;' >> "$$TARGET"; \
-	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
-		echo "  ✗ Dormant gate MISSED commented module — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ Dormant gate caught commented module without DORMANT:"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$TARGET.gate-bak" "$$TARGET"; \
-	\
-	echo "[D4] Injecting phantom Dog in reference.md..."; \
-	REF="$(PROJECT_DIR)/.cortex/rules/reference.md"; \
-	cp "$$REF" "$$REF.gate-bak"; \
-	sed -i '/^| deterministic-dog/a | phantom-dog-test | Test | Nowhere |' "$$REF"; \
-	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
-		echo "  ✗ D4 gate MISSED phantom Dog in reference.md — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ D4 gate caught phantom Dog in reference.md"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$REF.gate-bak" "$$REF"; \
-	\
-	echo "[K15] Injecting store_* with no read path in storage/mod.rs..."; \
-	K15_TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs"; \
-	cp "$$K15_TARGET" "$$K15_TARGET.gate-bak"; \
-	printf '\n    async fn store_phantom_k15_gate_probe(&self) -> Result<(), StorageError> { unimplemented!() }\n' >> "$$K15_TARGET"; \
-	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
-		echo "  ✗ K15 gate MISSED store_* without read path — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ K15 gate caught store_* without read path"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$K15_TARGET.gate-bak" "$$K15_TARGET"; \
-	\
-	echo "[K17] Injecting StoragePort method not forwarded in ReconnectableStorage..."; \
-	K17_TARGET="$(PROJECT_DIR)/crates/cynic-kernel/src/domain/storage/mod.rs"; \
-	cp "$$K17_TARGET" "$$K17_TARGET.gate-bak"; \
-	sed -i '/^}$$/i\    async fn _k17_gate_probe(\&self) -> Result<(), StorageError> { Ok(()) }' "$$K17_TARGET"; \
-	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
-		echo "  ✗ K17 gate MISSED missing ReconnectableStorage forward — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ K17 gate caught missing ReconnectableStorage forward"; PASS=$$((PASS+1)); \
-	fi; \
-	mv "$$K17_TARGET.gate-bak" "$$K17_TARGET"; \
-	\
-	echo ""; echo "── lint-subprocess-env ──"; \
-	\
-	echo "[R23a] Injecting shell script with cargo build and no RUST_MIN_STACK..."; \
-	R23_STUB="$(PROJECT_DIR)/.cortex/mcp/_r23_gate_probe.sh"; \
-	printf '%s\n' '#!/usr/bin/env bash' '# R23 gate-test probe' 'cargo build --tests' > "$$R23_STUB"; \
-	chmod +x "$$R23_STUB"; \
-	if $(MAKE) --no-print-directory lint-subprocess-env >/dev/null 2>&1; then \
-		echo "  ✗ R23a gate MISSED cargo without RUST_MIN_STACK — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ R23a gate caught cargo without RUST_MIN_STACK"; PASS=$$((PASS+1)); \
-	fi; \
-	rm -f "$$R23_STUB"; \
-	\
-	echo "[R23b] Injecting shell script with standalone rustfmt and no --edition..."; \
-	printf '%s\n' '#!/usr/bin/env bash' '# R23 gate-test probe' 'export RUST_MIN_STACK=67108864' 'rustfmt "$$FILE"' > "$$R23_STUB"; \
-	chmod +x "$$R23_STUB"; \
-	if $(MAKE) --no-print-directory lint-subprocess-env >/dev/null 2>&1; then \
-		echo "  ✗ R23b gate MISSED rustfmt without --edition — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ R23b gate caught rustfmt without --edition"; PASS=$$((PASS+1)); \
-	fi; \
-	rm -f "$$R23_STUB"; \
-	\
-	echo "[R23c] Injecting Rust Command::new(\"cargo\") without .env..."; \
-	R23_RS_STUB="$(PROJECT_DIR)/crates/cynic-kernel/src/_r23_gate_probe.rs"; \
-	printf '%s\n' '// R23 gate-test probe' 'fn _r23_probe() {' '    tokio::process::Command::new("cargo").args(["build"]).spawn().ok();' '}' > "$$R23_RS_STUB"; \
-	if $(MAKE) --no-print-directory lint-subprocess-env >/dev/null 2>&1; then \
-		echo "  ✗ R23c gate MISSED Command::new(\"cargo\") without .env — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ R23c gate caught Command::new(\"cargo\") without .env"; PASS=$$((PASS+1)); \
-	fi; \
-	rm -f "$$R23_RS_STUB"; \
-	\
-	echo ""; echo "── lint-security ──"; \
-	\
-	echo "[G1] Injecting OPEN CRITICAL finding..."; \
-	TRACKER="$(PROJECT_DIR)/docs/audit/CYNIC-FINDINGS-TRACKER.md"; \
-	if [ -f "$$TRACKER" ]; then \
-		cp "$$TRACKER" "$$TRACKER.gate-bak"; \
-		awk '/^## CRITICAL/{print; getline; print; getline; print; print "| GATE-TEST | Inject | Gate falsification test | OPEN |"; next} {print}' \
-			"$$TRACKER.gate-bak" > "$$TRACKER"; \
-		if $(MAKE) --no-print-directory lint-security >/dev/null 2>&1; then \
-			echo "  ✗ G1 gate MISSED OPEN CRITICAL — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ G1 gate caught OPEN CRITICAL finding"; PASS=$$((PASS+1)); \
-		fi; \
-		mv "$$TRACKER.gate-bak" "$$TRACKER"; \
-	else \
-		echo "  SKIP: findings tracker not found"; \
-	fi; \
-	\
-	echo ""; echo "── verify-hooks ──"; \
-	\
-	echo "[H1] Injecting wrong pre-push hook target..."; \
-	TMPROOT=$$(mktemp -d); \
-	mkdir -p "$$TMPROOT/project/scripts/git-hooks" "$$TMPROOT/git/hooks"; \
-	cp "$(PROJECT_DIR)/scripts/git-hooks/pre-commit" "$$TMPROOT/project/scripts/git-hooks/pre-commit"; \
-	cp "$(PROJECT_DIR)/scripts/git-hooks/pre-push" "$$TMPROOT/project/scripts/git-hooks/pre-push"; \
-	chmod +x "$$TMPROOT/project/scripts/git-hooks/pre-commit" "$$TMPROOT/project/scripts/git-hooks/pre-push"; \
-	ln -s "$$TMPROOT/project/scripts/git-hooks/pre-commit" "$$TMPROOT/git/hooks/pre-commit"; \
-	ln -s /bin/true "$$TMPROOT/git/hooks/pre-push"; \
-	if PROJECT_DIR_OVERRIDE="$$TMPROOT/project" GIT_DIR_OVERRIDE="$$TMPROOT/git" bash "$(PROJECT_DIR)/scripts/verify-hooks.sh" >/dev/null 2>&1; then \
-		echo "  ✗ H1 gate MISSED wrong pre-push target — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ H1 gate caught wrong pre-push target"; PASS=$$((PASS+1)); \
-	fi; \
-	rm -rf "$$TMPROOT"; \
-	\
-	echo ""; echo "── verify-systemd-units ──"; \
-	\
-	echo "[UNIT1] Injecting wrong cynic-kernel.service target..."; \
-	TMPROOT=$$(mktemp -d); \
-	mkdir -p "$$TMPROOT/project/infra/systemd" "$$TMPROOT/systemd"; \
-	cp "$(PROJECT_DIR)/infra/systemd/cynic-kernel.service" "$$TMPROOT/project/infra/systemd/cynic-kernel.service"; \
-	cp "$(PROJECT_DIR)/infra/systemd/surrealdb.service" "$$TMPROOT/project/infra/systemd/surrealdb.service"; \
-	cp "$(PROJECT_DIR)/infra/systemd/cynic-healthcheck.service" "$$TMPROOT/project/infra/systemd/cynic-healthcheck.service"; \
-	cp "$(PROJECT_DIR)/infra/systemd/cynic-healthcheck.timer" "$$TMPROOT/project/infra/systemd/cynic-healthcheck.timer"; \
-	cp "$(PROJECT_DIR)/infra/systemd/surrealdb-backup.service" "$$TMPROOT/project/infra/systemd/surrealdb-backup.service"; \
-	cp "$(PROJECT_DIR)/infra/systemd/surrealdb-backup.timer" "$$TMPROOT/project/infra/systemd/surrealdb-backup.timer"; \
-	cp "$(PROJECT_DIR)/infra/systemd/llama-server.service" "$$TMPROOT/project/infra/systemd/llama-server.service"; \
-	ln -s /bin/true "$$TMPROOT/systemd/cynic-kernel.service"; \
-	ln -s "$$TMPROOT/project/infra/systemd/surrealdb.service" "$$TMPROOT/systemd/surrealdb.service"; \
-	ln -s "$$TMPROOT/project/infra/systemd/cynic-healthcheck.service" "$$TMPROOT/systemd/cynic-healthcheck.service"; \
-	ln -s "$$TMPROOT/project/infra/systemd/cynic-healthcheck.timer" "$$TMPROOT/systemd/cynic-healthcheck.timer"; \
-	ln -s "$$TMPROOT/project/infra/systemd/surrealdb-backup.service" "$$TMPROOT/systemd/surrealdb-backup.service"; \
-	ln -s "$$TMPROOT/project/infra/systemd/surrealdb-backup.timer" "$$TMPROOT/systemd/surrealdb-backup.timer"; \
-	ln -s "$$TMPROOT/project/infra/systemd/llama-server.service" "$$TMPROOT/systemd/llama-server.service"; \
-	if PROJECT_DIR_OVERRIDE="$$TMPROOT/project" SYSTEMD_USER_DIR_OVERRIDE="$$TMPROOT/systemd" bash "$(PROJECT_DIR)/scripts/verify-systemd-units.sh" >/dev/null 2>&1; then \
-		echo "  ✗ UNIT1 gate MISSED wrong cynic-kernel.service target — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ UNIT1 gate caught wrong cynic-kernel.service target"; PASS=$$((PASS+1)); \
-	fi; \
-	rm -rf "$$TMPROOT"; \
-	\
-	echo ""; echo "── runtime-check ──"; \
-	\
-	echo "[RUNTIME1] Injecting duplicate llama-server process..."; \
-	TMPROOT=$$(mktemp -d); \
-	UNITDIR="$$TMPROOT/units"; BINDIR="$$TMPROOT/bin"; \
-	mkdir -p "$$UNITDIR" "$$BINDIR"; \
-	cp "$(PROJECT_DIR)/infra/systemd/cynic-kernel.service" "$$UNITDIR/cynic-kernel.service"; \
-	cp "$(PROJECT_DIR)/infra/systemd/surrealdb.service" "$$UNITDIR/surrealdb.service"; \
-	cp "$(PROJECT_DIR)/infra/systemd/llama-server.service" "$$UNITDIR/llama-server.service"; \
-	cp "$(PROJECT_DIR)/infra/systemd/cynic-healthcheck.service" "$$UNITDIR/cynic-healthcheck.service"; \
-	printf '%s\n' '#!/usr/bin/env bash' 'if [ "$$2" = "is-active" ]; then' '  case "$$3" in' '    cynic-kernel|surrealdb|llama-server) echo active ;;' '    *) echo inactive ;;' '  esac' '  exit 0' 'fi' 'if [ "$$2" = "show" ]; then' '  service="$$3"; prop="$${4#--property=}"' '  if [ "$$5" != "--value" ]; then exit 1; fi' '  case "$$service:$$prop" in' '    cynic-kernel:MainPID) echo 1001 ;;' '    cynic-kernel:SubState) echo running ;;' '    surrealdb:MainPID) echo 1002 ;;' '    surrealdb:SubState) echo running ;;' '    llama-server:MainPID) echo 1003 ;;' '    llama-server:SubState) echo running ;;' '    *) echo "" ;;' '  esac' '  exit 0' 'fi' 'exit 1' > "$$BINDIR/systemctl"; \
-	printf '%s\n' '#!/usr/bin/env bash' 'if [ "$$1" = "-xo" ]; then' '  case "$$2" in' '    cynic-kernel) echo 1001 ;;' '    surreal) echo 1002 ;;' '    llama-server) echo 1003 ;;' '  esac' '  exit 0' 'fi' 'if [ "$$1" = "-xa" ]; then' '  case "$$2" in' '    cynic-kernel) echo "1001 cynic-kernel" ;;' '    surreal) echo "1002 surreal start" ;;' '    llama-server) printf "1003 llama-server\n1004 llama-server\n" ;;' '  esac' '  exit 0' 'fi' 'exit 1' > "$$BINDIR/pgrep"; \
-	printf '%s\n' '#!/usr/bin/env bash' 'case "$$1" in' '  -o)' '    case "$$2" in' '      stat=) echo Ssl ;;' '      ppid=) echo 1 ;;' '    esac' '    ;;' 'esac' > "$$BINDIR/ps"; \
-	printf '%s\n' '#!/usr/bin/env bash' 'cat <<OUT' 'LISTEN 0 128 127.0.0.1:3030 0.0.0.0:* users:(("cynic-kernel",pid=1001,fd=9))' 'LISTEN 0 128 127.0.0.1:8000 0.0.0.0:* users:(("surreal",pid=1002,fd=9))' 'LISTEN 0 128 127.0.0.1:8080 0.0.0.0:* users:(("llama-server",pid=1003,fd=9))' 'LISTEN 0 128 127.0.0.1:8080 0.0.0.0:* users:(("llama-server",pid=1004,fd=9))' 'OUT' > "$$BINDIR/ss"; \
-	chmod +x "$$BINDIR/systemctl" "$$BINDIR/pgrep" "$$BINDIR/ps" "$$BINDIR/ss"; \
-	if UNIT_DIR_OVERRIDE="$$UNITDIR" SYSTEMCTL_BIN_OVERRIDE="$$BINDIR/systemctl" PGREP_BIN_OVERRIDE="$$BINDIR/pgrep" PS_BIN_OVERRIDE="$$BINDIR/ps" SS_BIN_OVERRIDE="$$BINDIR/ss" bash "$(PROJECT_DIR)/scripts/runtime-truth.sh" check >/dev/null 2>&1; then \
-		echo "  ✗ RUNTIME1 gate MISSED duplicate llama-server — BROKEN"; FAIL=$$((FAIL+1)); \
-	else \
-		echo "  ✓ RUNTIME1 gate caught duplicate llama-server"; PASS=$$((PASS+1)); \
-	fi; \
-	rm -rf "$$TMPROOT"; \
-	\
-	echo ""; \
-	TOTAL=$$((PASS+FAIL)); \
-	if [ $$FAIL -eq 0 ]; then \
-		echo "✓ R21: $$PASS/$$TOTAL gates falsified successfully"; \
-	else \
-		echo "✗ R21: $$FAIL/$$TOTAL gates FAILED falsification"; exit 1; \
-	fi
-
-.PHONY: check-storage
-check-storage: ## Integration tests against real SurrealDB (requires :8000)
-	@$(source_env)
-	@echo "══════════════════════════════════════════"
-	@echo "  CYNIC check-storage — integration tests"
-	@echo "══════════════════════════════════════════"
-	cargo test -p cynic-kernel --release --test integration_storage --test storage_contract
-	@echo "✓ All checks passed"
-
-# ── Stage 2: Validated Commit ────────────────────────────────
-# Usage: make commit m="type(scope): description"
-# Impact checking is done by [workspace.lints] in Cargo.toml — not bash scripts.
-.PHONY: commit
-commit: check
-	@if [ -z "$(m)" ]; then echo "ERROR: provide message with m=\"...\"" >&2; exit 1; fi
-	@echo ""
-	@echo "▶ Staging and committing..."
-	git add -u
-	git commit -m "$(m)"
-	@echo "✓ Committed (workspace lints + clippy + audit validated)"
-
-# ── Stage 3: Ship (commit + push) ───────────────────────────
-.PHONY: ship
-ship: commit
-	@echo ""
-	@echo "▶ Pushing to origin..."
-	git push origin $$(git rev-parse --abbrev-ref HEAD)
-	@echo "✓ Shipped (pre-push validated build+test+clippy)"
-
-# ── Stage 4: Deploy ─────────────────────────────────────────
-# Requires Level 2 gate (tests + audit + integration) before deploying.
-# If gate-2 marker is stale, deploy blocks and tells you to run `make gate-2`.
-.PHONY: deploy
-deploy:
-	@$(source_env)
-	@echo "▶ Checking gate-2 marker..."
-	@NEWEST_RUST=$$(find crates/cynic-kernel/src -name '*.rs' -exec stat -c '%Y' {} + 2>/dev/null | sort -rn | head -1); \
-	GATE2_TIME=$$(stat -c '%Y' .gate-2 2>/dev/null || echo 0); \
-	if [ -n "$$NEWEST_RUST" ] && [ "$$NEWEST_RUST" -gt "$$GATE2_TIME" ]; then \
-		echo "✗ Gate 2 is stale — Rust changed since last full gate."; \
-		echo "  Run: make gate-2"; \
-		echo "  Then: make deploy"; \
+.PHONY: install-cli-user
+$(CLI_USER_TARGET): $(CYNIC_CLI_INSTALL_SOURCE)
+	@if [ ! -x "$(CYNIC_CLI_INSTALL_SOURCE)" ]; then \
+		echo "==> blocked: source binary is not executable: $(CYNIC_CLI_INSTALL_SOURCE)"; \
+		echo "    set CYNIC_CLI_INSTALL_SOURCE explicitly to a valid cynic artifact, or rebuild default target"; \
 		exit 1; \
 	fi
-	@echo "  ✓ Gate 2 fresh — proceeding with deploy"
-	@$(MAKE) --no-print-directory ship check-storage
-	@echo ""
-	@echo "▶ Backing up DB before deploy (via Sovereign API)..."
-	@mkdir -p ~/.surrealdb/backups
-	@curl -sS -f -H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY}" \
-		"http://$${CYNIC_REST_ADDR}/coord/backup" \
-		-o ~/.surrealdb/backups/cynic_v2_pre_deploy_$$(date +%Y%m%d_%H%M%S).surql || echo "⚠ Backup failed"
-	@echo "▶ Deploying kernel via Sovereign Auto-Upgrade (POST /coord/upgrade)..."
-	@curl -f -X POST --data-binary @"$(PROJECT_DIR)/target/release/cynic-kernel" \
-		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
-		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/upgrade"
-
-	@echo "▶ Verifying (HTTP status code — no JSON parsing)..."
-	@for i in $$(seq 1 15); do \
-		sleep 3; \
-		HTTP=$$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
-			$${CYNIC_API_KEY:+-H "Authorization: Bearer $${CYNIC_API_KEY}"} \
-			"http://$${CYNIC_REST_ADDR}/health" 2>/dev/null) && \
-		[ "$$HTTP" = "200" ] && echo "  Kernel: sovereign (HTTP 200)" && break || \
-		[ "$$HTTP" = "503" ] && echo "  Kernel: degraded (HTTP 503) — check Dogs" && break || \
-		printf "."; \
-	done
-	@echo "▶ Healthcheck self-test..."
-	@curl -s -f "http://$${CYNIC_REST_ADDR}/health" >/dev/null && echo "  Healthcheck: PASS" || echo "  ⚠ Healthcheck: FAIL"
-	@echo "✓ Deployed and verified"
-
-# ── Fast-path: Deploy existing binary without commit/push ────
-# Use when origin/main is already current (e.g. after a PR merged through CI)
-# and you just want to roll the release binary into ~/bin. Skips all validation
-# gates — caller is responsible for freshness.
-.PHONY: deploy-only
-deploy-only:  ## Deploy target/release/cynic-kernel with no validation (skips check/commit/push)
-	@$(source_env)
-	@BIN="$(PROJECT_DIR)/target/release/cynic-kernel"; \
-	[ -f "$$BIN" ] || { echo "✗ No release binary at $$BIN — run 'cargo build --release' or 'make check' first"; exit 1; }; \
-	AGE_SEC=$$(( $$(date +%s) - $$(stat -c %Y "$$BIN") )); \
-	if [ $$AGE_SEC -gt 3600 ]; then \
-		echo "⚠ Binary is $$((AGE_SEC/60))min old — consider rebuild if source changed"; \
+	@if ! mkdir -p "$$(dirname "$(CLI_USER_TARGET)")" 2>/dev/null; then \
+		echo "==> blocked: cannot create user target directory: $$(dirname "$(CLI_USER_TARGET)")"; \
+		echo "    set CLI_USER_TARGET to a writable path, or run install-cli-system"; \
+		exit 1; \
 	fi
-	@echo ""
-	@echo "▶ deploy-only — no commit, no push, no validation"
-	@echo "▶ Backing up DB before deploy (via Sovereign API)..."
-	@mkdir -p ~/.surrealdb/backups
-	@curl -sS -f -H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY}" \
-		"http://$${CYNIC_REST_ADDR}/coord/backup" \
-		-o ~/.surrealdb/backups/cynic_v2_deploy_only_$$(date +%Y%m%d_%H%M%S).surql || echo "⚠ Backup failed"
-	@echo "▶ Deploying kernel via Sovereign Auto-Upgrade (POST /coord/upgrade)..."
-	@curl -f -X POST --data-binary @"$(PROJECT_DIR)/target/release/cynic-kernel" \
-		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
-		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/upgrade"
+	@if [ -f "$(CLI_USER_TARGET)" ] && cmp -s "$(CLI_USER_TARGET)" "$(CYNIC_CLI_INSTALL_SOURCE)"; then \
+		echo "==> user target already matches source ($(CLI_USER_TARGET)); skipping install"; \
+		exit 0; \
+	fi
+	@if [ ! -w "$$(dirname "$(CLI_USER_TARGET)")" ]; then \
+		echo "==> blocked: user install target directory is not writable: $$(dirname "$(CLI_USER_TARGET)")"; \
+		echo "    set CLI_USER_TARGET to a writable path, or run install-cli-system"; \
+		exit 1; \
+	fi
+	@echo "==> installing to $(CLI_USER_TARGET)"
+	@"$(CYNIC_CLI_INSTALL_SOURCE)" bootstrap framework install-cli --json --apply \
+		--source "$(CYNIC_CLI_INSTALL_SOURCE)" \
+		--target "$(CLI_USER_TARGET)"
 
-	@echo "▶ Verifying (HTTP status code — no JSON parsing)..."
-	@for i in $$(seq 1 15); do \
-		sleep 3; \
-		HTTP=$$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
-			$${CYNIC_API_KEY:+-H "Authorization: Bearer $${CYNIC_API_KEY}"} \
-			"http://$${CYNIC_REST_ADDR}/health" 2>/dev/null) && \
-		[ "$$HTTP" = "200" ] && echo "  Kernel: sovereign (HTTP 200)" && break || \
-		[ "$$HTTP" = "503" ] && echo "  Kernel: degraded (HTTP 503) — check Dogs" && break || \
-		printf "."; \
-	done
-	@echo "▶ Healthcheck self-test..."
-	@curl -s -f "http://$${CYNIC_REST_ADDR}/health" >/dev/null && echo "  Healthcheck: PASS" || echo "  ⚠ Healthcheck: FAIL"
-	@echo "✓ Deployed (no commit, no push)"
+install-cli-user: $(CLI_USER_TARGET) ## Build and install cynic to the chosen target path (no sudo; preferred for dev)
+	@echo "==> which installed cynic target => $(CLI_USER_TARGET)"
+	@command -v "$(CLI_USER_TARGET)" >/dev/null && "$(CLI_USER_TARGET)" runtime --help 2>/dev/null | grep -q inference-start \
+		&& echo "==> ok: inference-start present" \
+		|| echo "==> warn: runtime entrypoint probe unavailable (PATH may still point to older cynic)"
+	@if [ "$$(dirname "$(CLI_USER_TARGET)")" = "/tmp/cynic/bin" ]; then \
+		echo "==> if needed, expose this binary with: export PATH=$$PATH:/tmp/cynic/bin"; \
+	fi
 
-# ── Emergency: Rollback to previous binary ─────────────────
-.PHONY: rollback
-rollback:
-	@$(source_env)
-	@echo "▶ Rolling back to previous kernel binary via Sovereign Auto-Rollback (POST /coord/rollback)..."
-	@curl -f -X POST \
-		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
-		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/rollback"
-	@sleep 4
-	@echo "▶ Verifying rollback..."
-	@HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "http://$${CYNIC_REST_ADDR}/health"); \
-	[ "$$HTTP" = "200" ] && echo "Kernel: healthy (rolled back)" || echo "Kernel: DEGRADED (HTTP $$HTTP, rolled back)"
+.PHONY: install-cli-system-refresh
+install-cli-system-refresh: ## Rebuild from artifact and force a CLI refresh with explicit source declaration
+	@$(MAKE) --no-print-directory install-cli-system \
+		CYNIC_CLI_INSTALL_SOURCE="$(CYNIC_CLI_ARTIFACT)"
 
-# ── Systemd unit deployment ──────────────────────────────────
-.PHONY: deploy-systemd
-deploy-systemd:  ## Idempotent deploy: push infra/systemd/* via Sovereign API
-	@$(source_env); \
-	echo "▶ Deploying systemd units via Sovereign API..."; \
-	curl -f -X POST --data-binary @"$(PROJECT_DIR)/infra/systemd/cynic-kernel.service" \
-		-H "Authorization: Bearer $${CYNIC_API_KEY}" \
-		"http://$${CYNIC_REST_ADDR}/coord/upgrade-systemd"; \
-	echo "✓ Systemd units deployed and reloaded"
+.PHONY: install-cli-system
+install-cli-system: $(CYNIC_CLI_INSTALL_SOURCE)
+	@if [ ! -x "$(CYNIC_CLI_INSTALL_SOURCE)" ]; then \
+		echo "==> blocked: source binary is not executable: $(CYNIC_CLI_INSTALL_SOURCE)"; \
+		echo "    set CYNIC_CLI_INSTALL_SOURCE explicitly to a valid cynic artifact, or rebuild default target"; \
+		exit 1; \
+	fi
+	@if [ -f "$(CLI_SYSTEM_TARGET)" ] && cmp -s "$(CLI_SYSTEM_TARGET)" "$(CYNIC_CLI_INSTALL_SOURCE)"; then \
+		echo "==> system target already matches source ($(CLI_SYSTEM_TARGET)); skipping install"; \
+		exit 0; \
+	fi
+	@echo "==> installing to $(CLI_SYSTEM_TARGET) (root)"
+	@sudo "$(CYNIC_CLI_INSTALL_SOURCE)" bootstrap framework install-cli --json --apply \
+		--source "$(CYNIC_CLI_INSTALL_SOURCE)" \
+		--target "$(CLI_SYSTEM_TARGET)"
+	@if [ ! -x "$(CLI_SYSTEM_TARGET)" ]; then echo "==> warning: installed file not yet executable"; fi
+	@echo "==> which cynic => $$(command -v cynic)"
 
-.PHONY: deploy-systemd-dry
-deploy-systemd-dry:  ## Dry-run: show what deploy-systemd would change
-	@bash $(PROJECT_DIR)/scripts/deploy-systemd.sh --dry-run
+$(CYNIC_CLI_ARTIFACT): $(WORKSPACE_RUST_SOURCES) $(WORKSPACE_CARGO_MANIFESTS) Cargo.toml Cargo.lock
+	@echo "==> building cynic-cli"
+	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-cli --bin cynic
 
-# ── Emergency: Hotfix deploy (skip push — for incidents) ──────
-.PHONY: hotfix
-hotfix: check
-	@$(source_env)
-	@echo ""
-	@echo "⚠ HOTFIX DEPLOY — skipping push (commit locally, push later)"
-	@echo "▶ Backing up DB (via Sovereign API)..."
-	@mkdir -p ~/.surrealdb/backups
-	@curl -sS -f -H "Authorization: Bearer $${CYNIC_API_KEY}" \
-		"http://$${CYNIC_REST_ADDR}/coord/backup" \
-		-o ~/.surrealdb/backups/cynic_v2_hotfix_$$(date +%Y%m%d_%H%M%S).surql || echo "⚠ Backup failed"
-	@echo "▶ Deploying kernel via Sovereign Auto-Upgrade (POST /coord/upgrade)..."
-	@curl -f -X POST --data-binary @"$(PROJECT_DIR)/target/release/cynic-kernel" \
-		-H "Authorization: Bearer $${CYNIC_API_KEY:?Set CYNIC_API_KEY in ~/.cynic-env}" \
-		"http://$${CYNIC_REST_ADDR:?Set CYNIC_REST_ADDR in ~/.cynic-env}/coord/upgrade"
+.PHONY: lab-guest-bootstrap-bundle
+lab-guest-bootstrap-bundle: framework-bootstrap-bundle ## Compatibility alias for the closed lab bootstrap usecase
 
-	@echo "▶ Verifying (retry loop)..."
-	@for i in $$(seq 1 15); do \
-		sleep 3; \
-		HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null) && \
-		[ "$$HTTP" = "200" ] && echo "Kernel: healthy (hotfix, HTTP $$HTTP)" && break || \
-		printf "."; \
-	done
+.PHONY: lab-image-plan
+lab-image-plan: ## Emit base image download/checksum preflight without downloading
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- lab image plan --json --registry $(LAB_REGISTRY)
 
-# ── Restore DB from backup ────────────────────────────────────
-.PHONY: restore
-restore:
-	@$(source_env)
-	@if [ -z "$(F)" ]; then echo "ERROR: provide backup file with F=path"; echo "Available:"; ls -lhrt ~/.surrealdb/backups/ | tail -5; exit 1; fi
-	@[ -f "$(F)" ] || { echo "ERROR: file $(F) not found"; exit 1; }
-	@echo "⚠ RESTORING DB from $(F) — this will OVERWRITE current data"
-	@read -p "Are you sure? (yes/no) " CONFIRM || true; [ "$$CONFIRM" = "yes" ] || { echo "Aborted"; exit 1; }
-	@echo "▶ Restoring DB via Sovereign API (POST /coord/restore)..."
-	@curl -f -X POST --data-binary @"$(F)" \
-		-H "Authorization: Bearer $${CYNIC_API_KEY}" \
-		"http://$${CYNIC_REST_ADDR}/coord/restore"
-	@echo "✓ DB restored from $(F)"
+.PHONY: lab-image-resolve
+lab-image-resolve: ## Resolve expected base image sha256 from upstream SHA256SUMS without editing registry
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- lab image resolve --json --registry $(LAB_REGISTRY)
 
-.PHONY: test-restore
-test-restore: ## Verify backup restore works against a test DB (non-destructive)
-	@$(source_env)
-	@echo "══════════════════════════════════════════"
-	@echo "  CYNIC test-restore — backup verification"
-	@echo "══════════════════════════════════════════"
-	@LATEST=$$(ls -t ~/.surrealdb/backups/*.surql.gz ~/.surrealdb/backups/*.surql 2>/dev/null | head -1); \
-	if [ -z "$$LATEST" ]; then echo "✗ No backup files found"; exit 1; fi; \
-	echo "▸ Testing restore of: $$LATEST"; \
-	IMPORT_FILE="$$LATEST"; \
-	if echo "$$LATEST" | grep -q '\.gz$$'; then \
-		IMPORT_FILE=$$(mktemp /tmp/cynic-restore-test-XXXXXX.surql); \
-		gunzip -c "$$LATEST" > "$$IMPORT_FILE"; \
-	fi; \
-	surreal import --endpoint http://localhost:8000 \
-		--namespace cynic_test --database restore_test \
-		--username root --password "$${SURREALDB_PASS}" \
-		"$$IMPORT_FILE" 2>&1 | tail -3; \
-	VCOUNT=$$(echo "USE NS cynic_test; USE DB restore_test; SELECT count() FROM verdict GROUP ALL;" | \
-		surreal sql --endpoint http://localhost:8000 --username root --password "$${SURREALDB_PASS}" --hide-welcome 2>/dev/null | grep -oP '\d+' | head -1); \
-	CCOUNT=$$(echo "USE NS cynic_test; USE DB restore_test; SELECT count() FROM crystal GROUP ALL;" | \
-		surreal sql --endpoint http://localhost:8000 --username root --password "$${SURREALDB_PASS}" --hide-welcome 2>/dev/null | grep -oP '\d+' | head -1); \
-	echo "▸ Verdicts: $${VCOUNT:-0}  Crystals: $${CCOUNT:-0}"; \
-	echo "USE NS cynic_test; REMOVE DATABASE restore_test;" | \
-		surreal sql --endpoint http://localhost:8000 --username root --password "$${SURREALDB_PASS}" --hide-welcome 2>/dev/null; \
-	if echo "$$LATEST" | grep -q '\.gz$$'; then rm -f "$$IMPORT_FILE"; fi; \
-	if [ "$${VCOUNT:-0}" -gt 0 ]; then echo "✓ Restore verified ($$VCOUNT verdicts, $${CCOUNT:-0} crystals)"; \
-	else echo "⚠ Restore completed but 0 verdicts found — check backup contents"; fi
+.PHONY: lab-image-fetch
+lab-image-fetch: ## Refuse image fetch until registry has a pinned sha256
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- lab image fetch --json --registry $(LAB_REGISTRY) --apply || test "$$?" = "1"
 
-# ── Stage 5: Release (tag + changelog) ─────────────────────────
-# Usage: make release v=patch  (or minor/major)
-# Dry run: make release-dry v=patch
-.PHONY: release
-release: check
-	@if [ -z "$(v)" ]; then echo "ERROR: provide version bump with v=patch|minor|major" >&2; exit 1; fi
-	@echo ""
-	@echo "▶ Releasing ($(v) bump)..."
-	cargo release $(v) --execute --no-confirm
-	@echo "✓ Released — changelog updated, tagged, pushed"
+.PHONY: runtime-validate
+runtime-validate: ## Execute read-only CLI runtime validation against fleet + portable lab registries
+	@$(MAKE) --no-print-directory lab-check >&2
+	@echo "==> executing runtime validation" >&2
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime validate --json --registry infra/registry.json --lab-registry $(LAB_REGISTRY)
 
-.PHONY: release-dry
-release-dry:
-	@if [ -z "$(v)" ]; then echo "ERROR: provide version bump with v=patch|minor|major" >&2; exit 1; fi
-	cargo release $(v)
+.PHONY: runtime-suite
+runtime-suite: ## Emit the stable IaC execution suite for the portable lab registry
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime suite --json --registry $(LAB_REGISTRY) --profile lab
 
-# ── Git hooks (Layer 2 enforcement) ──────────────────────────
-.PHONY: install-hooks
-install-hooks:
-	@bash $(PROJECT_DIR)/scripts/install-hooks.sh
+.PHONY: runtime-plan
+runtime-plan: ## Emit the current non-mutating execution plan for the portable lab registry
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime plan --json --registry $(LAB_REGISTRY) --profile lab
 
-.PHONY: verify-hooks
-verify-hooks:
-	@bash $(PROJECT_DIR)/scripts/verify-hooks.sh
+.PHONY: runtime-harness
+runtime-harness: ## Emit the canonical runtime harness progression and execution membranes
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime harness --json
 
-# ── Clean (fix SIGSEGV/LLVM crashes) ──────────────────────────
-.PHONY: clean
-clean:
-	cargo clean -p cynic-kernel
-	@echo "✓ Cleaned cynic-kernel build artifacts"
+.PHONY: runtime-conformance
+runtime-conformance: ## Observe host conformance for this node without mutating host/network state
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime conformance --json --registry $(LOCAL_REGISTRY) || test "$$?" = "1"
 
-.PHONY: monitor-vm
-monitor-vm: ## Monitor VMs on Proxmox
-	@bash infra/monitoring/monitor_vms.sh
+.PHONY: runtime-metrics
+runtime-metrics: ## Emit percent-based runtime metrics; unknown metrics remain null
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime metrics --json --registry $(LOCAL_REGISTRY)
 
-# ── Standalone: End-to-end test ──────────────────────────────
+.PHONY: runtime-metrics-architecture
+runtime-metrics-architecture: ## Run architecture boundary tests and consume their proof in runtime metrics
+	@tmpdir="$$(mktemp -d)"
+	@$(TEST_RUST_ENV) $(CARGO) test -q -p cynic-cli --test architecture_boundary >&2
+	@jq -n '{schema:"cynic.runtime_proof_bundle.v1",status:"satisfied",proofs:[{schema:"cynic.runtime_proof.v1",gate:"architecture_boundary_verified",status:"satisfied",producer:"cargo-test",subject:"cynic-cli/tests/architecture_boundary.rs",observed_at_unix_ms:1,evidence:[{id:"architecture_boundary",status:"active",detail:"cargo test -p cynic-cli --test architecture_boundary passed"}]}]}' > "$$tmpdir/architecture-proof.json"
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime metrics --json --registry $(LOCAL_REGISTRY) --proof "$$tmpdir/architecture-proof.json"
+
+.PHONY: local-plan
+local-plan: ## Emit the current non-mutating execution plan for this single machine
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime plan --json --registry $(LOCAL_REGISTRY) --profile single-node
+
+.PHONY: local-host-proof
+local-host-proof: ## Observe this host and emit host_identity_observed proof bundle
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host proof --node local-kernel --registry $(LOCAL_REGISTRY) || test "$$?" = "1"
+
+.PHONY: local-host-plan
+local-host-plan: ## Emit the local host bootstrap plan without mutating this machine
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host plan --node local-kernel --registry $(LOCAL_REGISTRY)
+
+.PHONY: host-bridge-bundle
+host-bridge-bundle: ## Build the bounded host-exec bridge bundle under /tmp
+	@$(RUST_ENV) $(CARGO) build -q -p cynic-host --bin cynic-host-exec
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap bridge bundle --output-dir /tmp/cynic-host-exec
+
+.PHONY: host-bridge-plan
+host-bridge-plan: ## Emit the explicit bounded host-exec bridge activation plan
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap bridge plan --bundle-dir /tmp/cynic-host-exec
+
+.PHONY: host-bridge-install
+host-bridge-install: ## Apply the bounded host-exec bridge install plan; requires root privileges
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap bridge install --bundle-dir /tmp/cynic-host-exec --apply || test "$$?" = "1"
+
+.PHONY: host-bridge-rootless-smoke
+host-bridge-rootless-smoke: ## Execute the bounded host-exec bridge install chain in /tmp without root
+	@$(RUST_ENV) $(CARGO) build -q -p cynic-host --bin cynic-host-exec
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap bridge rootless-smoke --sandbox-root /tmp/cynic-host-exec-rootless --apply
+
+.PHONY: host-bridge-status
+host-bridge-status: ## Observe whether the bounded host-exec bridge is active
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap bridge status || test "$$?" = "1"
+
+.PHONY: local-host-principal-plan
+local-host-principal-plan: ## Emit explicit runtime principal preparation plan
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host principal --node local-kernel --registry $(LOCAL_REGISTRY)
+
+.PHONY: local-host-principal-apply
+local-host-principal-apply: ## Apply explicit runtime principal preparation; requires root privileges
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host principal --node local-kernel --registry $(LOCAL_REGISTRY) --apply || test "$$?" = "1"
+
+.PHONY: local-host-apply-report
+local-host-apply-report: ## Emit the local host dry-run apply report without mutating this machine
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host apply-report --node local-kernel --registry $(LOCAL_REGISTRY)
+
+.PHONY: local-host-e2e
+local-host-e2e: ## Execute the non-mutating local host substrate chain and report honest blockers
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host e2e --node local-kernel --registry $(LOCAL_REGISTRY) --runtime-profile single-node --dry-run || test "$$?" = "1"
+
+.PHONY: local-network-proof
+local-network-proof: ## Observe local network runtime and emit network_runtime_observed proof bundle
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- network proof --registry $(LOCAL_REGISTRY) || test "$$?" = "1"
+
+.PHONY: local-proof-plan
+local-proof-plan: ## Generate local proofs under /tmp and feed them into runtime plan
+	@tmpdir="$$(mktemp -d)"
+	@echo "==> writing local proof bundles to $$tmpdir" >&2
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host proof --node local-kernel --registry $(LOCAL_REGISTRY) > "$$tmpdir/host-proof.json" || test "$$?" = "1"
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- network proof --registry $(LOCAL_REGISTRY) > "$$tmpdir/network-proof.json" || test "$$?" = "1"
+	@jq -s '{schema:"cynic.runtime_proof_bundle.v1", status: (if all(.[]; .status == "satisfied") then "satisfied" else "blocked" end), proofs: (map(.proofs) | add)}' "$$tmpdir/host-proof.json" "$$tmpdir/network-proof.json" > "$$tmpdir/proofs.json"
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime plan --json --registry $(LOCAL_REGISTRY) --profile single-node --proof "$$tmpdir/proofs.json"
+
 .PHONY: e2e
-e2e:
-	@$(source_env)
-	@echo "▶ E2E: Sicilian Defense..."
-	@ADDR="http://$${CYNIC_REST_ADDR}"; AUTH="Authorization: Bearer $${CYNIC_API_KEY}"; FAIL=0; \
-	echo ""; \
-	printf "  1/6 Health........... "; \
-	HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "$$ADDR/health"); \
-	[ "$$HTTP" = "200" ] && echo "PASS ($$HTTP)" || { echo "FAIL ($$HTTP)"; FAIL=$$((FAIL+1)); }; \
-	printf "  2/6 Judge+dog_scores. "; \
-	V=$$(curl -s -X POST "$$ADDR/judge" -H "Content-Type: application/json" -H "$$AUTH" \
-		-d '{"content":"1. e4 c5 — The Sicilian Defense.","context":"Most popular response to 1.e4","domain":"chess"}'); \
-	DOGS=$$(echo "$$V" | python3 -c "import json,sys; v=json.load(sys.stdin); print(len(v.get('dog_scores',[])))" 2>/dev/null); \
-	VERDICT=$$(echo "$$V" | python3 -c "import json,sys; print(json.load(sys.stdin)['verdict'])" 2>/dev/null); \
-	[ "$${DOGS:-0}" -gt 0 ] && echo "PASS $$VERDICT dogs=$$DOGS" || { echo "FAIL (dog_scores empty)"; FAIL=$$((FAIL+1)); }; \
-	printf "  3/6 Verdict DB RT.... "; \
-	DB_DOGS=$$(curl -s -H "$$AUTH" "$$ADDR/verdicts?limit=1" | python3 -c "import json,sys; v=json.load(sys.stdin); print(len(v[0].get('dog_scores',[])) if v else 0)" 2>/dev/null); \
-	[ "$${DB_DOGS:-0}" -gt 0 ] && echo "PASS ($$DB_DOGS dogs from DB)" || { echo "FAIL"; FAIL=$$((FAIL+1)); }; \
-	printf "  4/6 Observations..... "; \
-	OBS=$$(curl -s -H "$$AUTH" "$$ADDR/observations?limit=1" | python3 -c "import json,sys; o=json.load(sys.stdin); print(len(o[0].keys()) if o else 0)" 2>/dev/null); \
-	[ "$${OBS:-0}" -ge 10 ] && echo "PASS ($$OBS fields)" || { echo "FAIL ($$OBS fields)"; FAIL=$$((FAIL+1)); }; \
-	printf "  5/6 Audit............ "; \
-	AUD=$$(curl -s -H "$$AUTH" "$$ADDR/audit?limit=1" | python3 -c "import json,sys; a=json.load(sys.stdin); print(len(a[0].keys()) if a else 0)" 2>/dev/null); \
-	[ "$${AUD:-0}" -ge 5 ] && echo "PASS ($$AUD fields)" || { echo "FAIL ($$AUD fields)"; FAIL=$$((FAIL+1)); }; \
-	printf "  6/6 Crystals......... "; \
-	CRY=$$(curl -s -H "$$AUTH" "$$ADDR/crystals?limit=1" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null); \
-	[ "$${CRY:-0}" -gt 0 ] && echo "PASS" || { echo "FAIL"; FAIL=$$((FAIL+1)); }; \
-	echo ""; \
-	[ $$FAIL -eq 0 ] && echo "✓ All 6 E2E checks passed" || { echo "✗ $$FAIL E2E check(s) FAILED"; exit 1; }
+e2e: ## Execute the local single-node E2E proof chain without pretending blocked runtime is healthy
+	@$(MAKE) --no-print-directory local-check >&2
+	@tmpdir="$$(mktemp -d)"
+	@echo "==> local single-node e2e artifacts: $$tmpdir" >&2
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime plan --json --registry $(LOCAL_REGISTRY) --profile single-node > "$$tmpdir/plan.initial.json"
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host proof --node local-kernel --registry $(LOCAL_REGISTRY) > "$$tmpdir/host-proof.json" || test "$$?" = "1"
+	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- network proof --registry $(LOCAL_REGISTRY) > "$$tmpdir/network-proof.json" || test "$$?" = "1"
+	@jq -s '{schema:"cynic.runtime_proof_bundle.v1", status: (if all(.[]; .status == "satisfied") then "satisfied" else "blocked" end), proofs: (map(.proofs) | add)}' "$$tmpdir/host-proof.json" "$$tmpdir/network-proof.json" > "$$tmpdir/proofs.json"
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime plan --json --registry $(LOCAL_REGISTRY) --profile single-node --proof "$$tmpdir/proofs.json" > "$$tmpdir/plan.with-proofs.json"
+	@jq -e '.schema == "cynic.runtime_execution_plan.v1" and .profile == "single-node"' "$$tmpdir/plan.initial.json" >/dev/null
+	@jq -e '.schema == "cynic.runtime_proof_bundle.v1" and (.proofs | length >= 1) and any(.proofs[]; .gate == "host_identity_observed")' "$$tmpdir/host-proof.json" >/dev/null
+	@jq -e '.schema == "cynic.runtime_proof_bundle.v1" and (.proofs | length >= 1) and any(.proofs[]; .gate == "network_runtime_observed")' "$$tmpdir/network-proof.json" >/dev/null
+	@jq -e '.schema == "cynic.runtime_proof_bundle.v1" and (.proofs | length >= 2)' "$$tmpdir/proofs.json" >/dev/null
+	@jq -e '.schema == "cynic.runtime_execution_plan.v1" and .profile == "single-node"' "$$tmpdir/plan.with-proofs.json" >/dev/null
+	@jq -n \
+		--arg artifacts "$$tmpdir" \
+		--slurpfile host "$$tmpdir/host-proof.json" \
+		--slurpfile network "$$tmpdir/network-proof.json" \
+		--slurpfile plan "$$tmpdir/plan.with-proofs.json" \
+		'{schema:"cynic.local_e2e.v1", status:"ok", artifacts:$$artifacts, host_proof_status:$$host[0].status, network_proof_status:$$network[0].status, plan_status:$$plan[0].status, observed_gates:$$plan[0].observed_gates, first_blocked_layer: ($$plan[0].layers | map(select(.status == "blocked")) | first // null)}'
 
-# ── Standalone: System status ────────────────────────────────
-.PHONY: status
-status:
-	@$(source_env)
-	@echo "CYNIC System Status"
-	@echo "═══════════════════"
-	@HOST=$$(echo $${CYNIC_REST_ADDR} | cut -d: -f1); \
-	printf "Kernel:  "; HTTP=$$(curl -s -o /dev/null -w '%{http_code}' $${CYNIC_API_KEY:+-H "Authorization: Bearer $${CYNIC_API_KEY}"} "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null); [ "$$HTTP" = "200" ] && echo "healthy ($$HTTP)" || echo "DEGRADED (HTTP $${HTTP:-000})"; \
-	if [ "$$HOST" = "localhost" ] || [ "$$HOST" = "127.0.0.1" ]; then \
-		printf "SurrealDB: "; surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"; \
-		printf "Services: "; systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""; \
-	else \
-		printf "SurrealDB (Remote): "; ssh "$$HOST" surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"; \
-		printf "Services (Remote): "; ssh "$$HOST" systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""; \
-	fi
-	@printf "Hooks: "; $(MAKE) --no-print-directory verify-hooks >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
-	@printf "Units: "; $(MAKE) --no-print-directory verify-systemd-units >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
-	@printf "Runtime: "; $(MAKE) --no-print-directory runtime-check >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
-	@printf "Git: "; git -C $(PROJECT_DIR) rev-parse --abbrev-ref HEAD; git -C $(PROJECT_DIR) log --oneline -1
-	@printf "Backup: "; ls -t ~/.surrealdb/backups/*.surql 2>/dev/null | head -1 || echo "none"
+.PHONY: build
+build: ## Experimental binary build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
+	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli
 
-.PHONY: logs
-logs: ## Stream kernel logs remotely via SSH (derives host from CYNIC_REST_ADDR)
-	@$(source_env); \
-	HOST=$$(echo $${CYNIC_REST_ADDR} | cut -d: -f1); \
-	if [ -z "$$HOST" ]; then echo "ERROR: CYNIC_REST_ADDR not set"; exit 1; fi; \
-	if [ "$$HOST" = "localhost" ] || [ "$$HOST" = "127.0.0.1" ]; then \
-		echo "▶ Streaming local logs..."; \
-		journalctl --user -u cynic-kernel -n 100 -f; \
-	else \
-		echo "▶ Streaming remote logs from $$HOST..."; \
-		ssh "$$HOST" journalctl --user -u cynic-kernel -n 100 -f; \
-	fi
+.PHONY: build-release
+build-release: ## Experimental release build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
+	@$(RELEASE_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli --release
 
-.PHONY: runtime-truth
-runtime-truth:
-	@$(source_env)
-	@bash $(PROJECT_DIR)/scripts/runtime-truth.sh
+.PHONY: test
+test: ## Run tests for low-layer core crates
+	@echo "warning: on 2026-07-16 rustc 1.96.0 can still ICE while compiling workspace tests; TEST_RUST_ENV already disables incremental compilation"
+	@$(TEST_RUST_ENV) $(CARGO) test $(foreach crate,$(CORE_CRATES),-p $(crate))
 
-.PHONY: runtime-check
-runtime-check:
-	@$(source_env)
-	@$(MAKE) --no-print-directory verify-systemd-units
-	@bash $(PROJECT_DIR)/scripts/runtime-truth.sh check
+.PHONY: kani-node-mesh
+kani-node-mesh: ## Run Kani proofs for low-layer mesh planning invariants (requires `cargo kani setup`)
+	@$(RUST_ENV) $(CARGO) kani -p cynic-node
 
-# ── Benchmark: Empirical evaluation against running kernel ───
-.PHONY: benchmark
-benchmark:
-	@$(source_env)
-	@python3 $(PROJECT_DIR)/scripts/benchmark.py --save
+.PHONY: kani-low-layers
+kani-low-layers: ## Run aggregated low-layer Kani proofs for cynic-node (requires `cargo kani setup`)
+	@$(RUST_ENV) $(CARGO) kani -p cynic-node --lib --exact \
+		--harness dns_contract::verification::proof_default_dns_zone_constant_is_stable \
+		--harness dns_contract::verification::proof_dns_bundle_files_shape_is_stable \
+		--harness dns_contract::verification::proof_dns_policy_surface_tracks_requested_zone \
+		--harness dns_contract::verification::proof_dns_required_modes_are_uniform_0644 \
+		--harness dns_contract::verification::proof_dns_source_lists_keep_canonical_guardrails \
+		--harness network_mesh_plan::verification::proof_address_plane_prefers_declared_service_plane \
+		--harness network_mesh_plan::verification::proof_address_plane_falls_back_to_canonical_plane \
+		--harness network_mesh_plan::verification::proof_address_plane_defaults_to_synapse_without_match \
+		--harness network_mesh_plan::verification::proof_default_dns_names_follow_zone_presence \
+		--harness network_mesh_apply_plan::command_plan_verification::proof_route_install_uses_injected_ip_bin_and_mesh_interface \
+		--harness network_mesh_apply_plan::command_plan_verification::proof_post_apply_observation_adds_dns_probe_only_when_dns_exists \
+		--harness network_mesh_apply_plan::command_plan_verification::proof_firewall_preflight_reports_acl_cardinality_and_cidr \
+		--harness network_mesh_apply_plan::command_plan_verification::proof_rollback_plan_includes_route_removal_and_tail_expectations \
+		--harness network_mesh_apply_plan::command_plan_verification::proof_dns_install_is_bundle_relative \
+		--harness network_mesh_apply_plan::policy_verification::proof_mesh_policy_exposes_stable_profile_order_and_count \
+		--harness network_mesh_apply_plan::policy_verification::proof_mesh_policy_forbidden_tokens_keep_shell_escape_vectors_blocked \
+		--harness network_mesh_apply_plan::policy_verification::proof_mesh_policy_preserves_argv_surfaces_verbatim \
+		--harness network_root_policy::verification::proof_root_policy_keeps_denial_contract_shape \
+		--harness network_root_policy::verification::proof_remediation_to_profile_maps_only_root_network_actions \
+		--harness network_root_policy::verification::proof_dns_remediation_never_becomes_root_profile \
+		--harness network_root_policy::verification::proof_allowed_profiles_only_contains_root_remediations
 
-.PHONY: install-systemd-units
-install-systemd-units:
-	@bash $(PROJECT_DIR)/scripts/install-systemd-units.sh
+.PHONY: run-kernel
+run-kernel: ## Run the kernel locally
+	@$(RUST_ENV) $(CARGO) run -p cynic-kernel
 
-.PHONY: verify-systemd-units
-verify-systemd-units:
-	@bash $(PROJECT_DIR)/scripts/verify-systemd-units.sh
+.PHONY: run-node
+run-node: ## Run the node locally
+	@$(RUST_ENV) $(CARGO) run -p cynic-node
 
-# ── Standalone: Manual backup ────────────────────────────────
-.PHONY: backup
-backup:
-	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
-		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS in ~/.cynic-env}" \
-		~/.surrealdb/backups/cynic_v2_$$(date +%Y%m%d_%H%M%S).surql
-	@echo "✓ Backup saved"
+.PHONY: run-mcp
+run-mcp: ## Run the MCP proxy locally over stdio
+	@$(RUST_ENV) $(CARGO) run -p cynic-mcp
 
-# ── Scope Management ─────────────────────────────────────────
-.PHONY: scope
-scope:  ## make scope SLUG=rest-audit — create isolated worktree for an ILC
-	@if [ -z "$(SLUG)" ]; then echo "ERROR: provide SLUG=<name> (e.g. make scope SLUG=rest-audit)" >&2; exit 1; fi
-	@BRANCH="session/$$(id -un)/$(SLUG)"; \
-	WORKTREE="$(PROJECT_DIR)/../cynic-$(SLUG)"; \
-	git worktree add -b "$$BRANCH" "$$WORKTREE"; \
-	echo ""; \
-	echo "✓ Worktree: $$WORKTREE"; \
-	echo "✓ Branch:   $$BRANCH"; \
-	echo ""; \
-	echo "Next steps:"; \
-	echo "  1. cynic_coord_register(agent_id, intent)"; \
-	echo "  2. cynic_coord_claim(agent_id, <target-file>)"; \
-	echo "  3. cd $$WORKTREE && work"; \
-	echo "  4. make check && cynic_coord_release(agent_id, <target-file>)"; \
-	echo "  5. make done SLUG=$(SLUG) when finished"
+.PHONY: install-user-bins
+install-user-bins: build ## Install release binaries into ~/bin
+	@mkdir -p "$$HOME/bin"
+	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-kernel" "$$HOME/bin/cynic-kernel"
+	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-node" "$$HOME/bin/cynic-node"
+	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-mcp" "$$HOME/bin/cynic-mcp"
+	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic" "$$HOME/bin/cynic"
 
-.PHONY: done
-done:  ## make done SLUG=rest-audit — remove worktree and branch
-	@if [ -z "$(SLUG)" ]; then echo "ERROR: provide SLUG=<name>" >&2; exit 1; fi
-	@BRANCH="session/$$(id -un)/$(SLUG)"; \
-	WORKTREE="$(PROJECT_DIR)/../cynic-$(SLUG)"; \
-	git worktree remove "$$WORKTREE" 2>/dev/null && echo "✓ Worktree removed" || echo "Note: worktree not found (may already be removed)"; \
-	git branch -d "$$BRANCH" 2>/dev/null && echo "✓ Branch $$BRANCH deleted" || echo "Note: delete branch manually if merge is pending"; \
-	echo "✓ Scope $(SLUG) released"
-
-.PHONY: agents
-agents:  ## Show active agents and work claims (requires kernel running)
-	@$(source_env)
-	@curl -sf -H "Authorization: Bearer $${CYNIC_API_KEY}" "http://$${CYNIC_REST_ADDR}/agents" | python3 -m json.tool 2>/dev/null || { [ -n "$${CYNIC_REST_ADDR:-}" ] && echo "ERROR: kernel not responding at $${CYNIC_REST_ADDR}" || echo "ERROR: CYNIC_REST_ADDR not set — source ~/.cynic-env first"; }
-
-	if [ $$FAIL -eq 0 ]; then echo "✓ All lint-drift checks pass"; fi; \
-	exit $$FAIL
-
-.PHONY: calibrate-token-conviction-only
-calibrate-token-conviction-only: ## Validate conviction-only token baseline (100% accuracy on 28 tokens)
-	@echo ""
-	@echo "▶ Measuring token conviction→verdict mapping accuracy..."
-	@python3 $(PROJECT_DIR)/services/cynic-python/heuristics/measure_conviction_only.py
+.PHONY: systemd-list
+systemd-list: ## List remaining runtime unit templates
+	@find infra/systemd -maxdepth 1 -type f | sort

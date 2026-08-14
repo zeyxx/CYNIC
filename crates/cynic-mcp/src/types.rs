@@ -1,10 +1,42 @@
-//! MCP tool parameter types — proxy's own contract (duplicated from kernel, free to diverge).
+//! MCP tool parameter types — proxy projection over canonical host/runtime contracts.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use rmcp::ErrorData as McpError;
 use schemars::JsonSchema;
 use serde::Deserialize;
+
+// ── API discovery ─────────────────────────────────────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ApiContractsParams {
+    /// Which API contract to fetch: manifest, openapi, topology, or layer_alignment.
+    pub contract: Option<String>,
+}
+
+// ── Docker ───────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct DockerContainerListParams {
+    /// Include stopped containers. Defaults to true.
+    pub all: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct DockerContainerLogsParams {
+    /// Container name or id.
+    pub container: String,
+    /// Return the last N log lines. Defaults to 200.
+    pub tail: Option<u32>,
+    /// Include timestamps in the output. Defaults to true.
+    pub timestamps: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct DockerContainerInspectParams {
+    /// Container name or id.
+    pub container: String,
+}
 
 // ── MCP Rate Limiter ──────────────────────────────────────────
 
@@ -99,153 +131,34 @@ pub fn validate_agent_id(agent_id: &Option<String>) -> Result<(), McpError> {
     Ok(())
 }
 
+pub fn validate_agent_task_content(
+    kind: &str,
+    domain: &str,
+    content: &str,
+) -> Result<(), McpError> {
+    cynic_host::lifecycle::forge_task_contract::validate_repo_affecting_hermes_task(
+        kind,
+        domain,
+        content,
+        load_registry().as_ref(),
+    )
+    .map_err(|message| McpError::invalid_params(message, None))?;
+    Ok(())
+}
+
+fn load_registry() -> Option<serde_json::Value> {
+    cynic_host::runtime_registry::load_runtime_registry(None)
+}
+
 // ── MCP Tool Parameters ─────────────────────────────────────
 
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct JudgeParams {
-    pub content: String,
-    pub context: Option<String>,
-    pub domain: Option<String>,
-    pub dogs: Option<Vec<String>>,
-    pub agent_id: Option<String>,
-    pub crystals: Option<bool>,
-    /// Optional: sensitivity level. "high" forces routing to sovereign (local) Dogs only.
-    /// Use for private content: DMs, wallet seeds, API keys. Default: none (auto-detected).
-    pub sensitivity: Option<String>,
-    /// Optional: slot acquisition priority. Controls queuing on sovereign inference.
-    /// Values: "user" (30s wait, default), "hermes" (15s), "nightshift" (skip if busy), "background" (skip).
-    pub priority: Option<String>,
-}
+// --- Coordination / transport-agnostic payloads -------------------------------
 
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListParams {
-    pub limit: Option<u32>,
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct InferParams {
-    pub system: Option<String>,
-    pub prompt: String,
-    pub agent_id: Option<String>,
-    pub temperature: Option<f64>,
-    pub max_tokens: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct MetabolismParams {
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ComplianceParams {
-    /// Agent ID to score compliance for. If omitted, returns recent trend.
-    pub agent_id: Option<String>,
-    /// Number of recent compliance records to return (trend mode). Default: 20.
-    pub limit: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct AuditQueryParams {
-    pub tool: Option<String>,
-    pub agent_id: Option<String>,
-    pub limit: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct AuthParams {
-    pub api_key: String,
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ValidateParams {
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct GitParams {
-    pub op: crate::local_tools::GitOp,
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct RegisterParams {
-    pub agent_id: String,
-    pub intent: String,
-    pub agent_type: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ClaimParams {
-    pub agent_id: String,
-    pub target: String,
-    pub claim_type: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct BatchClaimParams {
-    pub agent_id: String,
-    pub targets: Vec<String>,
-    pub claim_type: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ReleaseParams {
-    pub agent_id: String,
-    pub target: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct WhoParams {
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ObserveParams {
-    pub tool: String,
-    pub target: Option<String>,
-    pub domain: Option<String>,
-    pub status: Option<String>,
-    pub context: Option<String>,
-    pub project: Option<String>,
-    pub agent_id: Option<String>,
-    pub session_id: Option<String>,
-    pub tags: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct DispatchAgentTaskParams {
-    pub kind: String,    // "hermes" | "nightshift" | future agent
-    pub domain: String,  // "twitter" | "token" | "on-chain"
-    pub content: String, // task payload
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListPendingAgentTasksParams {
-    pub kind: String,
-    pub limit: Option<u32>,
-    pub agent_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct UpdateAgentTaskResultParams {
-    pub task_id: String,
-    pub result: Option<String>,
-    pub error: Option<String>,
-    pub agent_id: Option<String>,
+fn default_coordination_contract_version() -> String {
+    "coordination-event-v1".to_string()
 }
 
 // ── Tests ────────────────────────────────────────────────────
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ProxmoxActionParams {
-    pub node: String,
-    pub target_type: String, // "qemu" or "lxc"
-    pub vmid: u64,
-    pub action: String, // "start", "stop", "reboot", "suspend", "resume"
-}
 
 #[cfg(test)]
 mod tests {
@@ -311,6 +224,29 @@ mod tests {
     }
 
     #[test]
+    fn observe_params_accepts_k15_ledger_fields() {
+        let r = serde_json::from_value::<ObserveParams>(serde_json::json!({
+            "tool": "repo_edit",
+            "domain": "mempool",
+            "status": "critical",
+            "consumer": "organ-forge",
+            "action": "verify lifecycle dispatch read-back",
+            "confidence": "observed",
+            "value": {"task_id": "agent_tasks:test"},
+            "depends_on": ["agent_tasks:test"],
+            "maturity": 0.9
+        }));
+
+        let params = r.expect("ObserveParams should accept K15 ledger fields");
+        assert_eq!(params.consumer.as_deref(), Some("organ-forge"));
+        assert_eq!(params.confidence.as_deref(), Some("observed"));
+        assert_eq!(
+            params.depends_on.as_deref(),
+            Some(&["agent_tasks:test".to_string()][..])
+        );
+    }
+
+    #[test]
     fn poison_git_params_rejects_empty() {
         let r = serde_json::from_value::<GitParams>(serde_json::json!({}));
         assert!(r.is_err(), "GitParams should require 'op'");
@@ -325,6 +261,118 @@ mod tests {
         );
     }
 
+    fn activation_evidence_contract() -> serde_json::Value {
+        serde_json::json!({
+            "patch_field": "activation_evidence_patch",
+            "node_field": "node",
+            "runtime_paths_field": "activation_evidence.runtime_paths",
+            "services_field": "activation_evidence.services",
+            "verified_requires": ["marker_exists", "sentinels_verified"],
+            "service_active_requires": ["declared", "active"],
+            "ingestion_mode": "validated_merge",
+        })
+    }
+
+    #[test]
+    fn dispatch_agent_task_content_accepts_coord_targets_for_forge() {
+        let content = serde_json::json!({
+            "lifecycle": "kernel_release",
+            "objective": "build kernel release",
+            "orchestrator_organ": "organ-forge",
+            "build_target": "local-builder",
+            "build_runner_role": "build_runner",
+            "deploy_target": "local-kernel",
+            "deploy_target_role": "kernel_primary",
+            "runtime_paths": {"repo_root": "%h/.cynic/repos/${CYNIC_PROJECT_SLUG}"},
+            "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
+            "activation_evidence_contract": activation_evidence_contract(),
+            "coord_targets": ["crates/cynic-kernel", "infra/registry.json"]
+        })
+        .to_string();
+
+        let r = validate_agent_task_content("hermes", "organ-forge", &content);
+
+        assert!(r.is_ok());
+    }
+
+    #[test]
+    fn dispatch_agent_task_content_rejects_forge_without_targets() {
+        let content = serde_json::json!({
+            "objective": "build kernel release"
+        })
+        .to_string();
+
+        let r = validate_agent_task_content("hermes", "organ-forge", &content);
+
+        assert!(
+            r.is_err(),
+            "repo-affecting forge tasks should declare coordination targets"
+        );
+    }
+
+    #[test]
+    fn dispatch_agent_task_content_rejects_forge_without_lifecycle_contract() {
+        let content = serde_json::json!({
+            "objective": "build kernel release",
+            "coord_targets": ["crates/cynic-kernel", "infra/registry.json"]
+        })
+        .to_string();
+
+        let r = validate_agent_task_content("hermes", "organ-forge", &content);
+
+        assert!(
+            r.is_err(),
+            "repo-affecting forge tasks should declare lifecycle contract"
+        );
+    }
+
+    #[test]
+    fn dispatch_agent_task_content_follows_dynamic_registry_contract() {
+        let registry = serde_json::json!({
+            "lifecycle": {
+                "kernel_release": {
+                    "orchestrator_organ": "organ-build",
+                    "build_runner_role": "builder",
+                    "deploy_target_role": "primary",
+                    "deploy_target_flag": "ships_kernel",
+                    "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+                    "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
+                    "activation_evidence_contract": activation_evidence_contract()
+                }
+            },
+            "nodes": [
+                {"name": "node-builder", "role": "builder"},
+                {"name": "node-primary", "role": "primary", "ships_kernel": true}
+            ]
+        });
+        let content = serde_json::json!({
+            "lifecycle": "kernel_release",
+            "orchestrator_organ": "organ-build",
+            "build_target": "node-builder",
+            "build_runner_role": "builder",
+            "deploy_target": "node-primary",
+            "deploy_target_role": "primary",
+            "runtime_paths": {"repo_root": "%h/.cynic/repos/CYNIC"},
+            "runtime_path_proofs": {"repo_root": {"kind": "git_worktree", "marker": ".git", "sentinels": ["AGENTS.md", "infra/registry.json"]}},
+            "activation_evidence_contract": activation_evidence_contract(),
+            "coord_targets": ["infra/registry.json"]
+        });
+
+        let result = cynic_host::lifecycle::forge_task_contract::validate_forge_lifecycle_contract(
+            &content,
+            Some(&registry),
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn dispatch_agent_task_content_allows_non_forge_without_targets() {
+        let r = validate_agent_task_content("hermes", "telegram", r#"{"objective":"observe"}"#);
+
+        assert!(r.is_ok());
+    }
+
     #[test]
     fn poison_list_pending_params_rejects_empty() {
         let r = serde_json::from_value::<ListPendingAgentTasksParams>(serde_json::json!({}));
@@ -332,6 +380,21 @@ mod tests {
             r.is_err(),
             "ListPendingAgentTasksParams should require 'kind'"
         );
+    }
+
+    #[test]
+    fn poison_watch_pending_params_rejects_empty() {
+        let r = serde_json::from_value::<WatchPendingAgentTasksParams>(serde_json::json!({}));
+        assert!(
+            r.is_err(),
+            "WatchPendingAgentTasksParams should require 'kind'"
+        );
+    }
+
+    #[test]
+    fn poison_claim_task_params_rejects_empty() {
+        let r = serde_json::from_value::<ClaimAgentTaskParams>(serde_json::json!({}));
+        assert!(r.is_err(), "ClaimAgentTaskParams should require 'task_id'");
     }
 
     #[test]
@@ -423,3 +486,11 @@ mod tests {
         assert!(rl.check_other().is_err());
     }
 }
+
+include!("types_split/coord.rs");
+include!("types_split/task.rs");
+include!("types_split/network.rs");
+include!("types_split/infra.rs");
+include!("types_split/fleet.rs");
+include!("types_split/storage.rs");
+include!("types_split/identity.rs");

@@ -93,7 +93,9 @@ impl HeliusEnricher {
                 .build()
                 .unwrap_or_default(),
             rpc_url: format!("https://mainnet.helius-rpc.com/?api-key={api_key}"),
-            credits: Arc::new(HeliumsCreditTracker::new(chrono::Utc::now().to_rfc3339())),
+            credits: Arc::new(HeliumsCreditTracker::new(
+                chrono::Utc::now().timestamp_millis().to_string(),
+            )),
             kscore_config: crate::infra::config::KScoreConfig::default(),
         }
     }

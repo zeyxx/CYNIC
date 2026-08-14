@@ -17,7 +17,7 @@ use crate::infra::task_health::TaskHealth;
 
 /// Organ remediation loop — restarts silent organs via ssh_restart().
 /// Independent from Dog remediation (different trigger: silence, not circuit open).
-pub fn spawn_organ_remediation(
+pub(super) fn spawn_organ_remediation(
     organ_configs: Vec<OrganRemediation>,
     storage: Arc<dyn crate::domain::storage::StoragePort>,
     task_health: Arc<TaskHealth>,
@@ -42,8 +42,8 @@ pub fn spawn_organ_remediation(
                         storage.last_observation_per_source(),
                     ).await {
                         Ok(Ok(s)) => s,
-                        Ok(Err(e)) => {
-                            tracing::debug!(error = %e, "organ remediation: storage query failed");
+                        Ok(Err(_e)) => {
+                            tracing::debug!( "organ remediation: storage query failed");
                             task_health.touch_remediation();
                             continue;
                         }
@@ -61,11 +61,12 @@ pub fn spawn_organ_remediation(
                             .find(|(source, _, _)| source == &organ_config.source)
                             .and_then(|(_, last_at, _)| {
                                 chrono::DateTime::parse_from_rfc3339(last_at)
-                                    .map_err(|e| tracing::debug!(error = %e, last_at, "organ remediation: bad timestamp"))
+                                    .map(|t| t.with_timezone(&chrono::Utc))
+                                    .map_err(|_err| tracing::debug!(last_at, "organ remediation: bad timestamp"))
                                     .ok()
                             })
                             .map(|t| {
-                                (now - t.with_timezone(&chrono::Utc))
+                                now.signed_duration_since(t)
                                     .num_seconds()
                                     .max(0) as u64
                             })

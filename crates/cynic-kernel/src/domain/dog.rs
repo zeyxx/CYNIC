@@ -125,7 +125,10 @@ pub struct DogScore {
 }
 
 // ── PHI-BOUNDED Q-SCORE ────────────────────────────────────
-/// The kernel's final score. Every value capped at phi^-1 (0.618).
+/// The kernel's final uncertainty score (Compass Signal).
+/// Instead of a consensus mean, it represents the geometric mean of the variance/spread
+/// across all Dogs for each axiom. Every value capped at phi^-1 (0.618).
+/// Low QScore = High Consensus (Bark). High QScore = High Uncertainty (Howl/Epoche).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QScore {
     pub total: f64,
@@ -156,7 +159,7 @@ pub struct Verdict {
     pub reasoning: AxiomReasoning,
     pub dog_id: String,
     pub stimulus_summary: String,
-    pub timestamp: String,
+    pub timestamp: i64,
     #[serde(default)]
     pub dog_scores: Vec<DogScore>,
     #[serde(default)]
@@ -341,8 +344,8 @@ pub trait Dog: Send + Sync {
     /// Backend health — cascades from the underlying inference provider.
     /// Default: Healthy (correct for DeterministicDog and any in-process evaluator).
     /// InferenceDog delegates to its ChatPort's BackendPort::health().
-    async fn health(&self) -> crate::domain::inference::BackendStatus {
-        crate::domain::inference::BackendStatus::Healthy
+    async fn health(&self) -> cynic_inference::inference::BackendStatus {
+        cynic_inference::inference::BackendStatus::Healthy
     }
 
     /// Evaluate a stimulus, return raw axiom scores (NOT phi-bounded)

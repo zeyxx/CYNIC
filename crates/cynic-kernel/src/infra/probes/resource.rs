@@ -134,7 +134,7 @@ impl crate::domain::probe::Probe for ResourceProbe {
         .map_err(|e| ProbeError::Internal(format!("spawn_blocking join error: {e}")))?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         Ok(ProbeResult {
             name: "resource".to_string(),

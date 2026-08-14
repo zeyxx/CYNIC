@@ -8,6 +8,7 @@ use rmcp::{
 
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
 use crate::domain::health_gate::count_healthy_dogs;
+use cynic_inference::domain::SlotPriority;
 
 use super::{
     AuditQueryParams, AuthParams, ComplianceParams, CrystalObserveParams, CrystalShatterParams,
@@ -138,8 +139,8 @@ impl CynicMcp {
             priority: p
                 .priority
                 .as_deref()
-                .and_then(crate::domain::slot_semaphore::SlotPriority::from_str_opt)
-                .unwrap_or(crate::domain::slot_semaphore::SlotPriority::User),
+                .and_then(SlotPriority::from_str_opt)
+                .unwrap_or(SlotPriority::User),
         };
         let result = crate::pipeline::run(
             p.content.clone(),
@@ -385,7 +386,7 @@ impl CynicMcp {
             format!("{hash:x}")
         });
 
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         self.storage
             .observe_crystal_hypha(
@@ -393,7 +394,7 @@ impl CynicMcp {
                 &p.content,
                 &p.domain,
                 p.score,
-                &timestamp,
+                timestamp,
                 &p.source,
                 p.sentiment.as_deref(),
             )
@@ -438,10 +439,10 @@ impl CynicMcp {
             return Err(McpError::invalid_params("reason must not be empty", None));
         }
 
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        let timestamp = chrono::Utc::now().timestamp_millis();
 
         self.storage
-            .shatter_crystal(&p.crystal_id, &p.reason, &p.source, &timestamp)
+            .shatter_crystal(&p.crystal_id, &p.reason, &p.source, timestamp)
             .await
             .map_err(|e| {
                 tracing::warn!(error = %e, crystal_id = p.crystal_id, "MCP crystal shatter failed");
@@ -492,7 +493,7 @@ impl CynicMcp {
         let temperature = p.temperature.unwrap_or(0.7).clamp(0.0, 2.0);
         let max_tokens = p.max_tokens.unwrap_or(2048).min(8192);
 
-        let request = crate::domain::inference::InferRequest {
+        let request = cynic_inference::inference::InferRequest {
             system: p.system,
             prompt: p.prompt.clone(),
             temperature,
@@ -541,7 +542,13 @@ impl CynicMcp {
 
         match self
             .coord
-            .query_audit(p.tool.as_deref(), p.agent_id.as_deref(), limit)
+            .query_audit(
+                p.tool.as_deref(),
+                p.agent_id.as_deref(),
+                p.since.as_deref(),
+                p.until.as_deref(),
+                limit,
+            )
             .await
         {
             Ok(results) => Ok(CallToolResult::success(vec![Content::text(

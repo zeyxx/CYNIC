@@ -368,11 +368,10 @@ async fn handle_node_connection(
         tokio::select! {
             // Incoming from TASK BROKER (Kernel → Organ/Dev)
             Ok(broadcast_msg) = task_rx.recv() => {
-                if let Ok(json) = serde_json::to_string(&broadcast_msg) {
-                    if sender.send(axum::extract::ws::Message::Text(json.into())).await.is_err() {
+                if let Ok(json) = serde_json::to_string(&broadcast_msg)
+                    && sender.send(axum::extract::ws::Message::Text(json.into())).await.is_err() {
                         break;
                     }
-                }
             }
 
             // Incoming message from node

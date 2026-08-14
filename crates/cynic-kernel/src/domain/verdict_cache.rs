@@ -6,7 +6,7 @@
 //! Miss → evaluate normally, then store embedding + verdict for future lookups.
 
 use crate::domain::dog::Verdict;
-use crate::domain::embedding::Embedding;
+use cynic_inference::embedding::Embedding;
 use std::collections::VecDeque;
 use std::sync::RwLock;
 
@@ -179,7 +179,7 @@ mod tests {
             reasoning: AxiomReasoning::default(),
             dog_id: "test".to_string(),
             stimulus_summary: "test".to_string(),
-            timestamp: "2026-01-01T00:00:00Z".to_string(),
+            timestamp: 1_767_225_600_000,
             dog_scores: vec![],
             anomaly_detected: false,
             max_disagreement: 0.0,

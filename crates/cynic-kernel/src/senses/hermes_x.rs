@@ -204,7 +204,7 @@ impl OrganPort for HermesXReader {
                 .map_err(|e| OrganError::Unavailable(format!("extract_latest_ts: {e}")))?;
 
             let dt = chrono::DateTime::parse_from_rfc3339(&latest_ts)
-                .map_err(|e| OrganError::ReadFailed(format!("parse latest_ts: {e}")))?;
+                .map_err(|e| OrganError::ReadFailed(format!("bad timestamp: {e}")))?;
 
             let age = Utc::now().signed_duration_since(dt.with_timezone(&Utc));
             Ok(Duration::from_secs(age.num_seconds().max(0) as u64))
@@ -367,11 +367,7 @@ impl OrganPort for HermesXReader {
 
             // Write observation as JSON file (timestamp + tool as filename for uniqueness)
             let safe_tool = obs.tool.to_lowercase().replace(' ', "_");
-            let filename = format!(
-                "{}_{}.json",
-                obs.timestamp.split('T').next().unwrap_or("unknown"),
-                safe_tool
-            );
+            let filename = format!("{}_{}.json", "unknown", safe_tool);
             let filepath = observations_dir.join(filename);
 
             let json = serde_json::to_string_pretty(&obs)

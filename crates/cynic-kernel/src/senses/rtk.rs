@@ -13,14 +13,14 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct RtkReader {
     db_path: PathBuf,
-    project_root: String,
+    command_project_scope: Option<String>,
 }
 
 impl RtkReader {
-    pub fn new(db_path: PathBuf, project_root: String) -> Self {
+    pub fn new(db_path: PathBuf, command_project_scope: Option<String>) -> Self {
         Self {
             db_path,
-            project_root,
+            command_project_scope,
         }
     }
 
@@ -74,12 +74,12 @@ impl OrganPort for RtkReader {
         let path = self.db_path.clone();
         tokio::task::spawn_blocking(move || {
             let conn = Self::open_db(&path)?;
-            let ts: String = conn
+            let ts: i64 = conn
                 .query_row("SELECT MAX(timestamp) FROM commands", [], |row| row.get(0))
                 .map_err(|e| OrganError::ReadFailed(format!("freshness query: {e}")))?;
 
-            let parsed = chrono::DateTime::parse_from_rfc3339(&ts)
-                .map_err(|e| OrganError::ReadFailed(format!("timestamp parse: {e}")))?;
+            let parsed = chrono::DateTime::from_timestamp_millis(ts)
+                .ok_or_else(|| OrganError::ReadFailed("bad timestamp".to_string()))?;
 
             let age = Utc::now()
                 .signed_duration_since(parsed)
@@ -95,10 +95,36 @@ impl OrganPort for RtkReader {
 
     async fn snapshot(&self) -> Result<OrganSnapshot, OrganError> {
         let path = self.db_path.clone();
-        let project_filter = format!("%{}%", self.project_root);
+        let command_project_scope = self.command_project_scope.clone();
 
         tokio::task::spawn_blocking(move || {
             let conn = Self::open_db(&path)?;
+
+            let command_metrics_query = "SELECT COUNT(*), \
+                        COALESCE(SUM(input_tokens), 0), \
+                        COALESCE(SUM(output_tokens), 0), \
+                        COALESCE(SUM(saved_tokens), 0), \
+                        COALESCE(AVG(savings_pct), 0.0), \
+                        COALESCE(SUM(exec_time_ms), 0) \
+                 FROM commands";
+            let command_metrics_scoped_query = "SELECT COUNT(*), \
+                        COALESCE(SUM(input_tokens), 0), \
+                        COALESCE(SUM(output_tokens), 0), \
+                        COALESCE(SUM(saved_tokens), 0), \
+                        COALESCE(AVG(savings_pct), 0.0), \
+                        COALESCE(SUM(exec_time_ms), 0) \
+                 FROM commands WHERE project_path LIKE ?1";
+
+            let command_metrics_mapper = |row: &rusqlite::Row<'_>| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                ))
+            };
 
             let (cmd_count, input_tok, output_tok, saved_tok, avg_pct, exec_ms): (
                 i64,
@@ -107,28 +133,18 @@ impl OrganPort for RtkReader {
                 i64,
                 f64,
                 i64,
-            ) = conn
-                .query_row(
-                    "SELECT COUNT(*), \
-                            COALESCE(SUM(input_tokens), 0), \
-                            COALESCE(SUM(output_tokens), 0), \
-                            COALESCE(SUM(saved_tokens), 0), \
-                            COALESCE(AVG(savings_pct), 0.0), \
-                            COALESCE(SUM(exec_time_ms), 0) \
-                     FROM commands WHERE project_path LIKE ?1",
-                    [&project_filter],
-                    |row| {
-                        Ok((
-                            row.get(0)?,
-                            row.get(1)?,
-                            row.get(2)?,
-                            row.get(3)?,
-                            row.get(4)?,
-                            row.get(5)?,
-                        ))
-                    },
-                )
-                .map_err(|e| OrganError::ReadFailed(format!("snapshot query: {e}")))?;
+            ) = match command_project_scope {
+                Some(project_scope) => {
+                    let project_filter = format!("%{project_scope}%");
+                    conn.query_row(
+                        command_metrics_scoped_query,
+                        [&project_filter],
+                        command_metrics_mapper,
+                    )
+                }
+                None => conn.query_row(command_metrics_query, [], command_metrics_mapper),
+            }
+            .map_err(|e| OrganError::ReadFailed(format!("snapshot query: {e}")))?;
 
             let parse_failures: i64 = conn
                 .query_row("SELECT COUNT(*) FROM parse_failures", [], |row| row.get(0))
@@ -193,28 +209,19 @@ mod tests {
 
     #[tokio::test]
     async fn health_dead_when_db_missing() {
-        let reader = RtkReader::new(
-            PathBuf::from("/tmp/nonexistent_rtk_test.db"),
-            "/tmp".to_string(),
-        );
+        let reader = RtkReader::new(PathBuf::from("/tmp/nonexistent_rtk_test.db"), None);
         assert!(matches!(reader.health().await, OrganHealth::Dead { .. }));
     }
 
     #[tokio::test]
     async fn freshness_fails_when_db_missing() {
-        let reader = RtkReader::new(
-            PathBuf::from("/tmp/nonexistent_rtk_test.db"),
-            "/tmp".to_string(),
-        );
+        let reader = RtkReader::new(PathBuf::from("/tmp/nonexistent_rtk_test.db"), None);
         assert!(reader.freshness().await.is_err());
     }
 
     #[tokio::test]
     async fn snapshot_fails_when_db_missing() {
-        let reader = RtkReader::new(
-            PathBuf::from("/tmp/nonexistent_rtk_test.db"),
-            "/tmp".to_string(),
-        );
+        let reader = RtkReader::new(PathBuf::from("/tmp/nonexistent_rtk_test.db"), None);
         assert!(reader.snapshot().await.is_err());
     }
 }

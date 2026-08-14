@@ -1,27 +1,30 @@
 //! REST API — JSON interface for external clients (React, curl, etc.)
 
 pub mod agent_tasks;
+pub mod attention;
 pub mod auth;
 pub mod coord;
+pub mod coord_lease;
 pub mod data;
+pub mod discovery;
 pub mod dispatch;
-pub mod dogs;
 pub mod event;
 pub mod events;
 pub mod health;
+pub mod inference_observation;
 pub mod inference_proxy;
 pub mod inference_router;
-pub mod judge;
-pub mod judge_job;
 pub mod mail;
+pub mod mesh;
 pub mod middleware;
 pub mod mint_permit;
 pub mod observe;
 pub mod phone_numbers;
 pub mod response;
+pub mod services;
 pub mod soma;
 pub mod types;
-pub mod vercel;
+pub mod webhook;
 
 pub use types::*;
 
@@ -35,20 +38,22 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
+use self::attention::attention_handler;
 use self::auth::{auth_input_handler, auth_verify_handler};
 use self::coord::{
-    coord_backup_handler, coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
-    coord_register_handler, coord_release_handler, coord_restore_handler, coord_rollback_handler,
-    coord_scope_handler, coord_topology_handler, coord_upgrade_handler,
-    coord_upgrade_systemd_handler, coord_who_handler,
+    coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
+    coord_register_handler, coord_scope_handler, coord_topology_handler, coord_who_handler,
 };
+use self::coord_lease::{coord_finalize_handler, coord_release_handler, coord_renew_handler};
 use self::data::{
     audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
     crystal_handler, crystals_handler, delete_crystal_handler, observations_handler,
-    observe_crystal_hypha_handler, public_observations_handler, sessions_handler,
-    shatter_crystal_handler, usage_handler,
+    observe_crystal_hypha_handler, proof_of_history_handler, public_observations_handler,
+    sessions_handler, shatter_crystal_handler, usage_handler, verdicts_handler,
 };
-use self::dogs::{deregister_handler, dogs_handler, heartbeat_handler, register_dog_handler};
+use self::discovery::{
+    api_layer_alignment_handler, api_topology_handler, identity_handler, openapi_handler,
+};
 use self::event::{event_handler, fleet_stats_handler};
 use self::health::{
     agents_handler, health_handler, liveness_handler, metrics_handler, readiness_handler,
@@ -56,19 +61,23 @@ use self::health::{
 };
 use self::inference_proxy::{proxy_chat_completions, proxy_models};
 use self::inference_router::{
-    inference_candidates_handler, inference_remediate_handler, inference_route_handler,
-    inference_slots_handler, inference_start_handler, list_models_handler, remediate_handler,
+    dogs_handler, inference_candidates_handler, inference_remediate_handler,
+    inference_route_handler, inference_slots_handler, inference_start_handler, list_models_handler,
+    remediate_handler,
 };
-use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
-use self::judge_job::{judge_async_handler, judge_status_handler};
 use self::mail::{
     fetch_message, health as mail_health, inbox, mark_read, search, send, sync, unread,
 };
+use self::mesh::{list_mesh_nodes_handler, list_mesh_routes_handler, mesh_publish_handler};
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
 use self::mint_permit::mint_permit_handler;
-use self::observe::observe_handler;
+use self::observe::{judge_handler, observe_handler};
+use self::services::{
+    list_services_handler, register_service_handler, service_heartbeat_handler,
+    unregister_service_handler,
+};
 use self::soma::soma_request_handler;
-use self::vercel::{create_deployment_handler, list_deployments_handler};
+
 use crate::api::websocket::ws_handler;
 
 // ── ROUTER ─────────────────────────────────────────────────
@@ -115,45 +124,53 @@ pub fn router(state: Arc<AppState>) -> Router {
     }
 
     Router::new()
-        .route("/node/ws", axum::routing::get(ws_handler))
+        .route("/openapi.json", get(openapi_handler))
+        .route("/identity", get(identity_handler))
+        .route("/api/topology", get(api_topology_handler))
+        .route("/api/layer-alignment", get(api_layer_alignment_handler))
+        .route("/events/ws", axum::routing::get(ws_handler))
         .route("/health", get(health_handler))
+        .route("/attention", get(attention_handler))
         .route("/auth/input", get(auth_input_handler))
         .route("/auth/verify", post(auth_verify_handler))
         .route("/live", get(liveness_handler))
         .route("/ready", get(readiness_handler))
         .route("/metrics", get(metrics_handler))
         .route("/events", get(events::events_handler))
-        .route("/judge", post(judge_handler))
-        .route("/judge/async", post(judge_async_handler))
-        .route("/judge/status/{id}", get(judge_status_handler))
-        .route("/mint-permit", post(mint_permit_handler))
-        .route("/dogs", get(dogs_handler))
-        .route("/dogs/register", post(register_dog_handler))
-        .route("/dogs/{id}", axum::routing::delete(deregister_handler))
-        .route("/dogs/{id}/heartbeat", post(heartbeat_handler))
+        .route("/events", post(event_handler))
+        .route("/permits/mint", post(mint_permit_handler))
         .route("/crystals", get(crystals_handler))
-        .route("/crystal", post(create_crystal_handler))
+        .route("/crystals", post(create_crystal_handler))
         .route(
-            "/crystal/{id}",
+            "/crystals/{id}",
             get(crystal_handler).delete(delete_crystal_handler),
         )
-        .route("/crystal/{id}/observe", post(observe_crystal_hypha_handler))
-        .route("/crystal/{id}/shatter", post(shatter_crystal_handler))
-        .route("/usage", get(usage_handler))
-        .route("/verdict/{id}", get(get_verdict_handler))
-        .route("/verdicts", get(list_verdicts_handler))
-        .route("/agents", get(agents_handler))
+        .route(
+            "/crystals/{id}/observe",
+            post(observe_crystal_hypha_handler),
+        )
+        .route("/crystals/{id}/shatter", post(shatter_crystal_handler))
+        .route("/metrics/usage", get(usage_handler))
+        .route("/coord/agents", get(agents_handler))
         .route("/observations/public", get(public_observations_handler))
         .route("/observations", get(observations_handler))
         .route("/sessions", get(sessions_handler))
-        .route("/session/{agent_id}/compliance", get(compliance_handler))
+        .route("/sessions/{agent_id}/compliance", get(compliance_handler))
         .route("/compliance", get(compliance_trend_handler))
         .route("/audit", get(audit_handler))
+        .route("/proof-of-history", get(proof_of_history_handler))
         .route("/state-history", get(state_history_handler))
-        .route("/vercel/deployments", get(list_deployments_handler))
-        .route("/vercel/deploy", post(create_deployment_handler))
+        .route(
+            "/agent-proposals",
+            get(agent_tasks::list_agent_proposals_handler),
+        )
+        .route(
+            "/agent-proposals/{proposal_id}/review",
+            post(agent_tasks::review_agent_proposal_handler),
+        )
         .route("/agent-tasks", post(agent_tasks::dispatch_task_handler))
         .route("/agent-tasks", get(agent_tasks::list_tasks_handler))
+        .route("/agent-tasks/watch", get(agent_tasks::watch_tasks_handler))
         .route(
             "/agent-tasks/completed",
             get(agent_tasks::list_completed_tasks_handler),
@@ -162,17 +179,24 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/agent-tasks/{id}/result",
             post(agent_tasks::complete_task_handler),
         )
+        .route(
+            "/agent-tasks/{id}/claim",
+            post(agent_tasks::claim_task_handler),
+        )
         .route("/observe", post(observe_handler))
-        .route("/event", post(event_handler))
-        .route("/fleet-stats", get(fleet_stats_handler))
+        .route("/judge", post(judge_handler))
+        .route("/fleet/stats", get(fleet_stats_handler))
         .route("/inference/route", post(inference_route_handler))
         .route("/inference/candidates", get(inference_candidates_handler))
         .route("/inference/remediate", get(remediate_handler))
-        .route("/inference/start", post(inference_start_handler))
+        .route("/lifecycle/inference/start", post(inference_start_handler))
         .route(
-            "/inference/remediate-dog",
+            "/lifecycle/inference/remediate-dog",
             post(inference_remediate_handler),
         )
+        .route("/lifecycle/upgrade", post(inference_start_handler))
+        .route("/dogs", get(dogs_handler))
+        .route("/verdicts", get(verdicts_handler))
         .route("/inference/list-models", get(list_models_handler))
         .route("/inference/slots", get(inference_slots_handler))
         .route("/v1/chat/completions", post(proxy_chat_completions))
@@ -180,25 +204,13 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))
         .route("/coord/claim-batch", post(coord_claim_batch_handler))
+        .route("/coord/renew", post(coord_renew_handler))
         .route("/coord/release", post(coord_release_handler))
+        .route("/coord/finalize", post(coord_finalize_handler))
         .route("/coord/heartbeat", post(coord_heartbeat_handler))
         .route("/coord/scope", post(coord_scope_handler))
         .route("/coord/who", get(coord_who_handler))
         .route("/coord/topology", get(coord_topology_handler))
-        .route(
-            "/coord/upgrade",
-            post(coord_upgrade_handler).layer(DefaultBodyLimit::max(100 * 1024 * 1024)),
-        )
-        .route("/coord/rollback", post(coord_rollback_handler))
-        .route("/coord/backup", get(coord_backup_handler))
-        .route(
-            "/coord/restore",
-            post(coord_restore_handler).layer(DefaultBodyLimit::max(100 * 1024 * 1024)),
-        )
-        .route(
-            "/coord/upgrade-systemd",
-            post(coord_upgrade_systemd_handler).layer(DefaultBodyLimit::max(1 * 1024 * 1024)),
-        )
         .route(
             "/dispatch/zone-activity",
             get(dispatch::zone_activity_handler),
@@ -212,6 +224,13 @@ pub fn router(state: Arc<AppState>) -> Router {
             get(phone_numbers::reporter_stats_handler),
         )
         .route("/soma/request", post(soma_request_handler))
+        .route(
+            "/webhook/github/release",
+            post(webhook::github_release_handler),
+        )
+        .route("/mesh/publish", post(mesh_publish_handler))
+        .route("/mesh/nodes", get(list_mesh_nodes_handler))
+        .route("/mesh/routes", get(list_mesh_routes_handler))
         .route("/mail/health", get(mail_health))
         .route("/mail/inbox", get(inbox))
         .route("/mail/messages/{id}", get(fetch_message))
@@ -220,6 +239,19 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/mail/mark-read/{id}", post(mark_read))
         .route("/mail/search", post(search))
         .route("/mail/unread", get(unread))
+        // ── OS Service Process Table ──────────────────────────────────
+        // Services register/heartbeat/unregister from their own code (no scripts).
+        // GET  /services              → observed process table (all registered services)
+        // POST /services/register     → announce on startup
+        // POST /services/{id}/heartbeat → TTL refresh (from native heartbeat task)
+        // DELETE /services/{id}       → explicit shutdown announce
+        .route("/services", get(list_services_handler))
+        .route("/services/register", post(register_service_handler))
+        .route("/services/{id}/heartbeat", post(service_heartbeat_handler))
+        .route(
+            "/services/{id}",
+            axum::routing::delete(unregister_service_handler),
+        )
         .layer(axum_mw::from_fn_with_state(state.clone(), audit_middleware))
         .layer(axum_mw::from_fn_with_state(state.clone(), auth_middleware))
         .layer(axum_mw::from_fn_with_state(

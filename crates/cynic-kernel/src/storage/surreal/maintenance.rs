@@ -203,10 +203,10 @@ pub(super) async fn consolidate_duplicate_crystals(
             .collect::<Vec<_>>()
             .join(", ");
 
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = chrono::Utc::now().timestamp_millis();
         let safe_survivor = sanitize_id(&survivor_id)?;
         let safe_created = escape_surreal(&earliest_created);
-        let safe_now = escape_surreal(&now);
+        let safe_now = now;
 
         let update_sql = format!(
             "UPDATE crystal:`{safe_survivor}` SET \

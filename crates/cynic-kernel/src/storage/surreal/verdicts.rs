@@ -3,6 +3,37 @@ use crate::domain::dog::{AxiomReasoning, DogScore, QScore, Verdict, VerdictKind}
 use crate::domain::storage::StorageError;
 use crate::storage::{escape_surreal, safe_limit, sanitize_id};
 
+fn value_as_i64(row: &serde_json::Value, key: &str) -> i64 {
+    row.get(key)
+        .and_then(|v| {
+            v.as_i64()
+                .or_else(|| {
+                    v.as_str().and_then(|s| {
+                        s.parse::<i64>()
+                            .inspect_err(|e| {
+                                tracing::warn!("Failed to parse i64 from string '{}': {}", s, e)
+                            })
+                            .ok()
+                    })
+                })
+                .or_else(|| {
+                    v.as_str().and_then(|s| {
+                        chrono::DateTime::parse_from_rfc3339(s)
+                            .map(|ts| ts.timestamp_millis())
+                            .inspect_err(|e| {
+                                tracing::warn!(
+                                    "Failed to parse RFC3339 timestamp from string '{}': {}",
+                                    s,
+                                    e
+                                )
+                            })
+                            .ok()
+                    })
+                })
+        })
+        .unwrap_or(0)
+}
+
 pub(super) async fn store_verdict(
     storage: &SurrealHttpStorage,
     verdict: &Verdict,
@@ -72,6 +103,13 @@ fn verdict_to_sql(v: &Verdict) -> String {
     let integrity = v.integrity_hash.as_deref().unwrap_or("");
     let prev = v.prev_hash.as_deref().unwrap_or("");
 
+    let created_at_str = chrono::DateTime::from_timestamp(
+        v.timestamp / 1000,
+        ((v.timestamp % 1000) * 1_000_000) as u32,
+    )
+    .map(|dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+    .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string());
+
     format!(
         "CREATE verdict SET \
             verdict_id = '{}', \
@@ -131,7 +169,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
         escape(&serde_json::to_string(&v.dog_scores).unwrap_or_else(|_| "[]".to_string())),
         serde_json::to_string(&v.failed_dogs).unwrap_or_else(|_| "[]".to_string()),
         escape(&serde_json::to_string(&v.failed_dog_errors).unwrap_or_else(|_| "{}".to_string())),
-        escape(&v.timestamp),
+        created_at_str,
     )
 }
 
@@ -139,6 +177,8 @@ fn verdict_to_sql(v: &Verdict) -> String {
 /// SurrealDB HTTP API returns datetimes as ISO 8601 strings (observed on /observations).
 /// Fallback: if the value is a non-null non-string (object/number), serialize it so we
 /// capture something rather than silently returning empty.
+// WHY: This is a data structure used for deserialization, and not all fields are used directly.
+#[allow(dead_code)]
 fn extract_surreal_datetime(val: &serde_json::Value) -> String {
     if let Some(s) = val.as_str() {
         return s.to_string();
@@ -187,7 +227,7 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
         },
         dog_id: row["dog_id"].as_str().unwrap_or("").to_string(),
         stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
-        timestamp: extract_surreal_datetime(&row["created_at"]),
+        timestamp: value_as_i64(row, "created_at"),
         dog_scores: {
             let verdict_id_for_log = row["verdict_id"].as_str().unwrap_or("?");
             let voter_count_for_log = row["voter_count"].as_u64().unwrap_or(0);
@@ -287,7 +327,7 @@ mod tests {
             },
             dog_id: "deterministic".into(),
             stimulus_summary: "test stimulus".into(),
-            timestamp: "2026-03-13T12:00:00Z".into(),
+            timestamp: 1_773_403_200_000,
             dog_scores: Vec::new(),
             anomaly_detected: false,
             max_disagreement: 0.0,
@@ -337,7 +377,7 @@ mod tests {
             "reasoning_sovereignty": "no vendor lock",
             "dog_id": "inference-gemini",
             "stimulus": "test claim",
-            "created_at": "2026-03-13T10:00:00Z"
+            "created_at": "2025-03-13T10:00:00Z"
         });
 
         let v = row_to_verdict(&row);
@@ -346,7 +386,7 @@ mod tests {
         assert_eq!(v.q_score.total, 0.82);
         assert_eq!(v.q_score.sovereignty, 0.70);
         assert_eq!(v.reasoning.burn, "concise");
-        assert_eq!(v.timestamp, "2026-03-13T10:00:00Z");
+        assert_eq!(v.timestamp, 1_741_860_000_000);
         assert_eq!(v.voter_count, 0);
     }
 

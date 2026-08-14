@@ -59,7 +59,7 @@ pub struct TokenData {
     /// Off-chain description from token metadata
     pub description: Option<String>,
     /// Creation date if available
-    pub created_at: Option<String>,
+    pub created_at: Option<i64>,
     /// True if holder/concentration data was available from RPC.
     /// False = RPC degraded, holders/top1/top10/herfindahl are zero (not real).
     pub holder_data_available: bool,
@@ -162,7 +162,7 @@ pub struct HolderIdentity {
 
 /// Classification of a token holder based on buy/sell behavior.
 /// Derived from retention_ratio = current_balance / total_bought.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HolderClass {
     /// Bought more since initial purchase (retention >= accumulator_threshold, default 1.5)
     Accumulator,
