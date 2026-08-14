@@ -8,6 +8,7 @@
 pub mod docker_supervisor;
 pub mod engine_probe;
 pub mod model_store;
+pub mod process_control;
 pub mod process_supervisor;
 pub mod session_store;
 pub mod systemd_user;
@@ -15,6 +16,7 @@ pub mod vault_inventory;
 
 pub use docker_supervisor::DockerLocalRuntime;
 pub use model_store::FsModelStore;
+pub use process_control::{ProcessControlPort, SystemProcessControl};
 pub use process_supervisor::{InferenceSupervisorKind, ProcessLocalRuntime};
 pub use session_store::FsChatSessionStore;
 pub use systemd_user::SystemdUserLocalRuntime;

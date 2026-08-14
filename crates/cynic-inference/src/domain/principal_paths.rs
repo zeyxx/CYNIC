@@ -52,6 +52,17 @@ impl PrincipalPaths {
 
     /// Resolve from process environment with canonical root fallback.
     pub fn resolve() -> Self {
+        #[cfg(windows)]
+        if std::env::var_os(env_keys::PRINCIPAL_HOME).is_none()
+            && std::env::var_os(env_keys::FORCE_OPERATOR_HOME).is_none()
+        {
+            return Self::from_home(
+                PathAuthority::OperatorLocal,
+                std::env::var(env_keys::RUNTIME_USER).unwrap_or_else(|_| "cynic".into()),
+                operator_home(),
+                vec!["authority=operator_local (windows principal adapter unavailable)".into()],
+            );
+        }
         Self::resolve_with(|_| Some(PathBuf::from(DEFAULT_PRINCIPAL_HOME)))
     }
 
@@ -150,6 +161,8 @@ impl PrincipalPaths {
 
 fn operator_home() -> PathBuf {
     std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .or_else(|| std::env::var_os("LOCALAPPDATA"))
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
 }

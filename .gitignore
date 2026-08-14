@@ -18,6 +18,8 @@ rustc-ice-*.txt
 .env
 *.local
 .askesis/
+infra/wireguard/*.conf
+*.key
 
 # Runtime state and generated data
 /data/

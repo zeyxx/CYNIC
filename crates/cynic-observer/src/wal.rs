@@ -4,7 +4,7 @@ use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
 
 use crate::{EventStatus, ObserverEvent};
-use cynic_protocol::Epoch;
+use cynic_protocol::{Epoch, TemporalSnapshot};
 
 /// Une entrée dans le Write-Ahead Log.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,7 +28,8 @@ pub enum WalRecord {
     },
     /// Snapshot de l'état complet à un epoch donné.
     /// Permet la récupération rapide sans rejouer tout le WAL.
-    Snapshot {
+    /// Ce snapshot est une projection directe de `TemporalSnapshot` de cynic-protocol.
+    Snapshot(TemporalSnapshot),
         /// L'epoch auquel ce snapshot a été pris.
         epoch: Epoch,
         /// Le digest de l'état snapshot.

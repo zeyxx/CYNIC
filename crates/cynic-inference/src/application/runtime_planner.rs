@@ -1,4 +1,4 @@
-//! Build probe-driven launch plans and materialize runtime env + systemd drop-ins.
+//! Build probe-driven launch plans and materialize substrate-specific projections.
 
 use std::fs;
 use std::io::ErrorKind;
@@ -80,11 +80,11 @@ impl RuntimePlanner {
         ))
     }
 
-    /// Write runtime env + systemd drop-in so start uses probed plan (not frozen EXTRA_ARGS).
-    pub fn materialize(
+    /// Write the portable runtime environment consumed by every supervisor.
+    pub fn materialize_runtime_env(
         &self,
         plan: &RuntimeLaunchPlan,
-    ) -> Result<MaterializeReport, LocalRuntimeError> {
+    ) -> Result<RuntimeEnvMaterializeReport, LocalRuntimeError> {
         let runtime_dir = runtime_env_dir();
         fs::create_dir_all(&runtime_dir)
             .map_err(|e| LocalRuntimeError::Control(io_write_hint("create runtime env dir", e)))?;
@@ -119,13 +119,25 @@ CYNIC_PLAN_SCHEMA={schema}
         fs::write(&env_path, env_body)
             .map_err(|e| LocalRuntimeError::Control(io_write_hint("write runtime env", e)))?;
 
+        Ok(RuntimeEnvMaterializeReport {
+            runtime_env: env_path.display().to_string(),
+        })
+    }
+
+    /// Project a portable runtime environment into a systemd-user drop-in.
+    pub fn materialize_systemd_user(
+        &self,
+        plan: &RuntimeLaunchPlan,
+    ) -> Result<SystemdUserMaterializeReport, LocalRuntimeError> {
+        let runtime = self.materialize_runtime_env(plan)?;
+
         // systemd drop-in: MemoryMax + CPUQuota from probe; EnvironmentFile runtime
         let drop_dir = systemd_dropin_dir(&plan.alias);
         fs::create_dir_all(&drop_dir)
             .map_err(|e| LocalRuntimeError::Control(io_write_hint("create drop-in dir", e)))?;
         let drop_path = drop_dir.join("50-probe.conf");
         // Absolute EnvironmentFile so principal home != operator %h still works.
-        let env_for_unit = env_path.display();
+        let env_for_unit = &runtime.runtime_env;
         let drop_body = format!(
             r#"[Service]
 # probe-generated resource bounds (agnostic — not frozen 400%)
@@ -141,18 +153,33 @@ EnvironmentFile={env}
         fs::write(&drop_path, drop_body)
             .map_err(|e| LocalRuntimeError::Control(io_write_hint("write systemd drop-in", e)))?;
 
-        Ok(MaterializeReport {
-            runtime_env: env_path.display().to_string(),
+        Ok(SystemdUserMaterializeReport {
+            runtime_env: runtime.runtime_env,
             systemd_dropin: drop_path.display().to_string(),
         })
+    }
+
+    /// Compatibility projection for callers that explicitly expect systemd-user.
+    pub fn materialize(
+        &self,
+        plan: &RuntimeLaunchPlan,
+    ) -> Result<SystemdUserMaterializeReport, LocalRuntimeError> {
+        self.materialize_systemd_user(plan)
     }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
-pub struct MaterializeReport {
+pub struct RuntimeEnvMaterializeReport {
+    pub runtime_env: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SystemdUserMaterializeReport {
     pub runtime_env: String,
     pub systemd_dropin: String,
 }
+
+pub type MaterializeReport = SystemdUserMaterializeReport;
 
 fn runtime_env_dir() -> PathBuf {
     // Always under model layout / principal — never operator $HOME as authority.

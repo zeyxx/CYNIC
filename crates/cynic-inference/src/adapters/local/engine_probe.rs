@@ -84,7 +84,7 @@ fn resolve_llama_bin() -> String {
             if Path::new(c).is_file() {
                 return c.to_string();
             }
-        } else if let Ok(out) = Command::new("which").arg(c).output()
+        } else if let Ok(out) = Command::new(path_lookup_command()).arg(c).output()
             && out.status.success()
         {
             let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
@@ -94,6 +94,16 @@ fn resolve_llama_bin() -> String {
         }
     }
     "llama-server".into()
+}
+
+#[cfg(windows)]
+fn path_lookup_command() -> &'static str {
+    "where.exe"
+}
+
+#[cfg(not(windows))]
+fn path_lookup_command() -> &'static str {
+    "which"
 }
 
 fn find_plugin_dir(bin: &str) -> Option<PathBuf> {

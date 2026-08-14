@@ -416,7 +416,7 @@ pub(crate) fn execute_inference_plan(alias: &str, json: bool, apply: bool) -> Ex
     match planner.plan_for_alias(alias) {
         Ok(plan) => {
             if apply {
-                match planner.materialize(&plan) {
+                match planner.materialize_runtime_env(&plan) {
                     Ok(mat) => {
                         let body = serde_json::json!({
                             "plan": plan,

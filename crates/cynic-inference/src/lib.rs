@@ -55,7 +55,10 @@ pub use application::profile_bootstrap::{
     EnsureProfilesReport, PreferredChatBind, bind_preferred_chat_model, ensure_profiles_from_vault,
     pin_preferred_alias, resolve_start_alias, select_preferred_alias,
 };
-pub use application::runtime_planner::{MaterializeReport, RuntimePlanner};
+pub use application::runtime_planner::{
+    MaterializeReport, RuntimeEnvMaterializeReport, RuntimePlanner,
+    SystemdUserMaterializeReport,
+};
 pub use application::vault_consolidate::{
     VaultConsolidateReport, consolidate_vault, discovery_roots,
 };

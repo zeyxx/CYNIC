@@ -434,7 +434,7 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         crate::progress::progress("plan", "probe hardware + materialize runtime env/drop-in");
         let planner = crate::application::runtime_planner::RuntimePlanner::from_env();
         let plan = planner.plan_for_alias(alias)?;
-        let materialize = planner.materialize(&plan)?;
+        let materialize = planner.materialize_systemd_user(&plan)?;
 
         Self::stop_legacy_fixed_unit();
         for other in Self::list_running_aliases()? {
