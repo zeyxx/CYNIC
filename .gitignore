@@ -1,0 +1,65 @@
+# Rust build artifacts
+/target/
+crates/*/target/
+rustc-ice-*.txt
+*.pdb
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+
+# Local gates and release scratch
+.gate-*
+.gate_marker
+.release-build.json
+
+# Secrets and machine-local configuration
+.env
+*.local
+.askesis/
+
+# Runtime state and generated data
+/data/
+/logs/
+/observations/
+/tmp/
+state*.md
+*-state*.md
+message.txt
+history.txt
+
+# Tool and agent local state
+.claude/
+.antigravity/
+.cynic/
+.playwright-mcp/
+.worktrees/
+.agents/
+
+# Dependency and language caches
+/node_modules/
+package-lock.json
+.venv/
+__pycache__/
+**/__pycache__/
+**/.gradle-user-home/
+.gradle/
+# Repo-local Cargo home (offline registry cache; never commit)
+.cargo-home/
+/vendor/
+
+# Local reference material, not repo authority
+/docs/*.pptx
+
+# External exploratory checkouts
+/external/
+/web/
+
+# Binary/demo/export artifacts
+*.zip
+*.deb
+*.png
+*.mp4
+cynic-demo-output-*.txt
+cynic-demo.html

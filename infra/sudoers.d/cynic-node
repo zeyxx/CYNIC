@@ -1,0 +1,1 @@
+cynic ALL=(root) NOPASSWD: /usr/bin/pvesh get /cluster/resources *, /usr/sbin/qm start *

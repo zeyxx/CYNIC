@@ -1,0 +1,69 @@
+# Example cynic-node configuration.
+# Copy to /etc/cynic/node-<name>.toml or ~/.config/cynic/node-<name>.toml.
+#
+# L0 watchdog mode does not require [dog] or [process]:
+#
+# cynic-node --watchdog --config /etc/cynic/node-watchdog.toml
+#
+# [kernel]
+# url = "http://cynic-kernel-primary.synapse.cynic:3030"
+# api_key_env = "CYNIC_API_KEY"
+#
+# [node]
+# name = "cynic-vm-v2"
+# role = "kernel_primary"
+# constellation = "kernel"
+# services = ["cynic-kernel.service", "cynic-node.service"]
+#
+# [watchdog]
+# interval_secs = 30
+# http_timeout_secs = 5
+# registry_path = "infra/registry.json"
+#
+# Bootstrap ladder emitted by watchdog observations:
+# b0 binary_alive -> b1 local_identity_observed -> b2 kernel_reachable
+# -> b3 constellation_declared -> b4 services_sampled -> b5 runtime_actionable
+
+[kernel]
+url = "http://<TAILSCALE_CORE>:3030"
+api_key_env = "CYNIC_API_KEY"
+# heartbeat_interval_secs = 40
+
+[dog]
+name = "qwen35-9b-gpu"
+model = "qwen3.5:9b-q4_K_M"
+# base_url must be reachable FROM THE KERNEL, not from this node.
+# Use Tailscale IP for cross-machine deployment.
+base_url = "http://<TAILSCALE_GPU>:8080/v1"
+# context_size = 8192
+# timeout_secs = 60
+# api_key_env = "DOG_API_KEY"
+
+[federation]
+# Canonical runtime federation configuration. If omitted, cynic-node falls back
+# to CYNIC_API_KEY, CYNIC_NODE_PUBLIC_KEY, and $HOME/.cynic/node for compatibility.
+# kernel_ws_url = "ws://<TAILSCALE_CORE>:3030/events/ws"
+# api_key_env = "CYNIC_API_KEY"
+# node_public_key_env = "CYNIC_NODE_PUBLIC_KEY"
+# queue_dir = "/var/lib/cynic/node/queues"
+
+[process]
+command = ["llama-server", "-m", "/models/qwen3.5-9b-q4_K_M.gguf", "--port", "8080", "--ctx-size", "8192"]
+# working_dir = "/opt/llama"
+# stop_timeout_secs = 10
+
+# [process.env]
+# LLAMA_LOG_VERBOSITY = "0"
+
+[restart]
+# max_attempts = 5
+# initial_delay_secs = 2
+# max_delay_secs = 120
+# min_uptime_secs = 10
+
+[health]
+# interval_secs = 15
+# verify_interval_secs = 60
+# timeout_secs = 5
+# max_failures = 3
+# startup_timeout_secs = 120

@@ -1,0 +1,593 @@
+//! Frictionless chat endpoint resolution via **CYNIC SSOT + DNS**, not operator env as law.
+//!
+//! Order (first usable wins):
+//! 1. Breakglass `CYNIC_CHAT_ENDPOINT` (explicit operator override only)
+//! 2. CYNIC inference config (`inference.toml` — principal runtime config then /etc)
+//! 3. Synapse DNS names (`inference.synapse.cynic`, `llama.synapse.cynic`, …)
+//! 4. ODS / local OpenAI-compat discovery (when `--ods` or as last probe)
+//!
+//! Never silently falls back to mock.
+
+use std::process::Command;
+
+use serde::{Deserialize, Serialize};
+
+use crate::adapters::ods::{ODS_SURFACE, ODS_UPSTREAM, discover_ods_services};
+use crate::config_loader::{
+    InferenceConfigError, LoadedInferenceConfig, load_inference_config_from_path_public,
+};
+use crate::domain::model_layout::default_ods_probe_bases;
+use crate::domain::principal_paths::PrincipalPaths;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ChatEndpointSource {
+    /// Explicit CYNIC_CHAT_ENDPOINT breakglass.
+    Env,
+    /// From CYNIC inference.toml SSOT.
+    InferenceConfig,
+    /// Resolved via synapse DNS network.
+    Dns,
+    /// Osmantic ODS discovery adapter.
+    Ods,
+    /// Local OpenAI-compat probe (loopback ports).
+    NativeProbe,
+    Mock,
+    None,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatEndpointResolution {
+    pub schema: &'static str,
+    pub ready: bool,
+    pub source: ChatEndpointSource,
+    pub endpoint: Option<String>,
+    pub model: Option<String>,
+    pub backend_name: Option<String>,
+    /// Resolved API key material (never logged). From backend env inject or chat key file.
+    #[serde(skip_serializing)]
+    pub api_key: Option<String>,
+    pub detail: String,
+    pub candidates: Vec<String>,
+    pub dns_zone: String,
+    pub config_path: Option<String>,
+}
+
+const DEFAULT_DNS_ZONE: &str = "synapse.cynic";
+
+/// Resolve chat backend. `prefer_ods` elevates ODS discovery before loopback-only probe.
+pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
+    let dns_zone = std::env::var("CYNIC_DNS_ZONE").unwrap_or_else(|_| DEFAULT_DNS_ZONE.into());
+    let mut candidates = Vec::new();
+
+    // 1. Breakglass env
+    if let Ok(ep) = std::env::var("CYNIC_CHAT_ENDPOINT") {
+        let ep = ep.trim().trim_end_matches('/').to_string();
+        if !ep.is_empty() {
+            let model = std::env::var("CYNIC_CHAT_MODEL")
+                .ok()
+                .filter(|s| !s.is_empty());
+            return ChatEndpointResolution {
+                schema: "cynic.chat.endpoint.v1",
+                ready: true,
+                source: ChatEndpointSource::Env,
+                endpoint: Some(ep),
+                model,
+                backend_name: None,
+                api_key: resolve_chat_api_key(None),
+                detail: "breakglass CYNIC_CHAT_ENDPOINT".into(),
+                candidates,
+                dns_zone,
+                config_path: None,
+            };
+        }
+    }
+
+    let source_pref = std::env::var("CYNIC_CHAT_SOURCE")
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+    let want_ods = prefer_ods || source_pref == "ods";
+
+    // 2. When operator asks for ODS/peer preference, probe live peers *before*
+    //    stale inference.toml so `--ods` is truthful (loose attach, not SSOT lock).
+    if want_ods
+        && let Some(res) = resolve_from_peer_discovery(&mut candidates, &dns_zone, true).await
+    {
+        return res;
+    }
+
+    // 3. CYNIC inference.toml (authority plane)
+    if let Some((loaded, path)) = load_chat_inference_config() {
+        for b in &loaded.backends {
+            candidates.push(format!("config:{} -> {}", b.name, b.base_url));
+        }
+        // Prefer first sovereign backend; else first backend.
+        let backend = loaded
+            .backends
+            .iter()
+            .find(|b| b.sovereign)
+            .or_else(|| loaded.backends.first());
+        if let Some(b) = backend {
+            let ep = b.base_url.trim_end_matches('/').to_string();
+            let api_key = b
+                .api_key
+                .clone()
+                .or_else(|| resolve_chat_api_key(Some(&b.name)));
+            // Model id: env override > live server /v1/models > SSOT toml (may be stale).
+            let model = resolve_chat_model_id(&ep, api_key.as_deref(), {
+                if b.model.is_empty() {
+                    None
+                } else {
+                    Some(b.model.as_str())
+                }
+            })
+            .await;
+            return ChatEndpointResolution {
+                schema: "cynic.chat.endpoint.v1",
+                ready: true,
+                source: ChatEndpointSource::InferenceConfig,
+                endpoint: Some(ep),
+                model,
+                backend_name: Some(b.name.clone()),
+                api_key,
+                detail: format!("cynic inference SSOT ({})", path.display()),
+                candidates,
+                dns_zone,
+                config_path: Some(path.display().to_string()),
+            };
+        }
+    }
+
+    // 4. Synapse DNS network
+    let dns_names = dns_inference_hostnames(&dns_zone);
+    for host in &dns_names {
+        candidates.push(format!("dns:{host}"));
+        if let Some(ip) = resolve_host(host) {
+            candidates.push(format!("dns:{host} -> {ip}"));
+            // Prefer :8080 (native llama) then :11434 (ODS docker host mapping)
+            for port in [8080u16, 11434] {
+                let base = format!("http://{host}:{port}");
+                if let Some((ep, model)) = probe_openai_base(&base).await {
+                    return ChatEndpointResolution {
+                        schema: "cynic.chat.endpoint.v1",
+                        ready: true,
+                        source: ChatEndpointSource::Dns,
+                        endpoint: Some(ep),
+                        model,
+                        backend_name: Some(host.clone()),
+                        api_key: resolve_chat_api_key(None),
+                        detail: format!("synapse DNS {host}:{port} (zone={dns_zone})"),
+                        candidates,
+                        dns_zone,
+                        config_path: None,
+                    };
+                }
+                // Also try IP form if hostname resolution works but SNI-less local
+                let base_ip = format!("http://{ip}:{port}");
+                if let Some((ep, model)) = probe_openai_base(&base_ip).await {
+                    return ChatEndpointResolution {
+                        schema: "cynic.chat.endpoint.v1",
+                        ready: true,
+                        source: ChatEndpointSource::Dns,
+                        endpoint: Some(ep),
+                        model,
+                        backend_name: Some(host.clone()),
+                        api_key: resolve_chat_api_key(None),
+                        detail: format!("synapse DNS {host} via {ip}:{port}"),
+                        candidates,
+                        dns_zone,
+                        config_path: None,
+                    };
+                }
+            }
+        }
+    }
+
+    // 5. Peer discovery as last-resort (when not already preferred above)
+    if !want_ods
+        && let Some(res) = resolve_from_peer_discovery(&mut candidates, &dns_zone, false).await
+    {
+        return res;
+    }
+
+    // 6. Last resort loopback bases
+    for base in default_ods_probe_bases() {
+        candidates.push(base.clone());
+        if let Some((ep, model)) = probe_openai_base(&base).await {
+            return ChatEndpointResolution {
+                schema: "cynic.chat.endpoint.v1",
+                ready: true,
+                source: ChatEndpointSource::NativeProbe,
+                endpoint: Some(ep),
+                model,
+                backend_name: None,
+                api_key: resolve_chat_api_key(None),
+                detail: "loopback OpenAI-compat probe".into(),
+                candidates,
+                dns_zone,
+                config_path: None,
+            };
+        }
+    }
+
+    ChatEndpointResolution {
+        schema: "cynic.chat.endpoint.v1",
+        ready: false,
+        source: ChatEndpointSource::None,
+        endpoint: None,
+        model: None,
+        backend_name: None,
+        api_key: resolve_chat_api_key(None),
+        detail: format!(
+            "no chat endpoint from cynic inference.toml, DNS zone `{dns_zone}`, or ODS/probe — start inference or pass --mock"
+        ),
+        candidates,
+        dns_zone,
+        config_path: None,
+    }
+}
+
+/// Hostnames published (or expected) on the CYNIC synapse DNS plane.
+pub fn dns_inference_hostnames(zone: &str) -> Vec<String> {
+    vec![
+        format!("inference.{zone}"),
+        format!("llama.{zone}"),
+        format!("llama-server.{zone}"),
+        format!("ods.{zone}"),
+        format!("chat.{zone}"),
+    ]
+}
+
+/// Live peer discovery (ODS or any OpenAI-compat). Product-agnostic.
+async fn resolve_from_peer_discovery(
+    candidates: &mut Vec<String>,
+    dns_zone: &str,
+    as_ods_preference: bool,
+) -> Option<ChatEndpointResolution> {
+    let services = discover_ods_services().await;
+    for s in &services {
+        candidates.push(format!("peer:{} ({})", s.endpoint, s.name));
+    }
+    // Prefer a running peer that lists models (avoid empty :11434 over live :8080).
+    let s = services
+        .iter()
+        .find(|s| s.status == "running" && s.models.iter().any(|m| !m.is_empty()))
+        .cloned()
+        .or_else(|| services.into_iter().find(|s| s.status == "running"))?;
+    let model = s.models.first().cloned().filter(|m| !m.is_empty());
+    let api_key = resolve_chat_api_key(None);
+    let model = resolve_chat_model_id(&s.endpoint, api_key.as_deref(), model.as_deref()).await;
+    Some(ChatEndpointResolution {
+        schema: "cynic.chat.endpoint.v1",
+        ready: true,
+        source: if as_ods_preference {
+            ChatEndpointSource::Ods
+        } else {
+            ChatEndpointSource::NativeProbe
+        },
+        endpoint: Some(s.endpoint),
+        model,
+        backend_name: Some(s.name),
+        api_key,
+        detail: if as_ods_preference {
+            format!("peer preference ({ODS_SURFACE}; optional product {ODS_UPSTREAM})")
+        } else {
+            "OpenAI-compat peer probe".into()
+        },
+        candidates: candidates.clone(),
+        dns_zone: dns_zone.to_string(),
+        config_path: None,
+    })
+}
+
+fn load_chat_inference_config() -> Option<(LoadedInferenceConfig, std::path::PathBuf)> {
+    for path in inference_config_candidates() {
+        match load_inference_config_from_path_public(&path) {
+            Ok(loaded) if !loaded.backends.is_empty() => return Some((loaded, path)),
+            Ok(_) => continue,
+            Err(InferenceConfigError::NotFound { .. }) => continue,
+            Err(_) => continue,
+        }
+    }
+    None
+}
+
+/// Paths tried for chat endpoint SSOT.
+///
+/// Order: env breakglass → principal runtime → /etc system.
+pub fn inference_config_candidates() -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    if let Ok(p) = std::env::var("CYNIC_INFERENCE_CONFIG") {
+        out.push(std::path::PathBuf::from(p));
+    }
+    let principal = PrincipalPaths::resolve();
+    out.push(principal.config_dir.join("inference.toml"));
+    out.push(std::path::PathBuf::from("/etc/cynic/inference.toml"));
+    out
+}
+
+/// Resolve which model id to send to an OpenAI-compat server.
+///
+/// Order (frictionless + truthful):
+/// 1. `CYNIC_CHAT_MODEL` breakglass
+/// 2. Live `GET {endpoint}/models` first id (what is actually loaded)
+/// 3. SSOT / toml / probe fallback
+pub async fn resolve_chat_model_id(
+    endpoint: &str,
+    api_key: Option<&str>,
+    fallback: Option<&str>,
+) -> Option<String> {
+    if let Ok(m) = std::env::var("CYNIC_CHAT_MODEL") {
+        let m = m.trim().to_string();
+        if !m.is_empty() {
+            return Some(m);
+        }
+    }
+    if let Some(live) = probe_live_model_id(endpoint, api_key).await {
+        return Some(live);
+    }
+    fallback
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Probe OpenAI-compat `/models` for the first loaded model id.
+///
+/// Tries with the provided API key first, then without (some servers allow
+/// unauthenticated `/models` while requiring auth for completions).
+pub async fn probe_live_model_id(endpoint: &str, api_key: Option<&str>) -> Option<String> {
+    probe_live_model_ids(endpoint, api_key)
+        .await
+        .into_iter()
+        .next()
+}
+
+/// Probe OpenAI-compat `/models` and return all discovered model identifiers.
+pub async fn probe_live_model_ids(endpoint: &str, api_key: Option<&str>) -> Vec<String> {
+    let mut model_ids: Vec<String> = Vec::new();
+
+    let base = endpoint.trim_end_matches('/');
+    let urls = if base.ends_with("/v1") {
+        vec![format!("{base}/models")]
+    } else {
+        vec![format!("{base}/v1/models"), format!("{base}/models")]
+    };
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(2000))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+
+    let mut auth_attempts: Vec<Option<&str>> = Vec::new();
+    if let Some(k) = api_key.filter(|s| !s.is_empty()) {
+        auth_attempts.push(Some(k));
+    }
+    auth_attempts.push(None);
+
+    for auth in auth_attempts {
+        for url in &urls {
+            let mut req = client.get(url);
+            if let Some(k) = auth {
+                req = req.header("Authorization", format!("Bearer {k}"));
+            }
+            let Ok(resp) = req.send().await else {
+                continue;
+            };
+            if !resp.status().is_success() {
+                continue;
+            }
+            let Ok(body) = resp.json::<serde_json::Value>().await else {
+                continue;
+            };
+            for id in all_model_ids_from_body(&body) {
+                if !model_ids.contains(&id) {
+                    model_ids.push(id);
+                }
+            }
+        }
+        if !model_ids.is_empty() {
+            break;
+        }
+    }
+
+    model_ids
+}
+
+fn all_model_ids_from_body(body: &serde_json::Value) -> Vec<String> {
+    let mut out = Vec::new();
+
+    if let Some(models) = body.get("data").and_then(|d| d.as_array()) {
+        for m in models {
+            let Some(raw) = m
+                .get("id")
+                .and_then(|x| x.as_str())
+                .filter(|s| !s.is_empty())
+            else {
+                continue;
+            };
+            out.push(raw.to_string());
+        }
+    }
+
+    if let Some(models) = body.get("models").and_then(|d| d.as_array()) {
+        for m in models {
+            let Some(raw) = m
+                .get("model")
+                .or_else(|| m.get("name"))
+                .or_else(|| m.get("id"))
+                .and_then(|x| x.as_str())
+                .filter(|s| !s.is_empty())
+            else {
+                continue;
+            };
+            out.push(raw.to_string());
+        }
+    }
+
+    if let Some(raw) = body
+        .get("model")
+        .and_then(|x| x.as_str())
+        .filter(|s| !s.is_empty())
+    {
+        out.push(raw.to_string());
+    }
+
+    out.into_iter()
+        .filter_map(|s| {
+            let s = s.trim().to_string();
+            if s.is_empty() { None } else { Some(s) }
+        })
+        .collect()
+}
+
+/// Resolve chat API key without logging secrets.
+///
+/// Order:
+/// 1. `CYNIC_CHAT_API_KEY`
+/// 2. `CYNIC_CHAT_API_KEY_FILE` (contents)
+/// 3. `CYNIC_BACKEND_<NAME>_API_KEY` when backend name known
+/// 4. principal /etc convention file `llama-api-key` under config_dir
+pub fn resolve_chat_api_key(backend_name: Option<&str>) -> Option<String> {
+    if let Ok(k) = std::env::var("CYNIC_CHAT_API_KEY") {
+        let k = k.trim().to_string();
+        if !k.is_empty() {
+            return Some(k);
+        }
+    }
+    if let Ok(path) = std::env::var("CYNIC_CHAT_API_KEY_FILE")
+        && let Ok(raw) = std::fs::read_to_string(&path)
+    {
+        let k = raw.trim().to_string();
+        if !k.is_empty() {
+            return Some(k);
+        }
+    }
+    if let Some(name) = backend_name {
+        let env_key = format!(
+            "CYNIC_BACKEND_{}_API_KEY",
+            name.to_uppercase().replace('-', "_")
+        );
+        if let Ok(k) = std::env::var(env_key) {
+            let k = k.trim().to_string();
+            if !k.is_empty() {
+                return Some(k);
+            }
+        }
+    }
+    let principal = PrincipalPaths::resolve();
+    for path in [
+        principal.config_dir.join("llama-api-key"),
+        std::path::PathBuf::from("/etc/cynic/llama-api-key"),
+    ] {
+        if let Ok(raw) = std::fs::read_to_string(&path) {
+            let k = raw.trim().to_string();
+            if !k.is_empty() {
+                return Some(k);
+            }
+        }
+    }
+    None
+}
+
+fn resolve_host(name: &str) -> Option<String> {
+    let out = Command::new("getent").args(["hosts", name]).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let line = String::from_utf8_lossy(&out.stdout);
+    let ip = line.split_whitespace().next()?;
+    if ip.is_empty() {
+        None
+    } else {
+        Some(ip.to_string())
+    }
+}
+
+async fn probe_openai_base(base: &str) -> Option<(String, Option<String>)> {
+    let base = base.trim_end_matches('/');
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(900))
+        .build()
+        .ok()?;
+
+    // Accept either base already ends with /v1 or plain host root.
+    let models_urls = if base.ends_with("/v1") {
+        vec![format!("{base}/models")]
+    } else {
+        vec![format!("{base}/v1/models"), format!("{base}/models")]
+    };
+
+    for url in models_urls {
+        let resp = client.get(&url).send().await.ok()?;
+        if !resp.status().is_success() {
+            continue;
+        }
+        let body = resp.json::<serde_json::Value>().await.ok()?;
+        let model = body
+            .get("data")
+            .and_then(|d| d.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|m| m.get("id"))
+            .and_then(|id| id.as_str())
+            .map(|s| s.to_string());
+        let endpoint = if url.contains("/v1/models") {
+            url.trim_end_matches("/models").to_string()
+        } else if url.ends_with("/models") && !url.contains("/v1/") {
+            // non-v1 models path — still expose /v1 for chat
+            format!("{base}/v1")
+        } else {
+            format!("{base}/v1")
+        };
+        return Some((endpoint, model));
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dns_hostnames_use_zone() {
+        let h = dns_inference_hostnames("synapse.cynic");
+        assert!(h.iter().any(|x| x == "inference.synapse.cynic"));
+        assert!(h.iter().any(|x| x == "llama.synapse.cynic"));
+    }
+
+    #[test]
+    fn inference_candidates_include_principal_and_etc() {
+        let c = inference_config_candidates();
+        assert!(c.iter().any(|p| p.ends_with("inference.toml")));
+        assert!(c.iter().any(|p| p.to_string_lossy().contains("/etc/cynic")));
+        // principal ranks before /etc (runtime authority > system default)
+        let etc_i = c
+            .iter()
+            .position(|p| p.to_string_lossy() == "/etc/cynic/inference.toml");
+        let principal_i = c
+            .iter()
+            .position(|p| p.to_string_lossy() != "/etc/cynic/inference.toml");
+        if let (Some(p), Some(e)) = (principal_i, etc_i) {
+            assert!(p < e, "principal inference.toml must rank before /etc");
+        }
+    }
+
+    #[test]
+    fn resolution_schema_stable() {
+        let r = ChatEndpointResolution {
+            schema: "cynic.chat.endpoint.v1",
+            ready: false,
+            source: ChatEndpointSource::None,
+            endpoint: None,
+            model: None,
+            backend_name: None,
+            api_key: resolve_chat_api_key(None),
+            detail: "x".into(),
+            candidates: vec![],
+            dns_zone: DEFAULT_DNS_ZONE.into(),
+            config_path: None,
+        };
+        assert_eq!(r.schema, "cynic.chat.endpoint.v1");
+    }
+}

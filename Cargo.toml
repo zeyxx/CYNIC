@@ -1,0 +1,68 @@
+[workspace]
+members = [
+    "crates/cynic-cli",
+    "crates/cynic-protocol",
+    "crates/cynic-inference",
+    "crates/cynic-kernel",
+    "crates/cynic-node",
+    "crates/cynic-askesis",
+    "crates/cynic-mcp",
+    "crates/cynic-host",
+    "crates/cynic-intel",
+    "crates/cynic-observer",
+]
+resolver = "2"
+
+# ── Industrial lint configuration (Axum/Embark Studios baseline) ──
+# Compiler lints = Layer 0 enforcement. 100% reliable, 0 context cost.
+# Keep this file as compiler-enforced law. Do not encode runtime policy here.
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+dead_code = "deny"
+unused_imports = "deny"
+unreachable_pub = "warn"
+missing_debug_implementations = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
+
+[workspace.lints.clippy]
+# Groups — priority -1/-2 so individual lints (priority 0) can override
+correctness = { level = "deny", priority = -1 }
+perf = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -2 }
+style = { level = "warn", priority = -3 }
+# AI-specific (patterns LLMs frequently produce)
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+todo = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+map_err_ignore = "warn"
+fallible_impl_from = "warn"
+mem_forget = "warn"
+rc_mutex = "warn"
+disallowed_methods = "deny"
+# Industrial quality (cherry-picked from Axum + Embark Studios)
+enum_glob_use = "warn"
+implicit_clone = "warn"
+inefficient_to_string = "warn"
+manual_let_else = "warn"
+needless_pass_by_value = "warn"
+redundant_clone = "warn"
+uninlined_format_args = "warn"
+unused_self = "warn"
+
+# ── Release profile ──
+# opt-level=1 instead of 2/3: this repo has hit LLVM/rustc instability on
+# deep serde+rmcp+schemars monomorphization during release-mode validation.
+# This is a validation profile, not a benchmark profile; lower optimization is an
+# acceptable tradeoff for deterministic CI/push gates. See rust-lang/rust #103767,
+# #122357, #138561.
+[profile.release]
+opt-level = 1
+# WHY: codegen-units=1 was a mitigation for nightly-2026-04-06 LLVM fan-out SIGSEGV.
+# As of Rust 1.95.0 / LLVM 22.1.2, codegen-units=1 itself triggers non-deterministic
+# SIGSEGV in FastISel::selectInstruction on random crates (yoke-derive, zerovec,
+# regex-syntax, serde_json). codegen-units=16 (default) passes 685 tests reliably.
+codegen-units = 16

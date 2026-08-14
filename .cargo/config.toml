@@ -1,0 +1,12 @@
+[build]
+# rustc can overflow or ICE on deep monomorphization (serde+rmcp = 47% of IR).
+# rust-lang/rust #103767, #122357, #138561.
+# -j 1 is the only reliable setting; -j 2 is flaky under memory pressure.
+jobs = 1
+rustflags = ["-C", "debuginfo=0"]
+
+[env]
+# A1 debt: rmcp/serde monomorphization can overflow rustc stack in kernel/MCP builds.
+# Keep this bounded for heterogeneous build runners; 16GiB stack reservations make
+# rustc fail to spawn its control-C handler on smaller VMs.
+RUST_MIN_STACK = "67108864"

@@ -1,0 +1,84 @@
+use std::collections::BTreeMap;
+
+use serde::Deserialize;
+use serde_json::Value;
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct Registry {
+    pub(super) network_policy: Option<RegistryNetworkPolicy>,
+    pub(super) nodes: Option<Vec<RegistryNode>>,
+    pub(super) organs: Option<Vec<RegistryOrgan>>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct RegistryNetworkPolicy {
+    pub(super) canonical_service_plane: Option<String>,
+    pub(super) planes: Option<RegistryPlanes>,
+    pub(super) reservations: Option<Vec<RegistryReservation>>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct RegistryPlanes {
+    pub(super) synapse: Option<RegistryPlane>,
+    pub(super) proxmox_guest: Option<RegistryPlane>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct RegistryPlane {
+    pub(super) cidr: Option<String>,
+    pub(super) dns_zone: Option<String>,
+    pub(super) canonical: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct RegistryReservation {
+    pub(super) name: Option<String>,
+    pub(super) dns: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct RegistryNode {
+    pub(super) name: Option<String>,
+    pub(super) id: Option<String>,
+    pub(super) role: Option<String>,
+    pub(super) status: Option<String>,
+    pub(super) constellation: Option<String>,
+    pub(super) aliases: Option<Vec<String>>,
+    pub(super) network: Option<RegistryNodeNetwork>,
+    pub(super) services: Option<Vec<RegistryService>>,
+    pub(super) vms: Option<Vec<RegistryVm>>,
+    pub(super) proxmox_id: Option<String>,
+    pub(super) proxmox: Option<RegistryProxmox>,
+    #[serde(default)]
+    pub(super) energy_profile: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct RegistryVm {
+    pub(super) name: Option<String>,
+    pub(super) aliases: Option<Vec<String>>,
+    pub(super) id: Option<String>,
+    pub(super) ip: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct RegistryNodeNetwork {
+    pub(super) synapse: Option<String>,
+    pub(super) local: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct RegistryProxmox {
+    pub(super) id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct RegistryService {
+    pub(super) name: Option<String>,
+    pub(super) port: Option<u16>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct RegistryOrgan {
+    pub(super) name: Option<String>,
+}

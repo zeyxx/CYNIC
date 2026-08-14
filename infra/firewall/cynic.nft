@@ -1,0 +1,59 @@
+#!/usr/sbin/nft -f
+# CYNIC Soma — Firewall Policy
+# Deploy to: ~/.config/cynic/firewall.nft
+# Apply: sudo nft -f ~/.config/cynic/firewall.nft
+# Service: cynic-firewall.service (oneshot, on boot)
+#
+# Designed: 2026-04-24 | Audit: docs/ops/soma-design.md
+#
+# Philosophy: Default DENY inbound. Tailscale = perimeter.
+# LAN = untrusted (shared WiFi = adversarial).
+# Only WireGuard + mDNS pass on LAN.
+#
+# ── Machine-specific defines ──
+# Override these per-host. `ip link show` to list interfaces.
+# These are the ONLY lines that change between machines.
+define IFACE_MESH = "tailscale0"
+define IFACE_LAN  = "wlp41s0"
+define IFACE_VM   = "virbr0"
+
+flush ruleset
+
+table inet cynic {
+    chain input {
+        type filter hook input priority 0; policy drop;
+
+        # ── Always allow ──
+        iif "lo" accept comment "loopback — all local services"
+        ct state established,related accept comment "return traffic for outbound connections"
+        ct state invalid drop comment "malformed packets"
+
+        # ── Tailscale mesh — full trust between CYNIC nodes ──
+        iifname $IFACE_MESH accept comment "inter-node: kernel, inference, SSH, RustDesk"
+
+        # ── VM bridge — local VMs ──
+        iifname $IFACE_VM accept comment "libvirt VM traffic"
+
+        # ── LAN — minimal surface ──
+        iifname $IFACE_LAN udp dport 41641 accept comment "WireGuard UDP for Tailscale mesh"
+        iifname $IFACE_LAN udp dport 5353 accept comment "mDNS service discovery"
+        # RustDesk: temporary LAN access for mobile/Windows not yet on Tailnet
+        # REMOVE these two lines once all access devices have Tailscale installed
+        iifname $IFACE_LAN udp dport 21119 accept comment "RustDesk signaling — TEMPORARY"
+        iifname $IFACE_LAN udp dport 33260 accept comment "RustDesk relay — TEMPORARY"
+
+        # ── Log + drop everything else ──
+        limit rate 5/minute log prefix "CYNIC_DROP: " level info
+        drop
+    }
+
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+        iifname $IFACE_VM accept comment "VM outbound"
+        oifname $IFACE_VM ct state established,related accept comment "VM return traffic"
+    }
+
+    chain output {
+        type filter hook output priority 0; policy accept;
+    }
+}

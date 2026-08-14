@@ -1,0 +1,251 @@
+-- CYNIC SurrealDB Schema — v0.7.5
+-- Namespace: cynic | Database: v2
+-- Source of truth for table definitions.
+-- Apply with: surreal import --endpoint http://localhost:8000 --namespace cynic --database v2
+
+-- ── Agent coordination ──────────────────────────────────────
+
+DEFINE TABLE agent_session TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD active ON agent_session TYPE bool PERMISSIONS FULL;
+DEFINE FIELD agent_id ON agent_session TYPE string PERMISSIONS FULL;
+DEFINE FIELD agent_type ON agent_session TYPE string PERMISSIONS FULL;
+DEFINE FIELD intent ON agent_session TYPE string PERMISSIONS FULL;
+DEFINE FIELD last_seen ON agent_session TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD registered_at ON agent_session TYPE datetime PERMISSIONS FULL;
+
+DEFINE INDEX agent_session_active_idx ON agent_session FIELDS active;
+
+-- ── Agent task mempool ─────────────────────────────────────
+
+DEFINE TABLE agent_tasks TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD agent_id ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD claimed_by ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD completed_at ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD consumer ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD content ON agent_tasks TYPE string PERMISSIONS FULL;
+DEFINE FIELD created_at ON agent_tasks TYPE int | string PERMISSIONS FULL;
+DEFINE FIELD domain ON agent_tasks TYPE string PERMISSIONS FULL;
+DEFINE FIELD due_at ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD error ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD escalation_policy ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD kind ON agent_tasks TYPE string PERMISSIONS FULL;
+DEFINE FIELD priority ON agent_tasks TYPE option<int | null> PERMISSIONS FULL;
+DEFINE FIELD result ON agent_tasks TYPE option<string | null> PERMISSIONS FULL;
+DEFINE FIELD status ON agent_tasks TYPE string PERMISSIONS FULL;
+
+DEFINE INDEX agent_tasks_completed_idx ON agent_tasks FIELDS kind, domain, status, completed_at;
+DEFINE INDEX agent_tasks_pending_idx ON agent_tasks FIELDS kind, domain, status, created_at;
+
+-- ── Crystals (CCM pipeline) ─────────────────────────────────
+
+DEFINE TABLE crystal TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD confidence ON crystal TYPE float PERMISSIONS FULL;
+DEFINE FIELD content ON crystal TYPE string PERMISSIONS FULL;
+DEFINE FIELD domain ON crystal TYPE string PERMISSIONS FULL;
+DEFINE FIELD observations ON crystal TYPE int PERMISSIONS FULL;
+DEFINE FIELD state ON crystal TYPE string PERMISSIONS FULL;
+
+DEFINE INDEX crystal_domain_idx ON crystal FIELDS domain;
+DEFINE INDEX crystal_obs_idx ON crystal FIELDS observations;
+DEFINE INDEX crystal_vec_idx ON crystal FIELDS embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32 EFC 150 M 12 M0 24 LM 0.40242960438184466f;
+
+-- ── Dog usage tracking ──────────────────────────────────────
+
+DEFINE TABLE dog_usage TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD completion_tokens ON dog_usage TYPE int PERMISSIONS FULL;
+DEFINE FIELD dog_id ON dog_usage TYPE string PERMISSIONS FULL;
+DEFINE FIELD failures ON dog_usage TYPE int PERMISSIONS FULL;
+DEFINE FIELD prompt_tokens ON dog_usage TYPE int PERMISSIONS FULL;
+DEFINE FIELD requests ON dog_usage TYPE int PERMISSIONS FULL;
+DEFINE FIELD total_latency_ms ON dog_usage TYPE int PERMISSIONS FULL;
+DEFINE FIELD updated_at ON dog_usage TYPE datetime PERMISSIONS FULL;
+
+-- ── MCP audit trail ─────────────────────────────────────────
+
+DEFINE TABLE mcp_audit TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD agent_id ON mcp_audit TYPE string PERMISSIONS FULL;
+DEFINE FIELD details ON mcp_audit TYPE string PERMISSIONS FULL;
+DEFINE FIELD tool ON mcp_audit TYPE string PERMISSIONS FULL;
+DEFINE FIELD ts ON mcp_audit TYPE datetime PERMISSIONS FULL;
+
+DEFINE INDEX mcp_audit_ts_idx ON mcp_audit FIELDS ts;
+
+-- ── Observations (CCM analytics) ────────────────────────────
+
+DEFINE TABLE observation TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD agent_id ON observation TYPE string PERMISSIONS FULL;
+DEFINE FIELD context ON observation TYPE string PERMISSIONS FULL;
+DEFINE FIELD created_at ON observation TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD domain ON observation TYPE string PERMISSIONS FULL;
+DEFINE FIELD project ON observation TYPE string PERMISSIONS FULL;
+DEFINE FIELD session_id ON observation TYPE string PERMISSIONS FULL;
+DEFINE FIELD status ON observation TYPE string PERMISSIONS FULL;
+DEFINE FIELD target ON observation TYPE string PERMISSIONS FULL;
+DEFINE FIELD tool ON observation TYPE string PERMISSIONS FULL;
+
+DEFINE INDEX obs_agent_idx ON observation FIELDS agent_id;
+DEFINE INDEX obs_created_idx ON observation FIELDS created_at;
+DEFINE INDEX obs_domain_idx ON observation FIELDS domain;
+DEFINE INDEX obs_project_idx ON observation FIELDS project;
+DEFINE INDEX obs_target_idx ON observation FIELDS target;
+
+-- ── REST audit trail ────────────────────────────────────────
+
+DEFINE TABLE rest_audit TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+-- ── Session compliance ──────────────────────────────────────
+
+DEFINE TABLE session_compliance TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+-- ── Session summaries ───────────────────────────────────────
+
+DEFINE TABLE session_summary TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD agent_id ON session_summary TYPE string PERMISSIONS FULL;
+DEFINE FIELD created_at ON session_summary TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD observations_count ON session_summary TYPE int PERMISSIONS FULL;
+DEFINE FIELD session_id ON session_summary TYPE string PERMISSIONS FULL;
+DEFINE FIELD summary ON session_summary TYPE string PERMISSIONS FULL;
+
+DEFINE INDEX session_summary_created_idx ON session_summary FIELDS created_at;
+DEFINE INDEX session_summary_session_idx ON session_summary FIELDS session_id UNIQUE;
+
+-- ── Verdicts (judge pipeline) ───────────────────────────────
+
+DEFINE TABLE verdict TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD anomaly_axiom ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD anomaly_detected ON verdict TYPE bool PERMISSIONS FULL;
+DEFINE FIELD burn ON verdict TYPE float PERMISSIONS FULL;
+DEFINE FIELD created_at ON verdict TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD culture ON verdict TYPE float PERMISSIONS FULL;
+DEFINE FIELD dog_id ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD dog_scores_json ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD fidelity ON verdict TYPE float PERMISSIONS FULL;
+DEFINE FIELD integrity_hash ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD kind ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD max_disagreement ON verdict TYPE float PERMISSIONS FULL;
+DEFINE FIELD phi ON verdict TYPE float PERMISSIONS FULL;
+DEFINE FIELD prev_hash ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD reasoning_burn ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD reasoning_culture ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD reasoning_fidelity ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD reasoning_phi ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD reasoning_sovereignty ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD reasoning_verify ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD sovereignty ON verdict TYPE float PERMISSIONS FULL;
+DEFINE FIELD stimulus ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD total ON verdict TYPE float PERMISSIONS FULL;
+DEFINE FIELD verdict_id ON verdict TYPE string PERMISSIONS FULL;
+DEFINE FIELD verify ON verdict TYPE float PERMISSIONS FULL;
+DEFINE FIELD voter_count ON verdict TYPE int PERMISSIONS FULL;
+
+DEFINE INDEX verdict_created_idx ON verdict FIELDS created_at;
+DEFINE INDEX verdict_id_idx ON verdict FIELDS verdict_id UNIQUE;
+
+-- ── Work claims (coordination locks) ────────────────────────
+
+DEFINE TABLE work_claim TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD active ON work_claim TYPE bool PERMISSIONS FULL;
+DEFINE FIELD agent_id ON work_claim TYPE string PERMISSIONS FULL;
+DEFINE FIELD claim_type ON work_claim TYPE string PERMISSIONS FULL;
+DEFINE FIELD claimed_at ON work_claim TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD lease_id ON work_claim TYPE string PERMISSIONS FULL;
+DEFINE FIELD fencing_token ON work_claim TYPE int PERMISSIONS FULL;
+DEFINE FIELD expires_at ON work_claim TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD completed_at ON work_claim TYPE option<datetime> PERMISSIONS FULL;
+DEFINE FIELD proof_ref ON work_claim TYPE option<string> PERMISSIONS FULL;
+DEFINE FIELD target ON work_claim TYPE string PERMISSIONS FULL;
+
+DEFINE INDEX work_claim_active_idx ON work_claim FIELDS active;
+DEFINE INDEX work_claim_target_idx ON work_claim FIELDS target;
+
+DEFINE TABLE runtime_proof_commit TYPE ANY SCHEMAFULL PERMISSIONS NONE;
+DEFINE FIELD proof_ref ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD schema ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD status ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD agent_id ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD target ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD lease_id ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD fencing_token ON runtime_proof_commit TYPE int PERMISSIONS FULL;
+DEFINE FIELD bundle ON runtime_proof_commit TYPE object FLEXIBLE PERMISSIONS FULL;
+DEFINE FIELD hash_algorithm ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD kernel_signature ON runtime_proof_commit TYPE string PERMISSIONS FULL;
+DEFINE FIELD created_at ON runtime_proof_commit TYPE datetime PERMISSIONS FULL;
+DEFINE INDEX runtime_proof_commit_ref_idx ON runtime_proof_commit FIELDS proof_ref UNIQUE;
+DEFINE INDEX runtime_proof_commit_target_idx ON runtime_proof_commit FIELDS target, created_at;
+
+-- ── Ouroboros nightly evaluation ────────────────────────────
+
+DEFINE TABLE ouroboros_run TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD corpus_version ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD trigger ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD mode ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD agent_family ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD run_id ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD status ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD started_at ON ouroboros_run TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD finished_at ON ouroboros_run TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD duration_s ON ouroboros_run TYPE float PERMISSIONS FULL;
+DEFINE FIELD agent_id ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD model ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD backend_id ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD repos_attempted ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD repos_completed ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD tool_failures ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD prompt_tokens ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD completion_tokens ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD internal_patch_candidates ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD internal_patches_authored ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD tests_run ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD tests_passed ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD summary_json ON ouroboros_run TYPE string PERMISSIONS FULL;
+
+DEFINE INDEX ouroboros_run_id_idx ON ouroboros_run FIELDS run_id UNIQUE;
+DEFINE INDEX ouroboros_run_started_idx ON ouroboros_run FIELDS started_at;
+
+DEFINE TABLE ouroboros_repo_eval TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD run_id ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD agent_family ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD repo_id ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD full_name ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD track ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD task_profile ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD outcome ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD decision ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD effort ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD confidence ON ouroboros_repo_eval TYPE float PERMISSIONS FULL;
+DEFINE FIELD evidence_count ON ouroboros_repo_eval TYPE int PERMISSIONS FULL;
+DEFINE FIELD exact_files_cited ON ouroboros_repo_eval TYPE int PERMISSIONS FULL;
+DEFINE FIELD stale_repo ON ouroboros_repo_eval TYPE bool PERMISSIONS FULL;
+DEFINE FIELD elapsed_s ON ouroboros_repo_eval TYPE float PERMISSIONS FULL;
+DEFINE FIELD created_at ON ouroboros_repo_eval TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD notes ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+
+DEFINE INDEX ouroboros_repo_eval_run_idx ON ouroboros_repo_eval FIELDS run_id;
+DEFINE INDEX ouroboros_repo_eval_repo_idx ON ouroboros_repo_eval FIELDS repo_id;
+DEFINE INDEX ouroboros_repo_eval_created_idx ON ouroboros_repo_eval FIELDS created_at;
+
+-- ── RAG / National Library (Knowledge) ──────────────────────
+
+DEFINE TABLE knowledge TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD content ON knowledge TYPE string PERMISSIONS FULL;
+DEFINE FIELD decay_score ON knowledge TYPE float PERMISSIONS FULL;
+DEFINE FIELD source ON knowledge TYPE string PERMISSIONS FULL;
+DEFINE FIELD tags ON knowledge TYPE array PERMISSIONS FULL;
+DEFINE FIELD timestamp ON knowledge TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD embedding ON knowledge TYPE array PERMISSIONS FULL;
+
+DEFINE INDEX knowledge_source_idx ON knowledge FIELDS source;
+DEFINE INDEX knowledge_decay_idx ON knowledge FIELDS decay_score;
+DEFINE INDEX knowledge_vec_idx ON knowledge FIELDS embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32 EFC 150 M 12 M0 24 LM 0.40242960438184466f;

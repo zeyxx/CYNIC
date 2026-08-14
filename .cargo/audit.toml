@@ -1,0 +1,8 @@
+# cargo-audit configuration
+# See: https://docs.rs/cargo-audit
+
+[advisories]
+# Ignore unmaintained `instant` crate — transitive dep via notify 7.0.0 → notify-types → instant.
+# cynic-node uses notify for file watching. No direct security impact (instant is a time measurement shim).
+# Remove this ignore when notify upgrades to drop instant.
+ignore = ["RUSTSEC-2024-0384"]

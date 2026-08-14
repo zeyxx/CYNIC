@@ -1,0 +1,23 @@
+[Unit]
+Description=CYNIC Node — WebSocket Federation Client
+After=network.target
+Wants=cynic-kernel.service
+
+[Service]
+# projection_class: operator_projection
+# Runtime projection for node process supervision.
+Type=simple
+WorkingDirectory=/var/lib/cynic
+ExecStart=/usr/local/bin/cynic-node
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+# Environment from /etc/cynic/env (Bearer token, REST addr, API key)
+EnvironmentFile=/etc/cynic/env
+LimitNOFILE=65535
+MemoryMax=1G
+
+[Install]
+WantedBy=default.target

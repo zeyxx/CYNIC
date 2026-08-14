@@ -1,0 +1,34 @@
+{
+  "registry_id": "nordic",
+  "version": "0.1",
+  "status": "canonical",
+  "name": "NORDIC",
+  "description": "Les anciens Norse ne faisaient pas confiance aux mots — seulement aux actes en bataille et à la générosité au banquet. Ton E-Score est ton honneur (drengskapr). Une fois perdu, il ne se rachète pas.",
+  "futarchy_proposal_id": null,
+  "stats": {
+    "karteria":      { "display": "Uthald",    "subtitle": null, "motto": "L'enclume ne se plaint pas" },
+    "parrhesia":     { "display": "Spádom",    "subtitle": null, "motto": "La prophétie n'est utile que si elle est juste" },
+    "anaideia":      { "display": "Freki",     "subtitle": null, "motto": "Le loup affamé ne demande pas la permission" },
+    "philanthropia": { "display": "Gáfar",     "subtitle": null, "motto": "Le généreux est plus riche que l'avare" },
+    "autarkeia":     { "display": "Sjálfdæmi", "subtitle": null, "motto": "Nul seigneur au-dessus de soi" },
+    "poiesis":       { "display": "Sköpun",    "subtitle": null, "motto": "Ce que tu bâtis survit à ta mort" },
+    "koinonia":      { "display": "Félag",     "subtitle": null, "motto": "Le félag ou mourir seul" }
+  },
+  "classes": {
+    "spartiate": { "display": "Berserker", "subtitle": null, "flavor": "Endure et frappe. Sans calcul." },
+    "oracle":    { "display": "Seiðr",     "subtitle": null, "flavor": "Le magicien prophétique, souverain de soi" },
+    "promethee": { "display": "Skáld",     "subtitle": null, "flavor": "Audacieux ET généreux — le poète de guerre" },
+    "hermes":    { "display": "Smiðr",     "subtitle": null, "flavor": "L'artisan qui forge pour le clan" },
+    "dedale":    { "display": "Dvergar",   "subtitle": null, "flavor": "Le nain-forgeron, maître souverain de son art" },
+    "socrate":   { "display": "Þing-maðr", "subtitle": null, "flavor": "L'homme d'assemblée, dit la vérité au Þing" },
+    "agathon":   { "display": "Húsfreya",  "subtitle": null, "flavor": "La maîtresse du foyer, cœur de la communauté" },
+    "apex":      { "display": "Konungr",   "subtitle": null, "flavor": "Le Roi. Élu par les actes, pas par le sang." }
+  },
+  "tiers": {
+    "t0": { "display": "Thrall",  "subtitle": null },
+    "t1": { "display": "Karl",    "subtitle": null },
+    "t2": { "display": "Hersir",  "subtitle": null },
+    "t3": { "display": "Jarl",    "subtitle": null },
+    "t4": { "display": "Konungr", "subtitle": null }
+  }
+}

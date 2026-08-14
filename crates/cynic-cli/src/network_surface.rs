@@ -1,0 +1,237 @@
+use std::process::ExitCode;
+
+use clap::Subcommand;
+use cynic_node::NetworkCommands;
+
+use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
+
+mod actuator;
+mod base;
+mod dns;
+mod mesh;
+mod provider_fallback;
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkCommand {
+    Chain {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        resolve_dns: bool,
+        #[arg(long)]
+        check_provider_connectivity: bool,
+    },
+    Runtime {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        resolve_dns: bool,
+        #[arg(long)]
+        check_provider_connectivity: bool,
+    },
+    Proof {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        resolve_dns: bool,
+        #[arg(long)]
+        check_provider_connectivity: bool,
+    },
+    Evidence {
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    Dns {
+        #[command(subcommand)]
+        command: NetworkDnsCommand,
+    },
+    Mesh {
+        #[command(subcommand)]
+        command: NetworkMeshCommand,
+    },
+    ProviderFallback {
+        #[command(subcommand)]
+        command: NetworkProviderFallbackCommand,
+    },
+    Actuator {
+        #[command(subcommand)]
+        command: NetworkActuatorCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkDnsCommand {
+    Status {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        resolve_dns: bool,
+        #[arg(long)]
+        hosts_path: Option<String>,
+        #[arg(long)]
+        corefile_path: Option<String>,
+        #[arg(long)]
+        service_path: Option<String>,
+        #[arg(long)]
+        resolved_dropin_path: Option<String>,
+    },
+    Bundle {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        output_dir: String,
+    },
+    Plan {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkMeshCommand {
+    Plan {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        provider: Option<String>,
+    },
+    Bundle {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        provider: Option<String>,
+        #[arg(long)]
+        output_dir: String,
+    },
+    ApplyPlan {
+        #[arg(long)]
+        bundle_dir: String,
+    },
+    TargetAttestation {
+        #[arg(long, default_value = "closed_local_lab")]
+        harness_kind: String,
+        #[arg(long)]
+        target_id: String,
+        #[arg(long, default_value = "qemu-guest-agent")]
+        transport: String,
+        #[arg(long)]
+        transport_target: String,
+        #[arg(long)]
+        expected_network_boundary: String,
+        #[arg(long, default_value = "virsh")]
+        virsh_bin: String,
+        #[arg(long)]
+        ip_bin: Option<String>,
+    },
+    ApplyTarget {
+        #[arg(long)]
+        bundle_dir: String,
+        #[arg(long)]
+        profile: String,
+        #[arg(long)]
+        apply: bool,
+        #[arg(long, default_value = "closed_local_lab")]
+        harness_kind: String,
+        #[arg(long)]
+        target_attestation: String,
+        #[arg(long, default_value = "virsh")]
+        virsh_bin: String,
+        #[arg(long, default_value_t = 10)]
+        qga_timeout_seconds: u64,
+        #[arg(long, default_value_t = 20)]
+        qga_max_status_polls: usize,
+    },
+    ApplyProfile {
+        #[arg(long)]
+        bundle_dir: String,
+        #[arg(long)]
+        profile: String,
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        closed_environment: bool,
+    },
+    Status {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        resolve_dns: bool,
+        #[arg(long)]
+        include_records: bool,
+        #[arg(long)]
+        observe_runtime: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkProviderFallbackCommand {
+    Status {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        hosts_path: Option<String>,
+        #[arg(long)]
+        check_connectivity: bool,
+    },
+    Hosts {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        output_dir: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkActuatorCommand {
+    Status {
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    Bundle {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        output_dir: String,
+    },
+    Plan {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long, default_value_t = cynic_host::runtime_layout::current_runtime_layout().network_actuator_bundle_dir)]
+        bundle_dir: String,
+    },
+    Apply {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        profile: String,
+        #[arg(long)]
+        apply: bool,
+    },
+}
+
+pub(crate) fn execute_network(command: NetworkCommand) -> ExitCode {
+    let _network_command_type: &str = std::any::type_name::<NetworkCommands>();
+    let _ = _network_command_type;
+    let runtime = resolve_runtime_paths(&RuntimeContext::from_env(None));
+    let command = match base::try_execute_base(command, &runtime) {
+        Ok(code) => return code,
+        Err(command) => command,
+    };
+    let command = match dns::try_execute_dns(command, &runtime) {
+        Ok(code) => return code,
+        Err(command) => command,
+    };
+    let command = match mesh::try_execute_mesh(command, &runtime) {
+        Ok(code) => return code,
+        Err(command) => command,
+    };
+    let command = match provider_fallback::try_execute_provider_fallback(command, &runtime) {
+        Ok(code) => return code,
+        Err(command) => command,
+    };
+    match actuator::try_execute_actuator(command) {
+        Ok(code) => code,
+        Err(NetworkCommand::Actuator { .. }) => unreachable!("actuator command must be handled"),
+        Err(_) => unreachable!("all network commands must be handled"),
+    }
+}

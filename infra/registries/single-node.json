@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "schema": "cynic.registry.v1.single_node",
+  "purpose": "Single-machine runtime registry for local bootstrap and operator iteration.",
+  "network_policy": {
+    "canonical_service_plane": "loopback",
+    "planes": {
+      "synapse": {
+        "cidr": "127.0.0.0/8",
+        "dns_zone": "localhost",
+        "canonical": true
+      },
+      "proxmox_guest": {
+        "cidr": "127.0.0.0/8",
+        "canonical": false
+      }
+    },
+    "reservations": [
+      {
+        "name": "local-kernel",
+        "dns": [
+          "localhost"
+        ]
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "local-kernel",
+      "name": "local-kernel",
+      "aliases": [
+        "ubuntu",
+        "localhost"
+      ],
+      "role": "kernel_primary",
+      "host_family": "linux.debian.systemd",
+      "status": "candidate",
+      "deploy_target": true,
+      "network": {
+        "synapse": "127.0.0.1",
+        "local": "127.0.0.1"
+      },
+      "services": [
+        {
+          "name": "cynic-kernel",
+          "artifact": "cynic-kernel",
+          "port": 3030,
+          "unit": "cynic-kernel.service",
+          "supervisor": {
+            "provider": "process-port"
+          },
+          "health": {
+            "kind": "tcp",
+            "port": 3030
+          }
+        },
+        {
+          "name": "cynic-node",
+          "artifact": "cynic-node",
+          "unit": "cynic-node.service",
+          "supervisor": {
+            "provider": "process-port"
+          },
+          "health": {
+            "kind": "process",
+            "process": "cynic-node"
+          }
+        },
+        {
+          "name": "surrealdb",
+          "unit": "surrealdb.service",
+          "port": 8000,
+          "supervisor": {
+            "provider": "process-port"
+          },
+          "health": {
+            "kind": "tcp",
+            "port": 8000
+          }
+        }
+      ]
+    }
+  ],
+  "lifecycle": {
+    "kernel_release": {
+      "build_runner_role": "kernel_primary",
+      "deploy_target_role": "kernel_primary",
+      "host_bootstrap": {
+        "role_profiles": {
+          "kernel_primary": {
+            "target_stage": "h6_host_actionable",
+            "required_domains": [
+              "host",
+              "network",
+              "storage",
+              "kernel"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "network_runtime_observed",
+              "storage_service_observed",
+              "kernel_health_observed"
+            ]
+          }
+        }
+      },
+      "runtime_artifacts": [
+        "cynic-kernel",
+        "cynic-node",
+        "cynic-mcp",
+        "cynic"
+      ]
+    }
+  }
+}

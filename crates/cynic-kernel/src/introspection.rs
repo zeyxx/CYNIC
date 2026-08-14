@@ -1,0 +1,935 @@
+//! MAPE-K Analyze loop — self-observation for ANOMALIES ONLY.
+//!
+//! Ticks every 5 minutes. Observes internal metrics and returns alerts
+//! when thresholds are violated. Healthy system = zero alerts = silent.
+//!
+//! IMPORTANT: introspection MUST NOT call pipeline::run(). Feeding health
+//! alerts through the judge creates a self-amplifying feedback loop:
+//! alert → judge → LLM Dogs fail on non-domain text → inc_dog_failure
+//! → higher failure rate → more alerts → more judge calls → ...
+
+use crate::domain::metrics::Metrics;
+use crate::domain::organ::{MetricValue, OrganSnapshot as SenseSnapshot};
+use crate::domain::probe::{
+    EnvironmentSnapshot, FleetDetails, PressureDetails, ProbeDetails, ResourceDetails,
+};
+use crate::domain::storage::StoragePort;
+use std::sync::atomic::Ordering;
+
+/// Anomaly thresholds — conservative defaults.
+const FAILURE_RATE_THRESHOLD: f64 = 0.20; // > 20% failure rate
+const EMBED_FAILURE_THRESHOLD: f64 = 0.50; // > 50% embedding failures
+/// phi^-2 = 0.382 — minimum acceptable savings rate (RTK gauge is 0-100).
+const SAVINGS_PCT_THRESHOLD: f64 = 38.2;
+
+/// Alert produced by introspection — serialized into /health "alerts" section.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct Alert {
+    pub kind: &'static str,
+    pub message: String,
+    pub severity: &'static str, // "warning" | "critical"
+}
+
+/// Run one introspection tick. Returns alerts (empty = healthy).
+/// Alerts are logged here and returned to caller. NO pipeline::run calls.
+pub async fn analyze(
+    storage: &dyn StoragePort,
+    metrics: &Metrics,
+    environment: &Option<EnvironmentSnapshot>,
+    sense_snapshots: &[(String, SenseSnapshot)],
+    producer_heartbeats: &std::collections::HashMap<
+        String,
+        crate::api::rest::types::ProducerHeartbeat,
+    >,
+) -> Vec<Alert> {
+    let mut alerts = Vec::new();
+
+    // ── Dog failure rate ──
+    // dog_evaluations_total = ALL attempts (success + failure).
+    // dog_failures_total ⊂ dog_evaluations_total → rate ≤ 1.0 always.
+    let dog_evals = metrics.dog_evaluations_total.load(Ordering::Relaxed);
+    let dog_fails = metrics.dog_failures_total.load(Ordering::Relaxed);
+    if dog_evals > 10 {
+        let rate = dog_fails as f64 / dog_evals as f64;
+        if rate > FAILURE_RATE_THRESHOLD {
+            alerts.push(Alert {
+                kind: "dog_failure_rate",
+                message: format!(
+                    "Dog failure rate {:.1}% ({}/{} evals)",
+                    rate * 100.0,
+                    dog_fails,
+                    dog_evals
+                ),
+                severity: if rate > 0.50 { "critical" } else { "warning" },
+            });
+        }
+    }
+
+    // ── Embedding failure rate ──
+    let embed_ok = metrics.embedding_successes_total.load(Ordering::Relaxed);
+    let embed_fail = metrics.embedding_failures_total.load(Ordering::Relaxed);
+    let embed_total = embed_ok + embed_fail;
+    if embed_total > 5 {
+        let rate = embed_fail as f64 / embed_total as f64;
+        if rate > EMBED_FAILURE_THRESHOLD {
+            alerts.push(Alert {
+                kind: "embedding_failure_rate",
+                message: format!(
+                    "Embedding failure rate {:.1}% ({}/{} calls)",
+                    rate * 100.0,
+                    embed_fail,
+                    embed_total
+                ),
+                severity: "warning",
+            });
+        }
+    }
+
+    // ── Zero verdicts after sustained uptime (cold pipeline) ──
+    let verdicts = metrics.verdicts_total.load(Ordering::Relaxed);
+    let cache_total = metrics.cache_hits_total.load(Ordering::Relaxed)
+        + metrics.cache_misses_total.load(Ordering::Relaxed);
+    if verdicts == 0 && cache_total == 0 {
+        // No traffic at all — not an anomaly, just idle
+    } else if verdicts == 0 && cache_total > 5 {
+        alerts.push(Alert {
+            kind: "zero_verdicts",
+            message: format!(
+                "0 verdicts despite {cache_total} cache lookups — pipeline may be broken"
+            ),
+            severity: "critical",
+        });
+    }
+
+    // ── Storage health ──
+    if storage.ping().await.is_err() {
+        alerts.push(Alert {
+            kind: "storage_down",
+            message: "Storage ping failed — verdicts not persisting".into(),
+            severity: "critical",
+        });
+    }
+
+    // ── Resource metrics (from probe system EnvironmentSnapshot) ──
+    if let Some(snap) = environment {
+        let resource = extract_resource(snap);
+        if let Some(r) = &resource {
+            check_resource_thresholds(r, &mut alerts);
+        }
+        // Fleet: model identity mismatch = wrong model loaded on a backend.
+        let fleet = extract_fleet(snap);
+        if let Some(f) = &fleet {
+            for dog in &f.dogs {
+                if dog.model_mismatch {
+                    alerts.push(Alert {
+                        kind: "model_mismatch",
+                        message: format!(
+                            "Dog '{}' running {:?} but configured as {:?}",
+                            dog.dog_name,
+                            dog.actual_model.as_deref().unwrap_or("unknown"),
+                            dog.expected_model.as_deref().unwrap_or("unknown"),
+                        ),
+                        severity: "critical",
+                    });
+                }
+            }
+        }
+        // T4 gate: PSI pressure counter for LODController justification.
+        // If memory_some_avg10 > 25% (25% of time stalled on memory) → high pressure.
+        let pressure = extract_pressure(snap);
+        if let Some(p) = &pressure {
+            let high = p.memory_some_avg10.is_some_and(|v| v > 25.0)
+                || p.memory_full_avg10.is_some_and(|v| v > 10.0);
+            if high {
+                metrics.inc_psi_high_pressure();
+                alerts.push(Alert {
+                    kind: "psi_memory_pressure",
+                    message: format!(
+                        "PSI memory pressure: some_avg10={:.1}%, full_avg10={:.1}%",
+                        p.memory_some_avg10.unwrap_or(0.0),
+                        p.memory_full_avg10.unwrap_or(0.0),
+                    ),
+                    severity: "warning",
+                });
+            }
+        }
+    } else {
+        tracing::debug!("introspection: no EnvironmentSnapshot yet — skipping resource checks");
+    }
+
+    // ── State log trend detection (K15 consumer of state_log) ──
+    // Use latest_state_blocks(2) — queries DESC LIMIT 2 then reverses.
+    // Previous bug: list_state_blocks("", 1000) returned ASC order = oldest 1000,
+    // so with 19K+ blocks, introspection read stale data and missed fresh organs.
+    match storage.latest_state_blocks(2).await {
+        Ok(blocks) if blocks.len() >= 2 => {
+            let prev = &blocks[blocks.len() - 2];
+            let curr = &blocks[blocks.len() - 1];
+            alerts.extend(analyze_state_log_trends(prev, curr));
+        }
+        Ok(_) => {} // < 2 blocks, skip trend detection
+        Err(e) => {
+            tracing::debug!("introspection: state_log query failed: {e} — skipping trends");
+        }
+    }
+
+    // ── Sense metabolism (K15 consumer for RTK + Tailscale) ──
+    alerts.extend(check_sense_health(sense_snapshots));
+
+    if !alerts.is_empty() {
+        let summary: String = alerts
+            .iter()
+            .map(|a| format!("[{}] {}", a.severity, a.message))
+            .collect::<Vec<_>>()
+            .join("; ");
+        tracing::warn!(
+            alert_count = alerts.len(),
+            summary = %summary,
+            "introspection: anomalies detected"
+        );
+        // Alerts are returned to caller (spawn_introspection in tasks.rs).
+        // They are NOT fed through pipeline::run — that creates a self-amplifying
+        // feedback loop where health alerts become stimuli, LLM Dogs fail on them,
+        // failure rate increases, generating more alerts. See commit message.
+    }
+
+    // ── Metabolism: the organism sensing its own data flow ──
+    let metabolic_state = crate::domain::metabolism::snapshot(metrics);
+    for ma in crate::domain::metabolism::diagnose(&metabolic_state) {
+        alerts.push(Alert {
+            kind: ma.kind,
+            message: ma.message,
+            severity: ma.severity,
+        });
+    }
+
+    // ── Push-producer silence detection ──
+    // Permanent sources that stop POSTing to /observe = dead organ.
+    // 10min threshold: generous enough for cron jobs (longest cycle ~30min),
+    // tight enough to catch crashes within the introspection 5min tick.
+    const PRODUCER_SILENCE_SECS: u64 = 600;
+    // Retired agent_ids: still classified as permanent but no longer have running code.
+    // Must mirror RETIRED_SOURCES in organ_silence below to avoid false positives.
+    const RETIRED_PRODUCERS: &[&str] = &[
+        "hermes-hermes",
+        "hermes-x-proxy",
+        "hermes-x-organ",
+        "x-proxy",
+        "hermes-x",
+        "hermes", // replaced by hermes-x-cynic + hermes-x-proxy-cynic (2026-05-22)
+        "hermes-telegram-personal", // retired personal telegram listener
+    ];
+    for (agent_id, hb) in producer_heartbeats {
+        if !is_permanent_source(agent_id) || hb.count < 2 {
+            continue;
+        }
+        if RETIRED_PRODUCERS.contains(&agent_id.as_str()) {
+            continue;
+        }
+        let age_secs = hb.last_seen.elapsed().as_secs();
+        if age_secs > PRODUCER_SILENCE_SECS {
+            alerts.push(Alert {
+                kind: "producer_silent",
+                message: format!(
+                    "Producer '{}' silent for {}m (was active: {} observations)",
+                    agent_id,
+                    age_secs / 60,
+                    hb.count
+                ),
+                severity: if age_secs > 3600 {
+                    "critical"
+                } else {
+                    "warning"
+                },
+            });
+        }
+    }
+
+    alerts
+}
+
+/// Extract ResourceDetails from an EnvironmentSnapshot's probes.
+fn extract_resource(snap: &EnvironmentSnapshot) -> Option<ResourceDetails> {
+    snap.probes.iter().find_map(|p| match &p.details {
+        ProbeDetails::Resource(r) => Some(r.clone()),
+        _ => None,
+    })
+}
+
+/// Extract PressureDetails from an EnvironmentSnapshot's probes.
+fn extract_pressure(snap: &EnvironmentSnapshot) -> Option<PressureDetails> {
+    snap.probes.iter().find_map(|p| match &p.details {
+        ProbeDetails::Pressure(pr) => Some(pr.clone()),
+        _ => None,
+    })
+}
+
+/// Extract FleetDetails from an EnvironmentSnapshot's probes.
+fn extract_fleet(snap: &EnvironmentSnapshot) -> Option<FleetDetails> {
+    snap.probes.iter().find_map(|p| match &p.details {
+        ProbeDetails::Fleet(f) => Some(f.clone()),
+        _ => None,
+    })
+}
+
+/// Check resource thresholds and push alerts.
+fn check_resource_thresholds(r: &ResourceDetails, alerts: &mut Vec<Alert>) {
+    // Memory pressure
+    if let (Some(used), Some(total)) = (r.memory_used_gb, r.memory_total_gb)
+        && total > 0.0
+    {
+        let ratio = used / total;
+        if ratio > 0.95 {
+            alerts.push(Alert {
+                kind: "memory_pressure",
+                message: format!(
+                    "Memory critical: {:.1}% used ({:.1}/{:.1} GB)",
+                    ratio * 100.0,
+                    used,
+                    total
+                ),
+                severity: "critical",
+            });
+        } else if ratio > 0.90 {
+            alerts.push(Alert {
+                kind: "memory_pressure",
+                message: format!(
+                    "Memory high: {:.1}% used ({:.1}/{:.1} GB)",
+                    ratio * 100.0,
+                    used,
+                    total
+                ),
+                severity: "warning",
+            });
+        }
+    }
+
+    // CPU sustained (skip None — first tick or non-Linux)
+    if let Some(cpu) = r.cpu_usage_percent
+        && cpu > 80.0
+    {
+        alerts.push(Alert {
+            kind: "cpu_sustained",
+            message: format!("CPU high: {cpu:.1}%"),
+            severity: "warning",
+        });
+    }
+
+    // Disk low
+    if let (Some(avail), Some(total)) = (r.disk_available_gb, r.disk_total_gb)
+        && total > 0.0
+    {
+        let avail_ratio = avail / total;
+        if avail_ratio < 0.05 {
+            alerts.push(Alert {
+                kind: "disk_low",
+                message: format!(
+                    "Disk critical: {:.1}% available ({:.0}/{:.0} GB)",
+                    avail_ratio * 100.0,
+                    avail,
+                    total
+                ),
+                severity: "critical",
+            });
+        } else if avail_ratio < 0.10 {
+            alerts.push(Alert {
+                kind: "disk_low",
+                message: format!(
+                    "Disk low: {:.1}% available ({:.0}/{:.0} GB)",
+                    avail_ratio * 100.0,
+                    avail,
+                    total
+                ),
+                severity: "warning",
+            });
+        }
+    }
+}
+
+// ── Sense health checks (K15 consumers for RTK + Tailscale) ──
+
+/// Check sense snapshots for anomalies. Pure function — no I/O.
+pub fn check_sense_health(snapshots: &[(String, SenseSnapshot)]) -> Vec<Alert> {
+    let mut alerts = Vec::new();
+
+    for (name, snap) in snapshots {
+        for metric in &snap.metrics {
+            match (name.as_str(), metric.key.as_str()) {
+                ("rtk", "savings_pct") => {
+                    if let MetricValue::F64(pct) = &metric.value
+                        && *pct < SAVINGS_PCT_THRESHOLD
+                    {
+                        alerts.push(Alert {
+                            kind: "metabolism_anomaly",
+                            message: format!(
+                                "RTK savings {pct:.1}% below threshold {SAVINGS_PCT_THRESHOLD:.1}% — token filtering degraded"
+                            ),
+                            severity: if *pct < 20.0 { "critical" } else { "warning" },
+                        });
+                    }
+                }
+                ("tailscale", key) if key.starts_with("node_") && key.ends_with("_online") => {
+                    if let MetricValue::Bool(false) = &metric.value {
+                        let node = key
+                            .strip_prefix("node_")
+                            .and_then(|s| s.strip_suffix("_online"))
+                            .unwrap_or(key);
+                        // No hardcoded filter needed: TailscaleReader only tracks
+                        // fleet.toml nodes with status="active" (parsed at boot).
+                        // Offline nodes are never probed, so never emit metrics here.
+                        alerts.push(Alert {
+                            kind: "fleet_drift",
+                            message: format!("Fleet node '{node}' offline"),
+                            severity: "warning",
+                        });
+                    }
+                }
+                _ => {} // Other senses: extend here as consumers are added
+            }
+        }
+    }
+
+    alerts
+}
+
+// ── Pure trend analysis — extracted for testability ─────────
+
+use crate::domain::state_log::StateBlock;
+
+/// Whether a source name represents a permanent entity (organ/service) vs ephemeral session.
+/// Permanent sources generate alerts on silence. Ephemeral sessions don't.
+pub fn is_permanent_source(s: &str) -> bool {
+    classify_source_tier(s) == "permanent"
+}
+
+/// Classify an agent_id into a source tier at write time (E1).
+/// Single source of truth — called by POST /observe and by backfill.
+/// Returns: "permanent" (organs, services), "cron" (scheduled jobs), "session" (ephemeral).
+pub fn classify_source_tier(agent_id: &str) -> &'static str {
+    if agent_id.is_empty() || agent_id == "unknown" {
+        return "session";
+    }
+    if agent_id.starts_with("cron-") {
+        return "cron";
+    }
+    // Core permanent set: continuously running services expected to report.
+    // Matches the original is_permanent_source() set exactly.
+    // One-off kernel operations (kernel-probe, k15-test, etc.) are "session" —
+    // they run once and stop, so silence alerts would be false positives.
+    if agent_id.starts_with("hermes")
+        || agent_id.starts_with("x-")
+        || agent_id == "kernel"
+        || agent_id == "nightshift"
+        || agent_id == "watchlist"
+        || agent_id.starts_with("organ-")
+    {
+        return "permanent";
+    }
+    "session"
+}
+
+/// Analyze two consecutive state blocks for trends. Pure function — no I/O.
+/// Returns alerts for: Dog degradation, system regression, organ silence.
+pub fn analyze_state_log_trends(prev: &StateBlock, curr: &StateBlock) -> Vec<Alert> {
+    let mut alerts = Vec::new();
+
+    // Dog degradation: success_rate drop > 20pp
+    for curr_dog in &curr.dogs {
+        if let Some(prev_dog) = prev.dogs.iter().find(|d| d.id == curr_dog.id) {
+            let delta = prev_dog.success_rate - curr_dog.success_rate;
+            if delta > 0.20 {
+                alerts.push(Alert {
+                    kind: "dog_degradation_trend",
+                    message: format!(
+                        "Dog '{}' success rate dropped {:.0}pp ({:.1}% → {:.1}%) in 60s",
+                        curr_dog.id,
+                        delta * 100.0,
+                        prev_dog.success_rate * 100.0,
+                        curr_dog.success_rate * 100.0,
+                    ),
+                    severity: "warning",
+                });
+            }
+        }
+    }
+
+    // System status regression: sovereign → degraded/critical
+    if prev.system.status == "sovereign" && curr.system.status != "sovereign" {
+        alerts.push(Alert {
+            kind: "system_regression",
+            message: format!(
+                "System regressed: {} → {} (dogs {}/{} → {}/{})",
+                prev.system.status,
+                curr.system.status,
+                prev.system.healthy_dogs,
+                prev.system.total_dogs,
+                curr.system.healthy_dogs,
+                curr.system.total_dogs,
+            ),
+            severity: "warning",
+        });
+    }
+
+    // Organ silence: recalculate from last_observation timestamp against now,
+    // not from the frozen silence_secs in the state_log block (which goes stale
+    // between kernel reboots — reported 31h when reality was 371h).
+    //
+    // Retired sources: pre-restructure agent_ids that no longer have running code.
+    // Still classified as "permanent" (correct for historical data) but excluded
+    // from silence alerts to avoid 5 permanent false-positive criticals.
+    // Decommissioned 2026-05-18 after probing confirmed zero activity since April.
+    const RETIRED_SOURCES: &[&str] = &[
+        "hermes-hermes",  // old task-runner heartbeat loop (replaced by k15-consumer)
+        "hermes-x-proxy", // old x-proxy heartbeat loop (replaced by hermes-curation)
+        "hermes-x-organ", // old curation report emitter (replaced by hermes-curation)
+        "x-proxy",        // old raw tweet capture agent (replaced by search-generator)
+        "hermes-x",       // old K15 debug/tweet capture (replaced by k15-consumer)
+        "hermes",         // generic agent_id (4 obs) — replaced by hermes-x-cynic
+        "hermes-telegram-personal", // retired personal telegram listener
+    ];
+    let now = chrono::Utc::now();
+    for organ in &curr.organs {
+        if !is_permanent_source(&organ.source) {
+            continue;
+        }
+        if RETIRED_SOURCES.contains(&organ.source.as_str()) {
+            continue;
+        }
+        // Skip sources with < 10 total observations — likely one-off test runs,
+        // not continuously running services. Avoids false silence alerts on
+        // hermes-x-cron (2 obs), hermes-organic (5 obs), etc.
+        if organ.total_observations < 10 {
+            continue;
+        }
+        let silence_secs = chrono::DateTime::parse_from_rfc3339(&organ.last_observation)
+            .map(|t| (now - t.with_timezone(&chrono::Utc)).num_seconds().max(0) as u64)
+            .unwrap_or(organ.silence_secs); // fallback to stored value if parse fails
+        if silence_secs > 3600 {
+            let hours = silence_secs / 3600;
+            alerts.push(Alert {
+                kind: "organ_silence",
+                message: format!(
+                    "Organ '{}' silent for {}h (last obs: {}, total: {})",
+                    organ.source, hours, organ.last_observation, organ.total_observations,
+                ),
+                severity: if silence_secs > 86400 {
+                    "critical"
+                } else {
+                    "warning"
+                },
+            });
+        }
+    }
+
+    alerts
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::organ::{Metric, MetricKind, MetricValue, OrganSnapshot as OSnap};
+    use crate::domain::state_log::{
+        DogSnapshot, GENESIS_HASH, OrganSnapshot, ResourceSnapshot, StateBlock, SystemSnapshot,
+    };
+    use crate::domain::storage::NullStorage;
+
+    // ── Sense alert helpers ──
+
+    fn make_rtk_snapshot(savings_pct: f64) -> Vec<(String, OSnap)> {
+        vec![(
+            "rtk".into(),
+            OSnap {
+                taken_at: chrono::Utc::now(),
+                metrics: vec![Metric {
+                    key: "savings_pct".into(),
+                    value: MetricValue::F64(savings_pct),
+                    kind: MetricKind::Gauge,
+                    unit: None,
+                }],
+            },
+        )]
+    }
+
+    fn make_tailscale_snapshot(gpu_online: bool) -> Vec<(String, OSnap)> {
+        vec![(
+            "tailscale".into(),
+            OSnap {
+                taken_at: chrono::Utc::now(),
+                metrics: vec![Metric {
+                    key: "node_cynic-gpu_online".into(),
+                    value: MetricValue::Bool(gpu_online),
+                    kind: MetricKind::Gauge,
+                    unit: None,
+                }],
+            },
+        )]
+    }
+
+    #[test]
+    fn metabolism_low_savings_triggers_alert() {
+        let alerts = check_sense_health(&make_rtk_snapshot(25.0));
+        assert!(alerts.iter().any(|a| a.kind == "metabolism_anomaly"));
+    }
+
+    #[test]
+    fn metabolism_healthy_savings_no_alert() {
+        let alerts = check_sense_health(&make_rtk_snapshot(85.0));
+        assert!(alerts.iter().all(|a| a.kind != "metabolism_anomaly"));
+    }
+
+    #[test]
+    fn fleet_drift_gpu_offline_triggers_alert() {
+        let alerts = check_sense_health(&make_tailscale_snapshot(false));
+        assert!(alerts.iter().any(|a| a.kind == "fleet_drift"));
+    }
+
+    #[test]
+    fn fleet_drift_gpu_online_no_alert() {
+        let alerts = check_sense_health(&make_tailscale_snapshot(true));
+        assert!(alerts.iter().all(|a| a.kind != "fleet_drift"));
+    }
+
+    #[tokio::test]
+    async fn healthy_system_produces_no_alerts() {
+        let metrics = Metrics::new();
+        // Simulate some healthy traffic
+        metrics.inc_verdict();
+        metrics.inc_dog_eval();
+        metrics.inc_dog_eval();
+        metrics.inc_embed_ok();
+        let alerts = analyze(
+            &NullStorage,
+            &metrics,
+            &None,
+            &[],
+            &std::collections::HashMap::new(),
+        )
+        .await;
+        // NullStorage ping fails → storage_down alert, but no other anomalies
+        assert!(alerts.iter().all(|a| a.kind == "storage_down"));
+    }
+
+    #[tokio::test]
+    async fn high_failure_rate_triggers_alert() {
+        let metrics = Metrics::new();
+        // 20 total attempts, 10 failures → 50% failure rate
+        for _ in 0..20 {
+            metrics.inc_dog_eval();
+        }
+        for _ in 0..10 {
+            metrics.inc_dog_failure();
+        }
+        let alerts = analyze(
+            &NullStorage,
+            &metrics,
+            &None,
+            &[],
+            &std::collections::HashMap::new(),
+        )
+        .await;
+        assert!(alerts.iter().any(|a| a.kind == "dog_failure_rate"));
+    }
+
+    #[tokio::test]
+    async fn no_pipeline_run_in_introspection() {
+        // This test exists to document and enforce: introspection MUST NOT
+        // call pipeline::run(). The function signature proves it — analyze()
+        // has no access to Judge, EmbeddingPort, DogUsageTracker, or VerdictCache.
+        // If someone re-adds pipeline::run, they'd need to change the signature,
+        // which would break this test and all callers.
+        let metrics = Metrics::new();
+        for _ in 0..20 {
+            metrics.inc_dog_eval();
+        }
+        for _ in 0..15 {
+            metrics.inc_dog_failure();
+        }
+        // Even with 75% failure rate, analyze() just returns alerts — no side effects
+        let alerts = analyze(
+            &NullStorage,
+            &metrics,
+            &None,
+            &[],
+            &std::collections::HashMap::new(),
+        )
+        .await;
+        assert!(alerts.iter().any(|a| a.kind == "dog_failure_rate"));
+        // If pipeline::run were called, it would need a Judge (which we don't have).
+        // The fact this compiles and runs proves no pipeline call happens.
+    }
+
+    #[tokio::test]
+    async fn failure_rate_never_exceeds_100_percent() {
+        // Regression: previously dog_evaluations_total counted only successes,
+        // so rate = failures/successes could exceed 1.0 when failures > successes.
+        // Now dog_evaluations_total counts ALL attempts → rate ≤ 1.0 always.
+        let metrics = Metrics::new();
+        // Simulate: 15 attempts total, 12 of which failed
+        for _ in 0..15 {
+            metrics.inc_dog_eval(); // all attempts
+        }
+        for _ in 0..12 {
+            metrics.inc_dog_failure(); // just the failures
+        }
+        let alerts = analyze(
+            &NullStorage,
+            &metrics,
+            &None,
+            &[],
+            &std::collections::HashMap::new(),
+        )
+        .await;
+        let dog_alert = alerts.iter().find(|a| a.kind == "dog_failure_rate");
+        assert!(dog_alert.is_some(), "should trigger failure rate alert");
+        // Parse the rate from the message: "Dog failure rate 80.0% (12/15 evals)"
+        let msg = &dog_alert.unwrap().message;
+        let rate_str = msg
+            .split('%')
+            .next()
+            .unwrap()
+            .split_whitespace()
+            .last()
+            .unwrap();
+        let rate: f64 = rate_str.parse().unwrap();
+        assert!(
+            rate <= 100.0,
+            "failure rate must never exceed 100%, got {rate}%"
+        );
+        assert!((rate - 80.0).abs() < 0.1, "expected 80%, got {rate}%");
+    }
+
+    // ── Helper: build a minimal StateBlock for trend tests ──
+
+    fn make_block(
+        seq: u64,
+        prev_hash: &str,
+        status: &str,
+        healthy: usize,
+        total: usize,
+        dogs: Vec<DogSnapshot>,
+        organs: Vec<OrganSnapshot>,
+    ) -> StateBlock {
+        StateBlock::new(
+            seq,
+            prev_hash.to_string(),
+            dogs,
+            SystemSnapshot {
+                status: status.into(),
+                healthy_dogs: healthy,
+                total_dogs: total,
+                verdict_count: 100,
+                total_tokens: 50000,
+                crystals_forming: 5,
+                crystals_crystallized: 2,
+            },
+            ResourceSnapshot {
+                cpu_pct: 10.0,
+                memory_used_gb: 14.0,
+                disk_avail_gb: 70.0,
+                uptime_secs: 3600,
+            },
+            organs,
+            vec![],
+        )
+    }
+
+    fn make_dog(id: &str, success_rate: f64) -> DogSnapshot {
+        DogSnapshot {
+            id: id.into(),
+            circuit: "closed".into(),
+            success_rate,
+            mean_latency_ms: 1500.0,
+            failures: 10,
+            last_failure_reason: None,
+        }
+    }
+
+    fn make_organ(source: &str, silence_secs: u64) -> OrganSnapshot {
+        // Use a real timestamp so the live recalculation in analyze_state_log_trends
+        // produces the expected silence duration (within a few seconds).
+        let last_obs = chrono::Utc::now() - chrono::Duration::seconds(silence_secs as i64);
+        OrganSnapshot {
+            source: source.into(),
+            last_observation: last_obs.to_rfc3339(),
+            total_observations: 100,
+            silence_secs,
+        }
+    }
+
+    // ── M1: Ephemeral Claude session MUST NOT generate organ_silence alert ──
+
+    #[test]
+    fn m1_ephemeral_session_no_silence_alert() {
+        let prev = make_block(0, GENESIS_HASH, "sovereign", 5, 5, vec![], vec![]);
+        let curr = make_block(
+            1,
+            &prev.hash,
+            "sovereign",
+            5,
+            5,
+            vec![],
+            vec![
+                make_organ("claude-abc123-def", 999999), // ephemeral, very silent
+                make_organ("gemini-xyz-456", 999999),    // ephemeral
+            ],
+        );
+        let alerts = analyze_state_log_trends(&prev, &curr);
+        assert!(
+            alerts.iter().all(|a| a.kind != "organ_silence"),
+            "ephemeral sessions must not trigger organ_silence, got: {alerts:?}"
+        );
+    }
+
+    // ── M1: Permanent organ MUST generate silence alert ──
+
+    #[test]
+    fn m1_permanent_organ_silence_alert() {
+        let prev = make_block(0, GENESIS_HASH, "sovereign", 5, 5, vec![], vec![]);
+        let curr = make_block(
+            1,
+            &prev.hash,
+            "sovereign",
+            5,
+            5,
+            vec![],
+            vec![
+                make_organ("hermes-gateway", 7200), // 2h silent → should alert
+                make_organ("organ-cultscreener", 86401), // >24h → should be critical
+                make_organ("kernel", 600),          // 10min → should NOT alert (< 1h)
+            ],
+        );
+        let alerts = analyze_state_log_trends(&prev, &curr);
+        let silence_alerts: Vec<_> = alerts
+            .iter()
+            .filter(|a| a.kind == "organ_silence")
+            .collect();
+        assert_eq!(
+            silence_alerts.len(),
+            2,
+            "hermes-gateway + organ-cultscreener should alert"
+        );
+        assert!(
+            silence_alerts
+                .iter()
+                .any(|a| a.message.contains("hermes-gateway") && a.severity == "warning"),
+            "hermes-gateway should be warning"
+        );
+        assert!(
+            silence_alerts
+                .iter()
+                .any(|a| a.message.contains("organ-cultscreener") && a.severity == "critical"),
+            "organ-cultscreener >24h should be critical"
+        );
+    }
+
+    // ── M1: Retired sources MUST NOT generate silence alert ──
+
+    #[test]
+    fn m1_retired_sources_no_silence_alert() {
+        let prev = make_block(0, GENESIS_HASH, "sovereign", 5, 5, vec![], vec![]);
+        let curr = make_block(
+            1,
+            &prev.hash,
+            "sovereign",
+            5,
+            5,
+            vec![],
+            vec![
+                make_organ("hermes-hermes", 999999),  // retired
+                make_organ("hermes-x-proxy", 999999), // retired
+                make_organ("hermes-x-organ", 999999), // retired
+                make_organ("x-proxy", 999999),        // retired
+                make_organ("hermes-x", 999999),       // retired
+            ],
+        );
+        let alerts = analyze_state_log_trends(&prev, &curr);
+        assert!(
+            alerts.iter().all(|a| a.kind != "organ_silence"),
+            "retired sources must not trigger organ_silence, got: {alerts:?}"
+        );
+    }
+
+    // ── M1: is_permanent_source correctly classifies ──
+
+    #[test]
+    fn m1_permanent_source_classification() {
+        // Permanent
+        assert!(is_permanent_source("hermes-x"));
+        assert!(is_permanent_source("hermes-gateway"));
+        assert!(is_permanent_source("x-proxy"));
+        assert!(is_permanent_source("kernel"));
+        assert!(is_permanent_source("nightshift"));
+        assert!(is_permanent_source("watchlist"));
+        assert!(is_permanent_source("organ-cultscreener"));
+
+        // Ephemeral
+        assert!(!is_permanent_source("claude-abc123-def"));
+        assert!(!is_permanent_source("gemini-xyz"));
+        assert!(!is_permanent_source("codex-20260415"));
+        assert!(!is_permanent_source("unknown"));
+        assert!(!is_permanent_source(""));
+    }
+
+    // ── E1: classify_source_tier ──
+
+    #[test]
+    fn e1_source_tier_classification() {
+        // Permanent: core services expected to continuously report
+        assert_eq!(classify_source_tier("kernel"), "permanent");
+        assert_eq!(classify_source_tier("hermes-x"), "permanent");
+        assert_eq!(classify_source_tier("x-proxy"), "permanent");
+        assert_eq!(classify_source_tier("nightshift"), "permanent");
+        assert_eq!(classify_source_tier("watchlist"), "permanent");
+        assert_eq!(classify_source_tier("organ-cultscreener"), "permanent");
+        // Cron: scheduled jobs
+        assert_eq!(classify_source_tier("cron-telemetry-digest"), "cron");
+        assert_eq!(classify_source_tier("cron-anything"), "cron");
+        // Session: ephemeral or one-off
+        assert_eq!(classify_source_tier("claude-abc123-def"), "session");
+        assert_eq!(classify_source_tier("gemini-xyz"), "session");
+        assert_eq!(classify_source_tier("kernel-probe"), "session");
+        assert_eq!(classify_source_tier("k15-consumer"), "session");
+        assert_eq!(classify_source_tier("unknown"), "session");
+        assert_eq!(classify_source_tier(""), "session");
+    }
+
+    // ── Dog degradation trend ──
+
+    #[test]
+    fn dog_degradation_triggers_alert() {
+        let dogs_before = vec![make_dog("qwen-7b", 0.95)];
+        let dogs_after = vec![make_dog("qwen-7b", 0.60)]; // -35pp
+        let prev = make_block(0, GENESIS_HASH, "sovereign", 5, 5, dogs_before, vec![]);
+        let curr = make_block(1, &prev.hash, "sovereign", 5, 5, dogs_after, vec![]);
+        let alerts = analyze_state_log_trends(&prev, &curr);
+        assert!(alerts.iter().any(|a| a.kind == "dog_degradation_trend"));
+    }
+
+    #[test]
+    fn dog_stable_no_degradation_alert() {
+        let dogs_before = vec![make_dog("qwen-7b", 0.95)];
+        let dogs_after = vec![make_dog("qwen-7b", 0.90)]; // -5pp, below threshold
+        let prev = make_block(0, GENESIS_HASH, "sovereign", 5, 5, dogs_before, vec![]);
+        let curr = make_block(1, &prev.hash, "sovereign", 5, 5, dogs_after, vec![]);
+        let alerts = analyze_state_log_trends(&prev, &curr);
+        assert!(alerts.iter().all(|a| a.kind != "dog_degradation_trend"));
+    }
+
+    // ── System regression ──
+
+    #[test]
+    fn system_regression_triggers_alert() {
+        let prev = make_block(0, GENESIS_HASH, "sovereign", 5, 5, vec![], vec![]);
+        let curr = make_block(1, &prev.hash, "degraded", 3, 5, vec![], vec![]);
+        let alerts = analyze_state_log_trends(&prev, &curr);
+        assert!(alerts.iter().any(|a| a.kind == "system_regression"));
+    }
+
+    #[test]
+    fn system_stable_no_regression_alert() {
+        let prev = make_block(0, GENESIS_HASH, "degraded", 3, 5, vec![], vec![]);
+        let curr = make_block(1, &prev.hash, "degraded", 3, 5, vec![], vec![]);
+        let alerts = analyze_state_log_trends(&prev, &curr);
+        assert!(alerts.iter().all(|a| a.kind != "system_regression"));
+    }
+}

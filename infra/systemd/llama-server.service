@@ -1,0 +1,23 @@
+[Unit]
+Description=llama-server — Qwen2.5-7B Q4 (qwen25-7b-core, sovereign inference)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Root service unit: keep default System user policy (no User=/Group= directives) to avoid 216/GROUP errors on this platform.
+Type=simple
+EnvironmentFile=/etc/cynic/llama-server.env
+ExecStart=/bin/bash -lc 'cd /usr/local/lib/llama && exec "${LLAMA_SERVER_BIN:?}" -m "${LLAMA_MODEL_PATH:?}" --host "${LLAMA_HOST:-127.0.0.1}" --port "${LLAMA_PORT:-8080}" --ctx-size "${LLAMA_CTX_SIZE:-4096}" ${LLAMA_EXTRA_ARGS:-}'
+Restart=on-failure
+RestartSec=5
+WorkingDirectory=/var/lib/cynic
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+# llama.cpp b9444+: backends are plugins loaded from the binary's directory
+# cd /usr/local/lib/llama is required before exec — see infra notes
+MemoryMax=8G
+CPUQuota=400%
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,117 @@
+{
+  "schema": "cynic.surface_registry.v1",
+  "surfaces": [
+    {
+      "id": "audit_node_host_boundary",
+      "path": "fragments/audit_node_host_boundary.json"
+    },
+    {
+      "id": "bootstrap_constellation",
+      "path": "fragments/bootstrap_constellation.json"
+    },
+    {
+      "id": "host_bootstrap",
+      "path": "fragments/host_bootstrap.json"
+    },
+    {
+      "id": "bootstrap_host_exec_bridge",
+      "path": "fragments/bootstrap_host_exec_bridge.json"
+    },
+    {
+      "id": "framework_bootstrap",
+      "path": "fragments/framework_bootstrap.json"
+    },
+    {
+      "id": "chat_operator_surface",
+      "path": "fragments/chat_operator_surface.json"
+    },
+    {
+      "id": "agent_development",
+      "path": "fragments/agent_development.json"
+    },
+    {
+      "id": "ecosystem_deps",
+      "path": "fragments/ecosystem_deps.json"
+    },
+    {
+      "id": "ecosystem_deps_upgrade",
+      "path": "fragments/ecosystem_deps_upgrade.json"
+    },
+    {
+      "id": "ecosystem_integrations",
+      "path": "fragments/ecosystem_integrations.json"
+    },
+    {
+      "id": "ecosystem_integrations_adopt",
+      "path": "fragments/ecosystem_integrations_adopt.json"
+    },
+    {
+      "id": "ecosystem_integrations_connect",
+      "path": "fragments/ecosystem_integrations_connect.json"
+    },
+    {
+      "id": "ecosystem_integrations_plan",
+      "path": "fragments/ecosystem_integrations_plan.json"
+    },
+    {
+      "id": "fleet_observation",
+      "path": "fragments/fleet_observation.json"
+    },
+    {
+      "id": "network_runtime",
+      "path": "fragments/network_runtime.json"
+    },
+    {
+      "id": "runtime_agent_matrix",
+      "path": "fragments/runtime_agent_matrix.json"
+    },
+    {
+      "id": "runtime_disk_management",
+      "path": "fragments/runtime_disk_management.json"
+    },
+    {
+      "id": "runtime_execution_context",
+      "path": "fragments/runtime_execution_context.json"
+    },
+    {
+      "id": "runtime_execution_suite",
+      "path": "fragments/runtime_execution_suite.json"
+    },
+    {
+      "id": "runtime_host_checks",
+      "path": "fragments/runtime_host_checks.json"
+    },
+    {
+      "id": "portable_lab",
+      "path": "fragments/portable_lab.json"
+    },
+    {
+      "id": "runtime_network_preflight",
+      "path": "fragments/runtime_network_preflight.json"
+    },
+    {
+      "id": "runtime_paths",
+      "path": "fragments/runtime_paths.json"
+    },
+    {
+      "id": "runtime_report",
+      "path": "fragments/runtime_report.json"
+    },
+    {
+      "id": "runtime_resolver_plan",
+      "path": "fragments/runtime_resolver_plan.json"
+    },
+    {
+      "id": "runtime_validation",
+      "path": "fragments/runtime_validation.json"
+    },
+    {
+      "id": "transport_observation",
+      "path": "fragments/transport_observation.json"
+    },
+    {
+      "id": "update_lifecycle",
+      "path": "fragments/update_lifecycle.json"
+    }
+  ]
+}

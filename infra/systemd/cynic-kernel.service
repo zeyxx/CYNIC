@@ -1,0 +1,31 @@
+[Unit]
+Description=CYNIC OS V2 — Sovereign Kernel
+After=network.target
+
+[Service]
+# projection_class: operator_projection
+# This unit is a runtime-authority projection; adjust paths in /etc/cynic/env.
+Type=simple
+WorkingDirectory=/var/lib/cynic
+ExecStart=/usr/local/bin/cynic-kernel
+# Keep boot simple and authoritative: the kernel already reports storage
+# readiness through /ready and degrades honestly if remote storage is unavailable.
+# Do not pull in a local surrealdb.service from cortex/operator machines. Storage
+# placement belongs to infra/registry.json and the storage_primary node.
+# Keep this user unit minimally sandboxed until a compatible hardening profile
+# is proven under live restart conditions; the stricter profile fails here with
+# 218/CAPABILITIES and prevents the kernel from booting at all.
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+# Generated from /etc/cynic/env
+# systemd does NOT support `export` prefix — Rule 12 maintained via generation.
+EnvironmentFile=/etc/cynic/env
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+LimitNOFILE=65535
+MemoryMax=2G
+
+[Install]
+WantedBy=default.target
