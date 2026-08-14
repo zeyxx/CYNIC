@@ -6,9 +6,9 @@
     "canonical_service_plane": "synapse",
     "planes": {
       "management": {
-        "cidr": "192.168.100.0/24",
+        "cidr": "192.168.0.0/24",
         "canonical": false,
-        "purpose": "direct bare-metal management transport"
+        "purpose": "home lan underlay (Freebox)"
       },
       "synapse": {
         "cidr": "10.10.10.0/24",
@@ -20,14 +20,15 @@
       {
         "name": "cynic-host-proxmox",
         "addresses": {
-          "management": "192.168.100.1",
+          "management": "192.168.0.37",
           "synapse": "10.10.10.1"
         }
       },
       {
         "name": "cynic-host-cortex",
         "addresses": {
-          "management": "192.168.100.2"
+          "management": "192.168.0.12",
+          "synapse": "10.10.10.2"
         }
       },
       {
@@ -49,7 +50,7 @@
       "status": "observed",
       "deploy_target": false,
       "network": {
-        "management": "192.168.100.1",
+        "management": "192.168.0.37",
         "synapse": "10.10.10.1"
       },
       "services": []
@@ -62,7 +63,7 @@
       "status": "candidate",
       "deploy_target": false,
       "network": {
-        "management": "192.168.100.2"
+        "management": "192.168.0.12"
       },
       "network_links": [
         {

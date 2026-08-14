@@ -12,9 +12,9 @@
     },
     "planes": {
       "management": {
-        "cidr": "192.168.1.0/24",
+        "cidr": "192.168.0.0/24",
         "canonical": false,
-        "purpose": "home lan underlay"
+        "purpose": "home lan underlay (Freebox router)"
       },
       "synapse": {
         "cidr": "10.10.10.0/24",
@@ -26,8 +26,15 @@
       {
         "name": "cynic-host-proxmox",
         "addresses": {
-          "management": "192.168.1.200",
+          "management": "192.168.0.37",
           "synapse": "10.10.10.1"
+        }
+      },
+      {
+        "name": "cynic-host-cortex",
+        "addresses": {
+          "management": "192.168.0.12",
+          "synapse": "10.10.10.2"
         }
       },
       {
@@ -61,11 +68,24 @@
       "status": "active",
       "deploy_target": true,
       "network": {
-        "management": "192.168.1.200",
+        "management": "192.168.0.37",
         "synapse": "10.10.10.1",
         "public_ingress": "82.65.26.228:51820"
       },
       "services": ["forgejo", "surrealdb", "llama-server"]
+    },
+    {
+      "id": "cynic-host-cortex",
+      "name": "cynic-host-cortex",
+      "aliases": ["cortex-pc", "workstation"],
+      "role": "cortex_host",
+      "status": "active",
+      "deploy_target": false,
+      "network": {
+        "management": "192.168.0.12",
+        "synapse": "10.10.10.2"
+      },
+      "services": ["llama-gpu", "observer"]
     }
   ]
 }
