@@ -72,4 +72,9 @@ pub struct EScoreSignal {
     pub raw_weight: ScoreUnit,
     /// Unix timestamp (secondes) de l'événement qui a généré ce signal.
     pub timestamp: i64,
+    /// L'epoch logique auquel ce signal a été généré.
+    /// C'est une référence déterministe qui permet le decay temporel fiable.
+    /// Si `None`, le signal est traité à l'epoch actuel du runtime.
+    #[serde(default)]
+    pub epoch: Option<u64>,
 }

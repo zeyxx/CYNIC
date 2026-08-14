@@ -914,6 +914,7 @@ name = "cynic-intel"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "cynic-protocol",
  "hex",
  "serde",
  "serde_json",

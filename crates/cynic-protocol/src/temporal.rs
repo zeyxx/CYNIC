@@ -195,7 +195,7 @@ impl EpochCertificate {
 /// temporelles, et quelles sont les conditions de rollback.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TemporalContract {
-    pub schema: String,
+    pub schema: &'static str,
     pub id: &'static str,
     pub desired_state: &'static str,
     pub observer: &'static str,
@@ -207,12 +207,15 @@ pub struct TemporalContract {
 }
 
 impl TemporalContract {
+    /// Schéma de version pour le contrat temporel.
+    pub const TEMPORAL_CONTRACT_SCHEMA: &'static str = "cynic.temporal_contract.v1";
+
     /// Version statique du contrat temporel.
     ///
     /// Ce contrat est conçu pour unifier les notions d'epoch, de snapshot,
     /// et de rollback à travers l'ensemble des verticales du runtime.
     pub const CONTRACT: TemporalContract = TemporalContract {
-        schema: "cynic.temporal_contract.v1",
+        schema: Self::TEMPORAL_CONTRACT_SCHEMA,
         id: "temporal",
         desired_state: "consistent epoch progression, verifiable checkpoints, and bounded rollback windows",
         observer: "epoch clock probe, checkpoint observer, temporal snapshot producer",
