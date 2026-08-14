@@ -6,8 +6,9 @@
 //!
 //! Architecture hexagonale : entrée = `PumpFunAction`, sortie = `Vec<EScoreSignal>`.
 //! Le mapping est pur, déterministe, et testable sans réseau.
-
+//!
 use cynic_intel::escore::types::{EScoreSignal, EvidenceTier, ScoreUnit, StatType, SCORE_SCALE};
+use cynic_protocol::Epoch;
 
 use crate::parser::PumpFunAction;
 
@@ -30,7 +31,10 @@ pub struct MappedSignals {
 ///                     Si dump massif → pénalité `Parrhesia` (signal de malhonnêteté)
 /// - `CurveCompleted` → `Karteria` boost pour les holders restants (preuve d'endurance)
 /// - `Unknown`       → aucun signal
-pub fn map_action(action: &PumpFunAction, now_unix: i64) -> MappedSignals {
+///
+/// Le paramètre `current_epoch` permet d'assocé chaque signal à un epoch logique
+/// pour un decay temporel déterministe dans l'agrégateur.
+pub fn map_action(action: &PumpFunAction, now_unix: i64, current_epoch: Epoch) -> MappedSignals {
     match action {
         // ── Création de token ─────────────────────────────────────────────
         PumpFunAction::TokenCreated {
@@ -39,30 +43,33 @@ pub fn map_action(action: &PumpFunAction, now_unix: i64) -> MappedSignals {
         } => {
             let wallet_signals = vec![
                 // Créer un token = acte de création (Poiesis)
-                signal(
+                signal_with_epoch(
                     user,
                     StatType::Poiesis,
                     EvidenceTier::T1OnChain,
                     5 * SCORE_SCALE,
                     now_unix,
+                    current_epoch,
                 ),
                 // Intention déclarée : le créateur s'engage publiquement (Parrhesia)
-                signal(
+                signal_with_epoch(
                     user,
                     StatType::Parrhesia,
                     EvidenceTier::T1OnChain,
                     2 * SCORE_SCALE,
                     now_unix,
+                    current_epoch,
                 ),
             ];
             let token_signals = vec![
                 // Le token naît avec un score Poiesis de son créateur
-                signal(
+                signal_with_epoch(
                     token_address,
                     StatType::Poiesis,
                     EvidenceTier::T1OnChain,
                     5 * SCORE_SCALE,
                     now_unix,
+                    current_epoch,
                 ),
             ];
             MappedSignals {
@@ -93,9 +100,9 @@ pub fn map_action(action: &PumpFunAction, now_unix: i64) -> MappedSignals {
             let volume_score = volume_to_score(*sol_amount).min(100 * SCORE_SCALE);
 
             if *is_buy {
-                buy_signals(token_address, volume_score, is_whale_move, now_unix)
+                buy_signals(token_address, volume_score, is_whale_move, now_unix, current_epoch)
             } else {
-                sell_signals(token_address, *sol_amount, volume_score, now_unix)
+                sell_signals(token_address, *sol_amount, volume_score, now_unix, current_epoch)
             }
         }
 
@@ -103,28 +110,31 @@ pub fn map_action(action: &PumpFunAction, now_unix: i64) -> MappedSignals {
         PumpFunAction::CurveCompleted { token_address } => {
             let token_signals = vec![
                 // Le token a prouvé son endurance jusqu'à la graduation
-                signal(
+                signal_with_epoch(
                     token_address,
                     StatType::Karteria,
                     EvidenceTier::T1OnChain,
                     50 * SCORE_SCALE,
                     now_unix,
+                    current_epoch,
                 ),
                 // La complétion = honnêteté prouvée (pas de rug avant graduation)
-                signal(
+                signal_with_epoch(
                     token_address,
                     StatType::Parrhesia,
                     EvidenceTier::T1OnChain,
                     30 * SCORE_SCALE,
                     now_unix,
+                    current_epoch,
                 ),
                 // Koinonia : une vraie communauté s'est formée
-                signal(
+                signal_with_epoch(
                     token_address,
                     StatType::Koinonia,
                     EvidenceTier::T1OnChain,
                     20 * SCORE_SCALE,
                     now_unix,
+                    current_epoch,
                 ),
             ];
             MappedSignals {
@@ -147,23 +157,26 @@ fn buy_signals(
     volume_score: ScoreUnit,
     is_whale: bool,
     now_unix: i64,
+    current_epoch: Epoch,
 ) -> MappedSignals {
     let mut token_signals = vec![
         // Achat = endurance (commitment Karteria)
-        signal(
+        signal_with_epoch(
             token_address,
             StatType::Karteria,
             EvidenceTier::T1OnChain,
             volume_score,
             now_unix,
+            current_epoch,
         ),
         // Achat = participation à l'écosystème (Philanthropia)
-        signal(
+        signal_with_epoch(
             token_address,
             StatType::Philanthropia,
             EvidenceTier::T1OnChain,
             volume_score / 2,
             now_unix,
+            current_epoch,
         ),
     ];
 
@@ -171,21 +184,23 @@ fn buy_signals(
         // Une baleine qui achète massivement : signal négatif d'humilité (Anaideia)
         // On encode la pénalité comme un poids faible (1 unité = quasi zéro contribution)
         // Le vrai système de pénalité sera géré par le modificateur quadratique de l'agrégateur.
-        token_signals.push(signal(
+        token_signals.push(signal_with_epoch(
             token_address,
             StatType::Anaideia,
             EvidenceTier::T1OnChain,
             SCORE_SCALE / 10,
             now_unix,
+            current_epoch,
         ));
     } else {
         // Petit achat : signal Anaideia positif (humilité = bien)
-        token_signals.push(signal(
+        token_signals.push(signal_with_epoch(
             token_address,
             StatType::Anaideia,
             EvidenceTier::T1OnChain,
             volume_score,
             now_unix,
+            current_epoch,
         ));
     }
 
@@ -200,29 +215,32 @@ fn sell_signals(
     sol_amount: u64,
     volume_score: ScoreUnit,
     now_unix: i64,
+    current_epoch: Epoch,
 ) -> MappedSignals {
     // Seuil dump : vente > 50 SOL = potentiel rug/exit scam
     let is_dump = sol_amount > 50_000_000_000;
 
     let mut token_signals = vec![
         // Vente = gestion du risque (Autarkeia)
-        signal(
+        signal_with_epoch(
             token_address,
             StatType::Autarkeia,
             EvidenceTier::T1OnChain,
             volume_score / 3,
             now_unix,
+            current_epoch,
         ),
     ];
 
     if is_dump {
         // Gros dump → pénalité Parrhesia (malhonnêteté possible)
-        token_signals.push(signal(
+        token_signals.push(signal_with_epoch(
             token_address,
             StatType::Parrhesia,
             EvidenceTier::T1OnChain,
             SCORE_SCALE / 100,
             now_unix,
+            current_epoch,
         ));
     }
 
@@ -246,12 +264,13 @@ fn volume_to_score(lamports: u64) -> ScoreUnit {
     bits * SCORE_SCALE * 7 / 10 // ≈ ln(sol_units) × SCORE_SCALE
 }
 
-fn signal(
+fn signal_with_epoch(
     wallet_id: &str,
     stat_type: StatType,
     evidence_tier: EvidenceTier,
     raw_weight: ScoreUnit,
     timestamp: i64,
+    epoch: Epoch,
 ) -> EScoreSignal {
     EScoreSignal {
         wallet_id: wallet_id.to_owned(),
@@ -259,7 +278,27 @@ fn signal(
         evidence_tier,
         raw_weight,
         timestamp,
+        epoch: Some(epoch.id()),
     }
+}
+
+/// Version legacy de `signal_with_epoch` sans epoch (pour compatibilité descendante).
+#[allow(dead_code)]
+fn signal(
+    wallet_id: &str,
+    stat_type: StatType,
+    evidence_tier: EvidenceTier,
+    raw_weight: ScoreUnit,
+    timestamp: i64,
+) -> EScoreSignal {
+    signal_with_epoch(
+        wallet_id,
+        stat_type,
+        evidence_tier,
+        raw_weight,
+        timestamp,
+        Epoch::ZERO,
+    )
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -269,6 +308,7 @@ mod tests {
     use super::*;
 
     const NOW: i64 = 1_720_000_000;
+    const EPOCH: Epoch = Epoch::new(42);
 
     #[test]
     fn token_creation_emits_poiesis_and_parrhesia() {
@@ -276,7 +316,7 @@ mod tests {
             token_address: "MINT_XYZ".to_string(),
             user: "CREATOR_WALLET".to_string(),
         };
-        let mapped = map_action(&action, NOW);
+        let mapped = map_action(&action, NOW, EPOCH);
 
         assert_eq!(mapped.wallet_signals.len(), 2);
         assert_eq!(mapped.token_signals.len(), 1);
@@ -288,6 +328,13 @@ mod tests {
             .wallet_signals
             .iter()
             .any(|s| s.stat_type == StatType::Parrhesia));
+        // Vérifier que l'epoch est bien propagé dans tous les signaux
+        for sig in &mapped.wallet_signals {
+            assert_eq!(sig.epoch, Some(42), "Signal wallet doit avoir l'epoch");
+        }
+        for sig in &mapped.token_signals {
+            assert_eq!(sig.epoch, Some(42), "Signal token doit avoir l'epoch");
+        }
     }
 
     #[test]
@@ -298,12 +345,16 @@ mod tests {
             token_amount: 100_000,
             is_buy: true,
         };
-        let mapped = map_action(&action, NOW);
+        let mapped = map_action(&action, NOW, EPOCH);
         let stats: Vec<_> = mapped.token_signals.iter().map(|s| &s.stat_type).collect();
 
         assert!(stats.contains(&&StatType::Karteria));
         assert!(stats.contains(&&StatType::Philanthropia));
         assert!(stats.contains(&&StatType::Anaideia));
+        // Vérifier l'epoch dans tous les signaux
+        for sig in &mapped.token_signals {
+            assert_eq!(sig.epoch, Some(42));
+        }
     }
 
     #[test]
@@ -321,8 +372,8 @@ mod tests {
             is_buy: true,
         };
 
-        let small_map = map_action(&small, NOW);
-        let whale_map = map_action(&whale, NOW);
+        let small_map = map_action(&small, NOW, EPOCH);
+        let whale_map = map_action(&whale, NOW, EPOCH);
 
         let small_anaideia = small_map
             .token_signals
@@ -348,7 +399,7 @@ mod tests {
         let action = PumpFunAction::CurveCompleted {
             token_address: "GRADUATED_TOKEN".to_string(),
         };
-        let mapped = map_action(&action, NOW);
+        let mapped = map_action(&action, NOW, EPOCH);
 
         assert!(mapped.wallet_signals.is_empty());
         assert_eq!(mapped.token_signals.len(), 3);
@@ -356,6 +407,10 @@ mod tests {
         assert!(stats.contains(&&StatType::Karteria));
         assert!(stats.contains(&&StatType::Parrhesia));
         assert!(stats.contains(&&StatType::Koinonia));
+        // Vérifier l'epoch
+        for sig in &mapped.token_signals {
+            assert_eq!(sig.epoch, Some(42));
+        }
     }
 
     #[test]
@@ -366,7 +421,7 @@ mod tests {
             token_amount: 0,
             is_buy: false,
         };
-        let mapped = map_action(&dump, NOW);
+        let mapped = map_action(&dump, NOW, EPOCH);
         assert!(mapped
             .token_signals
             .iter()
@@ -381,12 +436,13 @@ mod tests {
             token_amount: 500_000,
             is_buy: true,
         };
-        let a = map_action(&action, NOW);
-        let b = map_action(&action, NOW);
+        let a = map_action(&action, NOW, EPOCH);
+        let b = map_action(&action, NOW, EPOCH);
 
         assert_eq!(a.token_signals.len(), b.token_signals.len());
         for (sa, sb) in a.token_signals.iter().zip(b.token_signals.iter()) {
             assert_eq!(sa.raw_weight, sb.raw_weight);
+            assert_eq!(sa.epoch, sb.epoch);
         }
     }
 }

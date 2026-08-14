@@ -423,7 +423,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or(std::time::Duration::from_secs(0))
             .as_secs() as i64;
-        let mapped = cynic_observer::signal_mapper::map_action(&action, now_unix);
+        let mapped = cynic_observer::signal_mapper::map_action(
+            &action,
+            now_unix,
+            current_epoch,
+        );
 
         let wallet_signals_count = mapped.wallet_signals.len() as u64;
         let token_signals_count = mapped.token_signals.len() as u64;

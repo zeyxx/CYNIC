@@ -7,6 +7,7 @@ pub mod audit;
 pub mod domains;
 pub mod error;
 pub mod eval;
+pub mod experiment;
 pub mod log;
 pub mod memory;
 pub mod reflection;
