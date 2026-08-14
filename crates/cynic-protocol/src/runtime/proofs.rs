@@ -29,6 +29,10 @@ pub struct RuntimeProofEvidence {
     pub id: String,
     pub status: String,
     pub detail: String,
+    /// L'epoch logique associé à cette preuve, si applicable.
+    /// Ce champ est optionnel pour maintenir la compatibilité avec les preuves existantes.
+    #[serde(default)]
+    pub epoch: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

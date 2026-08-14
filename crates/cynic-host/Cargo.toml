@@ -16,4 +16,5 @@ tokio = { version = "1.50.0", features = ["process", "io-util"] }
 sysinfo = "0.39.6"
 
 [dev-dependencies]
+cynic-intel = { path = "../cynic-intel" }
 tempfile = "3"

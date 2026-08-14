@@ -99,12 +99,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     });
 
     // 4. Démarrage de la boucle de Télémétrie et Preuves du Consensus en tâche de fond
+    use cynic_protocol::Epoch;
     let node_pubkey = std::env::var("CYNIC_NODE_PUBKEY")
         .unwrap_or_else(|_| "argo-sovereign-node-dev".to_string());
     let rpc_url_clone = rpc_url.clone();
     let connected_peers_telemetry = connected_peers.clone();
 
     tokio::spawn(async move {
+        let mut current_epoch = Epoch::ZERO;
         loop {
             let peers_count = connected_peers_telemetry.load(Ordering::Relaxed);
 
@@ -113,6 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 &node_pubkey,
                 peers_count as usize,
                 &rpc_url_clone,
+                current_epoch,
             )
             .await;
 
