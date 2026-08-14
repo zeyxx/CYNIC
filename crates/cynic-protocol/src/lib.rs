@@ -22,8 +22,14 @@ pub mod provider;
 pub mod runtime;
 pub mod source_control;
 pub mod supervision;
+pub mod temporal;
 pub mod surface_registry;
 pub mod tasks;
+
+pub use temporal::{
+    Epoch, TemporalProof, TemporalSnapshot, EpochCertificate, TemporalContract,
+    TEMPORAL_EPOCH_CERTIFICATE_SCHEMA, TEMPORAL_SNAPSHOT_SCHEMA, TEMPORAL_PROOF_SCHEMA,
+};
 pub mod transport_security;
 
 pub use agent_recursion::{

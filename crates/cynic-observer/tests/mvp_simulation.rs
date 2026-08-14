@@ -1,4 +1,5 @@
 use cynic_observer::delegation::{ArgoNode, DelegationEngine, SwarmRegistry};
+use cynic_protocol::Epoch;
 use cynic_observer::parser::PumpFunAction;
 use cynic_observer::signal_mapper::map_action;
 
@@ -36,17 +37,17 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     registry.register_node(ArgoNode {
         pubkey: "AttackerNode".to_string(),
         infrastructure_escore: 10,
-        activation_epoch: 0,
+        activation_epoch: Epoch::ZERO,
     });
     registry.register_node(ArgoNode {
         pubkey: "HonestNode_A".to_string(),
         infrastructure_escore: 90,
-        activation_epoch: 0,
+        activation_epoch: Epoch::ZERO,
     });
     registry.register_node(ArgoNode {
         pubkey: "HonestNode_B".to_string(),
         infrastructure_escore: 90,
-        activation_epoch: 0,
+        activation_epoch: Epoch::ZERO,
     });
 
     // CAS A : Sans Slot Hash (PoH) baseline stable
@@ -56,7 +57,7 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     for nonce in 0..1000 {
         let simulated_tx_signature = format!("solana_tx_sig_with_nonce_{}", nonce);
         let elected_leader =
-            DelegationEngine::elect_leader(&registry, &simulated_tx_signature, fixed_slot_hash, 0)
+            DelegationEngine::elect_leader(&registry, &simulated_tx_signature, fixed_slot_hash, Epoch::ZERO)
                 .unwrap();
         if elected_leader == "AttackerNode" {
             found_winning_tx = Some((simulated_tx_signature, nonce));
@@ -77,7 +78,7 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
         &registry,
         "forged_sig_intended_for_fixed",
         real_slot_hash_from_poh,
-        0,
+        Epoch::ZERO,
     )
     .unwrap();
     println!(
@@ -96,13 +97,13 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     view_node_a.register_node(ArgoNode {
         pubkey: "Node_1".to_string(),
         infrastructure_escore: 100,
-        activation_epoch: 0,
+        activation_epoch: Epoch::ZERO,
     });
     // Node_2 vient de s'inscrire, Node_A le voit à l'époque 0 mais son activation est prévue pour l'époque 1
     view_node_a.register_node(ArgoNode {
         pubkey: "Node_2".to_string(),
         infrastructure_escore: 100,
-        activation_epoch: 1,
+        activation_epoch: Epoch::new(1),
     });
 
     let mut view_node_b = SwarmRegistry::new();
@@ -110,15 +111,15 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     view_node_b.register_node(ArgoNode {
         pubkey: "Node_1".to_string(),
         infrastructure_escore: 100,
-        activation_epoch: 0,
+        activation_epoch: Epoch::ZERO,
     });
 
     let event_sig = "solana_real_tx_signature_abc123";
     let slot_hash = "slot_hash_abc_123";
 
     // Les deux nœuds calculent le leader pour l'epoch 0 en cours
-    let leader_a = DelegationEngine::elect_leader(&view_node_a, event_sig, slot_hash, 0).unwrap();
-    let leader_b = DelegationEngine::elect_leader(&view_node_b, event_sig, slot_hash, 0).unwrap();
+    let leader_a = DelegationEngine::elect_leader(&view_node_a, event_sig, slot_hash, Epoch::ZERO).unwrap();
+    let leader_b = DelegationEngine::elect_leader(&view_node_b, event_sig, slot_hash, Epoch::ZERO).unwrap();
 
     println!(
         "  Vue Nœud A (Élection Epoch 0) -> Leader élu : {}",

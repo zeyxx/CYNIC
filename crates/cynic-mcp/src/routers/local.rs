@@ -1863,4 +1863,39 @@ impl CynicMcpProxy {
             serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
         )]))
     }
+
+    #[tool(
+        name = "cynic_audit_v2",
+        description = "Execute canonical AST-based Layer 0-3 audit engine v2 across all workspace crates and contracts. Produces schema cynic.audit_report.v2."
+    )]
+    async fn cynic_audit_v2(&self) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let root = std::path::Path::new(&self.project_root);
+        let report = cynic_host::audit_engine::run_workspace_audit(root);
+        let result = serde_json::to_value(&report).unwrap_or_default();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_detection_report",
+        description = "Observe dynamic host capabilities (supervisor, process manager, RAM, CPU cores, GPU accelerators) without shell execution. Produces schema cynic.detection_report.v1."
+    )]
+    async fn cynic_detection_report(&self) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let supervisor = cynic_host::detection_engine::detect_supervisor();
+        let hardware = cynic_host::detection_engine::detect_hardware_capabilities();
+        let result = serde_json::json!({
+            "schema": cynic_protocol::DETECTION_REPORT_SCHEMA_V1,
+            "generated_at": chrono::Utc::now().to_rfc3339(),
+            "supervisor": supervisor,
+            "hardware": hardware,
+        });
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+        )]))
+    }
 }

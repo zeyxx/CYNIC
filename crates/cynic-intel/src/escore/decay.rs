@@ -63,6 +63,54 @@ pub fn to_points(units: ScoreUnit) -> u64 {
     units / SCORE_SCALE
 }
 
+/// Applique un decay basé sur l'écart d'epochs entre le signal et l'epoch actuel.
+///
+/// Contrairement à `calculate_decay` qui utilise des jours, cette fonction
+/// utilise la primitive `cynic_protocol::Epoch` pour un temps logique fiable.
+/// Chaque epoch représente une unité de consensus déterministe.
+///
+/// Le `retention_bps` est interprété comme le taux de rétention PAR EPOCH.
+/// Exemple : 9_277 bps ≈ exp(-0.075) par epoch (≈ 7.25% de perte par epoch).
+///
+/// # Arguments
+/// - `base_value` : Le score de base à appliquer au decay.
+/// - `signal_epoch` : L'epoch auquel le signal a été généré.
+/// - `current_epoch` : L'epoch actuel du runtime.
+/// - `retention_bps` : Le taux de rétention par epoch (en basis points).
+///
+/// # Returns
+/// Le score après application du decay, ou `base_value` si l'écart est nul.
+///
+/// # Panics
+/// Ne panic pas - si `current_epoch < signal_epoch`, retourne `base_value` sans decay.
+pub fn calculate_epoch_decay(
+    base_value: ScoreUnit,
+    signal_epoch: u64,
+    current_epoch: u64,
+    retention_bps: RetentionBps,
+) -> ScoreUnit {
+    if base_value == 0 || current_epoch <= signal_epoch {
+        // Pas de decay si le signal est à l'epoch actuel ou dans le futur.
+        return base_value;
+    }
+
+    let epochs_elapsed = (current_epoch - signal_epoch) as u32;
+
+    // Incrémente la métrique de decay
+    crate::escore::metrics::ESCORE_METRICS
+        .decay_operations_total
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+    // Un taux de rétention > 10_000 bps serait une augmentation, ce qui est interdit.
+    let retention = retention_bps.min(10_000) as u128;
+
+    let mut value = base_value as u128;
+    for _ in 0..epochs_elapsed {
+        value = value * retention / 10_000;
+    }
+    value as ScoreUnit
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -113,6 +113,8 @@
       "tools": [
         "cynic_mcp_surface",
         "cynic_api_contracts",
+        "cynic_audit_v2",
+        "cynic_detection_report",
         "cynic_health",
         "cynic_attention",
         "cynic_metabolism",
