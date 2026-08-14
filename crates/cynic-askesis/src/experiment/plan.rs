@@ -37,7 +37,9 @@ pub fn plan_trials(spec: &ExperimentSpec) -> crate::Result<Vec<TrialPlan>> {
 
 fn validate_spec(spec: &ExperimentSpec) -> crate::Result<()> {
     if spec.schema != "cynic.askesis.experiment.spec.v1" {
-        return Err(AskesisError::EvalPolicy("unsupported experiment schema".into()));
+        return Err(AskesisError::EvalPolicy(
+            "unsupported experiment schema".into(),
+        ));
     }
     if spec.id.trim().is_empty()
         || spec.domains.is_empty()
@@ -59,18 +61,20 @@ fn validate_spec(spec: &ExperimentSpec) -> crate::Result<()> {
 }
 
 fn cartesian_coordinates(dimensions: &[DimensionSpec]) -> Vec<Vec<(String, String)>> {
-    dimensions.iter().fold(vec![Vec::new()], |coordinates, dimension| {
-        coordinates
-            .into_iter()
-            .flat_map(|coordinate| {
-                dimension.values.iter().map(move |value| {
-                    let mut next = coordinate.clone();
-                    next.push((dimension.id.clone(), value.clone()));
-                    next
+    dimensions
+        .iter()
+        .fold(vec![Vec::new()], |coordinates, dimension| {
+            coordinates
+                .into_iter()
+                .flat_map(|coordinate| {
+                    dimension.values.iter().map(move |value| {
+                        let mut next = coordinate.clone();
+                        next.push((dimension.id.clone(), value.clone()));
+                        next
+                    })
                 })
-            })
-            .collect()
-    })
+                .collect()
+        })
 }
 
 #[cfg(test)]
@@ -83,9 +87,18 @@ mod tests {
         let spec = ExperimentSpec {
             schema: "cynic.askesis.experiment.spec.v1".into(),
             id: "small-model-capabilities".into(),
-            domains: vec![DomainSpec { id: "wordle".into(), task_kind: "interactive_search".into() }],
-            dimensions: vec![DimensionSpec { id: "prompt".into(), values: vec!["direct".into(), "reasoning".into()] }],
-            scales: vec![ScaleSpec { id: "smoke".into(), sample_count: 8 }],
+            domains: vec![DomainSpec {
+                id: "wordle".into(),
+                task_kind: "interactive_search".into(),
+            }],
+            dimensions: vec![DimensionSpec {
+                id: "prompt".into(),
+                values: vec!["direct".into(), "reasoning".into()],
+            }],
+            scales: vec![ScaleSpec {
+                id: "smoke".into(),
+                sample_count: 8,
+            }],
             repetitions: 3,
         };
         let plans = plan_trials(&spec).expect("valid plan");
@@ -93,4 +106,3 @@ mod tests {
         assert!(plans.iter().all(|plan| !plan.mutates));
     }
 }
-

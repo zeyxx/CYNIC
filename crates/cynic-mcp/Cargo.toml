@@ -10,6 +10,7 @@ legacy_infra_tools = []
 cynic-askesis = { path = "../cynic-askesis" }
 cynic-host = { path = "../cynic-host" }
 cynic-inference = { path = "../cynic-inference" }
+cynic-intel = { path = "../cynic-intel" }
 cynic-node = { path = "../cynic-node" }
 cynic-protocol = { path = "../cynic-protocol" }
 rmcp = { version = "1.2", features = ["server", "transport-io", "macros"] }

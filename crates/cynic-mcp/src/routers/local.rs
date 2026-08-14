@@ -1898,4 +1898,68 @@ impl CynicMcpProxy {
             serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
         )]))
     }
+
+    #[tool(
+        name = "cynic_futarchy_create",
+        description = "Create a conditional futarchy prediction market seeded from Odysseum liquidity. Produces schema cynic.futarchy_market.v1."
+    )]
+    async fn cynic_futarchy_create(
+        &self,
+        params: Parameters<crate::types::FutarchyCreateParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let market = cynic_intel::futarchy::create_market(
+            &p.market_id,
+            &p.proposal_id,
+            &p.question,
+            p.initial_liquidity_units,
+            p.min_conviction_threshold_bps,
+        );
+        let result = serde_json::to_value(&market).unwrap_or_default();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_futarchy_bet",
+        description = "Place a prediction bet on an active futarchy market using constant product CPMM math. Calculates shares and new BPS prices."
+    )]
+    async fn cynic_futarchy_bet(
+        &self,
+        params: Parameters<crate::types::FutarchyBetParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let mut market = cynic_intel::futarchy::create_market(
+            &p.market_id,
+            "proposal-active",
+            "Market Question",
+            1_000_000,
+            6000,
+        );
+        let bet = cynic_intel::futarchy::PredictionBet {
+            bettor_wallet: p.bettor_wallet,
+            is_yes: p.is_yes,
+            amount_units: p.amount_units,
+            timestamp: chrono::Utc::now().timestamp(),
+        };
+        let shares = cynic_intel::futarchy::execute_bet(&mut market, bet)
+            .map_err(|e| McpError::invalid_params(e, None))?;
+        let (yes_bps, no_bps) =
+            cynic_intel::futarchy::calculate_prices_bps(market.yes_pool_units, market.no_pool_units);
+        let result = serde_json::json!({
+            "market_id": p.market_id,
+            "shares_bought": shares,
+            "yes_price_bps": yes_bps,
+            "no_price_bps": no_bps,
+            "total_liquidity_units": market.total_liquidity_units,
+        });
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+        )]))
+    }
 }

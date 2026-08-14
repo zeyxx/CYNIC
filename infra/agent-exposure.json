@@ -127,9 +127,9 @@
       "fallback_tools": []
     },
     "judgment_and_observation": {
-      "description": "Kernel judgment and observation intake. Judge remains product-domain epistemology, not low-layer proof.",
+      "description": "Kernel judgment, futarchy markets, and observation intake.",
       "tier": "mixed_baseline_and_product",
-      "tools": ["cynic_judge", "cynic_observe"],
+      "tools": ["cynic_judge", "cynic_observe", "cynic_futarchy_create", "cynic_futarchy_bet"],
       "fallback_tools": []
     },
     "inference": {

@@ -1,10 +1,10 @@
-use crate::experiment::types::WordleObservation;
+use crate::experiment::types::{ReconciliationAction, ReconciliationStepProof, ServiceObservation};
 
-pub trait WordleDecisionPort {
+pub trait ReconciliationDecisionPort {
     fn name(&self) -> &str;
-    fn next_guess(&self, history: &[WordleObservation]) -> Option<String>;
-    fn remaining_candidates(&self, _history: &[WordleObservation]) -> Option<usize> {
-        None
-    }
+    fn next_action(
+        &self,
+        desired: &ServiceObservation,
+        history: &[ReconciliationStepProof],
+    ) -> Option<ReconciliationAction>;
 }
-

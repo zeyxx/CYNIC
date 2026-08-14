@@ -57,7 +57,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // 2. Initialisation du Write-Ahead Log (WAL)
     use cynic_observer::wal::{WalRecord, WriteAheadLog};
-    let mut wal = WriteAheadLog::new("argo_node.wal").expect("Impossible de créer le WAL");
+    let wal = std::sync::Arc::new(std::sync::Mutex::new(
+        WriteAheadLog::new("argo_node.wal").expect("Impossible de créer le WAL"),
+    ));
     let recovered_events = WriteAheadLog::replay("argo_node.wal").unwrap_or_default();
     info!(
         "WAL: {} événements restaurés en mémoire depuis le disque.",
@@ -98,17 +100,53 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     });
 
+    // Variable partagée pour l'epoch courant (accessible par la boucle principale et la télémétrie)
+    use std::sync::Mutex as StdMutex;
+    let current_epoch_shared = Arc::new(StdMutex::new(Epoch::ZERO));
+
     // 4. Démarrage de la boucle de Télémétrie et Preuves du Consensus en tâche de fond
     use cynic_protocol::Epoch;
     let node_pubkey = std::env::var("CYNIC_NODE_PUBKEY")
         .unwrap_or_else(|_| "argo-sovereign-node-dev".to_string());
     let rpc_url_clone = rpc_url.clone();
     let connected_peers_telemetry = connected_peers.clone();
+    let wal_telemetry = wal.clone();
+    let metabolism_telemetry = metabolism.clone();
+    let epoch_shared_clone = current_epoch_shared.clone();
 
     tokio::spawn(async move {
         let mut current_epoch = Epoch::ZERO;
+        let mut last_epoch_mark = std::time::Instant::now();
         loop {
             let peers_count = connected_peers_telemetry.load(Ordering::Relaxed);
+
+            // Incrémenter l'epoch périodiquement (toutes les 60 secondes)
+            if last_epoch_mark.elapsed().as_secs() >= 60 {
+                current_epoch = current_epoch.next();
+                last_epoch_mark = std::time::Instant::now();
+
+                // Partager le nouvel epoch avec la boucle principale
+                {
+                    let mut epoch_guard = epoch_shared_clone.lock().unwrap();
+                    *epoch_guard = current_epoch;
+                }
+
+                // Marquer l'epoch dans le WAL
+                let current_metabolism = metabolism_telemetry.current_state();
+                let registry_digest = format!(
+                    "sha256:epoch-{}-peers-{}",
+                    current_epoch.id(),
+                    peers_count
+                );
+                if let Err(e) = wal_telemetry.lock().unwrap().mark_epoch(
+                    current_epoch,
+                    registry_digest,
+                    &current_metabolism,
+                ) {
+                    log::warn!("Échec de l'écriture EpochMarker dans le WAL : {}", e);
+                }
+                log::info!("🔄 Epoch {} marqué dans le WAL", current_epoch.id());
+            }
 
             info!("ConsensusTelemetry: Enregistrement et mesure de l'état du consensus...");
             let proof = cynic_observer::consensus::ConsensusTelemetry::generate_proof(
@@ -248,6 +286,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     });
 
+    // Variable partagée pour l'epoch courant (accessible par la boucle principale)
+    use std::sync::Mutex as StdMutex;
+    let current_epoch_shared = Arc::new(StdMutex::new(Epoch::ZERO));
+
     info!("Le Cortex est en attente d'événements...");
 
     // Boucle principale du Cortex : réception et parsing
@@ -255,7 +297,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Sauvegarde WAL (Adaptative)
         let current_metabolism = metabolism.current_state();
         let record = WalRecord::EventReceived(raw_event.clone());
-        if let Err(e) = wal.append(&record, &current_metabolism) {
+        if let Err(e) = wal.lock().unwrap().append(&record, &current_metabolism) {
             log::error!("Échec de l'écriture WAL : {}", e);
         }
 
@@ -361,6 +403,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         // Le Watcher a capté un événement. On le passe au Parser.
         let action = PumpFunParser::parse(&resolved_event);
+        let current_epoch = *current_epoch_shared.lock().unwrap();
 
         // Envoyer la transaction au diffuseur du Dashboard
         let now_unix_sec = std::time::SystemTime::now()

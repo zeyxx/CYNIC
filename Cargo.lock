@@ -882,6 +882,7 @@ name = "cynic-host"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "cynic-intel",
  "cynic-protocol",
  "hex",
  "libc",
@@ -978,6 +979,7 @@ dependencies = [
  "cynic-askesis",
  "cynic-host",
  "cynic-inference",
+ "cynic-intel",
  "cynic-node",
  "cynic-protocol",
  "glob",

@@ -14,6 +14,25 @@ pub struct ApiContractsParams {
     pub contract: Option<String>,
 }
 
+// ── Futarchy Prediction Markets ─────────────────────────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct FutarchyCreateParams {
+    pub market_id: String,
+    pub proposal_id: String,
+    pub question: String,
+    pub initial_liquidity_units: u64,
+    pub min_conviction_threshold_bps: u32,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct FutarchyBetParams {
+    pub market_id: String,
+    pub bettor_wallet: String,
+    pub is_yes: bool,
+    pub amount_units: u64,
+}
+
 // ── Docker ───────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize, JsonSchema)]

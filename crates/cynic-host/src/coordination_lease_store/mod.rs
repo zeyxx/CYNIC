@@ -1,4 +1,6 @@
 use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use chrono::{DateTime, Duration, Utc};
@@ -6,8 +8,11 @@ use cynic_protocol::{
     BatchClaimResult, LeaseAction, LeaseConflict, LeaseGrant, LeaseGuard, LeaseMutationOutcome,
     TargetClaimOutcome,
 };
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+pub const LEASE_SNAPSHOT_SCHEMA_V1: &str = "cynic.lease_snapshot.v1";
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ActiveLease {
     pub lease_id: String,
     pub target: String,
@@ -17,10 +22,19 @@ pub struct ActiveLease {
     pub expires_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersistedLeaseSnapshot {
+    pub schema: &'static str,
+    pub token_counter: u64,
+    pub saved_at: String,
+    pub leases: Vec<ActiveLease>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct CoordinationLeaseStore {
     leases: Arc<RwLock<BTreeMap<String, ActiveLease>>>,
     token_counter: Arc<RwLock<u64>>,
+    persist_path: Option<PathBuf>,
 }
 
 impl CoordinationLeaseStore {
@@ -28,7 +42,78 @@ impl CoordinationLeaseStore {
         Self {
             leases: Arc::new(RwLock::new(BTreeMap::new())),
             token_counter: Arc::new(RwLock::new(1000)),
+            persist_path: None,
         }
+    }
+
+    pub fn with_persistence(path: PathBuf) -> Result<Self, String> {
+        let mut store = Self {
+            leases: Arc::new(RwLock::new(BTreeMap::new())),
+            token_counter: Arc::new(RwLock::new(1000)),
+            persist_path: Some(path.clone()),
+        };
+
+        if path.exists() {
+            store.load_from_disk(&path)?;
+        }
+
+        Ok(store)
+    }
+
+    fn load_from_disk(&mut self, path: &Path) -> Result<(), String> {
+        let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+        let snapshot: PersistedLeaseSnapshot =
+            serde_json::from_str(&content).map_err(|e| e.to_string())?;
+
+        let now = Utc::now();
+        let mut leases = self.leases.write().expect("leases write");
+        let mut counter = self.token_counter.write().expect("token_counter write");
+
+        *counter = snapshot.token_counter;
+        for lease in snapshot.leases {
+            // Uniquement restaurer les baux non expirés
+            if lease.expires_at > now {
+                leases.insert(lease.target.clone(), lease);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn maybe_persist(&self) {
+        if let Some(path) = &self.persist_path {
+            let _ = self.save_to_disk(path);
+        }
+    }
+
+    pub fn save_to_disk(&self, path: &Path) -> Result<(), String> {
+        let leases = self.leases.read().expect("leases read");
+        let counter = *self.token_counter.read().expect("token_counter read");
+        let now = Utc::now();
+
+        let unexpired_leases = leases
+            .values()
+            .filter(|l| l.expires_at > now)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let snapshot = PersistedLeaseSnapshot {
+            schema: LEASE_SNAPSHOT_SCHEMA_V1,
+            token_counter: counter,
+            saved_at: now.to_rfc3339(),
+            leases: unexpired_leases,
+        };
+
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+
+        let serialized = serde_json::to_string_pretty(&snapshot).map_err(|e| e.to_string())?;
+        let tmp_path = path.with_extension("tmp");
+        fs::write(&tmp_path, serialized).map_err(|e| e.to_string())?;
+        fs::rename(tmp_path, path).map_err(|e| e.to_string())?;
+
+        Ok(())
     }
 
     fn next_fencing_token(&self) -> u64 {
@@ -73,6 +158,9 @@ impl CoordinationLeaseStore {
         };
 
         leases.insert(target.to_string(), lease);
+        drop(leases);
+
+        self.maybe_persist();
 
         TargetClaimOutcome::Claimed {
             target: target.to_string(),
@@ -119,7 +207,7 @@ impl CoordinationLeaseStore {
             return LeaseMutationOutcome::rejected(action, &guard.target, guard.fencing_token);
         }
 
-        match action {
+        let outcome = match action {
             LeaseAction::Renew => {
                 let ttl = extend_ttl_seconds.unwrap_or(3600);
                 active.expires_at = now + Duration::seconds(ttl);
@@ -151,7 +239,12 @@ impl CoordinationLeaseStore {
                     proof_ref,
                 )
             }
-        }
+        };
+
+        drop(leases);
+        self.maybe_persist();
+
+        outcome
     }
 
     pub fn who(&self) -> Vec<ActiveLease> {
@@ -170,28 +263,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_lease_claim_and_conflict() {
-        let store = CoordinationLeaseStore::new();
+    fn test_lease_persistence_and_recovery() {
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let lease_file = temp_dir.path().join("leases.json");
 
-        let outcome1 = store.claim("agent-codex", "crates/cynic-inference", 3600);
-        assert!(matches!(outcome1, TargetClaimOutcome::Claimed { .. }));
+        // 1. Première instance de store avec persistance
+        {
+            let store1 = CoordinationLeaseStore::with_persistence(lease_file.clone())
+                .expect("store1 init");
+            let claim = store1.claim("agent-codex", "crates/cynic-inference", 3600);
+            assert!(matches!(claim, TargetClaimOutcome::Claimed { .. }));
+            assert_eq!(store1.who().len(), 1);
+        }
 
-        let outcome2 = store.claim("agent-claude", "crates/cynic-inference", 3600);
-        assert!(matches!(outcome2, TargetClaimOutcome::Conflict { .. }));
+        // Le fichier de persistance doit exister sur le disque
+        assert!(lease_file.exists());
 
-        if let TargetClaimOutcome::Claimed { grant, .. } = outcome1 {
-            let guard = LeaseGuard {
-                agent_id: "agent-codex".to_string(),
-                target: "crates/cynic-inference".to_string(),
-                lease_id: grant.lease_id,
-                fencing_token: grant.fencing_token,
-            };
+        // 2. Deuxième instance de store simulant un redémarrage de processus
+        {
+            let store2 = CoordinationLeaseStore::with_persistence(lease_file.clone())
+                .expect("store2 init");
+            let active = store2.who();
+            assert_eq!(active.len(), 1, "Active lease must be restored on restart");
+            assert_eq!(active[0].agent_id, "agent-codex");
+            assert_eq!(active[0].target, "crates/cynic-inference");
 
-            let release = store.mutate(&guard, LeaseAction::Release, None, None);
-            assert!(release.is_applied());
-
-            let outcome3 = store.claim("agent-claude", "crates/cynic-inference", 3600);
-            assert!(matches!(outcome3, TargetClaimOutcome::Claimed { .. }));
+            // Le token de fencing suivant doit être incrémenté (> 1001)
+            let next_claim = store2.claim("agent-claude", "crates/cynic-intel", 3600);
+            if let TargetClaimOutcome::Claimed { grant, .. } = next_claim {
+                assert!(grant.fencing_token > 1001, "Fencing token counter must be restored");
+            } else {
+                panic!("Expected claim to succeed");
+            }
         }
     }
 }

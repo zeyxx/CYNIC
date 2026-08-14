@@ -43,35 +43,53 @@ pub struct TrialPlan {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum LetterMark {
-    Absent,
-    Present,
-    Correct,
+pub enum ServiceState {
+    Unknown,
+    Running,
+    Stopped,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WordleObservation {
-    pub guess: String,
-    pub marks: Vec<LetterMark>,
+pub struct ServiceScenario {
+    pub desired_service: String,
+    pub desired_state: ServiceState,
+    pub initial_state: ServiceState,
+    pub restart_succeeds: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WordleStepProof {
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ReconciliationAction {
+    ObserveService { service: String },
+    RestartService { service: String, consent: bool },
+    ReadBackService { service: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServiceObservation {
+    pub service: String,
+    pub state: ServiceState,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ReconciliationStepProof {
     pub step: u32,
-    pub desired_action: String,
-    pub observation: WordleObservation,
-    pub remaining_candidates: Option<usize>,
+    pub action: ReconciliationAction,
+    pub mutates: bool,
+    pub observation: Option<ServiceObservation>,
+    pub outcome: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WordleEpisodeProof {
+pub struct ReconciliationProof {
     pub schema: &'static str,
     pub status: &'static str,
     pub policy: String,
-    pub word_length: usize,
-    pub max_steps: u32,
-    pub solved: bool,
-    pub steps: Vec<WordleStepProof>,
+    pub desired_state: ServiceObservation,
+    pub max_actions: u32,
+    pub converged: bool,
+    pub mutation_count: u32,
+    pub steps: Vec<ReconciliationStepProof>,
     pub unknowns: Vec<String>,
 }
-
