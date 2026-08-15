@@ -1,0 +1,43 @@
+name: CYNIC CI & Verification Gate
+
+on:
+  push:
+    branches: [main, "sync/*"]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  CYNIC_ALLOW_LOCAL_DEV_BUILD: "1"
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  verify:
+    name: Layer 0-4 Verification Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Validate Foundation & Infra JSON Contracts
+        run: |
+          jq empty contracts/foundation.json
+          jq empty infra/runtime-authority.json
+          jq empty infra/registry.json
+          jq empty infra/agent-exposure.json
+          jq empty infra/ecosystem-pins.json
+
+      - name: Check Workspace Compilation
+        run: cargo check --workspace
+
+      - name: Run Test Suites
+        run: cargo test --workspace
