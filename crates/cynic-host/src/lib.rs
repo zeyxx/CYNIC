@@ -5,6 +5,7 @@ pub mod bootstrap_chain;
 pub mod bootstrap_host_plan;
 pub mod bounded_helper;
 pub mod build;
+pub mod build_proof_compressor;
 pub mod command_surface;
 pub mod conformance;
 pub mod coordination_lease_store;

@@ -3,6 +3,7 @@ pub mod anchor_client;
 pub mod artifact_release;
 pub mod audit;
 pub mod build;
+pub mod build_proof;
 pub mod detection;
 pub mod coord;
 pub mod convergence;

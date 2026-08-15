@@ -30,17 +30,20 @@ pub(super) fn draw(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
-            " chat ",
+            " OPERATOR DASHBOARD ",
             Style::default()
                 .fg(Theme::ACCENT_DIM)
                 .bg(Theme::HEADER_BG)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::raw(" "),
+        Span::raw(" | "),
+        Span::styled("φ⁻¹: 61.8% ", Style::default().fg(Color::Yellow)),
+        Span::raw("| "),
+        Span::styled("Synapse: 10.10.10.0/24 ", Style::default().fg(Color::Green)),
+        Span::raw("| "),
         Span::styled(&app.status, Style::default().fg(Theme::MUTED)),
     ]));
     f.render_widget(header, chunks[0]);
-
     let scroll_focused = app.focus == Focus::Scrollback;
     let mut text_lines: Vec<Line> = Vec::new();
     for line in &app.lines {

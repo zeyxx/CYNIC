@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod epistemic;
 pub mod escore;
 pub mod futarchy;
 pub mod kscore;
