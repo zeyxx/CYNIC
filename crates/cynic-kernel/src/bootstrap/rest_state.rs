@@ -113,5 +113,6 @@ pub fn build_rest_state(
         zones: runtime_services.zones,
         producer_heartbeats: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
         overdue_task_alerted: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+        temporal_clock: std::sync::Arc::new(crate::temporal_clock::TemporalClock::new()),
     })
 }

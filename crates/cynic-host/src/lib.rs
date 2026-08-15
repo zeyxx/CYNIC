@@ -22,6 +22,7 @@ pub mod hardware_conformance;
 pub mod host_bootstrap_evidence;
 pub mod host_exec_cli;
 pub mod host_exec_policy;
+pub mod host_hardening;
 pub mod install_contract;
 pub mod kernel_proof_persistence;
 pub mod lab;

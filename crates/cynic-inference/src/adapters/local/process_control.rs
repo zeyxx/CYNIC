@@ -52,6 +52,16 @@ impl ProcessControlPort for SystemProcessControl {
     }
 }
 
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::*;
+
+    #[test]
+    fn observes_current_process_without_mutation() {
+        assert!(SystemProcessControl.is_running(std::process::id()));
+    }
+}
+
 #[cfg(windows)]
 impl ProcessControlPort for SystemProcessControl {
     fn is_running(&self, pid: u32) -> bool {
@@ -72,12 +82,12 @@ impl ProcessControlPort for SystemProcessControl {
     }
 
     fn terminate(&self, pid: u32) -> Result<(), LocalRuntimeError> {
-        let status = Command::new("taskkill.exe")
+        let _status = Command::new("taskkill.exe")
             .args(["/PID", &pid.to_string(), "/T"])
             .status()
             .map_err(|error| LocalRuntimeError::Control(format!("terminate pid {pid}: {error}")))?;
         thread::sleep(Duration::from_millis(400));
-        if !status.success() && self.is_running(pid) {
+        if self.is_running(pid) {
             let forced = Command::new("taskkill.exe")
                 .args(["/PID", &pid.to_string(), "/T", "/F"])
                 .status()
@@ -106,4 +116,3 @@ impl ProcessControlPort for SystemProcessControl {
         )))
     }
 }
-

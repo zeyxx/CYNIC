@@ -23,6 +23,7 @@ pub mod phone_numbers;
 pub mod response;
 pub mod services;
 pub mod soma;
+pub mod temporal;
 pub mod types;
 pub mod webhook;
 
@@ -252,6 +253,8 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/services/{id}",
             axum::routing::delete(unregister_service_handler),
         )
+        .route("/temporal/epoch", get(temporal::epoch_get_handler))
+        .route("/temporal/epoch/advance", post(temporal::epoch_advance_handler))
         .layer(axum_mw::from_fn_with_state(state.clone(), audit_middleware))
         .layer(axum_mw::from_fn_with_state(state.clone(), auth_middleware))
         .layer(axum_mw::from_fn_with_state(

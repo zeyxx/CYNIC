@@ -46,6 +46,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic runtime network-preflight --json [--host <name>]...",
                     "cynic runtime repo-access --json [--profile <path>]",
                     "cynic runtime report --json [--output <path> | --persist]",
+                    "cynic runtime epoch --json [--advance] [--endpoint <kernel-url>]",
                     "cynic runtime agent-matrix --json",
                     "cynic runtime inference --json",
                     "cynic runtime inference-vault --json",

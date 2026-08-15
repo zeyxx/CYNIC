@@ -13,6 +13,7 @@ pub mod endpoint;
 pub mod evidence;
 pub mod forgejo;
 pub mod framework;
+pub mod hardening;
 pub mod integrity;
 pub mod network;
 pub mod observe;

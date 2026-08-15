@@ -24,17 +24,15 @@ pub fn probe_engine_plugins(hw: &HardwareProfile) -> EnginePlugins {
         .unwrap_or_default();
     let has_vulkan = plugin_dir
         .as_ref()
-        .map(|d| d.join("libggml-vulkan.so").exists())
-        .unwrap_or(false)
+        .is_some_and(|d| has_library(d, "libggml-vulkan.so", "ggml-vulkan.dll"))
         || Path::new("/usr/local/lib/llama/libggml-vulkan.so").exists();
-    let has_cuda = plugin_dir
-        .as_ref()
-        .map(|d| d.join("libggml-cuda.so").exists() || d.join("libggml-hip.so").exists())
-        .unwrap_or(false);
+    let has_cuda = plugin_dir.as_ref().is_some_and(|d| {
+        has_library(d, "libggml-cuda.so", "ggml-cuda.dll")
+            || has_library(d, "libggml-hip.so", "ggml-hip.dll")
+    });
     let has_metal = plugin_dir
         .as_ref()
-        .map(|d| d.join("libggml-metal.so").exists())
-        .unwrap_or(false);
+        .is_some_and(|d| has_library(d, "libggml-metal.so", "ggml-metal.dll"));
 
     let likely = match hw.cpu_feature_class() {
         "avx512" => {
@@ -115,6 +113,9 @@ fn find_plugin_dir(bin: &str) -> Option<PathBuf> {
     }
     // sibling of binary: /usr/local/bin/llama-server → try /usr/local/lib/llama
     if let Some(parent) = Path::new(bin).parent() {
+        if has_library(parent, "libggml-base.so", "ggml-base.dll") {
+            return Some(parent.to_path_buf());
+        }
         let candidate = parent.join("../lib/llama");
         if let Ok(c) = candidate.canonicalize()
             && c.is_dir()
@@ -145,10 +146,36 @@ fn list_cpu_backends(dir: &Path) -> Vec<String> {
         if let Some(rest) = name
             .strip_prefix("libggml-cpu-")
             .and_then(|s| s.strip_suffix(".so"))
+            .or_else(|| {
+                name.strip_prefix("ggml-cpu-")
+                    .and_then(|s| s.strip_suffix(".dll"))
+            })
         {
             out.push(rest.to_string());
         }
     }
     out.sort();
     out
+}
+
+fn has_library(dir: &Path, unix_name: &str, windows_name: &str) -> bool {
+    dir.join(unix_name).is_file() || dir.join(windows_name).is_file()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn discovers_windows_plugins_beside_injected_engine() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let engine = temp.path().join("llama-server.exe");
+        std::fs::write(&engine, []).expect("engine fixture");
+        std::fs::write(temp.path().join("ggml-base.dll"), []).expect("base plugin fixture");
+        std::fs::write(temp.path().join("ggml-cpu-avx2.dll"), []).expect("cpu plugin fixture");
+
+        let plugin_dir = find_plugin_dir(engine.to_string_lossy().as_ref()).expect("plugin dir");
+        assert_eq!(plugin_dir, temp.path());
+        assert_eq!(list_cpu_backends(&plugin_dir), vec!["avx2"]);
+    }
 }

@@ -30,15 +30,6 @@ pub enum WalRecord {
     /// Permet la récupération rapide sans rejouer tout le WAL.
     /// Ce snapshot est une projection directe de `TemporalSnapshot` de cynic-protocol.
     Snapshot(TemporalSnapshot),
-        /// L'epoch auquel ce snapshot a été pris.
-        epoch: Epoch,
-        /// Le digest de l'état snapshot.
-        state_digest: String,
-        /// Les signatures des événements inclus dans le snapshot.
-        event_signatures: Vec<String>,
-        /// Horodatage Unix.
-        timestamp_unix: i64,
-    },
 }
 
 /// Le Write-Ahead Log (WAL) garantit la résilience du nœud Argo.
@@ -116,24 +107,25 @@ impl WriteAheadLog {
 
     /// Écrit un snapshot de l'état complet dans le WAL.
     /// Permet la récupération rapide sans rejouer tout le WAL.
+    /// Construit un `TemporalSnapshot` typé (provenant de cynic-protocol).
     pub fn write_snapshot(
         &mut self,
         epoch: Epoch,
         state_digest: impl Into<String>,
         event_signatures: Vec<String>,
+        size_hint_bytes: u64,
         metabolic_state: &cynic_host::ports::metabolism::MetabolicState,
     ) -> io::Result<()> {
-        let timestamp_unix = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
+        let proof_refs = event_signatures
+            .iter()
+            .map(|sig| format!("wal://snapshot/{}", sig))
+            .collect();
 
-        let record = WalRecord::Snapshot {
-            epoch,
-            state_digest: state_digest.into(),
-            event_signatures,
-            timestamp_unix,
-        };
+        let snapshot = TemporalSnapshot::new(epoch, state_digest.into())
+            .with_proofs(proof_refs)
+            .with_size_hint(size_hint_bytes);
+
+        let record = WalRecord::Snapshot(snapshot);
         self.append(&record, metabolic_state)
     }
 
@@ -158,7 +150,6 @@ impl WriteAheadLog {
         let reader = BufReader::new(file);
 
         let mut records = Vec::new();
-        let mut found_epoch_marker = false;
 
         for line_res in reader.lines() {
             let line = line_res?;
@@ -173,16 +164,9 @@ impl WriteAheadLog {
                 Ok(record) => {
                     // Si on cherche un epoch spécifique, on doit passer les EpochMarkers
                     // jusqu'à ce que l'epoch cible soit atteint.
-                    if target_epoch.id() > 0 {
-                        if let WalRecord::EpochMarker { epoch, .. } = &record {
-                            if epoch < target_epoch {
-                                // On saute les enregistrements avant l'epoch cible
-                                continue;
-                            }
-                            found_epoch_marker = true;
-                        }
-                        if !found_epoch_marker {
-                            // Pas encore atteint l'epoch cible
+                    if let WalRecord::EpochMarker { epoch, .. } = &record {
+                        if target_epoch.id() > 0 && epoch < target_epoch {
+                            // On saute les enregistrements avant l'epoch cible
                             continue;
                         }
                     }
@@ -241,12 +225,10 @@ mod tests {
                 registry_digest: "sha256:digest1".to_string(),
                 timestamp_unix: 1_720_000_001,
             },
-            WalRecord::Snapshot {
-                epoch: Epoch::new(1),
-                state_digest: "sha256:snapshot1".to_string(),
-                event_signatures: vec!["sig-1".to_string()],
-                timestamp_unix: 1_720_000_001,
-            },
+            WalRecord::Snapshot(TemporalSnapshot::new(
+                Epoch::new(1),
+                "sha256:snapshot1"
+            ).with_proofs(vec!["sig-1".to_string()])),
             WalRecord::EventReceived(ObserverEvent {
                 signature: "sig-2".to_string(),
                 slot: 1002,
@@ -281,24 +263,19 @@ mod tests {
 
     #[test]
     fn snapshot_serializes_without_error() {
-        let snapshot = WalRecord::Snapshot {
-            epoch: Epoch::new(3),
-            state_digest: "sha256:snap".to_string(),
-            event_signatures: vec!["a".to_string(), "b".to_string()],
-            timestamp_unix: 1_720_000_020,
-        };
+        let snapshot = TemporalSnapshot::new(Epoch::new(3), "sha256:snap")
+            .with_proofs(vec!["proof-a".to_string(), "proof-b".to_string()])
+            .with_size_hint(2048);
+        let record = WalRecord::Snapshot(snapshot);
 
-        let json = serde_json::to_string(&snapshot).unwrap();
+        let json = serde_json::to_string(&record).unwrap();
         let round_trip: WalRecord = serde_json::from_str(&json).unwrap();
 
-        if let WalRecord::Snapshot {
-            epoch,
-            event_signatures,
-            ..
-        } = round_trip
-        {
-            assert_eq!(epoch, Epoch::new(3));
-            assert_eq!(event_signatures.len(), 2);
+        if let WalRecord::Snapshot(snap) = round_trip {
+            assert_eq!(snap.epoch, Epoch::new(3));
+            assert_eq!(snap.state_digest, "sha256:snap");
+            assert_eq!(snap.proof_refs.len(), 2);
+            assert_eq!(snap.size_hint_bytes, 2048);
         } else {
             panic!("Expected Snapshot after round-trip");
         }

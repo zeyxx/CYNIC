@@ -362,6 +362,9 @@ pub struct AppState {
     pub producer_heartbeats: Arc<std::sync::RwLock<HashMap<String, ProducerHeartbeat>>>,
     /// Deduplicates critical overdue-task observations emitted from health/introspection paths.
     pub overdue_task_alerted: Arc<std::sync::RwLock<HashMap<String, String>>>,
+    /// Temporal Clock — source de vérité pour l'epoch logique du runtime.
+    /// Thread-safe (AtomicU64), partagé entre toutes les parties du kernel.
+    pub temporal_clock: std::sync::Arc<crate::temporal_clock::TemporalClock>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.

@@ -22,7 +22,9 @@ const OPENAPI_JSON: &str = r#"{
     "/coord/claim": {},
     "/coord/release": {},
     "/observe": {},
-    "/agent-tasks": {}
+    "/agent-tasks": {},
+    "/temporal/epoch": {},
+    "/temporal/epoch/advance": {}
   }
 }"#;
 
@@ -39,7 +41,9 @@ const API_TOPOLOGY_JSON: &str = r#"{
     "/coord/claim",
     "/coord/release",
     "/observe",
-    "/agent-tasks"
+    "/agent-tasks",
+    "/temporal/epoch",
+    "/temporal/epoch/advance"
   ]
 }"#;
 

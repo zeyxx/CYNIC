@@ -617,3 +617,89 @@ impl InferenceSupervisorKind {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::hardware_profile::{GpuClass, GpuInfo, HardwareProfile};
+    use crate::domain::runtime_plan::{EnginePlugins, ProfileOverrides, plan_launch};
+
+    struct FixedProcessControl {
+        running_pid: u32,
+    }
+
+    impl ProcessControlPort for FixedProcessControl {
+        fn is_running(&self, pid: u32) -> bool {
+            pid == self.running_pid
+        }
+
+        fn terminate(&self, _pid: u32) -> Result<(), LocalRuntimeError> {
+            Ok(())
+        }
+    }
+
+    fn portable_plan() -> RuntimeLaunchPlan {
+        let gib = 1024 * 1024 * 1024;
+        let hardware = HardwareProfile {
+            schema: HardwareProfile::SCHEMA,
+            total_ram_bytes: 16 * gib,
+            available_ram_bytes: 10 * gib,
+            cpu_threads: 4,
+            gpu: GpuInfo {
+                class: GpuClass::Integrated,
+                vendor_id: None,
+                vendor_name: Some("injected".into()),
+                notes: vec![],
+            },
+            recommended_max_weight_bytes: 4 * gib,
+            absolute_max_weight_bytes: 8 * gib,
+            tier: "conformance".into(),
+            backends: vec!["cpu".into()],
+            cpu_flags: vec!["avx2".into()],
+            cpu_governor: None,
+            gtt_total_bytes: None,
+        };
+        let plugins = EnginePlugins {
+            llama_server_bin: r"C:\runtime\llama-server.exe".into(),
+            plugin_dir: Some(r"C:\runtime".into()),
+            cpu_backends: vec!["avx2".into()],
+            has_vulkan: false,
+            has_cuda: false,
+            has_metal: false,
+            likely_cpu_backend_class: "avx2".into(),
+        };
+        plan_launch(
+            "lfm-local",
+            r"D:\models\LFM2.5-2.6B-Q4_K_M.gguf",
+            Some(1_674_454_848),
+            &hardware,
+            &plugins,
+            &ProfileOverrides::default(),
+        )
+    }
+
+    #[test]
+    fn process_launch_argv_preserves_injected_windows_artifact_and_engine() {
+        let plan = portable_plan();
+        let (program, argv) = ProcessLocalRuntime::build_argv(&plan);
+        assert_eq!(program, PathBuf::from(r"C:\runtime\llama-server.exe"));
+        assert_eq!(argv[0..2], ["-m", r"D:\models\LFM2.5-2.6B-Q4_K_M.gguf"]);
+        assert!(argv.windows(2).any(|pair| pair == ["--host", "127.0.0.1"]));
+    }
+
+    #[test]
+    fn pid_liveness_comes_from_injected_adapter_not_procfs() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let inventory = FsLocalModelInventory::with_dirs(
+            temp.path().join("models"),
+            temp.path().join("profiles"),
+        );
+        let runtime = ProcessLocalRuntime::with_runtime_parts(
+            inventory,
+            temp.path().join("state"),
+            Arc::new(FixedProcessControl { running_pid: 77 }),
+        );
+        runtime.write_pid("lfm-local", 77).expect("pid evidence");
+        assert_eq!(runtime.read_pid("lfm-local"), Some(77));
+    }
+}

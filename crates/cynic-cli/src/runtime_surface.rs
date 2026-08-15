@@ -8,6 +8,7 @@ mod agent_matrix;
 mod build;
 mod compat_aliases;
 mod disk;
+mod epoch;
 mod execution_context;
 mod host_checks;
 mod inference_dispatch;
@@ -347,6 +348,19 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         apply: bool,
     },
+    /// Inspect or advance the logical epoch clock.
+    /// Without subcommand: prints current epoch observation.
+    /// With --advance: advances the epoch by one (mutation).
+    Epoch {
+        #[arg(long)]
+        json: bool,
+        /// Advance the kernel temporal clock by one epoch (mutation).
+        #[arg(long)]
+        advance: bool,
+        /// Endpoint URL for the running kernel (default: http://127.0.0.1:3030).
+        #[arg(long)]
+        endpoint: Option<String>,
+    },
 }
 
 pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
@@ -451,6 +465,11 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         | RuntimeCommand::DepsAudit { .. }
         | RuntimeCommand::DepsUpgrade { .. }
         | RuntimeCommand::Disk { .. }
-        | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
+ | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
+ RuntimeCommand::Epoch {
+     json,
+     advance,
+     endpoint,
+ } => epoch::execute_epoch(json, advance, endpoint),
     }
 }
