@@ -43,6 +43,21 @@ pub(crate) enum Commands {
         #[arg(long)]
         check: bool,
     },
+    /// Observe the installed MCP runtime contract and emit a node-owned proof bundle.
+    McpRuntimeObserve {
+        /// Registry-bound node identity producing this observation.
+        #[arg(long)]
+        node_id: String,
+        /// Installed MCP artifact to inspect. The artifact is not started as a server.
+        #[arg(long, default_value = "cynic-mcp")]
+        binary: String,
+        /// Emit only cynic.runtime_proof_bundle.v1 for `cynic runtime metrics --proof`.
+        #[arg(long)]
+        proof_only: bool,
+        /// Emit machine-readable JSON. This command always emits JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Emit local node observation JSON and exit.
     Observe {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
@@ -729,5 +744,30 @@ mod tests {
         assert_eq!(request, "/proof/request.json");
         assert_eq!(target_attestation, "/proof/attestation.json");
         assert!(apply);
+    }
+
+    #[test]
+    fn parses_node_owned_mcp_runtime_observation() {
+        let cli = Cli::try_parse_from([
+            "cynic-node",
+            "mcp-runtime-observe",
+            "--node-id",
+            "local-kernel",
+            "--json",
+        ])
+        .expect("node-owned MCP runtime observation command");
+
+        let Some(Commands::McpRuntimeObserve {
+            node_id,
+            binary,
+            proof_only,
+            ..
+        }) = cli.command
+        else {
+            panic!("expected MCP runtime observe command");
+        };
+        assert_eq!(node_id, "local-kernel");
+        assert_eq!(binary, "cynic-mcp");
+        assert!(!proof_only);
     }
 }
