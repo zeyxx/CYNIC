@@ -6,6 +6,7 @@ pub mod agent_workloads;
 pub mod agent_workspace;
 pub mod attention;
 pub mod auth;
+pub mod bootstrap_binding;
 pub mod coord;
 pub mod coord_lease;
 pub mod data;
@@ -157,6 +158,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route(
             "/node-enrollment/renew",
             post(node_enrollment::renew_handler),
+        )
+        .route(
+            "/bootstrap-binding",
+            post(bootstrap_binding::issue_bootstrap_binding_handler),
         )
         .route(
             "/auth/agent/session/renew",

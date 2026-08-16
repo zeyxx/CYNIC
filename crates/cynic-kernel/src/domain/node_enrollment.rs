@@ -35,6 +35,7 @@ pub trait NodeEnrollmentStorePort: Send + Sync + std::fmt::Debug {
 pub trait NodeEnrollmentSignerPort: Send + Sync + std::fmt::Debug {
     fn key_id(&self) -> String;
     fn sign(&self, payload: &[u8]) -> Result<String, String>;
+    fn verify(&self, payload: &[u8], signature_hex: &str) -> Result<(), String>;
 }
 
 #[derive(Debug)]

@@ -84,6 +84,21 @@ impl NodeEnrollmentSignerPort for FileEnrollmentSigner {
     fn sign(&self, payload: &[u8]) -> Result<String, String> {
         Ok(hex::encode(self.key.sign(payload).to_bytes()))
     }
+
+    fn verify(&self, payload: &[u8], signature_hex: &str) -> Result<(), String> {
+        let bytes = hex::decode(signature_hex)
+            .map_err(|_| "enrollment signature is not valid hex")?;
+        if bytes.len() != 64 {
+            return Err("enrollment signature must be 64 bytes".to_string());
+        }
+        let mut arr = [0u8; 64];
+        arr.copy_from_slice(&bytes);
+        let signature = ed25519_dalek::Signature::from_bytes(&arr);
+        self.key
+            .verifying_key()
+            .verify_strict(payload, &signature)
+            .map_err(|_| "enrollment signature verification failed".to_string())
+    }
 }
 
 fn validate_authority(authority: &MachineEnrollmentAuthority) -> Result<(), String> {
