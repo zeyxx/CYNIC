@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  # CI dev bypass: admission gate is for production build runners.
+  CYNIC_BUILD_ADMISSION_VERIFIED: 1
+  CYNIC_ALLOW_LOCAL_DEV_BUILD: 1
+  # GitHub Actions runners have network access; allow Cargo to fetch crates.
+  CARGO_NETWORK_MODE: online
+  CARGO_SOURCE_MODE: registry
+  # Use a workspace-local CARGO_HOME to mirror the repo's offline cache layout.
+  CARGO_HOME: ${{ github.workspace }}/.cargo-home
+
+jobs:
+  check:
+    name: Build & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          components: rustfmt
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cargo-home/registry
+            .cargo-home/git
+            target
+          key: ${{ runner.os }}-cynic-${{ hashFiles('Cargo.lock') }}
+
+      - name: Validate authority files
+        run: make authority-check
+
+      - name: Secret literal check
+        run: make secret-literal-check
+
+      - name: Surface audit
+        run: make surface-audit
+
+      - name: Cargo check core crates
+        run: make check
+
+      - name: Run core tests
+        run: make test
+
+      - name: Run lab smoke (portable, non-mutating)
+        run: make lab-smoke

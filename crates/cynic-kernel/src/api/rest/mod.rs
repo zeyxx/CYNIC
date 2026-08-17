@@ -164,6 +164,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(bootstrap_binding::issue_bootstrap_binding_handler),
         )
         .route(
+            "/bootstrap/runtime-publisher",
+            post(bootstrap_binding::issue_runtime_publisher_binding_handler),
+        )
+        .route(
             "/auth/agent/session/renew",
             post(renew_agent_session_handler),
         )

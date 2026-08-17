@@ -33,6 +33,7 @@ pub mod lxc_exec_bridge;
 pub mod mcp_runtime;
 pub mod network_actuation;
 pub mod node_substrate;
+pub mod one_shot_authority;
 pub mod ports;
 pub mod pre_os_control;
 pub mod principal_prepare;

@@ -1,0 +1,38 @@
+{
+  "id": "build_runner_bootstrap",
+  "layer": "l1_host_apply_boundary",
+  "owner_crate": "cynic-host",
+  "adapter_module": "cynic-host::host_exec_cli::build_runner_bootstrap",
+  "domain_owner": "cynic-host::framework_bootstrap::build_runner",
+  "owner_modules": [
+    "framework_bootstrap::build_runner",
+    "host_exec_cli::build_runner_bootstrap",
+    "domain::disk::build_runner",
+    "adapters::local_build_cache"
+  ],
+  "owner_call_markers": [
+    "observe_build_runner_bootstrap",
+    "reconcile_build_runner_bootstrap",
+    "build_runner_bootstrap_execution_plan",
+    "apply_build_runner_bootstrap",
+    "write_bootstrap_admission_receipt"
+  ],
+  "responsibility": "Observe a declared build runner, reconcile its clean source, staged bundle, registry digest, and resource policy, then perform only explicit source checkout and receipt emission for check or build admission.",
+  "mutation_policy": "explicit_apply_only",
+  "canonical_entrypoints": [
+    "cynic-host-exec build-runner-bootstrap --node-id <id> --source-commit <commit> --source-bundle <bundle> --source-bundle-digest <sha256> --workspace <path> --registry <path> --state-root <path> --temporary-root <path>",
+    "cynic-host-exec build-runner-bootstrap --node-id <id> --source-commit <commit> --source-bundle <bundle> --source-bundle-digest <sha256> --workspace <path> --registry <path> --state-root <path> --temporary-root <path> --capability-binding <path> --authority-public-key <path> --node-public-key <path> --consumption-root <path> --executor-path <path> --apply"
+  ],
+  "evidence": [
+    "cynic.build_runner.bootstrap_plan.v1",
+    "cynic.build_runner.cache_observation.v1",
+    "cynic.build_runner.cache_plan.v1",
+    "cynic.build_runner.bootstrap_admission.v1"
+  ],
+  "anti_responsibilities": [
+    "activate runtime artifacts or services",
+    "accept an unbound registry, source bundle, node, or commit",
+    "reclaim cache data without its separate explicit apply boundary",
+    "authorize build actions outside the receipt phase"
+  ]
+}

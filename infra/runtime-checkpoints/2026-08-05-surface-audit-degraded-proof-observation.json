@@ -1,0 +1,14 @@
+{
+  "schema": "cynic.surface_audit.degraded_proof_observation.v1",
+  "observed_at": "2026-08-05",
+  "status": "source_repaired_unverified_artifact",
+  "desired_state": "surface registry incompatibility must produce blocked machine-readable proof rather than panic",
+  "source_change": {
+    "fallible_loader": "try_canonical_cli_surfaces",
+    "consumer": "audit_canonical_surfaces",
+    "blocked_entry": "surface_registry_parse",
+    "preserved_unknown": "installed artifact version remains unknown until rebuild"
+  },
+  "read_back_required": "rebuild current cynic artifact then rerun cynic dev surface-audit --json",
+  "mutates": false
+}

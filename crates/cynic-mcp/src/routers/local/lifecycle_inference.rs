@@ -237,7 +237,7 @@ impl CynicMcpProxy {
         let wait_for_ready = params.0.wait_for_ready;
         let service = LocalRuntimeServiceAny::from_env();
 
-        match service.start_with_transition(alias, wait_for_ready, "mcp-inference-start") {
+        match service.start_with_readiness(alias, wait_for_ready) {
             Ok(report) => {
                 let result = serde_json::to_value(&report).unwrap_or_default();
                 Ok(CallToolResult::success(vec![Content::text(
@@ -320,7 +320,7 @@ impl CynicMcpProxy {
         // Best effort stop active
         let _ = service.stop(None);
 
-        match service.start_with_transition(target_alias, wait_for_ready, "mcp-inference-switch") {
+        match service.start_with_readiness(target_alias, wait_for_ready) {
             Ok(report) => {
                 let result = serde_json::to_value(&report).unwrap_or_default();
                 Ok(CallToolResult::success(vec![Content::text(

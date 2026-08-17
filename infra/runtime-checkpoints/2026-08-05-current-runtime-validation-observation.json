@@ -1,0 +1,67 @@
+{
+  "schema": "cynic.runtime.validation.current_observation.v1",
+  "observed_at": "2026-08-05",
+  "source": "cynic runtime harness/conformance/metrics --json",
+  "harness": {
+    "status": "ok",
+    "progression": ["closed_local_lab", "conformance", "staging", "canary", "production"]
+  },
+  "conformance": {
+    "status": "blocked",
+    "matched_node": "cynic-host-cortex",
+    "lifecycle_status": "principal_mismatch",
+    "next_boundary_kind": "adopt",
+    "next_command": "cynic bootstrap host plan",
+    "satisfied_gates": [
+      "harness_is_conformance_gate",
+      "sovereign_git_service_observed"
+    ],
+    "blocked_gates": [
+      "host_identity_observed",
+      "bootstrap_target_reached",
+      "service_surface_observed",
+      "hardware_stability_qualified"
+    ],
+    "residual_unknowns": [
+      "build",
+      "network",
+      "provider",
+      "orchestrator",
+      "fleet",
+      "federation"
+    ]
+  },
+  "metrics": {
+    "status": "below_target",
+    "maturity_percent": 24,
+    "measured_percent": 46,
+    "known_coverage_percent": 53,
+    "residual_unknown_percent": 47,
+    "minimum_known_coverage_percent": 60,
+    "minimum_maturity_percent": 80
+  },
+  "validation": {
+    "status": "blocked",
+    "surface_audit": "installed_artifact_rejects_source_supported_policy_variant",
+    "classification": "promotion_artifact_stale",
+    "checkpoint": "cynic.runtime.validation.artifact_skew_observation.v1",
+    "lab_dns_bundle": "passed",
+    "lab_dns_checkpoint": "cynic.lab.dns_validation_observation.v1"
+  },
+  "bounded_next_action": {
+    "command": "cynic bootstrap host plan",
+    "mutates": false,
+    "purpose": "produce the explicit adoption/remediation plan before any apply",
+    "read_back": {
+      "status": "ready",
+      "plan_mutates": true,
+      "blocked_domains": ["principal", "packages", "services"],
+      "lifecycle_status": "connection_required"
+    }
+  },
+  "forbidden_claims": [
+    "do_not_claim_conformance_qualified",
+    "do_not_promote_to_staging",
+    "do_not_claim_fleet_or_canary_proof"
+  ]
+}

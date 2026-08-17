@@ -4,7 +4,7 @@ use std::process::ExitCode;
 use clap::{CommandFactory, Parser, Subcommand};
 mod agent_exposure_audit;
 use agent_surface::AgentCommand;
-mod agent_surface;
+pub mod agent_surface;
 mod audit_surface;
 mod bootstrap_surface;
 mod chat_surface;

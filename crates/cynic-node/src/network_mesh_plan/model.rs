@@ -20,8 +20,9 @@ pub(crate) struct NetworkPolicy {
     pub(crate) reservations: Vec<NetworkReservation>,
     #[serde(default)]
     pub(crate) mesh: Option<MeshPolicy>,
+    #[serde(default)]
+    pub(crate) wireguard: Option<WireGuardPolicy>,
 }
-
 #[derive(Debug, Deserialize)]
 pub(crate) struct MeshPolicy {
     #[serde(default)]
@@ -61,4 +62,46 @@ pub(crate) struct RegistryNode {
 pub(crate) struct RegistryService {
     pub(crate) name: Option<String>,
     pub(crate) port: Option<u16>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(crate) struct WireGuardPolicy {
+    pub(crate) schema: Option<String>,
+    pub(crate) overlay_cidr: Option<String>,
+    pub(crate) listen_port: Option<u16>,
+    pub(crate) topology: Option<String>,
+    #[serde(default)]
+    pub(crate) keepalive_s: Option<u32>,
+    #[serde(default)]
+    pub(crate) watchdog_stale_s: Option<u64>,
+    #[serde(default)]
+    pub(crate) watchdog_dead_s: Option<u64>,
+    #[serde(default)]
+    pub(crate) nodes: Vec<WireGuardNode>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
+pub(crate) struct WireGuardNode {
+    pub(crate) node_id: String,
+    pub(crate) overlay_ip: String,
+    pub(crate) public_key: String,
+    pub(crate) endpoint: String,
+    #[serde(default)]
+    pub(crate) watchdog: bool,
+}
+
+impl MeshRegistry {
+    pub(crate) fn wireguard_nodes(&self) -> &[WireGuardNode] {
+        self.network_policy
+            .as_ref()
+            .and_then(|p| p.wireguard.as_ref())
+            .map(|wg| wg.nodes.as_slice())
+            .unwrap_or(&[])
+    }
+
+    pub(crate) fn wireguard_policy(&self) -> Option<&WireGuardPolicy> {
+        self.network_policy.as_ref()?.wireguard.as_ref()
+    }
 }

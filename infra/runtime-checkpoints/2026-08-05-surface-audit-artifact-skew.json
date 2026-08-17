@@ -1,0 +1,23 @@
+{
+  "schema": "cynic.runtime.validation.artifact_skew_observation.v1",
+  "observed_at": "2026-08-05",
+  "status": "blocked_artifact_skew",
+  "observation": {
+    "runtime_command": "cynic dev surface-audit --json",
+    "failure": "installed binary rejects admitted_node_desired_state_after_runtime_identity_or_explicit_recovery_human_admin_preflight",
+    "source_contract": "variant exists in crates/cynic-protocol/src/surface_registry.rs",
+    "source_regression_test": "runtime_identity_enrollment_policy_is_human_admin_ready_and_admitted_dispatchable"
+  },
+  "reconciliation": {
+    "classification": "promotion_artifact_stale_not_source_contract_missing",
+    "required_owner": "build_runner",
+    "bounded_action": "rebuild and install admitted cynic artifact from current source",
+    "read_back": "rerun cynic dev surface-audit --json and require JSON exit success"
+  },
+  "unknowns": [
+    "build proof for current worktree",
+    "installed artifact digest matching source snapshot",
+    "surface audit after rebuild"
+  ],
+  "mutates": false
+}

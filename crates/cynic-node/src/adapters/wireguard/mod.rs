@@ -8,13 +8,20 @@ use tracing::{error, info};
 #[derive(Debug, Clone)]
 pub struct WireguardAdapter {
     interface_name: String,
+    listen_port: u16,
 }
 
 impl WireguardAdapter {
     pub fn new(interface_name: &str) -> Self {
         Self {
             interface_name: interface_name.to_string(),
+            listen_port: 44196,
         }
+    }
+
+    pub fn with_listen_port(mut self, port: u16) -> Self {
+        self.listen_port = port;
+        self
     }
 
     fn execute(&self, cmd: &str, args: &[&str]) -> Result<(), Box<dyn Error>> {
@@ -95,7 +102,18 @@ impl MeshAdapter for WireguardAdapter {
         // 3. Set private key through a short-lived file.
         self.install_private_key(&wg_bin, private_key)?;
 
-        // 4. Bring interface up
+        // 4. Set listen port
+        self.execute(
+            &wg_bin,
+            &[
+                "set",
+                self.interface_name.as_str(),
+                "listen-port",
+                &self.listen_port.to_string(),
+            ],
+        )?;
+
+        // 5. Bring interface up
         self.execute(&ip_bin, &["link", "set", "up", "dev", &self.interface_name])?;
 
         Ok(())
@@ -112,25 +130,30 @@ impl MeshAdapter for WireguardAdapter {
             .command;
 
         for peer in &topology.peers {
-            let mut endpoint_args = Vec::new();
-            if let Some(ref ep) = peer.endpoint {
-                if !ep.is_empty() {
-                    endpoint_args.push("endpoint".to_string());
-                    endpoint_args.push(ep.to_string());
-                }
-            }
+            let internal_ip_str = format!("{}/32", peer.internal_ip);
 
-            let internal_ip_str = peer.internal_ip.to_string();
-
+            // wg CLI requires allowed-ips LAST; order: peer <key> [endpoint] [persistent-keepalive] allowed-ips
             let mut args = vec![
                 "set".to_string(),
                 self.interface_name.clone(),
                 "peer".to_string(),
                 peer.public_key.clone(),
-                "allowed-ips".to_string(),
-                internal_ip_str,
             ];
-            args.extend(endpoint_args);
+
+            if let Some(ep) = &peer.endpoint {
+                if !ep.is_empty() {
+                    args.push("endpoint".to_string());
+                    args.push(ep.clone());
+                }
+            }
+
+            if let Some(ka) = peer.keepalive_s {
+                args.push("persistent-keepalive".to_string());
+                args.push(ka.to_string());
+            }
+
+            args.push("allowed-ips".to_string());
+            args.push(internal_ip_str);
 
             let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
             self.execute(&wg_bin, &args_ref)?;

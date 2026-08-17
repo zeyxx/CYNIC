@@ -2,12 +2,8 @@ use cynic_observer::{plan_fanout_request, FanoutPlanRequest};
 use cynic_protocol::agent_recursion::AgentBudget;
 use cynic_protocol::solana_ops::{AllowanceGrant, SolanaPayRequest};
 use cynic_zeroclaw_solana::ZeroClawSolanaPlugin;
-use rmcp::{
-    handler::server::wrapper::Parameters, model::*, tool, tool_router, ErrorData as McpError,
-};
 
-use crate::types::SolanaPlanParams;
-use crate::types_split::SolanaPayParams;
+use crate::types::{SolanaPayParams, SolanaPlanParams};
 
 #[tool_router(router = tool_router_local_solana, vis = "pub(crate)")]
 impl CynicMcpProxy {

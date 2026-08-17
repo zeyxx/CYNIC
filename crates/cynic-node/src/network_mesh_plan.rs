@@ -220,6 +220,7 @@ mod tests {
                     mesh: Some(model::MeshPolicy {
                         provider: Some("wireguard".to_string()),
                     }),
+                    wireguard: None,
                 }),
                 nodes: vec![
                     RegistryNode {

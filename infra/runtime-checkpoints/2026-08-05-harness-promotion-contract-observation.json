@@ -1,0 +1,33 @@
+{
+  "schema": "cynic.runtime_harness.promotion.observation.v1",
+  "observed_at": "2026-08-05",
+  "surface": "crates/cynic-host/src/runtime_harness.rs",
+  "status": "implemented_unverified",
+  "promotion_schema": "cynic.runtime_harness.promotion.v1",
+  "canonical_cli": "cynic runtime promote --json --from <phase> --to <phase> --attestation <path> [--proof <ref>]...",
+  "progression": [
+    "closed_local_lab",
+    "conformance",
+    "staging",
+    "canary",
+    "production"
+  ],
+  "rules": {
+    "single_phase_advance": true,
+    "fresh_target_attestation_required": true,
+    "structured_proof_reference_required": true,
+    "proof_refs_required": true,
+    "bounded_action_owner": "node_owned_harness_adapter_with_read_back"
+  },
+  "unknowns": [
+    "live_staging_attestation",
+    "live_canary_attestation",
+    "rollback_read_back_from_real_fleet"
+  ],
+  "proof_refs": [
+    "promotion_requires_a_fresh_target_attestation",
+    "promotion_accepts_one_fresh_attested_phase_only",
+    "promotion_rejects_phase_skips"
+  ],
+  "mutates": false
+}

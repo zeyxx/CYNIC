@@ -1,0 +1,30 @@
+{
+  "schema": "cynic.kernel.identity.read_back.v1",
+  "status": "observed",
+  "observed_at_unix_ms": 1785851213000,
+  "transport": {
+    "method": "GET",
+    "url": "http://10.10.10.140:3030/identity",
+    "http_status": 200,
+    "tls": false
+  },
+  "identity": {
+    "schema": "cynic.kernel.identity.v1",
+    "service": "cynic-kernel",
+    "node_id": "cynic-vm-v2",
+    "hostname": "cynic-vm-v2",
+    "pid": 409866,
+    "build": {
+      "version": "26.07.31-16e77a6",
+      "git_sha": "16e77a6a039d437d7252b107154c209082c9d673",
+      "profile": "debug"
+    }
+  },
+  "proof": {
+    "identity_matches_declared_node": true,
+    "endpoint_is_non_loopback": true,
+    "provider_resource_identity": "unknown",
+    "dns_alias_read_back": "blocked_unresolved",
+    "secret_exposed": false
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "schema": "cynic.host.bootstrap_composite_plan.remote_observation.v1",
+  "status": "ready",
+  "mutates": true,
+  "observed_at_unix_ms": 1785886210430,
+  "node_id": "cynic-builder",
+  "transport": {
+    "method": "ssh",
+    "target": "cynic-builder",
+    "read_only": true,
+    "command": "/usr/local/bin/cynic bootstrap host plan --profile network-node --node cynic-builder --registry /etc/cynic/registry.json"
+  },
+  "blocked_domains": [
+    "packages",
+    "services"
+  ],
+  "bounded_mutations": {
+    "packages": [
+      "apt-get install -y wireguard-tools iproute2 coredns"
+    ],
+    "services": [
+      "systemctl daemon-reload",
+      "systemctl enable --now wg-quick@wg0.service",
+      "systemctl enable --now coredns-synapse.service",
+      "systemctl enable --now systemd-resolved.service"
+    ]
+  },
+  "required_read_back": [
+    "dpkg -s wireguard-tools",
+    "dpkg -s iproute2",
+    "dpkg -s coredns",
+    "systemctl is-enabled and is-active for each declared service"
+  ],
+  "authority": {
+    "package_and_service_apply": "human_operator",
+    "hardware_baseline_enrollment": "human_admin",
+    "build_validation": "cynic_validate_to_build_runner"
+  },
+  "unknowns": [
+    "hardware_identity_baseline",
+    "offline_memory_test",
+    "memory_tuning_stability",
+    "uncorrected_memory_errors",
+    "source_snapshot_and_remote_read_back",
+    "real_build_proof"
+  ],
+  "evidence_refs": [
+    "ssh:cynic-builder:bootstrap-host-plan"
+  ]
+}

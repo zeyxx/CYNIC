@@ -1,7 +1,5 @@
 // ── Forwarded tools (REST kernel) ───────────────────────────
 
-use crate::types::ApiContractsParams;
-
 #[tool_router(router = tool_router_forward, vis = "pub(crate)")]
 impl CynicMcpProxy {
     #[tool(
@@ -316,7 +314,7 @@ impl CynicMcpProxy {
         self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
-        validate_agent_task_content(&p.kind, &p.domain, &p.content)?;
+        crate::types::validate_agent_task_content(&p.kind, &p.domain, &p.content)?;
         let kind = p.kind.clone();
         let domain = p.domain.clone();
         let body = dispatch_agent_task_body(&p);

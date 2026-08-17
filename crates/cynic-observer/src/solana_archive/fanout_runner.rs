@@ -63,7 +63,7 @@ where
                 match result {
                     Ok(page) => {
                         record_signature_page(store, spec, checkpoint, &page)
-                            .map_err(Into::into)?;
+                            .map_err(FanoutRunError::from)?;
                     }
                     Err(error) => {
                         if let Some(report) =
@@ -85,7 +85,7 @@ where
                 match result {
                     Ok(transaction) => {
                         record_transaction(store, spec, checkpoint, &transaction)
-                            .map_err(Into::into)?;
+                            .map_err(FanoutRunError::from)?;
                     }
                     Err(error) => {
                         if let Some(report) =

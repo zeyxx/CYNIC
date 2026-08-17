@@ -1,0 +1,26 @@
+{
+  "schema": "cynic.coordination.journal.contract_observation.v1",
+  "observed_at": "2026-08-05",
+  "surface": "crates/cynic-kernel/src/infra/coordination_journal.rs",
+  "status": "implemented_unverified",
+  "properties": {
+    "append_validation_before_write": true,
+    "sequence_selection_read_back": true,
+    "same_process_serialization": true,
+    "cross_process_append_lock": "atomic_create_new",
+    "stale_lock_recovery_after_seconds": 60,
+    "committed_entries_require_proof_ref": true,
+    "drain_semantics": "at_least_once"
+  },
+  "unknowns": [
+    "filesystem_crash_consistency_between_lock_and_append",
+    "multi-node journal_replication_read_back",
+    "sequence continuity after intentional journal compaction"
+  ],
+  "proof_refs": [
+    "CoordinationJournal::append_rejects_regressed_fencing_before_write",
+    "CoordinationJournal::cloned_journals_serialize_append_next_sequences",
+    "health.coordination_journal.append_coordination=atomic_create_new_lock"
+  ],
+  "mutates": false
+}

@@ -16,8 +16,8 @@ use clap::Subcommand;
 use crate::cli_json::emit_pretty_json;
 
 mod render;
-mod scan;
-mod types;
+pub mod scan;
+pub mod types;
 
 #[allow(unused_imports)]
 pub(crate) use types::{AgentSocEntry, AgentSocReport, DomainStatus, HumanAdminStatus};
@@ -39,6 +39,7 @@ pub(crate) enum AgentCommand {
     },
 }
 
+#[allow(dead_code)]
 pub(crate) fn execute_agent(command: AgentCommand) -> std::process::ExitCode {
     match command {
         AgentCommand::Soc {

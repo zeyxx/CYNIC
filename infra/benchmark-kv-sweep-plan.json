@@ -1,0 +1,229 @@
+{
+  "schema": "cynic.inference.benchmark_plan.v2",
+  "plan_id": "kv-ctx-sweep-amd-renoir-v1",
+  "description": "Benchmark matrix: KV cache type × context size × model. 64K = baseline minimum. Goal: find optimal (throughput, memory) operating point per model.",
+  "date_created": "2026-08-05",
+  "hardware": {
+    "class": "amd-renoir-apu-16t-29gb",
+    "vulkan_pool_mib": 22265,
+    "vulkan_device": "Vulkan0",
+    "cpu_threads": 16,
+    "llama_bench_version": "b9600",
+    "governor_note": "set to 'performance' before benchmark: echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
+  },
+  "kv_types_under_test": {
+    "f16": {
+      "bpw": 2.0,
+      "vulkan_support": "confirmed",
+      "note": "baseline reference"
+    },
+    "bf16": {
+      "bpw": 2.0,
+      "vulkan_support": "unknown",
+      "note": "probe: bf16=0 reported by ggml_vulkan on RADV — may fallback to f16"
+    },
+    "q8_0": {
+      "bpw": 1.0,
+      "vulkan_support": "confirmed",
+      "note": "best accuracy/size tradeoff"
+    },
+    "q4_0": {
+      "bpw": 0.5,
+      "vulkan_support": "confirmed",
+      "note": "aggressive compression"
+    },
+    "q4_1": {
+      "bpw": 0.5,
+      "vulkan_support": "to_probe",
+      "note": "slightly better quality than q4_0"
+    },
+    "iq4_nl": {
+      "bpw": 0.5,
+      "vulkan_support": "to_probe",
+      "note": "non-linear quantization, better quality than q4_0"
+    }
+  },
+  "context_sizes": {
+    "baseline": 65536,
+    "extended": 131072,
+    "note": "64K is the minimum baseline. 128K only for models with sufficient headroom at q4 KV."
+  },
+  "memory_budget_at_64k": {
+    "note": "weights_mib + kv_q8_mib must fit in vulkan_pool_mib=22265",
+    "models": {
+      "qwythos-9b-q4": {
+        "weights": 5632,
+        "kv_f16_64k": 9216,
+        "kv_q8_64k": 4608,
+        "kv_q4_64k": 2304,
+        "total_q8": 10240,
+        "status_64k_q8": "ok"
+      },
+      "minicpm-1b-q8": {
+        "weights": 1126,
+        "kv_f16_64k": 5120,
+        "kv_q8_64k": 2560,
+        "kv_q4_64k": 1280,
+        "total_q8": 3686,
+        "status_64k_q8": "ok"
+      },
+      "bonsai-27b-q1": {
+        "weights": 3584,
+        "kv_f16_64k": 15872,
+        "kv_q8_64k": 7936,
+        "kv_q4_64k": 3968,
+        "total_q8": 11520,
+        "status_64k_q8": "ok"
+      },
+      "shieldstral-3b": {
+        "weights": 3584,
+        "kv_f16_64k": 8192,
+        "kv_q8_64k": 4096,
+        "kv_q4_64k": 2048,
+        "total_q8": 7680,
+        "status_64k_q8": "ok"
+      },
+      "lfm25-2b-q4": {
+        "weights": 1638,
+        "kv_f16_64k": 6656,
+        "kv_q8_64k": 3328,
+        "kv_q4_64k": 1664,
+        "total_q8": 4966,
+        "status_64k_q8": "ok"
+      },
+      "qwen36-35b-iq2": {
+        "weights": 11264,
+        "kv_f16_64k": 24064,
+        "kv_q8_64k": 12032,
+        "kv_q4_64k": 6016,
+        "total_q8": 23296,
+        "status_64k_q8": "oom - q4_0 only: 17280 ok"
+      },
+      "vibethinker-3b": {
+        "weights": 1843,
+        "kv_f16_64k": 9216,
+        "kv_q8_64k": 4608,
+        "kv_q4_64k": 2304,
+        "total_q8": 6451,
+        "status_64k_q8": "ok"
+      },
+      "qwen35-2b-q4": {
+        "weights": 1229,
+        "kv_f16_64k": 7168,
+        "kv_q8_64k": 3584,
+        "kv_q4_64k": 1792,
+        "total_q8": 4813,
+        "status_64k_q8": "ok"
+      },
+      "qwen36-27b-iq2": {
+        "weights": 11776,
+        "kv_f16_64k": 15872,
+        "kv_q8_64k": 7936,
+        "kv_q4_64k": 3968,
+        "total_q8": 19712,
+        "status_64k_q8": "ok"
+      }
+    }
+  },
+  "benchmark_scenarios": [
+    {
+      "group": "tier-1-primary",
+      "description": "Models aptes à 64K+ avec diversité KV — priorité maximale",
+      "models": [
+        "qwythos-9b-q4",
+        "bonsai-27b-q1"
+      ],
+      "ctx_sizes": [
+        65536,
+        131072
+      ],
+      "kv_types": [
+        "f16",
+        "q8_0",
+        "q4_0",
+        "q4_1",
+        "iq4_nl"
+      ],
+      "n_prompt": 512,
+      "n_gen": 128,
+      "repetitions": 3,
+      "flash_attn": "on",
+      "ngl": 99
+    },
+    {
+      "group": "tier-2-lightweight",
+      "description": "Petits modèles — KV moins critique, mais 64K baseline requis",
+      "models": [
+        "minicpm-1b-q8",
+        "vibethinker-3b-q4",
+        "qwen35-2b-q4",
+        "lfm25-2b-q4",
+        "shieldstral-3b-q8"
+      ],
+      "ctx_sizes": [
+        65536,
+        131072
+      ],
+      "kv_types": [
+        "f16",
+        "q8_0",
+        "q4_0"
+      ],
+      "n_prompt": 512,
+      "n_gen": 128,
+      "repetitions": 3,
+      "flash_attn": "on",
+      "ngl": 99
+    },
+    {
+      "group": "tier-3-large-iq2",
+      "description": "Grands modèles IQ2 — contrainte mémoire forte. q4_0 obligatoire à 64K, q8_0 OOM pour 35B",
+      "models": [
+        "qwen36-27b-iq2",
+        "qwen36-35b-iq2"
+      ],
+      "ctx_sizes_per_model": {
+        "qwen36-27b-iq2": [
+          65536
+        ],
+        "qwen36-35b-iq2": [
+          65536
+        ]
+      },
+      "kv_types_per_model": {
+        "qwen36-27b-iq2": [
+          "q8_0",
+          "q4_0",
+          "q4_1",
+          "iq4_nl"
+        ],
+        "qwen36-35b-iq2": [
+          "q4_0",
+          "q4_1",
+          "iq4_nl"
+        ]
+      },
+      "n_prompt": 256,
+      "n_gen": 64,
+      "repetitions": 2,
+      "flash_attn": "on",
+      "ngl": 99,
+      "concurrent_backends": "none - exclusive execution required"
+    }
+  ],
+  "metrics_collected": [
+    "pp_toks_per_sec (prompt processing)",
+    "tg_toks_per_sec (token generation)",
+    "pp_ms (prompt processing latency)",
+    "tg_ms (generation latency)",
+    "model_load_time_ms",
+    "vulkan_pool_used_mib (estimated)",
+    "kv_cache_mib_at_ctx"
+  ],
+  "output": {
+    "format": "jsonl",
+    "path": "infra/benchmark-results/kv-ctx-sweep-{date}.jsonl",
+    "aggregate_path": "infra/benchmark-results/kv-ctx-sweep-{date}-summary.json"
+  },
+  "execution_script": "scripts/benchmark-kv-sweep.sh"
+}

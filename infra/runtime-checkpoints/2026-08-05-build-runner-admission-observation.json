@@ -1,0 +1,26 @@
+{
+  "schema": "cynic.build_runner.admission_observation.v1",
+  "observed_at": "2026-08-05",
+  "status": "stale_for_current_source",
+  "observer": "ssh_read_only",
+  "node": "cynic-builder",
+  "read_back": {
+    "node_id": "cynic-builder",
+    "uid": 0,
+    "workspace_commit": "71352aeaad1e5f0c3de6a4a8f4b1bf9b4f36fd14",
+    "local_head": "976853bf871f34e8470bfe500edcc781bed05ed3",
+    "admission_source_commit": "71352aeaad1e5f0c3de6a4a8f4b1bf9b4f36fd14",
+    "admission_target_phase": "check",
+    "check_proof_status": "proved",
+    "build_proof_source_commit": "2309ed8b1793215aef9ee6faa2f64f6b2d4c7869"
+  },
+  "classification": "builder_has_historical_admission_and_proofs_but_not_current_source",
+  "bounded_next_action": "stage current source bundle, run build-runner bootstrap preflight/admission, then invoke admitted check/build",
+  "mutates": false,
+  "unknowns": [
+    "current_source_bundle_delivery",
+    "new_machine_enrollment_receipt",
+    "current_cli_artifact_digest",
+    "installed_artifact_read_back"
+  ]
+}

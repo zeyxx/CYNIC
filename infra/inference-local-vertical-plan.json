@@ -1,0 +1,54 @@
+{
+  "schema": "cynic.agent_harness.plan.v1",
+  "plan_id": "cynic-local-inference-vertical-v1",
+  "scenarios": [
+    {
+      "scenario": {
+        "scenario_id": "local-llama-read-only",
+        "probe_runtime_plan": true,
+        "runtime_kind": "direct_llama",
+        "runtime_id": "qwythos-9b-q4",
+        "model": {
+          "role": "local_inference_engine",
+          "parameters": {
+            "model_id": "qwythos-9b-q4",
+            "model_path": "injected-by-local-profile",
+            "architecture": "qwen35",
+            "quantization": "Q4_K_M",
+            "context_requested": 8192,
+            "parallel_slots": 1,
+            "context_per_slot": 8192,
+            "kv_cache_type_k": null,
+            "kv_cache_type_v": null,
+            "flash_attention": null,
+            "gpu_layers": null,
+            "fit_mode": null,
+            "threads": null,
+            "batch_size": null,
+            "ubatch_size": null,
+            "temperature": 0.2,
+            "top_p": 0.95,
+            "reasoning_budget": null
+          }
+        },
+        "tasks": [
+          {
+            "task_id": "local-engine-read-back",
+            "kind": "audit",
+            "prompt": "Return exactly the word CYNIC.",
+            "max_output_tokens": 8,
+            "expected_proof": "a successful local OpenAI-compatible completion with token usage"
+          }
+        ],
+        "thresholds": {
+          "min_available_memory_bytes": null,
+          "min_available_memory_percent": 10.0,
+          "max_rss_bytes": null,
+          "max_rss_percent": 90.0,
+          "max_wall_time_ms": 120000
+        }
+      },
+      "task_order": ["local-engine-read-back"]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "schema": "cynic.lab.dns_validation_observation.v1",
+  "observed_at": "2026-08-05",
+  "status": "passed",
+  "desired_state": "lab DNS bundle renders from lab registry without real-fleet zone leakage",
+  "registry_change": "added explicit synapse reservations matching each lab node network address",
+  "regression_proof": "lab_registry_declares_synapse_reservations_for_every_lab_node",
+  "command": "cynic network dns bundle --registry infra/registries/lab.json --output-dir <temporary>",
+  "read_back": {
+    "bundle_schema": "cynic.organ_fleet.dns_activation_bundle.v1",
+    "files": 6,
+    "zone": "labmesh.example",
+    "contains_lab_zone": true,
+    "excludes_real_fleet_zone": true,
+    "mutates": false
+  },
+  "remaining_validation_blocker": "installed cynic artifact is stale for surface registry policy variant"
+}

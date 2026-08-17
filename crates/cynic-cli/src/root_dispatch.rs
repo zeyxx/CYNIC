@@ -1,6 +1,7 @@
 use std::process::ExitCode;
 
 use crate::audit_surface::{AuditCommand, execute_audit};
+use crate::agent_surface::execute_agent;
 use crate::bootstrap_surface::{BootstrapCommand, execute_bootstrap};
 use crate::chat_surface::{ChatArgs, execute_chat};
 use crate::cli_json::emit_pretty_json;
@@ -71,6 +72,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
             model,
             no_tui,
         }),
+        Command::Agent { command } => execute_agent(command),
     }
 }
 

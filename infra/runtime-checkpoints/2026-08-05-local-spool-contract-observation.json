@@ -1,0 +1,27 @@
+{
+  "schema": "cynic.local_spool.contract_observation.v1",
+  "observed_at": "2026-08-05",
+  "surface": "crates/cynic-kernel/src/infra/local_spool.rs",
+  "status": "implemented_unverified",
+  "properties": {
+    "append_sync_data": true,
+    "bounded_capacity_bytes": 67108864,
+    "read_is_non_acknowledging": true,
+    "drain_ack_after_consumer_success": true,
+    "drain_semantics": "at_least_once",
+    "shared_instance_operation_serialization": true,
+    "cross_process_coordination": "atomic_segment_rotation_and_claim",
+    "crashed_claim_replay_after_seconds": 60
+  },
+  "unknowns": [
+    "filesystem_crash_consistency_after_remove",
+    "runtime_replay_read_back_against_durable_store"
+  ],
+  "proof_refs": [
+    "LocalEvidenceSpool::append_pending_and_drain_are_durable_steps",
+    "LocalEvidenceSpool::cloned_spool_serializes_concurrent_appends",
+    "health.local_spool.cross_process_coordination=atomic_segment_rotation_and_claim",
+    "health.local_spool.crashed_claim_replay_after_seconds=60"
+  ],
+  "mutates": false
+}

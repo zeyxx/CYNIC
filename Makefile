@@ -36,6 +36,7 @@ authority-check: secret-literal-check ## Read-only local validation of machine-r
 	@jq empty infra/agent-exposure.json
 	@jq empty infra/ecosystem-pins.json
 	@jq empty infra/runtime-basket.json
+	@jq -e '(.roles | has("human_admin")) and (.roles | has("runtime_publisher")) and (.roles.human_admin.authority_class == "HumanAdmin") and (.roles.runtime_publisher.runtime_zero_touch == true) and (.domains | has("runtime"))' infra/agent-roles.json >/dev/null
 	@jq -e '.schema == "cynic.surface_registry.v1" and (.surfaces | type == "array" and length > 0) and (([.surfaces[].id] | length) == ([.surfaces[].id] | unique | length))' infra/surface-registry/manifest.json >/dev/null
 	@while IFS=$$'\t' read -r surface_id fragment_path; do
 		if [[ "$$fragment_path" == /* || "$$fragment_path" == *..* || "$$fragment_path" == *\\* ]]; then

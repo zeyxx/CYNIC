@@ -1,0 +1,28 @@
+{
+  "schema": "cynic.runtime_takeover.fencing_guard_observation.v1",
+  "observed_at": "2026-08-05",
+  "status": "implemented_unverified",
+  "desired_state": "an active primary lease must fence publication by every other node",
+  "observation": {
+    "pure_rule": "cynic_protocol::takeover_publish_conflicts",
+    "ownership_read_back": "cynic_protocol::takeover_lease_owned_by",
+    "storage_guard": "surreal_takeover_publish_rejects_active_primary_conflict",
+    "error_read_back": "takeover lease publication fenced by active primary",
+    "lost_lease_action": "active primary cancels its runtime after ownership read-back loss",
+    "deterministic_race_harness": "cynic.coordination.takeover_race_harness.v1 with winner/loser ownership read-back",
+    "tests": [
+      "active_lease_of_another_node_blocks_publication",
+      "lease_read_back_loss_is_not_owned"
+    ]
+  },
+  "bounded_action": "reject conflicting lease publication without incrementing fencing token",
+  "proof": "rustfmt_and_git_diff_check",
+  "unknowns": [
+    "transactional split-brain behavior during storage network partition",
+    "live multi-node lease read-back",
+    "candidate takeover promotion path with explicit prior fencing token",
+    "live proof that service shutdown completes after fencing loss",
+    "live storage serialization under simultaneous candidates"
+  ],
+  "mutates": false
+}

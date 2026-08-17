@@ -55,6 +55,7 @@ pub mod proxmox_control;
 pub mod proxmox_storage;
 pub mod qemu_guest_agent_network_runner;
 pub mod registry;
+pub mod registry_mesh_state_provider;
 pub mod runtime_observation;
 pub(crate) mod source_materialization_marker;
 pub(crate) mod source_snapshot_store;

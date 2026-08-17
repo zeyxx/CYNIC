@@ -4,6 +4,7 @@
 mod host_runtime;
 mod kernel_bridge;
 mod sampler;
+mod peer_handshake;
 
 use std::process::ExitCode;
 use std::time::Duration;

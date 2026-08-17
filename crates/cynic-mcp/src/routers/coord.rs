@@ -1,5 +1,7 @@
 // ── Coord tools (REST kernel) ───────────────────────────────
 
+use crate::types::*;
+
 #[tool_router(router = tool_router_coord, vis = "pub(crate)")]
 impl CynicMcpProxy {
     #[tool(

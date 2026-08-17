@@ -3,7 +3,9 @@
 //! Domain must not hard-wire `Command::new("cynic")`. CLI injects
 //! [`LocalArgvRunner`]; tests inject fakes.
 
-#[derive(Debug, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArgvOutput {
     pub exit_code: Option<i32>,
     pub stdout: String,

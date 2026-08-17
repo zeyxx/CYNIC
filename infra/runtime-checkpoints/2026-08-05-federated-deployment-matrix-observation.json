@@ -1,0 +1,33 @@
+{
+  "schema": "cynic.federated_deployment.matrix_observation.v1",
+  "observed_at": "2026-08-05",
+  "status": "observable_candidate",
+  "source": "cynic runtime report --json",
+  "runtime_report": {
+    "status": "ok",
+    "lifecycle_status": "ready",
+    "lifecycle_disposition": "observable_candidate",
+    "next_boundary_kind": "observe",
+    "sovereign_git": {
+      "status": "ok",
+      "forgejo_service_health": "reachable",
+      "forgejo_tcp_reachability_status": "open",
+      "forgejo_repo_auth_readiness": "unknown"
+    }
+  },
+  "promotion_gates": {
+    "closed_local_lab": "declared",
+    "conformance": "blocked_by_host_identity_and_runtime_proof",
+    "staging": "blocked_until_conformance",
+    "canary": "blocked_until_staging_and_rollback_proof",
+    "production": "not_admitted"
+  },
+  "unknowns": [
+    "Forgejo repository authentication",
+    "current-worktree build proof",
+    "conformance qualification",
+    "staging attestation",
+    "canary rollback proof"
+  ],
+  "mutates": false
+}

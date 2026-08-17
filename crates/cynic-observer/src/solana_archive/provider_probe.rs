@@ -84,7 +84,7 @@ pub fn summarize_provider_probe(
     let mut rate_limited_count = 0_u64;
     let mut records = 0_u64;
     let mut estimated_credits = 0_u64;
-    let mut max_page_size = None;
+    let mut max_page_size: Option<u16> = None;
     let mut residual_unknowns = Vec::new();
 
     for sample in samples {

@@ -1,0 +1,40 @@
+{
+  "schema": "cynic.runtime_harness.remote_observation.v1",
+  "status": "observed",
+  "observed_at_unix_ms": 1785886182669,
+  "node_id": "cynic-builder",
+  "transport": {
+    "method": "ssh",
+    "target": "cynic-builder",
+    "read_only": true
+  },
+  "substrate": {
+    "principal": "root",
+    "cargo_path": "/usr/bin/cargo",
+    "cynic_path": "/usr/local/bin/cynic",
+    "registry_present": true
+  },
+  "harness": {
+    "schema": "cynic.runtime_harness.catalog.v1",
+    "status": "ok",
+    "progression": [
+      "closed_local_lab",
+      "conformance",
+      "staging",
+      "canary",
+      "production"
+    ],
+    "installed_artifact_fault_scenarios": "unknown"
+  },
+  "unknowns": [
+    "build_runner_validation_not_executed",
+    "installed_cynic_artifact_predates_local_fault_harness_projection",
+    "conformance_read_back_not_observed",
+    "staging_target_not_declared",
+    "canary_target_not_declared"
+  ],
+  "evidence_refs": [
+    "ssh:cynic-builder:runtime-harness-json",
+    "ssh:cynic-builder:hostname-principal-toolchain"
+  ]
+}

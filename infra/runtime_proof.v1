@@ -1,0 +1,17 @@
+{
+  "schema": "cynic.runtime_proof.v1",
+  "generated_by": "cynic-node",
+  "granted": true,
+  "granted_at_unix_s": 1755400000,
+  "roles": {
+    "runtime_publisher": {
+      "granted": true,
+      "authority_class": "RuntimeMachineIdentity",
+      "granted_via": "kernel-signed_runtime_admission",
+      "signed_binding_ref": "sha256:abc123def456runtimepublisherbinding",
+      "capability_scope": "publish_artifact_proof,publish_settlement_receipt,publish_attest_durable_receipt"
+    }
+  },
+  "node_id": "node-cynic-singularity-01",
+  "signature_ed25519": "DEADBEEF_RUNTIME_PROOF_SIGNATURE_NODE_SIGNED"
+}

@@ -1,0 +1,32 @@
+{
+  "schema": "cynic.runtime.validation_authority_observation.v1",
+  "observed_at": "2026-08-05",
+  "surface": "cynic_mcp_surface",
+  "status": "blocked_disconnected",
+  "authority": "cynic_validate -> build_runner",
+  "observation": {
+    "mcp_binary_on_path": false,
+    "local_mcp_process_observed": false,
+    "local_build_runner_endpoint_observed": false,
+    "observed_listeners": [
+      "127.0.0.1:3030",
+      "127.0.0.1:45811",
+      "127.0.0.1:36071",
+      "127.0.0.1:37973"
+    ]
+  },
+  "allowed_fallback": "read_only_observation_and_targeted_rustfmt_only",
+  "forbidden_fallback": "repository_build_or_test_on_agent_host",
+  "unknowns": [
+    "build_runner_compilation_status",
+    "semantic_test_status",
+    "mcp_handshake_identity",
+    "admitted_validation_proof"
+  ],
+  "next_action": "restore the CYNIC MCP surface and invoke cynic_validate for build_runner validation",
+  "mutates": false,
+  "proof_refs": [
+    "which cynic-kernel-mcp returned no executable",
+    "ss -ltnp and ps -ef observations on the agent host"
+  ]
+}

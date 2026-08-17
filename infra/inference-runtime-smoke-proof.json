@@ -1,0 +1,66 @@
+{
+  "schema": "cynic.inference.runtime_smoke_proof.v1",
+  "observed_at": "2026-08-04T03:42:20Z",
+  "harness": {
+    "kind": "lab",
+    "authority": "test_projection",
+    "isolation_boundary": "rootless_process_runtime",
+    "target_scope": "single_host"
+  },
+  "substrate": {
+    "model_alias": "qwythos-9b-q4",
+    "llama_server_endpoint": "http://127.0.0.1:8080/v1",
+    "llama_health": "ok",
+    "observed_ctx_slot": 65536,
+    "observed_parallel_slots": 1,
+    "api_key_source": "cynic_chat_key_resolver",
+    "api_key_value": "redacted"
+  },
+  "configuration_observation": {
+    "schema": "cynic.inference.configuration_drift.v1",
+    "observed_backend_name": "llama-local",
+    "observed_backend_model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+    "observed_backend_context_size": 8192,
+    "runtime_proof_model_alias": "qwythos-9b-q4",
+    "runtime_proof_context_size": 65536,
+    "status": "drift",
+    "required_reconciliation": "re-probe active llama endpoint, select an injected model profile, then apply and read back inference.toml through CYNIC"
+  },
+  "direct_completion": {
+    "correlation_id": "direct-key-resolution",
+    "http_status": 200,
+    "choices": 1,
+    "prompt_tokens": 54,
+    "completion_tokens": 32,
+    "total_tokens": 86,
+    "proof": "read-only chat completion returned through llama-server"
+  },
+  "hermes_agent_run": {
+    "endpoint": "http://127.0.0.1:8642",
+    "correlation_id": "aligned-hermes",
+    "run_id": "run_3726211dc21547108103032a214cda7a",
+    "health": "ok",
+    "capabilities": "ok",
+    "status": "completed",
+    "input_tokens": 17791,
+    "output_tokens": 102,
+    "total_tokens": 17893,
+    "event_count": 34,
+    "event_kinds": ["message.delta", "run.completed"],
+    "sse_bytes": 5016,
+    "max_iterations": 1,
+    "tools_requested": false,
+    "proof": "run.completed plus message.delta SSE events"
+  },
+  "hermes_process_recovery": {
+    "first_health": "ok",
+    "after_stop_http_status": 0,
+    "second_health": "ok",
+    "proof": "gateway stopped and was restarted on the isolated recovery port"
+  },
+  "residual_unknowns": [
+    "compiled CYNIC benchmark CLI read-back is pending MCP-authorized validation",
+    "Hermes supervisor source adapter is added; compiled CYNIC runtime read-back is pending",
+    "Kanban create/complete/block adapter requires compiled harness execution proof"
+  ]
+}

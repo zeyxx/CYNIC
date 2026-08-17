@@ -1,0 +1,198 @@
+{
+  "$schema": "cynic.agent_roles.v1",
+  "name": "cynic-agent-roles",
+  "purpose": "Declarative RBAC for CYNIC governance domains. HumanAdmin commits changes to infra/ (Git signed); agents RECONCILE against this source of truth. Zero-trust: an agent must never exceed its declared role capabilities.",
+  "authority_order": [
+    "contracts/foundation.json",
+    "infra/agent-roles.json",
+    "infra/registry.json",
+    "contracts/foundation.json #65 (authority-check)"
+  ],
+  "roles": {
+    "human_admin": {
+      "authority_class": "HumanAdmin",
+      "secret_source_class": "HumanAdmin",
+      "required_human_secret": true,
+      "required_human_stdin": true,
+      "commit_scope": "infra/* (declarative), one-shot seeds",
+      "can_mutate": [],
+      "can_observe": ["*"],
+      "can_pause": ["*"],
+      "cannot": [
+        "never executes runtime mutations (make check/build/run) — agents do via admitted dispatch",
+        "never signs artifacts, builds, grants, or scheduler state",
+        "never touches RuntimeMachineIdentity secrets post-bootstrap",
+        "never runs build-runner-bootstrap or agent exec directly",
+        "seeds authority only via --seed-manifest --apply --stdin (blocked=true by default)"
+      ],
+      "granted_via": "Git commit + one-shot --apply --stdin-human-secret (seed authority only)",
+      "zero_touch_runtime": true,
+      "seed_once_only": true
+    },
+    "build_runner": {
+      "authority_class": "BuildRunnerBootstrapCapabilityBinding",
+      "secret_source_class": "MachineEnrollment",
+      "required_human_secret": false,
+      "commit_scope": "build_runner_bootstrap.json (admitted bundle)",
+      "can_mutate": ["build", "artifact", "registry_read", "bundle_fetch"],
+      "can_observe": ["build_proof", "registry", "surface_audit"],
+      "can_pause": [],
+      "cannot": [
+        "never signs enrollment grants",
+        "never seeds storage or machine identity",
+        "never exceeds target_commit/target_bundle_digest from registry",
+        "requires human_approval_required flag in registry.json for make:check"
+      ],
+      "granted_via": "kernel POST /bootstrap-binding (BuildRunnerBootstrapCapabilityBinding signed)",
+      "bounded_by": ["target_commit", "target_bundle_digest", "registry_digest", "executable_digest", "action", "ttl"],
+      "human_approval_required": true,
+      "human_approval_flag": "build.admission_human_approval"
+    },
+    "fleet_coordinator": {
+      "authority_class": "agent_delegation_envelope.v1",
+      "secret_source_class": "RuntimeMachineIdentity",
+      "required_human_secret": false,
+      "commit_scope": "fleet_desired.json (declarative target)",
+      "can_mutate": ["fleet_bootstrap", "federation_adopt", "runtime_publish"],
+      "can_observe": ["fleet_runtime", "conformance", "metrics"],
+      "can_pause": ["fleet"],
+      "cannot": [
+        "never exceeds parent delegation budget (monotonic)",
+        "never crosses federation boundary without explicit coordination contract",
+        "fleet adoption requires human_approval_required: true"
+      ],
+      "granted_via": "node-owned delegation (monotone budget, child budget <= parent)",
+      "budgeted": true,
+      "human_approval_required": true,
+      "human_approval_flag": "fleet.human_approval_required"
+    },
+    "scheduler_agent": {
+      "authority_class": "RuntimeMachineIdentity",
+      "secret_source_class": "RuntimeMachineIdentity",
+      "required_human_secret": false,
+      "commit_scope": "agent_workload envelopes (admitted dispatch only)",
+      "can_mutate": ["agent_workload_execute", "credential_lease", "scheduler_claim", "receipt_publish", "cancellation", "recovery"],
+      "can_observe": ["scheduler_state", "runtime_proof", "agent_delegation_envelope"],
+      "can_pause": [],
+      "cannot": [
+        "never amplifies parent capability or budget",
+        "never signs enrollment or bootstrap binding",
+        "always produces cynic.agent_workload_envelope.v1 completion read-back"
+      ],
+      "granted_via": "node-owned scheduler deriving machine grant (no HumanAdmin, post-bootstrap)",
+      "envelope_required": "cynic.agent_workload_envelope.v1",
+      "concurrent_safe": true,
+      "runtime_zero_touch": true
+    },
+    "runtime_publisher": {
+      "authority_class": "RuntimeMachineIdentity",
+      "secret_source_class": "RuntimeMachineIdentity",
+      "required_human_secret": false,
+      "description": "2N layer: steady-state agent that publishes kernel/node-signed read-back receipts (artifacts, settlement). Zero human-admin post-bootstrap.",
+      "can_mutate": ["publish_artifact_proof", "publish_settlement_receipt", "publish_attest_durable_receipt"],
+      "can_observe": ["runtime_history", "kernel_signatures", "proof_bundles"],
+      "can_pause": [],
+      "cannot": [
+        "never initiates builds or enrollment",
+        "never signs enrollment grants or bootstrap bindings",
+        "only publishes read-back receipts after observed proof",
+        "kernel must sign proof_bundle before publication"
+      ],
+      "granted_via": "kernel/node-signed BuildRunnerBootstrapCapabilityBinding (post-seed)",
+      "envelope_required": "cynic.runtime_proof.v1",
+      "zero_human_admin": true,
+      "read_back_required": true,
+      "runtime_zero_touch": true
+    }
+  },
+  "domains": {
+    "registry": {
+      "human_admin_role": "human_admin",
+      "human_admin_action": "commit infra/*.json (foundation, registry, surface-registry, agent-roles)",
+      "agent_role": null,
+      "agent_action": "read_back only (authority-check)",
+      "human_approval_required": false,
+      "mutation_policy": "read_only_by_default_explicit_apply_create_once",
+      "evidence": ["contracts/foundation.json #65 (authority-check)", "make:check admission"],
+      "human_admin_commit_file": "infra/*.json"
+    },
+    "node_enrollment": {
+      "human_admin_role": "human_admin",
+      "human_admin_action": "seed enrollment authority + storage identity (one-shot --stdin)",
+      "agent_role": "build_runner",
+      "agent_action": "read_only_after_seed",
+      "human_approval_required": false,
+      "mutation_policy": "read_only_by_default_explicit_apply_create_once",
+      "evidence": ["cynic.deployment_transition.v1", "cynic.machine_enrollment.read_back.v1"],
+      "human_admin_commit_file": "infra/storage_identity_enrollment.json"
+    },
+    "build": {
+      "human_admin_role": "human_admin",
+      "human_admin_action": "declare build_runner target commit + registry digest (git commit)",
+      "agent_role": "build_runner",
+      "agent_action": "execute_admitted (POST /bootstrap-binding -> make check)",
+      "human_approval_required": true,
+      "human_approval_flag": "build.admission_human_approval",
+      "mutation_policy": "explicit_apply_only",
+      "evidence": ["cynic.build_runner_bootstrap.read_back.v1", "cynic.artifact_proof.v1"],
+      "human_admin_commit_file": "infra/registry.json"
+    },
+    "fleet": {
+      "human_admin_role": "human_admin",
+      "human_admin_action": "declare fleet_desired topology + federation peers (git commit)",
+      "agent_role": "fleet_coordinator",
+      "agent_action": "adopt_and_reconcile",
+      "human_approval_required": true,
+      "human_approval_flag": "fleet.human_approval_required",
+      "mutation_policy": "read_only",
+      "evidence": ["cynic.fleet_runtime.v1", "cynic.federation.read_back.v1"],
+      "human_admin_commit_file": "infra/registry.json"
+    },
+    "runtime": {
+      "human_admin_role": "human_admin",
+      "human_admin_action": "observe only (soc --json, surface-audit --json, pause via git)",
+      "agent_role": "scheduler_agent",
+      "agent_action": "zero_touch_continuous (leases, recovery, evidence)",
+      "human_approval_required": false,
+      "visibility_only": true,
+      "mutation_policy": "admitted_dispatch_or_explicit_apply_only",
+      "evidence": ["cynic.runtime_proof.v1", "cynic.agent_workload_envelope.v1"],
+      "human_admin_commit_file": null
+    },
+    "solana": {
+      "human_admin_role": "human_admin",
+      "human_admin_action": "declare solana_publish_policy (git commit)",
+      "agent_role": "runtime_publisher",
+      "agent_action": "publish kernel/node-signed read-back receipts (2N layer)",
+      "human_approval_required": true,
+      "human_approval_flag": "solana.human_approval_required",
+      "mutation_policy": "admitted_dispatch_or_explicit_apply_only",
+      "evidence": ["cynic.solana_settlement.v1"],
+      "human_admin_commit_file": "infra/solana_publish_policy.json"
+    },
+    "secrets": {
+      "human_admin_role": "human_admin",
+      "human_admin_action": "seed secrets via stdin (one-shot), rotate public keys via commit",
+      "agent_role": "scheduler_agent",
+      "agent_action": "consume RuntimeMachineIdentity (never fabricate)",
+      "human_approval_required": false,
+      "secret_source_class": "HumanAdmin | RuntimeMachineIdentity",
+      "mutation_policy": "read_only",
+      "evidence": ["cynic.secret_presence.v1"],
+      "human_admin_commit_file": "infra/runtime-authority.json"
+    }
+  },
+  "gitops_rules": [
+    "HumanAdmin commits desired state to infra/*.json (Git signed) — single source of truth",
+    "HumanAdmin seeds authority once via --seed-manifest --apply --stdin — blocked=true by default, never repeated",
+    "HumanAdmin never executes runtime mutations: agents reconcile via admitted dispatch (kernel/node signed)",
+    "HumanAdmin observes without HumanAdmin: cynic agent soc --json, cynic runtime conformance --json, surface-audit --json",
+    "HumanAdmin kill-switch: set runtime.pause_all=true in registry.json — agents auto-stop, no runtime command",
+    "No HumanAdmin secret may be committed, logged, or persisted — only hashed via ownership proof"
+  ],
+  "agent_governance_rule": [
+    "An agent must refuse any action whose capability is absent from its declared role in infra/agent-roles.json",
+    "An agent must produce cynic.agent_workload_envelope.v1 read-back before acknowledging delivery",
+    "A child agent delegation must never amplify parent authority or budget (monotonic budgets enforced)"
+  ]
+}

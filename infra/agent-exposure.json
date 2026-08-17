@@ -417,6 +417,11 @@
           "mutation": "local_mutation"
         },
         {
+          "name": "cynic_toolchain_reconcile",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
           "name": "cynic_agent_connection_status",
           "tier": "baseline_runtime",
           "mutation": "read_only"

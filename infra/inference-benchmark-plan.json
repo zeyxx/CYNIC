@@ -1,0 +1,150 @@
+{
+  "schema": "cynic.agent_harness.plan.v1",
+  "plan_id": "cynic-agent-runtime-smoke-v1",
+  "scenarios": [
+    {
+      "scenario": {
+        "scenario_id": "direct-read-only",
+        "probe_runtime_plan": true,
+        "runtime_kind": "direct_llama",
+        "runtime_id": "qwythos-9b-q4",
+        "model": {
+          "role": "primary",
+          "parameters": {
+            "model_id": "qwythos-9b-q4",
+            "model_path": "injected-by-profile",
+            "architecture": "qwen35",
+            "quantization": "Q4_K_M",
+            "context_requested": 131072,
+            "parallel_slots": 1,
+            "context_per_slot": 131072,
+            "kv_cache_type_k": null,
+            "kv_cache_type_v": null,
+            "flash_attention": null,
+            "gpu_layers": null,
+            "fit_mode": null,
+            "threads": null,
+            "batch_size": null,
+            "ubatch_size": null,
+            "temperature": 0.2,
+            "top_p": 0.95,
+            "reasoning_budget": 128
+          }
+        },
+        "tasks": [
+          {
+            "task_id": "rust-audit-smoke",
+            "kind": "audit",
+            "prompt": "Read-only: identify the highest-risk Rust boundary in this repository and return one evidence-based sentence.",
+            "max_output_tokens": 128,
+            "expected_proof": "one sentence with a file or contract reference"
+          }
+        ],
+        "thresholds": {
+          "min_available_memory_bytes": null,
+          "min_available_memory_percent": 10.0,
+          "max_rss_bytes": null,
+          "max_rss_percent": 90.0,
+          "max_wall_time_ms": 120000
+        }
+      },
+      "task_order": ["rust-audit-smoke"]
+    },
+    {
+      "scenario": {
+        "scenario_id": "hermes-read-only",
+        "runtime_kind": "hermes_agent",
+        "runtime_id": "hermes-agent",
+        "coordination_kind": "hermes_kanban",
+        "model": {
+          "role": "agent",
+          "parameters": {
+            "model_id": "qwythos-9b-q4",
+            "model_path": "injected-by-profile",
+            "architecture": "qwen35",
+            "quantization": "Q4_K_M",
+            "context_requested": 131072,
+            "parallel_slots": 1,
+            "context_per_slot": 131072,
+            "kv_cache_type_k": "q4_0",
+            "kv_cache_type_v": "q4_0",
+            "flash_attention": true,
+            "gpu_layers": -1,
+            "fit_mode": "off",
+            "threads": 16,
+            "batch_size": 512,
+            "ubatch_size": 128,
+            "temperature": 0.2,
+            "top_p": 0.95,
+            "reasoning_budget": 128
+          }
+        },
+        "tasks": [
+          {
+            "task_id": "hermes-rust-audit-smoke",
+            "kind": "audit",
+            "prompt": "Read-only: inspect the supplied workspace and identify one Rust contract that should be preserved. Do not mutate files.",
+            "max_output_tokens": 128,
+            "expected_proof": "one sentence with a file or contract reference"
+          }
+        ],
+        "thresholds": {
+          "min_available_memory_bytes": null,
+          "min_available_memory_percent": 10.0,
+          "max_rss_bytes": null,
+          "max_rss_percent": 90.0,
+          "max_wall_time_ms": 180000
+        }
+      },
+      "task_order": ["hermes-rust-audit-smoke"]
+    },
+    {
+      "scenario": {
+        "scenario_id": "pi-read-only",
+        "runtime_kind": "hermes_agent",
+        "runtime_id": "pi-agent",
+        "coordination_kind": "hermes_kanban",
+        "model": {
+          "role": "agent",
+          "parameters": {
+            "model_id": "qwythos-9b-q4",
+            "model_path": "injected-by-profile",
+            "architecture": "qwen35",
+            "quantization": "Q4_K_M",
+            "context_requested": 131072,
+            "parallel_slots": 1,
+            "context_per_slot": 131072,
+            "kv_cache_type_k": "q4_0",
+            "kv_cache_type_v": "q4_0",
+            "flash_attention": true,
+            "gpu_layers": -1,
+            "fit_mode": "off",
+            "threads": 16,
+            "batch_size": 512,
+            "ubatch_size": 128,
+            "temperature": 0.2,
+            "top_p": 0.95,
+            "reasoning_budget": 128
+          }
+        },
+        "tasks": [
+          {
+            "task_id": "pi-rust-audit-smoke",
+            "kind": "audit",
+            "prompt": "Read-only: inspect the supplied workspace and identify one Rust contract that should be preserved. Do not mutate files.",
+            "max_output_tokens": 128,
+            "expected_proof": "one sentence with a file or contract reference"
+          }
+        ],
+        "thresholds": {
+          "min_available_memory_bytes": null,
+          "min_available_memory_percent": 10.0,
+          "max_rss_bytes": null,
+          "max_rss_percent": 90.0,
+          "max_wall_time_ms": 180000
+        }
+      },
+      "task_order": ["pi-rust-audit-smoke"]
+    }
+  ]
+}

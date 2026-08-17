@@ -1,0 +1,75 @@
+{
+  "schema": "cynic.solana.provider_registry.v1",
+  "entries": [
+    {
+      "provider": "helius",
+      "endpoint_ref": "env:CYNIC_SOLANA_HELIUS_RPC_URL",
+      "auth_ref": "env:CYNIC_SOLANA_HELIUS_API_KEY",
+      "enabled": true,
+      "probe": {
+        "provider": "helius",
+        "endpoint_class": "helius_rpc",
+        "methods": ["getSignaturesForAddress", "getTransaction"],
+        "max_signature_pages": 10,
+        "max_transactions": 50,
+        "max_blocks": 0
+      }
+    },
+    {
+      "provider": "alchemy",
+      "endpoint_ref": "env:CYNIC_SOLANA_ALCHEMY_RPC_URL",
+      "auth_ref": "env:CYNIC_SOLANA_ALCHEMY_API_KEY",
+      "enabled": true,
+      "probe": {
+        "provider": "alchemy",
+        "endpoint_class": "alchemy_rpc",
+        "methods": ["getSignaturesForAddress", "getTransaction"],
+        "max_signature_pages": 10,
+        "max_transactions": 50,
+        "max_blocks": 0
+      }
+    },
+    {
+      "provider": "quick_node",
+      "endpoint_ref": "env:CYNIC_SOLANA_QUICKNODE_RPC_URL",
+      "auth_ref": "env:CYNIC_SOLANA_QUICKNODE_API_KEY",
+      "enabled": true,
+      "probe": {
+        "provider": "quick_node",
+        "endpoint_class": "quicknode_rpc",
+        "methods": ["getSignaturesForAddress", "getTransaction"],
+        "max_signature_pages": 10,
+        "max_transactions": 50,
+        "max_blocks": 0
+      }
+    },
+    {
+      "provider": "chainstack",
+      "endpoint_ref": "env:CYNIC_SOLANA_CHAINSTACK_RPC_URL",
+      "auth_ref": "env:CYNIC_SOLANA_CHAINSTACK_API_KEY",
+      "enabled": true,
+      "probe": {
+        "provider": "chainstack",
+        "endpoint_class": "chainstack_rpc",
+        "methods": ["getSignaturesForAddress", "getTransaction"],
+        "max_signature_pages": 10,
+        "max_transactions": 50,
+        "max_blocks": 0
+      }
+    },
+    {
+      "provider": "public_rpc",
+      "endpoint_ref": "https://api.mainnet.solana.com",
+      "auth_ref": null,
+      "enabled": true,
+      "probe": {
+        "provider": "public_rpc",
+        "endpoint_class": "solana_public_rpc",
+        "methods": ["getSignaturesForAddress", "getTransaction"],
+        "max_signature_pages": 2,
+        "max_transactions": 10,
+        "max_blocks": 0
+      }
+    }
+  ]
+}

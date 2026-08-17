@@ -1,0 +1,104 @@
+{
+  "schema": "cynic.mycological_transition.audit.v1",
+  "observed_at": "2026-08-05",
+  "status": "partial_with_explicit_unknowns",
+  "method": "desired_state_observe_reconcile_bounded_action_read_back_proof",
+  "stages": [
+    {
+      "id": "ownership_spof_metrics",
+      "status": "implemented_unverified",
+      "evidence": [
+        "cynic.capability.responsibility.v1",
+        "cynic.host.runtime_metrics.v1",
+        "infra/runtime-authority.json"
+      ],
+      "unknowns": ["longitudinal_fleet_metric_history"]
+    },
+    {
+      "id": "local_node_survivability",
+      "status": "implemented_unverified",
+      "evidence": [
+        "cynic.runtime_degradation.v1",
+        "cynic.local_spool.contract_observation.v1",
+        "cynic-kernel health local_spool read-back"
+      ],
+      "unknowns": [
+        "filesystem_crash_consistency",
+        "replay_read_back_against_durable_store"
+      ]
+    },
+    {
+      "id": "mcp_stateless_fallback",
+      "status": "implemented_unverified",
+      "evidence": [
+        "cynic.mcp_surface_manifest.v1",
+        "disconnected_surface_retains_only_explicit_read_only_projection",
+      "cynic.runtime.validation_authority_observation.v1"
+      ],
+      "unknowns": [
+      "live_mcp_handshake",
+      "installed_mcp_artifact_contract_compatibility",
+      "build_runner_admitted_validation"
+      ]
+    },
+    {
+      "id": "kernel_coordination_replication",
+      "status": "implemented_unverified",
+      "evidence": [
+        "cynic.coordination.journal_entry.v1",
+        "cynic.coordination.quorum_decision.v1",
+        "cynic.coordination.journal.contract_observation.v1",
+        "cynic.runtime_takeover.lease_observation.v1",
+        "cynic.runtime_takeover.fencing_guard_observation.v1"
+      ],
+      "unknowns": [
+        "multi_node_journal_replication",
+        "live_quorum_read_back"
+      ]
+    },
+    {
+      "id": "resident_takeover",
+      "status": "implemented_unverified",
+      "evidence": [
+        "cynic.runtime_takeover.v1",
+        "cynic.runtime_takeover.activation.v1",
+        "cynic.runtime_takeover.fencing_guard_observation.v1",
+        "cynic-kernel-standby.service",
+        "cynic-node takeover activation adapter"
+      ],
+      "unknowns": [
+        "real_primary_failure_takeover",
+        "rollback_read_back_on_live_node",
+        "split_brain_under_network_partition"
+      ]
+    },
+    {
+      "id": "scaling_antifragility_harness",
+      "status": "deterministic_harness_ready",
+      "evidence": [
+        "cynic.coordination.fault_harness.v1",
+        "cynic.coordination.scaling_harness.v1",
+        "cynic.runtime_harness.promotion.v1",
+        "cynic.runtime_harness.promotion.observation.v1"
+      ],
+      "unknowns": [
+        "live_conformance_on_current_artifact",
+        "live_staging_attestation",
+        "live_canary_attestation",
+        "real_fleet_rollback_proof"
+      ]
+    }
+  ],
+  "global_blockers": [
+    "cynic_mcp_surface_unavailable_on_agent_host",
+    "build_runner_validation_not_admitted",
+    "remote_cynic_builder_conformance_blocked_on_network_services_and_hardware_proof"
+  ],
+  "forbidden_claims": [
+    "do_not_claim_production_convergence",
+    "do_not_claim_live_takeover_success",
+    "do_not_claim_staging_or_canary_success",
+    "do_not_claim_build_success_without_cynic_validate_read_back"
+  ],
+  "mutates": false
+}

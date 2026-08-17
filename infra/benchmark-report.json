@@ -1,0 +1,111 @@
+{
+  "schema": "cynic.inference.benchmark_report.v1",
+  "timestamp": "2026-08-03T22:15:18Z",
+  "hardware": {
+    "cpu": "AMD Ryzen 7 5700G (8C/16T)",
+    "ram": "32 GB DDR4-3200 Dual-Channel (51.2 GB/s max bandwidth)",
+    "gpu": "AMD Radeon Graphics (RADV RENOIR Vulkan)"
+  },
+  "results": [
+    {
+      "alias": "minicpm-1b-q8",
+      "name": "MiniCPM-1B (Q8_0)",
+      "ctx_size": 8192,
+      "benchmarks": [
+        {
+          "kind": "coding",
+          "prompt_tokens": 37,
+          "completion_tokens": 150,
+          "prompt_tps": 375.18759379689845,
+          "eval_tps": 36.45363486483964,
+          "wall_time_s": 4.23,
+          "sample_output": ""
+        },
+        {
+          "kind": "reasoning",
+          "prompt_tokens": 36,
+          "completion_tokens": 150,
+          "prompt_tps": 532.109481525824,
+          "eval_tps": 36.411752839934664,
+          "wall_time_s": 4.19,
+          "sample_output": ""
+        }
+      ]
+    },
+    {
+      "alias": "qwen3-4b-instruct",
+      "name": "Qwen3-4B-Instruct (Q4_K_M)",
+      "ctx_size": 8192,
+      "benchmarks": [
+        {
+          "kind": "coding",
+          "prompt_tokens": 32,
+          "completion_tokens": 150,
+          "prompt_tps": 106.98691416306144,
+          "eval_tps": 13.30592077104795,
+          "wall_time_s": 11.58,
+          "sample_output": "Voici une fonction **g\u00e9n\u00e9rique**, **thread-safe**, qui impl\u00e9mente un **cache LRU (Least Recently Used)** en utilisant `R"
+        },
+        {
+          "kind": "reasoning",
+          "prompt_tokens": 32,
+          "completion_tokens": 150,
+          "prompt_tps": 107.4675096072248,
+          "eval_tps": 14.170020789309834,
+          "wall_time_s": 10.88,
+          "sample_output": "Le concept de **souverainet\u00e9 num\u00e9rique** et celui d\u2019un **runtime souverain** sont des id\u00e9es \u00e9mergentes au croisement de "
+        }
+      ]
+    },
+    {
+      "alias": "qwythos-9b-q4",
+      "name": "Qwythos-9B-Claude-Mythos (Q4_K_M)",
+      "ctx_size": 8192,
+      "benchmarks": [
+        {
+          "kind": "coding",
+          "prompt_tokens": 64,
+          "completion_tokens": 150,
+          "prompt_tps": 51.60661887141163,
+          "eval_tps": 7.412263263429761,
+          "wall_time_s": 21.49,
+          "sample_output": ""
+        },
+        {
+          "kind": "reasoning",
+          "prompt_tokens": 59,
+          "completion_tokens": 150,
+          "prompt_tps": 42.9486467473805,
+          "eval_tps": 7.345688749161917,
+          "wall_time_s": 21.18,
+          "sample_output": "# Princip"
+        }
+      ]
+    },
+    {
+      "alias": "bonsai-27b-q1",
+      "name": "Bonsai-27B (Q1_0)",
+      "ctx_size": 65536,
+      "benchmarks": [
+        {
+          "kind": "coding",
+          "prompt_tokens": 34,
+          "completion_tokens": 150,
+          "prompt_tps": 19.86898159781675,
+          "eval_tps": 5.623807963604515,
+          "wall_time_s": 28.4,
+          "sample_output": ""
+        },
+        {
+          "kind": "reasoning",
+          "prompt_tokens": 29,
+          "completion_tokens": 150,
+          "prompt_tps": 17.25052762820711,
+          "eval_tps": 5.729918459822366,
+          "wall_time_s": 28.09,
+          "sample_output": ""
+        }
+      ]
+    }
+  ]
+}

@@ -109,6 +109,11 @@
         "cidr": "10.10.10.0/24",
         "dns_zone": "synapse.cynic",
         "canonical": true
+      },
+      "overlay": {
+        "cidr": "10.20.0.0/24",
+        "canonical": false,
+        "purpose": "WireGuard encrypted full-mesh overlay"
       }
     },
     "reservations": [
@@ -150,7 +155,64 @@
           "cynic-builder.synapse.cynic"
         ]
       }
-    ]
+    ],
+    "wireguard": {
+      "schema": "cynic.network.wireguard.v1",
+      "overlay_cidr": "10.20.0.0/24",
+      "listen_port": 44196,
+      "topology": "full_mesh",
+      "keepalive_s": 25,
+      "watchdog_stale_s": 150,
+      "watchdog_dead_s": 200,
+      "key_storage": "file:/etc/wireguard/wg0.key",
+      "nodes": [
+        {
+          "node_id": "cynic-host-proxmox",
+          "overlay_ip": "10.20.0.1",
+          "public_key": "icHF7QEhHSgxJHYV0iCuU9xErsIU3odjFMYrZsTkMxQ=",
+          "endpoint": "192.168.100.1:44196",
+          "endpoint_plane": "management",
+          "ssh_access": {"method": "direct", "target": "root@192.168.100.1"},
+          "watchdog": true
+        },
+        {
+          "node_id": "cynic-host-cortex",
+          "overlay_ip": "10.20.0.3",
+          "public_key": "Kar1lDbVWLydccWHsTNQp/NggDHzzpVXwpbSriyVO1c=",
+          "endpoint": "192.168.100.2:44196",
+          "endpoint_plane": "management",
+          "ssh_access": {"method": "local"},
+          "watchdog": true
+        },
+        {
+          "node_id": "forgejo",
+          "overlay_ip": "10.20.0.2",
+          "public_key": "NwnCBCswWWXr89AUEi6wEX+O7PHbZYQV8/2RWz1cayo=",
+          "endpoint": "10.10.10.101:44196",
+          "endpoint_plane": "synapse",
+          "ssh_access": {"method": "pct_exec", "proxmox": "root@192.168.100.1", "ctid": 101},
+          "watchdog": true
+        },
+        {
+          "node_id": "cynic-lxc-surrealdb",
+          "overlay_ip": "10.20.0.4",
+          "public_key": "UD9mHCvY9m2AwzOlaNqpPyegTw9Suwm1eXjgnISe2ng=",
+          "endpoint": "10.10.10.103:44196",
+          "endpoint_plane": "synapse",
+          "ssh_access": {"method": "direct", "target": "root@10.10.10.103"},
+          "watchdog": true
+        },
+        {
+          "node_id": "cynic-builder",
+          "overlay_ip": "10.20.0.5",
+          "public_key": "kRs1uCQBwuBWJJP0wA0P4eHY3QKtpM/fEw6fdvPaEV8=",
+          "endpoint": "10.10.10.119:44196",
+          "endpoint_plane": "synapse",
+          "ssh_access": {"method": "direct", "target": "root@10.10.10.119"},
+          "watchdog": true
+        }
+      ]
+    }
   },
   "nodes": [
     {

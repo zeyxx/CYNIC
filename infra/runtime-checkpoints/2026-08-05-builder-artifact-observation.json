@@ -1,0 +1,35 @@
+{
+  "schema": "cynic.build_runner.artifact_observation.v1",
+  "observed_at": "2026-08-05",
+  "status": "builder_artifact_observed_but_not_current_worktree",
+  "transport": {
+    "method": "ssh",
+    "target": "cynic-builder",
+    "read_only": true
+  },
+  "local_source_commit": "976853bf",
+  "builder_source_commit": "71352aeaad",
+  "surface_audit": {
+    "status": "blocked",
+    "surface_count": 35,
+    "ok_count": 30,
+    "blocked_count": 5,
+    "blocked_ids": [
+      "framework_bootstrap",
+      "storage_identity_enrollment",
+      "agent_workspace",
+      "node_identity",
+      "runtime_seed"
+    ]
+  },
+  "reconciliation": {
+    "required": "admit current worktree snapshot to build runner and rebuild",
+    "forbidden": "treat builder artifact as proof for local dirty worktree"
+  },
+  "unknowns": [
+    "current-worktree build proof",
+    "artifact digest matching local source",
+    "live conformance after current snapshot promotion"
+  ],
+  "mutates": false
+}

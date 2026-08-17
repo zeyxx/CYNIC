@@ -1,0 +1,47 @@
+{
+  "schema": "cynic.host.conformance.remote_observation.v1",
+  "status": "blocked",
+  "observed_at_unix_ms": 1785886210430,
+  "node_id": "cynic-builder",
+  "transport": {
+    "method": "ssh",
+    "target": "cynic-builder",
+    "read_only": true,
+    "command": "/usr/local/bin/cynic runtime conformance --json --profile network-node"
+  },
+  "harness": "conformance",
+  "gates": {
+    "harness_is_conformance_gate": "satisfied",
+    "host_identity_observed": "blocked",
+    "bootstrap_target_reached": "blocked",
+    "service_surface_observed": "blocked",
+    "hardware_stability_qualified": "blocked",
+    "sovereign_git_service_observed": "blocked"
+  },
+  "lifecycle": {
+    "status": "principal_mismatch",
+    "disposition": "requires_principal_adoption",
+    "next_boundary": "adopt",
+    "next_command": "cynic bootstrap host plan"
+  },
+  "blockers": [
+    "missing_packages:wireguard-tools,coredns",
+    "missing_or_inactive_service_units",
+    "hardware_identity_baseline_unknown",
+    "offline_memory_test_unknown",
+    "memory_tuning_stability_unknown",
+    "uncorrected_memory_errors_unknown",
+    "forgejo_sovereign_remote_missing",
+    "canonical_project_root_missing",
+    "build_proof_not_consumed",
+    "fleet_vertical_requires_multi_node_proof"
+  ],
+  "promotion": {
+    "staging": "blocked_until_conformance_qualified",
+    "canary": "blocked_until_staging_proof"
+  },
+  "evidence_refs": [
+    "ssh:cynic-builder:runtime-conformance-json",
+    "ssh:cynic-builder:runtime-harness-json"
+  ]
+}

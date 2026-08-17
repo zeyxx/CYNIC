@@ -1,0 +1,34 @@
+{
+  "schema": "cynic.cli.artifact.identity_observation.v1",
+  "observed_at": "2026-08-05",
+  "status": "source_corrected_unverified",
+  "surface": "cynic runtime report --json",
+  "correction": {
+    "build_metadata": [
+      "CYNIC_VERSION",
+      "CYNIC_SOURCE_COMMIT",
+      "CYNIC_SOURCE_DIRTY"
+    ],
+    "read_back_projection": "runtime_report.artifact",
+    "dirty_tree_is_explicit": true
+  },
+  "static_validation": [
+    "rustfmt --edition 2024",
+    "git diff --check",
+    "cargo metadata --no-deps --offline"
+  ],
+  "installed_read_back": {
+    "command": "/home/user/.local/bin/cynic runtime report --json",
+    "status": "ok",
+    "artifact_field": null,
+    "classification": "installed_artifact_precedes_source_correction"
+  },
+  "bounded_next_action": "build current cynic-cli through admitted build-runner and read back runtime report artifact identity",
+  "unknowns": [
+    "installed_cli_source_commit",
+    "installed_cli_dirty_state",
+    "build_runner_artifact_digest",
+    "runtime_report_read_back_after_promotion"
+  ],
+  "mutates": false
+}
