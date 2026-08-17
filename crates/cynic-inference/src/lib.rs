@@ -8,6 +8,7 @@ pub mod inference;
 /// Prefer `adapters::ods` (documents ODS as external bootstrap framework).
 pub mod ods_discovery;
 pub mod ports;
+pub mod math;
 pub mod progress;
 
 // Convenience re-exports for downstream crates (CLI, MCP).
@@ -70,7 +71,7 @@ pub use application::hermes_runtime_service::{
 };
 pub use application::hf_discovery::{HfDiscoveryService, HfDownloadCommand};
 pub use application::local_runtime_service::{
-    LocalRuntimeConvergenceReport, LocalRuntimeService, LocalRuntimeServiceAny,
+    LocalRuntimeService, LocalRuntimeServiceAny,
 };
 pub use application::model_store_service::ModelStoreService;
 pub use application::model_sync_pipeline::ModelSyncPipeline;
@@ -88,7 +89,7 @@ pub use application::profile_bootstrap::{
 };
 pub use application::runtime_planner::{MaterializeReport, RuntimePlanner};
 pub use application::vault_consolidate::{
-    VaultConsolidateReport, consolidate_vault, consolidate_vault_with_capacity, discovery_roots,
+    VaultConsolidateReport, consolidate_vault, discovery_roots,
 };
 pub use config_loader::load_inference_config_from_path_public;
 pub use config_loader::{InferenceConfigError, LoadedInferenceConfig, load_inference_config};

@@ -1,5 +1,17 @@
 use serde::{Deserialize, Serialize};
 
+pub mod bootstrap_admission;
+pub use bootstrap_admission::{
+    BUILD_RUNNER_BOOTSTRAP_ADMISSION_SCHEMA, BUILD_RUNNER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
+    BUILD_RUNNER_BOOTSTRAP_PREFLIGHT_SCHEMA, BuildRunnerBootstrapAdmission,
+    BuildRunnerBootstrapCapabilityBinding, BuildRunnerBootstrapPreflight,
+    build_runner_bootstrap_action_digest, build_runner_bootstrap_input_digest,
+    validate_build_runner_bootstrap_capability_binding,
+};
+pub mod recipe;
+pub use recipe::{
+    BUILD_RECIPE_SCHEMA, BuildRecipe, build_recipe, validate_build_recipe,
+};
 use crate::{
     LEASE_VERIFICATION_SCHEMA, LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot,
 };

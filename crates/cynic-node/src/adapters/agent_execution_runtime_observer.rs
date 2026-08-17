@@ -220,7 +220,7 @@ fn read_snapshot(path: &Path) -> Result<Option<AgentExecutionRuntimeObservation>
             ));
         }
     };
-    let observation = serde_json::from_slice(&bytes)
+    let observation: AgentExecutionRuntimeObservation = serde_json::from_slice(&bytes)
         .map_err(|error| format!("node_owned_agent_execution_proof_decode_failed:{error}"))?;
     if observation.schema != AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA {
         return Err("node_owned_agent_execution_proof_schema_invalid".to_string());

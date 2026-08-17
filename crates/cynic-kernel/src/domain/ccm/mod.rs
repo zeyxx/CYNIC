@@ -8,7 +8,7 @@
 
 mod crystal;
 mod engine;
-mod intake;
+pub mod intake;
 
 pub use crystal::*;
 pub use engine::*;

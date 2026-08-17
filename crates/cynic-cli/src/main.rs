@@ -3,6 +3,8 @@ use std::process::ExitCode;
 
 use clap::{CommandFactory, Parser, Subcommand};
 mod agent_exposure_audit;
+use agent_surface::AgentCommand;
+mod agent_surface;
 mod audit_surface;
 mod bootstrap_surface;
 mod chat_surface;
@@ -145,7 +147,11 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Operator chat against the inference plane (session history under principal).
+    /// HumanAdmin governance observer surfaces.
+    Agent {
+        #[command(subcommand)]
+        command: AgentCommand,
+    },
     /// Default with no prompt: interactive TUI. Does not require cynic-kernel.
     Chat {
         /// User prompt (one-shot). Omit to open the interactive TUI.

@@ -8,6 +8,8 @@ pub mod capability_responsibility;
 pub mod convergence;
 pub mod coord;
 pub mod coordination_lease;
+pub mod coordination_runtime;
+pub mod cycle_transition;
 pub mod credential_lease;
 pub mod deployment_epoch;
 pub mod development;
@@ -142,6 +144,7 @@ pub use build::{
     BuildAgentRequestAdmission, BuildBootstrapGrant, BuildInputAdmission,
     BuildReleasePublicationIntent, BuildRunnerAdmission, BuildRunnerEnvelope,
     BuildRunnerObservation, BuildSourceReference, BuildSourceSnapshotReference, BuildWorkloadGrant,
+    BuildRunnerBootstrapCapabilityBinding,
     RuntimeNodeObservation, SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA, SignedBuildWorkloadGrant,
     admit_build_agent_request, admit_build_input, admit_build_runner,
     build_agent_request_from_workload, build_source_reference_from_workload,
@@ -149,6 +152,7 @@ pub use build::{
     compose_build_agent_workload, compose_build_runner_envelope, derive_build_workload_grant,
     plan_build_agent_request, plan_build_runner, valid_release_publication_id,
     validate_build_source_reference, validate_build_workload_grant,
+    validate_build_runner_bootstrap_capability_binding,
     validate_release_publication_intent, validate_signed_build_workload_grant,
 };
 pub use capability_responsibility::{
@@ -387,5 +391,20 @@ pub use workload_identity::{
     reconcile_workload_identity,
 };
 pub mod agent_connection;
+pub use agent_connection::*;
 pub mod agentic_tool_call;
+pub use agentic_tool_call::*;
 pub mod solana_ops;
+pub use solana_ops::*;
+pub use cycle_transition::*;
+pub mod runtime_planes;
+pub use runtime_planes::*;
+pub use coordination_runtime::*;
+pub mod domain_tasks;
+pub use domain_tasks::*;
+pub mod federation_envelopes;
+pub use federation_envelopes::*;
+pub mod inference_matrix;
+pub use inference_matrix::*;
+pub mod one_shot_capability;
+pub use one_shot_capability::*;

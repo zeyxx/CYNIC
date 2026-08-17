@@ -1,9 +1,11 @@
 pub mod adapters;
 pub mod agent_access;
+pub mod agent_runtime;
 pub mod agent_matrix;
 pub mod bootstrap_chain;
 pub mod bootstrap_host_plan;
 pub mod bounded_helper;
+pub mod toolchain;
 pub mod bridge;
 pub mod build;
 pub mod build_evidence;
