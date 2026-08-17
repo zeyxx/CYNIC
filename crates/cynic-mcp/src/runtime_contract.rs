@@ -1,5 +1,4 @@
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 use std::path::Path;
 
 /// Observe the executable that is producing a runtime-contract report.
@@ -16,7 +15,7 @@ fn running_artifact_evidence() -> (Vec<String>, Vec<String>) {
         Ok(bytes) => (
             vec![
                 path_ref,
-                format!("artifact-digest:sha256:{:x}", Sha256::digest(bytes)),
+                format!("artifact-digest:sha256:{}", cynic_host::sha256_digest(&bytes)),
             ],
             Vec::new(),
         ),

@@ -32,8 +32,8 @@ use crate::types::{
     AgentConnectionStatusParams, ApiContractsParams, AskesisLogParams, AttentionParams,
     AuditQueryParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams, ComplianceParams,
     DispatchAgentTaskParams, DockerContainerInspectParams, DockerContainerListParams,
-    DockerContainerLogsParams, FederatedBootstrapStatusParams, FinalizeLeaseParams,
-    FleetInventoryParams, FleetKernelCandidatesParams, FleetNodeExecParams, FleetNodeStatusParams,
+    DockerContainerLogsParams, FinalizeLeaseParams,
+    FleetInventoryParams, FleetNodeExecParams, FleetNodeStatusParams,
     FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams, IdentityAttestParams,
     IdentitySmokeCheckParams, InferParams, InferenceDiscoverParams, InferenceStartParams,
     InferenceSwitchParams, OperationalBenchmarkParams, InfraProvisionParams,
@@ -48,7 +48,7 @@ use crate::types::{
     RenewLeaseParams, RuntimeReleaseDeclareParams, ServiceHealthParams, ServiceStatusParams,
     SourceControlParams, SshTargetInspectParams, StoragePrimaryBundleParams,
     StoragePrimaryPlanParams, StoragePrimaryReadinessParams, StoragePrimaryStatusParams,
-    SourceChangeSubmitParams, UpdateAgentTaskResultParams, ValidateParams, WatchPendingAgentTasksParams, WhoParams,
+    UpdateAgentTaskResultParams, ValidateParams, WatchPendingAgentTasksParams, WhoParams,
     validate_agent_id,
 };
 use cynic_host::ports::argv_execution::{
@@ -59,10 +59,6 @@ use cynic_host::ports::argv_execution::{
 use crate::types::{ProxmoxActionParams, ProxmoxExecParams, ProxmoxProvisionParams};
 
 type Content = rmcp::model::ContentBlock;
-
-fn project_root() -> PathBuf {
-    crate::project_root::resolve_mcp_project_root()
-}
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct LifecycleDispatchParams {
@@ -117,20 +113,13 @@ impl CynicMcpProxy {
             + Self::tool_router_local_fleet_execution()
             + Self::tool_router_local_services()
             + Self::tool_router_local_solana()
+            + Self::tool_router_local_toolchain()
             + Self::tool_router_local_storage()
             + Self::tool_router_local_legacy_proxmox()
             + Self::tool_router_local_lifecycle_inference()
             + Self::tool_router_eval()
             + Self::tool_router_agent_loop_audit()
             + Self::tool_router_docker()
-    }
-
-    pub fn tool_router_forward() -> ToolRouter<Self> {
-        Self::tool_router_forward_contracts()
-            + Self::tool_router_forward_health()
-            + Self::tool_router_forward_infer()
-            + Self::tool_router_forward_legacy_tasks()
-            + Self::tool_router_forward_observe()
     }
 
     pub fn new(
@@ -185,6 +174,7 @@ impl CynicMcpProxy {
     /// Admit a mutation only when this MCP artifact proves compatibility with
     /// the desired agent contract.  Read-only observation and plan projection
     /// deliberately remain available while reconciliation is blocked.
+    #[allow(dead_code)]
     fn require_mutation_contract(&self) -> Result<(), McpError> {
         let plan = crate::runtime_contract::observe_runtime_contract(
             std::path::Path::new(&self.project_root),

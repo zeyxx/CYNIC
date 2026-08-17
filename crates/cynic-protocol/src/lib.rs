@@ -306,6 +306,7 @@ pub use runtime_basket::{
 pub use runtime_compatibility::{
     RUNTIME_COMPATIBILITY_PLAN_SCHEMA, RuntimeCompatibilityPlan, RuntimeCompatibilityStatus,
     RuntimeContractObservation, RuntimeContractRequirement, reconcile_runtime_compatibility,
+    runtime_compatibility_actions,
 };
 pub use runtime_release::{
     RUNTIME_RELEASE_ADMISSION_SCHEMA, RUNTIME_RELEASE_DECLARATION_SCHEMA, RuntimeReleaseAdmission,

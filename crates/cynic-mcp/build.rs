@@ -28,4 +28,12 @@ fn main() {
     let git_version = git_stdout(&["describe", "--tags", "--always", "--dirty"])
         .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
     println!("cargo:rustc-env=CYNIC_VERSION={git_version}");
+    let commit = git_stdout(&["rev-parse", "HEAD"]).unwrap_or_else(|| "unknown".to_string());
+    let dirty = if git_stdout(&["status", "--porcelain"]).is_some() {
+        "dirty"
+    } else {
+        "clean"
+    };
+    println!("cargo:rustc-env=CYNIC_SOURCE_COMMIT={commit}");
+    println!("cargo:rustc-env=CYNIC_SOURCE_DIRTY={dirty}");
 }
