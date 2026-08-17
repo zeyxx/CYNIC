@@ -1,5 +1,6 @@
 pub mod agent_harness;
 pub mod backend_verification;
+pub mod bench_basket_launcher;
 pub mod chat_endpoint;
 pub mod chat_service;
 pub mod embedding_runtime;

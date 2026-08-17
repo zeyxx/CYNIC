@@ -10,6 +10,7 @@ pub mod host_observation;
 pub mod http_node_control;
 pub mod http_release_artifact_publication;
 pub mod http_runtime_artifact_transport;
+pub mod runtime_proof_http_fetcher;
 pub mod https_source_snapshot_acquisition;
 pub mod kernel_agent_workspace_claim_store;
 pub mod kernel_source_repository_proof_commit;

@@ -114,6 +114,7 @@ impl CynicMcpProxy {
             + Self::tool_router_local_services()
             + Self::tool_router_local_solana()
             + Self::tool_router_local_toolchain()
+            + Self::tool_router_local_bench_basket()
             + Self::tool_router_local_storage()
             + Self::tool_router_local_legacy_proxmox()
             + Self::tool_router_local_lifecycle_inference()

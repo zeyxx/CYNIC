@@ -422,6 +422,11 @@
           "mutation": "local_mutation"
         },
         {
+          "name": "cynic_bench_basket_launch",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
           "name": "cynic_agent_connection_status",
           "tier": "baseline_runtime",
           "mutation": "read_only"
@@ -812,7 +817,8 @@
         "cynic_inference_start",
         "cynic_inference_stop",
         "cynic_inference_switch",
-        "cynic_operational_benchmark"
+        "cynic_operational_benchmark",
+        "cynic_bench_basket_launch"
       ],
       "operator_tools": [
         "cynic-askesis eval <dataset.jsonl> --endpoint <openai-base-url> --model <model> --json",

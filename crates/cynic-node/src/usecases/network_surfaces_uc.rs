@@ -527,6 +527,22 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        NetworkCommands::PeerRuntimeProof {
+            peer,
+            json: _,
+        } => {
+            let fetcher = crate::adapters::runtime_proof_http_fetcher::HttpRuntimeProofFetcher::new();
+            let admission = crate::network_runtime_proof::verify_peer_runtime_publisher_admission(
+                &fetcher,
+                &peer,
+            );
+            let report = serde_json::json!({
+                "peer": peer,
+                "runtime_publisher_admission": admission,
+                "federation_trust": admission,
+            });
+            emit_json("peer runtime proof", &report, !admission)
+        }
         NetworkCommands::ActivationChain {
             json: _,
             registry,

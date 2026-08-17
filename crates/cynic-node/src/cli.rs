@@ -706,6 +706,15 @@ pub enum NetworkCommands {
         #[arg(long, default_value_t = current_runtime_layout().dns_resolved_dropin_path())]
         resolved_dropin_path: String,
     },
+    /// Fetch a peer node's admitted RuntimeProofBundle and gate federation
+    /// trust on its `runtime_publisher_admission` proof (2N+2b cross-node).
+    PeerRuntimeProof {
+        /// Peer node base URL, e.g. http://10.10.10.102:3000
+        peer: String,
+        /// Emit JSON. Present for explicit operator intent; currently always JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[cfg(test)]

@@ -56,6 +56,10 @@ pub use application::backend_verification::{
     ContextResult, IdentityResult, check_context, check_context_with_bearer, check_health,
     check_identity, check_identity_with_bearer, model_identity_matches,
 };
+pub use application::bench_basket_launcher::{
+    BASKET_PLAN_SCHEMA, BasketItem, BasketItemResult, BasketLaunchReport, BasketPlan,
+    build_basket_from_ledger, launch_basket,
+};
 pub use application::chat_endpoint::{
     ChatEndpointResolution, ChatEndpointSource, dns_inference_hostnames,
     inference_config_candidates, probe_live_model_id, probe_live_model_ids, resolve_chat_api_key,
@@ -112,6 +116,12 @@ pub use domain::local_runtime::{
 pub use domain::model_layout::resolve_chat_state_dir;
 pub use domain::model_layout::{ModelLayout, ModelLayoutReport};
 pub use domain::model_registry::{InferenceEngine, ModelBackend, ModelCapability, ModelHealth};
+pub use domain::matrix_sweep::{
+    ConstraintFilter, OptimizationGoal, ModelEmpiricalScorecard,
+    OomSafetyStatus, EmpiricalProfileEntry, BenchmarkScenario,
+    StreamDynamicsReport, BenchmarkProvenance, aggregate_model_scorecard,
+    solve_optimal_configuration, can_admit_model_configuration,
+};
 pub use domain::model_retention::{
     ModelRetentionAssessment, ModelRetentionClass, assess_artifact as assess_model_retention,
     assess_report as assess_model_store_retention,

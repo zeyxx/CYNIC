@@ -147,6 +147,28 @@ impl LocalRuntimeServiceAny {
     }
 }
 
+impl LocalInferenceRuntimePort for LocalRuntimeServiceAny {
+    fn status(&self) -> Result<LocalRuntimeStatus, LocalRuntimeError> {
+        self.status()
+    }
+
+    fn start(&self, alias: &str) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
+        self.start(alias)
+    }
+
+    fn start_with_readiness(
+        &self,
+        alias: &str,
+        wait_for_ready: bool,
+    ) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
+        self.start_with_readiness(alias, wait_for_ready)
+    }
+
+    fn stop(&self, alias: Option<&str>) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
+        self.stop(alias)
+    }
+}
+
 impl LocalRuntimeService<FsLocalModelInventory, SystemdUserLocalRuntime> {
     /// Default host wiring: env-selected supervisor when callers still expect
     /// the old monomorphic type — prefer [`LocalRuntimeServiceAny::from_env`].

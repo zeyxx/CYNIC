@@ -44,7 +44,7 @@ mod network_mesh_bundle;
 mod network_mesh_plan;
 mod network_repair;
 mod network_root_policy;
-mod network_runtime_proof;
+pub mod network_runtime_proof;
 mod network_runtime_status;
 mod network_shadow_proof;
 mod network_surface_inventory;

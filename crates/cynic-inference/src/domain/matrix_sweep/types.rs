@@ -29,6 +29,49 @@ pub struct HardwareBudget {
     pub gpu_vram_bytes: u64,
 }
 
+impl HardwareBudget {
+    /// Probe live hardware from /proc/meminfo + /proc/meminfo for available.
+    pub fn from_env() -> Self {
+        let (total, available) = probe_memory();
+        let gpu_vram = std::env::var("CYNIC_GPU_VRAM_BYTES")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(0);
+        Self {
+            total_ram_bytes: total,
+            available_ram_bytes: available,
+            gpu_vram_bytes: gpu_vram,
+        }
+    }
+}
+
+fn probe_memory() -> (u64, u64) {
+    let mut total = 0u64;
+    let mut available = 0u64;
+    if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
+        for line in content.lines() {
+            if let Some(rest) = line.strip_prefix("MemTotal:") {
+                if let Some(kb) = rest.trim().split_whitespace().next().and_then(|s| s.parse::<u64>().ok()) {
+                    total = kb * 1024;
+                }
+            }
+            if let Some(rest) = line.strip_prefix("MemAvailable:") {
+                if let Some(kb) = rest.trim().split_whitespace().next().and_then(|s| s.parse::<u64>().ok()) {
+                    available = kb * 1024;
+                }
+            }
+        }
+    }
+    // Fallback: assume 16 GiB if /proc/meminfo unreadable
+    if total == 0 {
+        total = 16 * 1024 * 1024 * 1024;
+    }
+    if available == 0 {
+        available = total / 2;
+    }
+    (total, available)
+}
+
 /// A comprehensive test scenario executed against a running model configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BenchmarkScenario {
