@@ -1005,6 +1005,16 @@
         "cynic runtime storage-capabilities --json",
         "cynic-node storage-reconcile --json [--apply]"
       ]
+    },
+    "toolchain": {
+      "description": "Native sovereign inference toolchain discovery and local reconciliation (Rust toolchain, model archives, vault profiles).",
+      "tier": "baseline_runtime",
+      "tools": [
+        "cynic_toolchain_reconcile"
+      ],
+      "operator_tools": [
+        "cynic runtime adopt --json --seed <path> [--approve]"
+      ]
     }
   },
   "exposed_domains": [
