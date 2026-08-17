@@ -294,8 +294,9 @@ pub use runtime::{
     runtime_shared_responsibility,
 };
 pub use runtime_basket::{
-    RUNTIME_BASKET_SCHEMA, RuntimeBasketArtifact, RuntimeBasketDesiredState,
-    RuntimeSeedDeclaration, runtime_basket_desired_state, runtime_release_artifact_names,
+    RUNTIME_BASKET_MANIFEST_SCHEMA, RUNTIME_BASKET_SCHEMA, RuntimeBasketArtifact,
+    RuntimeBasketDesiredState, RuntimeBasketManifest, RuntimeSeedDeclaration,
+    build_runtime_basket_manifest, runtime_basket_desired_state, runtime_release_artifact_names,
     validate_runtime_basket,
 };
 pub use runtime_compatibility::{
