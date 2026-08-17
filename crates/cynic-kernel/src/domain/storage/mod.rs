@@ -5,8 +5,10 @@
 //! The full fact/trust API will extend this trait post-hackathon.
 
 mod null;
+mod in_memory_poh;
 mod types;
 
+pub use in_memory_poh::{InMemoryPoHStorage, PoHEntry};
 pub use null::NullStorage;
 pub use types::{
     AgentDispatch, AgentTask, AuditContext, Event, MeshNode, MeshRoute, Observation, PRMetadata,

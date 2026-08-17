@@ -29,27 +29,29 @@ use rmcp::{
 use crate::kernel_session::KernelSessionClient;
 use crate::session_identity::SessionIdentity;
 use crate::types::{
-    AgentConnectionStatusParams, ApiContractsParams, AskesisLogParams, AttentionParams,
-    AuditQueryParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams, ComplianceParams,
-    DispatchAgentTaskParams, DockerContainerInspectParams, DockerContainerListParams,
-    DockerContainerLogsParams, FederatedBootstrapStatusParams, FinalizeLeaseParams,
-    FleetInventoryParams, FleetKernelCandidatesParams, FleetNodeExecParams, FleetNodeStatusParams,
+    AgentConnectionStatusParams, AgentWorkloadCompleteParams, ApiContractsParams, AskesisLogParams,
+    AttentionParams, AuditQueryParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
+    ComplianceParams, CoordinationArtifactShareParams, CoordinationContractManifestParams,
+    CoordinationDecisionRecordParams, CoordinationStatusPublishParams,
+    CoordinationStatusReadParams, CoordinationThreadReplyParams, DispatchAgentTaskParams,
+    DockerContainerInspectParams, DockerContainerListParams, DockerContainerLogsParams,
+    FinalizeLeaseParams, FleetInventoryParams, FleetNodeExecParams, FleetNodeStatusParams,
     FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams, IdentityAttestParams,
     IdentitySmokeCheckParams, InferParams, InferenceDiscoverParams, InferenceStartParams,
-    InferenceSwitchParams, OperationalBenchmarkParams, InfraProvisionParams,
-    InfraRegistryReadParams, InfraRegistryValidateParams, JudgeParams, LibraryQueryParams,
-    ListParams, ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
+    InferenceSwitchParams, InfraProvisionParams, InfraRegistryReadParams,
+    InfraRegistryValidateParams, JudgeParams, LibraryQueryParams, ListParams,
+    ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
     LxcExecBridgeStatusParams, McpRateLimit, MetabolismParams, NetworkIpamCheckParams,
     NetworkMeshDnsActivationApplyParams, NetworkMeshDnsActivationBundleParams,
     NetworkMeshDnsActivationPlanParams, NetworkMeshDnsActivationStatusParams,
     NetworkMeshDnsRenderParams, NetworkMeshProviderFallbackHostsParams,
     NetworkMeshProviderFallbackStatusParams, NetworkMeshStatusParams, ObserveParams,
-    OperatorTransportStatusParams, ProviderControlStatusParams, RegisterParams, ReleaseParams,
-    RenewLeaseParams, RuntimeReleaseDeclareParams, ServiceHealthParams, ServiceStatusParams,
-    SourceControlParams, SshTargetInspectParams, StoragePrimaryBundleParams,
-    StoragePrimaryPlanParams, StoragePrimaryReadinessParams, StoragePrimaryStatusParams,
-    SourceChangeSubmitParams, UpdateAgentTaskResultParams, ValidateParams, WatchPendingAgentTasksParams, WhoParams,
-    validate_agent_id,
+    OperationalBenchmarkParams, OperatorTransportStatusParams, ProviderControlStatusParams,
+    RegisterParams, ReleaseParams, RenewLeaseParams, RuntimeReleaseDeclareParams,
+    ServiceHealthParams, ServiceStatusParams, SourceControlParams, SshTargetInspectParams,
+    StoragePrimaryBundleParams, StoragePrimaryPlanParams, StoragePrimaryReadinessParams,
+    StoragePrimaryStatusParams, UpdateAgentTaskResultParams, ValidateParams,
+    WatchPendingAgentTasksParams, WhoParams, validate_agent_id, validate_agent_task_content,
 };
 use cynic_host::ports::argv_execution::{
     ArgvExecutionPort, ArgvExecutionRequest, LocalArgvExecutionAdapter,
@@ -116,21 +118,12 @@ impl CynicMcpProxy {
             + Self::tool_router_local_network()
             + Self::tool_router_local_fleet_execution()
             + Self::tool_router_local_services()
-            + Self::tool_router_local_solana()
             + Self::tool_router_local_storage()
             + Self::tool_router_local_legacy_proxmox()
             + Self::tool_router_local_lifecycle_inference()
             + Self::tool_router_eval()
             + Self::tool_router_agent_loop_audit()
             + Self::tool_router_docker()
-    }
-
-    pub fn tool_router_forward() -> ToolRouter<Self> {
-        Self::tool_router_forward_contracts()
-            + Self::tool_router_forward_health()
-            + Self::tool_router_forward_infer()
-            + Self::tool_router_forward_legacy_tasks()
-            + Self::tool_router_forward_observe()
     }
 
     pub fn new(
@@ -186,9 +179,9 @@ impl CynicMcpProxy {
     /// the desired agent contract.  Read-only observation and plan projection
     /// deliberately remain available while reconciliation is blocked.
     fn require_mutation_contract(&self) -> Result<(), McpError> {
-        let plan = crate::runtime_contract::observe_runtime_contract(
-            std::path::Path::new(&self.project_root),
-        )
+        let plan = crate::runtime_contract::observe_runtime_contract(std::path::Path::new(
+            &self.project_root,
+        ))
         .map_err(|error| {
             McpError::new(
                 rmcp::model::ErrorCode(-32001),

@@ -10,6 +10,65 @@ use std::sync::OnceLock;
 
 static KERNEL_IDENTITY: OnceLock<SigningKey> = OnceLock::new();
 
+/// Chaine cryptographiquement un hash de payload avec le hash du bloc précédent.
+///
+/// Le hachage chaîné est le cœur atomique du PoH : SHA3-512(payload_hash | prev_hash).
+/// Cette fonction est pure et déterministe — extraction explicite depuis
+/// `store_proof_of_history` pour permettre le test unitaire sans DB.
+pub fn chain_hash(payload_hash: &str, prev_hash: &str) -> String {
+    let mut hasher = sha3::Sha3_512::new();
+    sha3::Digest::update(&mut hasher, payload_hash.as_bytes());
+    sha3::Digest::update(&mut hasher, b"|");
+    sha3::Digest::update(&mut hasher, prev_hash.as_bytes());
+    hex::encode(sha3::Digest::finalize(hasher))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chain_hash_is_deterministic() {
+        let a = chain_hash("payload", "prev");
+        let b = chain_hash("payload", "prev");
+        assert_eq!(a, b, "same inputs must produce identical chain hash");
+    }
+
+    #[test]
+    fn chain_hash_differs_for_different_prev_hash() {
+        let genesis = chain_hash("payload", "genesis");
+        let chained = chain_hash("payload", "abc123");
+        assert_ne!(
+            genesis, chained,
+            "different prev_hash inputs must produce different chain hashes"
+        );
+    }
+
+    #[test]
+    fn chain_hash_genesis_uses_genesis_string() {
+        let h = chain_hash("payload", "genesis");
+        assert!(!h.is_empty());
+        assert!(
+            h.len() == 128,
+            "SHA3-512 hex should be 128 chars, got {} for '{}'",
+            h.len(),
+            h
+        );
+    }
+
+    /// Un schéma chaîné : le prev_hash de l'événement N+1 doit être le
+    /// cryptographic_hash de l'événement N. Cela garantit l'append-only
+    /// sans SELECT-INSERT non atomique.
+    #[test]
+    fn chain_hash_links_blocks_forward() {
+        let hash1 = chain_hash("event-a", "genesis");
+        let hash2 = chain_hash("event-b", &hash1);
+        // Le hash2 dépend de hash1 — cassure la chaîne si hash1 change
+        let hash2_tampered = chain_hash("event-b", &chain_hash("event-a", "WRONG"));
+        assert_ne!(hash2, hash2_tampered);
+    }
+}
+
 /// Returns the singleton Ed25519 signing key for the kernel, used to seal the Proof of History.
 /// Defaults to CYNIC_IDENTITY_KEY from the environment, otherwise generates an ephemeral key.
 pub fn kernel_identity() -> &'static SigningKey {

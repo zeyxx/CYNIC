@@ -274,6 +274,8 @@ fn completion_state(status: AgentCompletionStatus) -> AgentWorkloadState {
         AgentCompletionStatus::Completed => AgentWorkloadState::Completed,
         AgentCompletionStatus::Blocked => AgentWorkloadState::Blocked,
         AgentCompletionStatus::Failed => AgentWorkloadState::Failed,
+        AgentCompletionStatus::Degraded => AgentWorkloadState::Degraded,
+        AgentCompletionStatus::RecoveredUnattributed => AgentWorkloadState::RecoveredUnattributed,
     }
 }
 

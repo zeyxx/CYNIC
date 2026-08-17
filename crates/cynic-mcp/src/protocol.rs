@@ -4,7 +4,7 @@
 //! 2026-07-28 target and retains stdio as an explicit compatibility path. This
 //! module projects the same profile without claiming installed-artifact proof.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub const TARGET_REVISION: &str = "2026-07-28";
 pub const LEGACY_REVISION: &str = "2025-11-25";

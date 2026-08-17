@@ -375,7 +375,7 @@ mod infrastructure_contract_tests {
         let service = find_declared_service(node, "surrealdb").expect("service should exist");
 
         assert_eq!(
-            service_endpoint_from_registry(node, service),
+            service_endpoint_from_registry(&registry, node, service),
             Some("http://organ-surrealdb.synapse.cynic:8000/health".to_string())
         );
     }

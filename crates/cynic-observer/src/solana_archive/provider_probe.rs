@@ -84,7 +84,7 @@ pub fn summarize_provider_probe(
     let mut rate_limited_count = 0_u64;
     let mut records = 0_u64;
     let mut estimated_credits = 0_u64;
-    let mut max_page_size = None;
+    let mut max_page_size: Option<u16> = None;
     let mut residual_unknowns = Vec::new();
 
     for sample in samples {
@@ -221,10 +221,12 @@ mod tests {
         assert_eq!(profile.latency_p95_ms, Some(10));
         assert_eq!(profile.success_rate_micros, Some(500_000));
         assert_eq!(profile.rate_limit_observed, Some(1));
-        assert!(profile
-            .residual_unknowns
-            .iter()
-            .any(|value| value.contains("getBlock")));
+        assert!(
+            profile
+                .residual_unknowns
+                .iter()
+                .any(|value| value.contains("getBlock"))
+        );
     }
 
     #[test]

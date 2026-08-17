@@ -80,13 +80,13 @@ const COORDINATION_OPERATION_THREAD_REPLY: &str = "coordination.thread.reply";
 const COORDINATION_OPERATION_ARTIFACT_SHARE: &str = "coordination.artifact.share";
 const COORDINATION_OPERATION_DECISION_RECORD: &str = "coordination.decision.record";
 
-fn project_root() -> PathBuf {
+fn consumer_profile_project_root() -> PathBuf {
     resolve_mcp_project_root()
 }
 
 fn load_consumer_profile(project: &str) -> Result<Option<serde_json::Value>, McpError> {
     let filename = format!("{project}-v1.json");
-    let path = project_root()
+    let path = consumer_profile_project_root()
         .join(coordination_client_profile_dir())
         .join(filename);
     if !path.exists() {
@@ -107,13 +107,14 @@ fn load_consumer_profile(project: &str) -> Result<Option<serde_json::Value>, Mcp
 }
 
 async fn service_health_report(
+    registry: &serde_json::Value,
     node: &serde_json::Value,
     service_name: &str,
     service: &serde_json::Value,
     endpoint: Option<String>,
     timeout_seconds: Option<u64>,
 ) -> Result<serde_json::Value, McpError> {
-    let endpoint = endpoint.or_else(|| service_endpoint_from_registry(node, service));
+    let endpoint = endpoint.or_else(|| service_endpoint_from_registry(registry, node, service));
     let Some(endpoint) = endpoint else {
         return Ok(serde_json::json!({
             "schema": "cynic.infrastructure_mcp.service_health.v1",

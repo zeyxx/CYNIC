@@ -517,6 +517,11 @@
           "mutation": "local_mutation"
         },
         {
+          "name": "cynic_agent_workload_complete",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
           "name": "cynic_source_change_submit",
           "tier": "baseline_runtime",
           "mutation": "local_mutation"
@@ -902,7 +907,8 @@
       "required_contract": "cynic.agent_workload_envelope.v1",
       "tier": "baseline_runtime",
       "tools": [
-        "cynic_validate"
+        "cynic_validate",
+        "cynic_agent_workload_complete"
       ],
       "operator_tools": [
         "cynic-node agent-workload-status --json --workload-id <id> [--state-root <path>]",

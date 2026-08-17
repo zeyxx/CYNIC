@@ -61,6 +61,13 @@ pub enum AgentCompletionStatus {
     Completed,
     Blocked,
     Failed,
+    /// A bounded action produced locally retained evidence, but an authority,
+    /// publication, or required proof boundary was unavailable. This result is
+    /// terminal for the workload and is never promotable as `Completed`.
+    Degraded,
+    /// Evidence was recovered without a continuous admitted agent-session
+    /// lineage. It is retained for reconciliation, never as an attested result.
+    RecoveredUnattributed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -233,10 +240,26 @@ pub fn admit_completion(
             "completed work must return at least one content-addressed evidence reference",
         ));
     }
-    if completion.status == AgentCompletionStatus::Blocked && completion.unknowns.is_empty() {
+    if matches!(
+        completion.status,
+        AgentCompletionStatus::Blocked
+            | AgentCompletionStatus::Degraded
+            | AgentCompletionStatus::RecoveredUnattributed
+    ) && completion.unknowns.is_empty()
+    {
         violations.push(violation(
-            "blocked_without_unknown",
-            "blocked work must return at least one explicit unknown",
+            "non_attested_completion_without_unknown",
+            "blocked, degraded, and recovered work must return an explicit unknown",
+        ));
+    }
+    if matches!(
+        completion.status,
+        AgentCompletionStatus::Degraded | AgentCompletionStatus::RecoveredUnattributed
+    ) && completion.evidence_refs.is_empty()
+    {
+        violations.push(violation(
+            "non_attested_completion_without_evidence",
+            "degraded and recovered work must retain content-addressed evidence",
         ));
     }
 

@@ -62,6 +62,7 @@ impl CynicMcpProxy {
                 evidence.insert(
                     "health".to_string(),
                     service_health_report(
+                        &registry,
                         node,
                         "surrealdb",
                         service,
@@ -80,6 +81,7 @@ impl CynicMcpProxy {
                 evidence.insert(
                     "artifact_store".to_string(),
                     service_health_report(
+                        &registry,
                         node,
                         "runtime-artifact-store",
                         artifact_store,

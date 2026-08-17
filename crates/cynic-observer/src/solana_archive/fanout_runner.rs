@@ -1,8 +1,8 @@
 use super::{
-    next_fanout_action, record_fanout_failure, record_signature_page, record_transaction,
     FanoutAction, FanoutCheckpoint, FanoutFailure, FanoutHaltReason, FanoutRecordError,
     FanoutRetryDecision, FanoutRetryPolicy, FanoutSpec, FanoutStore, SignatureSource, SourceError,
-    TransactionQuery, TransactionSource,
+    TransactionQuery, TransactionSource, next_fanout_action, record_fanout_failure,
+    record_signature_page, record_transaction,
 };
 use std::future::Future;
 use std::pin::Pin;
@@ -63,7 +63,7 @@ where
                 match result {
                     Ok(page) => {
                         record_signature_page(store, spec, checkpoint, &page)
-                            .map_err(Into::into)?;
+                            .map_err(FanoutRunError::Record)?;
                     }
                     Err(error) => {
                         if let Some(report) =
@@ -85,7 +85,7 @@ where
                 match result {
                     Ok(transaction) => {
                         record_transaction(store, spec, checkpoint, &transaction)
-                            .map_err(Into::into)?;
+                            .map_err(FanoutRunError::Record)?;
                     }
                     Err(error) => {
                         if let Some(report) =

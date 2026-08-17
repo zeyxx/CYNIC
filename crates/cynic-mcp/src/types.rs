@@ -170,6 +170,19 @@ fn default_coordination_contract_version() -> String {
     "coordination-event-v1".to_string()
 }
 
+// ── Agent Workload Completion ───────────────────────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct AgentWorkloadCompleteParams {
+    /// The node identifier that accepted the workload (must match the target path).
+    pub node_id: String,
+    /// The workload identifier being completed.
+    pub workload_id: String,
+    /// The completion publication payload serialized as the
+    /// `cynic.agent_workload_completion_publication.v1` contract.
+    pub publication: serde_json::Value,
+}
+
 // ── Tests ────────────────────────────────────────────────────
 
 #[cfg(test)]

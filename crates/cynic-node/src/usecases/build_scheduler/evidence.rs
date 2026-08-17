@@ -90,6 +90,66 @@ pub(super) fn persist_execution_failure(
     })
 }
 
+/// Captures ownership, source read-back and a command-output digest before the
+/// workload's terminal transition. The terminal durable record retains this
+/// reference, so it forms a content-addressed local history while kernel PoH
+/// is unavailable; the `promotion` value prevents it being mistaken for one.
+pub(super) fn persist_execution_provenance(
+    node_id: &str,
+    workload_id: &str,
+    repository_id: &str,
+    delegation_id: &str,
+    agent_id: &str,
+    lease_id: &str,
+    fencing_token: u64,
+    previous_workload_record_digest: &str,
+    workspace: &BuildWorkspaceReadBack,
+    execution: &BuildExecutionReadBack,
+    action: &[String],
+    observed_at_ms: u64,
+    provenance: Vec<String>,
+    store: &dyn ContentAddressedEvidenceStorePort,
+) -> Result<AgentEvidenceRef, String> {
+    let payload = serde_json::json!({
+        "schema": "cynic.build.execution_provenance.v1",
+        "ownership": {
+            "node_id": node_id,
+            "agent_id": agent_id,
+            "delegation_id": delegation_id,
+            "workload_id": workload_id,
+            "lease_id": lease_id,
+            "fencing_token": fencing_token,
+        },
+        "source": {
+            "repository_id": repository_id,
+            "workspace_root": workspace.workspace_root,
+            "source_commit": workspace.source_commit,
+        },
+        "build": {
+            "argv": action,
+            "exit_code": execution.exit_code,
+            "stdout_sha256": format!("sha256:{}", hex::encode(Sha256::digest(execution.stdout.as_bytes()))),
+            "stderr_sha256": format!("sha256:{}", hex::encode(Sha256::digest(execution.stderr.as_bytes()))),
+        },
+        "previous_workload_record_digest": previous_workload_record_digest,
+        "promotion": "forbidden_until_kernel_poh_read_back",
+    });
+    let envelope = build_evidence_envelope(
+        &format!("build-workload:{workload_id}:execution-provenance"),
+        &format!("cynic-node/build-scheduler:{node_id}"),
+        u128::from(observed_at_ms),
+        provenance,
+        &payload,
+    )?;
+    store.persist(&envelope)?;
+    Ok(AgentEvidenceRef {
+        kind: "build_execution_provenance".into(),
+        subject: workload_id.into(),
+        digest: envelope.digest,
+        lineage: None,
+    })
+}
+
 fn release_artifacts(workspace: &Path) -> Result<BTreeMap<String, String>, String> {
     let mut artifacts = BTreeMap::new();
     for name in cynic_protocol::runtime_release_artifact_names()
