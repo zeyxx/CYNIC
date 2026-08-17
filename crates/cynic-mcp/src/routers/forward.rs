@@ -1,7 +1,5 @@
 // ── Forwarded tools (REST kernel) ───────────────────────────
 
-use crate::types::ApiContractsParams;
-
 #[tool_router(router = tool_router_forward, vis = "pub(crate)")]
 impl CynicMcpProxy {
     #[tool(

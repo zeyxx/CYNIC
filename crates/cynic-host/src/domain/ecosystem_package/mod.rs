@@ -33,17 +33,11 @@ pub mod python_tooling;
 pub mod registry;
 pub mod tooling_authority;
 pub mod types;
-pub mod upstream_probe;
 
 pub use authority::{LocalPrincipalAuthority, PrincipalAuthorityPort};
 pub use execution::{
     EcosystemPackageExecutionPort, LocalEcosystemPackageExecution, PackageCommandOutput,
 };
-pub use upstream_probe::{
-    UpstreamSourceKind, UpstreamVersionInfo, probe_github_latest_release, probe_npm_latest_version,
-    probe_pypi_latest_version, probe_upstream_version,
-};
-
 // ── Stable public surface (CLI + tests) ─────────────────────────────────────
 
 pub use integration_apply::apply_integration;

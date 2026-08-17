@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    build_agent_request_from_workload, build_source_reference_from_workload,
-    canonical_build_action_from_argv, digest_json, validate_agent_workload_delivery,
-    validate_node_desired_state, validate_signed_release_basket_read_back, AgentCompletionStatus,
-    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, NodeDesiredState,
-    SignedReleaseBasketReadBack,
+    AgentCompletionStatus, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, NodeDesiredState,
+    SignedReleaseBasketReadBack, build_agent_request_from_workload,
+    build_source_reference_from_workload, canonical_build_action_from_argv, digest_json,
+    validate_agent_workload_delivery, validate_node_desired_state,
+    validate_signed_release_basket_read_back,
 };
-use crate::{derive_deployment_epoch, DeploymentEpoch};
+use crate::{DeploymentEpoch, derive_deployment_epoch};
 
 pub const RUNTIME_RELEASE_DECLARATION_SCHEMA: &str = "cynic.runtime_release_declaration.v1";
 pub const RUNTIME_RELEASE_ADMISSION_SCHEMA: &str = "cynic.runtime_release_admission.v2";
@@ -228,17 +228,18 @@ fn valid_sha256(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{accept_agent_workload_delivery, AgentWorkloadDeliveryAcceptance};
     use crate::{
+        AGENT_COMPLETION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_DELIVERY_SCHEMA,
+        AGENT_WORKLOAD_RECORD_SCHEMA, AgentBudget, AgentCompletionEnvelope, AgentEvidenceRef,
+        AgentWorkloadRecord, AgentWorkloadState, BUILD_AGENT_REQUEST_SCHEMA,
+        BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest, BuildSourceReference,
+        DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA, DurableAgentWorkloadRecord,
+        RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind,
+        RuntimeReleasePublicationManifest, RuntimeSeedRequest,
+        SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA, SignedReleaseBasketReadBack,
         build_evidence_envelope, complete_agent_workload_delivery, compose_build_agent_workload,
-        AgentBudget, AgentCompletionEnvelope, AgentEvidenceRef, AgentWorkloadRecord,
-        AgentWorkloadState, BuildAgentRequest, BuildSourceReference, DurableAgentWorkloadRecord,
-        RuntimeArtifactSource, RuntimeArtifactTransportKind, RuntimeReleasePublicationManifest,
-        RuntimeSeedRequest, SignedReleaseBasketReadBack, AGENT_COMPLETION_ENVELOPE_SCHEMA,
-        AGENT_WORKLOAD_DELIVERY_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA,
-        BUILD_SOURCE_REFERENCE_SCHEMA, DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA,
-        RUNTIME_SEED_REQUEST_SCHEMA, SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA,
     };
+    use crate::{AgentWorkloadDeliveryAcceptance, accept_agent_workload_delivery};
 
     fn desired(source_commit: String, proof_digest: String) -> NodeDesiredState {
         let mut desired = NodeDesiredState {
@@ -521,9 +522,11 @@ mod tests {
             runtime_release_policy_digest(&forged.desired_state).unwrap();
         let admission = admit_runtime_release(&forged, &delivery);
         assert!(!admission.admitted);
-        assert!(admission
-            .violations
-            .contains(&"runtime_release_build_proof_not_retained".to_string()));
+        assert!(
+            admission
+                .violations
+                .contains(&"runtime_release_build_proof_not_retained".to_string())
+        );
     }
 
     #[test]
@@ -543,8 +546,10 @@ mod tests {
         let admission = admit_runtime_release(&declaration, &delivery);
 
         assert!(!admission.admitted);
-        assert!(admission
-            .violations
-            .contains(&"runtime_release_publication_read_back_mismatch".to_string()));
+        assert!(
+            admission
+                .violations
+                .contains(&"runtime_release_publication_read_back_mismatch".to_string())
+        );
     }
 }

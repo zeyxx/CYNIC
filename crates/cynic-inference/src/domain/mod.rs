@@ -5,14 +5,14 @@ pub mod chat_session;
 pub mod embedding;
 pub mod gguf_meta;
 pub mod hardware_profile;
-pub mod hermes_runtime;
+
 pub mod hf_catalog;
 pub mod inference;
 pub mod inference_queue;
 pub mod local_runtime;
 pub mod model_layout;
 pub mod model_registry;
-pub mod model_retention;
+
 pub mod model_store;
 pub mod principal_paths;
 pub mod routing;

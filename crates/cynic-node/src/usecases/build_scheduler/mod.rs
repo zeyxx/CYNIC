@@ -175,51 +175,72 @@ async fn execute_claimed(
             );
             match evidence {
                 Ok(mut evidence_refs) => {
-                    let publication = release_publication::publish(
+                    match evidence::persist_execution_provenance(
                         &control.node_id,
-                        &after_execution.record.envelope,
+                        workload_id,
+                        &scheduler.repository_id,
+                        &after_execution.record.envelope.delegation.delegation_id,
+                        &after_execution.record.envelope.delegation.agent_id,
+                        &guard.lease_id,
+                        guard.fencing_token,
+                        &after_execution.record_digest,
                         &prepared.workspace,
-                        &evidence_refs,
-                        scheduler.release_publication.as_ref(),
+                        &read_back,
+                        &after_execution.record.envelope.action.argv,
                         lifecycle::current_unix_ms(),
-                        &prepared.provenance,
+                        prepared.provenance.clone(),
                         &evidence_store,
-                    );
-                    let publication_result = tokio::select! {
-                        result = publication => result,
-                        () = execution_cancel.cancelled() => {
-                            Err("release_publication_cancelled".to_string())
-                        }
-                    };
-                    let publication_error = match publication_result {
-                        Ok(Some(reference)) => {
+                    ) {
+                        Ok(reference) => {
                             evidence_refs.push(reference);
-                            None
-                        }
-                        Ok(None) => None,
-                        Err(error) => Some(error),
-                    };
-                    if let Some(error) = publication_error {
-                        (AgentCompletionStatus::Blocked, evidence_refs, vec![error])
-                    } else if after_execution
-                        .record
-                        .envelope
-                        .delegation
-                        .expected_proofs
-                        .iter()
-                        .all(|proof| {
-                            evidence_refs
+                            let publication = release_publication::publish(
+                                &control.node_id,
+                                &after_execution.record.envelope,
+                                &prepared.workspace,
+                                &evidence_refs,
+                                scheduler.release_publication.as_ref(),
+                                lifecycle::current_unix_ms(),
+                                &prepared.provenance,
+                                &evidence_store,
+                            );
+                            let publication_result = tokio::select! {
+                                result = publication => result,
+                                () = execution_cancel.cancelled() => {
+                                    Err("release_publication_cancelled".to_string())
+                                }
+                            };
+                            let publication_error = match publication_result {
+                                Ok(Some(reference)) => {
+                                    evidence_refs.push(reference);
+                                    None
+                                }
+                                Ok(None) => None,
+                                Err(error) => Some(error),
+                            };
+                            if let Some(error) = publication_error {
+                                (AgentCompletionStatus::Degraded, evidence_refs, vec![error])
+                            } else if after_execution
+                                .record
+                                .envelope
+                                .delegation
+                                .expected_proofs
                                 .iter()
-                                .any(|reference| &reference.kind == proof)
-                        })
-                    {
-                        (AgentCompletionStatus::Completed, evidence_refs, Vec::new())
-                    } else {
-                        (
-                            AgentCompletionStatus::Blocked,
-                            evidence_refs,
-                            vec!["build_scheduler_required_proof_missing".to_string()],
-                        )
+                                .all(|proof| {
+                                    evidence_refs
+                                        .iter()
+                                        .any(|reference| &reference.kind == proof)
+                                })
+                            {
+                                (AgentCompletionStatus::Completed, evidence_refs, Vec::new())
+                            } else {
+                                (
+                                    AgentCompletionStatus::Degraded,
+                                    evidence_refs,
+                                    vec!["build_scheduler_required_proof_missing".to_string()],
+                                )
+                            }
+                        }
+                        Err(error) => (AgentCompletionStatus::Blocked, evidence_refs, vec![error]),
                     }
                 }
                 Err(error) => (AgentCompletionStatus::Blocked, Vec::new(), vec![error]),

@@ -9,7 +9,11 @@ CARGO := $(PROJECT_DIR)/scripts/cargo
 CARGO_NETWORK_MODE ?= offline
 CARGO_SOURCE_MODE ?= registry
 CYNIC_CARGO_TARGET_ROOT ?= /tmp/cynic-cargo-targets
-CYNIC_CARGO_TARGET_PROFILE ?= default
+# A target directory is mutable compiler state.  It must be scoped to one Git
+# worktree so concurrent agent branches cannot share incremental artifacts.
+# An explicit profile remains available for a controlled CI/shared-cache policy.
+CYNIC_CARGO_WORKTREE_ID := $(shell (git -C "$(PROJECT_DIR)" rev-parse --git-dir 2>/dev/null || printf '%s' "$(PROJECT_DIR)") | sha256sum | cut -c1-16)
+CYNIC_CARGO_TARGET_PROFILE ?= worktree-$(CYNIC_CARGO_WORKTREE_ID)
 CYNIC_CARGO_BUILD_JOBS ?= 1
 CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNIC_CARGO_TARGET_ROOT)/$(CYNIC_CARGO_TARGET_PROFILE))
 CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-mcp cynic-cli cynic-askesis
@@ -51,6 +55,15 @@ authority-check: secret-literal-check ## Read-only local validation of machine-r
 			exit 1
 		fi
 	done
+
+.PHONY: build-context
+build-context: ## Read the effective isolated local build cache context
+	@jq -n \
+		--arg project_root "$(PROJECT_DIR)" \
+		--arg worktree_id "$(CYNIC_CARGO_WORKTREE_ID)" \
+		--arg target_dir "$(CARGO_TARGET_DIR)" \
+		--arg target_profile "$(CYNIC_CARGO_TARGET_PROFILE)" \
+		'{schema:"cynic.local_build_context.v1", project_root:$$project_root, worktree_id:$$worktree_id, cargo_target_dir:$$target_dir, cargo_target_profile:$$target_profile, authority:"non_authoritative_local_validation"}'
 
 .PHONY: secret-literal-check
 secret-literal-check: ## Reject high-confidence literal credentials in Git-tracked source

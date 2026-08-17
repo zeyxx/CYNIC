@@ -1,7 +1,7 @@
 use super::{
-    apply_fanout_failure, apply_signature_page, apply_transaction, FanoutCheckpoint, FanoutFailure,
-    FanoutRetryDecision, FanoutRetryPolicy, FanoutSpec, FanoutStore, RawTransactionObservation,
-    SignaturePage, StorageError, StoredPageReceipt,
+    FanoutCheckpoint, FanoutFailure, FanoutRetryDecision, FanoutRetryPolicy, FanoutSpec,
+    FanoutStore, RawTransactionObservation, SignaturePage, StorageError, StoredPageReceipt,
+    apply_fanout_failure, apply_signature_page, apply_transaction,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,8 +96,9 @@ pub fn record_transaction<S: FanoutStore>(
 mod tests {
     use super::*;
     use crate::solana_archive::{
-        Commitment, CreditConfidence, CreditMeasurement, FanoutStore, ProviderKind, RequestMetrics,
-        SignatureQuery, SignatureRecord, SourceRole, TransactionQuery,
+        Commitment, CreditConfidence, CreditMeasurement, FanoutFailureKind, FanoutStore,
+        ProviderKind, RequestMetrics, SignatureQuery, SignatureRecord, SourceRole,
+        TransactionQuery,
     };
     use serde_json::json;
     use std::sync::Mutex;

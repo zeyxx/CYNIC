@@ -237,7 +237,7 @@ impl CynicMcpProxy {
         let wait_for_ready = params.0.wait_for_ready;
         let service = LocalRuntimeServiceAny::from_env();
 
-        match service.start_with_transition(alias, wait_for_ready, "mcp-inference-start") {
+        match service.start_with_readiness(alias, wait_for_ready) {
             Ok(report) => {
                 let result = serde_json::to_value(&report).unwrap_or_default();
                 Ok(CallToolResult::success(vec![Content::text(
@@ -303,7 +303,9 @@ impl CynicMcpProxy {
 
         let policy = SupervisionPolicy::default();
         if policy.requires_confirmation(target_size, target_alias) && !confirmed {
-            let reason = policy.confirmation_reason(target_size, target_alias).unwrap_or_default();
+            let reason = policy
+                .confirmation_reason(target_size, target_alias)
+                .unwrap_or_default();
             let result = serde_json::json!({
                 "schema": "cynic.inference.human_confirmation_required.v1",
                 "status": "confirmation_required",
@@ -320,7 +322,7 @@ impl CynicMcpProxy {
         // Best effort stop active
         let _ = service.stop(None);
 
-        match service.start_with_transition(target_alias, wait_for_ready, "mcp-inference-switch") {
+        match service.start_with_readiness(target_alias, wait_for_ready) {
             Ok(report) => {
                 let result = serde_json::to_value(&report).unwrap_or_default();
                 Ok(CallToolResult::success(vec![Content::text(
@@ -345,24 +347,15 @@ impl CynicMcpProxy {
         self.require_auth()?;
         self.rate_limit.check_other()?;
 
-        let alias = params.0.alias;
-        let endpoint = params.0.endpoint.unwrap_or_else(|| "http://127.0.0.1:8080".to_string());
-        let task_filter = params.0.task_id;
-
-        let api_key = cynic_inference::read_hermes_api_key();
-        let service = cynic_inference::MultiAgentService::new(api_key);
-
-        let task_prompt = "Read-only audit: Examine the architecture of crates/cynic-kernel. Identify the highest-risk capability boundary, verify how mutations are isolated, and return one concise evidence sentence with file references.";
-        let task_id = task_filter.unwrap_or_else(|| "rust-kernel-boundary-audit".to_string());
-
-        let res = service
-            .execute_task_on_endpoint(&endpoint, &alias, &task_id, task_prompt, None)
-            .await;
-
         let result = serde_json::json!({
             "schema": "cynic.inference.operational_benchmark_result.v1",
-            "status": "ok",
-            "benchmark_result": res,
+            "status": "blocked_unavailable_runtime",
+            "mutates": false,
+            "requested_alias": params.0.alias,
+            "requested_endpoint": params.0.endpoint,
+            "requested_task_id": params.0.task_id,
+            "unknowns": ["the agent-harness runtime is not present in this build"],
+            "message": "Operational benchmarking is unavailable until its complete agent-harness runtime is restored and independently validated.",
         });
 
         Ok(CallToolResult::success(vec![Content::text(

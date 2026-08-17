@@ -26,6 +26,7 @@ impl CynicMcpProxy {
         params: Parameters<RegisterParams>,
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
+        self.require_mutation_contract()?;
         self.rate_limit.check_other()?;
         let p = params.0;
         let agent_id = self.coordination_principal()?;

@@ -261,6 +261,88 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_agent_workload_complete",
+        description = "Publish a terminal AgentWorkloadCompletionPublication to the kernel for a previously accepted workload delivery. Requires node_id, workload_id, and the serialized completion publication payload. Persists the completion receipt via the node-control endpoint and returns the kernel read-back proof."
+    )]
+    async fn cynic_agent_workload_complete(
+        &self,
+        params: Parameters<AgentWorkloadCompleteParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        if p.node_id.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "node_id is required and must not be empty",
+                None,
+            ));
+        }
+        if p.workload_id.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "workload_id is required and must not be empty",
+                None,
+            ));
+        }
+        let publication: cynic_protocol::AgentWorkloadCompletionPublication =
+            serde_json::from_value(p.publication).map_err(|error| {
+                McpError::invalid_params(
+                    format!(
+                        "publication is not a valid AgentWorkloadCompletionPublication: {error}"
+                    ),
+                    None,
+                )
+            })?;
+        if publication.workload_id != p.workload_id || publication.node_id != p.node_id {
+            return Err(McpError::invalid_params(
+                "publication workload_id/node_id must match the path parameters",
+                None,
+            ));
+        }
+        let path = format!(
+            "/node-control/{}/agent-workloads/{}/completion",
+            p.node_id, p.workload_id
+        );
+        let response = self
+            .kernel
+            .client()
+            .post(self.kernel.url(&path))
+            .json(&publication)
+            .send()
+            .await
+            .map_err(|error| {
+                McpError::internal_error(
+                    format!("workload completion publication failed: {error}"),
+                    None,
+                )
+            })?;
+        let response_status = response.status();
+        let body = response.text().await.map_err(|error| {
+            McpError::internal_error(
+                format!("workload completion read-back failed: {error}"),
+                None,
+            )
+        })?;
+        let read_back = serde_json::from_str::<serde_json::Value>(&body)
+            .unwrap_or_else(|_| serde_json::json!({"raw": body}));
+        let result = serde_json::json!({
+            "schema": "cynic.mcp.agent_workload_complete.v1",
+            "workload_id": p.workload_id,
+            "node_id": p.node_id,
+            "kernel_http_status": response_status.as_u16(),
+            "status": if response_status.is_success() {
+                "terminal_read_back"
+            } else {
+                "completion_blocked"
+            },
+            "mutates": response_status.is_success(),
+            "completion_read_back": read_back
+        });
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_git",
         description = "Run read-only git observations: status, diff, and log. Source mutation uses cynic_source_control with an admitted lease."
     )]

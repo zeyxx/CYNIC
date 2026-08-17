@@ -1,3 +1,4 @@
+pub mod agent_execution_provenance;
 pub mod agent_recursion;
 pub mod agent_scheduler;
 pub mod agent_session;
@@ -16,7 +17,7 @@ pub mod endpoint;
 pub mod evidence;
 pub mod forgejo;
 pub mod framework;
-pub mod freshness;
+
 pub mod integrity;
 pub mod kyon;
 pub mod machine_identity;
@@ -55,11 +56,11 @@ pub use credential_lease::{
     CredentialLeasePlan, CredentialLeaseState, credential_lease_metadata_signing_bytes,
     reconcile_credential_lease, validate_credential_lease_metadata,
 };
-pub use freshness::{
-    EVIDENCE_FRESHNESS_POLICY_SCHEMA, EvidenceFreshnessAssessment, EvidenceFreshnessPolicy,
-    EvidenceFreshnessStatus, assess_evidence_freshness,
-};
 
+pub use agent_execution_provenance::{
+    AGENT_EXECUTION_RECEIPT_SCHEMA, AgentExecutionReceipt, AgentExecutionReceiptKind,
+    validate_agent_execution_receipt,
+};
 pub use agent_recursion::{
     AGENT_COMPLETION_ENVELOPE_SCHEMA, AGENT_DELEGATION_ENVELOPE_SCHEMA,
     AGENT_RECURSION_ADMISSION_SCHEMA, AgentBudget, AgentCapabilityGrant, AgentCompletionEnvelope,
@@ -301,6 +302,7 @@ pub use runtime_basket::{
 pub use runtime_compatibility::{
     RUNTIME_COMPATIBILITY_PLAN_SCHEMA, RuntimeCompatibilityPlan, RuntimeCompatibilityStatus,
     RuntimeContractObservation, RuntimeContractRequirement, reconcile_runtime_compatibility,
+    runtime_compatibility_actions,
 };
 pub use runtime_release::{
     RUNTIME_RELEASE_ADMISSION_SCHEMA, RUNTIME_RELEASE_DECLARATION_SCHEMA, RuntimeReleaseAdmission,
@@ -386,5 +388,3 @@ pub use workload_identity::{
     reconcile_workload_identity,
 };
 pub mod agent_connection;
-pub mod agentic_tool_call;
-pub mod solana_ops;
