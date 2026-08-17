@@ -15,8 +15,9 @@ fn write_registry(root: &std::path::Path) -> PathBuf {
               "proxmox_guest": { "cidr": "10.10.10.0/24", "canonical": false }
             },
             "reservations": [
-              { "name": "builder", "dns": ["builder.synapse.cynic"] },
-              { "name": "kernel", "dns": ["cynic-kernel-primary.synapse.cynic"] }
+              { "name": "host-proxmox", "synapse": "10.20.0.1", "dns": ["pve.synapse.cynic"] },
+              { "name": "builder", "synapse": "10.20.0.5", "dns": ["builder.synapse.cynic"] },
+              { "name": "kernel", "synapse": "10.20.0.3", "dns": ["cynic-kernel-primary.synapse.cynic"] }
             ]
           },
           "nodes": [

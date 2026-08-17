@@ -75,8 +75,8 @@ fn write_declarative_roles(sandbox: &PathBuf) -> PathBuf {
 }
 
 /// Écrit infra/runtime_proof.v1 (kernel/node-signed) → granted: true.
-fn write_runtime_proof() -> PathBuf {
-    let path = tmp_proof_path();
+fn write_runtime_proof(sandbox: &PathBuf) -> PathBuf {
+    let path = tmp_proof_path(sandbox);
     let content = r#"{
         "schema": "cynic.runtime_proof.v1",
         "granted": true,
@@ -97,7 +97,8 @@ fn write_runtime_proof() -> PathBuf {
 
 #[test]
 fn red_declarative_granted_false_without_proof() {
-    let roles_path = write_declarative_roles();
+    let sandbox = tmp_sandbox();
+    let roles_path = write_declarative_roles(&sandbox);
     // N.B. scan_agent_soc(roles_path) lit runtime_proof.v1 dans le MEME répertoire
     // que roles_path. On s'assure qu'aucun proof n'existe → granted: false.
     let _ = std::fs::remove_file(roles_path.with_file_name("runtime_proof.v1"));
@@ -124,9 +125,10 @@ fn red_declarative_granted_false_without_proof() {
 
 #[test]
 fn green_granted_true_with_runtime_proof() {
-    let roles_path = write_declarative_roles();
+    let sandbox = tmp_sandbox();
+    let roles_path = write_declarative_roles(&sandbox);
     // Écrit le proof dans le même dir que roles_path (scan.rs with_file_name).
-    let proof_path = write_runtime_proof();
+    let proof_path = write_runtime_proof(&sandbox);
     assert_eq!(
         proof_path,
         roles_path.with_file_name("runtime_proof.v1")
@@ -165,8 +167,4 @@ fn green_granted_true_with_runtime_proof() {
         "residual_unknowns must be empty when proof observed, got {:?}",
         report.residual_unknowns
     );
-
-    // cleanup
-    let _ = std::fs::remove_file(&roles_path);
-    let _ = std::fs::remove_file(&proof_path);
 }
