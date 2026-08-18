@@ -153,6 +153,7 @@ pub(super) fn spawn_native_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ports::workload_signer_port::WorkloadAdmission;
 
     struct AllowSigner;
     impl WorkloadSignerPort for AllowSigner {

@@ -56,6 +56,7 @@ impl WorkloadSignerPort for NullWorkloadSigner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ports::workload_signer_port::{WorkloadAdmission, WorkloadSignerPort};
     use cynic_protocol::AgentWorkloadEnvelope;
 
     /// Minimal envelope stub for port-level admit shape coverage.
