@@ -2,12 +2,17 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 mod causal;
+mod coherence;
 mod index;
 
 pub use causal::{
     CAUSAL_CONVERGENCE_EPOCH_SCHEMA, CausalConvergenceEpoch, CausalConvergenceEpochInput,
     CausalEvidenceRefs, TrustAssessment, TrustDimensionStatus, TrustRequirements,
     assess_causal_convergence_epoch,
+};
+pub use coherence::{
+    COHERENCE_VECTOR_SCHEMA, CoherenceDecision, CoherenceVector, Compass, Vector,
+    assess_coherence_vector, check, missing, valid_sha256,
 };
 pub use index::{
     CAUSAL_EPOCH_INDEX_SCHEMA, CausalEpochIndex, CausalEpochIndexAppend, CausalEpochIndexEntry,

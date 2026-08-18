@@ -1,5 +1,4 @@
 use chrono::Utc;
-use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 use cynic_host::runtime_layout::current_runtime_layout;
 use serde::Serialize;
 
@@ -14,7 +13,8 @@ use crate::observe::NodeObservation;
 #[derive(Debug, Clone)]
 struct NetworkRepairContext {
     route_command: String,
-    network_actuator_bundle_dir: String,
+    sudo_command: String,
+    network_actuator_helper_path: String,
     provider_fallback_bundle_dir: String,
     dns_bundle_dir: String,
 }
@@ -24,7 +24,8 @@ impl NetworkRepairContext {
         let runtime_layout = current_runtime_layout();
         Self {
             route_command: runtime_layout.capabilities().route_tool.command.clone(),
-            network_actuator_bundle_dir: runtime_layout.network_actuator_bundle_dir.clone(),
+            sudo_command: runtime_layout.sudo_bin(),
+            network_actuator_helper_path: runtime_layout.network_actuator_helper_path(),
             provider_fallback_bundle_dir: runtime_layout.provider_fallback_bundle_dir,
             dns_bundle_dir: runtime_layout.dns_bundle_dir,
         }
@@ -143,81 +144,35 @@ fn command_preview_with_context(
                 )]
             }),
         NodeRuntimeAction::RestoreCriticalDns => vec![
-            argv_command(
-                "mesh_status",
-                vec![
-                    "cynic".to_string(),
-                    "mesh".to_string(),
-                    "status".to_string(),
-                    "--json".to_string(),
-                ],
+            expectation(
+                "mesh_status_readback",
+                "read back mesh status through the installed node observer before DNS recovery",
             ),
-            argv_command(
-                "provider_fallback_hosts_bundle",
-                vec![
-                    "cargo".to_string(),
-                    "run".to_string(),
-                    "-p".to_string(),
-                    "cynic-node".to_string(),
-                    "--".to_string(),
-                    "network".to_string(),
-                    "provider-fallback-hosts".to_string(),
-                    "--json".to_string(),
-                    "--registry".to_string(),
-                    DEFAULT_REGISTRY_PATH.to_string(),
-                    "--output-dir".to_string(),
-                    context.provider_fallback_bundle_dir.clone(),
-                ],
+            expectation(
+                "provider_fallback_dns_projection",
+                format!(
+                    "activate the installed provider fallback DNS projection from {} through its bounded adapter",
+                    context.provider_fallback_bundle_dir
+                ),
             ),
         ],
         NodeRuntimeAction::RestoreCanonicalDnsProjection => vec![
-            argv_command(
-                "dns_status",
-                vec![
-                    "cynic".to_string(),
-                    "network".to_string(),
-                    "dns".to_string(),
-                    "status".to_string(),
-                    "--registry".to_string(),
-                    DEFAULT_REGISTRY_PATH.to_string(),
-                    "--resolve-dns".to_string(),
-                ],
+            expectation(
+                "canonical_dns_status_readback",
+                "read back canonical DNS through the installed node observer before projection recovery",
             ),
-            argv_command(
-                "dns_bundle",
-                vec![
-                    "cynic".to_string(),
-                    "network".to_string(),
-                    "dns".to_string(),
-                    "bundle".to_string(),
-                    "--registry".to_string(),
-                    DEFAULT_REGISTRY_PATH.to_string(),
-                    "--output-dir".to_string(),
-                    context.dns_bundle_dir.clone(),
-                ],
-            ),
-            argv_command(
-                "observe",
-                vec![
-                    "cargo".to_string(),
-                    "run".to_string(),
-                    "-p".to_string(),
-                    "cynic-node".to_string(),
-                    "--".to_string(),
-                    "observe".to_string(),
-                    "--json".to_string(),
-                ],
+            expectation(
+                "canonical_dns_projection",
+                format!(
+                    "activate the installed canonical DNS projection from {} through its bounded adapter",
+                    context.dns_bundle_dir
+                ),
             ),
         ],
         NodeRuntimeAction::RestoreCriticalTcp => vec![
-            argv_command(
-                "fleet_status",
-                vec![
-                    "cynic".to_string(),
-                    "fleet".to_string(),
-                    "status".to_string(),
-                    "--json".to_string(),
-                ],
+            expectation(
+                "fleet_reachability_readback",
+                "read back fleet reachability through the node control transport",
             ),
             expectation(
                 "failed_tcp_probe_followup",
@@ -226,92 +181,38 @@ fn command_preview_with_context(
         ],
         NodeRuntimeAction::ActivateSynapseRoute => vec![
             argv_command(
-                "observe",
+                "apply_synapse_route",
                 vec![
-                    "cynic-node".to_string(),
-                    "observe".to_string(),
-                    "--json".to_string(),
-                    "--fail-on-warning".to_string(),
+                    context.sudo_command.clone(),
+                    "-n".to_string(),
+                    context.network_actuator_helper_path.clone(),
+                    "apply".to_string(),
+                    "--profile".to_string(),
+                    "synapse-route".to_string(),
+                    "--apply".to_string(),
                 ],
             ),
-            argv_command(
-                "actuator_plan",
-                vec![
-                    "cynic".to_string(),
-                    "network".to_string(),
-                    "actuator".to_string(),
-                    "plan".to_string(),
-                    "--bundle-dir".to_string(),
-                    context.network_actuator_bundle_dir.clone(),
-                ],
-            ),
-            argv_command(
-                "build_actuator",
-                vec![
-                    "cargo".to_string(),
-                    "build".to_string(),
-                    "-q".to_string(),
-                    "-p".to_string(),
-                    "cynic-node".to_string(),
-                    "--bin".to_string(),
-                    "cynic-network-actuator".to_string(),
-                ],
-            ),
-            argv_command(
-                "bundle_actuator",
-                vec![
-                    "cynic".to_string(),
-                    "network".to_string(),
-                    "actuator".to_string(),
-                    "bundle".to_string(),
-                    "--output-dir".to_string(),
-                    context.network_actuator_bundle_dir.clone(),
-                ],
+            expectation(
+                "post_actuation_observation",
+                "read back synapse route and mesh health",
             ),
         ],
         NodeRuntimeAction::ActivateWireguardMesh => vec![
             argv_command(
-                "observe",
+                "apply_wireguard_mesh",
                 vec![
-                    "cynic-node".to_string(),
-                    "observe".to_string(),
-                    "--json".to_string(),
-                    "--fail-on-warning".to_string(),
+                    context.sudo_command.clone(),
+                    "-n".to_string(),
+                    context.network_actuator_helper_path.clone(),
+                    "apply".to_string(),
+                    "--profile".to_string(),
+                    "wireguard-mesh".to_string(),
+                    "--apply".to_string(),
                 ],
             ),
-            argv_command(
-                "actuator_plan",
-                vec![
-                    "cynic".to_string(),
-                    "network".to_string(),
-                    "actuator".to_string(),
-                    "plan".to_string(),
-                    "--bundle-dir".to_string(),
-                    context.network_actuator_bundle_dir.clone(),
-                ],
-            ),
-            argv_command(
-                "build_actuator",
-                vec![
-                    "cargo".to_string(),
-                    "build".to_string(),
-                    "-q".to_string(),
-                    "-p".to_string(),
-                    "cynic-node".to_string(),
-                    "--bin".to_string(),
-                    "cynic-network-actuator".to_string(),
-                ],
-            ),
-            argv_command(
-                "bundle_actuator",
-                vec![
-                    "cynic".to_string(),
-                    "network".to_string(),
-                    "actuator".to_string(),
-                    "bundle".to_string(),
-                    "--output-dir".to_string(),
-                    context.network_actuator_bundle_dir.clone(),
-                ],
+            expectation(
+                "post_actuation_observation",
+                "read back WireGuard mesh health",
             ),
         ],
     }
@@ -327,7 +228,8 @@ mod tests {
     fn portable_context() -> NetworkRepairContext {
         NetworkRepairContext {
             route_command: "/portable/bin/ip".to_string(),
-            network_actuator_bundle_dir: "/portable/runtime/actuator".to_string(),
+            sudo_command: "/portable/bin/sudo".to_string(),
+            network_actuator_helper_path: "/portable/libexec/cynic-network-actuator".to_string(),
             provider_fallback_bundle_dir: "/portable/runtime/provider-fallback".to_string(),
             dns_bundle_dir: "/portable/runtime/dns".to_string(),
         }
@@ -415,11 +317,12 @@ mod tests {
             &portable_context(),
         );
 
-        assert!(
-            preview
-                .iter()
-                .map(render_command)
-                .any(|item| item.contains("/portable/runtime/actuator"))
-        );
+        assert!(preview.iter().map(render_command).any(|item| {
+            item.contains("/portable/bin/sudo")
+                && item.contains("/portable/libexec/cynic-network-actuator")
+        }));
+        assert!(preview.iter().all(|item| {
+            !render_command(item).contains("cargo") && !render_command(item).contains("cynic ")
+        }));
     }
 }

@@ -1,5 +1,14 @@
 use serde::Serialize;
 
+mod campaign;
+
+pub use campaign::{
+    DEVELOPMENT_CAMPAIGN_EVENT_SCHEMA, DEVELOPMENT_CAMPAIGN_PROJECTION_SCHEMA,
+    DEVELOPMENT_CAMPAIGN_SCHEMA, DevelopmentCampaign, DevelopmentCampaignEvent,
+    DevelopmentCampaignEventKind, DevelopmentCampaignMilestone, DevelopmentCampaignProjection,
+    DevelopmentMilestoneProjection, DevelopmentMilestoneStatus, reconcile_development_campaign,
+};
+
 pub const DEVELOPMENT_SURFACE_MANIFEST_SCHEMA: &str = "cynic.development_surface_manifest.v1";
 
 #[derive(Debug, Clone, Serialize)]

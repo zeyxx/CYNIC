@@ -82,6 +82,8 @@ fn expand_node_control(cfg: &mut NodeControlConfig) -> Result<(), String> {
     cfg.enrollment_token_path = expand_path(&cfg.enrollment_token_path)?;
     cfg.agent_workload_state_root = expand_path(&cfg.agent_workload_state_root)?;
     cfg.runtime_artifact_inbox_root = expand_path(&cfg.runtime_artifact_inbox_root)?;
+    cfg.network_recovery.registry_path = expand_path(&cfg.network_recovery.registry_path)?;
+    cfg.network_recovery.state_path = expand_path(&cfg.network_recovery.state_path)?;
     if let Some(scheduler) = cfg.build_scheduler.as_mut() {
         scheduler.registry_path = expand_path(&scheduler.registry_path)?;
         scheduler.repository_id = expand_env_vars(&scheduler.repository_id)?;
@@ -152,10 +154,23 @@ pub(crate) fn validate_node_control(cfg: &NodeControlConfig) -> Result<(), Strin
             "runtime_artifact_inbox_root",
             &cfg.runtime_artifact_inbox_root,
         ),
+        (
+            "network_recovery.registry_path",
+            &cfg.network_recovery.registry_path,
+        ),
+        (
+            "network_recovery.state_path",
+            &cfg.network_recovery.state_path,
+        ),
     ] {
         if !path.is_absolute() {
             return Err(format!("node_control.{name} must be an absolute path"));
         }
+    }
+    if cfg.network_recovery.cooldown_secs == 0 || cfg.network_recovery.max_attempts == 0 {
+        return Err(
+            "node_control.network_recovery cooldown_secs and max_attempts must be > 0".into(),
+        );
     }
     if let Some(scheduler) = &cfg.build_scheduler {
         if cfg.enrollment_role != "build_runner" {

@@ -166,8 +166,135 @@ fn load_registry() -> Option<serde_json::Value> {
 
 // --- Coordination / transport-agnostic payloads -------------------------------
 
-fn default_coordination_contract_version() -> String {
+pub fn default_coordination_contract_version() -> String {
     "coordination-event-v1".to_string()
+}
+
+// ── Coordination / transport-agnostic payloads (canonical home: types.rs) ──
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CoordinationThreadReplyParams {
+    pub project: String,
+    pub workstream: String,
+    /// Logical client identity invoking the coordination transport contract.
+    pub client: Option<String>,
+    pub thread_id: String,
+    /// Message to post in the thread.
+    pub message: String,
+    pub branch: Option<String>,
+    pub reply_to: Option<String>,
+    /// If set, keeps a link to artifacts referenced in this reply.
+    pub artifacts: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CoordinationArtifactShareParams {
+    pub project: String,
+    pub workstream: String,
+    /// Logical client identity invoking the coordination transport contract.
+    pub client: Option<String>,
+    pub artifacts: Vec<String>,
+    /// Optional thread context to continue discussion around shared artifacts.
+    pub thread_id: Option<String>,
+    pub message: Option<String>,
+    pub branch: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CoordinationDecisionRecordParams {
+    pub project: String,
+    pub workstream: String,
+    /// Logical client identity invoking the coordination transport contract.
+    pub client: Option<String>,
+    /// Decision topic.
+    pub topic: String,
+    /// Decision outcome.
+    pub decision: String,
+    /// Decision rationale.
+    pub rationale: String,
+    /// Source artifact path or commit anchor.
+    pub source_artifact: String,
+    pub branch: Option<String>,
+    pub thread_id: Option<String>,
+    pub open_points: Option<Vec<String>>,
+    pub artifacts: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CoordinationContractManifestParams {
+    pub client: Option<String>,
+    pub project: Option<String>,
+    pub operation: Option<String>,
+    pub include_default_project_profile: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct InfraRegistryValidateParams {
+    /// Validation dimensions. Defaults to ["network_policy"].
+    pub dimensions: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ClaimAgentTaskParams {
+    pub task_id: String,
+    pub agent_id: Option<String>,
+}
+
+// ── Solana Pay (canonical home: types.rs) ──────────────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SolanaPayParams {
+    pub recipient: String,
+    pub amount: f64,
+    pub spl_token: Option<String>,
+    pub reference: Option<String>,
+    pub label: Option<String>,
+    pub message: Option<String>,
+    pub memo: Option<String>,
+    pub allowance: Option<serde_json::Value>,
+    pub context_tokens: Option<u64>,
+    pub actions_budget: Option<u32>,
+}
+
+// ── Coord pub params (moved from orphan types_split) ───────────────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CoordinationStatusPublishParams {
+    pub project: String,
+    pub workstream: String,
+    /// Logical client identity invoking the coordination transport contract.
+    pub client: Option<String>,
+    pub branch: Option<String>,
+    /// Canonical event types: workstream.started|workstream.blocked|workstream.updated|interface.changed|run.completed|decision.recorded.
+    pub event: String,
+    /// Short machine state label, e.g. "stable", "blocked", "requires-review".
+    pub status: Option<String>,
+    /// Human summary for humans and transport renderers.
+    pub summary: String,
+    /// Optional artifact references for source of truth.
+    pub artifacts: Option<Vec<String>>,
+    /// Optional open points.
+    pub open_points: Option<Vec<String>>,
+    /// Coordination thread identifier.
+    pub thread_id: Option<String>,
+    /// Optional payload extension (repo-specific fields).
+    pub payload: Option<serde_json::Value>,
+    /// Optional transport hint: "public", "team", "restricted".
+    pub sensitivity: Option<String>,
+    /// Contract version in payload metadata.
+    #[serde(default = "default_coordination_contract_version")]
+    pub contract_version: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CoordinationStatusReadParams {
+    pub project: String,
+    /// Logical client identity invoking the coordination transport contract.
+    pub client: Option<String>,
+    pub workstream: Option<String>,
+    pub thread_id: Option<String>,
+    pub limit: Option<u32>,
+    pub domain: Option<String>,
 }
 
 // ── Tests ────────────────────────────────────────────────────
@@ -513,13 +640,3 @@ mod tests {
         assert!(rl.check_other().is_err());
     }
 }
-
-include!("types_split/coord.rs");
-include!("types_split/task.rs");
-include!("types_split/network.rs");
-include!("types_split/infra.rs");
-include!("types_split/fleet.rs");
-include!("types_split/storage.rs");
-include!("types_split/identity.rs");
-include!("types_split/inference.rs");
-include!("types_split/solana_sop.rs");

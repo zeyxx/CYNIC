@@ -51,6 +51,11 @@ fn build_network_mesh_plan_with_reader(
     let desired_peers = registry
         .nodes
         .iter()
+        .filter(|node| {
+            node.network_membership
+                .as_ref()
+                .is_some_and(|membership| membership.participates_in_mesh())
+        })
         .filter_map(|node| peer_from_node(node, &address_plane, &reservation_dns, plane))
         .collect::<Vec<_>>();
     let routes = desired_peers
@@ -232,6 +237,7 @@ mod tests {
                             ("labmesh".to_string(), "10.30.0.10".to_string()),
                             ("local".to_string(), "192.168.1.10".to_string()),
                         ]),
+                        network_membership: Some(model::NetworkMembership::SynapseMember),
                         services: vec![model::RegistryService {
                             name: Some("ssh".to_string()),
                             port: Some(22),
@@ -246,6 +252,19 @@ mod tests {
                             ("labmesh".to_string(), "10.30.0.11".to_string()),
                             ("local".to_string(), "192.168.1.11".to_string()),
                         ]),
+                        network_membership: Some(model::NetworkMembership::SynapseMember),
+                        services: Vec::new(),
+                    },
+                    RegistryNode {
+                        id: None,
+                        name: Some("management".to_string()),
+                        role: Some("management".to_string()),
+                        status: Some("active".to_string()),
+                        network: BTreeMap::from([
+                            ("labmesh".to_string(), "10.30.0.99".to_string()),
+                            ("local".to_string(), "192.168.1.99".to_string()),
+                        ]),
+                        network_membership: Some(model::NetworkMembership::ManagementOnly),
                         services: Vec::new(),
                     },
                 ],
@@ -294,6 +313,11 @@ mod tests {
             plan.routes
                 .iter()
                 .all(|route| route.provider == "wireguard")
+        );
+        assert!(
+            plan.desired_peers
+                .iter()
+                .all(|peer| peer.id != "management")
         );
     }
     #[test]

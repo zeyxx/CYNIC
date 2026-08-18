@@ -73,7 +73,11 @@ async fn run_iteration(
                 &current,
                 "cancellation_observed_before_execution",
             )?;
-            persist_cancellation_proof(&current.record.envelope.workload_id, current.revision);
+            persist_cancellation_proof(
+                control,
+                &current.record.envelope.workload_id,
+                current.revision,
+            );
             continue;
         }
         let recovery_candidate = current.record.claim.as_ref().is_some_and(|claim| {
@@ -86,6 +90,7 @@ async fn run_iteration(
         };
         if recovery_candidate {
             persist_recovery_proof(
+                control,
                 &claimed.record.envelope.workload_id,
                 current.revision,
                 claimed.revision,
@@ -133,7 +138,12 @@ async fn execute_claimed(
         Err(error) => {
             execution_cancel.cancel();
             let renewal_count = monitor.await.unwrap_or(0);
-            persist_renewal_proof(&claimed.record.envelope.workload_id, &guard, renewal_count);
+            persist_renewal_proof(
+                control,
+                &claimed.record.envelope.workload_id,
+                &guard,
+                renewal_count,
+            );
             lifecycle::finish_blocked(store, &claimed.record.envelope.workload_id, &guard, error)?;
             return Ok(());
         }
@@ -149,13 +159,13 @@ async fn execute_claimed(
     if after_execution.record.state == AgentWorkloadState::CancelRequested {
         execution_cancel.cancel();
         let renewal_count = monitor.await.unwrap_or(0);
-        persist_renewal_proof(workload_id, &guard, renewal_count);
+        persist_renewal_proof(control, workload_id, &guard, renewal_count);
         lifecycle::acknowledge_cancelled(
             store,
             &after_execution,
             "workload_cancelled_during_execution",
         )?;
-        persist_cancellation_proof(workload_id, after_execution.revision);
+        persist_cancellation_proof(control, workload_id, after_execution.revision);
         return Ok(());
     }
     let evidence_store =
@@ -261,7 +271,7 @@ async fn execute_claimed(
         .ok_or_else(|| "build_scheduler_workload_disappeared".to_string())?;
     if latest.record.state == AgentWorkloadState::CancelRequested {
         lifecycle::acknowledge_cancelled(store, &latest, "workload_cancelled_during_proof")?;
-        persist_cancellation_proof(workload_id, latest.revision);
+        persist_cancellation_proof(control, workload_id, latest.revision);
         Ok(())
     } else {
         lifecycle::finish(
@@ -278,18 +288,26 @@ async fn execute_claimed(
                 .iter()
                 .map(|reference| format!("{}:{}", reference.kind, reference.digest))
                 .collect::<Vec<_>>();
-            crate::adapters::agent_execution_runtime_observer::persist_capabilities(
+            crate::adapters::agent_execution_runtime_observer::persist_capabilities_at(
+                &scheduler_proof_path(control),
                 &["build_completion_and_artifact_read_back"],
                 &proof_refs,
             )
             .map_err(|error| format!("build_scheduler_runtime_proof:{error}"))?;
         }
-        persist_renewal_proof(workload_id, &guard, renewal_count);
+        persist_renewal_proof(control, workload_id, &guard, renewal_count);
         Ok(())
     }
 }
 
+fn scheduler_proof_path(control: &NodeControlConfig) -> std::path::PathBuf {
+    control
+        .agent_workload_state_root
+        .join("agent-scheduler/runtime-proof.json")
+}
+
 fn persist_renewal_proof(
+    control: &NodeControlConfig,
     workload_id: &str,
     guard: &cynic_protocol::LeaseGuard,
     renewal_count: u64,
@@ -306,7 +324,8 @@ fn persist_renewal_proof(
     let evidence_ref = cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-claim-renewal:{digest}"))
         .unwrap_or_else(|_| format!("scheduler-claim-renewal:{workload_id}"));
-    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
+    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities_at(
+        &scheduler_proof_path(control),
         &["scheduler_claim_renewal"],
         &[evidence_ref],
     ) {
@@ -314,7 +333,7 @@ fn persist_renewal_proof(
     }
 }
 
-fn persist_cancellation_proof(workload_id: &str, revision: u64) {
+fn persist_cancellation_proof(control: &NodeControlConfig, workload_id: &str, revision: u64) {
     let proof = serde_json::json!({
         "workload_id": workload_id,
         "store_revision": revision,
@@ -323,7 +342,8 @@ fn persist_cancellation_proof(workload_id: &str, revision: u64) {
     let evidence_ref = cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-cancellation-delivery:{digest}"))
         .unwrap_or_else(|_| format!("scheduler-cancellation-delivery:{workload_id}"));
-    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
+    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities_at(
+        &scheduler_proof_path(control),
         &["scheduler_cancellation_delivery"],
         &[evidence_ref],
     ) {
@@ -331,7 +351,12 @@ fn persist_cancellation_proof(workload_id: &str, revision: u64) {
     }
 }
 
-fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: u64) {
+fn persist_recovery_proof(
+    control: &NodeControlConfig,
+    workload_id: &str,
+    prior_revision: u64,
+    new_revision: u64,
+) {
     let proof = serde_json::json!({
         "workload_id": workload_id,
         "prior_store_revision": prior_revision,
@@ -341,7 +366,8 @@ fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: 
     let evidence_ref = cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-crash-recovery:{digest}"))
         .unwrap_or_else(|_| format!("scheduler-crash-recovery:{workload_id}"));
-    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
+    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities_at(
+        &scheduler_proof_path(control),
         &["scheduler_crash_recovery"],
         &[evidence_ref],
     ) {

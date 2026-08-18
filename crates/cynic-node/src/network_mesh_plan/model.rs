@@ -55,7 +55,25 @@ pub(crate) struct RegistryNode {
     #[serde(default)]
     pub(crate) network: BTreeMap<String, String>,
     #[serde(default)]
+    pub(crate) network_membership: Option<NetworkMembership>,
+    #[serde(default)]
     pub(crate) services: Vec<RegistryService>,
+}
+
+/// Membership is an explicit topology authority.  Possession of an address on
+/// a service plane must not silently enlist a management host into the mesh.
+#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum NetworkMembership {
+    ManagementOnly,
+    SynapseMember,
+    MeshDnsGateway,
+}
+
+impl NetworkMembership {
+    pub(crate) fn participates_in_mesh(&self) -> bool {
+        matches!(self, Self::SynapseMember | Self::MeshDnsGateway)
+    }
 }
 
 #[derive(Debug, Deserialize)]

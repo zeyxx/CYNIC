@@ -43,6 +43,8 @@ impl HostPackagePort for BuildRunnerHostProfile {
             policy_dir: base.policy_dir,
             source_projection_path: base.source_projection_path,
             approved_sources: base.approved_sources,
+            provenance: base.provenance,
+            promotion_policy: base.promotion_policy,
             // Build runners do not require mesh packages (coredns/wireguard).
             bootstrap_packages: vec![],
         }

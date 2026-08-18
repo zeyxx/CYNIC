@@ -1,5 +1,6 @@
 pub mod adapters;
 pub mod agent_access;
+pub mod autoresearch;
 pub mod agent_matrix;
 pub mod agent_runtime;
 pub mod bootstrap_chain;
@@ -25,6 +26,7 @@ pub mod host_bootstrap_evidence;
 pub mod host_exec_cli;
 pub mod host_exec_policy;
 mod identity_database;
+pub mod inference_observation;
 pub mod install_contract;
 pub mod kernel_proof_persistence;
 pub mod lab;

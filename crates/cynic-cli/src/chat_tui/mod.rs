@@ -64,7 +64,7 @@ pub(crate) fn run_chat_tui(
 
     if !runtime.ready {
         eprintln!("chat not ready: {}", runtime.detail);
-        eprintln!("  cynic runtime inference-start auto --json");
+        eprintln!("  cynic models start auto --yes --json");
         eprintln!("  cynic runtime inference-discover --json");
         eprintln!("  cynic chat --mock");
         return ExitCode::FAILURE;

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use cynic_protocol::BreakglassAdmission;
+
 pub const REQUEST_SCHEMA: &str = "cynic.lxc_exec_bridge.request.v1";
 pub const RESPONSE_SCHEMA: &str = "cynic.lxc_exec_bridge.response.v1";
 
@@ -18,6 +20,10 @@ pub struct LxcBridgeRequest {
     pub purpose: String,
     pub agent_id: String,
     pub authority: LxcBridgeAuthority,
+    /// Required only for RecoveryBreakglass authority. It is an inspectable
+    /// admission record, never secret material.
+    #[serde(default)]
+    pub breakglass_admission: Option<BreakglassAdmission>,
     pub argv: Vec<String>,
     pub timeout_seconds: u64,
     pub apply: bool,

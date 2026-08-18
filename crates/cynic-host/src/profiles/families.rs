@@ -1,3 +1,4 @@
+use crate::domain::package_provenance::{PackagePromotionPolicy, PackageProvenancePolicy};
 use crate::domain::packages::PackagePolicy;
 use crate::domain::principal::PrincipalPolicy;
 use crate::domain::privilege::PrivilegePolicy;
@@ -246,6 +247,8 @@ impl HostFamilyProfile {
             policy_dir: self.config_dir.clone(),
             source_projection_path: format!("{}/package-sources.json", self.config_dir),
             approved_sources: self.package_approved_sources.clone(),
+            provenance: PackageProvenancePolicy::unresolved_distribution_authority(),
+            promotion_policy: PackagePromotionPolicy::critical_infrastructure(),
             bootstrap_packages: self.bootstrap_packages.clone(),
         }
     }

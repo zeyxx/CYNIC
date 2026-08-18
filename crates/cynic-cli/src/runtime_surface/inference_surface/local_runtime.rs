@@ -122,7 +122,18 @@ fn print_recent_log_tail(log_path: &str, tail: usize) {
     }
 }
 
-pub(crate) fn execute_inference_start(alias: Option<&str>, json: bool, no_wait: bool) -> ExitCode {
+pub(crate) fn execute_inference_start(
+    alias: Option<&str>,
+    json: bool,
+    yes: bool,
+    no_wait: bool,
+) -> ExitCode {
+    if !yes {
+        eprintln!(
+            "refusing to start a local model without --yes; inspect first with `cynic models list --json`"
+        );
+        return ExitCode::FAILURE;
+    }
     cynic_inference::progress::progress(
         "resolve",
         "selecting startable vault profile (auto ensures profiles if needed)",
@@ -232,7 +243,13 @@ pub(crate) fn execute_inference_start(alias: Option<&str>, json: bool, no_wait: 
     }
 }
 
-pub(crate) fn execute_inference_stop(alias: Option<&str>, json: bool) -> ExitCode {
+pub(crate) fn execute_inference_stop(alias: Option<&str>, json: bool, yes: bool) -> ExitCode {
+    if !yes {
+        eprintln!(
+            "refusing to stop a local model without --yes; inspect first with `cynic models status --json`"
+        );
+        return ExitCode::FAILURE;
+    }
     let service = LocalRuntimeServiceAny::from_env();
     match service.stop(alias) {
         Ok(report) => {

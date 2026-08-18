@@ -64,3 +64,24 @@ fn runtime_projection_never_delegates_human_admin_principal_apply() {
     assert!(!rule.contains("service-reconcile *"));
     assert!(rule.contains("cynic ALL=(root) NOPASSWD: /portable/cynic-host-exec network-actuate"));
 }
+
+#[test]
+fn bridge_bundle_can_use_the_independently_installed_runtime_seed() {
+    let root = std::env::temp_dir().join(format!("cynic-bridge-seed-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).expect("create seed root");
+    let cli = root.join("cynic");
+    let seed = root.join(HOST_EXEC_HELPER_FILENAME);
+    fs::write(&cli, "cli").expect("write cli");
+    fs::write(&seed, "seed").expect("write seed");
+    let mut permissions = fs::metadata(&seed).expect("seed metadata").permissions();
+    use std::os::unix::fs::PermissionsExt;
+    permissions.set_mode(0o755);
+    fs::set_permissions(&seed, permissions).expect("make seed executable");
+
+    assert_eq!(
+        resolve_helper_binary_source(&cli, &seed).expect("resolve seed"),
+        seed
+    );
+    let _ = fs::remove_dir_all(&root);
+}

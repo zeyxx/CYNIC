@@ -1,11 +1,81 @@
 use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use super::decision::admit;
-use super::types::{LxcBridgeDecision, LxcBridgeRequest, LxcBridgeResponse, RESPONSE_SCHEMA};
+use cynic_protocol::CynicErrorCode;
+
+use super::{
+    decision::{admit, admit_after_incident_authority},
+    incident_authority::{IncidentAuthorityPort, UnavailableIncidentAuthority},
+    types::{
+        LxcBridgeAuthority, LxcBridgeDecision, LxcBridgeRequest, LxcBridgeResponse, RESPONSE_SCHEMA,
+    },
+};
 
 pub fn execute(request: &LxcBridgeRequest, pct_bin: &str) -> LxcBridgeResponse {
-    let decision = admit(request, pct_bin);
+    let authority = UnavailableIncidentAuthority;
+    execute_with_incident_authority(request, pct_bin, &authority)
+}
+
+pub fn execute_with_incident_authority(
+    request: &LxcBridgeRequest,
+    pct_bin: &str,
+    authority: &dyn IncidentAuthorityPort,
+) -> LxcBridgeResponse {
+    let now_unix_s = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(u64::MAX);
+    let decision = if request.authority == LxcBridgeAuthority::RecoveryBreakglass {
+        match request.breakglass_admission.as_ref() {
+            Some(admission) => {
+                // Reconcile every non-authority condition before consuming a
+                // one-shot receipt. The public decision deliberately reports
+                // BG-006 here; that is the sole blocker the injected port may
+                // discharge.
+                if let LxcBridgeDecision::Blocked { mut blockers } = admit(request, pct_bin) {
+                    blockers.retain(|blocker| {
+                        blocker != CynicErrorCode::BreakglassAuthorityVerifierUnavailable.code()
+                    });
+                    if !blockers.is_empty() {
+                        return response(
+                            request,
+                            "blocked",
+                            false,
+                            None,
+                            String::new(),
+                            String::new(),
+                            false,
+                            blockers,
+                        );
+                    }
+                }
+                let action = canonical_action(&request.argv).unwrap_or_default();
+                match authority.verify_and_consume(
+                    admission,
+                    &format!("lxc:{}", request.vmid),
+                    &action,
+                    now_unix_s,
+                ) {
+                    Ok(_) => admit_after_incident_authority(request, pct_bin, now_unix_s),
+                    Err(error) => {
+                        return response(
+                            request,
+                            "blocked",
+                            false,
+                            None,
+                            String::new(),
+                            String::new(),
+                            false,
+                            vec![error.code().to_string()],
+                        );
+                    }
+                }
+            }
+            None => admit(request, pct_bin),
+        }
+    } else {
+        admit(request, pct_bin)
+    };
     let (argv, mutates) = match decision {
         LxcBridgeDecision::Observe { pct_argv } => (pct_argv, false),
         LxcBridgeDecision::Apply { pct_argv } => (pct_argv, true),
@@ -108,6 +178,21 @@ pub fn execute(request: &LxcBridgeRequest, pct_bin: &str) -> LxcBridgeResponse {
             false,
             vec!["pct_output_read_failed".to_string()],
         ),
+    }
+}
+
+fn canonical_action(argv: &[String]) -> Option<String> {
+    match argv {
+        [program, operation, unit]
+            if program == "/usr/bin/systemctl"
+                && matches!(
+                    operation.as_str(),
+                    "start" | "stop" | "restart" | "enable" | "disable"
+                ) =>
+        {
+            Some(format!("systemctl:{operation}:{unit}"))
+        }
+        _ => None,
     }
 }
 

@@ -2,6 +2,7 @@ pub mod bootstrap;
 pub mod disk;
 pub mod ecosystem_package;
 pub mod filesystem;
+pub mod package_provenance;
 pub mod packages;
 pub mod principal;
 pub mod privilege;

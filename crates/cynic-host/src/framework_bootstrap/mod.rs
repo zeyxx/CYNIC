@@ -1,5 +1,6 @@
 pub mod build_runner;
 pub mod bundle;
+pub mod build_runner;
 pub mod cli_install;
 pub mod epoch;
 pub mod lifecycle;

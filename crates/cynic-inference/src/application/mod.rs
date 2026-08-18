@@ -23,4 +23,8 @@ pub mod routing_policy;
 pub mod runtime_planner;
 pub mod summarization_service;
 pub mod vault_consolidate;
+pub mod vault_consolidate_capacity;
 pub(crate) mod vault_consolidate_storage;
+pub mod matrix_sweep_executor;
+pub mod matrix_live_runner;
+pub mod inference_gateway;

@@ -41,6 +41,19 @@ pub fn plan_source_snapshot(
         if !observed.success() || observed.stdout.trim() != source_commit {
             blockers.push("source_snapshot_commit_read_back_mismatch".to_string());
         }
+        let status = runner.run(&[
+            "git",
+            "-C",
+            repository_root,
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+        ]);
+        if !status.success() {
+            blockers.push("source_snapshot_worktree_unobservable".to_string());
+        } else if !status.stdout.trim().is_empty() {
+            blockers.push("source_snapshot_worktree_mutable".to_string());
+        }
     }
     blockers.sort();
     blockers.dedup();

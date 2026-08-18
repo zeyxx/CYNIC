@@ -289,7 +289,7 @@ fn inference_start_process_supervisor_can_launch_and_supervise_fake_llama_server
                 fake_server.to_string_lossy().into_owned(),
             ),
         ],
-        &["runtime", "inference-start", &alias, "--json"],
+        &["runtime", "inference-start", &alias, "--yes", "--json"],
     );
     assert_success_output(&start, "inference-start fake model");
     let started = parse_json_payload(&start.stdout, "inference-start payload");
@@ -388,7 +388,7 @@ fn inference_start_process_supervisor_can_launch_and_supervise_fake_llama_server
                 principal_home.to_string_lossy().into_owned(),
             ),
         ],
-        &["runtime", "inference-stop", &alias, "--json"],
+        &["runtime", "inference-stop", &alias, "--yes", "--json"],
     );
     assert_success_output(&stop, "inference-stop fake model");
     let stopped = parse_json_payload(&stop.stdout, "inference-stop payload");
@@ -425,6 +425,53 @@ fn inference_status_reports_inactive_when_nothing_is_running_for_clean_principal
 }
 
 #[test]
+fn models_status_projects_the_same_read_only_supervisor_observation() {
+    let root = temp_fixture("operator-models-status-inactive");
+    let principal_home = root.join("principal");
+    ensure_dir_all(&principal_home, "principal home root");
+
+    let status = run_cynic_cli(
+        root,
+        Some(("CYNIC_INFERENCE_SUPERVISOR", "process")),
+        vec![(
+            "CYNIC_PRINCIPAL_HOME",
+            principal_home.to_string_lossy().into_owned(),
+        )],
+        &["models", "status", "--json"],
+    );
+
+    assert_success_output(&status, "operator models status when idle");
+    let payload = parse_json_payload(&status.stdout, "operator models status payload");
+    assert_eq!(
+        payload["state"],
+        serde_json::Value::String("inactive".into())
+    );
+}
+
+#[test]
+fn inference_start_requires_explicit_operator_consent() {
+    let root = temp_fixture("installed-runtime-inference-start-consent");
+    let principal_home = root.join("principal");
+    ensure_dir_all(&principal_home, "principal home root");
+
+    let start = run_cynic_cli(
+        root,
+        Some(("CYNIC_INFERENCE_SUPERVISOR", "process")),
+        vec![(
+            "CYNIC_PRINCIPAL_HOME",
+            principal_home.to_string_lossy().into_owned(),
+        )],
+        &["runtime", "inference-start", "auto", "--json"],
+    );
+
+    assert!(!start.status.success(), "start without --yes must fail");
+    assert!(
+        String::from_utf8_lossy(&start.stderr).contains("without --yes"),
+        "consent failure should name the missing flag"
+    );
+}
+
+#[test]
 fn inference_stop_requires_running_instance_or_alias() {
     let root = temp_fixture("installed-runtime-inference-stop-noop");
     let principal_home = root.join("principal");
@@ -437,7 +484,7 @@ fn inference_stop_requires_running_instance_or_alias() {
             "CYNIC_PRINCIPAL_HOME",
             principal_home.to_string_lossy().into_owned(),
         )],
-        &["runtime", "inference-stop", "--json"],
+        &["runtime", "inference-stop", "--yes", "--json"],
     );
 
     assert!(
@@ -487,7 +534,7 @@ fn inference_start_fails_fast_when_gguf_architecture_is_unsupported() {
                 profiles_root.to_string_lossy().into_owned(),
             ),
         ],
-        &["runtime", "inference-start", &alias, "--json"],
+        &["runtime", "inference-start", &alias, "--yes", "--json"],
     );
 
     assert!(!start.status.success(), "unsupported GGUF must fail fast");

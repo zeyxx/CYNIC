@@ -131,6 +131,6 @@ For empirical multi-scale projection work, pair this file with
 
 CYNIC execution is recursive and atomic, not monolithic. A monolithic agent with an infinitely growing context window is a "big chunk of a small thing" that inevitably degrades. The CYNIC organism (the "big thing with massive upside") scales by dispatching "small chunks" (pure, isolated intents) through the Kernel Mempool.
 
-- **Autonomous Organs (`hermes-agent`, `mercury-agent`)**: Must not accumulate global context. They wake up, claim a specific intent from the mempool, execute their highly bounded skill (`supervised_cortex_delegate`), yield the synthesized result, and die.
+- **Autonomous Organs (`hermes-agent`)**: Must not accumulate global context. They wake up, claim a specific intent from the mempool, execute their highly bounded skill (`supervised_cortex_delegate`), yield the synthesized result, and die. (`mercury-agent` is the Cosmicstack infra scheduler — a distinct project, NOT a CYNIC autonomous organ; do not conflate the two.):
 - **CLI Agents (`codex`, `antigravity`)**: Interactive sessions must follow the same rule. Instead of looping endlessly over complex problems in the same context, the interactive cortex should decompose the problem and dispatch sub-tasks to the organism's mempool, acting as an orchestrator (Recursive Reactor) rather than a monolithic doer.
 - **Quantum Integrity**: A spawned sub-agent is initialized with a blank slate, equipped only with the exact context (e.g., a specific RAG bundle) and tools needed to resolve its atomic intent.

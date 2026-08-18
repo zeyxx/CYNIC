@@ -108,6 +108,13 @@ impl HostPackagePort for StaticHostContractPort {
             policy_dir: layout.config_dir.clone(),
             source_projection_path: format!("{}/package-sources.json", layout.config_dir),
             approved_sources: vec!["distribution_package".to_string()],
+            provenance: crate::domain::package_provenance::PackageProvenancePolicy::Repository {
+                source_id: "distribution_package".to_string(),
+                trusted_key_fingerprint: "test-key".to_string(),
+                max_metadata_age_secs: 86_400,
+            },
+            promotion_policy:
+                crate::domain::package_provenance::PackagePromotionPolicy::critical_infrastructure(),
             bootstrap_packages: vec!["wireguard-tools".to_string(), "iproute2".to_string()],
         }
     }
@@ -256,6 +263,7 @@ impl HostPackageObservationPort for FakeObservationAdapter {
     fn observe_packages(&self, _policy: &PackagePolicy) -> PackageObservedState {
         PackageObservedState {
             installed_packages: vec!["wireguard-tools".to_string()],
+            ..Default::default()
         }
     }
 }
@@ -300,6 +308,7 @@ impl HostPackageObservationPort for ReadyForServiceObservation {
     fn observe_packages(&self, policy: &PackagePolicy) -> PackageObservedState {
         PackageObservedState {
             installed_packages: policy.bootstrap_packages.clone(),
+            ..Default::default()
         }
     }
 }
@@ -401,6 +410,7 @@ fn package_status_is_blocked_when_bootstrap_package_missing() {
     let policy = StaticHostContractPort.desired_packages();
     let report = policy.status(&PackageObservedState {
         installed_packages: vec!["wireguard-tools".to_string()],
+        ..Default::default()
     });
     assert_eq!(report.status, SurfaceStatus::Blocked);
     assert!(report.missing_packages.contains(&"iproute2".to_string()));

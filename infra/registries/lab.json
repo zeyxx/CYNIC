@@ -67,6 +67,7 @@
       "name": "lab-kernel",
       "role": "kernel_primary",
       "host_family": "linux.debian.systemd",
+      "network_membership": "synapse_member",
       "status": "candidate",
       "deploy_target": true,
       "network": {
@@ -92,6 +93,7 @@
       "name": "lab-builder",
       "role": "build_runner",
       "host_family": "linux.debian.systemd",
+      "network_membership": "synapse_member",
       "status": "candidate",
       "deploy_target": false,
       "network": {
@@ -110,6 +112,7 @@
       "name": "lab-storage",
       "role": "storage_primary",
       "host_family": "linux.debian.systemd",
+      "network_membership": "synapse_member",
       "status": "candidate",
       "deploy_target": false,
       "network": {

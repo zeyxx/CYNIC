@@ -272,24 +272,50 @@ fn prepare_directory_commands_for_runtime(
 
 fn helper_binary_source() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let source = std::env::current_exe()?;
-    if !source.ends_with("cynic-host-exec") {
-        let sibling = source.with_file_name(HOST_EXEC_HELPER_FILENAME);
-        if sibling.exists() {
-            return Ok(sibling);
+    resolve_helper_binary_source(
+        &source,
+        Path::new(&current_runtime_layout().host_exec_helper_path()),
+    )
+}
+
+fn resolve_helper_binary_source(
+    current_executable: &Path,
+    installed_seed: &Path,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let mut candidates = vec![current_executable.to_path_buf()];
+    if !current_executable.ends_with(HOST_EXEC_HELPER_FILENAME) {
+        candidates.push(current_executable.with_file_name(HOST_EXEC_HELPER_FILENAME));
+        if let Some(parent) = current_executable.parent().and_then(Path::parent) {
+            candidates.push(parent.join(HOST_EXEC_HELPER_FILENAME));
         }
-        if let Some(parent) = source.parent().and_then(Path::parent) {
-            let target_debug = parent.join(HOST_EXEC_HELPER_FILENAME);
-            if target_debug.exists() {
-                return Ok(target_debug);
-            }
-        }
-        return Err(format!(
-            "unable to resolve cynic-host-exec near current executable: {}",
-            source.display()
-        )
-        .into());
     }
-    Ok(source)
+    // The runtime seed is independently governed and intentionally excluded
+    // from mutable baskets. It is the only valid fallback when a CLI is
+    // present without its sibling helper, the n-1 condition this bridge
+    // exists to repair.
+    candidates.push(installed_seed.to_path_buf());
+
+    candidates
+        .into_iter()
+        .find(|candidate| valid_helper_binary(candidate))
+        .ok_or_else(|| {
+            format!(
+                "unable to resolve executable cynic-host-exec from current executable {} or runtime seed {}",
+                current_executable.display(),
+                installed_seed.display()
+            )
+            .into()
+        })
+}
+
+fn valid_helper_binary(path: &Path) -> bool {
+    std::fs::symlink_metadata(path)
+        .ok()
+        .is_some_and(|metadata| {
+            metadata.file_type().is_file()
+                && !metadata.file_type().is_symlink()
+                && std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 != 0
+        })
 }
 
 fn bundle_complete(path: impl AsRef<Path>) -> bool {

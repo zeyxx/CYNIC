@@ -10,7 +10,12 @@ use crate::surface_audit::audit_canonical_surfaces;
 
 mod audit_persist;
 mod check;
+mod data_centric_audit;
+mod inference_matrix;
+mod inference_gateway;
+mod inference_optimal;
 mod manifest;
+mod organism_audit;
 mod surface_matrix;
 
 use audit_persist::{maybe_persist_dev_audit_report, maybe_persist_kernel_audit_report};
@@ -93,6 +98,67 @@ pub(crate) enum DevCommand {
         source_root: Option<std::path::PathBuf>,
         #[arg(long)]
         target_root: Option<std::path::PathBuf>,
+    },
+    /// Exhaustive parametric sweep: context tiers, KV-quant, threads, topologies, harnesses.
+    InferenceMatrix {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        model: std::path::PathBuf,
+        #[arg(long)]
+        params_billions: f32,
+        #[arg(long)]
+        context_filter: Option<String>,
+        #[arg(long)]
+        execute: bool,
+        #[arg(long)]
+        sample: Option<usize>,
+        #[arg(long)]
+        ledger: Option<std::path::PathBuf>,
+        #[arg(long)]
+        output: Option<std::path::PathBuf>,
+    },
+    /// Queries the empirical ledger and solves for the optimal verified execution vector.
+    InferenceOptimal {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        model: String,
+        #[arg(long)]
+        context: Option<String>,
+        #[arg(long, default_value = "balanced")]
+        goal: String,
+        #[arg(long)]
+        ledger: Option<std::path::PathBuf>,
+        #[arg(long)]
+        export_toml: Option<std::path::PathBuf>,
+    },
+    /// Audit data-centric compliance (ledger presence, model coverage, OOM safety proofs).
+    DataCentricAudit {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        ledger: Option<std::path::PathBuf>,
+        #[arg(long)]
+        vault_dir: Option<std::path::PathBuf>,
+    },
+    /// Audit organism liveness, metabolic loops, storage health, and domain task queue.
+    OrganismAudit {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Start and supervise the sovereign HTTP inference gateway.
+    InferenceGateway {
+        #[arg(long)]
+        listen: Option<String>,
+        #[arg(long)]
+        backend_port: Option<u16>,
+        #[arg(long)]
+        default_model: Option<String>,
+        #[arg(long)]
+        vault_dir: Option<std::path::PathBuf>,
+        #[arg(long)]
+        ledger: Option<std::path::PathBuf>,
     },
 }
 
@@ -207,5 +273,45 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
                 Err(error) => crate::fail(error),
             }
         }
+        DevCommand::InferenceMatrix {
+            json,
+            model,
+            params_billions,
+            context_filter,
+            execute,
+            sample,
+            ledger,
+            output,
+        } => inference_matrix::run(
+            json,
+            model,
+            params_billions,
+            context_filter,
+            execute,
+            sample,
+            ledger,
+            output,
+        ),
+        DevCommand::InferenceOptimal {
+            json,
+            model,
+            context,
+            goal,
+            ledger,
+            export_toml,
+        } => inference_optimal::run(json, model, context, goal, ledger, export_toml),
+        DevCommand::DataCentricAudit {
+            json,
+            ledger,
+            vault_dir,
+        } => data_centric_audit::run(json, ledger, vault_dir),
+        DevCommand::OrganismAudit { json } => organism_audit::run(json),
+        DevCommand::InferenceGateway {
+            listen,
+            backend_port,
+            default_model,
+            vault_dir,
+            ledger,
+        } => inference_gateway::run(listen, backend_port, default_model, vault_dir, ledger),
     }
 }

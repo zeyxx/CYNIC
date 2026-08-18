@@ -9,6 +9,7 @@ use super::types::{LxcBridgeBundleReport, LxcBridgeInstallPlan, LxcBridgeStatus}
 const HELPER_NAME: &str = "cynic-lxc-exec-bridge";
 const HELPER_TARGET: &str = "/usr/local/libexec/cynic-lxc-exec-bridge";
 const SUDOERS_TARGET: &str = "/etc/sudoers.d/cynic-lxc-exec-bridge";
+const INCIDENT_AUTHORITY_CONFIG: &str = "/etc/cynic/lxc-breakglass-authority.toml";
 
 pub fn install_plan(helper_source: impl AsRef<Path>) -> LxcBridgeInstallPlan {
     let helper_source = helper_source.as_ref().display().to_string();
@@ -63,6 +64,7 @@ pub fn bundle(
             files: vec![
                 HELPER_NAME.to_string(),
                 format!("{HELPER_NAME}.sudoers"),
+                "lxc-breakglass-authority.toml.tpl".to_string(),
                 "manifest.json".to_string(),
             ],
             helper_sha256: Some(format!("sha256:{hash}")),
@@ -96,12 +98,21 @@ fn write_bundle(output_dir: &Path, helper_source: &Path) -> Result<String, Strin
     fs::write(&sudoers_path, sudoers).map_err(|error| error.to_string())?;
     fs::set_permissions(&sudoers_path, fs::Permissions::from_mode(0o440))
         .map_err(|error| error.to_string())?;
+    let authority_template = format!(
+        "# Installed root-owned configuration; paths are injected by host bootstrap.\n# This file contains no signing secret.\npublic_key_path = \"<incident-authority-public-key>\"\nreceipt_root = \"<durable-breakglass-receipt-root>\"\n# Target: {INCIDENT_AUTHORITY_CONFIG}\n"
+    );
+    fs::write(
+        output_dir.join("lxc-breakglass-authority.toml.tpl"),
+        authority_template,
+    )
+    .map_err(|error| error.to_string())?;
     let manifest = serde_json::json!({
         "schema": "cynic.lxc_exec_bridge.bundle_manifest.v1",
         "helper": HELPER_NAME,
         "helper_sha256": format!("sha256:{hash}"),
         "helper_target": HELPER_TARGET,
         "sudoers_target": SUDOERS_TARGET,
+        "incident_authority_config": INCIDENT_AUTHORITY_CONFIG,
         "runtime": "rust_native",
         "shell_execution": false
     });

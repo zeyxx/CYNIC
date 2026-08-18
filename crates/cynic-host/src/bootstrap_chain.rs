@@ -334,6 +334,7 @@ mod tests {
         ) -> PackageObservedState {
             PackageObservedState {
                 installed_packages: policy.bootstrap_packages.clone(),
+                ..Default::default()
             }
         }
     }

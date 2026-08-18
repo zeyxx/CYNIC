@@ -106,6 +106,22 @@ pub(super) fn default_enrollment_renewal_window_secs() -> u64 {
     300
 }
 
+pub(super) fn default_network_recovery_registry_path() -> std::path::PathBuf {
+    "/etc/cynic/registry.json".into()
+}
+
+pub(super) fn default_network_recovery_state_path() -> std::path::PathBuf {
+    "/var/lib/cynic/network-recovery-state.json".into()
+}
+
+pub(super) fn default_network_recovery_cooldown_secs() -> u64 {
+    60
+}
+
+pub(super) fn default_network_recovery_max_attempts() -> u32 {
+    3
+}
+
 pub(super) fn default_max_failures() -> u32 {
     3
 }

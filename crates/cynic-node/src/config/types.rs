@@ -55,7 +55,35 @@ pub(crate) struct NodeControlConfig {
     #[serde(default)]
     pub(crate) observed_services: Vec<String>,
     #[serde(default)]
+    pub(crate) network_recovery: NetworkRecoveryConfig,
+    #[serde(default)]
     pub(crate) build_scheduler: Option<BuildSchedulerConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct NetworkRecoveryConfig {
+    #[serde(default)]
+    pub(crate) enabled: bool,
+    #[serde(default = "defaults::default_network_recovery_registry_path")]
+    pub(crate) registry_path: PathBuf,
+    #[serde(default = "defaults::default_network_recovery_state_path")]
+    pub(crate) state_path: PathBuf,
+    #[serde(default = "defaults::default_network_recovery_cooldown_secs")]
+    pub(crate) cooldown_secs: u64,
+    #[serde(default = "defaults::default_network_recovery_max_attempts")]
+    pub(crate) max_attempts: u32,
+}
+
+impl Default for NetworkRecoveryConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            registry_path: defaults::default_network_recovery_registry_path(),
+            state_path: defaults::default_network_recovery_state_path(),
+            cooldown_secs: defaults::default_network_recovery_cooldown_secs(),
+            max_attempts: defaults::default_network_recovery_max_attempts(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

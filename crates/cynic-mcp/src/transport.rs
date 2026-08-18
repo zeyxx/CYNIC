@@ -314,6 +314,21 @@ mod tests {
     }
 
     #[test]
+    fn agent_exposure_names_the_exact_wire_metadata_keys() {
+        let exposure: Value =
+            serde_json::from_str(include_str!("../../../infra/agent-exposure.json"))
+                .expect("agent exposure contract must remain valid JSON");
+        let requirement = exposure
+            .pointer("/mcp_protocol_profile/wire_requirements/request_meta")
+            .and_then(Value::as_str)
+            .expect("agent exposure must describe request metadata");
+
+        assert!(requirement.contains(REQUEST_PROTOCOL_VERSION_META));
+        assert!(requirement.contains(REQUEST_CLIENT_CAPABILITIES_META));
+        assert!(requirement.contains(REQUEST_CLIENT_INFO_META));
+    }
+
+    #[test]
     fn protocol_error_keeps_valid_json_rpc_request_id() {
         let value = serde_json::json!({"jsonrpc":"2.0", "id":"req-7", "method":"tools/list"});
         assert!(request_id(&value).is_some());

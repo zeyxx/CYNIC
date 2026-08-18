@@ -36,10 +36,7 @@ pub(crate) fn selected_profile(args: &ProfileArgs) -> Result<HostProfile, String
     if let Some(node_name) = &args.node {
         return resolve_host_profile(node_name, Some(registry.as_str()));
     }
-    match resolve_current_host_profile(Some(registry.as_str())) {
-        Ok(profile) => Ok(profile),
-        Err(_) => Ok(HostProfile::NetworkNode),
-    }
+    resolve_current_host_profile(Some(registry.as_str()))
 }
 
 pub(crate) fn selected_resolution(args: &ProfileArgs) -> Option<HostProfileResolution> {

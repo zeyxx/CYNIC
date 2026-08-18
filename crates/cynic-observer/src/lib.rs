@@ -9,6 +9,7 @@ pub mod solana_archive;
 pub mod source;
 pub mod wal;
 pub mod watcher;
+pub use solana_archive::*;
 
 use serde::{Deserialize, Serialize};
 pub use domain::*;

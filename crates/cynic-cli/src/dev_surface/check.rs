@@ -6,7 +6,7 @@ use cynic_host::runtime_network_preflight::RuntimeNetworkPreflightReport;
 use serde::Serialize;
 
 const SCHEMA: &str = "cynic.dev_check.v1";
-const DEFAULT_TARGET_ROOT: &str = "/tmp/cynic-dev-check-targets";
+const DEFAULT_STATE_ROOT: &str = "/var/lib/cynic";
 const OUTPUT_TAIL_LIMIT: usize = 12_000;
 const CARGO_FETCH_TARGETS: &[&str] = &["index.crates.io", "crates.io", "static.crates.io"];
 const CANONICAL_GATE: &str = "make check";
@@ -94,7 +94,10 @@ pub(crate) fn run_dev_check(
     architecture_only: bool,
 ) -> Result<DevCheckReport, String> {
     let workspace_root = crate::rust_source::resolve_workspace_root(source_root.as_deref())?;
-    let target_root = target_root.unwrap_or_else(|| PathBuf::from(DEFAULT_TARGET_ROOT));
+    let target_root = match target_root {
+        Some(target_root) => target_root,
+        None => default_target_root()?,
+    };
     let mode = if architecture_only {
         DevCheckMode::ArchitectureOnly
     } else {
@@ -192,6 +195,33 @@ pub(crate) fn run_dev_check(
         architecture_boundary_fallback_ok,
         steps,
     })
+}
+
+fn default_target_root() -> Result<PathBuf, String> {
+    let state_root = std::env::var_os("CYNIC_STATE_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(DEFAULT_STATE_ROOT));
+    let workload_id =
+        std::env::var_os("CYNIC_BUILD_WORKLOAD_ID").unwrap_or_else(|| "unmanaged".into());
+    let workload_path = Path::new(&workload_id);
+    if !is_single_path_component(workload_path) {
+        return Err("invalid_cynic_build_workload_id".to_string());
+    }
+    Ok(default_target_root_for(&state_root, workload_path))
+}
+
+fn default_target_root_for(state_root: &Path, workload_id: &Path) -> PathBuf {
+    state_root
+        .join("build-targets/bootstrap/agents")
+        .join(workload_id)
+        .join("dev-check")
+}
+
+fn is_single_path_component(path: &Path) -> bool {
+    matches!(
+        path.components().next(),
+        Some(std::path::Component::Normal(_))
+    ) && path.components().count() == 1
 }
 
 fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
@@ -375,6 +405,22 @@ fn now_unix_ms() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_target_root_is_node_state_and_workload_isolated() {
+        assert_eq!(
+            default_target_root_for(Path::new("/state"), Path::new("delegation-42")),
+            PathBuf::from("/state/build-targets/bootstrap/agents/delegation-42/dev-check")
+        );
+    }
+
+    #[test]
+    fn workload_id_must_be_a_single_safe_path_component() {
+        assert!(is_single_path_component(Path::new("delegation-42")));
+        assert!(!is_single_path_component(Path::new("../escape")));
+        assert!(!is_single_path_component(Path::new("agent/workload")));
+        assert!(!is_single_path_component(Path::new("/absolute")));
+    }
 
     #[test]
     fn planned_steps_are_single_make_check_gate() {

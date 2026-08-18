@@ -11,11 +11,21 @@ pub const DEFAULT_HUMAN_KERNEL_LOG: &str = "/var/lib/cynic/memory/logs/human-ker
 
 /// Resolve the active human log path for MCP-invoked operations.
 pub fn resolve_human_log_path() -> PathBuf {
-    std::env::var("CYNIC_ASKESIS_LOG_FILE")
-        .ok()
-        .map(PathBuf::from)
-        .filter(|path| !path.as_os_str().is_empty())
-        .unwrap_or_else(|| PathBuf::from(DEFAULT_HUMAN_KERNEL_LOG))
+    if let Ok(path_str) = std::env::var("CYNIC_ASKESIS_LOG_FILE") {
+        if !path_str.trim().is_empty() {
+            return PathBuf::from(path_str);
+        }
+    }
+
+    let default_path = PathBuf::from(DEFAULT_HUMAN_KERNEL_LOG);
+    if let Some(parent) = default_path.parent() {
+        if parent.exists() || std::fs::create_dir_all(parent).is_ok() {
+            return default_path;
+        }
+    }
+
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    PathBuf::from(home).join(".cynic/memory/logs/human-kernel.jsonl")
 }
 
 /// Append one observation to Askesis log storage.

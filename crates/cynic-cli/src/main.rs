@@ -40,6 +40,11 @@ mod lifecycle_surface_execute;
 mod lifecycle_surface_render;
 mod network_surface;
 mod node_host_audit;
+pub(crate) mod federation_surface;
+mod operator_doctor;
+mod operator_errors;
+mod operator_help;
+mod operator_status;
 mod ownership_audit;
 mod root_dispatch;
 mod runtime_paths;
@@ -49,6 +54,7 @@ mod rust_source;
 mod solana_surface;
 mod surface_audit;
 mod surface_registry;
+pub(crate) mod task_surface;
 mod transport_surface;
 use audit_surface::AuditCommand;
 use bootstrap_surface::BootstrapCommand;
@@ -60,13 +66,17 @@ use lab_surface::LabCommand;
 use network_surface::NetworkCommand;
 use root_dispatch::{execute_root_command, print_cli_help};
 use runtime_paths::{RuntimeContext, resolve_runtime_paths};
-use runtime_surface::RuntimeCommand;
+use runtime_surface::{OperatorModelsCommand, RuntimeCommand};
 use serde::Serialize;
 use solana_surface::SolanaCommand;
 use transport_surface::TransportCommand;
 
 #[derive(Parser)]
-#[command(name = "cynic", about = "Portable CYNIC operator CLI")]
+#[command(
+    name = "cynic",
+    about = "Portable CYNIC operator CLI",
+    after_help = "Start here: cynic status → cynic doctor → cynic models list → cynic chat\nAdvanced runtime surfaces: cynic advanced"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
@@ -74,53 +84,82 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    #[command(hide = true)]
     Commands {
         #[arg(long)]
         json: bool,
     },
+    #[command(hide = true)]
     Fleet {
         #[command(subcommand)]
         command: FleetCommand,
     },
+    #[command(hide = true)]
     Runtime {
         #[command(subcommand)]
         command: RuntimeCommand,
     },
+    /// Inspect and explicitly control local LLM model profiles.
+    Models {
+        #[command(subcommand)]
+        command: OperatorModelsCommand,
+    },
+    /// Read-only diagnosis of local LLM, network, and sovereign Git readiness.
+    Doctor {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Explain stable CYNIC error codes and their operator remediation.
+    Errors {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Explain and list the advanced runtime surfaces.
+    Advanced,
     /// Read-only Solana observation planning surfaces.
+    #[command(hide = true)]
     Solana {
         #[command(subcommand)]
         command: SolanaCommand,
     },
+    #[command(hide = true)]
     Dev {
         #[command(subcommand)]
         command: DevCommand,
     },
+    #[command(hide = true)]
     Bootstrap {
         #[command(subcommand)]
         command: BootstrapCommand,
     },
+    #[command(hide = true)]
     Lab {
         #[command(subcommand)]
         command: LabCommand,
     },
+    #[command(hide = true)]
     Transport {
         #[command(subcommand)]
         command: TransportCommand,
     },
+    #[command(hide = true)]
     Network {
         #[command(subcommand)]
         command: NetworkCommand,
     },
+    #[command(hide = true)]
     Audit {
         #[command(subcommand)]
         command: AuditCommand,
     },
     /// Observe CYNIC-managed services and external provider connections.
+    #[command(hide = true)]
     Integrations {
         #[command(subcommand)]
         command: IntegrationsCommand,
     },
     /// Ecosystem tech-watch and human-validated upgrades (canonical).
+    #[command(hide = true)]
     Deps {
         #[command(subcommand)]
         command: Option<DepsCommand>,
@@ -129,6 +168,7 @@ enum Command {
         json: bool,
     },
     /// Update lifecycle: lab → conformance → staging → canary → production.
+    #[command(hide = true)]
     Lifecycle {
         #[command(subcommand)]
         command: lifecycle_surface::LifecycleCommand,
@@ -141,7 +181,7 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Frictionless unified status report.
+    /// Read-only status of declared inference state and observed local LLM supervision.
     Status {
         /// Machine-readable JSON report.
         #[arg(long)]
@@ -186,6 +226,16 @@ enum Command {
         /// Do not open the interactive TUI when prompt is omitted.
         #[arg(long = "no-tui")]
         no_tui: bool,
+    },
+    /// Asynchronous domain-partitioned task queue (Inference, Infra, CodeAudit, Cortex, Governance, Nightshift).
+    Task {
+        #[command(subcommand)]
+        command: task_surface::TaskCommand,
+    },
+    /// Federated cluster status, Synapse WireGuard mesh probes, and cross-node sync.
+    Federation {
+        #[command(subcommand)]
+        command: federation_surface::FederationCommand,
     },
 }
 

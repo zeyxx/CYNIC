@@ -4,6 +4,7 @@ set -euo pipefail
 action="${1:-}"
 grant="${CYNIC_BUILD_ADMISSION_GRANT:-}"
 workload_record="${CYNIC_BUILD_WORKLOAD_RECORD:-}"
+workload_id="${CYNIC_BUILD_WORKLOAD_ID:-}"
 authority_public_key="${CYNIC_BUILD_AUTHORITY_PUBLIC_KEY:-}"
 verifier="${CYNIC_BUILD_ADMISSION_VERIFIER:-cynic-node}"
 bootstrap_receipt="${CYNIC_BUILD_BOOTSTRAP_RECEIPT:-}"
@@ -13,20 +14,19 @@ blocked() {
   exit 1
 }
 
-# Mode local/dev : admission par preuve d'environnement, sans signature.
-# Les agents et le dev local posent CYNIC_LOCAL_VALIDATION=1 (scripts/cargo le
-# fait déjà pour les appels cargo). Distinct du grant signé de prod/CI : ici on
-# n'atteste pas par autorité cryptographique mais par toolchain local + flag
-# explicite, ce qui est exactement le profil du lab/harness local CYNIC. Le
-# checkout peut être sale (c'est le but : valider du code en cours de dev avant
-# commit) ; seule la prod/CI exige un checkout lié à un commit signé.
-if [[ -n "${CYNIC_LOCAL_VALIDATION:-}" ]]; then
-  [[ -n "${action}" ]] || blocked "requested action is missing"
-  echo "build admission (local/dev): node=$(hostname) action=${action} commit=$(git rev-parse HEAD 2>/dev/null || true)"
-  exit 0
-fi
-
 [[ -n "${action}" ]] || blocked "requested action is missing"
+
+# A build admission binds an immutable source snapshot to one node.  Checking
+# this before looking for authority material prevents a developer worktree
+# from being misdiagnosed as a missing-grant incident: no authority may admit
+# mutable content in the first place.  The build runner bootstrap is the
+# boundary that materializes the clean, detached workspace used below.
+observed_hostname="$(hostname)"
+observed_commit="$(git rev-parse HEAD 2>/dev/null || true)"
+[[ -n "${observed_hostname}" && -n "${observed_commit}" ]] \
+  || blocked "node or checkout identity is unobservable"
+[[ -z "$(git status --porcelain --untracked-files=all)" ]] \
+  || blocked "checkout is mutable; submit an admitted workload to the clean build-runner workspace"
 
 if [[ -n "${bootstrap_receipt}" ]]; then
   command -v jq >/dev/null 2>&1 || blocked "jq is unavailable"
@@ -37,8 +37,6 @@ if [[ -n "${bootstrap_receipt}" ]]; then
     || blocked "bootstrap admission was already consumed"
   receipt_mode="$(stat -c '%u:%a' "${bootstrap_receipt}")"
   [[ "${receipt_mode}" == "0:640" ]] || blocked "bootstrap admission ownership or mode is invalid"
-  observed_hostname="$(hostname)"
-  observed_commit="$(git rev-parse HEAD 2>/dev/null || true)"
   registry_path="$(jq -r '.registry_path // empty' "${bootstrap_receipt}")"
   registry_digest="$(jq -r '.registry_digest // empty' "${bootstrap_receipt}")"
   [[ -f "${registry_path}" ]] || blocked "bootstrap registry is unobservable"
@@ -65,10 +63,6 @@ if [[ -n "${bootstrap_receipt}" ]]; then
       and (.transports.ssh.enrollment_authority.principal == "root")' \
     "${registry_path}" >/dev/null \
     || blocked "registry does not authorize build-runner MachineEnrollment"
-  [[ -n "${observed_hostname}" && -n "${observed_commit}" ]] \
-    || blocked "bootstrap node or checkout identity is unobservable"
-  [[ -z "$(git status --porcelain --untracked-files=all)" ]] \
-    || blocked "bootstrap checkout contains content outside the admitted source commit"
   echo "build bootstrap admission proved: node=${observed_hostname} action=${action} commit=${observed_commit}"
   exit 0
 fi
@@ -77,22 +71,20 @@ fi
 [[ -f "${grant}" ]] || blocked "grant file does not exist"
 [[ -n "${workload_record}" && -f "${workload_record}" ]] \
   || blocked "CYNIC_BUILD_WORKLOAD_RECORD is missing or unobservable"
+[[ "${workload_id}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
+  || blocked "CYNIC_BUILD_WORKLOAD_ID is missing or unsafe"
 [[ -n "${authority_public_key}" && -f "${authority_public_key}" ]] \
   || blocked "CYNIC_BUILD_AUTHORITY_PUBLIC_KEY is missing or unobservable"
 command -v "${verifier}" >/dev/null 2>&1 || blocked "Rust build grant verifier is unavailable"
 command -v jq >/dev/null 2>&1 || blocked "jq is unavailable"
 
 schema="$(jq -r '.schema // empty' "${grant}")"
-observed_hostname="$(hostname)"
-observed_commit="$(git rev-parse HEAD 2>/dev/null || true)"
+record_workload_id="$(jq -r '.record.envelope.workload_id // empty' "${workload_record}")"
 
 [[ "${schema}" == "cynic.signed_build_workload_grant.v1" ]] \
   || blocked "manual/bootstrap grants do not authorize routine builds"
-[[ -n "${observed_hostname}" && -n "${observed_commit}" ]] \
-  || blocked "node or checkout identity is unobservable"
-[[ -z "$(git status --porcelain --untracked-files=all)" ]] \
-  || blocked "checkout contains content outside the admitted source commit"
-
+[[ "${record_workload_id}" == "${workload_id}" ]] \
+  || blocked "CYNIC_BUILD_WORKLOAD_ID does not match durable workload record"
 "${verifier}" build-workload-grant-verify \
   --grant "${grant}" \
   --workload-record "${workload_record}" \

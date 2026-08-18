@@ -86,6 +86,14 @@
       "path": "fragments/runtime_agent_matrix.json"
     },
     {
+      "id": "runtime_agents",
+      "path": "fragments/runtime_agents.json"
+    },
+    {
+      "id": "runtime_hermes_run",
+      "path": "fragments/runtime_hermes_run.json"
+    },
+    {
       "id": "runtime_disk_management",
       "path": "fragments/runtime_disk_management.json"
     },

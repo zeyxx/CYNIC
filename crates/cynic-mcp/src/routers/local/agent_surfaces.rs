@@ -242,9 +242,22 @@ impl CynicMcpProxy {
         })?;
         let delivery_read_back = serde_json::from_str::<serde_json::Value>(&body)
             .unwrap_or_else(|_| serde_json::json!({"raw": body}));
+        let (status, execution_status) = if response_status.is_success() {
+            ("delivered", "waiting_for_target_node_acceptance")
+        } else if response_status == reqwest::StatusCode::METHOD_NOT_ALLOWED {
+            (
+                "blocked_kernel_method_not_allowed",
+                "blocked_kernel_workload_delivery_method_unavailable",
+            )
+        } else {
+            (
+                "blocked_delivery_unavailable",
+                "blocked_kernel_workload_delivery_unavailable",
+            )
+        };
         let result = serde_json::json!({
             "schema": "cynic.mcp.validate_dispatch.v2",
-            "status": if response_status.is_success() { "delivered" } else { "blocked_delivery_unavailable" },
+            "status": status,
             "mutates": response_status.is_success(),
             "dispatch_requested": dispatch_requested,
             "request": request,
@@ -253,7 +266,7 @@ impl CynicMcpProxy {
             "delivery_read_back": delivery_read_back,
             "kernel_http_status": response_status.as_u16(),
             "constitutional_execution": constitutional_execution,
-            "execution_status": "waiting_for_target_node_acceptance"
+            "execution_status": execution_status
         });
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),

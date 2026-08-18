@@ -23,3 +23,4 @@ pub mod slot_semaphore;
 pub mod slot_tracker;
 pub mod summarization;
 pub mod supervision;
+pub mod domain_task_queue;

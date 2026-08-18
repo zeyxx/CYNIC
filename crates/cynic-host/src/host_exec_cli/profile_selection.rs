@@ -14,10 +14,7 @@ pub(crate) fn selected_profile(args: &[String]) -> Result<HostProfile, String> {
         return resolve_host_profile(&node_name, registry_path.as_deref());
     }
     let registry_path = flag_value(args, "--registry");
-    match resolve_current_host_profile(registry_path.as_deref()) {
-        Ok(profile) => Ok(profile),
-        Err(_) => Ok(HostProfile::NetworkNode),
-    }
+    resolve_current_host_profile(registry_path.as_deref())
 }
 
 pub(crate) fn selected_resolution(args: &[String]) -> Option<HostProfileResolution> {

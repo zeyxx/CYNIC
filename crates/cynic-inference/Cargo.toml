@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 async-trait = "0.1"
+axum = "0.8"
 process-wrap = "9.1"
 cynic-protocol = { path = "../cynic-protocol" }
 futures-util = "0.3"
@@ -16,10 +17,8 @@ thiserror = "2.0.18"
 tokio = { version = "1", features = ["process", "rt", "macros", "sync", "time"] }
 toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
 tracing = "0.1"
-
 [dev-dependencies]
 tempfile = "3"
-axum = "0.8"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [lints]
