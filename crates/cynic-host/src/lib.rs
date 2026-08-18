@@ -8,6 +8,7 @@ pub mod bounded_helper;
 pub mod bridge;
 pub mod build;
 pub mod build_evidence;
+pub mod build_proof_compressor;
 pub mod command_surface;
 pub mod conformance;
 pub mod domain;
