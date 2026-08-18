@@ -98,9 +98,7 @@ fn next_steps(
         next.push("cynic deps plan  # ordered fix actions".into());
     }
     next.push("cynic deps upgrade --yes  # apply scripted + external providers".into());
-    next.push(
-        "cynic inference-start <alias>  # or: cynic runtime inference-start <alias> --json".into(),
-    );
+    next.push("cynic models start <alias> --yes --json".into());
     if deps
         .iter()
         .any(|dep| dep.id == "ods" && dep.status == "missing")

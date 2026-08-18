@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::command_surface::{HostCommandSurface, argv_command, expectation, install_dir_command};
+use crate::domain::package_provenance::{
+    PackagePromotionObservation, PackagePromotionPolicy, PackageProvenancePolicy,
+    assess_package_promotion,
+};
 use crate::domain::shared::{
     BoundaryKind, HostSubstrateDomain, LifecycleDisposition, LifecycleProjection, LifecycleStatus,
     SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
@@ -18,6 +22,8 @@ pub struct PackagePolicy {
     pub policy_dir: String,
     pub source_projection_path: String,
     pub approved_sources: Vec<String>,
+    pub provenance: PackageProvenancePolicy,
+    pub promotion_policy: PackagePromotionPolicy,
     pub bootstrap_packages: Vec<String>,
 }
 
@@ -30,6 +36,8 @@ pub struct PackageStatusReport {
     pub next_boundary_reason: String,
     pub next_command: Option<String>,
     pub approved_sources_declared: bool,
+    pub provenance_selected: bool,
+    pub provenance_blocker: Option<String>,
     pub installed_packages: Vec<String>,
     pub missing_packages: Vec<String>,
     pub evidences: Vec<SubstrateEvidence>,
@@ -61,6 +69,20 @@ pub struct PackageApplyReport {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PackageObservedState {
     pub installed_packages: Vec<String>,
+    #[serde(default)]
+    pub promotion: PackagePromotionObservation,
+    #[serde(default)]
+    pub promotion_assessed_at_unix_s: u64,
+}
+
+impl Default for PackageObservedState {
+    fn default() -> Self {
+        Self {
+            installed_packages: Vec::new(),
+            promotion: PackagePromotionObservation::default(),
+            promotion_assessed_at_unix_s: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -140,7 +162,7 @@ impl PackagePolicy {
                 install_path: self.source_projection_path.clone(),
                 mode: MODE_0644.octal.to_string(),
             }],
-            commands: self.install_commands(context),
+            commands: self.gated_install_commands(context),
         }
     }
 
@@ -152,11 +174,6 @@ impl PackagePolicy {
         &self,
         context: &PackageCommandContext,
     ) -> PackageActivationPlan {
-        let first_source = self
-            .approved_sources
-            .first()
-            .cloned()
-            .unwrap_or_else(|| "<missing-approved-source>".to_string());
         PackageActivationPlan {
             status: SurfaceStatus::Planned,
             preflight: vec![
@@ -168,12 +185,9 @@ impl PackagePolicy {
                         context.os_release_path.clone(),
                     ],
                 ),
-                expectation(
-                    "selected_source",
-                    format!("approved package source selected: {first_source}"),
-                ),
+                expectation("selected_provenance", self.provenance.description()),
             ],
-            install_commands: self.install_commands(context),
+            install_commands: self.gated_install_commands(context),
             postflight: self
                 .bootstrap_packages
                 .iter()
@@ -199,7 +213,7 @@ impl PackagePolicy {
         PackageApplyReport {
             status: SurfaceStatus::Planned,
             dry_run,
-            commands: self.install_commands(context),
+            commands: self.gated_install_commands(context),
             proofs_required: self
                 .bootstrap_packages
                 .iter()
@@ -216,26 +230,42 @@ impl PackagePolicy {
             .cloned()
             .collect::<Vec<_>>();
         let approved_sources_declared = !self.approved_sources.is_empty();
-        let status = if approved_sources_declared && missing_packages.is_empty() {
+        let provenance_blocker = self.distribution_authority_blocker();
+        let promotion = self.requires_distribution_authority().then(|| {
+            assess_package_promotion(
+                &self.promotion_policy,
+                &observed.promotion,
+                observed.promotion_assessed_at_unix_s,
+            )
+        });
+        let promotion_blocked = promotion
+            .as_ref()
+            .is_some_and(|assessment| !assessment.eligible);
+        let status = if provenance_blocker.is_none()
+            && approved_sources_declared
+            && missing_packages.is_empty()
+            && !promotion_blocked
+        {
             SurfaceStatus::Active
         } else if approved_sources_declared {
             SurfaceStatus::Blocked
         } else {
             SurfaceStatus::Degraded
         };
-        let lifecycle_status = if !approved_sources_declared {
-            LifecycleStatus::Missing
-        } else if !missing_packages.is_empty() {
-            LifecycleStatus::PrincipalMismatch
-        } else {
-            LifecycleStatus::Ready
-        };
+        let lifecycle_status =
+            if !approved_sources_declared || provenance_blocker.is_some() || promotion_blocked {
+                LifecycleStatus::Missing
+            } else if !missing_packages.is_empty() {
+                LifecycleStatus::PrincipalMismatch
+            } else {
+                LifecycleStatus::Ready
+            };
         let projection = match lifecycle_status {
             LifecycleStatus::Ready => LifecycleProjection::ready_observe(
                 "approved package sources are declared and bootstrap packages are present",
             ),
             LifecycleStatus::Missing => LifecycleProjection::missing_adopt(
-                "approved package source projection is not yet declared",
+                "package distribution authority, provenance observation, or promotion approval is incomplete",
                 Some("cynic host bootstrap packages --json".to_string()),
             ),
             LifecycleStatus::PrincipalMismatch => LifecycleProjection::principal_mismatch_adopt(
@@ -256,6 +286,9 @@ impl PackagePolicy {
             next_boundary_reason: projection.next_boundary_reason,
             next_command: projection.next_command,
             approved_sources_declared,
+            provenance_selected: !self.requires_distribution_authority()
+                || self.provenance.is_selected(),
+            provenance_blocker: provenance_blocker.clone(),
             installed_packages: observed.installed_packages.clone(),
             missing_packages,
             evidences: vec![
@@ -267,6 +300,38 @@ impl PackagePolicy {
                         SurfaceStatus::Blocked
                     },
                     detail: self.approved_sources.join(","),
+                },
+                SubstrateEvidence {
+                    id: "package_promotion_observation".to_string(),
+                    status: match promotion.as_ref() {
+                        Some(assessment) if assessment.eligible => SurfaceStatus::Active,
+                        Some(_) => SurfaceStatus::Blocked,
+                        None => SurfaceStatus::Planned,
+                    },
+                    detail: promotion
+                        .as_ref()
+                        .map(|assessment| assessment.blockers.join(","))
+                        .unwrap_or_else(|| "not_required".to_string()),
+                },
+                SubstrateEvidence {
+                    id: "package_provenance_policy".to_string(),
+                    status: if provenance_blocker.is_some() {
+                        SurfaceStatus::Blocked
+                    } else {
+                        SurfaceStatus::Planned
+                    },
+                    detail: self.provenance.description(),
+                },
+                SubstrateEvidence {
+                    id: "package_promotion_policy".to_string(),
+                    status: SurfaceStatus::Planned,
+                    detail: format!(
+                        "max_metadata_age_secs={} min_candidate_age_secs={} normal_human_approvals={} emergency_human_approvals={}",
+                        self.promotion_policy.max_metadata_age_secs,
+                        self.promotion_policy.min_candidate_age_secs,
+                        self.promotion_policy.normal_human_approvals,
+                        self.promotion_policy.emergency_human_approvals,
+                    ),
                 },
                 SubstrateEvidence {
                     id: "bootstrap_packages_expected".to_string(),
@@ -292,6 +357,9 @@ impl PackagePolicy {
                 ),
             ),
         ];
+        if self.bootstrap_packages.is_empty() {
+            return commands;
+        }
         let install_argv = package_install_argv(self.manager, &self.bootstrap_packages, context);
         if install_argv.is_empty() {
             commands.push(expectation(
@@ -307,8 +375,15 @@ impl PackagePolicy {
         commands
     }
 
+    fn gated_install_commands(&self, context: &PackageCommandContext) -> Vec<HostCommandSurface> {
+        match self.distribution_authority_blocker() {
+            Some(blocker) => vec![expectation("package_provenance_blocked", blocker)],
+            None => self.install_commands(context),
+        }
+    }
+
     pub fn apply_operations(&self) -> Vec<HostOperation> {
-        vec![
+        let mut operations = vec![
             HostOperation::EnsureDir {
                 path: self.policy_dir.clone(),
                 mode: MODE_0755.unix,
@@ -317,11 +392,24 @@ impl PackagePolicy {
                 path: self.source_projection_path.clone(),
                 approved_sources: self.approved_sources.clone(),
             },
-            HostOperation::InstallBootstrapPackages {
+        ];
+        if self.distribution_authority_blocker().is_none() {
+            operations.push(HostOperation::InstallBootstrapPackages {
                 approved_sources: self.approved_sources.clone(),
                 packages: self.bootstrap_packages.clone(),
-            },
-        ]
+            });
+        }
+        operations
+    }
+
+    fn requires_distribution_authority(&self) -> bool {
+        !self.bootstrap_packages.is_empty()
+    }
+
+    fn distribution_authority_blocker(&self) -> Option<String> {
+        self.requires_distribution_authority()
+            .then(|| self.provenance.blocker())
+            .flatten()
     }
 }
 
@@ -349,6 +437,19 @@ fn package_query_argv(
                 package.to_string(),
             ]
         }
+        PackageManagerKind::Winget => vec![
+            context.package_query_bin.clone(),
+            "list".to_string(),
+            "--exact".to_string(),
+            "--id".to_string(),
+            package.to_string(),
+        ],
+        PackageManagerKind::Choco => vec![
+            context.package_query_bin.clone(),
+            "list".to_string(),
+            "--exact".to_string(),
+            package.to_string(),
+        ],
         PackageManagerKind::Unknown => vec![context.which_bin.clone(), package.to_string()],
     }
 }
@@ -386,6 +487,27 @@ fn package_install_argv(
             argv.extend(packages.iter().cloned());
             argv
         }
+        PackageManagerKind::Winget => {
+            let mut argv = vec![
+                context.package_install_bin.clone(),
+                "install".to_string(),
+                "--exact".to_string(),
+                "--accept-source-agreements".to_string(),
+                "--accept-package-agreements".to_string(),
+                "--id".to_string(),
+            ];
+            argv.extend(packages.iter().cloned());
+            argv
+        }
+        PackageManagerKind::Choco => {
+            let mut argv = vec![
+                context.package_install_bin.clone(),
+                "install".to_string(),
+                "-y".to_string(),
+            ];
+            argv.extend(packages.iter().cloned());
+            argv
+        }
         PackageManagerKind::Rpm | PackageManagerKind::Unknown => Vec::new(),
     }
 }
@@ -394,6 +516,7 @@ fn package_install_argv(
 mod tests {
     use super::{PackageCommandContext, PackagePolicy};
     use crate::command_surface::render_command;
+    use crate::domain::package_provenance::{PackagePromotionPolicy, PackageProvenancePolicy};
     use crate::runtime_layout::PackageManagerKind;
 
     fn context() -> PackageCommandContext {
@@ -414,6 +537,12 @@ mod tests {
             policy_dir: "/etc/cynic".to_string(),
             source_projection_path: "/etc/cynic/package-sources.json".to_string(),
             approved_sources: vec!["distribution_package".to_string()],
+            provenance: PackageProvenancePolicy::Repository {
+                source_id: "distribution_package".to_string(),
+                trusted_key_fingerprint: "0123456789abcdef".to_string(),
+                max_metadata_age_secs: 86_400,
+            },
+            promotion_policy: PackagePromotionPolicy::critical_infrastructure(),
             bootstrap_packages: vec!["coredns".to_string(), "wireguard-tools".to_string()],
         }
     }
@@ -466,5 +595,31 @@ mod tests {
             .join("\n");
 
         assert!(rendered.contains("/portable/bin/dnf install -y coredns wireguard-tools"));
+    }
+
+    #[test]
+    fn unresolved_provenance_never_plans_a_package_mutation() {
+        let mut package_policy = policy(PackageManagerKind::Apt);
+        package_policy.provenance = PackageProvenancePolicy::unresolved_distribution_authority();
+
+        let plan = package_policy.activation_plan_with_context(&context());
+        let rendered = plan
+            .install_commands
+            .iter()
+            .map(render_command)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("package_provenance_blocked"));
+        assert!(!rendered.contains("apt-get install"));
+        assert!(
+            !package_policy
+                .apply_operations()
+                .iter()
+                .any(|operation| matches!(
+                    operation,
+                    crate::ports::HostOperation::InstallBootstrapPackages { .. }
+                ))
+        );
     }
 }

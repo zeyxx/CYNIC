@@ -3,6 +3,7 @@ use std::process::ExitCode;
 mod args;
 mod bootstrap;
 mod bridge_commands;
+mod build_runner_bootstrap;
 mod hardware_baseline;
 mod io;
 mod network_actuate;
@@ -47,6 +48,7 @@ pub fn execute(args: Vec<String>) -> Result<ExitCode, String> {
         "bootstrap-plan" => bootstrap::execute_bootstrap_plan(&args[1..]),
         "bootstrap-chain" => bootstrap::execute_bootstrap_chain(&args[1..]),
         "bootstrap-evidence" => bootstrap::execute_bootstrap_evidence(&args[1..]),
+        "build-runner-bootstrap" => build_runner_bootstrap::execute(&args[1..]),
         "principal-prepare" => bootstrap::execute_principal_prepare(&args[1..]),
         "runtime-seed-plan" => runtime_seed::execute_plan(&args[1..]),
         "runtime-seed-reconcile" => runtime_seed::execute_reconcile(&args[1..]),

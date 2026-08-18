@@ -30,9 +30,9 @@ pub use report::{
     BENCHMARK_MATRIX_SCHEMA, BenchmarkReport, BenchmarkSummary, aggregate_reports, encode_report,
 };
 pub use runner::{run_scenario, run_scenario_with_coordination};
-pub use types::canonicalize_hermes_runtime_id;
 pub use types::{
     AgentHarnessReport, BENCHMARK_SCHEMA, CycleEnvelope, HarnessSample, MemorySample,
     ModelParameters, ModelSpec, RuntimeKind, RuntimeLayer, RuntimePlanSummary, ScenarioSpec,
     TaskKind, TaskSpec, Thresholds,
 };
+pub use types::{canonicalize_dog_runtime_id, canonicalize_hermes_runtime_id};

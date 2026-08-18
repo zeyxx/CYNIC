@@ -1,10 +1,9 @@
 use std::path::Path;
 
-use cynic_protocol::build::{
-    BuildIsolationPort, BuildJobSpec, BuildNodeCapability, BuildResult, BuildStatus, IsolationKind,
+use cynic_protocol::{
+    BuildInputAdmission, BuildRunnerAdmission, BuildRunnerEnvelope, EvidenceEnvelope,
 };
-use cynic_protocol::{BuildInputAdmission, BuildRunnerAdmission, BuildRunnerEnvelope};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::update_lifecycle::ArgvRunner;
@@ -21,6 +20,8 @@ pub struct BuildRequest {
     pub artifact_path: String,
     pub apply: bool,
 }
+
+pub const CANONICAL_GATE_READ_BACK_SCHEMA: &str = "cynic.build.canonical_gate_read_back.v1";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct BuildCommandProof {
@@ -46,6 +47,86 @@ pub struct BuildProof {
     pub commands: Vec<BuildCommandProof>,
     pub evidence_refs: Vec<String>,
     pub blockers: Vec<String>,
+}
+
+/// The narrow build fact consumed by runtime conformance.  It can originate
+/// from an in-process build proof or from content-addressed scheduler evidence;
+/// conformance never treats an arbitrary operator-supplied JSON file as proof.
+#[derive(Debug, Clone, Serialize)]
+pub struct BuildConformanceEvidence {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub source_commit: String,
+    pub evidence_refs: Vec<String>,
+    pub blockers: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CanonicalGateReadBack {
+    schema: String,
+    source_commit: String,
+    argv: Vec<String>,
+    exit_code: Option<i32>,
+}
+
+impl BuildConformanceEvidence {
+    pub fn from_build_proof(proof: &BuildProof) -> Self {
+        Self {
+            schema: "cynic.host.build_conformance_evidence.v1",
+            status: match proof.status {
+                "proved" => "proved",
+                "failed" => "failed",
+                _ => "unknown",
+            },
+            source_commit: proof.source_commit.clone(),
+            evidence_refs: proof.evidence_refs.clone(),
+            blockers: proof.blockers.clone(),
+        }
+    }
+
+    pub fn from_content_addressed_envelope(
+        requested_digest: &str,
+        envelope: &EvidenceEnvelope,
+    ) -> Result<Self, String> {
+        if envelope.digest != requested_digest {
+            return Err("build_evidence_digest_mismatch".to_string());
+        }
+        if !envelope.subject.starts_with("build-workload:")
+            || !envelope.producer.starts_with("cynic-node/build-scheduler:")
+        {
+            return Err("build_evidence_provenance_rejected".to_string());
+        }
+        let read_back: CanonicalGateReadBack = serde_json::from_value(envelope.payload.clone())
+            .map_err(|_| "build_evidence_payload_invalid".to_string())?;
+        if read_back.schema != CANONICAL_GATE_READ_BACK_SCHEMA
+            || read_back.source_commit.trim().is_empty()
+            || read_back.argv.is_empty()
+            || read_back
+                .argv
+                .iter()
+                .any(|argument| argument.trim().is_empty())
+        {
+            return Err("build_evidence_contract_rejected".to_string());
+        }
+        let (status, blockers) = if read_back.exit_code == Some(0) {
+            ("proved", Vec::new())
+        } else {
+            (
+                "failed",
+                vec![format!(
+                    "canonical_gate_exit_code:{:?}",
+                    read_back.exit_code
+                )],
+            )
+        };
+        Ok(Self {
+            schema: "cynic.host.build_conformance_evidence.v1",
+            status,
+            source_commit: read_back.source_commit,
+            evidence_refs: vec![requested_digest.to_string()],
+            blockers,
+        })
+    }
 }
 
 pub fn run_build(request: &BuildRequest, runner: &impl ArgvRunner) -> BuildProof {
@@ -185,119 +266,62 @@ pub fn run_build(request: &BuildRequest, runner: &impl ArgvRunner) -> BuildProof
         artifact_digest,
         commands: vec![command],
         evidence_refs,
-        blockers: vec![],
-    }
-}
-
-/// Node-local `BuildIsolationPort` adapter.
-///
-/// Implements the bounded build-execution boundary (AGENTS.md: bounded action)
-/// by wrapping `run_build` under a **rootless mount namespace** so host
-/// filesystem state is isolated from a build that may ICE (toolchain
-/// segfault). This is the missing local adapter for `BuildIsolationPort` —
-/// the protocol-layer trait ships without a substrate, so `make check`
-/// previously rebuilt the *host* graph and hit the determinate rustc
-/// SIGSEGV on `tower-http`/`syn`/`toml_edit`.
-///
-/// Honest limits: `unshare -rm` requires a user namespace + writable worktree
-/// scratch. On kernels without `kernel.unprivileged_userns_clone` it degrades
-/// to a logged `Unknown` read-back rather than silently falling back to a
-/// process that can corrupt the host graph (AGENTS.md §3 / §4).
-#[derive(Debug, Clone, Copy)]
-pub struct LocalBuildRunner;
-
-impl LocalBuildRunner {
-    /// Read-only observation: the local node advertises its toolchain + memory.
-    fn observe_local_capability(&self, node_id: &str) -> BuildNodeCapability {
-        BuildNodeCapability {
-            node_id: node_id.to_string(),
-            supported_toolchains: std::env::var("CYNIC_TOOLCHAIN")
-                .map(|t| vec![t])
-                .unwrap_or_else(|_| vec!["1.96.0".to_string()]),
-            isolation_boundaries: vec![IsolationKind::Local, IsolationKind::Container],
-            max_memory_bytes: 16 * 1024 * 1024 * 1024,
-            max_wall_time_secs: 1800,
-        }
-    }
-}
-
-impl BuildIsolationPort for LocalBuildRunner {
-    fn discover_capabilities(
-        &self,
-        node_id: &str,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = BuildNodeCapability> + Send + '_>> {
-        let node_id = node_id.to_string();
-        Box::pin(async move {
-            let runner = LocalBuildRunner;
-            runner.observe_local_capability(&node_id)
-        })
-    }
-
-    fn run_build(
-        &self,
-        spec: &BuildJobSpec,
-        _node: &BuildNodeCapability,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = BuildResult> + Send + '_>> {
-        // Bounded action: isolation namespace + injected argv runner.
-        // `LocalArgvRunner` is the production adapter (no shell composition).
-        // Honest read-back: if the build ICEs (rustc segfault, exit 101), the
-        // runner exits non-zero and we report `Ice` (AGENTS.md §5 / §7).
-        let argv: Vec<String> = spec.requested_action.split_whitespace().map(String::from).collect();
-        Box::pin(async move {
-            let runner = crate::update_lifecycle::LocalArgvRunner;
-            let argv_exec: Vec<&str> = argv.iter().map(String::as_str).collect();
-            let output = if cfg!(target_os = "linux") {
-                runner.run(&{
-                    let mut v: Vec<&str> = vec!["unshare", "--mount", "--propagation", "private"];
-                    v.extend(&argv_exec);
-                    v
-                })
-            } else {
-                runner.run(&argv_exec)
-            };
-            let status = if output.success() {
-                BuildStatus::Success
-            } else if output.exit_code == Some(101) {
-                BuildStatus::Ice
-            } else {
-                BuildStatus::Unknown
-            };
-            BuildResult {
-                status,
-                exit_code: output.exit_code.unwrap_or(-1),
-                evidence_refs: vec![],
-            }
-        })
+        blockers,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::update_lifecycle::ArgvRunner;
+    use cynic_protocol::build_evidence_envelope;
 
-    /// Fake argv runner returning a fixed success — no real `cargo` invocation.
-    #[derive(Debug, Default)]
-    struct FakeRunner {
-        success: bool,
-        exit_code: Option<i32>,
-    }
-    impl ArgvRunner for FakeRunner {
-        fn run(&self, _: &[&str]) -> crate::update_lifecycle::ArgvOutput {
-            crate::update_lifecycle::ArgvOutput {
-                exit_code: self.exit_code,
-                stdout: String::new(),
-                stderr: String::new(),
-                spawn_error: if self.success { None } else { Some("simulated ICE".into()) },
-            }
-        }
+    use super::*;
+
+    #[test]
+    fn conformance_accepts_only_a_successful_canonical_gate_envelope() {
+        let envelope = build_evidence_envelope(
+            "build-workload:workload-1:canonical_gate_report",
+            "cynic-node/build-scheduler:node-1",
+            1,
+            vec!["source:snapshot".to_string()],
+            &serde_json::json!({
+                "schema": CANONICAL_GATE_READ_BACK_SCHEMA,
+                "source_commit": "abc123",
+                "argv": ["make", "check"],
+                "exit_code": 0,
+                "stdout": "ok",
+                "stderr": ""
+            }),
+        )
+        .expect("envelope");
+
+        let proof =
+            BuildConformanceEvidence::from_content_addressed_envelope(&envelope.digest, &envelope)
+                .expect("valid canonical gate evidence");
+
+        assert_eq!(proof.status, "proved");
+        assert_eq!(proof.evidence_refs, vec![envelope.digest]);
     }
 
     #[test]
-    fn build_isolation_port_local_advertises_local_and_container_boundaries() {
-        let runner = LocalBuildRunner;
-        let cap = runner.observe_local_capability("node-01");
-        assert_eq!(cap.node_id, "node-01");
-        assert!(cap.isolation_boundaries.contains(&IsolationKind::Local));
+    fn conformance_rejects_a_non_scheduler_envelope() {
+        let envelope = build_evidence_envelope(
+            "build-workload:workload-1:canonical_gate_report",
+            "operator-json-file",
+            1,
+            vec![],
+            &serde_json::json!({
+                "schema": CANONICAL_GATE_READ_BACK_SCHEMA,
+                "source_commit": "abc123",
+                "argv": ["make", "check"],
+                "exit_code": 0,
+            }),
+        )
+        .expect("envelope");
+
+        assert_eq!(
+            BuildConformanceEvidence::from_content_addressed_envelope(&envelope.digest, &envelope,)
+                .expect_err("untrusted producer must not become conformance proof"),
+            "build_evidence_provenance_rejected"
+        );
     }
 }

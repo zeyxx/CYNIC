@@ -73,6 +73,13 @@ pub(crate) enum BootstrapHostCommand {
         #[arg(long)]
         apply: bool,
     },
+    /// Observe OS substrate health (soft lockup policy, THP defrag, memory
+    /// pressure) — the layer CYNIC was blind to during the 2026-08-18 crash.
+    OsHealth {
+        /// Machine-readable JSON (default is human text).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 pub(crate) fn execute_bootstrap_host(command: BootstrapHostCommand) -> ExitCode {
@@ -287,6 +294,9 @@ pub(crate) fn execute_bootstrap_host(command: BootstrapHostCommand) -> ExitCode 
             let report = combine_host_bootstrap_apply(substrate, hardware);
             let should_fail = !dry_run && report.status != "completed";
             emit_json(&report, should_fail)
+        }
+        BootstrapHostCommand::OsHealth { json } => {
+            crate::bootstrap_surface::host_os_health_surface::run_os_health(json)
         }
     }
 }

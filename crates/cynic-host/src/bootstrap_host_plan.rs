@@ -59,6 +59,7 @@ pub fn combine_host_bootstrap_apply(
         authority_boundaries: vec![
             "substrate activation is admitted as HumanOperator",
             "hardware enrollment crosses the bounded helper as HumanAdmin",
+            "agent runtime adoption requires AutonomousCandidate proof and explicit operator consent",
         ],
     }
 }
@@ -98,6 +99,7 @@ pub fn build_host_bootstrap_composite_plan(
             "substrate activation requires its own HumanOperator authorization",
             "hardware baseline enrollment requires a separate HumanAdmin authorization",
             "hardware drift is never repaired by initial enrollment",
+            "agent runtime adoption requires AutonomousCandidate proof and explicit operator consent",
         ],
     }
 }

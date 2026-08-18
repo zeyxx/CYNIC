@@ -36,7 +36,8 @@ pub struct HostRuntimeContext {
 }
 
 pub fn observe_current_host_runtime_context() -> HostRuntimeContext {
-    let profile = resolve_current_host_profile(None).unwrap_or(HostProfile::NetworkNode);
+    // A missing registry identity is not authority to activate mesh DNS/WireGuard.
+    let profile = resolve_current_host_profile(None).unwrap_or(HostProfile::ManagementNode);
     let resolution = resolve_current_host_profile_resolution(None).ok();
     observe_host_runtime_context(profile, resolution)
 }
@@ -131,6 +132,7 @@ mod tests {
         ) -> PackageObservedState {
             PackageObservedState {
                 installed_packages: policy.bootstrap_packages.clone(),
+                ..Default::default()
             }
         }
     }

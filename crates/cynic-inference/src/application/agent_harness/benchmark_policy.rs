@@ -3,8 +3,8 @@
 //! Loads `infra/benchmark-kv-sweep-policy.json` and produces canonical
 //! `BenchmarkPlan` instances directly in Rust without external scripts.
 
-use std::path::Path;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 use super::plan::BenchmarkPlan;
 use super::types::{ModelParameters, ModelSpec, ScenarioSpec, TaskKind, TaskSpec, Thresholds};
@@ -123,7 +123,11 @@ pub fn generate_plan_from_policy(
         for &ctx in &contexts {
             for kv_type in kv_types {
                 for &think_enabled in &thinking_modes {
-                    let think_tag = if think_enabled { "think-on" } else { "think-off" };
+                    let think_tag = if think_enabled {
+                        "think-on"
+                    } else {
+                        "think-off"
+                    };
                     let reasoning_budget = if think_enabled { Some(1024) } else { Some(0) };
 
                     let scenario_id = format!(

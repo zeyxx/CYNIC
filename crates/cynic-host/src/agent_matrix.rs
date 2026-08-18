@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const AGENT_MATRIX_SCHEMA: &str = "cynic.agent_matrix.v1";
-pub const AGENT_MATRIX_GENERATED_AT: &str = "2026-07-22";
+pub const AGENT_MATRIX_GENERATED_AT: &str = "2026-08-11";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -192,6 +192,13 @@ pub fn build_agent_matrix_report() -> AgentMatrixReport {
                 "report is canonicalized but remains an index rather than a corrective engine",
             ),
             entry(
+                "build_runner",
+                AgentReadiness::FormalizeNowActivateLater,
+                vec![AgentKind::Executor, AgentKind::Prover],
+                AgentActivationState::Declared,
+                "each build must carry a scheduler-issued workload id, admitted authority material, a lease, and an isolated node-state target; execution remains inactive until scheduler recovery proof is complete",
+            ),
+            entry(
                 "update_lifecycle",
                 AgentReadiness::NotYetAgentifiable,
                 Vec::new(),
@@ -283,5 +290,25 @@ mod tests {
         );
         assert_eq!(recursion.activation_state, AgentActivationState::Declared);
         assert!(!recursion.can_activate_now());
+    }
+
+    #[test]
+    fn build_runner_is_declared_but_requires_scheduler_proof() {
+        let report = build_agent_matrix_report();
+        let build_runner = report
+            .surfaces
+            .iter()
+            .find(|entry| entry.surface == "build_runner")
+            .expect("build runner entry");
+
+        assert_eq!(
+            build_runner.readiness,
+            AgentReadiness::FormalizeNowActivateLater
+        );
+        assert_eq!(
+            build_runner.activation_state,
+            AgentActivationState::Declared
+        );
+        assert!(!build_runner.can_activate_now());
     }
 }

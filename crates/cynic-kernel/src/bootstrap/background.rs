@@ -168,18 +168,13 @@ pub fn spawn_runtime_background_tasks(inputs: RuntimeBackgroundTaskInputs) {
 
         // DORMANT: Mail consumer — will activate when backends::mail exists.
 
-        // ─── Pattern analyzer (K15: self-healing via pattern detection, every 30s) ────
-        // R23-exempt: env var references (CYNIC_REST_ADDR, CYNIC_API_KEY), not hardcoded secrets
-        let kernel_addr =
-            std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".into());
-        let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+        // ─── Pattern analyzer (K15: in-process autonomic self-healing on Anomaly events) ────
         infra::tasks::spawn_pattern_analyzer(
-            kernel_addr,
-            api_key,
+            event_tx.clone(),
+            Arc::clone(&storage_port),
             Arc::clone(&task_health),
             shutdown.clone(),
         );
-
         // ─── Event consumer + K15 alerting (ContractDelta → Slack) ────
         let slack = SlackAlerter::from_env();
         if slack.is_some() {

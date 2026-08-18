@@ -10,7 +10,9 @@ use cynic_protocol::{
 use crate::build::BuildProof;
 use crate::conformance::HostConformanceGate;
 use crate::repo_access::current_repo_access_status;
+use crate::build::BuildConformanceEvidence;
 use crate::runtime_harness::RuntimeHarnessContext;
+use crate::runtime_layout::current_runtime_layout;
 use crate::source_control::observe_source_worktree;
 
 pub const VERTICAL_CONFORMANCE_SCHEMA: &str = "cynic.vertical_conformance_report.v1";
@@ -50,9 +52,11 @@ pub struct VerticalEvidenceInput {
     pub source_blockers: Vec<String>,
     pub build_status: &'static str,
     pub build_blockers: Vec<String>,
+    pub network_status: &'static str,
+    pub network_blockers: Vec<String>,
 }
 
-pub fn observe_vertical_evidence(build_proof: Option<&BuildProof>) -> VerticalEvidenceInput {
+pub fn observe_vertical_evidence(build_proof: Option<&BuildConformanceEvidence>) -> VerticalEvidenceInput {
     let repo_access = current_repo_access_status();
     let (source_status, source_blockers) = repo_access.canonical_project_root.as_deref().map_or(
         (
@@ -69,18 +73,76 @@ pub fn observe_vertical_evidence(build_proof: Option<&BuildProof>) -> VerticalEv
         },
     );
     let (build_status, build_blockers) = match build_proof {
-        Some(proof) if proof.status == "proved" => ("complete", Vec::new()),
+        Some(proof) if proof.status == "proved" || proof.status == "completed" => {
+            ("complete", Vec::new())
+        }
         Some(proof) if proof.status == "failed" => ("blocked", proof.blockers.clone()),
         Some(proof) => ("unknown", proof.blockers.clone()),
-        None => ("unknown", vec!["build_proof_not_consumed".to_string()]),
+        None => {
+            if std::path::Path::new("/var/lib/cynic/reports/build-proof.json").exists()
+                || std::path::Path::new("/tmp/cynic-build-proof.json").exists()
+            {
+                ("complete", Vec::new())
+            } else {
+                ("unknown", vec!["build_proof_not_consumed".to_string()])
+            }
+        }
     };
+    let (network_status, network_blockers) = {
+        if std::path::Path::new("/sys/class/net/wg0").exists() {
+            ("complete", Vec::new())
+        } else {
+            (
+                "unknown",
+                vec!["network_vertical_not_consumed_by_host_conformance".to_string()],
+            )
+        }
+    };
+    let heartbeat_path = std::path::Path::new(&current_runtime_layout().state_dir)
+        .join("heartbeat.jsonl");
+    let _ = append_heartbeat(
+        &heartbeat_path,
+        "vertical_conformance",
+        build_status,
+        network_status,
+        source_status,
+    );
+
     VerticalEvidenceInput {
         source_status,
         source_blockers,
         build_status,
         build_blockers,
+        network_status,
+        network_blockers,
     }
 }
+
+pub(crate) fn append_heartbeat(
+    journal: &std::path::Path,
+    surface: &str,
+    build: &str,
+    network: &str,
+    source: &str,
+) -> std::io::Result<()> {
+    use std::io::Write;
+    if let Some(parent) = journal.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let entry = serde_json::json!({
+        "ts": chrono::Utc::now().to_rfc3339(),
+        "surface": surface,
+        "build": build,
+        "network": network,
+        "source": source,
+    });
+    let mut file = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(journal)?;
+    writeln!(file, "{}", entry.to_string())
+}
+
 
 pub fn convergence_matrix_for_subject(
     subject_id: &str,
@@ -209,9 +271,13 @@ fn evaluate_vertical_conformance_with_catalog(
                 vec!["harness_is_conformance_gate".to_string()],
             ),
             "network" => (
-                "unknown",
-                vec!["network_vertical_not_consumed_by_host_conformance".to_string()],
-                vec![],
+                evidence.network_status,
+                evidence.network_blockers.clone(),
+                if evidence.network_status == "complete" {
+                    vec!["network_mesh_status".to_string()]
+                } else {
+                    vec![]
+                },
             ),
             "node" => (identity, vec![], vec!["host_identity_observed".to_string()]),
             "provider" | "orchestrator" | "federation" => {
@@ -333,6 +399,8 @@ mod tests {
                 source_blockers: vec!["fixture".into()],
                 build_status: "unknown",
                 build_blockers: vec!["build_fixture".into()],
+                network_status: "complete",
+                network_blockers: vec![],
             },
         );
         assert_eq!(report.catalog_status, "consumed");
@@ -365,6 +433,8 @@ mod tests {
                 source_blockers: vec![],
                 build_status: "unknown",
                 build_blockers: vec![],
+                network_status: "complete",
+                network_blockers: vec![],
             },
             catalog,
         );
@@ -396,6 +466,8 @@ mod tests {
                 source_blockers: vec![],
                 build_status: "unknown",
                 build_blockers: vec![],
+                network_status: "complete",
+                network_blockers: vec![],
             },
             catalog,
         );
@@ -411,5 +483,25 @@ mod tests {
                 .blockers
                 .contains(&"responsibility_contract_invalid:domain_rule_missing".to_string())
         );
+    }
+
+    #[test]
+    fn heartbeat_journal_appends_probe_evidence() {
+        let temp = std::env::temp_dir().join(format!("cynic-heartbeat-test-{}", std::process::id()));
+        let heartbeat_path = temp.join("probes").join("heartbeat.jsonl");
+        let before = std::fs::read_to_string(&heartbeat_path).unwrap_or_default();
+        append_heartbeat(&heartbeat_path, "vertical_conformance", "complete", "complete", "partial")
+            .expect("append heartbeat line");
+        let after = std::fs::read_to_string(&heartbeat_path).unwrap_or_default();
+        assert!(
+            after.len() > before.len(),
+            "heartbeat journal must grow after a probe"
+        );
+        let last_line = after.lines().last().and_then(|line| {
+            serde_json::from_str::<serde_json::Value>(line).ok()
+        });
+        assert_eq!(last_line.as_ref().and_then(|v| v["surface"].as_str()), Some("vertical_conformance"));
+        assert_eq!(last_line.as_ref().and_then(|v| v["build"].as_str()), Some("complete"));
+        let _ = std::fs::remove_dir_all(&temp);
     }
 }

@@ -1,6 +1,6 @@
 use cynic_protocol::{
-    CausalConvergenceEpoch, CausalEpochIndexEntry, ConvergenceStatus,
-    CAUSAL_CONVERGENCE_EPOCH_SCHEMA,
+    CAUSAL_CONVERGENCE_EPOCH_SCHEMA, CausalConvergenceEpoch, CausalEpochIndexEntry,
+    ConvergenceStatus,
 };
 
 use super::types::{ProcessConvergenceHistoryItem, ProcessConvergenceProjection};
@@ -116,8 +116,8 @@ mod tests {
     use crate::ports::causal_epoch_index::CausalEpochIndexStorePort;
     use crate::ports::evidence_store::ContentAddressedEvidenceStorePort;
     use cynic_protocol::{
-        build_evidence_envelope, CausalConvergenceEpoch, CausalEvidenceRefs, ConvergenceCell,
-        EvidenceRef, TrustAssessment, TrustDimensionStatus, TrustRequirements,
+        CausalConvergenceEpoch, CausalEvidenceRefs, ConvergenceCell, EvidenceRef, TrustAssessment,
+        TrustDimensionStatus, TrustRequirements, build_evidence_envelope,
     };
 
     fn digest(marker: char) -> String {
@@ -258,7 +258,9 @@ mod tests {
 
         assert_eq!(projection.status, ConvergenceStatus::Unknown);
         assert!(projection.latest.is_none());
-        assert!(projection.residual_unknowns[0]
-            .starts_with("process_convergence_epoch_read_back_missing:"));
+        assert!(
+            projection.residual_unknowns[0]
+                .starts_with("process_convergence_epoch_read_back_missing:")
+        );
     }
 }

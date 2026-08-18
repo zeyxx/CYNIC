@@ -1,6 +1,35 @@
-use super::types::{LxcBridgeDecision, LxcBridgeRequest, REQUEST_SCHEMA};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use cynic_protocol::CynicErrorCode;
+
+use super::types::{LxcBridgeAuthority, LxcBridgeDecision, LxcBridgeRequest, REQUEST_SCHEMA};
 
 pub fn admit(request: &LxcBridgeRequest, pct_bin: &str) -> LxcBridgeDecision {
+    let now_unix_s = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(u64::MAX);
+    admit_at_with_incident_authority(request, pct_bin, now_unix_s, false)
+}
+
+pub fn admit_at(request: &LxcBridgeRequest, pct_bin: &str, now_unix_s: u64) -> LxcBridgeDecision {
+    admit_at_with_incident_authority(request, pct_bin, now_unix_s, false)
+}
+
+pub(crate) fn admit_after_incident_authority(
+    request: &LxcBridgeRequest,
+    pct_bin: &str,
+    now_unix_s: u64,
+) -> LxcBridgeDecision {
+    admit_at_with_incident_authority(request, pct_bin, now_unix_s, true)
+}
+
+fn admit_at_with_incident_authority(
+    request: &LxcBridgeRequest,
+    pct_bin: &str,
+    now_unix_s: u64,
+    incident_authority_verified: bool,
+) -> LxcBridgeDecision {
     let mut blockers = Vec::new();
     if request.schema != REQUEST_SCHEMA {
         blockers.push("request_schema_mismatch".to_string());
@@ -28,6 +57,40 @@ pub fn admit(request: &LxcBridgeRequest, pct_bin: &str) -> LxcBridgeDecision {
             false
         }
     };
+    if mutates && request.authority != LxcBridgeAuthority::RecoveryBreakglass {
+        blockers.push(
+            CynicErrorCode::LxcMutationAuthorityUnverified
+                .code()
+                .to_string(),
+        );
+    }
+    if request.authority == LxcBridgeAuthority::RecoveryBreakglass {
+        let Some(admission) = request.breakglass_admission.as_ref() else {
+            blockers.push(
+                CynicErrorCode::BreakglassAdmissionMissing
+                    .code()
+                    .to_string(),
+            );
+            return LxcBridgeDecision::Blocked { blockers };
+        };
+        let action = canonical_action(&request.argv).unwrap_or_default();
+        blockers.extend(
+            admission
+                .validate_for(&format!("lxc:{}", request.vmid), &action, now_unix_s)
+                .into_iter()
+                .map(|error| error.code().to_string()),
+        );
+        // The root helper currently has no incident-authority verifier and no
+        // durable, atomic receipt-consumption store. A caller-provided JSON
+        // admission is therefore not authority for a privileged action.
+        if !incident_authority_verified {
+            blockers.push(
+                CynicErrorCode::BreakglassAuthorityVerifierUnavailable
+                    .code()
+                    .to_string(),
+            );
+        }
+    }
     if mutates && !request.apply {
         blockers.push("mutation_requires_apply".to_string());
     }
@@ -46,6 +109,21 @@ pub fn admit(request: &LxcBridgeRequest, pct_bin: &str) -> LxcBridgeDecision {
         LxcBridgeDecision::Apply { pct_argv }
     } else {
         LxcBridgeDecision::Observe { pct_argv }
+    }
+}
+
+fn canonical_action(argv: &[String]) -> Option<String> {
+    match argv {
+        [program, operation, unit]
+            if program == "/usr/bin/systemctl"
+                && matches!(
+                    operation.as_str(),
+                    "start" | "stop" | "restart" | "enable" | "disable"
+                ) =>
+        {
+            Some(format!("systemctl:{operation}:{unit}"))
+        }
+        _ => None,
     }
 }
 
@@ -139,6 +217,7 @@ mod tests {
             purpose: "storage health".to_string(),
             agent_id: "agent-a".to_string(),
             authority: LxcBridgeAuthority::RuntimeOperator,
+            breakglass_admission: None,
             argv: argv.iter().map(|value| value.to_string()).collect(),
             timeout_seconds: 10,
             apply,
@@ -174,6 +253,47 @@ mod tests {
         assert!(matches!(
             admit(&request(&["/bin/sh", "-c", "id"], true), "/usr/sbin/pct"),
             LxcBridgeDecision::Blocked { .. }
+        ));
+        assert!(matches!(
+            admit(
+                &request(
+                    &["/usr/bin/systemctl", "restart", "surrealdb.service"],
+                    true
+                ),
+                "/usr/sbin/pct"
+            ),
+            LxcBridgeDecision::Blocked { .. }
+        ));
+    }
+
+    #[test]
+    fn breakglass_fails_closed_without_an_incident_authority_verifier() {
+        let mut request = request(
+            &["/usr/bin/systemctl", "restart", "cynic-node.service"],
+            true,
+        );
+        request.authority = LxcBridgeAuthority::RecoveryBreakglass;
+        assert!(matches!(
+            admit_at(&request, "/usr/sbin/pct", 1),
+            LxcBridgeDecision::Blocked { .. }
+        ));
+        request.breakglass_admission = Some(cynic_protocol::BreakglassAdmission {
+            schema: cynic_protocol::BREAKGLASS_ADMISSION_SCHEMA.to_string(),
+            status: "admitted".to_string(),
+            authority_class: "RecoveryBreakglass".to_string(),
+            receipt_id: "INC-1".to_string(),
+            target_scope: "lxc:103".to_string(),
+            expires_at_unix_s: 2,
+            allowed_actions: vec!["systemctl:restart:cynic-node.service".to_string()],
+            consumption_proof: None,
+            evidence_refs: vec!["incident:INC-1".to_string()],
+            authority_key_id: "sha256:test".to_string(),
+            signature_hex: "signature".to_string(),
+        });
+        assert!(matches!(
+            admit_at(&request, "/usr/sbin/pct", 1),
+            LxcBridgeDecision::Blocked { blockers }
+                if blockers.contains(&"CYNIC-BG-006".to_string())
         ));
     }
 }

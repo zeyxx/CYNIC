@@ -6,11 +6,32 @@ use cynic_host::runtime_network_preflight::RuntimeNetworkPreflightReport;
 use serde::Serialize;
 
 const SCHEMA: &str = "cynic.dev_check.v1";
-const DEFAULT_TARGET_ROOT: &str = "/tmp/cynic-dev-check-targets";
+const DEFAULT_STATE_ROOT: &str = "/var/lib/cynic";
 const OUTPUT_TAIL_LIMIT: usize = 12_000;
 const CARGO_FETCH_TARGETS: &[&str] = &["index.crates.io", "crates.io", "static.crates.io"];
 const CANONICAL_GATE: &str = "make check";
 const ARCHITECTURE_BOUNDARY_GATE: &str = "cargo test -q -p cynic-cli --test architecture_boundary";
+/// Layered sovereign gate: validate each CYNIC layer in isolation and in
+/// dependency order before promoting the next. `cynic-protocol` is validated
+/// first because every other crate depends on it; a desync in the offline
+/// cache surfaces here, not as a silent downstream build failure.
+const LAYERED_GATE: &str = "layered cargo check/test by crate (protocol→host→node→kernel→mcp→cli)";
+/// Canonical CYNIC crate order for isolated layer validation. Each layer is
+/// `cargo check -p <crate>` then `cargo test -p <crate>` with its own isolated
+/// target dir, fail-closed on the first failure (see `stop_on_first_failure`).
+const LAYER_ORDER: &[&str] = &[
+    "cynic-protocol",
+    "cynic-host",
+    "cynic-node",
+    "cynic-kernel",
+    "cynic-mcp",
+    "cynic-cli",
+];
+/// Offline cache integrity probe: resolve the workspace metadata with the same
+/// `--offline --locked` policy as the sovereign build, BEFORE any compile.
+/// A stale `.cargo-home` registry cache (source drifted from Cargo.lock) fails
+/// here with `offline_dependency_unavailable` instead of wasting a full build.
+const CACHE_INTEGRITY_STEP_ID: &str = "cache_integrity";
 
 #[derive(Debug, Serialize)]
 pub(crate) struct DevCheckReport {
@@ -33,6 +54,7 @@ pub(crate) struct DevCheckReport {
     pub(crate) cargo_check_ok: bool,
     pub(crate) surface_audit_ok: bool,
     pub(crate) architecture_only: bool,
+    pub(crate) layered: bool,
     pub(crate) architecture_boundary_ok: bool,
     pub(crate) architecture_boundary_fallback_ok: bool,
     pub(crate) steps: Vec<DevCheckStepReport>,
@@ -40,7 +62,7 @@ pub(crate) struct DevCheckReport {
 
 #[derive(Debug, Serialize)]
 pub(crate) struct DevCheckStepReport {
-    pub(crate) id: &'static str,
+    pub(crate) id: String,
     pub(crate) status: &'static str,
     pub(crate) command: Vec<String>,
     pub(crate) env: Vec<DevCheckEnv>,
@@ -68,7 +90,7 @@ pub(crate) struct CargoTargetPolicy {
 }
 
 struct DevCheckStep {
-    id: &'static str,
+    id: String,
     program: &'static str,
     args: Vec<&'static str>,
     target_dir: Option<PathBuf>,
@@ -77,6 +99,7 @@ struct DevCheckStep {
 enum DevCheckMode {
     Canonical,
     ArchitectureOnly,
+    Layered,
 }
 
 impl DevCheckMode {
@@ -84,6 +107,7 @@ impl DevCheckMode {
         match self {
             Self::Canonical => CANONICAL_GATE,
             Self::ArchitectureOnly => ARCHITECTURE_BOUNDARY_GATE,
+            Self::Layered => LAYERED_GATE,
         }
     }
 }
@@ -92,11 +116,17 @@ pub(crate) fn run_dev_check(
     source_root: Option<PathBuf>,
     target_root: Option<PathBuf>,
     architecture_only: bool,
+    layered: bool,
 ) -> Result<DevCheckReport, String> {
     let workspace_root = crate::rust_source::resolve_workspace_root(source_root.as_deref())?;
-    let target_root = target_root.unwrap_or_else(|| PathBuf::from(DEFAULT_TARGET_ROOT));
+    let target_root = match target_root {
+        Some(target_root) => target_root,
+        None => default_target_root()?,
+    };
     let mode = if architecture_only {
         DevCheckMode::ArchitectureOnly
+    } else if layered {
+        DevCheckMode::Layered
     } else {
         DevCheckMode::Canonical
     };
@@ -188,10 +218,38 @@ pub(crate) fn run_dev_check(
         cargo_check_ok,
         surface_audit_ok,
         architecture_only,
+        layered,
         architecture_boundary_ok,
         architecture_boundary_fallback_ok,
         steps,
     })
+}
+
+fn default_target_root() -> Result<PathBuf, String> {
+    let state_root = std::env::var_os("CYNIC_STATE_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(DEFAULT_STATE_ROOT));
+    let workload_id =
+        std::env::var_os("CYNIC_BUILD_WORKLOAD_ID").unwrap_or_else(|| "unmanaged".into());
+    let workload_path = Path::new(&workload_id);
+    if !is_single_path_component(workload_path) {
+        return Err("invalid_cynic_build_workload_id".to_string());
+    }
+    Ok(default_target_root_for(&state_root, workload_path))
+}
+
+fn default_target_root_for(state_root: &Path, workload_id: &Path) -> PathBuf {
+    state_root
+        .join("build-targets/bootstrap/agents")
+        .join(workload_id)
+        .join("dev-check")
+}
+
+fn is_single_path_component(path: &Path) -> bool {
+    matches!(
+        path.components().next(),
+        Some(std::path::Component::Normal(_))
+    ) && path.components().count() == 1
 }
 
 fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
@@ -208,6 +266,38 @@ fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
                 target_root,
                 "architecture_boundary_primary",
             )]
+        }
+        DevCheckMode::Layered => {
+            // Observer before specializing: prove the offline cache is coherent
+            // with the workspace Cargo.lock before any compile attempts. A
+            // stale registry cache (source drifted from Cargo.lock) fails here
+            // with `offline_dependency_unavailable` instead of during a layer.
+            let cache_integrity = DevCheckStep {
+                id: CACHE_INTEGRITY_STEP_ID.to_string(),
+                program: "scripts/cargo",
+                args: vec!["metadata", "--offline", "--locked", "--format-version", "1"],
+                target_dir: Some(target_root.join("cache_integrity")),
+            };
+            // Each CYNIC layer is validated in isolation and in dependency
+            // order. `cynic-protocol` first (everything depends on it); each
+            // layer gets a dedicated isolated target dir plus check + test
+            // read-back. Fail-closed: the loop stops at the first failure.
+            let mut steps = vec![cache_integrity];
+            for layer in LAYER_ORDER {
+                steps.push(DevCheckStep {
+                    id: format!("layer_{layer}_check"),
+                    program: "scripts/cargo",
+                    args: vec!["check", "-p", layer, "--offline", "--locked"],
+                    target_dir: Some(target_root.join(format!("layer_{layer}_check"))),
+                });
+                steps.push(DevCheckStep {
+                    id: format!("layer_{layer}_test"),
+                    program: "scripts/cargo",
+                    args: vec!["test", "-p", layer, "--offline", "--locked", "-q"],
+                    target_dir: Some(target_root.join(format!("layer_{layer}_test"))),
+                });
+            }
+            steps
         }
     }
 }
@@ -257,6 +347,11 @@ fn run_step(workspace_root: &Path, step: DevCheckStep) -> DevCheckStepReport {
     process.env("CARGO_BUILD_JOBS", "1");
     process.env("CMAKE_BUILD_PARALLEL_LEVEL", "1");
     process.env("CYNIC_CARGO_BUILD_JOBS", "1");
+    // RUST_MIN_STACK owned by check orchestrator (not .cargo/config): 8 GiB per
+    // AGENS §3 + cynic-dev-build. Required for cold link-codegen under rustc
+    // 1.96 (libp2p/reqwest/rustls = 47% of IR). Without this, the make_check
+    // cargo run/build steps segfault (signal 11) on metadata+link emit.
+    process.env("RUST_MIN_STACK", "8589934592");
 
     if let Some(target_dir) = &step.target_dir {
         process.env("CARGO_TARGET_DIR", target_dir);
@@ -370,6 +465,22 @@ fn now_unix_ms() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_target_root_is_node_state_and_workload_isolated() {
+        assert_eq!(
+            default_target_root_for(Path::new("/state"), Path::new("delegation-42")),
+            PathBuf::from("/state/build-targets/bootstrap/agents/delegation-42/dev-check")
+        );
+    }
+
+    #[test]
+    fn workload_id_must_be_a_single_safe_path_component() {
+        assert!(is_single_path_component(Path::new("delegation-42")));
+        assert!(!is_single_path_component(Path::new("../escape")));
+        assert!(!is_single_path_component(Path::new("agent/workload")));
+        assert!(!is_single_path_component(Path::new("/absolute")));
+    }
 
     #[test]
     fn planned_steps_are_single_make_check_gate() {

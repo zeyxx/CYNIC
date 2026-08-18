@@ -7,10 +7,12 @@ use axum::{
     response::Json,
 };
 use cynic_node::fleet_observability::{project_fleet_stats, validate_event_identity};
+use cynic_protocol::health_signal::OsHealthAnomaly;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use super::types::{AppState, ErrorResponse};
+use crate::domain::events::KernelEvent;
 use crate::domain::storage::Event;
 
 #[derive(Debug, Deserialize)]
@@ -131,6 +133,50 @@ pub async fn fleet_stats_handler(
             ))
         }
     }
+}
+
+/// POST /os-health/report — ingest a host OS-substrate health assessment.
+///
+/// The host (`cynic-host` `os_health` observer) publishes the anomalies it
+/// mined from the substrate; the kernel re-emits each as a `KernelEvent::Anomaly`
+/// on the SSE stream. This closes the blindness that hid the 2026-08-18 hang,
+/// where CYNIC had no OS-health observer and never fed `KernelEvent::Anomaly`.
+///
+/// Fire-and-forget: a single broadcast send per anomaly. No storage write here —
+/// anomaly delivery is the read-back proof; persistence lives downstream.
+pub async fn os_health_report_handler(
+    State(state): State<Arc<AppState>>,
+    Json(report): Json<Vec<OsHealthAnomaly>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let count = report.len();
+    if count == 0 {
+        return Ok(Json(serde_json::json!({ "status": "ok", "ingested": 0 })));
+    }
+
+    let mut emitted = 0usize;
+    for anomaly in &report {
+        let (kind, message, severity) = anomaly.to_kernel_anomaly();
+        let event = KernelEvent::Anomaly {
+            kind,
+            message,
+            severity,
+        };
+        match state.event_tx.send(event) {
+            Ok(_) => emitted += 1,
+            Err(e) => tracing::warn!(error = %e, "os_health anomaly dropped: no SSE subscribers"),
+        }
+    }
+
+    tracing::info!(
+        ingested = count,
+        emitted,
+        "os_health anomalies published to kernel anomaly stream"
+    );
+    Ok(Json(serde_json::json!({
+        "status": "ok",
+        "ingested": count,
+        "emitted": emitted,
+    })))
 }
 
 #[cfg(test)]

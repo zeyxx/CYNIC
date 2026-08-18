@@ -31,7 +31,16 @@ fn main() -> ExitCode {
             }
         };
     let pct_bin = std::env::var("CYNIC_PCT_BIN").unwrap_or_else(|_| "/usr/sbin/pct".to_string());
-    let report = cynic_host::lxc_exec_bridge::execute(&request, &pct_bin);
+    let authority_config = std::env::var_os("CYNIC_BREAKGLASS_AUTHORITY_CONFIG")
+        .unwrap_or_else(|| "/etc/cynic/lxc-breakglass-authority.toml".into());
+    let report = match cynic_host::lxc_exec_bridge::LocalIncidentAuthority::from_config_file(
+        std::path::Path::new(&authority_config),
+    ) {
+        Ok(authority) => cynic_host::lxc_exec_bridge::execute_with_incident_authority(
+            &request, &pct_bin, &authority,
+        ),
+        Err(_) => cynic_host::lxc_exec_bridge::execute(&request, &pct_bin),
+    };
     let success = report.status == "completed";
     println!("{}", serde_json::to_string(&report).unwrap_or_default());
     if success {

@@ -68,7 +68,7 @@ use self::data::{
 use self::discovery::{
     api_layer_alignment_handler, api_topology_handler, identity_handler, openapi_handler,
 };
-use self::event::{event_handler, fleet_stats_handler};
+use self::event::{event_handler, fleet_stats_handler, os_health_report_handler};
 use self::health::{
     agents_handler, health_handler, liveness_handler, metrics_handler, readiness_handler,
     state_history_handler,
@@ -164,6 +164,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(bootstrap_binding::issue_bootstrap_binding_handler),
         )
         .route(
+            "/bootstrap/runtime-publisher",
+            post(bootstrap_binding::issue_runtime_publisher_binding_handler),
+        )
+        .route(
             "/auth/agent/session/renew",
             post(renew_agent_session_handler),
         )
@@ -176,6 +180,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/metrics", get(metrics_handler))
         .route("/events", get(events::events_handler))
         .route("/events", post(event_handler))
+        .route("/os-health/report", post(os_health_report_handler))
         .route("/permits/mint", post(mint_permit_handler))
         .route("/crystals", get(crystals_handler))
         .route("/crystals", post(create_crystal_handler))

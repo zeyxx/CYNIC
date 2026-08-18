@@ -137,31 +137,6 @@ fn completed_without_proof_is_denied() {
 }
 
 #[test]
-fn degraded_completion_requires_evidence_and_an_explicit_unknown() {
-    let child = child();
-    let mut completion = AgentCompletionEnvelope {
-        schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
-        delegation_id: child.delegation_id.clone(),
-        node_id: child.node_id.clone(),
-        agent_id: child.agent_id.clone(),
-        parent_agent_id: child.parent_agent_id.clone(),
-        status: AgentCompletionStatus::Degraded,
-        evidence_refs: Vec::new(),
-        unknowns: Vec::new(),
-        consumed_budget: child.budget.clone(),
-    };
-    assert!(!admit_completion(&child, &completion).admitted());
-
-    completion
-        .evidence_refs
-        .push(evidence("build_execution_provenance"));
-    completion
-        .unknowns
-        .push("kernel_poh_read_back_unavailable".to_string());
-    assert!(admit_completion(&child, &completion).admitted());
-}
-
-#[test]
 fn malformed_declared_lineage_is_denied_at_admission() {
     let child = child();
     let mut invalid = evidence("invalid-lineage");

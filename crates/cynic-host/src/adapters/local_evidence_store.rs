@@ -52,13 +52,16 @@ impl ContentAddressedEvidenceStorePort for LocalContentAddressedEvidenceStore {
 
     fn read(&self, digest: &str) -> Result<Option<EvidenceEnvelope>, String> {
         let path = self.record_path(digest)?;
-        let bytes = match fs::read(&path) {
-            Ok(bytes) => bytes,
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(error) => {
-                return Err(format!("read evidence {}: {error}", path.display()));
-            }
+            Err(error) => return Err(format!("observe evidence {}: {error}", path.display())),
         };
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err("evidence_read_path_rejected".to_string());
+        }
+        let bytes = fs::read(&path)
+            .map_err(|error| format!("read evidence {}: {error}", path.display()))?;
         let envelope = serde_json::from_slice::<EvidenceEnvelope>(&bytes)
             .map_err(|error| format!("decode evidence {}: {error}", path.display()))?;
         let rebuilt = build_evidence_envelope_with_lineage(

@@ -540,6 +540,359 @@ CYNIC_MODEL_ALIAS={alias}
     Ok(path.display().to_string())
 }
 
+/// Forge a parametrized vault profile (.env) from a benchmark report.
+///
+/// Closes the gap between a completed benchmark run and a launchable
+/// profile: the winning run's `RuntimePlanSummary` (or its `ModelParameters`
+/// fallback) is materialized as a `.env` file under `profiles_dir/`, with
+/// llama-server flags reconstructed from the plan. The resulting alias can be
+/// fed directly to `inference-start --yes <alias>`.
+///
+/// Selection policy for the "winning" run:
+///   1. prefer the first `completed` report that carries a `runtime_launch_plan`
+///   2. else the first `completed` report (plan reconstructed from params)
+///   3. else the first report with any sample (best throughput)
+///
+/// Read-back proof: returns `ForgeProfileReport` naming the written path +
+/// the alias + the plan that produced it.
+#[derive(Debug, Clone, Serialize)]
+pub struct ForgeProfileReport {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub plan_id: String,
+    pub alias: String,
+    pub profile_path: String,
+    pub model_path: String,
+    pub model_id: String,
+    pub run_id: String,
+    pub from_launch_plan: bool,
+    pub extra_args: String,
+    pub source: String,
+    pub message: String,
+}
+
+impl ForgeProfileReport {
+    pub const SCHEMA: &'static str = "cynic.inference.forge_profile.v1";
+}
+
+/// Load a `BenchmarkReport` from disk and forge a vault profile from its
+/// winning run. `source_note` is stamped into the profile header.
+pub fn forge_profile_from_benchmark_report(
+    report_path: &str,
+    source_note: &str,
+) -> Result<ForgeProfileReport, LocalRuntimeError> {
+    let raw = std::fs::read_to_string(report_path)
+        .map_err(|e| LocalRuntimeError::Inventory(format!("read report {report_path}: {e}")))?;
+    let report: super::agent_harness::BenchmarkReport = serde_json::from_str(&raw)
+        .map_err(|e| LocalRuntimeError::Inventory(format!("parse report {report_path}: {e}")))?;
+    forge_profile_from_benchmark(report, source_note)
+}
+
+/// In-memory entry point: pick the winning run and write its profile.
+pub fn forge_profile_from_benchmark(
+    report: super::agent_harness::BenchmarkReport,
+    source_note: &str,
+) -> Result<ForgeProfileReport, LocalRuntimeError> {
+    let layout = ModelLayout::from_env();
+    std::fs::create_dir_all(&layout.profiles_dir).map_err(|e| {
+        LocalRuntimeError::Inventory(format!(
+            "create profiles dir {}: {e}",
+            layout.profiles_dir.display()
+        ))
+    })?;
+
+    // Select champion run.
+    let champion = select_champion(&report);
+    let Some(champion) = champion else {
+        return Err(LocalRuntimeError::Inventory(format!(
+            "no usable report in plan {} — need at least one completed or sampled run",
+            report.plan_id
+        )));
+    };
+
+    let run_id = champion.run_id.clone();
+    let params = &champion.scenario.model.parameters;
+    let model_id = params.model_id.clone();
+    let model_path = params.model_path.clone();
+    // alias from model_id (stable, de-quantized); de-dup against existing profiles
+    let alias = unique_alias(&layout, &alias_from_artifact_id(&model_id));
+
+    // Build the .env body from the launch plan when available, else reconstruct
+    // from ModelParameters (probe-agnostic fallback).
+    let (extra_args, body) = match &champion.runtime_launch_plan {
+        Some(plan) => {
+            let extra_args = reconstruct_extra_args_from_plan(plan, params);
+            (
+                extra_args,
+                build_profile_body(&alias, &model_path, plan, &extra_args, source_note),
+            )
+        }
+        None => {
+            let extra_args = reconstruct_extra_args_from_params(params);
+            (
+                extra_args,
+                build_profile_body_from_params(
+                    &alias,
+                    &model_path,
+                    params,
+                    &extra_args,
+                    source_note,
+                ),
+            )
+        }
+    };
+
+    let path = layout.profiles_dir.join(format!("{alias}.env"));
+    // Never silently overwrite an existing profile — surface for explicit review.
+    if path.is_file() {
+        return Err(LocalRuntimeError::Inventory(format!(
+            "profile already exists: {}/{alias}.env — rename or remove before forging",
+            layout.profiles_dir.display()
+        )));
+    }
+    std::fs::write(&path, &body).map_err(|e| {
+        LocalRuntimeError::Inventory(format!(
+            "forge profile {}/{}: {e}",
+            layout.profiles_dir.display(),
+            path.file_name().unwrap().to_string_lossy()
+        ))
+    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+    }
+
+    Ok(ForgeProfileReport {
+        schema: ForgeProfileReport::SCHEMA,
+        status: "forged",
+        plan_id: report.plan_id,
+        alias,
+        profile_path: path.display().to_string(),
+        model_path,
+        model_id,
+        run_id,
+        from_launch_plan: champion.runtime_launch_plan.is_some(),
+        extra_args,
+        source: source_note.to_string(),
+        message: format!(
+            "forged parametrized profile '{}' from benchmark plan '{}', run '{}' — ready for 'inference-start --yes {}",
+            alias, report.plan_id, run_id, alias
+        ),
+    })
+}
+
+/// Choose the champion report: first completed w/ launch_plan, then first
+/// completed, then highest-mean-output-throughput sample-bearing report.
+fn select_champion(
+    report: &super::agent_harness::BenchmarkReport,
+) -> Option<super::agent_harness::AgentHarnessReport> {
+    use super::agent_harness::AgentHarnessReport;
+    // 1. first completed with a launch plan
+    if let Some(champ) = report
+        .reports
+        .iter()
+        .find(|r: &&AgentHarnessReport| r.status == "completed" && r.runtime_launch_plan.is_some())
+    {
+        return Some(champ.clone());
+    }
+    // 2. first completed
+    if let Some(champ) = report
+        .reports
+        .iter()
+        .find(|r: &&AgentHarnessReport| r.status == "completed")
+    {
+        return Some(champ.clone());
+    }
+    // 3. highest mean tokens/sec among reports with samples
+    report
+        .reports
+        .iter()
+        .filter(|r: &&AgentHarnessReport| !r.samples.is_empty())
+        .max_by(|left: &&AgentHarnessReport, right: &&AgentHarnessReport| {
+            let l = mean_output_rate(left);
+            let r = mean_output_rate(right);
+            l.partial_cmp(&r).unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .cloned()
+}
+
+fn mean_output_rate(report: &super::agent_harness::AgentHarnessReport) -> f64 {
+    let rates: Vec<f64> = report
+        .samples
+        .iter()
+        .filter_map(|s| s.output_tokens_per_second.map(|v| v as f64))
+        .collect();
+    if rates.is_empty() {
+        0.0
+    } else {
+        rates.iter().sum::<f64>() / rates.len() as f64
+    }
+}
+
+/// Reconstruct `--cache`, `--threads`, `--threads-batch`, `--n-gpu-layers`,
+/// kv-cache quantization, `--flash-attn`, memory + CPU quota from a plan.
+fn reconstruct_extra_args_from_plan(
+    plan: &super::agent_harness::RuntimePlanSummary,
+    params: &super::agent_harness::ModelParameters,
+) -> String {
+    let mut args: Vec<String> = Vec::new();
+    if plan.threads > 0 {
+        args.push(format!("--threads {}", plan.threads));
+    }
+    if plan.threads_batch > 0 {
+        args.push(format!("--threads-batch {}", plan.threads_batch));
+    }
+    if plan.n_gpu_layers != 0 {
+        args.push(format!("--n-gpu-layers {}", plan.n_gpu_layers));
+    }
+    if plan.flash_attn == "on" || plan.flash_attn == "true" {
+        args.push("--flash-attn".to_string());
+    }
+    if let Some(k) = &plan.kv_cache_type_k {
+        args.push(format!("--cache-type-k {k}"));
+    }
+    if let Some(v) = &plan.kv_cache_type_v {
+        args.push(format!("--cache-type-v {v}"));
+    }
+    if let Some(bs) = plan.batch_size {
+        if bs > 0 {
+            args.push(format!("--batch-size {bs}"));
+        }
+    }
+    if let Some(ub) = plan.ubatch_size {
+        if ub > 0 {
+            args.push(format!("--ubatch-size {ub}"));
+        }
+    }
+    // KV-dims context: if a reasoning_budget / fit_mode surfaces, append as comment-safe
+    if let Some(rb) = &params.reasoning_budget {
+        args.push(format!("--reasoning-budget {rb}"));
+    }
+    if let Some(fit) = &params.fit_mode {
+        args.push(format!("--fit-mode {fit}"));
+    }
+    if params.parallel_slots > 1 {
+        args.push(format!("--parallel {}", params.parallel_slots));
+    } else {
+        args.push("--parallel 1".to_string());
+    }
+    args.join(" ")
+}
+
+/// Fallback reconstruction when no launch plan was captured (probe-less).
+fn reconstruct_extra_args_from_params(params: &super::agent_harness::ModelParameters) -> String {
+    let mut args: Vec<String> = Vec::new();
+    if params.context_requested > 0 {
+        args.push(format!("--ctx-size {}", params.context_requested));
+    }
+    if params.parallel_slots > 1 {
+        args.push(format!("--parallel {}", params.parallel_slots));
+    } else {
+        args.push("--parallel 1".to_string());
+    }
+    if let Some(t) = params.threads.filter(|t| *t > 0) {
+        args.push(format!("--threads {t}"));
+    }
+    if let Some(gpu) = params.gpu_layers.filter(|g| *g > 0) {
+        args.push(format!("--n-gpu-layers {gpu}"));
+    }
+    if params.flash_attention == Some(true) {
+        args.push("--flash-attn".to_string());
+    }
+    if let Some(k) = &params.kv_cache_type_k {
+        args.push(format!("--cache-type-k {k}"));
+    }
+    if let Some(v) = &params.kv_cache_type_v {
+        args.push(format!("--cache-type-v {v}"));
+    }
+    if let Some(rb) = &params.reasoning_budget {
+        args.push(format!("--reasoning-budget {rb}"));
+    }
+    if let Some(fit) = &params.fit_mode {
+        args.push(format!("--fit-mode {fit}"));
+    }
+    args.join(" ")
+}
+
+fn build_profile_body(
+    alias: &str,
+    model_path: &str,
+    plan: &super::agent_harness::RuntimePlanSummary,
+    extra_args: &str,
+    source_note: &str,
+) -> String {
+    let memory_max = if plan.memory_max.is_empty() {
+        "8G".to_string()
+    } else {
+        plan.memory_max.clone()
+    };
+    let cpu_quota = if plan.cpu_quota.is_empty() {
+        "400%".to_string()
+    } else {
+        plan.cpu_quota.clone()
+    };
+    format!(
+        r#"# CYNIC native profile — {source_note}
+# forged from benchmark report: alias={alias}
+# engine args derived from RuntimePlanSummary (run_id captured at forge time)
+LLAMA_SERVER_BIN=/usr/local/bin/llama-server
+LLAMA_MODEL_PATH={model_path}
+LLAMA_HOST={host}
+LLAMA_PORT={port}
+LLAMA_CTX_SIZE={ctx}
+LLAMA_THREADS={threads}
+LLAMA_THREADS_BATCH={threads_batch}
+LLAMA_N_GPU_LAYERS={n_gpu_layers}
+LLAMA_MEMORY_MAX={memory_max}
+LLAMA_CPU_QUOTA={cpu_quota}
+LLAMA_EXTRA_ARGS={extra_args}
+CYNIC_MODEL_ALIAS={alias}
+"#,
+        host = plan.host,
+        port = plan.port,
+        ctx = plan.ctx_size,
+        threads = plan.threads,
+        threads_batch = plan.threads_batch,
+        n_gpu_layers = plan.n_gpu_layers,
+        memory_max = memory_max,
+        cpu_quota = cpu_quota,
+        extra_args = extra_args,
+    )
+}
+
+fn build_profile_body_from_params(
+    alias: &str,
+    model_path: &str,
+    params: &super::agent_harness::ModelParameters,
+    extra_args: &str,
+    source_note: &str,
+) -> String {
+    let memory_max = std::env::var("LLAMA_MEMORY_MAX").unwrap_or_else(|_| "8G".to_string());
+    let cpu_quota = std::env::var("LLAMA_CPU_QUOTA").unwrap_or_else(|_| "400%".to_string());
+    format!(
+        r#"# CYNIC native profile — {source_note}
+# forged from benchmark report (no launch plan captured): alias={alias}
+# engine args derived from ModelParameters fallback
+LLAMA_SERVER_BIN=/usr/local/bin/llama-server
+LLAMA_MODEL_PATH={model_path}
+LLAMA_HOST=127.0.0.1
+LLAMA_PORT=8080
+LLAMA_CTX_SIZE={ctx}
+LLAMA_THREADS={threads}
+LLAMA_MEMORY_MAX={memory_max}
+LLAMA_CPU_QUOTA={cpu_quota}
+LLAMA_EXTRA_ARGS={extra_args}
+CYNIC_MODEL_ALIAS={alias}
+"#,
+        ctx = params.context_requested,
+        threads = params.threads.map(|t| t.to_string()).unwrap_or_default(),
+        memory_max = memory_max,
+        cpu_quota = cpu_quota,
+        extra_args = extra_args,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

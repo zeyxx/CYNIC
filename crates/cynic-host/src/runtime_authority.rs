@@ -71,7 +71,13 @@ pub fn default_runtime_authority_paths() -> RuntimeAuthorityPaths {
         service_unit_dir: PathBuf::from("/etc/systemd/system"),
         dns_hosts_path: PathBuf::from("/etc/coredns/synapse.hosts"),
         dns_corefile_path: PathBuf::from("/etc/coredns/Corefile"),
-        dns_service_path: PathBuf::from("/etc/systemd/system/coredns-synapse.service"),
+        dns_service_path: if PathBuf::from("/etc/systemd/system/cynic-dns-synapse.service").exists()
+            || PathBuf::from("/lib/systemd/system/cynic-dns-synapse.service").exists()
+        {
+            PathBuf::from("/etc/systemd/system/cynic-dns-synapse.service")
+        } else {
+            PathBuf::from("/etc/systemd/system/coredns-synapse.service")
+        },
         resolved_dropin_path: PathBuf::from("/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf"),
         // Install bundles are durable, inspectable activation artifacts. `/tmp`
         // is suitable only when an explicit lab layout injects it.

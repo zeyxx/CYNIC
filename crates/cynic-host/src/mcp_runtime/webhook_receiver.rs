@@ -9,8 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
 /// Schema identifier for the settlement webhook notification envelope.
-pub const SETTLEMENT_NOTIFICATION_SCHEMA: &str =
-    "cynic.zeroclaw.solana_settlement_webhook.v1";
+pub const SETTLEMENT_NOTIFICATION_SCHEMA: &str = "cynic.zeroclaw.solana_settlement_webhook.v1";
 
 /// A single settlement event pushed from the Solana webhook listener.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,8 +48,7 @@ pub struct WebhookSettlementMonitor {
 impl SettlementNotification {
     /// Build a notification from raw webhook payload fields.
     pub fn new(reference: String, signature: String, slot: u64, lamports: u64) -> Self {
-        let timestamp: String = chrono::DateTime::<Utc>::from(SystemTime::now())
-            .to_rfc3339();
+        let timestamp: String = chrono::DateTime::<Utc>::from(SystemTime::now()).to_rfc3339();
         Self {
             schema: SETTLEMENT_NOTIFICATION_SCHEMA,
             reference,
@@ -111,12 +109,7 @@ mod tests {
 
     #[test]
     fn settlement_notification_empty_signature_is_invalid() {
-        let notif = SettlementNotification::new(
-            "ref".to_string(),
-            String::new(),
-            0,
-            0,
-        );
+        let notif = SettlementNotification::new("ref".to_string(), String::new(), 0, 0);
         assert!(!notif.is_valid());
     }
 
@@ -133,12 +126,8 @@ mod tests {
 
     #[test]
     fn webhook_notification_serializes_to_json() {
-        let notif = SettlementNotification::new(
-            "ref".to_string(),
-            "sig123".to_string(),
-            42,
-            500_000_000,
-        );
+        let notif =
+            SettlementNotification::new("ref".to_string(), "sig123".to_string(), 42, 500_000_000);
         let json = serde_json::to_string(&notif).expect("serialize");
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(parsed["$schema"], SETTLEMENT_NOTIFICATION_SCHEMA);

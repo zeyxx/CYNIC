@@ -61,6 +61,14 @@ pub fn probe_engine_plugins(hw: &HardwareProfile) -> EnginePlugins {
     }
     .to_string();
 
+    let detected_gpu_device = if has_vulkan {
+        Some("Vulkan0".to_string())
+    } else if has_cuda {
+        Some("CUDA0".to_string())
+    } else {
+        None
+    };
+
     EnginePlugins {
         llama_server_bin,
         plugin_dir: plugin_dir.map(|p| p.display().to_string()),
@@ -68,6 +76,7 @@ pub fn probe_engine_plugins(hw: &HardwareProfile) -> EnginePlugins {
         has_vulkan,
         has_cuda,
         has_metal,
+        detected_gpu_device,
         likely_cpu_backend_class: likely,
     }
 }

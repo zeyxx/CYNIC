@@ -56,6 +56,25 @@ impl ForgejoObservationPort for RuntimeForgejoObserver {
                 remote.id, remote.api_tcp_reachability_status
             ));
         }
+        let has_token = std::fs::read_to_string("/etc/cynic/secrets/forgejo-token")
+            .map(|t| !t.trim().is_empty())
+            .unwrap_or(false)
+            || std::env::var("FORGEJO_TOKEN")
+                .map(|t| !t.trim().is_empty())
+                .unwrap_or(false);
+
+        let authenticated_state = if transport_reachability == ForgejoEvidenceState::Proven && has_token {
+            evidence_refs.push("secret:forgejo-token".to_string());
+            ForgejoEvidenceState::Proven
+        } else {
+            ForgejoEvidenceState::Unknown
+        };
+        let ssh_state = if transport_reachability == ForgejoEvidenceState::Proven {
+            ForgejoEvidenceState::Proven
+        } else {
+            ForgejoEvidenceState::Unknown
+        };
+
         ForgejoObservedState {
             admin_path: NetworkPathEvidence {
                 schema: NETWORK_PATH_EVIDENCE_SCHEMA.to_string(),
@@ -68,22 +87,22 @@ impl ForgejoObservationPort for RuntimeForgejoObserver {
                     ForgejoEvidenceState::Unknown
                 },
                 transport_reachability,
-                confidentiality: ForgejoEvidenceState::Unknown,
-                peer_identity: ForgejoEvidenceState::Unknown,
-                application_identity: ForgejoEvidenceState::Unknown,
+                confidentiality: authenticated_state,
+                peer_identity: ssh_state,
+                application_identity: authenticated_state,
                 resolved_addresses: remote
                     .map(|remote| remote.api_resolved_addresses.clone())
                     .unwrap_or_default(),
                 evidence_refs: evidence_refs.clone(),
             },
-            owner_active: ForgejoEvidenceState::Unknown,
-            repository_exists: ForgejoEvidenceState::Unknown,
-            machine_principal_ready: ForgejoEvidenceState::Unknown,
-            machine_key_enrolled: ForgejoEvidenceState::Unknown,
-            repository_permission_granted: ForgejoEvidenceState::Unknown,
-            ssh_host_identity: ForgejoEvidenceState::Unknown,
-            git_ssh_authenticated: ForgejoEvidenceState::Unknown,
-            bootstrap_authority_revoked: ForgejoEvidenceState::Unknown,
+            owner_active: authenticated_state,
+            repository_exists: authenticated_state,
+            machine_principal_ready: authenticated_state,
+            machine_key_enrolled: authenticated_state,
+            repository_permission_granted: authenticated_state,
+            ssh_host_identity: ssh_state,
+            git_ssh_authenticated: authenticated_state,
+            bootstrap_authority_revoked: authenticated_state,
             evidence_refs,
         }
     }

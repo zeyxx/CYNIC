@@ -861,7 +861,10 @@ fn service_manager_for_node(
     match declared_host_family(node).and_then(host_profile_for_family) {
         Some(HostProfile::AlpineOpenRcNetworkNode) => ServiceManagerKind::OpenRc,
         Some(
-            HostProfile::NetworkNode | HostProfile::ProxmoxHypervisor | HostProfile::BuildRunner,
+            HostProfile::NetworkNode
+            | HostProfile::ProxmoxHypervisor
+            | HostProfile::BuildRunner
+            | HostProfile::WindowsNode,
         ) => ServiceManagerKind::Systemd,
         None if units
             .iter()
@@ -869,6 +872,7 @@ fn service_manager_for_node(
         {
             ServiceManagerKind::OpenRc
         }
+        Some(HostProfile::ManagementNode) => current_service_manager_kind(),
         None => current_service_manager_kind(),
     }
 }
@@ -907,6 +911,7 @@ fn host_profile_for_family(family: &str) -> Option<HostProfile> {
         "proxmox" | "proxmox-hypervisor" | "linux.proxmox.systemd" => {
             Some(HostProfile::ProxmoxHypervisor)
         }
+        "windows" | "windows-service" | "windows.generic" => Some(HostProfile::WindowsNode),
         _ => None,
     }
 }

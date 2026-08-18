@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::adapters::local_observation::LocalHostObservationAdapter;
-use crate::build::BuildProof;
+use crate::build::{BuildConformanceEvidence, BuildProof};
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus, SurfaceStatus};
 use crate::hardware_baseline::{HardwareBaselinePlan, plan_hardware_baseline};
 use crate::hardware_conformance::{HardwareConformanceReport, observe_hardware_conformance};
@@ -49,7 +49,7 @@ pub struct HostConformanceReport {
     pub pre_os: cynic_protocol::PreOsPlatformObservation,
     pub proof_bundle: cynic_protocol::RuntimeProofBundle,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub build_proof: Option<BuildProof>,
+    pub build_evidence: Option<BuildConformanceEvidence>,
     pub persistence_record: cynic_protocol::RuntimeProofPersistenceRecord,
     pub rules: Vec<&'static str>,
     pub next_actions: Vec<String>,
@@ -66,7 +66,7 @@ pub fn observe_host_conformance(
     profile: HostProfile,
     resolution: Option<HostProfileResolution>,
 ) -> Result<HostConformanceReport, Box<dyn std::error::Error>> {
-    observe_host_conformance_with_observer_and_build_proof(
+    observe_host_conformance_with_observer_and_build_evidence(
         profile,
         resolution,
         &LocalHostObservationAdapter,
@@ -86,7 +86,12 @@ pub fn observe_host_conformance_with_observer(
          + PreOsPlatformObservationPort
      ),
 ) -> Result<HostConformanceReport, Box<dyn std::error::Error>> {
-    observe_host_conformance_with_observer_and_build_proof(profile, resolution, observed_port, None)
+    observe_host_conformance_with_observer_and_build_evidence(
+        profile,
+        resolution,
+        observed_port,
+        None,
+    )
 }
 
 pub fn observe_host_conformance_with_build_proof(
@@ -94,15 +99,29 @@ pub fn observe_host_conformance_with_build_proof(
     resolution: Option<HostProfileResolution>,
     build_proof: Option<&BuildProof>,
 ) -> Result<HostConformanceReport, Box<dyn std::error::Error>> {
-    observe_host_conformance_with_observer_and_build_proof(
+    let build_evidence = build_proof.map(BuildConformanceEvidence::from_build_proof);
+    observe_host_conformance_with_observer_and_build_evidence(
         profile,
         resolution,
         &LocalHostObservationAdapter,
-        build_proof,
+        build_evidence.as_ref(),
     )
 }
 
-fn observe_host_conformance_with_observer_and_build_proof(
+pub fn observe_host_conformance_with_build_evidence(
+    profile: HostProfile,
+    resolution: Option<HostProfileResolution>,
+    build_evidence: Option<&BuildConformanceEvidence>,
+) -> Result<HostConformanceReport, Box<dyn std::error::Error>> {
+    observe_host_conformance_with_observer_and_build_evidence(
+        profile,
+        resolution,
+        &LocalHostObservationAdapter,
+        build_evidence,
+    )
+}
+
+fn observe_host_conformance_with_observer_and_build_evidence(
     profile: HostProfile,
     resolution: Option<HostProfileResolution>,
     observed_port: &(
@@ -113,7 +132,7 @@ fn observe_host_conformance_with_observer_and_build_proof(
          + HostHardwareObservationPort
          + PreOsPlatformObservationPort
      ),
-    build_proof: Option<&BuildProof>,
+    build_evidence: Option<&BuildConformanceEvidence>,
 ) -> Result<HostConformanceReport, Box<dyn std::error::Error>> {
     let observed = observe_host_with_resolution(&profile, observed_port, resolution.clone());
     let bootstrap_evidence =
@@ -145,14 +164,14 @@ fn observe_host_conformance_with_observer_and_build_proof(
         },
         &hardware,
     );
-    let vertical_evidence = observe_vertical_evidence(build_proof);
+    let vertical_evidence = observe_vertical_evidence(build_evidence);
     let verticals = evaluate_vertical_conformance(&context, &gates, &vertical_evidence);
     let subject = identity_proof.subject.clone();
     let convergence =
         crate::vertical_conformance::convergence_matrix_for_subject(&subject, &verticals);
     let proof_bundle = assemble_runtime_proof_bundle(identity_proof, &verticals);
     let persistence_record =
-        assemble_runtime_proof_persistence_record(&proof_bundle, &verticals, build_proof);
+        assemble_runtime_proof_persistence_record(&proof_bundle, &verticals, build_evidence);
     let status = if gates.iter().all(|gate| gate.status == "satisfied") {
         "qualified"
     } else {
@@ -181,7 +200,7 @@ fn observe_host_conformance_with_observer_and_build_proof(
         hardware_baseline_plan,
         pre_os,
         proof_bundle,
-        build_proof: build_proof.cloned(),
+        build_evidence: build_evidence.cloned(),
         persistence_record,
         rules: vec![
             "conformance observes host state and emits proof; it must not apply mutations",
@@ -356,6 +375,7 @@ mod tests {
         ) -> PackageObservedState {
             PackageObservedState {
                 installed_packages: policy.bootstrap_packages.clone(),
+                ..Default::default()
             }
         }
     }

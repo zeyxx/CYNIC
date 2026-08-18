@@ -77,10 +77,17 @@ pub(crate) fn required_capability(method: &str, path: &str) -> RuntimeCapability
             RuntimeCapability::CoordinationWrite
         };
     }
-    if path == "/agent-workloads" || path.starts_with("/agent-workloads/") {
+    if path.starts_with("/node-control/") {
+        if path.ends_with("/agent-workloads") || path.contains("/agent-workloads/") {
+            RuntimeCapability::AgentWorkloadDelivery
+        } else if method == "GET" {
+            RuntimeCapability::RuntimeRead
+        } else {
+            RuntimeCapability::CoordinationWrite
+        }
+    } else if path == "/agent-workloads" || path.starts_with("/agent-workloads/") {
         RuntimeCapability::AgentWorkloadDelivery
     } else if path == "/observe" || (path.starts_with("/crystals/") && path.ends_with("/observe")) {
-        RuntimeCapability::ObservationWrite
     } else if path.starts_with("/v1/") {
         RuntimeCapability::InferenceUse
     } else if matches!(path, "/health" | "/events") {

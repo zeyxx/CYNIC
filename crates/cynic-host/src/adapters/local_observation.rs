@@ -1,6 +1,10 @@
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::domain::package_provenance::{
+    PackageRepositoryObservation, promotion_observation_for_repository,
+};
 use crate::domain::packages::PackageObservedState;
 use crate::domain::principal::{PrincipalObservedState, PrincipalPolicy};
 use crate::domain::privilege::{PrivilegeObservedState, PrivilegePolicy};
@@ -341,8 +345,25 @@ impl HostPackageObservationPort for LocalHostObservationAdapter {
                 .filter(|pkg| package_present(pkg))
                 .cloned()
                 .collect(),
+            promotion: observe_package_promotion(policy),
+            promotion_assessed_at_unix_s: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|duration| duration.as_secs())
+                .unwrap_or(0),
         }
     }
+}
+
+fn observe_package_promotion(
+    policy: &crate::domain::packages::PackagePolicy,
+) -> crate::domain::package_provenance::PackagePromotionObservation {
+    let Ok(raw) = std::fs::read_to_string(&policy.source_projection_path) else {
+        return Default::default();
+    };
+    let Ok(receipt) = serde_json::from_str::<PackageRepositoryObservation>(&raw) else {
+        return Default::default();
+    };
+    promotion_observation_for_repository(&policy.provenance, &receipt).unwrap_or_default()
 }
 
 impl HostServiceObservationPort for LocalHostObservationAdapter {

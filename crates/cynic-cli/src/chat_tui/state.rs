@@ -360,7 +360,7 @@ impl App {
                 )
             };
             self.error = Some(format!(
-                "local selector `{selector}` not found in vault; {hint}; then cynic runtime inference-start <alias>"
+                "local selector `{selector}` not found in vault; {hint}; then cynic models start <alias> --yes"
             ));
             self.status = format_status(&self.runtime, &self.paths, &self.session_id, false);
             return;

@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::Subcommand;
@@ -5,6 +6,7 @@ use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 
 use crate::bootstrap_surface::ProfileArgs;
 
+mod adoption;
 mod agent_matrix;
 mod compat_aliases;
 mod disk;
@@ -138,6 +140,24 @@ pub(crate) enum RuntimeCommand {
     AgentMatrix {
         #[arg(long)]
         json: bool,
+    },
+    /// Adopt an external agent runtime into CYNIC supervision (explicit consent gate).
+    /// Drives the Rust toolchain lifecycle: --seed overrides infra/rust-toolchain.json.
+    /// Dry-run unless --approve (applies bounded argv read-back proof).
+    Adopt {
+        #[arg(long)]
+        json: bool,
+        /// Target runtime identifier (e.g. hermes-agent).
+        runtime_id: String,
+        /// Target principal for the adopted runtime.
+        #[arg(long)]
+        principal: Option<String>,
+        /// Override the toolchain seed registry path (default: infra/rust-toolchain.json).
+        #[arg(long)]
+        seed: Option<PathBuf>,
+        /// Operator consent to apply the bounded action (rustup override set).
+        #[arg(long)]
+        approve: bool,
     },
     /// Report the sovereign inference configuration as machine-readable JSON.
     /// Native surface: declared routing SSOT (not a live probe).
@@ -293,6 +313,25 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         apply: bool,
     },
+    /// Forge a parametrized vault profile from a completed benchmark report.
+    ///
+    /// Reads a `cynic.agent_harness.benchmark_report.v1` JSON, selects the champion
+    /// run (first completed w/ launch plan, else highest throughput), and writes a
+    /// `.env` profile under the CYNIC vault profiles_dir. Pass `--start` to then
+    /// launch the forged profile (with `--yes` for explicit mutation) and emit the
+    /// `inference-status` read-back proof.
+    InferenceForge {
+        /// Path to the benchmark report JSON file.
+        report: String,
+        #[arg(long)]
+        json: bool,
+        /// Apply: start the forged profile immediately (mutation, requires --yes).
+        #[arg(long)]
+        start: bool,
+        /// Explicit mutation consent for --start (no auto-apply).
+        #[arg(long)]
+        yes: bool,
+    },
     /// Compatibility alias → `cynic deps` (prefer top-level).
     Deps {
         #[arg(long)]
@@ -418,6 +457,19 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             persist,
         } => report::execute_report(json, output.as_deref(), persist),
         RuntimeCommand::AgentMatrix { json } => agent_matrix::execute_agent_matrix(json),
+        RuntimeCommand::Adopt {
+            json,
+            runtime_id,
+            principal,
+            seed,
+            approve,
+        } => adoption::execute_adopt(
+            json,
+            &runtime_id,
+            principal.as_deref(),
+            seed.as_deref(),
+            approve,
+        ),
         RuntimeCommand::Inference { .. }
         | RuntimeCommand::InferenceVault { .. }
         | RuntimeCommand::InferenceStatus { .. }
@@ -433,6 +485,7 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         | RuntimeCommand::InferenceHfSearch { .. }
         | RuntimeCommand::InferenceHfSuggest { .. }
         | RuntimeCommand::InferencePlan { .. }
+        | RuntimeCommand::InferenceForge { .. }
         | RuntimeCommand::Deps { .. }
         | RuntimeCommand::DepsPlan { .. }
         | RuntimeCommand::DepsAudit { .. }

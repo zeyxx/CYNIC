@@ -503,7 +503,7 @@ fn local_selector_error(
         "run: cynic runtime inference-vault --json"
     };
     format!(
-        "local model selector `{selector}` is not resolvable; it looks like a local GGUF/profile selector, but no matching alias exists in inventory. {alias_hint}. {action_hint}, then cynic runtime inference-start <alias>"
+        "local model selector `{selector}` is not resolvable; it looks like a local GGUF/profile selector, but no matching alias exists in inventory. {alias_hint}. {action_hint}, then cynic models start <alias> --yes"
     )
 }
 

@@ -7,6 +7,7 @@ mod checks;
 mod external_projection;
 mod paths;
 mod types;
+mod inference_collector;
 
 pub(crate) use types::{ExternalProjectionFinding, SurfaceAuditEntry, SurfaceAuditReport};
 

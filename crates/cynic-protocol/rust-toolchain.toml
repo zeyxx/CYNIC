@@ -1,0 +1,4 @@
+# CYNIC protocol/shared crates — rustc 1.96.0 (no syn test-codegen ICE)
+[toolchain]
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]

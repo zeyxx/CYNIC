@@ -5,7 +5,7 @@ use cynic_protocol::{
     RuntimeProofEvidence,
 };
 
-use crate::build::BuildProof;
+use crate::build::BuildConformanceEvidence;
 use crate::domain::shared::SurfaceStatus;
 use crate::usecases::HostObservationReports;
 use crate::vertical_conformance::VerticalConformanceReport;
@@ -132,14 +132,14 @@ pub fn assemble_runtime_proof_bundle(
 pub fn assemble_runtime_proof_persistence_record(
     bundle: &RuntimeProofBundle,
     verticals: &VerticalConformanceReport,
-    build_proof: Option<&BuildProof>,
+    build_evidence: Option<&BuildConformanceEvidence>,
 ) -> cynic_protocol::RuntimeProofPersistenceRecord {
     let node = bundle
         .proofs
         .first()
         .map(|proof| proof.subject.clone())
         .unwrap_or_else(|| "unknown-node".to_string());
-    let revision = build_proof
+    let revision = build_evidence
         .map(|proof| proof.source_commit.clone())
         .filter(|revision| !revision.is_empty())
         .unwrap_or_else(|| "observation-only".to_string());
@@ -147,7 +147,11 @@ pub fn assemble_runtime_proof_persistence_record(
         .verticals
         .iter()
         .flat_map(|vertical| vertical.evidence_refs.iter().cloned())
-        .chain(build_proof.into_iter().map(|_| "build_proof".to_string()))
+        .chain(
+            build_evidence
+                .into_iter()
+                .flat_map(|evidence| evidence.evidence_refs.iter().cloned()),
+        )
         .collect();
     cynic_protocol::runtime_proof_persistence_record(
         node,

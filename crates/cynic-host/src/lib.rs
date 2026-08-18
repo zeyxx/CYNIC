@@ -1,12 +1,15 @@
 pub mod adapters;
 pub mod agent_access;
+pub mod autoresearch;
 pub mod agent_matrix;
+pub mod agent_runtime;
 pub mod bootstrap_chain;
 pub mod bootstrap_host_plan;
 pub mod bounded_helper;
 pub mod bridge;
 pub mod build;
 pub mod build_evidence;
+pub mod build_proof_compressor;
 pub mod command_surface;
 pub mod conformance;
 pub mod domain;
@@ -23,6 +26,7 @@ pub mod host_bootstrap_evidence;
 pub mod host_exec_cli;
 pub mod host_exec_policy;
 mod identity_database;
+pub mod inference_observation;
 pub mod install_contract;
 pub mod kernel_proof_persistence;
 pub mod lab;
@@ -31,7 +35,9 @@ pub mod lxc_exec_bridge;
 pub mod mcp_runtime;
 pub mod network_actuation;
 pub mod node_substrate;
+pub mod one_shot_authority;
 pub mod ports;
+pub mod os_health;
 pub mod pre_os_control;
 pub mod principal_prepare;
 pub mod process_convergence;
@@ -62,7 +68,14 @@ pub mod source_worktree;
 pub mod storage_capabilities;
 pub(crate) mod storage_identity;
 pub mod storage_primary;
+pub mod toolchain;
 pub mod transport;
 pub mod update_lifecycle;
 pub mod usecases;
 pub mod vertical_conformance;
+
+pub fn sha256_digest(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    hex::encode(Sha256::digest(bytes))
+}
+pub mod credential_hardening;

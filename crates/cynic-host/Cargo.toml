@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-inference = { path = "../cynic-inference" }
 chrono = "0.4"
 libc = "0.2"
 hex = "0.4"

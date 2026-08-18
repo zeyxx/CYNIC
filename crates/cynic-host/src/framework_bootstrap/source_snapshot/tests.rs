@@ -34,9 +34,10 @@ fn plan_requires_exact_commit_read_back() {
     );
 
     assert_eq!(plan.status, "blocked");
-    assert!(plan
-        .blockers
-        .contains(&"source_snapshot_commit_read_back_mismatch".to_string()));
+    assert!(
+        plan.blockers
+            .contains(&"source_snapshot_commit_read_back_mismatch".to_string())
+    );
 }
 
 #[test]
