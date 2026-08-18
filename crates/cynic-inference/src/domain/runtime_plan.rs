@@ -202,10 +202,7 @@ pub fn plan_launch(
         }
         // Auto-detect GPU device name from `llama-server --list-devices` probe.
         // Falls back to operator override (CYNIC_INFERENCE_DEVICE) or skips if no GPU.
-        let device = plugins
-            .detected_gpu_device
-            .as_ref()
-            .or_else(|| explicit_device());
+        let device = plugins.detected_gpu_device.clone().or_else(explicit_device);
         if let Some(device) = device {
             engine_args.push("--device".into());
             engine_args.push(device.clone());

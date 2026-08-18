@@ -1,4 +1,6 @@
 pub mod agent_connection;
+pub mod autoresearch;
+pub mod autoresearch_port;
 pub mod anchor_client;
 pub mod agent_recursion;
 pub mod agent_scheduler;
@@ -64,6 +66,8 @@ pub mod transport_security;
 pub mod workload_identity;
 
 pub use agent_connection::*;
+pub use autoresearch::*;
+pub use autoresearch_port::*;
 pub use agent_recursion::*;
 pub use anchor_client::*;
 pub use agent_scheduler::*;
@@ -111,6 +115,7 @@ pub use resource_allocation::*;
 pub use runtime::*;
 pub use runtime_basket::*;
 pub use runtime_compatibility::*;
+pub use runtime_planes::*;
 pub use runtime_release::*;
 pub use runtime_seed::*;
 pub use solana_ops::*;
