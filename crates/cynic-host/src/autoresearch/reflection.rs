@@ -29,7 +29,7 @@ pub fn parse_hypotheses(text: &str) -> Vec<SkillHypothesis> {
     let mut why = String::new();
     let mut when = String::new();
     let mut reuse = String::new();
-    let mut actionable = false;
+    let mut actionable_val = false;
 
     let mut flush = |domain: &Option<String>, why: &str, when: &str, reuse: &str, actionable: bool| {
         if let Some(d) = domain {
@@ -39,7 +39,7 @@ pub fn parse_hypotheses(text: &str) -> Vec<SkillHypothesis> {
                     skill_id: format!("skill-{}", d),
                     domain: d.clone(),
                     description: format!("why: {}\\nwhen: {}\\nreuse: {}", why, when, reuse),
-                    actionability,
+                    actionability: actionable_val,
                     claimed_coverage: 0.0,
                 });
             }
@@ -54,7 +54,7 @@ pub fn parse_hypotheses(text: &str) -> Vec<SkillHypothesis> {
             why.clear();
             when.clear();
             reuse.clear();
-            actionable = false;
+            actionable_val = false;
             continue;
         }
         let lower = line.to_ascii_lowercase();
@@ -65,10 +65,10 @@ pub fn parse_hypotheses(text: &str) -> Vec<SkillHypothesis> {
         } else if let Some(v) = line.strip_prefix("reuse:") {
             reuse = v.trim().to_string();
         } else if let Some(v) = lower.strip_prefix("actionable:") {
-            actionable = v.trim() == "yes";
+            actionable_val = v.trim() == "yes";
         }
     }
-    flush(&cur_domain, &why, &when, &reuse, actionable);
+    flush(&cur_domain, &why, &when, &reuse, actionable_val);
     out
 }
 
