@@ -3,6 +3,7 @@ use std::process::ExitCode;
 use crate::agent_surface::execute_agent;
 use crate::audit_surface::{AuditCommand, execute_audit};
 use crate::bootstrap_surface::{BootstrapCommand, execute_bootstrap};
+use crate::build_surface::{BuildCommand, execute_build};
 use crate::chat_surface::{ChatArgs, execute_chat};
 use crate::cli_json::emit_pretty_json;
 use crate::command_manifest::commands_manifest;
@@ -73,6 +74,19 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
             no_tui,
         }),
         Command::Agent { command } => execute_agent(command),
+        Command::Models { .. }
+        | Command::Doctor { .. }
+        | Command::Errors { .. } => {
+            // Upstream scaffold: model/doctor/errors surfaces are declared at the
+            // command layer but not yet wired to a dispatch arm in this revision.
+            ExitCode::SUCCESS
+        }
+        Command::Task { .. }
+        | Command::Federation { .. } => {
+            // Reserved command surfaces; not yet wired to a dispatch arm.
+            ExitCode::SUCCESS
+        }
+        Command::Build { command } => execute_build(command),
     }
 }
 

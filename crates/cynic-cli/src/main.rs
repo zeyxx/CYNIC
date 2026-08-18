@@ -41,6 +41,7 @@ mod lifecycle_surface_render;
 mod network_surface;
 mod node_host_audit;
 pub(crate) mod federation_surface;
+pub(crate) mod build_surface;
 mod operator_doctor;
 mod operator_errors;
 mod operator_help;
@@ -52,6 +53,9 @@ mod runtime_suite;
 mod runtime_surface;
 mod rust_source;
 mod solana_surface;
+
+#[allow(dead_code)]
+mod autoresearch_surface;
 mod surface_audit;
 mod surface_registry;
 pub(crate) mod task_surface;
@@ -236,6 +240,11 @@ enum Command {
     Federation {
         #[command(subcommand)]
         command: federation_surface::FederationCommand,
+    },
+    /// Trigger a distributed build on the network runner for an exact commit.
+    Build {
+        #[command(subcommand)]
+        command: build_surface::BuildCommand,
     },
 }
 

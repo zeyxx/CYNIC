@@ -36,7 +36,7 @@ use crate::types::{
     FleetNodeStatusParams, FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams,
     IdentityAttestParams, IdentitySmokeCheckParams, InferParams, InferenceDiscoverParams,
     InferenceStartParams, InferenceSwitchParams, InfraProvisionParams, InfraRegistryReadParams,
-    InfraRegistryValidateParams, JudgeParams, LibraryQueryParams, ListParams,
+    InfraRegistryValidateParams, JudgeParams, JudgmentParams, LibraryQueryParams, ListParams,
     ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
     LxcExecBridgeStatusParams, McpRateLimit, MetabolismParams, NetworkIpamCheckParams,
     NetworkMeshDnsActivationApplyParams, NetworkMeshDnsActivationBundleParams,
@@ -120,6 +120,7 @@ impl CynicMcpProxy {
             + Self::tool_router_eval()
             + Self::tool_router_agent_loop_audit()
             + Self::tool_router_docker()
+            + Self::tool_router_build()
     }
 
     pub fn new(
@@ -214,4 +215,5 @@ include!("routers/coord.rs");
 include!("routers/local.rs");
 include!("routers/eval.rs");
 include!("routers/docker.rs");
+include!("routers/build.rs");
 include!("handler.rs");

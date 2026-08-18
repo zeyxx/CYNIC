@@ -41,3 +41,19 @@ pub struct DockerContainerInspectParams {
     /// Container name or id.
     pub container: String,
 }
+
+// ── Build runner (distributed build trigger) ───────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct BuildTriggerParams {
+    /// Exact source commit SHA (40 hex chars) to materialize on the runner.
+    pub commit: String,
+    /// Target build phase: check | build | activate.
+    pub phase: Option<String>,
+    /// Network mode for the build: offline | online.
+    pub network_mode: Option<String>,
+    /// Build runner SSH host (defaults to the canonical network runner).
+    pub host: Option<String>,
+    /// Build runner SSH user.
+    pub user: Option<String>,
+}

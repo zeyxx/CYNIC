@@ -359,6 +359,11 @@
           "mutation": "local_mutation"
         },
         {
+          "name": "cynic_judgment",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
           "name": "cynic_verdicts",
           "tier": "product_domain",
           "mutation": "read_only"
@@ -924,7 +929,8 @@
       "required_contract": "cynic.agent_workload_envelope.v1",
       "tier": "baseline_runtime",
       "tools": [
-        "cynic_validate"
+        "cynic_validate",
+        "cynic_build_trigger"
       ],
       "operator_tools": [
         "cynic-node agent-workload-status --json --workload-id <id> [--state-root <path>]",
