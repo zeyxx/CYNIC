@@ -280,7 +280,7 @@ pub fn select_peer_for_role(
     resolver: &LocalRegistryMeshResolver,
     role: &str,
 ) -> Option<PeerEndpoint> {
-    cynic_protocol::peer_resolver::select_peer(&resolver.fallback_peers(role), role)
+    cynic_protocol::peer_resolver::select_peer(&resolver.resolve_peers(role), role)
 }
 
 /// Helper: all reachable, healthy seed peers, ordered by role priority.
@@ -299,7 +299,7 @@ fn read_seed_file(infra_dir: &Path) -> Option<Vec<SeedSynapseNode>> {
 fn hex_decode(s: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
     let s = s.trim();
     if s.len() % 2 != 0 {
-        return Err(std::num::ParseIntError::from(std::num::IntErrorKind::InvalidDigit));
+        return Err(std::num::ParseIntError::new(std::num::IntErrorKind::InvalidDigit));
     }
     (0..s.len())
         .step_by(2)

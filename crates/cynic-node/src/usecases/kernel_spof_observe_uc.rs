@@ -11,6 +11,7 @@
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::health_signal::KernelSpofSignal;
+use cynic_protocol::peer_resolver::PeerResolver;
 
 use super::federated_mesh_resolver::LocalRegistryMeshResolver;
 use super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES;
@@ -54,9 +55,7 @@ fn probe_kernel_endpoint(addr: &str, port: u16) -> bool {
     let Ok(sockaddr) = (addr, port).to_socket_addrs() else {
         return false;
     };
-    let Ok(mut iter) = sockaddr else {
-        return false;
-    };
+    let mut iter = sockaddr;
     match iter.next() {
         Some(sa) => {
             let start = Instant::now();
