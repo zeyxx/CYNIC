@@ -19,7 +19,7 @@
 use std::path::Path;
 
 use ed25519_dalek::{Verifier, VerifyingKey};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use cynic_protocol::peer_resolver::{
     PeerEndpoint, PeerResolver, PeerTransport, SignedPeerEndpoint,
@@ -27,7 +27,7 @@ use cynic_protocol::peer_resolver::{
 use cynic_protocol::build_node::NodeHealthView;
 
 /// Declared seed node as stored in `infra/synapse-nodes.seed.json`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct SeedSynapseNode {
     pub id: String,
     pub role: String,
@@ -42,8 +42,8 @@ struct SeedFile {
     nodes: Vec<SeedSynapseNode>,
 }
 
-/// Signed rolling fallback bundle (`infra/known-peers.vN.<ts>.json`).
-#[derive(Debug, Deserialize)]
+/// Signed rolling fallback bundle (`infra/known-peers.<ts>.json`).
+#[derive(Debug, Deserialize, Serialize)]
 struct SignedBundle {
     #[allow(dead_code)]
     schema: String,
@@ -101,8 +101,17 @@ impl LocalRegistryMeshResolver {
         infra_dir: &Path,
         declared: &[crate::usecases::federated_mesh_probe_uc::DeclaredSynapseNode],
     ) -> Self {
-        let seed = read_seed_file(infra_dir)
-            .unwrap_or_else(|| SeedSynapseNode::from_static(declared));
+        let seed = read_seed_file(infra_dir).unwrap_or_else(|| {
+            declared
+                .iter()
+                .map(|n| SeedSynapseNode {
+                    id: n.id.to_string(),
+                    role: n.role.to_string(),
+                    ip: n.ip.to_string(),
+                    probe_ports: n.probe_ports.to_vec(),
+                })
+                .collect()
+        });
         let fallback_dir = if infra_dir.exists() {
             Some(infra_dir.to_path_buf())
         } else {
@@ -235,8 +244,9 @@ impl PeerResolver for LocalRegistryMeshResolver {
                     reachable: true,
                     health: NodeHealthView::default(),
                 },
-                signature: bundle.signature.clone(),
-                signed_by: bundle.signed_by.clone(),
+                signature_ed25519: bundle.signature.clone(),
+                generated_at_unix_s: 0,
+                version: 1,
             })
             .collect()
     }
@@ -270,7 +280,7 @@ pub fn select_peer_for_role(
     resolver: &LocalRegistryMeshResolver,
     role: &str,
 ) -> Option<PeerEndpoint> {
-    cynic_protocol::peer_resolver::select_peer(&resolver.resolve_peers(role), role)
+    cynic_protocol::peer_resolver::select_peer(&resolver.fallback_peers(role), role)
 }
 
 /// Helper: all reachable, healthy seed peers, ordered by role priority.
