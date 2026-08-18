@@ -92,11 +92,8 @@ impl SshBuildRunner {
 impl BuildRunnerPort for SshBuildRunner {
     fn trigger(&self, trigger: &BuildTrigger) -> Result<BuildProofBundle, BuildError> {
         trigger.validate()?;
-        let argv: Vec<&str> = self
-            .build_argv(trigger)
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
+        let argv_strings = self.build_argv(trigger);
+        let argv: Vec<&str> = argv_strings.iter().map(|s| s.as_str()).collect();
         let out = self.runner.run(&argv);
         if let Some(e) = &out.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
@@ -108,12 +105,8 @@ impl BuildRunnerPort for SshBuildRunner {
     }
 
     fn observe_runner(&self) -> RunnerHealth {
-        let argv = vec![
-            "ssh",
-            &format!("{}@{}", self.user, self.host),
-            "echo",
-            "cynic-build-runner",
-        ];
+        let ssh_target = format!("{}@{}", self.user, self.host);
+        let argv = vec!["ssh", &ssh_target, "echo", "cynic-build-runner"];
         let out = self.runner.run(&argv);
         let reachable = out.success();
         RunnerHealth {
