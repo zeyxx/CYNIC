@@ -61,6 +61,7 @@ fn watchdog_observation_builder_is_pure() {
             load_average_1m: 0.4,
             uptime_seconds: 1234,
             observed_at: "1970-01-01T00:00:00+00:00".to_string(),
+            wg_handshakes: vec![],
         },
     );
 
@@ -122,6 +123,15 @@ impl WatchdogNetworkObservationPort for FakeNetworkObserve {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy)]
+struct FakeHandshakeObs;
+
+impl cynic_host::ports::handshake_observer::HandshakeObservationPort for FakeHandshakeObs {
+    fn observe_handshakes(&self) -> Vec<cynic_host::ports::handshake_observer::HandshakeObservation> {
+        vec![]
+    }
+}
+
 #[test]
 fn watchdog_runtime_port_is_substitutable() {
     let runtime = FakeRuntime;
@@ -139,6 +149,7 @@ async fn sampler_collect_with_ports_is_substitutable() {
             &FakeRuntime,
             &FakeKernelProbe,
             &FakeNetworkObserve,
+            &FakeHandshakeObs,
         )
         .await;
 
