@@ -74,7 +74,7 @@ pub fn persist_capabilities(
     persist_capabilities_at(&path, capabilities, evidence_refs)
 }
 
-fn persist_capabilities_at(
+pub fn persist_capabilities_at(
     path: &Path,
     capabilities: &[&str],
     evidence_refs: &[String],
@@ -98,6 +98,10 @@ fn persist_capabilities_at(
         return Err("node_owned_agent_execution_proof_read_back_missing".to_string());
     }
     Ok(read_back)
+}
+
+pub fn observe_at(path: &Path) -> AgentExecutionRuntimeObservation {
+    observe_from_path(path)
 }
 
 fn append_receipt(
