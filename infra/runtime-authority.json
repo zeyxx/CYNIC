@@ -185,6 +185,18 @@
     "Python lifecycle gates",
     "product UX as low-layer proof"
   ],
+  "canonical_runtime_capabilities": {
+    "runtime_publisher": {
+      "authority_class": "RuntimeMachineIdentity",
+      "bootstrap_grant_surface": "cynic-kernel::api::rest::bootstrap_binding (POST /bootstrap/runtime_publisher)",
+      "bootstrap_grant_capability": "RuntimePublisherCapabilityBinding (kernel/node-signed)",
+      "granted_when": "infra/runtime_proof.v1 roles.runtime_publisher.granted == true",
+      "federated_evidence": "cynic.network.runtime_proof.v1 (RuntimeProofBundle gate: runtime_publisher_admission)",
+      "rbac_scope_source": "infra/agent-roles.json #runtime_publisher",
+      "mutation_authority": "zero-touch runtime after 2N+1 seed; no HumanAdmin required for publish_artifact_proof / publish_settlement_receipt / publish_attest_durable_receipt",
+      "spof_model": "node-local grant signed by kernel; on peer death, a node with admitted runtime_publisher resumes publishing (no single HumanAdmin SPOF)"
+    }
+  },
   "experimental_workspace_crates": {
     "cynic-inference": {
       "owner": "crates/cynic-inference",

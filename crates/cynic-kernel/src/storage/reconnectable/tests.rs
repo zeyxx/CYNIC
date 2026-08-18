@@ -1,8 +1,9 @@
 //! Unit tests for reconnectable storage and coord.
 
+use std::sync::Arc;
 use super::*;
-use crate::domain::coord::NullCoord;
-use crate::domain::storage::NullStorage;
+use crate::domain::coord::{CoordPort, NullCoord};
+use crate::domain::storage::{NullStorage, StoragePort};
 use crate::infra::config::StorageConfig;
 
 #[tokio::test]

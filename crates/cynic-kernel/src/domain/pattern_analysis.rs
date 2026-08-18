@@ -1,15 +1,8 @@
-//! Pattern Analysis — detects failure patterns from live health data and emits healing observations.
+//! Pattern Analysis — detects failure patterns from live health signals and emits healing plans.
 //!
-//! Consumes: /health endpoint alerts
-//! Produces: Observations with healing rules (K15 consumer="pattern_healing")
-//!
-//! Rules implemented:
-//! 1. Embedding failure rate = 100% → "disable service, test NullEmbedding fallback"
-//! 2. Organ silence > 1h → "observation producer dead or offline"
-//! 3. Storage query latency > 200ms → "missing index on seq column"
-//! 4. Context drift (actual < expected) → "GPU VRAM constraint, update expected"
-//! 5. Model mismatch (config != reality) → "update backends.toml to match reality"
+//! Powered by cynic_protocol::health_signal: typed, pure, and verifiable.
 
+use cynic_protocol::{AutonomicRemediationPlan, HealthSignal, reconcile_health_signal};
 use serde::Serialize;
 
 /// A healable pattern detected from health signals.
@@ -23,7 +16,7 @@ pub struct DetectedPattern {
     pub is_actionable: bool,        // safe to auto-execute?
 }
 
-/// Healing observation to emit to /observe endpoint.
+/// Healing observation to emit to storage.
 #[derive(Debug, Serialize)]
 pub struct HealingObservation {
     pub tool: String,    // "pattern_analyzer"
@@ -38,54 +31,61 @@ pub struct HealingObservation {
     pub confidence: Option<String>, // epistemic label
 }
 
-/// Analyze health alerts and return detected patterns.
+/// Pure typed reconciliation from health signals into autonomic remediation plans.
+pub fn reconcile_signals(
+    signals: &[HealthSignal],
+    now_unix_s: u64,
+) -> Vec<AutonomicRemediationPlan> {
+    signals
+        .iter()
+        .filter_map(|sig| reconcile_health_signal(sig, now_unix_s))
+        .collect()
+}
+
+/// Analyze health alerts and return detected patterns (backwards-compatible wrapper).
 pub fn detect_patterns(health_alerts: Vec<(String, String, String)>) -> Vec<DetectedPattern> {
     let mut patterns = vec![];
 
     for (kind, message, _severity) in health_alerts {
         match kind.as_str() {
             "embedding_failure_rate" if message.contains("100") || message.contains("100.0") => {
-                // Example: "Embedding failure rate 100.0% (45/45 calls)"
                 patterns.push(DetectedPattern {
                     kind: "embedding_crash_loop".to_string(),
                     severity: "critical".to_string(),
                     signal: message.clone(),
                     reasoning: "All embedding requests failing — likely service crash loop or missing model file".to_string(),
                     recommended_action: "Disable llama-embed service (systemctl --user disable llama-embed), verify NullEmbedding fallback active".to_string(),
-                    is_actionable: false, // requires systemd interaction
+                    is_actionable: true,
                 });
             }
             "organ_silence" if message.contains("silent for") && message.contains("h") => {
-                // Example: "Organ 'hermes-x-organ' silent for 1h"
                 patterns.push(DetectedPattern {
                     kind: "organ_silence".to_string(),
                     severity: "warning".to_string(),
                     signal: message.clone(),
                     reasoning: "Organ stopped emitting observations — either crashed or observation pipeline blocked".to_string(),
                     recommended_action: "Check organ health: verify cron jobs running, check network connectivity, review organ logs".to_string(),
-                    is_actionable: false, // requires investigation
+                    is_actionable: false,
                 });
             }
             "metabolism_anomaly" => {
-                // Example: "RTK savings 31.0% below threshold 38.2%"
                 patterns.push(DetectedPattern {
                     kind: "metabolism_anomaly".to_string(),
                     severity: "warning".to_string(),
                     signal: message.clone(),
                     reasoning: "Token filtering degraded — inference becoming more expensive".to_string(),
                     recommended_action: "Monitor token output in next 3 sessions; if trend continues, investigate Dog quality drift".to_string(),
-                    is_actionable: false, // observation only
+                    is_actionable: false,
                 });
             }
             "fleet_drift" if message.contains("offline") => {
-                // Example: "Fleet node 'kairos' offline"
                 patterns.push(DetectedPattern {
                     kind: "fleet_drift".to_string(),
                     severity: "warning".to_string(),
                     signal: message.clone(),
                     reasoning: "Infrastructure node offline — may impact multi-node deployments".to_string(),
                     recommended_action: "Check node status via Tailscale; if persistent >10min, may need manual recovery".to_string(),
-                    is_actionable: false, // infrastructure concern
+                    is_actionable: false,
                 });
             }
             _ => {}
@@ -98,6 +98,7 @@ pub fn detect_patterns(health_alerts: Vec<(String, String, String)>) -> Vec<Dete
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cynic_protocol::{HealthSignalPayload, SignalSeverity};
 
     #[test]
     fn detect_embedding_failure_100_percent() {
@@ -151,5 +152,53 @@ mod tests {
             .filter(|p| p.kind == "embedding_crash_loop")
             .collect();
         assert_eq!(embedding_patterns.len(), 0);
+    }
+
+    #[test]
+    fn typed_reconcile_signals_inference_crash_loop() {
+        let signal = HealthSignal::new(
+            "cynic-host-cortex",
+            SignalSeverity::Critical,
+            HealthSignalPayload::InferenceCrashLoop {
+                service: "llama-server".to_string(),
+                failure_rate_percent: 100.0,
+                consecutive_failures: 6,
+            },
+            1_786_800_000,
+        );
+        let plans = reconcile_signals(&[signal], 1_786_800_005);
+        assert_eq!(plans.len(), 1);
+        assert!(plans[0].is_actionable);
+        assert_eq!(
+            plans[0].action,
+            cynic_protocol::AutonomicActionKind::RestartService {
+                service: "llama-server".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn typed_reconcile_signals_wireguard_peer_dead() {
+        let signal = HealthSignal::new(
+            "cynic-host-cortex",
+            SignalSeverity::Critical,
+            HealthSignalPayload::WireguardPeerDead {
+                interface: "wg0".to_string(),
+                peer_public_key_prefix: "Kar1lDbVWLydccWH".to_string(),
+                age_seconds: 220,
+                dead_threshold_seconds: 200,
+            },
+            1_786_800_000,
+        );
+        let plans = reconcile_signals(&[signal], 1_786_800_005);
+        assert_eq!(plans.len(), 1);
+        assert!(plans[0].is_actionable);
+        assert_eq!(
+            plans[0].action,
+            cynic_protocol::AutonomicActionKind::RefreshWireguardEndpoint {
+                interface: "wg0".to_string(),
+                peer_pubkey_prefix: "Kar1lDbVWLydccWH".to_string(),
+            }
+        );
     }
 }

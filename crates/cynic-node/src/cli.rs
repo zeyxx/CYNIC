@@ -526,6 +526,21 @@ pub enum NetworkCommands {
         #[arg(long, default_value_t = 20)]
         qga_max_status_polls: usize,
     },
+    /// Reconcile a single node-local network recovery tick with bounded budget and read-back proof.
+    RecoveryTick {
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+        #[arg(long, default_value = "/var/lib/cynic/network-recovery-state.json")]
+        state_path: String,
+        #[arg(long, default_value_t = 30)]
+        cooldown_seconds: u64,
+        #[arg(long, default_value_t = 3)]
+        max_attempts: u32,
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        json: bool,
+    },
     /// Execute a host-owned network-actuation request inside an attested QEMU guest.
     ActuateTarget {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
