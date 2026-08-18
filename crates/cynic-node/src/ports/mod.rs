@@ -4,6 +4,8 @@ pub mod agent_workload_delivery_lease_port;
 pub mod agent_workload_delivery_port;
 pub mod agent_workload_store_port;
 pub mod agent_workspace_port;
+pub mod build_runner;
+pub mod build_runner_adapter;
 pub mod build_scheduler_port;
 pub mod build_workload_grant_port;
 pub mod build_workload_grant_store_port;
