@@ -166,7 +166,6 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
 mod tests {
     use super::*;
     use crate::os_health::default_os_health_config;
-    use crate::os_health::observe::StubOsHealthObserver;
 
     fn obs() -> OsObservation {
         OsObservation {
