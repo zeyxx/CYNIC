@@ -1,4 +1,5 @@
 pub mod chat_port;
+pub use chat_port::ChatPort;
 pub mod chat_session_port;
 pub mod embedding_port;
 pub mod empirical_store_port;

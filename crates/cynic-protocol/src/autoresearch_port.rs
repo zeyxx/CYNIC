@@ -52,6 +52,13 @@ pub trait AutoresearchPort {
     fn hypothesize(&self, units: &[TraceUnit]) -> Result<Vec<SkillHypothesis>, AutoresearchPortError>;
 }
 
+pub type ReasoningError = AutoresearchPortError;
+
+#[async_trait::async_trait]
+pub trait ReasoningAdapter: Send + Sync {
+    async fn hypothesize(&self, evidence: &str) -> Result<Vec<SkillHypothesis>, ReasoningError>;
+}
+
 /// Run one full experiment loop over the corpus and return a machine-readable
 /// report. PURE with respect to `port`/`program`: it only calls the trait and
 /// the policy in `autoresearch.rs`. This is the equivalent of autoresearch's

@@ -26,6 +26,7 @@ rustc-ice-*.txt
 /logs/
 /observations/
 /tmp/
+/infra/benchmark-results/
 state*.md
 *-state*.md
 message.txt
