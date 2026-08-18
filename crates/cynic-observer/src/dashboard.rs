@@ -150,10 +150,10 @@ pub async fn run_server(
         }
     });
 
-    let rx_broadcast = tx_broadcast.clone();
+    let tx_for_accept = tx_broadcast.clone();
     tokio::spawn(async move {
         while let Ok((stream, _)) = listener.accept().await {
-            let rx = rx_broadcast.clone();
+            let rx = tx_for_accept.subscribe();
             tokio::spawn(async move {
                 handle_connection(stream, rx).await;
             });

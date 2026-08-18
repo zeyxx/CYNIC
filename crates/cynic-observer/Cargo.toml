@@ -12,6 +12,7 @@ serde_json = "1.0"
 tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-native-roots"] }
 env_logger = "0.11.11"
 rustls = { version = "0.23.42", features = ["ring"] }
+async-trait = "0.1"
 # Optionnel pour la fédération P2P plus tard:
 # libp2p = { version = "0.52", features = ["tokio", "gossipsub", "tcp", "noise", "yamux"] }
 cynic-host = { path = "../cynic-host" }
