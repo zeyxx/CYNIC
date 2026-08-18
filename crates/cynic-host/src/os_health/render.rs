@@ -48,7 +48,8 @@ mod tests {
     use super::*;
     use crate::os_health::decision::evaluate_os_health;
     use crate::os_health::default_os_health_config;
-    use crate::os_health::observe::{OsObservation, StubOsHealthObserver};
+    use crate::os_health::observe::StubOsHealthObserver;
+    use crate::os_health::types::OsObservation;
 
     #[test]
     fn render_includes_status_and_findings() {

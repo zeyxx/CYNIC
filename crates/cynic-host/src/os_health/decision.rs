@@ -5,8 +5,7 @@
 //! risk becomes an explicit finding; every unreadable signal becomes an
 //! explicit `unknown` rather than a silent pass.
 
-use super::observe::OsObservation;
-use super::types::{OsHealthAssessment, OsHealthConfig, OsHealthFinding};
+use super::types::{OsHealthAssessment, OsHealthConfig, OsHealthFinding, OsObservation};
 use crate::os_health::OS_HEALTH_SCHEMA;
 
 pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> OsHealthAssessment {

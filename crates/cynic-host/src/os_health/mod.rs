@@ -77,7 +77,7 @@ mod tests {
 
     #[test]
     fn healthy_substrate_assesses_clean() {
-        let obs = observe::OsObservation {
+        let obs = super::types::OsObservation {
             softlockup_panic: true,
             thp_enabled: "madvise".to_string(),
             thp_defrag: "madvise".to_string(),
@@ -94,7 +94,7 @@ mod tests {
 
     #[test]
     fn reproduces_2026_08_18_crash_class() {
-        let obs = observe::OsObservation {
+        let obs = super::types::OsObservation {
             softlockup_panic: false, // the exact blindness that froze the box
             thp_enabled: "always".to_string(),
             thp_defrag: "defer+madvise".to_string(),
@@ -115,7 +115,7 @@ mod tests {
 
     #[test]
     fn dmesg_softlockup_alone_is_an_anomaly() {
-        let obs = observe::OsObservation {
+        let obs = super::types::OsObservation {
             softlockup_panic: true,
             thp_enabled: "madvise".to_string(),
             thp_defrag: "madvise".to_string(),

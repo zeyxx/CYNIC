@@ -7,8 +7,6 @@
 //! an explicit `unknown` so the decision layer can preserve the gap instead of
 //! guessing.
 
-use serde::{Deserialize, Serialize};
-
 use super::types::OsObservation;
 
 /// Portable observer of OS substrate health signals.

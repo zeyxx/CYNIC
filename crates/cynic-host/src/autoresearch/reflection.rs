@@ -36,11 +36,11 @@ pub fn parse_hypotheses(text: &str) -> Vec<SkillHypothesis> {
             if !d.is_empty() && (!why.is_empty() || !reuse.is_empty()) {
                 out.push(SkillHypothesis {
                     schema: AUTORESEARCH_HYPOTHESIS_SCHEMA.to_string(),
+                    skill_id: format!("skill-{}", d),
                     domain: d.clone(),
-                    why: why.trim().to_string(),
-                    when_trigger: when.trim().to_string(),
-                    proposed_reuse: reuse.trim().to_string(),
-                    actionable,
+                    description: format!("why: {}\\nwhen: {}\\nreuse: {}", why, when, reuse),
+                    actionability,
+                    claimed_coverage: 0.0,
                 });
             }
         }
