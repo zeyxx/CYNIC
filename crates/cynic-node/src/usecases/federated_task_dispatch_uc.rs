@@ -68,20 +68,24 @@ impl FederatedTaskDispatcher {
             .unwrap_or(0);
 
         // 1. Select target node based on domain role or explicit override
+        let resolver = super::federated_mesh_resolver::LocalRegistryMeshResolver::from_declared(
+            super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES,
+        );
         let target_node = match target_override {
-            Some(node_id) => CANONICAL_SYNAPSE_NODES
-                .iter()
-                .find(|n| n.id.eq_ignore_ascii_case(&node_id))
+            Some(node_id) => resolver
+                .resolve_all_peers()
+                .into_iter()
+                .find(|n| n.node_id.eq_ignore_ascii_case(&node_id))
                 .ok_or_else(|| format!("Target node '{node_id}' not found in Synapse registry"))?,
             None => select_canonical_node_for_domain(task.domain),
         };
 
         // 2. Formulate monotonic execution lease
-        let lease_id = format!("lease_{}_{}_{}", target_node.id, now, fencing_token);
+        let lease_id = format!("lease_{}_{}_{}", target_node.node_id, now, fencing_token);
         let lease = FederatedNodeLease {
             schema: cynic_protocol::FEDERATED_NODE_LEASE_SCHEMA.to_string(),
             lease_id,
-            node_id: target_node.id.to_string(),
+            node_id: target_node.node_id.clone(),
             task_id: task.id.clone(),
             fencing_token,
             acquired_at_unix_s: now,
@@ -94,7 +98,7 @@ impl FederatedTaskDispatcher {
         let envelope = FederatedTaskEnvelope::new(
             envelope_id,
             self.local_node_id.clone(),
-            Some(target_node.id.to_string()),
+            Some(target_node.node_id.clone()),
             task,
             fencing_token,
             budget_seconds,
@@ -105,11 +109,11 @@ impl FederatedTaskDispatcher {
             status: "dispatched",
             envelope,
             lease,
-            target_node_id: target_node.id.to_string(),
-            target_node_ip: target_node.ip.to_string(),
+            target_node_id: target_node.node_id.clone(),
+            target_node_ip: target_node.addr.clone(),
             message: format!(
                 "Task attributed to node '{}' (IP: {}) under fencing token {}",
-                target_node.id, target_node.ip, fencing_token
+                target_node.node_id, target_node.addr, fencing_token
             ),
         })
     }
@@ -134,8 +138,8 @@ impl FederatedTaskDispatcher {
 
             let lease = FederatedNodeLease {
                 schema: cynic_protocol::FEDERATED_NODE_LEASE_SCHEMA.to_string(),
-                lease_id: format!("lease_{}_{}_{}", target_node.id, now, fencing),
-                node_id: target_node.id.to_string(),
+                lease_id: format!("lease_{}_{}_{}", target_node.node_id, now, fencing),
+                node_id: target_node.node_id.clone(),
                 task_id: task.id.clone(),
                 fencing_token: fencing,
                 acquired_at_unix_s: now,
@@ -146,7 +150,7 @@ impl FederatedTaskDispatcher {
             let envelope = FederatedTaskEnvelope::new(
                 format!("env_{}_{}", self.local_node_id, fencing),
                 self.local_node_id.clone(),
-                Some(target_node.id.to_string()),
+                Some(target_node.node_id.clone()),
                 task.clone(),
                 fencing,
                 task.timeout_secs,
@@ -174,27 +178,23 @@ impl FederatedTaskDispatcher {
 
 fn select_canonical_node_for_domain(
     domain: TaskDomain,
-) -> &'static super::federated_mesh_probe_uc::DeclaredSynapseNode {
-    match domain {
-        TaskDomain::CodeAudit | TaskDomain::Infra => {
-            // Prefer dedicated builder or proxmox hypervisor
-            CANONICAL_SYNAPSE_NODES
-                .iter()
-                .find(|n| n.role == "build_runner" || n.role == "hypervisor")
-                .unwrap_or(&CANONICAL_SYNAPSE_NODES[0])
-        }
-        TaskDomain::Governance => {
-            // Storage or Cortex
-            CANONICAL_SYNAPSE_NODES
-                .iter()
-                .find(|n| n.role == "storage_primary")
-                .unwrap_or(&CANONICAL_SYNAPSE_NODES[0])
-        }
+) -> cynic_protocol::peer_resolver::PeerEndpoint {
+    let resolver = super::federated_mesh_resolver::LocalRegistryMeshResolver::from_declared(
+        super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES,
+    );
+    let (primary_role, fallback_role) = match domain {
+        TaskDomain::CodeAudit | TaskDomain::Infra => ("build_runner", Some("hypervisor")),
+        TaskDomain::Governance => ("storage_primary", None),
         TaskDomain::Inference | TaskDomain::Cortex | TaskDomain::Nightshift => {
-            // Local cortex primary
-            &CANONICAL_SYNAPSE_NODES[0]
+            ("cortex_primary", None)
         }
-    }
+    };
+    super::federated_mesh_resolver::select_peer_for_role(&resolver, primary_role)
+        .or_else(|| {
+            fallback_role
+                .and_then(|r| super::federated_mesh_resolver::select_peer_for_role(&resolver, r))
+        })
+        .unwrap_or_else(|| resolver.resolve_all_peers().remove(0))
 }
 
 /// Dynamic, drift-aware build-node selection.

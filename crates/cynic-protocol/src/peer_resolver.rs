@@ -27,6 +27,8 @@ pub struct PeerEndpoint {
     pub role: String,
     pub transport: PeerTransport,
     pub addr: String,
+    /// Ports the peer should be probed on (mesh liveness / service health).
+    pub probe_ports: Vec<u16>,
     /// Observed mesh reachability (from `MeshStateProvider::fetch_known_peers`).
     pub reachable: bool,
     /// Folded OS-substrate health (OSH-001..008), from the OS observer.
@@ -105,6 +107,28 @@ pub fn select_peer(peers: &[PeerEndpoint], requested_role: &str) -> Option<PeerE
         .cloned()
 }
 
+/// All reachable, non-OS-critical peers across roles, ordered by role priority
+/// then health. Used by mesh probing (liveness survey) where every declared
+/// peer is surveyed, not just one role.
+pub fn select_all_peers(peers: &[PeerEndpoint]) -> Vec<PeerEndpoint> {
+    let mut healthy: Vec<PeerEndpoint> = peers
+        .iter()
+        .filter(|p| p.reachable && !p.health.critical_active)
+        .cloned()
+        .collect();
+    healthy.sort_by(|a, b| {
+        let pa = RolePriority::from_role_str(&a.role).unwrap_or(RolePriority::Standby);
+        let pb = RolePriority::from_role_str(&b.role).unwrap_or(RolePriority::Standby);
+        pa.cmp(&pb).then_with(|| {
+            a.health
+                .active_osha_codes
+                .len()
+                .cmp(&b.health.active_osha_codes.len())
+        })
+    });
+    healthy
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,6 +148,7 @@ mod tests {
             role: role.to_string(),
             transport: PeerTransport::Http,
             addr: format!("http://10.10.10.{}", node_id),
+            probe_ports: vec![8000],
             reachable,
             health,
         }

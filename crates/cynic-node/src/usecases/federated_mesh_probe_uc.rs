@@ -54,17 +54,21 @@ pub const CANONICAL_SYNAPSE_NODES: &[DeclaredSynapseNode] = &[
 
 /// Probes all declared Synapse nodes and generates a read-back proof report.
 pub fn probe_federated_synapse_mesh(local_node_id: &str) -> FederatedMeshProbeReport {
+    let resolver = super::federated_mesh_resolver::LocalRegistryMeshResolver::from_declared(
+        CANONICAL_SYNAPSE_NODES,
+    );
+    let seed_peers = resolver.resolve_all_peers();
     let timeout = Duration::from_millis(350);
     let mut node_statuses = Vec::new();
     let mut reachable_count = 0;
 
-    for node in CANONICAL_SYNAPSE_NODES {
+    for node in &seed_peers {
         let mut active_services = Vec::new();
         let mut min_rtt: Option<f32> = None;
         let mut is_reachable = false;
 
-        for &port in node.probe_ports {
-            if let Ok(addr) = format!("{}:{}", node.ip, port).parse::<SocketAddr>() {
+        for &port in &node.probe_ports {
+            if let Ok(addr) = format!("{}:{}", node.addr, port).parse::<SocketAddr>() {
                 let start = Instant::now();
                 if let Ok(_stream) = TcpStream::connect_timeout(&addr, timeout) {
                     let rtt = start.elapsed().as_secs_f32() * 1000.0;
@@ -76,7 +80,7 @@ pub fn probe_federated_synapse_mesh(local_node_id: &str) -> FederatedMeshProbeRe
         }
 
         // On local machine, 127.0.0.1 is always locally present
-        if node.ip == "127.0.0.1" {
+        if node.addr == "127.0.0.1" {
             is_reachable = true;
         }
 
@@ -85,9 +89,9 @@ pub fn probe_federated_synapse_mesh(local_node_id: &str) -> FederatedMeshProbeRe
         }
 
         node_statuses.push(FederatedMeshNodeStatus {
-            node_id: node.id.to_string(),
-            role: node.role.to_string(),
-            synapse_ip: node.ip.to_string(),
+            node_id: node.node_id.clone(),
+            role: node.role.clone(),
+            synapse_ip: node.addr.clone(),
             wireguard_reachable: is_reachable,
             active_services,
             rtt_ms: min_rtt,
@@ -104,7 +108,7 @@ pub fn probe_federated_synapse_mesh(local_node_id: &str) -> FederatedMeshProbeRe
         schema: FEDERATED_MESH_PROBE_SCHEMA,
         status: overall_status,
         local_node_id: local_node_id.to_string(),
-        total_declared_nodes: CANONICAL_SYNAPSE_NODES.len(),
+        total_declared_nodes: seed_peers.len(),
         reachable_nodes_count: reachable_count,
         node_statuses,
     }

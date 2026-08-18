@@ -5,6 +5,7 @@ pub mod agent_workload_store_uc;
 pub mod agent_workspace_lifecycle_uc;
 pub mod build_workload_grant_uc;
 pub mod federated_mesh_probe_uc;
+pub mod federated_mesh_resolver;
 pub mod federated_task_dispatch_uc;
 pub mod homeostasis_uc;
 pub mod mesh_sync_uc;
