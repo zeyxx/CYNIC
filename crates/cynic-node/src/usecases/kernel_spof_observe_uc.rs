@@ -25,7 +25,7 @@ pub const KERNEL_HEARTBEAT_TIMEOUT_MS: u64 = 800;
 /// as unreachable and record the residual risk — degraded autonomy is the safe
 /// default, not a crash.
 pub fn observe_kernel_spof() -> KernelSpofSignal {
-    let resolver = LocalRegistryMeshResolver::from_declared(CANONICAL_SYNAPSE_NODES);
+    let resolver = LocalRegistryMeshResolver::from_repo_infra_default(CANONICAL_SYNAPSE_NODES);
     let kernel_peers = resolver.resolve_peers("cortex_primary");
 
     let (reachable, age_s) = match kernel_peers.into_iter().next() {

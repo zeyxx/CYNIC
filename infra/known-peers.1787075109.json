@@ -1,0 +1,51 @@
+{
+  "schema": "cynic.known_peers_signed.v1",
+  "signed_by": "697af56c36effa1ebefbce4259994fa5c1d36712c6d7f158d529c1602344fa52",
+  "signature": "f604327881b45a8c6d92361cd232c358bbe1ec37f81fb679fe470c7308e09b7f05d52d8d59d188480bf93c330a5483023418efc140db50d94620105c6744aa05",
+  "nodes": [
+    {
+      "id": "local-kernel",
+      "role": "cortex_primary",
+      "ip": "127.0.0.1",
+      "probe_ports": [
+        8000,
+        1053
+      ]
+    },
+    {
+      "id": "cynic-host-proxmox",
+      "role": "hypervisor",
+      "ip": "10.10.10.1",
+      "probe_ports": [
+        22,
+        8006
+      ]
+    },
+    {
+      "id": "forgejo",
+      "role": "forge_primary",
+      "ip": "10.10.10.101",
+      "probe_ports": [
+        22,
+        3000
+      ]
+    },
+    {
+      "id": "cynic-lxc-surrealdb",
+      "role": "storage_primary",
+      "ip": "10.10.10.103",
+      "probe_ports": [
+        22,
+        8000
+      ]
+    },
+    {
+      "id": "cynic-builder",
+      "role": "build_runner",
+      "ip": "10.10.10.119",
+      "probe_ports": [
+        22
+      ]
+    }
+  ]
+}

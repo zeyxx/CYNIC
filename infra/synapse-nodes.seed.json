@@ -1,0 +1,37 @@
+{
+  "schema": "cynic.synapse_nodes_seed.v1",
+  "generated_by": "cynic-host machine enrollment",
+  "note": "Desired federation topology. Replaces the hardcoded CANONICAL_SYNAPSE_NODES const as the seed source. IPs are declarative registry truth (AGENTS.md allows stable declarative registries). The signed rolling fallback lives in known-peers.vN.<timestamp>.json.",
+  "nodes": [
+    {
+      "id": "local-kernel",
+      "role": "cortex_primary",
+      "ip": "127.0.0.1",
+      "probe_ports": [8000, 1053]
+    },
+    {
+      "id": "cynic-host-proxmox",
+      "role": "hypervisor",
+      "ip": "10.10.10.1",
+      "probe_ports": [22, 8006]
+    },
+    {
+      "id": "forgejo",
+      "role": "forge_primary",
+      "ip": "10.10.10.101",
+      "probe_ports": [22, 3000]
+    },
+    {
+      "id": "cynic-lxc-surrealdb",
+      "role": "storage_primary",
+      "ip": "10.10.10.103",
+      "probe_ports": [22, 8000]
+    },
+    {
+      "id": "cynic-builder",
+      "role": "build_runner",
+      "ip": "10.10.10.119",
+      "probe_ports": [22]
+    }
+  ]
+}
