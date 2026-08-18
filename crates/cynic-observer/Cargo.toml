@@ -17,7 +17,6 @@ rustls = { version = "0.23.42", features = ["ring"] }
 cynic-host = { path = "../cynic-host" }
 blake3 = "1.8.5"
 libp2p = { version = "0.56.0", features = ["tokio", "gossipsub", "tcp", "noise", "yamux", "mdns", "macros", "kad"] }
-cynic-kernel = { version = "26.6.12", path = "../cynic-kernel" }
 cynic-intel = { path = "../cynic-intel" }
 reqwest = { version = "0.13.4", features = ["json"] }
 cynic-protocol = { version = "0.1.0", path = "../cynic-protocol" }
