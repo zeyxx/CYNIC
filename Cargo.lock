@@ -890,7 +890,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
- "cynic-inference",
  "cynic-protocol",
  "ed25519-dalek",
  "hex",
@@ -999,7 +998,6 @@ dependencies = [
  "cynic-node",
  "cynic-observer",
  "cynic-protocol",
- "cynic-zeroclaw-solana",
  "glob",
  "regex",
  "reqwest 0.12.28",
@@ -1007,6 +1005,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "tokio",
  "tokio-util",
  "tracing",
@@ -1053,10 +1052,10 @@ dependencies = [
 name = "cynic-observer"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "blake3",
  "cynic-host",
  "cynic-intel",
+ "cynic-kernel",
  "cynic-protocol",
  "env_logger",
  "futures-util",
@@ -1074,7 +1073,6 @@ dependencies = [
 name = "cynic-protocol"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "hex",
  "serde",
  "serde_json",

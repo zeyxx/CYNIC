@@ -37,6 +37,7 @@ unwrap_used = "deny"
 expect_used = "deny"
 dbg_macro = "deny"
 todo = "warn"
+print_stdout = "warn"
 print_stderr = "warn"
 map_err_ignore = "warn"
 fallible_impl_from = "warn"
@@ -61,14 +62,6 @@ unused_self = "warn"
 # #122357, #138561.
 [profile.release]
 opt-level = 1
-
-[profile.dev]
-# Disable incremental — rustc 1.96 + cynic-inference's async/rwlock graph =
-# ghost errors (uninterned StableCrateId, serde_json::json inconsistent macro
-# resolution, cstor decoder panic). The CARGO_INCREMENTAL=0 env var in
-# .cargo/config.toml [env] is NOT enough (cargo [profile] wins); must be
-# explicit here. Per cynic-dev-build skill §"Stale incremental cache ghost errors".
-incremental = false
 # WHY: codegen-units=1 was a mitigation for nightly-2026-04-06 LLVM fan-out SIGSEGV.
 # As of Rust 1.95.0 / LLVM 22.1.2, codegen-units=1 itself triggers non-deterministic
 # SIGSEGV in FastISel::selectInstruction on random crates (yoke-derive, zerovec,
