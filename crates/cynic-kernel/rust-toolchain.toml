@@ -1,0 +1,4 @@
+# CYNIC kernel — rustc 1.95.0 (AGENS memory: 1.96.0 ICE on syn test-codegen for kernel)
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]

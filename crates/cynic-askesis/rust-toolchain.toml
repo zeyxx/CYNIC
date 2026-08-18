@@ -1,0 +1,4 @@
+# CYNIC digital-companion surface — rustc 1.96.0
+[toolchain]
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]

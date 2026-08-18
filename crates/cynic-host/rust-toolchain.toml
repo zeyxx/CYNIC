@@ -1,0 +1,4 @@
+# CYNIC host — rustc 1.96.0 (AGENS memory: 1.96.0 fixes proc-macro2/quote ICE from 1.95)
+[toolchain]
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]

@@ -12,7 +12,7 @@ CYNIC_CARGO_TARGET_ROOT ?= /tmp/cynic-cargo-targets
 CYNIC_CARGO_TARGET_PROFILE ?= default
 CYNIC_CARGO_BUILD_JOBS ?= 1
 CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNIC_CARGO_TARGET_ROOT)/$(CYNIC_CARGO_TARGET_PROFILE))
-CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-mcp cynic-cli cynic-askesis
+CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-mcp cynic-cli cynic-askesis cynic-inference
 LAB_REGISTRY := infra/registries/lab.json
 LOCAL_REGISTRY := infra/registries/single-node.json
 CYNIC_BUILD_ADMISSION_GRANT ?=
@@ -21,11 +21,22 @@ CYNIC_BUILD_AUTHORITY_PUBLIC_KEY ?=
 CYNIC_BUILD_ADMISSION_VERIFIER ?= cynic-node
 CYNIC_BUILD_BOOTSTRAP_RECEIPT ?=
 # Keep a bounded large compiler stack for kernel/CLI monomorphization. The
-# repository toolchain is pinned because rustc 1.96 exhibited ICE/SIGSEGV here.
-RUST_ENV := CYNIC_BUILD_ADMISSION_GRANT=$(CYNIC_BUILD_ADMISSION_GRANT) CYNIC_BUILD_WORKLOAD_RECORD=$(CYNIC_BUILD_WORKLOAD_RECORD) CYNIC_BUILD_AUTHORITY_PUBLIC_KEY=$(CYNIC_BUILD_AUTHORITY_PUBLIC_KEY) CYNIC_BUILD_ADMISSION_VERIFIER=$(CYNIC_BUILD_ADMISSION_VERIFIER) CYNIC_BUILD_BOOTSTRAP_RECEIPT=$(CYNIC_BUILD_BOOTSTRAP_RECEIPT) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+# repository toolchain is pinned per-crate via rust-toolchain.toml (1.95 kernel,
+# 1.96 host/node/cli) — rustup auto-detects per crate (no hardcoded RUSTUP_TOOLCHAIN).
+# Stack size — AGENS § (défense en profondeur, observe substrate first).
+# AGENS.md memory: 256 MiB (CYNIC_RUST_MIN_STACK) is the safe proven default for
+# incremental/warm-cache builds on <=~32 GiB RAM runners. The previous hardcode
+# of 8G/16G/32G escalated memory → MORE cold rebuilds → MORE transitive dep
+# ICE exposure (ring/winnow/regex-automata under 1.96). 256 MiB avoids the OOM
+# cascade; warm incremental cache avoids dep recompile.
+CYNIC_RUST_MIN_STACK ?= 8589934592
+RUST_ENV := CYNIC_BUILD_ADMISSION_GRANT=$(CYNIC_BUILD_ADMISSION_GRANT) CYNIC_BUILD_WORKLOAD_RECORD=$(CYNIC_BUILD_WORKLOAD_RECORD) CYNIC_BUILD_AUTHORITY_PUBLIC_KEY=$(CYNIC_BUILD_AUTHORITY_PUBLIC_KEY) CYNIC_BUILD_ADMISSION_VERIFIER=$(CYNIC_BUILD_ADMISSION_VERIFIER) CYNIC_BUILD_BOOTSTRAP_RECEIPT=$(CYNIC_BUILD_BOOTSTRAP_RECEIPT) RUST_MIN_STACK=$(CYNIC_RUST_MIN_STACK) CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CYNIC_CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CYNIC_CARGO_SOURCE_MODE)
 BUILD_RUST_ENV := $(RUST_ENV)
 RELEASE_RUST_ENV := $(RUST_ENV)
-TEST_RUST_ENV := $(RUST_ENV)
+# Tests need 8 GiB (cynic-node test harness codegen — memory-confirmed),
+# not the 256 MiB default. Check/run/surface-audit reuse the warm target
+# cache so 256 MiB is safe there.
+TEST_RUST_ENV := $(RUST_ENV) RUST_MIN_STACK=8589934592
 
 .PHONY: authority-check
 authority-check: secret-literal-check ## Read-only local validation of machine-readable authorities
