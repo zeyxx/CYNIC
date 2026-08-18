@@ -361,6 +361,8 @@ mod tests {
                 source_blockers: vec!["fixture".into()],
                 build_status: "unknown",
                 build_blockers: vec!["build_fixture".into()],
+                network_status: "complete",
+                network_blockers: vec![],
             },
         );
         assert_eq!(report.catalog_status, "consumed");
@@ -393,6 +395,8 @@ mod tests {
                 source_blockers: vec![],
                 build_status: "unknown",
                 build_blockers: vec![],
+                network_status: "complete",
+                network_blockers: vec![],
             },
             catalog,
         );
@@ -424,6 +428,8 @@ mod tests {
                 source_blockers: vec![],
                 build_status: "unknown",
                 build_blockers: vec![],
+                network_status: "complete",
+                network_blockers: vec![],
             },
             catalog,
         );
