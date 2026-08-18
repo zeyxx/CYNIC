@@ -61,6 +61,14 @@ pub fn probe_engine_plugins(hw: &HardwareProfile) -> EnginePlugins {
     }
     .to_string();
 
+    let detected_gpu_device = if has_vulkan {
+        Some("Vulkan0".to_string())
+    } else if has_cuda {
+        Some("CUDA0".to_string())
+    } else {
+        None
+    };
+
     EnginePlugins {
         llama_server_bin,
         plugin_dir: plugin_dir.map(|p| p.display().to_string()),
@@ -68,7 +76,7 @@ pub fn probe_engine_plugins(hw: &HardwareProfile) -> EnginePlugins {
         has_vulkan,
         has_cuda,
         has_metal,
-        detected_gpu_device: list_gpu_devices(&llama_server_bin).ok().flatten(|d| d.into_iter().next()),
+        detected_gpu_device,
         likely_cpu_backend_class: likely,
     }
 }
@@ -144,26 +152,3 @@ fn list_cpu_backends(dir: &Path) -> Vec<String> {
     out
 }
 
-/// Query `llama-server --list-devices` to discover concrete GPU device names
-/// (e.g. "Vulkan0"). Returns an empty vec on timeout or parse failure — the
-/// caller treats "no device found" as "use llama-server default device selection".
-fn list_gpu_devices(bin: &str) -> Result<Vec<String>, std::io::Error> {
-    let out = Command::new(bin)
-        .arg("--list-devices")
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .output()?;
-    let text = String::from_utf8_lossy(&out.stdout);
-    let mut devices = Vec::new();
-    for line in text.lines() {
-        let line = line.trim();
-        // Output format: "  Vulkan0: AMD Radeon Graphics (RADV RENOIR) (22265 MiB, ...)"
-        // or "Available devices:" header
-        if line.contains(':') && !line.starts_with("Available") {
-            if let Some(dev) = line.split(':').next() {
-                devices.push(dev.trim().to_string());
-            }
-        }
-    }
-    Ok(devices)
-}
