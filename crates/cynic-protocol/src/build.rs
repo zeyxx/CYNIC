@@ -7,6 +7,7 @@ use crate::{
 mod agent_request;
 mod agent_workload;
 mod workload_grant;
+mod fleet;
 
 pub use agent_request::{
     BUILD_AGENT_REQUEST_ADMISSION_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA,
@@ -27,6 +28,11 @@ pub use workload_grant::{
     build_workload_grant_signing_bytes, canonical_build_action_from_argv,
     derive_build_workload_grant, validate_build_workload_grant,
     validate_signed_build_workload_grant,
+};
+
+pub use fleet::{
+    BuildIsolationPort, BuildJob, BuildJobSpec, BuildNodeCapability, BuildResult,
+    BuildStatus, IsolationKind, RetryPolicy, select_build_node,
 };
 
 pub const BUILD_INPUT_ADMISSION_SCHEMA: &str = "cynic.build.input_admission.v1";

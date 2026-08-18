@@ -1,0 +1,35 @@
+{
+  "schema": "cynic.runtime_proof_bundle.v1",
+  "status": "satisfied",
+  "observed_at_unix_ms": 1787016899138,
+  "scope": "bootstrap_binding_endpoint_validation + fleet_build_placement",
+  "chain": "main@f03536ea",
+  "proofs": [
+    {
+      "gate": "bootstrap_binding_handler_tests",
+      "status": "passed",
+      "evidence": "cargo test -p cynic-kernel --lib bootstrap_binding (2/2 via binary isolated, RUST_MIN_STACK=8G, 1.95.0)"
+    },
+    {
+      "gate": "fleet_placement_policy",
+      "status": "passed",
+      "evidence": "cynic-protocol fleet tests 4/4 (1.96.0, clean syn cache)"
+    },
+    {
+      "gate": "core_crates_compile",
+      "status": "passed",
+      "evidence": "cargo check -p cynic-protocol -p cynic-kernel Finished (RUSTFLAGS='')"
+    },
+    {
+      "gate": "git_diff_clean",
+      "status": "passed",
+      "evidence": "git diff --check exit 0"
+    },
+    {
+      "gate": "make_check_global",
+      "status": "blocked",
+      "evidence": "SIGSEGV recurrent rustc 1.96.0 on cynic-cli full module graph (needs 16GiB+) \u2014 toolchain ICE, blocked on build-isolation port (VM/LXC)",
+      "residual_risk": "build-runner herm\u00e9tique isol\u00e9 non impl\u00e9ment\u00e9"
+    }
+  ]
+}

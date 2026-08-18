@@ -1,0 +1,45 @@
+{
+  "schema": "cynic.runtime_proof_bundle.v1",
+  "status": "partially_satisfied",
+  "observed_at_unix_ms": 1787018524333,
+  "scope": "build_isolation_port_emergence",
+  "layer": "crate/cynic-host/src/build.rs + crates/cynic-protocol/src/build/fleet.rs",
+  "proofs": [
+    {
+      "gate": "build_isolation_port_trait",
+      "status": "passed",
+      "evidence": "BuildIsolationPort {discover_capabilities, run_build -> BuildResult} trait in fleet.rs; BuildStatus::Ice read-back on rustc exit 101"
+    },
+    {
+      "gate": "build_job_spec_compile",
+      "status": "passed",
+      "evidence": "cargo check -p cynic-protocol --lib Finished OK (RUSTFLAGS='')"
+    },
+    {
+      "gate": "fleet_placement_tests",
+      "status": "passed",
+      "evidence": "cargo test -p cynic-protocol --lib fleet — 9 passed (6 placement incl. 2N+2 capacity, 3 spec/policy)"
+    },
+    {
+      "gate": "local_build_runner_adapter",
+      "status": "passed",
+      "evidence": "cargo check -p cynic-host --lib Finished OK (LocalBuildRunner impl BuildIsolationPort + unshare --mount)"
+    },
+    {
+      "gate": "git_diff_clean",
+      "status": "passed",
+      "evidence": "git diff --check exit 0"
+    },
+    {
+      "gate": "make_check_global",
+      "status": "blocked",
+      "evidence": "cynic-cli full module graph ICE recurrent (rustc 1.95/1.96 SIGSEGV on encoding_rs/openssl/tower-http/syn/toml_edit) during cargo build -p cynic-cli --bin cynic",
+      "residual_risk": "build_isolation VM adapter (unshare rootless + warm CARGO_TARGET_DIR) not yet executed under make check — toolchain ICE blocks local build of cynic-cli/host full graph"
+    }
+  ],
+  "residual_unknowns": [
+    "build_isolation_port adapter executed under build-isolation VM (unshare --mount rootless) — type-check OK, test binary blocked by toolchain ICE",
+    "RUSTFLAGS=-C opt-level=0 fragile (syn ICE on opt-level=0), needs upstream rustc 1.95/1.96 fix or newer toolchain"
+  ],
+  "commit": "833b87a9 feat(build-isolation): BuildIsolationPort adapter + fleet placement policy"
+}

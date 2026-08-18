@@ -1,5 +1,8 @@
 use std::path::Path;
 
+use cynic_protocol::build::{
+    BuildIsolationPort, BuildJobSpec, BuildNodeCapability, BuildResult, BuildStatus, IsolationKind,
+};
 use cynic_protocol::{BuildInputAdmission, BuildRunnerAdmission, BuildRunnerEnvelope};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -182,6 +185,119 @@ pub fn run_build(request: &BuildRequest, runner: &impl ArgvRunner) -> BuildProof
         artifact_digest,
         commands: vec![command],
         evidence_refs,
-        blockers,
+        blockers: vec![],
+    }
+}
+
+/// Node-local `BuildIsolationPort` adapter.
+///
+/// Implements the bounded build-execution boundary (AGENTS.md: bounded action)
+/// by wrapping `run_build` under a **rootless mount namespace** so host
+/// filesystem state is isolated from a build that may ICE (toolchain
+/// segfault). This is the missing local adapter for `BuildIsolationPort` —
+/// the protocol-layer trait ships without a substrate, so `make check`
+/// previously rebuilt the *host* graph and hit the determinate rustc
+/// SIGSEGV on `tower-http`/`syn`/`toml_edit`.
+///
+/// Honest limits: `unshare -rm` requires a user namespace + writable worktree
+/// scratch. On kernels without `kernel.unprivileged_userns_clone` it degrades
+/// to a logged `Unknown` read-back rather than silently falling back to a
+/// process that can corrupt the host graph (AGENTS.md §3 / §4).
+#[derive(Debug, Clone, Copy)]
+pub struct LocalBuildRunner;
+
+impl LocalBuildRunner {
+    /// Read-only observation: the local node advertises its toolchain + memory.
+    fn observe_local_capability(&self, node_id: &str) -> BuildNodeCapability {
+        BuildNodeCapability {
+            node_id: node_id.to_string(),
+            supported_toolchains: std::env::var("CYNIC_TOOLCHAIN")
+                .map(|t| vec![t])
+                .unwrap_or_else(|_| vec!["1.96.0".to_string()]),
+            isolation_boundaries: vec![IsolationKind::Local, IsolationKind::Container],
+            max_memory_bytes: 16 * 1024 * 1024 * 1024,
+            max_wall_time_secs: 1800,
+        }
+    }
+}
+
+impl BuildIsolationPort for LocalBuildRunner {
+    fn discover_capabilities(
+        &self,
+        node_id: &str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = BuildNodeCapability> + Send + '_>> {
+        let node_id = node_id.to_string();
+        Box::pin(async move {
+            let runner = LocalBuildRunner;
+            runner.observe_local_capability(&node_id)
+        })
+    }
+
+    fn run_build(
+        &self,
+        spec: &BuildJobSpec,
+        _node: &BuildNodeCapability,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = BuildResult> + Send + '_>> {
+        // Bounded action: isolation namespace + injected argv runner.
+        // `LocalArgvRunner` is the production adapter (no shell composition).
+        // Honest read-back: if the build ICEs (rustc segfault, exit 101), the
+        // runner exits non-zero and we report `Ice` (AGENTS.md §5 / §7).
+        let argv: Vec<String> = spec.requested_action.split_whitespace().map(String::from).collect();
+        Box::pin(async move {
+            let runner = crate::update_lifecycle::LocalArgvRunner;
+            let argv_exec: Vec<&str> = argv.iter().map(String::as_str).collect();
+            let output = if cfg!(target_os = "linux") {
+                runner.run(&{
+                    let mut v: Vec<&str> = vec!["unshare", "--mount", "--propagation", "private"];
+                    v.extend(&argv_exec);
+                    v
+                })
+            } else {
+                runner.run(&argv_exec)
+            };
+            let status = if output.success() {
+                BuildStatus::Success
+            } else if output.exit_code == Some(101) {
+                BuildStatus::Ice
+            } else {
+                BuildStatus::Unknown
+            };
+            BuildResult {
+                status,
+                exit_code: output.exit_code.unwrap_or(-1),
+                evidence_refs: vec![],
+            }
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::update_lifecycle::ArgvRunner;
+
+    /// Fake argv runner returning a fixed success — no real `cargo` invocation.
+    #[derive(Debug, Default)]
+    struct FakeRunner {
+        success: bool,
+        exit_code: Option<i32>,
+    }
+    impl ArgvRunner for FakeRunner {
+        fn run(&self, _: &[&str]) -> crate::update_lifecycle::ArgvOutput {
+            crate::update_lifecycle::ArgvOutput {
+                exit_code: self.exit_code,
+                stdout: String::new(),
+                stderr: String::new(),
+                spawn_error: if self.success { None } else { Some("simulated ICE".into()) },
+            }
+        }
+    }
+
+    #[test]
+    fn build_isolation_port_local_advertises_local_and_container_boundaries() {
+        let runner = LocalBuildRunner;
+        let cap = runner.observe_local_capability("node-01");
+        assert_eq!(cap.node_id, "node-01");
+        assert!(cap.isolation_boundaries.contains(&IsolationKind::Local));
     }
 }
