@@ -128,10 +128,7 @@ fn fetcher_port_routes_through_injected_adapter() {
         bundle: granted_bundle(),
     };
     let bundle = fetch_peer_runtime_proof_bundle(&fetcher, "http://peer:3000");
-    assert!(bundle.is_ok());
-    assert_eq!(bundle.unwrap().proofs.len(), 1);
-    assert_eq!(
-        bundle.unwrap().proofs[0].gate,
-        "runtime_publisher_admission"
-    );
+    let bundle = bundle.expect("bundle fetched through injected port");
+    assert_eq!(bundle.proofs.len(), 1);
+    assert_eq!(bundle.proofs[0].gate, "runtime_publisher_admission");
 }
