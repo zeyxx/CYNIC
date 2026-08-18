@@ -154,6 +154,16 @@
         "dns": [
           "cynic-builder.synapse.cynic"
         ]
+      },
+      {
+        "name": "local-kernel",
+        "synapse": "10.10.10.100",
+        "dns": [
+          "kernel.synapse.cynic",
+          "local-kernel.synapse.cynic",
+          "cynic-kernel-primary.synapse.cynic",
+          "organ-kernel.synapse.cynic"
+        ]
       }
     ],
     "wireguard": {
@@ -264,8 +274,16 @@
     {
       "id": "local-kernel",
       "name": "local-kernel",
+      "aliases": [
+        "cynic-kernel-primary",
+        "kernel",
+        "organ-kernel"
+      ],
       "host_node_id": "cynic-host-cortex",
       "role": "kernel_primary",
+      "network": {
+        "synapse": "10.10.10.100"
+      },
       "status": "candidate",
       "deploy_target": true,
       "services": [

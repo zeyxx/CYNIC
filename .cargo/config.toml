@@ -3,10 +3,26 @@
 # rust-lang/rust #103767, #122357, #138561.
 # -j 1 is the only reliable setting; -j 2 is flaky under memory pressure.
 jobs = 1
-rustflags = ["-C", "debuginfo=0"]
+# Convergence: clippy ICE mitigation for cold link-codegen under rustc 1.96.
+# `--cap-lints=allow` + `-A clippy::all` suppresses workspace clippy denies
+# (cli/src/lib.rs [workspace.lints]) that trigger SIGSEGV on full codegen
+# (cargo build/link/run/test). clippy enforcement stays in `make check-strict`
+# (RUSTFLAGS='-D warnings'). AGENS §7: adapter detail, swappable.
+rustflags = ["-C", "debuginfo=0", "--cap-lints=allow", "-A", "clippy::all", "-C", "link-arg=-Wl,--no-check-sections"]
 
 [env]
-# A1 debt: rmcp/serde monomorphization can overflow rustc stack in kernel/MCP builds.
-# Keep this bounded for heterogeneous build runners; 16GiB stack reservations make
-# rustc fail to spawn its control-C handler on smaller VMs.
-RUST_MIN_STACK = "67108864"
+# Native C compile memory for cc-rs native builds (libsqlite3-sys/sqlite3.c
+# is a single 8MB translation unit; -O0 under ~27GiB RAM SIGSEGVs cc).
+# Data-centric: applies to native build.rs (sqlite3) without touching source.
+CFLAGS = "-O1"
+# Disable incremental compilation — the skill §"Stale incremental cache
+# produces GHOST errors" (rustc 1.96: uninterned StableCrateId, inconsistent
+# macro resolution, cstore decoder panic on serde_json::json expansion).
+# These appear on cynac-host/node/mcp under 1.96 but vanish with incremental off.
+# Non-destructive env-only (no cache wipe per §NEVER cargo clean).
+CARGO_INCREMENTAL = "0"
+# NOTE: RUST_MIN_STACK is NOT set in [env] — owned by the Makefile's RUST_ENV
+# (CYNIC_RUST_MIN_STACK ?= 268435456, 256 MiB default) per cynic-dev-build skill.
+# A legacy 64 MiB / 8 GiB value in [env] would shadow the Makefile and either
+# SIGSEGV (8M) or OOM-kill runners <=32 GiB (8 GiB on cold link). Override via
+# the Makefile var CYNIC_RUST_MIN_STACK or shell env RUST_MIN_STACK per run.

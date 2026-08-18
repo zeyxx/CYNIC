@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 use super::types::{
-    RUNTIME_PROOF_BUNDLE_SCHEMA, RUNTIME_PROOF_PERSISTENCE_SCHEMA, RUNTIME_PROOF_SCHEMA,
+    INFERENCE_STATUS_PROOF_SCHEMA, RUNTIME_PROOF_BUNDLE_SCHEMA,
+    RUNTIME_PROOF_PERSISTENCE_SCHEMA, RUNTIME_PROOF_SCHEMA,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +71,34 @@ pub fn runtime_proof_persistence_record(
 impl RuntimeProof {
     pub fn gate_satisfied(&self) -> bool {
         self.schema == RUNTIME_PROOF_SCHEMA && self.status == "satisfied" && !self.gate.is_empty()
+    }
+}
+
+/// Read-back proof of the local inference runtime status.
+///
+/// Schema: `cynic.inference.status.v1`
+/// Producer: cynic-host (via LocalInferenceRuntimePort)
+/// Subject: local node
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InferenceStatusProof {
+    pub schema: &'static str,
+    pub surface: String,   // process | systemd | docker
+    pub alias: Option<String>,
+    pub state: String,     // inactive | active | error
+    pub endpoint: Option<String>,
+    pub listen_host: Option<String>,
+    pub listen_port: Option<u16>,
+    pub main_pid: Option<u32>,
+    pub memory_current_bytes: Option<u64>,
+    pub message: String,
+    pub observed_at_unix_ms: u128,
+}
+
+impl InferenceStatusProof {
+    pub const SCHEMA: &'static str = INFERENCE_STATUS_PROOF_SCHEMA;
+
+    pub fn satisfied(&self) -> bool {
+        self.state == "active"
     }
 }
 

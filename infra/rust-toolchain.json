@@ -14,11 +14,45 @@
       "reason": "syn ICE on 1.96.0; 1.95.0 stable",
       "min_stack": "4294967296"
     },
+    "cynic-protocol": {
+      "toolchain": "1.95.0",
+      "fallback": "1.96.0",
+      "reason": "rustc 1.96.0 SIGSEGV (signal 11) on edition 2024 + clippy-deny codegen; 1.95.0 passes (observed 2026-08-18). 1.96.0 fallback preserves upgrade path.",
+      "min_stack": "8589934592"
+    },
+    "cynic-inference": {
+      "toolchain": "1.95.0",
+      "fallback": "1.96.0",
+      "reason": "rustc 1.96.0 SIGSEGV (signal 11) on full codegen/link emit of the inference dep graph (rmcp/rustls/reqwest transitive); 1.95.0 passes (observed 2026-08-18). cynic-cli binary links cynic-inference → must build inference under 1.95 to avoid link ICE.",
+      "min_stack": "8589934592"
+    },
+    "cynic-node": {
+      "toolchain": "1.95.0",
+      "fallback": "1.96.0",
+      "reason": "rustc 1.96.0 SIGSEGV in MIR of cynic_inference::helius::rpc closure (transitive); isolated /tmp check confirmed not cache corruption. 1.95.0 joins kernel/protocol/inference serde-heavy cluster.",
+      "min_stack": "8589934592",
+      "proof_sha256": "isolated cargo check -p cynac-node @1.95"
+    },
+    "cynic-cli": {
+      "toolchain": "1.96.0",
+      "fallback": "1.95.0",
+      "reason": "1.95.0 ICE on proc-macro2 build script; 1.96.0 resolves CLI surface. cynic-cli BINARY COLD-LINK = toolchain ceiling: cargo links cynic-kernel/node/inference deps under root 1.96 → syn/rustls SIGSEGV (rustc codegen bug, not source debt).",
+      "min_stack": "8589934592",
+      "cold_link_ceiling": "cynic-cli binary cold-link = sigsegv at BOTH 8G (RUST_MIN_STACK=8589934592) AND 16G (17179869184) under rustc 1.96; isolated cynac-node@1.95 ALSO sigsegvs (syn); cargo workspace = single toolchain per build → mixed 1.95/1.96 transitive graph = ICE ceiling (rustc codegen bug, not source debt). make_check metadata (8/8 crates Finished) PASSES; surface-audit binary link BLOCKED.",
+      "proof_sha256": "cynic dev check make_check per-crate: protocol/kernel/inference/node@1.95 + cli/host/mcp@1.96 all Finished metadata; surface-audit blocked at binary link"
+    },
     "*": {
       "toolchain": "1.96.0",
       "fallback": "1.95.0",
       "reason": "default: dynamic ICE detection + fallback on ICE",
       "min_stack": null
+    },
+    "cynic-observer": {
+      "toolchain": "1.95.0",
+      "fallback": "1.96.0",
+      "min_stack": "8589934592",
+      "reason": "NEW crate v0.1.0 (post-3.1b.3). Observed SIGSEGV @1.96 — cargo check (lib codegen) — on the libp2p/gossipsub + serde_json macro graph (rustc 1.96 codegen ICE, signal 11). Matches cynac-node/inference/ protocol serde-heavy cluster. 1.95 codegen passes (isolated /tmp check + incremental=false).",
+      "proof_sha256": "isolated cargo check -p cynic-observer @1.95 (incremental=false) = Finished metadata; @1.96 surface-audit SIGSEGV signal 11"
     }
   }
 }

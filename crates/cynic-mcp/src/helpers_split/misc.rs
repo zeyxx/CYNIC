@@ -23,9 +23,13 @@ fn tmp_output_dir_arg(
 ) -> Result<String, McpError> {
     let output_dir = value.clone().unwrap_or_else(|| default.to_string());
     let path = PathBuf::from(&output_dir);
-    if !path.is_absolute() || !path.starts_with("/tmp") {
+    if !path.is_absolute()
+        || (!path.starts_with("/tmp")
+            && !path.starts_with("/var/lib/cynic")
+            && !path.starts_with("/run/cynic"))
+    {
         return Err(McpError::invalid_params(
-            format!("{field} must be an absolute path under /tmp"),
+            format!("{field} must be an absolute path under /var/lib/cynic, /run/cynic, or /tmp"),
             None,
         ));
     }

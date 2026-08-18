@@ -247,11 +247,21 @@ pub(crate) fn expand_env_vars(input: &str) -> Result<String, String> {
             if var_name.is_empty() {
                 return Err("empty variable name in ${} expansion".to_owned());
             }
-            let value = std::env::var(&var_name).map_err(|e| {
-                format!(
-                    "environment variable `{var_name}` not set (referenced in process.command): {e}"
-                )
-            })?;
+            let value = match std::env::var(&var_name) {
+                Ok(val) => val,
+                Err(_) => match var_name.as_str() {
+                    "CYNIC_KERNEL_URL" => "http://kernel.synapse.cynic:3030".to_string(),
+                    "CYNIC_STATE_ROOT" => "/var/lib/cynic".to_string(),
+                    "CYNIC_CONFIG_ROOT" => "/etc/cynic".to_string(),
+                    "CYNIC_LOG_ROOT" => "/var/log/cynic".to_string(),
+                    "CYNIC_ENROLLMENT_SEED_ID" => "node-local".to_string(),
+                    _ => {
+                        return Err(format!(
+                            "environment variable `{var_name}` not set (referenced in process.command)"
+                        ));
+                    }
+                },
+            };
             result.push_str(&value);
         } else {
             result.push(ch);

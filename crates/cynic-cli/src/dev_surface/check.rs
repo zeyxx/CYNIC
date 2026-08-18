@@ -257,6 +257,11 @@ fn run_step(workspace_root: &Path, step: DevCheckStep) -> DevCheckStepReport {
     process.env("CARGO_BUILD_JOBS", "1");
     process.env("CMAKE_BUILD_PARALLEL_LEVEL", "1");
     process.env("CYNIC_CARGO_BUILD_JOBS", "1");
+    // RUST_MIN_STACK owned by check orchestrator (not .cargo/config): 8 GiB per
+    // AGENS §3 + cynic-dev-build. Required for cold link-codegen under rustc
+    // 1.96 (libp2p/reqwest/rustls = 47% of IR). Without this, the make_check
+    // cargo run/build steps segfault (signal 11) on metadata+link emit.
+    process.env("RUST_MIN_STACK", "8589934592");
 
     if let Some(target_dir) = &step.target_dir {
         process.env("CARGO_TARGET_DIR", target_dir);

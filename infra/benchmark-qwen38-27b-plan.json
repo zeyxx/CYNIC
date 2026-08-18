@@ -1,0 +1,133 @@
+{
+  "schema": "cynic.inference.benchmark_plan.v2",
+  "plan_id": "qwen38-27b-full-matrix-v1",
+  "description": "Full benchmark matrix for Qwen3.8-27B-IQ3_XXS: KV cache type x context size x threads x parallel. Tests all viable configurations with Vulkan offload (n_gpu_layers=99).",
+  "date_created": "2026-08-18",
+  "hardware": {
+    "class": "amd-renoir-apu-16t-29gb",
+    "vulkan_pool_mib": 22265,
+    "vulkan_device": "Vulkan0",
+    "cpu_threads": 16,
+    "llama_bench_version": "b9600",
+    "governor_note": "set to 'performance' before benchmark: echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor",
+    "model_name": "Qwen3.8-27B-IQ3_XXS",
+    "model_size_bytes": 12626773600,
+    "model_quantization": "iq3_xxs"
+  },
+  "kv_types_under_test": {
+    "f16": {
+      "bpw": 2.0,
+      "vulkan_support": "confirmed",
+      "note": "baseline reference, highest quality"
+    },
+    "q8_0": {
+      "bpw": 1.0,
+      "vulkan_support": "confirmed",
+      "note": "good accuracy/size tradeoff"
+    },
+    "q4_0": {
+      "bpw": 0.5,
+      "vulkan_support": "confirmed",
+      "note": "aggressive compression, fastest"
+    },
+    "iq4_nl": {
+      "bpw": 0.5,
+      "vulkan_support": "confirmed",
+      "note": "non-linear quant, better quality than q4_0"
+    }
+  },
+  "context_sizes": {
+    "baseline": 65536,
+    "extended": 131072,
+    "high": 200000,
+    "note": "64K baseline; 128K extended; 200K stress test (iq3_xxs should handle on GTT)"
+  },
+  "memory_budget_at_64k": {
+    "note": "12G weights in GTT pool (22GiB). KV fits easily in GTT or RAM.",
+    "model": {
+      "qwen38-27b": {
+        "weights_gb": 11.76,
+        "kv_f16_64k_mb": 128,
+        "kv_q8_64k_mb": 32,
+        "kv_q4_64k_mb": 16,
+        "total_gtt_64k_q4": 11.93,
+        "total_gtt_64k_f16": 12.13,
+        "status_64k_q4": "ok",
+        "status_64k_f16": "ok",
+        "status_128k_q4": "ok",
+        "status_128k_f16": "ok",
+        "status_200k_q4": "ok",
+        "status_200k_f16": "ok"
+      }
+    }
+  },
+  "benchmark_scenarios": [
+    {
+      "group": "kv-ctx-matrix",
+      "description": "All combinations of KV type x context for Qwen3.8-27B on Vulkan",
+      "models": ["qwen38-27b"],
+      "ctx_sizes": [65536, 131072, 200000],
+      "kv_types": ["f16", "q8_0", "q4_0", "iq4_nl"],
+      "thread_configs": [
+        {
+          "label": "8t-bg",
+          "threads": 8,
+          "threads_batch": 16,
+          "note": "conservative, leaves headroom"
+        },
+        {
+          "label": "12t-bg",
+          "threads": 12,
+          "threads_batch": 16,
+          "note": "aggressive, max for 16-core"
+        }
+      ],
+      "n_prompt": 512,
+      "n_gen": 128,
+      "repetitions": 3,
+      "flash_attn": "on",
+      "ngl": 99,
+      "ctk_ctv_override": true,
+      "note": "ctk/ctv set per kv_type in benchmark runner"
+    },
+    {
+      "group": "throughput-scaling",
+      "description": "Measure scaling from 4 to 12 threads to find throughput sweet spot",
+      "models": ["qwen38-27b"],
+      "ctx_sizes": [65536],
+      "kv_types": ["q4_0"],
+      "thread_configs": [
+        {"label": "4t", "threads": 4, "threads_batch": 8},
+        {"label": "6t", "threads": 6, "threads_batch": 12},
+        {"label": "8t-bg", "threads": 8, "threads_batch": 16},
+        {"label": "10t-bg", "threads": 10, "threads_batch": 16},
+        {"label": "12t-bg", "threads": 12, "threads_batch": 16}
+      ],
+      "n_prompt": 512,
+      "n_gen": 256,
+      "repetitions": 3,
+      "flash_attn": "on",
+      "ngl": 99,
+      "ctk_ctv": "q4_0"
+    }
+  ],
+  "metrics_collected": [
+    "pp_toks_per_sec (prompt processing throughput)",
+    "tg_toks_per_sec (token generation throughput)",
+    "pp_ms (prompt processing latency for n_prompt tokens)",
+    "tg_ms (per-token generation latency, avg over n_gen)",
+    "first_token_ms (time to first token)",
+    "model_load_time_ms",
+    "vulkan_pool_used_mib (estimated via VRAM + GTT)",
+    "kv_cache_mib_at_ctx",
+    "cpu_utilization_percent (avg over run)",
+    "n_gpu_layers (confirmed offload level)"
+  ],
+  "output": {
+    "format": "jsonl",
+    "path": "infra/benchmark-results/qwen38-27b-full-matrix-{date}.jsonl",
+    "aggregate_path": "infra/benchmark-results/qwen38-27b-full-matrix-{date}-summary.json",
+    "report_path": "infra/benchmark-results/qwen38-27b-full-matrix-{date}-report.md"
+  },
+  "execution_method": "manual via cynic runtime inference-bench + llama-bench, with CYNIC_FORCE_PROFILE_ARGS=1"
+}

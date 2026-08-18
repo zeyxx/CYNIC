@@ -3,21 +3,24 @@ use std::fs::{File, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
 
+use crate::domain::UniversalObserverEvent;
 use crate::{EventStatus, ObserverEvent};
 
 /// Une entrée dans le Write-Ahead Log.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WalRecord {
-    /// Un nouvel événement a été détecté par le watcher local ou reçu du P2P.
+    /// Événement blockchain legacy détecté localement ou reçu du P2P.
     EventReceived(ObserverEvent),
-    /// Le consensus a statué sur l'événement.
+    /// Événement universel multi-domaine (Blockchain, Fleet, System, Inference, Social).
+    UniversalEventReceived(UniversalObserverEvent),
+    /// Le consensus ou le moteur a statué sur l'événement.
     StatusUpdated {
         signature: String,
         status: EventStatus,
     },
 }
 
-/// Le Write-Ahead Log (WAL) garantit la résilience du nœud Argo.
+/// Le Write-Ahead Log (WAL) garantit la résilience et la rejouabilité des observations.
 /// Il stocke les états en "append-only" (JSON Lines).
 #[derive(Debug)]
 pub struct WriteAheadLog {
@@ -45,16 +48,14 @@ impl WriteAheadLog {
 
         self.file.write_all(json.as_bytes())?;
 
-        // Logique adaptative: on n'appelle fsync (qui coûte très cher en énergie/disque)
-        // que si on a de la batterie. Si on est en mode survie, on laisse l'OS gérer
-        // le buffer cache en asynchrone pour épargner le matériel.
+        // Logique adaptative: fsync si ressources suffisantes, asynchrone si survie
         use cynic_host::ports::metabolism::MetabolicState;
         match metabolic_state {
             MetabolicState::HighPerformance | MetabolicState::Standard => {
                 self.file.sync_data()?;
             }
             MetabolicState::Survival => {
-                // Pas de sync_data. On trade de la durabilité immédiate pour de la survie.
+                // Pas de sync_data immédiat pour épargner le disque et l'énergie
             }
         }
 
@@ -62,7 +63,7 @@ impl WriteAheadLog {
     }
 
     /// Rejoue (Replay) le journal depuis le début pour reconstruire l'état mémoire
-    /// de manière déterministe lors du (re)démarrage.
+    /// de manière déterministe lors du démarrage.
     pub fn replay<P: AsRef<Path>>(path: P) -> io::Result<Vec<WalRecord>> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
@@ -75,9 +76,6 @@ impl WriteAheadLog {
                 continue;
             }
 
-            // Si la ligne est corrompue (ex: crash en plein write),
-            // on ignore silencieusement ou on s'arrête.
-            // Pour un WAL robuste, un crash au milieu d'une ligne marque la fin valide du WAL.
             match serde_json::from_str::<WalRecord>(&line) {
                 Ok(record) => records.push(record),
                 Err(e) => {
@@ -88,5 +86,38 @@ impl WriteAheadLog {
         }
 
         Ok(records)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cynic_host::ports::metabolism::MetabolicState;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn wal_appends_and_replays_universal_records() {
+        let temp = NamedTempFile::new().expect("temp file");
+        let path = temp.path();
+
+        let mut wal = WriteAheadLog::new(path).expect("new wal");
+        let event = UniversalObserverEvent::system_event(
+            "node-01",
+            "cpu",
+            "load_avg",
+            serde_json::json!({"load_1m": 0.5}),
+        );
+        let record = WalRecord::UniversalEventReceived(event.clone());
+
+        wal.append(&record, &MetabolicState::Standard).expect("append");
+
+        let replayed = WriteAheadLog::replay(path).expect("replay");
+        assert_eq!(replayed.len(), 1);
+        match &replayed[0] {
+            WalRecord::UniversalEventReceived(replayed_event) => {
+                assert_eq!(replayed_event.id, event.id);
+            }
+            _ => panic!("expected universal event record"),
+        }
     }
 }

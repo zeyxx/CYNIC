@@ -10,8 +10,10 @@ pub mod math;
 pub mod ods_discovery;
 pub mod ports;
 pub mod progress;
+pub mod vector_memory;
 
 // Convenience re-exports for downstream crates (CLI, MCP).
+pub use vector_memory::{SearchResult, VectorMemoryEntry, VectorMemoryStore};
 pub use adapters::discovery::model_registry::InMemoryModelRegistry;
 pub use adapters::hf::HfCliAdapter;
 pub use adapters::inference::harness_executor::HttpHarnessExecutor;

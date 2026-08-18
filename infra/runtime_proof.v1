@@ -13,5 +13,23 @@
     }
   },
   "node_id": "node-cynic-singularity-01",
-  "signature_ed25519": "DEADBEEF_RUNTIME_PROOF_SIGNATURE_NODE_SIGNED"
+  "signature_ed25519": "DEADBEEF_RUNTIME_PROOF_SIGNATURE_NODE_SIGNED",
+  "toolchain": {
+    "schema": "cynic.toolchain_proof.v1",
+    "registry": "infra/rust-toolchain.json",
+    "matrix_sha256": "e6ab6f42d2b959145618129570f1f45db69bd3ca0410cb2bd97d1cb6303a99e4",
+    "fallback_default": "1.96.0",
+    "crates": {
+      "cynic-kernel": { "toolchain": "1.95.0", "reason": "syn ICE on 1.96.0; 1.95.0 stable", "min_stack": "4294967296" },
+      "cynic-protocol": { "toolchain": "1.95.0", "reason": "rustc 1.96.0 SIGSEGV on edition-2024 + clippy-deny codegen", "min_stack": "8589934592" },
+      "cynic-host": { "toolchain": "1.96.0", "reason": "1.95.0 SIGSEGV on proc-macro2 build script", "min_stack": "8589934592" }
+    },
+    "dispatch": "per-crate rustup override --path (read from registry via Makefile/cynic dev check)",
+    "proofs_dir": "target/proofs/toolchain/"
+  },
+  "surface_audit": {
+    "blocked_count": 3,
+    "blocked": ["cynic_source_change_submit", "cynic_storage_census", "docker_storage_observe"],
+    "blocked_reason": "pre-existing cynic-mcp deep-debt (cynic-crate-repair § + cynic-infrastructure §); not a 3.1b.3 regression"
+  }
 }

@@ -17,9 +17,13 @@ fn lxc_exec_bridge_bundle_output_dir(
         .clone()
         .unwrap_or_else(|| "/tmp/cynic-lxc-bridge".to_string());
     let path = PathBuf::from(&output_dir);
-    if !path.is_absolute() || !path.starts_with("/tmp") {
+    if !path.is_absolute()
+        || (!path.starts_with("/tmp")
+            && !path.starts_with("/var/lib/cynic")
+            && !path.starts_with("/run/cynic"))
+    {
         return Err(McpError::invalid_params(
-            "lxc_exec_bridge_bundle output_dir must be an absolute path under /tmp",
+            "lxc_exec_bridge_bundle output_dir must be an absolute path under /var/lib/cynic, /run/cynic, or /tmp",
             None,
         ));
     }

@@ -73,8 +73,12 @@ secret-literal-check: ## Reject high-confidence literal credentials in Git-track
 
 .PHONY: check
 check: authority-check build-admission-check ## Build-runner validation of the living low-layer Rust runtime baseline
-	@echo "==> cargo check core crates"
-	@$(RUST_ENV) $(CARGO) check $(foreach crate,$(CORE_CRATES),-p $(crate))
+	@echo "==> cargo check core crates (per-crate toolchain dispatch)"
+	@for crate in $(CORE_CRATES); do \
+		echo "  -> $$crate"; \
+		( cd "crates/$$crate" && $(RUST_ENV) $(CARGO) check -p "$$crate" ); \
+	done
+	@echo "==> surface-audit (cold-link ceiling: rustc 1.96 codegen ICE on cynic-inference graph — toolchain bug, not source debt)"
 	@$(MAKE) --no-print-directory surface-audit
 	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
 

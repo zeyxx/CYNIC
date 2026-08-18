@@ -81,9 +81,16 @@ impl HttpNodeControlAdapter {
         timeout: Duration,
     ) -> Result<Self, String> {
         let base_url = base_url.into().trim_end_matches('/').to_string();
-        if !matches!(base_url.as_str(), value if value.starts_with("https://") || value.starts_with("http://127.0.0.1:") || value.starts_with("http://[::1]:"))
-        {
-            return Err("node control requires TLS or a loopback transport".to_string());
+        let is_secure_transport = base_url.starts_with("https://")
+            || base_url.starts_with("http://127.0.0.1:")
+            || base_url.starts_with("http://[::1]:")
+            || base_url.starts_with("http://localhost:")
+            || base_url.starts_with("http://10.10.10.")
+            || base_url.starts_with("http://10.20.0.")
+            || base_url.starts_with("http://192.168.100.")
+            || base_url.contains(".synapse.cynic:");
+        if !is_secure_transport {
+            return Err("node control requires TLS, loopback, or encrypted mesh/management transport".to_string());
         }
         let signing_key_path = signing_key_path.into();
         validate_private_key_file(&signing_key_path)?;

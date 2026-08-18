@@ -11,6 +11,7 @@ use crate::build::BuildProof;
 use crate::conformance::HostConformanceGate;
 use crate::repo_access::current_repo_access_status;
 use crate::runtime_harness::RuntimeHarnessContext;
+use crate::runtime_layout::current_runtime_layout;
 use crate::source_control::observe_source_worktree;
 
 pub const VERTICAL_CONFORMANCE_SCHEMA: &str = "cynic.vertical_conformance_report.v1";
@@ -96,6 +97,16 @@ pub fn observe_vertical_evidence(build_proof: Option<&BuildProof>) -> VerticalEv
             )
         }
     };
+    let heartbeat_path = std::path::Path::new(&current_runtime_layout().state_dir)
+        .join("heartbeat.jsonl");
+    let _ = append_heartbeat(
+        &heartbeat_path,
+        "vertical_conformance",
+        build_status,
+        network_status,
+        source_status,
+    );
+
     VerticalEvidenceInput {
         source_status,
         source_blockers,
@@ -105,6 +116,32 @@ pub fn observe_vertical_evidence(build_proof: Option<&BuildProof>) -> VerticalEv
         network_blockers,
     }
 }
+
+pub(crate) fn append_heartbeat(
+    journal: &std::path::Path,
+    surface: &str,
+    build: &str,
+    network: &str,
+    source: &str,
+) -> std::io::Result<()> {
+    use std::io::Write;
+    if let Some(parent) = journal.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let entry = serde_json::json!({
+        "ts": chrono::Utc::now().to_rfc3339(),
+        "surface": surface,
+        "build": build,
+        "network": network,
+        "source": source,
+    });
+    let mut file = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(journal)?;
+    writeln!(file, "{}", entry.to_string())
+}
+
 
 pub fn convergence_matrix_for_subject(
     subject_id: &str,
@@ -445,5 +482,25 @@ mod tests {
                 .blockers
                 .contains(&"responsibility_contract_invalid:domain_rule_missing".to_string())
         );
+    }
+
+    #[test]
+    fn heartbeat_journal_appends_probe_evidence() {
+        let temp = std::env::temp_dir().join(format!("cynic-heartbeat-test-{}", std::process::id()));
+        let heartbeat_path = temp.join("probes").join("heartbeat.jsonl");
+        let before = std::fs::read_to_string(&heartbeat_path).unwrap_or_default();
+        append_heartbeat(&heartbeat_path, "vertical_conformance", "complete", "complete", "partial")
+            .expect("append heartbeat line");
+        let after = std::fs::read_to_string(&heartbeat_path).unwrap_or_default();
+        assert!(
+            after.len() > before.len(),
+            "heartbeat journal must grow after a probe"
+        );
+        let last_line = after.lines().last().and_then(|line| {
+            serde_json::from_str::<serde_json::Value>(line).ok()
+        });
+        assert_eq!(last_line.as_ref().and_then(|v| v["surface"].as_str()), Some("vertical_conformance"));
+        assert_eq!(last_line.as_ref().and_then(|v| v["build"].as_str()), Some("complete"));
+        let _ = std::fs::remove_dir_all(&temp);
     }
 }
