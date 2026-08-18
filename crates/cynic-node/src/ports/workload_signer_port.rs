@@ -63,7 +63,7 @@ mod tests {
     fn stub_envelope() -> AgentWorkloadEnvelope {
         use cynic_protocol::{
             AGENT_WORKLOAD_ENVELOPE_SCHEMA, AgentBoundedAction, AgentDelegationEnvelope,
-            AgentEvidenceRef, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport,
+            AgentEvidenceRef, PolicyAdmissionReport,
             PolicyAuthority, PolicyDecision, PolicyScope, RequiredProof,
         };
         AgentWorkloadEnvelope {
