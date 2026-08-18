@@ -17,8 +17,6 @@ pub mod observe;
 pub mod render;
 pub mod types;
 
-use serde::Serialize;
-
 use self::observe::OsHealthObserver;
 use self::types::{OsHealthAssessment, OsHealthConfig};
 

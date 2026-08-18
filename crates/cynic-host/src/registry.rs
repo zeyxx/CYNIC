@@ -872,6 +872,7 @@ fn service_manager_for_node(
         {
             ServiceManagerKind::OpenRc
         }
+        Some(HostProfile::ManagementNode) => current_service_manager_kind(),
         None => current_service_manager_kind(),
     }
 }

@@ -55,7 +55,7 @@ pub struct VerticalEvidenceInput {
     pub network_blockers: Vec<String>,
 }
 
-pub fn observe_vertical_evidence(build_proof: Option<&BuildProof>) -> VerticalEvidenceInput {
+pub fn observe_vertical_evidence(build_proof: Option<&BuildConformanceEvidence>) -> VerticalEvidenceInput {
     let repo_access = current_repo_access_status();
     let (source_status, source_blockers) = repo_access.canonical_project_root.as_deref().map_or(
         (
