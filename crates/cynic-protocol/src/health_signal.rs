@@ -57,6 +57,67 @@ pub struct NodeHealthFold {
     pub active_osha_codes: Vec<String>,
 }
 
+/// First-class signal describing the *kernel* single-point-of-failure.
+///
+/// The kernel is deployed centrally (operator machine + one dedicated VM), not
+/// per-node. That makes the dedicated VM a genuine SPOF: if it dies, the whole
+/// federation loses its cortex (coordination + event stream). This signal makes
+/// that residual risk explicit and machine-readable instead of hidden behind a
+/// "mesh is up" green light.
+///
+/// Design (A: node autonomy, D: kernel kept separate): nodes MUST keep working
+/// in a degraded local mode when `kernel_reachable == false`. The kernel is a
+/// coordination convenience, never a liveness dependency for local build/observe.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KernelSpofSignal {
+    pub schema: &'static str,
+    /// Where the kernel lives (operator_machine | dedicated_vm).
+    pub kernel_location: String,
+    /// True only when an automated failover target exists (2nd VM, helper).
+    pub failover_available: bool,
+    /// Observed kernel reachability from this node's perspective.
+    pub kernel_reachable: bool,
+    /// Seconds since last successful heartbeat, if known.
+    pub last_heartbeat_age_s: Option<u64>,
+    /// Residual risk statement — never empty; unknown is explicit data.
+    pub residual_risk: String,
+    /// Machine-readable severity for the autonomic loop.
+    pub severity: String, // "info" | "warning" | "critical"
+}
+
+impl KernelSpofSignal {
+    pub const SCHEMA: &'static str = "cynic.kernel_spof_signal.v1";
+
+    /// Build a signal when no kernel failover target is configured (the common
+    /// single-VM case). `kernel_reachable` and `last_heartbeat_age_s` come from
+    /// the observer; everything else is the declared topology truth.
+    pub fn single_vm(
+        kernel_reachable: bool,
+        last_heartbeat_age_s: Option<u64>,
+    ) -> Self {
+        let severity = if kernel_reachable {
+            "info"
+        } else {
+            "critical"
+        };
+        let residual_risk = if kernel_reachable {
+            "kernel reachable on dedicated VM; loss of that VM is a total-cortex SPOF with no automated failover"
+                .to_string()
+        } else {
+            "kernel UNREACHABLE: federation cortex down; nodes must run in degraded local autonomy (no coordination/event stream)".to_string()
+        };
+        KernelSpofSignal {
+            schema: Self::SCHEMA,
+            kernel_location: "dedicated_vm".to_string(),
+            failover_available: false,
+            kernel_reachable,
+            last_heartbeat_age_s,
+            residual_risk,
+            severity: severity.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SignalSeverity {

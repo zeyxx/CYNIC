@@ -8,6 +8,7 @@ pub mod federated_mesh_probe_uc;
 pub mod federated_mesh_resolver;
 pub mod federated_task_dispatch_uc;
 pub mod homeostasis_uc;
+pub mod kernel_spof_observe_uc;
 pub mod mesh_sync_uc;
 pub mod network_actuation_target_uc;
 pub mod network_surfaces_uc;
