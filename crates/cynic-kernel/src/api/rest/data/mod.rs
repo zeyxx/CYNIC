@@ -9,15 +9,18 @@ pub mod usage;
 #[cfg(test)]
 mod tests;
 
-pub use audit::{audit_handler, proof_of_history_handler, verdicts_handler, AuditQuery, ProofOfHistoryQuery, VerdictsQuery};
-pub use compliance::{compliance_handler, compliance_trend_handler, ComplianceTrendQuery};
+pub use audit::{
+    AuditQuery, ProofOfHistoryQuery, VerdictsQuery, audit_handler, proof_of_history_handler,
+    verdicts_handler,
+};
+pub use compliance::{ComplianceTrendQuery, compliance_handler, compliance_trend_handler};
 pub use crystals::{
+    CreateCrystalRequest, CrystalsQuery, ObserveCrystalHyphaRequest, ShatterCrystalRequest,
     create_crystal_handler, crystal_handler, crystals_handler, delete_crystal_handler,
-    observe_crystal_hypha_handler, shatter_crystal_handler, CreateCrystalRequest, CrystalsQuery,
-    ObserveCrystalHyphaRequest, ShatterCrystalRequest,
+    observe_crystal_hypha_handler, shatter_crystal_handler,
 };
 pub use observations::{
-    observations_handler, public_observations_handler, sessions_handler, ObservationsQuery,
-    PublicObservationsQuery, SessionsQuery,
+    ObservationsQuery, PublicObservationsQuery, SessionsQuery, observations_handler,
+    public_observations_handler, sessions_handler,
 };
 pub use usage::usage_handler;

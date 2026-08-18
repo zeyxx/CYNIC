@@ -14,12 +14,11 @@ use serde::{Deserialize, Serialize};
 
 use cynic_protocol::ParametricConfigPoint;
 
-use crate::domain::matrix_sweep::{
-    ConstraintFilter, HardwareBudget,
-    OomSafetyStatus, OptimizationGoal, ModelEmpiricalScorecard,
-};
 use crate::domain::matrix_sweep::empirical_store::{
     aggregate_model_scorecard, solve_optimal_configuration,
+};
+use crate::domain::matrix_sweep::{
+    ConstraintFilter, HardwareBudget, ModelEmpiricalScorecard, OomSafetyStatus, OptimizationGoal,
 };
 use crate::ports::empirical_store_port::{EmpiricalStoreError, EmpiricalStorePort};
 use crate::ports::local_runtime_port::{LocalInferenceRuntimePort, LocalRuntimeError};
@@ -105,10 +104,7 @@ pub async fn build_basket_from_ledger(
     };
 
     // Query all entries (model_alias=None → all models)
-    let all_entries = store
-        .query_entries(None, None)
-        .await
-        .unwrap_or_default();
+    let all_entries = store.query_entries(None, None).await.unwrap_or_default();
 
     // Collect unique model aliases from empirical entries
     let candidate_aliases: Vec<String> = all_entries
@@ -169,7 +165,9 @@ pub async fn build_basket_from_ledger(
     items.sort_by(|a, b| {
         let a_rank = utopian_rank(&a.scorecard);
         let b_rank = utopian_rank(&b.scorecard);
-        b_rank.partial_cmp(&a_rank).unwrap_or(std::cmp::Ordering::Equal)
+        b_rank
+            .partial_cmp(&a_rank)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     Ok(BasketPlan {
@@ -202,9 +200,7 @@ pub async fn launch_basket(
                     alias: item.alias.clone(),
                     ok: report.ok,
                     endpoint: report.status.endpoint,
-                    message: report
-                        .message
-                        .unwrap_or_else(|| "launched".to_string()),
+                    message: report.message.unwrap_or_else(|| "launched".to_string()),
                 });
             }
             Err(e) => {
@@ -302,21 +298,24 @@ mod tests {
 
     #[test]
     fn resolve_model_path_joins_vault_and_alias() {
-        let path = resolve_model_path_for_entry("qwen-2b", &ParametricConfigPoint {
-            model_alias: "qwen-2b".into(),
-            model_file: "qwen-2b.gguf".into(),
-            context_tier: cynic_protocol::ContextTier::Ctx4k,
-            kv_quant: cynic_protocol::KvQuantization::Q4_0,
-            threads_gen: 8,
-            threads_batch: 16,
-            batch_size: 1024,
-            ubatch_size: 512,
-            flash_attn: true,
-            gpu_layers: 0,
-            rope_scaling: cynic_protocol::RopeScaling::None,
-            topology: cynic_protocol::TopologyStrategy::DedicatedSingle,
-            target_harness: cynic_protocol::HarnessProtocol::OpenAiToolCall,
-        });
+        let path = resolve_model_path_for_entry(
+            "qwen-2b",
+            &ParametricConfigPoint {
+                model_alias: "qwen-2b".into(),
+                model_file: "qwen-2b.gguf".into(),
+                context_tier: cynic_protocol::ContextTier::Ctx4k,
+                kv_quant: cynic_protocol::KvQuantization::Q4_0,
+                threads_gen: 8,
+                threads_batch: 16,
+                batch_size: 1024,
+                ubatch_size: 512,
+                flash_attn: true,
+                gpu_layers: 0,
+                rope_scaling: cynic_protocol::RopeScaling::None,
+                topology: cynic_protocol::TopologyStrategy::DedicatedSingle,
+                target_harness: cynic_protocol::HarnessProtocol::OpenAiToolCall,
+            },
+        );
         // Just verify it ends with the alias + .gguf
         let s = path.to_string_lossy();
         assert!(s.ends_with("qwen-2b.gguf"));

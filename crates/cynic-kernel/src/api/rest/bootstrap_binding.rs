@@ -17,15 +17,14 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use cynic_protocol::build::bootstrap_admission::{
-    build_runner_bootstrap_input_digest, runtime_publisher_bootstrap_input_digest,
-    validate_build_runner_bootstrap_capability_binding,
+    BuildRunnerBootstrapCapabilityBinding, RUNTIME_PUBLISHER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
+    RuntimePublisherCapabilityBinding, build_runner_bootstrap_input_digest,
+    runtime_publisher_bootstrap_input_digest, validate_build_runner_bootstrap_capability_binding,
     validate_runtime_publisher_bootstrap_capability_binding,
-    BuildRunnerBootstrapCapabilityBinding, RuntimePublisherCapabilityBinding,
-    RUNTIME_PUBLISHER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
 };
 use cynic_protocol::{
-    node_enrollment_grant_signing_bytes, OneShotCapability, ONE_SHOT_CAPABILITY_SCHEMA,
-    SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA, SignedNodeEnrollmentGrant,
+    ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability, SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA,
+    SignedNodeEnrollmentGrant, node_enrollment_grant_signing_bytes,
     validate_signed_node_enrollment_grant,
 };
 use ed25519_dalek::Signature;
@@ -132,26 +131,37 @@ pub async fn issue_bootstrap_binding_handler(
         .and_then(|v| v.to_str().ok())
     {
         Some(p) => p,
-        None => return error(StatusCode::UNAUTHORIZED, "machine public key header is missing"),
+        None => {
+            return error(
+                StatusCode::UNAUTHORIZED,
+                "machine public key header is missing",
+            );
+        }
     };
-    let public_key_digest = format!("sha256:{}", hex::encode(Sha256::digest(
-        hex::decode(public_key).unwrap_or_default()
-    )));
+    let public_key_digest = format!(
+        "sha256:{}",
+        hex::encode(Sha256::digest(hex::decode(public_key).unwrap_or_default()))
+    );
     if public_key_digest != request.grant.grant.machine_identity_digest {
         return error(
             StatusCode::UNAUTHORIZED,
             "header public key digest does not match enrollment grant machine identity",
         );
     }
-    let signature = match headers.get("X-Cynic-Signature").and_then(|v| v.to_str().ok()) {
+    let signature = match headers
+        .get("X-Cynic-Signature")
+        .and_then(|v| v.to_str().ok())
+    {
         Some(s) => s,
         None => return error(StatusCode::UNAUTHORIZED, "machine signature is missing"),
     };
-    let timestamp =
-        match headers.get("X-Cynic-Timestamp").and_then(|v| v.to_str().ok()) {
-            Some(t) => t,
-            None => return error(StatusCode::UNAUTHORIZED, "machine timestamp is missing"),
-        };
+    let timestamp = match headers
+        .get("X-Cynic-Timestamp")
+        .and_then(|v| v.to_str().ok())
+    {
+        Some(t) => t,
+        None => return error(StatusCode::UNAUTHORIZED, "machine timestamp is missing"),
+    };
     let rest_payload =
         crate::infra::crypto::build_rest_payload("POST", "/bootstrap-binding", &body);
     if let Err(reason) =
@@ -180,7 +190,10 @@ pub async fn issue_bootstrap_binding_handler(
             );
         }
     };
-    if let Err(reason) = enrollment.signer.verify(&signing_bytes, &request.grant.signature_hex) {
+    if let Err(reason) = enrollment
+        .signer
+        .verify(&signing_bytes, &request.grant.signature_hex)
+    {
         return error(
             StatusCode::UNAUTHORIZED,
             &format!("enrollment grant signature invalid: {reason}"),
@@ -199,12 +212,10 @@ pub async fn issue_bootstrap_binding_handler(
     let node_id = &request.grant.grant.node_id;
     let cap_id = capability_id(&request.source_commit, &request.executor_digest, node_id);
     let action_digest = digest_hex(
-        &serde_json::to_vec(
-            &serde_json::json!({
-                "schema": BOOTSTRAP_BINDING_SCHEMA,
-                "action": request.requested_action,
-            }),
-        )
+        &serde_json::to_vec(&serde_json::json!({
+            "schema": BOOTSTRAP_BINDING_SCHEMA,
+            "action": request.requested_action,
+        }))
         .unwrap_or_default(),
     );
 
@@ -232,16 +243,17 @@ pub async fn issue_bootstrap_binding_handler(
         ],
     };
 
-    let input_digest = build_runner_bootstrap_input_digest(&BuildRunnerBootstrapCapabilityBinding {
-        schema: BOOTSTRAP_BINDING_SCHEMA.to_string(),
-        node_subject: request.grant.grant.machine_identity_digest.clone(),
-        source_commit: request.source_commit.clone(),
-        source_bundle_digest: request.source_bundle_digest.clone(),
-        registry_digest: request.registry_digest.clone(),
-        executor_digest: request.executor_digest.clone(),
-        capability: capability.clone(),
-    })
-    .unwrap_or_default();
+    let input_digest =
+        build_runner_bootstrap_input_digest(&BuildRunnerBootstrapCapabilityBinding {
+            schema: BOOTSTRAP_BINDING_SCHEMA.to_string(),
+            node_subject: request.grant.grant.machine_identity_digest.clone(),
+            source_commit: request.source_commit.clone(),
+            source_bundle_digest: request.source_bundle_digest.clone(),
+            registry_digest: request.registry_digest.clone(),
+            executor_digest: request.executor_digest.clone(),
+            capability: capability.clone(),
+        })
+        .unwrap_or_default();
 
     let mut signed_capability = capability.clone();
     signed_capability.input_digest = input_digest.clone();
@@ -277,8 +289,11 @@ pub async fn issue_bootstrap_binding_handler(
 
     // 6. Validate the binding contract before emitting — no self-signed junk
     //    leaves the kernel.
-    let blockers =
-        validate_build_runner_bootstrap_capability_binding(&binding, &request.requested_action, now);
+    let blockers = validate_build_runner_bootstrap_capability_binding(
+        &binding,
+        &request.requested_action,
+        now,
+    );
     if !blockers.is_empty() {
         return error(
             StatusCode::BAD_REQUEST,
@@ -415,9 +430,7 @@ pub async fn issue_runtime_publisher_binding_handler(
             "grant authority key id does not match presented signer",
         );
     }
-    let signing_bytes = match node_enrollment_grant_signing_bytes(
-        &request.grant,
-    ) {
+    let signing_bytes = match node_enrollment_grant_signing_bytes(&request.grant) {
         Ok(bytes) => bytes,
         Err(_) => {
             return error(
@@ -428,7 +441,10 @@ pub async fn issue_runtime_publisher_binding_handler(
     };
     let body = serde_json::to_vec(&request).unwrap_or_default();
     crate::infra::crypto::build_rest_payload("POST", "/bootstrap/runtime-publisher", &body);
-    if let Err(reason) = enrollment.signer.verify(&signing_bytes, &request.grant.signature_hex) {
+    if let Err(reason) = enrollment
+        .signer
+        .verify(&signing_bytes, &request.grant.signature_hex)
+    {
         return error(
             StatusCode::UNAUTHORIZED,
             &format!("enrollment grant signature invalid: {reason}"),
@@ -447,12 +463,10 @@ pub async fn issue_runtime_publisher_binding_handler(
     let node_id = &request.grant.grant.node_id;
     let cap_id = capability_id(&request.source_commit, &request.executor_digest, node_id);
     let action_digest = digest_hex(
-        &serde_json::to_vec(
-            &serde_json::json!({
-                "schema": RUNTIME_PUBLISHER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
-                "action": request.requested_action,
-            }),
-        )
+        &serde_json::to_vec(&serde_json::json!({
+            "schema": RUNTIME_PUBLISHER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
+            "action": request.requested_action,
+        }))
         .unwrap_or_default(),
     );
 
@@ -471,31 +485,28 @@ pub async fn issue_runtime_publisher_binding_handler(
         allowed_action_digests: vec![action_digest.clone()],
         authority_key_id: signer_key_id.to_string(),
         signature_hex: String::new(),
-        evidence_refs: vec![
-            format!(
-                "node-enrollment-grant:{}:{}",
-                node_id, request.grant.grant.grant_id
-            ),
-        ],
+        evidence_refs: vec![format!(
+            "node-enrollment-grant:{}:{}",
+            node_id, request.grant.grant.grant_id
+        )],
     };
-    let input_digest = match runtime_publisher_bootstrap_input_digest(
-        &RuntimePublisherCapabilityBinding {
+    let input_digest =
+        match runtime_publisher_bootstrap_input_digest(&RuntimePublisherCapabilityBinding {
             schema: RUNTIME_PUBLISHER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA.to_string(),
             node_subject: request.grant.grant.machine_identity_digest.clone(),
             source_commit: request.source_commit.clone(),
             registry_digest: request.registry_digest.clone(),
             executor_digest: request.executor_digest.clone(),
             capability: capability.clone(),
-        },
-    ) {
-        Ok(d) => d,
-        Err(e) => {
-            return error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                &format!("runtime publisher input digest failed: {e}"),
-            );
-        }
-    };
+        }) {
+            Ok(d) => d,
+            Err(e) => {
+                return error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    &format!("runtime publisher input digest failed: {e}"),
+                );
+            }
+        };
     let mut signed_capability = capability.clone();
     signed_capability.input_digest = input_digest.clone();
     let payload = match signed_capability.signing_payload() {

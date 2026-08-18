@@ -6,8 +6,8 @@ use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 
 use crate::bootstrap_surface::ProfileArgs;
 
-mod agent_matrix;
 mod adoption;
+mod agent_matrix;
 mod compat_aliases;
 mod disk;
 mod execution_context;
@@ -444,7 +444,13 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             principal,
             seed,
             approve,
-        } => adoption::execute_adopt(json, &runtime_id, principal.as_deref(), seed.as_deref(), approve),
+        } => adoption::execute_adopt(
+            json,
+            &runtime_id,
+            principal.as_deref(),
+            seed.as_deref(),
+            approve,
+        ),
         RuntimeCommand::Inference { .. }
         | RuntimeCommand::InferenceVault { .. }
         | RuntimeCommand::InferenceStatus { .. }

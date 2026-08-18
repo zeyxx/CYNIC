@@ -7,8 +7,10 @@
 //! Adapters (LocalArgvRunner, local filesystem observer) are injected;
 //! replacing the substrate adapter must not require rewriting the policy.
 
-use crate::toolchain::observe::{LocalToolchainObserver, ToolchainObservation, ToolchainObservationPort};
-use crate::toolchain::policy::{reconcile_toolchain, ToolchainDecision};
+use crate::toolchain::observe::{
+    LocalToolchainObserver, ToolchainObservation, ToolchainObservationPort,
+};
+use crate::toolchain::policy::{ToolchainDecision, reconcile_toolchain};
 use crate::toolchain::proof::{ToolchainProof, ToolchainProofWriter};
 use crate::toolchain::specs::{ToolchainProofHistory, ToolchainRegistry};
 use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
@@ -51,7 +53,7 @@ impl ToolchainLifecycle {
                     applied: None,
                     proof: ToolchainProof::blocked(crate_name),
                     residual_risk: None,
-                })
+                });
             }
         };
 
@@ -65,7 +67,9 @@ impl ToolchainLifecycle {
 
         // --- 4. Bounded action (only on explicit decision) ---
         let applied = match &decision {
-            ToolchainDecision::UseToolchain(t) | ToolchainDecision::UseFallback(t) | ToolchainDecision::UseLearned(t) => {
+            ToolchainDecision::UseToolchain(t)
+            | ToolchainDecision::UseFallback(t)
+            | ToolchainDecision::UseLearned(t) => {
                 // Bounded mutation: rustup override set <toolchain>.
                 // The caller sets RUSTUP_TOOLCHAIN=<t> before cargo; we only record.
                 Some(runner.run(&["rustup", "override", "set", t.as_str()]))

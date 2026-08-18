@@ -15,7 +15,7 @@ pub mod proof;
 pub mod specs;
 
 pub use observe::{ToolchainObservation, ToolchainObservationPort};
-pub use port::{ToolchainLifecycle, ToolchainLifecycleReport};
 pub use policy::{ToolchainDecision, reconcile_toolchain};
-pub use specs::{ToolchainEntry, ToolchainProofHistory, ToolchainRegistry};
+pub use port::{ToolchainLifecycle, ToolchainLifecycleReport};
 pub use proof::ToolchainProof;
+pub use specs::{ToolchainEntry, ToolchainProofHistory, ToolchainRegistry};

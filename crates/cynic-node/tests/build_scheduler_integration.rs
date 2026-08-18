@@ -1,14 +1,15 @@
 #![allow(clippy::expect_used)]
 use cynic_protocol::{
-    build_recipe, canonical_build_action_from_argv, derive_build_workload_grant, digest_json,
-    validate_build_recipe, AgentBoundedAction, AgentBudget, AgentCapabilityGrant,
-    AgentDelegationEnvelope, AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkloadRecord,
-    AgentWorkloadState, DurableAgentWorkloadRecord, ExecutionAuthorization, HarnessEvidence,
-    HarnessEvidenceKind, HarnessEvidenceStatus, HarnessObservation, HarnessScenario,
-    HarnessScenarioId, HarnessStatus, LeaseGuard, MutationContract, PolicyAdmissionReport,
-    PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
     AGENT_DELEGATION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
-    EXECUTION_AUTHORIZATION_SCHEMA, POLICY_ADMISSION_REPORT_SCHEMA,
+    AgentBoundedAction, AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope,
+    AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
+    DurableAgentWorkloadRecord, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization,
+    HarnessEvidence, HarnessEvidenceKind, HarnessEvidenceStatus, HarnessObservation,
+    HarnessScenario, HarnessScenarioId, HarnessStatus, LeaseGuard, MutationContract,
+    POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
+    PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, build_recipe,
+    canonical_build_action_from_argv, derive_build_workload_grant, digest_json,
+    validate_build_recipe,
 };
 
 #[test]
@@ -156,8 +157,8 @@ fn signed_build_grant_derivation_and_verification() {
         record,
     };
 
-    let grant = derive_build_workload_grant(&durable, node_id, 1_786_800_100)
-        .expect("grant derivation");
+    let grant =
+        derive_build_workload_grant(&durable, node_id, 1_786_800_100).expect("grant derivation");
 
     assert_eq!(grant.issuer_node_id, node_id);
     assert_eq!(grant.workload_id, workload_id);

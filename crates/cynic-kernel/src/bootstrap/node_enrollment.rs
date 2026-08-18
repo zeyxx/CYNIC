@@ -86,8 +86,8 @@ impl NodeEnrollmentSignerPort for FileEnrollmentSigner {
     }
 
     fn verify(&self, payload: &[u8], signature_hex: &str) -> Result<(), String> {
-        let bytes = hex::decode(signature_hex)
-            .map_err(|_| "enrollment signature is not valid hex")?;
+        let bytes =
+            hex::decode(signature_hex).map_err(|_| "enrollment signature is not valid hex")?;
         if bytes.len() != 64 {
             return Err("enrollment signature must be 64 bytes".to_string());
         }

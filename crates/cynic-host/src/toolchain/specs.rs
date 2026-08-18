@@ -120,14 +120,16 @@ impl ToolchainProofHistory {
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| format!("history save serialize: {}", e))?;
         let parent = path.parent().unwrap_or(Path::new("."));
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("history save mkdir: {}", e))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("history save mkdir: {}", e))?;
         std::fs::write(path, json).map_err(|e| format!("history save write: {}", e))?;
         Ok(())
     }
 
     /// Resolve the on-disk path for the history file.
     pub fn path(crate_name: &str) -> PathBuf {
-        PathBuf::from(format!("target/proofs/toolchain/{}.history.json", crate_name))
+        PathBuf::from(format!(
+            "target/proofs/toolchain/{}.history.json",
+            crate_name
+        ))
     }
 }

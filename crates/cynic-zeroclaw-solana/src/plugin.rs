@@ -111,7 +111,11 @@ impl ZeroClawSolanaPlugin {
             _ => (String::new(), String::new()),
         };
 
-        ZeroClawSolanaPayOutput { url, qr_ascii, result }
+        ZeroClawSolanaPayOutput {
+            url,
+            qr_ascii,
+            result,
+        }
     }
 
     /// Evaluate an SOP input through the CYNIC threat firewall for ZeroClaw.
@@ -156,7 +160,11 @@ mod tests {
         };
 
         let output = plugin.generate_solana_pay(pay_req, None, budget).await;
-        assert!(output.url.starts_with("solana:7Xw7K1kPzSjW7Y2qM3nK4pL5rQ8sT9uV8wX1yZ2a3b4c?amount=15.5"));
+        assert!(
+            output
+                .url
+                .starts_with("solana:7Xw7K1kPzSjW7Y2qM3nK4pL5rQ8sT9uV8wX1yZ2a3b4c?amount=15.5")
+        );
         assert!(!output.qr_ascii.is_empty());
         assert_eq!(output.result.status, AgenticToolCallStatus::Completed);
     }
@@ -164,8 +172,7 @@ mod tests {
     #[tokio::test]
     async fn plugin_rejects_invalid_recipient_no_url_emitted() {
         let plugin = ZeroClawSolanaPlugin::new();
-        let pay_req = SolanaPayRequest::new("INVALID_KEY")
-            .with_amount(25.0);
+        let pay_req = SolanaPayRequest::new("INVALID_KEY").with_amount(25.0);
         let budget = AgentBudget {
             context_tokens: 1000,
             actions: 5,
@@ -178,4 +185,3 @@ mod tests {
         assert!(output.qr_ascii.is_empty());
     }
 }
-

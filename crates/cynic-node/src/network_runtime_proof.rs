@@ -32,9 +32,9 @@ pub fn verify_peer_runtime_publisher_admission(
         Ok(bundle) => bundle.proofs.iter().any(|p| {
             p.gate == "runtime_publisher_admission"
                 && p.status == "admitted"
-                && p.evidence.iter().any(|e| {
-                    e.id == "runtime_publisher_granted" && e.status == "true"
-                })
+                && p.evidence
+                    .iter()
+                    .any(|e| e.id == "runtime_publisher_granted" && e.status == "true")
         }),
         Err(_) => false,
     }
@@ -80,7 +80,9 @@ pub(crate) fn build_network_runtime_proof_bundle(
         status: proof.status.clone(),
         proofs: vec![proof]
             .into_iter()
-            .chain(runtime_publisher_proof(&resolve_runtime_proof_path(hosts_path)))
+            .chain(runtime_publisher_proof(&resolve_runtime_proof_path(
+                hosts_path,
+            )))
             .collect(),
     })
 }
@@ -123,8 +125,7 @@ fn runtime_publisher_proof(proof_path: &std::path::Path) -> Option<RuntimeProof>
             .and_then(|a| a.as_str())
             .unwrap_or("runtime_publisher")
             .to_string(),
-        observed_at_unix_ms: observed_at_from_generated_at(&v)
-            .max(1),
+        observed_at_unix_ms: observed_at_from_generated_at(&v).max(1),
         evidence: vec![RuntimeProofEvidence {
             id: "runtime_publisher_granted".to_string(),
             status: if granted { "true" } else { "false" }.to_string(),
@@ -248,7 +249,10 @@ mod tests {
         let hosts = std::env::temp_dir().join("subnet/hosts.txt");
         std::fs::create_dir_all(hosts.parent().unwrap()).ok();
         let got = super::resolve_runtime_proof_path(hosts.to_str().unwrap());
-        assert_eq!(got.file_name().and_then(|n| n.to_str()), Some("runtime_proof.v1"));
+        assert_eq!(
+            got.file_name().and_then(|n| n.to_str()),
+            Some("runtime_proof.v1")
+        );
         assert_eq!(got.parent().unwrap(), hosts.parent().unwrap());
     }
 
@@ -274,8 +278,16 @@ mod tests {
         assert_eq!(p.gate, "runtime_publisher_admission");
         assert_eq!(p.status, "admitted");
         assert_eq!(p.producer, "cynic-node");
-        assert!(p.evidence.iter().any(|e| e.id == "runtime_publisher_granted"));
-        let ev = p.evidence.iter().find(|e| e.id == "runtime_publisher_granted").unwrap();
+        assert!(
+            p.evidence
+                .iter()
+                .any(|e| e.id == "runtime_publisher_granted")
+        );
+        let ev = p
+            .evidence
+            .iter()
+            .find(|e| e.id == "runtime_publisher_granted")
+            .unwrap();
         assert!(ev.detail.starts_with("granted=true via="));
     }
 

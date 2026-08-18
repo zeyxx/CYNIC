@@ -129,10 +129,7 @@ fn green_granted_true_with_runtime_proof() {
     let roles_path = write_declarative_roles(&sandbox);
     // Écrit le proof dans le même dir que roles_path (scan.rs with_file_name).
     let proof_path = write_runtime_proof(&sandbox);
-    assert_eq!(
-        proof_path,
-        roles_path.with_file_name("runtime_proof.v1")
-    );
+    assert_eq!(proof_path, roles_path.with_file_name("runtime_proof.v1"));
 
     let report = scan_agent_soc(&roles_path);
     let rp = report

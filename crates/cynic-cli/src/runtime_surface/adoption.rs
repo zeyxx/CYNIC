@@ -7,9 +7,9 @@
 use std::process::ExitCode;
 
 use cynic_host::agent_runtime::{
+    AgentRuntimeAdoptionPlan, AgentRuntimeObservation, AgentRuntimeOwnership,
     apply_runtime_ownership, classify_runtime_ownership_with_external_gateway,
-    observe_agent_runtimes, plan_runtime_adoption, AgentRuntimeAdoptionPlan,
-    AgentRuntimeObservation, AgentRuntimeOwnership,
+    observe_agent_runtimes, plan_runtime_adoption,
 };
 use cynic_host::runtime_authority::default_runtime_authority_paths;
 use cynic_host::toolchain::observe::ToolchainObservationPort;
@@ -158,8 +158,8 @@ fn run_toolchain_lifecycle(
         .unwrap_or_else(|| cwd.join("infra/rust-toolchain.json"));
     let history_dir = cwd.join("target/proofs/toolchain");
 
-    let registry = cynic_host::toolchain::specs::ToolchainRegistry::load(&seed_path)
-        .unwrap_or_default();
+    let registry =
+        cynic_host::toolchain::specs::ToolchainRegistry::load(&seed_path).unwrap_or_default();
     let lifecycle = ToolchainLifecycle::new(
         cynic_host::toolchain::observe::LocalToolchainObserver::new(registry),
     );

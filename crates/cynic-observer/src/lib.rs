@@ -8,8 +8,8 @@ pub mod solana_archive;
 pub mod wal;
 pub mod watcher;
 
-pub use solana_archive::*;
 use serde::{Deserialize, Serialize};
+pub use solana_archive::*;
 
 /// Structure d'un événement capté sur la blockchain.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]

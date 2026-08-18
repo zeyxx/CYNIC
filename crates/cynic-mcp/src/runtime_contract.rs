@@ -8,14 +8,20 @@ use std::path::Path;
 /// unreadable executable explicit as an unknown.
 fn running_artifact_evidence() -> (Vec<String>, Vec<String>) {
     let Ok(path) = std::env::current_exe() else {
-        return (Vec::new(), vec!["runtime_artifact_path_unobserved".to_string()]);
+        return (
+            Vec::new(),
+            vec!["runtime_artifact_path_unobserved".to_string()],
+        );
     };
     let path_ref = format!("artifact-path:{}", path.display());
     match std::fs::read(&path) {
         Ok(bytes) => (
             vec![
                 path_ref,
-                format!("artifact-digest:sha256:{}", cynic_host::sha256_digest(&bytes)),
+                format!(
+                    "artifact-digest:sha256:{}",
+                    cynic_host::sha256_digest(&bytes)
+                ),
             ],
             Vec::new(),
         ),
@@ -146,10 +152,11 @@ mod tests {
             plan.missing_capabilities
                 .contains(&"cynic_source_control".to_string())
         );
-        assert!(plan
-            .evidence_refs
-            .iter()
-            .any(|reference| reference.starts_with("artifact-digest:sha256:")));
+        assert!(
+            plan.evidence_refs
+                .iter()
+                .any(|reference| reference.starts_with("artifact-digest:sha256:"))
+        );
     }
 
     #[test]

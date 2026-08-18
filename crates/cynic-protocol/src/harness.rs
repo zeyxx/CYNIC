@@ -63,7 +63,10 @@ pub enum HarnessStatus {
 
 impl HarnessStatus {
     pub fn is_terminal(&self) -> bool {
-        matches!(self, Self::Completed | Self::Failed | Self::Cancelled | Self::Stale)
+        matches!(
+            self,
+            Self::Completed | Self::Failed | Self::Cancelled | Self::Stale
+        )
     }
 }
 
@@ -129,9 +132,16 @@ impl HarnessScenario {
             target_role: "build_runner".to_string(),
             enabled: true,
             prerequisites: vec!["libvirt_socket_accessible".to_string()],
-            allowed_actions: vec![HarnessAction::Observe, HarnessAction::Clone, HarnessAction::Destroy],
+            allowed_actions: vec![
+                HarnessAction::Observe,
+                HarnessAction::Clone,
+                HarnessAction::Destroy,
+            ],
             rollback: HarnessRollback::DestroyGuest,
-            required_proofs: vec!["target_identity".to_string(), "scheduler_observation".to_string()],
+            required_proofs: vec![
+                "target_identity".to_string(),
+                "scheduler_observation".to_string(),
+            ],
             explicit_apply_required: false,
         }
     }
@@ -144,7 +154,11 @@ impl HarnessScenario {
             target_role: "build_runner".to_string(),
             enabled: true,
             prerequisites: vec!["proxmox_provider_control_ready".to_string()],
-            allowed_actions: vec![HarnessAction::Observe, HarnessAction::Clone, HarnessAction::Destroy],
+            allowed_actions: vec![
+                HarnessAction::Observe,
+                HarnessAction::Clone,
+                HarnessAction::Destroy,
+            ],
             rollback: HarnessRollback::TeardownClone,
             required_proofs: vec!["clone_identity".to_string(), "isolated_network".to_string()],
             explicit_apply_required: false,
@@ -176,7 +190,11 @@ impl HarnessScenario {
             prerequisites: vec!["staging_proof_completed".to_string()],
             allowed_actions: vec![HarnessAction::Observe, HarnessAction::DispatchCheck],
             rollback: HarnessRollback::PurgeWorkspace,
-            required_proofs: vec!["signed_grant".to_string(), "workspace_commit".to_string(), "durable_completion".to_string()],
+            required_proofs: vec![
+                "signed_grant".to_string(),
+                "workspace_commit".to_string(),
+                "durable_completion".to_string(),
+            ],
             explicit_apply_required: true,
         }
     }
@@ -191,7 +209,10 @@ impl HarnessScenario {
             prerequisites: vec!["conformance_harness_ready".to_string()],
             allowed_actions: vec![HarnessAction::Observe, HarnessAction::InjectFault],
             rollback: HarnessRollback::None,
-            required_proofs: vec!["durable_cancellation".to_string(), "terminal_fault_state".to_string()],
+            required_proofs: vec![
+                "durable_cancellation".to_string(),
+                "terminal_fault_state".to_string(),
+            ],
             explicit_apply_required: false,
         }
     }
@@ -295,22 +316,32 @@ pub fn validate_harness_scenario(scenario: &HarnessScenario) -> Result<(), Strin
         return Err("harness_scenario_allowed_actions_empty".to_string());
     }
     if scenario.authority == HarnessAuthority::ReadOnlyProjection
-        && scenario.allowed_actions.iter().any(|action| !matches!(action, HarnessAction::Observe | HarnessAction::Replay))
+        && scenario
+            .allowed_actions
+            .iter()
+            .any(|action| !matches!(action, HarnessAction::Observe | HarnessAction::Replay))
     {
         return Err("harness_read_only_projection_mutation_forbidden".to_string());
     }
     if scenario.id == HarnessScenarioId::BuilderStagingObserve
-        && scenario.allowed_actions.iter().any(|action| *action != HarnessAction::Observe)
+        && scenario
+            .allowed_actions
+            .iter()
+            .any(|action| *action != HarnessAction::Observe)
     {
         return Err("harness_staging_observe_mutation_forbidden".to_string());
     }
     if scenario.id == HarnessScenarioId::BuilderCanaryApply && !scenario.explicit_apply_required {
         return Err("harness_canary_requires_explicit_apply".to_string());
     }
-    if scenario.id == HarnessScenarioId::BuilderCanaryApply && scenario.rollback == HarnessRollback::None {
+    if scenario.id == HarnessScenarioId::BuilderCanaryApply
+        && scenario.rollback == HarnessRollback::None
+    {
         return Err("harness_scenario_rollback_missing".to_string());
     }
-    if scenario.id == HarnessScenarioId::LxcCloneConformance && scenario.rollback == HarnessRollback::None {
+    if scenario.id == HarnessScenarioId::LxcCloneConformance
+        && scenario.rollback == HarnessRollback::None
+    {
         return Err("harness_scenario_rollback_missing".to_string());
     }
     if scenario.id == HarnessScenarioId::ClosedLabVm && scenario.rollback == HarnessRollback::None {
@@ -323,20 +354,34 @@ pub fn reduce_harness_evidence(evidences: &[HarnessEvidence]) -> (HarnessStatus,
     if evidences.is_empty() {
         return (HarnessStatus::Unknown, Vec::new());
     }
-    let evidence_refs = evidences.iter().map(|e| e.reference.clone()).collect::<Vec<_>>();
-    let has_failed = evidences.iter().any(|e| e.status == HarnessEvidenceStatus::Failed);
+    let evidence_refs = evidences
+        .iter()
+        .map(|e| e.reference.clone())
+        .collect::<Vec<_>>();
+    let has_failed = evidences
+        .iter()
+        .any(|e| e.status == HarnessEvidenceStatus::Failed);
     if has_failed {
         return (HarnessStatus::Failed, evidence_refs);
     }
-    let has_cancelled = evidences.iter().any(|e| e.status == HarnessEvidenceStatus::Cancelled);
+    let has_cancelled = evidences
+        .iter()
+        .any(|e| e.status == HarnessEvidenceStatus::Cancelled);
     if has_cancelled {
         return (HarnessStatus::Cancelled, evidence_refs);
     }
-    let has_stale = evidences.iter().any(|e| e.status == HarnessEvidenceStatus::Stale);
+    let has_stale = evidences
+        .iter()
+        .any(|e| e.status == HarnessEvidenceStatus::Stale);
     if has_stale {
         return (HarnessStatus::Stale, evidence_refs);
     }
-    let all_completed = evidences.iter().all(|e| matches!(e.status, HarnessEvidenceStatus::Completed | HarnessEvidenceStatus::Present));
+    let all_completed = evidences.iter().all(|e| {
+        matches!(
+            e.status,
+            HarnessEvidenceStatus::Completed | HarnessEvidenceStatus::Present
+        )
+    });
     if all_completed {
         return (HarnessStatus::Completed, evidence_refs);
     }
@@ -363,7 +408,8 @@ pub fn reconcile_harness_scenario(
         };
     }
 
-    if scenario.id == HarnessScenarioId::BuilderCanaryApply && !observation.staging_proof_completed {
+    if scenario.id == HarnessScenarioId::BuilderCanaryApply && !observation.staging_proof_completed
+    {
         blockers.push("staging_proof_missing".to_string());
     }
 
@@ -501,7 +547,11 @@ mod tests {
         let scenario = HarnessScenario::builder_canary_apply();
         let report = reconcile_harness_scenario(&scenario, &HarnessObservation::default());
         assert_eq!(report.status, HarnessStatus::Blocked);
-        assert!(report.blockers.contains(&"staging_proof_missing".to_string()));
+        assert!(
+            report
+                .blockers
+                .contains(&"staging_proof_missing".to_string())
+        );
     }
 
     #[test]

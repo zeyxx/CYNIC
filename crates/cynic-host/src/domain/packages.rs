@@ -349,6 +349,19 @@ fn package_query_argv(
                 package.to_string(),
             ]
         }
+        PackageManagerKind::Winget => vec![
+            context.package_query_bin.clone(),
+            "list".to_string(),
+            "--exact".to_string(),
+            "--id".to_string(),
+            package.to_string(),
+        ],
+        PackageManagerKind::Choco => vec![
+            context.package_query_bin.clone(),
+            "list".to_string(),
+            "--exact".to_string(),
+            package.to_string(),
+        ],
         PackageManagerKind::Unknown => vec![context.which_bin.clone(), package.to_string()],
     }
 }
@@ -380,6 +393,27 @@ fn package_install_argv(
         PackageManagerKind::Dnf => {
             let mut argv = vec![
                 context.dnf_bin.clone(),
+                "install".to_string(),
+                "-y".to_string(),
+            ];
+            argv.extend(packages.iter().cloned());
+            argv
+        }
+        PackageManagerKind::Winget => {
+            let mut argv = vec![
+                context.package_install_bin.clone(),
+                "install".to_string(),
+                "--exact".to_string(),
+                "--accept-source-agreements".to_string(),
+                "--accept-package-agreements".to_string(),
+                "--id".to_string(),
+            ];
+            argv.extend(packages.iter().cloned());
+            argv
+        }
+        PackageManagerKind::Choco => {
+            let mut argv = vec![
+                context.package_install_bin.clone(),
                 "install".to_string(),
                 "-y".to_string(),
             ];

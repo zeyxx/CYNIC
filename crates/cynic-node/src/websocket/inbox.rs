@@ -116,6 +116,7 @@ impl WebSocketClient {
             stimulus_id.clone(),
             content.clone(),
             self.pending_verdicts.clone(),
+            self.workload_signer.as_ref(),
         ) {
             let pending = PendingStimulus {
                 stimulus_id: stimulus_id.clone(),

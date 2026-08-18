@@ -4,7 +4,7 @@ use super::*;
 use crate::domain::metrics::Metrics;
 use crate::domain::organ::{Metric, MetricKind, MetricValue, OrganSnapshot as OSnap};
 use crate::domain::state_log::{
-    DogSnapshot, OrganSnapshot, ResourceSnapshot, StateBlock, SystemSnapshot, GENESIS_HASH,
+    DogSnapshot, GENESIS_HASH, OrganSnapshot, ResourceSnapshot, StateBlock, SystemSnapshot,
 };
 use crate::domain::storage::NullStorage;
 

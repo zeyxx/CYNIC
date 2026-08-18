@@ -284,7 +284,10 @@ mod tests {
         let authorization_without_runtime_publisher =
             ExecutionAuthorization::new(actor, PolicyAuthority::RuntimeAuthority, true, Vec::new());
         let decision = authorize_apply(&plan, &admission, &authorization_without_runtime_publisher);
-        assert!(!decision.admitted(), "missing runtime_publisher proof must deny");
+        assert!(
+            !decision.admitted(),
+            "missing runtime_publisher proof must deny"
+        );
         match decision {
             PolicyDecision::Deny { violations } => assert!(
                 violations

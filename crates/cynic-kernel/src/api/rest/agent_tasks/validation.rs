@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::api::forge_task_contract::validate_repo_affecting_hermes_task;
 use crate::api::rest::agent_tasks::types::{
-    ReviewAgentProposalRequest, AGENT_PROPOSAL_REVIEW_SCHEMA, AGENT_PROPOSAL_SCHEMA,
+    AGENT_PROPOSAL_REVIEW_SCHEMA, AGENT_PROPOSAL_SCHEMA, ReviewAgentProposalRequest,
     VALID_AGENT_PROPOSAL_REVIEW_STATES,
 };
 use crate::domain::events::KernelEvent;

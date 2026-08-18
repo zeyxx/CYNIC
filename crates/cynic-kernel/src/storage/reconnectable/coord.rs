@@ -1,7 +1,7 @@
 //! Reconnectable wrapper for CoordPort.
 
-use std::sync::{Arc, RwLock};
 use async_trait::async_trait;
+use std::sync::{Arc, RwLock};
 
 use crate::domain::coord::{
     AuditEntry, BatchClaimResult, ClaimResult, CoordError, CoordPort, CoordSnapshot,

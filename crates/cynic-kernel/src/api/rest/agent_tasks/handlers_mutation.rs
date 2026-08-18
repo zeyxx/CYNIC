@@ -5,7 +5,7 @@ use cynic_protocol::validate_evidence_refs;
 use std::sync::Arc;
 
 use crate::api::rest::agent_tasks::types::{
-    ClaimTaskRequest, DispatchTaskRequest, UpdateTaskResultRequest, AGENT_TASK_STORAGE_TIMEOUT,
+    AGENT_TASK_STORAGE_TIMEOUT, ClaimTaskRequest, DispatchTaskRequest, UpdateTaskResultRequest,
 };
 use crate::api::rest::agent_tasks::validation::validate_agent_task_content;
 use crate::api::rest::types::{AppState, ErrorResponse};

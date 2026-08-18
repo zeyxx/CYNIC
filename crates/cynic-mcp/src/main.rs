@@ -16,7 +16,7 @@ mod project_root;
 
 use rmcp::ServiceExt;
 use tokio_util::sync::CancellationToken;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[tokio::main]
 #[allow(clippy::print_stderr)]

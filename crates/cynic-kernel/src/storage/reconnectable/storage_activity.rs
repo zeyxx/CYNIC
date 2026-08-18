@@ -1,10 +1,8 @@
 //! ActivityStorage trait implementation for ReconnectableStorage.
 
-use async_trait::async_trait;
-use crate::domain::storage::{
-    ActivityStorage, Observation, RawObservation, StorageError,
-};
 use super::storage::ReconnectableStorage;
+use crate::domain::storage::{ActivityStorage, Observation, RawObservation, StorageError};
+use async_trait::async_trait;
 
 #[async_trait]
 impl ActivityStorage for ReconnectableStorage {

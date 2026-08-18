@@ -50,16 +50,20 @@ pub enum PackageManagerKind {
     Apk,
     Dnf,
     Rpm,
+    Winget,
+    Choco,
     Unknown,
 }
 
 impl PackageManagerKind {
     pub fn parse(value: &str) -> Self {
         match value {
-            "apt" | "apt-get" | "debian" => Self::Apt,
+            "apt" | "apt-get" | "debian" | "ubuntu" => Self::Apt,
             "apk" | "alpine" => Self::Apk,
             "dnf" => Self::Dnf,
             "rpm" => Self::Rpm,
+            "winget" | "windows" => Self::Winget,
+            "choco" | "chocolatey" => Self::Choco,
             _ => Self::Unknown,
         }
     }
@@ -70,6 +74,8 @@ impl PackageManagerKind {
             Self::Apk => "apk",
             Self::Dnf => "dnf",
             Self::Rpm => "rpm",
+            Self::Winget => "winget",
+            Self::Choco => "choco",
             Self::Unknown => "unknown",
         }
     }
@@ -88,6 +94,19 @@ impl PackageManagerKind {
                 package.to_string(),
             ],
             Self::Dnf | Self::Rpm => vec![layout.rpm_bin(), "-q".to_string(), package.to_string()],
+            Self::Winget => vec![
+                layout.winget_bin(),
+                "list".to_string(),
+                "--exact".to_string(),
+                "--id".to_string(),
+                package.to_string(),
+            ],
+            Self::Choco => vec![
+                layout.choco_bin(),
+                "list".to_string(),
+                "--exact".to_string(),
+                package.to_string(),
+            ],
             Self::Unknown => vec![layout.which_bin(), package.to_string()],
         }
     }
@@ -114,6 +133,23 @@ impl PackageManagerKind {
             }
             Self::Dnf => {
                 let mut argv = vec![layout.dnf_bin(), "install".to_string(), "-y".to_string()];
+                argv.extend(packages.iter().cloned());
+                argv
+            }
+            Self::Winget => {
+                let mut argv = vec![
+                    layout.winget_bin(),
+                    "install".to_string(),
+                    "--exact".to_string(),
+                    "--accept-source-agreements".to_string(),
+                    "--accept-package-agreements".to_string(),
+                    "--id".to_string(),
+                ];
+                argv.extend(packages.iter().cloned());
+                argv
+            }
+            Self::Choco => {
+                let mut argv = vec![layout.choco_bin(), "install".to_string(), "-y".to_string()];
                 argv.extend(packages.iter().cloned());
                 argv
             }
@@ -426,6 +462,8 @@ impl HostRuntimeLayout {
             match self.package_manager_kind() {
                 PackageManagerKind::Apk => "apk",
                 PackageManagerKind::Dnf | PackageManagerKind::Rpm => "rpm",
+                PackageManagerKind::Winget => "winget.exe",
+                PackageManagerKind::Choco => "choco.exe",
                 PackageManagerKind::Apt | PackageManagerKind::Unknown => "dpkg",
             },
         )
@@ -438,11 +476,12 @@ impl HostRuntimeLayout {
                 PackageManagerKind::Apk => "apk",
                 PackageManagerKind::Dnf => "dnf",
                 PackageManagerKind::Rpm => "rpm",
+                PackageManagerKind::Winget => "winget.exe",
+                PackageManagerKind::Choco => "choco.exe",
                 PackageManagerKind::Apt | PackageManagerKind::Unknown => "apt-get",
             },
         )
     }
-
     pub fn package_manager_kind(&self) -> PackageManagerKind {
         PackageManagerKind::parse(&env_path("CYNIC_PACKAGE_MANAGER_KIND", "apt"))
     }
@@ -457,6 +496,13 @@ impl HostRuntimeLayout {
 
     pub fn rpm_bin(&self) -> String {
         env_path("CYNIC_RPM_BIN", "rpm")
+    }
+    pub fn winget_bin(&self) -> String {
+        env_path("CYNIC_WINGET_BIN", "winget.exe")
+    }
+
+    pub fn choco_bin(&self) -> String {
+        env_path("CYNIC_CHOCO_BIN", "choco.exe")
     }
 
     pub fn which_bin(&self) -> String {

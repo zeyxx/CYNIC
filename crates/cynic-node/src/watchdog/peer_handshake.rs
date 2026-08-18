@@ -53,12 +53,7 @@ pub enum HandshakeState {
 // ---------------------------------------------------------------------------
 
 pub trait PeerHandshakePort {
-    fn observe(
-        &self,
-        interface: &str,
-        stale_s: u64,
-        dead_s: u64,
-    ) -> WireguardHandshakeObservation;
+    fn observe(&self, interface: &str, stale_s: u64, dead_s: u64) -> WireguardHandshakeObservation;
 }
 
 /// Production implementation: shells out to the `wg` binary resolved from the
@@ -67,12 +62,7 @@ pub trait PeerHandshakePort {
 pub struct LocalPeerHandshakeObserver;
 
 impl PeerHandshakePort for LocalPeerHandshakeObserver {
-    fn observe(
-        &self,
-        interface: &str,
-        stale_s: u64,
-        dead_s: u64,
-    ) -> WireguardHandshakeObservation {
+    fn observe(&self, interface: &str, stale_s: u64, dead_s: u64) -> WireguardHandshakeObservation {
         observe_peer_handshakes(interface, stale_s, dead_s)
     }
 }
@@ -122,10 +112,22 @@ pub fn observe_peer_handshakes(
 
     let peers = parse_handshake_output(&raw, now_unix_s, stale_threshold_s, dead_threshold_s);
 
-    let stale_count = peers.iter().filter(|p| p.state == HandshakeState::Stale).count();
-    let dead_count = peers.iter().filter(|p| p.state == HandshakeState::Dead).count();
-    let ok_count = peers.iter().filter(|p| p.state == HandshakeState::Ok).count();
-    let unknown_count = peers.iter().filter(|p| p.state == HandshakeState::NeverSeen).count();
+    let stale_count = peers
+        .iter()
+        .filter(|p| p.state == HandshakeState::Stale)
+        .count();
+    let dead_count = peers
+        .iter()
+        .filter(|p| p.state == HandshakeState::Dead)
+        .count();
+    let ok_count = peers
+        .iter()
+        .filter(|p| p.state == HandshakeState::Ok)
+        .count();
+    let unknown_count = peers
+        .iter()
+        .filter(|p| p.state == HandshakeState::NeverSeen)
+        .count();
 
     WireguardHandshakeObservation {
         schema: PEER_HANDSHAKE_SCHEMA,
@@ -272,10 +274,22 @@ mod tests {
             schema: PEER_HANDSHAKE_SCHEMA,
             interface: "wg0".into(),
             observed_at_unix_s: now,
-            stale_count: peers.iter().filter(|p| p.state == HandshakeState::Stale).count(),
-            dead_count: peers.iter().filter(|p| p.state == HandshakeState::Dead).count(),
-            ok_count: peers.iter().filter(|p| p.state == HandshakeState::Ok).count(),
-            unknown_count: peers.iter().filter(|p| p.state == HandshakeState::NeverSeen).count(),
+            stale_count: peers
+                .iter()
+                .filter(|p| p.state == HandshakeState::Stale)
+                .count(),
+            dead_count: peers
+                .iter()
+                .filter(|p| p.state == HandshakeState::Dead)
+                .count(),
+            ok_count: peers
+                .iter()
+                .filter(|p| p.state == HandshakeState::Ok)
+                .count(),
+            unknown_count: peers
+                .iter()
+                .filter(|p| p.state == HandshakeState::NeverSeen)
+                .count(),
             peers,
         };
         assert_eq!(obs.unknown_count, 1);
@@ -290,7 +304,12 @@ mod tests {
     fn stub_port_usable() {
         struct StubPort;
         impl PeerHandshakePort for StubPort {
-            fn observe(&self, interface: &str, _stale_s: u64, _dead_s: u64) -> WireguardHandshakeObservation {
+            fn observe(
+                &self,
+                interface: &str,
+                _stale_s: u64,
+                _dead_s: u64,
+            ) -> WireguardHandshakeObservation {
                 WireguardHandshakeObservation {
                     schema: PEER_HANDSHAKE_SCHEMA,
                     interface: interface.to_string(),

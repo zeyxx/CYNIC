@@ -14,13 +14,15 @@ pub fn compute_stream_dynamics(
             ttft_ms: total_elapsed_ms as f32,
             mean_inter_token_ms: 0.0,
             jitter_variance_ms: 0.0,
-            predicted_tokens_per_second: (completion_tokens as f64 / (total_elapsed_ms / 1000.0).max(0.001)) as f32,
+            predicted_tokens_per_second: (completion_tokens as f64
+                / (total_elapsed_ms / 1000.0).max(0.001))
+                as f32,
             prompt_tokens_per_second: 0.0,
         };
     }
 
     let ttft_ms = chunk_timestamps_ms[0] as f32;
-    
+
     // Calculate intervals between successive chunks
     let mut intervals = Vec::new();
     for i in 1..chunk_timestamps_ms.len() {
@@ -76,7 +78,7 @@ mod tests {
     fn computes_accurate_stream_jitter() {
         let timestamps = vec![150.0, 180.0, 215.0, 245.0, 280.0];
         let report = compute_stream_dynamics(&timestamps, 40, 5, 290.0);
-        
+
         assert_eq!(report.ttft_ms, 150.0);
         assert!(report.mean_inter_token_ms > 30.0 && report.mean_inter_token_ms < 35.0);
         assert!(report.predicted_tokens_per_second > 0.0);

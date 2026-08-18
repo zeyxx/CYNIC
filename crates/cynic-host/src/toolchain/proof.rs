@@ -24,12 +24,11 @@ pub struct ToolchainProof {
 }
 
 impl ToolchainProof {
-    pub fn from(
-        observed: &ToolchainObservation,
-        decision: &ToolchainDecision,
-    ) -> Self {
+    pub fn from(observed: &ToolchainObservation, decision: &ToolchainDecision) -> Self {
         let applied = match decision {
-            ToolchainDecision::UseToolchain(t) | ToolchainDecision::UseFallback(t) => Some(t.clone()),
+            ToolchainDecision::UseToolchain(t) | ToolchainDecision::UseFallback(t) => {
+                Some(t.clone())
+            }
             _ => None,
         };
 
@@ -51,8 +50,7 @@ impl ToolchainProof {
         let path = format!("{}/{}.json", proof_dir, crate_name);
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| format!("proof serialize error: {}", e))?;
-        std::fs::write(&path, json)
-            .map_err(|e| format!("proof write error: {}", e))?;
+        std::fs::write(&path, json).map_err(|e| format!("proof write error: {}", e))?;
         Ok(())
     }
 
@@ -85,8 +83,7 @@ impl ToolchainProofWriter {
         let path = dir.join(format!("{}.json", proof.crate_name));
         let json = serde_json::to_string_pretty(proof)
             .map_err(|e| format!("proof serialize error: {}", e))?;
-        std::fs::write(&path, json)
-            .map_err(|e| format!("proof write error: {}", e))?;
+        std::fs::write(&path, json).map_err(|e| format!("proof write error: {}", e))?;
         Ok(())
     }
 }

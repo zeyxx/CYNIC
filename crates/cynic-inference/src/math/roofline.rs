@@ -54,7 +54,8 @@ pub fn calculate_theoretical_max_tps(
     decode_bytes_per_token: u64,
     sustained_bandwidth_bytes_per_sec: f64,
 ) -> Option<f32> {
-    (decode_bytes_per_token > 0 && sustained_bandwidth_bytes_per_sec.is_finite()
+    (decode_bytes_per_token > 0
+        && sustained_bandwidth_bytes_per_sec.is_finite()
         && sustained_bandwidth_bytes_per_sec > 0.0)
         .then(|| (sustained_bandwidth_bytes_per_sec / decode_bytes_per_token as f64) as f32)
 }
@@ -74,8 +75,7 @@ pub fn assess_roofline(input: RooflineInputs) -> Option<RooflineAssessment> {
     let decode_arithmetic_intensity =
         input.decode_flops_per_token / input.decode_bytes_per_token as f64;
     let compute_bound_tps = input.peak_flops_per_sec.and_then(|peak| {
-        (peak.is_finite() && peak > 0.0)
-            .then(|| (peak / input.decode_flops_per_token) as f32)
+        (peak.is_finite() && peak > 0.0).then(|| (peak / input.decode_flops_per_token) as f32)
     });
 
     let (theoretical_max_decode_tps, bottleneck) = match compute_bound_tps {

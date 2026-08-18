@@ -1,12 +1,12 @@
 //! Hexagonal Adapters for SOP threat sanitization and Solana safety evaluation.
 
+use crate::ports::solana_ports::{SolanaSafetyPort, SopSafetyPort};
+use crate::solana_safety_dog::{SolanaSafetyReport, evaluate_solana_pay_request};
+use crate::sop_sanitizer::sanitize_sop_input;
 use async_trait::async_trait;
 use cynic_protocol::solana_ops::{
     AllowanceGrant, SolanaPayRequest, SopSanitizationInput, SopSanitizationResult,
 };
-use crate::ports::solana_ports::{SolanaSafetyPort, SopSafetyPort};
-use crate::solana_safety_dog::{evaluate_solana_pay_request, SolanaSafetyReport};
-use crate::sop_sanitizer::sanitize_sop_input;
 
 /// Default pure adapter implementing `SopSafetyPort` and `SolanaSafetyPort`.
 #[derive(Debug, Default, Clone)]
@@ -55,9 +55,12 @@ mod tests {
         let res = adapter.evaluate_sop(&input).await;
         assert!(res.is_safe);
 
-        let req = SolanaPayRequest::new("7Xw7K1kPzSjW7Y2qM3nK4pL5rQ8sT9uV8wX1yZ2a3b4c")
-            .with_amount(10.0);
+        let req =
+            SolanaPayRequest::new("7Xw7K1kPzSjW7Y2qM3nK4pL5rQ8sT9uV8wX1yZ2a3b4c").with_amount(10.0);
         let rep = adapter.evaluate_pay_request(&req, None).await;
-        assert_eq!(rep.verdict, crate::solana_safety_dog::SolanaSafetyVerdict::Approved);
+        assert_eq!(
+            rep.verdict,
+            crate::solana_safety_dog::SolanaSafetyVerdict::Approved
+        );
     }
 }

@@ -3,9 +3,8 @@
 use super::types::ReviewAgentProposalRequest;
 use super::validation::{
     agent_proposal_review_value, event_matches_pending_task_watch, extract_agent_proposal,
-    filter_proposal_projection, task_proposal_projection,
-    validate_agent_proposal_review_request, validate_agent_task_content,
-    wait_for_matching_task_event,
+    filter_proposal_projection, task_proposal_projection, validate_agent_proposal_review_request,
+    validate_agent_task_content, wait_for_matching_task_event,
 };
 use crate::domain::events::KernelEvent;
 use crate::domain::storage::AgentTask;
@@ -317,8 +316,7 @@ fn rejects_forge_task_that_does_not_match_dynamic_registry_contract() {
 
 #[test]
 fn allows_non_forge_task_without_declared_targets() {
-    let result =
-        validate_agent_task_content("hermes", "telegram", r#"{"objective":"observe"}"#);
+    let result = validate_agent_task_content("hermes", "telegram", r#"{"objective":"observe"}"#);
 
     assert!(result.is_ok());
 }

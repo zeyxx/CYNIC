@@ -73,7 +73,10 @@ pub struct ObjectiveBounds {
 impl ObjectiveBounds {
     pub fn from_vectors(vectors: &[ObjectiveVector]) -> Option<Self> {
         let first = vectors.first()?;
-        if vectors.iter().any(|vector| !vector.has_valid_core_metrics()) {
+        if vectors
+            .iter()
+            .any(|vector| !vector.has_valid_core_metrics())
+        {
             return None;
         }
 
@@ -85,8 +88,14 @@ impl ObjectiveBounds {
             .iter()
             .map(|v| v.throughput_tps)
             .fold(first.throughput_tps, f32::max);
-        let min_ttft = vectors.iter().map(|v| v.ttft_ms).fold(first.ttft_ms, f32::min);
-        let max_ttft = vectors.iter().map(|v| v.ttft_ms).fold(first.ttft_ms, f32::max);
+        let min_ttft = vectors
+            .iter()
+            .map(|v| v.ttft_ms)
+            .fold(first.ttft_ms, f32::min);
+        let max_ttft = vectors
+            .iter()
+            .map(|v| v.ttft_ms)
+            .fold(first.ttft_ms, f32::max);
         let min_jitter = vectors
             .iter()
             .map(|v| v.jitter_variance_ms)
@@ -135,8 +144,14 @@ impl ObjectiveBounds {
             return None;
         }
         let mut regret = [
-            normalized_regret(self.max_tps - vector.throughput_tps, self.max_tps - self.min_tps),
-            normalized_regret(vector.ttft_ms - self.min_ttft, self.max_ttft - self.min_ttft),
+            normalized_regret(
+                self.max_tps - vector.throughput_tps,
+                self.max_tps - self.min_tps,
+            ),
+            normalized_regret(
+                vector.ttft_ms - self.min_ttft,
+                self.max_ttft - self.min_ttft,
+            ),
             normalized_regret(
                 vector.jitter_variance_ms - self.min_jitter,
                 self.max_jitter - self.min_jitter,
@@ -192,7 +207,8 @@ pub fn select_utopian_optimal<'a, T>(
     pareto_frontier: &'a [&'a T],
     vector_fn: impl Fn(&T) -> ObjectiveVector,
 ) -> Option<&'a T> {
-    let vectors: Vec<ObjectiveVector> = pareto_frontier.iter().map(|item| vector_fn(item)).collect();
+    let vectors: Vec<ObjectiveVector> =
+        pareto_frontier.iter().map(|item| vector_fn(item)).collect();
     let bounds = ObjectiveBounds::from_vectors(&vectors)?;
 
     pareto_frontier
@@ -231,8 +247,15 @@ mod tests {
 
     #[test]
     fn detects_strict_pareto_dominance() {
-        assert!(vector(25.0, 100.0, 1.0, 65_536, Some(0.98))
-            .dominates(&vector(20.0, 200.0, 2.0, 32_768, Some(0.90))));
+        assert!(
+            vector(25.0, 100.0, 1.0, 65_536, Some(0.98)).dominates(&vector(
+                20.0,
+                200.0,
+                2.0,
+                32_768,
+                Some(0.90)
+            ))
+        );
     }
 
     #[test]

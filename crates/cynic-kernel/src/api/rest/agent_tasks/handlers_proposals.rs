@@ -4,7 +4,7 @@ use axum::{extract::State, http::StatusCode, response::Json};
 use std::sync::Arc;
 
 use crate::api::rest::agent_tasks::types::{
-    ReviewAgentProposalRequest, AGENT_PROPOSAL_REVIEW_SCHEMA, AGENT_TASK_STORAGE_TIMEOUT,
+    AGENT_PROPOSAL_REVIEW_SCHEMA, AGENT_TASK_STORAGE_TIMEOUT, ReviewAgentProposalRequest,
 };
 use crate::api::rest::agent_tasks::validation::{
     agent_proposal_review_value, filter_proposal_projection, task_proposal_projection,

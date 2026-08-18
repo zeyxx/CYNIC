@@ -42,7 +42,6 @@ pub fn build_runtime_basket_manifest(
     })
 }
 
-
 const RUNTIME_BASKET_DOCUMENT: &str = include_str!("../../../infra/runtime-basket.json");
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -184,12 +183,9 @@ mod tests {
         for name in runtime_release_artifact_names().expect("names") {
             digests.insert(name.clone(), format!("sha256:{}", "0".repeat(64)));
         }
-        let manifest = build_runtime_basket_manifest(
-            "f03536eac0efdf2c1e8d353760345205d05909c8",
-            1,
-            &digests,
-        )
-        .expect("manifest");
+        let manifest =
+            build_runtime_basket_manifest("f03536eac0efdf2c1e8d353760345205d05909c8", 1, &digests)
+                .expect("manifest");
         assert_eq!(manifest.schema, RUNTIME_BASKET_MANIFEST_SCHEMA);
         assert!(manifest.basket_digest.starts_with("sha256:"));
         assert_eq!(manifest.artifacts.len(), 5);
@@ -199,12 +195,8 @@ mod tests {
     fn build_runtime_basket_manifest_rejects_missing_artifact() {
         let digests = std::collections::BTreeMap::new();
         assert!(
-            build_runtime_basket_manifest(
-                "f03536eac0efdf2c1e8d353760345205d05909c8",
-                1,
-                &digests,
-            )
-            .is_err()
+            build_runtime_basket_manifest("f03536eac0efdf2c1e8d353760345205d05909c8", 1, &digests,)
+                .is_err()
         );
     }
 }

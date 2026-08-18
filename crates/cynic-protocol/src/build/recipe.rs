@@ -33,10 +33,7 @@ pub fn build_recipe(action: &str) -> Result<BuildRecipe, String> {
             schema: BUILD_RECIPE_SCHEMA.to_string(),
             action: "make:build".to_string(),
             target_profile: "debug".to_string(),
-            allowed_actions: vec![
-                "make:build".to_string(),
-                "cargo:build".to_string(),
-            ],
+            allowed_actions: vec!["make:build".to_string(), "cargo:build".to_string()],
             rust_min_stack: 536_870_912,
             cargo_incremental: false,
             memory_limit_bytes: Some(4_294_967_296),
@@ -45,10 +42,7 @@ pub fn build_recipe(action: &str) -> Result<BuildRecipe, String> {
             schema: BUILD_RECIPE_SCHEMA.to_string(),
             action: "make:build-release".to_string(),
             target_profile: "release".to_string(),
-            allowed_actions: vec![
-                "make:build-release".to_string(),
-                "cargo:build".to_string(),
-            ],
+            allowed_actions: vec!["make:build-release".to_string(), "cargo:build".to_string()],
             rust_min_stack: 536_870_912,
             cargo_incremental: false,
             memory_limit_bytes: Some(8_589_934_592),

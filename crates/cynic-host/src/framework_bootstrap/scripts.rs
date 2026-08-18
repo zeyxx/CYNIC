@@ -243,7 +243,7 @@ echo "cynic framework bootstrap security maintenance passed"
 
 #[cfg(test)]
 mod tests {
-    use super::{bootstrap_install_script, bootstrap_verify_script, BootstrapRuntimeArtifact};
+    use super::{BootstrapRuntimeArtifact, bootstrap_install_script, bootstrap_verify_script};
 
     fn artifacts() -> Vec<BootstrapRuntimeArtifact> {
         vec![BootstrapRuntimeArtifact {
@@ -312,7 +312,9 @@ mod tests {
             "test \"$(readlink \"$RUNTIME_INSTALL_ROOT/current\")\" = \"$desired_release\""
         ));
         assert!(script.contains("active runtime seed marker does not match the requested seed"));
-        assert!(!script
-            .contains("runtime is already seeded; use the signed release activation surface"));
+        assert!(
+            !script
+                .contains("runtime is already seeded; use the signed release activation surface")
+        );
     }
 }

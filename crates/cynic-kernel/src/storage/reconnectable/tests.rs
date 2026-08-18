@@ -1,10 +1,10 @@
 //! Unit tests for reconnectable storage and coord.
 
-use std::sync::Arc;
 use super::*;
 use crate::domain::coord::{CoordPort, NullCoord};
 use crate::domain::storage::{NullStorage, StoragePort};
 use crate::infra::config::StorageConfig;
+use std::sync::Arc;
 
 #[tokio::test]
 async fn reconnectable_storage_delegates_ping_to_null() {

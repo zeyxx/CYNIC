@@ -12,9 +12,9 @@
 use cynic_protocol::{ContextTier, ParametricConfigPoint};
 use serde::{Deserialize, Serialize};
 
-use crate::math::pareto::{extract_pareto_frontier, select_utopian_optimal, ObjectiveVector};
 use super::memory_estimator::can_admit_model_configuration;
 use super::types::{HardwareBudget, StreamDynamicsReport};
+use crate::math::pareto::{ObjectiveVector, extract_pareto_frontier, select_utopian_optimal};
 
 pub const EMPIRICAL_LEDGER_SCHEMA: &str = "cynic.inference.empirical_ledger.v1";
 
@@ -133,7 +133,10 @@ pub fn solve_optimal_configuration(
         .iter()
         .filter(|entry| entry.model_alias.eq_ignore_ascii_case(model_alias))
         // Rule 1: Exclude non-safe runs (OOM / execution errors)
-        .filter(|entry| entry.oom_status == OomSafetyStatus::Safe || entry.oom_status == OomSafetyStatus::Marginal)
+        .filter(|entry| {
+            entry.oom_status == OomSafetyStatus::Safe
+                || entry.oom_status == OomSafetyStatus::Marginal
+        })
         // Rule 2: Exclude configurations that would exceed live available RAM or explicit user cap
         .filter(|entry| {
             if let Some(user_max_ram) = constraints.max_ram_bytes {
@@ -223,7 +226,8 @@ fn select_from_frontier<'a>(
         OptimizationGoal::MaxThroughput => frontier
             .iter()
             .max_by(|a, b| {
-                a.stream_dynamics.predicted_tokens_per_second
+                a.stream_dynamics
+                    .predicted_tokens_per_second
                     .partial_cmp(&b.stream_dynamics.predicted_tokens_per_second)
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
@@ -231,7 +235,8 @@ fn select_from_frontier<'a>(
         OptimizationGoal::MinLatency => frontier
             .iter()
             .min_by(|a, b| {
-                a.stream_dynamics.ttft_ms
+                a.stream_dynamics
+                    .ttft_ms
                     .partial_cmp(&b.stream_dynamics.ttft_ms)
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
@@ -239,7 +244,8 @@ fn select_from_frontier<'a>(
         OptimizationGoal::MinJitter => frontier
             .iter()
             .min_by(|a, b| {
-                a.stream_dynamics.jitter_variance_ms
+                a.stream_dynamics
+                    .jitter_variance_ms
                     .partial_cmp(&b.stream_dynamics.jitter_variance_ms)
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
@@ -264,7 +270,9 @@ pub fn aggregate_model_scorecard(
 
     let viable_records: Vec<&EmpiricalProfileEntry> = model_records
         .iter()
-        .filter(|r| r.oom_status == OomSafetyStatus::Safe || r.oom_status == OomSafetyStatus::Marginal)
+        .filter(|r| {
+            r.oom_status == OomSafetyStatus::Safe || r.oom_status == OomSafetyStatus::Marginal
+        })
         .copied()
         .collect();
 
@@ -297,8 +305,8 @@ pub fn aggregate_model_scorecard(
             .into_iter()
             .copied()
             .collect();
-    let best_balanced = select_utopian_optimal(&frontier, to_objective_vector)
-        .map(|r| r.config.clone());
+    let best_balanced =
+        select_utopian_optimal(&frontier, to_objective_vector).map(|r| r.config.clone());
 
     ModelEmpiricalScorecard {
         model_alias: model_alias.to_string(),
@@ -314,7 +322,7 @@ pub fn aggregate_model_scorecard(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{KvQuantization, RopeScaling, TopologyStrategy, HarnessProtocol};
+    use cynic_protocol::{HarnessProtocol, KvQuantization, RopeScaling, TopologyStrategy};
 
     fn make_test_entry(
         model: &str,
@@ -366,9 +374,30 @@ mod tests {
 
     #[test]
     fn solver_selects_fastest_safe_configuration() {
-        let e1 = make_test_entry("qwen-2b", ContextTier::Ctx4k, 25.0, 150.0, 3 * 1024 * 1024 * 1024, OomSafetyStatus::Safe);
-        let e2 = make_test_entry("qwen-2b", ContextTier::Ctx64k, 18.0, 350.0, 8 * 1024 * 1024 * 1024, OomSafetyStatus::Safe);
-        let e3_oom = make_test_entry("qwen-2b", ContextTier::Ctx128k, 30.0, 50.0, 35 * 1024 * 1024 * 1024, OomSafetyStatus::Oom);
+        let e1 = make_test_entry(
+            "qwen-2b",
+            ContextTier::Ctx4k,
+            25.0,
+            150.0,
+            3 * 1024 * 1024 * 1024,
+            OomSafetyStatus::Safe,
+        );
+        let e2 = make_test_entry(
+            "qwen-2b",
+            ContextTier::Ctx64k,
+            18.0,
+            350.0,
+            8 * 1024 * 1024 * 1024,
+            OomSafetyStatus::Safe,
+        );
+        let e3_oom = make_test_entry(
+            "qwen-2b",
+            ContextTier::Ctx128k,
+            30.0,
+            50.0,
+            35 * 1024 * 1024 * 1024,
+            OomSafetyStatus::Oom,
+        );
 
         let records = vec![e1.clone(), e2.clone(), e3_oom];
 
@@ -405,13 +434,30 @@ mod tests {
         );
 
         assert!(optimal_64k.is_some());
-        assert_eq!(optimal_64k.unwrap().config.context_tier, ContextTier::Ctx64k);
+        assert_eq!(
+            optimal_64k.unwrap().config.context_tier,
+            ContextTier::Ctx64k
+        );
     }
 
     #[test]
     fn scorecard_computes_accurate_aggregates() {
-        let e1 = make_test_entry("qwen-2b", ContextTier::Ctx4k, 25.0, 150.0, 3 * 1024 * 1024 * 1024, OomSafetyStatus::Safe);
-        let e2 = make_test_entry("qwen-2b", ContextTier::Ctx64k, 18.0, 350.0, 8 * 1024 * 1024 * 1024, OomSafetyStatus::Safe);
+        let e1 = make_test_entry(
+            "qwen-2b",
+            ContextTier::Ctx4k,
+            25.0,
+            150.0,
+            3 * 1024 * 1024 * 1024,
+            OomSafetyStatus::Safe,
+        );
+        let e2 = make_test_entry(
+            "qwen-2b",
+            ContextTier::Ctx64k,
+            18.0,
+            350.0,
+            8 * 1024 * 1024 * 1024,
+            OomSafetyStatus::Safe,
+        );
 
         let records = vec![e1, e2];
         let scorecard = aggregate_model_scorecard(&records, "qwen-2b");

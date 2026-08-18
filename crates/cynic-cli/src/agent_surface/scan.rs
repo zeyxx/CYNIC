@@ -26,7 +26,7 @@ pub fn scan_agent_soc(roles_path: &Path) -> AgentSocReport {
                     "infra/agent-roles.json missing or unreadable at {}",
                     roles_path.display()
                 )],
-            }
+            };
         }
     };
 
@@ -49,8 +49,8 @@ pub fn scan_agent_soc(roles_path: &Path) -> AgentSocReport {
     if observed.unwrap_or(false) {
         for (_name, entry) in report_roles.iter_mut() {
             if entry.authority_class == "RuntimeMachineIdentity" {
-                entry.granted_via = "kernel/node-signed runtime_proof.v1 (2N+1 admission)"
-                    .to_string();
+                entry.granted_via =
+                    "kernel/node-signed runtime_proof.v1 (2N+1 admission)".to_string();
                 entry.granted = true;
             }
         }
@@ -102,10 +102,7 @@ fn parse_declarative_roles(
     let mut domains = BTreeMap::new();
     let mut rules: Vec<String> = vec![];
 
-    if let Some(rules_arr) = v
-        .get("gitops_rules")
-        .and_then(|x| x.as_array())
-    {
+    if let Some(rules_arr) = v.get("gitops_rules").and_then(|x| x.as_array()) {
         for r in rules_arr.iter().filter_map(|x| x.as_str()) {
             rules.push(r.to_string());
         }

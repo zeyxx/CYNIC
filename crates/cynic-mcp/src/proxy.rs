@@ -32,24 +32,23 @@ use crate::types::{
     AgentConnectionStatusParams, ApiContractsParams, AskesisLogParams, AttentionParams,
     AuditQueryParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams, ComplianceParams,
     DispatchAgentTaskParams, DockerContainerInspectParams, DockerContainerListParams,
-    DockerContainerLogsParams, FinalizeLeaseParams,
-    FleetInventoryParams, FleetNodeExecParams, FleetNodeStatusParams,
-    FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams, IdentityAttestParams,
-    IdentitySmokeCheckParams, InferParams, InferenceDiscoverParams, InferenceStartParams,
-    InferenceSwitchParams, OperationalBenchmarkParams, InfraProvisionParams,
-    InfraRegistryReadParams, InfraRegistryValidateParams, JudgeParams, LibraryQueryParams,
-    ListParams, ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
+    DockerContainerLogsParams, FinalizeLeaseParams, FleetInventoryParams, FleetNodeExecParams,
+    FleetNodeStatusParams, FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams,
+    IdentityAttestParams, IdentitySmokeCheckParams, InferParams, InferenceDiscoverParams,
+    InferenceStartParams, InferenceSwitchParams, InfraProvisionParams, InfraRegistryReadParams,
+    InfraRegistryValidateParams, JudgeParams, LibraryQueryParams, ListParams,
+    ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
     LxcExecBridgeStatusParams, McpRateLimit, MetabolismParams, NetworkIpamCheckParams,
     NetworkMeshDnsActivationApplyParams, NetworkMeshDnsActivationBundleParams,
     NetworkMeshDnsActivationPlanParams, NetworkMeshDnsActivationStatusParams,
     NetworkMeshDnsRenderParams, NetworkMeshProviderFallbackHostsParams,
     NetworkMeshProviderFallbackStatusParams, NetworkMeshStatusParams, ObserveParams,
-    OperatorTransportStatusParams, ProviderControlStatusParams, RegisterParams, ReleaseParams,
-    RenewLeaseParams, RuntimeReleaseDeclareParams, ServiceHealthParams, ServiceStatusParams,
-    SourceControlParams, SshTargetInspectParams, StoragePrimaryBundleParams,
-    StoragePrimaryPlanParams, StoragePrimaryReadinessParams, StoragePrimaryStatusParams,
-    UpdateAgentTaskResultParams, ValidateParams, WatchPendingAgentTasksParams, WhoParams,
-    validate_agent_id,
+    OperationalBenchmarkParams, OperatorTransportStatusParams, ProviderControlStatusParams,
+    RegisterParams, ReleaseParams, RenewLeaseParams, RuntimeReleaseDeclareParams,
+    ServiceHealthParams, ServiceStatusParams, SourceControlParams, SshTargetInspectParams,
+    StoragePrimaryBundleParams, StoragePrimaryPlanParams, StoragePrimaryReadinessParams,
+    StoragePrimaryStatusParams, UpdateAgentTaskResultParams, ValidateParams,
+    WatchPendingAgentTasksParams, WhoParams, validate_agent_id,
 };
 use cynic_host::ports::argv_execution::{
     ArgvExecutionPort, ArgvExecutionRequest, LocalArgvExecutionAdapter,
@@ -177,9 +176,9 @@ impl CynicMcpProxy {
     /// deliberately remain available while reconciliation is blocked.
     #[allow(dead_code)]
     fn require_mutation_contract(&self) -> Result<(), McpError> {
-        let plan = crate::runtime_contract::observe_runtime_contract(
-            std::path::Path::new(&self.project_root),
-        )
+        let plan = crate::runtime_contract::observe_runtime_contract(std::path::Path::new(
+            &self.project_root,
+        ))
         .map_err(|error| {
             McpError::new(
                 rmcp::model::ErrorCode(-32001),

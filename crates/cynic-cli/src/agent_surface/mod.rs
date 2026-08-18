@@ -42,10 +42,7 @@ pub(crate) enum AgentCommand {
 #[allow(dead_code)]
 pub(crate) fn execute_agent(command: AgentCommand) -> std::process::ExitCode {
     match command {
-        AgentCommand::Soc {
-            json,
-            roles_file,
-        } => {
+        AgentCommand::Soc { json, roles_file } => {
             let path = roles_file.as_deref().unwrap_or(DEFAULT_ROLES_FILE);
             let report = scan::scan_agent_soc(Path::new(path));
             if json {

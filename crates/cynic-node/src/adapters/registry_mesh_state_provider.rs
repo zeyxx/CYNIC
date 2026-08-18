@@ -13,7 +13,10 @@ pub struct RegistryMeshStateProvider {
 
 impl RegistryMeshStateProvider {
     pub fn new(registry_path: PathBuf, self_node_id: String) -> Self {
-        Self { registry_path, self_node_id }
+        Self {
+            registry_path,
+            self_node_id,
+        }
     }
 }
 
@@ -28,16 +31,17 @@ impl MeshStateProvider for RegistryMeshStateProvider {
             .filter(|n| n.node_id != self.self_node_id)
             .map(|n| {
                 let internal_ip = IpAddr::from_str(&n.overlay_ip).map_err(|e| {
-                    format!("invalid overlay_ip '{}' for node '{}': {}", n.overlay_ip, n.node_id, e)
+                    format!(
+                        "invalid overlay_ip '{}' for node '{}': {}",
+                        n.overlay_ip, n.node_id, e
+                    )
                 })?;
                 let endpoint = if n.endpoint.is_empty() {
                     None
                 } else {
                     Some(n.endpoint.clone())
                 };
-                let keepalive_s = registry
-                    .wireguard_policy()
-                    .and_then(|p| p.keepalive_s);
+                let keepalive_s = registry.wireguard_policy().and_then(|p| p.keepalive_s);
                 Ok(PeerIdentity::new(
                     n.public_key.clone(),
                     internal_ip,

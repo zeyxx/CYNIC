@@ -7,19 +7,19 @@
 use std::sync::Arc;
 
 use axum::{
-    body::{to_bytes, Body},
+    Router,
+    body::{Body, to_bytes},
     http::{HeaderMap, Method, Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    Router,
 };
 use rmcp::transport::{
-    streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
-    StreamableHttpService,
+    StreamableHttpServerConfig, StreamableHttpService,
+    streamable_http_server::session::local::LocalSessionManager,
 };
 use rmcp::{
-    model::{ErrorCode, RequestId},
     ErrorData as McpError,
+    model::{ErrorCode, RequestId},
 };
 use serde_json::Value;
 use tokio::net::TcpListener;
@@ -113,7 +113,7 @@ fn protocol_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "MCP error serialization failed",
             )
-                .into_response()
+                .into_response();
         }
     };
     Response::builder()
@@ -140,7 +140,7 @@ async fn enforce_2026_wire(request: Request<Body>, next: Next) -> Response {
                 ErrorCode::PARSE_ERROR,
                 "invalid MCP request body",
                 None,
-            )
+            );
         }
     };
     let value: Value = match serde_json::from_slice(&bytes) {

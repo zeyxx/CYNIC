@@ -25,6 +25,7 @@ pub enum HostProfile {
     ProxmoxHypervisor,
     /// CI / compile host: principal + privilege, no mesh substrate.
     BuildRunner,
+    WindowsNode,
 }
 
 impl HostProfile {
@@ -34,6 +35,7 @@ impl HostProfile {
             "alpine-openrc" | "network-node-openrc" => Ok(Self::AlpineOpenRcNetworkNode),
             "proxmox-hypervisor" | "proxmox-host" => Ok(Self::ProxmoxHypervisor),
             "build-runner" | "build_runner" => Ok(Self::BuildRunner),
+            "windows-node" | "windows" | "windows-service" => Ok(Self::WindowsNode),
             other => Err(format!("unknown host profile: {other}")),
         }
     }
@@ -44,6 +46,7 @@ impl HostProfile {
             Self::AlpineOpenRcNetworkNode => "alpine-openrc",
             Self::ProxmoxHypervisor => "proxmox-hypervisor",
             Self::BuildRunner => "build-runner",
+            Self::WindowsNode => "windows-node",
         }
     }
 }
@@ -57,6 +60,7 @@ impl HostPrincipalPort for HostProfile {
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_principal(),
             Self::BuildRunner => BuildRunnerHostProfile.desired_principal(),
+            Self::WindowsNode => families::HostFamilyProfile::windows_service().principal_policy(),
         }
     }
 }
@@ -70,6 +74,7 @@ impl HostPrivilegePort for HostProfile {
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_privilege(),
             Self::BuildRunner => BuildRunnerHostProfile.desired_privilege(),
+            Self::WindowsNode => families::HostFamilyProfile::windows_service().privilege_policy(),
         }
     }
 }
@@ -83,6 +88,7 @@ impl HostPackagePort for HostProfile {
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_packages(),
             Self::BuildRunner => BuildRunnerHostProfile.desired_packages(),
+            Self::WindowsNode => families::HostFamilyProfile::windows_service().package_policy(),
         }
     }
 }
@@ -94,6 +100,7 @@ impl HostFilesystemPort for HostProfile {
             Self::AlpineOpenRcNetworkNode => NetworkNodeHostProfile.desired_filesystem(),
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_filesystem(),
             Self::BuildRunner => BuildRunnerHostProfile.desired_filesystem(),
+            Self::WindowsNode => NetworkNodeHostProfile.desired_filesystem(),
         }
     }
 }
@@ -107,6 +114,7 @@ impl HostServicePort for HostProfile {
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_services(),
             Self::BuildRunner => BuildRunnerHostProfile.desired_services(),
+            Self::WindowsNode => families::HostFamilyProfile::windows_service().service_policy(),
         }
     }
 }
@@ -124,6 +132,13 @@ impl HostContractPort for HostProfile {
             ],
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.declared_contracts(),
             Self::BuildRunner => BuildRunnerHostProfile.declared_contracts(),
+            Self::WindowsNode => vec![
+                self.desired_principal().contract(),
+                self.desired_privilege().contract(),
+                self.desired_packages().contract(),
+                self.desired_filesystem().contract(),
+                self.desired_services().contract(),
+            ],
         }
     }
 }

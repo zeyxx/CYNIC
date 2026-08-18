@@ -345,14 +345,24 @@ mod tests {
     fn live_registry_json_wireguard_section_is_valid() {
         let registry_path = format!("{}/../../infra/registry.json", env!("CARGO_MANIFEST_DIR"));
         let raw = std::fs::read_to_string(&registry_path).expect("read live registry");
-        let registry: model::MeshRegistry = serde_json::from_str(&raw).expect("parse live registry");
+        let registry: model::MeshRegistry =
+            serde_json::from_str(&raw).expect("parse live registry");
         let wg = registry.wireguard_policy().expect("wireguard section");
         assert_eq!(wg.overlay_cidr.as_deref(), Some("10.20.0.0/24"));
         assert_eq!(wg.listen_port, Some(44196));
         let nodes = registry.wireguard_nodes();
         assert_eq!(nodes.len(), 5, "must declare all 5 nodes in full mesh");
-        for expected in &["cynic-host-cortex", "cynic-host-proxmox", "forgejo", "cynic-lxc-surrealdb", "cynic-builder"] {
-            assert!(nodes.iter().any(|n| n.node_id == *expected), "missing node: {expected}");
+        for expected in &[
+            "cynic-host-cortex",
+            "cynic-host-proxmox",
+            "forgejo",
+            "cynic-lxc-surrealdb",
+            "cynic-builder",
+        ] {
+            assert!(
+                nodes.iter().any(|n| n.node_id == *expected),
+                "missing node: {expected}"
+            );
         }
     }
 }

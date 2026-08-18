@@ -9,12 +9,10 @@ pub use bootstrap_admission::{
     validate_build_runner_bootstrap_capability_binding,
 };
 pub mod recipe;
-pub use recipe::{
-    BUILD_RECIPE_SCHEMA, BuildRecipe, build_recipe, validate_build_recipe,
-};
 use crate::{
     LEASE_VERIFICATION_SCHEMA, LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot,
 };
+pub use recipe::{BUILD_RECIPE_SCHEMA, BuildRecipe, build_recipe, validate_build_recipe};
 
 mod agent_request;
 mod agent_workload;

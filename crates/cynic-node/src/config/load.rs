@@ -316,6 +316,7 @@ pub(crate) fn runtime_federation_config(cfg: &Config) -> RuntimeFederationConfig
                     .map(Into::into);
                 default_queue_dir(queue_home)
             }),
+        runtime_publisher_granted: false,
     }
 }
 

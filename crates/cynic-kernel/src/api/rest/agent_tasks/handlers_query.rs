@@ -3,7 +3,7 @@
 use axum::{extract::State, http::StatusCode, response::Json};
 use std::sync::Arc;
 
-use crate::api::rest::agent_tasks::types::{WatchTasksQuery, AGENT_TASK_STORAGE_TIMEOUT};
+use crate::api::rest::agent_tasks::types::{AGENT_TASK_STORAGE_TIMEOUT, WatchTasksQuery};
 use crate::api::rest::agent_tasks::validation::wait_for_matching_task_event;
 use crate::api::rest::types::{AppState, ErrorResponse};
 use crate::domain::storage::AgentTask;

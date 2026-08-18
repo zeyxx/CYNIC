@@ -51,12 +51,22 @@ fn probe_memory() -> (u64, u64) {
     if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
         for line in content.lines() {
             if let Some(rest) = line.strip_prefix("MemTotal:") {
-                if let Some(kb) = rest.trim().split_whitespace().next().and_then(|s| s.parse::<u64>().ok()) {
+                if let Some(kb) = rest
+                    .trim()
+                    .split_whitespace()
+                    .next()
+                    .and_then(|s| s.parse::<u64>().ok())
+                {
                     total = kb * 1024;
                 }
             }
             if let Some(rest) = line.strip_prefix("MemAvailable:") {
-                if let Some(kb) = rest.trim().split_whitespace().next().and_then(|s| s.parse::<u64>().ok()) {
+                if let Some(kb) = rest
+                    .trim()
+                    .split_whitespace()
+                    .next()
+                    .and_then(|s| s.parse::<u64>().ok())
+                {
                     available = kb * 1024;
                 }
             }

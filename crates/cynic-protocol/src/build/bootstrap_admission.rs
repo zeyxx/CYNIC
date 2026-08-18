@@ -6,8 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::one_shot_capability::{ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability};
 use crate::digest_json;
+use crate::one_shot_capability::{ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability};
 
 pub const BUILD_RUNNER_BOOTSTRAP_PREFLIGHT_SCHEMA: &str =
     "cynic.build_runner.bootstrap_preflight.v1";
@@ -109,7 +109,9 @@ pub fn runtime_publisher_bootstrap_input_digest(
     }))
 }
 
-pub fn runtime_publisher_bootstrap_action_digest(action: &str) -> Result<String, serde_json::Error> {
+pub fn runtime_publisher_bootstrap_action_digest(
+    action: &str,
+) -> Result<String, serde_json::Error> {
     digest_json(&serde_json::json!({
         "schema": RUNTIME_PUBLISHER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
         "action": action,
@@ -124,7 +126,10 @@ pub fn validate_runtime_publisher_bootstrap_capability_binding(
     let mut blockers = Vec::new();
     let expected = RUNTIME_PUBLISHER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA;
     if binding.schema != expected {
-        blockers.push(format!("schema mismatch: expected {expected}, got {}", binding.schema));
+        blockers.push(format!(
+            "schema mismatch: expected {expected}, got {}",
+            binding.schema
+        ));
     }
     if binding.capability.schema != ONE_SHOT_CAPABILITY_SCHEMA {
         blockers.push("capability schema mismatch".to_string());

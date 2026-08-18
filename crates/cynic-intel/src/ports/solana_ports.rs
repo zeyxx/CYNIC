@@ -1,9 +1,11 @@
 //! Hexagonal Ports for Solana Operations, RPC observation, and SOP safety evaluation.
 
-use async_trait::async_trait;
-use cynic_protocol::solana_ops::{AllowanceGrant, SolanaPayRequest, SopSanitizationInput, SopSanitizationResult};
-use serde::{Deserialize, Serialize};
 use crate::solana_safety_dog::SolanaSafetyReport;
+use async_trait::async_trait;
+use cynic_protocol::solana_ops::{
+    AllowanceGrant, SolanaPayRequest, SopSanitizationInput, SopSanitizationResult,
+};
+use serde::{Deserialize, Serialize};
 
 /// Port for evaluating SOP safety and threat sanitization.
 #[async_trait]
@@ -132,7 +134,10 @@ mod tests {
     #[tokio::test]
     async fn mock_solana_rpc_adapter_works() {
         let adapter = MockSolanaRpcAdapter::new(vec!["sig1".into(), "sig2".into()], 1_000_000);
-        let sigs = adapter.get_signatures_for_address("address1").await.unwrap();
+        let sigs = adapter
+            .get_signatures_for_address("address1")
+            .await
+            .unwrap();
         assert_eq!(sigs.len(), 2);
         assert_eq!(sigs[0], "sig1");
 
@@ -156,6 +161,9 @@ mod tests {
         };
 
         let report = adapter.process_settlement(note).await;
-        assert_eq!(report.verdict, crate::solana_safety_dog::SolanaSafetyVerdict::Approved);
+        assert_eq!(
+            report.verdict,
+            crate::solana_safety_dog::SolanaSafetyVerdict::Approved
+        );
     }
 }

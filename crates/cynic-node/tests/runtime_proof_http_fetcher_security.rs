@@ -33,7 +33,10 @@ fn https_scheme_accepted_into_transport_phase() {
     // Either network error (peer up) or ok (peer serves bundle). The guard
     // must NOT early-return a TLS-policy Err here.
     assert!(
-        !result.map(|_| ()).map_err(|e| e.to_string()).is_err_and(|m| m.contains("must use https://")),
+        !result
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+            .is_err_and(|m| m.contains("must use https://")),
         "https:// must pass the TLS guard (network error expected instead)"
     );
 }

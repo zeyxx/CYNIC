@@ -25,17 +25,17 @@ pub(crate) fn render_text(report: &AgentSocReport) {
     for (name, entry) in &report.roles {
         println!(
             "  {} [{}] granted={} zero_touch={} via={}",
-            name,
-            entry.authority_class,
-            entry.granted,
-            entry.zero_touch_runtime,
-            entry.granted_via
+            name, entry.authority_class, entry.granted, entry.zero_touch_runtime, entry.granted_via
         );
     }
     println!();
     println!("=== Domains ===");
     for (name, domain) in &report.domains {
-        let obs = if domain.observed { "observed" } else { "NOT YET GRANTED" };
+        let obs = if domain.observed {
+            "observed"
+        } else {
+            "NOT YET GRANTED"
+        };
         println!(
             "  {} -> agent={} action={} approval={} [{}] {}",
             name,

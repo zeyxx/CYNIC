@@ -16,7 +16,12 @@ impl PeerIdentity {
         endpoint: Option<String>,
         keepalive_s: Option<u32>,
     ) -> Self {
-        Self { public_key, internal_ip, endpoint, keepalive_s }
+        Self {
+            public_key,
+            internal_ip,
+            endpoint,
+            keepalive_s,
+        }
     }
 }
 

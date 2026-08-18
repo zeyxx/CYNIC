@@ -33,7 +33,10 @@ use cynic_protocol::solana_ops::{AllowanceGrant, SolanaPayRequest};
 use cynic_zeroclaw_solana::ZeroClawSolanaPlugin;
 
 #[derive(Parser, Debug)]
-#[command(name = "zeroclaw-solana-demo", about = "Sovereign Solana Pay merchant SOP worker for ZeroClaw")]
+#[command(
+    name = "zeroclaw-solana-demo",
+    about = "Sovereign Solana Pay merchant SOP worker for ZeroClaw"
+)]
 struct Cli {
     /// Recipient wallet public key (base58).
     #[arg(long)]
@@ -112,7 +115,9 @@ async fn main() -> Result<()> {
         println!("📝 Message: {msg}");
     }
 
-    let output = plugin.generate_solana_pay(pay_req, allowance_grant, budget).await;
+    let output = plugin
+        .generate_solana_pay(pay_req, allowance_grant, budget)
+        .await;
 
     println!("\n🔗 Solana Pay URL:");
     println!("   {}", output.url);

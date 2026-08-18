@@ -4,6 +4,7 @@ use tempfile::tempdir;
 
 use super::{NodeMessage, PendingStimulus, PendingVerdict, WebSocketClient};
 use crate::adapters::local_runtime_federation_queue_store::LocalRuntimeFederationQueueStore;
+use crate::adapters::local_workload_signer::LocalWorkloadSigner;
 
 fn test_client(queue_dir: &std::path::Path) -> WebSocketClient {
     WebSocketClient::new(

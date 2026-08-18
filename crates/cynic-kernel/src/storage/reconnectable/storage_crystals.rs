@@ -1,8 +1,8 @@
 //! CrystalStorage trait implementation for ReconnectableStorage.
 
-use async_trait::async_trait;
-use crate::domain::storage::{CrystalStorage, StorageError};
 use super::storage::ReconnectableStorage;
+use crate::domain::storage::{CrystalStorage, StorageError};
+use async_trait::async_trait;
 
 #[async_trait]
 impl CrystalStorage for ReconnectableStorage {

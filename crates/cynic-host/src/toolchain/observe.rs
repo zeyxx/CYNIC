@@ -3,7 +3,7 @@
 //! Observe the substrate first, then choose the adapter (CYNIC §3).
 
 use crate::toolchain::specs::ToolchainRegistry;
-use crate::update_lifecycle::{ArgvRunner, ArgvOutput};
+use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -63,7 +63,8 @@ impl ToolchainObservationPort for LocalToolchainObserver {
 
         let target_output: ArgvOutput = runner.run(&["rustc", "-vV"]);
         let vendor = if target_output.exit_code == Some(0) {
-            target_output.stdout
+            target_output
+                .stdout
                 .lines()
                 .find(|l| l.starts_with("host:"))
                 .map(|l| l.trim_start_matches("host: ").to_string())

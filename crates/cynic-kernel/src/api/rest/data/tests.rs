@@ -104,8 +104,7 @@ fn create_crystal_request_deserializes_with_domain() {
 #[test]
 fn create_crystal_request_domain_is_optional() {
     let json = r#"{"content":"generic insight"}"#;
-    let req: CreateCrystalRequest =
-        serde_json::from_str(json).expect("domain-less request parses");
+    let req: CreateCrystalRequest = serde_json::from_str(json).expect("domain-less request parses");
     assert!(req.domain.is_none());
     let domain = req.domain.unwrap_or_else(|| "general".into());
     assert_eq!(domain, "general");

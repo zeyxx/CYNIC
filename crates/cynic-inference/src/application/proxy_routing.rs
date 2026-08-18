@@ -1,5 +1,5 @@
-use std::collections::{BTreeMap, HashMap};
 use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, HashMap};
 
 /// Boot-time inference proxy routing table.
 ///
@@ -186,9 +186,18 @@ mod tests {
     #[test]
     fn proxy_targets_select_by_intent_prefers_calibrated_backend() {
         let mut fleet = HashMap::new();
-        fleet.insert("minicpm-1b".to_string(), fleet_entry("http://127.0.0.1:8082/v1", "MiniCPM", true));
-        fleet.insert("vibethinker-3b".to_string(), fleet_entry("http://127.0.0.1:8087/v1", "VibeThinker", true));
-        fleet.insert("qwythos-9b".to_string(), fleet_entry("http://127.0.0.1:8080/v1", "Qwythos", true));
+        fleet.insert(
+            "minicpm-1b".to_string(),
+            fleet_entry("http://127.0.0.1:8082/v1", "MiniCPM", true),
+        );
+        fleet.insert(
+            "vibethinker-3b".to_string(),
+            fleet_entry("http://127.0.0.1:8087/v1", "VibeThinker", true),
+        );
+        fleet.insert(
+            "qwythos-9b".to_string(),
+            fleet_entry("http://127.0.0.1:8080/v1", "Qwythos", true),
+        );
 
         let mut sovereign = HashMap::new();
         sovereign.insert("minicpm-1b".to_string(), true);
@@ -197,13 +206,19 @@ mod tests {
 
         let targets = ProxyTargets::from_fleet_meta(&fleet, &sovereign);
 
-        let fast_target = targets.select_by_intent(OperationIntent::FastChat, false).unwrap();
+        let fast_target = targets
+            .select_by_intent(OperationIntent::FastChat, false)
+            .unwrap();
         assert_eq!(fast_target.backend_id, "minicpm-1b");
 
-        let cot_target = targets.select_by_intent(OperationIntent::CoTReasoning, false).unwrap();
+        let cot_target = targets
+            .select_by_intent(OperationIntent::CoTReasoning, false)
+            .unwrap();
         assert_eq!(cot_target.backend_id, "vibethinker-3b");
 
-        let audit_target = targets.select_by_intent(OperationIntent::CodeAudit, false).unwrap();
+        let audit_target = targets
+            .select_by_intent(OperationIntent::CodeAudit, false)
+            .unwrap();
         assert_eq!(audit_target.backend_id, "qwythos-9b");
     }
 

@@ -32,10 +32,7 @@ pub enum ToolchainTransition {
     Noop,
     SetToolchain(String),
     Halt { reason: String },
-    PromoteFallback {
-        from: String,
-        to: String,
-    },
+    PromoteFallback { from: String, to: String },
 }
 
 /// Input to the reconciliation compass: substrate + outcome + history.
@@ -327,7 +324,11 @@ pub fn reconcile_toolchain(
                 .or_else(|| history.last_ok(crate_name).map(|s| s.to_string()));
             match fb_owned {
                 Some(f) => {
-                    if history.last_ok(crate_name).map(|s| s == f.as_str()).unwrap_or(false) {
+                    if history
+                        .last_ok(crate_name)
+                        .map(|s| s == f.as_str())
+                        .unwrap_or(false)
+                    {
                         ToolchainDecision::UseLearned(f)
                     } else {
                         ToolchainDecision::UseFallback(f)
@@ -413,7 +414,10 @@ mod tests {
         let i = input(&reg, &hist, &o, true, None);
         let (state, trans) = reconcile_toolchain_full(&i, ToolchainState::Unknown);
         assert_eq!(state, ToolchainState::Converged);
-        assert_eq!(trans, ToolchainTransition::SetToolchain("1.96.0".to_string()));
+        assert_eq!(
+            trans,
+            ToolchainTransition::SetToolchain("1.96.0".to_string())
+        );
     }
 
     #[test]
@@ -434,7 +438,10 @@ mod tests {
         let i = input(&reg, &hist, &o, false, Some("target/rustc-ice"));
         let (state, trans) = reconcile_toolchain_full(&i, ToolchainState::Converged);
         assert_eq!(state, ToolchainState::IceDetected);
-        assert_eq!(trans, ToolchainTransition::SetToolchain("1.95.0".to_string()));
+        assert_eq!(
+            trans,
+            ToolchainTransition::SetToolchain("1.95.0".to_string())
+        );
     }
 
     #[test]

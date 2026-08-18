@@ -1,7 +1,7 @@
 //! Observation builders and domain inference logic.
 
-use crate::json::JsonValue;
 use super::hash::content_hash;
+use crate::json::JsonValue;
 
 /// Infer domain from file extension or target pattern.
 pub fn infer_domain(target: Option<&str>, tool: Option<&str>) -> String {

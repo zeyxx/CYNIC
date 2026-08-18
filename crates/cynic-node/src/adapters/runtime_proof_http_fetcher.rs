@@ -58,12 +58,9 @@ impl RuntimeProofFetcherPort for HttpRuntimeProofFetcher {
             }
             let resp = request.send().await?;
             if resp.status() != StatusCode::OK {
-                return Err(format!(
-                    "peer {} returned {} for runtime_proof",
-                    url,
-                    resp.status()
-                )
-                .into());
+                return Err(
+                    format!("peer {} returned {} for runtime_proof", url, resp.status()).into(),
+                );
             }
             let bundle: RuntimeProofBundle = resp.json().await?;
             Ok::<RuntimeProofBundle, Box<dyn std::error::Error>>(bundle)

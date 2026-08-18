@@ -3,12 +3,12 @@
 //! RuntimeProofBundle's `runtime_publisher_admission` gate WITHOUT depending on
 //! cynic-inference transitive debt. Tests are pure: mock fetcher injects bundles.
 
-use cynic_protocol::{
-    RuntimeProof, RuntimeProofBundle, RuntimeProofEvidence, RUNTIME_PROOF_BUNDLE_SCHEMA,
-    RUNTIME_PROOF_SCHEMA,
-};
 use cynic_node::network_runtime_proof::{
     fetch_peer_runtime_proof_bundle, verify_peer_runtime_publisher_admission,
+};
+use cynic_protocol::{
+    RUNTIME_PROOF_BUNDLE_SCHEMA, RUNTIME_PROOF_SCHEMA, RuntimeProof, RuntimeProofBundle,
+    RuntimeProofEvidence,
 };
 
 /// Mock fetcher — injects a canned bundle (AGENS.md: adapters disposable).
@@ -16,9 +16,7 @@ struct MockFetcher {
     bundle: RuntimeProofBundle,
 }
 
-impl cynic_node::ports::runtime_proof_fetcher_port::RuntimeProofFetcherPort
-    for MockFetcher
-{
+impl cynic_node::ports::runtime_proof_fetcher_port::RuntimeProofFetcherPort for MockFetcher {
     fn fetch_peer_proof_bundle(
         &self,
         _: &str,

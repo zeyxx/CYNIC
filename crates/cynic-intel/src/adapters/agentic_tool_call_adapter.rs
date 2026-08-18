@@ -3,13 +3,14 @@
 
 use async_trait::async_trait;
 use cynic_protocol::agentic_tool_call::{
-    AgenticToolCallInput, AgenticToolCallResult, AgenticToolCallStatus, AGENTIC_TOOL_CALL_RESULT_SCHEMA,
+    AGENTIC_TOOL_CALL_RESULT_SCHEMA, AgenticToolCallInput, AgenticToolCallResult,
+    AgenticToolCallStatus,
 };
 use cynic_protocol::solana_ops::{SolanaPayRequest, SopSanitizationInput};
 use serde_json::json;
 
 use crate::ports::agentic_tool_call_port::AgenticToolCallPort;
-use crate::solana_safety_dog::{evaluate_solana_pay_request, SolanaSafetyVerdict};
+use crate::solana_safety_dog::{SolanaSafetyVerdict, evaluate_solana_pay_request};
 use crate::sop_sanitizer::sanitize_sop_input;
 
 /// Sovereign Agentic Tool Call adapter.
@@ -73,7 +74,9 @@ impl AgenticToolCallPort for SovereignAgenticToolCallAdapter {
         let mut solana_risk_score: f64 = 0.0;
 
         if input.tool_name.contains("solana_pay") || input.tool_name.contains("transfer") {
-            if let Ok(pay_req) = serde_json::from_value::<SolanaPayRequest>(input.parameters.clone()) {
+            if let Ok(pay_req) =
+                serde_json::from_value::<SolanaPayRequest>(input.parameters.clone())
+            {
                 let report = evaluate_solana_pay_request(&pay_req, input.allowance.as_ref());
                 solana_risk_score = report.risk_score;
                 match report.verdict {
@@ -102,11 +105,8 @@ impl AgenticToolCallPort for SovereignAgenticToolCallAdapter {
             "sanitized_parameters": sanitization_res.sanitized_content,
         });
 
-        let proof_digest = AgenticToolCallResult::compute_proof_digest(
-            &input.call_id,
-            final_status,
-            &output,
-        );
+        let proof_digest =
+            AgenticToolCallResult::compute_proof_digest(&input.call_id, final_status, &output);
 
         let approval_reason = solana_approval_reason.or(sanitization_res.approval_reason);
 

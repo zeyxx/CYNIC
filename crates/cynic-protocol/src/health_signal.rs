@@ -76,7 +76,11 @@ impl HealthSignal {
         observed_at_unix_s: u64,
     ) -> Self {
         let source_str: String = source_node_id.into();
-        let prefix = if source_str.is_empty() { "local" } else { source_str.as_str() };
+        let prefix = if source_str.is_empty() {
+            "local"
+        } else {
+            source_str.as_str()
+        };
         let signal_id = format!("sig-{prefix}-{observed_at_unix_s}");
         Self {
             schema: HEALTH_SIGNAL_SCHEMA.to_string(),
@@ -198,7 +202,8 @@ pub fn reconcile_health_signal(
                     "WireGuard peer '{peer_public_key_prefix}' handshake age {age_seconds}s > {stale_threshold_seconds}s"
                 ),
             },
-            reasoning: "Peer handshake approaching stale threshold — monitoring for recovery".to_string(),
+            reasoning: "Peer handshake approaching stale threshold — monitoring for recovery"
+                .to_string(),
             stop_condition: "handshake renewed".to_string(),
             rollback_intent: "none".to_string(),
         }),
@@ -215,7 +220,9 @@ pub fn reconcile_health_signal(
             action: AutonomicActionKind::RecordObservationOnly {
                 reason: format!("Organ '{organ_id}' silent for {silent_duration_seconds}s"),
             },
-            reasoning: format!("Organ '{organ_id}' stopped emitting observations — check cron/logs"),
+            reasoning: format!(
+                "Organ '{organ_id}' stopped emitting observations — check cron/logs"
+            ),
             stop_condition: "organ emits observation".to_string(),
             rollback_intent: "none".to_string(),
         }),
@@ -231,7 +238,9 @@ pub fn reconcile_health_signal(
             severity: SignalSeverity::Warning,
             is_actionable: false,
             action: AutonomicActionKind::RecordObservationOnly {
-                reason: format!("Metric '{metric}'={observed_value:.2} below threshold {threshold_value:.2}"),
+                reason: format!(
+                    "Metric '{metric}'={observed_value:.2} below threshold {threshold_value:.2}"
+                ),
             },
             reasoning: format!("Metabolic pressure anomaly on metric '{metric}'"),
             stop_condition: "metric recovers above threshold".to_string(),
@@ -249,7 +258,9 @@ pub fn reconcile_health_signal(
             severity: SignalSeverity::Warning,
             is_actionable: false,
             action: AutonomicActionKind::RecordObservationOnly {
-                reason: format!("Node '{node_id}' status drift: expected={expected_status}, observed={observed_status}"),
+                reason: format!(
+                    "Node '{node_id}' status drift: expected={expected_status}, observed={observed_status}"
+                ),
             },
             reasoning: format!("Fleet topology drift observed for node '{node_id}'"),
             stop_condition: "node reaches expected status".to_string(),
@@ -267,7 +278,9 @@ pub fn reconcile_health_signal(
             severity: SignalSeverity::Warning,
             is_actionable: false,
             action: AutonomicActionKind::RecordObservationOnly {
-                reason: format!("Storage '{operation}' latency {latency_ms}ms > threshold {threshold_ms}ms"),
+                reason: format!(
+                    "Storage '{operation}' latency {latency_ms}ms > threshold {threshold_ms}ms"
+                ),
             },
             reasoning: "Storage latency degradation detected — monitor DB health".to_string(),
             stop_condition: "latency below threshold".to_string(),

@@ -9,8 +9,8 @@
 
 use cynic_host::toolchain::observe::{ToolchainObservation, ToolchainObservationPort};
 use cynic_host::toolchain::policy::{
-    reconcile_toolchain_full, ToolchainDecision, ToolchainState, ToolchainTransition,
-    ToolchainReconcileInput,
+    ToolchainDecision, ToolchainReconcileInput, ToolchainState, ToolchainTransition,
+    reconcile_toolchain_full,
 };
 use cynic_host::toolchain::specs::{ToolchainProofHistory, ToolchainRegistry};
 use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner};
@@ -97,7 +97,10 @@ fn ice_cycle_full_compass() {
     let input = reconcile_input(&reg, &hist, &o, true, None);
     let (state, trans) = reconcile_toolchain_full(&input, ToolchainState::Unknown);
     assert_eq!(state, ToolchainState::Converged);
-    assert_eq!(trans, ToolchainTransition::SetToolchain("1.96.0".to_string()));
+    assert_eq!(
+        trans,
+        ToolchainTransition::SetToolchain("1.96.0".to_string())
+    );
 
     // Record: 1.96.0 is converged
     hist.append("test-crate", "1.96.0".to_string(), true);
@@ -108,7 +111,10 @@ fn ice_cycle_full_compass() {
         let input = reconcile_input(&reg, &hist, &o_ice, false, Some("target/rustc-ice-log"));
         let (state, trans) = reconcile_toolchain_full(&input, ToolchainState::Converged);
         assert_eq!(state, ToolchainState::IceDetected);
-        assert_eq!(trans, ToolchainTransition::SetToolchain("1.95.0".to_string()));
+        assert_eq!(
+            trans,
+            ToolchainTransition::SetToolchain("1.95.0".to_string())
+        );
     }
 
     // Step 3: IceDetected -> FallbackOk (fallback 1.95.0 compiles OK)

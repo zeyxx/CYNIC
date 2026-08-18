@@ -10,6 +10,7 @@ pub enum HostFamilyKind {
     DebianSystemd,
     AlpineOpenRc,
     ProxmoxHypervisor,
+    WindowsService,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,10 +41,7 @@ impl HostFamilyProfile {
                 "distribution_package".to_string(),
                 "approved_internal_package_mirror".to_string(),
             ],
-            bootstrap_packages: vec![
-                "wireguard-tools".to_string(),
-                "iproute2".to_string(),
-            ],
+            bootstrap_packages: vec!["wireguard-tools".to_string(), "iproute2".to_string()],
             service_units: vec![
                 ServiceUnitPolicy {
                     service_id: "wireguard_mesh".to_string(),
@@ -77,6 +75,49 @@ impl HostFamilyProfile {
                     process_name: None,
                     supervisor_provider: None,
                     health_kind: None,
+                },
+            ],
+        }
+    }
+    pub fn windows_service() -> Self {
+        let layout = current_runtime_layout();
+        Self {
+            kind: HostFamilyKind::WindowsService,
+            config_dir: std::env::var("CYNIC_CONFIG_DIR")
+                .unwrap_or_else(|_| r"C:\ProgramData\cynic".to_string()),
+            helper_dir: std::env::var("CYNIC_HELPER_DIR")
+                .unwrap_or_else(|_| r"C:\Program Files\cynic\libexec".to_string()),
+            sudoers_dir: std::env::var("CYNIC_SECURITY_DIR")
+                .unwrap_or_else(|_| r"C:\ProgramData\cynic\security".to_string()),
+            service_unit_dir: std::env::var("CYNIC_SERVICES_DIR")
+                .unwrap_or_else(|_| r"C:\ProgramData\cynic\services".to_string()),
+            package_approved_sources: vec![
+                "winget".to_string(),
+                "approved_internal_package_mirror".to_string(),
+            ],
+            bootstrap_packages: vec!["WireGuard.WireGuard".to_string()],
+            service_units: vec![
+                ServiceUnitPolicy {
+                    service_id: "wireguard_mesh".to_string(),
+                    unit_name: "WireGuardTunnel$wg0".to_string(),
+                    enable_on_boot: true,
+                    restart_mode: "on-failure".to_string(),
+                    source: "profile:windows_service".to_string(),
+                    health_port: None,
+                    process_name: Some("wireguard.exe".to_string()),
+                    supervisor_provider: Some("windows_service".to_string()),
+                    health_kind: Some("process".to_string()),
+                },
+                ServiceUnitPolicy {
+                    service_id: "node_daemon".to_string(),
+                    unit_name: "cynic-node".to_string(),
+                    enable_on_boot: true,
+                    restart_mode: "on-failure".to_string(),
+                    source: "profile:windows_service".to_string(),
+                    health_port: None,
+                    process_name: Some("cynic-node.exe".to_string()),
+                    supervisor_provider: Some("windows_service".to_string()),
+                    health_kind: Some("process".to_string()),
                 },
             ],
         }
@@ -197,6 +238,7 @@ impl HostFamilyProfile {
         PackagePolicy {
             manager: match self.kind {
                 HostFamilyKind::AlpineOpenRc => PackageManagerKind::Apk,
+                HostFamilyKind::WindowsService => PackageManagerKind::Winget,
                 HostFamilyKind::DebianSystemd | HostFamilyKind::ProxmoxHypervisor => {
                     PackageManagerKind::Apt
                 }
@@ -212,9 +254,9 @@ impl HostFamilyProfile {
         ServicePolicy {
             manager: match self.kind {
                 HostFamilyKind::AlpineOpenRc => ServiceManagerKind::OpenRc,
-                HostFamilyKind::DebianSystemd | HostFamilyKind::ProxmoxHypervisor => {
-                    ServiceManagerKind::Systemd
-                }
+                HostFamilyKind::DebianSystemd
+                | HostFamilyKind::ProxmoxHypervisor
+                | HostFamilyKind::WindowsService => ServiceManagerKind::Systemd,
             },
             unit_dir: self.service_unit_dir.clone(),
             units: self.service_units.clone(),
@@ -262,6 +304,10 @@ impl HostFamilyProfile {
             HostFamilyKind::ProxmoxHypervisor => vec![
                 "cynic-host-exec".to_string(),
                 "cynic-lxc-exec-bridge".to_string(),
+            ],
+            HostFamilyKind::WindowsService => vec![
+                "cynic-node.exe".to_string(),
+                "cynic-host-exec.exe".to_string(),
             ],
         }
     }
@@ -326,6 +372,27 @@ mod tests {
                 .service_units
                 .iter()
                 .all(|unit| unit.supervisor_provider.as_deref() == Some("openrc"))
+        );
+    }
+
+    #[test]
+    fn windows_service_family_declares_winget_and_service_surfaces() {
+        let family = HostFamilyProfile::windows_service();
+        assert_eq!(family.kind, HostFamilyKind::WindowsService);
+        assert_eq!(
+            family.package_policy().manager,
+            crate::runtime_layout::PackageManagerKind::Winget
+        );
+        assert!(
+            family
+                .bootstrap_packages
+                .contains(&"WireGuard.WireGuard".to_string())
+        );
+        assert!(
+            family
+                .service_units
+                .iter()
+                .any(|unit| unit.unit_name == "WireGuardTunnel$wg0")
         );
     }
 }

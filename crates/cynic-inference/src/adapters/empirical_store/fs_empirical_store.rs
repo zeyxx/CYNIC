@@ -12,11 +12,11 @@ use async_trait::async_trait;
 use cynic_protocol::ContextTier;
 use tokio::sync::RwLock;
 
+use crate::domain::matrix_sweep::HardwareBudget;
 use crate::domain::matrix_sweep::empirical_store::{
     ConstraintFilter, EmpiricalProfileEntry, ModelEmpiricalScorecard, OptimizationGoal,
     aggregate_model_scorecard, solve_optimal_configuration,
 };
-use crate::domain::matrix_sweep::HardwareBudget;
 use crate::ports::empirical_store_port::{EmpiricalStoreError, EmpiricalStorePort};
 
 /// Default location for the empirical performance ledger.
@@ -52,10 +52,11 @@ impl FsEmpiricalStore {
                     continue;
                 }
 
-                let entry: EmpiricalProfileEntry =
-                    serde_json::from_str(trimmed).map_err(|e| EmpiricalStoreError::CorruptedRecord {
+                let entry: EmpiricalProfileEntry = serde_json::from_str(trimmed).map_err(|e| {
+                    EmpiricalStoreError::CorruptedRecord {
                         details: format!("Line {} in {}: {}", line_no + 1, path.display(), e),
-                    })?;
+                    }
+                })?;
 
                 loaded.push(entry);
             }
@@ -74,7 +75,8 @@ impl FsEmpiricalStore {
             Self::open(default_path)
         } else {
             let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-            let user_fallback = PathBuf::from(home).join(".cynic/evidence/inference_profiles.jsonl");
+            let user_fallback =
+                PathBuf::from(home).join(".cynic/evidence/inference_profiles.jsonl");
             Self::open(user_fallback)
         }
     }
@@ -125,7 +127,10 @@ impl EmpiricalStorePort for FsEmpiricalStore {
         Ok(())
     }
 
-    async fn record_batch(&self, entries: Vec<EmpiricalProfileEntry>) -> Result<(), EmpiricalStoreError> {
+    async fn record_batch(
+        &self,
+        entries: Vec<EmpiricalProfileEntry>,
+    ) -> Result<(), EmpiricalStoreError> {
         if entries.is_empty() {
             return Ok(());
         }
@@ -186,7 +191,10 @@ impl EmpiricalStorePort for FsEmpiricalStore {
         Ok(optimal)
     }
 
-    async fn get_scorecard(&self, model_alias: &str) -> Result<ModelEmpiricalScorecard, EmpiricalStoreError> {
+    async fn get_scorecard(
+        &self,
+        model_alias: &str,
+    ) -> Result<ModelEmpiricalScorecard, EmpiricalStoreError> {
         let guard = self.entries.read().await;
         let scorecard = aggregate_model_scorecard(&guard, model_alias);
         Ok(scorecard)
@@ -196,10 +204,12 @@ impl EmpiricalStorePort for FsEmpiricalStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{HarnessProtocol, KvQuantization, ParametricConfigPoint, RopeScaling, TopologyStrategy};
-    use tempfile::NamedTempFile;
     use crate::domain::matrix_sweep::empirical_store::{BenchmarkProvenance, OomSafetyStatus};
     use crate::domain::matrix_sweep::types::StreamDynamicsReport;
+    use cynic_protocol::{
+        HarnessProtocol, KvQuantization, ParametricConfigPoint, RopeScaling, TopologyStrategy,
+    };
+    use tempfile::NamedTempFile;
 
     fn mock_entry(model: &str, ctx: ContextTier, tps: f32) -> EmpiricalProfileEntry {
         EmpiricalProfileEntry {
@@ -251,7 +261,10 @@ mod tests {
         let e2 = mock_entry("qwen-2b", ContextTier::Ctx64k, 19.5);
         let e3 = mock_entry("bonsai-27b", ContextTier::Ctx32k, 14.0);
 
-        store.record_batch(vec![e1.clone(), e2.clone(), e3.clone()]).await.unwrap();
+        store
+            .record_batch(vec![e1.clone(), e2.clone(), e3.clone()])
+            .await
+            .unwrap();
 
         // Query by model
         let qwen_entries = store.query_entries(Some("qwen-2b"), None).await.unwrap();
@@ -269,16 +282,19 @@ mod tests {
             gpu_vram_bytes: 8 * 1024 * 1024 * 1024,
         };
 
-        let optimal = reopened.resolve_optimal(
-            "qwen-2b",
-            hw,
-            2 * 1024 * 1024 * 1024,
-            &ConstraintFilter {
-                min_context: Some(ContextTier::Ctx64k),
-                ..Default::default()
-            },
-            OptimizationGoal::MaxThroughput,
-        ).await.unwrap();
+        let optimal = reopened
+            .resolve_optimal(
+                "qwen-2b",
+                hw,
+                2 * 1024 * 1024 * 1024,
+                &ConstraintFilter {
+                    min_context: Some(ContextTier::Ctx64k),
+                    ..Default::default()
+                },
+                OptimizationGoal::MaxThroughput,
+            )
+            .await
+            .unwrap();
 
         assert!(optimal.is_some());
         assert_eq!(optimal.unwrap().config.context_tier, ContextTier::Ctx64k);

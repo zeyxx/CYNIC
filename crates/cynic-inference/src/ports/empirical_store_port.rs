@@ -7,10 +7,10 @@ use async_trait::async_trait;
 use cynic_protocol::ContextTier;
 use thiserror::Error;
 
+use crate::domain::matrix_sweep::HardwareBudget;
 use crate::domain::matrix_sweep::empirical_store::{
     ConstraintFilter, EmpiricalProfileEntry, ModelEmpiricalScorecard, OptimizationGoal,
 };
-use crate::domain::matrix_sweep::HardwareBudget;
 
 #[derive(Debug, Error)]
 pub enum EmpiricalStoreError {
@@ -38,7 +38,10 @@ pub trait EmpiricalStorePort: Send + Sync {
     async fn record_entry(&self, entry: EmpiricalProfileEntry) -> Result<(), EmpiricalStoreError>;
 
     /// Append a batch of verified empirical benchmark results atomically.
-    async fn record_batch(&self, entries: Vec<EmpiricalProfileEntry>) -> Result<(), EmpiricalStoreError>;
+    async fn record_batch(
+        &self,
+        entries: Vec<EmpiricalProfileEntry>,
+    ) -> Result<(), EmpiricalStoreError>;
 
     /// Query raw empirical entries matching the given criteria.
     async fn query_entries(
@@ -58,5 +61,8 @@ pub trait EmpiricalStorePort: Send + Sync {
     ) -> Result<Option<EmpiricalProfileEntry>, EmpiricalStoreError>;
 
     /// Get the aggregated performance scorecard for a model.
-    async fn get_scorecard(&self, model_alias: &str) -> Result<ModelEmpiricalScorecard, EmpiricalStoreError>;
+    async fn get_scorecard(
+        &self,
+        model_alias: &str,
+    ) -> Result<ModelEmpiricalScorecard, EmpiricalStoreError>;
 }

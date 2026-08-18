@@ -9,7 +9,9 @@ use serde_json::json;
 
 use super::host_runtime::{LocalWatchdogHostRuntime, WatchdogHostRuntimePort};
 use super::kernel_bridge::{LocalWatchdogKernelProbe, WatchdogKernelProbePort};
-use super::peer_handshake::{LocalPeerHandshakeObserver, PeerHandshakePort, WireguardHandshakeObservation};
+use super::peer_handshake::{
+    LocalPeerHandshakeObserver, PeerHandshakePort, WireguardHandshakeObservation,
+};
 
 pub(super) const OBSERVATION_SCHEMA: &str = "cynic.node_watchdog_observation.v1";
 

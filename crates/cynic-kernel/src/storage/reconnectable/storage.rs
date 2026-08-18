@@ -1,7 +1,7 @@
 //! Reconnectable wrapper for StoragePort and core traits.
 
-use std::sync::{Arc, RwLock};
 use async_trait::async_trait;
+use std::sync::{Arc, RwLock};
 
 use crate::domain::storage::{
     DispatchStorage, MeshNode, MeshRoute, MeshStorage, ProofOfHistory, ProofOfHistoryStorage,

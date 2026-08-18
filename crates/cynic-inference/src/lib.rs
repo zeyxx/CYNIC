@@ -4,25 +4,17 @@ pub mod config_loader;
 pub mod domain;
 pub mod embedding;
 pub mod inference;
+pub mod math;
 /// Historical probe module for attaching to Osmantic ODS / OpenAI-compat peers.
 /// Prefer `adapters::ods` (documents ODS as external bootstrap framework).
 pub mod ods_discovery;
 pub mod ports;
-pub mod math;
 pub mod progress;
 
 // Convenience re-exports for downstream crates (CLI, MCP).
 pub use adapters::discovery::model_registry::InMemoryModelRegistry;
 pub use adapters::hf::HfCliAdapter;
 pub use adapters::inference::harness_executor::HttpHarnessExecutor;
-pub use application::model_process_pool::{
-    ActivePoolSlot, ModelPoolReport, ModelProcessPool,
-};
-pub use application::multi_agent_service::{
-    ComparativeMatrixReport, ModelComparisonResult, MultiAgentService,
-};
-pub use domain::debate::{DebateParticipant, DebateRole, DebateSession, DebateTurn};
-pub use domain::supervision::SupervisionPolicy;
 pub use adapters::inference::hermes_process_supervisor::{
     ProcessHermesGateway, read_hermes_api_key,
 };
@@ -74,11 +66,13 @@ pub use application::hermes_runtime_service::{
     HermesGatewayConvergenceReport, HermesGatewayService,
 };
 pub use application::hf_discovery::{HfDiscoveryService, HfDownloadCommand};
-pub use application::local_runtime_service::{
-    LocalRuntimeService, LocalRuntimeServiceAny,
-};
+pub use application::local_runtime_service::{LocalRuntimeService, LocalRuntimeServiceAny};
+pub use application::model_process_pool::{ActivePoolSlot, ModelPoolReport, ModelProcessPool};
 pub use application::model_store_service::ModelStoreService;
 pub use application::model_sync_pipeline::ModelSyncPipeline;
+pub use application::multi_agent_service::{
+    ComparativeMatrixReport, ModelComparisonResult, MultiAgentService,
+};
 pub use application::node_runtime_ops::{
     DogNodeBinding, DogOperationOutcome, ModelProbeResult, attempt_node_recovery,
     attempt_node_start, dog_to_node, dog_to_node as resolve_dog_node, probe_model_runtime,
@@ -101,6 +95,7 @@ pub use domain::backend_config::InferenceBackendConfig;
 pub use domain::chat_session::{
     ChatEvent, ChatEventKind, ChatMessage, SessionMeta, StreamChunk, ToolSpec, messages_from_events,
 };
+pub use domain::debate::{DebateParticipant, DebateRole, DebateSession, DebateTurn};
 pub use domain::gguf_meta::{
     GgufMeta, default_supported_arches_for_llama_b9444, preflight_gguf_for_engine, read_gguf_meta,
 };
@@ -113,15 +108,14 @@ pub use domain::inference_queue::{InferenceQueue, InferenceQueueMap, QueuePermit
 pub use domain::local_runtime::{
     LocalModelInventory, LocalModelProfile, LocalRuntimeMutationReport, LocalRuntimeStatus,
 };
+pub use domain::matrix_sweep::{
+    BenchmarkProvenance, BenchmarkScenario, ConstraintFilter, EmpiricalProfileEntry,
+    ModelEmpiricalScorecard, OomSafetyStatus, OptimizationGoal, StreamDynamicsReport,
+    aggregate_model_scorecard, can_admit_model_configuration, solve_optimal_configuration,
+};
 pub use domain::model_layout::resolve_chat_state_dir;
 pub use domain::model_layout::{ModelLayout, ModelLayoutReport};
 pub use domain::model_registry::{InferenceEngine, ModelBackend, ModelCapability, ModelHealth};
-pub use domain::matrix_sweep::{
-    ConstraintFilter, OptimizationGoal, ModelEmpiricalScorecard,
-    OomSafetyStatus, EmpiricalProfileEntry, BenchmarkScenario,
-    StreamDynamicsReport, BenchmarkProvenance, aggregate_model_scorecard,
-    solve_optimal_configuration, can_admit_model_configuration,
-};
 pub use domain::model_retention::{
     ModelRetentionAssessment, ModelRetentionClass, assess_artifact as assess_model_retention,
     assess_report as assess_model_store_retention,
@@ -131,6 +125,7 @@ pub use domain::principal_paths::{PathAuthority, PrincipalPaths};
 pub use domain::runtime_plan::{EnginePlugins, RuntimeLaunchPlan};
 pub use domain::slot_semaphore::{SlotPermit, SlotPriority, SlotSemaphore, SlotSemaphoreMap};
 pub use domain::slot_tracker::{BackendSlots, SlotHealthEntry, SlotTracker, build_backend_slots};
+pub use domain::supervision::SupervisionPolicy;
 pub use ports::chat_session_port::{ChatSessionStore, SessionStoreError};
 pub use ports::hermes_runtime_port::{HermesGatewayRuntimeError, HermesGatewayRuntimePort};
 pub use ports::hf_hub_port::{

@@ -527,14 +527,11 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        NetworkCommands::PeerRuntimeProof {
-            peer,
-            json: _,
-        } => {
-            let fetcher = crate::adapters::runtime_proof_http_fetcher::HttpRuntimeProofFetcher::new();
+        NetworkCommands::PeerRuntimeProof { peer, json: _ } => {
+            let fetcher =
+                crate::adapters::runtime_proof_http_fetcher::HttpRuntimeProofFetcher::new();
             let admission = crate::network_runtime_proof::verify_peer_runtime_publisher_admission(
-                &fetcher,
-                &peer,
+                &fetcher, &peer,
             );
             let report = serde_json::json!({
                 "peer": peer,
@@ -581,15 +578,16 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             json: _,
         } => {
             let runner = crate::adapters::local_network_command_runner::LocalNetworkCommandRunner;
-            let report = crate::usecases::node_network_recovery_uc::reconcile_node_network_recovery_tick(
-                *apply,
-                registry,
-                std::path::Path::new(state_path),
-                std::time::Duration::from_secs(*cooldown_seconds),
-                *max_attempts,
-                &runner,
-                |reg| crate::observe::observe_payload(reg),
-            );
+            let report =
+                crate::usecases::node_network_recovery_uc::reconcile_node_network_recovery_tick(
+                    *apply,
+                    registry,
+                    std::path::Path::new(state_path),
+                    std::time::Duration::from_secs(*cooldown_seconds),
+                    *max_attempts,
+                    &runner,
+                    |reg| crate::observe::observe_payload(reg),
+                );
             let should_fail = report.status == "blocked";
             emit_json("node network recovery tick", &report, should_fail)
         }

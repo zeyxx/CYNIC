@@ -19,7 +19,11 @@ pub enum SupervisionPolicy {
 impl SupervisionPolicy {
     /// Check whether switching to `target_alias` with `target_size_bytes` requires
     /// interactive operator confirmation under this policy.
-    pub fn requires_confirmation(&self, target_size_bytes: Option<u64>, target_alias: &str) -> bool {
+    pub fn requires_confirmation(
+        &self,
+        target_size_bytes: Option<u64>,
+        target_alias: &str,
+    ) -> bool {
         match self {
             Self::AlwaysConfirm => true,
             Self::AlwaysAuto => false,
@@ -34,9 +38,15 @@ impl SupervisionPolicy {
         }
     }
 
-    pub fn confirmation_reason(&self, target_size_bytes: Option<u64>, target_alias: &str) -> Option<String> {
+    pub fn confirmation_reason(
+        &self,
+        target_size_bytes: Option<u64>,
+        target_alias: &str,
+    ) -> Option<String> {
         if self.requires_confirmation(target_size_bytes, target_alias) {
-            let size_gb = target_size_bytes.map(|s| s as f64 / (1024.0 * 1024.0 * 1024.0)).unwrap_or(0.0);
+            let size_gb = target_size_bytes
+                .map(|s| s as f64 / (1024.0 * 1024.0 * 1024.0))
+                .unwrap_or(0.0);
             Some(format!(
                 "Heavy model transition detected (alias='{}', size={:.2} GB). Requires explicit operator confirmation under HybridIntentAndCapacity policy.",
                 target_alias, size_gb
