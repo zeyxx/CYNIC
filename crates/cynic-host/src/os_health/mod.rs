@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn dmesg_softlockup_alone_is_an_anomaly() {
-        let obs = super::types::OsObservation {
+        let obs = observe::OsObservation {
             softlockup_panic: true,
             thp_enabled: "madvise".to_string(),
             thp_defrag: "madvise".to_string(),
@@ -129,8 +129,4 @@ mod tests {
             .iter()
             .any(|f| f.kind == "kernel_softlockup_detected"));
     }
-
-    // keep Serialize import used for downstream projection helpers
-    #[allow(dead_code)]
-    fn _assert_serializable(_: &impl Serialize) {}
 }

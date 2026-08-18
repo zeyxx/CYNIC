@@ -10,7 +10,7 @@ use cynic_protocol::{
 use crate::build::BuildProof;
 use crate::conformance::HostConformanceGate;
 use crate::repo_access::current_repo_access_status;
-use crate::conformance::BuildConformanceEvidence;
+use crate::build::BuildConformanceEvidence;
 use crate::runtime_harness::RuntimeHarnessContext;
 use crate::runtime_layout::current_runtime_layout;
 use crate::source_control::observe_source_worktree;
