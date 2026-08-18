@@ -318,6 +318,14 @@ impl HostRuntimeLayout {
     }
 
     pub fn dns_service_unit(&self) -> String {
+        if let Ok(unit) = std::env::var("CYNIC_DNS_SERVICE_UNIT") {
+            return unit;
+        }
+        if std::path::Path::new("/etc/systemd/system/cynic-dns-synapse.service").exists()
+            || std::path::Path::new("/lib/systemd/system/cynic-dns-synapse.service").exists()
+        {
+            return "cynic-dns-synapse.service".to_string();
+        }
         match self.service_manager_kind().as_str() {
             "openrc" => "coredns-synapse".to_string(),
             _ => "coredns-synapse.service".to_string(),

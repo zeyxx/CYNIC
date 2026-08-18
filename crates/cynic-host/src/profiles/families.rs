@@ -43,7 +43,6 @@ impl HostFamilyProfile {
             bootstrap_packages: vec![
                 "wireguard-tools".to_string(),
                 "iproute2".to_string(),
-                "coredns".to_string(),
             ],
             service_units: vec![
                 ServiceUnitPolicy {
@@ -64,7 +63,7 @@ impl HostFamilyProfile {
                     restart_mode: "on-failure".to_string(),
                     source: "profile:debian_systemd".to_string(),
                     health_port: None,
-                    process_name: Some("coredns".to_string()),
+                    process_name: None,
                     supervisor_provider: None,
                     health_kind: None,
                 },
