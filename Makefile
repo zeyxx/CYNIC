@@ -91,6 +91,23 @@ build-admission-check:
 		CYNIC_BUILD_BOOTSTRAP_RECEIPT="$(CYNIC_BUILD_BOOTSTRAP_RECEIPT)" \
 		./scripts/build-admission-check make:check
 
+# Layered, per-layer validation. Dependency order: protocol -> host -> node ->
+# kernel -> mcp -> cli. Each layer gets an isolated target dir and a
+# fail-closed cargo check + test pass. Cache integrity is observed first
+# (offline/locked metadata) so a stale vendored cache is reported, not papered.
+LAYER_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-mcp cynic-cli
+.PHONY: check-layers
+check-layers: ## Per-layer cargo check+test, fail-closed, dependency-ordered
+	@echo "==> cache integrity (offline/locked metadata)"
+	@./scripts/cargo metadata --offline --locked --format-version 1 >/dev/null \
+		|| { echo "cache integrity: offline/locked metadata unavailable (offline_dependency_unavailable)"; exit 1; }
+	@for crate in $(LAYER_CRATES); do \
+		echo "  -> $$crate"; \
+		( cd "crates/$$crate" && $(RUST_ENV) $(CARGO) check -p "$$crate" ) || exit 1; \
+		( cd "crates/$$crate" && $(RUST_ENV) $(CARGO) test -p "$$crate" ) || exit 1; \
+	done
+	@echo "==> check-layers: all layers validated"
+
 .PHONY: check-installed-runtime
 check-installed-runtime: ## Validate installed-runtime portability invariants (`CYNIC_PROJECT_ROOT` absent, runtime mode persistence)
 	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime

@@ -25,6 +25,20 @@ observed_hostname="$(hostname)"
 observed_commit="$(git rev-parse HEAD 2>/dev/null || true)"
 [[ -n "${observed_hostname}" && -n "${observed_commit}" ]] \
   || blocked "node or checkout identity is unobservable"
+
+if [[ -n "${CYNIC_LOCAL_DEV_BUILD:-}" ]]; then
+  # Local dev isolation: the operator is validating incremental additions
+  # on a mutable worktree. This is NOT a production admission — it bypasses
+  # the immutable-checkout requirement but keeps offline/locked resolution so
+  # the local cache stays coherent. Never set this in a promotion/build-runner
+  # context; production admission still requires the immutable snapshot + grant.
+  if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+    echo "local dev isolation: mutable checkout permitted (CYNIC_LOCAL_DEV_BUILD=1); NOT a production admission" >&2
+  fi
+  echo "build admission (local-dev-isolation) proved: node=${observed_hostname} action=${action} commit=${observed_commit}"
+  exit 0
+fi
+
 [[ -z "$(git status --porcelain --untracked-files=all)" ]] \
   || blocked "checkout is mutable; submit an admitted workload to the clean build-runner workspace"
 

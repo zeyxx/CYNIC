@@ -9,6 +9,54 @@ pub const HEALTH_SIGNAL_SCHEMA: &str = "cynic.health_signal.v1";
 pub const ANOMALY_SIGNAL_SCHEMA: &str = "cynic.anomaly_signal.v1";
 pub const AUTONOMIC_REMEDIATION_PLAN_SCHEMA: &str = "cynic.autonomic_remediation_plan.v1";
 
+/// Portable OS-substrate health anomaly, transport-neutral.
+///
+/// Mirrors the host-side `cynic_host::os_health` findings but carries only the
+/// fields federation consumers need (severity + sovereign error code), so the
+/// protocol crate stays free of host sysfs/proc dependencies. This is the
+/// first-class data type the kernel anomaly stream and the node build-node
+/// resolver consume.
+///
+/// Codes follow the sovereign `CYNIC-OSH-*` catalog (error_catalog):
+/// 001 SoftlockupPanicDisabled, 002 THPDefragAggressive, 003 MemAvailBelowFloor,
+/// 004 ReclaimPressureAboveCeiling, 005 KernelSoftlockupDetected,
+/// 006 HungTaskDetected, 007 OomDetected, 008 ObservationUnknown.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OsHealthAnomaly {
+    pub severity: String,
+    pub error_code: Option<String>,
+    pub detail: String,
+    pub observed_at_unix_ms: u128,
+}
+
+/// Fold a list of `OsHealthAnomaly` into a compact, dependency-light health
+/// view (critical/warning flags + dedup codes). Used by the build-node
+/// resolver to decide whether a candidate is dispatchable.
+pub fn from_os_health_anomalies(anomalies: &[OsHealthAnomaly]) -> NodeHealthFold {
+    let mut fold = NodeHealthFold::default();
+    for a in anomalies {
+        if a.severity.eq_ignore_ascii_case("critical") {
+            fold.critical_active = true;
+        } else if a.severity.eq_ignore_ascii_case("warning") {
+            fold.warning_active = true;
+        }
+        if let Some(code) = &a.error_code {
+            if !fold.active_osha_codes.contains(code) {
+                fold.active_osha_codes.push(code.clone());
+            }
+        }
+    }
+    fold
+}
+
+/// Compact health fold derived from `OsHealthAnomaly` list.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct NodeHealthFold {
+    pub critical_active: bool,
+    pub warning_active: bool,
+    pub active_osha_codes: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SignalSeverity {
@@ -287,5 +335,110 @@ pub fn reconcile_health_signal(
             rollback_intent: "none".to_string(),
         }),
         _ => None,
+    }
+}
+
+/// Topology drift event: emitted when observed operational reality diverges
+/// from the declared desired topology (registry seed / role assignment).
+///
+/// Per the CYNIC coherence rule "reality primes, drift is data", an
+/// unreachable builder or an OS-critical node is NOT a crash — it is a
+/// first-class signal the federation reconciles (e.g. failover to a standby,
+/// or emit a `cynic.topology_drift.v1` health signal).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TopologyDriftSignal {
+    pub node_id: String,
+    pub desired_role: String,
+    pub observed_role: String,
+    pub reachable: bool,
+    pub os_health_critical: bool,
+    pub drift_kind: String,
+}
+
+impl TopologyDriftSignal {
+    /// Map the drift to a kernel anomaly (schema `cynic.anomaly_signal.v1`
+    /// compatible). Severity is `critical` when the node is unreachable or
+    /// OS-critical, otherwise `warning`.
+    pub fn to_kernel_anomaly(&self) -> (String, String, String) {
+        let severity = if !self.reachable || self.os_health_critical {
+            "critical"
+        } else {
+            "warning"
+        };
+        let message = format!(
+            "topology drift node={} desired={} observed={} reachable={} drift={}",
+            self.node_id, self.desired_role, self.observed_role, self.reachable, self.drift_kind
+        );
+        ("topology_drift".to_string(), message, severity.to_string())
+    }
+
+    /// Map the drift to a CynicJudgment projection (Information/Sense family).
+    pub fn to_judgment(&self) -> CynicJudgment {
+        let (_, message, severity) = self.to_kernel_anomaly();
+        let quality = if severity == "critical" {
+            JudgmentQuality::Refuted
+        } else {
+            JudgmentQuality::Sense
+        };
+        CynicJudgment {
+            schema: JUDGMENT_SCHEMA.to_string(),
+            judgment_id: format!("jdg-drift-{}", self.node_id),
+            observed_at_unix_ms: now_unix_ms(),
+            subject: format!("topology:{}", self.node_id),
+            predicate: "drift_from_desired".to_string(),
+            quality,
+            confidence: 0.9,
+            reasoning: message,
+            evidence_refs: vec![],
+            unknowns: vec!["residual_mesh_state".to_string()],
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn topology_drift_unreachable_is_critical() {
+        let d = TopologyDriftSignal {
+            node_id: "cynic-builder".to_string(),
+            desired_role: "build_runner_primary".to_string(),
+            observed_role: "build_runner_primary".to_string(),
+            reachable: false,
+            os_health_critical: false,
+            drift_kind: "mesh_unreachable".to_string(),
+        };
+        let (kind, _msg, sev) = d.to_kernel_anomaly();
+        assert_eq!(kind, "topology_drift");
+        assert_eq!(sev, "critical");
+    }
+
+    #[test]
+    fn topology_drift_os_critical_is_critical() {
+        let d = TopologyDriftSignal {
+            node_id: "cynic-fix".to_string(),
+            desired_role: "build_runner_primary".to_string(),
+            observed_role: "build_runner_primary".to_string(),
+            reachable: true,
+            os_health_critical: true,
+            drift_kind: "os_health_critical".to_string(),
+        };
+        let (_k, _m, sev) = d.to_kernel_anomaly();
+        assert_eq!(sev, "critical");
+    }
+
+    #[test]
+    fn topology_drift_reachable_no_critical_is_warning() {
+        let d = TopologyDriftSignal {
+            node_id: "cynic-b".to_string(),
+            desired_role: "build_runner_primary".to_string(),
+            observed_role: "build_runner_secondary".to_string(),
+            reachable: true,
+            os_health_critical: false,
+            drift_kind: "role_mismatch".to_string(),
+        };
+        let (_k, _m, sev) = d.to_kernel_anomaly();
+        assert_eq!(sev, "warning");
     }
 }

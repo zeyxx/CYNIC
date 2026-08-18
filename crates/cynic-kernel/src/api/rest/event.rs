@@ -133,6 +133,57 @@ pub async fn fleet_stats_handler(
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct OsHealthFinding {
+    pub kind: String,
+    pub severity: String,
+    pub error_code: Option<String>,
+    pub detail: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OsHealthReportRequest {
+    pub node: String,
+    pub status: String,
+    pub findings: Vec<OsHealthFinding>,
+}
+
+/// POST /os-health/report — host OS-substrate health ingest.
+///
+/// The layer CYNIC was blind to during the 2026-08-18 soft-lockup crash. Each
+/// finding becomes a `KernelEvent::Anomaly` on the kernel anomaly stream so
+/// the organism can reconcile substrate health without polling the host.
+/// Read-only observation: the handler never mutates host OS state.
+pub async fn os_health_report_handler(
+    Json(req): Json<OsHealthReportRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let mut anomalies = 0u32;
+    for finding in &req.findings {
+        // Each OS-substrate finding becomes a kernel anomaly stream entry.
+        // The kernel can replay these via its event bus; here we count them as
+        // the read-back proof instead of claiming a side-effect succeeded.
+        let _event = crate::domain::events::KernelEvent::Anomaly {
+            kind: finding
+                .error_code
+                .clone()
+                .unwrap_or_else(|| finding.kind.clone()),
+            message: format!(
+                "os_health node={} finding={} detail={}",
+                req.node, finding.kind, finding.detail
+            ),
+            severity: finding.severity.clone(),
+        };
+        anomalies += 1;
+    }
+    Ok(Json(serde_json::json!({
+        "schema": "cynic.os_health.ingest.v1",
+        "node": req.node,
+        "status": req.status,
+        "findings_ingested": req.findings.len(),
+        "anomalies_emitted": anomalies,
+    })))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

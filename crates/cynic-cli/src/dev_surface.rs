@@ -95,6 +95,8 @@ pub(crate) enum DevCommand {
         #[arg(long)]
         architecture_only: bool,
         #[arg(long)]
+        layers: bool,
+        #[arg(long)]
         source_root: Option<std::path::PathBuf>,
         #[arg(long)]
         target_root: Option<std::path::PathBuf>,
@@ -262,13 +264,15 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
         DevCommand::Check {
             json,
             architecture_only,
+            layers,
             source_root,
             target_root,
         } => {
-            if !json {
+            if architecture_only && layers {
+                eprintln!("error: --architecture-only and --layers are mutually exclusive");
                 return ExitCode::FAILURE;
             }
-            match check::run_dev_check(source_root, target_root, architecture_only) {
+            match check::run_dev_check(source_root, target_root, architecture_only, layers) {
                 Ok(report) => emit_json(&report, report.status != "ok"),
                 Err(error) => crate::fail(error),
             }

@@ -10,6 +10,7 @@ use std::time::SystemTime;
 use cynic_protocol::{
     DomainTask, DomainTaskStatus, FederatedNodeLease, FederatedTaskEnvelope, TaskDomain,
 };
+use cynic_protocol::build_node::{BuildNodeCandidate, resolve_build_node};
 use serde::{Deserialize, Serialize};
 
 use super::federated_mesh_probe_uc::{CANONICAL_SYNAPSE_NODES, probe_federated_synapse_mesh};
@@ -194,6 +195,22 @@ fn select_canonical_node_for_domain(
             &CANONICAL_SYNAPSE_NODES[0]
         }
     }
+}
+
+/// Dynamic, drift-aware build-node selection.
+///
+/// Replaces the hardcoded `build_runner` lookup for build domains with the
+/// pure `resolve_build_node` resolver from `cynic-protocol::build_node`.
+/// Inputs are observed (not declared): mesh reachability + OS-substrate
+/// health (`OsHealthAnomaly` folded into `BuildNodeCandidate.health`) +
+/// declared role priority.
+///
+/// Returns `None` when no reachable, non-OS-critical builder exists — the
+/// caller MUST then emit a `TopologyDriftSignal` (drift is data, not a crash)
+/// rather than falling back to a degraded node. This is the B3 wiring:
+/// "mesh live primes registry seed; select by health then role priority".
+pub fn select_build_node(candidates: &[BuildNodeCandidate]) -> Option<String> {
+    resolve_build_node(candidates).map(|sel| sel.node_id)
 }
 
 #[cfg(test)]

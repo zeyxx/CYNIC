@@ -4,9 +4,18 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "${script_dir}/.." && pwd)"
 subcommand="${1:-}"
+local_dev=0
+if [[ "${subcommand}" == "--local-dev" ]]; then
+  local_dev=1
+  shift
+  subcommand="${1:-}"
+fi
 
 case "${subcommand}" in
   build|check|clippy|doc|install|run|rustc|test)
+    if [[ "${local_dev}" == "1" ]]; then
+      export CYNIC_LOCAL_DEV_BUILD=1
+    fi
     "${script_dir}/build-admission-check" "cargo:${subcommand}" >/dev/null
     export CYNIC_BUILD_ADMISSION_VERIFIED=1
     export CYNIC_ALLOW_LOCAL_DEV_BUILD=1

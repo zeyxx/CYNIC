@@ -12,6 +12,19 @@ const CARGO_FETCH_TARGETS: &[&str] = &["index.crates.io", "crates.io", "static.c
 const CANONICAL_GATE: &str = "make check";
 const ARCHITECTURE_BOUNDARY_GATE: &str = "cargo test -q -p cynic-cli --test architecture_boundary";
 
+/// Dependency-ordered validation layers. Each layer is checked and tested in
+/// isolation before the next, so a break in one crate does not mask or cascade
+/// into the others. Order = compilation/dependency direction.
+const LAYER_ORDER: &[&str] = &[
+    "cynic-protocol",
+    "cynic-host",
+    "cynic-node",
+    "cynic-kernel",
+    "cynic-mcp",
+    "cynic-cli",
+];
+const CACHE_INTEGRITY_STEP_ID: &str = "cache_integrity_offline_locked";
+
 #[derive(Debug, Serialize)]
 pub(crate) struct DevCheckReport {
     pub(crate) schema: &'static str,
@@ -35,12 +48,13 @@ pub(crate) struct DevCheckReport {
     pub(crate) architecture_only: bool,
     pub(crate) architecture_boundary_ok: bool,
     pub(crate) architecture_boundary_fallback_ok: bool,
+    pub(crate) layered: bool,
     pub(crate) steps: Vec<DevCheckStepReport>,
 }
 
 #[derive(Debug, Serialize)]
 pub(crate) struct DevCheckStepReport {
-    pub(crate) id: &'static str,
+    pub(crate) id: String,
     pub(crate) status: &'static str,
     pub(crate) command: Vec<String>,
     pub(crate) env: Vec<DevCheckEnv>,
@@ -68,7 +82,7 @@ pub(crate) struct CargoTargetPolicy {
 }
 
 struct DevCheckStep {
-    id: &'static str,
+    id: String,
     program: &'static str,
     args: Vec<&'static str>,
     target_dir: Option<PathBuf>,
@@ -77,6 +91,7 @@ struct DevCheckStep {
 enum DevCheckMode {
     Canonical,
     ArchitectureOnly,
+    Layered,
 }
 
 impl DevCheckMode {
@@ -84,6 +99,7 @@ impl DevCheckMode {
         match self {
             Self::Canonical => CANONICAL_GATE,
             Self::ArchitectureOnly => ARCHITECTURE_BOUNDARY_GATE,
+            Self::Layered => "make check-layers",
         }
     }
 }
@@ -92,13 +108,16 @@ pub(crate) fn run_dev_check(
     source_root: Option<PathBuf>,
     target_root: Option<PathBuf>,
     architecture_only: bool,
+    layered: bool,
 ) -> Result<DevCheckReport, String> {
     let workspace_root = crate::rust_source::resolve_workspace_root(source_root.as_deref())?;
     let target_root = match target_root {
         Some(target_root) => target_root,
         None => default_target_root()?,
     };
-    let mode = if architecture_only {
+    let mode = if layered {
+        DevCheckMode::Layered
+    } else if architecture_only {
         DevCheckMode::ArchitectureOnly
     } else {
         DevCheckMode::Canonical
@@ -135,7 +154,7 @@ pub(crate) fn run_dev_check(
     {
         let fallback_report = run_step(
             &workspace_root,
-            architecture_boundary_step(&target_root, "architecture_boundary_fallback"),
+            architecture_boundary_step(&target_root, "architecture_boundary_fallback".to_string()),
         );
         let ok = fallback_report.status == "ok";
         steps.push(fallback_report);
@@ -162,7 +181,7 @@ pub(crate) fn run_dev_check(
         };
     let architecture_boundary_ok = steps
         .iter()
-        .any(|step| is_architecture_boundary_step(step.id) && step.status == "ok");
+        .any(|step| is_architecture_boundary_step(&step.id) && step.status == "ok");
 
     Ok(DevCheckReport {
         schema: SCHEMA,
@@ -193,6 +212,7 @@ pub(crate) fn run_dev_check(
         architecture_only,
         architecture_boundary_ok,
         architecture_boundary_fallback_ok,
+        layered,
         steps,
     })
 }
@@ -227,7 +247,7 @@ fn is_single_path_component(path: &Path) -> bool {
 fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
     match mode {
         DevCheckMode::Canonical => vec![DevCheckStep {
-            id: "make_check",
+            id: "make_check".to_string(),
             program: "make",
             args: vec!["check"],
             // Isolate cargo artifacts for this gate invocation.
@@ -236,13 +256,30 @@ fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
         DevCheckMode::ArchitectureOnly => {
             vec![architecture_boundary_step(
                 target_root,
-                "architecture_boundary_primary",
+                "architecture_boundary_primary".to_string(),
             )]
+        }
+        DevCheckMode::Layered => {
+            let mut steps = vec![DevCheckStep {
+                id: CACHE_INTEGRITY_STEP_ID.to_string(),
+                program: "scripts/cargo",
+                args: vec!["metadata", "--offline", "--locked", "--format-version", "1"],
+                target_dir: Some(target_root.join("cache_integrity")),
+            }];
+            for layer in LAYER_ORDER {
+                steps.push(DevCheckStep {
+                    id: format!("check_layer_{}", layer),
+                    program: "scripts/cargo",
+                    args: vec!["check", "-p", layer],
+                    target_dir: Some(target_root.join(format!("layer_{}", layer))),
+                });
+            }
+            steps
         }
     }
 }
 
-fn architecture_boundary_step(target_root: &Path, id: &'static str) -> DevCheckStep {
+fn architecture_boundary_step(target_root: &Path, id: String) -> DevCheckStep {
     DevCheckStep {
         id,
         program: "scripts/cargo",
@@ -472,7 +509,7 @@ mod tests {
     fn architecture_boundary_fallback_step_uses_isolated_target() {
         let step = architecture_boundary_step(
             Path::new("/tmp/cynic-dev-check-targets"),
-            "architecture_boundary_fallback",
+            "architecture_boundary_fallback".to_string(),
         );
         assert_eq!(step.id, "architecture_boundary_fallback");
         assert_eq!(step.program, "scripts/cargo");
