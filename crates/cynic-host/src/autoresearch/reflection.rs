@@ -39,7 +39,7 @@ pub fn parse_hypotheses(text: &str) -> Vec<SkillHypothesis> {
                     skill_id: format!("skill-{}", d),
                     domain: d.clone(),
                     description: format!("why: {}\\nwhen: {}\\nreuse: {}", why, when, reuse),
-                    actionable,
+                    actionability,
                     claimed_coverage: 0.0,
                 });
             }
