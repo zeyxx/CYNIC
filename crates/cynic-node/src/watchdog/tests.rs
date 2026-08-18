@@ -132,12 +132,11 @@ impl super::peer_handshake::PeerHandshakePort for FakeHandshakeObs {
             schema: super::peer_handshake::PEER_HANDSHAKE_SCHEMA,
             interface: interface.to_string(),
             observed_at_unix_s: 0,
-            peer_count: 0,
-            healthy_count: 0,
+            peers: vec![],
             stale_count: 0,
             dead_count: 0,
-            status: "empty",
-            peers: vec![],
+            ok_count: 0,
+            unknown_count: 0,
         }
     }
 }
