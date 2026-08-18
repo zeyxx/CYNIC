@@ -49,7 +49,7 @@ pub fn parse_hypotheses(text: &str) -> Vec<SkillHypothesis> {
     for raw in text.lines() {
         let line = raw.trim();
         if let Some(rest) = line.strip_prefix("### ") {
-            flush(&cur_domain, &why, &when, &reuse, actionable);
+            flush(&cur_domain, &why, &when, &reuse, actionable_val);
             cur_domain = Some(rest.trim().to_string());
             why.clear();
             when.clear();
