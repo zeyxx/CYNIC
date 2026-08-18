@@ -299,7 +299,7 @@ fn read_seed_file(infra_dir: &Path) -> Option<Vec<SeedSynapseNode>> {
 fn hex_decode(s: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
     let s = s.trim();
     if s.len() % 2 != 0 {
-        return Err(std::num::ParseIntError::new(std::num::IntErrorKind::InvalidDigit));
+        return Err("invalid hex length".parse::<u8>().unwrap_err());
     }
     (0..s.len())
         .step_by(2)
