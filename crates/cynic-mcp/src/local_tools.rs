@@ -521,6 +521,28 @@ impl cynic_host::federation_runtime::NodeControlPort for FederationNodeControl {
     }
 }
 
+/// Evaluate storage credential sync status (pure probe + decision).
+pub async fn run_storage_credential_sync(endpoint: &str) -> serde_json::Value {
+    use cynic_host::storage_credential_sync::{StorageCredentialSyncPort, StorageCredentialSyncAdapter};
+    use cynic_protocol::storage_credential_sync::{StorageCredentialSpec, decide_credential_sync};
+
+    let spec = StorageCredentialSpec {
+        username: "root".into(),
+        password: "cynic".into(),
+        endpoint: endpoint.into(),
+        namespace: "cynic".into(),
+        database: "main".into(),
+    };
+    let adapter = StorageCredentialSyncAdapter::default();
+    let obs = adapter.observe(&spec);
+    let verdict = decide_credential_sync(&spec, &obs);
+    serde_json::json!({
+        "status": "ok",
+        "endpoint": endpoint,
+        "verdict": verdict,
+    })
+}
+
 /// Evaluate harness progression decision (pure, no IO).
 pub async fn run_harness_progression(
     current_kind: &str,

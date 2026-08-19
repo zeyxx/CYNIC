@@ -491,6 +491,21 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_storage_credential_sync",
+        description = "Evaluate whether SurrealDB storage credentials are synchronized across service config, password file, and live auth. Diagnoses the known bug where /etc/cynic/secrets/storage-runtime-password contained a hash instead of plaintext 'cynic' — root cause of digestion_starvation. Returns SYNCHRONIZED, OUT_OF_SYNC (with repair action), or UNKNOWN."
+    )]
+    async fn cynic_storage_credential_sync(
+        &self,
+        endpoint: String,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_storage_credential_sync(&endpoint);
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_harness_progression",
         description = "Evaluate whether the harness can progress from one kind to the next (lab → conformance → staging → canary → production). Requires explicit proof categories — no silent promotion. Returns ALLOWED with authority level or BLOCKED with reason."
     )]
