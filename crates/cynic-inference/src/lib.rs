@@ -63,7 +63,7 @@ pub use application::node_runtime_ops::{
 pub use application::peer_attach::{
     PeerAttachOptions, PeerAttachReport, peer_attach, peer_attach_apply, peer_attach_status,
 };
-pub use application::profile_bootstrap::{
+pub use application::profile_bootstrap::{ForgeProfileReport, forge_profile_from_benchmark_report,
     EnsureProfilesReport, PreferredChatBind, bind_preferred_chat_model, ensure_profiles_from_vault,
     pin_preferred_alias, resolve_start_alias, select_preferred_alias,
 };
@@ -113,8 +113,8 @@ pub use ports::model_store_port::ModelStorePort;
 pub use math::roofline::assess_roofline;
 pub use ports::empirical_store_port::EmpiricalStorePort;
 pub use adapters::empirical_store::{FsEmpiricalStore, DEFAULT_EMPIRICAL_LEDGER_PATH};
-pub use domain::domain_task_queue::{DEFAULT_DOMAIN_TASKS_PATH, DomainTaskQueue};
+pub use domain::domain_task_queue::{DEFAULT_DOMAIN_TASKS_PATH, DomainTaskQueue, DomainTaskQueueError};
 pub use domain::matrix_sweep::empirical_store::{ConstraintFilter, ModelEmpiricalScorecard, OptimizationGoal};
 pub use domain::matrix_sweep::types::HardwareBudget;
 pub use domain::local_runtime::LocalRuntimeState;
-pub use application::inference_gateway::InferenceGatewayConfig;
+pub use application::inference_gateway::{InferenceGateway, InferenceGatewayConfig};

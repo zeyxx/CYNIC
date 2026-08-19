@@ -506,6 +506,20 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_inference_status",
+        description = "Report inference configuration status: routing SSOT path, backends (name, sovereign, base_url, model, context_size, has_api_key), sovereign count. Read-only projection of the inference SSOT."
+    )]
+    async fn cynic_inference_status(
+        &self,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_inference_status();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_storage_credential_sync",
         description = "Evaluate whether SurrealDB storage credentials are synchronized across service config, password file, and live auth. Diagnoses the known bug where /etc/cynic/secrets/storage-runtime-password contained a hash instead of plaintext 'cynic' — root cause of digestion_starvation. Returns SYNCHRONIZED, OUT_OF_SYNC (with repair action), or UNKNOWN."
     )]

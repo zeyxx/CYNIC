@@ -8,7 +8,7 @@
 use clap::Subcommand;
 
 use cynic_host::build_workflow::{run_build_workflow, BuildWorkflowConfig, BuildWorkflowResult};
-use cynic_host::build_evidence::JsonBuildRunnerObservationAdapter;
+use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
 use cynic_host::update_lifecycle::LocalArgvRunner;
 use cynic_protocol::build::{BuildRecipe, BUILD_RECIPE_SCHEMA};
 use cynic_protocol::SourceSnapshot;
@@ -158,13 +158,11 @@ fn run_build(
     let recipe = BuildRecipe {
         schema: BUILD_RECIPE_SCHEMA.to_string(),
         action,
-        target_crates,
-        excluded_crates: vec![],
-        toolchain_override: None,
-        env_overrides: vec![],
-        max_parallel_jobs: 1,
-        timeout_secs: 600,
-        evidence_refs: vec![],
+        target_profile: action.clone(),
+        allowed_actions: target_crates,
+        rust_min_stack: 16777216,
+        cargo_incremental: false,
+        memory_limit_bytes: None,
     };
 
     // Step 4: Build source snapshot
@@ -195,7 +193,10 @@ fn run_build(
         argv: vec!["make".to_string(), "check".to_string()],
         artifact_path,
         apply,
-        now_unix_ms: chrono::Utc::now().timestamp_millis() as u64,
+        now_unix_ms: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64,
     };
 
     let result = run_build_workflow(&config)?;

@@ -5,7 +5,8 @@
 //!   lab → conformance → staging → canary → production
 //!
 //! Each step requires explicit proof. No silent promotion.
-use crate::runtime_harness::{HarnessAuthority, RuntimeHarnessKind};
+use serde::Serialize;
+pub use crate::runtime_harness::{HarnessAuthority, RuntimeHarnessKind};
 
 /// Required proof categories for harness progression.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -151,7 +152,7 @@ fn is_single_step(current: &RuntimeHarnessKind, target: &RuntimeHarnessKind) -> 
 }
 
 /// Progression verdict.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum HarnessProgressionVerdict {
     /// Progression is allowed — target authority granted.
     Allowed {

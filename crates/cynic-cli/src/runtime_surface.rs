@@ -5,6 +5,7 @@ use cynic_host::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessK
 use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 
 use crate::bootstrap_surface::ProfileArgs;
+use crate::fail;
 
 mod agent_matrix;
 mod compat_aliases;
@@ -420,7 +421,7 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             proof,
         } => suite::execute_plan(json, registry.as_deref(), &profile, proof.as_deref()),
         RuntimeCommand::HarnessProgress { current_kind, target_kind, satisfied, unknown, json } => {
-            match execute_harness_progress(current_kind.clone(), target_kind.clone(), satisfied.clone(), unknown.clone(), *json) {
+            match execute_harness_progress(current_kind.clone(), target_kind.clone(), satisfied.clone(), unknown.clone(), json) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => fail(e),
             }

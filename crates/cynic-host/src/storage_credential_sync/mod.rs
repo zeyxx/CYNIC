@@ -59,10 +59,10 @@ impl StorageCredentialSyncPort for StorageCredentialSyncAdapter {
                 .build();
             client
                 .map(|c| c.get(format!("{endpoint}/health")).send())
-                .unwrap_or(Err(reqwest::Error::new(
-                    reqwest::ErrorKind::Request,
+                .unwrap_or_else(|| Err(reqwest::Error::from(std::io::Error::new(
+                    std::io::ErrorKind::Other,
                     "client build failed",
-                )))
+                ))))
                 .map(|r| r.status().is_success())
                 .unwrap_or(false)
         } else {
@@ -86,10 +86,10 @@ impl StorageCredentialSyncPort for StorageCredentialSyncAdapter {
                         .body("SELECT * FROM \"\" LIMIT 1")
                         .send()
                 })
-                .unwrap_or(Err(reqwest::Error::new(
-                    reqwest::ErrorKind::Request,
+                .unwrap_or_else(|| Err(reqwest::Error::from(std::io::Error::new(
+                    std::io::ErrorKind::Other,
                     "client build failed",
-                )))
+                ))))
                 .map(|r| r.status().is_success())
                 .unwrap_or(false)
         } else {

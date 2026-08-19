@@ -1,4 +1,5 @@
 pub mod agent_connection;
+pub mod agent_citizenship;
 pub mod agent_recursion;
 pub mod agent_scheduler;
 pub mod agent_session;
@@ -80,6 +81,8 @@ pub mod workload_identity;
 pub mod peer_resolver;
 
 pub use agent_connection::*;
+pub use agent_citizenship::*;
+pub use coord::*;
 pub use agent_recursion::*;
 pub use agent_scheduler::*;
 pub use agent_session::*;

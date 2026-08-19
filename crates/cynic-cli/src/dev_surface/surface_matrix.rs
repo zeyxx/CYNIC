@@ -183,6 +183,7 @@ fn run_runtime_phases() -> Vec<RuntimePhase> {
         profile: None,
         node: None,
         registry: None,
+        json: false,
     };
 
     vec![

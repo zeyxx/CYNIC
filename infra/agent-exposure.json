@@ -394,6 +394,11 @@
           "mutation": "read_only"
         },
         {
+          "name": "cynic_inference_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
           "name": "cynic_storage_credential_sync",
           "tier": "baseline_runtime",
           "mutation": "read_only"
@@ -1154,11 +1159,38 @@
         "mutation": "privileged_mutation"
       },
       {
+        "name": "cynic_mask",
+        "tier": "baseline_runtime",
+        "mutation": "local_mutation",
+        "citizenship": {
+          "schema": "cynic.agent_citizenship.v1",
+          "admission": "cynic_coord_claim",
+          "mutation_execution_contract": "cynic.agent_workload_envelope.v1",
+          "budgets_monotonic": true,
+          "scope_hierarchy": ["fleet","node","crate","module","file"],
+          "read_back": ["cynic_coord_claim_batch","agent_completion_envelope"]
+        },
+        "purpose": "Launch an agent harness behind a bounded cynic mask (forge profile + inference-start). Projects agent citizenship and monotonic budgets; delegates to canonical inference/forge surfaces."
+      },
+      {
         "name": "cynic_proxmox_exec",
         "tier": "legacy_breakglass",
         "mutation": "privileged_mutation"
       }
     ]
+  },
+  "citizenship": {
+    "schema": "cynic.agent_citizenship.v1",
+    "owner": "crates/cynic-protocol::agent_citizenship",
+    "trait": "Citoyenneté",
+    "invariant": "monotonic_budgets; child never amplifies parent authority",
+    "surface": "cynic mask",
+    "required_capabilities": ["cynic_coord_claim","cynic_coord_claim_batch","cynic_coord_renew","cynic_coord_release"],
+    "status": "implemented_unproven",
+    "projection_targets": {
+      "cli": "cynic mask -- Forge|Start (delegates to cynic runtime inference-forge/inference-start)",
+      "protocol": "cynic_protocol::agent_citizenship::{AgentCitizenshipRecord, Citoyenneté, budgets_within, AgentScope, AgentBudgets}"
+    }
   },
   "deleted_exposures": [
     "deleted Python MCP proxies",

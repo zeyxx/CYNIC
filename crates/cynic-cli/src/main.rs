@@ -24,6 +24,7 @@ mod deps_surface_report;
 mod deps_surface_specs;
 mod deps_surface_upgrade;
 mod dev_surface;
+mod task_surface;
 mod fleet_observation;
 mod fleet_report;
 mod fleet_surface;
@@ -52,6 +53,7 @@ mod runtime_suite;
 mod runtime_surface;
 mod rust_source;
 mod solana_surface;
+mod mask_surface;
 
 #[allow(dead_code)]
 mod autoresearch_surface;
@@ -245,6 +247,11 @@ enum Command {
     Build {
         #[command(subcommand)]
         command: build_surface::BuildCommand,
+    },
+    /// Launch an agent harness through a cynic mask (forge profile → start).
+    Mask {
+        #[command(subcommand)]
+        command: mask_surface::MaskCommand,
     },
 }
 

@@ -533,6 +533,44 @@ pub async fn run_fleet_health(heartbeat_timeout_s: u64) -> serde_json::Value {
     })
 }
 
+/// Report inference configuration status (routing SSOT, backends, vault).
+pub async fn run_inference_status() -> serde_json::Value {
+    use cynic_inference::load_inference_config;
+
+    match load_inference_config() {
+        Ok(config) => {
+            let backends: Vec<_> = config
+                .backends
+                .iter()
+                .map(|b| {
+                    serde_json::json!({
+                        "name": b.name,
+                        "sovereign": b.sovereign,
+                        "base_url": b.base_url,
+                        "model": b.model,
+                        "backend_type": b.backend_type,
+                        "context_size": b.context_size,
+                        "timeout_secs": b.timeout_secs,
+                        "max_tokens": b.max_tokens,
+                        "has_api_key": b.api_key.is_some(),
+                    })
+                })
+                .collect();
+
+            serde_json::json!({
+                "status": "ok",
+                "config_path": config.config_path,
+                "backends": backends,
+                "sovereign_count": backends.iter().filter(|b| b["sovereign"].as_bool().unwrap_or(false)).count(),
+            })
+        }
+        Err(e) => serde_json::json!({
+            "status": "error",
+            "error": format!("{e}"),
+        }),
+    }
+}
+
 /// Evaluate storage credential sync status (pure probe + decision).
 pub async fn run_storage_credential_sync(endpoint: &str) -> serde_json::Value {
     use cynic_host::storage_credential_sync::{StorageCredentialSyncPort, StorageCredentialSyncAdapter};

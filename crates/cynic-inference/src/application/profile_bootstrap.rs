@@ -504,6 +504,116 @@ fn unique_alias(layout: &ModelLayout, base: &str) -> String {
     alias
 }
 
+/// Stable schema id for the forge profile report projection.
+pub const FORGE_PROFILE_SCHEMA: &str = "cynic.inference.forge_profile.v1";
+
+/// Report emitted by `forge_profile_from_benchmark_report`: the winning run
+/// distilled into a single startable vault profile, ready for read-back proof
+/// and a bounded hand-off to `inference-start`.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ForgeProfileReport {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub plan_id: String,
+    pub run_id: String,
+    pub alias: String,
+    pub model_id: String,
+    pub model_path: String,
+    pub profile_path: String,
+    pub from_launch_plan: Option<String>,
+    pub extra_args: Vec<String>,
+    pub source: String,
+    pub message: String,
+}
+
+/// Error channel for forge profile derivation.
+#[derive(Debug, Clone)]
+pub struct ForgeProfileError(pub String);
+impl std::fmt::Display for ForgeProfileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl std::error::Error for ForgeProfileError {}
+
+/// Derive the winning run from a `BenchmarkReport` (JSON file) and forge a
+/// loopback vault `.env` profile for it.
+///
+/// Pure decision + bounded action: read benchmark report → pick the sample with
+/// the best `output_tokens_per_second` → write a loopback profile → return the
+/// proof report (never auto-start the inference supervisor; that requires an
+/// explicit `--yes` hand-off at the CLI surface).
+pub fn forge_profile_from_benchmark_report(
+    report_path: &str,
+    source_note: &str,
+) -> Result<ForgeProfileReport, ForgeProfileError> {
+    let raw = std::fs::read_to_string(report_path)
+        .map_err(|e| ForgeProfileError(format!("read {report_path}: {e}")))?;
+    let report: crate::application::agent_harness::BenchmarkReport =
+        serde_json::from_str(&raw)
+            .map_err(|e| ForgeProfileError(format!("parse BenchmarkReport: {e}")))?;
+
+    // Pick the winning run: the AgentHarnessReport with the best output rate.
+    let winning = report
+        .reports
+        .iter()
+        .filter_map(|hr| {
+            let best = hr
+                .samples
+                .iter()
+                .filter_map(|s| s.output_tokens_per_second)
+                .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            match best {
+                Some(rate) => Some((hr, rate)),
+                None => None,
+            }
+        })
+        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    let (winning_report, _) = winning.ok_or_else(|| {
+        ForgeProfileError("no harness report with output_tokens_per_second samples".into())
+    })?;
+
+    let model_id = winning_report
+        .scenario
+        .model
+        .parameters
+        .model_id
+        .clone();
+    let model_path = winning_report
+        .scenario
+        .model
+        .parameters
+        .model_path
+        .clone();
+    let run_id = winning_report.run_id.clone();
+    let alias = alias_from_artifact_id(&model_id);
+    let layout = crate::domain::model_layout::ModelLayout::from_env();
+    let profile_path = write_loopback_profile(&layout, &alias, &model_path, source_note)
+        .map_err(|e| ForgeProfileError(format!("write loopback profile: {e}")))?;
+
+    let msg = if source_note.is_empty() {
+        format!("forged profile {alias} from winning run {run_id} of plan {}", report.plan_id)
+    } else {
+        format!("{source_note}: forged profile {alias} from winning run {run_id} of plan {}", report.plan_id)
+    };
+
+    Ok(ForgeProfileReport {
+        schema: FORGE_PROFILE_SCHEMA,
+        status: "forged",
+        plan_id: report.plan_id.clone(),
+        run_id,
+        alias,
+        model_id,
+        model_path,
+        profile_path,
+        from_launch_plan: None,
+        extra_args: vec![],
+        source: source_note.to_string(),
+        message: msg,
+    })
+}
+
 pub fn write_loopback_profile(
     layout: &ModelLayout,
     alias: &str,

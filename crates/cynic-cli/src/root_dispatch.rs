@@ -40,6 +40,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Transport { command } => execute_transport_command(command),
         Command::Network { command } => execute_network_command(command),
         Command::Audit { command } => execute_audit_command(command),
+        Command::Advanced => execute_advanced_command(),
         Command::Integrations { command } => execute_integrations_command(command),
         Command::Deps { command, json } => execute_deps_command(command, json),
         Command::Update { target, json } => {
@@ -92,6 +93,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
                 eprintln!("build error: {e}");
                 ExitCode::FAILURE
             }),
+        Command::Mask { command } => crate::mask_surface::execute_mask(command),
     }
 }
 
