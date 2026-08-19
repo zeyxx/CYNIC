@@ -55,6 +55,10 @@ pub struct RuntimeLaunchPlan {
     pub rationale: Vec<String>,
     /// Operator overrides that were applied (from profile), if any.
     pub overrides_applied: Vec<String>,
+    /// Roofline decode ceiling (tokens/s) when a sustained memory bandwidth
+    /// estimate is available. `None` means the ceiling was not computed
+    /// (no bandwidth input) — never a guessed number.
+    pub roofline_decode_tps_estimate: Option<f32>,
 }
 
 impl RuntimeLaunchPlan {
@@ -68,6 +72,9 @@ pub struct ProfileOverrides {
     pub host: Option<String>,
     pub port: Option<u16>,
     pub ctx_size: Option<u32>,
+    /// Named context-window baseline (e.g. `65k`, `128k`, `256k`) that overrides
+    /// the probed ctx_size. Declared in infra/inference-context-baselines.toml.
+    pub context_preset: Option<String>,
     /// If set, replaces probed engine args entirely (escape hatch).
     pub force_extra_args: Option<String>,
     pub force_threads: Option<u32>,
@@ -101,7 +108,23 @@ pub fn plan_launch(
     }
 
     // Context: scale with available RAM and model size
-    let ctx_size = if let Some(c) = overrides.ctx_size {
+    let ctx_size = if let Some(preset) = &overrides.context_preset {
+        match context_preset_ctx_size(preset) {
+            Some(cs) => {
+                overrides_applied.push("context_preset".into());
+                rationale.push(format!("ctx_size={cs} from context preset '{preset}'"));
+                cs
+            }
+            None => {
+                rationale.push(format!(
+                    "context preset '{preset}' unknown; falling back to probed ctx"
+                ));
+                let ctx = default_ctx(hw, model_size_bytes);
+                rationale.push(format!("ctx_size={ctx} from available_ram + model size"));
+                ctx
+            }
+        }
+    } else if let Some(c) = overrides.ctx_size {
         overrides_applied.push("ctx_size".into());
         c
     } else {
@@ -124,13 +147,40 @@ pub fn plan_launch(
         hw.cpu_threads
     ));
 
-    // GPU layers: full offload when a GPU backend is present
+    // GPU layers: full offload when a GPU backend is present AND the model
+    // weights fit the device offload budget.
+    //
+    // On APU / integrated GPUs the offload budget is the unified GTT aperture
+    // (graphics memory carved from the same physical RAM but allocated by
+    // Vulkan for `-ngl`), not the small "dedicated" VRAM carve-out. We must
+    // use `gpu_offload_budget_bytes()` so models that fit the GTT get full
+    // Vulkan offload instead of a wrong CPU-only fallback.
+    let gpu_budget = hw.gpu_offload_budget_bytes();
     let n_gpu_layers = if let Some(n) = overrides.force_n_gpu_layers {
         overrides_applied.push("n_gpu_layers".into());
         n
     } else if plugins.has_vulkan || plugins.has_cuda || plugins.has_metal {
-        rationale.push("n_gpu_layers=99 — GPU backend plugin present".into());
-        99
+        let size = model_size_bytes.unwrap_or(u64::MAX);
+        if gpu_budget == 0 || size <= gpu_budget {
+            if gpu_budget > 0 {
+                let gb = gpu_budget / (1024 * 1024 * 1024);
+                let mb = (size / (1024 * 1024)) % 1024;
+                rationale.push(format!(
+                    "n_gpu_layers=99 — full {plug} offload; weights {} MiB <= {gb} GiB unified GPU budget",
+                    mb, plug = if plugins.has_vulkan { "Vulkan" } else if plugins.has_cuda { "CUDA" } else { "Metal" }
+                ));
+            } else {
+                rationale.push("n_gpu_layers=99 — GPU backend plugin present (no GTT budget probe; assume offload fits)".into());
+            }
+            99
+        } else {
+            let gb = gpu_budget / (1024 * 1024 * 1024);
+            let weight_gb = size / (1024 * 1024 * 1024);
+            rationale.push(format!(
+                "n_gpu_layers=0 — weights {weight_gb} GiB exceed {gb} GiB unified GPU budget; CPU-only to avoid OOM"
+            ));
+            0
+        }
     } else {
         rationale.push("n_gpu_layers=0 — no GPU plugin detected".into());
         0
@@ -240,6 +290,38 @@ pub fn plan_launch(
         plugins.likely_cpu_backend_class
     ));
 
+    // Roofline decode ceiling: tok/s_max = sustained_bandwidth / decode_bytes.
+    // Decode reads the weights roughly twice per token (prefill-style fused
+    // matmuls over Q/K/V + MLP). We use the *offload* path bytes: if the model
+    // is fully offloaded (n_gpu_layers>0) the relevant bandwidth is the GPU
+    // memory bandwidth estimate; if CPU-only, the CPU-RAM bandwidth estimate.
+    // Both come from the operator-supplied CYNIC_ESTIMATED_MEM_BW_GBPS (never
+    // guessed). No estimate => None and we omit the warning rather than invent.
+    let roofline_decode_tps_estimate = hw
+        .memory_bandwidth_bytes_per_sec_estimate
+        .filter(|bw| bw > &0)
+        .and_then(|bw| {
+            model_size_bytes.and_then(|size| {
+                let decode_bytes = (size * 2).max(1);
+                crate::math::roofline::calculate_theoretical_max_tps(decode_bytes, bw as f64)
+            })
+        });
+    if let Some(ceiling) = roofline_decode_tps_estimate {
+        let bw_gb = hw
+            .memory_bandwidth_bytes_per_sec_estimate
+            .map(|b| b as f64 / 1e9)
+            .unwrap_or(0.0);
+        if n_gpu_layers > 0 {
+            rationale.push(format!(
+                "roofline decode ≈ {ceiling:.1} tok/s (memory-bound; BW≈{bw_gb:.0} GB/s, ~2×weights/token, GPU offload)"
+            ));
+        } else {
+            rationale.push(format!(
+                "roofline decode ≈ {ceiling:.1} tok/s (memory-bound; BW≈{bw_gb:.0} GB/s, ~2×weights/token, CPU RAM)"
+            ));
+        }
+    }
+
     let llama_extra_args = engine_args.join(" ");
 
     RuntimeLaunchPlan {
@@ -263,6 +345,7 @@ pub fn plan_launch(
         cpu_quota,
         rationale,
         overrides_applied,
+        roofline_decode_tps_estimate,
     }
 }
 
@@ -279,6 +362,23 @@ fn default_ctx(hw: &HardwareProfile, model_size: Option<u64>) -> u32 {
         4096
     } else {
         2048
+    }
+}
+
+/// Declarative context-window baselines (mirror of
+/// infra/inference-context-baselines.toml). Pure table — no host detection.
+/// Unknown labels return `None` so the caller can fall back to probed ctx.
+fn context_preset_ctx_size(preset: &str) -> Option<u32> {
+    match preset.trim().to_ascii_lowercase().replace(['-', '_'], "").as_str() {
+        "65k" => Some(65536),
+        "128k" => Some(131072),
+        "256k" => Some(262144),
+        // tolerate explicit token forms
+        "64k" => Some(65536),
+        "65536" => Some(65536),
+        "131072" => Some(131072),
+        "262144" => Some(262144),
+        _ => None,
     }
 }
 
@@ -321,6 +421,8 @@ mod tests {
             cpu_flags: vec!["avx2".into(), "fma".into()],
             cpu_governor: None,
             gtt_total_bytes: None,
+            unified_gpu_memory_bytes: None,
+            memory_bandwidth_bytes_per_sec_estimate: None,
         }
     }
 
@@ -347,5 +449,116 @@ mod tests {
         assert_eq!(plan.n_gpu_layers, 99);
         assert_eq!(plan.cpu_quota, "1600%");
         assert!(plan.llama_extra_args.contains("--n-gpu-layers"));
+    }
+
+    /// APU with a unified GTT aperture (graphics memory in the same physical
+    /// pool as CPU RAM, allocated by Vulkan for `-ngl`).
+    fn fake_apu_hw(threads: u32, avail_gb: u64, gtt_gb: u64) -> HardwareProfile {
+        let mut hw = fake_hw(threads, avail_gb, true);
+        let gtt = gtt_gb * 1024 * 1024 * 1024;
+        hw.gtt_total_bytes = Some(gtt);
+        hw.unified_gpu_memory_bytes = Some(gtt);
+        hw
+    }
+
+    #[test]
+    fn apu_unified_gtt_allows_full_offload_for_large_model() {
+        // AMD Renoir-like: 22 GiB unified pool (GTT), 12.6 GiB model.
+        let hw = fake_apu_hw(16, 22, 20);
+        let plugins = EnginePlugins {
+            llama_server_bin: "llama-server".into(),
+            plugin_dir: None,
+            cpu_backends: vec!["avx2".into()],
+            has_vulkan: true,
+            has_cuda: false,
+            has_metal: false,
+            likely_cpu_backend_class: "avx2".into(),
+        };
+        let plan = plan_launch(
+            "qwen3.8-27b",
+            "/qwen3.8.gguf",
+            Some(12_626_773_600),
+            &hw,
+            &plugins,
+            &ProfileOverrides::default(),
+        );
+        assert_eq!(
+            plan.n_gpu_layers, 99,
+            "APU GTT budget (18 GiB) must permit full Vulkan offload of a 12.6 GiB model"
+        );
+        assert!(
+            plan.rationale.iter().any(|r| r.contains("unified GPU budget")),
+            "rationale should cite the unified GPU budget, got: {:?}",
+            plan.rationale
+        );
+    }
+
+    #[test]
+    fn apu_unified_gtt_refuses_offload_when_model_exceeds_budget() {
+        // Small GTT (4 GiB) cannot hold a 12.6 GiB model → CPU-only, no OOM.
+        let hw = fake_apu_hw(16, 22, 4);
+        let plugins = EnginePlugins {
+            llama_server_bin: "llama-server".into(),
+            plugin_dir: None,
+            cpu_backends: vec!["avx2".into()],
+            has_vulkan: true,
+            has_cuda: false,
+            has_metal: false,
+            likely_cpu_backend_class: "avx2".into(),
+        };
+        let plan = plan_launch(
+            "big-model",
+            "/big.gguf",
+            Some(12_626_773_600),
+            &hw,
+            &plugins,
+            &ProfileOverrides::default(),
+        );
+        assert_eq!(
+            plan.n_gpu_layers, 0,
+            "model exceeding unified GPU budget must fall back to CPU-only"
+        );
+        assert!(
+            plan.rationale.iter().any(|r| r.contains("exceed")),
+            "rationale should explain the budget exceed, got: {:?}",
+            plan.rationale
+        );
+    }
+
+    #[test]
+    fn roofline_estimate_is_none_without_bandwidth_input() {
+        // Without CYNIC_ESTIMATED_MEM_BW_GBPS the planner must NOT guess a
+        // decode ceiling — it stays None and emits no roofline rationale line.
+        std::env::remove_var("CYNIC_ESTIMATED_MEM_BW_GBPS");
+        let hw = fake_apu_hw(16, 22, 20);
+        let plugins = EnginePlugins {
+            llama_server_bin: "llama-server".into(),
+            plugin_dir: None,
+            cpu_backends: vec!["avx2".into()],
+            has_vulkan: true,
+            has_cuda: false,
+            has_metal: false,
+            likely_cpu_backend_class: "avx2".into(),
+        };
+        let plan = plan_launch(
+            "qwen3.8-27b",
+            "/qwen3.8.gguf",
+            Some(12_626_773_600),
+            &hw,
+            &plugins,
+            &ProfileOverrides::default(),
+        );
+        assert_eq!(
+            plan.roofline_decode_tps_estimate, None,
+            "roofline ceiling must be None without an operator bandwidth input"
+        );
+        assert!(
+            !plan
+                .rationale
+                .iter()
+                .any(|r| r.contains("roofline decode")),
+            "no roofline rationale line when bandwidth is unknown, got: {:?}",
+            plan.rationale
+        );
     }
 }

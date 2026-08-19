@@ -1,0 +1,33 @@
+# CYNIC sovereign inference — context window baselines (declarative SSOT)
+#
+# Long-context operating points for local llama-server supervision. These are
+# *baselines*, not ceilings: a profile may request a larger ctx_size, but the
+# launch planner treats these as the documented, benchmarked anchors.
+#
+# KV cache estimate note: at q4_0 KV quant, a 27B-class model uses roughly
+#   0.18–0.22 GiB per 1K context (decode-side KV). So:
+#     65K  ≈ 12 GiB KV  (needs unified GTT headroom on APU)
+#     128K ≈ 24 GiB KV  (APU GTT ~19–22 GiB may spill; watch MemoryMax)
+#     256K ≈ 48 GiB KV  (exceeds most single-APU GTT; partial offload / big-RAM host)
+#
+# Schema: cynic.inference.context_baselines.v1
+
+schema = "cynic.inference.context_baselines.v1"
+
+[[baseline]]
+label = "65k"
+ctx_size = 65536
+kv_quant = "q4_0"
+note = "Minimum admitted long-context baseline (per benchmark-kv-sweep-policy)."
+
+[[baseline]]
+label = "128k"
+ctx_size = 131072
+kv_quant = "q4_0"
+note = "Extended context; watch GTT/VRAM KV footprint on APU."
+
+[[baseline]]
+label = "256k"
+ctx_size = 262144
+kv_quant = "q4_0"
+note = "Maximum baseline; requires large unified GPU memory or host RAM spill."

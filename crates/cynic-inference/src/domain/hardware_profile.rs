@@ -54,6 +54,25 @@ pub struct HardwareProfile {
     pub cpu_governor: Option<String>,
     /// GTT total when exposed by DRM (APU shared graphics aperture).
     pub gtt_total_bytes: Option<u64>,
+    /// Unified GPU memory budget for weight offload (APU shared aperture).
+    ///
+    /// On APU / integrated GPUs the "VRAM" exposed by `mem_info_vram_total` is
+    /// only a small carve-out; the real graphics memory is the GTT (GART
+    /// Translation Table) which lives in the same physical RAM pool as the
+    /// CPU. Vulkan allocates from the GTT, so it is legitimate VRAM for
+    /// `llama.cpp` `-ngl` offload. We surface it as the offload budget so the
+    /// launch planner does not wrongly fall back to CPU-only on APUs.
+    pub unified_gpu_memory_bytes: Option<u64>,
+    /// Best-effort sustained memory bandwidth estimate (bytes/s) used by the
+    /// roofline decode ceiling.
+    ///
+    /// NOT auto-derived from a marketing name or frozen host value (per
+    /// AGENTS.md: no hardcoding of machine specifics). It is read from the
+    /// operator-supplied `CYNIC_ESTIMATED_MEM_BW_GBPS` override when present,
+    /// otherwise `None` — the planner then omits the roofline warning rather
+    /// than guessing a number. A future discovery path (e.g. dmidecode /
+    /// libmemclk) may populate this; until then the operator is the source.
+    pub memory_bandwidth_bytes_per_sec_estimate: Option<u64>,
 }
 
 impl HardwareProfile {
@@ -69,8 +88,17 @@ impl HardwareProfile {
         let cpu_governor = read_cpu_governor();
         let (gpu, gtt_total_bytes) = probe_gpu();
 
+        // Unified GPU memory (GTT on APU) is legitimate VRAM for offload.
+        // It lives in the same physical pool as the CPU but is allocated by
+        // Vulkan for `-ngl`, so it must not be double-counted as CPU RAM.
+        let unified_gpu_memory_bytes = if gpu.class == GpuClass::Integrated {
+            gtt_total_bytes
+        } else {
+            None
+        };
+
         // Budget: prefer available RAM; leave headroom for OS + other workloads.
-        // APU/integrated: weights share system RAM — be stricter.
+        // APU/integrated: weights share system RAM — be stricter on CPU RAM.
         let headroom = match gpu.class {
             GpuClass::Integrated => 0.45,
             GpuClass::Discrete => 0.55,
@@ -78,6 +106,21 @@ impl HardwareProfile {
         };
         let recommended = ((available as f64) * headroom) as u64;
         let absolute = ((available as f64) * 0.75) as u64;
+
+        // GPU offload budget: how much weight `-ngl 99` may place on the
+        // device. On APU this is the unified GTT aperture (not the tiny
+        // "dedicated" VRAM carve-out). On discrete we currently have no
+        // reliable VRAM probe, so it stays 0 and the planner keeps weights on
+        // CPU RAM. On APU the GTT is a separate graphics pool, so a model that
+        // fits there does not compete with the CPU-RAM budget above.
+        let gpu_offload_budget = unified_gpu_memory_bytes
+            .map(|g| ((g as f64) * 0.90) as u64)
+            .unwrap_or(0);
+        // For weight-sizing, the comfortable / hard ceilings are the larger of
+        // the CPU-RAM headroom and the GPU offload budget (APU can host the
+        // model entirely in graphics memory).
+        let recommended_max = recommended.max(gpu_offload_budget).max(512 * 1024 * 1024);
+        let absolute_max = absolute.max(gpu_offload_budget).max(1024 * 1024 * 1024);
 
         let avail_gb = available as f64 / (1024.0 * 1024.0 * 1024.0);
         let tier = if avail_gb < 6.0 {
@@ -105,20 +148,48 @@ impl HardwareProfile {
             backends.push("cuda".to_string());
         }
 
+        // Roofline decode ceiling needs a sustained memory bandwidth. We do NOT
+        // guess it from a host/marketing name (AGENTS.md: no machine-specific
+        // hardcoding). The operator may supply it via CYNIC_ESTIMATED_MEM_BW_GBPS
+        // (e.g. DDR4-3200 dual-channel => ~51 GB/s theoretical). Until a
+        // discovery path (dmidecode/libmemclk) populates this, leave it None and
+        // let the planner omit the roofline warning instead of inventing a number.
+        let memory_bandwidth_bytes_per_sec_estimate = std::env::var("CYNIC_ESTIMATED_MEM_BW_GBPS")
+            .ok()
+            .and_then(|v| v.trim().parse::<f64>().ok())
+            .filter(|gbps| gbps.is_finite() && *gbps > 0.0)
+            .map(|gbps| (gbps * 1_000_000_000.0) as u64);
+
         Self {
             schema: Self::SCHEMA,
             total_ram_bytes: total,
             available_ram_bytes: available,
             cpu_threads,
             gpu,
-            recommended_max_weight_bytes: recommended.max(512 * 1024 * 1024),
-            absolute_max_weight_bytes: absolute.max(1024 * 1024 * 1024),
+            recommended_max_weight_bytes: recommended_max,
+            absolute_max_weight_bytes: absolute_max,
             tier,
             backends,
             cpu_flags,
             cpu_governor,
             gtt_total_bytes,
+            unified_gpu_memory_bytes,
+            memory_bandwidth_bytes_per_sec_estimate,
         }
+    }
+
+    /// Bytes of model weights that can be fully offloaded to the GPU via
+    /// `-ngl 99` without spilling to CPU RAM.
+    ///
+    /// On APU / integrated GPUs this is the unified GTT aperture (≈90% of it),
+    /// because Vulkan allocates weights there. On discrete GPUs we currently
+    /// have no reliable VRAM probe, so we return 0 and let the planner fall
+    /// back to partial offload / CPU. Callers must not assume this equals
+    /// free VRAM — it is a conservative *weight* budget.
+    pub fn gpu_offload_budget_bytes(&self) -> u64 {
+        self.unified_gpu_memory_bytes
+            .map(|g| ((g as f64) * 0.90) as u64)
+            .unwrap_or(0)
     }
 
     pub fn fits_recommended(&self, size_bytes: u64) -> bool {
