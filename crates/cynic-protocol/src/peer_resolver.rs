@@ -6,8 +6,6 @@
 //! selection decisions; resolver implementations live behind the
 //! `PeerResolver` trait in the consuming crate (e.g. cynic-node).
 
-use serde::{Deserialize, Serialize};
-
 use crate::build_node::NodeHealthView;
 
 /// Transport used to reach a peer endpoint.
@@ -22,7 +20,7 @@ pub enum PeerTransport {
 }
 
 /// A single resolved peer endpoint.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PeerEndpoint {
     pub node_id: String,
     pub role: String,
@@ -36,7 +34,7 @@ pub struct PeerEndpoint {
 }
 
 /// A peer endpoint wrapped with an ed25519 signature from the rolling fallback bundle.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SignedPeerEndpoint {
     pub endpoint: PeerEndpoint,
     pub signature_ed25519: String,
