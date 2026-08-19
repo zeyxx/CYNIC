@@ -259,6 +259,7 @@ fn signal(
         evidence_tier,
         raw_weight,
         timestamp,
+        epoch: None,
     }
 }
 
