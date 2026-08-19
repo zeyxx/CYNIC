@@ -46,6 +46,23 @@ pub enum CynicErrorCode {
     /// Budgets are monotonic: a citizen may never amplify its own authority.
     AgentBudgetExceeded,
     FleetObservationBlackout,
+    /// A registry claim about a node contradicts what the substrate reports.
+    ///
+    /// The registry is desired state, never proof. When it names a role, an
+    /// address, or a service that observation refutes, the divergence itself is
+    /// the finding — silently trusting either side fabricates convergence.
+    FleetRegistrySubstrateDivergence,
+    /// One name resolves to different addresses depending on who asks.
+    ///
+    /// Per-node `/etc/hosts` overrides make a name locally correct and globally
+    /// inconsistent, so peers disagree about where a role lives without any
+    /// single node observing a fault.
+    FleetNameResolutionInconsistent,
+    /// A node runs a fleet-facing role while being unreachable by name.
+    ///
+    /// Reachable-by-IP-only means every peer needs a hardcoded address, which
+    /// is how per-node overrides start.
+    FleetNodeUndiscoverable,
 }
 
 pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
@@ -83,6 +100,9 @@ pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
     CynicErrorCode::AgentMergeQueueRace,
     CynicErrorCode::AgentBudgetExceeded,
     CynicErrorCode::FleetObservationBlackout,
+    CynicErrorCode::FleetRegistrySubstrateDivergence,
+    CynicErrorCode::FleetNameResolutionInconsistent,
+    CynicErrorCode::FleetNodeUndiscoverable,
 ];
 
 impl CynicErrorCode {
@@ -122,6 +142,9 @@ impl CynicErrorCode {
             Self::AgentMergeQueueRace => "CYNIC-AGT-006",
             Self::AgentBudgetExceeded => "CYNIC-AGT-007",
             Self::FleetObservationBlackout => "CYNIC-FLT-001",
+            Self::FleetRegistrySubstrateDivergence => "CYNIC-FLT-002",
+            Self::FleetNameResolutionInconsistent => "CYNIC-FLT-003",
+            Self::FleetNodeUndiscoverable => "CYNIC-FLT-004",
         }
     }
 
@@ -225,6 +248,15 @@ impl CynicErrorCode {
             }
             Self::FleetObservationBlackout => {
                 "restore fleet observation transport; no declared node is reporting, so health is unknown rather than healthy"
+            }
+            Self::FleetRegistrySubstrateDivergence => {
+                "reconcile the registry entry with the observed substrate, or materialize the declared state; do not trust either side silently"
+            }
+            Self::FleetNameResolutionInconsistent => {
+                "publish the name from one authoritative zone and remove per-node /etc/hosts overrides that disagree"
+            }
+            Self::FleetNodeUndiscoverable => {
+                "give the node an address and DNS record on the plane its role serves, so peers stop hardcoding its IP"
             }
         }
     }

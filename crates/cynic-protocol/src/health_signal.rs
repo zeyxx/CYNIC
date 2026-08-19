@@ -163,6 +163,38 @@ pub enum HealthSignalPayload {
         expected_status: String,
         observed_status: String,
     },
+    /// The registry declares something about a node that observation refutes.
+    ///
+    /// Distinct from `FleetDrift`, which compares two *status* strings for a
+    /// node already agreed to exist. This variant carries the claim itself, so
+    /// the reconciler can tell "declared role lives elsewhere" from "declared
+    /// address answers nothing" without parsing prose.
+    RegistrySubstrateDivergence {
+        node_id: String,
+        /// Which registry field diverges (`role_host`, `synapse_address`,
+        /// `dns_record`, `service_binding`).
+        claim_kind: String,
+        /// What the registry asserts.
+        declared: String,
+        /// What the substrate reported when probed.
+        observed: String,
+        /// True when the registry itself marks the entry unproven
+        /// (`status: candidate`). A candidate that never materialized is a
+        /// stale intent, not a substrate fault.
+        declared_as_candidate: bool,
+    },
+    /// One name resolves differently depending on which node asks.
+    ///
+    /// Carries every observed answer, not just the local one: a node cannot
+    /// detect this class by looking at its own resolver.
+    NameResolutionInconsistent {
+        name: String,
+        /// `(observer_node_id, resolved_value)` for each vantage point probed.
+        answers: Vec<(String, String)>,
+        /// Vantage points that could not resolve at all — unknown, not a
+        /// disagreement.
+        unresolved_from: Vec<String>,
+    },
     StorageLatency {
         operation: String,
         latency_ms: u64,
@@ -256,6 +288,12 @@ impl HealthSignalPayload {
             Self::AgentScopeConflict { .. } => vec![CynicErrorCode::AgentScopeConflict],
             Self::AgentClaimExpired { .. } => vec![CynicErrorCode::AgentClaimExpired],
             Self::SharedTypeDrift { .. } => vec![CynicErrorCode::AgentSharedTypeDrift],
+            Self::RegistrySubstrateDivergence { .. } => {
+                vec![CynicErrorCode::FleetRegistrySubstrateDivergence]
+            }
+            Self::NameResolutionInconsistent { .. } => {
+                vec![CynicErrorCode::FleetNameResolutionInconsistent]
+            }
             Self::FleetObservationBlackout { .. } => {
                 vec![CynicErrorCode::FleetObservationBlackout]
             }
@@ -363,6 +401,34 @@ pub enum AutonomicActionKind {
         crate_name: String,
         type_name: String,
         divergent_symbols: Vec<String>,
+    },
+    /// Reconcile a registry claim with the substrate that refutes it.
+    ///
+    /// Deliberately NOT a mutation. Two safe repairs exist and only the
+    /// operator knows which is intended: correct the registry to match reality,
+    /// or materialize the declared state. Guessing would either erase a real
+    /// plan or fabricate a node. The action therefore carries both candidate
+    /// repairs and stops.
+    ReconcileRegistryClaim {
+        node_id: String,
+        claim_kind: String,
+        declared: String,
+        observed: String,
+        /// Repair that makes the registry match the substrate.
+        align_registry_to_substrate: String,
+        /// Repair that makes the substrate match the registry.
+        materialize_declared_state: String,
+    },
+    /// Republish a name from one authoritative zone.
+    ///
+    /// Names it as a zone-authority repair rather than an /etc/hosts edit: the
+    /// defect is that several nodes each own a private answer, so patching one
+    /// more host would deepen it.
+    UnifyNameAuthority {
+        name: String,
+        conflicting_answers: Vec<(String, String)>,
+        /// The zone that should own the record once unified.
+        authoritative_zone: String,
     },
     /// Restore fleet observation transport after a total blackout.
     ///
@@ -702,6 +768,83 @@ pub fn reconcile_health_signal(
             ),
             stop_condition: "stop when at least one node reports in-window".to_string(),
             rollback_intent: "retain existing observation transport if restore fails".to_string(),
+        }),
+        HealthSignalPayload::RegistrySubstrateDivergence {
+            node_id,
+            claim_kind,
+            declared,
+            observed,
+            declared_as_candidate,
+        } => Some(AutonomicRemediationPlan {
+            schema: AUTONOMIC_REMEDIATION_PLAN_SCHEMA.to_string(),
+            plan_id: format!("remediation-registry-divergence-{now_unix_s}"),
+            signal_id: signal.signal_id.clone(),
+            generated_at_unix_s: now_unix_s,
+            // A candidate that never materialized is stale intent, not an
+            // incident: the registry already admits it is unproven.
+            severity: if *declared_as_candidate {
+                SignalSeverity::Warning
+            } else {
+                SignalSeverity::Critical
+            },
+            // Actionable as a decision to surface, never as a silent mutation:
+            // both repairs are legitimate and only the operator knows which.
+            is_actionable: false,
+            action: AutonomicActionKind::ReconcileRegistryClaim {
+                node_id: node_id.clone(),
+                claim_kind: claim_kind.clone(),
+                declared: declared.clone(),
+                observed: observed.clone(),
+                align_registry_to_substrate: format!(
+                    "set {node_id}.{claim_kind} to the observed value {observed}"
+                ),
+                materialize_declared_state: format!(
+                    "provision {declared} so {node_id}.{claim_kind} becomes true"
+                ),
+            },
+            reasoning: format!(
+                "registry declares {node_id}.{claim_kind}={declared} but observation reports {observed}\
+                 {}; the registry is desired state and never proof, so the divergence is the finding",
+                if *declared_as_candidate {
+                    " (entry is marked candidate, so this is unmaterialized intent)"
+                } else {
+                    " (entry is not marked candidate, so one side is wrong)"
+                }
+            ),
+            stop_condition: "stop until the operator picks which side to change".to_string(),
+            rollback_intent: "no mutation proposed; nothing to roll back".to_string(),
+        }),
+        HealthSignalPayload::NameResolutionInconsistent {
+            name,
+            answers,
+            unresolved_from,
+        } => Some(AutonomicRemediationPlan {
+            schema: AUTONOMIC_REMEDIATION_PLAN_SCHEMA.to_string(),
+            plan_id: format!("remediation-name-authority-{now_unix_s}"),
+            signal_id: signal.signal_id.clone(),
+            generated_at_unix_s: now_unix_s,
+            severity: SignalSeverity::Critical,
+            is_actionable: false,
+            action: AutonomicActionKind::UnifyNameAuthority {
+                name: name.clone(),
+                conflicting_answers: answers.clone(),
+                authoritative_zone: "synapse.cynic".to_string(),
+            },
+            reasoning: format!(
+                "{name} resolves {} different ways across {} vantage point(s); \
+                 {} could not resolve it at all. Each node holding a private \
+                 answer means no single node can observe the fault, so patching \
+                 one more /etc/hosts would deepen it",
+                answers
+                    .iter()
+                    .map(|(_, value)| value.as_str())
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len(),
+                answers.len(),
+                unresolved_from.len()
+            ),
+            stop_condition: "stop when one zone owns the record and peers agree".to_string(),
+            rollback_intent: "no mutation proposed; nothing to roll back".to_string(),
         }),
         _ => None,
     }
@@ -1199,6 +1342,139 @@ mod tests {
             assert!(!plan.rollback_intent.is_empty(), "empty rollback_intent");
             assert_eq!(plan.signal_id, signal.signal_id);
             assert_eq!(plan.schema, AUTONOMIC_REMEDIATION_PLAN_SCHEMA);
+        }
+    }
+
+    /// A registry claim the substrate refutes must never auto-mutate.
+    ///
+    /// Two repairs are legitimate — fix the registry, or provision the declared
+    /// state — and only the operator knows which was intended. Guessing would
+    /// either erase a real plan or fabricate a node, so the plan surfaces both
+    /// and stops. This is the live case: the registry names kernel_primary at
+    /// 10.10.10.100 while the kernel actually runs on cortex.
+    #[test]
+    fn registry_divergence_surfaces_both_repairs_and_mutates_nothing() {
+        let payload = HealthSignalPayload::RegistrySubstrateDivergence {
+            node_id: "local-kernel".to_string(),
+            claim_kind: "role_host".to_string(),
+            declared: "10.10.10.100".to_string(),
+            observed: "kernel serving on cortex 192.168.100.2:3030".to_string(),
+            declared_as_candidate: true,
+        };
+        assert_eq!(
+            payload.error_codes(),
+            vec![CynicErrorCode::FleetRegistrySubstrateDivergence]
+        );
+
+        let signal = signal_with(payload, SignalSeverity::Warning);
+        let plan = reconcile_health_signal(&signal, 1_000).expect("divergence must reconcile");
+
+        assert!(
+            !plan.is_actionable,
+            "a divergence must not be auto-applied: both repairs are valid"
+        );
+        assert_eq!(
+            plan.rollback_intent,
+            "no mutation proposed; nothing to roll back"
+        );
+
+        match &plan.action {
+            AutonomicActionKind::ReconcileRegistryClaim {
+                align_registry_to_substrate,
+                materialize_declared_state,
+                ..
+            } => {
+                assert!(!align_registry_to_substrate.trim().is_empty());
+                assert!(!materialize_declared_state.trim().is_empty());
+            }
+            other => panic!("expected ReconcileRegistryClaim, got {other:?}"),
+        }
+    }
+
+    /// A `candidate` entry is stale intent, not an incident.
+    ///
+    /// The registry already admits an unproven entry, so contradicting it is
+    /// less severe than a claim asserted as fact. Without this distinction every
+    /// unmaterialized plan would page as critical.
+    #[test]
+    fn candidate_divergence_is_warning_asserted_divergence_is_critical() {
+        let make = |candidate: bool| {
+            let signal = signal_with(
+                HealthSignalPayload::RegistrySubstrateDivergence {
+                    node_id: "n".to_string(),
+                    claim_kind: "synapse_address".to_string(),
+                    declared: "10.10.10.100".to_string(),
+                    observed: "no answer".to_string(),
+                    declared_as_candidate: candidate,
+                },
+                SignalSeverity::Warning,
+            );
+            reconcile_health_signal(&signal, 1).expect("plan").severity
+        };
+        assert_eq!(make(true), SignalSeverity::Warning);
+        assert_eq!(make(false), SignalSeverity::Critical);
+    }
+
+    /// Inconsistent name resolution is repaired at the zone, not per host.
+    ///
+    /// The live case: `kernel.synapse.cynic` answers 127.0.0.1 on cortex,
+    /// 192.168.100.2 on the builder, 10.10.10.100 in the registry. Vantage
+    /// points that could not resolve stay `unresolved_from` — unknown, never
+    /// counted as agreement.
+    #[test]
+    fn name_conflict_counts_distinct_answers_and_keeps_unresolved_unknown() {
+        let payload = HealthSignalPayload::NameResolutionInconsistent {
+            name: "kernel.synapse.cynic".to_string(),
+            answers: vec![
+                ("cortex".to_string(), "127.0.0.1".to_string()),
+                ("cynic-builder".to_string(), "192.168.100.2".to_string()),
+                ("registry".to_string(), "10.10.10.100".to_string()),
+            ],
+            unresolved_from: vec!["forgejo".to_string()],
+        };
+        assert_eq!(
+            payload.error_codes(),
+            vec![CynicErrorCode::FleetNameResolutionInconsistent]
+        );
+
+        let plan = reconcile_health_signal(&signal_with(payload, SignalSeverity::Critical), 7)
+            .expect("plan");
+        assert!(!plan.is_actionable, "zone repair needs operator intent");
+        assert!(
+            plan.reasoning.contains('3'),
+            "must report 3 distinct answers, got: {}",
+            plan.reasoning
+        );
+        match &plan.action {
+            AutonomicActionKind::UnifyNameAuthority {
+                conflicting_answers,
+                authoritative_zone,
+                ..
+            } => {
+                assert_eq!(conflicting_answers.len(), 3);
+                assert!(!authoritative_zone.is_empty());
+            }
+            other => panic!("expected UnifyNameAuthority, got {other:?}"),
+        }
+    }
+
+    /// The three fleet-divergence codes demand operator action, not a retry.
+    ///
+    /// Retrying a divergence re-reads the same contradiction forever. Marking
+    /// them retryable would let a reconciler spin instead of surfacing.
+    #[test]
+    fn fleet_divergence_codes_are_not_retryable() {
+        for code in [
+            CynicErrorCode::FleetRegistrySubstrateDivergence,
+            CynicErrorCode::FleetNameResolutionInconsistent,
+            CynicErrorCode::FleetNodeUndiscoverable,
+        ] {
+            assert!(!code.retryable(), "{} must not be retryable", code.code());
+            assert!(
+                !code.operator_action().trim().is_empty(),
+                "{} needs an operator action",
+                code.code()
+            );
         }
     }
 }
