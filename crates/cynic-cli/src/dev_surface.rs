@@ -262,7 +262,7 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
             emit_json(&report, report.status != "ok")
         }
         DevCommand::Check {
-            json,
+            json: _,
             architecture_only,
             layers,
             source_root,

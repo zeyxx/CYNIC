@@ -6,7 +6,6 @@
 
 use std::io::Read;
 use std::net::TcpStream;
-use std::path::Path;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::fleet_discovery::{
@@ -52,7 +51,7 @@ impl FleetDiscoveryAdapter {
         };
 
         let mut nodes = Vec::new();
-        let mut residual_unknowns = Vec::new();
+        let residual_unknowns = Vec::new();
         let mut alive = 0;
         let mut degraded = 0;
         let mut unreachable = 0;

@@ -1,6 +1,6 @@
 //! Principal-aware binary resolution (prefer layout bin over ambient PATH).
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use super::types::{ObservedBinary, PrincipalInstallLayout, PythonInstallProvenance};
 

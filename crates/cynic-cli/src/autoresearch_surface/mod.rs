@@ -5,5 +5,5 @@
 
 #![allow(dead_code)]
 
-pub mod render;
-pub mod types;
+pub(crate) mod render;
+pub(crate) mod types;

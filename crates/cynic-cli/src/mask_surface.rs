@@ -22,7 +22,7 @@ use crate::runtime_surface::RuntimeCommand;
 /// Thin re-declaration so the CLI can serialize its intent; the canonical
 /// trait lives in `cynic-protocol::agent_citizenship::Citoyenneté`.
 #[derive(Debug, Clone, serde::Serialize)]
-pub struct AgentCitizenship {
+pub(crate) struct AgentCitizenship {
     pub schema: &'static str,
     pub agent_id: String,
     pub scope: String,
@@ -31,13 +31,13 @@ pub struct AgentCitizenship {
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
-pub struct AgentBudgets {
+pub(crate) struct AgentBudgets {
     pub actions: u64,
     pub wall_seconds: u64,
 }
 
 #[derive(Subcommand)]
-pub enum MaskCommand {
+pub(crate) enum MaskCommand {
     /// Forge a vault profile from a BenchmarkReport, then launch the harness
     /// behind the resulting mask (alias). Hand-off is explicit: the profile is
     /// written, then `inference-start --yes` is dispatched against it.
@@ -61,7 +61,7 @@ pub enum MaskCommand {
     },
 }
 
-pub fn execute_mask(command: MaskCommand) -> ExitCode {
+pub(crate) fn execute_mask(command: MaskCommand) -> ExitCode {
     match command {
         MaskCommand::Forge {
             report,
@@ -75,7 +75,7 @@ pub fn execute_mask(command: MaskCommand) -> ExitCode {
     }
 }
 
-fn execute_mask_forge(report_path: &str, source_note: &str, json: bool, yes: bool) -> ExitCode {
+fn execute_mask_forge(report_path: &str, _source_note: &str, json: bool, yes: bool) -> ExitCode {
     let exit = execute_runtime(RuntimeCommand::InferenceForge {
         report: report_path.to_string(),
         alias: "auto".to_string(),

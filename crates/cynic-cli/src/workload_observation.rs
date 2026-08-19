@@ -19,7 +19,7 @@ use cynic_node::ports::agent_workload_store_port::AgentWorkloadStorePort;
 use cynic_protocol::DurableAgentWorkloadRecord;
 
 /// Observe one workload by id.
-pub fn execute_observe_workload(
+pub(crate) fn execute_observe_workload(
     workload_id: &str,
     state_root: &str,
     local: bool,
@@ -34,7 +34,7 @@ pub fn execute_observe_workload(
 }
 
 /// List all durable workloads.
-pub fn execute_list_workloads(
+pub(crate) fn execute_list_workloads(
     state_root: &str,
     local: bool,
     registry_path: &str,

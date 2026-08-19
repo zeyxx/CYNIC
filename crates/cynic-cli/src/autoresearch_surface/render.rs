@@ -4,7 +4,7 @@
 
 use crate::autoresearch_surface::types::AutoresearchReport;
 
-pub fn render_report(report: &AutoresearchReport) -> String {
+pub(crate) fn render_report(report: &AutoresearchReport) -> String {
     let mut out = String::new();
     out.push_str(&format!(
         "Autoresearch Report\n  \

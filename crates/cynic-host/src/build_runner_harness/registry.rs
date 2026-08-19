@@ -1,4 +1,4 @@
-use cynic_protocol::{parse_harness_scenarios, HarnessScenario, HarnessScenarioId};
+use cynic_protocol::{parse_harness_scenarios, HarnessScenario};
 use serde_json::Value;
 use std::fs;
 use std::path::Path;

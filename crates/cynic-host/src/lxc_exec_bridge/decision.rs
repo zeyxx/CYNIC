@@ -12,6 +12,7 @@ pub fn admit(request: &LxcBridgeRequest, pct_bin: &str) -> LxcBridgeDecision {
     admit_at_with_incident_authority(request, pct_bin, now_unix_s, false)
 }
 
+#[allow(dead_code)]
 pub fn admit_at(request: &LxcBridgeRequest, pct_bin: &str, now_unix_s: u64) -> LxcBridgeDecision {
     admit_at_with_incident_authority(request, pct_bin, now_unix_s, false)
 }

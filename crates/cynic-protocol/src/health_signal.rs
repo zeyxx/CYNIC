@@ -308,7 +308,7 @@ pub fn reconcile_health_signal(
             rollback_intent: "retain existing endpoint if refresh fails".to_string(),
         }),
         HealthSignalPayload::WireguardPeerStale {
-            interface,
+            interface: _,
             peer_public_key_prefix,
             age_seconds,
             stale_threshold_seconds,

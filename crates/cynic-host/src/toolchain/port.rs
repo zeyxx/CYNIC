@@ -119,4 +119,3 @@ pub struct ToolchainLifecycleReport {
 }
 
 // Re-export for convenience (CYNIC §6: one canonical decision source per concern).
-pub use crate::toolchain::policy::ToolchainDecision as _;

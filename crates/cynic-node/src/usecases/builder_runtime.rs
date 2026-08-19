@@ -21,6 +21,7 @@ pub struct BuilderRuntimeConfig {
     pub kernel_url: String,
 }
 
+#[allow(private_interfaces)]
 pub async fn run_builder_runtime(
     config: BuilderRuntimeConfig,
     _node_control: &NodeControlConfig,

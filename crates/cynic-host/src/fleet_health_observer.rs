@@ -7,7 +7,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::fleet_heartbeat::{
-    aggregate_fleet_health, FleetHealthAggregation, FleetHeartbeat, FleetNodeStatus,
+    aggregate_fleet_health, FleetHealthAggregation, FleetHeartbeat,
 };
 
 use crate::fleet_discovery::FleetDiscoveryAdapter;
@@ -16,6 +16,7 @@ use crate::fleet_discovery::FleetDiscoveryAdapter;
 pub struct FleetHealthObserver {
     pub(crate) registry_path: String,
     pub(crate) heartbeat_timeout_s: u64,
+    #[allow(dead_code)]
     pub(crate) heartbeats: Vec<FleetHeartbeat>,
 }
 

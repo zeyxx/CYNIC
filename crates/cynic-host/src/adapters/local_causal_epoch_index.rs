@@ -4,7 +4,7 @@ use std::os::fd::AsRawFd;
 use std::path::PathBuf;
 
 use cynic_protocol::{
-    CausalEpochIndex, CausalEpochIndexAppend, CausalEpochIndexEntry, CausalEpochKey, digest_json,
+    CausalEpochIndex, CausalEpochIndexAppend, CausalEpochIndexEntry, digest_json,
 };
 
 use crate::ports::causal_epoch_index::CausalEpochIndexStorePort;

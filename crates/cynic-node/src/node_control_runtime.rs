@@ -175,7 +175,7 @@ pub(crate) async fn start_tasks(
             adapter,
             enrollment_reader,
             control,
-            shutdown,
+            shutdown.clone(),
         ),
     );
     let mut tasks = vec![control_task, renewal_task];
@@ -206,7 +206,7 @@ pub(crate) async fn start_tasks(
         && build_scheduler_inputs_ready
     {
         tasks.push(tokio::spawn(crate::build_scheduler::run_loop(
-            scheduler_control,
+            scheduler_control.clone(),
             scheduler_shutdown,
         )));
     } else if scheduler_control.build_scheduler.is_some() {

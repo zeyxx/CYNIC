@@ -6,6 +6,7 @@ use super::types::{FrameworkPropagationObservation, FrameworkPropagationProbe};
 const RUNTIME_MARKER: &str = "/var/lib/cynic/runtime/current/.cynic-runtime-release.json";
 const NODE_OBSERVATION: &str = "/var/lib/cynic/bootstrap/node-registry-observation.json";
 
+#[allow(dead_code)]
 pub(super) fn observe_framework_propagation(
     ssh_target: &str,
     runner: &dyn ArgvRunner,

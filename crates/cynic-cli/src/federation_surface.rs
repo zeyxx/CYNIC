@@ -6,14 +6,14 @@ use cynic_protocol::federation::FederationReconciliation;
 
 /// Federation CLI command — subcommands for federation operations.
 #[derive(Debug, Subcommand)]
-pub enum FederationCommand {
+pub(crate) enum FederationCommand {
     /// Show the current federation reconciliation status.
     Status(FederationStatusCommand),
 }
 
 /// CLI arguments for `cynic federation status`.
 #[derive(Debug, Parser)]
-pub struct FederationStatusCommand {
+pub(crate) struct FederationStatusCommand {
     /// Output as JSON (machine-readable).
     #[arg(long, default_value_t = false)]
     pub json: bool,
@@ -21,7 +21,7 @@ pub struct FederationStatusCommand {
 
 impl FederationCommand {
     /// Execute the federation command.
-    pub fn execute(&self, reconciliation: &FederationReconciliation) -> Result<(), String> {
+    pub(crate) fn execute(&self, reconciliation: &FederationReconciliation) -> Result<(), String> {
         match self {
             FederationCommand::Status(cmd) => cmd.execute(reconciliation),
         }
@@ -30,7 +30,7 @@ impl FederationCommand {
 
 impl FederationStatusCommand {
     /// Execute the federation status command.
-    pub fn execute(&self, reconciliation: &FederationReconciliation) -> Result<(), String> {
+    pub(crate) fn execute(&self, reconciliation: &FederationReconciliation) -> Result<(), String> {
         if self.json {
             let json = serde_json::to_string_pretty(reconciliation)
                 .map_err(|e| format!("failed to serialize reconciliation: {e}"))?;

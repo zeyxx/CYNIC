@@ -1,5 +1,5 @@
 use cynic_protocol::{
-    reconcile_harness_matrix, HarnessObservation, HarnessScenario, HarnessScenarioId, HarnessStatus,
+    reconcile_harness_matrix, HarnessObservation,
 };
 
 use super::observe::observe_harness_scenarios;

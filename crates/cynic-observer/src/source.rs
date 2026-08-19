@@ -73,6 +73,7 @@ impl EventSourcePort for SystemMetabolismSource {
 }
 
 /// Fleet & P2P mesh source adapter (peer count, discovery).
+#[derive(Debug)]
 pub struct FleetMeshSource {
     node_id: String,
     role: String,

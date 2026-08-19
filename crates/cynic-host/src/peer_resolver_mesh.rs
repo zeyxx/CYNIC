@@ -3,9 +3,7 @@
 //! This is the bottom-up foundation: without a concrete resolver, every layer
 //! above (autonomy loop, CLI, MCP, takeover decision) cannot be tested.
 
-use std::collections::BTreeMap;
 use std::net::TcpStream;
-use std::path::Path;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::build_node::NodeHealthView;
@@ -101,7 +99,6 @@ impl PeerResolver for MeshPeerResolver {
                 continue;
             }
             let ip = node.synapse_ip.unwrap_or_else(|| node.management_ip.clone());
-            let mut all_reachable = true;
             let mut any_reachable = false;
 
             for port in &node.probe_ports {
@@ -109,7 +106,6 @@ impl PeerResolver for MeshPeerResolver {
                 if reachable {
                     any_reachable = true;
                 } else {
-                    all_reachable = false;
                 }
             }
 
@@ -175,7 +171,6 @@ impl PeerResolver for MeshPeerResolver {
         let mut peers = vec![];
         for node in declared {
             let ip = node.synapse_ip.unwrap_or_else(|| node.management_ip.clone());
-            let mut all_reachable = true;
             let mut any_reachable = false;
 
             for port in &node.probe_ports {
@@ -183,7 +178,6 @@ impl PeerResolver for MeshPeerResolver {
                 if reachable {
                     any_reachable = true;
                 } else {
-                    all_reachable = false;
                 }
             }
 

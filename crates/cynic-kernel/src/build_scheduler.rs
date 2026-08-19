@@ -46,6 +46,7 @@ impl std::error::Error for BuildSchedulerError {}
 /// Build scheduler — receives requests, runs workflow, persists proof.
 pub struct BuildScheduler {
     storage: Arc<dyn StoragePort>,
+    #[allow(dead_code)]
     node_control: Option<Arc<dyn NodeControlStorePort>>,
 }
 
@@ -74,7 +75,8 @@ pub struct BuildScheduleResult {
 impl BuildScheduler {
     pub fn new(
         storage: Arc<dyn StoragePort>,
-        node_control: Option<Arc<dyn NodeControlStorePort>>,
+        #[allow(dead_code)]
+    node_control: Option<Arc<dyn NodeControlStorePort>>,
     ) -> Self {
         Self {
             storage,

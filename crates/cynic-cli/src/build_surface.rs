@@ -17,7 +17,7 @@ use crate::workload_observation::{execute_observe_workload, execute_list_workloa
 
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
-pub enum BuildCommand {
+pub(crate) enum BuildCommand {
     /// Run the build workflow (observe → verify → decide → execute)
     Run {
         /// Print JSON output
@@ -87,7 +87,7 @@ pub enum BuildCommand {
 }
 
 /// Execute the build CLI command.
-pub fn execute_build(command: BuildCommand) -> Result<(), String> {
+pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
     match command {
         BuildCommand::Run {
             json,
@@ -138,7 +138,7 @@ fn run_build(
 ) -> Result<(), String> {
     // Step 1: Load observation
     let observation_adapter = JsonBuildRunnerObservationAdapter::new(&observation_path);
-    let observation = observation_adapter
+    let _observation = observation_adapter
         .observe()
         .map_err(|e| format!("observation failed: {e}"))?;
 

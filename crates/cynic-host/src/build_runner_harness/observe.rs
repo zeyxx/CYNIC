@@ -1,5 +1,5 @@
 use cynic_protocol::{
-    HarnessEvidence, HarnessEvidenceKind, HarnessEvidenceStatus, HarnessObservation,
+    HarnessObservation,
     HarnessScenario, HarnessScenarioId,
 };
 

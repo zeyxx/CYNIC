@@ -1,6 +1,5 @@
 use cynic_protocol::{
-    HarnessCellReport, HarnessMatrixReport, HarnessScenario, HarnessScenarioId, HarnessStatus,
-    HARNESS_MATRIX_SCHEMA,
+    HarnessCellReport, HarnessMatrixReport, HarnessScenarioId, HarnessStatus,
 };
 use serde::{Deserialize, Serialize};
 

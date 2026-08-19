@@ -140,6 +140,7 @@ pub fn plan_framework_propagation_with_transport(
     })
 }
 
+#[allow(dead_code)]
 pub(super) fn enrollment_operations(
     bundle_dir: &str,
     ssh_target: &str,

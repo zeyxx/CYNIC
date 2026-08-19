@@ -8,16 +8,13 @@
 //!
 //! The runtime itself is testable by injecting fake adapters.
 
-use std::path::Path;
 
 use cynic_protocol::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
-use cynic_protocol::build::{BuildRecipe, BuildRunnerObservation, BUILD_RECIPE_SCHEMA};
+use cynic_protocol::build::BuildRecipe;
 use cynic_protocol::source_control::SourceSnapshot;
-use cynic_protocol::{LeaseVerification, SecurityEvidenceState};
 
 use crate::build_evidence::{
-    BuildLeaseVerificationPort, BuildRunnerObservationPort, CurlBuildLeaseVerificationAdapter,
-    JsonBuildRunnerObservationAdapter, SshBuildRunnerObservationAdapter,
+    BuildLeaseVerificationPort, BuildRunnerObservationPort,
 };
 use crate::build::{run_build, BuildProof, BuildRequest};
 use crate::update_lifecycle::ArgvRunner;
