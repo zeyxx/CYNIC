@@ -75,6 +75,9 @@ mod tests {
         // An explicit fixture, not the relative "infra/registry.json": cargo runs
         // unit tests with the crate directory as CWD, so that path never resolves
         // and the aggregation silently reported 0 declared nodes.
+        //
+        // Declared nodes are parsed from network_policy.reservations (each needs a
+        // synapse or management address), with roles resolved from nodes[].
         let unique = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system time")
@@ -83,6 +86,13 @@ mod tests {
         std::fs::write(
             &path,
             r#"{
+              "network_policy": {
+                "reservations": [
+                  {"name":"node-a","synapse":"10.10.10.10"},
+                  {"name":"node-b","synapse":"10.10.10.11"},
+                  {"name":"node-c","synapse":"10.10.10.12"}
+                ]
+              },
               "nodes": [
                 {"id":"node-a","role":"kernel_primary"},
                 {"id":"node-b","role":"build_runner"},
@@ -92,6 +102,8 @@ mod tests {
         )
         .expect("write fixture");
 
+        // No services declared, so no TCP probe is attempted and the test stays
+        // hermetic (no network dependency).
         let observer = FleetHealthObserver::new(path.to_str().expect("utf8 temp path"), 30);
         let agg = observer.observe();
         assert_eq!(agg.schema, "cynic.fleet_health_aggregation.v1");
