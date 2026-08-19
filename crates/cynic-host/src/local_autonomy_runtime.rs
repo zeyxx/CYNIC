@@ -11,8 +11,9 @@ use cynic_protocol::local_autonomy::{
     AutonomyDecision, AutonomyMode, AutonomyObservation, decide_autonomy,
     LOCAL_AUTONOMY_STATE_SCHEMA,
 };
+use cynic_protocol::peer_resolver::PeerResolver;
 
-use crate::os_health::{OsHealthObserver, LOCAL_OS_HEALTH_OBSERVER};
+use crate::os_health::{LocalOsHealthObserver, OsHealthObserver};
 use crate::peer_resolver_mesh::MeshPeerResolver;
 
 /// Local autonomy runtime — wires observation sources to the pure decision.
@@ -58,7 +59,7 @@ impl LocalAutonomyRuntime {
             .unwrap_or(0);
 
         // 1. Local OS health
-        let os_observation = LOCAL_OS_HEALTH_OBSERVER.observe_os_health();
+        let os_observation = LocalOsHealthObserver.observe_os_health();
         let os_healthy = os_observation.dmesg_softlockup_count == 0
             && os_observation.dmesg_oom_count == 0
             && os_observation.available_mem_mib >= 2048;

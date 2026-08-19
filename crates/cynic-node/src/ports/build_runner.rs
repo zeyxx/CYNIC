@@ -87,7 +87,7 @@ impl BuildTrigger {
 }
 
 /// Per-layer build result, mirroring `cynic.layer_build_proof.v1`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LayerProof {
     pub layer: String,
     pub status: LayerStatus,
@@ -96,7 +96,7 @@ pub struct LayerProof {
 }
 
 /// Status of a single layer in the pipeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LayerStatus {
     /// Layer check/test passed.
     Converged,
@@ -107,7 +107,7 @@ pub enum LayerStatus {
 }
 
 /// Aggregated pipeline proof, mirroring `cynic.pipeline_build_proof.v1`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct BuildProofBundle {
     pub schema: String,
     pub node: String,
@@ -119,7 +119,7 @@ pub struct BuildProofBundle {
 }
 
 /// Whole-pipeline convergence status.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PipelineStatus {
     Converged,
     Blocked,

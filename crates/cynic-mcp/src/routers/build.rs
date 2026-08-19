@@ -1,6 +1,5 @@
 // ── Build runner tools (distributed build trigger + workload observation + forgejo webhook) ──
 
-use crate::types::*;
 use crate::types_split::core_params::{BuildTriggerParams, ListWorkloadsParams, ObserveWorkloadParams};
 
 use cynic_host::build_runner_harness::registry::read_registry;
@@ -222,7 +221,7 @@ fn discover_nodes(registry_path: &str, user: &str) -> Result<Vec<FederatedNode>,
             });
 
         if let Some(target) = ssh_target {
-            nodes.push(FederatedNode { node_id, ssh_target });
+            nodes.push(FederatedNode { node_id, ssh_target: target });
         }
     }
 

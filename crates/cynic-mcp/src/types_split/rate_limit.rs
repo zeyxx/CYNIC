@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicU64, Ordering};
+
 pub struct McpRateLimit {
     judge_calls: AtomicU64,
     other_calls: AtomicU64,

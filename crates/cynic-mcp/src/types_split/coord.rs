@@ -1,3 +1,6 @@
+use schemars::JsonSchema;
+use serde::Deserialize;
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AttentionParams {
     /// Agent id requesting the startup attention surface.
@@ -216,7 +219,7 @@ pub struct CoordinationStatusPublishParams {
     /// Optional transport hint: "public", "team", "restricted".
     pub sensitivity: Option<String>,
     /// Contract version in payload metadata.
-    #[serde(default = "default_coordination_contract_version")]
+    #[serde(default = "crate::types::default_coordination_contract_version")]
     pub contract_version: String,
 }
 

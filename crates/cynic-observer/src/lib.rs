@@ -14,6 +14,7 @@ pub mod watcher;
 use serde::{Deserialize, Serialize};
 pub use domain::*;
 pub use source::*;
+pub use solana_archive::{FanoutPlanRequest, plan_fanout_request};
 
 /// Structure d'un événement capté sur la blockchain (compatibilité Solana).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]

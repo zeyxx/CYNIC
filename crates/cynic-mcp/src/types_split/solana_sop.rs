@@ -1,3 +1,6 @@
+use schemars::JsonSchema;
+use serde::Deserialize;
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SolanaSopParams {
     /// Optional Agentic Tool Call unique identifier (generated if omitted).

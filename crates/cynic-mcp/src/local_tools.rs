@@ -8,7 +8,7 @@
 //! when the timeout fires (the child survives SIGTERM and pollutes the cgroup).
 
 use cynic_host::build_evidence::{
-    CurlBuildLeaseVerificationAdapter, JsonBuildRunnerObservationAdapter,
+    BuildRunnerObservationPort, CurlBuildLeaseVerificationAdapter, JsonBuildRunnerObservationAdapter,
 };
 use cynic_host::build_workflow::{run_build_workflow, BuildWorkflowConfig, BuildWorkflowResult};
 use cynic_host::ports::argv_execution::{ArgvExecutionPort, ArgvExecutionRequest};
@@ -31,27 +31,27 @@ pub struct GitResult {
 
 /// Result of a build workflow run.
 #[derive(Debug, serde::Serialize)]
-pub struct BuildWorkflowResult {
+pub struct BuildWorkflowOutput {
     pub status: String,
-    pub proof: Option<cynic_host::build_workflow::BuildProof>,
+    pub proof: Option<cynic_host::build::BuildProof>,
 }
 
 /// Run the pure build workflow (observe → verify → decide → execute).
 pub async fn run_buildWorkflow(
-    runner: &dyn ArgvExecutionPort,
+    _runner: &dyn ArgvExecutionPort,
     project_root: &str,
     commit: &str,
     phase: Option<&str>,
     network_mode: Option<&str>,
     host: Option<&str>,
     user: Option<&str>,
-) -> BuildWorkflowResult {
+) -> BuildWorkflowOutput {
     let observation_path = format!("/tmp/cynic-build-runner-observation.json");
     let observation_adapter = JsonBuildRunnerObservationAdapter::new(&observation_path);
     let observation = match observation_adapter.observe() {
         Ok(o) => o,
         Err(e) => {
-            return BuildWorkflowResult {
+            return BuildWorkflowOutput {
                 status: "blocked".to_string(),
                 proof: None,
             }
@@ -60,13 +60,16 @@ pub async fn run_buildWorkflow(
 
     let argv_runner = LocalArgvRunner;
     let lease_adapter = match host {
-        Some(h) => CurlBuildLeaseVerificationAdapter::new(&runner, h.to_string(), None),
-        None => CurlBuildLeaseVerificationAdapter::new(&runner, "http://10.10.10.101:3000".to_string(), None),
+        Some(h) => CurlBuildLeaseVerificationAdapter::new(&LocalArgvRunner, h.to_string(), None)
+            .expect("lease verification adapter"),
+        None => CurlBuildLeaseVerificationAdapter::new(&LocalArgvRunner, "http://10.10.10.101:3000".to_string(), None)
+            .expect("lease verification adapter"),
     };
 
     let recipe = BuildRecipe {
         schema: BUILD_RECIPE_SCHEMA.to_string(),
         action: phase.unwrap_or("make:check").to_string(),
+        target_profile: "default".to_string(),
         target_crates: vec![],
         excluded_crates: vec![],
         toolchain_override: None,
@@ -74,6 +77,10 @@ pub async fn run_buildWorkflow(
         max_parallel_jobs: 1,
         timeout_secs: 600,
         evidence_refs: vec![],
+        allowed_actions: vec![],
+        rust_min_stack: 2147483648,
+        cargo_incremental: false,
+        memory_limit_bytes: None,
     };
 
     let source_snapshot = SourceSnapshot {
@@ -106,20 +113,20 @@ pub async fn run_buildWorkflow(
 
     match run_build_workflow(&config) {
         Ok(result) => match result {
-            BuildWorkflowResult::Blocked { .. } => BuildWorkflowResult {
+            BuildWorkflowResult::Blocked { .. } => BuildWorkflowOutput {
                 status: "blocked".to_string(),
                 proof: None,
             },
-            BuildWorkflowResult::Planned { proof } => BuildWorkflowResult {
+            BuildWorkflowResult::Planned { proof } => BuildWorkflowOutput {
                 status: "planned".to_string(),
                 proof: Some(proof),
             },
-            BuildWorkflowResult::Executed { proof } => BuildWorkflowResult {
+            BuildWorkflowResult::Executed { proof } => BuildWorkflowOutput {
                 status: "executed".to_string(),
                 proof: Some(proof),
             },
         },
-        Err(_) => BuildWorkflowResult {
+        Err(_) => BuildWorkflowOutput {
             status: "blocked".to_string(),
             proof: None,
         },
@@ -559,7 +566,7 @@ pub async fn run_inference_status() -> serde_json::Value {
 
             serde_json::json!({
                 "status": "ok",
-                "config_path": config.config_path,
+                "config_path": config.path.map(|p| p.to_string_lossy().into_owned()),
                 "backends": backends,
                 "sovereign_count": backends.iter().filter(|b| b["sovereign"].as_bool().unwrap_or(false)).count(),
             })

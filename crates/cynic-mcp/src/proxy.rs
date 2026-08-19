@@ -36,7 +36,7 @@ use crate::types::{
     FleetNodeStatusParams, FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams,
     IdentityAttestParams, IdentitySmokeCheckParams, InferParams, InferenceDiscoverParams,
     InferenceStartParams, InferenceSwitchParams, InfraProvisionParams, InfraRegistryReadParams,
-    InfraRegistryValidateParams, JudgeParams, JudgmentParams, LibraryQueryParams, ListParams,
+    InfraRegistryValidateParams, JudgeParams, LibraryQueryParams, ListParams,
     ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
     LxcExecBridgeStatusParams, McpRateLimit, MetabolismParams, NetworkIpamCheckParams,
     NetworkMeshDnsActivationApplyParams, NetworkMeshDnsActivationBundleParams,

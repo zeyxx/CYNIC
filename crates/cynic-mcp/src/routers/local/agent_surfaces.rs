@@ -79,7 +79,7 @@ impl CynicMcpProxy {
     )]
     async fn cynic_build_run(
         &self,
-        params: Parameters<cynic_mcp_types::BuildTriggerParams>,
+        params: Parameters<crate::types::BuildTriggerParams>,
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
@@ -484,7 +484,7 @@ impl CynicMcpProxy {
         &self,
     ) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
-        let result = crate::local_tools::run_federation_status();
+        let result = crate::local_tools::run_federation_status().await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))
@@ -496,10 +496,10 @@ impl CynicMcpProxy {
     )]
     async fn cynic_fleet_health(
         &self,
-        heartbeat_timeout_s: u64,
+        Parameters(params): Parameters<crate::types::FleetHealthParams>,
     ) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
-        let result = crate::local_tools::run_fleet_health(heartbeat_timeout_s);
+        let result = crate::local_tools::run_fleet_health(params.heartbeat_timeout_s).await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))
@@ -513,7 +513,7 @@ impl CynicMcpProxy {
         &self,
     ) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
-        let result = crate::local_tools::run_inference_status();
+        let result = crate::local_tools::run_inference_status().await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))
@@ -528,7 +528,7 @@ impl CynicMcpProxy {
         endpoint: String,
     ) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
-        let result = crate::local_tools::run_storage_credential_sync(&endpoint);
+        let result = crate::local_tools::run_storage_credential_sync(&endpoint).await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))
@@ -551,7 +551,7 @@ impl CynicMcpProxy {
             &target_kind,
             &satisfied,
             &unknown,
-        );
+        ).await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))

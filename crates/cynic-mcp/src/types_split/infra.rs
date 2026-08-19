@@ -1,3 +1,6 @@
+use schemars::JsonSchema;
+use serde::Deserialize;
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct InfraRegistryReadParams {
     /// Optional dot-path selector, e.g. network_policy or lifecycle.kernel_release.

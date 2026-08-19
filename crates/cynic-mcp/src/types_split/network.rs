@@ -1,3 +1,6 @@
+use schemars::JsonSchema;
+use serde::Deserialize;
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct NetworkIpamCheckParams {
     /// Registry node name to check.

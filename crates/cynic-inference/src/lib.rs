@@ -22,6 +22,9 @@ pub use domain::debate::{DebateParticipant, DebateRole, DebateSession, DebateTur
 pub use domain::supervision::SupervisionPolicy;
 
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;
+pub use application::multi_agent_service::MultiAgentService;
+pub use application::bench_basket_launcher::{build_basket_from_ledger, launch_basket};
+pub use adapters::inference::hermes_process_supervisor::read_hermes_api_key;
 pub use adapters::local::{
     FsChatSessionStore, FsLocalModelInventory, FsModelStore, InferenceSupervisorKind,
     ProcessLocalRuntime, SystemdUserLocalRuntime,

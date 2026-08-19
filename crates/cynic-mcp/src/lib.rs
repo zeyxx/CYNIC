@@ -14,3 +14,4 @@ pub mod runtime_contract;
 pub mod session_identity;
 pub mod transport;
 pub mod types;
+pub mod types_split;

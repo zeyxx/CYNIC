@@ -137,7 +137,7 @@ impl CynicMcpProxy {
 
                 // Launch the basket through the local runtime port
                 let runtime = cynic_inference::LocalRuntimeServiceAny::from_env();
-                let launch_result = cynic_inference::launch_basket(&runtime, plan.clone()).await;
+                let launch_result = cynic_inference::launch_basket(runtime.as_port(), plan.clone()).await;
 
                 match launch_result {
                     Ok(report) => {

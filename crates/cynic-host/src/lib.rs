@@ -88,3 +88,5 @@ pub fn sha256_digest(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 pub mod credential_hardening;
+pub mod local_autonomy_runtime;
+pub mod emergence_runtime;

@@ -1,3 +1,11 @@
+use schemars::JsonSchema;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct FleetHealthParams {
+    pub heartbeat_timeout_s: u64,
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct OperatorTransportStatusParams {}
 

@@ -79,6 +79,17 @@ impl LocalRuntimeServiceAny {
         }
     }
 
+    /// Borrow the inner runtime as the [`LocalInferenceRuntimePort`] trait object,
+    /// so callers needing `&dyn LocalInferenceRuntimePort` (e.g. `launch_basket`)
+    /// can dispatch through the env-selected supervisor without monomorphizing.
+    pub fn as_port(&self) -> &dyn LocalInferenceRuntimePort {
+        match self {
+            Self::Systemd(s) => &s.runtime,
+            Self::Process(s) => &s.runtime,
+            Self::Docker(s) => &s.runtime,
+        }
+    }
+
     pub fn list_inventory(&self) -> Result<LocalModelInventory, LocalRuntimeError> {
         match self {
             Self::Systemd(s) => s.list_inventory(),

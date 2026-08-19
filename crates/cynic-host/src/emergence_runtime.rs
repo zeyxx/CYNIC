@@ -14,9 +14,10 @@ use cynic_protocol::emergence::{
     EmergenceState, PeerState, EMERGENCE_STATE_SCHEMA,
 };
 use cynic_protocol::local_autonomy::{AutonomyMode, RetainedCapabilities};
+use cynic_protocol::peer_resolver::PeerResolver;
 
 use crate::local_autonomy_runtime::LocalAutonomyRuntime;
-use crate::os_health::LOCAL_OS_HEALTH_OBSERVER;
+use crate::os_health::{LocalOsHealthObserver, OsHealthObserver};
 use crate::peer_resolver_mesh::MeshPeerResolver;
 
 /// Emergence runtime — wires discovery + autonomy to the election rule.
@@ -87,7 +88,7 @@ impl EmergenceRuntime {
 
     /// Build this node's peer state from local observation.
     fn build_local_state(&self, now: u64, mode: &AutonomyMode) -> PeerState {
-        let os_obs = LOCAL_OS_HEALTH_OBSERVER.observe_os_health();
+        let os_obs = LocalOsHealthObserver.observe_os_health();
         let health_score = health_score_from_os(
             os_obs.dmesg_softlockup_count,
             os_obs.dmesg_oom_count,
