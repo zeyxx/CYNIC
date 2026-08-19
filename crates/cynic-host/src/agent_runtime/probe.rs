@@ -497,12 +497,22 @@ mod tests {
             .runtimes
             .iter()
             .find(|runtime| runtime.id == "mercury-agent")
-            .unwrap();
+            .expect("mercury runtime observed");
         assert_eq!(mercury.version.as_deref(), Some("mercury 1.2.2"));
-        assert!(matches!(mercury.graph[1].state, CapabilityState::Degraded));
-        assert_eq!(
-            mercury.graph[1].retained_capabilities,
-            vec!["read_only_audit"]
+        // Look the node up by id: indexing into graph[1] silently asserted
+        // against binary_provenance (which retains binary_inventory) instead of
+        // the status node, and any reordering of the graph would move it again.
+        let status = mercury
+            .graph
+            .iter()
+            .find(|node| node.id == "runtime_status")
+            .expect("runtime_status node present");
+        assert!(
+            matches!(status.state, CapabilityState::Degraded),
+            "status node: {status:?}"
         );
+        // A failing status must not promote execution: only read-only audit
+        // survives, never run_observation or workload capabilities.
+        assert_eq!(status.retained_capabilities, vec!["read_only_audit"]);
     }
 }
