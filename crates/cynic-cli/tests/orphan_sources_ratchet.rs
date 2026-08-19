@@ -35,7 +35,6 @@ const QUARANTINED: &[&str] = &[
     "lifecycle_surface/workload.rs",
     "runtime_surface/adoption.rs",
     "runtime_surface/agents.rs",
-    "runtime_surface/build.rs",
     "runtime_surface/epoch.rs",
     "runtime_surface/harness_matrix.rs",
     "runtime_surface/hermes_run.rs",

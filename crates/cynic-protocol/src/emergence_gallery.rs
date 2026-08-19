@@ -173,6 +173,55 @@ pub fn audit_bisectability_emergence() -> EmergenceGalleryEntry {
     }
 }
 
+/// An orphan source that also violated an architecture contract it was never
+/// compiled to satisfy.
+///
+/// `cynic-cli/src/runtime_surface/build.rs` ran a local build and produced a
+/// build proof. A dedicated test forbids exactly that —
+/// `runtime_cli_cannot_claim_remote_build_proof_from_a_local_runner` asserts the
+/// file does not exist — because a local runner cannot attest to a remote build.
+///
+/// The file was undeclared, so nothing compiled it: the violation sat in the
+/// tree while the contract test failed for a file that could never have run. Two
+/// independent guards agreed on it — the orphan ratchet listed it as
+/// unreachable, and the architecture test demanded its absence.
+///
+/// Recorded as `Repaired`, not `Contained`: deletion removes the capability
+/// entirely rather than bounding it, and both guards now pass.
+pub fn dead_local_build_surface_emergence() -> EmergenceGalleryEntry {
+    EmergenceGalleryEntry {
+        schema: EMERGENCE_GALLERY_ENTRY_SCHEMA.to_string(),
+        emergence_id: "orphan_source_violating_execution_boundary".to_string(),
+        violated_code: None,
+        owning_layer: ContractLayer::ExecutionBoundary,
+        expected: "a local CLI runner never emits a build proof it cannot \
+                   observe; no source claims that authority"
+            .to_string(),
+        observed: "runtime_surface/build.rs called run_build and emitted a proof \
+                   while unreachable from any crate root, so the violation was \
+                   invisible to cargo check and the contract test failed against \
+                   code that never executed"
+            .to_string(),
+        evidence_digests: vec![
+            "audit://orphan-ratchet/cynic-cli/runtime_surface-build".to_string(),
+            "audit://architecture-boundary/runtime_cli_cannot_claim_remote_build_proof".to_string(),
+        ],
+        repair: RepairStatus::Repaired {
+            root_cause: "a bulk integration commit added the file without a \
+                         module declaration, so no compiler pass ever evaluated \
+                         it and no reviewer saw a build signal for it"
+                .to_string(),
+            regression_proof: "cynic-cli orphan ratchet green at 25 quarantined \
+                               (was 26) and \
+                               runtime_cli_cannot_claim_remote_build_proof_from_a_local_runner \
+                               now passes; the file remains recoverable from \
+                               commit 1d161493"
+                .to_string(),
+            repaired_at: ContractLayer::ExecutionBoundary,
+        },
+    }
+}
+
 /// Validate an entry against the contracts it claims to record.
 ///
 /// Returns the violations rather than a bool: a caller that persists a
@@ -387,6 +436,36 @@ mod tests {
     fn audit_bisectability_emergence_is_valid() {
         let entry = audit_bisectability_emergence();
         assert!(validate_gallery_entry(&entry).is_empty());
+    }
+
+    /// The dead local-build surface is recorded as genuinely repaired.
+    ///
+    /// `Repaired` demands a regression proof, so this also asserts the entry
+    /// carries one: a deletion with no proof is indistinguishable from a
+    /// deletion that silently dropped a capability.
+    #[test]
+    fn dead_local_build_surface_is_repaired_with_proof() {
+        let entry = dead_local_build_surface_emergence();
+        assert!(validate_gallery_entry(&entry).is_empty());
+        assert_eq!(entry.owning_layer, ContractLayer::ExecutionBoundary);
+        assert!(!entry.repair.is_open());
+        match &entry.repair {
+            RepairStatus::Repaired {
+                root_cause,
+                regression_proof,
+                repaired_at,
+            } => {
+                assert!(
+                    !regression_proof.trim().is_empty(),
+                    "a repaired emergence must name the proof that keeps it repaired"
+                );
+                assert!(!root_cause.trim().is_empty());
+                // The repair belongs at the layer that owned the violation, not
+                // at a higher surface that merely noticed it.
+                assert_eq!(*repaired_at, ContractLayer::ExecutionBoundary);
+            }
+            other => panic!("expected Repaired, got {other:?}"),
+        }
     }
 
     /// The bisectability defect is a `Proof`-layer defect, and `Proof` defects
