@@ -292,7 +292,15 @@ fn valid_endpoint(value: &str) -> bool {
     }
     match url.scheme() {
         "https" => url.host_str().is_some(),
-        "http" => matches!(url.host_str(), Some("127.0.0.1" | "::1")),
+        // Plaintext admin auth is admitted on loopback only. Parse the typed
+        // host rather than compare strings: `host_str()` returns "[::1]" *with*
+        // brackets for IPv6, so matching against "::1" silently rejected the
+        // IPv6 loopback.
+        "http" => url
+            .host_str()
+            .map(|host| host.trim_start_matches('[').trim_end_matches(']'))
+            .and_then(|host| host.parse::<std::net::IpAddr>().ok())
+            .is_some_and(|addr| addr.is_loopback()),
         _ => false,
     }
 }
@@ -333,6 +341,17 @@ mod tests {
         assert!(!valid_endpoint("http://10.10.10.101:8000"));
         assert!(!valid_endpoint("https://user:pass@surreal.internal:8000"));
         assert!(!valid_endpoint("https://surreal.internal:8000/sql"));
+    }
+
+    #[test]
+    fn plaintext_admin_auth_refuses_every_non_loopback_address() {
+        // The whole 127.0.0.0/8 block is loopback, so accept it; anything
+        // routable over the wire must stay refused for plaintext auth.
+        assert!(valid_endpoint("http://127.0.0.2:8000"));
+        assert!(!valid_endpoint("http://0.0.0.0:8000"));
+        assert!(!valid_endpoint("http://192.168.100.1:8000"));
+        assert!(!valid_endpoint("http://[fe80::1]:8000"));
+        assert!(!valid_endpoint("http://[2001:db8::1]:8000"));
     }
 
     #[test]
