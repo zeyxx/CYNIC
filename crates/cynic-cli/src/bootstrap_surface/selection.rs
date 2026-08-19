@@ -18,6 +18,8 @@ pub(crate) struct ProfileArgs {
     pub(crate) node: Option<String>,
     #[arg(long)]
     pub(crate) registry: Option<String>,
+    #[arg(long)]
+    pub(crate) json: bool,
 }
 
 pub(crate) fn selected_host_context(

@@ -1,12 +1,12 @@
-use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::Subcommand;
+use cynic_host::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessKind};
 use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 
 use crate::bootstrap_surface::ProfileArgs;
+use crate::fail;
 
-mod adoption;
 mod agent_matrix;
 mod compat_aliases;
 mod disk;
@@ -14,6 +14,9 @@ mod execution_context;
 mod host_checks;
 mod inference_dispatch;
 mod inference_surface;
+mod operator_models;
+
+pub(crate) use operator_models::OperatorModelsCommand;
 mod network_preflight;
 mod paths;
 mod persistence;
@@ -73,6 +76,18 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         kind: Option<String>,
     },
+    HarnessProgress {
+        #[arg(long, value_enum)]
+        current_kind: RuntimeHarnessKindArg,
+        #[arg(long, value_enum)]
+        target_kind: RuntimeHarnessKindArg,
+        #[arg(long, value_enum)]
+        satisfied: Vec<ProofCategoryArg>,
+        #[arg(long, value_enum)]
+        unknown: Vec<ProofCategoryArg>,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
     Conformance {
         #[arg(long)]
         json: bool,
@@ -93,6 +108,13 @@ pub(crate) enum RuntimeCommand {
         json: bool,
         #[arg(long)]
         url: Option<String>,
+    },
+    /// Evaluate storage credential sync status.
+    StorageCredential {
+        #[arg(long, default_value_t = false)]
+        json: bool,
+        #[arg(long, default_value = "http://10.10.10.103:8000")]
+        endpoint: String,
     },
     ExecutionContext {
         #[arg(long)]
@@ -141,24 +163,6 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Adopt an external agent runtime into CYNIC supervision (explicit consent gate).
-    /// Drives the Rust toolchain lifecycle: --seed overrides infra/rust-toolchain.json.
-    /// Dry-run unless --approve (applies bounded argv read-back proof).
-    Adopt {
-        #[arg(long)]
-        json: bool,
-        /// Target runtime identifier (e.g. hermes-agent).
-        runtime_id: String,
-        /// Target principal for the adopted runtime.
-        #[arg(long)]
-        principal: Option<String>,
-        /// Override the toolchain seed registry path (default: infra/rust-toolchain.json).
-        #[arg(long)]
-        seed: Option<PathBuf>,
-        /// Operator consent to apply the bounded action (rustup override set).
-        #[arg(long)]
-        approve: bool,
-    },
     /// Report the sovereign inference configuration as machine-readable JSON.
     /// Native surface: declared routing SSOT (not a live probe).
     /// SSOT path: CYNIC_INFERENCE_CONFIG or /etc/cynic/inference.toml
@@ -192,12 +196,27 @@ pub(crate) enum RuntimeCommand {
         /// Useful when models are large and you want to keep the TUI responsive.
         #[arg(long)]
         no_wait: bool,
+        #[arg(long)]
+        yes: bool,
     },
     /// Stop the native local inference unit (optional alias; default = running).
     InferenceStop {
         alias: Option<String>,
         #[arg(long)]
         json: bool,
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Forge a vault profile from a BenchmarkReport, write it, then launch.
+    InferenceForge {
+        #[arg(long)]
+        report: String,
+        #[arg(long, default_value = "auto")]
+        alias: String,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        yes: bool,
     },
     /// Peer / optional ODS attach plane (loose coupling).
     ///
@@ -313,25 +332,6 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         apply: bool,
     },
-    /// Forge a parametrized vault profile from a completed benchmark report.
-    ///
-    /// Reads a `cynic.agent_harness.benchmark_report.v1` JSON, selects the champion
-    /// run (first completed w/ launch plan, else highest throughput), and writes a
-    /// `.env` profile under the CYNIC vault profiles_dir. Pass `--start` to then
-    /// launch the forged profile (with `--yes` for explicit mutation) and emit the
-    /// `inference-status` read-back proof.
-    InferenceForge {
-        /// Path to the benchmark report JSON file.
-        report: String,
-        #[arg(long)]
-        json: bool,
-        /// Apply: start the forged profile immediately (mutation, requires --yes).
-        #[arg(long)]
-        start: bool,
-        /// Explicit mutation consent for --start (no auto-apply).
-        #[arg(long)]
-        yes: bool,
-    },
     /// Compatibility alias → `cynic deps` (prefer top-level).
     Deps {
         #[arg(long)]
@@ -420,8 +420,11 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             profile,
             proof,
         } => suite::execute_plan(json, registry.as_deref(), &profile, proof.as_deref()),
-        RuntimeCommand::Harness { json, kind } => {
-            host_checks::execute_harness(json, kind.as_deref())
+        RuntimeCommand::HarnessProgress { current_kind, target_kind, satisfied, unknown, json } => {
+            match execute_harness_progress(current_kind.clone(), target_kind.clone(), satisfied.clone(), unknown.clone(), json) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => fail(e),
+            }
         }
         RuntimeCommand::Conformance { json, profile } => {
             host_checks::execute_conformance(json, &profile)
@@ -433,6 +436,12 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         } => host_checks::execute_metrics(json, &profile, proof.as_deref()),
         RuntimeCommand::StorageCapabilities { json, url } => {
             host_checks::execute_storage_capabilities(json, url.as_deref())
+        }
+        RuntimeCommand::StorageCredential { json, endpoint } => {
+            match execute_storage_credential_sync(json, endpoint) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => fail(e),
+            }
         }
         RuntimeCommand::ExecutionContext { json, hosts } => {
             execution_context::execute_execution_context(json, &hosts)
@@ -457,19 +466,6 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             persist,
         } => report::execute_report(json, output.as_deref(), persist),
         RuntimeCommand::AgentMatrix { json } => agent_matrix::execute_agent_matrix(json),
-        RuntimeCommand::Adopt {
-            json,
-            runtime_id,
-            principal,
-            seed,
-            approve,
-        } => adoption::execute_adopt(
-            json,
-            &runtime_id,
-            principal.as_deref(),
-            seed.as_deref(),
-            approve,
-        ),
         RuntimeCommand::Inference { .. }
         | RuntimeCommand::InferenceVault { .. }
         | RuntimeCommand::InferenceStatus { .. }
@@ -493,4 +489,119 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         | RuntimeCommand::Disk { .. }
         | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
     }
+}
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub(crate) enum RuntimeHarnessKindArg {
+    Lab,
+    Conformance,
+    Staging,
+    Canary,
+    Production,
+}
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub(crate) enum ProofCategoryArg {
+    Bootstrap,
+    Hardware,
+    HostConformance,
+    BuildReproduction,
+    Network,
+    TargetAttestation,
+    RollbackIntent,
+}
+
+impl From<RuntimeHarnessKindArg> for RuntimeHarnessKind {
+    fn from(arg: RuntimeHarnessKindArg) -> Self {
+        match arg {
+            RuntimeHarnessKindArg::Lab => RuntimeHarnessKind::ClosedLocalLab,
+            RuntimeHarnessKindArg::Conformance => RuntimeHarnessKind::Conformance,
+            RuntimeHarnessKindArg::Staging => RuntimeHarnessKind::Staging,
+            RuntimeHarnessKindArg::Canary => RuntimeHarnessKind::Canary,
+            RuntimeHarnessKindArg::Production => RuntimeHarnessKind::Production,
+        }
+    }
+}
+
+impl From<ProofCategoryArg> for cynic_host::harness_progression::ProofCategory {
+    fn from(arg: ProofCategoryArg) -> Self {
+        use cynic_host::harness_progression::ProofCategory;
+        match arg {
+            ProofCategoryArg::Bootstrap => ProofCategory::Bootstrap,
+            ProofCategoryArg::Hardware => ProofCategory::Hardware,
+            ProofCategoryArg::HostConformance => ProofCategory::HostConformance,
+            ProofCategoryArg::BuildReproduction => ProofCategory::BuildReproduction,
+            ProofCategoryArg::Network => ProofCategory::Network,
+            ProofCategoryArg::TargetAttestation => ProofCategory::TargetAttestation,
+            ProofCategoryArg::RollbackIntent => ProofCategory::RollbackIntent,
+        }
+    }
+}
+
+pub(crate) fn execute_harness_progress(
+    current_kind: RuntimeHarnessKindArg,
+    target_kind: RuntimeHarnessKindArg,
+    satisfied: Vec<ProofCategoryArg>,
+    unknown: Vec<ProofCategoryArg>,
+    json: bool,
+) -> Result<(), String> {
+    let evidence = cynic_host::harness_progression::HarnessProgressionEvidence {
+        current_kind: current_kind.into(),
+        target_kind: target_kind.into(),
+        satisfied: satisfied.into_iter().map(Into::into).collect(),
+        pending: vec![],
+        unknown: unknown.into_iter().map(Into::into).collect(),
+    };
+    let verdict = cynic_host::harness_progression::decide_harness_progression(&evidence);
+    if json {
+        let s = serde_json::to_string_pretty(&verdict)
+            .map_err(|e| format!("serialize failed: {e}"))?;
+        println!("{s}");
+    } else {
+        match &verdict {
+            HarnessProgressionVerdict::Allowed { current_kind, target_kind, authority } => {
+                println!("ALLOWED: {current_kind:?} -> {target_kind:?} (authority: {authority:?})");
+            }
+            HarnessProgressionVerdict::Blocked { reason, detail } => {
+                println!("BLOCKED: {reason} — {detail}");
+            }
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn execute_storage_credential_sync(json: bool, endpoint: &str) -> Result<(), String> {
+    use cynic_host::storage_credential_sync::{StorageCredentialSyncPort, StorageCredentialSyncAdapter};
+    use cynic_protocol::storage_credential_sync::{StorageCredentialSpec, decide_credential_sync};
+
+    let spec = StorageCredentialSpec {
+        username: "root".into(),
+        password: "cynic".into(),
+        endpoint: endpoint.into(),
+        namespace: "cynic".into(),
+        database: "main".into(),
+    };
+    let adapter = StorageCredentialSyncAdapter::default();
+    let obs = adapter.observe(&spec);
+    let verdict = decide_credential_sync(&spec, &obs);
+
+    if json {
+        let s = serde_json::to_string_pretty(&verdict)
+            .map_err(|e| format!("serialize failed: {e}"))?;
+        println!("{s}");
+    } else {
+        use cynic_protocol::storage_credential_sync::CredentialSyncVerdict;
+        match &verdict {
+            CredentialSyncVerdict::Synchronized => {
+                println!("SYNCHRONIZED: storage credentials healthy");
+            }
+            CredentialSyncVerdict::OutOfSync { reason, detail, .. } => {
+                println!("OUT OF SYNC: {reason} — {detail}");
+            }
+            CredentialSyncVerdict::Unknown { reason, detail } => {
+                println!("UNKNOWN: {reason} — {detail}");
+            }
+        }
+    }
+    Ok(())
 }

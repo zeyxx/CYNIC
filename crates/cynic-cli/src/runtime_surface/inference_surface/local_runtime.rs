@@ -2,8 +2,8 @@ use std::fs;
 use std::{env, io::Read, process::ExitCode};
 
 use cynic_inference::{
-    ForgeProfileReport, LocalRuntimeServiceAny, ModelStoreService, RuntimePlanner,
-    consolidate_vault, forge_profile_from_benchmark_report,
+    forge_profile_from_benchmark_report, LocalRuntimeServiceAny, ModelStoreService,
+    RuntimePlanner, consolidate_vault,
 };
 
 use super::emit_json;
@@ -244,103 +244,6 @@ pub(crate) fn execute_inference_start(
     }
 }
 
-pub(crate) fn execute_inference_forge(
-    report_path: &str,
-    json: bool,
-    start: bool,
-    yes: bool,
-) -> ExitCode {
-    let report: ForgeProfileReport = match forge_profile_from_benchmark_report(report_path) {
-        Ok(r) => {
-            if !json {
-                println!("Forged profile: {}", r.alias);
-                println!("  profile_path: {}", r.profile_path);
-                if let Some(summary) = &r.runtime_summary {
-                    println!("  model_path:   {}", summary.model_path);
-                    println!("  ctx_size:     {}", summary.ctx_size);
-                    println!("  threads:      {}", summary.threads);
-                    println!("  n_gpu_layers: {}", summary.n_gpu_layers);
-                }
-            }
-            r
-        }
-        Err(error) => {
-            eprintln!("inference forge error: {error}");
-            return ExitCode::FAILURE;
-        }
-    };
-
-    if !start {
-        if json {
-            let _ = emit_json(&report);
-        }
-        return ExitCode::SUCCESS;
-    }
-
-    if !yes {
-        eprintln!(
-            "refusing to start a model without --yes; inspect first with `cynic runtime inference-forge {report_path} --json`"
-        );
-        return ExitCode::FAILURE;
-    }
-
-    let service = LocalRuntimeServiceAny::from_env();
-    cynic_inference::progress::progress(
-        "supervisor",
-        format!("{:?}", service.supervisor_kind().as_str()),
-    );
-    let wait_for_ready = env::var("CYNIC_INFERENCE_WAIT_FOR_READY")
-        .map(|raw| {
-            let lower = raw.to_ascii_lowercase();
-            !matches!(lower.as_str(), "0" | "false" | "off" | "no")
-        })
-        .unwrap_or(true);
-    match service.start_with_readiness(&report.alias, wait_for_ready) {
-        Ok(mut start_report) => {
-            if let Some(msg) = start_report.message.take() {
-                start_report.message = Some(format!("forged_profile={}; {msg}", report.alias));
-            } else {
-                start_report.message = Some(format!("forged_profile={}", report.alias));
-            }
-            let proof = service.status();
-            let proof = proof.ok();
-
-            let proof_view = ForgeLaunchProof {
-                forged: report,
-                start_report,
-                proof,
-            };
-            if json {
-                let _ = emit_json(&proof_view);
-            } else if start_report.ok {
-                println!("Model started successfully from forged profile!");
-                println!("  Alias:    {}", proof_view.forged.alias);
-                println!(
-                    "  Endpoint: {}",
-                    start_report.status.endpoint.as_deref().unwrap_or("?")
-                );
-            }
-            if start_report.ok {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
-            }
-        }
-        Err(error) => {
-            eprintln!("inference forge start error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-#[derive(serde::Serialize)]
-struct ForgeLaunchProof {
-    forged: ForgeProfileReport,
-    start_report: cynic_inference::LocalRuntimeMutationReport,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    proof: Option<cynic_inference::LocalRuntimeStatus>,
-}
-
 pub(crate) fn execute_inference_stop(alias: Option<&str>, json: bool, yes: bool) -> ExitCode {
     if !yes {
         eprintln!(
@@ -560,3 +463,50 @@ pub(crate) fn execute_inference_plan(alias: &str, json: bool, apply: bool) -> Ex
         }
     }
 }
+
+/// `cynic runtime inference-forge --benchmark <report>`: derive a vault profile
+/// from a winning benchmark run and (when `--yes`) hand off to the inference
+/// supervisor.
+pub(crate) fn execute_inference_forge(
+    report_path: &str,
+    source_note: &str,
+    json: bool,
+    yes: bool,
+) -> ExitCode {
+    match forge_profile_from_benchmark_report(report_path, source_note) {
+        Ok(report) => {
+            let body = serde_json::json!({
+                "report": report,
+                "applied": yes,
+            });
+            if json {
+                emit_json(&body);
+            } else {
+                println!("Inference Forge (plan):");
+                println!("  Source:   {}  status={}", report.source, report.status);
+                println!("  Plan ID:  {}", report.plan_id);
+                println!("  Run ID:   {}", report.run_id);
+                println!("  Alias:    {}", report.alias);
+                println!("  Model ID: {}", report.model_id);
+                println!("  Model Path: {}", report.model_path);
+                println!("  Profile:  {}", report.profile_path);
+                if yes {
+                    println!("--yes set: handing off to inference-start.");
+                    return execute_inference_start(
+                        Some(report.alias.as_str()),
+                        json,
+                        /* yes */ true,
+                        /* no_wait */ false,
+                    );
+                }
+                println!("  (pass --yes to apply and launch.)");
+            }
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("inference forge error: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+

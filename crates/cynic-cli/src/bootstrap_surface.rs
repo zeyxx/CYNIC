@@ -12,7 +12,6 @@ mod framework;
 mod host;
 mod host_agent_access;
 mod host_e2e;
-mod host_os_health_surface;
 pub(crate) mod selection;
 
 pub(crate) use selection::{

@@ -73,13 +73,10 @@ pub(crate) enum BootstrapHostCommand {
         #[arg(long)]
         apply: bool,
     },
-    /// Observe OS substrate health (soft lockup policy, THP defrag, memory
+    /// Observe host OS-substrate health (soft lockups, THP defrag, reclaim/OOM
     /// pressure) — the layer CYNIC was blind to during the 2026-08-18 crash.
-    OsHealth {
-        /// Machine-readable JSON (default is human text).
-        #[arg(long)]
-        json: bool,
-    },
+    #[command(name = "os-health")]
+    OsHealth(ProfileArgs),
 }
 
 pub(crate) fn execute_bootstrap_host(command: BootstrapHostCommand) -> ExitCode {
@@ -295,8 +292,19 @@ pub(crate) fn execute_bootstrap_host(command: BootstrapHostCommand) -> ExitCode 
             let should_fail = !dry_run && report.status != "completed";
             emit_json(&report, should_fail)
         }
-        BootstrapHostCommand::OsHealth { json } => {
-            crate::bootstrap_surface::host_os_health_surface::run_os_health(json)
+        BootstrapHostCommand::OsHealth(args) => {
+            use cynic_host::os_health::observe::OsHealthObserver;
+            let observer = cynic_host::os_health::observe::LocalOsHealthObserver;
+            let assessment = cynic_host::os_health::assess_os_health_default(&observer);
+            if args.json {
+                emit_json(&assessment, assessment.status != "healthy")
+            } else {
+                println!("{}", cynic_host::os_health::os_health_human(&assessment));
+                if assessment.status != "healthy" {
+                    return ExitCode::FAILURE;
+                }
+                ExitCode::SUCCESS
+            }
         }
     }
 }

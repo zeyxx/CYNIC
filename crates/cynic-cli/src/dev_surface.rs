@@ -94,8 +94,8 @@ pub(crate) enum DevCommand {
         json: bool,
         #[arg(long)]
         architecture_only: bool,
-        #[arg(long, help = "Validate each CYNIC layer in isolation and dependency order (protocol->host->node->kernel->mcp->cli) with offline cache integrity gate")]
-        layered: bool,
+        #[arg(long)]
+        layers: bool,
         #[arg(long)]
         source_root: Option<std::path::PathBuf>,
         #[arg(long)]
@@ -264,17 +264,15 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
         DevCommand::Check {
             json,
             architecture_only,
-            layered,
+            layers,
             source_root,
             target_root,
         } => {
-            if !json {
+            if architecture_only && layers {
+                eprintln!("error: --architecture-only and --layers are mutually exclusive");
                 return ExitCode::FAILURE;
             }
-            if architecture_only && layered {
-                return crate::fail("check: --architecture-only and --layers are mutually exclusive".to_string());
-            }
-            match check::run_dev_check(source_root, target_root, architecture_only, layered) {
+            match check::run_dev_check(source_root, target_root, architecture_only, layers) {
                 Ok(report) => emit_json(&report, report.status != "ok"),
                 Err(error) => crate::fail(error),
             }
