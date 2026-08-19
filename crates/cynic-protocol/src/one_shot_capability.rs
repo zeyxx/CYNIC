@@ -153,7 +153,12 @@ fn valid_identifier(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
-fn valid_sha256(value: &str) -> bool {
+/// Whether `value` is a `sha256:<64 hex>` digest reference.
+///
+/// Exposed at crate level because admission contracts in sibling modules
+/// (`build::bootstrap_contract`) validate the same digest shape. Without this,
+/// each caller re-implements the check and the definitions drift.
+pub(crate) fn valid_sha256(value: &str) -> bool {
     value.strip_prefix("sha256:").is_some_and(|digest| {
         digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
     })

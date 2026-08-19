@@ -120,6 +120,22 @@ pub struct AskesisLogParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct NodeActivationParams {
+    /// Node to activate, as named in the registry.
+    pub node_id: String,
+    /// Explicit operator consent. Activation mutates the host, so the bounded
+    /// action refuses to proceed without it.
+    #[serde(default)]
+    pub yes: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct NodeActivationStatusParams {
+    /// Node to observe. Read-only: no mutation, no consent required.
+    pub node_id: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct GitParams {
     pub op: crate::local_tools::GitOp,
     pub agent_id: Option<String>,

@@ -496,11 +496,11 @@ impl CynicMcpProxy {
     )]
     async fn cynic_node_activation(
         &self,
-        node_id: String,
-        yes: bool,
+        params: Parameters<NodeActivationParams>,
     ) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
-        let result = crate::local_tools::run_node_activation(&node_id, yes);
+        let Parameters(NodeActivationParams { node_id, yes }) = params;
+        let result = crate::local_tools::run_node_activation(&node_id, yes).await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))
@@ -512,10 +512,11 @@ impl CynicMcpProxy {
     )]
     async fn cynic_node_activation_status(
         &self,
-        node_id: String,
+        params: Parameters<NodeActivationStatusParams>,
     ) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
-        let result = crate::local_tools::run_node_activation_status(&node_id);
+        let Parameters(NodeActivationStatusParams { node_id }) = params;
+        let result = crate::local_tools::run_node_activation_status(&node_id).await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))

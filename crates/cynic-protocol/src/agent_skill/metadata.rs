@@ -228,6 +228,14 @@ pub fn project_agent_skill(
     }
 }
 
+/// Whether `value` is a `sha256:<64 lowercase hex>` digest reference.
+///
+/// Deliberately STRICTER than the crate-wide digest check: skill digests must
+/// be lowercase, because a skill is addressed by its digest string and
+/// `sha256:AB…` / `sha256:ab…` would otherwise name the same skill twice.
+/// Do not replace this with the shared helper — `uppercase_digest_is_rejected`
+/// locks the difference. See `evidence::valid_sha256_digest` for the
+/// case-insensitive variant used everywhere else.
 fn valid_sha256(value: &str) -> bool {
     value.strip_prefix("sha256:").is_some_and(|digest| {
         digest.len() == 64
@@ -240,6 +248,28 @@ fn valid_sha256(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Skill digests are case-sensitive on purpose. The crate-wide helper
+    /// (`evidence::valid_sha256_digest`) accepts uppercase hex; this one must
+    /// not, or the same skill could be addressed by two different strings.
+    ///
+    /// This test exists because 20 other copies of this check in the crate DO
+    /// accept uppercase. Anyone consolidating them must not fold this one in.
+    #[test]
+    fn uppercase_digest_is_rejected() {
+        let lower = format!("sha256:{}", "a".repeat(64));
+        let upper = format!("sha256:{}", "A".repeat(64));
+
+        assert!(valid_sha256(&lower));
+        assert!(
+            !valid_sha256(&upper),
+            "skill digests must stay lowercase-only; the shared helper accepts \
+             uppercase and folding this one into it would make one skill \
+             addressable by two digests"
+        );
+        // The shared helper genuinely differs — proof the divergence is real.
+        assert!(crate::evidence::valid_sha256_digest(&upper));
+    }
 
     fn evidence() -> AgentEvidenceRef {
         AgentEvidenceRef {
