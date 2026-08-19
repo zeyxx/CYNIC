@@ -427,7 +427,16 @@ mod tests {
         .expect("evidence");
         assert_eq!(report.status, SurfaceStatus::Blocked);
         assert!(!report.target_satisfied);
-        assert_eq!(report.reached_stage, "h3_packages_ready");
+        assert_eq!(
+            report.reached_stage,
+            "h3_packages_ready",
+            "stages: {:?}",
+            report
+                .stages
+                .iter()
+                .map(|stage| (stage.stage, stage.status, stage.detail.as_str()))
+                .collect::<Vec<_>>()
+        );
         assert_eq!(report.lifecycle_status, LifecycleStatus::PrincipalMismatch);
         assert_eq!(report.next_boundary_kind, BoundaryKind::Adopt);
         assert_eq!(
