@@ -15,9 +15,10 @@
 use crate::build::{
     admit_build_input, admit_build_runner, compose_build_runner_envelope, validate_build_recipe,
     BuildBootstrapGrant, BuildInputAdmission, BuildRecipe, BuildRunnerAdmission,
-    BuildRunnerEnvelope, BuildRunnerObservation, SourceSnapshot, BUILD_WORKLOAD_GRANT_SCHEMA,
+    BuildRunnerEnvelope, BuildRunnerObservation,
 };
-use crate::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
+use crate::source_control::SourceSnapshot;
+use crate::LeaseVerification;
 
 /// Pure build workflow decision — no IO, no process spawn.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,7 +96,7 @@ impl<'a> BuildWorkflow<'a> {
         // Step 1: Validate recipe
         let recipe_blockers = match validate_build_recipe(self.recipe) {
             Ok(()) => vec![],
-            Err(blockers) => blockers,
+            Err(blockers) => vec![blockers],
         };
 
         // Step 2: Validate grant (if present)

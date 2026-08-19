@@ -14,7 +14,7 @@ mod inference_dispatch;
 mod inference_surface;
 mod operator_models;
 
-pub(crate) use operator_models::{execute_operator_models, OperatorModelsCommand};
+pub(crate) use operator_models::OperatorModelsCommand;
 mod network_preflight;
 mod paths;
 mod persistence;
@@ -451,6 +451,7 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         | RuntimeCommand::InferenceHfSearch { .. }
         | RuntimeCommand::InferenceHfSuggest { .. }
         | RuntimeCommand::InferencePlan { .. }
+        | RuntimeCommand::InferenceForge { .. }
         | RuntimeCommand::Deps { .. }
         | RuntimeCommand::DepsPlan { .. }
         | RuntimeCommand::DepsAudit { .. }
