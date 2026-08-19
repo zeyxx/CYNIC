@@ -20,10 +20,9 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
             findings.push(OsHealthFinding {
                 kind: "softlockup_no_panic".to_string(),
                 severity: "critical".to_string(),
-                message:
-                    "kernel.softlockup_panic=0: a soft lockup freezes the machine instead of \
+                message: "kernel.softlockup_panic=0: a soft lockup freezes the machine instead of \
                      rebooting into a clean state (root cause class of the 2026-08-18 hang)"
-                        .to_string(),
+                    .to_string(),
                 remediation:
                     "sysctl -w kernel.softlockup_panic=1 (and persist in /etc/sysctl.d) so a \
                      stuck kcompactd/CPU reboots instead of wedging the host"
@@ -61,10 +60,9 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
                  stalling latency-sensitive tasks",
                 observed.thp_defrag
             ),
-            remediation:
-                "set /sys/kernel/mm/transparent_hugepage/defrag to madvise or never (or \
+            remediation: "set /sys/kernel/mm/transparent_hugepage/defrag to madvise or never (or \
                  defer for background only)"
-                    .to_string(),
+                .to_string(),
         });
     } else if observed.thp_defrag == "unknown" {
         unknowns.push("thp_defrag_unreadable".to_string());
@@ -77,7 +75,8 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
             severity: "warning".to_string(),
             message: format!(
                 "available memory {} MiB below floor {} MiB; reclaim pressure {}%",
-                observed.available_mem_mib, config.available_mem_mib_floor,
+                observed.available_mem_mib,
+                config.available_mem_mib_floor,
                 observed.reclaim_pressure_pct
             ),
             remediation:
@@ -93,8 +92,7 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
                 "reclaim pressure {}% above ceiling {}%",
                 observed.reclaim_pressure_pct, config.reclaim_pressure_pct_ceiling
             ),
-            remediation: "inspect memory consumers; avoid concurrent memory-heavy jobs"
-                .to_string(),
+            remediation: "inspect memory consumers; avoid concurrent memory-heavy jobs".to_string(),
         });
     }
 

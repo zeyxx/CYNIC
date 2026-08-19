@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn dmesg_softlockup_alone_is_an_anomaly() {
-        let obs = observe::OsObservation {
+        let obs = super::types::OsObservation {
             softlockup_panic: true,
             thp_enabled: "madvise".to_string(),
             thp_defrag: "madvise".to_string(),
@@ -124,9 +124,10 @@ mod tests {
             dmesg_oom_count: 0,
         };
         let a = assess_os_health_default(&StubOsHealthObserver::new(obs));
-        assert!(a
-            .findings
-            .iter()
-            .any(|f| f.kind == "kernel_softlockup_detected"));
+        assert!(
+            a.findings
+                .iter()
+                .any(|f| f.kind == "kernel_softlockup_detected")
+        );
     }
 }

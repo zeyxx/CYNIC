@@ -95,9 +95,17 @@ fn read_reclaim_pressure_pct() -> u8 {
             let mut t = 0u64;
             for line in c.lines() {
                 if let Some(r) = line.strip_prefix("MemAvailable:") {
-                    a = r.split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(0);
+                    a = r
+                        .split_whitespace()
+                        .next()
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(0);
                 } else if let Some(r) = line.strip_prefix("MemTotal:") {
-                    t = r.split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(0);
+                    t = r
+                        .split_whitespace()
+                        .next()
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(0);
                 }
             }
             (a, t)
