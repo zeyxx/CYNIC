@@ -32,6 +32,7 @@ macro_rules! klog {
 pub mod api;
 pub mod backends;
 pub mod bootstrap;
+pub mod build_scheduler;
 pub mod domain;
 pub mod infra;
 pub mod introspection;
