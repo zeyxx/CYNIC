@@ -2,6 +2,7 @@ use std::path::Path;
 use std::process::Command;
 
 use super::types::*;
+use crate::credential::CredentialResolver;
 
 pub fn execute_plan(root: &Path, plan: &SyncPlan) -> SyncProof {
     let mut steps_completed = Vec::new();
@@ -93,7 +94,11 @@ pub fn execute_plan_with_enrollment(
     }
 }
 
-fn execute_step(root: &Path, step: &SyncStep, credential: Option<&crate::credential::Credential>) -> SyncStepResult {
+fn execute_step(
+    root: &Path,
+    step: &SyncStep,
+    credential: Option<&crate::credential::Credential>,
+) -> SyncStepResult {
     match step {
         SyncStep::GitCommand { argv, layer: _ } => {
             let mut cmd = Command::new(&argv[0]);
@@ -150,7 +155,10 @@ fn execute_step(root: &Path, step: &SyncStep, credential: Option<&crate::credent
                 error: write_result.err().map(|e| e.to_string()),
             }
         }
-        SyncStep::Archive { branch, archive_ref } => {
+        SyncStep::Archive {
+            branch,
+            archive_ref,
+        } => {
             let output = Command::new("git")
                 .args(["branch", archive_ref, branch])
                 .current_dir(root)
