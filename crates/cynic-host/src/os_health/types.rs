@@ -47,10 +47,6 @@ pub struct OsHealthFinding {
     pub kind: String,
     pub severity: String, // "critical" | "warning" | "info"
     pub message: String,
-    /// Sovereign CYNIC error code mined from this anomaly class (e.g.
-    /// `CYNIC-OSH-001`), or `None` for non-mapped kinds.
-    #[serde(default)]
-    pub error_code: Option<String>,
     /// Machine-readable remediation intent (bounded, reviewable).
     pub remediation: String,
 }

@@ -7,7 +7,7 @@
 //! an explicit `unknown` so the decision layer can preserve the gap instead of
 //! guessing.
 
-pub use super::types::OsObservation;
+use super::types::OsObservation;
 
 /// Portable observer of OS substrate health signals.
 pub trait OsHealthObserver {

@@ -17,14 +17,8 @@ pub mod observe;
 pub mod render;
 pub mod types;
 
-pub use observe::{LocalOsHealthObserver, OsHealthObserver};
-pub use types::OsObservation;
-
-pub use decision::assessment_error_codes;
-pub use decision::assessment_to_anomalies;
-pub use decision::evaluate_os_health;
-
-use self::types::{OsHealthAssessment, OsHealthConfig};
+pub use self::observe::{LocalOsHealthObserver, OsHealthObserver};
+pub use self::types::{OsHealthAssessment, OsHealthConfig};
 
 /// Runtime authority for OsHealth: default thresholds that catch the crash
 /// class observed on 2026-08-18 (soft lockup with no panic, THP defrag,
