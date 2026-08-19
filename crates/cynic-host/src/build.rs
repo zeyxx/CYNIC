@@ -355,9 +355,14 @@ mod tests {
     fn conformance_rejects_a_non_scheduler_envelope() {
         let envelope = build_evidence_envelope(
             "build-workload:workload-1:canonical_gate_report",
+            // Untrusted producer: not the node scheduler.
             "operator-json-file",
             1,
-            vec![],
+            // Provenance must be non-empty or the envelope is refused before it
+            // is even built (evidence_provenance_missing), which would test the
+            // wrong contract. The point here is that a well-formed envelope from
+            // an untrusted producer is still rejected as conformance proof.
+            vec!["operator:local-json".to_string()],
             &serde_json::json!({
                 "schema": CANONICAL_GATE_READ_BACK_SCHEMA,
                 "source_commit": "abc123",

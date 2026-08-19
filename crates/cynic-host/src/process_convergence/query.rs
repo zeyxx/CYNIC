@@ -120,7 +120,17 @@ mod tests {
         TrustDimensionStatus, TrustRequirements, build_evidence_envelope,
     };
 
+    /// A syntactically valid sha256 digest, distinguished by `marker`.
+    ///
+    /// The marker must be a hex digit: `valid_sha256_digest` rejects anything
+    /// else, so a marker like 'z' produced an invalid digest and the index
+    /// refused the entry (`causal_epoch_index_digest_invalid`) before the case
+    /// under test was ever reached.
     fn digest(marker: char) -> String {
+        assert!(
+            marker.is_ascii_hexdigit(),
+            "digest marker must be a hex digit, got {marker:?}"
+        );
         format!("sha256:{}", marker.to_string().repeat(64))
     }
 
@@ -242,7 +252,9 @@ mod tests {
                     vertical_id: "process".to_string(),
                     epoch_id: "epoch-2".to_string(),
                 },
-                epoch_digest: digest('z'),
+                // A syntactically valid digest that was never persisted: the
+                // point is a missing read-back, not a malformed digest.
+                epoch_digest: digest('f'),
                 observed_at_unix_ms: 2,
             })
             .unwrap();
