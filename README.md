@@ -1,5 +1,13 @@
 # CYNIC
 
+[![CI](https://github.com/zeyxx/CYNIC/actions/workflows/ci.yml/badge.svg)](https://github.com/zeyxx/CYNIC/actions)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.95-orange.svg)](https://www.rust-lang.org)
+
+**A low-layer sovereign runtime for multi-agent systems.**
+
+CYNIC coordinates human intent, operating systems, source matter, builds, artifacts, agents, inference, hosts, and fleets without collapsing their authorities into one controller. It proves every mutation with read-back evidence.
+
 CYNIC is being rebuilt around a minimal low-layer Rust runtime baseline.
 
 The current operational core is:
