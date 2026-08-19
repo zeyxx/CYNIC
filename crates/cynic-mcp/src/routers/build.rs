@@ -1,12 +1,17 @@
-// ── Build runner tools (distributed build trigger) ──────────
+// ── Build runner tools (distributed build trigger + workload observation) ──
 
 use crate::types::*;
-use crate::types_split::core_params::BuildTriggerParams;
+use crate::types_split::core_params::{BuildTriggerParams, ObserveWorkloadParams, ListWorkloadsParams};
 
+use cynic_host::build_runner_harness::registry::read_registry;
 use cynic_node::ports::build_runner::{
     BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode,
 };
 use cynic_node::ports::build_runner_adapter::{LocalCommandRunner, SshBuildRunner};
+use cynic_host::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_node::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
+use cynic_node::ports::agent_workload_store_port::AgentWorkloadStorePort;
+use cynic_protocol::DurableAgentWorkloadRecord;
 
 #[tool_router(router = tool_router_build, vis = "pub(crate)")]
 impl CynicMcpProxy {

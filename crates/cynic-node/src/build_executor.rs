@@ -132,6 +132,8 @@ impl BuildExecutor {
         };
 
         let mut evidence_refs = vec![
+            format!("node:{}", self.node_id),
+            format!("role:{}", self.role),
             format!("lease:{}", workload.lease.lease_id),
             format!("commit:{}", workload.source_commit),
         ];

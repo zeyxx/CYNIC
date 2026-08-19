@@ -12,6 +12,9 @@ mod execution_context;
 mod host_checks;
 mod inference_dispatch;
 mod inference_surface;
+mod operator_models;
+
+pub(crate) use operator_models::{execute_operator_models, OperatorModelsCommand};
 mod network_preflight;
 mod paths;
 mod persistence;
@@ -172,12 +175,27 @@ pub(crate) enum RuntimeCommand {
         /// Useful when models are large and you want to keep the TUI responsive.
         #[arg(long)]
         no_wait: bool,
+        #[arg(long)]
+        yes: bool,
     },
     /// Stop the native local inference unit (optional alias; default = running).
     InferenceStop {
         alias: Option<String>,
         #[arg(long)]
         json: bool,
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Forge a vault profile from a BenchmarkReport, write it, then launch.
+    InferenceForge {
+        #[arg(long)]
+        report: String,
+        #[arg(long, default_value = "auto")]
+        alias: String,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        yes: bool,
     },
     /// Peer / optional ODS attach plane (loose coupling).
     ///

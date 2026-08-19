@@ -101,12 +101,15 @@ pub(crate) fn try_execute_inference(command: RuntimeCommand) -> Result<ExitCode,
             inference_surface::execute_inference_plan(&alias, json, apply),
         ),
         RuntimeCommand::InferenceForge {
-            report_path,
-            source_note,
+            report,
+            alias: _,
             json,
             yes,
         } => Ok(inference_surface::execute_inference_forge(
-            &report_path, &source_note, json, yes,
+            &report,
+            "",
+            json,
+            yes,
         )),
         other => Err(other),
     }

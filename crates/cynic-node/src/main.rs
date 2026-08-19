@@ -231,6 +231,12 @@ async fn main() -> ExitCode {
                 &state_root,
             );
         }
+        Some(Commands::AgentWorkloadList {
+            state_root,
+            json: _,
+        }) => {
+            return agent_workload_store_uc::execute_agent_workload_list(&state_root);
+        }
         Some(Commands::AgentWorkloadTransition {
             request,
             state_root,

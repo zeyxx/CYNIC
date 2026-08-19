@@ -78,7 +78,7 @@ pub struct RuntimeTakeoverObservation {
     pub prior_fencing_token: u64,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RuntimeTakeoverDecision {
     pub schema: &'static str,
     pub status: &'static str,

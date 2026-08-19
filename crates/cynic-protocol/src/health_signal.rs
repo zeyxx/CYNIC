@@ -29,6 +29,19 @@ pub struct OsHealthAnomaly {
     pub observed_at_unix_ms: u128,
 }
 
+impl OsHealthAnomaly {
+    /// Map to a kernel anomaly triple `(kind, message, severity)` compatible
+    /// with the `cynic.anomaly_signal.v1` surface.
+    pub fn to_kernel_anomaly(&self) -> (String, String, String) {
+        let kind = self
+            .error_code
+            .as_deref()
+            .unwrap_or("OS_HEALTH_ANOMALY")
+            .to_string();
+        (kind, self.detail.clone(), self.severity.clone())
+    }
+}
+
 /// Fold a list of `OsHealthAnomaly` into a compact, dependency-light health
 /// view (critical/warning flags + dedup codes). Used by the build-node
 /// resolver to decide whether a candidate is dispatchable.

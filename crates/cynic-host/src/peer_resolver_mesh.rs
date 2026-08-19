@@ -54,38 +54,33 @@ impl MeshPeerResolver {
         let reclaim_pressure_pct = read_reclaim_pressure_pct();
         let softlockup_panic = read_bool("/proc/sys/kernel/softlockup_panic");
 
+        let now_ms = crate::now_unix_ms();
         let mut anomalies = vec![];
 
         if !softlockup_panic {
             anomalies.push(OsHealthAnomaly {
-                schema: "cynic.os_health.anomaly.v1".to_string(),
-                error_code: Some("CYNIC-OSH-001".to_string()),
-                kind: "softlockup_no_panic".to_string(),
                 severity: "critical".to_string(),
-                message: "kernel.softlockup_panic=0".to_string(),
-                remediation: "sysctl -w kernel.softlockup_panic=1".to_string(),
+                error_code: Some("CYNIC-OSH-001".to_string()),
+                detail: "kernel.softlockup_panic=0 (remediation: sysctl -w kernel.softlockup_panic=1)".to_string(),
+                observed_at_unix_ms: now_ms,
             });
         }
 
         if available_mem_mib < 2048 {
             anomalies.push(OsHealthAnomaly {
-                schema: "cynic.os_health.anomaly.v1".to_string(),
-                error_code: Some("CYNIC-OSH-003".to_string()),
-                kind: "memory_pressure".to_string(),
                 severity: "warning".to_string(),
-                message: format!("available memory {available_mem_mib} MiB below floor"),
-                remediation: "reduce workloads or add memory".to_string(),
+                error_code: Some("CYNIC-OSH-003".to_string()),
+                detail: format!("available memory {available_mem_mib} MiB below floor (remediation: reduce workloads or add memory)"),
+                observed_at_unix_ms: now_ms,
             });
         }
 
         if reclaim_pressure_pct > 80 {
             anomalies.push(OsHealthAnomaly {
-                schema: "cynic.os_health.anomaly.v1".to_string(),
-                error_code: Some("CYNIC-OSH-004".to_string()),
-                kind: "reclaim_pressure".to_string(),
                 severity: "warning".to_string(),
-                message: format!("reclaim pressure {reclaim_pressure_pct}% above ceiling"),
-                remediation: "inspect memory consumers".to_string(),
+                error_code: Some("CYNIC-OSH-004".to_string()),
+                detail: format!("reclaim pressure {reclaim_pressure_pct}% above ceiling (remediation: inspect memory consumers)"),
+                observed_at_unix_ms: now_ms,
             });
         }
 

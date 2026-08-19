@@ -165,6 +165,13 @@ pub(crate) enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// List all durable workloads in the node-local store.
+    AgentWorkloadList {
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// Plan or apply one revision-fenced workload state transition.
     AgentWorkloadTransition {
         /// cynic.agent_workload_transition_request.v1 JSON input.

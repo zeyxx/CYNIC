@@ -475,4 +475,18 @@ impl CynicMcpProxy {
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))
     }
+
+    #[tool(
+        name = "cynic_federation_status",
+        description = "Observe the current federation reconciliation: operating mode (coordinated/autonomous/degraded/promoted), retained capabilities, assumed roles, takeover status, residual unknowns. This is the single authoritative composition of node_control, local_autonomy, emergence, and runtime_takeover — not four competing models."
+    )]
+    async fn cynic_federation_status(
+        &self,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_federation_status();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
 }

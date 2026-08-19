@@ -13,6 +13,8 @@ use cynic_host::update_lifecycle::LocalArgvRunner;
 use cynic_protocol::build::{BuildRecipe, BUILD_RECIPE_SCHEMA};
 use cynic_protocol::SourceSnapshot;
 
+use crate::workload_observation::{execute_observe_workload, execute_list_workloads};
+
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
 pub enum BuildCommand {
@@ -43,6 +45,45 @@ pub enum BuildCommand {
         #[arg(long)]
         source_commit: Option<String>,
     },
+    /// Observe one workload by id across the federation (local store + SSH).
+    ObserveWorkload {
+        /// Workload id to observe.
+        #[arg(long)]
+        workload_id: String,
+        /// Node state root on remote nodes.
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        /// Restrict to the local store (no SSH federation).
+        #[arg(long)]
+        local: bool,
+        /// Path to the registry JSON for node discovery.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+        /// SSH user for remote nodes.
+        #[arg(long, default_value = "cynic")]
+        user: String,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// List all durable workloads across the federation (local store + SSH).
+    ListWorkloads {
+        /// Node state root on remote nodes.
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        /// Restrict to the local store (no SSH federation).
+        #[arg(long)]
+        local: bool,
+        /// Path to the registry JSON for node discovery.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+        /// SSH user for remote nodes.
+        #[arg(long, default_value = "cynic")]
+        user: String,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Execute the build CLI command.
@@ -57,9 +98,31 @@ pub fn execute_build(command: BuildCommand) -> Result<(), String> {
             apply,
             artifact_path,
             source_commit,
-        } => {
-            run_build(json, observation_path, kernel_endpoint, action, crates, apply, artifact_path, source_commit)
-        }
+        } => run_build(
+            json,
+            observation_path,
+            kernel_endpoint,
+            action,
+            crates,
+            apply,
+            artifact_path,
+            source_commit,
+        ),
+        BuildCommand::ObserveWorkload {
+            workload_id,
+            state_root,
+            local,
+            registry,
+            user,
+            json,
+        } => execute_observe_workload(&workload_id, &state_root, local, &registry, &user, json),
+        BuildCommand::ListWorkloads {
+            state_root,
+            local,
+            registry,
+            user,
+            json,
+        } => execute_list_workloads(&state_root, local, &registry, &user, json),
     }
 }
 

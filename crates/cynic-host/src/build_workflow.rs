@@ -11,9 +11,8 @@
 use std::path::Path;
 
 use cynic_protocol::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
-use cynic_protocol::build::{
-    BuildRecipe, BuildRunnerObservation, SourceSnapshot, BUILD_RECIPE_SCHEMA,
-};
+use cynic_protocol::build::{BuildRecipe, BuildRunnerObservation, BUILD_RECIPE_SCHEMA};
+use cynic_protocol::source_control::SourceSnapshot;
 use cynic_protocol::{LeaseVerification, SecurityEvidenceState};
 
 use crate::build_evidence::{

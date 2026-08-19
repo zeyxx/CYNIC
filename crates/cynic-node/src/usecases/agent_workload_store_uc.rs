@@ -219,6 +219,23 @@ fn store(state_root: &str) -> LocalAgentWorkloadStore {
     LocalAgentWorkloadStore::new(PathBuf::from(state_root).join("agent-scheduler/workloads"))
 }
 
+pub fn execute_agent_workload_list(state_root: &str) -> ExitCode {
+    let store = store(state_root);
+    match store.durable_records() {
+        Ok(records) => emit(
+            &serde_json::json!({
+                "schema": "cynic.node.agent_workload_list.v1",
+                "status": "observed",
+                "mutates_runtime": false,
+                "count": records.len(),
+                "workloads": records,
+            }),
+            true,
+        ),
+        Err(failure) => emit_error(&failure.code, &failure.detail),
+    }
+}
+
 fn current_unix_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

@@ -469,6 +469,20 @@ async fn run_docker_cmd(runner: &dyn ArgvExecutionPort, args: &[String]) -> Dock
     }
 }
 
+/// Run the federation reconciliation and return the current status.
+///
+/// For now, returns a stub indicating that real observation adapters
+/// need to be wired. This is an explicit unknown, not a fabricated status.
+pub async fn run_federation_status() -> serde_json::Value {
+    serde_json::json!({
+        "status": "stub",
+        "message": "Real observation adapters not yet wired. TODO: inject KernelObserver/MeshObserver/OsHealthObserver/EnrollmentObserver/TakeoverObserver.",
+        "mode": "unknown",
+        "retained_capabilities": [],
+        "residual_unknowns": ["federation_runtime_not_wired"]
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

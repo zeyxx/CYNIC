@@ -129,7 +129,7 @@ impl BuildConformanceEvidence {
     }
 }
 
-pub fn run_build(request: &BuildRequest, runner: &impl ArgvRunner) -> BuildProof {
+pub fn run_build(request: &BuildRequest, runner: &dyn ArgvRunner) -> BuildProof {
     let evidence_refs = request
         .input
         .evidence_refs

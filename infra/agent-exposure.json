@@ -384,6 +384,11 @@
           "mutation": "local_mutation"
         },
         {
+          "name": "cynic_federation_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
           "name": "cynic_verdicts",
           "tier": "product_domain",
           "mutation": "read_only"
