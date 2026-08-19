@@ -404,3 +404,27 @@ fn completion_requires_expected_read_back_proof() {
         AgentWorkloadState::Completed
     );
 }
+
+#[test]
+fn a_degraded_build_is_terminal_but_cannot_claim_completion() {
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
+    let completion = AgentCompletionEnvelope {
+        schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
+        delegation_id: "delegation-1".to_string(),
+        node_id: "builder-1".to_string(),
+        agent_id: "build-agent-1".to_string(),
+        parent_agent_id: None,
+        status: AgentCompletionStatus::Degraded,
+        evidence_refs: vec![evidence("build_execution_provenance")],
+        unknowns: vec!["kernel_poh_read_back_unavailable".to_string()],
+        consumed_budget: AgentBudget {
+            context_tokens: 100,
+            actions: 1,
+            children: 0,
+            wall_time_ms: 10,
+        },
+    };
+    let terminal = complete_agent_workload(&claimed, &guard(1), &completion, 11).unwrap();
+    assert_eq!(terminal.state, AgentWorkloadState::Degraded);
+    assert!(terminal.state.terminal());
+}

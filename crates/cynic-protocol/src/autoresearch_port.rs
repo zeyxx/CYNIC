@@ -49,10 +49,7 @@ pub trait AutoresearchPort {
 
     /// Reflect on the units to form skill hypotheses (the "researcher"). The fake
     /// returns pre-set hypotheses so decisions are deterministic and testable.
-    fn hypothesize(
-        &self,
-        units: &[TraceUnit],
-    ) -> Result<Vec<SkillHypothesis>, AutoresearchPortError>;
+    fn hypothesize(&self, units: &[TraceUnit]) -> Result<Vec<SkillHypothesis>, AutoresearchPortError>;
 }
 
 pub type ReasoningError = AutoresearchPortError;
@@ -85,6 +82,26 @@ pub fn run_loop(
     Ok(build_report(program, corpus_sessions, &candidates))
 }
 
+/// Run one full experiment loop with pre-computed units and hypotheses.
+/// Used when the caller has already observed traces and generated hypotheses
+/// (for example via separate adapters, or with offline reflection).
+pub fn run_loop_with_hypotheses(
+    program: &AutoresearchProgram,
+    units: &[TraceUnit],
+    hypotheses: &[SkillHypothesis],
+) -> AutoresearchReport {
+    let corpus_sessions = units
+        .iter()
+        .map(|u| u.session_id.as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    let candidates: Vec<SkillCandidate> = hypotheses
+        .iter()
+        .map(|h| evaluate_candidate(program, h, units))
+        .collect();
+    build_report(program, corpus_sessions, &candidates)
+}
+
 /// Deterministic fake reflection adapter for tests. Holds fixed observations and
 /// hypotheses so the loop + policy can be proven without any LLM or corpus file.
 pub struct FakeReflection {
@@ -103,10 +120,7 @@ impl AutoresearchPort for FakeReflection {
         Ok(self.units.clone())
     }
 
-    fn hypothesize(
-        &self,
-        _units: &[TraceUnit],
-    ) -> Result<Vec<SkillHypothesis>, AutoresearchPortError> {
+    fn hypothesize(&self, _units: &[TraceUnit]) -> Result<Vec<SkillHypothesis>, AutoresearchPortError> {
         Ok(self.hypotheses.clone())
     }
 }
@@ -120,31 +134,11 @@ mod tests {
         // 5 sessions; toolchain_ice blocks in 2 (owned domain -> discard),
         // novel_domain blocks in 1 (actionable -> keep).
         let units = vec![
-            TraceUnit {
-                session_id: "s1".into(),
-                domain: "toolchain_ice".into(),
-                is_block: true,
-            },
-            TraceUnit {
-                session_id: "s2".into(),
-                domain: "toolchain_ice".into(),
-                is_block: true,
-            },
-            TraceUnit {
-                session_id: "s3".into(),
-                domain: "tailscale".into(),
-                is_block: true,
-            },
-            TraceUnit {
-                session_id: "s4".into(),
-                domain: "design_doc".into(),
-                is_block: false,
-            },
-            TraceUnit {
-                session_id: "s5".into(),
-                domain: "novel_domain".into(),
-                is_block: true,
-            },
+            TraceUnit { session_id: "s1".into(), domain: "toolchain_ice".into(), is_block: true },
+            TraceUnit { session_id: "s2".into(), domain: "toolchain_ice".into(), is_block: true },
+            TraceUnit { session_id: "s3".into(), domain: "tailscale".into(), is_block: true },
+            TraceUnit { session_id: "s4".into(), domain: "design_doc".into(), is_block: false },
+            TraceUnit { session_id: "s5".into(), domain: "novel_domain".into(), is_block: true },
         ];
         let mut h_dup = SkillHypothesis::new("cynic-x", "toolchain_ice", "duplicate stub");
         let mut h_new = SkillHypothesis::new("cynic-y", "novel_domain", "new actionable skill");
@@ -161,17 +155,9 @@ mod tests {
         assert_eq!(report.kept, vec!["cynic-y".to_string()]);
         assert_eq!(report.discarded, vec!["cynic-x".to_string()]);
         // entry for the kept skill carries Keep
-        let kept = report
-            .entries
-            .iter()
-            .find(|e| e.skill_id == "cynic-y")
-            .unwrap();
+        let kept = report.entries.iter().find(|e| e.skill_id == "cynic-y").unwrap();
         assert_eq!(kept.status, KeepDiscard::Keep);
-        let dropped = report
-            .entries
-            .iter()
-            .find(|e| e.skill_id == "cynic-x")
-            .unwrap();
+        let dropped = report.entries.iter().find(|e| e.skill_id == "cynic-x").unwrap();
         assert_eq!(dropped.status, KeepDiscard::Discard);
     }
 
@@ -192,10 +178,7 @@ mod tests {
             fn observe_traces(&self) -> Result<Vec<TraceUnit>, AutoresearchPortError> {
                 Err(AutoresearchPortError::new("corpus_unreadable", "disk gone"))
             }
-            fn hypothesize(
-                &self,
-                _u: &[TraceUnit],
-            ) -> Result<Vec<SkillHypothesis>, AutoresearchPortError> {
+            fn hypothesize(&self, _u: &[TraceUnit]) -> Result<Vec<SkillHypothesis>, AutoresearchPortError> {
                 Ok(vec![])
             }
         }
@@ -207,9 +190,6 @@ mod tests {
 
     #[test]
     fn schema_name_is_stable_contract() {
-        assert_eq!(
-            AUTORESEARCH_PORT_ERROR_SCHEMA,
-            "cynic.autoresearch.port_error.v1"
-        );
+        assert_eq!(AUTORESEARCH_PORT_ERROR_SCHEMA, "cynic.autoresearch.port_error.v1");
     }
 }

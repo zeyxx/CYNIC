@@ -28,17 +28,6 @@ pub enum CynicErrorCode {
     BreakglassAuthorityVerifierUnavailable,
     BreakglassSignatureInvalid,
     BreakglassConsumptionPersistFailed,
-    /// OS substrate health — the layer CYNIC was blind to during the
-    /// 2026-08-18 soft-lockup hang (stuck kcompactd under THP + memory pressure).
-    /// These codes were mined from that incident.
-    OsSoftlockupPanicDisabled,
-    OsTransparentHugepageDefragAggressive,
-    OsMemoryAvailableBelowFloor,
-    OsReclaimPressureAboveCeiling,
-    OsKernelSoftlockupDetected,
-    OsKernelHungTaskDetected,
-    OsKernelOomDetected,
-    OsHealthObservationUnknown,
 }
 
 pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
@@ -61,14 +50,6 @@ pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
     CynicErrorCode::BreakglassAuthorityVerifierUnavailable,
     CynicErrorCode::BreakglassSignatureInvalid,
     CynicErrorCode::BreakglassConsumptionPersistFailed,
-    CynicErrorCode::OsSoftlockupPanicDisabled,
-    CynicErrorCode::OsTransparentHugepageDefragAggressive,
-    CynicErrorCode::OsMemoryAvailableBelowFloor,
-    CynicErrorCode::OsReclaimPressureAboveCeiling,
-    CynicErrorCode::OsKernelSoftlockupDetected,
-    CynicErrorCode::OsKernelHungTaskDetected,
-    CynicErrorCode::OsKernelOomDetected,
-    CynicErrorCode::OsHealthObservationUnknown,
 ];
 
 impl CynicErrorCode {
@@ -93,14 +74,6 @@ impl CynicErrorCode {
             Self::BreakglassAuthorityVerifierUnavailable => "CYNIC-BG-006",
             Self::BreakglassSignatureInvalid => "CYNIC-BG-007",
             Self::BreakglassConsumptionPersistFailed => "CYNIC-BG-008",
-            Self::OsSoftlockupPanicDisabled => "CYNIC-OSH-001",
-            Self::OsTransparentHugepageDefragAggressive => "CYNIC-OSH-002",
-            Self::OsMemoryAvailableBelowFloor => "CYNIC-OSH-003",
-            Self::OsReclaimPressureAboveCeiling => "CYNIC-OSH-004",
-            Self::OsKernelSoftlockupDetected => "CYNIC-OSH-005",
-            Self::OsKernelHungTaskDetected => "CYNIC-OSH-006",
-            Self::OsKernelOomDetected => "CYNIC-OSH-007",
-            Self::OsHealthObservationUnknown => "CYNIC-OSH-008",
         }
     }
 
@@ -160,34 +133,6 @@ impl CynicErrorCode {
             Self::BreakglassConsumptionPersistFailed => {
                 "do not execute; restore the durable incident receipt store and read-back proof"
             }
-            Self::OsSoftlockupPanicDisabled => {
-                "enable kernel.softlockup_panic=1 (sysctl -w + persist in /etc/sysctl.d) so a \
-                 stuck CPU reboots into a clean state instead of wedging the host"
-            }
-            Self::OsTransparentHugepageDefragAggressive => {
-                "set /sys/kernel/mm/transparent_hugepage/defrag to madvise or never to stop \
-                 synchronous compaction stalls that freeze latency-sensitive tasks"
-            }
-            Self::OsMemoryAvailableBelowFloor => {
-                "free or cap memory consumers; avoid concurrent memory-heavy jobs on this host"
-            }
-            Self::OsReclaimPressureAboveCeiling => {
-                "inspect reclaim sources; throttle or bound concurrent allocators"
-            }
-            Self::OsKernelSoftlockupDetected => {
-                "host likely wedged: prefer a panic-driven reboot; investigate kcompactd / CPU \
-                 starvation that produced the stall"
-            }
-            Self::OsKernelHungTaskDetected => {
-                "investigate the blocked task (I/O or lock); capture its stack and restart the offender"
-            }
-            Self::OsKernelOomDetected => {
-                "raise memory headroom or bound the heaviest allocator; inspect the OOM dump"
-            }
-            Self::OsHealthObservationUnknown => {
-                "observe the kernel interfaces directly (dmesg/sysfs) before trusting this \
-                 assessment; do not claim convergence"
-            }
         }
     }
 }
@@ -219,11 +164,6 @@ impl CynicError {
                     | CynicErrorCode::NetworkBuildRunnerUnreachable
                     | CynicErrorCode::NetworkActuatorMissing
                     | CynicErrorCode::BreakglassAdmissionExpired
-                    | CynicErrorCode::OsSoftlockupPanicDisabled
-                    | CynicErrorCode::OsTransparentHugepageDefragAggressive
-                    | CynicErrorCode::OsMemoryAvailableBelowFloor
-                    | CynicErrorCode::OsReclaimPressureAboveCeiling
-                    | CynicErrorCode::OsHealthObservationUnknown
             ),
             operator_action: code.operator_action().to_string(),
             evidence_refs: Vec::new(),

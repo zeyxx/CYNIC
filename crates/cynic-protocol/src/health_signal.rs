@@ -1,16 +1,135 @@
 //! Typed health signals, anomalies, and autonomic remediation contracts.
 //!
-//! Replaces brittle string heuristics with schema-validated signals
+//! Replaces brittle string heuristics with typed, schema-validated signals
 //! for closed-loop organism homeostasis.
 
 use serde::{Deserialize, Serialize};
 
-use crate::judgment::{CynefinDomain, DijkwLayer, SagePhase};
-use crate::CynicJudgment;
-
 pub const HEALTH_SIGNAL_SCHEMA: &str = "cynic.health_signal.v1";
 pub const ANOMALY_SIGNAL_SCHEMA: &str = "cynic.anomaly_signal.v1";
 pub const AUTONOMIC_REMEDIATION_PLAN_SCHEMA: &str = "cynic.autonomic_remediation_plan.v1";
+
+/// Portable OS-substrate health anomaly, transport-neutral.
+///
+/// Mirrors the host-side `cynic_host::os_health` findings but carries only the
+/// fields federation consumers need (severity + sovereign error code), so the
+/// protocol crate stays free of host sysfs/proc dependencies. This is the
+/// first-class data type the kernel anomaly stream and the node build-node
+/// resolver consume.
+///
+/// Codes follow the sovereign `CYNIC-OSH-*` catalog (error_catalog):
+/// 001 SoftlockupPanicDisabled, 002 THPDefragAggressive, 003 MemAvailBelowFloor,
+/// 004 ReclaimPressureAboveCeiling, 005 KernelSoftlockupDetected,
+/// 006 HungTaskDetected, 007 OomDetected, 008 ObservationUnknown.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OsHealthAnomaly {
+    pub severity: String,
+    pub error_code: Option<String>,
+    pub detail: String,
+    pub observed_at_unix_ms: u128,
+}
+
+impl OsHealthAnomaly {
+    /// Map to a kernel anomaly triple `(kind, message, severity)` compatible
+    /// with the `cynic.anomaly_signal.v1` surface.
+    pub fn to_kernel_anomaly(&self) -> (String, String, String) {
+        let kind = self
+            .error_code
+            .as_deref()
+            .unwrap_or("OS_HEALTH_ANOMALY")
+            .to_string();
+        (kind, self.detail.clone(), self.severity.clone())
+    }
+}
+
+/// Fold a list of `OsHealthAnomaly` into a compact, dependency-light health
+/// view (critical/warning flags + dedup codes). Used by the build-node
+/// resolver to decide whether a candidate is dispatchable.
+pub fn from_os_health_anomalies(anomalies: &[OsHealthAnomaly]) -> NodeHealthFold {
+    let mut fold = NodeHealthFold::default();
+    for a in anomalies {
+        if a.severity.eq_ignore_ascii_case("critical") {
+            fold.critical_active = true;
+        } else if a.severity.eq_ignore_ascii_case("warning") {
+            fold.warning_active = true;
+        }
+        if let Some(code) = &a.error_code {
+            if !fold.active_osha_codes.contains(code) {
+                fold.active_osha_codes.push(code.clone());
+            }
+        }
+    }
+    fold
+}
+
+/// Compact health fold derived from `OsHealthAnomaly` list.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct NodeHealthFold {
+    pub critical_active: bool,
+    pub warning_active: bool,
+    pub active_osha_codes: Vec<String>,
+}
+
+/// First-class signal describing the *kernel* single-point-of-failure.
+///
+/// The kernel is deployed centrally (operator machine + one dedicated VM), not
+/// per-node. That makes the dedicated VM a genuine SPOF: if it dies, the whole
+/// federation loses its cortex (coordination + event stream). This signal makes
+/// that residual risk explicit and machine-readable instead of hidden behind a
+/// "mesh is up" green light.
+///
+/// Design (A: node autonomy, D: kernel kept separate): nodes MUST keep working
+/// in a degraded local mode when `kernel_reachable == false`. The kernel is a
+/// coordination convenience, never a liveness dependency for local build/observe.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KernelSpofSignal {
+    pub schema: &'static str,
+    /// Where the kernel lives (operator_machine | dedicated_vm).
+    pub kernel_location: String,
+    /// True only when an automated failover target exists (2nd VM, helper).
+    pub failover_available: bool,
+    /// Observed kernel reachability from this node's perspective.
+    pub kernel_reachable: bool,
+    /// Seconds since last successful heartbeat, if known.
+    pub last_heartbeat_age_s: Option<u64>,
+    /// Residual risk statement — never empty; unknown is explicit data.
+    pub residual_risk: String,
+    /// Machine-readable severity for the autonomic loop.
+    pub severity: String, // "info" | "warning" | "critical"
+}
+
+impl KernelSpofSignal {
+    pub const SCHEMA: &'static str = "cynic.kernel_spof_signal.v1";
+
+    /// Build a signal when no kernel failover target is configured (the common
+    /// single-VM case). `kernel_reachable` and `last_heartbeat_age_s` come from
+    /// the observer; everything else is the declared topology truth.
+    pub fn single_vm(
+        kernel_reachable: bool,
+        last_heartbeat_age_s: Option<u64>,
+    ) -> Self {
+        let severity = if kernel_reachable {
+            "info"
+        } else {
+            "critical"
+        };
+        let residual_risk = if kernel_reachable {
+            "kernel reachable on dedicated VM; loss of that VM is a total-cortex SPOF with no automated failover"
+                .to_string()
+        } else {
+            "kernel UNREACHABLE: federation cortex down; nodes must run in degraded local autonomy (no coordination/event stream)".to_string()
+        };
+        KernelSpofSignal {
+            schema: Self::SCHEMA,
+            kernel_location: "dedicated_vm".to_string(),
+            failover_available: false,
+            kernel_reachable,
+            last_heartbeat_age_s,
+            residual_risk,
+            severity: severity.to_string(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -293,118 +412,85 @@ pub fn reconcile_health_signal(
     }
 }
 
-impl AutonomicRemediationPlan {
-    /// Convert this remediation plan into a [`CynicJudgment`] — the canonical
-    /// observe→reconcile→act→read-back projection. The plan is a *Knowledge*
-    /// layer judgment (a pure decision rule applied to observed Information),
-    /// in the Act phase. Its Cynefin domain derives from the severity and
-    /// actionability: Critical+actionable → Chaotic (act first), Warning →
-    /// Complicated (known unknowns, record and monitor).
-    pub fn to_judgment(&self, source_node_id: &str) -> CynicJudgment {
-        let residual_unknowns = match &self.action {
-            AutonomicActionKind::RecordObservationOnly { reason } => {
-                vec![reason.clone()]
-            }
-            _ => Vec::new(),
-        };
-
-        let confidence = if self.severity == SignalSeverity::Critical && self.is_actionable {
-            0.9
-        } else if self.severity == SignalSeverity::Warning {
-            0.6
-        } else {
-            0.4
-        };
-
-        let mut j = CynicJudgment::new(
-            format!("health-{}", self.plan_id),
-            DijkwLayer::Knowledge,
-            SagePhase::Act,
-            CynefinDomain::Disordered,
-            self.generated_at_unix_s,
-        );
-
-        j.residual_unknowns = residual_unknowns;
-        j.confidence = confidence;
-        j.cynefin_domain = self.classify_domain(source_node_id);
-        j
-    }
-
-    /// Pure domain classification from the plan's own shape. Critical and
-    /// actionable → Chaotic (act→sense→respond). Warning with residual
-    /// unknowns → Complicated. Otherwise → Complex.
-    fn classify_domain(&self, source_node_id: &str) -> CynefinDomain {
-        match (&self.severity, self.is_actionable) {
-            (SignalSeverity::Critical, true) => CynefinDomain::Chaotic,
-            (SignalSeverity::Warning, _) => CynefinDomain::Complicated,
-            _ => {
-                if !source_node_id.is_empty() {
-                    CynefinDomain::Complicated
-                } else {
-                    CynefinDomain::Complex
-                }
-            }
-        }
-    }
+/// Topology drift event: emitted when observed operational reality diverges
+/// from the declared desired topology (registry seed / role assignment).
+///
+/// Per the CYNIC coherence rule "reality primes, drift is data", an
+/// unreachable builder or an OS-critical node is NOT a crash — it is a
+/// first-class signal the federation reconciles (e.g. failover to a standby,
+/// or emit a `cynic.topology_drift.v1` health signal).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TopologyDriftSignal {
+    pub node_id: String,
+    pub desired_role: String,
+    pub observed_role: String,
+    pub reachable: bool,
+    pub os_health_critical: bool,
+    pub drift_kind: String,
 }
 
-/// Portable OS-substrate anomaly, matching the kernel's `KernelEvent::Anomaly`
-/// shape so the host can publish substrate faults into the kernel anomaly stream
-/// without depending on the kernel crate. Mined from the 2026-08-18 soft-lockup
-/// hang, where CYNIC was blind to the OS substrate entirely.
-pub const OS_HEALTH_ANOMALY_SCHEMA: &str = "cynic.os_health.anomaly.v1";
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OsHealthAnomaly {
-    pub schema: String,
-    /// Sovereign CYNIC error code (e.g. `CYNIC-OSH-001`), when mapped.
-    #[serde(default)]
-    pub error_code: Option<String>,
-    /// Stable kind, e.g. `softlockup_no_panic`.
-    pub kind: String,
-    pub severity: String, // "critical" | "warning" | "info"
-    pub message: String,
-    pub remediation: String,
-}
-
-impl OsHealthAnomaly {
-    /// Convert into a kernel `KernelEvent::Anomaly` payload (kind/message/severity).
-    /// The kernel consumes this on its SSE/anomaly stream once the host reports it.
+impl TopologyDriftSignal {
+    /// Map the drift to a kernel anomaly (schema `cynic.anomaly_signal.v1`
+    /// compatible). Severity is `critical` when the node is unreachable or
+    /// OS-critical, otherwise `warning`.
     pub fn to_kernel_anomaly(&self) -> (String, String, String) {
-        (
-            self.kind.clone(),
-            self.message.clone(),
-            self.severity.clone(),
-        )
+        let severity = if !self.reachable || self.os_health_critical {
+            "critical"
+        } else {
+            "warning"
+        };
+        let message = format!(
+            "topology drift node={} desired={} observed={} reachable={} drift={}",
+            self.node_id, self.desired_role, self.observed_role, self.reachable, self.drift_kind
+        );
+        ("topology_drift".to_string(), message, severity.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn topology_drift_unreachable_is_critical() {
+        let d = TopologyDriftSignal {
+            node_id: "cynic-builder".to_string(),
+            desired_role: "build_runner_primary".to_string(),
+            observed_role: "build_runner_primary".to_string(),
+            reachable: false,
+            os_health_critical: false,
+            drift_kind: "mesh_unreachable".to_string(),
+        };
+        let (kind, _msg, sev) = d.to_kernel_anomaly();
+        assert_eq!(kind, "topology_drift");
+        assert_eq!(sev, "critical");
     }
 
-    /// Convert this OS anomaly into a [`CynicJudgment`]. The anomaly is an
-    /// *Information* layer judgment (schema-validated, typed), in the Sense
-    /// phase (it assembles observed substrate facts into a coherent finding).
-    /// Its Cynefin domain derives from the severity string.
-    pub fn to_judgment(&self, source_node_id: &str) -> CynicJudgment {
-        let severity = self.severity.to_ascii_lowercase();
-        let (cynefin, confidence) = match severity.as_str() {
-            "critical" => (CynefinDomain::Complicated, 0.7),
-            "warning" => (CynefinDomain::Complicated, 0.5),
-            "info" => (CynefinDomain::Clear, 0.4),
-            _ => (CynefinDomain::Disordered, 0.2),
+    #[test]
+    fn topology_drift_os_critical_is_critical() {
+        let d = TopologyDriftSignal {
+            node_id: "cynic-fix".to_string(),
+            desired_role: "build_runner_primary".to_string(),
+            observed_role: "build_runner_primary".to_string(),
+            reachable: true,
+            os_health_critical: true,
+            drift_kind: "os_health_critical".to_string(),
         };
+        let (_k, _m, sev) = d.to_kernel_anomaly();
+        assert_eq!(sev, "critical");
+    }
 
-        let mut j = CynicJudgment::new(
-            format!("os-anomaly-{}", self.kind),
-            DijkwLayer::Information,
-            SagePhase::Sense,
-            cynefin,
-            0,
-        );
-        j.residual_unknowns = if self.error_code.is_none() {
-            vec![format!("os_anomaly_unmapped:{}", self.kind)]
-        } else {
-            Vec::new()
+    #[test]
+    fn topology_drift_reachable_no_critical_is_warning() {
+        let d = TopologyDriftSignal {
+            node_id: "cynic-b".to_string(),
+            desired_role: "build_runner_primary".to_string(),
+            observed_role: "build_runner_secondary".to_string(),
+            reachable: true,
+            os_health_critical: false,
+            drift_kind: "role_mismatch".to_string(),
         };
-        j.confidence = confidence;
-        let _ = source_node_id;
-        j
+        let (_k, _m, sev) = d.to_kernel_anomaly();
+        assert_eq!(sev, "warning");
     }
 }

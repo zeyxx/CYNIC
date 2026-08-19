@@ -29,12 +29,12 @@ impl NodeResourceLimits {
             schema: RESOURCE_BURST_POLICY_SCHEMA.to_string(),
             node_id: node_id.into(),
             role: "build_runner".to_string(),
-            baseline_memory_bytes: 4 * 1024 * 1024 * 1024, // 4 GiB baseline
+            baseline_memory_bytes: 4 * 1024 * 1024 * 1024,      // 4 GiB baseline
             burst_memory_ceiling_bytes: 16 * 1024 * 1024 * 1024, // 16 GiB burst headroom during compilation
             burst_ttl_seconds: 1800,                             // 30 minutes max burst window
             baseline_disk_scratch_bytes: 10 * 1024 * 1024 * 1024, // 10 GiB baseline
             burst_disk_scratch_ceiling_bytes: 30 * 1024 * 1024 * 1024, // 30 GiB burst scratch
-            high_watermark_cleanup_threshold_pct: 75, // Pre-cleanup triggered at 75% disk usage
+            high_watermark_cleanup_threshold_pct: 75,             // Pre-cleanup triggered at 75% disk usage
         }
     }
 
@@ -44,9 +44,9 @@ impl NodeResourceLimits {
             schema: RESOURCE_BURST_POLICY_SCHEMA.to_string(),
             node_id: node_id.into(),
             role: "inference_node".to_string(),
-            baseline_memory_bytes: 8 * 1024 * 1024 * 1024, // 8 GiB baseline
+            baseline_memory_bytes: 8 * 1024 * 1024 * 1024,      // 8 GiB baseline
             burst_memory_ceiling_bytes: 24 * 1024 * 1024 * 1024, // 24 GiB burst for model load/swap
-            burst_ttl_seconds: 600,                        // 10 minutes burst for model transitions
+            burst_ttl_seconds: 600,                              // 10 minutes burst for model transitions
             baseline_disk_scratch_bytes: 20 * 1024 * 1024 * 1024,
             burst_disk_scratch_ceiling_bytes: 50 * 1024 * 1024 * 1024,
             high_watermark_cleanup_threshold_pct: 80,
@@ -93,14 +93,11 @@ impl ResourceAllocationAssessment {
             0
         };
 
-        let preemptive_cleanup_required =
-            disk_utilization_pct >= limits.high_watermark_cleanup_threshold_pct;
+        let preemptive_cleanup_required = disk_utilization_pct >= limits.high_watermark_cleanup_threshold_pct;
 
         let (memory_limit_bytes, burst_expired) = match &mode {
             AllocationMode::Baseline => (limits.baseline_memory_bytes, false),
-            AllocationMode::BurstActive {
-                expires_at_unix_ms, ..
-            } => {
+            AllocationMode::BurstActive { expires_at_unix_ms, .. } => {
                 if now_unix_ms >= *expires_at_unix_ms {
                     (limits.baseline_memory_bytes, true)
                 } else {
@@ -163,10 +160,7 @@ mod tests {
             now_ms + 100_000,
         );
 
-        assert_eq!(
-            assessment.memory_limit_bytes,
-            limits.burst_memory_ceiling_bytes
-        );
+        assert_eq!(assessment.memory_limit_bytes, limits.burst_memory_ceiling_bytes);
         assert!(!assessment.burst_expired);
         assert!(!assessment.preemptive_cleanup_required);
     }

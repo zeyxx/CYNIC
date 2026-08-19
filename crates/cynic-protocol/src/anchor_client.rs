@@ -100,8 +100,13 @@ pub fn build_poh_checkpoint_from_digests(
     round_hasher.update(&timestamp_ms.to_le_bytes());
     let round_digest: [u8; 32] = round_hasher.finalize().into();
 
-    let instruction =
-        build_record_poh_ix(program_id, node_authority, epoch, merkle_root, round_digest);
+    let instruction = build_record_poh_ix(
+        program_id,
+        node_authority,
+        epoch,
+        merkle_root,
+        round_digest,
+    );
 
     PoHCheckpointBatch {
         schema: POH_CHECKPOINT_BATCH_SCHEMA,
@@ -131,14 +136,7 @@ pub fn build_record_poh_ix(
     data.extend_from_slice(&merkle_root);
     data.extend_from_slice(&round_digest);
 
-    let pda = derive_pda_digest(
-        &[
-            b"cynic_poh",
-            node_authority.as_bytes(),
-            &epoch.to_le_bytes(),
-        ],
-        program_id,
-    );
+    let pda = derive_pda_digest(&[b"cynic_poh", node_authority.as_bytes(), &epoch.to_le_bytes()], program_id);
 
     AnchorInstructionPayload {
         schema: ANCHOR_CLIENT_SCHEMA_V1,

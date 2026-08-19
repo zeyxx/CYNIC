@@ -688,3 +688,25 @@ mod tests {
         assert!(conflict.contains(&"agent_workload_delivery_lease_active".to_string()));
     }
 }
+
+
+pub fn parse_agent_workload_observation_read_back(body: &str) -> Result<AgentWorkloadDelivery, String> {
+    serde_json::from_str::<AgentWorkloadDelivery>(body)
+        .map_err(|e| format!("invalid_agent_workload_observation_read_back:{e}"))
+}
+
+pub fn validate_agent_workload_submission_read_back(delivery: &AgentWorkloadDelivery, body: &str) -> Vec<String> {
+    match serde_json::from_str::<AgentWorkloadDelivery>(body) {
+        Ok(observed) => {
+            let mut violations = validate_agent_workload_delivery(&observed);
+            if observed.envelope != delivery.envelope {
+                violations.push("agent_workload_submission_read_back_envelope_mismatch".to_string());
+            }
+            if observed.target_node_id != delivery.target_node_id {
+                violations.push("agent_workload_submission_read_back_target_node_mismatch".to_string());
+            }
+            violations
+        }
+        Err(e) => vec![format!("invalid_agent_workload_submission_read_back:{e}")],
+    }
+}

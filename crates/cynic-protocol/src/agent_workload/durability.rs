@@ -150,6 +150,14 @@ pub fn validate_agent_workload_record(record: &AgentWorkloadRecord) -> Vec<Strin
                 AgentCompletionStatus::Completed
             ) | (AgentWorkloadState::Blocked, AgentCompletionStatus::Blocked)
                 | (AgentWorkloadState::Failed, AgentCompletionStatus::Failed)
+                | (
+                    AgentWorkloadState::Degraded,
+                    AgentCompletionStatus::Degraded
+                )
+                | (
+                    AgentWorkloadState::RecoveredUnattributed,
+                    AgentCompletionStatus::RecoveredUnattributed
+                )
         );
         if !state_matches {
             violations.push("agent_workload_completion_state_mismatch".to_string());

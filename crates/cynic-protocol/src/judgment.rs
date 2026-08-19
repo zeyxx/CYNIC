@@ -150,6 +150,12 @@ pub struct CynicJudgment {
     pub version: JudgmentVersion,
     /// Stable identifier for this judgment.
     pub judgment_id: String,
+    /// Whether the runtime may act on this judgment. Set by the producer
+    /// (a plan, a matrix, an anomaly) — not derived from the projections.
+    /// A `true` here with a `Disordered` Cynefin domain is a contradiction
+    /// the consumer must treat as residual risk.
+    #[serde(default)]
+    pub actionable: bool,
     /// Content-addressed observation(s) this judgment derives from.
     #[serde(default)]
     pub observation_refs: Vec<EvidenceRef>,
@@ -178,8 +184,10 @@ pub struct CynicJudgment {
 
 impl CynicJudgment {
     /// Construct a v1 judgment. The `version` field is derived from `schema`.
+    /// `actionable` defaults to `false` — the producer must explicitly opt in.
     pub fn new(
         judgment_id: impl Into<String>,
+        actionable: bool,
         dijkw_layer: DijkwLayer,
         sage_phase: SagePhase,
         cynefin_domain: CynefinDomain,
@@ -189,6 +197,7 @@ impl CynicJudgment {
             schema: JUDGMENT_SCHEMA.to_string(),
             version: JudgmentVersion::V1,
             judgment_id: judgment_id.into(),
+            actionable,
             observation_refs: Vec::new(),
             dijkw_layer,
             sage_phase,
@@ -201,14 +210,11 @@ impl CynicJudgment {
         }
     }
 
-    /// A judgment is actionable only when it has cleared the Sense phase,
-    /// sits at least at the Knowledge layer, and is not in a Disordered
-    /// Cynefin regime.
+    /// A judgment is actionable only when the producer has explicitly marked
+    /// it as such AND it is not in a Disordered Cynefin regime. The producer's
+    /// intent is primary; the domain is a guard against acting blind.
     pub fn is_actionable(&self) -> bool {
-        !matches!(
-            self.sage_phase,
-            SagePhase::Priming | SagePhase::Sense | SagePhase::Unknown
-        ) && !matches!(self.dijkw_layer, DijkwLayer::Data | DijkwLayer::Unknown)
+        self.actionable
             && !matches!(
                 self.cynefin_domain,
                 CynefinDomain::Disordered | CynefinDomain::Unknown
@@ -298,6 +304,7 @@ mod tests {
             schema: JUDGMENT_SCHEMA.to_string(),
             version: JudgmentVersion::V1,
             judgment_id: "j-1".to_string(),
+            actionable: true,
             observation_refs: vec![],
             dijkw_layer: DijkwLayer::Information,
             sage_phase: SagePhase::Sense,
@@ -313,23 +320,27 @@ mod tests {
     // ── Actionability ──
 
     #[test]
-    fn data_layer_is_never_actionable() {
+    fn data_layer_alone_does_not_block_when_producer_opts_in() {
+        // The producer's intent is primary; layer does not gate actionability.
         let j = CynicJudgment {
             dijkw_layer: DijkwLayer::Data,
             sage_phase: SagePhase::Act,
+            actionable: true,
             ..sample_judgment()
         };
-        assert!(!j.is_actionable());
+        assert!(j.is_actionable());
     }
 
     #[test]
-    fn priming_phase_is_never_actionable() {
+    fn priming_phase_alone_does_not_block_when_producer_opts_in() {
+        // The producer's intent is primary; phase does not gate actionability.
         let j = CynicJudgment {
             dijkw_layer: DijkwLayer::Knowledge,
             sage_phase: SagePhase::Priming,
+            actionable: true,
             ..sample_judgment()
         };
-        assert!(!j.is_actionable());
+        assert!(j.is_actionable());
     }
 
     #[test]
@@ -344,10 +355,23 @@ mod tests {
     }
 
     #[test]
-    fn unknown_phase_is_never_actionable() {
+    fn unknown_phase_is_actionable_when_producer_says_so() {
+        // The producer's `actionable` intent is primary; phase does not gate it.
         let j = CynicJudgment {
             dijkw_layer: DijkwLayer::Knowledge,
             sage_phase: SagePhase::Unknown,
+            ..sample_judgment()
+        };
+        assert!(j.is_actionable());
+    }
+
+    #[test]
+    fn non_actionable_producer_intent_overrides_domain() {
+        let j = CynicJudgment {
+            actionable: false,
+            dijkw_layer: DijkwLayer::Knowledge,
+            sage_phase: SagePhase::Act,
+            cynefin_domain: CynefinDomain::Clear,
             ..sample_judgment()
         };
         assert!(!j.is_actionable());
@@ -532,6 +556,7 @@ mod tests {
     fn new_constructs_v1() {
         let j = CynicJudgment::new(
             "j-new",
+            false,
             DijkwLayer::Knowledge,
             SagePhase::Act,
             CynefinDomain::Complicated,
@@ -540,5 +565,6 @@ mod tests {
         assert_eq!(j.schema, JUDGMENT_SCHEMA);
         assert_eq!(j.version, JudgmentVersion::V1);
         assert_eq!(j.judgment_id, "j-new");
+        assert!(!j.actionable);
     }
 }

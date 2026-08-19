@@ -104,12 +104,6 @@ pub fn validate_node_enrollment_desired_state(desired: &NodeEnrollmentDesiredSta
 
 pub fn required_node_enrollment_capabilities(role: &str) -> Vec<String> {
     let mut capabilities = vec!["node_control".to_string(), role.to_string()];
-    if role == "runtime_publisher" {
-        // 2N capability scope: limited publish surface (no host mutation).
-        capabilities.push("publish_artifact_proof".to_string());
-        capabilities.push("publish_settlement_receipt".to_string());
-        capabilities.push("publish_attest_durable_receipt".to_string());
-    }
     if role == "build_runner" {
         capabilities.extend(
             crate::BUILD_SCHEDULER_RUNTIME_CAPABILITIES

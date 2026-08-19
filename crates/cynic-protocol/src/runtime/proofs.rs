@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 use super::types::{
-    INFERENCE_STATUS_PROOF_SCHEMA, RUNTIME_PROOF_BUNDLE_SCHEMA, RUNTIME_PROOF_PERSISTENCE_SCHEMA,
-    RUNTIME_PROOF_SCHEMA,
+    INFERENCE_STATUS_PROOF_SCHEMA, RUNTIME_PROOF_BUNDLE_SCHEMA,
+    RUNTIME_PROOF_PERSISTENCE_SCHEMA, RUNTIME_PROOF_SCHEMA,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,9 +82,9 @@ impl RuntimeProof {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InferenceStatusProof {
     pub schema: &'static str,
-    pub surface: String, // process | systemd | docker
+    pub surface: String,   // process | systemd | docker
     pub alias: Option<String>,
-    pub state: String, // inactive | active | error
+    pub state: String,     // inactive | active | error
     pub endpoint: Option<String>,
     pub listen_host: Option<String>,
     pub listen_port: Option<u16>,

@@ -9,9 +9,13 @@ pub use bootstrap_admission::{
     validate_build_runner_bootstrap_capability_binding,
 };
 pub mod recipe;
+pub mod fleet;
 use crate::{
-    LEASE_VERIFICATION_SCHEMA, LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot,
+    LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot,
 };
+use crate::LEASE_VERIFICATION_SCHEMA;
+#[allow(unused_imports)]
+use crate::coord::LEASE_VERIFICATION_SCHEMA as _LEASE_VERIFICATION_SCHEMA;
 pub use recipe::{BUILD_RECIPE_SCHEMA, BuildRecipe, build_recipe, validate_build_recipe};
 
 mod agent_request;

@@ -1,22 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    EvidenceRelation, RuntimeSeedObservation, RuntimeSeedPlan, RuntimeSeedRequest,
-    SecurityEvidenceState,
-    convergence::{
-        COHERENCE_VECTOR_SCHEMA, CausalConvergenceEpoch, Compass, ConvergenceStatus,
-        TrustAssessment, TrustDimensionStatus, TrustRequirements, Vector, assess_coherence_vector,
-    },
-    digest_json, reconcile_runtime_seed, validate_runtime_seed_request,
+    RuntimeSeedObservation, RuntimeSeedPlan, RuntimeSeedRequest, SecurityEvidenceState,
+    reconcile_runtime_seed, validate_runtime_seed_request,
 };
 
 pub const NODE_DESIRED_STATE_SCHEMA: &str = "cynic.node_desired_state.v1";
 pub const NODE_CONTROL_OBSERVATION_SCHEMA: &str = "cynic.node_control_observation.v1";
 pub const NODE_CONTROL_PLAN_SCHEMA: &str = "cynic.node_control_plan.v2";
-
-fn unknown_fleet_membership() -> SecurityEvidenceState {
-    SecurityEvidenceState::Unknown
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeDesiredState {
@@ -49,11 +40,6 @@ pub struct NodeControlObservation {
     pub observed_at_unix_ms: u64,
     pub observed_generation: Option<u64>,
     pub enrollment: SecurityEvidenceState,
-    /// Fleet membership is separate from transport reachability. A node may
-    /// temporarily reach control through its provider fallback while its
-    /// canonical mesh remains refuted.
-    #[serde(default = "unknown_fleet_membership")]
-    pub fleet_membership: SecurityEvidenceState,
     pub connection: NodeControlConnectionState,
     pub release: RuntimeSeedObservation,
     #[serde(default)]
@@ -89,22 +75,6 @@ pub enum NodeControlDecision {
     },
 }
 
-impl NodeControlDecision {
-    /// Project onto the canonical compass/vector decision vocabulary.
-    pub fn label(&self) -> String {
-        match self {
-            NodeControlDecision::Paused => "paused",
-            NodeControlDecision::EnrollmentRequired => "enrollment_required",
-            NodeControlDecision::ReconcileRelease { .. } => "reconcile_release",
-            NodeControlDecision::ReconcileCapabilities { .. } => "reconcile_capabilities",
-            NodeControlDecision::Converged => "converged",
-            NodeControlDecision::Unknown { .. } => "unknown",
-            NodeControlDecision::Blocked { .. } => "blocked",
-        }
-        .to_string()
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeControlExecutionEvidence {
     pub schema: String,
@@ -131,28 +101,6 @@ pub struct NodeControlPlan {
     pub execution: Option<NodeControlExecutionEvidence>,
     pub evidence_refs: Vec<String>,
     pub unknowns: Vec<String>,
-    /// Canonical Compass/Vector coherence proof for this reconcile step. The
-    /// direction is the signed desired state; the vector is the pure decision
-    /// plus the observed read-back evidence. `None` only when the observation
-    /// or desired state itself failed schema/identity checks.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub epoch: Option<CausalConvergenceEpoch>,
-}
-
-/// Map a `NodeControlDecision` onto the canonical compass/vector vocabulary so
-/// vertical-specific enums still project from the shared decision source
-/// (structural-invariants rule #6).
-fn coherence_status_for(decision: &NodeControlDecision) -> ConvergenceStatus {
-    match decision {
-        NodeControlDecision::Converged => ConvergenceStatus::Complete,
-        NodeControlDecision::Paused
-        | NodeControlDecision::ReconcileRelease { .. }
-        | NodeControlDecision::ReconcileCapabilities { .. } => ConvergenceStatus::Partial,
-        NodeControlDecision::EnrollmentRequired | NodeControlDecision::Unknown { .. } => {
-            ConvergenceStatus::Unknown
-        }
-        NodeControlDecision::Blocked { .. } => ConvergenceStatus::Blocked,
-    }
 }
 
 pub fn validate_node_desired_state(desired: &NodeDesiredState) -> Vec<String> {
@@ -291,22 +239,6 @@ pub fn reconcile_node_control(
                 }
             }
         }
-    } else if observed.fleet_membership != SecurityEvidenceState::Proven {
-        match observed.fleet_membership {
-            SecurityEvidenceState::Refuted => NodeControlDecision::Blocked {
-                violations: vec!["fleet_membership_mesh_unproved".to_string()],
-            },
-            SecurityEvidenceState::Unknown
-            | SecurityEvidenceState::Declared
-            | SecurityEvidenceState::Absent => NodeControlDecision::Unknown {
-                missing_evidence: vec!["fleet_membership_unobserved".to_string()],
-            },
-            SecurityEvidenceState::NotApplicable | SecurityEvidenceState::Proven => {
-                NodeControlDecision::Unknown {
-                    missing_evidence: vec!["fleet_membership_invalid_state".to_string()],
-                }
-            }
-        }
     } else if !missing_authority.is_empty() {
         NodeControlDecision::Blocked {
             violations: missing_authority
@@ -369,113 +301,11 @@ pub fn reconcile_node_control(
         desired_generation: desired.generation,
         observed_generation: observed.observed_generation,
         connection: observed.connection,
-        decision: decision.clone(),
+        decision,
         execution: None,
         evidence_refs: observed.evidence_refs.clone(),
-        unknowns: unknowns.clone(),
-        epoch: Some(build_node_control_epoch(
-            desired, observed, &decision, status, &unknowns,
-        )),
+        unknowns,
     }
-}
-
-/// Build the canonical Compass/Vector coherence proof for this reconcile step.
-///
-/// COMPASS  = the signed desired state (policy_digest is the comparable,
-///   non-mutating direction).
-/// VECTOR   = the pure `NodeControlDecision` plus the observed read-back
-///   evidence (the magnitude applied and independently observed).
-///
-/// A `Converged` claim without observed read-back evidence is honestly
-/// downgraded to `Unknown` by `assess_coherence_vector` — completeness is not
-/// asserted without proof (structural-invariants rule #5).
-fn build_node_control_epoch(
-    desired: &NodeDesiredState,
-    observed: &NodeControlObservation,
-    decision: &NodeControlDecision,
-    status: &str,
-    unknowns: &[String],
-) -> CausalConvergenceEpoch {
-    let compass = Compass {
-        schema: COHERENCE_VECTOR_SCHEMA.to_string(),
-        desired_state_digest: desired.policy_digest.clone(),
-        subject_id: desired.node_id.clone(),
-        vertical_id: "node_control".to_string(),
-    };
-    let vector = Vector {
-        decision: decision.label(),
-        action: None,
-        read_back_digest: None,
-    };
-    let observation_digest = digest_json(observed).ok();
-    let has_read_back = vector.read_back_digest.is_some();
-    let blockers = match decision {
-        NodeControlDecision::Blocked { violations } => violations.clone(),
-        _ => Vec::new(),
-    };
-    assess_coherence_vector(
-        &format!("node-control:{}", desired.node_id),
-        1,
-        &compass,
-        &vector,
-        observation_digest,
-        coherence_status_for(decision),
-        node_control_trust_requirements(),
-        node_control_trust(decision, status, has_read_back),
-        unknowns.to_vec(),
-        blockers,
-    )
-}
-
-fn node_control_trust_requirements() -> TrustRequirements {
-    TrustRequirements {
-        authority: true,
-        authenticity: false,
-        integrity: true,
-        freshness: false,
-        scope: true,
-        replay_safety: false,
-        read_back: true,
-        independence: false,
-    }
-}
-
-fn node_control_trust(
-    decision: &NodeControlDecision,
-    _status: &str,
-    has_read_back: bool,
-) -> TrustAssessment {
-    let satisfied = decision == &NodeControlDecision::Converged;
-    let authority = if desired_policy_digest_present(decision) {
-        TrustDimensionStatus::Satisfied
-    } else {
-        TrustDimensionStatus::Unknown
-    };
-    let read_back = if has_read_back {
-        TrustDimensionStatus::Satisfied
-    } else {
-        TrustDimensionStatus::Unknown
-    };
-    TrustAssessment {
-        authority,
-        authenticity: TrustDimensionStatus::Unknown,
-        integrity: TrustDimensionStatus::Satisfied,
-        freshness: TrustDimensionStatus::Unknown,
-        scope: if satisfied {
-            TrustDimensionStatus::Satisfied
-        } else {
-            TrustDimensionStatus::Unknown
-        },
-        replay_safety: TrustDimensionStatus::Unknown,
-        read_back,
-        independence: EvidenceRelation::Unknown {
-            missing_evidence: vec!["independent_node_observer".to_string()],
-        },
-    }
-}
-
-fn desired_policy_digest_present(decision: &NodeControlDecision) -> bool {
-    !matches!(decision, NodeControlDecision::Blocked { .. })
 }
 
 fn missing(desired: &[String], observed: &[String]) -> Vec<String> {
@@ -596,7 +426,6 @@ mod tests {
             observed_at_unix_ms: 10,
             observed_generation: Some(1),
             enrollment,
-            fleet_membership: SecurityEvidenceState::Proven,
             connection: NodeControlConnectionState::Connected,
             release: release_observation(converged),
             observed_capabilities: vec!["build.execute".to_string()],
@@ -660,56 +489,5 @@ mod tests {
             plan.decision,
             NodeControlDecision::ReconcileCapabilities { .. }
         ));
-    }
-
-    #[test]
-    fn provider_fallback_does_not_admit_fleet_membership() {
-        let mut observed = observation(SecurityEvidenceState::Proven, true);
-        observed.fleet_membership = SecurityEvidenceState::Refuted;
-        let plan = reconcile_node_control(&desired(), &observed);
-        assert_eq!(plan.status, "blocked");
-        assert!(matches!(plan.decision, NodeControlDecision::Blocked { .. }));
-    }
-
-    #[test]
-    fn reconcile_emits_canonical_compass_vector_epoch() {
-        // A converged node emits a CausalConvergenceEpoch whose compass carries
-        // the signed desired state digest. Because node_control has no
-        // independent post-action read-back yet, the epoch is honestly
-        // downgraded to Unknown rather than falsely Complete.
-        let observed = observation(SecurityEvidenceState::Proven, true);
-        let plan = reconcile_node_control(&desired(), &observed);
-        let epoch = plan
-            .epoch
-            .expect("node_control reconcile must emit a coherence epoch");
-        assert_eq!(epoch.cell.subject_id, "node-a");
-        assert_eq!(epoch.cell.vertical_id, "node_control");
-        assert_eq!(
-            epoch.causal_evidence.desired_state.digest,
-            desired().policy_digest
-        );
-        assert_eq!(epoch.cell.status, ConvergenceStatus::Unknown);
-        assert!(
-            epoch
-                .residual_unknowns
-                .contains(&"coherence_independent_read_back_missing".to_string())
-        );
-    }
-
-    #[test]
-    fn blocked_decision_produces_blocked_epoch() {
-        let plan = reconcile_node_control(
-            &desired(),
-            &observation(SecurityEvidenceState::Refuted, false),
-        );
-        let epoch = plan
-            .epoch
-            .expect("node_control reconcile must emit a coherence epoch");
-        assert_eq!(epoch.cell.status, ConvergenceStatus::Blocked);
-        assert!(
-            epoch
-                .blockers
-                .contains(&"node_enrollment_invalid".to_string())
-        );
     }
 }
