@@ -82,11 +82,7 @@ fn read_current_branch(root: &Path) -> Option<String> {
         .ok()?;
     if output.status.success() {
         let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if branch == "HEAD" {
-            None
-        } else {
-            Some(branch)
-        }
+        if branch == "HEAD" { None } else { Some(branch) }
     } else {
         None
     }

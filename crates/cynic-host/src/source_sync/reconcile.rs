@@ -139,11 +139,7 @@ pub fn plan(decision: &SyncDecision) -> SyncPlan {
                 }
                 MergeStrategy::Rebase => {
                     steps.push(SyncStep::GitCommand {
-                        argv: vec![
-                            "git".to_string(),
-                            "rebase".to_string(),
-                            "main".to_string(),
-                        ],
+                        argv: vec!["git".to_string(), "rebase".to_string(), "main".to_string()],
                         layer: SourceLayer::Cortex,
                     });
                 }
@@ -224,10 +220,12 @@ mod tests {
         let mut obs = mock_observation();
         obs.cortex.commits_ahead = Some(5);
         let decision = reconcile(&obs);
-        assert!(decision
-            .actions
-            .iter()
-            .any(|a| matches!(a, SyncAction::PushCortexToForgejo { commits: 5 })));
+        assert!(
+            decision
+                .actions
+                .iter()
+                .any(|a| matches!(a, SyncAction::PushCortexToForgejo { commits: 5 }))
+        );
     }
 
     #[test]
@@ -235,10 +233,12 @@ mod tests {
         let mut obs = mock_observation();
         obs.forgejo.commits_ahead = Some(10);
         let decision = reconcile(&obs);
-        assert!(decision
-            .actions
-            .iter()
-            .any(|a| matches!(a, SyncAction::PushForgejoToGithub { commits: 10 })));
+        assert!(
+            decision
+                .actions
+                .iter()
+                .any(|a| matches!(a, SyncAction::PushForgejoToGithub { commits: 10 }))
+        );
     }
 
     #[test]

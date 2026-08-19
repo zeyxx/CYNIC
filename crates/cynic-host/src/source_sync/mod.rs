@@ -15,7 +15,8 @@ pub mod observe;
 pub mod reconcile;
 pub mod types;
 
-pub use apply::execute_plan;
+pub use crate::credential::CredentialType;
+pub use apply::{execute_plan, execute_plan_with_enrollment};
 pub use observe::{observe_all_layers, observe_layer};
 pub use reconcile::{plan, reconcile};
 pub use types::*;

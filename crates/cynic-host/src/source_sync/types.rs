@@ -45,11 +45,22 @@ pub struct SyncObservation {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum SyncAction {
-    PushCortexToForgejo { commits: u32 },
-    PushForgejoToGithub { commits: u32 },
-    MergeBranchIntoMain { branch: String, strategy: MergeStrategy },
-    ArchiveBranch { branch: String },
-    NoOp { reason: String },
+    PushCortexToForgejo {
+        commits: u32,
+    },
+    PushForgejoToGithub {
+        commits: u32,
+    },
+    MergeBranchIntoMain {
+        branch: String,
+        strategy: MergeStrategy,
+    },
+    ArchiveBranch {
+        branch: String,
+    },
+    NoOp {
+        reason: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,9 +91,18 @@ pub struct SyncPlan {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum SyncStep {
-    GitCommand { argv: Vec<String>, layer: SourceLayer },
-    WriteFile { path: String, content: String },
-    Archive { branch: String, archive_ref: String },
+    GitCommand {
+        argv: Vec<String>,
+        layer: SourceLayer,
+    },
+    WriteFile {
+        path: String,
+        content: String,
+    },
+    Archive {
+        branch: String,
+        archive_ref: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
