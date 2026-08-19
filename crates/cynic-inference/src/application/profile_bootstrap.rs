@@ -698,7 +698,7 @@ mod forge_tests {
     fn derive_model_path_from_scenario() {
         let payload = serde_json::json!({
             "schema":"cynic.benchmark.report.v1","plan_id":"p1","reports":[],
-            "summary": {"scenario_count":0,"completed_count":0}
+            "summary": {"scenario_count":0,"completed_count":0,"stopped_count":0,"failed_count":0,"sample_count":0,"mean_wall_time_ms":null,"mean_output_tokens_per_second":null,"max_rss_bytes":null,"min_available_memory_percent":null,"max_rss_percent":null,"event_proof_count":0}
         });
         std::fs::write("/tmp/_forge_empty.json", serde_json::to_string(&payload).unwrap())
             .unwrap();

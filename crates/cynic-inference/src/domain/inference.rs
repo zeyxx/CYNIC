@@ -114,6 +114,7 @@ mod tests {
             prompt_tokens: 1,
             completion_tokens: 0,
             residual_unknowns: vec!["latency_ms_not_observed".into()],
+            phase_latency: PhaseLatency::unknown(),
         };
         assert_eq!(resp.residual_unknowns.len(), 1);
         assert_eq!(resp.residual_unknowns[0], "latency_ms_not_observed");

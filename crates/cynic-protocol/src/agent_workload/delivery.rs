@@ -159,6 +159,20 @@ pub fn validate_agent_workload_delivery(delivery: &AgentWorkloadDelivery) -> Vec
     violations
 }
 
+#[allow(dead_code)]
+pub(crate) fn validate_agent_workload_submission_read_back(
+    _delivery: &AgentWorkloadDelivery,
+    body: &str,
+) -> Vec<String> {
+    let mut violations = Vec::new();
+    match serde_json::from_str::<serde_json::Value>(body) {
+        Ok(value) if value.is_object() => {}
+        Ok(_) => violations.push("agent_workload_submission_read_back_not_object".to_string()),
+        Err(_) => violations.push("agent_workload_submission_read_back_unparseable".to_string()),
+    }
+    violations
+}
+
 pub fn validate_agent_workload_completion_publication(
     delivery: &AgentWorkloadDelivery,
     publication: &AgentWorkloadCompletionPublication,
@@ -686,5 +700,31 @@ mod tests {
         )
         .unwrap_err();
         assert!(conflict.contains(&"agent_workload_delivery_lease_active".to_string()));
+    }
+
+    #[test]
+    fn validate_agent_workload_submission_read_back_accepts_object() {
+        let delivery = delivery();
+        let body = r#"{"submission_id":"abc","status":"accepted"}"#;
+        let violations = validate_agent_workload_submission_read_back(&delivery, body);
+        assert!(violations.is_empty());
+    }
+
+    #[test]
+    fn validate_agent_workload_submission_read_back_rejects_non_object() {
+        let delivery = delivery();
+        let body = r#"["array","not","object"]"#;
+        let violations = validate_agent_workload_submission_read_back(&delivery, body);
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0], "agent_workload_submission_read_back_not_object");
+    }
+
+    #[test]
+    fn validate_agent_workload_submission_read_back_rejects_unparseable() {
+        let delivery = delivery();
+        let body = "not-json-at-all";
+        let violations = validate_agent_workload_submission_read_back(&delivery, body);
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0], "agent_workload_submission_read_back_unparseable");
     }
 }

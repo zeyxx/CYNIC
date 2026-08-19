@@ -302,7 +302,7 @@ fn explicit_device() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::hardware_profile::{GpuClass, GpuInfo};
+    use crate::domain::hardware_profile::{GpuClass, GpuInfo, HardwareTier};
 
     fn fake_hw(threads: u32, avail_gb: u64, integrated: bool) -> HardwareProfile {
         HardwareProfile {
@@ -318,11 +318,15 @@ mod tests {
                 },
                 vendor_id: None,
                 vendor_name: None,
+                bandwidth_gb_s: None,
+                vram_bytes: None,
                 notes: vec![],
             },
             recommended_max_weight_bytes: avail_gb * 1024 * 1024 * 1024 / 2,
             absolute_max_weight_bytes: avail_gb * 1024 * 1024 * 1024 * 3 / 4,
             tier: "test".into(),
+            hardware_tier: HardwareTier::Edge,
+            memory_bandwidth_gb_s: None,
             backends: vec!["cpu".into()],
             cpu_flags: vec!["avx2".into(), "fma".into()],
             cpu_governor: None,
