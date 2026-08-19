@@ -138,8 +138,8 @@ mod tests {
     use super::*;
     use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
     use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
-    use cynic_protocol::build::BUILD_RECIPE_SCHEMA;
     use cynic_protocol::BuildRunnerObservation;
+    use cynic_protocol::build::BUILD_RECIPE_SCHEMA;
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
     fn valid_observation() -> BuildRunnerObservation {
@@ -180,7 +180,12 @@ mod tests {
             schema: BUILD_RECIPE_SCHEMA.to_string(),
             action: "make:check".to_string(),
             target_profile: "debug".to_string(),
-            allowed_actions: vec!["cargo:check".to_string()],
+            // The action MUST appear in allowed_actions: validate_build_recipe
+            // refuses any recipe whose action is not explicitly admitted, which
+            // is the point of the allow-list. The previous fixture declared
+            // action "make:check" against allowed ["cargo:check"] and was
+            // therefore rejected as build_recipe_action_not_in_allowed_actions.
+            allowed_actions: vec!["make:check".to_string(), "cargo:check".to_string()],
             target_crates: vec!["cynic-protocol".to_string()],
             excluded_crates: vec![],
             toolchain_override: None,
