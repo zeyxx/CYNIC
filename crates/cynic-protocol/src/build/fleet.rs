@@ -116,6 +116,117 @@ pub struct RetryPolicy {
     pub isolate_after: u32,
 }
 
+/// Why a build attempt produced no verdict about the source under test.
+///
+/// A toolchain crash (rustc ICE, `SIGSEGV`, corrupted codegen) is a fact about
+/// the *substrate*, never about the code. Some hosts exhibit it chronically and
+/// non-reproducibly; the runtime must therefore be able to say "this attempt
+/// proved nothing" instead of recording a false failure.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolchainFaultClass {
+    /// Internal compiler error / crash signal. Not attributable to the source.
+    CompilerCrash,
+    /// Wall-clock budget exhausted before any verdict.
+    BudgetExhausted,
+}
+
+/// Verdict of one build attempt, separating source truth from substrate noise.
+///
+/// This is the type that makes the lie unrepresentable: a `ToolchainFault`
+/// cannot carry a source verdict, so a chronic ICE host can never be recorded
+/// as having proved the code broken.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttemptVerdict {
+    /// The toolchain ran to completion and judged the source.
+    SourceJudged { passed: bool, exit_code: i32 },
+    /// The toolchain failed to produce a judgement. Says nothing about source.
+    ToolchainFault {
+        class: ToolchainFaultClass,
+        /// The node that exhibited the fault — attribution is to substrate.
+        node_id: String,
+    },
+}
+
+impl AttemptVerdict {
+    /// Classify a raw read-back into a verdict.
+    ///
+    /// `BuildStatus::Unknown` is a fault, not a pass: an unparsable or absent
+    /// outcome must never be projected as success (AGENTS.md: unknown is data).
+    pub fn from_result(result: &BuildResult, node_id: &str) -> Self {
+        match result.status {
+            BuildStatus::Success => Self::SourceJudged {
+                passed: true,
+                exit_code: result.exit_code,
+            },
+            BuildStatus::Ice => Self::ToolchainFault {
+                class: ToolchainFaultClass::CompilerCrash,
+                node_id: node_id.to_string(),
+            },
+            BuildStatus::Timeout => Self::ToolchainFault {
+                class: ToolchainFaultClass::BudgetExhausted,
+                node_id: node_id.to_string(),
+            },
+            BuildStatus::Unknown => Self::ToolchainFault {
+                class: ToolchainFaultClass::CompilerCrash,
+                node_id: node_id.to_string(),
+            },
+        }
+    }
+
+    /// True when this attempt carries information about the source.
+    pub fn is_source_evidence(&self) -> bool {
+        matches!(self, Self::SourceJudged { .. })
+    }
+}
+
+/// What the reconciler decides to do after an attempt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttemptDisposition {
+    /// A source verdict was obtained. Stop; record it as proof.
+    AcceptVerdict { passed: bool },
+    /// Substrate faulted and budget remains on the same boundary. Retry as-is;
+    /// the source is unchanged so this is not a code repair.
+    RetrySameNode { attempt: u32 },
+    /// Faults reached `isolate_after`. Move to a stronger isolation boundary
+    /// (or a different node) before spending more attempts.
+    EscalateIsolation { after_faults: u32 },
+    /// `max_attempts` consumed without any source verdict. The correct terminal
+    /// state is an explicit unknown, never a failure attributed to the code.
+    ExhaustedWithoutVerdict { faults: u32 },
+}
+
+/// Pure decision: given the fault history of a job, what happens next.
+///
+/// `faults_so_far` counts attempts already lost to the substrate (this call
+/// classifies the current one). Chronic-ICE hosts are handled by policy here
+/// instead of by ad-hoc retry loops in adapters or CLI surfaces (AGENTS.md §6).
+pub fn decide_attempt_disposition(
+    verdict: &AttemptVerdict,
+    faults_so_far: u32,
+    policy: &RetryPolicy,
+) -> AttemptDisposition {
+    match verdict {
+        AttemptVerdict::SourceJudged { passed, .. } => {
+            AttemptDisposition::AcceptVerdict { passed: *passed }
+        }
+        AttemptVerdict::ToolchainFault { .. } => {
+            let faults = faults_so_far.saturating_add(1);
+            if faults >= policy.max_attempts {
+                AttemptDisposition::ExhaustedWithoutVerdict { faults }
+            } else if policy.isolate_after > 0 && faults >= policy.isolate_after {
+                AttemptDisposition::EscalateIsolation {
+                    after_faults: faults,
+                }
+            } else {
+                AttemptDisposition::RetrySameNode { attempt: faults }
+            }
+        }
+    }
+}
+
 /// A concrete node chosen by the reconciler.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BuildJob {
@@ -259,5 +370,102 @@ mod tests {
         assert_eq!(local, "\"local\"");
         let vm: IsolationKind = serde_json::from_str("\"vm\"").unwrap();
         assert_eq!(vm, IsolationKind::Vm);
+    }
+
+    fn chronic_ice_policy() -> RetryPolicy {
+        RetryPolicy {
+            max_attempts: 4,
+            isolate_after: 2,
+        }
+    }
+
+    fn result(status: BuildStatus, exit_code: i32) -> BuildResult {
+        BuildResult {
+            status,
+            exit_code,
+            evidence_refs: vec![],
+        }
+    }
+
+    #[test]
+    fn ice_never_becomes_a_source_verdict() {
+        // The core refusal: a chronic-ICE host must not be able to report that
+        // it proved the code broken.
+        let verdict = AttemptVerdict::from_result(&result(BuildStatus::Ice, 101), "cortex");
+        assert!(!verdict.is_source_evidence());
+        assert_eq!(
+            verdict,
+            AttemptVerdict::ToolchainFault {
+                class: ToolchainFaultClass::CompilerCrash,
+                node_id: "cortex".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn unknown_status_is_a_fault_not_a_pass() {
+        let verdict = AttemptVerdict::from_result(&result(BuildStatus::Unknown, 0), "cortex");
+        assert!(!verdict.is_source_evidence());
+    }
+
+    #[test]
+    fn timeout_is_attributed_to_budget_not_to_source() {
+        let verdict = AttemptVerdict::from_result(&result(BuildStatus::Timeout, 124), "cortex");
+        assert_eq!(
+            verdict,
+            AttemptVerdict::ToolchainFault {
+                class: ToolchainFaultClass::BudgetExhausted,
+                node_id: "cortex".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn success_carries_the_source_verdict() {
+        let verdict =
+            AttemptVerdict::from_result(&result(BuildStatus::Success, 0), "cynic-builder");
+        assert!(verdict.is_source_evidence());
+        assert_eq!(
+            decide_attempt_disposition(&verdict, 0, &chronic_ice_policy()),
+            AttemptDisposition::AcceptVerdict { passed: true }
+        );
+    }
+
+    #[test]
+    fn chronic_ice_escalates_then_exhausts_without_blaming_source() {
+        let policy = chronic_ice_policy();
+        let fault = AttemptVerdict::from_result(&result(BuildStatus::Ice, 101), "cortex");
+
+        // First fault: retry the same boundary — source unchanged.
+        assert_eq!(
+            decide_attempt_disposition(&fault, 0, &policy),
+            AttemptDisposition::RetrySameNode { attempt: 1 }
+        );
+        // Second fault reaches isolate_after: move to a stronger boundary.
+        assert_eq!(
+            decide_attempt_disposition(&fault, 1, &policy),
+            AttemptDisposition::EscalateIsolation { after_faults: 2 }
+        );
+        // Budget consumed: terminal state is an explicit unknown, never a
+        // failure attributed to the code.
+        assert_eq!(
+            decide_attempt_disposition(&fault, 3, &policy),
+            AttemptDisposition::ExhaustedWithoutVerdict { faults: 4 }
+        );
+    }
+
+    #[test]
+    fn a_real_compile_error_is_source_evidence_even_when_it_fails() {
+        // cynic-builder returning E0599 is a verdict about the code; it must be
+        // accepted as proof, unlike an ICE on the same source.
+        let verdict = AttemptVerdict::SourceJudged {
+            passed: false,
+            exit_code: 101,
+        };
+        assert!(verdict.is_source_evidence());
+        assert_eq!(
+            decide_attempt_disposition(&verdict, 2, &chronic_ice_policy()),
+            AttemptDisposition::AcceptVerdict { passed: false }
+        );
     }
 }
