@@ -11,7 +11,9 @@
     "fallback_scope": "read_only_observation_only; coordination, build, release, and fleet mutation remain blocked without the MCP/kernel authority",
     "fallback_commands": [
       "cynic dev surface-audit --json",
-      "cynic dev framework --json"
+      "cynic dev framework --json",
+      "cynic runtime agents --json",
+      "cynic runtime hermes-run --json --run-id <id>"
     ],
     "project_root": "Inject runtime paths through operator deployment context; never commit machine-local absolute paths.",
     "honesty": "This projection is source-of-truth for the desired cynic-mcp surface; an installed artifact must prove compatibility and freshness before it is treated as active. Tier labels mark product/legacy surfaces that are not low-layer runtime baseline."
@@ -40,7 +42,7 @@
       "protocol_header": "MCP-Protocol-Version: 2026-07-28",
       "method_header": "Mcp-Method matches JSON-RPC method",
       "tool_name_header": "Mcp-Name matches tools/call params.name",
-      "request_meta": "params._meta.protocolVersion and clientCapabilities required; clientInfo optional but validated when present",
+      "request_meta": "params._meta['io.modelcontextprotocol/protocolVersion'] and params._meta['io.modelcontextprotocol/clientCapabilities'] are required; params._meta['io.modelcontextprotocol/clientInfo'] is optional but validated when present",
       "response_server_identity": "result._meta.io.modelcontextprotocol/serverInfo",
       "cache_hints": "ttlMs and cacheScope on cacheable discovery/list responses; default ttlMs=0, cacheScope=private",
       "error_responses": "transport rejections remain JSON-RPC 2.0 envelopes with MCP error codes (header mismatch -32020, invalid params -32602, method not found -32601, parse error -32700)",
@@ -322,14 +324,9 @@
           "mutation": "read_only"
         },
         {
-          "name": "cynic_evaluate_solana_sop",
+          "name": "cynic_solana_pay_generate",
           "tier": "product_domain",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_storage_census",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
+          "mutation": "local_mutation"
         },
         {
           "name": "cynic_api_contracts",
@@ -360,6 +357,51 @@
           "name": "cynic_askesis_log",
           "tier": "operator_local",
           "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_judgment",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_fleet_discover",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_local_autonomy",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_emergence_elect",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_build_run",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_federation_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_fleet_health",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_storage_credential_sync",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_harness_progression",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
         },
         {
           "name": "cynic_verdicts",
@@ -417,6 +459,16 @@
           "mutation": "local_mutation"
         },
         {
+          "name": "cynic_toolchain_reconcile",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_bench_basket_launch",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
           "name": "cynic_agent_connection_status",
           "tier": "baseline_runtime",
           "mutation": "read_only"
@@ -455,6 +507,36 @@
           "name": "cynic_coord_who",
           "tier": "baseline_runtime",
           "mutation": "read_only"
+        },
+        {
+          "name": "coordination_contract_manifest",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "coordination_status_publish",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "coordination_status_read",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "coordination_thread_reply",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "coordination_artifact_share",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "coordination_decision_record",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
         },
         {
           "name": "cynic_dispatch_agent_task",
@@ -517,16 +599,6 @@
           "mutation": "local_mutation"
         },
         {
-          "name": "cynic_agent_workload_complete",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_source_change_submit",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
           "name": "cynic_runtime_release_declare",
           "tier": "baseline_runtime",
           "mutation": "local_mutation"
@@ -582,22 +654,12 @@
           "mutation": "read_only"
         },
         {
-          "name": "docker_storage_observe",
-          "tier": "operator_local",
-          "mutation": "read_only"
-        },
-        {
           "name": "infra_registry_read",
           "tier": "baseline_runtime",
           "mutation": "read_only"
         },
         {
           "name": "infra_registry_validate",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "bootstrap_federation_status",
           "tier": "baseline_runtime",
           "mutation": "read_only"
         },
@@ -653,11 +715,6 @@
         },
         {
           "name": "cynic_fleet_inventory",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_fleet_kernel_candidates",
           "tier": "baseline_runtime",
           "mutation": "read_only"
         },
@@ -787,12 +844,11 @@
       "operator_tools": []
     },
     "solana_observation": {
-      "description": "Read-only Solana ingestion planning with explicit provider strategy, budget and credit estimates.",
+      "description": "Solana ingestion planning plus locally generated, policy-gated Solana Pay payment artifacts.",
       "tier": "product_domain",
       "tools": [
         "cynic_solana_plan",
-        "cynic_evaluate_solana_sop",
-        "cynic_storage_census"
+        "cynic_solana_pay_generate"
       ],
       "operator_tools": [
         "cynic solana plan --json --cluster <cluster> --target <address>",
@@ -812,7 +868,8 @@
         "cynic_inference_start",
         "cynic_inference_stop",
         "cynic_inference_switch",
-        "cynic_operational_benchmark"
+        "cynic_operational_benchmark",
+        "cynic_bench_basket_launch"
       ],
       "operator_tools": [
         "cynic-askesis eval <dataset.jsonl> --endpoint <openai-base-url> --model <model> --json",
@@ -845,6 +902,12 @@
         "cynic_coord_renew",
         "cynic_coord_release",
         "cynic_coord_finalize",
+        "coordination_contract_manifest",
+        "coordination_status_publish",
+        "coordination_status_read",
+        "coordination_thread_reply",
+        "coordination_artifact_share",
+        "coordination_decision_record",
         "cynic_source_control"
       ],
       "operator_tools": []
@@ -896,8 +959,7 @@
         "cynic_askesis_log",
         "docker_container_list",
         "docker_container_logs",
-        "docker_container_inspect",
-        "docker_storage_observe"
+        "docker_container_inspect"
       ],
       "operator_tools": []
     },
@@ -908,24 +970,12 @@
       "tier": "baseline_runtime",
       "tools": [
         "cynic_validate",
-        "cynic_agent_workload_complete"
+        "cynic_build_trigger"
       ],
       "operator_tools": [
         "cynic-node agent-workload-status --json --workload-id <id> [--state-root <path>]",
         "cynic-node agent-workload-transition --json --request <transition.json> [--state-root <path>] [--apply]",
         "cynic-node build-workload-grant-verify --json --grant <signed-grant.json> --workload-record <record.json> --authority-public-key <public-key> --node-id <node> --source-commit <commit> --action <make:check|make:build|make:build-release>"
-      ]
-    },
-    "source_change_dispatch": {
-      "description": "MCP validates and persists an already-admitted source-change workload. The enrolled node-owned scheduler alone claims, materializes, applies, reads back, and completes it.",
-      "status": "node_scheduler_wired_runtime_unproven",
-      "required_contract": "cynic.agent_workload_envelope.v1",
-      "tier": "baseline_runtime",
-      "tools": [
-        "cynic_source_change_submit"
-      ],
-      "operator_tools": [
-        "cynic-node agent-workload-status --json --workload-id <id> [--state-root <path>]"
       ]
     },
     "runtime_release": {
@@ -946,7 +996,6 @@
       "tools": [
         "infra_registry_read",
         "infra_registry_validate",
-        "bootstrap_federation_status",
         "infra_provision"
       ],
       "operator_tools": [
@@ -977,7 +1026,6 @@
       "tier": "baseline_runtime",
       "tools": [
         "cynic_fleet_inventory",
-        "cynic_fleet_kernel_candidates",
         "cynic_fleet_reconcile_plan",
         "cynic_fleet_reconcile_apply",
         "provider_control_status",
@@ -1005,6 +1053,16 @@
       "operator_tools": [
         "cynic runtime storage-capabilities --json",
         "cynic-node storage-reconcile --json [--apply]"
+      ]
+    },
+    "toolchain": {
+      "description": "Native sovereign inference toolchain discovery and local reconciliation (Rust toolchain, model archives, vault profiles).",
+      "tier": "baseline_runtime",
+      "tools": [
+        "cynic_toolchain_reconcile"
+      ],
+      "operator_tools": [
+        "cynic runtime adopt --json --seed <path> [--approve]"
       ]
     }
   },
@@ -1044,21 +1102,21 @@
       "name": "cynic_inference_start",
       "kind": "local_mutation",
       "ssot": "~/.config/cynic/models",
-      "cli_equivalent": "cynic runtime inference-start <alias> --json",
+      "cli_equivalent": "cynic runtime inference-start <alias> --yes --json",
       "description": "Start a specific sovereign inference model profile by alias."
     },
     {
       "name": "cynic_inference_stop",
       "kind": "local_mutation",
       "ssot": "~/.config/cynic/models",
-      "cli_equivalent": "cynic runtime inference-stop --json",
+      "cli_equivalent": "cynic runtime inference-stop --yes --json",
       "description": "Stop the currently active sovereign local inference process."
     },
     {
       "name": "cynic_inference_switch",
       "kind": "local_mutation",
       "ssot": "~/.config/cynic/models",
-      "cli_equivalent": "cynic runtime inference-start <target_alias> --json",
+      "cli_equivalent": "cynic runtime inference-start <target_alias> --yes --json",
       "description": "Switch active inference backend to a target model alias."
     },
     {
@@ -1096,11 +1154,38 @@
         "mutation": "privileged_mutation"
       },
       {
+        "name": "cynic_mask",
+        "tier": "baseline_runtime",
+        "mutation": "local_mutation",
+        "citizenship": {
+          "schema": "cynic.agent_citizenship.v1",
+          "admission": "cynic_coord_claim",
+          "mutation_execution_contract": "cynic.agent_workload_envelope.v1",
+          "budgets_monotonic": true,
+          "scope_hierarchy": ["fleet","node","crate","module","file"],
+          "read_back": ["cynic_coord_claim_batch","agent_completion_envelope"]
+        },
+        "purpose": "Launch an agent harness behind a bounded cynic mask (forge profile + inference-start). Projects agent citizenship and monotonic budgets; delegates to canonical inference/forge surfaces."
+      },
+      {
         "name": "cynic_proxmox_exec",
         "tier": "legacy_breakglass",
         "mutation": "privileged_mutation"
       }
     ]
+  },
+  "citizenship": {
+    "schema": "cynic.agent_citizenship.v1",
+    "owner": "crates/cynic-protocol::agent_citizenship",
+    "trait": "Citoyenneté",
+    "invariant": "monotonic_budgets; child never amplifies parent authority",
+    "surface": "cynic mask",
+    "required_capabilities": ["cynic_coord_claim","cynic_coord_claim_batch","cynic_coord_renew","cynic_coord_release"],
+    "status": "implemented_unproven",
+    "projection_targets": {
+      "cli": "cynic mask -- Forge|Start (delegates to cynic runtime inference-forge/inference-start)",
+      "protocol": "cynic_protocol::agent_citizenship::{AgentCitizenshipRecord, Citoyenneté, budgets_within, AgentScope, AgentBudgets}"
+    }
   },
   "deleted_exposures": [
     "deleted Python MCP proxies",

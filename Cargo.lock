@@ -871,6 +871,7 @@ dependencies = [
 name = "cynic-cli"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "clap",
  "crossterm",
  "cynic-host",
@@ -890,6 +891,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "cynic-inference",
  "cynic-protocol",
  "ed25519-dalek",
  "hex",
@@ -1073,6 +1075,7 @@ dependencies = [
 name = "cynic-protocol"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "hex",
  "serde",
  "serde_json",
