@@ -2,6 +2,8 @@
 //!
 //! No backend implementation belongs here. This module carries only domain data.
 
+use serde::{Deserialize, Serialize};
+
 /// 5-state health lifecycle — φ-bounded: UNKNOWN until proven.
 #[derive(Debug, Clone, PartialEq)]
 pub enum BackendStatus {
@@ -67,7 +69,7 @@ pub struct InferResponse {
 /// From Ahmad's "LLMs 101": Prefill is compute-bound, decode is
 /// bandwidth-bound. Tracking them separately is essential for
 /// diagnosing bottlenecks.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PhaseLatency {
     /// Time to first token (prefill) in milliseconds.
     pub prefill_ms: Option<u64>,

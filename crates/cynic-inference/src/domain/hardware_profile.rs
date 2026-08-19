@@ -211,7 +211,7 @@ impl HardwareProfile {
             total_ram_bytes: total,
             available_ram_bytes: available,
             cpu_threads,
-            gpu,
+            gpu: gpu.clone(),
             recommended_max_weight_bytes: recommended.max(512 * 1024 * 1024),
             absolute_max_weight_bytes: absolute.max(1024 * 1024 * 1024),
             tier,
@@ -331,7 +331,7 @@ fn probe_gpu() -> (GpuInfo, Option<u64>) {
         None => (GpuClass::None, None),
     };
 
-    if let (Some(vram), Some(gtt)) = (vram_total, gtt_total) {
+    if let (Some(vram), Some(_gtt)) = (vram_total, gtt_total) {
         if vram >= 6 * 1024 * 1024 * 1024 && vendor_name.as_deref() == Some("AMD") {
             notes.push("large vram aperture observed".into());
         }
@@ -341,7 +341,7 @@ fn probe_gpu() -> (GpuInfo, Option<u64>) {
     }
 
     // Bandwidth estimation: discrete GPU with VRAM > 8GB ≈ workstation tier
-    let bandwidth = match (class, vram_total) {
+    let bandwidth = match (class.clone(), vram_total) {
         (GpuClass::Discrete, Some(vram)) if vram >= 8 * 1024 * 1024 * 1024 => Some(500.0),
         (GpuClass::Discrete, _) => Some(200.0),
         (GpuClass::Integrated, _) => Some(100.0),

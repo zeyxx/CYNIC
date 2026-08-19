@@ -69,6 +69,7 @@ pub mod surface_registry;
 pub mod tasks;
 pub mod transport_security;
 pub mod workload_identity;
+pub mod peer_resolver;
 
 pub use agent_connection::*;
 pub use agent_recursion::*;

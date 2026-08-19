@@ -1,197 +1,109 @@
-//! Dynamic, drift-aware peer resolution for inter-host federation.
+//! Peer resolution types and pure peer-selection helpers.
 //!
-//! Replaces the hardcoded `CANONICAL_SYNAPSE_NODES` routing table. The
-//! desired topology (registry seed) is reconciled with observed reality
-//! (mesh live + OS-substrate health). When reality diverges, that is a
-//! first-class data event (`TopologyDriftSignal`), never a panic.
-//!
-//! This module is transport-neutral and kernel-agnostic: the kernel role
-//! (`cortex_primary`) is intentionally excluded — kernel SPOF is a separate,
-//! deliberate design track. Peer resolution covers build_runner,
-//! storage_primary, forge_primary, hypervisor, and any future federated role.
+//! The desired mesh topology comes from a declared registry seed
+//! (`infra/synapse-nodes.seed.json`) and an optional signed rolling fallback
+//! bundle. This module carries only the portable types and the pure
+//! selection decisions; resolver implementations live behind the
+//! `PeerResolver` trait in the consuming crate (e.g. cynic-node).
+
+use serde::{Deserialize, Serialize};
 
 use crate::build_node::NodeHealthView;
 
-/// Transport a peer endpoint is reachable over.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Transport used to reach a peer endpoint.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PeerTransport {
+    /// Unix domain socket (local / loopback cortex).
     Uds,
-    Http,
+    /// WebSocket (storage primary, etc.).
     Ws,
+    /// HTTP (default for remote peers).
+    Http,
 }
 
-/// A resolved peer endpoint for a federated role.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A single resolved peer endpoint.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PeerEndpoint {
     pub node_id: String,
     pub role: String,
     pub transport: PeerTransport,
+    /// Declared/observed address (IP or socket path).
     pub addr: String,
-    /// Ports the peer should be probed on (mesh liveness / service health).
     pub probe_ports: Vec<u16>,
-    /// Observed mesh reachability (from `MeshStateProvider::fetch_known_peers`).
+    /// Desired-until-observed: assumed reachable until a probe/observer proves otherwise.
     pub reachable: bool,
-    /// Folded OS-substrate health (OSH-001..008), from the OS observer.
     pub health: NodeHealthView,
 }
 
-/// Priority of a federated role. Lower number = higher priority. The
-/// primary/secondary/tertiary suffixes express the failover ordering so a
-/// single role (e.g. `build_runner`) can tolerate one node loss.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum RolePriority {
-    Primary = 0,
-    Secondary = 1,
-    Tertiary = 2,
-    Standby = 3,
-}
-
-impl RolePriority {
-    pub fn from_role_str(role: &str) -> Option<Self> {
-        match role {
-            r if r.ends_with("_primary") => Some(Self::Primary),
-            r if r.ends_with("_secondary") => Some(Self::Secondary),
-            r if r.ends_with("_tertiary") => Some(Self::Tertiary),
-            r if r.ends_with("_standby") => Some(Self::Standby),
-            _ => None,
-        }
-    }
-}
-
-/// A signed, versioned, timestamped fallback peer address.
-///
-/// Used when the live mesh is unreachable: each node retains the last known
-/// good peer set, signed by the emitting node's machine key, rolled by
-/// timestamp. This is the "fallback on known addresses, versioned and
-/// timestamped" the federation design calls for — never a hardcoded IP.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A peer endpoint wrapped with an ed25519 signature from the rolling fallback bundle.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SignedPeerEndpoint {
     pub endpoint: PeerEndpoint,
     pub signature_ed25519: String,
     pub generated_at_unix_s: u64,
-    pub version: u32,
+    pub version: u8,
 }
 
-/// Port: resolve peers for a federated role from observed reality, with a
-/// signed fallback when the live mesh is unavailable.
+/// Resolver port: yields desired peers for a role, or all declared peers.
 pub trait PeerResolver {
-    /// Resolve live peers for `role` (registry seed ∩ mesh live, health-filtered).
+    /// Peers declared for a specific role.
     fn resolve_peers(&self, role: &str) -> Vec<PeerEndpoint>;
-    /// Last-known-good signed fallback peers for `role`.
-    fn fallback_peers(&self, role: &str) -> Vec<SignedPeerEndpoint>;
+    /// Every declared peer, across all roles.
+    fn resolve_all_peers(&self) -> Vec<PeerEndpoint>;
 }
 
-/// Pure, fail-closed peer selection.
+/// Pure selector: the first reachable, role-matching peer.
 ///
-/// Among endpoints matching `requested_role`, reachable and free of critical
-/// OS-health anomalies, prefer the lowest role priority (primary before
-/// secondary), then fewest active anomalies. Returns `None` when no candidate
-/// is both reachable and healthy — the caller MUST emit a `TopologyDriftSignal`
-/// rather than silently degrading to a broken node.
-pub fn select_peer(peers: &[PeerEndpoint], requested_role: &str) -> Option<PeerEndpoint> {
+/// Returns `None` when no candidate is dispatchable — the caller must then emit
+/// a `TopologyDriftSignal` (drift is data, not a crash).
+pub fn select_peer(peers: &[PeerEndpoint], role: &str) -> Option<PeerEndpoint> {
     peers
         .iter()
-        .filter(|p| p.role == requested_role && p.reachable && !p.health.critical_active)
-        .filter_map(|p| {
-            let priority = RolePriority::from_role_str(&p.role)?;
-            Some((p, priority))
-        })
-        .min_by(|(a, pa), (b, pb)| {
-            pa.cmp(pb).then_with(|| {
-                a.health
-                    .active_osha_codes
-                    .len()
-                    .cmp(&b.health.active_osha_codes.len())
-            })
-        })
-        .map(|(p, _)| p.clone())
+        .filter(|p| p.role == role && p.reachable)
+        .cloned()
+        .next()
 }
 
-/// All reachable, non-OS-critical peers across roles, ordered by role priority
-/// then health. Used by mesh probing (liveness survey) where every declared
-/// peer is surveyed, not just one role.
+/// Pure selector: every reachable peer, in declared order.
 pub fn select_all_peers(peers: &[PeerEndpoint]) -> Vec<PeerEndpoint> {
-    let mut healthy: Vec<PeerEndpoint> = peers
-        .iter()
-        .filter(|p| p.reachable && !p.health.critical_active)
-        .cloned()
-        .collect();
-    healthy.sort_by(|a, b| {
-        let pa = RolePriority::from_role_str(&a.role).unwrap_or(RolePriority::Standby);
-        let pb = RolePriority::from_role_str(&b.role).unwrap_or(RolePriority::Standby);
-        pa.cmp(&pb).then_with(|| {
-            a.health
-                .active_osha_codes
-                .len()
-                .cmp(&b.health.active_osha_codes.len())
-        })
-    });
-    healthy
+    peers.iter().filter(|p| p.reachable).cloned().collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn peer(node_id: &str, role: &str, reachable: bool, critical: bool) -> PeerEndpoint {
-        let health = if critical {
-            NodeHealthView {
-                critical_active: true,
-                warning_active: false,
-                active_osha_codes: vec!["CYNIC-OSH-001".to_string()],
-            }
-        } else {
-            NodeHealthView::default()
-        };
+    fn ep(role: &str, reachable: bool) -> PeerEndpoint {
         PeerEndpoint {
-            node_id: node_id.to_string(),
+            node_id: format!("node-{role}"),
             role: role.to_string(),
             transport: PeerTransport::Http,
-            addr: format!("http://10.10.10.{}", node_id),
-            probe_ports: vec![8000],
+            addr: "10.10.10.1".to_string(),
+            probe_ports: vec![3000],
             reachable,
-            health,
+            health: NodeHealthView::default(),
         }
     }
 
     #[test]
-    fn selects_primary_builder_when_healthy() {
-        let peers = vec![
-            peer("120", "build_runner_secondary", true, false),
-            peer("119", "build_runner_primary", true, false),
-        ];
-        let sel = select_peer(&peers, "build_runner_primary").expect("expected selection");
-        assert_eq!(sel.node_id, "119");
+    fn select_peer_picks_reachable_role_match() {
+        let peers = vec![ep("cortex_primary", false), ep("cortex_primary", true)];
+        let got = select_peer(&peers, "cortex_primary").expect("reachable peer exists");
+        assert!(got.reachable);
+        assert_eq!(got.role, "cortex_primary");
     }
 
     #[test]
-    fn fails_over_storage_secondary_when_primary_down() {
-        let peers = vec![
-            peer("103", "storage_primary", false, true),
-            peer("104", "storage_secondary", true, false),
-        ];
-        let sel = select_peer(&peers, "storage_primary");
-        // requested_role must match exactly; secondary is a different role.
-        assert!(sel.is_none());
-        // Real failover requires the standby to carry the SAME role.
-        let peers2 = vec![
-            peer("103", "storage_primary", false, true),
-            peer("104", "storage_primary", true, false),
-        ];
-        let sel2 = select_peer(&peers2, "storage_primary").expect("failover within role");
-        assert_eq!(sel2.node_id, "104");
+    fn select_peer_none_when_all_unreachable() {
+        let peers = vec![ep("cortex_primary", false)];
+        assert!(select_peer(&peers, "cortex_primary").is_none());
     }
 
     #[test]
-    fn none_when_no_reachable_healthy_peer() {
-        let peers = vec![peer("103", "storage_primary", false, true)];
-        assert!(select_peer(&peers, "storage_primary").is_none());
-    }
-
-    #[test]
-    fn role_priority_orders_primary_before_secondary() {
-        assert!(RolePriority::from_role_str("build_runner_primary") < RolePriority::from_role_str("build_runner_secondary"));
-        assert!(RolePriority::from_role_str("storage_primary") < RolePriority::from_role_str("storage_standby"));
-        assert!(RolePriority::from_role_str("weird_role").is_none());
+    fn select_all_peers_filters_unreachable() {
+        let peers = vec![ep("a", true), ep("b", false)];
+        let got = select_all_peers(&peers);
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].role, "a");
     }
 }

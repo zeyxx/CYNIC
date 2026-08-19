@@ -116,7 +116,7 @@ pub fn suggested_fix(category: FailureCategory) -> &'static str {
              tokens, and verify the template is not causing the model to see its \
              own answer as a new prompt."
         }
-        Self::Other => "Investigate logs, traces, and reproduction steps.",
+        FailureCategory::Other => "Investigate logs, traces, and reproduction steps.",
     }
 }
 

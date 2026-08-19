@@ -439,6 +439,7 @@ impl InferPort for OpenAiCompatBackend {
 
         let (prompt_tokens, completion_tokens) = response
             .usage
+            .as_ref()
             .map(|usage| (usage.prompt_tokens.into(), usage.completion_tokens.into()))
             .unwrap_or((0, 0));
         let text = response

@@ -10,10 +10,7 @@ use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
-use crate::domain::system_observation::SystemObservation;
-use crate::usecases::node_control_plane_uc::NodeControlPlaneUc;
-use cynic_protocol::build::BuildRunnerObservation;
-use cynic_protocol::{LeaseGuard, SecurityEvidenceState};
+use cynic_protocol::LeaseGuard;
 
 /// Build executor error.
 #[derive(Debug, Clone, PartialEq, Eq)]
