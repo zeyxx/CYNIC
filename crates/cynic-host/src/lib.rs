@@ -68,6 +68,7 @@ pub mod runtime_resolver_plan;
 mod runtime_secret_install;
 pub mod runtime_seed;
 mod secret_material;
+mod credential;
 pub mod secret_presence;
 pub mod service_catalog;
 pub mod secret_lint;
