@@ -35,6 +35,28 @@ struct FakeCommandRunner;
 struct FakeObservationAdapter;
 struct ReadyForServiceObservation;
 struct ActiveServiceObservation;
+
+/// Fixed "now" for promotion assessment, well past the policy's 7-day floors.
+const PROMOTION_NOW_UNIX_S: u64 = 1_800_000_000;
+
+/// A promotion observation that satisfies `critical_infrastructure()`.
+///
+/// `PackageObservedState::default()` leaves promotion unapproved, which is the
+/// correct default (approval is never implicit) but makes the package domain
+/// Blocked. A fake that wants to exercise the *service* apply path must supply
+/// the promotion evidence explicitly rather than inherit an unapproved default.
+fn satisfied_promotion_observation()
+-> crate::domain::package_provenance::PackagePromotionObservation {
+    const WEEK: u64 = 7 * 24 * 60 * 60;
+    crate::domain::package_provenance::PackagePromotionObservation {
+        // Metadata fresh enough, candidate aged past the minimum.
+        metadata_observed_at_unix_s: Some(PROMOTION_NOW_UNIX_S - 60),
+        candidate_observed_at_unix_s: Some(PROMOTION_NOW_UNIX_S - (WEEK + 60)),
+        signature_verified: true,
+        human_approval_count: 1,
+        emergency: false,
+    }
+}
 struct RecordingCommandRunner {
     calls: Cell<usize>,
 }
@@ -308,7 +330,8 @@ impl HostPackageObservationPort for ReadyForServiceObservation {
     fn observe_packages(&self, policy: &PackagePolicy) -> PackageObservedState {
         PackageObservedState {
             installed_packages: policy.bootstrap_packages.clone(),
-            ..Default::default()
+            promotion: satisfied_promotion_observation(),
+            promotion_assessed_at_unix_s: PROMOTION_NOW_UNIX_S,
         }
     }
 }
