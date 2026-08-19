@@ -11,12 +11,12 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use cynic_protocol::{AgentWorkloadDelivery, AgentWorkloadDeliveryStatus};
 use tokio_util::sync::CancellationToken;
 
+use crate::adapters::ed25519_build_workload_grant::Ed25519BuildWorkloadGrantSigner;
 use crate::config::NodeControlConfig;
-use crate::usecases::build_submission_orchestrator_uc::orchestrate_build_submission;
-use crate::usecases::builder_http::{self, BuilderHttpConfig, BuilderHttpState};
+use crate::ports::build_workload_grant_port::BuildWorkloadGrantSignerPort;
+use crate::usecases::builder_http::{self, BuilderHttpConfig};
 
 /// Configuration du builder runtime.
 #[derive(Debug, Clone)]
@@ -29,6 +29,8 @@ pub struct BuilderRuntimeConfig {
     pub registry_path: String,
     /// Racine du state local.
     pub state_root: std::path::PathBuf,
+    /// Racine du workspace (pour les builds).
+    pub workspace_root: String,
     /// ID du nœud.
     pub node_id: String,
 }
@@ -36,7 +38,7 @@ pub struct BuilderRuntimeConfig {
 /// Lance le builder runtime.
 pub async fn run_builder_runtime(
     config: BuilderRuntimeConfig,
-    node_control: &NodeControlConfig,
+    _node_control: &NodeControlConfig,
     shutdown: CancellationToken,
 ) -> Result<(), String> {
     tracing::info!(
@@ -45,12 +47,18 @@ pub async fn run_builder_runtime(
         "builder runtime starting"
     );
 
+    // Initialize the ed25519 signer
+    let signer = Ed25519BuildWorkloadGrantSigner::load_hex_file(&config.signing_key_path)
+        .map_err(|e| format!("failed to load signing key: {e}"))?;
+    let signer_arc: Arc<dyn BuildWorkloadGrantSignerPort> = Arc::new(signer);
+
     let http_config = BuilderHttpConfig {
-        node_id: config.node_id.clone(),
-        signing_key_path: config.signing_key_path.clone(),
-        state_root: config.state_root.clone(),
-        registry_path: config.registry_path.clone(),
+        node_id: config.node_id,
+        signing_key_path: config.signing_key_path,
+        state_root: config.state_root,
+        registry_path: config.registry_path.to_string_lossy().to_string(),
+        workspace_root: config.workspace_root.to_string_lossy().to_string(),
     };
 
-    builder_http::run_http_server(http_config, config.listen_addr, shutdown).await
+    builder_http::run_http_server(http_config, signer_arc, config.listen_addr, shutdown).await
 }

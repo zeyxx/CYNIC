@@ -226,6 +226,7 @@ pub(crate) async fn start_tasks(
             signing_key_path: scheduler_control.signing_key_path.clone(),
             registry_path: scheduler_control.registry_path.clone(),
             state_root: scheduler_control.agent_workload_state_root.clone(),
+            workspace_root: scheduler_control.workspace_root.clone(),
             node_id: scheduler_control.node_id.clone(),
         };
         let builder_shutdown = shutdown.clone();

@@ -8,21 +8,19 @@
 //! Orchestrator only — does NOT own domain policy:
 //!  - forge profile derivation lives in `cynic-inference::profile_bootstrap`
 //!  - harness start delegates to `cynic runtime inference-start`
-//!  - citizenship types are canonical in `cynic-node::domain::agent_citizenship`
-//!
-//! Machine-readable JSON is the proof surface; human text is a projection.
+//!  - citizenship types are canonical in `cynic-protocol::agent_citizenship`
 
 use std::process::ExitCode;
 
 use clap::Subcommand;
 
 use crate::cli_json::emit_pretty_json;
-use crate::runtime_surface::{execute_runtime, RuntimeCommand};
+use crate::runtime_surface::execute_runtime;
+use crate::runtime_surface::RuntimeCommand;
 
-/// Agent citizenship record carried through the mask.
-/// Thin re-declaration so the CLI surface can serialize its intent and hand it
-/// to the harness runner without duplicating policy. Canonical form lives in
-/// `cynic-node::domain::agent_citizenship`.
+/// Agent citizenship record projected through the mask.
+/// Thin re-declaration so the CLI can serialize its intent; the canonical
+/// trait lives in `cynic-protocol::agent_citizenship::Citoyenneté`.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct AgentCitizenship {
     pub schema: &'static str,
@@ -77,48 +75,45 @@ pub fn execute_mask(command: MaskCommand) -> ExitCode {
     }
 }
 
-/// Forge: derive winning run from BenchmarkReport → write loopback profile
-/// → (optionally) start the harness under the resulting mask.
 fn execute_mask_forge(report_path: &str, source_note: &str, json: bool, yes: bool) -> ExitCode {
-    // Bounded action: forge delegates to the canonical RuntimeCommand::InferenceForge.
     let exit = execute_runtime(RuntimeCommand::InferenceForge {
         report: report_path.to_string(),
         alias: "auto".to_string(),
         json,
         yes,
     });
-    if exit != ExitCode::SUCCESS && yes {
+    if exit != ExitCode::SUCCESS {
         return exit;
     }
     // Hand-off to harness start if consent was given.
     if yes {
-        let _ = execute_mask_start("auto", json, true);
+        let _ = execute_runtime(RuntimeCommand::InferenceStart {
+            alias: "auto".to_string(),
+            json,
+            no_wait: false,
+            yes,
+        });
     }
     if json {
-        // Projection: a citizenship read-back proving the mask bounds.
         let citizenship = AgentCitizenship {
             schema: "cynic.agent_citizenship.v1",
             agent_id: "mask-forge".to_string(),
             scope: "node".to_string(),
             budgets: AgentBudgets { actions: 1000, wall_seconds: 3600 },
             residual_risk: Some(
-                "local-only mask; provider/transport adapters injected at runtime"
-                    .to_string(),
+                "local-only mask; provider/transport adapters injected at runtime".to_string(),
             ),
         };
-        let _ = emit_pretty_json(&citizenship, false);
+        let _ = emit_pretty_json(&citizenship);
     }
     exit
 }
 
-/// Start the agent harness behind a cynic mask (bounded action, explicit consent).
-/// Delegates to `cynic runtime inference-start --yes`.
 fn execute_mask_start(alias: &str, json: bool, yes: bool) -> ExitCode {
     if !yes {
         eprintln!("refusing to start — mutation requires explicit `--yes`");
         return ExitCode::FAILURE;
     }
-    // Projection of the citizen identity that bounds the harness.
     let citizenship = AgentCitizenship {
         schema: "cynic.agent_citizenship.v1",
         agent_id: alias.to_string(),
@@ -129,14 +124,13 @@ fn execute_mask_start(alias: &str, json: bool, yes: bool) -> ExitCode {
         ),
     };
     if json {
-        let _ = emit_pretty_json(&citizenship, false);
+        let _ = emit_pretty_json(&citizenship);
     } else {
         println!(
             "starting harness behind mask '{}' (scope: {})",
             citizenship.agent_id, citizenship.scope
         );
     }
-    // Bounded hand-off to the canonical harness launcher.
     execute_runtime(RuntimeCommand::InferenceStart {
         alias: alias.to_string(),
         json,

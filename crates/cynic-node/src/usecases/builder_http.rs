@@ -14,15 +14,18 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
 };
-use cynic_protocol::AgentWorkloadDeliveryStatus;
 use tokio_util::sync::CancellationToken;
 
+use crate::ports::build_workload_grant_port::BuildWorkloadGrantSignerPort;
 use crate::usecases::build_submission_orchestrator_uc::orchestrate_build_submission;
+use cynic_protocol::{BuildAgentRequest, BuildSourceReference};
 
 /// Application state shared across handlers.
 #[derive(Clone)]
 pub struct BuilderHttpState {
     pub config: BuilderHttpConfig,
+    /// Signer for workload grants (injected at startup).
+    pub signer: Arc<dyn BuildWorkloadGrantSignerPort>,
 }
 
 /// Configuration for the builder HTTP server.
@@ -32,6 +35,7 @@ pub struct BuilderHttpConfig {
     pub signing_key_path: std::path::PathBuf,
     pub state_root: std::path::PathBuf,
     pub registry_path: String,
+    pub workspace_root: String,
 }
 
 /// Response from the forgejo webhook handler.
@@ -53,11 +57,13 @@ pub struct HealthResponse {
 /// Start the builder HTTP server.
 pub async fn run_http_server(
     config: BuilderHttpConfig,
+    signer: Arc<dyn BuildWorkloadGrantSignerPort>,
     listen_addr: SocketAddr,
     shutdown: CancellationToken,
 ) -> Result<(), String> {
     let state = BuilderHttpState {
-        config: config.clone(),
+        config,
+        signer,
     };
 
     let app = Router::new()
@@ -128,24 +134,86 @@ async fn handle_forgejo_webhook(
         );
     }
 
-    // Submit build via orchestrator
-    // TODO: Construct proper BuildAgentRequest
-    tracing::info!(commit = %commit_sha, "forgejo webhook triggering build");
+    // Extract repository URL
+    let repo_url = payload
+        .get("repository")
+        .and_then(|r| r.get("clone_url"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
 
-    (
-        StatusCode::ACCEPTED,
-        Json(ForgejoWebhookResponse {
-            status: "submitted".into(),
-            workload_id: Some(format!("build-{commit_sha}")),
-            message: format!("build submitted for commit {commit_sha}"),
-        }),
-    )
+    let default_branch = payload
+        .get("repository")
+        .and_then(|r| r.get("default_branch"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("main");
+
+    tracing::info!(commit = %commit_sha, branch = %branch, repo = %repo_url, "forgejo webhook triggering build");
+
+    // Construct BuildAgentRequest
+    let request = BuildAgentRequest {
+        schema: "cynic.node.build_agent_request.v1".into(),
+        request_id: format!("forgejo-{commit_sha}"),
+        requested_by: "forgejo-webhook".into(),
+        source_commit: commit_sha.into(),
+        source: BuildSourceReference {
+            schema: "cynic.node.build_source_reference.v1".into(),
+            repository_id: repo_url.into(),
+            transport_uri: repo_url.into(),
+            revision: commit_sha.into(),
+            authority_ref: default_branch.into(),
+            snapshot: None,
+        },
+        action: "build".into(),
+        desired_role: "build_runner".into(),
+        mutation_authorized: true,
+        proof_requirements: vec!["build_proof".into()],
+        release_publication: None,
+        evidence_refs: vec![],
+    };
+
+    // Get current time
+    let now_unix_s = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    // Call orchestrator
+    match orchestrate_build_submission(
+        &request,
+        &state.config.registry_path,
+        &state.config.workspace_root,
+        state.signer.as_ref(),
+        now_unix_s,
+    ) {
+        Ok(plan) => {
+            let workload_id = plan.delivery.as_ref().map(|d| d.workload_id.clone());
+            let status = if plan.blockers.is_empty() {
+                "submitted"
+            } else {
+                "blocked"
+            };
+            (
+                StatusCode::ACCEPTED,
+                Json(ForgejoWebhookResponse {
+                    status: status.into(),
+                    workload_id,
+                    message: format!("build plan: {}", plan.status),
+                }),
+            )
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ForgejoWebhookResponse {
+                status: "error".into(),
+                workload_id: None,
+                message: format!("orchestrator error: {e}"),
+            }),
+        ),
+    }
 }
 
 /// Health check endpoint.
-async fn handle_health(
-    State(state): State<BuilderHttpState>,
-) -> Json<HealthResponse> {
+async fn handle_health(State(state): State<BuilderHttpState>) -> Json<HealthResponse> {
     Json(HealthResponse {
         node_id: state.config.node_id.clone(),
         role: "build_runner",
@@ -160,18 +228,16 @@ async fn handle_get_proof(
 ) -> (StatusCode, Json<serde_json::Value>) {
     let proof_path = state.config.state_root.join("proofs").join(&id);
     match tokio::fs::read_to_string(&proof_path).await {
-        Ok(content) => {
-            match serde_json::from_str::<serde_json::Value>(&content) {
-                Ok(json) => (StatusCode::OK, Json(json)),
-                Err(_) => (
-                    StatusCode::OK,
-                    Json(serde_json::json!({
-                        "status": "raw",
-                        "content": content,
-                    })),
-                ),
-            }
-        }
+        Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
+            Ok(json) => (StatusCode::OK, Json(json)),
+            Err(_) => (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "status": "raw",
+                    "content": content,
+                })),
+            ),
+        },
         Err(_) => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({

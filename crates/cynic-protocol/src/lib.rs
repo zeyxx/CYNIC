@@ -82,7 +82,7 @@ pub mod peer_resolver;
 
 pub use agent_connection::*;
 pub use agent_citizenship::*;
-pub use coord::{LeaseVerification, LEASE_VERIFICATION_SCHEMA};
+pub use coord::{LeaseVerification, LEASE_VERIFICATION_SCHEMA, coord_register_path, coord_who_path, coord_claim_path, coord_release_path, coord_verify_path, coord_finalize_path};
 pub use agent_recursion::*;
 pub use agent_scheduler::*;
 pub use agent_session::*;

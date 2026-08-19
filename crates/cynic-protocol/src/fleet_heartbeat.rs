@@ -8,7 +8,7 @@
 //! Pattern: desired state (registry) → observe (heartbeats) → reconcile
 //! (aggregate health) → bounded action (alert/failover) → read-back proof.
 
-use crate::fleet_discovery::FleetNodeStatus;
+pub use crate::fleet_discovery::FleetNodeStatus;
 
 /// A single heartbeat emitted by a node.
 #[derive(Debug, Clone, PartialEq, Eq)]

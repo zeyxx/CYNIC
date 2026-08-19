@@ -1,7 +1,7 @@
 //! Fleet heartbeat port — the interface between the pure decision and
 //! the runtime substrate.
 
-use crate::fleet_heartbeat::FleetHeartbeat;
+use cynic_protocol::fleet_heartbeat::FleetHeartbeat;
 
 /// Port for receiving and storing heartbeats.
 pub trait FleetHeartbeatPort {

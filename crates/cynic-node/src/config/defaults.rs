@@ -126,6 +126,14 @@ pub(super) fn default_watchdog_http_timeout_secs() -> u64 {
     5
 }
 
+pub(super) fn default_builder_listen_addr() -> std::net::SocketAddr {
+    "0.0.0.0:9090".parse().unwrap()
+}
+
+pub(super) fn default_workspace_root() -> std::path::PathBuf {
+    std::path::PathBuf::from("/var/lib/cynic/builder-workspace")
+}
+
 pub(super) fn default_watchdog_registry_path() -> String {
     DEFAULT_REGISTRY_PATH.to_string()
 }
