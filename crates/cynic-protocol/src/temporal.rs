@@ -202,7 +202,7 @@ pub struct TemporalContract {
     pub reconciliation: &'static str,
     pub bounded_action: &'static str,
     pub read_back_proof: &'static str,
-    pub owner: &'static [&'static str],
+    pub owner: Vec<&'static str>,
     pub coverage: &'static str,
 }
 
@@ -214,17 +214,23 @@ impl TemporalContract {
     ///
     /// Ce contrat est conçu pour unifier les notions d'epoch, de snapshot,
     /// et de rollback à travers l'ensemble des verticales du runtime.
-    pub const CONTRACT: TemporalContract = TemporalContract {
-        schema: Self::TEMPORAL_CONTRACT_SCHEMA,
-        id: "temporal",
-        desired_state: "consistent epoch progression, verifiable checkpoints, and bounded rollback windows",
-        observer: "epoch clock probe, checkpoint observer, temporal snapshot producer",
-        reconciliation: "admit only certificate-backed epoch advancement; request rollback on divergence",
-        bounded_action: "accept epoch certificate, request rollback to certified base_epoch, or emit new snapshot",
-        read_back_proof: "epoch certificate, temporal proof bundle, state digest match",
-        owner: &["cynic-protocol", "cynic-kernel", "cynic-node"],
-        coverage: "partial",
-    };
+    ///
+    /// NOTE: pas de `const` ici — `Vec` n'est pas const-constructible.
+    /// `vec!` macro inside const déclenche ICE rustc 1.95 (box_assume_init
+    /// non-const). Utiliser `contract()` function à la place.
+    pub fn contract() -> TemporalContract {
+        TemporalContract {
+            schema: Self::TEMPORAL_CONTRACT_SCHEMA,
+            id: "temporal",
+            desired_state: "consistent epoch progression, verifiable checkpoints, and bounded rollback windows",
+            observer: "epoch clock probe, checkpoint observer, temporal snapshot producer",
+            reconciliation: "admit only certificate-backed epoch advancement; request rollback on divergence",
+            bounded_action: "accept epoch certificate, request rollback to certified base_epoch, or emit new snapshot",
+            read_back_proof: "epoch certificate, temporal proof bundle, state digest match",
+            owner: vec!["cynic-protocol", "cynic-kernel", "cynic-node"],
+            coverage: "partial",
+        }
+    }
 }
 
 #[cfg(test)]
@@ -291,7 +297,7 @@ mod tests {
 
     #[test]
     fn temporal_contract_declares_coverage_and_owner() {
-        let contract = TemporalContract::CONTRACT;
+        let contract = TemporalContract::contract();
         assert_eq!(contract.id, "temporal");
         assert!(contract.coverage == "partial" || contract.coverage == "complete");
         assert!(!contract.owner.is_empty());
