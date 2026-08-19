@@ -1053,10 +1053,10 @@ dependencies = [
 name = "cynic-observer"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "blake3",
  "cynic-host",
  "cynic-intel",
- "cynic-kernel",
  "cynic-protocol",
  "env_logger",
  "futures-util",
@@ -1074,6 +1074,7 @@ dependencies = [
 name = "cynic-protocol"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "hex",
  "serde",
  "serde_json",

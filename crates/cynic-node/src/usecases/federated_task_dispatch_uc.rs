@@ -13,7 +13,7 @@ use cynic_protocol::{
 use cynic_protocol::build_node::{BuildNodeCandidate, resolve_build_node};
 use serde::{Deserialize, Serialize};
 
-use super::federated_mesh_probe_uc::{CANONICAL_SYNAPSE_NODES, probe_federated_synapse_mesh};
+use super::federated_mesh_probe_uc::probe_federated_synapse_mesh;
 
 pub const FEDERATED_DISPATCH_RECEIPT_SCHEMA: &str = "cynic.federation.dispatch_receipt.v1";
 pub const FEDERATED_SYNC_REPORT_SCHEMA: &str = "cynic.federation.sync_report.v1";

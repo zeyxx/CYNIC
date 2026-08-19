@@ -432,28 +432,6 @@ impl TopologyDriftSignal {
         );
         ("topology_drift".to_string(), message, severity.to_string())
     }
-
-    /// Map the drift to a CynicJudgment projection (Information/Sense family).
-    pub fn to_judgment(&self) -> CynicJudgment {
-        let (_, message, severity) = self.to_kernel_anomaly();
-        let quality = if severity == "critical" {
-            JudgmentQuality::Refuted
-        } else {
-            JudgmentQuality::Sense
-        };
-        CynicJudgment {
-            schema: JUDGMENT_SCHEMA.to_string(),
-            judgment_id: format!("jdg-drift-{}", self.node_id),
-            observed_at_unix_ms: now_unix_ms(),
-            subject: format!("topology:{}", self.node_id),
-            predicate: "drift_from_desired".to_string(),
-            quality,
-            confidence: 0.9,
-            reasoning: message,
-            evidence_refs: vec![],
-            unknowns: vec!["residual_mesh_state".to_string()],
-        }
-    }
 }
 
 #[cfg(test)]

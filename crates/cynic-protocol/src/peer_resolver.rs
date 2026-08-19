@@ -104,7 +104,7 @@ pub fn select_peer(peers: &[PeerEndpoint], requested_role: &str) -> Option<PeerE
                     .cmp(&b.health.active_osha_codes.len())
             })
         })
-        .cloned()
+        .map(|(p, _)| p.clone())
 }
 
 /// All reachable, non-OS-critical peers across roles, ordered by role priority
