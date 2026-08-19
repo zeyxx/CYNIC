@@ -110,10 +110,11 @@ pub async fn handle_release_webhook(
         }));
     }
 
-    let proof = cynic_host::source_sync::execute_plan_with_credentials(
+    let proof = cynic_host::source_sync::execute_plan_with_enrollment(
         &root,
         &plan,
         Some(&config.credential_ref),
+        Some(cynic_host::credential::CredentialType::GitHubPat),
     );
 
     Ok(Json(ReleaseProof {
