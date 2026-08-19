@@ -7,7 +7,7 @@ use std::error::Error;
 pub trait MeshAdapter {
     /// Initialize the mesh interface (e.g., creating the `synapse0` device)
     fn initialize_interface(&self, local_ip: &str, private_key: &str)
-    -> Result<(), Box<dyn Error>>;
+        -> Result<(), Box<dyn Error>>;
 
     /// Synchronize the OS routing and peers with the true Domain state.
     fn sync_topology(&self, topology: &MeshTopology) -> Result<(), Box<dyn Error>>;

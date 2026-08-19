@@ -4,7 +4,6 @@ use std::sync::Arc;
 use tokio::task::JoinHandle;
 
 use crate::adapters::local_runtime_federation_queue_store::LocalRuntimeFederationQueueStore;
-use crate::adapters::local_workload_signer::LocalWorkloadSigner;
 use crate::domain::runtime_federation::{
     DEFAULT_NODE_PUBLIC_KEY, RuntimeFederationConfig, default_queue_dir,
     deterministic_fallback_verdict, kernel_websocket_url,
@@ -46,22 +45,17 @@ impl WebSocketFederationAdapter {
             node_public_key,
             node_identity: node_identity.to_string(),
             queue_dir: default_queue_dir(queue_home),
-            runtime_publisher_granted: false,
         })
     }
 
     pub fn new(config: RuntimeFederationConfig) -> Self {
         Self {
-            client: Arc::new(WebSocketClient::with_signer(
+            client: Arc::new(WebSocketClient::new(
                 config.kernel_ws_url,
                 config.api_key,
                 config.node_public_key,
-                config.node_identity.clone(),
+                config.node_identity,
                 Arc::new(LocalRuntimeFederationQueueStore::new(config.queue_dir)),
-                Arc::new(LocalWorkloadSigner::new(
-                    config.runtime_publisher_granted,
-                    config.node_identity,
-                )),
             )),
         }
     }
@@ -164,7 +158,6 @@ mod tests {
             node_public_key: "public-key".to_string(),
             node_identity: "node-a".to_string(),
             queue_dir: std::path::PathBuf::from("/var/lib/cynic/node"),
-            runtime_publisher_granted: false,
         });
     }
 }

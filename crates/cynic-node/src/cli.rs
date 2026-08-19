@@ -43,21 +43,6 @@ pub(crate) enum Commands {
         #[arg(long)]
         check: bool,
     },
-    /// Observe the installed MCP runtime contract and emit a node-owned proof bundle.
-    McpRuntimeObserve {
-        /// Registry-bound node identity producing this observation.
-        #[arg(long)]
-        node_id: String,
-        /// Installed MCP artifact to inspect. The artifact is not started as a server.
-        #[arg(long, default_value = "cynic-mcp")]
-        binary: String,
-        /// Emit only cynic.runtime_proof_bundle.v1 for `cynic runtime metrics --proof`.
-        #[arg(long)]
-        proof_only: bool,
-        /// Emit machine-readable JSON. This command always emits JSON.
-        #[arg(long)]
-        json: bool,
-    },
     /// Emit local node observation JSON and exit.
     Observe {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
@@ -160,13 +145,6 @@ pub(crate) enum Commands {
     AgentWorkloadStatus {
         #[arg(long)]
         workload_id: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
-        state_root: String,
-        #[arg(long)]
-        json: bool,
-    },
-    /// List all durable workloads in the node-local store.
-    AgentWorkloadList {
         #[arg(long, default_value = "/var/lib/cynic")]
         state_root: String,
         #[arg(long)]
@@ -533,21 +511,6 @@ pub enum NetworkCommands {
         #[arg(long, default_value_t = 20)]
         qga_max_status_polls: usize,
     },
-    /// Reconcile a single node-local network recovery tick with bounded budget and read-back proof.
-    RecoveryTick {
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
-        registry: String,
-        #[arg(long, default_value = "/var/lib/cynic/network-recovery-state.json")]
-        state_path: String,
-        #[arg(long, default_value_t = 30)]
-        cooldown_seconds: u64,
-        #[arg(long, default_value_t = 3)]
-        max_attempts: u32,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        json: bool,
-    },
     /// Execute a host-owned network-actuation request inside an attested QEMU guest.
     ActuateTarget {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
@@ -728,15 +691,6 @@ pub enum NetworkCommands {
         #[arg(long, default_value_t = current_runtime_layout().dns_resolved_dropin_path())]
         resolved_dropin_path: String,
     },
-    /// Fetch a peer node's admitted RuntimeProofBundle and gate federation
-    /// trust on its `runtime_publisher_admission` proof (2N+2b cross-node).
-    PeerRuntimeProof {
-        /// Peer node base URL, e.g. http://10.10.10.102:3000
-        peer: String,
-        /// Emit JSON. Present for explicit operator intent; currently always JSON.
-        #[arg(long)]
-        json: bool,
-    },
 }
 
 #[cfg(test)]
@@ -775,30 +729,5 @@ mod tests {
         assert_eq!(request, "/proof/request.json");
         assert_eq!(target_attestation, "/proof/attestation.json");
         assert!(apply);
-    }
-
-    #[test]
-    fn parses_node_owned_mcp_runtime_observation() {
-        let cli = Cli::try_parse_from([
-            "cynic-node",
-            "mcp-runtime-observe",
-            "--node-id",
-            "local-kernel",
-            "--json",
-        ])
-        .expect("node-owned MCP runtime observation command");
-
-        let Some(Commands::McpRuntimeObserve {
-            node_id,
-            binary,
-            proof_only,
-            ..
-        }) = cli.command
-        else {
-            panic!("expected MCP runtime observe command");
-        };
-        assert_eq!(node_id, "local-kernel");
-        assert_eq!(binary, "cynic-mcp");
-        assert!(!proof_only);
     }
 }

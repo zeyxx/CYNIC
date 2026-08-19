@@ -51,11 +51,6 @@ fn build_network_mesh_plan_with_reader(
     let desired_peers = registry
         .nodes
         .iter()
-        .filter(|node| {
-            node.network_membership
-                .as_ref()
-                .is_some_and(|membership| membership.participates_in_mesh())
-        })
         .filter_map(|node| peer_from_node(node, &address_plane, &reservation_dns, plane))
         .collect::<Vec<_>>();
     let routes = desired_peers
@@ -225,7 +220,6 @@ mod tests {
                     mesh: Some(model::MeshPolicy {
                         provider: Some("wireguard".to_string()),
                     }),
-                    wireguard: None,
                 }),
                 nodes: vec![
                     RegistryNode {
@@ -237,7 +231,6 @@ mod tests {
                             ("labmesh".to_string(), "10.30.0.10".to_string()),
                             ("local".to_string(), "192.168.1.10".to_string()),
                         ]),
-                        network_membership: Some(model::NetworkMembership::SynapseMember),
                         services: vec![model::RegistryService {
                             name: Some("ssh".to_string()),
                             port: Some(22),
@@ -252,19 +245,6 @@ mod tests {
                             ("labmesh".to_string(), "10.30.0.11".to_string()),
                             ("local".to_string(), "192.168.1.11".to_string()),
                         ]),
-                        network_membership: Some(model::NetworkMembership::SynapseMember),
-                        services: Vec::new(),
-                    },
-                    RegistryNode {
-                        id: None,
-                        name: Some("management".to_string()),
-                        role: Some("management".to_string()),
-                        status: Some("active".to_string()),
-                        network: BTreeMap::from([
-                            ("labmesh".to_string(), "10.30.0.99".to_string()),
-                            ("local".to_string(), "192.168.1.99".to_string()),
-                        ]),
-                        network_membership: Some(model::NetworkMembership::ManagementOnly),
                         services: Vec::new(),
                     },
                 ],
@@ -314,79 +294,5 @@ mod tests {
                 .iter()
                 .all(|route| route.provider == "wireguard")
         );
-        assert!(
-            plan.desired_peers
-                .iter()
-                .all(|peer| peer.id != "management")
-        );
-    }
-    #[test]
-    fn deserializes_wireguard_policy_from_registry() {
-        let registry_raw = r#"{
-            "network_policy": {
-                "wireguard": {
-                    "schema": "cynic.network.wireguard.v1",
-                    "overlay_cidr": "10.20.0.0/24",
-                    "listen_port": 44196,
-                    "topology": "full_mesh",
-                    "keepalive_s": 25,
-                    "watchdog_stale_s": 150,
-                    "watchdog_dead_s": 200,
-                    "nodes": [
-                        {
-                            "node_id": "cynic-host-cortex",
-                            "overlay_ip": "10.20.0.3",
-                            "public_key": "Kar1lDbVWLydccWHsTNQp/NggDHzzpVXwpbSriyVO1c=",
-                            "endpoint": "192.168.100.2:44196",
-                            "watchdog": true
-                        },
-                        {
-                            "node_id": "forgejo",
-                            "overlay_ip": "10.20.0.2",
-                            "public_key": "NwnCBCswWWXr89AUEi6wEX+O7PHbZYQV8/2RWz1cayo=",
-                            "endpoint": "10.10.10.101:44196",
-                            "watchdog": true
-                        }
-                    ]
-                }
-            },
-            "nodes": []
-        }"#;
-        let registry: model::MeshRegistry = serde_json::from_str(registry_raw).expect("parse");
-        let wg = registry.wireguard_policy().expect("wireguard policy");
-        assert_eq!(wg.overlay_cidr.as_deref(), Some("10.20.0.0/24"));
-        assert_eq!(wg.listen_port, Some(44196));
-        assert_eq!(wg.keepalive_s, Some(25));
-        assert_eq!(wg.watchdog_stale_s, Some(150));
-        assert_eq!(wg.watchdog_dead_s, Some(200));
-        let nodes = registry.wireguard_nodes();
-        assert_eq!(nodes.len(), 2);
-        assert_eq!(nodes[0].node_id, "cynic-host-cortex");
-        assert_eq!(nodes[1].node_id, "forgejo");
-    }
-
-    #[test]
-    fn live_registry_json_wireguard_section_is_valid() {
-        let registry_path = format!("{}/../../infra/registry.json", env!("CARGO_MANIFEST_DIR"));
-        let raw = std::fs::read_to_string(&registry_path).expect("read live registry");
-        let registry: model::MeshRegistry =
-            serde_json::from_str(&raw).expect("parse live registry");
-        let wg = registry.wireguard_policy().expect("wireguard section");
-        assert_eq!(wg.overlay_cidr.as_deref(), Some("10.20.0.0/24"));
-        assert_eq!(wg.listen_port, Some(44196));
-        let nodes = registry.wireguard_nodes();
-        assert_eq!(nodes.len(), 5, "must declare all 5 nodes in full mesh");
-        for expected in &[
-            "cynic-host-cortex",
-            "cynic-host-proxmox",
-            "forgejo",
-            "cynic-lxc-surrealdb",
-            "cynic-builder",
-        ] {
-            assert!(
-                nodes.iter().any(|n| n.node_id == *expected),
-                "missing node: {expected}"
-            );
-        }
     }
 }

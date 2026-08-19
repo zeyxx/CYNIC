@@ -130,13 +130,6 @@ pub(super) async fn prepare(
     let verifier = std::env::current_exe()
         .map_err(|_| "build_scheduler_verifier_path_unobservable".to_string())?;
     let mut environment = BTreeMap::new();
-    // The scheduler, not an agent prompt, owns the build cache namespace.  It
-    // is derived from the durable workload record and consumed by the canonical
-    // Make/CLI target-root policy.
-    environment.insert(
-        "CYNIC_BUILD_WORKLOAD_ID".into(),
-        consumed.record.envelope.workload_id.clone(),
-    );
     environment.insert(
         "CYNIC_BUILD_ADMISSION_GRANT".into(),
         grant.path.to_string_lossy().into_owned(),

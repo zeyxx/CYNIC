@@ -107,7 +107,6 @@ impl MeshStateProvider for SurrealDbAdapter {
                             public_key: r.public_key,
                             internal_ip: ip,
                             endpoint: Some(r.endpoint),
-                            keepalive_s: None,
                         });
                     }
                 }

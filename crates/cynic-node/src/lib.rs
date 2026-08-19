@@ -18,9 +18,8 @@
 )]
 
 pub mod adapters;
-pub mod build_attestation;
-pub mod build_executor;
-pub mod cli;
+mod build_attestation;
+mod cli;
 mod dns_activation;
 mod dns_activation_status;
 mod dns_bundle;
@@ -45,7 +44,7 @@ mod network_mesh_bundle;
 mod network_mesh_plan;
 mod network_repair;
 mod network_root_policy;
-pub mod network_runtime_proof;
+mod network_runtime_proof;
 mod network_runtime_status;
 mod network_shadow_proof;
 mod network_surface_inventory;

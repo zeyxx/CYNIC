@@ -1,23 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-pub mod bootstrap_admission;
-pub use bootstrap_admission::{
-    BUILD_RUNNER_BOOTSTRAP_ADMISSION_SCHEMA, BUILD_RUNNER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
-    BUILD_RUNNER_BOOTSTRAP_PREFLIGHT_SCHEMA, BuildRunnerBootstrapAdmission,
-    BuildRunnerBootstrapCapabilityBinding, BuildRunnerBootstrapPreflight,
-    build_runner_bootstrap_action_digest, build_runner_bootstrap_input_digest,
-    validate_build_runner_bootstrap_capability_binding,
-};
-pub mod recipe;
 use crate::{
-    coordination_lease::{LeaseVerification, LEASE_VERIFICATION_SCHEMA},
-    LeaseGuard, SecurityEvidenceState, SourceSnapshot,
+    LEASE_VERIFICATION_SCHEMA, LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot,
 };
-pub use recipe::{BUILD_RECIPE_SCHEMA, BuildRecipe, build_recipe, validate_build_recipe};
 
 mod agent_request;
 mod agent_workload;
 mod workload_grant;
+mod fleet;
 
 pub use agent_request::{
     BUILD_AGENT_REQUEST_ADMISSION_SCHEMA, BUILD_AGENT_REQUEST_SCHEMA,
@@ -38,6 +28,11 @@ pub use workload_grant::{
     build_workload_grant_signing_bytes, canonical_build_action_from_argv,
     derive_build_workload_grant, validate_build_workload_grant,
     validate_signed_build_workload_grant,
+};
+
+pub use fleet::{
+    BuildIsolationPort, BuildJob, BuildJobSpec, BuildNodeCapability, BuildResult,
+    BuildStatus, IsolationKind, RetryPolicy, select_build_node,
 };
 
 pub const BUILD_INPUT_ADMISSION_SCHEMA: &str = "cynic.build.input_admission.v1";

@@ -4,8 +4,8 @@ use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use sha2::{Digest, Sha256};
 
 use cynic_protocol::{
-    CredentialLeaseMetadata, credential_lease_metadata_signing_bytes,
-    validate_credential_lease_metadata,
+    credential_lease_metadata_signing_bytes, validate_credential_lease_metadata,
+    CredentialLeaseMetadata,
 };
 
 use crate::ports::credential_lease_verifier_port::CredentialLeaseVerifierPort;

@@ -109,20 +109,6 @@ pub fn authorize_apply(
     if !authorization.explicit_apply {
         violations.push(violation("explicit_apply_required"));
     }
-    // 2N+2b federation gate: a runtime_publisher_admission expected proof must
-    // be satisfied in the authorization (cross-node RuntimeProofBundle observe).
-    // AGENS.md §6: this is the canonical deny decision for missing federation evidence.
-    if admission
-        .mutation
-        .expected_proofs
-        .iter()
-        .any(|p| p.gate == "runtime_publisher_admission")
-        && !authorization
-            .satisfied_preconditions
-            .contains(&"runtime_publisher_admission".to_string())
-    {
-        violations.push(violation("runtime_publisher_admission_missing"));
-    }
     if violations.is_empty() {
         PolicyDecision::Allow {
             required_authority: admission.mutation.required_authority,
@@ -270,36 +256,5 @@ mod tests {
             ExecutionAuthorization::new(actor, PolicyAuthority::RuntimeAuthority, true, Vec::new());
         assert!(!authorize_apply(&plan, &admission, &blocked).admitted());
         assert!(authorize_apply(&plan, &admission, &allowed).admitted());
-    }
-
-    /// 2N+2b TDD: a plan declaring runtime_publisher as an expected proof is
-    /// denied when the authorization carries no such proof, even though the
-    /// actor holds runtime authority and explicit apply.
-    #[test]
-    fn runtime_publisher_admission_absent_denies_federation() {
-        let mut plan = build_plan(&desired(), observed(NodeSubstratePower::Stopped));
-        plan.expected_proofs = vec!["runtime_publisher_admission".to_string()];
-        let actor = "runtime-authority".to_string();
-        let admission = admit_plan(&plan, actor.clone());
-        let authorization_without_runtime_publisher =
-            ExecutionAuthorization::new(actor, PolicyAuthority::RuntimeAuthority, true, Vec::new());
-        let decision = authorize_apply(&plan, &admission, &authorization_without_runtime_publisher);
-        assert!(
-            !decision.admitted(),
-            "missing runtime_publisher proof must deny"
-        );
-        match decision {
-            PolicyDecision::Deny { violations } => assert!(
-                violations
-                    .iter()
-                    .any(|v| v.code == "runtime_publisher_admission_missing"),
-                "expected runtime_publisher_admission_missing violation, got: {:?}",
-                violations
-            ),
-            other => panic!(
-                "expected Deny decision for missing runtime_publisher proof, got {:?}",
-                other
-            ),
-        }
     }
 }

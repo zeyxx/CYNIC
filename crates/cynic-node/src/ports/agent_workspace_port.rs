@@ -139,7 +139,7 @@ pub trait AgentWorkspaceClaimStorePort: Send + Sync {
     ) -> Result<AgentWorkspaceClaimObservation, AgentWorkspacePortError>;
 
     async fn release(&self, guard: &LeaseGuard, now_ms: u64)
-    -> Result<(), AgentWorkspacePortError>;
+        -> Result<(), AgentWorkspacePortError>;
 
     async fn finalize(
         &self,

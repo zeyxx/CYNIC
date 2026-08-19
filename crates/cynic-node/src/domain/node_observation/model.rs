@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 pub const NODE_OBSERVATION_SCHEMA: &str = "cynic.node_observation.v1";
 pub const SURFACE_NETWORK_MESH_STATUS: &str = "network.mesh.status";
@@ -9,7 +9,7 @@ pub const SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_STATUS: &str =
     "network.mesh.provider_fallback_status";
 pub const SURFACE_FLEET_NODE_STATUS: &str = "fleet.node.status";
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeRuntimeStatus {
     Blocked,
@@ -17,7 +17,7 @@ pub enum NodeRuntimeStatus {
     MeshActive,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeRuntimeSeverity {
     Clear,
@@ -25,7 +25,7 @@ pub enum NodeRuntimeSeverity {
     Critical,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeRuntimeBlocker {
     ProviderFallbackRouteMissing,
@@ -36,7 +36,7 @@ pub enum NodeRuntimeBlocker {
     WireguardMeshAbsent,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeRuntimeAction {
     RestoreProviderFallbackRoute,
@@ -57,7 +57,7 @@ pub struct NodeRuntimeRemediation {
     pub reason: &'static str,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct NodeRuntimeCapabilities {
     pub provider_fallback_active: bool,
     pub synapse_route_active: bool,

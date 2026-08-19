@@ -24,7 +24,6 @@ use tokio::sync::Mutex;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::ports::runtime_federation_queue_store_port::RuntimeFederationQueueStorePort;
-use crate::ports::workload_signer_port::WorkloadSignerPort;
 
 pub use protocol::{NodeMessage, PendingStimulus, PendingVerdict};
 
@@ -50,9 +49,6 @@ pub struct WebSocketClient {
     node_identity: String,
     /// Persistence port for local queues
     queue_store: Arc<dyn RuntimeFederationQueueStorePort>,
-    /// Phase 3.1 workload signer — admits federation mutation stimuli.
-    /// Injecté ici pour débloquer spawn_native_handler (era "signer unavailable").
-    workload_signer: Arc<dyn WorkloadSignerPort>,
     /// Assigned node_id by kernel (set on RegisterResponse)
     node_id: Arc<Mutex<Option<String>>>,
     /// Local stimulus queue (persisted on disk)
@@ -71,31 +67,12 @@ impl WebSocketClient {
         node_identity: String,
         queue_store: Arc<dyn RuntimeFederationQueueStorePort>,
     ) -> Self {
-        Self::with_signer(
-            kernel_url,
-            api_key,
-            node_public_key,
-            node_identity,
-            queue_store,
-            Arc::new(crate::ports::workload_signer_port::NullWorkloadSigner),
-        )
-    }
-
-    pub fn with_signer(
-        kernel_url: String,
-        api_key: String,
-        node_public_key: String,
-        node_identity: String,
-        queue_store: Arc<dyn RuntimeFederationQueueStorePort>,
-        workload_signer: Arc<dyn WorkloadSignerPort>,
-    ) -> Self {
         Self {
             kernel_url,
             api_key,
             node_public_key,
             node_identity,
             queue_store,
-            workload_signer,
             node_id: Arc::new(Mutex::new(None)),
             pending_stimuli: Arc::new(Mutex::new(VecDeque::new())),
             pending_verdicts: Arc::new(Mutex::new(VecDeque::new())),

@@ -9,9 +9,6 @@ use serde_json::json;
 
 use super::host_runtime::{LocalWatchdogHostRuntime, WatchdogHostRuntimePort};
 use super::kernel_bridge::{LocalWatchdogKernelProbe, WatchdogKernelProbePort};
-use super::peer_handshake::{
-    LocalPeerHandshakeObserver, PeerHandshakePort, WireguardHandshakeObservation,
-};
 
 pub(super) const OBSERVATION_SCHEMA: &str = "cynic.node_watchdog_observation.v1";
 
@@ -44,7 +41,6 @@ pub(super) struct WatchdogObservationInputs {
     pub(super) load_average_1m: f64,
     pub(super) uptime_seconds: u64,
     pub(super) observed_at: String,
-    pub(super) wg_handshakes: Option<WireguardHandshakeObservation>,
 }
 
 pub(super) struct LocalSampler {
@@ -64,24 +60,21 @@ impl LocalSampler {
             &LocalWatchdogHostRuntime,
             &LocalWatchdogKernelProbe,
             &LocalWatchdogNetworkObservation,
-            &LocalPeerHandshakeObserver,
         )
         .await
     }
 
-    pub(super) async fn collect_with_ports<Runtime, KernelProbe, NetworkObserve, HandshakeObs>(
+    pub(super) async fn collect_with_ports<Runtime, KernelProbe, NetworkObserve>(
         &mut self,
         cfg: &WatchdogConfig,
         runtime: &Runtime,
         kernel_probe: &KernelProbe,
         network_observe: &NetworkObserve,
-        handshake_obs: &HandshakeObs,
     ) -> serde_json::Value
     where
         Runtime: WatchdogHostRuntimePort,
         KernelProbe: WatchdogKernelProbePort,
         NetworkObserve: WatchdogNetworkObservationPort,
-        HandshakeObs: PeerHandshakePort,
     {
         let kernel = kernel_probe.probe(cfg).await;
         let services = cfg
@@ -105,14 +98,6 @@ impl LocalSampler {
             &cfg.watchdog.registry_path,
         )))
         .unwrap_or_else(|error| json!({ "serialization_error": error.to_string() }));
-
-        // Observe WireGuard peer handshakes on the canonical mesh interface.
-        // Uses stale/dead thresholds from the registry wireguard block when
-        // available; falls back to conservative defaults (150 s / 200 s).
-        let (stale_s, dead_s) = wg_thresholds_from_registry(&cfg.watchdog.registry_path);
-        let wg_iface = wg_interface_from_registry(&cfg.watchdog.registry_path);
-        let wg_handshakes = wg_iface.map(|iface| handshake_obs.observe(&iface, stale_s, dead_s));
-
         build_watchdog_observation(
             cfg,
             WatchdogObservationInputs {
@@ -131,52 +116,9 @@ impl LocalSampler {
                 load_average_1m: system_metrics.load_average_1m,
                 uptime_seconds: system_metrics.uptime_seconds,
                 observed_at: chrono::Utc::now().to_rfc3339(),
-                wg_handshakes,
             },
         )
     }
-}
-
-/// Read `network_policy.wireguard.watchdog_stale_s` and
-/// `network_policy.wireguard.watchdog_dead_s` from the registry file.
-/// Falls back to (150, 200) when the file is absent or the key is missing.
-fn wg_thresholds_from_registry(registry_path: &str) -> (u64, u64) {
-    const DEFAULT_STALE: u64 = 150;
-    const DEFAULT_DEAD: u64 = 200;
-    let Ok(raw) = std::fs::read_to_string(registry_path) else {
-        return (DEFAULT_STALE, DEFAULT_DEAD);
-    };
-    let Ok(v): Result<serde_json::Value, _> = serde_json::from_str(&raw) else {
-        return (DEFAULT_STALE, DEFAULT_DEAD);
-    };
-    let wg = &v["network_policy"]["wireguard"];
-    let stale = wg["watchdog_stale_s"].as_u64().unwrap_or(DEFAULT_STALE);
-    let dead = wg["watchdog_dead_s"].as_u64().unwrap_or(DEFAULT_DEAD);
-    (stale, dead)
-}
-
-/// Return the WireGuard interface name from `network_policy.wireguard.nodes`
-/// that matches the current hostname, or `None` when the registry has no
-/// WireGuard config (so observation is skipped on non-mesh nodes).
-///
-/// The interface name is not stored per-node in the registry schema; we use
-/// the `wg` tool capability's `mesh_interface` from the runtime layout which
-/// is the canonical single source of truth for the local binary path/name.
-fn wg_interface_from_registry(registry_path: &str) -> Option<String> {
-    let raw = std::fs::read_to_string(registry_path).ok()?;
-    let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
-    // Only emit handshake observations when the wireguard block is present and
-    // has at least one node entry — this guards non-mesh nodes cleanly.
-    let nodes = v["network_policy"]["wireguard"]["nodes"].as_array()?;
-    if nodes.is_empty() {
-        return None;
-    }
-    // Resolve the interface name from the runtime layout (env-overridable).
-    let iface = cynic_host::runtime_layout::current_runtime_layout()
-        .capabilities()
-        .wireguard_tool
-        .mesh_interface;
-    if iface.is_empty() { None } else { Some(iface) }
 }
 
 pub(super) fn build_watchdog_observation(
@@ -241,10 +183,6 @@ pub(super) fn build_watchdog_observation(
             "name": cfg.node.constellation,
             "member": cfg.node.name,
         },
-        "wg_handshakes": inputs.wg_handshakes.as_ref().map(|obs| {
-            serde_json::to_value(obs)
-                .unwrap_or_else(|e| json!({ "serialization_error": e.to_string() }))
-        }).unwrap_or(serde_json::Value::Null),
         "observed_at": inputs.observed_at,
     })
 }

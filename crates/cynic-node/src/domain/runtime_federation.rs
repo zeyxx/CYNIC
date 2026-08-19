@@ -11,9 +11,6 @@ pub struct RuntimeFederationConfig {
     pub node_public_key: String,
     pub node_identity: String,
     pub queue_dir: PathBuf,
-    /// 2N+1 runtime_publisher grant presence (kernel/node-signed
-    /// runtime_proof.v1). Drives LocalWorkloadSigner admit decision.
-    pub runtime_publisher_granted: bool,
 }
 
 #[derive(Debug, Clone)]

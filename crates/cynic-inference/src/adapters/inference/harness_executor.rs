@@ -93,9 +93,7 @@ impl HarnessExecutor for HttpHarnessExecutor {
             temperature: scenario.model.parameters.temperature,
             top_p: scenario.model.parameters.top_p,
             stream: true,
-            stream_options: StreamOptions {
-                include_usage: true,
-            },
+            stream_options: StreamOptions { include_usage: true },
             chat_template_kwargs,
         };
         let mut request = self.client.post(url).json(&body);
@@ -142,11 +140,6 @@ impl HarnessExecutor for HttpHarnessExecutor {
                         event_count: Some(chunk_count),
                         event_kinds,
                         event_stream_error: Some(err.to_string()),
-                        text_response: if buffer.is_empty() {
-                            None
-                        } else {
-                            Some(buffer)
-                        },
                         error: Some(format!("stream_read_error: {err}")),
                     };
                 }
@@ -228,11 +221,6 @@ impl HarnessExecutor for HttpHarnessExecutor {
             event_count: Some(chunk_count),
             event_kinds,
             event_stream_error: None,
-            text_response: if buffer.is_empty() {
-                None
-            } else {
-                Some(buffer)
-            },
             error: None,
         }
     }
@@ -250,7 +238,6 @@ fn failed(status: u16, error: String) -> InferenceReply {
         event_count: None,
         event_kinds: Vec::new(),
         event_stream_error: None,
-        text_response: None,
         error: Some(error),
     }
 }

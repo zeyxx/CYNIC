@@ -98,7 +98,6 @@ pub(crate) async fn start_tasks(
         enrollment_reader.clone(),
         control.observed_capabilities.clone(),
         control.observed_services.clone(),
-        control.network_recovery.registry_path.display().to_string(),
     );
     let enrollment_proven = enrollment.state == cynic_protocol::SecurityEvidenceState::Proven;
     let build_scheduler_authorized = enrollment_proven
@@ -171,13 +170,6 @@ pub(crate) async fn start_tasks(
     });
     let scheduler_control = control.clone();
     let scheduler_shutdown = shutdown.clone();
-    let network_recovery_enabled = control.network_recovery.enabled;
-    let network_recovery_registry_path =
-        control.network_recovery.registry_path.display().to_string();
-    let network_recovery_state_path = control.network_recovery.state_path.display().to_string();
-    let network_recovery_cooldown = Duration::from_secs(control.network_recovery.cooldown_secs);
-    let network_recovery_max_attempts = control.network_recovery.max_attempts;
-    let network_recovery_shutdown = shutdown.clone();
     let renewal_task = tokio::spawn(
         crate::node_enrollment_lifecycle_uc::run_enrollment_renewal_loop(
             adapter,
@@ -187,24 +179,6 @@ pub(crate) async fn start_tasks(
         ),
     );
     let mut tasks = vec![control_task, renewal_task];
-    if network_recovery_enabled {
-        tasks.push(tokio::spawn(async move {
-            usecases::node_network_recovery_uc::run_node_network_recovery_loop(
-                network_recovery_enabled,
-                network_recovery_registry_path,
-                network_recovery_state_path,
-                network_recovery_cooldown,
-                network_recovery_max_attempts,
-                network_recovery_shutdown,
-            )
-            .await;
-        }));
-    } else {
-        tracing::info!(
-            node_id = %scheduler_control.node_id,
-            "node network recovery remains inactive until explicitly enabled by desired node-control configuration"
-        );
-    }
     if enrollment_proven {
         tasks.push(tokio::spawn(async move {
             usecases::agent_workload_delivery_uc::run_delivery_loop(
@@ -311,21 +285,6 @@ pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {
             || (has_signing_key && has_enrollment_grant && build_scheduler_registry_present);
         let build_scheduler_activation_ready = !build_scheduler_configured
             || (build_scheduler_inputs_present && scheduler_capabilities_proven);
-        let scheduler_runtime_proof_path = control
-            .agent_workload_state_root
-            .join("agent-scheduler/runtime-proof.json");
-        let scheduler_runtime =
-            crate::adapters::agent_execution_runtime_observer::observe_at(&scheduler_runtime_proof_path);
-        let scheduler_runtime_missing = cynic_protocol::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
-            .iter()
-            .filter(|capability| {
-                !scheduler_runtime
-                    .observed_capabilities
-                    .iter()
-                    .any(|observed| observed == *capability)
-            })
-            .map(|capability| format!("build_scheduler_runtime_proof_missing:{capability}"))
-            .collect::<Vec<_>>();
         if build_scheduler_configured && !has_enrollment_grant {
             missing.push("build_scheduler_durable_enrollment_grant");
         }
@@ -362,9 +321,6 @@ pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {
                 "build_scheduler_enrollment_proven": enrollment_proven,
                 "build_scheduler_capabilities_proven": scheduler_capabilities_proven,
                 "build_scheduler_activation_ready": build_scheduler_activation_ready,
-                "build_scheduler_runtime_proof_path": scheduler_runtime_proof_path,
-                "build_scheduler_runtime_observation": scheduler_runtime,
-                "build_scheduler_runtime_missing": scheduler_runtime_missing,
                 "enrollment_read_back_unknowns": enrollment.unknowns,
                 "runtime_artifact_inbox_root": control.runtime_artifact_inbox_root,
                 "runtime_artifact_max_bytes": control.runtime_artifact_max_bytes,

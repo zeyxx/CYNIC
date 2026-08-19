@@ -85,7 +85,7 @@ where
         );
     }
 
-    let mut observation = match observer.observe_node_control(&desired).await {
+    let observation = match observer.observe_node_control(&desired).await {
         Ok(observation) => observation,
         Err(error) => {
             return report(
@@ -100,11 +100,6 @@ where
             );
         }
     };
-    // The desired state above was retrieved through the authenticated node
-    // control transport in this tick.  This is the only evidence available at
-    // this boundary for connection health; a local file observer must never
-    // claim it independently.
-    attest_connection_from_desired_pull(&mut observation);
     let mut plan = reconcile_node_control(&desired, &observation);
     let mut release_deployment = None;
     if let NodeControlDecision::ReconcileRelease { plan: release_plan } = plan.decision.clone() {
@@ -125,10 +120,7 @@ where
         };
         if deployment.status == "proved" {
             match observer.observe_node_control(&desired).await {
-                Ok(mut after) => {
-                    attest_connection_from_desired_pull(&mut after);
-                    plan = reconcile_node_control(&desired, &after);
-                }
+                Ok(after) => plan = reconcile_node_control(&desired, &after),
                 Err(error) => {
                     plan.status = "unknown".to_string();
                     plan.unknowns.push(format!(
@@ -187,16 +179,6 @@ where
             Vec::new(),
         ),
     }
-}
-
-fn attest_connection_from_desired_pull(observation: &mut cynic_protocol::NodeControlObservation) {
-    observation.connection = cynic_protocol::NodeControlConnectionState::Connected;
-    observation
-        .evidence_refs
-        .push("node-control:desired-state-pull".to_string());
-    observation
-        .unknowns
-        .retain(|unknown| unknown != "node_control_connection_unobserved");
 }
 
 pub async fn run_node_control_loop<D, O, S, T, A>(
@@ -301,7 +283,6 @@ mod tests {
                 observed_at_unix_ms: 1,
                 observed_generation: Some(desired.generation),
                 enrollment: SecurityEvidenceState::Proven,
-                fleet_membership: SecurityEvidenceState::Proven,
                 connection: NodeControlConnectionState::Connected,
                 release: converged_release(&desired.release),
                 observed_capabilities: desired.required_capabilities.clone(),
@@ -377,7 +358,6 @@ mod tests {
                 observed_at_unix_ms: 1,
                 observed_generation: Some(desired.generation),
                 enrollment: SecurityEvidenceState::Proven,
-                fleet_membership: SecurityEvidenceState::Proven,
                 connection: NodeControlConnectionState::Connected,
                 release,
                 observed_capabilities: desired.required_capabilities.clone(),
@@ -531,19 +511,6 @@ mod tests {
         assert_eq!(
             report.status_evidence_ref.as_deref(),
             Some("sha256:published-status")
-        );
-        let plan = report
-            .plan
-            .expect("successful desired-state pull produces a plan");
-        assert_eq!(
-            plan.connection,
-            NodeControlConnectionState::Connected,
-            "connection may only be attested by the authenticated pull"
-        );
-        assert!(
-            plan.evidence_refs
-                .iter()
-                .any(|reference| reference == "node-control:desired-state-pull")
         );
     }
 

@@ -86,7 +86,12 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
             // Reserved command surfaces; not yet wired to a dispatch arm.
             ExitCode::SUCCESS
         }
-        Command::Build { command } => execute_build(command),
+        Command::Build { command } => execute_build(command)
+            .map(|_| ExitCode::SUCCESS)
+            .unwrap_or_else(|e| {
+                eprintln!("build error: {e}");
+                ExitCode::FAILURE
+            }),
     }
 }
 

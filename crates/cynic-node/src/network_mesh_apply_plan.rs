@@ -6,7 +6,6 @@ use crate::adapters::local_network_mesh_bundle::LocalNetworkMeshBundleReader;
 use crate::network_command_surface::NetworkCommandSurface;
 use crate::ports::network_mesh_bundle_port::NetworkMeshBundlePort;
 
-mod canary_admission;
 mod command_plan;
 #[cfg(kani)]
 mod command_plan_verification;
@@ -17,9 +16,6 @@ mod policy_verification;
 mod profile_execution;
 mod target_transaction;
 
-use canary_admission::{
-    MeshCanaryAdmissionReport, MeshCanaryEvidence, assess_mesh_canary_admission,
-};
 use command_plan::{
     dns_install, firewall_preflight, post_apply_observation, preflight, rollback_conditions,
     rollback_plan, route_install, route_observation, route_preflight, tunnel_install,
@@ -52,7 +48,6 @@ pub(crate) struct NetworkMeshApplyPlanReport {
     pub(crate) rollback_conditions: Vec<&'static str>,
     pub(crate) rollback_plan: Vec<NetworkCommandSurface>,
     pub(crate) actuator_policy: MeshActuatorPolicyProjection,
-    pub(crate) canary_admission: MeshCanaryAdmissionReport,
     pub(crate) apply_requires: Vec<&'static str>,
     pub(crate) can_apply: bool,
 }
@@ -96,7 +91,6 @@ fn build_network_mesh_apply_plan_with_reader_and_context(
         &post_apply_observation,
         &rollback_plan,
     );
-    let canary_admission = assess_mesh_canary_admission(&MeshCanaryEvidence::default());
 
     Ok(NetworkMeshApplyPlanReport {
         schema: "cynic.network_mesh_apply_plan.v1",
@@ -121,7 +115,6 @@ fn build_network_mesh_apply_plan_with_reader_and_context(
         rollback_conditions: rollback_conditions(),
         rollback_plan,
         actuator_policy,
-        canary_admission,
         apply_requires: vec![
             "operator_confirms_mutation",
             "private_keys_materialized_outside_git",

@@ -3,7 +3,6 @@
 
 mod host_runtime;
 mod kernel_bridge;
-mod peer_handshake;
 mod sampler;
 
 use std::process::ExitCode;

@@ -82,8 +82,6 @@ fn expand_node_control(cfg: &mut NodeControlConfig) -> Result<(), String> {
     cfg.enrollment_token_path = expand_path(&cfg.enrollment_token_path)?;
     cfg.agent_workload_state_root = expand_path(&cfg.agent_workload_state_root)?;
     cfg.runtime_artifact_inbox_root = expand_path(&cfg.runtime_artifact_inbox_root)?;
-    cfg.network_recovery.registry_path = expand_path(&cfg.network_recovery.registry_path)?;
-    cfg.network_recovery.state_path = expand_path(&cfg.network_recovery.state_path)?;
     if let Some(scheduler) = cfg.build_scheduler.as_mut() {
         scheduler.registry_path = expand_path(&scheduler.registry_path)?;
         scheduler.repository_id = expand_env_vars(&scheduler.repository_id)?;
@@ -154,23 +152,10 @@ pub(crate) fn validate_node_control(cfg: &NodeControlConfig) -> Result<(), Strin
             "runtime_artifact_inbox_root",
             &cfg.runtime_artifact_inbox_root,
         ),
-        (
-            "network_recovery.registry_path",
-            &cfg.network_recovery.registry_path,
-        ),
-        (
-            "network_recovery.state_path",
-            &cfg.network_recovery.state_path,
-        ),
     ] {
         if !path.is_absolute() {
             return Err(format!("node_control.{name} must be an absolute path"));
         }
-    }
-    if cfg.network_recovery.cooldown_secs == 0 || cfg.network_recovery.max_attempts == 0 {
-        return Err(
-            "node_control.network_recovery cooldown_secs and max_attempts must be > 0".into(),
-        );
     }
     if let Some(scheduler) = &cfg.build_scheduler {
         if cfg.enrollment_role != "build_runner" {
@@ -262,21 +247,11 @@ pub(crate) fn expand_env_vars(input: &str) -> Result<String, String> {
             if var_name.is_empty() {
                 return Err("empty variable name in ${} expansion".to_owned());
             }
-            let value = match std::env::var(&var_name) {
-                Ok(val) => val,
-                Err(_) => match var_name.as_str() {
-                    "CYNIC_KERNEL_URL" => "http://kernel.synapse.cynic:3030".to_string(),
-                    "CYNIC_STATE_ROOT" => "/var/lib/cynic".to_string(),
-                    "CYNIC_CONFIG_ROOT" => "/etc/cynic".to_string(),
-                    "CYNIC_LOG_ROOT" => "/var/log/cynic".to_string(),
-                    "CYNIC_ENROLLMENT_SEED_ID" => "node-local".to_string(),
-                    _ => {
-                        return Err(format!(
-                            "environment variable `{var_name}` not set (referenced in process.command)"
-                        ));
-                    }
-                },
-            };
+            let value = std::env::var(&var_name).map_err(|e| {
+                format!(
+                    "environment variable `{var_name}` not set (referenced in process.command): {e}"
+                )
+            })?;
             result.push_str(&value);
         } else {
             result.push(ch);
@@ -341,7 +316,6 @@ pub(crate) fn runtime_federation_config(cfg: &Config) -> RuntimeFederationConfig
                     .map(Into::into);
                 default_queue_dir(queue_home)
             }),
-        runtime_publisher_granted: false,
     }
 }
 

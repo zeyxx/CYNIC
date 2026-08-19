@@ -9,7 +9,7 @@ use std::time::Instant;
 use crate::domain::backend_config::{AuthStyle, InferenceBackendConfig};
 use crate::domain::chat::{ChatError, ChatResponse, InferenceProfile};
 use crate::domain::inference::{
-    BackendError, BackendInitError, BackendStatus, InferRequest, InferResponse, PhaseLatency,
+    BackendError, BackendInitError, BackendStatus, InferRequest, InferResponse,
 };
 use crate::ports::chat_port::ChatPort;
 use crate::ports::inference_port::{BackendPort, InferPort};
@@ -439,7 +439,6 @@ impl InferPort for OpenAiCompatBackend {
 
         let (prompt_tokens, completion_tokens) = response
             .usage
-            .as_ref()
             .map(|usage| (usage.prompt_tokens.into(), usage.completion_tokens.into()))
             .unwrap_or((0, 0));
         let text = response
@@ -463,20 +462,11 @@ impl InferPort for OpenAiCompatBackend {
             )));
         }
 
-        // Conditional residual_unknowns: flag what was NOT observed.
-        let residual_unknowns: Vec<String> = if response.usage.is_none() {
-            vec!["usage_not_returned_by_backend".into()]
-        } else {
-            vec![]
-        };
-
         Ok(InferResponse {
             text,
             model: response.model,
             prompt_tokens,
             completion_tokens,
-            residual_unknowns,
-            phase_latency: PhaseLatency::unknown(),
         })
     }
 }

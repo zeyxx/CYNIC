@@ -29,7 +29,6 @@ mod dns_activation_status;
 mod dns_bundle;
 mod dns_contract;
 mod dns_plan;
-mod mcp_runtime_observation;
 mod network_activation_chain;
 mod network_actuator;
 mod network_actuator_contract;
@@ -120,14 +119,6 @@ async fn main() -> ExitCode {
         }
         Some(Commands::Control { config, check }) => {
             return node_control_runtime::run(&config, check).await;
-        }
-        Some(Commands::McpRuntimeObserve {
-            node_id,
-            binary,
-            proof_only,
-            json: _,
-        }) => {
-            return mcp_runtime_observation::execute(&node_id, &binary, proof_only);
         }
         Some(Commands::Observe {
             json: _,
@@ -230,12 +221,6 @@ async fn main() -> ExitCode {
                 &workload_id,
                 &state_root,
             );
-        }
-        Some(Commands::AgentWorkloadList {
-            state_root,
-            json: _,
-        }) => {
-            return agent_workload_store_uc::execute_agent_workload_list(&state_root);
         }
         Some(Commands::AgentWorkloadTransition {
             request,

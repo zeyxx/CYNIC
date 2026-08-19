@@ -73,11 +73,7 @@ async fn run_iteration(
                 &current,
                 "cancellation_observed_before_execution",
             )?;
-            persist_cancellation_proof(
-                control,
-                &current.record.envelope.workload_id,
-                current.revision,
-            );
+            persist_cancellation_proof(&current.record.envelope.workload_id, current.revision);
             continue;
         }
         let recovery_candidate = current.record.claim.as_ref().is_some_and(|claim| {
@@ -90,7 +86,6 @@ async fn run_iteration(
         };
         if recovery_candidate {
             persist_recovery_proof(
-                control,
                 &claimed.record.envelope.workload_id,
                 current.revision,
                 claimed.revision,
@@ -138,12 +133,7 @@ async fn execute_claimed(
         Err(error) => {
             execution_cancel.cancel();
             let renewal_count = monitor.await.unwrap_or(0);
-            persist_renewal_proof(
-                control,
-                &claimed.record.envelope.workload_id,
-                &guard,
-                renewal_count,
-            );
+            persist_renewal_proof(&claimed.record.envelope.workload_id, &guard, renewal_count);
             lifecycle::finish_blocked(store, &claimed.record.envelope.workload_id, &guard, error)?;
             return Ok(());
         }
@@ -159,13 +149,13 @@ async fn execute_claimed(
     if after_execution.record.state == AgentWorkloadState::CancelRequested {
         execution_cancel.cancel();
         let renewal_count = monitor.await.unwrap_or(0);
-        persist_renewal_proof(control, workload_id, &guard, renewal_count);
+        persist_renewal_proof(workload_id, &guard, renewal_count);
         lifecycle::acknowledge_cancelled(
             store,
             &after_execution,
             "workload_cancelled_during_execution",
         )?;
-        persist_cancellation_proof(control, workload_id, after_execution.revision);
+        persist_cancellation_proof(workload_id, after_execution.revision);
         return Ok(());
     }
     let evidence_store =
@@ -185,51 +175,72 @@ async fn execute_claimed(
             );
             match evidence {
                 Ok(mut evidence_refs) => {
-                    let publication = release_publication::publish(
+                    match evidence::persist_execution_provenance(
                         &control.node_id,
-                        &after_execution.record.envelope,
+                        workload_id,
+                        &scheduler.repository_id,
+                        &after_execution.record.envelope.delegation.delegation_id,
+                        &after_execution.record.envelope.delegation.agent_id,
+                        &guard.lease_id,
+                        guard.fencing_token,
+                        &after_execution.record_digest,
                         &prepared.workspace,
-                        &evidence_refs,
-                        scheduler.release_publication.as_ref(),
+                        &read_back,
+                        &after_execution.record.envelope.action.argv,
                         lifecycle::current_unix_ms(),
-                        &prepared.provenance,
+                        prepared.provenance.clone(),
                         &evidence_store,
-                    );
-                    let publication_result = tokio::select! {
-                        result = publication => result,
-                        () = execution_cancel.cancelled() => {
-                            Err("release_publication_cancelled".to_string())
-                        }
-                    };
-                    let publication_error = match publication_result {
-                        Ok(Some(reference)) => {
+                    ) {
+                        Ok(reference) => {
                             evidence_refs.push(reference);
-                            None
-                        }
-                        Ok(None) => None,
-                        Err(error) => Some(error),
-                    };
-                    if let Some(error) = publication_error {
-                        (AgentCompletionStatus::Blocked, evidence_refs, vec![error])
-                    } else if after_execution
-                        .record
-                        .envelope
-                        .delegation
-                        .expected_proofs
-                        .iter()
-                        .all(|proof| {
-                            evidence_refs
+                            let publication = release_publication::publish(
+                                &control.node_id,
+                                &after_execution.record.envelope,
+                                &prepared.workspace,
+                                &evidence_refs,
+                                scheduler.release_publication.as_ref(),
+                                lifecycle::current_unix_ms(),
+                                &prepared.provenance,
+                                &evidence_store,
+                            );
+                            let publication_result = tokio::select! {
+                                result = publication => result,
+                                () = execution_cancel.cancelled() => {
+                                    Err("release_publication_cancelled".to_string())
+                                }
+                            };
+                            let publication_error = match publication_result {
+                                Ok(Some(reference)) => {
+                                    evidence_refs.push(reference);
+                                    None
+                                }
+                                Ok(None) => None,
+                                Err(error) => Some(error),
+                            };
+                            if let Some(error) = publication_error {
+                                (AgentCompletionStatus::Degraded, evidence_refs, vec![error])
+                            } else if after_execution
+                                .record
+                                .envelope
+                                .delegation
+                                .expected_proofs
                                 .iter()
-                                .any(|reference| &reference.kind == proof)
-                        })
-                    {
-                        (AgentCompletionStatus::Completed, evidence_refs, Vec::new())
-                    } else {
-                        (
-                            AgentCompletionStatus::Blocked,
-                            evidence_refs,
-                            vec!["build_scheduler_required_proof_missing".to_string()],
-                        )
+                                .all(|proof| {
+                                    evidence_refs
+                                        .iter()
+                                        .any(|reference| &reference.kind == proof)
+                                })
+                            {
+                                (AgentCompletionStatus::Completed, evidence_refs, Vec::new())
+                            } else {
+                                (
+                                    AgentCompletionStatus::Degraded,
+                                    evidence_refs,
+                                    vec!["build_scheduler_required_proof_missing".to_string()],
+                                )
+                            }
+                        }
+                        Err(error) => (AgentCompletionStatus::Blocked, evidence_refs, vec![error]),
                     }
                 }
                 Err(error) => (AgentCompletionStatus::Blocked, Vec::new(), vec![error]),
@@ -271,7 +282,7 @@ async fn execute_claimed(
         .ok_or_else(|| "build_scheduler_workload_disappeared".to_string())?;
     if latest.record.state == AgentWorkloadState::CancelRequested {
         lifecycle::acknowledge_cancelled(store, &latest, "workload_cancelled_during_proof")?;
-        persist_cancellation_proof(control, workload_id, latest.revision);
+        persist_cancellation_proof(workload_id, latest.revision);
         Ok(())
     } else {
         lifecycle::finish(
@@ -288,26 +299,18 @@ async fn execute_claimed(
                 .iter()
                 .map(|reference| format!("{}:{}", reference.kind, reference.digest))
                 .collect::<Vec<_>>();
-            crate::adapters::agent_execution_runtime_observer::persist_capabilities_at(
-                &scheduler_proof_path(control),
+            crate::adapters::agent_execution_runtime_observer::persist_capabilities(
                 &["build_completion_and_artifact_read_back"],
                 &proof_refs,
             )
             .map_err(|error| format!("build_scheduler_runtime_proof:{error}"))?;
         }
-        persist_renewal_proof(control, workload_id, &guard, renewal_count);
+        persist_renewal_proof(workload_id, &guard, renewal_count);
         Ok(())
     }
 }
 
-fn scheduler_proof_path(control: &NodeControlConfig) -> std::path::PathBuf {
-    control
-        .agent_workload_state_root
-        .join("agent-scheduler/runtime-proof.json")
-}
-
 fn persist_renewal_proof(
-    control: &NodeControlConfig,
     workload_id: &str,
     guard: &cynic_protocol::LeaseGuard,
     renewal_count: u64,
@@ -324,8 +327,7 @@ fn persist_renewal_proof(
     let evidence_ref = cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-claim-renewal:{digest}"))
         .unwrap_or_else(|_| format!("scheduler-claim-renewal:{workload_id}"));
-    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities_at(
-        &scheduler_proof_path(control),
+    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
         &["scheduler_claim_renewal"],
         &[evidence_ref],
     ) {
@@ -333,7 +335,7 @@ fn persist_renewal_proof(
     }
 }
 
-fn persist_cancellation_proof(control: &NodeControlConfig, workload_id: &str, revision: u64) {
+fn persist_cancellation_proof(workload_id: &str, revision: u64) {
     let proof = serde_json::json!({
         "workload_id": workload_id,
         "store_revision": revision,
@@ -342,8 +344,7 @@ fn persist_cancellation_proof(control: &NodeControlConfig, workload_id: &str, re
     let evidence_ref = cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-cancellation-delivery:{digest}"))
         .unwrap_or_else(|_| format!("scheduler-cancellation-delivery:{workload_id}"));
-    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities_at(
-        &scheduler_proof_path(control),
+    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
         &["scheduler_cancellation_delivery"],
         &[evidence_ref],
     ) {
@@ -351,12 +352,7 @@ fn persist_cancellation_proof(control: &NodeControlConfig, workload_id: &str, re
     }
 }
 
-fn persist_recovery_proof(
-    control: &NodeControlConfig,
-    workload_id: &str,
-    prior_revision: u64,
-    new_revision: u64,
-) {
+fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: u64) {
     let proof = serde_json::json!({
         "workload_id": workload_id,
         "prior_store_revision": prior_revision,
@@ -366,8 +362,7 @@ fn persist_recovery_proof(
     let evidence_ref = cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-crash-recovery:{digest}"))
         .unwrap_or_else(|_| format!("scheduler-crash-recovery:{workload_id}"));
-    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities_at(
-        &scheduler_proof_path(control),
+    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
         &["scheduler_crash_recovery"],
         &[evidence_ref],
     ) {

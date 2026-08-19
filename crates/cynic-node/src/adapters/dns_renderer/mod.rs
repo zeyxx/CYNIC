@@ -73,8 +73,7 @@ impl DnsBundleRendererPort for SynapseDnsRenderer {
     fn render_corefile(&self) -> Result<String, Box<dyn Error>> {
         let hosts_path = synapse_dns_hosts_path();
         Ok(format!(
-            "{}:1053 {{\n    bind 127.0.0.1\n    errors\n    hosts {hosts_path} {{\n        fallthrough\n    }}\n}}\n",
-            self.zone
+            ".:1053 {{\n    errors\n    hosts {hosts_path} {{\n        fallthrough\n    }}\n}}\n"
         ))
     }
 
@@ -128,8 +127,6 @@ mod tests {
 
         assert_eq!(plan.zone, "test.zone");
         assert_eq!(plan.hosts_path, synapse_dns_hosts_path());
-        assert!(corefile.starts_with("test.zone:1053 {"));
-        assert!(corefile.contains("bind 127.0.0.1"));
         assert!(corefile.contains(&synapse_dns_hosts_path()));
         assert!(dropin.contains("Domains=~test.zone"));
     }

@@ -61,7 +61,6 @@ fn watchdog_observation_builder_is_pure() {
             load_average_1m: 0.4,
             uptime_seconds: 1234,
             observed_at: "1970-01-01T00:00:00+00:00".to_string(),
-            wg_handshakes: None,
         },
     );
 
@@ -123,24 +122,6 @@ impl WatchdogNetworkObservationPort for FakeNetworkObserve {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-struct FakeHandshakeObs;
-
-impl super::peer_handshake::PeerHandshakePort for FakeHandshakeObs {
-    fn observe(&self, interface: &str, _stale_s: u64, _dead_s: u64) -> super::peer_handshake::WireguardHandshakeObservation {
-        super::peer_handshake::WireguardHandshakeObservation {
-            schema: super::peer_handshake::PEER_HANDSHAKE_SCHEMA,
-            interface: interface.to_string(),
-            observed_at_unix_s: 0,
-            peers: vec![],
-            stale_count: 0,
-            dead_count: 0,
-            ok_count: 0,
-            unknown_count: 0,
-        }
-    }
-}
-
 #[test]
 fn watchdog_runtime_port_is_substitutable() {
     let runtime = FakeRuntime;
@@ -158,7 +139,6 @@ async fn sampler_collect_with_ports_is_substitutable() {
             &FakeRuntime,
             &FakeKernelProbe,
             &FakeNetworkObserve,
-            &FakeHandshakeObs,
         )
         .await;
 

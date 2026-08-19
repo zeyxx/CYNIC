@@ -389,8 +389,7 @@ impl crate::ports::build_workload_submission_port::BuildWorkloadSubmissionPort
         Ok(
             crate::ports::build_workload_submission_port::BuildWorkloadSubmissionReadBack {
                 http_status,
-                body: serde_json::from_str(&body)
-                    .unwrap_or_else(|_| serde_json::json!({"raw": body})),
+                body,
             },
         )
     }

@@ -53,6 +53,7 @@ pub mod runtime_authority;
 pub mod runtime_context;
 pub mod runtime_execution_context;
 pub mod runtime_harness;
+pub mod harness_progression;
 pub mod runtime_layout;
 pub mod runtime_metrics;
 pub mod runtime_network_preflight;

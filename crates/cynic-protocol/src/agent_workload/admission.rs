@@ -61,15 +61,6 @@ pub fn admit_agent_workload(envelope: &AgentWorkloadEnvelope) -> AgentWorkloadAd
                 "workload input digest must bind the exact canonical payload",
             )),
         }
-        if input.kind == "agent_skill_delivery" {
-            violations.extend(
-                crate::validate_agent_skill_delivery_input(input, &envelope.delegation)
-                    .into_iter()
-                    .map(|issue| {
-                        violation(format!("skill_delivery_{}", issue.code), issue.message)
-                    }),
-            );
-        }
     }
     if envelope.action.argv.is_empty()
         || envelope

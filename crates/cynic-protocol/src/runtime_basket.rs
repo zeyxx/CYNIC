@@ -3,44 +3,6 @@ use std::{collections::BTreeSet, path::Path};
 use serde::{Deserialize, Serialize};
 
 pub const RUNTIME_BASKET_SCHEMA: &str = "cynic.runtime_basket.v1";
-pub const RUNTIME_BASKET_MANIFEST_SCHEMA: &str = "cynic.runtime_basket.manifest.v1";
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RuntimeBasketManifest {
-    pub schema: String,
-    pub source_commit: String,
-    pub release_epoch: u64,
-    pub basket_digest: String,
-    pub artifacts: std::collections::BTreeMap<String, String>,
-}
-
-pub fn build_runtime_basket_manifest(
-    source_commit: &str,
-    release_epoch: u64,
-    artifact_digests: &std::collections::BTreeMap<String, String>,
-) -> Result<RuntimeBasketManifest, String> {
-    let required_names = runtime_release_artifact_names()?;
-    for name in &required_names {
-        if !artifact_digests.contains_key(name) {
-            return Err(format!("runtime_basket_missing_artifact:{name}"));
-        }
-    }
-    let manifest_data = serde_json::json!({
-        "schema": RUNTIME_BASKET_MANIFEST_SCHEMA,
-        "source_commit": source_commit,
-        "release_epoch": release_epoch,
-        "artifacts": artifact_digests,
-    });
-    let basket_digest = crate::digest_json(&manifest_data)
-        .map_err(|err| format!("failed_to_digest_runtime_basket_manifest:{err}"))?;
-    Ok(RuntimeBasketManifest {
-        schema: RUNTIME_BASKET_MANIFEST_SCHEMA.to_string(),
-        source_commit: source_commit.to_string(),
-        release_epoch,
-        basket_digest,
-        artifacts: artifact_digests.clone(),
-    })
-}
 
 const RUNTIME_BASKET_DOCUMENT: &str = include_str!("../../../infra/runtime-basket.json");
 
@@ -174,29 +136,6 @@ mod tests {
         assert!(
             validate_runtime_basket(&basket)
                 .contains(&"runtime_basket_seed_boundary_invalid".to_string())
-        );
-    }
-
-    #[test]
-    fn build_runtime_basket_manifest_computes_sha256_digest() {
-        let mut digests = std::collections::BTreeMap::new();
-        for name in runtime_release_artifact_names().expect("names") {
-            digests.insert(name.clone(), format!("sha256:{}", "0".repeat(64)));
-        }
-        let manifest =
-            build_runtime_basket_manifest("f03536eac0efdf2c1e8d353760345205d05909c8", 1, &digests)
-                .expect("manifest");
-        assert_eq!(manifest.schema, RUNTIME_BASKET_MANIFEST_SCHEMA);
-        assert!(manifest.basket_digest.starts_with("sha256:"));
-        assert_eq!(manifest.artifacts.len(), 5);
-    }
-
-    #[test]
-    fn build_runtime_basket_manifest_rejects_missing_artifact() {
-        let digests = std::collections::BTreeMap::new();
-        assert!(
-            build_runtime_basket_manifest("f03536eac0efdf2c1e8d353760345205d05909c8", 1, &digests,)
-                .is_err()
         );
     }
 }

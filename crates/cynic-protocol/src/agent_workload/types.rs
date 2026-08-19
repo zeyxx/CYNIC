@@ -56,11 +56,20 @@ pub enum AgentWorkloadState {
     Completed,
     Blocked,
     Failed,
+    Degraded,
+    RecoveredUnattributed,
 }
 
 impl AgentWorkloadState {
     pub fn terminal(self) -> bool {
-        matches!(self, Self::Completed | Self::Blocked | Self::Failed)
+        matches!(
+            self,
+            Self::Completed
+                | Self::Blocked
+                | Self::Failed
+                | Self::Degraded
+                | Self::RecoveredUnattributed
+        )
     }
 }
 

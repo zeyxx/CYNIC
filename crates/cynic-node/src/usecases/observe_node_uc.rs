@@ -585,7 +585,6 @@ mod tests {
             None,
             &NodeObservationCommandContext {
                 ip_bin: "/portable/bin/ip".to_string(),
-                network_manager_bin: "/portable/bin/nmcli".to_string(),
                 wg_bin: "/portable/bin/wg".to_string(),
                 systemctl_bin: "/portable/bin/systemctl".to_string(),
                 mesh_interface: "wg-portable".to_string(),

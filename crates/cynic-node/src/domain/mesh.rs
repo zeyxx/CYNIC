@@ -5,24 +5,7 @@ use std::net::IpAddr;
 pub struct PeerIdentity {
     pub public_key: String,
     pub internal_ip: IpAddr,
-    pub endpoint: Option<String>,
-    pub keepalive_s: Option<u32>,
-}
-
-impl PeerIdentity {
-    pub fn new(
-        public_key: String,
-        internal_ip: IpAddr,
-        endpoint: Option<String>,
-        keepalive_s: Option<u32>,
-    ) -> Self {
-        Self {
-            public_key,
-            internal_ip,
-            endpoint,
-            keepalive_s,
-        }
-    }
+    pub endpoint: Option<String>, // Can be None if roaming/NAT
 }
 
 /// Domain Entity: The Organism's Mesh Topology
