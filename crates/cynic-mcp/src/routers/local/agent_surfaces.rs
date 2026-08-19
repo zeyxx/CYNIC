@@ -491,6 +491,21 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_node_activation_status",
+        description = "Observe node activation state: compose deployment_epoch + bootstrap_federation + runtime_takeover into a single verdict (Active/Activatable/Blocked). Identifies blockers preventing activation."
+    )]
+    async fn cynic_node_activation_status(
+        &self,
+        node_id: String,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_node_activation_status(&node_id);
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_fleet_health",
         description = "Aggregate fleet health from heartbeats. Detects silent nodes (no heartbeat within timeout), unexpected nodes (heartbeat but not in registry), and network partitions. Returns alive/degraded/unreachable counts, silent list, partition detection flag."
     )]

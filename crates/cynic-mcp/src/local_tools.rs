@@ -528,6 +528,19 @@ impl cynic_host::federation_runtime::NodeControlPort for FederationNodeControl {
     }
 }
 
+/// Observe node activation state (deployment_epoch + bootstrap + takeover).
+pub async fn run_node_activation_status(node_id: &str) -> serde_json::Value {
+    use cynic_host::node_activation::{NodeActivationPort, NodeActivationAdapter};
+
+    let adapter = NodeActivationAdapter::new("infra/registry.json");
+    let verdict = adapter.observe(node_id);
+    serde_json::json!({
+        "status": "ok",
+        "node_id": node_id,
+        "verdict": verdict,
+    })
+}
+
 /// Aggregate fleet health from heartbeats.
 pub async fn run_fleet_health(heartbeat_timeout_s: u64) -> serde_json::Value {
     use cynic_host::fleet_health_observer::FleetHealthObserver;

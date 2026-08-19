@@ -13,6 +13,7 @@ use crate::fleet_surface::{FleetCommand, execute_fleet};
 use crate::integrations_surface::{IntegrationsCommand, execute_integrations};
 use crate::lab_surface::{LabCommand, execute_lab};
 use crate::network_surface::{NetworkCommand, execute_network};
+use crate::node_activation_surface::{NodeActivationCommand, execute_node_activation};
 use crate::runtime_surface::{RuntimeCommand, execute_runtime};
 use crate::solana_surface::{SolanaCommand, execute_solana};
 use crate::transport_surface::{TransportCommand, execute_transport};
@@ -39,6 +40,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Lab { command } => execute_lab_command(command),
         Command::Transport { command } => execute_transport_command(command),
         Command::Network { command } => execute_network_command(command),
+        Command::NodeActivation { command } => execute_node_activation(command),
         Command::Audit { command } => execute_audit_command(command),
         Command::Advanced => {
             // Reserved surface: not yet wired to a dispatch arm in this revision.

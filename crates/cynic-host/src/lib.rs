@@ -43,6 +43,7 @@ pub mod network_actuation;
 pub mod node_substrate;
 pub mod one_shot_authority;
 pub mod ports;
+pub mod node_activation;
 pub mod peer_resolver_mesh;
 pub mod os_health;
 pub mod pre_os_control;

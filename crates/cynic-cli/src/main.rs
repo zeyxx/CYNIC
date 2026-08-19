@@ -40,6 +40,7 @@ mod lifecycle_surface_context;
 mod lifecycle_surface_execute;
 mod lifecycle_surface_render;
 mod network_surface;
+mod node_activation_surface;
 mod node_host_audit;
 pub(crate) mod federation_surface;
 mod operator_doctor;
@@ -152,6 +153,11 @@ enum Command {
     Network {
         #[command(subcommand)]
         command: NetworkCommand,
+    },
+    /// Observe and manage node activation (deployment_epoch + bootstrap + takeover).
+    NodeActivation {
+        #[command(subcommand)]
+        command: NodeActivationCommand,
     },
     #[command(hide = true)]
     Audit {
