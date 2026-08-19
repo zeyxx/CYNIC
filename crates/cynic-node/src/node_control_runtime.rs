@@ -1,4 +1,5 @@
 use std::process::ExitCode;
+use std::sync::Arc;
 use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
@@ -222,20 +223,20 @@ pub(crate) async fn start_tasks(
     // Builder runtime: activated when role is build_runner
     if scheduler_control.enrollment_role == "build_runner" {
         let builder_config = crate::usecases::builder_runtime::BuilderRuntimeConfig {
-            listen_addr: scheduler_control.builder_listen_addr,
-            signing_key_path: scheduler_control.signing_key_path.clone(),
-            registry_path: scheduler_control.registry_path.to_string_lossy().to_string(),
-            state_root: scheduler_control.agent_workload_state_root.clone(),
+            http_listen_addr: scheduler_control.builder_listen_addr,
+            state_root: scheduler_control.agent_workload_state_root.to_string_lossy().to_string(),
             workspace_root: scheduler_control.workspace_root.to_string_lossy().to_string(),
             node_id: scheduler_control.node_id.clone(),
-            kernel_url: scheduler_control.kernel_url.clone(),
         };
+        let builder_store = Arc::new(LocalAgentWorkloadStore::new(
+            scheduler_control.agent_workload_state_root.join("agent-scheduler/workloads"),
+        ));
         let builder_shutdown = shutdown.clone();
         tasks.push(tokio::spawn(async move {
             if let Err(error) =
                 crate::usecases::builder_runtime::run_builder_runtime(
                     builder_config,
-                    &scheduler_control,
+                    builder_store,
                     builder_shutdown,
                 )
                 .await

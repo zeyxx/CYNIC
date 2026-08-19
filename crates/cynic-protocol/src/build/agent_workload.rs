@@ -163,6 +163,8 @@ pub fn compose_build_agent_workload(
         "make:check" => vec!["make".to_string(), "check".to_string()],
         "make:build" => vec!["make".to_string(), "build".to_string()],
         "make:build-release" => vec!["make".to_string(), "build-release".to_string()],
+        "cargo:check" => vec!["cargo".to_string(), "check".to_string()],
+        "cargo:build" => vec!["cargo".to_string(), "build".to_string(), "--release".to_string()],
         _ => return Err(vec!["build_agent_request_action_not_allowed".to_string()]),
     };
     let input_digest = digest_json(&request.source)

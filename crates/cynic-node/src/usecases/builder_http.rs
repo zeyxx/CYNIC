@@ -1,7 +1,4 @@
 //! HTTP server for the builder runtime.
-//!
-//! The receiver is the CI/CD entry point. It does NOT submit to the kernel.
-//! It creates a durable record in the local store — the delivery loop picks it up.
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -15,13 +12,11 @@ use axum::{
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 
 use cynic_protocol::{
-    AgentBoundedAction, AgentDelegationEnvelope, AgentWorkloadEnvelope,
     AgentWorkloadRecord, AgentWorkloadState, BuildAgentRequest, BuildSourceReference,
-    ExecutionAuthorization, MutationContract, PolicyAdmissionReport, PolicyAuthority,
-    PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef,
-    admit_build_agent_request,
+    compose_build_agent_workload,
 };
 
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
@@ -30,6 +25,8 @@ use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
 pub struct BuilderHttpConfig {
     pub listen_addr: SocketAddr,
     pub state_root: String,
+    pub workspace_root: String,
+    pub node_id: String,
 }
 
 #[derive(Clone)]
@@ -103,8 +100,8 @@ async fn webhook_forgejo(
         ));
     };
 
+    let workload_id = format!("forgejo-{}", Uuid::new_v4());
     let accepted_at_ms = Utc::now().timestamp_millis();
-    let workload_id = format!("forgejo-{}", accepted_at_ms);
 
     let request = BuildAgentRequest {
         schema: "cynic.build_agent_request.v1".into(),
@@ -112,11 +109,14 @@ async fn webhook_forgejo(
         requested_by: payload.pusher.as_ref().map(|p| p.name.clone()).unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
         source: BuildSourceReference {
-            repo_url: "https://forgejo.synapse.cynic".into(),
+            schema: "cynic.build.source_reference.v1".into(),
+            repository_id: "cynic".into(),
+            transport_uri: "https://forgejo.synapse.cynic".into(),
             revision: commit_sha.clone(),
-            branch: payload.before.clone(),
+            authority_ref: "forgejo".into(),
+            snapshot: None,
         },
-        action: "build".into(),
+        action: "cargo:build".into(),
         desired_role: "build_runner".into(),
         mutation_authorized: true,
         proof_requirements: vec!["build_success".into()],
@@ -124,58 +124,19 @@ async fn webhook_forgejo(
         evidence_refs: vec![],
     };
 
-    let admission = admit_build_agent_request(&request);
-    if admission.status == "blocked" {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            format!("admission blocked: {:?}", admission.blockers),
-        ));
-    }
+    // Compose the workload envelope using the canonical protocol function
+    let envelope = compose_build_agent_workload(&request, &state.config.node_id, &state.config.workspace_root)
+        .map_err(|blockers| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("composition failed: {:?}", blockers),
+            )
+        })?;
 
+    // Build the durable record
     let record = AgentWorkloadRecord {
         schema: "cynic.agent_workload_record.v1".into(),
-        envelope: AgentWorkloadEnvelope {
-            schema: "cynic.agent_workload_envelope.v1".into(),
-            workload_id: workload_id.clone(),
-            idempotency_key: request.request_id.clone(),
-            plan_digest: format!("sha256:{}", commit_sha),
-            input: None,
-            action: AgentBoundedAction {
-                kind: "build".into(),
-                argv: vec!["cargo".into(), "build".into(), "--release".into()],
-            },
-            delegation: AgentDelegationEnvelope {
-                agent_id: "forgejo-webhook".into(),
-                issued_by: "forgejo".into(),
-                issued_at_ms: accepted_at_ms as u64,
-            },
-            parent_delegation: None,
-            policy_admission: PolicyAdmissionReport::new(
-                PolicySetRef { id: "forgejo".into(), version: "v1".into(), digest: format!("sha256:{}", commit_sha) },
-                PolicyIntentRef { id: workload_id.clone(), kind: "build".into(), actor: "forgejo-webhook".into(), subject: workload_id.clone(), digest: "sha256:abc".into(), plan_digest: format!("sha256:{}", commit_sha) },
-                MutationContract {
-                    kind: "build".into(),
-                    scope: PolicyScope { domain: "ci".into(), target: "builder".into() },
-                    mutates: true,
-                    requires_privilege: false,
-                    requires_explicit_apply: false,
-                    required_authority: PolicyAuthority::RuntimeAuthority,
-                    preconditions: vec![],
-                    rollback_intent: "revert_commit".into(),
-                    expected_proofs: vec![],
-                },
-                PolicyDecision::Allow {
-                    required_authority: PolicyAuthority::RuntimeAuthority,
-                    required_proofs: vec![],
-                },
-            ),
-            execution_authorization: ExecutionAuthorization::new(
-                "forgejo-webhook",
-                PolicyAuthority::RuntimeAuthority,
-                false,
-                vec![],
-            ),
-        },
+        envelope,
         state: AgentWorkloadState::Dispatched,
         claim: None,
         last_fencing_token: 0,
@@ -184,6 +145,7 @@ async fn webhook_forgejo(
         completion: None,
     };
 
+    // Persist durable record — delivery loop will pick it up
     let _durable = state
         .store
         .compare_and_swap(&workload_id, None, &record, accepted_at_ms as u64)
@@ -223,19 +185,7 @@ mod tests {
 
     #[test]
     fn workload_id_has_forgejo_prefix() {
-        let id = format!("forgejo-{}", Utc::now().timestamp_millis());
+        let id = format!("forgejo-{}", Uuid::new_v4());
         assert!(id.starts_with("forgejo-"));
-    }
-
-    #[test]
-    fn acceptance_proof_schema_is_v1() {
-        let proof = AcceptanceProof {
-            schema: "cynic.builder.acceptance_proof.v1",
-            workload_id: "x".into(),
-            commit_sha: "abc".into(),
-            accepted_at_ms: 0,
-            status: "pending",
-        };
-        assert_eq!(proof.schema, "cynic.builder.acceptance_proof.v1");
     }
 }
