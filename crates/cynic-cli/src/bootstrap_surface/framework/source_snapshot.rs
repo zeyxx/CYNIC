@@ -23,11 +23,12 @@ pub(super) fn execute_plan(
         &output_dir,
         &LocalArgvRunner,
     );
-    if let Some(output) = output
-        && let Err(error) =
-            write_pretty_json_file(Path::new(&output), &plan, "source snapshot plan")
-    {
-        return fail(error);
+    if let Some(out) = output {
+        if let Err(error) =
+            write_pretty_json_file(Path::new(&out), &plan, "source snapshot plan")
+        {
+            return fail(error);
+        }
     }
     emit_json(&plan, plan.status == "blocked")
 }
@@ -50,11 +51,12 @@ pub(super) fn execute_create(
         yes,
         &LocalArgvRunner,
     );
-    if let Some(output) = output
-        && let Err(error) =
-            write_pretty_json_file(Path::new(&output), &report, "source snapshot report")
-    {
-        return fail(error);
+    if let Some(out) = output {
+        if let Err(error) =
+            write_pretty_json_file(Path::new(&out), &report, "source snapshot report")
+        {
+            return fail(error);
+        }
     }
     emit_json(&report, report.status != "proved")
 }

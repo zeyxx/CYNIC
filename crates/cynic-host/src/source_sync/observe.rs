@@ -55,7 +55,7 @@ fn read_remote_url(root: &Path, remote: &str) -> Option<String> {
         .output()
         .ok()?;
     if output.status.success() {
-        Some(String::from_utf8_lossy(output.stdout).trim().to_string())
+        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
     } else {
         None
     }
@@ -68,7 +68,7 @@ fn read_rev_parse(root: &Path, reference: &str) -> Option<String> {
         .output()
         .ok()?;
     if output.status.success() {
-        Some(String::from_utf8_lossy(output.stdout).trim().to_string())
+        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
     } else {
         None
     }
@@ -81,7 +81,7 @@ fn read_current_branch(root: &Path) -> Option<String> {
         .output()
         .ok()?;
     if output.status.success() {
-        let branch = String::from_utf8_lossy(output.stdout).trim().to_string();
+        let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
         if branch == "HEAD" {
             None
         } else {

@@ -242,14 +242,14 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
                 &LocalArgvRunner,
             ) {
                 Ok(plan) => {
-                    if let Some(output) = output
-                        && let Err(error) = write_pretty_json_file(
-                            Path::new(&output),
+                    if let Some(out) = output {
+                        if let Err(error) = write_pretty_json_file(
+                            Path::new(&out),
                             &plan,
                             "framework propagation plan",
-                        )
-                    {
-                        return fail(error);
+                        ) {
+                            return fail(error);
+                        }
                     }
                     emit_json(&plan, plan.status == "blocked")
                 }
@@ -276,14 +276,14 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
             };
             let report =
                 framework_bootstrap::apply_framework_propagation(&plan, yes, &LocalArgvRunner);
-            if let Some(output) = output
-                && let Err(error) = write_pretty_json_file(
-                    Path::new(&output),
+            if let Some(out) = output {
+                if let Err(error) = write_pretty_json_file(
+                    Path::new(&out),
                     &report,
                     "framework propagation report",
-                )
-            {
-                return fail(error);
+                ) {
+                    return fail(error);
+                }
             }
             emit_json(&report, report.status != "converged")
         }

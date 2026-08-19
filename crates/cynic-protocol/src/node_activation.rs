@@ -11,10 +11,10 @@
 //!
 //! Activation is the gate between "declared" and "live". No silent promotion.
 
-use crate::deployment_epoch::{DeploymentEpoch, DeploymentPhase, DeploymentPhaseObservation};
-use crate::bootstrap_federation::{
-    FederatedBootstrapBinding, FederatedBootstrapObservation, FederatedBootstrapPhase,
-};
+use serde::{Deserialize, Serialize};
+
+use crate::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
+use crate::bootstrap_federation::{FederatedBootstrapObservation, FederatedBootstrapPhase};
 use crate::runtime_takeover_activation::{
     RuntimeTakeoverActivationObservation, RuntimeTakeoverActivationRequest,
 };
