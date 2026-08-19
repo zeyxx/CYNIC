@@ -6,6 +6,8 @@
 //! selection decisions; resolver implementations live behind the
 //! `PeerResolver` trait in the consuming crate (e.g. cynic-node).
 
+use serde::{Deserialize, Serialize};
+
 use crate::build_node::NodeHealthView;
 
 /// Transport used to reach a peer endpoint.
@@ -48,6 +50,9 @@ pub trait PeerResolver {
     fn resolve_peers(&self, role: &str) -> Vec<PeerEndpoint>;
     /// Every declared peer, across all roles.
     fn resolve_all_peers(&self) -> Vec<PeerEndpoint>;
+    /// Signed rolling-fallback peers for a role (fail-closed: empty when the
+    /// bundle is missing or its signature does not verify).
+    fn fallback_peers(&self, role: &str) -> Vec<SignedPeerEndpoint>;
 }
 
 /// Pure selector: the first reachable, role-matching peer.

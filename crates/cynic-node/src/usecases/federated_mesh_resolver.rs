@@ -157,6 +157,10 @@ impl PeerResolver for LocalRegistryMeshResolver {
             .collect()
     }
 
+    fn resolve_all_peers(&self) -> Vec<PeerEndpoint> {
+        self.seed.iter().map(|n| self.to_endpoint(n)).collect()
+    }
+
     fn fallback_peers(&self, role: &str) -> Vec<SignedPeerEndpoint> {
         let Some(dir) = &self.fallback_dir else {
             return vec![];
