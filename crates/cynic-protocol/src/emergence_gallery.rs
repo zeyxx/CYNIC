@@ -131,6 +131,48 @@ pub struct EmergenceGalleryEntry {
     pub repair: RepairStatus,
 }
 
+/// The bisectability defect found by the L1-L6 inter-layer audit.
+///
+/// `CynicErrorCode::retryable()` was called from `health_signal` starting at
+/// the L2 commit but only committed with L6, so commits L2..L5 do not compile
+/// in isolation (`E0599`). Every intermediate green test result was produced
+/// against a working tree that already carried the symbol locally.
+///
+/// This is a `Proof`-layer defect: the evidence validated something other than
+/// what it claimed. It is recorded as data rather than prose so the gallery
+/// carries its own counter-example, and the accompanying test fails if the
+/// same shape reappears.
+pub fn audit_bisectability_emergence() -> EmergenceGalleryEntry {
+    EmergenceGalleryEntry {
+        schema: EMERGENCE_GALLERY_ENTRY_SCHEMA.to_string(),
+        emergence_id: "layer_commit_not_independently_compilable".to_string(),
+        // No catalog contract governs commit-level compilability yet: this is
+        // an explicit unknown, and itself a finding.
+        violated_code: None,
+        owning_layer: ContractLayer::Proof,
+        expected: "each layer commit compiles and tests green in isolation, so \
+                   git bisect can attribute a defect to one commit"
+            .to_string(),
+        observed: "commits L2..L5 fail with E0599 (retryable() absent); the \
+                   symbol was called from L2 but committed only at L6, so \
+                   intermediate green results reflected the working tree"
+            .to_string(),
+        evidence_digests: vec![
+            "audit://a1/worktree-per-commit-test".to_string(),
+            "audit://a1/retryable-defines-vs-calls-matrix".to_string(),
+        ],
+        repair: RepairStatus::Contained {
+            residual_risk: "git bisect cannot attribute a regression inside the \
+                            L2..L5 range; HEAD itself is green (460/460)"
+                .to_string(),
+            removal_condition: "retryable() is moved to the L1 commit by an \
+                                interactive rebase, once no other agent depends \
+                                on the current ansemhack-plan history"
+                .to_string(),
+        },
+    }
+}
+
 /// Validate an entry against the contracts it claims to record.
 ///
 /// Returns the violations rather than a bool: a caller that persists a
@@ -335,6 +377,53 @@ mod tests {
             }
             .is_open()
         );
+    }
+
+    /// The audit's own finding must survive as a valid, testable record.
+    ///
+    /// If this entry ever fails validation, the gallery has lost the
+    /// counter-example that motivated it.
+    #[test]
+    fn audit_bisectability_emergence_is_valid() {
+        let entry = audit_bisectability_emergence();
+        assert!(validate_gallery_entry(&entry).is_empty());
+    }
+
+    /// The bisectability defect is a `Proof`-layer defect, and `Proof` defects
+    /// are exactly the class that can present a failure as a success. Locking
+    /// this keeps the risk summary honest about why it mattered.
+    #[test]
+    fn bisectability_defect_is_a_convergence_fabricating_class() {
+        let entry = audit_bisectability_emergence();
+        assert_eq!(entry.owning_layer, ContractLayer::Proof);
+        assert!(entry.owning_layer.can_fabricate_convergence());
+    }
+
+    /// Containment must stay contested: while the defect is only contained,
+    /// it remains open, and it must carry both a residual risk and a removal
+    /// condition. Marking it `Repaired` without a regression proof is
+    /// unrepresentable by construction, so this test guards the weaker claim.
+    #[test]
+    fn contained_bisectability_defect_remains_open_with_removal_condition() {
+        let entry = audit_bisectability_emergence();
+        assert!(entry.repair.is_open());
+        match entry.repair {
+            RepairStatus::Contained {
+                residual_risk,
+                removal_condition,
+            } => {
+                assert!(!residual_risk.trim().is_empty());
+                assert!(!removal_condition.trim().is_empty());
+            }
+            other => panic!("expected containment, got {other:?}"),
+        }
+    }
+
+    /// No catalog contract governs commit-level compilability, so the code
+    /// stays `None`. A fabricated approximate code would hide the gap.
+    #[test]
+    fn bisectability_defect_records_missing_contract_as_unknown() {
+        assert!(audit_bisectability_emergence().violated_code.is_none());
     }
 
     /// An invalid entry must never acquire a digest: a content-addressed
