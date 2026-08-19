@@ -36,6 +36,7 @@ pub mod federation_envelopes;
 pub mod fleet_discovery;
 pub mod fleet_heartbeat;
 pub mod emergence;
+pub mod emergence_gallery;
 pub mod local_autonomy;
 pub mod runtime_takeover;
 pub mod runtime_takeover_activation;
