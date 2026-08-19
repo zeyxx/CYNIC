@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::update_lifecycle::{ArgvRunner, ArgvOutput};
+use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
 
 /// Desired state — the tunnel configuration. Portable; no substrate details.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -134,6 +134,13 @@ impl KernelTunnelManager {
         }
 
         // Bounded action: spawn SSH tunnel
+        // Bind the forward spec first: a `format!` temporary cannot be borrowed
+        // into a Vec<&str> that outlives the expression.
+        let forward_spec = format!(
+            "{}:{}",
+            self.config.local_socket.display(),
+            self.config.surrealdb_addr
+        );
         let argv: Vec<&str> = vec![
             "ssh",
             "-o",
@@ -149,11 +156,7 @@ impl KernelTunnelManager {
             "-i",
             self.config.ssh_key.to_str().unwrap_or(""),
             "-L",
-            &format!(
-                "{}:{}",
-                self.config.local_socket.display(),
-                self.config.surrealdb_addr
-            ),
+            &forward_spec,
             &self.config.ssh_target,
             "-N",
             "-f",
@@ -213,17 +216,13 @@ impl KernelTunnelManager {
     /// Bounded action: tear down tunnel (fail-fast stop).
     pub fn teardown(&self) -> bool {
         self.active.store(false, Ordering::SeqCst);
-        let argv: Vec<&str> = vec![
-            "ssh",
-            "-O",
-            "exit",
-            &format!(
-                "{}:{}",
-                self.config.local_socket.display(),
-                self.config.surrealdb_addr
-            ),
-            &self.config.ssh_target,
-        ];
+        // Same borrow rule as reconcile(): bind before building the argv slice.
+        let forward_spec = format!(
+            "{}:{}",
+            self.config.local_socket.display(),
+            self.config.surrealdb_addr
+        );
+        let argv: Vec<&str> = vec!["ssh", "-O", "exit", &forward_spec, &self.config.ssh_target];
         let result = self.runner.run(&argv);
         let _ = result; // best-effort
         true
@@ -306,14 +305,15 @@ mod tests {
 
     #[test]
     fn is_socket_readable_nonexistent() {
-        assert!(!is_socket_readable(std::path::Path::new("/nonexistent/socket/path")));
+        assert!(!is_socket_readable(std::path::Path::new(
+            "/nonexistent/socket/path"
+        )));
     }
 
     #[test]
     fn tunnel_manager_observe_initial_state() {
-        let runner: Arc<dyn ArgvRunner + Send + Sync> = Arc::new(
-            MapArgvRunner { responses: vec![] }
-        );
+        let runner: Arc<dyn ArgvRunner + Send + Sync> =
+            Arc::new(MapArgvRunner { responses: vec![] });
         let tmp = std::env::temp_dir().join("test_kernel_sock");
         let config = test_config(&tmp);
         let mgr = KernelTunnelManager::new(config, runner);
@@ -327,9 +327,8 @@ mod tests {
     #[test]
     fn tunnel_manager_reconcile_fail_closed_when_ssh_fails() {
         // MapArgvRunner with empty responses → SSH will fail
-        let runner: Arc<dyn ArgvRunner + Send + Sync> = Arc::new(
-            MapArgvRunner { responses: vec![] }
-        );
+        let runner: Arc<dyn ArgvRunner + Send + Sync> =
+            Arc::new(MapArgvRunner { responses: vec![] });
         let tmp = std::env::temp_dir().join("test_kernel_sock_nonexist");
         let config = test_config(&tmp);
         let mgr = KernelTunnelManager::new(config, runner);
@@ -342,9 +341,8 @@ mod tests {
 
     #[test]
     fn tunnel_manager_teardown_returns_true() {
-        let runner: Arc<dyn ArgvRunner + Send + Sync> = Arc::new(
-            MapArgvRunner { responses: vec![] }
-        );
+        let runner: Arc<dyn ArgvRunner + Send + Sync> =
+            Arc::new(MapArgvRunner { responses: vec![] });
         let tmp = std::env::temp_dir().join("test_kernel_sock_teardown");
         let config = test_config(&tmp);
         let mgr = KernelTunnelManager::new(config, runner);
