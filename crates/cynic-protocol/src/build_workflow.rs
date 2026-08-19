@@ -188,10 +188,11 @@ impl<'a> BuildWorkflow<'a> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::build::{
-        BUILD_RECIPE_SCHEMA, BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation,
+        BuildRecipe, BuildRunnerObservation, BUILD_RECIPE_SCHEMA, BUILD_RUNNER_OBSERVATION_SCHEMA,
     };
-    use crate::{LeaseGuard, LeaseVerification, SourceSnapshot, SecurityEvidenceState};
+    use crate::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
     fn valid_observation() -> BuildRunnerObservation {
         BuildRunnerObservation {
@@ -242,6 +243,16 @@ mod tests {
         BuildRecipe {
             schema: BUILD_RECIPE_SCHEMA.to_string(),
             action: "make:check".to_string(),
+            target_profile: "debug".to_string(),
+            allowed_actions: vec![
+                "make:check".to_string(),
+                "cargo:check".to_string(),
+                "cargo:run".to_string(),
+                "cargo:test".to_string(),
+            ],
+            rust_min_stack: 536_870_912,
+            cargo_incremental: false,
+            memory_limit_bytes: Some(4_294_967_296),
             target_crates: vec!["cynic-protocol".to_string()],
             excluded_crates: vec![],
             toolchain_override: None,
