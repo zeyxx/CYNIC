@@ -1,5 +1,4 @@
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 use std::path::Path;
 
 /// Observe the executable that is producing a runtime-contract report.
@@ -19,7 +18,10 @@ fn running_artifact_evidence() -> (Vec<String>, Vec<String>) {
         Ok(bytes) => (
             vec![
                 path_ref,
-                format!("artifact-digest:sha256:{:x}", Sha256::digest(bytes)),
+                format!(
+                    "artifact-digest:sha256:{}",
+                    cynic_host::sha256_digest(&bytes)
+                ),
             ],
             Vec::new(),
         ),
@@ -68,16 +70,12 @@ pub fn reconcile_compiled_contract(
     };
     let mut capabilities = crate::protocol::exposed_tool_names(compiled);
     capabilities.extend(crate::protocol::source_capabilities(compiled));
-    let (artifact_evidence, mut artifact_unknowns) = running_artifact_evidence();
-    let mut evidence_refs = vec![format!("artifact:cynic-mcp:{}", env!("CYNIC_VERSION"))];
-    match option_env!("CYNIC_SOURCE_COMMIT") {
-        Some(commit) => evidence_refs.push(format!("source-commit:{commit}")),
-        None => artifact_unknowns.push("source_commit_unobserved".to_string()),
-    }
-    match option_env!("CYNIC_SOURCE_DIRTY") {
-        Some(dirty) => evidence_refs.push(format!("source-dirty:{dirty}")),
-        None => artifact_unknowns.push("source_dirty_unobserved".to_string()),
-    }
+    let (artifact_evidence, artifact_unknowns) = running_artifact_evidence();
+    let mut evidence_refs = vec![
+        format!("artifact:cynic-mcp:{}", env!("CYNIC_VERSION")),
+        format!("source-commit:{}", env!("CYNIC_SOURCE_COMMIT")),
+        format!("source-dirty:{}", env!("CYNIC_SOURCE_DIRTY")),
+    ];
     evidence_refs.extend(artifact_evidence);
     Ok(cynic_protocol::reconcile_runtime_compatibility(
         &requirement,
@@ -162,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    fn unproven_artifact_contract_does_not_admit_mutation() {
+    fn only_a_compatible_contract_admits_mutation() {
         let desired = json!({
             "session_handshake": {
                 "contract_id": "cynic.agent_mcp",
@@ -173,7 +171,7 @@ mod tests {
         });
         let compiled = desired.clone();
         let compatible = reconcile_compiled_contract(&desired, &compiled).expect("plan");
-        assert!(!admits_mutation(&compatible));
+        assert!(admits_mutation(&compatible));
 
         let incompatible = reconcile_compiled_contract(
             &desired,

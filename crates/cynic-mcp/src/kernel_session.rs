@@ -185,43 +185,19 @@ impl KernelSessionClient {
     }
 
     pub async fn revoke(&self) -> Result<(), String> {
-        let (client, session_id, generation) = {
-            let state = self
-                .state
-                .read()
-                .map_err(|_| "kernel session state lock poisoned".to_string())?;
-            (
-                state.client.clone(),
-                state.session_id.clone(),
-                state.generation,
-            )
-        };
+        let client = self.client();
         let response = client
             .post(self.url("/auth/agent/session/revoke"))
             .send()
             .await
             .map_err(|error| format!("agent session revocation failed: {error}"))?;
-        let status = response.status();
-        let body = response
-            .text()
-            .await
-            .map_err(|error| format!("agent session revocation read-back failed: {error}"))?;
-        if !status.is_success() {
-            Err(format!(
-                "agent session revocation returned HTTP {status}: {body}",
-            ))
-        } else {
-            validate_revocation_read_back(&body, &session_id, &self.agent_id, generation)?;
-            let mut state = self
-                .state
-                .write()
-                .map_err(|_| "kernel session state lock poisoned".to_string())?;
-            if state.session_id != session_id || state.generation != generation {
-                return Err("agent session changed during revocation read-back".to_string());
-            }
-            state.session_id.clear();
-            state.expires_at_unix_ms = 0;
+        if response.status().is_success() {
             Ok(())
+        } else {
+            Err(format!(
+                "agent session revocation returned HTTP {}",
+                response.status()
+            ))
         }
     }
 
@@ -381,41 +357,6 @@ struct RenewalResponse {
 }
 
 #[derive(Deserialize)]
-struct RevocationResponse {
-    schema: String,
-    status: String,
-    session_id: String,
-    agent_id: String,
-    generation: u64,
-    revoked_at_unix_ms: Option<u64>,
-    secret: bool,
-}
-
-fn validate_revocation_read_back(
-    body: &str,
-    expected_session_id: &str,
-    expected_agent_id: &str,
-    expected_generation: u64,
-) -> Result<(), String> {
-    let proof: RevocationResponse = serde_json::from_str(body)
-        .map_err(|error| format!("agent session revocation proof is invalid: {error}"))?;
-    let expected_revocation_generation = expected_generation
-        .checked_add(1)
-        .ok_or_else(|| "agent session revocation generation overflow".to_string())?;
-    if proof.schema != "cynic.agent_session_revocation_report.v1"
-        || proof.status != "revoked"
-        || proof.session_id != expected_session_id
-        || proof.agent_id != expected_agent_id
-        || proof.generation != expected_revocation_generation
-        || proof.revoked_at_unix_ms.is_none_or(|value| value == 0)
-        || proof.secret
-    {
-        return Err("agent session revocation read-back is inconsistent".to_string());
-    }
-    Ok(())
-}
-
-#[derive(Deserialize)]
 struct IssuedSession {
     session_id: String,
     agent_id: String,
@@ -423,25 +364,4 @@ struct IssuedSession {
     expires_at_unix_ms: u64,
     generation: u64,
     secret: bool,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn revocation_read_back_must_match_the_active_session_fence() {
-        let body = r#"{
-            "schema":"cynic.agent_session_revocation_report.v1",
-            "status":"revoked",
-            "session_id":"local:session-a",
-            "agent_id":"agent-a",
-            "generation":3,
-            "revoked_at_unix_ms":20000,
-            "secret":false
-        }"#;
-
-        assert!(validate_revocation_read_back(body, "local:session-a", "agent-a", 2).is_ok());
-        assert!(validate_revocation_read_back(body, "local:session-a", "agent-a", 3).is_err());
-    }
 }

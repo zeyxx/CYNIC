@@ -14,6 +14,18 @@ pub struct JudgeParams {
     pub priority: Option<String>,
 }
 
+/// Parameters for the `cynic_judgment` tool — projects the runtime's current
+/// state into a single CynicJudgment through the three orthogonal lenses
+/// (DIKW, SAGE, Cynefin).
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct JudgmentParams {
+    /// Optional subject id (defaults to local hostname).
+    pub subject: Option<String>,
+    /// Optional: promote the judgment N DIKW layers up before returning.
+    /// 0 = observe only, 1 = promote once, etc.
+    pub promote_layers: Option<u32>,
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListParams {
     pub limit: Option<u32>,

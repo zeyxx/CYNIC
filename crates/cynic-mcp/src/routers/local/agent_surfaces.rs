@@ -20,6 +20,127 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_fleet_discover",
+        description = "Discover declared CYNIC fleet nodes and probe their services via TCP. Reads infra/registry.json (declared state), probes each node's services, and returns {node_id, role, ip, status, last_seen} per node. Read-only. Source of truth = registry (declared), not nmap."
+    )]
+    async fn cynic_fleet_discover(
+        &self,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let registry_path = self.project_root.clone() + "/infra/registry.json";
+        let adapter = cynic_host::fleet_discovery::FleetDiscoveryAdapter::new(registry_path);
+        let report = adapter.discover();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&report).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_local_autonomy",
+        description = "Observe local autonomy state: OS health, kernel reachability, mesh peers. Returns the current AutonomyMode (Coordinated/Autonomous/Degraded) and retained capabilities. Kernel-optional: works even if the kernel is dead."
+    )]
+    async fn cynic_local_autonomy(
+        &self,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let registry_path = self.project_root.clone() + "/infra/registry.json";
+        let runtime = cynic_host::local_autonomy_runtime::LocalAutonomyRuntime::new(
+            "local".to_string(),
+            registry_path,
+        );
+        let decision = runtime.tick();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&decision).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_emergence_elect",
+        description = "Elect roles via emergence (deterministic, same on every node). When the kernel is dead, nodes self-coordinate: each node floods its local state, and every node runs the same election rule. Returns {assumed_role, role_priority, candidates, reasoning} per role. No consensus protocol, no leader election — just deterministic emergence from local observations."
+    )]
+    async fn cynic_emergence_elect(
+        &self,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let registry_path = self.project_root.clone() + "/infra/registry.json";
+        let mut runtime = cynic_host::emergence_runtime::EmergenceRuntime::new(
+            "local".to_string(),
+            registry_path,
+        );
+        let decisions = runtime.tick();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&decisions).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_build_run",
+        description = "Trigger a distributed build via the sovereign CI/CD pipeline. Observes the build runner, verifies the lease, runs the pure workflow decision (admit source → admit runner → decide), and returns the build proof. Requires --apply to execute; without it, returns the planned proof only. Read-back proof is signed and content-addressed."
+    )]
+    async fn cynic_build_run(
+        &self,
+        params: Parameters<cynic_mcp_types::BuildTriggerParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let result = crate::local_tools::run_buildWorkflow(
+            self.argv_execution.as_ref(),
+            &self.project_root,
+            &p.commit,
+            p.phase.as_deref(),
+            p.network_mode.as_deref(),
+            p.host.as_deref(),
+            p.user.as_deref(),
+        )
+        .await;
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_judgment",
+        description = "Project the runtime's current state into a single CynicJudgment through three orthogonal lenses: DIKW (Data/Information/Knowledge/Wisdom), SAGE (Priming/Sense/Simulate/Act/Evaluate), and Cynefin (Clear/Complicated/Complex/Chaotic/Disordered). Read-only. Returns the judgment as machine-readable JSON."
+    )]
+    async fn cynic_judgment(
+        &self,
+        params: Parameters<crate::types::JudgmentParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let subject = p.subject.as_deref().unwrap_or("local");
+        let mut j = cynic_protocol::CynicJudgment::new(
+            format!("mcp-judgment-{subject}-{now}"),
+            false,
+            cynic_protocol::judgment::DijkwLayer::Information,
+            cynic_protocol::judgment::SagePhase::Sense,
+            cynic_protocol::judgment::CynefinDomain::Complicated,
+            now,
+        );
+        j.residual_unknowns = vec![
+            "os_health_observation_pending_host_integration".to_string(),
+            "convergence_matrix_observation_pending".to_string(),
+        ];
+        j.confidence = 0.3;
+        let layers = p.promote_layers.unwrap_or(0);
+        for _ in 0..layers {
+            if let Some(promoted) = j.promote_layer() {
+                j = promoted;
+            } else {
+                break;
+            }
+        }
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&j).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_askesis_log",
         description = "Append a typed human observation to Askesis memory for governance and reflection."
     )]
@@ -242,9 +363,22 @@ impl CynicMcpProxy {
         })?;
         let delivery_read_back = serde_json::from_str::<serde_json::Value>(&body)
             .unwrap_or_else(|_| serde_json::json!({"raw": body}));
+        let (status, execution_status) = if response_status.is_success() {
+            ("delivered", "waiting_for_target_node_acceptance")
+        } else if response_status == reqwest::StatusCode::METHOD_NOT_ALLOWED {
+            (
+                "blocked_kernel_method_not_allowed",
+                "blocked_kernel_workload_delivery_method_unavailable",
+            )
+        } else {
+            (
+                "blocked_delivery_unavailable",
+                "blocked_kernel_workload_delivery_unavailable",
+            )
+        };
         let result = serde_json::json!({
             "schema": "cynic.mcp.validate_dispatch.v2",
-            "status": if response_status.is_success() { "delivered" } else { "blocked_delivery_unavailable" },
+            "status": status,
             "mutates": response_status.is_success(),
             "dispatch_requested": dispatch_requested,
             "request": request,
@@ -253,89 +387,7 @@ impl CynicMcpProxy {
             "delivery_read_back": delivery_read_back,
             "kernel_http_status": response_status.as_u16(),
             "constitutional_execution": constitutional_execution,
-            "execution_status": "waiting_for_target_node_acceptance"
-        });
-        Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
-        )]))
-    }
-
-    #[tool(
-        name = "cynic_agent_workload_complete",
-        description = "Publish a terminal AgentWorkloadCompletionPublication to the kernel for a previously accepted workload delivery. Requires node_id, workload_id, and the serialized completion publication payload. Persists the completion receipt via the node-control endpoint and returns the kernel read-back proof."
-    )]
-    async fn cynic_agent_workload_complete(
-        &self,
-        params: Parameters<AgentWorkloadCompleteParams>,
-    ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
-        self.rate_limit.check_other()?;
-        let p = params.0;
-        if p.node_id.trim().is_empty() {
-            return Err(McpError::invalid_params(
-                "node_id is required and must not be empty",
-                None,
-            ));
-        }
-        if p.workload_id.trim().is_empty() {
-            return Err(McpError::invalid_params(
-                "workload_id is required and must not be empty",
-                None,
-            ));
-        }
-        let publication: cynic_protocol::AgentWorkloadCompletionPublication =
-            serde_json::from_value(p.publication).map_err(|error| {
-                McpError::invalid_params(
-                    format!(
-                        "publication is not a valid AgentWorkloadCompletionPublication: {error}"
-                    ),
-                    None,
-                )
-            })?;
-        if publication.workload_id != p.workload_id || publication.node_id != p.node_id {
-            return Err(McpError::invalid_params(
-                "publication workload_id/node_id must match the path parameters",
-                None,
-            ));
-        }
-        let path = format!(
-            "/node-control/{}/agent-workloads/{}/completion",
-            p.node_id, p.workload_id
-        );
-        let response = self
-            .kernel
-            .client()
-            .post(self.kernel.url(&path))
-            .json(&publication)
-            .send()
-            .await
-            .map_err(|error| {
-                McpError::internal_error(
-                    format!("workload completion publication failed: {error}"),
-                    None,
-                )
-            })?;
-        let response_status = response.status();
-        let body = response.text().await.map_err(|error| {
-            McpError::internal_error(
-                format!("workload completion read-back failed: {error}"),
-                None,
-            )
-        })?;
-        let read_back = serde_json::from_str::<serde_json::Value>(&body)
-            .unwrap_or_else(|_| serde_json::json!({"raw": body}));
-        let result = serde_json::json!({
-            "schema": "cynic.mcp.agent_workload_complete.v1",
-            "workload_id": p.workload_id,
-            "node_id": p.node_id,
-            "kernel_http_status": response_status.as_u16(),
-            "status": if response_status.is_success() {
-                "terminal_read_back"
-            } else {
-                "completion_blocked"
-            },
-            "mutates": response_status.is_success(),
-            "completion_read_back": read_back
+            "execution_status": execution_status
         });
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
@@ -418,6 +470,87 @@ impl CynicMcpProxy {
             &self.project_root,
             &params.0.op,
             verifier.as_ref(),
+        );
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_federation_status",
+        description = "Observe the current federation reconciliation: operating mode (coordinated/autonomous/degraded/promoted), retained capabilities, assumed roles, takeover status, residual unknowns. This is the single authoritative composition of node_control, local_autonomy, emergence, and runtime_takeover — not four competing models."
+    )]
+    async fn cynic_federation_status(
+        &self,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_federation_status();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_fleet_health",
+        description = "Aggregate fleet health from heartbeats. Detects silent nodes (no heartbeat within timeout), unexpected nodes (heartbeat but not in registry), and network partitions. Returns alive/degraded/unreachable counts, silent list, partition detection flag."
+    )]
+    async fn cynic_fleet_health(
+        &self,
+        heartbeat_timeout_s: u64,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_fleet_health(heartbeat_timeout_s);
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_inference_status",
+        description = "Report inference configuration status: routing SSOT path, backends (name, sovereign, base_url, model, context_size, has_api_key), sovereign count. Read-only projection of the inference SSOT."
+    )]
+    async fn cynic_inference_status(
+        &self,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_inference_status();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_storage_credential_sync",
+        description = "Evaluate whether SurrealDB storage credentials are synchronized across service config, password file, and live auth. Diagnoses the known bug where /etc/cynic/secrets/storage-runtime-password contained a hash instead of plaintext 'cynic' — root cause of digestion_starvation. Returns SYNCHRONIZED, OUT_OF_SYNC (with repair action), or UNKNOWN."
+    )]
+    async fn cynic_storage_credential_sync(
+        &self,
+        endpoint: String,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_storage_credential_sync(&endpoint);
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_harness_progression",
+        description = "Evaluate whether the harness can progress from one kind to the next (lab → conformance → staging → canary → production). Requires explicit proof categories — no silent promotion. Returns ALLOWED with authority level or BLOCKED with reason."
+    )]
+    async fn cynic_harness_progression(
+        &self,
+        current_kind: String,
+        target_kind: String,
+        satisfied: Vec<String>,
+        unknown: Vec<String>,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_harness_progression(
+            &current_kind,
+            &target_kind,
+            &satisfied,
+            &unknown,
         );
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),

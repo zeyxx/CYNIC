@@ -7,7 +7,9 @@ include!("local/infra_registry.rs");
 include!("local/network.rs");
 include!("local/fleet_execution.rs");
 include!("local/services.rs");
-
+include!("local/solana.rs");
+include!("local/toolchain.rs");
+include!("local/bench_basket.rs");
 include!("local/storage.rs");
 include!("local/legacy_proxmox.rs");
 include!("local/lifecycle_inference.rs");

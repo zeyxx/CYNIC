@@ -7,7 +7,7 @@
 
 pub mod kernel_session;
 pub mod local_tools;
-mod project_root;
+pub mod project_root;
 pub mod protocol;
 pub mod proxy;
 pub mod runtime_contract;

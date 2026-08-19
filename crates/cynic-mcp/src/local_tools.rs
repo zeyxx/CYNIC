@@ -7,6 +7,10 @@
 //! Using `.output()` directly inside `timeout()` leaves zombie processes
 //! when the timeout fires (the child survives SIGTERM and pollutes the cgroup).
 
+use cynic_host::build_evidence::{
+    CurlBuildLeaseVerificationAdapter, JsonBuildRunnerObservationAdapter,
+};
+use cynic_host::build_workflow::{run_build_workflow, BuildWorkflowConfig, BuildWorkflowResult};
 use cynic_host::ports::argv_execution::{ArgvExecutionPort, ArgvExecutionRequest};
 use cynic_host::source_control::{
     GitSourceControlAdapter, SourceControlPort, SourcePushAuthorization,
@@ -14,7 +18,8 @@ use cynic_host::source_control::{
 };
 use cynic_host::source_lease::SourceLeaseVerifier;
 use cynic_host::update_lifecycle::LocalArgvRunner;
-use cynic_protocol::{LeaseGuard, SecurityEvidenceState, SourceChangeProposal, SourceMatterClass};
+use cynic_protocol::build::{BuildRecipe, BUILD_RECIPE_SCHEMA};
+use cynic_protocol::{LeaseGuard, SecurityEvidenceState, SourceChangeProposal, SourceMatterClass, SourceSnapshot};
 
 /// Result of a git operation.
 #[derive(Debug, serde::Serialize)]
@@ -22,6 +27,103 @@ pub struct GitResult {
     pub success: bool,
     pub stdout: String,
     pub stderr: String,
+}
+
+/// Result of a build workflow run.
+#[derive(Debug, serde::Serialize)]
+pub struct BuildWorkflowResult {
+    pub status: String,
+    pub proof: Option<cynic_host::build_workflow::BuildProof>,
+}
+
+/// Run the pure build workflow (observe → verify → decide → execute).
+pub async fn run_buildWorkflow(
+    runner: &dyn ArgvExecutionPort,
+    project_root: &str,
+    commit: &str,
+    phase: Option<&str>,
+    network_mode: Option<&str>,
+    host: Option<&str>,
+    user: Option<&str>,
+) -> BuildWorkflowResult {
+    let observation_path = format!("/tmp/cynic-build-runner-observation.json");
+    let observation_adapter = JsonBuildRunnerObservationAdapter::new(&observation_path);
+    let observation = match observation_adapter.observe() {
+        Ok(o) => o,
+        Err(e) => {
+            return BuildWorkflowResult {
+                status: "blocked".to_string(),
+                proof: None,
+            }
+        }
+    };
+
+    let argv_runner = LocalArgvRunner;
+    let lease_adapter = match host {
+        Some(h) => CurlBuildLeaseVerificationAdapter::new(&runner, h.to_string(), None),
+        None => CurlBuildLeaseVerificationAdapter::new(&runner, "http://10.10.10.101:3000".to_string(), None),
+    };
+
+    let recipe = BuildRecipe {
+        schema: BUILD_RECIPE_SCHEMA.to_string(),
+        action: phase.unwrap_or("make:check").to_string(),
+        target_crates: vec![],
+        excluded_crates: vec![],
+        toolchain_override: None,
+        env_overrides: vec![],
+        max_parallel_jobs: 1,
+        timeout_secs: 600,
+        evidence_refs: vec![],
+    };
+
+    let source_snapshot = SourceSnapshot {
+        branch: Some("main".into()),
+        head_commit: Some(commit.to_string()),
+        upstream: Some("forgejo/main".into()),
+        staged_paths: vec![],
+        unstaged_paths: vec![],
+        untracked_paths: vec![],
+        unmerged_paths: vec![],
+        validation: SecurityEvidenceState::Proven,
+        sovereign_transport_identity: SecurityEvidenceState::Proven,
+        sovereign_authentication: SecurityEvidenceState::Proven,
+        remote_commit_matches: SecurityEvidenceState::Proven,
+        build_input_digest: None,
+        evidence_refs: vec!["mcp-input".into()],
+    };
+
+    let config = BuildWorkflowConfig {
+        observation_adapter: &observation_adapter,
+        lease_adapter: &lease_adapter,
+        argv_runner: &argv_runner,
+        source_snapshot,
+        recipe,
+        argv: vec!["make".to_string(), "check".to_string()],
+        artifact_path: "target/release/cynic".to_string(),
+        apply: false,
+        now_unix_ms: chrono::Utc::now().timestamp_millis() as u64,
+    };
+
+    match run_build_workflow(&config) {
+        Ok(result) => match result {
+            BuildWorkflowResult::Blocked { .. } => BuildWorkflowResult {
+                status: "blocked".to_string(),
+                proof: None,
+            },
+            BuildWorkflowResult::Planned { proof } => BuildWorkflowResult {
+                status: "planned".to_string(),
+                proof: Some(proof),
+            },
+            BuildWorkflowResult::Executed { proof } => BuildWorkflowResult {
+                status: "executed".to_string(),
+                proof: Some(proof),
+            },
+        },
+        Err(_) => BuildWorkflowResult {
+            status: "blocked".to_string(),
+            proof: None,
+        },
+    }
 }
 
 /// Result of a Docker CLI operation.
@@ -365,6 +467,199 @@ async fn run_docker_cmd(runner: &dyn ArgvExecutionPort, args: &[String]) -> Dock
         stderr: output.spawn_error.unwrap_or_else(|| output.stderr),
         exit_code: output.exit_code,
     }
+}
+
+/// Run the federation reconciliation with real observation adapters.
+///
+/// Uses production adapters with conservative fallbacks:
+/// - KernelReachabilityObserver: TCP probe on declared kernel ports
+/// - MeshPeerObserver: PeerResolver-based peer counting
+/// - OsHealthObserverAdapter: wraps LocalOsHealthObserver
+/// - EnrollmentObserverAdapter: checks enrollment authority file
+/// - TakeoverObserverAdapter: observes takeover conditions
+pub async fn run_federation_status() -> serde_json::Value {
+    let runtime = cynic_host::federation_runtime::FederationRuntime {
+        kernel: std::sync::Arc::new(
+            cynic_host::federation_runtime::KernelReachabilityObserver::new(
+                "10.10.10.103",
+                vec![8000, 8001],
+            ),
+        ),
+        mesh: std::sync::Arc::new(cynic_host::federation_runtime::MeshPeerObserver::new(
+            "infra/registry.json",
+            "local",
+        )),
+        os_health: std::sync::Arc::new(
+            cynic_host::federation_runtime::OsHealthObserverAdapter,
+        ),
+        enrollment: std::sync::Arc::new(
+            cynic_host::federation_runtime::EnrollmentObserverAdapter,
+        ),
+        takeover: std::sync::Arc::new(
+            cynic_host::federation_runtime::TakeoverObserverAdapter {
+                primary_live: false,
+                fencing_token: 2,
+            },
+        ),
+        node_control: std::sync::Arc::new(FederationNodeControl),
+    };
+
+    let reconciliation = runtime.reconcile();
+    serde_json::json!({
+        "status": "ok",
+        "reconciliation": reconciliation,
+    })
+}
+
+/// NodeControlPort implementation for federation status — returns None when
+/// kernel is unreachable (autonomous mode) or when no plan is available.
+struct FederationNodeControl;
+
+impl cynic_host::federation_runtime::NodeControlPort for FederationNodeControl {
+    fn node_control_plan(&self) -> Option<cynic_protocol::node_control::NodeControlPlan> {
+        None
+    }
+}
+
+/// Aggregate fleet health from heartbeats.
+pub async fn run_fleet_health(heartbeat_timeout_s: u64) -> serde_json::Value {
+    use cynic_host::fleet_health_observer::FleetHealthObserver;
+
+    let observer = FleetHealthObserver::new("infra/registry.json", heartbeat_timeout_s);
+    let report = observer.observe();
+    serde_json::json!({
+        "status": "ok",
+        "report": report,
+    })
+}
+
+/// Report inference configuration status (routing SSOT, backends, vault).
+pub async fn run_inference_status() -> serde_json::Value {
+    use cynic_inference::load_inference_config;
+
+    match load_inference_config() {
+        Ok(config) => {
+            let backends: Vec<_> = config
+                .backends
+                .iter()
+                .map(|b| {
+                    serde_json::json!({
+                        "name": b.name,
+                        "sovereign": b.sovereign,
+                        "base_url": b.base_url,
+                        "model": b.model,
+                        "backend_type": b.backend_type,
+                        "context_size": b.context_size,
+                        "timeout_secs": b.timeout_secs,
+                        "max_tokens": b.max_tokens,
+                        "has_api_key": b.api_key.is_some(),
+                    })
+                })
+                .collect();
+
+            serde_json::json!({
+                "status": "ok",
+                "config_path": config.config_path,
+                "backends": backends,
+                "sovereign_count": backends.iter().filter(|b| b["sovereign"].as_bool().unwrap_or(false)).count(),
+            })
+        }
+        Err(e) => serde_json::json!({
+            "status": "error",
+            "error": format!("{e}"),
+        }),
+    }
+}
+
+/// Evaluate storage credential sync status (pure probe + decision).
+pub async fn run_storage_credential_sync(endpoint: &str) -> serde_json::Value {
+    use cynic_host::storage_credential_sync::{StorageCredentialSyncPort, StorageCredentialSyncAdapter};
+    use cynic_protocol::storage_credential_sync::{StorageCredentialSpec, decide_credential_sync};
+
+    let spec = StorageCredentialSpec {
+        username: "root".into(),
+        password: "cynic".into(),
+        endpoint: endpoint.into(),
+        namespace: "cynic".into(),
+        database: "main".into(),
+    };
+    let adapter = StorageCredentialSyncAdapter::default();
+    let obs = adapter.observe(&spec);
+    let verdict = decide_credential_sync(&spec, &obs);
+    serde_json::json!({
+        "status": "ok",
+        "endpoint": endpoint,
+        "verdict": verdict,
+    })
+}
+
+/// Evaluate harness progression decision (pure, no IO).
+pub async fn run_harness_progression(
+    current_kind: &str,
+    target_kind: &str,
+    satisfied: &[String],
+    unknown: &[String],
+) -> serde_json::Value {
+    use cynic_host::harness_progression::{decide_harness_progression, HarnessProgressionEvidence, ProofCategory, RuntimeHarnessKind};
+
+    let parse_kind = |s: &str| -> Result<RuntimeHarnessKind, String> {
+        match s {
+            "lab" | "closed_local_lab" => Ok(RuntimeHarnessKind::ClosedLocalLab),
+            "conformance" => Ok(RuntimeHarnessKind::Conformance),
+            "staging" => Ok(RuntimeHarnessKind::Staging),
+            "canary" => Ok(RuntimeHarnessKind::Canary),
+            "production" => Ok(RuntimeHarnessKind::Production),
+            _ => Err(format!("unknown harness kind: {s}")),
+        }
+    };
+
+    let parse_cat = |s: &str| -> Result<ProofCategory, String> {
+        match s {
+            "bootstrap" => Ok(ProofCategory::Bootstrap),
+            "hardware" => Ok(ProofCategory::Hardware),
+            "host_conformance" => Ok(ProofCategory::HostConformance),
+            "build_reproduction" => Ok(ProofCategory::BuildReproduction),
+            "network" => Ok(ProofCategory::Network),
+            "target_attestation" => Ok(ProofCategory::TargetAttestation),
+            "rollback_intent" => Ok(ProofCategory::RollbackIntent),
+            _ => Err(format!("unknown proof category: {s}")),
+        }
+    };
+
+    let current = match parse_kind(current_kind) {
+        Ok(k) => k,
+        Err(e) => return serde_json::json!({ "status": "error", "error": e }),
+    };
+    let target = match parse_kind(target_kind) {
+        Ok(k) => k,
+        Err(e) => return serde_json::json!({ "status": "error", "error": e }),
+    };
+
+    let satisfied: Result<Vec<_>, _> = satisfied.iter().map(|s| parse_cat(s)).collect();
+    let satisfied = match satisfied {
+        Ok(v) => v,
+        Err(e) => return serde_json::json!({ "status": "error", "error": e }),
+    };
+
+    let unknown: Result<Vec<_>, _> = unknown.iter().map(|s| parse_cat(s)).collect();
+    let unknown = match unknown {
+        Ok(v) => v,
+        Err(e) => return serde_json::json!({ "status": "error", "error": e }),
+    };
+
+    let evidence = HarnessProgressionEvidence {
+        current_kind: current,
+        target_kind: target,
+        satisfied,
+        pending: vec![],
+        unknown,
+    };
+
+    let verdict = decide_harness_progression(&evidence);
+    serde_json::json!({
+        "status": "ok",
+        "verdict": verdict,
+    })
 }
 
 #[cfg(test)]

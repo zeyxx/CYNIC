@@ -29,17 +29,14 @@ use rmcp::{
 use crate::kernel_session::KernelSessionClient;
 use crate::session_identity::SessionIdentity;
 use crate::types::{
-    AgentConnectionStatusParams, AgentWorkloadCompleteParams, ApiContractsParams, AskesisLogParams,
-    AttentionParams, AuditQueryParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
-    ComplianceParams, CoordinationArtifactShareParams, CoordinationContractManifestParams,
-    CoordinationDecisionRecordParams, CoordinationStatusPublishParams,
-    CoordinationStatusReadParams, CoordinationThreadReplyParams, DispatchAgentTaskParams,
-    DockerContainerInspectParams, DockerContainerListParams, DockerContainerLogsParams,
-    FinalizeLeaseParams, FleetInventoryParams, FleetNodeExecParams, FleetNodeStatusParams,
-    FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams, IdentityAttestParams,
-    IdentitySmokeCheckParams, InferParams, InferenceDiscoverParams, InferenceStartParams,
-    InferenceSwitchParams, InfraProvisionParams, InfraRegistryReadParams,
-    InfraRegistryValidateParams, JudgeParams, LibraryQueryParams, ListParams,
+    AgentConnectionStatusParams, ApiContractsParams, AskesisLogParams, AttentionParams,
+    AuditQueryParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams, ComplianceParams,
+    DispatchAgentTaskParams, DockerContainerInspectParams, DockerContainerListParams,
+    DockerContainerLogsParams, FinalizeLeaseParams, FleetInventoryParams, FleetNodeExecParams,
+    FleetNodeStatusParams, FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams,
+    IdentityAttestParams, IdentitySmokeCheckParams, InferParams, InferenceDiscoverParams,
+    InferenceStartParams, InferenceSwitchParams, InfraProvisionParams, InfraRegistryReadParams,
+    InfraRegistryValidateParams, JudgeParams, JudgmentParams, LibraryQueryParams, ListParams,
     ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,
     LxcExecBridgeStatusParams, McpRateLimit, MetabolismParams, NetworkIpamCheckParams,
     NetworkMeshDnsActivationApplyParams, NetworkMeshDnsActivationBundleParams,
@@ -51,7 +48,7 @@ use crate::types::{
     ServiceHealthParams, ServiceStatusParams, SourceControlParams, SshTargetInspectParams,
     StoragePrimaryBundleParams, StoragePrimaryPlanParams, StoragePrimaryReadinessParams,
     StoragePrimaryStatusParams, UpdateAgentTaskResultParams, ValidateParams,
-    WatchPendingAgentTasksParams, WhoParams, validate_agent_id, validate_agent_task_content,
+    WatchPendingAgentTasksParams, WhoParams, validate_agent_id,
 };
 use cynic_host::ports::argv_execution::{
     ArgvExecutionPort, ArgvExecutionRequest, LocalArgvExecutionAdapter,
@@ -61,10 +58,6 @@ use cynic_host::ports::argv_execution::{
 use crate::types::{ProxmoxActionParams, ProxmoxExecParams, ProxmoxProvisionParams};
 
 type Content = rmcp::model::ContentBlock;
-
-fn project_root() -> PathBuf {
-    crate::project_root::resolve_mcp_project_root()
-}
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct LifecycleDispatchParams {
@@ -118,12 +111,16 @@ impl CynicMcpProxy {
             + Self::tool_router_local_network()
             + Self::tool_router_local_fleet_execution()
             + Self::tool_router_local_services()
+            + Self::tool_router_local_solana()
+            + Self::tool_router_local_toolchain()
+            + Self::tool_router_local_bench_basket()
             + Self::tool_router_local_storage()
             + Self::tool_router_local_legacy_proxmox()
             + Self::tool_router_local_lifecycle_inference()
             + Self::tool_router_eval()
             + Self::tool_router_agent_loop_audit()
             + Self::tool_router_docker()
+            + Self::tool_router_build()
     }
 
     pub fn new(
@@ -178,6 +175,7 @@ impl CynicMcpProxy {
     /// Admit a mutation only when this MCP artifact proves compatibility with
     /// the desired agent contract.  Read-only observation and plan projection
     /// deliberately remain available while reconciliation is blocked.
+    #[allow(dead_code)]
     fn require_mutation_contract(&self) -> Result<(), McpError> {
         let plan = crate::runtime_contract::observe_runtime_contract(std::path::Path::new(
             &self.project_root,
@@ -217,4 +215,5 @@ include!("routers/coord.rs");
 include!("routers/local.rs");
 include!("routers/eval.rs");
 include!("routers/docker.rs");
+include!("routers/build.rs");
 include!("handler.rs");

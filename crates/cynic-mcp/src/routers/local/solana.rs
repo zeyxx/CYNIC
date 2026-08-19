@@ -1,10 +1,9 @@
-use cynic_observer::{FanoutPlanRequest, plan_fanout_request};
-use rmcp::{
-    ErrorData as McpError, handler::server::wrapper::Parameters, model::*, tool, tool_router,
-};
+use cynic_observer::{plan_fanout_request, FanoutPlanRequest};
+use cynic_protocol::agent_recursion::AgentBudget;
+use cynic_protocol::solana_ops::{AllowanceGrant, SolanaPayRequest};
+use cynic_zeroclaw_solana::ZeroClawSolanaPlugin;
 
-use crate::types::SolanaPlanParams;
-use crate::types_split::SolanaPayParams;
+use crate::types::{SolanaPayParams, SolanaPlanParams};
 
 #[tool_router(router = tool_router_local_solana, vis = "pub(crate)")]
 impl CynicMcpProxy {
@@ -48,31 +47,37 @@ impl CynicMcpProxy {
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
-        let requested = params.0;
-        let result = serde_json::json!({
-            "schema": "cynic.solana_pay_generation.v1",
-            "status": "blocked_unavailable_runtime",
-            "mutates": false,
-            "requested": {
-                "recipient": requested.recipient,
-                "amount": requested.amount,
-                "spl_token": requested.spl_token,
-                "reference": requested.reference,
-                "label": requested.label,
-                "message": requested.message,
-                "memo": requested.memo,
-                "allowance_present": requested.allowance.is_some(),
-                "context_tokens": requested.context_tokens,
-                "actions_budget": requested.actions_budget,
-            },
-            "unknowns": [
-                "the typed Solana payment and allowance contracts are unavailable",
-                "the ZeroClaw Solana adapter is not admitted in this MCP build"
-            ],
-            "message": "No Solana Pay URL or QR code was generated. Restore and validate the payment port, policy, and injected adapter before enabling this mutation-capable surface.",
+        let p = params.0;
+        let mut pay_req = SolanaPayRequest::new(p.recipient)
+            .with_amount(p.amount);
+        if let Some(mint) = p.spl_token {
+            pay_req = pay_req.with_spl_token(mint);
+        }
+        if let Some(label) = p.label {
+            pay_req = pay_req.with_label(label);
+        }
+        if let Some(msg) = p.message {
+            pay_req = pay_req.with_message(msg);
+        }
+        if let Some(memo) = p.memo {
+            pay_req = pay_req.with_memo(memo);
+        }
+        if let Some(reference) = p.reference {
+            pay_req = pay_req.with_reference(reference);
+        }
+        let allowance = p.allowance.and_then(|v| {
+            serde_json::from_value::<AllowanceGrant>(v).ok()
         });
-        Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
-        )]))
+        let budget = AgentBudget {
+            context_tokens: p.context_tokens.unwrap_or(4000),
+            actions: p.actions_budget.unwrap_or(10),
+            children: 2,
+            wall_time_ms: 30000,
+        };
+        let plugin = ZeroClawSolanaPlugin::new();
+        let output = plugin.generate_solana_pay(pay_req, allowance, budget).await;
+        let json = serde_json::to_string_pretty(&output)
+            .map_err(|error| McpError::internal_error(error.to_string(), None))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 }

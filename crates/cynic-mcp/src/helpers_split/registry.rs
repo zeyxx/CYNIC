@@ -106,18 +106,19 @@ fn find_declared_service<'a>(
 }
 
 fn service_endpoint_from_registry(
-    registry: &serde_json::Value,
     node: &serde_json::Value,
     service: &serde_json::Value,
 ) -> Option<String> {
     let port = service.get("port").and_then(|value| value.as_u64())?;
-    let host = match service
+    let host = service
         .get("endpoint_host")
         .and_then(|value| value.as_str())
-    {
-        Some(host) => host.to_string(),
-        None => canonical_synapse_host(registry, node)?,
-    };
+        .or_else(|| {
+            node_aliases(node)
+                .into_iter()
+                .find(|alias| alias.starts_with("organ-"))
+        })
+        .or_else(|| node_name(node))?;
     let scheme = service
         .get("scheme")
         .and_then(|value| value.as_str())
@@ -127,41 +128,4 @@ fn service_endpoint_from_registry(
         .and_then(|value| value.as_str())
         .unwrap_or("/health");
     Some(format!("{scheme}://{host}:{port}{path}"))
-}
-
-fn canonical_synapse_host(
-    registry: &serde_json::Value,
-    node: &serde_json::Value,
-) -> Option<String> {
-    let node_name = node_name(node)?;
-    let aliases = node_aliases(node);
-    let reservation = network_reservations(registry)
-        .into_iter()
-        .find(|reservation| {
-            reservation.get("name").and_then(|value| value.as_str()) == Some(node_name)
-        })?;
-    let dns_names = reservation.get("dns")?.as_array()?;
-    let preferred_alias = aliases.iter().find(|alias| alias.starts_with("organ-"));
-    preferred_alias
-        .and_then(|alias| {
-            dns_names.iter().find_map(|name| {
-                let name = name.as_str()?;
-                name.starts_with(&format!("{alias}."))
-                    .then(|| name.to_string())
-            })
-        })
-        .or_else(|| {
-            dns_names
-                .iter()
-                .filter_map(|name| name.as_str())
-                .find(|name| name.starts_with(&format!("{node_name}.")))
-                .map(str::to_string)
-        })
-        .or_else(|| {
-            dns_names
-                .iter()
-                .filter_map(|name| name.as_str())
-                .next()
-                .map(str::to_string)
-        })
 }

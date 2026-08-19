@@ -30,7 +30,7 @@ impl CynicMcpProxy {
             .as_ref()
             .and_then(|value| value.get("status"))
             .and_then(|value| value.as_str());
-        let endpoint = service_endpoint_from_registry(&registry, node, service);
+        let endpoint = service_endpoint_from_registry(node, service);
         let result = serde_json::json!({
             "schema": "cynic.infrastructure_mcp.service_status.v1",
             "node": node_name(node),
@@ -78,15 +78,8 @@ impl CynicMcpProxy {
                 None,
             )
         })?;
-        let result = service_health_report(
-            &registry,
-            node,
-            &p.service,
-            service,
-            p.endpoint,
-            p.timeout_seconds,
-        )
-        .await?;
+        let result =
+            service_health_report(node, &p.service, service, p.endpoint, p.timeout_seconds).await?;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))
@@ -183,7 +176,6 @@ impl CynicMcpProxy {
                 evidence.insert(
                     "health".to_string(),
                     service_health_report(
-                        &registry,
                         node,
                         "surrealdb",
                         service,
@@ -202,7 +194,6 @@ impl CynicMcpProxy {
                 evidence.insert(
                     "artifact_store".to_string(),
                     service_health_report(
-                        &registry,
                         node,
                         "runtime-artifact-store",
                         artifact_store,
