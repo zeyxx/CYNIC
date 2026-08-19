@@ -41,6 +41,10 @@ pub enum CynicErrorCode {
     AgentMutationWithoutClaim,
     AgentCoordinationStoreUnavailable,
     AgentMergeQueueRace,
+    /// An agent requested more budget than its citizenship record grants.
+    ///
+    /// Budgets are monotonic: a citizen may never amplify its own authority.
+    AgentBudgetExceeded,
     FleetObservationBlackout,
 }
 
@@ -77,6 +81,7 @@ pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
     CynicErrorCode::AgentMutationWithoutClaim,
     CynicErrorCode::AgentCoordinationStoreUnavailable,
     CynicErrorCode::AgentMergeQueueRace,
+    CynicErrorCode::AgentBudgetExceeded,
     CynicErrorCode::FleetObservationBlackout,
 ];
 
@@ -115,6 +120,7 @@ impl CynicErrorCode {
             Self::AgentMutationWithoutClaim => "CYNIC-AGT-004",
             Self::AgentCoordinationStoreUnavailable => "CYNIC-AGT-005",
             Self::AgentMergeQueueRace => "CYNIC-AGT-006",
+            Self::AgentBudgetExceeded => "CYNIC-AGT-007",
             Self::FleetObservationBlackout => "CYNIC-FLT-001",
         }
     }
@@ -211,6 +217,9 @@ impl CynicErrorCode {
             Self::AgentCoordinationStoreUnavailable => {
                 "restore access to the canonical coordination store (.agent-claims.json)"
             }
+            Self::AgentBudgetExceeded => {
+                "request a smaller budget or obtain a parent grant; budgets never self-amplify"
+            }
             Self::AgentMergeQueueRace => {
                 "rebase against current head and re-enqueue after resolving merge conflict"
             }
@@ -218,6 +227,26 @@ impl CynicErrorCode {
                 "restore fleet observation transport; no declared node is reporting, so health is unknown rather than healthy"
             }
         }
+    }
+
+    pub const fn retryable(self) -> bool {
+        matches!(
+            self,
+            Self::BuildRunnerUnreachable
+                | Self::BuildSchedulerInactive
+                | Self::NetworkMeshTransportAbsent
+                | Self::NetworkBuildRunnerUnreachable
+                | Self::NetworkActuatorMissing
+                | Self::BreakglassAdmissionExpired
+                | Self::ActivationEpochUnobservable
+                | Self::ActivationBootstrapIncomplete
+                | Self::ActivationTakeoverProcessInactive
+                | Self::ActivationReadBackAbsent
+                | Self::AgentClaimExpired
+                | Self::AgentCoordinationStoreUnavailable
+                | Self::AgentMergeQueueRace
+                | Self::FleetObservationBlackout
+        )
     }
 }
 
@@ -240,22 +269,7 @@ impl CynicError {
             schema: ERROR_CATALOG_SCHEMA.to_string(),
             code: code.code().to_string(),
             class: code,
-            retryable: matches!(
-                code,
-                CynicErrorCode::BuildRunnerUnreachable
-                    | CynicErrorCode::BuildSchedulerInactive
-                    | CynicErrorCode::NetworkMeshTransportAbsent
-                    | CynicErrorCode::NetworkBuildRunnerUnreachable
-                    | CynicErrorCode::NetworkActuatorMissing
-                    | CynicErrorCode::BreakglassAdmissionExpired
-                    | CynicErrorCode::ActivationEpochUnobservable
-                    | CynicErrorCode::ActivationBootstrapIncomplete
-                    | CynicErrorCode::ActivationTakeoverProcessInactive
-                    | CynicErrorCode::ActivationReadBackAbsent
-                    | CynicErrorCode::AgentClaimExpired
-                    | CynicErrorCode::AgentCoordinationStoreUnavailable
-                    | CynicErrorCode::AgentMergeQueueRace
-            ),
+            retryable: code.retryable(),
             operator_action: code.operator_action().to_string(),
             evidence_refs: Vec::new(),
         }
@@ -349,6 +363,7 @@ mod tests {
                 "CYNIC-AGT-005",
             ),
             (CynicErrorCode::AgentMergeQueueRace, "CYNIC-AGT-006"),
+            (CynicErrorCode::AgentBudgetExceeded, "CYNIC-AGT-007"),
         ];
         for (variant, expected) in emergence {
             assert_eq!(variant.code(), expected);
