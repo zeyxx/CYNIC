@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 pub mod consensus;
 pub mod dashboard;
 pub mod delegation;
@@ -9,11 +10,9 @@ pub mod solana_archive;
 pub mod source;
 pub mod wal;
 pub mod watcher;
-pub use solana_archive::*;
 
 use serde::{Deserialize, Serialize};
 pub use domain::*;
-pub use solana_archive::*;
 pub use source::*;
 
 /// Structure d'un événement capté sur la blockchain (compatibilité Solana).

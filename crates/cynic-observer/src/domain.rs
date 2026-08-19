@@ -7,7 +7,8 @@
 //! 4. Inference & Models (Local models, latency, quality, token usage, drift)
 //! 5. Offchain & Social (Forgejo, Git, X/Twitter, Web resources)
 
-use cynic_protocol::{EvidenceEnvelope, EvidenceRef, build_evidence_envelope};
+#[allow(unused_imports)]
+use cynic_protocol::{EvidenceEnvelope, build_evidence_envelope};
 use serde::{Deserialize, Serialize};
 
 pub const OBSERVATION_EVENT_SCHEMA: &str = "cynic.observation.event.v1";

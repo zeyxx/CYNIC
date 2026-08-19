@@ -1,5 +1,5 @@
 use crate::ObserverEvent;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::SinkExt;
 use serde_json::json;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::mpsc;

@@ -14,7 +14,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use cynic_host::ports::metabolism::{MetabolismProvider, OsMetabolism};
 
-use crate::domain::{ObservationDomain, UniversalObserverEvent};
+use crate::domain::UniversalObserverEvent;
 
 /// Universal trait for any observation source in the organism.
 #[async_trait]
