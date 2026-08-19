@@ -1,5 +1,6 @@
 //! Human-oriented directory for advanced operator surfaces.
 
+#![allow(dead_code)]
 use std::process::ExitCode;
 
 const ADVANCED_AREAS: &[(&str, &str)] = &[

@@ -3,6 +3,7 @@
 //! The inference crate remains the owner of inventory and supervisor behavior.
 //! This module only gives the operator a compact, explicit-consent vocabulary.
 
+#![allow(dead_code)]
 use std::process::ExitCode;
 
 use clap::Subcommand;

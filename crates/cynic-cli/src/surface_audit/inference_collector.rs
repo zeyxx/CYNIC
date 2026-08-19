@@ -7,6 +7,7 @@
 //!
 //! Observation is a port call; no hardcoded substrate.
 
+#![allow(dead_code)]
 use cynic_inference::domain::local_runtime::LocalRuntimeStatus;
 use cynic_inference::LocalRuntimeServiceAny;
 use cynic_protocol::runtime::InferenceStatusProof;

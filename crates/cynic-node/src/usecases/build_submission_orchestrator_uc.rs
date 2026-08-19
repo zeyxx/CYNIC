@@ -34,7 +34,7 @@ pub struct BuildSubmissionPlan {
 /// Grant report (subset of SignedBuildWorkloadGrant for projection).
 #[derive(Debug, Serialize)]
 pub struct GrantReport {
-    pub schema: &'static str,
+    pub schema: String,
     pub grant_id: String,
     pub authority_key_id: String,
     pub workload_id: String,
@@ -62,7 +62,7 @@ pub async fn orchestrate_build_submission(
     let admission = admit_build_agent_request(request);
     if admission.status == "blocked" {
         return Ok(BuildSubmissionPlan {
-            schema: "cynic.node.build_submission_plan.v1",
+            schema: "cynic.node.build_submission_plan.v1".to_string(),
             status: "blocked",
             admission,
             delivery: None,
@@ -77,7 +77,7 @@ pub async fn orchestrate_build_submission(
         Ok(id) => id,
         Err(e) => {
             return Ok(BuildSubmissionPlan {
-                schema: "cynic.node.build_submission_plan.v1",
+                schema: "cynic.node.build_submission_plan.v1".to_string(),
                 status: "blocked",
                 admission,
                 delivery: None,
@@ -92,7 +92,7 @@ pub async fn orchestrate_build_submission(
         Ok(env) => env,
         Err(blockers) => {
             return Ok(BuildSubmissionPlan {
-                schema: "cynic.node.build_submission_plan.v1",
+                schema: "cynic.node.build_submission_plan.v1".to_string(),
                 status: "blocked",
                 admission,
                 delivery: None,
@@ -156,7 +156,7 @@ pub async fn orchestrate_build_submission(
         }),
         Err(blockers) => {
             return Ok(BuildSubmissionPlan {
-                schema: "cynic.node.build_submission_plan.v1",
+                schema: "cynic.node.build_submission_plan.v1".to_string(),
                 status: "blocked",
                 admission,
                 delivery: Some(delivery),
@@ -175,7 +175,7 @@ pub async fn orchestrate_build_submission(
         }),
         Err(e) => {
             return Ok(BuildSubmissionPlan {
-                schema: "cynic.node.build_submission_plan.v1",
+                schema: "cynic.node.build_submission_plan.v1".to_string(),
                 status: "blocked",
                 admission,
                 delivery: Some(delivery),
@@ -187,7 +187,7 @@ pub async fn orchestrate_build_submission(
     };
 
     Ok(BuildSubmissionPlan {
-        schema: "cynic.node.build_submission_plan.v1",
+        schema: "cynic.node.build_submission_plan.v1".to_string(),
         status: "submitted",
         admission,
         delivery: Some(delivery),

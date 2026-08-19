@@ -7,6 +7,8 @@
 //! `-u user:pass` when the password is wrong — root cause of
 //! `digestion_starvation` (kernel storage_healthy: null despite TCP healthy).
 
+use serde::{Deserialize, Serialize};
+
 /// Observed state of the storage credential surface.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorageCredentialObservation {
@@ -35,7 +37,7 @@ pub struct StorageCredentialSpec {
 }
 
 /// Credential sync verdict.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CredentialSyncVerdict {
     /// All surfaces synchronized — runtime can authenticate.
     Synchronized,
@@ -53,7 +55,7 @@ pub enum CredentialSyncVerdict {
 }
 
 /// What repair action is needed.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CredentialRepair {
     /// Write the correct password to the file.
     SyncPasswordFile,

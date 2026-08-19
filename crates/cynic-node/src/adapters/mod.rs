@@ -63,5 +63,4 @@ pub mod ssh_release_basket_signing;
 pub mod surrealdb;
 pub mod tokio_build_execution;
 pub mod websocket_federation;
-pub mod http_build_workload_submission;
 pub mod wireguard;

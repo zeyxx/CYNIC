@@ -293,7 +293,6 @@ pub(crate) fn execute_bootstrap_host(command: BootstrapHostCommand) -> ExitCode 
             emit_json(&report, should_fail)
         }
         BootstrapHostCommand::OsHealth(args) => {
-            use cynic_host::os_health::observe::OsHealthObserver;
             let observer = cynic_host::os_health::observe::LocalOsHealthObserver;
             let assessment = cynic_host::os_health::assess_os_health_default(&observer);
             if args.json {

@@ -73,4 +73,5 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
             let report = adapter.observe();
             crate::cli_json::emit_pretty_json(&report)
         }
+    }
 }

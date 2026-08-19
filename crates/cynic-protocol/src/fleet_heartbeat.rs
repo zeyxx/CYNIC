@@ -8,10 +8,12 @@
 //! Pattern: desired state (registry) → observe (heartbeats) → reconcile
 //! (aggregate health) → bounded action (alert/failover) → read-back proof.
 
+use serde::{Deserialize, Serialize};
+
 pub use crate::fleet_discovery::FleetNodeStatus;
 
 /// A single heartbeat emitted by a node.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FleetHeartbeat {
     pub node_id: String,
     pub emitted_at_unix_s: u64,
@@ -24,7 +26,7 @@ pub struct FleetHeartbeat {
 }
 
 /// Aggregated health view for the whole fleet.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FleetHealthAggregation {
     pub schema: &'static str,
     pub aggregated_at_unix_s: u64,

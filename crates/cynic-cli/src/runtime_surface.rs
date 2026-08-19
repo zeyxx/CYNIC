@@ -438,7 +438,7 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             host_checks::execute_storage_capabilities(json, url.as_deref())
         }
         RuntimeCommand::StorageCredential { json, endpoint } => {
-            match execute_storage_credential_sync(json, endpoint) {
+            match execute_storage_credential_sync(json, &endpoint) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => fail(e),
             }
@@ -487,7 +487,8 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         | RuntimeCommand::DepsAudit { .. }
         | RuntimeCommand::DepsUpgrade { .. }
         | RuntimeCommand::Disk { .. }
-        | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
+        | RuntimeCommand::DiskClean { .. }
+        | RuntimeCommand::Harness { .. } => unreachable!("pre-dispatched runtime command"),
     }
 }
 

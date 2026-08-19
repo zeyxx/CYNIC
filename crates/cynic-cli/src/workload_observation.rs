@@ -11,10 +11,9 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::process::ExitCode;
 
 use cynic_host::build_runner_harness::registry::read_registry;
-use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner, LocalArgvRunner, MapArgvRunner};
+use cynic_host::update_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_node::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
 use cynic_node::ports::agent_workload_store_port::AgentWorkloadStorePort;
 use cynic_protocol::DurableAgentWorkloadRecord;
@@ -216,9 +215,10 @@ fn discover_nodes(registry_path: &str, user: &str) -> Result<Vec<FederatedNode>,
                     .map(|ip| format!("{}@{}", user, ip))
             });
 
-        if let Some(target) = ssh_target {
-            nodes.push(FederatedNode { node_id, ssh_target });
-        }
+        nodes.push(FederatedNode {
+            node_id,
+            ssh_target: ssh_target.unwrap_or_default(),
+        });
     }
 
     Ok(nodes)

@@ -4,6 +4,7 @@
 //! inventory, and observed local supervisor state separate.  A configured
 //! backend or a GGUF on disk is not proof that a model is currently running.
 
+#![allow(dead_code)]
 use std::process::ExitCode;
 
 use cynic_inference::{

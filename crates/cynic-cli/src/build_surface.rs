@@ -163,6 +163,13 @@ fn run_build(
         rust_min_stack: 16777216,
         cargo_incremental: false,
         memory_limit_bytes: None,
+        target_crates: vec![],
+        excluded_crates: vec![],
+        toolchain_override: None,
+        env_overrides: vec![],
+        max_parallel_jobs: 1,
+        timeout_secs: 600,
+        evidence_refs: vec![],
     };
 
     // Step 4: Build source snapshot

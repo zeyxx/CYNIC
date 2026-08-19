@@ -1,5 +1,6 @@
 //! Read-only operator diagnosis assembled from owner-level observations.
 
+#![allow(dead_code)]
 use std::process::ExitCode;
 
 use serde::Serialize;

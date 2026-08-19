@@ -90,6 +90,7 @@ fn execute_host_exec_alias(args: &[String]) -> Result<ExitCode, String> {
 
 fn parse_profile_args(args: &[String]) -> ProfileArgs {
     ProfileArgs {
+        json: false,
         profile: flag_value(args, "--profile"),
         node: flag_value(args, "--node"),
         registry: flag_value(args, "--registry"),
