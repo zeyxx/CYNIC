@@ -15,14 +15,16 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
 sha2 = "0.11.0"
-tokio = { version = "1.50.0", features = ["process", "io-util", "time"] }
+tokio = { version = "1.50.0", features = ["process", "io-util", "time", "rt", "rt-multi-thread", "macros"] }
 async-trait = "0.1"
 sysinfo = "0.39.6"
 zeroize = "1"
 ed25519-dalek = "2"
 regex = "1"
 walkdir = "2"
-rpassword = "7"
+thiserror = "1"
+rand = "0.8"
+rpassword = "7.5.4"
 
 [dev-dependencies]
 tempfile = "3"
