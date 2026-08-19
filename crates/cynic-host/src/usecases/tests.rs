@@ -443,11 +443,31 @@ fn package_status_is_blocked_when_bootstrap_package_missing() {
 fn package_activation_plan_refers_to_approved_source_and_postflight_checks() {
     let policy = StaticHostContractPort.desired_packages();
     let plan = policy.activation_plan();
+    // Preflight now asserts the *selected distribution authority* rather than a
+    // prose mention of approved sources: an unresolved provenance must be
+    // visible before any install command is considered.
     assert!(
         plan.preflight
             .iter()
             .map(render_command)
-            .any(|item| item.contains("approved package source"))
+            .any(|item| item.contains("repository:distribution_package")),
+        "preflight: {:?}",
+        plan.preflight
+            .iter()
+            .map(render_command)
+            .collect::<Vec<_>>()
+    );
+    // The approved-sources projection moved to the gated install commands.
+    assert!(
+        plan.install_commands
+            .iter()
+            .map(render_command)
+            .any(|item| item.contains("approved package sources")),
+        "install_commands: {:?}",
+        plan.install_commands
+            .iter()
+            .map(render_command)
+            .collect::<Vec<_>>()
     );
     assert!(
         plan.postflight
