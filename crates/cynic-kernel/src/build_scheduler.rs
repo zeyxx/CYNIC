@@ -302,12 +302,17 @@ mod tests {
         // dead fake was 17 compile errors on its own.
         let mut dirty_snapshot = valid_source_snapshot();
         dirty_snapshot.unstaged_paths = vec!["src/lib.rs".to_string()];
+        // Bind the borrowed inputs: BuildWorkflow::new takes references, so
+        // passing valid_*() calls inline would drop the temporaries.
+        let observation = valid_observation();
+        let lease_verification = valid_lease_verification();
+        let recipe = valid_recipe();
 
         let workflow = BuildWorkflow::new(
-            &valid_observation(),
-            &valid_lease_verification(),
+            &observation,
+            &lease_verification,
             &dirty_snapshot,
-            &valid_recipe(),
+            &recipe,
             vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
