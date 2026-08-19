@@ -13,14 +13,16 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
 use crate::bootstrap_federation::{FederatedBootstrapObservation, FederatedBootstrapPhase};
+use crate::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
+use crate::error_catalog::CynicErrorCode;
+use crate::health_signal::HealthSignalPayload;
 use crate::runtime_takeover_activation::{
     RuntimeTakeoverActivationObservation, RuntimeTakeoverActivationRequest,
 };
 
 /// The three possible activation states for a node.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NodeActivationVerdict {
     /// Node is live and serving traffic.
     Active {
@@ -47,7 +49,7 @@ pub enum NodeActivationVerdict {
 }
 
 /// Authority levels for activation.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ActivationAuthority {
     /// Test projection — lab only.
     TestProjection,
@@ -62,7 +64,7 @@ pub enum ActivationAuthority {
 }
 
 /// The action required to advance activation.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ActivationAction {
     /// Bootstrap the node (first time).
     Bootstrap,
@@ -223,6 +225,12 @@ pub fn plan_activation_action(
 }
 
 /// Pure decision: evaluate read-back proof after an activation action.
+///
+/// Read-back is the proof boundary of the Coherence Pattern, so it must not be
+/// decided by substring search. `"inactive"` *contains* `"active"`, so the
+/// previous check reported a failed activation as `Activated` — the exact
+/// inversion a proof layer exists to prevent. Status is now parsed as a typed
+/// JSON field, and unparseable output stays `Failed` rather than being guessed.
 pub fn evaluate_activation_proof(
     plan: &ActivationActionPlan,
     apply_success: bool,
@@ -249,9 +257,7 @@ pub fn evaluate_activation_proof(
         };
     }
 
-    // Parse read-back output — if it contains "active", success.
-    let read_back_ok = read_back_output.contains("active")
-        || read_back_output.contains("\"status\":\"ok\"");
+    let read_back_ok = read_back_proves_activation(read_back_output);
 
     if read_back_ok {
         ActivationProof::Activated {
@@ -261,14 +267,46 @@ pub fn evaluate_activation_proof(
     } else if rollback_performed {
         ActivationProof::RolledBack {
             node_id,
-            rollback_evidence_refs: vec![format!("rollback://{}: {}", plan.description, rollback_output)],
+            rollback_evidence_refs: vec![format!(
+                "rollback://{}: {}",
+                plan.description, rollback_output
+            )],
         }
     } else {
         ActivationProof::Failed {
             node_id,
-            blockers: vec![format!("read_back_failed: {}", read_back_output)],
+            blockers: vec![format!("read_back_failed: {read_back_output}")],
         }
     }
+}
+
+/// Does read-back output prove activation?
+///
+/// Only an exact typed status value counts as proof. Absent, unparseable, or
+/// unrecognized output is *not* proof — it is an unknown, and an unknown must
+/// never be promoted to success.
+fn read_back_proves_activation(read_back_output: &str) -> bool {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(read_back_output) else {
+        return false;
+    };
+
+    // Accept either an explicit activation status or a generic ok envelope,
+    // matching exactly — never by substring.
+    for key in ["status", "activation_status", "state"] {
+        if let Some(status) = value.get(key).and_then(|v| v.as_str()) {
+            match status {
+                "active" | "activated" | "ok" => return true,
+                _ => return false,
+            }
+        }
+    }
+
+    // A typed boolean is also acceptable proof.
+    if let Some(active) = value.get("active").and_then(|v| v.as_bool()) {
+        return active;
+    }
+
+    false
 }
 
 /// Pure decision: compose deployment_epoch + bootstrap_federation + takeover
@@ -385,6 +423,105 @@ pub fn decide_node_activation(
         node_id,
         deployment_epoch_id: epoch_id,
         blockers: vec!["no_deployment_epoch_or_bootstrap_observation".into()],
+    }
+}
+
+/// Map an observed blocker string to its canonical error code.
+///
+/// Blockers are produced as strings by the observation layer (bootstrap,
+/// takeover, registry). This is the single place that classifies them, so a
+/// consumer never has to re-derive severity or retryability from prose.
+/// Unrecognized blockers deliberately return `None` — an unknown stays an
+/// unknown rather than being coerced into a plausible-looking code.
+pub fn classify_activation_blocker(blocker: &str) -> Option<CynicErrorCode> {
+    // Match on the stable prefix: observers append context after ':'.
+    let key = blocker.split(':').next().unwrap_or(blocker).trim();
+    match key {
+        "takeover_activation_process_inactive" => {
+            Some(CynicErrorCode::ActivationTakeoverProcessInactive)
+        }
+        "takeover_activation_identity_unproved" | "takeover_activation_identity_mismatch" => {
+            Some(CynicErrorCode::ActivationTakeoverIdentityUnverified)
+        }
+        "takeover_activation_unit_read_back_mismatch"
+        | "takeover_activation_fencing_read_back_mismatch" => {
+            Some(CynicErrorCode::ActivationReadBackAbsent)
+        }
+        "takeover_activation_fencing_invalid" => {
+            Some(CynicErrorCode::ActivationPhaseAuthorityInsufficient)
+        }
+        "deployment_phase_unknown" | "no_deployment_epoch_or_bootstrap_observation"
+        | "registry_read_failed" | "node_not_in_registry" => {
+            Some(CynicErrorCode::ActivationEpochUnobservable)
+        }
+        _ => {
+            // Bootstrap observers emit their own blocker vocabulary; treat the
+            // whole family as bootstrap-incomplete rather than guessing.
+            if key.starts_with("federated_bootstrap_phase_incomplete")
+                || key.ends_with("_read_back_required")
+                || key.ends_with("_not_ready")
+            {
+                Some(CynicErrorCode::ActivationBootstrapIncomplete)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+impl NodeActivationVerdict {
+    /// Project a blocked verdict into typed error codes.
+    ///
+    /// Returns an empty vec for `Active`/`Activatable`: they have no blockers.
+    /// Duplicate codes are collapsed, since several observed blockers can map to
+    /// one contract violation.
+    pub fn blocking_codes(&self) -> Vec<CynicErrorCode> {
+        let Self::Blocked { blockers, .. } = self else {
+            return Vec::new();
+        };
+        let mut codes: Vec<CynicErrorCode> = Vec::new();
+        for blocker in blockers {
+            if let Some(code) = classify_activation_blocker(blocker) {
+                if !codes.contains(&code) {
+                    codes.push(code);
+                }
+            }
+        }
+        codes
+    }
+
+    /// Blockers observed but not classifiable into a canonical code.
+    ///
+    /// Preserved as explicit residual unknowns: an unclassified blocker means
+    /// the catalog is missing a contract, and hiding it would make the gap
+    /// invisible.
+    pub fn unclassified_blockers(&self) -> Vec<String> {
+        let Self::Blocked { blockers, .. } = self else {
+            return Vec::new();
+        };
+        blockers
+            .iter()
+            .filter(|b| classify_activation_blocker(b).is_none())
+            .cloned()
+            .collect()
+    }
+
+    /// Project this verdict as a health signal payload for the reconciler.
+    ///
+    /// This is the seam that lets Layer 3 plan a bounded action from an
+    /// activation verdict without re-deriving activation policy.
+    pub fn to_health_payload(&self, consent_granted: bool) -> Option<HealthSignalPayload> {
+        match self {
+            Self::Blocked { node_id, .. } => Some(HealthSignalPayload::ActivationBlocked {
+                node_id: node_id.clone(),
+                phase: "blocked".to_string(),
+                blockers: self.blocking_codes(),
+                consent_granted,
+            }),
+            // An activatable node is not an emergence: it is waiting on consent,
+            // which the caller requests explicitly rather than through a signal.
+            Self::Activatable { .. } | Self::Active { .. } => None,
+        }
     }
 }
 
@@ -623,5 +760,181 @@ mod tests {
         };
         let proof = evaluate_activation_proof(&plan, true, "FAIL", true, "rolled back");
         assert!(matches!(&proof, ActivationProof::RolledBack { .. }));
+    }
+
+    fn probe_plan() -> ActivationActionPlan {
+        ActivationActionPlan {
+            description: "test".into(),
+            apply_argv: vec!["echo".into(), "hello".into()],
+            read_back_argv: vec!["true".into()],
+            rollback_argv: vec!["false".into()],
+            requires_privilege: false,
+            requires_consent: false,
+            expected_evidence_refs: vec!["test://evidence".into()],
+        }
+    }
+
+    /// Regression proof: `"inactive"` contains the substring `"active"`.
+    ///
+    /// The previous substring check therefore reported a node that read back as
+    /// *inactive* as successfully `Activated` — a proof layer inverting its own
+    /// verdict. This is the single most dangerous class of bug in the Coherence
+    /// Pattern: a failed mutation presented as convergence.
+    #[test]
+    fn inactive_read_back_is_not_activation_proof() {
+        let plan = probe_plan();
+        let proof = evaluate_activation_proof(&plan, true, "{\"status\":\"inactive\"}", false, "");
+        assert!(
+            matches!(&proof, ActivationProof::Failed { .. }),
+            "inactive read-back must never prove activation, got {proof:?}"
+        );
+    }
+
+    #[test]
+    fn deactivating_read_back_is_not_activation_proof() {
+        let plan = probe_plan();
+        let proof = evaluate_activation_proof(&plan, true, "{\"status\":\"deactivating\"}", false, "");
+        assert!(matches!(&proof, ActivationProof::Failed { .. }));
+    }
+
+    /// Unparseable read-back is an unknown, and an unknown is never success.
+    #[test]
+    fn unparseable_read_back_is_not_activation_proof() {
+        let plan = probe_plan();
+        let proof = evaluate_activation_proof(&plan, true, "active", false, "");
+        assert!(matches!(&proof, ActivationProof::Failed { .. }));
+    }
+
+    #[test]
+    fn typed_active_status_proves_activation() {
+        let plan = probe_plan();
+        for output in [
+            "{\"status\":\"active\"}",
+            "{\"status\":\"activated\"}",
+            "{\"activation_status\":\"active\"}",
+            "{\"active\":true}",
+        ] {
+            let proof = evaluate_activation_proof(&plan, true, output, false, "");
+            assert!(
+                matches!(&proof, ActivationProof::Activated { .. }),
+                "{output} must prove activation"
+            );
+        }
+    }
+
+    #[test]
+    fn active_false_boolean_is_not_activation_proof() {
+        let plan = probe_plan();
+        let proof = evaluate_activation_proof(&plan, true, "{\"active\":false}", false, "");
+        assert!(matches!(&proof, ActivationProof::Failed { .. }));
+    }
+
+    #[test]
+    fn takeover_blockers_project_to_canonical_codes() {
+        let verdict = NodeActivationVerdict::Blocked {
+            node_id: "node-a".into(),
+            deployment_epoch_id: None,
+            blockers: vec![
+                "takeover_activation_process_inactive".into(),
+                "takeover_activation_identity_unproved".into(),
+            ],
+        };
+        let codes = verdict.blocking_codes();
+        assert!(codes.contains(&CynicErrorCode::ActivationTakeoverProcessInactive));
+        assert!(codes.contains(&CynicErrorCode::ActivationTakeoverIdentityUnverified));
+        assert!(verdict.unclassified_blockers().is_empty());
+    }
+
+    /// Observers append context after ':'; classification must survive it.
+    #[test]
+    fn blocker_with_appended_context_still_classifies() {
+        let verdict = NodeActivationVerdict::Blocked {
+            node_id: "node-a".into(),
+            deployment_epoch_id: None,
+            blockers: vec!["node_not_in_registry: node-a".into()],
+        };
+        assert_eq!(
+            verdict.blocking_codes(),
+            vec![CynicErrorCode::ActivationEpochUnobservable]
+        );
+    }
+
+    /// Several observed blockers can violate one contract; codes collapse.
+    #[test]
+    fn duplicate_codes_are_collapsed() {
+        let verdict = NodeActivationVerdict::Blocked {
+            node_id: "node-a".into(),
+            deployment_epoch_id: None,
+            blockers: vec![
+                "storage_read_back_required".into(),
+                "scheduler_not_ready".into(),
+            ],
+        };
+        assert_eq!(
+            verdict.blocking_codes(),
+            vec![CynicErrorCode::ActivationBootstrapIncomplete]
+        );
+    }
+
+    /// An unclassifiable blocker means the catalog is missing a contract.
+    /// It must stay visible as a residual unknown, never be coerced into a code.
+    #[test]
+    fn unknown_blocker_is_preserved_not_guessed() {
+        let verdict = NodeActivationVerdict::Blocked {
+            node_id: "node-a".into(),
+            deployment_epoch_id: None,
+            blockers: vec!["some_未modelled_condition".into()],
+        };
+        assert!(verdict.blocking_codes().is_empty());
+        assert_eq!(verdict.unclassified_blockers().len(), 1);
+    }
+
+    #[test]
+    fn active_verdict_has_no_blocking_codes_and_no_signal() {
+        let verdict = NodeActivationVerdict::Active {
+            node_id: "node-a".into(),
+            deployment_epoch_id: "epoch-1".into(),
+            authority: ActivationAuthority::RuntimeAuthority,
+        };
+        assert!(verdict.blocking_codes().is_empty());
+        assert!(verdict.to_health_payload(false).is_none());
+    }
+
+    /// Awaiting consent is not an emergence — consent is requested explicitly.
+    #[test]
+    fn activatable_verdict_emits_no_health_signal() {
+        let verdict = NodeActivationVerdict::Activatable {
+            node_id: "node-a".into(),
+            deployment_epoch_id: "epoch-1".into(),
+            required_authority: ActivationAuthority::ConformanceGate,
+            next_action: ActivationAction::Bootstrap,
+        };
+        assert!(verdict.to_health_payload(false).is_none());
+    }
+
+    #[test]
+    fn blocked_verdict_projects_typed_health_payload() {
+        let verdict = NodeActivationVerdict::Blocked {
+            node_id: "node-a".into(),
+            deployment_epoch_id: None,
+            blockers: vec!["takeover_activation_process_inactive".into()],
+        };
+        let payload = verdict.to_health_payload(true).expect("payload");
+        match payload {
+            HealthSignalPayload::ActivationBlocked {
+                node_id,
+                blockers,
+                consent_granted,
+                ..
+            } => {
+                assert_eq!(node_id, "node-a");
+                assert_eq!(
+                    blockers,
+                    vec![CynicErrorCode::ActivationTakeoverProcessInactive]
+                );
+                assert!(consent_granted);
+            }
+            other => panic!("expected ActivationBlocked, got {other:?}"),
+        }
     }
 }
