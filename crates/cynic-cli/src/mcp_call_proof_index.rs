@@ -10,9 +10,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::agent_exposure_audit::repo_root;
+use crate::agent_exposure_audit::checks::repo_root;
 use crate::agent_exposure_audit::source_scan::scan_mcp_tools;
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct McpToolProof {
     pub name: String,

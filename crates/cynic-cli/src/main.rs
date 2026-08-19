@@ -73,6 +73,7 @@ use host_exec_alias_surface::maybe_run_host_exec_alias;
 use integrations_surface::IntegrationsCommand;
 use lab_surface::LabCommand;
 use network_surface::NetworkCommand;
+use node_activation_surface::NodeActivationCommand;
 use root_dispatch::{execute_root_command, print_cli_help};
 use runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use runtime_surface::{OperatorModelsCommand, RuntimeCommand};

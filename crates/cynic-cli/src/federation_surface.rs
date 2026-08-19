@@ -1,8 +1,8 @@
-#![allow(dead_code)]
+use std::process::ExitCode;
 use clap::Parser;
 use clap::Subcommand;
-
 use cynic_protocol::federation::FederationReconciliation;
+use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 
 /// Federation CLI command — subcommands for federation operations.
 #[derive(Debug, Subcommand)]
@@ -28,6 +28,21 @@ impl FederationCommand {
     }
 }
 
+pub(crate) fn execute_federation(command: FederationCommand) -> ExitCode {
+    let registry_path = resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
+    let runtime = cynic_host::federation_runtime::FederationRuntime::live(
+        registry_path.to_string_lossy().to_string(),
+        "local-kernel",
+    );
+    let reconciliation = runtime.reconcile();
+    match command.execute(&reconciliation) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("federation error: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
 impl FederationStatusCommand {
     /// Execute the federation status command.
     pub(crate) fn execute(&self, reconciliation: &FederationReconciliation) -> Result<(), String> {

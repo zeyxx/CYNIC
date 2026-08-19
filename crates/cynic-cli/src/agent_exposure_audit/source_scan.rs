@@ -56,11 +56,19 @@ fn extract_tools(source: &str) -> Vec<McpToolDiscovery> {
 }
 
 fn extract_attr_value(block: &str, key: &str) -> Option<String> {
-    let pattern = format!(r#"{}\s*=\s*"([^"]+)""#, regex::escape(key));
-    regex::Regex::new(&pattern)
-        .ok()
-        .and_then(|re| re.captures(block))
-        .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
+    if let Some(pos) = block.find(key) {
+        let after = &block[pos + key.len()..];
+        let after = after.trim_start();
+        if let Some(after) = after.strip_prefix('=') {
+            let after = after.trim_start();
+            if let Some(after) = after.strip_prefix('"') {
+                if let Some(end) = after.find('"') {
+                    return Some(after[..end].to_string());
+                }
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]

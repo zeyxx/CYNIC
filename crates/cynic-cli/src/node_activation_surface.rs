@@ -2,6 +2,7 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 
+use cynic_host::node_activation::NodeActivationPort;
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 
 #[derive(Subcommand)]

@@ -10,9 +10,9 @@ use crate::agent_exposure_audit::json_scan::{count_tiers, domain_tools, exposed_
 use crate::agent_exposure_audit::source_scan::{scan_mcp_tool_names, scan_mcp_tools};
 use crate::agent_exposure_audit::types::AgentExposureCounts;
 
-mod checks;
+pub(crate) mod checks;
 mod json_scan;
-mod source_scan;
+pub(crate) mod source_scan;
 mod types;
 
 pub(crate) use types::{AgentExposureAuditReport, AgentExposureFinding};
