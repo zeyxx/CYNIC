@@ -74,10 +74,7 @@ fn execute_step(root: &Path, step: &SyncStep) -> SyncStepResult {
                 error: write_result.err().map(|e| e.to_string()),
             }
         }
-        SyncStep::Archive {
-            branch,
-            archive_ref,
-        } => {
+        SyncStep::Archive { branch, archive_ref } => {
             let output = Command::new("git")
                 .args(["branch", archive_ref, branch])
                 .current_dir(root)
@@ -113,9 +110,7 @@ fn execute_rollback(root: &Path, rollback: &RollbackIntent) {
                 .current_dir(root)
                 .output();
         }
-        RollbackIntent::ResetForgejo { to_sha: _ } => {
-            // Forgejo reset requires push — handled by the next sync cycle
-        }
+        RollbackIntent::ResetForgejo { to_sha: _ } => {}
     }
 }
 

@@ -42,10 +42,12 @@
     {
       "id": "origin",
       "role": "public_relay",
-      "url": "https://github.com/zeyxx/CYNIC.git",
+      "url": "git@github.com:zeyxx/CYNIC.git",
+      "credential_ref": "/etc/cynic/secrets/github-deploy-key",
       "notes": [
-        "Temporary collab/mirror while Forgejo is unrepaired.",
-        "Not runtime authority and not a substitute for cynic proof surfaces."
+        "SSH deploy key stored in /etc/cynic/secrets/github-deploy-key (mode 0600, root:cynic).",
+        "Not runtime authority and not a substitute for cynic proof surfaces.",
+        "Uses SecretMaterial::read_file() — key is never logged, never in env."
       ]
     }
   ],
