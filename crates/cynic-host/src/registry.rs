@@ -1101,9 +1101,7 @@ mod tests {
               ]
             }"#,
         );
-        unsafe {
-            std::env::set_var("HOSTNAME", "ubuntu");
-        }
+        let _hostname_fixture = pin_observed_hostname("ubuntu");
         let profile = resolve_current_host_profile(Some(path.to_str().expect("utf8 temp path")))
             .expect("profile resolved");
         assert_eq!(profile, HostProfile::NetworkNode);
@@ -1148,9 +1146,7 @@ mod tests {
               ]
             }"#,
         );
-        unsafe {
-            std::env::set_var("HOSTNAME", "cynic-host-cortex");
-        }
+        let _hostname_fixture = pin_observed_hostname("cynic-host-cortex");
         let link = resolve_current_host_direct_management_link(
             "10.10.10.0/24",
             Some(path.to_str().expect("utf8 temp path")),
@@ -1188,9 +1184,7 @@ mod tests {
               ]
             }"#,
         );
-        unsafe {
-            std::env::set_var("HOSTNAME", "cynic-host-cortex");
-        }
+        let _hostname_fixture = pin_observed_hostname("cynic-host-cortex");
         let link = resolve_current_host_direct_management_link(
             "10.10.10.0/24",
             Some(path.to_str().expect("utf8 temp path")),
@@ -1461,6 +1455,27 @@ mod tests {
             .as_nanos();
         let path = std::env::temp_dir().join(format!("cynic-host-registry-{unique}.json"));
         std::fs::write(&path, contents).expect("write fixture");
+        path
+    }
+
+    /// Pin the observed hostname for a test.
+    ///
+    /// `observed_hostname()` reads the hostname *file* first and only falls back
+    /// to `$HOSTNAME`, so setting the env var alone does not control the input on
+    /// any host that has `/etc/hostname` — the test then silently observes the
+    /// real machine and passes or fails by coincidence. Inject the declared
+    /// `CYNIC_HOSTNAME_PATH` port instead so the observation is hermetic.
+    fn pin_observed_hostname(hostname: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("cynic-host-hostname-{unique}"));
+        std::fs::write(&path, format!("{hostname}\n")).expect("write hostname fixture");
+        unsafe {
+            std::env::set_var("CYNIC_HOSTNAME_PATH", &path);
+            std::env::set_var("HOSTNAME", hostname);
+        }
         path
     }
 }
