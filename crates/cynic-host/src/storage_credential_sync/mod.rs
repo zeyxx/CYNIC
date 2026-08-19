@@ -1,7 +1,9 @@
 //! Storage credential sync port — observes whether SurrealDB credentials
 //! are synchronized across service config, password file, and live auth.
 
-use cynic_protocol::storage_credential_sync::{StorageCredentialSpec, StorageCredentialObservation};
+use cynic_protocol::storage_credential_sync::{
+    StorageCredentialObservation, StorageCredentialSpec,
+};
 
 /// Port for observing storage credential state.
 pub trait StorageCredentialSyncPort {
@@ -40,10 +42,7 @@ impl StorageCredentialSyncPort for StorageCredentialSyncAdapter {
                     .split(':')
                     .next()
                     .unwrap_or(""),
-                endpoint
-                    .split(':')
-                    .nth(2)
-                    .unwrap_or("8000")
+                endpoint.split(':').nth(2).unwrap_or("8000")
             );
             std::net::TcpStream::connect(&addr)
                 .map(|_| true)
@@ -89,8 +88,8 @@ impl StorageCredentialSyncPort for StorageCredentialSyncAdapter {
         };
 
         // 4. Password file presence and content match.
-        let password_file_present = std::path::Path::new("/etc/cynic/secrets/storage-runtime-password")
-            .exists();
+        let password_file_present =
+            std::path::Path::new("/etc/cynic/secrets/storage-runtime-password").exists();
         let password_file_matches = if password_file_present {
             std::fs::read_to_string("/etc/cynic/secrets/storage-runtime-password")
                 .map(|s| s.trim() == spec.password)
@@ -125,7 +124,7 @@ impl StorageCredentialSyncPort for StorageCredentialSyncAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::storage_credential_sync::StorageCredentialSyncPort;
+    use super::*;
 
     #[test]
     fn adapter_returns_observation() {
@@ -133,7 +132,7 @@ mod tests {
         let spec = StorageCredentialSpec {
             username: "root".into(),
             password: "cynic".into(),
-            endpoint: "http://127.0.0.1:9999".into(),  // unreachable
+            endpoint: "http://127.0.0.1:9999".into(), // unreachable
             namespace: "cynic".into(),
             database: "main".into(),
         };

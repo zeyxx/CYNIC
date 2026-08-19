@@ -51,7 +51,7 @@ impl FleetHeartbeatPort for InMemoryHeartbeatStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fleet_heartbeat::FleetNodeStatus;
+    use cynic_protocol::fleet_discovery::FleetNodeStatus;
 
     fn hb(id: &str, at: u64) -> FleetHeartbeat {
         FleetHeartbeat {

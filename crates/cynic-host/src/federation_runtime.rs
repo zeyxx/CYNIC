@@ -6,14 +6,15 @@
 //! composition is unit-testable without real infrastructure.
 
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_protocol::local_autonomy::{AutonomyObservation, decide_autonomy};
+use crate::os_health::observe::OsHealthObserver as OsHealthObserve;
 use cynic_protocol::emergence::EmergenceState;
 use cynic_protocol::federation::{FederationReconciliation, reconcile_federation};
+use cynic_protocol::local_autonomy::{AutonomyObservation, decide_autonomy};
 use cynic_protocol::node_control::NodeControlPlan;
-use cynic_protocol::runtime_takeover::RuntimeTakeoverObservation;
 use cynic_protocol::peer_resolver::PeerResolver;
-use crate::os_health::observe::OsHealthObserver as OsHealthObserve;
+use cynic_protocol::runtime_takeover::RuntimeTakeoverObservation;
 
 /// Port: observe kernel reachability and lease status.
 pub trait KernelObserver: Send + Sync {
@@ -96,9 +97,13 @@ impl FederationRuntime {
         let enrollment = self.enrollment.observe_enrollment();
         let takeover_obs = self.takeover.observe_takeover();
 
+        let now_unix_s = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
         let autonomy_obs = AutonomyObservation {
             schema: "cynic.local_autonomy_state.v1".to_string(),
-            observed_at_unix_s: 0,
+            observed_at_unix_s: now_unix_s,
             kernel_reachable: kernel.reachable,
             kernel_lease_valid: kernel.lease_valid,
             local_os_healthy: os.healthy,
@@ -125,7 +130,9 @@ impl FederationRuntime {
 
         let takeover_decision =
             if autonomy.mode == cynic_protocol::local_autonomy::AutonomyMode::Autonomous {
-                Some(cynic_protocol::runtime_takeover::decide_runtime_takeover(takeover_obs))
+                Some(cynic_protocol::runtime_takeover::decide_runtime_takeover(
+                    takeover_obs,
+                ))
             } else {
                 None
             };
@@ -271,7 +278,49 @@ impl TakeoverObserver for TakeoverObserverAdapter {
         }
     }
 }
+/// Default local node control plan adapter.
+pub struct LocalNodeControlAdapter;
 
+impl NodeControlPort for LocalNodeControlAdapter {
+    fn node_control_plan(&self) -> Option<NodeControlPlan> {
+        let path = std::path::Path::new("/etc/cynic/node-control-plan.json");
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(path) {
+                if let Ok(plan) = serde_json::from_str::<NodeControlPlan>(&content) {
+                    return Some(plan);
+                }
+            }
+        }
+        None
+    }
+}
+
+impl FederationRuntime {
+    /// Build a live federation runtime from registry path and node id.
+    pub fn live(registry_path: impl Into<String>, local_node_id: impl Into<String>) -> Self {
+        let reg_str = registry_path.into();
+        let node_str = local_node_id.into();
+
+        let kernel = Arc::new(KernelReachabilityObserver::new("127.0.0.1", vec![3030]));
+        let mesh = Arc::new(MeshPeerObserver::new(&reg_str, &node_str));
+        let os_health = Arc::new(OsHealthObserverAdapter);
+        let enrollment = Arc::new(EnrollmentObserverAdapter);
+        let takeover = Arc::new(TakeoverObserverAdapter {
+            primary_live: true,
+            fencing_token: 1,
+        });
+        let node_control = Arc::new(LocalNodeControlAdapter);
+
+        Self {
+            kernel,
+            mesh,
+            os_health,
+            enrollment,
+            takeover,
+            node_control,
+        }
+    }
+}
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -279,7 +328,7 @@ impl TakeoverObserver for TakeoverObserverAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::autonomy::AutonomyMode;
+    use cynic_protocol::local_autonomy::AutonomyMode;
     use cynic_protocol::node_control::{NodeControlConnectionState, NodeControlDecision};
 
     struct FakeKernel {
@@ -369,7 +418,9 @@ mod tests {
                 peers,
                 emergence_state: None,
             }),
-            os_health: Arc::new(FakeOsHealth { healthy: os_healthy }),
+            os_health: Arc::new(FakeOsHealth {
+                healthy: os_healthy,
+            }),
             enrollment: Arc::new(FakeEnrollment {
                 proven: enrollment_proven,
             }),
@@ -398,7 +449,7 @@ mod tests {
                     execution: None,
                     evidence_refs: vec![],
                     unknowns: vec![],
-                    epoch: None,
+                    // epoch removed in recent protocol revision
                 }),
             }),
         }

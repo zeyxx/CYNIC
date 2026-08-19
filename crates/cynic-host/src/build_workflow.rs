@@ -8,15 +8,12 @@
 //!
 //! The runtime itself is testable by injecting fake adapters.
 
-
-use cynic_protocol::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
 use cynic_protocol::build::BuildRecipe;
+use cynic_protocol::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
 use cynic_protocol::source_control::SourceSnapshot;
 
-use crate::build_evidence::{
-    BuildLeaseVerificationPort, BuildRunnerObservationPort,
-};
-use crate::build::{run_build, BuildProof, BuildRequest};
+use crate::build::{BuildProof, BuildRequest, run_build};
+use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
 use crate::update_lifecycle::ArgvRunner;
 
 /// Runtime configuration for the build workflow.
@@ -43,13 +40,9 @@ pub enum BuildWorkflowResult {
         grant_blockers: Vec<String>,
     },
     /// Workflow decided to plan. No execution attempted.
-    Planned {
-        proof: BuildProof,
-    },
+    Planned { proof: BuildProof },
     /// Workflow decided to execute. Build was run.
-    Executed {
-        proof: BuildProof,
-    },
+    Executed { proof: BuildProof },
 }
 
 /// Run the full build workflow: observe → verify → decide → (optionally) execute.
@@ -95,7 +88,11 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
             recipe_blockers,
             grant_blockers,
         }),
-        BuildWorkflowOutcome::Planned { envelope, input_admission, runner_admission } => {
+        BuildWorkflowOutcome::Planned {
+            envelope,
+            input_admission,
+            runner_admission,
+        } => {
             let request = BuildRequest {
                 input: input_admission,
                 runner_envelope: envelope,
@@ -112,7 +109,11 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
             let proof = run_build(&request, config.argv_runner);
             Ok(BuildWorkflowResult::Planned { proof })
         }
-        BuildWorkflowOutcome::Execute { envelope, input_admission, runner_admission } => {
+        BuildWorkflowOutcome::Execute {
+            envelope,
+            input_admission,
+            runner_admission,
+        } => {
             let request = BuildRequest {
                 input: input_admission,
                 runner_envelope: envelope,
@@ -135,11 +136,11 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
     use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
-    use crate::build::BuildRunnerObservation;
-    use cynic_protocol::{
-        LeaseGuard, LeaseVerification, SourceSnapshot, SecurityEvidenceState,
-    };
+    use cynic_protocol::build::BUILD_RECIPE_SCHEMA;
+    use cynic_protocol::BuildRunnerObservation;
+    use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
     fn valid_observation() -> BuildRunnerObservation {
         BuildRunnerObservation {
@@ -178,10 +179,15 @@ mod tests {
         BuildRecipe {
             schema: BUILD_RECIPE_SCHEMA.to_string(),
             action: "make:check".to_string(),
+            target_profile: "debug".to_string(),
+            allowed_actions: vec!["cargo:check".to_string()],
             target_crates: vec!["cynic-protocol".to_string()],
             excluded_crates: vec![],
             toolchain_override: None,
             env_overrides: vec![],
+            rust_min_stack: 536_870_912,
+            cargo_incremental: false,
+            memory_limit_bytes: None,
             max_parallel_jobs: 1,
             timeout_secs: 600,
             evidence_refs: vec![],
@@ -224,9 +230,7 @@ mod tests {
                 None,
             ),
         };
-        let argv_runner = MapArgvRunner {
-            responses: vec![],
-        };
+        let argv_runner = MapArgvRunner { responses: vec![] };
         let mut dirty_snapshot = valid_source_snapshot();
         dirty_snapshot.unstaged_paths = vec!["src/lib.rs".to_string()];
 
@@ -267,9 +271,7 @@ mod tests {
                 None,
             ),
         };
-        let argv_runner = MapArgvRunner {
-            responses: vec![],
-        };
+        let argv_runner = MapArgvRunner { responses: vec![] };
 
         let config = BuildWorkflowConfig {
             observation_adapter: &observation_adapter,
