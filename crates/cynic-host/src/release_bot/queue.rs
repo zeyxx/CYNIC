@@ -14,13 +14,13 @@ const QUEUE_TTL_SECONDS: u64 = 7 * 24 * 60 * 60; // 7 days
 pub struct QueuedRelease {
     pub schema: &'static str,
     pub queued_at_unix_s: u64,
-    pub source_sha: String,
     pub summary: String,
     pub commit_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReleaseQueue {
+    #[serde(borrow)]
     pub schema: &'static str,
     pub releases: VecDeque<QueuedRelease>,
 }
