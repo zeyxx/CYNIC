@@ -489,4 +489,27 @@ impl CynicMcpProxy {
             serde_json::to_string_pretty(&result).unwrap_or_default(),
         )]))
     }
+
+    #[tool(
+        name = "cynic_harness_progression",
+        description = "Evaluate whether the harness can progress from one kind to the next (lab → conformance → staging → canary → production). Requires explicit proof categories — no silent promotion. Returns ALLOWED with authority level or BLOCKED with reason."
+    )]
+    async fn cynic_harness_progression(
+        &self,
+        current_kind: String,
+        target_kind: String,
+        satisfied: Vec<String>,
+        unknown: Vec<String>,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_harness_progression(
+            &current_kind,
+            &target_kind,
+            &satisfied,
+            &unknown,
+        );
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
 }

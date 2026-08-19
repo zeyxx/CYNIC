@@ -521,6 +521,75 @@ impl cynic_host::federation_runtime::NodeControlPort for FederationNodeControl {
     }
 }
 
+/// Evaluate harness progression decision (pure, no IO).
+pub async fn run_harness_progression(
+    current_kind: &str,
+    target_kind: &str,
+    satisfied: &[String],
+    unknown: &[String],
+) -> serde_json::Value {
+    use cynic_host::harness_progression::{decide_harness_progression, HarnessProgressionEvidence, ProofCategory, RuntimeHarnessKind};
+
+    let parse_kind = |s: &str| -> Result<RuntimeHarnessKind, String> {
+        match s {
+            "lab" | "closed_local_lab" => Ok(RuntimeHarnessKind::ClosedLocalLab),
+            "conformance" => Ok(RuntimeHarnessKind::Conformance),
+            "staging" => Ok(RuntimeHarnessKind::Staging),
+            "canary" => Ok(RuntimeHarnessKind::Canary),
+            "production" => Ok(RuntimeHarnessKind::Production),
+            _ => Err(format!("unknown harness kind: {s}")),
+        }
+    };
+
+    let parse_cat = |s: &str| -> Result<ProofCategory, String> {
+        match s {
+            "bootstrap" => Ok(ProofCategory::Bootstrap),
+            "hardware" => Ok(ProofCategory::Hardware),
+            "host_conformance" => Ok(ProofCategory::HostConformance),
+            "build_reproduction" => Ok(ProofCategory::BuildReproduction),
+            "network" => Ok(ProofCategory::Network),
+            "target_attestation" => Ok(ProofCategory::TargetAttestation),
+            "rollback_intent" => Ok(ProofCategory::RollbackIntent),
+            _ => Err(format!("unknown proof category: {s}")),
+        }
+    };
+
+    let current = match parse_kind(current_kind) {
+        Ok(k) => k,
+        Err(e) => return serde_json::json!({ "status": "error", "error": e }),
+    };
+    let target = match parse_kind(target_kind) {
+        Ok(k) => k,
+        Err(e) => return serde_json::json!({ "status": "error", "error": e }),
+    };
+
+    let satisfied: Result<Vec<_>, _> = satisfied.iter().map(|s| parse_cat(s)).collect();
+    let satisfied = match satisfied {
+        Ok(v) => v,
+        Err(e) => return serde_json::json!({ "status": "error", "error": e }),
+    };
+
+    let unknown: Result<Vec<_>, _> = unknown.iter().map(|s| parse_cat(s)).collect();
+    let unknown = match unknown {
+        Ok(v) => v,
+        Err(e) => return serde_json::json!({ "status": "error", "error": e }),
+    };
+
+    let evidence = HarnessProgressionEvidence {
+        current_kind: current,
+        target_kind: target,
+        satisfied,
+        pending: vec![],
+        unknown,
+    };
+
+    let verdict = decide_harness_progression(&evidence);
+    serde_json::json!({
+        "status": "ok",
+        "verdict": verdict,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

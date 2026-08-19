@@ -1,6 +1,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
+use cynic_host::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessKind};
 use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 
 use crate::bootstrap_surface::ProfileArgs;
@@ -73,6 +74,18 @@ pub(crate) enum RuntimeCommand {
         json: bool,
         #[arg(long)]
         kind: Option<String>,
+    },
+    HarnessProgress {
+        #[arg(long, value_enum)]
+        current_kind: RuntimeHarnessKindArg,
+        #[arg(long, value_enum)]
+        target_kind: RuntimeHarnessKindArg,
+        #[arg(long, value_enum)]
+        satisfied: Vec<ProofCategoryArg>,
+        #[arg(long, value_enum)]
+        unknown: Vec<ProofCategoryArg>,
+        #[arg(long, default_value_t = false)]
+        json: bool,
     },
     Conformance {
         #[arg(long)]
@@ -399,8 +412,11 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             profile,
             proof,
         } => suite::execute_plan(json, registry.as_deref(), &profile, proof.as_deref()),
-        RuntimeCommand::Harness { json, kind } => {
-            host_checks::execute_harness(json, kind.as_deref())
+        RuntimeCommand::HarnessProgress { current_kind, target_kind, satisfied, unknown, json } => {
+            match execute_harness_progress(current_kind.clone(), target_kind.clone(), satisfied.clone(), unknown.clone(), *json) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => fail(e),
+            }
         }
         RuntimeCommand::Conformance { json, profile } => {
             host_checks::execute_conformance(json, &profile)
@@ -459,4 +475,83 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         | RuntimeCommand::Disk { .. }
         | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
     }
+}
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub(crate) enum RuntimeHarnessKindArg {
+    Lab,
+    Conformance,
+    Staging,
+    Canary,
+    Production,
+}
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub(crate) enum ProofCategoryArg {
+    Bootstrap,
+    Hardware,
+    HostConformance,
+    BuildReproduction,
+    Network,
+    TargetAttestation,
+    RollbackIntent,
+}
+
+impl From<RuntimeHarnessKindArg> for RuntimeHarnessKind {
+    fn from(arg: RuntimeHarnessKindArg) -> Self {
+        match arg {
+            RuntimeHarnessKindArg::Lab => RuntimeHarnessKind::ClosedLocalLab,
+            RuntimeHarnessKindArg::Conformance => RuntimeHarnessKind::Conformance,
+            RuntimeHarnessKindArg::Staging => RuntimeHarnessKind::Staging,
+            RuntimeHarnessKindArg::Canary => RuntimeHarnessKind::Canary,
+            RuntimeHarnessKindArg::Production => RuntimeHarnessKind::Production,
+        }
+    }
+}
+
+impl From<ProofCategoryArg> for cynic_host::harness_progression::ProofCategory {
+    fn from(arg: ProofCategoryArg) -> Self {
+        use cynic_host::harness_progression::ProofCategory;
+        match arg {
+            ProofCategoryArg::Bootstrap => ProofCategory::Bootstrap,
+            ProofCategoryArg::Hardware => ProofCategory::Hardware,
+            ProofCategoryArg::HostConformance => ProofCategory::HostConformance,
+            ProofCategoryArg::BuildReproduction => ProofCategory::BuildReproduction,
+            ProofCategoryArg::Network => ProofCategory::Network,
+            ProofCategoryArg::TargetAttestation => ProofCategory::TargetAttestation,
+            ProofCategoryArg::RollbackIntent => ProofCategory::RollbackIntent,
+        }
+    }
+}
+
+pub(crate) fn execute_harness_progress(
+    current_kind: RuntimeHarnessKindArg,
+    target_kind: RuntimeHarnessKindArg,
+    satisfied: Vec<ProofCategoryArg>,
+    unknown: Vec<ProofCategoryArg>,
+    json: bool,
+) -> Result<(), String> {
+    let evidence = cynic_host::harness_progression::HarnessProgressionEvidence {
+        current_kind: current_kind.into(),
+        target_kind: target_kind.into(),
+        satisfied: satisfied.into_iter().map(Into::into).collect(),
+        pending: vec![],
+        unknown: unknown.into_iter().map(Into::into).collect(),
+    };
+    let verdict = cynic_host::harness_progression::decide_harness_progression(&evidence);
+    if json {
+        let s = serde_json::to_string_pretty(&verdict)
+            .map_err(|e| format!("serialize failed: {e}"))?;
+        println!("{s}");
+    } else {
+        match &verdict {
+            HarnessProgressionVerdict::Allowed { current_kind, target_kind, authority } => {
+                println!("ALLOWED: {current_kind:?} -> {target_kind:?} (authority: {authority:?})");
+            }
+            HarnessProgressionVerdict::Blocked { reason, detail } => {
+                println!("BLOCKED: {reason} — {detail}");
+            }
+        }
+    }
+    Ok(())
 }

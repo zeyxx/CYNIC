@@ -17,6 +17,7 @@ pub mod domain;
 pub mod endpoint_observation;
 pub mod execution;
 pub mod federation_runtime;
+pub mod fleet_discovery;
 pub mod filesystem_observation;
 pub mod forgejo_control;
 pub mod framework_bootstrap;
