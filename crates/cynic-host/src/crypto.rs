@@ -73,15 +73,92 @@ impl CryptoProvider for Ed25519Provider {
 
     fn generate_keypair(&self) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
         let mut secret_bytes = [0u8; 32];
-        OsRng.fill_bytes(&mut secret_bytes); // OsRng is a ZST, but fill_bytes takes &mut self.
-        // Actually, in rand 0.8, OsRng is a unit struct.
-        // We need:
-        // let mut rng = OsRng;
-        // rng.fill_bytes(&mut secret_bytes);
+        OsRng.fill_bytes(&mut secret_bytes);
 
         let signing_key = SigningKey::from_bytes(&secret_bytes);
         let verifying_key = VerifyingKey::from(&signing_key);
 
         Ok((secret_bytes.to_vec(), verifying_key.to_bytes().to_vec()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generated_keypair_signs_and_verifies() {
+        let provider = Ed25519Provider;
+        let (secret, public) = provider.generate_keypair().expect("keypair");
+        assert_eq!(secret.len(), 32);
+        assert_eq!(public.len(), 32);
+
+        let message = b"cynic.machine_enrollment.v1";
+        let signature = provider.sign(message, &secret).expect("sign");
+        assert_eq!(signature.len(), 64);
+        assert!(
+            provider
+                .verify(message, &signature, &public)
+                .expect("verify")
+        );
+    }
+
+    #[test]
+    fn verification_refuses_a_tampered_message_or_signature() {
+        // A wrong signature must return Ok(false), never an error that a caller
+        // could mistake for a transport problem and retry into acceptance.
+        let provider = Ed25519Provider;
+        let (secret, public) = provider.generate_keypair().expect("keypair");
+        let signature = provider.sign(b"original", &secret).expect("sign");
+
+        assert!(
+            !provider
+                .verify(b"tampered", &signature, &public)
+                .expect("verify runs")
+        );
+
+        let mut flipped = signature.clone();
+        flipped[0] ^= 0x01;
+        assert!(
+            !provider
+                .verify(b"original", &flipped, &public)
+                .expect("verify runs")
+        );
+    }
+
+    #[test]
+    fn a_foreign_public_key_does_not_verify() {
+        let provider = Ed25519Provider;
+        let (secret, _) = provider.generate_keypair().expect("keypair a");
+        let (_, other_public) = provider.generate_keypair().expect("keypair b");
+        let signature = provider.sign(b"payload", &secret).expect("sign");
+
+        assert!(
+            !provider
+                .verify(b"payload", &signature, &other_public)
+                .expect("verify runs")
+        );
+    }
+
+    #[test]
+    fn malformed_key_material_is_rejected_as_invalid_key() {
+        let provider = Ed25519Provider;
+        assert!(matches!(
+            provider.sign(b"m", &[0u8; 31]),
+            Err(CryptoError::InvalidKey(_))
+        ));
+        assert!(matches!(
+            provider.verify(b"m", &[0u8; 64], &[0u8; 31]),
+            Err(CryptoError::InvalidKey(_))
+        ));
+    }
+
+    #[test]
+    fn two_generated_keypairs_differ() {
+        let provider = Ed25519Provider;
+        let (secret_a, public_a) = provider.generate_keypair().expect("keypair a");
+        let (secret_b, public_b) = provider.generate_keypair().expect("keypair b");
+        assert_ne!(secret_a, secret_b, "OsRng must not repeat key material");
+        assert_ne!(public_a, public_b);
     }
 }

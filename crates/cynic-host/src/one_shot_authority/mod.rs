@@ -1,4 +1,16 @@
 //! Local filesystem-backed authority for verifying and consuming one-shot capabilities.
+//!
+//! Module layout:
+//!  - `mod signer`  : signing port + local ed25519 adapter
+//!  - rest of this file : verification / consumption / crash recovery
+//!
+//! Splitting signing from verification keeps the two key operations
+//! behind independent ports (`CapabilitySigningPort` vs
+//! `OneShotCapabilityAuthorityPort`).
+
+mod signer;
+
+pub use signer::{CapabilitySigningPort, LocalCapabilitySigningKey};
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -209,6 +221,7 @@ fn write_new_durable(path: &Path, bytes: &[u8], exists_code: &str) -> Result<(),
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::one_shot_authority::OneShotCapabilityAuthorityPort;
     use ed25519_dalek::{Signer, SigningKey};
 
     fn signed_bootstrap_capability(
