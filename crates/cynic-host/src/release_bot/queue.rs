@@ -20,15 +20,14 @@ pub struct QueuedRelease {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReleaseQueue {
-    #[serde(borrow)]
-    pub schema: &'static str,
+    pub schema: String,
     pub releases: VecDeque<QueuedRelease>,
 }
 
 impl ReleaseQueue {
     pub fn new() -> Self {
         Self {
-            schema: "cynic.host.release_queue.v1",
+            schema: "cynic.host.release_queue.v1".to_string(),
             releases: VecDeque::new(),
         }
     }
