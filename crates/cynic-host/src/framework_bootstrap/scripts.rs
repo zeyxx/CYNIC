@@ -7,6 +7,10 @@ pub(crate) fn bootstrap_enroll_script() -> String {
     r#"#!/bin/sh
 set -eu
 
+# This is the one-time HumanAdmin boundary: it requires the registry-declared
+# MachineEnrollment principal (uid 0) and must not become a steady-state runtime
+# dependency. Runtime work runs under the cynic principal afterwards.
+
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 
 if [ "$(id -u)" != "0" ]; then
@@ -257,7 +261,17 @@ mod tests {
         let script = bootstrap_install_script(&artifacts());
 
         assert!(script.contains("$RUNTIME_INSTALL_ROOT/releases/bootstrap-$seed_digest"));
-        assert!(script.contains("ln -s \"releases/bootstrap-$seed_digest\" \"$current_next\""));
+        // The activation fragment links through the $desired_release variable
+        // (set once from the seed digest) rather than repeating the expanded
+        // path, so assert the actual emitted form.
+        assert!(
+            script.contains("desired_release=\"releases/bootstrap-$seed_digest\""),
+            "desired_release assignment missing"
+        );
+        assert!(
+            script.contains("ln -s \"$desired_release\" \"$current_next\""),
+            "current slot must be published atomically via $desired_release"
+        );
         assert!(
             script.contains("preflight_runtime_artifact 'cynic-mcp' '/usr/local/bin/cynic-mcp'")
         );
