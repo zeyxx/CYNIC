@@ -7,7 +7,7 @@ use crate::agent_exposure_audit::checks::{
     check_repo_access_profile, check_session_handshake, finding, repo_root,
 };
 use crate::agent_exposure_audit::json_scan::{count_tiers, domain_tools, exposed_tools, load_json};
-use crate::agent_exposure_audit::source_scan::scan_mcp_tool_names;
+use crate::agent_exposure_audit::source_scan::{scan_mcp_tool_names, scan_mcp_tools};
 use crate::agent_exposure_audit::types::AgentExposureCounts;
 
 mod checks;

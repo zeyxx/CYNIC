@@ -1,14 +1,8 @@
-//! Observe the 3 source layers — read-only, no mutation.
-//!
-//! Reads git state via shell commands (portable, no git2 dependency).
-//! Reports blockers without attempting repair.
-
 use std::path::Path;
 use std::process::Command;
 
 use super::types::{SourceLayer, SourceState, SyncObservation};
 
-/// Observe a single source layer.
 pub fn observe_layer(root: &Path, layer: SourceLayer) -> SourceState {
     let remote_url = match layer {
         SourceLayer::Cortex => None,
@@ -16,7 +10,7 @@ pub fn observe_layer(root: &Path, layer: SourceLayer) -> SourceState {
         SourceLayer::GitHub => read_remote_url(root, "origin"),
     };
 
-    let head_sha = read_head_sha(root);
+    let head_sha = read_rev_parse(root, "HEAD");
     let branch = read_current_branch(root);
     let reachable = check_remote_reachable(root, &layer);
     let dirty_files = if layer == SourceLayer::Cortex {
@@ -26,7 +20,6 @@ pub fn observe_layer(root: &Path, layer: SourceLayer) -> SourceState {
     };
 
     let (commits_ahead, commits_behind) = read_ahead_behind(root, &layer);
-
     let blockers = collect_blockers(root, &layer, &dirty_files, reachable);
 
     SourceState {
@@ -42,25 +35,18 @@ pub fn observe_layer(root: &Path, layer: SourceLayer) -> SourceState {
     }
 }
 
-/// Observe all 3 layers.
 pub fn observe_all_layers(root: &Path) -> SyncObservation {
-    let cortex = observe_layer(root, SourceLayer::Cortex);
-    let forgejo = observe_layer(root, SourceLayer::Forgejo);
-    let github = observe_layer(root, SourceLayer::GitHub);
-
     SyncObservation {
         schema: "cynic.host.source_sync_observation.v1",
-        cortex,
-        forgejo,
-        github,
+        cortex: observe_layer(root, SourceLayer::Cortex),
+        forgejo: observe_layer(root, SourceLayer::Forgejo),
+        github: observe_layer(root, SourceLayer::GitHub),
         timestamp_unix_s: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs(),
     }
 }
-
-// ── Private helpers ─────────────────────────────────────────────────
 
 fn read_remote_url(root: &Path, remote: &str) -> Option<String> {
     let output = Command::new("git")
@@ -69,20 +55,20 @@ fn read_remote_url(root: &Path, remote: &str) -> Option<String> {
         .output()
         .ok()?;
     if output.status.success() {
-        String::from_utf8(output.stdout).ok().map(|s| s.trim().to_string())
+        Some(String::from_utf8_lossy(output.stdout).trim().to_string())
     } else {
         None
     }
 }
 
-fn read_head_sha(root: &Path) -> Option<String> {
+fn read_rev_parse(root: &Path, reference: &str) -> Option<String> {
     let output = Command::new("git")
-        .args(["rev-parse", "HEAD"])
+        .args(["rev-parse", reference])
         .current_dir(root)
         .output()
         .ok()?;
     if output.status.success() {
-        String::from_utf8(output.stdout).ok().map(|s| s.trim().to_string())
+        Some(String::from_utf8_lossy(output.stdout).trim().to_string())
     } else {
         None
     }
@@ -95,9 +81,9 @@ fn read_current_branch(root: &Path) -> Option<String> {
         .output()
         .ok()?;
     if output.status.success() {
-        let branch = String::from_utf8(output.stdout).ok()?.trim().to_string();
+        let branch = String::from_utf8_lossy(output.stdout).trim().to_string();
         if branch == "HEAD" {
-            None // detached
+            None
         } else {
             Some(branch)
         }
@@ -121,49 +107,59 @@ fn check_remote_reachable(root: &Path, layer: &SourceLayer) -> bool {
 }
 
 fn read_dirty_files(root: &Path) -> Vec<String> {
-    let output = Command::new("git")
+    Command::new("git")
         .args(["status", "--porcelain"])
         .current_dir(root)
-        .output();
-    match output {
-        Ok(o) if o.status.success() => String::from_utf8(o.stdout)
-            .unwrap_or_default()
-            .lines()
-            .map(|l| l.trim().to_string())
-            .filter(|l| !l.is_empty())
-            .collect(),
-        _ => Vec::new(),
-    }
+        .output()
+        .map(|o| {
+            if o.status.success() {
+                String::from_utf8_lossy(&o.stdout)
+                    .lines()
+                    .map(|l| l.trim().to_string())
+                    .filter(|l| !l.is_empty())
+                    .collect()
+            } else {
+                Vec::new()
+            }
+        })
+        .unwrap_or_default()
 }
 
 fn read_ahead_behind(root: &Path, layer: &SourceLayer) -> (Option<u32>, Option<u32>) {
     let (upstream, downstream) = match layer {
         SourceLayer::Cortex => ("main", "forgejo/main"),
         SourceLayer::Forgejo => ("forgejo/main", "origin/main"),
-        SourceLayer::GitHub => return (None, None), // terminal layer
+        SourceLayer::GitHub => return (None, None),
     };
 
     let output = Command::new("git")
-        .args(["rev-list", "--left-right", "--count", &format!("{}...{}", upstream, downstream)])
+        .args([
+            "rev-list",
+            "--left-right",
+            "--count",
+            &format!("{}...{}", upstream, downstream),
+        ])
         .current_dir(root)
         .output();
 
-    match output {
-        Ok(o) if o.status.success() => {
-            let text = String::from_utf8(o.stdout).unwrap_or_default();
+    if let Ok(o) = output {
+        if o.status.success() {
+            let text = String::from_utf8_lossy(&o.stdout);
             let parts: Vec<&str> = text.trim().split_whitespace().collect();
             if parts.len() == 2 {
-                let ahead = parts[0].parse().ok();
-                let behind = parts[1].parse().ok();
-                return (ahead, behind);
+                return (parts[0].parse().ok(), parts[1].parse().ok());
             }
         }
-        _ => {}
     }
     (None, None)
 }
 
-fn collect_blockers(root: &Path, layer: &SourceLayer, dirty: &[String], reachable: bool) -> Vec<String> {
+fn collect_blockers(
+    root: &Path,
+    layer: &SourceLayer,
+    dirty: &[String],
+    reachable: bool,
+) -> Vec<String> {
     let mut blockers = Vec::new();
 
     if !reachable && *layer != SourceLayer::Cortex {
@@ -174,16 +170,17 @@ fn collect_blockers(root: &Path, layer: &SourceLayer, dirty: &[String], reachabl
         blockers.push(format!("cortex has {} dirty files", dirty.len()));
     }
 
-    // Check for merge conflicts markers
     if layer == &SourceLayer::Cortex {
-        let output = Command::new("git")
+        let conflicts = Command::new("git")
             .args(["diff", "--name-only", "--diff-filter=U"])
             .current_dir(root)
             .output();
-        if let Ok(o) = output {
+        if let Ok(o) = conflicts {
             if o.status.success() {
-                let conflicted = String::from_utf8(o.stdout).unwrap_or_default();
-                let count = conflicted.lines().filter(|l| !l.is_empty()).count();
+                let count = String::from_utf8_lossy(&o.stdout)
+                    .lines()
+                    .filter(|l| !l.is_empty())
+                    .count();
                 if count > 0 {
                     blockers.push(format!("{} unresolved merge conflicts", count));
                 }
@@ -201,7 +198,7 @@ mod tests {
 
     #[test]
     fn observe_cortex_returns_state() {
-        let root = PathBuf::from(".");
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let state = observe_layer(&root, SourceLayer::Cortex);
         assert_eq!(state.layer, SourceLayer::Cortex);
         assert!(state.head_sha.is_some());
@@ -209,7 +206,7 @@ mod tests {
 
     #[test]
     fn observe_all_returns_full_observation() {
-        let root = PathBuf::from(".");
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let obs = observe_all_layers(&root);
         assert_eq!(obs.cortex.layer, SourceLayer::Cortex);
         assert_eq!(obs.forgejo.layer, SourceLayer::Forgejo);

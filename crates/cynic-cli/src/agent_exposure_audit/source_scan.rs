@@ -4,53 +4,63 @@ use std::path::Path;
 
 use crate::rust_source::rust_files_under;
 
+#[derive(Debug, Clone)]
+pub(crate) struct McpToolDiscovery {
+    pub(crate) name: String,
+    pub(crate) description: String,
+    pub(crate) line: usize,
+}
+
 pub(crate) fn scan_mcp_tool_names(src_root: &Path) -> BTreeSet<String> {
-    let mut tools = BTreeSet::new();
+    scan_mcp_tools(src_root)
+        .into_iter()
+        .map(|t| t.name)
+        .collect()
+}
+
+pub(crate) fn scan_mcp_tools(src_root: &Path) -> Vec<McpToolDiscovery> {
+    let mut tools = Vec::new();
     for path in rust_files_under(src_root) {
         let Ok(source) = fs::read_to_string(&path) else {
             continue;
         };
-        tools.extend(extract_tool_names(&source));
+        tools.extend(extract_tools(&source));
     }
+    tools.sort_by(|a, b| a.name.cmp(&b.name));
     tools
 }
 
-pub(crate) fn extract_tool_names(source: &str) -> BTreeSet<String> {
-    let mut tools = BTreeSet::new();
-    let bytes = source.as_bytes();
-    let mut idx = 0usize;
+fn extract_tools(source: &str) -> Vec<McpToolDiscovery> {
+    let mut tools = Vec::new();
+    let mut idx = 0;
     while let Some(rel) = source[idx..].find("#[tool(") {
         let start = idx + rel;
-        let window = &source[start..source.len().min(start + 400)];
-        if let Some(name) = parse_tool_name(window) {
-            tools.insert(name);
+        let end = source[start..].find(']').unwrap_or(source.len() - start);
+        let block = &source[start..start + end];
+        let name = extract_attr_value(block, "name");
+        let description = extract_attr_value(block, "description");
+        if let Some(name) = name {
+            let line = source[..start].matches('\n').count() + 1;
+            tools.push(McpToolDiscovery {
+                name,
+                description: description.unwrap_or_default(),
+                line,
+            });
         }
         idx = start + 7;
-        if idx >= bytes.len() {
+        if idx >= source.len() {
             break;
         }
     }
     tools
 }
 
-fn parse_tool_name(window: &str) -> Option<String> {
-    let name_key = "name";
-    let mut rest = window;
-    while let Some(pos) = rest.find(name_key) {
-        let after = rest[pos + name_key.len()..].trim_start();
-        if !after.starts_with('=') {
-            rest = &rest[pos + name_key.len()..];
-            continue;
-        }
-        let after_eq = after[1..].trim_start();
-        if let Some(stripped) = after_eq.strip_prefix('"') {
-            if let Some(end) = stripped.find('"') {
-                return Some(stripped[..end].to_string());
-            }
-        }
-        rest = after;
-    }
-    None
+fn extract_attr_value(block: &str, key: &str) -> Option<String> {
+    let pattern = format!(r#"{}\s*=\s*"([^"]+)""#, regex::escape(key));
+    regex::Regex::new(&pattern)
+        .ok()
+        .and_then(|re| re.captures(block))
+        .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
 }
 
 #[cfg(test)]
@@ -69,7 +79,7 @@ mod tests {
             #[tool(name = "cynic_judge", description = "judge")]
             async fn judge() {}
         "#;
-        let names = extract_tool_names(source);
+        let names: BTreeSet<String> = extract_tools(source).into_iter().map(|t| t.name).collect();
         assert!(names.contains("cynic_health"));
         assert!(names.contains("cynic_judge"));
         assert_eq!(names.len(), 2);

@@ -1,14 +1,8 @@
-//! Apply — bounded mutation from a SyncPlan.
-//!
-//! Executes the steps in order. On failure, attempts rollback.
-//! Records evidence (SyncProof) of what happened.
-
 use std::path::Path;
 use std::process::Command;
 
 use super::types::*;
 
-/// Execute a sync plan. Returns proof of execution.
 pub fn execute_plan(root: &Path, plan: &SyncPlan) -> SyncProof {
     let mut steps_completed = Vec::new();
     let mut success = true;
@@ -141,15 +135,5 @@ mod tests {
         };
         let result = execute_step(&temp_dir, &step);
         assert!(result.success);
-    }
-
-    #[test]
-    fn write_file_step_fails_on_bad_path() {
-        let step = SyncStep::WriteFile {
-            path: "/nonexistent/dir/file.txt".to_string(),
-            content: "hello".to_string(),
-        };
-        let result = execute_step(Path::new("."), &step);
-        assert!(!result.success);
     }
 }

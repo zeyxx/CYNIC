@@ -104,7 +104,7 @@ pub struct ActivationActionPlan {
 }
 
 /// Post-action read-back proof.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ActivationProof {
     /// Activation succeeded — all read-backs passed.
     Activated {

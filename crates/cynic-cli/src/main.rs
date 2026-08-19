@@ -3,6 +3,7 @@ use std::process::ExitCode;
 
 use clap::{CommandFactory, Parser, Subcommand};
 mod agent_exposure_audit;
+mod mcp_call_proof_index;
 use agent_surface::AgentCommand;
 pub mod agent_surface;
 mod audit_surface;

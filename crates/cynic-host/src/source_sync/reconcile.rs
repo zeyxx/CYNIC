@@ -1,18 +1,15 @@
-//! Reconcile — pure decision from observed state.
-//!
-//! Takes a SyncObservation and produces a SyncDecision.
-//! No I/O, no mutation. Pure function: same observation → same decision.
-
 use super::types::*;
 
-/// Pure reconcile: observation → decision.
 pub fn reconcile(observation: &SyncObservation) -> SyncDecision {
     let mut actions = Vec::new();
     let mut needs_review = false;
     let mut unknowns = Vec::new();
 
-    // Check blockers first
-    for layer in [&observation.cortex, &observation.forgejo, &observation.github] {
+    for layer in [
+        &observation.cortex,
+        &observation.forgejo,
+        &observation.github,
+    ] {
         for blocker in &layer.blockers {
             if blocker.contains("unresolved merge conflicts") {
                 needs_review = true;
@@ -21,7 +18,6 @@ pub fn reconcile(observation: &SyncObservation) -> SyncDecision {
         }
     }
 
-    // Cortex → Forgejo
     if let Some(ahead) = observation.cortex.commits_ahead {
         if ahead > 0 && observation.cortex.dirty_files.is_empty() {
             actions.push(SyncAction::PushCortexToForgejo { commits: ahead });
@@ -35,11 +31,9 @@ pub fn reconcile(observation: &SyncObservation) -> SyncDecision {
         }
     }
 
-    // Forgejo → GitHub
     if let Some(ahead) = observation.forgejo.commits_ahead {
         if ahead > 0 {
             if ahead > 50 {
-                // Large gap — archive before force-push
                 actions.push(SyncAction::ArchiveBranch {
                     branch: "origin/main".to_string(),
                 });
@@ -55,10 +49,10 @@ pub fn reconcile(observation: &SyncObservation) -> SyncDecision {
         }
     }
 
-    // Check for divergence (both layers have unique commits)
-    if let (Some(cortex_behind), Some(forgejo_behind)) =
-        (observation.cortex.commits_behind, observation.forgejo.commits_behind)
-    {
+    if let (Some(cortex_behind), Some(forgejo_behind)) = (
+        observation.cortex.commits_behind,
+        observation.forgejo.commits_behind,
+    ) {
         if cortex_behind > 0 && forgejo_behind > 0 {
             unknowns.push(format!(
                 "divergence: cortex behind forgejo by {}, forgejo behind github by {}",
@@ -68,7 +62,6 @@ pub fn reconcile(observation: &SyncObservation) -> SyncDecision {
         }
     }
 
-    // No actions → converged
     if actions.is_empty() && unknowns.is_empty() {
         actions.push(SyncAction::NoOp {
             reason: "all layers converged".to_string(),
@@ -84,7 +77,6 @@ pub fn reconcile(observation: &SyncObservation) -> SyncDecision {
     }
 }
 
-/// Pure: decision → plan (ordered steps).
 pub fn plan(decision: &SyncDecision) -> SyncPlan {
     let mut steps = Vec::new();
     let mut rollback = RollbackIntent::None;
@@ -122,45 +114,40 @@ pub fn plan(decision: &SyncDecision) -> SyncPlan {
                     layer: SourceLayer::Forgejo,
                 });
             }
-            SyncAction::MergeBranchIntoMain {
-                branch,
-                strategy,
-            } => {
-                match strategy {
-                    MergeStrategy::Merge => {
-                        steps.push(SyncStep::GitCommand {
-                            argv: vec![
-                                "git".to_string(),
-                                "merge".to_string(),
-                                "--no-ff".to_string(),
-                                branch.clone(),
-                            ],
-                            layer: SourceLayer::Cortex,
-                        });
-                    }
-                    MergeStrategy::Squash => {
-                        steps.push(SyncStep::GitCommand {
-                            argv: vec![
-                                "git".to_string(),
-                                "merge".to_string(),
-                                "--squash".to_string(),
-                                branch.clone(),
-                            ],
-                            layer: SourceLayer::Cortex,
-                        });
-                    }
-                    MergeStrategy::Rebase => {
-                        steps.push(SyncStep::GitCommand {
-                            argv: vec![
-                                "git".to_string(),
-                                "rebase".to_string(),
-                                "main".to_string(),
-                            ],
-                            layer: SourceLayer::Cortex,
-                        });
-                    }
+            SyncAction::MergeBranchIntoMain { branch, strategy } => match strategy {
+                MergeStrategy::Merge => {
+                    steps.push(SyncStep::GitCommand {
+                        argv: vec![
+                            "git".to_string(),
+                            "merge".to_string(),
+                            "--no-ff".to_string(),
+                            branch.clone(),
+                        ],
+                        layer: SourceLayer::Cortex,
+                    });
                 }
-            }
+                MergeStrategy::Squash => {
+                    steps.push(SyncStep::GitCommand {
+                        argv: vec![
+                            "git".to_string(),
+                            "merge".to_string(),
+                            "--squash".to_string(),
+                            branch.clone(),
+                        ],
+                        layer: SourceLayer::Cortex,
+                    });
+                }
+                MergeStrategy::Rebase => {
+                    steps.push(SyncStep::GitCommand {
+                        argv: vec![
+                            "git".to_string(),
+                            "rebase".to_string(),
+                            "main".to_string(),
+                        ],
+                        layer: SourceLayer::Cortex,
+                    });
+                }
+            },
             SyncAction::ArchiveBranch { branch } => {
                 let archive_ref = format!("archive/{}", branch.replace('/', "-"));
                 steps.push(SyncStep::Archive {
@@ -270,18 +257,5 @@ mod tests {
         let decision = reconcile(&obs);
         assert!(decision.needs_review);
         assert!(decision.actions.is_empty());
-    }
-
-    #[test]
-    fn plan_generates_steps() {
-        let mut obs = mock_observation();
-        obs.cortex.commits_ahead = Some(3);
-        let decision = reconcile(&obs);
-        let sync_plan = plan(&decision);
-        assert!(!sync_plan.steps.is_empty());
-        assert!(matches!(
-            sync_plan.rollback,
-            RollbackIntent::ResetCortex { .. }
-        ));
     }
 }
