@@ -491,6 +491,22 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_node_activation",
+        description = "Activate a node — bounded action with read-back proof. Plans the activation (bootstrap/advance/takeover), checks consent (--yes), executes argv, performs read-back, returns proof (Activated/Failed/RolledBack). Mutates host — requires explicit consent."
+    )]
+    async fn cynic_node_activation(
+        &self,
+        node_id: String,
+        yes: bool,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_node_activation(&node_id, yes);
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_node_activation_status",
         description = "Observe node activation state: compose deployment_epoch + bootstrap_federation + runtime_takeover into a single verdict (Active/Activatable/Blocked). Identifies blockers preventing activation."
     )]

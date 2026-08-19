@@ -9,6 +9,7 @@ use cynic_protocol::bootstrap_federation::FederatedBootstrapObservation;
 use cynic_protocol::runtime_takeover_activation::{
     RuntimeTakeoverActivationObservation, RuntimeTakeoverActivationRequest,
 };
+use serde::Serialize;
 
 /// Port for observing node activation state.
 pub trait NodeActivationPort {
@@ -112,6 +113,86 @@ fn parse_declared_nodes(bytes: &[u8]) -> Result<Vec<DeclaredNode>, String> {
     Ok(nodes)
 }
 
+/// The result of an activation attempt.
+#[derive(Debug, Clone, Serialize)]
+pub struct ActivationReport {
+    pub node_id: String,
+    pub status: String,
+    pub result: Option<Result<cynic_protocol::node_activation::ActivationProof, String>>,
+    pub evidence_refs: Vec<String>,
+}
+
+impl NodeActivationAdapter {
+    /// Observe and activate a node — bounded action with read-back proof.
+    pub fn activate(&self, node_id: &str, consent: bool) -> ActivationReport {
+        // 1. Observe current state.
+        let verdict = self.observe(node_id);
+
+        // 2. Plan the bounded action.
+        let plan = match cynic_protocol::node_activation::plan_activation_action(&verdict) {
+            Ok(p) => p,
+            Err(e) => {
+                return ActivationReport {
+                    node_id: node_id.into(),
+                    status: "blocked".into(),
+                    result: None,
+                    evidence_refs: vec![],
+                };
+            }
+        };
+
+        // 3. Check consent.
+        if plan.requires_consent && !consent {
+            return ActivationReport {
+                node_id: node_id.into(),
+                status: "blocked".into(),
+                result: Some(Err("consent_required: --yes flag needed".into())),
+                evidence_refs: vec![],
+            };
+        }
+
+        // 4. Execute apply argv.
+        let apply_output = std::process::Command::new(&plan.apply_argv[0])
+            .args(&plan.apply_argv[1..])
+            .output();
+        let apply_success = apply_output.as_ref().map(|o| o.status.success()).unwrap_or(false);
+
+        // 5. Read-back.
+        let read_back_output = if apply_success {
+            std::process::Command::new(&plan.read_back_argv[0])
+                .args(&plan.read_back_argv[1..])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        // 6. Evaluate proof.
+        let proof = cynic_protocol::node_activation::evaluate_activation_proof(
+            &plan,
+            apply_success,
+            &read_back_output,
+            false,
+            "",
+        );
+
+        let status = match &proof {
+            cynic_protocol::node_activation::ActivationProof::Activated { .. } => "activated",
+            cynic_protocol::node_activation::ActivationProof::Failed { .. } => "failed",
+            cynic_protocol::node_activation::ActivationProof::RolledBack { .. } => "rolled_back",
+        };
+
+        ActivationReport {
+            node_id: node_id.into(),
+            status: status.into(),
+            result: Some(Ok(proof)),
+            evidence_refs: plan.expected_evidence_refs.clone(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,5 +216,13 @@ mod tests {
         assert!(matches!(&verdict,
             NodeActivationVerdict::Activatable { .. }
         ) | matches!(&verdict, NodeActivationVerdict::Blocked { .. }));
+    }
+
+    #[test]
+    fn activate_requires_consent() {
+        let adapter = NodeActivationAdapter::new("infra/registry.json");
+        let report = adapter.activate("cynic-lxc-forgejo", false);
+        assert_eq!(report.status, "blocked");
+        assert!(report.result.is_some());
     }
 }

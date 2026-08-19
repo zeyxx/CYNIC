@@ -835,6 +835,26 @@
         "name": "cynic_proxmox_exec",
         "tier": "legacy_breakglass",
         "mutation": "privileged_mutation"
+      },
+      {
+        "name": "cynic_node_activation",
+        "tier": "baseline_runtime",
+        "mutation": "local_mutation",
+        "citizenship": {
+          "schema": "cynic.agent_citizenship.v1",
+          "admission": "cynic_coord_claim",
+          "mutation_execution_contract": "cynic.agent_workload_envelope.v1",
+          "budgets_monotonic": true,
+          "scope_hierarchy": ["fleet", "node", "crate", "module", "file"],
+          "read_back": ["cynic_coord_claim_batch", "agent_completion_envelope"]
+        },
+        "purpose": "Activate a node — bounded action with read-back proof. Plans activation (bootstrap/advance/takeover), checks consent, executes argv, performs read-back, returns proof. Mutates host."
+      },
+      {
+        "name": "cynic_node_activation_status",
+        "tier": "baseline_runtime",
+        "mutation": "read_only",
+        "purpose": "Observe node activation state: compose deployment_epoch + bootstrap_federation + runtime_takeover into a single verdict (Active/Activatable/Blocked)."
       }
     ]
   },

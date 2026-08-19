@@ -79,6 +79,198 @@ pub enum ActivationAction {
     None,
 }
 
+/// The bounded action plan — what to execute, with rollback intent and
+/// stop condition.
+///
+/// Per AGENTS.md Coherence Pattern:
+///   bounded action = an explicit, reviewable mutation
+///   Every mutation is a small transaction.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActivationActionPlan {
+    /// Human-readable description of the action.
+    pub description: String,
+    /// The argv to execute (systemctl start, etc.).
+    pub apply_argv: Vec<String>,
+    /// Read-back argv — verify the action succeeded.
+    pub read_back_argv: Vec<String>,
+    /// Rollback argv — what to execute if read-back fails.
+    pub rollback_argv: Vec<String>,
+    /// Whether this action requires privilege (sudo/root).
+    pub requires_privilege: bool,
+    /// Whether explicit `--yes` consent is required.
+    pub requires_consent: bool,
+    /// Evidence refs that should be collected after the action.
+    pub expected_evidence_refs: Vec<String>,
+}
+
+/// Post-action read-back proof.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ActivationProof {
+    /// Activation succeeded — all read-backs passed.
+    Activated {
+        node_id: String,
+        evidence_refs: Vec<String>,
+    },
+    /// Activation failed — read-back detected the failure.
+    Failed {
+        node_id: String,
+        blockers: Vec<String>,
+    },
+    /// Activation was rolled back — read-back failed but rollback succeeded.
+    RolledBack {
+        node_id: String,
+        rollback_evidence_refs: Vec<String>,
+    },
+}
+
+/// Pure decision: plan the bounded action for an activatable node.
+///
+/// Returns the argv plan with rollback intent and stop condition.
+/// Never executes — that's the runtime's job.
+pub fn plan_activation_action(
+    verdict: &NodeActivationVerdict,
+) -> Result<ActivationActionPlan, String> {
+    match verdict {
+        NodeActivationVerdict::Activatable { node_id, next_action, .. } => {
+            match next_action {
+                ActivationAction::Bootstrap => Ok(ActivationActionPlan {
+                    description: format!("Bootstrap node {}", node_id),
+                    apply_argv: vec![
+                        "cynic".into(),
+                        "node".into(),
+                        "bootstrap".into(),
+                        node_id.clone(),
+                    ],
+                    read_back_argv: vec![
+                        "cynic".into(),
+                        "node".into(),
+                        "activation".into(),
+                        "status".into(),
+                        node_id.clone(),
+                    ],
+                    rollback_argv: vec![
+                        "cynic".into(),
+                        "node".into(),
+                        "deactivate".into(),
+                        node_id.clone(),
+                    ],
+                    requires_privilege: true,
+                    requires_consent: true,
+                    expected_evidence_refs: vec![
+                        format!("node://{}/bootstrap", node_id),
+                    ],
+                }),
+                ActivationAction::AdvanceDeployment { from, to } => Ok(ActivationActionPlan {
+                    description: format!("Advance deployment {:?} -> {:?}", from, to),
+                    apply_argv: vec![
+                        "cynic".into(),
+                        "deployment".into(),
+                        "advance".into(),
+                        format!("{:?}", from),
+                        format!("{:?}", to),
+                    ],
+                    read_back_argv: vec![
+                        "cynic".into(),
+                        "deployment".into(),
+                        "status".into(),
+                    ],
+                    rollback_argv: vec![
+                        "cynic".into(),
+                        "deployment".into(),
+                        "rollback".into(),
+                    ],
+                    requires_privilege: false,
+                    requires_consent: true,
+                    expected_evidence_refs: vec![
+                        format!("deployment://{:?}->{:?}", from, to),
+                    ],
+                }),
+                ActivationAction::ExecuteTakeover { fencing_token } => Ok(ActivationActionPlan {
+                    description: format!("Execute takeover (fencing_token={})", fencing_token),
+                    apply_argv: vec![
+                        "cynic".into(),
+                        "node".into(),
+                        "takeover".into(),
+                        "--fencing-token".into(),
+                        format!("{}", fencing_token),
+                    ],
+                    read_back_argv: vec![
+                        "cynic".into(),
+                        "node".into(),
+                        "activation".into(),
+                        "status".into(),
+                    ],
+                    rollback_argv: vec![
+                        "cynic".into(),
+                        "node".into(),
+                        "takeover".into(),
+                        "--rollback".into(),
+                    ],
+                    requires_privilege: true,
+                    requires_consent: true,
+                    expected_evidence_refs: vec![
+                        format!("takeover://fencing={}", fencing_token),
+                    ],
+                }),
+                ActivationAction::None => Err("no action needed".into()),
+            }
+        }
+        NodeActivationVerdict::Active { .. } => Err("node is already active".into()),
+        NodeActivationVerdict::Blocked { blockers, .. } => {
+            Err(format!("node is blocked: {:?}", blockers))
+        }
+    }
+}
+
+/// Pure decision: evaluate read-back proof after an activation action.
+pub fn evaluate_activation_proof(
+    plan: &ActivationActionPlan,
+    apply_success: bool,
+    read_back_output: &str,
+    rollback_performed: bool,
+    rollback_output: &str,
+) -> ActivationProof {
+    let node_id = plan
+        .apply_argv
+        .get(3)
+        .cloned()
+        .unwrap_or_else(|| "unknown".into());
+
+    if !apply_success {
+        if rollback_performed {
+            return ActivationProof::RolledBack {
+                node_id,
+                rollback_evidence_refs: vec![format!("rollback://{}", plan.description)],
+            };
+        }
+        return ActivationProof::Failed {
+            node_id,
+            blockers: vec!["apply_failed".into()],
+        };
+    }
+
+    // Parse read-back output — if it contains "active", success.
+    let read_back_ok = read_back_output.contains("active")
+        || read_back_output.contains("\"status\":\"ok\"");
+
+    if read_back_ok {
+        ActivationProof::Activated {
+            node_id,
+            evidence_refs: plan.expected_evidence_refs.clone(),
+        }
+    } else if rollback_performed {
+        ActivationProof::RolledBack {
+            node_id,
+            rollback_evidence_refs: vec![format!("rollback://{}: {}", plan.description, rollback_output)],
+        }
+    } else {
+        ActivationProof::Failed {
+            node_id,
+            blockers: vec![format!("read_back_failed: {}", read_back_output)],
+        }
+    }
+}
+
 /// Pure decision: compose deployment_epoch + bootstrap_federation + takeover
 /// into a single activation verdict.
 pub fn decide_node_activation(
@@ -377,5 +569,59 @@ mod tests {
             None,
         );
         assert!(matches!(&verdict, NodeActivationVerdict::Active { .. }));
+    }
+
+    #[test]
+    fn plan_for_bootstrap_verdict() {
+        let verdict = NodeActivationVerdict::Activatable {
+            node_id: "node-a".into(),
+            deployment_epoch_id: "epoch-1".into(),
+            required_authority: ActivationAuthority::ConformanceGate,
+            next_action: ActivationAction::Bootstrap,
+        };
+        let plan = plan_activation_action(&verdict).unwrap();
+        assert!(plan.requires_consent);
+        assert!(plan.requires_privilege);
+        assert_eq!(plan.apply_argv, vec!["cynic", "node", "bootstrap", "node-a"]);
+    }
+
+    #[test]
+    fn plan_for_blocked_verdict_fails() {
+        let verdict = NodeActivationVerdict::Blocked {
+            node_id: "node-a".into(),
+            deployment_epoch_id: None,
+            blockers: vec!["some_blocker".into()],
+        };
+        assert!(plan_activation_action(&verdict).is_err());
+    }
+
+    #[test]
+    fn proof_evaluation_activated() {
+        let plan = ActivationActionPlan {
+            description: "test".into(),
+            apply_argv: vec!["echo".into(), "hello".into()],
+            read_back_argv: vec!["true".into()],
+            rollback_argv: vec!["false".into()],
+            requires_privilege: false,
+            requires_consent: false,
+            expected_evidence_refs: vec!["test://evidence".into()],
+        };
+        let proof = evaluate_activation_proof(&plan, true, "{\"status\":\"ok\"}", false, "");
+        assert!(matches!(&proof, ActivationProof::Activated { .. }));
+    }
+
+    #[test]
+    fn proof_evaluation_failed_with_rollback() {
+        let plan = ActivationActionPlan {
+            description: "test".into(),
+            apply_argv: vec!["echo".into(), "hello".into()],
+            read_back_argv: vec!["true".into()],
+            rollback_argv: vec!["false".into()],
+            requires_privilege: false,
+            requires_consent: false,
+            expected_evidence_refs: vec!["test://evidence".into()],
+        };
+        let proof = evaluate_activation_proof(&plan, true, "FAIL", true, "rolled back");
+        assert!(matches!(&proof, ActivationProof::RolledBack { .. }));
     }
 }

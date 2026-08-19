@@ -528,6 +528,18 @@ impl cynic_host::federation_runtime::NodeControlPort for FederationNodeControl {
     }
 }
 
+/// Observe and activate a node (bounded action with read-back proof).
+pub async fn run_node_activation(node_id: &str, yes: bool) -> serde_json::Value {
+    use cynic_host::node_activation::{NodeActivationPort, NodeActivationAdapter};
+
+    let adapter = NodeActivationAdapter::new("infra/registry.json");
+    let report = adapter.activate(node_id, yes);
+    serde_json::json!({
+        "status": "ok",
+        "report": report,
+    })
+}
+
 /// Observe node activation state (deployment_epoch + bootstrap + takeover).
 pub async fn run_node_activation_status(node_id: &str) -> serde_json::Value {
     use cynic_host::node_activation::{NodeActivationPort, NodeActivationAdapter};
