@@ -258,6 +258,8 @@ mod tests {
                         .to_string(),
                 next_command: None,
                 approved_sources_declared: true,
+                provenance_selected: true,
+                provenance_blocker: None,
                 installed_packages: Vec::new(),
                 missing_packages: Vec::new(),
                 evidences: Vec::new(),

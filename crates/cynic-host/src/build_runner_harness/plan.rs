@@ -1,10 +1,8 @@
-use cynic_protocol::{
-    reconcile_harness_matrix, HarnessObservation,
-};
+use cynic_protocol::{HarnessObservation, reconcile_harness_matrix};
 
 use super::observe::observe_harness_scenarios;
 use super::registry::load_harness_scenarios;
-use super::types::{BuildRunnerHarnessReport, BUILD_RUNNER_HARNESS_REPORT_SCHEMA};
+use super::types::{BUILD_RUNNER_HARNESS_REPORT_SCHEMA, BuildRunnerHarnessReport};
 
 pub fn build_runner_harness_plan(
     registry_path: &str,
@@ -30,6 +28,8 @@ pub fn build_runner_harness_plan(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::build_runner_harness::types::BUILD_RUNNER_HARNESS_REPORT_SCHEMA;
+    use cynic_protocol::HarnessScenarioId;
     use cynic_protocol::HarnessStatus;
 
     #[test]
@@ -46,16 +46,20 @@ mod tests {
             .cell(HarnessScenarioId::BuilderStagingObserve)
             .expect("staging cell");
         assert_eq!(staging.status, HarnessStatus::Unknown);
-        assert!(staging
-            .unknowns
-            .contains(&"provider_observation_unavailable".to_string()));
+        assert!(
+            staging
+                .unknowns
+                .contains(&"provider_observation_unavailable".to_string())
+        );
 
         let canary = report
             .cell(HarnessScenarioId::BuilderCanaryApply)
             .expect("canary cell");
         assert_eq!(canary.status, HarnessStatus::Blocked);
-        assert!(canary
-            .blockers
-            .contains(&"staging_proof_missing".to_string()));
+        assert!(
+            canary
+                .blockers
+                .contains(&"staging_proof_missing".to_string())
+        );
     }
 }
