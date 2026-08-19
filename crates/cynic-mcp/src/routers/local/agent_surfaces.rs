@@ -491,6 +491,21 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_fleet_health",
+        description = "Aggregate fleet health from heartbeats. Detects silent nodes (no heartbeat within timeout), unexpected nodes (heartbeat but not in registry), and network partitions. Returns alive/degraded/unreachable counts, silent list, partition detection flag."
+    )]
+    async fn cynic_fleet_health(
+        &self,
+        heartbeat_timeout_s: u64,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = crate::local_tools::run_fleet_health(heartbeat_timeout_s);
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_storage_credential_sync",
         description = "Evaluate whether SurrealDB storage credentials are synchronized across service config, password file, and live auth. Diagnoses the known bug where /etc/cynic/secrets/storage-runtime-password contained a hash instead of plaintext 'cynic' — root cause of digestion_starvation. Returns SYNCHRONIZED, OUT_OF_SYNC (with repair action), or UNKNOWN."
     )]

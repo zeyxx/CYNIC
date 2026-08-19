@@ -26,6 +26,13 @@ pub(crate) enum FleetCommand {
         #[arg(long)]
         registry: Option<String>,
     },
+    /// Aggregate fleet health from heartbeats.
+    Health {
+        #[arg(long, default_value = "30")]
+        heartbeat_timeout_s: u64,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
@@ -53,5 +60,17 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
             let report = adapter.discover();
             crate::cli_json::emit_pretty_json(&report)
         }
-    }
+        FleetCommand::Health { heartbeat_timeout_s, json } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let registry_path =
+                resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
+            let adapter = cynic_host::fleet_health_observer::FleetHealthObserver::new(
+                registry_path.to_string_lossy().to_string(),
+                heartbeat_timeout_s,
+            );
+            let report = adapter.observe();
+            crate::cli_json::emit_pretty_json(&report)
+        }
 }

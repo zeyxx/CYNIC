@@ -521,6 +521,18 @@ impl cynic_host::federation_runtime::NodeControlPort for FederationNodeControl {
     }
 }
 
+/// Aggregate fleet health from heartbeats.
+pub async fn run_fleet_health(heartbeat_timeout_s: u64) -> serde_json::Value {
+    use cynic_host::fleet_health_observer::FleetHealthObserver;
+
+    let observer = FleetHealthObserver::new("infra/registry.json", heartbeat_timeout_s);
+    let report = observer.observe();
+    serde_json::json!({
+        "status": "ok",
+        "report": report,
+    })
+}
+
 /// Evaluate storage credential sync status (pure probe + decision).
 pub async fn run_storage_credential_sync(endpoint: &str) -> serde_json::Value {
     use cynic_host::storage_credential_sync::{StorageCredentialSyncPort, StorageCredentialSyncAdapter};

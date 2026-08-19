@@ -31,6 +31,7 @@ pub mod evidence;
 pub mod federation;
 pub mod federation_envelopes;
 pub mod fleet_discovery;
+pub mod fleet_heartbeat;
 pub mod emergence;
 pub mod local_autonomy;
 pub mod runtime_takeover;
