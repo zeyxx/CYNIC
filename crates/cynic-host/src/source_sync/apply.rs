@@ -3,12 +3,13 @@ use std::process::Command;
 
 use super::types::*;
 
+/// Execute a plan with optional credential injection.
 pub fn execute_plan(root: &Path, plan: &SyncPlan) -> SyncProof {
     let mut steps_completed = Vec::new();
     let mut success = true;
 
     for step in &plan.steps {
-        let result = execute_step(root, step);
+        let result = execute_step(root, step, None);
         if !result.success {
             success = false;
             steps_completed.push(result);
@@ -34,13 +35,73 @@ pub fn execute_plan(root: &Path, plan: &SyncPlan) -> SyncProof {
     }
 }
 
-fn execute_step(root: &Path, step: &SyncStep) -> SyncStepResult {
+/// Execute a plan with a credential resolver for authenticated pushes.
+pub fn execute_plan_with_credentials(
+    root: &Path,
+    plan: &SyncPlan,
+    credential_ref: Option<&str>,
+) -> SyncProof {
+    let resolver = crate::credential::SecretFileResolver::new(
+        crate::credential::SecretFileResolver::default_path(),
+    );
+
+    let credential = credential_ref.and_then(|r| resolver.resolve(r).ok());
+
+    let mut steps_completed = Vec::new();
+    let mut success = true;
+
+    for step in &plan.steps {
+        let result = execute_step(root, step, credential.as_ref());
+        if !result.success {
+            success = false;
+            steps_completed.push(result);
+            break;
+        }
+        steps_completed.push(result);
+    }
+
+    if !success {
+        execute_rollback(root, &plan.rollback);
+    }
+
+    SyncProof {
+        schema: "cynic.host.source_sync_proof.v1",
+        plan: plan.clone(),
+        executed_at_unix_s: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+        steps_completed,
+        success,
+        residual_unknowns: Vec::new(),
+    }
+}
+
+fn execute_step(root: &Path, step: &SyncStep, credential: Option<&crate::credential::Credential>) -> SyncStepResult {
     match step {
         SyncStep::GitCommand { argv, layer: _ } => {
-            let output = Command::new(&argv[0])
-                .args(&argv[1..])
-                .current_dir(root)
-                .output();
+            let mut cmd = Command::new(&argv[0]);
+            cmd.args(&argv[1..]).current_dir(root);
+
+            // Inject credential into environment if provided
+            if let Some(cred) = credential {
+                match cred {
+                    crate::credential::Credential::SshKey(key_path) => {
+                        cmd.env(
+                            "GIT_SSH_COMMAND",
+                            format!(
+                                "ssh -i {} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new",
+                                key_path.display()
+                            ),
+                        );
+                    }
+                    crate::credential::Credential::Token(token_path) => {
+                        cmd.env("GIT_ASKPASS", token_path.display().to_string());
+                    }
+                }
+            }
+
+            let output = cmd.output();
 
             match output {
                 Ok(o) => {
@@ -121,14 +182,14 @@ mod tests {
     #[test]
     fn write_file_step_succeeds() {
         let mut temp_dir = std::env::temp_dir();
-        temp_dir.push("cynic_test_sync");
+        temp_dir.push("cynic_test_sync_2");
         let _ = std::fs::create_dir_all(&temp_dir);
 
         let step = SyncStep::WriteFile {
             path: temp_dir.join("test.txt").to_string_lossy().to_string(),
             content: "hello".to_string(),
         };
-        let result = execute_step(&temp_dir, &step);
+        let result = execute_step(&temp_dir, &step, None);
         assert!(result.success);
     }
 }
