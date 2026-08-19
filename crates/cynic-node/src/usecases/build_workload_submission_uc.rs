@@ -80,7 +80,7 @@ impl BuildWorkloadSubmissionResult {
             mutation_attempted: (200..300).contains(&self.read_back.http_status),
             delivery,
             kernel_http_status: self.read_back.http_status,
-            delivery_read_back: self.read_back.body,
+            delivery_read_back: serde_json::Value::String(self.read_back.body),
             delivery_read_back_verified,
             delivery_read_back_violations: self.read_back_violations,
         }

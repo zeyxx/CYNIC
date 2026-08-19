@@ -224,10 +224,11 @@ pub(crate) async fn start_tasks(
         let builder_config = crate::usecases::builder_runtime::BuilderRuntimeConfig {
             listen_addr: scheduler_control.builder_listen_addr,
             signing_key_path: scheduler_control.signing_key_path.clone(),
-            registry_path: scheduler_control.registry_path.clone(),
+            registry_path: scheduler_control.registry_path.to_string_lossy().to_string(),
             state_root: scheduler_control.agent_workload_state_root.clone(),
-            workspace_root: scheduler_control.workspace_root.clone(),
+            workspace_root: scheduler_control.workspace_root.to_string_lossy().to_string(),
             node_id: scheduler_control.node_id.clone(),
+            kernel_url: scheduler_control.kernel_url.clone(),
         };
         let builder_shutdown = shutdown.clone();
         tasks.push(tokio::spawn(async move {

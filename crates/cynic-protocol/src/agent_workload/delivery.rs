@@ -690,9 +690,11 @@ mod tests {
 }
 
 
-pub fn parse_agent_workload_observation_read_back(body: &str) -> Result<AgentWorkloadDelivery, String> {
-    serde_json::from_str::<AgentWorkloadDelivery>(body)
-        .map_err(|e| format!("invalid_agent_workload_observation_read_back:{e}"))
+pub fn parse_agent_workload_observation_read_back(
+    body: &serde_json::Value,
+) -> Result<AgentWorkloadDelivery, Vec<String>> {
+    serde_json::from_value::<AgentWorkloadDelivery>(body.clone())
+        .map_err(|e| vec![format!("invalid_agent_workload_observation_read_back:{e}")])
 }
 
 pub fn validate_agent_workload_submission_read_back(delivery: &AgentWorkloadDelivery, body: &str) -> Vec<String> {

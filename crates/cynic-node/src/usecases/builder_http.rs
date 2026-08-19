@@ -1,9 +1,4 @@
 //! HTTP server for the builder runtime.
-//!
-//! Exposes:
-//!   - POST /webhook/forgejo — receive push/PR events from forgejo
-//!   - GET /health         — liveness probe
-//!   - GET /proofs/<id>    — read-back proof for a workload
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -17,18 +12,17 @@ use axum::{
 use tokio_util::sync::CancellationToken;
 
 use crate::ports::build_workload_grant_port::BuildWorkloadGrantSignerPort;
+use crate::ports::build_workload_submission_port::BuildWorkloadSubmissionPort;
 use crate::usecases::build_submission_orchestrator_uc::orchestrate_build_submission;
 use cynic_protocol::{BuildAgentRequest, BuildSourceReference};
 
-/// Application state shared across handlers.
 #[derive(Clone)]
 pub struct BuilderHttpState {
     pub config: BuilderHttpConfig,
-    /// Signer for workload grants (injected at startup).
     pub signer: Arc<dyn BuildWorkloadGrantSignerPort>,
+    pub submitter: Arc<dyn BuildWorkloadSubmissionPort>,
 }
 
-/// Configuration for the builder HTTP server.
 #[derive(Debug, Clone)]
 pub struct BuilderHttpConfig {
     pub node_id: String,
@@ -38,7 +32,6 @@ pub struct BuilderHttpConfig {
     pub workspace_root: String,
 }
 
-/// Response from the forgejo webhook handler.
 #[derive(Debug, serde::Serialize)]
 pub struct ForgejoWebhookResponse {
     pub status: String,
@@ -46,7 +39,6 @@ pub struct ForgejoWebhookResponse {
     pub message: String,
 }
 
-/// Health check response.
 #[derive(Debug, serde::Serialize)]
 pub struct HealthResponse {
     pub node_id: String,
@@ -54,17 +46,14 @@ pub struct HealthResponse {
     pub status: &'static str,
 }
 
-/// Start the builder HTTP server.
 pub async fn run_http_server(
     config: BuilderHttpConfig,
     signer: Arc<dyn BuildWorkloadGrantSignerPort>,
+    submitter: Arc<dyn BuildWorkloadSubmissionPort>,
     listen_addr: SocketAddr,
     shutdown: CancellationToken,
 ) -> Result<(), String> {
-    let state = BuilderHttpState {
-        config,
-        signer,
-    };
+    let state = BuilderHttpState { config, signer, submitter };
 
     let app = Router::new()
         .route("/webhook/forgejo", post(handle_forgejo_webhook))
@@ -72,39 +61,21 @@ pub async fn run_http_server(
         .route("/proofs/:id", get(handle_get_proof))
         .with_state(state);
 
-    tracing::info!(%listen_addr, "builder HTTP server listening");
-
     let listener = tokio::net::TcpListener::bind(listen_addr)
         .await
-        .map_err(|e| format!("failed to bind to {listen_addr}: {e}"))?;
+        .map_err(|e| format!("bind {listen_addr}: {e}"))?;
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(async move {
-            shutdown.cancelled().await;
-            tracing::info!("builder HTTP server shutting down");
-        })
+        .with_graceful_shutdown(async move { shutdown.cancelled().await; })
         .await
-        .map_err(|e| format!("HTTP server error: {e}"))?;
-
-    Ok(())
+        .map_err(|e| format!("HTTP server: {e}"))
 }
 
-/// Handle a forgejo webhook push/PR event.
 async fn handle_forgejo_webhook(
     State(state): State<BuilderHttpState>,
     Json(payload): Json<serde_json::Value>,
 ) -> (StatusCode, Json<ForgejoWebhookResponse>) {
-    tracing::debug!(?payload, "forgejo webhook received");
-
-    // Extract branch and commit from payload
-    let branch = payload
-        .get("ref")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    let commits = payload.get("commits").and_then(|v| v.as_array());
-
-    // Only build on main/master pushes
+    let branch = payload.get("ref").and_then(|v| v.as_str()).unwrap_or("");
     if branch != "refs/heads/main" && branch != "refs/heads/master" {
         return (
             StatusCode::OK,
@@ -116,8 +87,9 @@ async fn handle_forgejo_webhook(
         );
     }
 
-    // Extract the latest commit SHA
-    let commit_sha = commits
+    let commit_sha = payload
+        .get("commits")
+        .and_then(|v| v.as_array())
         .and_then(|arr| arr.first())
         .and_then(|c| c.get("id"))
         .and_then(|v| v.as_str())
@@ -134,7 +106,6 @@ async fn handle_forgejo_webhook(
         );
     }
 
-    // Extract repository URL
     let repo_url = payload
         .get("repository")
         .and_then(|r| r.get("clone_url"))
@@ -147,9 +118,6 @@ async fn handle_forgejo_webhook(
         .and_then(|v| v.as_str())
         .unwrap_or("main");
 
-    tracing::info!(commit = %commit_sha, branch = %branch, repo = %repo_url, "forgejo webhook triggering build");
-
-    // Construct BuildAgentRequest
     let request = BuildAgentRequest {
         schema: "cynic.node.build_agent_request.v1".into(),
         request_id: format!("forgejo-{commit_sha}"),
@@ -171,27 +139,24 @@ async fn handle_forgejo_webhook(
         evidence_refs: vec![],
     };
 
-    // Get current time
     let now_unix_s = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
-    // Call orchestrator
     match orchestrate_build_submission(
         &request,
         &state.config.registry_path,
         &state.config.workspace_root,
         state.signer.as_ref(),
+        state.submitter.as_ref(),
         now_unix_s,
-    ) {
+    )
+    .await
+    {
         Ok(plan) => {
-            let workload_id = plan.delivery.as_ref().map(|d| d.workload_id.clone());
-            let status = if plan.blockers.is_empty() {
-                "submitted"
-            } else {
-                "blocked"
-            };
+            let workload_id = plan.delivery.as_ref().map(|d| d.envelope.workload_id.clone());
+            let status = if plan.blockers.is_empty() { "submitted" } else { "blocked" };
             (
                 StatusCode::ACCEPTED,
                 Json(ForgejoWebhookResponse {
@@ -212,7 +177,6 @@ async fn handle_forgejo_webhook(
     }
 }
 
-/// Health check endpoint.
 async fn handle_health(State(state): State<BuilderHttpState>) -> Json<HealthResponse> {
     Json(HealthResponse {
         node_id: state.config.node_id.clone(),
@@ -221,7 +185,6 @@ async fn handle_health(State(state): State<BuilderHttpState>) -> Json<HealthResp
     })
 }
 
-/// Get proof for a workload.
 async fn handle_get_proof(
     State(state): State<BuilderHttpState>,
     Path(id): Path<String>,
@@ -232,18 +195,12 @@ async fn handle_get_proof(
             Ok(json) => (StatusCode::OK, Json(json)),
             Err(_) => (
                 StatusCode::OK,
-                Json(serde_json::json!({
-                    "status": "raw",
-                    "content": content,
-                })),
+                Json(serde_json::json!({ "status": "raw", "content": content })),
             ),
         },
         Err(_) => (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({
-                "status": "not_found",
-                "workload_id": id,
-            })),
+            Json(serde_json::json!({ "status": "not_found", "workload_id": id })),
         ),
     }
 }

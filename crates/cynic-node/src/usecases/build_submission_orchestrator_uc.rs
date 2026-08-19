@@ -16,16 +16,18 @@ use cynic_protocol::{
 use serde::Serialize;
 
 use crate::ports::build_workload_grant_port::BuildWorkloadGrantSignerPort;
+use crate::ports::build_workload_submission_port::BuildWorkloadSubmissionPort;
 use crate::usecases::build_workload_grant_uc::issue_signed_build_workload_grant;
 
 /// Full orchestration plan: admission + grant + submission.
 #[derive(Debug, Serialize)]
 pub struct BuildSubmissionPlan {
-    pub schema: &'static str,
+    pub schema: String,
     pub status: &'static str,
     pub admission: BuildAgentRequestAdmission,
     pub delivery: Option<AgentWorkloadDelivery>,
     pub grant: Option<GrantReport>,
+    pub submission: Option<SubmissionReport>,
     pub blockers: Vec<String>,
 }
 
@@ -40,12 +42,20 @@ pub struct GrantReport {
     pub expires_at_unix_s: u64,
 }
 
+/// Submission report (read-back from kernel).
+#[derive(Debug, Serialize)]
+pub struct SubmissionReport {
+    pub http_status: u16,
+    pub body: String,
+}
+
 /// Orchestrate: admit → grant → submit.
-pub fn orchestrate_build_submission(
+pub async fn orchestrate_build_submission(
     request: &BuildAgentRequest,
     registry_path: &str,
     workspace_root: &str,
     signer: &dyn BuildWorkloadGrantSignerPort,
+    submitter: &dyn BuildWorkloadSubmissionPort,
     now_unix_s: u64,
 ) -> Result<BuildSubmissionPlan, String> {
     // Step 1: Admit
@@ -57,6 +67,7 @@ pub fn orchestrate_build_submission(
             admission,
             delivery: None,
             grant: None,
+            submission: None,
             blockers: vec!["admission_blocked".to_string()],
         });
     }
@@ -71,6 +82,7 @@ pub fn orchestrate_build_submission(
                 admission,
                 delivery: None,
                 grant: None,
+                submission: None,
                 blockers: vec![format!("transport_resolution_failed:{e}")],
             });
         }
@@ -85,6 +97,7 @@ pub fn orchestrate_build_submission(
                 admission,
                 delivery: None,
                 grant: None,
+                submission: None,
                 blockers,
             });
         }
@@ -127,7 +140,12 @@ pub fn orchestrate_build_submission(
         committed_at_ms: now_unix_s * 1000,
     };
 
-    let grant = match issue_signed_build_workload_grant(&durable_record, &request.requested_by.clone(), now_unix_s, signer) {
+    let grant = match issue_signed_build_workload_grant(
+        &durable_record,
+        &request.requested_by.clone(),
+        now_unix_s,
+        signer,
+    ) {
         Ok(signed) => Some(GrantReport {
             schema: signed.schema,
             grant_id: signed.grant.grant_id,
@@ -143,17 +161,38 @@ pub fn orchestrate_build_submission(
                 admission,
                 delivery: Some(delivery),
                 grant: None,
+                submission: None,
                 blockers,
+            });
+        }
+    };
+
+    // Step 4: Submit to kernel
+    let submission = match submitter.submit(&delivery).await {
+        Ok(read_back) => Some(SubmissionReport {
+            http_status: read_back.http_status,
+            body: read_back.body,
+        }),
+        Err(e) => {
+            return Ok(BuildSubmissionPlan {
+                schema: "cynic.node.build_submission_plan.v1",
+                status: "blocked",
+                admission,
+                delivery: Some(delivery),
+                grant,
+                submission: None,
+                blockers: vec![format!("submission_failed:{e}")],
             });
         }
     };
 
     Ok(BuildSubmissionPlan {
         schema: "cynic.node.build_submission_plan.v1",
-        status: "admitted",
+        status: "submitted",
         admission,
         delivery: Some(delivery),
         grant,
+        submission,
         blockers: vec![],
     })
 }
@@ -197,6 +236,28 @@ mod tests {
         }
         fn sign(&self, _payload: &[u8]) -> Result<String, String> {
             Ok("a".repeat(128))
+        }
+    }
+
+    struct FakeSubmitter {
+        should_fail: bool,
+    }
+
+    #[async_trait::async_trait]
+    impl BuildWorkloadSubmissionPort for FakeSubmitter {
+        async fn submit(
+            &self,
+            _delivery: &AgentWorkloadDelivery,
+        ) -> Result<crate::ports::build_workload_submission_port::BuildWorkloadSubmissionReadBack, String>
+        {
+            if self.should_fail {
+                Err("submit failed".into())
+            } else {
+                Ok(crate::ports::build_workload_submission_port::BuildWorkloadSubmissionReadBack {
+                    http_status: 202,
+                    body: r#"{"status":"accepted"}"#.into(),
+                })
+            }
         }
     }
 
