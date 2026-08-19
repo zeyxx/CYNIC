@@ -181,7 +181,7 @@ pub(crate) fn run_dev_check(
         };
     let architecture_boundary_ok = steps
         .iter()
-        .any(|step| is_architecture_boundary_step(&step.id) && step.status == "ok");
+        .any(|step| is_architecture_boundary_step(&step.id) && step.status.eq("ok"));
 
     Ok(DevCheckReport {
         schema: SCHEMA,
@@ -281,7 +281,7 @@ fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
 
 fn architecture_boundary_step(target_root: &Path, id: String) -> DevCheckStep {
     DevCheckStep {
-        id,
+        id: id.clone(),
         program: "scripts/cargo",
         args: vec![
             "test",
@@ -291,7 +291,7 @@ fn architecture_boundary_step(target_root: &Path, id: String) -> DevCheckStep {
             "--test",
             "architecture_boundary",
         ],
-        target_dir: Some(target_root.join(id)),
+        target_dir: Some(target_root.join(&id)),
     }
 }
 

@@ -4,7 +4,6 @@ use cynic_protocol::RuntimeProofBundle;
 
 use crate::bootstrap_surface::{ProfileArgs, selected_host_context};
 use crate::{emit_json, fail};
-use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
 
 pub(crate) fn execute_harness(json: bool, kind: Option<&str>) -> ExitCode {
     if !json {
@@ -16,11 +15,7 @@ pub(crate) fn execute_harness(json: bool, kind: Option<&str>) -> ExitCode {
     }
 }
 
-pub(crate) fn execute_conformance(
-    json: bool,
-    profile: &ProfileArgs,
-    build_evidence_digest: Option<&str>,
-) -> ExitCode {
+pub(crate) fn execute_conformance(json: bool, profile: &ProfileArgs) -> ExitCode {
     if !json {
         return ExitCode::FAILURE;
     }
@@ -28,36 +23,10 @@ pub(crate) fn execute_conformance(
         Ok(value) => value,
         Err(error) => return fail(error),
     };
-    let build_evidence = match build_evidence_digest {
-        Some(digest) => match load_build_evidence(digest) {
-            Ok(proof) => Some(proof),
-            Err(error) => return fail(error),
-        },
-        None => None,
-    };
-    match cynic_host::conformance::observe_host_conformance_with_build_evidence(
-        selected,
-        resolution,
-        build_evidence.as_ref(),
-    ) {
+    match cynic_host::conformance::observe_host_conformance(selected, resolution) {
         Ok(report) => emit_json(&report, report.status != "qualified"),
         Err(error) => fail(error.to_string()),
     }
-}
-
-fn load_build_evidence(
-    digest: &str,
-) -> Result<cynic_host::build::BuildConformanceEvidence, String> {
-    let root = std::path::PathBuf::from(
-        cynic_host::runtime_layout::HostRuntimeLayout::from_env().state_dir,
-    )
-    .join("evidence");
-    let store =
-        cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore::new(root);
-    let envelope = store
-        .read(digest)?
-        .ok_or_else(|| "build_evidence_not_found".to_string())?;
-    cynic_host::build::BuildConformanceEvidence::from_content_addressed_envelope(digest, &envelope)
 }
 
 pub(crate) fn execute_metrics(json: bool, profile: &ProfileArgs, proof: Option<&str>) -> ExitCode {

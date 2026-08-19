@@ -2,7 +2,8 @@ use std::fs;
 use std::{env, io::Read, process::ExitCode};
 
 use cynic_inference::{
-    LocalRuntimeServiceAny, ModelStoreService, RuntimePlanner, consolidate_vault,
+    forge_profile_from_benchmark_report, LocalRuntimeServiceAny, ModelStoreService,
+    RuntimePlanner, consolidate_vault,
 };
 
 use super::emit_json;
@@ -462,3 +463,50 @@ pub(crate) fn execute_inference_plan(alias: &str, json: bool, apply: bool) -> Ex
         }
     }
 }
+
+/// `cynic runtime inference-forge --benchmark <report>`: derive a vault profile
+/// from a winning benchmark run and (when `--yes`) hand off to the inference
+/// supervisor.
+pub(crate) fn execute_inference_forge(
+    report_path: &str,
+    source_note: &str,
+    json: bool,
+    yes: bool,
+) -> ExitCode {
+    match forge_profile_from_benchmark_report(report_path, source_note) {
+        Ok(report) => {
+            let body = serde_json::json!({
+                "report": report,
+                "applied": yes,
+            });
+            if json {
+                emit_json(&body);
+            } else {
+                println!("Inference Forge (plan):");
+                println!("  Source:   {}  status={}", report.source, report.status);
+                println!("  Plan ID:  {}", report.plan_id);
+                println!("  Run ID:   {}", report.run_id);
+                println!("  Alias:    {}", report.alias);
+                println!("  Model ID: {}", report.model_id);
+                println!("  Model Path: {}", report.model_path);
+                println!("  Profile:  {}", report.profile_path);
+                if yes {
+                    println!("--yes set: handing off to inference-start.");
+                    return execute_inference_start(
+                        Some(report.alias.as_str()),
+                        json,
+                        /* yes */ true,
+                        /* no_wait */ false,
+                    );
+                }
+                println!("  (pass --yes to apply and launch.)");
+            }
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("inference forge error: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+

@@ -7,7 +7,7 @@ mod baseline;
 mod plan;
 mod policy;
 mod ports;
-mod report;
+pub mod report;
 mod runner;
 mod types;
 

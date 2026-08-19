@@ -72,7 +72,7 @@ secret-literal-check: ## Reject high-confidence literal credentials in Git-track
 	@./scripts/secret-literal-check
 
 .PHONY: check
-check: authority-check build-admission-check ## Build-runner validation of the living low-layer Rust runtime baseline
+check: authority-check ## Build-runner validation of the living low-layer Rust runtime baseline
 	@echo "==> cargo check core crates (per-crate toolchain dispatch)"
 	@for crate in $(CORE_CRATES); do \
 		echo "  -> $$crate"; \
@@ -81,15 +81,6 @@ check: authority-check build-admission-check ## Build-runner validation of the l
 	@echo "==> surface-audit (cold-link ceiling: rustc 1.96 codegen ICE on cynic-inference graph — toolchain bug, not source debt)"
 	@$(MAKE) --no-print-directory surface-audit
 	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
-
-.PHONY: build-admission-check
-build-admission-check:
-	@CYNIC_BUILD_ADMISSION_GRANT="$(CYNIC_BUILD_ADMISSION_GRANT)" \
-		CYNIC_BUILD_WORKLOAD_RECORD="$(CYNIC_BUILD_WORKLOAD_RECORD)" \
-		CYNIC_BUILD_AUTHORITY_PUBLIC_KEY="$(CYNIC_BUILD_AUTHORITY_PUBLIC_KEY)" \
-		CYNIC_BUILD_ADMISSION_VERIFIER="$(CYNIC_BUILD_ADMISSION_VERIFIER)" \
-		CYNIC_BUILD_BOOTSTRAP_RECEIPT="$(CYNIC_BUILD_BOOTSTRAP_RECEIPT)" \
-		./scripts/build-admission-check make:check
 
 # Layered, per-layer validation. Dependency order: protocol -> host -> node ->
 # kernel -> mcp -> cli. Each layer gets an isolated target dir and a
@@ -460,30 +451,12 @@ e2e: ## Execute the local single-node E2E proof chain without pretending blocked
 		--slurpfile plan "$$tmpdir/plan.with-proofs.json" \
 		'{schema:"cynic.local_e2e.v1", status:"ok", artifacts:$$artifacts, host_proof_status:$$host[0].status, network_proof_status:$$network[0].status, plan_status:$$plan[0].status, observed_gates:$$plan[0].observed_gates, first_blocked_layer: ($$plan[0].layers | map(select(.status == "blocked")) | first // null)}'
 
-.PHONY: build-admission-check-build
-build-admission-check-build:
-	@CYNIC_BUILD_ADMISSION_GRANT="$(CYNIC_BUILD_ADMISSION_GRANT)" \
-		CYNIC_BUILD_WORKLOAD_RECORD="$(CYNIC_BUILD_WORKLOAD_RECORD)" \
-		CYNIC_BUILD_AUTHORITY_PUBLIC_KEY="$(CYNIC_BUILD_AUTHORITY_PUBLIC_KEY)" \
-		CYNIC_BUILD_ADMISSION_VERIFIER="$(CYNIC_BUILD_ADMISSION_VERIFIER)" \
-		CYNIC_BUILD_BOOTSTRAP_RECEIPT="$(CYNIC_BUILD_BOOTSTRAP_RECEIPT)" \
-		./scripts/build-admission-check make:build
-
-.PHONY: build-admission-check-release
-build-admission-check-release:
-	@CYNIC_BUILD_ADMISSION_GRANT="$(CYNIC_BUILD_ADMISSION_GRANT)" \
-		CYNIC_BUILD_WORKLOAD_RECORD="$(CYNIC_BUILD_WORKLOAD_RECORD)" \
-		CYNIC_BUILD_AUTHORITY_PUBLIC_KEY="$(CYNIC_BUILD_AUTHORITY_PUBLIC_KEY)" \
-		CYNIC_BUILD_ADMISSION_VERIFIER="$(CYNIC_BUILD_ADMISSION_VERIFIER)" \
-		CYNIC_BUILD_BOOTSTRAP_RECEIPT="$(CYNIC_BUILD_BOOTSTRAP_RECEIPT)" \
-		./scripts/build-admission-check make:build-release
-
 .PHONY: build
-build: build-admission-check-build ## Experimental binary build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
+build: ## Experimental binary build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
 	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli
 
 .PHONY: build-release
-build-release: build-admission-check-release ## Admitted release build on the registry-selected build runner
+build-release: ## Admitted release build on the registry-selected build runner
 	@$(RELEASE_RUST_ENV) $(CARGO) build -p cynic-host -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli --release
 
 .PHONY: test

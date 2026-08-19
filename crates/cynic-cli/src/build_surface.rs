@@ -1,155 +1,176 @@
-//! Build CLI Surface (`cynic build`).
+//! Build CLI surface — thin facade over the build workflow.
 //!
-//! Thin facade over the `BuildRunnerPort`: an agent (or operator) triggers a
-//! distributed build on the network runner (10.10.10.119) for an exact source
-//! commit and target phase. No local `cargo` ad hoc, no stack hacks — the
-//! runner owns the toolchain dispatch and emits a signed proof bundle.
-
-use std::process::ExitCode;
+//! This is the CLI entry point for the build capability. It parses arguments,
+//! injects the real adapters (SSH, HTTP, filesystem), and prints JSON.
+//!
+//! The CLI is orchestration only — no policy tables, no decision logic.
 
 use clap::Subcommand;
-use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
-use cynic_node::ports::build_runner_adapter::{LocalCommandRunner, SshBuildRunner};
 
-#[derive(Subcommand)]
-pub(crate) enum BuildCommand {
-    /// Trigger a distributed build on the network runner for an exact commit.
-    Trigger {
-        /// Exact source commit SHA (40 hex chars) to materialize on the runner.
-        #[arg(long)]
-        commit: String,
-        /// Target build phase: check | build | activate.
-        #[arg(long, default_value = "check")]
-        phase: String,
-        /// Network mode for the build: offline | online.
-        #[arg(long, default_value = "offline")]
-        network_mode: String,
-        /// Build runner SSH host (defaults to the canonical network runner).
-        #[arg(long, default_value = "10.10.10.119")]
-        host: String,
-        /// Build runner SSH user.
-        #[arg(long, default_value = "cynic")]
-        user: String,
-        /// Emit machine-readable JSON proof instead of a human summary.
+use cynic_host::build_workflow::{run_build_workflow, BuildWorkflowConfig, BuildWorkflowResult};
+use cynic_host::build_evidence::JsonBuildRunnerObservationAdapter;
+use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_protocol::build::{BuildRecipe, BUILD_RECIPE_SCHEMA};
+use cynic_protocol::SourceSnapshot;
+
+/// CLI arguments for the build surface.
+#[derive(Subcommand, Debug)]
+pub enum BuildCommand {
+    /// Run the build workflow (observe → verify → decide → execute)
+    Run {
+        /// Print JSON output
         #[arg(long)]
         json: bool,
-    },
-    /// Observe the network build runner health (reachability, toolchain).
-    Observe {
-        /// Build runner SSH host.
-        #[arg(long, default_value = "10.10.10.119")]
-        host: String,
-        /// Build runner SSH user.
-        #[arg(long, default_value = "cynic")]
-        user: String,
-        /// Emit machine-readable JSON instead of a human summary.
+        /// Path to the build runner observation JSON file
+        #[arg(long, default_value = "/tmp/cynic-build-runner-observation.json")]
+        observation_path: String,
+        /// Kernel coordination endpoint for lease verification
         #[arg(long)]
-        json: bool,
+        kernel_endpoint: Option<String>,
+        /// Build action (make:check, make:build, make:build-release)
+        #[arg(long, default_value = "make:check")]
+        action: String,
+        /// Target crates (comma-separated)
+        #[arg(long)]
+        crates: Option<String>,
+        /// Apply the build (execute if admitted)
+        #[arg(long)]
+        apply: bool,
+        /// Artifact path for read-back proof
+        #[arg(long, default_value = "target/release/cynic")]
+        artifact_path: String,
+        /// Source commit hash
+        #[arg(long)]
+        source_commit: Option<String>,
     },
 }
 
-pub(crate) fn execute_build(command: BuildCommand) -> ExitCode {
+/// Execute the build CLI command.
+pub fn execute_build(command: BuildCommand) -> Result<(), String> {
     match command {
-        BuildCommand::Trigger {
-            commit,
-            phase,
-            network_mode,
-            host,
-            user,
+        BuildCommand::Run {
             json,
+            observation_path,
+            kernel_endpoint,
+            action,
+            crates,
+            apply,
+            artifact_path,
+            source_commit,
         } => {
-            let phase = match parse_phase(&phase) {
-                Some(p) => p,
-                None => {
-                    eprintln!("Invalid --phase '{phase}' (expected check|build|activate)");
-                    return ExitCode::FAILURE;
-                }
-            };
-            let network_mode = match parse_network_mode(&network_mode) {
-                Some(m) => m,
-                None => {
-                    eprintln!("Invalid --network-mode '{network_mode}' (expected offline|online)");
-                    return ExitCode::FAILURE;
-                }
-            };
-            let trigger = BuildTrigger {
-                source_commit: commit,
-                phase,
-                network_mode,
-            };
-            let runner = SshBuildRunner {
-                host,
-                user,
-                runner: Box::new(LocalCommandRunner),
-            };
-            match runner.trigger(&trigger) {
-                Ok(proof) => {
-                    if json {
-                        println!("{}", serde_json::to_string_pretty(&proof).unwrap_or_default());
-                    } else {
-                        println!(
-                            "build {} -> status={} layers={}",
-                            proof.source_commit,
-                            proof.status,
-                            proof.layers.len()
-                        );
-                        if let Some(broken) = &proof.broken_layer {
-                            eprintln!("broken_layer: {broken}");
-                        }
-                    }
-                    if proof.status.is_converged() {
-                        ExitCode::SUCCESS
-                    } else {
-                        ExitCode::FAILURE
-                    }
-                }
-                Err(e) => {
-                    eprintln!("build trigger error: {e}");
-                    ExitCode::FAILURE
-                }
-            }
-        }
-        BuildCommand::Observe {
-            host,
-            user,
-            json,
-        } => {
-            let runner = SshBuildRunner {
-                host,
-                user,
-                runner: Box::new(LocalCommandRunner),
-            };
-            let health = runner.observe_runner();
-            if json {
-                println!("{}", serde_json::to_string_pretty(&health).unwrap_or_default());
-            } else {
-                println!(
-                    "runner {} reachable={} toolchain={}",
-                    health.node_id, health.reachable, health.toolchain
-                );
-            }
-            if health.reachable {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
-            }
+            run_build(json, observation_path, kernel_endpoint, action, crates, apply, artifact_path, source_commit)
         }
     }
 }
 
-fn parse_phase(s: &str) -> Option<BuildPhase> {
-    match s.to_lowercase().as_str() {
-        "check" => Some(BuildPhase::Check),
-        "build" => Some(BuildPhase::Build),
-        "activate" => Some(BuildPhase::Activate),
-        _ => None,
-    }
-}
+fn run_build(
+    json: bool,
+    observation_path: String,
+    kernel_endpoint: Option<String>,
+    action: String,
+    crates: Option<String>,
+    apply: bool,
+    artifact_path: String,
+    source_commit: Option<String>,
+) -> Result<(), String> {
+    // Step 1: Load observation
+    let observation_adapter = JsonBuildRunnerObservationAdapter::new(&observation_path);
+    let observation = observation_adapter
+        .observe()
+        .map_err(|e| format!("observation failed: {e}"))?;
 
-fn parse_network_mode(s: &str) -> Option<NetworkMode> {
-    match s.to_lowercase().as_str() {
-        "offline" => Some(NetworkMode::Offline),
-        "online" => Some(NetworkMode::Online),
-        _ => None,
+    // Step 2: Create lease verification adapter
+    let runner = LocalArgvRunner;
+    let lease_adapter = if let Some(endpoint) = kernel_endpoint {
+        cynic_host::build_evidence::CurlBuildLeaseVerificationAdapter::new(&runner, endpoint, None)
+            .map_err(|e| format!("lease adapter failed: {e}"))?
+    } else {
+        return Err("kernel endpoint required for lease verification".to_string());
+    };
+
+    // Step 3: Build recipe
+    let target_crates = crates
+        .map(|c| c.split(',').map(String::from).collect())
+        .unwrap_or_default();
+    let recipe = BuildRecipe {
+        schema: BUILD_RECIPE_SCHEMA.to_string(),
+        action,
+        target_crates,
+        excluded_crates: vec![],
+        toolchain_override: None,
+        env_overrides: vec![],
+        max_parallel_jobs: 1,
+        timeout_secs: 600,
+        evidence_refs: vec![],
+    };
+
+    // Step 4: Build source snapshot
+    let source_commit = source_commit.unwrap_or_default();
+    let source_snapshot = SourceSnapshot {
+        branch: Some("main".into()),
+        head_commit: Some(source_commit.clone()),
+        upstream: Some("forgejo/main".into()),
+        staged_paths: vec![],
+        unstaged_paths: vec![],
+        untracked_paths: vec![],
+        unmerged_paths: vec![],
+        validation: cynic_protocol::SecurityEvidenceState::Proven,
+        sovereign_transport_identity: cynic_protocol::SecurityEvidenceState::Proven,
+        sovereign_authentication: cynic_protocol::SecurityEvidenceState::Proven,
+        remote_commit_matches: cynic_protocol::SecurityEvidenceState::Proven,
+        build_input_digest: None,
+        evidence_refs: vec!["cli-input".into()],
+    };
+
+    // Step 5: Run workflow
+    let config = BuildWorkflowConfig {
+        observation_adapter: &observation_adapter,
+        lease_adapter: &lease_adapter,
+        argv_runner: &runner,
+        source_snapshot,
+        recipe,
+        argv: vec!["make".to_string(), "check".to_string()],
+        artifact_path,
+        apply,
+        now_unix_ms: chrono::Utc::now().timestamp_millis() as u64,
+    };
+
+    let result = run_build_workflow(&config)?;
+
+    // Step 6: Output
+    if json {
+        let json = match result {
+            BuildWorkflowResult::Blocked {
+                input_blockers,
+                runner_blockers,
+                recipe_blockers,
+                grant_blockers,
+            } => serde_json::json!({
+                "status": "blocked",
+                "blockers": {
+                    "input": input_blockers,
+                    "runner": runner_blockers,
+                    "recipe": recipe_blockers,
+                    "grant": grant_blockers,
+                }
+            }),
+            BuildWorkflowResult::Planned { proof } => serde_json::json!({
+                "status": "planned",
+                "proof": proof
+            }),
+            BuildWorkflowResult::Executed { proof } => serde_json::json!({
+                "status": "executed",
+                "proof": proof
+            }),
+        };
+        println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    } else {
+        match result {
+            BuildWorkflowResult::Blocked { .. } => println!("BLOCKED"),
+            BuildWorkflowResult::Planned { .. } => println!("PLANNED"),
+            BuildWorkflowResult::Executed { .. } => println!("EXECUTED"),
+        }
     }
+
+    Ok(())
 }

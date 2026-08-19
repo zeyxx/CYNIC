@@ -82,6 +82,26 @@ pub fn run_loop(
     Ok(build_report(program, corpus_sessions, &candidates))
 }
 
+/// Run one full experiment loop with pre-computed units and hypotheses.
+/// Used when the caller has already observed traces and generated hypotheses
+/// (for example via separate adapters, or with offline reflection).
+pub fn run_loop_with_hypotheses(
+    program: &AutoresearchProgram,
+    units: &[TraceUnit],
+    hypotheses: &[SkillHypothesis],
+) -> AutoresearchReport {
+    let corpus_sessions = units
+        .iter()
+        .map(|u| u.session_id.as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    let candidates: Vec<SkillCandidate> = hypotheses
+        .iter()
+        .map(|h| evaluate_candidate(program, h, units))
+        .collect();
+    build_report(program, corpus_sessions, &candidates)
+}
+
 /// Deterministic fake reflection adapter for tests. Holds fixed observations and
 /// hypotheses so the loop + policy can be proven without any LLM or corpus file.
 pub struct FakeReflection {

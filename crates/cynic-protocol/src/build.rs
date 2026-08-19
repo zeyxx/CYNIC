@@ -10,7 +10,8 @@ pub use bootstrap_admission::{
 };
 pub mod recipe;
 use crate::{
-    LEASE_VERIFICATION_SCHEMA, LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot,
+    coordination_lease::{LeaseVerification, LEASE_VERIFICATION_SCHEMA},
+    LeaseGuard, SecurityEvidenceState, SourceSnapshot,
 };
 pub use recipe::{BUILD_RECIPE_SCHEMA, BuildRecipe, build_recipe, validate_build_recipe};
 

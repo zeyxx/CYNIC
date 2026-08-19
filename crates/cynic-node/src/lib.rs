@@ -18,8 +18,9 @@
 )]
 
 pub mod adapters;
-mod build_attestation;
-mod cli;
+pub mod build_attestation;
+pub mod build_executor;
+pub mod cli;
 mod dns_activation;
 mod dns_activation_status;
 mod dns_bundle;

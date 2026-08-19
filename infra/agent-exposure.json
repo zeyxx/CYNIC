@@ -364,6 +364,26 @@
           "mutation": "read_only"
         },
         {
+          "name": "cynic_fleet_discover",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_local_autonomy",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_emergence_elect",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_build_run",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
           "name": "cynic_verdicts",
           "tier": "product_domain",
           "mutation": "read_only"

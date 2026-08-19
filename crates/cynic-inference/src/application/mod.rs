@@ -1,5 +1,7 @@
 pub mod agent_harness;
 pub mod backend_verification;
+pub mod engine_selector;
+pub mod failure_gallery;
 pub mod bench_basket_launcher;
 pub mod chat_endpoint;
 pub mod chat_service;

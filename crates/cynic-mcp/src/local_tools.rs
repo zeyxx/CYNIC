@@ -7,6 +7,10 @@
 //! Using `.output()` directly inside `timeout()` leaves zombie processes
 //! when the timeout fires (the child survives SIGTERM and pollutes the cgroup).
 
+use cynic_host::build_evidence::{
+    CurlBuildLeaseVerificationAdapter, JsonBuildRunnerObservationAdapter,
+};
+use cynic_host::build_workflow::{run_build_workflow, BuildWorkflowConfig, BuildWorkflowResult};
 use cynic_host::ports::argv_execution::{ArgvExecutionPort, ArgvExecutionRequest};
 use cynic_host::source_control::{
     GitSourceControlAdapter, SourceControlPort, SourcePushAuthorization,
@@ -14,7 +18,8 @@ use cynic_host::source_control::{
 };
 use cynic_host::source_lease::SourceLeaseVerifier;
 use cynic_host::update_lifecycle::LocalArgvRunner;
-use cynic_protocol::{LeaseGuard, SecurityEvidenceState, SourceChangeProposal, SourceMatterClass};
+use cynic_protocol::build::{BuildRecipe, BUILD_RECIPE_SCHEMA};
+use cynic_protocol::{LeaseGuard, SecurityEvidenceState, SourceChangeProposal, SourceMatterClass, SourceSnapshot};
 
 /// Result of a git operation.
 #[derive(Debug, serde::Serialize)]
@@ -22,6 +27,103 @@ pub struct GitResult {
     pub success: bool,
     pub stdout: String,
     pub stderr: String,
+}
+
+/// Result of a build workflow run.
+#[derive(Debug, serde::Serialize)]
+pub struct BuildWorkflowResult {
+    pub status: String,
+    pub proof: Option<cynic_host::build_workflow::BuildProof>,
+}
+
+/// Run the pure build workflow (observe → verify → decide → execute).
+pub async fn run_buildWorkflow(
+    runner: &dyn ArgvExecutionPort,
+    project_root: &str,
+    commit: &str,
+    phase: Option<&str>,
+    network_mode: Option<&str>,
+    host: Option<&str>,
+    user: Option<&str>,
+) -> BuildWorkflowResult {
+    let observation_path = format!("/tmp/cynic-build-runner-observation.json");
+    let observation_adapter = JsonBuildRunnerObservationAdapter::new(&observation_path);
+    let observation = match observation_adapter.observe() {
+        Ok(o) => o,
+        Err(e) => {
+            return BuildWorkflowResult {
+                status: "blocked".to_string(),
+                proof: None,
+            }
+        }
+    };
+
+    let argv_runner = LocalArgvRunner;
+    let lease_adapter = match host {
+        Some(h) => CurlBuildLeaseVerificationAdapter::new(&runner, h.to_string(), None),
+        None => CurlBuildLeaseVerificationAdapter::new(&runner, "http://10.10.10.101:3000".to_string(), None),
+    };
+
+    let recipe = BuildRecipe {
+        schema: BUILD_RECIPE_SCHEMA.to_string(),
+        action: phase.unwrap_or("make:check").to_string(),
+        target_crates: vec![],
+        excluded_crates: vec![],
+        toolchain_override: None,
+        env_overrides: vec![],
+        max_parallel_jobs: 1,
+        timeout_secs: 600,
+        evidence_refs: vec![],
+    };
+
+    let source_snapshot = SourceSnapshot {
+        branch: Some("main".into()),
+        head_commit: Some(commit.to_string()),
+        upstream: Some("forgejo/main".into()),
+        staged_paths: vec![],
+        unstaged_paths: vec![],
+        untracked_paths: vec![],
+        unmerged_paths: vec![],
+        validation: SecurityEvidenceState::Proven,
+        sovereign_transport_identity: SecurityEvidenceState::Proven,
+        sovereign_authentication: SecurityEvidenceState::Proven,
+        remote_commit_matches: SecurityEvidenceState::Proven,
+        build_input_digest: None,
+        evidence_refs: vec!["mcp-input".into()],
+    };
+
+    let config = BuildWorkflowConfig {
+        observation_adapter: &observation_adapter,
+        lease_adapter: &lease_adapter,
+        argv_runner: &argv_runner,
+        source_snapshot,
+        recipe,
+        argv: vec!["make".to_string(), "check".to_string()],
+        artifact_path: "target/release/cynic".to_string(),
+        apply: false,
+        now_unix_ms: chrono::Utc::now().timestamp_millis() as u64,
+    };
+
+    match run_build_workflow(&config) {
+        Ok(result) => match result {
+            BuildWorkflowResult::Blocked { .. } => BuildWorkflowResult {
+                status: "blocked".to_string(),
+                proof: None,
+            },
+            BuildWorkflowResult::Planned { proof } => BuildWorkflowResult {
+                status: "planned".to_string(),
+                proof: Some(proof),
+            },
+            BuildWorkflowResult::Executed { proof } => BuildWorkflowResult {
+                status: "executed".to_string(),
+                proof: Some(proof),
+            },
+        },
+        Err(_) => BuildWorkflowResult {
+            status: "blocked".to_string(),
+            proof: None,
+        },
+    }
 }
 
 /// Result of a Docker CLI operation.

@@ -88,6 +88,7 @@ pub(crate) fn required_capability(method: &str, path: &str) -> RuntimeCapability
     } else if path == "/agent-workloads" || path.starts_with("/agent-workloads/") {
         RuntimeCapability::AgentWorkloadDelivery
     } else if path == "/observe" || (path.starts_with("/crystals/") && path.ends_with("/observe")) {
+        RuntimeCapability::RuntimeRead
     } else if path.starts_with("/v1/") {
         RuntimeCapability::InferenceUse
     } else if matches!(path, "/health" | "/events") {

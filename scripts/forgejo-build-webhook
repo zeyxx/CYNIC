@@ -6,7 +6,7 @@
 # Triggered by a Forgejo push or pull-request webhook. Forgejo POSTs a
 # JSON payload; this script extracts the exact source commit and triggers a
 # distributed build on the network runner via `cynic build` (which uses the
-# BuildRunnerPort → ssh 10.10.10.119 build-runner-bootstrap).
+# BuildRunnerPort → cynic-build-runner on 10.10.10.119).
 #
 # This is the "build as a side effect of a PR" surface (emergence B):
 #   forgejo push/PR  →  webhook  →  this script  →  cynic build --commit <sha>

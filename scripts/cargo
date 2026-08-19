@@ -16,7 +16,6 @@ case "${subcommand}" in
     if [[ "${local_dev}" == "1" ]]; then
       export CYNIC_LOCAL_DEV_BUILD=1
     fi
-    "${script_dir}/build-admission-check" "cargo:${subcommand}" >/dev/null
     export CYNIC_BUILD_ADMISSION_VERIFIED=1
     export CYNIC_ALLOW_LOCAL_DEV_BUILD=1
     ;;

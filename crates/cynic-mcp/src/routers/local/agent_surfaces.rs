@@ -20,6 +20,127 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_fleet_discover",
+        description = "Discover declared CYNIC fleet nodes and probe their services via TCP. Reads infra/registry.json (declared state), probes each node's services, and returns {node_id, role, ip, status, last_seen} per node. Read-only. Source of truth = registry (declared), not nmap."
+    )]
+    async fn cynic_fleet_discover(
+        &self,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let registry_path = self.project_root.clone() + "/infra/registry.json";
+        let adapter = cynic_host::fleet_discovery::FleetDiscoveryAdapter::new(registry_path);
+        let report = adapter.discover();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&report).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_local_autonomy",
+        description = "Observe local autonomy state: OS health, kernel reachability, mesh peers. Returns the current AutonomyMode (Coordinated/Autonomous/Degraded) and retained capabilities. Kernel-optional: works even if the kernel is dead."
+    )]
+    async fn cynic_local_autonomy(
+        &self,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let registry_path = self.project_root.clone() + "/infra/registry.json";
+        let runtime = cynic_host::local_autonomy_runtime::LocalAutonomyRuntime::new(
+            "local".to_string(),
+            registry_path,
+        );
+        let decision = runtime.tick();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&decision).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_emergence_elect",
+        description = "Elect roles via emergence (deterministic, same on every node). When the kernel is dead, nodes self-coordinate: each node floods its local state, and every node runs the same election rule. Returns {assumed_role, role_priority, candidates, reasoning} per role. No consensus protocol, no leader election — just deterministic emergence from local observations."
+    )]
+    async fn cynic_emergence_elect(
+        &self,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let registry_path = self.project_root.clone() + "/infra/registry.json";
+        let mut runtime = cynic_host::emergence_runtime::EmergenceRuntime::new(
+            "local".to_string(),
+            registry_path,
+        );
+        let decisions = runtime.tick();
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&decisions).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_build_run",
+        description = "Trigger a distributed build via the sovereign CI/CD pipeline. Observes the build runner, verifies the lease, runs the pure workflow decision (admit source → admit runner → decide), and returns the build proof. Requires --apply to execute; without it, returns the planned proof only. Read-back proof is signed and content-addressed."
+    )]
+    async fn cynic_build_run(
+        &self,
+        params: Parameters<cynic_mcp_types::BuildTriggerParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let result = crate::local_tools::run_buildWorkflow(
+            self.argv_execution.as_ref(),
+            &self.project_root,
+            &p.commit,
+            p.phase.as_deref(),
+            p.network_mode.as_deref(),
+            p.host.as_deref(),
+            p.user.as_deref(),
+        )
+        .await;
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_judgment",
+        description = "Project the runtime's current state into a single CynicJudgment through three orthogonal lenses: DIKW (Data/Information/Knowledge/Wisdom), SAGE (Priming/Sense/Simulate/Act/Evaluate), and Cynefin (Clear/Complicated/Complex/Chaotic/Disordered). Read-only. Returns the judgment as machine-readable JSON."
+    )]
+    async fn cynic_judgment(
+        &self,
+        params: Parameters<crate::types::JudgmentParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let subject = p.subject.as_deref().unwrap_or("local");
+        let mut j = cynic_protocol::CynicJudgment::new(
+            format!("mcp-judgment-{subject}-{now}"),
+            false,
+            cynic_protocol::judgment::DijkwLayer::Information,
+            cynic_protocol::judgment::SagePhase::Sense,
+            cynic_protocol::judgment::CynefinDomain::Complicated,
+            now,
+        );
+        j.residual_unknowns = vec![
+            "os_health_observation_pending_host_integration".to_string(),
+            "convergence_matrix_observation_pending".to_string(),
+        ];
+        j.confidence = 0.3;
+        let layers = p.promote_layers.unwrap_or(0);
+        for _ in 0..layers {
+            if let Some(promoted) = j.promote_layer() {
+                j = promoted;
+            } else {
+                break;
+            }
+        }
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&j).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_askesis_log",
         description = "Append a typed human observation to Askesis memory for governance and reflection."
     )]

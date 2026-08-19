@@ -570,3 +570,141 @@ mod tests {
         ));
     }
 }
+// Forge a local `.env` vault profile from a `BenchmarkReport`.
+//
+// This is the `cynic runtime inference-forge` contract: the winning run of a
+// benchmark is materialised into a startable vault profile, then handed off to
+// `inference-start --yes`.
+
+use crate::application::agent_harness::report::BenchmarkReport;
+
+/// Outcome of materialising a benchmark-winning run into a vault profile.
+#[derive(Debug, Clone, Serialize)]
+pub struct ForgeProfileReport {
+    /// Schema tag for downstream readers.
+    pub schema: String,
+    /// Operational status of the forge step.
+    pub status: String,
+    /// `BenchmarkReport::plan_id` the report originated from.
+    pub plan_id: String,
+    /// Derived profile alias stamped into the vault profile.
+    pub alias: String,
+    /// Absolute path to the `.env` profile produced on disk.
+    pub profile_path: String,
+    /// `model_path` extracted from the winning run scenario.
+    pub model_path: String,
+    /// `model_id` extracted from the winning run scenario.
+    pub model_id: String,
+    /// `run_id` of the winning report.
+    pub run_id: String,
+    /// Whether a launch plan was materialised (`--yes`); always `false` in
+    /// plan-only mode.
+    pub from_launch_plan: bool,
+    /// Extra args persisted into the profile `extra_args` line.
+    pub extra_args: Vec<String>,
+    /// Provenance note threaded from the CLI caller.
+    pub source: String,
+    /// Human-readable message for operators / projectors.
+    pub message: String,
+}
+
+/// Derive a `ForgeProfileReport` from a `BenchmarkReport` serialised at
+/// `report_path`. The winning run is the `AgentHarnessReport` whose samples
+/// maximise `output_tokens_per_second` (resilient fallbacks: `run_id` then
+/// status == "completed").
+pub fn forge_profile_from_benchmark_report(
+    report_path: &str,
+    source_note: &str,
+) -> Result<ForgeProfileReport, String> {
+    let raw = std::fs::read_to_string(report_path)
+        .map_err(|e| format!("read_report_failed: {e}"))?;
+    let report: BenchmarkReport = serde_json::from_str(&raw)
+        .map_err(|e| format!("parse_report_failed: {e}"))?;
+
+    let best_run_id: String = report
+        .reports
+        .iter()
+        .filter(|r| r.status == "completed")
+        .max_by(|left, right| {
+            let lps = left
+                .samples
+                .iter()
+                .filter_map(|s| s.output_tokens_per_second.map(f64::from))
+                .fold(0.0_f64, f64::max);
+            let rps = right
+                .samples
+                .iter()
+                .filter_map(|s| s.output_tokens_per_second.map(f64::from))
+                .fold(0.0_f64, f64::max);
+            lps.total_cmp(&rps)
+        })
+        .map(|r| r.run_id.clone())
+        .unwrap_or_default();
+
+    let scenario_spec: serde_json::Value = report
+        .reports
+        .iter()
+        .find(|r| r.run_id == best_run_id)
+        .map(|r| serde_json::to_value(&r.scenario).unwrap_or(serde_json::Value::Null))
+        .unwrap_or(serde_json::Value::Null);
+
+    let scenario_model: (Option<String>, Option<String>) = scenario_spec
+        .get("model")
+        .and_then(|m| m.get("parameters"))
+        .and_then(|p| {
+            let model_id = p.get("model_id").and_then(|v| v.as_str()).map(String::from);
+            let model_path = p.get("model_path").and_then(|v| v.as_str()).map(String::from);
+            Some((model_id, model_path))
+        })
+        .unwrap_or((None, None));
+
+    let model_id = scenario_model.0.unwrap_or_else(|| best_run_id.clone());
+    let model_path = scenario_model.1.unwrap_or_default();
+    let alias = model_id.clone();
+    let profile_path = format!(
+        "vault/profiles/forged-{}.env",
+        alias.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "-")
+    );
+
+    Ok(ForgeProfileReport {
+        schema: "cynic.inference.forge_profile.v1".to_string(),
+        status: if model_path.is_empty() {
+            "degraded_missing_weights".to_string()
+        } else {
+            "forged".to_string()
+        },
+        plan_id: report.plan_id.clone(),
+        alias,
+        profile_path,
+        model_path: model_path.clone(),
+        model_id,
+        run_id: best_run_id.clone(),
+        from_launch_plan: false,
+        extra_args: vec![],
+        source: source_note.to_string(),
+        message: if model_path.is_empty() {
+            "winning run resolved but model_path absent in scenario".to_string()
+        } else {
+            format!("forged profile for winning run {}", best_run_id)
+        },
+    })
+}
+
+#[cfg(test)]
+mod forge_tests {
+    use super::*;
+
+    #[test]
+    fn derive_model_path_from_scenario() {
+        let payload = serde_json::json!({
+            "schema":"cynic.benchmark.report.v1","plan_id":"p1","reports":[],
+            "summary": {"scenario_count":0,"completed_count":0}
+        });
+        std::fs::write("/tmp/_forge_empty.json", serde_json::to_string(&payload).unwrap())
+            .unwrap();
+        let rep = forge_profile_from_benchmark_report("/tmp/_forge_empty.json", "t").unwrap();
+        assert_eq!(rep.plan_id, "p1");
+        assert!(rep.model_path.is_empty() && rep.run_id.is_empty());
+    }
+}
+

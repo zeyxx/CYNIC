@@ -445,7 +445,7 @@
           "authority_class": "MachineEnrollment",
           "adapter": "ssh_machine_enrollment",
           "scope": "n_minus_one_seed_only",
-          "entrypoint": "scripts/build-runner-bootstrap",
+          "entrypoint": "cynic-host-exec build-runner-bootstrap",
           "removal_requires": [
             "node_substrate_provisioning_read_back",
             "source_snapshot_transport_read_back",
