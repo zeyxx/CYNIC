@@ -130,10 +130,7 @@ mod tests {
             &self,
             policy: &crate::domain::packages::PackagePolicy,
         ) -> PackageObservedState {
-            PackageObservedState {
-                installed_packages: policy.bootstrap_packages.clone(),
-                ..Default::default()
-            }
+            crate::domain::packages::promoted_package_state(policy.bootstrap_packages.clone())
         }
     }
 

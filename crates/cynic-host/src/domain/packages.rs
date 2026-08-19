@@ -85,6 +85,35 @@ impl Default for PackageObservedState {
     }
 }
 
+/// Fixed "now" for promotion assessment in tests, past the policy age floors.
+#[cfg(test)]
+pub(crate) const TEST_PROMOTION_NOW_UNIX_S: u64 = 1_800_000_000;
+
+/// An observed package state whose promotion satisfies
+/// `PackagePromotionPolicy::critical_infrastructure()`.
+///
+/// `PackageObservedState::default()` leaves promotion unapproved — the correct
+/// default, since approval must never be implicit. But a fake observer that
+/// wants to exercise a *downstream* path (services, bootstrap stages,
+/// conformance, metrics) then stalls on a Blocked package domain that has
+/// nothing to do with what it is testing. Such fakes should call this helper
+/// instead of re-deriving the promotion evidence at each site.
+#[cfg(test)]
+pub(crate) fn promoted_package_state(installed_packages: Vec<String>) -> PackageObservedState {
+    const WEEK: u64 = 7 * 24 * 60 * 60;
+    PackageObservedState {
+        installed_packages,
+        promotion: PackagePromotionObservation {
+            metadata_observed_at_unix_s: Some(TEST_PROMOTION_NOW_UNIX_S - 60),
+            candidate_observed_at_unix_s: Some(TEST_PROMOTION_NOW_UNIX_S - (WEEK + 60)),
+            signature_verified: true,
+            human_approval_count: 1,
+            emergency: false,
+        },
+        promotion_assessed_at_unix_s: TEST_PROMOTION_NOW_UNIX_S,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackageCommandContext {
     pub package_query_bin: String,
