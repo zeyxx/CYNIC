@@ -25,6 +25,7 @@ pub mod deployment_epoch;
 pub mod development;
 pub mod discovery;
 pub mod domain_tasks;
+pub mod eval_hygiene;
 pub mod endpoint;
 pub mod error_catalog;
 pub mod evidence;
@@ -86,7 +87,7 @@ pub use build::*;
 pub use capability_responsibility::*;
 pub use build_proof::*;
 pub use convergence::*;
-pub use coord::*;
+#[allow(ambiguous_glob_reexports)]
 pub use coordination_lease::*;
 pub use coordination_runtime::*;
 pub use credential_lease::*;
