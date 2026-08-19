@@ -9,7 +9,7 @@ use std::path::Path;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::build_node::NodeHealthView;
-use cynic_protocol::health_signal::{OsHealthAnomaly, OsHealthAnomalySet};
+use cynic_protocol::health_signal::OsHealthAnomaly;
 use cynic_protocol::peer_resolver::{
     PeerEndpoint, PeerResolver, PeerTransport, SignedPeerEndpoint,
 };
@@ -54,7 +54,7 @@ impl MeshPeerResolver {
         let reclaim_pressure_pct = read_reclaim_pressure_pct();
         let softlockup_panic = read_bool("/proc/sys/kernel/softlockup_panic");
 
-        let now_ms = crate::now_unix_ms();
+        let now_ms: u128 = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0u128, |d| d.as_millis());
         let mut anomalies = vec![];
 
         if !softlockup_panic {
@@ -165,6 +165,49 @@ impl PeerResolver for MeshPeerResolver {
             })
             .collect()
     }
+
+    fn resolve_all_peers(&self) -> Vec<PeerEndpoint> {
+        let declared = match self.read_declared_peers() {
+            Ok(d) => d,
+            Err(_) => return vec![],
+        };
+
+        let mut peers = vec![];
+        for node in declared {
+            let ip = node.synapse_ip.unwrap_or_else(|| node.management_ip.clone());
+            let mut all_reachable = true;
+            let mut any_reachable = false;
+
+            for port in &node.probe_ports {
+                let (reachable, _) = self.probe_port(&ip, *port);
+                if reachable {
+                    any_reachable = true;
+                } else {
+                    all_reachable = false;
+                }
+            }
+
+            let os_health = if node.id == self.local_node_id {
+                let anomalies = self.observe_local_os_health();
+                NodeHealthView::from_anomalies(&anomalies)
+            } else {
+                NodeHealthView::default()
+            };
+
+            peers.push(PeerEndpoint {
+                node_id: node.id,
+                role: node.role,
+                transport: PeerTransport::Http,
+                addr: format!("http://{ip}"),
+                probe_ports: node.probe_ports,
+                reachable: any_reachable,
+                health: os_health,
+            });
+        }
+
+        peers
+    }
+
 }
 
 // ──────────────────────────────────────────────────────────────────────

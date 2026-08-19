@@ -74,13 +74,13 @@ pub fn parse_hypotheses(text: &str) -> Vec<SkillHypothesis> {
 
 /// Sovereign reflection: asks a local-first chat backend to interpret the
 /// observed units and propose skill hypotheses.
-pub struct ReflectionAdapter< C: cynic_inference::ports::ChatPort> {
+pub struct ReflectionAdapter< C: cynic_inference::ChatPort> {
     chat: C,
     system_prompt: String,
     profile: cynic_inference::domain::chat::InferenceProfile,
 }
 
-impl<C: cynic_inference::ports::ChatPort> ReflectionAdapter<C> {
+impl<C: cynic_inference::ChatPort> ReflectionAdapter<C> {
     pub fn new(chat: C) -> Self {
         Self {
             chat,
@@ -101,7 +101,7 @@ One hypothesis per block, format:\n\
 }
 
 #[async_trait::async_trait]
-impl<C: cynic_inference::ports::ChatPort + Send + Sync> ReasoningAdapter for ReflectionAdapter<C> {
+impl<C: cynic_inference::ChatPort + Send + Sync> ReasoningAdapter for ReflectionAdapter<C> {
     async fn hypothesize(&self, evidence: &str) -> Result<Vec<SkillHypothesis>, ReasoningError> {
         let resp = self
             .chat

@@ -5,6 +5,16 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Coarse hardware capability tier used by engine selection policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HardwareTier {
+    Edge,
+    ThinAndLight,
+    Workstation,
+    Server,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GpuClass {

@@ -8,6 +8,7 @@ pub mod inference;
 /// Prefer `adapters::ods` (documents ODS as external bootstrap framework).
 pub mod ods_discovery;
 pub mod ports;
+pub mod math;
 pub mod progress;
 
 // Convenience re-exports for downstream crates (CLI, MCP).
@@ -107,3 +108,13 @@ pub use ports::local_runtime_port::{
 };
 pub use ports::model_publisher_port::{ModelPublisherPort, NormalisedModel, PublishResult};
 pub use ports::model_store_port::ModelStorePort;
+
+// Additional re-exports required by cynic-cli / cynic-mcp surfaces.
+pub use math::roofline::assess_roofline;
+pub use ports::empirical_store_port::EmpiricalStorePort;
+pub use adapters::empirical_store::{FsEmpiricalStore, DEFAULT_EMPIRICAL_LEDGER_PATH};
+pub use domain::domain_task_queue::{DEFAULT_DOMAIN_TASKS_PATH, DomainTaskQueue};
+pub use domain::matrix_sweep::empirical_store::{ConstraintFilter, ModelEmpiricalScorecard, OptimizationGoal};
+pub use domain::matrix_sweep::types::HardwareBudget;
+pub use domain::local_runtime::LocalRuntimeState;
+pub use application::inference_gateway::InferenceGatewayConfig;

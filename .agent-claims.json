@@ -1,0 +1,127 @@
+{
+  "schema": "cynic.agent_claims.v2",
+  "revision": 1,
+  "claims": [
+    {
+      "claim_id": "claim_001",
+      "agent_id": "hermes:main",
+      "mode": "baseline",
+      "scope": { "kind": "file", "path": "crates/cynic-host/src/forgejo_webhook.rs" },
+      "budget": { "actions": 1, "wall_seconds": 60 },
+      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
+      "priority": 10,
+      "parent_claim_id": null,
+      "status": "active"
+    },
+    {
+      "claim_id": "claim_002",
+      "agent_id": "hermes:main",
+      "mode": "baseline",
+      "scope": { "kind": "file", "path": "crates/cynic-mcp/src/routers/build.rs" },
+      "budget": { "actions": 1, "wall_seconds": 60 },
+      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
+      "priority": 10,
+      "parent_claim_id": null,
+      "status": "active"
+    },
+    {
+      "claim_id": "claim_003",
+      "agent_id": "hermes:main",
+      "mode": "baseline",
+      "scope": { "kind": "file", "path": "crates/cynic-node/src/usecases/build_submission_orchestrator_uc.rs" },
+      "budget": { "actions": 1, "wall_seconds": 60 },
+      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
+      "priority": 10,
+      "parent_claim_id": null,
+      "status": "active"
+    },
+    {
+      "claim_id": "claim_004",
+      "agent_id": "hermes:main",
+      "mode": "baseline",
+      "scope": { "kind": "file", "path": "crates/cynic-cli/src/workload_observation.rs" },
+      "budget": { "actions": 1, "wall_seconds": 60 },
+      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
+      "priority": 10,
+      "parent_claim_id": null,
+      "status": "active"
+    },
+    {
+      "claim_id": "claim_005",
+      "agent_id": "hermes:main",
+      "mode": "baseline",
+      "scope": { "kind": "file", "path": "crates/cynic-host/src/federation_runtime.rs" },
+      "budget": { "actions": 1, "wall_seconds": 60 },
+      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
+      "priority": 10,
+      "parent_claim_id": null,
+      "status": "active"
+    },
+    {
+      "claim_id": "claim_006",
+      "agent_id": "hermes:main",
+      "mode": "baseline",
+      "scope": { "kind": "file", "path": "crates/cynic-protocol/src/runtime_takeover.rs" },
+      "budget": { "actions": 1, "wall_seconds": 60 },
+      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
+      "priority": 10,
+      "parent_claim_id": null,
+      "status": "active"
+    },
+    {
+      "claim_id": "claim_007",
+      "agent_id": "hermes:main",
+      "mode": "baseline",
+      "scope": { "kind": "file", "path": "crates/cynic-host/src/peer_resolver_mesh.rs" },
+      "budget": { "actions": 1, "wall_seconds": 60 },
+      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
+      "priority": 10,
+      "parent_claim_id": null,
+      "status": "active"
+    },
+    {
+      "claim_id": "claim_008",
+      "agent_id": "hermes:main",
+      "mode": "baseline",
+      "scope": { "kind": "file", "path": "crates/cynic-host/src/lib.rs" },
+      "budget": { "actions": 1, "wall_seconds": 60 },
+      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
+      "priority": 10,
+      "parent_claim_id": null,
+      "status": "active"
+    },
+    {
+      "claim_id": "claim_009",
+      "agent_id": "hermes:main",
+      "mode": "baseline",
+      "scope": { "kind": "file", "path": "crates/cynic-node/src/ports/mod.rs" },
+      "budget": { "actions": 1, "wall_seconds": 60 },
+      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
+      "priority": 10,
+      "parent_claim_id": null,
+      "status": "active"
+    },
+    {
+      "claim_id": "claim_010",
+      "agent_id": "hermes:main",
+      "mode": "baseline",
+      "scope": { "kind": "file", "path": "crates/cynic-node/src/usecases/mod.rs" },
+      "budget": { "actions": 1, "wall_seconds": 60 },
+      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
+      "priority": 10,
+      "parent_claim_id": null,
+      "status": "active"
+    }
+  ],
+  "merge_queue": []
+}

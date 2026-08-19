@@ -131,6 +131,7 @@ impl HarnessExecutor for HttpHarnessExecutor {
                 Err(err) => {
                     return InferenceReply {
                         runtime_run_id: None,
+            text_response: None,
                         http_status: Some(status),
                         prompt_tokens,
                         output_tokens: completion_tokens,
@@ -212,6 +213,7 @@ impl HarnessExecutor for HttpHarnessExecutor {
 
         InferenceReply {
             runtime_run_id: None,
+            text_response: None,
             http_status: Some(status),
             prompt_tokens,
             output_tokens: completion_tokens,
@@ -229,6 +231,7 @@ impl HarnessExecutor for HttpHarnessExecutor {
 fn failed(status: u16, error: String) -> InferenceReply {
     InferenceReply {
         runtime_run_id: None,
+            text_response: None,
         http_status: if status > 0 { Some(status) } else { None },
         prompt_tokens: None,
         output_tokens: None,

@@ -1,4 +1,4 @@
-// ── Build runner tools (distributed build trigger + workload observation) ──
+// ── Build runner tools (distributed build trigger + workload observation + forgejo webhook) ──
 
 use crate::types::*;
 use crate::types_split::core_params::{BuildTriggerParams, ListWorkloadsParams, ObserveWorkloadParams};
@@ -389,10 +389,7 @@ fn parse_workload_list(raw: &str) -> Result<Vec<DurableAgentWorkloadRecord>, Str
         .ok_or_else(|| "no workloads array".to_string())?;
     workloads
         .iter()
-        .map(|w| {
-            serde_json::from_value(w.clone())
-                .map_err(|e| format!("parse workload: {e}"))
-        })
+        .map(|w| serde_json::from_value(w.clone()).map_err(|e| format!("parse workload: {e}")))
         .collect()
 }
 

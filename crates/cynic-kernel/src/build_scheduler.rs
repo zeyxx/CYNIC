@@ -11,10 +11,10 @@ use std::sync::Arc;
 use crate::domain::storage::StoragePort;
 use crate::domain::node_control::NodeControlStorePort;
 use cynic_protocol::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
-use cynic_protocol::build::{
-    BuildRecipe, BuildRunnerObservation, SourceSnapshot, BUILD_RECIPE_SCHEMA,
-};
-use cynic_protocol::{LeaseVerification, SecurityEvidenceState};
+use cynic_protocol::build::{BuildRecipe, BuildRunnerObservation};
+use cynic_protocol::{LeaseVerification, SourceSnapshot};
+#[allow(unused_imports)]
+use cynic_protocol::SecurityEvidenceState;
 
 /// Build scheduler error.
 #[derive(Debug, Clone, PartialEq, Eq)]

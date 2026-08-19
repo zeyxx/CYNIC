@@ -5,3 +5,4 @@ pub mod inference;
 pub mod local;
 pub mod ods;
 pub mod publishers;
+pub mod empirical_store;

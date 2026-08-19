@@ -22,3 +22,7 @@ pub mod slot_tracker;
 pub mod debate;
 pub mod summarization;
 pub mod supervision;
+pub mod domain_task_queue;
+pub mod hermes_runtime;
+pub mod matrix_sweep;
+pub mod model_retention;

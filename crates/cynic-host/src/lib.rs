@@ -71,6 +71,7 @@ pub mod source_control;
 pub mod source_lease;
 pub mod source_worktree;
 pub mod storage_capabilities;
+pub mod storage_credential_sync;
 pub(crate) mod storage_identity;
 pub mod storage_primary;
 pub mod toolchain;

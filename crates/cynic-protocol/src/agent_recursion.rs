@@ -61,6 +61,8 @@ pub enum AgentCompletionStatus {
     Completed,
     Blocked,
     Failed,
+    Degraded,
+    RecoveredUnattributed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -3,13 +3,13 @@
 //! This layer owns schemas and pure planning/policy only.  Process spawning,
 //! HTTP clients, and host metrics are injected later through adapters.
 
-mod baseline;
-mod plan;
-mod policy;
-mod ports;
-mod report;
-mod runner;
-mod types;
+pub mod baseline;
+pub mod plan;
+pub mod policy;
+pub mod ports;
+pub mod report;
+pub mod runner;
+pub mod types;
 
 pub mod benchmark_policy;
 
@@ -36,3 +36,4 @@ pub use types::{
     ModelParameters, ModelSpec, RuntimeKind, RuntimeLayer, RuntimePlanSummary, ScenarioSpec,
     TaskKind, TaskSpec, Thresholds,
 };
+pub mod runtime_adapter;

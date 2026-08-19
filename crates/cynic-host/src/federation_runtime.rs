@@ -12,7 +12,8 @@ use cynic_protocol::emergence::EmergenceState;
 use cynic_protocol::federation::{FederationReconciliation, reconcile_federation};
 use cynic_protocol::node_control::NodeControlPlan;
 use cynic_protocol::runtime_takeover::RuntimeTakeoverObservation;
-use crate::os_health::observe::OsHealthObserver;
+use cynic_protocol::peer_resolver::PeerResolver;
+use crate::os_health::observe::OsHealthObserver as OsHealthObserve;
 
 /// Port: observe kernel reachability and lease status.
 pub trait KernelObserver: Send + Sync {

@@ -108,6 +108,13 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         url: Option<String>,
     },
+    /// Evaluate storage credential sync status.
+    StorageCredential {
+        #[arg(long, default_value_t = false)]
+        json: bool,
+        #[arg(long, default_value = "http://10.10.10.103:8000")]
+        endpoint: String,
+    },
     ExecutionContext {
         #[arg(long)]
         json: bool,
@@ -429,6 +436,12 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::StorageCapabilities { json, url } => {
             host_checks::execute_storage_capabilities(json, url.as_deref())
         }
+        RuntimeCommand::StorageCredential { json, endpoint } => {
+            match execute_storage_credential_sync(json, endpoint) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => fail(e),
+            }
+        }
         RuntimeCommand::ExecutionContext { json, hosts } => {
             execution_context::execute_execution_context(json, &hosts)
         }
@@ -550,6 +563,42 @@ pub(crate) fn execute_harness_progress(
             }
             HarnessProgressionVerdict::Blocked { reason, detail } => {
                 println!("BLOCKED: {reason} — {detail}");
+            }
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn execute_storage_credential_sync(json: bool, endpoint: &str) -> Result<(), String> {
+    use cynic_host::storage_credential_sync::{StorageCredentialSyncPort, StorageCredentialSyncAdapter};
+    use cynic_protocol::storage_credential_sync::{StorageCredentialSpec, decide_credential_sync};
+
+    let spec = StorageCredentialSpec {
+        username: "root".into(),
+        password: "cynic".into(),
+        endpoint: endpoint.into(),
+        namespace: "cynic".into(),
+        database: "main".into(),
+    };
+    let adapter = StorageCredentialSyncAdapter::default();
+    let obs = adapter.observe(&spec);
+    let verdict = decide_credential_sync(&spec, &obs);
+
+    if json {
+        let s = serde_json::to_string_pretty(&verdict)
+            .map_err(|e| format!("serialize failed: {e}"))?;
+        println!("{s}");
+    } else {
+        use cynic_protocol::storage_credential_sync::CredentialSyncVerdict;
+        match &verdict {
+            CredentialSyncVerdict::Synchronized => {
+                println!("SYNCHRONIZED: storage credentials healthy");
+            }
+            CredentialSyncVerdict::OutOfSync { reason, detail, .. } => {
+                println!("OUT OF SYNC: {reason} — {detail}");
+            }
+            CredentialSyncVerdict::Unknown { reason, detail } => {
+                println!("UNKNOWN: {reason} — {detail}");
             }
         }
     }

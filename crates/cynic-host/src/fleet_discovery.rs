@@ -144,7 +144,7 @@ fn parse_declared_nodes(bytes: &[u8]) -> Result<Vec<DeclaredNode>, String> {
                 nodes.push(DeclaredNode {
                     id: name.clone(),
                     role,
-                    synapse_ip: Some(synapse),
+                    synapse_ip: Some(synapse.clone()),
                     management_ip: synapse,
                     services,
                 });
@@ -184,7 +184,7 @@ fn probe_service(ip: &str, port: u16, timeout_ms: u64) -> FleetServiceHealth {
     let addr = format!("{ip}:{port}");
     let start = Instant::now();
     match TcpStream::connect_timeout(
-        &addr.parse().unwrap_or_else(|| "0.0.0.0:0".parse().unwrap()),
+        &addr.parse().unwrap_or_else(|_| "0.0.0.0:0".parse().unwrap()),
         Duration::from_millis(timeout_ms),
     ) {
         Ok(mut stream) => {

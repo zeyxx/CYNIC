@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_2022::{self, Burn, Token2022};
 
 pub mod state;
+pub mod cpmm_tests;
 use state::*;
 
 declare_id!("CYNiC11111111111111111111111111111111111111");
