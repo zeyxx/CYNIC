@@ -8,13 +8,13 @@
 
 use std::sync::Arc;
 
-use crate::domain::storage::StoragePort;
 use crate::domain::node_control::NodeControlStorePort;
-use cynic_protocol::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
-use cynic_protocol::build::{BuildRecipe, BuildRunnerObservation};
-use cynic_protocol::{LeaseVerification, SourceSnapshot};
+use crate::domain::storage::StoragePort;
 #[allow(unused_imports)]
 use cynic_protocol::SecurityEvidenceState;
+use cynic_protocol::build::{BuildRecipe, BuildRunnerObservation};
+use cynic_protocol::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
+use cynic_protocol::{LeaseVerification, SourceSnapshot};
 
 /// Build scheduler error.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,8 +75,7 @@ pub struct BuildScheduleResult {
 impl BuildScheduler {
     pub fn new(
         storage: Arc<dyn StoragePort>,
-        #[allow(dead_code)]
-    node_control: Option<Arc<dyn NodeControlStorePort>>,
+        #[allow(dead_code)] node_control: Option<Arc<dyn NodeControlStorePort>>,
     ) -> Self {
         Self {
             storage,
@@ -122,8 +121,13 @@ impl BuildScheduler {
                     "blocked",
                     &all_blockers,
                     &request.artifact_path,
-                    &request.source_snapshot.head_commit.clone().unwrap_or_default(),
-                ).await?;
+                    &request
+                        .source_snapshot
+                        .head_commit
+                        .clone()
+                        .unwrap_or_default(),
+                )
+                .await?;
                 return Err(BuildSchedulerError::WorkflowBlocked {
                     input_blockers: input_blockers.clone(),
                     runner_blockers: runner_blockers.clone(),
@@ -131,7 +135,11 @@ impl BuildScheduler {
                     grant_blockers: grant_blockers.clone(),
                 });
             }
-            BuildWorkflowOutcome::Planned { envelope, input_admission, runner_admission } => {
+            BuildWorkflowOutcome::Planned {
+                envelope,
+                input_admission,
+                runner_admission,
+            } => {
                 let mut evidence_refs = input_admission.evidence_refs.clone();
                 evidence_refs.extend(runner_admission.evidence_refs.clone());
                 self.persist_build_observation(
@@ -139,7 +147,8 @@ impl BuildScheduler {
                     &[],
                     &envelope.artifact_path,
                     &envelope.source_commit,
-                ).await?;
+                )
+                .await?;
                 BuildScheduleResult {
                     status: "planned".to_string(),
                     proof_digest: None,
@@ -147,7 +156,11 @@ impl BuildScheduler {
                     evidence_refs,
                 }
             }
-            BuildWorkflowOutcome::Execute { envelope, input_admission, runner_admission } => {
+            BuildWorkflowOutcome::Execute {
+                envelope,
+                input_admission,
+                runner_admission,
+            } => {
                 let mut evidence_refs = input_admission.evidence_refs.clone();
                 evidence_refs.extend(runner_admission.evidence_refs.clone());
                 self.persist_build_observation(
@@ -155,7 +168,8 @@ impl BuildScheduler {
                     &[],
                     &envelope.artifact_path,
                     &envelope.source_commit,
-                ).await?;
+                )
+                .await?;
                 BuildScheduleResult {
                     status: "executed".to_string(),
                     proof_digest: Some(format!("sha256:{}", envelope.source_commit)),
@@ -182,11 +196,7 @@ impl BuildScheduler {
             target: artifact_path.to_string(),
             domain: "build-pipeline".into(),
             status: status.into(),
-            context: format!(
-                "commit={} blockers={}",
-                source_commit,
-                blockers.join(",")
-            ),
+            context: format!("commit={} blockers={}", source_commit, blockers.join(",")),
             session_id: String::new(),
             timestamp: chrono::Utc::now().timestamp_millis(),
             tags: vec!["build".into(), status.into()],
@@ -251,12 +261,19 @@ mod tests {
 
     fn valid_recipe() -> BuildRecipe {
         BuildRecipe {
-            schema: BUILD_RECIPE_SCHEMA.to_string(),
+            schema: cynic_protocol::build::BUILD_RECIPE_SCHEMA.to_string(),
             action: "make:check".to_string(),
+            // The action must appear in allowed_actions or validate_build_recipe
+            // refuses the recipe — the allow-list is the admission contract.
+            allowed_actions: vec!["make:check".to_string(), "cargo:check".to_string()],
+            target_profile: "debug".to_string(),
             target_crates: vec!["cynic-protocol".to_string()],
             excluded_crates: vec![],
             toolchain_override: None,
             env_overrides: vec![],
+            rust_min_stack: 536_870_912,
+            cargo_incremental: false,
+            memory_limit_bytes: None,
             max_parallel_jobs: 1,
             timeout_secs: 600,
             evidence_refs: vec![],
@@ -275,54 +292,31 @@ mod tests {
         )
     }
 
-    struct FakeStorage {
-        observations: std::sync::Mutex<Vec<crate::domain::storage::Observation>>,
-    }
-
-    #[async_trait::async_trait]
-    impl StoragePort for FakeStorage {
-        async fn store_observation(&self, obs: &crate::domain::storage::Observation) -> Result<(), String> {
-            self.observations.lock().unwrap().push(obs.clone());
-            Ok(())
-        }
-        async fn load_usage_history(&self) -> Result<Vec<crate::domain::storage::UsageHistoryRow>, String> {
-            Ok(vec![])
-        }
-        async fn count_verdicts(&self) -> Result<u64, String> { Ok(0) }
-        async fn count_crystal_observations(&self) -> Result<u64, String> { Ok(0) }
-        async fn count_observations(&self) -> Result<u64, String> { Ok(0) }
-    }
-
     #[test]
     fn scheduler_blocks_when_source_dirty() {
-        let storage = Arc::new(FakeStorage {
-            observations: std::sync::Mutex::new(vec![]),
-        });
-        let scheduler = BuildScheduler::new(storage.clone(), None);
+        // Pure decision test: no storage is involved. The previous version built
+        // a FakeStorage + BuildScheduler and then never used either, and that
+        // fake still implemented the pre-decomposition StoragePort API (a single
+        // trait with store_observation/count_* on it) which no longer exists —
+        // StoragePort is now the composition of nine per-concern traits, so the
+        // dead fake was 17 compile errors on its own.
         let mut dirty_snapshot = valid_source_snapshot();
         dirty_snapshot.unstaged_paths = vec!["src/lib.rs".to_string()];
-        let request = BuildScheduleRequest {
-            observation: valid_observation(),
-            lease_verification: valid_lease_verification(),
-            source_snapshot: dirty_snapshot,
-            recipe: valid_recipe(),
-            argv: vec!["make".to_string(), "check".to_string()],
-            artifact_path: "target/release/cynic".to_string(),
-            apply: false,
-            now_unix_ms: 2,
-        };
-        // Note: this is a sync test of the pure decision part.
-        // The async storage part would need a runtime.
+
         let workflow = BuildWorkflow::new(
-            &request.observation,
-            &request.lease_verification,
-            &request.source_snapshot,
-            &request.recipe,
-            request.argv.clone(),
-            request.artifact_path.clone(),
-            request.now_unix_ms,
+            &valid_observation(),
+            &valid_lease_verification(),
+            &dirty_snapshot,
+            &valid_recipe(),
+            vec!["make".to_string(), "check".to_string()],
+            "target/release/cynic".to_string(),
+            2,
         );
+
         let outcome = workflow.decide();
-        assert!(matches!(outcome, BuildWorkflowOutcome::Blocked { .. }));
+        assert!(
+            matches!(outcome, BuildWorkflowOutcome::Blocked { .. }),
+            "a dirty worktree must block scheduling, got {outcome:?}"
+        );
     }
 }
