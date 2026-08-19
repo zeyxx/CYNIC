@@ -114,7 +114,10 @@ impl TraceFsAdapter {
             }
             TraceSource::Directory(dir) => {
                 let entries = std::fs::read_dir(dir).map_err(|e| {
-                    AutoresearchPortError::new("corpus_unreadable", format!("{}: {}", dir.display(), e))
+                    AutoresearchPortError::new(
+                        "corpus_unreadable",
+                        format!("{}: {}", dir.display(), e),
+                    )
                 })?;
                 for entry in entries {
                     let entry = entry.map_err(|e| {
@@ -158,7 +161,10 @@ impl AutoresearchPort for TraceFsAdapter {
                 .unwrap_or("unknown")
                 .to_string();
             let file = File::open(&path).map_err(|e| {
-                AutoresearchPortError::new("trace_open_failed", format!("{}: {}", path.display(), e))
+                AutoresearchPortError::new(
+                    "trace_open_failed",
+                    format!("{}: {}", path.display(), e),
+                )
             })?;
             let reader = BufReader::new(file);
             for line in reader.lines() {
@@ -166,11 +172,9 @@ impl AutoresearchPort for TraceFsAdapter {
                     Ok(l) => l,
                     Err(_) => continue, // skip malformed lines, keep streaming
                 };
-                if let Some(u) = TraceUnitEmitter::emit_from_line(
-                    &session_id,
-                    &line,
-                    &self.bucket_patterns,
-                ) {
+                if let Some(u) =
+                    TraceUnitEmitter::emit_from_line(&session_id, &line, &self.bucket_patterns)
+                {
                     units.push(u);
                 }
             }
@@ -211,7 +215,8 @@ mod tests {
 
     #[test]
     fn emitter_tags_toolchain_ice_block() {
-        let line = r#"{"type":"tool_result","content":"thread 'main' panicked at SIGSEGV signal 11"}"#;
+        let line =
+            r#"{"type":"tool_result","content":"thread 'main' panicked at SIGSEGV signal 11"}"#;
         let u = TraceUnitEmitter::emit_from_line("s1", line, &default_bucket_patterns());
         let u = u.expect("should emit");
         assert_eq!(u.domain, "toolchain_ice");
@@ -246,7 +251,11 @@ mod tests {
         let units = observe_reader("sessA", Cursor::new(data), &default_bucket_patterns());
         // toolchain_ice + oom = 2 units (hello world ignored)
         assert_eq!(units.len(), 2);
-        assert!(units.iter().any(|u| u.domain == "toolchain_ice" && u.is_block));
+        assert!(
+            units
+                .iter()
+                .any(|u| u.domain == "toolchain_ice" && u.is_block)
+        );
         assert!(units.iter().any(|u| u.domain == "oom" && u.is_block));
     }
 
@@ -268,12 +277,20 @@ mod tests {
             "{\"text\":\"cargo check SIGSEGV\"}\n{\"text\":\"all good\"}\n",
         )
         .unwrap();
-        std::fs::write(tmp.join("b.jsonl"), "{\"text\":\"permission denied on /etc/cynic\"}\n").unwrap();
+        std::fs::write(
+            tmp.join("b.jsonl"),
+            "{\"text\":\"permission denied on /etc/cynic\"}\n",
+        )
+        .unwrap();
         let adapter = TraceFsAdapter::new(TraceSource::from_path(&tmp));
         let units = adapter.observe_traces().unwrap();
         // a.jsonl -> toolchain_ice (block); b.jsonl -> permission (block)
         assert_eq!(units.len(), 2);
-        assert!(units.iter().any(|u| u.domain == "toolchain_ice" && u.is_block));
+        assert!(
+            units
+                .iter()
+                .any(|u| u.domain == "toolchain_ice" && u.is_block)
+        );
         assert!(units.iter().any(|u| u.domain == "permission" && u.is_block));
         let _ = std::fs::remove_dir_all(&tmp);
     }

@@ -8,7 +8,7 @@
 //! never a SaaS, never a hardcoded client. A fake offline adapter (`OfflineReflection`)
 //! makes the loop testable without a model.
 
-use cynic_protocol::autoresearch::{SkillHypothesis, AUTORESEARCH_HYPOTHESIS_SCHEMA};
+use cynic_protocol::autoresearch::{AUTORESEARCH_HYPOTHESIS_SCHEMA, SkillHypothesis};
 use cynic_protocol::autoresearch_port::{ReasoningAdapter, ReasoningError};
 
 /// Parse a structured hypothesis block emitted by the reasoning model.
@@ -31,20 +31,21 @@ pub fn parse_hypotheses(text: &str) -> Vec<SkillHypothesis> {
     let mut reuse = String::new();
     let mut actionable_val = false;
 
-    let mut flush = |domain: &Option<String>, why: &str, when: &str, reuse: &str, actionable: bool| {
-        if let Some(d) = domain {
-            if !d.is_empty() && (!why.is_empty() || !reuse.is_empty()) {
-                out.push(SkillHypothesis {
-                    schema: AUTORESEARCH_HYPOTHESIS_SCHEMA.to_string(),
-                    skill_id: format!("skill-{}", d),
-                    domain: d.clone(),
-                    description: format!("why: {}\\nwhen: {}\\nreuse: {}", why, when, reuse),
-                    actionability: actionable,
-                    claimed_coverage: 0.0,
-                });
+    let mut flush =
+        |domain: &Option<String>, why: &str, when: &str, reuse: &str, actionable: bool| {
+            if let Some(d) = domain {
+                if !d.is_empty() && (!why.is_empty() || !reuse.is_empty()) {
+                    out.push(SkillHypothesis {
+                        schema: AUTORESEARCH_HYPOTHESIS_SCHEMA.to_string(),
+                        skill_id: format!("skill-{}", d),
+                        domain: d.clone(),
+                        description: format!("why: {}\\nwhen: {}\\nreuse: {}", why, when, reuse),
+                        actionability: actionable,
+                        claimed_coverage: 0.0,
+                    });
+                }
             }
-        }
-    };
+        };
 
     for raw in text.lines() {
         let line = raw.trim();
@@ -74,7 +75,7 @@ pub fn parse_hypotheses(text: &str) -> Vec<SkillHypothesis> {
 
 /// Sovereign reflection: asks a local-first chat backend to interpret the
 /// observed units and propose skill hypotheses.
-pub struct ReflectionAdapter< C: cynic_inference::ChatPort> {
+pub struct ReflectionAdapter<C: cynic_inference::ChatPort> {
     chat: C,
     system_prompt: String,
     profile: cynic_inference::domain::chat::InferenceProfile,
@@ -105,7 +106,12 @@ impl<C: cynic_inference::ChatPort + Send + Sync> ReasoningAdapter for Reflection
     async fn hypothesize(&self, evidence: &str) -> Result<Vec<SkillHypothesis>, ReasoningError> {
         let resp = self
             .chat
-            .chat(&self.system_prompt, &self.build_user_prompt(evidence), self.profile, None)
+            .chat(
+                &self.system_prompt,
+                &self.build_user_prompt(evidence),
+                self.profile,
+                None,
+            )
             .await
             .map_err(|e| ReasoningError::new("reflection_chat_failed", &format!("{e}")))?;
         Ok(parse_hypotheses(&resp.text))
@@ -174,8 +180,8 @@ actionable: no";
         let hs = parse_hypotheses(text);
         assert_eq!(hs.len(), 2);
         assert_eq!(hs[0].domain, "toolchain_ice");
-        assert!(hs[0].actionable);
-        assert!(!hs[1].actionable);
+        assert!(hs[0].actionability);
+        assert!(!hs[1].actionability);
         assert_eq!(hs[1].domain, "network");
     }
 
@@ -188,8 +194,10 @@ actionable: no";
     #[test]
     fn offline_reflection_yields_two_actionable_hypotheses() {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let hs = rt.block_on(OfflineReflection::new().hypothesize("evidence")).unwrap();
+        let hs = rt
+            .block_on(OfflineReflection::new().hypothesize("evidence"))
+            .unwrap();
         assert_eq!(hs.len(), 2);
-        assert!(hs.iter().all(|h| h.actionable));
+        assert!(hs.iter().all(|h| h.actionability));
     }
 }
