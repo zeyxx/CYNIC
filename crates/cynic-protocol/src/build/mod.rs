@@ -1,12 +1,16 @@
 use serde::{Deserialize, Serialize};
 
 pub mod bootstrap_admission;
+pub mod bootstrap_contract;
 pub use bootstrap_admission::{
     BUILD_RUNNER_BOOTSTRAP_ADMISSION_SCHEMA, BUILD_RUNNER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
     BUILD_RUNNER_BOOTSTRAP_PREFLIGHT_SCHEMA, BuildRunnerBootstrapAdmission,
     BuildRunnerBootstrapCapabilityBinding, BuildRunnerBootstrapPreflight,
     build_runner_bootstrap_action_digest, build_runner_bootstrap_input_digest,
     validate_build_runner_bootstrap_capability_binding,
+};
+pub use bootstrap_contract::{
+    BUILD_RUNNER_BOOTSTRAP_ADMISSION_CONTRACT_SCHEMA, BuildRunnerBootstrapAdmissionContract,
 };
 pub mod recipe;
 pub mod fleet;
