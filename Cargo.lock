@@ -896,6 +896,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "libc",
+ "rand 0.8.7",
  "regex",
  "reqwest 0.13.4",
  "rpassword",
@@ -904,6 +905,7 @@ dependencies = [
  "sha2 0.11.0",
  "sysinfo 0.39.6",
  "tempfile",
+ "thiserror 1.0.69",
  "tokio",
  "toml",
  "walkdir",
@@ -933,6 +935,7 @@ dependencies = [
 name = "cynic-intel"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "blake3",
  "cynic-protocol",
  "hex",
