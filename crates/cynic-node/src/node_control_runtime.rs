@@ -202,8 +202,11 @@ pub(crate) async fn start_tasks(
             "workload delivery remains inactive until machine enrollment is proved"
         );
     }
+    // Build scheduler: activated when role is build_runner (sovereign autonomy)
+    // or when enrollment is proven and capabilities are granted.
+    let build_scheduler_role_authorized = scheduler_control.enrollment_role == "build_runner";
     if scheduler_control.build_scheduler.is_some()
-        && build_scheduler_authorized
+        && (build_scheduler_authorized || build_scheduler_role_authorized)
         && build_scheduler_inputs_ready
     {
         tasks.push(tokio::spawn(crate::build_scheduler::run_loop(

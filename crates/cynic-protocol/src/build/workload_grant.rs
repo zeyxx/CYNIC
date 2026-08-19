@@ -283,6 +283,10 @@ pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str>
         [program, target] if program == "make" && target == "build-release" => {
             Some("make:build-release")
         }
+        [program, target] if program == "cargo" && target == "check" => Some("cargo:check"),
+        [program, target, release] if program == "cargo" && target == "build" && release == "--release" => {
+            Some("cargo:build")
+        }
         _ => None,
     }
 }
