@@ -3,9 +3,6 @@ use std::process::Command;
 
 use super::types::*;
 
-/// Execute a plan with optional credential injection.
-use crate::credential::CredentialResolver;
-
 pub fn execute_plan(root: &Path, plan: &SyncPlan) -> SyncProof {
     let mut steps_completed = Vec::new();
     let mut success = true;
@@ -37,17 +34,34 @@ pub fn execute_plan(root: &Path, plan: &SyncPlan) -> SyncProof {
     }
 }
 
-/// Execute a plan with a credential resolver for authenticated pushes.
-pub fn execute_plan_with_credentials(
+pub fn execute_plan_with_enrollment(
     root: &Path,
     plan: &SyncPlan,
     credential_ref: Option<&str>,
+    secret_type: Option<crate::credential::CredentialType>,
 ) -> SyncProof {
     let resolver = crate::credential::SecretFileResolver::new(
         crate::credential::SecretFileResolver::default_path(),
     );
 
-    let credential = credential_ref.and_then(|r| resolver.resolve(r).ok());
+    let credential = if let Some(ref_path) = credential_ref {
+        match resolver.resolve(ref_path) {
+            Ok(cred) => Some(cred),
+            Err(_) => {
+                if let Some(s) = secret_type {
+                    Some(resolver.prompt_and_save(ref_path, s).unwrap_or_else(|e| {
+                        eprintln!("enrollment failed: {e}");
+                        std::process::exit(2);
+                    }))
+                } else {
+                    eprintln!("credential not found: {ref_path}");
+                    std::process::exit(2);
+                }
+            }
+        }
+    } else {
+        None
+    };
 
     let mut steps_completed = Vec::new();
     let mut success = true;
@@ -85,7 +99,6 @@ fn execute_step(root: &Path, step: &SyncStep, credential: Option<&crate::credent
             let mut cmd = Command::new(&argv[0]);
             cmd.args(&argv[1..]).current_dir(root);
 
-            // Inject credential into environment if provided
             if let Some(cred) = credential {
                 match cred {
                     crate::credential::Credential::SshKey(key_path) => {
@@ -184,7 +197,7 @@ mod tests {
     #[test]
     fn write_file_step_succeeds() {
         let mut temp_dir = std::env::temp_dir();
-        temp_dir.push("cynic_test_sync_2");
+        temp_dir.push("cynic_test_sync_3");
         let _ = std::fs::create_dir_all(&temp_dir);
 
         let step = SyncStep::WriteFile {
