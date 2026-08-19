@@ -35,21 +35,26 @@ pub struct ForgejoPrHead {
     pub sha: String,
 }
 
-/// Extract exact source commit from payload.
+/// Extract exact source commit (validated 40-char hex SHA) from payload.
 pub fn extract_source_commit(payload: &ForgejoPayload) -> Option<String> {
     if let Some(pr) = &payload.pull_request {
         let sha = pr.head.sha.trim();
-        if sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit()) {
+        if validate_source_commit(sha) {
             return Some(sha.to_string());
         }
     }
     if let Some(after) = &payload.after {
         let sha = after.trim();
-        if sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit()) {
+        if validate_source_commit(sha) {
             return Some(sha.to_string());
         }
     }
     None
+}
+
+/// Validate a git commit SHA: exactly 40 hex characters.
+pub fn validate_source_commit(sha: &str) -> bool {
+    sha.len() == 40 && sha.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
 /// Extract branch name from ref.
