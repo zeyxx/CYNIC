@@ -231,7 +231,6 @@ mod tests {
             execution: None,
             evidence_refs: vec![],
             unknowns: vec![],
-            epoch: None,
         }
     }
 

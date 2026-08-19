@@ -56,6 +56,7 @@ mod runtime_surface;
 mod rust_source;
 mod solana_surface;
 mod mask_surface;
+pub(crate) mod source_surface;
 
 #[allow(dead_code)]
 mod autoresearch_surface;
@@ -170,6 +171,11 @@ enum Command {
     Integrations {
         #[command(subcommand)]
         command: IntegrationsCommand,
+    },
+    /// Source sync — observe/reconcile/apply across layers + release bot
+    Source {
+        #[command(subcommand)]
+        command: source_surface::SourceCommand,
     },
     /// Ecosystem tech-watch and human-validated upgrades (canonical).
     #[command(hide = true)]

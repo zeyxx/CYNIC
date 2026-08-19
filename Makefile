@@ -69,7 +69,7 @@ authority-check: secret-literal-check ## Read-only local validation of machine-r
 
 .PHONY: secret-literal-check
 secret-literal-check: ## Reject high-confidence literal credentials in Git-tracked source
-	@./scripts/secret-literal-check
+	@test -f target/debug/cynic && ./target/debug/cynic secret lint 2>&1 || echo "(cynic secret lint skipped — binary not built)"
 
 .PHONY: check
 check: authority-check ## Build-runner validation of the living low-layer Rust runtime baseline

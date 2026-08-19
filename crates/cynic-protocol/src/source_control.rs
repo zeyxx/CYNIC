@@ -350,7 +350,7 @@ mod tests {
         for path in [
             "crates/cynic-host/src/runtime_secret.rs",
             "crates/cynic-protocol/src/secret_material.rs",
-            "scripts/secret-literal-check",
+            "crates/cynic-host/src/secret_lint",
             "crates/cynic-protocol/src/token_policy.rs",
         ] {
             assert!(

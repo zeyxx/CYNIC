@@ -98,6 +98,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
                 eprintln!("build error: {e}");
                 ExitCode::FAILURE
             }),
+        Command::Source { command } => crate::source_surface::execute_source(command),
         Command::Mask { command } => crate::mask_surface::execute_mask(command),
     }
 }
