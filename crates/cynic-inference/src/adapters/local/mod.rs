@@ -19,3 +19,4 @@ pub use process_supervisor::{InferenceSupervisorKind, ProcessLocalRuntime};
 pub use session_store::FsChatSessionStore;
 pub use systemd_user::SystemdUserLocalRuntime;
 pub use vault_inventory::FsLocalModelInventory;
+pub mod filesystem_capacity;

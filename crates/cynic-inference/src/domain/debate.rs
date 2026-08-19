@@ -57,12 +57,7 @@ impl DebateSession {
         }
     }
 
-    pub fn add_participant(
-        &mut self,
-        model_alias: impl Into<String>,
-        role: DebateRole,
-        reasoning_budget: Option<u32>,
-    ) {
+    pub fn add_participant(&mut self, model_alias: impl Into<String>, role: DebateRole, reasoning_budget: Option<u32>) {
         self.participants.push(DebateParticipant {
             model_alias: model_alias.into(),
             role,
@@ -70,14 +65,7 @@ impl DebateSession {
         });
     }
 
-    pub fn record_turn(
-        &mut self,
-        speaker: DebateParticipant,
-        prompt: String,
-        response: String,
-        ttft_ms: u64,
-        gen_tok_s: f64,
-    ) {
+    pub fn record_turn(&mut self, speaker: DebateParticipant, prompt: String, response: String, ttft_ms: u64, gen_tok_s: f64) {
         let turn_index = self.turns.len() as u32 + 1;
         let timestamp_unix_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

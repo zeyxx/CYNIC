@@ -35,10 +35,7 @@ pub enum DomainTaskQueueError {
     AlreadyClaimed { task_id: String, claimed_by: String },
 
     #[error("Task '{task_id}' is not in claimable state (current: {status:?})")]
-    InvalidState {
-        task_id: String,
-        status: DomainTaskStatus,
-    },
+    InvalidState { task_id: String, status: DomainTaskStatus },
 }
 
 #[derive(Debug, Clone)]

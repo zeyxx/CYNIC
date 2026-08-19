@@ -90,11 +90,7 @@ impl VectorMemoryStore {
             .collect();
 
         // Sort descending by similarity score
-        results.sort_by(|a, b| {
-            b.similarity
-                .partial_cmp(&a.similarity)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        results.sort_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
         results.truncate(top_k);
         results
     }
@@ -132,24 +128,9 @@ mod tests {
             prompt_tokens: 2,
         };
 
-        store.insert(
-            "crystal-1",
-            "Coordination lease rules",
-            &emb1,
-            serde_json::json!({"kind": "crystal"}),
-        );
-        store.insert(
-            "crystal-2",
-            "Solana pump trading rules",
-            &emb2,
-            serde_json::json!({"kind": "crypto"}),
-        );
-        store.insert(
-            "crystal-3",
-            "Agent fencing token verification",
-            &emb3,
-            serde_json::json!({"kind": "crystal"}),
-        );
+        store.insert("crystal-1", "Coordination lease rules", &emb1, serde_json::json!({"kind": "crystal"}));
+        store.insert("crystal-2", "Solana pump trading rules", &emb2, serde_json::json!({"kind": "crypto"}));
+        store.insert("crystal-3", "Agent fencing token verification", &emb3, serde_json::json!({"kind": "crystal"}));
 
         let query = Embedding {
             vector: vec![1.0, 0.0, 0.0],

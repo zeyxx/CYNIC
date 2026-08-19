@@ -24,9 +24,6 @@ pub struct EnginePlugins {
     pub has_vulkan: bool,
     pub has_cuda: bool,
     pub has_metal: bool,
-    /// Vulkan/CUDA device name discovered from `--list-devices` (e.g. "Vulkan0").
-    /// Empty/None when no GPU backend is available or listing fails.
-    pub detected_gpu_device: Option<String>,
     /// Best-effort: which CPU backend ggml is likely to pick (by feature class).
     pub likely_cpu_backend_class: String,
 }
@@ -200,14 +197,11 @@ pub fn plan_launch(
             engine_args.push("-ctv".into());
             engine_args.push("q4_0".into());
         }
-        // Auto-detect GPU device name from `llama-server --list-devices` probe.
-        // Falls back to operator override (CYNIC_INFERENCE_DEVICE) or skips if no GPU.
-        let device = plugins.detected_gpu_device.clone().or_else(explicit_device);
-        if let Some(device) = device {
+        if let Some(device) = explicit_device() {
             engine_args.push("--device".into());
             engine_args.push(device.clone());
             rationale.push(format!(
-                "device={device} (auto-detected from llama-server --list-devices or {INFERENCE_DEVICE_ENV})"
+                "device override from {INFERENCE_DEVICE_ENV}={device}"
             ));
         }
     }
@@ -340,7 +334,6 @@ mod tests {
             has_vulkan: true,
             has_cuda: false,
             has_metal: false,
-            detected_gpu_device: None,
             likely_cpu_backend_class: "avx2".into(),
         };
         let plan = plan_launch(
