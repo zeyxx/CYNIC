@@ -79,7 +79,7 @@ fn run_cargo_check(root: &Path) -> bool {
 }
 
 fn run_secret_lint(root: &Path) -> bool {
-    let observation = cynic_host::secret_lint::scan_for_secrets(root);
+    let observation = crate::secret_lint::scan_for_secrets(root);
     !observation.has_findings()
 }
 

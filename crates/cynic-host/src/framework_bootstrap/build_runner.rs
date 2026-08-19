@@ -374,7 +374,10 @@ pub fn observe_build_runner_bootstrap(
     // build_runner dans le registry. Empêche un agent de builder localement
     // sur un nœud kernel_primary (cortex) en forgeant un node_id erroné.
     let local_role = std::fs::read_to_string("/etc/cynic/node-role").ok();
-    if local_role.as_deref().trim() != Some("build_runner") {
+    let local_role_matches = local_role
+        .as_deref()
+        .is_some_and(|r| r.trim() == "build_runner");
+    if !local_role_matches {
         blockers.push("build_runner_bootstrap_role_mismatch".to_string());
     }
     BuildRunnerBootstrapObservation {

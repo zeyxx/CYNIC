@@ -3,9 +3,10 @@
 //! Architecture:
 //!   forgejo/main → [queue: 7 days TTL] → [gate: check + lint + readme] → [bot: release commit] → github/main
 
-use serde::{Deserialize, std::time::SystemTime};
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::path::Path;
+use std::time::SystemTime;
 
 const QUEUE_TTL_SECONDS: u64 = 7 * 24 * 60 * 60; // 7 days
 
