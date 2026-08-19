@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::error_catalog::CynicErrorCode;
+
 pub const HEALTH_SIGNAL_SCHEMA: &str = "cynic.health_signal.v1";
 pub const ANOMALY_SIGNAL_SCHEMA: &str = "cynic.anomaly_signal.v1";
 pub const AUTONOMIC_REMEDIATION_PLAN_SCHEMA: &str = "cynic.autonomic_remediation_plan.v1";
@@ -178,6 +180,88 @@ pub enum HealthSignalPayload {
         age_seconds: u64,
         dead_threshold_seconds: u64,
     },
+    /// A node activation could not converge. Blockers are typed
+    /// `CynicErrorCode` variants (`CYNIC-ACT-*`), never free strings, so the
+    /// reconciler decides on data instead of parsing prose.
+    ActivationBlocked {
+        node_id: String,
+        /// Activation phase that produced the blockers (bootstrap | advance |
+        /// takeover).
+        phase: String,
+        blockers: Vec<CynicErrorCode>,
+        /// True when the operator gave explicit consent (`--yes`). Without it
+        /// no bounded action may be proposed.
+        consent_granted: bool,
+    },
+    /// Two agents hold overlapping claims on the same source scope.
+    ///
+    /// This is the emergence that produced the shared-type churn in this
+    /// repository: agents mutate the same crate without a claim, discover the
+    /// conflict only after causing it, and each "fix" reintroduces the next
+    /// divergence. Making it a signal lets the harness observe collisions
+    /// instead of inferring them from broken builds.
+    AgentScopeConflict {
+        /// Hierarchical scope (`fleet` | `node` | `crate` | `module` | `file`).
+        scope_kind: String,
+        scope_path: String,
+        holder_agent_id: String,
+        holder_mode: String,
+        contender_agent_id: String,
+        contender_mode: String,
+    },
+    /// An agent's claim TTL lapsed while it was still mutating.
+    ///
+    /// Distinct from a scope conflict: the claim was legitimate, the heartbeat
+    /// stopped. Retryable by renewal, whereas a conflict requires a new scope.
+    AgentClaimExpired {
+        claim_id: String,
+        agent_id: String,
+        scope_path: String,
+        ttl_seconds: u64,
+        age_seconds: u64,
+    },
+    /// A shared type changed under a concurrent consumer.
+    ///
+    /// The observable symptom class behind the `BuildRecipe` /
+    /// `NodeControlPlan` breakage: one agent adds or removes fields, other
+    /// agents' construction sites stop compiling. Recorded as data so the
+    /// pattern is learnable rather than rediscovered each session.
+    SharedTypeDrift {
+        crate_name: String,
+        type_name: String,
+        /// Symbols that no longer resolve or no longer match.
+        divergent_symbols: Vec<String>,
+        /// Consumer surfaces observed to break.
+        affected_consumers: Vec<String>,
+    },
+    /// Declared nodes exist but none reported within the heartbeat window.
+    ///
+    /// Pairs with `FleetHealthAggregation::observation_blackout`: absence of
+    /// evidence is reported as unknown, never as health.
+    FleetObservationBlackout {
+        declared_nodes: usize,
+        observed_nodes: usize,
+        window_seconds: u64,
+    },
+}
+
+impl HealthSignalPayload {
+    /// Sovereign error codes carried by this payload, when the domain has one.
+    ///
+    /// Lets a consumer project `CYNIC-*` codes without re-deriving policy from
+    /// the payload shape — one canonical decision source per concern.
+    pub fn error_codes(&self) -> Vec<CynicErrorCode> {
+        match self {
+            Self::ActivationBlocked { blockers, .. } => blockers.clone(),
+            Self::AgentScopeConflict { .. } => vec![CynicErrorCode::AgentScopeConflict],
+            Self::AgentClaimExpired { .. } => vec![CynicErrorCode::AgentClaimExpired],
+            Self::SharedTypeDrift { .. } => vec![CynicErrorCode::AgentSharedTypeDrift],
+            Self::FleetObservationBlackout { .. } => {
+                vec![CynicErrorCode::FleetObservationBlackout]
+            }
+            _ => Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -492,5 +576,138 @@ mod tests {
         };
         let (_k, _m, sev) = d.to_kernel_anomaly();
         assert_eq!(sev, "warning");
+    }
+
+    /// Activation blockers must travel as typed codes, not prose.
+    ///
+    /// The regression this locks: `node_activation` previously carried
+    /// `blockers: Vec<String>` and decided by `read_back_output.contains(..)`.
+    /// A payload that owns `Vec<CynicErrorCode>` makes the blocker set
+    /// machine-comparable and gives each blocker its catalogued operator action.
+    #[test]
+    fn activation_blocked_projects_typed_codes() {
+        let payload = HealthSignalPayload::ActivationBlocked {
+            node_id: "cynic-builder".to_string(),
+            phase: "takeover".to_string(),
+            blockers: vec![
+                CynicErrorCode::ActivationTakeoverProcessInactive,
+                CynicErrorCode::ActivationReadBackAbsent,
+            ],
+            consent_granted: false,
+        };
+
+        let codes = payload.error_codes();
+        assert_eq!(codes.len(), 2);
+        assert!(codes.contains(&CynicErrorCode::ActivationTakeoverProcessInactive));
+        // Each blocker keeps its catalogued projection.
+        assert_eq!(
+            CynicErrorCode::ActivationReadBackAbsent.code(),
+            "CYNIC-ACT-005"
+        );
+    }
+
+    /// Scope conflict and claim expiry are different contracts and must not
+    /// collapse into one code: a conflict needs a new scope, an expiry only
+    /// needs renewal. Conflating them is what makes agent collisions look
+    /// retryable when they are not.
+    #[test]
+    fn agent_emergences_map_to_distinct_codes() {
+        let conflict = HealthSignalPayload::AgentScopeConflict {
+            scope_kind: "crate".to_string(),
+            scope_path: "crates/cynic-protocol".to_string(),
+            holder_agent_id: "hermes:main".to_string(),
+            holder_mode: "baseline".to_string(),
+            contender_agent_id: "codex:worker".to_string(),
+            contender_mode: "baseline".to_string(),
+        };
+        let expired = HealthSignalPayload::AgentClaimExpired {
+            claim_id: "claim_001".to_string(),
+            agent_id: "hermes:main".to_string(),
+            scope_path: "crates/cynic-protocol".to_string(),
+            ttl_seconds: 1800,
+            age_seconds: 3600,
+        };
+
+        assert_eq!(
+            conflict.error_codes(),
+            vec![CynicErrorCode::AgentScopeConflict]
+        );
+        assert_eq!(
+            expired.error_codes(),
+            vec![CynicErrorCode::AgentClaimExpired]
+        );
+        assert_ne!(conflict.error_codes(), expired.error_codes());
+        // Retryability differs — the whole reason they stay separate.
+        assert!(CynicErrorCode::AgentClaimExpired.retryable());
+        assert!(!CynicErrorCode::AgentScopeConflict.retryable());
+    }
+
+    /// Shared type drift is the emergence class behind this repository's
+    /// recurring breakage (`BuildRecipe` fields, `NodeControlPlan::epoch`).
+    /// Recording the divergent symbols and affected consumers as data is what
+    /// makes the pattern learnable instead of rediscovered each session.
+    #[test]
+    fn shared_type_drift_retains_divergent_symbols() {
+        let payload = HealthSignalPayload::SharedTypeDrift {
+            crate_name: "cynic-protocol".to_string(),
+            type_name: "BuildRecipe".to_string(),
+            divergent_symbols: vec![
+                "target_profile".to_string(),
+                "allowed_actions".to_string(),
+            ],
+            affected_consumers: vec!["build_workflow::tests".to_string()],
+        };
+
+        assert_eq!(
+            payload.error_codes(),
+            vec![CynicErrorCode::AgentSharedTypeDrift]
+        );
+        match &payload {
+            HealthSignalPayload::SharedTypeDrift {
+                divergent_symbols,
+                affected_consumers,
+                ..
+            } => {
+                assert_eq!(divergent_symbols.len(), 2);
+                assert_eq!(affected_consumers.len(), 1);
+            }
+            other => panic!("expected SharedTypeDrift, got {other:?}"),
+        }
+    }
+
+    /// Payloads with no sovereign code must return empty, never a placeholder.
+    /// Inventing a code for an unmodelled domain would fabricate authority.
+    #[test]
+    fn payloads_without_codes_return_empty() {
+        let payload = HealthSignalPayload::StorageLatency {
+            operation: "select".to_string(),
+            latency_ms: 900,
+            threshold_ms: 500,
+        };
+        assert!(payload.error_codes().is_empty());
+    }
+
+    /// The signal envelope must carry the new payloads unchanged through
+    /// serde, since the harness persists them as evidence.
+    #[test]
+    fn new_payloads_round_trip_through_serde() {
+        let signal = HealthSignal::new(
+            "cynic-node-100",
+            SignalSeverity::Critical,
+            HealthSignalPayload::FleetObservationBlackout {
+                declared_nodes: 3,
+                observed_nodes: 0,
+                window_seconds: 30,
+            },
+            1_700_000_000,
+        );
+
+        let json = serde_json::to_string(&signal).expect("serialize");
+        let back: HealthSignal = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back, signal);
+        assert_eq!(
+            back.payload.error_codes(),
+            vec![CynicErrorCode::FleetObservationBlackout]
+        );
     }
 }
