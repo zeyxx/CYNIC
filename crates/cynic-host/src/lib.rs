@@ -60,6 +60,7 @@ pub mod process_convergence;
 pub mod process_observation;
 pub mod profiles;
 pub mod registry;
+pub mod registry_divergence_probe;
 pub mod registry_observation;
 pub mod release_bot;
 pub mod repo_access;
