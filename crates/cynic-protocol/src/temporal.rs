@@ -202,7 +202,7 @@ pub struct TemporalContract {
     pub reconciliation: &'static str,
     pub bounded_action: &'static str,
     pub read_back_proof: &'static str,
-    pub owner: Vec<&'static str>,
+    pub owner: &'static [&'static str],
     pub coverage: &'static str,
 }
 
@@ -222,7 +222,7 @@ impl TemporalContract {
         reconciliation: "admit only certificate-backed epoch advancement; request rollback on divergence",
         bounded_action: "accept epoch certificate, request rollback to certified base_epoch, or emit new snapshot",
         read_back_proof: "epoch certificate, temporal proof bundle, state digest match",
-        owner: vec!["cynic-protocol", "cynic-kernel", "cynic-node"],
+        owner: &["cynic-protocol", "cynic-kernel", "cynic-node"],
         coverage: "partial",
     };
 }
