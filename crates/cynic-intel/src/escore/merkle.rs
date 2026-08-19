@@ -153,6 +153,7 @@ mod tests {
             evidence_tier: EvidenceTier::T2Attestation,
             raw_weight: points * SCORE_SCALE,
             timestamp,
+            epoch: None,
         }
     }
 

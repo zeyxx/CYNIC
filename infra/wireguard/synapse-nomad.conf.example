@@ -1,0 +1,19 @@
+# ==============================================================================
+# CYNIC Synapse Mesh — Client WireGuard Nomade (Template Exemple)
+# ==============================================================================
+# Endpoint Public : 82.65.26.228:51820 (Fibre Domicile)
+# Réseau Privé     : 10.10.10.0/24 (synapse.cynic)
+# ==============================================================================
+
+[Interface]
+# Clé privée du client nomade (générée via: wg genkey)
+PrivateKey = CLIENT_PRIVATE_KEY_HERE
+Address = 10.10.10.50/24
+DNS = 10.10.10.1
+
+[Peer]
+# Clé publique du serveur Proxmox (synapse0) chez toi
+PublicKey = PROXMOX_SYNAPSE_PUBLIC_KEY_HERE
+AllowedIPs = 10.10.10.0/24
+Endpoint = 82.65.26.228:51820
+PersistentKeepalive = 25

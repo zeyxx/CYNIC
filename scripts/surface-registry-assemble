@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""Assemble canonical surface-registry JSON from fragment files.
+
+Inputs:
+  - infra/surface-registry/manifest.json
+  - manifest surface entries path references under infra/surface-registry/
+
+Output:
+  - infra/surface-registry.json (deterministic, ordered by manifest)
+
+Usage:
+  scripts/surface-registry-assemble
+  scripts/surface-registry-assemble --check
+  scripts/surface-registry-assemble --output path/to/file.json
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from collections.abc import MutableMapping
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_MANIFEST = ROOT / "infra" / "surface-registry" / "manifest.json"
+DEFAULT_OUTPUT = ROOT / "infra" / "surface-registry.json"
+EXPECTED_SCHEMA = "cynic.surface_registry.v1"
+
+
+def fail(message: str) -> None:
+    print(f"surface-registry-assemble: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def read_json(path: Path) -> Any:
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except FileNotFoundError:
+        fail(f"missing file: {path}")
+    except json.JSONDecodeError as error:
+        fail(f"invalid JSON in {path}: {error}")
+
+
+def canonical_signature(document: Any) -> str:
+    return json.dumps(document, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> dict[str, Any]:
+    if manifest.get("schema") != EXPECTED_SCHEMA:
+        fail(
+            "manifest schema mismatch: expected "
+            f"{EXPECTED_SCHEMA}, found {manifest.get('schema', '<missing>')}"
+        )
+
+    entries = manifest.get("surfaces")
+    if not isinstance(entries, list):
+        fail("manifest.surfaces must be an array")
+    if len(entries) == 0:
+        fail("manifest.surfaces is empty")
+
+    seen_ids: set[str] = set()
+    surfaces = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            fail("manifest.surfaces entries must be objects")
+        surface_id = entry.get("id")
+        path = entry.get("path")
+        if not isinstance(surface_id, str) or not surface_id:
+            fail("manifest surface entry is missing a non-empty id")
+        if not isinstance(path, str) or not path:
+            fail(f"surface {surface_id}: missing fragment path")
+        fragment_path = fragments_root.joinpath(path)
+        fragment = read_json(fragment_path)
+        if not isinstance(fragment, dict):
+            fail(f"fragment {path} must be an object")
+        if fragment.get("id") != surface_id:
+            fail(
+                f"fragment id mismatch for {surface_id}: "
+                f"manifest expects {surface_id}, fragment has {fragment.get('id')}"
+            )
+        if surface_id in seen_ids:
+            fail(f"duplicate surface id in manifest: {surface_id}")
+        seen_ids.add(surface_id)
+        surfaces.append(fragment)
+
+    return {"schema": EXPECTED_SCHEMA, "surfaces": surfaces}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--manifest",
+        default=str(DEFAULT_MANIFEST),
+        help="path to surface-registry manifest",
+    )
+    parser.add_argument(
+        "--output",
+        default=str(DEFAULT_OUTPUT),
+        help="target assembled surface-registry JSON",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="validate assembled output against manifest without writing",
+    )
+    args = parser.parse_args()
+
+    manifest_path = Path(args.manifest)
+    output_path = Path(args.output)
+    manifest = read_json(manifest_path)
+    if not isinstance(manifest, dict):
+        fail(f"manifest must be an object: {manifest_path}")
+    fragments_root = manifest_path.parent
+    assembled = build_document(manifest, fragments_root)
+
+    if args.check:
+        existing = read_json(output_path)
+        if canonical_signature(existing) != canonical_signature(assembled):
+            fail("assembled output does not match manifest fragments")
+        print("surface-registry is consistent with fragments")
+        return
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as handle:
+        json.dump(assembled, handle, ensure_ascii=False, indent=2, sort_keys=True)
+        handle.write("\n")
+    print(str(output_path))
+
+
+if __name__ == "__main__":
+    main()

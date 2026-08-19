@@ -5,16 +5,12 @@ edition = "2024"
 publish = false
 
 [dependencies]
-cynic-protocol = { path = "../cynic-protocol" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2.0.18"
 blake3 = "1"
 hex = "0.4"
-async-trait = "0.1"
-
-[dev-dependencies]
-tokio = { version = "1", features = ["full"] }
+cynic-protocol = { version = "0.1.0", path = "../cynic-protocol" }
 
 [lints]
 workspace = true

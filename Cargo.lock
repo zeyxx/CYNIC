@@ -930,14 +930,12 @@ dependencies = [
 name = "cynic-intel"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "blake3",
  "cynic-protocol",
  "hex",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
- "tokio",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 use crate::escore::decay::{apply_tier_weight, calculate_decay, calculate_quadratic_modifier};
 use crate::escore::merkle::{Blake3Hash, MerkleError, merkle_root};
-use crate::escore::types::{EScoreSignal, SCORE_SCALE, ScoreUnit, StatType};
+use crate::escore::types::{EScoreSignal, Epoch, SCORE_SCALE, ScoreUnit, StatType};
 use serde::{Deserialize, Serialize};
 
 // ── Poids de chaque vertu dans le score composite d'un wallet ────────────────
@@ -77,10 +77,14 @@ pub enum AggregatorError {
 /// 2. Somme les signaux par dimension.
 /// 3. Calcule le composite pondéré (STAT_WEIGHTS_BPS).
 /// 4. Calcule la racine de Merkle de l'ensemble des signaux.
+///
+/// Le paramètre `current_epoch` permet de calculer un decay temporel via des epochs
+/// logiques au lieu des jours Unix, garantissant une convergence déterministe entre nœuds.
 pub fn aggregate_wallet(
     pubkey: &str,
     signals: &[EScoreSignal],
     now_unix: i64,
+    current_epoch: Epoch,
 ) -> Result<WalletSnapshot, AggregatorError> {
     if signals.is_empty() {
         return Err(AggregatorError::EmptySignals(pubkey.to_owned()));
@@ -89,11 +93,22 @@ pub fn aggregate_wallet(
     let mut dim_scores = [0u64; 7];
 
     for signal in signals {
-        let days_inactive = days_elapsed(signal.timestamp, now_unix);
-        let retention_bps = retention_for(&signal.stat_type);
-
-        // Decay temporel (arithmétique entière pure)
-        let decayed = calculate_decay(signal.raw_weight, days_inactive, retention_bps);
+        // Priorité au decay par epoch si disponible, sinon decay par jours Unix.
+        let decayed = if let Some(signal_epoch) = signal.epoch {
+            // Decay basé sur les epochs logiques
+            let retention_bps = retention_for(&signal.stat_type);
+            crate::escore::decay::calculate_epoch_decay(
+                signal.raw_weight,
+                signal_epoch,
+                current_epoch.id(),
+                retention_bps,
+            )
+        } else {
+            // Fallback: decay basé sur les jours Unix (comportement legacy)
+            let days_inactive = days_elapsed(signal.timestamp, now_unix);
+            let retention_bps = retention_for(&signal.stat_type);
+            calculate_decay(signal.raw_weight, days_inactive, retention_bps)
+        };
 
         // Pondération par le tier de preuve (T1=100%, T4=25%)
         let weighted = apply_tier_weight(decayed, signal.evidence_tier.weight_bps());
@@ -245,6 +260,7 @@ mod tests {
             evidence_tier: tier,
             raw_weight: points * SCORE_SCALE,
             timestamp: NOW - days_ago * 86_400,
+            epoch: None,
         }
     }
 
@@ -256,8 +272,9 @@ mod tests {
             signal(StatType::Koinonia, EvidenceTier::T3Oracle, 30, 1),
         ];
 
-        let a = aggregate_wallet("wallet-x", &signals, NOW).unwrap();
-        let b = aggregate_wallet("wallet-x", &signals, NOW).unwrap();
+        let current_epoch = Epoch::new(100);
+        let a = aggregate_wallet("wallet-x", &signals, NOW, current_epoch).unwrap();
+        let b = aggregate_wallet("wallet-x", &signals, NOW, current_epoch).unwrap();
         assert_eq!(a, b, "L'agrégation doit être 100% déterministe");
         assert!(a.composite > 0);
     }
@@ -272,8 +289,9 @@ mod tests {
             365,
         )];
 
-        let s_fresh = aggregate_wallet("w", &fresh, NOW).unwrap();
-        let s_stale = aggregate_wallet("w", &stale, NOW).unwrap();
+        let current_epoch = Epoch::new(100);
+        let s_fresh = aggregate_wallet("w", &fresh, NOW, current_epoch).unwrap();
+        let s_stale = aggregate_wallet("w", &stale, NOW, current_epoch).unwrap();
 
         assert!(
             s_fresh.composite > s_stale.composite,
@@ -286,8 +304,9 @@ mod tests {
         let on_chain = vec![signal(StatType::Karteria, EvidenceTier::T1OnChain, 100, 0)];
         let self_decl = vec![signal(StatType::Karteria, EvidenceTier::T4Solo, 100, 0)];
 
-        let t1 = aggregate_wallet("w", &on_chain, NOW).unwrap();
-        let t4 = aggregate_wallet("w", &self_decl, NOW).unwrap();
+        let current_epoch = Epoch::new(100);
+        let t1 = aggregate_wallet("w", &on_chain, NOW, current_epoch).unwrap();
+        let t4 = aggregate_wallet("w", &self_decl, NOW, current_epoch).unwrap();
 
         assert!(t1.composite > t4.composite, "T1OnChain doit dominer T4Solo");
     }
@@ -295,6 +314,7 @@ mod tests {
     #[test]
     fn anti_whale_reduces_dominant_wallet_contribution() {
         // Whale : 1000 points, Minnow : 10 points
+        let current_epoch = Epoch::new(100);
         let whale = {
             let s = vec![signal(
                 StatType::Karteria,
@@ -302,11 +322,11 @@ mod tests {
                 1_000,
                 0,
             )];
-            aggregate_wallet("whale", &s, NOW).unwrap()
+            aggregate_wallet("whale", &s, NOW, current_epoch).unwrap()
         };
         let minnow = {
             let s = vec![signal(StatType::Karteria, EvidenceTier::T1OnChain, 10, 0)];
-            aggregate_wallet("minnow", &s, NOW).unwrap()
+            aggregate_wallet("minnow", &s, NOW, current_epoch).unwrap()
         };
 
         let snapshots = vec![whale.clone(), minnow.clone()];
@@ -330,8 +350,9 @@ mod tests {
     #[test]
     fn fractal_scales_correctly_at_token_level() {
         // 5 wallets identiques → le token score doit être identique au score individuel
+        let current_epoch = Epoch::new(100);
         let s = vec![signal(StatType::Karteria, EvidenceTier::T1OnChain, 100, 10)];
-        let snap = aggregate_wallet("w", &s, NOW).unwrap();
+        let snap = aggregate_wallet("w", &s, NOW, current_epoch).unwrap();
 
         let all_equal: Vec<WalletSnapshot> = (0..5)
             .map(|i| WalletSnapshot {
@@ -361,12 +382,14 @@ mod tests {
         let init_decay = m.decay_operations_total.load(Ordering::Relaxed);
         let init_anti_whale = m.anti_whale_dilutions_total.load(Ordering::Relaxed);
 
+        let current_epoch = Epoch::new(100);
+
         // 1. On agrège un wallet
         let s = vec![
             signal(StatType::Karteria, EvidenceTier::T1OnChain, 100, 5), // decay appliqué car days > 0
             signal(StatType::Parrhesia, EvidenceTier::T1OnChain, 50, 0),
         ];
-        let _snap = aggregate_wallet("w-metrics", &s, NOW).unwrap();
+        let _snap = aggregate_wallet("w-metrics", &s, NOW, current_epoch).unwrap();
 
         assert!(m.signals_processed.load(Ordering::Relaxed) >= init_signals + 2);
         assert!(m.wallets_aggregated.load(Ordering::Relaxed) > init_wallets);

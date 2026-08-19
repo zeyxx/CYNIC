@@ -1,4 +1,5 @@
 pub mod agent_connection;
+pub mod bootstrap_federation;
 pub mod agent_citizenship;
 pub mod agent_recursion;
 pub mod agent_scheduler;
@@ -37,6 +38,7 @@ pub mod fleet_heartbeat;
 pub mod emergence;
 pub mod local_autonomy;
 pub mod runtime_takeover;
+pub mod runtime_takeover_activation;
 pub mod forgejo;
 pub mod framework;
 pub mod freshness;
@@ -79,7 +81,6 @@ pub mod surface_registry;
 pub mod tasks;
 pub mod transport_security;
 pub mod workload_identity;
-pub mod peer_resolver;
 
 pub use agent_connection::*;
 pub use agent_citizenship::*;

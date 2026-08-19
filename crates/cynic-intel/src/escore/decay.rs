@@ -63,6 +63,54 @@ pub fn to_points(units: ScoreUnit) -> u64 {
     units / SCORE_SCALE
 }
 
+/// Applique un decay basé sur l'écart d'epochs entre le signal et l'epoch actuel.
+///
+/// Contrairement à `calculate_decay` qui utilise des jours, cette fonction
+/// utilise la primitive `cynic_protocol::Epoch` pour un temps logique fiable.
+/// Chaque epoch représente une unité de consensus déterministe.
+///
+/// Le `retention_bps` est interprété comme le taux de rétention PAR EPOCH.
+/// Exemple : 9_277 bps ≈ exp(-0.075) par epoch (≈ 7.25% de perte par epoch).
+///
+/// # Arguments
+/// - `base_value` : Le score de base à appliquer au decay.
+/// - `signal_epoch` : L'epoch auquel le signal a été généré.
+/// - `current_epoch` : L'epoch actuel du runtime.
+/// - `retention_bps` : Le taux de rétention par epoch (en basis points).
+///
+/// # Returns
+/// Le score après application du decay, ou `base_value` si l'écart est nul.
+///
+/// # Panics
+/// Ne panic pas - si `current_epoch < signal_epoch`, retourne `base_value` sans decay.
+pub fn calculate_epoch_decay(
+    base_value: ScoreUnit,
+    signal_epoch: u64,
+    current_epoch: u64,
+    retention_bps: RetentionBps,
+) -> ScoreUnit {
+    if base_value == 0 || current_epoch <= signal_epoch {
+        // Pas de decay si le signal est à l'epoch actuel ou dans le futur.
+        return base_value;
+    }
+
+    let epochs_elapsed = (current_epoch - signal_epoch) as u32;
+
+    // Incrémente la métrique de decay
+    crate::escore::metrics::ESCORE_METRICS
+        .decay_operations_total
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+    // Un taux de rétention > 10_000 bps serait une augmentation, ce qui est interdit.
+    let retention = retention_bps.min(10_000) as u128;
+
+    let mut value = base_value as u128;
+    for _ in 0..epochs_elapsed {
+        value = value * retention / 10_000;
+    }
+    value as ScoreUnit
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,5 +162,41 @@ mod tests {
     fn conversion_roundtrip() {
         let points = 42u64;
         assert_eq!(to_points(from_points(points)), points);
+    }
+
+    #[test]
+    fn epoch_decay_is_strictly_monotonic() {
+        // 9_277 bps ≈ exp(-0.075)/epoch
+        let d0 = calculate_epoch_decay(from_points(100), 0, 0, 9_277);
+        let d5 = calculate_epoch_decay(from_points(100), 0, 5, 9_277);
+        let d20 = calculate_epoch_decay(from_points(100), 0, 20, 9_277);
+
+        assert_eq!(d0, from_points(100), "Pas de decay à epoch identique");
+        assert!(d0 > d5, "Le score doit décroître après 5 epochs");
+        assert!(d5 > d20, "Le score doit décroître encore après 20 epochs");
+    }
+
+    #[test]
+    fn epoch_decay_is_deterministic() {
+        let a = calculate_epoch_decay(from_points(500), 10, 20, 9_500);
+        let b = calculate_epoch_decay(from_points(500), 10, 20, 9_500);
+        assert_eq!(a, b, "Le calcul doit être déterministe");
+    }
+
+    #[test]
+    fn epoch_decay_no_decay_when_signal_in_future_or_same_epoch() {
+        // Signal dans le futur par rapport à l'epoch actuel
+        let future = calculate_epoch_decay(from_points(100), 5, 3, 9_000);
+        assert_eq!(future, from_points(100), "Pas de decay si le signal est dans le futur");
+
+        // Signal au même epoch
+        let same = calculate_epoch_decay(from_points(100), 7, 7, 9_000);
+        assert_eq!(same, from_points(100), "Pas de decay si le signal est à l'epoch actuel");
+    }
+
+    #[test]
+    fn epoch_decay_zero_base_value() {
+        let result = calculate_epoch_decay(0, 0, 50, 9_000);
+        assert_eq!(result, 0, "Un score de base de 0 reste 0");
     }
 }
