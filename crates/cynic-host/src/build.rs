@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use cynic_protocol::build::fleet::{AttemptVerdict, BuildResult, BuildStatus, ToolchainFaultClass};
 use cynic_protocol::{
     BuildInputAdmission, BuildRunnerAdmission, BuildRunnerEnvelope, EvidenceEnvelope,
 };
@@ -9,6 +10,40 @@ use sha2::{Digest, Sha256};
 use crate::update_lifecycle::ArgvRunner;
 
 pub const BUILD_PROOF_SCHEMA: &str = "cynic.host.build_proof.v1";
+
+/// Classify a failed command read-back as substrate fault or source verdict.
+///
+/// A chronic-ICE host (see `AGENTS.md` harness rules) crashes rustc without ever
+/// judging the code. Attributing that to the source manufactures a false
+/// failure, so the raw signals are mapped to `cynic_protocol::build::fleet`
+/// types and the canonical classifier decides. `None` means the toolchain did
+/// judge the source and the failure is real.
+fn toolchain_fault_from_command(
+    command: &BuildCommandProof,
+    node_id: &str,
+) -> Option<ToolchainFaultClass> {
+    // A crash signal leaves no exit code; rustc also emits an explicit ICE note.
+    let crashed = command.exit_code.is_none();
+    let ice_reported = command.stderr.contains("internal compiler error")
+        || command.stderr.contains("SIGSEGV")
+        || command.stderr.contains("signal: 11");
+
+    let status = if crashed || ice_reported {
+        BuildStatus::Ice
+    } else {
+        return None;
+    };
+
+    let result = BuildResult {
+        status,
+        exit_code: command.exit_code.unwrap_or_default(),
+        evidence_refs: Vec::new(),
+    };
+    match AttemptVerdict::from_result(&result, node_id) {
+        AttemptVerdict::ToolchainFault { class, .. } => Some(class),
+        AttemptVerdict::SourceJudged { .. } => None,
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct BuildRequest {
@@ -224,12 +259,26 @@ pub fn run_build(request: &BuildRequest, runner: &dyn ArgvRunner) -> BuildProof 
         stderr: output.spawn_error.unwrap_or(output.stderr),
     };
     if !command.success {
+        // A toolchain crash proves nothing about the source: report an explicit
+        // unknown instead of a failure attributed to the code.
+        let node_id = request.runner_envelope.node_id.clone();
+        let (status, blocker) = match toolchain_fault_from_command(&command, &node_id) {
+            Some(ToolchainFaultClass::CompilerCrash) => (
+                "unproved_toolchain_fault",
+                format!("toolchain_compiler_crash_on_node:{node_id}"),
+            ),
+            Some(ToolchainFaultClass::BudgetExhausted) => (
+                "unproved_toolchain_fault",
+                format!("toolchain_budget_exhausted_on_node:{node_id}"),
+            ),
+            None => ("failed", "build_command_failed".to_string()),
+        };
         return BuildProof {
             schema: BUILD_PROOF_SCHEMA,
-            status: "failed",
+            status,
             mutates: true,
             source_commit: request.source_commit.clone(),
-            runner_node_id: request.runner_envelope.node_id.clone(),
+            runner_node_id: node_id,
             lease_id: request.runner_envelope.lease.lease_id.clone(),
             fencing_token: request.runner_envelope.lease.fencing_token,
             consumed_actions: 1,
@@ -237,7 +286,7 @@ pub fn run_build(request: &BuildRequest, runner: &dyn ArgvRunner) -> BuildProof 
             artifact_digest: None,
             commands: vec![command],
             evidence_refs,
-            blockers: vec!["build_command_failed".to_string()],
+            blockers: vec![blocker],
         };
     }
 
@@ -322,6 +371,56 @@ mod tests {
             BuildConformanceEvidence::from_content_addressed_envelope(&envelope.digest, &envelope,)
                 .expect_err("untrusted producer must not become conformance proof"),
             "build_evidence_provenance_rejected"
+        );
+    }
+
+    fn command(exit_code: Option<i32>, stderr: &str) -> BuildCommandProof {
+        BuildCommandProof {
+            argv: vec!["cargo".to_string(), "check".to_string()],
+            success: false,
+            exit_code,
+            stdout: String::new(),
+            stderr: stderr.to_string(),
+        }
+    }
+
+    #[test]
+    fn crash_without_exit_code_is_a_toolchain_fault_not_a_source_failure() {
+        // Cortex signature: rustc dies on a signal, leaving no exit code.
+        assert_eq!(
+            toolchain_fault_from_command(&command(None, ""), "cortex"),
+            Some(ToolchainFaultClass::CompilerCrash)
+        );
+    }
+
+    #[test]
+    fn reported_ice_is_a_toolchain_fault_even_with_an_exit_code() {
+        assert_eq!(
+            toolchain_fault_from_command(
+                &command(
+                    Some(101),
+                    "error: internal compiler error: unexpected panic"
+                ),
+                "cortex"
+            ),
+            Some(ToolchainFaultClass::CompilerCrash)
+        );
+        assert_eq!(
+            toolchain_fault_from_command(&command(Some(101), "signal: 11, SIGSEGV"), "cortex"),
+            Some(ToolchainFaultClass::CompilerCrash)
+        );
+    }
+
+    #[test]
+    fn a_real_compile_error_stays_a_source_failure() {
+        // E0599 on cynic-builder is a verdict about the code: it must NOT be
+        // excused as substrate noise, otherwise real bugs become invisible.
+        assert_eq!(
+            toolchain_fault_from_command(
+                &command(Some(101), "error[E0599]: no method named `resolve` found"),
+                "cynic-builder"
+            ),
+            None
         );
     }
 }
