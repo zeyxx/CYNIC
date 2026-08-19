@@ -325,6 +325,53 @@ pub enum AutonomicActionKind {
     RecordObservationOnly {
         reason: String,
     },
+    /// Ask the operator for explicit consent before any activation mutation.
+    ///
+    /// Activation is a bounded mutation: without `--yes` the reconciler must
+    /// stop here rather than propose the mutation itself. This keeps consent a
+    /// distinct decision from the action it authorizes.
+    RequestActivationConsent {
+        node_id: String,
+        phase: String,
+        /// Codes the operator must acknowledge, projected from the payload.
+        blocking_codes: Vec<String>,
+    },
+    /// Yield a contested source scope so the holder can finish.
+    ///
+    /// A scope conflict is not retryable by waiting: the contender must release
+    /// and pick another scope. This action names that, instead of leaving the
+    /// collision to resolve itself through broken builds.
+    YieldAgentScope {
+        scope_path: String,
+        contender_agent_id: String,
+        holder_agent_id: String,
+    },
+    /// Renew a lapsed claim's TTL for an agent still holding its scope.
+    ///
+    /// The counterpart to `YieldAgentScope`: the claim was legitimate, only the
+    /// heartbeat stopped, so renewal is the correct bounded action.
+    RenewAgentClaim {
+        claim_id: String,
+        agent_id: String,
+        scope_path: String,
+    },
+    /// Re-verify a drifted shared type against its current definition.
+    ///
+    /// Observation-and-verification only: repairing consumers is a code change
+    /// that belongs to an agent under a claim, never an autonomic mutation.
+    RevalidateSharedType {
+        crate_name: String,
+        type_name: String,
+        divergent_symbols: Vec<String>,
+    },
+    /// Restore fleet observation transport after a total blackout.
+    ///
+    /// Bounded to the observation plane: it repairs the ability to see, never
+    /// the nodes themselves, since with zero evidence their state is unknown.
+    RestoreFleetObservation {
+        declared_nodes: usize,
+        window_seconds: u64,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -491,6 +538,170 @@ pub fn reconcile_health_signal(
             reasoning: "Storage latency degradation detected — monitor DB health".to_string(),
             stop_condition: "latency below threshold".to_string(),
             rollback_intent: "none".to_string(),
+        }),
+        HealthSignalPayload::ActivationBlocked {
+            node_id,
+            phase,
+            blockers,
+            consent_granted,
+        } => {
+            // Consent is a separate decision from the action it authorizes.
+            // Without `--yes` the reconciler stops at requesting it; it must
+            // never propose the mutation on the operator's behalf.
+            let blocking_codes: Vec<String> =
+                blockers.iter().map(|c| c.code().to_string()).collect();
+            let codes_joined = blocking_codes.join(", ");
+            // Retryability comes from the catalog, not from a local rule.
+            let all_retryable = !blockers.is_empty()
+                && blockers.iter().all(|c| c.retryable());
+            let action = if *consent_granted {
+                AutonomicActionKind::RecordObservationOnly {
+                    reason: format!(
+                        "activation of '{node_id}' consented but blocked by [{codes_joined}]"
+                    ),
+                }
+            } else {
+                AutonomicActionKind::RequestActivationConsent {
+                    node_id: node_id.clone(),
+                    phase: phase.clone(),
+                    blocking_codes,
+                }
+            };
+            Some(AutonomicRemediationPlan {
+                schema: AUTONOMIC_REMEDIATION_PLAN_SCHEMA.to_string(),
+                plan_id: format!("remediation-activation-{node_id}-{now_unix_s}"),
+                signal_id: signal.signal_id.clone(),
+                generated_at_unix_s: now_unix_s,
+                severity: signal.severity,
+                // Requesting consent is actionable; a consented-but-blocked
+                // activation is not, since the blockers remain.
+                is_actionable: !*consent_granted,
+                action,
+                reasoning: format!(
+                    "Activation phase '{phase}' for node '{node_id}' blocked by [{codes_joined}]"
+                ),
+                stop_condition: if all_retryable {
+                    "stop when all blockers clear on re-observation".to_string()
+                } else {
+                    "stop until operator resolves non-retryable blockers".to_string()
+                },
+                rollback_intent: "leave node at its current activation phase".to_string(),
+            })
+        }
+        HealthSignalPayload::AgentScopeConflict {
+            scope_kind,
+            scope_path,
+            holder_agent_id,
+            holder_mode,
+            contender_agent_id,
+            contender_mode,
+        } => {
+            // Cynic-mode claims preempt baseline (AGENTS.md conflict table);
+            // otherwise first-wins and the contender yields.
+            let contender_preempts =
+                contender_mode == "cynic" && holder_mode == "baseline";
+            let (yielding, retaining) = if contender_preempts {
+                (holder_agent_id, contender_agent_id)
+            } else {
+                (contender_agent_id, holder_agent_id)
+            };
+            Some(AutonomicRemediationPlan {
+                schema: AUTONOMIC_REMEDIATION_PLAN_SCHEMA.to_string(),
+                plan_id: format!("remediation-agent-scope-{now_unix_s}"),
+                signal_id: signal.signal_id.clone(),
+                generated_at_unix_s: now_unix_s,
+                severity: SignalSeverity::Critical,
+                is_actionable: true,
+                action: AutonomicActionKind::YieldAgentScope {
+                    scope_path: scope_path.clone(),
+                    contender_agent_id: yielding.clone(),
+                    holder_agent_id: retaining.clone(),
+                },
+                reasoning: format!(
+                    "Agents '{holder_agent_id}' ({holder_mode}) and '{contender_agent_id}' ({contender_mode}) both claim {scope_kind} '{scope_path}' — '{yielding}' yields to '{retaining}'"
+                ),
+                stop_condition: "stop when only one active claim covers the scope".to_string(),
+                rollback_intent: format!(
+                    "re-claim '{scope_path}' after '{retaining}' releases"
+                ),
+            })
+        }
+        HealthSignalPayload::AgentClaimExpired {
+            claim_id,
+            agent_id,
+            scope_path,
+            ttl_seconds,
+            age_seconds,
+        } => Some(AutonomicRemediationPlan {
+            schema: AUTONOMIC_REMEDIATION_PLAN_SCHEMA.to_string(),
+            plan_id: format!("remediation-agent-claim-{claim_id}-{now_unix_s}"),
+            signal_id: signal.signal_id.clone(),
+            generated_at_unix_s: now_unix_s,
+            severity: SignalSeverity::Warning,
+            // Renewal is bounded and reversible, unlike yielding a scope.
+            is_actionable: true,
+            action: AutonomicActionKind::RenewAgentClaim {
+                claim_id: claim_id.clone(),
+                agent_id: agent_id.clone(),
+                scope_path: scope_path.clone(),
+            },
+            reasoning: format!(
+                "Claim '{claim_id}' held by '{agent_id}' on '{scope_path}' lapsed: age {age_seconds}s > TTL {ttl_seconds}s"
+            ),
+            stop_condition: "stop when heartbeat renews the claim TTL".to_string(),
+            rollback_intent: format!(
+                "release '{claim_id}' so another agent may preempt '{scope_path}'"
+            ),
+        }),
+        HealthSignalPayload::SharedTypeDrift {
+            crate_name,
+            type_name,
+            divergent_symbols,
+            affected_consumers,
+        } => Some(AutonomicRemediationPlan {
+            schema: AUTONOMIC_REMEDIATION_PLAN_SCHEMA.to_string(),
+            plan_id: format!("remediation-type-drift-{type_name}-{now_unix_s}"),
+            signal_id: signal.signal_id.clone(),
+            generated_at_unix_s: now_unix_s,
+            severity: SignalSeverity::Critical,
+            // Deliberately NOT actionable: repairing consumers is a code change
+            // that belongs to an agent working under a claim. An autonomic loop
+            // that edits source would be an unbounded mutation.
+            is_actionable: false,
+            action: AutonomicActionKind::RevalidateSharedType {
+                crate_name: crate_name.clone(),
+                type_name: type_name.clone(),
+                divergent_symbols: divergent_symbols.clone(),
+            },
+            reasoning: format!(
+                "Shared type '{crate_name}::{type_name}' drifted on {} symbol(s), breaking {} consumer(s) — repair belongs to a claimed agent, not the autonomic loop",
+                divergent_symbols.len(),
+                affected_consumers.len()
+            ),
+            stop_condition: "stop when consumers compile against the current definition"
+                .to_string(),
+            rollback_intent: "revert the type change if consumers cannot be adapted".to_string(),
+        }),
+        HealthSignalPayload::FleetObservationBlackout {
+            declared_nodes,
+            observed_nodes,
+            window_seconds,
+        } => Some(AutonomicRemediationPlan {
+            schema: AUTONOMIC_REMEDIATION_PLAN_SCHEMA.to_string(),
+            plan_id: format!("remediation-fleet-blackout-{now_unix_s}"),
+            signal_id: signal.signal_id.clone(),
+            generated_at_unix_s: now_unix_s,
+            severity: SignalSeverity::Critical,
+            is_actionable: true,
+            action: AutonomicActionKind::RestoreFleetObservation {
+                declared_nodes: *declared_nodes,
+                window_seconds: *window_seconds,
+            },
+            reasoning: format!(
+                "{observed_nodes}/{declared_nodes} declared nodes reported within {window_seconds}s — fleet state is unknown, not healthy; restoring the observation plane only"
+            ),
+            stop_condition: "stop when at least one node reports in-window".to_string(),
+            rollback_intent: "retain existing observation transport if restore fails".to_string(),
         }),
         _ => None,
     }
@@ -709,5 +920,285 @@ mod tests {
             back.payload.error_codes(),
             vec![CynicErrorCode::FleetObservationBlackout]
         );
+    }
+
+    fn signal_with(payload: HealthSignalPayload, severity: SignalSeverity) -> HealthSignal {
+        HealthSignal::new("cynic-node-100", severity, payload, 1_700_000_000)
+    }
+
+    /// Without consent the reconciler must request it, never propose the
+    /// mutation itself. Consent is a separate decision from the action it
+    /// authorizes — the `--yes` boundary lives in the plan, not in the caller.
+    #[test]
+    fn activation_without_consent_requests_it() {
+        let signal = signal_with(
+            HealthSignalPayload::ActivationBlocked {
+                node_id: "cynic-builder".to_string(),
+                phase: "takeover".to_string(),
+                blockers: vec![CynicErrorCode::ActivationConsentMissing],
+                consent_granted: false,
+            },
+            SignalSeverity::Warning,
+        );
+
+        let plan = reconcile_health_signal(&signal, 1_700_000_100).expect("plan");
+        assert!(plan.is_actionable);
+        match plan.action {
+            AutonomicActionKind::RequestActivationConsent {
+                node_id,
+                phase,
+                blocking_codes,
+            } => {
+                assert_eq!(node_id, "cynic-builder");
+                assert_eq!(phase, "takeover");
+                assert_eq!(blocking_codes, vec!["CYNIC-ACT-006"]);
+            }
+            other => panic!("expected RequestActivationConsent, got {other:?}"),
+        }
+    }
+
+    /// With consent granted but blockers remaining, the plan degrades to
+    /// observation. Consent authorizes a mutation; it does not clear blockers,
+    /// so claiming actionability here would fabricate convergence.
+    #[test]
+    fn consented_but_blocked_activation_is_not_actionable() {
+        let signal = signal_with(
+            HealthSignalPayload::ActivationBlocked {
+                node_id: "cynic-builder".to_string(),
+                phase: "bootstrap".to_string(),
+                blockers: vec![CynicErrorCode::ActivationPhaseAuthorityInsufficient],
+                consent_granted: true,
+            },
+            SignalSeverity::Critical,
+        );
+
+        let plan = reconcile_health_signal(&signal, 1_700_000_100).expect("plan");
+        assert!(!plan.is_actionable);
+        assert!(matches!(
+            plan.action,
+            AutonomicActionKind::RecordObservationOnly { .. }
+        ));
+        // Non-retryable blocker → stop condition defers to the operator.
+        assert!(plan.stop_condition.contains("non-retryable"));
+    }
+
+    /// The stop condition must derive retryability from the catalog, not from a
+    /// rule re-implemented here (one canonical decision source per concern).
+    #[test]
+    fn activation_stop_condition_follows_catalog_retryability() {
+        let signal = signal_with(
+            HealthSignalPayload::ActivationBlocked {
+                node_id: "n1".to_string(),
+                phase: "advance".to_string(),
+                // Both retryable per the catalog.
+                blockers: vec![
+                    CynicErrorCode::ActivationEpochUnobservable,
+                    CynicErrorCode::ActivationBootstrapIncomplete,
+                ],
+                consent_granted: true,
+            },
+            SignalSeverity::Warning,
+        );
+
+        let plan = reconcile_health_signal(&signal, 1_700_000_100).expect("plan");
+        assert!(plan.stop_condition.contains("re-observation"));
+    }
+
+    /// Baseline-vs-baseline conflict: first-wins, the contender yields.
+    #[test]
+    fn baseline_scope_conflict_makes_contender_yield() {
+        let signal = signal_with(
+            HealthSignalPayload::AgentScopeConflict {
+                scope_kind: "crate".to_string(),
+                scope_path: "crates/cynic-protocol".to_string(),
+                holder_agent_id: "hermes:main".to_string(),
+                holder_mode: "baseline".to_string(),
+                contender_agent_id: "codex:worker".to_string(),
+                contender_mode: "baseline".to_string(),
+            },
+            SignalSeverity::Critical,
+        );
+
+        let plan = reconcile_health_signal(&signal, 1_700_000_100).expect("plan");
+        assert!(plan.is_actionable);
+        match plan.action {
+            AutonomicActionKind::YieldAgentScope {
+                contender_agent_id,
+                holder_agent_id,
+                ..
+            } => {
+                assert_eq!(contender_agent_id, "codex:worker");
+                assert_eq!(holder_agent_id, "hermes:main");
+            }
+            other => panic!("expected YieldAgentScope, got {other:?}"),
+        }
+    }
+
+    /// Cynic mode preempts baseline (AGENTS.md conflict table): the *holder*
+    /// yields even though it claimed first. Preemption direction is policy, not
+    /// arrival order.
+    #[test]
+    fn cynic_mode_preempts_baseline_holder() {
+        let signal = signal_with(
+            HealthSignalPayload::AgentScopeConflict {
+                scope_kind: "file".to_string(),
+                scope_path: "crates/cynic-kernel/src/lib.rs".to_string(),
+                holder_agent_id: "hermes:main".to_string(),
+                holder_mode: "baseline".to_string(),
+                contender_agent_id: "cynic:scheduler".to_string(),
+                contender_mode: "cynic".to_string(),
+            },
+            SignalSeverity::Critical,
+        );
+
+        let plan = reconcile_health_signal(&signal, 1_700_000_100).expect("plan");
+        match plan.action {
+            AutonomicActionKind::YieldAgentScope {
+                contender_agent_id,
+                holder_agent_id,
+                ..
+            } => {
+                // The baseline holder is the one yielding.
+                assert_eq!(contender_agent_id, "hermes:main");
+                assert_eq!(holder_agent_id, "cynic:scheduler");
+            }
+            other => panic!("expected YieldAgentScope, got {other:?}"),
+        }
+    }
+
+    /// An expired claim is renewed, not yielded — the distinction Layer 2
+    /// encoded must survive into the action.
+    #[test]
+    fn expired_claim_is_renewed_not_yielded() {
+        let signal = signal_with(
+            HealthSignalPayload::AgentClaimExpired {
+                claim_id: "claim_001".to_string(),
+                agent_id: "hermes:main".to_string(),
+                scope_path: "crates/cynic-protocol".to_string(),
+                ttl_seconds: 1800,
+                age_seconds: 3600,
+            },
+            SignalSeverity::Warning,
+        );
+
+        let plan = reconcile_health_signal(&signal, 1_700_000_100).expect("plan");
+        assert!(plan.is_actionable);
+        assert!(matches!(
+            plan.action,
+            AutonomicActionKind::RenewAgentClaim { .. }
+        ));
+        assert!(!matches!(
+            plan.action,
+            AutonomicActionKind::YieldAgentScope { .. }
+        ));
+    }
+
+    /// Type drift must NOT be autonomically actionable: repairing consumers is
+    /// a source change owned by a claimed agent. An autonomic loop editing code
+    /// would be an unbounded mutation, which the execution standard forbids.
+    #[test]
+    fn shared_type_drift_is_observation_not_autonomic_repair() {
+        let signal = signal_with(
+            HealthSignalPayload::SharedTypeDrift {
+                crate_name: "cynic-protocol".to_string(),
+                type_name: "BuildRecipe".to_string(),
+                divergent_symbols: vec!["target_profile".to_string()],
+                affected_consumers: vec!["build_workflow::tests".to_string()],
+            },
+            SignalSeverity::Critical,
+        );
+
+        let plan = reconcile_health_signal(&signal, 1_700_000_100).expect("plan");
+        assert!(!plan.is_actionable);
+        assert_eq!(plan.severity, SignalSeverity::Critical);
+        assert!(matches!(
+            plan.action,
+            AutonomicActionKind::RevalidateSharedType { .. }
+        ));
+        assert!(plan.rollback_intent.contains("revert"));
+    }
+
+    /// A blackout repairs the observation plane only. With zero evidence the
+    /// nodes' state is unknown, so acting on the nodes themselves would be
+    /// acting without observation.
+    #[test]
+    fn fleet_blackout_restores_observation_plane_only() {
+        let signal = signal_with(
+            HealthSignalPayload::FleetObservationBlackout {
+                declared_nodes: 3,
+                observed_nodes: 0,
+                window_seconds: 30,
+            },
+            SignalSeverity::Critical,
+        );
+
+        let plan = reconcile_health_signal(&signal, 1_700_000_100).expect("plan");
+        assert!(plan.is_actionable);
+        match plan.action {
+            AutonomicActionKind::RestoreFleetObservation {
+                declared_nodes,
+                window_seconds,
+            } => {
+                assert_eq!(declared_nodes, 3);
+                assert_eq!(window_seconds, 30);
+            }
+            other => panic!("expected RestoreFleetObservation, got {other:?}"),
+        }
+        assert!(plan.reasoning.contains("unknown, not healthy"));
+        // No node eviction: that would act on unobserved substrate.
+        assert!(!matches!(
+            plan.action,
+            AutonomicActionKind::EvictDegradedNode { .. }
+        ));
+    }
+
+    /// Every plan must carry a stop condition and a rollback intent — the
+    /// execution standard requires both to be separately inspectable.
+    #[test]
+    fn all_new_plans_carry_stop_and_rollback() {
+        let payloads = vec![
+            HealthSignalPayload::ActivationBlocked {
+                node_id: "n".to_string(),
+                phase: "advance".to_string(),
+                blockers: vec![CynicErrorCode::ActivationReadBackAbsent],
+                consent_granted: false,
+            },
+            HealthSignalPayload::AgentScopeConflict {
+                scope_kind: "crate".to_string(),
+                scope_path: "c".to_string(),
+                holder_agent_id: "a".to_string(),
+                holder_mode: "baseline".to_string(),
+                contender_agent_id: "b".to_string(),
+                contender_mode: "baseline".to_string(),
+            },
+            HealthSignalPayload::AgentClaimExpired {
+                claim_id: "c1".to_string(),
+                agent_id: "a".to_string(),
+                scope_path: "c".to_string(),
+                ttl_seconds: 10,
+                age_seconds: 20,
+            },
+            HealthSignalPayload::SharedTypeDrift {
+                crate_name: "c".to_string(),
+                type_name: "T".to_string(),
+                divergent_symbols: vec!["f".to_string()],
+                affected_consumers: vec!["x".to_string()],
+            },
+            HealthSignalPayload::FleetObservationBlackout {
+                declared_nodes: 1,
+                observed_nodes: 0,
+                window_seconds: 30,
+            },
+        ];
+
+        for payload in payloads {
+            let signal = signal_with(payload, SignalSeverity::Critical);
+            let plan = reconcile_health_signal(&signal, 1_700_000_100)
+                .unwrap_or_else(|| panic!("expected a plan for {:?}", signal.payload));
+            assert!(!plan.stop_condition.is_empty(), "empty stop_condition");
+            assert!(!plan.rollback_intent.is_empty(), "empty rollback_intent");
+            assert_eq!(plan.signal_id, signal.signal_id);
+            assert_eq!(plan.schema, AUTONOMIC_REMEDIATION_PLAN_SCHEMA);
+        }
     }
 }
