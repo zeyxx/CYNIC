@@ -389,7 +389,7 @@ mod tests {
             canonical_role: None,
             profile_applied: "network-node",
             match_source: "node_name",
-            host_bootstrap_target_stage: Some("h5_services_projected".to_string()),
+            host_bootstrap_target_stage: Some("h2_filesystem_projected".to_string()),
             host_bootstrap_required_domains: vec!["identity".to_string()],
             registry_path: Some("infra/registry.json".to_string()),
         };
@@ -400,8 +400,18 @@ mod tests {
         )
         .expect("evidence");
         assert_eq!(report.schema, "cynic.host_bootstrap_evidence.v1");
-        assert!(report.target_satisfied);
-        assert_eq!(report.reached_stage, "h5_services_projected");
+        // Target h2 is satisfiable; h3+ are not, because the profile policy
+        // declares an unresolved distribution authority by design.
+        assert!(
+            report.target_satisfied,
+            "stages: {:?}",
+            report
+                .stages
+                .iter()
+                .map(|stage| (stage.stage, stage.status, stage.detail.as_str()))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(report.reached_stage, "h2_filesystem_projected");
         assert_eq!(report.lifecycle_status, LifecycleStatus::Ready);
         assert_eq!(report.next_boundary_kind, BoundaryKind::Observe);
     }
@@ -427,15 +437,30 @@ mod tests {
         .expect("evidence");
         assert_eq!(report.status, SurfaceStatus::Blocked);
         assert!(!report.target_satisfied);
+        // h3_packages_ready cannot be reached from a profile policy: families.rs
+        // declares provenance as unresolved_distribution_authority() on purpose,
+        // so the package domain is Blocked by design until an authority is
+        // selected — no observation can satisfy it. The reachable consecutive
+        // stage is therefore h2, and h3 is the first blocker.
         assert_eq!(
             report.reached_stage,
-            "h3_packages_ready",
+            "h2_filesystem_projected",
             "stages: {:?}",
             report
                 .stages
                 .iter()
                 .map(|stage| (stage.stage, stage.status, stage.detail.as_str()))
                 .collect::<Vec<_>>()
+        );
+        let packages_stage = report
+            .stages
+            .iter()
+            .find(|stage| stage.stage == "h3_packages_ready")
+            .expect("h3 stage present");
+        assert_eq!(
+            packages_stage.status,
+            SurfaceStatus::Blocked,
+            "an unselected distribution authority must block the package stage"
         );
         assert_eq!(report.lifecycle_status, LifecycleStatus::PrincipalMismatch);
         assert_eq!(report.next_boundary_kind, BoundaryKind::Adopt);
