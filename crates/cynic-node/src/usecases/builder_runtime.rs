@@ -12,6 +12,7 @@ pub struct BuilderRuntimeConfig {
     pub state_root: String,
     pub workspace_root: String,
     pub node_id: String,
+    pub webhook_secret: Option<String>,
 }
 
 pub fn builder_runtime_config_from(node_config: &config::NodeControlConfig) -> BuilderRuntimeConfig {
@@ -20,6 +21,7 @@ pub fn builder_runtime_config_from(node_config: &config::NodeControlConfig) -> B
         state_root: node_config.agent_workload_state_root.to_string_lossy().to_string(),
         workspace_root: node_config.workspace_root.to_string_lossy().to_string(),
         node_id: node_config.node_id.clone(),
+        webhook_secret: std::env::var("CYNIC_FORGEJO_WEBHOOK_SECRET").ok(),
     }
 }
 
@@ -33,6 +35,7 @@ pub async fn run_builder_runtime(
         state_root: config.state_root,
         workspace_root: config.workspace_root,
         node_id: config.node_id,
+        webhook_secret: config.webhook_secret,
     };
     run_http_server(http_config, store, config.http_listen_addr, shutdown)
         .await

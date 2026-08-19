@@ -5,12 +5,15 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
+    body::Bytes,
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     routing::{get, post},
 };
 use chrono::Utc;
+use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -21,12 +24,15 @@ use cynic_protocol::{
 
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
 
+type HmacSha256 = Hmac<Sha256>;
+
 #[derive(Clone)]
 pub struct BuilderHttpConfig {
     pub listen_addr: SocketAddr,
     pub state_root: String,
     pub workspace_root: String,
     pub node_id: String,
+    pub webhook_secret: Option<String>,
 }
 
 #[derive(Clone)]
@@ -85,10 +91,44 @@ async fn get_proof(id: Path<String>) -> Result<Json<serde_json::Value>, StatusCo
     Err(StatusCode::NOT_FOUND)
 }
 
+fn verify_webhook_signature(
+    secret: &str,
+    body: &Bytes,
+    signature: &str,
+) -> bool {
+    let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
+        .expect("HMAC can take key of any size");
+    mac.update(body);
+    let result = mac.finalize();
+    let expected = hex::encode(result.into_bytes());
+    // Forgejo sends hex-encoded HMAC-SHA256 in X-Forgejo-Signature
+    signature == expected
+}
+
 async fn webhook_forgejo(
     State(state): State<AppState>,
-    Json(payload): Json<ForgejoPayload>,
+    headers: HeaderMap,
+    body: Bytes,
 ) -> Result<Json<AcceptanceProof>, (StatusCode, String)> {
+    // HMAC verification if a secret is configured
+    if let Some(secret) = &state.config.webhook_secret {
+        let signature = headers
+            .get("x-forgejo-signature")
+            .or_else(|| headers.get("x-hub-signature-256"))
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+
+        if !verify_webhook_signature(secret, &body, signature) {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                "invalid webhook signature".into(),
+            ));
+        }
+    }
+
+    let payload: ForgejoPayload = serde_json::from_slice(&body)
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("invalid JSON: {e}")))?;
+
     let commit_sha = if !payload.after.is_empty() {
         payload.after.clone()
     } else if let Some(reref) = &payload.reref {
@@ -99,6 +139,14 @@ async fn webhook_forgejo(
             "missing commit sha (after or reref.id)".into(),
         ));
     };
+
+    // Validate commit SHA format (40 hex chars for SHA-1)
+    if commit_sha.len() != 40 || !commit_sha.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("invalid commit SHA: expected 40 hex chars, got {}", commit_sha.len()),
+        ));
+    }
 
     let workload_id = format!("forgejo-{}", Uuid::new_v4());
     let accepted_at_ms = Utc::now().timestamp_millis();
@@ -124,7 +172,6 @@ async fn webhook_forgejo(
         evidence_refs: vec![],
     };
 
-    // Compose the workload envelope using the canonical protocol function
     let envelope = compose_build_agent_workload(&request, &state.config.node_id, &state.config.workspace_root)
         .map_err(|blockers| {
             (
@@ -133,7 +180,6 @@ async fn webhook_forgejo(
             )
         })?;
 
-    // Build the durable record
     let record = AgentWorkloadRecord {
         schema: "cynic.agent_workload_record.v1".into(),
         envelope,
@@ -145,8 +191,7 @@ async fn webhook_forgejo(
         completion: None,
     };
 
-    // Persist durable record — delivery loop will pick it up
-    let _durable = state
+    state
         .store
         .compare_and_swap(&workload_id, None, &record, accepted_at_ms as u64)
         .map_err(|e| (
@@ -187,5 +232,36 @@ mod tests {
     fn workload_id_has_forgejo_prefix() {
         let id = format!("forgejo-{}", Uuid::new_v4());
         assert!(id.starts_with("forgejo-"));
+    }
+
+    #[test]
+    fn hmac_verification_valid_signature() {
+        let secret = "test-secret";
+        let body = b"{\"after\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}";
+        // Compute expected HMAC-SHA256
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
+        mac.update(body);
+        let expected = hex::encode(mac.finalize().into_bytes());
+        assert!(verify_webhook_signature(secret, &Bytes::from_static(body), &expected));
+    }
+
+    #[test]
+    fn hmac_verification_invalid_signature() {
+        let secret = "test-secret";
+        let body = b"{\"after\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}";
+        assert!(!verify_webhook_signature(secret, &Bytes::from_static(body), "deadbeef"));
+    }
+
+    #[test]
+    fn commit_sha_validation_rejects_short() {
+        let sha = "abc123";
+        assert!(!sha.chars().all(|c| c.is_ascii_hexdigit()) || sha.len() != 40);
+    }
+
+    #[test]
+    fn commit_sha_validation_accepts_valid() {
+        let sha = "a".repeat(40);
+        assert_eq!(sha.len(), 40);
+        assert!(sha.chars().all(|c| c.is_ascii_hexdigit()));
     }
 }

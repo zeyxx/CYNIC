@@ -1030,6 +1030,7 @@ dependencies = [
  "ed25519-dalek",
  "futures-util",
  "hex",
+ "hmac",
  "http",
  "libc",
  "notify",

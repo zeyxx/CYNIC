@@ -42,6 +42,7 @@ cynic-host = { path = "../cynic-host" }
 cynic-inference = { path = "../cynic-inference" }
 async-trait = "0.1"
 axum = "0.8"
+hmac = "0.12"
 uuid = { version = "1", features = ["v4"] }
 
 [target.'cfg(unix)'.dependencies]
