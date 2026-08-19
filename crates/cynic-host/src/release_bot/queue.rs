@@ -39,7 +39,7 @@ impl ReleaseQueue {
         }
         let content = std::fs::read_to_string(path)
             .map_err(|e| format!("read queue: {e}"))?;
-        serde_json::from_str(&content)
+        serde_json::from_str::<Self>(&content)
             .map_err(|e| format!("parse queue: {e}"))
     }
 
