@@ -12,8 +12,9 @@ const QUEUE_TTL_SECONDS: u64 = 7 * 24 * 60 * 60; // 7 days
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueuedRelease {
-    pub schema: &'static str,
+    pub schema: String,
     pub queued_at_unix_s: u64,
+    pub source_sha: String,
     pub summary: String,
     pub commit_count: u32,
 }
@@ -51,7 +52,7 @@ impl ReleaseQueue {
 
     pub fn enqueue(&mut self, source_sha: String, summary: String, commit_count: u32) {
         self.releases.push_back(QueuedRelease {
-            schema: "cynic.host.queued_release.v1",
+            schema: "cynic.host.queued_release.v1".to_string(),
             queued_at_unix_s: SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
@@ -106,7 +107,7 @@ mod tests {
     fn expire_old_removes_expired() {
         let mut q = ReleaseQueue::new();
         q.releases.push_back(QueuedRelease {
-            schema: "test",
+            schema: "test".to_string(),
             queued_at_unix_s: 0, // very old
             source_sha: "old".to_string(),
             summary: "old".to_string(),

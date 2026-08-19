@@ -4,6 +4,8 @@ use std::process::Command;
 use super::types::*;
 
 /// Execute a plan with optional credential injection.
+use crate::credential::CredentialResolver;
+
 pub fn execute_plan(root: &Path, plan: &SyncPlan) -> SyncProof {
     let mut steps_completed = Vec::new();
     let mut success = true;

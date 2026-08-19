@@ -39,7 +39,7 @@ impl CredentialResolver for SecretFileResolver {
     fn resolve(&self, credential_ref: &str) -> Result<Credential, String> {
         let path = self.secrets_dir.join(credential_ref);
         if !path.exists() {
-            return Err(format!("credential file not found: {path}"));
+            return Err(format!("credential file not found: {}", path.display()));
         }
 
         // Determine type from extension or naming convention
