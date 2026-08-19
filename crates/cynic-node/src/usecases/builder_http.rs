@@ -86,9 +86,25 @@ async fn health() -> (StatusCode, &'static str) {
     (StatusCode::OK, "ok")
 }
 
-async fn get_proof(id: Path<String>) -> Result<Json<serde_json::Value>, StatusCode> {
-    let _ = id;
-    Err(StatusCode::NOT_FOUND)
+async fn get_proof(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    match state.store.read(&id) {
+        Ok(Some(record)) => {
+            let proof = serde_json::json!({
+                "schema": "cynic.builder.proof.v1",
+                "workload_id": id,
+                "state": record.record.state,
+                "committed_at_ms": record.committed_at_ms,
+                "record_digest": record.record_digest,
+                "envelope": record.record.envelope,
+            });
+            Ok(Json(proof))
+        }
+        Ok(None) => Err(StatusCode::NOT_FOUND),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
 }
 
 fn verify_webhook_signature(
