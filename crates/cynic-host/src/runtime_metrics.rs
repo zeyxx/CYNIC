@@ -686,9 +686,20 @@ mod tests {
         let metrics = host_runtime_metrics_with_now(&report, None, now_unix_ms(), 60_000);
 
         assert_eq!(metrics.schema, HOST_RUNTIME_METRICS_SCHEMA);
+        // Not 100: the package domain is Blocked by design because the profile
+        // policy declares unresolved_distribution_authority(), so a fully
+        // "ready" observer still cannot make every host contract pass. Asserting
+        // 100 here would demand that an unselected distribution authority be
+        // reported as conformant.
         assert_eq!(
             metric(&metrics, "host_conformance_percent").percent,
-            Some(100)
+            Some(66),
+            "checks: {:?}",
+            report
+                .gates
+                .iter()
+                .map(|gate| (gate.id, gate.status))
+                .collect::<Vec<_>>()
         );
         assert_eq!(
             metric(&metrics, "host_conformance_percent").target_percent,
@@ -696,7 +707,8 @@ mod tests {
         );
         assert_eq!(
             metric(&metrics, "host_conformance_percent").status,
-            "within_target"
+            "below_target",
+            "66% is under the 95% target and must be reported as such, not as within_target"
         );
         assert!(metrics.known_coverage_percent < 100);
         assert!(metrics.residual_unknown_percent > 0);

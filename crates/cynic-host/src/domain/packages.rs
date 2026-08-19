@@ -639,7 +639,23 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
 
-        assert!(rendered.contains("package_provenance_blocked"));
+        // The blocker is carried by the command *role*; render_command only
+        // projects the invocation body, so assert the role directly rather than
+        // grepping rendered text for it.
+        assert!(
+            plan.install_commands
+                .iter()
+                .any(|command| command.role == "package_provenance_blocked"),
+            "roles: {:?}",
+            plan.install_commands
+                .iter()
+                .map(|command| command.role.as_str())
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            rendered.contains("distribution_authority_not_selected"),
+            "rendered: {rendered}"
+        );
         assert!(!rendered.contains("apt-get install"));
         assert!(
             !package_policy
