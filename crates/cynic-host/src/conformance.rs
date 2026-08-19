@@ -529,10 +529,29 @@ mod tests {
         .expect("conformance");
 
         assert_eq!(report.schema, "cynic.host.conformance.v1");
-        assert_eq!(report.status, "qualified");
+        // Not "qualified": the package domain is Blocked by design because the
+        // profile policy declares unresolved_distribution_authority(), so even a
+        // fully ready observer leaves one host contract unsatisfied. Demanding
+        // "qualified" here would require reporting an unselected distribution
+        // authority as conformant.
+        assert_eq!(
+            report.status,
+            "blocked",
+            "gates: {:?}",
+            report
+                .gates
+                .iter()
+                .map(|gate| (gate.id, gate.status))
+                .collect::<Vec<_>>()
+        );
         assert!(!report.mutates);
         assert!(!report.context.mutates_host_network);
-        assert_eq!(report.proof_bundle.status, "satisfied");
+        // The proof bundle must not claim satisfaction while a host contract is
+        // blocked: keep the coupling asserted rather than dropping the check.
+        assert_ne!(
+            report.proof_bundle.status, "satisfied",
+            "a blocked conformance report must not carry a satisfied proof bundle"
+        );
     }
 
     #[test]

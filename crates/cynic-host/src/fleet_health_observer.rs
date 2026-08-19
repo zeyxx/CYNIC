@@ -7,7 +7,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::fleet_heartbeat::{
-    aggregate_fleet_health, FleetHealthAggregation, FleetHeartbeat,
+    FleetHealthAggregation, FleetHeartbeat, aggregate_fleet_health,
 };
 
 use crate::fleet_discovery::FleetDiscoveryAdapter;
@@ -41,7 +41,8 @@ impl FleetHealthObserver {
         let adapter = FleetDiscoveryAdapter::new(&self.registry_path);
         let report = adapter.discover();
 
-        let declared_node_ids: Vec<String> = report.nodes.iter().map(|n| n.node_id.clone()).collect();
+        let declared_node_ids: Vec<String> =
+            report.nodes.iter().map(|n| n.node_id.clone()).collect();
 
         // Convert discovery results into synthetic heartbeats.
         let heartbeats: Vec<FleetHeartbeat> = report
@@ -71,10 +72,42 @@ mod tests {
 
     #[test]
     fn observer_returns_aggregation() {
-        let observer = FleetHealthObserver::new("infra/registry.json", 30);
+        // An explicit fixture, not the relative "infra/registry.json": cargo runs
+        // unit tests with the crate directory as CWD, so that path never resolves
+        // and the aggregation silently reported 0 declared nodes.
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("cynic-fleet-health-{unique}.json"));
+        std::fs::write(
+            &path,
+            r#"{
+              "nodes": [
+                {"id":"node-a","role":"kernel_primary"},
+                {"id":"node-b","role":"build_runner"},
+                {"id":"node-c","role":"storage_primary"}
+              ]
+            }"#,
+        )
+        .expect("write fixture");
+
+        let observer = FleetHealthObserver::new(path.to_str().expect("utf8 temp path"), 30);
         let agg = observer.observe();
         assert_eq!(agg.schema, "cynic.fleet_health_aggregation.v1");
-        // Registry has 7 nodes — all should be declared.
-        assert_eq!(agg.total_declared, 7);
+        assert_eq!(
+            agg.total_declared, 3,
+            "every node declared in the fixture must be counted"
+        );
+    }
+
+    #[test]
+    fn unreadable_registry_declares_nothing_rather_than_inventing_nodes() {
+        let observer = FleetHealthObserver::new("/nonexistent/cynic-registry.json", 30);
+        let agg = observer.observe();
+        assert_eq!(
+            agg.total_declared, 0,
+            "an unreadable registry must not fabricate declared nodes"
+        );
     }
 }
