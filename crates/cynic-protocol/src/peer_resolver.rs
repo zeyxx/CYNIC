@@ -62,9 +62,26 @@ pub trait PeerResolver {
 pub fn select_peer(peers: &[PeerEndpoint], role: &str) -> Option<PeerEndpoint> {
     peers
         .iter()
+<<<<<<< HEAD
         .filter(|p| p.role == role && p.reachable)
         .cloned()
         .next()
+=======
+        .filter(|p| p.role == requested_role && p.reachable && !p.health.critical_active)
+        .filter_map(|p| {
+            let priority = RolePriority::from_role_str(&p.role)?;
+            Some((p, priority))
+        })
+        .min_by(|(a, pa), (b, pb)| {
+            pa.cmp(pb).then_with(|| {
+                a.health
+                    .active_osha_codes
+                    .len()
+                    .cmp(&b.health.active_osha_codes.len())
+            })
+        })
+        .map(|(p, _)| p.clone())
+>>>>>>> forgejo/recovery/federation-peer-resolver-20260819
 }
 
 /// Pure selector: every reachable peer, in declared order.

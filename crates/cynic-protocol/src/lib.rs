@@ -15,6 +15,7 @@ pub mod build;
 pub mod build_workflow;
 pub mod build_node;
 pub mod build_proof;
+pub mod peer_resolver;
 pub mod capability_responsibility;
 pub mod convergence;
 pub mod coord;

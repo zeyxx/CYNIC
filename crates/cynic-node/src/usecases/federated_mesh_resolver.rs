@@ -284,7 +284,7 @@ pub fn select_peer_for_role(
     resolver: &LocalRegistryMeshResolver,
     role: &str,
 ) -> Option<PeerEndpoint> {
-    cynic_protocol::peer_resolver::select_peer(&resolver.resolve_peers(role), role)
+    cynic_protocol::peer_resolver::select_peer(&resolver.fallback_peers(role), role)
 }
 
 /// Helper: all reachable, healthy seed peers, ordered by role priority.
