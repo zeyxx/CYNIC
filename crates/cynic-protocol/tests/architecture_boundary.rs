@@ -161,3 +161,127 @@ fn protocol_keeps_runtime_and_development_contracts_explicit() {
         );
     }
 }
+
+/// Every Rust source in the crate must be reachable from `lib.rs`.
+///
+/// An undeclared `.rs` file is never compiled: no build error, no test run, no
+/// warning. It is invisible rather than broken, so `cargo check` cannot detect
+/// it. Bulk integration commits have repeatedly dropped files into this crate
+/// without adding the matching `pub mod`, leaving contract code that never
+/// executed once.
+///
+/// This test owns that contract at the layer that can express it: the crate
+/// root. It reports every orphan at once rather than the first, so the operator
+/// does not repair one and hit the next blind.
+fn declared_modules(lib_rs: &str) -> Vec<String> {
+    lib_rs
+        .lines()
+        .map(str::trim)
+        .filter_map(|line| {
+            let rest = line
+                .strip_prefix("pub mod ")
+                .or_else(|| line.strip_prefix("pub(crate) mod "))
+                .or_else(|| line.strip_prefix("mod "))?;
+            // `pub mod foo;` declares foo; `pub mod foo {` is inline, not a file.
+            rest.strip_suffix(';').map(|name| name.trim().to_string())
+        })
+        .collect()
+}
+
+/// The 12 sources currently unreachable from `lib.rs`.
+///
+/// Declaring them is not a repair: a probe adding all 12 `pub mod` lines
+/// produced 29 compile errors (E0425/E0433/E0422 — missing symbols), so this
+/// code depends on types that were never written. They are quarantined here as
+/// explicit data with their observed state, not silently tolerated.
+///
+/// Removing an entry from this list is the only way to satisfy the test: either
+/// declare the module and make it compile, or delete the file. The list may
+/// never grow — that is what `no_new_orphan_protocol_sources` enforces.
+const KNOWN_UNREACHABLE_SOURCES: &[&str] = &[
+    "agent_execution_provenance",
+    "audit",
+    "coordination_authority",
+    "coordination_fault_harness",
+    "coordination_journal",
+    "coordination_scaling_harness",
+    "detection",
+    "eval_hygiene",
+    "fleet_inference",
+    "hardening",
+    "runtime_placement",
+    "source_change_submission",
+];
+
+#[test]
+fn no_new_orphan_protocol_sources() {
+    let lib_rs = read_repo_file("crates/cynic-protocol/src/lib.rs");
+    let declared = declared_modules(&lib_rs);
+
+    let src = repo_root().join("crates/cynic-protocol/src");
+    let mut orphans = Vec::new();
+
+    let mut entries = fs::read_dir(&src)
+        .expect("read protocol src")
+        .map(|e| e.expect("dir entry"))
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|e| e.path());
+
+    for entry in entries {
+        let path = entry.path();
+        let name = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(n) => n.to_string(),
+            None => continue,
+        };
+
+        // A directory module is reachable through its own `mod.rs`.
+        let module_name = if path.is_dir() {
+            if !path.join("mod.rs").is_file() {
+                continue;
+            }
+            name
+        } else {
+            if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+                continue;
+            }
+            if name == "lib" {
+                continue;
+            }
+            name
+        };
+
+        if !declared.contains(&module_name) {
+            orphans.push(module_name);
+        }
+    }
+
+    let new_orphans: Vec<&String> = orphans
+        .iter()
+        .filter(|o| !KNOWN_UNREACHABLE_SOURCES.contains(&o.as_str()))
+        .collect();
+
+    assert!(
+        new_orphans.is_empty(),
+        "{} new protocol source(s) are not declared in lib.rs and are therefore \
+         never compiled: {:?}. An undeclared module produces no build error, no \
+         test run and no warning — it proves nothing. Add `pub mod <name>;` or \
+         delete the file.",
+        new_orphans.len(),
+        new_orphans
+    );
+
+    // A quarantined source that got fixed must leave the list, or the list
+    // becomes stale cover for code that no longer needs it.
+    let stale: Vec<&&str> = KNOWN_UNREACHABLE_SOURCES
+        .iter()
+        .filter(|known| !orphans.iter().any(|o| o == *known))
+        .collect();
+
+    assert!(
+        stale.is_empty(),
+        "{:?} are listed as unreachable but are now declared or absent — \
+         remove them from KNOWN_UNREACHABLE_SOURCES",
+        stale
+    );
+}
+
