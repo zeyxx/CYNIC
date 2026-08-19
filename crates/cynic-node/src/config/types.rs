@@ -54,8 +54,14 @@ pub(crate) struct NodeControlConfig {
     pub(crate) observed_capabilities: Vec<String>,
     #[serde(default)]
     pub(crate) observed_services: Vec<String>,
+    #[serde(default = "defaults::default_runtime_registry_path")]
+    pub(crate) registry_path: std::path::PathBuf,
     #[serde(default)]
     pub(crate) build_scheduler: Option<BuildSchedulerConfig>,
+    #[serde(default = "defaults::default_builder_listen_addr")]
+    pub(crate) builder_listen_addr: std::net::SocketAddr,
+    #[serde(default = "defaults::default_workspace_root")]
+    pub(crate) workspace_root: std::path::PathBuf,
 }
 
 #[derive(Debug, Clone, Deserialize)]

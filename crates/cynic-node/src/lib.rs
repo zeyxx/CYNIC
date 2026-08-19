@@ -49,6 +49,7 @@ mod network_runtime_status;
 mod network_shadow_proof;
 mod network_surface_inventory;
 mod observe;
+mod config;
 pub mod ports;
 mod provider_fallback_hosts;
 mod provider_fallback_status;

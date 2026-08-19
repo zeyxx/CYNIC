@@ -1,14 +1,24 @@
-mod model;
-mod rules;
+//! Canonical fleet-truth domain: observation reconcile + build_runner
+//! selection. Reconciled from declared registry nodes, observed resources,
+//! and organ alignment into an effective fleet state plus a read-back report.
 
-use std::collections::{BTreeMap, BTreeSet};
+pub mod build_runner_selection;
+pub mod model;
+pub mod rules;
+#[cfg(test)]
+mod tests;
 
+pub use build_runner_selection::{SelectedBuildRunner, select_build_runner};
 pub use model::*;
 use rules::{
     build_effective_node, energy_summary, match_observed, push_declared_node_anomalies,
     push_observed_resource_anomalies, push_organ_alignment_anomalies, summary,
 };
 
+use std::collections::{BTreeMap, BTreeSet};
+
+/// Reconcile declared nodes + observed resources into an effective fleet
+/// report. Pure: no IO, no mutation.
 pub fn build_report(
     declared_nodes: &[Node],
     observed_resources: &[ObservedResource],
@@ -47,6 +57,3 @@ pub fn build_report(
         energy,
     }
 }
-
-#[cfg(test)]
-mod tests;

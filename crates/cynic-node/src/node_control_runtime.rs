@@ -218,6 +218,32 @@ pub(crate) async fn start_tasks(
             "build scheduler remains inactive until enrollment, capabilities, and runtime inputs are proved"
         );
     }
+
+    // Builder runtime: activated when role is build_runner
+    if scheduler_control.enrollment_role == "build_runner" {
+        let builder_config = crate::usecases::builder_runtime::BuilderRuntimeConfig {
+            listen_addr: scheduler_control.builder_listen_addr,
+            signing_key_path: scheduler_control.signing_key_path.clone(),
+            registry_path: scheduler_control.registry_path.clone(),
+            state_root: scheduler_control.agent_workload_state_root.clone(),
+            workspace_root: scheduler_control.workspace_root.clone(),
+            node_id: scheduler_control.node_id.clone(),
+        };
+        let builder_shutdown = shutdown.clone();
+        tasks.push(tokio::spawn(async move {
+            if let Err(error) =
+                crate::usecases::builder_runtime::run_builder_runtime(
+                    builder_config,
+                    &scheduler_control,
+                    builder_shutdown,
+                )
+                .await
+            {
+                tracing::error!(%error, "builder runtime failed");
+            }
+        }));
+    }
+
     Ok(tasks)
 }
 

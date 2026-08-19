@@ -82,6 +82,8 @@ fn expand_node_control(cfg: &mut NodeControlConfig) -> Result<(), String> {
     cfg.enrollment_token_path = expand_path(&cfg.enrollment_token_path)?;
     cfg.agent_workload_state_root = expand_path(&cfg.agent_workload_state_root)?;
     cfg.runtime_artifact_inbox_root = expand_path(&cfg.runtime_artifact_inbox_root)?;
+    cfg.registry_path = expand_path(&cfg.registry_path)?;
+    cfg.workspace_root = expand_path(&cfg.workspace_root)?;
     if let Some(scheduler) = cfg.build_scheduler.as_mut() {
         scheduler.registry_path = expand_path(&scheduler.registry_path)?;
         scheduler.repository_id = expand_env_vars(&scheduler.repository_id)?;

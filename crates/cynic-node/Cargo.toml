@@ -40,6 +40,8 @@ zeroize = "1"
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-host = { path = "../cynic-host" }
 cynic-inference = { path = "../cynic-inference" }
+async-trait = "0.1"
+axum = "0.8"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -47,7 +49,6 @@ rustix = { version = "1", features = ["fs"] }
 
 
 [dev-dependencies]
-axum = "0.8"
 
 [lints]
 workspace = true
