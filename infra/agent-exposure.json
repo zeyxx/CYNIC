@@ -314,21 +314,6 @@
       "status": "desired_unproven",
       "tools": [
         {
-          "name": "cynic_mcp_surface",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_solana_plan",
-          "tier": "product_domain",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_solana_pay_generate",
-          "tier": "product_domain",
-          "mutation": "local_mutation"
-        },
-        {
           "name": "cynic_api_contracts",
           "tier": "baseline_runtime",
           "mutation": "read_only"
@@ -351,66 +336,6 @@
         {
           "name": "cynic_compliance",
           "tier": "product_domain",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_askesis_log",
-          "tier": "operator_local",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_judgment",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_fleet_discover",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_local_autonomy",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_emergence_elect",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_build_run",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_federation_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_fleet_health",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_inference_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_node_activation_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_storage_credential_sync",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_harness_progression",
-          "tier": "baseline_runtime",
           "mutation": "read_only"
         },
         {
@@ -459,26 +384,6 @@
           "mutation": "read_only"
         },
         {
-          "name": "cynic_inference_backends",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_inference_discover",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_toolchain_reconcile",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_bench_basket_launch",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
           "name": "cynic_agent_connection_status",
           "tier": "baseline_runtime",
           "mutation": "read_only"
@@ -519,36 +424,6 @@
           "mutation": "read_only"
         },
         {
-          "name": "coordination_contract_manifest",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "coordination_status_publish",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "coordination_status_read",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "coordination_thread_reply",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "coordination_artifact_share",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "coordination_decision_record",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
           "name": "cynic_dispatch_agent_task",
           "tier": "baseline_runtime",
           "mutation": "read_only"
@@ -575,251 +450,6 @@
         },
         {
           "name": "cynic_update_agent_task_result",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_lifecycle_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_lifecycle_dispatch",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_lifecycle_payloads",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "identity_attest",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "identity_smoke_check",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_validate",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_runtime_release_declare",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_git",
-          "tier": "operator_local",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_source_control",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_operator_transport_status",
-          "tier": "operator_local",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_transport_security_audit",
-          "tier": "operator_local",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_forgejo_status",
-          "tier": "operator_local",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_forgejo_plan",
-          "tier": "operator_local",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_ssh_target_inspect",
-          "tier": "operator_local",
-          "mutation": "read_only"
-        },
-        {
-          "name": "docker_container_list",
-          "tier": "operator_local",
-          "mutation": "read_only"
-        },
-        {
-          "name": "docker_container_logs",
-          "tier": "operator_local",
-          "mutation": "read_only"
-        },
-        {
-          "name": "docker_container_inspect",
-          "tier": "operator_local",
-          "mutation": "read_only"
-        },
-        {
-          "name": "infra_registry_read",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "infra_registry_validate",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "infra_provision",
-          "tier": "baseline_runtime",
-          "mutation": "privileged_mutation"
-        },
-        {
-          "name": "network_ipam_check",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "network_mesh_dns_render",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "network_mesh_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "network_mesh_dns_activation_plan",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "network_mesh_dns_activation_bundle",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "network_mesh_dns_activation_apply",
-          "tier": "baseline_runtime",
-          "mutation": "privileged_mutation"
-        },
-        {
-          "name": "network_mesh_provider_fallback_hosts",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "network_mesh_provider_fallback_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "network_mesh_dns_activation_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_fleet_inventory",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_fleet_reconcile_plan",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_fleet_reconcile_apply",
-          "tier": "baseline_runtime",
-          "mutation": "privileged_mutation"
-        },
-        {
-          "name": "provider_control_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "fleet_node_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "fleet_node_exec",
-          "tier": "baseline_runtime",
-          "mutation": "privileged_mutation"
-        },
-        {
-          "name": "lxc_exec_bridge_plan",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "lxc_exec_bridge_bundle",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "lxc_exec_bridge_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "service_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "service_health",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "storage_primary_plan",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "storage_primary_bundle",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "storage_primary_readiness",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "storage_primary_status",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_inference_vault",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_inference_start",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_inference_stop",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_inference_switch",
-          "tier": "baseline_runtime",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_operational_benchmark",
           "tier": "baseline_runtime",
           "mutation": "read_only"
         },
@@ -1211,7 +841,7 @@
   "citizenship": {
     "schema": "cynic.agent_citizenship.v1",
     "owner": "crates/cynic-protocol::agent_citizenship",
-    "trait": "Citoyennet\u00e9",
+    "trait": "Citoyenneté",
     "invariant": "monotonic_budgets; child never amplifies parent authority",
     "surface": "cynic mask",
     "required_capabilities": [
@@ -1223,7 +853,7 @@
     "status": "implemented_unproven",
     "projection_targets": {
       "cli": "cynic mask -- Forge|Start (delegates to cynic runtime inference-forge/inference-start)",
-      "protocol": "cynic_protocol::agent_citizenship::{AgentCitizenshipRecord, Citoyennet\u00e9, budgets_within, AgentScope, AgentBudgets}"
+      "protocol": "cynic_protocol::agent_citizenship::{AgentCitizenshipRecord, Citoyenneté, budgets_within, AgentScope, AgentBudgets}"
     }
   },
   "deleted_exposures": [
