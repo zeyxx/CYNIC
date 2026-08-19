@@ -13,9 +13,9 @@
 //! via ports so the workflow itself is unit-testable.
 
 use crate::build::{
-    admit_build_input, admit_build_runner, compose_build_runner_envelope, validate_build_recipe,
-    BuildBootstrapGrant, BuildInputAdmission, BuildRecipe, BuildRunnerAdmission,
-    BuildRunnerEnvelope, BuildRunnerObservation,
+    admit_build_input, admit_build_runner, compose_build_runner_envelope, plan_build_runner,
+    validate_build_recipe, BuildBootstrapGrant, BuildInputAdmission, BuildRecipe,
+    BuildRunnerAdmission, BuildRunnerEnvelope, BuildRunnerObservation,
 };
 use crate::source_control::SourceSnapshot;
 use crate::LeaseVerification;
@@ -138,8 +138,20 @@ impl<'a> BuildWorkflow<'a> {
             "build_runner",
         );
 
-        // Step 4: Admit runner
-        let runner_admission = admit_build_runner(&envelope);
+        // Step 4: Admit runner.
+        //
+        // Planning is a read-only reconciliation and must not require mutation
+        // authority; only an applying workflow does. Using the mutation-gated
+        // `admit_build_runner` for both paths made `Planned` unreachable
+        // (`build_runner_mutation_not_authorized` always fired when
+        // `apply == false`, since the envelope derives `mutation_authorized`
+        // from `apply`). Contract: desired state may be planned without
+        // mutation authority; only bounded action requires it.
+        let runner_admission = if self.apply {
+            admit_build_runner(&envelope)
+        } else {
+            plan_build_runner(&envelope)
+        };
 
         // Step 5: Admit input
         let input_admission = admit_build_input(self.source_snapshot);
@@ -265,11 +277,15 @@ mod tests {
 
     #[test]
     fn workflow_returns_planned_when_admission_passes_and_not_applying() {
+        let observation = valid_observation();
+        let lease = valid_lease_verification();
+        let snapshot = valid_source_snapshot();
+        let recipe = valid_recipe();
         let workflow = BuildWorkflow::new(
-            &valid_observation(),
-            &valid_lease_verification(),
-            &valid_source_snapshot(),
-            &valid_recipe(),
+            &observation,
+            &lease,
+            &snapshot,
+            &recipe,
             vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
@@ -280,11 +296,15 @@ mod tests {
 
     #[test]
     fn workflow_returns_execute_when_admission_passes_and_applying() {
+        let observation = valid_observation();
+        let lease = valid_lease_verification();
+        let snapshot = valid_source_snapshot();
+        let recipe = valid_recipe();
         let workflow = BuildWorkflow::new(
-            &valid_observation(),
-            &valid_lease_verification(),
-            &valid_source_snapshot(),
-            &valid_recipe(),
+            &observation,
+            &lease,
+            &snapshot,
+            &recipe,
             vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
@@ -296,25 +316,24 @@ mod tests {
 
     #[test]
     fn workflow_returns_blocked_when_source_dirty() {
+        let observation = valid_observation();
+        let lease = valid_lease_verification();
+        let recipe = valid_recipe();
         let mut dirty_snapshot = valid_source_snapshot();
         dirty_snapshot.unstaged_paths = vec!["src/lib.rs".to_string()];
         let workflow = BuildWorkflow::new(
-            &valid_observation(),
-            &valid_lease_verification(),
+            &observation,
+            &lease,
             &dirty_snapshot,
-            &valid_recipe(),
+            &recipe,
             vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         );
         let outcome = workflow.decide();
         match outcome {
-            BuildWorkflowOutcome::Blocked {
-                input_blockers, ..
-            } => {
-                assert!(
-                    input_blockers.contains(&"source_worktree_not_clean".to_string())
-                );
+            BuildWorkflowOutcome::Blocked { input_blockers, .. } => {
+                assert!(input_blockers.contains(&"source_worktree_not_clean".to_string()));
             }
             other => panic!("expected Blocked, got {other:?}"),
         }
@@ -322,13 +341,16 @@ mod tests {
 
     #[test]
     fn workflow_returns_blocked_when_role_not_observed() {
+        let lease = valid_lease_verification();
+        let snapshot = valid_source_snapshot();
+        let recipe = valid_recipe();
         let mut bad_observation = valid_observation();
         bad_observation.declared_role = Some("storage".to_string());
         let workflow = BuildWorkflow::new(
             &bad_observation,
-            &valid_lease_verification(),
-            &valid_source_snapshot(),
-            &valid_recipe(),
+            &lease,
+            &snapshot,
+            &recipe,
             vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
@@ -339,6 +361,9 @@ mod tests {
 
     #[test]
     fn workflow_returns_blocked_when_lease_rejected() {
+        let observation = valid_observation();
+        let snapshot = valid_source_snapshot();
+        let recipe = valid_recipe();
         let rejected_lease = LeaseVerification::rejected(LeaseGuard {
             agent_id: "dispatcher-1".to_string(),
             target: "build-runner:builder-1".to_string(),
@@ -346,10 +371,10 @@ mod tests {
             fencing_token: 7,
         });
         let workflow = BuildWorkflow::new(
-            &valid_observation(),
+            &observation,
             &rejected_lease,
-            &valid_source_snapshot(),
-            &valid_recipe(),
+            &snapshot,
+            &recipe,
             vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
@@ -359,9 +384,7 @@ mod tests {
             BuildWorkflowOutcome::Blocked {
                 runner_blockers, ..
             } => {
-                assert!(
-                    runner_blockers.contains(&"build_runner_lease_unverified".to_string())
-                );
+                assert!(runner_blockers.contains(&"build_runner_lease_unverified".to_string()));
             }
             other => panic!("expected Blocked, got {other:?}"),
         }
@@ -369,12 +392,20 @@ mod tests {
 
     #[test]
     fn workflow_returns_blocked_when_argv_contains_shell() {
+        let observation = valid_observation();
+        let lease = valid_lease_verification();
+        let snapshot = valid_source_snapshot();
+        let recipe = valid_recipe();
         let workflow = BuildWorkflow::new(
-            &valid_observation(),
-            &valid_lease_verification(),
-            &valid_source_snapshot(),
-            &valid_recipe(),
-            vec!["bash".to_string(), "-c".to_string(), "make check".to_string()],
+            &observation,
+            &lease,
+            &snapshot,
+            &recipe,
+            vec![
+                "bash".to_string(),
+                "-c".to_string(),
+                "make check".to_string(),
+            ],
             "target/release/cynic".to_string(),
             2,
         );
@@ -389,6 +420,75 @@ mod tests {
                 );
             }
             other => panic!("expected Blocked, got {other:?}"),
+        }
+    }
+
+    /// Regression proof for the plan-vs-apply mutation authority contract.
+    ///
+    /// `compose_build_runner_envelope` derives `mutation_authorized` from
+    /// `apply`. If `decide()` used the mutation-gated `admit_build_runner` on
+    /// both paths, planning could never succeed: the envelope would always
+    /// carry `mutation_authorized == false` and raise
+    /// `build_runner_mutation_not_authorized`. Read-only reconciliation must
+    /// never require mutation authority.
+    #[test]
+    fn planning_does_not_require_mutation_authority() {
+        let observation = valid_observation();
+        let lease = valid_lease_verification();
+        let snapshot = valid_source_snapshot();
+        let recipe = valid_recipe();
+        let plan = BuildWorkflow::new(
+            &observation,
+            &lease,
+            &snapshot,
+            &recipe,
+            vec!["make".to_string(), "check".to_string()],
+            "target/release/cynic".to_string(),
+            2,
+        );
+
+        match plan.decide() {
+            BuildWorkflowOutcome::Planned {
+                runner_admission,
+                envelope,
+                ..
+            } => {
+                // The envelope truthfully reports no mutation authority ...
+                assert!(!envelope.mutation_authorized);
+                // ... yet the planning admission is clean.
+                assert_eq!(runner_admission.status, "admitted");
+                assert!(
+                    !runner_admission
+                        .blockers
+                        .contains(&"build_runner_mutation_not_authorized".to_string()),
+                    "planning must not be gated on mutation authority"
+                );
+            }
+            other => panic!("expected Planned, got {other:?}"),
+        }
+
+        // Applying with authority stays admitted and carries the authority.
+        let apply = BuildWorkflow::new(
+            &observation,
+            &lease,
+            &snapshot,
+            &recipe,
+            vec!["make".to_string(), "check".to_string()],
+            "target/release/cynic".to_string(),
+            2,
+        )
+        .with_apply(true);
+
+        match apply.decide() {
+            BuildWorkflowOutcome::Execute {
+                runner_admission,
+                envelope,
+                ..
+            } => {
+                assert!(envelope.mutation_authorized);
+                assert_eq!(runner_admission.status, "admitted");
+            }
+            other => panic!("expected Execute, got {other:?}"),
         }
     }
 }

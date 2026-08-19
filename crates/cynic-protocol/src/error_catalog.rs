@@ -28,6 +28,20 @@ pub enum CynicErrorCode {
     BreakglassAuthorityVerifierUnavailable,
     BreakglassSignatureInvalid,
     BreakglassConsumptionPersistFailed,
+    ActivationEpochUnobservable,
+    ActivationBootstrapIncomplete,
+    ActivationTakeoverProcessInactive,
+    ActivationTakeoverIdentityUnverified,
+    ActivationReadBackAbsent,
+    ActivationConsentMissing,
+    ActivationPhaseAuthorityInsufficient,
+    AgentScopeConflict,
+    AgentClaimExpired,
+    AgentSharedTypeDrift,
+    AgentMutationWithoutClaim,
+    AgentCoordinationStoreUnavailable,
+    AgentMergeQueueRace,
+    FleetObservationBlackout,
 }
 
 pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
@@ -50,6 +64,20 @@ pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
     CynicErrorCode::BreakglassAuthorityVerifierUnavailable,
     CynicErrorCode::BreakglassSignatureInvalid,
     CynicErrorCode::BreakglassConsumptionPersistFailed,
+    CynicErrorCode::ActivationEpochUnobservable,
+    CynicErrorCode::ActivationBootstrapIncomplete,
+    CynicErrorCode::ActivationTakeoverProcessInactive,
+    CynicErrorCode::ActivationTakeoverIdentityUnverified,
+    CynicErrorCode::ActivationReadBackAbsent,
+    CynicErrorCode::ActivationConsentMissing,
+    CynicErrorCode::ActivationPhaseAuthorityInsufficient,
+    CynicErrorCode::AgentScopeConflict,
+    CynicErrorCode::AgentClaimExpired,
+    CynicErrorCode::AgentSharedTypeDrift,
+    CynicErrorCode::AgentMutationWithoutClaim,
+    CynicErrorCode::AgentCoordinationStoreUnavailable,
+    CynicErrorCode::AgentMergeQueueRace,
+    CynicErrorCode::FleetObservationBlackout,
 ];
 
 impl CynicErrorCode {
@@ -74,6 +102,20 @@ impl CynicErrorCode {
             Self::BreakglassAuthorityVerifierUnavailable => "CYNIC-BG-006",
             Self::BreakglassSignatureInvalid => "CYNIC-BG-007",
             Self::BreakglassConsumptionPersistFailed => "CYNIC-BG-008",
+            Self::ActivationEpochUnobservable => "CYNIC-ACT-001",
+            Self::ActivationBootstrapIncomplete => "CYNIC-ACT-002",
+            Self::ActivationTakeoverProcessInactive => "CYNIC-ACT-003",
+            Self::ActivationTakeoverIdentityUnverified => "CYNIC-ACT-004",
+            Self::ActivationReadBackAbsent => "CYNIC-ACT-005",
+            Self::ActivationConsentMissing => "CYNIC-ACT-006",
+            Self::ActivationPhaseAuthorityInsufficient => "CYNIC-ACT-007",
+            Self::AgentScopeConflict => "CYNIC-AGT-001",
+            Self::AgentClaimExpired => "CYNIC-AGT-002",
+            Self::AgentSharedTypeDrift => "CYNIC-AGT-003",
+            Self::AgentMutationWithoutClaim => "CYNIC-AGT-004",
+            Self::AgentCoordinationStoreUnavailable => "CYNIC-AGT-005",
+            Self::AgentMergeQueueRace => "CYNIC-AGT-006",
+            Self::FleetObservationBlackout => "CYNIC-FLT-001",
         }
     }
 
@@ -133,6 +175,48 @@ impl CynicErrorCode {
             Self::BreakglassConsumptionPersistFailed => {
                 "do not execute; restore the durable incident receipt store and read-back proof"
             }
+            Self::ActivationEpochUnobservable => {
+                "observe the active deployment epoch before attempting node activation"
+            }
+            Self::ActivationBootstrapIncomplete => {
+                "complete federated bootstrap phases before attempting node activation"
+            }
+            Self::ActivationTakeoverProcessInactive => {
+                "verify runtime takeover process readiness before promoting standby node"
+            }
+            Self::ActivationTakeoverIdentityUnverified => {
+                "verify candidate node identity before granting runtime takeover promotion"
+            }
+            Self::ActivationReadBackAbsent => {
+                "generate and record machine-readable read-back proof after node activation"
+            }
+            Self::ActivationConsentMissing => {
+                "obtain operator or constitutional consent before applying node activation"
+            }
+            Self::ActivationPhaseAuthorityInsufficient => {
+                "ensure runtime authority matches the required phase before activation transition"
+            }
+            Self::AgentScopeConflict => {
+                "resolve overlapping agent scopes or select a non-conflicting hierarchy path"
+            }
+            Self::AgentClaimExpired => {
+                "renew the agent coordination lease before proceeding with mutation"
+            }
+            Self::AgentSharedTypeDrift => {
+                "reconcile shared schema and types with canonical contracts"
+            }
+            Self::AgentMutationWithoutClaim => {
+                "acquire a valid coordination lease before mutating shared worktree resources"
+            }
+            Self::AgentCoordinationStoreUnavailable => {
+                "restore access to the canonical coordination store (.agent-claims.json)"
+            }
+            Self::AgentMergeQueueRace => {
+                "rebase against current head and re-enqueue after resolving merge conflict"
+            }
+            Self::FleetObservationBlackout => {
+                "restore fleet observation transport; no declared node is reporting, so health is unknown rather than healthy"
+            }
         }
     }
 }
@@ -164,6 +248,13 @@ impl CynicError {
                     | CynicErrorCode::NetworkBuildRunnerUnreachable
                     | CynicErrorCode::NetworkActuatorMissing
                     | CynicErrorCode::BreakglassAdmissionExpired
+                    | CynicErrorCode::ActivationEpochUnobservable
+                    | CynicErrorCode::ActivationBootstrapIncomplete
+                    | CynicErrorCode::ActivationTakeoverProcessInactive
+                    | CynicErrorCode::ActivationReadBackAbsent
+                    | CynicErrorCode::AgentClaimExpired
+                    | CynicErrorCode::AgentCoordinationStoreUnavailable
+                    | CynicErrorCode::AgentMergeQueueRace
             ),
             operator_action: code.operator_action().to_string(),
             evidence_refs: Vec::new(),
@@ -182,5 +273,95 @@ mod tests {
         assert_eq!(error.code, "CYNIC-BG-003");
         assert!(error.retryable);
         assert!(!error.operator_action.is_empty());
+    }
+
+    /// Regression proof: no two variants may share a stable operator code.
+    /// A duplicate would silently collapse two distinct violated contracts
+    /// into one operator signal.
+    #[test]
+    fn every_code_is_unique() {
+        let mut seen: Vec<&'static str> = Vec::new();
+        for code in CYNIC_ERROR_CODES {
+            let stable = code.code();
+            assert!(
+                !seen.contains(&stable),
+                "duplicate error code {stable} for {code:?}"
+            );
+            seen.push(stable);
+        }
+        assert_eq!(seen.len(), CYNIC_ERROR_CODES.len());
+    }
+
+    /// Regression proof: every variant carries a non-empty operator action.
+    /// An empty remediation turns a typed code back into an opaque string.
+    #[test]
+    fn every_code_has_operator_action() {
+        for code in CYNIC_ERROR_CODES {
+            assert!(
+                !code.operator_action().is_empty(),
+                "missing operator action for {code:?}"
+            );
+        }
+    }
+
+    /// Activation codes are the typed replacement for ad-hoc blocker strings
+    /// such as "takeover_activation_process_inactive".
+    #[test]
+    fn activation_codes_are_catalogued() {
+        let activation = [
+            (CynicErrorCode::ActivationEpochUnobservable, "CYNIC-ACT-001"),
+            (
+                CynicErrorCode::ActivationBootstrapIncomplete,
+                "CYNIC-ACT-002",
+            ),
+            (
+                CynicErrorCode::ActivationTakeoverProcessInactive,
+                "CYNIC-ACT-003",
+            ),
+            (
+                CynicErrorCode::ActivationTakeoverIdentityUnverified,
+                "CYNIC-ACT-004",
+            ),
+            (CynicErrorCode::ActivationReadBackAbsent, "CYNIC-ACT-005"),
+            (CynicErrorCode::ActivationConsentMissing, "CYNIC-ACT-006"),
+            (
+                CynicErrorCode::ActivationPhaseAuthorityInsufficient,
+                "CYNIC-ACT-007",
+            ),
+        ];
+        for (variant, expected) in activation {
+            assert_eq!(variant.code(), expected);
+            assert!(CYNIC_ERROR_CODES.contains(&variant));
+        }
+    }
+
+    /// Agent emergence codes make multi-agent worktree collisions typed data
+    /// instead of repeated compiler symptoms.
+    #[test]
+    fn agent_emergence_codes_are_catalogued() {
+        let emergence = [
+            (CynicErrorCode::AgentScopeConflict, "CYNIC-AGT-001"),
+            (CynicErrorCode::AgentClaimExpired, "CYNIC-AGT-002"),
+            (CynicErrorCode::AgentSharedTypeDrift, "CYNIC-AGT-003"),
+            (CynicErrorCode::AgentMutationWithoutClaim, "CYNIC-AGT-004"),
+            (
+                CynicErrorCode::AgentCoordinationStoreUnavailable,
+                "CYNIC-AGT-005",
+            ),
+            (CynicErrorCode::AgentMergeQueueRace, "CYNIC-AGT-006"),
+        ];
+        for (variant, expected) in emergence {
+            assert_eq!(variant.code(), expected);
+            assert!(CYNIC_ERROR_CODES.contains(&variant));
+        }
+    }
+
+    /// A scope conflict is not retryable by waiting: the agent must pick a
+    /// different scope. A claim expiry is retryable after renewal.
+    #[test]
+    fn agent_retryability_distinguishes_conflict_from_expiry() {
+        assert!(!CynicError::new(CynicErrorCode::AgentScopeConflict).retryable);
+        assert!(!CynicError::new(CynicErrorCode::AgentMutationWithoutClaim).retryable);
+        assert!(CynicError::new(CynicErrorCode::AgentClaimExpired).retryable);
     }
 }
