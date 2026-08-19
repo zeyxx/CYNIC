@@ -61,19 +61,18 @@ pub fn classify_instruction(
     };
 
     let family = instruction_name.and_then(instruction_family);
-    let status = if family.is_some() {
-        InstructionDecodeStatus::Classified
-    } else {
-        InstructionDecodeStatus::ProgramKnownInstructionUnknown
-    };
     DecodedInstruction {
         path,
         program_id: Some(program_id.to_string()),
         program_family: profile.family.clone(),
         profile_version: Some(profile.profile_version.clone()),
         instruction_name: instruction_name.map(ToOwned::to_owned),
-        instruction_family: family.unwrap_or(InstructionFamily::Unknown),
-        status,
+        instruction_family: family.clone().unwrap_or(InstructionFamily::Unknown),
+        status: if family.is_some() {
+            InstructionDecodeStatus::Classified
+        } else {
+            InstructionDecodeStatus::ProgramKnownInstructionUnknown
+        },
     }
 }
 

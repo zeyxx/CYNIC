@@ -221,12 +221,10 @@ mod tests {
         assert_eq!(profile.latency_p95_ms, Some(10));
         assert_eq!(profile.success_rate_micros, Some(500_000));
         assert_eq!(profile.rate_limit_observed, Some(1));
-        assert!(
-            profile
-                .residual_unknowns
-                .iter()
-                .any(|value| value.contains("getBlock"))
-        );
+        assert!(profile
+            .residual_unknowns
+            .iter()
+            .any(|value| value.contains("getBlock")));
     }
 
     #[test]

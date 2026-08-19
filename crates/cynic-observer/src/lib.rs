@@ -1,16 +1,21 @@
+#![allow(unused_imports)]
 pub mod consensus;
 pub mod dashboard;
 pub mod delegation;
+pub mod domain;
 pub mod federation;
 pub mod parser;
 pub mod signal_mapper;
 pub mod solana_archive;
+pub mod source;
 pub mod wal;
 pub mod watcher;
 
 use serde::{Deserialize, Serialize};
+pub use domain::*;
+pub use source::*;
 
-/// Structure d'un événement capté sur la blockchain.
+/// Structure d'un événement capté sur la blockchain (compatibilité Solana).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct ObserverEvent {
     pub signature: String,

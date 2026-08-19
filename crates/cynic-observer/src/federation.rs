@@ -9,9 +9,17 @@ use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::{broadcast, mpsc};
+
+use crate::domain::UniversalObserverEvent;
+use cynic_protocol::RuntimeProof;
+
+pub const TOPIC_EVENTS: &str = "cynic.events.v1";
+pub const TOPIC_PROOFS: &str = "cynic.proofs.v1";
+pub const TOPIC_LEGACY_PUMPFUN: &str = "cynic-odysseum-pumpfun-events";
 
 /// Le comportement réseau (Behavior) qui combine mDNS (découverte locale),
-/// Gossipsub (diffusion des messages) et Kademlia (Registre DHT distribué).
+/// Gossipsub (diffusion multi-topic des preuves et événements) et Kademlia (DHT distribuée).
 #[derive(NetworkBehaviour)]
 pub struct FederationBehaviour {
     pub gossipsub: gossipsub::Behaviour,
@@ -21,7 +29,9 @@ pub struct FederationBehaviour {
 
 pub struct FederationNode {
     pub swarm: Swarm<FederationBehaviour>,
-    pub gossip_topic: gossipsub::IdentTopic,
+    pub topic_events: gossipsub::IdentTopic,
+    pub topic_proofs: gossipsub::IdentTopic,
+    pub topic_legacy: gossipsub::IdentTopic,
 }
 
 impl core::fmt::Debug for FederationBehaviour {
@@ -34,7 +44,9 @@ impl core::fmt::Debug for FederationBehaviour {
 impl core::fmt::Debug for FederationNode {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("FederationNode")
-            .field("gossip_topic", &self.gossip_topic)
+            .field("topic_events", &self.topic_events)
+            .field("topic_proofs", &self.topic_proofs)
+            .field("topic_legacy", &self.topic_legacy)
             .finish()
     }
 }
@@ -55,7 +67,7 @@ impl FederationNode {
                 yamux::Config::default,
             )?
             .with_behaviour(|key| {
-                // Configuration de Gossipsub (le protocole de diffusion des E-Scores)
+                // Configuration de Gossipsub
                 let message_id_fn = |message: &gossipsub::Message| {
                     let mut s = DefaultHasher::new();
                     message.data.hash(&mut s);
@@ -75,13 +87,13 @@ impl FederationNode {
                 )
                 .expect("Erreur init Gossipsub");
 
-                // Configuration de mDNS (découverte automatique)
+                // Configuration de mDNS (découverte automatique locale)
                 let mdns = mdns::tokio::Behaviour::new(
                     mdns::Config::default(),
                     key.public().to_peer_id(),
                 )?;
 
-                // Configuration de Kademlia (Notre SwarmRegistry distribué gratuit !)
+                // Configuration de Kademlia (Registre DHT décentralisé)
                 let store = kad::store::MemoryStore::new(key.public().to_peer_id());
                 let kad_config = kad::Config::default();
                 let kademlia =
@@ -96,51 +108,86 @@ impl FederationNode {
             .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
             .build();
 
-        // 3. Définition du Topic d'échange
-        let gossip_topic = gossipsub::IdentTopic::new("cynic-odysseum-pumpfun-events");
+        // 3. Définition des Topics canoniques
+        let topic_events = gossipsub::IdentTopic::new(TOPIC_EVENTS);
+        let topic_proofs = gossipsub::IdentTopic::new(TOPIC_PROOFS);
+        let topic_legacy = gossipsub::IdentTopic::new(TOPIC_LEGACY_PUMPFUN);
 
         Ok(Self {
             swarm,
-            gossip_topic,
+            topic_events,
+            topic_proofs,
+            topic_legacy,
         })
     }
 
-    /// Lance le nœud P2P et s'abonne au topic de la fédération
+    /// Lance le nœud P2P et s'abonne à tous les topics de la fédération
     pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.swarm
             .behaviour_mut()
             .gossipsub
-            .subscribe(&self.gossip_topic)?;
-
-        // On écoute sur toutes les interfaces
-        self.swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
-        log::info!("🚀 Nœud Fédération (Kademlia+Gossip) Démarré.");
-        Ok(())
-    }
-
-    /// Publie un événement à tout le réseau
-    pub fn broadcast_event(
-        &mut self,
-        data: Vec<u8>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            .subscribe(&self.topic_events)?;
         self.swarm
             .behaviour_mut()
             .gossipsub
-            .publish(self.gossip_topic.clone(), data)?;
+            .subscribe(&self.topic_proofs)?;
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .subscribe(&self.topic_legacy)?;
+
+        // Écoute sur toutes les interfaces réseau
+        self.swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+        log::info!("🚀 Nœud Fédération (Kademlia DHT + Multi-Topic Gossipsub) Démarré.");
         Ok(())
     }
 
-    /// Exécute la boucle d'événements du Swarm libp2p et met à jour dynamiquement le compteur de pairs.
+    /// Publie un événement universel multi-domaine sur le réseau P2P
+    pub fn broadcast_universal_event(
+        &mut self,
+        event: &UniversalObserverEvent,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let bytes = serde_json::to_vec(event)?;
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .publish(self.topic_events.clone(), bytes)?;
+        Ok(())
+    }
+
+    /// Publie une preuve d'exécution RuntimeProof à toute la fédération
+    pub fn broadcast_runtime_proof(
+        &mut self,
+        proof: &RuntimeProof,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let bytes = serde_json::to_vec(proof)?;
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .publish(self.topic_proofs.clone(), bytes)?;
+        Ok(())
+    }
+
+    /// Exécute la boucle d'événements du Swarm libp2p avec pont bidirectionnel
     pub async fn run(
         mut self,
         peer_count: Arc<AtomicU64>,
+        tx_incoming_events: broadcast::Sender<UniversalObserverEvent>,
+        mut rx_outgoing_events: mpsc::Receiver<UniversalObserverEvent>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         use futures_util::StreamExt;
 
         loop {
             tokio::select! {
-                event = self.swarm.select_next_some() => {
-                    match event {
+                // Diffusion d'un événement produit localement vers le réseau P2P
+                Some(event) = rx_outgoing_events.recv() => {
+                    if let Err(e) = self.broadcast_universal_event(&event) {
+                        log::warn!("Échec de diffusion P2P Gossipsub de l'événement {}: {}", event.id, e);
+                    }
+                }
+                // Réception et traitement des événements réseau Swarm
+                swarm_event = self.swarm.select_next_some() => {
+                    match swarm_event {
                         SwarmEvent::NewListenAddr { address, .. } => {
                             log::info!("📢 P2P: Écoute locale sur l'adresse : {}", address);
                         }
@@ -171,12 +218,19 @@ impl FederationNode {
                             message_id,
                             message,
                         })) => {
+                            let topic_str = message.topic.as_str();
                             log::info!(
-                                "✉️ P2P Gossipsub: Message reçu de {} (ID: {}): {:?}",
+                                "✉️ P2P Gossipsub [{}]: Message reçu de {} (ID: {})",
+                                topic_str,
                                 propagation_source,
-                                message_id,
-                                String::from_utf8_lossy(&message.data)
+                                message_id
                             );
+
+                            if topic_str == TOPIC_EVENTS {
+                                if let Ok(event) = serde_json::from_slice::<UniversalObserverEvent>(&message.data) {
+                                    let _ = tx_incoming_events.send(event);
+                                }
+                            }
                         }
                         SwarmEvent::Behaviour(FederationBehaviourEvent::Kademlia(kad::Event::RoutingUpdated {
                             peer,

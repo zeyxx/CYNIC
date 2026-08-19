@@ -92,8 +92,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut fed_node = cynic_observer::federation::FederationNode::new()?;
     fed_node.start().await?;
     let fed_peer_count_clone = connected_peers.clone();
+    let (tx_incoming, _) = tokio::sync::broadcast::channel::<cynic_observer::domain::UniversalObserverEvent>(100);
+    let (_tx_outgoing, rx_outgoing) = tokio::sync::mpsc::channel::<cynic_observer::domain::UniversalObserverEvent>(100);
     tokio::spawn(async move {
-        if let Err(e) = fed_node.run(fed_peer_count_clone).await {
+        if let Err(e) = fed_node.run(fed_peer_count_clone, tx_incoming, rx_outgoing).await {
             log::error!("Erreur dans la boucle du nœud P2P Fédération : {}", e);
         }
     });
