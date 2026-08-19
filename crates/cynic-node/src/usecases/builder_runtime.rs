@@ -3,44 +3,32 @@ use std::sync::Arc;
 
 use tokio_util::sync::CancellationToken;
 
-use crate::adapters::ed25519_build_workload_grant::Ed25519BuildWorkloadGrantSigner;
-use crate::adapters::http_build_workload_submission::HttpBuildWorkloadSubmission;
-use crate::config::NodeControlConfig;
-use crate::ports::build_workload_grant_port::BuildWorkloadGrantSignerPort;
-use crate::ports::build_workload_submission_port::BuildWorkloadSubmissionPort;
-use crate::usecases::builder_http::{self, BuilderHttpConfig};
+use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
+use crate::usecases::builder_http::{BuilderHttpConfig, run_http_server};
+use crate::config;
 
-#[derive(Debug, Clone)]
 pub struct BuilderRuntimeConfig {
-    pub listen_addr: SocketAddr,
-    pub signing_key_path: std::path::PathBuf,
-    pub registry_path: String,
-    pub state_root: std::path::PathBuf,
-    pub workspace_root: String,
-    pub node_id: String,
-    pub kernel_url: String,
+    pub http_listen_addr: SocketAddr,
+    pub state_root: String,
 }
 
-#[allow(private_interfaces)]
+pub fn builder_runtime_config_from(node_config: &config::NodeControlConfig) -> BuilderRuntimeConfig {
+    BuilderRuntimeConfig {
+        http_listen_addr: node_config.builder_listen_addr,
+        state_root: node_config.agent_workload_state_root.to_string_lossy().to_string(),
+    }
+}
+
 pub async fn run_builder_runtime(
     config: BuilderRuntimeConfig,
-    _node_control: &NodeControlConfig,
+    store: Arc<dyn AgentWorkloadStorePort>,
     shutdown: CancellationToken,
 ) -> Result<(), String> {
-    let signer = Ed25519BuildWorkloadGrantSigner::load_hex_file(&config.signing_key_path)
-        .map_err(|e| format!("load signing key: {e}"))?;
-    let signer_arc: Arc<dyn BuildWorkloadGrantSignerPort> = Arc::new(signer);
-
-    let submitter = HttpBuildWorkloadSubmission::new(&config.kernel_url);
-    let submitter_arc: Arc<dyn BuildWorkloadSubmissionPort> = Arc::new(submitter);
-
     let http_config = BuilderHttpConfig {
-        node_id: config.node_id,
-        signing_key_path: config.signing_key_path,
+        listen_addr: config.http_listen_addr,
         state_root: config.state_root,
-        registry_path: config.registry_path,
-        workspace_root: config.workspace_root,
     };
-
-    builder_http::run_http_server(http_config, signer_arc, submitter_arc, config.listen_addr, shutdown).await
+    run_http_server(http_config, store, config.http_listen_addr, shutdown)
+        .await
+        .map_err(|e| e.to_string())
 }

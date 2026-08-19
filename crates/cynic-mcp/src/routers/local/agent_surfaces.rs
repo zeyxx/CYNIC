@@ -525,9 +525,10 @@ impl CynicMcpProxy {
     )]
     async fn cynic_storage_credential_sync(
         &self,
-        endpoint: String,
+        Parameters(params): Parameters<crate::types::StorageCredentialSyncParams>,
     ) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
+        let endpoint = params.endpoint;
         let result = crate::local_tools::run_storage_credential_sync(&endpoint).await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
@@ -540,17 +541,14 @@ impl CynicMcpProxy {
     )]
     async fn cynic_harness_progression(
         &self,
-        current_kind: String,
-        target_kind: String,
-        satisfied: Vec<String>,
-        unknown: Vec<String>,
+        Parameters(params): Parameters<crate::types::HarnessProgressionParams>,
     ) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
         let result = crate::local_tools::run_harness_progression(
-            &current_kind,
-            &target_kind,
-            &satisfied,
-            &unknown,
+            &params.current_kind,
+            &params.target_kind,
+            &params.satisfied,
+            &params.unknown,
         ).await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),

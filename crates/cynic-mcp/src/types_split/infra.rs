@@ -2,6 +2,19 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct StorageCredentialSyncParams {
+    pub endpoint: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct HarnessProgressionParams {
+    pub current_kind: String,
+    pub target_kind: String,
+    pub satisfied: Vec<String>,
+    pub unknown: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct InfraRegistryReadParams {
     /// Optional dot-path selector, e.g. network_policy or lifecycle.kernel_release.
     pub selector: Option<String>,
