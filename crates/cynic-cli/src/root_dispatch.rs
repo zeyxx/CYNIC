@@ -3,7 +3,7 @@ use std::process::ExitCode;
 use crate::agent_surface::execute_agent;
 use crate::audit_surface::{AuditCommand, execute_audit};
 use crate::bootstrap_surface::{BootstrapCommand, execute_bootstrap};
-use crate::build_surface::{BuildCommand, execute_build};
+use crate::build_surface::execute_build;
 use crate::chat_surface::{ChatArgs, execute_chat};
 use crate::cli_json::emit_pretty_json;
 use crate::command_manifest::commands_manifest;
