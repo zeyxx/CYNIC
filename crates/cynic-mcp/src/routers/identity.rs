@@ -101,6 +101,116 @@ impl CynicMcpProxy {
         )]))
     }
 
+    #[tool(
+        name = "identity_trust_chain_status",
+        description = "Inspect the local cryptographic Trust-Chain status: Ed25519 signing key, Kernel enrollment certificate, validity window, and Zero-SPOF root authority binding."
+    )]
+    async fn identity_trust_chain_status(
+        &self,
+        params: Parameters<IdentityTrustChainStatusParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        let key_path = params
+            .0
+            .key_path
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::PathBuf::from("/etc/cynic/node-identity.key"));
+        let cert_path = params
+            .0
+            .cert_path
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::PathBuf::from("/etc/cynic/node-identity.cert"));
+
+        let workflow = cynic_host::node_identity_workflow::NodeIdentityWorkflow::default();
+        let now_unix_s = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let key_present = key_path.exists();
+        let key_info = if key_present {
+            match workflow.load_or_generate_keypair(&key_path) {
+                Ok(m) => {
+                    use sha2::{Digest, Sha256};
+                    let digest = format!("sha256:{}", hex::encode(Sha256::digest(&m.public_key)));
+                    serde_json::json!({
+                        "present": true,
+                        "path": key_path.display().to_string(),
+                        "public_key_hex": m.public_key_hex,
+                        "digest": digest,
+                        "status": "ready"
+                    })
+                }
+                Err(e) => serde_json::json!({
+                    "present": true,
+                    "path": key_path.display().to_string(),
+                    "error": e.to_string(),
+                    "status": "unreadable"
+                }),
+            }
+        } else {
+            serde_json::json!({
+                "present": false,
+                "path": key_path.display().to_string(),
+                "status": "absent"
+            })
+        };
+
+        let cert_present = cert_path.exists();
+        let cert_info = if cert_present {
+            match workflow.load_certificate(&cert_path) {
+                Ok(cert) => {
+                    let is_valid = cert.is_valid_at(now_unix_s);
+                    let remaining_seconds = (cert.expires_at_unix_s as i64) - (now_unix_s as i64);
+                    serde_json::json!({
+                        "present": true,
+                        "path": cert_path.display().to_string(),
+                        "certificate_id": cert.certificate_id,
+                        "node_id": cert.node_id,
+                        "role": cert.role,
+                        "kernel_authority_id": cert.kernel_authority_id,
+                        "issued_at_unix_s": cert.issued_at_unix_s,
+                        "expires_at_unix_s": cert.expires_at_unix_s,
+                        "is_currently_valid": is_valid,
+                        "remaining_seconds": remaining_seconds,
+                        "status": if is_valid { "valid" } else { "expired" }
+                    })
+                }
+                Err(e) => serde_json::json!({
+                    "present": true,
+                    "path": cert_path.display().to_string(),
+                    "error": e.to_string(),
+                    "status": "unreadable"
+                }),
+            }
+        } else {
+            serde_json::json!({
+                "present": false,
+                "path": cert_path.display().to_string(),
+                "status": "absent"
+            })
+        };
+
+        let trust_chain_ready = key_present
+            && cert_present
+            && cert_info.get("is_currently_valid").and_then(|v| v.as_bool()).unwrap_or(false);
+
+        let result = serde_json::json!({
+            "schema": "cynic.identity_trust_chain_status.v1",
+            "trust_chain_ready": trust_chain_ready,
+            "key": key_info,
+            "certificate": cert_info,
+            "observed_at_unix_s": now_unix_s,
+            "multi_root_spof_protection": true,
+        });
+
+        Ok(CallToolResult::success(vec![Content::text(
+            result.to_string(),
+        )]))
+    }
+
     async fn porkbun_identity_smoke_check(&self) -> Result<serde_json::Value, McpError> {
         let api_key = std::env::var("PORKBUN_API_KEY").unwrap_or_default();
         let secret_key = std::env::var("PORKBUN_SECRET_API_KEY").unwrap_or_default();

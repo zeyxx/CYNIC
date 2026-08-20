@@ -34,7 +34,7 @@ use crate::types::{
     DispatchAgentTaskParams, DockerContainerInspectParams, DockerContainerListParams,
     DockerContainerLogsParams, FinalizeLeaseParams, FleetInventoryParams, FleetNodeExecParams,
     FleetNodeStatusParams, FleetReconcileApplyParams, FleetReconcilePlanParams, GitParams,
-    IdentityAttestParams, IdentitySmokeCheckParams, InferParams, InferenceDiscoverParams,
+    IdentityAttestParams, IdentitySmokeCheckParams, IdentityTrustChainStatusParams, InferParams, InferenceDiscoverParams,
     InferenceStartParams, InferenceSwitchParams, InfraProvisionParams, InfraRegistryReadParams,
     InfraRegistryValidateParams, JudgeParams, LibraryQueryParams, ListParams,
     ListPendingAgentTasksParams, LxcExecBridgeBundleParams, LxcExecBridgePlanParams,

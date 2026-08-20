@@ -597,7 +597,8 @@
       "tier": "baseline_runtime",
       "tools": [
         "identity_attest",
-        "identity_smoke_check"
+        "identity_smoke_check",
+        "identity_trust_chain_status"
       ],
       "operator_tools": []
     },
