@@ -6,7 +6,9 @@
 use cynic_host::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner};
-use cynic_protocol::build::{BuildRecipe, BuildRunnerObservation, build_recipe};
+use cynic_protocol::build::{
+    BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation, build_recipe,
+};
 use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
 // ── Fake adapters ─────────────────────────────────────────────
@@ -51,8 +53,12 @@ impl ArgvRunner for FakeArgvRunner {
 
 fn valid_observation() -> BuildRunnerObservation {
     BuildRunnerObservation {
-        schema: "cynic.runtime.node_observation.v1".to_string(),
-        status: "converged".to_string(),
+        schema: BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
+        // compose_build_runner_envelope proves role_observation only when status
+        // is exactly "observed" (build/mod.rs:226). "converged" is a reconciler
+        // verdict, not an observation status, so it left role_observation
+        // unproven and every admitted-path test blocked.
+        status: "observed".to_string(),
         node_id: "test-runner".to_string(),
         hostname: "test-host".to_string(),
         declared_role: Some("build_runner".to_string()),
