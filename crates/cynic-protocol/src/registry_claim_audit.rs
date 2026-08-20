@@ -59,6 +59,20 @@ pub enum ClaimKind {
     /// appears nowhere in the registry. An unmodelled occupant cannot be
     /// governed, and its address cannot be protected from reallocation.
     PlaneOccupancy,
+    /// Two declarative sources describe the same node differently.
+    ///
+    /// `infra/synapse-nodes.seed.json` and `CANONICAL_SYNAPSE_NODES` both give
+    /// `local-kernel` the address `127.0.0.1` and the role `cortex_primary`,
+    /// while `infra/registry.json` gives it `10.10.10.100` and `kernel_primary`
+    /// and assigns `cortex_host` to a separate node. No reachability probe can
+    /// detect this: every address answers, so both sources look correct while
+    /// disagreeing about what the node *is*.
+    ///
+    /// A second declarative source is not a fallback, it is a competing
+    /// authority. Registry order in `AGENTS.md` makes `infra/registry.json` the
+    /// authority above canonical crates, so a mismatch is a refutation of the
+    /// code-side table, never of the registry.
+    DeclarativeAgreement,
 }
 
 impl ClaimKind {
@@ -71,6 +85,7 @@ impl ClaimKind {
             Self::SynapseAllocation => "synapse_allocation",
             Self::OverlayAddress => "overlay_address",
             Self::PlaneOccupancy => "plane_occupancy",
+            Self::DeclarativeAgreement => "declarative_agreement",
         }
     }
 }
@@ -143,6 +158,65 @@ pub fn judge_claim(observation: &ClaimObservation) -> ClaimVerdict {
             declared_as_candidate: observation.declared_as_candidate,
         },
     }
+}
+
+/// One node as described by a single declarative source.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeclaredNodeView {
+    pub node_id: String,
+    pub role: String,
+    pub address: String,
+}
+
+/// Compare the authoritative registry against a second declarative source. Pure.
+///
+/// Direction is not symmetric. `infra/registry.json` outranks canonical crates
+/// in the `AGENTS.md` authority order, so the registry is `declared` and the
+/// code-side table is `observed`: a mismatch refutes the table.
+///
+/// A node absent from the secondary source yields no claim. Partial coverage is
+/// legitimate — a seed table may describe a subset of the fleet. Only a node
+/// present in *both* and described differently is a divergence. A node present
+/// only in the secondary source is the inverse defect (`PlaneOccupancy`) and is
+/// not this comparator's concern.
+pub fn compare_declarative_sources(
+    registry: &[DeclaredNodeView],
+    secondary: &[DeclaredNodeView],
+) -> Vec<ClaimObservation> {
+    let mut claims = Vec::new();
+
+    for reg_node in registry {
+        let Some(sec) = secondary.iter().find(|s| s.node_id == reg_node.node_id) else {
+            continue;
+        };
+
+        // Role and address are separate assertions: a table can agree on where a
+        // node lives and still disagree on what it does. Collapsing them into
+        // one verdict would let a role mismatch hide behind a correct address.
+        if sec.role != reg_node.role {
+            claims.push(ClaimObservation {
+                node_id: reg_node.node_id.clone(),
+                kind: ClaimKind::DeclarativeAgreement,
+                declared: format!("role={}", reg_node.role),
+                observed: Some(format!("role={}", sec.role)),
+                declared_as_candidate: false,
+                unobservable_reason: None,
+            });
+        }
+
+        if sec.address != reg_node.address {
+            claims.push(ClaimObservation {
+                node_id: reg_node.node_id.clone(),
+                kind: ClaimKind::DeclarativeAgreement,
+                declared: format!("address={}", reg_node.address),
+                observed: Some(format!("address={}", sec.address)),
+                declared_as_candidate: false,
+                unobservable_reason: None,
+            });
+        }
+    }
+
+    claims
 }
 
 /// Project a refuted claim into the canonical health signal payload.
@@ -614,8 +688,78 @@ mod tests {
             (ClaimKind::SynapseAllocation, "synapse_allocation"),
             (ClaimKind::OverlayAddress, "overlay_address"),
             (ClaimKind::PlaneOccupancy, "plane_occupancy"),
+            (ClaimKind::DeclarativeAgreement, "declarative_agreement"),
         ] {
             assert_eq!(kind.as_str(), expected);
         }
+    }
+
+    /// The real divergence observed on 2026-08-20 between infra/registry.json
+    /// and the seed table the mesh resolver actually consumes.
+    fn registry_fixture() -> Vec<DeclaredNodeView> {
+        vec![
+            DeclaredNodeView {
+                node_id: "local-kernel".to_string(),
+                role: "kernel_primary".to_string(),
+                address: "10.10.10.100".to_string(),
+            },
+            DeclaredNodeView {
+                node_id: "cynic-builder".to_string(),
+                role: "build_runner".to_string(),
+                address: "10.10.10.119".to_string(),
+            },
+        ]
+    }
+
+    fn seed_fixture() -> Vec<DeclaredNodeView> {
+        vec![
+            DeclaredNodeView {
+                node_id: "local-kernel".to_string(),
+                role: "cortex_primary".to_string(),
+                address: "127.0.0.1".to_string(),
+            },
+            DeclaredNodeView {
+                node_id: "cynic-builder".to_string(),
+                role: "build_runner".to_string(),
+                address: "10.10.10.119".to_string(),
+            },
+        ]
+    }
+
+    #[test]
+    fn declarative_divergence_is_refuted_against_the_registry() {
+        let claims = compare_declarative_sources(&registry_fixture(), &seed_fixture());
+
+        // local-kernel diverges on both role and address; cynic-builder agrees
+        // on both and must produce nothing.
+        assert_eq!(claims.len(), 2);
+        assert!(claims.iter().all(|c| c.node_id == "local-kernel"));
+
+        let verdicts: Vec<_> = claims.iter().map(judge_claim).collect();
+        assert!(verdicts.iter().all(|v| v.is_refuted()));
+
+        // Direction matters: the registry is authority, so the registry value is
+        // `declared` and the code-side table is what got refuted.
+        let role = claims
+            .iter()
+            .find(|c| c.declared.starts_with("role="))
+            .expect("role claim");
+        assert_eq!(role.declared, "role=kernel_primary");
+        assert_eq!(role.observed.as_deref(), Some("role=cortex_primary"));
+    }
+
+    #[test]
+    fn agreement_produces_no_claim() {
+        let reg = registry_fixture();
+        let claims = compare_declarative_sources(&reg, &reg);
+        assert!(claims.is_empty());
+    }
+
+    #[test]
+    fn a_node_missing_from_the_secondary_source_is_not_a_divergence() {
+        // Partial coverage is legitimate: a seed table may describe a subset.
+        // Only a node described *differently* by both is a divergence.
+        let claims = compare_declarative_sources(&registry_fixture(), &[]);
+        assert!(claims.is_empty());
     }
 }
