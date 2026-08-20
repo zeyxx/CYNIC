@@ -369,7 +369,12 @@ fn default_ctx(hw: &HardwareProfile, model_size: Option<u64>) -> u32 {
 /// infra/inference-context-baselines.toml). Pure table — no host detection.
 /// Unknown labels return `None` so the caller can fall back to probed ctx.
 fn context_preset_ctx_size(preset: &str) -> Option<u32> {
-    match preset.trim().to_ascii_lowercase().replace(['-', '_'], "").as_str() {
+    match preset
+        .trim()
+        .to_ascii_lowercase()
+        .replace(['-', '_'], "")
+        .as_str()
+    {
         "65k" => Some(65536),
         "128k" => Some(131072),
         "256k" => Some(262144),
@@ -487,7 +492,9 @@ mod tests {
             "APU GTT budget (18 GiB) must permit full Vulkan offload of a 12.6 GiB model"
         );
         assert!(
-            plan.rationale.iter().any(|r| r.contains("unified GPU budget")),
+            plan.rationale
+                .iter()
+                .any(|r| r.contains("unified GPU budget")),
             "rationale should cite the unified GPU budget, got: {:?}",
             plan.rationale
         );
@@ -529,8 +536,12 @@ mod tests {
     fn roofline_estimate_is_none_without_bandwidth_input() {
         // Without CYNIC_ESTIMATED_MEM_BW_GBPS the planner must NOT guess a
         // decode ceiling — it stays None and emits no roofline rationale line.
-        std::env::remove_var("CYNIC_ESTIMATED_MEM_BW_GBPS");
-        let hw = fake_apu_hw(16, 22, 20);
+        // The planner reads hw.memory_bandwidth_bytes_per_sec_estimate, never the
+        // environment: hardware_profile owns the CYNIC_ESTIMATED_MEM_BW_GBPS read.
+        // State the absent estimate on the fixture instead of mutating process env,
+        // which is unsafe in edition 2024 and racy under a parallel test harness.
+        let mut hw = fake_apu_hw(16, 22, 20);
+        hw.memory_bandwidth_bytes_per_sec_estimate = None;
         let plugins = EnginePlugins {
             llama_server_bin: "llama-server".into(),
             plugin_dir: None,
@@ -553,10 +564,7 @@ mod tests {
             "roofline ceiling must be None without an operator bandwidth input"
         );
         assert!(
-            !plan
-                .rationale
-                .iter()
-                .any(|r| r.contains("roofline decode")),
+            !plan.rationale.iter().any(|r| r.contains("roofline decode")),
             "no roofline rationale line when bandwidth is unknown, got: {:?}",
             plan.rationale
         );
