@@ -278,13 +278,20 @@ impl LocalRegistryMeshResolver {
 }
 
 /// Helper: pick the highest-priority reachable, healthy peer for `role`.
+///
+/// Returns the *signed* endpoint: `fallback_peers` is fail-closed and only
+/// yields peers whose ed25519 signature verified, so the wrapper is the
+/// authentication evidence. Callers that only need the address read
+/// `.endpoint`; keeping the wrapper means a verified fallback peer stays
+/// distinguishable from an unverified seed entry.
+///
 /// Returns `None` when no candidate is dispatchable — caller must then emit a
 /// `TopologyDriftSignal` (drift is data, not a crash).
 pub fn select_peer_for_role(
     resolver: &LocalRegistryMeshResolver,
     role: &str,
-) -> Option<PeerEndpoint> {
-    cynic_protocol::peer_resolver::select_peer(&resolver.fallback_peers(role), role)
+) -> Option<cynic_protocol::peer_resolver::SignedPeerEndpoint> {
+    cynic_protocol::peer_resolver::select_signed_peer(&resolver.fallback_peers(role), role)
 }
 
 /// Helper: all reachable, healthy seed peers, ordered by role priority.

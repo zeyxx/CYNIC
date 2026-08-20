@@ -47,16 +47,10 @@ const QUARANTINED: &[&str] = &[
     "takeover_activation/store.rs",
     "usecases/build_scheduler/conformance.rs",
     "usecases/federated_bootstrap_uc.rs",
-    "usecases/federated_mesh_probe_uc.rs",
-    "usecases/federated_mesh_resolver.rs",
-    "usecases/federated_task_dispatch_uc.rs",
-    "usecases/kernel_spof_observe_uc.rs",
-    "usecases/node_network_recovery_uc.rs",
     "usecases/runtime_release_declaration_uc.rs",
     "usecases/source_change_scheduler.rs",
     "usecases/source_change_submission_uc.rs",
     "usecases/zeroclaw_allowance_uc.rs",
-    "watchdog/peer_handshake.rs",
 ];
 
 #[test]

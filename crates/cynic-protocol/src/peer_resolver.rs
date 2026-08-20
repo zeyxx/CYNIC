@@ -79,6 +79,22 @@ pub fn select_peer(peers: &[PeerEndpoint], role: &str) -> Option<PeerEndpoint> {
         .map(|(p, _)| p.clone())
 }
 
+/// Select from signature-verified fallback peers, keeping the proof attached.
+///
+/// `PeerResolver::fallback_peers` is fail-closed: it returns only endpoints
+/// whose ed25519 signature verified, so the `SignedPeerEndpoint` wrapper *is*
+/// the evidence that a peer was authenticated. Unwrapping to `PeerEndpoint`
+/// before selecting would silently discard that proof and make a verified
+/// fallback peer indistinguishable from an unverified seed entry — which is
+/// exactly the distinction the signed bundle exists to preserve.
+///
+/// Returns `None` when no candidate is dispatchable, same as [`select_peer`].
+pub fn select_signed_peer(peers: &[SignedPeerEndpoint], role: &str) -> Option<SignedPeerEndpoint> {
+    let endpoints: Vec<PeerEndpoint> = peers.iter().map(|p| p.endpoint.clone()).collect();
+    let chosen = select_peer(&endpoints, role)?;
+    peers.iter().find(|p| p.endpoint == chosen).cloned()
+}
+
 /// Pure selector: every reachable peer, in declared order.
 pub fn select_all_peers(peers: &[PeerEndpoint]) -> Vec<PeerEndpoint> {
     peers.iter().filter(|p| p.reachable).cloned().collect()
