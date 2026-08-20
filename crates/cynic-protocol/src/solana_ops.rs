@@ -191,6 +191,68 @@ pub struct SopSanitizationResult {
     pub approval_reason: Option<String>,
 }
 
+pub const SOLANA_TAKEOVER_ATTESTATION_SCHEMA: &str = "cynic.solana_takeover_attestation.v1";
+
+/// On-chain Solana commitment for a sovereign role takeover transition.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SolanaTakeoverAttestation {
+    pub schema: String,
+    pub transition_id: String,
+    pub cluster: String,
+    pub from_node_id: Option<String>,
+    pub to_node_id: String,
+    pub role: String,
+    pub fencing_token: u64,
+    pub prior_fencing_token: u64,
+    pub lease_signature_hex: String,
+    pub commitment_memo: String,
+}
+
+impl SolanaTakeoverAttestation {
+    pub fn from_transition_record(
+        record: &crate::runtime_takeover::RoleTransitionRecord,
+        cluster: &str,
+    ) -> Self {
+        let memo = format!(
+            "CYNIC:TAKEOVER:{}:{}:{}:token={}:prior={}",
+            cluster,
+            record.role,
+            record.to_node_id,
+            record.fencing_token,
+            record.prior_fencing_token
+        );
+        Self {
+            schema: SOLANA_TAKEOVER_ATTESTATION_SCHEMA.to_string(),
+            transition_id: record.transition_id.clone(),
+            cluster: cluster.to_string(),
+            from_node_id: record.from_node_id.clone(),
+            to_node_id: record.to_node_id.clone(),
+            role: record.role.clone(),
+            fencing_token: record.fencing_token,
+            prior_fencing_token: record.prior_fencing_token,
+            lease_signature_hex: record.lease_signature_hex.clone(),
+            commitment_memo: memo,
+        }
+    }
+
+    pub fn validate(&self) -> Vec<String> {
+        let mut blockers = Vec::new();
+        if self.schema != SOLANA_TAKEOVER_ATTESTATION_SCHEMA {
+            blockers.push("solana_takeover_attestation_schema_mismatch".to_string());
+        }
+        if self.to_node_id.trim().is_empty() {
+            blockers.push("solana_takeover_target_node_empty".to_string());
+        }
+        if self.fencing_token <= self.prior_fencing_token {
+            blockers.push("solana_takeover_fencing_token_not_monotonic".to_string());
+        }
+        if !self.commitment_memo.starts_with("CYNIC:TAKEOVER:") {
+            blockers.push("solana_takeover_memo_malformed".to_string());
+        }
+        blockers
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -242,5 +304,25 @@ mod tests {
                 .validate_transfer("attacker", 10.0, Some("USDC"))
                 .is_err()
         );
+    }
+
+    #[test]
+    fn solana_takeover_attestation_derivation() {
+        let record = crate::runtime_takeover::RoleTransitionRecord::new(
+            "tx-001".to_string(),
+            Some("node-a".to_string()),
+            "node-b".to_string(),
+            "cortex_primary".to_string(),
+            42,
+            41,
+            10000,
+            "a".repeat(128),
+        );
+
+        let attestation = SolanaTakeoverAttestation::from_transition_record(&record, "mainnet-beta");
+        assert_eq!(attestation.fencing_token, 42);
+        assert_eq!(attestation.to_node_id, "node-b");
+        assert!(attestation.commitment_memo.contains("token=42:prior=41"));
+        assert!(attestation.validate().is_empty());
     }
 }
