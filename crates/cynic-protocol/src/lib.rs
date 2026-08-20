@@ -52,6 +52,7 @@ pub mod forgejo;
 pub mod framework;
 pub mod freshness;
 pub mod harness;
+pub mod harness_authority;
 pub mod health_signal;
 pub mod inference_matrix;
 pub mod integrity;

@@ -16,6 +16,7 @@ pub fn claim_agent_workload(
     guard: LeaseGuard,
     expires_at_ms: u64,
     now_ms: u64,
+    max_lease_window_ms: u64,
 ) -> Result<AgentWorkloadRecord, AgentWorkloadViolation> {
     require_valid_record(record)?;
     if record.state.terminal() || record.state == AgentWorkloadState::CancelRequested {
@@ -56,6 +57,14 @@ pub fn claim_agent_workload(
             "a new claim must advance the fencing token",
         ));
     }
+    // Max lease window check: expiry must not exceed now + max_lease_window
+    let max_expiry = now_ms.saturating_add(max_lease_window_ms);
+    if expires_at_ms > max_expiry {
+        return Err(violation(
+            "max_lease_window_exceeded",
+            "claim expiry exceeds the maximum lease window",
+        ));
+    }
 
     let mut next = record.clone();
     next.state = AgentWorkloadState::Claimed;
@@ -64,6 +73,8 @@ pub fn claim_agent_workload(
         guard,
         expires_at_ms,
         cancellation_generation: record.cancellation_generation,
+        max_lease_window_ms,
+        granted_at_ms: now_ms,
     });
     Ok(next)
 }
@@ -102,6 +113,15 @@ pub fn renew_agent_workload_claim(
         return Err(violation(
             "claim_renewal_not_extended",
             "renewal must move the durable expiry forward",
+        ));
+    }
+    // Max lease window check: renewal must not exceed granted_at + max_lease_window
+    let claim = record.claim.as_ref().unwrap();
+    let max_expiry = claim.granted_at_ms.saturating_add(claim.max_lease_window_ms);
+    if expires_at_ms > max_expiry {
+        return Err(violation(
+            "max_lease_window_exceeded",
+            "renewal exceeds the maximum lease window from grant time",
         ));
     }
     let mut next = record.clone();

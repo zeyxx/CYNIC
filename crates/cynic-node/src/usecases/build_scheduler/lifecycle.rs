@@ -47,6 +47,7 @@ pub(super) fn claim_if_available(
         guard,
         now_ms.saturating_add(lease_ms),
         now_ms,
+        lease_ms,
     )
     .map_err(|error| error.code)?;
     match store.compare_and_swap(

@@ -26,6 +26,7 @@ pub(crate) struct AgentCitizenship {
     pub schema: &'static str,
     pub agent_id: String,
     pub scope: String,
+    pub mode: String,
     pub budgets: AgentBudgets,
     pub residual_risk: Option<String>,
 }
@@ -99,7 +100,11 @@ fn execute_mask_forge(report_path: &str, _source_note: &str, json: bool, yes: bo
             schema: "cynic.agent_citizenship.v1",
             agent_id: "mask-forge".to_string(),
             scope: "node".to_string(),
-            budgets: AgentBudgets { actions: 1000, wall_seconds: 3600 },
+            mode: "baseline".to_string(),
+            budgets: AgentBudgets {
+                actions: 1000,
+                wall_seconds: 3600,
+            },
             residual_risk: Some(
                 "local-only mask; provider/transport adapters injected at runtime".to_string(),
             ),
@@ -118,7 +123,11 @@ fn execute_mask_start(alias: &str, json: bool, yes: bool) -> ExitCode {
         schema: "cynic.agent_citizenship.v1",
         agent_id: alias.to_string(),
         scope: "node".to_string(),
-        budgets: AgentBudgets { actions: 1000, wall_seconds: 3600 },
+        mode: "baseline".to_string(),
+        budgets: AgentBudgets {
+            actions: 1000,
+            wall_seconds: 3600,
+        },
         residual_risk: Some(
             "local-only mask; provider/transport adapters injected at runtime".to_string(),
         ),

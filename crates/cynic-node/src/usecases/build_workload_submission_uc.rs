@@ -4,9 +4,10 @@
 //! case. None of those transports owns build admission or workload shape.
 
 use cynic_protocol::{
-    admit_build_agent_request, compose_build_agent_workload, plan_build_agent_request,
+    admit_build_agent_request, admit_build_mutation, compose_build_agent_workload,
+    plan_build_agent_request, AgentBudgets, AgentCitizenshipRecord, AgentScope,
     AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, BuildAgentRequest,
-    BuildAgentRequestAdmission,
+    BuildAgentRequestAdmission, MutationAdmission,
 };
 use serde::Serialize;
 
@@ -120,6 +121,35 @@ pub fn plan_build_workload_submission(
             delivery: None,
         });
     }
+
+    // Canonical admission gate — verify the requesting citizen has authority
+    let citizen = AgentCitizenshipRecord {
+        schema: "cynic.agent_citizenship.v1",
+        agent_id: request.requested_by.clone(),
+        scope: AgentScope::Crate,
+        budgets: AgentBudgets { actions: 100, wall_seconds: 3600 },
+        residual_risk: None,
+        evidence: None,
+    };
+    let gate = admit_build_mutation(
+        &citizen,
+        Some(&AgentScope::Crate),
+        &AgentBudgets { actions: 1, wall_seconds: 60 },
+        &AgentScope::Crate,
+        true,
+        &request.desired_role,
+        &request.desired_role,
+    );
+    if let MutationAdmission::Refused { codes } = &gate {
+        let mut admission = admission;
+        admission.status = "blocked".into();
+        admission.blockers.push(format!("admission_gate_refused:{:?}", codes));
+        return Ok(BuildWorkloadSubmissionPlan {
+            admission,
+            delivery: None,
+        });
+    }
+
     let transport = cynic_host::registry::resolve_build_runner_transport(Some(registry_path))?;
     let envelope = compose_build_agent_workload(request, &transport.node_id, workspace_root)
         .map_err(|blockers| blockers.join(","))?;

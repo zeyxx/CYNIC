@@ -5,8 +5,10 @@
 //!   lab → conformance → staging → canary → production
 //!
 //! Each step requires explicit proof. No silent promotion.
-pub use crate::runtime_harness::{HarnessAuthority, RuntimeHarnessKind};
+use cynic_protocol::HarnessAuthority;
 use serde::Serialize;
+
+pub use crate::runtime_harness::RuntimeHarnessKind;
 
 /// Required proof categories for harness progression.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -194,15 +194,15 @@ fn dispatch_rejects_an_active_idempotency_key() {
 
 #[test]
 fn stale_claim_cannot_act_after_recovery() {
-    let first = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
-    let recovered = claim_agent_workload(&first, guard(2), 40, 21).unwrap();
+    let first = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
+    let recovered = claim_agent_workload(&first, guard(2), 40, 21, 100_000).unwrap();
     assert!(!admit_workload_action(&recovered, &guard(1), 22).admitted());
     assert!(admit_workload_action(&recovered, &guard(2), 22).admitted());
 }
 
 #[test]
 fn claim_renewal_preserves_fence_and_moves_expiry_forward() {
-    let claimed = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
     assert!(renew_agent_workload_claim(&claimed, &guard(1), 19, 11).is_err());
     let renewed = renew_agent_workload_claim(&claimed, &guard(1), 40, 11).unwrap();
     assert_eq!(renewed.claim.unwrap().expires_at_ms, 40);
@@ -211,14 +211,14 @@ fn claim_renewal_preserves_fence_and_moves_expiry_forward() {
 
 #[test]
 fn cancellation_invalidates_the_active_claim() {
-    let claimed = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
     let cancelled = request_agent_workload_cancellation(&claimed).unwrap();
     assert!(!admit_workload_action(&cancelled, &guard(1), 11).admitted());
 }
 
 #[test]
 fn executor_can_durably_acknowledge_the_exact_cancelled_claim() {
-    let claimed = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
     let cancelled = request_agent_workload_cancellation(&claimed).unwrap();
     let completion = AgentCompletionEnvelope {
         schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
@@ -273,7 +273,7 @@ fn unclaimed_cancellation_is_finalized_without_inventing_a_lease() {
 
 #[test]
 fn action_budget_is_retained_in_the_record() {
-    let mut claimed = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
+    let mut claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
     claimed = consume_agent_workload_action(&claimed, &guard(1), 11).unwrap();
     claimed = consume_agent_workload_action(&claimed, &guard(1), 12).unwrap();
     assert!(consume_agent_workload_action(&claimed, &guard(1), 13).is_err());
@@ -286,7 +286,7 @@ fn build_grant_is_derived_from_the_live_durable_workload() {
     let mut dispatched = record();
     dispatched.envelope.policy_admission.intent.subject = source_commit.clone();
     dispatched.envelope.policy_admission.mutation.scope.target = source_commit.clone();
-    let claimed = claim_agent_workload(&dispatched, guard(1), 40_000, now_unix_s * 1_000)
+    let claimed = claim_agent_workload(&dispatched, guard(1), 40_000, now_unix_s * 1_000, 40_000)
         .expect("claim workload");
     let claimed = consume_agent_workload_action(&claimed, &guard(1), now_unix_s * 1_000)
         .expect("reserve build action");
@@ -343,7 +343,7 @@ fn cancellation_or_fence_change_revokes_a_derived_build_grant() {
     let mut dispatched = record();
     dispatched.envelope.policy_admission.intent.subject = source_commit.clone();
     dispatched.envelope.policy_admission.mutation.scope.target = source_commit.clone();
-    let claimed = claim_agent_workload(&dispatched, guard(1), 40_000, now_unix_s * 1_000)
+    let claimed = claim_agent_workload(&dispatched, guard(1), 40_000, now_unix_s * 1_000, 40_000)
         .expect("claim workload");
     let claimed = consume_agent_workload_action(&claimed, &guard(1), now_unix_s * 1_000)
         .expect("reserve build action");
@@ -378,7 +378,7 @@ fn cancellation_or_fence_change_revokes_a_derived_build_grant() {
 
 #[test]
 fn completion_requires_expected_read_back_proof() {
-    let claimed = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
     let mut completion = AgentCompletionEnvelope {
         schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
         delegation_id: "delegation-1".to_string(),
@@ -407,7 +407,7 @@ fn completion_requires_expected_read_back_proof() {
 
 #[test]
 fn a_degraded_build_is_terminal_but_cannot_claim_completion() {
-    let claimed = claim_agent_workload(&record(), guard(1), 20, 10).unwrap();
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
     let completion = AgentCompletionEnvelope {
         schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
         delegation_id: "delegation-1".to_string(),

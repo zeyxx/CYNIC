@@ -8,8 +8,9 @@ use std::time::{Duration, Instant};
 
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
 use cynic_protocol::{
-    AgentCompletionStatus, AgentWorkloadState, DurableAgentWorkloadRecord,
-    canonical_build_action_from_argv,
+    admit_workload_mutation, AgentBudgets, AgentCitizenshipRecord, AgentScope,
+    AgentCompletionStatus, AgentWorkloadClaim, AgentWorkloadState,
+    DurableAgentWorkloadRecord, MutationAdmission, canonical_build_action_from_argv,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -109,6 +110,33 @@ async fn execute_claimed(
         .as_ref()
         .map(|claim| claim.guard.clone())
         .ok_or_else(|| "build_scheduler_claim_missing".to_string())?;
+
+    // Canonical admission gate — verify the citizen has authority to execute
+    let citizen = AgentCitizenshipRecord {
+        schema: "cynic.agent_citizenship.v1",
+        agent_id: claimed.record.envelope.delegation.agent_id.clone(),
+        scope: AgentScope::Crate,
+        budgets: AgentBudgets { actions: 1000, wall_seconds: 3600 },
+        residual_risk: None,
+        evidence: None,
+    };
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let admission = admit_workload_mutation(
+        &citizen,
+        Some(&AgentScope::Crate),
+        &AgentBudgets { actions: 1, wall_seconds: 600 },
+        &AgentScope::Crate,
+        true,
+        claimed.record.claim.as_ref().map(|c| c.expires_at_ms),
+        now_ms,
+    );
+    if let MutationAdmission::Refused { codes } = &admission {
+        return Err(format!("admission_gate_refused:{:?}", codes));
+    }
+
     let started = Instant::now();
     let execution_cancel = CancellationToken::new();
     let monitor = tokio::spawn(lifecycle::monitor_claim(

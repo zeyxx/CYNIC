@@ -176,12 +176,14 @@ fn reconcile_transition(
                 AgentWorkloadTransition::Claim {
                     guard,
                     expires_at_ms,
+                    max_lease_window_ms,
                     ..
                 } => claim_agent_workload(
                     &current.record,
                     guard.clone(),
                     *expires_at_ms,
                     observed_now_ms,
+                    *max_lease_window_ms,
                 ),
                 AgentWorkloadTransition::ConsumeAction { guard, .. } => {
                     consume_agent_workload_action(&current.record, guard, observed_now_ms)

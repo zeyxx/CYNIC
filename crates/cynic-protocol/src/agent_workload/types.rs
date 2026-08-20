@@ -78,6 +78,11 @@ pub struct AgentWorkloadClaim {
     pub guard: LeaseGuard,
     pub expires_at_ms: u64,
     pub cancellation_generation: u64,
+    /// Maximum allowed lease window — prevents indefinite amplification.
+    /// Any renewal beyond `granted_at_ms + max_lease_window_ms` is refused.
+    pub max_lease_window_ms: u64,
+    /// Timestamp at which the claim was first granted (not renewed).
+    pub granted_at_ms: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

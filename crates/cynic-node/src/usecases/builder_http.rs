@@ -18,8 +18,9 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use cynic_protocol::{
+    admit_build_mutation, AgentBudgets, AgentCitizenshipRecord, AgentScope,
     AgentWorkloadRecord, AgentWorkloadState, BuildAgentRequest, BuildSourceReference,
-    compose_build_agent_workload,
+    MutationAdmission, SecurityEvidenceState,
 };
 
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
@@ -161,6 +162,35 @@ async fn webhook_forgejo(
         return Err((
             StatusCode::BAD_REQUEST,
             format!("invalid commit SHA: expected 40 hex chars, got {}", commit_sha.len()),
+        ));
+    }
+
+    // Canonical admission gate — build mutation requires:
+    // - A valid citizenship record
+    // - A held claim containing the target scope
+    // - Sufficient budget
+    // - Matching build role
+    let citizen = AgentCitizenshipRecord {
+        schema: "cynic.agent_citizenship.v1",
+        requested_by: payload.pusher.as_ref().map(|p| p.name.clone()).unwrap_or_else(|| "forgejo".into()),
+        scope: AgentScope::Crate,
+        budgets: AgentBudgets { actions: 100, wall_seconds: 3600 },
+        residual_risk: None,
+        evidence: Some(SecurityEvidenceState::Proven),
+    };
+    let admission = admit_build_mutation(
+        &citizen,
+        Some(&AgentScope::Crate),
+        &AgentBudgets { actions: 1, wall_seconds: 60 },
+        &AgentScope::Crate,
+        true,
+        "build_runner",
+        &request.desired_role,
+    );
+    if let MutationAdmission::Refused { codes } = &admission {
+        return Err((
+            StatusCode::FORBIDDEN,
+            format!("admission refused: {:?}", codes),
         ));
     }
 

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub use cynic_protocol::HarnessAuthority;
+
 pub const RUNTIME_HARNESS_CONTEXT_SCHEMA: &str = "cynic.runtime_harness.context.v1";
 pub const RUNTIME_HARNESS_CATALOG_SCHEMA: &str = "cynic.runtime_harness.catalog.v1";
 pub const RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA: &str =
@@ -62,15 +64,7 @@ pub enum RuntimeHarnessKind {
     Production,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum HarnessAuthority {
-    TestProjection,
-    ConformanceGate,
-    ReleaseCandidate,
-    FleetCanary,
-    RuntimeAuthority,
-}
+
 
 pub fn closed_local_lab_context() -> RuntimeHarnessContext {
     RuntimeHarnessContext {
