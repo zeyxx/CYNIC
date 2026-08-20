@@ -879,9 +879,11 @@ dependencies = [
  "cynic-node",
  "cynic-observer",
  "cynic-protocol",
+ "hex",
  "ratatui",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "tokio",
 ]
 
@@ -892,6 +894,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "cynic-inference",
+ "cynic-intel",
  "cynic-protocol",
  "ed25519-dalek",
  "hex",
@@ -918,6 +921,8 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum",
+ "blake3",
+ "cynic-intel",
  "cynic-protocol",
  "futures-util",
  "process-wrap",
@@ -942,6 +947,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.20",
+ "tokio",
 ]
 
 [[package]]
@@ -1006,12 +1012,14 @@ dependencies = [
  "cynic-protocol",
  "cynic-zeroclaw-solana",
  "glob",
+ "hex",
  "regex",
  "reqwest 0.12.28",
  "rmcp",
  "schemars",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "tokio",
  "tokio-util",
  "tracing",
