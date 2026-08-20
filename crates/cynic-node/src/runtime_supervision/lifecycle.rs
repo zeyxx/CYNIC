@@ -140,7 +140,14 @@ async fn on_health_tick(
     health_url: &str,
     health_failures: &mut u32,
 ) -> Option<ExitReason> {
-    if verify::check_health(client, health_url, cfg.health.timeout_secs).await {
+    if verify::check_health_with_bearer(
+        client,
+        health_url,
+        cfg.health.timeout_secs,
+        cfg.dog.api_key.as_deref(),
+    )
+    .await
+    {
         *health_failures = 0;
         None
     } else {
@@ -190,7 +197,14 @@ async fn wait_healthy(
 
         tokio::select! {
             _ = tick.tick() => {
-                if verify::check_health(client, &health_url, cfg.health.timeout_secs).await {
+                if verify::check_health_with_bearer(
+                    client,
+                    &health_url,
+                    cfg.health.timeout_secs,
+                    cfg.dog.api_key.as_deref(),
+                )
+                .await
+                {
                     tracing::info!("backend healthy - proceeding to registration");
                     return Ok(());
                 }

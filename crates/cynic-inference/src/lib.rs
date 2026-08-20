@@ -4,27 +4,23 @@ pub mod config_loader;
 pub mod domain;
 pub mod embedding;
 pub mod inference;
+pub mod math;
 /// Historical probe module for attaching to Osmantic ODS / OpenAI-compat peers.
 /// Prefer `adapters::ods` (documents ODS as external bootstrap framework).
 pub mod ods_discovery;
 pub mod ports;
-pub mod math;
 pub mod progress;
 
 // Convenience re-exports for downstream crates (CLI, MCP).
 pub use adapters::discovery::model_registry::InMemoryModelRegistry;
 pub use adapters::hf::HfCliAdapter;
-pub use application::model_process_pool::{
-    ActivePoolSlot, ModelPoolReport, ModelProcessPool,
-};
+pub use application::model_process_pool::{ActivePoolSlot, ModelPoolReport, ModelProcessPool};
 
 pub use domain::debate::{DebateParticipant, DebateRole, DebateSession, DebateTurn};
 pub use domain::supervision::SupervisionPolicy;
 
-pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;
-pub use application::multi_agent_service::MultiAgentService;
-pub use application::bench_basket_launcher::{build_basket_from_ledger, launch_basket};
 pub use adapters::inference::hermes_process_supervisor::read_hermes_api_key;
+pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;
 pub use adapters::local::{
     FsChatSessionStore, FsLocalModelInventory, FsModelStore, InferenceSupervisorKind,
     ProcessLocalRuntime, SystemdUserLocalRuntime,
@@ -36,10 +32,12 @@ pub use adapters::ods::{
 pub use adapters::publishers::{
     inference_toml::InferenceTomlPublisher, null::NullPublisher, open_webui::OpenWebUiPublisher,
 };
+pub use application::bench_basket_launcher::{build_basket_from_ledger, launch_basket};
+pub use application::multi_agent_service::MultiAgentService;
 
 pub use application::backend_verification::{
     ContextResult, IdentityResult, check_context, check_context_with_bearer, check_health,
-    check_identity, check_identity_with_bearer, model_identity_matches,
+    check_health_with_bearer, check_identity, check_identity_with_bearer, model_identity_matches,
 };
 pub use application::chat_endpoint::{
     ChatEndpointResolution, ChatEndpointSource, dns_inference_hostnames,
@@ -53,9 +51,7 @@ pub use application::chat_service::{
 };
 
 pub use application::hf_discovery::{HfDiscoveryService, HfDownloadCommand};
-pub use application::local_runtime_service::{
-    LocalRuntimeService, LocalRuntimeServiceAny,
-};
+pub use application::local_runtime_service::{LocalRuntimeService, LocalRuntimeServiceAny};
 pub use application::model_store_service::ModelStoreService;
 pub use application::model_sync_pipeline::ModelSyncPipeline;
 pub use application::node_runtime_ops::{
@@ -66,9 +62,10 @@ pub use application::node_runtime_ops::{
 pub use application::peer_attach::{
     PeerAttachOptions, PeerAttachReport, peer_attach, peer_attach_apply, peer_attach_status,
 };
-pub use application::profile_bootstrap::{ForgeProfileReport, forge_profile_from_benchmark_report,
-    EnsureProfilesReport, PreferredChatBind, bind_preferred_chat_model, ensure_profiles_from_vault,
-    pin_preferred_alias, resolve_start_alias, select_preferred_alias,
+pub use application::profile_bootstrap::{
+    EnsureProfilesReport, ForgeProfileReport, PreferredChatBind, bind_preferred_chat_model,
+    ensure_profiles_from_vault, forge_profile_from_benchmark_report, pin_preferred_alias,
+    resolve_start_alias, select_preferred_alias,
 };
 pub use application::runtime_planner::{MaterializeReport, RuntimePlanner};
 pub use application::vault_consolidate::{
@@ -113,11 +110,15 @@ pub use ports::model_publisher_port::{ModelPublisherPort, NormalisedModel, Publi
 pub use ports::model_store_port::ModelStorePort;
 
 // Additional re-exports required by cynic-cli / cynic-mcp surfaces.
+pub use adapters::empirical_store::{DEFAULT_EMPIRICAL_LEDGER_PATH, FsEmpiricalStore};
+pub use application::inference_gateway::{InferenceGateway, InferenceGatewayConfig};
+pub use domain::domain_task_queue::{
+    DEFAULT_DOMAIN_TASKS_PATH, DomainTaskQueue, DomainTaskQueueError,
+};
+pub use domain::local_runtime::LocalRuntimeState;
+pub use domain::matrix_sweep::empirical_store::{
+    ConstraintFilter, ModelEmpiricalScorecard, OptimizationGoal,
+};
+pub use domain::matrix_sweep::types::HardwareBudget;
 pub use math::roofline::assess_roofline;
 pub use ports::empirical_store_port::EmpiricalStorePort;
-pub use adapters::empirical_store::{FsEmpiricalStore, DEFAULT_EMPIRICAL_LEDGER_PATH};
-pub use domain::domain_task_queue::{DEFAULT_DOMAIN_TASKS_PATH, DomainTaskQueue, DomainTaskQueueError};
-pub use domain::matrix_sweep::empirical_store::{ConstraintFilter, ModelEmpiricalScorecard, OptimizationGoal};
-pub use domain::matrix_sweep::types::HardwareBudget;
-pub use domain::local_runtime::LocalRuntimeState;
-pub use application::inference_gateway::{InferenceGateway, InferenceGatewayConfig};
