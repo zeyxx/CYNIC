@@ -44,7 +44,9 @@ impl PlanVerifier {
         public_key: &[u8],
     ) -> Result<(), CryptoError> {
         if authority_id.trim().is_empty() {
-            return Err(CryptoError::InvalidKey("authority_id cannot be empty".into()));
+            return Err(CryptoError::InvalidKey(
+                "authority_id cannot be empty".into(),
+            ));
         }
         if public_key.len() != 32 {
             return Err(CryptoError::InvalidKey(
@@ -97,7 +99,12 @@ impl PlanVerifier {
         now_unix_s: u64,
     ) -> Result<NodeDesiredState, ControlPlanVerificationStatus> {
         let authorized_ids: Vec<String> = self.authorized_kernel_keys.keys().cloned().collect();
-        verify_control_plan_preconditions(signed_plan, observed_generation, &authorized_ids, now_unix_s)?;
+        verify_control_plan_preconditions(
+            signed_plan,
+            observed_generation,
+            &authorized_ids,
+            now_unix_s,
+        )?;
 
         let public_key = self
             .authorized_kernel_keys
@@ -131,18 +138,22 @@ mod tests {
     use cynic_protocol::RuntimeSeedRequest;
     use cynic_protocol::node_control::NODE_DESIRED_STATE_SCHEMA;
 
-    fn fixture_desired(gen: u64) -> NodeDesiredState {
+    fn fixture_desired(generation: u64) -> NodeDesiredState {
         NodeDesiredState {
             schema: NODE_DESIRED_STATE_SCHEMA.to_string(),
             node_id: "node-cortex".to_string(),
             role: "cortex".to_string(),
-            generation: gen,
-            policy_digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+            generation,
+            policy_digest:
+                "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+                    .to_string(),
             release: RuntimeSeedRequest {
                 schema: "cynic.runtime_seed_request.v1".to_string(),
                 release_id: "cynic-v0.1.0".to_string(),
                 source_commit: "75b4cd4b".to_string(),
-                source_bundle_digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+                source_bundle_digest:
+                    "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+                        .to_string(),
                 release_signature: None,
             },
             required_capabilities: vec![],

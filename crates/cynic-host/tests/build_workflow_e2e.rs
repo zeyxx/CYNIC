@@ -6,9 +6,8 @@
 use cynic_host::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner};
-use cynic_protocol::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, BuildRunnerObservation};
-use cynic_protocol::coordination_lease::LeaseVerification;
-use cynic_protocol::{LeaseGuard, SecurityEvidenceState, SourceSnapshot};
+use cynic_protocol::build::{BuildRecipe, BuildRunnerObservation, build_recipe};
+use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
 // ── Fake adapters ─────────────────────────────────────────────
 
@@ -96,17 +95,14 @@ fn valid_source_snapshot() -> SourceSnapshot {
 }
 
 fn valid_recipe() -> BuildRecipe {
-    BuildRecipe {
-        schema: BUILD_RECIPE_SCHEMA.to_string(),
-        action: "make:check".to_string(),
-        target_crates: vec!["cynic-protocol".to_string()],
-        excluded_crates: vec![],
-        toolchain_override: None,
-        env_overrides: vec![],
-        max_parallel_jobs: 1,
-        timeout_secs: 600,
-        evidence_refs: vec![],
-    }
+    // Derive from the canonical constructor instead of restating every field:
+    // the recipe grew allowed_actions, rust_min_stack, cargo_incremental,
+    // memory_limit_bytes and target_profile, and a literal fixture goes stale on
+    // each addition. Only the fields this test actually exercises are overridden.
+    let mut recipe = build_recipe("make:check").expect("make:check is a canonical recipe");
+    recipe.target_crates = vec!["cynic-protocol".to_string()];
+    recipe.evidence_refs = vec![];
+    recipe
 }
 
 fn base_config<'a>(
@@ -257,7 +253,11 @@ fn e2e_workflow_blocked_when_source_unproven() {
     };
     let argv_runner = FakeArgvRunner { outputs: vec![] };
     let mut config = base_config(&observation_adapter, &lease_adapter, &argv_runner);
-    config.source_snapshot.validation = SecurityEvidenceState::Unproven;
+    // SecurityEvidenceState has no `Unproven` variant: "unproven" is a policy
+    // outcome, not an evidence state. admit_build_input blocks on `!= Proven`
+    // (build/mod.rs:365), so `Declared` — asserted but not proven — is the state
+    // that exercises this path.
+    config.source_snapshot.validation = SecurityEvidenceState::Declared;
 
     let result = run_build_workflow(&config);
 
@@ -269,7 +269,10 @@ fn e2e_workflow_blocked_when_source_unproven() {
     let result = result.unwrap();
     match result {
         BuildWorkflowResult::Blocked { input_blockers, .. } => {
-            assert!(!input_blockers.is_empty(), "should have input blockers");
+            assert!(
+                input_blockers.contains(&"source_validation_unproven".to_string()),
+                "expected the validation blocker, got {input_blockers:?}"
+            );
         }
         other => panic!("expected Blocked, got {:?}", other),
     }

@@ -1,8 +1,8 @@
-use std::process::ExitCode;
+use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use clap::Parser;
 use clap::Subcommand;
 use cynic_protocol::federation::FederationReconciliation;
-use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
+use std::process::ExitCode;
 
 /// Federation CLI command — subcommands for federation operations.
 #[derive(Debug, Subcommand)]
@@ -117,7 +117,7 @@ impl FederationStatusCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::autonomy::{AutonomyDecision, AutonomyMode, RetainedCapabilities};
+    use cynic_protocol::local_autonomy::{AutonomyDecision, AutonomyMode, RetainedCapabilities};
 
     fn autonomy_decision(mode: AutonomyMode) -> AutonomyDecision {
         AutonomyDecision {
