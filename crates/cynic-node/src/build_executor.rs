@@ -12,6 +12,40 @@ use sha2::{Digest, Sha256};
 
 use cynic_protocol::LeaseGuard;
 
+/// Sandbox privilege isolation level for the build runner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum BuildSandboxMode {
+    #[default]
+    Auto,
+    Bubblewrap,
+    RootlessUserNs,
+    LxcBridge,
+    DirectHost,
+}
+
+/// Sandbox configuration for build execution.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct BuildSandboxConfig {
+    pub mode: BuildSandboxMode,
+    pub workspace_root: Option<String>,
+    pub read_only_paths: Vec<String>,
+    pub writable_paths: Vec<String>,
+    pub allow_network: bool,
+}
+
+impl Default for BuildSandboxConfig {
+    fn default() -> Self {
+        Self {
+            mode: BuildSandboxMode::Auto,
+            workspace_root: None,
+            read_only_paths: vec!["/usr".to_string(), "/lib".to_string(), "/lib64".to_string(), "/bin".to_string()],
+            writable_paths: vec!["/tmp".to_string()],
+            allow_network: true,
+        }
+    }
+}
+
 /// Build executor error.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BuildExecutorError {
@@ -20,8 +54,8 @@ pub enum BuildExecutorError {
     ShellCompositionForbidden,
     ProcessSpawnFailed { reason: String },
     ArtifactReadbackFailed,
+    SandboxConfigurationInvalid(String),
 }
-
 impl std::fmt::Display for BuildExecutorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -30,6 +64,7 @@ impl std::fmt::Display for BuildExecutorError {
             Self::ShellCompositionForbidden => write!(f, "shell composition forbidden"),
             Self::ProcessSpawnFailed { reason } => write!(f, "process spawn failed: {reason}"),
             Self::ArtifactReadbackFailed => write!(f, "artifact readback failed"),
+            Self::SandboxConfigurationInvalid(reason) => write!(f, "sandbox configuration invalid: {reason}"),
         }
     }
 }
@@ -65,17 +100,87 @@ pub struct BuildExecutionProof {
     pub evidence_refs: Vec<String>,
 }
 
-/// Build executor — runs build workloads on this node.
+/// Build executor — runs build workloads with micro-envelope privilege isolation.
 pub struct BuildExecutor {
     node_id: String,
     role: String,
+    sandbox: BuildSandboxConfig,
 }
-
 impl BuildExecutor {
     pub fn new(node_id: String, role: String) -> Self {
-        Self { node_id, role }
+        Self {
+            node_id,
+            role,
+            sandbox: BuildSandboxConfig::default(),
+        }
     }
 
+    pub fn with_sandbox(node_id: String, role: String, sandbox: BuildSandboxConfig) -> Self {
+        Self {
+            node_id,
+            role,
+            sandbox,
+        }
+    }
+
+    /// Wrap an argv vector in the appropriate sandbox envelope command.
+    pub fn wrap_argv(&self, argv: &[String], workspace: Option<&str>) -> (String, Vec<String>) {
+        let effective_mode = match self.sandbox.mode {
+            BuildSandboxMode::Auto => {
+                if which_exists("bwrap") {
+                    BuildSandboxMode::Bubblewrap
+                } else if which_exists("unshare") {
+                    BuildSandboxMode::RootlessUserNs
+                } else {
+                    BuildSandboxMode::DirectHost
+                }
+            }
+            other => other,
+        };
+
+        match effective_mode {
+            BuildSandboxMode::Bubblewrap => {
+                let mut bwrap_args = vec![
+                    "--ro-bind".to_string(), "/".to_string(), "/".to_string(),
+                    "--dev".to_string(), "/dev".to_string(),
+                    "--proc".to_string(), "/proc".to_string(),
+                    "--tmpfs".to_string(), "/tmp".to_string(),
+                ];
+                if let Some(ws) = workspace {
+                    bwrap_args.extend(vec!["--bind".to_string(), ws.to_string(), ws.to_string()]);
+                }
+                if self.sandbox.allow_network {
+                    bwrap_args.push("--share-net".to_string());
+                } else {
+                    bwrap_args.push("--unshare-net".to_string());
+                }
+                bwrap_args.push("--".to_string());
+                bwrap_args.extend(argv.to_vec());
+                ("bwrap".to_string(), bwrap_args)
+            }
+            BuildSandboxMode::RootlessUserNs => {
+                let mut unshare_args = vec![
+                    "--user".to_string(),
+                    "--map-root-user".to_string(),
+                    "--fork".to_string(),
+                    "--".to_string(),
+                ];
+                unshare_args.extend(argv.to_vec());
+                ("unshare".to_string(), unshare_args)
+            }
+            BuildSandboxMode::LxcBridge => {
+                let mut lxc_args = vec![
+                    "exec".to_string(),
+                    "--".to_string(),
+                ];
+                lxc_args.extend(argv.to_vec());
+                ("cynic-lxc-bridge".to_string(), lxc_args)
+            }
+            BuildSandboxMode::DirectHost | BuildSandboxMode::Auto => {
+                (argv[0].clone(), argv[1..].to_vec())
+            }
+        }
+    }
     /// Execute a build workload and return a signed proof.
     pub fn execute(&self, workload: &BuildWorkload) -> Result<BuildExecutionProof, BuildExecutorError> {
         // Step 1: Validate lease
@@ -103,14 +208,15 @@ impl BuildExecutor {
         }
 
         // Step 4: Execute
-        let argv_refs: Vec<&str> = workload.argv.iter().map(String::as_str).collect();
-        let output = std::process::Command::new(argv_refs[0])
-            .args(&argv_refs[1..])
+        // Step 4: Execute inside privilege micro-envelope sandbox
+        let workspace_ref = self.sandbox.workspace_root.as_deref();
+        let (prog, args) = self.wrap_argv(&workload.argv, workspace_ref);
+        let output = std::process::Command::new(&prog)
+            .args(&args)
             .output()
             .map_err(|e| BuildExecutorError::ProcessSpawnFailed {
-                reason: e.to_string(),
+                reason: format!("{prog}: {e}"),
             })?;
-
         let exit_code = output.status.code();
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -157,6 +263,18 @@ impl BuildExecutor {
             evidence_refs,
         })
     }
+}
+
+fn which_exists(binary: &str) -> bool {
+    if let Ok(path_var) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path_var) {
+            let full = dir.join(binary);
+            if full.is_file() {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 #[cfg(test)]
@@ -217,5 +335,39 @@ mod tests {
         assert_eq!(proof.status, "proved");
         assert_eq!(proof.exit_code, Some(0));
         assert!(proof.stdout.contains("hello"));
+    }
+
+    #[test]
+    fn sandbox_argv_wrapping_bubblewrap() {
+        let sandbox = BuildSandboxConfig {
+            mode: BuildSandboxMode::Bubblewrap,
+            workspace_root: Some("/tmp/workspace".to_string()),
+            read_only_paths: vec![],
+            writable_paths: vec![],
+            allow_network: false,
+        };
+        let executor = BuildExecutor::with_sandbox("builder-1".to_string(), "build_runner".to_string(), sandbox);
+        let (prog, args) = executor.wrap_argv(&["cargo".to_string(), "build".to_string()], Some("/tmp/workspace"));
+        assert_eq!(prog, "bwrap");
+        assert!(args.contains(&"--unshare-net".to_string()));
+        assert!(args.contains(&"/tmp/workspace".to_string()));
+        assert!(args.ends_with(&["--".to_string(), "cargo".to_string(), "build".to_string()]));
+    }
+
+    #[test]
+    fn sandbox_argv_wrapping_rootless_userns() {
+        let sandbox = BuildSandboxConfig {
+            mode: BuildSandboxMode::RootlessUserNs,
+            workspace_root: None,
+            read_only_paths: vec![],
+            writable_paths: vec![],
+            allow_network: true,
+        };
+        let executor = BuildExecutor::with_sandbox("builder-1".to_string(), "build_runner".to_string(), sandbox);
+        let (prog, args) = executor.wrap_argv(&["make".to_string(), "check".to_string()], None);
+        assert_eq!(prog, "unshare");
+        assert!(args.contains(&"--user".to_string()));
+        assert!(args.contains(&"--map-root-user".to_string()));
+        assert!(args.ends_with(&["--".to_string(), "make".to_string(), "check".to_string()]));
     }
 }

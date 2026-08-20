@@ -13,6 +13,7 @@ mod ops;
 mod proof_of_history;
 mod state_log;
 mod verdict_queue;
+mod runtime_takeover;
 mod verdicts;
 mod workload_delivery;
 mod workspace_claims;
