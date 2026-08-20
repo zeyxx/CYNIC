@@ -37,6 +37,16 @@ pub fn probe_address_reachable(
     claim: &ClaimToProbe,
 ) -> ClaimObservation {
     let output = runner.run(&["ping", "-c", "1", "-W", "2", &claim.declared]);
+    let stderr = output.stderr.to_ascii_lowercase();
+
+    // `ping` needs cap_net_raw. Unprivileged — the normal case for the `cynic`
+    // principal — it exits non-zero with "operation not permitted": the probe was
+    // denied and the host said nothing either way. Reading that as silence marks
+    // every reachable node unobservable, which is exactly how this surface first
+    // mis-graded cynic-builder against its own address.
+    let privilege_denied = stderr.contains("operation not permitted")
+        || stderr.contains("cap_net_raw")
+        || stderr.contains("socket: permission denied");
 
     let (observed, reason) = if output.spawn_error.is_some() {
         (
@@ -44,6 +54,15 @@ pub fn probe_address_reachable(
             Some(format!(
                 "ping unavailable: {}",
                 output.spawn_error.clone().unwrap_or_default()
+            )),
+        )
+    } else if privilege_denied {
+        (
+            None,
+            Some(format!(
+                "ICMP probe denied (missing cap_net_raw), so {} was never actually \
+                 asked; this is a probe-privilege gap, not a silent host",
+                claim.declared
             )),
         )
     } else if output.exit_code == Some(0) {
@@ -238,6 +257,44 @@ mod tests {
         match judge_claim(&observation) {
             ClaimVerdict::Unobservable { .. } => {}
             other => panic!("silence must not decide the claim: {other:?}"),
+        }
+    }
+
+    /// A denied probe is not a silent host.
+    ///
+    /// Found by running the surface for real: under the `cynic` principal `ping`
+    /// exits 2 with "Operation not permitted" (no cap_net_raw), and the first
+    /// version read that as silence — grading cynic-builder unobservable against
+    /// its OWN address, which it answers instantly. Same verdict class, but the
+    /// reason must name the privilege gap or the operator chases a network fault
+    /// that does not exist.
+    #[test]
+    fn a_denied_icmp_probe_reports_the_privilege_gap_not_silence() {
+        let denied = ArgvOutput {
+            exit_code: Some(2),
+            stdout: String::new(),
+            stderr: "ping: socket: Operation not permitted\nping: => missing cap_net_raw+p capability or setuid?".to_string(),
+            spawn_error: None,
+        };
+        let r = runner(&["ping", "-c", "1", "-W", "2", "10.10.10.119"], denied);
+        let observation = probe_address_reachable(&r, &claim("10.10.10.119", true));
+
+        let reason = observation
+            .unobservable_reason
+            .as_deref()
+            .expect("a denied probe must explain itself");
+        assert!(
+            reason.contains("cap_net_raw") && reason.contains("never actually"),
+            "must name the privilege gap, got: {reason}"
+        );
+        assert!(
+            !reason.contains("powered off"),
+            "must not blame the host for a local privilege gap: {reason}"
+        );
+        // Still unobservable — but now for the right reason.
+        match judge_claim(&observation) {
+            ClaimVerdict::Unobservable { .. } => {}
+            other => panic!("expected Unobservable, got {other:?}"),
         }
     }
 
