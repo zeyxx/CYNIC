@@ -189,11 +189,16 @@ fn select_canonical_node_for_domain(
             ("cortex_primary", None)
         }
     };
+    // Signed fallback peers carry verification evidence; resolve_all_peers does
+    // not. Unwrap to the bare endpoint here, at the single point where the two
+    // trust levels meet, so the downgrade is visible rather than implied by a
+    // signature that silently widened.
     super::federated_mesh_resolver::select_peer_for_role(&resolver, primary_role)
         .or_else(|| {
             fallback_role
                 .and_then(|r| super::federated_mesh_resolver::select_peer_for_role(&resolver, r))
         })
+        .map(|signed| signed.endpoint)
         .unwrap_or_else(|| resolver.resolve_all_peers().remove(0))
 }
 
