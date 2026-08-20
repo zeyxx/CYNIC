@@ -358,9 +358,13 @@ where
     match status_publisher.publish_node_status(&plan).await {
         Ok(evidence_ref) if !evidence_ref.trim().is_empty() => {
             plan.evidence_refs.push(evidence_ref.clone());
+            // Read the status before the plan is moved into the report: passing
+            // `&plan.status` alongside `Some(plan)` borrows and moves in the same
+            // call. Cloning the short status string is cheaper than cloning the plan.
+            let plan_status = plan.status.clone();
             report(
                 node_id,
-                &plan.status,
+                &plan_status,
                 desired_generation,
                 Some(plan),
                 release_deployment,
