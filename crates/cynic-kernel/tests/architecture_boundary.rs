@@ -18,6 +18,42 @@ fn read_repo_file(relative_path: &str) -> String {
         .unwrap_or_else(|err| panic!("failed to read {relative_path}: {err}"))
 }
 
+/// Concatenate every `.rs` file under a repo-relative directory, recursively.
+///
+/// Boundary assertions must not enumerate individual files: when a surface is
+/// split into a module directory (`storage/surreal.rs` -> `storage/surreal/`),
+/// a hardcoded list either panics on a missing path or silently stops covering
+/// the code that moved. Walking the tree keeps the proof valid across splits.
+fn read_repo_tree(relative_dir: &str) -> String {
+    fn walk(dir: &std::path::Path, out: &mut String) {
+        let Ok(entries) = fs::read_dir(dir) else {
+            return;
+        };
+        let mut paths: Vec<PathBuf> = entries.flatten().map(|entry| entry.path()).collect();
+        // Deterministic order: the concatenation must not depend on the filesystem.
+        paths.sort();
+        for path in paths {
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().is_some_and(|ext| ext == "rs") {
+                if let Ok(contents) = fs::read_to_string(&path) {
+                    out.push_str(&contents);
+                    out.push('\n');
+                }
+            }
+        }
+    }
+
+    let root = repo_root().join(relative_dir);
+    assert!(
+        root.is_dir(),
+        "expected a directory to walk at {relative_dir}"
+    );
+    let mut out = String::new();
+    walk(&root, &mut out);
+    out
+}
+
 #[test]
 fn kernel_lib_stays_the_compilation_boundary_surface() {
     let lib_rs = read_repo_file("crates/cynic-kernel/src/lib.rs");
@@ -204,17 +240,15 @@ fn kernel_lifecycle_surface_stays_host_owned() {
 #[test]
 fn kernel_storage_must_not_own_inference_model_registry() {
     let storage_mod = read_repo_file("crates/cynic-kernel/src/domain/storage/mod.rs");
-    let storage_tree = [
-        "crates/cynic-kernel/src/domain/storage/mod.rs",
-        "crates/cynic-kernel/src/domain/storage/null.rs",
-        "crates/cynic-kernel/src/storage/memory.rs",
-        "crates/cynic-kernel/src/storage/reconnectable.rs",
-        "crates/cynic-kernel/src/storage/surreal.rs",
-    ]
-    .into_iter()
-    .map(read_repo_file)
-    .collect::<Vec<_>>()
-    .join("\n");
+    // Walk the whole storage surface instead of listing files: `storage/surreal.rs`,
+    // `storage/memory.rs` and `storage/reconnectable.rs` have all been split into
+    // module directories, and the previous hardcoded list panicked on the stale
+    // `reconnectable.rs` path while silently covering none of the moved code.
+    let storage_tree = format!(
+        "{}\n{}",
+        read_repo_tree("crates/cynic-kernel/src/domain/storage"),
+        read_repo_tree("crates/cynic-kernel/src/storage"),
+    );
 
     for forbidden in [
         "ModelRegistryStorage",
