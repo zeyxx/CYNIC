@@ -7,7 +7,10 @@ publish = false
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-inference = { path = "../cynic-inference" }
-chrono = "0.4"
+# The lease store persists DateTime<Utc> lease deadlines to disk, so chrono's
+# serde impls are required. cynic-kernel already declares it this way; cynic-host
+# did not, because no compiled module had ever needed it.
+chrono = { version = "0.4", features = ["serde"] }
 libc = "0.2"
 hex = "0.4"
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "json", "native-tls"] }
