@@ -39,6 +39,26 @@ pub enum ClaimKind {
     DnsRecord,
     /// A declared service is listening where the registry says.
     ServiceBinding,
+    /// The declared address is *reserved*, not merely correct today.
+    ///
+    /// A DHCP lease that currently matches the registry is not a reservation:
+    /// `cynic-builder` answers on its declared `.119` while its guest config says
+    /// `ip=dhcp`, so every peer trusting that address depends on a lease nobody
+    /// pinned. Reachability probes cannot see this — the address is right until
+    /// the day it silently is not.
+    SynapseAllocation,
+    /// A node's overlay address is declared, not just live.
+    ///
+    /// The WireGuard mesh carries real traffic while all five registry peers
+    /// declare `address: -`, so the registry cannot say which node holds which
+    /// overlay address and no watchdog threshold can be attributed to a peer.
+    OverlayAddress,
+    /// An address on a canonical plane belongs to a node the registry models.
+    ///
+    /// `organ-headscale` holds `10.10.10.40` on the canonical service plane and
+    /// appears nowhere in the registry. An unmodelled occupant cannot be
+    /// governed, and its address cannot be protected from reallocation.
+    PlaneOccupancy,
 }
 
 impl ClaimKind {
@@ -48,6 +68,9 @@ impl ClaimKind {
             Self::SynapseAddress => "synapse_address",
             Self::DnsRecord => "dns_record",
             Self::ServiceBinding => "service_binding",
+            Self::SynapseAllocation => "synapse_allocation",
+            Self::OverlayAddress => "overlay_address",
+            Self::PlaneOccupancy => "plane_occupancy",
         }
     }
 }
@@ -475,11 +498,124 @@ mod tests {
 
     /// Claim kinds project to the strings the reconciler branches on; a rename
     /// that broke this would silently change the signal contract.
+    /// Superseded by `all_claim_kinds_have_stable_wire_names`, which covers the
+    /// same contract for every variant including the three added for the
+    /// network/federation audit.
     #[test]
     fn claim_kinds_have_stable_wire_names() {
         assert_eq!(ClaimKind::RoleHost.as_str(), "role_host");
-        assert_eq!(ClaimKind::SynapseAddress.as_str(), "synapse_address");
-        assert_eq!(ClaimKind::DnsRecord.as_str(), "dns_record");
-        assert_eq!(ClaimKind::ServiceBinding.as_str(), "service_binding");
+    }
+
+    /// F2b: an address that is correct today but only leased.
+    ///
+    /// cynic-builder answers on its declared 10.10.10.119 while its Proxmox
+    /// config says `ip=dhcp`. A reachability probe confirms the address and
+    /// learns nothing — the claim that matters is whether it is RESERVED.
+    /// Declared "static" versus observed "dhcp" must refute.
+    #[test]
+    fn a_leased_address_refutes_a_static_allocation_claim() {
+        let observation = ClaimObservation {
+            node_id: "cynic-builder".to_string(),
+            kind: ClaimKind::SynapseAllocation,
+            declared: "static:10.10.10.119".to_string(),
+            observed: Some("dhcp:10.10.10.119".to_string()),
+            declared_as_candidate: true,
+            unobservable_reason: None,
+        };
+        let verdict = judge_claim(&observation);
+        assert!(
+            verdict.is_refuted(),
+            "same address, different tenure: a lease is not a reservation"
+        );
+        assert!(claim_to_signal_payload(&observation, &verdict).is_some());
+    }
+
+    /// A genuinely reserved address confirms.
+    #[test]
+    fn a_reserved_address_confirms_the_allocation_claim() {
+        let observation = ClaimObservation {
+            node_id: "cynic-lxc-surrealdb".to_string(),
+            kind: ClaimKind::SynapseAllocation,
+            declared: "static:10.10.10.103".to_string(),
+            observed: Some("static:10.10.10.103".to_string()),
+            declared_as_candidate: false,
+            unobservable_reason: None,
+        };
+        assert_eq!(judge_claim(&observation), ClaimVerdict::Confirmed);
+    }
+
+    /// F5: the overlay carries traffic while the registry declares no address.
+    ///
+    /// All five WireGuard peers declare `address: -` yet 10.20.0.1/2/4/5 answer.
+    /// An undeclared-but-live address is a refutation: the registry cannot
+    /// attribute a watchdog threshold to a peer it cannot name.
+    #[test]
+    fn a_live_but_undeclared_overlay_address_is_refuted() {
+        let observation = ClaimObservation {
+            node_id: "cynic-host-cortex".to_string(),
+            kind: ClaimKind::OverlayAddress,
+            declared: "unset".to_string(),
+            observed: Some("10.20.0.3".to_string()),
+            declared_as_candidate: false,
+            unobservable_reason: None,
+        };
+        let verdict = judge_claim(&observation);
+        assert!(verdict.is_refuted());
+        match &verdict {
+            ClaimVerdict::Refuted {
+                declared_as_candidate,
+                ..
+            } => assert!(
+                !declared_as_candidate,
+                "an unset overlay address is an asserted gap, not staged intent"
+            ),
+            other => panic!("expected Refuted, got {other:?}"),
+        }
+    }
+
+    /// F2c: an occupant the registry does not model.
+    ///
+    /// organ-headscale holds 10.10.10.40 on the canonical service plane and is
+    /// absent from `nodes[]`. Expressed as: the plane's occupant should be a
+    /// modelled node, observed as an unmodelled one.
+    #[test]
+    fn an_unmodelled_plane_occupant_is_refuted() {
+        let observation = ClaimObservation {
+            node_id: "10.10.10.40".to_string(),
+            kind: ClaimKind::PlaneOccupancy,
+            declared: "unallocated".to_string(),
+            observed: Some("organ-headscale (not in registry nodes)".to_string()),
+            declared_as_candidate: false,
+            unobservable_reason: None,
+        };
+        let verdict = judge_claim(&observation);
+        assert!(
+            verdict.is_refuted(),
+            "an address the registry thinks is free but something holds must refute"
+        );
+        let payload = claim_to_signal_payload(&observation, &verdict).expect("signal");
+        assert_eq!(
+            payload.error_codes(),
+            vec![CynicErrorCode::FleetRegistrySubstrateDivergence]
+        );
+    }
+
+    /// Every claim kind projects a stable wire name.
+    ///
+    /// These strings cross the signal boundary, so a rename would silently
+    /// change the contract the reconciler branches on.
+    #[test]
+    fn all_claim_kinds_have_stable_wire_names() {
+        for (kind, expected) in [
+            (ClaimKind::RoleHost, "role_host"),
+            (ClaimKind::SynapseAddress, "synapse_address"),
+            (ClaimKind::DnsRecord, "dns_record"),
+            (ClaimKind::ServiceBinding, "service_binding"),
+            (ClaimKind::SynapseAllocation, "synapse_allocation"),
+            (ClaimKind::OverlayAddress, "overlay_address"),
+            (ClaimKind::PlaneOccupancy, "plane_occupancy"),
+        ] {
+            assert_eq!(kind.as_str(), expected);
+        }
     }
 }
