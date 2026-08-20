@@ -88,13 +88,34 @@ impl AuditRule for PathSanitationRule {
                         || line.contains("C:\\Users\\")
                         || line.contains("C:/Users/"))
                 {
+                    // A runtime checkpoint records what was actually observed on
+                    // a host at a point in time. The operator path in it IS the
+                    // observed fact, so rewriting it would falsify evidence.
+                    // Still reported, but as history to migrate rather than a
+                    // critical leak in live code.
+                    let is_recorded_evidence =
+                        file.relative_path.contains("runtime-checkpoints");
+
+                    let severity = if is_recorded_evidence {
+                        AuditSeverity::Warning
+                    } else {
+                        AuditSeverity::Critical
+                    };
+
+                    let remediation = if is_recorded_evidence {
+                        "Historical observation evidence: supersede with a newer \
+                         checkpoint rather than editing the recorded path."
+                    } else {
+                        "Inject runtime path dynamically via layout or deployment context."
+                    };
+
                     violations.push(AuditViolation {
                         code: "SEC-001-ABSOLUTE-PATH".to_string(),
                         message: format!(
                             "Machine-local path pattern detected in {}",
                             file.relative_path
                         ),
-                        severity: AuditSeverity::Critical,
+                        severity,
                         category: AuditCategory::PathSanitation,
                         span: Some(AuditSpan {
                             file_path: file.relative_path.clone(),
@@ -102,10 +123,7 @@ impl AuditRule for PathSanitationRule {
                             line_end: idx + 1,
                             snippet: Some(line.trim().to_string()),
                         }),
-                        remediation: Some(
-                            "Inject runtime path dynamically via layout or deployment context."
-                                .to_string(),
-                        ),
+                        remediation: Some(remediation.to_string()),
                     });
                 }
             }
