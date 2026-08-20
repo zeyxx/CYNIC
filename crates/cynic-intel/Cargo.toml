@@ -12,5 +12,11 @@ thiserror = "2.0.18"
 blake3 = "1"
 hex = "0.4"
 cynic-protocol = { version = "0.1.0", path = "../cynic-protocol" }
+
+# Async test harness only: the crate's own surfaces stay runtime-agnostic behind
+# async-trait, so tokio is never a build dependency of the library itself.
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
 [lints]
 workspace = true
