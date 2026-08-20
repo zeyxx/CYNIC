@@ -4,7 +4,7 @@
 //! this kernel adapter keeps the non-blocking boot log projection only.
 
 use crate::infra::config::BackendConfig;
-use cynic_node::verify::{IdentityResult, check_health, check_identity_with_bearer};
+use cynic_node::verify::{IdentityResult, check_health_with_bearer, check_identity_with_bearer};
 
 /// Validate config at boot — probe health URLs, log warnings for unreachable backends.
 /// Does NOT block boot — sovereign degradation is preferred over refusing to start.
@@ -28,7 +28,9 @@ pub async fn validate_config(configs: Vec<BackendConfig>) {
             );
             continue;
         };
-        if check_health(&client, health_url, 5).await {
+        // Same bearer as verify_model_loaded below: a secured backend answers 401
+        // to an unauthenticated GET, which would be logged as UNREACHABLE at boot.
+        if check_health_with_bearer(&client, health_url, 5, cfg.api_key.as_deref()).await {
             klog!("[config] ✓ {} health OK ({})", cfg.name, health_url);
             verify_model_loaded(&client, cfg).await;
         } else {

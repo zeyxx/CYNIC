@@ -661,9 +661,20 @@ fn kernel_boot_health_probe_delegates_backend_verification_to_node() {
     let health_probe = read_repo_file("crates/cynic-kernel/src/backends/health_probe.rs");
     assert!(
         health_probe.contains("cynic_node::verify")
-            && health_probe.contains("check_health(")
+            // Accept either the plain or the bearer-carrying health helper: what
+            // matters is that observation is delegated, not which arity is used.
+            && (health_probe.contains("check_health(")
+                || health_probe.contains("check_health_with_bearer("))
             && health_probe.contains("check_identity_with_bearer("),
         "kernel boot health probe must delegate backend verification to cynic-node"
+    );
+
+    // A backend config that carries an api_key must present it on the health
+    // probe too, otherwise a secured backend is logged UNREACHABLE at boot.
+    assert!(
+        health_probe.contains("check_health_with_bearer(&client, health_url, 5, cfg.api_key"),
+        "boot health probe must forward cfg.api_key so a secured backend is not \
+         misreported as unreachable"
     );
 
     for forbidden in [
