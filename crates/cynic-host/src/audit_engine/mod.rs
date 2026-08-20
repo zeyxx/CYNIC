@@ -77,7 +77,7 @@ pub fn run_workspace_audit(root: &Path) -> AuditReportV2 {
     };
 
     AuditReportV2 {
-        schema: AUDIT_REPORT_SCHEMA_V2,
+        schema: AUDIT_REPORT_SCHEMA_V2.to_string(),
         generated_at: chrono::Utc::now().to_rfc3339(),
         summary: AuditSummary {
             status,
