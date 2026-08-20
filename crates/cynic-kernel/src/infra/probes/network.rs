@@ -1,5 +1,6 @@
 //! NetworkProbe — /proc/net interface stats and TCP socket summary.
-//! Reads tailscale0 from /proc/net/dev + TCP state from /proc/net/sockstat.
+//! Reads the injected mesh interface from /proc/net/dev + TCP state from
+//! /proc/net/sockstat.
 //! On non-Linux: returns ProbeStatus::Unavailable (no #[cfg] in domain — K1 compliant).
 
 use crate::domain::probe::{
@@ -10,6 +11,7 @@ use std::time::{Duration, Instant};
 
 #[cfg(test)]
 use crate::domain::probe::Probe;
+use cynic_host::runtime_layout::current_runtime_layout;
 
 /// Probe that reads /proc/net/dev and /proc/net/sockstat.
 #[derive(Debug, Default)]
@@ -108,7 +110,12 @@ impl crate::domain::probe::Probe for NetworkProbe {
     async fn sense(&self) -> Result<ProbeResult, ProbeError> {
         let start = Instant::now();
 
-        let ts_stats = Self::read_iface_stats("tailscale0");
+        // The mesh interface is injected (CYNIC_MESH_INTERFACE, default wg0), not
+        // hardcoded. This probe previously read "tailscale0" — an interface that
+        // exists on no node in this fleet — so it reported Ok while observing
+        // nothing, and wg0 with its live peers was never read at all.
+        let mesh_iface = current_runtime_layout().mesh_interface();
+        let ts_stats = Self::read_iface_stats(&mesh_iface);
         let tcp_stats = Self::read_tcp_stats();
 
         let duration_ms = start.elapsed().as_millis() as u64;
@@ -132,7 +139,7 @@ impl crate::domain::probe::Probe for NetworkProbe {
             // Encode stats as structured IPs field for now — the NetworkDetails struct
             // uses interfaces[] with state/ips, which we repurpose for counter data.
             interfaces.push(NetInterfaceInfo {
-                name: "tailscale0".to_string(),
+                name: mesh_iface.clone(),
                 state: "up".to_string(),
                 ips: vec![
                     format!("rx_bytes={}", ts.rx_bytes),
@@ -156,12 +163,15 @@ impl crate::domain::probe::Probe for NetworkProbe {
             });
         }
 
-        // Flag degraded if tailscale0 has errors or drops.
+        // Degraded on mesh errors/drops. A MISSING mesh interface is not Ok:
+        // the transport carrying every inter-node call was not observed at all,
+        // and reporting Ok for that is the fossil this probe used to be.
         let status = match &ts_stats {
             Some(ts) if ts.rx_errors > 0 || ts.tx_errors > 0 || ts.rx_drops > 100 => {
                 ProbeStatus::Degraded
             }
-            _ => ProbeStatus::Ok,
+            Some(_) => ProbeStatus::Ok,
+            None => ProbeStatus::Degraded,
         };
 
         Ok(ProbeResult {
@@ -181,9 +191,10 @@ mod tests {
     #[test]
     fn parse_proc_net_dev_line() {
         // Smoke test: parser must not panic on /proc/net/dev, regardless of env.
-        // On hosts with tailscale0: Some(IfaceStats); else None. Both valid.
-        // Non-negativity of u64 fields is guaranteed by the type — no runtime check needed.
-        let stats = NetworkProbe::read_iface_stats("tailscale0");
+        // On hosts carrying the mesh interface: Some(IfaceStats); else None.
+        // Both valid. u64 non-negativity is guaranteed by the type.
+        let iface = current_runtime_layout().mesh_interface();
+        let stats = NetworkProbe::read_iface_stats(&iface);
         if let Some(s) = stats {
             // Exercise the returned struct — ensures parse path populated all fields.
             let _total_bytes = s.rx_bytes.saturating_add(s.tx_bytes);

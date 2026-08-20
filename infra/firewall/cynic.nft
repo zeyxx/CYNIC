@@ -6,14 +6,21 @@
 #
 # Designed: 2026-04-24 | Audit: docs/ops/soma-design.md
 #
-# Philosophy: Default DENY inbound. Tailscale = perimeter.
+# Philosophy: Default DENY inbound. The sovereign mesh is the perimeter.
 # LAN = untrusted (shared WiFi = adversarial).
 # Only WireGuard + mDNS pass on LAN.
 #
 # ── Machine-specific defines ──
 # Override these per-host. `ip link show` to list interfaces.
 # These are the ONLY lines that change between machines.
-define IFACE_MESH = "tailscale0"
+#
+# IFACE_MESH was "tailscale0" — an interface that exists on NO node in this
+# fleet (tailscaled inactive everywhere, observed 2026-08-20). This ruleset was
+# never loaded (cynic-firewall.service absent), so it granted nothing; had it
+# been applied, full inter-node trust would have been bound to a non-existent
+# device while wg0 — the interface actually carrying the mesh — was denied.
+# Keep this in sync with CYNIC_MESH_INTERFACE (runtime_layout::mesh_interface).
+define IFACE_MESH = "wg0"
 define IFACE_LAN  = "wlp41s0"
 define IFACE_VM   = "virbr0"
 
@@ -28,17 +35,24 @@ table inet cynic {
         ct state established,related accept comment "return traffic for outbound connections"
         ct state invalid drop comment "malformed packets"
 
-        # ── Tailscale mesh — full trust between CYNIC nodes ──
+        # ── Sovereign WireGuard mesh — full trust between CYNIC nodes ──
         iifname $IFACE_MESH accept comment "inter-node: kernel, inference, SSH, RustDesk"
 
         # ── VM bridge — local VMs ──
         iifname $IFACE_VM accept comment "libvirt VM traffic"
 
         # ── LAN — minimal surface ──
-        iifname $IFACE_LAN udp dport 41641 accept comment "WireGuard UDP for Tailscale mesh"
+        # WireGuard handshake port. Observed 2026-08-20: wg0 is UP with four live
+        # peers, yet NO udp listener exists on 51820 or 41641 — this node dials
+        # out and holds no inbound endpoint, so no LAN accept is required today.
+        # Set WG_PORT and re-enable only when a node must accept handshakes
+        # inbound; /etc/wireguard/wg0.conf was unreadable to the runtime
+        # principal, so the port stays an explicit unknown rather than a guess.
+        # define WG_PORT = <observed ListenPort>
+        # iifname $IFACE_LAN udp dport $WG_PORT accept comment "WireGuard handshake"
         iifname $IFACE_LAN udp dport 5353 accept comment "mDNS service discovery"
-        # RustDesk: temporary LAN access for mobile/Windows not yet on Tailnet
-        # REMOVE these two lines once all access devices have Tailscale installed
+        # RustDesk: temporary LAN access for devices not yet on the sovereign mesh
+        # REMOVE these two lines once all access devices carry a WireGuard peer
         iifname $IFACE_LAN udp dport 21119 accept comment "RustDesk signaling — TEMPORARY"
         iifname $IFACE_LAN udp dport 33260 accept comment "RustDesk relay — TEMPORARY"
 
