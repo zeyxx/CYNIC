@@ -8,7 +8,7 @@ use crate::{
 pub const NODE_DESIRED_STATE_SCHEMA: &str = "cynic.node_desired_state.v1";
 pub const NODE_CONTROL_OBSERVATION_SCHEMA: &str = "cynic.node_control_observation.v1";
 pub const NODE_CONTROL_PLAN_SCHEMA: &str = "cynic.node_control_plan.v2";
-
+pub const SIGNED_NODE_CONTROL_PLAN_SCHEMA: &str = "cynic.signed_node_control_plan.v1";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeDesiredState {
     pub schema: String,
@@ -23,6 +23,128 @@ pub struct NodeDesiredState {
     pub required_services: Vec<String>,
     #[serde(default)]
     pub paused: bool,
+}
+
+/// A cryptographically signed control plan from the Kernel authority.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SignedNodeControlPlan {
+    pub schema: String,
+    pub desired_state: NodeDesiredState,
+    pub kernel_authority_id: String,
+    pub issued_at_unix_s: u64,
+    pub expires_at_unix_s: u64,
+    pub signature_hex: String,
+}
+
+#[derive(Serialize)]
+struct SignedNodeControlPlanSigningPayload<'a> {
+    schema: &'a str,
+    desired_state: &'a NodeDesiredState,
+    kernel_authority_id: &'a str,
+    issued_at_unix_s: u64,
+    expires_at_unix_s: u64,
+}
+
+impl SignedNodeControlPlan {
+    pub fn new(
+        desired_state: NodeDesiredState,
+        kernel_authority_id: String,
+        issued_at_unix_s: u64,
+        expires_at_unix_s: u64,
+        signature_hex: String,
+    ) -> Self {
+        Self {
+            schema: SIGNED_NODE_CONTROL_PLAN_SCHEMA.to_string(),
+            desired_state,
+            kernel_authority_id,
+            issued_at_unix_s,
+            expires_at_unix_s,
+            signature_hex,
+        }
+    }
+
+    /// Canonical bytes signed by the Kernel authority.
+    pub fn signing_bytes(&self) -> Vec<u8> {
+        let payload = SignedNodeControlPlanSigningPayload {
+            schema: &self.schema,
+            desired_state: &self.desired_state,
+            kernel_authority_id: &self.kernel_authority_id,
+            issued_at_unix_s: self.issued_at_unix_s,
+            expires_at_unix_s: self.expires_at_unix_s,
+        };
+        serde_json::to_vec(&payload).expect("serialize signed control plan payload")
+    }
+
+    pub fn is_valid_at(&self, now_unix_s: u64) -> bool {
+        self.issued_at_unix_s <= now_unix_s && now_unix_s <= self.expires_at_unix_s
+    }
+
+    /// Pure structural validation of the signed control plan.
+    pub fn validate(&self, now_unix_s: u64) -> Vec<String> {
+        let mut blockers = Vec::new();
+        if self.schema != SIGNED_NODE_CONTROL_PLAN_SCHEMA {
+            blockers.push("signed_node_control_plan_schema_mismatch".to_string());
+        }
+        if self.kernel_authority_id.trim().is_empty() {
+            blockers.push("signed_node_control_plan_kernel_authority_id_empty".to_string());
+        }
+        if self.expires_at_unix_s <= self.issued_at_unix_s {
+            blockers.push("signed_node_control_plan_expiry_invalid".to_string());
+        }
+        if !self.is_valid_at(now_unix_s) {
+            blockers.push("signed_node_control_plan_expired_or_not_yet_valid".to_string());
+        }
+        if self.signature_hex.len() != 128
+            || !self.signature_hex.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            blockers.push("signed_node_control_plan_signature_invalid".to_string());
+        }
+        blockers.sort();
+        blockers.dedup();
+        blockers
+    }
+}
+
+/// Verification status for a SignedNodeControlPlan before application.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ControlPlanVerificationStatus {
+    Verified,
+    StaleGeneration { observed: u64, plan: u64 },
+    Expired { expires_at_unix_s: u64, now_unix_s: u64 },
+    UntrustedAuthority(String),
+    InvalidSignature,
+    StructuralErrors(Vec<String>),
+}
+
+/// Pure rule: check preconditions before applying a control plan.
+pub fn verify_control_plan_preconditions(
+    plan: &SignedNodeControlPlan,
+    observed_generation: Option<u64>,
+    authorized_kernel_ids: &[String],
+    now_unix_s: u64,
+) -> Result<(), ControlPlanVerificationStatus> {
+    let blockers = plan.validate(now_unix_s);
+    if !blockers.is_empty() {
+        return Err(ControlPlanVerificationStatus::StructuralErrors(blockers));
+    }
+
+    if !authorized_kernel_ids.contains(&plan.kernel_authority_id) {
+        return Err(ControlPlanVerificationStatus::UntrustedAuthority(
+            plan.kernel_authority_id.clone(),
+        ));
+    }
+
+    if let Some(obs_gen) = observed_generation {
+        if plan.desired_state.generation <= obs_gen {
+            return Err(ControlPlanVerificationStatus::StaleGeneration {
+                observed: obs_gen,
+                plan: plan.desired_state.generation,
+            });
+        }
+    }
+
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -489,5 +611,32 @@ mod tests {
             plan.decision,
             NodeControlDecision::ReconcileCapabilities { .. }
         ));
+    }
+
+    #[test]
+    fn signed_control_plan_preconditions_verified() {
+        let desired = desired();
+        let signed = SignedNodeControlPlan::new(
+            desired,
+            "kernel-alpha".to_string(),
+            1000,
+            2000,
+            "a".repeat(128),
+        );
+
+        let auth_kernels = vec!["kernel-alpha".to_string()];
+        assert!(verify_control_plan_preconditions(&signed, Some(0), &auth_kernels, 1500).is_ok());
+
+        // Stale generation rejected
+        let stale = verify_control_plan_preconditions(&signed, Some(1), &auth_kernels, 1500);
+        assert!(matches!(stale, Err(ControlPlanVerificationStatus::StaleGeneration { observed: 1, plan: 1 })));
+
+        // Untrusted authority rejected
+        let untrusted = verify_control_plan_preconditions(&signed, Some(0), &["kernel-beta".to_string()], 1500);
+        assert!(matches!(untrusted, Err(ControlPlanVerificationStatus::UntrustedAuthority(_))));
+
+        // Expired plan rejected
+        let expired = verify_control_plan_preconditions(&signed, Some(0), &auth_kernels, 2500);
+        assert!(matches!(expired, Err(ControlPlanVerificationStatus::StructuralErrors(_))));
     }
 }

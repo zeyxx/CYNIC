@@ -160,6 +160,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(node_enrollment::renew_handler),
         )
         .route(
+            "/node-enrollment/csr",
+            post(node_enrollment::csr_enroll_handler),
+        )
+        .route(
             "/bootstrap-binding",
             post(bootstrap_binding::issue_bootstrap_binding_handler),
         )
@@ -292,6 +296,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route(
             "/node-control/{node_id}/desired-state",
             get(node_control::desired_state_handler).put(node_control::declare_release_handler),
+        )
+        .route(
+            "/node-control/{node_id}/signed-desired-state",
+            get(node_control::signed_desired_state_handler),
         )
         .route(
             "/node-control/{node_id}/status",

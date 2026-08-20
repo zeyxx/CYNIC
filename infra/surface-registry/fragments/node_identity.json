@@ -21,7 +21,9 @@
     "cynic.node_identity.desired_state.v1",
     "cynic.node_identity.observation.v1",
     "cynic.node_identity.plan.v1",
-    "cynic.node_identity.report.v1"
+    "cynic.node_identity.report.v1",
+    "cynic.node_csr.v1",
+    "cynic.node_enrollment_certificate.v1"
   ],
   "anti_responsibilities": [
     "return or transport the private signing key",

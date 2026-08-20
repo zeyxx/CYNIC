@@ -26,6 +26,185 @@ pub struct FleetHeartbeat {
     pub unknowns: Vec<String>,
 }
 
+pub const SIGNED_FLEET_HEARTBEAT_SCHEMA: &str = "cynic.signed_fleet_heartbeat.v1";
+pub const AUTHENTICATED_FLEET_HEALTH_AGGREGATION_SCHEMA: &str =
+    "cynic.authenticated_fleet_health_aggregation.v1";
+
+/// A cryptographically signed heartbeat envelope.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SignedFleetHeartbeat {
+    pub schema: String,
+    pub heartbeat: FleetHeartbeat,
+    pub signer_node_id: String,
+    pub certificate_id: String,
+    pub signature_hex: String,
+}
+
+#[derive(Serialize)]
+struct SignedFleetHeartbeatSigningPayload<'a> {
+    schema: &'a str,
+    heartbeat: &'a FleetHeartbeat,
+    signer_node_id: &'a str,
+    certificate_id: &'a str,
+}
+
+impl SignedFleetHeartbeat {
+    pub fn new(
+        heartbeat: FleetHeartbeat,
+        signer_node_id: String,
+        certificate_id: String,
+        signature_hex: String,
+    ) -> Self {
+        Self {
+            schema: SIGNED_FLEET_HEARTBEAT_SCHEMA.to_string(),
+            heartbeat,
+            signer_node_id,
+            certificate_id,
+            signature_hex,
+        }
+    }
+
+    /// Canonical bytes signed by the node.
+    pub fn signing_bytes(&self) -> Vec<u8> {
+        let payload = SignedFleetHeartbeatSigningPayload {
+            schema: &self.schema,
+            heartbeat: &self.heartbeat,
+            signer_node_id: &self.signer_node_id,
+            certificate_id: &self.certificate_id,
+        };
+        serde_json::to_vec(&payload).expect("serialize signed heartbeat payload")
+    }
+
+    /// Pure structural validation of the envelope.
+    pub fn validate(&self) -> Vec<String> {
+        let mut blockers = Vec::new();
+        if self.schema != SIGNED_FLEET_HEARTBEAT_SCHEMA {
+            blockers.push("signed_heartbeat_schema_mismatch".to_string());
+        }
+        if self.signer_node_id.trim().is_empty() {
+            blockers.push("signed_heartbeat_signer_node_id_empty".to_string());
+        }
+        if self.signer_node_id != self.heartbeat.node_id {
+            blockers.push("signed_heartbeat_signer_mismatch".to_string());
+        }
+        if !self.certificate_id.starts_with("sha256:") {
+            blockers.push("signed_heartbeat_certificate_id_invalid".to_string());
+        }
+        if self.signature_hex.len() != 128
+            || !self.signature_hex.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            blockers.push("signed_heartbeat_signature_invalid".to_string());
+        }
+        blockers.sort();
+        blockers.dedup();
+        blockers
+    }
+}
+
+/// Result of peer signature & certificate validation on an incoming heartbeat.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HeartbeatValidationResult {
+    Valid,
+    InvalidSignature,
+    UntrustedSigner,
+    ExpiredCertificate,
+    ClockSkewExceeded,
+    NodeIdMismatch,
+    MalformedPayload(String),
+}
+
+/// Health aggregation based solely on mathematically proved peer heartbeats.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuthenticatedFleetHealthAggregation {
+    pub schema: &'static str,
+    pub aggregated_at_unix_s: u64,
+    pub total_declared: usize,
+    pub total_verified: usize,
+    pub total_rejected: usize,
+    pub alive: usize,
+    pub degraded: usize,
+    pub unreachable: usize,
+    pub silent: Vec<String>,
+    pub untrusted: Vec<String>,
+    pub rejected_reasons: Vec<(String, HeartbeatValidationResult)>,
+    pub verified_heartbeats: Vec<FleetHeartbeat>,
+    pub partition_detected: bool,
+    pub observation_blackout: bool,
+    pub residual_unknowns: Vec<String>,
+}
+
+/// Pure decision: aggregate authenticated peer heartbeats into fleet health.
+pub fn aggregate_authenticated_fleet_health(
+    declared_node_ids: &[String],
+    verified_heartbeats: &[FleetHeartbeat],
+    rejected_heartbeats: &[(String, HeartbeatValidationResult)],
+    now_unix_s: u64,
+    heartbeat_timeout_s: u64,
+) -> AuthenticatedFleetHealthAggregation {
+    let mut alive = 0usize;
+    let mut degraded = 0usize;
+    let mut unreachable = 0usize;
+    let mut silent = Vec::new();
+    let mut untrusted = Vec::new();
+    let mut recent_verified = Vec::new();
+
+    for node_id in declared_node_ids {
+        let latest = verified_heartbeats
+            .iter()
+            .filter(|h| &h.node_id == node_id)
+            .max_by_key(|h| h.emitted_at_unix_s);
+
+        match latest {
+            Some(hb) if now_unix_s.saturating_sub(hb.emitted_at_unix_s) <= heartbeat_timeout_s => {
+                recent_verified.push(hb.clone());
+                match hb.self_status {
+                    FleetNodeStatus::Alive => alive += 1,
+                    FleetNodeStatus::Degraded => degraded += 1,
+                    FleetNodeStatus::Unreachable => unreachable += 1,
+                }
+            }
+            _ => {
+                silent.push(node_id.clone());
+                unreachable += 1;
+            }
+        }
+    }
+
+    for (node_id, _) in rejected_heartbeats {
+        if !declared_node_ids.contains(node_id) {
+            untrusted.push(node_id.clone());
+        }
+    }
+    untrusted.sort();
+    untrusted.dedup();
+
+    let partition_detected = !silent.is_empty() && alive > 0;
+    let observation_blackout = !declared_node_ids.is_empty() && recent_verified.is_empty();
+    let mut residual_unknowns = Vec::new();
+    if observation_blackout {
+        residual_unknowns.push(CynicErrorCode::FleetObservationBlackout.code().to_string());
+    }
+
+    AuthenticatedFleetHealthAggregation {
+        schema: AUTHENTICATED_FLEET_HEALTH_AGGREGATION_SCHEMA,
+        aggregated_at_unix_s: now_unix_s,
+        total_declared: declared_node_ids.len(),
+        total_verified: recent_verified.len(),
+        total_rejected: rejected_heartbeats.len(),
+        alive,
+        degraded,
+        unreachable,
+        silent,
+        untrusted,
+        rejected_reasons: rejected_heartbeats.to_vec(),
+        verified_heartbeats: recent_verified,
+        partition_detected,
+        observation_blackout,
+        residual_unknowns,
+    }
+}
+
 /// Aggregated health view for the whole fleet.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FleetHealthAggregation {
@@ -243,5 +422,44 @@ mod tests {
         let agg = aggregate_fleet_health(&[], &[], 1000, 30);
         assert_eq!(agg.total_declared, 0);
         assert!(!agg.partition_detected);
+    }
+
+    #[test]
+    fn signed_heartbeat_envelope_validation() {
+        let hb = node("node-alpha", FleetNodeStatus::Alive, 1000);
+        let signed = SignedFleetHeartbeat::new(
+            hb.clone(),
+            "node-alpha".to_string(),
+            format!("sha256:{}", "a".repeat(64)),
+            "b".repeat(128),
+        );
+        assert!(signed.validate().is_empty());
+
+        let invalid_signer = SignedFleetHeartbeat::new(
+            hb,
+            "node-other".to_string(),
+            "invalid-cert".to_string(),
+            "too-short".to_string(),
+        );
+        let blockers = invalid_signer.validate();
+        assert!(blockers.contains(&"signed_heartbeat_signer_mismatch".to_string()));
+        assert!(blockers.contains(&"signed_heartbeat_certificate_id_invalid".to_string()));
+        assert!(blockers.contains(&"signed_heartbeat_signature_invalid".to_string()));
+    }
+
+    #[test]
+    fn authenticated_aggregation_only_counts_verified_heartbeats() {
+        let declared = vec!["a".into(), "b".into()];
+        let verified = vec![node("a", FleetNodeStatus::Alive, 1000)];
+        let rejected = vec![("b".into(), HeartbeatValidationResult::InvalidSignature)];
+
+        let agg = aggregate_authenticated_fleet_health(&declared, &verified, &rejected, 1000, 30);
+        assert_eq!(agg.total_declared, 2);
+        assert_eq!(agg.total_verified, 1);
+        assert_eq!(agg.total_rejected, 1);
+        assert_eq!(agg.alive, 1);
+        assert_eq!(agg.unreachable, 1);
+        assert_eq!(agg.silent, vec!["b"]);
+        assert!(agg.partition_detected);
     }
 }

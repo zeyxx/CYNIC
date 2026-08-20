@@ -27,22 +27,18 @@ pub const KERNEL_HEARTBEAT_TIMEOUT_MS: u64 = 800;
 /// default, not a crash.
 pub fn observe_kernel_spof() -> KernelSpofSignal {
     let resolver = LocalRegistryMeshResolver::from_repo_infra_default(CANONICAL_SYNAPSE_NODES);
-    let kernel_peers = resolver.resolve_peers("cortex_primary");
+    let primary_peers = resolver.resolve_peers("cortex_primary");
+    let standby_peers = resolver.resolve_peers("cortex_standby");
 
-    let (reachable, age_s) = match kernel_peers.into_iter().next() {
+    let mut kernel_peers = primary_peers;
+    kernel_peers.extend(standby_peers);
+
+    let (reachable, age_s) = match kernel_peers.into_iter().find(|peer| {
+        let port = peer.probe_ports.first().copied().unwrap_or(8000);
+        probe_kernel_endpoint(&peer.addr, port)
+    }) {
         None => (false, None),
-        Some(peer) => {
-            // Probe the first declared probe port on the kernel endpoint.
-            let port = peer.probe_ports.first().copied().unwrap_or(8000);
-            let reachable = probe_kernel_endpoint(&peer.addr, port);
-            let age_s = if reachable {
-                // Best-effort: we just observed it alive this tick.
-                Some(0)
-            } else {
-                None
-            };
-            (reachable, age_s)
-        }
+        Some(_) => (true, Some(0)),
     };
 
     KernelSpofSignal::single_vm(reachable, age_s)

@@ -1,7 +1,12 @@
+use std::path::PathBuf;
 use std::process::ExitCode;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::Subcommand;
 
+use cynic_host::peer_validator::PeerValidator;
+use cynic_protocol::fleet_discovery::FleetNodeStatus;
+use cynic_protocol::fleet_heartbeat::FleetHeartbeat;
 use crate::fleet_report;
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 
@@ -33,6 +38,28 @@ pub(crate) enum FleetCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Emit a cryptographically signed heartbeat pulse.
+    Pulse {
+        #[arg(long)]
+        node_id: String,
+        #[arg(long)]
+        cert_id: String,
+        #[arg(long)]
+        key_path: Option<String>,
+        #[arg(long, default_value = "alive")]
+        status: String,
+        #[arg(long, default_value = "0")]
+        uptime_s: u64,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+fn current_unix_s() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
@@ -72,6 +99,45 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
             );
             let report = adapter.observe();
             crate::cli_json::emit_pretty_json(&report)
+        }
+        FleetCommand::Pulse { node_id, cert_id, key_path, status, uptime_s, json } => {
+            let key_p = key_path.map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/etc/cynic/node-identity.key"));
+            let private_key = match cynic_host::crypto::SecretStore::load_secret(&key_p) {
+                Ok(k) => k,
+                Err(e) => {
+                    eprintln!("Failed to load node private key from {}: {e}", key_p.display());
+                    return ExitCode::FAILURE;
+                }
+            };
+            let node_status = match status.to_lowercase().as_str() {
+                "alive" => FleetNodeStatus::Alive,
+                "degraded" => FleetNodeStatus::Degraded,
+                _ => FleetNodeStatus::Unreachable,
+            };
+            let now = current_unix_s();
+            let hb = FleetHeartbeat {
+                node_id,
+                emitted_at_unix_s: now,
+                self_status: node_status,
+                uptime_s,
+                unknowns: vec![],
+            };
+            let validator = PeerValidator::default();
+            match validator.sign_heartbeat(&hb, &private_key, &cert_id) {
+                Ok(signed) => {
+                    if json {
+                        crate::cli_json::emit_pretty_json(&signed)
+                    } else {
+                        println!("PULSE EMITTED: Node {} ({:?}) signed with cert {}", hb.node_id, hb.self_status, cert_id);
+                        println!("Signature: {}", signed.signature_hex);
+                        ExitCode::SUCCESS
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to sign fleet pulse: {e}");
+                    ExitCode::FAILURE
+                }
+            }
         }
     }
 }

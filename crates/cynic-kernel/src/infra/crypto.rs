@@ -87,6 +87,24 @@ pub fn verify_signature(
         .map_err(|_e| CryptoError::VerificationFailed)
 }
 
+/// Verify a detached Ed25519 signature directly over a message byte slice.
+pub fn verify_detached_signature(
+    public_key_hex: &str,
+    signature_hex: &str,
+    message: &[u8],
+) -> Result<(), CryptoError> {
+    let public_key_bytes =
+        <[u8; 32]>::from_hex(public_key_hex).map_err(|_e| CryptoError::InvalidPublicKey)?;
+    let verifying_key =
+        VerifyingKey::from_bytes(&public_key_bytes).map_err(|_e| CryptoError::InvalidPublicKey)?;
+    let signature_bytes =
+        <[u8; 64]>::from_hex(signature_hex).map_err(|_e| CryptoError::InvalidSignature)?;
+    let signature = Signature::from_bytes(&signature_bytes);
+    verifying_key
+        .verify(message, &signature)
+        .map_err(|_e| CryptoError::VerificationFailed)
+}
+
 /// Generate the message to sign for a REST request.
 /// Format: `METHOD|PATH|BODY`
 pub fn build_rest_payload(method: &str, path: &str, body: &[u8]) -> Vec<u8> {

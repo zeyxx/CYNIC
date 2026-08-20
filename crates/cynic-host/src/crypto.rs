@@ -5,23 +5,52 @@
 
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand::{RngCore, rngs::OsRng};
+use std::fmt;
 use std::fs;
+use std::io;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum CryptoError {
-    #[error("cryptographic operation failed: {0}")]
     OperationFailed(String),
-    #[error("invalid key material: {0}")]
     InvalidKey(String),
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("serialization error: {0}")]
-    Serialization(#[from] serde_json::Error),
+    Io(io::Error),
+    Serialization(serde_json::Error),
 }
 
+impl fmt::Display for CryptoError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::OperationFailed(s) => write!(f, "cryptographic operation failed: {s}"),
+            Self::InvalidKey(s) => write!(f, "invalid key material: {s}"),
+            Self::Io(e) => write!(f, "IO error: {e}"),
+            Self::Serialization(e) => write!(f, "serialization error: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for CryptoError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io(e) => Some(e),
+            Self::Serialization(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl From<io::Error> for CryptoError {
+    fn from(err: io::Error) -> Self {
+        Self::Io(err)
+    }
+}
+
+impl From<serde_json::Error> for CryptoError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::Serialization(err)
+    }
+}
 /// Provider for cryptographic signing and verification.
 pub trait CryptoProvider: Send + Sync {
     /// Signs a message using the provided private key.
@@ -79,6 +108,32 @@ impl CryptoProvider for Ed25519Provider {
         let verifying_key = VerifyingKey::from(&signing_key);
 
         Ok((secret_bytes.to_vec(), verifying_key.to_bytes().to_vec()))
+    }
+}
+
+/// Helper for secure storage of cryptographic material with strict file permissions.
+pub struct SecretStore;
+
+impl SecretStore {
+    /// Saves a secret to a file with strict 0600 permissions.
+    pub fn save_secret(path: &Path, secret: &[u8]) -> Result<(), CryptoError> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, secret)?;
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(path)?.permissions();
+            perms.set_mode(0o600);
+            fs::set_permissions(path, perms)?;
+        }
+        Ok(())
+    }
+
+    /// Loads a secret from a file.
+    pub fn load_secret(path: &Path) -> Result<Vec<u8>, CryptoError> {
+        let data = fs::read(path)?;
+        Ok(data)
     }
 }
 
@@ -160,5 +215,25 @@ mod tests {
         let (secret_b, public_b) = provider.generate_keypair().expect("keypair b");
         assert_ne!(secret_a, secret_b, "OsRng must not repeat key material");
         assert_ne!(public_a, public_b);
+    }
+
+    #[test]
+    fn secret_store_saves_and_loads_with_restricted_permissions() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let secret_path = dir.path().join("sub/node-identity.key");
+        let secret_data = b"super-secret-ed25519-seed-data";
+
+        SecretStore::save_secret(&secret_path, secret_data).expect("save secret");
+        assert!(secret_path.exists());
+
+        #[cfg(unix)]
+        {
+            let meta = fs::metadata(&secret_path).expect("metadata");
+            let mode = meta.permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "Secret file must have 0600 permissions");
+        }
+
+        let loaded = SecretStore::load_secret(&secret_path).expect("load secret");
+        assert_eq!(loaded, secret_data);
     }
 }

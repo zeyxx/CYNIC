@@ -7,7 +7,8 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use cynic_protocol::{
-    NODE_ENROLLMENT_GRANT_SCHEMA, NODE_ENROLLMENT_SIGNATURE_NAMESPACE, NodeEnrollmentGrant,
+    NODE_ENROLLMENT_CERTIFICATE_SCHEMA, NODE_ENROLLMENT_GRANT_SCHEMA,
+    NODE_ENROLLMENT_SIGNATURE_NAMESPACE, NodeCsr, NodeEnrollmentCertificate, NodeEnrollmentGrant,
     NodeEnrollmentRenewalRequest, NodeEnrollmentRequest, SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA,
     SignedNodeEnrollmentGrant, admit_node_enrollment, admit_node_enrollment_renewal,
     node_enrollment_grant_signing_bytes,
@@ -218,6 +219,70 @@ pub async fn renew_handler(
             "renewed grant read-back did not match",
         ),
     }
+}
+
+pub async fn csr_enroll_handler(
+    State(state): State<Arc<AppState>>,
+    Json(csr): Json<NodeCsr>,
+) -> Response {
+    let Some(runtime) = state.node_enrollment.as_ref() else {
+        return error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "machine enrollment authority is unavailable",
+        );
+    };
+    let blockers = csr.validate();
+    if !blockers.is_empty() {
+        return error(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid CSR: {}", blockers.join(",")),
+        );
+    }
+
+    let signing_bytes = csr.signing_bytes();
+    if let Err(e) = crate::infra::crypto::verify_detached_signature(
+        &csr.public_key_hex,
+        &csr.csr_signature_hex,
+        &signing_bytes,
+    ) {
+        return error(
+            StatusCode::UNAUTHORIZED,
+            &format!("CSR signature verification failed: {e}"),
+        );
+    }
+
+    let now = chrono::Utc::now().timestamp().max(0) as u64;
+    let ttl_s = runtime.authority.token_ttl_s.max(86400);
+    let expires_at_unix_s = now.saturating_add(ttl_s);
+
+    let mut cert = NodeEnrollmentCertificate {
+        schema: NODE_ENROLLMENT_CERTIFICATE_SCHEMA.to_string(),
+        certificate_id: String::new(),
+        node_id: csr.node_id.clone(),
+        role: csr.requested_role.clone(),
+        subject_public_key_hex: csr.public_key_hex.clone(),
+        kernel_authority_id: runtime.signer.key_id(),
+        issued_at_unix_s: now,
+        expires_at_unix_s,
+        kernel_signature_hex: String::new(),
+    };
+
+    let cert_signing_bytes = cert.signing_bytes();
+    let cert_id_digest = Sha256::digest(&cert_signing_bytes);
+    cert.certificate_id = format!("sha256:{}", hex::encode(cert_id_digest));
+
+    let signature_hex = match runtime.signer.sign(&cert_signing_bytes) {
+        Ok(sig) => sig,
+        Err(e) => {
+            return error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                &format!("certificate signing failed: {e}"),
+            );
+        }
+    };
+    cert.kernel_signature_hex = signature_hex;
+
+    Json(cert).into_response()
 }
 
 fn sign_grant(

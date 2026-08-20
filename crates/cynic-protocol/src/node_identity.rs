@@ -5,7 +5,8 @@ use crate::SecurityEvidenceState;
 pub const NODE_IDENTITY_DESIRED_STATE_SCHEMA: &str = "cynic.node_identity.desired_state.v1";
 pub const NODE_IDENTITY_OBSERVATION_SCHEMA: &str = "cynic.node_identity.observation.v1";
 pub const NODE_IDENTITY_PLAN_SCHEMA: &str = "cynic.node_identity.plan.v1";
-
+pub const NODE_CSR_SCHEMA: &str = "cynic.node_csr.v1";
+pub const NODE_ENROLLMENT_CERTIFICATE_SCHEMA: &str = "cynic.node_enrollment_certificate.v1";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeIdentityDesiredState {
     pub schema: String,
@@ -144,6 +145,190 @@ pub fn reconcile_node_identity(
     }
 }
 
+/// Certificate Signing Request (CSR) created by a node to prove possession of its private key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeCsr {
+    pub schema: String,
+    pub node_id: String,
+    pub requested_role: String,
+    pub public_key_hex: String,
+    pub created_at_unix_s: u64,
+    pub csr_signature_hex: String,
+}
+
+#[derive(Serialize)]
+struct NodeCsrSigningPayload<'a> {
+    schema: &'a str,
+    node_id: &'a str,
+    requested_role: &'a str,
+    public_key_hex: &'a str,
+    created_at_unix_s: u64,
+}
+
+impl NodeCsr {
+    pub fn new(
+        node_id: String,
+        requested_role: String,
+        public_key_hex: String,
+        created_at_unix_s: u64,
+        csr_signature_hex: String,
+    ) -> Self {
+        Self {
+            schema: NODE_CSR_SCHEMA.to_string(),
+            node_id,
+            requested_role,
+            public_key_hex,
+            created_at_unix_s,
+            csr_signature_hex,
+        }
+    }
+
+    /// Canonical signing payload bytes for the CSR.
+    pub fn signing_bytes(&self) -> Vec<u8> {
+        let payload = NodeCsrSigningPayload {
+            schema: &self.schema,
+            node_id: &self.node_id,
+            requested_role: &self.requested_role,
+            public_key_hex: &self.public_key_hex,
+            created_at_unix_s: self.created_at_unix_s,
+        };
+        serde_json::to_vec(&payload).expect("serialize csr payload")
+    }
+
+    /// Pure structural validation of the CSR.
+    pub fn validate(&self) -> Vec<String> {
+        let mut blockers = Vec::new();
+        check(
+            self.schema == NODE_CSR_SCHEMA,
+            "node_csr_schema_mismatch",
+            &mut blockers,
+        );
+        check(
+            valid_node_id(&self.node_id),
+            "node_csr_node_id_invalid",
+            &mut blockers,
+        );
+        check(
+            !self.requested_role.trim().is_empty(),
+            "node_csr_requested_role_empty",
+            &mut blockers,
+        );
+        check(
+            valid_hex_32(&self.public_key_hex),
+            "node_csr_public_key_invalid",
+            &mut blockers,
+        );
+        check(
+            self.created_at_unix_s > 0,
+            "node_csr_created_at_invalid",
+            &mut blockers,
+        );
+        check(
+            self.csr_signature_hex.len() == 128 && self.csr_signature_hex.bytes().all(|b| b.is_ascii_hexdigit()),
+            "node_csr_signature_invalid",
+            &mut blockers,
+        );
+        blockers.sort();
+        blockers.dedup();
+        blockers
+    }
+}
+
+/// Enrollment certificate signed by the Kernel authority for an admitted node.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeEnrollmentCertificate {
+    pub schema: String,
+    pub certificate_id: String,
+    pub node_id: String,
+    pub role: String,
+    pub subject_public_key_hex: String,
+    pub kernel_authority_id: String,
+    pub issued_at_unix_s: u64,
+    pub expires_at_unix_s: u64,
+    pub kernel_signature_hex: String,
+}
+
+#[derive(Serialize)]
+struct NodeEnrollmentCertificateSigningPayload<'a> {
+    schema: &'a str,
+    node_id: &'a str,
+    role: &'a str,
+    subject_public_key_hex: &'a str,
+    kernel_authority_id: &'a str,
+    issued_at_unix_s: u64,
+    expires_at_unix_s: u64,
+}
+
+impl NodeEnrollmentCertificate {
+    /// Canonical signing payload bytes for the Kernel signature.
+    pub fn signing_bytes(&self) -> Vec<u8> {
+        let payload = NodeEnrollmentCertificateSigningPayload {
+            schema: &self.schema,
+            node_id: &self.node_id,
+            role: &self.role,
+            subject_public_key_hex: &self.subject_public_key_hex,
+            kernel_authority_id: &self.kernel_authority_id,
+            issued_at_unix_s: self.issued_at_unix_s,
+            expires_at_unix_s: self.expires_at_unix_s,
+        };
+        serde_json::to_vec(&payload).expect("serialize cert payload")
+    }
+
+    /// Check whether the certificate is active at a given unix timestamp.
+    pub fn is_valid_at(&self, now_unix_s: u64) -> bool {
+        self.issued_at_unix_s <= now_unix_s && now_unix_s <= self.expires_at_unix_s
+    }
+
+    /// Pure structural validation of the certificate.
+    pub fn validate(&self, now_unix_s: u64) -> Vec<String> {
+        let mut blockers = Vec::new();
+        check(
+            self.schema == NODE_ENROLLMENT_CERTIFICATE_SCHEMA,
+            "node_certificate_schema_mismatch",
+            &mut blockers,
+        );
+        check(
+            valid_node_id(&self.node_id),
+            "node_certificate_node_id_invalid",
+            &mut blockers,
+        );
+        check(
+            !self.role.trim().is_empty(),
+            "node_certificate_role_empty",
+            &mut blockers,
+        );
+        check(
+            valid_hex_32(&self.subject_public_key_hex),
+            "node_certificate_subject_public_key_invalid",
+            &mut blockers,
+        );
+        check(
+            !self.kernel_authority_id.trim().is_empty(),
+            "node_certificate_kernel_authority_id_empty",
+            &mut blockers,
+        );
+        check(
+            self.expires_at_unix_s > self.issued_at_unix_s,
+            "node_certificate_expiry_before_issuance",
+            &mut blockers,
+        );
+        check(
+            self.is_valid_at(now_unix_s),
+            "node_certificate_expired_or_not_yet_valid",
+            &mut blockers,
+        );
+        check(
+            self.kernel_signature_hex.len() == 128 && self.kernel_signature_hex.bytes().all(|b| b.is_ascii_hexdigit()),
+            "node_certificate_signature_invalid",
+            &mut blockers,
+        );
+        blockers.sort();
+        blockers.dedup();
+        blockers
+    }
+}
+
+
 fn valid_node_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
@@ -221,5 +406,60 @@ mod tests {
             plan.blockers
                 .contains(&"node_identity_private_key_mode_unsafe".to_string())
         );
+    }
+
+    #[test]
+    fn csr_structural_validation() {
+        let valid_csr = NodeCsr::new(
+            "node-alpha".to_string(),
+            "builder".to_string(),
+            "a".repeat(64),
+            1700000000,
+            "b".repeat(128),
+        );
+        assert!(valid_csr.validate().is_empty());
+
+        let invalid_csr = NodeCsr::new(
+            "".to_string(),
+            "".to_string(),
+            "not-hex".to_string(),
+            0,
+            "too-short".to_string(),
+        );
+        let blockers = invalid_csr.validate();
+        assert!(blockers.contains(&"node_csr_node_id_invalid".to_string()));
+        assert!(blockers.contains(&"node_csr_requested_role_empty".to_string()));
+        assert!(blockers.contains(&"node_csr_public_key_invalid".to_string()));
+        assert!(blockers.contains(&"node_csr_created_at_invalid".to_string()));
+        assert!(blockers.contains(&"node_csr_signature_invalid".to_string()));
+    }
+
+    #[test]
+    fn certificate_validity_and_temporal_validation() {
+        let cert = NodeEnrollmentCertificate {
+            schema: NODE_ENROLLMENT_CERTIFICATE_SCHEMA.to_string(),
+            certificate_id: "sha256:1234".to_string(),
+            node_id: "node-alpha".to_string(),
+            role: "builder".to_string(),
+            subject_public_key_hex: "c".repeat(64),
+            kernel_authority_id: "kernel-root".to_string(),
+            issued_at_unix_s: 1700000000,
+            expires_at_unix_s: 1700086400,
+            kernel_signature_hex: "d".repeat(128),
+        };
+
+        // Within valid window
+        assert!(cert.is_valid_at(1700040000));
+        assert!(cert.validate(1700040000).is_empty());
+
+        // Expired
+        assert!(!cert.is_valid_at(1700100000));
+        let expired_blockers = cert.validate(1700100000);
+        assert!(expired_blockers.contains(&"node_certificate_expired_or_not_yet_valid".to_string()));
+
+        // Before issuance
+        assert!(!cert.is_valid_at(1699999999));
+        let early_blockers = cert.validate(1699999999);
+        assert!(early_blockers.contains(&"node_certificate_expired_or_not_yet_valid".to_string()));
     }
 }

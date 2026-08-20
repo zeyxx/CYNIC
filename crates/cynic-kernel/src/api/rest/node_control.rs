@@ -7,7 +7,8 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use cynic_protocol::{
-    NodeControlPlan, RuntimeReleaseAdmission, RuntimeReleaseDeclaration, admit_runtime_release,
+    NodeControlPlan, RuntimeReleaseAdmission, RuntimeReleaseDeclaration,
+    SignedNodeControlPlan, admit_runtime_release,
 };
 use serde::Serialize;
 
@@ -55,6 +56,60 @@ pub async fn desired_state_handler(
             .into_response(),
         Err(_) => unavailable(),
     }
+}
+
+pub async fn signed_desired_state_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path(node_id): Path<String>,
+) -> Response {
+    if let Err(error) = principal.require_agent(&node_id) {
+        return forbidden(error);
+    }
+    let Some(runtime) = state.node_control.as_ref() else {
+        return unavailable();
+    };
+    let desired = match runtime.store.desired_state(&node_id).await {
+        Ok(Some(value)) => value,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "node desired state is not declared".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(_) => return unavailable(),
+    };
+
+    let Some(enrollment) = state.node_enrollment.as_ref() else {
+        return unavailable();
+    };
+
+    let now_unix_s = chrono::Utc::now().timestamp().max(0) as u64;
+    let expires_at_unix_s = now_unix_s.saturating_add(3600);
+    let mut plan = SignedNodeControlPlan::new(
+        desired,
+        enrollment.signer.key_id(),
+        now_unix_s,
+        expires_at_unix_s,
+        String::new(),
+    );
+
+    let signing_bytes = plan.signing_bytes();
+    let signature_hex = match enrollment.signer.sign(&signing_bytes) {
+        Ok(sig) => sig,
+        Err(_) => return unavailable(),
+    };
+    plan.signature_hex = signature_hex;
+
+    Json(NodeControlResponse {
+        schema: "cynic.signed_node_desired_state_response.v1",
+        status: "signed",
+        value: plan,
+    })
+    .into_response()
 }
 
 pub async fn declare_release_handler(

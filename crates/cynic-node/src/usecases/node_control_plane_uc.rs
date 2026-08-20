@@ -7,7 +7,10 @@ use tokio_util::sync::CancellationToken;
 
 use crate::ports::node_control_plane_port::{
     NodeControlObservationPort, NodeDesiredStatePullPort, NodeStatusPublishPort,
+    SignedNodeDesiredStatePullPort,
 };
+use cynic_host::plan_verifier::PlanVerifier;
+use cynic_protocol::node_control::ControlPlanVerificationStatus;
 use crate::ports::runtime_artifact_transport_port::RuntimeArtifactTransportPort;
 use crate::ports::runtime_seed_actuation_port::RuntimeSeedActuationPort;
 
@@ -155,6 +158,187 @@ where
             deployment_blockers,
             Vec::new(),
         ),
+        Ok(_) => report(
+            node_id,
+            "unknown",
+            desired_generation,
+            Some(plan),
+            release_deployment,
+            None,
+            deployment_blockers,
+            vec!["node_status_publish_proof_missing".to_string()],
+        ),
+        Err(error) => report(
+            node_id,
+            "degraded_disconnected",
+            desired_generation,
+            Some(plan),
+            release_deployment,
+            None,
+            deployment_blockers
+                .into_iter()
+                .chain([format!("node_status_publish_failed:{error}")])
+                .collect(),
+            Vec::new(),
+        ),
+    }
+}
+
+pub async fn reconcile_signed_node_control_tick<D, O, S, T, A>(
+    node_id: &str,
+    signed_desired_state: &D,
+    plan_verifier: &PlanVerifier,
+    observed_generation: Option<u64>,
+    now_unix_s: u64,
+    observer: &O,
+    status_publisher: &S,
+    artifact_transport: &T,
+    release_actuation: &A,
+) -> NodeControlTickReport
+where
+    D: SignedNodeDesiredStatePullPort,
+    O: NodeControlObservationPort,
+    S: NodeStatusPublishPort,
+    T: RuntimeArtifactTransportPort,
+    A: RuntimeSeedActuationPort,
+{
+    let signed_plan = match signed_desired_state.pull_signed_desired_state(node_id).await {
+        Ok(Some(signed)) => signed,
+        Ok(None) => {
+            return report(
+                node_id,
+                "waiting_for_desired_state",
+                None,
+                None,
+                None,
+                None,
+                Vec::new(),
+                vec!["signed_node_desired_state_unavailable".to_string()],
+            );
+        }
+        Err(error) => {
+            return report(
+                node_id,
+                "blocked_disconnected",
+                None,
+                None,
+                None,
+                None,
+                vec![format!("signed_desired_state_pull_failed:{error}")],
+                Vec::new(),
+            );
+        }
+    };
+
+    let desired = match plan_verifier.verify_and_admit_plan(&signed_plan, observed_generation, now_unix_s) {
+        Ok(admitted) => admitted,
+        Err(rejection) => {
+            let blocker = match rejection {
+                ControlPlanVerificationStatus::InvalidSignature => "control_plan_signature_invalid".to_string(),
+                ControlPlanVerificationStatus::StaleGeneration { observed, plan } => {
+                    format!("control_plan_stale_generation:observed_{observed}_plan_{plan}")
+                }
+                ControlPlanVerificationStatus::Expired { expires_at_unix_s, now_unix_s } => {
+                    format!("control_plan_expired:expires_{expires_at_unix_s}_now_{now_unix_s}")
+                }
+                ControlPlanVerificationStatus::UntrustedAuthority(auth_id) => {
+                    format!("control_plan_untrusted_authority:{auth_id}")
+                }
+                ControlPlanVerificationStatus::StructuralErrors(errs) => {
+                    format!("control_plan_structural_errors:{}", errs.join(","))
+                }
+            };
+            return report(
+                node_id,
+                "blocked_unadmitted",
+                Some(signed_plan.desired_state.generation),
+                None,
+                None,
+                None,
+                vec![blocker],
+                Vec::new(),
+            );
+        }
+    };
+
+    if desired.node_id != node_id {
+        return report(
+            node_id,
+            "blocked",
+            Some(desired.generation),
+            None,
+            None,
+            None,
+            vec!["desired_state_node_identity_mismatch".to_string()],
+            Vec::new(),
+        );
+    }
+
+    let observation = match observer.observe_node_control(&desired).await {
+        Ok(observation) => observation,
+        Err(error) => {
+            return report(
+                node_id,
+                "unknown",
+                Some(desired.generation),
+                None,
+                None,
+                None,
+                Vec::new(),
+                vec![format!("node_control_observation_failed:{error}")],
+            );
+        }
+    };
+    let mut plan = reconcile_node_control(&desired, &observation);
+    let (release_deployment, deployment_blockers) = match &plan.decision {
+        NodeControlDecision::ReconcileRelease { plan: seed_plan } => {
+            let report = reconcile_runtime_artifact_deployment(
+                &desired.release,
+                seed_plan,
+                artifact_transport,
+                release_actuation,
+            )
+            .await;
+            let blockers = report.blockers.clone();
+            (Some(report), blockers)
+        }
+        _ => (None, Vec::new()),
+    };
+    if let Some(deployment) = &release_deployment {
+        if deployment.status != "converged" {
+            plan.blockers.extend(deployment.blockers.clone());
+            plan.unknowns.extend(deployment.unknowns.clone());
+            plan.decision = match plan.decision {
+                NodeControlDecision::ReconcileRelease { .. } => {
+                    if !plan.blockers.is_empty() {
+                        NodeControlDecision::Blocked {
+                            violations: plan.blockers.clone(),
+                        }
+                    } else {
+                        NodeControlDecision::Unknown {
+                            missing_evidence: plan.unknowns.clone(),
+                        }
+                    }
+                }
+                other => other,
+            };
+        }
+    }
+    let desired_generation = Some(desired.generation);
+    match status_publisher.publish_node_status(&plan).await {
+        Ok(evidence_ref) if !evidence_ref.trim().is_empty() => {
+            plan.evidence_refs.push(evidence_ref.clone());
+            report(
+                node_id,
+                &plan.status,
+                desired_generation,
+                Some(plan),
+                release_deployment,
+                Some(evidence_ref),
+                deployment_blockers,
+                Vec::new(),
+            )
+        }
         Ok(_) => report(
             node_id,
             "unknown",
