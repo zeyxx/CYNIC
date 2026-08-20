@@ -2,7 +2,7 @@
   "id": "framework_epoch",
   "layer": "l1_to_l3_reconciliation",
   "owner_crate": "cynic-host",
-  "adapter_module": "framework_bootstrap::epoch",
+  "adapter_module": "cynic-cli::bootstrap_surface::framework::framework_epoch",
   "domain_owner": "cynic-host::framework_bootstrap",
   "owner_modules": [
     "framework_bootstrap::epoch"
