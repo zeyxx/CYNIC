@@ -247,7 +247,11 @@ impl HostFamilyProfile {
             policy_dir: self.config_dir.clone(),
             source_projection_path: format!("{}/package-sources.json", self.config_dir),
             approved_sources: self.package_approved_sources.clone(),
-            provenance: PackageProvenancePolicy::unresolved_distribution_authority(),
+            // Injected, not hardcoded: approved_sources was already injected per
+            // family while provenance was pinned to Unresolved here, so the
+            // package domain was Blocked by construction and no host could ever
+            // reach h3_packages_ready. Default remains Unresolved.
+            provenance: current_runtime_layout().package_provenance(),
             promotion_policy: PackagePromotionPolicy::critical_infrastructure(),
             bootstrap_packages: self.bootstrap_packages.clone(),
         }

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::domain::package_provenance::PackageProvenancePolicy;
 use crate::process_observation::command_stdout;
 use crate::runtime_authority::default_runtime_authority_paths;
 
@@ -486,6 +487,85 @@ impl HostRuntimeLayout {
         PackageManagerKind::parse(&env_path("CYNIC_PACKAGE_MANAGER_KIND", "apt"))
     }
 
+    /// Injected package distribution authority.
+    ///
+    /// `approved_sources` was already injected per family while `provenance` was
+    /// hardcoded to `Unresolved` in `profiles/families.rs`, so no host could ever
+    /// reach `h3_packages_ready`: the package domain stayed `Blocked` by
+    /// construction and `highest_consecutive_stage` capped every node at h2 even
+    /// with h4 observed `Active`.
+    ///
+    /// The default stays `Unresolved` on purpose — an unselected authority must
+    /// not silently fall back to the host package manager. This only provides the
+    /// missing injection path so an operator can *declare* the authority the
+    /// substrate actually uses.
+    ///
+    /// Selection is explicit and fails closed: a declared kind with an incomplete
+    /// policy yields `Unresolved` with a reason naming the missing field, never a
+    /// partially-populated policy that `blocker()` would have to reject later.
+    pub fn package_provenance(&self) -> PackageProvenancePolicy {
+        match env_path("CYNIC_PACKAGE_PROVENANCE_KIND", "unresolved").as_str() {
+            "repository" => {
+                let source_id = env_path("CYNIC_PACKAGE_REPOSITORY_SOURCE_ID", "");
+                let trusted_key_fingerprint =
+                    env_path("CYNIC_PACKAGE_REPOSITORY_KEY_FINGERPRINT", "");
+                let max_metadata_age_secs =
+                    env_path("CYNIC_PACKAGE_REPOSITORY_MAX_METADATA_AGE_SECS", "86400")
+                        .parse::<u64>()
+                        .unwrap_or(0);
+                if source_id.is_empty() {
+                    return PackageProvenancePolicy::Unresolved {
+                        reason: "repository_source_id_not_declared".to_string(),
+                    };
+                }
+                if trusted_key_fingerprint.is_empty() {
+                    return PackageProvenancePolicy::Unresolved {
+                        reason: "repository_trusted_key_fingerprint_not_declared".to_string(),
+                    };
+                }
+                if max_metadata_age_secs == 0 {
+                    return PackageProvenancePolicy::Unresolved {
+                        reason: "repository_max_metadata_age_invalid".to_string(),
+                    };
+                }
+                PackageProvenancePolicy::Repository {
+                    source_id,
+                    trusted_key_fingerprint,
+                    max_metadata_age_secs,
+                }
+            }
+            "signed_artifact" => {
+                let artifact_id = env_path("CYNIC_PACKAGE_ARTIFACT_ID", "");
+                let sha256 = env_path("CYNIC_PACKAGE_ARTIFACT_SHA256", "");
+                let signing_identity = env_path("CYNIC_PACKAGE_ARTIFACT_SIGNING_IDENTITY", "");
+                if artifact_id.is_empty() {
+                    return PackageProvenancePolicy::Unresolved {
+                        reason: "artifact_id_not_declared".to_string(),
+                    };
+                }
+                if sha256.is_empty() {
+                    return PackageProvenancePolicy::Unresolved {
+                        reason: "artifact_sha256_not_declared".to_string(),
+                    };
+                }
+                if signing_identity.is_empty() {
+                    return PackageProvenancePolicy::Unresolved {
+                        reason: "artifact_signing_identity_not_declared".to_string(),
+                    };
+                }
+                PackageProvenancePolicy::SignedArtifact {
+                    artifact_id,
+                    sha256,
+                    signing_identity,
+                }
+            }
+            "unresolved" => PackageProvenancePolicy::unresolved_distribution_authority(),
+            other => PackageProvenancePolicy::Unresolved {
+                reason: format!("distribution_authority_kind_unknown:{other}"),
+            },
+        }
+    }
+
     pub fn apk_bin(&self) -> String {
         env_path("CYNIC_APK_BIN", "apk")
     }
@@ -602,6 +682,7 @@ mod tests {
     use std::sync::Mutex;
 
     use super::HostRuntimeLayout;
+    use crate::domain::package_provenance::PackageProvenancePolicy;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
@@ -658,6 +739,77 @@ mod tests {
                 "/var/log/cynic".to_string(),
                 "/var/lib/cynic/reports".to_string(),
             ]
+        );
+    }
+
+    #[test]
+    fn package_provenance_defaults_to_unresolved_authority() {
+        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _kind = EnvOverride::set("CYNIC_PACKAGE_PROVENANCE_KIND", "unresolved");
+
+        // The permissive fallback to the host package manager must stay absent.
+        assert_eq!(
+            HostRuntimeLayout::from_env().package_provenance(),
+            PackageProvenancePolicy::Unresolved {
+                reason: "distribution_authority_not_selected".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn package_provenance_repository_is_injectable_and_carries_no_blocker() {
+        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _kind = EnvOverride::set("CYNIC_PACKAGE_PROVENANCE_KIND", "repository");
+        let _source = EnvOverride::set(
+            "CYNIC_PACKAGE_REPOSITORY_SOURCE_ID",
+            "approved_internal_package_mirror",
+        );
+        let _key = EnvOverride::set("CYNIC_PACKAGE_REPOSITORY_KEY_FINGERPRINT", "ab12cd34");
+        let _age = EnvOverride::set("CYNIC_PACKAGE_REPOSITORY_MAX_METADATA_AGE_SECS", "3600");
+
+        let provenance = HostRuntimeLayout::from_env().package_provenance();
+
+        assert_eq!(
+            provenance,
+            PackageProvenancePolicy::Repository {
+                source_id: "approved_internal_package_mirror".to_string(),
+                trusted_key_fingerprint: "ab12cd34".to_string(),
+                max_metadata_age_secs: 3600,
+            }
+        );
+        // The point of the injection: a declared authority is selected AND
+        // carries no blocker, which is what kept h3_packages_ready unreachable.
+        assert!(provenance.is_selected());
+        assert_eq!(provenance.blocker(), None);
+    }
+
+    #[test]
+    fn declared_repository_authority_fails_closed_when_the_policy_is_incomplete() {
+        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _kind = EnvOverride::set("CYNIC_PACKAGE_PROVENANCE_KIND", "repository");
+        let _source = EnvOverride::set("CYNIC_PACKAGE_REPOSITORY_SOURCE_ID", "mirror");
+        let _key = EnvOverride::set("CYNIC_PACKAGE_REPOSITORY_KEY_FINGERPRINT", "");
+
+        // Declaring a kind is not enough: an incomplete policy must degrade to a
+        // named unknown, never to a half-populated Repository policy.
+        assert_eq!(
+            HostRuntimeLayout::from_env().package_provenance(),
+            PackageProvenancePolicy::Unresolved {
+                reason: "repository_trusted_key_fingerprint_not_declared".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn unknown_distribution_authority_kind_is_preserved_as_an_explicit_unknown() {
+        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _kind = EnvOverride::set("CYNIC_PACKAGE_PROVENANCE_KIND", "ftp_tarball");
+
+        assert_eq!(
+            HostRuntimeLayout::from_env().package_provenance(),
+            PackageProvenancePolicy::Unresolved {
+                reason: "distribution_authority_kind_unknown:ftp_tarball".to_string()
+            }
         );
     }
 

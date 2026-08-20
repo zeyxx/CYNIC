@@ -437,11 +437,15 @@ mod tests {
         .expect("evidence");
         assert_eq!(report.status, SurfaceStatus::Blocked);
         assert!(!report.target_satisfied);
-        // h3_packages_ready cannot be reached from a profile policy: families.rs
-        // declares provenance as unresolved_distribution_authority() on purpose,
-        // so the package domain is Blocked by design until an authority is
-        // selected — no observation can satisfy it. The reachable consecutive
-        // stage is therefore h2, and h3 is the first blocker.
+        // h3_packages_ready is unreached under the DEFAULT authority: families.rs
+        // now injects provenance from HostRuntimeLayout::package_provenance(),
+        // whose default is still unresolved_distribution_authority() on purpose.
+        // So the package domain remains Blocked until an operator declares an
+        // authority (CYNIC_PACKAGE_PROVENANCE_KIND) — it is no longer blocked by
+        // construction, but no *observation* alone can satisfy it either. The
+        // reachable consecutive stage is therefore h2, and h3 is the first
+        // blocker. This test pins the fail-closed default, not an unreachable
+        // stage.
         assert_eq!(
             report.reached_stage,
             "h2_filesystem_projected",
