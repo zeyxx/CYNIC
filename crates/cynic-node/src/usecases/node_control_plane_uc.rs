@@ -9,10 +9,10 @@ use crate::ports::node_control_plane_port::{
     NodeControlObservationPort, NodeDesiredStatePullPort, NodeStatusPublishPort,
     SignedNodeDesiredStatePullPort,
 };
-use cynic_host::plan_verifier::PlanVerifier;
-use cynic_protocol::node_control::ControlPlanVerificationStatus;
 use crate::ports::runtime_artifact_transport_port::RuntimeArtifactTransportPort;
 use crate::ports::runtime_seed_actuation_port::RuntimeSeedActuationPort;
+use cynic_host::plan_verifier::PlanVerifier;
+use cynic_protocol::node_control::ControlPlanVerificationStatus;
 
 use super::runtime_artifact_deployment_uc::{
     RuntimeArtifactDeploymentReport, reconcile_runtime_artifact_deployment,
@@ -202,7 +202,10 @@ where
     T: RuntimeArtifactTransportPort,
     A: RuntimeSeedActuationPort,
 {
-    let signed_plan = match signed_desired_state.pull_signed_desired_state(node_id).await {
+    let signed_plan = match signed_desired_state
+        .pull_signed_desired_state(node_id)
+        .await
+    {
         Ok(Some(signed)) => signed,
         Ok(None) => {
             return report(
@@ -230,36 +233,42 @@ where
         }
     };
 
-    let desired = match plan_verifier.verify_and_admit_plan(&signed_plan, observed_generation, now_unix_s) {
-        Ok(admitted) => admitted,
-        Err(rejection) => {
-            let blocker = match rejection {
-                ControlPlanVerificationStatus::InvalidSignature => "control_plan_signature_invalid".to_string(),
-                ControlPlanVerificationStatus::StaleGeneration { observed, plan } => {
-                    format!("control_plan_stale_generation:observed_{observed}_plan_{plan}")
-                }
-                ControlPlanVerificationStatus::Expired { expires_at_unix_s, now_unix_s } => {
-                    format!("control_plan_expired:expires_{expires_at_unix_s}_now_{now_unix_s}")
-                }
-                ControlPlanVerificationStatus::UntrustedAuthority(auth_id) => {
-                    format!("control_plan_untrusted_authority:{auth_id}")
-                }
-                ControlPlanVerificationStatus::StructuralErrors(errs) => {
-                    format!("control_plan_structural_errors:{}", errs.join(","))
-                }
-            };
-            return report(
-                node_id,
-                "blocked_unadmitted",
-                Some(signed_plan.desired_state.generation),
-                None,
-                None,
-                None,
-                vec![blocker],
-                Vec::new(),
-            );
-        }
-    };
+    let desired =
+        match plan_verifier.verify_and_admit_plan(&signed_plan, observed_generation, now_unix_s) {
+            Ok(admitted) => admitted,
+            Err(rejection) => {
+                let blocker = match rejection {
+                    ControlPlanVerificationStatus::InvalidSignature => {
+                        "control_plan_signature_invalid".to_string()
+                    }
+                    ControlPlanVerificationStatus::StaleGeneration { observed, plan } => {
+                        format!("control_plan_stale_generation:observed_{observed}_plan_{plan}")
+                    }
+                    ControlPlanVerificationStatus::Expired {
+                        expires_at_unix_s,
+                        now_unix_s,
+                    } => {
+                        format!("control_plan_expired:expires_{expires_at_unix_s}_now_{now_unix_s}")
+                    }
+                    ControlPlanVerificationStatus::UntrustedAuthority(auth_id) => {
+                        format!("control_plan_untrusted_authority:{auth_id}")
+                    }
+                    ControlPlanVerificationStatus::StructuralErrors(errs) => {
+                        format!("control_plan_structural_errors:{}", errs.join(","))
+                    }
+                };
+                return report(
+                    node_id,
+                    "blocked_unadmitted",
+                    Some(signed_plan.desired_state.generation),
+                    None,
+                    None,
+                    None,
+                    vec![blocker],
+                    Vec::new(),
+                );
+            }
+        };
 
     if desired.node_id != node_id {
         return report(
@@ -306,13 +315,18 @@ where
     };
     if let Some(deployment) = &release_deployment {
         if deployment.status != "converged" {
-            plan.blockers.extend(deployment.blockers.clone());
-            plan.unknowns.extend(deployment.unknowns.clone());
+            // The deployment report distinguishes blockers (a named obstacle) from
+            // nothing else — it has no `unknowns`. NodeControlPlan carries only
+            // `unknowns`. Both are unresolved residue that must reach the plan, so
+            // the deployment's blockers land there, and the local decision keeps
+            // them separate: a named blocker is Blocked, an empty list is Unknown.
+            let deployment_residue = deployment.blockers.clone();
+            plan.unknowns.extend(deployment_residue.iter().cloned());
             plan.decision = match plan.decision {
                 NodeControlDecision::ReconcileRelease { .. } => {
-                    if !plan.blockers.is_empty() {
+                    if !deployment_residue.is_empty() {
                         NodeControlDecision::Blocked {
-                            violations: plan.blockers.clone(),
+                            violations: deployment_residue.clone(),
                         }
                     } else {
                         NodeControlDecision::Unknown {
@@ -397,7 +411,7 @@ pub async fn run_node_control_loop<D, O, S, T, A>(
                 ).await;
                 match report.status.as_str() {
                     "converged" => tracing::debug!(node_id, generation = ?report.desired_generation, "node control converged"),
-                    _ => tracing::warn!(node_id, status = %report.status, blockers = ?report.blockers, unknowns = ?report.unknowns, "node control remains unconverged"),
+                    _ => tracing::warn!(node_id, status = %report.status, unknowns = ?report.unknowns, "node control remains unconverged"),
                 }
             }
         }
