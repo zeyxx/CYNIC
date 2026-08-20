@@ -41,11 +41,52 @@ impl AuditRule for PathSanitationRule {
                 continue;
             }
 
+            // Track `#[cfg(test)]` scope by brace depth. Filtering on the file
+            // path alone cannot see inline test modules, which is where most
+            // machine-local paths in this workspace legitimately live: they are
+            // fixtures asserting how a path is classified, not paths the runtime
+            // ever uses. Counting them as critical made the rule unactionable.
+            let mut cfg_test_depth: Option<i32> = None;
+            let mut depth: i32 = 0;
+            let mut pending_cfg_test = false;
+
             for (idx, line) in file.content.lines().enumerate() {
-                if line.contains("/home/")
-                    || line.contains("/Users/")
-                    || line.contains("C:\\Users\\")
-                    || line.contains("C:/Users/")
+                if line.contains("cfg(test)") {
+                    pending_cfg_test = true;
+                }
+
+                let opens = line.matches('{').count() as i32;
+                let closes = line.matches('}').count() as i32;
+
+                if pending_cfg_test && opens > 0 {
+                    cfg_test_depth = Some(depth);
+                    pending_cfg_test = false;
+                }
+
+                depth += opens - closes;
+
+                if let Some(entry_depth) = cfg_test_depth {
+                    if depth <= entry_depth {
+                        cfg_test_depth = None;
+                    }
+                }
+
+                let in_test_scope = cfg_test_depth.is_some();
+
+                // A line that *inspects* a path prefix is not a leak: several
+                // surfaces legitimately detect operator-home paths in order to
+                // reject or reclassify them. Only a path embedded as a value is
+                // a violation.
+                let inspects_rather_than_embeds = line.contains("starts_with(")
+                    || line.contains("contains(")
+                    || line.contains("for prefix in");
+
+                if !in_test_scope
+                    && !inspects_rather_than_embeds
+                    && (line.contains("/home/")
+                        || line.contains("/Users/")
+                        || line.contains("C:\\Users\\")
+                        || line.contains("C:/Users/"))
                 {
                     violations.push(AuditViolation {
                         code: "SEC-001-ABSOLUTE-PATH".to_string(),
