@@ -12,14 +12,12 @@ pub use bootstrap_admission::{
 pub use bootstrap_contract::{
     BUILD_RUNNER_BOOTSTRAP_ADMISSION_CONTRACT_SCHEMA, BuildRunnerBootstrapAdmissionContract,
 };
-pub mod recipe;
 pub mod fleet;
-use crate::{
-    LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot,
-};
+pub mod recipe;
 use crate::LEASE_VERIFICATION_SCHEMA;
 #[allow(unused_imports)]
 use crate::coord::LEASE_VERIFICATION_SCHEMA as _LEASE_VERIFICATION_SCHEMA;
+use crate::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 pub use recipe::{BUILD_RECIPE_SCHEMA, BuildRecipe, build_recipe, validate_build_recipe};
 
 mod agent_request;
@@ -52,6 +50,13 @@ pub const BUILD_RUNNER_ENVELOPE_SCHEMA: &str = "cynic.build.runner_envelope.v1";
 pub const BUILD_RUNNER_ADMISSION_SCHEMA: &str = "cynic.build.runner_admission.v1";
 pub const BUILD_RUNNER_OBSERVATION_SCHEMA: &str = "cynic.runtime.node_observation.v1";
 pub const BUILD_BOOTSTRAP_GRANT_SCHEMA: &str = "cynic.build.bootstrap_grant.v1";
+/// Proof requirement name a build workload must satisfy: the grant must be read
+/// back after admission, not assumed from a successful submission.
+///
+/// The literal was repeated across cynic-host framework_bootstrap and cynic-node
+/// usecases; the protocol layer owns wire-contract vocabulary, so consumers name
+/// this constant instead of restating the string.
+pub const BUILD_GRANT_READ_BACK_PROOF: &str = "build_grant_read_back";
 pub const BUILD_RUNNER_OBSERVATION_MAX_AGE_MS: u64 = 300_000;
 pub const BUILD_SCHEDULER_RUNTIME_CAPABILITIES: &[&str] = &[
     "kernel_to_node_workload_delivery_read_back",
