@@ -39,7 +39,11 @@ impl SecretFileResolver {
     /// Called when `resolve()` fails because the file doesn't exist.
     /// Prompts the operator (hidden input), writes to disk with mode 0640,
     /// owner root:cynic. Returns the credential for immediate use.
-    pub fn prompt_and_save(&self, credential_ref: &str, secret_type: CredentialType) -> Result<Credential, String> {
+    pub fn prompt_and_save(
+        &self,
+        credential_ref: &str,
+        secret_type: CredentialType,
+    ) -> Result<Credential, String> {
         let path = self.secrets_dir.join(credential_ref);
 
         // Ensure secrets directory exists
@@ -47,20 +51,20 @@ impl SecretFileResolver {
             .map_err(|e| format!("create secrets dir: {e}"))?;
 
         // Prompt (hidden)
-        let prompt = format!("Enter {} (input hidden, will be saved to {}): ",
+        let prompt = format!(
+            "Enter {} (input hidden, will be saved to {}): ",
             secret_type.prompt_label(),
             path.display()
         );
-        let secret = rpassword::prompt_password(prompt)
-            .map_err(|e| format!("read password: {e}"))?;
+        let secret =
+            rpassword::prompt_password(prompt).map_err(|e| format!("read password: {e}"))?;
 
         if secret.trim().is_empty() {
             return Err("secret cannot be empty".into());
         }
 
         // Write with restricted mode
-        std::fs::write(&path, format!("{secret}\n"))
-            .map_err(|e| format!("write secret: {e}"))?;
+        std::fs::write(&path, format!("{secret}\n")).map_err(|e| format!("write secret: {e}"))?;
 
         // Set mode 0640, owner root:cynic (Unix only)
         #[cfg(unix)]
@@ -87,9 +91,7 @@ impl CredentialResolver for SecretFileResolver {
         }
 
         // Determine type from extension or naming convention
-        let file_name = path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         if file_name.contains("-key") || file_name.contains("-ssh") {
             Ok(Credential::SshKey(path))
@@ -133,7 +135,9 @@ mod tests {
 
     #[test]
     fn credential_type_token_for_pat() {
-        let cred = CredentialType::GitHubPat.to_credential(PathBuf::from("/tmp/pat")).unwrap();
+        let cred = CredentialType::GitHubPat
+            .to_credential(PathBuf::from("/tmp/pat"))
+            .unwrap();
         assert!(matches!(cred, Credential::Token(_)));
     }
 }

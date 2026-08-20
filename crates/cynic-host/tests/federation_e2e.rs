@@ -11,8 +11,8 @@
 use std::sync::Arc;
 
 use cynic_host::federation_runtime::{
-    EnrollmentObserverAdapter, FederationRuntime, KernelReachabilityObserver,
-    MeshPeerObserver, OsHealthObserverAdapter, TakeoverObserverAdapter,
+    EnrollmentObserverAdapter, FederationRuntime, KernelReachabilityObserver, MeshPeerObserver,
+    OsHealthObserverAdapter, TakeoverObserverAdapter,
 };
 use cynic_protocol::autonomy::AutonomyMode;
 use cynic_protocol::federation::FederationReconciliation;
@@ -35,9 +35,7 @@ fn production_runtime() -> FederationRuntime {
 struct FakeNodeControl;
 
 impl cynic_host::federation_runtime::NodeControlPort for FakeNodeControl {
-    fn node_control_plan(
-        &self,
-    ) -> Option<cynic_protocol::node_control::NodeControlPlan> {
+    fn node_control_plan(&self) -> Option<cynic_protocol::node_control::NodeControlPlan> {
         None
     }
 }

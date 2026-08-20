@@ -10,8 +10,8 @@ use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::emergence::{
-    health_score_from_os, elect_for_role, should_assume_role, EmergenceDecision,
-    EmergenceState, PeerState, EMERGENCE_STATE_SCHEMA,
+    EMERGENCE_STATE_SCHEMA, EmergenceDecision, EmergenceState, PeerState, elect_for_role,
+    health_score_from_os, should_assume_role,
 };
 use cynic_protocol::local_autonomy::{AutonomyMode, RetainedCapabilities};
 use cynic_protocol::peer_resolver::PeerResolver;
@@ -125,11 +125,19 @@ impl EmergenceRuntime {
             for node in nodes {
                 let node_id = node.get("id").and_then(|v| v.as_str()).unwrap_or("");
                 if node_id == self.local_node_id {
-                    let role = node.get("role").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-                    let capabilities = node.get("services").and_then(|v| v.as_array())
+                    let role = node
+                        .get("role")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown")
+                        .to_string();
+                    let capabilities = node
+                        .get("services")
+                        .and_then(|v| v.as_array())
                         .map(|arr| {
                             arr.iter()
-                                .filter_map(|s| s.get("name").and_then(|v| v.as_str()).map(String::from))
+                                .filter_map(|s| {
+                                    s.get("name").and_then(|v| v.as_str()).map(String::from)
+                                })
                                 .collect()
                         })
                         .unwrap_or_default();
@@ -172,7 +180,8 @@ impl EmergenceRuntime {
     pub fn should_assume(&mut self, role: &str) -> bool {
         let decisions = self.tick();
         decisions.iter().any(|d| {
-            d.assumed_role.as_deref() == Some(role) && d.candidates.first() == Some(&self.local_node_id)
+            d.assumed_role.as_deref() == Some(role)
+                && d.candidates.first() == Some(&self.local_node_id)
         })
     }
 

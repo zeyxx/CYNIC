@@ -70,7 +70,12 @@ pub fn scan_for_secrets(root: &Path) -> SecretLintObservation {
 
             if let Some(ext) = relative.extension() {
                 let ext = ext.to_string_lossy();
-                if ["png", "jpg", "jpeg", "gif", "ico", "woff", "woff2", "ttf", "eot", "pdf", "zip", "gz", "bin"].contains(&ext.as_ref()) {
+                if [
+                    "png", "jpg", "jpeg", "gif", "ico", "woff", "woff2", "ttf", "eot", "pdf",
+                    "zip", "gz", "bin",
+                ]
+                .contains(&ext.as_ref())
+                {
                     continue;
                 }
             }

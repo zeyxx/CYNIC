@@ -1,6 +1,4 @@
-use cynic_protocol::{
-    HarnessCellReport, HarnessMatrixReport, HarnessScenarioId, HarnessStatus,
-};
+use cynic_protocol::{HarnessCellReport, HarnessMatrixReport, HarnessScenarioId, HarnessStatus};
 use serde::{Deserialize, Serialize};
 
 pub const BUILD_RUNNER_HARNESS_REPORT_SCHEMA: &str = "cynic.build_runner_harness.report.v1";

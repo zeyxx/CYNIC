@@ -37,17 +37,14 @@ impl ReleaseQueue {
         if !path.exists() {
             return Ok(Self::new());
         }
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| format!("read queue: {e}"))?;
-        serde_json::from_str::<Self>(&content)
-            .map_err(|e| format!("parse queue: {e}"))
+        let content = std::fs::read_to_string(path).map_err(|e| format!("read queue: {e}"))?;
+        serde_json::from_str::<Self>(&content).map_err(|e| format!("parse queue: {e}"))
     }
 
     pub fn save(&self, path: &Path) -> Result<(), String> {
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|e| format!("serialize queue: {e}"))?;
-        std::fs::write(path, json)
-            .map_err(|e| format!("write queue: {e}"))
+        let json =
+            serde_json::to_string_pretty(self).map_err(|e| format!("serialize queue: {e}"))?;
+        std::fs::write(path, json).map_err(|e| format!("write queue: {e}"))
     }
 
     pub fn enqueue(&mut self, source_sha: String, summary: String, commit_count: u32) {
@@ -68,9 +65,8 @@ impl ReleaseQueue {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        self.releases.retain(|r| {
-            now.saturating_sub(r.queued_at_unix_s) < QUEUE_TTL_SECONDS
-        });
+        self.releases
+            .retain(|r| now.saturating_sub(r.queued_at_unix_s) < QUEUE_TTL_SECONDS);
     }
 
     pub fn peek(&self) -> Option<&QueuedRelease> {

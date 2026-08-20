@@ -9,8 +9,8 @@ use std::net::TcpStream;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::fleet_discovery::{
-    classify_node, FleetDiscoveryReport, FleetNodeDiscovery, FleetNodeStatus,
-    FleetServiceHealth, FleetServiceStatus, FLEET_DISCOVERY_SCHEMA,
+    FLEET_DISCOVERY_SCHEMA, FleetDiscoveryReport, FleetNodeDiscovery, FleetNodeStatus,
+    FleetServiceHealth, FleetServiceStatus, classify_node,
 };
 
 /// Reads declared nodes from the registry and probes them.
@@ -57,7 +57,9 @@ impl FleetDiscoveryAdapter {
         let mut unreachable = 0;
 
         for declared_node in declared {
-            let ip = declared_node.synapse_ip.unwrap_or_else(|| declared_node.management_ip.clone());
+            let ip = declared_node
+                .synapse_ip
+                .unwrap_or_else(|| declared_node.management_ip.clone());
             let services = probe_services(&ip, declared_node.services.as_slice(), self.timeout_ms);
             let status = classify_node(&services);
 
@@ -116,17 +118,31 @@ struct DeclaredService {
 
 /// Parse declared nodes from registry JSON.
 fn parse_declared_nodes(bytes: &[u8]) -> Result<Vec<DeclaredNode>, String> {
-    let value: serde_json::Value = serde_json::from_slice(bytes)
-        .map_err(|e| format!("parse registry JSON: {e}"))?;
+    let value: serde_json::Value =
+        serde_json::from_slice(bytes).map_err(|e| format!("parse registry JSON: {e}"))?;
 
     let mut nodes = Vec::new();
 
     // Parse from network_policy.reservations + nodes
-    if let Some(reservations) = value.get("network_policy").and_then(|v| v.get("reservations")).and_then(|v| v.as_array()) {
+    if let Some(reservations) = value
+        .get("network_policy")
+        .and_then(|v| v.get("reservations"))
+        .and_then(|v| v.as_array())
+    {
         for reservation in reservations {
-            let name = reservation.get("name").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-            let synapse_ip = reservation.get("synapse").and_then(|v| v.as_str()).map(String::from);
-            let management_ip = reservation.get("management").and_then(|v| v.as_str()).map(String::from);
+            let name = reservation
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            let synapse_ip = reservation
+                .get("synapse")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let management_ip = reservation
+                .get("management")
+                .and_then(|v| v.as_str())
+                .map(String::from);
 
             if let Some(management) = management_ip {
                 // Find matching node for role and services
@@ -159,8 +175,14 @@ fn find_node_details(value: &serde_json::Value, name: &str) -> (String, Vec<Decl
         for node in nodes {
             let node_id = node.get("id").and_then(|v| v.as_str()).unwrap_or("");
             if node_id == name {
-                let role = node.get("role").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-                let services = node.get("services").and_then(|v| v.as_array())
+                let role = node
+                    .get("role")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let services = node
+                    .get("services")
+                    .and_then(|v| v.as_array())
                     .map(|arr| {
                         arr.iter()
                             .filter_map(|s| {
@@ -183,7 +205,9 @@ fn probe_service(ip: &str, port: u16, timeout_ms: u64) -> FleetServiceHealth {
     let addr = format!("{ip}:{port}");
     let start = Instant::now();
     match TcpStream::connect_timeout(
-        &addr.parse().unwrap_or_else(|_| "0.0.0.0:0".parse().unwrap()),
+        &addr
+            .parse()
+            .unwrap_or_else(|_| "0.0.0.0:0".parse().unwrap()),
         Duration::from_millis(timeout_ms),
     ) {
         Ok(mut stream) => {
@@ -196,7 +220,11 @@ fn probe_service(ip: &str, port: u16, timeout_ms: u64) -> FleetServiceHealth {
     }
 }
 
-fn probe_services(ip: &str, services: &[DeclaredService], timeout_ms: u64) -> Vec<FleetServiceStatus> {
+fn probe_services(
+    ip: &str,
+    services: &[DeclaredService],
+    timeout_ms: u64,
+) -> Vec<FleetServiceStatus> {
     services
         .iter()
         .map(|svc| {

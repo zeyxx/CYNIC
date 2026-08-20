@@ -4,9 +4,9 @@
 //! This is the canonical proof that the build capability works end-to-end.
 
 use cynic_host::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
-use cynic_host::build_workflow::{run_build_workflow, BuildWorkflowConfig, BuildWorkflowResult};
+use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner};
-use cynic_protocol::build::{BuildRecipe, BuildRunnerObservation, BUILD_RECIPE_SCHEMA};
+use cynic_protocol::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, BuildRunnerObservation};
 use cynic_protocol::coordination_lease::LeaseVerification;
 use cynic_protocol::{LeaseGuard, SecurityEvidenceState, SourceSnapshot};
 
@@ -142,7 +142,11 @@ fn e2e_workflow_planned_when_all_admitted() {
 
     let result = run_build_workflow(&config);
 
-    assert!(result.is_ok(), "workflow should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "workflow should succeed: {:?}",
+        result.err()
+    );
     let result = result.unwrap();
     match result {
         BuildWorkflowResult::Planned { proof } => {
@@ -171,7 +175,11 @@ fn e2e_workflow_blocked_when_lease_rejected() {
 
     let result = run_build_workflow(&config);
 
-    assert!(result.is_ok(), "workflow should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "workflow should succeed: {:?}",
+        result.err()
+    );
     let result = result.unwrap();
     match result {
         BuildWorkflowResult::Blocked { grant_blockers, .. } => {
@@ -194,10 +202,16 @@ fn e2e_workflow_blocked_when_observation_stale() {
 
     let result = run_build_workflow(&config);
 
-    assert!(result.is_ok(), "workflow should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "workflow should succeed: {:?}",
+        result.err()
+    );
     let result = result.unwrap();
     match result {
-        BuildWorkflowResult::Blocked { runner_blockers, .. } => {
+        BuildWorkflowResult::Blocked {
+            runner_blockers, ..
+        } => {
             assert!(!runner_blockers.is_empty(), "should have runner blockers");
         }
         other => panic!("expected Blocked, got {:?}", other),
@@ -218,7 +232,11 @@ fn e2e_workflow_executed_when_apply_true() {
 
     let result = run_build_workflow(&config);
 
-    assert!(result.is_ok(), "workflow should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "workflow should succeed: {:?}",
+        result.err()
+    );
     let result = result.unwrap();
     match result {
         BuildWorkflowResult::Executed { proof } => {
@@ -243,7 +261,11 @@ fn e2e_workflow_blocked_when_source_unproven() {
 
     let result = run_build_workflow(&config);
 
-    assert!(result.is_ok(), "workflow should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "workflow should succeed: {:?}",
+        result.err()
+    );
     let result = result.unwrap();
     match result {
         BuildWorkflowResult::Blocked { input_blockers, .. } => {

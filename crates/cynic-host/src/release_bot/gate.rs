@@ -104,8 +104,16 @@ mod tests {
             schema: "test",
             passed: true,
             checks: vec![
-                GateCheck { name: "a", passed: true, detail: "".to_string() },
-                GateCheck { name: "b", passed: true, detail: "".to_string() },
+                GateCheck {
+                    name: "a",
+                    passed: true,
+                    detail: "".to_string(),
+                },
+                GateCheck {
+                    name: "b",
+                    passed: true,
+                    detail: "".to_string(),
+                },
             ],
         };
         assert!(gate.all_passed());
@@ -117,8 +125,16 @@ mod tests {
             schema: "test",
             passed: false,
             checks: vec![
-                GateCheck { name: "a", passed: true, detail: "".to_string() },
-                GateCheck { name: "b", passed: false, detail: "".to_string() },
+                GateCheck {
+                    name: "a",
+                    passed: true,
+                    detail: "".to_string(),
+                },
+                GateCheck {
+                    name: "b",
+                    passed: false,
+                    detail: "".to_string(),
+                },
             ],
         };
         assert!(!gate.all_passed());

@@ -8,8 +8,8 @@ use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::local_autonomy::{
-    AutonomyDecision, AutonomyMode, AutonomyObservation, decide_autonomy,
-    LOCAL_AUTONOMY_STATE_SCHEMA,
+    AutonomyDecision, AutonomyMode, AutonomyObservation, LOCAL_AUTONOMY_STATE_SCHEMA,
+    decide_autonomy,
 };
 use cynic_protocol::peer_resolver::PeerResolver;
 
@@ -87,7 +87,8 @@ impl LocalAutonomyRuntime {
         };
 
         // 4. Enrollment (simplified — in production, read from enrollment proof file)
-        let enrollment_proven = Path::new("/var/lib/cynic/identity/enrollment-proven.json").exists();
+        let enrollment_proven =
+            Path::new("/var/lib/cynic/identity/enrollment-proven.json").exists();
 
         AutonomyObservation {
             schema: LOCAL_AUTONOMY_STATE_SCHEMA.to_string(),

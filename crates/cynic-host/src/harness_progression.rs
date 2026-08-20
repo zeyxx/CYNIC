@@ -5,8 +5,8 @@
 //!   lab → conformance → staging → canary → production
 //!
 //! Each step requires explicit proof. No silent promotion.
-use serde::Serialize;
 pub use crate::runtime_harness::{HarnessAuthority, RuntimeHarnessKind};
+use serde::Serialize;
 
 /// Required proof categories for harness progression.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -231,7 +231,10 @@ mod tests {
             vec![],
         );
         let verdict = decide_harness_progression(&ev);
-        assert!(matches!(&verdict, HarnessProgressionVerdict::Allowed { .. }));
+        assert!(matches!(
+            &verdict,
+            HarnessProgressionVerdict::Allowed { .. }
+        ));
     }
 
     #[test]
@@ -305,7 +308,10 @@ mod tests {
             vec![],
         );
         let verdict = decide_harness_progression(&ev);
-        assert!(matches!(&verdict, HarnessProgressionVerdict::Blocked { .. }));
+        assert!(matches!(
+            &verdict,
+            HarnessProgressionVerdict::Blocked { .. }
+        ));
     }
 
     #[test]

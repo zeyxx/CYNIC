@@ -6,13 +6,16 @@
 //! No external HTTP dependency — uses std::net::TcpListener for a minimal
 //! HTTP 1.0 server sufficient for Forgejo webhook delivery.
 
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::thread;
 
 use serde::Serialize;
 
-use crate::forgejo_webhook::{ForgejoHandlerConfig, ForgejoPayload, handle_forgejo_payload, validate_source_commit};
+use crate::forgejo_webhook::{
+    handle_forgejo_payload, validate_source_commit, ForgejoHandlerConfig, ForgejoPayload,
+};
 use crate::update_lifecycle::ArgvRunner;
 
 /// Configuration for the Forgejo webhook server.
@@ -38,23 +41,22 @@ pub struct WebhookTriggerResult {
     pub workload_id: Option<String>,
     pub build_triggered: bool,
     pub error: Option<String>,
+    /// Read-back proof from the build (present when build_triggered && status == "triggered").
+    pub build_proof: Option<String>,
 }
 
-/// Spawn the webhook server thread. Blocks the thread until shutdown.
-/// Returns immediately in a background thread; use the returned handle
-/// to inspect the last result.
-pub fn spawn_webhook_server(config: WebhookServerConfig) -> std::io::Result<thread::JoinHandle<()>> {
+/// Spawn the webhook server thread.
+pub fn spawn_webhook_server(
+    config: WebhookServerConfig,
+) -> std::io::Result<thread::JoinHandle<()>> {
     let listener = TcpListener::bind(&config.bind)?;
     listener.set_nonblocking(false)?;
 
     let handle = thread::spawn(move || {
         for stream in listener.incoming() {
-            match stream {
-                Ok(mut stream) => {
-                    let result = handle_webhook_request(&mut stream, &config);
-                    respond_json(&mut stream, &result);
-                }
-                Err(_) => continue,
+            if let Ok(mut stream) = stream {
+                let result = handle_webhook_request(&mut stream, &config);
+                respond_json(&mut stream, &result);
             }
         }
     });
@@ -63,71 +65,27 @@ pub fn spawn_webhook_server(config: WebhookServerConfig) -> std::io::Result<thre
 }
 
 /// Handle a single HTTP POST request (minimal HTTP/1.0 parsing).
-fn handle_webhook_request(
-    stream: &mut TcpStream,
-    config: &WebhookServerConfig,
-) -> WebhookTriggerResult {
-    let mut buf = [0u8; 65536];
+fn handle_webhook_request(stream: &mut TcpStream, config: &WebhookServerConfig) -> WebhookTriggerResult {
     let mut body = String::new();
-    let mut headers = std::collections::HashMap::new();
+    let mut buf = [0u8; 65536];
 
+    // Read header + body
     loop {
         let n = match stream.read(&mut buf) {
             Ok(0) => break,
             Ok(n) => n,
             Err(_) => {
-                return WebhookTriggerResult {
-                    status: "error".to_string(),
-                    source_commit: None,
-                    workload_id: None,
-                    build_triggered: false,
-                    error: Some("failed to read request body".to_string()),
-                };
+                return error_result("failed to read request body");
             }
         };
 
         let chunk = match std::str::from_utf8(&buf[..n]) {
             Ok(s) => s,
-            Err(_) => {
-                return WebhookTriggerResult {
-                    status: "error".to_string(),
-                    source_commit: None,
-                    workload_id: None,
-                    build_triggered: false,
-                    error: Some("invalid UTF-8 in request".to_string()),
-                };
-            }
+            Err(_) => return error_result("invalid UTF-8 in request"),
         };
 
-        // Split headers from body
         if let Some(idx) = chunk.find("\r\n\r\n") {
-            let header_part = &chunk[..idx];
-            let rest = &chunk[idx + 4..];
-
-            // Parse headers
-            for line in header_part.lines() {
-                if let Some((k, v)) = line.split_once(':') {
-                    let k = k.trim().to_lowercase();
-                    let v = v.trim().to_string();
-                    if k == "content-length" {
-                        if let Ok(len) = v.parse::<usize>() {
-                            headers.insert(k, len);
-                        }
-                    } else {
-                        headers.insert(k, v.len());
-                    }
-                }
-            }
-
-            body.push_str(rest);
-
-            // Check if we've read the full body
-            if let Some(&content_length) = headers.get("content-length") {
-                if body.len() >= content_length {
-                    break;
-                }
-                // Need more data — but for simplicity, we already have it
-            }
+            body.push_str(&chunk[idx + 4..]);
             break;
         } else {
             body.push_str(chunk);
@@ -137,15 +95,7 @@ fn handle_webhook_request(
     // Parse Forgejo payload
     let payload: ForgejoPayload = match serde_json::from_str(&body) {
         Ok(p) => p,
-        Err(e) => {
-            return WebhookTriggerResult {
-                status: "error".to_string(),
-                source_commit: None,
-                workload_id: None,
-                build_triggered: false,
-                error: Some(format!("failed to parse Forgejo payload: {e}")),
-            };
-        }
+        Err(e) => return error_result(&format!("failed to parse Forgejo payload: {e}")),
     };
 
     // Handle via existing forgejo webhook handler
@@ -156,19 +106,19 @@ fn handle_webhook_request(
             workload_id,
             source_commit,
         } => {
-            // Validate commit (fail-closed: never trigger with invalid SHA)
+            // Fail-closed: never trigger with invalid SHA
             if !validate_source_commit(&source_commit) {
                 return WebhookTriggerResult {
                     status: "rejected".to_string(),
                     source_commit: Some(source_commit),
                     workload_id: Some(workload_id),
                     build_triggered: false,
+                    build_proof: None,
                     error: Some("invalid source commit SHA — rejecting build".to_string()),
                 };
             }
 
-            // Trigger build on remote runner via SSH
-            let build_triggered = trigger_remote_build(
+            let (build_triggered, build_proof) = trigger_remote_build(
                 &config.runner_target,
                 &source_commit,
                 &config.phase,
@@ -180,6 +130,7 @@ fn handle_webhook_request(
                 source_commit: Some(source_commit),
                 workload_id: Some(workload_id),
                 build_triggered,
+                build_proof,
                 error: if build_triggered {
                     None
                 } else {
@@ -187,26 +138,37 @@ fn handle_webhook_request(
                 },
             }
         }
-        crate::forgejo_webhook::ForgejoHandlerResult::Skipped { reason } => {
-            WebhookTriggerResult {
-                status: "skipped".to_string(),
-                source_commit: None,
-                workload_id: None,
-                build_triggered: false,
-                error: Some(reason),
-            }
-        }
+        crate::forgejo_webhook::ForgejoHandlerResult::Skipped { reason } => WebhookTriggerResult {
+            status: "skipped".to_string(),
+            source_commit: None,
+            workload_id: None,
+            build_triggered: false,
+            build_proof: None,
+            error: Some(reason),
+        },
+    }
+}
+
+/// Helper for the error path.
+fn error_result(msg: &str) -> WebhookTriggerResult {
+    WebhookTriggerResult {
+        status: "error".to_string(),
+        source_commit: None,
+        workload_id: None,
+        build_triggered: false,
+        build_proof: None,
+        error: Some(msg.to_string()),
     }
 }
 
 /// Trigger a build on the remote runner via SSH + `cynic build run --apply`.
+/// Returns (success, read-back proof JSON).
 fn trigger_remote_build(
     runner_target: &str,
     source_commit: &str,
     phase: &str,
     apply: bool,
-) -> bool {
-    // Build argv for SSH invocation
+) -> (bool, Option<String>) {
     let make_argv = match phase {
         "build" => "make:build",
         "activate" => "make:build-release",
@@ -236,29 +198,31 @@ fn trigger_remote_build(
     let output = runner.run(&refs);
 
     if !apply {
-        // If not applying, just report the plan
-        return output.success();
+        return (output.success(), None);
     }
 
-    // Check for success
     if !output.success() {
         eprintln!(
             "webhook build trigger failed: {}\nstderr: {}",
             output.spawn_error.unwrap_or_else(|| "non-zero exit".to_string()),
             output.stderr
         );
-        return false;
+        return (false, None);
     }
 
-    // Verify read-back: the proof should be in stdout
-    output.success()
+    // Read-back proof: stdout contains the BuildWorkflowResult JSON
+    let proof = if !output.stdout.is_empty() {
+        Some(output.stdout)
+    } else {
+        None
+    };
+
+    (true, proof)
 }
 
 /// Write a minimal HTTP/1.0 JSON response.
 fn respond_json(stream: &mut TcpStream, result: &WebhookTriggerResult) {
-    let body = serde_json::to_string(result).unwrap_or_else(|_| {
-        "{}".to_string()
-    });
+    let body = serde_json::to_string(result).unwrap_or_else(|_| "{}".to_string());
 
     let response = format!(
         "HTTP/1.0 200 OK\r\n\
@@ -277,7 +241,6 @@ fn respond_json(stream: &mut TcpStream, result: &WebhookTriggerResult) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::forgejo_webhook::{ForgejoPayload, ForgejoHandlerResult};
 
     fn valid_sha() -> String {
         "a".repeat(40)
@@ -285,8 +248,7 @@ mod tests {
 
     #[test]
     fn validate_source_commit_accepts_valid_sha() {
-        let sha = valid_sha();
-        assert!(validate_source_commit(&sha));
+        assert!(validate_source_commit(&valid_sha()));
     }
 
     #[test]
@@ -302,5 +264,14 @@ mod tests {
     #[test]
     fn validate_source_commit_rejects_empty() {
         assert!(!validate_source_commit(""));
+    }
+
+    #[test]
+    fn error_result_has_correct_fields() {
+        let r = error_result("test error");
+        assert_eq!(r.status, "error");
+        assert!(!r.build_triggered);
+        assert_eq!(r.build_proof, None);
+        assert_eq!(r.error.as_deref(), Some("test error"));
     }
 }

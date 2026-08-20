@@ -16,10 +16,7 @@ pub fn observe_space_usage(root: &Path, scope: GcScope) -> SpaceGcObservation {
             ".cargo-home/registry/cache",
             ".cargo-home/registry/src",
         ],
-        GcScope::Devops => vec![
-            "target",
-            ".cargo-home/registry/cache",
-        ],
+        GcScope::Devops => vec!["target", ".cargo-home/registry/cache"],
         GcScope::All => vec![
             "target",
             "target-cynic-ci",

@@ -65,18 +65,15 @@ pub(crate) fn execute(args: &[String]) -> Result<std::process::ExitCode, String>
     initialize_workspace(&workspace, &runner)?;
     // Toolchain lifecycle: observe -> reconcile -> bounded argv action (rustup override)
     // BEFORE cargo check, per CYNIC §3 (dynamic detection before specialization).
-    let lifecycle = ToolchainLifecycle::new(crate::toolchain::observe::LocalToolchainObserver::new(
-        crate::toolchain::specs::ToolchainRegistry::default(),
-    ));
+    let lifecycle =
+        ToolchainLifecycle::new(crate::toolchain::observe::LocalToolchainObserver::new(
+            crate::toolchain::specs::ToolchainRegistry::default(),
+        ));
     let toolchain_crate_name = binding.node_subject.clone();
     let seed_path = Path::new("infra/rust-toolchain.json");
     let history_path = crate::toolchain::specs::ToolchainProofHistory::path(&toolchain_crate_name);
-    let _tc_report = match lifecycle.run(
-        &toolchain_crate_name,
-        &seed_path,
-        &history_path,
-        &runner,
-    ) {
+    let _tc_report = match lifecycle.run(&toolchain_crate_name, &seed_path, &history_path, &runner)
+    {
         Ok(report) => Some(report),
         Err(_) => None,
     };

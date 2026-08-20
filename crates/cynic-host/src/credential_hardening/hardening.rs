@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SecretStorageState {
@@ -60,9 +60,7 @@ pub fn observe_secret_hardening(path: &Path, identity: &str) -> SecretHardeningO
     }
 }
 
-pub fn reconcile_secret_hardening(
-    observation: &SecretHardeningObservation,
-) -> SecretHardeningPlan {
+pub fn reconcile_secret_hardening(observation: &SecretHardeningObservation) -> SecretHardeningPlan {
     match observation.state {
         SecretStorageState::PlainText => SecretHardeningPlan {
             status: "planned".to_string(),
@@ -90,15 +88,15 @@ pub fn apply_secret_hardening(
         match action {
             SecretHardeningAction::EncryptWithSystemdCreds => {
                 let temp_path = observation.path.with_extension("tmp");
-                
+
                 // 1. Read plain text
                 let content = std::fs::read(&observation.path)
                     .map_err(|e| format!("read_plain_secret_failed:{e}"))?;
-                
+
                 // 2. Create temporary file for encryption
                 std::fs::write(&temp_path, &content)
                     .map_err(|e| format!("write_temp_secret_failed:{e}"))?;
-                
+
                 // 3. Encrypt using systemd-creds
                 // systemd-creds encrypt --name=<identity> <src> <dst>
                 let status = Command::new("sudo")
@@ -112,11 +110,11 @@ pub fn apply_secret_hardening(
                     ])
                     .status()
                     .map_err(|e| format!("systemd_creds_spawn_failed:{e}"))?;
-                
+
                 if !status.success() {
                     return Err("systemd_creds_encryption_failed".to_string());
                 }
-                
+
                 // 4. Cleanup
                 let _ = std::fs::remove_file(&temp_path);
             }

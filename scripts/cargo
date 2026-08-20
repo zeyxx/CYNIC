@@ -27,14 +27,18 @@ if [[ "${CARGO_WRAPPER_ACTIVE:-0}" == "1" ]]; then
 fi
 
 real_cargo=""
-# Prefer the rustup shim so rust-toolchain.toml remains the repository-level
-# authority. CARGO_REAL_BIN is an explicit escape hatch for conformance probes.
-for candidate in "${CARGO_REAL_BIN:-}" "${HOME:-/tmp}/.cargo/bin/cargo" "/usr/bin/cargo" "/usr/local/bin/cargo" "${HOME:-/tmp}/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo"; do
-  if [[ -n "${candidate}" && -x "${candidate}" && "${candidate}" != "${BASH_SOURCE[0]}" ]]; then
-    real_cargo="${candidate}"
-    break
-  fi
-done
+# Prefer rustup toolchain resolution so rust-toolchain.toml remains the authority.
+if [[ -z "${CARGO_REAL_BIN:-}" ]] && command -v rustup >/dev/null 2>&1; then
+  real_cargo="$(rustup which cargo 2>/dev/null || true)"
+fi
+if [[ -z "${real_cargo}" ]]; then
+  for candidate in "${CARGO_REAL_BIN:-}" "${HOME:-/tmp}/.cargo/bin/cargo" "/usr/bin/cargo" "/usr/local/bin/cargo"; do
+    if [[ -n "${candidate}" && -x "${candidate}" && "${candidate}" != "${BASH_SOURCE[0]}" ]]; then
+      real_cargo="${candidate}"
+      break
+    fi
+  done
+fi
 
 if [[ -z "${real_cargo}" ]]; then
   echo "unable to locate real cargo binary" >&2

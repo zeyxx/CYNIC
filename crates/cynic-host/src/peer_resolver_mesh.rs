@@ -52,14 +52,18 @@ impl MeshPeerResolver {
         let reclaim_pressure_pct = read_reclaim_pressure_pct();
         let softlockup_panic = read_bool("/proc/sys/kernel/softlockup_panic");
 
-        let now_ms: u128 = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0u128, |d| d.as_millis());
+        let now_ms: u128 = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0u128, |d| d.as_millis());
         let mut anomalies = vec![];
 
         if !softlockup_panic {
             anomalies.push(OsHealthAnomaly {
                 severity: "critical".to_string(),
                 error_code: Some("CYNIC-OSH-001".to_string()),
-                detail: "kernel.softlockup_panic=0 (remediation: sysctl -w kernel.softlockup_panic=1)".to_string(),
+                detail:
+                    "kernel.softlockup_panic=0 (remediation: sysctl -w kernel.softlockup_panic=1)"
+                        .to_string(),
                 observed_at_unix_ms: now_ms,
             });
         }
@@ -98,7 +102,9 @@ impl PeerResolver for MeshPeerResolver {
             if !node.role.contains(role) {
                 continue;
             }
-            let ip = node.synapse_ip.unwrap_or_else(|| node.management_ip.clone());
+            let ip = node
+                .synapse_ip
+                .unwrap_or_else(|| node.management_ip.clone());
             let mut any_reachable = false;
 
             for port in &node.probe_ports {
@@ -134,32 +140,15 @@ impl PeerResolver for MeshPeerResolver {
     fn fallback_peers(&self, role: &str) -> Vec<SignedPeerEndpoint> {
         // Fallback: same as resolve_peers but without liveness check.
         // Used when the live mesh is unreachable.
-        let declared = match self.read_declared_peers() {
-            Ok(d) => d,
-            Err(_) => return vec![],
-        };
-
-        declared
-            .iter()
-            .filter(|n| n.role.contains(role))
-            .map(|n| SignedPeerEndpoint {
-                endpoint: PeerEndpoint {
-                    node_id: n.id.clone(),
-                    role: n.role.clone(),
-                    transport: PeerTransport::Http,
-                    addr: n.synapse_ip.clone().unwrap_or(n.management_ip.clone()),
-                    probe_ports: n.probe_ports.clone(),
-                    reachable: false,
-                    health: NodeHealthView::default(),
-                },
-                signature_ed25519: String::new(),
-                generated_at_unix_s: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map(|d| d.as_secs())
-                    .unwrap_or(0),
-                version: 1,
-            })
-            .collect()
+        //
+        // FAIL-CLOSED invariant (see PeerResolver trait doc on
+        // `fallback_peers`): returns empty when the signed fallback bundle is
+        // missing OR its signature does not verify. The registry does not
+        // carry ed25519 signatures — a fallback without a verifiable signature
+        // MUST NOT be returned as trusted. Returns empty vec (availability
+        // sacrificed for safety under partition).
+        let _ = role;
+        vec![]
     }
 
     fn resolve_all_peers(&self) -> Vec<PeerEndpoint> {
@@ -170,7 +159,9 @@ impl PeerResolver for MeshPeerResolver {
 
         let mut peers = vec![];
         for node in declared {
-            let ip = node.synapse_ip.unwrap_or_else(|| node.management_ip.clone());
+            let ip = node
+                .synapse_ip
+                .unwrap_or_else(|| node.management_ip.clone());
             let mut any_reachable = false;
 
             for port in &node.probe_ports {
@@ -201,7 +192,6 @@ impl PeerResolver for MeshPeerResolver {
 
         peers
     }
-
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -217,8 +207,8 @@ struct DeclaredPeer {
 }
 
 fn parse_declared_peers(bytes: &[u8]) -> Result<Vec<DeclaredPeer>, String> {
-    let value: serde_json::Value = serde_json::from_slice(bytes)
-        .map_err(|e| format!("parse registry JSON: {e}"))?;
+    let value: serde_json::Value =
+        serde_json::from_slice(bytes).map_err(|e| format!("parse registry JSON: {e}"))?;
 
     let mut peers = vec![];
 
@@ -234,7 +224,10 @@ fn parse_declared_peers(bytes: &[u8]) -> Result<Vec<DeclaredPeer>, String> {
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown")
                 .to_string();
-            let synapse_ip = reservation.get("synapse").and_then(|v| v.as_str()).map(String::from);
+            let synapse_ip = reservation
+                .get("synapse")
+                .and_then(|v| v.as_str())
+                .map(String::from);
             let management_ip = reservation
                 .get("management")
                 .and_then(|v| v.as_str())
@@ -271,7 +264,9 @@ fn find_node_details(value: &serde_json::Value, name: &str) -> (String, Vec<u16>
                     .and_then(|v| v.as_array())
                     .map(|arr| {
                         arr.iter()
-                            .filter_map(|s| s.get("port").and_then(|v| v.as_u64()).map(|p| p as u16))
+                            .filter_map(|s| {
+                                s.get("port").and_then(|v| v.as_u64()).map(|p| p as u16)
+                            })
                             .collect()
                     })
                     .unwrap_or_default();
@@ -287,7 +282,9 @@ fn find_node_details(value: &serde_json::Value, name: &str) -> (String, Vec<u16>
 // ──────────────────────────────────────────────────────────────────────
 
 fn read_bool(path: &str) -> bool {
-    std::fs::read_to_string(path).map(|c| c.trim() == "1").unwrap_or(false)
+    std::fs::read_to_string(path)
+        .map(|c| c.trim() == "1")
+        .unwrap_or(false)
 }
 
 fn read_available_mem_mib() -> u64 {
@@ -316,9 +313,17 @@ fn read_reclaim_pressure_pct() -> u8 {
     let mut total = 0u64;
     for line in content.lines() {
         if let Some(r) = line.strip_prefix("MemAvailable:") {
-            avail = r.split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(0);
+            avail = r
+                .split_whitespace()
+                .next()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0);
         } else if let Some(r) = line.strip_prefix("MemTotal:") {
-            total = r.split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(0);
+            total = r
+                .split_whitespace()
+                .next()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0);
         }
     }
     if total == 0 {

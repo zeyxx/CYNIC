@@ -1,7 +1,4 @@
-use cynic_protocol::{
-    HarnessObservation,
-    HarnessScenario, HarnessScenarioId,
-};
+use cynic_protocol::{HarnessObservation, HarnessScenario, HarnessScenarioId};
 
 pub fn observe_harness_scenarios(
     scenarios: &[HarnessScenario],
@@ -10,9 +7,11 @@ pub fn observe_harness_scenarios(
     scenarios
         .iter()
         .map(|scenario| {
-            if let Some(custom) = observed_data
-                .and_then(|items| items.iter().find(|obs| obs.scenario_id == Some(scenario.id)))
-            {
+            if let Some(custom) = observed_data.and_then(|items| {
+                items
+                    .iter()
+                    .find(|obs| obs.scenario_id == Some(scenario.id))
+            }) {
                 return custom.clone();
             }
 

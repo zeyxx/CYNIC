@@ -63,12 +63,13 @@ impl ForgejoObservationPort for RuntimeForgejoObserver {
                 .map(|t| !t.trim().is_empty())
                 .unwrap_or(false);
 
-        let authenticated_state = if transport_reachability == ForgejoEvidenceState::Proven && has_token {
-            evidence_refs.push("secret:forgejo-token".to_string());
-            ForgejoEvidenceState::Proven
-        } else {
-            ForgejoEvidenceState::Unknown
-        };
+        let authenticated_state =
+            if transport_reachability == ForgejoEvidenceState::Proven && has_token {
+                evidence_refs.push("secret:forgejo-token".to_string());
+                ForgejoEvidenceState::Proven
+            } else {
+                ForgejoEvidenceState::Unknown
+            };
         let ssh_state = if transport_reachability == ForgejoEvidenceState::Proven {
             ForgejoEvidenceState::Proven
         } else {

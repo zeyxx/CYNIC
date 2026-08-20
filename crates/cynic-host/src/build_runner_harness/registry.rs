@@ -1,14 +1,13 @@
-use cynic_protocol::{parse_harness_scenarios, HarnessScenario};
+use cynic_protocol::{HarnessScenario, parse_harness_scenarios};
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
 pub fn read_registry(registry_path: &str) -> Result<Value, String> {
     let path = Path::new(registry_path);
-    let raw = fs::read_to_string(path)
-        .map_err(|err| format!("failed_to_read_registry_file:{err}"))?;
-    serde_json::from_str(&raw)
-        .map_err(|err| format!("invalid_registry_json:{err}"))
+    let raw =
+        fs::read_to_string(path).map_err(|err| format!("failed_to_read_registry_file:{err}"))?;
+    serde_json::from_str(&raw).map_err(|err| format!("invalid_registry_json:{err}"))
 }
 
 pub fn load_harness_scenarios(registry_path: &str) -> Result<Vec<HarnessScenario>, String> {
