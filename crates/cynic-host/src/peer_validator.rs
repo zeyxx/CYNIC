@@ -48,10 +48,14 @@ impl PeerValidator {
         public_key: &[u8],
     ) -> Result<(), CryptoError> {
         if authority_id.trim().is_empty() {
-            return Err(CryptoError::InvalidKey("authority_id cannot be empty".into()));
+            return Err(CryptoError::InvalidKey(
+                "authority_id cannot be empty".into(),
+            ));
         }
         if public_key.len() != 32 {
-            return Err(CryptoError::InvalidKey("root public key must be 32 bytes".into()));
+            return Err(CryptoError::InvalidKey(
+                "root public key must be 32 bytes".into(),
+            ));
         }
         self.trusted_root_authorities
             .insert(authority_id.to_string(), public_key.to_vec());
@@ -103,8 +107,7 @@ impl PeerValidator {
             ));
         }
 
-        self.peer_certificates
-            .insert(cert.node_id.clone(), cert);
+        self.peer_certificates.insert(cert.node_id.clone(), cert);
         Ok(())
     }
 
@@ -178,14 +181,14 @@ impl PeerValidator {
         let public_key = match hex::decode(&cert.subject_public_key_hex) {
             Ok(k) => k,
             Err(_) => {
-                return HeartbeatValidationResult::MalformedPayload("invalid public key hex".into())
+                return HeartbeatValidationResult::MalformedPayload("invalid public key hex".into());
             }
         };
 
         let signature = match hex::decode(&signed.signature_hex) {
             Ok(s) => s,
             Err(_) => {
-                return HeartbeatValidationResult::MalformedPayload("invalid signature hex".into())
+                return HeartbeatValidationResult::MalformedPayload("invalid signature hex".into());
             }
         };
 
@@ -213,13 +216,40 @@ mod tests {
         ttl_s: u64,
         provider: &dyn CryptoProvider,
     ) -> NodeEnrollmentCertificate {
+        make_cert_for_authority(
+            node_id,
+            "kernel-alpha",
+            public_key,
+            kernel_secret,
+            now_unix_s,
+            ttl_s,
+            provider,
+        )
+    }
+
+    /// Issues a certificate under a named root authority.
+    ///
+    /// The authority id must be a parameter, not a constant patched afterwards:
+    /// it is covered by `signing_bytes()` and by the `certificate_id` digest, so
+    /// mutating it post-signature leaves the id computed over the previous bytes.
+    /// Multi-root tests need a real issuer name, since
+    /// `register_peer_certificate_with_roots` resolves the trusted key by this id.
+    fn make_cert_for_authority(
+        node_id: &str,
+        kernel_authority_id: &str,
+        public_key: &[u8],
+        kernel_secret: &[u8],
+        now_unix_s: u64,
+        ttl_s: u64,
+        provider: &dyn CryptoProvider,
+    ) -> NodeEnrollmentCertificate {
         let mut cert = NodeEnrollmentCertificate {
             schema: NODE_ENROLLMENT_CERTIFICATE_SCHEMA.to_string(),
             certificate_id: String::new(),
             node_id: node_id.to_string(),
             role: "worker".to_string(),
             subject_public_key_hex: hex::encode(public_key),
-            kernel_authority_id: "kernel-alpha".to_string(),
+            kernel_authority_id: kernel_authority_id.to_string(),
             issued_at_unix_s: now_unix_s,
             expires_at_unix_s: now_unix_s + ttl_s,
             kernel_signature_hex: String::new(),
@@ -241,7 +271,14 @@ mod tests {
         let (peer_secret, peer_public) = provider.generate_keypair().expect("peer keys");
 
         let now = 1700000000;
-        let cert = make_cert("node-worker-1", &peer_public, &kernel_secret, now, 86400, &provider);
+        let cert = make_cert(
+            "node-worker-1",
+            &peer_public,
+            &kernel_secret,
+            now,
+            86400,
+            &provider,
+        );
         validator
             .register_peer_certificate(cert.clone(), &kernel_public, now)
             .expect("register cert");
@@ -271,7 +308,14 @@ mod tests {
         let (peer_secret, peer_public) = provider.generate_keypair().expect("peer keys");
 
         let now = 1700000000;
-        let cert = make_cert("node-worker-1", &peer_public, &kernel_secret, now, 86400, &provider);
+        let cert = make_cert(
+            "node-worker-1",
+            &peer_public,
+            &kernel_secret,
+            now,
+            86400,
+            &provider,
+        );
         validator
             .register_peer_certificate(cert.clone(), &kernel_public, now)
             .expect("register cert");
@@ -311,7 +355,11 @@ mod tests {
         };
 
         let signed = validator
-            .sign_heartbeat(&hb, &peer_secret, "sha256:1111111111111111111111111111111111111111111111111111111111111111")
+            .sign_heartbeat(
+                &hb,
+                &peer_secret,
+                "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            )
             .expect("sign hb");
 
         let result = validator.validate_heartbeat(&signed, now, 30);
@@ -327,7 +375,14 @@ mod tests {
         let (peer_secret, peer_public) = provider.generate_keypair().expect("peer keys");
 
         let now = 1700000000;
-        let cert = make_cert("node-worker-1", &peer_public, &kernel_secret, now, 86400, &provider);
+        let cert = make_cert(
+            "node-worker-1",
+            &peer_public,
+            &kernel_secret,
+            now,
+            86400,
+            &provider,
+        );
         validator
             .register_peer_certificate(cert.clone(), &kernel_public, now)
             .expect("register cert");
@@ -354,27 +409,51 @@ mod tests {
         let mut validator = PeerValidator::default();
 
         let (kernel_a_secret, kernel_a_pub) = provider.generate_keypair().expect("kernel a");
-        let (kernel_b_secret, kernel_b_pub) = provider.generate_keypair().expect("kernel b (standby)");
+        let (kernel_b_secret, kernel_b_pub) =
+            provider.generate_keypair().expect("kernel b (standby)");
 
-        validator.register_root_authority("kernel-primary", &kernel_a_pub).expect("reg a");
-        validator.register_root_authority("kernel-standby", &kernel_b_pub).expect("reg b");
+        validator
+            .register_root_authority("kernel-primary", &kernel_a_pub)
+            .expect("reg a");
+        validator
+            .register_root_authority("kernel-standby", &kernel_b_pub)
+            .expect("reg b");
 
         let (peer_1_secret, peer_1_pub) = provider.generate_keypair().expect("p1");
         let (peer_2_secret, peer_2_pub) = provider.generate_keypair().expect("p2");
 
         let now = 1700000000;
-        // Peer 1 enrolled by primary
-        let cert1 = make_cert("node-1", &peer_1_pub, &kernel_a_secret, now, 86400, &provider);
-        // Peer 2 enrolled by standby
-        let mut cert2 = make_cert("node-2", &peer_2_pub, &kernel_b_secret, now, 86400, &provider);
-        cert2.kernel_authority_id = "kernel-standby".to_string();
-        let signing_bytes = cert2.signing_bytes();
-        let sig = provider.sign(&signing_bytes, &kernel_b_secret).expect("sign");
-        cert2.kernel_signature_hex = hex::encode(sig);
+        // Peer 1 enrolled by the primary root, peer 2 by the standby root. Both
+        // issuers are named at construction: certificate_id is a digest over
+        // signing_bytes(), which covers kernel_authority_id, so patching the
+        // authority after signing left cert2 with an id computed over the
+        // pre-mutation bytes — a stale identity the registry would still accept.
+        let cert1 = make_cert_for_authority(
+            "node-1",
+            "kernel-primary",
+            &peer_1_pub,
+            &kernel_a_secret,
+            now,
+            86400,
+            &provider,
+        );
+        let cert2 = make_cert_for_authority(
+            "node-2",
+            "kernel-standby",
+            &peer_2_pub,
+            &kernel_b_secret,
+            now,
+            86400,
+            &provider,
+        );
 
         // Both enroll cleanly through multi-root registry
-        validator.register_peer_certificate_with_roots(cert1.clone(), now).expect("reg c1");
-        validator.register_peer_certificate_with_roots(cert2.clone(), now).expect("reg c2");
+        validator
+            .register_peer_certificate_with_roots(cert1.clone(), now)
+            .expect("reg c1");
+        validator
+            .register_peer_certificate_with_roots(cert2.clone(), now)
+            .expect("reg c2");
 
         // Both heartbeats are valid and verifiable without communicating with any central server
         let hb1 = FleetHeartbeat {
@@ -384,8 +463,13 @@ mod tests {
             uptime_s: 10,
             unknowns: vec![],
         };
-        let signed1 = validator.sign_heartbeat(&hb1, &peer_1_secret, &cert1.certificate_id).expect("sign 1");
-        assert_eq!(validator.validate_heartbeat(&signed1, now, 30), HeartbeatValidationResult::Valid);
+        let signed1 = validator
+            .sign_heartbeat(&hb1, &peer_1_secret, &cert1.certificate_id)
+            .expect("sign 1");
+        assert_eq!(
+            validator.validate_heartbeat(&signed1, now, 30),
+            HeartbeatValidationResult::Valid
+        );
 
         let hb2 = FleetHeartbeat {
             node_id: "node-2".to_string(),
@@ -394,7 +478,12 @@ mod tests {
             uptime_s: 10,
             unknowns: vec![],
         };
-        let signed2 = validator.sign_heartbeat(&hb2, &peer_2_secret, &cert2.certificate_id).expect("sign 2");
-        assert_eq!(validator.validate_heartbeat(&signed2, now, 30), HeartbeatValidationResult::Valid);
+        let signed2 = validator
+            .sign_heartbeat(&hb2, &peer_2_secret, &cert2.certificate_id)
+            .expect("sign 2");
+        assert_eq!(
+            validator.validate_heartbeat(&signed2, now, 30),
+            HeartbeatValidationResult::Valid
+        );
     }
 }
