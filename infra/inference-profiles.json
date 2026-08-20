@@ -14,11 +14,12 @@
       "flash_attention": true,
       "gpu_layers": 99,
       "port": 8091,
-      "tg_tok_per_s": 8.17,
+      "tg_tok_per_s": 6.95,
       "tool_use": "validated (JSON function-call: compute 2+2)",
       "reasoning": "deepseek-routing (reasoning_content)",
       "validation": "replay-rust-fix-port0 + tool-use-pass",
-      "notes": "dense qwen35 = NOT MoE sparse. sibling of Qwythos (MTP). tool-use claim in AGENTS.md was FALSE — corrected by runtime observation."
+      "notes": "dense qwen35 = NOT MoE sparse. sibling of Qwythos (MTP). tool-use claim in AGENTS.md was FALSE — corrected by runtime observation.",
+      "throughput_note": "ctx64K q4_0 dense real (8091)"
     },
     {
       "alias": "qwythos-9b-q4",
@@ -62,7 +63,9 @@
         "kv_q8_at_max_ctx_mib": 2304,
         "total_f16_mib": 10240,
         "total_q8_mib": 7936
-      }
+      },
+      "tg_tok_per_s": 6.91,
+      "throughput_note": "ctx8K q4_0 MTP real; ctx>8K HANG defect"
     },
     {
       "alias": "btl4-compact-moe",
