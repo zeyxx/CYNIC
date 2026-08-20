@@ -30,7 +30,8 @@ const QUARANTINED: &[&str] = &[
     "container_runtime/policy.rs",
     "container_runtime/port.rs",
     "container_runtime/types.rs",
-    "coordination_lease_store/mod.rs",
+    // coordination_lease_store/mod.rs left the quarantine: declared in lib.rs,
+    // and the two integration suites that import it now compile.
     "detection_engine/hardware.rs",
     "detection_engine/mod.rs",
     "detection_engine/provenance.rs",

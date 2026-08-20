@@ -14,6 +14,10 @@ pub mod build_runner_harness;
 pub mod build_workflow;
 pub mod command_surface;
 pub mod conformance;
+// The store two integration tests already import. It was never declared, so the
+// coordination lease enforcement it implements has been inert: nothing compiled
+// it, and both test suites failed at E0432 rather than exercising it.
+pub mod coordination_lease_store;
 pub mod credential;
 pub mod credential_provisioning;
 pub mod kernel_tunnel;
