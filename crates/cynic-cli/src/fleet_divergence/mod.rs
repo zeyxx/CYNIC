@@ -13,12 +13,12 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use cynic_host::registry_divergence_probe::{
-    assemble_name_observation, probe_address_reachable, resolve_name_here, ClaimToProbe,
+    ClaimToProbe, assemble_name_observation, probe_address_reachable, resolve_name_here,
 };
 use cynic_host::update_lifecycle::LocalArgvRunner;
 use cynic_protocol::registry_claim_audit::{
-    claim_to_signal_payload, judge_claim, judge_name, name_to_signal_payload, summarize_claims,
-    ClaimKind, ClaimVerdict, NameVerdict,
+    ClaimKind, ClaimVerdict, NameVerdict, claim_to_signal_payload, compare_declarative_sources,
+    judge_claim, judge_name, name_to_signal_payload, summarize_claims,
 };
 
 use crate::cli_json::emit_pretty_json;
@@ -30,6 +30,11 @@ pub(crate) use types::{ClaimRow, FleetDivergenceReport, NameRow};
 
 /// Default registry location, repo-relative so no operator path is compiled in.
 const DEFAULT_REGISTRY: &str = "infra/registry.json";
+
+/// The seed table the mesh resolver reads in preference to its compiled const.
+/// Resolved beside the registry so a caller auditing a copied registry compares
+/// against that copy's seed, not the repo's.
+const DEFAULT_SEED: &str = "synapse-nodes.seed.json";
 
 pub(crate) fn run(json: bool, registry: Option<PathBuf>, names: Vec<String>) -> ExitCode {
     let registry_path = registry.unwrap_or_else(|| PathBuf::from(DEFAULT_REGISTRY));
@@ -71,6 +76,66 @@ pub(crate) fn run(json: bool, registry: Option<PathBuf>, names: Vec<String>) -> 
                 .unwrap_or_default(),
         });
         verdicts.push(verdict);
+    }
+
+    // Declarative divergence needs no probe: it is a disagreement between two
+    // files, and every address involved answers. A seed table that contradicts
+    // the registry is a competing authority, so it is audited here rather than
+    // trusted as a fallback.
+    let seed_path = registry_path
+        .parent()
+        .map(|dir| dir.join(DEFAULT_SEED))
+        .unwrap_or_else(|| PathBuf::from(DEFAULT_SEED));
+
+    if let Ok(registry_views) = scan::extract_registry_views(&registry_path) {
+        match scan::extract_seed_views(&seed_path) {
+            // No seed file: the resolver uses its compiled const. Absence of a
+            // second source is not a divergence.
+            Ok(None) => {}
+            Ok(Some(seed_views)) => {
+                for observation in compare_declarative_sources(&registry_views, &seed_views) {
+                    let verdict = judge_claim(&observation);
+                    let signal = claim_to_signal_payload(&observation, &verdict);
+
+                    rows.push(ClaimRow {
+                        node_id: observation.node_id.clone(),
+                        claim_kind: observation.kind.as_str().to_string(),
+                        declared: observation.declared.clone(),
+                        declared_as_candidate: observation.declared_as_candidate,
+                        verdict: verdict_label(&verdict).to_string(),
+                        detail: verdict_detail(&verdict),
+                        error_codes: signal
+                            .map(|payload| {
+                                payload
+                                    .error_codes()
+                                    .into_iter()
+                                    .map(|code| code.code().to_string())
+                                    .collect()
+                            })
+                            .unwrap_or_default(),
+                    });
+                    verdicts.push(verdict);
+                }
+            }
+            // A corrupt seed is reported as an unobservable claim, not skipped:
+            // the resolver will still consume something, and silence here would
+            // hide which source it used.
+            Err(error) => {
+                let verdict = ClaimVerdict::Unobservable {
+                    reason: error.clone(),
+                };
+                rows.push(ClaimRow {
+                    node_id: "-".to_string(),
+                    claim_kind: ClaimKind::DeclarativeAgreement.as_str().to_string(),
+                    declared: seed_path.display().to_string(),
+                    declared_as_candidate: false,
+                    verdict: verdict_label(&verdict).to_string(),
+                    detail: verdict_detail(&verdict),
+                    error_codes: Vec::new(),
+                });
+                verdicts.push(verdict);
+            }
+        }
     }
 
     // Names are audited from this host only unless the caller supplies more
@@ -165,7 +230,11 @@ fn name_verdict_detail(verdict: &NameVerdict) -> String {
             format!("{observers} vantage point(s) agree on {value}")
         }
         NameVerdict::Inconsistent { distinct_values } => {
-            format!("{} distinct answers: {}", distinct_values.len(), distinct_values.join(", "))
+            format!(
+                "{} distinct answers: {}",
+                distinct_values.len(),
+                distinct_values.join(", ")
+            )
         }
         NameVerdict::Undecidable { reason } => reason.clone(),
     }

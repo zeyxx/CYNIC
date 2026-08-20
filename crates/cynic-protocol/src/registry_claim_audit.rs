@@ -314,11 +314,7 @@ pub fn judge_name(observation: &NameObservation) -> NameVerdict {
 
     if distinct.len() == 1 {
         NameVerdict::Consistent {
-            value: distinct
-                .into_iter()
-                .next()
-                .unwrap_or_default()
-                .to_string(),
+            value: distinct.into_iter().next().unwrap_or_default().to_string(),
             observers: observation.answers.len(),
         }
     } else {
@@ -334,17 +330,15 @@ pub fn name_to_signal_payload(
     verdict: &NameVerdict,
 ) -> Option<HealthSignalPayload> {
     match verdict {
-        NameVerdict::Inconsistent { .. } => {
-            Some(HealthSignalPayload::NameResolutionInconsistent {
-                name: observation.name.clone(),
-                answers: observation.answers.clone(),
-                unresolved_from: observation
-                    .unresolved
-                    .iter()
-                    .map(|(observer, _)| observer.clone())
-                    .collect(),
-            })
-        }
+        NameVerdict::Inconsistent { .. } => Some(HealthSignalPayload::NameResolutionInconsistent {
+            name: observation.name.clone(),
+            answers: observation.answers.clone(),
+            unresolved_from: observation
+                .unresolved
+                .iter()
+                .map(|(observer, _)| observer.clone())
+                .collect(),
+        }),
         _ => None,
     }
 }
