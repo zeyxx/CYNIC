@@ -89,14 +89,16 @@ pub(crate) enum RuntimeCommand {
         json: bool,
     },
     Conformance {
-        #[arg(long)]
-        json: bool,
+        // No local `json` here: ProfileArgs (bootstrap_surface/selection.rs:22)
+        // already declares `--json`, and clap panics at startup on a duplicate
+        // argument id ("Argument names must be unique, but 'json' is in use by
+        // more than one argument or group"). Read it from the flattened group.
         #[command(flatten)]
         profile: ProfileArgs,
     },
     Metrics {
-        #[arg(long)]
-        json: bool,
+        // Same duplicate-id collision as Conformance: --json comes from
+        // ProfileArgs, not from a second local declaration.
         #[command(flatten)]
         profile: ProfileArgs,
         #[arg(long)]
@@ -420,20 +422,32 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             profile,
             proof,
         } => suite::execute_plan(json, registry.as_deref(), &profile, proof.as_deref()),
-        RuntimeCommand::HarnessProgress { current_kind, target_kind, satisfied, unknown, json } => {
-            match execute_harness_progress(current_kind.clone(), target_kind.clone(), satisfied.clone(), unknown.clone(), json) {
+        RuntimeCommand::HarnessProgress {
+            current_kind,
+            target_kind,
+            satisfied,
+            unknown,
+            json,
+        } => {
+            match execute_harness_progress(
+                current_kind.clone(),
+                target_kind.clone(),
+                satisfied.clone(),
+                unknown.clone(),
+                json,
+            ) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => fail(e),
             }
         }
-        RuntimeCommand::Conformance { json, profile } => {
+        RuntimeCommand::Conformance { profile } => {
+            let json = profile.json;
             host_checks::execute_conformance(json, &profile)
         }
-        RuntimeCommand::Metrics {
-            json,
-            profile,
-            proof,
-        } => host_checks::execute_metrics(json, &profile, proof.as_deref()),
+        RuntimeCommand::Metrics { profile, proof } => {
+            let json = profile.json;
+            host_checks::execute_metrics(json, &profile, proof.as_deref())
+        }
         RuntimeCommand::StorageCapabilities { json, url } => {
             host_checks::execute_storage_capabilities(json, url.as_deref())
         }
@@ -487,8 +501,20 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         | RuntimeCommand::DepsAudit { .. }
         | RuntimeCommand::DepsUpgrade { .. }
         | RuntimeCommand::Disk { .. }
-        | RuntimeCommand::DiskClean { .. }
-        | RuntimeCommand::Harness { .. } => unreachable!("pre-dispatched runtime command"),
+        | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
+        RuntimeCommand::Harness { json, kind } => {
+            // This arm used to sit in the `unreachable!("pre-dispatched runtime
+            // command")` group, but nothing ever pre-dispatched it: no early
+            // return in execute_runtime, inference_dispatch, or compat_aliases
+            // claims Harness, so `cynic runtime harness --json` panicked on the
+            // documented happy path.
+            //
+            // The handler already existed in host_checks.rs — a module carrying
+            // `#![allow(dead_code)]` because none of its three functions had a
+            // caller. Calling it is the repair; reimplementing it here would
+            // have duplicated the projection and left the fossil in place.
+            host_checks::execute_harness(json, kind.as_deref())
+        }
     }
 }
 
@@ -555,12 +581,16 @@ pub(crate) fn execute_harness_progress(
     };
     let verdict = cynic_host::harness_progression::decide_harness_progression(&evidence);
     if json {
-        let s = serde_json::to_string_pretty(&verdict)
-            .map_err(|e| format!("serialize failed: {e}"))?;
+        let s =
+            serde_json::to_string_pretty(&verdict).map_err(|e| format!("serialize failed: {e}"))?;
         println!("{s}");
     } else {
         match &verdict {
-            HarnessProgressionVerdict::Allowed { current_kind, target_kind, authority } => {
+            HarnessProgressionVerdict::Allowed {
+                current_kind,
+                target_kind,
+                authority,
+            } => {
                 println!("ALLOWED: {current_kind:?} -> {target_kind:?} (authority: {authority:?})");
             }
             HarnessProgressionVerdict::Blocked { reason, detail } => {
@@ -572,7 +602,9 @@ pub(crate) fn execute_harness_progress(
 }
 
 pub(crate) fn execute_storage_credential_sync(json: bool, endpoint: &str) -> Result<(), String> {
-    use cynic_host::storage_credential_sync::{StorageCredentialSyncPort, StorageCredentialSyncAdapter};
+    use cynic_host::storage_credential_sync::{
+        StorageCredentialSyncAdapter, StorageCredentialSyncPort,
+    };
     use cynic_protocol::storage_credential_sync::{StorageCredentialSpec, decide_credential_sync};
 
     let spec = StorageCredentialSpec {
@@ -587,8 +619,8 @@ pub(crate) fn execute_storage_credential_sync(json: bool, endpoint: &str) -> Res
     let verdict = decide_credential_sync(&spec, &obs);
 
     if json {
-        let s = serde_json::to_string_pretty(&verdict)
-            .map_err(|e| format!("serialize failed: {e}"))?;
+        let s =
+            serde_json::to_string_pretty(&verdict).map_err(|e| format!("serialize failed: {e}"))?;
         println!("{s}");
     } else {
         use cynic_protocol::storage_credential_sync::CredentialSyncVerdict;
