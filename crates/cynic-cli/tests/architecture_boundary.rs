@@ -923,7 +923,7 @@ fn dev_surface_is_a_thin_facade_over_manifest_and_persistence_modules() {
         dev_surface.contains("mod manifest;")
             && dev_surface.contains("mod audit_persist;")
             && dev_surface.contains("execute_surfaces(json)")
-            && dev_surface.contains("execute_framework(json)"),
+            && dev_surface.contains("execute_framework(json, markdown)"),
         "dev_surface.rs must delegate protocol projections to dev_surface/manifest.rs"
     );
     assert!(
@@ -1118,8 +1118,8 @@ fn agent_exposure_audit_is_split_into_scan_and_check_modules() {
     );
     assert!(
         source_scan.contains("pub(crate) fn scan_mcp_tool_names")
-            && source_scan.contains("pub(crate) fn extract_tool_names")
-            && source_scan.contains("parse_tool_name"),
+            && source_scan.contains("fn extract_tools")
+            && source_scan.contains("fn extract_attr_value"),
         "agent exposure source scanning must live in agent_exposure_audit/source_scan.rs"
     );
     assert!(
