@@ -21,9 +21,8 @@ mod orphan_sources;
 const QUARANTINED: &[&str] = &[
     "adapters/host_exec_disk.rs",
     "adapters/proxmox_clone.rs",
-    "audit_engine/mod.rs",
-    "audit_engine/rules.rs",
-    "audit_engine/scanner.rs",
+    // audit_engine/{mod,rules,scanner}.rs left the quarantine: declared in
+    // lib.rs, so run_workspace_audit and its rules now compile.
     "container_runtime/local.rs",
     "container_runtime/mod.rs",
     "container_runtime/normalize.rs",

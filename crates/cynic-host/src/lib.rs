@@ -2,6 +2,9 @@ pub mod adapters;
 pub mod agent_access;
 pub mod agent_matrix;
 pub mod agent_runtime;
+// run_workspace_audit lives here and multi_agent_e2e_simulation imports it, but
+// no declaration reached the directory, so the workspace audit never compiled.
+pub mod audit_engine;
 pub mod autoresearch;
 pub mod bootstrap_chain;
 pub mod bootstrap_host_plan;

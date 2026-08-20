@@ -168,6 +168,10 @@ fn test_adversarial_merkle_tampering_and_sybil_resistance() {
             evidence_tier: EvidenceTier::T1OnChain,
             raw_weight: 10 * SCORE_SCALE,
             timestamp: 1_720_000_000,
+            // Field added to EScoreSignal after this suite was written. None is
+            // the documented default: treat the signal at the runtime's current
+            // epoch, preserving the fixture's original meaning.
+            epoch: None,
         },
         EScoreSignal {
             wallet_id: "wallet-sybil-2".to_string(),
@@ -175,6 +179,10 @@ fn test_adversarial_merkle_tampering_and_sybil_resistance() {
             evidence_tier: EvidenceTier::T1OnChain,
             raw_weight: 10 * SCORE_SCALE,
             timestamp: 1_720_000_000,
+            // Field added to EScoreSignal after this suite was written. None is
+            // the documented default: treat the signal at the runtime's current
+            // epoch, preserving the fixture's original meaning.
+            epoch: None,
         },
     ];
 
