@@ -256,6 +256,18 @@ where
                     ControlPlanVerificationStatus::StructuralErrors(errs) => {
                         format!("control_plan_structural_errors:{}", errs.join(","))
                     }
+                    // Unreachable in practice: no Err path in verify_and_admit_plan
+                    // constructs Verified. It is matched rather than ignored because
+                    // the type permits it, and a silent catch-all would swallow any
+                    // future rejection variant instead of failing to compile.
+                    //
+                    // Residual risk: the real contract is that a rejection cannot be
+                    // Verified, and the type does not express that. Narrowing the Err
+                    // type to a rejection-only enum would make this arm impossible,
+                    // but that changes a signature four files depend on.
+                    ControlPlanVerificationStatus::Verified => {
+                        "control_plan_rejected_without_reason".to_string()
+                    }
                 };
                 return report(
                     node_id,
