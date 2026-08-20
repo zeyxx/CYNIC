@@ -89,6 +89,57 @@ pub fn probe_address_reachable(
     }
 }
 
+/// Probe whether a declared address answers a TCP connect, without privilege.
+///
+/// ICMP needs `cap_net_raw`, which the `cynic` principal does not hold, so
+/// `probe_address_reachable` degrades to `Unobservable` on every node it cannot
+/// ping — an honest verdict that nonetheless proves nothing. A TCP connect to a
+/// port the node is expected to serve needs no capability at all, so it can
+/// actually confirm the claim.
+///
+/// Uses `getent`-free, resolver-free argv (`bash -c` writing to `/dev/tcp`) so
+/// it stays inside the injected `ArgvRunner` and remains unit-testable. Read-only:
+/// opening and closing a connection mutates nothing.
+///
+/// A refused or timed-out port is still `Unobservable`, not a refutation: the
+/// host may serve nothing on that port while being perfectly present at the
+/// declared address. Only a *different* answer refutes an address claim.
+pub fn probe_address_tcp(
+    runner: &dyn ArgvRunner,
+    claim: &ClaimToProbe,
+    port: u16,
+) -> ClaimObservation {
+    let probe = format!("exec 3<>/dev/tcp/{}/{}", claim.declared, port);
+    let output = runner.run(&["timeout", "2", "bash", "-c", &probe]);
+
+    let (observed, reason) = if let Some(error) = &output.spawn_error {
+        (None, Some(format!("tcp probe unavailable: {error}")))
+    } else if output.exit_code == Some(0) {
+        // It accepted a connection at the declared address: the claim holds, and
+        // no privilege was required to establish it.
+        (Some(claim.declared.clone()), None)
+    } else {
+        (
+            None,
+            Some(format!(
+                "{}:{} refused or timed out; the node may serve nothing on that \
+                 port while still holding the declared address, which does not \
+                 prove the registry wrong",
+                claim.declared, port
+            )),
+        )
+    };
+
+    ClaimObservation {
+        node_id: claim.node_id.clone(),
+        kind: claim.kind,
+        declared: claim.declared.clone(),
+        observed,
+        declared_as_candidate: claim.declared_as_candidate,
+        unobservable_reason: reason,
+    }
+}
+
 /// Resolve a name from this vantage point.
 ///
 /// Returns the first address `getent hosts` prints. A caller building a
@@ -419,12 +470,71 @@ mod tests {
             vec!["ping", "-c", "1", "-W", "2", "10.10.10.100"],
             vec!["getent", "hosts", "kernel.synapse.cynic"],
             vec!["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}"],
+            vec!["timeout", "2", "bash", "-c", "exec 3<>/dev/tcp/10.10.10.119/22"],
         ] {
-            assert!(
-                !mutating.contains(&argv[0]),
-                "{} is not a read-only probe",
-                argv[0]
-            );
+            // argv[0] alone stopped being sufficient once a probe shells out:
+            // `bash -c` can carry anything, so check every word.
+            for word in &argv {
+                assert!(
+                    !mutating.contains(word),
+                    "{word} is not a read-only probe"
+                );
+            }
         }
+    }
+
+    /// The whole point of the TCP probe: confirm an address with no capability.
+    ///
+    /// `probe_address_reachable` cannot do this for the `cynic` principal, which
+    /// holds no `cap_net_raw`, so every node it audits degrades to Unobservable.
+    #[test]
+    fn a_tcp_connect_confirms_an_address_without_privilege() {
+        let claim = ClaimToProbe {
+            node_id: "cynic-builder".to_string(),
+            kind: ClaimKind::SynapseAddress,
+            declared: "10.10.10.119".to_string(),
+            declared_as_candidate: false,
+        };
+        let r = runner(
+            &["timeout", "2", "bash", "-c", "exec 3<>/dev/tcp/10.10.10.119/22"],
+            ok(""),
+        );
+
+        let observation = probe_address_tcp(&r, &claim, 22);
+
+        assert_eq!(observation.observed.as_deref(), Some("10.10.10.119"));
+        assert_eq!(judge_claim(&observation), ClaimVerdict::Confirmed);
+        assert!(observation.unobservable_reason.is_none());
+    }
+
+    /// A closed port is not a refutation.
+    ///
+    /// The node may hold the declared address while serving nothing there, so
+    /// the honest verdict is Unobservable — the same discipline the ICMP probe
+    /// applies to silence.
+    #[test]
+    fn a_closed_port_stays_unobservable_not_refuted() {
+        let claim = ClaimToProbe {
+            node_id: "local-kernel".to_string(),
+            kind: ClaimKind::SynapseAddress,
+            declared: "10.10.10.100".to_string(),
+            declared_as_candidate: true,
+        };
+        let r = runner(
+            &["timeout", "2", "bash", "-c", "exec 3<>/dev/tcp/10.10.10.100/22"],
+            failed(1),
+        );
+
+        let observation = probe_address_tcp(&r, &claim, 22);
+
+        assert!(observation.observed.is_none());
+        assert!(
+            observation
+                .unobservable_reason
+                .as_deref()
+                .unwrap_or_default()
+                .contains("does not prove the registry wrong"),
+            "a closed port must not read as a refutation"
+        );
     }
 }
