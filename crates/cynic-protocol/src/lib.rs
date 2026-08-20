@@ -16,6 +16,10 @@ pub mod build;
 pub mod build_workflow;
 pub mod build_node;
 pub mod build_proof;
+// The audit contract types (AuditReportV2, AuditSeverity, AuditViolation, ...)
+// that cynic-host's audit_engine consumes. The file depends only on serde and
+// was never declared, so the entire audit vocabulary was uncompiled.
+pub mod audit;
 pub mod peer_resolver;
 pub mod registry_claim_audit;
 pub mod capability_responsibility;
@@ -108,6 +112,7 @@ pub use build_proof::*;
 pub use capability_responsibility::*;
 pub use convergence::*;
 pub use coordination_lease::*;
+pub use audit::*;
 pub use coordination_runtime::*;
 pub use credential_lease::*;
 pub use cycle_transition::*;

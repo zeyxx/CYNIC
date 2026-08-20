@@ -20,7 +20,8 @@ mod orphan_sources;
 /// list may only shrink.
 const QUARANTINED: &[&str] = &[
     "agent_execution_provenance.rs",
-    "audit.rs",
+    // audit.rs left the quarantine: declared and re-exported in lib.rs, so the
+    // audit contract types cynic-host's audit_engine consumes now compile.
     "build/bootstrap_recovery.rs",
     "coordination_authority.rs",
     "coordination_fault_harness.rs",
