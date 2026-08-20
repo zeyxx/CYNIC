@@ -252,7 +252,7 @@ pub async fn csr_enroll_handler(
     }
 
     let now = chrono::Utc::now().timestamp().max(0) as u64;
-    let ttl_s = runtime.authority.token_ttl_s.max(86400);
+    let ttl_s = runtime.authority.max_grant_ttl_s.max(86400);
     let expires_at_unix_s = now.saturating_add(ttl_s);
 
     let mut cert = NodeEnrollmentCertificate {
