@@ -2,6 +2,7 @@
 //! L0 node watchdog: publish local node evidence without requiring a Dog backend.
 
 mod host_runtime;
+pub mod peer_handshake;
 mod kernel_bridge;
 mod sampler;
 

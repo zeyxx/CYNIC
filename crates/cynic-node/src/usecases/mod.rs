@@ -13,6 +13,8 @@ pub mod homeostasis_uc;
 pub mod mesh_sync_uc;
 pub mod network_actuation_target_uc;
 pub mod network_surfaces_uc;
+pub mod federated_mesh_resolver;
+pub mod node_network_recovery_uc;
 pub mod node_control_plane_uc;
 pub mod node_identity_uc;
 pub mod observe_node_uc;
