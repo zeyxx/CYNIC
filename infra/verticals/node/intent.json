@@ -1,0 +1,43 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "node",
+  "layer": "l1_host",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.nodes.desired_state.v1",
+    "nodes": [
+      { "id": "cynic-host-proxmox", "name": "cynic-host-proxmox", "aliases": ["pve"], "role": "hypervisor", "host_family": "linux.proxmox.systemd", "provider_controls": ["proxmox"], "status": "observed", "deploy_target": false, "network": { "management": "192.168.100.1", "synapse": "10.10.10.1" }, "services": [] },
+      { "id": "cynic-host-cortex", "name": "cynic-host-cortex", "aliases": ["ubuntu"], "role": "cortex_host", "status": "candidate", "deploy_target": false, "network": { "management": "192.168.100.2" } },
+      { "id": "forgejo", "name": "forgejo", "aliases": ["organ-forgejo", "cynic-lxc-git"], "role": "forge_primary", "status": "candidate", "deploy_target": true, "proxmox_id": "lxc/101", "network": { "local": "10.10.10.101", "synapse": "10.10.10.101" }, "services": [ { "name": "cynic-node", "artifact": "cynic-node", "unit": "cynic-node.service", "supervisor": { "provider": "systemd" }, "health": { "kind": "process", "process": "cynic-node" } } ] },
+      { "id": "cynic-builder", "name": "cynic-builder", "role": "build_runner", "status": "observed", "deploy_target": true, "network": { "synapse": "10.10.10.119" } },
+      { "id": "cynic-lxc-surrealdb", "name": "cynic-lxc-surrealdb", "role": "storage_primary", "status": "observed", "deploy_target": true, "network": { "synapse": "10.10.10.103" } },
+      { "id": "local-kernel", "name": "local-kernel", "aliases": ["kernel"], "role": "kernel_primary", "status": "observed", "deploy_target": true, "network": { "synapse": "10.10.10.100" } }
+    ]
+  },
+  "code_contract": {
+    "types": ["NodeRegistryDesiredState"],
+    "required_fields": ["nodes"],
+    "modules": ["cynic-host::framework_bootstrap::placement"]
+  },
+  "observe": {
+    "port": "NodeRegistryObservationPort",
+    "adapter": "cynic-host::framework_bootstrap::placement::observe",
+    "reports": ["NodeRegistryReport"]
+  },
+  "reconcile": {
+    "rule": "pure decision from desired_state.nodes vs observed NodeRegistryReport; assert role/network match declared topology",
+    "module": "cynic-host::framework_bootstrap::placement::decision"
+  },
+  "bounded_action": {
+    "argv": "cynic fleet status --json [--registry <path>]",
+    "mutates": false,
+    "authority": "none",
+    "rollback_intent": []
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  }
+}

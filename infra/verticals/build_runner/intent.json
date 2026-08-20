@@ -1,0 +1,68 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "build_runner",
+  "layer": "l1_host",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.build_lifecycle.desired_state.v1",
+    "resource_policy": {
+      "schema": "cynic.build_runner.resource_policy.v1",
+      "minimum_available_bytes": 4294967296,
+      "canonical_target_relative_path": "build-targets/bootstrap"
+    },
+    "cache_reclaim": {
+      "schema": "cynic.build_runner.cache_reclaim_policy.v1",
+      "trigger": "available_bytes_below_minimum",
+      "action": "rust_remove_bounded_profile",
+      "target_profile": "debug",
+      "preserve_profiles": ["release"],
+      "rollback_intent": "none_reproducible_build_cache_only"
+    },
+    "bootstrap_containment": {
+      "schema": "cynic.build_runner.bootstrap_containment.v1",
+      "authority_class": "MachineEnrollment",
+      "adapter": "ssh_machine_enrollment",
+      "scope": "n_minus_one_seed_only",
+      "entrypoint": "cynic-host-exec build-runner-bootstrap",
+      "removal_requires": [
+        "node_substrate_provisioning_read_back",
+        "source_snapshot_transport_read_back",
+        "durable_workload_delivery_read_back",
+        "machine_enrollment_without_operator_transport",
+        "canonical_build_completion_read_back"
+      ]
+    }
+  },
+  "code_contract": {
+    "types": ["BuildLifecycleDesiredState"],
+    "required_fields": ["resource_policy", "cache_reclaim", "bootstrap_containment"],
+    "modules": ["cynic-host::framework_bootstrap::build_runner"]
+  },
+  "observe": {
+    "port": "BuildRunnerObservationPort",
+    "adapter": "cynic-host::framework_bootstrap::build_runner::observe",
+    "reports": ["BuildRunnerReport"]
+  },
+  "reconcile": {
+    "rule": "pure decision from desired_state.build_lifecycle vs observed BuildRunnerReport; run cache reclaim only if available_bytes below minimum and target_profile != preserved",
+    "module": "cynic-host::framework_bootstrap::build_runner::decision"
+  },
+  "bounded_action": {
+    "argv": "cynic bootstrap build-runner --json [--registry <path>] [--apply]",
+    "mutates": true,
+    "authority": "build_runner",
+    "rollback_intent": ["restore_preserved_profiles", "revert_bootstrap_containment"]
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  },
+  "remediation": {
+    "observe": "cynic-host::framework_bootstrap::build_runner::observe",
+    "reconcile": "cynic-host::framework_bootstrap::build_runner::decision",
+    "bounded_action": "cynic bootstrap build-runner --apply",
+    "required_when": "bounded_action.mutates == true"
+  }
+}

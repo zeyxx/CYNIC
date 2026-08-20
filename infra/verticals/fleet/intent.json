@@ -1,0 +1,40 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "fleet",
+  "layer": "l1_host_readonly",
+  "owner_crate": "cynic-cli",
+  "desired_state": {
+    "schema": "cynic.fleet_desired.desired_state.v1",
+    "targets": [
+      { "id": "cynic-builder", "provider": "proxmox", "resource_id": "lxc/105", "role": "build_runner", "desired_power": "running" },
+      { "id": "forgejo-primary", "provider": "proxmox", "resource_id": "lxc/101", "role": "forge_primary", "desired_power": "running" },
+      { "id": "storage-primary", "provider": "proxmox", "resource_id": "lxc/103", "role": "storage_primary", "desired_power": "running" }
+    ]
+  },
+  "code_contract": {
+    "types": ["FleetDesiredState"],
+    "required_fields": ["targets"],
+    "modules": ["cynic-cli::fleet_observation"]
+  },
+  "observe": {
+    "port": "FleetObservationPort",
+    "adapter": "cynic-cli::fleet_observation",
+    "reports": ["FleetStatusReport"]
+  },
+  "reconcile": {
+    "rule": "pure decision from desired_state.fleet_desired vs observed FleetStatusReport; report drift (declared power vs observed) without mutation",
+    "module": "cynic-cli::fleet_observation"
+  },
+  "bounded_action": {
+    "argv": "cynic fleet status --json [--registry <path>]",
+    "mutates": false,
+    "authority": "none",
+    "rollback_intent": []
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  }
+}

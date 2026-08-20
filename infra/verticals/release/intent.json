@@ -1,0 +1,49 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "release",
+  "layer": "l1_host",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.release_publication.desired_state.v1",
+    "storage_role": "storage_primary",
+    "service_name": "runtime-artifact-store",
+    "protocol": "generic_https_put_get",
+    "authentication_kind": "bearer_file",
+    "credential_path": "/var/lib/cynic/identity/artifact-store-token",
+    "signing_key_path": "/var/lib/cynic/identity/release-signing-key",
+    "signer_identity": "cynic-release",
+    "signature_namespace": "cynic-runtime-seed"
+  },
+  "code_contract": {
+    "types": ["ReleasePublicationDesiredState"],
+    "required_fields": ["storage_role", "service_name", "protocol", "signing_key_path", "signer_identity", "signature_namespace"],
+    "modules": ["cynic-host::framework_bootstrap::release"]
+  },
+  "observe": {
+    "port": "ReleasePublicationObservationPort",
+    "adapter": "cynic-host::framework_bootstrap::release::observe",
+    "reports": ["ReleasePublicationReport"]
+  },
+  "reconcile": {
+    "rule": "pure decision from desired_state.release_publication vs observed ReleasePublicationReport; publish only if artifact store reachable and signing key present under authority",
+    "module": "cynic-host::framework_bootstrap::release::decision"
+  },
+  "bounded_action": {
+    "argv": "cynic bootstrap release-publish --json [--registry <path>] [--apply]",
+    "mutates": true,
+    "authority": "runtime_publisher",
+    "rollback_intent": ["revoke_release_signing_lease", "restore_previous_release_publication"]
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  },
+  "remediation": {
+    "observe": "cynic-host::framework_bootstrap::release::observe",
+    "reconcile": "cynic-host::framework_bootstrap::release::decision",
+    "bounded_action": "cynic bootstrap release-publish --apply",
+    "required_when": "bounded_action.mutates == true"
+  }
+}

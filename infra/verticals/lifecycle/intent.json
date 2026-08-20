@@ -1,0 +1,70 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "lifecycle",
+  "layer": "l0_to_l3_promotion_membrane",
+  "owner_crate": "cynic-cli",
+  "desired_state": {
+    "schema": "cynic.lifecycle.desired_state.v1",
+    "kernel_release": {
+      "build_runner_role": "build_runner",
+      "deploy_target_role": "kernel_primary",
+      "host_bootstrap": {
+        "role_profiles": {
+          "kernel_primary": {
+            "target_stage": "h6_host_actionable",
+            "required_domains": ["host", "services", "storage", "kernel"],
+            "required_proof": ["host_identity_observed", "host_bootstrap_target_satisfied", "kernel_service_observed", "storage_health_observed"]
+          },
+          "build_runner": {
+            "target_stage": "h4_privilege_helpers_ready",
+            "required_domains": ["host", "toolchain", "build"],
+            "required_proof": ["host_identity_observed", "host_bootstrap_target_satisfied", "cargo_check_observed", "binary_build_observed", "build_resource_preflight_read_back", "runtime_marker_read_back", "node_control_config_read_back", "node_service_active_read_back", "bootstrap_completion_read_back"]
+          },
+          "storage_primary": {
+            "target_stage": "h5_services_projected",
+            "required_domains": ["host", "storage"],
+            "required_proof": ["host_identity_observed", "host_bootstrap_target_satisfied", "storage_health_observed"]
+          },
+          "forge_primary": {
+            "target_stage": "h5_services_projected",
+            "required_domains": ["host", "services", "network", "forge"],
+            "required_proof": ["host_identity_observed", "host_bootstrap_target_satisfied", "forgejo_backend_observed", "forgejo_tls_identity_observed"]
+          }
+        }
+      },
+      "runtime_artifacts": ["cynic-kernel", "cynic-node", "cynic-mcp", "cynic-lxc-exec-bridge", "cynic"]
+    }
+  },
+  "code_contract": {
+    "types": ["LifecycleDesiredState"],
+    "required_fields": ["kernel_release"],
+    "modules": ["cynic-host::update_lifecycle", "cynic-host::runtime_harness"]
+  },
+  "observe": {
+    "port": "LifecycleObservationPort",
+    "adapter": "cynic-host::update_lifecycle::status_report",
+    "reports": ["UpdateLifecycleStatusReport"]
+  },
+  "reconcile": {
+    "rule": "pure decision from desired_state.lifecycle.role_profiles vs observed proofs; promote only if all required_proof present for target role and stage gates pass",
+    "module": "cynic-host::update_lifecycle::run_gates"
+  },
+  "bounded_action": {
+    "argv": "cynic lifecycle promote --to <phase> --yes [--apply] [--json]",
+    "mutates": true,
+    "authority": "runtime_publisher",
+    "rollback_intent": ["demote_to_previous_phase", "restore_previous_lifecycle_state"]
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  },
+  "remediation": {
+    "observe": "cynic-host::update_lifecycle::status_report",
+    "reconcile": "cynic-host::update_lifecycle::run_gates",
+    "bounded_action": "cynic lifecycle repair --yes [--json]",
+    "required_when": "bounded_action.mutates == true"
+  }
+}

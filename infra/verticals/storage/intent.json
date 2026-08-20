@@ -1,0 +1,46 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "storage",
+  "layer": "l1_host",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.storage_registry.desired_state.v1",
+    "storage_role": "storage_primary",
+    "bindings": [
+      {
+        "schema": "cynic.storage_binding.v1",
+        "id": "runtime_artifact_store_binding",
+        "volume_id": "storage_primary_artifacts",
+        "claim_id": "runtime_artifact_store_claim",
+        "mount_path": "/data",
+        "service": "runtime-artifact-store"
+      }
+    ]
+  },
+  "code_contract": {
+    "types": ["StorageRegistryDesiredState"],
+    "required_fields": ["storage_role", "bindings"],
+    "modules": ["cynic-host::framework_bootstrap::runtime_binding"]
+  },
+  "observe": {
+    "port": "StorageRegistryObservationPort",
+    "adapter": "cynic-host::framework_bootstrap::runtime_binding::observe",
+    "reports": ["StorageRegistryReport"]
+  },
+  "reconcile": {
+    "rule": "pure decision from desired_state.storage_registry vs observed StorageRegistryReport; assert binding mount_path/volume match declared claim",
+    "module": "cynic-host::framework_bootstrap::runtime_binding::decision"
+  },
+  "bounded_action": {
+    "argv": "cynic bootstrap storage-bind --json [--registry <path>]",
+    "mutates": false,
+    "authority": "none",
+    "rollback_intent": []
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  }
+}

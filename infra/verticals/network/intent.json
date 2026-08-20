@@ -1,0 +1,76 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "network",
+  "layer": "l1_to_l2_node_network",
+  "owner_crate": "cynic-node",
+  "desired_state": {
+    "schema": "cynic.network_policy.desired_state.v1",
+    "canonical_service_plane": "synapse",
+    "planes": {
+      "management": { "cidr": "192.168.100.0/24", "canonical": false, "purpose": "direct bare-metal management transport" },
+      "synapse": { "cidr": "10.10.10.0/24", "dns_zone": "synapse.cynic", "canonical": true },
+      "overlay": { "cidr": "10.20.0.0/24", "canonical": false, "purpose": "WireGuard encrypted full-mesh overlay" }
+    },
+    "reservations": [
+      { "name": "cynic-host-proxmox", "management": "192.168.100.1", "synapse": "10.10.10.1", "dns": ["cynic-host-proxmox.synapse.cynic", "pve.synapse.cynic"] },
+      { "name": "cynic-host-cortex", "management": "192.168.100.2" },
+      { "name": "forgejo", "synapse": "10.10.10.101", "dns": ["forgejo.synapse.cynic", "organ-forgejo.synapse.cynic", "cynic-lxc-git.synapse.cynic"] },
+      { "name": "cynic-lxc-surrealdb", "synapse": "10.10.10.103", "dns": ["cynic-lxc-surrealdb.synapse.cynic", "cynic-storage-primary.synapse.cynic", "organ-surrealdb.synapse.cynic"] },
+      { "name": "cynic-builder", "synapse": "10.10.10.119", "dns": ["cynic-builder.synapse.cynic"] },
+      { "name": "local-kernel", "synapse": "10.10.10.100", "dns": ["kernel.synapse.cynic", "local-kernel.synapse.cynic", "cynic-kernel-primary.synapse.cynic", "organ-kernel.synapse.cynic"] }
+    ],
+    "wireguard": {
+      "schema": "cynic.network.wireguard.v1",
+      "overlay_cidr": "10.20.0.0/24",
+      "listen_port": 44196,
+      "topology": "full_mesh",
+      "keepalive_s": 25,
+      "watchdog_stale_s": 150,
+      "watchdog_dead_s": 200,
+      "key_storage": "file:/etc/wireguard/wg0.key",
+      "nodes": [
+        { "node_id": "cynic-host-proxmox", "overlay_ip": "10.20.0.1", "endpoint_plane": "management", "ssh_access": { "method": "direct", "target": "root@192.168.100.1" }, "watchdog": true },
+        { "node_id": "cynic-host-cortex", "overlay_ip": "10.20.0.3", "endpoint_plane": "management", "ssh_access": { "method": "local" }, "watchdog": true },
+        { "node_id": "forgejo", "overlay_ip": "10.20.0.2", "endpoint_plane": "synapse", "ssh_access": { "method": "pct_exec", "proxmox": "root@192.168.100.1", "ctid": 101 }, "watchdog": true },
+        { "node_id": "cynic-lxc-surrealdb", "overlay_ip": "10.20.0.4", "endpoint_plane": "synapse", "ssh_access": { "method": "direct", "target": "root@10.10.10.103" }, "watchdog": true },
+        { "node_id": "cynic-builder", "overlay_ip": "10.20.0.5", "endpoint_plane": "synapse", "ssh_access": { "method": "direct", "target": "root@10.10.10.119" }, "watchdog": true }
+      ]
+    }
+  },
+  "code_contract": {
+    "types": ["NetworkPolicyDesiredState"],
+    "required_fields": ["canonical_service_plane", "planes", "reservations", "wireguard"],
+    "modules": ["cynic-node::network_command_surface", "cynic-host::runtime_network_preflight"]
+  },
+  "observe": {
+    "port": "NetworkPreflightObservationPort",
+    "adapter": "cynic-host::runtime_network_preflight::observe",
+    "reports": ["RuntimeNetworkPreflightReport"]
+  },
+  "reconcile": {
+    "rule": "pure decision from desired_state.network_policy vs observed RuntimeNetworkPreflightReport; activate mesh only if resolver baseline matches reservations and external DNS reachability confirmed",
+    "module": "cynic-node::network_command_surface"
+  },
+  "bounded_action": {
+    "argv": "cynic network actuator apply --registry <path> --profile <name> [--apply]",
+    "mutates": true,
+    "authority": "kernel_primary",
+    "rollback_intent": ["revert_wireguard_config", "restore_previous_dns_reservation"]
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": {
+      "schema": "cynic.runtime_network_preflight.v1",
+      "external_proof": true,
+      "note": "Le DNS proof est la preuve native de cette verticale: chaque resolution DNS observee est horodatee et referencee dans le PoH checkpoint comme external_proof (hash+timestamp), sans inclusion dans la sequence de cycle de vie."
+    },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  },
+  "remediation": {
+    "observe": "cynic-host::runtime_network_preflight::observe",
+    "reconcile": "cynic-node::network_command_surface",
+    "bounded_action": "cynic network actuator apply --apply",
+    "required_when": "bounded_action.mutates == true"
+  }
+}

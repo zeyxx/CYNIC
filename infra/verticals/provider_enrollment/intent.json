@@ -1,0 +1,47 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "provider_enrollment",
+  "layer": "l1_host",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.provider_control.desired_state.v1",
+    "provider": "proxmox",
+    "endpoint": "https://pve.synapse.cynic:8006",
+    "token_identity": "cynic@pve!runtime",
+    "credential_ref": "/etc/cynic/secrets/proxmox-token",
+    "credential_lease_metadata_ref": "/etc/cynic/identity/proxmox-credential-lease.json",
+    "credential_authority_public_key_ref": "/etc/cynic/identity/proxmox-credential-authority.pub"
+  },
+  "code_contract": {
+    "types": ["ProviderControlDesiredState"],
+    "required_fields": ["provider", "endpoint", "token_identity", "credential_ref"],
+    "modules": ["cynic-host::framework_bootstrap::provider_enrollment::decision"]
+  },
+  "observe": {
+    "port": "ProviderEnrollmentObservationPort",
+    "adapter": "cynic-host::framework_bootstrap::provider_enrollment::observe",
+    "reports": ["ProviderEnrollmentReport"]
+  },
+  "reconcile": {
+    "rule": "pure decision from desired_state.provider_control vs observed ProviderEnrollmentReport; enroll only if endpoint reachable and credential lease valid under authority public key",
+    "module": "cynic-host::framework_bootstrap::provider_enrollment::decision"
+  },
+  "bounded_action": {
+    "argv": "cynic bootstrap provider-enrollment --json [--registry <path>] [--apply]",
+    "mutates": true,
+    "authority": "runtime_publisher",
+    "rollback_intent": ["revoke_provider_credential_lease", "restore_previous_provider_control"]
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  },
+  "remediation": {
+    "observe": "cynic-host::framework_bootstrap::provider_enrollment::observe",
+    "reconcile": "cynic-host::framework_bootstrap::provider_enrollment::decision",
+    "bounded_action": "cynic bootstrap provider-enrollment --apply",
+    "required_when": "bounded_action.mutates == true"
+  }
+}
