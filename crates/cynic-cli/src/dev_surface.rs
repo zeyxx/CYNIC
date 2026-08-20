@@ -144,6 +144,20 @@ pub(crate) enum DevCommand {
         #[arg(long)]
         vault_dir: Option<std::path::PathBuf>,
     },
+    /// Audit registry claims against the observed substrate (read-only).
+    ///
+    /// Refuted claims exit non-zero; unobservable ones do not — unknown is not
+    /// a fault.
+    FleetDivergence {
+        #[arg(long)]
+        json: bool,
+        /// Registry to audit. Defaults to the repo-relative infra/registry.json.
+        #[arg(long)]
+        registry: Option<std::path::PathBuf>,
+        /// Names to check for resolution consistency. Repeatable.
+        #[arg(long = "name")]
+        names: Vec<String>,
+    },
     /// Audit organism liveness, metabolic loops, storage health, and domain task queue.
     OrganismAudit {
         #[arg(long)]
@@ -309,6 +323,11 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
             ledger,
             vault_dir,
         } => data_centric_audit::run(json, ledger, vault_dir),
+        DevCommand::FleetDivergence {
+            json,
+            registry,
+            names,
+        } => crate::fleet_divergence::run(json, registry, names),
         DevCommand::OrganismAudit { json } => organism_audit::run(json),
         DevCommand::InferenceGateway {
             listen,

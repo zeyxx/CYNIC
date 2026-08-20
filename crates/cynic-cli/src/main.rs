@@ -25,6 +25,7 @@ mod deps_surface_report;
 mod deps_surface_specs;
 mod deps_surface_upgrade;
 mod dev_surface;
+mod fleet_divergence;
 mod task_surface;
 mod fleet_observation;
 mod fleet_report;
