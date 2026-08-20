@@ -24,7 +24,10 @@ pub struct ActiveLease {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistedLeaseSnapshot {
-    pub schema: &'static str,
+    /// Owned, not `&'static str`: a borrowed field serializes but cannot
+    /// deserialize, since there is no input to borrow from. That is what made
+    /// `serde_json::from_str(&content)` fail as a lifetime error.
+    pub schema: String,
     pub token_counter: u64,
     pub saved_at: String,
     pub leases: Vec<ActiveLease>,
@@ -98,7 +101,7 @@ impl CoordinationLeaseStore {
             .collect::<Vec<_>>();
 
         let snapshot = PersistedLeaseSnapshot {
-            schema: LEASE_SNAPSHOT_SCHEMA_V1,
+            schema: LEASE_SNAPSHOT_SCHEMA_V1.to_string(),
             token_counter: counter,
             saved_at: now.to_rfc3339(),
             leases: unexpired_leases,
