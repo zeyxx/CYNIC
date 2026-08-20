@@ -19,18 +19,12 @@ pub(super) async fn probe_target(client: reqwest::Client, target: FleetTarget) -
 
     let probe_start = Instant::now();
 
-    let auth_get = |url: &str| -> reqwest::RequestBuilder {
-        let req = client.get(url);
-        match api_key.as_deref() {
-            Some(key) => req.bearer_auth(key),
-            None => req,
-        }
-    };
-
-    let reachable = match auth_get(&health_url).send().await {
-        Ok(resp) => resp.status().is_success(),
-        Err(_) => false,
-    };
+    // Health, context and identity are all observed by cynic-node; this probe only
+    // projects node verification into the kernel's FleetDetails report. Observing
+    // HTTP directly here would duplicate the node's observation contract.
+    let reachable =
+        cynic_node::verify::check_health_with_bearer(&client, &health_url, 5, api_key.as_deref())
+            .await;
 
     let mut actual_n_ctx = None;
     if let Some(ref props_url) = props_url {
@@ -46,8 +40,6 @@ pub(super) async fn probe_target(client: reqwest::Client, target: FleetTarget) -
         }
     }
 
-    // Model identity observation belongs to cynic-node; this probe only projects
-    // node verification into the kernel's FleetDetails report.
     let mut actual_model = None;
     let mut model_mismatch = false;
 

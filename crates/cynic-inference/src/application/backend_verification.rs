@@ -32,7 +32,25 @@ pub enum ContextResult {
 /// Returns `true` only if the backend responds with a 2xx status within
 /// `timeout_secs`. Returns `false` on timeout, connection error, or non-2xx.
 pub async fn check_health(client: &Client, health_url: &str, timeout_secs: u64) -> bool {
-    let fut = client.get(health_url).send();
+    check_health_with_bearer(client, health_url, timeout_secs, None).await
+}
+
+/// Same observation as [`check_health`], but authenticated.
+///
+/// A backend that requires a bearer token answers an unauthenticated GET with
+/// 401, which `status().is_success()` reads as unreachable. Callers observing a
+/// secured backend must pass the token or they will report a false outage.
+pub async fn check_health_with_bearer(
+    client: &Client,
+    health_url: &str,
+    timeout_secs: u64,
+    bearer_token: Option<&str>,
+) -> bool {
+    let request = match bearer_token {
+        Some(token) => client.get(health_url).bearer_auth(token),
+        None => client.get(health_url),
+    };
+    let fut = request.send();
     match timeout(Duration::from_secs(timeout_secs), fut).await {
         Ok(Ok(resp)) => resp.status().is_success(),
         Ok(Err(_)) | Err(_) => false,
@@ -210,6 +228,61 @@ mod tests {
         });
 
         Some((base_url, handle))
+    }
+
+    /// A backend that demands `Authorization: Bearer <token>` on /health and
+    /// answers 401 otherwise. Proves the bearer is actually transmitted.
+    async fn mock_secured_backend(token: &str) -> Option<(String, tokio::task::JoinHandle<()>)> {
+        let expected = format!("Bearer {token}");
+        let app = axum::Router::new().route(
+            "/health",
+            get(move |headers: axum::http::HeaderMap| {
+                let expected = expected.clone();
+                async move {
+                    let presented = headers
+                        .get(axum::http::header::AUTHORIZATION)
+                        .and_then(|value| value.to_str().ok())
+                        .unwrap_or_default()
+                        .to_string();
+                    if presented == expected {
+                        axum::http::StatusCode::OK
+                    } else {
+                        axum::http::StatusCode::UNAUTHORIZED
+                    }
+                }
+            }),
+        );
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.ok()?;
+        let addr = listener.local_addr().ok()?;
+        let handle = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        Some((format!("http://{addr}"), handle))
+    }
+
+    #[tokio::test]
+    async fn health_check_with_bearer_is_reachable_on_a_secured_backend() {
+        let Some((base, _handle)) = mock_secured_backend("secret-token").await else {
+            return;
+        };
+        let client = Client::new();
+        let url = format!("{base}/health");
+
+        assert!(
+            check_health_with_bearer(&client, &url, 5, Some("secret-token")).await,
+            "a secured backend must be observed as reachable when the bearer is sent"
+        );
+        // Regression guard: this is exactly what the kernel fleet probe used to
+        // hit before it delegated health observation to the node facade.
+        assert!(
+            !check_health_with_bearer(&client, &url, 5, None).await,
+            "without the bearer the backend answers 401, which is not reachable"
+        );
+        assert!(
+            !check_health(&client, &url, 5).await,
+            "the unauthenticated helper must stay unauthenticated"
+        );
     }
 
     #[tokio::test]
