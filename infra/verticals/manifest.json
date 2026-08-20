@@ -1,0 +1,39 @@
+{
+  "schema": "cynic.verticals_manifest.v1",
+  "status": "normative",
+  "purpose": "Point d'entrée déclaratif des verticales fondamentales CYNIC. Chaque verticale est une unité de desired state + observe + reconcile + bounded action + read-back proof (PoH offchain + DNS external_proof) + remédiation. Les monolithes historiques (infra/registry.json, infra/surface-registry.json, infra/agent-exposure.json) sont des aggregates qui référencent ces verticales; la source de vérité découplée est ici.",
+  "convention": {
+    "layout": "infra/verticals/<verticale>/intent.json",
+    "schema_per_vertical": "cynic.vertical_intent.v1",
+    "desired_state": "inline dans intent.json (pas de fragmentation)",
+    "code_contract": "types/champs Rust que le desired_state doit respecter (réconciliation JSON↔code)",
+    "read_back_proof": {
+      "poh_checkpoint": "cynic.poh_checkpoint_batch.v1, offchain par défaut (Surreal proof_of_history), onchain optionnel (Anchor record_poh_checkpoint)",
+      "dns_proof": "cynic.runtime_network_preflight.v1, external_proof référencé dans le PoH (hash+timestamp), non inclus dans la séquence de cycle de vie",
+      "maturity_percent_min": 80,
+      "known_coverage_percent_min": 60
+    },
+    "remediation": "obligatoire si bounded_action.mutates == true; absente si read-only (ce n'est pas une erreur de modèle)"
+  },
+  "verticals": [
+    { "id": "provider_enrollment", "source": "infra/registry.json#provider_control", "layer": "l1_host" },
+    { "id": "release", "source": "infra/registry.json#release_publication", "layer": "l1_host" },
+    { "id": "storage", "source": "infra/registry.json#storage_registry", "layer": "l1_host" },
+    { "id": "machine_enrollment", "source": "infra/registry.json#node_enrollment", "layer": "l1_host", "status": "extracted_first_due_to_token_ttl_s_divergence" },
+    { "id": "network", "source": ["infra/registry.json#network_policy", "infra/surface-registry.json#network_runtime", "infra/surface-registry.json#runtime_network_preflight"], "layer": "l1_to_l2_node_network" },
+    { "id": "node", "source": "infra/registry.json#nodes", "layer": "l1_host" },
+    { "id": "build_runner", "source": "infra/registry.json#build_lifecycle", "layer": "l1_host" },
+    { "id": "fleet", "source": ["infra/registry.json#fleet_desired", "infra/surface-registry.json#fleet_observation"], "layer": "l1_host_readonly" },
+    { "id": "lifecycle", "source": ["infra/registry.json#lifecycle", "infra/surface-registry.json#update_lifecycle"], "layer": "l0_to_l3_promotion_membrane" },
+    { "id": "dev_governance", "source": "infra/surface-registry.json#agent_development", "layer": "l0_to_l2_architecture_governance" },
+    { "id": "bootstrap", "source": "infra/surface-registry.json#bootstrap_surface", "layer": "l1_host_apply_boundary" },
+    { "id": "deps", "source": ["infra/surface-registry.json#ecosystem_deps", "infra/surface-registry.json#ecosystem_deps_upgrade"], "layer": "l1_host_readonly" },
+    { "id": "integrations", "source": ["infra/surface-registry.json#ecosystem_integrations", "infra/surface-registry.json#ecosystem_integrations_adopt", "infra/surface-registry.json#ecosystem_integrations_connect", "infra/surface-registry.json#ecosystem_integrations_plan"], "layer": "l1_host_apply_boundary" },
+    { "id": "inference", "source": "infra/surface-registry.json#chat_surface", "layer": "l1_host_readonly" },
+    { "id": "runtime", "source": ["infra/surface-registry.json#runtime_agent_matrix", "infra/surface-registry.json#runtime_disk_management", "infra/crates/cynic-host/src/runtime_execution_context", "infra/surface-registry.json#runtime_execution_suite", "infra/surface-registry.json#runtime_host_checks", "infra/surface-registry.json#runtime_paths", "infra/surface-registry.json#runtime_report", "infra/surface-registry.json#runtime_resolver_plan", "infra/surface-registry.json#runtime_validation"], "layer": "l0_to_l3_runtime_plan" },
+    { "id": "lab", "source": ["infra/surface-registry.json#lab_surface", "infra/surface-registry.json#portable_lab"], "layer": "l0_proof_harness" },
+    { "id": "transport", "source": "infra/surface-registry.json#transport_observation", "layer": "l1_host_readonly" },
+    { "id": "agent_exposure", "source": "infra/agent-exposure.json", "layer": "adapter" },
+    { "id": "framework_spec", "source": ["contracts/framework.json", "contracts/foundation.json"], "layer": "normative" }
+  ]
+}

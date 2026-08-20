@@ -1,0 +1,65 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "machine_enrollment",
+  "layer": "l1_host",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.node_enrollment.desired_state.v1",
+    "authority_role": "kernel_primary",
+    "endpoint_service": "cynic-kernel",
+    "credential_delivery": "machine_enrollment_staging",
+    "public_key_delivery": "machine_enrollment_staging",
+    "authority_policy": {
+      "authority_id": "cynic-runtime-machine-enrollment",
+      "max_grant_ttl_s": 86400,
+      "renewal_authority_ttl_s": 2592000,
+      "allowed_roles": ["build_runner"],
+      "allowed_capabilities": [
+        "node_control",
+        "build_runner",
+        "kernel_to_node_workload_delivery_read_back",
+        "scheduler_claim_renewal",
+        "scheduler_cancellation_delivery",
+        "scheduler_crash_recovery",
+        "node_owned_build_grant_machine_signer",
+        "build_runner_signature_and_live_workload_verifier",
+        "scheduler_to_build_runner_execution_transport",
+        "build_completion_and_artifact_read_back",
+        "node_workspace_observer_wiring_and_proof"
+      ]
+    }
+  },
+  "code_contract": {
+    "types": ["MachineEnrollmentAuthority"],
+    "required_fields": ["authority_id", "seed_id", "token_digest", "expires_at_unix_s", "renewal_authority_expires_at_unix_s", "max_grant_ttl_s"],
+    "divergence_note": "Le monolithe infra/registry.json#node_enrollment utilisait 'token_ttl_s' (ligne 79) qui DIVERGE du type Rust MachineEnrollmentAuthority (pas de champ token_ttl_s; équivalent = max_grant_ttl_s). Ce intent.json utilise max_grant_ttl_s pour réconcilier JSON↔code. Le fix cynic-kernel 8a8b1cc4 a corrigé l'appelant runtime.authority.token_ttl_s -> max_grant_ttl_s.",
+    "modules": ["cynic-host::framework_bootstrap::machine_enrollment::decision"]
+  },
+  "observe": {
+    "port": "MachineEnrollmentObservationPort",
+    "adapter": "cynic-host::framework_bootstrap::machine_enrollment::observe",
+    "reports": ["MachineEnrollmentReport"]
+  },
+  "reconcile": {
+    "rule": "pure decision from desired_state.authority_policy vs observed MachineEnrollmentReport; grant only if allowed_roles/capabilities match and max_grant_ttl_s >= observed",
+    "module": "cynic-host::framework_bootstrap::machine_enrollment::decision"
+  },
+  "bounded_action": {
+    "argv": "cynic bootstrap machine-enrollment --json [--registry <path>] [--apply]",
+    "mutates": true,
+    "authority": "kernel_primary",
+    "rollback_intent": ["revoke_machine_enrollment_grant", "restore_previous_authority_policy"]
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  },
+  "remediation": {
+    "observe": "cynic-host::framework_bootstrap::machine_enrollment::observe",
+    "reconcile": "cynic-host::framework_bootstrap::machine_enrollment::decision",
+    "bounded_action": "cynic bootstrap machine-enrollment --apply",
+    "required_when": "bounded_action.mutates == true"
+  }
+}
