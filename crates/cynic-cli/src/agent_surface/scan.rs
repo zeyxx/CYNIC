@@ -251,7 +251,7 @@ mod tests {
         assert!(report.human_admin_role.zero_touch_runtime);
         let rp = report.roles.get("runtime_publisher").unwrap();
         assert!(!rp.granted);
-        assert!(rp.runtime_zero_touch);
+        assert!(rp.zero_touch_runtime);
         assert_eq!(report.domains.get("runtime").unwrap().observed, false);
     }
 }
