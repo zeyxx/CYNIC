@@ -262,7 +262,13 @@ fn package_domain_uses_explicit_command_context_for_portability() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let packages =
         fs::read_to_string(root.join("src/domain/packages.rs")).expect("read domain/packages.rs");
-    let production_packages = packages.split("#[cfg(test)]").next().unwrap_or(&packages);
+    // Slice at the `#[cfg(test)]  mod tests` block, not at the first
+    // `#[cfg(test)]`: this file also carries test-only fixtures (a const and a
+    // helper fn) in the middle of production code, so splitting on the first
+    // occurrence would hide most of the module from the assertions below.
+    let production_packages = packages
+        .split_once("#[cfg(test)]\nmod tests")
+        .map_or(packages.as_str(), |(production, _)| production);
 
     assert!(
         production_packages.contains("pub struct PackageCommandContext")
