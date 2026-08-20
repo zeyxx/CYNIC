@@ -314,64 +314,39 @@
       "status": "desired_unproven",
       "tools": [
         {
-          "name": "cynic_api_contracts",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_health",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_attention",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_metabolism",
-          "tier": "product_domain",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_compliance",
-          "tier": "product_domain",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_verdicts",
-          "tier": "product_domain",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_crystals",
-          "tier": "product_domain",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_audit_query",
-          "tier": "baseline_runtime",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_library_query",
-          "tier": "product_domain",
-          "mutation": "read_only"
-        },
-        {
-          "name": "cynic_judge",
-          "tier": "product_domain",
-          "mutation": "local_mutation"
-        },
-        {
-          "name": "cynic_observe",
+          "name": "coordination_artifact_share",
           "tier": "baseline_runtime",
           "mutation": "local_mutation"
         },
         {
-          "name": "cynic_infer",
+          "name": "coordination_contract_manifest",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "coordination_decision_record",
           "tier": "baseline_runtime",
           "mutation": "local_mutation"
+        },
+        {
+          "name": "coordination_status_publish",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "coordination_status_read",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "coordination_thread_reply",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_agent_connection_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
         },
         {
           "name": "cynic_agent_eval",
@@ -384,14 +359,59 @@
           "mutation": "read_only"
         },
         {
-          "name": "cynic_agent_connection_status",
+          "name": "cynic_api_contracts",
           "tier": "baseline_runtime",
           "mutation": "read_only"
         },
         {
-          "name": "cynic_coord_register",
+          "name": "cynic_askesis_log",
+          "tier": "operator_local",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_attention",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_audit_query",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_bench_basket_launch",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_build_list_workloads",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_build_observe_workload",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_build_run",
           "tier": "baseline_runtime",
           "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_build_trigger",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_claim_agent_task",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_compliance",
+          "tier": "product_domain",
+          "mutation": "read_only"
         },
         {
           "name": "cynic_coord_claim",
@@ -404,7 +424,12 @@
           "mutation": "local_mutation"
         },
         {
-          "name": "cynic_coord_renew",
+          "name": "cynic_coord_finalize",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_coord_register",
           "tier": "baseline_runtime",
           "mutation": "local_mutation"
         },
@@ -414,7 +439,7 @@
           "mutation": "local_mutation"
         },
         {
-          "name": "cynic_coord_finalize",
+          "name": "cynic_coord_renew",
           "tier": "baseline_runtime",
           "mutation": "local_mutation"
         },
@@ -424,17 +449,142 @@
           "mutation": "read_only"
         },
         {
+          "name": "cynic_crystals",
+          "tier": "product_domain",
+          "mutation": "read_only"
+        },
+        {
           "name": "cynic_dispatch_agent_task",
           "tier": "baseline_runtime",
           "mutation": "read_only"
         },
         {
-          "name": "cynic_list_pending_agent_tasks",
+          "name": "cynic_emergence_elect",
           "tier": "baseline_runtime",
           "mutation": "read_only"
         },
         {
-          "name": "cynic_watch_pending_agent_tasks",
+          "name": "cynic_federation_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_fleet_discover",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_fleet_health",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_fleet_inventory",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_fleet_reconcile_apply",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_fleet_reconcile_plan",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_forgejo_plan",
+          "tier": "operator_local",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_forgejo_status",
+          "tier": "operator_local",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_git",
+          "tier": "operator_local",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_harness_progression",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_health",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_infer",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_inference_backends",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_inference_discover",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_inference_start",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_inference_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_inference_stop",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_inference_switch",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_inference_vault",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_judge",
+          "tier": "product_domain",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_judgment",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_library_query",
+          "tier": "product_domain",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_lifecycle_dispatch",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_lifecycle_payloads",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_lifecycle_status",
           "tier": "baseline_runtime",
           "mutation": "read_only"
         },
@@ -444,8 +594,88 @@
           "mutation": "read_only"
         },
         {
-          "name": "cynic_claim_agent_task",
+          "name": "cynic_list_pending_agent_tasks",
           "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_local_autonomy",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_mcp_surface",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_metabolism",
+          "tier": "product_domain",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_node_activation",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_node_activation_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_observe",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_operational_benchmark",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_operator_transport_status",
+          "tier": "operator_local",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_runtime_release_declare",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_solana_pay_generate",
+          "tier": "product_domain",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_solana_plan",
+          "tier": "product_domain",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_source_control",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_ssh_target_inspect",
+          "tier": "operator_local",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_storage_credential_sync",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_toolchain_reconcile",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "cynic_transport_security_audit",
+          "tier": "operator_local",
           "mutation": "read_only"
         },
         {
@@ -454,17 +684,167 @@
           "mutation": "read_only"
         },
         {
-          "name": "cynic_build_trigger",
+          "name": "cynic_validate",
           "tier": "baseline_runtime",
           "mutation": "local_mutation"
         },
         {
-          "name": "cynic_build_observe_workload",
+          "name": "cynic_verdicts",
+          "tier": "product_domain",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_watch_pending_agent_tasks",
           "tier": "baseline_runtime",
           "mutation": "read_only"
         },
         {
-          "name": "cynic_build_list_workloads",
+          "name": "docker_container_inspect",
+          "tier": "operator_local",
+          "mutation": "read_only"
+        },
+        {
+          "name": "docker_container_list",
+          "tier": "operator_local",
+          "mutation": "read_only"
+        },
+        {
+          "name": "docker_container_logs",
+          "tier": "operator_local",
+          "mutation": "read_only"
+        },
+        {
+          "name": "fleet_node_exec",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "fleet_node_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "identity_attest",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "identity_smoke_check",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "identity_trust_chain_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "infra_provision",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "infra_registry_read",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "infra_registry_validate",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "lxc_exec_bridge_bundle",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "lxc_exec_bridge_plan",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "lxc_exec_bridge_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "network_ipam_check",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "network_mesh_dns_activation_apply",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
+          "name": "network_mesh_dns_activation_bundle",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "network_mesh_dns_activation_plan",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "network_mesh_dns_activation_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "network_mesh_dns_render",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "network_mesh_provider_fallback_hosts",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "network_mesh_provider_fallback_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "network_mesh_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "provider_control_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "service_health",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "service_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "storage_primary_bundle",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "storage_primary_plan",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "storage_primary_readiness",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "storage_primary_status",
           "tier": "baseline_runtime",
           "mutation": "read_only"
         }
@@ -476,16 +856,17 @@
       "description": "Read-only organism health, contracts, and surface discovery.",
       "tier": "mixed_baseline_and_product",
       "tools": [
-        "cynic_mcp_surface",
         "cynic_api_contracts",
-        "cynic_health",
         "cynic_attention",
-        "cynic_metabolism",
-        "cynic_compliance",
-        "cynic_verdicts",
-        "cynic_crystals",
         "cynic_audit_query",
-        "cynic_library_query"
+        "cynic_compliance",
+        "cynic_crystals",
+        "cynic_harness_progression",
+        "cynic_health",
+        "cynic_library_query",
+        "cynic_mcp_surface",
+        "cynic_metabolism",
+        "cynic_verdicts"
       ],
       "operator_tools": []
     },
@@ -494,6 +875,7 @@
       "tier": "mixed_baseline_and_product",
       "tools": [
         "cynic_judge",
+        "cynic_judgment",
         "cynic_observe"
       ],
       "operator_tools": []
@@ -514,17 +896,18 @@
       "description": "CYNIC native sovereign inference (routing SSOT) plus optional attach to an Osmantic ODS-bootstrapped local AI environment (https://github.com/Osmantic/ODS).",
       "tier": "baseline_runtime",
       "tools": [
-        "cynic_infer",
         "cynic_agent_eval",
         "cynic_agent_loop_audit",
+        "cynic_bench_basket_launch",
+        "cynic_infer",
         "cynic_inference_backends",
         "cynic_inference_discover",
-        "cynic_inference_vault",
         "cynic_inference_start",
+        "cynic_inference_status",
         "cynic_inference_stop",
         "cynic_inference_switch",
-        "cynic_operational_benchmark",
-        "cynic_bench_basket_launch"
+        "cynic_inference_vault",
+        "cynic_operational_benchmark"
       ],
       "operator_tools": [
         "cynic-askesis eval <dataset.jsonl> --endpoint <openai-base-url> --model <model> --json",
@@ -625,8 +1008,11 @@
       "required_contract": "cynic.agent_workload_envelope.v1",
       "tier": "baseline_runtime",
       "tools": [
-        "cynic_validate",
-        "cynic_build_trigger"
+        "cynic_build_list_workloads",
+        "cynic_build_observe_workload",
+        "cynic_build_run",
+        "cynic_build_trigger",
+        "cynic_validate"
       ],
       "operator_tools": [
         "cynic-node agent-workload-status --json --workload-id <id> [--state-root <path>]",
@@ -681,15 +1067,22 @@
       "description": "Fleet node status/exec and LXC exec bridge plans.",
       "tier": "baseline_runtime",
       "tools": [
+        "cynic_emergence_elect",
+        "cynic_federation_status",
+        "cynic_fleet_discover",
+        "cynic_fleet_health",
         "cynic_fleet_inventory",
-        "cynic_fleet_reconcile_plan",
         "cynic_fleet_reconcile_apply",
-        "provider_control_status",
-        "fleet_node_status",
+        "cynic_fleet_reconcile_plan",
+        "cynic_local_autonomy",
+        "cynic_node_activation",
+        "cynic_node_activation_status",
         "fleet_node_exec",
-        "lxc_exec_bridge_plan",
+        "fleet_node_status",
         "lxc_exec_bridge_bundle",
-        "lxc_exec_bridge_status"
+        "lxc_exec_bridge_plan",
+        "lxc_exec_bridge_status",
+        "provider_control_status"
       ],
       "operator_tools": [
         "cynic fleet observe --json"
@@ -699,10 +1092,11 @@
       "description": "Service health and storage-primary readiness surfaces.",
       "tier": "baseline_runtime",
       "tools": [
-        "service_status",
+        "cynic_storage_credential_sync",
         "service_health",
-        "storage_primary_plan",
+        "service_status",
         "storage_primary_bundle",
+        "storage_primary_plan",
         "storage_primary_readiness",
         "storage_primary_status"
       ],
@@ -836,26 +1230,6 @@
         "name": "cynic_proxmox_exec",
         "tier": "legacy_breakglass",
         "mutation": "privileged_mutation"
-      },
-      {
-        "name": "cynic_node_activation",
-        "tier": "baseline_runtime",
-        "mutation": "local_mutation",
-        "citizenship": {
-          "schema": "cynic.agent_citizenship.v1",
-          "admission": "cynic_coord_claim",
-          "mutation_execution_contract": "cynic.agent_workload_envelope.v1",
-          "budgets_monotonic": true,
-          "scope_hierarchy": ["fleet", "node", "crate", "module", "file"],
-          "read_back": ["cynic_coord_claim_batch", "agent_completion_envelope"]
-        },
-        "purpose": "Activate a node — bounded action with read-back proof. Plans activation (bootstrap/advance/takeover), checks consent, executes argv, performs read-back, returns proof. Mutates host."
-      },
-      {
-        "name": "cynic_node_activation_status",
-        "tier": "baseline_runtime",
-        "mutation": "read_only",
-        "purpose": "Observe node activation state: compose deployment_epoch + bootstrap_federation + runtime_takeover into a single verdict (Active/Activatable/Blocked)."
       }
     ]
   },
