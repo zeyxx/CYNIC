@@ -120,13 +120,7 @@ pub(crate) fn run(json: bool, registry: Option<PathBuf>, names: Vec<String>) -> 
 
 fn emit(json: bool, report: &FleetDivergenceReport) -> ExitCode {
     if json {
-        match emit_pretty_json(report) {
-            Ok(code) => code,
-            Err(error) => {
-                eprintln!("failed to render report: {error}");
-                ExitCode::FAILURE
-            }
-        }
+        emit_pretty_json(report)
     } else {
         print!("{}", report.render_text());
         // A refuted claim is a finding the operator must act on, so the exit
