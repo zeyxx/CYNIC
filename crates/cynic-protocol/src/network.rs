@@ -205,11 +205,6 @@ mod tests {
         assert_eq!(plan.schema, "cynic.network_mesh_plan.v1");
         assert!(!plan.can_apply);
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
 
     #[test]
     fn tailscale_is_refused_as_a_runtime_dependency() {
