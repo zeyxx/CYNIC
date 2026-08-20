@@ -325,30 +325,34 @@ where
         }
         _ => (None, Vec::new()),
     };
-    if let Some(deployment) = &release_deployment {
-        if deployment.status != "converged" {
-            // The deployment report distinguishes blockers (a named obstacle) from
-            // nothing else — it has no `unknowns`. NodeControlPlan carries only
-            // `unknowns`. Both are unresolved residue that must reach the plan, so
-            // the deployment's blockers land there, and the local decision keeps
-            // them separate: a named blocker is Blocked, an empty list is Unknown.
-            let deployment_residue = deployment.blockers.clone();
-            plan.unknowns.extend(deployment_residue.iter().cloned());
-            plan.decision = match plan.decision {
-                NodeControlDecision::ReconcileRelease { .. } => {
-                    if !deployment_residue.is_empty() {
-                        NodeControlDecision::Blocked {
-                            violations: deployment_residue.clone(),
-                        }
-                    } else {
-                        NodeControlDecision::Unknown {
-                            missing_evidence: plan.unknowns.clone(),
-                        }
+    // The residue is copied out before the decision is rewritten: the match below
+    // moves `plan.decision`, which cannot happen while `release_deployment` is
+    // still borrowed. Reading the deployment first ends that borrow.
+    let deployment_residue = release_deployment
+        .as_ref()
+        .filter(|deployment| deployment.status != "converged")
+        .map(|deployment| deployment.blockers.clone());
+
+    if let Some(residue) = deployment_residue {
+        // The deployment report names blockers and has no `unknowns`;
+        // NodeControlPlan carries only `unknowns`. Both are unresolved residue, so
+        // the blockers reach the plan, and the decision keeps them distinct: a
+        // named blocker is Blocked, an empty list is Unknown.
+        plan.unknowns.extend(residue.iter().cloned());
+        plan.decision = match plan.decision {
+            NodeControlDecision::ReconcileRelease { .. } => {
+                if !residue.is_empty() {
+                    NodeControlDecision::Blocked {
+                        violations: residue.clone(),
+                    }
+                } else {
+                    NodeControlDecision::Unknown {
+                        missing_evidence: plan.unknowns.clone(),
                     }
                 }
-                other => other,
-            };
-        }
+            }
+            other => other,
+        };
     }
     let desired_generation = Some(desired.generation);
     match status_publisher.publish_node_status(&plan).await {
