@@ -182,9 +182,23 @@ mod tests {
     use super::*;
     use std::io::Write;
 
-    fn write_registry(body: &str) -> std::path::PathBuf {
+    /// Unique per call, not per process. Rust runs tests in parallel threads of
+    /// one process, so `process::id()` alone gave every test the same path and
+    /// they overwrote each other's fixtures — a real race, not a flake.
+    fn unique_fixture(prefix: &str) -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static COUNTER: AtomicU32 = AtomicU32::new(0);
         let mut path = std::env::temp_dir();
-        path.push(format!("cynic-fleet-div-{}.json", std::process::id()));
+        path.push(format!(
+            "{prefix}-{}-{}.json",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        path
+    }
+
+    fn write_registry(body: &str) -> std::path::PathBuf {
+        let path = unique_fixture("cynic-fleet-div");
         let mut file = fs::File::create(&path).expect("create fixture");
         file.write_all(body.as_bytes()).expect("write fixture");
         path
@@ -261,8 +275,7 @@ mod tests {
     }
 
     fn write_seed(body: &str) -> std::path::PathBuf {
-        let mut path = std::env::temp_dir();
-        path.push(format!("cynic-seed-{}.json", std::process::id()));
+        let path = unique_fixture("cynic-seed");
         let mut file = fs::File::create(&path).expect("create seed");
         file.write_all(body.as_bytes()).expect("write seed");
         path
