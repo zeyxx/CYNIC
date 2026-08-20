@@ -1,0 +1,85 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "runtime",
+  "layer": "l0_to_l3_runtime_plan",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.runtime.desired_state.v1",
+    "surfaces": {
+      "agent_matrix": {
+        "responsibility": "Classify which runtime/bootstrap surfaces are safe for bounded agent autonomy now versus later.",
+        "canonical_entrypoints": ["cynic runtime agent-matrix --json"],
+        "mutation_policy": "read_only"
+      },
+      "disk_management": {
+        "responsibility": "Observe host storage filesystems, caches, and large files, plan disk cleanup, and execute bounded storage pruning under explicit --apply.",
+        "canonical_entrypoints": ["cynic runtime disk [--json]", "cynic runtime disk-clean [--json] [--apply]"],
+        "mutation_policy": "explicit_apply_only"
+      },
+      "execution_context": {
+        "responsibility": "Project bounded execution membranes, principal constraints, and target-scope runtime context before mutating work.",
+        "canonical_entrypoints": ["cynic runtime execution-context --json [--host <name>]..."],
+        "mutation_policy": "read_only"
+      },
+      "execution_suite": {
+        "responsibility": "Expose executable bottom-up runtime suite and plan projections for a registry/profile.",
+        "canonical_entrypoints": ["cynic runtime suite --json [--registry <path>] [--profile <name>]", "cynic runtime plan --json [--registry <path>] [--profile <name>] [--proof <path>]"],
+        "mutation_policy": "read_only"
+      },
+      "host_checks": {
+        "responsibility": "Expose read-only host conformance, runtime metrics, repo access, and harness catalog.",
+        "canonical_entrypoints": ["cynic runtime harness --json [--kind <kind>]", "cynic runtime conformance --json [--profile <name> | --node <name>] [--registry <path>]", "cynic runtime metrics --json [--profile <name> | --node <name>] [--registry <path>] [--proof <path>]", "cynic runtime repo-access --json [--profile <path>]", "cynic runtime storage-capabilities --json [--url <surrealdb-url>]"],
+        "mutation_policy": "read_only"
+      },
+      "paths": {
+        "responsibility": "Resolve portable runtime paths from flags, environment, installed layout, or development worktree.",
+        "canonical_entrypoints": ["cynic runtime paths --json [--registry <path>]"],
+        "mutation_policy": "read_only_temp_artifacts"
+      },
+      "report": {
+        "responsibility": "Aggregate runtime phases, evidence commands, inference SSOT state, and sovereign git readiness into a machine-readable runtime index.",
+        "canonical_entrypoints": ["cynic runtime report --json [--output <path> | --persist]"],
+        "mutation_policy": "read_only_temp_artifacts"
+      },
+      "resolver_plan": {
+        "responsibility": "Project resolver, hosts, and network baseline plan evidence without mutating operator DNS state.",
+        "canonical_entrypoints": ["cynic runtime resolver-plan --json [--host <name>]..."],
+        "mutation_policy": "read_only"
+      },
+      "validation": {
+        "responsibility": "Validate canonical runtime proof/report surfaces and architecture-only gates as machine-readable checks.",
+        "canonical_entrypoints": ["cynic runtime validate --json [--registry <path>] [--lab-registry <path>]", "cynic dev check --json [--architecture-only] [--target-root <path>]"],
+        "mutation_policy": "read_only_temp_artifacts"
+      }
+    }
+  },
+  "code_contract": {
+    "types": ["RuntimeSurface"],
+    "required_fields": ["surfaces"],
+    "modules": ["cynic-host::agent_matrix", "cynic-host::domain::disk", "cynic-host::runtime_execution_context", "cynic-cli::runtime_suite", "cynic-host::runtime_harness", "cynic-cli::runtime_paths", "cynic-cli::runtime_surface::report", "cynic-host::runtime_resolver_plan", "cynic-cli::runtime_surface::validation"]
+  },
+  "observe": {
+    "port": "RuntimeObservationPort",
+    "adapter": "cynic-host::runtime_harness",
+    "reports": ["HostConformanceReport", "HostRuntimeMetricsReport", "RuntimeReport"]
+  },
+  "reconcile": "pure decision from desired_state.runtime.surfaces vs observed reports; assert read-only surfaces perform no host mutation and apply-only surfaces require explicit --apply",
+  "bounded_action": {
+    "argv": "cynic runtime disk-clean [--json] [--apply]",
+    "mutates": true,
+    "authority": "operator",
+    "rollback_intent": ["restore_removed_cache", "revert_disk_cleanup"]
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  },
+  "remediation": {
+    "observe": "cynic-host::runtime_harness",
+    "reconcile": "cynic-host::runtime_harness",
+    "bounded_action": "cynic runtime disk-clean [--apply]",
+    "required_when": "bounded_action != null"
+  }
+}

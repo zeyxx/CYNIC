@@ -1,0 +1,55 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "deps",
+  "layer": "l1_host_readonly",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.deps.desired_state.v1",
+    "responsibility": "Observe dependency authorities, packaging provenance, and normalization readiness for primary runtime/operator components; preview or execute explicit human-approved upgrades through typed plans and observed authority.",
+    "anti_responsibilities": [
+      "blind self-update without provenance detection",
+      "assume one universal package manager",
+      "claim normalization when mutator authority is blocked",
+      "mutate dependencies without explicit consent",
+      "hide shell mutation behind untyped helpers",
+      "pretend manual-only components are auto-applied"
+    ],
+    "canonical_entrypoints": [
+      "cynic deps [--json]",
+      "cynic deps plan [--json]",
+      "cynic deps audit [--json]",
+      "cynic deps upgrade --apply --confirm <token> [--json]",
+      "cynic deps upgrade [--json] [--yes]",
+      "cynic deps upgrade --apply --confirm <token> [--only <id>]... [--json]"
+    ]
+  },
+  "code_contract": {
+    "types": ["EcosystemDepsSurface", "EcosystemDepsUpgradeSurface"],
+    "required_fields": ["canonical_entrypoints"],
+    "modules": ["cynic-host::domain::ecosystem_package", "cynic-cli::deps_surface"]
+  },
+  "observe": {
+    "port": "EcosystemDepsObservationPort",
+    "adapter": "cynic-cli::deps_surface_probe",
+    "reports": ["EcosystemDepsStatus"]
+  },
+  "reconcile": "pure decision from desired_state.deps vs observed EcosystemDepsStatus; upgrade only if plan approved and mutator authority observed",
+  "bounded_action": {
+    "argv": "cynic deps upgrade --apply --confirm <token> [--json]",
+    "mutates": true,
+    "authority": "operator",
+    "rollback_intent": ["restore_previous_dependency_set", "revert_upgrade_plan"]
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  },
+  "remediation": {
+    "observe": "cynic-cli::deps_surface_probe",
+    "reconcile": "cynic-host::domain::ecosystem_package",
+    "bounded_action": "cynic deps upgrade --apply --confirm <token>",
+    "required_when": "bounded_action != null"
+  }
+}

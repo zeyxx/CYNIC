@@ -1,0 +1,48 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "framework_spec",
+  "layer": "normative",
+  "owner_crate": "cynic-protocol",
+  "desired_state": {
+    "schema": "cynic.framework_spec.desired_state.v1",
+    "responsibility": "Canonical normative specification of CYNIC operating model, ambition translation, and runtime authority ordering. Source of truth for what the framework claims; runtime proof must project from this, not contradict it.",
+    "anti_responsibilities": [
+      "treat narrative prose as runtime authority",
+      "claim capability status not backed by FrameworkSpec projection",
+      "let one layer's success report substitute for lower-layer proof"
+    ],
+    "authority_order": [
+      "observed runtime state",
+      "contracts/foundation.json",
+      "infra/runtime-authority.json",
+      "infra/registry.json",
+      "Cargo.toml",
+      "canonical Rust crates under crates/"
+    ],
+    "operating_model": "coordination without global enforcement; typed-resource, controller, reconciliation, operator patterns in Rust; explicit install, mutation, provenance, outcome, and residual unknowns",
+    "source_documents": ["contracts/framework.json", "contracts/foundation.json"]
+  },
+  "code_contract": {
+    "types": ["FrameworkSpec"],
+    "required_fields": ["authority_order", "source_documents"],
+    "modules": ["cynic-protocol::framework"]
+  },
+  "observe": {
+    "port": "FrameworkSpecObservationPort",
+    "adapter": "cynic-protocol::framework",
+    "reports": ["FrameworkSpecProjection"]
+  },
+  "reconcile": "pure decision from desired_state.framework_spec vs observed FrameworkSpecProjection; assert runtime proof projects from spec and does not contradict authority order",
+  "bounded_action": {
+    "argv": "cynic dev framework --json",
+    "mutates": false,
+    "authority": "none",
+    "rollback_intent": []
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  }
+}

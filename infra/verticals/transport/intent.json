@@ -1,0 +1,42 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "transport",
+  "layer": "l1_host_readonly",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.transport.desired_state.v1",
+    "responsibility": "Explain allowed transport surfaces and inspect untrusted SSH bootstrap target evidence without persisting trust.",
+    "anti_responsibilities": [
+      "persist SSH host trust without human confirmation",
+      "bootstrap host mutation",
+      "reimplement transport policy in the CLI layer"
+    ],
+    "canonical_entrypoints": [
+      "cynic transport matrix --json",
+      "cynic transport ssh inspect <host> --json"
+    ]
+  },
+  "code_contract": {
+    "types": ["TransportSurface"],
+    "required_fields": ["canonical_entrypoints"],
+    "modules": ["cynic-host::transport"]
+  },
+  "observe": {
+    "port": "TransportObservationPort",
+    "adapter": "cynic-host::transport",
+    "reports": ["TransportMatrixReport", "TransportSshInspectReport"]
+  },
+  "reconcile": "pure decision from desired_state.transport vs observed TransportMatrixReport; assert no trust persisted without human confirmation",
+  "bounded_action": {
+    "argv": "cynic transport ssh inspect <host> --json",
+    "mutates": false,
+    "authority": "none",
+    "rollback_intent": []
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  }
+}

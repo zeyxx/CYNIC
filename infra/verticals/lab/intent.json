@@ -1,0 +1,51 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "lab",
+  "layer": "l0_proof_harness",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.lab.desired_state.v1",
+    "responsibility": "Provide closed local lab bootstrap/network/evidence harnesses as proof environments, not runtime authority.",
+    "anti_responsibilities": [
+      "become canonical production authority",
+      "mutate operator connectivity without explicit apply",
+      "hide harness kind or isolation boundary"
+    ],
+    "canonical_entrypoints": [
+      "cynic lab bundle --json [--output-dir <path>]",
+      "cynic lab status --json",
+      "cynic lab network status --json [--resolve-dns]",
+      "cynic lab provision --json [--apply]",
+      "cynic lab image fetch --json [--apply]"
+    ]
+  },
+  "code_contract": {
+    "types": ["LabSurface", "PortableLabSurface"],
+    "required_fields": ["canonical_entrypoints"],
+    "modules": ["cynic-host::lab"]
+  },
+  "observe": {
+    "port": "LabObservationPort",
+    "adapter": "cynic-host::lab",
+    "reports": ["LabStatusReport", "LabNetworkStatusReport"]
+  },
+  "reconcile": "pure decision from desired_state.lab vs observed LabStatusReport; provision only if harness kind and isolation boundary explicit",
+  "bounded_action": {
+    "argv": "cynic lab provision --json [--apply]",
+    "mutates": true,
+    "authority": "operator",
+    "rollback_intent": ["destroy_lab_provision", "restore_previous_lab_state"]
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  },
+  "remediation": {
+    "observe": "cynic-host::lab",
+    "reconcile": "cynic-host::lab",
+    "bounded_action": "cynic lab provision [--apply]",
+    "required_when": "bounded_action != null"
+  }
+}

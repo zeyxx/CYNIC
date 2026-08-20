@@ -1,0 +1,49 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "bootstrap",
+  "layer": "l1_host_apply_boundary",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.bootstrap.desired_state.v1",
+    "responsibility": "Project explicit preflight, apply intent, observe, proof, and rollback gaps for host bootstrap and constellation bring-up.",
+    "anti_responsibilities": [
+      "run hidden host mutation without plan",
+      "treat lab assumptions as runtime authority",
+      "skip observed evidence before apply"
+    ],
+    "canonical_entrypoints": [
+      "cynic bootstrap constellation --json [--registry <path>]",
+      "cynic bootstrap constellation plan --json [--registry <path>]",
+      "cynic bootstrap constellation apply --json [--registry <path>] --apply"
+    ]
+  },
+  "code_contract": {
+    "types": ["BootstrapSurface"],
+    "required_fields": ["canonical_entrypoints"],
+    "modules": ["cynic-host::framework_bootstrap::bootstrap"]
+  },
+  "observe": {
+    "port": "BootstrapObservationPort",
+    "adapter": "cynic-host::framework_bootstrap::bootstrap::observe",
+    "reports": ["BootstrapReport"]
+  },
+  "reconcile": "pure decision from desired_state.bootstrap vs observed BootstrapReport; apply only if preflight passes and all required proofs present",
+  "bounded_action": {
+    "argv": "cynic bootstrap constellation apply --json [--registry <path>] --apply",
+    "mutates": true,
+    "authority": "kernel_primary",
+    "rollback_intent": ["revert_constellation_apply", "restore_previous_bootstrap_state"]
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  },
+  "remediation": {
+    "observe": "cynic-host::framework_bootstrap::bootstrap::observe",
+    "reconcile": "cynic-host::framework_bootstrap::bootstrap::decision",
+    "bounded_action": "cynic bootstrap constellation apply --apply",
+    "required_when": "bounded_action != null"
+  }
+}

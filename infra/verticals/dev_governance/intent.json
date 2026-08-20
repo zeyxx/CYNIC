@@ -1,0 +1,66 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "dev_governance",
+  "layer": "l0_to_l2_architecture_governance",
+  "owner_crate": "cynic-cli",
+  "desired_state": {
+    "schema": "cynic.dev_governance.desired_state.v1",
+    "responsibility": "Project architecture, ownership, exposure, crate, and validation audits as machine-readable governance proof.",
+    "anti_responsibilities": [
+      "claim host mutation proof",
+      "replace runtime validation with prose",
+      "hide blocked architecture debt behind green status"
+    ],
+    "canonical_entrypoints": [
+      "cynic dev surfaces --json",
+      "cynic dev outcomes --json",
+      "cynic dev kpi-score --json",
+      "cynic dev framework --json",
+      "cynic dev crate-audit --json [--output <path>] [--persist]",
+      "cynic dev kernel-audit --json [--output <path>] [--persist]",
+      "cynic dev ownership-audit --json [--output <path>] [--persist]",
+      "cynic dev surface-audit --json [--output <path>] [--persist]",
+      "cynic dev surface-matrix --json [--output <path>] [--persist]",
+      "cynic dev agent-exposure --json [--output <path>] [--persist]",
+      "cynic dev check --json [--architecture-only] [--target-root <path>]"
+    ],
+    "evidence": [
+      "dev.surface.manifest.v1",
+      "dev.outcome_spec.v1",
+      "dev.framework_spec.v1",
+      "cynic.cli.crate_audit.v1",
+      "cynic.cli.kernel_boundary_audit.v1",
+      "cynic.cli.ownership_audit.v1",
+      "cynic.cli.surface_audit.v1",
+      "cynic.cli.surface_audit_matrix.v1",
+      "cynic.cli.agent_exposure_audit.v1",
+      "cynic.dev_check.v1"
+    ]
+  },
+  "code_contract": {
+    "types": ["DevGovernanceSurface"],
+    "required_fields": ["canonical_entrypoints", "evidence"],
+    "modules": ["cynic-cli::crate_audit", "cynic-cli::kernel_boundary_audit", "cynic-cli::ownership_audit", "cynic-cli::surface_audit", "cynic-cli::agent_exposure_audit", "cynic-cli::dev_surface"]
+  },
+  "observe": {
+    "port": "DevGovernanceObservationPort",
+    "adapter": "cynic-cli::dev_surface::manifest",
+    "reports": ["DevSurfaceManifest"]
+  },
+  "reconcile": {
+    "rule": "pure decision from desired_state.dev_governance vs observed DevSurfaceManifest; assert all canonical_entrypoints produce machine-readable evidence",
+    "module": "cynic-cli::dev_surface::check"
+  },
+  "bounded_action": {
+    "argv": "cynic dev check --json",
+    "mutates": false,
+    "authority": "none",
+    "rollback_intent": []
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "inference",
+  "layer": "l1_host_readonly",
+  "owner_crate": "cynic-cli",
+  "desired_state": {
+    "schema": "cynic.inference.desired_state.v1",
+    "responsibility": "Thin chat CLI: one-shot/resume against inference plane with principal-owned session event log, stream and tools.",
+    "anti_responsibilities": [
+      "expose principal session secrets",
+      "claim inference result as runtime truth",
+      "mutate host state from chat"
+    ],
+    "canonical_entrypoints": [
+      "cynic chat [--json]",
+      "cynic chat resume <id> [--json]"
+    ]
+  },
+  "code_contract": {
+    "types": "ChatSurface",
+    "required_fields": ["canonical_entrypoints"],
+    "modules": ["cynic-inference::domain::chat", "chat_surface", "chat_tui"]
+  },
+  "observe": {
+    "port": "InferenceObservationPort",
+    "adapter": "cynic-inference::domain::chat",
+    "reports": ["ChatSessionStore"]
+  },
+  "reconcile": "pure decision from desired_state.inference vs observed ChatSessionStore; assert session log is principal-owned and no host mutation performed",
+  "bounded_action": {
+    "argv": "cynic chat [--json]",
+    "mutates": false,
+    "authority": "none",
+    "rollback_intent": []
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  }
+}

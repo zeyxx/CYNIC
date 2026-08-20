@@ -1,0 +1,56 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "integrations",
+  "layer": "l1_host_apply_boundary",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.integrations.desired_state.v1",
+    "responsibility": "Observe managed services and external provider CLIs with explicit principal and connection-presence evidence; execute explicit adoption/connection recipes, then re-probe the effective principal and return machine-readable proof.",
+    "anti_responsibilities": [
+      "read or copy credential values",
+      "claim operator authentication as runtime-principal authentication",
+      "install or mutate services from the status command",
+      "mutate without --apply",
+      "hide interactive provider login inside an opaque helper",
+      "expose secret values in argv, stdout, stderr, or proof",
+      "execute install or login side effects from the plan command",
+      "treat operator-local auth as runtime-principal adoption",
+      "invent a provider install path that is not yet modeled"
+    ],
+    "canonical_entrypoints": [
+      "cynic integrations status [--json]",
+      "cynic integrations adopt <id> [--json] [--apply]",
+      "cynic integrations connect <id> [--json] [--apply]",
+      "cynic integrations plan [--json]"
+    ]
+  },
+  "code_contract": {
+    "types": ["EcosystemIntegrationsSurface", "EcosystemIntegrationsAdoptSurface", "EcosystemIntegrationsConnectSurface", "EcosystemIntegrationsPlanSurface"],
+    "required_fields": ["canonical_entrypoints"],
+    "modules": ["cynic-host::domain::ecosystem_package", "cynic-host::adapters::local_integration"]
+  },
+  "observe": {
+    "port": "IntegrationsObservationPort",
+    "adapter": "cynic-host::adapters::local_integration",
+    "reports": ["EcosystemIntegrationsStatus"]
+  },
+  "reconcile": "pure decision from desired_state.integrations vs observed EcosystemIntegrationsStatus; adopt/connect only if plan approved and principal connection observed without secret exposure",
+  "bounded_action": {
+    "argv": "cynic integrations adopt <id> [--json] [--apply]",
+    "mutates": true,
+    "authority": "operator",
+    "rollback_intent": ["revoke_integration_adoption", "restore_previous_integration_state"]
+  },
+  "read_back_proof": {
+    "poh_checkpoint": { "schema": "cynic.poh_checkpoint_batch.v1", "onchain": false },
+    "dns_proof": { "schema": "cynic.runtime_network_preflight.v1", "external_proof": true },
+    "maturity_percent_min": 80,
+    "known_coverage_percent_min": 60
+  },
+  "remediation": {
+    "observe": "cynic-host::adapters::local_integration",
+    "reconcile": "cynic-host::domain::ecosystem_package",
+    "bounded_action": "cynic integrations adopt <id> [--apply]",
+    "required_when": "bounded_action != null"
+  }
+}
