@@ -3,6 +3,12 @@ use serde::{Deserialize, Serialize};
 use crate::SecurityEvidenceState;
 
 pub const RUNTIME_SEED_REQUEST_SCHEMA: &str = "cynic.runtime_seed.request.v4";
+
+/// Seed contract revision this crate implements, matching the request schema
+/// version above. Validation only rejects `0` (runtime_seed.rs:336) and compares
+/// observed against required (line 174), so the value was a bare literal in every
+/// fixture; naming it keeps request schema and contract revision in one place.
+pub const RUNTIME_SEED_CONTRACT_REVISION: u64 = 4;
 pub const RUNTIME_SEED_OBSERVATION_SCHEMA: &str = "cynic.runtime_seed.observation.v4";
 pub const RUNTIME_SEED_PLAN_SCHEMA: &str = "cynic.runtime_seed.plan.v4";
 pub const RUNTIME_SEED_BUNDLE_MARKER_SCHEMA: &str = "cynic.runtime_seed.bundle_marker.v3";
@@ -55,6 +61,54 @@ pub struct RuntimeSeedRequest {
     pub current_link: String,
     pub previous_link: String,
     pub postflight_argv: Vec<String>,
+}
+
+impl RuntimeSeedRequest {
+    /// A schema-complete request for tests and examples.
+    ///
+    /// The contract carries 24 fields, so consumers that restated a literal
+    /// subset went stale on every addition — and one such fixture asserted a
+    /// `source_bundle_digest` field that never existed. Owning the example here
+    /// keeps it correct by construction: adding a field breaks this single
+    /// function instead of silently rotting every downstream fixture.
+    ///
+    /// Digests and locators are placeholders; override the fields under test.
+    pub fn example(node_id: &str, release_id: &str, source_commit: &str) -> Self {
+        let placeholder_digest = format!("sha256:{}", "0".repeat(64));
+        Self {
+            schema: RUNTIME_SEED_REQUEST_SCHEMA.to_string(),
+            node_id: node_id.to_string(),
+            release_id: release_id.to_string(),
+            release_epoch: 1,
+            source_commit: source_commit.to_string(),
+            build_proof_digest: placeholder_digest.clone(),
+            basket_digest: placeholder_digest.clone(),
+            registry_digest: placeholder_digest,
+            basket_source: RuntimeArtifactSource {
+                transport: RuntimeArtifactTransportKind::Https,
+                locator: format!("https://artifacts.synapse.cynic/releases/{release_id}.tar"),
+            },
+            basket_path: format!("/var/lib/cynic/incoming/{release_id}.tar"),
+            detached_signature_source: RuntimeArtifactSource {
+                transport: RuntimeArtifactTransportKind::Https,
+                locator: format!("https://artifacts.synapse.cynic/releases/{release_id}.tar.sig"),
+            },
+            detached_signature_path: format!("/var/lib/cynic/incoming/{release_id}.tar.sig"),
+            allowed_signers_path: "/etc/cynic/runtime-seed-allowed-signers".to_string(),
+            registry_path: "/etc/cynic/registry.json".to_string(),
+            signer_identity: "cynic-runtime-release".to_string(),
+            signature_namespace: "cynic-runtime-seed".to_string(),
+            required_seed_contract_revision: RUNTIME_SEED_CONTRACT_REVISION,
+            install_root: "/opt/cynic/runtime".to_string(),
+            staged_slot: format!("releases/{release_id}"),
+            current_link: "current".to_string(),
+            previous_link: "previous".to_string(),
+            postflight_argv: vec![
+                "current/bin/cynic-mcp".to_string(),
+                "--contract-json".to_string(),
+            ],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
