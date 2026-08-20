@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub const NODE_OBSERVATION_SCHEMA: &str = "cynic.node_observation.v1";
 pub const SURFACE_NETWORK_MESH_STATUS: &str = "network.mesh.status";
@@ -36,7 +36,15 @@ pub enum NodeRuntimeBlocker {
     WireguardMeshAbsent,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// Persisted across ticks, so it must round-trip.
+///
+/// `node_network_recovery_uc` writes `RecoveryState.last_action` to disk and
+/// reads it back on the next tick to count consecutive attempts. A
+/// `Serialize`-only enum can be written and never recovered, which silently
+/// resets the attempt counter on every restart and defeats the backoff.
+/// Its siblings `NodeRuntimeStatus`/`NodeRuntimeSeverity` stay write-only
+/// because nothing persists them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeRuntimeAction {
     RestoreProviderFallbackRoute,

@@ -13,7 +13,14 @@ pub mod homeostasis_uc;
 pub mod mesh_sync_uc;
 pub mod network_actuation_target_uc;
 pub mod network_surfaces_uc;
+// The federated mesh cluster declares together or not at all: probe_uc owns
+// DeclaredSynapseNode/CANONICAL_SYNAPSE_NODES, resolver calls back into
+// probe_uc, and spof_observe/task_dispatch both consume probe_uc. Declaring one
+// member alone produced E0433 for a module that does exist.
+pub mod federated_mesh_probe_uc;
 pub mod federated_mesh_resolver;
+pub mod federated_task_dispatch_uc;
+pub mod kernel_spof_observe_uc;
 pub mod node_network_recovery_uc;
 pub mod node_control_plane_uc;
 pub mod node_identity_uc;
