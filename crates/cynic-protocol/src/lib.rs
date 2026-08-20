@@ -1,6 +1,8 @@
 pub mod agent_connection;
 pub mod bootstrap_federation;
 pub mod agent_citizenship;
+pub mod agent_coordination;
+pub mod agent_mutation_gates;
 pub mod agent_recursion;
 pub mod agent_scheduler;
 pub mod agent_session;
@@ -96,6 +98,9 @@ pub mod workload_identity;
 
 pub use agent_connection::*;
 pub use agent_citizenship::*;
+pub use agent_coordination::*;
+pub use agent_coordination::predicates::*;
+pub use agent_mutation_gates::*;
 pub use coord::{LeaseVerification, LEASE_VERIFICATION_SCHEMA, coord_register_path, coord_who_path, coord_claim_path, coord_release_path, coord_verify_path, coord_finalize_path};
 pub use agent_recursion::*;
 pub use agent_scheduler::*;
