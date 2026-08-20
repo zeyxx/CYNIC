@@ -14,6 +14,7 @@
 
 pub mod decision;
 pub mod observe;
+pub mod probes;
 pub mod render;
 pub mod types;
 

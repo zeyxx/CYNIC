@@ -12,6 +12,8 @@ use cynic_protocol::peer_resolver::{
     PeerEndpoint, PeerResolver, PeerTransport, SignedPeerEndpoint,
 };
 
+use crate::os_health::probes::{read_available_mem_mib, read_bool, read_reclaim_pressure_pct};
+
 /// Concrete resolver: reads registry, probes TCP, observes OS health.
 pub struct MeshPeerResolver {
     registry_path: String,
@@ -92,49 +94,7 @@ impl MeshPeerResolver {
 
 impl PeerResolver for MeshPeerResolver {
     fn resolve_peers(&self, role: &str) -> Vec<PeerEndpoint> {
-        let declared = match self.read_declared_peers() {
-            Ok(d) => d,
-            Err(_) => return vec![],
-        };
-
-        let mut peers = vec![];
-        for node in declared {
-            if !node.role.contains(role) {
-                continue;
-            }
-            let ip = node
-                .synapse_ip
-                .unwrap_or_else(|| node.management_ip.clone());
-            let mut any_reachable = false;
-
-            for port in &node.probe_ports {
-                let (reachable, _) = self.probe_port(&ip, *port);
-                if reachable {
-                    any_reachable = true;
-                } else {
-                }
-            }
-
-            // OS health: local observation only (remote observation requires SSH/agent).
-            let os_health = if node.id == self.local_node_id {
-                let anomalies = self.observe_local_os_health();
-                NodeHealthView::from_anomalies(&anomalies)
-            } else {
-                NodeHealthView::default()
-            };
-
-            peers.push(PeerEndpoint {
-                node_id: node.id,
-                role: node.role,
-                transport: PeerTransport::Http,
-                addr: format!("http://{ip}"),
-                probe_ports: node.probe_ports,
-                reachable: any_reachable,
-                health: os_health,
-            });
-        }
-
-        peers
+        self.resolve_peers_filtered(Some(role))
     }
 
     fn fallback_peers(&self, role: &str) -> Vec<SignedPeerEndpoint> {
@@ -152,6 +112,15 @@ impl PeerResolver for MeshPeerResolver {
     }
 
     fn resolve_all_peers(&self) -> Vec<PeerEndpoint> {
+        self.resolve_peers_filtered(None)
+    }
+}
+
+impl MeshPeerResolver {
+    /// Shared peer resolution used by both `resolve_peers` (role-filtered) and
+    /// `resolve_all_peers` (unfiltered). Probes TCP reachability and observes
+    /// local OS health, then builds a `PeerEndpoint` per declared node.
+    fn resolve_peers_filtered(&self, role_filter: Option<&str>) -> Vec<PeerEndpoint> {
         let declared = match self.read_declared_peers() {
             Ok(d) => d,
             Err(_) => return vec![],
@@ -159,6 +128,11 @@ impl PeerResolver for MeshPeerResolver {
 
         let mut peers = vec![];
         for node in declared {
+            if let Some(role) = role_filter {
+                if !node.role.contains(role) {
+                    continue;
+                }
+            }
             let ip = node
                 .synapse_ip
                 .unwrap_or_else(|| node.management_ip.clone());
@@ -168,10 +142,10 @@ impl PeerResolver for MeshPeerResolver {
                 let (reachable, _) = self.probe_port(&ip, *port);
                 if reachable {
                     any_reachable = true;
-                } else {
                 }
             }
 
+            // OS health: local observation only (remote observation requires SSH/agent).
             let os_health = if node.id == self.local_node_id {
                 let anomalies = self.observe_local_os_health();
                 NodeHealthView::from_anomalies(&anomalies)
@@ -277,61 +251,6 @@ fn find_node_details(value: &serde_json::Value, name: &str) -> (String, Vec<u16>
     ("unknown".to_string(), vec![])
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// OS health probes (portable, same logic as os_health/observe.rs)
-// ──────────────────────────────────────────────────────────────────────
-
-fn read_bool(path: &str) -> bool {
-    std::fs::read_to_string(path)
-        .map(|c| c.trim() == "1")
-        .unwrap_or(false)
-}
-
-fn read_available_mem_mib() -> u64 {
-    let content = match std::fs::read_to_string("/proc/meminfo") {
-        Ok(c) => c,
-        Err(_) => return 0,
-    };
-    for line in content.lines() {
-        if let Some(rest) = line.strip_prefix("MemAvailable:") {
-            if let Some(kb) = rest.split_whitespace().next() {
-                if let Ok(kb_val) = kb.parse::<u64>() {
-                    return kb_val / 1024;
-                }
-            }
-        }
-    }
-    0
-}
-
-fn read_reclaim_pressure_pct() -> u8 {
-    let content = match std::fs::read_to_string("/proc/meminfo") {
-        Ok(c) => c,
-        Err(_) => return 0,
-    };
-    let mut avail = 0u64;
-    let mut total = 0u64;
-    for line in content.lines() {
-        if let Some(r) = line.strip_prefix("MemAvailable:") {
-            avail = r
-                .split_whitespace()
-                .next()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(0);
-        } else if let Some(r) = line.strip_prefix("MemTotal:") {
-            total = r
-                .split_whitespace()
-                .next()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(0);
-        }
-    }
-    if total == 0 {
-        return 0;
-    }
-    ((total.saturating_sub(avail)) as f64 / total as f64 * 100.0) as u8
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -368,5 +287,33 @@ mod tests {
         let resolver = MeshPeerResolver::new("/nonexistent/registry.json", "local");
         let fallback = resolver.fallback_peers("build_runner");
         assert!(fallback.is_empty());
+    }
+
+    #[test]
+    fn resolve_peers_and_resolve_all_peers_share_logic() {
+        // Both methods delegate to resolve_peers_filtered; a node present in
+        // both views must produce an identical PeerEndpoint (only the role
+        // filter differs, never the built endpoint).
+        let json = r#"{
+            "network_policy": {
+                "reservations": [
+                    {"name": "n1", "synapse": "10.10.10.1", "management": "10.10.10.2"}
+                ]
+            },
+            "nodes": [
+                {"id": "n1", "role": "build_runner", "services": [{"name": "http", "port": 8080}]}
+            ]
+        }"#;
+        let path = std::env::temp_dir().join(format!("prm-{}.json", std::process::id()));
+        std::fs::write(&path, json).unwrap();
+        let resolver = MeshPeerResolver::new(path.to_str().unwrap(), "local");
+
+        let by_role = resolver.resolve_peers("build_runner");
+        let all = resolver.resolve_all_peers();
+        std::fs::remove_file(&path).ok();
+
+        assert_eq!(by_role.len(), 1);
+        assert_eq!(all.len(), 1);
+        assert_eq!(by_role[0], all[0]);
     }
 }

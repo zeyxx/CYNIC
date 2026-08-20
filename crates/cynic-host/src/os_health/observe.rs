@@ -8,6 +8,7 @@
 //! guessing.
 
 use super::types::OsObservation;
+use crate::os_health::probes::{read_available_mem_mib, read_bool, read_reclaim_pressure_pct};
 
 /// Portable observer of OS substrate health signals.
 pub trait OsHealthObserver {
@@ -60,64 +61,6 @@ fn read_trim(path: &str) -> String {
         }
         Err(_) => "unknown".to_string(),
     }
-}
-
-fn read_bool(path: &str) -> bool {
-    match std::fs::read_to_string(path) {
-        Ok(content) => content.trim() == "1",
-        Err(_) => false, // conservative: assume "does not panic" when unreadable
-    }
-}
-
-fn read_available_mem_mib() -> u64 {
-    // /proc/meminfo: `MemAvailable:   12345678 kB`
-    let content = match std::fs::read_to_string("/proc/meminfo") {
-        Ok(c) => c,
-        Err(_) => return 0,
-    };
-    for line in content.lines() {
-        if let Some(rest) = line.strip_prefix("MemAvailable:") {
-            if let Some(kb) = rest.split_whitespace().next() {
-                if let Ok(kb_val) = kb.parse::<u64>() {
-                    return kb_val / 1024;
-                }
-            }
-        }
-    }
-    0
-}
-
-fn read_reclaim_pressure_pct() -> u8 {
-    // Best-effort: derive from MemAvailable vs MemTotal in /proc/meminfo.
-    let (avail, total) = match std::fs::read_to_string("/proc/meminfo") {
-        Ok(c) => {
-            let mut a = 0u64;
-            let mut t = 0u64;
-            for line in c.lines() {
-                if let Some(r) = line.strip_prefix("MemAvailable:") {
-                    a = r
-                        .split_whitespace()
-                        .next()
-                        .and_then(|v| v.parse().ok())
-                        .unwrap_or(0);
-                } else if let Some(r) = line.strip_prefix("MemTotal:") {
-                    t = r
-                        .split_whitespace()
-                        .next()
-                        .and_then(|v| v.parse().ok())
-                        .unwrap_or(0);
-                }
-            }
-            (a, t)
-        }
-        Err(_) => return 0,
-    };
-    if total == 0 {
-        return 0;
-    }
-    // "reclaim pressure" approximated as the percentage of memory NOT available.
-    let used_pct = ((total.saturating_sub(avail)) as f64 / total as f64 * 100.0) as u8;
-    used_pct
 }
 
 fn count_dmesg(needle: &str) -> u64 {
