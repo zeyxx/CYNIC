@@ -11,7 +11,8 @@ use super::agent_request::BUILD_SOURCE_SNAPSHOT_REFERENCE_LEGACY_SCHEMA;
 use super::{
     BUILD_AGENT_REQUEST_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA,
     BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA, BuildAgentRequest, BuildSourceReference,
-    BuildSourceSnapshotReference, admit_build_agent_request, validate_build_source_reference,
+    BuildSourceSnapshotReference, admit_build_agent_request, canonical_argv_from_build_action,
+    validate_build_source_reference,
 };
 
 pub fn build_agent_request_from_workload(
@@ -159,14 +160,8 @@ pub fn compose_build_agent_workload(
     if !blockers.is_empty() {
         return Err(blockers);
     }
-    let argv = match request.action.as_str() {
-        "make:check" => vec!["make".to_string(), "check".to_string()],
-        "make:build" => vec!["make".to_string(), "build".to_string()],
-        "make:build-release" => vec!["make".to_string(), "build-release".to_string()],
-        "cargo:check" => vec!["cargo".to_string(), "check".to_string()],
-        "cargo:build" => vec!["cargo".to_string(), "build".to_string(), "--release".to_string()],
-        _ => return Err(vec!["build_agent_request_action_not_allowed".to_string()]),
-    };
+    let argv = canonical_argv_from_build_action(&request.action)
+        .ok_or_else(|| vec!["build_agent_request_action_not_allowed".to_string()])?;
     let input_digest = digest_json(&request.source)
         .map_err(|_| vec!["build_agent_workload_input_digest_failed".to_string()])?;
     let request_digest = digest_json(request)

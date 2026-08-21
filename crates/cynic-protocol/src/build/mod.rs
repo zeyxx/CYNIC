@@ -40,8 +40,8 @@ pub use workload_grant::{
     BUILD_WORKLOAD_GRANT_MAX_TTL_SECONDS, BUILD_WORKLOAD_GRANT_SCHEMA,
     BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE, BuildWorkloadGrant,
     SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA, SignedBuildWorkloadGrant,
-    build_workload_grant_signing_bytes, canonical_build_action_from_argv,
-    derive_build_workload_grant, validate_build_workload_grant,
+    build_workload_grant_signing_bytes, canonical_argv_from_build_action,
+    canonical_build_action_from_argv, derive_build_workload_grant, validate_build_workload_grant,
     validate_signed_build_workload_grant,
 };
 

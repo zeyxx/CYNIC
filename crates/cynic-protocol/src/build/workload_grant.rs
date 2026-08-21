@@ -284,9 +284,33 @@ pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str>
             Some("make:build-release")
         }
         [program, target] if program == "cargo" && target == "check" => Some("cargo:check"),
-        [program, target, release] if program == "cargo" && target == "build" && release == "--release" => {
+        [program, target, release]
+            if program == "cargo" && target == "build" && release == "--release" =>
+        {
             Some("cargo:build")
         }
+        _ => None,
+    }
+}
+
+/// Translate a canonical build action into its argv representation.
+///
+/// Inverse of [`canonical_build_action_from_argv`] for the 5 actions that have
+/// a deterministic argv form. Returns `None` for actions admitted by policy
+/// (`cargo:run`, `cargo:test`, `make:build-host-exec`) that have no canonical
+/// argv — this asymmetry is the bounded-action gap measured in the build
+/// workflow audit: policy admits verbs the executor cannot construct.
+pub fn canonical_argv_from_build_action(action: &str) -> Option<Vec<String>> {
+    match action {
+        "make:check" => Some(vec!["make".to_string(), "check".to_string()]),
+        "make:build" => Some(vec!["make".to_string(), "build".to_string()]),
+        "make:build-release" => Some(vec!["make".to_string(), "build-release".to_string()]),
+        "cargo:check" => Some(vec!["cargo".to_string(), "check".to_string()]),
+        "cargo:build" => Some(vec![
+            "cargo".to_string(),
+            "build".to_string(),
+            "--release".to_string(),
+        ]),
         _ => None,
     }
 }
@@ -303,6 +327,7 @@ fn valid_sha256(value: &str) -> bool {
 
 #[cfg(test)]
 mod action_tests {
+    use super::canonical_argv_from_build_action;
     use super::canonical_build_action_from_argv;
 
     #[test]
@@ -323,5 +348,43 @@ mod action_tests {
             canonical_build_action_from_argv(&["make".to_string(), "build-release".to_string()]),
             Some("make:build-release")
         );
+    }
+
+    /// Invariant: every action the forward translator produces must round-trip
+    /// through the reverse translator. If this fails, policy can admit a verb
+    /// whose argv cannot be constructed — the bounded-action gap.
+    #[test]
+    fn every_translatable_argv_roundtrips_through_its_action() {
+        let actions = [
+            "make:check",
+            "make:build",
+            "make:build-release",
+            "cargo:check",
+            "cargo:build",
+        ];
+        for action in actions {
+            let argv = canonical_argv_from_build_action(action)
+                .unwrap_or_else(|| panic!("action {action} must be translatable"));
+            let roundtripped = canonical_build_action_from_argv(&argv);
+            assert_eq!(
+                roundtripped,
+                Some(action),
+                "argv for {action} did not round-trip: got {roundtripped:?}"
+            );
+        }
+    }
+
+    /// Invariant: actions admitted by policy that have no canonical argv must
+    /// return `None`. These are the known gaps; this test pins them so that
+    /// adding a translation does not silently leave the gap.
+    #[test]
+    fn untranslatable_admitted_actions_return_none() {
+        for action in ["cargo:run", "cargo:test", "make:build-host-exec"] {
+            assert_eq!(
+                canonical_argv_from_build_action(action),
+                None,
+                "action {action} is admitted by policy but has no argv"
+            );
+        }
     }
 }
