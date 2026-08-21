@@ -439,6 +439,8 @@ mod tests {
             guard: guard("agent-workload:workload-1", 2),
             expires_at_ms: 120,
             cancellation_generation: 0,
+            granted_at_ms: 0,
+            max_lease_window_ms: 1000,
         });
         assert!(matches!(
             reconcile_agent_workspace_lifecycle(&observed, 100, 30, 1000).decision,
@@ -453,6 +455,8 @@ mod tests {
             guard: guard("agent-workload:workload-1", 2),
             expires_at_ms: 120,
             cancellation_generation: 1,
+            granted_at_ms: 0,
+            max_lease_window_ms: 1000,
         });
         assert!(matches!(
             reconcile_agent_workspace_lifecycle(&observed, 100, 30, 1000).decision,

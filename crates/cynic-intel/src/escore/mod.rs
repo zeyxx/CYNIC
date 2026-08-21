@@ -1,4 +1,5 @@
 pub mod aggregator;
+pub mod contribution;
 pub mod decay;
 pub mod merkle;
 pub mod metrics;

@@ -98,7 +98,8 @@ fn parse_openssh_ed25519_seed(bytes: &[u8]) -> Result<SigningKey, String> {
     if priv_cursor.len() < 64 {
         return Err("private key section too short".to_string());
     }
-    let seed: [u8; 32] = priv_cursor[..32].try_into()
+    let seed: [u8; 32] = priv_cursor[..32]
+        .try_into()
         .map_err(|_| "private key section too short".to_string())?;
     Ok(SigningKey::from_bytes(&seed))
 }

@@ -14,7 +14,7 @@ use std::thread;
 use serde::Serialize;
 
 use crate::forgejo_webhook::{
-    handle_forgejo_payload, validate_source_commit, ForgejoHandlerConfig, ForgejoPayload,
+    ForgejoHandlerConfig, ForgejoPayload, handle_forgejo_payload, validate_source_commit,
 };
 use crate::update_lifecycle::ArgvRunner;
 
@@ -65,7 +65,10 @@ pub fn spawn_webhook_server(
 }
 
 /// Handle a single HTTP POST request (minimal HTTP/1.0 parsing).
-fn handle_webhook_request(stream: &mut TcpStream, config: &WebhookServerConfig) -> WebhookTriggerResult {
+fn handle_webhook_request(
+    stream: &mut TcpStream,
+    config: &WebhookServerConfig,
+) -> WebhookTriggerResult {
     let mut body = String::new();
     let mut buf = [0u8; 65536];
 
@@ -126,7 +129,12 @@ fn handle_webhook_request(stream: &mut TcpStream, config: &WebhookServerConfig) 
             );
 
             WebhookTriggerResult {
-                status: if build_triggered { "triggered" } else { "trigger_failed" }.to_string(),
+                status: if build_triggered {
+                    "triggered"
+                } else {
+                    "trigger_failed"
+                }
+                .to_string(),
                 source_commit: Some(source_commit),
                 workload_id: Some(workload_id),
                 build_triggered,
@@ -204,7 +212,9 @@ fn trigger_remote_build(
     if !output.success() {
         eprintln!(
             "webhook build trigger failed: {}\nstderr: {}",
-            output.spawn_error.unwrap_or_else(|| "non-zero exit".to_string()),
+            output
+                .spawn_error
+                .unwrap_or_else(|| "non-zero exit".to_string()),
             output.stderr
         );
         return (false, None);

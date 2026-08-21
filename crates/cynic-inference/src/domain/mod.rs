@@ -26,3 +26,4 @@ pub mod domain_task_queue;
 pub mod hermes_runtime;
 pub mod matrix_sweep;
 pub mod model_retention;
+pub mod node_contribution;

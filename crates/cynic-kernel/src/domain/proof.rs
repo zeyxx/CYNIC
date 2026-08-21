@@ -66,3 +66,19 @@ pub trait Provable {
         }
     }
 }
+
+use cynic_protocol::HostProofSubmission;
+
+impl Provable for HostProofSubmission {
+    fn source_organ(&self) -> String {
+        self.source_organ.clone()
+    }
+
+    fn event_type(&self) -> String {
+        self.event_type.clone()
+    }
+
+    fn proof_payload(&self) -> JsonValue {
+        self.payload.clone()
+    }
+}

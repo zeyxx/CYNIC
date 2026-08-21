@@ -3,9 +3,7 @@ pub mod scanner;
 
 use std::path::Path;
 
-use cynic_protocol::{
-    AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary,
-};
+use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary};
 
 use self::rules::{
     AuditRule, HotspotThresholdRule, KernelBoundaryRule, LayerBoundaryRule, NodeHostBoundaryRule,

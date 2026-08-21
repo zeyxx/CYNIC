@@ -9,6 +9,8 @@ async-trait = "0.1"
 axum = "0.8"
 process-wrap = "9.1"
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-intel = { path = "../cynic-intel" }
+blake3 = "1"
 futures-util = "0.3"
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "stream"] }
 serde = { version = "1", features = ["derive"] }

@@ -292,9 +292,7 @@ mod tests {
 
     #[test]
     fn resilient_runner_circuit_opens_on_repeated_failure() {
-        let inner = MapArgvRunner {
-            responses: vec![],
-        };
+        let inner = MapArgvRunner { responses: vec![] };
         let runner = ResilientArgvRunner::new(
             inner,
             RetryPolicy {
@@ -324,9 +322,7 @@ mod tests {
 
     #[test]
     fn resilient_runner_fail_closed_when_open() {
-        let inner = MapArgvRunner {
-            responses: vec![],
-        };
+        let inner = MapArgvRunner { responses: vec![] };
         let runner = ResilientArgvRunner::new(
             inner,
             RetryPolicy {
@@ -353,7 +349,11 @@ mod tests {
             "must have spawn_error when circuit is open"
         );
         assert!(
-            result.spawn_error.as_deref().unwrap_or("").contains("circuit open"),
+            result
+                .spawn_error
+                .as_deref()
+                .unwrap_or("")
+                .contains("circuit open"),
             "error must mention circuit open: got {:?}",
             result.spawn_error
         );

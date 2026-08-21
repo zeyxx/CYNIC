@@ -10,22 +10,21 @@ use std::fs;
 use std::path::Path;
 
 use cynic_protocol::{
-    MachineEnrollment,
+    MachineEnrollment, ONE_SHOT_CAPABILITY_SCHEMA,
     build::{
-        BUILD_RUNNER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
-        BuildRunnerBootstrapCapabilityBinding, build_runner_bootstrap_action_digest,
-        build_runner_bootstrap_input_digest, validate_build_runner_bootstrap_capability_binding,
+        BUILD_RUNNER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA, BuildRunnerBootstrapCapabilityBinding,
+        build_runner_bootstrap_action_digest, build_runner_bootstrap_input_digest,
+        validate_build_runner_bootstrap_capability_binding,
     },
     one_shot_capability::OneShotCapability,
-    ONE_SHOT_CAPABILITY_SCHEMA,
 };
 use sha2::{Digest, Sha256};
 
-use crate::one_shot_authority::{
-    CapabilitySigningPort, LocalCapabilitySigningKey, OneShotCapabilityAuthorityPort,
-    LocalOneShotCapabilityAuthority,
-};
 use crate::host_exec_cli::{args, io};
+use crate::one_shot_authority::{
+    CapabilitySigningPort, LocalCapabilitySigningKey, LocalOneShotCapabilityAuthority,
+    OneShotCapabilityAuthorityPort,
+};
 
 /// Issue a signed bootstrap capability binding to `--output`.
 ///
@@ -54,8 +53,7 @@ pub(crate) fn execute(args: &[String]) -> Result<std::process::ExitCode, String>
     let output = required(args, "--output")?;
     let now = now_unix_s()?;
 
-    let enrollment: MachineEnrollment =
-        read_json(&enrollment_path, "enrollment")?;
+    let enrollment: MachineEnrollment = read_json(&enrollment_path, "enrollment")?;
 
     let signing_key = LocalCapabilitySigningKey::from_seed_path(Path::new(&private_key))?;
     let authority_key_id = signing_key.authority_key_id();
@@ -76,7 +74,8 @@ pub(crate) fn execute(args: &[String]) -> Result<std::process::ExitCode, String>
         input_digest: String::new(), // computed after binding is partial-assembled
         executor_digest: executor_digest.clone(),
         issued_at_unix_s: now,
-        expires_at_unix_s: expires_at.parse::<u64>()
+        expires_at_unix_s: expires_at
+            .parse::<u64>()
             .map_err(|e| format!("invalid --expires-at: {e}"))?,
         allowed_action_digests: vec![action_digest.clone()],
         authority_key_id: authority_key_id.clone(),
@@ -104,13 +103,13 @@ pub(crate) fn execute(args: &[String]) -> Result<std::process::ExitCode, String>
     };
 
     // Validate structurally (pure protocol invariants) before signing.
-    let blockers = validate_build_runner_bootstrap_capability_binding(
-        &binding,
-        &allowed_action,
-        now,
-    );
+    let blockers =
+        validate_build_runner_bootstrap_capability_binding(&binding, &allowed_action, now);
     if !blockers.is_empty() {
-        return Err(format!("capability_issue_validation_failed: {}", blockers.join(",")));
+        return Err(format!(
+            "capability_issue_validation_failed: {}",
+            blockers.join(",")
+        ));
     }
 
     // Sign via the host signing port (ed25519-dalek v2, raw 64-byte sig).
@@ -140,20 +139,21 @@ pub(crate) fn execute(args: &[String]) -> Result<std::process::ExitCode, String>
                 LocalOneShotCapabilityAuthority::new(&pub_path, "/tmp/cynic-cap-issue-verify");
             let action_digest = build_runner_bootstrap_action_digest(&allowed_action)
                 .map_err(|_| "action_digest_failed".to_string())?;
-            let _consumed = authority.verify_and_consume(
-                &signed_binding.capability,
-                &signed_binding.capability.subject,
-                "build-runner-bootstrap",
-                &action_digest,
-                now,
-            ).map_err(|e| format!("self_verify_failed: {e}"))?;
+            let _consumed = authority
+                .verify_and_consume(
+                    &signed_binding.capability,
+                    &signed_binding.capability.subject,
+                    "build-runner-bootstrap",
+                    &action_digest,
+                    now,
+                )
+                .map_err(|e| format!("self_verify_failed: {e}"))?;
         }
     }
 
     let json = serde_json::to_vec_pretty(&signed_binding)
         .map_err(|e| format!("failed to serialize binding: {e}"))?;
-    fs::write(&output, json)
-        .map_err(|e| format!("failed to write binding: {e}"))?;
+    fs::write(&output, json).map_err(|e| format!("failed to write binding: {e}"))?;
     io::emit_json(
         &serde_json::json!({
             "status": "issued",
@@ -167,13 +167,12 @@ pub(crate) fn execute(args: &[String]) -> Result<std::process::ExitCode, String>
 }
 
 fn required(args: &[String], flag: &str) -> Result<String, String> {
-    args::flag_value(args, flag)
-        .ok_or_else(|| format!("capability issue requires {flag}"))
+    args::flag_value(args, flag).ok_or_else(|| format!("capability issue requires {flag}"))
 }
 
 fn read_json<T: serde::de::DeserializeOwned>(path: &str, label: &str) -> Result<T, String> {
-    let bytes = fs::read(path)
-        .map_err(|_| format!("capability_issue_{label}_read_failed: {path}"))?;
+    let bytes =
+        fs::read(path).map_err(|_| format!("capability_issue_{label}_read_failed: {path}"))?;
     serde_json::from_slice(&bytes)
         .map_err(|_| format!("capability_issue_{label}_decode_failed: {path}"))
 }

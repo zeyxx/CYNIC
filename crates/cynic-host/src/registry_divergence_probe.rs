@@ -32,10 +32,7 @@ pub struct ClaimToProbe {
 /// the host may be powered off, and neither proves the registry wrong. Only a
 /// *different* answer refutes an address claim, which for reachability means the
 /// caller must compare against a known-good value rather than mere silence.
-pub fn probe_address_reachable(
-    runner: &dyn ArgvRunner,
-    claim: &ClaimToProbe,
-) -> ClaimObservation {
+pub fn probe_address_reachable(runner: &dyn ArgvRunner, claim: &ClaimToProbe) -> ClaimObservation {
     let output = runner.run(&["ping", "-c", "1", "-W", "2", &claim.declared]);
     let stderr = output.stderr.to_ascii_lowercase();
 
@@ -153,7 +150,10 @@ pub fn resolve_name_here(
     let output = runner.run(&["getent", "hosts", name]);
 
     if let Some(error) = &output.spawn_error {
-        return Err((observer_id.to_string(), format!("getent unavailable: {error}")));
+        return Err((
+            observer_id.to_string(),
+            format!("getent unavailable: {error}"),
+        ));
     }
     if output.exit_code != Some(0) {
         return Err((observer_id.to_string(), "name does not resolve".to_string()));
@@ -208,7 +208,15 @@ pub fn probe_service_binding(
     url: &str,
 ) -> ClaimObservation {
     let output = runner.run(&[
-        "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "4", url,
+        "curl",
+        "-s",
+        "-o",
+        "/dev/null",
+        "-w",
+        "%{http_code}",
+        "--max-time",
+        "4",
+        url,
     ]);
 
     let code = output.stdout.trim().to_string();
@@ -223,7 +231,9 @@ pub fn probe_service_binding(
     } else if code.is_empty() || code == "000" {
         (
             None,
-            Some(format!("no HTTP response from {url}; endpoint may be down or filtered")),
+            Some(format!(
+                "no HTTP response from {url}; endpoint may be down or filtered"
+            )),
         )
     } else {
         // Any status proves a listener exists at the declared endpoint.
@@ -244,7 +254,7 @@ pub fn probe_service_binding(
 mod tests {
     use super::*;
     use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
-    use cynic_protocol::registry_claim_audit::{judge_claim, judge_name, ClaimVerdict};
+    use cynic_protocol::registry_claim_audit::{ClaimVerdict, judge_claim, judge_name};
 
     fn ok(stdout: &str) -> ArgvOutput {
         ArgvOutput {
@@ -375,7 +385,15 @@ mod tests {
         let url = "http://192.168.100.2:3030/health";
         let r = runner(
             &[
-                "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "4", url,
+                "curl",
+                "-s",
+                "-o",
+                "/dev/null",
+                "-w",
+                "%{http_code}",
+                "--max-time",
+                "4",
+                url,
             ],
             ok("401"),
         );
@@ -390,10 +408,12 @@ mod tests {
         let r = runner(&["curl"], ok("000"));
         let observation = probe_service_binding(&r, &claim("10.10.10.100:3030", true), url);
         assert!(observation.observed.is_none());
-        assert!(observation
-            .unobservable_reason
-            .expect("reason")
-            .contains("no HTTP response"));
+        assert!(
+            observation
+                .unobservable_reason
+                .expect("reason")
+                .contains("no HTTP response")
+        );
     }
 
     /// getent output is parsed to its first field: the address.
@@ -451,9 +471,9 @@ mod tests {
         assert_eq!(observation.unresolved.len(), 1);
 
         match judge_name(&observation) {
-            cynic_protocol::registry_claim_audit::NameVerdict::Inconsistent {
-                distinct_values,
-            } => assert_eq!(distinct_values.len(), 2),
+            cynic_protocol::registry_claim_audit::NameVerdict::Inconsistent { distinct_values } => {
+                assert_eq!(distinct_values.len(), 2)
+            }
             other => panic!("expected Inconsistent, got {other:?}"),
         }
     }
@@ -464,21 +484,32 @@ mod tests {
     #[test]
     fn probes_issue_only_read_only_commands() {
         let mutating = [
-            "ip", "systemctl", "rm", "mv", "install", "tee", "sed", "apt", "nmcli",
+            "ip",
+            "systemctl",
+            "rm",
+            "mv",
+            "install",
+            "tee",
+            "sed",
+            "apt",
+            "nmcli",
         ];
         for argv in [
             vec!["ping", "-c", "1", "-W", "2", "10.10.10.100"],
             vec!["getent", "hosts", "kernel.synapse.cynic"],
             vec!["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}"],
-            vec!["timeout", "2", "bash", "-c", "exec 3<>/dev/tcp/10.10.10.119/22"],
+            vec![
+                "timeout",
+                "2",
+                "bash",
+                "-c",
+                "exec 3<>/dev/tcp/10.10.10.119/22",
+            ],
         ] {
             // argv[0] alone stopped being sufficient once a probe shells out:
             // `bash -c` can carry anything, so check every word.
             for word in &argv {
-                assert!(
-                    !mutating.contains(word),
-                    "{word} is not a read-only probe"
-                );
+                assert!(!mutating.contains(word), "{word} is not a read-only probe");
             }
         }
     }
@@ -496,7 +527,13 @@ mod tests {
             declared_as_candidate: false,
         };
         let r = runner(
-            &["timeout", "2", "bash", "-c", "exec 3<>/dev/tcp/10.10.10.119/22"],
+            &[
+                "timeout",
+                "2",
+                "bash",
+                "-c",
+                "exec 3<>/dev/tcp/10.10.10.119/22",
+            ],
             ok(""),
         );
 
@@ -521,7 +558,13 @@ mod tests {
             declared_as_candidate: true,
         };
         let r = runner(
-            &["timeout", "2", "bash", "-c", "exec 3<>/dev/tcp/10.10.10.100/22"],
+            &[
+                "timeout",
+                "2",
+                "bash",
+                "-c",
+                "exec 3<>/dev/tcp/10.10.10.100/22",
+            ],
             failed(1),
         );
 

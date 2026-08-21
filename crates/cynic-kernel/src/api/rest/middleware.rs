@@ -250,6 +250,7 @@ pub async fn rate_limit_middleware(
         || path == "/live"
         || path == "/ready"
         || path == "/observe"
+        || path == "/proof-of-history"
         || path.starts_with("/coord/")
     {
         return next.run(request).await;

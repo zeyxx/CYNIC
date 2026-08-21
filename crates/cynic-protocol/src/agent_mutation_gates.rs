@@ -5,7 +5,7 @@
 //! they do not recompute policy. Each function in this module calls
 //! `admit_mutation` first, then adds domain-specific checks.
 
-use crate::admit_mutation;
+use crate::agent_coordination::admit_mutation;
 use crate::error_catalog::CynicErrorCode;
 use crate::AgentBudgets;
 use crate::AgentCitizenshipRecord;

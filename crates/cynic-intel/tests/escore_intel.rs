@@ -11,6 +11,7 @@ fn sample_signal(wallet_id: &str, points: u64, timestamp: i64) -> EScoreSignal {
         evidence_tier: EvidenceTier::T1OnChain,
         raw_weight: points * SCORE_SCALE,
         timestamp,
+        epoch: None,
     }
 }
 

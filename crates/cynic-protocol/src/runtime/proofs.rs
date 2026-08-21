@@ -102,6 +102,40 @@ impl InferenceStatusProof {
     }
 }
 
+/// A host-submitted proof to be chained into the kernel Proof of History ledger.
+///
+/// The host cannot implement the kernel-side `Provable` trait directly, so it
+/// submits a ready-made submission. The kernel maps this to `ProofOfHistory`
+/// via `Provable` and stores it with hashchain + Ed25519 sealing.
+///
+/// Schema: `cynic.host_proof_submission.v1`
+/// Producer: cynic-host (or any trusted runtime principal)
+/// Consumer: cynic-kernel `/proof-of-history` POST
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HostProofSubmission {
+    pub schema: &'static str,
+    pub source_organ: String,
+    pub event_type: String,
+    pub payload: serde_json::Value,
+}
+
+impl HostProofSubmission {
+    pub const SCHEMA: &'static str = "cynic.host_proof_submission.v1";
+
+    pub fn new(
+        source_organ: impl Into<String>,
+        event_type: impl Into<String>,
+        payload: serde_json::Value,
+    ) -> Self {
+        Self {
+            schema: Self::SCHEMA,
+            source_organ: source_organ.into(),
+            event_type: event_type.into(),
+            payload,
+        }
+    }
+}
+
 impl RuntimeProofBundle {
     pub fn observed_gates(&self) -> Vec<String> {
         let mut gates = self

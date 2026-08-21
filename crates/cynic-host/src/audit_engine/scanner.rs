@@ -70,9 +70,15 @@ pub fn scan_workspace(root: &Path) -> WorkspaceSourceIndex {
         }
     }
 
-    index.rust_files.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
-    index.json_files.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
-    index.manifests.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+    index
+        .rust_files
+        .sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+    index
+        .json_files
+        .sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+    index
+        .manifests
+        .sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
 
     index
 }

@@ -5,7 +5,7 @@
 //! Verifies: HTTP parsing → Forgejo payload parsing → commit validation →
 //! build trigger attempt → JSON read-back proof structure.
 
-use cynic_host::forgejo_webhook_server::{spawn_webhook_server, WebhookServerConfig};
+use cynic_host::forgejo_webhook_server::{WebhookServerConfig, spawn_webhook_server};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::thread;
@@ -115,7 +115,10 @@ fn webhook_server_accepts_valid_payload_and_attempts_trigger() {
         status == "triggered" || status == "trigger_failed",
         "expected triggered or trigger_failed, got {status}"
     );
-    assert_eq!(result["source_commit"].as_str().unwrap(), "0123456789abcdef0123456789abcdef01234567");
+    assert_eq!(
+        result["source_commit"].as_str().unwrap(),
+        "0123456789abcdef0123456789abcdef01234567"
+    );
     assert!(result["workload_id"].is_string());
     assert_eq!(result["build_triggered"].as_bool().unwrap(), false);
 }

@@ -125,12 +125,7 @@ impl CoordinationLeaseStore {
         *counter
     }
 
-    pub fn claim(
-        &self,
-        agent_id: &str,
-        target: &str,
-        ttl_seconds: i64,
-    ) -> TargetClaimOutcome {
+    pub fn claim(&self, agent_id: &str, target: &str, ttl_seconds: i64) -> TargetClaimOutcome {
         let mut leases = self.leases.write().expect("leases write");
         let now = Utc::now();
 
@@ -272,8 +267,8 @@ mod tests {
 
         // 1. Première instance de store avec persistance
         {
-            let store1 = CoordinationLeaseStore::with_persistence(lease_file.clone())
-                .expect("store1 init");
+            let store1 =
+                CoordinationLeaseStore::with_persistence(lease_file.clone()).expect("store1 init");
             let claim = store1.claim("agent-codex", "crates/cynic-inference", 3600);
             assert!(matches!(claim, TargetClaimOutcome::Claimed { .. }));
             assert_eq!(store1.who().len(), 1);
@@ -284,8 +279,8 @@ mod tests {
 
         // 2. Deuxième instance de store simulant un redémarrage de processus
         {
-            let store2 = CoordinationLeaseStore::with_persistence(lease_file.clone())
-                .expect("store2 init");
+            let store2 =
+                CoordinationLeaseStore::with_persistence(lease_file.clone()).expect("store2 init");
             let active = store2.who();
             assert_eq!(active.len(), 1, "Active lease must be restored on restart");
             assert_eq!(active[0].agent_id, "agent-codex");
@@ -294,7 +289,10 @@ mod tests {
             // Le token de fencing suivant doit être incrémenté (> 1001)
             let next_claim = store2.claim("agent-claude", "crates/cynic-intel", 3600);
             if let TargetClaimOutcome::Claimed { grant, .. } = next_claim {
-                assert!(grant.fencing_token > 1001, "Fencing token counter must be restored");
+                assert!(
+                    grant.fencing_token > 1001,
+                    "Fencing token counter must be restored"
+                );
             } else {
                 panic!("Expected claim to succeed");
             }

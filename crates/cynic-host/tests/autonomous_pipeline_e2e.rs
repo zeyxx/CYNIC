@@ -14,11 +14,12 @@
 //! No external infra required — all ports are faked via MapArgvRunner + fakes.
 
 use cynic_host::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
-use cynic_host::build_workflow::{run_build_workflow, BuildWorkflowConfig, BuildWorkflowResult};
-use cynic_host::forgejo_webhook::{handle_forgejo_payload, ForgejoHandlerConfig, ForgejoPayload};
-use cynic_host::forgejo_webhook_server::{spawn_webhook_server, WebhookServerConfig};
+use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
+use cynic_host::forgejo_webhook::{ForgejoHandlerConfig, ForgejoPayload, handle_forgejo_payload};
+use cynic_host::forgejo_webhook_server::{WebhookServerConfig, spawn_webhook_server};
 use cynic_host::harness_progression::{
-    decide_harness_progression, HarnessProgressionEvidence, HarnessProgressionVerdict, ProofCategory,
+    HarnessProgressionEvidence, HarnessProgressionVerdict, ProofCategory,
+    decide_harness_progression,
 };
 use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner, MapArgvRunner};
 use cynic_protocol::build::BuildRunnerObservation;

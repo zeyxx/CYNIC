@@ -1,6 +1,4 @@
-use cynic_protocol::{
-    AuditCategory, AuditRuleSpec, AuditSeverity, AuditSpan, AuditViolation,
-};
+use cynic_protocol::{AuditCategory, AuditRuleSpec, AuditSeverity, AuditSpan, AuditViolation};
 
 use super::scanner::WorkspaceSourceIndex;
 
@@ -93,8 +91,7 @@ impl AuditRule for PathSanitationRule {
                     // observed fact, so rewriting it would falsify evidence.
                     // Still reported, but as history to migrate rather than a
                     // critical leak in live code.
-                    let is_recorded_evidence =
-                        file.relative_path.contains("runtime-checkpoints");
+                    let is_recorded_evidence = file.relative_path.contains("runtime-checkpoints");
 
                     let severity = if is_recorded_evidence {
                         AuditSeverity::Warning
@@ -140,7 +137,9 @@ impl AuditRule for HotspotThresholdRule {
         AuditRuleSpec {
             id: "ARCH-001".to_string(),
             name: "hotspot_threshold".to_string(),
-            description: "Domain and surface files must not exceed 400 lines without modular extraction.".to_string(),
+            description:
+                "Domain and surface files must not exceed 400 lines without modular extraction."
+                    .to_string(),
             category: AuditCategory::HotspotThreshold,
             severity: AuditSeverity::Debt,
             automated_remediation_available: true,
@@ -191,7 +190,8 @@ impl AuditRule for LayerBoundaryRule {
         AuditRuleSpec {
             id: "ARCH-002".to_string(),
             name: "layer_boundary".to_string(),
-            description: "Protocol contracts must remain pure and not import runtime I/O adapters.".to_string(),
+            description: "Protocol contracts must remain pure and not import runtime I/O adapters."
+                .to_string(),
             category: AuditCategory::Boundary,
             severity: AuditSeverity::Critical,
             automated_remediation_available: false,
@@ -283,9 +283,7 @@ impl AuditRule for KernelBoundaryRule {
                         line_end: file.line_count,
                         snippet: None,
                     }),
-                    remediation: Some(
-                        "Extract to crates/cynic-inference/src/".to_string(),
-                    ),
+                    remediation: Some("Extract to crates/cynic-inference/src/".to_string()),
                 });
             }
         }
@@ -301,7 +299,8 @@ impl AuditRule for NodeHostBoundaryRule {
         AuditRuleSpec {
             id: "NODE-001".to_string(),
             name: "node_host_boundary".to_string(),
-            description: "Node runtime must not manage host lifecycle directly without ports.".to_string(),
+            description: "Node runtime must not manage host lifecycle directly without ports."
+                .to_string(),
             category: AuditCategory::Boundary,
             severity: AuditSeverity::Warning,
             automated_remediation_available: false,
@@ -340,7 +339,8 @@ impl AuditRule for NodeHostBoundaryRule {
                             snippet: Some(trimmed.to_string()),
                         }),
                         remediation: Some(
-                            "Use an injected port trait instead of direct cynic-host coupling.".to_string(),
+                            "Use an injected port trait instead of direct cynic-host coupling."
+                                .to_string(),
                         ),
                     });
                 }
@@ -358,7 +358,9 @@ impl AuditRule for OwnershipRule {
         AuditRuleSpec {
             id: "OWN-001".to_string(),
             name: "principal_ownership".to_string(),
-            description: "Installed runtime state must belong to cynic principal, not operator home.".to_string(),
+            description:
+                "Installed runtime state must belong to cynic principal, not operator home."
+                    .to_string(),
             category: AuditCategory::MutationContract,
             severity: AuditSeverity::Critical,
             automated_remediation_available: false,

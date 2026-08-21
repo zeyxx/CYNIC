@@ -188,7 +188,8 @@ impl LeaseManager {
     ) -> Result<(), CryptoError> {
         if !self.has_active_authority(node_id, now_unix_ms) {
             return Err(CryptoError::OperationFailed(
-                "fenced write rejected: node does not possess active cryptographic authority".to_string(),
+                "fenced write rejected: node does not possess active cryptographic authority"
+                    .to_string(),
             ));
         }
 
@@ -267,7 +268,9 @@ mod tests {
                 now,
             )
             .expect("issue 1");
-        manager.acquire_or_renew_lease(lease1, now).expect("acquire 1");
+        manager
+            .acquire_or_renew_lease(lease1, now)
+            .expect("acquire 1");
 
         // Attempting to acquire lease with token 40 (lower than 50)
         let lease_lower = manager
@@ -320,7 +323,11 @@ mod tests {
         assert!(manager.assert_fenced_write("node-a", 9, now + 100).is_err());
 
         // Write during expired lease rejected
-        assert!(manager.assert_fenced_write("node-a", 10, now + 6000).is_err());
+        assert!(
+            manager
+                .assert_fenced_write("node-a", 10, now + 6000)
+                .is_err()
+        );
     }
 
     #[test]
@@ -337,9 +344,20 @@ mod tests {
         manager.acquire_or_renew_lease(lease1, now).expect("acq 1");
 
         let lease2 = manager
-            .issue_lease("l2", "node-b", "primary", 2, 5000, "k", &auth_secret, now + 1000)
+            .issue_lease(
+                "l2",
+                "node-b",
+                "primary",
+                2,
+                5000,
+                "k",
+                &auth_secret,
+                now + 1000,
+            )
             .expect("l2");
-        manager.acquire_or_renew_lease(lease2, now + 1000).expect("acq 2");
+        manager
+            .acquire_or_renew_lease(lease2, now + 1000)
+            .expect("acq 2");
 
         let history = manager.transition_history();
         assert_eq!(history.len(), 2);

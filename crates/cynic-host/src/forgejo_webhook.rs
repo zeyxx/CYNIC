@@ -69,7 +69,10 @@ pub fn extract_branch(payload: &ForgejoPayload) -> Option<String> {
 #[derive(Debug, Clone, Serialize)]
 pub enum ForgejoHandlerResult {
     /// Build triggered, contains workload id.
-    Triggered { workload_id: String, source_commit: String },
+    Triggered {
+        workload_id: String,
+        source_commit: String,
+    },
     /// Skipped (no commit, wrong branch).
     Skipped { reason: String },
 }

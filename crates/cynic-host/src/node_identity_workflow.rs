@@ -11,9 +11,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use cynic_protocol::{
-    NodeCsr, NodeEnrollmentCertificate, NODE_ENROLLMENT_CERTIFICATE_SCHEMA,
-};
+use cynic_protocol::{NODE_ENROLLMENT_CERTIFICATE_SCHEMA, NodeCsr, NodeEnrollmentCertificate};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 
@@ -219,7 +217,10 @@ impl NodeIdentityWorkflow {
     }
 
     /// Loads an enrollment certificate from disk.
-    pub fn load_certificate(&self, cert_path: &Path) -> Result<NodeEnrollmentCertificate, CryptoError> {
+    pub fn load_certificate(
+        &self,
+        cert_path: &Path,
+    ) -> Result<NodeEnrollmentCertificate, CryptoError> {
         let bytes = fs::read(cert_path)?;
         let cert: NodeEnrollmentCertificate = serde_json::from_slice(&bytes)?;
         Ok(cert)
@@ -258,13 +259,7 @@ mod tests {
 
         // 4. Kernel issues certificate
         let cert = workflow
-            .issue_certificate(
-                &csr,
-                "kernel-authority-01",
-                &kernel_secret,
-                86400,
-                now,
-            )
+            .issue_certificate(&csr, "kernel-authority-01", &kernel_secret, 86400, now)
             .expect("issue cert");
 
         // 5. Verify certificate
@@ -280,9 +275,7 @@ mod tests {
             .expect("install cert");
         assert!(cert_path.exists());
 
-        let reloaded = workflow
-            .load_certificate(&cert_path)
-            .expect("load cert");
+        let reloaded = workflow.load_certificate(&cert_path).expect("load cert");
         assert_eq!(reloaded, cert);
     }
 
@@ -335,13 +328,25 @@ mod tests {
             .expect("issue cert");
 
         // Valid at now + 10s
-        assert!(workflow.verify_certificate(&cert, &kernel_public, now + 10).expect("verify"));
+        assert!(
+            workflow
+                .verify_certificate(&cert, &kernel_public, now + 10)
+                .expect("verify")
+        );
 
         // Expired at now + 3601s
-        assert!(!workflow.verify_certificate(&cert, &kernel_public, now + 3601).expect("verify"));
+        assert!(
+            !workflow
+                .verify_certificate(&cert, &kernel_public, now + 3601)
+                .expect("verify")
+        );
 
         // Wrong kernel public key
         let (_, wrong_kernel_public) = provider.generate_keypair().expect("other keys");
-        assert!(!workflow.verify_certificate(&cert, &wrong_kernel_public, now + 10).expect("verify"));
+        assert!(
+            !workflow
+                .verify_certificate(&cert, &wrong_kernel_public, now + 10)
+                .expect("verify")
+        );
     }
 }

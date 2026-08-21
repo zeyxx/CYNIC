@@ -129,6 +129,10 @@ pub(crate) enum RuntimeCommand {
         json: bool,
         #[arg(long = "host")]
         hosts: Vec<String>,
+        #[arg(long)]
+        persist: bool,
+        #[arg(long)]
+        endpoint: Option<String>,
     },
     ResolverPlan {
         #[arg(long)]
@@ -460,8 +464,8 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::ExecutionContext { json, hosts } => {
             execution_context::execute_execution_context(json, &hosts)
         }
-        RuntimeCommand::NetworkPreflight { json, hosts } => {
-            network_preflight::execute_network_preflight(json, &hosts)
+        RuntimeCommand::NetworkPreflight { json, hosts, persist, endpoint } => {
+            network_preflight::execute_network_preflight(json, &hosts, persist, endpoint.as_deref())
         }
         RuntimeCommand::ResolverPlan { json, hosts } => {
             resolver_plan::execute_resolver_plan(json, &hosts)

@@ -181,7 +181,9 @@ impl PeerValidator {
         let public_key = match hex::decode(&cert.subject_public_key_hex) {
             Ok(k) => k,
             Err(_) => {
-                return HeartbeatValidationResult::MalformedPayload("invalid public key hex".into());
+                return HeartbeatValidationResult::MalformedPayload(
+                    "invalid public key hex".into(),
+                );
             }
         };
 

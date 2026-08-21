@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use crate::credential::{SecretFileResolver, CredentialType};
+use crate::credential::{CredentialType, SecretFileResolver};
 
 /// Path constants for SSH credential layout.
 pub const SSH_KEY_DIR: &str = "/etc/cynic/secrets";
@@ -82,10 +82,7 @@ pub fn scan_unprovisioned_enrollment_transports(
             continue;
         };
 
-        let authority_class = authority
-            .get("class")
-            .and_then(Value::as_str)
-            .unwrap_or("");
+        let authority_class = authority.get("class").and_then(Value::as_str).unwrap_or("");
 
         if authority_class != "machine_enrollment" {
             continue;
@@ -138,12 +135,8 @@ pub fn provision_ssh_credential(
     let key_path = secrets_dir.join(&transport.credential_ref);
 
     // Ensure parent directory exists
-    let parent = key_path
-        .parent()
-        .unwrap_or(secrets_dir)
-        .to_path_buf();
-    std::fs::create_dir_all(&parent)
-        .map_err(|e| format!("create key dir: {e}"))?;
+    let parent = key_path.parent().unwrap_or(secrets_dir).to_path_buf();
+    std::fs::create_dir_all(&parent).map_err(|e| format!("create key dir: {e}"))?;
 
     // Generate Ed25519 key via ssh-keygen
     let key_str = key_path.to_string_lossy().to_string();
@@ -166,7 +159,9 @@ pub fn provision_ssh_credential(
         return Err(format!(
             "ssh-keygen failed for {}: {}",
             transport.node_id,
-            output.spawn_error.unwrap_or_else(|| "non-zero exit".to_string())
+            output
+                .spawn_error
+                .unwrap_or_else(|| "non-zero exit".to_string())
         ));
     }
 
@@ -190,8 +185,8 @@ pub fn provision_ssh_credential(
 
     // Read public key for fingerprint
     let pub_key_path = key_path.with_extension("pub");
-    let pub_key_content = std::fs::read_to_string(&pub_key_path)
-        .map_err(|e| format!("read public key: {e}"))?;
+    let pub_key_content =
+        std::fs::read_to_string(&pub_key_path).map_err(|e| format!("read public key: {e}"))?;
 
     // Compute sha256 fingerprint (base64 of sha256 of the key blob, OpenSSH format)
     let fingerprint = compute_ssh_fingerprint(&pub_key_content.trim());
@@ -353,8 +348,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("temp dir");
         let registry = registry_fixture_with_builder();
 
-        let transports =
-            scan_unprovisioned_enrollment_transports(&registry, dir.path()).unwrap();
+        let transports = scan_unprovisioned_enrollment_transports(&registry, dir.path()).unwrap();
 
         // Only cynic-builder has machine_enrollment; local-kernel does not.
         assert_eq!(transports.len(), 1);
@@ -371,8 +365,7 @@ mod tests {
         // Create the credential_ref file so it's "already provisioned"
         std::fs::write(dir.path().join("builder-ssh-key"), "fake").unwrap();
 
-        let transports =
-            scan_unprovisioned_enrollment_transports(&registry, dir.path()).unwrap();
+        let transports = scan_unprovisioned_enrollment_transports(&registry, dir.path()).unwrap();
 
         assert!(transports.is_empty(), "should skip already-provisioned");
     }
@@ -383,8 +376,7 @@ mod tests {
         let registry = registry_fixture_with_builder();
 
         // local-kernel has ssh transport but no enrollment_authority
-        let transports =
-            scan_unprovisioned_enrollment_transports(&registry, dir.path()).unwrap();
+        let transports = scan_unprovisioned_enrollment_transports(&registry, dir.path()).unwrap();
 
         assert!(
             !transports.iter().any(|t| t.node_id == "local-kernel"),

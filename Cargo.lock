@@ -881,6 +881,7 @@ dependencies = [
  "cynic-protocol",
  "hex",
  "ratatui",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1091,10 +1092,13 @@ name = "cynic-protocol"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "ed25519-dalek",
  "hex",
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.20",
  "url",
 ]
 
@@ -3938,7 +3942,9 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "encoding_rs",
+ "futures-channel",
  "futures-core",
+ "futures-util",
  "h2",
  "http",
  "http-body",
