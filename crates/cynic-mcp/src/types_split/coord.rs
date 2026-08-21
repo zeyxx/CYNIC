@@ -154,9 +154,25 @@ pub struct RegisterParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct AgentIdentityParams {
+    pub agent_id: String,
+    pub agent_kind: Option<String>,
+    #[serde(default)]
+    pub credential_kind: Option<String>,
+    #[serde(default)]
+    pub credential_reference: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct ClaimParams {
     pub target: String,
     pub claim_type: Option<String>,
+    #[serde(default)]
+    pub ttl_seconds: Option<u64>,
+    #[serde(default)]
+    pub budget_actions: Option<u64>,
+    #[serde(default)]
+    pub budget_wall_seconds: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -170,6 +186,8 @@ pub struct ReleaseParams {
     pub target: String,
     pub lease_id: String,
     pub fencing_token: u64,
+    #[serde(default)]
+    pub proof_refs: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

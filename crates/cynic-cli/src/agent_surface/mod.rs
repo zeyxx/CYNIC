@@ -1,61 +1,191 @@
-//! Governance observation surface ("SOC-lite") for HumanAdmin visibility.
+//! Agent coordination CLI surface — thin clap facade over kernel REST.
 //!
-//! `cynic agent soc --json` projects the RBAC read-back state from
-//! `infra/agent-roles.json` reconciled against observed runtime proof.
-//! This surface NEVER mutates — it satisfies the HumanAdmin desire for
-//! maximal visibility without touching runtime execution.
-//!
-//! Audit grammar: facade -> types -> scan -> render.
-//! Read-back proof surface: MachineCommandExitCode::Success only when the
-//! projection is internally consistent (HumanAdmin zero-touch invariant holds).
+//! Commands:
+//!   - cynic agent identify  — declare agent identity
+//!   - cynic agent register   — register with kernel
+//!   - cynic agent claim      — claim a scope for exclusive editing
+//!   - cynic agent release    — release an active claim
+//!   - cynic agent status     — query active claims
 
-use std::path::Path;
+use std::process::ExitCode;
 
 use clap::Subcommand;
 
 use crate::cli_json::emit_pretty_json;
 
-mod render;
-pub mod scan;
-pub mod types;
+use self::coordination::{execute_claim, execute_identify, execute_register, execute_release, execute_status};
 
-#[allow(unused_imports)]
-pub(crate) use types::{AgentSocEntry, AgentSocReport, DomainStatus, HumanAdminStatus};
-
-pub(crate) use render::render_text;
-
-pub const DEFAULT_ROLES_FILE: &str = "infra/agent-roles.json";
+pub(crate) mod coordination;
+mod types;
 
 #[derive(Subcommand)]
 pub(crate) enum AgentCommand {
-    /// Read-back of declared agent roles vs observed runtime proof (HumanAdmin visibility).
-    Soc {
-        /// Machine-readable JSON report.
+    /// Declare agent identity with attested credentials
+    Identify {
+        /// Agent ID (unique within organism)
+        #[arg(long, env = "CYNIC_AGENT_ID")]
+        agent_id: String,
+        /// Agent kind (hermes, codex, claude, cynic, human_admin)
+        #[arg(long)]
+        agent_kind: Option<String>,
+        /// Print JSON output
         #[arg(long)]
         json: bool,
-        /// Path to infra/agent-roles.json (default: repo-root infra/).
-        #[arg(long, value_name = "PATH")]
-        roles_file: Option<String>,
+    },
+    /// Register this agent with the kernel coordination system
+    Register {
+        /// Agent ID
+        #[arg(long, env = "CYNIC_AGENT_ID")]
+        agent_id: String,
+        /// Registration intent (objective statement)
+        #[arg(long, default_value = "sovereign-agent-session")]
+        intent: String,
+        /// Print JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Claim a scope for exclusive editing
+    Claim {
+        /// Agent ID
+        #[arg(long, env = "CYNIC_AGENT_ID")]
+        agent_id: String,
+        /// Target path or resource to claim
+        #[arg(long)]
+        target: String,
+        /// Claim type (file, crate, module, exclusive, shared_observe)
+        #[arg(long, default_value = "file")]
+        claim_type: Option<String>,
+        /// TTL in seconds (30-86400)
+        #[arg(long, default_value = "1800")]
+        ttl_seconds: Option<u64>,
+        /// Action budget (max mutations)
+        #[arg(long, default_value = "50")]
+        budget_actions: Option<u64>,
+        /// Wall-time budget (seconds)
+        #[arg(long, default_value = "3600")]
+        budget_wall_seconds: Option<u64>,
+        /// Print JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Release a previously claimed scope
+    Release {
+        /// Agent ID
+        #[arg(long, env = "CYNIC_AGENT_ID")]
+        agent_id: String,
+        /// Target that was claimed
+        #[arg(long)]
+        target: String,
+        /// Lease ID from claim response
+        #[arg(long)]
+        lease_id: String,
+        /// Fencing token from claim response
+        #[arg(long)]
+        fencing_token: u64,
+        /// Proof references (evidence of completed work)
+        #[arg(long)]
+        proof_ref: Vec<String>,
+        /// Print JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Query active claims status
+    Status {
+        /// Agent ID
+        #[arg(long, env = "CYNIC_AGENT_ID")]
+        agent_id: String,
+        /// Print JSON output
+        #[arg(long)]
+        json: bool,
     },
 }
 
-#[allow(dead_code)]
-pub(crate) fn execute_agent(command: AgentCommand) -> std::process::ExitCode {
+pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
     match command {
-        AgentCommand::Soc { json, roles_file } => {
-            let path = roles_file.as_deref().unwrap_or(DEFAULT_ROLES_FILE);
-            let report = scan::scan_agent_soc(Path::new(path));
-            if json {
-                let _ = emit_pretty_json(&report);
-            } else {
-                render_text(&report);
+        AgentCommand::Identify {
+            agent_id,
+            agent_kind,
+            json,
+        } => match execute_identify(&agent_id, agent_kind.as_deref()) {
+            Ok(report) => {
+                emit_pretty_json(&report, !json);
+                ExitCode::SUCCESS
             }
-            // Exit 0 only if HumanAdmin zero-touch invariant holds.
-            if report.human_admin_role.zero_touch_runtime {
-                std::process::ExitCode::SUCCESS
-            } else {
-                std::process::ExitCode::FAILURE
+            Err(error) => {
+                eprintln!("agent identify failed: {}", error);
+                ExitCode::FAILURE
             }
-        }
+        },
+        AgentCommand::Register {
+            agent_id,
+            intent,
+            json,
+        } => match execute_register(&agent_id, &intent) {
+            Ok(()) => {
+                let report = serde_json::json!({
+                    "schema": "cynic.cli.agent_register_report.v1",
+                    "status": "registered",
+                    "agent_id": agent_id,
+                });
+                emit_pretty_json(&report, !json);
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("agent register failed: {}", error);
+                ExitCode::FAILURE
+            }
+        },
+        AgentCommand::Claim {
+            agent_id,
+            target,
+            claim_type,
+            ttl_seconds,
+            budget_actions,
+            budget_wall_seconds,
+            json,
+        } => match execute_claim(
+            &agent_id,
+            &target,
+            claim_type.as_deref(),
+            ttl_seconds,
+            budget_actions,
+            budget_wall_seconds,
+        ) {
+            Ok(report) => {
+                emit_pretty_json(&report, !json);
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("agent claim failed: {}", error);
+                ExitCode::FAILURE
+            }
+        },
+        AgentCommand::Release {
+            agent_id,
+            target,
+            lease_id,
+            fencing_token,
+            proof_ref,
+            json,
+        } => match execute_release(&agent_id, &target, &lease_id, fencing_token, proof_ref) {
+            Ok(report) => {
+                emit_pretty_json(&report, !json);
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("agent release failed: {}", error);
+                ExitCode::FAILURE
+            }
+        },
+        AgentCommand::Status { agent_id, json } => match execute_status(&agent_id) {
+            Ok(report) => {
+                emit_pretty_json(&report, !json);
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("agent status failed: {}", error);
+                ExitCode::FAILURE
+            }
+        },
     }
 }

@@ -27,6 +27,7 @@ pub mod node_control;
 pub mod node_enrollment;
 pub mod observe;
 pub mod phone_numbers;
+pub mod proof_history;
 pub mod response;
 pub mod services;
 pub mod soma;
@@ -86,6 +87,7 @@ use self::mesh::{list_mesh_nodes_handler, list_mesh_routes_handler, mesh_publish
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
 use self::mint_permit::mint_permit_handler;
 use self::observe::{judge_handler, observe_handler};
+use self::proof_history::proof_of_history_post_handler;
 use self::services::{
     list_services_handler, register_service_handler, service_heartbeat_handler,
     unregister_service_handler,
@@ -206,6 +208,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/compliance", get(compliance_trend_handler))
         .route("/audit", get(audit_handler))
         .route("/proof-of-history", get(proof_of_history_handler))
+        .route("/proof-of-history", post(proof_of_history_post_handler))
         .route("/state-history", get(state_history_handler))
         .route(
             "/agent-proposals",
@@ -265,6 +268,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/inference/slots", get(inference_slots_handler))
         .route("/v1/chat/completions", post(proxy_chat_completions))
         .route("/v1/models", get(proxy_models))
+        .route("/coord/identify", post(coord_identify_handler))
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))
         .route("/coord/claim-batch", post(coord_claim_batch_handler))
