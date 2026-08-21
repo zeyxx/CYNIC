@@ -70,6 +70,33 @@ impl SecretMaterial {
         Self::from_bytes(encoded.into_bytes())
     }
 
+    /// Resolve a credential reference.
+    ///
+    /// Accepted forms:
+    /// - `"ENV:VAR_NAME"` — read from environment variable `VAR_NAME`
+    /// - `"file:/path/to/secret"` — read from file
+    /// - `"/path/to/secret"` — read from file (implicit, when path starts with `/`)
+    ///
+    /// The secret is validated as UTF-8 and bounded to `MAX_SECRET_BYTES`.
+    pub(crate) fn resolve_credential(reference: &str) -> Result<Self, String> {
+        if reference.starts_with("ENV:") {
+            let var_name = &reference[4..];
+            let value = std::env::var(var_name).map_err(|_| {
+                format!("environment variable not found for credential ref: {var_name}")
+            })?;
+            Self::from_bytes(value.into_bytes())
+        } else if reference.starts_with("file:") {
+            let path = &reference[5..];
+            Self::read_file(std::path::Path::new(path))
+        } else if reference.starts_with('/') {
+            Self::read_file(std::path::Path::new(reference))
+        } else {
+            Err(format!(
+                "unsupported credential ref scheme: {reference} (expected ENV:, file:, or absolute path)"
+            ))
+        }
+    }
+
     pub(crate) fn expose_bytes(&self) -> &[u8] {
         &self.0
     }
@@ -125,12 +152,10 @@ mod tests {
     fn generated_runtime_identity_has_bounded_high_entropy_encoding() {
         let secret = SecretMaterial::generate_runtime_identity().unwrap();
         assert_eq!(secret.expose_str().len(), RUNTIME_SECRET_RANDOM_BYTES * 2);
-        assert!(
-            secret
-                .expose_str()
-                .bytes()
-                .all(|byte| byte.is_ascii_hexdigit())
-        );
+        assert!(secret
+            .expose_str()
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit()));
     }
 
     #[test]
@@ -158,5 +183,104 @@ mod tests {
         let error = SecretMaterial::read_file(&path).unwrap_err();
 
         assert!(error.contains("group or others"));
+    }
+
+    // ── resolve_credential tests (file-only, safe for Rust 2024) ─────────────────
+
+    #[test]
+    fn resolve_credential_from_absolute_file_path() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("test-secret-1");
+        std::fs::write(&path, "test-secret-value").unwrap();
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+
+        let result = SecretMaterial::resolve_credential(path.to_str().unwrap());
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().expose_str(), "test-secret-value");
+    }
+
+    #[test]
+    fn resolve_credential_explicit_file_prefix() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("test-secret-2");
+        std::fs::write(&path, "file-prefix-value").unwrap();
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+
+        let result =
+            SecretMaterial::resolve_credential(&format!("file:{}", path.to_str().unwrap()));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().expose_str(), "file-prefix-value");
+    }
+
+    #[test]
+    fn resolve_credential_file_not_found() {
+        let result = SecretMaterial::resolve_credential("/nonexistent/path/secret");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("secret source unavailable"));
+    }
+
+    #[test]
+    fn resolve_credential_unsupported_scheme() {
+        let result = SecretMaterial::resolve_credential("http://example.com/secret");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .contains("unsupported credential ref scheme"));
+    }
+
+    #[test]
+    fn resolve_credential_file_too_permissive() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("bad-perms-token");
+        std::fs::write(&path, "secret").unwrap();
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        let result = SecretMaterial::resolve_credential(&format!("file:{}", path.to_str().unwrap()));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("group or others"));
+    }
+
+    #[test]
+    fn resolve_credential_empty_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("empty-token");
+        std::fs::write(&path, "").unwrap();
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+
+        let result = SecretMaterial::resolve_credential(path.to_str().unwrap());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("secret material is empty"));
+    }
+
+    #[test]
+    fn resolve_credential_strips_trailing_newline() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("newline-token");
+        std::fs::write(&path, "value-with-newline\n").unwrap();
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+
+        let result = SecretMaterial::resolve_credential(path.to_str().unwrap());
+        assert_eq!(result.unwrap().expose_str(), "value-with-newline");
+    }
+
+    #[test]
+    fn resolve_credential_rejects_symlink() {
+        let directory = tempfile::tempdir().unwrap();
+        let real_path = directory.path().join("real-secret");
+        let link_path = directory.path().join("symlink-secret");
+        std::fs::write(&real_path, "symlink-target-value").unwrap();
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(&real_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+
+        std::os::unix::fs::symlink(&real_path, &link_path).unwrap();
+
+        // Symlinks should be rejected by O_NOFOLLOW in read_file
+        let result = SecretMaterial::resolve_credential(link_path.to_str().unwrap());
+        assert!(result.is_err());
     }
 }
