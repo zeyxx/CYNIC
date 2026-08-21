@@ -3,7 +3,7 @@ mod decision;
 mod launch;
 mod record;
 mod renewal;
-mod types;
+pub mod types;
 
 pub use authority::agent_session_authority_digest;
 pub use decision::reconcile_agent_session;
