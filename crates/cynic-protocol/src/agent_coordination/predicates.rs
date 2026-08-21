@@ -5,8 +5,77 @@
 //! all surfaces: MCP, CLI, kernel, tests.
 
 use super::{
-    Claim, ClaimScope, ClaimStatus, ClaimType, CoordinationCode,
+    Claim, ClaimScope, ClaimStatus, ClaimType, CoordinationCode, HeartbeatRequest, ReleaseRequest,
 };
+
+/// Validate a heartbeat request against the active claim.
+pub fn validate_heartbeat(
+    request: &HeartbeatRequest,
+    claim: &Claim,
+    now_unix_ms: u64,
+) -> Result<(), Vec<String>> {
+    let mut codes = Vec::new();
+
+    if request.lease_id != claim.lease_id {
+        codes.push("lease_id_mismatch".to_string());
+    }
+    if request.fencing_token != claim.fencing_token {
+        codes.push("fencing_token_mismatch".to_string());
+    }
+    if claim.is_expired_at(now_unix_ms) {
+        codes.push("claim_expired".to_string());
+    }
+    if claim.status != ClaimStatus::Active {
+        codes.push("claim_not_active".to_string());
+    }
+
+    if codes.is_empty() {
+        Ok(())
+    } else {
+        Err(codes)
+    }
+}
+
+/// Validate a release request against the active claim.
+pub fn validate_release(
+    request: &ReleaseRequest,
+    claim: &Claim,
+) -> Result<(), Vec<String>> {
+    let mut codes = Vec::new();
+
+    if request.lease_id != claim.lease_id {
+        codes.push("lease_id_mismatch".to_string());
+    }
+    if request.fencing_token != claim.fencing_token {
+        codes.push("fencing_token_mismatch".to_string());
+    }
+    if claim.status != ClaimStatus::Active {
+        codes.push("claim_not_active".to_string());
+    }
+
+    if codes.is_empty() {
+        Ok(())
+    } else {
+        Err(codes)
+    }
+}
+
+/// Detect conflicts between local claims and kernel claims.
+pub fn detect_conflicts(local: &[Claim], kernel: &[Claim]) -> Vec<(String, String)> {
+    let mut conflicts = Vec::new();
+    for local_claim in local {
+        for kernel_claim in kernel {
+            if local_claim.claim_id != kernel_claim.claim_id
+                && local_claim.agent_id != kernel_claim.agent_id
+                && scopes_overlap(&local_claim.request.scope, &kernel_claim.request.scope)
+                && kernel_claim.status == ClaimStatus::Active
+            {
+                conflicts.push((local_claim.claim_id.clone(), kernel_claim.claim_id.clone()));
+            }
+        }
+    }
+    conflicts
+}
 
 /// Whether two claims have overlapping scopes.
 pub fn scopes_overlap(a: &ClaimScope, b: &ClaimScope) -> bool {

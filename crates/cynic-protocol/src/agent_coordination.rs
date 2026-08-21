@@ -25,6 +25,7 @@ pub use crate::agent_session::types::{
 };
 
 pub use crate::SecurityEvidenceState;
+pub use crate::agent_coordination::predicates::*;
 
 // ── Protocol version ──────────────────────────────────────────────────────
 
