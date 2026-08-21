@@ -10,7 +10,7 @@ use clap::Subcommand;
 use cynic_host::build_workflow::{run_build_workflow, BuildWorkflowConfig, BuildWorkflowResult};
 use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
 use cynic_host::update_lifecycle::LocalArgvRunner;
-use cynic_protocol::build::{BuildRecipe, BUILD_RECIPE_SCHEMA};
+use cynic_protocol::build::{canonical_argv_from_build_action, BuildRecipe, BUILD_RECIPE_SCHEMA};
 use cynic_protocol::SourceSnapshot;
 
 use crate::workload_observation::{execute_observe_workload, execute_list_workloads};
@@ -239,14 +239,18 @@ fn run_build(
         evidence_refs: vec!["cli-input".into()],
     };
 
-    // Step 5: Run workflow
+    // Step 5: Run workflow — translate --action to argv via the canonical translator.
+    // No silent fallback: an unknown action is a operator error, not a default.
+    let argv = canonical_argv_from_build_action(&action)
+        .ok_or_else(|| format!("unknown build action: {action}"))?;
+
     let config = BuildWorkflowConfig {
         observation_adapter: &observation_adapter,
         lease_adapter: &lease_adapter,
         argv_runner: &runner,
         source_snapshot,
         recipe,
-        argv: vec!["make".to_string(), "check".to_string()],
+        argv,
         artifact_path,
         apply,
         now_unix_ms: std::time::SystemTime::now()
