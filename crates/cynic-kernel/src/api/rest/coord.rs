@@ -47,10 +47,21 @@ pub struct RegisterRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct AgentIdentityRequest {
+    pub agent_id: String,
+    pub agent_kind: Option<String>,
+    pub credential_kind: Option<String>,
+    pub credential_reference: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ClaimRequest {
     pub agent_id: String,
     pub target: String,
     pub claim_type: Option<String>,
+    pub ttl_seconds: Option<u64>,
+    pub budget_actions: Option<u64>,
+    pub budget_wall_seconds: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,11 +69,14 @@ pub struct BatchClaimRequest {
     pub agent_id: String,
     pub targets: Vec<String>,
     pub claim_type: Option<String>,
+    pub ttl_seconds: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CoordHeartbeatRequest {
     pub agent_id: String,
+    pub lease_id: Option<String>,
+    pub fencing_token: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -72,6 +86,42 @@ pub struct ScopeRequest {
 }
 
 // ── Handlers ──────────────────────────────────────────────
+
+pub async fn coord_identify_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AgentIdentityRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    validate_agent_id(&req.agent_id)?;
+
+    if req
+        .agent_kind
+        .as_ref()
+        .is_some_and(|k| k.len() > 64)
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "agent_kind must be under 64 characters".into(),
+            }),
+        ));
+    }
+
+    let agent_kind = req.agent_kind.unwrap_or_else(|| "external".into());
+    let credential_kind = req.credential_kind.unwrap_or_else(|| "opaque_reference".into());
+    let attested_at_unix_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
+
+    let identity = serde_json::json!({
+        "schema": "cynic.agent_identity.v1",
+        "agent_id": req.agent_id,
+        "agent_kind": agent_kind,
+        "credential_kind": credential_kind,
+        "credential_reference": req.credential_reference,
+        "attested_at_unix_ms": attested_at_unix_ms,
+        "status": "identified",
+    });
+
+    Ok(Json(identity))
+}
 
 pub async fn coord_register_handler(
     State(state): State<Arc<AppState>>,
@@ -158,6 +208,9 @@ pub async fn coord_claim_handler(
         ));
     }
 
+    // Enforce TTL bounds (30s to 24h)
+    let ttl_seconds = req.ttl_seconds.unwrap_or(1800).clamp(30, 86400);
+
     // K15 Gate: Enforce compliance threshold before allowing claims
     let observations = state
         .storage
@@ -187,15 +240,28 @@ pub async fn coord_claim_handler(
         .await
     {
         Ok(ClaimResult::Claimed(grant)) => {
-            let _ = state.coord.heartbeat(&req.agent_id).await; // ok: fire-and-forget
-            let _ = state.coord.store_audit( // ok: fire-and-forget
+            let _ = state.coord.heartbeat(&req.agent_id).await;
+            let budget_actions = req.budget_actions.unwrap_or(50);
+            let budget_wall_seconds = req.budget_wall_seconds.unwrap_or(3600);
+            let _ = state.coord.store_audit(
                 "cynic_coord_claim", &req.agent_id,
-                &serde_json::json!({"target": req.target, "claim_type": claim_type, "grant": &grant, "source": "rest"}).to_string(),
+                &serde_json::json!({
+                    "target": req.target,
+                    "claim_type": claim_type,
+                    "ttl_seconds": ttl_seconds,
+                    "budget_actions": budget_actions,
+                    "budget_wall_seconds": budget_wall_seconds,
+                    "grant": &grant,
+                    "source": "rest"
+                }).to_string(),
             ).await;
             Ok(Json(serde_json::json!({
                 "status": "claimed",
                 "agent_id": req.agent_id,
                 "target": req.target,
+                "ttl_seconds": ttl_seconds,
+                "budget_actions": budget_actions,
+                "budget_wall_seconds": budget_wall_seconds,
                 "lease": grant,
             })))
         }

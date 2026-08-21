@@ -1,3 +1,6 @@
+use schemars::JsonSchema;
+use serde::Deserialize;
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AttentionParams {
     /// Agent id requesting the startup attention surface.
@@ -44,14 +47,65 @@ pub struct LibraryQueryParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct AuthParams {
-    pub api_key: String,
+pub struct ValidateParams {
     pub agent_id: Option<String>,
+    pub source_commit: String,
+    pub request_id: Option<String>,
+    /// Canonical workload requested from build_runner. Defaults to check.
+    #[serde(default)]
+    pub action: BuildRequestAction,
+    #[serde(default)]
+    pub dispatch: bool,
+    /// Stable release identifier. Required only for action=build_release.
+    pub release_id: Option<String>,
+    /// Monotonic release epoch. Required only for action=build_release.
+    pub release_epoch: Option<u64>,
+    /// Optional pre-staged git bundle digest. When present, build_runner must
+    /// materialize this snapshot instead of fetching the live Git remote.
+    pub snapshot_digest: Option<String>,
+    /// Authority that produced and proved snapshot_digest. Required with snapshot_digest.
+    pub snapshot_authority_ref: Option<String>,
+    /// Secret-free HTTPS locator for the content-addressed git bundle. Required with snapshot_digest.
+    pub snapshot_locator: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ValidateParams {
-    pub agent_id: Option<String>,
+pub struct RuntimeReleaseDeclareParams {
+    pub workload_id: String,
+    /// Complete desired state. CYNIC derives the canonical policy_digest.
+    pub desired_state: serde_json::Value,
+    /// Persist the admitted projection. Defaults to plan-only.
+    #[serde(default)]
+    pub apply: bool,
+}
+
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BuildRequestAction {
+    #[default]
+    Check,
+    Build,
+    BuildRelease,
+}
+
+impl BuildRequestAction {
+    pub fn canonical_action(&self) -> &'static str {
+        match self {
+            Self::Check => "make:check",
+            Self::Build => "make:build",
+            Self::BuildRelease => "make:build-release",
+        }
+    }
+
+    pub fn request_prefix(&self) -> &'static str {
+        match self {
+            Self::Check => "validate",
+            Self::Build => "build",
+            Self::BuildRelease => "release",
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -63,6 +117,22 @@ pub struct AskesisLogParams {
     /// Override the destination log path (optional).
     /// Defaults to CYNIC_ASKESIS_LOG_FILE or /var/lib/cynic/memory/logs/human-kernel.jsonl.
     pub logfile: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct NodeActivationParams {
+    /// Node to activate, as named in the registry.
+    pub node_id: String,
+    /// Explicit operator consent. Activation mutates the host, so the bounded
+    /// action refuses to proceed without it.
+    #[serde(default)]
+    pub yes: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct NodeActivationStatusParams {
+    /// Node to observe. Read-only: no mutation, no consent required.
+    pub node_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -84,9 +154,25 @@ pub struct RegisterParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct AgentIdentityParams {
+    pub agent_id: String,
+    pub agent_kind: Option<String>,
+    #[serde(default)]
+    pub credential_kind: Option<String>,
+    #[serde(default)]
+    pub credential_reference: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct ClaimParams {
     pub target: String,
     pub claim_type: Option<String>,
+    #[serde(default)]
+    pub ttl_seconds: Option<u64>,
+    #[serde(default)]
+    pub budget_actions: Option<u64>,
+    #[serde(default)]
+    pub budget_wall_seconds: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -100,6 +186,8 @@ pub struct ReleaseParams {
     pub target: String,
     pub lease_id: String,
     pub fencing_token: u64,
+    #[serde(default)]
+    pub proof_refs: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -165,7 +253,7 @@ pub struct CoordinationStatusPublishParams {
     /// Optional transport hint: "public", "team", "restricted".
     pub sensitivity: Option<String>,
     /// Contract version in payload metadata.
-    #[serde(default = "default_coordination_contract_version")]
+    #[serde(default = "crate::types::default_coordination_contract_version")]
     pub contract_version: String,
 }
 

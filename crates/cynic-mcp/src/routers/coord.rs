@@ -1,7 +1,24 @@
 // ── Coord tools (REST kernel) ───────────────────────────────
 
+use crate::types::*;
+
 #[tool_router(router = tool_router_coord, vis = "pub(crate)")]
 impl CynicMcpProxy {
+    #[tool(
+        name = "cynic_agent_connection_status",
+        description = "Read back the MCP-to-kernel agent connection, authentication authority, and registration state. Works while disconnected and never returns credentials."
+    )]
+    async fn cynic_agent_connection_status(
+        &self,
+        _params: Parameters<AgentConnectionStatusParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let result = self.agent_connection_status().await;
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
     #[tool(
         name = "cynic_coord_register",
         description = "Register this agent with the kernel coordination system."
@@ -43,6 +60,9 @@ impl CynicMcpProxy {
                 "agent_id": agent_id,
                 "target": p.target,
                 "claim_type": p.claim_type,
+                "ttl_seconds": p.ttl_seconds.unwrap_or(1800),
+                "budget_actions": p.budget_actions.unwrap_or(50),
+                "budget_wall_seconds": p.budget_wall_seconds.unwrap_or(3600),
             }),
         )
         .await
@@ -114,6 +134,7 @@ impl CynicMcpProxy {
                 "target": p.target,
                 "lease_id": p.lease_id,
                 "fencing_token": p.fencing_token,
+                "proof_refs": p.proof_refs,
             }),
         )
         .await
@@ -146,14 +167,12 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_coord_who",
-        description = "Query active agents and their claims. No auth required (aligns with kernel)."
+        description = "Query active agents and their claims through the authenticated kernel coordination boundary."
     )]
     async fn cynic_coord_who(
         &self,
         params: Parameters<WhoParams>,
     ) -> Result<CallToolResult, McpError> {
-        // No auth required — matches kernel behavior (coord_tools.rs:264).
-        // Coordination visibility helps all agents avoid conflicts.
         self.rate_limit.check_other()?;
         let p = params.0;
         let mut q: Vec<(&str, String)> = Vec::new();
@@ -161,6 +180,29 @@ impl CynicMcpProxy {
             q.push(("agent_id", a));
         }
         self.get_query("/coord/who", &q).await
+    }
+
+    #[tool(
+        name = "cynic_agent_identify",
+        description = "Declare agent identity with attested credentials. Must be called before registration."
+    )]
+    async fn cynic_agent_identify(
+        &self,
+        params: Parameters<AgentIdentityParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let identity = serde_json::json!({
+            "schema": "cynic.agent_identity.v1",
+            "agent_id": p.agent_id,
+            "agent_kind": p.agent_kind.unwrap_or_else(|| "external".to_string()),
+            "credential_kind": p.credential_kind.unwrap_or_else(|| "opaque_reference".to_string()),
+            "credential_reference": p.credential_reference,
+            "attested_at_unix_ms": chrono::Utc::now().timestamp_millis(),
+        });
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&identity).unwrap_or_default(),
+        )]))
     }
 
     #[tool(
