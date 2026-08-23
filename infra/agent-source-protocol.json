@@ -1,0 +1,80 @@
+{
+  "schema": "cynic.agent_source_protocol.v1",
+  "purpose": "Machine-readable source governance linking agent citizenship to Git. This is the contract that cynic-protocol::source_policy and cynic-protocol::source_control enforce. Rules here are authoritative; prose in protocols/ is projection.",
+  "updated_at": "2026-08-22",
+  "remotes": {
+    "sovereign_candidate": {
+      "id": "forgejo",
+      "role": "sovereign_candidate",
+      "canonical_host": "forgejo.synapse.cynic",
+      "canonical_url": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git",
+      "fallback_ip": "10.10.10.119",
+      "fallback_note": "10.10.10.119 is the BUILDER (LXC) that only mirrors the SSOT. It is NOT the Forgejo SSOT. The cortex local remote currently points here by mistake; it must point at canonical_host. Always push to canonical_host.",
+      "ssh_host_key_fingerprint": "SHA256:OJDMToiHPEVJ7QVdufmpjyP5EYm5aOtBvYG2qGEEQ88",
+      "status_observed": "reachable_dns_10_10_10_101",
+      "notes": [
+        "Forgejo SSOT lives on a separate Proxmox VM (10.10.10.101, FQDN forgejo.synapse.cynic).",
+        "The builder (10.10.10.119, cynic-builder.synapse.cynic) builds from the SSOT; it is not the source of truth.",
+        "Resolve forgejo.synapse.cynic dynamically via Synapse DNS/WireGuard; never hardcode the IP as transport identity.",
+        "Reconcile order: cortex -> forgejo(SSOT) -> github(relay mirror)."
+      ]
+    },
+    "public_relay": {
+      "id": "origin",
+      "role": "public_relay",
+      "url": "git@github.com:zeyxx/CYNIC.git",
+      "credential_ref": "/etc/cynic/secrets/github-deploy-key",
+      "notes": [
+        "GitHub is a vitrine/mirror only. Force-push is acceptable here (relay, not authority).",
+        "Never create PRs or promote merges here; the SSOT owns PRs."
+      ]
+    }
+  },
+  "commit_convention": {
+    "policy_ref": "cynic.source_policy.v1",
+    "accepted_types": ["feat", "fix", "test", "docs", "refactor", "chore", "ci", "build", "perf", "style"],
+    "max_subject_len": 120,
+    "forbidden_substrings": ["password=", "token=", "secret=", "api_key=", "apikey="],
+    "notes": [
+      "Conventional Commits: <type>(<scope>): <subject>. Breaking: <type>(<scope>)!: <subject>.",
+      "admit_source_change blocks any SourceChangeProposal whose intent is not conformant."
+    ]
+  },
+  "branch_policy": {
+    "policy_ref": "cynic.source_policy.v1",
+    "accepted_prefixes": ["agent", "integration", "recovery", "backup", "feat", "fix", "docs", "refactor", "test", "chore"],
+    "protected_refs": ["main", "forgejo/main", "origin/main", "master"],
+    "agent_branch_template": "agent/<agent_id>/<scope>",
+    "notes": [
+      "One agent = one isolated worktree + one branch agent/<id>/<scope>.",
+      "admit_source_stage(SovereignCommit) refuses promotion to any protected_ref and to non-conforming branch names.",
+      "Promotion to main happens only through the merge bot / PR flow, never a direct agent push."
+    ]
+  },
+  "worktree_isolation": {
+    "rule": "one_agent_one_worktree",
+    "required": true,
+    "notes": [
+      "Agents MUST work in a git worktree, never directly on a checked-out trunk in the primary checkout.",
+      "The branch name MUST match agent_branch_template for the claiming agent."
+    ]
+  },
+  "reconcile_order": ["cortex", "forgejo", "github"],
+  "pr_flow": {
+    "create_on": "forgejo",
+    "merge_bot_only": true,
+    "direct_push_to_main": "forbidden",
+    "notes": [
+      "cynic source sync handles cortex->forgejo. Release bot handles forgejo->github relay.",
+      "GitHub receives force-push mirror only; it is never the source of a PR."
+    ]
+  },
+  "rules": [
+    "Forgejo (canonical_host) is the sovereign SSOT; the builder (10.10.10.119) is a mirror, not authority.",
+    "Never push directly to a protected ref; use a PR / merge bot.",
+    "Every commit intent must be a conformant Conventional Commit.",
+    "Every agent works on agent/<id>/<scope> in an isolated worktree.",
+    "Claims store schema is cynic.agent_claims.v2 (not v1).",
+    "The local .agent-claims.json is a cache; the kernel store is authoritative when reachable."
+  ]
+}

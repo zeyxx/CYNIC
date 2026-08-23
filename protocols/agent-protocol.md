@@ -698,7 +698,7 @@ pub enum AgentProtocolError {
 ### Documentation
 
 - [x] `protocols/agent-constitution.md`
-- [x] `protocols/agent-git-protocol.md`
+- [x] `protocols/agent-git-protocol.md`  ← now exists; previously a missing citation (see it for commit/branch/PR rules)
 - [x] `protocols/agent-coordination-protocol.md`
 - [ ] `protocols/agent-protocol.md` (this document)
 

@@ -9,6 +9,10 @@
       "owner": "jeanterre13",
       "repository": "CYNIC",
       "git_user": "forgejo",
+      "canonical_host": "forgejo.synapse.cynic",
+      "canonical_url": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git",
+      "fallback_ip": "10.10.10.119",
+      "fallback_note": "10.10.10.119 is the BUILDER (LXC) that only mirrors the SSOT, not the Forgejo SSOT itself. The cortex local remote currently points here by mistake; it must point at canonical_host (10.10.10.101).",
       "machine_principal": "cynic-cortex",
       "repository_permission": "write",
       "backend_service_ref": {
