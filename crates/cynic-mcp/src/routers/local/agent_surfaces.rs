@@ -512,7 +512,7 @@ impl CynicMcpProxy {
                 McpError::invalid_params(format!("invalid source-change workload: {error}"), None)
             })?;
         let submission =
-            serde_json::from_value::<cynic_protocol::SourceChangeSubmission>(p.submission)
+            serde_json::from_value::<cynic_protocol::SourceChangeProposal>(p.submission)
                 .map_err(|error| {
                     McpError::invalid_params(
                         format!("invalid source-change submission: {error}"),
@@ -525,7 +525,7 @@ impl CynicMcpProxy {
                 None,
             ));
         }
-        let admission = cynic_protocol::admit_source_change_submission(&submission, &workload);
+        let admission = cynic_protocol::admit_source_change(&submission);
         if admission.status != "admitted" {
             let result = serde_json::json!({
                 "schema": "cynic.mcp.source_change_submission.v1",
