@@ -731,23 +731,15 @@ The framework is not industrial-grade until these properties are demonstrable:
 
 ## Validation
 
-Default:
+- Use **targeted** crate checks/tests, not `make check`:
+  - `RUST_MIN_STACK=268435456 RUSTUP_TOOLCHAIN=1.96.0 cargo check -p <crate> --lib`
+  - `RUST_MIN_STACK=268435456 RUSTUP_TOOLCHAIN=1.96.0 cargo test -p <crate> --lib <module>`
+  - For the CLI surface (`cynic-cli`), validate through `cynic-host`/`cynic-protocol`
+    unit tests (the CLI is thin clap glue); `make check` ICEs rustc 1.96 on
+    `tokio`/`yamux`/`libc` in sandbox VMs.
+  - If rustc SIGSEGVs on monomorphization, prepend `ulimit -s unlimited`.
 
-```bash
-make check
-```
-
-This validates the minimal authority files and runs `cargo check` on the core
-runtime crates with deterministic rustc settings.
-
-Cargo policy:
-
-- Prefer `make ...` or `./scripts/cargo ...` over raw `cargo ...`.
-- Default repo mode is offline registry use through a repo-local `CARGO_HOME`.
-- Use `CARGO_SOURCE_MODE=vendor` once `./scripts/cargo-vendor-bootstrap` has
-  populated `vendor/`.
-- Use `CARGO_NETWORK_MODE=online` only when the execution environment truly has
-  Cargo network access and a dependency refresh is intentional.
+Default (minimal authority files + core crates), when the toolchain is stable:
 
 ## Rules
 
