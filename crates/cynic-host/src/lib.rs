@@ -30,6 +30,7 @@ pub mod execution;
 pub mod federation_runtime;
 pub mod filesystem_observation;
 pub mod fleet_discovery;
+pub mod fleet_disk_observer;
 pub mod fleet_health_observer;
 pub mod fleet_heartbeat;
 pub mod forgejo_control;

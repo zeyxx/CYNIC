@@ -3,6 +3,7 @@ pub mod local_build_cache;
 pub mod local_causal_epoch_index;
 pub mod local_command_runner;
 pub mod local_disk;
+pub mod remote_disk;
 pub mod local_evidence_store;
 pub mod local_hardware_baseline;
 pub mod local_hardware_baseline_bundle;
