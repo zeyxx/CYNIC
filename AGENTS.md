@@ -530,9 +530,25 @@ unknown. The machine-readable handshake and tool ownership remain in
 ## Sovereignty vs relay (chicken and egg)
 
 - **Runtime authority** stays local: principal `cynic`, `/etc/cynic`, harness proofs.
-- **Git**: Forgejo (`infra/repo-remotes.json`) is the sovereign *candidate* SSOT.
-  GitHub `origin` is an optional **public relay** while Forgejo DNS/auth/repo is
-  repaired — not a reason to reintroduce SaaS CI as law.
+- **Git source protocol is now formalised** in `infra/agent-source-protocol.json`
+  (`cynic.agent_source_protocol.v1`) and enforced in Rust
+  (`crates/cynic-protocol/src/source_policy.rs` + `source_control.rs`). Read it
+  before touching commit/branch/PR rules. Summary:
+  - Forgejo (`forgejo.synapse.cynic`, **10.10.10.101**) is the sovereign **SSOT**.
+    Canonical push URL: `ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git`.
+  - The **builder** (10.10.10.119, `cynic-builder.synapse.cynic`) only **mirrors**
+    the SSOT and runs the build. It is NOT the source of truth. The cortex local
+    remote `forgejo` currently points at the builder (10.10.10.119) by mistake —
+    it must point at the Forgejo SSOT (canonical_host above).
+  - GitHub `origin` is a public relay/mirror only; force-push mirror is acceptable,
+    never a PR source.
+  - Reconcile order: `cortex → forgejo → github`.
+- **Citizenship → source link**: an agent may propose a source change only after
+  `agent_citizenship::admit_mutation` passes (active claim + budget + store
+  available). The source policy then validates *how* the change is expressed:
+  Conventional Commits intent, `agent/<id>/<scope>` branch, no direct push to
+  protected refs (`main`/`forgejo/main`/`origin/main`). The two gates are
+  sequential, not duplicated. See `protocols/agent-git-protocol.md`.
 - Observed Forgejo HTTP port is **3000** (not 18300). Host aliases live under
   synapse / `/etc/hosts` (`forgejo.synapse.cynic`, `10.10.10.101`).
 - Prefer fixing reachability with cynic network/bootstrap surfaces over hardcoding
