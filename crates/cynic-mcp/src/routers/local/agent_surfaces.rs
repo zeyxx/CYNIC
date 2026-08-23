@@ -500,7 +500,7 @@ impl CynicMcpProxy {
     )]
     async fn cynic_source_change_submit(
         &self,
-        params: Parameters<SourceChangeSubmitParams>,
+        params: Parameters<crate::types::SourceChangeSubmitParams>,
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
