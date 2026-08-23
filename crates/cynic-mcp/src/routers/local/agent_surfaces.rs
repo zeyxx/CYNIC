@@ -69,6 +69,18 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_surface_audit_read_back",
+        description = "Read-back proof of the canonical surface audit (cynic dev surface-audit --json). Kernel-optional: runs the CLI audit via the injected LocalArgvRunner and projects the JSON. Does NOT require the kernel REST endpoint — use this to confirm surface/agent-exposure coherence when the kernel is dead. Read-only."
+    )]
+    async fn cynic_surface_audit_read_back(&self) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let report = crate::local_tools::run_surface_audit_read_back(&self.project_root);
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&report).unwrap_or_else(|_| report.to_string()),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_emergence_elect",
         description = "Elect roles via emergence (deterministic, same on every node). When the kernel is dead, nodes self-coordinate: each node floods its local state, and every node runs the same election rule. Returns {assumed_role, role_priority, candidates, reasoning} per role. No consensus protocol, no leader election — just deterministic emergence from local observations."
     )]

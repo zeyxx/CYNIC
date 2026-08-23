@@ -694,6 +694,48 @@ pub async fn run_harness_progression(
     })
 }
 
+/// Run the surface audit read-back via the canonical CLI surface.
+/// Delegate to `cynic dev surface-audit --json` through the synchronous
+/// LocalArgvRunner (read-only projection — never mutates the host).
+/// Mirrors the pattern of `run_git` / `run_source_control`: the CLI owns
+/// the audit decision, the MCP projects its read-back proof.
+pub fn run_surface_audit_read_back(project_root: &str) -> serde_json::Value {
+    let runner = LocalArgvRunner;
+    let output = runner.run(&[
+        "cynic",
+        "dev",
+        "surface-audit",
+        "--json",
+    ]);
+    if !output.success() {
+        return serde_json::json!({
+            "schema": "cynic.mcp.surface_audit_read_back.v1",
+            "status": "blocked",
+            "mutates": false,
+            "runner": "LocalArgvRunner",
+            "argv": ["cynic", "dev", "surface-audit", "--json"],
+            "exit_code": output.exit_code,
+            "stderr": output.stderr,
+            "stdout": output.stdout,
+        });
+    }
+    // The audit emits JSON on stdout; parse it to prove freshness.
+    let report = serde_json::from_str::<serde_json::Value>(&output.stdout)
+        .unwrap_or_else(|_| serde_json::json!({ "raw": output.stdout }));
+    serde_json::json!({
+        "schema": "cynic.mcp.surface_audit_read_back.v1",
+        "status": report.get("status").and_then(|v| v.as_str()).unwrap_or("observed"),
+        "mutates": false,
+        "runner": "LocalArgvRunner",
+        "argv": ["cynic", "dev", "surface-audit", "--json"],
+        "exit_code": output.exit_code,
+        "blocked_count": report.get("blocked_count"),
+        "ok_count": report.get("ok_count"),
+        "agent_exposure": report.get("agent_exposure"),
+        "report": report,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
