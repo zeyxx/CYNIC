@@ -147,6 +147,14 @@ pub struct SourceControlParams {
     pub agent_id: Option<String>,
 }
 
+/// A typed workload and its content-addressed source change. MCP validates and
+/// delivers this payload; the target node owns all workspace mutation.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SourceChangeSubmitParams {
+    pub workload: serde_json::Value,
+    pub submission: serde_json::Value,
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct RegisterParams {
     pub intent: String,
