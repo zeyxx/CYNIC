@@ -38,6 +38,16 @@ pub(crate) enum FleetCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Observe disk usage across declared fleet nodes (SSH out, df -h).
+    Disk {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        /// SSH target template (default "cynic@{ip}"); {ip} is substituted.
+        #[arg(long, default_value = "cynic@{ip}")]
+        ssh_target: String,
+    },
     /// Emit a cryptographically signed heartbeat pulse.
     Pulse {
         #[arg(long)]
@@ -87,7 +97,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
             let report = adapter.discover();
             crate::cli_json::emit_pretty_json(&report)
         }
-        FleetCommand::Health { heartbeat_timeout_s, json } => {
+        FleetCommand::Health {
             if !json {
                 return ExitCode::FAILURE;
             }
@@ -97,6 +107,21 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
                 registry_path.to_string_lossy().to_string(),
                 heartbeat_timeout_s,
             );
+            let report = adapter.observe();
+            crate::cli_json::emit_pretty_json(&report)
+        }
+        FleetCommand::Disk { json, registry, ssh_target } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let registry_path =
+                resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
+            let adapter =
+                cynic_host::fleet_disk_observer::FleetDiskObserver::with_runner(
+                    registry_path.to_string_lossy().to_string(),
+                    cynic_host::update_lifecycle::LocalArgvRunner,
+                )
+                .with_ssh_target(ssh_target);
             let report = adapter.observe();
             crate::cli_json::emit_pretty_json(&report)
         }
