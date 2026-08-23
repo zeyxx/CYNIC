@@ -6,6 +6,7 @@ pub mod agent_mutation_gates;
 pub mod agent_recursion;
 pub mod agent_scheduler;
 pub mod agent_session;
+pub mod source_policy;
 pub mod agent_skill;
 pub mod agent_workload;
 pub mod agentic_tool_call;
