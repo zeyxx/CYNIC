@@ -17,7 +17,7 @@ use cynic_host::source_control::{
     observe_source_push_target, observe_source_worktree,
 };
 use cynic_host::source_lease::SourceLeaseVerifier;
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_host::update_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::build::{BuildRecipe, BUILD_RECIPE_SCHEMA};
 use cynic_protocol::{LeaseGuard, SecurityEvidenceState, SourceChangeProposal, SourceMatterClass, SourceSnapshot};
 
