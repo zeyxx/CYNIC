@@ -116,6 +116,7 @@ impl CynicMcpProxy {
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
+        self.require_mutation_contract()?;
 
         let req = params.0;
         let response = self

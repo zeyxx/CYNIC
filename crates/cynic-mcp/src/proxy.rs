@@ -175,7 +175,6 @@ impl CynicMcpProxy {
     /// Admit a mutation only when this MCP artifact proves compatibility with
     /// the desired agent contract.  Read-only observation and plan projection
     /// deliberately remain available while reconciliation is blocked.
-    #[allow(dead_code)]
     fn require_mutation_contract(&self) -> Result<(), McpError> {
         let plan = crate::runtime_contract::observe_runtime_contract(std::path::Path::new(
             &self.project_root,

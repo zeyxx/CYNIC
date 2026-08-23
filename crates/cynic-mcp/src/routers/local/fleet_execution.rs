@@ -67,6 +67,7 @@ impl CynicMcpProxy {
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
+        self.require_mutation_contract()?;
         let result = run_lxc_exec_bridge_bundle(&params.0)?;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),
@@ -102,6 +103,7 @@ impl CynicMcpProxy {
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
+        self.require_mutation_contract()?;
         let p = params.0;
         let purpose = p.purpose.clone();
         let registry = load_infra_registry()?;
