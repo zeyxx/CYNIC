@@ -97,7 +97,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
             let report = adapter.discover();
             crate::cli_json::emit_pretty_json(&report)
         }
-        FleetCommand::Health {
+        FleetCommand::Health { json, heartbeat_timeout_s } => {
             if !json {
                 return ExitCode::FAILURE;
             }

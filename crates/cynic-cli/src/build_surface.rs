@@ -207,7 +207,7 @@ fn run_build(
     let recipe = BuildRecipe {
         schema: BUILD_RECIPE_SCHEMA.to_string(),
         action: action.clone(),
-        target_profile: action,
+        target_profile: action.clone(),
         allowed_actions: target_crates,
         rust_min_stack: 16777216,
         cargo_incremental: false,

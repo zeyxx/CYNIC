@@ -108,7 +108,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             json,
         } => match execute_identify(&agent_id, agent_kind.as_deref()) {
             Ok(report) => {
-                emit_pretty_json(&report, !json);
+                emit_pretty_json(&report);
                 ExitCode::SUCCESS
             }
             Err(error) => {
@@ -127,7 +127,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
                     "status": "registered",
                     "agent_id": agent_id,
                 });
-                emit_pretty_json(&report, !json);
+                emit_pretty_json(&report);
                 ExitCode::SUCCESS
             }
             Err(error) => {
@@ -152,7 +152,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             budget_wall_seconds,
         ) {
             Ok(report) => {
-                emit_pretty_json(&report, !json);
+                emit_pretty_json(&report);
                 ExitCode::SUCCESS
             }
             Err(error) => {
@@ -169,7 +169,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             json,
         } => match execute_release(&agent_id, &target, &lease_id, fencing_token, proof_ref) {
             Ok(report) => {
-                emit_pretty_json(&report, !json);
+                emit_pretty_json(&report);
                 ExitCode::SUCCESS
             }
             Err(error) => {
@@ -179,7 +179,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
         },
         AgentCommand::Status { agent_id, json } => match execute_status(&agent_id) {
             Ok(report) => {
-                emit_pretty_json(&report, !json);
+                emit_pretty_json(&report);
                 ExitCode::SUCCESS
             }
             Err(error) => {
