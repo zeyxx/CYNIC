@@ -18,9 +18,9 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use cynic_protocol::{
-    admit_build_mutation, AgentBudgets, AgentCitizenshipRecord, AgentScope,
-    AgentWorkloadRecord, AgentWorkloadState, BuildAgentRequest, BuildSourceReference,
-    MutationAdmission, SecurityEvidenceState,
+    admit_build_mutation, compose_build_agent_workload, AgentBudgets, AgentCitizenshipRecord,
+    AgentScope, AgentWorkloadRecord, AgentWorkloadState, BuildAgentRequest,
+    BuildSourceReference, MutationAdmission, SecurityEvidenceState,
 };
 
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
@@ -170,9 +170,10 @@ async fn webhook_forgejo(
     // - A held claim containing the target scope
     // - Sufficient budget
     // - Matching build role
+    let desired_role = "build_runner";
     let citizen = AgentCitizenshipRecord {
         schema: "cynic.agent_citizenship.v1",
-        requested_by: payload.pusher.as_ref().map(|p| p.name.clone()).unwrap_or_else(|| "forgejo".into()),
+        agent_id: payload.pusher.as_ref().map(|p| p.name.clone()).unwrap_or_else(|| "forgejo".into()),
         scope: AgentScope::Crate,
         budgets: AgentBudgets { actions: 100, wall_seconds: 3600 },
         residual_risk: None,
@@ -184,8 +185,8 @@ async fn webhook_forgejo(
         &AgentBudgets { actions: 1, wall_seconds: 60 },
         &AgentScope::Crate,
         true,
-        "build_runner",
-        &request.desired_role,
+        desired_role,
+        desired_role,
     );
     if let MutationAdmission::Refused { codes } = &admission {
         return Err((

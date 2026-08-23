@@ -176,15 +176,25 @@ fn reconcile_transition(
                 AgentWorkloadTransition::Claim {
                     guard,
                     expires_at_ms,
-                    max_lease_window_ms,
                     ..
-                } => claim_agent_workload(
-                    &current.record,
-                    guard.clone(),
-                    *expires_at_ms,
-                    observed_now_ms,
-                    *max_lease_window_ms,
-                ),
+                } => {
+                    // Lease window provenance: an existing claim keeps its
+                    // recorded window; a first claim inherits the delegated
+                    // wall-time budget — never more than was delegated.
+                    let max_window = current
+                        .record
+                        .claim
+                        .as_ref()
+                        .map(|claim| claim.max_lease_window_ms)
+                        .unwrap_or(current.record.envelope.delegation.budget.wall_time_ms);
+                    claim_agent_workload(
+                        &current.record,
+                        guard.clone(),
+                        *expires_at_ms,
+                        observed_now_ms,
+                        max_window,
+                    )
+                }
                 AgentWorkloadTransition::ConsumeAction { guard, .. } => {
                     consume_agent_workload_action(&current.record, guard, observed_now_ms)
                 }
