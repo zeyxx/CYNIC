@@ -7,7 +7,7 @@ use std::time::SystemTime;
 use chrono::{DateTime, Utc};
 
 use crate::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
-use crate::domain::disk::probe::build_cleanup_plan;
+use crate::domain::disk::probe::{build_cleanup_plan, parse_df_filesystems};
 use crate::domain::disk::{
     DiskCacheEntry, DiskCleanupItem, DiskCleanupPlan, DiskCleanupResult, DiskCleanupStepExecution,
     DiskFileEntry, DiskFilesystem, DiskReport, bytes_to_human,
@@ -101,46 +101,7 @@ fn observe_filesystems() -> Result<Vec<DiskFilesystem>, String> {
         }
     };
 
-    let mut list = Vec::new();
-    let mut lines = output_str.lines();
-    // Skip header line
-    let _header = lines.next();
-
-    for line in lines {
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 6 {
-            let (source, fstype, size, used, avail, pct, mount) = if parts.len() == 7 {
-                (
-                    parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6],
-                )
-            } else {
-                // If fstype is missing or we used simple df -h
-                (
-                    parts[0],
-                    "unknown",
-                    parts[1],
-                    parts[2],
-                    parts[3],
-                    parts[4],
-                    parts[parts.len() - 1],
-                )
-            };
-
-            // Filter virtual filesystems to keep report clean
-            if source.starts_with("/dev/") || source == "tmpfs" || mount == "/" {
-                list.push(DiskFilesystem {
-                    source: source.to_string(),
-                    fstype: fstype.to_string(),
-                    size_human: size.to_string(),
-                    used_human: used.to_string(),
-                    avail_human: avail.to_string(),
-                    use_pct: pct.to_string(),
-                    mount: mount.to_string(),
-                });
-            }
-        }
-    }
-    Ok(list)
+    Ok(parse_df_filesystems(&output_str))
 }
 
 fn get_disk_free_bytes() -> Option<u64> {

@@ -1,6 +1,57 @@
 //! Pure logic for planning cleanup items based on observed caches.
+//!
+//! Also hosts the portable `df`-output parser so that both the local and the
+//! SSH remote disk adapters share one parsing path (no hardwired substrate).
 
-use super::types::{DiskCleanupItem, DiskCleanupPlan, DiskReport, bytes_to_human};
+use super::types::{bytes_to_human, DiskCleanupItem, DiskCleanupPlan, DiskFilesystem, DiskReport};
+
+/// Pure parser for `df -h --output=source,fstype,size,used,avail,pcent,target`
+/// stdout. Shared by `LocalDiskAdapter` (local `df`) and `RemoteDiskAdapter`
+/// (SSH `df`) so the two never diverge on column layout. Returns only real
+/// backing-store filesystems (`/dev/*`, tmpfs, or the root mount) and keeps
+/// virtual entries. A missing `fstype` is tolerated as `"unknown"`.
+pub fn parse_df_filesystems(output: &str) -> Vec<DiskFilesystem> {
+    let mut list = Vec::new();
+    let mut lines = output.lines();
+    // Skip header line
+    let _header = lines.next();
+
+    for line in lines {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 6 {
+            continue;
+        }
+        let (source, fstype, size, used, avail, pct, mount) = if parts.len() >= 7 {
+            (
+                parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6],
+            )
+        } else {
+            // If fstype is missing or we used simple df -h
+            (
+                parts[0],
+                "unknown",
+                parts[1],
+                parts[2],
+                parts[3],
+                parts[4],
+                parts[parts.len() - 1],
+            )
+        };
+        // Filter virtual filesystems to keep report clean
+        if source.starts_with("/dev/") || source == "tmpfs" || mount == "/" {
+            list.push(DiskFilesystem {
+                source: source.to_string(),
+                fstype: fstype.to_string(),
+                size_human: size.to_string(),
+                used_human: used.to_string(),
+                avail_human: avail.to_string(),
+                use_pct: pct.to_string(),
+                mount: mount.to_string(),
+            });
+        }
+    }
+    list
+}
 
 /// Build a cleanup plan from the observed disk report.
 pub fn build_cleanup_plan(report: &DiskReport) -> DiskCleanupPlan {
@@ -104,6 +155,34 @@ pub fn build_cleanup_plan(report: &DiskReport) -> DiskCleanupPlan {
 mod tests {
     use super::*;
     use crate::domain::disk::types::{DiskCacheEntry, DiskReport};
+
+    const SAMPLE_DF: &str = "\
+Filesystem     Type  Size  Used Avail Use% Mounted on
+/dev/sda2      ext4   50G   30G   20G  60% /
+tmpfs          tmpfs  3.9G     0  3.9G   0% /dev
+/dev/sdb1      xfs    20G   18G  2.0G  90% /mnt/data
+overlay        overlay  50G   30G   20G  60% /
+";
+
+    #[test]
+    fn test_parse_df_filesystems_filters_virtual() {
+        let parsed = parse_df_filesystems(SAMPLE_DF);
+        // overlay (non /dev, non tmpfs, mount != "/") is filtered out.
+        // Kept: /dev/sda2 (mount /), tmpfs /dev, /dev/sdb1, + root overlay (mount "/")
+        assert_eq!(parsed.len(), 4);
+        assert_eq!(parsed[0].source, "/dev/sda2");
+        assert_eq!(parsed[0].fstype, "ext4");
+        assert_eq!(parsed[0].mount, "/");
+        assert_eq!(parsed[2].source, "/dev/sdb1");
+        assert_eq!(parsed[2].fstype, "xfs");
+        assert_eq!(parsed[2].mount, "/mnt/data");
+    }
+
+    #[test]
+    fn test_parse_df_filesystems_empty_and_header_only() {
+        assert!(parse_df_filesystems("").is_empty());
+        assert!(parse_df_filesystems("Filesystem Type Size Used Avail Use% Mounted on\n").is_empty());
+    }
 
     #[test]
     fn test_build_cleanup_plan() {
