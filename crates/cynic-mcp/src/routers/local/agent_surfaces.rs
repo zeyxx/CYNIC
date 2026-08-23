@@ -55,6 +55,20 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_agent_runtime_observe",
+        description = "Observe declared external agent runtimes (hermes-agent, mercury-agent, etc.) with payload provenance, supervisor gaps, and adoption plan. Read-only; never starts a daemon during observation. Kernel-optional: works even if the kernel REST endpoint is unreachable."
+    )]
+    async fn cynic_agent_runtime_observe(&self) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let report = cynic_host::agent_runtime::observe_agent_runtimes(
+            &cynic_host::update_lifecycle::LocalArgvRunner,
+        );
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&report).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_emergence_elect",
         description = "Elect roles via emergence (deterministic, same on every node). When the kernel is dead, nodes self-coordinate: each node floods its local state, and every node runs the same election rule. Returns {assumed_role, role_priority, candidates, reasoning} per role. No consensus protocol, no leader election — just deterministic emergence from local observations."
     )]
@@ -150,6 +164,7 @@ impl CynicMcpProxy {
     ) -> Result<CallToolResult, McpError> {
         self.require_auth()?;
         self.rate_limit.check_other()?;
+        self.require_mutation_contract()?;
 
         let p = params.0;
         let logfile = p
@@ -200,6 +215,9 @@ impl CynicMcpProxy {
             format!("{request_prefix}-{short_commit}-{principal}")
         });
         let dispatch_requested = p.dispatch;
+        if dispatch_requested {
+            self.require_mutation_contract()?;
+        }
         let release_publication = if action == "make:build-release" {
             let release_id = p.release_id.ok_or_else(|| {
                 McpError::invalid_params("release_id is required for action=build_release", None)
@@ -477,6 +495,111 @@ impl CynicMcpProxy {
     }
 
     #[tool(
+        name = "cynic_source_change_submit",
+        description = "Validate and deliver one content-addressed source-change workload to its node-owned scheduler. MCP never applies the change or writes a worktree."
+    )]
+    async fn cynic_source_change_submit(
+        &self,
+        params: Parameters<SourceChangeSubmitParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        self.require_mutation_contract()?;
+        let principal = self.coordination_principal()?;
+        let p = params.0;
+        let workload = serde_json::from_value::<cynic_protocol::AgentWorkloadEnvelope>(p.workload)
+            .map_err(|error| {
+                McpError::invalid_params(format!("invalid source-change workload: {error}"), None)
+            })?;
+        let submission =
+            serde_json::from_value::<cynic_protocol::SourceChangeSubmission>(p.submission)
+                .map_err(|error| {
+                    McpError::invalid_params(
+                        format!("invalid source-change submission: {error}"),
+                        None,
+                    )
+                })?;
+        if workload.delegation.agent_id != principal {
+            return Err(McpError::invalid_params(
+                "source-change workload agent_id does not match the authenticated coordination principal",
+                None,
+            ));
+        }
+        let admission = cynic_protocol::admit_source_change_submission(&submission, &workload);
+        if admission.status != "admitted" {
+            let result = serde_json::json!({
+                "schema": "cynic.mcp.source_change_submission.v1",
+                "status": "blocked",
+                "mutates": false,
+                "admission": admission,
+            });
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+            )]));
+        }
+        let delivery = cynic_protocol::AgentWorkloadDelivery {
+            schema: cynic_protocol::AGENT_WORKLOAD_DELIVERY_SCHEMA.to_string(),
+            target_node_id: workload.delegation.node_id.clone(),
+            submitted_by: principal,
+            submitted_at_ms: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+                .min(u128::from(u64::MAX)) as u64,
+            status: cynic_protocol::AgentWorkloadDeliveryStatus::Pending,
+            accepted_at_ms: None,
+            accepted_record_digest: None,
+            acceptance_lease: None,
+            terminal_at_ms: None,
+            terminal_record_digest: None,
+            terminal_record: None,
+            completion: None,
+            completion_evidence: Vec::new(),
+            evidence_refs: submission.evidence_refs.clone(),
+            envelope: workload,
+        };
+        let response = self
+            .kernel
+            .client()
+            .post(self.kernel.url("/agent-workloads"))
+            .json(&delivery)
+            .send()
+            .await
+            .map_err(|error| {
+                McpError::internal_error(
+                    format!("source-change workload delivery failed: {error}"),
+                    None,
+                )
+            })?;
+        let response_status = response.status();
+        let body = response.text().await.map_err(|error| {
+            McpError::internal_error(
+                format!("source-change workload read-back failed: {error}"),
+                None,
+            )
+        })?;
+        let delivery_read_back = serde_json::from_str::<serde_json::Value>(&body)
+            .unwrap_or_else(|_| serde_json::json!({"raw": body}));
+        let result = serde_json::json!({
+            "schema": "cynic.mcp.source_change_submission.v1",
+            "status": if response_status.is_success() { "delivered" } else { "blocked_delivery_unavailable" },
+            "mutates": response_status.is_success(),
+            "admission": admission,
+            "delivery": delivery,
+            "delivery_read_back": delivery_read_back,
+            "kernel_http_status": response_status.as_u16(),
+            "execution_status": if response_status.is_success() {
+                "waiting_for_target_node_acceptance"
+            } else {
+                "blocked_kernel_workload_delivery_unavailable"
+            },
+        });
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
+        )]))
+    }
+
+    #[tool(
         name = "cynic_federation_status",
         description = "Observe the current federation reconciliation: operating mode (coordinated/autonomous/degraded/promoted), retained capabilities, assumed roles, takeover status, residual unknowns. This is the single authoritative composition of node_control, local_autonomy, emergence, and runtime_takeover — not four competing models."
     )]
@@ -498,8 +621,12 @@ impl CynicMcpProxy {
         &self,
         params: Parameters<NodeActivationParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
         self.rate_limit.check_other()?;
         let Parameters(NodeActivationParams { node_id, yes }) = params;
+        if yes {
+            self.require_mutation_contract()?;
+        }
         let result = crate::local_tools::run_node_activation(&node_id, yes).await;
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&result).unwrap_or_default(),

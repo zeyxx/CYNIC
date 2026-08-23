@@ -118,7 +118,8 @@
     "mcp_read_only_fallback_capabilities": [
       "source_surface_audit",
       "framework_projection",
-      "local_contract_observation"
+      "local_contract_observation",
+      "cynic_agent_runtime_observe"
     ],
     "shell_build_fallback": false,
     "build_authority": {
@@ -345,6 +346,11 @@
         },
         {
           "name": "cynic_agent_connection_status",
+          "tier": "baseline_runtime",
+          "mutation": "read_only"
+        },
+        {
+          "name": "cynic_agent_identify",
           "tier": "baseline_runtime",
           "mutation": "read_only"
         },
@@ -659,6 +665,11 @@
           "mutation": "local_mutation"
         },
         {
+          "name": "cynic_source_change_submit",
+          "tier": "baseline_runtime",
+          "mutation": "local_mutation"
+        },
+        {
           "name": "cynic_ssh_target_inspect",
           "tier": "operator_local",
           "mutation": "read_only"
@@ -856,6 +867,7 @@
       "description": "Read-only organism health, contracts, and surface discovery.",
       "tier": "mixed_baseline_and_product",
       "tools": [
+        "cynic_agent_runtime_observe",
         "cynic_api_contracts",
         "cynic_attention",
         "cynic_audit_query",
@@ -933,6 +945,7 @@
       "tier": "baseline_runtime",
       "tools": [
         "cynic_agent_connection_status",
+        "cynic_agent_identify",
         "cynic_coord_register",
         "cynic_coord_who",
         "cynic_coord_claim",
@@ -946,7 +959,8 @@
         "coordination_thread_reply",
         "coordination_artifact_share",
         "coordination_decision_record",
-        "cynic_source_control"
+        "cynic_source_control",
+        "cynic_source_change_submit"
       ],
       "operator_tools": []
     },

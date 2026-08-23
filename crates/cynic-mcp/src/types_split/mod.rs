@@ -16,6 +16,7 @@ pub mod rate_limit;
 pub mod solana_sop;
 pub mod storage;
 pub mod task;
+pub mod agent_runtime;
 
 #[cfg(test)]
 mod tests;
