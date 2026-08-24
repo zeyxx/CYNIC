@@ -15,14 +15,102 @@
     ]
   },
   "data_kinds": [
-    {"kind": "K1_immutable_evidence", "examples": ["PoH chain", "sealed pattern models", "report digests", "skill lineage"], "mutability": "append-only", "integrity": "signed + content-addressed", "layer": "L0"},
-    {"kind": "K2_operational_state", "examples": ["leases", "claims", "dispatch", "verdict queue", "sessions"], "mutability": "ACID mutable", "integrity": "transactional + fencing", "layer": "L1"},
-    {"kind": "K3_raw_telemetry", "examples": ["session JSONL", "message streams", "heartbeat logs"], "mutability": "append-only streams", "integrity": "corpus manifest digests", "layer": "L2"},
-    {"kind": "K4_distilled_analytics", "examples": ["pattern models in-training", "mined workflows", "aggregates", "benchmarks"], "mutability": "recompute-friendly derived data", "integrity": "reproducible from K3+K2; digest of inputs recorded", "layer": "L2/L0 boundary"},
-    {"kind": "K5_artifacts_blobs", "examples": ["GGUF weights", "build outputs", "datasets", "releases"], "mutability": "immutable once placed", "integrity": "CAS sha256 manifest", "layer": "L3"},
-    {"kind": "K6_contracts_registries", "examples": ["contracts/foundation.json", "framework.json", "infra/registry.json", "surface-registry.json", "agent-exposure.json", "storage manifest + layering docs"], "mutability": "versioned declarative desired-state", "integrity": "git = content-addressed already; SSOT Forgejo", "layer": "cross-cutting: git is their engine"},
-    {"kind": "K7_coordination_ephemeral", "examples": [".agent-claims.json", "cron state", "locks"], "mutability": "disposable", "integrity": "atomic rename only", "layer": "L4"},
-    {"kind": "K8_secrets_identity", "examples": ["llama-api-key", "storage runtime password", "kernel Ed25519 identity"], "mutability": "rotated on incident/schedule", "integrity": "0640 cynic:cynic, /etc/cynic mirror, never in git/db", "layer": "outside all planes by law"}
+    {
+      "kind": "K1_immutable_evidence",
+      "examples": [
+        "PoH chain",
+        "sealed pattern models",
+        "report digests",
+        "skill lineage"
+      ],
+      "mutability": "append-only",
+      "integrity": "signed + content-addressed",
+      "layer": "L0"
+    },
+    {
+      "kind": "K2_operational_state",
+      "examples": [
+        "leases",
+        "claims",
+        "dispatch",
+        "verdict queue",
+        "sessions"
+      ],
+      "mutability": "ACID mutable",
+      "integrity": "transactional + fencing",
+      "layer": "L1"
+    },
+    {
+      "kind": "K3_raw_telemetry",
+      "examples": [
+        "session JSONL",
+        "message streams",
+        "heartbeat logs"
+      ],
+      "mutability": "append-only streams",
+      "integrity": "corpus manifest digests",
+      "layer": "L2"
+    },
+    {
+      "kind": "K4_distilled_analytics",
+      "examples": [
+        "pattern models in-training",
+        "mined workflows",
+        "aggregates",
+        "benchmarks"
+      ],
+      "mutability": "recompute-friendly derived data",
+      "integrity": "reproducible from K3+K2; digest of inputs recorded",
+      "layer": "L2/L0 boundary"
+    },
+    {
+      "kind": "K5_artifacts_blobs",
+      "examples": [
+        "GGUF weights",
+        "build outputs",
+        "datasets",
+        "releases"
+      ],
+      "mutability": "immutable once placed",
+      "integrity": "CAS sha256 manifest",
+      "layer": "L3"
+    },
+    {
+      "kind": "K6_contracts_registries",
+      "examples": [
+        "contracts/foundation.json",
+        "framework.json",
+        "infra/registry.json",
+        "surface-registry.json",
+        "agent-exposure.json",
+        "storage manifest + layering docs"
+      ],
+      "mutability": "versioned declarative desired-state",
+      "integrity": "git = content-addressed already; SSOT Forgejo",
+      "layer": "cross-cutting: git is their engine"
+    },
+    {
+      "kind": "K7_coordination_ephemeral",
+      "examples": [
+        ".agent-claims.json",
+        "cron state",
+        "locks"
+      ],
+      "mutability": "disposable",
+      "integrity": "atomic rename only",
+      "layer": "L4"
+    },
+    {
+      "kind": "K8_secrets_identity",
+      "examples": [
+        "llama-api-key",
+        "storage runtime password",
+        "kernel Ed25519 identity"
+      ],
+      "mutability": "rotated on incident/schedule",
+      "integrity": "0640 cynic:cynic, /etc/cynic mirror, never in git/db",
+      "layer": "outside all planes by law"
+    }
   ],
   "mapping_rules": {
     "one_kind_one_home": "every datum maps to exactly one kind and therefore one layer/engine/retention story",
@@ -37,8 +125,40 @@
     "embedded_not_server": "keep single-writer planes embedded (sqlite/files); only L0/L1 justify a server process today"
   },
   "open_decisions": [
-    {"id": "D1", "question": "L0 cold evidence home: surrealdb SCHEMAFULL table vs append-only signed journal file per node?", "leaning": "journal file: PoH anchors integrity, file needs no server, replication = rsync of signed bytes"},
-    {"id": "D2", "question": "who owns artifact CAS sweep for 102GB vault?", "leaning": "bounded root executor job, nightly, digest-only first pass"},
-    {"id": "D3", "question": "L2 warm archive ownership: cynic principal vs operator home?", "leaning": "cynic principal (sovereignty rule)"}
+    {
+      "id": "D1",
+      "question": "L0 cold evidence home: surrealdb SCHEMAFULL table vs append-only signed journal file per node?",
+      "leaning": "journal file: PoH anchors integrity, file needs no server, replication = rsync of signed bytes"
+    },
+    {
+      "id": "D2",
+      "question": "who owns artifact CAS sweep for 102GB vault?",
+      "leaning": "bounded root executor job, nightly, digest-only first pass"
+    },
+    {
+      "id": "D3",
+      "question": "L2 warm archive ownership: cynic principal vs operator home?",
+      "leaning": "cynic principal (sovereignty rule)"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D2",
+      "status": "DECIDED_pending_operator_confirmation",
+      "decision": "nightly digest-only sweep via bounded root executor; quarantaine reversible par rename sur mismatch corrobore; reorg CAS = chantier separe conditionne a >=102 GB libres",
+      "evidence": "docs/notes/d2-vault-integrity-scan-strategy.md (bench local 2 GB/s SHA-NI; CERN/NetApp/Backblaze sources; FS a 90% -> baseline seule option)",
+      "challenge_note": "inclination pre-enregistree confirme-e mais enrichie: contrainte espace manquante + precedent .corrupt vecu"
+    },
+    {
+      "id": "D3",
+      "status": "DECIDED_pending_operator_confirmation",
+      "decision": "/var/lib/cynic/archive/ owner cynic:cynic 0750; layout YYYY/MM/<trace-set>.tar.zst+.sha256; migration one-shot mv (meme FS) avec sha256 avant/apres; PAS de symlink retour; trace_miner reste outil home",
+      "evidence": "subagent D3 report (FHS, systemd StateDirectory, deja-dup absent pour /var/lib -> coupler a politique backup explicite)",
+      "challenge_note": "inclination confirmee; dementi factuel bienvenu: aucune sauvegarde /var/lib active aujourd'hui => politique backup prerequis, pas post-traitement"
+    },
+    {
+      "id": "D1",
+      "status": "PENDING_agent_research_running"
+    }
   ]
 }
