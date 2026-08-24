@@ -12,8 +12,8 @@
 //! Forgejo-side metadata (token_id, sha1), never the secret itself.
 
 use std::fs::OpenOptions;
-use std::fs::OpenOptionsExt;
 use std::io::Write as IoWrite;
+use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::Command;
@@ -196,6 +196,7 @@ pub fn provision_forgejo_token(
             if !converged {
                 unknowns.push("forgejo_token_provision_read_back_not_converged".to_string());
             }
+            let sha1_for_rollback = metadata.sha1.clone();
             ForgejoTokenProvisionReport {
                 schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
                 status: if converged { "completed" } else { "blocked" },
@@ -211,7 +212,7 @@ pub fn provision_forgejo_token(
                 },
                 rollback_intent: format!(
                     "revoke Forgejo token {} for principal '{}' via the same port",
-                    metadata.sha1, spec.principal
+                    sha1_for_rollback, spec.principal
                 ),
                 unknowns,
             }
