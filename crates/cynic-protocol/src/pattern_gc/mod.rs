@@ -20,6 +20,7 @@
 //!   wrap distillation behind explicit consent plus read-back proof.
 
 pub mod model;
+pub mod poh_anchor;
 pub mod policy;
 pub mod report;
 pub mod scan;
