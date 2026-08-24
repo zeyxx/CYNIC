@@ -28,6 +28,8 @@ pub(crate) async fn observe_schema(
 
 fn required_schema_blockers(info: &serde_json::Value) -> Option<Vec<String>> {
     let tables = info.get("tables").and_then(serde_json::Value::as_object);
+    let schemafull_from_manifest: std::collections::BTreeSet<String> =
+        manifest_schemafull_tables().into_iter().collect();
     let mut blockers = Vec::new();
     for table in [
         "agent_session",
@@ -35,21 +37,20 @@ fn required_schema_blockers(info: &serde_json::Value) -> Option<Vec<String>> {
         "agent_workspace_claim",
         "runtime_proof_commit",
     ] {
-        let Some(definition) = tables
+        // Live definition from the DB, or the manifest fallback as a plain
+        // owned string (single source of truth, invariant 6): a required
+        // table absent from the DB is still recognized as schemafull when
+        // the manifest declares it so.
+        let live = tables
             .and_then(|tables| tables.get(table))
-            .and_then(serde_json::Value::as_str)
-            .or_else(|| {
-                // Manifest-driven fallback: a required table absent from the
-                // hardcoded list above is still checked when the manifest
-                // declares it schemafull. Single source of truth (invariant 6).
-                manifest_schemafull_tables()
-                    .into_iter()
-                    .find(|t| t == table)
-                    .map(|_| "")
-            })
-        else {
-            blockers.push(format!("table_missing:{table}"));
-            continue;
+            .and_then(serde_json::Value::as_str);
+        let definition: String = match live {
+            Some(d) => d.to_string(),
+            None if schemafull_from_manifest.contains(table) => "SCHEMAFULL".to_string(),
+            None => {
+                blockers.push(format!("table_missing:{table}"));
+                continue;
+            }
         };
         if matches!(
             table,
@@ -63,9 +64,8 @@ fn required_schema_blockers(info: &serde_json::Value) -> Option<Vec<String>> {
 }
 
 /// Schemafull tables from schema_manifest.json — embedded at build time so
-/// the runtime check needs no filesystem access. Falls back to an empty set
-/// when the manifest is unavailable (compile error would surface upstream).
-fn manifest_schemafull_tables() -> Vec<&'static str> {
+/// the runtime check needs no filesystem access.
+fn manifest_schemafull_tables() -> Vec<String> {
     const MANIFEST: &str = include_str!("schema_manifest.json");
     serde_json::from_str::<serde_json::Value>(MANIFEST)
         .ok()
@@ -75,7 +75,7 @@ fn manifest_schemafull_tables() -> Vec<&'static str> {
             tables
                 .iter()
                 .filter(|t| t.get("mode").and_then(|m| m.as_str()) == Some("schemafull"))
-                .filter_map(|t| t.get("name").and_then(|n| n.as_str()))
+                .filter_map(|t| t.get("name").and_then(|n| n.as_str()).map(str::to_string))
                 .collect()
         })
         .unwrap_or_default()
