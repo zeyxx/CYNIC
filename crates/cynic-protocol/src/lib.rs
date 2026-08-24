@@ -79,6 +79,7 @@ pub mod node_identity;
 pub mod observe;
 pub mod one_shot_capability;
 pub mod outcomes;
+pub mod pattern_gc;
 pub mod policy;
 pub mod pre_os;
 pub mod provider;
