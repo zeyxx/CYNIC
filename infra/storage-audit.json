@@ -1,0 +1,122 @@
+{
+  "schema": "cynic.storage.audit.v1",
+  "audited_at_utc": "2026-08-24T22:10:00Z",
+  "method": "direct measurement (du, sqlite counts, find) — no prose claims",
+  "prisms": ["data_engineer", "data_centric"],
+  "surfaces": [
+    {
+      "id": "models_vault",
+      "path": "/var/lib/cynic/vault/models",
+      "volume": "~102 GB",
+      "count": 26,
+      "format": "GGUF binaries",
+      "nature": "artifacts_reconstructible",
+      "growth": "+5-16 GB per model download",
+      "query_pattern": "none — loaded whole by llama.cpp via path",
+      "rebuildable": "yes (HF re-download, subject to upstream availability)",
+      "current_management": "flat directory, NO digest manifest, NO dedup, NO retention policy",
+      "risk": "silent bitrot undetectable; disk full kills inference plane",
+      "engineer_verdict": "needs content-addressed manifest (sha256 per file) + integrity sweep",
+      "centric_verdict": "these are weights, not evidence — never mix with proof chains"
+    },
+    {
+      "id": "windows_archive",
+      "path": "/home/user/ml_training_logs/windows_sessions_2026",
+      "volume": "4.0 GB",
+      "count": 3436,
+      "format": "JSONL (Claude Code traces)",
+      "nature": "behavioral_telemetry_DEAD",
+      "growth": "zero (corpus ended 2026-03-13)",
+      "query_pattern": "batch mining only (trace_miner, windowed_scan)",
+      "rebuildable": "no — unique historical record",
+      "distilled_value_extracted": true,
+      "distillations": ["trace_report.json", "pattern models (fading verdict)", "skills"],
+      "engineer_verdict": "compress (zstd -19 ~10x expected) -> cold tier; raw optional after seal",
+      "centric_verdict": "raw is PII-bearing operator history; minimize exposure, keep digests"
+    },
+    {
+      "id": "hermes_state_db",
+      "path": "/home/user/.hermes/state.db",
+      "volume": "1.6 GB",
+      "rows": {"sessions": 2085, "messages": 161630},
+      "format": "sqlite (WAL?)",
+      "nature": "behavioral_telemetry_LIVE",
+      "growth": "~50k msgs/month observed June->August",
+      "query_pattern": "FTS search, session recall, pattern GC scan (new)",
+      "rebuildable": "no",
+      "engineer_verdict": "live OLTP fine; needs archival policy >6mo + VACUUM cadence; 0% untimestamped",
+      "centric_verdict": "sovereign memory substrate; pattern GC reads it read-only — good boundary"
+    },
+    {
+      "id": "kernel_surrealdb",
+      "endpoint": "http://storage.synapse.cynic:8000 (unreachable from THIS host today)",
+      "volume": "unknown from this host (blocked_disconnected)",
+      "tables": 28,
+      "format": "SurrealDB (mixed schemaless/SCHEMAFULL)",
+      "nature": "operational_state + proof_chains",
+      "contains": ["PoH chain (append-only, signed)", "verdicts", "crystals+embeddings", "leases", "dispatch chain"],
+      "rebuildable": "NO for PoH (cryptographic ledger); partial for derived state",
+      "engineer_verdict": "28 tables audited; 8 were undeclared until commit 6e61c88c; migrations unnumbered; strangler migration designed, awaiting strate-1 freeze",
+      "centric_verdict": "two natures mixed in one DB: (a) transactional ops state, (b) immutable evidence. Different backup/retention/consistency needs — this is THE structural finding"
+    },
+    {
+      "id": "agent_sessions_sqlite",
+      "path": "/var/lib/cynic/agent-sessions.sqlite",
+      "volume": "3.4 MB",
+      "rows": 2381,
+      "owner": "cynic principal (0644 cynic:cynic)",
+      "nature": "operational_state",
+      "engineer_verdict": "small, healthy, single-table",
+      "centric_verdict": "correct principal ownership — model for other surfaces"
+    },
+    {
+      "id": "build_targets",
+      "path": "/var/lib/cynic/build-targets",
+      "volume": "574 MB",
+      "nature": "artifacts_rebuildable",
+      "engineer_verdict": "prune-on-demand; not authoritative (Forgejo + reproducible build are)",
+      "centric_verdict": "cache semantics, not storage-of-record"
+    },
+    {
+      "id": "vault_db_scratch",
+      "path": "/var/lib/cynic/vault/db_scratch",
+      "volume": "1.1 GB",
+      "nature": "artifacts_rebuildable",
+      "contents": "llama.cpp vulkan/cuda build trees",
+      "engineer_verdict": "pure cache — deletable anytime",
+      "centric_verdict": "misfiled under 'vault' (naming lies about nature)"
+    },
+    {
+      "id": "git_repository",
+      "path": "repo .git",
+      "volume": "246 MB (41.7 MiB pack)",
+      "nature": "code_and_declarative_state",
+      "covers": ["source", "infra/*.json desired state (22 registries)", "manifests"],
+      "engineer_verdict": "already content-addressed; Forgejo = SSOT candidate, GitHub relay",
+      "centric_verdict": "the ONLY surface with real integrity tooling today"
+    },
+    {
+      "id": "coordination_flat_files",
+      "paths": [".agent-claims.json", ".hermes/cron/", "heartbeat.jsonl"],
+      "volume": "< 1 MB",
+      "nature": "ephemeral_coordination",
+      "engineer_verdict": "fine as files; TTL semantics live in code",
+      "centric_verdict": "disposable by design; never back these up as authority"
+    },
+    {
+      "id": "pattern_models",
+      "status": "MISSING PERSISTENCE",
+      "nature": "evidence_distilled",
+      "current_home": "stdout / trace_miner/*.json (operator home = non-authoritative per AGENTS.md)",
+      "required": "kernel persistence + PoH anchor (option b, designed, not wired)",
+      "centric_verdict": "this is EVIDENCE — belongs beside proof chains, signed, versioned lineage"
+    }
+  ],
+  "structural_findings": [
+    "F1: 96% of cynic byte volume is re-downloadable GGUF weights managed with zero integrity tooling, while the 41 MiB of actual irreplaceable proof/code has full tooling — effort inverted vs risk",
+    "F2: kernel SurrealDB mixes two incompatible data natures (mutable ops state vs immutable evidence) with one backup/retention story",
+    "F3: distilled knowledge (pattern models, reports) lands in operator /home/user — non-authoritative path per AGENTS.md — instead of principal-owned signed storage",
+    "F4: no content-addressing anywhere outside git; bitrot undetectable on models/artifacts",
+    "F5: three sqlite islands (hermes, agent-sessions, node-control) with three ownership regimes and no common archival policy"
+  ]
+}
