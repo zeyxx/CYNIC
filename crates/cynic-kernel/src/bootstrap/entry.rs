@@ -88,7 +88,7 @@ pub async fn run_mcp_proxy_mode_if_requested(
 
 /// Verify bootstrap integrity including secrets, registry seal, and file permissions.
 #[tokio::main]
-async fn main_verify() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn main_verify() -> Result<(), Box<dyn std::error::Error>> {
     use std::io::Write;
     use std::process::Command;
     use sha2::{Sha256, Digest};

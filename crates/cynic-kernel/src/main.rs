@@ -1,6 +1,6 @@
 use cynic_kernel::bootstrap::entry::{
     KernelEntryFlags, configure_stdio_mode, init_tracing, load_env_file,
-    print_version_and_exit_if_requested, run_mcp_proxy_mode_if_requested,
+    main_verify, print_version_and_exit_if_requested, run_mcp_proxy_mode_if_requested,
 };
 use cynic_kernel::{bootstrap, klog};
 
