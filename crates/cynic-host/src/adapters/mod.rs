@@ -1,6 +1,7 @@
 pub mod agent_access;
 pub mod local_build_cache;
 pub mod local_capacity;
+pub mod cpu_usage_meter;
 pub mod local_task_admission;
 pub mod fs_window_journal;
 pub mod local_causal_epoch_index;
