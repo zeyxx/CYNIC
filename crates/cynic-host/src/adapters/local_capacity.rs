@@ -1,0 +1,57 @@
+//! Local capacity assessment adapter — assembles CPU + memory canonical
+//! reports and evaluates the metabolic state under a node-declared policy.
+//!
+//! Thin composition layer: reuses `LocalCpuAdapter`/`LocalMemoryAdapter`
+//! observations (no re-measurement) and `cynic_protocol::capacity` pure
+//! decision. Read-only; never fabricates HighPerformance without evidence.
+
+use cynic_protocol::capacity::{assess_metabolic_state, CapacityAssessmentV1, MetabolicPolicy};
+
+use crate::adapters::local_cpu::LocalCpuAdapter;
+use crate::adapters::local_memory::LocalMemoryAdapter;
+use crate::domain::cpu::port::CpuObservationPort;
+use crate::domain::memory::MemoryObservationPort;
+
+pub struct LocalCapacityAdapter;
+
+impl LocalCapacityAdapter {
+    pub fn new() -> Self {
+        Self
+    }
+
+    /// Observe local CPU+memory and assess metabolic state.
+    /// Missing probes become explicit residual unknowns — never fabricated.
+    pub fn assess_capacity(
+        &self,
+        policy: &MetabolicPolicy,
+    ) -> Result<CapacityAssessmentV1, String> {
+        let policy_violations = policy.violations();
+        if !policy_violations.is_empty() {
+            return Err(format!(
+                "metabolic_policy_invalid: {}",
+                policy_violations.join(",")
+            ));
+        }
+
+        let cpu_report = LocalCpuAdapter
+            .observe_cpu()
+            .map_err(|e| format!("cpu observation failed: {e}"))
+            .ok();
+        let memory_report = LocalMemoryAdapter
+            .observe_memory()
+            .map_err(|e| format!("memory observation failed: {e}"))
+            .ok();
+
+        Ok(assess_metabolic_state(
+            cpu_report.as_ref(),
+            memory_report.as_ref(),
+            policy,
+        ))
+    }
+}
+
+impl Default for LocalCapacityAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}

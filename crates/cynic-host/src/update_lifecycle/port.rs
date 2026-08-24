@@ -59,7 +59,7 @@ impl ArgvRunner for LocalArgvRunner {
 }
 
 /// Test double: returns fixed JSON for known commands.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MapArgvRunner {
     pub responses: Vec<(Vec<String>, ArgvOutput)>,
 }
@@ -100,4 +100,12 @@ pub fn json_status(stdout: &str) -> Option<String> {
 
 pub fn parse_json(stdout: &str) -> Option<serde_json::Value> {
     serde_json::from_str(stdout.trim()).ok()
+}
+
+/// Blanket impl: a shared runner behind an `Arc` is still an argv runner.
+/// Lets fleet observers hold `Arc<R>` and hand `Arc<R>` clones to adapters.
+impl<R: ArgvRunner> ArgvRunner for std::sync::Arc<R> {
+    fn run(&self, argv: &[&str]) -> ArgvOutput {
+        self.as_ref().run(argv)
+    }
 }

@@ -8,8 +8,12 @@ use crate::bootstrap_surface::ProfileArgs;
 use crate::fail;
 
 mod agent_matrix;
+mod capacity;
 mod compat_aliases;
 mod disk;
+mod cpu;
+mod memory;
+mod network;
 mod execution_context;
 mod host_checks;
 mod inference_dispatch;
@@ -69,6 +73,12 @@ pub(crate) enum RuntimeCommand {
         profile: String,
         #[arg(long)]
         proof: Option<String>,
+    },
+    /// Assess local capacity: metabolic state + RAM/CPU headroom (read-only).
+    /// Policy provenance: CYNIC_METABOLIC_POLICY (JSON file) or legacy defaults.
+    Capacity {
+        #[arg(long)]
+        json: bool,
     },
     Harness {
         #[arg(long)]
@@ -371,6 +381,21 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Probe host memory capacity, swap, hugepages, and pressure stalls.
+    Memory {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Probe host CPU model, topology, jiffies, and pressure stalls.
+    Cpu {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Probe host network interfaces, addresses, routes, usage, and drops.
+    Network {
+        #[arg(long)]
+        json: bool,
+    },
     /// Plan or execute host disk space cleanup.
     DiskClean {
         #[arg(long)]
@@ -484,6 +509,10 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             persist,
         } => report::execute_report(json, output.as_deref(), persist),
         RuntimeCommand::AgentMatrix { json } => agent_matrix::execute_agent_matrix(json),
+        RuntimeCommand::Capacity { json } => capacity::execute_capacity(json),
+        RuntimeCommand::Memory { json } => memory::execute_memory(json),
+        RuntimeCommand::Cpu { json } => cpu::execute_cpu(json),
+        RuntimeCommand::Network { json } => network::execute_network(json),
         RuntimeCommand::Inference { .. }
         | RuntimeCommand::InferenceVault { .. }
         | RuntimeCommand::InferenceStatus { .. }

@@ -18,6 +18,8 @@ pub mod build;
 pub mod build_workflow;
 pub mod build_node;
 pub mod build_proof;
+pub mod capacity;
+pub mod cpu;
 // The audit contract types (AuditReportV2, AuditSeverity, AuditViolation, ...)
 // that cynic-host's audit_engine consumes. The file depends only on serde and
 // was never declared, so the entire audit vocabulary was uncompiled.
@@ -33,9 +35,12 @@ pub mod credential_lease;
 pub mod cycle_transition;
 pub mod deployment_epoch;
 pub mod development;
+pub mod development_genesis;
 pub mod disk;
+pub mod memory;
 pub mod discovery;
 pub mod domain_tasks;
+pub mod node_execution_mode;
 pub mod endpoint;
 pub mod enrollment;
 pub mod error_catalog;
@@ -67,6 +72,7 @@ pub mod kyon;
 pub mod machine_identity;
 pub mod network;
 pub mod node_activation;
+pub use node_execution_mode::*;
 pub mod node_control;
 pub mod node_enrollment;
 pub mod node_identity;
@@ -119,6 +125,8 @@ pub use autoresearch_port::*;
 pub use breakglass::*;
 pub use build::*;
 pub use build_proof::*;
+pub use build_workflow::*;
+pub use cpu::*;
 pub use capability_responsibility::*;
 pub use convergence::*;
 pub use coordination_lease::*;
@@ -128,8 +136,13 @@ pub use credential_lease::*;
 pub use cycle_transition::*;
 pub use deployment_epoch::*;
 pub use development::*;
+pub use development_genesis::{
+    DevelopmentGenesisBuildAdmission, DevelopmentGenesisBuildPlan, DevelopmentGenesisBuildRequest,
+    admit_development_genesis_build, development_genesis_canonical_argv,
+};
 pub use discovery::*;
 pub use disk::*;
+pub use memory::*;
 pub use domain_tasks::*;
 pub use endpoint::*;
 pub use enrollment::*;

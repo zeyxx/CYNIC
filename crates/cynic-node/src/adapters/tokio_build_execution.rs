@@ -10,11 +10,18 @@ use crate::ports::build_scheduler_port::{
 pub struct TokioBuildExecution;
 
 impl BuildExecutionPort for TokioBuildExecution {
-    async fn execute(
-        &self,
-        request: &BuildExecutionRequest,
-        cancellation: &tokio_util::sync::CancellationToken,
-    ) -> Result<BuildExecutionReadBack, BuildExecutionError> {
+    fn execute<'a>(
+        &'a self,
+        request: &'a BuildExecutionRequest,
+        cancellation: &'a tokio_util::sync::CancellationToken,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<BuildExecutionReadBack, BuildExecutionError>>
+                + Send
+                + 'a,
+        >,
+    > {
+        Box::pin(async move {
         if cancellation.is_cancelled() {
             return Err(BuildExecutionError::Cancelled);
         }
@@ -53,5 +60,6 @@ impl BuildExecutionPort for TokioBuildExecution {
             () = cancellation.cancelled() => Err(BuildExecutionError::Cancelled),
             () = tokio::time::sleep(request.timeout) => Err(BuildExecutionError::Timeout),
         }
+        })
     }
 }

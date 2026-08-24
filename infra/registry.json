@@ -29,7 +29,10 @@
         "schema": "cynic.storage_class.v1",
         "id": "artifact_store",
         "provider": "proxmox",
-        "management_policy": ["observe", "update"],
+        "management_policy": [
+          "observe",
+          "update"
+        ],
         "reclaim_policy": "retain",
         "allow_expansion": true,
         "allow_shrink": false,
@@ -182,7 +185,10 @@
           "public_key": "icHF7QEhHSgxJHYV0iCuU9xErsIU3odjFMYrZsTkMxQ=",
           "endpoint": "192.168.100.1:44196",
           "endpoint_plane": "management",
-          "ssh_access": {"method": "direct", "target": "root@192.168.100.1"},
+          "ssh_access": {
+            "method": "direct",
+            "target": "root@192.168.100.1"
+          },
           "watchdog": true
         },
         {
@@ -191,7 +197,9 @@
           "public_key": "Kar1lDbVWLydccWHsTNQp/NggDHzzpVXwpbSriyVO1c=",
           "endpoint": "192.168.100.2:44196",
           "endpoint_plane": "management",
-          "ssh_access": {"method": "local"},
+          "ssh_access": {
+            "method": "local"
+          },
           "watchdog": true
         },
         {
@@ -200,7 +208,11 @@
           "public_key": "NwnCBCswWWXr89AUEi6wEX+O7PHbZYQV8/2RWz1cayo=",
           "endpoint": "10.10.10.101:44196",
           "endpoint_plane": "synapse",
-          "ssh_access": {"method": "pct_exec", "proxmox": "root@192.168.100.1", "ctid": 101},
+          "ssh_access": {
+            "method": "pct_exec",
+            "proxmox": "root@192.168.100.1",
+            "ctid": 101
+          },
           "watchdog": true
         },
         {
@@ -209,7 +221,10 @@
           "public_key": "UD9mHCvY9m2AwzOlaNqpPyegTw9Suwm1eXjgnISe2ng=",
           "endpoint": "10.10.10.103:44196",
           "endpoint_plane": "synapse",
-          "ssh_access": {"method": "direct", "target": "root@10.10.10.103"},
+          "ssh_access": {
+            "method": "direct",
+            "target": "root@10.10.10.103"
+          },
           "watchdog": true
         },
         {
@@ -218,7 +233,10 @@
           "public_key": "kRs1uCQBwuBWJJP0wA0P4eHY3QKtpM/fEw6fdvPaEV8=",
           "endpoint": "10.10.10.119:44196",
           "endpoint_plane": "synapse",
-          "ssh_access": {"method": "direct", "target": "root@10.10.10.119"},
+          "ssh_access": {
+            "method": "direct",
+            "target": "root@10.10.10.119"
+          },
           "watchdog": true
         }
       ]
@@ -228,10 +246,14 @@
     {
       "id": "cynic-host-proxmox",
       "name": "cynic-host-proxmox",
-      "aliases": ["pve"],
+      "aliases": [
+        "pve"
+      ],
       "role": "hypervisor",
       "host_family": "linux.proxmox.systemd",
-      "provider_controls": ["proxmox"],
+      "provider_controls": [
+        "proxmox"
+      ],
       "status": "observed",
       "deploy_target": false,
       "transports": {
@@ -250,7 +272,9 @@
     {
       "id": "cynic-host-cortex",
       "name": "cynic-host-cortex",
-      "aliases": ["ubuntu"],
+      "aliases": [
+        "ubuntu"
+      ],
       "role": "cortex_host",
       "status": "candidate",
       "deploy_target": false,
@@ -265,7 +289,9 @@
           "connection": "Connexion filaire 1",
           "address": "192.168.100.2/24",
           "gateway": "192.168.100.1",
-          "routes": ["10.10.10.0/24"],
+          "routes": [
+            "10.10.10.0/24"
+          ],
           "default_route": false
         }
       ],
@@ -427,7 +453,9 @@
           "trigger": "available_bytes_below_minimum",
           "action": "rust_remove_bounded_profile",
           "target_profile": "debug",
-          "preserve_profiles": ["release"],
+          "preserve_profiles": [
+            "release"
+          ],
           "rollback_intent": "none_reproducible_build_cache_only"
         },
         "noncanonical_cache_candidates": [
@@ -507,7 +535,7 @@
   "fleet_desired": {
     "targets": [
       {
-      "id": "cynic-builder",
+        "id": "cynic-builder",
         "provider": "proxmox",
         "resource_id": "lxc/105",
         "role": "build_runner",
@@ -599,11 +627,11 @@
         }
       },
       "runtime_artifacts": [
+        "cynic",
         "cynic-kernel",
-        "cynic-node",
-        "cynic-mcp",
         "cynic-lxc-exec-bridge",
-        "cynic"
+        "cynic-mcp",
+        "cynic-node"
       ]
     }
   }

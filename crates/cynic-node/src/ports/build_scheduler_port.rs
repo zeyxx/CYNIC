@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, path::PathBuf, time::Duration};
+use std::{collections::BTreeMap, future::Future, path::PathBuf, time::Duration};
 
 use tokio_util::sync::CancellationToken;
 
@@ -43,9 +43,13 @@ pub enum BuildExecutionError {
 }
 
 pub trait BuildExecutionPort: Send + Sync {
-    async fn execute(
-        &self,
-        request: &BuildExecutionRequest,
-        cancellation: &CancellationToken,
-    ) -> Result<BuildExecutionReadBack, BuildExecutionError>;
+    // Dyn-compatible form: the future is boxed at the implementation boundary
+    // (bootstrap_seed_uc consumes `&dyn BuildExecutionPort`).
+    fn execute<'a>(
+        &'a self,
+        request: &'a BuildExecutionRequest,
+        cancellation: &'a CancellationToken,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<BuildExecutionReadBack, BuildExecutionError>> + Send + 'a>,
+    >;
 }
