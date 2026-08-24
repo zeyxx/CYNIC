@@ -106,6 +106,7 @@ pub mod temporal;
 pub mod tasks;
 pub mod task_admission;
 pub mod task_pipeline;
+pub mod window_journal;
 pub mod transport_security;
 pub mod workload_identity;
 
