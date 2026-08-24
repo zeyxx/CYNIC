@@ -1,38 +1,400 @@
 {
   "schema": "cynic.storage.schema_manifest.v1",
-  "description": "Canonical table manifest for the CYNIC kernel storage. Single source of truth: every table the runtime reads/writes is declared here with its mode, fields, and purpose. The coverage test (storage::schema_coverage) fails when code touches a table absent from this manifest or when a declared table has no runtime consumer.",
+  "description": "Canonical table manifest. Multi-plane: surrealdb_tables (kernel OLTP/evidence) and sqlite_planes (embedded single-writer stores + externally-owned read-only sensors). Coverage test scans all kernel .rs sources; live-DB reconciliation compares manifest vs INFO FOR DB.",
   "policy": {
     "new_tables": "SCHEMAFULL required — every field typed at declaration",
-    "legacy_schemaless": "tables listed as schemaless here predate the policy; migration to SCHEMAFULL is tracked per-table, not batch-forced"
+    "legacy_schemaless": "tables listed as schemaless here predate the policy; migration to SCHEMAFULL is tracked per-table, not batch-forced",
+    "externally_owned": "tables owned by another process (RTK sensor db) are read-only from CYNIC; declared here for inventory completeness"
   },
   "tables": [
-    {"name": "verdict", "mode": "schemaless", "purpose": "Axiom-scored verdicts (fidelity/phi/verify/culture/burn/sovereignty).", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "queued_verdict", "mode": "schemafull", "purpose": "On-chain submission queue for verdicts above q_score threshold.", "declared_in": [], "fields": {"verdict_id": "string", "content_hash": "string", "q_score": "float", "score_fidelity": "float", "score_phi": "float", "score_verify": "float", "score_culture": "float", "score_burn": "float", "score_sovereignty": "float", "dog_count": "int", "verdict_type": "string", "status": "string", "retry_count": "int", "created_at": "datetime", "submitted_at": "option<datetime>", "confirmed_at": "option<datetime>", "tx_signature": "option<string>", "verdict_pda": "option<string>", "error_reason": "option<string>"}},
-    {"name": "crystal", "mode": "schemaless", "purpose": "Memory crystals: consolidated observation clusters with embeddings and relations.", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "observation", "mode": "schemaless", "purpose": "Raw observations feeding crystal formation; maturity + consensus scores.", "declared_in": ["schema_bootstrap.sql"], "migrations": ["schema_observation_migration.sql"]},
-    {"name": "event", "mode": "schemaless", "purpose": "Generic organism event log rows.", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "agent_session", "mode": "schemaless", "purpose": "Agent session lifecycle records (identity, authority envelope).", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "agent_tasks", "mode": "schemaless", "purpose": "Legacy AgentTask queue surface (deprecated by agent_workload_envelope; kept for read-back).", "declared_in": ["schema_bootstrap.sql"], "migrations": ["schema_agent_task_migration.sql"]},
-    {"name": "agent_workload_delivery", "mode": "schemafull", "purpose": "Admitted workload delivery records (workload mutation evidence).", "declared_in": ["schema_bootstrap.sql", "schema_agent_workspace_migration.sql"]},
-    {"name": "work_claim", "mode": "schemaless", "purpose": "Agent coordination claims (scope, budget, TTL).", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "agent_workspace_claim", "mode": "schemafull", "purpose": "Durable workspace claim records backing .agent-claims.json projection.", "declared_in": ["schema_bootstrap.sql", "schema_agent_workspace_migration.sql"]},
-    {"name": "agent_workspace_claim_lock", "mode": "schemaless", "purpose": "Claim lock rows serializing claim writes.", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "mcp_audit", "mode": "schemaless", "purpose": "MCP tool-call audit trail.", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "dog_usage", "mode": "schemaless", "purpose": "Per-Dog usage accounting rows.", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "dog_stats", "mode": "schemafull", "purpose": "Rolling per-Dog health/counters (B5 organ-amnesia fix); flushed by the Judge loop.", "declared_in": [], "fields": {"dog_id": "string", "total_calls": "int", "success_count": "int", "zero_flood_count": "int", "collapse_count": "int", "parse_error_count": "int", "timeout_count": "int", "api_error_count": "int", "last_success": "option<int>", "total_latency_ms": "int", "total_completion_tokens": "int", "max_completion_tokens": "int", "updated_at": "datetime"}},
-    {"name": "session_summary", "mode": "schemaless", "purpose": "Session rollups for operator projection.", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "session_compliance", "mode": "schemafull", "purpose": "Per-session compliance scoring (read-before-edit discipline, bash retry violations).", "declared_in": [], "fields": {"session_id": "string", "agent_id": "string", "score": "float", "warnings": "array<string>", "read_before_edit": "bool", "bash_retry_violations": "int", "files_modified": "int", "created_at": "datetime"}},
-    {"name": "mesh_nodes", "mode": "schemaless", "purpose": "Fleet mesh node identity (public key, mesh IP, endpoint).", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "mesh_routes", "mode": "schemaless", "purpose": "Mesh routing edges between nodes with allowed IPs.", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "node_status", "mode": "schemafull", "purpose": "Fleet node status heartbeats.", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "node_desired_state", "mode": "schemafull", "purpose": "Declarative desired state per fleet node.", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "node_enrollment_grant", "mode": "schemafull", "purpose": "One-time enrollment grants for node join.", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "consumed_enrollment_token", "mode": "schemafull", "purpose": "Spent enrollment tokens (single-use proof).", "declared_in": ["schema_bootstrap.sql"]},
-    {"name": "agent_dispatch", "mode": "schemafull", "purpose": "Multi-cortex dispatch chain: scope/zone claims hash-chained for integrity.", "declared_in": [], "fields": {"scope": "string", "zone": "string", "claimed_by": "string", "branch": "string", "status": "string", "created_at": "string", "completed_at": "option<string>", "updated_at": "option<string>", "pr_number": "option<int>", "hash": "string", "prev_hash": "string"}},
-    {"name": "cryptographic_lease", "mode": "schemafull", "purpose": "Fencing-token lease registry for runtime takeover (monotonic token enforced in transaction).", "declared_in": [], "fields": {"role": "string", "holder_node_id": "string", "lease_id": "string", "fencing_token": "int", "granted_at_unix_ms": "int", "ttl_ms": "int", "expires_at_unix_ms": "int", "authority_id": "string", "signature_hex": "string", "lease_json": "string"}},
-    {"name": "role_transition_record", "mode": "schemafull", "purpose": "Immutable append-only log of runtime role transitions with prior fencing tokens.", "declared_in": [], "fields": {"transition_id": "string", "from_node_id": "option<string>", "to_node_id": "string", "role": "string", "fencing_token": "int", "prior_fencing_token": "int", "transitioned_at_unix_ms": "int", "lease_signature_hex": "string"}},
-    {"name": "state_log", "mode": "schemafull", "purpose": "Organism state snapshot chain (seq + prev_hash + dogs/system/resource snapshots).", "declared_in": [], "fields": {"seq": "int", "timestamp": "string", "prev_hash": "string", "dogs": "array<object>", "organs": "array<object>", "organ_audits": "array<object>", "system_status": "string", "system_healthy_dogs": "int", "system_total_dogs": "int", "system_verdict_count": "int", "system_total_tokens": "int", "system_crystals_forming": "int", "system_crystals_crystallized": "int", "resource_cpu_pct": "float", "resource_memory_used_gb": "float", "resource_disk_avail_gb": "float", "resource_uptime_secs": "int", "hash": "string"}},
-    {"name": "proof_of_history", "mode": "schemaless", "purpose": "Append-only SHA3-512-chained, Ed25519-signed event ledger (kernel evolution history).", "declared_in": []},
-    {"name": "runtime_proof_commit", "mode": "schemafull", "purpose": "Runtime proof bundle commits (content-addressed).", "declared_in": ["schema_agent_workspace_migration.sql"]}
-  ]
+    {
+      "name": "verdict",
+      "mode": "schemaless",
+      "purpose": "Axiom-scored verdicts (fidelity/phi/verify/culture/burn/sovereignty).",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "queued_verdict",
+      "mode": "schemafull",
+      "purpose": "On-chain submission queue for verdicts above q_score threshold.",
+      "declared_in": [],
+      "fields": {
+        "verdict_id": "string",
+        "content_hash": "string",
+        "q_score": "float",
+        "score_fidelity": "float",
+        "score_phi": "float",
+        "score_verify": "float",
+        "score_culture": "float",
+        "score_burn": "float",
+        "score_sovereignty": "float",
+        "dog_count": "int",
+        "verdict_type": "string",
+        "status": "string",
+        "retry_count": "int",
+        "created_at": "datetime",
+        "submitted_at": "option<datetime>",
+        "confirmed_at": "option<datetime>",
+        "tx_signature": "option<string>",
+        "verdict_pda": "option<string>",
+        "error_reason": "option<string>"
+      }
+    },
+    {
+      "name": "crystal",
+      "mode": "schemaless",
+      "purpose": "Memory crystals: consolidated observation clusters with embeddings and relations.",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "observation",
+      "mode": "schemaless",
+      "purpose": "Raw observations feeding crystal formation; maturity + consensus scores.",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ],
+      "migrations": [
+        "schema_observation_migration.sql"
+      ]
+    },
+    {
+      "name": "event",
+      "mode": "schemaless",
+      "purpose": "Generic organism event log rows.",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "agent_session",
+      "mode": "schemaless",
+      "purpose": "Agent session lifecycle records (identity, authority envelope).",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "agent_tasks",
+      "mode": "schemaless",
+      "purpose": "Legacy AgentTask queue surface (deprecated by agent_workload_envelope; kept for read-back).",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ],
+      "migrations": [
+        "schema_agent_task_migration.sql"
+      ]
+    },
+    {
+      "name": "agent_workload_delivery",
+      "mode": "schemafull",
+      "purpose": "Admitted workload delivery records (workload mutation evidence).",
+      "declared_in": [
+        "schema_bootstrap.sql",
+        "schema_agent_workspace_migration.sql"
+      ]
+    },
+    {
+      "name": "work_claim",
+      "mode": "schemaless",
+      "purpose": "Agent coordination claims (scope, budget, TTL).",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "agent_workspace_claim",
+      "mode": "schemafull",
+      "purpose": "Durable workspace claim records backing .agent-claims.json projection.",
+      "declared_in": [
+        "schema_bootstrap.sql",
+        "schema_agent_workspace_migration.sql"
+      ]
+    },
+    {
+      "name": "agent_workspace_claim_lock",
+      "mode": "schemaless",
+      "purpose": "Claim lock rows serializing claim writes.",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "mcp_audit",
+      "mode": "schemaless",
+      "purpose": "MCP tool-call audit trail.",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "dog_usage",
+      "mode": "schemaless",
+      "purpose": "Per-Dog usage accounting rows.",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "dog_stats",
+      "mode": "schemafull",
+      "purpose": "Rolling per-Dog health/counters (B5 organ-amnesia fix); flushed by the Judge loop.",
+      "declared_in": [],
+      "fields": {
+        "dog_id": "string",
+        "total_calls": "int",
+        "success_count": "int",
+        "zero_flood_count": "int",
+        "collapse_count": "int",
+        "parse_error_count": "int",
+        "timeout_count": "int",
+        "api_error_count": "int",
+        "last_success": "option<int>",
+        "total_latency_ms": "int",
+        "total_completion_tokens": "int",
+        "max_completion_tokens": "int",
+        "updated_at": "datetime"
+      }
+    },
+    {
+      "name": "session_summary",
+      "mode": "schemaless",
+      "purpose": "Session rollups for operator projection.",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "session_compliance",
+      "mode": "schemafull",
+      "purpose": "Per-session compliance scoring (read-before-edit discipline, bash retry violations).",
+      "declared_in": [],
+      "fields": {
+        "session_id": "string",
+        "agent_id": "string",
+        "score": "float",
+        "warnings": "array<string>",
+        "read_before_edit": "bool",
+        "bash_retry_violations": "int",
+        "files_modified": "int",
+        "created_at": "datetime"
+      }
+    },
+    {
+      "name": "mesh_nodes",
+      "mode": "schemaless",
+      "purpose": "Fleet mesh node identity (public key, mesh IP, endpoint).",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "mesh_routes",
+      "mode": "schemaless",
+      "purpose": "Mesh routing edges between nodes with allowed IPs.",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "node_status",
+      "mode": "schemafull",
+      "purpose": "Fleet node status heartbeats.",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "node_desired_state",
+      "mode": "schemafull",
+      "purpose": "Declarative desired state per fleet node.",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "node_enrollment_grant",
+      "mode": "schemafull",
+      "purpose": "One-time enrollment grants for node join.",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "consumed_enrollment_token",
+      "mode": "schemafull",
+      "purpose": "Spent enrollment tokens (single-use proof).",
+      "declared_in": [
+        "schema_bootstrap.sql"
+      ]
+    },
+    {
+      "name": "agent_dispatch",
+      "mode": "schemafull",
+      "purpose": "Multi-cortex dispatch chain: scope/zone claims hash-chained for integrity.",
+      "declared_in": [],
+      "fields": {
+        "scope": "string",
+        "zone": "string",
+        "claimed_by": "string",
+        "branch": "string",
+        "status": "string",
+        "created_at": "string",
+        "completed_at": "option<string>",
+        "updated_at": "option<string>",
+        "pr_number": "option<int>",
+        "hash": "string",
+        "prev_hash": "string"
+      }
+    },
+    {
+      "name": "cryptographic_lease",
+      "mode": "schemafull",
+      "purpose": "Fencing-token lease registry for runtime takeover (monotonic token enforced in transaction).",
+      "declared_in": [],
+      "fields": {
+        "role": "string",
+        "holder_node_id": "string",
+        "lease_id": "string",
+        "fencing_token": "int",
+        "granted_at_unix_ms": "int",
+        "ttl_ms": "int",
+        "expires_at_unix_ms": "int",
+        "authority_id": "string",
+        "signature_hex": "string",
+        "lease_json": "string"
+      }
+    },
+    {
+      "name": "role_transition_record",
+      "mode": "schemafull",
+      "purpose": "Immutable append-only log of runtime role transitions with prior fencing tokens.",
+      "declared_in": [],
+      "fields": {
+        "transition_id": "string",
+        "from_node_id": "option<string>",
+        "to_node_id": "string",
+        "role": "string",
+        "fencing_token": "int",
+        "prior_fencing_token": "int",
+        "transitioned_at_unix_ms": "int",
+        "lease_signature_hex": "string"
+      }
+    },
+    {
+      "name": "state_log",
+      "mode": "schemafull",
+      "purpose": "Organism state snapshot chain (seq + prev_hash + dogs/system/resource snapshots).",
+      "declared_in": [],
+      "fields": {
+        "seq": "int",
+        "timestamp": "string",
+        "prev_hash": "string",
+        "dogs": "array<object>",
+        "organs": "array<object>",
+        "organ_audits": "array<object>",
+        "system_status": "string",
+        "system_healthy_dogs": "int",
+        "system_total_dogs": "int",
+        "system_verdict_count": "int",
+        "system_total_tokens": "int",
+        "system_crystals_forming": "int",
+        "system_crystals_crystallized": "int",
+        "resource_cpu_pct": "float",
+        "resource_memory_used_gb": "float",
+        "resource_disk_avail_gb": "float",
+        "resource_uptime_secs": "int",
+        "hash": "string"
+      }
+    },
+    {
+      "name": "proof_of_history",
+      "mode": "schemaless",
+      "purpose": "Append-only SHA3-512-chained, Ed25519-signed event ledger (kernel evolution history).",
+      "declared_in": []
+    },
+    {
+      "name": "runtime_proof_commit",
+      "mode": "schemafull",
+      "purpose": "Runtime proof bundle commits (content-addressed).",
+      "declared_in": [
+        "schema_agent_workspace_migration.sql"
+      ]
+    }
+  ],
+  "sqlite_planes": [
+    {
+      "store": "/var/lib/cynic/agent-sessions.sqlite",
+      "owner": "cynic principal",
+      "engine": "rusqlite embedded",
+      "tables": [
+        {
+          "name": "agent_sessions",
+          "rows": 2381,
+          "purpose": "agent session lifecycle (kernel-side)"
+        }
+      ]
+    },
+    {
+      "store": "/var/lib/cynic/node-control.sqlite",
+      "owner": "cynic principal",
+      "engine": "rusqlite embedded",
+      "tables": [
+        {
+          "name": "node_enrollment_grants",
+          "purpose": "one-time enrollment grants"
+        },
+        {
+          "name": "consumed_enrollment_tokens",
+          "purpose": "spent tokens single-use proof"
+        }
+      ]
+    },
+    {
+      "store": "~/.local/share/rtk/history.db (+ /home/cynic variant)",
+      "owner": "EXTERNAL: RTK process",
+      "engine": "sqlite read-only sensor",
+      "tables": [
+        {
+          "name": "commands",
+          "purpose": "shell command history (RTK-owned)"
+        },
+        {
+          "name": "parse_failures",
+          "purpose": "RTK parse failures"
+        }
+      ],
+      "notes": "senses/rtk.rs reads read-only as organ; CYNIC never writes it"
+    }
+  ],
+  "sqlite_plane_tables": {
+    "agent_sessions": {
+      "store": "/var/lib/cynic/agent-sessions.sqlite",
+      "owner": "cynic",
+      "purpose": "agent session lifecycle (kernel-side)"
+    },
+    "node_enrollment_grants": {
+      "store": "/var/lib/cynic/node-control.sqlite",
+      "owner": "cynic",
+      "purpose": "one-time enrollment grants"
+    },
+    "consumed_enrollment_tokens": {
+      "store": "/var/lib/cynic/node-control.sqlite",
+      "owner": "cynic",
+      "purpose": "spent enrollment tokens"
+    },
+    "commands": {
+      "store": "~/.local/share/rtk/history.db",
+      "owner": "EXTERNAL rtk process; read-only sensor from senses/rtk.rs",
+      "purpose": "shell command history"
+    },
+    "parse_failures": {
+      "store": "~/.local/share/rtk/history.db",
+      "owner": "EXTERNAL rtk process; read-only sensor",
+      "purpose": "RTK parse failures"
+    }
+  }
 }

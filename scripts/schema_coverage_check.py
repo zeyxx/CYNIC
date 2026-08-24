@@ -29,16 +29,21 @@ STOP = {"on", "only", "verdict_id", "now"}
 def load_manifest():
     data = json.load(open(MANIFEST))
     assert data["schema"] == "cynic.storage.schema_manifest.v1"
-    return {t["name"]: t for t in data["tables"]}
+    manifest = {t["name"]: t for t in data["tables"]}
+    manifest.update(
+        {k: {"mode": "sqlite_plane"} for k in data.get("sqlite_plane_tables", {})}
+    )
+    return manifest
 
 
 def collect_runtime_tables():
+    """Whole-crate scan: tables are touched outside storage/ too (sqlite
+    planes, external sensors) — the 2026-08-24 live reconciliation proved it."""
     used = set()
     files = []
-    for d in ADAPTER_DIRS:
-        for root, _, names in os.walk(d):
-            files.extend(os.path.join(root, n) for n in names if n.endswith(".rs"))
-    files.extend(f for f in ADAPTER_FILES if os.path.isfile(f))
+    src_root = os.path.join(KERNEL, "src")
+    for root, _, names in os.walk(src_root):
+        files.extend(os.path.join(root, n) for n in names if n.endswith(".rs"))
     for f in files:
         src = open(f, encoding="utf-8", errors="replace").read()
         used.update(m.group(1) for m in VERB_RE.finditer(src))

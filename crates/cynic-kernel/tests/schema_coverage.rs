@@ -62,32 +62,41 @@ fn load_manifest() -> BTreeMap<String, ManifestTable> {
         );
         out.insert(name, ManifestTable { name, mode });
     }
+    // SQLite-plane tables (embedded stores + external read-only sensors)
+    // count as declared coverage: the runtime touches them outside
+    // storage/ and the live reconciliation proved they must be inventoried.
+    if let Some(planes) = value.get("sqlite_plane_tables").and_then(|p| p.as_object()) {
+        for name in planes.keys() {
+            out.insert(
+                name.clone(),
+                ManifestTable {
+                    name: name.clone(),
+                    mode: "sqlite_plane".to_string(),
+                },
+            );
+        }
+    }
     out
 }
 
 /// Tables referenced by adapter code via SurrealQL verbs (FROM/INTO/UPDATE/
-/// UPSERT ONLY/CREATE ONLY/CREATE/UPSERT).
+/// UPSERT ONLY/CREATE ONLY/CREATE/UPSERT) across the WHOLE kernel crate —
+/// not just storage/. The 2026-08-24 live reconciliation showed tables can
+/// also be touched from infra/, senses/, api/, bootstrap/ (sqlite planes,
+/// external sensor DBs).
 fn collect_runtime_tables(root: &Path) -> Vec<String> {
     let mut used = std::collections::BTreeSet::new();
     let verb_re = regex::Regex::new(
         r#"(?:FROM|INTO|UPDATE|UPSERT ONLY|CREATE ONLY|CREATE|UPSERT) ([a-z_]+)"#,
     )
     .unwrap();
-    for dir in ADAPTER_DIRS {
-        for entry in walkdir_entries(&root.join(dir)) {
-            let src = std::fs::read_to_string(&entry).unwrap_or_default();
-            for cap in verb_re.captures_iter(&src) {
-                used.insert(cap[1].to_string());
-            }
-        }
-    }
-    for file in ADAPTER_FILES {
-        let path = root.join(file);
-        if path.is_file() {
-            let src = std::fs::read_to_string(&path).unwrap_or_default();
-            for cap in verb_re.captures_iter(&src) {
-                used.insert(cap[1].to_string());
-            }
+    let src_root = root.join("src");
+    for entry in walkdir_entries(&src_root) {
+        // Skip the storage tree: covered by dedicated Surreal adapters above
+        // plus this full-crate pass would double-count harmlessly anyway.
+        let src = std::fs::read_to_string(&entry).unwrap_or_default();
+        for cap in verb_re.captures_iter(&src) {
+            used.insert(cap[1].to_string());
         }
     }
     // Filter obvious non-table words that share verbs in comments/format strings.
