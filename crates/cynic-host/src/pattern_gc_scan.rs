@@ -19,7 +19,7 @@ use cynic_protocol::pattern_gc::{
     PatternGcReport, PatternObservation, RetentionPolicy, build_report, window_events,
 };
 
-use crate::autoresearch::trace_fs::default_bucket_patterns;
+use crate::bucket_signatures;
 use cynic_protocol::autoresearch_port::AutoresearchPortError;
 
 /// Schema of the scan projection emitted by this adapter.
@@ -72,15 +72,10 @@ pub fn event_timestamp_s(line: &str) -> Option<i64> {
 /// patterns share a label (`rustc`, `sigsegv` -> `toolchain_ice`), and
 /// overlapping signatures feed distinct buckets.
 pub fn bucket_keys_for_line(line: &str) -> Vec<String> {
-    let lower = line.to_ascii_lowercase();
-    let mut keys: Vec<String> = Vec::new();
-    for (domain, pattern) in default_bucket_patterns() {
-        if lower.contains(pattern) && !keys.iter().any(|k| k == &format!("error_buckets.{domain}"))
-        {
-            keys.push(format!("error_buckets.{domain}"));
-        }
-    }
-    keys
+    bucket_signatures::matching_buckets(line)
+        .into_iter()
+        .map(|domain| format!("error_buckets.{domain}"))
+        .collect()
 }
 
 /// Stream one reader, collecting per-key timestamps then windowing them.

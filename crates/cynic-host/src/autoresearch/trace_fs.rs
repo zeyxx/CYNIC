@@ -36,29 +36,24 @@ impl TraceSource {
 pub struct TraceUnitEmitter;
 
 impl TraceUnitEmitter {
-    /// Inspect one assistant/tool message and emit a domain-tagged unit if the
-    /// line shows a real block. `is_block` is true only for genuine failures,
-    /// per the protocol's coverage contract (passing mentions must NOT count).
+    /// Inspect one line and emit one `TraceUnit` per matching bucket
+    /// (multi-count, miner parity). Detection is delegated to the canonical
+    /// word-anchored table (`crate::bucket_signatures`) — the previous
+    /// loose-substring first-match here produced ~99.8% false positives on
+    /// the real corpus and undercounted multi-failure lines.
     pub fn emit_from_line(
         session_id: &str,
         line: &str,
-        bucket_rx: &[(&str, &str)],
-    ) -> Option<TraceUnit> {
-        // Every declared bucket pattern is a genuine failure signature mined from
-        // the corpus (toolchain_ice, network, oom, permission, cargo_build). If a
-        // line matches a bucket it is a real block; non-matching lines (e.g.
-        // "hello world", a design chat) yield nothing and do NOT count as coverage.
-        let lower = line.to_ascii_lowercase();
-        for (domain, pattern) in bucket_rx {
-            if lower.contains(pattern) {
-                return Some(TraceUnit {
-                    session_id: session_id.to_string(),
-                    domain: domain.to_string(),
-                    is_block: true,
-                });
-            }
-        }
-        None
+        _bucket_rx: &[(&str, &str)],
+    ) -> Vec<TraceUnit> {
+        crate::bucket_signatures::matching_buckets(line)
+            .into_iter()
+            .map(|domain| TraceUnit {
+                session_id: session_id.to_string(),
+                domain: domain.to_string(),
+                is_block: true,
+            })
+            .collect()
     }
 }
 
@@ -172,11 +167,11 @@ impl AutoresearchPort for TraceFsAdapter {
                     Ok(l) => l,
                     Err(_) => continue, // skip malformed lines, keep streaming
                 };
-                if let Some(u) =
-                    TraceUnitEmitter::emit_from_line(&session_id, &line, &self.bucket_patterns)
-                {
-                    units.push(u);
-                }
+                units.extend(TraceUnitEmitter::emit_from_line(
+                    &session_id,
+                    &line,
+                    &self.bucket_patterns,
+                ));
             }
         }
         Ok(units)
@@ -201,9 +196,11 @@ pub fn observe_reader<R: BufRead>(
 ) -> Vec<TraceUnit> {
     let mut units = Vec::new();
     for line in reader.lines().flatten() {
-        if let Some(u) = TraceUnitEmitter::emit_from_line(session_id, &line, bucket_patterns) {
-            units.push(u);
-        }
+        units.extend(TraceUnitEmitter::emit_from_line(
+            session_id,
+            &line,
+            bucket_patterns,
+        ));
     }
     units
 }
