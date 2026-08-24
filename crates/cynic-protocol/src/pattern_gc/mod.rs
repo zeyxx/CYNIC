@@ -12,15 +12,19 @@
 //! - [`policy`] — pure reconciliation: one canonical `classify` decision.
 //!
 //! Residual unknowns (explicit, not back-filled):
-//! - Window spans are adapter-owned; no span-ratio correction exists yet, so
-//!   `proportional_baseline` currently assumes comparable spans.
+//! - [`scan`] windows events purely from timestamps; the JSONL adapter that
+//!   feeds it (real corpus timestamps unverified: probe blocked pending
+//!   operator consent) and any span-ratio correction for unequal declared
+//!   windows remain adapter work.
 //! - No eviction authorization lives at this layer; an apply surface must
 //!   wrap distillation behind explicit consent plus read-back proof.
 
 pub mod policy;
+pub mod scan;
 pub mod types;
 
 pub use policy::{classify, classify_all, SCHEMA};
+pub use scan::{window_events, WindowOutcome};
 pub use types::{
     PatternClass, PatternGcAssessment, PatternObservation, PatternWindows, RetentionPolicy,
 };
