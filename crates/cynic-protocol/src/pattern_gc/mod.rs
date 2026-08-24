@@ -20,10 +20,12 @@
 //!   wrap distillation behind explicit consent plus read-back proof.
 
 pub mod policy;
+pub mod report;
 pub mod scan;
 pub mod types;
 
 pub use policy::{classify, classify_all, SCHEMA};
+pub use report::{build_report, ClassTally, PatternGcReport, REPORT_SCHEMA};
 pub use scan::{window_events, WindowOutcome};
 pub use types::{
     PatternClass, PatternGcAssessment, PatternObservation, PatternWindows, RetentionPolicy,
