@@ -214,11 +214,13 @@ mod tests {
     fn emitter_tags_toolchain_ice_block() {
         let line =
             r#"{"type":"tool_result","content":"thread 'main' panicked at SIGSEGV signal 11"}"#;
-        let u = TraceUnitEmitter::emit_from_line("s1", line, &default_bucket_patterns());
-        let u = u.expect("should emit");
-        assert_eq!(u.domain, "toolchain_ice");
-        assert!(u.is_block);
-        assert_eq!(u.session_id, "s1");
+        let units = TraceUnitEmitter::emit_from_line("s1", line, &default_bucket_patterns());
+        assert!(
+            units
+                .iter()
+                .any(|u| u.domain == "toolchain_ice" && u.is_block && u.session_id == "s1"),
+            "expected a toolchain_ice block unit, got {units:?}"
+        );
     }
 
     #[test]
@@ -226,16 +228,17 @@ mod tests {
         // "connection refused" in a non-error context still marks a block per
         // the bucket contract (the pattern itself is the failure signature).
         let line = r#"{"text":"request failed: connection refused to 10.10.10.103"}"#;
-        let u = TraceUnitEmitter::emit_from_line("s2", line, &default_bucket_patterns());
-        let u = u.expect("should emit");
-        assert_eq!(u.domain, "network");
-        assert!(u.is_block);
+        let units = TraceUnitEmitter::emit_from_line("s2", line, &default_bucket_patterns());
+        assert!(
+            units.iter().any(|u| u.domain == "network" && u.is_block),
+            "expected a network block unit, got {units:?}"
+        );
     }
 
     #[test]
     fn emitter_ignores_unrelated_line() {
         let line = r#"{"type":"user","content":"bonjour claude, on fait quoi aujourd'hui ?"}"#;
-        assert!(TraceUnitEmitter::emit_from_line("s3", line, &default_bucket_patterns()).is_none());
+        assert!(TraceUnitEmitter::emit_from_line("s3", line, &default_bucket_patterns()).is_empty());
     }
 
     #[test]
