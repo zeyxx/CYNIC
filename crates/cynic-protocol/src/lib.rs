@@ -103,6 +103,8 @@ pub mod supervision;
 pub mod surface_registry;
 pub mod temporal;
 pub mod tasks;
+pub mod task_admission;
+pub mod task_pipeline;
 pub mod transport_security;
 pub mod workload_identity;
 
