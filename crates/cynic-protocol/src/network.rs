@@ -179,6 +179,143 @@ pub struct NetworkMeshAclRule {
     pub action: String,
 }
 
+/// Observation result for network substrate, following the 4-layer model
+/// (physical / volume / usage / pressure) that disk+memory reuse.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub struct NetworkReport {
+    /// Schema identity as an owned string — sibling contracts (`cpu`, `memory`)
+    /// own it the same way; `&'static str` + derived `Deserialize` does not
+    /// compile (nightly rustc: `'de` must outlive `'static`).
+    pub schema: String,
+    /// L1 — raw interface hardware/device.
+    pub interfaces: Vec<PhysicalInterface>,
+    /// L2 — configured addresses and routes (volume of addressable substrate).
+    pub addresses: Vec<NetworkAddress>,
+    pub routes: Vec<NetworkRoute>,
+    /// L3 — throughput counters sampled from /proc/net/dev.
+    pub usage: Vec<InterfaceUsage>,
+    /// L4 — backpressure signalling (drops, errors, queue length).
+    pub pressure: Vec<InterfacePressure>,
+    /// Residual unknowns that could not be observed.
+    pub unknowns: Vec<String>,
+}
+
+pub const NETWORK_REPORT_SCHEMA: &str = "cynic.host_network_report.v1";
+
+impl Default for NetworkReport {
+    fn default() -> Self {
+        Self {
+            schema: NETWORK_REPORT_SCHEMA.to_string(),
+            interfaces: Vec::new(),
+            addresses: Vec::new(),
+            routes: Vec::new(),
+            usage: Vec::new(),
+            pressure: Vec::new(),
+            unknowns: Vec::new(),
+        }
+    }
+}
+
+/// L1 Physical — a NIC as exposed by `ip -j link` / `/sys/class/net/<iface>`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub struct PhysicalInterface {
+    pub name: String,
+    pub mac: Option<String>,
+    pub mtu: u32,
+    pub state: String,
+    /// Operational speed in Mbps (e.g. 1000), when reported by the kernel.
+    pub speed_mbps: Option<u32>,
+    /// Duplex mode when reported ("full", "half", "unknown").
+    pub duplex: Option<String>,
+    pub driver: Option<String>,
+}
+
+/// L2 Volume — an address bound to an interface (ip -j addr).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub struct NetworkAddress {
+    pub iface: String,
+    pub family: String,
+    pub address: String,
+    pub prefix_len: u8,
+}
+
+/// L2 Volume — a routing entry (ip -j route).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub struct NetworkRoute {
+    pub dst: String,
+    pub gateway: Option<String>,
+    pub device: String,
+    pub protocol: Option<String>,
+    pub metric: Option<u32>,
+    pub scope: Option<String>,
+}
+
+/// L3 Usage — per-interface packet/byte counters, sampled from `/proc/net/dev`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub struct InterfaceUsage {
+    pub iface: String,
+    pub rx_bytes: u64,
+    pub rx_packets: u64,
+    pub rx_errs: u64,
+    pub rx_drop: u64,
+    pub tx_bytes: u64,
+    pub tx_packets: u64,
+    pub tx_errs: u64,
+    pub tx_drop: u64,
+}
+
+/// L4 Pressure — socket/queue backpressure signalling saturation.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub struct InterfacePressure {
+    pub iface: String,
+    /// Packet receive drops — socket back-pressure / ring overflow.
+    pub rx_drop: u64,
+    /// Packet transmit drops.
+    pub tx_drop: u64,
+    /// Receive errors (CRC, frame, length, etc.).
+    pub rx_errs: u64,
+    /// Transmit errors (carrier, aborted, etc.).
+    pub tx_errs: u64,
+    /// Estimated queue length when observable (`ss -s` or rtnl). None = unknown.
+    pub queue_length: Option<u32>,
+    /// True when the link reports a saturation/backpressure signal.
+    pub saturated: bool,
+}
+
+/// Fleet rollup for a single node's network observation.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub struct FleetNetworkNode {
+    pub node_id: String,
+    pub role: String,
+    pub ip: String,
+    /// `observed`, `failed`, or `skipped` (e.g. no ssh target).
+    pub outcome: String,
+    pub report: Option<NetworkReport>,
+    pub error: Option<String>,
+}
+
+/// Fleet-wide network rollup (`cynic.fleet_network.v1`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub struct FleetNetworkReport {
+    pub schema: &'static str,
+    pub corpus_unix_s: i64,
+    pub total_nodes: usize,
+    pub observed_nodes: usize,
+    pub failed_nodes: usize,
+    pub nodes: Vec<FleetNetworkNode>,
+    pub residual_unknowns: Vec<String>,
+}
+
+pub const FLEET_NETWORK_SCHEMA: &str = "cynic.fleet_network.v1";
+
 #[cfg(test)]
 mod tests {
     use super::*;

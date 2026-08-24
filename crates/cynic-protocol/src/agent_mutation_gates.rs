@@ -5,12 +5,12 @@
 //! they do not recompute policy. Each function in this module calls
 //! `admit_mutation` first, then adds domain-specific checks.
 
-use crate::agent_citizenship::admit_mutation;
-use crate::error_catalog::CynicErrorCode;
 use crate::AgentBudgets;
 use crate::AgentCitizenshipRecord;
 use crate::AgentScope;
 use crate::MutationAdmission;
+use crate::agent_citizenship::admit_mutation;
+use crate::error_catalog::CynicErrorCode;
 
 /// Build admission gate.
 ///

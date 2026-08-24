@@ -12,7 +12,7 @@ CYNIC_CARGO_TARGET_ROOT ?= /tmp/cynic-cargo-targets
 CYNIC_CARGO_TARGET_PROFILE ?= default
 CYNIC_CARGO_BUILD_JOBS ?= 1
 CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNIC_CARGO_TARGET_ROOT)/$(CYNIC_CARGO_TARGET_PROFILE))
-CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-mcp cynic-cli cynic-askesis cynic-inference
+CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-cli cynic-askesis cynic-inference
 LAB_REGISTRY := infra/registries/lab.json
 LOCAL_REGISTRY := infra/registries/single-node.json
 CYNIC_BUILD_ADMISSION_GRANT ?=
@@ -86,7 +86,7 @@ check: authority-check ## Build-runner validation of the living low-layer Rust r
 # kernel -> mcp -> cli. Each layer gets an isolated target dir and a
 # fail-closed cargo check + test pass. Cache integrity is observed first
 # (offline/locked metadata) so a stale vendored cache is reported, not papered.
-LAYER_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-mcp cynic-cli
+LAYER_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-cli
 .PHONY: check-layers
 check-layers: ## Per-layer cargo check+test, fail-closed, dependency-ordered
 	@echo "==> cache integrity (offline/locked metadata)"
@@ -453,11 +453,11 @@ e2e: ## Execute the local single-node E2E proof chain without pretending blocked
 
 .PHONY: build
 build: ## Experimental binary build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
-	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli
+	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-cli
 
 .PHONY: build-release
 build-release: ## Admitted release build on the registry-selected build runner
-	@$(RELEASE_RUST_ENV) $(CARGO) build -p cynic-host -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli --release
+	@$(RELEASE_RUST_ENV) $(CARGO) build -p cynic-host -p cynic-kernel -p cynic-node -p cynic-cli --release
 
 .PHONY: test
 test: ## Run tests for low-layer core crates
@@ -501,16 +501,11 @@ run-kernel: ## Run the kernel locally
 run-node: ## Run the node locally
 	@$(RUST_ENV) $(CARGO) run -p cynic-node
 
-.PHONY: run-mcp
-run-mcp: ## Run the MCP proxy locally over stdio
-	@$(RUST_ENV) $(CARGO) run -p cynic-mcp
-
 .PHONY: install-user-bins
 install-user-bins: build ## Install release binaries into ~/bin
 	@mkdir -p "$$HOME/bin"
 	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-kernel" "$$HOME/bin/cynic-kernel"
 	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-node" "$$HOME/bin/cynic-node"
-	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-mcp" "$$HOME/bin/cynic-mcp"
 	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic" "$$HOME/bin/cynic"
 
 .PHONY: systemd-list

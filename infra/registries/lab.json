@@ -180,7 +180,6 @@
       "runtime_artifacts": [
         "cynic-kernel",
         "cynic-node",
-        "cynic-mcp",
         "cynic"
       ]
     }

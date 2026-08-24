@@ -664,7 +664,7 @@ mod tests {
                 {
                     "schema": "cynic.build.harness_scenario.v1",
                     "id": "builder_staging_observe",
-                    "authority": "staging_observation",
+                    "authority": "release_candidate",
                     "target_role": "build_runner",
                     "enabled": true,
                     "allowed_actions": ["observe"],

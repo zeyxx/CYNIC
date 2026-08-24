@@ -9,6 +9,7 @@ use cynic_host::domain::disk::build_runner::{
 };
 use cynic_host::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
 use cynic_host::domain::disk::{DiskCleanupPlan, DiskCleanupResult, DiskReport};
+use cynic_protocol::disk::bytes_to_human;
 
 use crate::emit_json;
 
@@ -134,6 +135,24 @@ fn print_disk_report_human(report: &DiskReport) {
     println!("  CYNIC DISK REPORT — {}", report.timestamp);
     println!("════════════════════════════════════════════════════════════");
     println!();
+    println!("── Physical Disks (lsblk) ─────────────────────────────────");
+    if report.physical_disks.is_empty() {
+        println!("(none observed)");
+    } else {
+        println!("{:<14} {:<14} {:<10} {}", "DEVICE", "SIZE", "ROTA?", "MODEL");
+        println!("{}", "-".repeat(80));
+        for d in &report.physical_disks {
+            println!(
+                "{:<14} {:<14} {:<10} {}",
+                d.device,
+                bytes_to_human(d.size_bytes.unwrap_or(0)),
+                if d.rotational { "yes" } else { "no" },
+                d.model.as_deref().unwrap_or(""),
+            );
+        }
+    }
+    println!();
+
     println!("── Filesystems ──────────────────────────────────────────────");
     println!(
         "{:<25} {:<10} {:<10} {:<10} {:<10} {:<6} MOUNT",

@@ -81,8 +81,8 @@ pub struct PathStatus {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct EnvironmentEvidence {
-    pub cynic_env: BTreeMap<String, String>,
-    pub sandbox_env: BTreeMap<String, String>,
+    pub cynic_env: BTreeMap<String, bool>,
+    pub sandbox_env: BTreeMap<String, bool>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -183,13 +183,19 @@ fn observe_runtime_paths(layout: &HostRuntimeLayout) -> RuntimePathEvidence {
 }
 
 fn observe_environment() -> EnvironmentEvidence {
+    environment_evidence_from_vars(std::env::vars())
+}
+
+fn environment_evidence_from_vars(
+    vars: impl IntoIterator<Item = (String, String)>,
+) -> EnvironmentEvidence {
     let mut cynic_env = BTreeMap::new();
     let mut sandbox_env = BTreeMap::new();
-    for (key, value) in std::env::vars() {
+    for (key, _) in vars {
         if key.starts_with("CYNIC_") {
-            cynic_env.insert(key, value);
+            cynic_env.insert(key, true);
         } else if key.contains("SANDBOX") || key.starts_with("CODEX") || key.starts_with("OPENAI") {
-            sandbox_env.insert(key, value);
+            sandbox_env.insert(key, true);
         }
     }
 
@@ -494,7 +500,7 @@ mod tests {
     #[test]
     fn sandbox_environment_overrides_other_boundary_signals() {
         let mut sandbox_env = BTreeMap::new();
-        sandbox_env.insert("CODEX_SANDBOX".to_string(), "1".to_string());
+        sandbox_env.insert("CODEX_SANDBOX".to_string(), true);
 
         let boundary = classify_execution_boundary(
             &process("/usr/local/bin/cynic"),
@@ -517,10 +523,7 @@ mod tests {
     #[test]
     fn sandbox_network_policy_gets_specific_blocker_classification() {
         let mut sandbox_env = BTreeMap::new();
-        sandbox_env.insert(
-            "CODEX_SANDBOX_NETWORK_DISABLED".to_string(),
-            "1".to_string(),
-        );
+        sandbox_env.insert("CODEX_SANDBOX_NETWORK_DISABLED".to_string(), true);
         let environment = EnvironmentEvidence {
             cynic_env: BTreeMap::new(),
             sandbox_env,
@@ -543,5 +546,19 @@ mod tests {
 
         assert!(classification.contains(&"blocked_by_sandbox_network_policy"));
         assert!(!classification.contains(&"blocked_by_network_or_sandbox"));
+    }
+
+    #[test]
+    fn environment_evidence_retains_presence_without_serializing_values() {
+        let secret_value = "must-not-appear-in-runtime-evidence";
+        let evidence = environment_evidence_from_vars([
+            ("CYNIC_TEST_API_KEY".to_string(), secret_value.to_string()),
+            ("CODEX_SANDBOX_TOKEN".to_string(), secret_value.to_string()),
+        ]);
+
+        let rendered = serde_json::to_string(&evidence).expect("serialize environment evidence");
+        assert_eq!(evidence.cynic_env.get("CYNIC_TEST_API_KEY"), Some(&true));
+        assert_eq!(evidence.sandbox_env.get("CODEX_SANDBOX_TOKEN"), Some(&true));
+        assert!(!rendered.contains(secret_value));
     }
 }

@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 // ── Re-exports from existing coordination_lease (backward compat) ────────
 
 pub use crate::coordination_lease::{
-    BatchClaimResult, LeaseAction, LeaseConflict, LeaseGrant, LeaseGuard,
-    LeaseMutationOutcome, LeaseRejectionCode, TargetClaimOutcome,
+    BatchClaimResult, LeaseAction, LeaseConflict, LeaseGrant, LeaseGuard, LeaseMutationOutcome,
+    LeaseRejectionCode, TargetClaimOutcome,
 };
 
 use crate::error_catalog::CynicErrorCode;
@@ -23,8 +23,7 @@ pub use crate::agent_citizenship::{AgentBudgets, MutationAdmission};
 pub use crate::agent_session::types::{
     AgentRootLaunchRequest, AgentSessionAuthority, AgentSessionCredentialKind,
     AgentSessionEnrollment, AgentSessionPeerObservation, AgentSessionRecord,
-    AgentSessionRenewalRequest, AgentSessionRequest, AgentSessionState,
-    AgentSessionTransport,
+    AgentSessionRenewalRequest, AgentSessionRequest, AgentSessionState, AgentSessionTransport,
 };
 
 pub use crate::SecurityEvidenceState;
@@ -111,18 +110,13 @@ impl AgentIdentity {
             }
             CredentialAttestation::SignedJwt {
                 expires_at_unix_ms, ..
-            } if *expires_at_unix_ms <= self.attested_at_unix_ms =>
-            {
+            } if *expires_at_unix_ms <= self.attested_at_unix_ms => {
                 codes.push("jwt_expiry_before_attestation".to_string());
             }
             _ => {}
         }
 
-        if codes.is_empty() {
-            Ok(())
-        } else {
-            Err(codes)
-        }
+        if codes.is_empty() { Ok(()) } else { Err(codes) }
     }
 }
 
@@ -156,11 +150,7 @@ impl RegistrationRecord {
             codes.push("registration_lifetime_invalid".to_string());
         }
 
-        if codes.is_empty() {
-            Ok(())
-        } else {
-            Err(codes)
-        }
+        if codes.is_empty() { Ok(()) } else { Err(codes) }
     }
 }
 
@@ -171,10 +161,19 @@ impl RegistrationRecord {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ClaimScope {
     Fleet,
-    Node { node_id: String },
-    Crate { crate_name: String },
-    Module { crate_name: String, module_path: String },
-    File { path: String },
+    Node {
+        node_id: String,
+    },
+    Crate {
+        crate_name: String,
+    },
+    Module {
+        crate_name: String,
+        module_path: String,
+    },
+    File {
+        path: String,
+    },
 }
 
 impl ClaimScope {
@@ -198,11 +197,25 @@ impl ClaimScope {
             (Self::Crate { crate_name: a }, Self::File { path: b }) => {
                 b.starts_with(a) || b.contains(&format!("{}/", a)) || b.contains(&format!("{}-", a))
             }
-            (Self::Module { crate_name: a, module_path: b }, Self::Module { crate_name: c, module_path: d }) => {
-                a == c && b == d
-            }
-            (Self::Module { crate_name: a, module_path: b }, Self::File { path: c }) => {
-                c.starts_with(&format!("{}/{}/", a, b)) || c.starts_with(&format!("{}/src/{}/", a, b))
+            (
+                Self::Module {
+                    crate_name: a,
+                    module_path: b,
+                },
+                Self::Module {
+                    crate_name: c,
+                    module_path: d,
+                },
+            ) => a == c && b == d,
+            (
+                Self::Module {
+                    crate_name: a,
+                    module_path: b,
+                },
+                Self::File { path: c },
+            ) => {
+                c.starts_with(&format!("{}/{}/", a, b))
+                    || c.starts_with(&format!("{}/src/{}/", a, b))
             }
             (Self::File { path: a }, Self::File { path: b }) => a == b,
             _ => false,
@@ -260,11 +273,7 @@ impl ClaimRequest {
             codes.push("ttl_seconds_zero".to_string());
         }
 
-        if codes.is_empty() {
-            Ok(())
-        } else {
-            Err(codes)
-        }
+        if codes.is_empty() { Ok(()) } else { Err(codes) }
     }
 }
 
@@ -281,9 +290,49 @@ pub struct Claim {
     pub max_lease_window_ms: u64,
     pub status: ClaimStatus,
     pub preempted_by: Option<String>,
+    /// Budget actually consumed so far. Must never exceed `request.budget`
+    /// (monotonic, saturating). Mirrors `consumed` in
+    /// `cynic.agent_claims.v2`.
+    #[serde(default)]
+    pub consumed: AgentBudgets,
 }
 
 impl Claim {
+    /// Remaining budget = granted budget − consumed budget (saturating).
+    pub fn remaining_budget(&self) -> AgentBudgets {
+        AgentBudgets {
+            actions: self
+                .request
+                .budget
+                .actions
+                .saturating_sub(self.consumed.actions),
+            wall_seconds: self
+                .request
+                .budget
+                .wall_seconds
+                .saturating_sub(self.consumed.wall_seconds),
+        }
+    }
+
+    /// Pure consumption step: returns a new claim with the delta added to
+    /// `consumed`, saturating at the granted budget. Refuses nothing here —
+    /// admission is decided by [`admit_mutation`]; this only records.
+    pub fn record_consumption(&self, delta: &AgentBudgets) -> Claim {
+        let mut next = self.clone();
+        next.consumed.actions = next.consumed.actions.saturating_add(delta.actions);
+        next.consumed.wall_seconds = next
+            .consumed
+            .wall_seconds
+            .saturating_add(delta.wall_seconds);
+        if next.consumed.actions > next.request.budget.actions {
+            next.consumed.actions = next.request.budget.actions;
+        }
+        if next.consumed.wall_seconds > next.request.budget.wall_seconds {
+            next.consumed.wall_seconds = next.request.budget.wall_seconds;
+        }
+        next
+    }
+
     pub fn is_active(&self) -> bool {
         matches!(self.status, ClaimStatus::Active)
     }
@@ -293,7 +342,9 @@ impl Claim {
     }
 
     pub fn is_heartbeat_stale(&self, now_unix_ms: u64) -> bool {
-        let ttl_ms = self.expires_at_unix_ms.saturating_sub(self.granted_at_unix_ms);
+        let ttl_ms = self
+            .expires_at_unix_ms
+            .saturating_sub(self.granted_at_unix_ms);
         let stale_threshold = self.granted_at_unix_ms.saturating_add(ttl_ms * 8 / 10);
         now_unix_ms >= stale_threshold
     }
@@ -323,11 +374,7 @@ impl HeartbeatRequest {
             codes.push("lease_id_empty".to_string());
         }
 
-        if codes.is_empty() {
-            Ok(())
-        } else {
-            Err(codes)
-        }
+        if codes.is_empty() { Ok(()) } else { Err(codes) }
     }
 }
 
@@ -352,11 +399,7 @@ pub fn validate_heartbeat(
         codes.push("claim_not_active".to_string());
     }
 
-    if codes.is_empty() {
-        Ok(())
-    } else {
-        Err(codes)
-    }
+    if codes.is_empty() { Ok(()) } else { Err(codes) }
 }
 
 // ── Release (Phase 6 — RELEASE) ──────────────────────────────────────────
@@ -384,11 +427,7 @@ impl ReleaseRequest {
             codes.push("lease_id_empty".to_string());
         }
 
-        if codes.is_empty() {
-            Ok(())
-        } else {
-            Err(codes)
-        }
+        if codes.is_empty() { Ok(()) } else { Err(codes) }
     }
 }
 
@@ -425,11 +464,7 @@ impl MutationRequest {
             codes.push("budget_delta_zero".to_string());
         }
 
-        if codes.is_empty() {
-            Ok(())
-        } else {
-            Err(codes)
-        }
+        if codes.is_empty() { Ok(()) } else { Err(codes) }
     }
 }
 
@@ -454,10 +489,7 @@ pub fn admit_mutation(
         codes.push(CoordinationCode::ScopeConflict);
     }
 
-    let remaining = AgentBudgets {
-        actions: claim.request.budget.actions.saturating_sub(claim.request.budget.actions),
-        wall_seconds: claim.request.budget.wall_seconds.saturating_sub(claim.request.budget.wall_seconds),
-    };
+    let remaining = claim.remaining_budget();
     if request.budget_delta.actions > remaining.actions
         || request.budget_delta.wall_seconds > remaining.wall_seconds
     {
@@ -633,14 +665,22 @@ mod tests {
     #[test]
     fn fleet_scope_contains_everything() {
         let fleet = ClaimScope::Fleet;
-        assert!(fleet.contains(&ClaimScope::Node { node_id: "node1".to_string() }));
-        assert!(fleet.contains(&ClaimScope::Crate { crate_name: "cynic-protocol".to_string() }));
-        assert!(fleet.contains(&ClaimScope::File { path: "crates/cynic-protocol/src/lib.rs".to_string() }));
+        assert!(fleet.contains(&ClaimScope::Node {
+            node_id: "node1".to_string()
+        }));
+        assert!(fleet.contains(&ClaimScope::Crate {
+            crate_name: "cynic-protocol".to_string()
+        }));
+        assert!(fleet.contains(&ClaimScope::File {
+            path: "crates/cynic-protocol/src/lib.rs".to_string()
+        }));
     }
 
     #[test]
     fn crate_scope_contains_module_and_file() {
-        let crate_scope = ClaimScope::Crate { crate_name: "cynic-protocol".to_string() };
+        let crate_scope = ClaimScope::Crate {
+            crate_name: "cynic-protocol".to_string(),
+        };
         assert!(crate_scope.contains(&ClaimScope::Module {
             crate_name: "cynic-protocol".to_string(),
             module_path: "src".to_string(),
@@ -655,7 +695,12 @@ mod tests {
         let claim = Claim {
             schema: CLAIM_SCHEMA.to_string(),
             claim_id: "claim_001".to_string(),
-            request: claim_request("hermes".to_string(), ClaimScope::Crate { crate_name: "cynic-protocol".to_string() }),
+            request: claim_request(
+                "hermes".to_string(),
+                ClaimScope::Crate {
+                    crate_name: "cynic-protocol".to_string(),
+                },
+            ),
             lease_id: "lease_001".to_string(),
             fencing_token: 1,
             granted_at_unix_ms: 1000,
@@ -663,6 +708,7 @@ mod tests {
             max_lease_window_ms: 10000,
             status: ClaimStatus::Active,
             preempted_by: None,
+            consumed: AgentBudgets::default(),
         };
         assert!(claim.is_active());
         assert!(!claim.is_expired_at(4000));
@@ -674,7 +720,12 @@ mod tests {
         let claim = Claim {
             schema: CLAIM_SCHEMA.to_string(),
             claim_id: "claim_001".to_string(),
-            request: claim_request("hermes".to_string(), ClaimScope::Crate { crate_name: "cynic-protocol".to_string() }),
+            request: claim_request(
+                "hermes".to_string(),
+                ClaimScope::Crate {
+                    crate_name: "cynic-protocol".to_string(),
+                },
+            ),
             lease_id: "lease_001".to_string(),
             fencing_token: 1,
             granted_at_unix_ms: 1000,
@@ -682,6 +733,7 @@ mod tests {
             max_lease_window_ms: 10000,
             status: ClaimStatus::Active,
             preempted_by: None,
+            consumed: AgentBudgets::default(),
         };
         let heartbeat = HeartbeatRequest {
             schema: HEARTBEAT_REQUEST_SCHEMA.to_string(),
@@ -697,7 +749,12 @@ mod tests {
         let claim = Claim {
             schema: CLAIM_SCHEMA.to_string(),
             claim_id: "claim_001".to_string(),
-            request: claim_request("hermes".to_string(), ClaimScope::Crate { crate_name: "cynic-protocol".to_string() }),
+            request: claim_request(
+                "hermes".to_string(),
+                ClaimScope::Crate {
+                    crate_name: "cynic-protocol".to_string(),
+                },
+            ),
             lease_id: "lease_001".to_string(),
             fencing_token: 1,
             granted_at_unix_ms: 1000,
@@ -705,6 +762,7 @@ mod tests {
             max_lease_window_ms: 10000,
             status: ClaimStatus::Active,
             preempted_by: None,
+            consumed: AgentBudgets::default(),
         };
         let heartbeat = HeartbeatRequest {
             schema: HEARTBEAT_REQUEST_SCHEMA.to_string(),
@@ -717,33 +775,16 @@ mod tests {
 
     #[test]
     fn admit_mutation_within_scope() {
-        let claim = Claim {
-            schema: CLAIM_SCHEMA.to_string(),
-            claim_id: "claim_001".to_string(),
-            request: claim_request("hermes".to_string(), ClaimScope::Crate { crate_name: "cynic-protocol".to_string() }),
-            lease_id: "lease_001".to_string(),
-            fencing_token: 1,
-            granted_at_unix_ms: 1000,
-            expires_at_unix_ms: 5000,
-            max_lease_window_ms: 10000,
-            status: ClaimStatus::Active,
-            preempted_by: None,
-        };
-        let request = MutationRequest {
-            schema: "cynic.mutation_request.v1".to_string(),
-            agent_id: "hermes".to_string(),
-            claim_id: "claim_001".to_string(),
-            target_scope: ClaimScope::File { path: "crates/cynic-protocol/src/lib.rs".to_string() },
-            action: MutationAction {
-                argv: vec!["make".to_string(), "check".to_string()],
-                working_directory: None,
-                mutates: true,
-                requires_privilege: false,
-                stop_condition: "stop on first failure".to_string(),
+        let claim = make_claim_with_consumed(AgentBudgets::default());
+        let request = mutation_request(
+            ClaimScope::File {
+                path: "crates/cynic-protocol/src/lib.rs".to_string(),
             },
-            budget_delta: AgentBudgets { actions: 1, wall_seconds: 60 },
-            rollback_intent: "discard changes".to_string(),
-        };
+            AgentBudgets {
+                actions: 1,
+                wall_seconds: 60,
+            },
+        );
         assert!(admit_mutation(&claim, &request, 3000, true).is_admitted());
     }
 
@@ -752,7 +793,12 @@ mod tests {
         let claim = Claim {
             schema: CLAIM_SCHEMA.to_string(),
             claim_id: "claim_001".to_string(),
-            request: claim_request("hermes".to_string(), ClaimScope::Crate { crate_name: "cynic-protocol".to_string() }),
+            request: claim_request(
+                "hermes".to_string(),
+                ClaimScope::Crate {
+                    crate_name: "cynic-protocol".to_string(),
+                },
+            ),
             lease_id: "lease_001".to_string(),
             fencing_token: 1,
             granted_at_unix_ms: 1000,
@@ -760,12 +806,15 @@ mod tests {
             max_lease_window_ms: 10000,
             status: ClaimStatus::Active,
             preempted_by: None,
+            consumed: AgentBudgets::default(),
         };
         let request = MutationRequest {
             schema: "cynic.mutation_request.v1".to_string(),
             agent_id: "hermes".to_string(),
             claim_id: "claim_001".to_string(),
-            target_scope: ClaimScope::Crate { crate_name: "cynic-kernel".to_string() },
+            target_scope: ClaimScope::Crate {
+                crate_name: "cynic-kernel".to_string(),
+            },
             action: MutationAction {
                 argv: vec!["make".to_string(), "check".to_string()],
                 working_directory: None,
@@ -773,10 +822,111 @@ mod tests {
                 requires_privilege: false,
                 stop_condition: "stop on first failure".to_string(),
             },
-            budget_delta: AgentBudgets { actions: 1, wall_seconds: 60 },
+            budget_delta: AgentBudgets {
+                actions: 1,
+                wall_seconds: 60,
+            },
             rollback_intent: "discard changes".to_string(),
         };
         assert!(!admit_mutation(&claim, &request, 3000, true).is_admitted());
+    }
+
+    #[test]
+    fn consumed_budget_reduces_remaining() {
+        let claim = make_claim_with_consumed(AgentBudgets {
+            actions: 49,
+            wall_seconds: 3540,
+        });
+        let request = mutation_request(
+            ClaimScope::File {
+                path: "crates/cynic-protocol/src/lib.rs".to_string(),
+            },
+            AgentBudgets {
+                actions: 2,
+                wall_seconds: 60,
+            },
+        );
+        assert!(matches!(
+            admit_mutation(&claim, &request, 3000, true),
+            MutationAdmission::Refused { .. }
+        ));
+    }
+
+    #[test]
+    fn record_consumption_is_monotonic_and_saturating() {
+        let claim = make_claim_with_consumed(AgentBudgets::default());
+        let next = claim.record_consumption(&AgentBudgets {
+            actions: 40,
+            wall_seconds: 1800,
+        });
+        assert_eq!(next.consumed.actions, 40);
+        assert_eq!(next.consumed.wall_seconds, 1800);
+        assert_eq!(next.remaining_budget().actions, 10);
+
+        let saturated = next.record_consumption(&AgentBudgets {
+            actions: u64::MAX,
+            wall_seconds: u64::MAX,
+        });
+        assert_eq!(saturated.consumed, saturated.request.budget);
+        assert_eq!(saturated.remaining_budget().actions, 0);
+        assert_eq!(saturated.remaining_budget().wall_seconds, 0);
+    }
+
+    #[test]
+    fn exhausted_budget_refuses_mutation() {
+        let claim = make_claim_with_consumed(AgentBudgets {
+            actions: 50,
+            wall_seconds: 3600,
+        });
+        let request = mutation_request(
+            ClaimScope::File {
+                path: "crates/cynic-protocol/src/lib.rs".to_string(),
+            },
+            AgentBudgets {
+                actions: 1,
+                wall_seconds: 60,
+            },
+        );
+        assert!(!admit_mutation(&claim, &request, 3000, true).is_admitted());
+    }
+
+    fn make_claim_with_consumed(consumed: AgentBudgets) -> Claim {
+        Claim {
+            schema: CLAIM_SCHEMA.to_string(),
+            claim_id: "claim_001".to_string(),
+            request: claim_request(
+                "hermes".to_string(),
+                ClaimScope::Crate {
+                    crate_name: "cynic-protocol".to_string(),
+                },
+            ),
+            lease_id: "lease_001".to_string(),
+            fencing_token: 1,
+            granted_at_unix_ms: 1000,
+            expires_at_unix_ms: 5000,
+            max_lease_window_ms: 10000,
+            status: ClaimStatus::Active,
+            preempted_by: None,
+            consumed,
+        }
+    }
+
+    fn mutation_request(target_scope: ClaimScope, budget_delta: AgentBudgets) -> MutationRequest {
+        MutationRequest {
+            schema: "cynic.mutation_request.v1".to_string(),
+            agent_id: "hermes".to_string(),
+            claim_id: "claim_001".to_string(),
+            target_scope,
+            action: MutationAction {
+                argv: vec!["make".to_string(), "check".to_string()],
+                working_directory: None,
+                mutates: true,
+                requires_privilege: false,
+                stop_condition: "stop on first failure".to_string(),
+            },
+            budget_delta,
+            rollback_intent: "discard changes".to_string(),
+        }
     }
 
     fn claim_request(agent_id: String, scope: ClaimScope) -> ClaimRequest {
@@ -786,7 +936,10 @@ mod tests {
             session_id: "session_001".to_string(),
             scope,
             claim_type: ClaimType::Exclusive,
-            budget: AgentBudgets { actions: 50, wall_seconds: 3600 },
+            budget: AgentBudgets {
+                actions: 50,
+                wall_seconds: 3600,
+            },
             ttl_seconds: 1800,
             max_lease_window_ms: 3600000,
             parent_claim_id: None,

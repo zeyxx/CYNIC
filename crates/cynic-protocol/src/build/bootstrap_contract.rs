@@ -6,8 +6,8 @@
 //! structural invariants that any signed binding MUST satisfy before the host
 //! attempts to consume the one-shot capability.
 
-use crate::enrollment::{MachineEnrollment, MACHINE_ENROLLMENT_AUTHORITY_CLASS};
-use crate::one_shot_capability::{valid_sha256, OneShotCapability};
+use crate::enrollment::{MACHINE_ENROLLMENT_AUTHORITY_CLASS, MachineEnrollment};
+use crate::one_shot_capability::{OneShotCapability, valid_sha256};
 
 /// A single canonical contract unifying a capability + enrollment + binding.
 ///
@@ -81,7 +81,7 @@ impl BuildRunnerBootstrapAdmissionContract {
 mod tests {
     use super::*;
     use crate::enrollment::MachineEnrollment;
-    use crate::one_shot_capability::{OneShotCapability, ONE_SHOT_CAPABILITY_SCHEMA};
+    use crate::one_shot_capability::{ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability};
 
     fn enrollment(node_id: &str) -> MachineEnrollment {
         let pubkey = "0".repeat(64);
@@ -143,10 +143,12 @@ mod tests {
             capability: cap,
             binding_digest: format!("sha256:{}", "b".repeat(64)),
         };
-        assert!(contract
-            .validate()
-            .iter()
-            .any(|b| b == "contract_capability_subject_mismatch"));
+        assert!(
+            contract
+                .validate()
+                .iter()
+                .any(|b| b == "contract_capability_subject_mismatch")
+        );
     }
 
     #[test]
@@ -159,9 +161,11 @@ mod tests {
             capability: capability(&enr),
             binding_digest: "not-a-digest".to_string(),
         };
-        assert!(contract
-            .validate()
-            .iter()
-            .any(|b| b == "contract_binding_digest_invalid"));
+        assert!(
+            contract
+                .validate()
+                .iter()
+                .any(|b| b == "contract_binding_digest_invalid")
+        );
     }
 }

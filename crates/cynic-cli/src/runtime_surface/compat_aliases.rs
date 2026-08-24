@@ -23,6 +23,9 @@ pub(crate) fn try_execute_compat_alias(
             &only,
         )),
         RuntimeCommand::Disk { json } => Ok(super::disk::execute_disk(json)),
+        RuntimeCommand::Memory { json } => Ok(super::memory::execute_memory(json)),
+        RuntimeCommand::Cpu { json } => Ok(super::cpu::execute_cpu(json)),
+        RuntimeCommand::Network { json } => Ok(super::network::execute_network(json)),
         RuntimeCommand::DiskClean {
             json,
             apply,

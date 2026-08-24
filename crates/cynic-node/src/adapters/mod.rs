@@ -28,6 +28,7 @@ pub mod local_agent_workspace_observer;
 pub mod local_agent_workspace_provision;
 pub mod local_build_workload_grant_store;
 pub mod local_build_workspace;
+pub mod local_bootstrap_seed_receipt_store;
 pub(crate) mod local_harness_target_attestation_reader;
 pub(crate) mod local_network_actuation_request_reader;
 pub(crate) mod local_network_command_runner;

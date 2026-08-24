@@ -18,6 +18,7 @@
 )]
 
 pub mod adapters;
+mod builder_activation;
 mod build_attestation;
 mod cli;
 mod dns_activation;

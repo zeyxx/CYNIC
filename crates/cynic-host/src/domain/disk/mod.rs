@@ -6,8 +6,8 @@ pub mod probe;
 pub mod types;
 
 pub use port::{DiskCleanupExecutionPort, DiskObservationPort};
-pub use probe::{build_cleanup_plan, parse_df_filesystems};
+pub use probe::{build_cleanup_plan, parse_df_filesystems, parse_lsblk_disks};
 pub use types::{
     DiskCacheEntry, DiskCleanupItem, DiskCleanupPlan, DiskCleanupResult, DiskCleanupStepExecution,
-    DiskFileEntry, DiskFilesystem, DiskReport, bytes_to_human,
+    DiskFileEntry, DiskFilesystem, DiskReport, PhysicalDisk, bytes_to_human,
 };

@@ -9,11 +9,12 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::os_health::observe::OsHealthObserver as OsHealthObserve;
-use cynic_protocol::emergence::EmergenceState;
+use crate::peer_resolver_mesh::MeshPeerResolver;
+use cynic_protocol::emergence::{EmergenceState, PeerState, health_score_from_os, AutonomyMode};
 use cynic_protocol::federation::{FederationReconciliation, reconcile_federation};
 use cynic_protocol::local_autonomy::{AutonomyObservation, decide_autonomy};
 use cynic_protocol::node_control::NodeControlPlan;
-use cynic_protocol::peer_resolver::PeerResolver;
+use cynic_protocol::peer_resolver::{PeerEndpoint, PeerResolver};
 use cynic_protocol::runtime_takeover::RuntimeTakeoverObservation;
 
 /// Port: observe kernel reachability and lease status.
@@ -215,15 +216,72 @@ impl MeshPeerObserver {
 
 impl MeshObserver for MeshPeerObserver {
     fn observe_mesh(&self) -> MeshObservation {
-        let resolver = crate::peer_resolver_mesh::MeshPeerResolver::new(
-            &self.registry_path,
-            &self.local_node_id,
-        );
-        let peers = resolver.resolve_peers("kernel");
-        let reachable_peers = peers.len();
+        let resolver = MeshPeerResolver::new(&self.registry_path, &self.local_node_id);
+        let peers = resolver.resolve_all_peers();
+
+        // Build EmergenceState from mesh observation.
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let mut peer_states = Vec::new();
+        let mut local_state = None;
+
+        for peer in &peers {
+            // Determine autonomy mode from reachability (simplified)
+            let mode = if peer.reachable {
+                AutonomyMode::Autonomous
+            } else {
+                AutonomyMode::Degraded
+            };
+
+            // Compute health score from OS health signals
+            let health_score = health_score_from_os(
+                peer.health.active_osha_codes.iter().filter(|c| c.contains("softlockup")).count() as u64,
+                peer.health.active_osha_codes.iter().filter(|c| c.contains("oom")).count() as u64,
+                peer.health.available_mem_mib,
+            );
+
+            let peer_state = PeerState {
+                node_id: peer.node_id.clone(),
+                role: peer.role.clone(),
+                mode,
+                health_score,
+                last_seen_unix_s: now,
+                capabilities: vec![peer.role.clone()],
+            };
+
+            if peer.node_id == self.local_node_id {
+                local_state = Some(peer_state.clone());
+            } else {
+                peer_states.push(peer_state);
+            }
+        }
+
+        // If local node wasn't in peers (e.g., not in registry), create a default
+        let local = local_state.unwrap_or_else(|| PeerState {
+            node_id: self.local_node_id.clone(),
+            role: "unknown".to_string(),
+            mode: AutonomyMode::Degraded,
+            health_score: 0,
+            last_seen_unix_s: now,
+            capabilities: vec![],
+        });
+
+        let emergence_state = EmergenceState {
+            schema: cynic_protocol::emergence::EMERGENCE_STATE_SCHEMA.to_string(),
+            observed_at_unix_s: now,
+            local_node_id: self.local_node_id.clone(),
+            peers: peer_states,
+            local,
+        };
+
+        let reachable_peers = peers.iter().filter(|p| p.reachable).count();
+
         MeshObservation {
             reachable_peers,
-            emergence_state: None, // TODO: build from gossip state
+            emergence_state: Some(emergence_state),
         }
     }
 }

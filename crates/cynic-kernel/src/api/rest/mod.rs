@@ -27,7 +27,6 @@ pub mod node_control;
 pub mod node_enrollment;
 pub mod observe;
 pub mod phone_numbers;
-pub mod proof_history;
 pub mod response;
 pub mod services;
 pub mod soma;
@@ -57,6 +56,7 @@ use self::coord::{
     coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
     coord_register_handler, coord_scope_handler, coord_topology_handler, coord_who_handler,
 };
+use self::coord::coord_identify_handler;
 use self::coord_lease::{
     coord_finalize_handler, coord_release_handler, coord_renew_handler, coord_verify_handler,
 };
@@ -87,7 +87,6 @@ use self::mesh::{list_mesh_nodes_handler, list_mesh_routes_handler, mesh_publish
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
 use self::mint_permit::mint_permit_handler;
 use self::observe::{judge_handler, observe_handler};
-use self::proof_history::proof_of_history_post_handler;
 use self::services::{
     list_services_handler, register_service_handler, service_heartbeat_handler,
     unregister_service_handler,
@@ -208,7 +207,6 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/compliance", get(compliance_trend_handler))
         .route("/audit", get(audit_handler))
         .route("/proof-of-history", get(proof_of_history_handler))
-        .route("/proof-of-history", post(proof_of_history_post_handler))
         .route("/state-history", get(state_history_handler))
         .route(
             "/agent-proposals",

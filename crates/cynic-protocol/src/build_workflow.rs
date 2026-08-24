@@ -12,13 +12,13 @@
 //! The impure parts (observation, lease verification, execution) are injected
 //! via ports so the workflow itself is unit-testable.
 
+use crate::LeaseVerification;
 use crate::build::{
-    admit_build_input, admit_build_runner, compose_build_runner_envelope, plan_build_runner,
-    validate_build_recipe, BuildBootstrapGrant, BuildInputAdmission, BuildRecipe,
-    BuildRunnerAdmission, BuildRunnerEnvelope, BuildRunnerObservation,
+    BuildBootstrapGrant, BuildInputAdmission, BuildRecipe, BuildRunnerAdmission,
+    BuildRunnerEnvelope, BuildRunnerObservation, admit_build_input, admit_build_runner,
+    compose_build_runner_envelope, plan_build_runner, validate_build_recipe,
 };
 use crate::source_control::SourceSnapshot;
-use crate::LeaseVerification;
 
 /// Pure build workflow decision — no IO, no process spawn.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,11 +102,7 @@ impl<'a> BuildWorkflow<'a> {
         // Step 2: Validate grant (if present)
         let grant_blockers = match self.grant {
             Some(grant) => {
-                let source_commit = self
-                    .source_snapshot
-                    .head_commit
-                    .as_deref()
-                    .unwrap_or("");
+                let source_commit = self.source_snapshot.head_commit.as_deref().unwrap_or("");
                 let now_unix_s = self.now_unix_ms / 1000;
                 match grant.validate_claims(
                     &self.observation.node_id,
@@ -125,11 +121,7 @@ impl<'a> BuildWorkflow<'a> {
         let envelope = compose_build_runner_envelope(
             self.observation,
             self.lease_verification,
-            self
-                .source_snapshot
-                .head_commit
-                .clone()
-                .unwrap_or_default(),
+            self.source_snapshot.head_commit.clone().unwrap_or_default(),
             self.argv.clone(),
             self.artifact_path.clone(),
             self.apply,
@@ -202,7 +194,7 @@ impl<'a> BuildWorkflow<'a> {
 mod tests {
     use super::*;
     use crate::build::{
-        BuildRecipe, BuildRunnerObservation, BUILD_RECIPE_SCHEMA, BUILD_RUNNER_OBSERVATION_SCHEMA,
+        BUILD_RECIPE_SCHEMA, BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation,
     };
     use crate::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 

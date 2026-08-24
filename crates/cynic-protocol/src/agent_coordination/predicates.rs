@@ -4,9 +4,7 @@
 //! protocol. They are pure (no I/O, no side effects) and must be used by
 //! all surfaces: MCP, CLI, kernel, tests.
 
-use super::{
-    Claim, ClaimScope, ClaimStatus, ClaimType, CoordinationCode,
-};
+use super::{Claim, ClaimScope, ClaimStatus, ClaimType, CoordinationCode};
 
 /// Whether two claims have overlapping scopes.
 pub fn scopes_overlap(a: &ClaimScope, b: &ClaimScope) -> bool {
@@ -48,10 +46,10 @@ pub fn can_preempt(existing: &Claim, incoming_claim_type: ClaimType) -> bool {
         && matches!(incoming_claim_type, ClaimType::Exclusive)
 }
 
-/// Whether a claim's budget is within the granted budget.
-pub fn budget_within_granted(_claim: &Claim) -> bool {
-    // TODO: Track consumed budget in Claim
-    true
+/// Whether a claim's consumed budget stays within the granted budget.
+pub fn budget_within_granted(claim: &Claim) -> bool {
+    claim.consumed.actions <= claim.request.budget.actions
+        && claim.consumed.wall_seconds <= claim.request.budget.wall_seconds
 }
 
 /// Whether a claim can be renewed at the given timestamp.
@@ -66,10 +64,10 @@ mod tests {
 
     fn make_claim(scope: ClaimScope, claim_type: ClaimType) -> Claim {
         Claim {
-            schema: "cynic.claim.v1",
+            schema: "cynic.claim.v1".to_string(),
             claim_id: "claim_test".to_string(),
             request: ClaimRequest {
-                schema: "cynic.claim_request.v1",
+                schema: "cynic.claim_request.v1".to_string(),
                 agent_id: "test".to_string(),
                 session_id: "session_test".to_string(),
                 scope,
@@ -89,6 +87,7 @@ mod tests {
             max_lease_window_ms: 3600000,
             status: ClaimStatus::Active,
             preempted_by: None,
+            consumed: AgentBudgets::default(),
         }
     }
 
@@ -182,5 +181,23 @@ mod tests {
     fn cannot_renew_expired_claim() {
         let claim = make_claim(ClaimScope::Fleet, ClaimType::Exclusive);
         assert!(!can_renew(&claim, 6000));
+    }
+
+    #[test]
+    fn budget_within_granted_tracks_consumed() {
+        let mut claim = make_claim(ClaimScope::Fleet, ClaimType::Exclusive);
+        assert!(budget_within_granted(&claim));
+        let claim = claim.record_consumption(&AgentBudgets {
+            actions: 100,
+            wall_seconds: 3600,
+        });
+        assert!(budget_within_granted(&claim));
+
+        let mut over = make_claim(ClaimScope::Fleet, ClaimType::Exclusive);
+        over.consumed = AgentBudgets {
+            actions: 101,
+            wall_seconds: 0,
+        };
+        assert!(!budget_within_granted(&over));
     }
 }

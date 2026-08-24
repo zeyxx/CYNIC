@@ -1,7 +1,10 @@
 pub mod bootstrap;
+pub mod cpu;
 pub mod disk;
 pub mod ecosystem_package;
 pub mod filesystem;
+pub mod memory;
+pub mod network;
 pub mod package_provenance;
 pub mod packages;
 pub mod principal;

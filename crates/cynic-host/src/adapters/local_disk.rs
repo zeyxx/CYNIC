@@ -7,10 +7,10 @@ use std::time::SystemTime;
 use chrono::{DateTime, Utc};
 
 use crate::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
-use crate::domain::disk::probe::{build_cleanup_plan, parse_df_filesystems};
+use crate::domain::disk::probe::{build_cleanup_plan, parse_df_filesystems, parse_lsblk_disks};
 use crate::domain::disk::{
     DiskCacheEntry, DiskCleanupItem, DiskCleanupPlan, DiskCleanupResult, DiskCleanupStepExecution,
-    DiskFileEntry, DiskFilesystem, DiskReport, bytes_to_human,
+    DiskFileEntry, DiskFilesystem, DiskReport, bytes_to_human, PhysicalDisk,
 };
 use crate::process_observation::capture_command;
 
@@ -26,6 +26,7 @@ impl DiskObservationPort for LocalDiskAdapter {
         let filesystems = observe_filesystems()?;
         let known_caches = observe_known_caches();
         let large_files = observe_large_files();
+        let physical_disks = observe_physical_disks();
 
         Ok(DiskReport {
             schema: "cynic.host_disk_report.v1".to_string(),
@@ -33,11 +34,40 @@ impl DiskObservationPort for LocalDiskAdapter {
             filesystems,
             known_caches,
             large_files,
+            physical_disks,
         })
     }
 
     fn plan_cleanup(&self, report: &DiskReport) -> DiskCleanupPlan {
         build_cleanup_plan(report)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::process_observation::capture_command;
+
+    /// Integration check: real `lsblk` spawn + parser must agree on at least one
+    /// device when run on a host that actually has block devices. This isolates
+    /// `capture_command("lsblk")` (path/timeout) from `parse_lsblk_disks` (json).
+    #[test]
+    fn real_lsblk_capture_feeds_parser() {
+        let out = capture_command(
+            "lsblk",
+            &["-b", "-J", "-o", "NAME,SIZE,TYPE,ROTA,VENDOR,MODEL,SERIAL,WWN,MOUNTPOINT"],
+        );
+        let captured = match out {
+            Ok(res) if res.success => res.stdout,
+            other => panic!("lsblk capture failed (spawn or timeout): {other:?}"),
+        };
+        let disks = parse_lsblk_disks(&captured);
+        // This host has at least one block device (loop or disk).
+        assert!(
+            !disks.is_empty(),
+            "lsblk produced stdout of {} bytes but parser found 0 devices",
+            captured.len()
+        );
     }
 }
 
@@ -135,10 +165,10 @@ fn get_dir_size(path: &Path) -> u64 {
                 }
                 if path.is_dir() {
                     // Skip noisy caches or recursively scanned sub-trees to keep speed high
-                    if let Some(name) = path.file_name().and_then(|n| n.to_str())
-                        && (name == ".git" || name == "node_modules")
-                    {
-                        continue;
+                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                        if name == ".git" || name == "node_modules" {
+                            continue;
+                        }
                     }
                     stack.push(path);
                 } else if let Ok(metadata) = entry.metadata() {
@@ -159,10 +189,10 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
     if let Ok(read_dir) = fs::read_dir("/tmp") {
         for entry in read_dir.flatten() {
             let path = entry.path();
-            if let Some(name) = path.file_name().and_then(|n| n.to_str())
-                && name.starts_with("cynic-")
-            {
-                tmp_cynic_size += get_dir_size(&path);
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.starts_with("cynic-") {
+                    tmp_cynic_size += get_dir_size(&path);
+                }
             }
         }
     }
@@ -254,6 +284,23 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
     entries
 }
 
+/// Observe physical disks via `lsblk -b -J` (localhost only). Returns an empty
+/// Vec if `lsblk` is unavailable or yields non-JSON; never panics. This is the
+/// fourth layer of the disk vertical (physical device → volume → filesystem →
+/// usage), sourced from the same `parse_lsblk_disks` parser shared nowhere yet
+/// (remote physical disks are left to each node's own `cynic runtime disk`).
+fn observe_physical_disks() -> Vec<PhysicalDisk> {
+    let out = capture_command(
+        "lsblk",
+        &["-b", "-J", "-o", "NAME,SIZE,TYPE,ROTA,VENDOR,MODEL,SERIAL,WWN,MOUNTPOINT"],
+    );
+    let stdout = match out {
+        Ok(res) if res.success => res.stdout,
+        _ => return Vec::new(),
+    };
+    parse_lsblk_disks(&stdout)
+}
+
 fn observe_large_files() -> Vec<DiskFileEntry> {
     let mut large_files = Vec::new();
     let mut search_paths = vec![Path::new("/tmp"), Path::new("/var/lib/cynic")]
@@ -287,13 +334,14 @@ fn observe_large_files() -> Vec<DiskFileEntry> {
                     }
 
                     if path.is_dir() {
-                        if let Some(name) = path.file_name().and_then(|n| n.to_str())
-                            && (name == ".git"
+                        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                            if name == ".git"
                                 || name == "node_modules"
                                 || name == "target"
-                                || name == ".cache")
-                        {
-                            continue;
+                                || name == ".cache"
+                            {
+                                continue;
+                            }
                         }
                         stack.push(path);
                     } else if let Ok(metadata) = entry.metadata() {
@@ -329,25 +377,25 @@ fn execute_cleanup_item(item: &DiskCleanupItem) -> DiskCleanupStepExecution {
             if let Ok(read_dir) = fs::read_dir("/tmp") {
                 for entry in read_dir.flatten() {
                     let path = entry.path();
-                    if let Some(name) = path.file_name().and_then(|n| n.to_str())
-                        && name.starts_with("cynic-")
-                    {
-                        if path.is_dir() {
-                            if let Err(e) = fs::remove_dir_all(&path) {
+                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                        if name.starts_with("cynic-") {
+                            if path.is_dir() {
+                                if let Err(e) = fs::remove_dir_all(&path) {
+                                    success = false;
+                                    stderr_tail.push_str(&format!(
+                                        "Failed to remove dir {}: {}\n",
+                                        path.display(),
+                                        e
+                                    ));
+                                }
+                            } else if let Err(e) = fs::remove_file(&path) {
                                 success = false;
                                 stderr_tail.push_str(&format!(
-                                    "Failed to remove dir {}: {}\n",
+                                    "Failed to remove file {}: {}\n",
                                     path.display(),
                                     e
                                 ));
                             }
-                        } else if let Err(e) = fs::remove_file(&path) {
-                            success = false;
-                            stderr_tail.push_str(&format!(
-                                "Failed to remove file {}: {}\n",
-                                path.display(),
-                                e
-                            ));
                         }
                     }
                 }

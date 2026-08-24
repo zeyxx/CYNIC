@@ -1,7 +1,9 @@
 # CYNIC Whitepaper
 
-Version: 0.1 skeleton  
-Status: architecture draft  
+> ⚠️ **NON-AUTHORITATIVE** — Projection narrative publique. Voir `contracts/framework.json` pour l'autorité runtime.
+
+Version: 0.1 skeleton
+Status: architecture draft
 Runtime authority: none
 
 This document describes the intended architecture and its demonstrated state.

@@ -224,7 +224,11 @@ impl NodeCsr {
             &mut blockers,
         );
         check(
-            self.csr_signature_hex.len() == 128 && self.csr_signature_hex.bytes().all(|b| b.is_ascii_hexdigit()),
+            self.csr_signature_hex.len() == 128
+                && self
+                    .csr_signature_hex
+                    .bytes()
+                    .all(|b| b.is_ascii_hexdigit()),
             "node_csr_signature_invalid",
             &mut blockers,
         );
@@ -318,7 +322,11 @@ impl NodeEnrollmentCertificate {
             &mut blockers,
         );
         check(
-            self.kernel_signature_hex.len() == 128 && self.kernel_signature_hex.bytes().all(|b| b.is_ascii_hexdigit()),
+            self.kernel_signature_hex.len() == 128
+                && self
+                    .kernel_signature_hex
+                    .bytes()
+                    .all(|b| b.is_ascii_hexdigit()),
             "node_certificate_signature_invalid",
             &mut blockers,
         );
@@ -327,7 +335,6 @@ impl NodeEnrollmentCertificate {
         blockers
     }
 }
-
 
 fn valid_node_id(value: &str) -> bool {
     !value.is_empty()
@@ -455,7 +462,9 @@ mod tests {
         // Expired
         assert!(!cert.is_valid_at(1700100000));
         let expired_blockers = cert.validate(1700100000);
-        assert!(expired_blockers.contains(&"node_certificate_expired_or_not_yet_valid".to_string()));
+        assert!(
+            expired_blockers.contains(&"node_certificate_expired_or_not_yet_valid".to_string())
+        );
 
         // Before issuance
         assert!(!cert.is_valid_at(1699999999));

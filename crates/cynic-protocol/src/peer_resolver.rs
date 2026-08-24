@@ -112,7 +112,12 @@ mod tests {
             addr: "10.10.10.1".to_string(),
             probe_ports: vec![3000],
             reachable,
-            health: NodeHealthView::default(),
+            health: NodeHealthView {
+                critical_active: false,
+                warning_active: false,
+                active_osha_codes: vec![],
+                available_mem_mib: 0,
+            },
         }
     }
 

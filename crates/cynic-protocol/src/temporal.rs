@@ -284,12 +284,7 @@ mod tests {
 
     #[test]
     fn epoch_certificate_has_valid_base_epochs() {
-        let cert = EpochCertificate::new(
-            Epoch::new(5),
-            "node-1",
-            "sig-xyz",
-            "sha256:snap5",
-        );
+        let cert = EpochCertificate::new(Epoch::new(5), "node-1", "sig-xyz", "sha256:snap5");
 
         assert_eq!(cert.epoch, Epoch::new(5));
         assert_eq!(cert.base_epochs, vec![Epoch::new(4)]); // Parent par défaut

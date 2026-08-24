@@ -3,7 +3,9 @@
 //! Also hosts the portable `df`-output parser so that both the local and the
 //! SSH remote disk adapters share one parsing path (no hardwired substrate).
 
-use super::types::{bytes_to_human, DiskCleanupItem, DiskCleanupPlan, DiskFilesystem, DiskReport};
+use super::types::{
+    bytes_to_human, DiskCleanupItem, DiskCleanupPlan, DiskFilesystem, DiskReport, PhysicalDisk,
+};
 
 /// Pure parser for `df -h --output=source,fstype,size,used,avail,pcent,target`
 /// stdout. Shared by `LocalDiskAdapter` (local `df`) and `RemoteDiskAdapter`
@@ -49,6 +51,39 @@ pub fn parse_df_filesystems(output: &str) -> Vec<DiskFilesystem> {
                 mount: mount.to_string(),
             });
         }
+    }
+    list
+}
+
+// Pure helper: parse a `lsblk -b -J -o NAME,SIZE,TYPE,ROTA,VENDOR,MODEL,SERIAL,WWN,MOUNTPOINT`
+// JSON document into PhysicalDisk records. Shared by LocalDiskAdapter (local lsblk)
+// and RemoteDiskAdapter (SSH lsblk) so both never diverge. Uses serde_json with
+// tolerant optional fields — missing keys yield None rather than panicking.
+pub fn parse_lsblk_disks(json_stdout: &str) -> Vec<PhysicalDisk> {
+    let parsed: serde_json::Value = match serde_json::from_str(json_stdout) {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+    let mut list = Vec::new();
+    let Some(block_devices) = parsed.get("blockdevices").and_then(|b| b.as_array()) else {
+        return list;
+    };
+    for dev in block_devices {
+        let device = dev.get("name").and_then(|v| v.as_str()).unwrap_or("?").to_string();
+        let size_bytes = dev.get("size").and_then(|v| v.as_u64());
+        let disk_type = dev.get("type").and_then(|v| v.as_str()).unwrap_or("disk").to_string();
+        let rotational = dev.get("rota").map(|v| v.as_bool().unwrap_or(false)).unwrap_or(false);
+        let size_human = size_bytes.map(|b| bytes_to_human(b));
+        let vendor = dev.get("vendor").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(String::from);
+        let model = dev.get("model").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(String::from);
+        let serial = dev.get("serial").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(String::from);
+        let wwn = dev.get("wwn").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(String::from);
+        let mountpoints = dev
+            .get("mountpoints")
+            .and_then(|m| m.as_array())
+            .map(|arr| arr.iter().filter_map(|p| p.get("mountpoint").and_then(|v| v.as_str()).map(String::from)).collect())
+            .unwrap_or_default();
+        list.push(PhysicalDisk { device, size_bytes, size_human, disk_type, rotational, vendor, model, serial, wwn, mountpoints });
     }
     list
 }
@@ -184,6 +219,53 @@ overlay        overlay  50G   30G   20G  60% /
         assert!(parse_df_filesystems("Filesystem Type Size Used Avail Use% Mounted on\n").is_empty());
     }
 
+    const SAMPLE_LSBLK: &str = r#"{
+  "blockdevices": [
+    {"name":"sda","size":512110190592,"type":"disk","rota":true,"vendor":"ATA","model":"Samsung SSD 870","serial":"S71N","wwn":"0x500","mountpoints":[{"mountpoint":"/"}]},
+    {"name":"sdb","size":1000204886016,"type":"disk","rota":true,"vendor":null,"model":""},
+    {"name":"loop0","size":104857600,"type":"loop","rota":false}
+  ]
+}"#;
+
+    #[test]
+    fn test_parse_lsblk_disks_basic() {
+        let disks = parse_lsblk_disks(SAMPLE_LSBLK);
+        assert_eq!(disks.len(), 3);
+        // sda: Samsung SSD 870, rotational HDD (rota true), mounted on /
+        assert_eq!(disks[0].device, "sda");
+        assert_eq!(disks[0].disk_type, "disk");
+        assert!(disks[0].rotational);
+        assert_eq!(disks[0].vendor.as_deref(), Some("ATA"));
+        assert_eq!(disks[0].model.as_deref(), Some("Samsung SSD 870"));
+        assert_eq!(disks[0].serial.as_deref(), Some("S71N"));
+        assert_eq!(disks[0].mountpoints, vec!["/".to_string()]);
+        assert_eq!(disks[0].size_bytes, Some(512110190592));
+        assert!(disks[0].size_human.is_some());
+    }
+
+    #[test]
+    fn test_parse_lsblk_disks_empty_and_missing_fields() {
+        // Empty / non-JSON string -> no disks, no panic.
+        assert!(parse_lsblk_disks("").is_empty());
+        assert!(parse_lsblk_disks("{not json").is_empty());
+        // sdb with empty model and null vendor -> those are None, not "".
+        let disks = parse_lsblk_disks(SAMPLE_LSBLK);
+        let sdb = disks.iter().find(|d| d.device == "sdb").unwrap();
+        assert_eq!(sdb.vendor, None);
+        assert_eq!(sdb.model, None);
+        assert_eq!(sdb.serial, None);
+    }
+
+    #[test]
+    fn test_parse_lsblk_disks_loop_and_missing_mountpoints() {
+        let disks = parse_lsblk_disks(SAMPLE_LSBLK);
+        // loop0: type "loop", rota false (SSD-ish), no mountpoints.
+        let loop0 = disks.iter().find(|d| d.device == "loop0").unwrap();
+        assert_eq!(loop0.disk_type, "loop");
+        assert!(!loop0.rotational);
+        assert!(loop0.mountpoints.is_empty());
+    }
+
     #[test]
     fn test_build_cleanup_plan() {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
@@ -206,6 +288,7 @@ overlay        overlay  50G   30G   20G  60% /
                 },
             ],
             large_files: vec![],
+            physical_disks: vec![],
         };
 
         let plan = build_cleanup_plan(&report);

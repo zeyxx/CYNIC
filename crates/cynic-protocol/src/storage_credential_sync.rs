@@ -48,10 +48,7 @@ pub enum CredentialSyncVerdict {
         repair: CredentialRepair,
     },
     /// Cannot determine — residual unknowns.
-    Unknown {
-        reason: String,
-        detail: String,
-    },
+    Unknown { reason: String, detail: String },
 }
 
 /// What repair action is needed.
@@ -157,10 +154,7 @@ mod tests {
 
     #[test]
     fn synchronized_when_all_green() {
-        let v = decide_credential_sync(
-            &spec(),
-            &observation(true, true, true, true, true, true),
-        );
+        let v = decide_credential_sync(&spec(), &observation(true, true, true, true, true, true));
         assert_eq!(v, CredentialSyncVerdict::Synchronized);
     }
 
@@ -170,7 +164,9 @@ mod tests {
             &spec(),
             &observation(false, false, false, false, false, false),
         );
-        assert!(matches!(&v, CredentialSyncVerdict::Unknown { reason, .. } if reason == "storage_tcp_unreachable"));
+        assert!(
+            matches!(&v, CredentialSyncVerdict::Unknown { reason, .. } if reason == "storage_tcp_unreachable")
+        );
     }
 
     #[test]
@@ -179,40 +175,43 @@ mod tests {
             &spec(),
             &observation(true, true, false, false, false, false),
         );
-        assert!(matches!(&v,
-            CredentialSyncVerdict::OutOfSync { repair: CredentialRepair::FullRepair, .. }
+        assert!(matches!(
+            &v,
+            CredentialSyncVerdict::OutOfSync {
+                repair: CredentialRepair::FullRepair,
+                ..
+            }
         ));
     }
 
     #[test]
     fn out_of_sync_rpc_fails_file_ok_service_wrong() {
-        let v = decide_credential_sync(
-            &spec(),
-            &observation(true, true, false, true, true, false),
-        );
-        assert!(matches!(&v,
-            CredentialSyncVerdict::OutOfSync { repair: CredentialRepair::RestartService, .. }
+        let v = decide_credential_sync(&spec(), &observation(true, true, false, true, true, false));
+        assert!(matches!(
+            &v,
+            CredentialSyncVerdict::OutOfSync {
+                repair: CredentialRepair::RestartService,
+                ..
+            }
         ));
     }
 
     #[test]
     fn out_of_sync_rpc_fails_file_wrong_service_ok() {
-        let v = decide_credential_sync(
-            &spec(),
-            &observation(true, true, false, true, false, true),
-        );
-        assert!(matches!(&v,
-            CredentialSyncVerdict::OutOfSync { repair: CredentialRepair::SyncPasswordFile, .. }
+        let v = decide_credential_sync(&spec(), &observation(true, true, false, true, false, true));
+        assert!(matches!(
+            &v,
+            CredentialSyncVerdict::OutOfSync {
+                repair: CredentialRepair::SyncPasswordFile,
+                ..
+            }
         ));
     }
 
     #[test]
     fn password_file_drift_detected() {
         // rpc succeeds but file doesn't match — latent bug.
-        let v = decide_credential_sync(
-            &spec(),
-            &observation(true, true, true, true, false, true),
-        );
+        let v = decide_credential_sync(&spec(), &observation(true, true, true, true, false, true));
         assert!(matches!(&v,
             CredentialSyncVerdict::OutOfSync { reason, .. } if reason == "storage_password_file_drift"
         ));
@@ -220,10 +219,7 @@ mod tests {
 
     #[test]
     fn unknown_when_auth_fails_despite_matching() {
-        let v = decide_credential_sync(
-            &spec(),
-            &observation(true, true, false, true, true, true),
-        );
+        let v = decide_credential_sync(&spec(), &observation(true, true, false, true, true, true));
         assert!(matches!(&v,
             CredentialSyncVerdict::Unknown { reason, .. } if reason == "storage_auth_failed_despite_matching_credentials"
         ));

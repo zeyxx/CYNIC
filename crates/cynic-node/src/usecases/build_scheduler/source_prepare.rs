@@ -126,6 +126,7 @@ async fn prepare_snapshot_source<R: ArgvRunner, T: RuntimeArtifactTransportPort>
         release_id: workload_id.to_string(),
         repository_id: source.repository_id.clone(),
         source_commit: source.revision.clone(),
+        source_tree: None,
         snapshot_digest: snapshot.digest.clone(),
         snapshot_format: snapshot.format.clone(),
         target_node_id: control.node_id.clone(),

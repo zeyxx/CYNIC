@@ -110,8 +110,14 @@ impl SignedNodeControlPlan {
 #[serde(rename_all = "snake_case")]
 pub enum ControlPlanVerificationStatus {
     Verified,
-    StaleGeneration { observed: u64, plan: u64 },
-    Expired { expires_at_unix_s: u64, now_unix_s: u64 },
+    StaleGeneration {
+        observed: u64,
+        plan: u64,
+    },
+    Expired {
+        expires_at_unix_s: u64,
+        now_unix_s: u64,
+    },
     UntrustedAuthority(String),
     InvalidSignature,
     StructuralErrors(Vec<String>),
@@ -627,16 +633,30 @@ mod tests {
         let auth_kernels = vec!["kernel-alpha".to_string()];
         assert!(verify_control_plan_preconditions(&signed, Some(0), &auth_kernels, 1500).is_ok());
 
-        // Stale generation rejected
-        let stale = verify_control_plan_preconditions(&signed, Some(1), &auth_kernels, 1500);
-        assert!(matches!(stale, Err(ControlPlanVerificationStatus::StaleGeneration { observed: 1, plan: 1 })));
+        // Stale generation rejected: applying generation N requires the node's
+        // observed generation to be strictly below N (idempotence guard).
+        let stale = verify_control_plan_preconditions(&signed, Some(2), &auth_kernels, 1500);
+        assert!(matches!(
+            stale,
+            Err(ControlPlanVerificationStatus::StaleGeneration {
+                observed: 2,
+                plan: 2
+            })
+        ));
 
         // Untrusted authority rejected
-        let untrusted = verify_control_plan_preconditions(&signed, Some(0), &["kernel-beta".to_string()], 1500);
-        assert!(matches!(untrusted, Err(ControlPlanVerificationStatus::UntrustedAuthority(_))));
+        let untrusted =
+            verify_control_plan_preconditions(&signed, Some(0), &["kernel-beta".to_string()], 1500);
+        assert!(matches!(
+            untrusted,
+            Err(ControlPlanVerificationStatus::UntrustedAuthority(_))
+        ));
 
         // Expired plan rejected
         let expired = verify_control_plan_preconditions(&signed, Some(0), &auth_kernels, 2500);
-        assert!(matches!(expired, Err(ControlPlanVerificationStatus::StructuralErrors(_))));
+        assert!(matches!(
+            expired,
+            Err(ControlPlanVerificationStatus::StructuralErrors(_))
+        ));
     }
 }

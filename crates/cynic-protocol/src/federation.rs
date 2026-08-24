@@ -101,29 +101,52 @@ impl FederationReconciliation {
             FederationReconciliation::Coordinated { autonomy, .. } => {
                 let caps = &autonomy.retained_capabilities;
                 let mut v = Vec::new();
-                if caps.identity { v.push("identity"); }
-                if caps.health { v.push("health"); }
-                if caps.observe { v.push("observe"); }
-                if caps.judge { v.push("judge"); }
-                if caps.build { v.push("build"); }
-                if caps.release { v.push("release"); }
+                if caps.identity {
+                    v.push("identity");
+                }
+                if caps.health {
+                    v.push("health");
+                }
+                if caps.observe {
+                    v.push("observe");
+                }
+                if caps.judge {
+                    v.push("judge");
+                }
+                if caps.build {
+                    v.push("build");
+                }
+                if caps.release {
+                    v.push("release");
+                }
                 v.into_iter().map(String::from).collect()
             }
             FederationReconciliation::Autonomous { autonomy, .. } => {
                 let caps = &autonomy.retained_capabilities;
                 let mut v = Vec::new();
-                if caps.identity { v.push("identity"); }
-                if caps.health { v.push("health"); }
-                if caps.observe { v.push("observe"); }
-                if caps.judge { v.push("judge"); }
+                if caps.identity {
+                    v.push("identity");
+                }
+                if caps.health {
+                    v.push("health");
+                }
+                if caps.observe {
+                    v.push("observe");
+                }
+                if caps.judge {
+                    v.push("judge");
+                }
                 v.into_iter().map(String::from).collect()
             }
-            FederationReconciliation::Degraded { retained_capabilities, .. } => {
-                retained_capabilities.clone()
-            }
-            FederationReconciliation::Promoted { takeover, .. } => {
-                takeover.retained_capabilities.iter().map(|s| s.to_string()).collect()
-            }
+            FederationReconciliation::Degraded {
+                retained_capabilities,
+                ..
+            } => retained_capabilities.clone(),
+            FederationReconciliation::Promoted { takeover, .. } => takeover
+                .retained_capabilities
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
         }
     }
 
@@ -251,7 +274,11 @@ mod tests {
             schema: "cynic.runtime_takeover.v1",
             status: if promote { "promotable" } else { "blocked" },
             promote,
-            mode: if promote { StandbyMode::Active } else { StandbyMode::Resident },
+            mode: if promote {
+                StandbyMode::Active
+            } else {
+                StandbyMode::Resident
+            },
             fencing_token: 2,
             retained_capabilities: if promote {
                 vec!["identity", "health", "observe"]
@@ -259,7 +286,11 @@ mod tests {
                 vec!["identity", "health"]
             },
             blocked_mutations: vec!["fleet_mutation"],
-            blockers: if promote { vec![] } else { vec!["primary_still_live"] },
+            blockers: if promote {
+                vec![]
+            } else {
+                vec!["primary_still_live"]
+            },
         }
     }
 
@@ -293,7 +324,11 @@ mod tests {
 
         assert_eq!(reconciliation.mode(), AutonomyMode::Autonomous);
         assert_eq!(reconciliation.label(), "promoted");
-        assert!(reconciliation.retained_capabilities().contains(&"observe".to_string()));
+        assert!(
+            reconciliation
+                .retained_capabilities()
+                .contains(&"observe".to_string())
+        );
     }
 
     #[test]
@@ -314,7 +349,10 @@ mod tests {
 
         assert_eq!(reconciliation.mode(), AutonomyMode::Degraded);
         assert_eq!(reconciliation.label(), "degraded");
-        assert_eq!(reconciliation.retained_capabilities(), vec!["identity", "health"]);
+        assert_eq!(
+            reconciliation.retained_capabilities(),
+            vec!["identity", "health"]
+        );
     }
 
     #[test]
@@ -333,7 +371,10 @@ mod tests {
         autonomy.blockers = vec!["enrollment_unproved".to_string()];
         let reconciliation = reconcile_federation(&autonomy, None, &[], None);
 
-        assert_eq!(reconciliation.residual_unknowns(), vec!["enrollment_unproved"]);
+        assert_eq!(
+            reconciliation.residual_unknowns(),
+            vec!["enrollment_unproved"]
+        );
     }
 
     #[test]

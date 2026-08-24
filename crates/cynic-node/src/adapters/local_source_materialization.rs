@@ -148,6 +148,23 @@ impl<R: ArgvRunner> SourceMaterializationPort for LocalSourceMaterialization<'_,
         } else {
             None
         };
+        let observed_tree = if target_exists {
+            let output = self.runner.run(&[
+                self.git_bin.as_str(),
+                "-C",
+                target_text,
+                "rev-parse",
+                "HEAD^{tree}",
+            ]);
+            if output.success() {
+                Some(output.stdout.trim().to_string())
+            } else {
+                unknowns.push("source_materialization_tree_unobservable".to_string());
+                None
+            }
+        } else {
+            None
+        };
 
         Ok(SourceMaterializationObservation {
             schema: SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA.to_string(),
@@ -162,6 +179,7 @@ impl<R: ArgvRunner> SourceMaterializationPort for LocalSourceMaterialization<'_,
             target_exists,
             target_is_isolated,
             observed_commit,
+            observed_tree,
             observed_snapshot_digest,
             evidence_refs: vec![
                 format!("node:{}", self.expected_node_id),
@@ -361,6 +379,7 @@ mod tests {
             release_id: "../escape".to_string(),
             repository_id: "cynic".to_string(),
             source_commit: "a".repeat(40),
+            source_tree: None,
             snapshot_digest: format!("sha256:{}", "b".repeat(64)),
             snapshot_format: SOURCE_MATERIALIZATION_FORMAT.to_string(),
             target_node_id: "cynic-builder".to_string(),

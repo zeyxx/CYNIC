@@ -41,7 +41,7 @@ impl AgentMode {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct AgentBudgets {
     pub actions: u64,
     pub wall_seconds: u64,
@@ -173,9 +173,11 @@ mod tests {
             true,
         );
         assert!(!admission.is_admitted());
-        assert!(admission
-            .codes()
-            .contains(&CynicErrorCode::AgentMutationWithoutClaim));
+        assert!(
+            admission
+                .codes()
+                .contains(&CynicErrorCode::AgentMutationWithoutClaim)
+        );
     }
 
     #[test]
@@ -188,9 +190,11 @@ mod tests {
             false,
         );
         assert!(!admission.is_admitted());
-        assert!(admission
-            .codes()
-            .contains(&CynicErrorCode::AgentCoordinationStoreUnavailable));
+        assert!(
+            admission
+                .codes()
+                .contains(&CynicErrorCode::AgentCoordinationStoreUnavailable)
+        );
     }
 
     #[test]
@@ -203,9 +207,11 @@ mod tests {
             true,
         );
         assert!(!admission.is_admitted());
-        assert!(admission
-            .codes()
-            .contains(&CynicErrorCode::AgentScopeConflict));
+        assert!(
+            admission
+                .codes()
+                .contains(&CynicErrorCode::AgentScopeConflict)
+        );
     }
 
     #[test]
@@ -218,9 +224,11 @@ mod tests {
             true,
         );
         assert!(!admission.is_admitted());
-        assert!(admission
-            .codes()
-            .contains(&CynicErrorCode::AgentBudgetExceeded));
+        assert!(
+            admission
+                .codes()
+                .contains(&CynicErrorCode::AgentBudgetExceeded)
+        );
     }
 
     #[test]

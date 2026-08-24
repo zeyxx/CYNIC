@@ -7,5 +7,5 @@
 
 pub use cynic_protocol::disk::{
     bytes_to_human, DiskCacheEntry, DiskCleanupItem, DiskCleanupPlan, DiskCleanupResult,
-    DiskCleanupStepExecution, DiskFileEntry, DiskFilesystem, DiskReport,
+    DiskCleanupStepExecution, DiskFileEntry, DiskFilesystem, DiskReport, PhysicalDisk,
 };

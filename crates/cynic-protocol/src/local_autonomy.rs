@@ -229,6 +229,9 @@ mod tests {
     #[test]
     fn schema_is_stable() {
         assert_eq!(LOCAL_AUTONOMY_STATE_SCHEMA, "cynic.local_autonomy_state.v1");
-        assert_eq!(LOCAL_AUTONOMY_DECISION_SCHEMA, "cynic.local_autonomy_decision.v1");
+        assert_eq!(
+            LOCAL_AUTONOMY_DECISION_SCHEMA,
+            "cynic.local_autonomy_decision.v1"
+        );
     }
 }

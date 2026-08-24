@@ -117,7 +117,9 @@ pub fn renew_agent_workload_claim(
     }
     // Max lease window check: renewal must not exceed granted_at + max_lease_window
     let claim = record.claim.as_ref().unwrap();
-    let max_expiry = claim.granted_at_ms.saturating_add(claim.max_lease_window_ms);
+    let max_expiry = claim
+        .granted_at_ms
+        .saturating_add(claim.max_lease_window_ms);
     if expires_at_ms > max_expiry {
         return Err(violation(
             "max_lease_window_exceeded",

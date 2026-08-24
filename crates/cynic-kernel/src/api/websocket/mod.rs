@@ -320,10 +320,7 @@ pub async fn ws_handler(
     principal
         .require_agent(&node_identity)
         .map_err(|message| (StatusCode::FORBIDDEN, message.to_string()))?;
-    if !matches!(
-        principal.role,
-        crate::api::rest::types::Role::Organ | crate::api::rest::types::Role::Internal
-    ) {
+    if !crate::api::rest::types::authorize_role_request(principal.role, "GET", "/events/ws") {
         return Err((
             StatusCode::FORBIDDEN,
             "WebSocket federation requires organ or internal role".to_string(),

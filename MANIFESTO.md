@@ -1,7 +1,9 @@
 # CYNIC Manifesto
 
-Version: 0.1  
-Status: public doctrine draft  
+> ⚠️ **NON-AUTHORITATIVE** — Projection narrative publique. Voir `contracts/foundation.json` pour l'autorité runtime.
+
+Version: 0.1
+Status: public doctrine draft
 Runtime authority: none
 
 This manifesto preserves direction. It does not prove implementation, grant

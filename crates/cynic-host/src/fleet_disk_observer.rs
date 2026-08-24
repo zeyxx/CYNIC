@@ -77,6 +77,7 @@ impl<R: ArgvRunner> FleetDiskObserver<R> {
                 filesystems: Vec::new(),
                 known_caches: Vec::new(),
                 large_files: Vec::new(),
+                physical_disks: Vec::new(),
             },
         }
     }

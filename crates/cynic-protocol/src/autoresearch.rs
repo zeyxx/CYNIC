@@ -92,7 +92,11 @@ pub struct SkillHypothesis {
 }
 
 impl SkillHypothesis {
-    pub fn new(skill_id: impl Into<String>, domain: impl Into<String>, description: impl Into<String>) -> Self {
+    pub fn new(
+        skill_id: impl Into<String>,
+        domain: impl Into<String>,
+        description: impl Into<String>,
+    ) -> Self {
         Self {
             schema: AUTORESEARCH_HYPOTHESIS_SCHEMA.to_string(),
             skill_id: skill_id.into(),
@@ -140,8 +144,7 @@ pub struct SkillCandidate {
 
 impl SkillCandidate {
     pub fn digest(&self) -> String {
-        crate::digest_json(self)
-            .unwrap_or_else(|_| "sha256:invalid".to_string())
+        crate::digest_json(self).unwrap_or_else(|_| "sha256:invalid".to_string())
     }
 }
 
@@ -176,7 +179,11 @@ pub fn measure_coverage(units: &[TraceUnit], domain: &str) -> f64 {
     if units.is_empty() {
         return 0.0;
     }
-    let total_sessions = units.iter().map(|u| u.session_id.as_str()).collect::<std::collections::BTreeSet<_>>().len();
+    let total_sessions = units
+        .iter()
+        .map(|u| u.session_id.as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
     if total_sessions == 0 {
         return 0.0;
     }
@@ -211,7 +218,11 @@ pub fn skill_reuse_gain(
     coverage: f64,
 ) -> SkillReuseGain {
     let (dedup_pen, _) = dedup_against(program, &hypothesis.domain);
-    let stub_pen = if hypothesis.actionability { 0.0 } else { program.stub_penalty };
+    let stub_pen = if hypothesis.actionability {
+        0.0
+    } else {
+        program.stub_penalty
+    };
     let gain = coverage - dedup_pen - stub_pen;
     SkillReuseGain {
         coverage,
@@ -261,7 +272,8 @@ pub fn build_report(
     corpus_sessions: usize,
     candidates: &[SkillCandidate],
 ) -> AutoresearchReport {
-    let program_digest = crate::digest_json(program).unwrap_or_else(|_| "sha256:invalid".to_string());
+    let program_digest =
+        crate::digest_json(program).unwrap_or_else(|_| "sha256:invalid".to_string());
     let mut kept = Vec::new();
     let mut discarded = Vec::new();
     let mut entries = Vec::new();
@@ -298,11 +310,31 @@ mod tests {
         // 5 sessions; `toolchain_ice` blocks in 2 (coverage 0.4);
         // `novel_domain` blocks in 1 (coverage 0.2, >= min_coverage).
         vec![
-            TraceUnit { session_id: "s1".into(), domain: "toolchain_ice".into(), is_block: true },
-            TraceUnit { session_id: "s2".into(), domain: "toolchain_ice".into(), is_block: true },
-            TraceUnit { session_id: "s3".into(), domain: "tailscale".into(), is_block: true },
-            TraceUnit { session_id: "s4".into(), domain: "design_doc".into(), is_block: false },
-            TraceUnit { session_id: "s5".into(), domain: "novel_domain".into(), is_block: true },
+            TraceUnit {
+                session_id: "s1".into(),
+                domain: "toolchain_ice".into(),
+                is_block: true,
+            },
+            TraceUnit {
+                session_id: "s2".into(),
+                domain: "toolchain_ice".into(),
+                is_block: true,
+            },
+            TraceUnit {
+                session_id: "s3".into(),
+                domain: "tailscale".into(),
+                is_block: true,
+            },
+            TraceUnit {
+                session_id: "s4".into(),
+                domain: "design_doc".into(),
+                is_block: false,
+            },
+            TraceUnit {
+                session_id: "s5".into(),
+                domain: "novel_domain".into(),
+                is_block: true,
+            },
         ]
     }
 
@@ -370,7 +402,11 @@ mod tests {
         let mut h_new = SkillHypothesis::new("cynic-y", "novel_domain", "new actionable");
         h_new.actionability = true;
         let cands = vec![
-            evaluate_candidate(&p, &SkillHypothesis::new("cynic-x", "toolchain_ice", "dup"), &units()),
+            evaluate_candidate(
+                &p,
+                &SkillHypothesis::new("cynic-x", "toolchain_ice", "dup"),
+                &units(),
+            ),
             evaluate_candidate(&p, &h_new, &units()),
         ];
         let r = build_report(&p, 5, &cands);
@@ -387,8 +423,14 @@ mod tests {
     #[test]
     fn schema_names_are_stable_contracts() {
         assert_eq!(AUTORESEARCH_PROGRAM_SCHEMA, "cynic.autoresearch.program.v1");
-        assert_eq!(AUTORESEARCH_HYPOTHESIS_SCHEMA, "cynic.autoresearch.hypothesis.v1");
-        assert_eq!(AUTORESEARCH_CANDIDATE_SCHEMA, "cynic.autoresearch.candidate.v1");
+        assert_eq!(
+            AUTORESEARCH_HYPOTHESIS_SCHEMA,
+            "cynic.autoresearch.hypothesis.v1"
+        );
+        assert_eq!(
+            AUTORESEARCH_CANDIDATE_SCHEMA,
+            "cynic.autoresearch.candidate.v1"
+        );
         assert_eq!(AUTORESEARCH_REPORT_SCHEMA, "cynic.autoresearch.report.v1");
     }
 }

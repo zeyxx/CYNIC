@@ -246,7 +246,10 @@ impl RoleTransitionRecord {
             blockers.push("role_transition_fencing_token_not_monotonic".to_string());
         }
         if self.lease_signature_hex.len() != 128
-            || !self.lease_signature_hex.bytes().all(|b| b.is_ascii_hexdigit())
+            || !self
+                .lease_signature_hex
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit())
         {
             blockers.push("role_transition_signature_invalid".to_string());
         }
@@ -441,7 +444,9 @@ mod tests {
         assert!(lease.validate(3000).is_empty());
 
         let expired_blockers = lease.validate(7000);
-        assert!(expired_blockers.contains(&"cryptographic_lease_expired_or_not_yet_valid".to_string()));
+        assert!(
+            expired_blockers.contains(&"cryptographic_lease_expired_or_not_yet_valid".to_string())
+        );
     }
 
     #[test]

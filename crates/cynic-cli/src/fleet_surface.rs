@@ -48,6 +48,36 @@ pub(crate) enum FleetCommand {
         #[arg(long, default_value = "cynic@{ip}")]
         ssh_target: String,
     },
+    /// Observe memory across declared fleet nodes (SSH out, /proc/meminfo).
+    Memory {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        /// SSH target template (default "cynic@{ip}"); {ip} is substituted.
+        #[arg(long, default_value = "cynic@{ip}")]
+        ssh_target: String,
+    },
+    /// Observe CPU across declared fleet nodes (SSH out, /proc/cpuinfo+stat).
+    Cpu {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        /// SSH target template (default "cynic@{ip}"); {ip} is substituted.
+        #[arg(long, default_value = "cynic@{ip}")]
+        ssh_target: String,
+    },
+    /// Observe network across declared fleet nodes (SSH out, /proc/net/dev + ip -j).
+    Network {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        /// SSH target template (default "cynic@{ip}"); {ip} is substituted.
+        #[arg(long, default_value = "cynic@{ip}")]
+        ssh_target: String,
+    },
     /// Emit a cryptographically signed heartbeat pulse.
     Pulse {
         #[arg(long)]
@@ -118,6 +148,51 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
                 resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
             let adapter =
                 cynic_host::fleet_disk_observer::FleetDiskObserver::with_runner(
+                    registry_path.to_string_lossy().to_string(),
+                    cynic_host::update_lifecycle::LocalArgvRunner,
+                )
+                .with_ssh_target(ssh_target);
+            let report = adapter.observe();
+            crate::cli_json::emit_pretty_json(&report)
+        }
+        FleetCommand::Memory { json, registry, ssh_target } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let registry_path =
+                resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
+            let adapter =
+                cynic_host::fleet_memory_observer::FleetMemoryObserver::with_runner(
+                    registry_path.to_string_lossy().to_string(),
+                    cynic_host::update_lifecycle::LocalArgvRunner,
+                )
+                .with_ssh_target(ssh_target);
+            let report = adapter.observe();
+            crate::cli_json::emit_pretty_json(&report)
+        }
+        FleetCommand::Cpu { json, registry, ssh_target } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let registry_path =
+                resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
+            let adapter =
+                cynic_host::fleet_cpu_observer::FleetCpuObserver::with_runner(
+                    registry_path.to_string_lossy().to_string(),
+                    cynic_host::update_lifecycle::LocalArgvRunner,
+                )
+                .with_ssh_target(ssh_target);
+            let report = adapter.observe();
+            crate::cli_json::emit_pretty_json(&report)
+        }
+        FleetCommand::Network { json, registry, ssh_target } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let registry_path =
+                resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
+            let adapter =
+                cynic_host::fleet_network_observer::FleetNetworkObserver::with_runner(
                     registry_path.to_string_lossy().to_string(),
                     cynic_host::update_lifecycle::LocalArgvRunner,
                 )

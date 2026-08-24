@@ -19,20 +19,18 @@
   "mutation_policy": "explicit_apply_only",
   "canonical_entrypoints": [
     "cynic bootstrap framework substrate-plan --json --node <id>",
-    "cynic bootstrap framework substrate-apply --json --node <id> --yes",
-    "MCP fleet_node_exec"
+    "cynic bootstrap framework substrate-apply --json --node <id> --yes"
   ],
   "evidence": [
     "cynic.node_substrate.observation.v1",
     "cynic.node_substrate.apply_report.v1",
-    "cynic.infrastructure_mcp.fleet_node_exec.v1"
-    ,"cynic.lxc_exec_bridge.response.v1"
+    "cynic.lxc_exec_bridge.response.v1"
   ],
   "anti_responsibilities": [
     "let CLI or MCP own provider credentials",
     "let CLI or MCP construct provider API clients",
-    "accept raw shell command strings as provider actions"
-    ,"use Python helpers or wildcard pct sudoers rules as runtime authority"
+    "accept raw shell command strings as provider actions",
+    "use Python helpers or wildcard pct sudoers rules as runtime authority"
   ],
   "architecture": {
     "owned_ports": [
@@ -50,9 +48,7 @@
       "cynic-node::adapters::qemu_guest_agent_network_runner"
     ],
     "projection_modules": [
-      "cynic-cli::bootstrap_surface::framework::substrate",
-      "cynic-mcp::routers::local",
-      "cynic-mcp::proxy"
+      "cynic-cli::bootstrap_surface::framework::substrate"
     ],
     "forbidden_projection_markers": [
       "proxmox_qemu_agent_exec",

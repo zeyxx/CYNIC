@@ -345,7 +345,6 @@
       "id": "l4_agent_exposure",
       "responsibility": "Expose backed capabilities to agents without duplicating domain authority.",
       "owned_by": [
-        "cynic-mcp",
         "cynic-cli"
       ],
       "evidence": [

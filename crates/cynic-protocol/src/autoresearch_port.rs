@@ -49,7 +49,10 @@ pub trait AutoresearchPort {
 
     /// Reflect on the units to form skill hypotheses (the "researcher"). The fake
     /// returns pre-set hypotheses so decisions are deterministic and testable.
-    fn hypothesize(&self, units: &[TraceUnit]) -> Result<Vec<SkillHypothesis>, AutoresearchPortError>;
+    fn hypothesize(
+        &self,
+        units: &[TraceUnit],
+    ) -> Result<Vec<SkillHypothesis>, AutoresearchPortError>;
 }
 
 pub type ReasoningError = AutoresearchPortError;
@@ -120,7 +123,10 @@ impl AutoresearchPort for FakeReflection {
         Ok(self.units.clone())
     }
 
-    fn hypothesize(&self, _units: &[TraceUnit]) -> Result<Vec<SkillHypothesis>, AutoresearchPortError> {
+    fn hypothesize(
+        &self,
+        _units: &[TraceUnit],
+    ) -> Result<Vec<SkillHypothesis>, AutoresearchPortError> {
         Ok(self.hypotheses.clone())
     }
 }
@@ -134,11 +140,31 @@ mod tests {
         // 5 sessions; toolchain_ice blocks in 2 (owned domain -> discard),
         // novel_domain blocks in 1 (actionable -> keep).
         let units = vec![
-            TraceUnit { session_id: "s1".into(), domain: "toolchain_ice".into(), is_block: true },
-            TraceUnit { session_id: "s2".into(), domain: "toolchain_ice".into(), is_block: true },
-            TraceUnit { session_id: "s3".into(), domain: "tailscale".into(), is_block: true },
-            TraceUnit { session_id: "s4".into(), domain: "design_doc".into(), is_block: false },
-            TraceUnit { session_id: "s5".into(), domain: "novel_domain".into(), is_block: true },
+            TraceUnit {
+                session_id: "s1".into(),
+                domain: "toolchain_ice".into(),
+                is_block: true,
+            },
+            TraceUnit {
+                session_id: "s2".into(),
+                domain: "toolchain_ice".into(),
+                is_block: true,
+            },
+            TraceUnit {
+                session_id: "s3".into(),
+                domain: "tailscale".into(),
+                is_block: true,
+            },
+            TraceUnit {
+                session_id: "s4".into(),
+                domain: "design_doc".into(),
+                is_block: false,
+            },
+            TraceUnit {
+                session_id: "s5".into(),
+                domain: "novel_domain".into(),
+                is_block: true,
+            },
         ];
         let mut h_dup = SkillHypothesis::new("cynic-x", "toolchain_ice", "duplicate stub");
         let mut h_new = SkillHypothesis::new("cynic-y", "novel_domain", "new actionable skill");
@@ -155,9 +181,17 @@ mod tests {
         assert_eq!(report.kept, vec!["cynic-y".to_string()]);
         assert_eq!(report.discarded, vec!["cynic-x".to_string()]);
         // entry for the kept skill carries Keep
-        let kept = report.entries.iter().find(|e| e.skill_id == "cynic-y").unwrap();
+        let kept = report
+            .entries
+            .iter()
+            .find(|e| e.skill_id == "cynic-y")
+            .unwrap();
         assert_eq!(kept.status, KeepDiscard::Keep);
-        let dropped = report.entries.iter().find(|e| e.skill_id == "cynic-x").unwrap();
+        let dropped = report
+            .entries
+            .iter()
+            .find(|e| e.skill_id == "cynic-x")
+            .unwrap();
         assert_eq!(dropped.status, KeepDiscard::Discard);
     }
 
@@ -178,7 +212,10 @@ mod tests {
             fn observe_traces(&self) -> Result<Vec<TraceUnit>, AutoresearchPortError> {
                 Err(AutoresearchPortError::new("corpus_unreadable", "disk gone"))
             }
-            fn hypothesize(&self, _u: &[TraceUnit]) -> Result<Vec<SkillHypothesis>, AutoresearchPortError> {
+            fn hypothesize(
+                &self,
+                _u: &[TraceUnit],
+            ) -> Result<Vec<SkillHypothesis>, AutoresearchPortError> {
                 Ok(vec![])
             }
         }
@@ -190,6 +227,9 @@ mod tests {
 
     #[test]
     fn schema_name_is_stable_contract() {
-        assert_eq!(AUTORESEARCH_PORT_ERROR_SCHEMA, "cynic.autoresearch.port_error.v1");
+        assert_eq!(
+            AUTORESEARCH_PORT_ERROR_SCHEMA,
+            "cynic.autoresearch.port_error.v1"
+        );
     }
 }

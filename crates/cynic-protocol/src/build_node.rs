@@ -44,11 +44,14 @@ pub struct NodeHealthView {
     pub critical_active: bool,
     pub warning_active: bool,
     pub active_osha_codes: Vec<String>,
+    /// Available memory in MiB (observed locally; 0 for remote peers without agent).
+    pub available_mem_mib: u64,
 }
 
 impl NodeHealthView {
-    pub fn from_anomalies(anomalies: &[OsHealthAnomaly]) -> Self {
+    pub fn from_anomalies(anomalies: &[OsHealthAnomaly], available_mem_mib: u64) -> Self {
         let mut view = NodeHealthView::default();
+        view.available_mem_mib = available_mem_mib;
         for a in anomalies {
             let is_critical = a.severity.eq_ignore_ascii_case("critical");
             let is_warning = a.severity.eq_ignore_ascii_case("warning");
@@ -127,9 +130,15 @@ mod tests {
                 critical_active: true,
                 warning_active: false,
                 active_osha_codes: vec!["CYNIC-OSH-001".to_string()],
+                available_mem_mib: 0,
             }
         } else {
-            NodeHealthView::default()
+            NodeHealthView {
+                critical_active: false,
+                warning_active: false,
+                active_osha_codes: vec![],
+                available_mem_mib: 0,
+            }
         };
         BuildNodeCandidate {
             node_id: node_id.to_string(),
@@ -177,6 +186,7 @@ mod tests {
             critical_active: false,
             warning_active: true,
             active_osha_codes: vec!["CYNIC-OSH-003".to_string()],
+            available_mem_mib: 0,
         };
         let sel = resolve_build_node(&[c]).expect("warning is selectable");
         assert_eq!(sel.node_id, "builder-a");

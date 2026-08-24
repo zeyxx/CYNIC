@@ -689,7 +689,6 @@ mod tests {
     }
 }
 
-
 pub fn parse_agent_workload_observation_read_back(
     body: &serde_json::Value,
 ) -> Result<AgentWorkloadDelivery, Vec<String>> {
@@ -697,15 +696,20 @@ pub fn parse_agent_workload_observation_read_back(
         .map_err(|e| vec![format!("invalid_agent_workload_observation_read_back:{e}")])
 }
 
-pub fn validate_agent_workload_submission_read_back(delivery: &AgentWorkloadDelivery, body: &str) -> Vec<String> {
+pub fn validate_agent_workload_submission_read_back(
+    delivery: &AgentWorkloadDelivery,
+    body: &str,
+) -> Vec<String> {
     match serde_json::from_str::<AgentWorkloadDelivery>(body) {
         Ok(observed) => {
             let mut violations = validate_agent_workload_delivery(&observed);
             if observed.envelope != delivery.envelope {
-                violations.push("agent_workload_submission_read_back_envelope_mismatch".to_string());
+                violations
+                    .push("agent_workload_submission_read_back_envelope_mismatch".to_string());
             }
             if observed.target_node_id != delivery.target_node_id {
-                violations.push("agent_workload_submission_read_back_target_node_mismatch".to_string());
+                violations
+                    .push("agent_workload_submission_read_back_target_node_mismatch".to_string());
             }
             violations
         }

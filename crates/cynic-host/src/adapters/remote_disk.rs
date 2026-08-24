@@ -92,14 +92,17 @@ impl<R: ArgvRunner> DiskObservationPort for RemoteDiskAdapter<R> {
         let stdout = self.run_df()?;
         let filesystems = parse_df_filesystems(&stdout);
 
-        // Remote nodes cannot walk local caches / large-file trees portably;
-        // leave them empty so the report stays truthful and conservative.
+        // Remote nodes cannot walk local caches / large-file trees or run lsblk
+        // portably without privilege; leave them empty so the report stays
+        // truthful and conservative. Physical-disk detail for a remote node is
+        // left to that node's own `cynic runtime disk --full` run.
         Ok(DiskReport {
             schema: "cynic.host_disk_report.v1".to_string(),
             timestamp,
             filesystems,
             known_caches: Vec::new(),
             large_files: Vec::new(),
+            physical_disks: Vec::new(),
         })
     }
 

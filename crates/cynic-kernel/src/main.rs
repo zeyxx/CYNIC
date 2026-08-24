@@ -19,6 +19,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if run_mcp_proxy_mode_if_requested(entry_flags).await? {
         return Ok(());
     }
+    if entry_flags.force_reprobe {
+        // --reset flag triggers bootstrap verify
+        if let Err(e) = main_verify().await {
+            klog!("bootstrap verify failed: {}", e);
+            std::process::exit(1);
+        }
+        klog!("bootstrap verify PASSED - runtime starting");
+    }
+
 
     klog!("CYNIC V2 — SOVEREIGN BOOT");
     bootstrap::runtime_orchestrator::run_runtime(entry_flags).await

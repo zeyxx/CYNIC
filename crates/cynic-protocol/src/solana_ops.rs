@@ -319,7 +319,8 @@ mod tests {
             "a".repeat(128),
         );
 
-        let attestation = SolanaTakeoverAttestation::from_transition_record(&record, "mainnet-beta");
+        let attestation =
+            SolanaTakeoverAttestation::from_transition_record(&record, "mainnet-beta");
         assert_eq!(attestation.fencing_token, 42);
         assert_eq!(attestation.to_node_id, "node-b");
         assert!(attestation.commitment_memo.contains("token=42:prior=41"));

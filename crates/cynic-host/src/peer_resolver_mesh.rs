@@ -146,9 +146,10 @@ impl MeshPeerResolver {
             }
 
             // OS health: local observation only (remote observation requires SSH/agent).
+            let available_mem_mib = crate::os_health::probes::read_available_mem_mib();
             let os_health = if node.id == self.local_node_id {
                 let anomalies = self.observe_local_os_health();
-                NodeHealthView::from_anomalies(&anomalies)
+                NodeHealthView::from_anomalies(&anomalies, available_mem_mib)
             } else {
                 NodeHealthView::default()
             };

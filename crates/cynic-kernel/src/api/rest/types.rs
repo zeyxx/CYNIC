@@ -50,6 +50,10 @@ pub enum RuntimeCapability {
     RuntimeRead,
     AgentWorkloadDelivery,
     JudgmentInvoke,
+    /// Federation websocket ingress (`/events/ws`). Organ/Internal only —
+    /// modelled here so the WS route consumes the same canonical decision
+    /// source as REST instead of an inline role check.
+    FederationEvents,
     RuntimeAdmin,
 }
 
@@ -57,7 +61,7 @@ pub fn authorize_role_request(role: Role, method: &str, path: &str) -> bool {
     let required = required_capability(method, path);
     match role {
         Role::Internal => true,
-        Role::Cortex => true,
+        Role::Cortex => !matches!(required, RuntimeCapability::FederationEvents),
         Role::Organ => matches!(
             required,
             RuntimeCapability::CoordinationRead
@@ -65,6 +69,7 @@ pub fn authorize_role_request(role: Role, method: &str, path: &str) -> bool {
                 | RuntimeCapability::ObservationWrite
                 | RuntimeCapability::InferenceUse
                 | RuntimeCapability::RuntimeRead
+                | RuntimeCapability::FederationEvents
         ),
     }
 }
@@ -95,6 +100,8 @@ pub(crate) fn required_capability(method: &str, path: &str) -> RuntimeCapability
         RuntimeCapability::InferenceUse
     } else if matches!(path, "/health" | "/events") {
         RuntimeCapability::RuntimeRead
+    } else if path == "/events/ws" {
+        RuntimeCapability::FederationEvents
     } else if path == "/judge" {
         RuntimeCapability::JudgmentInvoke
     } else {
@@ -115,6 +122,9 @@ pub(crate) fn authorize_agent_session_request(
         RuntimeCapability::RuntimeRead => ("runtime.read", false),
         RuntimeCapability::AgentWorkloadDelivery => ("agent_workload.delivery", method != "GET"),
         RuntimeCapability::JudgmentInvoke => ("judgment.invoke", true),
+        // Agent-session capability grants never include federation websocket
+        // ingress; that plane is signed-workload principal only.
+        RuntimeCapability::FederationEvents => ("federation.events", true),
         RuntimeCapability::RuntimeAdmin => ("runtime.admin", true),
     };
     record
@@ -468,6 +478,20 @@ mod authorization_tests {
             required_capability("GET", "/agent-workloads/build-123"),
             RuntimeCapability::AgentWorkloadDelivery
         );
+    }
+
+    #[test]
+    fn federation_ws_route_uses_canonical_decision_source() {
+        assert_eq!(
+            required_capability("GET", "/events/ws"),
+            RuntimeCapability::FederationEvents
+        );
+        assert!(authorize_role_request(Role::Organ, "GET", "/events/ws"));
+        assert!(authorize_role_request(Role::Internal, "GET", "/events/ws"));
+        // Cortex is unrestricted on REST but excluded from federation
+        // websocket ingress; the boundary lives here, not inline in the
+        // websocket handler.
+        assert!(!authorize_role_request(Role::Cortex, "GET", "/events/ws"));
     }
 }
 

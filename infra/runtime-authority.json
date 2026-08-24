@@ -59,15 +59,6 @@
         "bounded local audits"
       ]
     },
-    "agent_mcp": {
-      "owner": "crates/cynic-mcp",
-      "artifact": "cynic-mcp",
-      "owns": [
-        "agent-facing MCP tools",
-        "portable tool projection",
-        "planning and projection only; never agent mutation policy or execution authority"
-      ]
-    },
     "protocol_contracts": {
       "owner": "crates/cynic-protocol",
       "artifact": null,
@@ -222,7 +213,7 @@
     "exposure_ssot": "infra/agent-exposure.json",
     "audit_command": "cynic dev agent-exposure --json",
     "docs_policy": "docs/ is quarantined historical prose; see docs/README.md. Docs are not runtime law.",
-    "rule": "Every cynic-mcp #[tool] must appear in agent-exposure with a domain and tier. Machine-local absolute paths are forbidden in agent projections."
+    "rule": "Every #[tool] must appear in agent-exposure with a domain and tier. Machine-local absolute paths are forbidden in agent projections."
   },
   "development_default": {
     "primary_check": "make check",

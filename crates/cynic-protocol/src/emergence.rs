@@ -12,7 +12,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::local_autonomy::AutonomyMode;
+// Re-exported so downstream crates can reference `emergence::AutonomyMode`
+// alongside the emergence types that embed it.
+pub use crate::local_autonomy::AutonomyMode;
 
 pub const EMERGENCE_STATE_SCHEMA: &str = "cynic.emergence_state.v1";
 pub const EMERGENCE_DECISION_SCHEMA: &str = "cynic.emergence_decision.v1";
@@ -105,7 +107,9 @@ pub fn elect_for_role(state: &EmergenceState, role: &str) -> EmergenceDecision {
     });
 
     let elected = candidates.first().map(|p| p.node_id.clone());
-    let elected_priority = candidates.first().and_then(|p| RolePriority::from_role_str(&p.role));
+    let elected_priority = candidates
+        .first()
+        .and_then(|p| RolePriority::from_role_str(&p.role));
 
     let reasoning = match &elected {
         Some(node) => format!("elected {node} for {role}"),
@@ -181,10 +185,25 @@ mod tests {
             observed_at_unix_s: 1,
             local_node_id: "node-a".to_string(),
             peers: vec![
-                peer("node-a", "build_runner_secondary", AutonomyMode::Autonomous, 80),
-                peer("node-b", "build_runner_primary", AutonomyMode::Autonomous, 90),
+                peer(
+                    "node-a",
+                    "build_runner_secondary",
+                    AutonomyMode::Autonomous,
+                    80,
+                ),
+                peer(
+                    "node-b",
+                    "build_runner_primary",
+                    AutonomyMode::Autonomous,
+                    90,
+                ),
             ],
-            local: peer("node-a", "build_runner_secondary", AutonomyMode::Autonomous, 80),
+            local: peer(
+                "node-a",
+                "build_runner_secondary",
+                AutonomyMode::Autonomous,
+                80,
+            ),
         };
         let decision = elect_for_role(&state, "build_runner");
         assert_eq!(decision.candidates.first().unwrap(), "node-b");
@@ -197,10 +216,20 @@ mod tests {
             observed_at_unix_s: 1,
             local_node_id: "node-a".to_string(),
             peers: vec![
-                peer("node-a", "build_runner_secondary", AutonomyMode::Autonomous, 80),
+                peer(
+                    "node-a",
+                    "build_runner_secondary",
+                    AutonomyMode::Autonomous,
+                    80,
+                ),
                 peer("node-b", "build_runner_primary", AutonomyMode::Degraded, 90),
             ],
-            local: peer("node-a", "build_runner_secondary", AutonomyMode::Autonomous, 80),
+            local: peer(
+                "node-a",
+                "build_runner_secondary",
+                AutonomyMode::Autonomous,
+                80,
+            ),
         };
         let decision = elect_for_role(&state, "build_runner");
         assert_eq!(decision.candidates.first().unwrap(), "node-a");

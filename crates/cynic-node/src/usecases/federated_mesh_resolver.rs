@@ -143,7 +143,12 @@ impl LocalRegistryMeshResolver {
             // Desired-until-observed: a seed node is assumed reachable until a
             // mesh probe or OS-health observation proves otherwise.
             reachable: true,
-            health: NodeHealthView::default(),
+            health: NodeHealthView {
+                critical_active: false,
+                warning_active: false,
+                active_osha_codes: vec![],
+                available_mem_mib: 0,
+            },
         }
     }
 }
@@ -246,7 +251,12 @@ impl PeerResolver for LocalRegistryMeshResolver {
                     addr: n.ip.clone(),
                     probe_ports: n.probe_ports.clone(),
                     reachable: true,
-                    health: NodeHealthView::default(),
+                    health: NodeHealthView {
+                        critical_active: false,
+                        warning_active: false,
+                        active_osha_codes: vec![],
+                        available_mem_mib: 0,
+                    },
                 },
                 signature_ed25519: bundle.signature.clone(),
                 generated_at_unix_s: 0,

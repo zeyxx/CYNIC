@@ -106,15 +106,8 @@ impl KernelSpofSignal {
     /// Build a signal when no kernel failover target is configured (the common
     /// single-VM case). `kernel_reachable` and `last_heartbeat_age_s` come from
     /// the observer; everything else is the declared topology truth.
-    pub fn single_vm(
-        kernel_reachable: bool,
-        last_heartbeat_age_s: Option<u64>,
-    ) -> Self {
-        let severity = if kernel_reachable {
-            "info"
-        } else {
-            "critical"
-        };
+    pub fn single_vm(kernel_reachable: bool, last_heartbeat_age_s: Option<u64>) -> Self {
+        let severity = if kernel_reachable { "info" } else { "critical" };
         let residual_risk = if kernel_reachable {
             "kernel reachable on dedicated VM; loss of that VM is a total-cortex SPOF with no automated failover"
                 .to_string()
@@ -618,8 +611,7 @@ pub fn reconcile_health_signal(
                 blockers.iter().map(|c| c.code().to_string()).collect();
             let codes_joined = blocking_codes.join(", ");
             // Retryability comes from the catalog, not from a local rule.
-            let all_retryable = !blockers.is_empty()
-                && blockers.iter().all(|c| c.retryable());
+            let all_retryable = !blockers.is_empty() && blockers.iter().all(|c| c.retryable());
             let action = if *consent_granted {
                 AutonomicActionKind::RecordObservationOnly {
                     reason: format!(
@@ -664,8 +656,7 @@ pub fn reconcile_health_signal(
         } => {
             // Cynic-mode claims preempt baseline (AGENTS.md conflict table);
             // otherwise first-wins and the contender yields.
-            let contender_preempts =
-                contender_mode == "cynic" && holder_mode == "baseline";
+            let contender_preempts = contender_mode == "cynic" && holder_mode == "baseline";
             let (yielding, retaining) = if contender_preempts {
                 (holder_agent_id, contender_agent_id)
             } else {
@@ -687,9 +678,7 @@ pub fn reconcile_health_signal(
                     "Agents '{holder_agent_id}' ({holder_mode}) and '{contender_agent_id}' ({contender_mode}) both claim {scope_kind} '{scope_path}' — '{yielding}' yields to '{retaining}'"
                 ),
                 stop_condition: "stop when only one active claim covers the scope".to_string(),
-                rollback_intent: format!(
-                    "re-claim '{scope_path}' after '{retaining}' releases"
-                ),
+                rollback_intent: format!("re-claim '{scope_path}' after '{retaining}' releases"),
             })
         }
         HealthSignalPayload::AgentClaimExpired {
@@ -1005,10 +994,7 @@ mod tests {
         let payload = HealthSignalPayload::SharedTypeDrift {
             crate_name: "cynic-protocol".to_string(),
             type_name: "BuildRecipe".to_string(),
-            divergent_symbols: vec![
-                "target_profile".to_string(),
-                "allowed_actions".to_string(),
-            ],
+            divergent_symbols: vec!["target_profile".to_string(), "allowed_actions".to_string()],
             affected_consumers: vec!["build_workflow::tests".to_string()],
         };
 

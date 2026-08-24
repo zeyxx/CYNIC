@@ -9,7 +9,6 @@
     "cynic-protocol::runtime_release",
     "cynic-protocol::release_publication",
     "cynic-kernel::api::rest::node_control",
-    "cynic-mcp::routers::local::runtime_release",
     "cynic-host::runtime_seed::signature",
     "cynic-host::runtime_seed::filesystem",
     "cynic-host::runtime_seed",

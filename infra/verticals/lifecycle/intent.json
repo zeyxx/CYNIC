@@ -32,7 +32,7 @@
           }
         }
       },
-      "runtime_artifacts": ["cynic-kernel", "cynic-node", "cynic-mcp", "cynic-lxc-exec-bridge", "cynic"]
+      "runtime_artifacts": ["cynic-kernel", "cynic-node", "cynic-lxc-exec-bridge", "cynic"]
     }
   },
   "code_contract": {

@@ -74,9 +74,7 @@ pub enum ActivationAction {
         to: DeploymentPhase,
     },
     /// Execute the takeover activation.
-    ExecuteTakeover {
-        fencing_token: u64,
-    },
+    ExecuteTakeover { fencing_token: u64 },
     /// No action needed (already active).
     None,
 }
@@ -133,90 +131,78 @@ pub fn plan_activation_action(
     verdict: &NodeActivationVerdict,
 ) -> Result<ActivationActionPlan, String> {
     match verdict {
-        NodeActivationVerdict::Activatable { node_id, next_action, .. } => {
-            match next_action {
-                ActivationAction::Bootstrap => Ok(ActivationActionPlan {
-                    description: format!("Bootstrap node {}", node_id),
-                    apply_argv: vec![
-                        "cynic".into(),
-                        "node".into(),
-                        "bootstrap".into(),
-                        node_id.clone(),
-                    ],
-                    read_back_argv: vec![
-                        "cynic".into(),
-                        "node".into(),
-                        "activation".into(),
-                        "status".into(),
-                        node_id.clone(),
-                    ],
-                    rollback_argv: vec![
-                        "cynic".into(),
-                        "node".into(),
-                        "deactivate".into(),
-                        node_id.clone(),
-                    ],
-                    requires_privilege: true,
-                    requires_consent: true,
-                    expected_evidence_refs: vec![
-                        format!("node://{}/bootstrap", node_id),
-                    ],
-                }),
-                ActivationAction::AdvanceDeployment { from, to } => Ok(ActivationActionPlan {
-                    description: format!("Advance deployment {:?} -> {:?}", from, to),
-                    apply_argv: vec![
-                        "cynic".into(),
-                        "deployment".into(),
-                        "advance".into(),
-                        format!("{:?}", from),
-                        format!("{:?}", to),
-                    ],
-                    read_back_argv: vec![
-                        "cynic".into(),
-                        "deployment".into(),
-                        "status".into(),
-                    ],
-                    rollback_argv: vec![
-                        "cynic".into(),
-                        "deployment".into(),
-                        "rollback".into(),
-                    ],
-                    requires_privilege: false,
-                    requires_consent: true,
-                    expected_evidence_refs: vec![
-                        format!("deployment://{:?}->{:?}", from, to),
-                    ],
-                }),
-                ActivationAction::ExecuteTakeover { fencing_token } => Ok(ActivationActionPlan {
-                    description: format!("Execute takeover (fencing_token={})", fencing_token),
-                    apply_argv: vec![
-                        "cynic".into(),
-                        "node".into(),
-                        "takeover".into(),
-                        "--fencing-token".into(),
-                        format!("{}", fencing_token),
-                    ],
-                    read_back_argv: vec![
-                        "cynic".into(),
-                        "node".into(),
-                        "activation".into(),
-                        "status".into(),
-                    ],
-                    rollback_argv: vec![
-                        "cynic".into(),
-                        "node".into(),
-                        "takeover".into(),
-                        "--rollback".into(),
-                    ],
-                    requires_privilege: true,
-                    requires_consent: true,
-                    expected_evidence_refs: vec![
-                        format!("takeover://fencing={}", fencing_token),
-                    ],
-                }),
-                ActivationAction::None => Err("no action needed".into()),
-            }
-        }
+        NodeActivationVerdict::Activatable {
+            node_id,
+            next_action,
+            ..
+        } => match next_action {
+            ActivationAction::Bootstrap => Ok(ActivationActionPlan {
+                description: format!("Bootstrap node {}", node_id),
+                apply_argv: vec![
+                    "cynic".into(),
+                    "node".into(),
+                    "bootstrap".into(),
+                    node_id.clone(),
+                ],
+                read_back_argv: vec![
+                    "cynic".into(),
+                    "node".into(),
+                    "activation".into(),
+                    "status".into(),
+                    node_id.clone(),
+                ],
+                rollback_argv: vec![
+                    "cynic".into(),
+                    "node".into(),
+                    "deactivate".into(),
+                    node_id.clone(),
+                ],
+                requires_privilege: true,
+                requires_consent: true,
+                expected_evidence_refs: vec![format!("node://{}/bootstrap", node_id)],
+            }),
+            ActivationAction::AdvanceDeployment { from, to } => Ok(ActivationActionPlan {
+                description: format!("Advance deployment {:?} -> {:?}", from, to),
+                apply_argv: vec![
+                    "cynic".into(),
+                    "deployment".into(),
+                    "advance".into(),
+                    format!("{:?}", from),
+                    format!("{:?}", to),
+                ],
+                read_back_argv: vec!["cynic".into(), "deployment".into(), "status".into()],
+                rollback_argv: vec!["cynic".into(), "deployment".into(), "rollback".into()],
+                requires_privilege: false,
+                requires_consent: true,
+                expected_evidence_refs: vec![format!("deployment://{:?}->{:?}", from, to)],
+            }),
+            ActivationAction::ExecuteTakeover { fencing_token } => Ok(ActivationActionPlan {
+                description: format!("Execute takeover (fencing_token={})", fencing_token),
+                apply_argv: vec![
+                    "cynic".into(),
+                    "node".into(),
+                    "takeover".into(),
+                    "--fencing-token".into(),
+                    format!("{}", fencing_token),
+                ],
+                read_back_argv: vec![
+                    "cynic".into(),
+                    "node".into(),
+                    "activation".into(),
+                    "status".into(),
+                ],
+                rollback_argv: vec![
+                    "cynic".into(),
+                    "node".into(),
+                    "takeover".into(),
+                    "--rollback".into(),
+                ],
+                requires_privilege: true,
+                requires_consent: true,
+                expected_evidence_refs: vec![format!("takeover://fencing={}", fencing_token)],
+            }),
+            ActivationAction::None => Err("no action needed".into()),
+        },
         NodeActivationVerdict::Active { .. } => Err("node is already active".into()),
         NodeActivationVerdict::Blocked { blockers, .. } => {
             Err(format!("node is blocked: {:?}", blockers))
@@ -450,10 +436,10 @@ pub fn classify_activation_blocker(blocker: &str) -> Option<CynicErrorCode> {
         "takeover_activation_fencing_invalid" => {
             Some(CynicErrorCode::ActivationPhaseAuthorityInsufficient)
         }
-        "deployment_phase_unknown" | "no_deployment_epoch_or_bootstrap_observation"
-        | "registry_read_failed" | "node_not_in_registry" => {
-            Some(CynicErrorCode::ActivationEpochUnobservable)
-        }
+        "deployment_phase_unknown"
+        | "no_deployment_epoch_or_bootstrap_observation"
+        | "registry_read_failed"
+        | "node_not_in_registry" => Some(CynicErrorCode::ActivationEpochUnobservable),
         _ => {
             // Bootstrap observers emit their own blocker vocabulary; treat the
             // whole family as bootstrap-incomplete rather than guessing.
@@ -569,8 +555,12 @@ mod tests {
             None,
             Some(DeploymentPhase::Completed),
         );
-        assert!(matches!(&verdict,
-            NodeActivationVerdict::Active { authority: ActivationAuthority::RuntimeAuthority, .. }
+        assert!(matches!(
+            &verdict,
+            NodeActivationVerdict::Active {
+                authority: ActivationAuthority::RuntimeAuthority,
+                ..
+            }
         ));
     }
 
@@ -584,7 +574,8 @@ mod tests {
             None,
             Some(DeploymentPhase::Staging),
         );
-        assert!(matches!(&verdict,
+        assert!(matches!(
+            &verdict,
             NodeActivationVerdict::Activatable {
                 required_authority: ActivationAuthority::ReleaseCandidate,
                 ..
@@ -615,13 +606,8 @@ mod tests {
             identity_verified: true,
             proof_refs: vec!["proof-1".into()],
         };
-        let verdict = decide_node_activation(
-            Some(&epoch),
-            None,
-            Some(&request),
-            Some(&observation),
-            None,
-        );
+        let verdict =
+            decide_node_activation(Some(&epoch), None, Some(&request), Some(&observation), None);
         assert!(matches!(&verdict,
             NodeActivationVerdict::Blocked { blockers, .. }
             if blockers.contains(&"takeover_activation_process_inactive".to_string())
@@ -653,13 +639,7 @@ mod tests {
             release_read_back: false,
             blockers: vec!["storage_read_back_required".into()],
         };
-        let verdict = decide_node_activation(
-            Some(&epoch),
-            Some(&bootstrap),
-            None,
-            None,
-            None,
-        );
+        let verdict = decide_node_activation(Some(&epoch), Some(&bootstrap), None, None, None);
         assert!(matches!(&verdict,
             NodeActivationVerdict::Blocked { blockers, .. }
             if blockers.contains(&"storage_read_back_required".to_string())
@@ -698,13 +678,8 @@ mod tests {
             identity_verified: true,
             proof_refs: vec!["proof-1".into()],
         };
-        let verdict = decide_node_activation(
-            Some(&epoch),
-            None,
-            Some(&request),
-            Some(&observation),
-            None,
-        );
+        let verdict =
+            decide_node_activation(Some(&epoch), None, Some(&request), Some(&observation), None);
         assert!(matches!(&verdict, NodeActivationVerdict::Active { .. }));
     }
 
@@ -719,7 +694,10 @@ mod tests {
         let plan = plan_activation_action(&verdict).unwrap();
         assert!(plan.requires_consent);
         assert!(plan.requires_privilege);
-        assert_eq!(plan.apply_argv, vec!["cynic", "node", "bootstrap", "node-a"]);
+        assert_eq!(
+            plan.apply_argv,
+            vec!["cynic", "node", "bootstrap", "node-a"]
+        );
     }
 
     #[test]
@@ -793,7 +771,8 @@ mod tests {
     #[test]
     fn deactivating_read_back_is_not_activation_proof() {
         let plan = probe_plan();
-        let proof = evaluate_activation_proof(&plan, true, "{\"status\":\"deactivating\"}", false, "");
+        let proof =
+            evaluate_activation_proof(&plan, true, "{\"status\":\"deactivating\"}", false, "");
         assert!(matches!(&proof, ActivationProof::Failed { .. }));
     }
 

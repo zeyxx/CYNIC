@@ -34,12 +34,33 @@ pub struct DiskCacheEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PhysicalDisk {
+    /// Device node (e.g. "sda", "nvme0n1", loop0).
+    pub device: String,
+    /// Total size in bytes (best-effort; lsblk reports human or bytes).
+    pub size_bytes: Option<u64>,
+    pub size_human: Option<String>,
+    /// "disk" | "lvm" | "loop" | "rom" | "crypt" | etc.
+    pub disk_type: String,
+    /// true if rotational (HDD), false if SSD/NVMe.
+    pub rotational: bool,
+    pub vendor: Option<String>,
+    pub model: Option<String>,
+    pub serial: Option<String>,
+    pub wwn: Option<String>,
+    pub mountpoints: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiskReport {
     pub schema: String,
     pub timestamp: String,
     pub filesystems: Vec<DiskFilesystem>,
     pub known_caches: Vec<DiskCacheEntry>,
     pub large_files: Vec<DiskFileEntry>,
+    /// Physical backing disks (disks, LVM PV, loop, crypt) — lsblk observation.
+    #[serde(default)]
+    pub physical_disks: Vec<PhysicalDisk>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

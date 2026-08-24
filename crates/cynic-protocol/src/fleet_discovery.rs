@@ -67,8 +67,12 @@ pub fn classify_node(services: &[FleetServiceStatus]) -> FleetNodeStatus {
     if services.is_empty() {
         return FleetNodeStatus::Unreachable;
     }
-    let all_healthy = services.iter().all(|s| s.status == FleetServiceHealth::Healthy);
-    let any_healthy = services.iter().any(|s| s.status == FleetServiceHealth::Healthy);
+    let all_healthy = services
+        .iter()
+        .all(|s| s.status == FleetServiceHealth::Healthy);
+    let any_healthy = services
+        .iter()
+        .any(|s| s.status == FleetServiceHealth::Healthy);
     if all_healthy {
         FleetNodeStatus::Alive
     } else if any_healthy {
@@ -85,8 +89,16 @@ mod tests {
     #[test]
     fn classify_all_healthy_is_alive() {
         let services = vec![
-            FleetServiceStatus { name: "s1".into(), status: FleetServiceHealth::Healthy, latency_ms: 10 },
-            FleetServiceStatus { name: "s2".into(), status: FleetServiceHealth::Healthy, latency_ms: 20 },
+            FleetServiceStatus {
+                name: "s1".into(),
+                status: FleetServiceHealth::Healthy,
+                latency_ms: 10,
+            },
+            FleetServiceStatus {
+                name: "s2".into(),
+                status: FleetServiceHealth::Healthy,
+                latency_ms: 20,
+            },
         ];
         assert_eq!(classify_node(&services), FleetNodeStatus::Alive);
     }
@@ -94,17 +106,27 @@ mod tests {
     #[test]
     fn classify_partial_healthy_is_degraded() {
         let services = vec![
-            FleetServiceStatus { name: "s1".into(), status: FleetServiceHealth::Healthy, latency_ms: 10 },
-            FleetServiceStatus { name: "s2".into(), status: FleetServiceHealth::Unhealthy, latency_ms: 0 },
+            FleetServiceStatus {
+                name: "s1".into(),
+                status: FleetServiceHealth::Healthy,
+                latency_ms: 10,
+            },
+            FleetServiceStatus {
+                name: "s2".into(),
+                status: FleetServiceHealth::Unhealthy,
+                latency_ms: 0,
+            },
         ];
         assert_eq!(classify_node(&services), FleetNodeStatus::Degraded);
     }
 
     #[test]
     fn classify_no_healthy_is_unreachable() {
-        let services = vec![
-            FleetServiceStatus { name: "s1".into(), status: FleetServiceHealth::Unhealthy, latency_ms: 0 },
-        ];
+        let services = vec![FleetServiceStatus {
+            name: "s1".into(),
+            status: FleetServiceHealth::Unhealthy,
+            latency_ms: 0,
+        }];
         assert_eq!(classify_node(&services), FleetNodeStatus::Unreachable);
     }
 

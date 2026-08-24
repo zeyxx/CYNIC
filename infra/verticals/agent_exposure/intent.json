@@ -2,22 +2,23 @@
   "schema": "cynic.vertical_intent.v1",
   "vertical": "agent_exposure",
   "layer": "adapter",
-  "owner_crate": "cynic-mcp",
+  "owner_crate": "cynic-cli",
   "desired_state": {
     "schema": "cynic.agent_exposure.desired_state.v1",
-    "responsibility": "Expose CYNIC runtime capabilities to agents through the MCP surface under explicit policy, capability, and human-in-the-loop boundaries.",
+    "responsibility": "Expose CYNIC runtime capabilities to agents through the CLI surface under explicit policy, capability, and human-in-the-loop boundaries.",
     "anti_responsibilities": [
       "grant mutation authority by implication",
       "hide principal or harness preconditions",
       "treat unknown surfaces as safe by default",
-      "expose secret values through MCP tool output"
+      "expose secret values through CLI tool output"
     ],
     "canonical_entrypoints": [
-      "cynic mcp serve [--json]",
-      "cynic dev agent-exposure --json"
+      "cynic dev agent-exposure --json",
+      "cynic runtime agents --json",
+      "cynic runtime hermes-run --json"
     ],
     "policy": {
-      "mcp_protocol_profile": "cynic-mcp v1",
+      "protocol_profile": "cynic-runtime v1",
       "human_in_the_loop": "required_for_mutating_tools",
       "capability_boundary": "read_back_before_mutation"
     }
@@ -25,11 +26,11 @@
   "code_contract": {
     "types": ["AgentExposurePolicy"],
     "required_fields": ["canonical_entrypoints", "policy"],
-    "modules": ["cynic-mcp::agent_exposure"]
+    "modules": ["cynic-cli::agent_exposure"]
   },
   "observe": {
     "port": "AgentExposureObservationPort",
-    "adapter": "cynic-mcp::agent_exposure",
+    "adapter": "cynic-cli::agent_exposure",
     "reports": ["AgentExposureAudit"]
   },
   "reconcile": "pure decision from desired_state.agent_exposure vs observed AgentExposureAudit; assert every mutating tool requires explicit human confirmation and no secret exposure",

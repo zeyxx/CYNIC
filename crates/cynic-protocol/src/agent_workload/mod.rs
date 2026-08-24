@@ -24,8 +24,8 @@ pub use delivery::{
     AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
     AgentWorkloadDeliveryLease, AgentWorkloadDeliveryStatus, accept_agent_workload_delivery,
     agent_workload_delivery_available, complete_agent_workload_delivery,
-    validate_agent_workload_completion_publication, validate_agent_workload_delivery,
-    validate_agent_workload_delivery_lease, parse_agent_workload_observation_read_back,
+    parse_agent_workload_observation_read_back, validate_agent_workload_completion_publication,
+    validate_agent_workload_delivery, validate_agent_workload_delivery_lease,
     validate_agent_workload_submission_read_back,
 };
 pub use durability::{

@@ -114,12 +114,23 @@ pub(crate) async fn start_tasks(
     // proven enrolled, the scheduler must be fenced by the durable grant;
     // accepting the token here would allow a stale/replayed bootstrap secret
     // to masquerade as steady-state build authority.
-    let build_scheduler_inputs_ready = control.signing_key_path.is_file()
-        && control.enrollment_grant_path.is_file()
-        && control
-            .build_scheduler
-            .as_ref()
-            .is_none_or(|scheduler| scheduler.registry_path.is_file());
+    let durable_enrollment_grant_present = control.enrollment_grant_path.is_file();
+    let build_scheduler_runtime_registry_present = control
+        .build_scheduler
+        .as_ref()
+        .is_none_or(|scheduler| scheduler.registry_path.is_file());
+    let builder_activation = crate::builder_activation::decide_builder_activation(
+        &crate::builder_activation::BuilderActivationInput {
+            build_scheduler_configured: control.build_scheduler.is_some(),
+            role_is_build_runner: control.enrollment_role == "build_runner",
+            enrollment_proven,
+            scheduler_capabilities_proven: build_scheduler_authorized,
+            signing_key_present: control.signing_key_path.is_file(),
+            durable_grant_present: durable_enrollment_grant_present,
+            runtime_registry_present: build_scheduler_runtime_registry_present,
+            execution_mode: cynic_protocol::NodeExecutionMode::Runtime,
+        },
+    );
     let artifact_transport = HttpRuntimeArtifactTransport::new(
         control.runtime_artifact_inbox_root.clone(),
         control.runtime_artifact_max_bytes,
@@ -202,13 +213,9 @@ pub(crate) async fn start_tasks(
             "workload delivery remains inactive until machine enrollment is proved"
         );
     }
-    // Build scheduler: activated when role is build_runner (sovereign autonomy)
-    // or when enrollment is proven and capabilities are granted.
-    let build_scheduler_role_authorized = scheduler_control.enrollment_role == "build_runner";
-    if scheduler_control.build_scheduler.is_some()
-        && (build_scheduler_authorized || build_scheduler_role_authorized)
-        && build_scheduler_inputs_ready
-    {
+    // The HTTP ingress and scheduler must consume the same activation decision:
+    // a declared role alone is not authority to expose either surface.
+    if builder_activation.starts_scheduler {
         tasks.push(tokio::spawn(crate::build_scheduler::run_loop(
             scheduler_control.clone(),
             scheduler_shutdown,
@@ -218,32 +225,38 @@ pub(crate) async fn start_tasks(
             node_id = %scheduler_control.node_id,
             enrollment_proven,
             build_scheduler_authorized,
-            build_scheduler_inputs_ready,
+            blockers = ?builder_activation.blockers,
             "build scheduler remains inactive until enrollment, capabilities, and runtime inputs are proved"
         );
     }
 
-    // Builder runtime: activated when role is build_runner
-    if scheduler_control.enrollment_role == "build_runner" {
+    if builder_activation.starts_builder_http {
         let builder_config = crate::usecases::builder_runtime::BuilderRuntimeConfig {
             http_listen_addr: scheduler_control.builder_listen_addr,
-            state_root: scheduler_control.agent_workload_state_root.to_string_lossy().to_string(),
-            workspace_root: scheduler_control.workspace_root.to_string_lossy().to_string(),
+            state_root: scheduler_control
+                .agent_workload_state_root
+                .to_string_lossy()
+                .to_string(),
+            workspace_root: scheduler_control
+                .workspace_root
+                .to_string_lossy()
+                .to_string(),
             node_id: scheduler_control.node_id.clone(),
             webhook_secret: std::env::var("CYNIC_FORGEJO_WEBHOOK_SECRET").ok(),
         };
         let builder_store = Arc::new(LocalAgentWorkloadStore::new(
-            scheduler_control.agent_workload_state_root.join("agent-scheduler/workloads"),
+            scheduler_control
+                .agent_workload_state_root
+                .join("agent-scheduler/workloads"),
         ));
         let builder_shutdown = shutdown.clone();
         tasks.push(tokio::spawn(async move {
-            if let Err(error) =
-                crate::usecases::builder_runtime::run_builder_runtime(
-                    builder_config,
-                    builder_store,
-                    builder_shutdown,
-                )
-                .await
+            if let Err(error) = crate::usecases::builder_runtime::run_builder_runtime(
+                builder_config,
+                builder_store,
+                builder_shutdown,
+            )
+            .await
             {
                 tracing::error!(%error, "builder runtime failed");
             }
