@@ -29,6 +29,7 @@ fn parent() -> AgentDelegationEnvelope {
             actions: 10,
             children: 4,
             wall_time_ms: 60_000,
+                cpu_ms: None,
         },
         expected_proofs: vec!["runtime_report".to_string()],
     }
@@ -54,6 +55,7 @@ fn child() -> AgentDelegationEnvelope {
             actions: 2,
             children: 0,
             wall_time_ms: 10_000,
+                cpu_ms: None,
         },
         expected_proofs: vec!["capability_observation".to_string()],
     }
@@ -114,6 +116,7 @@ fn completion_returns_proof_upward_within_budget() {
             actions: 1,
             children: 0,
             wall_time_ms: 4_000,
+                cpu_ms: None,
         },
     };
     assert!(admit_completion(&child, &completion).admitted());

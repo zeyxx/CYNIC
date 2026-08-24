@@ -308,6 +308,7 @@ mod tests {
             actions,
             children: 1,
             wall_time_ms: 1000,
+                cpu_ms: None,
         }
     }
 

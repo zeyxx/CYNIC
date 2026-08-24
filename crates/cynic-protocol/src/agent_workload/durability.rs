@@ -178,6 +178,7 @@ pub fn admit_aggregate_sibling_budget(
         actions: 0,
         children: 0,
         wall_time_ms: 0,
+        cpu_ms: None,
     };
     let siblings = active_siblings.iter().filter(|record| {
         !record.state.terminal()
@@ -226,6 +227,16 @@ fn add_budget(total: &mut AgentBudget, budget: &AgentBudget) -> Result<(), Strin
         .wall_time_ms
         .checked_add(budget.wall_time_ms)
         .ok_or_else(|| "aggregate_sibling_budget_overflow".to_string())?;
+    // Measured cpu aggregates only when every sibling reports a measure;
+    // one unknown makes the aggregate unknown (no fabricated totals).
+    total.cpu_ms = match (total.cpu_ms, budget.cpu_ms) {
+        (None, _) => None,
+        (_, None) => None,
+        (Some(a), Some(b)) => Some(
+            a.checked_add(b)
+                .ok_or_else(|| "aggregate_sibling_budget_overflow".to_string())?,
+        ),
+    };
     Ok(())
 }
 

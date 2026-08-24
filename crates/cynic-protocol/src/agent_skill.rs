@@ -353,7 +353,8 @@ mod tests {
                 actions: 4,
                 children: 0,
                 wall_time_ms: 600_000,
-            },
+                    cpu_ms: None,
+        },
             metadata: AgentSkillMetadata {
                 source_evidence: evidence(),
                 issued_at_ms: 1,
@@ -389,7 +390,8 @@ mod tests {
                 actions: 8,
                 children: 1,
                 wall_time_ms: 900_000,
-            },
+                    cpu_ms: None,
+        },
             expected_proofs: vec!["agent_completion".to_string()],
         }
     }

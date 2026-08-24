@@ -255,6 +255,7 @@ pub fn compose_build_agent_workload(
                 actions: 1,
                 children: 0,
                 wall_time_ms: 900_000,
+                cpu_ms: None,
             },
             expected_proofs: request.proof_requirements.clone(),
         },

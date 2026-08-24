@@ -439,7 +439,8 @@ mod tests {
                 actions: 0,
                 children: 0,
                 wall_time_ms: 1,
-            },
+                    cpu_ms: None,
+        },
         };
         let record = AgentWorkloadRecord {
             schema: AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),

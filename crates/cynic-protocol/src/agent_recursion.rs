@@ -25,6 +25,13 @@ pub struct AgentBudget {
     pub actions: u32,
     pub children: u16,
     pub wall_time_ms: u64,
+    /// Measured cpu milliseconds for consumed budgets (close records).
+    /// None = not measured — an explicit unknown, never zero. Reserved
+    /// budgets (delegation) leave it None until a completion reports it.
+    /// Schema evolution: added with #[serde(default)] so v1 payloads
+    /// without the field still deserialize.
+    #[serde(default)]
+    pub cpu_ms: Option<u64>,
 }
 
 impl AgentBudget {
@@ -33,6 +40,13 @@ impl AgentBudget {
             && self.actions <= parent.actions
             && self.children <= parent.children
             && self.wall_time_ms <= parent.wall_time_ms
+            && match (self.cpu_ms, parent.cpu_ms) {
+                // Unmeasured consumption is an unknown of the receipt, not
+                // a violation (same rule as EnergyConsumed::within).
+                (None, _) => true,
+                (Some(_), None) => false,
+                (Some(c), Some(p)) => c <= p,
+            }
     }
 }
 
