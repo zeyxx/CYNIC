@@ -36,14 +36,31 @@ pub enum DomainTaskQueueError {
 
     #[error("Task '{task_id}' is not in claimable state (current: {status:?})")]
     InvalidState { task_id: String, status: DomainTaskStatus },
+
+    #[error("task admission refused: {error}")]
+    AdmissionRequired {
+        task_title: String,
+        error: crate::domain::task_admission_port::TaskAdmissionError,
+    },
 }
 
-#[derive(Debug, Clone)]
 pub struct DomainTaskQueue {
     storage_path: PathBuf,
     tasks: Arc<RwLock<BTreeMap<String, DomainTask>>>,
+    /// Optional admission authority (plan §10 step 3). None = legacy
+    /// behaviour (unbudgeted push always admitted). When set, every push
+    /// passes through the EnergyBudget gate before touching storage.
+    admission: Option<std::sync::Arc<dyn crate::domain::task_admission_port::TaskAdmissionPort>>,
 }
 
+impl std::fmt::Debug for DomainTaskQueue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DomainTaskQueue")
+            .field("storage_path", &self.storage_path)
+            .field("admission_bound", &self.admission.is_some())
+            .finish_non_exhaustive()
+    }
+}
 impl DomainTaskQueue {
     /// Open or initialize a domain task queue at the specified file path.
     pub fn open(storage_path: impl Into<PathBuf>) -> Result<Self, DomainTaskQueueError> {
@@ -76,7 +93,18 @@ impl DomainTaskQueue {
         Ok(Self {
             storage_path: path,
             tasks: Arc::new(RwLock::new(loaded)),
+            admission: None,
         })
+    }
+
+    /// Bind an admission authority: every subsequent push passes the
+    /// EnergyBudget gate. Idempotent per instance (last binding wins).
+    pub fn with_admission(
+        mut self,
+        admission: std::sync::Arc<dyn crate::domain::task_admission_port::TaskAdmissionPort>,
+    ) -> Self {
+        self.admission = Some(admission);
+        self
     }
 
     /// Open with the default system evidence path or user directory fallback.
@@ -92,7 +120,37 @@ impl DomainTaskQueue {
     }
 
     /// Push a new task to the queue and persist to disk.
+    ///
+    /// When an admission authority is bound, the payload passes the
+    /// EnergyBudget gate first: Unknown/Blocked refuse the push with
+    /// `AdmissionRequired` carrying the honest reasons. Unbudgeted
+    /// payloads admit freely (V1 semantics).
     pub async fn push_task(
+        &self,
+        domain: TaskDomain,
+        priority: TaskPriority,
+        title: impl Into<String>,
+        payload: serde_json::Value,
+        created_by: impl Into<String>,
+    ) -> Result<DomainTask, DomainTaskQueueError> {
+        if let Some(port) = &self.admission {
+            if let Some(error) =
+                crate::domain::task_admission_port::TaskAdmissionError::from_decision(&port.admit(&payload))
+            {
+                return Err(DomainTaskQueueError::AdmissionRequired {
+                    task_title: title.into(),
+                    error,
+                });
+            }
+        }
+        self.push_task_unchecked(domain, priority, title, payload, created_by)
+            .await
+    }
+
+    /// Storage-only push, bypassing admission. Used internally after the
+    /// gate and available to trusted internal callers that have already
+    /// been admitted through another boundary.
+    pub async fn push_task_unchecked(
         &self,
         domain: TaskDomain,
         priority: TaskPriority,
@@ -322,5 +380,131 @@ mod tests {
         let reopened = DomainTaskQueue::open(temp.path()).unwrap();
         let all_tasks = reopened.list_tasks(Some(TaskDomain::Inference), None).await;
         assert_eq!(all_tasks.len(), 2);
+    }
+
+    // ── Admission gate tests (plan §10 step 3) ─────────────────────────
+
+    /// Stub port: envelope on inference_tokens, fresh capacity flag settable.
+    struct StubAdmission {
+        envelope_tokens: u64,
+        open: Vec<cynic_protocol::task_pipeline::EnergyBudget>,
+        fresh: bool,
+    }
+
+    impl crate::domain::task_admission_port::TaskAdmissionPort for StubAdmission {
+        fn open_reservations(&self) -> Vec<cynic_protocol::task_pipeline::EnergyBudget> {
+            self.open.clone()
+        }
+        fn envelope(&self) -> cynic_protocol::task_pipeline::EnergyBudget {
+            cynic_protocol::task_pipeline::EnergyBudget {
+                wall_time_ms: u64::MAX,
+                inference_tokens: Some(self.envelope_tokens),
+                cpu_ms: None,
+                ram_bytes_s: None,
+            }
+        }
+        fn capacity_fresh(&self) -> bool {
+            self.fresh
+        }
+    }
+
+    fn budgeted_payload(tokens: u64) -> serde_json::Value {
+        serde_json::json!({
+            "energy_budget": { "wall_time_ms": 1_000, "inference_tokens": tokens }
+        })
+    }
+
+    #[tokio::test]
+    async fn unbudgeted_push_admits_without_port() {
+        let temp = NamedTempFile::new().unwrap();
+        let queue = DomainTaskQueue::open(temp.path()).unwrap();
+        let task = queue
+            .push_task(TaskDomain::Inference, TaskPriority::Agent, "legacy", serde_json::json!({}), "t")
+            .await
+            .unwrap();
+        assert_eq!(task.status, DomainTaskStatus::Pending);
+    }
+
+    #[tokio::test]
+    async fn budgeted_push_within_envelope_is_admitted() {
+        let temp = NamedTempFile::new().unwrap();
+        let queue = DomainTaskQueue::open(temp.path())
+            .unwrap()
+            .with_admission(std::sync::Arc::new(StubAdmission {
+                envelope_tokens: 100,
+                open: vec![],
+                fresh: true,
+            }));
+        let task = queue
+            .push_task(
+                TaskDomain::Inference,
+                TaskPriority::Agent,
+                "sweep",
+                budgeted_payload(10),
+                "t",
+            )
+            .await
+            .unwrap();
+        assert_eq!(task.status, DomainTaskStatus::Pending);
+    }
+
+    #[tokio::test]
+    async fn budgeted_push_over_envelope_is_refused_and_not_persisted() {
+        let temp = NamedTempFile::new().unwrap();
+        let queue = DomainTaskQueue::open(temp.path())
+            .unwrap()
+            .with_admission(std::sync::Arc::new(StubAdmission {
+                envelope_tokens: 50,
+                open: vec![],
+                fresh: true,
+            }));
+        let err = queue
+            .push_task(
+                TaskDomain::Inference,
+                TaskPriority::Agent,
+                "greedy",
+                budgeted_payload(100),
+                "t",
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            DomainTaskQueueError::AdmissionRequired { ref error, .. }
+                if matches!(error, crate::domain::task_admission_port::TaskAdmissionError::Blocked(_))
+        ));
+
+        // Refused tasks must not touch storage.
+        let all = queue.list_tasks(Some(TaskDomain::Inference), None).await;
+        assert!(all.is_empty(), "refused task must not be persisted");
+    }
+
+    #[tokio::test]
+    async fn stale_capacity_yields_unknown_refusal() {
+        let temp = NamedTempFile::new().unwrap();
+        let queue = DomainTaskQueue::open(temp.path())
+            .unwrap()
+            .with_admission(std::sync::Arc::new(StubAdmission {
+                envelope_tokens: 100,
+                open: vec![],
+                fresh: false,
+            }));
+        let err = queue
+            .push_task(
+                TaskDomain::Inference,
+                TaskPriority::Agent,
+                "uncertain",
+                budgeted_payload(1),
+                "t",
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            DomainTaskQueueError::AdmissionRequired { ref error, .. }
+                if matches!(error, crate::domain::task_admission_port::TaskAdmissionError::Unknown(_))
+        ));
     }
 }
