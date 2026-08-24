@@ -27,6 +27,9 @@ controller.
 
 Durable direction:
 
+- Solana is a piece of engineering: study its solutions and patterns for
+  anything useful to CYNIC (ledger design, PoH, validator storage, fee and
+  stake mechanics — study first, adopt only what survives the design gate);
 - coordinate multiple agents without implicit global enforcement;
 - reuse Kubernetes-like typed-resource, controller, reconciliation, and
   operator patterns in Rust without cloning Kubernetes as the framework;

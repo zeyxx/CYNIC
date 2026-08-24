@@ -6,7 +6,9 @@
     "scope": [
       "CYNIC is a low-layer Rust runtime organism before it is a product surface.",
       "Runtime truth is proved by executable code, OS services, registry placement, and runtime read-back.",
-      "Dead documentation, deleted organs, and historical Python gates cannot define current authority."
+      "Dead documentation, deleted organs, and historical Python gates cannot define current authority.",
+      "Solana is a piece of engineering: study its solutions and patterns for anything useful to CYNIC.",
+      "Canonical internal integrity hashing is SHA3-512 (prefix sha3-512:). SHA-256 remains mandated only where an external contract requires it (on-chain program payloads, third-party APIs); BLAKE3 is permitted for high-throughput non-canonical caches. Every digest string carries its algorithm prefix; unprefixed digests are invalid."
     ],
     "authority_order": [
       "observed runtime state",

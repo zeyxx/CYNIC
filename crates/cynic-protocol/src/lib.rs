@@ -36,6 +36,7 @@ pub mod cycle_transition;
 pub mod deployment_epoch;
 pub mod development;
 pub mod development_genesis;
+pub mod digest;
 pub mod disk;
 pub mod memory;
 pub mod discovery;
