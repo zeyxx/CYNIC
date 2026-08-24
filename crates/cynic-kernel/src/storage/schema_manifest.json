@@ -323,6 +323,22 @@
       "declared_in": [
         "schema_agent_workspace_migration.sql"
       ]
+    },
+    {
+      "name": "evidence_projection",
+      "mode": "schemafull",
+      "purpose": "Derived queryable projection of the cold-evidence journal (D1 hybrid). Rebuilt by replay; NEVER authority — journal file remains source of truth.",
+      "declared_in": [],
+      "fields": {
+        "schema": "string",
+        "event_id": "string",
+        "node_id": "string",
+        "sequence": "int",
+        "event_type": "string",
+        "payload_digest": "string",
+        "entry_hash": "string",
+        "sealed_at_unix_s": "int"
+      }
     }
   ],
   "sqlite_planes": [

@@ -217,3 +217,17 @@ DEFINE FIELD IF NOT EXISTS grant_id ON node_enrollment_grant TYPE string;
 DEFINE FIELD IF NOT EXISTS generation ON node_enrollment_grant TYPE int;
 DEFINE FIELD IF NOT EXISTS grant_json ON node_enrollment_grant TYPE string;
 DEFINE FIELD IF NOT EXISTS updated_at ON node_enrollment_grant TYPE datetime;
+
+-- Evidence projection (D1): derived queryable view of the cold-evidence
+-- journal. Rebuilt by replay from the authoritative journal file; rows
+-- are upserted idempotently keyed by event_id.
+DEFINE TABLE OVERWRITE evidence_projection SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS schema ON evidence_projection TYPE string;
+DEFINE FIELD IF NOT EXISTS event_id ON evidence_projection TYPE string;
+DEFINE FIELD IF NOT EXISTS node_id ON evidence_projection TYPE string;
+DEFINE FIELD IF NOT EXISTS sequence ON evidence_projection TYPE int;
+DEFINE FIELD IF NOT EXISTS event_type ON evidence_projection TYPE string;
+DEFINE FIELD IF NOT EXISTS payload_digest ON evidence_projection TYPE string;
+DEFINE FIELD IF NOT EXISTS entry_hash ON evidence_projection TYPE string;
+DEFINE FIELD IF NOT EXISTS sealed_at_unix_s ON evidence_projection TYPE int;
+DEFINE INDEX IF NOT EXISTS evidence_projection_event_idx ON evidence_projection FIELDS event_id UNIQUE;
