@@ -1,0 +1,28 @@
+{
+  "schema": "cynic.registry.meta.v1",
+  "version": "1.0.0",
+  "domain": "meta",
+  "purpose": "Index des fragments registry versionn\u00e9s par domaine.",
+  "fragments": {
+    "provider-control": "provider-control/control.json",
+    "network-policy": "network-policy/policy.json",
+    "storage": "storage/storage.json",
+    "release": "release/publication.json",
+    "enrollment": "enrollment/node-enrollment.json",
+    "node:cynic-host-proxmox": "nodes/cynic-host-proxmox.json",
+    "node:cynic-host-cortex": "nodes/cynic-host-cortex.json",
+    "node:local-kernel": "nodes/local-kernel.json",
+    "node:cynic-lxc-surrealdb": "nodes/cynic-lxc-surrealdb.json",
+    "node:cynic-builder": "nodes/cynic-builder.json",
+    "node:forgejo": "nodes/forgejo.json",
+    "lifecycle": "lifecycle/lifecycle.json",
+    "fleet": "fleet/fleet-desired.json"
+  },
+  "override_order": [
+    "global",
+    "env",
+    "node",
+    "workload"
+  ],
+  "compat_note": "Chaque fragment versionn\u00e9 semver ind\u00e9pendamment. Breaking change = bump major."
+}

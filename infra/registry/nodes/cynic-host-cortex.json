@@ -1,0 +1,33 @@
+{
+  "schema": "cynic.registry.node.v1",
+  "version": "2.1.0",
+  "domain": "nodes",
+  "data": {
+    "id": "cynic-host-cortex",
+    "name": "cynic-host-cortex",
+    "aliases": [
+      "ubuntu"
+    ],
+    "role": "cortex_host",
+    "status": "candidate",
+    "deploy_target": false,
+    "network": {
+      "management": "192.168.100.2"
+    },
+    "network_links": [
+      {
+        "plane": "management",
+        "provider": "network-manager",
+        "interface": "enp42s0",
+        "connection": "Connexion filaire 1",
+        "address": "192.168.100.2/24",
+        "gateway": "192.168.100.1",
+        "routes": [
+          "10.10.10.0/24"
+        ],
+        "default_route": false
+      }
+    ],
+    "services": []
+  }
+}

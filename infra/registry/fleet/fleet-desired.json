@@ -1,0 +1,30 @@
+{
+  "schema": "cynic.registry.fleet.v1",
+  "version": "1.0.0",
+  "domain": "fleet",
+  "data": {
+    "targets": [
+      {
+        "id": "cynic-builder",
+        "provider": "proxmox",
+        "resource_id": "lxc/105",
+        "role": "build_runner",
+        "desired_power": "running"
+      },
+      {
+        "id": "forgejo-primary",
+        "provider": "proxmox",
+        "resource_id": "lxc/101",
+        "role": "forge_primary",
+        "desired_power": "running"
+      },
+      {
+        "id": "storage-primary",
+        "provider": "proxmox",
+        "resource_id": "lxc/103",
+        "role": "storage_primary",
+        "desired_power": "running"
+      }
+    ]
+  }
+}

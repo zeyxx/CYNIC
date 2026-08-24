@@ -1,0 +1,31 @@
+{
+  "schema": "cynic.registry.node.v1",
+  "version": "2.1.0",
+  "domain": "nodes",
+  "data": {
+    "id": "cynic-host-proxmox",
+    "name": "cynic-host-proxmox",
+    "aliases": [
+      "pve"
+    ],
+    "role": "hypervisor",
+    "host_family": "linux.proxmox.systemd",
+    "provider_controls": [
+      "proxmox"
+    ],
+    "status": "observed",
+    "deploy_target": false,
+    "transports": {
+      "ssh": {
+        "target": "proxmox-forge",
+        "trust": "known_hosts",
+        "known_hosts_ref": "/etc/cynic/identity/proxmox-known-hosts"
+      }
+    },
+    "network": {
+      "management": "192.168.100.1",
+      "synapse": "10.10.10.1"
+    },
+    "services": []
+  }
+}

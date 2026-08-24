@@ -1,0 +1,43 @@
+{
+  "schema": "cynic.registry.node.v1",
+  "version": "2.1.0",
+  "domain": "nodes",
+  "data": {
+    "id": "local-kernel",
+    "name": "local-kernel",
+    "host_node_id": "cynic-host-cortex",
+    "role": "kernel_primary",
+    "status": "candidate",
+    "deploy_target": true,
+    "services": [
+      {
+        "name": "cynic-kernel",
+        "artifact": "cynic-kernel",
+        "scheme": "http",
+        "endpoint_host": "192.168.100.2",
+        "network_plane": "management",
+        "port": 3030,
+        "unit": "cynic-kernel.service",
+        "supervisor": {
+          "provider": "process-port"
+        },
+        "health": {
+          "kind": "tcp",
+          "port": 3030
+        }
+      },
+      {
+        "name": "cynic-node",
+        "artifact": "cynic-node",
+        "unit": "cynic-node.service",
+        "supervisor": {
+          "provider": "process-port"
+        },
+        "health": {
+          "kind": "process",
+          "process": "cynic-node"
+        }
+      }
+    ]
+  }
+}

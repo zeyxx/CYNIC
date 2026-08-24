@@ -1,0 +1,83 @@
+{
+  "schema": "cynic.registry.lifecycle.v1",
+  "version": "1.0.0",
+  "domain": "lifecycle",
+  "data": {
+    "kernel_release": {
+      "build_runner_role": "build_runner",
+      "deploy_target_role": "kernel_primary",
+      "host_bootstrap": {
+        "role_profiles": {
+          "kernel_primary": {
+            "target_stage": "h6_host_actionable",
+            "required_domains": [
+              "host",
+              "services",
+              "storage",
+              "kernel"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "kernel_service_observed",
+              "storage_health_observed"
+            ]
+          },
+          "build_runner": {
+            "target_stage": "h4_privilege_helpers_ready",
+            "required_domains": [
+              "host",
+              "toolchain",
+              "build"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "cargo_check_observed",
+              "binary_build_observed",
+              "build_resource_preflight_read_back",
+              "runtime_marker_read_back",
+              "node_control_config_read_back",
+              "node_service_active_read_back",
+              "bootstrap_completion_read_back"
+            ]
+          },
+          "storage_primary": {
+            "target_stage": "h5_services_projected",
+            "required_domains": [
+              "host",
+              "storage"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "storage_health_observed"
+            ]
+          },
+          "forge_primary": {
+            "target_stage": "h5_services_projected",
+            "required_domains": [
+              "host",
+              "services",
+              "network",
+              "forge"
+            ],
+            "required_proof": [
+              "host_identity_observed",
+              "host_bootstrap_target_satisfied",
+              "forgejo_backend_observed",
+              "forgejo_tls_identity_observed"
+            ]
+          }
+        }
+      },
+      "runtime_artifacts": [
+        "cynic-kernel",
+        "cynic-node",
+        "cynic-mcp",
+        "cynic-lxc-exec-bridge",
+        "cynic"
+      ]
+    }
+  }
+}

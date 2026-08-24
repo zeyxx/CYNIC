@@ -1,0 +1,93 @@
+{
+  "schema": "cynic.registry.node.v1",
+  "version": "2.1.0",
+  "domain": "nodes",
+  "data": {
+    "id": "cynic-builder",
+    "name": "cynic-builder",
+    "role": "build_runner",
+    "host_family": "linux.ubuntu.systemd",
+    "status": "candidate",
+    "deploy_target": true,
+    "proxmox_id": "lxc/105",
+    "transports": {
+      "ssh": {
+        "target": "cynic-builder",
+        "trust": "known_hosts",
+        "enrollment_authority": {
+          "class": "machine_enrollment",
+          "principal": "cynic",
+          "credential_ref": "registry-machine-ssh-identity"
+        }
+      }
+    },
+    "network": {
+      "synapse": "10.10.10.119"
+    },
+    "source_workspace_layout": {
+      "repository_store": "source/repositories",
+      "workspace_store": "source/workspaces",
+      "principal": "cynic",
+      "dedicated_worktrees": true,
+      "repositories": [
+        {
+          "id": "cynic",
+          "relative_path": "CYNIC"
+        }
+      ]
+    },
+    "build_lifecycle": {
+      "schema": "cynic.build_runner.resource_policy.v1",
+      "minimum_available_bytes": 4294967296,
+      "canonical_target_relative_path": "build-targets/bootstrap",
+      "canonical_cache_reclaim": {
+        "schema": "cynic.build_runner.cache_reclaim_policy.v1",
+        "trigger": "available_bytes_below_minimum",
+        "action": "rust_remove_bounded_profile",
+        "target_profile": "debug",
+        "preserve_profiles": [
+          "release"
+        ],
+        "rollback_intent": "none_reproducible_build_cache_only"
+      },
+      "noncanonical_cache_candidates": [
+        {
+          "base": "temporary_directory",
+          "relative_path": "cynic-cargo-targets"
+        },
+        {
+          "base": "state_root",
+          "relative_path": "source/repositories/CYNIC/target"
+        }
+      ],
+      "bootstrap_containment": {
+        "schema": "cynic.build_runner.bootstrap_containment.v1",
+        "authority_class": "MachineEnrollment",
+        "adapter": "ssh_machine_enrollment",
+        "scope": "n_minus_one_seed_only",
+        "entrypoint": "scripts/build-runner-bootstrap",
+        "removal_requires": [
+          "node_substrate_provisioning_read_back",
+          "source_snapshot_transport_read_back",
+          "durable_workload_delivery_read_back",
+          "machine_enrollment_without_operator_transport",
+          "canonical_build_completion_read_back"
+        ]
+      }
+    },
+    "services": [
+      {
+        "name": "cynic-node",
+        "artifact": "cynic-node",
+        "unit": "cynic-node.service",
+        "supervisor": {
+          "provider": "systemd"
+        },
+        "health": {
+          "kind": "process",
+          "process": "cynic-node"
+        }
+      }
+    ]
+  }
+}

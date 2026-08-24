@@ -1,0 +1,16 @@
+{
+  "schema": "cynic.registry.release.v1",
+  "version": "1.0.0",
+  "domain": "release",
+  "data": {
+    "schema": "cynic.release_publication.desired_state.v1",
+    "storage_role": "storage_primary",
+    "service_name": "runtime-artifact-store",
+    "protocol": "generic_https_put_get",
+    "authentication_kind": "bearer_file",
+    "credential_path": "/var/lib/cynic/identity/artifact-store-token",
+    "signing_key_path": "/var/lib/cynic/identity/release-signing-key",
+    "signer_identity": "cynic-release",
+    "signature_namespace": "cynic-runtime-seed"
+  }
+}

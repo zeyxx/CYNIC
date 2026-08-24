@@ -1,0 +1,54 @@
+{
+  "schema": "cynic.registry.storage.v1",
+  "version": "1.0.0",
+  "domain": "storage",
+  "data": {
+    "schema": "cynic.storage_registry.v1",
+    "classes": [
+      {
+        "schema": "cynic.storage_class.v1",
+        "id": "artifact_store",
+        "provider": "proxmox",
+        "management_policy": [
+          "observe",
+          "update"
+        ],
+        "reclaim_policy": "retain",
+        "allow_expansion": true,
+        "allow_shrink": false,
+        "minimum_bytes": 10737418240,
+        "maximum_bytes": 1099511627776
+      }
+    ],
+    "volumes": [
+      {
+        "schema": "cynic.storage_volume.v1",
+        "id": "storage_primary_artifacts",
+        "class_id": "artifact_store",
+        "provider_resource_id": "lxc/103:mp0",
+        "owner": "runtime-artifact-store"
+      }
+    ],
+    "claims": [
+      {
+        "schema": "cynic.storage_claim.v1",
+        "id": "runtime_artifact_store_claim",
+        "owner": "runtime-artifact-store",
+        "class_id": "artifact_store",
+        "requested_bytes": 8589934592,
+        "mode": "permanent",
+        "expires_at_ms": null
+      }
+    ],
+    "bindings": [
+      {
+        "schema": "cynic.storage_binding.v1",
+        "id": "runtime_artifact_store_binding",
+        "volume_id": "storage_primary_artifacts",
+        "claim_id": "runtime_artifact_store_claim",
+        "mount_path": "/data",
+        "service": "runtime-artifact-store"
+      }
+    ]
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "schema": "cynic.registry.node.v1",
+  "version": "2.1.0",
+  "domain": "nodes",
+  "data": {
+    "id": "cynic-lxc-surrealdb",
+    "name": "cynic-lxc-surrealdb",
+    "aliases": [
+      "cynic-storage-primary",
+      "organ-surrealdb"
+    ],
+    "role": "storage_primary",
+    "host_family": "linux.debian.systemd",
+    "status": "candidate",
+    "deploy_target": true,
+    "proxmox_id": "lxc/103",
+    "transports": {
+      "ssh": {
+        "target": "cynic-storage-primary.synapse.cynic",
+        "trust": "known_hosts",
+        "enrollment_authority": {
+          "class": "machine_enrollment",
+          "principal": "root",
+          "credential_ref": "registry-machine-ssh-identity"
+        }
+      }
+    },
+    "network": {
+      "synapse": "10.10.10.103"
+    },
+    "services": [
+      {
+        "name": "surrealdb",
+        "artifact": "surreal",
+        "scheme": "http",
+        "port": 8000,
+        "unit": "surrealdb.service",
+        "supervisor": {
+          "provider": "systemd"
+        },
+        "health": {
+          "kind": "http",
+          "path": "/health",
+          "port": 8000
+        }
+      },
+      {
+        "name": "runtime-artifact-store",
+        "artifact": "external-runtime-artifact-store",
+        "install_authority": {
+          "channel": "external",
+          "provenance": "storage_primary_image"
+        },
+        "scheme": "https",
+        "endpoint_host": "cynic-storage-primary.synapse.cynic",
+        "port": 8443,
+        "base_path": "/runtime-releases",
+        "protocol": "generic_https_put_get",
+        "authentication_kind": "bearer_file",
+        "unit": "runtime-artifact-store.service",
+        "supervisor": {
+          "provider": "systemd"
+        },
+        "health": {
+          "kind": "https",
+          "path": "/health",
+          "port": 8443
+        }
+      }
+    ]
+  }
+}

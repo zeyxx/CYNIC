@@ -1,0 +1,60 @@
+{
+  "schema": "cynic.registry.network-policy.v1",
+  "version": "1.0.0",
+  "domain": "network-policy",
+  "data": {
+    "canonical_service_plane": "synapse",
+    "planes": {
+      "management": {
+        "cidr": "192.168.100.0/24",
+        "canonical": false,
+        "purpose": "direct bare-metal management transport"
+      },
+      "synapse": {
+        "cidr": "10.10.10.0/24",
+        "dns_zone": "synapse.cynic",
+        "canonical": true
+      }
+    },
+    "reservations": [
+      {
+        "name": "cynic-host-proxmox",
+        "management": "192.168.100.1",
+        "synapse": "10.10.10.1",
+        "dns": [
+          "cynic-host-proxmox.synapse.cynic",
+          "pve.synapse.cynic"
+        ]
+      },
+      {
+        "name": "cynic-host-cortex",
+        "management": "192.168.100.2"
+      },
+      {
+        "name": "forgejo",
+        "synapse": "10.10.10.101",
+        "dns": [
+          "forgejo.synapse.cynic",
+          "organ-forgejo.synapse.cynic",
+          "cynic-lxc-git.synapse.cynic"
+        ]
+      },
+      {
+        "name": "cynic-lxc-surrealdb",
+        "synapse": "10.10.10.103",
+        "dns": [
+          "cynic-lxc-surrealdb.synapse.cynic",
+          "cynic-storage-primary.synapse.cynic",
+          "organ-surrealdb.synapse.cynic"
+        ]
+      },
+      {
+        "name": "cynic-builder",
+        "synapse": "10.10.10.119",
+        "dns": [
+          "cynic-builder.synapse.cynic"
+        ]
+      }
+    ]
+  }
+}
