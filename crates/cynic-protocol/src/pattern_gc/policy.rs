@@ -99,16 +99,29 @@ pub fn classify_all(
 /// Schema of every assessment produced by this contract.
 pub const SCHEMA: &str = "cynic.pattern_gc.assessment.v1";
 
-/// Per-unit rates for both windows, or `None` when any span is zero — an
-/// explicit unknown, never silently normalized.
+/// Per-unit rates for both windows.
+///
+/// A *nonzero* count with a zero span is contradictory input -> `None`
+/// (explicit unknown). A zero count means zero rate regardless of span: a
+/// key with no cold history is young, not undefined.
 fn rates(windows: &PatternWindows) -> Option<(f64, f64)> {
-    if windows.historical_span == 0 || windows.recent_span == 0 {
+    if windows.historical > 0 && windows.historical_span == 0 {
         return None;
     }
-    Some((
-        windows.historical as f64 / windows.historical_span as f64,
-        windows.recent as f64 / windows.recent_span as f64,
-    ))
+    if windows.recent > 0 && windows.recent_span == 0 {
+        return None;
+    }
+    let historical_rate = if windows.historical == 0 {
+        0.0
+    } else {
+        windows.historical as f64 / windows.historical_span as f64
+    };
+    let recent_rate = if windows.recent == 0 {
+        0.0
+    } else {
+        windows.recent as f64 / windows.recent_span as f64
+    };
+    Some((historical_rate, recent_rate))
 }
 
 #[cfg(test)]
@@ -149,6 +162,28 @@ mod tests {
         let a = classify(&o, &policy());
         assert_eq!(a.class, PatternClass::Unknown);
         assert!(a.reasons[0].contains("spans"));
+    }
+
+    #[test]
+    fn young_key_with_zero_cold_span_classifies_not_unknown() {
+        // A key with NO cold history is young, not undefined: zero events
+        // on any span means zero cold rate. Regression proof for the
+        // scan-adapter integration catch (2026-08-24).
+        let o = PatternObservation {
+            key: "tool.brand_new".to_string(),
+            windows: PatternWindows {
+                historical: 0,
+                recent: 60,
+                historical_span: 0,
+                recent_span: 22,
+            },
+        };
+        let a = classify(&o, &policy());
+        assert_eq!(a.class, PatternClass::Emerging);
+        // Contradictory input stays rejected: nonzero count, zero span.
+        let mut bad = obs("k", 100, 10);
+        bad.windows.historical_span = 0;
+        assert_eq!(classify(&bad, &policy()).class, PatternClass::Unknown);
     }
 
     #[test]
