@@ -138,6 +138,11 @@ async fn execute_claimed(
     }
 
     let started = Instant::now();
+    // cpu_ms measurement scope: one meter per workload execution. Marks
+    // bracket the build; the delta lands in the completion envelope's
+    // consumed_budget.cpu_ms (None stays None when sysinfo cannot sample).
+    let mut cpu_meter = cynic_host::adapters::cpu_usage_meter::CpuUsageMeter::new();
+    let cpu_start = cpu_meter.mark();
     let execution_cancel = CancellationToken::new();
     let monitor = tokio::spawn(lifecycle::monitor_claim(
         store.clone(),
@@ -304,6 +309,10 @@ async fn execute_claimed(
     };
     execution_cancel.cancel();
     let renewal_count = monitor.await.unwrap_or(0);
+    // Close the cpu measurement scope: sample after the build, delta into
+    // the completion envelope. None = unmeasured (explicit unknown).
+    let cpu_end = cpu_meter.mark();
+    let measured_cpu_ms = cpu_meter.cpu_ms_between(&cpu_start, &cpu_end);
     let latest = store
         .read(workload_id)
         .map_err(|error| error.code)?
@@ -321,6 +330,7 @@ async fn execute_claimed(
             evidence_refs.clone(),
             unknowns,
             started.elapsed(),
+            measured_cpu_ms,
         )?;
         if status == AgentCompletionStatus::Completed {
             let proof_refs = evidence_refs

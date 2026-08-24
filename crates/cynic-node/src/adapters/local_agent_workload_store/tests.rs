@@ -63,6 +63,7 @@ fn record(workload_id: &str, idempotency_key: &str) -> AgentWorkloadRecord {
                 actions: 2,
                 children: 0,
                 wall_time_ms: 900_000,
+                cpu_ms: None,
             },
             expected_proofs: vec!["canonical_gate_report".into()],
         },

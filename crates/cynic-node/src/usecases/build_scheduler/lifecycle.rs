@@ -152,6 +152,7 @@ pub(super) fn finish_blocked(
         Vec::new(),
         vec![unknown],
         Duration::ZERO,
+        None,
     )
 }
 
@@ -166,6 +167,7 @@ pub(super) fn acknowledge_cancelled(
         Vec::new(),
         vec![reason.to_string()],
         Duration::ZERO,
+        None,
     );
     let next = match durable.record.claim.as_ref() {
         Some(claim) if claim.guard.lease_id.starts_with("build-scheduler-") => {
@@ -195,8 +197,16 @@ pub(super) fn finish(
     evidence_refs: Vec<cynic_protocol::AgentEvidenceRef>,
     unknowns: Vec<String>,
     elapsed: Duration,
+    measured_cpu_ms: Option<u64>,
 ) -> Result<(), String> {
-    let completion = completion(&durable.record, status, evidence_refs, unknowns, elapsed);
+    let completion = completion(
+        &durable.record,
+        status,
+        evidence_refs,
+        unknowns,
+        elapsed,
+        measured_cpu_ms,
+    );
     let next = complete_agent_workload(&durable.record, guard, &completion, current_unix_ms())
         .map_err(|error| error.code)?;
     store
@@ -216,6 +226,7 @@ fn completion(
     evidence_refs: Vec<cynic_protocol::AgentEvidenceRef>,
     unknowns: Vec<String>,
     elapsed: Duration,
+    measured_cpu_ms: Option<u64>,
 ) -> AgentCompletionEnvelope {
     AgentCompletionEnvelope {
         schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.into(),
@@ -231,6 +242,9 @@ fn completion(
             actions: record.consumed_actions,
             children: 0,
             wall_time_ms: elapsed.as_millis().min(u128::from(u64::MAX)) as u64,
+            // Measured by CpuUsageMeter marks bracketing the build; None
+            // when sysinfo could not sample (explicit unknown, not zero).
+            cpu_ms: measured_cpu_ms,
         },
     }
 }
