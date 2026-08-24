@@ -1,0 +1,68 @@
+{
+  "schema": "cynic.storage.layering.v1",
+  "status": "proposal_v1",
+  "principle": "storage follows data nature; each layer has ONE engine, ONE retention regime, ONE integrity story",
+  "layers": [
+    {
+      "id": "L0_evidence",
+      "name": "Evidence / Proof plane",
+      "nature": ["immutable_proof", "distilled_knowledge", "versioned_models"],
+      "contents": ["proof_of_history chain", "pattern models + lineage", "sealed reports", "skill lineage"],
+      "engine": "surrealdb SCHEMAFULL (PoH exists) OR append-only signed journal per node — open question",
+      "retention": "infinite, never rewritten; replication >= 2 nodes",
+      "integrity": "sha256 content-addressed + Ed25519 kernel-signed; PoH anchor on every seal"
+    },
+    {
+      "id": "L1_state",
+      "name": "Operational state plane",
+      "nature": ["leases", "claims", "dispatch", "sessions", "verdict queue"],
+      "engine": "surrealdb OLTP (existing, fencing proven)",
+      "retention": "TTL-driven; completed dispatch archived to L0 after N days",
+      "integrity": "ACID + fencing tokens"
+    },
+    {
+      "id": "L2_telemetry",
+      "name": "Behavioral telemetry plane",
+      "nature": ["agent traces JSONL", "session messages", "tool streams"],
+      "engine": "files (JSONL) + sqlite (Hermes state.db stays sqlite)",
+      "retention": "hot 90d -> warm zstd archive -> raw optional after distillation sign-off",
+      "integrity": "corpus manifest sha256 per file; line digests feed L0 models",
+      "windows_archive_status": "NOT exhausted: unmined veins = tool n-gram workflows, user-correction signals, failure-to-resolution sequences, session trajectories",
+      "distillation_pipeline": {
+        "gc_motifs": "done",
+        "workflow_ngram_mining": "todo",
+        "correction_signal_mining": "todo",
+        "sequence_resolution_mining": "todo"
+      }
+    },
+    {
+      "id": "L3_artifacts",
+      "name": "Artifact CAS plane",
+      "nature": ["GGUF weights", "build artifacts", "datasets"],
+      "engine": "content-addressed store: flat dirs + sha256 manifest (no S3 by default)",
+      "retention": "LRU evictable once manifest records source + digest",
+      "integrity": "per-tree digest manifest + sweep command",
+      "notes": "vault/models, build-targets, db_scratch belong here conceptually; db_scratch misfiled today under 'vault'"
+    },
+    {
+      "id": "L4_coordination",
+      "name": "Coordination ephemeral plane",
+      "nature": ["claims files", "cron state", "heartbeats"],
+      "engine": "flat files (.agent-claims.json pattern)",
+      "retention": "disposable, TTL in code",
+      "integrity": "atomic rename writes only; never authoritative"
+    }
+  ],
+  "engines_considered_and_positioned": {
+    "sqlite": "L2 live telemetry (Hermes) + small single-writer op state (agent-sessions) — embedded, zero ops, FTS built-in",
+    "surrealdb": "L0 evidence tables + L1 operational OLTP — graph/record links, transactions, existing adapters",
+    "files_jsonl": "L2 raw streams — append-only, streamable by miners, compressible cold tiers",
+    "cas_manifest": "L3 artifacts — content addressing is the integrity story for blobs",
+    "flat_json": "L4 coordination — disposable projections",
+    "candidates_rejected_for_now": {
+      "postgres": "ops overhead without a fleet-scale need yet; SurrealDB covers the transactional niche",
+      "duckdb": "excellent analytics candidate when L2 mining becomes heavy — defer until query patterns justify a second analytic engine",
+      "lance/parquet_lake": "premature pre-fleet; revisit if telemetry exceeds tens of GB hot"
+    }
+  }
+}
