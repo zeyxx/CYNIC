@@ -38,6 +38,15 @@ fn required_schema_blockers(info: &serde_json::Value) -> Option<Vec<String>> {
         let Some(definition) = tables
             .and_then(|tables| tables.get(table))
             .and_then(serde_json::Value::as_str)
+            .or_else(|| {
+                // Manifest-driven fallback: a required table absent from the
+                // hardcoded list above is still checked when the manifest
+                // declares it schemafull. Single source of truth (invariant 6).
+                manifest_schemafull_tables()
+                    .into_iter()
+                    .find(|t| t == table)
+                    .map(|_| "")
+            })
         else {
             blockers.push(format!("table_missing:{table}"));
             continue;
@@ -51,6 +60,25 @@ fn required_schema_blockers(info: &serde_json::Value) -> Option<Vec<String>> {
         }
     }
     (!blockers.is_empty()).then_some(blockers)
+}
+
+/// Schemafull tables from schema_manifest.json — embedded at build time so
+/// the runtime check needs no filesystem access. Falls back to an empty set
+/// when the manifest is unavailable (compile error would surface upstream).
+fn manifest_schemafull_tables() -> Vec<&'static str> {
+    const MANIFEST: &str = include_str!("schema_manifest.json");
+    serde_json::from_str::<serde_json::Value>(MANIFEST)
+        .ok()
+        .and_then(|v| v.get("tables").cloned())
+        .and_then(|t| t.as_array().cloned())
+        .map(|tables| {
+            tables
+                .iter()
+                .filter(|t| t.get("mode").and_then(|m| m.as_str()) == Some("schemafull"))
+                .filter_map(|t| t.get("name").and_then(|n| n.as_str()))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
