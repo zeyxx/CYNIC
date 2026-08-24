@@ -19,11 +19,15 @@
 //! - No eviction authorization lives at this layer; an apply surface must
 //!   wrap distillation behind explicit consent plus read-back proof.
 
+pub mod model;
 pub mod policy;
 pub mod report;
 pub mod scan;
 pub mod types;
 
+pub use model::{
+    drift, seal_model, ClassTransition, ModelDrift, PatternModel, PatternState, MODEL_SCHEMA,
+};
 pub use policy::{classify, classify_all, SCHEMA};
 pub use report::{build_report, ClassTally, PatternGcReport, REPORT_SCHEMA};
 pub use scan::{window_events, WindowOutcome};
