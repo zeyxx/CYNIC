@@ -302,8 +302,136 @@ pub fn build_report(
     }
 }
 
+// ---------------------------------------------------------------------------
+// EMERGENCE GATE — connects pattern_gc classes to skill generation.
+// A Fading domain asks for CONSOLIDATION of existing knowledge, not a new
+// skill; an Emerging domain deserves priority. Pure, no IO.
+// ---------------------------------------------------------------------------
+
+/// What the loop should do with a hypothesis in a given temporal context.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EmergenceDirective {
+    /// Rising failure class: generate and prioritize skills.
+    Prioritize,
+    /// Proven stable recurrence: normal evaluation path.
+    Allow,
+    /// Collapsing class: consolidate existing evidence instead.
+    Consolidate,
+    /// Insufficient temporal signal: stay neutral.
+    NoSignal,
+}
+
+/// Operator policy for fading domains (declared desired state).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FadingPolicy {
+    /// When true, fading domains demand consolidation rather than silence.
+    pub consolidation_required: bool,
+}
+
+impl Default for FadingPolicy {
+    fn default() -> Self {
+        Self {
+            consolidation_required: true,
+        }
+    }
+}
+
+/// Verdict of the gate over one hypothesis.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GateVerdict {
+    /// Run the normal metric path.
+    Evaluate,
+    /// Skip evaluation; carry the honest machine-readable reason.
+    Skip { reason: String },
+}
+
+/// Map a `PatternClass` (see `crate::pattern_gc`) to a loop directive.
+pub fn emergence_directive(
+    class: crate::pattern_gc::PatternClass,
+    policy: &FadingPolicy,
+) -> EmergenceDirective {
+    match class {
+        crate::pattern_gc::PatternClass::Emerging => EmergenceDirective::Prioritize,
+        crate::pattern_gc::PatternClass::Recurring => EmergenceDirective::Allow,
+        crate::pattern_gc::PatternClass::Fading => {
+            if policy.consolidation_required {
+                EmergenceDirective::Consolidate
+            } else {
+                EmergenceDirective::NoSignal
+            }
+        }
+        crate::pattern_gc::PatternClass::Unknown => EmergenceDirective::NoSignal,
+    }
+}
+
+/// Apply the directive to a hypothesis before any metric work.
+pub fn gate_hypothesis(directive: EmergenceDirective) -> GateVerdict {
+    match directive {
+        EmergenceDirective::Prioritize | EmergenceDirective::Allow => GateVerdict::Evaluate,
+        EmergenceDirective::Consolidate => GateVerdict::Skip {
+            reason: "domain fading: consolidate existing evidence instead of a new skill"
+                .to_string(),
+        },
+        EmergenceDirective::NoSignal => GateVerdict::Skip {
+            reason: "no temporal signal observed for this domain".to_string(),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::pattern_gc::PatternClass;
+
+    #[test]
+    fn directives_map_from_classes() {
+        let p = FadingPolicy::default();
+        assert_eq!(
+            emergence_directive(PatternClass::Emerging, &p),
+            EmergenceDirective::Prioritize
+        );
+        assert_eq!(
+            emergence_directive(PatternClass::Recurring, &p),
+            EmergenceDirective::Allow
+        );
+        assert_eq!(
+            emergence_directive(PatternClass::Fading, &p),
+            EmergenceDirective::Consolidate
+        );
+        assert_eq!(
+            emergence_directive(PatternClass::Unknown, &p),
+            EmergenceDirective::NoSignal
+        );
+    }
+
+    #[test]
+    fn fading_without_consolidation_policy_stays_neutral() {
+        let p = FadingPolicy {
+            consolidation_required: false,
+        };
+        assert_eq!(
+            emergence_directive(PatternClass::Fading, &p),
+            EmergenceDirective::NoSignal
+        );
+    }
+
+    #[test]
+    fn gate_skips_fading_and_unknown_with_reasons() {
+        let p = FadingPolicy::default();
+        assert_eq!(
+            gate_hypothesis(emergence_directive(PatternClass::Emerging, &p)),
+            GateVerdict::Evaluate
+        );
+        match gate_hypothesis(emergence_directive(PatternClass::Fading, &p)) {
+            GateVerdict::Skip { reason } => assert!(reason.contains("consolidate")),
+            other => panic!("expected Skip, got {other:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod autoresearch_tests {
     use super::*;
 
     fn units() -> Vec<TraceUnit> {
