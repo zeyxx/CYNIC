@@ -23,7 +23,7 @@
   - `registry/mod.rs` — façade thin
 - **Owner** : `cynic-host::registry`
 - **Effort** : 2-3 j
-- **Status** : `observed`
+- **Status** : `done` (2026-08-24) — split atterri : `registry.rs` (1481 l.) supprimé, remplacé par `registry/{types,scan,validate,merge,persist}.rs` (2587 l.). Preuve : `cargo check -p cynic-host` vert (33.7s full, 0.15s incrémental post-commit), 41 warnings / 0 erreur. NB : contenu identique au lot préparé en session mais absorbé par le batch hétérogène `b0943423` de l'agent concurrent, pas committé isolément.
 
 ### MONO-002: cynic-host/src/federation_runtime.rs (565 lignes)
 - **Concerns mélangés** :

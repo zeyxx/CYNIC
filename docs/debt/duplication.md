@@ -27,14 +27,14 @@
 
 ### DUP-003: Disk Observation — Probe + Observer + Adapter
 - **Localisations** :
-  1. `cynic-host/src/domain/disk/probe.rs` — `DiskProbe`, `probe_disk()`
-  2. `cynic-host/src/fleet_disk_observer.rs` — `FleetDiskObserver`, `observe_fleet_disk()`
-  3. `cynic-host/src/adapters/local_disk.rs` — `LocalDiskAdapter`, `observe_disk()`
-  4. `cynic-host/src/adapters/remote_disk.rs` — `RemoteDiskAdapter`, `observe_disk()`
-- **Duplication** : `probe_disk()` logic copiée dans adapters au lieu d'être partagée
-- **Canonique** : `domain/disk/probe.rs` = pure probe logic, adapters = I/O only
-- **Action** : Adapters délèguent à probe.rs pure functions
-- **Status** : `observed`
+  1. `cynic-host/src/domain/disk/probe.rs` — parseurs purs (`parse_df_filesystems`, `parse_lsblk_disks`) + `build_cleanup_plan`
+  2. `cynic-host/src/fleet_disk_observer.rs` — agrégation fleet uniquement (local → LocalDiskAdapter, remote → RemoteDiskAdapter)
+  3. `cynic-host/src/adapters/local_disk.rs` — I/O locale, délègue aux parseurs probe
+  4. `cynic-host/src/adapters/remote_disk.rs` — SSH df, délègue à `parse_df_filesystems` + `build_cleanup_plan` (testé : `plan_cleanup_delegates_to_pure_builder`)
+- **Ré-audit 2026-08-24 (claim initial STALE)** : « probe_disk() copiée dans les adapters » est FAUX dans le code réel — les deux adapters importent et appellent les fonctions pures de probe.rs. Aucune logique d'observation dupliquée.
+- **Vraie dette trouvée et corrigée** : la liste des 10 fichiers syslog rotés existait en 3 exemplaires indépendants (argv plan dans probe.rs, dimensionnement cache dans local_disk.rs, purge dans local_disk.rs). Fix : constante canonique `ROTATED_SYSLOG_FILES` dans probe.rs + les 3 sites itèrent dessus + test anti-divergence `rotated_syslog_set_is_single_source_of_truth`.
+- **Orphelins découverts au passage** (quarantaine ratchet `tests/orphan_sources_ratchet.rs`, liste ne peut que rétrécir) : `adapters/host_exec_disk.rs` importe `HostExecProof`/`DiskPartition` introuvables dans le crate ; `storage_census/*` entier quaranténé dont policy.rs importe `DiskPartitionState` inexistant.
+- **Status** : `done` (2026-08-24) pour la duplication réelle ; preuves : `cargo check -p cynic-host --lib` vert, `cargo check -p cynic-host --tests` type-checke la lib+tests unitaires sans erreur sur les fichiers disk (échec restant = `trust_chain_e2e`, dette pré-existante du 2026-08-21 hors périmètre). Run-proof bloqué par substrat cortex (SIGSEGV rustc variable openssl→regex→serde_core→tokio sous 1.96 ET 1.95, dir vierge inclus) → validation exécution à passer sur builder.
 
 ### DUP-004: Agent Session / Workload — Kernel vs Node vs Protocol
 - **Localisations** :
