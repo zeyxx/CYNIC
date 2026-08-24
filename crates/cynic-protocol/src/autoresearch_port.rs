@@ -12,8 +12,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::autoresearch::{
-    AutoresearchProgram, AutoresearchReport, SkillCandidate, SkillHypothesis, TraceUnit,
-    build_report, evaluate_candidate,
+    build_report, evaluate_candidate, gate_hypothesis, AutoresearchProgram, AutoresearchReport,
+    EmergenceDirective, GateVerdict, SkillCandidate, SkillHypothesis, TraceUnit,
 };
 
 pub const AUTORESEARCH_PORT_ERROR_SCHEMA: &str = "cynic.autoresearch.port_error.v1";
@@ -103,6 +103,69 @@ pub fn run_loop_with_hypotheses(
         .map(|h| evaluate_candidate(program, h, units))
         .collect();
     build_report(program, corpus_sessions, &candidates)
+}
+
+/// Gated loop: emergence directives decide BEFORE any metric work.
+///
+/// `directives` maps a domain to the temporal directive derived from the
+/// pattern GC classes (see `autoresearch::emergence_directive`). Hypotheses
+/// whose domain carries `Consolidate` or `NoSignal` are skipped with an
+/// honest machine-readable reason and never reach evaluation — a collapsing
+/// failure class cannot spawn new skills. Domains absent from the map are
+/// treated as `NoSignal` (no temporal claim is invented).
+pub fn run_loop_gated(
+    program: &AutoresearchProgram,
+    port: &dyn AutoresearchPort,
+    directives: &std::collections::BTreeMap<String, EmergenceDirective>,
+) -> Result<GatedLoopOutcome, AutoresearchPortError> {
+    let units = port.observe_traces()?;
+    let hypotheses = port.hypothesize(&units)?;
+    let corpus_sessions = units
+        .iter()
+        .map(|u| u.session_id.as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+
+    let mut candidates = Vec::new();
+    let mut gated_out = Vec::new();
+    for hypothesis in &hypotheses {
+        let directive = directives
+            .get(&hypothesis.domain)
+            .copied()
+            .unwrap_or(EmergenceDirective::NoSignal);
+        match gate_hypothesis(directive) {
+            GateVerdict::Evaluate => {
+                candidates.push(evaluate_candidate(program, hypothesis, &units));
+            }
+            GateVerdict::Skip { reason } => gated_out.push(GatedOutEntry {
+                skill_id: hypothesis.skill_id.clone(),
+                domain: hypothesis.domain.clone(),
+                reason,
+            }),
+        }
+    }
+
+    Ok(GatedLoopOutcome {
+        report: build_report(program, corpus_sessions, &candidates),
+        gated_out,
+    })
+}
+
+/// One hypothesis blocked by the emergence gate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GatedOutEntry {
+    pub skill_id: String,
+    pub domain: String,
+    pub reason: String,
+}
+
+/// Report plus gate trace (machine-readable read-back of what was excluded).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GatedLoopOutcome {
+    /// Classic v1 report over the hypotheses that passed the gate.
+    pub report: AutoresearchReport,
+    /// Hypotheses excluded before evaluation, with reasons.
+    pub gated_out: Vec<GatedOutEntry>,
 }
 
 /// Deterministic fake reflection adapter for tests. Holds fixed observations and
@@ -231,5 +294,42 @@ mod tests {
             AUTORESEARCH_PORT_ERROR_SCHEMA,
             "cynic.autoresearch.port_error.v1"
         );
+    }
+
+    #[test]
+    fn gated_loop_skips_fading_and_unknown_domains_before_evaluation() {
+        use crate::autoresearch::{emergence_directive, EmergenceDirective, FadingPolicy};
+        use crate::pattern_gc::PatternClass;
+        use std::collections::BTreeMap;
+
+        let p = AutoresearchProgram::default();
+        // Directives: toolchain_ice is Fading (consolidate), tailscale is
+        // Emerging (prioritize), novel_domain has NO temporal entry.
+        let mut directives = BTreeMap::new();
+        directives.insert(
+            "toolchain_ice".to_string(),
+            emergence_directive(PatternClass::Fading, &FadingPolicy::default()),
+        );
+        directives.insert(
+            "tailscale".to_string(),
+            emergence_directive(PatternClass::Emerging, &FadingPolicy::default()),
+        );
+
+        let outcome = run_loop_gated(&p, &fake_port(), &directives).unwrap();
+
+        // cynic-x (toolchain_ice) must be gated out with a reason.
+        assert_eq!(outcome.gated_out.len(), 2);
+        let x = outcome
+            .gated_out
+            .iter()
+            .find(|g| g.skill_id == "cynic-x")
+            .expect("fading domain hypothesis must be gated");
+        assert!(x.reason.contains("consolidate"));
+        // novel_domain absent from the map -> NoSignal -> gated too (honest:
+        // no temporal claim invented).
+        assert!(outcome.gated_out.iter().any(|g| g.domain == "novel_domain"));
+        // The report only carries evaluated candidates: none passed here
+        // because tailscale has no hypothesis in the fixture.
+        assert_eq!(outcome.report.hypotheses_evaluated, 0);
     }
 }
