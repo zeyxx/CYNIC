@@ -98,6 +98,41 @@ Keep work inside these surfaces unless the user explicitly expands scope:
 - `contracts/foundation.json`
 - `infra/`
 
+### Host substrate observation layering (applies to all substrate families)
+
+The host substrate is observed in 4 ascending abstraction layers; every
+family (disk, memory, CPU, network) reuses the same layering so a missing
+lower layer stays an explicit unknown instead of a fabricated number.
+
+1. Physical  — raw hardware device/counter. e.g. disk `/dev/sda` (lsblk);
+   memory DIMM MemTotal (`/proc/meminfo`); CPU model + core count (`/proc/cpuinfo`);
+   network NIC link (`ip -j link`).
+2. Volume/logical  — configuration bounding addressable substrate.
+   e.g. disk filesystems/mounts (`df --output`); memory page size + swappiness +
+   hugepages (`/proc/meminfo` Hm/hugepage reservation); CPU governor +
+   isolation mask; network route table.
+3. Usage  — actual consumption against the configured volume.
+   e.g. disk used/avail per mount (`df`); memory used/free/available/swap
+   (`/proc/meminfo` + `free`); CPU user/sys/idle jiffies (`/proc/stat`);
+   network bytes/Tx queue against the route interface.
+4. Pressure/fidelity  — backpressure signalling the volume is saturated.
+   e.g. disk (none — best-effort); memory PSI `/proc/pressure/memory` some/full;
+   CPU PSI `/proc/pressure/cpu`; network socket backpressure / drops.
+
+Canonical ownership per family:
+- types live in `cynic_protocol::<family>` (never in the CLI surface);
+- pure parsers (no I/O) live in `cynic_host::domain::<family>::probe`;
+- the observe port (`ObservationPort::observe_<family>`) is implemented by
+  `Local<Family>Adapter` (reads `/proc`/`/sys`/argv) and
+  `Remote<Family>Adapter<R: ArgvRunner>` (SSH, injectable for tests);
+- the fleet rollup is `Fleet<Family>Observer<R>` in `cynic_host`, emitting
+  `<family>.FleetReport` to `cynic.fleet_<family>.v1`;
+- the CLI surface (`RuntimeCommand::<Family>` / `FleetCommand::<Family>`) is a
+  thin projection only — it never owns policy.
+
+A report is coherent only when every layer has a concrete owner; an absent
+lower layer is reported as a residual unknown, never back-filled by a guess.
+
 ## CYNIC Coherence Pattern
 
 Use this pattern at every scale. It is the compact form of the runtime model,
