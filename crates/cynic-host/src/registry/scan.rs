@@ -11,9 +11,15 @@ pub enum ScanError {
     #[error("failed to resolve registry path: {0}")]
     PathResolve(String),
     #[error("failed to read registry file {path}: {source}")]
-    Read { path: PathBuf, source: std::io::Error },
+    Read {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     #[error("failed to parse registry {path}: {source}")]
-    Parse { path: PathBuf, source: serde_json::Error },
+    Parse {
+        path: PathBuf,
+        source: serde_json::Error,
+    },
 }
 
 /// Resolve registry path with fallback logic
@@ -24,23 +30,18 @@ pub fn resolve_registry_path(explicit_path: Option<&str>) -> Result<PathBuf, Sca
 
 /// Load registry document from path
 pub fn load_registry(path: &Path) -> Result<RegistryDocument, ScanError> {
-    let raw = std::fs::read_to_string(path)
-        .map_err(|source| ScanError::Read {
-            path: path.to_path_buf(),
-            source,
-        })?;
-    serde_json::from_str(&raw)
-        .map_err(|source| ScanError::Parse {
-            path: path.to_path_buf(),
-            source,
-        })
+    let raw = std::fs::read_to_string(path).map_err(|source| ScanError::Read {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    serde_json::from_str(&raw).map_err(|source| ScanError::Parse {
+        path: path.to_path_buf(),
+        source,
+    })
 }
 
 /// Find node by name/alias in registry
-pub fn find_node<'a>(
-    registry: &'a RegistryDocument,
-    name: &str,
-) -> Option<&'a RegistryNode> {
+pub fn find_node<'a>(registry: &'a RegistryDocument, name: &str) -> Option<&'a RegistryNode> {
     registry.nodes.iter().find(|node| node_matches(node, name))
 }
 

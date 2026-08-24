@@ -12,8 +12,6 @@
 //! - Topologies: DedicatedSingle, CoResident, HotSwapNvme
 //! - Harness protocols: OpenAiToolCall, HermesXml, OmpLinePatch, MercuryJson
 
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use crate::domain::matrix_sweep::{
     BenchmarkScenario, ModelArchDescriptor, can_admit_model_configuration,
 };
@@ -21,6 +19,8 @@ use cynic_protocol::{
     ContextTier, HarnessProtocol, KvQuantization, MatrixScorecard, ParametricConfigPoint,
     ParametricRunResult, RopeScaling, TopologyStrategy,
 };
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 pub const MATRIX_SWEEP_REPORT_SCHEMA: &str = "cynic.inference.matrix_sweep_run.v1";
 
@@ -111,8 +111,7 @@ pub fn build_parametric_grid(
         for &kv in &kv_quants {
             for &slots in concurrency_slots {
                 // Estimate full footprint; skip if certainly OOM.
-                let kv_bytes =
-                    arch.estimate_kv_cache_bytes(ctx, kv, slots);
+                let kv_bytes = arch.estimate_kv_cache_bytes(ctx, kv, slots);
                 let estimated_total = arch.estimate_total_footprint(
                     model.weight_bytes,
                     ctx,
@@ -187,15 +186,24 @@ pub fn config_to_llama_argv(
     port: u16,
 ) -> Vec<String> {
     let mut args = vec![
-        "--model".into(), model_path.into(),
-        "--port".into(), port.to_string(),
-        "--ctx-size".into(), config.context_tier.token_count().to_string(),
-        "--threads".into(), config.threads_gen.to_string(),
-        "--threads-batch".into(), config.threads_batch.to_string(),
-        "--batch-size".into(), config.batch_size.to_string(),
-        "--ubatch-size".into(), config.ubatch_size.to_string(),
-        "--n-gpu-layers".into(), config.gpu_layers.to_string(),
-        "--parallel".into(), "1".into(),
+        "--model".into(),
+        model_path.into(),
+        "--port".into(),
+        port.to_string(),
+        "--ctx-size".into(),
+        config.context_tier.token_count().to_string(),
+        "--threads".into(),
+        config.threads_gen.to_string(),
+        "--threads-batch".into(),
+        config.threads_batch.to_string(),
+        "--batch-size".into(),
+        config.batch_size.to_string(),
+        "--ubatch-size".into(),
+        config.ubatch_size.to_string(),
+        "--n-gpu-layers".into(),
+        config.gpu_layers.to_string(),
+        "--parallel".into(),
+        "1".into(),
         "--no-mmap".into(),
         "--log-disable".into(),
     ];
@@ -218,15 +226,23 @@ pub fn config_to_llama_argv(
         RopeScaling::None => {}
         RopeScaling::Linear { factor } => {
             args.extend([
-                "--rope-scaling".into(), "linear".into(),
-                "--rope-scale".into(), factor.to_string(),
+                "--rope-scaling".into(),
+                "linear".into(),
+                "--rope-scale".into(),
+                factor.to_string(),
             ]);
         }
-        RopeScaling::Yarn { freq_scale, freq_base } => {
+        RopeScaling::Yarn {
+            freq_scale,
+            freq_base,
+        } => {
             args.extend([
-                "--rope-scaling".into(), "yarn".into(),
-                "--rope-scale".into(), freq_scale.to_string(),
-                "--rope-freq-base".into(), freq_base.to_string(),
+                "--rope-scaling".into(),
+                "yarn".into(),
+                "--rope-scale".into(),
+                freq_scale.to_string(),
+                "--rope-freq-base".into(),
+                freq_base.to_string(),
             ]);
         }
     }

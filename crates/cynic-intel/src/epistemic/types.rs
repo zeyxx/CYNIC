@@ -66,7 +66,7 @@ pub struct EpistemicVerdict {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CrystalState {
-    Observation, // < 21 observations
+    Observation,  // < 21 observations
     Crystallized, // >= 21 observations + confidence >= φ⁻¹
     Canonical,    // >= 233 observations (Fibonacci F13)
     Decaying,     // confidence < φ⁻²

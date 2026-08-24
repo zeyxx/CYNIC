@@ -240,10 +240,12 @@ mod tests {
 
     #[test]
     fn parse_route_from_json_real_route() {
-        let routes = parse_route_from_json(r#"[
+        let routes = parse_route_from_json(
+            r#"[
             {"dst":"10.20.0.0/24","gateway":null,"dev":"wg0","protocol":"kernel","metric":512,"scope":"link"},
             {"dst":null,"gateway":"10.0.0.1","dev":"eth0","protocol":"dhcp","metric":1024,"scope":"global"}
-        ]"#);
+        ]"#,
+        );
         assert_eq!(routes.len(), 2);
         assert_eq!(&routes[0].dst, "10.20.0.0/24");
         assert_eq!(&routes[0].device, "wg0");
@@ -254,10 +256,12 @@ mod tests {
 
     #[test]
     fn parse_addr_from_json_ipv4_and_ipv6() {
-        let addrs = parse_addr_from_json(r#"[
+        let addrs = parse_addr_from_json(
+            r#"[
             {"ifname":"eth0","addr_info":[{"family":"inet","local":"10.0.0.5","prefixlen":24},
                                            {"family":"inet6","local":"fe80::1","prefixlen":64}]}
-        ]"#);
+        ]"#,
+        );
         assert_eq!(addrs.len(), 2);
         assert_eq!(&addrs[0].address, "10.0.0.5");
         assert_eq!(addrs[0].prefix_len, 24);

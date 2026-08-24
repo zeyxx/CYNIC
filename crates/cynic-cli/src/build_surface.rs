@@ -7,13 +7,13 @@
 
 use clap::Subcommand;
 
-use cynic_host::build_workflow::{run_build_workflow, BuildWorkflowConfig, BuildWorkflowResult};
 use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
+use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_host::update_lifecycle::LocalArgvRunner;
-use cynic_protocol::build::{canonical_argv_from_build_action, BuildRecipe, BUILD_RECIPE_SCHEMA};
 use cynic_protocol::SourceSnapshot;
+use cynic_protocol::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_build_action};
 
-use crate::workload_observation::{execute_observe_workload, execute_list_workloads};
+use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
 
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
@@ -317,9 +317,8 @@ fn serve_webhook(
         registry_path: _registry.to_string(),
     };
 
-    let handle = spawn_webhook_server(config).map_err(|e| {
-        format!("failed to bind webhook server on {bind}: {e}")
-    })?;
+    let handle = spawn_webhook_server(config)
+        .map_err(|e| format!("failed to bind webhook server on {bind}: {e}"))?;
 
     // Print startup message
     let startup = serde_json::json!({
@@ -351,7 +350,7 @@ fn provision_credentials(
     json: bool,
 ) -> Result<(), String> {
     use cynic_host::credential_provisioning::{
-        scan_unprovisioned_enrollment_transports, provision_ssh_credential,
+        provision_ssh_credential, scan_unprovisioned_enrollment_transports,
     };
 
     let registry_content = std::fs::read_to_string(registry_path)
@@ -379,7 +378,10 @@ fn provision_credentials(
                 println!("  All transports already provisioned");
             } else {
                 for t in &transports {
-                    println!("  - {} ({}) needs SSH key: {}", t.node_id, t.ssh_target, t.credential_ref);
+                    println!(
+                        "  - {} ({}) needs SSH key: {}",
+                        t.node_id, t.ssh_target, t.credential_ref
+                    );
                 }
             }
         }

@@ -5,9 +5,9 @@ use crate::surface_registry::canonical_cli_surfaces;
 
 mod checks;
 mod external_projection;
+mod inference_collector;
 mod paths;
 mod types;
-mod inference_collector;
 
 pub(crate) use types::{ExternalProjectionFinding, SurfaceAuditEntry, SurfaceAuditReport};
 

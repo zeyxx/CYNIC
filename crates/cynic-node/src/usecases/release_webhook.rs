@@ -1,7 +1,7 @@
 use axum::{
+    Json,
     extract::State,
     http::{HeaderMap, StatusCode},
-    Json,
 };
 use chrono::Utc;
 use hmac::{Hmac, Mac};
@@ -50,10 +50,7 @@ pub async fn handle_release_webhook(
             .unwrap_or("");
 
         if !verify_signature(secret, &body, signature) {
-            return Err((
-                StatusCode::UNAUTHORIZED,
-                "invalid webhook signature".into(),
-            ));
+            return Err((StatusCode::UNAUTHORIZED, "invalid webhook signature".into()));
         }
     }
 
@@ -132,8 +129,8 @@ pub async fn handle_release_webhook(
 }
 
 fn verify_signature(secret: &str, body: &[u8], signature: &str) -> bool {
-    let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
-        .expect("HMAC can take key of any size");
+    let mut mac =
+        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
     mac.update(body);
     let result = mac.finalize();
     let expected = hex::encode(result.into_bytes());

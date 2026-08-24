@@ -5,9 +5,7 @@
 //! - Fencing tokens must be strictly monotonic (new_token > stored_token).
 //! - All role transitions are immutably appended to `role_transition_record`.
 
-use cynic_protocol::runtime_takeover::{
-    CryptographicLease, RoleTransitionRecord,
-};
+use cynic_protocol::runtime_takeover::{CryptographicLease, RoleTransitionRecord};
 
 use super::sanitize_record_id;
 use crate::domain::storage::StorageError;
@@ -146,7 +144,8 @@ impl SurrealHttpStorage {
             role = escape_surreal(role)
         );
         let rows = self.query_one(&sql).await?;
-        let records: Vec<RoleTransitionRecord> = serde_json::from_value(serde_json::Value::Array(rows))?;
+        let records: Vec<RoleTransitionRecord> =
+            serde_json::from_value(serde_json::Value::Array(rows))?;
         Ok(records)
     }
 }

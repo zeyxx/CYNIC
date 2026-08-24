@@ -3,9 +3,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::registry::types::{RegistryDocument, ResolvedDirectManagementLink, ResolvedHostIdentity};
-use crate::registry::scan::{load_registry, resolve_registry_path, ScanError};
-use crate::registry::validate::{validate_registry_or_error, ValidationError};
+use crate::registry::scan::{ScanError, load_registry, resolve_registry_path};
+use crate::registry::types::{
+    RegistryDocument, ResolvedDirectManagementLink, ResolvedHostIdentity,
+};
+use crate::registry::validate::{ValidationError, validate_registry_or_error};
 
 /// Persistence error
 #[derive(Debug, thiserror::Error)]
@@ -17,13 +19,25 @@ pub enum PersistError {
     #[error("registry validation failed: {0:?}")]
     Validation(Vec<ValidationError>),
     #[error("failed to write registry: {source}")]
-    Write { path: PathBuf, source: std::io::Error },
+    Write {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     #[error("failed to create parent directories: {source}")]
-    CreateDir { path: PathBuf, source: std::io::Error },
+    CreateDir {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     #[error("atomic write failed: {source}")]
-    AtomicWrite { path: PathBuf, source: std::io::Error },
+    AtomicWrite {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     #[error("read-back verification failed: expected {expected:?}, got {actual:?}")]
-    ReadBackMismatch { expected: RegistryDocument, actual: RegistryDocument },
+    ReadBackMismatch {
+        expected: RegistryDocument,
+        actual: RegistryDocument,
+    },
 }
 
 /// Write registry atomically with read-back proof
@@ -45,11 +59,10 @@ pub fn write_registry_atomic(
     }
 
     // Serialize
-    let json = serde_json::to_vec_pretty(doc)
-        .map_err(|e| PersistError::Write {
-            path: path.clone(),
-            source: std::io::Error::other(e.to_string()),
-        })?;
+    let json = serde_json::to_vec_pretty(doc).map_err(|e| PersistError::Write {
+        path: path.clone(),
+        source: std::io::Error::other(e.to_string()),
+    })?;
 
     // Atomic write: write to temp file, then rename
     let temp_path = path.with_extension("json.tmp");
@@ -96,11 +109,10 @@ pub fn write_registry(
         })?;
     }
 
-    let json = serde_json::to_vec_pretty(doc)
-        .map_err(|e| PersistError::Write {
-            path: path.clone(),
-            source: std::io::Error::other(e.to_string()),
-        })?;
+    let json = serde_json::to_vec_pretty(doc).map_err(|e| PersistError::Write {
+        path: path.clone(),
+        source: std::io::Error::other(e.to_string()),
+    })?;
 
     fs::write(&path, &json).map_err(|source| PersistError::Write {
         path: path.clone(),
@@ -186,17 +198,15 @@ fn registry_documents_equal(a: &RegistryDocument, b: &RegistryDocument) -> bool 
 
     // Compare lifecycle
     match (&a.lifecycle, &b.lifecycle) {
-        (Some(a_life), Some(b_life)) => {
-            match (&a_life.kernel_release, &b_life.kernel_release) {
-                (Some(a_rel), Some(b_rel)) => {
-                    if a_rel.build_runner_role != b_rel.build_runner_role {
-                        return false;
-                    }
+        (Some(a_life), Some(b_life)) => match (&a_life.kernel_release, &b_life.kernel_release) {
+            (Some(a_rel), Some(b_rel)) => {
+                if a_rel.build_runner_role != b_rel.build_runner_role {
+                    return false;
                 }
-                (None, None) => {}
-                _ => return false,
             }
-        }
+            (None, None) => {}
+            _ => return false,
+        },
         (None, None) => {}
         _ => return false,
     }
@@ -204,7 +214,10 @@ fn registry_documents_equal(a: &RegistryDocument, b: &RegistryDocument) -> bool 
     true
 }
 
-fn registry_nodes_equal(a: &crate::registry::types::RegistryNode, b: &crate::registry::types::RegistryNode) -> bool {
+fn registry_nodes_equal(
+    a: &crate::registry::types::RegistryNode,
+    b: &crate::registry::types::RegistryNode,
+) -> bool {
     a.id == b.id
         && a.name == b.name
         && a.aliases == b.aliases
@@ -217,7 +230,10 @@ fn registry_nodes_equal(a: &crate::registry::types::RegistryNode, b: &crate::reg
         && registry_network_links_equal(&a.network_links, &b.network_links)
 }
 
-fn registry_services_equal(a: &[crate::registry::types::RegistryNodeService], b: &[crate::registry::types::RegistryNodeService]) -> bool {
+fn registry_services_equal(
+    a: &[crate::registry::types::RegistryNodeService],
+    b: &[crate::registry::types::RegistryNodeService],
+) -> bool {
     if a.len() != b.len() {
         return false;
     }
@@ -226,8 +242,10 @@ fn registry_services_equal(a: &[crate::registry::types::RegistryNodeService], b:
             || sa.artifact != sb.artifact
             || sa.port != sb.port
             || sa.unit != sb.unit
-            || sa.supervisor.as_ref().map(|s| &s.provider) != sb.supervisor.as_ref().map(|s| &s.provider)
-            || sa.health.as_ref().map(|h| (&h.kind, h.port, &h.process)) != sb.health.as_ref().map(|h| (&h.kind, h.port, &h.process))
+            || sa.supervisor.as_ref().map(|s| &s.provider)
+                != sb.supervisor.as_ref().map(|s| &s.provider)
+            || sa.health.as_ref().map(|h| (&h.kind, h.port, &h.process))
+                != sb.health.as_ref().map(|h| (&h.kind, h.port, &h.process))
         {
             return false;
         }
@@ -235,7 +253,10 @@ fn registry_services_equal(a: &[crate::registry::types::RegistryNodeService], b:
     true
 }
 
-fn registry_network_links_equal(a: &[crate::registry::types::RegistryNetworkLink], b: &[crate::registry::types::RegistryNetworkLink]) -> bool {
+fn registry_network_links_equal(
+    a: &[crate::registry::types::RegistryNetworkLink],
+    b: &[crate::registry::types::RegistryNetworkLink],
+) -> bool {
     if a.len() != b.len() {
         return false;
     }
@@ -270,7 +291,7 @@ mod tests {
     use super::*;
     use crate::registry::types::{
         RegistryDocument, RegistryFleetDesired, RegistryFleetTarget, RegistryKernelRelease,
-        RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPolicy, RegistryNetworkPlane,
+        RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane, RegistryNetworkPolicy,
         RegistryNode, RegistryNodeService, RegistryNodeTransports, RegistryServiceHealth,
         RegistryServiceSupervisor, RegistrySshEnrollmentAuthority, RegistrySshTransport,
     };

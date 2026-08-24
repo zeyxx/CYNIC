@@ -70,14 +70,16 @@ pub(super) fn run(json: bool, ledger: Option<PathBuf>, vault_dir: Option<PathBuf
             let total_count = all_entries.len();
 
             for m in &vault_models {
-                let sc = s.get_scorecard(m).await.unwrap_or_else(|_| cynic_inference::ModelEmpiricalScorecard {
-                    model_alias: m.clone(),
-                    total_benchmarked_points: 0,
-                    safe_points_count: 0,
-                    max_viable_context: cynic_protocol::ContextTier::Ctx4k,
-                    peak_throughput_tok_sec: 0.0,
-                    min_ttft_ms: 0.0,
-                    best_balanced_config: None,
+                let sc = s.get_scorecard(m).await.unwrap_or_else(|_| {
+                    cynic_inference::ModelEmpiricalScorecard {
+                        model_alias: m.clone(),
+                        total_benchmarked_points: 0,
+                        safe_points_count: 0,
+                        max_viable_context: cynic_protocol::ContextTier::Ctx4k,
+                        peak_throughput_tok_sec: 0.0,
+                        min_ttft_ms: 0.0,
+                        best_balanced_config: None,
+                    }
                 });
 
                 if sc.total_benchmarked_points > 0 {
@@ -129,7 +131,10 @@ pub(super) fn run(json: bool, ledger: Option<PathBuf>, vault_dir: Option<PathBuf
         next_action,
     };
 
-    println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&report).unwrap_or_default()
+    );
 
     if status == "ok" {
         ExitCode::SUCCESS

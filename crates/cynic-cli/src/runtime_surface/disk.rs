@@ -139,7 +139,10 @@ fn print_disk_report_human(report: &DiskReport) {
     if report.physical_disks.is_empty() {
         println!("(none observed)");
     } else {
-        println!("{:<14} {:<14} {:<10} {}", "DEVICE", "SIZE", "ROTA?", "MODEL");
+        println!(
+            "{:<14} {:<14} {:<10} {}",
+            "DEVICE", "SIZE", "ROTA?", "MODEL"
+        );
         println!("{}", "-".repeat(80));
         for d in &report.physical_disks {
             println!(

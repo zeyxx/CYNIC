@@ -18,9 +18,9 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use cynic_protocol::{
-    admit_build_mutation, compose_build_agent_workload, AgentBudgets, AgentCitizenshipRecord,
-    AgentScope, AgentWorkloadRecord, AgentWorkloadState, BuildAgentRequest,
-    BuildSourceReference, MutationAdmission, SecurityEvidenceState,
+    AgentBudgets, AgentCitizenshipRecord, AgentScope, AgentWorkloadRecord, AgentWorkloadState,
+    BuildAgentRequest, BuildSourceReference, MutationAdmission, SecurityEvidenceState,
+    admit_build_mutation, compose_build_agent_workload,
 };
 
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
@@ -57,13 +57,22 @@ pub struct ForgejoPayload {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ForgejoRef { pub id: String }
+pub struct ForgejoRef {
+    pub id: String,
+}
 
 #[derive(Debug, Deserialize)]
-pub struct ForgejoAuthor { pub name: String, pub email: String }
+pub struct ForgejoAuthor {
+    pub name: String,
+    pub email: String,
+}
 
 #[derive(Debug, Deserialize)]
-pub struct ForgejoCommit { pub id: String, pub message: String, pub timestamp: Option<String> }
+pub struct ForgejoCommit {
+    pub id: String,
+    pub message: String,
+    pub timestamp: Option<String>,
+}
 
 #[derive(Debug, Serialize)]
 pub struct AcceptanceProof {
@@ -108,13 +117,9 @@ async fn get_proof(
     }
 }
 
-fn verify_webhook_signature(
-    secret: &str,
-    body: &Bytes,
-    signature: &str,
-) -> bool {
-    let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
-        .expect("HMAC can take key of any size");
+fn verify_webhook_signature(secret: &str, body: &Bytes, signature: &str) -> bool {
+    let mut mac =
+        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
     mac.update(body);
     let result = mac.finalize();
     let expected = hex::encode(result.into_bytes());
@@ -136,10 +141,7 @@ async fn webhook_forgejo(
             .unwrap_or("");
 
         if !verify_webhook_signature(secret, &body, signature) {
-            return Err((
-                StatusCode::UNAUTHORIZED,
-                "invalid webhook signature".into(),
-            ));
+            return Err((StatusCode::UNAUTHORIZED, "invalid webhook signature".into()));
         }
     }
 
@@ -161,7 +163,10 @@ async fn webhook_forgejo(
     if commit_sha.len() != 40 || !commit_sha.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err((
             StatusCode::BAD_REQUEST,
-            format!("invalid commit SHA: expected 40 hex chars, got {}", commit_sha.len()),
+            format!(
+                "invalid commit SHA: expected 40 hex chars, got {}",
+                commit_sha.len()
+            ),
         ));
     }
 
@@ -173,16 +178,26 @@ async fn webhook_forgejo(
     let desired_role = "build_runner";
     let citizen = AgentCitizenshipRecord {
         schema: "cynic.agent_citizenship.v1",
-        agent_id: payload.pusher.as_ref().map(|p| p.name.clone()).unwrap_or_else(|| "forgejo".into()),
+        agent_id: payload
+            .pusher
+            .as_ref()
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| "forgejo".into()),
         scope: AgentScope::Crate,
-        budgets: AgentBudgets { actions: 100, wall_seconds: 3600 },
+        budgets: AgentBudgets {
+            actions: 100,
+            wall_seconds: 3600,
+        },
         residual_risk: None,
         evidence: Some(SecurityEvidenceState::Proven),
     };
     let admission = admit_build_mutation(
         &citizen,
         Some(&AgentScope::Crate),
-        &AgentBudgets { actions: 1, wall_seconds: 60 },
+        &AgentBudgets {
+            actions: 1,
+            wall_seconds: 60,
+        },
         &AgentScope::Crate,
         true,
         desired_role,
@@ -201,7 +216,11 @@ async fn webhook_forgejo(
     let request = BuildAgentRequest {
         schema: "cynic.build_agent_request.v1".into(),
         request_id: workload_id.clone(),
-        requested_by: payload.pusher.as_ref().map(|p| p.name.clone()).unwrap_or_else(|| "forgejo".into()),
+        requested_by: payload
+            .pusher
+            .as_ref()
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
         source: BuildSourceReference {
             schema: "cynic.build.source_reference.v1".into(),
@@ -219,13 +238,17 @@ async fn webhook_forgejo(
         evidence_refs: vec![],
     };
 
-    let envelope = compose_build_agent_workload(&request, &state.config.node_id, &state.config.workspace_root)
-        .map_err(|blockers| {
-            (
-                StatusCode::BAD_REQUEST,
-                format!("composition failed: {:?}", blockers),
-            )
-        })?;
+    let envelope = compose_build_agent_workload(
+        &request,
+        &state.config.node_id,
+        &state.config.workspace_root,
+    )
+    .map_err(|blockers| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("composition failed: {:?}", blockers),
+        )
+    })?;
 
     let record = AgentWorkloadRecord {
         schema: "cynic.agent_workload_record.v1".into(),
@@ -241,10 +264,12 @@ async fn webhook_forgejo(
     state
         .store
         .compare_and_swap(&workload_id, None, &record, accepted_at_ms as u64)
-        .map_err(|e| (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("persist failed: {}", e.code),
-        ))?;
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("persist failed: {}", e.code),
+            )
+        })?;
 
     Ok(Json(AcceptanceProof {
         schema: "cynic.builder.acceptance_proof.v1",
@@ -289,14 +314,22 @@ mod tests {
         let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
         mac.update(body);
         let expected = hex::encode(mac.finalize().into_bytes());
-        assert!(verify_webhook_signature(secret, &Bytes::from_static(body), &expected));
+        assert!(verify_webhook_signature(
+            secret,
+            &Bytes::from_static(body),
+            &expected
+        ));
     }
 
     #[test]
     fn hmac_verification_invalid_signature() {
         let secret = "test-secret";
         let body = b"{\"after\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}";
-        assert!(!verify_webhook_signature(secret, &Bytes::from_static(body), "deadbeef"));
+        assert!(!verify_webhook_signature(
+            secret,
+            &Bytes::from_static(body),
+            "deadbeef"
+        ));
     }
 
     #[test]

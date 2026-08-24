@@ -1,7 +1,7 @@
 //! Registry validation — pure functions, no I/O
 
-use crate::registry::types::{RegistryDocument, RegistryNode, RegistryNetworkLink};
 use crate::domain::services::ServiceManagerKind;
+use crate::registry::types::{RegistryDocument, RegistryNetworkLink, RegistryNode};
 
 /// Validation error with context
 #[derive(Debug, thiserror::Error)]
@@ -134,9 +134,7 @@ pub fn validate_registry(doc: &RegistryDocument) -> Vec<ValidationError> {
                         || node.canonical_role.as_deref() == Some(role.as_str())
                 });
                 if !exists {
-                    errors.push(ValidationError::BuildRunnerRoleMissingNode {
-                        role: role.clone(),
-                    });
+                    errors.push(ValidationError::BuildRunnerRoleMissingNode { role: role.clone() });
                 }
             }
 
@@ -148,9 +146,8 @@ pub fn validate_registry(doc: &RegistryDocument) -> Vec<ValidationError> {
                             || node.canonical_role.as_deref() == Some(role.as_str())
                     });
                     if !exists {
-                        errors.push(ValidationError::HostBootstrapRoleMissing {
-                            role: role.clone(),
-                        });
+                        errors
+                            .push(ValidationError::HostBootstrapRoleMissing { role: role.clone() });
                     }
                 }
             }
@@ -246,7 +243,7 @@ mod tests {
     use super::*;
     use crate::registry::types::{
         RegistryDocument, RegistryFleetDesired, RegistryFleetTarget, RegistryKernelRelease,
-        RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPolicy, RegistryNetworkPlane,
+        RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane, RegistryNetworkPolicy,
         RegistryNode, RegistryNodeService, RegistryNodeTransports, RegistryServiceHealth,
         RegistryServiceSupervisor, RegistrySshEnrollmentAuthority, RegistrySshTransport,
     };

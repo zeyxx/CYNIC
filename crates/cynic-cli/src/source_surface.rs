@@ -1,8 +1,8 @@
-use std::path::Path;
-use std::process::ExitCode;
+use crate::cli_json::emit_pretty_json;
 use clap::Subcommand;
 use serde::Serialize;
-use crate::cli_json::emit_pretty_json;
+use std::path::Path;
+use std::process::ExitCode;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum SourceCommand {
@@ -58,9 +58,12 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
-        SourceCommand::Release { root, dry_run, apply, json } => {
-            execute_release(Path::new(&root), dry_run, apply, json)
-        }
+        SourceCommand::Release {
+            root,
+            dry_run,
+            apply,
+            json,
+        } => execute_release(Path::new(&root), dry_run, apply, json),
         SourceCommand::Sync { root, apply, json } => {
             let path = Path::new(&root);
             let observation = cynic_host::source_sync::observe_all_layers(path);
@@ -72,13 +75,20 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
                     emit_pretty_json(&proof)
                 } else {
                     println!("Sync executed: success={}", proof.success);
-                    if proof.success { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+                    if proof.success {
+                        ExitCode::SUCCESS
+                    } else {
+                        ExitCode::FAILURE
+                    }
                 }
             } else {
                 if json {
                     emit_pretty_json(&plan)
                 } else {
-                    println!("Sync plan: {} steps (dry-run, pass --apply to execute)", plan.steps.len());
+                    println!(
+                        "Sync plan: {} steps (dry-run, pass --apply to execute)",
+                        plan.steps.len()
+                    );
                     ExitCode::SUCCESS
                 }
             }

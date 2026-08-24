@@ -338,7 +338,9 @@ fn remediation_plan(status: &str) -> NetworkRemediationPlan {
 /// its PoH ledger via `POST /proof-of-history`. The DNS proof therefore becomes
 /// an external_proof referenced in the PoH checkpoint (hashchain + Ed25519),
 /// without inclusion in the kernel's lifecycle sequence.
-pub fn to_host_proof_submission(report: &RuntimeNetworkPreflightReport) -> cynic_protocol::HostProofSubmission {
+pub fn to_host_proof_submission(
+    report: &RuntimeNetworkPreflightReport,
+) -> cynic_protocol::HostProofSubmission {
     cynic_protocol::HostProofSubmission::new(
         "cynic-host",
         "runtime_network_preflight",
@@ -424,7 +426,10 @@ mod tests {
             observe_runtime_network_preflight_with_observer(&["crates.io".to_string()], &observer);
 
         let submission = to_host_proof_submission(&report);
-        assert_eq!(submission.schema, cynic_protocol::HostProofSubmission::SCHEMA);
+        assert_eq!(
+            submission.schema,
+            cynic_protocol::HostProofSubmission::SCHEMA
+        );
         assert_eq!(submission.source_organ, "cynic-host");
         assert_eq!(submission.event_type, "runtime_network_preflight");
         assert_eq!(submission.payload["status"], "ready");

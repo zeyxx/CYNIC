@@ -2,8 +2,8 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 use cynic_observer::solana_archive::{
-    FanoutExecutionPlan, FanoutPlanRequest, ProbeTarget, ProviderRegistry,
-    build_probe_plan, plan_fanout_request,
+    FanoutExecutionPlan, FanoutPlanRequest, ProbeTarget, ProviderRegistry, build_probe_plan,
+    plan_fanout_request,
 };
 
 use crate::cli_json::emit_pretty_json;

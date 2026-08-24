@@ -24,9 +24,7 @@ pub(super) fn execute_plan(
         &LocalArgvRunner,
     );
     if let Some(out) = output {
-        if let Err(error) =
-            write_pretty_json_file(Path::new(&out), &plan, "source snapshot plan")
-        {
+        if let Err(error) = write_pretty_json_file(Path::new(&out), &plan, "source snapshot plan") {
             return fail(error);
         }
     }

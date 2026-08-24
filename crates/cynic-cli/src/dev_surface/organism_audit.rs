@@ -42,25 +42,26 @@ pub(super) fn run(json: bool) -> ExitCode {
     // 1. Check SurrealDB on 127.0.0.1:8000
     let start = std::time::Instant::now();
     let socket_addr = "127.0.0.1:8000".parse().unwrap();
-    let storage_check = match std::net::TcpStream::connect_timeout(&socket_addr, Duration::from_millis(500)) {
-        Ok(_) => {
-            let lat = start.elapsed().as_secs_f32() * 1000.0;
-            ServiceCheck {
+    let storage_check =
+        match std::net::TcpStream::connect_timeout(&socket_addr, Duration::from_millis(500)) {
+            Ok(_) => {
+                let lat = start.elapsed().as_secs_f32() * 1000.0;
+                ServiceCheck {
+                    name: "surrealdb",
+                    target: "127.0.0.1:8000".into(),
+                    status: "ok",
+                    latency_ms: Some(lat),
+                    detail: "TCP port listening and reachable".into(),
+                }
+            }
+            Err(e) => ServiceCheck {
                 name: "surrealdb",
                 target: "127.0.0.1:8000".into(),
-                status: "ok",
-                latency_ms: Some(lat),
-                detail: "TCP port listening and reachable".into(),
-            }
-        }
-        Err(e) => ServiceCheck {
-            name: "surrealdb",
-            target: "127.0.0.1:8000".into(),
-            status: "unreachable",
-            latency_ms: None,
-            detail: e.to_string(),
-        },
-    };
+                status: "unreachable",
+                latency_ms: None,
+                detail: e.to_string(),
+            },
+        };
 
     // 2. Check Synapse DNS resolution
     let dns_check = if Path::new("/etc/cynic/dns/synapse.hosts").exists() {
@@ -83,19 +84,31 @@ pub(super) fn run(json: bool) -> ExitCode {
 
     // 3. Empirical Ledger check
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    let user_ledger_path = std::path::PathBuf::from(&home).join(".cynic/evidence/inference_profiles.jsonl");
-    let (active_ledger_path, ledger_exists) = if Path::new(cynic_inference::DEFAULT_EMPIRICAL_LEDGER_PATH).exists() {
-        (cynic_inference::DEFAULT_EMPIRICAL_LEDGER_PATH.to_string(), true)
-    } else if user_ledger_path.exists() {
-        (user_ledger_path.display().to_string(), true)
-    } else {
-        (cynic_inference::DEFAULT_EMPIRICAL_LEDGER_PATH.to_string(), false)
-    };
+    let user_ledger_path =
+        std::path::PathBuf::from(&home).join(".cynic/evidence/inference_profiles.jsonl");
+    let (active_ledger_path, ledger_exists) =
+        if Path::new(cynic_inference::DEFAULT_EMPIRICAL_LEDGER_PATH).exists() {
+            (
+                cynic_inference::DEFAULT_EMPIRICAL_LEDGER_PATH.to_string(),
+                true,
+            )
+        } else if user_ledger_path.exists() {
+            (user_ledger_path.display().to_string(), true)
+        } else {
+            (
+                cynic_inference::DEFAULT_EMPIRICAL_LEDGER_PATH.to_string(),
+                false,
+            )
+        };
 
     let ledger_check = ServiceCheck {
         name: "empirical_ledger",
         target: active_ledger_path,
-        status: if ledger_exists { "ok" } else { "pending_first_sweep" },
+        status: if ledger_exists {
+            "ok"
+        } else {
+            "pending_first_sweep"
+        },
         latency_ms: None,
         detail: if ledger_exists {
             "Durable telemetry ledger active with verified benchmark profiles".into()
@@ -106,13 +119,17 @@ pub(super) fn run(json: bool) -> ExitCode {
 
     // 4. Domain Task Queue check
     let user_task_path = std::path::PathBuf::from(&home).join(".cynic/evidence/domain_tasks.jsonl");
-    let (active_task_path, task_exists) = if Path::new(cynic_inference::DEFAULT_DOMAIN_TASKS_PATH).exists() {
-        (cynic_inference::DEFAULT_DOMAIN_TASKS_PATH.to_string(), true)
-    } else if user_task_path.exists() {
-        (user_task_path.display().to_string(), true)
-    } else {
-        (cynic_inference::DEFAULT_DOMAIN_TASKS_PATH.to_string(), false)
-    };
+    let (active_task_path, task_exists) =
+        if Path::new(cynic_inference::DEFAULT_DOMAIN_TASKS_PATH).exists() {
+            (cynic_inference::DEFAULT_DOMAIN_TASKS_PATH.to_string(), true)
+        } else if user_task_path.exists() {
+            (user_task_path.display().to_string(), true)
+        } else {
+            (
+                cynic_inference::DEFAULT_DOMAIN_TASKS_PATH.to_string(),
+                false,
+            )
+        };
 
     let task_check = ServiceCheck {
         name: "domain_task_queue",
@@ -135,7 +152,9 @@ pub(super) fn run(json: bool) -> ExitCode {
 
     if !ledger_exists {
         bottlenecks.push("No empirical performance evidence recorded yet".into());
-        recommendations.push("Execute cynic dev inference-matrix --model <path> --execute to populate ledger".into());
+        recommendations.push(
+            "Execute cynic dev inference-matrix --model <path> --execute to populate ledger".into(),
+        );
     }
 
     let overall_status = if bottlenecks.is_empty() {
@@ -156,7 +175,10 @@ pub(super) fn run(json: bool) -> ExitCode {
         recommended_actions: recommendations,
     };
 
-    println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&report).unwrap_or_default()
+    );
 
     ExitCode::SUCCESS
 }

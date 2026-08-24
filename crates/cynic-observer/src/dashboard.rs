@@ -163,7 +163,10 @@ pub async fn run_server(
     Ok(())
 }
 
-async fn handle_connection(stream: TcpStream, mut rx_broadcast: broadcast::Receiver<serde_json::Value>) {
+async fn handle_connection(
+    stream: TcpStream,
+    mut rx_broadcast: broadcast::Receiver<serde_json::Value>,
+) {
     let mut peek_buf = [0u8; 4];
     if let Ok(n) = stream.peek(&mut peek_buf).await {
         if n >= 3 && &peek_buf[0..3] == b"GET" {
@@ -173,13 +176,17 @@ async fn handle_connection(stream: TcpStream, mut rx_broadcast: broadcast::Recei
             use tokio::io::AsyncReadExt;
             if let Ok(read_bytes) = stream.read(&mut buffer).await {
                 let req = String::from_utf8_lossy(&buffer[..read_bytes]);
-                
+
                 // Si la requête contient "Upgrade: websocket", c'est une connexion WS
                 if req.contains("Upgrade: websocket") || req.contains("upgrade: websocket") {
                     if let Ok(mut ws_stream) = tokio_tungstenite::accept_async(stream).await {
                         while let Ok(msg) = rx_broadcast.recv().await {
                             if let Ok(json_str) = serde_json::to_string(&msg) {
-                                if ws_stream.send(Message::Text(json_str.into())).await.is_err() {
+                                if ws_stream
+                                    .send(Message::Text(json_str.into()))
+                                    .await
+                                    .is_err()
+                                {
                                     break;
                                 }
                             }

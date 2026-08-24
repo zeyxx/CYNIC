@@ -4,11 +4,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::Subcommand;
 
+use crate::fleet_report;
+use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use cynic_host::peer_validator::PeerValidator;
 use cynic_protocol::fleet_discovery::FleetNodeStatus;
 use cynic_protocol::fleet_heartbeat::FleetHeartbeat;
-use crate::fleet_report;
-use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 
 #[derive(Subcommand)]
 pub(crate) enum FleetCommand {
@@ -104,7 +104,13 @@ fn current_unix_s() -> u64 {
 
 pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
     match command {
-        FleetCommand::Report { json, registry, proxmox_json, proxmox_list_text, watchdog_json } => {
+        FleetCommand::Report {
+            json,
+            registry,
+            proxmox_json,
+            proxmox_list_text,
+            watchdog_json,
+        } => {
             if !json {
                 return ExitCode::FAILURE;
             }
@@ -120,14 +126,18 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
             if !json {
                 return ExitCode::FAILURE;
             }
-            let registry_path = resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
+            let registry_path =
+                resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
             let adapter = cynic_host::fleet_discovery::FleetDiscoveryAdapter::new(
                 registry_path.to_string_lossy().to_string(),
             );
             let report = adapter.discover();
             crate::cli_json::emit_pretty_json(&report)
         }
-        FleetCommand::Health { json, heartbeat_timeout_s } => {
+        FleetCommand::Health {
+            json,
+            heartbeat_timeout_s,
+        } => {
             if !json {
                 return ExitCode::FAILURE;
             }
@@ -140,72 +150,96 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
             let report = adapter.observe();
             crate::cli_json::emit_pretty_json(&report)
         }
-        FleetCommand::Disk { json, registry, ssh_target } => {
+        FleetCommand::Disk {
+            json,
+            registry,
+            ssh_target,
+        } => {
             if !json {
                 return ExitCode::FAILURE;
             }
             let registry_path =
                 resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
-            let adapter =
-                cynic_host::fleet_disk_observer::FleetDiskObserver::with_runner(
-                    registry_path.to_string_lossy().to_string(),
-                    cynic_host::update_lifecycle::LocalArgvRunner,
-                )
-                .with_ssh_target(ssh_target);
+            let adapter = cynic_host::fleet_disk_observer::FleetDiskObserver::with_runner(
+                registry_path.to_string_lossy().to_string(),
+                cynic_host::update_lifecycle::LocalArgvRunner,
+            )
+            .with_ssh_target(ssh_target);
             let report = adapter.observe();
             crate::cli_json::emit_pretty_json(&report)
         }
-        FleetCommand::Memory { json, registry, ssh_target } => {
+        FleetCommand::Memory {
+            json,
+            registry,
+            ssh_target,
+        } => {
             if !json {
                 return ExitCode::FAILURE;
             }
             let registry_path =
                 resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
-            let adapter =
-                cynic_host::fleet_memory_observer::FleetMemoryObserver::with_runner(
-                    registry_path.to_string_lossy().to_string(),
-                    cynic_host::update_lifecycle::LocalArgvRunner,
-                )
-                .with_ssh_target(ssh_target);
+            let adapter = cynic_host::fleet_memory_observer::FleetMemoryObserver::with_runner(
+                registry_path.to_string_lossy().to_string(),
+                cynic_host::update_lifecycle::LocalArgvRunner,
+            )
+            .with_ssh_target(ssh_target);
             let report = adapter.observe();
             crate::cli_json::emit_pretty_json(&report)
         }
-        FleetCommand::Cpu { json, registry, ssh_target } => {
+        FleetCommand::Cpu {
+            json,
+            registry,
+            ssh_target,
+        } => {
             if !json {
                 return ExitCode::FAILURE;
             }
             let registry_path =
                 resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
-            let adapter =
-                cynic_host::fleet_cpu_observer::FleetCpuObserver::with_runner(
-                    registry_path.to_string_lossy().to_string(),
-                    cynic_host::update_lifecycle::LocalArgvRunner,
-                )
-                .with_ssh_target(ssh_target);
+            let adapter = cynic_host::fleet_cpu_observer::FleetCpuObserver::with_runner(
+                registry_path.to_string_lossy().to_string(),
+                cynic_host::update_lifecycle::LocalArgvRunner,
+            )
+            .with_ssh_target(ssh_target);
             let report = adapter.observe();
             crate::cli_json::emit_pretty_json(&report)
         }
-        FleetCommand::Network { json, registry, ssh_target } => {
+        FleetCommand::Network {
+            json,
+            registry,
+            ssh_target,
+        } => {
             if !json {
                 return ExitCode::FAILURE;
             }
             let registry_path =
                 resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
-            let adapter =
-                cynic_host::fleet_network_observer::FleetNetworkObserver::with_runner(
-                    registry_path.to_string_lossy().to_string(),
-                    cynic_host::update_lifecycle::LocalArgvRunner,
-                )
-                .with_ssh_target(ssh_target);
+            let adapter = cynic_host::fleet_network_observer::FleetNetworkObserver::with_runner(
+                registry_path.to_string_lossy().to_string(),
+                cynic_host::update_lifecycle::LocalArgvRunner,
+            )
+            .with_ssh_target(ssh_target);
             let report = adapter.observe();
             crate::cli_json::emit_pretty_json(&report)
         }
-        FleetCommand::Pulse { node_id, cert_id, key_path, status, uptime_s, json } => {
-            let key_p = key_path.map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/etc/cynic/node-identity.key"));
+        FleetCommand::Pulse {
+            node_id,
+            cert_id,
+            key_path,
+            status,
+            uptime_s,
+            json,
+        } => {
+            let key_p = key_path
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from("/etc/cynic/node-identity.key"));
             let private_key = match cynic_host::crypto::SecretStore::load_secret(&key_p) {
                 Ok(k) => k,
                 Err(e) => {
-                    eprintln!("Failed to load node private key from {}: {e}", key_p.display());
+                    eprintln!(
+                        "Failed to load node private key from {}: {e}",
+                        key_p.display()
+                    );
                     return ExitCode::FAILURE;
                 }
             };
@@ -228,7 +262,10 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
                     if json {
                         crate::cli_json::emit_pretty_json(&signed)
                     } else {
-                        println!("PULSE EMITTED: Node {} ({:?}) signed with cert {}", hb.node_id, hb.self_status, cert_id);
+                        println!(
+                            "PULSE EMITTED: Node {} ({:?}) signed with cert {}",
+                            hb.node_id, hb.self_status, cert_id
+                        );
                         println!("Signature: {}", signed.signature_hex);
                         ExitCode::SUCCESS
                     }

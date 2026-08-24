@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use super::types::ConditionalMarket;
 
@@ -31,11 +31,9 @@ impl LiquidityVault {
         self.total_reserve_units += amount_units;
     }
 
-    pub fn allocate_market_liquidity(
-        &mut self,
-        market: ConditionalMarket,
-    ) -> Result<(), String> {
-        if self.allocated_liquidity_units + market.total_liquidity_units > self.total_reserve_units {
+    pub fn allocate_market_liquidity(&mut self, market: ConditionalMarket) -> Result<(), String> {
+        if self.allocated_liquidity_units + market.total_liquidity_units > self.total_reserve_units
+        {
             return Err("Insufficient vault reserves to seed market".to_string());
         }
 
@@ -47,7 +45,8 @@ impl LiquidityVault {
     }
 
     pub fn available_reserve_units(&self) -> u64 {
-        self.total_reserve_units.saturating_sub(self.allocated_liquidity_units)
+        self.total_reserve_units
+            .saturating_sub(self.allocated_liquidity_units)
     }
 }
 
@@ -61,13 +60,7 @@ mod tests {
         let mut vault = LiquidityVault::new("vault-odysseum-alpha", 10_000_000);
         assert_eq!(vault.available_reserve_units(), 10_000_000);
 
-        let market = create_market(
-            "mkt-001",
-            "prop-1",
-            "Should we deploy?",
-            2_000_000,
-            6000,
-        );
+        let market = create_market("mkt-001", "prop-1", "Should we deploy?", 2_000_000, 6000);
 
         vault.allocate_market_liquidity(market).expect("allocation");
         assert_eq!(vault.allocated_liquidity_units, 2_000_000);

@@ -35,7 +35,11 @@ pub(crate) struct AutoresearchReport {
 }
 
 impl AutoresearchReport {
-    pub(crate) fn new(summary: AutoresearchSummary, entries: Vec<AutoresearchEntry>, judgment: Option<CynicJudgment>) -> Self {
+    pub(crate) fn new(
+        summary: AutoresearchSummary,
+        entries: Vec<AutoresearchEntry>,
+        judgment: Option<CynicJudgment>,
+    ) -> Self {
         Self {
             schema: "cynic.autoresearch_surface.report.v1".to_string(),
             summary,

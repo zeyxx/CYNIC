@@ -59,15 +59,11 @@ fn print_cpu_report_human(report: &CpuReport) {
     println!("── Usage (jiffies) ─────────────────────────────────────────");
     println!(
         "  user={:<10} system={:<10} idle={:<10} iowait={:<10}",
-        report.usage.user,
-        report.usage.system,
-        report.usage.idle,
-        report.usage.iowait,
+        report.usage.user, report.usage.system, report.usage.idle, report.usage.iowait,
     );
     println!(
         "  softirq={:<8} steal={:<10}",
-        report.usage.softirq,
-        report.usage.steal,
+        report.usage.softirq, report.usage.steal,
     );
     if let Some(u) = report.usage.util_pct {
         println!("  Utilisation: {u:.1}%");
@@ -75,10 +71,7 @@ fn print_cpu_report_human(report: &CpuReport) {
     println!();
     if let Some(p) = &report.pressure {
         println!("── Pressure stalls (PSI) ───────────────────────────────────");
-        println!(
-            "  Some avg10={}",
-            p.some_avg10.unwrap_or(0.0),
-        );
+        println!("  Some avg10={}", p.some_avg10.unwrap_or(0.0),);
         if let Some(softirq) = p.softirq_steal {
             println!("  PSI total (softirq/steal proxy): {softirq}");
         }

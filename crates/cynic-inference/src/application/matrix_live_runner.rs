@@ -16,13 +16,13 @@ use reqwest::Client;
 use serde_json::Value;
 use tokio::process::Child;
 
+use crate::domain::matrix_sweep::HardwareBudget;
 use crate::domain::matrix_sweep::empirical_store::{
     BenchmarkProvenance, EmpiricalProfileEntry, OomSafetyStatus,
 };
 use crate::domain::matrix_sweep::memory_estimator::{
     ModelArchDescriptor, can_admit_model_configuration,
 };
-use crate::domain::matrix_sweep::HardwareBudget;
 use crate::domain::matrix_sweep::stream_metrics::compute_stream_dynamics;
 use crate::domain::matrix_sweep::types::{BenchmarkScenario, StreamDynamicsReport};
 use crate::ports::empirical_store_port::{EmpiricalStoreError, EmpiricalStorePort};
@@ -202,10 +202,16 @@ impl MatrixLiveRunner {
 
         // Execute benchmark scenarios over SSE
         let mut scenario_dynamics = Vec::new();
-        let completions_url = format!("http://127.0.0.1:{}/v1/chat/completions", self.config.bind_port);
+        let completions_url = format!(
+            "http://127.0.0.1:{}/v1/chat/completions",
+            self.config.bind_port
+        );
 
         for scenario in scenarios {
-            if let Ok(dyn_report) = self.run_streaming_scenario(&completions_url, scenario).await {
+            if let Ok(dyn_report) = self
+                .run_streaming_scenario(&completions_url, scenario)
+                .await
+            {
                 scenario_dynamics.push(dyn_report);
             }
         }
@@ -275,7 +281,8 @@ impl MatrixLiveRunner {
             "temperature": 0.0
         });
 
-        let resp = self.http_client
+        let resp = self
+            .http_client
             .post(completions_url)
             .json(&payload)
             .send()
@@ -297,7 +304,10 @@ impl MatrixLiveRunner {
                         if trimmed.starts_with("data: ") && !trimmed.contains("[DONE]") {
                             let json_str = &trimmed[6..];
                             if let Ok(v) = serde_json::from_str::<Value>(json_str) {
-                                if let Some(content) = v.pointer("/choices/0/delta/content").and_then(|c| c.as_str()) {
+                                if let Some(content) = v
+                                    .pointer("/choices/0/delta/content")
+                                    .and_then(|c| c.as_str())
+                                {
                                     if !content.is_empty() {
                                         completion_tokens += 1;
                                     }
@@ -349,8 +359,16 @@ fn aggregate_stream_reports(reports: &[StreamDynamicsReport]) -> StreamDynamicsR
 
     let count = reports.len() as f32;
     let avg_ttft = reports.iter().map(|r| r.ttft_ms).sum::<f32>() / count;
-    let avg_tps = reports.iter().map(|r| r.predicted_tokens_per_second).sum::<f32>() / count;
-    let avg_prompt_tps = reports.iter().map(|r| r.prompt_tokens_per_second).sum::<f32>() / count;
+    let avg_tps = reports
+        .iter()
+        .map(|r| r.predicted_tokens_per_second)
+        .sum::<f32>()
+        / count;
+    let avg_prompt_tps = reports
+        .iter()
+        .map(|r| r.prompt_tokens_per_second)
+        .sum::<f32>()
+        / count;
     let avg_jitter = reports.iter().map(|r| r.jitter_variance_ms).sum::<f32>() / count;
     let avg_inter_token = reports.iter().map(|r| r.mean_inter_token_ms).sum::<f32>() / count;
 
@@ -370,7 +388,11 @@ fn read_process_rss_bytes(pid: u32) -> u64 {
     }
     let statm_path = format!("/proc/{pid}/statm");
     if let Ok(content) = std::fs::read_to_string(statm_path) {
-        if let Some(rss_pages) = content.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()) {
+        if let Some(rss_pages) = content
+            .split_whitespace()
+            .nth(1)
+            .and_then(|p| p.parse::<u64>().ok())
+        {
             return rss_pages * 4096; // 4 KiB page size
         }
     }

@@ -134,7 +134,10 @@ impl TraceEngine {
     }
 
     /// Loads and filters high-quality training traces (e.g. Q-score >= min_q_score).
-    pub fn load_filtered_traces(path: &Path, min_q_score: Option<f64>) -> std::io::Result<Vec<TrainingTrace>> {
+    pub fn load_filtered_traces(
+        path: &Path,
+        min_q_score: Option<f64>,
+    ) -> std::io::Result<Vec<TrainingTrace>> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let mut traces = Vec::new();
@@ -170,10 +173,18 @@ impl TraceEngine {
 
         for trace in &traces {
             let filename = match trace.domain.as_str() {
-                "rust_architecture" | "rust-coding" | "cynic-runtime" => FineTuningDomain::RustArchitecture.dataset_filename(),
-                "epistemic_jury" | "epistemic" | "judgment" => FineTuningDomain::EpistemicJury.dataset_filename(),
-                "solana_onchain" | "solana" | "anchor" => FineTuningDomain::SolanaOnchain.dataset_filename(),
-                "fleet_orchestration" | "fleet" | "network" => FineTuningDomain::FleetOrchestration.dataset_filename(),
+                "rust_architecture" | "rust-coding" | "cynic-runtime" => {
+                    FineTuningDomain::RustArchitecture.dataset_filename()
+                }
+                "epistemic_jury" | "epistemic" | "judgment" => {
+                    FineTuningDomain::EpistemicJury.dataset_filename()
+                }
+                "solana_onchain" | "solana" | "anchor" => {
+                    FineTuningDomain::SolanaOnchain.dataset_filename()
+                }
+                "fleet_orchestration" | "fleet" | "network" => {
+                    FineTuningDomain::FleetOrchestration.dataset_filename()
+                }
                 _ => "cynic-general-traces-v1.jsonl",
             };
 
@@ -186,7 +197,11 @@ impl TraceEngine {
             });
 
             let formatted = trace.to_fine_tuning_format();
-            writeln!(file, "{}", serde_json::to_string(&formatted).unwrap_or_default())?;
+            writeln!(
+                file,
+                "{}",
+                serde_json::to_string(&formatted).unwrap_or_default()
+            )?;
             *counts.entry(filename.to_string()).or_insert(0) += 1;
         }
 
@@ -269,10 +284,23 @@ mod tests {
             TraceEngine::append_trace(&trace_file, trace).unwrap();
         }
 
-        let counts = TraceEngine::export_domain_datasets(&trace_file, &output_dir, Some(0.80)).unwrap();
-        assert_eq!(counts.get(FineTuningDomain::RustArchitecture.dataset_filename()), Some(&1));
-        assert_eq!(counts.get(FineTuningDomain::EpistemicJury.dataset_filename()), Some(&1));
-        assert_eq!(counts.get(FineTuningDomain::SolanaOnchain.dataset_filename()), Some(&1));
-        assert_eq!(counts.get(FineTuningDomain::FleetOrchestration.dataset_filename()), Some(&1));
+        let counts =
+            TraceEngine::export_domain_datasets(&trace_file, &output_dir, Some(0.80)).unwrap();
+        assert_eq!(
+            counts.get(FineTuningDomain::RustArchitecture.dataset_filename()),
+            Some(&1)
+        );
+        assert_eq!(
+            counts.get(FineTuningDomain::EpistemicJury.dataset_filename()),
+            Some(&1)
+        );
+        assert_eq!(
+            counts.get(FineTuningDomain::SolanaOnchain.dataset_filename()),
+            Some(&1)
+        );
+        assert_eq!(
+            counts.get(FineTuningDomain::FleetOrchestration.dataset_filename()),
+            Some(&1)
+        );
     }
 }

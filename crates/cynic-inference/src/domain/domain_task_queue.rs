@@ -35,7 +35,10 @@ pub enum DomainTaskQueueError {
     AlreadyClaimed { task_id: String, claimed_by: String },
 
     #[error("Task '{task_id}' is not in claimable state (current: {status:?})")]
-    InvalidState { task_id: String, status: DomainTaskStatus },
+    InvalidState {
+        task_id: String,
+        status: DomainTaskStatus,
+    },
 
     #[error("task admission refused: {error}")]
     AdmissionRequired {
@@ -135,7 +138,9 @@ impl DomainTaskQueue {
     ) -> Result<DomainTask, DomainTaskQueueError> {
         if let Some(port) = &self.admission {
             if let Some(error) =
-                crate::domain::task_admission_port::TaskAdmissionError::from_decision(&port.admit(&payload))
+                crate::domain::task_admission_port::TaskAdmissionError::from_decision(
+                    &port.admit(&payload),
+                )
             {
                 return Err(DomainTaskQueueError::AdmissionRequired {
                     task_title: title.into(),
@@ -419,7 +424,13 @@ mod tests {
         let temp = NamedTempFile::new().unwrap();
         let queue = DomainTaskQueue::open(temp.path()).unwrap();
         let task = queue
-            .push_task(TaskDomain::Inference, TaskPriority::Agent, "legacy", serde_json::json!({}), "t")
+            .push_task(
+                TaskDomain::Inference,
+                TaskPriority::Agent,
+                "legacy",
+                serde_json::json!({}),
+                "t",
+            )
             .await
             .unwrap();
         assert_eq!(task.status, DomainTaskStatus::Pending);
@@ -428,13 +439,14 @@ mod tests {
     #[tokio::test]
     async fn budgeted_push_within_envelope_is_admitted() {
         let temp = NamedTempFile::new().unwrap();
-        let queue = DomainTaskQueue::open(temp.path())
-            .unwrap()
-            .with_admission(std::sync::Arc::new(StubAdmission {
-                envelope_tokens: 100,
-                open: vec![],
-                fresh: true,
-            }));
+        let queue =
+            DomainTaskQueue::open(temp.path())
+                .unwrap()
+                .with_admission(std::sync::Arc::new(StubAdmission {
+                    envelope_tokens: 100,
+                    open: vec![],
+                    fresh: true,
+                }));
         let task = queue
             .push_task(
                 TaskDomain::Inference,
@@ -451,13 +463,14 @@ mod tests {
     #[tokio::test]
     async fn budgeted_push_over_envelope_is_refused_and_not_persisted() {
         let temp = NamedTempFile::new().unwrap();
-        let queue = DomainTaskQueue::open(temp.path())
-            .unwrap()
-            .with_admission(std::sync::Arc::new(StubAdmission {
-                envelope_tokens: 50,
-                open: vec![],
-                fresh: true,
-            }));
+        let queue =
+            DomainTaskQueue::open(temp.path())
+                .unwrap()
+                .with_admission(std::sync::Arc::new(StubAdmission {
+                    envelope_tokens: 50,
+                    open: vec![],
+                    fresh: true,
+                }));
         let err = queue
             .push_task(
                 TaskDomain::Inference,
@@ -483,13 +496,14 @@ mod tests {
     #[tokio::test]
     async fn stale_capacity_yields_unknown_refusal() {
         let temp = NamedTempFile::new().unwrap();
-        let queue = DomainTaskQueue::open(temp.path())
-            .unwrap()
-            .with_admission(std::sync::Arc::new(StubAdmission {
-                envelope_tokens: 100,
-                open: vec![],
-                fresh: false,
-            }));
+        let queue =
+            DomainTaskQueue::open(temp.path())
+                .unwrap()
+                .with_admission(std::sync::Arc::new(StubAdmission {
+                    envelope_tokens: 100,
+                    open: vec![],
+                    fresh: false,
+                }));
         let err = queue
             .push_task(
                 TaskDomain::Inference,

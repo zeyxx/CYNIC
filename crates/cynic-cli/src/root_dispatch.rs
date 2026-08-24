@@ -80,9 +80,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
             no_tui,
         }),
         Command::Agent { command } => execute_agent(command),
-        Command::Models { .. }
-        | Command::Doctor { .. }
-        | Command::Errors { .. } => {
+        Command::Models { .. } | Command::Doctor { .. } | Command::Errors { .. } => {
             // Upstream scaffold: model/doctor/errors surfaces are declared at the
             // command layer but not yet wired to a dispatch arm in this revision.
             ExitCode::SUCCESS

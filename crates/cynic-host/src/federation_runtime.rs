@@ -10,7 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::os_health::observe::OsHealthObserver as OsHealthObserve;
 use crate::peer_resolver_mesh::MeshPeerResolver;
-use cynic_protocol::emergence::{EmergenceState, PeerState, health_score_from_os, AutonomyMode};
+use cynic_protocol::emergence::{AutonomyMode, EmergenceState, PeerState, health_score_from_os};
 use cynic_protocol::federation::{FederationReconciliation, reconcile_federation};
 use cynic_protocol::local_autonomy::{AutonomyObservation, decide_autonomy};
 use cynic_protocol::node_control::NodeControlPlan;
@@ -238,8 +238,16 @@ impl MeshObserver for MeshPeerObserver {
 
             // Compute health score from OS health signals
             let health_score = health_score_from_os(
-                peer.health.active_osha_codes.iter().filter(|c| c.contains("softlockup")).count() as u64,
-                peer.health.active_osha_codes.iter().filter(|c| c.contains("oom")).count() as u64,
+                peer.health
+                    .active_osha_codes
+                    .iter()
+                    .filter(|c| c.contains("softlockup"))
+                    .count() as u64,
+                peer.health
+                    .active_osha_codes
+                    .iter()
+                    .filter(|c| c.contains("oom"))
+                    .count() as u64,
                 peer.health.available_mem_mib,
             );
 

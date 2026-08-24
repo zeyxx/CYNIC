@@ -277,11 +277,9 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
             let report =
                 framework_bootstrap::apply_framework_propagation(&plan, yes, &LocalArgvRunner);
             if let Some(out) = output {
-                if let Err(error) = write_pretty_json_file(
-                    Path::new(&out),
-                    &report,
-                    "framework propagation report",
-                ) {
+                if let Err(error) =
+                    write_pretty_json_file(Path::new(&out), &report, "framework propagation report")
+                {
                     return fail(error);
                 }
             }

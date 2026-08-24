@@ -37,13 +37,25 @@ pub struct FailureGalleryEntry {
 /// From Ahmad's "Failure Modes and Fixes" — common local LLM failures.
 pub fn classify_failure(symptom: &str) -> FailureCategory {
     let lower = symptom.to_ascii_lowercase();
-    if lower.contains("out of memory") || lower.contains("oom") || lower.contains("cuda") && lower.contains("memory") {
+    if lower.contains("out of memory")
+        || lower.contains("oom")
+        || lower.contains("cuda") && lower.contains("memory")
+    {
         FailureCategory::OutOfMemory
-    } else if lower.contains("gibberish") || lower.contains("role confusion") || lower.contains("template") {
+    } else if lower.contains("gibberish")
+        || lower.contains("role confusion")
+        || lower.contains("template")
+    {
         FailureCategory::ChatTemplate
-    } else if lower.contains("first token") || lower.contains("slow prompt") || lower.contains("prefill") {
+    } else if lower.contains("first token")
+        || lower.contains("slow prompt")
+        || lower.contains("prefill")
+    {
         FailureCategory::SlowPrefill
-    } else if lower.contains("slow") || lower.contains("decode") || lower.contains("token") && lower.contains("second") {
+    } else if lower.contains("slow")
+        || lower.contains("decode")
+        || lower.contains("token") && lower.contains("second")
+    {
         FailureCategory::SlowDecode
     } else if lower.contains("document") || lower.contains("retrieval") || lower.contains("rag") {
         FailureCategory::RetrievalFailure

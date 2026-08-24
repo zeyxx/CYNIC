@@ -81,7 +81,11 @@ pub struct FleetMeshSource {
 }
 
 impl FleetMeshSource {
-    pub fn new(node_id: impl Into<String>, role: impl Into<String>, connected_peers: Arc<AtomicU64>) -> Self {
+    pub fn new(
+        node_id: impl Into<String>,
+        role: impl Into<String>,
+        connected_peers: Arc<AtomicU64>,
+    ) -> Self {
         Self {
             node_id: node_id.into(),
             role: role.into(),

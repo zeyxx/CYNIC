@@ -8,8 +8,8 @@ mod probe;
 pub mod types;
 
 pub use port::NetworkObservationPort;
-pub use types::*;
 pub use probe::{
     parse_addr_from_json, parse_ifname_from_dev, parse_pressure_from_dev, parse_route_from_json,
     parse_usage_from_dev,
 };
+pub use types::*;

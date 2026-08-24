@@ -10,12 +10,12 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use axum::Router;
 use axum::body::Body;
 use axum::extract::{Json, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::Router;
 use cynic_protocol::{ContextTier, ParametricConfigPoint};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -23,10 +23,8 @@ use tokio::process::Child;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::domain::domain_task_queue::DomainTaskQueue;
-use crate::domain::matrix_sweep::empirical_store::{
-    ConstraintFilter, OptimizationGoal,
-};
 use crate::domain::matrix_sweep::HardwareBudget;
+use crate::domain::matrix_sweep::empirical_store::{ConstraintFilter, OptimizationGoal};
 use crate::ports::empirical_store_port::EmpiricalStorePort;
 
 use super::matrix_sweep_executor::config_to_llama_argv;
@@ -258,7 +256,13 @@ async fn chat_completions_handler(
         obj.insert("model".into(), serde_json::json!(requested_model));
     }
 
-    match state.http_client.post(&backend_url).json(&full_payload).send().await {
+    match state
+        .http_client
+        .post(&backend_url)
+        .json(&full_payload)
+        .send()
+        .await
+    {
         Ok(resp) => {
             let status = StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::OK);
             let mut headers = HeaderMap::new();
@@ -306,7 +310,10 @@ async fn ensure_model_loaded(
         return Err((StatusCode::NOT_FOUND, Json(err_json)).into_response());
     }
 
-    let _weight_bytes = model_path.metadata().map(|m| m.len()).unwrap_or(2 * 1024 * 1024 * 1024);
+    let _weight_bytes = model_path
+        .metadata()
+        .map(|m| m.len())
+        .unwrap_or(2 * 1024 * 1024 * 1024);
     let system_reserve = state.hardware.total_ram_bytes / 10;
 
     // Solve for the optimal configuration from the empirical ledger

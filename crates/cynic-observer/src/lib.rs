@@ -11,10 +11,10 @@ pub mod source;
 pub mod wal;
 pub mod watcher;
 
-use serde::{Deserialize, Serialize};
 pub use domain::*;
+use serde::{Deserialize, Serialize};
+pub use solana_archive::{plan_fanout_request, FanoutPlanRequest};
 pub use source::*;
-pub use solana_archive::{FanoutPlanRequest, plan_fanout_request};
 
 /// Structure d'un événement capté sur la blockchain (compatibilité Solana).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]

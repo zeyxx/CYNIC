@@ -1,6 +1,6 @@
 use super::types::{
-    ConditionalMarket, FUTARCHY_MARKET_SCHEMA_V1, MarketDecision, MarketResolution,
-    PredictionBet, ProposalStatus,
+    ConditionalMarket, FUTARCHY_MARKET_SCHEMA_V1, MarketDecision, MarketResolution, PredictionBet,
+    ProposalStatus,
 };
 
 pub fn create_market(
@@ -122,8 +122,12 @@ mod tests {
         let shares = execute_bet(&mut market, bet_yes).expect("bet execution");
         assert!(shares > 0);
 
-        let (new_p_yes, new_p_no) = calculate_prices_bps(market.yes_pool_units, market.no_pool_units);
-        assert!(new_p_yes > 5000, "Price of YES should increase after YES bet");
+        let (new_p_yes, new_p_no) =
+            calculate_prices_bps(market.yes_pool_units, market.no_pool_units);
+        assert!(
+            new_p_yes > 5000,
+            "Price of YES should increase after YES bet"
+        );
         assert_eq!(new_p_yes + new_p_no, 10_000);
 
         // Resolve market

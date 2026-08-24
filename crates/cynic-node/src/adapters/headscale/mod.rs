@@ -22,9 +22,9 @@ use crate::ports::mesh_coordination_port::{
 };
 use cynic_host::process_observation::capture_command;
 use cynic_host::runtime_layout::current_runtime_layout;
-use cynic_protocol::network::MeshSovereignty;
 #[cfg(test)]
 use cynic_protocol::network::MeshRole;
+use cynic_protocol::network::MeshSovereignty;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]

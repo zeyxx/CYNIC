@@ -59,9 +59,10 @@ pub fn parse_cpuinfo(text: &str) -> (CpuPhysical, CpuVolume, Vec<String>) {
     }
     // The first CPU has processor=0 counted as a block too — recompute count
     // robustly: number of "processor :" lines.
-    let re_count = text.match_indices("processor\t:").count().max(
-        text.match_indices("processor :").count(),
-    );
+    let re_count = text
+        .match_indices("processor\t:")
+        .count()
+        .max(text.match_indices("processor :").count());
     if re_count != 0 {
         logical_cpus = re_count;
     }
@@ -95,12 +96,12 @@ pub fn parse_pressure_cpu(text: &str) -> Option<CpuPressure> {
     for line in text.lines() {
         let line = line.trim();
         if let Some(rest) = line.strip_prefix("some ") {
-            some_avg10 = rest.split_whitespace().find_map(|t| {
-                t.strip_prefix("avg10=").and_then(|s| s.parse::<f64>().ok())
-            });
-            softirq_steal = rest.split_whitespace().find_map(|t| {
-                t.strip_prefix("total=").and_then(|s| s.parse::<u64>().ok())
-            });
+            some_avg10 = rest
+                .split_whitespace()
+                .find_map(|t| t.strip_prefix("avg10=").and_then(|s| s.parse::<f64>().ok()));
+            softirq_steal = rest
+                .split_whitespace()
+                .find_map(|t| t.strip_prefix("total=").and_then(|s| s.parse::<u64>().ok()));
         }
     }
     if some_avg10.is_none() && softirq_steal.is_none() {

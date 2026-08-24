@@ -7,10 +7,10 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
+use cynic_protocol::build_node::{BuildNodeCandidate, resolve_build_node};
 use cynic_protocol::{
     DomainTask, DomainTaskStatus, FederatedNodeLease, FederatedTaskEnvelope, TaskDomain,
 };
-use cynic_protocol::build_node::{BuildNodeCandidate, resolve_build_node};
 use serde::{Deserialize, Serialize};
 
 use super::federated_mesh_probe_uc::probe_federated_synapse_mesh;
@@ -68,9 +68,10 @@ impl FederatedTaskDispatcher {
             .unwrap_or(0);
 
         // 1. Select target node based on domain role or explicit override
-        let resolver = super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default(
-            super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES,
-        );
+        let resolver =
+            super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default(
+                super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES,
+            );
         let target_node = match target_override {
             Some(node_id) => resolver
                 .resolve_all_peers()
@@ -179,9 +180,10 @@ impl FederatedTaskDispatcher {
 fn select_canonical_node_for_domain(
     domain: TaskDomain,
 ) -> cynic_protocol::peer_resolver::PeerEndpoint {
-    let resolver = super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default(
-        super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES,
-    );
+    let resolver =
+        super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default(
+            super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES,
+        );
     let (primary_role, fallback_role) = match domain {
         TaskDomain::CodeAudit | TaskDomain::Infra => ("build_runner", Some("hypervisor")),
         TaskDomain::Governance => ("storage_primary", None),

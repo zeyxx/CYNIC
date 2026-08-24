@@ -54,9 +54,10 @@ pub const CANONICAL_SYNAPSE_NODES: &[DeclaredSynapseNode] = &[
 
 /// Probes all declared Synapse nodes and generates a read-back proof report.
 pub fn probe_federated_synapse_mesh(local_node_id: &str) -> FederatedMeshProbeReport {
-    let resolver = super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default(
-        CANONICAL_SYNAPSE_NODES,
-    );
+    let resolver =
+        super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default(
+            CANONICAL_SYNAPSE_NODES,
+        );
     let seed_peers = resolver.resolve_all_peers();
     let timeout = Duration::from_millis(350);
     let mut node_statuses = Vec::new();

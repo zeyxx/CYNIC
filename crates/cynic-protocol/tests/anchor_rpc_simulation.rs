@@ -1,7 +1,7 @@
 use cynic_protocol::anchor_client::{
-    build_create_futarchy_market_ix, build_poh_checkpoint_from_digests, build_record_poh_ix,
-    compute_merkle_root_from_digests, derive_pda_digest, ANCHOR_CLIENT_SCHEMA_V1,
-    POH_CHECKPOINT_BATCH_SCHEMA,
+    ANCHOR_CLIENT_SCHEMA_V1, POH_CHECKPOINT_BATCH_SCHEMA, build_create_futarchy_market_ix,
+    build_poh_checkpoint_from_digests, build_record_poh_ix, compute_merkle_root_from_digests,
+    derive_pda_digest,
 };
 
 #[test]
@@ -10,13 +10,7 @@ fn test_anchor_instruction_builders_and_pda_derivation() {
     let node_auth = "NodeAuthPubKey11111111111111111111111111111";
 
     // 1. Test PoH Checkpoint Instruction
-    let poh_ix = build_record_poh_ix(
-        program_id,
-        node_auth,
-        123,
-        [0xAA; 32],
-        [0xBB; 32],
-    );
+    let poh_ix = build_record_poh_ix(program_id, node_auth, 123, [0xAA; 32], [0xBB; 32]);
 
     assert_eq!(poh_ix.schema, ANCHOR_CLIENT_SCHEMA_V1);
     assert_eq!(poh_ix.instruction_name, "record_poh_checkpoint");
@@ -26,13 +20,8 @@ fn test_anchor_instruction_builders_and_pda_derivation() {
 
     // 2. Test Futarchy Market Creation Instruction
     let proposal_hash = [0xCC; 32];
-    let futarchy_ix = build_create_futarchy_market_ix(
-        program_id,
-        node_auth,
-        proposal_hash,
-        5_000_000,
-        6000,
-    );
+    let futarchy_ix =
+        build_create_futarchy_market_ix(program_id, node_auth, proposal_hash, 5_000_000, 6000);
 
     assert_eq!(futarchy_ix.instruction_name, "create_futarchy_market");
     assert_eq!(futarchy_ix.accounts.len(), 3);

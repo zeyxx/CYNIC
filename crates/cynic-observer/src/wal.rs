@@ -109,7 +109,8 @@ mod tests {
         );
         let record = WalRecord::UniversalEventReceived(event.clone());
 
-        wal.append(&record, &MetabolicState::Standard).expect("append");
+        wal.append(&record, &MetabolicState::Standard)
+            .expect("append");
 
         let replayed = WriteAheadLog::replay(path).expect("replay");
         assert_eq!(replayed.len(), 1);

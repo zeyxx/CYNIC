@@ -84,11 +84,19 @@ fn probe_hardware_budget() -> HardwareBudget {
     if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
         for line in meminfo.lines() {
             if line.starts_with("MemTotal:") {
-                if let Some(val) = line.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()) {
+                if let Some(val) = line
+                    .split_whitespace()
+                    .nth(1)
+                    .and_then(|v| v.parse::<u64>().ok())
+                {
                     total_ram_bytes = val * 1024;
                 }
             } else if line.starts_with("MemAvailable:") {
-                if let Some(val) = line.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()) {
+                if let Some(val) = line
+                    .split_whitespace()
+                    .nth(1)
+                    .and_then(|v| v.parse::<u64>().ok())
+                {
                     available_ram_bytes = val * 1024;
                 }
             }

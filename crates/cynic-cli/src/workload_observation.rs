@@ -50,9 +50,8 @@ pub(crate) fn execute_list_workloads(
 // ── Local store ────────────────────────────────────────────────────────────────
 
 fn observe_workload_local(workload_id: &str, state_root: &str, json: bool) -> Result<(), String> {
-    let store = LocalAgentWorkloadStore::new(
-        PathBuf::from(state_root).join("agent-scheduler/workloads"),
-    );
+    let store =
+        LocalAgentWorkloadStore::new(PathBuf::from(state_root).join("agent-scheduler/workloads"));
     match store.read(workload_id) {
         Ok(record) => {
             let report = serde_json::json!({
@@ -71,9 +70,8 @@ fn observe_workload_local(workload_id: &str, state_root: &str, json: bool) -> Re
 }
 
 fn list_workloads_local(state_root: &str, json: bool) -> Result<(), String> {
-    let store = LocalAgentWorkloadStore::new(
-        PathBuf::from(state_root).join("agent-scheduler/workloads"),
-    );
+    let store =
+        LocalAgentWorkloadStore::new(PathBuf::from(state_root).join("agent-scheduler/workloads"));
     match store.durable_records() {
         Ok(records) => {
             let report = serde_json::json!({
@@ -102,9 +100,8 @@ fn observe_workload_federated(
 ) -> Result<(), String> {
     // Start with local record
     let mut merged = HashMap::new();
-    let local_store = LocalAgentWorkloadStore::new(
-        PathBuf::from(state_root).join("agent-scheduler/workloads"),
-    );
+    let local_store =
+        LocalAgentWorkloadStore::new(PathBuf::from(state_root).join("agent-scheduler/workloads"));
     if let Ok(Some(record)) = local_store.read(workload_id) {
         merged.insert(record.record_digest.clone(), record);
     }
@@ -141,9 +138,8 @@ fn list_workloads_federated(
     let mut merged = HashMap::new();
 
     // Local records
-    let local_store = LocalAgentWorkloadStore::new(
-        PathBuf::from(state_root).join("agent-scheduler/workloads"),
-    );
+    let local_store =
+        LocalAgentWorkloadStore::new(PathBuf::from(state_root).join("agent-scheduler/workloads"));
     if let Ok(records) = local_store.durable_records() {
         for record in records {
             merged.insert(record.record_digest.clone(), record);
@@ -308,18 +304,15 @@ fn parse_workload_status(raw: &str) -> Option<DurableAgentWorkloadRecord> {
 }
 
 fn parse_workload_list(raw: &str) -> Result<Vec<DurableAgentWorkloadRecord>, String> {
-    let value: serde_json::Value = serde_json::from_str(raw.trim())
-        .map_err(|e| format!("invalid JSON: {e}"))?;
+    let value: serde_json::Value =
+        serde_json::from_str(raw.trim()).map_err(|e| format!("invalid JSON: {e}"))?;
     let workloads = value
         .get("workloads")
         .and_then(|w| w.as_array())
         .ok_or_else(|| "no workloads array".to_string())?;
     workloads
         .iter()
-        .map(|w| {
-            serde_json::from_value(w.clone())
-                .map_err(|e| format!("parse workload: {e}"))
-        })
+        .map(|w| serde_json::from_value(w.clone()).map_err(|e| format!("parse workload: {e}")))
         .collect()
 }
 
@@ -347,9 +340,15 @@ fn merge_workloads(records: Vec<DurableAgentWorkloadRecord>) -> Option<DurableAg
 
 fn emit(value: serde_json::Value, json: bool) {
     if json {
-        println!("{}", serde_json::to_string_pretty(&value).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&value).unwrap_or_default()
+        );
     } else {
-        let status = value.get("status").and_then(|s| s.as_str()).unwrap_or("unknown");
+        let status = value
+            .get("status")
+            .and_then(|s| s.as_str())
+            .unwrap_or("unknown");
         if let Some(id) = value.get("workload_id").and_then(|s| s.as_str()) {
             println!("workload {id} -> {status}");
         } else if let Some(count) = value.get("count").and_then(|c| c.as_u64()) {

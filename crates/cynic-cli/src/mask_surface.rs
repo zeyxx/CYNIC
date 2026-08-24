@@ -15,8 +15,8 @@ use std::process::ExitCode;
 use clap::Subcommand;
 
 use crate::cli_json::emit_pretty_json;
-use crate::runtime_surface::execute_runtime;
 use crate::runtime_surface::RuntimeCommand;
+use crate::runtime_surface::execute_runtime;
 
 /// Agent citizenship record projected through the mask.
 /// Thin re-declaration so the CLI can serialize its intent; the canonical
@@ -70,9 +70,7 @@ pub(crate) fn execute_mask(command: MaskCommand) -> ExitCode {
             json,
             yes,
         } => execute_mask_forge(&report, &source, json, yes),
-        MaskCommand::Start { alias, json, yes } => {
-            execute_mask_start(alias.as_str(), json, yes)
-        }
+        MaskCommand::Start { alias, json, yes } => execute_mask_start(alias.as_str(), json, yes),
     }
 }
 

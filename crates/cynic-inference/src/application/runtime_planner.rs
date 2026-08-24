@@ -53,7 +53,9 @@ impl RuntimePlanner {
             },
             force_threads: None,
             force_n_gpu_layers: None,
-            context_preset: std::env::var("CYNIC_CONTEXT_PRESET").ok().filter(|s| !s.is_empty()),
+            context_preset: std::env::var("CYNIC_CONTEXT_PRESET")
+                .ok()
+                .filter(|s| !s.is_empty()),
             force_memory_max: profile.memory_max.clone().filter(|_| {
                 std::env::var("CYNIC_FORCE_PROFILE_MEMORY").ok().as_deref() == Some("1")
             }),

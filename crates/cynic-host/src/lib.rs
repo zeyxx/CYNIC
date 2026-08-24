@@ -6,12 +6,11 @@ pub mod agent_runtime;
 // no declaration reached the directory, so the workspace audit never compiled.
 pub mod audit_engine;
 pub mod autoresearch;
-pub mod bucket_signatures;
-pub mod pattern_gc_scan;
 pub mod bootstrap_chain;
 pub mod bootstrap_host_plan;
 pub mod bounded_helper;
 pub mod bridge;
+pub mod bucket_signatures;
 pub mod build;
 pub mod build_evidence;
 pub mod build_proof_compressor;
@@ -19,6 +18,7 @@ pub mod build_runner_harness;
 pub mod build_workflow;
 pub mod command_surface;
 pub mod conformance;
+pub mod pattern_gc_scan;
 // The store two integration tests already import. It was never declared, so the
 // coordination lease enforcement it implements has been inert: nothing compiled
 // it, and both test suites failed at E0432 rather than exercising it.
@@ -32,14 +32,15 @@ pub mod endpoint_observation;
 pub mod execution;
 pub mod federation_runtime;
 pub mod filesystem_observation;
+pub mod fleet_cpu_observer;
 pub mod fleet_discovery;
 pub mod fleet_disk_observer;
-pub mod fleet_cpu_observer;
-pub mod fleet_memory_observer;
-pub mod fleet_network_observer;
 pub mod fleet_health_observer;
 pub mod fleet_heartbeat;
+pub mod fleet_memory_observer;
+pub mod fleet_network_observer;
 pub mod forgejo_control;
+pub mod forgejo_token;
 pub mod forgejo_webhook;
 pub mod forgejo_webhook_server;
 pub mod framework_bootstrap;

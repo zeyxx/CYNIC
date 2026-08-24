@@ -15,10 +15,15 @@ pub struct BuilderRuntimeConfig {
     pub webhook_secret: Option<String>,
 }
 
-pub fn builder_runtime_config_from(node_config: &config::NodeControlConfig) -> BuilderRuntimeConfig {
+pub fn builder_runtime_config_from(
+    node_config: &config::NodeControlConfig,
+) -> BuilderRuntimeConfig {
     BuilderRuntimeConfig {
         http_listen_addr: node_config.builder_listen_addr,
-        state_root: node_config.agent_workload_state_root.to_string_lossy().to_string(),
+        state_root: node_config
+            .agent_workload_state_root
+            .to_string_lossy()
+            .to_string(),
         workspace_root: node_config.workspace_root.to_string_lossy().to_string(),
         node_id: node_config.node_id.clone(),
         webhook_secret: std::env::var("CYNIC_FORGEJO_WEBHOOK_SECRET").ok(),

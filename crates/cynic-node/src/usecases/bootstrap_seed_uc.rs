@@ -487,8 +487,9 @@ mod tests {
             _cancellation: &'a CancellationToken,
         ) -> std::pin::Pin<
             Box<
-                dyn std::future::Future<Output = Result<BuildExecutionReadBack, BuildExecutionError>>
-                    + Send
+                dyn std::future::Future<
+                        Output = Result<BuildExecutionReadBack, BuildExecutionError>,
+                    > + Send
                     + 'a,
             >,
         > {

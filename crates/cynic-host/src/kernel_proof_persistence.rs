@@ -163,7 +163,10 @@ fn contains_record_value(value: &Value, record: &RuntimeProofPersistenceRecord) 
 
 /// Port for chaining a host proof submission into the kernel Proof-of-History ledger.
 pub trait KernelProofHistoryPort {
-    fn persist_poh(&self, submission: &cynic_protocol::HostProofSubmission) -> KernelProofPersistenceReport;
+    fn persist_poh(
+        &self,
+        submission: &cynic_protocol::HostProofSubmission,
+    ) -> KernelProofPersistenceReport;
 }
 
 pub struct CurlKernelProofHistoryAdapter<'a, R: ArgvRunner> {
@@ -205,7 +208,10 @@ impl<'a, R: ArgvRunner> CurlKernelProofHistoryAdapter<'a, R> {
 }
 
 impl<'a, R: ArgvRunner> KernelProofHistoryPort for CurlKernelProofHistoryAdapter<'a, R> {
-    fn persist_poh(&self, submission: &cynic_protocol::HostProofSubmission) -> KernelProofPersistenceReport {
+    fn persist_poh(
+        &self,
+        submission: &cynic_protocol::HostProofSubmission,
+    ) -> KernelProofPersistenceReport {
         let body = serde_json::json!({
             "submission": submission,
         });
@@ -227,7 +233,10 @@ impl<'a, R: ArgvRunner> KernelProofHistoryPort for CurlKernelProofHistoryAdapter
             blockers.push("kernel_proof_history_ack_missing".to_string());
         }
 
-        let mut get_args = vec!["-G".to_string(), format!("{}/proof-of-history", self.endpoint)];
+        let mut get_args = vec![
+            "-G".to_string(),
+            format!("{}/proof-of-history", self.endpoint),
+        ];
         get_args.extend(["--data-urlencode".to_string(), "limit=1".to_string()]);
         for header in self.headers() {
             get_args.extend(["-H".to_string(), header]);
@@ -243,7 +252,11 @@ impl<'a, R: ArgvRunner> KernelProofHistoryPort for CurlKernelProofHistoryAdapter
 
         KernelProofPersistenceReport {
             schema: KERNEL_PROOF_PERSISTENCE_REPORT_SCHEMA,
-            status: if blockers.is_empty() { "proved" } else { "blocked" },
+            status: if blockers.is_empty() {
+                "proved"
+            } else {
+                "blocked"
+            },
             endpoint: self.endpoint.clone(),
             target: submission.event_type.clone(),
             post_success: post.success,

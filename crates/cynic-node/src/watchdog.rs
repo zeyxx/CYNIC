@@ -2,8 +2,8 @@
 //! L0 node watchdog: publish local node evidence without requiring a Dog backend.
 
 mod host_runtime;
-pub mod peer_handshake;
 mod kernel_bridge;
+pub mod peer_handshake;
 mod sampler;
 
 use std::process::ExitCode;

@@ -13,8 +13,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use cynic_protocol::health_signal::KernelSpofSignal;
 use cynic_protocol::peer_resolver::PeerResolver;
 
-use super::federated_mesh_resolver::LocalRegistryMeshResolver;
 use super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES;
+use super::federated_mesh_resolver::LocalRegistryMeshResolver;
 
 pub const KERNEL_HEARTBEAT_TIMEOUT_MS: u64 = 800;
 

@@ -9,9 +9,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 use crate::agent_surface::types::{
-    AgentClaimReport, AgentClaimSummary, AgentIdentifyReport, AgentReleaseReport,
-    AgentStatusReport, AGENT_CLAIM_REPORT_SCHEMA, AGENT_IDENTIFY_REPORT_SCHEMA,
-    AGENT_RELEASE_REPORT_SCHEMA, AGENT_STATUS_REPORT_SCHEMA,
+    AGENT_CLAIM_REPORT_SCHEMA, AGENT_IDENTIFY_REPORT_SCHEMA, AGENT_RELEASE_REPORT_SCHEMA,
+    AGENT_STATUS_REPORT_SCHEMA, AgentClaimReport, AgentClaimSummary, AgentIdentifyReport,
+    AgentReleaseReport, AgentStatusReport,
 };
 
 const KERNEL_BASE: &str = "http://localhost:8080";
@@ -24,7 +24,10 @@ fn now_unix_ms() -> u64 {
 }
 
 /// Declare agent identity.
-pub fn execute_identify(agent_id: &str, agent_kind: Option<&str>) -> Result<AgentIdentifyReport, String> {
+pub fn execute_identify(
+    agent_id: &str,
+    agent_kind: Option<&str>,
+) -> Result<AgentIdentifyReport, String> {
     let client = reqwest::blocking::Client::new();
     let resp = client
         .post(format!("{}/coord/identify", KERNEL_BASE))
@@ -39,7 +42,10 @@ pub fn execute_identify(agent_id: &str, agent_kind: Option<&str>) -> Result<Agen
     let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
 
     if !status.is_success() {
-        let error = body.get("error").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let error = body
+            .get("error")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
         return Err(format!("identify failed: {}", error));
     }
 
@@ -79,7 +85,10 @@ pub fn execute_register(agent_id: &str, intent: &str) -> Result<(), String> {
     let status = resp.status();
     if !status.is_success() {
         let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
-        let error = body.get("error").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let error = body
+            .get("error")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
         return Err(format!("register failed: {}", error));
     }
 
@@ -113,7 +122,10 @@ pub fn execute_claim(
     let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
 
     if !status.is_success() {
-        let error = body.get("error").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let error = body
+            .get("error")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
         return Err(format!("claim failed: {}", error));
     }
 
@@ -130,16 +142,29 @@ pub fn execute_claim(
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
-        fencing_token: lease.get("fencing_token").and_then(|v| v.as_u64()).unwrap_or(0),
-        ttl_seconds: body.get("ttl_seconds").and_then(|v| v.as_u64()).unwrap_or(1800),
-        budget_actions: body.get("budget_actions").and_then(|v| v.as_u64()).unwrap_or(50),
+        fencing_token: lease
+            .get("fencing_token")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0),
+        ttl_seconds: body
+            .get("ttl_seconds")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1800),
+        budget_actions: body
+            .get("budget_actions")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(50),
         budget_wall_seconds: body
             .get("budget_wall_seconds")
             .and_then(|v| v.as_u64())
             .unwrap_or(3600),
         granted_at_unix_ms: now_unix_ms(),
         expires_at_unix_ms: now_unix_ms()
-            + body.get("ttl_seconds").and_then(|v| v.as_u64()).unwrap_or(1800) * 1000,
+            + body
+                .get("ttl_seconds")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(1800)
+                * 1000,
     })
 }
 
@@ -167,7 +192,10 @@ pub fn execute_release(
     let status = resp.status();
     if !status.is_success() {
         let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
-        let error = body.get("error").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let error = body
+            .get("error")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
         return Err(format!("release failed: {}", error));
     }
 
@@ -194,7 +222,10 @@ pub fn execute_status(agent_id: &str) -> Result<AgentStatusReport, String> {
     let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
 
     if !status.is_success() {
-        let error = body.get("error").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let error = body
+            .get("error")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
         return Err(format!("status failed: {}", error));
     }
 
@@ -207,8 +238,14 @@ pub fn execute_status(agent_id: &str) -> Result<AgentStatusReport, String> {
     let active_claims: Vec<AgentClaimSummary> = claims
         .iter()
         .filter_map(|c| {
-            let granted = c.get("granted_at_unix_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-            let expires = c.get("expires_at_unix_ms").and_then(|v| v.as_u64()).unwrap_or(0);
+            let granted = c
+                .get("granted_at_unix_ms")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let expires = c
+                .get("expires_at_unix_ms")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
             let remaining = if expires > now_unix_ms() {
                 ((expires - now_unix_ms()) / 1000) as i64
             } else {

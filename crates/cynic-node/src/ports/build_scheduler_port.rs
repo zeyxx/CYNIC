@@ -50,6 +50,10 @@ pub trait BuildExecutionPort: Send + Sync {
         request: &'a BuildExecutionRequest,
         cancellation: &'a CancellationToken,
     ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<BuildExecutionReadBack, BuildExecutionError>> + Send + 'a>,
+        Box<
+            dyn std::future::Future<Output = Result<BuildExecutionReadBack, BuildExecutionError>>
+                + Send
+                + 'a,
+        >,
     >;
 }

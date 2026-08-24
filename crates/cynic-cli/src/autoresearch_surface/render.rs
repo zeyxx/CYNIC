@@ -35,7 +35,11 @@ pub(crate) fn render_report(report: &AutoresearchReport) -> String {
             judgment.dijkw_layer,
             judgment.sage_phase,
             judgment.cynefin_domain,
-            if judgment.is_actionable() { "YES" } else { "NO" },
+            if judgment.is_actionable() {
+                "YES"
+            } else {
+                "NO"
+            },
             judgment.confidence * 100.0,
         ));
     }

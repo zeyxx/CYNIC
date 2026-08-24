@@ -64,8 +64,6 @@ pub enum RuntimeHarnessKind {
     Production,
 }
 
-
-
 pub fn closed_local_lab_context() -> RuntimeHarnessContext {
     RuntimeHarnessContext {
         schema: RUNTIME_HARNESS_CONTEXT_SCHEMA,

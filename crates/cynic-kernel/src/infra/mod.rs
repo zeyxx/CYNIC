@@ -16,13 +16,13 @@ pub mod embedded_domains;
 pub mod error_classifier;
 pub mod evidence_journal_file;
 pub mod evidence_projection_store;
-pub mod pattern_model_seal;
 pub mod health_loop;
 #[cfg(test)]
 pub mod node_control_sqlite;
 #[cfg(test)]
 pub mod node_enrollment_sqlite;
 pub mod organism_recovery;
+pub mod pattern_model_seal;
 pub mod probes;
 pub mod remediation;
 pub mod routing_calc;

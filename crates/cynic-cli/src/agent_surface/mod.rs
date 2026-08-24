@@ -13,7 +13,9 @@ use clap::Subcommand;
 
 use crate::cli_json::emit_pretty_json;
 
-use self::coordination::{execute_claim, execute_identify, execute_register, execute_release, execute_status};
+use self::coordination::{
+    execute_claim, execute_identify, execute_register, execute_release, execute_status,
+};
 
 pub(crate) mod coordination;
 mod types;

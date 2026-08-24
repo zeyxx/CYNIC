@@ -5,9 +5,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use clap::Subcommand;
 use serde::Serialize;
 
+use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use cynic_host::node_activation::NodeActivationPort;
 use cynic_host::node_identity_workflow::NodeIdentityWorkflow;
-use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 
 #[derive(Subcommand)]
 pub(crate) enum NodeActivationCommand {
@@ -118,7 +118,8 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
             if !json {
                 return ExitCode::FAILURE;
             }
-            let registry_path = resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
+            let registry_path =
+                resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
             let adapter = cynic_host::node_activation::NodeActivationAdapter::new(
                 registry_path.to_string_lossy().to_string(),
             );
@@ -126,7 +127,8 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
             crate::cli_json::emit_pretty_json(&verdict)
         }
         NodeActivationCommand::Activate { node_id, yes, json } => {
-            let registry_path = resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
+            let registry_path =
+                resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
             let adapter = cynic_host::node_activation::NodeActivationAdapter::new(
                 registry_path.to_string_lossy().to_string(),
             );
@@ -135,21 +137,36 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
                 crate::cli_json::emit_pretty_json(&report)
             } else {
                 match &report.result {
-                    Some(Ok(proof)) => {
-                        match proof {
-                            cynic_protocol::node_activation::ActivationProof::Activated { evidence_refs, .. } => {
-                                println!("ACTIVATED: {} (evidence: {})", node_id, evidence_refs.join(", "));
-                            }
-                            cynic_protocol::node_activation::ActivationProof::Failed { blockers, .. } => {
-                                println!("FAILED: {} (blockers: {})", node_id, blockers.join(", "));
-                                return ExitCode::FAILURE;
-                            }
-                            cynic_protocol::node_activation::ActivationProof::RolledBack { rollback_evidence_refs, .. } => {
-                                println!("ROLLED BACK: {} (evidence: {})", node_id, rollback_evidence_refs.join(", "));
-                                return ExitCode::FAILURE;
-                            }
+                    Some(Ok(proof)) => match proof {
+                        cynic_protocol::node_activation::ActivationProof::Activated {
+                            evidence_refs,
+                            ..
+                        } => {
+                            println!(
+                                "ACTIVATED: {} (evidence: {})",
+                                node_id,
+                                evidence_refs.join(", ")
+                            );
                         }
-                    }
+                        cynic_protocol::node_activation::ActivationProof::Failed {
+                            blockers,
+                            ..
+                        } => {
+                            println!("FAILED: {} (blockers: {})", node_id, blockers.join(", "));
+                            return ExitCode::FAILURE;
+                        }
+                        cynic_protocol::node_activation::ActivationProof::RolledBack {
+                            rollback_evidence_refs,
+                            ..
+                        } => {
+                            println!(
+                                "ROLLED BACK: {} (evidence: {})",
+                                node_id,
+                                rollback_evidence_refs.join(", ")
+                            );
+                            return ExitCode::FAILURE;
+                        }
+                    },
                     Some(Err(e)) => {
                         println!("BLOCKED: {}", e);
                         return ExitCode::FAILURE;
@@ -168,7 +185,10 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
             match workflow.load_or_generate_keypair(&path) {
                 Ok(material) => {
                     use sha2::{Digest, Sha256};
-                    let digest = format!("sha256:{}", hex::encode(Sha256::digest(&material.public_key)));
+                    let digest = format!(
+                        "sha256:{}",
+                        hex::encode(Sha256::digest(&material.public_key))
+                    );
                     let report = IdentityInitReport {
                         schema: "cynic.node_identity.init.report.v1",
                         key_path: path.to_string_lossy().to_string(),
@@ -191,7 +211,12 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
                 }
             }
         }
-        NodeActivationCommand::CsrCreate { node_id, role, key_path, json } => {
+        NodeActivationCommand::CsrCreate {
+            node_id,
+            role,
+            key_path,
+            json,
+        } => {
             let path = key_path.map(PathBuf::from).unwrap_or_else(default_key_path);
             let workflow = NodeIdentityWorkflow::default();
             let material = match workflow.load_or_generate_keypair(&path) {
@@ -219,7 +244,9 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
             }
         }
         NodeActivationCommand::CertInspect { cert_path, json } => {
-            let path = cert_path.map(PathBuf::from).unwrap_or_else(default_cert_path);
+            let path = cert_path
+                .map(PathBuf::from)
+                .unwrap_or_else(default_cert_path);
             let workflow = NodeIdentityWorkflow::default();
             match workflow.load_certificate(&path) {
                 Ok(cert) => {
@@ -255,8 +282,14 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
                 }
             }
         }
-        NodeActivationCommand::CertVerify { kernel_pubkey_hex, cert_path, json } => {
-            let path = cert_path.map(PathBuf::from).unwrap_or_else(default_cert_path);
+        NodeActivationCommand::CertVerify {
+            kernel_pubkey_hex,
+            cert_path,
+            json,
+        } => {
+            let path = cert_path
+                .map(PathBuf::from)
+                .unwrap_or_else(default_cert_path);
             let workflow = NodeIdentityWorkflow::default();
             let cert = match workflow.load_certificate(&path) {
                 Ok(c) => c,
@@ -282,16 +315,25 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
                         node_id: cert.node_id.clone(),
                         verified,
                         is_currently_valid: valid,
-                        status: if verified && valid { "verified" } else { "rejected" },
+                        status: if verified && valid {
+                            "verified"
+                        } else {
+                            "rejected"
+                        },
                     };
                     if json {
                         crate::cli_json::emit_pretty_json(&report)
                     } else {
                         if verified && valid {
-                            println!("VERIFIED: Certificate {} is authentic and currently valid.", cert.certificate_id);
+                            println!(
+                                "VERIFIED: Certificate {} is authentic and currently valid.",
+                                cert.certificate_id
+                            );
                             ExitCode::SUCCESS
                         } else {
-                            println!("REJECTED: Certificate signature or temporal validity check failed.");
+                            println!(
+                                "REJECTED: Certificate signature or temporal validity check failed."
+                            );
                             ExitCode::FAILURE
                         }
                     }

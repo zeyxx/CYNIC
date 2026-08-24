@@ -10,8 +10,8 @@
 //! grant signing, or submission policy.
 
 use cynic_protocol::{
-    admit_build_agent_request, compose_build_agent_workload, AgentWorkloadDelivery,
-    AgentWorkloadDeliveryStatus, BuildAgentRequest, BuildAgentRequestAdmission,
+    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, BuildAgentRequest,
+    BuildAgentRequestAdmission, admit_build_agent_request, compose_build_agent_workload,
 };
 use serde::Serialize;
 
@@ -248,15 +248,19 @@ mod tests {
         async fn submit(
             &self,
             _delivery: &AgentWorkloadDelivery,
-        ) -> Result<crate::ports::build_workload_submission_port::BuildWorkloadSubmissionReadBack, String>
-        {
+        ) -> Result<
+            crate::ports::build_workload_submission_port::BuildWorkloadSubmissionReadBack,
+            String,
+        > {
             if self.should_fail {
                 Err("submit failed".into())
             } else {
-                Ok(crate::ports::build_workload_submission_port::BuildWorkloadSubmissionReadBack {
-                    http_status: 202,
-                    body: r#"{"status":"accepted"}"#.into(),
-                })
+                Ok(
+                    crate::ports::build_workload_submission_port::BuildWorkloadSubmissionReadBack {
+                        http_status: 202,
+                        body: r#"{"status":"accepted"}"#.into(),
+                    },
+                )
             }
         }
     }

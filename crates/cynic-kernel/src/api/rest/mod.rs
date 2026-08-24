@@ -52,11 +52,11 @@ use self::agent_workspace::{
 };
 use self::attention::attention_handler;
 use self::auth::{auth_input_handler, auth_verify_handler};
+use self::coord::coord_identify_handler;
 use self::coord::{
     coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
     coord_register_handler, coord_scope_handler, coord_topology_handler, coord_who_handler,
 };
-use self::coord::coord_identify_handler;
 use self::coord_lease::{
     coord_finalize_handler, coord_release_handler, coord_renew_handler, coord_verify_handler,
 };

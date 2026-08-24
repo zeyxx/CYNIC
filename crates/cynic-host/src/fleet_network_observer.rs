@@ -19,7 +19,7 @@ use crate::domain::network::NetworkObservationPort;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
 use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
-use cynic_protocol::network::{FleetNetworkReport, FleetNetworkNode, FLEET_NETWORK_SCHEMA};
+use cynic_protocol::network::{FLEET_NETWORK_SCHEMA, FleetNetworkNode, FleetNetworkReport};
 
 pub struct FleetNetworkObserver<R: ArgvRunner> {
     registry_path: String,
@@ -188,19 +188,35 @@ mod tests {
         MapArgvRunner {
             responses: vec![
                 (
-                    ["ssh", target, "cat /proc/net/dev"].iter().map(|s| s.to_string()).collect(),
+                    ["ssh", target, "cat /proc/net/dev"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
                     ok(realistic_dev),
                 ),
                 (
-                    ["ssh", target, "ip", "-j", "link"].iter().map(|s| s.to_string()).collect(),
-                    ok("[{\"ifname\":\"eth0\",\"address\":\"00:11:22:33:44:55\",\"operstate\":\"up\",\"mtu\":1500,\"speed\":1000,\"duplex\":\"full\"}]"),
+                    ["ssh", target, "ip", "-j", "link"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
+                    ok(
+                        "[{\"ifname\":\"eth0\",\"address\":\"00:11:22:33:44:55\",\"operstate\":\"up\",\"mtu\":1500,\"speed\":1000,\"duplex\":\"full\"}]",
+                    ),
                 ),
                 (
-                    ["ssh", target, "ip", "-j", "addr"].iter().map(|s| s.to_string()).collect(),
-                    ok("[{\"ifname\":\"eth0\",\"addr_info\":[{\"family\":\"inet\",\"local\":\"10.0.0.7\",\"prefixlen\":24}]}]"),
+                    ["ssh", target, "ip", "-j", "addr"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
+                    ok(
+                        "[{\"ifname\":\"eth0\",\"addr_info\":[{\"family\":\"inet\",\"local\":\"10.0.0.7\",\"prefixlen\":24}]}]",
+                    ),
                 ),
                 (
-                    ["ssh", target, "ip", "-j", "route"].iter().map(|s| s.to_string()).collect(),
+                    ["ssh", target, "ip", "-j", "route"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
                     ok("[{\"dst\":\"default\",\"gateway\":\"10.0.0.1\",\"dev\":\"eth0\"}]"),
                 ),
             ],
@@ -216,17 +232,17 @@ mod tests {
         let path = std::env::temp_dir().join(format!("cynic-fleet-net-{unique}.json"));
         std::fs::write(&path, registry_json("10.0.0.7")).unwrap();
 
-        let observer = FleetNetworkObserver::with_runner(
-            path.to_string_lossy().to_string(),
-            sample_runner(),
-        );
+        let observer =
+            FleetNetworkObserver::with_runner(path.to_string_lossy().to_string(), sample_runner());
         let report = observer.observe();
         assert_eq!(report.schema, FLEET_NETWORK_SCHEMA);
         assert_eq!(report.total_nodes, 1);
         assert_eq!(report.observed_nodes, 1);
         assert_eq!(report.failed_nodes, 0);
         match &report.nodes[0] {
-            FleetNetworkNode { report: Some(r), .. } => {
+            FleetNetworkNode {
+                report: Some(r), ..
+            } => {
                 assert_eq!(r.schema, "cynic.host_network_report.v1");
                 assert!(r.usage.iter().any(|u| u.iface == "eth0"));
                 assert!(r.addresses.iter().any(|a| a.address == "10.0.0.7"));
@@ -256,7 +272,8 @@ mod tests {
                 },
             )],
         };
-        let observer = FleetNetworkObserver::with_runner(path.to_string_lossy().to_string(), runner);
+        let observer =
+            FleetNetworkObserver::with_runner(path.to_string_lossy().to_string(), runner);
         let report = observer.observe();
         assert_eq!(report.total_nodes, 1);
         assert_eq!(report.failed_nodes, 1);

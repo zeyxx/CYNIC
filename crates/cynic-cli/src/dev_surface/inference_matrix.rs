@@ -5,16 +5,14 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use std::sync::Arc;
-use cynic_inference::application::matrix_live_runner::{
-    MatrixLiveRunner, MatrixLiveRunnerConfig,
-};
-use cynic_inference::application::matrix_sweep_executor::{
-    HardwareBudget, ModelUnderTest, build_parametric_grid,
-    config_to_llama_argv, standard_scenario_suite, MATRIX_SWEEP_REPORT_SCHEMA,
-};
 use cynic_inference::adapters::empirical_store::FsEmpiricalStore;
+use cynic_inference::application::matrix_live_runner::{MatrixLiveRunner, MatrixLiveRunnerConfig};
+use cynic_inference::application::matrix_sweep_executor::{
+    HardwareBudget, MATRIX_SWEEP_REPORT_SCHEMA, ModelUnderTest, build_parametric_grid,
+    config_to_llama_argv, standard_scenario_suite,
+};
 use cynic_protocol::{ContextTier, INFERENCE_MATRIX_SWEEP_SCHEMA};
+use std::sync::Arc;
 pub(super) fn run(
     json: bool,
     model: PathBuf,
@@ -100,11 +98,7 @@ pub(super) fn run(
             },
         };
 
-        let runner = MatrixLiveRunner::new(
-            MatrixLiveRunnerConfig::default(),
-            store,
-            hardware,
-        );
+        let runner = MatrixLiveRunner::new(MatrixLiveRunnerConfig::default(), store, hardware);
 
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -123,13 +117,7 @@ pub(super) fn run(
                     pt.threads_gen
                 );
                 match runner
-                    .execute_point(
-                        &model,
-                        weight_bytes,
-                        params_billions,
-                        pt,
-                        &scenarios,
-                    )
+                    .execute_point(&model, weight_bytes, params_billions, pt, &scenarios)
                     .await
                 {
                     Ok(entry) => executed.push(entry),

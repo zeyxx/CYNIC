@@ -17,12 +17,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
 
-use cynic_protocol::fleet_disk::{FleetDiskNode, FleetDiskReport, FLEET_DISK_SCHEMA};
+use cynic_protocol::fleet_disk::{FLEET_DISK_SCHEMA, FleetDiskNode, FleetDiskReport};
 
 use crate::adapters::local_disk::LocalDiskAdapter;
 use crate::adapters::remote_disk::RemoteDiskAdapter;
-use crate::domain::disk::port::DiskObservationPort;
 use crate::domain::disk::DiskReport;
+use crate::domain::disk::port::DiskObservationPort;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
 use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
@@ -199,12 +199,12 @@ tmpfs          tmpfs  3.9G     0  3.9G   0% /dev
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system time")
             .as_nanos();
-        let path = std::env::temp_dir()
-            .join(format!("cynic-fleet-disk-{unique}.json"));
+        let path = std::env::temp_dir().join(format!("cynic-fleet-disk-{unique}.json"));
         std::fs::write(&path, registry_json("10.0.0.7")).unwrap();
 
         // Hostname will never equal "node-10.0.0.7" locally → treated as remote.
-        let observer = FleetDiskObserver::with_runner(path.to_string_lossy().to_string(), stub_ssh_runner());
+        let observer =
+            FleetDiskObserver::with_runner(path.to_string_lossy().to_string(), stub_ssh_runner());
         let report = observer.observe();
         assert_eq!(report.schema, FLEET_DISK_SCHEMA);
         assert_eq!(report.total_nodes, 1);
@@ -225,8 +225,7 @@ tmpfs          tmpfs  3.9G     0  3.9G   0% /dev
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system time")
             .as_nanos();
-        let path = std::env::temp_dir()
-            .join(format!("cynic-fleet-disk-fail-{unique}.json"));
+        let path = std::env::temp_dir().join(format!("cynic-fleet-disk-fail-{unique}.json"));
         std::fs::write(&path, registry_json("10.0.0.8")).unwrap();
 
         let runner = MapArgvRunner {
@@ -245,7 +244,9 @@ tmpfs          tmpfs  3.9G     0  3.9G   0% /dev
         assert_eq!(report.total_nodes, 1);
         assert_eq!(report.failed_nodes, 1);
         assert_eq!(report.observed_nodes, 0);
-        assert!(matches!(&report.nodes[0], FleetDiskNode::failed { error, .. } if error.contains("remote_df_failed")));
+        assert!(
+            matches!(&report.nodes[0], FleetDiskNode::failed { error, .. } if error.contains("remote_df_failed"))
+        );
     }
 
     #[test]

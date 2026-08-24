@@ -106,10 +106,7 @@ pub(crate) fn try_execute_inference(command: RuntimeCommand) -> Result<ExitCode,
             json,
             yes,
         } => Ok(inference_surface::execute_inference_forge(
-            &report,
-            "",
-            json,
-            yes,
+            &report, "", json, yes,
         )),
         other => Err(other),
     }

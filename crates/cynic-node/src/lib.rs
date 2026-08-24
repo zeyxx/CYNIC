@@ -18,9 +18,10 @@
 )]
 
 pub mod adapters;
-mod builder_activation;
 mod build_attestation;
+mod builder_activation;
 mod cli;
+mod config;
 mod dns_activation;
 mod dns_activation_status;
 mod dns_bundle;
@@ -50,7 +51,6 @@ mod network_runtime_status;
 mod network_shadow_proof;
 mod network_surface_inventory;
 mod observe;
-mod config;
 pub mod ports;
 mod provider_fallback_hosts;
 mod provider_fallback_status;

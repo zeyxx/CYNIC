@@ -93,7 +93,9 @@ impl HarnessExecutor for HttpHarnessExecutor {
             temperature: scenario.model.parameters.temperature,
             top_p: scenario.model.parameters.top_p,
             stream: true,
-            stream_options: StreamOptions { include_usage: true },
+            stream_options: StreamOptions {
+                include_usage: true,
+            },
             chat_template_kwargs,
         };
         let mut request = self.client.post(url).json(&body);
@@ -131,7 +133,7 @@ impl HarnessExecutor for HttpHarnessExecutor {
                 Err(err) => {
                     return InferenceReply {
                         runtime_run_id: None,
-            text_response: None,
+                        text_response: None,
                         http_status: Some(status),
                         prompt_tokens,
                         output_tokens: completion_tokens,
@@ -231,7 +233,7 @@ impl HarnessExecutor for HttpHarnessExecutor {
 fn failed(status: u16, error: String) -> InferenceReply {
     InferenceReply {
         runtime_run_id: None,
-            text_response: None,
+        text_response: None,
         http_status: if status > 0 { Some(status) } else { None },
         prompt_tokens: None,
         output_tokens: None,

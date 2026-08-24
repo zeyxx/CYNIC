@@ -187,9 +187,9 @@ mod tests {
         DevelopmentGenesisBuildRequest,
     };
     use cynic_protocol::{
-        SOURCE_MATERIALIZATION_FORMAT,
-        SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA, SOURCE_MATERIALIZATION_REQUEST_SCHEMA,
-        SecurityEvidenceState, SourceMaterializationObservation, SourceMaterializationRequest,
+        SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA,
+        SOURCE_MATERIALIZATION_REQUEST_SCHEMA, SecurityEvidenceState,
+        SourceMaterializationObservation, SourceMaterializationRequest,
     };
 
     #[derive(Default)]

@@ -10,14 +10,14 @@ use crate::fail;
 mod agent_matrix;
 mod capacity;
 mod compat_aliases;
-mod disk;
 mod cpu;
-mod memory;
-mod network;
+mod disk;
 mod execution_context;
 mod host_checks;
 mod inference_dispatch;
 mod inference_surface;
+mod memory;
+mod network;
 mod operator_models;
 
 pub(crate) use operator_models::OperatorModelsCommand;
@@ -489,7 +489,12 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::ExecutionContext { json, hosts } => {
             execution_context::execute_execution_context(json, &hosts)
         }
-        RuntimeCommand::NetworkPreflight { json, hosts, persist, endpoint } => {
+        RuntimeCommand::NetworkPreflight {
+            json,
+            hosts,
+            persist,
+            endpoint,
+        } => {
             network_preflight::execute_network_preflight(json, &hosts, persist, endpoint.as_deref())
         }
         RuntimeCommand::ResolverPlan { json, hosts } => {

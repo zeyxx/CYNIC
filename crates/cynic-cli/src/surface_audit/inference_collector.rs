@@ -8,8 +8,8 @@
 //! Observation is a port call; no hardcoded substrate.
 
 #![allow(dead_code)]
-use cynic_inference::domain::local_runtime::LocalRuntimeStatus;
 use cynic_inference::LocalRuntimeServiceAny;
+use cynic_inference::domain::local_runtime::LocalRuntimeStatus;
 use cynic_protocol::runtime::InferenceStatusProof;
 
 use crate::surface_audit::types::{SurfaceAuditCheck, SurfaceAuditEntry};
@@ -82,7 +82,12 @@ pub(crate) fn inference_status_check() -> SurfaceAuditCheck {
 pub(crate) fn inference_status_audit_entry(proof: InferenceStatusProof) -> SurfaceAuditEntry {
     SurfaceAuditEntry {
         id: "cynic.runtime.inference_status".to_string(),
-        status: if proof.satisfied() { "satisfied" } else { "blocked" }.into(),
+        status: if proof.satisfied() {
+            "satisfied"
+        } else {
+            "blocked"
+        }
+        .into(),
         owner_crate: "cynic-inference".into(),
         domain_owner: "inference".into(),
         adapter_module: "runtime/inference_collector".into(),
@@ -110,13 +115,15 @@ pub(crate) fn inference_status_audit_entry(proof: InferenceStatusProof) -> Surfa
         },
         checks: vec![SurfaceAuditCheck {
             name: "inference_status_read_back",
-            status: if proof.satisfied() { "satisfied" } else { "blocked" }.into(),
+            status: if proof.satisfied() {
+                "satisfied"
+            } else {
+                "blocked"
+            }
+            .into(),
             detail: format!(
                 "observed_at={} surface={} state={} alias={:?}",
-                proof.observed_at_unix_ms,
-                proof.surface,
-                proof.state,
-                proof.alias
+                proof.observed_at_unix_ms, proof.surface, proof.state, proof.alias
             ),
         }],
     }

@@ -13,31 +13,37 @@ pub mod types;
 pub mod validate;
 
 // Re-export main public API
-pub use merge::{merge_registry, MergeStrategy};
 pub use crate::runtime_registry::DEFAULT_REGISTRY_PATH;
-pub use persist::{load_and_validate_registry, write_registry, write_registry_atomic, PersistError, WriteProof};
-pub use scan::{discover_registry_sources, find_node, load_registry, resolve_registry_path, ScanError};
+pub use merge::{MergeStrategy, merge_registry};
+pub use persist::{
+    PersistError, WriteProof, load_and_validate_registry, write_registry, write_registry_atomic,
+};
+pub use scan::{
+    ScanError, discover_registry_sources, find_node, load_registry, resolve_registry_path,
+};
 pub use types::{
     HostProfileResolution, ObservedManagementLink, RegistryDocument, RegistryFleetDesired,
     RegistryFleetTarget, RegistryHostBootstrap, RegistryHostBootstrapRoleProfile,
     RegistryKernelRelease, RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane,
-    RegistryNetworkPolicy, RegistryNode, RegistryNodeService,
-    RegistryNodeSubstrate, RegistryNodeTransports, RegistryServiceHealth,
-    RegistryServiceSupervisor, RegistrySshEnrollmentAuthority, RegistrySshTransport,
-    ResolvedBuildRunnerTransport, ResolvedDirectManagementLink, ResolvedHostIdentity,
-    ResolvedNodeSubstrateTarget, ResolvedProviderControlTransport,
+    RegistryNetworkPolicy, RegistryNode, RegistryNodeService, RegistryNodeSubstrate,
+    RegistryNodeTransports, RegistryServiceHealth, RegistryServiceSupervisor,
+    RegistrySshEnrollmentAuthority, RegistrySshTransport, ResolvedBuildRunnerTransport,
+    ResolvedDirectManagementLink, ResolvedHostIdentity, ResolvedNodeSubstrateTarget,
+    ResolvedProviderControlTransport,
 };
-pub use validate::{check_role_consistency, validate_registry, validate_registry_or_error, ValidationError};
+pub use validate::{
+    ValidationError, check_role_consistency, validate_registry, validate_registry_or_error,
+};
 
 // Keep existing public functions for backward compatibility
 pub use crate::registry::resolve::{
     resolve_build_runner_transport, resolve_current_host_direct_management_link,
     resolve_current_host_profile, resolve_current_host_profile_resolution,
-    resolve_framework_transport, resolve_host_direct_management_link,
-    resolve_host_profile, resolve_host_profile_resolution,
+    resolve_current_registry_service_policy, resolve_framework_transport,
+    resolve_host_direct_management_link, resolve_host_profile, resolve_host_profile_resolution,
     resolve_node_substrate_desired_state, resolve_node_substrate_targets,
     resolve_observed_direct_management_link, resolve_provider_control_transport,
-    resolve_registry_service_policy, resolve_current_registry_service_policy,
+    resolve_registry_service_policy,
 };
 
 pub mod resolve {
@@ -89,8 +95,10 @@ pub mod resolve {
             .unwrap_or_default();
         let mut resolved = Vec::with_capacity(targets.len());
         for target in targets {
-            let target_id = required_registry_value(target.id.as_deref(), "fleet_target_id_missing")?;
-            let role = required_registry_value(target.role.as_deref(), "fleet_target_role_missing")?;
+            let target_id =
+                required_registry_value(target.id.as_deref(), "fleet_target_id_missing")?;
+            let role =
+                required_registry_value(target.role.as_deref(), "fleet_target_role_missing")?;
             let nodes = registry
                 .nodes
                 .iter()
@@ -340,9 +348,9 @@ pub mod resolve {
     fn safe_transport_identity(value: &str) -> bool {
         !value.is_empty()
             && !value.starts_with('-')
-            && value
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b'@'))
+            && value.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b'@')
+            })
     }
 
     pub fn resolve_current_host_direct_management_link(
@@ -390,8 +398,8 @@ pub mod resolve {
             }
             Some(_) => return Err("observed_management_identity_ambiguous".to_string()),
             None => {
-                let node =
-                    hostname_node.ok_or_else(|| format!("node not found in registry: {hostname}"))?;
+                let node = hostname_node
+                    .ok_or_else(|| format!("node not found in registry: {hostname}"))?;
                 let link = node
                     .matching_direct_management_link(synapse_cidr)
                     .ok_or_else(|| "direct_management_link_not_declared_in_registry".to_string())?;
@@ -457,7 +465,9 @@ pub mod resolve {
         Ok(profile_for_node(node))
     }
 
-    pub fn resolve_current_host_profile(registry_path: Option<&str>) -> Result<HostProfile, String> {
+    pub fn resolve_current_host_profile(
+        registry_path: Option<&str>,
+    ) -> Result<HostProfile, String> {
         let hostname = current_hostname()?;
         resolve_host_profile(&hostname, registry_path)
     }
@@ -565,8 +575,12 @@ pub mod resolve {
             let manager = service_manager_for_node(node, &units);
             Ok(Some(crate::domain::services::ServicePolicy {
                 unit_dir: match manager {
-                    crate::domain::services::ServiceManagerKind::OpenRc => "/etc/init.d".to_string(),
-                    crate::domain::services::ServiceManagerKind::Systemd => current_runtime_layout().service_unit_dir,
+                    crate::domain::services::ServiceManagerKind::OpenRc => {
+                        "/etc/init.d".to_string()
+                    }
+                    crate::domain::services::ServiceManagerKind::Systemd => {
+                        current_runtime_layout().service_unit_dir
+                    }
                 },
                 manager,
                 units,
@@ -621,7 +635,9 @@ pub mod resolve {
         units: &[crate::domain::services::ServiceUnitPolicy],
     ) -> crate::domain::services::ServiceManagerKind {
         match declared_host_family(node).and_then(host_profile_for_family) {
-            Some(HostProfile::AlpineOpenRcNetworkNode) => crate::domain::services::ServiceManagerKind::OpenRc,
+            Some(HostProfile::AlpineOpenRcNetworkNode) => {
+                crate::domain::services::ServiceManagerKind::OpenRc
+            }
             Some(
                 HostProfile::NetworkNode
                 | HostProfile::ProxmoxHypervisor
@@ -645,7 +661,9 @@ pub mod resolve {
         )
     }
 
-    fn service_manager_kind_from_runtime_kind(kind: &str) -> crate::domain::services::ServiceManagerKind {
+    fn service_manager_kind_from_runtime_kind(
+        kind: &str,
+    ) -> crate::domain::services::ServiceManagerKind {
         match kind {
             "openrc" => crate::domain::services::ServiceManagerKind::OpenRc,
             _ => crate::domain::services::ServiceManagerKind::Systemd,
@@ -666,9 +684,10 @@ pub mod resolve {
 
     fn host_profile_for_family(family: &str) -> Option<HostProfile> {
         match family {
-            "debian-systemd" | "linux.debian.systemd" | "ubuntu-systemd" | "linux.ubuntu.systemd" => {
-                Some(HostProfile::NetworkNode)
-            }
+            "debian-systemd"
+            | "linux.debian.systemd"
+            | "ubuntu-systemd"
+            | "linux.ubuntu.systemd" => Some(HostProfile::NetworkNode),
             "alpine-openrc" | "linux.alpine.openrc" => Some(HostProfile::AlpineOpenRcNetworkNode),
             "proxmox" | "proxmox-hypervisor" | "linux.proxmox.systemd" => {
                 Some(HostProfile::ProxmoxHypervisor)
@@ -678,7 +697,10 @@ pub mod resolve {
         }
     }
 
-    fn host_bootstrap_target_stage(registry: &RegistryDocument, node: &RegistryNode) -> Option<String> {
+    fn host_bootstrap_target_stage(
+        registry: &RegistryDocument,
+        node: &RegistryNode,
+    ) -> Option<String> {
         let role = node.role.as_deref()?;
         registry
             .lifecycle

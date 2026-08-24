@@ -147,7 +147,10 @@ impl MultiAgentService {
             model_alias: model_alias.to_string(),
             endpoint: endpoint.to_string(),
             prompt: prompt.to_string(),
-            response: format!("Task execution completed via {}", reply.runtime_run_id.as_deref().unwrap_or("direct")),
+            response: format!(
+                "Task execution completed via {}",
+                reply.runtime_run_id.as_deref().unwrap_or("direct")
+            ),
             ttft_ms,
             gen_tok_s,
             prompt_tokens,
@@ -176,7 +179,13 @@ impl MultiAgentService {
             "Tu es l'agent Proposer ({proposer_alias}). Propose une solution technique pour : {topic}"
         );
         let prop_res = self
-            .execute_task_on_endpoint(proposer_endpoint, proposer_alias, "turn-1-proposal", &prop_prompt, None)
+            .execute_task_on_endpoint(
+                proposer_endpoint,
+                proposer_alias,
+                "turn-1-proposal",
+                &prop_prompt,
+                None,
+            )
             .await;
 
         session.record_turn(
@@ -193,7 +202,13 @@ impl MultiAgentService {
             prop_res.response
         );
         let critic_res = self
-            .execute_task_on_endpoint(critic_endpoint, critic_alias, "turn-2-critique", &critic_prompt, Some(1024))
+            .execute_task_on_endpoint(
+                critic_endpoint,
+                critic_alias,
+                "turn-2-critique",
+                &critic_prompt,
+                Some(1024),
+            )
             .await;
 
         session.record_turn(

@@ -16,4 +16,4 @@ pub mod trace_engine;
 pub use error::{AskesisError, Result};
 pub use memory::{DEFAULT_HUMAN_KERNEL_LOG, append_human_log_entry, resolve_human_log_path};
 pub use reflection::{Reflection, Verdict};
-pub use trace_engine::{FineTuningDomain, TraceEngine, TrainingTrace, TRAINING_TRACE_SCHEMA};
+pub use trace_engine::{FineTuningDomain, TRAINING_TRACE_SCHEMA, TraceEngine, TrainingTrace};

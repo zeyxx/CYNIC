@@ -7,8 +7,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use cynic_inference::{
-    math::roofline::assess_roofline, ConstraintFilter, EmpiricalStorePort, FsEmpiricalStore,
-    HardwareBudget, OptimizationGoal,
+    ConstraintFilter, EmpiricalStorePort, FsEmpiricalStore, HardwareBudget, OptimizationGoal,
+    math::roofline::assess_roofline,
 };
 use cynic_protocol::{ContextTier, INFERENCE_OPTIMAL_PROFILE_SCHEMA};
 
@@ -83,7 +83,10 @@ pub(super) fn run(
             }
         });
 
-        let opt = store.resolve_optimal(&model, hardware, system_reserve_bytes, &constraints, goal).await.unwrap_or(None);
+        let opt = store
+            .resolve_optimal(&model, hardware, system_reserve_bytes, &constraints, goal)
+            .await
+            .unwrap_or(None);
         (sc, opt)
     });
 
@@ -170,7 +173,10 @@ cache_type_v = "{:?}"
         "roofline": roofline,
     });
 
-    println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&report).unwrap_or_default()
+    );
 
     ExitCode::SUCCESS
 }

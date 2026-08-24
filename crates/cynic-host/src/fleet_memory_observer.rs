@@ -222,8 +222,7 @@ full avg10=0.00 avg60=0.00 avg300=0.00 total=234567
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system time")
             .as_nanos();
-        let path = std::env::temp_dir()
-            .join(format!("cynic-fleet-memory-{unique}.json"));
+        let path = std::env::temp_dir().join(format!("cynic-fleet-memory-{unique}.json"));
         std::fs::write(&path, registry_json("10.0.0.7")).unwrap();
 
         let observer = FleetMemoryObserver::with_runner(
@@ -236,7 +235,9 @@ full avg10=0.00 avg60=0.00 avg300=0.00 total=234567
         assert_eq!(report.observed_nodes, 1);
         assert_eq!(report.failed_nodes, 0);
         match &report.nodes[0] {
-            FleetMemoryNode { report: Some(mem), .. } => {
+            FleetMemoryNode {
+                report: Some(mem), ..
+            } => {
                 assert_eq!(mem.schema, "cynic.host_memory_report.v1");
                 assert_eq!(mem.physical.total_bytes, 16383756 * 1024);
                 assert!(mem.pressure.is_some());
@@ -251,8 +252,7 @@ full avg10=0.00 avg60=0.00 avg300=0.00 total=234567
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system time")
             .as_nanos();
-        let path = std::env::temp_dir()
-            .join(format!("cynic-fleet-memory-fail-{unique}.json"));
+        let path = std::env::temp_dir().join(format!("cynic-fleet-memory-fail-{unique}.json"));
         std::fs::write(&path, registry_json("10.0.0.8")).unwrap();
 
         let runner = MapArgvRunner {

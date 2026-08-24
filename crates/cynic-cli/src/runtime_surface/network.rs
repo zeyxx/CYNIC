@@ -46,11 +46,11 @@ fn print_network_report(r: &NetworkReport) {
     }
     for rt in &r.routes {
         println!(
-        "  dst={} gateway={} dev={}",
-        rt.dst,
-        rt.gateway.as_deref().unwrap_or("none"),
-        rt.device
-    );
+            "  dst={} gateway={} dev={}",
+            rt.dst,
+            rt.gateway.as_deref().unwrap_or("none"),
+            rt.device
+        );
     }
     println!("── Usage (/proc/net/dev, L3) ──");
     for u in &r.usage {

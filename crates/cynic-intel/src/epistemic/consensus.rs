@@ -1,6 +1,6 @@
 use super::types::{
-    AxiomScoresBps, EpistemicVerdict, EPISTEMIC_VERDICT_SCHEMA_V1, HOWL_THRESHOLD_BPS,
-    PHI_INV_BPS, PHI_INV_CUBE_BPS, PHI_INV_SQ_BPS, ValidatorDogScore, VerdictRating,
+    AxiomScoresBps, EPISTEMIC_VERDICT_SCHEMA_V1, EpistemicVerdict, HOWL_THRESHOLD_BPS, PHI_INV_BPS,
+    PHI_INV_CUBE_BPS, PHI_INV_SQ_BPS, ValidatorDogScore, VerdictRating,
 };
 
 /// Calcul de la moyenne tronquée (Trimmed Mean) pour une série de scores en BPS.
@@ -195,6 +195,9 @@ mod tests {
         )
         .expect("consensus");
 
-        assert!(verdict.anomaly_detected, "Anomaly must be flagged when divergence > phi^-2");
+        assert!(
+            verdict.anomaly_detected,
+            "Anomaly must be flagged when divergence > phi^-2"
+        );
     }
 }

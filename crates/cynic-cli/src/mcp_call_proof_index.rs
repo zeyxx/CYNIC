@@ -72,11 +72,14 @@ pub(crate) fn mcp_call_proof_index() -> McpCallProofIndex {
                 .and_then(|v| v.as_object())
                 .and_then(|obj| {
                     obj.iter().find_map(|(domain, tools)| {
-                        tools.as_array().map(|arr| {
-                            arr.iter()
-                                .any(|t| t.as_str() == Some(&d.name))
-                                .then(|| domain.clone())
-                        }).flatten()
+                        tools
+                            .as_array()
+                            .map(|arr| {
+                                arr.iter()
+                                    .any(|t| t.as_str() == Some(&d.name))
+                                    .then(|| domain.clone())
+                            })
+                            .flatten()
                     })
                 });
             McpToolProof {

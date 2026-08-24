@@ -8,7 +8,7 @@
 //! 5. Offchain & Social (Forgejo, Git, X/Twitter, Web resources)
 
 #[allow(unused_imports)]
-use cynic_protocol::{EvidenceEnvelope, build_evidence_envelope};
+use cynic_protocol::{build_evidence_envelope, EvidenceEnvelope};
 use serde::{Deserialize, Serialize};
 
 pub const OBSERVATION_EVENT_SCHEMA: &str = "cynic.observation.event.v1";
@@ -191,7 +191,9 @@ mod tests {
             serde_json::json!({"used_mb": 4096, "total_mb": 16384}),
         );
         assert_eq!(event.schema, OBSERVATION_EVENT_SCHEMA);
-        let evidence = event.to_evidence_envelope("cynic-observer").expect("evidence envelope");
+        let evidence = event
+            .to_evidence_envelope("cynic-observer")
+            .expect("evidence envelope");
         assert_eq!(evidence.schema, cynic_protocol::EVIDENCE_ENVELOPE_SCHEMA);
         assert!(!evidence.digest.is_empty());
     }

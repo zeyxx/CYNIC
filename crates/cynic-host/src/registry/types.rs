@@ -1,8 +1,8 @@
 //! Registry types — pure data structures, no I/O, no policy
 
-use std::collections::BTreeMap;
-use serde::{Deserialize, Serialize};
 use cynic_protocol::{NodeSubstrateDesiredState, NodeSubstratePower};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// Raw registry document as loaded from JSON
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -247,7 +247,8 @@ impl RegistryNetworkLink {
         let connection = self.connection.as_ref()?.trim();
         let address = self.address.as_ref()?.trim();
         let gateway = self.gateway.as_ref()?.trim();
-        if interface.is_empty() || connection.is_empty() || address.is_empty() || gateway.is_empty() {
+        if interface.is_empty() || connection.is_empty() || address.is_empty() || gateway.is_empty()
+        {
             return None;
         }
         Some(ResolvedDirectManagementLink {

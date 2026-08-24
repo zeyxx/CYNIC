@@ -1,6 +1,6 @@
 use cynic_kernel::bootstrap::entry::{
-    KernelEntryFlags, configure_stdio_mode, init_tracing, load_env_file,
-    main_verify, print_version_and_exit_if_requested, run_mcp_proxy_mode_if_requested,
+    KernelEntryFlags, configure_stdio_mode, init_tracing, load_env_file, main_verify,
+    print_version_and_exit_if_requested, run_mcp_proxy_mode_if_requested,
 };
 use cynic_kernel::{bootstrap, klog};
 
@@ -27,7 +27,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         klog!("bootstrap verify PASSED - runtime starting");
     }
-
 
     klog!("CYNIC V2 — SOVEREIGN BOOT");
     bootstrap::runtime_orchestrator::run_runtime(entry_flags).await

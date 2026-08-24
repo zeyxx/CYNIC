@@ -5,9 +5,7 @@
 //! testable without a host and reused by both LocalMemoryAdapter and
 //! RemoteMemoryAdapter (SSH).
 
-use crate::domain::memory::types::{
-    MemoryPressure, MemoryReport, MemoryUsage, MemoryVolume,
-};
+use crate::domain::memory::types::{MemoryPressure, MemoryReport, MemoryUsage, MemoryVolume};
 
 fn parse_kb_line(key: &str, lines: &[&str]) -> Option<u64> {
     for line in lines {
@@ -34,7 +32,10 @@ pub fn parse_meminfo(text: &str) -> Result<MemoryReport, String> {
     let buffers = parse_kb_line("Buffers", &lines).unwrap_or(0);
     let cached = parse_kb_line("Cached", &lines).unwrap_or(0);
     let sreclaim = parse_kb_line("SReclaimable", &lines).unwrap_or(0);
-    let mem_used = total.saturating_sub(free).saturating_sub(buffers).saturating_sub(cached);
+    let mem_used = total
+        .saturating_sub(free)
+        .saturating_sub(buffers)
+        .saturating_sub(cached);
     let reclaimable = cached + sreclaim;
 
     let swap_total = parse_kb_line("SwapTotal", &lines).unwrap_or(0);
@@ -43,9 +44,26 @@ pub fn parse_meminfo(text: &str) -> Result<MemoryReport, String> {
 
     let headline = lines.first().map(|l| l.trim().to_string());
 
-    let physical = MemoryUsage { total_bytes: total, free_bytes: free, available_bytes: available, used_bytes: mem_used, reclaimable_bytes: 0 };
-    let volume = MemoryVolume { page_size_bytes: 4096, swappiness: None, hugepages_reserved: None, hugepage_size_bytes: None };
-    let swap_usage = MemoryUsage { total_bytes: swap_total, free_bytes: swap_free, available_bytes: swap_free, used_bytes: swap_used, reclaimable_bytes: 0 };
+    let physical = MemoryUsage {
+        total_bytes: total,
+        free_bytes: free,
+        available_bytes: available,
+        used_bytes: mem_used,
+        reclaimable_bytes: 0,
+    };
+    let volume = MemoryVolume {
+        page_size_bytes: 4096,
+        swappiness: None,
+        hugepages_reserved: None,
+        hugepage_size_bytes: None,
+    };
+    let swap_usage = MemoryUsage {
+        total_bytes: swap_total,
+        free_bytes: swap_free,
+        available_bytes: swap_free,
+        used_bytes: swap_used,
+        reclaimable_bytes: 0,
+    };
 
     Ok(MemoryReport {
         schema: "cynic.host_memory_report.v1".to_string(),
@@ -69,15 +87,36 @@ pub fn parse_free_output(text: &str) -> Result<(MemoryUsage, MemoryUsage), Strin
     let mut mem = None;
     let mut swp = None;
     for line in text.lines() {
-        let cols: Vec<u64> = line.split_whitespace().filter_map(|s| s.parse::<u64>().ok()).collect();
+        let cols: Vec<u64> = line
+            .split_whitespace()
+            .filter_map(|s| s.parse::<u64>().ok())
+            .collect();
         if line.starts_with("Mem:") && cols.len() >= 6 {
-            mem = Some(MemoryUsage { total_bytes: cols[0], free_bytes: cols[2], available_bytes: cols[5], used_bytes: cols[1], reclaimable_bytes: cols[4] });
+            mem = Some(MemoryUsage {
+                total_bytes: cols[0],
+                free_bytes: cols[2],
+                available_bytes: cols[5],
+                used_bytes: cols[1],
+                reclaimable_bytes: cols[4],
+            });
         } else if line.starts_with("Swap:") && cols.len() >= 3 {
-            swp = Some(MemoryUsage { total_bytes: cols[0], free_bytes: cols[2], available_bytes: cols[2], used_bytes: cols[1], reclaimable_bytes: 0 });
+            swp = Some(MemoryUsage {
+                total_bytes: cols[0],
+                free_bytes: cols[2],
+                available_bytes: cols[2],
+                used_bytes: cols[1],
+                reclaimable_bytes: 0,
+            });
         }
     }
     let mem = mem.ok_or("Mem: line missing")?;
-    let swp = swp.unwrap_or(MemoryUsage { total_bytes: 0, free_bytes: 0, available_bytes: 0, used_bytes: 0, reclaimable_bytes: 0 });
+    let swp = swp.unwrap_or(MemoryUsage {
+        total_bytes: 0,
+        free_bytes: 0,
+        available_bytes: 0,
+        used_bytes: 0,
+        reclaimable_bytes: 0,
+    });
     Ok((mem, swp))
 }
 
@@ -91,7 +130,9 @@ pub fn parse_pressure_memory(text: &str) -> Result<MemoryPressure, String> {
         for line in text.lines() {
             if line.starts_with(label) {
                 if let Some(v) = line.split_whitespace().find_map(|tok| {
-                    tok.strip_prefix(key).and_then(|s| s.strip_prefix("=")).and_then(|n| n.parse::<f64>().ok())
+                    tok.strip_prefix(key)
+                        .and_then(|s| s.strip_prefix("="))
+                        .and_then(|n| n.parse::<f64>().ok())
                 }) {
                     return Ok(v);
                 }
@@ -114,7 +155,11 @@ pub fn parse_pressure_memory(text: &str) -> Result<MemoryPressure, String> {
         for line in text.lines() {
             if line.starts_with(label) {
                 for tok in line.split_whitespace() {
-                    if let Some(n) = tok.strip_prefix(field).and_then(|s| s.strip_prefix("=")).and_then(|n| n.parse::<u64>().ok()) {
+                    if let Some(n) = tok
+                        .strip_prefix(field)
+                        .and_then(|s| s.strip_prefix("="))
+                        .and_then(|n| n.parse::<u64>().ok())
+                    {
                         return n;
                     }
                 }
@@ -125,7 +170,16 @@ pub fn parse_pressure_memory(text: &str) -> Result<MemoryPressure, String> {
     let some_total = parse_total("some", "total");
     let full_total = parse_total("full", "total");
 
-    Ok(MemoryPressure { some_avg10, some_avg60, some_avg300, some_total_us: some_total, full_avg10, full_avg60, full_avg300, full_total_us: full_total })
+    Ok(MemoryPressure {
+        some_avg10,
+        some_avg60,
+        some_avg300,
+        some_total_us: some_total,
+        full_avg10,
+        full_avg60,
+        full_avg300,
+        full_total_us: full_total,
+    })
 }
 
 #[cfg(test)]
@@ -158,7 +212,10 @@ SReclaimable:     807936 kB
         // used = total - free - buffers - cached
         let expected_used = (28621204 - 5475484 - 552700 - 14832604) * 1024;
         assert_eq!(rep.physical.used_bytes, expected_used);
-        assert_eq!(rep.meminfo_headline.as_deref(), Some("MemTotal:       28621204 kB"));
+        assert_eq!(
+            rep.meminfo_headline.as_deref(),
+            Some("MemTotal:       28621204 kB")
+        );
     }
 
     const SAMPLE_FREE: &str = "\

@@ -144,7 +144,9 @@ pub fn select_engine(
             if has_nvidia_gpu {
                 EngineRecommendation {
                     engine: InferenceEngine::ConsumerCuda,
-                    reason: "Single NVIDIA workstation → ExLlamaV2 for fast quantized local inference.".into(),
+                    reason:
+                        "Single NVIDIA workstation → ExLlamaV2 for fast quantized local inference."
+                            .into(),
                     fallback: Some(InferenceEngine::Production),
                 }
             } else {
@@ -155,25 +157,23 @@ pub fn select_engine(
                 }
             }
         }
-        HardwareTier::Server => {
-            match workload {
-                WorkloadShape::ProductionServing => EngineRecommendation {
-                    engine: InferenceEngine::Production,
-                    reason: "Server production → vLLM / SGLang continuous batching.".into(),
-                    fallback: Some(InferenceEngine::NvidiaMax),
-                },
-                WorkloadShape::TeamPrivate => EngineRecommendation {
-                    engine: InferenceEngine::Production,
-                    reason: "Team private API → vLLM OpenAI-compatible endpoint.".into(),
-                    fallback: Some(InferenceEngine::MultiCuda),
-                },
-                _ => EngineRecommendation {
-                    engine: InferenceEngine::MultiCuda,
-                    reason: "Server single-user → ExLlamaV3 multi-GPU quantized.".into(),
-                    fallback: Some(InferenceEngine::Production),
-                },
-            }
-        }
+        HardwareTier::Server => match workload {
+            WorkloadShape::ProductionServing => EngineRecommendation {
+                engine: InferenceEngine::Production,
+                reason: "Server production → vLLM / SGLang continuous batching.".into(),
+                fallback: Some(InferenceEngine::NvidiaMax),
+            },
+            WorkloadShape::TeamPrivate => EngineRecommendation {
+                engine: InferenceEngine::Production,
+                reason: "Team private API → vLLM OpenAI-compatible endpoint.".into(),
+                fallback: Some(InferenceEngine::MultiCuda),
+            },
+            _ => EngineRecommendation {
+                engine: InferenceEngine::MultiCuda,
+                reason: "Server single-user → ExLlamaV3 multi-GPU quantized.".into(),
+                fallback: Some(InferenceEngine::Production),
+            },
+        },
     }
 }
 
@@ -194,12 +194,7 @@ mod tests {
 
     #[test]
     fn multi_node_selects_cluster() {
-        let rec = select_engine(
-            HardwareTier::Server,
-            false,
-            true,
-            &WorkloadShape::MultiNode,
-        );
+        let rec = select_engine(HardwareTier::Server, false, true, &WorkloadShape::MultiNode);
         assert_eq!(rec.engine, InferenceEngine::Cluster);
     }
 

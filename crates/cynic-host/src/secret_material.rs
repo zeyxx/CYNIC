@@ -152,10 +152,12 @@ mod tests {
     fn generated_runtime_identity_has_bounded_high_entropy_encoding() {
         let secret = SecretMaterial::generate_runtime_identity().unwrap();
         assert_eq!(secret.expose_str().len(), RUNTIME_SECRET_RANDOM_BYTES * 2);
-        assert!(secret
-            .expose_str()
-            .bytes()
-            .all(|byte| byte.is_ascii_hexdigit()));
+        assert!(
+            secret
+                .expose_str()
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit())
+        );
     }
 
     #[test]
@@ -225,9 +227,11 @@ mod tests {
     fn resolve_credential_unsupported_scheme() {
         let result = SecretMaterial::resolve_credential("http://example.com/secret");
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .contains("unsupported credential ref scheme"));
+        assert!(
+            result
+                .unwrap_err()
+                .contains("unsupported credential ref scheme")
+        );
     }
 
     #[test]
@@ -238,7 +242,8 @@ mod tests {
         use std::os::unix::fs::PermissionsExt as _;
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
 
-        let result = SecretMaterial::resolve_credential(&format!("file:{}", path.to_str().unwrap()));
+        let result =
+            SecretMaterial::resolve_credential(&format!("file:{}", path.to_str().unwrap()));
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("group or others"));
     }

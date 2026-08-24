@@ -63,6 +63,7 @@ pub mod runtime_takeover_activation;
 pub use runtime_takeover::*;
 pub use runtime_takeover_activation::*;
 pub mod forgejo;
+pub mod forgejo_token;
 pub mod framework;
 pub mod freshness;
 pub mod harness;

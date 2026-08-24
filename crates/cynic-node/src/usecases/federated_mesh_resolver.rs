@@ -21,10 +21,10 @@ use std::path::Path;
 use ed25519_dalek::{Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
+use cynic_protocol::build_node::NodeHealthView;
 use cynic_protocol::peer_resolver::{
     PeerEndpoint, PeerResolver, PeerTransport, SignedPeerEndpoint,
 };
-use cynic_protocol::build_node::NodeHealthView;
 
 /// Declared seed node as stored in `infra/synapse-nodes.seed.json`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -117,10 +117,7 @@ impl LocalRegistryMeshResolver {
         } else {
             None
         };
-        Self {
-            seed,
-            fallback_dir,
-        }
+        Self { seed, fallback_dir }
     }
 
     /// Convenience: resolve `infra/` via `repo_infra_dir()` and build the

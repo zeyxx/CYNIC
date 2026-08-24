@@ -7,8 +7,8 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use cynic_protocol::{
-    NodeControlPlan, RuntimeReleaseAdmission, RuntimeReleaseDeclaration,
-    SignedNodeControlPlan, admit_runtime_release,
+    NodeControlPlan, RuntimeReleaseAdmission, RuntimeReleaseDeclaration, SignedNodeControlPlan,
+    admit_runtime_release,
 };
 use serde::Serialize;
 

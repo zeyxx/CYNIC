@@ -218,4 +218,3 @@ fn orphan_detection_is_owned_by_the_shared_ratchet() {
          every crate ratchet includes it by path"
     );
 }
-

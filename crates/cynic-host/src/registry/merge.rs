@@ -2,8 +2,8 @@
 
 use crate::registry::types::{
     RegistryDocument, RegistryFleetDesired, RegistryFleetTarget, RegistryKernelRelease,
-    RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane, RegistryNetworkPolicy, RegistryNode,
-    RegistryNodeService, RegistryNodeTransports, RegistryServiceHealth,
+    RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane, RegistryNetworkPolicy,
+    RegistryNode, RegistryNodeService, RegistryNodeTransports, RegistryServiceHealth,
     RegistryServiceSupervisor, RegistrySshEnrollmentAuthority, RegistrySshTransport,
 };
 use std::collections::BTreeMap;
@@ -26,7 +26,8 @@ pub fn merge_registry(
     strategy: MergeStrategy,
 ) -> Result<RegistryDocument, String> {
     let nodes = merge_nodes(base.nodes, overlay.nodes, strategy)?;
-    let network_policy = merge_network_policy(base.network_policy, overlay.network_policy, strategy);
+    let network_policy =
+        merge_network_policy(base.network_policy, overlay.network_policy, strategy);
     let lifecycle = merge_lifecycle(base.lifecycle, overlay.lifecycle, strategy);
     let fleet_desired = merge_fleet_desired(base.fleet_desired, overlay.fleet_desired, strategy);
 
@@ -46,9 +47,9 @@ fn merge_nodes(
 ) -> Result<Vec<RegistryNode>, String> {
     for overlay_node in overlay {
         // Try to find matching node in base (by id, name, or alias)
-        let match_idx = base.iter().position(|base_node| {
-            nodes_match(base_node, &overlay_node)
-        });
+        let match_idx = base
+            .iter()
+            .position(|base_node| nodes_match(base_node, &overlay_node));
 
         match match_idx {
             Some(idx) => {
@@ -99,10 +100,26 @@ fn merge_node(
     let name = merge_field(base.name, overlay.name, strategy, "name")?;
     let aliases = merge_aliases(base.aliases, overlay.aliases, strategy);
     let role = merge_field(base.role, overlay.role, strategy, "role")?;
-    let canonical_role = merge_field(base.canonical_role, overlay.canonical_role, strategy, "canonical_role")?;
-    let provider_controls = merge_provider_controls(base.provider_controls, overlay.provider_controls, strategy);
-    let transports = merge_option(base.transports, overlay.transports, strategy, merge_transports)?;
-    let host_family = merge_field(base.host_family, overlay.host_family, strategy, "host_family")?;
+    let canonical_role = merge_field(
+        base.canonical_role,
+        overlay.canonical_role,
+        strategy,
+        "canonical_role",
+    )?;
+    let provider_controls =
+        merge_provider_controls(base.provider_controls, overlay.provider_controls, strategy);
+    let transports = merge_option(
+        base.transports,
+        overlay.transports,
+        strategy,
+        merge_transports,
+    )?;
+    let host_family = merge_field(
+        base.host_family,
+        overlay.host_family,
+        strategy,
+        "host_family",
+    )?;
     let substrate = merge_option(base.substrate, overlay.substrate, strategy, merge_substrate)?;
     let services = merge_services(base.services, overlay.services, strategy);
     let network_links = merge_network_links(base.network_links, overlay.network_links, strategy);
@@ -218,8 +235,18 @@ fn merge_enrollment_authority(
     strategy: MergeStrategy,
 ) -> Result<RegistrySshEnrollmentAuthority, String> {
     let class = merge_field(base.class, overlay.class, strategy, "enrollment.class")?;
-    let principal = merge_field(base.principal, overlay.principal, strategy, "enrollment.principal")?;
-    let credential_ref = merge_field(base.credential_ref, overlay.credential_ref, strategy, "enrollment.credential_ref")?;
+    let principal = merge_field(
+        base.principal,
+        overlay.principal,
+        strategy,
+        "enrollment.principal",
+    )?;
+    let credential_ref = merge_field(
+        base.credential_ref,
+        overlay.credential_ref,
+        strategy,
+        "enrollment.credential_ref",
+    )?;
     Ok(RegistrySshEnrollmentAuthority {
         class,
         principal,
@@ -244,9 +271,9 @@ fn merge_services(
     strategy: MergeStrategy,
 ) -> Vec<RegistryNodeService> {
     for overlay_service in overlay {
-        let match_idx = base.iter().position(|base_service| {
-            services_match(base_service, &overlay_service)
-        });
+        let match_idx = base
+            .iter()
+            .position(|base_service| services_match(base_service, &overlay_service));
 
         match match_idx {
             Some(idx) => {
@@ -279,8 +306,17 @@ fn merge_service(
     let artifact = merge_field_opt(base.artifact, overlay.artifact, strategy);
     let port = merge_field_opt(base.port, overlay.port, strategy);
     let unit = merge_field_opt(base.unit, overlay.unit, strategy);
-    let supervisor = merge_option(base.supervisor, overlay.supervisor, strategy, merge_supervisor).ok().flatten();
-    let health = merge_option(base.health, overlay.health, strategy, merge_health).ok().flatten();
+    let supervisor = merge_option(
+        base.supervisor,
+        overlay.supervisor,
+        strategy,
+        merge_supervisor,
+    )
+    .ok()
+    .flatten();
+    let health = merge_option(base.health, overlay.health, strategy, merge_health)
+        .ok()
+        .flatten();
 
     RegistryNodeService {
         name,
@@ -305,7 +341,12 @@ fn merge_supervisor(
     overlay: RegistryServiceSupervisor,
     strategy: MergeStrategy,
 ) -> Result<RegistryServiceSupervisor, String> {
-    let provider = merge_field(base.provider, overlay.provider, strategy, "supervisor.provider")?;
+    let provider = merge_field(
+        base.provider,
+        overlay.provider,
+        strategy,
+        "supervisor.provider",
+    )?;
     Ok(RegistryServiceSupervisor { provider })
 }
 
@@ -317,7 +358,11 @@ fn merge_health(
     let kind = merge_field(base.kind, overlay.kind, strategy, "health.kind")?;
     let port = merge_field_opt(base.port, overlay.port, strategy);
     let process = merge_field_opt(base.process, overlay.process, strategy);
-    Ok(RegistryServiceHealth { kind, port, process })
+    Ok(RegistryServiceHealth {
+        kind,
+        port,
+        process,
+    })
 }
 
 /// Merge network links
@@ -327,9 +372,9 @@ fn merge_network_links(
     _strategy: MergeStrategy,
 ) -> Vec<RegistryNetworkLink> {
     for overlay_link in overlay {
-        let match_idx = base.iter().position(|base_link| {
-            network_links_match(base_link, &overlay_link)
-        });
+        let match_idx = base
+            .iter()
+            .position(|base_link| network_links_match(base_link, &overlay_link));
 
         match match_idx {
             Some(idx) => {
@@ -410,7 +455,8 @@ fn merge_lifecycle(
     strategy: MergeStrategy,
 ) -> Option<RegistryLifecycle> {
     merge_option(base, overlay, strategy, |b, o, s| {
-        let kernel_release = merge_option(b.kernel_release, o.kernel_release, s, merge_kernel_release)?;
+        let kernel_release =
+            merge_option(b.kernel_release, o.kernel_release, s, merge_kernel_release)?;
         Ok(RegistryLifecycle { kernel_release })
     })
     .ok()
@@ -422,8 +468,18 @@ fn merge_kernel_release(
     overlay: RegistryKernelRelease,
     strategy: MergeStrategy,
 ) -> Result<RegistryKernelRelease, String> {
-    let build_runner_role = merge_field(base.build_runner_role, overlay.build_runner_role, strategy, "kernel_release.build_runner_role")?;
-    let host_bootstrap = merge_option(base.host_bootstrap, overlay.host_bootstrap, strategy, merge_host_bootstrap)?;
+    let build_runner_role = merge_field(
+        base.build_runner_role,
+        overlay.build_runner_role,
+        strategy,
+        "kernel_release.build_runner_role",
+    )?;
+    let host_bootstrap = merge_option(
+        base.host_bootstrap,
+        overlay.host_bootstrap,
+        strategy,
+        merge_host_bootstrap,
+    )?;
     Ok(RegistryKernelRelease {
         build_runner_role,
         host_bootstrap,
@@ -463,9 +519,10 @@ fn merge_fleet_desired(
 ) -> Option<RegistryFleetDesired> {
     merge_option(base, overlay, strategy, |mut b, o, s| {
         for overlay_target in o.targets {
-            let match_idx = b.targets.iter().position(|base_target| {
-                base_target.id == overlay_target.id
-            });
+            let match_idx = b
+                .targets
+                .iter()
+                .position(|base_target| base_target.id == overlay_target.id);
 
             match match_idx {
                 Some(idx) => {
@@ -488,14 +545,36 @@ fn merge_fleet_target(
     strategy: MergeStrategy,
 ) -> Result<RegistryFleetTarget, String> {
     let id = merge_field(base.id, overlay.id, strategy, "fleet_target.id")?;
-    let provider = merge_field(base.provider, overlay.provider, strategy, "fleet_target.provider")?;
-    let resource_id = merge_field(base.resource_id, overlay.resource_id, strategy, "fleet_target.resource_id")?;
+    let provider = merge_field(
+        base.provider,
+        overlay.provider,
+        strategy,
+        "fleet_target.provider",
+    )?;
+    let resource_id = merge_field(
+        base.resource_id,
+        overlay.resource_id,
+        strategy,
+        "fleet_target.resource_id",
+    )?;
     let role = merge_field(base.role, overlay.role, strategy, "fleet_target.role")?;
-    let desired_power = merge_field(base.desired_power, overlay.desired_power, strategy, "fleet_target.desired_power")?;
-    let provisioning = merge_option(base.provisioning, overlay.provisioning, strategy, |a, b, s| {
-        // For provisioning spec, use the same strategy
-        merge_field(Some(a), Some(b), s, "provisioning").map_err(|e| e).and_then(|opt| opt.ok_or_else(|| "provisioning merge returned None".to_string()))
-    })?;
+    let desired_power = merge_field(
+        base.desired_power,
+        overlay.desired_power,
+        strategy,
+        "fleet_target.desired_power",
+    )?;
+    let provisioning = merge_option(
+        base.provisioning,
+        overlay.provisioning,
+        strategy,
+        |a, b, s| {
+            // For provisioning spec, use the same strategy
+            merge_field(Some(a), Some(b), s, "provisioning")
+                .map_err(|e| e)
+                .and_then(|opt| opt.ok_or_else(|| "provisioning merge returned None".to_string()))
+        },
+    )?;
 
     Ok(RegistryFleetTarget {
         id,
@@ -520,7 +599,7 @@ mod tests {
     use super::*;
     use crate::registry::types::{
         RegistryDocument, RegistryFleetDesired, RegistryFleetTarget, RegistryKernelRelease,
-        RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPolicy, RegistryNetworkPlane,
+        RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane, RegistryNetworkPolicy,
         RegistryNode, RegistryNodeService, RegistryNodeTransports, RegistryServiceHealth,
         RegistryServiceSupervisor, RegistrySshEnrollmentAuthority, RegistrySshTransport,
     };

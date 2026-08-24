@@ -209,15 +209,24 @@ some avg10=5.23 avg60=3.14 avg300=1.00 total=9432416
         MapArgvRunner {
             responses: vec![
                 (
-                    ["ssh", target, "cat /proc/cpuinfo"].iter().map(|s| s.to_string()).collect(),
+                    ["ssh", target, "cat /proc/cpuinfo"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
                     ok(&format!("{SAMPLE_CPUINFO}\n")),
                 ),
                 (
-                    ["ssh", target, "cat /proc/stat"].iter().map(|s| s.to_string()).collect(),
+                    ["ssh", target, "cat /proc/stat"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
                     ok(SAMPLE_STAT),
                 ),
                 (
-                    ["ssh", target, "cat /proc/pressure/cpu"].iter().map(|s| s.to_string()).collect(),
+                    ["ssh", target, "cat /proc/pressure/cpu"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
                     ok(SAMPLE_PRESSURE),
                 ),
             ],
@@ -230,21 +239,20 @@ some avg10=5.23 avg60=3.14 avg300=1.00 total=9432416
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system time")
             .as_nanos();
-        let path = std::env::temp_dir()
-            .join(format!("cynic-fleet-cpu-{unique}.json"));
+        let path = std::env::temp_dir().join(format!("cynic-fleet-cpu-{unique}.json"));
         std::fs::write(&path, registry_json("10.0.0.7")).unwrap();
 
-        let observer = FleetCpuObserver::with_runner(
-            path.to_string_lossy().to_string(),
-            sample_cpu_runner(),
-        );
+        let observer =
+            FleetCpuObserver::with_runner(path.to_string_lossy().to_string(), sample_cpu_runner());
         let report = observer.observe();
         assert_eq!(report.schema, FLEET_CPU_SCHEMA);
         assert_eq!(report.total_nodes, 1);
         assert_eq!(report.observed_nodes, 1);
         assert_eq!(report.failed_nodes, 0);
         match &report.nodes[0] {
-            FleetCpuNode { report: Some(r), .. } => {
+            FleetCpuNode {
+                report: Some(r), ..
+            } => {
                 assert_eq!(r.schema, "cynic.host_cpu_report.v1");
                 assert_eq!(r.physical.logical_cpus, 2);
                 assert_eq!(r.physical.model_name, "AMD EPYC 7R13");
@@ -261,8 +269,7 @@ some avg10=5.23 avg60=3.14 avg300=1.00 total=9432416
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system time")
             .as_nanos();
-        let path = std::env::temp_dir()
-            .join(format!("cynic-fleet-cpu-fail-{unique}.json"));
+        let path = std::env::temp_dir().join(format!("cynic-fleet-cpu-fail-{unique}.json"));
         std::fs::write(&path, registry_json("10.0.0.8")).unwrap();
 
         let runner = MapArgvRunner {

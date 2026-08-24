@@ -4,7 +4,7 @@
 //! SSH remote disk adapters share one parsing path (no hardwired substrate).
 
 use super::types::{
-    bytes_to_human, DiskCleanupItem, DiskCleanupPlan, DiskFilesystem, DiskReport, PhysicalDisk,
+    DiskCleanupItem, DiskCleanupPlan, DiskFilesystem, DiskReport, PhysicalDisk, bytes_to_human,
 };
 
 /// Canonical rotated-syslog file set observed and purged on CYNIC hosts.
@@ -89,21 +89,67 @@ pub fn parse_lsblk_disks(json_stdout: &str) -> Vec<PhysicalDisk> {
         return list;
     };
     for dev in block_devices {
-        let device = dev.get("name").and_then(|v| v.as_str()).unwrap_or("?").to_string();
+        let device = dev
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?")
+            .to_string();
         let size_bytes = dev.get("size").and_then(|v| v.as_u64());
-        let disk_type = dev.get("type").and_then(|v| v.as_str()).unwrap_or("disk").to_string();
-        let rotational = dev.get("rota").map(|v| v.as_bool().unwrap_or(false)).unwrap_or(false);
+        let disk_type = dev
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("disk")
+            .to_string();
+        let rotational = dev
+            .get("rota")
+            .map(|v| v.as_bool().unwrap_or(false))
+            .unwrap_or(false);
         let size_human = size_bytes.map(|b| bytes_to_human(b));
-        let vendor = dev.get("vendor").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(String::from);
-        let model = dev.get("model").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(String::from);
-        let serial = dev.get("serial").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(String::from);
-        let wwn = dev.get("wwn").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(String::from);
+        let vendor = dev
+            .get("vendor")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(String::from);
+        let model = dev
+            .get("model")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(String::from);
+        let serial = dev
+            .get("serial")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(String::from);
+        let wwn = dev
+            .get("wwn")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(String::from);
         let mountpoints = dev
             .get("mountpoints")
             .and_then(|m| m.as_array())
-            .map(|arr| arr.iter().filter_map(|p| p.get("mountpoint").and_then(|v| v.as_str()).map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|p| {
+                        p.get("mountpoint")
+                            .and_then(|v| v.as_str())
+                            .map(String::from)
+                    })
+                    .collect()
+            })
             .unwrap_or_default();
-        list.push(PhysicalDisk { device, size_bytes, size_human, disk_type, rotational, vendor, model, serial, wwn, mountpoints });
+        list.push(PhysicalDisk {
+            device,
+            size_bytes,
+            size_human,
+            disk_type,
+            rotational,
+            vendor,
+            model,
+            serial,
+            wwn,
+            mountpoints,
+        });
     }
     list
 }
@@ -227,7 +273,9 @@ overlay        overlay  50G   30G   20G  60% /
     #[test]
     fn test_parse_df_filesystems_empty_and_header_only() {
         assert!(parse_df_filesystems("").is_empty());
-        assert!(parse_df_filesystems("Filesystem Type Size Used Avail Use% Mounted on\n").is_empty());
+        assert!(
+            parse_df_filesystems("Filesystem Type Size Used Avail Use% Mounted on\n").is_empty()
+        );
     }
 
     const SAMPLE_LSBLK: &str = r#"{
@@ -307,9 +355,11 @@ overlay        overlay  50G   30G   20G  60% /
             assert_eq!(arg, expected);
         }
         // The purge executor must consume the same canonical slice.
-        assert!(ROTATED_SYSLOG_FILES
-            .iter()
-            .all(|f| f.starts_with("/var/log/")));
+        assert!(
+            ROTATED_SYSLOG_FILES
+                .iter()
+                .all(|f| f.starts_with("/var/log/"))
+        );
     }
 
     #[test]

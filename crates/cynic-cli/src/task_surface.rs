@@ -9,7 +9,7 @@ use std::process::ExitCode;
 use clap::Subcommand;
 use cynic_inference::{DomainTaskQueue, DomainTaskQueueError};
 use cynic_protocol::{
-    DomainTask, DomainTaskStatus, TaskDomain, TaskPriority, DOMAIN_TASK_LIST_SCHEMA,
+    DOMAIN_TASK_LIST_SCHEMA, DomainTask, DomainTaskStatus, TaskDomain, TaskPriority,
 };
 
 #[derive(Subcommand)]
@@ -103,7 +103,9 @@ pub(crate) fn execute_task(command: TaskCommand) -> ExitCode {
             let task_domain = match parse_domain(&domain) {
                 Some(d) => d,
                 None => {
-                    eprintln!("Invalid domain '{domain}' — options: inference, infra, code_audit, cortex, governance, nightshift");
+                    eprintln!(
+                        "Invalid domain '{domain}' — options: inference, infra, code_audit, cortex, governance, nightshift"
+                    );
                     return ExitCode::FAILURE;
                 }
             };
@@ -155,7 +157,10 @@ pub(crate) fn execute_task(command: TaskCommand) -> ExitCode {
                 "tasks": tasks,
             });
 
-            println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output).unwrap_or_default()
+            );
             ExitCode::SUCCESS
         }
         TaskCommand::Claim {
@@ -192,7 +197,10 @@ pub(crate) fn execute_task(command: TaskCommand) -> ExitCode {
                         "domain": domain,
                         "message": "No pending tasks found for domain"
                     });
-                    println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&output).unwrap_or_default()
+                    );
                     ExitCode::SUCCESS
                 }
                 Err(e) => emit_error(&e),
@@ -218,9 +226,8 @@ pub(crate) fn execute_task(command: TaskCommand) -> ExitCode {
                 Err(e) => return emit_error(&e),
             };
 
-            let result = rt.block_on(async {
-                queue.complete_task(&task_id, &agent, evidence_val).await
-            });
+            let result =
+                rt.block_on(async { queue.complete_task(&task_id, &agent, evidence_val).await });
 
             match result {
                 Ok(task) => emit_success(&task),
@@ -293,7 +300,10 @@ fn emit_error(err: &DomainTaskQueueError) -> ExitCode {
         "status": "error",
         "error": err.to_string()
     });
-    eprintln!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+    eprintln!(
+        "{}",
+        serde_json::to_string_pretty(&output).unwrap_or_default()
+    );
     ExitCode::FAILURE
 }
 

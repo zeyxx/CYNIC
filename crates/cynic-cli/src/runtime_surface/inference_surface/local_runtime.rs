@@ -2,8 +2,8 @@ use std::fs;
 use std::{env, io::Read, process::ExitCode};
 
 use cynic_inference::{
-    forge_profile_from_benchmark_report, LocalRuntimeServiceAny, ModelStoreService,
-    RuntimePlanner, consolidate_vault,
+    LocalRuntimeServiceAny, ModelStoreService, RuntimePlanner, consolidate_vault,
+    forge_profile_from_benchmark_report,
 };
 
 use super::emit_json;
@@ -509,4 +509,3 @@ pub(crate) fn execute_inference_forge(
         }
     }
 }
-

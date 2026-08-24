@@ -93,11 +93,7 @@ pub async fn coord_identify_handler(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     validate_agent_id(&req.agent_id)?;
 
-    if req
-        .agent_kind
-        .as_ref()
-        .is_some_and(|k| k.len() > 64)
-    {
+    if req.agent_kind.as_ref().is_some_and(|k| k.len() > 64) {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
@@ -107,7 +103,9 @@ pub async fn coord_identify_handler(
     }
 
     let agent_kind = req.agent_kind.unwrap_or_else(|| "external".into());
-    let credential_kind = req.credential_kind.unwrap_or_else(|| "opaque_reference".into());
+    let credential_kind = req
+        .credential_kind
+        .unwrap_or_else(|| "opaque_reference".into());
     let attested_at_unix_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
 
     let identity = serde_json::json!({
@@ -243,18 +241,23 @@ pub async fn coord_claim_handler(
             let _ = state.coord.heartbeat(&req.agent_id).await;
             let budget_actions = req.budget_actions.unwrap_or(50);
             let budget_wall_seconds = req.budget_wall_seconds.unwrap_or(3600);
-            let _ = state.coord.store_audit(
-                "cynic_coord_claim", &req.agent_id,
-                &serde_json::json!({
-                    "target": req.target,
-                    "claim_type": claim_type,
-                    "ttl_seconds": ttl_seconds,
-                    "budget_actions": budget_actions,
-                    "budget_wall_seconds": budget_wall_seconds,
-                    "grant": &grant,
-                    "source": "rest"
-                }).to_string(),
-            ).await;
+            let _ = state
+                .coord
+                .store_audit(
+                    "cynic_coord_claim",
+                    &req.agent_id,
+                    &serde_json::json!({
+                        "target": req.target,
+                        "claim_type": claim_type,
+                        "ttl_seconds": ttl_seconds,
+                        "budget_actions": budget_actions,
+                        "budget_wall_seconds": budget_wall_seconds,
+                        "grant": &grant,
+                        "source": "rest"
+                    })
+                    .to_string(),
+                )
+                .await;
             Ok(Json(serde_json::json!({
                 "status": "claimed",
                 "agent_id": req.agent_id,

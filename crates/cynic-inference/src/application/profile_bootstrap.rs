@@ -549,9 +549,8 @@ pub fn forge_profile_from_benchmark_report(
 ) -> Result<ForgeProfileReport, ForgeProfileError> {
     let raw = std::fs::read_to_string(report_path)
         .map_err(|e| ForgeProfileError(format!("read {report_path}: {e}")))?;
-    let report: crate::application::agent_harness::BenchmarkReport =
-        serde_json::from_str(&raw)
-            .map_err(|e| ForgeProfileError(format!("parse BenchmarkReport: {e}")))?;
+    let report: crate::application::agent_harness::BenchmarkReport = serde_json::from_str(&raw)
+        .map_err(|e| ForgeProfileError(format!("parse BenchmarkReport: {e}")))?;
 
     // Pick the winning run: the AgentHarnessReport with the best output rate.
     let winning = report
@@ -574,18 +573,8 @@ pub fn forge_profile_from_benchmark_report(
         ForgeProfileError("no harness report with output_tokens_per_second samples".into())
     })?;
 
-    let model_id = winning_report
-        .scenario
-        .model
-        .parameters
-        .model_id
-        .clone();
-    let model_path = winning_report
-        .scenario
-        .model
-        .parameters
-        .model_path
-        .clone();
+    let model_id = winning_report.scenario.model.parameters.model_id.clone();
+    let model_path = winning_report.scenario.model.parameters.model_path.clone();
     let run_id = winning_report.run_id.clone();
     let alias = alias_from_artifact_id(&model_id);
     let layout = crate::domain::model_layout::ModelLayout::from_env();
@@ -593,9 +582,15 @@ pub fn forge_profile_from_benchmark_report(
         .map_err(|e| ForgeProfileError(format!("write loopback profile: {e}")))?;
 
     let msg = if source_note.is_empty() {
-        format!("forged profile {alias} from winning run {run_id} of plan {}", report.plan_id)
+        format!(
+            "forged profile {alias} from winning run {run_id} of plan {}",
+            report.plan_id
+        )
     } else {
-        format!("{source_note}: forged profile {alias} from winning run {run_id} of plan {}", report.plan_id)
+        format!(
+            "{source_note}: forged profile {alias} from winning run {run_id} of plan {}",
+            report.plan_id
+        )
     };
 
     Ok(ForgeProfileReport {

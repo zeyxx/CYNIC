@@ -19,7 +19,7 @@ use cynic_protocol::task_pipeline::EnergyBudget;
 use cynic_protocol::temporal::Epoch;
 
 use crate::ports::build_scheduler_port::{
-    BuildExecutionPort, BuildExecutionRequest, BuildExecutionReadBack,
+    BuildExecutionPort, BuildExecutionReadBack, BuildExecutionRequest,
 };
 
 /// One admitted build window: everything needed to open, execute, close.
@@ -78,9 +78,8 @@ pub async fn run_admitted_build(
         &mut meter,
         |_meter| {
             let result = tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(async {
-                    execution.execute(&request, cancellation).await
-                })
+                tokio::runtime::Handle::current()
+                    .block_on(async { execution.execute(&request, cancellation).await })
             });
             match result {
                 Ok(read_back) => Ok(read_back),
@@ -125,8 +124,9 @@ mod tests {
             _cancellation: &'a tokio_util::sync::CancellationToken,
         ) -> std::pin::Pin<
             Box<
-                dyn std::future::Future<Output = Result<BuildExecutionReadBack, BuildExecutionError>>
-                    + Send
+                dyn std::future::Future<
+                        Output = Result<BuildExecutionReadBack, BuildExecutionError>,
+                    > + Send
                     + 'a,
             >,
         > {
@@ -166,7 +166,10 @@ mod tests {
         }
     }
 
-    fn journal() -> (tempfile::NamedTempFile, cynic_host::adapters::fs_window_journal::FsWindowJournal) {
+    fn journal() -> (
+        tempfile::NamedTempFile,
+        cynic_host::adapters::fs_window_journal::FsWindowJournal,
+    ) {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let journal = cynic_host::adapters::fs_window_journal::FsWindowJournal::open(temp.path());
         (temp, journal)
@@ -175,11 +178,10 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn admitted_build_opens_executes_and_closes_coherently() {
         let (_t, journal) = journal();
-        let runner = WindowRunner::new(
-            std::sync::Arc::new(journal.clone()),
-            "test-host",
-        );
-        let exec = CountingExecution { calls: AtomicU32::new(0) };
+        let runner = WindowRunner::new(std::sync::Arc::new(journal.clone()), "test-host");
+        let exec = CountingExecution {
+            calls: AtomicU32::new(0),
+        };
 
         let receipt = run_admitted_build(
             &runner,
