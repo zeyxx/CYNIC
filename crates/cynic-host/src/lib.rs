@@ -6,6 +6,7 @@ pub mod agent_runtime;
 // no declaration reached the directory, so the workspace audit never compiled.
 pub mod audit_engine;
 pub mod autoresearch;
+pub mod pattern_gc_scan;
 pub mod bootstrap_chain;
 pub mod bootstrap_host_plan;
 pub mod bounded_helper;
