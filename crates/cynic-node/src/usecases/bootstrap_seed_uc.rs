@@ -208,7 +208,7 @@ pub(crate) async fn execute_bootstrap_seed(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{
+    use cynic_protocol::development_genesis::{
         DEVELOPMENT_GENESIS_BUILD_REQUEST_SCHEMA, DevelopmentGenesisAction,
         DevelopmentGenesisBuildAdmission, DevelopmentGenesisBuildPlan,
         DevelopmentGenesisBuildRequest,
@@ -481,19 +481,28 @@ mod tests {
     }
 
     impl BuildExecutionPort for SequentialPort {
-        async fn execute(
-            &self,
-            _request: &BuildExecutionRequest,
-            _cancellation: &CancellationToken,
-        ) -> Result<BuildExecutionReadBack, BuildExecutionError> {
+        fn execute<'a>(
+            &'a self,
+            _request: &'a BuildExecutionRequest,
+            _cancellation: &'a CancellationToken,
+        ) -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<Output = Result<BuildExecutionReadBack, BuildExecutionError>>
+                    + Send
+                    + 'a,
+            >,
+        > {
             self.calls.fetch_add(1, Ordering::SeqCst);
             let mut outcomes = self.outcomes.lock().expect("outcomes lock");
             if outcomes.is_empty() {
-                return Err(BuildExecutionError::Invalid(
-                    "sequential_port_outcome_exhausted".to_string(),
-                ));
+                return Box::pin(async move {
+                    Err(BuildExecutionError::Invalid(
+                        "sequential_port_outcome_exhausted".to_string(),
+                    ))
+                });
             }
-            outcomes.remove(0)
+            let outcome = outcomes.remove(0);
+            Box::pin(async move { outcome })
         }
     }
 
