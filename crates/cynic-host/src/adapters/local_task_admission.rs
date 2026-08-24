@@ -18,6 +18,7 @@ use cynic_protocol::task_pipeline::{
     CapacityObservation, DynamicHeadroom, EnergyBudget, FreshnessPolicy, ProfileFacts,
 };
 
+use crate::adapters::fs_window_journal::FsWindowJournal;
 use crate::adapters::local_capacity::LocalCapacityAdapter;
 
 pub struct LocalTaskAdmission {
@@ -27,6 +28,9 @@ pub struct LocalTaskAdmission {
     /// Node-declared concurrent ceilings. None dim = unbounded.
     envelope: EnergyBudget,
     monotone_start: Instant,
+    /// Window ledger (layer 2): source of open_reservations. Optional in
+    /// V1 — None keeps the envelope-only behaviour documented previously.
+    journal: Option<FsWindowJournal>,
 }
 
 impl LocalTaskAdmission {
@@ -41,7 +45,15 @@ impl LocalTaskAdmission {
             freshness,
             envelope,
             monotone_start: Instant::now(),
+            journal: None,
         }
+    }
+
+    /// Bind the window ledger so open_reservations reflects real reserved
+    /// budgets instead of an empty vec (plan §9 gap 4 completion).
+    pub fn with_journal(mut self, journal: FsWindowJournal) -> Self {
+        self.journal = Some(journal);
+        self
     }
 
     /// Probe capacity now and judge freshness against the node policy.
@@ -83,10 +95,12 @@ struct CapacityObservationView {
 
 impl TaskAdmissionPort for LocalTaskAdmission {
     fn open_reservations(&self) -> Vec<EnergyBudget> {
-        // V1: the window journal is not yet wired to the queue; no open
-        // reservations are tracked, so admission is envelope-only. This is
-        // honest under-reporting (more permissive), never over-blocking.
-        Vec::new()
+        match &self.journal {
+            Some(journal) => journal.open_reservations().unwrap_or_default(),
+            // No ledger bound: envelope-only admission (documented V1
+            // behaviour — under-reporting, never over-blocking).
+            None => Vec::new(),
+        }
     }
 
     fn envelope(&self) -> EnergyBudget {
@@ -180,6 +194,62 @@ mod tests {
             envelope(1),
         );
         assert!(!port.capacity_fresh());
+    }
+
+    #[test]
+    fn journal_bound_port_reads_real_reservations() {
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        let journal = FsWindowJournal::open(temp.path());
+        // Two dangling opens: 30 + 20 = 50 tokens reserved.
+        journal.append(&serde_json::from_value::<cynic_protocol::window_journal::WindowJournalRecord>(
+            serde_json::json!({
+                "kind": "open",
+                "schema": "cynic.window_journal.open.v1",
+                "window_id": "w1",
+                "host_id": "h",
+                "epoch": 1,
+                "budget": { "wall_time_ms": 1000, "inference_tokens": 30 },
+                "capacity_ref": "cap-1",
+                "opened_at_unix_ms": 0
+            })
+        ).unwrap()).unwrap();
+        journal.append(&serde_json::from_value::<cynic_protocol::window_journal::WindowJournalRecord>(
+            serde_json::json!({
+                "kind": "open",
+                "schema": "cynic.window_journal.open.v1",
+                "window_id": "w2",
+                "host_id": "h",
+                "parent_window_id": null,
+                "epoch": 1,
+                "budget": { "wall_time_ms": 1000, "inference_tokens": 20 },
+                "capacity_ref": "cap-1",
+                "opened_at_unix_ms": 0
+            })
+        ).unwrap()).unwrap();
+
+        let port: Arc<dyn TaskAdmissionPort> = Arc::new(
+            local_task_admission_with_defaults(envelope(100)).with_journal(journal),
+        );
+        assert_eq!(port.open_reservations().len(), 2);
+
+        // 50 reserved + 60 requested = 110 > 100 → Blocked with dimension.
+        let decision = port.admit(&serde_json::json!({
+            "energy_budget": { "wall_time_ms": 100, "inference_tokens": 60 }
+        }));
+        assert!(matches!(
+            decision,
+            cynic_protocol::task_admission::TaskAdmission::Blocked { ref reasons }
+                if reasons.iter().any(|r| r == "envelope_exceeded:inference_tokens")
+        ));
+
+        // 50 + 40 = 90 ≤ 100 → admitted with reservation.
+        let ok = port.admit(&serde_json::json!({
+            "energy_budget": { "wall_time_ms": 100, "inference_tokens": 40 }
+        }));
+        assert!(matches!(
+            ok,
+            cynic_protocol::task_admission::TaskAdmission::AdmittedWithReservation
+        ));
     }
 
     #[test]
