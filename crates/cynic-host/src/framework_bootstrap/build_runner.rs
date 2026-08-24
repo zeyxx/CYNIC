@@ -69,6 +69,68 @@ pub struct BootstrapBuildProof {
     pub blockers: Vec<String>,
 }
 
+/// Canonical provision plan — native substrate provisioning via the
+/// workspace-built `cynic-host-exec` binary. No SSH; uses principal_manager
+/// (ensure_system_user) inside the bootstrap artifact.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BuildRunnerBootstrapProvisionPlan {
+    pub scheme: String,
+    pub node_id: String,
+    pub principal: String,
+    pub argv: Vec<String>,
+    pub rollback_intent: String,
+}
+
+pub fn build_runner_bootstrap_provision_plan(
+    plan: &BuildRunnerBootstrapPlan,
+    workspace: &Path,
+) -> BuildRunnerBootstrapProvisionPlan {
+    let target_dir = workspace.join(".cynic-target");
+    let host_exec = target_dir.join("debug").join("cynic-host-bootstrap");
+    BuildRunnerBootstrapProvisionPlan {
+        scheme: "cynic.build_runner_bootstrap_provision.v1".to_string(),
+        node_id: plan.node_id.clone(),
+        principal: "cynic".to_string(),
+        argv: vec![
+            "env".to_string(),
+            format!("CARGO_TARGET_DIR={}", target_dir.display()),
+            host_exec.display().to_string(),
+            "provision-substrate".to_string(),
+            "--node".to_string(),
+            plan.node_id.clone(),
+            "--principal".to_string(),
+            "cynic".to_string(),
+        ],
+        rollback_intent: "identity provisioning is idempotent; no rollback needed"
+            .to_string(),
+    }
+}
+
+pub fn apply_build_runner_bootstrap_provision(
+    provision: &BuildRunnerBootstrapProvisionPlan,
+    runner: &dyn ArgvRunner,
+) -> Result<String, String> {
+    let argv: Vec<&str> = provision.argv.iter().map(String::as_str).collect();
+    let out = runner.run(&argv);
+    if out.exit_code != Some(0) {
+        return Err(format!(
+            "build_runner_bootstrap_provision_failed: exit={:?} stderr={}",
+            out.exit_code,
+            out.stderr.trim()
+        ));
+    }
+    if !out.stdout.contains(&format!("principal={} provisioned", provision.principal)) {
+        return Err(format!(
+            "build_runner_bootstrap_provision_read_back_failed: {}",
+            out.stdout.trim()
+        ));
+    }
+    Ok(format!(
+        "machine_enrollment_user_provisioned:{}",
+        out.stdout.trim()
+    ))
+}
+
 pub fn build_runner_bootstrap_execution_plan(
     plan: &BuildRunnerBootstrapPlan,
     workspace: &Path,
@@ -370,6 +432,16 @@ pub fn observe_build_runner_bootstrap(
                 None
             }
         };
+    // Role observation: le nœud exécutant le bootstrap doit avoir le rôle
+    // build_runner dans le registry. Empêche un agent de builder localement
+    // sur un nœud kernel_primary (cortex) en forgeant un node_id erroné.
+    let local_role = std::fs::read_to_string("/etc/cynic/node-role").ok();
+    let local_role_matches = local_role
+        .as_deref()
+        .is_some_and(|r| r.trim() == "build_runner");
+    if !local_role_matches {
+        blockers.push("build_runner_bootstrap_role_mismatch".to_string());
+    }
     BuildRunnerBootstrapObservation {
         workspace_clean,
         registry_readable,

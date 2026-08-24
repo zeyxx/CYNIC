@@ -16,8 +16,11 @@ use cynic_protocol::{
 use sha2::{Digest, Sha256};
 
 use crate::framework_bootstrap::build_runner::{
+    BuildRunnerBootstrapProvisionPlan,
     BootstrapBuildProof, BuildRunnerBootstrapRequest, apply_build_runner_bootstrap,
-    apply_build_runner_bootstrap_build, bootstrap_admission_from_proof, bootstrap_build_proof,
+    apply_build_runner_bootstrap_build, apply_build_runner_bootstrap_provision,
+    bootstrap_admission_from_proof, bootstrap_build_proof,
+    build_runner_bootstrap_provision_plan,
     build_runner_bootstrap_build_plan, build_runner_bootstrap_execution_plan,
     observe_build_runner_bootstrap, reconcile_build_runner_bootstrap,
     write_bootstrap_admission_receipt, write_bootstrap_build_proof,
@@ -65,18 +68,15 @@ pub(crate) fn execute(args: &[String]) -> Result<std::process::ExitCode, String>
     initialize_workspace(&workspace, &runner)?;
     // Toolchain lifecycle: observe -> reconcile -> bounded argv action (rustup override)
     // BEFORE cargo check, per CYNIC §3 (dynamic detection before specialization).
-    let lifecycle = ToolchainLifecycle::new(crate::toolchain::observe::LocalToolchainObserver::new(
-        crate::toolchain::specs::ToolchainRegistry::default(),
-    ));
+    let lifecycle =
+        ToolchainLifecycle::new(crate::toolchain::observe::LocalToolchainObserver::new(
+            crate::toolchain::specs::ToolchainRegistry::default(),
+        ));
     let toolchain_crate_name = binding.node_subject.clone();
     let seed_path = Path::new("infra/rust-toolchain.json");
     let history_path = crate::toolchain::specs::ToolchainProofHistory::path(&toolchain_crate_name);
-    let _tc_report = match lifecycle.run(
-        &toolchain_crate_name,
-        &seed_path,
-        &history_path,
-        &runner,
-    ) {
+    let _tc_report = match lifecycle.run(&toolchain_crate_name, &seed_path, &history_path, &runner)
+    {
         Ok(report) => Some(report),
         Err(_) => None,
     };
@@ -172,7 +172,13 @@ fn execute_consumed_build(
     )?;
     let build_plan = build_runner_bootstrap_build_plan(workspace, receipt_path);
     let artifact_digest = apply_build_runner_bootstrap_build(&build_plan, runner)?;
+    // L2.5: native substrate provisioning (user `cynic`) via cynic-host-exec binary.
+    // Replaces manual SSH root provisioning — Layer-1 substrate capability.
+    let provision_plan = build_runner_bootstrap_provision_plan(plan, workspace);
+    let provision_evidence =
+        apply_build_runner_bootstrap_provision(&provision_plan, runner)?;
     let mut proof = bootstrap_build_proof(plan, source_proof, &build_plan, artifact_digest);
+    proof.evidence_refs.push(provision_evidence);
     let proof_path = receipt_path.with_file_name(format!("{capability_id}.build-proof.json"));
     proof
         .evidence_refs
