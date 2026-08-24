@@ -38,6 +38,7 @@ pub mod development;
 pub mod development_genesis;
 pub mod digest;
 pub mod disk;
+pub mod evidence_journal;
 pub mod memory;
 pub mod discovery;
 pub mod domain_tasks;
