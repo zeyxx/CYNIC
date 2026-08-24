@@ -87,10 +87,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
             // command layer but not yet wired to a dispatch arm in this revision.
             ExitCode::SUCCESS
         }
-        Command::Task { .. } => {
-            // Reserved command surface; not yet wired to a dispatch arm.
-            ExitCode::SUCCESS
-        }
+        Command::Task { command } => crate::task_surface::execute_task(command),
         Command::Federation { command } => crate::federation_surface::execute_federation(command),
         Command::Build { command } => execute_build(command)
             .map(|_| ExitCode::SUCCESS)

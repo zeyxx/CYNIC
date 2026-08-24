@@ -254,10 +254,33 @@ pub(crate) fn execute_task(command: TaskCommand) -> ExitCode {
 }
 
 fn open_queue(path: Option<PathBuf>) -> Result<DomainTaskQueue, DomainTaskQueueError> {
-    match path {
-        Some(p) => DomainTaskQueue::open(p),
-        None => DomainTaskQueue::open_default(),
-    }
+    // Admission gate binding (plan §10 step 3, composition root): when no
+    // explicit queue_path is given (runtime authority mode), the queue gets
+    // a LocalTaskAdmission bound to the node's metabolic policy + window
+    // journal. Explicit paths stay ungated — they are dev/test projections,
+    // not runtime authority.
+    //
+    // Envelope provenance: CYNIC_TASK_ENVELOPE_TOKENS env (node-declared
+    // desired state). Unset = unbounded tokens for now — an explicit,
+    // documented under-constraint until the node registry carries the
+    // envelope; never a fabricated limit.
+    let base = match path {
+        Some(p) => return DomainTaskQueue::open(p),
+        None => DomainTaskQueue::open_default()?,
+    };
+    let token_envelope = std::env::var("CYNIC_TASK_ENVELOPE_TOKENS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok());
+    let admission = cynic_host::adapters::local_task_admission::local_task_admission_with_defaults(
+        cynic_protocol::task_pipeline::EnergyBudget {
+            wall_time_ms: u64::MAX,
+            inference_tokens: token_envelope,
+            cpu_ms: None,
+            ram_bytes_s: None,
+        },
+    )
+    .with_journal(cynic_host::adapters::fs_window_journal::FsWindowJournal::open_default());
+    Ok(base.with_admission(std::sync::Arc::new(admission)))
 }
 
 fn emit_success(task: &DomainTask) -> ExitCode {
