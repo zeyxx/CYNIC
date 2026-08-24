@@ -14,6 +14,7 @@ pub mod domain_prompts;
 pub mod domain_router;
 pub mod embedded_domains;
 pub mod error_classifier;
+pub mod evidence_journal_file;
 pub mod health_loop;
 #[cfg(test)]
 pub mod node_control_sqlite;

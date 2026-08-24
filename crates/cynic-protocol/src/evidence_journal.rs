@@ -136,7 +136,10 @@ pub fn validate_evidence_chain(entries: &[EvidenceJournalEntry]) -> Vec<&'static
         if entry.prev_hash != prev_hash && prev_sequence != 0 {
             violations.push("evidence_journal_prev_hash_mismatch");
         }
-        prev_hash = entry.entry_hash.clone();
+        // The chain continues from the RECOMPUTED hash, not the stored one:
+        // tampering with any entry then cascades through every later link
+        // instead of isolating the damage to a single line.
+        prev_hash = expected;
         prev_sequence = entry.sequence;
         prev_ts = entry.sealed_at_unix_s;
     }
