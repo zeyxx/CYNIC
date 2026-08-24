@@ -13,4 +13,3 @@ DEFINE FIELD IF NOT EXISTS record_json ON agent_workload_delivery TYPE string;
 DEFINE INDEX IF NOT EXISTS agent_workload_delivery_idempotency_idx ON agent_workload_delivery FIELDS idempotency_key UNIQUE;
 DEFINE INDEX IF NOT EXISTS agent_workload_delivery_pending_idx ON agent_workload_delivery FIELDS node_id, status, submitted_at_ms;
 DEFINE TABLE OVERWRITE agent_workspace_claim SCHEMAFULL;
-DEFINE TABLE OVERWRITE runtime_proof_commit SCHEMAFULL;
