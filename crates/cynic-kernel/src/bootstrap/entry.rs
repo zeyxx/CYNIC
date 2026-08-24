@@ -87,7 +87,8 @@ pub async fn run_mcp_proxy_mode_if_requested(
 }
 
 /// Verify bootstrap integrity including secrets, registry seal, and file permissions.
-#[tokio::main]
+/// Runs on the caller's tokio runtime (no #[tokio::main]: nested block_on panics
+/// inside the kernel's own async main).
 pub async fn main_verify() -> Result<(), Box<dyn std::error::Error>> {
     use std::io::Write;
     use std::process::Command;
