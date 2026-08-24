@@ -318,7 +318,7 @@
           "trust": "known_hosts",
           "enrollment_authority": {
             "class": "machine_enrollment",
-            "principal": "root",
+            "principal": "cynic",
             "credential_ref": "registry-machine-ssh-identity"
           }
         }
