@@ -1,0 +1,44 @@
+{
+  "schema": "cynic.storage.taxonomy.v1",
+  "status": "proposal_v1",
+  "inspiration": {
+    "source": "https://www.helius.dev/blog/what-is-rocksdb",
+    "lessons_retained": [
+      "LSM amplification triangle (read/write/space) governs engine choice by workload shape",
+      "column families: one engine, per-keyspace compaction/retention regimes",
+      "FIFO-for-monotonic-workloads: match retention style to key arrival shape, then revisit",
+      "embedded library vs server: no network hop, but replication/backup/tooling are YOURS to build",
+      "row point-lookup engines are wrong for analytical scans (Helius moved ClickHouse->RocksDB for lookups; the reverse holds too)"
+    ],
+    "lessons_declined_for_now": [
+      "RocksDB itself: no write-throughput workload in CYNIC justifies an LSM engine yet; SurrealDB already embeds its own storage; adopting a second raw KV engine adds ops surface without a matching workload"
+    ]
+  },
+  "data_kinds": [
+    {"kind": "K1_immutable_evidence", "examples": ["PoH chain", "sealed pattern models", "report digests", "skill lineage"], "mutability": "append-only", "integrity": "signed + content-addressed", "layer": "L0"},
+    {"kind": "K2_operational_state", "examples": ["leases", "claims", "dispatch", "verdict queue", "sessions"], "mutability": "ACID mutable", "integrity": "transactional + fencing", "layer": "L1"},
+    {"kind": "K3_raw_telemetry", "examples": ["session JSONL", "message streams", "heartbeat logs"], "mutability": "append-only streams", "integrity": "corpus manifest digests", "layer": "L2"},
+    {"kind": "K4_distilled_analytics", "examples": ["pattern models in-training", "mined workflows", "aggregates", "benchmarks"], "mutability": "recompute-friendly derived data", "integrity": "reproducible from K3+K2; digest of inputs recorded", "layer": "L2/L0 boundary"},
+    {"kind": "K5_artifacts_blobs", "examples": ["GGUF weights", "build outputs", "datasets", "releases"], "mutability": "immutable once placed", "integrity": "CAS sha256 manifest", "layer": "L3"},
+    {"kind": "K6_contracts_registries", "examples": ["contracts/foundation.json", "framework.json", "infra/registry.json", "surface-registry.json", "agent-exposure.json", "storage manifest + layering docs"], "mutability": "versioned declarative desired-state", "integrity": "git = content-addressed already; SSOT Forgejo", "layer": "cross-cutting: git is their engine"},
+    {"kind": "K7_coordination_ephemeral", "examples": [".agent-claims.json", "cron state", "locks"], "mutability": "disposable", "integrity": "atomic rename only", "layer": "L4"},
+    {"kind": "K8_secrets_identity", "examples": ["llama-api-key", "storage runtime password", "kernel Ed25519 identity"], "mutability": "rotated on incident/schedule", "integrity": "0640 cynic:cynic, /etc/cynic mirror, never in git/db", "layer": "outside all planes by law"}
+  ],
+  "mapping_rules": {
+    "one_kind_one_home": "every datum maps to exactly one kind and therefore one layer/engine/retention story",
+    "contracts_are_git": "K6 lives in git — never duplicated into a database; DBs may CACHE a contract but git remains authority (AGENTS.md authority order)",
+    "secrets_never_stored": "K8 placement follows AGENTS.md secret classes; storage planes must refuse them at schema level",
+    "distillation_direction": "K3 -> mine -> K4 -> sign -> K1. Raw stays until distillation sign-off per vein"
+  },
+  "rocksdb_patterns_applied": {
+    "per_keyspace_regimes": "like Solana's Blockstore column families: L0 tables get 'never compact away' semantics; L2 hot/warm tiers get FIFO-like age eviction AFTER distillation sign-off (our equivalent of matching retention style to workload shape)",
+    "monotonic_keys": "PoH timestamps and model lineage are monotonic like validator slots: range scans ordered by time are the primary access path — keep keys sortable, avoid random-key layouts for evidence",
+    "amplification_awareness": "recomputing K4 from K3 repeatedly = read amplification of mining; cache distilled models (that IS the GC), but record input digests so recompute stays possible",
+    "embedded_not_server": "keep single-writer planes embedded (sqlite/files); only L0/L1 justify a server process today"
+  },
+  "open_decisions": [
+    {"id": "D1", "question": "L0 cold evidence home: surrealdb SCHEMAFULL table vs append-only signed journal file per node?", "leaning": "journal file: PoH anchors integrity, file needs no server, replication = rsync of signed bytes"},
+    {"id": "D2", "question": "who owns artifact CAS sweep for 102GB vault?", "leaning": "bounded root executor job, nightly, digest-only first pass"},
+    {"id": "D3", "question": "L2 warm archive ownership: cynic principal vs operator home?", "leaning": "cynic principal (sovereignty rule)"}
+  ]
+}
