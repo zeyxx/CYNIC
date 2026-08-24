@@ -20,9 +20,11 @@ pub const AUTONOMIC_REMEDIATION_PLAN_SCHEMA: &str = "cynic.autonomic_remediation
 /// resolver consume.
 ///
 /// Codes follow the sovereign `CYNIC-OSH-*` catalog (error_catalog):
-/// 001 SoftlockupPanicDisabled, 002 THPDefragAggressive, 003 MemAvailBelowFloor,
-/// 004 ReclaimPressureAboveCeiling, 005 KernelSoftlockupDetected,
-/// 006 HungTaskDetected, 007 OomDetected, 008 ObservationUnknown.
+/// 001 SoftlockupPanicDisabled, 002 THPEnabledRisky, 003 THPDefragRisky,
+/// 004 MemAvailBelowFloor, 005 ReclaimPressureAboveCeiling,
+/// 006 KernelSoftlockupDetected, 007 KernelHungTaskDetected,
+/// 008 OomDetected, 009 Unknown, 010 ObservationUnknown.
+/// Each string is `CynicErrorCode::code()` — never a free literal.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OsHealthAnomaly {
     pub severity: String,

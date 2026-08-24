@@ -49,6 +49,11 @@ pub struct OsHealthFinding {
     pub message: String,
     /// Machine-readable remediation intent (bounded, reviewable).
     pub remediation: String,
+    /// Sovereign error code from `CYNIC-OSH-*` catalog (error_catalog),
+    /// when the finding maps to a typed contract. None for pure informational
+    /// findings that carry no canonical blocker.
+    #[serde(default)]
+    pub error_code: Option<String>,
 }
 
 /// Final assessment: the desired/typed observation plus the pure decision.

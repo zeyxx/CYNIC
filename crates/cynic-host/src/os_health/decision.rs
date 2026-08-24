@@ -7,6 +7,7 @@
 
 use super::types::{OsHealthAssessment, OsHealthConfig, OsHealthFinding, OsObservation};
 use crate::os_health::OS_HEALTH_SCHEMA;
+use cynic_protocol::error_catalog::CynicErrorCode;
 
 pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> OsHealthAssessment {
     let mut findings: Vec<OsHealthFinding> = Vec::new();
@@ -23,10 +24,14 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
                 message: "kernel.softlockup_panic=0: a soft lockup freezes the machine instead of \
                      rebooting into a clean state (root cause class of the 2026-08-18 hang)"
                     .to_string(),
-                remediation:
-                    "sysctl -w kernel.softlockup_panic=1 (and persist in /etc/sysctl.d) so a \
-                     stuck kcompactd/CPU reboots instead of wedging the host"
+                remediation: "sysctl -w kernel.softlockup_panic=1 (and persist in /etc/sysctl.d) \
+                     so a stuck kcompactd/CPU reboots instead of wedging the host"
+                    .to_string(),
+                error_code: Some(
+                    CynicErrorCode::OsHealthSoftlockupPanicDisabled
+                        .code()
                         .to_string(),
+                ),
             });
         }
     }
@@ -45,6 +50,7 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
                 "set /sys/kernel/mm/transparent_hugepage/enabled to madvise or never (echo \
                  madvise > .../enabled)"
                     .to_string(),
+            error_code: Some(CynicErrorCode::OsHealthThpEnabledRisky.code().to_string()),
         });
     } else if observed.thp_enabled == "unknown" {
         unknowns.push("thp_enabled_unreadable".to_string());
@@ -63,6 +69,7 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
             remediation: "set /sys/kernel/mm/transparent_hugepage/defrag to madvise or never (or \
                  defer for background only)"
                 .to_string(),
+            error_code: Some(CynicErrorCode::OsHealthThpDefragRisky.code().to_string()),
         });
     } else if observed.thp_defrag == "unknown" {
         unknowns.push("thp_defrag_unreadable".to_string());
@@ -83,6 +90,11 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
                 "reduce parallel heavy workloads (chrome + rustc builds + LLM server) or add \
                  swap headroom; coordinate via runtime substrate, not ad-hoc kills"
                     .to_string(),
+            error_code: Some(
+                CynicErrorCode::OsHealthMemAvailBelowFloor
+                    .code()
+                    .to_string(),
+            ),
         });
     } else if observed.reclaim_pressure_pct > config.reclaim_pressure_pct_ceiling {
         findings.push(OsHealthFinding {
@@ -93,6 +105,11 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
                 observed.reclaim_pressure_pct, config.reclaim_pressure_pct_ceiling
             ),
             remediation: "inspect memory consumers; avoid concurrent memory-heavy jobs".to_string(),
+            error_code: Some(
+                CynicErrorCode::OsHealthReclaimPressureAboveCeiling
+                    .code()
+                    .to_string(),
+            ),
         });
     }
 
@@ -114,6 +131,11 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
                 "correlate with THP/memory findings; treat as read-back proof of a substrate \
                  fault, not a CYNIC bug"
                     .to_string(),
+            error_code: Some(
+                CynicErrorCode::OsHealthKernelSoftlockupDetected
+                    .code()
+                    .to_string(),
+            ),
         });
     }
     if observed.dmesg_hung_task_count > 0 {
@@ -126,6 +148,11 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
             ),
             remediation: "investigate the blocking subsystem; likely memory reclaim or I/O stall"
                 .to_string(),
+            error_code: Some(
+                CynicErrorCode::OsHealthKernelHungTaskDetected
+                    .code()
+                    .to_string(),
+            ),
         });
     }
     if observed.dmesg_oom_count > 0 {
@@ -140,6 +167,7 @@ pub fn evaluate_os_health(config: &OsHealthConfig, observed: &OsObservation) -> 
                 "raise headroom or constrain workloads; OOM indicates the pressure ceiling was \
                  crossed"
                     .to_string(),
+            error_code: Some(CynicErrorCode::OsHealthOomDetected.code().to_string()),
         });
     }
 
@@ -195,6 +223,31 @@ mod tests {
         let a = evaluate_os_health(&default_os_health_config(), &o);
         assert_eq!(a.status, "degraded");
         assert!(a.findings.iter().all(|f| f.severity != "critical"));
+    }
+
+    #[test]
+    fn findings_carry_sovereign_error_codes() {
+        let a = evaluate_os_health(&default_os_health_config(), &obs());
+        // Every non-empty finding must expose a typed CYNIC-OSH-* code, proving
+        // the decision layer routes through the sovereign catalogue instead of
+        // free-form strings.
+        for f in &a.findings {
+            let code = f
+                .error_code
+                .as_deref()
+                .expect("every OS health finding must carry a sovereign code");
+            assert!(
+                code.starts_with("CYNIC-OSH-"),
+                "finding {kind} has non-sovereign code {code}",
+                kind = f.kind
+            );
+        }
+        // The 2026-08-18 root cause must map to its exact catalogue code.
+        assert!(
+            a.findings
+                .iter()
+                .any(|f| f.error_code.as_deref() == Some("CYNIC-OSH-001"))
+        );
     }
 
     #[test]

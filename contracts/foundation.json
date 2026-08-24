@@ -47,6 +47,14 @@
       {
         "name": "fractal_agent_recursion",
         "rule": "Every node may own a local recursive agent tree. Child delegations must preserve node lineage, monotonically reduce authority and budgets, consume content-addressed context, and return proofs or explicit unknowns upward. Cross-node delegation is federation and requires an explicit coordination contract."
+      },
+      {
+        "name": "sovereign_error_codes",
+        "rule": "Every CYNIC contract violation surfaces as a typed sovereign error code (cynic.error_catalog.v1: CynicErrorCode), never as a free-form string. Codes carry a two-axis classification: (1) domain (Build, Network, Lxc, Breakglass, Activation, Agent, Fleet, OsHealth) derived from an enum, not hardcoded; (2) nature (Blocked | Recoverable | Constitutional | AgentResolution). A Blocked code has no safe forward path without an authority escalation (admission grant, breakglass, constitutional consent); it must never be bypassed by a manual workaround. A Recoverable code resolves only through its bounded, reviewable remediation or a dependency restore — never a silent retry. The operator string CYNIC-{PREFIX}-{NNN} is derived from (domain.prefix, domain_index), so the number cannot drift from addition order."
+      },
+      {
+        "name": "no_manual_blocker_bypass",
+        "rule": "A blocker (Blocked-class error code) is resolved only by the typed reconciliation or authority-escalation path that owns it. Ad-hoc shell fixes, local fallbacks, or prose claims that omit the code are not convergence and must be rejected by read-back proof."
       }
     ],
     "deleted_authorities": [

@@ -7,6 +7,7 @@ use std::net::TcpStream;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::build_node::NodeHealthView;
+use cynic_protocol::error_catalog::CynicErrorCode;
 use cynic_protocol::health_signal::OsHealthAnomaly;
 use cynic_protocol::peer_resolver::{
     PeerEndpoint, PeerResolver, PeerTransport, SignedPeerEndpoint,
@@ -62,7 +63,11 @@ impl MeshPeerResolver {
         if !softlockup_panic {
             anomalies.push(OsHealthAnomaly {
                 severity: "critical".to_string(),
-                error_code: Some("CYNIC-OSH-001".to_string()),
+                error_code: Some(
+                    CynicErrorCode::OsHealthSoftlockupPanicDisabled
+                        .code()
+                        .to_string(),
+                ),
                 detail:
                     "kernel.softlockup_panic=0 (remediation: sysctl -w kernel.softlockup_panic=1)"
                         .to_string(),
@@ -73,7 +78,11 @@ impl MeshPeerResolver {
         if available_mem_mib < 2048 {
             anomalies.push(OsHealthAnomaly {
                 severity: "warning".to_string(),
-                error_code: Some("CYNIC-OSH-003".to_string()),
+                error_code: Some(
+                    CynicErrorCode::OsHealthMemAvailBelowFloor
+                        .code()
+                        .to_string(),
+                ),
                 detail: format!("available memory {available_mem_mib} MiB below floor (remediation: reduce workloads or add memory)"),
                 observed_at_unix_ms: now_ms,
             });
@@ -82,7 +91,11 @@ impl MeshPeerResolver {
         if reclaim_pressure_pct > 80 {
             anomalies.push(OsHealthAnomaly {
                 severity: "warning".to_string(),
-                error_code: Some("CYNIC-OSH-004".to_string()),
+                error_code: Some(
+                    CynicErrorCode::OsHealthReclaimPressureAboveCeiling
+                        .code()
+                        .to_string(),
+                ),
                 detail: format!("reclaim pressure {reclaim_pressure_pct}% above ceiling (remediation: inspect memory consumers)"),
                 observed_at_unix_ms: now_ms,
             });
