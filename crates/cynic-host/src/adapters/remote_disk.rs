@@ -18,9 +18,7 @@ use std::time::SystemTime;
 use chrono::{DateTime, Utc};
 
 use crate::domain::disk::probe::parse_df_filesystems;
-use crate::domain::disk::{
-    DiskCleanupPlan, DiskReport, DiskObservationPort,
-};
+use crate::domain::disk::{DiskCleanupPlan, DiskObservationPort, DiskReport};
 use crate::update_lifecycle::ArgvRunner;
 
 use std::sync::Arc;
@@ -43,10 +41,7 @@ impl<R: ArgvRunner> RemoteDiskAdapter<R> {
         if ssh_target.trim().is_empty() || ssh_target.starts_with('-') {
             return Err("invalid_ssh_target".to_string());
         }
-        Ok(Self {
-            runner,
-            ssh_target,
-        })
+        Ok(Self { runner, ssh_target })
     }
 
     /// Build the argv for `ssh <target> df -h --output=...`.
@@ -127,10 +122,7 @@ tmpfs          tmpfs  3.9G     0  3.9G   0% /dev
     fn stub_runner(stdout: &str) -> MapArgvRunner {
         // Match any argv that *starts with* the SSH/df prefix. MapArgvRunner
         // does prefix matching on the collected key.
-        let key: Vec<String> = ["ssh"]
-            .iter()
-            .map(|s| (*s).to_string())
-            .collect();
+        let key: Vec<String> = ["ssh"].iter().map(|s| (*s).to_string()).collect();
         MapArgvRunner {
             responses: vec![(
                 key,
@@ -196,8 +188,7 @@ tmpfs          tmpfs  3.9G     0  3.9G   0% /dev
                 },
             )],
         };
-        let adapter =
-            RemoteDiskAdapter::new(Arc::new(runner), "cynic@10.0.0.7").unwrap();
+        let adapter = RemoteDiskAdapter::new(Arc::new(runner), "cynic@10.0.0.7").unwrap();
         let result = adapter.observe_disk();
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("remote_df_failed"));

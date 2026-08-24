@@ -238,7 +238,9 @@ mod tests {
     #[test]
     fn emitter_ignores_unrelated_line() {
         let line = r#"{"type":"user","content":"bonjour claude, on fait quoi aujourd'hui ?"}"#;
-        assert!(TraceUnitEmitter::emit_from_line("s3", line, &default_bucket_patterns()).is_empty());
+        assert!(
+            TraceUnitEmitter::emit_from_line("s3", line, &default_bucket_patterns()).is_empty()
+        );
     }
 
     #[test]

@@ -12,8 +12,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::autoresearch::{
-    build_report, evaluate_candidate, gate_hypothesis, AutoresearchProgram, AutoresearchReport,
-    EmergenceDirective, GateVerdict, SkillCandidate, SkillHypothesis, TraceUnit,
+    AutoresearchProgram, AutoresearchReport, EmergenceDirective, GateVerdict, SkillCandidate,
+    SkillHypothesis, TraceUnit, build_report, evaluate_candidate, gate_hypothesis,
 };
 
 pub const AUTORESEARCH_PORT_ERROR_SCHEMA: &str = "cynic.autoresearch.port_error.v1";
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn gated_loop_skips_fading_and_unknown_domains_before_evaluation() {
-        use crate::autoresearch::{emergence_directive, EmergenceDirective, FadingPolicy};
+        use crate::autoresearch::{EmergenceDirective, FadingPolicy, emergence_directive};
         use crate::pattern_gc::PatternClass;
         use std::collections::BTreeMap;
 

@@ -8,8 +8,8 @@
 //!
 //! Pure assembly here: the caller supplies a `ProofOfHistoryStorage` port.
 
-use cynic_protocol::digest::{digest_bytes, SHA3_PREFIX};
-use cynic_protocol::evidence_journal::EvidenceJournalEntry;
+use crate::digest::{SHA3_PREFIX, digest_bytes};
+use crate::evidence_journal::EvidenceJournalEntry;
 
 /// Anchor payload for one sealed pattern model.
 #[derive(Debug, Clone)]

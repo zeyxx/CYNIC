@@ -1,0 +1,19 @@
+# CYNIC rustfmt alignment — single formatting law for all agents
+#
+# Problem (2026-08-24 session): agents ran rustfmt with different editions
+# (2021 vs 2024) and different toolchains (1.95 vs 1.96), producing
+# conflicting reformatting of the same files — 851 insertions / 469
+# deletions of pure churn in one afternoon.
+#
+# Law:
+# 1. ALWAYS format via `../../scripts/cargo --local-dev fmt` (or the
+#    pinned binary path) from the CRATE directory — never bare `rustfmt`
+#    with a hand-picked --edition.
+# 2. Edition comes from Cargo.toml (edition = "2024" workspace-wide);
+#    do not override it per-invocation.
+# 3. Toolchain comes from each crate's rust-toolchain.toml (kernel pins
+#    1.95.0 for its own ICE reasons; everything else 1.96.0). rustfmt
+#    1.9.x output is identical across both.
+# 4. If a diff shows ONLY import reordering / assert rewrapping after a
+#    format pass, it means someone formatted against the wrong edition.
+#    Re-run with the crate's own edition before committing.

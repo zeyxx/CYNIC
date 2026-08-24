@@ -27,11 +27,11 @@ pub mod scan;
 pub mod types;
 
 pub use model::{
-    drift, seal_model, ClassTransition, ModelDrift, PatternModel, PatternState, MODEL_SCHEMA,
+    ClassTransition, MODEL_SCHEMA, ModelDrift, PatternModel, PatternState, drift, seal_model,
 };
-pub use policy::{classify, classify_all, SCHEMA};
-pub use report::{build_report, ClassTally, PatternGcReport, REPORT_SCHEMA};
-pub use scan::{window_events, WindowOutcome};
+pub use policy::{SCHEMA, classify, classify_all};
+pub use report::{ClassTally, PatternGcReport, REPORT_SCHEMA, build_report};
+pub use scan::{WindowOutcome, window_events};
 pub use types::{
     PatternClass, PatternGcAssessment, PatternObservation, PatternWindows, RetentionPolicy,
 };

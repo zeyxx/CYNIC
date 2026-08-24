@@ -10,7 +10,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::domain::memory::types::MemoryReport;
-use crate::domain::memory::{parse_meminfo, parse_pressure_memory, MemoryObservationPort};
+use crate::domain::memory::{MemoryObservationPort, parse_meminfo, parse_pressure_memory};
 
 pub struct LocalMemoryAdapter;
 
@@ -25,7 +25,9 @@ impl LocalMemoryAdapter {
 }
 
 impl MemoryObservationPort for LocalMemoryAdapter {
-    fn observe_memory(&self) -> Result<MemoryReport, crate::domain::memory::port::MemoryObservationError> {
+    fn observe_memory(
+        &self,
+    ) -> Result<MemoryReport, crate::domain::memory::port::MemoryObservationError> {
         let meminfo = Self::read_to_string(Path::new("/proc/meminfo"))
             .map_err(crate::domain::memory::port::MemoryObservationError::MeminfoRead)?;
         let report = parse_meminfo(&meminfo)

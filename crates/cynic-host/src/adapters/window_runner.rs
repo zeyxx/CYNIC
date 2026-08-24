@@ -16,11 +16,9 @@
 
 use std::sync::Arc;
 
-use cynic_protocol::task_pipeline::{EnergyConsumed, EnergyBudget};
+use cynic_protocol::task_pipeline::{EnergyBudget, EnergyConsumed};
 use cynic_protocol::temporal::Epoch;
-use cynic_protocol::window_journal::{
-    WindowClose, WindowJournalRecord, WindowOpen, WindowStatus,
-};
+use cynic_protocol::window_journal::{WindowClose, WindowJournalRecord, WindowOpen, WindowStatus};
 
 use crate::adapters::cpu_usage_meter::CpuUsageMeter;
 use crate::adapters::fs_window_journal::FsWindowJournal;
@@ -272,9 +270,7 @@ mod tests {
         assert!(journal_coherent(&state));
         // Child closed before parent (stack order) — both released.
         assert_eq!(state.closed.len(), 2);
-        assert_eq!(
-            state.closed["child"].window_id, "child",
-        );
+        assert_eq!(state.closed["child"].window_id, "child",);
     }
 
     // Local helper so tests don't import from two paths.

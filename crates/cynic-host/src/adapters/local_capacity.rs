@@ -5,7 +5,7 @@
 //! observations (no re-measurement) and `cynic_protocol::capacity` pure
 //! decision. Read-only; never fabricates HighPerformance without evidence.
 
-use cynic_protocol::capacity::{assess_metabolic_state, CapacityAssessmentV1, MetabolicPolicy};
+use cynic_protocol::capacity::{CapacityAssessmentV1, MetabolicPolicy, assess_metabolic_state};
 
 use crate::adapters::local_cpu::LocalCpuAdapter;
 use crate::adapters::local_memory::LocalMemoryAdapter;

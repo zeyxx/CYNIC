@@ -87,13 +87,9 @@ pub fn admit_task(
     // the envelope via fits_within, not summed across concurrent tasks).
     let mut reserved = [None; 3];
     for open in open_reservations {
-        for (i, dim) in [
-            open.inference_tokens,
-            open.cpu_ms,
-            open.ram_bytes_s,
-        ]
-        .into_iter()
-        .enumerate()
+        for (i, dim) in [open.inference_tokens, open.cpu_ms, open.ram_bytes_s]
+            .into_iter()
+            .enumerate()
         {
             reserved[i] = match (reserved[i], dim) {
                 (None, None) => None,
@@ -164,12 +160,7 @@ mod tests {
     #[test]
     fn stale_capacity_is_unknown_even_with_room() {
         assert_eq!(
-            admit_task(
-                &payload_with_budget(Some(10)),
-                &[],
-                &envelope(100),
-                false
-            ),
+            admit_task(&payload_with_budget(Some(10)), &[], &envelope(100), false),
             TaskAdmission::Unknown {
                 reasons: vec!["capacity_observation_stale".to_string()]
             }
@@ -179,12 +170,7 @@ mod tests {
     #[test]
     fn fresh_capacity_with_room_admits_with_reservation() {
         assert_eq!(
-            admit_task(
-                &payload_with_budget(Some(10)),
-                &[],
-                &envelope(100),
-                true
-            ),
+            admit_task(&payload_with_budget(Some(10)), &[], &envelope(100), true),
             TaskAdmission::AdmittedWithReservation
         );
     }

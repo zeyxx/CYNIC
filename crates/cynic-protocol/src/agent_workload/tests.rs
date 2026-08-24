@@ -85,8 +85,8 @@ pub(super) fn test_envelope() -> AgentWorkloadEnvelope {
                 actions: 2,
                 children: 0,
                 wall_time_ms: 900_000,
-                    cpu_ms: None,
-        },
+                cpu_ms: None,
+            },
             expected_proofs: vec!["canonical_gate_report".to_string()],
         },
         parent_delegation: None,
@@ -235,7 +235,7 @@ fn executor_can_durably_acknowledge_the_exact_cancelled_claim() {
             actions: 0,
             children: 0,
             wall_time_ms: 1,
-                cpu_ms: None,
+            cpu_ms: None,
         },
     };
 
@@ -264,7 +264,7 @@ fn unclaimed_cancellation_is_finalized_without_inventing_a_lease() {
             actions: 0,
             children: 0,
             wall_time_ms: 0,
-                cpu_ms: None,
+            cpu_ms: None,
         },
     };
 
@@ -396,7 +396,7 @@ fn completion_requires_expected_read_back_proof() {
             actions: 1,
             children: 0,
             wall_time_ms: 10,
-                cpu_ms: None,
+            cpu_ms: None,
         },
     };
     assert!(complete_agent_workload(&claimed, &guard(1), &completion, 11).is_err());
@@ -426,7 +426,7 @@ fn a_degraded_build_is_terminal_but_cannot_claim_completion() {
             actions: 1,
             children: 0,
             wall_time_ms: 10,
-                cpu_ms: None,
+            cpu_ms: None,
         },
     };
     let terminal = complete_agent_workload(&claimed, &guard(1), &completion, 11).unwrap();

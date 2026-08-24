@@ -8,7 +8,7 @@
 
 use crate::domain::memory::port::MemoryObservationError;
 use crate::domain::memory::{
-    parse_meminfo, parse_pressure_memory, types::MemoryReport, MemoryObservationPort,
+    MemoryObservationPort, parse_meminfo, parse_pressure_memory, types::MemoryReport,
 };
 use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
 
@@ -40,18 +40,22 @@ impl<R: ArgvRunner> RemoteMemoryAdapter<R> {
 
 impl<R: ArgvRunner> MemoryObservationPort for RemoteMemoryAdapter<R> {
     fn observe_memory(&self) -> Result<MemoryReport, MemoryObservationError> {
-        let meminfo_text = self
-            .capture_remote("/proc/meminfo")
-            .ok_or_else(|| MemoryObservationError::MeminfoRead("remote meminfo empty".to_string()))?;
-        let mut report = parse_meminfo(&meminfo_text)
-            .map_err(MemoryObservationError::MeminfoRead)?;
+        let meminfo_text = self.capture_remote("/proc/meminfo").ok_or_else(|| {
+            MemoryObservationError::MeminfoRead("remote meminfo empty".to_string())
+        })?;
+        let mut report =
+            parse_meminfo(&meminfo_text).map_err(MemoryObservationError::MeminfoRead)?;
 
         match self.capture_remote("/proc/pressure/memory") {
             Some(text) => match parse_pressure_memory(&text) {
                 Ok(pressure) => report.pressure = Some(pressure),
-                Err(err) => report.residual_unknowns.push(format!("pressure parse: {err}")),
+                Err(err) => report
+                    .residual_unknowns
+                    .push(format!("pressure parse: {err}")),
             },
-            None => report.residual_unknowns.push("pressure read: remote absent".to_string()),
+            None => report
+                .residual_unknowns
+                .push("pressure read: remote absent".to_string()),
         }
 
         Ok(report)

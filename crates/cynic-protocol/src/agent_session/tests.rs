@@ -76,7 +76,7 @@ fn launch() -> AgentRootLaunchRequest {
             actions: 20,
             children: 0,
             wall_time_ms: 30_000,
-                cpu_ms: None,
+            cpu_ms: None,
         },
         expected_proofs: vec!["coordination_read_back".to_string()],
         confirmation_key_sha256: None,

@@ -124,9 +124,7 @@ pub fn replay(records: &[WindowJournalRecord]) -> WindowJournalState {
                         // for symmetry with the violation taxonomy.
                         continue;
                     }
-                    state
-                        .closed
-                        .insert(close.window_id.clone(), close.clone());
+                    state.closed.insert(close.window_id.clone(), close.clone());
                 } else if state.closed.contains_key(&close.window_id) {
                     state
                         .violations
@@ -219,10 +217,7 @@ mod tests {
         assert_eq!(reservations.len(), 2);
         // Both reservations carry their requested token budgets — this vec
         // is what admit_task sums against the envelope.
-        let total: u64 = reservations
-            .iter()
-            .filter_map(|b| b.inference_tokens)
-            .sum();
+        let total: u64 = reservations.iter().filter_map(|b| b.inference_tokens).sum();
         assert_eq!(total, 15);
     }
 
@@ -230,10 +225,7 @@ mod tests {
     fn orphan_close_is_a_violation_not_silence() {
         let state = replay(&[close("ghost", 1)]);
         assert_eq!(state.closed.len(), 0);
-        assert!(state
-            .violations
-            .iter()
-            .any(|v| v == "orphan_close:ghost"));
+        assert!(state.violations.iter().any(|v| v == "orphan_close:ghost"));
         assert!(!journal_is_coherent(&state));
     }
 
@@ -248,10 +240,7 @@ mod tests {
     fn duplicate_close_is_recorded() {
         let state = replay(&[open("w1", 10), close("w1", 5), close("w1", 6)]);
         assert_eq!(state.closed["w1"].consumed.inference_tokens, Some(5));
-        assert!(state
-            .violations
-            .iter()
-            .any(|v| v == "duplicate_close:w1"));
+        assert!(state.violations.iter().any(|v| v == "duplicate_close:w1"));
     }
 
     #[test]

@@ -9,10 +9,8 @@ use std::path::Path;
 
 use chrono::Utc;
 
-use crate::domain::cpu::port::{CpuObservationPort, CpuObservationError};
-use crate::domain::cpu::{
-    parse_cpuinfo, parse_pressure_cpu, parse_stat, CpuReport,
-};
+use crate::domain::cpu::port::{CpuObservationError, CpuObservationPort};
+use crate::domain::cpu::{CpuReport, parse_cpuinfo, parse_pressure_cpu, parse_stat};
 
 /// Local CPU adapter. Stateless — reads `/proc` on each call.
 pub struct LocalCpuAdapter;
@@ -37,8 +35,7 @@ impl CpuObservationPort for LocalCpuAdapter {
         let cpuinfo_text = read_file_lossy("/proc/cpuinfo");
         let pressure_text = read_file_lossy("/proc/pressure/cpu");
 
-        let (physical, volume, mut unknowns) =
-            parse_cpuinfo(cpuinfo_text.as_deref().unwrap_or(""));
+        let (physical, volume, mut unknowns) = parse_cpuinfo(cpuinfo_text.as_deref().unwrap_or(""));
         residual_unknowns.append(&mut unknowns);
 
         let usage = parse_stat(stat_text.as_deref().unwrap_or(""));

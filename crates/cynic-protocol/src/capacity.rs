@@ -269,9 +269,10 @@ mod tests {
             standard_cpu_pct: 40.0,
             standard_mem_pct: 60.0,
         };
-        assert!(p
-            .violations()
-            .contains(&"survival_cpu_must_exceed_standard_cpu".to_string()));
+        assert!(
+            p.violations()
+                .contains(&"survival_cpu_must_exceed_standard_cpu".to_string())
+        );
     }
 
     #[test]
@@ -306,24 +307,28 @@ mod tests {
         let p = MetabolicPolicy::with_legacy_defaults("n");
         let a = assess_metabolic_state(None, None, &p);
         assert_eq!(a.state, MetabolicState::Standard);
-        assert!(a
-            .residual_unknowns
-            .contains(&"cpu_report_missing".to_string()));
-        assert!(a
-            .residual_unknowns
-            .contains(&"memory_report_missing".to_string()));
-        assert!(a
-            .residual_unknowns
-            .contains(&"available_ram_unmeasured".to_string()));
+        assert!(
+            a.residual_unknowns
+                .contains(&"cpu_report_missing".to_string())
+        );
+        assert!(
+            a.residual_unknowns
+                .contains(&"memory_report_missing".to_string())
+        );
+        assert!(
+            a.residual_unknowns
+                .contains(&"available_ram_unmeasured".to_string())
+        );
 
         // CPU présent mais utilisation non mesurée → toujours prudent.
         let mut cpu_no_util = cpu_report(0.0);
         cpu_no_util.usage.util_pct = None;
         let b = assess_metabolic_state(Some(&cpu_no_util), Some(&mem_report(28, 8)), &p);
         assert_eq!(b.state, MetabolicState::Standard);
-        assert!(b
-            .residual_unknowns
-            .contains(&"cpu_utilization_not_measured".to_string()));
+        assert!(
+            b.residual_unknowns
+                .contains(&"cpu_utilization_not_measured".to_string())
+        );
     }
 
     #[test]

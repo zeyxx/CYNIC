@@ -38,7 +38,7 @@ pub struct AppendOutcome {
 
 impl EvidenceJournalStore {
     /// Open (or create) the journal rooted at `root` for `node_id`.
-    pub fn open(root: impl Into<PathBuf>, node_id: impl Into<String>) -> std::io::Result<Self> {
+    pub fn open(root: impl Into<PathBuf>, node_id: &str) -> std::io::Result<Self> {
         let root = root.into();
         std::fs::create_dir_all(&root)?;
         Ok(Self {

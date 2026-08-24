@@ -12,7 +12,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
 use cynic_protocol::window_journal::{
-    journal_is_coherent, open_reservations, replay, WindowJournalRecord, WindowJournalState,
+    WindowJournalRecord, WindowJournalState, journal_is_coherent, open_reservations, replay,
 };
 
 pub const DEFAULT_WINDOW_JOURNAL_PATH: &str = "/var/lib/cynic/lifecycle/window-journal.jsonl";
@@ -177,8 +177,8 @@ mod tests {
     use super::*;
     use cynic_protocol::task_pipeline::{EnergyBudget, EnergyConsumed};
     use cynic_protocol::window_journal::{
-        WindowClose, WindowOpen, WindowStatus, WINDOW_JOURNAL_CLOSE_SCHEMA,
-        WINDOW_JOURNAL_OPEN_SCHEMA,
+        WINDOW_JOURNAL_CLOSE_SCHEMA, WINDOW_JOURNAL_OPEN_SCHEMA, WindowClose, WindowOpen,
+        WindowStatus,
     };
     use tempfile::NamedTempFile;
 
@@ -264,10 +264,12 @@ mod tests {
         journal.append(&open("w1", 5)).unwrap();
 
         let state = journal.replay_state().unwrap();
-        assert!(state
-            .violations
-            .iter()
-            .any(|v| v.starts_with("corrupt_journal_lines:")));
+        assert!(
+            state
+                .violations
+                .iter()
+                .any(|v| v.starts_with("corrupt_journal_lines:"))
+        );
     }
 
     #[test]

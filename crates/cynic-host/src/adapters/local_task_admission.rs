@@ -13,7 +13,7 @@
 use std::time::Instant;
 
 use cynic_inference::domain::task_admission_port::TaskAdmissionPort;
-use cynic_protocol::capacity::{assess_metabolic_state, CapacityAssessmentV1, MetabolicPolicy};
+use cynic_protocol::capacity::{CapacityAssessmentV1, MetabolicPolicy, assess_metabolic_state};
 use cynic_protocol::task_pipeline::{
     CapacityObservation, DynamicHeadroom, EnergyBudget, FreshnessPolicy, ProfileFacts,
 };
@@ -188,11 +188,8 @@ mod tests {
             standard_cpu_pct: 40.0,
             standard_mem_pct: 60.0,
         };
-        let port = LocalTaskAdmission::new(
-            broken_policy,
-            FreshnessPolicy::with_defaults(),
-            envelope(1),
-        );
+        let port =
+            LocalTaskAdmission::new(broken_policy, FreshnessPolicy::with_defaults(), envelope(1));
         assert!(!port.capacity_fresh());
     }
 
@@ -201,35 +198,44 @@ mod tests {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let journal = FsWindowJournal::open(temp.path());
         // Two dangling opens: 30 + 20 = 50 tokens reserved.
-        journal.append(&serde_json::from_value::<cynic_protocol::window_journal::WindowJournalRecord>(
-            serde_json::json!({
-                "kind": "open",
-                "schema": "cynic.window_journal.open.v1",
-                "window_id": "w1",
-                "host_id": "h",
-                "epoch": 1,
-                "budget": { "wall_time_ms": 1000, "inference_tokens": 30 },
-                "capacity_ref": "cap-1",
-                "opened_at_unix_ms": 0
-            })
-        ).unwrap()).unwrap();
-        journal.append(&serde_json::from_value::<cynic_protocol::window_journal::WindowJournalRecord>(
-            serde_json::json!({
-                "kind": "open",
-                "schema": "cynic.window_journal.open.v1",
-                "window_id": "w2",
-                "host_id": "h",
-                "parent_window_id": null,
-                "epoch": 1,
-                "budget": { "wall_time_ms": 1000, "inference_tokens": 20 },
-                "capacity_ref": "cap-1",
-                "opened_at_unix_ms": 0
-            })
-        ).unwrap()).unwrap();
+        journal
+            .append(
+                &serde_json::from_value::<cynic_protocol::window_journal::WindowJournalRecord>(
+                    serde_json::json!({
+                        "kind": "open",
+                        "schema": "cynic.window_journal.open.v1",
+                        "window_id": "w1",
+                        "host_id": "h",
+                        "epoch": 1,
+                        "budget": { "wall_time_ms": 1000, "inference_tokens": 30 },
+                        "capacity_ref": "cap-1",
+                        "opened_at_unix_ms": 0
+                    }),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        journal
+            .append(
+                &serde_json::from_value::<cynic_protocol::window_journal::WindowJournalRecord>(
+                    serde_json::json!({
+                        "kind": "open",
+                        "schema": "cynic.window_journal.open.v1",
+                        "window_id": "w2",
+                        "host_id": "h",
+                        "parent_window_id": null,
+                        "epoch": 1,
+                        "budget": { "wall_time_ms": 1000, "inference_tokens": 20 },
+                        "capacity_ref": "cap-1",
+                        "opened_at_unix_ms": 0
+                    }),
+                )
+                .unwrap(),
+            )
+            .unwrap();
 
-        let port: Arc<dyn TaskAdmissionPort> = Arc::new(
-            local_task_admission_with_defaults(envelope(100)).with_journal(journal),
-        );
+        let port: Arc<dyn TaskAdmissionPort> =
+            Arc::new(local_task_admission_with_defaults(envelope(100)).with_journal(journal));
         assert_eq!(port.open_reservations().len(), 2);
 
         // 50 reserved + 60 requested = 110 > 100 → Blocked with dimension.

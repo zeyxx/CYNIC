@@ -8,11 +8,11 @@ use chrono::{DateTime, Utc};
 
 use crate::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
 use crate::domain::disk::probe::{
-    build_cleanup_plan, parse_df_filesystems, parse_lsblk_disks, ROTATED_SYSLOG_FILES,
+    ROTATED_SYSLOG_FILES, build_cleanup_plan, parse_df_filesystems, parse_lsblk_disks,
 };
 use crate::domain::disk::{
     DiskCacheEntry, DiskCleanupItem, DiskCleanupPlan, DiskCleanupResult, DiskCleanupStepExecution,
-    DiskFileEntry, DiskFilesystem, DiskReport, bytes_to_human, PhysicalDisk,
+    DiskFileEntry, DiskFilesystem, DiskReport, PhysicalDisk, bytes_to_human,
 };
 use crate::process_observation::capture_command;
 
@@ -57,7 +57,12 @@ mod tests {
     fn real_lsblk_capture_feeds_parser() {
         let out = capture_command(
             "lsblk",
-            &["-b", "-J", "-o", "NAME,SIZE,TYPE,ROTA,VENDOR,MODEL,SERIAL,WWN,MOUNTPOINT"],
+            &[
+                "-b",
+                "-J",
+                "-o",
+                "NAME,SIZE,TYPE,ROTA,VENDOR,MODEL,SERIAL,WWN,MOUNTPOINT",
+            ],
         );
         let captured = match out {
             Ok(res) if res.success => res.stdout,
@@ -282,7 +287,12 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
 fn observe_physical_disks() -> Vec<PhysicalDisk> {
     let out = capture_command(
         "lsblk",
-        &["-b", "-J", "-o", "NAME,SIZE,TYPE,ROTA,VENDOR,MODEL,SERIAL,WWN,MOUNTPOINT"],
+        &[
+            "-b",
+            "-J",
+            "-o",
+            "NAME,SIZE,TYPE,ROTA,VENDOR,MODEL,SERIAL,WWN,MOUNTPOINT",
+        ],
     );
     let stdout = match out {
         Ok(res) if res.success => res.stdout,
