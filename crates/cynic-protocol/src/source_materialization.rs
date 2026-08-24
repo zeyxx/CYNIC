@@ -14,6 +14,8 @@ pub struct SourceMaterializationRequest {
     pub release_id: String,
     pub repository_id: String,
     pub source_commit: String,
+    #[serde(default)]
+    pub source_tree: Option<String>,
     pub snapshot_digest: String,
     pub snapshot_format: String,
     pub target_node_id: String,
@@ -36,6 +38,8 @@ pub struct SourceMaterializationObservation {
     pub target_exists: bool,
     pub target_is_isolated: SecurityEvidenceState,
     pub observed_commit: Option<String>,
+    #[serde(default)]
+    pub observed_tree: Option<String>,
     pub observed_snapshot_digest: Option<String>,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
@@ -117,6 +121,13 @@ pub fn plan_source_materialization(
     {
         blockers.push("source_materialization_commit_invalid".to_string());
     }
+    if request
+        .source_tree
+        .as_deref()
+        .is_some_and(|tree| tree.len() != 40 || !tree.bytes().all(|byte| byte.is_ascii_hexdigit()))
+    {
+        blockers.push("source_materialization_tree_invalid".to_string());
+    }
     if !safe_relative_path(&request.target_relative_path) {
         blockers.push("source_materialization_target_path_unsafe".to_string());
     }
@@ -133,6 +144,12 @@ pub fn plan_source_materialization(
                 != Some(request.snapshot_digest.as_str()))
     {
         blockers.push("source_materialization_existing_target_drift".to_string());
+    }
+    if observation.target_exists
+        && request.source_tree.is_some()
+        && observation.observed_tree != request.source_tree
+    {
+        blockers.push("source_materialization_existing_target_tree_drift".to_string());
     }
     if observation.snapshot_present
         && (observation.snapshot_digest_read_back.as_deref()
@@ -246,6 +263,7 @@ mod tests {
             release_id: "release-1".to_string(),
             repository_id: "cynic".to_string(),
             source_commit: "a".repeat(40),
+            source_tree: None,
             snapshot_digest: format!("sha256:{}", "b".repeat(64)),
             snapshot_format: SOURCE_MATERIALIZATION_FORMAT.to_string(),
             target_node_id: "cynic-builder".to_string(),
@@ -269,6 +287,7 @@ mod tests {
             target_exists: false,
             target_is_isolated: SecurityEvidenceState::Proven,
             observed_commit: None,
+            observed_tree: None,
             observed_snapshot_digest: None,
             evidence_refs: vec!["runner:cynic-builder".to_string()],
             unknowns: Vec::new(),
@@ -291,5 +310,24 @@ mod tests {
         let plan = plan_source_materialization(&request(), &observation, 10_000);
         assert_eq!(plan.status, "blocked");
         assert!(plan.actions.is_empty());
+    }
+
+    #[test]
+    fn existing_checkout_with_a_different_expected_tree_is_blocked() {
+        let mut request = request();
+        request.source_tree = Some("c".repeat(40));
+        let mut observation = observation();
+        observation.target_exists = true;
+        observation.observed_commit = Some(request.source_commit.clone());
+        observation.observed_snapshot_digest = Some(request.snapshot_digest.clone());
+        observation.observed_tree = Some("d".repeat(40));
+
+        let plan = plan_source_materialization(&request, &observation, 10_000);
+
+        assert_eq!(plan.status, "blocked");
+        assert!(
+            plan.blockers
+                .contains(&"source_materialization_existing_target_tree_drift".to_string())
+        );
     }
 }

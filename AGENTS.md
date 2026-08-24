@@ -562,6 +562,27 @@ unknown. The machine-readable handshake and tool ownership remain in
 - Product domain prompt files under `crates/cynic-kernel/domains/` are residual
   product material (`domains/README.md`), not low-layer runtime law.
 
+### Git isolation in shared worktrees (mandatory)
+
+Multiple agents share one worktree. Every mutation slice ends in an isolated
+commit with explicit paths — a PR is even better when Forgejo/GitHub is
+reachable. This workflow is not optional.
+
+- Never `git add -A` or `git add .`. Stage only your files, by explicit path,
+  then read back `git status --short` before committing: the staged list must
+  equal your file list exactly.
+- One commit per coherent slice, with design decisions and proof counts in the
+  message (test command → N passed; rustfmt --check PASS; git diff --check
+  PASS). Read back with `git show --stat HEAD`.
+- Other agents' `M`/`D`/`??` entries are their debt. If a dependency crate is
+  red from their mid-edit files, do not repair it silently: wait for
+  stabilization (files untouched ~15 min) or isolate (scratch validator,
+  detached worktree at HEAD plus only your files).
+- Untracked files have no git safety net; after a green slice, commit them
+  promptly or back them up outside the repo.
+- Work on a dedicated branch `agent/<name>/<scope>`; never push directly to
+  main. Push the branch and open a PR when the remote is available.
+
 ## Sovereignty vs relay (chicken and egg)
 
 - **Runtime authority** stays local: principal `cynic`, `/etc/cynic`, harness proofs.

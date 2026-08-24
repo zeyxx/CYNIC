@@ -13,6 +13,7 @@ pub use bootstrap_contract::{
     BUILD_RUNNER_BOOTSTRAP_ADMISSION_CONTRACT_SCHEMA, BuildRunnerBootstrapAdmissionContract,
 };
 pub mod fleet;
+pub mod ice_evidence;
 pub mod recipe;
 use crate::LEASE_VERIFICATION_SCHEMA;
 #[allow(unused_imports)]
