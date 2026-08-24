@@ -76,8 +76,15 @@ impl CpuUsageMeter {
 /// A single cpu sample bound to its monotone timestamp.
 #[derive(Debug, Clone, Copy)]
 pub struct CpuMark {
-    sampled_at: Instant,
-    cpu_pct: Option<f32>,
+    pub(crate) sampled_at: Instant,
+    pub(crate) cpu_pct: Option<f32>,
+}
+
+impl CpuMark {
+    /// Wall ms elapsed from this mark to a later monotone instant.
+    pub fn elapsed_ms_since(&self, later: Instant) -> u64 {
+        later.duration_since(self.sampled_at).as_millis() as u64
+    }
 }
 
 #[cfg(test)]
