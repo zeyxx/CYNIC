@@ -1,5 +1,10 @@
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
+// Unix-only metadata accessors for the bootstrap secret-integrity checks
+// (raw st_mode via PermissionsExt, uid/gid via MetadataExt).
+#[cfg(unix)]
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KernelEntryFlags {
     pub force_reprobe: bool,
@@ -101,10 +106,12 @@ async fn main_verify() -> Result<(), Box<dyn std::error::Error>> {
     let perms = std::fs::metadata(&password_path)
         .map_err(|e| format!("cannot read metadata: {e}"))?
         .permissions();
-    let perms_mode = std::fs::Permissions::mode(perms);
+    let perms_mode = perms.mode();
     let perms_ok = perms_mode == 0o640;
-    
-    let owner = std::fs::stat(&password_path).ok().map(|s| format!("{}:{}", s.st_uid, s.st_gid)).unwrap_or_default();
+
+    let owner = std::fs::metadata(&password_path)
+        .map(|meta| format!("{}:{}", meta.uid(), meta.gid()))
+        .unwrap_or_default();
     let owner_ok = owner == "0:1001";  // root:cynic
     
     let immutable_check = std::process::Command::new("chattr")
@@ -124,14 +131,19 @@ async fn main_verify() -> Result<(), Box<dyn std::error::Error>> {
     // Look for password_reference in nodes
     let password_reference = registry
         .get("nodes")
-        .and_then(|nodes| nodes.iter().find(|n| n.get("id").map(|id| id == "local-kernel").unwrap_or(false)))
+        .and_then(|nodes| nodes.as_array())
+        .and_then(|nodes| {
+            nodes
+                .iter()
+                .find(|n| n.get("id").map(|id| id == "local-kernel").unwrap_or(false))
+        })
         .and_then(|node| node.get("password_reference"));
     
-    let reference_ok = if let Some(ref) = password_reference {
+    let reference_ok = if let Some(reference) = password_reference {
         let file_content = std::fs::read(&password_path).unwrap_or_default();
         let hash = Sha256::new().chain_update(&file_content).finalize();
         let hash_hex = format!("sha256:{}", hex::encode(hash));
-        let expected = ref.as_str().unwrap_or("").to_string();
+        let expected = reference.as_str().unwrap_or("").to_string();
         let ok = hash_hex == expected;
         klog!("password reference check: expected={}, actual={}, ok={}", expected, hash_hex, ok);
         ok
