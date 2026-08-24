@@ -7,7 +7,9 @@ use std::time::SystemTime;
 use chrono::{DateTime, Utc};
 
 use crate::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
-use crate::domain::disk::probe::{build_cleanup_plan, parse_df_filesystems, parse_lsblk_disks};
+use crate::domain::disk::probe::{
+    build_cleanup_plan, parse_df_filesystems, parse_lsblk_disks, ROTATED_SYSLOG_FILES,
+};
 use crate::domain::disk::{
     DiskCacheEntry, DiskCleanupItem, DiskCleanupPlan, DiskCleanupResult, DiskCleanupStepExecution,
     DiskFileEntry, DiskFilesystem, DiskReport, bytes_to_human, PhysicalDisk,
@@ -213,21 +215,9 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
         size_bytes: journal_size,
     });
 
-    // 3. rotated syslog logs
+    // 3. rotated syslog logs (canonical set from domain/disk/probe.rs)
     let mut rotated_syslog_size = 0u64;
-    let rotated_files = [
-        "/var/log/syslog.1",
-        "/var/log/syslog.2.gz",
-        "/var/log/syslog.3.gz",
-        "/var/log/syslog.4.gz",
-        "/var/log/kern.log.1",
-        "/var/log/kern.log.2.gz",
-        "/var/log/kern.log.3.gz",
-        "/var/log/ufw.log.1",
-        "/var/log/ufw.log.2.gz",
-        "/var/log/ufw.log.3.gz",
-    ];
-    for file in &rotated_files {
+    for file in ROTATED_SYSLOG_FILES {
         if let Ok(meta) = fs::metadata(file) {
             rotated_syslog_size += meta.len();
         }
@@ -405,19 +395,7 @@ fn execute_cleanup_item(item: &DiskCleanupItem) -> DiskCleanupStepExecution {
             }
         }
         "rotated_syslogs_purge" => {
-            let files = [
-                "/var/log/syslog.1",
-                "/var/log/syslog.2.gz",
-                "/var/log/syslog.3.gz",
-                "/var/log/syslog.4.gz",
-                "/var/log/kern.log.1",
-                "/var/log/kern.log.2.gz",
-                "/var/log/kern.log.3.gz",
-                "/var/log/ufw.log.1",
-                "/var/log/ufw.log.2.gz",
-                "/var/log/ufw.log.3.gz",
-            ];
-            for file in &files {
+            for file in ROTATED_SYSLOG_FILES {
                 let path = Path::new(file);
                 if path.exists() {
                     // Try to remove it. Sudo might be needed since they are in /var/log/

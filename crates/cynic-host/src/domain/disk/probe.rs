@@ -7,6 +7,26 @@ use super::types::{
     bytes_to_human, DiskCleanupItem, DiskCleanupPlan, DiskFilesystem, DiskReport, PhysicalDisk,
 };
 
+/// Canonical rotated-syslog file set observed and purged on CYNIC hosts.
+///
+/// Single decision source for three consumers: cache sizing
+/// (`LocalDiskAdapter::observe_known_caches`), cleanup-plan argv
+/// (`build_cleanup_plan`), and purge execution
+/// (`LocalDiskAdapter::execute_cleanup_item`). Adding a rotation pattern is a
+/// one-line change here; the three sites cannot diverge.
+pub const ROTATED_SYSLOG_FILES: &[&str] = &[
+    "/var/log/syslog.1",
+    "/var/log/syslog.2.gz",
+    "/var/log/syslog.3.gz",
+    "/var/log/syslog.4.gz",
+    "/var/log/kern.log.1",
+    "/var/log/kern.log.2.gz",
+    "/var/log/kern.log.3.gz",
+    "/var/log/ufw.log.1",
+    "/var/log/ufw.log.2.gz",
+    "/var/log/ufw.log.3.gz",
+];
+
 /// Pure parser for `df -h --output=source,fstype,size,used,avail,pcent,target`
 /// stdout. Shared by `LocalDiskAdapter` (local `df`) and `RemoteDiskAdapter`
 /// (SSH `df`) so the two never diverge on column layout. Returns only real
@@ -124,20 +144,11 @@ pub fn build_cleanup_plan(report: &DiskReport) -> DiskCleanupPlan {
                 label: "Purge rotated log files in /var/log/".to_string(),
                 size_human: cache.size_human.clone(),
                 size_bytes: cache.size_bytes,
-                argv: vec![
-                    "rm".to_string(),
-                    "-f".to_string(),
-                    "/var/log/syslog.1".to_string(),
-                    "/var/log/syslog.2.gz".to_string(),
-                    "/var/log/syslog.3.gz".to_string(),
-                    "/var/log/syslog.4.gz".to_string(),
-                    "/var/log/kern.log.1".to_string(),
-                    "/var/log/kern.log.2.gz".to_string(),
-                    "/var/log/kern.log.3.gz".to_string(),
-                    "/var/log/ufw.log.1".to_string(),
-                    "/var/log/ufw.log.2.gz".to_string(),
-                    "/var/log/ufw.log.3.gz".to_string(),
-                ],
+                argv: ["rm", "-f"]
+                    .iter()
+                    .chain(ROTATED_SYSLOG_FILES.iter())
+                    .map(|f| f.to_string())
+                    .collect(),
                 requires_privilege: true,
             }),
             "npm-cache" => Some(DiskCleanupItem {
@@ -264,6 +275,41 @@ overlay        overlay  50G   30G   20G  60% /
         assert_eq!(loop0.disk_type, "loop");
         assert!(!loop0.rotational);
         assert!(loop0.mountpoints.is_empty());
+    }
+
+    #[test]
+    fn rotated_syslog_set_is_single_source_of_truth() {
+        // Anti-divergence: the cleanup-plan argv must carry exactly the canonical
+        // ROTATED_SYSLOG_FILES set after the "rm -f" prefix. A hardwired argv
+        // copy would drift from cache sizing and purge execution.
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        let report = DiskReport {
+            schema: "cynic.host_disk_report.v1".to_string(),
+            timestamp: "2026-08-24T00:00:00Z".to_string(),
+            filesystems: vec![],
+            known_caches: vec![DiskCacheEntry {
+                label: "rotated-syslogs".to_string(),
+                path: "/var/log/syslog.*".to_string(),
+                size_human: "1M".to_string(),
+                size_bytes: 1024 * 1024,
+            }],
+            large_files: vec![],
+            physical_disks: vec![],
+        };
+        let _ = &home; // parity with test_build_cleanup_plan environment use
+        let plan = build_cleanup_plan(&report);
+        assert_eq!(plan.items.len(), 1);
+        let argv = &plan.items[0].argv;
+        assert_eq!(&argv[0], "rm");
+        assert_eq!(&argv[1], "-f");
+        assert_eq!(argv.len(), 2 + ROTATED_SYSLOG_FILES.len());
+        for (arg, expected) in argv[2..].iter().zip(ROTATED_SYSLOG_FILES.iter()) {
+            assert_eq!(arg, expected);
+        }
+        // The purge executor must consume the same canonical slice.
+        assert!(ROTATED_SYSLOG_FILES
+            .iter()
+            .all(|f| f.starts_with("/var/log/")));
     }
 
     #[test]
