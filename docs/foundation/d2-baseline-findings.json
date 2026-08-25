@@ -1,0 +1,24 @@
+{
+  "schema": "cynic.storage.d2_baseline.v1",
+  "completed_at_utc": "2026-08-25T02:09:00Z",
+  "vault_root": "/var/lib/cynic/vault/models",
+  "manifest_path": "/var/lib/cynic/evidence/artifact_manifest.json",
+  "mode": "baseline_digest",
+  "file_count": 32,
+  "total_gib": 112,
+  "findings": {
+    "duplicate_content_groups_gt1mb": [
+      {"sha256_prefix": "36587fdf27bd", "copies": ["LFM2.5-2.6B-Q8_0-2.gguf", "LFM2.5-2.6B-Q8_0.gguf"], "wasted_mib": 2741},
+      {"sha256_prefix": "843eae744251", "copies": ["Qwen3.8-27B-IQ3_XXS.gguf", "qwen38-27b/Qwen3.8-27B-IQ3_XXS.gguf"], "wasted_mib": 12041}
+    ],
+    "reclaimable_gib": 14,
+    "huggingface_cache_pollution": ".cache/huggingface/ trees inside vault (lock files, gitignore) — not model artifacts",
+    "missing_at_sweep_time": ["Bonsai-27B-mmproj-BF16.gguf", "Bonsai-27B-mmproj-Q8_0.gguf (listed in dir but vanished mid-sweep — external process moved/deleted)"]
+  },
+  "next_actions": [
+    "dedup: remove the flat Qwen3.8 copy OR the qwen38-27b/ shard copy after confirming which path llama.cpp profiles reference",
+    "remove LFM2.5-2.6B-Q8_0-2.gguf (byte-identical duplicate)",
+    "purge .cache/huggingface trees from vault (not artifacts)",
+    "investigate Bonsai mmproj disappearance (external mover)"
+  ]
+}
