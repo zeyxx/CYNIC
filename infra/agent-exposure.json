@@ -8,12 +8,14 @@
     "transport": "stdio_local_cli",
     "default_transport": "stdio",
     "fallback": "read_only_local_cli",
-    "fallback_scope": "read_only_observation_only; coordination, build, release, and fleet mutation remain blocked without kernel authority",
+    "fallback_scope": "read_only_observation_only by default; human_scoped_source_mutation_only is admissible only through cynic.coordination.human_scoped_fallback_admission.v1 after runtime unavailability, incompatibility, or instability is observed. Runtime, credential, network, fleet, release, merge, push, and automatic commit mutation remain blocked.",
     "fallback_commands": [
       "cynic dev surface-audit --json",
       "cynic dev framework --json",
       "cynic runtime agents --json",
-      "cynic runtime hermes-run --json --run-id <id>"
+      "cynic runtime hermes-run --json --run-id <id>",
+      "cynic dev policy-formality-audit --json",
+      "cynic dev schema-registry-audit --json"
     ],
     "project_root": "Inject runtime paths through operator deployment context; never commit machine-local absolute paths.",
     "honesty": "This projection is source-of-truth for the desired cynic runtime surface; an installed artifact must prove compatibility and freshness before it is treated as active. Tier labels mark product/legacy surfaces that are not low-layer runtime baseline."
@@ -75,6 +77,39 @@
       "cynic_source_control",
       "cynic_source_change_submit"
     ],
+    "human_scoped_fallback": {
+      "schema": "cynic.coordination.human_scoped_fallback_admission.v1",
+      "when": [
+        "runtime_unavailable_observed",
+        "runtime_incompatible_observed",
+        "runtime_unstable_observed"
+      ],
+      "requires": [
+        "explicit_human_approval",
+        "bounded_source_target",
+        "action_budget",
+        "wall_time_budget",
+        "agent_claims_read_back_without_active_conflict",
+        "pre_and_post_git_read_back",
+        "targeted_validation_read_back"
+      ],
+      "permits": [
+        "local_source_mutation",
+        "local_source_validation"
+      ],
+      "forbids": [
+        "runtime_mutation",
+        "credential_mutation",
+        "network_mutation",
+        "fleet_mutation",
+        "release_mutation",
+        "commit",
+        "push",
+        "merge"
+      ],
+      "coordination_guarantee": "best_effort_unfenced",
+      "expires_when": "stable_compatible_coordination_runtime_is_observed"
+    },
     "validation_surface": "cynic_validate",
     "validation_execution_role": "build_runner",
     "mutation_execution_contract": "cynic.agent_workload_envelope.v1",
