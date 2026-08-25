@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod bootstrap_admission;
 pub mod bootstrap_contract;
+pub mod bootstrap_withdrawal;
 pub mod route_convergence;
 pub use bootstrap_admission::{
     BUILD_RUNNER_BOOTSTRAP_ADMISSION_SCHEMA, BUILD_RUNNER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
@@ -12,6 +13,10 @@ pub use bootstrap_admission::{
 };
 pub use bootstrap_contract::{
     BUILD_RUNNER_BOOTSTRAP_ADMISSION_CONTRACT_SCHEMA, BuildRunnerBootstrapAdmissionContract,
+};
+pub use bootstrap_withdrawal::{
+    BOOTSTRAP_WITHDRAWAL_SCHEMA, BootstrapWithdrawalDecision, WithdrawalEvidence,
+    reconcile_bootstrap_withdrawal,
 };
 pub use route_convergence::{
     BUILD_RUNNER_ROUTE_CONVERGENCE_SCHEMA, BUILD_RUNNER_ROUTE_EVIDENCE_MAX_AGE_MS,
