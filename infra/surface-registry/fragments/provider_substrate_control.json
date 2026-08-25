@@ -21,6 +21,7 @@
     "cynic bootstrap framework substrate-plan --json --node <id>",
     "cynic bootstrap framework substrate-apply --json --node <id> --yes",
     "cynic bootstrap framework substrate-provision-principal --json --node <id> --principal <name> --yes",
+    "cynic bootstrap framework substrate-deliver-ssh-key --json --node <id> --principal <name> --pubkey-path <file> --yes",
     "MCP fleet_node_exec"
   ],
   "evidence": [

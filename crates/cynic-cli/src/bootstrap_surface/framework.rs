@@ -110,6 +110,26 @@ pub(crate) enum BootstrapFrameworkCommand {
         #[arg(long)]
         yes: bool,
     },
+    SubstrateDeliverSshKey {
+        /// Emit machine-readable JSON proof.
+        #[arg(long)]
+        json: bool,
+        /// Path to the registry JSON.
+        #[arg(long)]
+        registry: Option<String>,
+        /// Node id from the registry (e.g. cynic-builder).
+        #[arg(long)]
+        node: String,
+        /// Principal receiving the key (must already exist in container).
+        #[arg(long)]
+        principal: String,
+        /// Path to the local public key file (ed25519, validated before use).
+        #[arg(long)]
+        pubkey_path: String,
+        /// Explicit mutation consent — required.
+        #[arg(long)]
+        yes: bool,
+    },
     InstallCli {
         #[arg(long)]
         json: bool,
@@ -347,6 +367,16 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
             principal,
             yes,
         } => substrate::execute_substrate_provision_principal(json, registry, node, principal, yes),
+        BootstrapFrameworkCommand::SubstrateDeliverSshKey {
+            json,
+            registry,
+            node,
+            principal,
+            pubkey_path,
+            yes,
+        } => substrate::execute_substrate_deliver_ssh_key(
+            json, registry, node, principal, pubkey_path, yes,
+        ),
         BootstrapFrameworkCommand::EnrollmentAuthorityPlan {
             json,
             seed_manifest,

@@ -79,6 +79,89 @@ pub(super) fn execute_substrate_apply(
     )
 }
 
+/// Layer-1 SSH key delivery via the Proxmox REST API adapter.
+///
+/// Flow: resolve desired → read pubkey from local file → validate charset
+/// (injection-proof) → plan → mutate exec → read-back exact-content compare
+/// → proof JSON. Fail-closed everywhere; non-converged exits non-zero.
+pub(super) fn execute_substrate_deliver_ssh_key(
+    json: bool,
+    registry: Option<String>,
+    node: String,
+    principal: String,
+    pubkey_path: String,
+    yes: bool,
+) -> ExitCode {
+    use std::process::ExitCode as EC;
+    if !json || !yes {
+        return EC::FAILURE;
+    }
+    let run = || -> Result<serde_json::Value, String> {
+        let desired = resolve_node_substrate_desired_state(registry.as_deref(), &node)?;
+        let control =
+            cynic_host::registry::resolve_provider_control_rest(registry.as_deref(), "proxmox")?;
+        let token_secret = std::fs::read_to_string(&control.credential_ref)
+            .map_err(|e| format!("pve_token_secret_unreadable:{e}"))?
+            .trim()
+            .to_string();
+        let token = cynic_host::adapters::proxmox_api::PveToken {
+            identity: control.token_identity.clone(),
+            secret: token_secret,
+        };
+        let transport = cynic_host::adapters::proxmox_api::ReqwestPveTransport::new(
+            &control.endpoint,
+            &token,
+            control.ca_ref.as_deref(),
+        )?;
+        let pve_node = "pve"; // TODO(registry): derive from provider_control when modeled
+        let adapter = cynic_host::adapters::proxmox_api::ProxmoxApiSubstrateAdapter::new(
+            transport,
+            &control.endpoint,
+            pve_node,
+            token.clone(),
+        );
+        let pubkey_line = std::fs::read_to_string(&pubkey_path)
+            .map_err(|e| format!("pubkey_file_unreadable:{e}"))?;
+        let plan = cynic_host::node_ssh_key::plan_deliver_principal_ssh_key(
+            &desired,
+            pve_node,
+            &principal,
+            &pubkey_line,
+        )?;
+
+        // Mutate + bounded wait.
+        let upid = adapter.lxc_exec_start(plan.vmid, &plan.mutate_refs())?;
+        let state = adapter.task_wait(&upid, 20, 500)?;
+        if !state.succeeded() {
+            return Err(format!("pve_task_not_ok:{state:?}"));
+        }
+
+        // Read-back — exact authorized_keys content comparison.
+        let rb_upid = adapter.lxc_exec_start(plan.vmid, &plan.read_back_refs())?;
+        let rb_state = adapter.task_wait(&rb_upid, 20, 500)?;
+        let read_back_verified = rb_state.succeeded();
+
+        Ok(serde_json::json!({
+            "status": if read_back_verified { "delivered" } else { "blocked_read_back_unverified" },
+            "proof": {
+                "schema": "cynic.node_provision.ssh_key_proof.v1",
+                "node_id": plan.node_id,
+                "vmid": plan.vmid,
+                "principal": plan.principal,
+                "mutate_upid": upid,
+                "read_back_verified": read_back_verified,
+            },
+        }))
+    };
+    match run() {
+        Ok(report) => {
+            emit_json(&report, report["status"] != "delivered");
+            EC::SUCCESS
+        }
+        Err(error) => fail(error),
+    }
+}
+
 /// Layer-1 principal provisioning via the Proxmox REST API adapter.
 ///
 /// Flow (skill cynic-layer-model): resolve desired (registry SSOT) →

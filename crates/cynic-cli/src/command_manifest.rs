@@ -125,6 +125,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic bootstrap framework substrate-plan --json --node <id> [--registry <path>] [--observation <path>]",
                     "cynic bootstrap framework substrate-apply --json --node <id> [--registry <path>] --yes",
                     "cynic bootstrap framework substrate-provision-principal --json --node <id> --principal <name> [--registry <path>] --yes",
+                    "cynic bootstrap framework substrate-deliver-ssh-key --json --node <id> --principal <name> --pubkey-path <file> [--registry <path>] --yes",
                     "cynic bootstrap framework lifecycle-audit --json --role <role> [--registry <path>]",
                     "cynic bootstrap framework enrollment-authority-plan --json --seed-manifest <path> --node <id> --staging-root <path> [--registry <path>]",
                     "cynic bootstrap framework enrollment-authority-apply --json --seed-manifest <path> --node <id> --staging-root <path> [--registry <path>] --yes",
