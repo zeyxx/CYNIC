@@ -44,14 +44,40 @@ pub fn assess_node_substrate(
         }
         None => unknown_observation(&desired.node_id),
     };
+    Ok(assess_observed_node_substrate(desired, observed))
+}
+
+/// Collects a provider read-back through an injected read-only port before
+/// producing the canonical substrate decision. A failed observation remains
+/// explicit evidence rather than becoming a CLI transport failure or a guessed
+/// provider state.
+pub fn assess_live_node_substrate(
+    registry_path: Option<&str>,
+    node_id: &str,
+    observer: &dyn NodeSubstrateObservationPort,
+) -> Result<NodeSubstrateAssessment, String> {
+    let desired = resolve_node_substrate_desired_state(registry_path, node_id)?;
+    let observed = observer
+        .observe_node_substrate(&desired)
+        .unwrap_or_else(|error| unavailable_observation(&desired, error));
+    Ok(assess_observed_node_substrate(desired, observed))
+}
+
+/// Assembles read-back already collected through an injected provider port into
+/// the canonical pure substrate decision. This boundary never mutates a
+/// provider and is shared by offline evidence assessment and live observation.
+pub fn assess_observed_node_substrate(
+    desired: cynic_protocol::NodeSubstrateDesiredState,
+    observed: NodeSubstrateObservation,
+) -> NodeSubstrateAssessment {
     let decision = reconcile_node_substrate(&desired, &observed);
-    Ok(NodeSubstrateAssessment {
+    NodeSubstrateAssessment {
         schema: "cynic.node_substrate.assessment.v1",
         status: decision.status.clone(),
         desired,
         observed,
         decision,
-    })
+    }
 }
 
 pub fn apply_node_substrate(
@@ -179,8 +205,116 @@ fn unknown_observation(node_id: &str) -> NodeSubstrateObservation {
     }
 }
 
+fn unavailable_observation(
+    desired: &cynic_protocol::NodeSubstrateDesiredState,
+    error: String,
+) -> NodeSubstrateObservation {
+    let mut observed = unknown_observation(&desired.node_id);
+    observed.provider = desired.provider.clone();
+    observed.resource_id = desired.resource_id.clone();
+    observed
+        .unknowns
+        .retain(|unknown| unknown != "provider_observer_not_injected");
+    observed
+        .unknowns
+        .push(format!("provider_observation_failed:{error}"));
+    observed
+}
+
 #[cfg(test)]
 mod tests {
+    use cynic_protocol::{
+        NODE_SUBSTRATE_OBSERVATION_SCHEMA, NodeNetworkAttachment, NodeSubstrateDesiredState,
+        NodeSubstrateExistence, NodeSubstrateObservation, NodeSubstratePower,
+    };
+
+    fn builder_desired() -> NodeSubstrateDesiredState {
+        NodeSubstrateDesiredState {
+            node_id: "cynic-builder".to_string(),
+            provider: Some("proxmox".to_string()),
+            resource_id: Some("lxc/105".to_string()),
+            desired_power: NodeSubstratePower::Running,
+            provisioning: None,
+        }
+    }
+
+    fn observed_builder() -> NodeSubstrateObservation {
+        NodeSubstrateObservation {
+            schema: NODE_SUBSTRATE_OBSERVATION_SCHEMA.to_string(),
+            status: "observed".to_string(),
+            node_id: "cynic-builder".to_string(),
+            provider: Some("proxmox".to_string()),
+            resource_id: Some("lxc/105".to_string()),
+            existence: NodeSubstrateExistence::Present,
+            power: NodeSubstratePower::Running,
+            network_attachment: NodeNetworkAttachment::Attached,
+            observed_addresses: vec!["10.10.10.119/24".to_string()],
+            // Convergence requires the full read-back ladder incl. management
+            // reachability (`node_management_reachability_unproven` otherwise).
+            management_reachable: Some(true),
+            observation_authority: Some("proxmox:pvesh:proxmox-forge".to_string()),
+            observed_at_unix_ms: Some(1),
+            evidence_refs: vec![
+                "proxmox:/nodes/pve/lxc/105/status/current".to_string(),
+                "proxmox:/nodes/pve/lxc/105/config".to_string(),
+            ],
+            unknowns: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn proven_proxmox_builder_observation_assesses_without_mutation() {
+        let report = super::assess_observed_node_substrate(builder_desired(), observed_builder());
+
+        assert_eq!(report.status, "converged");
+        assert_eq!(report.observed.node_id, "cynic-builder");
+        assert!(!report.decision.mutates);
+        assert!(report.decision.blockers.is_empty());
+    }
+
+    #[test]
+    fn incomplete_proxmox_builder_observation_remains_blocked() {
+        let mut observed = observed_builder();
+        observed.observation_authority = None;
+        observed.evidence_refs.clear();
+
+        let report = super::assess_observed_node_substrate(builder_desired(), observed);
+
+        assert_eq!(report.status, "blocked");
+        assert!(!report.decision.mutates);
+        assert!(
+            report
+                .decision
+                .blockers
+                .contains(&"node_substrate_observation_unproven".to_string())
+        );
+    }
+
+    #[test]
+    fn provider_probe_failure_is_retained_as_explicit_unknown() {
+        let observed = super::unavailable_observation(
+            &builder_desired(),
+            "proxmox_pvesh_failed:connection_refused".to_string(),
+        );
+        let report = super::assess_observed_node_substrate(builder_desired(), observed);
+
+        assert_eq!(report.status, "blocked");
+        assert!(!report.decision.mutates);
+        assert!(
+            !report
+                .observed
+                .unknowns
+                .contains(&"provider_observer_not_injected".to_string())
+        );
+        assert!(
+            report
+                .observed
+                .unknowns
+                .iter()
+                .any(|unknown| unknown.starts_with("provider_observation_failed:"))
+        );
+    }
+
     #[test]
     fn missing_provider_adapter_remains_explicit_unknown() {
         let path = std::env::temp_dir().join(format!(

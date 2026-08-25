@@ -234,9 +234,18 @@ mod tests {
             }
         }
 
-        fn renew(&self, _guard: &LeaseGuard, _now_ms: u64, _ttl_ms: u64) -> Result<(), String> {
+        fn renew(
+            &self,
+            guard: &LeaseGuard,
+            now_ms: u64,
+            ttl_ms: u64,
+        ) -> Result<StorageLeaseGrant, String> {
             match self.behavior {
-                FakeBehavior::Grant => Ok(()),
+                FakeBehavior::Grant => Ok(StorageLeaseGrant {
+                    schema: STORAGE_LEASE_SCHEMA.to_string(),
+                    guard: guard.clone(),
+                    expires_at_ms: now_ms + ttl_ms,
+                }),
                 FakeBehavior::Expired => Err("storage_lease_stale_or_expired".into()),
                 _ => Err("storage_lease_missing".into()),
             }

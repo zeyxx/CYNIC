@@ -1,3 +1,7 @@
+use cynic_protocol::build::{
+    BuildRunnerRouteDecision, BuildRunnerRouteDesiredState, BuildRunnerRouteObservation,
+    BuildRunnerRouteState, reconcile_build_runner_route,
+};
 use serde::{Deserialize, Serialize};
 
 pub use cynic_protocol::HarnessAuthority;
@@ -282,6 +286,56 @@ pub fn runtime_harness_catalog(
     })
 }
 
+/// Project the canonical BuildRunner route decision into a runtime harness
+/// observation report.
+///
+/// This is a pure projection over `reconcile_build_runner_route`. It never
+/// performs I/O, never executes argv, and never mutates the substrate. It
+/// consumes only already-observed evidence and returns a machine-readable
+/// read-back so operators/agents can inspect the route without invoking the
+/// builder transport or submission surface.
+///
+/// The report carries the canonical [`BuildRunnerRouteDecision`] verbatim: it
+/// adds no second mutation verdict. `BuildRunnerRouteDecision::mutates` is
+/// `false` by construction ("a route decision never executes"), and this
+/// projection preserves that single source of decision truth instead of
+/// recomputing a parallel `mutates` flag from `next_path`.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RuntimeHarnessBuildRunnerRouteReport {
+    pub schema: &'static str,
+    /// Verbatim projection of the route state — no second decision layer.
+    pub status: &'static str,
+    pub route: BuildRunnerRouteDecision,
+    pub harness_kind: &'static str,
+}
+
+pub const RUNTIME_HARNESS_BUILD_RUNNER_ROUTE_SCHEMA: &str =
+    "cynic.runtime_harness.build_runner_route.v1";
+
+pub fn observe_build_runner_route(
+    desired: &BuildRunnerRouteDesiredState,
+    observed: &BuildRunnerRouteObservation,
+    now_unix_ms: u64,
+    harness_kind: RuntimeHarnessKind,
+) -> RuntimeHarnessBuildRunnerRouteReport {
+    let route = reconcile_build_runner_route(desired, observed, now_unix_ms);
+    let status = match route.state {
+        BuildRunnerRouteState::RuntimeFenced => "runtime_fenced",
+        BuildRunnerRouteState::SeedAdmitted | BuildRunnerRouteState::SeedProved => "seed_ready",
+        BuildRunnerRouteState::Blocked => "blocked_hard",
+        BuildRunnerRouteState::Unroutable
+        | BuildRunnerRouteState::ProviderObserved
+        | BuildRunnerRouteState::SshTrustVerified
+        | BuildRunnerRouteState::BuilderRuntimeObserved => "converging",
+    };
+    RuntimeHarnessBuildRunnerRouteReport {
+        schema: RUNTIME_HARNESS_BUILD_RUNNER_ROUTE_SCHEMA,
+        status,
+        route,
+        harness_kind: harness_kind.as_str(),
+    }
+}
+
 impl RuntimeHarnessKind {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -308,11 +362,20 @@ impl RuntimeHarnessKind {
 #[cfg(test)]
 mod tests {
     use super::{
-        HarnessAuthority, RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
+        HarnessAuthority, RUNTIME_HARNESS_BUILD_RUNNER_ROUTE_SCHEMA,
+        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
         RuntimeHarnessTargetAttestation, closed_local_lab_context, conformance_context,
-        runtime_harness_catalog, validate_runtime_harness_target_attestation,
+        observe_build_runner_route, runtime_harness_catalog,
+        validate_runtime_harness_target_attestation,
         validate_runtime_harness_target_attestation_at,
     };
+    use cynic_protocol::build::{
+        BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRunnerCoordinationRouteObservation,
+        BuildRunnerProviderRouteObservation, BuildRunnerRouteObservation, BuildRunnerRoutePath,
+        BuildRunnerRouteState, BuildRunnerSeedRouteObservation,
+        BuildRunnerSshTrustRouteObservation,
+    };
+    use cynic_protocol::{BuildRunnerObservation, SecurityEvidenceState};
 
     fn attested_lab_target() -> RuntimeHarnessTargetAttestation {
         let context = closed_local_lab_context();
@@ -420,6 +483,208 @@ mod tests {
             violations
                 .iter()
                 .any(|violation| violation.code == "harness_target_transport_unverified")
+        );
+    }
+
+    // --- BuildRunner route projection (pure, no I/O) -------------------------
+
+    const ROUTE_NOW: u64 = 1_000_000;
+
+    fn route_desired() -> cynic_protocol::build::BuildRunnerRouteDesiredState {
+        cynic_protocol::build::BuildRunnerRouteDesiredState {
+            node_id: "cynic-builder".to_string(),
+            provider: "proxmox".to_string(),
+            resource_id: "lxc/105".to_string(),
+            role: "build_runner".to_string(),
+            source_commit: "a".repeat(40),
+        }
+    }
+
+    fn fenced_runtime() -> BuildRunnerObservation {
+        BuildRunnerObservation {
+            schema: BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
+            status: "observed".to_string(),
+            node_id: "cynic-builder".to_string(),
+            hostname: "cynic-builder".to_string(),
+            declared_role: Some("build_runner".to_string()),
+            identity_match: SecurityEvidenceState::Proven,
+            observed_at_unix_ms: ROUTE_NOW,
+            registry_path: "/etc/cynic/registry.json".to_string(),
+            evidence: serde_json::json!({}),
+            evidence_refs: vec!["node-proof".to_string()],
+        }
+    }
+
+    fn fully_fenced_observation() -> BuildRunnerRouteObservation {
+        BuildRunnerRouteObservation {
+            provider: BuildRunnerProviderRouteObservation {
+                status: "observed".to_string(),
+                node_id: "cynic-builder".to_string(),
+                provider: "proxmox".to_string(),
+                resource_id: "lxc/105".to_string(),
+                observed_at_unix_ms: ROUTE_NOW,
+                evidence_refs: vec!["proxmox:lxc/105".to_string()],
+            },
+            ssh_trust: BuildRunnerSshTrustRouteObservation {
+                status: "trusted_match".to_string(),
+                observed_at_unix_ms: ROUTE_NOW,
+                evidence_refs: vec!["ssh-trust:cynic-builder:trusted_match".to_string()],
+            },
+            seed: BuildRunnerSeedRouteObservation {
+                status: "proved".to_string(),
+                node_id: "cynic-builder".to_string(),
+                source_commit: "a".repeat(40),
+                observed_at_unix_ms: ROUTE_NOW,
+                evidence_refs: vec!["seed-proof".to_string()],
+            },
+            builder_runtime: Some(fenced_runtime()),
+            coordination: BuildRunnerCoordinationRouteObservation {
+                status: "stable".to_string(),
+                observed_at_unix_ms: ROUTE_NOW,
+                evidence_refs: vec!["coordination-proof".to_string()],
+            },
+        }
+    }
+
+    #[test]
+    fn full_fresh_evidence_projects_runtime_fenced_with_delivery_path() {
+        let report = observe_build_runner_route(
+            &route_desired(),
+            &fully_fenced_observation(),
+            ROUTE_NOW,
+            RuntimeHarnessKind::ClosedLocalLab,
+        );
+
+        assert_eq!(report.schema, RUNTIME_HARNESS_BUILD_RUNNER_ROUTE_SCHEMA);
+        assert_eq!(report.status, "runtime_fenced");
+        assert_eq!(report.route.state, BuildRunnerRouteState::RuntimeFenced);
+        assert_eq!(
+            report.route.next_path,
+            Some(BuildRunnerRoutePath::RuntimeDelivery)
+        );
+        assert!(report.route.blockers.is_empty());
+        assert!(report.route.residual_unknowns.is_empty());
+        // The canonical decision never mutates; the harness projection must not
+        // invent a second mutation verdict.
+        assert!(!report.route.mutates);
+    }
+
+    #[test]
+    fn provider_only_projects_converging_with_recovery_path() {
+        let observed = BuildRunnerRouteObservation {
+            provider: BuildRunnerProviderRouteObservation {
+                status: "observed".to_string(),
+                node_id: "cynic-builder".to_string(),
+                provider: "proxmox".to_string(),
+                resource_id: "lxc/105".to_string(),
+                observed_at_unix_ms: ROUTE_NOW,
+                evidence_refs: vec!["proxmox:lxc/105".to_string()],
+            },
+            ssh_trust: BuildRunnerSshTrustRouteObservation {
+                status: "not_observed".to_string(),
+                observed_at_unix_ms: 0,
+                evidence_refs: Vec::new(),
+            },
+            seed: BuildRunnerSeedRouteObservation {
+                status: "absent".to_string(),
+                node_id: "cynic-builder".to_string(),
+                source_commit: "a".repeat(40),
+                observed_at_unix_ms: 0,
+                evidence_refs: Vec::new(),
+            },
+            builder_runtime: None,
+            coordination: BuildRunnerCoordinationRouteObservation {
+                status: "unknown".to_string(),
+                observed_at_unix_ms: 0,
+                evidence_refs: Vec::new(),
+            },
+        };
+
+        let report = observe_build_runner_route(
+            &route_desired(),
+            &observed,
+            ROUTE_NOW,
+            RuntimeHarnessKind::ClosedLocalLab,
+        );
+
+        assert_eq!(report.status, "converging");
+        assert_eq!(report.route.state, BuildRunnerRouteState::ProviderObserved);
+        assert_eq!(
+            report.route.next_path,
+            Some(BuildRunnerRoutePath::ProxmoxRecovery)
+        );
+        assert_eq!(report.route.residual_unknowns.len(), 1);
+    }
+
+    #[test]
+    fn refuted_ssh_trust_downgrades_to_blocked_hard() {
+        let mut observed = fully_fenced_observation();
+        observed.ssh_trust.status = "trust_refuted".to_string();
+
+        let report = observe_build_runner_route(
+            &route_desired(),
+            &observed,
+            ROUTE_NOW,
+            RuntimeHarnessKind::ClosedLocalLab,
+        );
+
+        assert_eq!(report.status, "blocked_hard");
+        assert_eq!(report.route.state, BuildRunnerRouteState::Blocked);
+        assert!(report.route.next_path.is_none());
+        assert!(
+            report
+                .route
+                .blockers
+                .contains(&"build_runner_ssh_trust_refuted".to_string())
+        );
+    }
+
+    #[test]
+    fn stale_provider_evidence_blocks_the_projection() {
+        let mut observed = fully_fenced_observation();
+        observed.provider.observed_at_unix_ms = ROUTE_NOW - 301_000;
+
+        let report = observe_build_runner_route(
+            &route_desired(),
+            &observed,
+            ROUTE_NOW,
+            RuntimeHarnessKind::ClosedLocalLab,
+        );
+
+        assert_eq!(report.status, "blocked_hard");
+        assert!(
+            report
+                .route
+                .blockers
+                .contains(&"build_runner_provider_observation_stale".to_string())
+        );
+    }
+
+    #[test]
+    fn stale_seed_keeps_seed_path_but_reports_residual_unknown() {
+        let mut observed = fully_fenced_observation();
+        // 301 s > BUILD_RUNNER_ROUTE_EVIDENCE_MAX_AGE_MS (300 s): stale.
+        observed.seed.observed_at_unix_ms = ROUTE_NOW - 301_000;
+        observed.seed.status = "admitted".to_string();
+        observed.builder_runtime = None;
+        observed.coordination.status = "unknown".to_string();
+
+        let report = observe_build_runner_route(
+            &route_desired(),
+            &observed,
+            ROUTE_NOW,
+            RuntimeHarnessKind::Conformance,
+        );
+
+        assert_eq!(report.harness_kind, "conformance");
+        assert_eq!(report.status, "converging");
+        assert_eq!(report.route.state, BuildRunnerRouteState::SshTrustVerified);
+        assert_eq!(report.route.next_path, Some(BuildRunnerRoutePath::SshSeed));
+        assert!(
+            report
+                .route
+                .residual_unknowns
+                .contains(&"build_runner_seed_unproved_or_stale".to_string())
         );
     }
 }
