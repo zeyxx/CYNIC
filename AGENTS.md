@@ -533,11 +533,18 @@ enforces `cynic.agent_workload_envelope.v1`, including policy admission,
 monotonic budgets, lease fencing, cancellation, recovery, and completion
 evidence. A handshake or queue acknowledgement is not execution authority.
 
-An agent host must not run a repository build as fallback. If the CYNIC MCP
-surface or its coordination authority is unavailable, report
-`blocked_disconnected` and retain the missing capability as an explicit
-unknown. The machine-readable handshake and tool ownership remain in
-`infra/agent-exposure.json`; this section only instructs agent projection.
+When the CYNIC MCP surface is unavailable, incompatible, or unstable, the
+agent must first retain that read-back as an explicit unknown. A human may then
+admit a temporary `human_scoped_fallback` only for a bounded local source target
+and local source validation. The admission must name an action and wall-time
+budget, prove there is no active conflicting baseline claim, and retain Git
+read-back before and after the slice. It is `best_effort_unfenced`, never a
+lease, and expires as soon as a stable compatible coordination runtime is
+observed. It never authorizes runtime, credential, network, fleet, release,
+commit, push, or merge mutation. Without that explicit human admission, report
+`blocked_disconnected`. The machine-readable fallback contract and tool
+ownership remain in `infra/agent-exposure.json`; this section only instructs
+agent projection.
 
 - Before adding a new crate, command, document, or contract, prove an existing
   boundary cannot absorb the capability.
@@ -564,6 +571,35 @@ unknown. The machine-readable handshake and tool ownership remain in
   extraction to the owner currently working that surface unless asked otherwise.
 - Product domain prompt files under `crates/cynic-kernel/domains/` are residual
   product material (`domains/README.md`), not low-layer runtime law.
+
+### Crate ownership & extraction (systemic, not kernel-only)
+
+Ownership is a property of EVERY crate, not just `cynic-kernel`. The
+kernel is the first large case to formalize, but `cynic-host` (84k LOC)
+is larger than the kernel (58k) — the defect is systemic.
+
+- Canonical spec: `infra/CRATE_OWNERSHIP.md`. It transposes
+  `contracts/foundation.json` §481 `one_boundary_one_reason` and §489
+  (non-goal: "centralize all responsibilities in one orchestrator
+  crate") into a per-crate `owns / delegates / forbidden` grid and an
+  incremental extraction plan. The kernel map there is corroborated by
+  the coded `KERNEL_AREAS` table in `crates/cynic-cli/src/kernel_boundary_audit.rs`.
+- The three dev-surface audits are the machine-readable read-back that
+  enforce this spec; run them before growing any crate:
+  - `cynic dev kernel-audit --json` — kernel areas vs target owners
+    (schema `cynic.cli.kernel_audit.v1`); reports `blocked` while any
+    area is `extract`/`stabilize` or uncovered hotspots remain.
+  - `cynic dev ownership-audit --json` — 11 ownership surfaces with
+    crate_owner + migration_target (schema `cynic.cli.ownership_audit.v1`).
+  - `cynic dev crate-audit --json` — per-crate LOC, hotspots, bounded
+    entrypoints (schema `cynic.cli.crate_audit.v1`).
+- Rule of thumb (machine-checkable, see `crate-audit`): a crate over
+  ~40k LOC, or one that implements ports belonging to another domain,
+  violates §481 and must be split. Doubled responsibilities across two
+  crates are the same violation.
+- Before adding a module/adapter/crate: prove an existing boundary
+  cannot absorb the responsibility (§481), then record the decision in
+  `infra/CRATE_OWNERSHIP.md` and `infra/surface-registry.json`.
 
 ### Git isolation in shared worktrees (mandatory)
 
