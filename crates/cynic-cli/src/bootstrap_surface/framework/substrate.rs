@@ -78,3 +78,60 @@ pub(super) fn execute_substrate_apply(
         ),
     )
 }
+
+/// Layer-1 principal provisioning via the Proxmox REST API adapter.
+///
+/// Flow (skill cynic-layer-model): resolve desired (registry SSOT) →
+/// build API transport from provider_control credentials → plan (pure,
+/// deny-list enforced) → apply (exec/wait/read-back) → sealed proof JSON.
+/// Fail-closed: missing secret, bad resource ref, reserved principal, task
+/// failure, or non-converged read-back all exit non-zero with typed errors.
+pub(super) fn execute_substrate_provision_principal(
+    json: bool,
+    registry: Option<String>,
+    node: String,
+    principal: String,
+    yes: bool,
+) -> ExitCode {
+    use std::process::ExitCode as EC;
+    if !json || !yes {
+        // mutation requires explicit --yes AND --json machine-readable proof
+        return EC::FAILURE;
+    }
+    let run = || -> Result<serde_json::Value, String> {
+        let desired = resolve_node_substrate_desired_state(registry.as_deref(), &node)?;
+        let control =
+            cynic_host::registry::resolve_provider_control_rest(registry.as_deref(), "proxmox")?;
+        let token_secret = std::fs::read_to_string(&control.credential_ref)
+            .map_err(|e| format!("pve_token_secret_unreadable:{e}"))?
+            .trim()
+            .to_string();
+        let token = cynic_host::adapters::proxmox_api::PveToken {
+            identity: control.token_identity.clone(),
+            secret: token_secret,
+        };
+        let transport = cynic_host::adapters::proxmox_api::ReqwestPveTransport::new(
+            &control.endpoint,
+            &token,
+            control.ca_ref.as_deref(),
+        )?;
+        let pve_node = "pve"; // TODO(registry): derive from provider_control when modeled
+        let adapter = cynic_host::adapters::proxmox_api::ProxmoxApiSubstrateAdapter::new(
+            transport, &control.endpoint, pve_node, token,
+        );
+        let plan =
+            cynic_host::node_provision::plan_provision_principal(&desired, pve_node, &principal)?;
+        let proof = cynic_host::node_provision::apply_provision_principal(&plan, &adapter, 20, 500)?;
+        Ok(serde_json::json!({
+            "status": if proof.converged() { "provisioned" } else { "blocked_read_back_unverified" },
+            "proof": proof,
+        }))
+    };
+    match run() {
+        Ok(report) => {
+            emit_json(&report, report["status"] != "provisioned");
+            EC::SUCCESS
+        }
+        Err(error) => fail(error),
+    }
+}

@@ -93,6 +93,23 @@ pub(crate) enum BootstrapFrameworkCommand {
         #[arg(long)]
         yes: bool,
     },
+    SubstrateProvisionPrincipal {
+        /// Emit machine-readable JSON proof.
+        #[arg(long)]
+        json: bool,
+        /// Path to the registry JSON.
+        #[arg(long)]
+        registry: Option<String>,
+        /// Node id from the registry (e.g. cynic-builder).
+        #[arg(long)]
+        node: String,
+        /// Principal to provision inside the container (deny-list enforced).
+        #[arg(long)]
+        principal: String,
+        /// Explicit mutation consent — required.
+        #[arg(long)]
+        yes: bool,
+    },
     InstallCli {
         #[arg(long)]
         json: bool,
@@ -242,14 +259,14 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
                 &LocalArgvRunner,
             ) {
                 Ok(plan) => {
-                    if let Some(output) = output
-                        && let Err(error) = write_pretty_json_file(
-                            Path::new(&output),
+                    if let Some(out) = output {
+                        if let Err(error) = write_pretty_json_file(
+                            Path::new(&out),
                             &plan,
                             "framework propagation plan",
-                        )
-                    {
-                        return fail(error);
+                        ) {
+                            return fail(error);
+                        }
                     }
                     emit_json(&plan, plan.status == "blocked")
                 }
@@ -276,14 +293,14 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
             };
             let report =
                 framework_bootstrap::apply_framework_propagation(&plan, yes, &LocalArgvRunner);
-            if let Some(output) = output
-                && let Err(error) = write_pretty_json_file(
-                    Path::new(&output),
+            if let Some(out) = output {
+                if let Err(error) = write_pretty_json_file(
+                    Path::new(&out),
                     &report,
                     "framework propagation report",
-                )
-            {
-                return fail(error);
+                ) {
+                    return fail(error);
+                }
             }
             emit_json(&report, report.status != "converged")
         }
@@ -323,6 +340,13 @@ pub(crate) fn execute_framework(command: BootstrapFrameworkCommand) -> ExitCode 
             node,
             yes,
         } => substrate::execute_substrate_apply(json, registry, node, yes),
+        BootstrapFrameworkCommand::SubstrateProvisionPrincipal {
+            json,
+            registry,
+            node,
+            principal,
+            yes,
+        } => substrate::execute_substrate_provision_principal(json, registry, node, principal, yes),
         BootstrapFrameworkCommand::EnrollmentAuthorityPlan {
             json,
             seed_manifest,

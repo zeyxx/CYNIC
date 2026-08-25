@@ -179,6 +179,66 @@ fn truncate(s: &str) -> String {
     s.chars().take(160).collect()
 }
 
+/// Production transport: reqwest (blocking, native-tls) with the PVE token
+/// header applied per request. TLS verification honors an optional CA bundle
+/// path (registry provider_control.ca_ref); falls back to system roots.
+pub struct ReqwestPveTransport {
+    client: reqwest::blocking::Client,
+    origin: String,
+    auth_header: String,
+}
+
+impl ReqwestPveTransport {
+    /// Builds the client. Fails closed on unbuildable TLS config — never
+    /// silently downgrades certificate verification.
+    pub fn new(
+        endpoint_origin: &str,
+        token: &PveToken,
+        ca_bundle_path: Option<&str>,
+    ) -> Result<Self, String> {
+        let mut builder = reqwest::blocking::Client::builder().timeout(std::time::Duration::from_secs(30));
+        if let Some(ca_path) = ca_bundle_path {
+            let pem = std::fs::read(ca_path)
+                .map_err(|e| format!("pve_ca_bundle_unreadable:{e}"))?;
+            let cert = reqwest::Certificate::from_pem(&pem)
+                .map_err(|e| format!("pve_ca_bundle_invalid:{e}"))?;
+            builder = builder.add_root_certificate(cert);
+        }
+        let client = builder.build().map_err(|e| format!("pve_client_build:{e}"))?;
+        Ok(Self {
+            client,
+            origin: endpoint_origin.trim_end_matches('/').to_string(),
+            auth_header: token.header_value(),
+        })
+    }
+}
+
+impl HttpTransport for ReqwestPveTransport {
+    fn request(
+        &self,
+        method: &str,
+        path: &str,
+        body: Option<&str>,
+    ) -> Result<(u16, String), String> {
+        let url = format!("{}{}", self.origin, path);
+        let method_req = reqwest::Method::from_bytes(method.as_bytes())
+            .map_err(|e| format!("pve_bad_method:{e}"))?;
+        let mut req = self
+            .client
+            .request(method_req, &url)
+            .header("Authorization", &self.auth_header);
+        if let Some(body) = body {
+            req = req
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .body(body.to_string());
+        }
+        let resp = req.send().map_err(|e| format!("pve_transport:{e}"))?;
+        let status = resp.status().as_u16();
+        let body = resp.text().map_err(|e| format!("pve_body_read:{e}"))?;
+        Ok((status, body))
+    }
+}
+
 fn urlencode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
