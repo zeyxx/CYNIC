@@ -7,6 +7,7 @@ use crate::emit_json;
 use crate::kernel_boundary_audit::audit_kernel_surfaces;
 use crate::ownership_audit::audit_ownership_surfaces;
 use crate::policy_formality_audit::audit_policy_formality;
+use crate::schema_registry_audit::audit_schema_registry;
 use crate::surface_audit::audit_canonical_surfaces;
 
 mod audit_persist;
@@ -76,6 +77,15 @@ pub(crate) enum DevCommand {
     },
     /// Audit whether each declarative CYNIC policy is typed law or prose-only.
     PolicyFormalityAudit {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        output: Option<std::path::PathBuf>,
+        #[arg(long)]
+        persist: bool,
+    },
+    /// Inventory every versioned cynic.*.vN schema literal and its fragmentation facts.
+    SchemaRegistryAudit {
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -270,6 +280,25 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
                 output,
                 persist,
                 "policy-formality-audit.json",
+            ) {
+                return crate::fail(error);
+            }
+            emit_json(&report, report.status != "ok")
+        }
+        DevCommand::SchemaRegistryAudit {
+            json,
+            output,
+            persist,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let report = audit_schema_registry();
+            if let Err(error) = maybe_persist_dev_audit_report(
+                &report,
+                output,
+                persist,
+                "schema-registry-audit.json",
             ) {
                 return crate::fail(error);
             }

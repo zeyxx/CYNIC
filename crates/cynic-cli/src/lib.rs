@@ -32,3 +32,6 @@ mod rust_source;
 
 #[path = "policy_formality_audit.rs"]
 pub mod policy_formality_audit;
+
+#[path = "schema_registry_audit.rs"]
+pub mod schema_registry_audit;

@@ -56,6 +56,7 @@ mod runtime_paths;
 mod runtime_suite;
 mod runtime_surface;
 mod rust_source;
+mod schema_registry_audit;
 mod solana_surface;
 pub(crate) mod source_surface;
 mod task_surface;
