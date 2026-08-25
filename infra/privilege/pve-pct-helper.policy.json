@@ -1,0 +1,27 @@
+{
+  "schema": "cynic.host.pve_helper_policy.v1",
+  "subject": "cynic",
+  "helper_path": "/usr/local/sbin/pct-bounded-exec",
+  "sudoers_path": "/etc/sudoers.d/cynic-pve-pct",
+  "pct_path": "/usr/sbin/pct",
+  "capabilities": [
+    {
+      "id": "pct-list",
+      "action": "list",
+      "args": [],
+      "purpose": "CT inventory for fleet observation (read-only)"
+    },
+    {
+      "id": "pct-probe",
+      "action": "probe",
+      "args": [],
+      "purpose": "read-only git-forgejo CT observation (hostname, app.ini, forgejo user/binary)"
+    },
+    {
+      "id": "forgejo-machine-token",
+      "action": "generate-token",
+      "args": ["--scopes", "write:repository"],
+      "purpose": "one-shot RuntimeMachineIdentity issuance for the cynic-cortex Forgejo principal"
+    }
+  ]
+}

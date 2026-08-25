@@ -74,6 +74,7 @@ pub mod plan_verifier;
 pub mod ports;
 pub mod pre_os_control;
 pub mod principal_prepare;
+pub mod privilege;
 pub mod process_convergence;
 pub mod process_observation;
 pub mod profiles;
