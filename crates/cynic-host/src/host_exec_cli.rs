@@ -15,6 +15,7 @@ mod runtime_seed;
 mod service_reconcile;
 mod storage_identity;
 mod storage_schema;
+mod transport_run;
 mod validation;
 
 pub fn execute(args: Vec<String>) -> Result<ExitCode, String> {
@@ -28,6 +29,7 @@ pub fn execute(args: Vec<String>) -> Result<ExitCode, String> {
         "bridge-install" => bridge_commands::execute_bridge_install(&args[1..]),
         "bridge-status" => bridge_commands::execute_bridge_status(),
         "pve-helper-bundle" => pve_helper_bundle::execute_pve_helper_bundle(&args[1..]),
+        "transport-run" => transport_run::execute_transport_run(&args[1..]),
         "host-exec-validate-request" => validation::execute_host_exec_validate_request(&args[1..]),
         "transport-matrix" => {
             let observer =

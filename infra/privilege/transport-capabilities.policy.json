@@ -1,0 +1,76 @@
+{
+  "schema": "cynic.host.transport_capabilities.v1",
+  "default_endpoint_overrides": {
+    "cynic-builder": "cynic-builder-build",
+    "cynic-host-proxmox": "proxmox-forge"
+  },
+  "_overrides_note": "builder machine-identity work MUST use the cynic principal transport (cynic-builder-build); the root transport (cynic-builder) is admin-only and never agent-reachable",
+  "capabilities": [
+    {
+      "id": "builder-push-branch",
+      "node": "cynic-builder",
+      "authority_class": "runtime_machine_identity",
+      "argv_template": [
+        "git", "push",
+        "{endpoint}:/var/lib/cynic/source/repositories/CYNIC/.git",
+        "{branch}"
+      ],
+      "params": [
+        { "name": "branch", "kind": "branch_name" }
+      ],
+      "purpose": "publish an agent branch to the builder canonical repo"
+    },
+    {
+      "id": "builder-stage-artifact",
+      "node": "cynic-builder",
+      "authority_class": "runtime_machine_identity",
+      "argv_template": [
+        "scp", "{source}", "{endpoint}:/tmp/{remote_name}"
+      ],
+      "params": [
+        { "name": "source", "kind": "local_path" },
+        { "name": "remote_name", "kind": "path_segment" }
+      ],
+      "purpose": "stage a projected artifact into the builder staging dir"
+    },
+    {
+      "id": "builder-run-command",
+      "node": "cynic-builder",
+      "authority_class": "runtime_machine_identity",
+      "argv_template": [
+        "ssh", "-o", "BatchMode=yes", "{endpoint}", "{script_path}"
+      ],
+      "params": [
+        { "name": "script_path", "kind": "path_segment" }
+      ],
+      "purpose": "run a staged, reviewed script on the builder via the machine principal"
+    },
+    {
+      "id": "pve-stage-helper-artifact",
+      "node": "cynic-host-proxmox",
+      "authority_class": "human_admin_bootstrap",
+      "argv_template": [
+        "scp", "{source}", "{endpoint}:/tmp/{remote_name}"
+      ],
+      "params": [
+        { "name": "source", "kind": "local_path" },
+        { "name": "remote_name", "kind": "path_segment" }
+      ],
+      "purpose": "stage a HumanAdmin bundle artifact onto the pve host"
+    },
+    {
+      "id": "pve-install-bundle",
+      "node": "cynic-host-proxmox",
+      "authority_class": "human_admin_bootstrap",
+      "argv_template": [
+        "ssh", "-t", "{endpoint}",
+        "sudo sh -c 'install -m 0755 -o root -g root /tmp/{helper_name} /usr/local/sbin/{helper_name} && install -m 0440 -o root -g root /tmp/{sudoers_name} /etc/sudoers.d/cynic-pve-pct && visudo -cf /etc/sudoers.d/cynic-pve-pct && ln -sf /usr/sbin/pct /usr/local/bin/pct && echo BOOTSTRAP_DONE'"
+      ],
+      "params": [
+        { "name": "helper_name", "kind": "path_segment" },
+        { "name": "sudoers_name", "kind": "path_segment" }
+      ],
+      "purpose": "one-shot HumanAdmin install of the projected bounded helper + sudoers membrane"
+    }
+  ]
+}
