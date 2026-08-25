@@ -2,7 +2,7 @@
 //!
 //! Reads the registry, finds nodes with `machine_enrollment` SSH transport,
 //! generates an Ed25519 SSH key pair if the `credential_ref` does not yet
-//! exist on disk, and configures `known_hosts`.
+//! exist on disk. Remote host identity remains a separate SSH-trust admission.
 //!
 //! This closes the infra gap where the autonomous pipeline can parse Forgejo
 //! webhooks and trigger builds, but cannot SSH to the builder because no SSH
@@ -12,7 +12,7 @@
 //!   - types    : CredentialProvisionProof, CredentialProvisionPlan
 //!   - scan     : discover unprovisioned enrollment transports from registry
 //!   - decide   : plan which keys to generate
-//!   - apply    : generate keys + write known_hosts
+//!   - apply    : generate local key material
 //!   - observe  : read-back verification
 
 use std::path::{Path, PathBuf};
@@ -24,7 +24,6 @@ use crate::credential::{CredentialType, SecretFileResolver};
 /// Path constants for SSH credential layout.
 pub const SSH_KEY_DIR: &str = "/etc/cynic/secrets";
 pub const SSH_KEY_SUFFIX: &str = "-ssh";
-pub const KNOWN_HOSTS_PATH: &str = "/etc/cynic/ssh/known_hosts";
 
 /// A transport entry discovered in the registry that needs SSH provisioning.
 #[derive(Debug, Clone)]
@@ -79,6 +78,25 @@ pub fn scan_unprovisioned_enrollment_transports(
             .and_then(Value::as_object);
 
         let Some(authority) = authority else {
+            // No enrollment_authority → check bare ssh.target (e.g. Proxmox host
+            // that other pct_exec nodes depend on). If it has no credential_ref,
+            // it needs a machine SSH key provisioned.
+            let bare_target = ssh_transport.get("target").and_then(Value::as_str);
+            let transport_credential_ref =
+                ssh_transport.get("credential_ref").and_then(Value::as_str);
+            if bare_target.is_some() && transport_credential_ref.is_none() {
+                // derive credential_ref from transport target alias
+                if let Some(alias) = node.get("aliases").and_then(Value::as_array) {
+                    if let Some(first) = alias.first().and_then(Value::as_str) {
+                        transports.push(EnrollmentTransport {
+                            node_id: node_id.clone(),
+                            ssh_target: bare_target.unwrap_or("").to_string(),
+                            credential_ref: format!("{}-ssh", first),
+                            principal: "root".to_string(),
+                        });
+                    }
+                }
+            }
             continue;
         };
 
@@ -191,14 +209,14 @@ pub fn provision_ssh_credential(
     // Compute sha256 fingerprint (base64 of sha256 of the key blob, OpenSSH format)
     let fingerprint = compute_ssh_fingerprint(&pub_key_content.trim());
 
-    // Configure known_hosts
-    let known_hosts_ok = configure_known_hosts(&transport.ssh_target, secrets_dir);
-
     Ok(CredentialProvisionProof {
         node_id: transport.node_id.clone(),
         ssh_key_path: key_path.to_string_lossy().to_string(),
         public_key_sha256: fingerprint,
-        known_hosts_configured: known_hosts_ok,
+        // A generated keypair proves only local key material. Remote host
+        // identity is established by `ssh_trust`, never by a comment or an
+        // implicit key-acceptance side effect in a writable known_hosts file.
+        known_hosts_configured: false,
         read_back_verified: key_path.exists() && pub_key_path.exists(),
     })
 }
@@ -279,26 +297,6 @@ fn base64_encode(input: &[u8]) -> String {
     String::from_utf8(result).unwrap_or_default()
 }
 
-/// Configure known_hosts entry for the SSH target.
-fn configure_known_hosts(target: &str, secrets_dir: &Path) -> bool {
-    // In autonomous mode, we use StrictHostKeyChecking=accept-new which
-    // auto-appends to known_hosts on first connection. This avoids the
-    // bootstrap chicken-and-egg of pre-configuring known_hosts.
-    //
-    // The provisionning proof verifies read-back: the key file exists and
-    // is readable, which is the authoritative check.
-    let known_hosts = secrets_dir.join("known_hosts");
-    if let Ok(mut file) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&known_hosts)
-    {
-        use std::io::Write;
-        let _ = writeln!(file, "# {} configured via credential_provisioning", target);
-    }
-    true
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -312,7 +310,7 @@ mod tests {
                     "transports": {
                         "ssh": {
                             "target": "cynic@10.10.10.119",
-                            "trust": "known_hosts",
+                            "trust": "ssh_trust_anchor",
                             "enrollment_authority": {
                                 "class": "machine_enrollment",
                                 "principal": "root",
@@ -328,7 +326,7 @@ mod tests {
                     "transports": {
                         "ssh": {
                             "target": "cynic@10.10.10.100",
-                            "trust": "known_hosts"
+                            "trust": "ssh_trust_anchor"
                         }
                     },
                     "services": []
