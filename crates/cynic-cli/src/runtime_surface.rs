@@ -13,6 +13,7 @@ mod compat_aliases;
 mod cpu;
 mod disk;
 mod execution_context;
+mod forgejo_token_cli;
 mod host_checks;
 mod inference_dispatch;
 mod inference_surface;
@@ -20,7 +21,7 @@ mod memory;
 mod network;
 mod operator_models;
 
-pub(crate) use operator_models::OperatorModelsCommand;
+pub(crate) use operator_models::{OperatorModelsCommand, execute_operator_models};
 mod network_preflight;
 mod paths;
 mod persistence;
@@ -414,6 +415,39 @@ pub(crate) enum RuntimeCommand {
         #[arg(long, default_value = "/var/lib/cynic")]
         state_root: String,
     },
+    /// Observe or provision the Forgejo runtime token (SSH-local Exec or HTTP).
+    /// `status` (default) probes file + API validity; `create`/`rotate` mutates via --yes.
+    /// No Forgejo admin login secret required — uses the enrolled machine principal.
+    ForgejoToken {
+        #[arg(long, value_enum)]
+        mode: ForgejoTokenMode,
+        #[arg(long)]
+        json: bool,
+        /// Apply mutation (create/rotate). Required for write operations.
+        #[arg(long)]
+        yes: bool,
+        /// Override the canonical token secret path (default /etc/cynic/secrets/forgejo-token).
+        #[arg(long)]
+        token_path: Option<String>,
+    },
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum ForgejoTokenMode {
+    Status,
+    Create,
+    Rotate,
+}
+
+/// Select the Forgejo token adapter based on reachability.
+/// Defaults to local SSH-local Exec; switches to HTTP when the Forgejo
+/// HTTPS endpoint (443) responds.
+pub(crate) fn forgejo_token_adapter_selector()
+-> Box<dyn cynic_host::forgejo_token::ForgejoTokenApiPort> {
+    // TODO: probe HTTPS 443 reachability and switch to HttpForgejoTokenApiAdapter
+    //       when the endpoint is live. For now, local-exec is the safe default
+    //       given the current state: port 443 is closed/filtered.
+    Box::new(cynic_host::forgejo_token::LocalForgejoTokenApiAdapter)
 }
 
 pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
@@ -518,6 +552,12 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::Memory { json } => memory::execute_memory(json),
         RuntimeCommand::Cpu { json } => cpu::execute_cpu(json),
         RuntimeCommand::Network { json } => network::execute_network(json),
+        RuntimeCommand::ForgejoToken {
+            mode,
+            json,
+            yes,
+            token_path,
+        } => forgejo_token_cli::execute_forgejo_token(mode, json, yes, token_path.clone()),
         RuntimeCommand::Inference { .. }
         | RuntimeCommand::InferenceVault { .. }
         | RuntimeCommand::InferenceStatus { .. }
@@ -540,6 +580,12 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         | RuntimeCommand::DepsUpgrade { .. }
         | RuntimeCommand::Disk { .. }
         | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
+        RuntimeCommand::ForgejoToken {
+            mode,
+            json,
+            yes,
+            token_path,
+        } => forgejo_token_cli::execute_forgejo_token(mode, json, yes, token_path),
         RuntimeCommand::Harness { json, kind } => {
             // This arm used to sit in the `unreachable!("pre-dispatched runtime
             // command")` group, but nothing ever pre-dispatched it: no early
