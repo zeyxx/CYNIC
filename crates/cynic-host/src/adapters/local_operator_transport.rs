@@ -72,6 +72,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                 schema: "cynic.ssh_target_inspection.v1",
                 target: target.to_string(),
                 status: "prerequisite_missing".to_string(),
+                observed_at_unix_ms: now_unix_ms(),
                 ssh,
                 ssh_keyscan,
                 host_keys: Vec::new(),
@@ -84,7 +85,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
         }
 
         let scan = Command::new("ssh-keyscan")
-            .args(["-T", "5", "-t", "ed25519,ecdsa,rsa", target])
+            .args(["-T", "5", "-t", "ed25519", target])
             .output();
         match scan {
             Ok(output) if output.status.success() && !output.stdout.is_empty() => {
@@ -97,6 +98,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                     } else {
                         "observed".to_string()
                     },
+                    observed_at_unix_ms: now_unix_ms(),
                     ssh,
                     ssh_keyscan,
                     host_keys,
@@ -110,6 +112,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                 schema: "cynic.ssh_target_inspection.v1",
                 target: target.to_string(),
                 status: "unreachable".to_string(),
+                observed_at_unix_ms: now_unix_ms(),
                 ssh,
                 ssh_keyscan,
                 host_keys: Vec::new(),
@@ -122,6 +125,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                 schema: "cynic.ssh_target_inspection.v1",
                 target: target.to_string(),
                 status: "observation_failed".to_string(),
+                observed_at_unix_ms: now_unix_ms(),
                 ssh,
                 ssh_keyscan,
                 host_keys: Vec::new(),
@@ -228,6 +232,13 @@ fn fingerprints(host_keys: &[u8]) -> Vec<SshHostKeyObservation> {
 fn stderr_detail(stderr: &[u8]) -> Option<String> {
     let value = String::from_utf8_lossy(stderr).trim().to_string();
     (!value.is_empty()).then_some(value)
+}
+
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or_default()
 }
 
 #[cfg(test)]

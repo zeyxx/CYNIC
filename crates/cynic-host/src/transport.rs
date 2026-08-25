@@ -48,6 +48,9 @@ pub struct SshTargetInspectionReport {
     pub schema: &'static str,
     pub target: String,
     pub status: String,
+    /// Timestamp from the observer that produced the host-key evidence.
+    /// A key match without this temporal boundary cannot authorize a route.
+    pub observed_at_unix_ms: u64,
     pub ssh: ExecutableObservation,
     pub ssh_keyscan: ExecutableObservation,
     pub host_keys: Vec<SshHostKeyObservation>,
@@ -66,11 +69,12 @@ pub fn inspect_ssh_target(
     observer: &impl SshTargetInspectionPort,
     target: &str,
 ) -> SshTargetInspectionReport {
-    if !valid_ssh_target(target) {
+    let Ok(host) = canonical_ssh_host(target) else {
         return SshTargetInspectionReport {
             schema: "cynic.ssh_target_inspection.v1",
             target: target.to_string(),
             status: "invalid_target".to_string(),
+            observed_at_unix_ms: 0,
             ssh: ExecutableObservation {
                 binary: "ssh".to_string(),
                 status: "unknown".to_string(),
@@ -87,16 +91,34 @@ pub fn inspect_ssh_target(
             next_action: "provide a DNS name or IP literal without shell syntax".to_string(),
             detail: Some("target contains unsupported characters".to_string()),
         };
-    }
-    observer.inspect_ssh_target(target)
+    };
+    observer.inspect_ssh_target(&host)
 }
 
-fn valid_ssh_target(target: &str) -> bool {
-    !target.is_empty()
-        && target.len() <= 253
-        && target
+/// Reduce an SSH connection target to the host identity covered by an anchor.
+/// The optional `user@` selector is transport configuration, never host-key
+/// identity, so distinct principals on one host share one anchor.
+pub fn canonical_ssh_host(target: &str) -> Result<String, String> {
+    let (user, host) = match target.split_once('@') {
+        Some((user, host)) if !user.is_empty() && !host.is_empty() && !host.contains('@') => {
+            (Some(user), host)
+        }
+        Some(_) => return Err("invalid_ssh_target".to_string()),
+        None => (None, target),
+    };
+    if user.is_some_and(|user| {
+        !user
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.'))
+    }) || host.is_empty()
+        || host.len() > 253
+        || !host
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b':' | b'-'))
+    {
+        return Err("invalid_ssh_target".to_string());
+    }
+    Ok(host.to_string())
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -411,6 +433,7 @@ mod tests {
                 schema: "cynic.ssh_target_inspection.v1",
                 target: target.to_string(),
                 status: "observed".to_string(),
+                observed_at_unix_ms: 1,
                 ssh: ExecutableObservation {
                     binary: "ssh".to_string(),
                     status: "available".to_string(),
@@ -464,6 +487,15 @@ mod tests {
 
         assert_eq!(report.status, "invalid_target");
         assert!(report.host_keys.is_empty());
+    }
+
+    #[test]
+    fn canonical_host_excludes_the_transport_principal() {
+        assert_eq!(
+            canonical_ssh_host("cynic@10.10.10.119"),
+            Ok("10.10.10.119".to_string())
+        );
+        assert!(canonical_ssh_host("cynic@@10.10.10.119").is_err());
     }
 
     #[test]
