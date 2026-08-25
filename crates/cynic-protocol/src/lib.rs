@@ -161,6 +161,7 @@ pub use endpoint::*;
 pub use error_catalog::*;
 pub use evidence::*;
 pub use federation_envelopes::*;
+pub use federation_membership::*;
 pub use fleet_discovery::*;
 pub use fleet_heartbeat::*;
 pub use forgejo::*;

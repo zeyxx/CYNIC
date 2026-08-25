@@ -139,6 +139,10 @@ impl Default for MembershipPolicy {
     }
 }
 
+/// Structural validation result of a [`MembershipPolicy`]: the blocker list
+/// is empty exactly when the policy is usable.
+pub type MembershipPolicyState = Vec<String>;
+
 impl MembershipPolicy {
     /// Pure structural validation. Ordering law: probe < suspect < lapsed,
     /// every field strictly positive.
