@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod bootstrap_admission;
 pub mod bootstrap_contract;
+pub mod route_convergence;
 pub use bootstrap_admission::{
     BUILD_RUNNER_BOOTSTRAP_ADMISSION_SCHEMA, BUILD_RUNNER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
     BUILD_RUNNER_BOOTSTRAP_PREFLIGHT_SCHEMA, BuildRunnerBootstrapAdmission,
@@ -11,6 +12,15 @@ pub use bootstrap_admission::{
 };
 pub use bootstrap_contract::{
     BUILD_RUNNER_BOOTSTRAP_ADMISSION_CONTRACT_SCHEMA, BuildRunnerBootstrapAdmissionContract,
+};
+pub use route_convergence::{
+    BUILD_RUNNER_ROUTE_CONVERGENCE_SCHEMA, BUILD_RUNNER_ROUTE_EVIDENCE_MAX_AGE_MS,
+    BUILD_RUNNER_SEED_ACTION_PLAN_SCHEMA, BUILD_RUNNER_SEED_READ_BACK_CONTRACT_SCHEMA,
+    BuildRunnerCoordinationRouteObservation, BuildRunnerProviderRouteObservation,
+    BuildRunnerRouteDecision, BuildRunnerRouteDesiredState, BuildRunnerRouteObservation,
+    BuildRunnerRoutePath, BuildRunnerRouteState, BuildRunnerSeedActionPlan,
+    BuildRunnerSeedReadBackContract, BuildRunnerSeedRouteObservation,
+    BuildRunnerSshTrustRouteObservation, reconcile_build_runner_route,
 };
 pub mod fleet;
 pub mod ice_evidence;
