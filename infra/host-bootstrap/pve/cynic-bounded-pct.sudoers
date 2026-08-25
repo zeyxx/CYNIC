@@ -1,0 +1,11 @@
+# /etc/sudoers.d/cynic-bounded-pct — HumanAdmin bootstrap artifact (pve host).
+#
+# Narrow transport membrane to the root-owned bounded executor
+# cynic-pct-exec (policy enforcement point). NOT a general command grant:
+# no wildcards, no shell escapes, one exact argv per principal.
+#
+# Install as root:
+#   install -m 0440 -o root -g root cynic-bounded-pct /etc/sudoers.d/
+#   visudo -cf /etc/sudoers.d/cynic-bounded-pct
+
+cynic ALL=(root) NOPASSWD: /usr/local/sbin/cynic-pct-exec list, /usr/local/sbin/cynic-pct-exec probe, /usr/local/sbin/cynic-pct-exec generate-token *
