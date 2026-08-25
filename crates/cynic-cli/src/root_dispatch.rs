@@ -14,7 +14,7 @@ use crate::integrations_surface::{IntegrationsCommand, execute_integrations};
 use crate::lab_surface::{LabCommand, execute_lab};
 use crate::network_surface::{NetworkCommand, execute_network};
 use crate::node_activation_surface::{NodeActivationCommand, execute_node_activation};
-use crate::runtime_surface::{RuntimeCommand, execute_runtime};
+use crate::runtime_surface::{RuntimeCommand, execute_operator_models, execute_runtime};
 use crate::solana_surface::{SolanaCommand, execute_solana};
 use crate::transport_surface::{TransportCommand, execute_transport};
 use crate::{Command, DepsCommand};
@@ -80,8 +80,9 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
             no_tui,
         }),
         Command::Agent { command } => execute_agent(command),
-        Command::Models { .. } | Command::Doctor { .. } | Command::Errors { .. } => {
-            // Upstream scaffold: model/doctor/errors surfaces are declared at the
+        Command::Models { command } => execute_operator_models(command),
+        Command::Doctor { .. } | Command::Errors { .. } => {
+            // Upstream scaffold: doctor/errors surfaces are declared at the
             // command layer but not yet wired to a dispatch arm in this revision.
             ExitCode::SUCCESS
         }
