@@ -600,6 +600,14 @@ is larger than the kernel (58k) — the defect is systemic.
 - Before adding a module/adapter/crate: prove an existing boundary
   cannot absorb the responsibility (§481), then record the decision in
   `infra/CRATE_OWNERSHIP.md` and `infra/surface-registry.json`.
+- Canonical per-crate ownership & SoC model: `infra/CRATE_MODELS.md`.
+  It assembles `contracts/framework.json` modularity_rules
+  (protocol_is_pure, cli_is_adapter, proof_producers_are_low_layer,
+  one_boundary_one_reason) + agnosticity_rules (no_provider_in_domain,
+  n_case_by_registry, substrate_behind_ports) + non_goal §489 (no
+  centralize) into one PRIMARY / OWNS / DELEGATES / FORBIDDEN grid per
+  crate, plus the absorb-vs-new-crate decision form (§2). Use it to
+  classify a suspected responsibility before extracting.
 
 ### Git isolation in shared worktrees (mandatory)
 
