@@ -88,6 +88,7 @@ pub mod pattern_gc;
 pub mod policy;
 pub mod pre_os;
 pub mod provider;
+pub mod publication_policy;
 pub mod release_publication;
 pub mod resource_allocation;
 pub mod runtime;

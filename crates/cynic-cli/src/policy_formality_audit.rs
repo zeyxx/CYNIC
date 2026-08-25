@@ -97,7 +97,11 @@ const POLICY_SURFACES: &[PolicyFormalitySpec] = &[
         policy: "publication_disclosure_consent",
         authority_prose_source: "AGENTS.md §Long-Horizon Direction disclosure guardrail",
         expected_owner_crate: "cynic-protocol",
-        scan_tokens: &["PublicationPolicy", "DisclosurePolicy", "OptInPublication"],
+        scan_tokens: &[
+            "PublicationConsent",
+            "project_for_publication",
+            "PublicProjection",
+        ],
     },
     PolicyFormalitySpec {
         policy: "machine_identity_orphan_rule",
@@ -314,16 +318,18 @@ mod tests {
     }
 
     #[test]
-    fn publication_disclosure_gap_stays_visible_until_formalized() {
+    fn publication_disclosure_is_now_typed_law() {
         let report = audit_policy_formality();
         let entry = report
             .policies
             .iter()
             .find(|entry| entry.policy == "publication_disclosure_consent")
             .expect("publication_disclosure_consent entry");
-        assert_ne!(
+        assert_eq!(
             entry.status, "typed_in_protocol",
-            "if this passes, update the law table: publication policy was formalized"
+            "PublicationConsent/project_for_publication live in \
+             cynic_protocol::publication_policy — reverting to prose would \
+             reopen the disclosure leak risk"
         );
     }
 
