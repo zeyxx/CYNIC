@@ -6,7 +6,7 @@
 //! different authorities; collapsing them is how a coordination provider ends
 //! up treated as network truth.
 //!
-//! It is also distinct from `cynic_protocol::enrollment::MachineEnrollment`,
+//! It is also distinct from `cynic_protocol::machine_enrollment::MachineEnrollment`,
 //! which is the signed identity of a CYNIC *node*. A node can be enrolled in
 //! CYNIC and absent from the mesh, or present on the mesh without a CYNIC
 //! identity. Membership here means only: may this key participate in the

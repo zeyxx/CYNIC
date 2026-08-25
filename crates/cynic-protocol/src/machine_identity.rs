@@ -1,36 +1,17 @@
 use serde::{Deserialize, Serialize};
 
+pub use crate::secret_reference::{SecretClass, SecretProvider, SecretReference};
+
 pub const MACHINE_IDENTITY_SPEC_SCHEMA: &str = "cynic.machine_identity_spec.v1";
 pub const MACHINE_IDENTITY_OBSERVATION_SCHEMA: &str = "cynic.machine_identity_observation.v1";
 pub const MACHINE_IDENTITY_PLAN_SCHEMA: &str = "cynic.machine_identity_plan.v1";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SecretClass {
-    HumanAdmin,
-    MachineEnrollment,
-    RuntimeMachineIdentity,
-    RecoveryBreakglass,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SecretProvider {
-    ProcessEnvironment,
-    PrincipalOwnedFile,
-    OsCredentialStore,
-    ExternalSecretStore,
-}
-
-/// An inspectable reference to secret material. `locator` names an environment
-/// variable, file, credential id, or external-store key; it never contains the
-/// secret value.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SecretReference {
-    pub id: String,
-    pub class: SecretClass,
-    pub provider: SecretProvider,
-    pub locator: String,
-}
+/// Machine identity spec/observation/plan types.
+///
+// NOTE (2026-08-25): `reconcile_machine_identity` currently has no runtime
+// consumer (orphan decision surface). Keep or wire per
+// `protocols/machine-enrollment-federation.md` D1; delete under the AGENTS.md
+// deletion_rule if it cannot prove runtime use.
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MachineIdentitySpec {
