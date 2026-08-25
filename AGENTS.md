@@ -600,6 +600,14 @@ is larger than the kernel (58k) — the defect is systemic.
 - Before adding a module/adapter/crate: prove an existing boundary
   cannot absorb the responsibility (§481), then record the decision in
   `infra/CRATE_OWNERSHIP.md` and `infra/surface-registry.json`.
+- Extraction precondition (every kernel SoC slice): inventory the
+  TARGET crate's existing surfaces (ports, modules, `pub use`) BEFORE
+  writing code. Extraction extends/reuses an existing surface; when an
+  equivalent exists (e.g. `cynic-inference` `backend_identity` vs
+  kernel `BackendHealth`), the existing one becomes canonical — never
+  create a parallel duplicate. Record the inventory result in the slice
+  plan under `.hermes/plans/` and verify post-extraction by re-grepping
+  that the kernel imports no concrete type of the extracted surface.
 - Canonical per-crate ownership & SoC model: `infra/CRATE_MODELS.md`.
   It assembles `contracts/framework.json` modularity_rules
   (protocol_is_pure, cli_is_adapter, proof_producers_are_low_layer,

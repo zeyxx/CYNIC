@@ -14,9 +14,40 @@ PRINCIPE DE VOIE (bottom-up, un couplage à la fois):
 PATTERN PAR SLICE (CYNIC coerant):
   desired: la responsabilité a un owner unique (Modèle §1)
   observe: grep use cynic_X (déjà fait, preuves dans TOPOLOGY)
+  PRECONDITION SURFACES CIBLE: inventorier les surfaces DÉJÀ EXISTANTES
+    du crate cible (grep ports/mod.rs/lib.rs pub use) AVANT tout code.
+    L'extraction ÉTEND/RÉUTILISE une surface existante; si une surface
+    équivalente existe déjà (ex: inference backend_identity vs kernel
+    BackendHealth), c'est elle qui devient canonique — jamais un
+    doublon parallèle. Si aucune surface n'existe: créer le port dans
+    le crate cible d'abord, extraire ensuite.
   reconcile: décider port vs concret (Modèle §2)
   bounded action: déplacer l'impl, kernel garde un use de PORT
   read-back: `cynic dev crate-audit --json` + tests verts
+             + re-grep: plus AUCUN import concret de la surface extraite
+               côté kernel (la flèche rouge est devenue verte/absente)
+
+PRECOND APPLIQUÉE AUX SLICES PLANIFIÉS:
+  slice 1 (→inference): surfaces existantes VÉRIFIÉES = backend_identity.rs
+    (BackendHealthSnapshot proche), model_registry_port.rs, slot_semaphore/
+    slot_tracker (types concrets à réexporter ou wrapper en port),
+    proxy_routing (concret). → étendre ces modules, ne pas créer
+    backend_health v2 à côté de backend_identity.
+  slice 2 (→host): à vérifier = lifecycle/ expose déjà workflow_state,
+    activation_requests/evidence/diagnostics (kernel re-exporte déjà).
+  slice 3 (→host): runtime_registry, runtime_authority, runtime_layout
+    existent dans host — créer RuntimeRegistryPort/RuntimeAuthorityPort
+    au-dessus, PAS de nouveaux modules.
+  slice 4 (→inference): fleet_routing/model_catalog/node_runtime_ops/
+    proxy_routing existent → InferenceRoutingPort/InferenceProxyPort/
+    SlotManagementPort AU-DESSUS des impls existantes.
+  slice 5 (→node): fleet_observability + mesh_registry existent dans
+    node → FleetObservabilityPort/MeshRegistryPort au-dessus.
+  slice 6 (crates nouvelles): network/storage/pkg = NOUVELLES crates →
+    la precondition devient "inventaire des modules sources à déplacer"
+    (node network_*, kernel storage + host storage_*, host
+    ecosystem_package) et vérifier qu'aucune surface équivalente n'existe
+    déjà ailleurs (anti-doublon inter-crates).
 
 ================================================================
 VOIE PROPOSÉE (ordre par risque croissant / ROI)
