@@ -7,7 +7,6 @@ use crate::{
     PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
 };
 
-use super::agent_request::BUILD_SOURCE_SNAPSHOT_REFERENCE_LEGACY_SCHEMA;
 use super::{
     BUILD_AGENT_REQUEST_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA,
     BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA, BuildAgentRequest, BuildSourceReference,
@@ -102,11 +101,11 @@ pub fn build_source_reference_from_workload(
                 .first()
                 .and_then(|snapshot_source| serde_json::from_str(&snapshot_source.subject).ok());
             BuildSourceSnapshotReference {
-                schema: if source.is_some() {
-                    BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string()
-                } else {
-                    BUILD_SOURCE_SNAPSHOT_REFERENCE_LEGACY_SCHEMA.to_string()
-                },
+                // v1 (schema without transport evidence) was retired: a
+                // snapshot whose recovery source cannot be decoded now stays
+                // on the current schema and fails admission downstream with
+                // build_source_snapshot_recovery_source_invalid.
+                schema: BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string(),
                 digest: snapshot.subject.clone(),
                 format: crate::SOURCE_MATERIALIZATION_FORMAT.to_string(),
                 authority_ref: snapshot

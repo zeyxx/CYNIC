@@ -304,18 +304,20 @@ mod tests {
     #[test]
     fn known_live_version_drift_stays_visible_until_resolved() {
         let report = audit_schema_registry();
-        let snapshot = report
-            .version_drift_families
-            .iter()
-            .find(|family| family.base_name == "cynic.build.source_snapshot_reference")
-            .expect(
-                "snapshot_reference v1 legacy window is still accepted in production; \
-                     resolving it (retire or formalize) must update this expectation",
-            );
         assert!(
-            snapshot.versions.contains(&"1".to_string())
-                && snapshot.versions.contains(&"2".to_string()),
-            "v1 (legacy read path) and v2 (write path) are both live in production"
+            report.version_drift_families.is_empty(),
+            "a production version drift reappeared: {:#?}",
+            report
+                .version_drift_families
+                .iter()
+                .map(|family| family.base_name.clone())
+                .collect::<Vec<_>>()
         );
+        // source_snapshot_reference.v1 was retired after observation proved
+        // zero producers and zero persisted references; the legacy acceptance
+        // window in build/agent_request.rs is gone. This ratchet holds the
+        // registry at zero live drift — reintroducing a second version of any
+        // schema identity fails here first.
+        assert_eq!(report.status, "ok");
     }
 }
