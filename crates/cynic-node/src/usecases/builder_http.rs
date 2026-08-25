@@ -19,6 +19,7 @@ use uuid::Uuid;
 
 use cynic_protocol::{
     AgentBudgets, AgentCitizenshipRecord, AgentScope, AgentWorkloadRecord, AgentWorkloadState,
+    BUILD_AGENT_REQUEST_SCHEMA, BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA,
     BuildAgentRequest, BuildSourceReference, MutationAdmission, SecurityEvidenceState,
     admit_build_mutation, compose_build_agent_workload,
 };
@@ -34,6 +35,10 @@ pub struct BuilderHttpConfig {
     pub workspace_root: String,
     pub node_id: String,
     pub webhook_secret: Option<String>,
+    /// Registry-declared repository the webhook builds (no hardcoded repo).
+    pub repository_id: String,
+    /// Secret-free source transport URI for that repository.
+    pub transport_uri: String,
 }
 
 #[derive(Clone)]
@@ -127,6 +132,20 @@ fn verify_webhook_signature(secret: &str, body: &Bytes, signature: &str) -> bool
     signature == expected
 }
 
+/// Best-effort ref name for push provenance evidence (`reref.id`, else the
+/// branch-ish part of `ref`, else "unknown-ref"). Evidence names what was
+/// pushed; it never fabricates a digest.
+fn reref_name(payload: &ForgejoPayload) -> String {
+    if let Some(reref) = &payload.reref {
+        return reref.id.clone();
+    }
+    payload
+        .commits
+        .last()
+        .map(|_| "push".to_string())
+        .unwrap_or_else(|| "unknown-ref".to_string())
+}
+
 async fn webhook_forgejo(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -214,7 +233,7 @@ async fn webhook_forgejo(
     let accepted_at_ms = Utc::now().timestamp_millis();
 
     let request = BuildAgentRequest {
-        schema: "cynic.build_agent_request.v1".into(),
+        schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
         request_id: workload_id.clone(),
         requested_by: payload
             .pusher
@@ -223,19 +242,23 @@ async fn webhook_forgejo(
             .unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
         source: BuildSourceReference {
-            schema: "cynic.build.source_reference.v1".into(),
-            repository_id: "cynic".into(),
-            transport_uri: "https://forgejo.synapse.cynic".into(),
+            schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+            repository_id: state.config.repository_id.clone(),
+            transport_uri: state.config.transport_uri.clone(),
             revision: commit_sha.clone(),
             authority_ref: "forgejo".into(),
             snapshot: None,
         },
-        action: "cargo:build".into(),
+        // Canonical gate action: the recipe table admits make:check /
+        // make:build / make:build-release only. A push triggers the full
+        // canonical check gate, never an ad-hoc cargo invocation.
+        action: "make:check".into(),
         desired_role: "build_runner".into(),
         mutation_authorized: true,
-        proof_requirements: vec!["build_success".into()],
+        proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
         release_publication: None,
-        evidence_refs: vec![],
+        // Push provenance is the minimal admission evidence: ref + commit.
+        evidence_refs: vec![format!("forgejo:{}@{}", reref_name(&payload), commit_sha)],
     };
 
     let envelope = compose_build_agent_workload(
@@ -343,5 +366,66 @@ mod tests {
         let sha = "a".repeat(40);
         assert_eq!(sha.len(), 40);
         assert!(sha.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    /// The webhook's request must survive the REAL admission gate. This is the
+    /// regression proof for the retired dead-letter request (stale
+    /// cynic.build_agent_request.v1 schema, non-canonical cargo:build action,
+    /// empty evidence) that Forgejo pushes could never admit.
+    #[test]
+    fn webhook_request_passes_canonical_admission_and_composition() {
+        let payload = ForgejoPayload {
+            before: String::new(),
+            after: "a".repeat(40),
+            reref: Some(ForgejoRef {
+                id: "refs/heads/main".to_string(),
+            }),
+            pusher: Some(ForgejoAuthor {
+                name: "zeyxx".to_string(),
+                email: "zeyxx@invalid".to_string(),
+            }),
+            commits: vec![],
+        };
+        let commit_sha = payload.after.clone();
+        let config_repo = crate::config::default_build_repository_id();
+        let request = BuildAgentRequest {
+            schema: cynic_protocol::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            request_id: format!("forgejo-{}", Uuid::new_v4()),
+            requested_by: payload
+                .pusher
+                .as_ref()
+                .map(|p| p.name.clone())
+                .unwrap_or_else(|| "forgejo".into()),
+            source_commit: commit_sha.clone(),
+            source: BuildSourceReference {
+                schema: cynic_protocol::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: config_repo,
+                transport_uri: format!(
+                    "ssh://forgejo@forgejo.synapse.cynic:22/owner/{}.git",
+                    "cynic"
+                ),
+                revision: commit_sha.clone(),
+                authority_ref: "forgejo".into(),
+                snapshot: None,
+            },
+            action: "make:check".to_string(),
+            desired_role: "build_runner".to_string(),
+            mutation_authorized: true,
+            proof_requirements: vec![cynic_protocol::BUILD_GRANT_READ_BACK_PROOF.to_string()],
+            release_publication: None,
+            evidence_refs: vec![format!("forgejo:{}@{}", reref_name(&payload), commit_sha)],
+        };
+
+        let admission = cynic_protocol::admit_build_agent_request(&request);
+        assert_eq!(
+            admission.status, "admitted",
+            "blockers: {:?}",
+            admission.blockers
+        );
+
+        let envelope =
+            cynic_protocol::compose_build_agent_workload(&request, "cynic-builder", "/tmp/wf")
+                .expect("webhook request composes a bounded workload");
+        assert_eq!(envelope.action.argv, vec!["make", "check"]);
     }
 }
