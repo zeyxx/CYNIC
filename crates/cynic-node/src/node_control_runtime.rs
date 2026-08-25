@@ -167,6 +167,21 @@ pub(crate) async fn start_tasks(
             .join("agent-scheduler/completion-receipts"),
     );
     let delivery_shutdown = control_shutdown.clone();
+    // Membership tick (L3, D4): node-local view over the kernel-plane TCP
+    // probe. Runs regardless of kernel reachability — that is its purpose.
+    // Prepared before the control_task move below (node_id is cloned there).
+    let membership_transport = std::sync::Arc::new(
+        crate::adapters::kernel_plane_membership_transport::KernelTcpTransport::from_kernel_url(
+            &control_config.kernel_url,
+            (control_config.timeout_secs.saturating_mul(1000)).min(5_000),
+        )
+        .map_err(|error| format!("membership transport: {error}"))?,
+    );
+    let membership_state_root = control_config.agent_workload_state_root.clone();
+    let membership_node_id = control_config.node_id.clone();
+    let membership_interval = control_config.membership_interval_secs;
+    let membership_policy = cynic_protocol::MembershipPolicy::default();
+    let membership_shutdown = shutdown.clone();
     let control_task = tokio::spawn(async move {
         usecases::node_control_plane_uc::run_node_control_loop(
             &control_config.node_id,
@@ -191,33 +206,29 @@ pub(crate) async fn start_tasks(
         ),
     );
     // Membership tick (L3, D4): node-local view over the kernel-plane TCP
-    // probe. Runs regardless of kernel reachability — that is its purpose.
-    let membership_transport = std::sync::Arc::new(
-        adapters::kernel_plane_membership_transport::KernelTcpTransport::from_kernel_url(
-            &control_config.kernel_url,
-            (control_config.timeout_secs.saturating_mul(1000)).min(5_000),
-        )
-        .map_err(|error| format!("membership transport: {error}"))?,
-    );
-    let membership_state_root = control_config.agent_workload_state_root.clone();
-    let membership_node_id = control_config.node_id.clone();
-    let membership_interval = control_config.membership_interval_secs;
-    let membership_policy = cynic_protocol::MembershipPolicy::default();
-    let membership_shutdown = shutdown.clone();
+    // probe. Inputs prepared above (before the control_task move); the loop
+    // runs regardless of kernel reachability — that is its purpose.
     let membership_task = tokio::task::spawn_blocking(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
+        let rt = match tokio::runtime::Builder::new_current_thread()
             .enable_time()
             .build()
-            .map_err(|e| format!("membership runtime: {e}"))?;
-        rt.block_on(usecases::federation_membership_uc::run_membership_loop(
-            membership_node_id,
-            membership_policy,
-            membership_transport,
-            membership_state_root,
-            membership_interval,
-            membership_shutdown,
-        ));
-        Ok::<(), String>(())
+        {
+            Ok(rt) => rt,
+            Err(error) => {
+                tracing::error!(%error, "membership runtime build failed");
+                return;
+            }
+        };
+        rt.block_on(
+            crate::usecases::federation_membership_uc::run_membership_loop(
+                membership_node_id,
+                membership_policy,
+                membership_transport,
+                membership_state_root,
+                membership_interval,
+                membership_shutdown,
+            ),
+        );
     });
     let mut tasks = vec![control_task, renewal_task, membership_task];
     if enrollment_proven {
