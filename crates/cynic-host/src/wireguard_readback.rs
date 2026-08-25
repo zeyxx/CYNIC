@@ -7,7 +7,8 @@
 //! durable. Authority: `protocols/machine-enrollment-federation.md` step 2.
 
 use cynic_protocol::{
-    TransportFleetReadback, TransportKind, TransportReadback, TransportState, parse_wg_dump,
+    TRANSPORT_FLEET_READBACK_SCHEMA, TRANSPORT_READBACK_SCHEMA, TransportFleetReadback,
+    TransportKind, TransportReadback, TransportState, parse_wg_dump,
 };
 
 use crate::update_lifecycle::ArgvRunner;
@@ -71,7 +72,7 @@ impl<'a> WgReadbackObserver<'a> {
         for want in desired {
             let rb = match tool_failure.as_ref() {
                 Some(reason) => TransportReadback {
-                    schema: "cynic.transport_readback.v1".to_string(),
+                    schema: TRANSPORT_READBACK_SCHEMA.to_string(),
                     node_id: want.node_id.clone(),
                     kind: TransportKind::WireGuardPeer {
                         endpoint: String::new(),
@@ -104,7 +105,7 @@ impl<'a> WgReadbackObserver<'a> {
                         rb
                     }
                     None => TransportReadback {
-                        schema: "cynic.transport_readback.v1".to_string(),
+                        schema: TRANSPORT_READBACK_SCHEMA.to_string(),
                         node_id: want.node_id.clone(),
                         kind: TransportKind::WireGuardPeer {
                             endpoint: String::new(),
@@ -121,7 +122,7 @@ impl<'a> WgReadbackObserver<'a> {
             readbacks.push(rb);
         }
         TransportFleetReadback {
-            schema: "cynic.transport_fleet_readback.v1".to_string(),
+            schema: TRANSPORT_FLEET_READBACK_SCHEMA.to_string(),
             observed_at_unix_ms: now_unix_ms,
             readbacks,
         }

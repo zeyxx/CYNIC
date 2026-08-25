@@ -10,7 +10,7 @@
 //!
 //! Authority: `protocols/machine-enrollment-federation.md` step 3 wiring.
 
-use cynic_protocol::{TransportKind, TransportReadback, TransportState};
+use cynic_protocol::{TRANSPORT_READBACK_SCHEMA, TransportKind, TransportReadback, TransportState};
 
 use crate::usecases::federation_membership_uc::MembershipTransportPort;
 
@@ -48,7 +48,15 @@ impl KernelTcpTransport {
         }
         let (host, port_str) = match authority.rsplit_once(':') {
             Some((h, p)) => (h.to_string(), p.to_string()),
-            None => (authority.to_string(), "80".to_string()),
+            None => (
+                authority.to_string(),
+                // Scheme-aware default: https is 443, everything else 80.
+                if trimmed.starts_with("https://") {
+                    "443".to_string()
+                } else {
+                    "80".to_string()
+                },
+            ),
         };
         let port: u16 = port_str
             .parse()
@@ -87,7 +95,7 @@ impl KernelTcpTransport {
             }
         };
         TransportReadback {
-            schema: "cynic.transport_readback.v1".to_string(),
+            schema: TRANSPORT_READBACK_SCHEMA.to_string(),
             node_id: KERNEL_TCP_PLANE_NODE_ID.to_string(),
             kind: TransportKind::Tcp {
                 host: self.host.clone(),
@@ -123,6 +131,10 @@ mod tests {
         let t2 = KernelTcpTransport::from_kernel_url("http://kernel.synapse.cynic", 1000)
             .expect("parses default port");
         assert_eq!(t2.port, 80);
+        // scheme-aware defaults: https without explicit port is 443, not 80
+        let t3 = KernelTcpTransport::from_kernel_url("https://kernel.synapse.cynic", 1000)
+            .expect("parses https default");
+        assert_eq!(t3.port, 443);
     }
 
     #[test]

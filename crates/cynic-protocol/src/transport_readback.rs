@@ -58,6 +58,12 @@ pub enum TransportState {
 /// Invariant (design doc §4): every membership transition that cites a
 /// transport cites this struct, and this struct alone can never mint or
 /// renew an enrollment grant.
+///
+/// Attribution contract: `node_id` names the SUBJECT the evidence is about —
+/// a kernel-plane probe attributes its report to `kernel-primary`, a
+/// WireGuard handshake to the peer whose key was checked, a self-observation
+/// to `self`. It must never be silently repurposed as the observer's own id;
+/// observers that measure others say so in `evidence_refs`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransportReadback {
     pub schema: String,
@@ -143,8 +149,10 @@ pub struct WgDumpPeer {
     pub public_key: String,
     pub endpoint: Option<String>,
     pub allowed_ips: String,
-    /// Seconds since last successful handshake; `None` = never handshook.
-    pub latest_handshake_seconds_ago: Option<u64>,
+    /// Raw unix timestamp (seconds) of the latest successful handshake;
+    /// `None` = never handshook. Age is computed against a caller-provided
+    /// now via [`wg_handshake_age_ms`] — this field is NOT an age.
+    pub latest_handshake_unix_s: Option<u64>,
 }
 
 /// Parse the TSV output of `wg show <iface> dump`.
@@ -173,10 +181,7 @@ pub fn parse_wg_dump(output: &str) -> Vec<WgDumpPeer> {
             public_key: cols[0].to_string(),
             endpoint: (!cols[1].trim().is_empty()).then(|| cols[1].to_string()),
             allowed_ips: cols[2].to_string(),
-            // Store raw unix timestamp in seconds-ago slot only when we can
-            // compute it against `now` below; here keep raw value semantics:
-            // callers compare via [`wg_handshake_age_ms`].
-            latest_handshake_seconds_ago: latest,
+            latest_handshake_unix_s: latest,
         });
     }
     peers
@@ -185,7 +190,7 @@ pub fn parse_wg_dump(output: &str) -> Vec<WgDumpPeer> {
 /// Compute handshake staleness in ms against a caller-provided now (unix ms).
 /// Returns `None` when the peer never handshook. Pure.
 pub fn wg_handshake_age_ms(peer: &WgDumpPeer, now_unix_ms: u64) -> Option<u64> {
-    let hs = peer.latest_handshake_seconds_ago?; // actually unix seconds
+    let hs = peer.latest_handshake_unix_s?;
     let hs_ms = hs.saturating_mul(1000);
     Some(now_unix_ms.saturating_sub(hs_ms))
 }
@@ -251,7 +256,7 @@ kRs1uCQBwuBWJJP0wA0P4eHY3QKtpM/fEw6fdvPaEV8=\t10.10.10.119:44196\t10.20.0.5/32\t
     fn never_handshook_peer_is_unreachable_even_after_long_wait() {
         let peers = parse_wg_dump(WG_DUMP_FIXTURE);
         let builder = &peers[1];
-        assert_eq!(builder.latest_handshake_seconds_ago, None);
+        assert_eq!(builder.latest_handshake_unix_s, None);
         let rb = readback_from_wg_peer("cynic-builder", builder, 1_800_000_000_000, 150_000);
         assert!(!rb.healthy());
         assert_eq!(
@@ -274,7 +279,7 @@ kRs1uCQBwuBWJJP0wA0P4eHY3QKtpM/fEw6fdvPaEV8=\t10.10.10.119:44196\t10.20.0.5/32\t
 
         // stale: 400s old > 150s max
         let stale_peer = WgDumpPeer {
-            latest_handshake_seconds_ago: forge.latest_handshake_seconds_ago.map(|t| t - 370),
+            latest_handshake_unix_s: forge.latest_handshake_unix_s.map(|t| t - 370),
             ..forge.clone()
         };
         let rb_stale = readback_from_wg_peer("forgejo", &stale_peer, now, 150_000);

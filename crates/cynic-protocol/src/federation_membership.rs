@@ -219,7 +219,9 @@ impl FederationMember {
     }
 
     /// Whether this member may act at `now`, given fresh read-back.
-    /// Suspended/expelled/unknown members never pass, whatever the lease says.
+    /// Only `Active` passes: Suspect/Lapsed (liveness) and
+    /// Suspended/Expelled/Unknown (authority/no-read-back) all fail closed,
+    /// whatever the lease says.
     pub fn can_act_at(&self, now_unix_ms: u64) -> bool {
         self.status.is_active() && self.lease.is_live_at(now_unix_ms)
     }
