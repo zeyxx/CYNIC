@@ -7,6 +7,15 @@
 
 use cynic_protocol::NodeSubstrateDesiredState;
 
+use crate::adapters::proxmox_api::HttpTransport;
+
+fn current_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or_default()
+}
+
 /// Canonical provisioning plan for one node principal.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ProvisionPrincipalPlan {
@@ -82,6 +91,75 @@ pub struct ProvisionPrincipalProof {
 }
 
 pub const PROVISION_PRINCIPAL_PROOF_SCHEMA: &str = "cynic.node_provision.principal_proof.v1";
+
+/// Sealed evidence of one provisioning apply. Emitted even when read-back is
+/// unverified — the CALLER checks `converged()`; silence is never success.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ProvisionPrincipalProof {
+    pub schema: String,
+    pub plan: ProvisionPrincipalPlan,
+    pub upid: String,
+    pub task_exitcode: i64,
+    pub read_back_verified: bool,
+    pub observed_at_unix_ms: u64,
+}
+
+impl ProvisionPrincipalProof {
+    /// Convergence = mutation succeeded AND read-back proves the principal.
+    pub fn converged(&self) -> bool {
+        self.task_exitcode == 0 && self.read_back_verified
+    }
+}
+
+/// Execute the plan against the Proxmox API adapter.
+///
+/// Fail-closed contract (scratch-validated 16/16):
+/// - task failure / unknown state / timeout → Err (no fake convergence)
+/// - read-back miss → Ok(proof) with `converged()==false`; caller MUST surface
+///   blocked state — no silent degradation.
+pub fn apply_provision_principal<T: HttpTransport>(
+    plan: &ProvisionPrincipalPlan,
+    adapter: &crate::adapters::proxmox_api::ProxmoxApiSubstrateAdapter<T>,
+    max_polls: u32,
+    sleep_ms_between: u64,
+) -> Result<ProvisionPrincipalProof, String> {
+    use crate::adapters::proxmox_api::PveTaskState;
+
+    // 1. Mutation — typed argv inside the container.
+    let upid =
+        adapter.lxc_exec_start(plan.vmid, &plan.exec_argv.iter().map(String::as_str).collect::<Vec<_>>())?;
+
+    // 2. Bounded wait for terminal task state.
+    let state = adapter.task_wait(&upid, max_polls, sleep_ms_between)?;
+    let task_exitcode = match state {
+        PveTaskState::Ok { exitcode } => exitcode,
+        PveTaskState::Failed { exitcode } => {
+            return Err(format!(
+                "pve_task_failed_exitcode_{}",
+                exitcode.map(|c| c.to_string()).unwrap_or_else(|| "?".into())
+            ));
+        }
+        PveTaskState::Unknown(other) => return Err(format!("pve_task_unknown:{other}")),
+        PveTaskState::Running => return Err("pve_task_still_running_after_polls".into()),
+    };
+
+    // 3. Read-back — prove the principal exists now (independent of step-1 output).
+    let rb_upid = adapter.lxc_exec_start(
+        plan.vmid,
+        &["getent", "passwd", plan.principal.as_str()],
+    )?;
+    let rb_state = adapter.task_wait(&rb_upid, max_polls, sleep_ms_between)?;
+    let read_back_verified = matches!(rb_state, PveTaskState::Ok { exitcode: 0 });
+
+    Ok(ProvisionPrincipalProof {
+        schema: PROVISION_PRINCIPAL_PROOF_SCHEMA.to_string(),
+        plan: plan.clone(),
+        upid,
+        task_exitcode,
+        read_back_verified,
+        observed_at_unix_ms: current_unix_ms(),
+    })
+}
 
 #[cfg(test)]
 mod tests {
