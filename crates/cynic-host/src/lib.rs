@@ -105,6 +105,7 @@ pub mod source_lease;
 pub mod source_sync;
 pub mod source_worktree;
 pub mod space_gc;
+pub mod ssh_trust;
 pub mod storage_capabilities;
 pub mod storage_credential_sync;
 pub(crate) mod storage_identity;
@@ -115,6 +116,7 @@ pub mod tunnel_supervisor;
 pub mod update_lifecycle;
 pub mod usecases;
 pub mod vertical_conformance;
+pub mod wireguard_readback;
 
 pub fn sha256_digest(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
