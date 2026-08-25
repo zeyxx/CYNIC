@@ -42,6 +42,10 @@ pub(super) fn default_node_control_interval_secs() -> u64 {
     30
 }
 
+pub(super) fn default_membership_interval_secs() -> u64 {
+    10
+}
+
 pub(super) fn default_node_control_timeout_secs() -> u64 {
     10
 }

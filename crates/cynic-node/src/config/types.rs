@@ -61,7 +61,11 @@ pub(crate) struct NodeControlConfig {
     #[serde(default = "defaults::default_builder_listen_addr")]
     pub(crate) builder_listen_addr: std::net::SocketAddr,
     #[serde(default = "defaults::default_workspace_root")]
-    pub(crate) workspace_root: std::path::PathBuf,
+    pub(crate) workspace_root: PathBuf,
+    /// Membership tick policy thresholds (L3, D4). Defaults align with
+    /// protocols/machine-enrollment-federation.md D3.
+    #[serde(default = "defaults::default_membership_interval_secs")]
+    pub(crate) membership_interval_secs: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]

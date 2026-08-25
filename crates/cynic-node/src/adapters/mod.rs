@@ -11,6 +11,7 @@ pub mod http_release_artifact_publication;
 pub mod http_runtime_artifact_transport;
 pub mod https_source_snapshot_acquisition;
 pub mod kernel_agent_workspace_claim_store;
+pub mod kernel_plane_membership_transport;
 pub mod kernel_source_repository_proof_commit;
 pub(crate) mod libvirt_harness_target_attestor;
 pub mod local_agent_scheduler_journal;
