@@ -61,11 +61,28 @@ pub(crate) struct SchemaVersionDriftFamily {
 
 #[derive(Default)]
 struct SchemaScan {
-    /// schema id -> ordered set of files carrying its literal
-    by_schema: BTreeMap<String, Vec<String>>,
+    /// schema id -> files carrying its literal IN PRODUCTION code. This is the
+    /// live-identity view: test fixtures referencing future or invalid versions
+    /// are forward-compat proofs, not deployed contracts.
+    by_schema_prod: BTreeMap<String, Vec<String>>,
+    /// schema id -> every file carrying its literal (production + tests).
+    by_schema_all: BTreeMap<String, Vec<String>>,
     literal_occurrences: usize,
     files_with_literals: BTreeSet<String>,
     unobserved_crates: Vec<String>,
+}
+
+/// Splits one source file into (production, tests) using the repo-standard
+/// marker. Falls back to the bare attribute when the `mod tests` spelling
+/// differs; both directions are conservative for fixture classification.
+fn split_production_and_tests(content: &str) -> (&str, &str) {
+    let cut = content
+        .find("#[cfg(test)]\nmod tests")
+        .or_else(|| content.find("#[cfg(test)]"));
+    match cut {
+        Some(index) => (&content[..index], &content[index..]),
+        None => (content, ""),
+    }
 }
 
 impl SchemaScan {
@@ -94,14 +111,21 @@ impl SchemaScan {
                 let Ok(content) = std::fs::read_to_string(&file) else {
                     continue;
                 };
+                let rel = relative_path(&crate_src, &file);
+                let (production, tests) = split_production_and_tests(&content);
+                let rel_path = format!("{crate_name}/{rel}");
+                for schema_id in extract_schema_ids(production) {
+                    let entry = scan.by_schema_prod.entry(schema_id.clone()).or_default();
+                    if !entry.contains(&rel_path) {
+                        entry.push(rel_path.clone());
+                    }
+                }
                 for schema_id in extract_schema_ids(&content) {
-                    let rel = relative_path(&crate_src, &file);
                     scan.literal_occurrences += 1;
-                    scan.files_with_literals
-                        .insert(format!("{crate_name}/{rel}"));
-                    let entry = scan.by_schema.entry(schema_id).or_default();
-                    if !entry.contains(&format!("{crate_name}/{rel}")) {
-                        entry.push(format!("{crate_name}/{rel}"));
+                    scan.files_with_literals.insert(rel_path.clone());
+                    let entry = scan.by_schema_all.entry(schema_id).or_default();
+                    if !entry.contains(&rel_path) {
+                        entry.push(rel_path.clone());
                     }
                 }
             }
@@ -114,7 +138,7 @@ impl SchemaScan {
     }
 
     fn scattered(&self) -> Vec<(String, Vec<String>)> {
-        self.by_schema
+        self.by_schema_prod
             .iter()
             .filter(|(_, files)| files.len() > 2)
             .map(|(schema_id, files)| (schema_id.clone(), files.clone()))
@@ -123,7 +147,7 @@ impl SchemaScan {
 
     fn version_drift_families(&self) -> Vec<SchemaVersionDriftFamily> {
         let mut families: BTreeMap<String, BTreeMap<String, Vec<String>>> = BTreeMap::new();
-        for (schema_id, files) in &self.by_schema {
+        for (schema_id, files) in &self.by_schema_prod {
             let Some((base_name, version)) = schema_id.rsplit_once(".v") else {
                 continue;
             };
@@ -199,9 +223,9 @@ pub(crate) fn audit_schema_registry() -> SchemaRegistryAuditReport {
 
     let scattered = scan.scattered();
     let drift = scan.version_drift_families();
-    let unique_schema_count = scan.by_schema.len();
+    let unique_schema_count = scan.by_schema_prod.len();
     let protocol_canonical_count = scan
-        .by_schema
+        .by_schema_prod
         .values()
         .filter(|files| files.iter().any(|path| path.starts_with("cynic-protocol/")))
         .count();
@@ -261,17 +285,37 @@ mod tests {
     }
 
     #[test]
+    fn production_view_excludes_test_fixture_forks() {
+        let report = audit_schema_registry();
+        // journal_entry.v9 and judgment.v2 exist ONLY inside #[cfg(test)]
+        // forward-compat / negative fixtures. They are not deployed identities,
+        // so the production view must not report them as live drift.
+        for base in ["cynic.evidence.journal_entry", "cynic.judgment"] {
+            assert!(
+                !report
+                    .version_drift_families
+                    .iter()
+                    .any(|family| family.base_name == base),
+                "{base} drift came from test fixtures, not production law"
+            );
+        }
+    }
+
+    #[test]
     fn known_live_version_drift_stays_visible_until_resolved() {
         let report = audit_schema_registry();
-        let journal = report
+        let snapshot = report
             .version_drift_families
             .iter()
-            .find(|family| family.base_name == "cynic.evidence.journal_entry")
-            .expect("journal_entry drift family must be visible until resolved");
+            .find(|family| family.base_name == "cynic.build.source_snapshot_reference")
+            .expect(
+                "snapshot_reference v1 legacy window is still accepted in production; \
+                     resolving it (retire or formalize) must update this expectation",
+            );
         assert!(
-            journal.versions.contains(&"1".to_string())
-                && journal.versions.contains(&"9".to_string()),
-            "v1 and v9 are observed live; resolution must update this expectation"
+            snapshot.versions.contains(&"1".to_string())
+                && snapshot.versions.contains(&"2".to_string()),
+            "v1 (legacy read path) and v2 (write path) are both live in production"
         );
     }
 }
