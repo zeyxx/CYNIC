@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="760" viewBox="0 0 1000 760" font-family="monospace">
+  <rect width="1000" height="760" fill="#0d1117"/>
+  <text x="20" y="28" fill="#e6edf3" font-size="20" font-weight="bold">CYNIC — Crate Topology (real couplings, 2026-08-25)</text>
+  <text x="20" y="50" fill="#8b949e" font-size="12">arrow = "imports concrete from" · count = #files · RED = violation · GREEN = port-clean · GRAY = fantom/declared</text>
+
+  <!-- boxes: x y w h fill stroke label sub -->
+  <!-- base layer -->
+  <g font-size="12">
+    <rect x="30" y="80" width="220" height="58" rx="8" fill="#1f6feb" opacity="0.85"/>
+    <text x="42" y="105" fill="#fff" font-weight="bold">cynic-protocol</text>
+    <text x="42" y="124" fill="#fff" opacity="0.85">50k · 0 deps · PURE types/ports</text>
+
+    <rect x="270" y="80" width="150" height="58" rx="8" fill="#1f6feb" opacity="0.85"/>
+    <text x="282" y="105" fill="#fff" font-weight="bold">cynic-intel</text>
+    <text x="282" y="124" fill="#fff" opacity="0.85">4k · intelligence (ML/reasoning)</text>
+
+    <rect x="440" y="80" width="200" height="58" rx="8" fill="#2da44e" opacity="0.85"/>
+    <text x="452" y="105" fill="#fff" font-weight="bold">cynic-inference</text>
+    <text x="452" y="124" fill="#fff" opacity="0.85">24k · inference runtime</text>
+
+    <rect x="660" y="80" width="190" height="58" rx="8" fill="#2da44e" opacity="0.85"/>
+    <text x="672" y="105" fill="#fff" font-weight="bold">cynic-host</text>
+    <text x="672" y="124" fill="#fff" opacity="0.85">85k · runtime authority</text>
+
+    <rect x="660" y="160" width="190" height="58" rx="8" fill="#2da44e" opacity="0.85"/>
+    <text x="672" y="185" fill="#fff" font-weight="bold">cynic-node</text>
+    <text x="672" y="204" fill="#fff" opacity="0.85">52k · node tree</text>
+
+    <rect x="440" y="250" width="240" height="66" rx="8" fill="#cf222e" opacity="0.9"/>
+    <text x="452" y="278" fill="#fff" font-weight="bold">cynic-kernel</text>
+    <text x="452" y="297" fill="#fff" opacity="0.9">58k · COORDINATION = HOT SPOT</text>
+
+    <rect x="660" y="250" width="190" height="58" rx="8" fill="#6e7681" opacity="0.85"/>
+    <text x="672" y="275" fill="#fff" font-weight="bold">cynic-cli</text>
+    <text x="672" y="294" fill="#fff" opacity="0.85">29k · thin facade</text>
+
+    <rect x="660" y="330" width="190" height="48" rx="8" fill="#6e7681" opacity="0.85"/>
+    <text x="672" y="357" fill="#fff" font-weight="bold">cynic-observer</text>
+    <text x="672" y="374" fill="#fff" opacity="0.85">8k · solana ingest</text>
+
+    <rect x="440" y="160" width="200" height="48" rx="8" fill="#6e7681" opacity="0.85"/>
+    <text x="452" y="187" fill="#fff" font-weight="bold">cynic-askesis</text>
+    <text x="452" y="204" fill="#fff" opacity="0.85">6k · reasoning</text>
+
+    <rect x="440" y="330" width="200" height="48" rx="8" fill="#6e7681" opacity="0.85"/>
+    <text x="452" y="357" fill="#fff" font-weight="bold">cynic-zeroclaw</text>
+    <text x="452" y="374" fill="#fff" opacity="0.85">0.4k · solana adapters</text>
+  </g>
+
+  <!-- arrows: marker -->
+  <defs>
+    <marker id="red" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#cf222e"/></marker>
+    <marker id="green" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#2da44e"/></marker>
+    <marker id="gray" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#6e7681"/></marker>
+  </defs>
+
+  <!-- kernel -> host (red, 12) -->
+  <line x1="660" y1="290" x2="850" y2="120" stroke="#cf222e" stroke-width="2" marker-end="url(#red)"/>
+  <text x="700" y="195" fill="#cf222e" font-size="11" font-weight="bold">12 files</text>
+
+  <!-- kernel -> inference (red, 18) -->
+  <line x1="560" y1="290" x2="540" y2="140" stroke="#cf222e" stroke-width="2" marker-end="url(#red)"/>
+  <text x="500" y="215" fill="#cf222e" font-size="11" font-weight="bold">18 files</text>
+
+  <!-- kernel -> node (red, 11) -->
+  <line x1="680" y1="300" x2="760" y2="200" stroke="#cf222e" stroke-width="2" marker-end="url(#red)"/>
+  <text x="700" y="270" fill="#cf222e" font-size="11" font-weight="bold">11 files</text>
+
+  <!-- host -> inference (green, 2, PORT) -->
+  <path d="M660,120 C590,120 590,110 640,110" stroke="#2da44e" stroke-width="2" fill="none" marker-end="url(#green)"/>
+  <text x="565" y="105" fill="#2da44e" font-size="11" font-weight="bold">2 files · PORT</text>
+
+  <!-- everything -> protocol (green, pure) -->
+  <line x1="150" y1="138" x2="150" y2="80" stroke="#2da44e" stroke-width="1.5" marker-end="url(#green)" opacity="0.6"/>
+  <line x1="470" y1="138" x2="390" y2="80" stroke="#2da44e" stroke-width="1.5" marker-end="url(#green)" opacity="0.6"/>
+  <line x1="640" y1="138" x2="690" y2="80" stroke="#2da44e" stroke-width="1.5" marker-end="url(#green)" opacity="0.6"/>
+  <line x1="750" y1="158" x2="730" y2="138" stroke="#2da44e" stroke-width="1.5" marker-end="url(#green)" opacity="0.6"/>
+  <line x1="600" y1="250" x2="250" y2="138" stroke="#2da44e" stroke-width="1.5" marker-end="url(#green)" opacity="0.6"/>
+  <text x="300" y="200" fill="#2da44e" font-size="10" opacity="0.8">all → protocol (pure types)</text>
+
+  <!-- phantom -->
+  <text x="30" y="430" fill="#d29922" font-size="13" font-weight="bold">PHANTOM Cargo deps: host←kernel, node←kernel (0 real usage — declared, not imported)</text>
+
+  <!-- emerging crates panel -->
+  <rect x="30" y="450" width="940" height="290" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="45" y="478" fill="#e6edf3" font-size="14" font-weight="bold">EMERGING CRATES — implicit boundaries, not yet materialized</text>
+
+  <text x="45" y="510" fill="#a5d6ff" font-size="12">• &lt;cynic-network&gt;          ~3k in node  · bin exists: cynic-network-actuator (actuator_main.rs)</text>
+  <text x="45" y="535" fill="#a5d6ff" font-size="12">• &lt;cynic-build&gt;           3.9k in protocol · 82% of crate WITH agent_workload</text>
+  <text x="45" y="560" fill="#a5d6ff" font-size="12">• &lt;cynic-agent-workload&gt; 4.3k in protocol · same family as build</text>
+  <text x="45" y="585" fill="#a5d6ff" font-size="12">• &lt;cynic-pkg&gt;            4.5k host/domain ecosystem_package · packaging or host substrate?</text>
+  <text x="45" y="610" fill="#a5d6ff" font-size="12">• &lt;inference::backend_health&gt; 1.3k kernel organ → slice A READY</text>
+  <text x="45" y="635" fill="#a5d6ff" font-size="12">• &lt;cynic-storage&gt;        9.2k kernel + 3.4k host · coordination store? (links SPOF audit)</text>
+
+  <rect x="45" y="655" width="910" height="36" rx="6" fill="#cf222e" opacity="0.15"/>
+  <text x="55" y="678" fill="#cf222e" font-size="13" font-weight="bold">KERNEL = aggregation point: pulls concrete from host(12) / inference(18) / node(11)</text>
+  <text x="55" y="728" fill="#8b949e" font-size="11">host→inference is the MODEL (ports, green). kernel does NOT follow it (red). Fix = invert each red arrow behind a port.</text>
+</svg>

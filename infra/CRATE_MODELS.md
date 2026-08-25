@@ -107,8 +107,13 @@ Forme: PRIMAIRE / POSSEDÉ / DÉLÉGUÉ / INTERDIT.
         qui a fui? À auditer (peut-être slice vers crate métier).
 
 --- cynic-observer / cynic-askesis / cynic-intel / cynic-zeroclaw-solana ---
-  PRIMAIRE: observer = solana ingestion; askesis = reasoning tool
-           isolé; intel = wallet judgment; zeroclaw = solana adapters.
+  PRIMAIRE: observer = solana ingestion; askesis = companion reasoning
+           isolé (framework askesis_companion); intel = INTELLIGENCE
+           (tout raisonnement / ML / algorithmes / évaluation);
+           zeroclaw = solana adapters.
+  NOTE intel ÉLARGI (décision opérateur): kernel wallet_judgment /
+           rug_* / dogs / ccm + host autoresearch appartiennent à intel
+           (raisonnement/ML), pas au kernel/host. Voir CRATE_VOIE §slice6.
   POSSEDÉ: leur domaine étroit.
   INTERDIT: devenir des "mini-kernels" (tout-en-un).
 
