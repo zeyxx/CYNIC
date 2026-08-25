@@ -50,6 +50,7 @@ mod operator_errors;
 mod operator_help;
 mod operator_status;
 mod ownership_audit;
+mod policy_formality_audit;
 mod root_dispatch;
 mod runtime_paths;
 mod runtime_suite;

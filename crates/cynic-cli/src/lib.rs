@@ -22,3 +22,13 @@ pub mod agent_surface;
 // provides it above.
 #[path = "fleet_divergence/mod.rs"]
 pub mod fleet_divergence;
+
+// Same treatment for `policy_formality_audit`: declared only in `main.rs`, its
+// five tests never executed under `cargo test --lib`. The module needs only
+// `rust_source` + `serde`; declaring both here keeps the whole facade (and its
+// unrelated merge debt) out of the gate.
+#[path = "rust_source.rs"]
+mod rust_source;
+
+#[path = "policy_formality_audit.rs"]
+pub mod policy_formality_audit;

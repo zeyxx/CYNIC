@@ -6,6 +6,7 @@ use crate::crate_audit::audit_core_crates;
 use crate::emit_json;
 use crate::kernel_boundary_audit::audit_kernel_surfaces;
 use crate::ownership_audit::audit_ownership_surfaces;
+use crate::policy_formality_audit::audit_policy_formality;
 use crate::surface_audit::audit_canonical_surfaces;
 
 mod audit_persist;
@@ -66,6 +67,15 @@ pub(crate) enum DevCommand {
         persist: bool,
     },
     SurfaceAudit {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        output: Option<std::path::PathBuf>,
+        #[arg(long)]
+        persist: bool,
+    },
+    /// Audit whether each declarative CYNIC policy is typed law or prose-only.
+    PolicyFormalityAudit {
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -242,6 +252,25 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
             if let Err(error) =
                 maybe_persist_dev_audit_report(&report, output, persist, "surface-audit.json")
             {
+                return crate::fail(error);
+            }
+            emit_json(&report, report.status != "ok")
+        }
+        DevCommand::PolicyFormalityAudit {
+            json,
+            output,
+            persist,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let report = audit_policy_formality();
+            if let Err(error) = maybe_persist_dev_audit_report(
+                &report,
+                output,
+                persist,
+                "policy-formality-audit.json",
+            ) {
                 return crate::fail(error);
             }
             emit_json(&report, report.status != "ok")
