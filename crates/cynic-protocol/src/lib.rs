@@ -27,6 +27,7 @@ pub mod audit;
 pub mod capability_responsibility;
 pub mod convergence;
 pub mod coord;
+pub mod coordination_authority;
 pub mod coordination_lease;
 pub mod coordination_runtime;
 pub mod credential_lease;

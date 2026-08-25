@@ -23,7 +23,8 @@ const QUARANTINED: &[&str] = &[
     // audit.rs left the quarantine: declared and re-exported in lib.rs, so the
     // audit contract types cynic-host's audit_engine consumes now compile.
     "build/bootstrap_recovery.rs",
-    "coordination_authority.rs",
+    // coordination_authority.rs left the quarantine: declared in lib.rs; its
+    // node-owned consumer (coordination_posture_uc) now compiles and tests it.
     "coordination_fault_harness.rs",
     "coordination_journal.rs",
     "coordination_scaling_harness.rs",
