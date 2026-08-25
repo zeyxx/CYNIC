@@ -63,6 +63,8 @@ pub mod network_actuation;
 pub mod node_activation;
 
 pub mod node_provision;
+
+pub mod node_ssh_key;
 pub mod node_identity_workflow;
 pub mod node_substrate;
 pub mod one_shot_authority;
