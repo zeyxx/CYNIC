@@ -271,19 +271,10 @@ pub(crate) async fn start_tasks(
     }
 
     if builder_activation.starts_builder_http {
-        let builder_config = crate::usecases::builder_runtime::BuilderRuntimeConfig {
-            http_listen_addr: scheduler_control.builder_listen_addr,
-            state_root: scheduler_control
-                .agent_workload_state_root
-                .to_string_lossy()
-                .to_string(),
-            workspace_root: scheduler_control
-                .workspace_root
-                .to_string_lossy()
-                .to_string(),
-            node_id: scheduler_control.node_id.clone(),
-            webhook_secret: std::env::var("CYNIC_FORGEJO_WEBHOOK_SECRET").ok(),
-        };
+        // Canonical constructor (§481: one source of truth for the config
+        // projection; keeps repository_id/transport_uri law in one place).
+        let builder_config =
+            crate::usecases::builder_runtime::builder_runtime_config_from(&scheduler_control);
         let builder_store = Arc::new(LocalAgentWorkloadStore::new(
             scheduler_control
                 .agent_workload_state_root
