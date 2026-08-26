@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 pub const FORGEJO_TOKEN_OBSERVATION_SCHEMA: &str = "cynic.forgejo_token_observation.v1";
 pub const FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA: &str = "cynic.forgejo_token_provision_report.v1";
+pub const FORGEJO_TOKEN_STATUS_SCHEMA: &str = "cynic.forgejo_token_status.v1";
 
 /// Where the runtime writes the provisioned Forgejo token.
 ///
@@ -21,6 +22,8 @@ pub struct ForgejoTokenSpec {
     pub schema: String,
     /// The Forgejo principal that owns the token (e.g. "cynic-cortex").
     pub principal: String,
+    /// Forgejo API base URL (e.g. https://forgejo.synapse.cynic/api/v1).
+    pub api_url: String,
     /// Scopes granted to the new token (Forgejo scope syntax).
     pub scopes: Vec<String>,
     /// Where to write the token material on the local filesystem.
@@ -36,6 +39,7 @@ impl Default for ForgejoTokenSpec {
         Self {
             schema: FORGEJO_TOKEN_OBSERVATION_SCHEMA.to_string(),
             principal: "cynic-cortex".to_string(),
+            api_url: "https://forgejo.synapse.cynic/api/v1".to_string(),
             scopes: vec![
                 "read:organization".to_string(),
                 "write:organization".to_string(),
@@ -120,6 +124,22 @@ impl std::default::Default for ForgejoTokenMetadata {
     }
 }
 
+/// Aggregated status report projected by `cynic forgejo token-status`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ForgejoTokenStatusReport {
+    pub schema: String,
+    pub principal: String,
+    pub token: ForgejoTokenObservation,
+    pub forgejo_plan_status: String,
+    /// True when the runtime needs to provision/rotate the token (SSH or HTTP).
+    pub token_action_needed: bool,
+    /// This lifecycle path does NOT require a Forgejo admin login secret.
+    pub requires_human_admin_secret: bool,
+    /// Short hint of the next action the runtime would take (for human reads).
+    pub plan_action: String,
+    pub evidence_refs: Vec<String>,
+}
+
 /// Reconcile decision: produces a pure plan from desired + observed state.
 /// This lives in the protocol crate so CLI/MCP surfaces project from one
 /// canonical decision rather than re-deriving it locally.
@@ -152,6 +172,24 @@ pub enum ForgejoTokenActionKind {
     CreateToken,
     /// Remove a token whose `sha1` matches the expected value (rotation).
     RotateToken,
+}
+
+/// The mutable action surface for a Forgejo token (CLI projection).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForgejoTokenAction {
+    /// Probe token file + API validity (read-only).
+    Observe,
+    /// Provision a new token when absent or refuted (requires --yes).
+    Create,
+    /// Rotate the current token: revoke old, issue new, write to target_path.
+    Rotate,
+}
+
+impl std::default::Default for ForgejoTokenAction {
+    fn default() -> Self {
+        ForgejoTokenAction::Observe
+    }
 }
 
 pub fn plan_forgejo_token_convergence(
@@ -207,6 +245,19 @@ pub fn plan_forgejo_token_convergence(
         actions,
         blockers,
         evidence_refs: observed.evidence_refs.clone(),
+    }
+}
+
+impl Default for ForgejoTokenPlan {
+    fn default() -> Self {
+        Self {
+            schema: "cynic.forgejo_token_plan.v1".to_string(),
+            status: "observed".to_string(), // no convergence decision in pure default
+            desired: ForgejoTokenSpec::default(),
+            actions: Vec::new(),
+            blockers: Vec::new(),
+            evidence_refs: Vec::new(),
+        }
     }
 }
 
@@ -274,5 +325,28 @@ mod tests {
         );
         assert_eq!(plan.status, "blocked");
         assert!(plan.actions.iter().all(|a| !a.mutates));
+    }
+
+    #[test]
+    fn mutation_actions_never_require_human_admin_secret() {
+        // This lifecycle path is SSH-local Exec / HTTP-tunneled; no Forgejo
+        // web-UI admin login is ever required for token create/rotate.
+        for auth in [
+            ForgejoTokenAuthState::Absent,
+            ForgejoTokenAuthState::Refuted,
+        ] {
+            let plan = plan_forgejo_token_convergence(
+                ForgejoTokenSpec::default(),
+                &observed(auth, auth != ForgejoTokenAuthState::Absent),
+            );
+            for action in &plan.actions {
+                if action.mutates {
+                    assert!(
+                        !action.requires_human_admin_secret,
+                        "{auth:?} produced an action requiring admin secret"
+                    );
+                }
+            }
+        }
     }
 }

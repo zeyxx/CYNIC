@@ -11,6 +11,10 @@
 //! (SSH-tunneled localhost HTTP or direct HTTPS). Provision reports carry only
 //! Forgejo-side metadata (token_id, sha1), never the secret itself.
 
+pub use cynic_protocol::forgejo_token::{
+    ForgejoTokenActionKind, ForgejoTokenAuthState, ForgejoTokenMetadata, ForgejoTokenObservation,
+    ForgejoTokenPlan, ForgejoTokenProvisionReport, ForgejoTokenSpec, ForgejoTokenStatusReport,
+};
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
 use std::os::unix::fs::OpenOptionsExt;
@@ -19,15 +23,13 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use cynic_protocol::forgejo_token::{
-    ForgejoTokenAuthState, ForgejoTokenMetadata, ForgejoTokenObservation,
-    ForgejoTokenProvisionReport, ForgejoTokenSpec, FORGEJO_TOKEN_OBSERVATION_SCHEMA,
-    FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
+    FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
 };
 
 /// The injected port the domain drives. Two adapters implement it:
 /// - [`LocalForgejoTokenApiAdapter`] — runs `forgejo` CLI locally or via SSH-local Exec.
 /// - [`HttpForgejoTokenApiAdapter`] — talks Forgejo REST API over HTTPS.
-pub trait ForgejoTokenApiPort {
+pub trait ForgejoTokenApiPort: Send + Sync + std::fmt::Debug {
     /// Read-only: does the token file exist / is it valid against the API?
     fn observe(&self, spec: &ForgejoTokenSpec) -> ForgejoTokenObservation;
 
@@ -97,8 +99,8 @@ impl ForgejoTokenApiPort for LocalForgejoTokenApiAdapter {
     fn create(&self, spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
         let token_value = run_forgejo_tokens_add(spec)?;
         write_protected_secret(&spec.target_path, &token_value, spec.mode)?;
-        let metadata = forgejo_token_sha1(&spec.principal)
-            .unwrap_or_else(|| ForgejoTokenMetadata {
+        let metadata =
+            forgejo_token_sha1(&spec.principal).unwrap_or_else(|| ForgejoTokenMetadata {
                 token_id: 0,
                 name: spec.principal.clone(),
                 sha1: "<unavailable>".to_string(),
@@ -151,9 +153,67 @@ impl ForgejoTokenApiPort for HttpForgejoTokenApiAdapter {
     }
 }
 
-/// High-level provisioner: observes, creates if needed, emits a proof report.
-/// Follows the `storage_identity::enroll_storage_identity` orchestration shape
-/// so tests can inject a fake port.
+/// Boxed port handle so the runtime can swap adapters (local-exec vs HTTP).
+pub type BoxedForgejoTokenPort = Box<dyn ForgejoTokenApiPort>;
+
+/// Spec enriched with the adapter to drive. Decoupled from `ForgejoTokenSpec`
+/// so the protocol-level types stay transport-agnostic.
+#[derive(Debug)]
+pub struct ForgejoTokenRuntimeSpec {
+    pub token_spec: ForgejoTokenSpec,
+    pub adapter: BoxedForgejoTokenPort,
+}
+
+/// Builder that derives the canonical token spec from runtime config.
+pub struct DefaultForgejoTokenSpec;
+
+impl DefaultForgejoTokenSpec {
+    pub fn default_with_principal(principal: String) -> ForgejoTokenSpec {
+        ForgejoTokenSpec {
+            schema: FORGEJO_TOKEN_OBSERVATION_SCHEMA.to_string(),
+            principal,
+            api_url: "https://forgejo.synapse.cynic/api/v1".to_string(),
+            scopes: vec![
+                "read:organization".to_string(),
+                "write:organization".to_string(),
+                "write:repository".to_string(),
+            ],
+            target_path: "/etc/cynic/secrets/forgejo-token".to_string(),
+            mode: 0o640,
+            expiry_seconds: None,
+        }
+    }
+
+    pub fn with_token_path(token_path: &str) -> ForgejoTokenSpec {
+        let mut spec = Self::default_with_principal("cynic-cortex".to_string());
+        spec.target_path = token_path.to_string();
+        spec
+    }
+}
+
+impl Default for ForgejoTokenRuntimeSpec {
+    fn default() -> Self {
+        Self {
+            token_spec: DefaultForgejoTokenSpec::default_with_principal("cynic-cortex".to_string()),
+            adapter: Box::new(LocalForgejoTokenApiAdapter),
+        }
+    }
+}
+
+/// Observe the token through the injected port + emit a convergence plan.
+/// This is the runtime entry point for `cynic forgejo token-status`.
+pub fn observe_forgejo_token_runtime(spec: &ForgejoTokenRuntimeSpec) -> ForgejoTokenObservation {
+    spec.adapter.observe(&spec.token_spec)
+}
+
+/// Provision (create/rotate) the token through the injected port and emit a
+/// read-back proof report. Follows the `observe → apply → read-back` coherence
+/// pattern. This is the runtime entry point for `cynic forgejo token-create|rotate`.
+pub fn provision_forgejo_token_apply(
+    spec: &ForgejoTokenRuntimeSpec,
+) -> ForgejoTokenProvisionReport {
+    provision_forgejo_token(&spec.token_spec, &*spec.adapter)
+}
 pub fn provision_forgejo_token(
     spec: &ForgejoTokenSpec,
     port: &dyn ForgejoTokenApiPort,
@@ -307,8 +367,7 @@ fn forgejo_token_revoke(principal: &str, sha1: &str) -> Result<(), String> {
 }
 
 fn forgejo_api_validate_token(token_path: &str, api_base: &str) -> Result<bool, String> {
-    let token =
-        std::fs::read_to_string(token_path).map_err(|e| format!("read token file: {e}"))?;
+    let token = std::fs::read_to_string(token_path).map_err(|e| format!("read token file: {e}"))?;
     let client = http_client()?;
     let resp = client
         .get(format!("{api_base}/api/v1/user"))
@@ -337,7 +396,10 @@ fn forgejo_http_create_token(
         .map_err(|e| format!("token creation JSON parse failed: {e}"))
 }
 
-fn forgejo_http_token_sha1(api_base: &str, principal: &str) -> Result<ForgejoTokenMetadata, String> {
+fn forgejo_http_token_sha1(
+    api_base: &str,
+    principal: &str,
+) -> Result<ForgejoTokenMetadata, String> {
     let client = http_client()?;
     let resp = client
         .get(format!("{api_base}/api/v1/users/{principal}/tokens"))
@@ -405,8 +467,7 @@ fn write_protected_secret(target: &str, token: &str, mode: u32) -> Result<(), St
     file.sync_all()
         .map_err(|e| format!("secret sync failed: {e}"))?;
     let perms = std::fs::Permissions::from_mode(mode);
-    std::fs::set_permissions(&path, perms)
-        .map_err(|e| format!("secret chmod failed: {e}"))?;
+    std::fs::set_permissions(&path, perms).map_err(|e| format!("secret chmod failed: {e}"))?;
     Ok(())
 }
 
@@ -435,10 +496,13 @@ mod tests {
 
     #[test]
     fn provision_skips_when_token_already_valid() {
+        #[derive(Debug)]
         struct StubPort;
         impl ForgejoTokenApiPort for StubPort {
-            fn observe(&self, _spec: &ForgejoTokenSpec) -> ForgejoTokenObservation {
-                observe_forgejo_token(_spec)
+            fn observe(&self, spec: &ForgejoTokenSpec) -> ForgejoTokenObservation {
+                let mut obs = observe_forgejo_token(spec);
+                obs.api_authenticated = ForgejoTokenAuthState::Proven;
+                obs
             }
             fn create(&self, _spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
                 Err("should not be called".into())
@@ -455,5 +519,29 @@ mod tests {
         let report = provision_forgejo_token(&spec, &StubPort);
         assert_eq!(report.status, "ready");
         assert!(!report.mutated);
+    }
+
+    #[test]
+    fn http_adapter_absent_when_file_missing() {
+        let http = HttpForgejoTokenApiAdapter {
+            api_base: "https://forgejo.synapse.cynic/api/v1".to_string(),
+            principal: "cynic-cortex".to_string(),
+        };
+        let spec = ForgejoTokenSpec {
+            target_path: "/tmp/nonexistent-http-token-xyz".to_string(),
+            ..ForgejoTokenSpec::default()
+        };
+        let obs = http.observe(&spec);
+        // File missing → secret_present false → ApiAuthenticated::Absent (no API call).
+        assert!(!obs.secret_present);
+        assert_eq!(obs.api_authenticated, ForgejoTokenAuthState::Absent);
+    }
+
+    #[test]
+    fn default_spec_uses_canonical_path() {
+        let spec = DefaultForgejoTokenSpec::with_token_path("/etc/cynic/secrets/forgejo-token");
+        assert_eq!(spec.target_path, "/etc/cynic/secrets/forgejo-token");
+        assert_eq!(spec.principal, "cynic-cortex");
+        assert_eq!(spec.mode, 0o640);
     }
 }
