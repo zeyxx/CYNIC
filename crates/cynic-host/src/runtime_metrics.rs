@@ -5,7 +5,7 @@ use serde::Serialize;
 use crate::conformance::HostConformanceReport;
 use crate::domain::shared::SurfaceStatus;
 use crate::forgejo_control::current_forgejo_plan;
-use cynic_protocol::RuntimeProofBundle;
+use cynic_protocol::{RUNTIME_PROOF_BUNDLE_SCHEMA, RuntimeProofBundle};
 
 pub const HOST_RUNTIME_METRICS_SCHEMA: &str = "cynic.host.runtime_metrics.v1";
 const DEFAULT_PROOF_FRESHNESS_MAX_AGE_MS: u128 = 5 * 60 * 1000;
@@ -220,7 +220,7 @@ fn proof_freshness_metric(
         label: "Proof freshness",
         numerator,
         denominator,
-        source: "cynic.runtime_proof_bundle.v1",
+        source: RUNTIME_PROOF_BUNDLE_SCHEMA,
         target_percent: 95,
         critical: true,
         detail: format!("fresh_proofs={numerator}/{denominator}"),

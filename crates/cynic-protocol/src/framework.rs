@@ -756,7 +756,7 @@ pub fn framework_spec() -> FrameworkSpec {
                 id: "proof_bundle",
                 role: "Carry observed runtime evidence between layers without relying on chat or stale files.",
                 examples: vec![
-                    "cynic.runtime_proof_bundle.v1",
+                    crate::runtime::types::RUNTIME_PROOF_BUNDLE_SCHEMA,
                     "host_identity_observed",
                     "network_runtime_observed",
                 ],

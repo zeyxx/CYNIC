@@ -6,7 +6,7 @@ use serde_json::json;
 
 pub(super) fn write_satisfied_host_identity_proof(path: &Path) -> Result<(), String> {
     let proof = json!({
-        "schema": "cynic.runtime_proof_bundle.v1",
+        "schema": cynic_protocol::RUNTIME_PROOF_BUNDLE_SCHEMA,
         "status": "satisfied",
         "proofs": [{
             "schema": "cynic.runtime_proof.v1",
@@ -31,7 +31,7 @@ pub(super) fn write_satisfied_host_identity_proof(path: &Path) -> Result<(), Str
 
 pub(super) fn write_satisfied_host_and_network_proofs(path: &Path) -> Result<(), String> {
     let proof = json!({
-        "schema": "cynic.runtime_proof_bundle.v1",
+        "schema": cynic_protocol::RUNTIME_PROOF_BUNDLE_SCHEMA,
         "status": "satisfied",
         "proofs": [
             {
@@ -63,7 +63,7 @@ pub(super) fn write_satisfied_host_and_network_proofs(path: &Path) -> Result<(),
 
 pub(super) fn write_satisfied_architecture_boundary_proof(path: &Path) -> Result<(), String> {
     let proof = json!({
-        "schema": "cynic.runtime_proof_bundle.v1",
+        "schema": cynic_protocol::RUNTIME_PROOF_BUNDLE_SCHEMA,
         "status": "satisfied",
         "proofs": [{
             "schema": "cynic.runtime_proof.v1",

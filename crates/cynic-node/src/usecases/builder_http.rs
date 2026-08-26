@@ -18,10 +18,11 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use cynic_protocol::{
-    AgentBudgets, AgentCitizenshipRecord, AgentScope, AgentWorkloadRecord, AgentWorkloadState,
-    BUILD_AGENT_REQUEST_SCHEMA, BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA,
-    BuildAgentRequest, BuildSourceReference, MutationAdmission, SecurityEvidenceState,
-    admit_build_mutation, compose_build_agent_workload,
+    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope,
+    AgentWorkloadRecord, AgentWorkloadState, BUILD_AGENT_REQUEST_SCHEMA,
+    BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest,
+    BuildSourceReference, MutationAdmission, SecurityEvidenceState, admit_build_mutation,
+    compose_build_agent_workload,
 };
 
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
@@ -196,7 +197,7 @@ async fn webhook_forgejo(
     // - Matching build role
     let desired_role = "build_runner";
     let citizen = AgentCitizenshipRecord {
-        schema: "cynic.agent_citizenship.v1",
+        schema: AGENT_CITIZENSHIP_SCHEMA,
         agent_id: payload
             .pusher
             .as_ref()
