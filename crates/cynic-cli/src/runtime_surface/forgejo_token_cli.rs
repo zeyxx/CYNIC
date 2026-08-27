@@ -15,7 +15,7 @@ use cynic_host::forgejo_token::{
     DefaultForgejoTokenSpec, ForgejoTokenRuntimeSpec, observe_forgejo_token_runtime,
     provision_forgejo_token_apply, rotate_forgejo_token,
 };
-use cynic_protocol::forgejo_token::ForgejoTokenStatusReport;
+use cynic_protocol::forgejo_token::{ForgejoTokenAuthState, ForgejoTokenStatusReport};
 
 use crate::cli_json;
 use crate::runtime_surface::ForgejoTokenMode;
