@@ -90,7 +90,12 @@ pub fn plan_llama_cpp(reason: &str, layout: &PrincipalInstallLayout) -> Ecosyste
         "-B".into(),
         build.display().to_string(),
         "-DCMAKE_BUILD_TYPE=Release".into(),
+        "-DCMAKE_CXX_STANDARD=20".into(),
         "-DLLAMA_BUILD_SERVER=ON".into(),
+        "-DGGML_AVX2=ON".into(),
+        "-DGGML_FMA=ON".into(),
+        "-DGGML_F16C=ON".into(),
+        "-DGGML_BUILD_TESTS=OFF".into(),
         "-DGGML_NATIVE=ON".into(),
     ];
     if Path::new("/usr/include/vulkan/vulkan.h").exists() || Path::new("/usr/share/vulkan").exists()
