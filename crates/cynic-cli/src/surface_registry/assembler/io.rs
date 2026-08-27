@@ -1,11 +1,11 @@
 use super::assemble;
 use serde_json::Value;
 use std::ffi::CString;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::os::fd::{AsRawFd, FromRawFd};
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path};
 
 const O_NOFOLLOW: i32 = 0o400000;
@@ -16,11 +16,6 @@ const AT_SYMLINK_NOFOLLOW: i32 = 0x100;
 const S_IFMT: libc::mode_t = 0o170000;
 const S_IFREG: libc::mode_t = 0o100000;
 const S_IFLNK: libc::mode_t = 0o120000;
-
-pub(crate) fn read_json(path: &Path) -> Result<Value, String> {
-    let file = open_regular(path, "read")?;
-    read_json_file(&file, path)
-}
 
 pub(crate) fn read_json_file(file: &File, path: &Path) -> Result<Value, String> {
     let mut text = String::new();
@@ -33,22 +28,62 @@ pub(crate) fn read_json_file(file: &File, path: &Path) -> Result<Value, String> 
     serde_json::from_str(&text).map_err(|e| format!("invalid JSON in {}: {e}", path.display()))
 }
 
-fn open_regular(path: &Path, operation: &str) -> Result<File, String> {
-    let mut options = OpenOptions::new();
-    options
-        .read(true)
-        .custom_flags(O_NOFOLLOW | libc::O_NONBLOCK | O_CLOEXEC);
-    let file = options
-        .open(path)
-        .map_err(|e| format!("cannot {operation} {}: {e}", path.display()))?;
-    if !file
+fn read_json_anchored(
+    parent: &File,
+    name: &std::ffi::OsStr,
+    path: &Path,
+    expected: TargetIdentity,
+) -> Result<Value, String> {
+    let c_name = c_name(name, path)?;
+    // SAFETY: c_name is NUL-free and resolution is relative to the verified
+    // parent descriptor; these flags reject links and special blocking files.
+    let fd = unsafe {
+        libc::openat(
+            parent.as_raw_fd(),
+            c_name.as_ptr(),
+            libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC,
+        )
+    };
+    if fd < 0 {
+        return Err(format!(
+            "cannot read {}: {}",
+            path.display(),
+            std::io::Error::last_os_error()
+        ));
+    }
+    // SAFETY: fd is uniquely owned after successful openat.
+    let file = unsafe { File::from_raw_fd(fd) };
+    let metadata = file
         .metadata()
-        .map_err(|e| format!("cannot stat {}: {e}", path.display()))?
-        .is_file()
-    {
+        .map_err(|e| format!("cannot stat {}: {e}", path.display()))?;
+    if !metadata.is_file() {
         return Err(format!("{} is not a regular file", path.display()));
     }
-    Ok(file)
+    let opened = TargetIdentity {
+        dev: metadata.dev(),
+        ino: metadata.ino(),
+    };
+    if opened != expected {
+        return Err(format!(
+            "output path/descriptor inode/device identity mismatch: {}",
+            path.display()
+        ));
+    }
+    let mut text = String::new();
+    let mut reader = file;
+    reader
+        .read_to_string(&mut text)
+        .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+    let after = reader
+        .metadata()
+        .map_err(|e| format!("cannot stat {}: {e}", path.display()))?;
+    if after.dev() != opened.dev || after.ino() != opened.ino || !after.is_file() {
+        return Err(format!(
+            "output descriptor identity changed while reading: {}",
+            path.display()
+        ));
+    }
+    serde_json::from_str(&text).map_err(|e| format!("invalid JSON in {}: {e}", path.display()))
 }
 
 pub(crate) fn canonical_json(value: &Value) -> String {
@@ -70,7 +105,16 @@ pub(crate) fn canonical_json(value: &Value) -> String {
 
 pub(crate) fn check(manifest: &Path, output: &Path) -> Result<(), String> {
     let expected = assemble(manifest)?;
-    let actual = read_json(output)?;
+    let parent_path = output
+        .parent()
+        .ok_or_else(|| format!("output has no parent: {}", output.display()))?;
+    let target_name = output
+        .file_name()
+        .ok_or_else(|| format!("output has no file name: {}", output.display()))?;
+    let parent = open_verified_parent(parent_path)?;
+    let identity = inspect_target(&parent, target_name, output)?
+        .ok_or_else(|| format!("output does not exist: {}", output.display()))?;
+    let actual = read_json_anchored(&parent, target_name, output, identity)?;
     if canonical_json(&expected) != canonical_json(&actual) {
         return Err("assembled output does not match manifest fragments".into());
     }
@@ -90,6 +134,7 @@ pub(crate) fn write(manifest: &Path, output: &Path) -> Result<(), String> {
     let initial_target = inspect_target(&parent, target_name, output)?;
     let temporary = create_temporary_output(&parent, target_name, output)?;
 
+    let mut renamed = false;
     let result = (|| {
         temporary
             .file
@@ -110,6 +155,7 @@ pub(crate) fn write(manifest: &Path, output: &Path) -> Result<(), String> {
             ));
         }
         rename_at(&parent, &temporary.name, target_name, output)?;
+        renamed = true;
         parent.sync_all().map_err(|e| {
             format!(
                 "cannot fsync output directory {}: {e}",
@@ -118,10 +164,14 @@ pub(crate) fn write(manifest: &Path, output: &Path) -> Result<(), String> {
         })
     })();
 
-    if result.is_err() {
+    if cleanup_temporary(result.is_err(), renamed) {
         let _ = unlink_at(&parent, &temporary.name);
     }
     result
+}
+
+fn cleanup_temporary(operation_failed: bool, renamed: bool) -> bool {
+    operation_failed && !renamed
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -335,5 +385,32 @@ mod tests {
         let current = inspect_target(&parent, output.file_name().unwrap(), &output).unwrap();
         assert_ne!(initial, current);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn anchored_output_observation_rejects_symlinks() {
+        let root = std::env::temp_dir().join(format!(
+            "surface-registry-symlink-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir(&root).unwrap();
+        let real = root.join("real.json");
+        let link = root.join("out.json");
+        fs::write(&real, "{}\n").unwrap();
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let parent = File::open(&root).unwrap();
+        assert!(inspect_target(&parent, link.file_name().unwrap(), &link).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn post_rename_failure_does_not_cleanup_the_new_target() {
+        assert!(!cleanup_temporary(true, true));
+        assert!(cleanup_temporary(true, false));
+        assert!(!cleanup_temporary(false, false));
     }
 }
