@@ -22,6 +22,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
+use zeroize::Zeroize;
 
 use cynic_protocol::forgejo_token::{
     FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
@@ -48,10 +49,28 @@ pub trait ForgejoTokenApiPort: Send + Sync + std::fmt::Debug {
     fn current_token(&self, _spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
         Err("current Forgejo token metadata unavailable".to_string())
     }
+
+    /// Prove that a previously revoked token is no longer listed remotely.
+    fn is_revoked(&self, _spec: &ForgejoTokenSpec, _token_sha1: &str) -> Result<bool, String> {
+        Err("token revocation read-back unavailable".to_string())
+    }
 }
 
 /// Read-only file-stat observation. Never returns the token bytes.
 pub fn observe_forgejo_token(spec: &ForgejoTokenSpec) -> ForgejoTokenObservation {
+    if spec.target_path != FORGEJO_TOKEN_PATH {
+        return ForgejoTokenObservation {
+            schema: FORGEJO_TOKEN_OBSERVATION_SCHEMA.to_string(),
+            principal: spec.principal.clone(),
+            path: spec.target_path.clone(),
+            secret_present: false,
+            owner_root: None,
+            mode_o640: None,
+            api_authenticated: ForgejoTokenAuthState::Unknown,
+            unknowns: vec!["forgejo_token_target_path_noncanonical".to_string()],
+            evidence_refs: Vec::new(),
+        };
+    }
     use std::os::unix::fs::MetadataExt;
 
     let target = PathBuf::from(&spec.target_path);
@@ -110,14 +129,13 @@ impl ForgejoTokenApiPort for LocalForgejoTokenApiAdapter {
     }
 
     fn create(&self, spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
-        let token_value = run_forgejo_tokens_add(spec)?;
-        write_protected_secret(&spec.target_path, &token_value, spec.mode)?;
-        let metadata =
-            forgejo_token_sha1(&spec.principal).unwrap_or_else(|| ForgejoTokenMetadata {
-                token_id: 0,
-                name: spec.principal.clone(),
-                sha1: "<unavailable>".to_string(),
-            });
+        let mut token_value = run_forgejo_tokens_add(spec)?;
+        let write_result = write_protected_secret(&spec.target_path, &token_value, spec.mode);
+        token_value.zeroize();
+        write_result?;
+        let metadata = forgejo_token_sha1(&spec.principal).ok_or_else(|| {
+            "created Forgejo token identity is ambiguous or unavailable".to_string()
+        })?;
         Ok(metadata)
     }
 
@@ -128,6 +146,10 @@ impl ForgejoTokenApiPort for LocalForgejoTokenApiAdapter {
     fn current_token(&self, spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
         forgejo_token_sha1(&spec.principal)
             .ok_or_else(|| "current Forgejo token metadata unavailable".to_string())
+    }
+
+    fn is_revoked(&self, spec: &ForgejoTokenSpec, token_sha1: &str) -> Result<bool, String> {
+        forgejo_token_is_revoked(&spec.principal, token_sha1)
     }
 }
 
@@ -183,8 +205,10 @@ impl ForgejoTokenApiPort for HttpForgejoTokenApiAdapter {
             &scopes_csv,
             self.authorization_token.as_deref(),
         )?;
-        let token_value = extract_token_from_api_response(&resp)?;
-        write_protected_secret(&spec.target_path, &token_value, spec.mode)?;
+        let mut token_value = extract_token_from_api_response(&resp)?;
+        let write_result = write_protected_secret(&spec.target_path, &token_value, spec.mode);
+        token_value.zeroize();
+        write_result?;
         forgejo_http_token_sha1(
             &self.api_base,
             &self.principal,
@@ -207,6 +231,39 @@ impl ForgejoTokenApiPort for HttpForgejoTokenApiAdapter {
             &self.principal,
             self.authorization_token.as_deref(),
         )
+    }
+
+    fn is_revoked(&self, _spec: &ForgejoTokenSpec, token_sha1: &str) -> Result<bool, String> {
+        forgejo_http_token_is_revoked(
+            &self.api_base,
+            &self.principal,
+            token_sha1,
+            self.authorization_token.as_deref(),
+        )
+    }
+}
+
+/// Adapter used when runtime reachability and credential injection have not
+/// been proven. It never probes or mutates, so the surface fails closed.
+#[derive(Debug, Clone, Copy)]
+pub struct UnavailableForgejoTokenApiAdapter;
+
+impl ForgejoTokenApiPort for UnavailableForgejoTokenApiAdapter {
+    fn observe(&self, spec: &ForgejoTokenSpec) -> ForgejoTokenObservation {
+        let mut observation = observe_forgejo_token(spec);
+        observation.api_authenticated = ForgejoTokenAuthState::Unknown;
+        observation
+            .unknowns
+            .push("forgejo_token_adapter_selection_unproven".to_string());
+        observation
+    }
+
+    fn create(&self, _spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
+        Err("Forgejo token adapter selection is unproven".to_string())
+    }
+
+    fn remove(&self, _spec: &ForgejoTokenSpec, _token_sha1: &str) -> Result<(), String> {
+        Err("Forgejo token adapter selection is unproven".to_string())
     }
 }
 
@@ -275,6 +332,21 @@ pub fn provision_forgejo_token(
     spec: &ForgejoTokenSpec,
     port: &dyn ForgejoTokenApiPort,
 ) -> ForgejoTokenProvisionReport {
+    if spec.target_path != FORGEJO_TOKEN_PATH {
+        let observation = observe_forgejo_token(spec);
+        return ForgejoTokenProvisionReport {
+            schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
+            status: "blocked",
+            principal: spec.principal.clone(),
+            mutated: false,
+            before: observation.clone(),
+            after: observation,
+            proofs: Vec::new(),
+            token_metadata: None,
+            rollback_intent: "no mutation; non-canonical token path".to_string(),
+            unknowns: vec!["forgejo_token_target_path_noncanonical".to_string()],
+        };
+    }
     let before = port.observe(spec);
 
     if before.api_authenticated == ForgejoTokenAuthState::Proven {
@@ -321,8 +393,8 @@ pub fn provision_forgejo_token(
                 mutated: true,
                 before,
                 after,
-                proofs,
-                token_metadata: if metadata.sha1 != "<unavailable>" {
+                proofs: if converged { proofs } else { Vec::new() },
+                token_metadata: if converged && metadata.sha1 != "<unavailable>" {
                     Some(metadata)
                 } else {
                     None
@@ -355,12 +427,28 @@ pub fn rotate_forgejo_token(
     spec: &ForgejoTokenSpec,
     port: &dyn ForgejoTokenApiPort,
 ) -> ForgejoTokenProvisionReport {
+    if spec.target_path != FORGEJO_TOKEN_PATH {
+        let observation = observe_forgejo_token(spec);
+        return ForgejoTokenProvisionReport {
+            schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
+            status: "blocked",
+            principal: spec.principal.clone(),
+            mutated: false,
+            before: observation.clone(),
+            after: observation,
+            proofs: Vec::new(),
+            token_metadata: None,
+            rollback_intent: "no mutation; non-canonical token path".to_string(),
+            unknowns: vec!["forgejo_token_target_path_noncanonical".to_string()],
+        };
+    }
     let before = port.observe(spec);
     let old = match port.current_token(spec) {
         Ok(metadata) if !metadata.sha1.is_empty() => metadata,
         _ => {
             return blocked_rotation_report(
                 spec,
+                port,
                 before,
                 "forgejo_token_current_metadata_unavailable",
                 false,
@@ -374,6 +462,27 @@ pub fn rotate_forgejo_token(
             &format!("forgejo_token_revoke_failed:{error}"),
             true,
         );
+    }
+    match port.is_revoked(spec, &old.sha1) {
+        Ok(true) => {}
+        Ok(false) => {
+            return blocked_rotation_report(
+                spec,
+                port,
+                before,
+                "forgejo_token_revocation_read_back_refuted",
+                true,
+            );
+        }
+        Err(error) => {
+            return blocked_rotation_report(
+                spec,
+                port,
+                before,
+                &format!("forgejo_token_revocation_read_back_unknown:{error}"),
+                true,
+            );
+        }
     }
     match port.create(spec) {
         Ok(metadata) => {
@@ -390,8 +499,12 @@ pub fn rotate_forgejo_token(
                 mutated: true,
                 before,
                 after,
-                proofs: vec!["token_previous_revoked".to_string()],
-                token_metadata: Some(metadata),
+                proofs: if converged {
+                    vec!["token_previous_revoked".to_string()]
+                } else {
+                    Vec::new()
+                },
+                token_metadata: if converged { Some(metadata) } else { None },
                 rollback_intent: format!(
                     "revoke replacement token for principal '{}' via the same port",
                     spec.principal
@@ -401,6 +514,7 @@ pub fn rotate_forgejo_token(
         }
         Err(error) => blocked_rotation_report(
             spec,
+            port,
             before,
             &format!("forgejo_token_create_failed_after_revoke:{error}"),
             true,
@@ -410,6 +524,7 @@ pub fn rotate_forgejo_token(
 
 fn blocked_rotation_report(
     spec: &ForgejoTokenSpec,
+    port: &dyn ForgejoTokenApiPort,
     before: ForgejoTokenObservation,
     reason: &str,
     mutated: bool,
@@ -420,7 +535,7 @@ fn blocked_rotation_report(
         principal: spec.principal.clone(),
         mutated,
         before,
-        after: observe_forgejo_token(spec),
+        after: port.observe(spec),
         proofs: Vec::new(),
         token_metadata: None,
         rollback_intent: "rotation blocked; inspect revocation and replacement state".to_string(),
@@ -477,14 +592,46 @@ fn forgejo_token_sha1(principal: &str) -> Option<ForgejoTokenMetadata> {
     if !output.status.success() {
         return None;
     }
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let value: serde_json::Value = serde_json::from_str(&stdout).ok()?;
-    let entry = value.get(0)?;
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+    unique_token_for_principal(&value, principal)
+}
+
+fn unique_token_for_principal(
+    value: &serde_json::Value,
+    principal: &str,
+) -> Option<ForgejoTokenMetadata> {
+    let entries = value.as_array()?;
+    let matches: Vec<_> = entries
+        .iter()
+        .filter(|entry| entry.get("name").and_then(|v| v.as_str()) == Some(principal))
+        .collect();
+    if matches.len() != 1 {
+        return None;
+    }
+    let entry = matches[0];
     Some(ForgejoTokenMetadata {
         token_id: entry.get("id").and_then(|v| v.as_u64())?,
-        name: entry.get("name").and_then(|v| v.as_str())?.to_string(),
+        name: principal.to_string(),
         sha1: entry.get("sha1").and_then(|v| v.as_str())?.to_string(),
     })
+}
+
+fn forgejo_token_is_revoked(principal: &str, token_sha1: &str) -> Result<bool, String> {
+    let output = Command::new("forgejo")
+        .args(["tokens", principal, "--format", "json"])
+        .output()
+        .map_err(|e| format!("forgejo token list spawn failed: {e}"))?;
+    if !output.status.success() {
+        return Err("forgejo token list failed during revocation read-back".to_string());
+    }
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .map_err(|e| format!("forgejo token list JSON parse failed: {e}"))?;
+    let entries = value
+        .as_array()
+        .ok_or_else(|| "forgejo token list returned a non-array".to_string())?;
+    Ok(!entries
+        .iter()
+        .any(|entry| entry.get("sha1").and_then(|v| v.as_str()) == Some(token_sha1)))
 }
 
 fn forgejo_token_revoke(principal: &str, sha1: &str) -> Result<(), String> {
@@ -503,17 +650,22 @@ fn forgejo_token_revoke(principal: &str, sha1: &str) -> Result<(), String> {
 }
 
 fn forgejo_api_validate_token(token_path: &str, api_base: &str) -> Result<bool, String> {
-    let token = std::fs::read_to_string(token_path)
-        .map_err(|e| format!("read token file: {e}"))?
-        .trim()
-        .to_string();
+    if token_path != FORGEJO_TOKEN_PATH {
+        return Err("token API probe requires the canonical token path".to_string());
+    }
+    let mut token =
+        std::fs::read_to_string(FORGEJO_TOKEN_PATH).map_err(|e| format!("read token file: {e}"))?;
+    let token_value = token.trim().to_string();
+    token.zeroize();
     let client = http_client()?;
-    let resp = client
+    let result = client
         .get(format_api_url(api_base, "/user"))
-        .header("Authorization", format!("token {token}"))
+        .header("Authorization", format!("token {token_value}"))
         .send()
-        .map_err(|e| format!("API probe request failed: {e}"))?;
-    Ok(resp.status().is_success())
+        .map(|resp| resp.status().is_success())
+        .map_err(|e| format!("API probe request failed: {e}"));
+    drop(token_value);
+    result
 }
 
 fn forgejo_http_create_token(
@@ -556,26 +708,44 @@ fn forgejo_http_token_sha1(
         .header("Authorization", format!("token {authorization_token}"))
         .send()
         .map_err(|e| format!("token list request failed: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("token list HTTP {}", resp.status()));
+    }
     let tokens: serde_json::Value = resp
         .json()
         .map_err(|e| format!("token list JSON parse failed: {e}"))?;
-    let first = tokens.get(0).ok_or_else(|| "no tokens found".to_string())?;
-    let token_id = first.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
-    let name = first
-        .get("name")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    let sha1 = first
-        .get("sha1")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    Ok(ForgejoTokenMetadata {
-        token_id,
-        name,
-        sha1,
-    })
+    unique_token_for_principal(&tokens, principal)
+        .ok_or_else(|| "current Forgejo token identity is ambiguous or unavailable".to_string())
+}
+
+fn forgejo_http_token_is_revoked(
+    api_base: &str,
+    principal: &str,
+    token_sha1: &str,
+    authorization_token: Option<&str>,
+) -> Result<bool, String> {
+    let authorization_token = required_authorization(authorization_token)?;
+    let client = http_client()?;
+    let resp = client
+        .get(format_api_url(
+            api_base,
+            &format!("/users/{principal}/tokens"),
+        ))
+        .header("Authorization", format!("token {authorization_token}"))
+        .send()
+        .map_err(|e| format!("token revocation read-back request failed: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("token revocation read-back HTTP {}", resp.status()));
+    }
+    let tokens: serde_json::Value = resp
+        .json()
+        .map_err(|e| format!("token revocation read-back JSON parse failed: {e}"))?;
+    let entries = tokens
+        .as_array()
+        .ok_or_else(|| "token revocation read-back returned a non-array".to_string())?;
+    Ok(!entries
+        .iter()
+        .any(|entry| entry.get("sha1").and_then(|v| v.as_str()) == Some(token_sha1)))
 }
 
 fn forgejo_http_revoke_token(
@@ -651,19 +821,34 @@ fn write_protected_secret(target: &str, token: &str, mode: u32) -> Result<(), St
         .map_err(|e| format!("clock error: {e}"))?
         .as_nanos();
     let temporary = parent.join(format!(".forgejo-token.{}.{}", std::process::id(), nonce));
-    let mut file = OpenOptions::new()
+    let mut file = match OpenOptions::new()
         .create_new(true)
         .write(true)
         .mode(mode)
         .custom_flags(0o400000)
         .open(&temporary)
-        .map_err(|e| format!("secret temporary file write failed: {e}"))?;
-    file.write_all(token.as_bytes())
-        .map_err(|e| format!("secret write_all failed: {e}"))?;
-    file.sync_all()
-        .map_err(|e| format!("secret sync failed: {e}"))?;
+    {
+        Ok(file) => file,
+        Err(e) => {
+            let _ = std::fs::remove_file(&temporary);
+            return Err(format!("secret temporary file write failed: {e}"));
+        }
+    };
+    if let Err(e) = file.write_all(token.as_bytes()) {
+        drop(file);
+        let _ = std::fs::remove_file(&temporary);
+        return Err(format!("secret write_all failed: {e}"));
+    }
+    if let Err(e) = file.sync_all() {
+        drop(file);
+        let _ = std::fs::remove_file(&temporary);
+        return Err(format!("secret sync failed: {e}"));
+    }
     drop(file);
-    std::fs::rename(&temporary, &path).map_err(|e| format!("secret atomic rename failed: {e}"))?;
+    if let Err(e) = std::fs::rename(&temporary, &path) {
+        let _ = std::fs::remove_file(&temporary);
+        return Err(format!("secret atomic rename failed: {e}"));
+    }
     Ok(())
 }
 

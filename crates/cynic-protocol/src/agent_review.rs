@@ -70,6 +70,21 @@ pub fn admit_agent_review_receipt(
     }
 }
 
+/// Workload admission boundary. An absent expected digest is itself a blocker;
+/// a receipt may never admit based only on its self-declared digest.
+pub fn admit_agent_review_receipt_at_workload_boundary(
+    receipt: &AgentReviewReceipt,
+    expected_proposal_digest: Option<&str>,
+    human_review_required: bool,
+) -> Result<(), Vec<String>> {
+    let Some(expected_proposal_digest) = expected_proposal_digest else {
+        return Err(vec![
+            "agent_review_expected_proposal_digest_missing".to_string(),
+        ]);
+    };
+    admit_agent_review_receipt(receipt, expected_proposal_digest, human_review_required)
+}
+
 pub fn validate_agent_review_receipt(receipt: &AgentReviewReceipt) -> Vec<String> {
     let mut blockers = Vec::new();
     if receipt.schema != AGENT_REVIEW_RECEIPT_SCHEMA {
@@ -192,6 +207,17 @@ mod tests {
         let blockers = admit_agent_review_receipt(&candidate, &candidate.proposal_digest, false)
             .expect_err("must block");
         assert!(blockers.contains(&"agent_review_validation_evidence_missing".to_string()));
+    }
+
+    #[test]
+    fn workload_boundary_blocks_when_expected_digest_is_not_supplied() {
+        let candidate = receipt(AgentReviewState::HumanAcknowledged);
+        let blockers = admit_agent_review_receipt_at_workload_boundary(&candidate, None, true)
+            .expect_err("missing caller digest must block admission");
+        assert_eq!(
+            blockers,
+            vec!["agent_review_expected_proposal_digest_missing"]
+        );
     }
 
     #[test]

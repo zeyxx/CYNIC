@@ -23,6 +23,7 @@
     "observe_forgejo_token_runtime",
     "provision_forgejo_token",
     "forgejo_token_adapter_selector",
+    "UnavailableForgejoTokenApiAdapter",
     "execute_forgejo_token"
   ],
   "owner_crate": "cynic-cli",

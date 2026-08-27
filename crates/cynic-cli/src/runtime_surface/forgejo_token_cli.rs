@@ -27,6 +27,21 @@ pub(crate) fn execute_forgejo_token(
     yes: bool,
     token_path: Option<String>,
 ) -> ExitCode {
+    if let Some(path) = token_path.as_deref() {
+        if path != cynic_host::forgejo_token::FORGEJO_TOKEN_PATH {
+            if json {
+                let _ = cli_json::emit_pretty_json(&serde_json::json!({
+                    "schema": FORGEJO_TOKEN_STATUS_REPORT_SCHEMA,
+                    "status": "blocked",
+                    "reason": "token_path_must_be_canonical",
+                    "path": path,
+                }));
+            } else {
+                eprintln!("Refusing non-canonical Forgejo token path: {path}");
+            }
+            return ExitCode::FAILURE;
+        }
+    }
     let token_spec = if let Some(p) = token_path {
         DefaultForgejoTokenSpec::with_token_path(&p)
     } else {

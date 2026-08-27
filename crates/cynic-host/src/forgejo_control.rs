@@ -202,14 +202,8 @@ pub fn current_forgejo_token_status()
     let spec = forgejo_token_spec(&desired, None);
     let port: Box<dyn ForgejoTokenApiPort> = Box::new(LocalForgejoTokenApiAdapter);
     let observation = port.observe(&spec);
-    let plan = build_forgejo_plan(
-        desired.clone(),
-        &RuntimeForgejoObserver::with_token_port(
-            current_repo_access_status(),
-            Box::new(LocalForgejoTokenApiAdapter),
-            spec.clone(),
-        ),
-    );
+    let plan =
+        cynic_protocol::forgejo_token::plan_forgejo_token_convergence(spec.clone(), &observation);
     let token_action_needed = matches!(
         observation.api_authenticated,
         ForgejoTokenAuthState::Absent | ForgejoTokenAuthState::Refuted
