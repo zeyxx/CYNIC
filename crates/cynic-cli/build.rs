@@ -49,6 +49,9 @@ fn normalize_path(path: &str) -> &str {
 }
 
 fn write_index(manifest: &Value) {
+    // This is compile-time include/index generation only. Full active,
+    // retired, and orphan validation belongs to the runtime assembler; do not
+    // duplicate that policy here.
     let schema = manifest
         .get("schema")
         .and_then(Value::as_str)

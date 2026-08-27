@@ -13,8 +13,9 @@ include!(concat!(
 ));
 
 pub(crate) fn canonical_cli_surfaces() -> Vec<CanonicalCliSurface> {
+    // The runtime assembler is the canonical policy validator. This generated
+    // include index only supplies compile-time payloads for the CLI catalog.
     let manifest = load_surface_registry_manifest();
-    validate_surface_registry_manifest(&manifest);
     let mut seen_ids = BTreeSet::new();
     let mut surfaces = Vec::new();
 
@@ -45,21 +46,6 @@ pub(crate) fn canonical_cli_surfaces() -> Vec<CanonicalCliSurface> {
 fn load_surface_registry_manifest() -> Value {
     serde_json::from_str(SURFACE_REGISTRY_MANIFEST)
         .expect("infra/surface-registry/manifest.json must be valid JSON")
-}
-
-fn validate_surface_registry_manifest(manifest: &Value) {
-    assert_eq!(
-        manifest
-            .get("schema")
-            .and_then(Value::as_str)
-            .unwrap_or_default(),
-        cynic_protocol::SURFACE_REGISTRY_SCHEMA,
-        "infra/surface-registry/manifest.json must declare the canonical surface registry schema"
-    );
-    assert!(
-        manifest.get("surfaces").is_some_and(Value::is_array),
-        "infra/surface-registry/manifest.json must contain an array of surface fragments"
-    );
 }
 
 fn fragment_for_surface(surface_id: &str) -> Option<&'static str> {

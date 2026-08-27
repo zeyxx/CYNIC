@@ -1,5 +1,5 @@
 use super::*;
-use std::os::unix::fs::symlink;
+use std::os::unix::fs::{MetadataExt, symlink};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn fixture() -> (PathBuf, PathBuf) {
@@ -41,8 +41,19 @@ fn positive_assembly_and_deterministic_output() {
     write(&manifest, &output).unwrap();
     check(&manifest, &output).unwrap();
     let first = fs::read_to_string(&output).unwrap();
+    let first_inode = fs::metadata(&output).unwrap().ino();
     write(&manifest, &output).unwrap();
     assert_eq!(first, fs::read_to_string(&output).unwrap());
+    assert_ne!(first_inode, fs::metadata(&output).unwrap().ino());
+    assert!(
+        !fs::read_dir(output.parent().unwrap())
+            .unwrap()
+            .any(|entry| entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .contains("cynic-tmp"))
+    );
     cleanup(&manifest);
 }
 
@@ -158,6 +169,39 @@ fn fifo_is_rejected_without_blocking() {
         .status()
         .unwrap();
     assert_err(&manifest, "special entry");
+    cleanup(&manifest);
+}
+
+#[test]
+fn output_symlink_is_rejected_without_touching_target() {
+    let (manifest, output) = fixture();
+    let target = manifest.parent().unwrap().join("protected.json");
+    fs::write(&target, "sentinel").unwrap();
+    symlink(&target, &output).unwrap();
+    let error = write(&manifest, &output).unwrap_err();
+    assert!(error.contains("symlink"), "{error}");
+    assert_eq!(fs::read_to_string(target).unwrap(), "sentinel");
+    cleanup(&manifest);
+}
+
+#[test]
+fn output_directory_is_rejected_without_blocking() {
+    let (manifest, output) = fixture();
+    fs::create_dir(&output).unwrap();
+    let error = write(&manifest, &output).unwrap_err();
+    assert!(error.contains("not a regular file"), "{error}");
+    cleanup(&manifest);
+}
+
+#[test]
+fn output_fifo_is_rejected_without_blocking() {
+    let (manifest, output) = fixture();
+    std::process::Command::new("mkfifo")
+        .arg(&output)
+        .status()
+        .unwrap();
+    let error = write(&manifest, &output).unwrap_err();
+    assert!(error.contains("not a regular file"), "{error}");
     cleanup(&manifest);
 }
 

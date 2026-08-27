@@ -1,6 +1,6 @@
 mod io;
 
-use io::read_json;
+use io::read_json_file;
 pub(crate) use io::{check, write};
 use serde_json::{Map, Value};
 use std::collections::BTreeSet;
@@ -13,9 +13,26 @@ use std::path::{Component, Path, PathBuf};
 const SCHEMA: &str = cynic_protocol::SURFACE_REGISTRY_SCHEMA;
 const O_NOFOLLOW: i32 = 0o400000;
 const O_NONBLOCK: i32 = 0o4000;
+const O_CLOEXEC: i32 = 0o2000000;
 
 pub(crate) fn assemble(manifest_path: &Path) -> Result<Value, String> {
-    let manifest = read_json(manifest_path)?;
+    let registry_root = manifest_path
+        .parent()
+        .ok_or_else(|| "manifest has no parent directory".to_string())?;
+    let root_file = open_verified_directory(registry_root, "repository root")?;
+    let manifest_name = manifest_path
+        .file_name()
+        .ok_or_else(|| "manifest has no file name".to_string())?;
+    let manifest_file = open_relative(&root_file, Path::new(manifest_name), "manifest")?;
+    let manifest_identity =
+        fs::symlink_metadata(manifest_path).map_err(|e| format!("manifest identity: {e}"))?;
+    if !same_identity(
+        &manifest_identity,
+        &manifest_file.metadata().map_err(|e| e.to_string())?,
+    ) {
+        return Err("manifest path/descriptor inode/device identity mismatch".into());
+    }
+    let manifest = read_json_file(&manifest_file, manifest_path)?;
     let manifest = manifest
         .as_object()
         .ok_or_else(|| format!("manifest must be an object: {}", manifest_path.display()))?;
@@ -37,23 +54,19 @@ pub(crate) fn assemble(manifest_path: &Path) -> Result<Value, String> {
         })
         .transpose()?
         .unwrap_or(&[]);
-    let registry_root = manifest_path
-        .parent()
-        .ok_or_else(|| "manifest has no parent directory".to_string())?;
     let fragments_root = registry_root.join("fragments");
     verify_directory(&fragments_root, "fragments directory")?;
-    let root_file = open_verified_directory(registry_root, "repository root")?;
-    let fragments_file = open_verified_directory(&fragments_root, "fragments directory")?;
+    let fragments_file = open_relative(&root_file, Path::new("fragments"), "fragments directory")?;
+    verify_identity(&fragments_file, &fragments_root, "fragments directory")?;
 
-    let result = assemble_with_descriptors(
+    assemble_with_descriptors(
         entries,
         retired,
         registry_root,
         &fragments_root,
         &root_file,
         &fragments_file,
-    );
-    result
+    )
 }
 
 fn assemble_with_descriptors(
@@ -248,9 +261,9 @@ fn open_relative(root: &File, relative: &Path, id: &str) -> Result<File, String>
         current.push(name);
         let final_component = index + 1 == components.len();
         let mut options = OpenOptions::new();
-        options
-            .read(true)
-            .custom_flags(O_NOFOLLOW | O_NONBLOCK | if final_component { 0 } else { 0o200000 });
+        options.read(true).custom_flags(
+            O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC | if final_component { 0 } else { 0o200000 },
+        );
         let next = options
             .open(&current)
             .map_err(|e| format!("cannot open fragment {id} ({}): {e}", relative.display()))?;
@@ -291,14 +304,14 @@ fn scan_fragments(
         let mut directory_options = OpenOptions::new();
         directory_options
             .read(true)
-            .custom_flags(O_NOFOLLOW | O_NONBLOCK | 0o200000);
+            .custom_flags(O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC | 0o200000);
         match directory_options.open(&entry_path) {
             Ok(child) => scan_fragments(&child, &entry_relative, found)?,
             Err(error) if error.kind() == std::io::ErrorKind::NotADirectory => {
                 let mut file_options = OpenOptions::new();
                 file_options
                     .read(true)
-                    .custom_flags(O_NOFOLLOW | O_NONBLOCK);
+                    .custom_flags(O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
                 let file = file_options.open(&entry_path).map_err(|e| {
                     format!(
                         "unsafe entry under fragments {}: {e}",
@@ -342,7 +355,7 @@ fn verify_directory(path: &Path, label: &str) -> Result<(), String> {
 fn open_verified_directory(path: &Path, label: &str) -> Result<File, String> {
     let before = fs::symlink_metadata(path).map_err(|e| format!("{label}: {e}"))?;
     let mut options = OpenOptions::new();
-    options.read(true).custom_flags(O_NOFOLLOW);
+    options.read(true).custom_flags(O_NOFOLLOW | O_CLOEXEC);
     let file = options.open(path).map_err(|e| format!("{label}: {e}"))?;
     if !same_identity(&before, &file.metadata().map_err(|e| e.to_string())?) {
         return Err(format!("{label} descriptor inode/device identity mismatch"));
