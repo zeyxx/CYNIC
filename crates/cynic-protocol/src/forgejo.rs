@@ -50,6 +50,12 @@ pub enum ForgejoActionKind {
     VerifySshHostIdentity,
     VerifyGitSshAuthentication,
     RevokeBootstrapAuthority,
+    /// Provision (create/rotate) the Forgejo API token for the machine principal.
+    /// Does NOT require a human admin secret — runs through the SSH-local
+    /// execution surface where `cynic-cortex` is enrolled.
+    ProvisionForgejoToken,
+    /// Observe (probe) the Forgejo API token file metadata + API validity.
+    ObserveForgejoToken,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
