@@ -415,9 +415,10 @@ pub(crate) enum RuntimeCommand {
         #[arg(long, default_value = "/var/lib/cynic")]
         state_root: String,
     },
-    /// Observe or provision the Forgejo runtime token (SSH-local Exec or HTTP).
+    /// Observe or provision the Forgejo runtime token (adapter unavailable/unproven until
+    /// runtime transport and credential injection are established).
     /// `status` (default) probes file + API validity; `create`/`rotate` mutates via --yes.
-    /// No Forgejo admin login secret required — uses the enrolled machine principal.
+    /// The enrolled machine principal is usable only after adapter selection is proven.
     ForgejoToken {
         #[arg(long, value_enum)]
         mode: ForgejoTokenMode,

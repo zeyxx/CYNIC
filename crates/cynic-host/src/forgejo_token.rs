@@ -45,7 +45,9 @@ pub trait ForgejoTokenApiPort: Send + Sync + std::fmt::Debug {
     /// Remove the token whose sha1 matches `token_sha1`.
     fn remove(&self, spec: &ForgejoTokenSpec, token_sha1: &str) -> Result<(), String>;
 
-    /// Read current metadata so rotation can revoke the exact old token.
+    /// Read current metadata only when the adapter can bind it to the installed
+    /// token through an explicit, trustworthy contract. Principal/name matching
+    /// is never sufficient.
     fn current_token(&self, _spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
         Err("current Forgejo token metadata unavailable".to_string())
     }
@@ -129,13 +131,10 @@ impl ForgejoTokenApiPort for LocalForgejoTokenApiAdapter {
     }
 
     fn create(&self, spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
-        let mut token_value = run_forgejo_tokens_add(spec)?;
+        let (mut token_value, metadata) = run_forgejo_tokens_add(spec)?;
         let write_result = write_protected_secret(&spec.target_path, &token_value, spec.mode);
         token_value.zeroize();
         write_result?;
-        let metadata = forgejo_token_sha1(&spec.principal).ok_or_else(|| {
-            "created Forgejo token identity is ambiguous or unavailable".to_string()
-        })?;
         Ok(metadata)
     }
 
@@ -143,9 +142,8 @@ impl ForgejoTokenApiPort for LocalForgejoTokenApiAdapter {
         forgejo_token_revoke(&spec.principal, token_sha1)
     }
 
-    fn current_token(&self, spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
-        forgejo_token_sha1(&spec.principal)
-            .ok_or_else(|| "current Forgejo token metadata unavailable".to_string())
+    fn current_token(&self, _spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
+        Err("current Forgejo token identity is not bound to the installed secret".to_string())
     }
 
     fn is_revoked(&self, spec: &ForgejoTokenSpec, token_sha1: &str) -> Result<bool, String> {
@@ -209,14 +207,10 @@ impl ForgejoTokenApiPort for HttpForgejoTokenApiAdapter {
         let write_result = write_protected_secret(&spec.target_path, &token_value, spec.mode);
         token_value.zeroize();
         write_result?;
-        forgejo_http_token_sha1(
-            &self.api_base,
-            &self.principal,
-            self.authorization_token.as_deref(),
-        )
+        extract_token_metadata(&resp)
     }
 
-    fn remove(&self, spec: &ForgejoTokenSpec, token_sha1: &str) -> Result<(), String> {
+    fn remove(&self, _spec: &ForgejoTokenSpec, token_sha1: &str) -> Result<(), String> {
         forgejo_http_revoke_token(
             &self.api_base,
             &self.principal,
@@ -226,11 +220,7 @@ impl ForgejoTokenApiPort for HttpForgejoTokenApiAdapter {
     }
 
     fn current_token(&self, _spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
-        forgejo_http_token_sha1(
-            &self.api_base,
-            &self.principal,
-            self.authorization_token.as_deref(),
-        )
+        Err("current Forgejo token identity is not bound to the installed secret".to_string())
     }
 
     fn is_revoked(&self, _spec: &ForgejoTokenSpec, token_sha1: &str) -> Result<bool, String> {
@@ -357,7 +347,8 @@ pub fn provision_forgejo_token(
             mutated: false,
             before: before.clone(),
             after: before.clone(),
-            proofs: vec!["token_api_authenticated_proven".to_string()],
+            // Proofs describe completed post-action evidence, not readiness.
+            proofs: Vec::new(),
             token_metadata: None,
             rollback_intent: "no mutation; nothing to roll back".to_string(),
             unknowns: Vec::new(),
@@ -458,6 +449,7 @@ pub fn rotate_forgejo_token(
     if let Err(error) = port.remove(spec, &old.sha1) {
         return blocked_rotation_report(
             spec,
+            port,
             before,
             &format!("forgejo_token_revoke_failed:{error}"),
             true,
@@ -545,7 +537,9 @@ fn blocked_rotation_report(
 
 // ── internal helpers (local-exec + http) ──────────────────────────────
 
-fn run_forgejo_tokens_add(spec: &ForgejoTokenSpec) -> Result<String, String> {
+fn run_forgejo_tokens_add(
+    spec: &ForgejoTokenSpec,
+) -> Result<(String, ForgejoTokenMetadata), String> {
     let mut cmd = Command::new("forgejo");
     cmd.args([
         "tokensAdd",
@@ -579,41 +573,8 @@ fn run_forgejo_tokens_add(spec: &ForgejoTokenSpec) -> Result<String, String> {
         .get("token")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "forgejo tokensAdd did not return a token field".to_string())?;
-    Ok(token.to_string())
-}
-
-fn forgejo_token_sha1(principal: &str) -> Option<ForgejoTokenMetadata> {
-    let output = Command::new("forgejo")
-        .args(["tokens", principal])
-        .arg("--format")
-        .arg("json")
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let value: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
-    unique_token_for_principal(&value, principal)
-}
-
-fn unique_token_for_principal(
-    value: &serde_json::Value,
-    principal: &str,
-) -> Option<ForgejoTokenMetadata> {
-    let entries = value.as_array()?;
-    let matches: Vec<_> = entries
-        .iter()
-        .filter(|entry| entry.get("name").and_then(|v| v.as_str()) == Some(principal))
-        .collect();
-    if matches.len() != 1 {
-        return None;
-    }
-    let entry = matches[0];
-    Some(ForgejoTokenMetadata {
-        token_id: entry.get("id").and_then(|v| v.as_u64())?,
-        name: principal.to_string(),
-        sha1: entry.get("sha1").and_then(|v| v.as_str())?.to_string(),
-    })
+    let metadata = extract_token_metadata(&value)?;
+    Ok((token.to_string(), metadata))
 }
 
 fn forgejo_token_is_revoked(principal: &str, token_sha1: &str) -> Result<bool, String> {
@@ -693,31 +654,6 @@ fn forgejo_http_create_token(
         .map_err(|e| format!("token creation JSON parse failed: {e}"))
 }
 
-fn forgejo_http_token_sha1(
-    api_base: &str,
-    principal: &str,
-    authorization_token: Option<&str>,
-) -> Result<ForgejoTokenMetadata, String> {
-    let authorization_token = required_authorization(authorization_token)?;
-    let client = http_client()?;
-    let resp = client
-        .get(format_api_url(
-            api_base,
-            &format!("/users/{principal}/tokens"),
-        ))
-        .header("Authorization", format!("token {authorization_token}"))
-        .send()
-        .map_err(|e| format!("token list request failed: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("token list HTTP {}", resp.status()));
-    }
-    let tokens: serde_json::Value = resp
-        .json()
-        .map_err(|e| format!("token list JSON parse failed: {e}"))?;
-    unique_token_for_principal(&tokens, principal)
-        .ok_or_else(|| "current Forgejo token identity is ambiguous or unavailable".to_string())
-}
-
 fn forgejo_http_token_is_revoked(
     api_base: &str,
     principal: &str,
@@ -775,6 +711,26 @@ fn extract_token_from_api_response(resp: &serde_json::Value) -> Result<String, S
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
         .ok_or_else(|| "API response missing token field".to_string())
+}
+
+fn extract_token_metadata(resp: &serde_json::Value) -> Result<ForgejoTokenMetadata, String> {
+    Ok(ForgejoTokenMetadata {
+        token_id: resp
+            .get("id")
+            .and_then(|value| value.as_u64())
+            .ok_or_else(|| "token response missing exact id".to_string())?,
+        name: resp
+            .get("name")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| "token response missing exact name".to_string())?
+            .to_string(),
+        sha1: resp
+            .get("sha1")
+            .and_then(|value| value.as_str())
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| "token response missing exact sha1".to_string())?
+            .to_string(),
+    })
 }
 
 fn required_authorization(token: Option<&str>) -> Result<&str, String> {
@@ -894,12 +850,25 @@ mod tests {
         }
 
         let spec = ForgejoTokenSpec {
-            target_path: "/tmp/nonexistent-provision-skip".to_string(),
+            target_path: FORGEJO_TOKEN_PATH.to_string(),
             ..ForgejoTokenSpec::default()
         };
         let report = provision_forgejo_token(&spec, &StubPort);
         assert_eq!(report.status, "ready");
         assert!(!report.mutated);
+        assert!(report.proofs.is_empty());
+    }
+
+    #[test]
+    fn concrete_adapters_fail_closed_without_installed_identity_binding() {
+        let spec = ForgejoTokenSpec::default();
+        assert!(LocalForgejoTokenApiAdapter.current_token(&spec).is_err());
+        let http = HttpForgejoTokenApiAdapter {
+            api_base: "https://forgejo.example".to_string(),
+            principal: spec.principal.clone(),
+            authorization_token: None,
+        };
+        assert!(http.current_token(&spec).is_err());
     }
 
     #[test]

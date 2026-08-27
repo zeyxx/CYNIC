@@ -2,10 +2,12 @@
 //!
 //! Thin projection over the host-side `forgejo_token` orchestration module.
 //! Observes file presence + API validity through the injected port, projects
-//! a convergence plan, and applies (via --yes) through `LocalForgejoTokenApiAdapter`.
+//! a convergence plan. The adapter selector is currently unavailable/unproven,
+//! so mutation remains fail-closed until transport and credential injection are
+//! established by a trustworthy runtime contract.
 //!
-//! No Forgejo admin login secret is required: the enrolled machine principal
-//! (`cynic-cortex`) creates tokens through the runtime SSH-local Exec adapter.
+//! No Forgejo admin login secret is accepted here; an enrolled machine
+//! principal can be used only after the runtime proves the adapter binding.
 
 use std::process::ExitCode;
 
@@ -13,7 +15,7 @@ use cynic_host::forgejo_token::{
     DefaultForgejoTokenSpec, ForgejoTokenRuntimeSpec, observe_forgejo_token_runtime,
     provision_forgejo_token_apply, rotate_forgejo_token,
 };
-use cynic_protocol::forgejo_token::{ForgejoTokenAuthState, ForgejoTokenStatusReport};
+use cynic_protocol::forgejo_token::ForgejoTokenStatusReport;
 
 use crate::cli_json;
 use crate::runtime_surface::ForgejoTokenMode;
@@ -73,7 +75,7 @@ fn execute_token_status(spec: &ForgejoTokenRuntimeSpec, json: bool, _yes: bool) 
         principal: spec.token_spec.principal.clone(),
         token: observation.clone(),
         forgejo_plan_status: plan.status.clone(),
-        token_action_needed: observation.api_authenticated != ForgejoTokenAuthState::Proven,
+        token_action_needed: plan.actions.iter().any(|action| action.mutates),
         requires_human_admin_secret: false,
         plan_action: if plan.actions.is_empty() {
             "observe".to_string()

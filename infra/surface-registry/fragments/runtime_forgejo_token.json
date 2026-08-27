@@ -31,5 +31,5 @@
     "runtime_surface::forgejo_token_cli",
     "cynic-host::forgejo_token"
   ],
-  "responsibility": "Observe and provision the Forgejo runtime token for the enrolled machine principal via SSH-local Exec or HTTP, with read-back proof and explicit apply consent."
+  "responsibility": "Observe the Forgejo runtime token and expose a fail-closed provision surface; SSH-local Exec or HTTP selection remains unavailable/unproven until runtime transport and credential injection are established, with read-back proof and explicit apply consent."
 }
