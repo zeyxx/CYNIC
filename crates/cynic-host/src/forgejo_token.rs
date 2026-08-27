@@ -15,16 +15,21 @@ pub use cynic_protocol::forgejo_token::{
     ForgejoTokenActionKind, ForgejoTokenAuthState, ForgejoTokenMetadata, ForgejoTokenObservation,
     ForgejoTokenPlan, ForgejoTokenProvisionReport, ForgejoTokenSpec, ForgejoTokenStatusReport,
 };
+use std::fmt;
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
 use std::os::unix::fs::OpenOptionsExt;
-use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::forgejo_token::{
     FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
+    FORGEJO_TOKEN_SPEC_SCHEMA,
 };
+
+pub const FORGEJO_TOKEN_DIRECTORY: &str = "/etc/cynic/secrets";
+pub const FORGEJO_TOKEN_PATH: &str = "/etc/cynic/secrets/forgejo-token";
 
 /// The injected port the domain drives. Two adapters implement it:
 /// - [`LocalForgejoTokenApiAdapter`] — runs `forgejo` CLI locally or via SSH-local Exec.
@@ -38,6 +43,11 @@ pub trait ForgejoTokenApiPort: Send + Sync + std::fmt::Debug {
 
     /// Remove the token whose sha1 matches `token_sha1`.
     fn remove(&self, spec: &ForgejoTokenSpec, token_sha1: &str) -> Result<(), String>;
+
+    /// Read current metadata so rotation can revoke the exact old token.
+    fn current_token(&self, _spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
+        Err("current Forgejo token metadata unavailable".to_string())
+    }
 }
 
 /// Read-only file-stat observation. Never returns the token bytes.
@@ -48,6 +58,9 @@ pub fn observe_forgejo_token(spec: &ForgejoTokenSpec) -> ForgejoTokenObservation
     let metadata = std::fs::symlink_metadata(&target);
 
     let mut unknowns = Vec::new();
+    if spec.target_path != FORGEJO_TOKEN_PATH {
+        unknowns.push("forgejo_token_target_path_noncanonical".to_string());
+    }
 
     let (secret_present, owner_root, mode_o640) = match &metadata {
         Ok(md) => {
@@ -111,14 +124,36 @@ impl ForgejoTokenApiPort for LocalForgejoTokenApiAdapter {
     fn remove(&self, spec: &ForgejoTokenSpec, token_sha1: &str) -> Result<(), String> {
         forgejo_token_revoke(&spec.principal, token_sha1)
     }
+
+    fn current_token(&self, spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
+        forgejo_token_sha1(&spec.principal)
+            .ok_or_else(|| "current Forgejo token metadata unavailable".to_string())
+    }
 }
 
 /// HTTPS adapter. Talks Forgejo REST API directly. Used when the host has
 /// network reachability to the Forgejo HTTPS endpoint. No shell involved.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct HttpForgejoTokenApiAdapter {
     pub api_base: String,
     pub principal: String,
+    /// Runtime credential supplied by the selected adapter; never serialized
+    /// or included in Debug output.
+    pub authorization_token: Option<String>,
+}
+
+impl fmt::Debug for HttpForgejoTokenApiAdapter {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("HttpForgejoTokenApiAdapter")
+            .field("api_base", &self.api_base)
+            .field("principal", &self.principal)
+            .field(
+                "authorization_token_present",
+                &self.authorization_token.is_some(),
+            )
+            .finish()
+    }
 }
 
 impl ForgejoTokenApiPort for HttpForgejoTokenApiAdapter {
@@ -142,14 +177,36 @@ impl ForgejoTokenApiPort for HttpForgejoTokenApiAdapter {
 
     fn create(&self, spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
         let scopes_csv = spec.scopes.join(",");
-        let resp = forgejo_http_create_token(&self.api_base, &self.principal, &scopes_csv)?;
+        let resp = forgejo_http_create_token(
+            &self.api_base,
+            &self.principal,
+            &scopes_csv,
+            self.authorization_token.as_deref(),
+        )?;
         let token_value = extract_token_from_api_response(&resp)?;
         write_protected_secret(&spec.target_path, &token_value, spec.mode)?;
-        forgejo_http_token_sha1(&self.api_base, &self.principal)
+        forgejo_http_token_sha1(
+            &self.api_base,
+            &self.principal,
+            self.authorization_token.as_deref(),
+        )
     }
 
     fn remove(&self, spec: &ForgejoTokenSpec, token_sha1: &str) -> Result<(), String> {
-        forgejo_http_revoke_token(&self.api_base, &self.principal, token_sha1)
+        forgejo_http_revoke_token(
+            &self.api_base,
+            &self.principal,
+            token_sha1,
+            self.authorization_token.as_deref(),
+        )
+    }
+
+    fn current_token(&self, _spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
+        forgejo_http_token_sha1(
+            &self.api_base,
+            &self.principal,
+            self.authorization_token.as_deref(),
+        )
     }
 }
 
@@ -170,15 +227,15 @@ pub struct DefaultForgejoTokenSpec;
 impl DefaultForgejoTokenSpec {
     pub fn default_with_principal(principal: String) -> ForgejoTokenSpec {
         ForgejoTokenSpec {
-            schema: FORGEJO_TOKEN_OBSERVATION_SCHEMA.to_string(),
+            schema: FORGEJO_TOKEN_SPEC_SCHEMA.to_string(),
             principal,
-            api_url: "https://forgejo.synapse.cynic/api/v1".to_string(),
+            api_url: "https://forgejo.synapse.cynic".to_string(),
             scopes: vec![
                 "read:organization".to_string(),
                 "write:organization".to_string(),
                 "write:repository".to_string(),
             ],
-            target_path: "/etc/cynic/secrets/forgejo-token".to_string(),
+            target_path: FORGEJO_TOKEN_PATH.to_string(),
             mode: 0o640,
             expiry_seconds: None,
         }
@@ -292,6 +349,85 @@ pub fn provision_forgejo_token(
     }
 }
 
+/// Rotate by revoking the exact current token, creating its replacement, and
+/// requiring a fresh observation proving the replacement.
+pub fn rotate_forgejo_token(
+    spec: &ForgejoTokenSpec,
+    port: &dyn ForgejoTokenApiPort,
+) -> ForgejoTokenProvisionReport {
+    let before = port.observe(spec);
+    let old = match port.current_token(spec) {
+        Ok(metadata) if !metadata.sha1.is_empty() => metadata,
+        _ => {
+            return blocked_rotation_report(
+                spec,
+                before,
+                "forgejo_token_current_metadata_unavailable",
+                false,
+            );
+        }
+    };
+    if let Err(error) = port.remove(spec, &old.sha1) {
+        return blocked_rotation_report(
+            spec,
+            before,
+            &format!("forgejo_token_revoke_failed:{error}"),
+            true,
+        );
+    }
+    match port.create(spec) {
+        Ok(metadata) => {
+            let after = port.observe(spec);
+            let converged = after.api_authenticated == ForgejoTokenAuthState::Proven;
+            let mut unknowns = after.unknowns.clone();
+            if !converged {
+                unknowns.push("forgejo_token_rotation_read_back_not_converged".to_string());
+            }
+            ForgejoTokenProvisionReport {
+                schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
+                status: if converged { "completed" } else { "blocked" },
+                principal: spec.principal.clone(),
+                mutated: true,
+                before,
+                after,
+                proofs: vec!["token_previous_revoked".to_string()],
+                token_metadata: Some(metadata),
+                rollback_intent: format!(
+                    "revoke replacement token for principal '{}' via the same port",
+                    spec.principal
+                ),
+                unknowns,
+            }
+        }
+        Err(error) => blocked_rotation_report(
+            spec,
+            before,
+            &format!("forgejo_token_create_failed_after_revoke:{error}"),
+            true,
+        ),
+    }
+}
+
+fn blocked_rotation_report(
+    spec: &ForgejoTokenSpec,
+    before: ForgejoTokenObservation,
+    reason: &str,
+    mutated: bool,
+) -> ForgejoTokenProvisionReport {
+    ForgejoTokenProvisionReport {
+        schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
+        status: "blocked",
+        principal: spec.principal.clone(),
+        mutated,
+        before,
+        after: observe_forgejo_token(spec),
+        proofs: Vec::new(),
+        token_metadata: None,
+        rollback_intent: "rotation blocked; inspect revocation and replacement state".to_string(),
+        unknowns: vec![reason.to_string()],
+    }
+}
+
 // ── internal helpers (local-exec + http) ──────────────────────────────
 
 fn run_forgejo_tokens_add(spec: &ForgejoTokenSpec) -> Result<String, String> {
@@ -367,10 +503,13 @@ fn forgejo_token_revoke(principal: &str, sha1: &str) -> Result<(), String> {
 }
 
 fn forgejo_api_validate_token(token_path: &str, api_base: &str) -> Result<bool, String> {
-    let token = std::fs::read_to_string(token_path).map_err(|e| format!("read token file: {e}"))?;
+    let token = std::fs::read_to_string(token_path)
+        .map_err(|e| format!("read token file: {e}"))?
+        .trim()
+        .to_string();
     let client = http_client()?;
     let resp = client
-        .get(format!("{api_base}/api/v1/user"))
+        .get(format_api_url(api_base, "/user"))
         .header("Authorization", format!("token {token}"))
         .send()
         .map_err(|e| format!("API probe request failed: {e}"))?;
@@ -381,11 +520,17 @@ fn forgejo_http_create_token(
     api_base: &str,
     principal: &str,
     scopes: &str,
+    authorization_token: Option<&str>,
 ) -> Result<serde_json::Value, String> {
+    let authorization_token = required_authorization(authorization_token)?;
     let client = http_client()?;
     let body = serde_json::json!({ "name": principal, "scopes": scopes });
     let resp = client
-        .post(format!("{api_base}/api/v1/users/{principal}/tokens"))
+        .post(format_api_url(
+            api_base,
+            &format!("/users/{principal}/tokens"),
+        ))
+        .header("Authorization", format!("token {authorization_token}"))
         .json(&body)
         .send()
         .map_err(|e| format!("token creation request failed: {e}"))?;
@@ -399,10 +544,16 @@ fn forgejo_http_create_token(
 fn forgejo_http_token_sha1(
     api_base: &str,
     principal: &str,
+    authorization_token: Option<&str>,
 ) -> Result<ForgejoTokenMetadata, String> {
+    let authorization_token = required_authorization(authorization_token)?;
     let client = http_client()?;
     let resp = client
-        .get(format!("{api_base}/api/v1/users/{principal}/tokens"))
+        .get(format_api_url(
+            api_base,
+            &format!("/users/{principal}/tokens"),
+        ))
+        .header("Authorization", format!("token {authorization_token}"))
         .send()
         .map_err(|e| format!("token list request failed: {e}"))?;
     let tokens: serde_json::Value = resp
@@ -427,10 +578,20 @@ fn forgejo_http_token_sha1(
     })
 }
 
-fn forgejo_http_revoke_token(api_base: &str, principal: &str, sha1: &str) -> Result<(), String> {
+fn forgejo_http_revoke_token(
+    api_base: &str,
+    principal: &str,
+    sha1: &str,
+    authorization_token: Option<&str>,
+) -> Result<(), String> {
+    let authorization_token = required_authorization(authorization_token)?;
     let client = http_client()?;
     let resp = client
-        .delete(format!("{api_base}/api/v1/users/{principal}/tokens/{sha1}"))
+        .delete(format_api_url(
+            api_base,
+            &format!("/users/{principal}/tokens/{sha1}"),
+        ))
+        .header("Authorization", format!("token {authorization_token}"))
         .send()
         .map_err(|e| format!("token revoke request failed: {e}"))?;
     if !resp.status().is_success() {
@@ -446,28 +607,63 @@ fn extract_token_from_api_response(resp: &serde_json::Value) -> Result<String, S
         .ok_or_else(|| "API response missing token field".to_string())
 }
 
+fn required_authorization(token: Option<&str>) -> Result<&str, String> {
+    token
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "Forgejo HTTP mutation requires Authorization token".to_string())
+}
+
+fn format_api_url(api_base: &str, path: &str) -> String {
+    let base = api_base.trim_end_matches('/');
+    let base = base.strip_suffix("/api/v1").unwrap_or(base);
+    format!("{base}/api/v1/{}", path.trim_start_matches('/'))
+}
+
 fn write_protected_secret(target: &str, token: &str, mode: u32) -> Result<(), String> {
+    if target != FORGEJO_TOKEN_PATH {
+        return Err(format!(
+            "secret target must be canonical path {FORGEJO_TOKEN_PATH}"
+        ));
+    }
     let path = PathBuf::from(target);
     let parent = path
         .parent()
         .ok_or_else(|| "secret target has no parent".to_string())?;
-    if !parent.as_os_str().is_empty() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("secret directory creation failed: {e}"))?;
+    std::fs::create_dir_all(parent)
+        .map_err(|e| format!("secret directory creation failed: {e}"))?;
+    if parent
+        .canonicalize()
+        .map_err(|e| format!("secret directory canonicalization failed: {e}"))?
+        != PathBuf::from(FORGEJO_TOKEN_DIRECTORY)
+    {
+        return Err("secret directory must not resolve through a symlink".to_string());
     }
+    if let Ok(metadata) = std::fs::symlink_metadata(&path) {
+        if metadata.file_type().is_symlink() {
+            return Err("secret target symlink rejected".to_string());
+        }
+        if !metadata.file_type().is_file() {
+            return Err("secret target is not a regular file".to_string());
+        }
+    }
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| format!("clock error: {e}"))?
+        .as_nanos();
+    let temporary = parent.join(format!(".forgejo-token.{}.{}", std::process::id(), nonce));
     let mut file = OpenOptions::new()
-        .create(true)
+        .create_new(true)
         .write(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(&path)
-        .map_err(|e| format!("secret file write failed: {e}"))?;
+        .mode(mode)
+        .custom_flags(0o400000)
+        .open(&temporary)
+        .map_err(|e| format!("secret temporary file write failed: {e}"))?;
     file.write_all(token.as_bytes())
         .map_err(|e| format!("secret write_all failed: {e}"))?;
     file.sync_all()
         .map_err(|e| format!("secret sync failed: {e}"))?;
-    let perms = std::fs::Permissions::from_mode(mode);
-    std::fs::set_permissions(&path, perms).map_err(|e| format!("secret chmod failed: {e}"))?;
+    drop(file);
+    std::fs::rename(&temporary, &path).map_err(|e| format!("secret atomic rename failed: {e}"))?;
     Ok(())
 }
 
@@ -526,6 +722,7 @@ mod tests {
         let http = HttpForgejoTokenApiAdapter {
             api_base: "https://forgejo.synapse.cynic/api/v1".to_string(),
             principal: "cynic-cortex".to_string(),
+            authorization_token: None,
         };
         let spec = ForgejoTokenSpec {
             target_path: "/tmp/nonexistent-http-token-xyz".to_string(),
@@ -535,6 +732,22 @@ mod tests {
         // File missing → secret_present false → ApiAuthenticated::Absent (no API call).
         assert!(!obs.secret_present);
         assert_eq!(obs.api_authenticated, ForgejoTokenAuthState::Absent);
+    }
+
+    #[test]
+    fn http_mutations_require_auth_and_normalize_api_base() {
+        assert!(required_authorization(None).is_err());
+        assert_eq!(
+            format_api_url("https://forgejo.example/api/v1/", "/user"),
+            "https://forgejo.example/api/v1/user"
+        );
+    }
+
+    #[test]
+    fn secret_writer_rejects_noncanonical_targets_before_io() {
+        let error = write_protected_secret("/tmp/arbitrary-token", "secret", 0o640)
+            .expect_err("arbitrary token paths must be rejected");
+        assert!(error.contains("canonical path"));
     }
 
     #[test]

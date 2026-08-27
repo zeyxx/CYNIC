@@ -42,9 +42,13 @@ pub struct AgentReviewReceipt {
 /// malformed-digest regression below keeps non-admission fail-closed.
 pub fn admit_agent_review_receipt(
     receipt: &AgentReviewReceipt,
+    expected_proposal_digest: &str,
     human_review_required: bool,
 ) -> Result<(), Vec<String>> {
     let mut blockers = validate_agent_review_receipt(receipt);
+    if receipt.proposal_digest != expected_proposal_digest {
+        blockers.push("agent_review_proposal_digest_mismatch".to_string());
+    }
     if !matches!(
         receipt.state,
         AgentReviewState::ValidationPassed | AgentReviewState::HumanAcknowledged
@@ -160,7 +164,12 @@ mod tests {
     #[test]
     fn reviewed_receipt_admits_a_policy_that_requires_human_review() {
         assert!(
-            admit_agent_review_receipt(&receipt(AgentReviewState::HumanAcknowledged), true).is_ok()
+            admit_agent_review_receipt(
+                &receipt(AgentReviewState::HumanAcknowledged),
+                &receipt(AgentReviewState::HumanAcknowledged).proposal_digest,
+                true,
+            )
+            .is_ok()
         );
     }
 
@@ -169,7 +178,8 @@ mod tests {
         let mut candidate = receipt(AgentReviewState::ValidationPassed);
         candidate.human_acknowledgement = None;
 
-        let blockers = admit_agent_review_receipt(&candidate, true).expect_err("must block");
+        let blockers = admit_agent_review_receipt(&candidate, &candidate.proposal_digest, true)
+            .expect_err("must block");
         assert!(blockers.contains(&"agent_review_human_acknowledgement_required".to_string()));
         assert!(blockers.contains(&"agent_review_human_acknowledgement_missing".to_string()));
     }
@@ -179,16 +189,19 @@ mod tests {
         let mut candidate = receipt(AgentReviewState::ValidationPassed);
         candidate.validation_evidence_refs.clear();
 
-        let blockers = admit_agent_review_receipt(&candidate, false).expect_err("must block");
+        let blockers = admit_agent_review_receipt(&candidate, &candidate.proposal_digest, false)
+            .expect_err("must block");
         assert!(blockers.contains(&"agent_review_validation_evidence_missing".to_string()));
     }
 
     #[test]
     fn proposal_digest_is_bound_before_any_apply_admission() {
         let mut candidate = receipt(AgentReviewState::HumanAcknowledged);
-        candidate.proposal_digest = "forged".to_string();
+        let expected_digest = candidate.proposal_digest.clone();
+        candidate.proposal_digest = format!("sha256:{}", "c".repeat(64));
 
-        let blockers = admit_agent_review_receipt(&candidate, true).expect_err("must block");
-        assert!(blockers.contains(&"agent_review_proposal_digest_invalid".to_string()));
+        let blockers =
+            admit_agent_review_receipt(&candidate, &expected_digest, true).expect_err("must block");
+        assert!(blockers.contains(&"agent_review_proposal_digest_mismatch".to_string()));
     }
 }

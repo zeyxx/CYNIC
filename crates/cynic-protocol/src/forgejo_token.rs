@@ -23,7 +23,7 @@ pub struct ForgejoTokenSpec {
     pub schema: String,
     /// The Forgejo principal that owns the token (e.g. "cynic-cortex").
     pub principal: String,
-    /// Forgejo API base URL (e.g. https://forgejo.synapse.cynic/api/v1).
+    /// Forgejo server base URL (the adapter appends `/api/v1`).
     pub api_url: String,
     /// Scopes granted to the new token (Forgejo scope syntax).
     pub scopes: Vec<String>,
@@ -40,7 +40,7 @@ impl Default for ForgejoTokenSpec {
         Self {
             schema: FORGEJO_TOKEN_SPEC_SCHEMA.to_string(),
             principal: "cynic-cortex".to_string(),
-            api_url: "https://forgejo.synapse.cynic/api/v1".to_string(),
+            api_url: "https://forgejo.synapse.cynic".to_string(),
             scopes: vec![
                 "read:organization".to_string(),
                 "write:organization".to_string(),
