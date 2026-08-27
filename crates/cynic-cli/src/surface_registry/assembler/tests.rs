@@ -185,6 +185,31 @@ fn output_symlink_is_rejected_without_touching_target() {
 }
 
 #[test]
+fn output_parent_symlink_is_rejected_without_creating_directories() {
+    let (manifest, output) = fixture();
+    let root = manifest.parent().unwrap();
+    let real_parent = root.join("real-output");
+    let linked_parent = root.join("linked-output");
+    fs::create_dir(&real_parent).unwrap();
+    symlink(&real_parent, &linked_parent).unwrap();
+    let linked_output = linked_parent.join("out.json");
+    let error = write(&manifest, &linked_output).unwrap_err();
+    assert!(
+        error.contains("output parent") && error.contains("unsafe"),
+        "{error}"
+    );
+    assert!(!real_parent.join("out.json").exists());
+    assert!(!real_parent.read_dir().unwrap().any(|entry| {
+        entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .contains("cynic-tmp")
+    }));
+    cleanup(&manifest);
+}
+
+#[test]
 fn output_directory_is_rejected_without_blocking() {
     let (manifest, output) = fixture();
     fs::create_dir(&output).unwrap();
