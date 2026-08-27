@@ -3,17 +3,28 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSEMBLER = ROOT / "scripts" / "surface-registry-assemble"
 SCHEMA = "cynic.surface_registry.v1"
+
+
+_ASSEMBLER_SPEC = importlib.util.spec_from_loader(
+    "surface_registry_assemble", SourceFileLoader("surface_registry_assemble", str(ASSEMBLER))
+)
+assert _ASSEMBLER_SPEC is not None and _ASSEMBLER_SPEC.loader is not None
+ASSEMBLER_MODULE = importlib.util.module_from_spec(_ASSEMBLER_SPEC)
+_ASSEMBLER_SPEC.loader.exec_module(ASSEMBLER_MODULE)
 
 
 class SurfaceRegistryAssemblerSecurityTests(unittest.TestCase):
@@ -101,6 +112,43 @@ class SurfaceRegistryAssemblerSecurityTests(unittest.TestCase):
             ]
             manifest.write_text(json.dumps(document), encoding="utf-8")
             self.assert_rejected(manifest, output, "duplicate retired surface id")
+    def test_root_identity_mismatch_fails_closed_and_closes_root(self) -> None:
+        temporary, manifest, _ = self.fixture()
+        with temporary:
+            root = manifest.parent.resolve()
+            closed: list[int] = []
+            with mock.patch.object(ASSEMBLER_MODULE.os, "open", return_value=101), mock.patch.object(
+                ASSEMBLER_MODULE.os, "readlink", return_value="/tmp"
+            ), mock.patch.object(ASSEMBLER_MODULE.os, "close", side_effect=closed.append):
+                with self.assertRaises(SystemExit):
+                    ASSEMBLER_MODULE.build_document(
+                        json.loads(manifest.read_text(encoding="utf-8")), manifest.parent
+                    )
+            self.assertEqual(closed, [101])
+
+    def test_fragments_open_failure_closes_root_and_duplicate_descriptor(self) -> None:
+        temporary, manifest, _ = self.fixture()
+        with temporary:
+            root = manifest.parent.resolve()
+            opened = iter([101])
+            closed: list[int] = []
+
+            def open_side_effect(*args: object, **kwargs: object) -> int:
+                try:
+                    return next(opened)
+                except StopIteration:
+                    raise PermissionError(13, "permission denied")
+
+            with mock.patch.object(ASSEMBLER_MODULE.os, "open", side_effect=open_side_effect), mock.patch.object(
+                ASSEMBLER_MODULE.os, "readlink", return_value=str(root)
+            ), mock.patch.object(ASSEMBLER_MODULE.os, "dup", return_value=202), mock.patch.object(
+                ASSEMBLER_MODULE.os, "close", side_effect=closed.append
+            ):
+                with self.assertRaises(SystemExit):
+                    ASSEMBLER_MODULE.build_document(
+                        json.loads(manifest.read_text(encoding="utf-8")), manifest.parent
+                    )
+            self.assertEqual(closed, [202, 101])
 
 
 if __name__ == "__main__":

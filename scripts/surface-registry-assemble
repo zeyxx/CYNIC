@@ -104,6 +104,19 @@ def fragment_path(
     return relative, candidate
 
 
+def verify_root_fd(root_fd: int, intended_root: Path) -> None:
+    """Ensure the opened root descriptor names the intended resolved root."""
+    try:
+        actual_root = Path(os.readlink(f"/proc/self/fd/{root_fd}")).resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        fail(f"cannot verify repository root descriptor: {error}")
+    if actual_root != intended_root:
+        fail(
+            "repository root descriptor identity mismatch: "
+            f"expected {intended_root}, found {actual_root}"
+        )
+
+
 def open_relative(root_fd: int, relative: Path, *, directory: bool = False) -> int:
     """Open a path beneath root_fd without following any component symlink."""
     current = os.dup(root_fd)
@@ -193,9 +206,12 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
     if not isinstance(retired, list):
         fail("manifest.retired must be an array")
 
-    root_fd = os.open(manifest_root, _DIRECTORY_FLAGS)
-    fragments_fd = open_relative(root_fd, Path("fragments"), directory=True)
+    root_fd: int | None = None
+    fragments_fd: int | None = None
     try:
+        root_fd = os.open(manifest_root, _DIRECTORY_FLAGS)
+        verify_root_fd(root_fd, manifest_root)
+        fragments_fd = open_relative(root_fd, Path("fragments"), directory=True)
         seen_ids: set[str] = set()
         active_ids: set[str] = set()
         referenced_paths: set[Path] = set()
@@ -266,8 +282,10 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
 
         return {"schema": EXPECTED_SCHEMA, "surfaces": surfaces}
     finally:
-        os.close(fragments_fd)
-        os.close(root_fd)
+        if fragments_fd is not None:
+            os.close(fragments_fd)
+        if root_fd is not None:
+            os.close(root_fd)
 
 
 def main() -> None:
