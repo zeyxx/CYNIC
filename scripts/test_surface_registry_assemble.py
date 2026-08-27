@@ -80,6 +80,14 @@ class SurfaceRegistryAssemblerSecurityTests(unittest.TestCase):
             (nested / "orphan.json").write_text(json.dumps({"id": "orphan"}), encoding="utf-8")
             self.assert_rejected(manifest, output, "nested/orphan.json")
 
+    def test_nested_symlink_entry_is_rejected(self) -> None:
+        temporary, manifest, output = self.fixture()
+        with temporary:
+            nested = Path(temporary.name) / "fragments" / "nested"
+            nested.mkdir()
+            (nested / "link.json").symlink_to(Path(temporary.name) / "fragments" / "main.json")
+            self.assert_rejected(manifest, output, "symlink")
+
     def test_duplicate_retired_ids_are_rejected(self) -> None:
         temporary, manifest, output = self.fixture()
         with temporary:

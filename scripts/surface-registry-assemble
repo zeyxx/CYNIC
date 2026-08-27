@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import stat
 import sys
 from collections.abc import MutableMapping
 from pathlib import Path
@@ -28,6 +29,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "infra" / "surface-registry" / "manifest.json"
 DEFAULT_OUTPUT = ROOT / "infra" / "surface-registry.json"
 EXPECTED_SCHEMA = "cynic.surface_registry.v1"
+_READ_FLAGS = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+_DIRECTORY_FLAGS = _READ_FLAGS | os.O_DIRECTORY
 
 
 def fail(message: str) -> None:
@@ -43,6 +46,16 @@ def read_json(path: Path) -> Any:
         fail(f"missing file: {path}")
     except json.JSONDecodeError as error:
         fail(f"invalid JSON in {path}: {error}")
+
+
+def read_json_fd(fd: int, display_path: Path) -> Any:
+    try:
+        with os.fdopen(fd, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except FileNotFoundError:
+        fail(f"missing file: {display_path}")
+    except json.JSONDecodeError as error:
+        fail(f"invalid JSON in {display_path}: {error}")
 
 
 def canonical_signature(document: Any) -> str:
@@ -61,7 +74,7 @@ def safe_relative_path(value: Any, *, context: str) -> Path:
 def fragment_path(
     value: Any, *, context: str, manifest_root: Path, fragments_dir: Path
 ) -> tuple[Path, Path]:
-    """Validate a manifest path, including containment and no-follow checks."""
+    """Validate a manifest path, including containment and lexical checks."""
     relative = safe_relative_path(value, context=context)
     candidate = manifest_root.joinpath(relative)
     try:
@@ -69,12 +82,13 @@ def fragment_path(
     except ValueError:
         fail(f"{context}: path must be beneath fragments directory: {value!r}")
 
-    # Check every component without following links, including the final file.
+    # Retain the explicit no-symlink and resolved containment checks for clear
+    # diagnostics. The descriptor-relative open below is the security boundary.
     current = manifest_root
     for component in relative.parts:
         current /= component
         try:
-            if os.lstat(current).st_mode & 0o170000 == 0o120000:
+            if stat.S_ISLNK(os.lstat(current).st_mode):
                 fail(f"{context}: symlink components/files are not allowed: {value!r}")
         except FileNotFoundError:
             break
@@ -88,6 +102,71 @@ def fragment_path(
     if resolved_candidate == resolved_root:
         fail(f"{context}: path must name a fragment beneath fragments directory: {value!r}")
     return relative, candidate
+
+
+def open_relative(root_fd: int, relative: Path, *, directory: bool = False) -> int:
+    """Open a path beneath root_fd without following any component symlink."""
+    current = os.dup(root_fd)
+    try:
+        for index, component in enumerate(relative.parts):
+            is_final = index == len(relative.parts) - 1
+            flags = _DIRECTORY_FLAGS if (directory or not is_final) else _READ_FLAGS
+            next_fd = os.open(component, flags, dir_fd=current)
+            os.close(current)
+            current = next_fd
+        return current
+    except OSError as error:
+        os.close(current)
+        fail(f"unsafe or missing path {relative}: {error.strerror}")
+
+
+def read_fragment(root_fd: int, relative: Path, display_path: Path) -> Any:
+    """Read an already descriptor-resolved fragment; no pathname reopen occurs."""
+    fd = open_relative(root_fd, relative)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            fail(f"fragment {display_path} is not a regular file")
+        return read_json_fd(fd, display_path)
+    except BaseException:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        raise
+
+
+def scan_files(dir_fd: int, relative: Path) -> set[Path]:
+    """Recursively scan using directory descriptors and reject symlink entries."""
+    found: set[Path] = set()
+    try:
+        entries = list(os.scandir(dir_fd))
+    except OSError as error:
+        fail(f"cannot scan fragments directory {relative}: {error.strerror}")
+    for entry in entries:
+        entry_relative = relative / entry.name
+        if entry.is_symlink():
+            fail(f"symlink components/files are not allowed under fragments: {entry_relative}")
+        try:
+            child_fd = os.open(entry.name, _DIRECTORY_FLAGS, dir_fd=dir_fd)
+        except NotADirectoryError:
+            child_fd = os.open(entry.name, _READ_FLAGS, dir_fd=dir_fd)
+            try:
+                if stat.S_ISLNK(os.fstat(child_fd).st_mode):
+                    fail(f"symlink components/files are not allowed under fragments: {entry_relative}")
+                if stat.S_ISREG(os.fstat(child_fd).st_mode):
+                    found.add(entry_relative)
+            finally:
+                os.close(child_fd)
+        except FileNotFoundError:
+            fail(f"entry disappeared while scanning fragments: {entry_relative}")
+        except OSError as error:
+            fail(f"unsafe entry under fragments {entry_relative}: {error.strerror}")
+        else:
+            try:
+                found.update(scan_files(child_fd, entry_relative))
+            finally:
+                os.close(child_fd)
+    return found
 
 
 def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> dict[str, Any]:
@@ -114,105 +193,88 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
     if not isinstance(retired, list):
         fail("manifest.retired must be an array")
 
-    seen_ids: set[str] = set()
-    active_ids: set[str] = set()
-    referenced_paths: set[Path] = set()
-    retired_paths: set[Path] = set()
-    surfaces = []
-    for entry in entries:
-        if not isinstance(entry, dict):
-            fail("manifest.surfaces entries must be objects")
-        surface_id = entry.get("id")
-        path = entry.get("path")
-        if not isinstance(surface_id, str) or not surface_id:
-            fail("manifest surface entry is missing a non-empty id")
-        relative_path, fragment_pathname = fragment_path(
-            path,
-            context=f"surface {surface_id}",
-            manifest_root=manifest_root,
-            fragments_dir=fragments_dir,
-        )
-        if relative_path in referenced_paths:
-            fail(f"duplicate fragment path in manifest: {path}")
-        referenced_paths.add(relative_path)
-        fragment = read_json(fragment_pathname)
-        if not isinstance(fragment, dict):
-            fail(f"fragment {path} must be an object")
-        if fragment.get("id") != surface_id:
-            fail(
-                f"fragment id mismatch for {surface_id}: "
-                f"manifest expects {surface_id}, fragment has {fragment.get('id')}"
+    root_fd = os.open(manifest_root, _DIRECTORY_FLAGS)
+    fragments_fd = open_relative(root_fd, Path("fragments"), directory=True)
+    try:
+        seen_ids: set[str] = set()
+        active_ids: set[str] = set()
+        referenced_paths: set[Path] = set()
+        retired_paths: set[Path] = set()
+        surfaces = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                fail("manifest.surfaces entries must be objects")
+            surface_id = entry.get("id")
+            path = entry.get("path")
+            if not isinstance(surface_id, str) or not surface_id:
+                fail("manifest surface entry is missing a non-empty id")
+            relative_path, _ = fragment_path(
+                path, context=f"surface {surface_id}", manifest_root=manifest_root, fragments_dir=fragments_dir
             )
-        if surface_id in seen_ids:
-            fail(f"duplicate surface id in manifest: {surface_id}")
-        seen_ids.add(surface_id)
-        active_ids.add(surface_id)
-        surfaces.append(fragment)
+            if relative_path in referenced_paths:
+                fail(f"duplicate fragment path in manifest: {path}")
+            referenced_paths.add(relative_path)
+            fragment = read_fragment(root_fd, relative_path, manifest_root / relative_path)
+            if not isinstance(fragment, dict):
+                fail(f"fragment {path} must be an object")
+            if fragment.get("id") != surface_id:
+                fail(
+                    f"fragment id mismatch for {surface_id}: "
+                    f"manifest expects {surface_id}, fragment has {fragment.get('id')}"
+                )
+            if surface_id in seen_ids:
+                fail(f"duplicate surface id in manifest: {surface_id}")
+            seen_ids.add(surface_id)
+            active_ids.add(surface_id)
+            surfaces.append(fragment)
 
-    for entry in retired:
-        if not isinstance(entry, dict):
-            fail("manifest.retired entries must be objects")
-        retired_id = entry.get("id")
-        reason = entry.get("reason")
-        path = entry.get("path")
-        if not isinstance(retired_id, str) or not retired_id:
-            fail("retired entry is missing a non-empty id")
-        if not isinstance(reason, str) or not reason:
-            fail(f"retired {retired_id}: missing reason")
-        relative_path, fragment_pathname = fragment_path(
-            path,
-            context=f"retired {retired_id}",
-            manifest_root=manifest_root,
-            fragments_dir=fragments_dir,
-        )
-        if retired_id in seen_ids:
-            if retired_id in active_ids:
-                fail(f"retired surface is also active: {retired_id}")
-            fail(f"duplicate retired surface id: {retired_id}")
-        seen_ids.add(retired_id)
-        if relative_path in referenced_paths or relative_path in retired_paths:
-            fail(f"duplicate fragment path in manifest: {path}")
-        retired_paths.add(relative_path)
-        fragment = read_json(fragment_pathname)
-        if not isinstance(fragment, dict):
-            fail(f"retired fragment {path} must be an object")
-        if fragment.get("id") != retired_id:
-            fail(
-                f"retired fragment id mismatch for {retired_id}: "
-                f"fragment has {fragment.get('id')}"
+        for entry in retired:
+            if not isinstance(entry, dict):
+                fail("manifest.retired entries must be objects")
+            retired_id = entry.get("id")
+            reason = entry.get("reason")
+            path = entry.get("path")
+            if not isinstance(retired_id, str) or not retired_id:
+                fail("retired entry is missing a non-empty id")
+            if not isinstance(reason, str) or not reason:
+                fail(f"retired {retired_id}: missing reason")
+            relative_path, _ = fragment_path(
+                path, context=f"retired {retired_id}", manifest_root=manifest_root, fragments_dir=fragments_dir
             )
+            if retired_id in seen_ids:
+                if retired_id in active_ids:
+                    fail(f"retired surface is also active: {retired_id}")
+                fail(f"duplicate retired surface id: {retired_id}")
+            seen_ids.add(retired_id)
+            if relative_path in referenced_paths or relative_path in retired_paths:
+                fail(f"duplicate fragment path in manifest: {path}")
+            retired_paths.add(relative_path)
+            fragment = read_fragment(root_fd, relative_path, manifest_root / relative_path)
+            if not isinstance(fragment, dict):
+                fail(f"retired fragment {path} must be an object")
+            if fragment.get("id") != retired_id:
+                fail(
+                    f"retired fragment id mismatch for {retired_id}: "
+                    f"fragment has {fragment.get('id')}"
+                )
 
-    manifest_paths = referenced_paths | retired_paths
-    fragment_paths = set()
-    for path in fragments_dir.rglob("*"):
-        if path.is_symlink():
-            fail(f"symlink components/files are not allowed under fragments: {path}")
-        if path.is_file():
-            fragment_paths.add(path.relative_to(manifest_root))
-    orphaned = sorted(fragment_paths - manifest_paths)
-    if orphaned:
-        fail("unclassified fragment(s): " + ", ".join(str(path) for path in orphaned))
+        manifest_paths = referenced_paths | retired_paths
+        fragment_paths = scan_files(fragments_fd, Path("fragments"))
+        orphaned = sorted(fragment_paths - manifest_paths)
+        if orphaned:
+            fail("unclassified fragment(s): " + ", ".join(str(path) for path in orphaned))
 
-    return {"schema": EXPECTED_SCHEMA, "surfaces": surfaces}
+        return {"schema": EXPECTED_SCHEMA, "surfaces": surfaces}
+    finally:
+        os.close(fragments_fd)
+        os.close(root_fd)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--manifest",
-        default=str(DEFAULT_MANIFEST),
-        help="path to surface-registry manifest",
-    )
-    parser.add_argument(
-        "--output",
-        default=str(DEFAULT_OUTPUT),
-        help="target assembled surface-registry JSON",
-    )
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="validate assembled output against manifest without writing",
-    )
+    parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST), help="path to surface-registry manifest")
+    parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="target assembled surface-registry JSON")
+    parser.add_argument("--check", action="store_true", help="validate assembled output against manifest without writing")
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest)
@@ -220,8 +282,7 @@ def main() -> None:
     manifest = read_json(manifest_path)
     if not isinstance(manifest, dict):
         fail(f"manifest must be an object: {manifest_path}")
-    fragments_root = manifest_path.parent
-    assembled = build_document(manifest, fragments_root)
+    assembled = build_document(manifest, manifest_path.parent)
 
     if args.check:
         existing = read_json(output_path)
