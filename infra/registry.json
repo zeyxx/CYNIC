@@ -259,8 +259,7 @@
       "transports": {
         "ssh": {
           "target": "proxmox-forge",
-          "trust": "known_hosts",
-          "known_hosts_ref": "/etc/cynic/identity/proxmox-known-hosts"
+          "trust": "ssh_trust_anchor"
         }
       },
       "network": {
@@ -358,7 +357,7 @@
       "transports": {
         "ssh": {
           "target": "cynic-storage-primary.synapse.cynic",
-          "trust": "known_hosts",
+          "trust": "ssh_trust_anchor",
           "enrollment_authority": {
             "class": "machine_enrollment",
             "principal": "root",
@@ -421,7 +420,7 @@
       "transports": {
         "ssh": {
           "target": "cynic-builder",
-          "trust": "known_hosts",
+          "trust": "ssh_trust_anchor",
           "enrollment_authority": {
             "class": "machine_enrollment",
             "principal": "root",
