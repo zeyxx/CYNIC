@@ -1,0 +1,179 @@
+use super::*;
+use std::os::unix::fs::symlink;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn fixture() -> (PathBuf, PathBuf) {
+    let root = std::env::temp_dir().join(format!(
+        "surface-registry-{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::create_dir_all(root.join("fragments/nested")).unwrap();
+    fs::write(
+        root.join("fragments/main.json"),
+        r#"{"id":"main","value":1}"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("manifest.json"),
+        format!(
+            r#"{{"schema":"{SCHEMA}","surfaces":[{{"id":"main","path":"fragments/main.json"}}]}}"#
+        ),
+    )
+    .unwrap();
+    (root.join("manifest.json"), root.join("out.json"))
+}
+
+fn cleanup(manifest: &Path) {
+    let _ = fs::remove_dir_all(manifest.parent().unwrap());
+}
+
+fn assert_err(manifest: &Path, needle: &str) {
+    let error = assemble(manifest).unwrap_err();
+    assert!(error.contains(needle), "{error}");
+}
+
+#[test]
+fn positive_assembly_and_deterministic_output() {
+    let (manifest, output) = fixture();
+    write(&manifest, &output).unwrap();
+    check(&manifest, &output).unwrap();
+    let first = fs::read_to_string(&output).unwrap();
+    write(&manifest, &output).unwrap();
+    assert_eq!(first, fs::read_to_string(&output).unwrap());
+    cleanup(&manifest);
+}
+
+#[test]
+fn canonical_repository_fixture_assembles() {
+    let manifest =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../infra/surface-registry/manifest.json");
+    let document = assemble(&manifest).expect("canonical surface registry fixture");
+    assert_eq!(document["schema"], SCHEMA);
+    assert!(!document["surfaces"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn duplicate_active_ids_are_rejected() {
+    let (manifest, _) = fixture();
+    let root = manifest.parent().unwrap();
+    fs::write(root.join("fragments/second.json"), r#"{"id":"main"}"#).unwrap();
+    fs::write(
+        &manifest,
+        format!(
+            r#"{{"schema":"{SCHEMA}","surfaces":[{{"id":"main","path":"fragments/main.json"}},{{"id":"main","path":"fragments/second.json"}}]}}"#
+        ),
+    )
+    .unwrap();
+    assert_err(&manifest, "duplicate surface id");
+    cleanup(&manifest);
+}
+
+#[test]
+fn duplicate_fragment_paths_are_rejected() {
+    let (manifest, _) = fixture();
+    fs::write(
+        &manifest,
+        format!(
+            r#"{{"schema":"{SCHEMA}","surfaces":[{{"id":"main","path":"fragments/main.json"}},{{"id":"other","path":"fragments/main.json"}}]}}"#
+        ),
+    )
+    .unwrap();
+    assert_err(&manifest, "duplicate fragment path");
+    cleanup(&manifest);
+}
+
+#[test]
+fn active_retired_overlap_and_missing_reason_are_rejected() {
+    let (manifest, _) = fixture();
+    let root = manifest.parent().unwrap();
+    fs::write(root.join("fragments/old.json"), r#"{"id":"old"}"#).unwrap();
+    fs::write(
+        &manifest,
+        format!(
+            r#"{{"schema":"{SCHEMA}","surfaces":[{{"id":"main","path":"fragments/main.json"}}],"retired":[{{"id":"main","reason":"legacy","path":"fragments/main.json"}}]}}"#
+        ),
+    )
+    .unwrap();
+    assert_err(&manifest, "retired surface is also active");
+    fs::write(
+        &manifest,
+        format!(
+            r#"{{"schema":"{SCHEMA}","surfaces":[{{"id":"main","path":"fragments/main.json"}}],"retired":[{{"id":"old","path":"fragments/old.json"}}]}}"#
+        ),
+    )
+    .unwrap();
+    assert_err(&manifest, "missing reason");
+    cleanup(&manifest);
+}
+
+#[test]
+fn path_escape_and_outside_paths_are_rejected() {
+    let (manifest, _) = fixture();
+    let root = manifest.parent().unwrap();
+    fs::write(root.join("outside.json"), r#"{"id":"main"}"#).unwrap();
+    fs::write(
+        &manifest,
+        format!(r#"{{"schema":"{SCHEMA}","surfaces":[{{"id":"main","path":"outside.json"}}]}}"#),
+    )
+    .unwrap();
+    assert_err(&manifest, "beneath fragments directory");
+    fs::write(
+        &manifest,
+        format!(r#"{{"schema":"{SCHEMA}","surfaces":[{{"id":"main","path":"../outside.json"}}]}}"#),
+    )
+    .unwrap();
+    assert_err(&manifest, "safe and relative");
+    cleanup(&manifest);
+}
+
+#[test]
+fn symlinks_and_nested_orphans_are_rejected() {
+    let (manifest, _) = fixture();
+    let root = manifest.parent().unwrap();
+    symlink(
+        root.join("fragments/main.json"),
+        root.join("fragments/link.json"),
+    )
+    .unwrap();
+    assert_err(&manifest, "symlink");
+    fs::remove_file(root.join("fragments/link.json")).unwrap();
+    fs::write(
+        root.join("fragments/nested/orphan.json"),
+        r#"{"id":"orphan"}"#,
+    )
+    .unwrap();
+    assert_err(&manifest, "nested/orphan.json");
+    cleanup(&manifest);
+}
+
+#[test]
+fn fifo_is_rejected_without_blocking() {
+    let (manifest, _) = fixture();
+    let fifo = manifest.parent().unwrap().join("fragments/fifo");
+    std::process::Command::new("mkfifo")
+        .arg(&fifo)
+        .status()
+        .unwrap();
+    assert_err(&manifest, "special entry");
+    cleanup(&manifest);
+}
+
+#[test]
+fn duplicate_retired_ids_are_rejected() {
+    let (manifest, _) = fixture();
+    let root = manifest.parent().unwrap();
+    fs::write(root.join("fragments/old-a.json"), r#"{"id":"old"}"#).unwrap();
+    fs::write(root.join("fragments/old-b.json"), r#"{"id":"old"}"#).unwrap();
+    fs::write(
+        &manifest,
+        format!(
+            r#"{{"schema":"{SCHEMA}","surfaces":[{{"id":"main","path":"fragments/main.json"}}],"retired":[{{"id":"old","reason":"legacy","path":"fragments/old-a.json"}},{{"id":"old","reason":"legacy","path":"fragments/old-b.json"}}]}}"#
+        ),
+    )
+    .unwrap();
+    assert_err(&manifest, "duplicate retired");
+    cleanup(&manifest);
+}

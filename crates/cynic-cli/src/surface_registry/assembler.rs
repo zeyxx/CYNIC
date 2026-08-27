@@ -1,0 +1,365 @@
+mod io;
+
+use io::read_json;
+pub(crate) use io::{check, write};
+use serde_json::{Map, Value};
+use std::collections::BTreeSet;
+use std::fs::{self, File, OpenOptions};
+use std::io::Read;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::os::unix::io::AsRawFd;
+use std::path::{Component, Path, PathBuf};
+
+const SCHEMA: &str = cynic_protocol::SURFACE_REGISTRY_SCHEMA;
+const O_NOFOLLOW: i32 = 0o400000;
+const O_NONBLOCK: i32 = 0o4000;
+
+pub(crate) fn assemble(manifest_path: &Path) -> Result<Value, String> {
+    let manifest = read_json(manifest_path)?;
+    let manifest = manifest
+        .as_object()
+        .ok_or_else(|| format!("manifest must be an object: {}", manifest_path.display()))?;
+    if manifest.get("schema").and_then(Value::as_str) != Some(SCHEMA) {
+        return Err(format!("manifest schema mismatch: expected {SCHEMA}"));
+    }
+    let entries = manifest
+        .get("surfaces")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "manifest.surfaces must be an array".to_string())?;
+    if entries.is_empty() {
+        return Err("manifest.surfaces is empty".to_string());
+    }
+    let retired = manifest
+        .get("retired")
+        .map(|v| {
+            v.as_array()
+                .ok_or_else(|| "manifest.retired must be an array".to_string())
+        })
+        .transpose()?
+        .unwrap_or(&[]);
+    let registry_root = manifest_path
+        .parent()
+        .ok_or_else(|| "manifest has no parent directory".to_string())?;
+    let fragments_root = registry_root.join("fragments");
+    verify_directory(&fragments_root, "fragments directory")?;
+    let root_file = open_verified_directory(registry_root, "repository root")?;
+    let fragments_file = open_verified_directory(&fragments_root, "fragments directory")?;
+
+    let result = assemble_with_descriptors(
+        entries,
+        retired,
+        registry_root,
+        &fragments_root,
+        &root_file,
+        &fragments_file,
+    );
+    result
+}
+
+fn assemble_with_descriptors(
+    entries: &[Value],
+    retired: &[Value],
+    registry_root: &Path,
+    fragments_root: &Path,
+    root_file: &File,
+    fragments_file: &File,
+) -> Result<Value, String> {
+    verify_identity(root_file, registry_root, "repository root")?;
+    verify_identity(fragments_file, fragments_root, "fragments directory")?;
+    let mut ids = BTreeSet::new();
+    let mut paths = BTreeSet::new();
+    let mut surfaces = Vec::with_capacity(entries.len());
+
+    for entry in entries {
+        let object = entry
+            .as_object()
+            .ok_or_else(|| "manifest.surfaces entries must be objects".to_string())?;
+        let id = required_string(object, "id", "manifest surface")?;
+        let path = required_path(object, id, fragments_root)?;
+        if !ids.insert(id.to_string()) {
+            return Err(format!("duplicate surface id in manifest: {id}"));
+        }
+        if !paths.insert(path.clone()) {
+            return Err(format!(
+                "duplicate fragment path in manifest: {}",
+                path.display()
+            ));
+        }
+        let fragment = read_fragment(root_file, &path, id)?;
+        if !fragment.is_object() {
+            return Err(format!("fragment {path:?} must be an object"));
+        }
+        if fragment.get("id").and_then(Value::as_str) != Some(id) {
+            return Err(format!("fragment id mismatch for {id}"));
+        }
+        surfaces.push(fragment);
+    }
+
+    for entry in retired {
+        let object = entry
+            .as_object()
+            .ok_or_else(|| "manifest.retired entries must be objects".to_string())?;
+        let id = required_string(object, "id", "retired entry")?;
+        let reason = required_string(object, "reason", &format!("retired {id}"))?;
+        if reason.is_empty() {
+            return Err(format!("retired {id}: missing reason"));
+        }
+        let path = required_path(object, id, fragments_root)?;
+        if !ids.insert(id.to_string()) {
+            if entries.iter().any(|entry| {
+                entry
+                    .as_object()
+                    .and_then(|object| object.get("id"))
+                    .and_then(Value::as_str)
+                    == Some(id)
+            }) {
+                return Err(format!("retired surface is also active: {id}"));
+            }
+            return Err(format!("duplicate retired surface id: {id}"));
+        }
+        if !paths.insert(path.clone()) {
+            return Err(format!(
+                "duplicate fragment path in manifest: {}",
+                path.display()
+            ));
+        }
+        let fragment = read_fragment(root_file, &path, id)?;
+        if !fragment.is_object() {
+            return Err(format!("retired fragment {path:?} must be an object"));
+        }
+        if fragment.get("id").and_then(Value::as_str) != Some(id) {
+            return Err(format!("retired fragment id mismatch for {id}"));
+        }
+    }
+
+    let mut discovered = BTreeSet::new();
+    scan_fragments(fragments_file, Path::new("fragments"), &mut discovered)?;
+    let orphans: Vec<_> = discovered.difference(&paths).collect();
+    if !orphans.is_empty() {
+        return Err(format!(
+            "unclassified fragment(s): {}",
+            orphans
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    let mut document = Map::new();
+    document.insert("schema".into(), Value::String(SCHEMA.into()));
+    document.insert("surfaces".into(), Value::Array(surfaces));
+    Ok(Value::Object(document))
+}
+
+fn required_string<'a>(
+    object: &'a Map<String, Value>,
+    key: &str,
+    context: &str,
+) -> Result<&'a str, String> {
+    object
+        .get(key)
+        .and_then(Value::as_str)
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| format!("{context}: missing {key}"))
+}
+
+fn required_path(
+    object: &Map<String, Value>,
+    id: &str,
+    fragments_root: &Path,
+) -> Result<PathBuf, String> {
+    let value = required_string(object, "path", &format!("surface {id}"))?;
+    let relative = Path::new(value);
+    if relative.is_absolute()
+        || value.contains('\\')
+        || relative
+            .components()
+            .any(|c| !matches!(c, Component::Normal(_)))
+    {
+        return Err(format!(
+            "surface {id}: path must be safe and relative: {value:?}"
+        ));
+    }
+    let candidate = fragments_root.parent().unwrap().join(relative);
+    let resolved_root = fs::canonicalize(fragments_root)
+        .map_err(|e| format!("cannot resolve fragments directory: {e}"))?;
+    let resolved =
+        fs::canonicalize(&candidate).map_err(|e| format!("missing or unsafe path {value}: {e}"))?;
+    if !resolved.starts_with(&resolved_root) || resolved == resolved_root {
+        return Err(format!(
+            "surface {id}: path must be beneath fragments directory"
+        ));
+    }
+    reject_symlinks(&candidate, fragments_root)?;
+    // Keep the manifest-root-relative spelling for set comparisons and for
+    // descriptor-anchored opens; never reopen a fragment through candidate.
+    Ok(relative.to_path_buf())
+}
+
+fn reject_symlinks(path: &Path, root: &Path) -> Result<(), String> {
+    let mut current = root.to_path_buf();
+    for component in path.strip_prefix(root).unwrap().components() {
+        if let Component::Normal(name) = component {
+            current.push(name);
+            if fs::symlink_metadata(&current)
+                .map_err(|e| e.to_string())?
+                .file_type()
+                .is_symlink()
+            {
+                return Err(format!(
+                    "symlink components/files are not allowed: {}",
+                    path.display()
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn read_fragment(root: &File, relative: &Path, id: &str) -> Result<Value, String> {
+    // The descriptor is the authority. Each component is opened relative to
+    // the previous descriptor spelling under /proc, with parents required to
+    // be directories and symlinks rejected by O_NOFOLLOW.
+    let mut file = open_relative(root, relative, id)?;
+    let metadata = file.metadata().map_err(|e| e.to_string())?;
+    if !metadata.is_file() {
+        return Err(format!(
+            "fragment {} is not a regular file",
+            relative.display()
+        ));
+    }
+    let mut text = String::new();
+    file.read_to_string(&mut text)
+        .map_err(|e| format!("cannot read fragment {}: {e}", relative.display()))?;
+    serde_json::from_str(&text).map_err(|e| format!("invalid JSON in {}: {e}", relative.display()))
+}
+
+fn open_relative(root: &File, relative: &Path, id: &str) -> Result<File, String> {
+    let mut current = PathBuf::from(format!("/proc/self/fd/{}", root.as_raw_fd()));
+    let mut opened_dirs: Vec<File> = Vec::new();
+    let components: Vec<_> = relative.components().collect();
+    if components.is_empty() {
+        return Err(format!("fragment {id}: empty path"));
+    }
+    for (index, component) in components.iter().enumerate() {
+        let Component::Normal(name) = component else {
+            return Err(format!("fragment {id}: unsafe relative path"));
+        };
+        current.push(name);
+        let final_component = index + 1 == components.len();
+        let mut options = OpenOptions::new();
+        options
+            .read(true)
+            .custom_flags(O_NOFOLLOW | O_NONBLOCK | if final_component { 0 } else { 0o200000 });
+        let next = options
+            .open(&current)
+            .map_err(|e| format!("cannot open fragment {id} ({}): {e}", relative.display()))?;
+        if !final_component {
+            // The O_DIRECTORY open above is the confinement check for this
+            // component; retain only its proc-fd spelling for the next step.
+            current = PathBuf::from(format!("/proc/self/fd/{}", next.as_raw_fd()));
+            opened_dirs.push(next);
+        } else {
+            drop(opened_dirs);
+            return Ok(next);
+        }
+    }
+    unreachable!()
+}
+
+fn scan_fragments(
+    dir: &File,
+    relative: &Path,
+    found: &mut BTreeSet<PathBuf>,
+) -> Result<(), String> {
+    let proc_path = PathBuf::from(format!("/proc/self/fd/{}", dir.as_raw_fd()));
+    let mut entries: Vec<_> = fs::read_dir(&proc_path)
+        .map_err(|e| format!("cannot scan fragments directory {relative}: {e}"))?
+        .collect::<Result<_, _>>()
+        .map_err(|e| format!("cannot scan fragments directory {relative}: {e}"))?;
+    entries.sort_by_key(|entry| entry.file_name());
+    for entry in entries {
+        let name = entry.file_name();
+        let name = name
+            .to_str()
+            .ok_or_else(|| format!("non-UTF-8 entry under fragments: {}", relative.display()))?;
+        if name == "." || name == ".." || name.contains('/') {
+            return Err(format!("unsafe entry under fragments: {relative}/{name}"));
+        }
+        let entry_relative = relative.join(name);
+        let entry_path = proc_path.join(name);
+        let mut directory_options = OpenOptions::new();
+        directory_options
+            .read(true)
+            .custom_flags(O_NOFOLLOW | O_NONBLOCK | 0o200000);
+        match directory_options.open(&entry_path) {
+            Ok(child) => scan_fragments(&child, &entry_relative, found)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotADirectory => {
+                let mut file_options = OpenOptions::new();
+                file_options
+                    .read(true)
+                    .custom_flags(O_NOFOLLOW | O_NONBLOCK);
+                let file = file_options.open(&entry_path).map_err(|e| {
+                    format!(
+                        "unsafe entry under fragments {}: {e}",
+                        entry_relative.display()
+                    )
+                })?;
+                let metadata = file.metadata().map_err(|e| e.to_string())?;
+                if !metadata.is_file() {
+                    return Err(format!(
+                        "special entry under fragments: {}",
+                        entry_relative.display()
+                    ));
+                }
+                found.insert(entry_relative);
+            }
+            Err(error) => {
+                if error.raw_os_error() == Some(40) {
+                    return Err(format!(
+                        "symlink components/files are not allowed under fragments: {}",
+                        entry_relative.display()
+                    ));
+                }
+                return Err(format!(
+                    "unsafe entry under fragments {}: {error}",
+                    entry_relative.display()
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn verify_directory(path: &Path, label: &str) -> Result<(), String> {
+    let metadata = fs::symlink_metadata(path).map_err(|e| format!("{label} is missing: {e}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(format!("{label} is missing or unsafe"));
+    }
+    Ok(())
+}
+
+fn open_verified_directory(path: &Path, label: &str) -> Result<File, String> {
+    let before = fs::symlink_metadata(path).map_err(|e| format!("{label}: {e}"))?;
+    let mut options = OpenOptions::new();
+    options.read(true).custom_flags(O_NOFOLLOW);
+    let file = options.open(path).map_err(|e| format!("{label}: {e}"))?;
+    if !same_identity(&before, &file.metadata().map_err(|e| e.to_string())?) {
+        return Err(format!("{label} descriptor inode/device identity mismatch"));
+    }
+    Ok(file)
+}
+
+fn verify_identity(file: &File, path: &Path, label: &str) -> Result<(), String> {
+    let expected = fs::symlink_metadata(path).map_err(|e| format!("{label}: {e}"))?;
+    if !same_identity(&expected, &file.metadata().map_err(|e| e.to_string())?) {
+        return Err(format!("{label} descriptor inode/device identity mismatch"));
+    }
+    Ok(())
+}
+
+fn same_identity(a: &fs::Metadata, b: &fs::Metadata) -> bool {
+    a.dev() == b.dev() && a.ino() == b.ino()
+}
+#[cfg(test)]
+mod tests;

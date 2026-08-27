@@ -30,6 +30,17 @@ use opportunities::execute_opportunities;
 
 #[derive(Subcommand)]
 pub(crate) enum DevCommand {
+    /// Validate or explicitly generate the canonical surface registry.
+    SurfaceRegistry {
+        #[arg(long, conflicts_with = "write")]
+        check: bool,
+        #[arg(long, conflicts_with = "check")]
+        write: bool,
+        #[arg(long, default_value = "infra/surface-registry/manifest.json")]
+        manifest: std::path::PathBuf,
+        #[arg(long, default_value = "infra/surface-registry.json")]
+        output: std::path::PathBuf,
+    },
     Surfaces {
         #[arg(long)]
         json: bool,
@@ -98,6 +109,23 @@ pub(crate) enum DevCommand {
 
 pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
     match command {
+        DevCommand::SurfaceRegistry {
+            check,
+            write,
+            manifest,
+            output,
+        } => {
+            let _ = check;
+            let result = if write {
+                crate::surface_registry::write(&manifest, &output)
+            } else {
+                crate::surface_registry::check(&manifest, &output)
+            };
+            match result {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => crate::fail(format!("surface-registry: {error}")),
+            }
+        }
         DevCommand::Surfaces { json } => execute_surfaces(json),
         DevCommand::Outcomes { json } => execute_outcomes(json),
         DevCommand::KpiScore { json } => execute_kpi_score(json),
