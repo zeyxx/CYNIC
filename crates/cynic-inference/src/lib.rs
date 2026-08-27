@@ -22,6 +22,9 @@ pub use domain::backend_health;
 pub use domain::backend_health::{
     Backend, BackendHealth, BackendId, DeclaredCapabilities, MeasuredCapabilities,
 };
+pub use domain::hardware_profile::MemoryBudget;
+pub use domain::inference::{InferencePhase, LatencyBreakdown};
+pub use math::tensor_geometry::AttentionType;
 
 pub use adapters::inference::hermes_process_supervisor::read_hermes_api_key;
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;

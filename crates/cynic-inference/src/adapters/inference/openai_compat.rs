@@ -467,6 +467,7 @@ impl InferPort for OpenAiCompatBackend {
             model: response.model,
             prompt_tokens,
             completion_tokens,
+            latency: None,
         })
     }
 }

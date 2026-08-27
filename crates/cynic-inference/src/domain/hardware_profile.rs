@@ -34,6 +34,71 @@ pub struct GpuInfo {
     pub notes: Vec<String>,
 }
 
+/// Strict memory budget assessing whether a model execution configuration
+/// safely fits in available memory without risk of OS swapping or OOM kill.
+///
+/// Invariant: `weights + kv_cache + activations + runtime_overhead + safety_headroom <= available_ram`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MemoryBudget {
+    pub weights_bytes: u64,
+    pub kv_cache_bytes: u64,
+    pub activations_bytes: u64,
+    pub runtime_overhead_bytes: u64,
+    pub safety_headroom_bytes: u64,
+    pub total_required_bytes: u64,
+    pub available_ram_bytes: u64,
+    pub fits: bool,
+}
+
+impl MemoryBudget {
+    pub fn calculate(
+        weights_bytes: u64,
+        kv_cache_bytes: u64,
+        activations_bytes: u64,
+        runtime_overhead_bytes: u64,
+        safety_headroom_pct: f64,
+        available_ram_bytes: u64,
+    ) -> Self {
+        let base_required = weights_bytes
+            .saturating_add(kv_cache_bytes)
+            .saturating_add(activations_bytes)
+            .saturating_add(runtime_overhead_bytes);
+        let headroom_pct = safety_headroom_pct.clamp(0.05, 0.50);
+        let safety_headroom_bytes = (base_required as f64 * headroom_pct) as u64;
+        let total_required_bytes = base_required.saturating_add(safety_headroom_bytes);
+        let fits = total_required_bytes <= available_ram_bytes;
+
+        Self {
+            weights_bytes,
+            kv_cache_bytes,
+            activations_bytes,
+            runtime_overhead_bytes,
+            safety_headroom_bytes,
+            total_required_bytes,
+            available_ram_bytes,
+            fits,
+        }
+    }
+
+    /// Enforces the memory budget against a given hardware profile with a default 15% safety headroom.
+    pub fn for_hardware(
+        weights_bytes: u64,
+        kv_cache_bytes: u64,
+        activations_bytes: u64,
+        runtime_overhead_bytes: u64,
+        hw: &HardwareProfile,
+    ) -> Self {
+        Self::calculate(
+            weights_bytes,
+            kv_cache_bytes,
+            activations_bytes,
+            runtime_overhead_bytes,
+            0.15,
+            hw.available_ram_bytes,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HardwareProfile {
     pub schema: &'static str,
@@ -341,5 +406,31 @@ mod tests {
         let mut hw = HardwareProfile::probe();
         hw.cpu_flags = vec!["avx".into(), "avx2".into(), "fma".into()];
         assert_eq!(hw.cpu_feature_class(), "avx2");
+    }
+
+    #[test]
+    fn test_memory_budget_enforcement() {
+        // 10 GB weights, 4 GB KV, 1 GB act, 1 GB overhead -> 16 GB base + 15% (2.4 GB) = 18.4 GB required
+        let budget = MemoryBudget::calculate(
+            10 * 1024 * 1024 * 1024,
+            4 * 1024 * 1024 * 1024,
+            1 * 1024 * 1024 * 1024,
+            1 * 1024 * 1024 * 1024,
+            0.15,
+            24 * 1024 * 1024 * 1024, // 24 GB available
+        );
+        assert!(budget.fits);
+        assert_eq!(budget.safety_headroom_bytes, (16.0 * 1024.0 * 1024.0 * 1024.0 * 0.15) as u64);
+
+        // Exceeds 16 GB available
+        let tight = MemoryBudget::calculate(
+            10 * 1024 * 1024 * 1024,
+            4 * 1024 * 1024 * 1024,
+            1 * 1024 * 1024 * 1024,
+            1 * 1024 * 1024 * 1024,
+            0.15,
+            16 * 1024 * 1024 * 1024,
+        );
+        assert!(!tight.fits);
     }
 }
