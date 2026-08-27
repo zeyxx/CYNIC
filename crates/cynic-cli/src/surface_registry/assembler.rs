@@ -13,6 +13,7 @@ use std::path::{Component, Path, PathBuf};
 const SCHEMA: &str = cynic_protocol::SURFACE_REGISTRY_SCHEMA;
 const O_NOFOLLOW: i32 = 0o400000;
 const O_NONBLOCK: i32 = 0o4000;
+const O_DIRECTORY: i32 = 0o200000;
 const O_CLOEXEC: i32 = 0o2000000;
 
 pub(crate) fn assemble(manifest_path: &Path) -> Result<Value, String> {
@@ -365,8 +366,17 @@ fn verify_directory(path: &Path, label: &str) -> Result<(), String> {
 fn open_verified_directory(path: &Path, label: &str) -> Result<File, String> {
     let before = fs::symlink_metadata(path).map_err(|e| format!("{label}: {e}"))?;
     let mut options = OpenOptions::new();
-    options.read(true).custom_flags(O_NOFOLLOW | O_CLOEXEC);
+    options
+        .read(true)
+        .custom_flags(O_NOFOLLOW | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC);
     let file = options.open(path).map_err(|e| format!("{label}: {e}"))?;
+    if !file
+        .metadata()
+        .map_err(|e| format!("{label}: {e}"))?
+        .is_dir()
+    {
+        return Err(format!("{label} is not a directory"));
+    }
     if !same_identity(&before, &file.metadata().map_err(|e| e.to_string())?) {
         return Err(format!("{label} descriptor inode/device identity mismatch"));
     }
