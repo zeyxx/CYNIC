@@ -28,6 +28,7 @@ pub use math::tensor_geometry::AttentionType;
 pub use ports::inference_routing_port::{
     DefaultInferenceRouter, InferenceProxyPort, InferenceRoutingPort,
 };
+pub use application::failure_gallery::{FailureCategory, FailureGallery, FailureGalleryEntry};
 
 pub use adapters::inference::hermes_process_supervisor::read_hermes_api_key;
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;

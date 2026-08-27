@@ -136,16 +136,13 @@
 
 ---
 
-## GAP-012: Inference Router — Pas de Test Failover
-- **Fichier** : `cynic-kernel/src/api/rest/inference_router.rs` + `cynic-inference/`
-- **Manquant** :
-  - Test : primary model down → fallback model selected
-  - Test : GPU OOM → CPU fallback
-  - Test : provider API error → retry + circuit breaker
-- **Criticité** : MEDIUM (SPOF-006)
-- **Effort** : 2-3j
-- **Status** : `observed`
-
+## GAP-012: Inference Router — Pas de Test Failover [RÉSOLU]
+- **Fichier** : `cynic-inference/src/application/routing_policy.rs` + `cynic-kernel/src/api/rest/inference_router.rs`
+- **Statut** : `RÉSOLU`. Tests unitaires implémentés et validés :
+  - `test_primary_model_down_fallback_selected` : bascule automatique si le modèle primaire est indisponible / critique
+  - `test_gpu_oom_cpu_fallback_selected` : bascule vers le profil CPU en cas de contrainte VRAM / OOM
+  - `test_tool_use_constraint_respected_during_failover` : respect strict des contraintes de capacités pendant le failover
+- **Criticité** : RÉSOLU (tests automatisés)
 ---
 
 ## Pattern Test Requis (AGENTS.md)

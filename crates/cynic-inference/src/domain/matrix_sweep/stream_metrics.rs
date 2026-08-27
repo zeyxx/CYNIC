@@ -70,6 +70,55 @@ pub fn compute_stream_dynamics(
     }
 }
 
+/// Calculates the Time To Correct Solution (TTCS) in milliseconds.
+/// Returns None if the task did not reach a validated correct solution.
+pub fn calculate_ttcs_ms(
+    total_elapsed_ms: f64,
+    retries: u32,
+    validation_passed: bool,
+) -> Option<f64> {
+    if validation_passed && total_elapsed_ms.is_finite() && total_elapsed_ms > 0.0 {
+        let retry_factor = 1.0 + (retries as f64 * 0.05);
+        Some(total_elapsed_ms * retry_factor)
+    } else {
+        None
+    }
+}
+
+/// Calculates successful tasks per hour based on TTCS and success rate.
+///
+/// Formula: `(3600 * 1000 / ttcs_ms) * success_rate`.
+pub fn calculate_tasks_per_hour(ttcs_ms: f64, success_rate: f64) -> f64 {
+    if ttcs_ms <= 0.0 || !ttcs_ms.is_finite() || !success_rate.is_finite() {
+        return 0.0;
+    }
+    let clamped_success = success_rate.clamp(0.0, 1.0);
+    let ms_per_hour = 3_600_000.0;
+    (ms_per_hour / ttcs_ms) * clamped_success
+}
+
+/// Calculates energy efficiency in Wh per successful task.
+pub fn calculate_wh_per_successful_task(power_watts: f64, ttcs_ms: f64) -> f64 {
+    if power_watts <= 0.0 || ttcs_ms <= 0.0 {
+        return 0.0;
+    }
+    let hours = ttcs_ms / 3_600_000.0;
+    power_watts * hours
+}
+
+/// Calculates Failure Recovery Rate (FRR): P(success B | failure A).
+pub fn calculate_failure_recovery_rate(
+    recovered_by_b_count: u32,
+    failed_by_a_count: u32,
+) -> Option<f64> {
+    if failed_by_a_count == 0 {
+        None
+    } else {
+        let rate = recovered_by_b_count as f64 / failed_by_a_count as f64;
+        Some(rate.clamp(0.0, 1.0))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -82,5 +131,31 @@ mod tests {
         assert_eq!(report.ttft_ms, 150.0);
         assert!(report.mean_inter_token_ms > 30.0 && report.mean_inter_token_ms < 35.0);
         assert!(report.predicted_tokens_per_second > 0.0);
+    }
+
+    #[test]
+    fn test_ttcs_and_tasks_per_hour_calculations() {
+        let ttcs = calculate_ttcs_ms(10_000.0, 0, true).expect("should calculate TTCS");
+        assert_eq!(ttcs, 10_000.0);
+
+        // 10s per task, 100% success -> 360 tasks/hour
+        let tph = calculate_tasks_per_hour(ttcs, 1.0);
+        assert_eq!(tph, 360.0);
+
+        // 10s per task, 50% success -> 180 tasks/hour
+        let tph_50 = calculate_tasks_per_hour(ttcs, 0.5);
+        assert_eq!(tph_50, 180.0);
+
+        let failed = calculate_ttcs_ms(10_000.0, 2, false);
+        assert_eq!(failed, None);
+    }
+
+    #[test]
+    fn test_failure_recovery_rate_calculation() {
+        let frr = calculate_failure_recovery_rate(4, 10).expect("should calculate FRR");
+        assert_eq!(frr, 0.4);
+
+        let zero_failures = calculate_failure_recovery_rate(0, 0);
+        assert_eq!(zero_failures, None);
     }
 }

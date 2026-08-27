@@ -32,6 +32,55 @@ pub struct FailureGalleryEntry {
     pub fix_description: Option<String>,
 }
 
+/// Durable collection and classifier for inference failures.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct FailureGallery {
+    pub entries: Vec<FailureGalleryEntry>,
+}
+
+impl FailureGallery {
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
+
+    pub fn record(&mut self, entry: FailureGalleryEntry) {
+        self.entries.push(entry);
+    }
+
+    pub fn record_symptom(
+        &mut self,
+        scenario: &str,
+        symptom: &str,
+        reproduction_steps: Vec<String>,
+    ) {
+        let category = classify_failure(symptom);
+        let remediation = suggested_fix(category);
+        self.entries.push(FailureGalleryEntry {
+            scenario: scenario.to_string(),
+            expected_behavior: "Expected successful aligned completion".to_string(),
+            actual_behavior: symptom.to_string(),
+            root_cause: format!("classified_as:{category}"),
+            reproduction_steps,
+            artifact_ref: None,
+            resolved: false,
+            fix_description: Some(remediation.to_string()),
+        });
+    }
+
+    pub fn unresolved(&self) -> Vec<&FailureGalleryEntry> {
+        self.entries.iter().filter(|e| !e.resolved).collect()
+    }
+
+    pub fn by_category(&self, category: FailureCategory) -> Vec<&FailureGalleryEntry> {
+        self.entries
+            .iter()
+            .filter(|e| classify_failure(&e.actual_behavior) == category)
+            .collect()
+    }
+}
+
 /// Pure function: classify a failure by symptom.
 ///
 /// From Ahmad's "Failure Modes and Fixes" — common local LLM failures.
@@ -190,5 +239,27 @@ mod tests {
             let displayed = format!("{}", cat);
             assert!(!displayed.is_empty());
         }
+    }
+
+    #[test]
+    fn test_failure_gallery_recording_and_queries() {
+        let mut gallery = FailureGallery::new();
+        gallery.record_symptom(
+            "qwen-35b-test",
+            "CUDA out of memory",
+            vec!["run with 128k context".to_string()],
+        );
+        gallery.record_symptom(
+            "gemma-test",
+            "Model is stuck in a repetition loop",
+            vec!["repeat prompt".to_string()],
+        );
+
+        assert_eq!(gallery.entries.len(), 2);
+        assert_eq!(gallery.unresolved().len(), 2);
+
+        let oom_entries = gallery.by_category(FailureCategory::OutOfMemory);
+        assert_eq!(oom_entries.len(), 1);
+        assert_eq!(oom_entries[0].scenario, "qwen-35b-test");
     }
 }
