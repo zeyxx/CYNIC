@@ -1,5 +1,7 @@
 //! Local disk space observation and cleanup adapter.
 
+use crate::fleet_disk_observer::HOST_DISK_REPORT_SCHEMA;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -31,7 +33,7 @@ impl DiskObservationPort for LocalDiskAdapter {
         let physical_disks = observe_physical_disks();
 
         Ok(DiskReport {
-            schema: "cynic.host_disk_report.v1".to_string(),
+            schema: HOST_DISK_REPORT_SCHEMA.to_string(),
             timestamp,
             filesystems,
             known_caches,

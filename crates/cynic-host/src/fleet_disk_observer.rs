@@ -12,6 +12,8 @@
 //!   desired state (registry) → observe (per-node df) → reconcile (aggregate) →
 //!   proof (`FleetDiskReport`).
 
+pub(crate) const HOST_DISK_REPORT_SCHEMA: &str = "cynic.host_disk_report.v1";
+
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -72,7 +74,7 @@ impl<R: ArgvRunner> FleetDiskObserver<R> {
         match LocalDiskAdapter.observe_disk() {
             Ok(report) => report,
             Err(err) => DiskReport {
-                schema: "cynic.host_disk_report.v1".to_string(),
+                schema: HOST_DISK_REPORT_SCHEMA.to_string(),
                 timestamp: Self::now_isoh().unwrap_or_default(),
                 filesystems: Vec::new(),
                 known_caches: Vec::new(),
