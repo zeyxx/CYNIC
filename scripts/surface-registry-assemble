@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import MutableMapping
 from pathlib import Path
@@ -57,7 +58,46 @@ def safe_relative_path(value: Any, *, context: str) -> Path:
     return path
 
 
+def fragment_path(
+    value: Any, *, context: str, manifest_root: Path, fragments_dir: Path
+) -> tuple[Path, Path]:
+    """Validate a manifest path, including containment and no-follow checks."""
+    relative = safe_relative_path(value, context=context)
+    candidate = manifest_root.joinpath(relative)
+    try:
+        candidate.relative_to(fragments_dir)
+    except ValueError:
+        fail(f"{context}: path must be beneath fragments directory: {value!r}")
+
+    # Check every component without following links, including the final file.
+    current = manifest_root
+    for component in relative.parts:
+        current /= component
+        try:
+            if os.lstat(current).st_mode & 0o170000 == 0o120000:
+                fail(f"{context}: symlink components/files are not allowed: {value!r}")
+        except FileNotFoundError:
+            break
+
+    resolved_root = fragments_dir.resolve(strict=True)
+    resolved_candidate = candidate.resolve(strict=False)
+    try:
+        resolved_candidate.relative_to(resolved_root)
+    except ValueError:
+        fail(f"{context}: resolved path escapes fragments directory: {value!r}")
+    if resolved_candidate == resolved_root:
+        fail(f"{context}: path must name a fragment beneath fragments directory: {value!r}")
+    return relative, candidate
+
+
 def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> dict[str, Any]:
+    raw_fragments_dir = fragments_root / "fragments"
+    if raw_fragments_dir.is_symlink():
+        fail(f"fragments directory is a symlink: {raw_fragments_dir}")
+    manifest_root = fragments_root.resolve(strict=True)
+    fragments_dir = manifest_root / "fragments"
+    if not fragments_dir.is_dir() or fragments_dir.is_symlink():
+        fail(f"fragments directory is missing or unsafe: {fragments_dir}")
     if manifest.get("schema") != EXPECTED_SCHEMA:
         fail(
             "manifest schema mismatch: expected "
@@ -75,6 +115,7 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
         fail("manifest.retired must be an array")
 
     seen_ids: set[str] = set()
+    active_ids: set[str] = set()
     referenced_paths: set[Path] = set()
     retired_paths: set[Path] = set()
     surfaces = []
@@ -85,12 +126,16 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
         path = entry.get("path")
         if not isinstance(surface_id, str) or not surface_id:
             fail("manifest surface entry is missing a non-empty id")
-        relative_path = safe_relative_path(path, context=f"surface {surface_id}")
+        relative_path, fragment_pathname = fragment_path(
+            path,
+            context=f"surface {surface_id}",
+            manifest_root=manifest_root,
+            fragments_dir=fragments_dir,
+        )
         if relative_path in referenced_paths:
             fail(f"duplicate fragment path in manifest: {path}")
         referenced_paths.add(relative_path)
-        fragment_path = fragments_root.joinpath(relative_path)
-        fragment = read_json(fragment_path)
+        fragment = read_json(fragment_pathname)
         if not isinstance(fragment, dict):
             fail(f"fragment {path} must be an object")
         if fragment.get("id") != surface_id:
@@ -101,6 +146,7 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
         if surface_id in seen_ids:
             fail(f"duplicate surface id in manifest: {surface_id}")
         seen_ids.add(surface_id)
+        active_ids.add(surface_id)
         surfaces.append(fragment)
 
     for entry in retired:
@@ -113,13 +159,21 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
             fail("retired entry is missing a non-empty id")
         if not isinstance(reason, str) or not reason:
             fail(f"retired {retired_id}: missing reason")
-        relative_path = safe_relative_path(path, context=f"retired {retired_id}")
+        relative_path, fragment_pathname = fragment_path(
+            path,
+            context=f"retired {retired_id}",
+            manifest_root=manifest_root,
+            fragments_dir=fragments_dir,
+        )
         if retired_id in seen_ids:
-            fail(f"retired surface is also active: {retired_id}")
+            if retired_id in active_ids:
+                fail(f"retired surface is also active: {retired_id}")
+            fail(f"duplicate retired surface id: {retired_id}")
+        seen_ids.add(retired_id)
         if relative_path in referenced_paths or relative_path in retired_paths:
             fail(f"duplicate fragment path in manifest: {path}")
         retired_paths.add(relative_path)
-        fragment = read_json(fragments_root.joinpath(relative_path))
+        fragment = read_json(fragment_pathname)
         if not isinstance(fragment, dict):
             fail(f"retired fragment {path} must be an object")
         if fragment.get("id") != retired_id:
@@ -129,10 +183,12 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
             )
 
     manifest_paths = referenced_paths | retired_paths
-    fragment_paths = {
-        path.relative_to(fragments_root)
-        for path in fragments_root.joinpath("fragments").glob("*.json")
-    }
+    fragment_paths = set()
+    for path in fragments_dir.rglob("*"):
+        if path.is_symlink():
+            fail(f"symlink components/files are not allowed under fragments: {path}")
+        if path.is_file():
+            fragment_paths.add(path.relative_to(manifest_root))
     orphaned = sorted(fragment_paths - manifest_paths)
     if orphaned:
         fail("unclassified fragment(s): " + ", ".join(str(path) for path in orphaned))
