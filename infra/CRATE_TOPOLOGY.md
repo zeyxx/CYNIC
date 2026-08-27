@@ -42,6 +42,15 @@ import de crate. À nettoyer du Cargo.toml (dette).
 2. COUPLAGES CLASSÉS (port vs concret)
 ================================================================
 
+NOMBRE DE TRAITS (ports) PAR CRATE (grep ^pub trait, hors tests):
+  host       74 traits  ← LE plus riche en ports (pattern établi)
+  kernel     27 traits
+  inference  24 traits
+  protocol    7 traits
+
+NOTE: le kernel a 27 traits mais n'en CONSOME presque aucun — il
+importe du concret. Host = le modèle à suivre (74 traits, port-rich).
+
 PROTOCOLE (idéal, respecte framework §468 protocol_is_pure):
   kernel -> protocol : TYPES PUGS (BuildRecipe, LeaseVerification,
     PatternModel). ✓ Aucun use de logique runtime protocol.
