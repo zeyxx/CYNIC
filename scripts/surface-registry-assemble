@@ -48,6 +48,15 @@ def canonical_signature(document: Any) -> str:
     return json.dumps(document, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def safe_relative_path(value: Any, *, context: str) -> Path:
+    if not isinstance(value, str) or not value:
+        fail(f"{context}: missing path")
+    path = Path(value)
+    if path.is_absolute() or "\\" in value or any(part in ("", ".", "..") for part in path.parts):
+        fail(f"{context}: path must be safe and relative: {value!r}")
+    return path
+
+
 def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> dict[str, Any]:
     if manifest.get("schema") != EXPECTED_SCHEMA:
         fail(
@@ -61,7 +70,13 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
     if len(entries) == 0:
         fail("manifest.surfaces is empty")
 
+    retired = manifest.get("retired", [])
+    if not isinstance(retired, list):
+        fail("manifest.retired must be an array")
+
     seen_ids: set[str] = set()
+    referenced_paths: set[Path] = set()
+    retired_paths: set[Path] = set()
     surfaces = []
     for entry in entries:
         if not isinstance(entry, dict):
@@ -70,9 +85,11 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
         path = entry.get("path")
         if not isinstance(surface_id, str) or not surface_id:
             fail("manifest surface entry is missing a non-empty id")
-        if not isinstance(path, str) or not path:
-            fail(f"surface {surface_id}: missing fragment path")
-        fragment_path = fragments_root.joinpath(path)
+        relative_path = safe_relative_path(path, context=f"surface {surface_id}")
+        if relative_path in referenced_paths:
+            fail(f"duplicate fragment path in manifest: {path}")
+        referenced_paths.add(relative_path)
+        fragment_path = fragments_root.joinpath(relative_path)
         fragment = read_json(fragment_path)
         if not isinstance(fragment, dict):
             fail(f"fragment {path} must be an object")
@@ -85,6 +102,40 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
             fail(f"duplicate surface id in manifest: {surface_id}")
         seen_ids.add(surface_id)
         surfaces.append(fragment)
+
+    for entry in retired:
+        if not isinstance(entry, dict):
+            fail("manifest.retired entries must be objects")
+        retired_id = entry.get("id")
+        reason = entry.get("reason")
+        path = entry.get("path")
+        if not isinstance(retired_id, str) or not retired_id:
+            fail("retired entry is missing a non-empty id")
+        if not isinstance(reason, str) or not reason:
+            fail(f"retired {retired_id}: missing reason")
+        relative_path = safe_relative_path(path, context=f"retired {retired_id}")
+        if retired_id in seen_ids:
+            fail(f"retired surface is also active: {retired_id}")
+        if relative_path in referenced_paths or relative_path in retired_paths:
+            fail(f"duplicate fragment path in manifest: {path}")
+        retired_paths.add(relative_path)
+        fragment = read_json(fragments_root.joinpath(relative_path))
+        if not isinstance(fragment, dict):
+            fail(f"retired fragment {path} must be an object")
+        if fragment.get("id") != retired_id:
+            fail(
+                f"retired fragment id mismatch for {retired_id}: "
+                f"fragment has {fragment.get('id')}"
+            )
+
+    manifest_paths = referenced_paths | retired_paths
+    fragment_paths = {
+        path.relative_to(fragments_root)
+        for path in fragments_root.joinpath("fragments").glob("*.json")
+    }
+    orphaned = sorted(fragment_paths - manifest_paths)
+    if orphaned:
+        fail("unclassified fragment(s): " + ", ".join(str(path) for path in orphaned))
 
     return {"schema": EXPECTED_SCHEMA, "surfaces": surfaces}
 
