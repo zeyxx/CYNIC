@@ -117,8 +117,8 @@ pub fn outcome_spec() -> OutcomeSpec {
                     ),
                 ],
                 required_evidence: vec![
-                    "cynic.runtime_validation.v1",
-                    "cynic.runtime_execution_plan.v1",
+                    crate::development::RUNTIME_VALIDATION_SCHEMA,
+                    crate::runtime::types::RUNTIME_EXECUTION_PLAN_SCHEMA,
                 ],
                 validation_commands: vec!["make runtime-validate", "make lab-smoke"],
                 non_goals: vec![
@@ -150,7 +150,7 @@ pub fn outcome_spec() -> OutcomeSpec {
                 ],
                 required_evidence: vec![
                     "cynic.development_surface_manifest.v1",
-                    "cynic.runtime_proof_bundle.v1",
+                    crate::runtime::types::RUNTIME_PROOF_BUNDLE_SCHEMA,
                 ],
                 validation_commands: vec![
                     "cynic dev surfaces --json",
@@ -185,7 +185,7 @@ pub fn outcome_spec() -> OutcomeSpec {
                         "runtime plan JSON contains can_apply=false",
                     ),
                 ],
-                required_evidence: vec!["cynic.runtime_proof_bundle.v1"],
+                required_evidence: vec![crate::runtime::types::RUNTIME_PROOF_BUNDLE_SCHEMA],
                 validation_commands: vec![
                     "cargo test -p cynic-protocol runtime_planner_opens_layers_from_observed_gates",
                     "make runtime-validate",
@@ -228,8 +228,8 @@ pub fn outcome_spec() -> OutcomeSpec {
                     ),
                 ],
                 required_evidence: vec![
-                    "cynic.runtime_proof_bundle.v1",
-                    "cynic.runtime_execution_plan.v1",
+                    crate::runtime::types::RUNTIME_PROOF_BUNDLE_SCHEMA,
+                    crate::runtime::types::RUNTIME_EXECUTION_PLAN_SCHEMA,
                     "service_supervisor_observation",
                 ],
                 validation_commands: vec![
@@ -275,8 +275,8 @@ pub fn outcome_spec() -> OutcomeSpec {
                     ),
                 ],
                 required_evidence: vec![
-                    "cynic.runtime_execution_plan.v1",
-                    "cynic.runtime_proof_bundle.v1",
+                    crate::runtime::types::RUNTIME_EXECUTION_PLAN_SCHEMA,
+                    crate::runtime::types::RUNTIME_PROOF_BUNDLE_SCHEMA,
                     "cynic.development_surface_manifest.v1",
                     "cynic.outcome_spec.v1",
                 ],
@@ -532,8 +532,8 @@ mod tests {
             &[
                 "cynic.outcome_spec.v1",
                 "cynic.development_surface_manifest.v1",
-                "cynic.runtime_execution_plan.v1",
-                "cynic.runtime_proof_bundle.v1",
+                crate::runtime::types::RUNTIME_EXECUTION_PLAN_SCHEMA,
+                crate::runtime::types::RUNTIME_PROOF_BUNDLE_SCHEMA,
             ],
             &[
                 "cynic dev outcomes --json",

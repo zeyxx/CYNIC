@@ -1,3 +1,5 @@
+use cynic_protocol::BUILD_RUNNER_OBSERVATION_SCHEMA;
+
 use serde::Serialize;
 use serde_json::Value;
 use std::fs;
@@ -22,7 +24,7 @@ pub fn project_registry_observation(
     apply: bool,
 ) -> Result<RegistryObservationReport, String> {
     let observation = read_json(observation_path, "observation")?;
-    if observation["schema"] != "cynic.runtime.node_observation.v1" {
+    if observation["schema"] != BUILD_RUNNER_OBSERVATION_SCHEMA {
         return Err("observation schema must be cynic.runtime.node_observation.v1".to_string());
     }
     let node_id = observation["node_id"]

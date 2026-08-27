@@ -2,214 +2,6 @@
   "schema": "cynic.surface_registry.v1",
   "surfaces": [
     {
-      "adapter_module": "audit_surface",
-      "anti_responsibilities": [
-        "rewrite git history",
-        "claim runtime authority from source ownership audit",
-        "mutate source tree during audit"
-      ],
-      "canonical_entrypoints": [
-        "cynic audit node-host [--json] [--max-commits <n>]"
-      ],
-      "domain_owner": "node_host_audit",
-      "evidence": [
-        "cynic.node_host_audit.v1"
-      ],
-      "id": "audit_node_host_boundary",
-      "layer": "l0_to_l2_architecture_governance",
-      "mutation_policy": "read_only",
-      "owner_call_markers": [
-        "node_host_audit::"
-      ],
-      "owner_crate": "cynic-cli",
-      "owner_modules": [
-        "node_host_audit"
-      ],
-      "responsibility": "Audit node/host source ownership boundaries, git signals, and inferred layering errors."
-    },
-    {
-      "adapter_module": "bootstrap_surface::constellation",
-      "anti_responsibilities": [
-        "apply bootstrap changes on remote nodes",
-        "treat a candidate node as lockable without proof",
-        "recompute remote authority without registry-backed selection"
-      ],
-      "canonical_entrypoints": [
-        "cynic bootstrap constellation --json [--registry <path>]"
-      ],
-      "domain_owner": "cynic-host::topology",
-      "evidence": [
-        "cynic.bootstrap_constellation.v1"
-      ],
-      "id": "bootstrap_constellation",
-      "layer": "l0_to_l2_runtime_topology",
-      "mutation_policy": "read_only",
-      "owner_call_markers": [
-        "observe_host_bootstrap_evidence",
-        "constellation",
-        "target_satisfied"
-      ],
-      "owner_crate": "cynic-host",
-      "owner_modules": [
-        "host_bootstrap_evidence"
-      ],
-      "responsibility": "Observe registry-declared node maturity and bootstrap lock readiness without mutating remote targets."
-    },
-    {
-      "adapter_module": "bootstrap_surface::host",
-      "anti_responsibilities": [
-        "perform mutation without explicit dry-run/apply boundary",
-        "depend on human sudo for steady-state runtime work",
-        "hide privileged host changes from machine-readable proof"
-      ],
-      "canonical_entrypoints": [
-        "cynic bootstrap host observe --json [--profile <name> | --node <name>] [--registry <path>]",
-        "cynic bootstrap host plan --json [--profile <name> | --node <name>] [--registry <path>] [--dry-run]",
-        "cynic bootstrap host apply --json [--profile <name> | --node <name>] [--registry <path>] (--dry-run|--apply)",
-        "cynic bootstrap host evidence --json [--profile <name> | --node <name>] [--registry <path>]",
-        "cynic bootstrap host preflight --json [--profile <name> | --node <name>] [--registry <path>]"
-      ],
-      "domain_owner": "cynic-host::usecases",
-      "evidence": [
-        "cynic.host_bootstrap_observe.v1",
-        "cynic.host_bootstrap_plan.v1",
-        "cynic.host_bootstrap_apply.v1",
-        "cynic.host_bootstrap_evidence.v1",
-        "cynic.host_bootstrap_preflight.v1"
-      ],
-      "id": "host_bootstrap",
-      "layer": "l1_host_apply_boundary",
-      "mutation_policy": "explicit_apply_only",
-      "owner_call_markers": [
-        "observe_host_with_resolution",
-        "build_host_activation_plan",
-        "build_host_bundle_with_resolution",
-        "build_host_apply_report_with_resolution",
-        "execute_host_apply",
-        "execute_admitted_service_apply",
-        "observe_host_bootstrap_evidence"
-      ],
-      "owner_crate": "cynic-host",
-      "owner_modules": [
-        "usecases",
-        "usecases::planning",
-        "usecases::execution",
-        "host_bootstrap_evidence",
-        "runtime_proof",
-        "service_supervisor_observation"
-      ],
-      "responsibility": "Observe, plan, and apply host bootstrap/runtime authority setup for a selected node/profile under explicit dry-run or apply intent."
-    },
-    {
-      "adapter_module": "bootstrap_surface::bridge",
-      "anti_responsibilities": [
-        "escalate arbitrary commands",
-        "mutate bridge state without explicit apply",
-        "treat operator shell access as the steady-state bridge"
-      ],
-      "canonical_entrypoints": [
-        "cynic bootstrap bridge status --json",
-        "cynic bootstrap bridge plan --json",
-        "cynic bootstrap bridge install --json [--apply]",
-        "cynic bootstrap bridge profile <name> --json"
-      ],
-      "domain_owner": "cynic-host::bridge",
-      "evidence": [
-        "cynic.host_exec_bridge.status.v1",
-        "cynic.host_exec_bridge.plan.v1",
-        "cynic.host_exec_bridge.install.v1",
-        "cynic.host_exec_bridge.profile.v1"
-      ],
-      "id": "bootstrap_host_exec_bridge",
-      "layer": "l1_host_apply_boundary",
-      "mutation_policy": "explicit_apply_only",
-      "owner_call_markers": [
-        "write_bridge_bundle",
-        "privilege_bridge_install_spec",
-        "privilege_bridge_plan",
-        "privilege_bridge_apply",
-        "bridge_rootless_smoke",
-        "bridge_status_via_helper",
-        "bridge_status"
-      ],
-      "owner_crate": "cynic-host",
-      "owner_modules": [
-        "bridge"
-      ],
-      "responsibility": "Observe and install the bounded host-exec privilege bridge used to replace human-admin runtime mutation paths."
-    },
-    {
-      "adapter_module": "bootstrap_surface::framework",
-      "anti_responsibilities": [
-        "require checked-out repo to bootstrap a fresh node",
-        "silently mutate /usr/local/bin without explicit apply",
-        "treat bundle generation as host installation proof"
-      ],
-      "canonical_entrypoints": [
-        "cynic bootstrap framework bundle --json [--output-dir <path>]",
-        "cynic bootstrap framework install-status --json",
-        "cynic bootstrap framework install-cli --json [--apply]"
-      ],
-      "domain_owner": "cynic-host::framework_bootstrap",
-      "evidence": [
-        "cynic.framework_bootstrap_bundle.v1",
-        "cynic.framework_install_status.v1",
-        "cynic.framework_install_apply.v1"
-      ],
-      "id": "framework_bootstrap",
-      "layer": "l1_host_apply_boundary",
-      "mutation_policy": "explicit_apply_only",
-      "owner_call_markers": [
-        "write_framework_bootstrap_bundle",
-        "install_standalone_cli",
-        "build_framework_enrollment_request"
-      ],
-      "owner_crate": "cynic-host",
-      "owner_modules": [
-        "framework_bootstrap"
-      ],
-      "responsibility": "Write, observe, and apply standalone framework bootstrap artifacts for fresh-node installation."
-    },
-    {
-      "adapter_module": "chat_surface",
-      "anti_responsibilities": [
-        "require cynic-kernel as domain owner for sessions",
-        "store history under operator HOME by default when principal is resolvable",
-        "own long-term semantic memory plugins",
-        "reimplement Osmantic ODS install/lifecycle"
-      ],
-      "canonical_entrypoints": [
-        "cynic chat  # interactive TUI",
-        "cynic chat --mock | --ods",
-        "cynic chat <prompt> [--resume ID] [--stream] [--mock|--ods] [--json]",
-        "cynic chat --list-sessions [--json]",
-        "cynic chat --export <session-id> --apply"
-      ],
-      "domain_owner": "cynic-inference chat + principal session store",
-      "evidence": [
-        "cynic.chat.turn.v1",
-        "cynic.chat.sessions.v1",
-        "cynic.chat.ready.v1",
-        "cynic.chat.endpoint.v1"
-      ],
-      "id": "chat_operator_surface",
-      "layer": "l1_runtime_operator_projection",
-      "mutation_policy": "read_only_by_default_explicit_apply_for_actuators",
-      "owner_call_markers": [
-        "ChatService",
-        "FsChatSessionStore",
-        "resolve_chat_endpoint",
-        "chat_tui"
-      ],
-      "owner_crate": "cynic-cli",
-      "owner_modules": [
-        "cynic-inference::domain::chat",
-        "chat_surface",
-        "chat_tui"
-      ],
-      "responsibility": "Thin chat CLI: one-shot/resume against inference plane with principal-owned session event log, stream and tools."
-    },
-    {
       "adapter_module": "dev_surface",
       "anti_responsibilities": [
         "claim host mutation proof",
@@ -267,6 +59,137 @@
         "dev_surface::audit_persist"
       ],
       "responsibility": "Project architecture, ownership, exposure, crate, and validation audits as machine-readable governance proof."
+    },
+    {
+      "adapter_module": "audit_surface",
+      "anti_responsibilities": [
+        "rewrite git history",
+        "claim runtime authority from source ownership audit",
+        "mutate source tree during audit"
+      ],
+      "canonical_entrypoints": [
+        "cynic audit node-host [--json] [--max-commits <n>]"
+      ],
+      "domain_owner": "node_host_audit",
+      "evidence": [
+        "cynic.node_host_audit.v1"
+      ],
+      "id": "audit_node_host_boundary",
+      "layer": "l0_to_l2_architecture_governance",
+      "mutation_policy": "read_only",
+      "owner_call_markers": [
+        "node_host_audit::"
+      ],
+      "owner_crate": "cynic-cli",
+      "owner_modules": [
+        "node_host_audit"
+      ],
+      "responsibility": "Audit node/host source ownership boundaries, git signals, and inferred layering errors."
+    },
+    {
+      "adapter_module": "bootstrap_surface::constellation",
+      "anti_responsibilities": [
+        "apply bootstrap changes on remote nodes",
+        "treat a candidate node as lockable without proof",
+        "recompute remote authority without registry-backed selection"
+      ],
+      "canonical_entrypoints": [
+        "cynic bootstrap constellation --json [--registry <path>]"
+      ],
+      "domain_owner": "cynic-host::topology",
+      "evidence": [
+        "cynic.bootstrap_constellation.v1"
+      ],
+      "id": "bootstrap_constellation",
+      "layer": "l0_to_l2_runtime_topology",
+      "mutation_policy": "read_only",
+      "owner_call_markers": [
+        "observe_host_bootstrap_evidence",
+        "constellation",
+        "target_satisfied"
+      ],
+      "owner_crate": "cynic-host",
+      "owner_modules": [
+        "host_bootstrap_evidence"
+      ],
+      "responsibility": "Observe registry-declared node maturity and bootstrap lock readiness without mutating remote targets."
+    },
+    {
+      "adapter_module": "bootstrap_surface::bridge",
+      "anti_responsibilities": [
+        "escalate arbitrary commands",
+        "mutate bridge state without explicit apply",
+        "treat operator shell access as the steady-state bridge"
+      ],
+      "canonical_entrypoints": [
+        "cynic bootstrap bridge status --json",
+        "cynic bootstrap bridge plan --json",
+        "cynic bootstrap bridge install --json [--apply]",
+        "cynic bootstrap bridge profile <name> --json"
+      ],
+      "domain_owner": "cynic-host::bridge",
+      "evidence": [
+        "cynic.host_exec_bridge.status.v1",
+        "cynic.host_exec_bridge.plan.v1",
+        "cynic.host_exec_bridge.install.v1",
+        "cynic.host_exec_bridge.profile.v1"
+      ],
+      "id": "bootstrap_host_exec_bridge",
+      "layer": "l1_host_apply_boundary",
+      "mutation_policy": "explicit_apply_only",
+      "owner_call_markers": [
+        "write_bridge_bundle",
+        "privilege_bridge_install_spec",
+        "privilege_bridge_plan",
+        "privilege_bridge_apply",
+        "bridge_rootless_smoke",
+        "bridge_status_via_helper",
+        "bridge_status"
+      ],
+      "owner_crate": "cynic-host",
+      "owner_modules": [
+        "bridge"
+      ],
+      "responsibility": "Observe and install the bounded host-exec privilege bridge used to replace human-admin runtime mutation paths."
+    },
+    {
+      "adapter_module": "chat_surface",
+      "anti_responsibilities": [
+        "require cynic-kernel as domain owner for sessions",
+        "store history under operator HOME by default when principal is resolvable",
+        "own long-term semantic memory plugins",
+        "reimplement Osmantic ODS install/lifecycle"
+      ],
+      "canonical_entrypoints": [
+        "cynic chat  # interactive TUI",
+        "cynic chat --mock | --ods",
+        "cynic chat <prompt> [--resume ID] [--stream] [--mock|--ods] [--json]",
+        "cynic chat --list-sessions [--json]",
+        "cynic chat --export <session-id> --apply"
+      ],
+      "domain_owner": "cynic-inference chat + principal session store",
+      "evidence": [
+        "cynic.chat.turn.v1",
+        "cynic.chat.sessions.v1",
+        "cynic.chat.ready.v1",
+        "cynic.chat.endpoint.v1"
+      ],
+      "id": "chat_operator_surface",
+      "layer": "l1_runtime_operator_projection",
+      "mutation_policy": "read_only_by_default_explicit_apply_for_actuators",
+      "owner_call_markers": [
+        "ChatService",
+        "FsChatSessionStore",
+        "resolve_chat_endpoint",
+        "chat_tui"
+      ],
+      "owner_crate": "cynic-cli",
+      "owner_modules": [
+        "cynic-inference::domain::chat",
+        "chat_surface",
+        "chat_tui"
+      ],
+      "responsibility": "Thin chat CLI: one-shot/resume against inference plane with principal-owned session event log, stream and tools."
     },
     {
       "adapter_module": "deps_surface",
@@ -488,6 +411,83 @@
       "responsibility": "Observe declared hosts, runtime path projections, and fleet status without mutation."
     },
     {
+      "adapter_module": "bootstrap_surface::framework",
+      "anti_responsibilities": [
+        "require checked-out repo to bootstrap a fresh node",
+        "silently mutate /usr/local/bin without explicit apply",
+        "treat bundle generation as host installation proof"
+      ],
+      "canonical_entrypoints": [
+        "cynic bootstrap framework bundle --json [--output-dir <path>]",
+        "cynic bootstrap framework install-status --json",
+        "cynic bootstrap framework install-cli --json [--apply]"
+      ],
+      "domain_owner": "cynic-host::framework_bootstrap",
+      "evidence": [
+        "cynic.framework_bootstrap_bundle.v1",
+        "cynic.framework_install_status.v1",
+        "cynic.framework_install_apply.v1"
+      ],
+      "id": "framework_bootstrap",
+      "layer": "l1_host_apply_boundary",
+      "mutation_policy": "explicit_apply_only",
+      "owner_call_markers": [
+        "write_framework_bootstrap_bundle",
+        "install_standalone_cli",
+        "build_framework_enrollment_request"
+      ],
+      "owner_crate": "cynic-host",
+      "owner_modules": [
+        "framework_bootstrap"
+      ],
+      "responsibility": "Write, observe, and apply standalone framework bootstrap artifacts for fresh-node installation."
+    },
+    {
+      "adapter_module": "bootstrap_surface::host",
+      "anti_responsibilities": [
+        "perform mutation without explicit dry-run/apply boundary",
+        "depend on human sudo for steady-state runtime work",
+        "hide privileged host changes from machine-readable proof"
+      ],
+      "canonical_entrypoints": [
+        "cynic bootstrap host observe --json [--profile <name> | --node <name>] [--registry <path>]",
+        "cynic bootstrap host plan --json [--profile <name> | --node <name>] [--registry <path>] [--dry-run]",
+        "cynic bootstrap host apply --json [--profile <name> | --node <name>] [--registry <path>] (--dry-run|--apply)",
+        "cynic bootstrap host evidence --json [--profile <name> | --node <name>] [--registry <path>]",
+        "cynic bootstrap host preflight --json [--profile <name> | --node <name>] [--registry <path>]"
+      ],
+      "domain_owner": "cynic-host::usecases",
+      "evidence": [
+        "cynic.host_bootstrap_observe.v1",
+        "cynic.host_bootstrap_plan.v1",
+        "cynic.host_bootstrap_apply.v1",
+        "cynic.host_bootstrap_evidence.v1",
+        "cynic.host_bootstrap_preflight.v1"
+      ],
+      "id": "host_bootstrap",
+      "layer": "l1_host_apply_boundary",
+      "mutation_policy": "explicit_apply_only",
+      "owner_call_markers": [
+        "observe_host_with_resolution",
+        "build_host_activation_plan",
+        "build_host_bundle_with_resolution",
+        "build_host_apply_report_with_resolution",
+        "execute_host_apply",
+        "execute_admitted_service_apply",
+        "observe_host_bootstrap_evidence"
+      ],
+      "owner_crate": "cynic-host",
+      "owner_modules": [
+        "usecases",
+        "usecases::planning",
+        "usecases::execution",
+        "host_bootstrap_evidence",
+        "runtime_proof",
+        "service_supervisor_observation"
+      ],
+      "responsibility": "Observe, plan, and apply host bootstrap/runtime authority setup for a selected node/profile under explicit dry-run or apply intent."
+    },
+    {
       "adapter_module": "network_surface",
       "anti_responsibilities": [
         "hide node mutation behind implicit status commands",
@@ -527,6 +527,45 @@
         "network_evidence"
       ],
       "responsibility": "Project and apply node/network control-plane commands through cynic-node under explicit plan/apply boundaries."
+    },
+    {
+      "adapter_module": "lab_surface",
+      "anti_responsibilities": [
+        "become canonical production authority",
+        "mutate operator connectivity without explicit apply",
+        "hide harness kind or isolation boundary"
+      ],
+      "canonical_entrypoints": [
+        "cynic lab bundle --json [--output-dir <path>]",
+        "cynic lab status --json",
+        "cynic lab network status --json [--resolve-dns]",
+        "cynic lab provision --json [--apply]",
+        "cynic lab image fetch --json [--apply]"
+      ],
+      "domain_owner": "cynic-host::lab",
+      "evidence": [
+        "cynic.lab_bundle.v1",
+        "cynic.lab_status.v1",
+        "cynic.lab_network_status.v1",
+        "cynic.lab_provision.v1",
+        "cynic.lab_guest_image_fetch.v1"
+      ],
+      "id": "portable_lab",
+      "layer": "l0_proof_harness",
+      "mutation_policy": "explicit_apply_only",
+      "owner_call_markers": [
+        "build_lab_plan",
+        "build_lab_provision_report",
+        "write_lab_bundle",
+        "write_guest_bootstrap_bundle",
+        "build_lab_image_report",
+        "resolve_lab_image_sha256"
+      ],
+      "owner_crate": "cynic-host",
+      "owner_modules": [
+        "lab"
+      ],
+      "responsibility": "Provide closed local lab bootstrap/network/evidence harnesses as proof environments, not runtime authority."
     },
     {
       "adapter_module": "runtime_surface::agent_matrix",
@@ -642,6 +681,41 @@
       "responsibility": "Expose executable bottom-up runtime suite and plan projections for a registry/profile."
     },
     {
+      "adapter_module": "runtime_surface::forgejo_token_cli",
+      "anti_responsibilities": [
+        "read or print credential secret values",
+        "claim operator-local Forgejo login as runtime principal",
+        "mutate Forgejo via admin REST API without explicit apply",
+        "require checked-out repo to provision a node token"
+      ],
+      "canonical_entrypoints": [
+        "cynic runtime forgejo-token status [--json]",
+        "cynic runtime forgejo-token create --yes [--json]",
+        "cynic runtime forgejo-token rotate --yes [--json]"
+      ],
+      "domain_owner": "cynic-host::forgejo_token",
+      "evidence": [
+        "cynic.forgejo_token.observation.v1",
+        "cynic.forgejo_token_provision_report.v1"
+      ],
+      "id": "runtime_forgejo_token",
+      "layer": "l1_host_apply_boundary",
+      "mutation_policy": "explicit_apply_only",
+      "owner_call_markers": [
+        "observe_forgejo_token_runtime",
+        "provision_forgejo_token",
+        "forgejo_token_adapter_selector",
+        "UnavailableForgejoTokenApiAdapter",
+        "execute_forgejo_token"
+      ],
+      "owner_crate": "cynic-cli",
+      "owner_modules": [
+        "runtime_surface::forgejo_token_cli",
+        "cynic-host::forgejo_token"
+      ],
+      "responsibility": "Observe the Forgejo runtime token and expose a fail-closed provision surface; SSH-local Exec or HTTP selection remains unavailable/unproven until runtime transport and credential injection are established, with read-back proof and explicit apply consent."
+    },
+    {
       "adapter_module": "runtime_surface::host_checks",
       "anti_responsibilities": [
         "prepare host packages",
@@ -681,45 +755,6 @@
         "storage_capabilities"
       ],
       "responsibility": "Expose read-only host conformance, runtime metrics, repo access, and harness catalog."
-    },
-    {
-      "adapter_module": "lab_surface",
-      "anti_responsibilities": [
-        "become canonical production authority",
-        "mutate operator connectivity without explicit apply",
-        "hide harness kind or isolation boundary"
-      ],
-      "canonical_entrypoints": [
-        "cynic lab bundle --json [--output-dir <path>]",
-        "cynic lab status --json",
-        "cynic lab network status --json [--resolve-dns]",
-        "cynic lab provision --json [--apply]",
-        "cynic lab image fetch --json [--apply]"
-      ],
-      "domain_owner": "cynic-host::lab",
-      "evidence": [
-        "cynic.lab_bundle.v1",
-        "cynic.lab_status.v1",
-        "cynic.lab_network_status.v1",
-        "cynic.lab_provision.v1",
-        "cynic.lab_guest_image_fetch.v1"
-      ],
-      "id": "portable_lab",
-      "layer": "l0_proof_harness",
-      "mutation_policy": "explicit_apply_only",
-      "owner_call_markers": [
-        "build_lab_plan",
-        "build_lab_provision_report",
-        "write_lab_bundle",
-        "write_guest_bootstrap_bundle",
-        "build_lab_image_report",
-        "resolve_lab_image_sha256"
-      ],
-      "owner_crate": "cynic-host",
-      "owner_modules": [
-        "lab"
-      ],
-      "responsibility": "Provide closed local lab bootstrap/network/evidence harnesses as proof environments, not runtime authority."
     },
     {
       "adapter_module": "runtime_surface::network_preflight",
@@ -893,7 +928,7 @@
       "adapter_module": "lifecycle_surface",
       "anti_responsibilities": [
         "silent auto-promotion without --yes",
-        "skip phases (lab→production jump)",
+        "skip phases (lab\u2192production jump)",
         "treat harness as the capability itself",
         "grow lab into production authority",
         "silent auto-repair without --yes"
@@ -940,7 +975,7 @@
         "cynic-host::runtime_harness",
         "lifecycle_surface_execute"
       ],
-      "responsibility": "Executable update lifecycle over harness phases (lab→conformance→staging→canary→production) with gates, promote, ops report, repair, and phase apply under human --yes."
+      "responsibility": "Executable update lifecycle over harness phases (lab\u2192conformance\u2192staging\u2192canary\u2192production) with gates, promote, ops report, repair, and phase apply under human --yes."
     }
   ]
 }

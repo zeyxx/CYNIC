@@ -94,7 +94,7 @@ fn valid_source_snapshot() -> SourceSnapshot {
 
 fn valid_observation() -> BuildRunnerObservation {
     BuildRunnerObservation {
-        schema: "cynic.runtime.node_observation.v1".to_string(),
+        schema: cynic_protocol::BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
         status: "converged".to_string(),
         node_id: "builder-1".to_string(),
         hostname: "builder-1".to_string(),

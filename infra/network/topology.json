@@ -1,0 +1,188 @@
+{
+  "schema": "cynic.network.topology.v1",
+  "authority": {
+    "state": "proposed_ssot_pending_operator_acceptance",
+    "scope": "declared desired topology only",
+    "observed_runtime_authority": "runtime probes and read-back reports",
+    "rule": "A desired address, role, service, or route is never promoted to observed merely because it appears here."
+  },
+  "revision": 1,
+  "role_model": {
+    "assignment_shape": "role_assignments[]",
+    "assignment_fields": ["role_id", "weight", "depends_on"],
+    "weights": ["primary", "secondary"],
+    "invariants": [
+      "a node may carry multiple roles",
+      "each role dependency names an explicit node_id and role_id",
+      "the dependency graph must be acyclic",
+      "a secondary role must not be the sole provider of a dependency required by its own primary role",
+      "role assignment is desired state; liveness and admission remain runtime evidence"
+    ]
+  },
+  "network_context_model": {
+    "rule": "A plane is an address-domain intent. It is not an interface, namespace, route, tunnel, or service publication by itself.",
+    "execution_contexts": [
+      "bare_metal_host_network_namespace",
+      "lxc_network_namespace",
+      "process_on_host_namespace",
+      "local_container_network_namespace"
+    ],
+    "attachment_realizations": [
+      "host_interface_or_route",
+      "proxmox_bridge_and_lxc_veth",
+      "wireguard_l3_overlay",
+      "loopback_only",
+      "local_virtualization_bridge",
+      "local_container_bridge"
+    ],
+    "service_binding_rule": "A service endpoint must name the execution context and the attachment it binds through. A loopback address is valid only inside that named namespace and is never fleet topology.",
+    "reuse_existing_contract": "RegistryNetworkLink owns provider, interface, connection, address, gateway, routes, and default_route; this topology indexes those links by context and plane rather than duplicating them."
+  },
+  "planes": [
+    {
+      "id": "synapse",
+      "cidr": "10.10.10.0/24",
+      "federation_scope": "canonical_service_plane",
+      "dns_zone": "synapse.cynic",
+      "dns_provider": "unresolved",
+      "realization": "proxmox_bridge_and_lxc_veth for CTs; host_interface_or_route for cortex",
+      "state": "declared"
+    },
+    {
+      "id": "management",
+      "cidr": "192.168.100.0/24",
+      "federation_scope": "administration_only",
+      "purpose": "bare-metal management and hypervisor control",
+      "realization": "host_interface_or_route",
+      "state": "observed"
+    },
+    {
+      "id": "overlay",
+      "cidr": "10.20.0.0/24",
+      "federation_scope": "encrypted_transport_plane",
+      "transport": "wireguard",
+      "realization": "wireguard_l3_overlay",
+      "listen_port": 44196,
+      "watchdog": { "stale_s": 150, "dead_s": 200 },
+      "state": "observed"
+    }
+  ],
+  "observed_nonfederated_planes": [
+    {
+      "id": "upstream_lan",
+      "cidr": "192.168.0.0/24",
+      "seen_on": ["cynic-host-cortex", "cynic-host-proxmox"],
+      "classification": "bootstrap_or_internet_egress_candidate",
+      "authority": "unknown"
+    },
+    {
+      "id": "cortex_libvirt",
+      "cidr": "192.168.122.0/24",
+      "seen_on": ["cynic-host-cortex"],
+      "classification": "local_virtualization",
+      "authority": "non_federated"
+    },
+    {
+      "id": "cortex_docker",
+      "cidr": "172.17.0.0/16",
+      "seen_on": ["cynic-host-cortex"],
+      "classification": "local_container_network",
+      "authority": "non_federated"
+    },
+    {
+      "id": "third_party_overlay_candidate",
+      "addresses": ["100.74.31.10"],
+      "seen_on": ["cynic-host-cortex"],
+      "classification": "unclassified_overlay",
+      "authority": "unknown"
+    }
+  ],
+  "nodes": [
+    {
+      "node_id": "cynic-host-cortex",
+      "execution_context": "bare_metal_host_network_namespace",
+      "role_assignments": [
+        { "role_id": "substrate_host", "weight": "primary", "depends_on": [] }
+      ],
+      "addresses": {
+        "management": { "ip": "192.168.100.2", "state": "observed" },
+        "overlay": { "ip": "10.20.0.3", "state": "observed" }
+      },
+      "hosts": ["local-kernel"],
+      "wireguard_peer": true
+    },
+    {
+      "node_id": "local-kernel",
+      "hosted_on": "cynic-host-cortex",
+      "execution_context": "process_on_host_namespace",
+      "role_assignments": [
+        { "role_id": "kernel_primary", "weight": "primary", "depends_on": [] }
+      ],
+      "observed_endpoint_bindings": [
+        { "plane": "management", "ip": "192.168.100.2", "port": 3030, "state": "observed" },
+        { "plane": "overlay", "ip": "10.20.0.3", "port": 3030, "state": "observed" }
+      ],
+      "unresolved_claims": [
+        {
+          "plane": "synapse",
+          "ip": "10.10.10.100",
+          "reason": "declared in legacy registry but absent from all observed cortex interfaces and unreachable from three peer nodes",
+          "state": "disputed"
+        }
+      ]
+    },
+    {
+      "node_id": "cynic-host-proxmox",
+      "execution_context": "bare_metal_host_network_namespace",
+      "role_assignments": [
+        { "role_id": "hypervisor", "weight": "primary", "depends_on": [] }
+      ],
+      "addresses": {
+        "management": { "ip": "192.168.100.1", "state": "observed" },
+        "synapse": { "ip": "10.10.10.1", "dns": ["pve.synapse.cynic"], "state": "observed" },
+        "overlay": { "ip": "10.20.0.1", "state": "observed" }
+      },
+      "wireguard_peer": true
+    },
+    {
+      "node_id": "cynic-builder",
+      "execution_context": "lxc_network_namespace",
+      "role_assignments": [
+        { "role_id": "build_runner", "weight": "primary", "depends_on": [] }
+      ],
+      "addresses": {
+        "synapse": { "ip": "10.10.10.119", "dns": ["cynic-builder.synapse.cynic"], "state": "observed" },
+        "overlay": { "ip": "10.20.0.5", "state": "observed" }
+      },
+      "wireguard_peer": true
+    },
+    {
+      "node_id": "forgejo",
+      "execution_context": "lxc_network_namespace",
+      "role_assignments": [
+        { "role_id": "forge_primary", "weight": "primary", "depends_on": [] }
+      ],
+      "addresses": {
+        "synapse": { "ip": "10.10.10.101", "dns": ["forgejo.synapse.cynic", "organ-forgejo.synapse.cynic"], "state": "observed" },
+        "overlay": { "ip": "10.20.0.2", "state": "observed" }
+      },
+      "wireguard_peer": true
+    },
+    {
+      "node_id": "cynic-lxc-surrealdb",
+      "execution_context": "lxc_network_namespace",
+      "role_assignments": [
+        { "role_id": "storage_primary", "weight": "primary", "depends_on": [] }
+      ],
+      "addresses": {
+        "synapse": { "ip": "10.10.10.103", "dns": ["cynic-storage-primary.synapse.cynic", "organ-surrealdb.synapse.cynic"], "state": "observed" },
+        "overlay": { "ip": "10.20.0.4", "state": "observed" }
+      },
+      "wireguard_peer": true
+    }
+  ],
+  "service_inventory": {
+    "state": "pending_full_observation",
+    "rule": "No service is classified canonical, degraded, or candidate until its owner, listener, health contract, and declared role are observed."
+  }
+}

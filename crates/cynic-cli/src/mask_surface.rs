@@ -15,6 +15,8 @@ use std::process::ExitCode;
 use clap::Subcommand;
 
 use crate::cli_json::emit_pretty_json;
+use cynic_protocol::AGENT_CITIZENSHIP_SCHEMA;
+
 use crate::runtime_surface::RuntimeCommand;
 use crate::runtime_surface::execute_runtime;
 
@@ -95,7 +97,7 @@ fn execute_mask_forge(report_path: &str, _source_note: &str, json: bool, yes: bo
     }
     if json {
         let citizenship = AgentCitizenship {
-            schema: "cynic.agent_citizenship.v1",
+            schema: AGENT_CITIZENSHIP_SCHEMA,
             agent_id: "mask-forge".to_string(),
             scope: "node".to_string(),
             mode: "baseline".to_string(),
@@ -118,7 +120,7 @@ fn execute_mask_start(alias: &str, json: bool, yes: bool) -> ExitCode {
         return ExitCode::FAILURE;
     }
     let citizenship = AgentCitizenship {
-        schema: "cynic.agent_citizenship.v1",
+        schema: AGENT_CITIZENSHIP_SCHEMA,
         agent_id: alias.to_string(),
         scope: "node".to_string(),
         mode: "baseline".to_string(),

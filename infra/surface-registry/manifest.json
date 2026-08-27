@@ -152,6 +152,10 @@
     {
       "id": "update_lifecycle",
       "path": "fragments/update_lifecycle.json"
+    },
+    {
+      "id": "runtime_forgejo_token",
+      "path": "fragments/runtime_forgejo_token.json"
     }
   ]
 }

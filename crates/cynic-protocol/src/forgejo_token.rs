@@ -8,6 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
+pub const FORGEJO_TOKEN_SPEC_SCHEMA: &str = "cynic.forgejo_token_spec.v1";
 pub const FORGEJO_TOKEN_OBSERVATION_SCHEMA: &str = "cynic.forgejo_token_observation.v1";
 pub const FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA: &str = "cynic.forgejo_token_provision_report.v1";
 pub const FORGEJO_TOKEN_STATUS_SCHEMA: &str = "cynic.forgejo_token_status.v1";
@@ -22,7 +23,7 @@ pub struct ForgejoTokenSpec {
     pub schema: String,
     /// The Forgejo principal that owns the token (e.g. "cynic-cortex").
     pub principal: String,
-    /// Forgejo API base URL (e.g. https://forgejo.synapse.cynic/api/v1).
+    /// Forgejo server base URL (the adapter appends `/api/v1`).
     pub api_url: String,
     /// Scopes granted to the new token (Forgejo scope syntax).
     pub scopes: Vec<String>,
@@ -37,9 +38,9 @@ pub struct ForgejoTokenSpec {
 impl Default for ForgejoTokenSpec {
     fn default() -> Self {
         Self {
-            schema: FORGEJO_TOKEN_OBSERVATION_SCHEMA.to_string(),
+            schema: FORGEJO_TOKEN_SPEC_SCHEMA.to_string(),
             principal: "cynic-cortex".to_string(),
-            api_url: "https://forgejo.synapse.cynic/api/v1".to_string(),
+            api_url: "https://forgejo.synapse.cynic".to_string(),
             scopes: vec![
                 "read:organization".to_string(),
                 "write:organization".to_string(),

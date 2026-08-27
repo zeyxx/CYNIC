@@ -1,0 +1,120 @@
+{
+  "schema": "cynic.soc_ops_coverage_observation.v1",
+  "observed_at": "2026-08-26T16:08:21+02:00",
+  "verdict": "No coherent SOC/Ops capability exists. Current probes, domain ledgers, and static audits are disconnected primitives.",
+  "existing_primitives": [
+    {
+      "name": "host_runtime_metrics",
+      "owner": "cynic-host",
+      "usable_for": ["host conformance rollup", "explicit unknown metrics"],
+      "not_a_substitute_for": ["fleet telemetry", "time-series", "SOC detection", "incident management"]
+    },
+    {
+      "name": "node_system_and_network_observation",
+      "owner": "cynic-node",
+      "usable_for": ["raw substrate probe", "network and service evidence"],
+      "not_a_substitute_for": ["capability-aware outcomes", "retained metrics", "fleet rollup"]
+    },
+    {
+      "name": "fleet_observability",
+      "owner": "cynic-node",
+      "usable_for": ["pure node-quality projection"],
+      "not_a_substitute_for": ["collector", "persistence", "alert policy", "incident lifecycle"]
+    },
+    {
+      "name": "inference empirical JSONL ledger",
+      "owner": "cynic-inference",
+      "usable_for": ["domain-specific append-only empirical model profiles"],
+      "not_a_substitute_for": ["generic operations ledger", "runtime authority-safe storage", "SOC event ledger"]
+    },
+    {
+      "name": "transaction read-backs",
+      "owner": "protocol/node/kernel/host",
+      "usable_for": ["bounded mutation proof"],
+      "not_a_substitute_for": ["continuous surveillance", "correlation", "alerting"]
+    }
+  ],
+  "threat_control_proof_gaps": [
+    {
+      "id": "SOC-001",
+      "severity": "critical",
+      "threat": "A privileged, network, secret, or service compromise persists undetected between manual probes.",
+      "missing_control": "Node-local periodic capability-aware collector and durable append-only operations evidence ledger.",
+      "missing_proof": "Ordered signed/hashed samples with collection capability, timestamp, freshness deadline, and retention policy."
+    },
+    {
+      "id": "SOC-002",
+      "severity": "critical",
+      "threat": "A denied probe is rendered as a failed subsystem, producing false incidents and unsafe remediation.",
+      "missing_control": "Typed observation outcome model separating measured failure, blocked authority, unavailable capability, timeout, and unknown.",
+      "missing_proof": "Every sample carries outcome plus observer principal/capability provenance."
+    },
+    {
+      "id": "SOC-003",
+      "severity": "critical",
+      "threat": "Secret exposure through command line, environment, logs, or reports is not detected or correlated.",
+      "missing_control": "Secret-handling posture probes and redaction-preserving security event producer.",
+      "missing_proof": "Presence/provenance-only event; no secret material in the event payload. NET-SEC-001 is a demonstrated instance."
+    },
+    {
+      "id": "SOC-004",
+      "severity": "high",
+      "threat": "Service crash loops, TLS expiry, DNS drift, WireGuard staleness, and artifact-store absence are seen once but not alerted on.",
+      "missing_control": "Pure alert rules over retained samples with per-rule freshness window, threshold, dedupe key, and escalation state.",
+      "missing_proof": "Alert transition records: opened, acknowledged, mitigated, resolved, and post-resolution read-back."
+    },
+    {
+      "id": "SOC-005",
+      "severity": "high",
+      "threat": "Desired topology/configuration silently diverges from deployed DNS, listeners, routes, certificates, and service identities.",
+      "missing_control": "Topology hash projection and desired-vs-observed reconciliation samples per node/context/attachment.",
+      "missing_proof": "Signed topology version/hash and per-node projection read-back."
+    },
+    {
+      "id": "SOC-006",
+      "severity": "high",
+      "threat": "The installed runtime binary and the binary issuing observations differ, invalidating the evidence source.",
+      "missing_control": "Artifact identity attestation as mandatory collector envelope data.",
+      "missing_proof": "Executable path, digest, declared release identity, and mismatch status."
+    },
+    {
+      "id": "SOC-007",
+      "severity": "high",
+      "threat": "No forensic chain exists for access, privilege, mutation, service lifecycle, or network changes.",
+      "missing_control": "Structured event adapters for bounded system logs/audit records and CYNIC mutation receipts, with retention and integrity policy.",
+      "missing_proof": "Correlatable event IDs and evidence references; raw secrets and unbounded chat/process content excluded."
+    },
+    {
+      "id": "SOC-008",
+      "severity": "medium",
+      "threat": "Metrics dashboards present percentages without scope, denominator, or target provenance.",
+      "missing_control": "Metric catalog declaring scope, dimensions, formula, target, source types, and unknown semantics.",
+      "missing_proof": "Catalog reference embedded in every rollup; host-local coverage cannot claim fleet coverage."
+    }
+  ],
+  "minimum_capability_architecture": {
+    "protocol": "cynic-protocol owns pure ObservationSample, ObservationOutcome, MetricDefinition, AlertRule, AlertTransition, and IncidentRecord contracts",
+    "host": "cynic-host owns injected read-only substrate adapters; it never infers remote host state from local failure",
+    "node": "cynic-node owns node-local sample collection, local durable append-only ledger, freshness scheduling, and local alert evaluation",
+    "kernel": "cynic-kernel consumes federated summaries and coordinates disclosed incidents; it does not claim raw host truth",
+    "cli": "cynic-cli projects node/fleet read-backs and explicitly displays scope, freshness, blocked, and unknown",
+    "storage": "node-local append-only evidence first; federation replication is a later explicit transport contract, never required to preserve local evidence",
+    "security": "security events store classification, provenance, and evidence references only; secrets and raw credential-bearing command lines are prohibited"
+  },
+  "required_first_metric_families": [
+    "collector_integrity_and_capability",
+    "host_cpu_memory_disk_pressure",
+    "network_plane_dns_route_wireguard_service_reachability",
+    "systemd_process_restart_and_crash_loop",
+    "enrollment_grant_and_tls_certificate_expiry",
+    "runtime_artifact_identity_and_release_drift",
+    "bounded_mutation_receipt_and_privilege_boundary",
+    "secret_presence_and_exposure_posture",
+    "topology_projection_drift"
+  ],
+  "non_goals": [
+    "No generic SIEM vendor, Prometheus, OpenTelemetry collector, Elasticsearch, or dashboard dependency before contracts and node-local evidence are operational.",
+    "No central kernel collector that turns a network partition into loss of local evidence.",
+    "No automatic remediation from alert state; alerts select bounded plans and require their own apply/read-back authority."
+  ]
+}

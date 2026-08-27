@@ -415,11 +415,12 @@ pub(crate) enum RuntimeCommand {
         #[arg(long, default_value = "/var/lib/cynic")]
         state_root: String,
     },
-    /// Observe or provision the Forgejo runtime token (SSH-local Exec or HTTP).
+    /// Observe or provision the Forgejo runtime token (adapter unavailable/unproven until
+    /// runtime transport and credential injection are established).
     /// `status` (default) probes file + API validity; `create`/`rotate` mutates via --yes.
-    /// No Forgejo admin login secret required — uses the enrolled machine principal.
+    /// The enrolled machine principal is usable only after adapter selection is proven.
     ForgejoToken {
-        #[arg(long, value_enum)]
+        #[arg(long, value_enum, default_value = "status")]
         mode: ForgejoTokenMode,
         #[arg(long)]
         json: bool,
@@ -439,15 +440,12 @@ pub enum ForgejoTokenMode {
     Rotate,
 }
 
-/// Select the Forgejo token adapter based on reachability.
-/// Defaults to local SSH-local Exec; switches to HTTP when the Forgejo
-/// HTTPS endpoint (443) responds.
+/// Select an adapter only after a future capability resolver proves both
+/// transport reachability and credential injection. Until then this surface is
+/// deliberately fail-closed rather than pretending local-only is dynamic.
 pub(crate) fn forgejo_token_adapter_selector()
 -> Box<dyn cynic_host::forgejo_token::ForgejoTokenApiPort> {
-    // TODO: probe HTTPS 443 reachability and switch to HttpForgejoTokenApiAdapter
-    //       when the endpoint is live. For now, local-exec is the safe default
-    //       given the current state: port 443 is closed/filtered.
-    Box::new(cynic_host::forgejo_token::LocalForgejoTokenApiAdapter)
+    Box::new(cynic_host::forgejo_token::UnavailableForgejoTokenApiAdapter)
 }
 
 pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {

@@ -3,6 +3,7 @@
 /target-*/
 crates/*/target/
 crates/*/target-*/
+/verify_cargo/target/
 rustc-ice-*.txt
 *.pdb
 *.exe
@@ -14,6 +15,8 @@ rustc-ice-*.txt
 # Local gates and release scratch
 .gate-*
 .gate_marker
+/verify/
+/verify_cargo/
 .release-build.json
 
 # Secrets and machine-local configuration
@@ -27,12 +30,15 @@ rustc-ice-*.txt
 /observations/
 /tmp/
 /infra/benchmark-results/
+/infra/runtime-checkpoints/BUILDER_ROUTE_CONVERGENCE.md
+/infra/runtime-checkpoints/builder-route-convergence-evidence.json
 state*.md
 *-state*.md
 message.txt
 history.txt
 
 # Tool and agent local state
+.hermes/
 .claude/
 .antigravity/
 .cynic/

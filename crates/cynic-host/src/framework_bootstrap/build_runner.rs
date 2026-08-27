@@ -61,6 +61,7 @@ pub struct BuildRunnerBootstrapBuildPlan {
 pub struct BootstrapBuildProof {
     pub schema: String,
     pub status: String,
+    pub proved_at_unix_ms: u64,
     pub source_commit: String,
     pub source_bundle_digest: String,
     pub artifact_path: String,
@@ -183,6 +184,7 @@ pub fn bootstrap_build_proof(
     BootstrapBuildProof {
         schema: "cynic.host.bootstrap_build_proof.v1".to_string(),
         status: "proved".to_string(),
+        proved_at_unix_ms: now_unix_ms(),
         source_commit: plan.source_commit.clone(),
         source_bundle_digest: plan.source_bundle_digest.clone(),
         artifact_path: build_plan.artifact_path.clone(),
@@ -199,6 +201,13 @@ fn registry_file_digest(path: &Path) -> Option<String> {
     std::fs::read(path)
         .ok()
         .map(|bytes| format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or_default()
 }
 
 pub fn write_bootstrap_admission_receipt(

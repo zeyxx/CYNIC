@@ -1,0 +1,35 @@
+{
+  "adapter_module": "runtime_surface::forgejo_token_cli",
+  "anti_responsibilities": [
+    "read or print credential secret values",
+    "claim operator-local Forgejo login as runtime principal",
+    "mutate Forgejo via admin REST API without explicit apply",
+    "require checked-out repo to provision a node token"
+  ],
+  "canonical_entrypoints": [
+    "cynic runtime forgejo-token status [--json]",
+    "cynic runtime forgejo-token create --yes [--json]",
+    "cynic runtime forgejo-token rotate --yes [--json]"
+  ],
+  "domain_owner": "cynic-host::forgejo_token",
+  "evidence": [
+    "cynic.forgejo_token.observation.v1",
+    "cynic.forgejo_token_provision_report.v1"
+  ],
+  "id": "runtime_forgejo_token",
+  "layer": "l1_host_apply_boundary",
+  "mutation_policy": "explicit_apply_only",
+  "owner_call_markers": [
+    "observe_forgejo_token_runtime",
+    "provision_forgejo_token",
+    "forgejo_token_adapter_selector",
+    "UnavailableForgejoTokenApiAdapter",
+    "execute_forgejo_token"
+  ],
+  "owner_crate": "cynic-cli",
+  "owner_modules": [
+    "runtime_surface::forgejo_token_cli",
+    "cynic-host::forgejo_token"
+  ],
+  "responsibility": "Observe the Forgejo runtime token and expose a fail-closed provision surface; SSH-local Exec or HTTP selection remains unavailable/unproven until runtime transport and credential injection are established, with read-back proof and explicit apply consent."
+}

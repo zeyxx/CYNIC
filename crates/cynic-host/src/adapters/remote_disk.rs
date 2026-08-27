@@ -13,6 +13,8 @@
 //! to that node's own `cynic runtime disk` run (which reports the full
 //! `DiskReport`). This keeps the adapter minimal and portable.
 
+use crate::fleet_disk_observer::HOST_DISK_REPORT_SCHEMA;
+
 use std::time::SystemTime;
 
 use chrono::{DateTime, Utc};
@@ -92,7 +94,7 @@ impl<R: ArgvRunner> DiskObservationPort for RemoteDiskAdapter<R> {
         // truthful and conservative. Physical-disk detail for a remote node is
         // left to that node's own `cynic runtime disk --full` run.
         Ok(DiskReport {
-            schema: "cynic.host_disk_report.v1".to_string(),
+            schema: HOST_DISK_REPORT_SCHEMA.to_string(),
             timestamp,
             filesystems,
             known_caches: Vec::new(),
@@ -143,7 +145,7 @@ tmpfs          tmpfs  3.9G     0  3.9G   0% /dev
         let adapter = RemoteDiskAdapter::new(runner, "cynic@10.0.0.7").unwrap();
 
         let report = adapter.observe_disk().expect("observe should succeed");
-        assert_eq!(report.schema, "cynic.host_disk_report.v1");
+        assert_eq!(report.schema, HOST_DISK_REPORT_SCHEMA);
         // tmpfs + /dev/* backed store + xfs mount -> 3 entries
         assert_eq!(report.filesystems.len(), 3);
         assert_eq!(report.filesystems[0].source, "/dev/sda2");

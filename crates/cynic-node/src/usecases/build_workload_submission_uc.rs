@@ -4,10 +4,10 @@
 //! case. None of those transports owns build admission or workload shape.
 
 use cynic_protocol::{
-    AgentBudgets, AgentCitizenshipRecord, AgentScope, AgentWorkloadDelivery,
-    AgentWorkloadDeliveryStatus, BuildAgentRequest, BuildAgentRequestAdmission, MutationAdmission,
-    admit_build_agent_request, admit_build_mutation, compose_build_agent_workload,
-    plan_build_agent_request,
+    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope,
+    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, BuildAgentRequest,
+    BuildAgentRequestAdmission, MutationAdmission, admit_build_agent_request, admit_build_mutation,
+    compose_build_agent_workload, plan_build_agent_request,
 };
 use serde::Serialize;
 
@@ -124,7 +124,7 @@ pub fn plan_build_workload_submission(
 
     // Canonical admission gate — verify the requesting citizen has authority
     let citizen = AgentCitizenshipRecord {
-        schema: "cynic.agent_citizenship.v1",
+        schema: AGENT_CITIZENSHIP_SCHEMA,
         agent_id: request.requested_by.clone(),
         scope: AgentScope::Crate,
         budgets: AgentBudgets {

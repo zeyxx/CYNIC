@@ -2,20 +2,20 @@
 //!
 //! Thin projection over the host-side `forgejo_token` orchestration module.
 //! Observes file presence + API validity through the injected port, projects
-//! a convergence plan, and applies (via --yes) through `LocalForgejoTokenApiAdapter`.
+//! a convergence plan. The adapter selector is currently unavailable/unproven,
+//! so mutation remains fail-closed until transport and credential injection are
+//! established by a trustworthy runtime contract.
 //!
-//! No Forgejo admin login secret is required: the enrolled machine principal
-//! (`cynic-cortex`) creates tokens through the runtime SSH-local Exec adapter.
+//! No Forgejo admin login secret is accepted here; an enrolled machine
+//! principal can be used only after the runtime proves the adapter binding.
 
 use std::process::ExitCode;
 
 use cynic_host::forgejo_token::{
     DefaultForgejoTokenSpec, ForgejoTokenRuntimeSpec, observe_forgejo_token_runtime,
-    provision_forgejo_token_apply,
+    provision_forgejo_token_apply, rotate_forgejo_token,
 };
-use cynic_protocol::forgejo_token::{
-    ForgejoTokenAuthState, ForgejoTokenPlan, ForgejoTokenStatusReport,
-};
+use cynic_protocol::forgejo_token::{ForgejoTokenAuthState, ForgejoTokenStatusReport};
 
 use crate::cli_json;
 use crate::runtime_surface::ForgejoTokenMode;
@@ -29,6 +29,21 @@ pub(crate) fn execute_forgejo_token(
     yes: bool,
     token_path: Option<String>,
 ) -> ExitCode {
+    if let Some(path) = token_path.as_deref() {
+        if path != cynic_host::forgejo_token::FORGEJO_TOKEN_PATH {
+            if json {
+                let _ = cli_json::emit_pretty_json(&serde_json::json!({
+                    "schema": FORGEJO_TOKEN_STATUS_REPORT_SCHEMA,
+                    "status": "blocked",
+                    "reason": "token_path_must_be_canonical",
+                    "path": path,
+                }));
+            } else {
+                eprintln!("Refusing non-canonical Forgejo token path: {path}");
+            }
+            return ExitCode::FAILURE;
+        }
+    }
     let token_spec = if let Some(p) = token_path {
         DefaultForgejoTokenSpec::with_token_path(&p)
     } else {
@@ -36,28 +51,31 @@ pub(crate) fn execute_forgejo_token(
     };
     let spec = ForgejoTokenRuntimeSpec {
         token_spec,
-        // Local-forgejo (SSH-local Exec) adapter by default. The HTTP variant
-        // is selected automatically when the HTTPS endpoint is reachable.
+        // Adapter selection is unavailable/unproven by default; mutation must
+        // remain fail-closed until transport and credential binding are proven.
         adapter: super::forgejo_token_adapter_selector(),
     };
 
     match mode {
         ForgejoTokenMode::Status => execute_token_status(&spec, json, yes),
         ForgejoTokenMode::Create => execute_token_provision(&spec, json, yes, "create"),
-        ForgejoTokenMode::Rotate => execute_token_provision(&spec, json, yes, "rotate"),
+        ForgejoTokenMode::Rotate => execute_token_rotate(&spec, json, yes),
     }
 }
 
 /// Read-only status: observe token presence + API validity, emit plan.
 fn execute_token_status(spec: &ForgejoTokenRuntimeSpec, json: bool, _yes: bool) -> ExitCode {
     let observation = observe_forgejo_token_runtime(spec);
-    let plan = ForgejoTokenPlan::default();
+    let plan = cynic_protocol::forgejo_token::plan_forgejo_token_convergence(
+        spec.token_spec.clone(),
+        &observation,
+    );
     let report = ForgejoTokenStatusReport {
         schema: FORGEJO_TOKEN_STATUS_REPORT_SCHEMA.to_string(),
         principal: spec.token_spec.principal.clone(),
         token: observation.clone(),
         forgejo_plan_status: plan.status.clone(),
-        token_action_needed: observation.api_authenticated != ForgejoTokenAuthState::Proven,
+        token_action_needed: plan.actions.iter().any(|action| action.mutates),
         requires_human_admin_secret: false,
         plan_action: if plan.actions.is_empty() {
             "observe".to_string()
@@ -111,6 +129,35 @@ fn execute_token_provision(
         print_token_provision(&report);
     }
 
+    if report.status == "completed" {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+/// Mutation: create or rotate the token (requires `--yes`).
+fn execute_token_rotate(spec: &ForgejoTokenRuntimeSpec, json: bool, yes: bool) -> ExitCode {
+    if !yes {
+        if json {
+            let _ = cli_json::emit_pretty_json(&serde_json::json!({
+                "schema": "cynic.forgejo_token_provision.v1",
+                "status": "blocked",
+                "principal": spec.token_spec.principal,
+                "reason": "mutation requires --yes consent",
+                "operation": "rotate",
+            }));
+        } else {
+            eprintln!("Refusing mutation: pass --yes to rotate the Forgejo token.");
+        }
+        return ExitCode::FAILURE;
+    }
+    let report = rotate_forgejo_token(&spec.token_spec, &*spec.adapter);
+    if json {
+        let _ = cli_json::emit_pretty_json(&report);
+    } else {
+        print_token_provision(&report);
+    }
     if report.status == "completed" {
         ExitCode::SUCCESS
     } else {

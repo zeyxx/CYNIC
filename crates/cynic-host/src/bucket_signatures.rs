@@ -23,13 +23,24 @@ pub struct BucketSignature {
 /// Canonical table (ordered; first match per bucket = priority order).
 const SIGNATURES: &[BucketSignature] = &[
     // toolchain_ice: real compiler crashes / toolchain failures only.
+    // `rustc`/`toolchain` bare mentions are NOT events (2026-08-25 fix:
+    // mention-vs-event trap — the same class of defect as the old loose
+    // "ice" substring). A failure verb or crash noun must co-occur.
     BucketSignature {
         domain: "toolchain_ice",
-        pattern: r"\b(?:SIGSEGV|segfault|internal\s+compiler\s+error|ICE\b|rustc\b|toolchain\b)",
+        pattern: r"\b(?:SIGSEGV|segfault|internal\s+compiler\s+error)\b|\bICE\b",
+    },
+    BucketSignature {
+        domain: "toolchain_ice",
+        pattern: r"\brustc\b[^\n]{0,120}?\b(?:SIGSEGV|segfault|internal\s+compiler\s+error|panicked|crashed|interrupted)\b|\b(?:SIGSEGV|segfault|internal\s+compiler\s+error|panicked|crashed|interrupted)\b[^\n]{0,120}?\brustc\b",
     },
     BucketSignature {
         domain: "toolchain_ice",
         pattern: r"\bcargo\s+(?:check|build|test)\b[^\n]{0,80}?\b(?:error|failed|SIGSEGV)\b",
+    },
+    BucketSignature {
+        domain: "toolchain_ice",
+        pattern: r"\btoolchain\b[^\n]{0,60}?\b(?:failed|failure|error|broken|missing|unavailable)\b|\b(?:failed|failure|broken|missing)\b[^\n]{0,60}?\btoolchain\b",
     },
     // cargo_build: explicit build failure outcomes (not mere mentions).
     BucketSignature {
@@ -127,6 +138,30 @@ mod tests {
     }
 
     #[test]
+    fn rustc_toolchain_mention_is_not_an_event() {
+        // 2026-08-25: bare `rustc`/`toolchain` mentions are NOT events —
+        // same defect class as the old loose "ice" substring. A failure
+        // verb or crash noun must co-occur near the subject.
+        assert!(first_matching_bucket("updated rustc to 1.96.0 today").is_none());
+        assert!(matching_buckets("toolchain pinned in rust-toolchain.toml").is_empty());
+        assert!(first_matching_bucket("reading the rustc source for fun").is_none());
+        // Real crash/failure events keep matching.
+        assert_eq!(
+            first_matching_bucket("error: rustc interrupted by SIGSEGV"),
+            Some("toolchain_ice")
+        );
+        assert_eq!(
+            first_matching_bucket("internal compiler error in rustc"),
+            Some("toolchain_ice")
+        );
+        assert_eq!(
+            first_matching_bucket("toolchain 1.95 failed to install"),
+            Some("toolchain_ice")
+        );
+        assert!(matching_buckets("rustc panicked at src/lib.rs:1").contains(&"toolchain_ice"));
+    }
+
+    #[test]
     fn cargo_mention_is_not_a_block_but_failure_is() {
         // Mere mention of running cargo must NOT count (old bug: any
         // "cargo build" text was a toolchain_ice block).
@@ -189,7 +224,10 @@ mod tests {
         );
         // Ambiguous lines legitimately match MULTIPLE buckets; first-match
         // consumers follow declared priority, counting consumers get both.
-        let ambiguous = matching_buckets("fatal error: out of memory in rustc");
+        // Event-shaped line: since the 2026-08-25 mention-vs-event fix, a
+        // bare "in rustc" mention no longer counts as ICE — the crash verb
+        // carries the signal.
+        let ambiguous = matching_buckets("fatal error: out of memory while rustc panicked");
         assert!(ambiguous.contains(&"oom") && ambiguous.contains(&"toolchain_ice"));
     }
 }

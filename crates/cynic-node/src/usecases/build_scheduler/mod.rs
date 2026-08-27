@@ -8,9 +8,9 @@ use std::time::{Duration, Instant};
 
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
 use cynic_protocol::{
-    AgentBudgets, AgentCitizenshipRecord, AgentCompletionStatus, AgentScope, AgentWorkloadClaim,
-    AgentWorkloadState, DurableAgentWorkloadRecord, MutationAdmission, admit_workload_mutation,
-    canonical_build_action_from_argv,
+    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentCompletionStatus,
+    AgentScope, AgentWorkloadClaim, AgentWorkloadState, DurableAgentWorkloadRecord,
+    MutationAdmission, admit_workload_mutation, canonical_build_action_from_argv,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -113,7 +113,7 @@ async fn execute_claimed(
 
     // Canonical admission gate — verify the citizen has authority to execute
     let citizen = AgentCitizenshipRecord {
-        schema: "cynic.agent_citizenship.v1",
+        schema: AGENT_CITIZENSHIP_SCHEMA,
         agent_id: claimed.record.envelope.delegation.agent_id.clone(),
         scope: AgentScope::Crate,
         budgets: AgentBudgets {

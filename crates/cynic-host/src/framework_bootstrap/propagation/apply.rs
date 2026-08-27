@@ -1,3 +1,5 @@
+use cynic_protocol::BUILD_RUNNER_OBSERVATION_SCHEMA;
+
 use crate::update_lifecycle::ArgvRunner;
 
 use super::types::{
@@ -78,7 +80,7 @@ pub fn apply_framework_propagation(
                 == Some(plan.expected_runtime_basket_digest.as_str())
     });
     let node_valid = node.as_ref().is_some_and(|node| {
-        node["schema"].as_str() == Some("cynic.runtime.node_observation.v1")
+        node["schema"].as_str() == Some(BUILD_RUNNER_OBSERVATION_SCHEMA)
             && node["status"].as_str() == Some("observed")
             && node["node_id"].as_str() == Some(plan.node_id.as_str())
     });

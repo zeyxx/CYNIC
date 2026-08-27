@@ -188,7 +188,7 @@ pub mod resolve {
         let trust = ssh
             .trust
             .clone()
-            .filter(|trust| trust == "known_hosts")
+            .filter(|trust| trust == "ssh_trust_anchor")
             .ok_or_else(|| "provider_control_ssh_trust_unproven".to_string())?;
         Ok(ResolvedProviderControlTransport {
             provider: provider.to_string(),
@@ -311,7 +311,7 @@ pub mod resolve {
         let trust = ssh
             .trust
             .clone()
-            .filter(|value| value == "known_hosts")
+            .filter(|value| value == "ssh_trust_anchor")
             .ok_or_else(|| format!("{concern}_ssh_trust_unproven"))?;
         let enrollment = ssh
             .enrollment_authority

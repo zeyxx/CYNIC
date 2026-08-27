@@ -110,7 +110,7 @@ fn execute_step(
                         cmd.env(
                             "GIT_SSH_COMMAND",
                             format!(
-                                "ssh -i {} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new",
+                                "ssh -i {} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes",
                                 key_path.display()
                             ),
                         );

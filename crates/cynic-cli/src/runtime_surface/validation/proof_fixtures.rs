@@ -6,10 +6,10 @@ use serde_json::json;
 
 pub(super) fn write_satisfied_host_identity_proof(path: &Path) -> Result<(), String> {
     let proof = json!({
-        "schema": "cynic.runtime_proof_bundle.v1",
+        "schema": cynic_protocol::RUNTIME_PROOF_BUNDLE_SCHEMA,
         "status": "satisfied",
         "proofs": [{
-            "schema": "cynic.runtime_proof.v1",
+            "schema": cynic_protocol::RUNTIME_PROOF_SCHEMA,
             "gate": "host_identity_observed",
             "status": "satisfied",
             "producer": "runtime-validation",
@@ -31,11 +31,11 @@ pub(super) fn write_satisfied_host_identity_proof(path: &Path) -> Result<(), Str
 
 pub(super) fn write_satisfied_host_and_network_proofs(path: &Path) -> Result<(), String> {
     let proof = json!({
-        "schema": "cynic.runtime_proof_bundle.v1",
+        "schema": cynic_protocol::RUNTIME_PROOF_BUNDLE_SCHEMA,
         "status": "satisfied",
         "proofs": [
             {
-                "schema": "cynic.runtime_proof.v1",
+                "schema": cynic_protocol::RUNTIME_PROOF_SCHEMA,
                 "gate": "host_identity_observed",
                 "status": "satisfied",
                 "producer": "runtime-validation",
@@ -44,7 +44,7 @@ pub(super) fn write_satisfied_host_and_network_proofs(path: &Path) -> Result<(),
                 "evidence": [{"id":"synthetic_host","status":"active","detail":"validates proof consumption only"}]
             },
             {
-                "schema": "cynic.runtime_proof.v1",
+                "schema": cynic_protocol::RUNTIME_PROOF_SCHEMA,
                 "gate": "network_runtime_observed",
                 "status": "satisfied",
                 "producer": "runtime-validation",
@@ -63,10 +63,10 @@ pub(super) fn write_satisfied_host_and_network_proofs(path: &Path) -> Result<(),
 
 pub(super) fn write_satisfied_architecture_boundary_proof(path: &Path) -> Result<(), String> {
     let proof = json!({
-        "schema": "cynic.runtime_proof_bundle.v1",
+        "schema": cynic_protocol::RUNTIME_PROOF_BUNDLE_SCHEMA,
         "status": "satisfied",
         "proofs": [{
-            "schema": "cynic.runtime_proof.v1",
+            "schema": cynic_protocol::RUNTIME_PROOF_SCHEMA,
             "gate": "architecture_boundary_verified",
             "status": "satisfied",
             "producer": "runtime-validation",

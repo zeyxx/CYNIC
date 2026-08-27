@@ -1,0 +1,45 @@
+{
+  "schema": "cynic.change_survival_baseline_observation.v1",
+  "observed_at": "2026-08-27T02:54:48+02:00",
+  "scope": "Commit-subject classification for Forgejo-only history from merge-base 07964e2bd61856035d10329eba7b57cfff03ff9e to ssot/main 0ea2da9b0b3b4ca61bfc5fbb263f050fa92018c8.",
+  "method": {
+    "classification": "Conventional commit-like first subject token; this is an orientation metric, not a semantic proof of code quality.",
+    "total_commits": 736
+  },
+  "commit_kinds": {
+    "feat": {"count": 198, "percent": 26.9},
+    "fix": {"count": 174, "percent": 23.64},
+    "test": {"count": 29, "percent": 3.94},
+    "refactor": {"count": 15, "percent": 2.04},
+    "docs": {"count": 30, "percent": 4.08},
+    "chore": {"count": 35, "percent": 4.76},
+    "other": {"count": 202, "percent": 27.45}
+  },
+  "derived_indicators": {
+    "fix_to_feat_ratio": 0.879,
+    "interpretation": "A high fix-to-feat ratio is a review signal only. It may represent healthy debt closure, unstable features, merge/release closure, or semantic misclassification."
+  },
+  "required_capability_survival_cohort": {
+    "unit": "canonical capability/contract/surface, never raw LOC or raw commit count",
+    "checkpoints": ["introduced", "t_plus_7_days", "t_plus_30_days", "t_plus_90_days"],
+    "states": ["active_proven", "active_unproven", "degraded", "superseded_with_migration", "retired_with_proof", "orphaned", "unknown"],
+    "required_evidence": ["canonical_contract", "live_consumer", "current_test_or_formal_proof", "runtime_artifact_identity", "fresh_observation_or_explicit_unknown"],
+    "failure_rule": "Any unknown required evidence makes survival unknown; it must never be coerced to active."
+  },
+  "future_metrics": [
+    "commit_kind_ratio scoped by branch/window/crate/capability",
+    "fix_after_feature cohort ratio",
+    "recurrent invariant violation ratio",
+    "proof attachment ratio for runtime changes",
+    "plan/HITL admission adherence with explained deviations",
+    "Forgejo build/artifact survival and GitHub relay read-back",
+    "capability survival state by checkpoint"
+  ],
+  "anti_metrics": [
+    "Do not score agents or humans by LOC, commits, tokens, or feature count.",
+    "Do not infer test coverage from a commit subject prefix.",
+    "Do not render unknown survival as a healthy capability.",
+    "Do not use ratios as automatic punishment or promotion authority."
+  ],
+  "implementation_owner": "Extend the existing cynic-cli node_host_audit/source audit family with shared Git source helpers and typed capability evidence references; do not add a parallel script/dashboard."
+}

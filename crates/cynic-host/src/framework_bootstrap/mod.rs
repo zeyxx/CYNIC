@@ -1,4 +1,5 @@
 pub mod build_runner;
+pub mod build_runner_route;
 pub mod bundle;
 pub mod cli_install;
 pub mod epoch;
@@ -12,6 +13,7 @@ pub mod scripts;
 pub mod source_snapshot;
 mod types;
 
+pub use build_runner_route::reconcile_build_runner_route_from_read_backs;
 pub use bundle::{write_framework_bootstrap_bundle, write_framework_bootstrap_bundle_for_role};
 pub use cli_install::install_standalone_cli;
 pub use epoch::{

@@ -756,7 +756,7 @@ pub fn framework_spec() -> FrameworkSpec {
                 id: "proof_bundle",
                 role: "Carry observed runtime evidence between layers without relying on chat or stale files.",
                 examples: vec![
-                    "cynic.runtime_proof_bundle.v1",
+                    crate::runtime::types::RUNTIME_PROOF_BUNDLE_SCHEMA,
                     "host_identity_observed",
                     "network_runtime_observed",
                 ],
@@ -765,7 +765,7 @@ pub fn framework_spec() -> FrameworkSpec {
                 id: "planner",
                 role: "Turn desired state and proof bundles into safe read-only, dry-run, and apply boundaries.",
                 examples: vec![
-                    "cynic.runtime_execution_plan.v1",
+                    crate::runtime::types::RUNTIME_EXECUTION_PLAN_SCHEMA,
                     "can_apply=false until executor exists",
                 ],
             },

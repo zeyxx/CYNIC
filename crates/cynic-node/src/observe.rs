@@ -1,3 +1,5 @@
+use cynic_protocol::BUILD_RUNNER_OBSERVATION_SCHEMA;
+
 use crate::adapters::host_observation::{CommandObservation, TcpObservation};
 #[cfg(any(test, kani))]
 use crate::build_attestation::runtime_binary_attestation;
@@ -141,7 +143,7 @@ impl NodeObservation {
             ),
         };
         cynic_protocol::RuntimeNodeObservation {
-            schema: "cynic.runtime.node_observation.v1".to_string(),
+            schema: BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
             status,
             node_id,
             hostname: self.hostname.clone(),

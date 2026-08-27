@@ -42,7 +42,7 @@ fn enrollment_plan() -> FrameworkPropagationPlan {
         node_id: "builder".to_string(),
         role: "build_runner".to_string(),
         ssh_target: "builder".to_string(),
-        trust: "known_hosts".to_string(),
+        trust: "ssh_trust_anchor".to_string(),
         enrollment_authority_class: "machine_enrollment".to_string(),
         enrollment_principal: "root".to_string(),
         enrollment_credential_ref: "operator-ssh-agent".to_string(),
@@ -206,7 +206,7 @@ fn successful_machine_enrollment_requires_exact_read_back_before_convergence() {
                     })
                     .to_string(),
                     "node_observation_read_back" => serde_json::json!({
-                        "schema": "cynic.runtime.node_observation.v1",
+                        "schema": cynic_protocol::BUILD_RUNNER_OBSERVATION_SCHEMA,
                         "status": "observed",
                         "node_id": "builder",
                     })

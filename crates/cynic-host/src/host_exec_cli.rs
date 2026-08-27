@@ -11,6 +11,7 @@ mod network_actuate;
 mod network_baseline;
 mod profile_selection;
 mod pve_helper_bundle;
+mod pve_helper_install;
 mod runtime_seed;
 mod service_reconcile;
 mod storage_identity;
@@ -29,6 +30,7 @@ pub fn execute(args: Vec<String>) -> Result<ExitCode, String> {
         "bridge-install" => bridge_commands::execute_bridge_install(&args[1..]),
         "bridge-status" => bridge_commands::execute_bridge_status(),
         "pve-helper-bundle" => pve_helper_bundle::execute_pve_helper_bundle(&args[1..]),
+        "pve-helper-install" => pve_helper_install::execute_pve_helper_install(&args[1..]),
         "transport-run" => transport_run::execute_transport_run(&args[1..]),
         "host-exec-validate-request" => validation::execute_host_exec_validate_request(&args[1..]),
         "transport-matrix" => {
