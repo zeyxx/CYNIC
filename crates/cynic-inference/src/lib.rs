@@ -25,6 +25,7 @@ pub use domain::backend_health::{
 pub use domain::hardware_profile::MemoryBudget;
 pub use domain::inference::{InferencePhase, LatencyBreakdown};
 pub use math::tensor_geometry::AttentionType;
+pub use math::pareto::{ParetoPointSummary, render_pareto_chart, render_pareto_table};
 pub use ports::inference_routing_port::{
     DefaultInferenceRouter, InferenceProxyPort, InferenceRoutingPort,
 };
