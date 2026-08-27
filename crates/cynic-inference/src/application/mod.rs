@@ -1,3 +1,4 @@
+pub mod audit_convergence;
 pub mod backend_verification;
 pub mod chat_endpoint;
 pub mod chat_service;

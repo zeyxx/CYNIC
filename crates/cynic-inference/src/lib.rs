@@ -27,6 +27,14 @@ pub use domain::audit_geometry::{
     ModelEconomicEvaluation, ModelEmissionDynamics, ModelMatrixCoordinate,
     ModelSubstrateObservation, OffloadStrategy,
 };
+pub use domain::generation_parameters::{
+    GenerationParameters, SamplingParameters, ThinkingMode,
+};
+pub use ports::model_audit_port::{
+    AuditPortError, CognitiveAuditPort, EconomicEvaluatorPort, EmissionProbePort,
+    ModelAuditConvergencePort, SubstrateProbePort,
+};
+pub use application::audit_convergence::AuditConvergenceService;
 pub use domain::hardware_profile::MemoryBudget;
 pub use domain::inference::{InferencePhase, LatencyBreakdown};
 pub use math::tensor_geometry::AttentionType;

@@ -8,6 +8,7 @@ pub mod hf_hub_port;
 pub mod inference_port;
 pub mod inference_routing_port;
 pub mod local_runtime_port;
+pub mod model_audit_port;
 pub mod model_publisher_port;
 pub mod model_registry_port;
 pub mod model_store_port;
