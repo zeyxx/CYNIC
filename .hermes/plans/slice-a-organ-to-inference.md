@@ -15,9 +15,11 @@ PRÉCONDITIONS VÉRIFIÉES (observe):
 
 PIÈCE DÉPLACÉE (types purs, pas de couplage main.rs):
 1. crates/cynic-kernel/src/organ/registry.rs (58 LOC)
-     → crates/cynic-inference/src/domain/backend_health.rs
-     types: BackendId, DeclaredCapabilities, MeasuredCapabilities,
-            BackendHealth, Backend.
+     → FUSIONNER dans crates/cynic-inference/src/domain/backend_identity.rs (33 LOC)
+     Surface cible VÉRIFIÉE: BackendHealthSnapshot, BackendIdentity, BackendCapability, BackendStatus.
+     Le kernel Backend/BackendHealth/BackendId doit soit fusionner dans backend_identity
+     (BackendHealthSnapshot existe déjà et couvre le besoin), soit l'étendre.
+     JAMAIS créer un module backend_health parallèle à backend_identity.
 2. crates/cynic-kernel/src/organ/health.rs (227 LOC)
      → crates/cynic-inference/src/domain/backend_health.rs (append)
      type: ParseFailureGate (sliding-window).
