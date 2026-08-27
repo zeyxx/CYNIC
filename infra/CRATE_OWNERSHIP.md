@@ -222,8 +222,9 @@ ne bloque pas sur la taille totale du crate. Voir §9 residual.
 Pas de grand rewrite. Une responsabilite par slice, comme AGENTS.md
 l'exige (un commit par slice coherent, par crate cible).
 
-  Etape 1 (facile, haut ROI): organ/inference kernel -> cynic-inference.
-           Deja le crate cible existe. Porte le code, garde tests.
+  Etape 1 (RESOLU slice A): organ/inference kernel -> cynic-inference::domain::backend_health.
+           Types canoniques (BackendId, DeclaredCapabilities, MeasuredCapabilities, BackendHealth, Backend)
+           extraits vers cynic-inference. kernel/organ/registry.rs devient un re-export. Tests 100% verts.
   Etape 2: lifecycle_* kernel -> cynic-host (vertical existe).
   Etape 3: fleet probes kernel -> cynic-host fleet.
   Etape 4: dogs/health -> cynic-askesis.

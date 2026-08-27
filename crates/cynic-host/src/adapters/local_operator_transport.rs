@@ -80,6 +80,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                 next_action: "install the OpenSSH client before inspecting bootstrap targets"
                     .to_string(),
                 detail: None,
+                observed_at_unix_ms: now_unix_ms(),
             };
         }
 
@@ -104,6 +105,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                     mutation: false,
                     next_action: "compare host key fingerprints with an independent Proxmox/operator channel before trust acceptance".to_string(),
                     detail: None,
+                    observed_at_unix_ms: now_unix_ms(),
                 }
             }
             Ok(output) => SshTargetInspectionReport {
@@ -117,6 +119,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                 mutation: false,
                 next_action: "verify network reachability and target SSH exposure".to_string(),
                 detail: stderr_detail(&output.stderr),
+                observed_at_unix_ms: now_unix_ms(),
             },
             Err(error) => SshTargetInspectionReport {
                 schema: "cynic.ssh_target_inspection.v1",
@@ -129,9 +132,16 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                 mutation: false,
                 next_action: "repair local SSH observation adapter".to_string(),
                 detail: Some(error.to_string()),
+                observed_at_unix_ms: now_unix_ms(),
             },
         }
     }
+}
+
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_millis() as u64)
 }
 
 fn observe_executable(binary: &str) -> ExecutableObservation {
