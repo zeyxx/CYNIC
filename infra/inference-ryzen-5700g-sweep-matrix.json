@@ -1,0 +1,184 @@
+{
+  "schema": "cynic.inference.benchmark_matrix.v1",
+  "plan_id": "ryzen-5700g-pareto-sweep-v1",
+  "hardware_target": {
+    "cpu": "AMD Ryzen 7 5700G (8C/16T)",
+    "gpu": "Radeon Vega 8 (Vulkan0 RADV)",
+    "ram_total_gb": 32,
+    "ram_usable_gb": 28,
+    "gtt_pool_gb": 19,
+    "bandwidth_type": "DDR4-3200 Dual-Channel (~51.2 GB/s theoretical peak)"
+  },
+  "dimensions": {
+    "offload_strategies": [
+      {
+        "id": "cpu-only",
+        "description": "CPU-only Zen3 AVX2 execution, no GTT memory bus transfers",
+        "n_gpu_layers": 0,
+        "threads": 8,
+        "threads_batch": 16,
+        "device": "cpu"
+      },
+      {
+        "id": "full-vulkan",
+        "description": "Full iGPU offload to Vulkan0 GTT shared pool (ngl 99)",
+        "n_gpu_layers": 99,
+        "threads": 8,
+        "threads_batch": 16,
+        "device": "Vulkan0"
+      },
+      {
+        "id": "hybrid-low",
+        "description": "Partial offload (16 layers on Vega 8, remainder on Zen3 CPU)",
+        "n_gpu_layers": 16,
+        "threads": 8,
+        "threads_batch": 16,
+        "device": "Vulkan0"
+      },
+      {
+        "id": "hybrid-mid",
+        "description": "Balanced hybrid offload (24 layers on Vega 8)",
+        "n_gpu_layers": 24,
+        "threads": 8,
+        "threads_batch": 16,
+        "device": "Vulkan0"
+      },
+      {
+        "id": "hybrid-high",
+        "description": "Heavy hybrid offload (32 layers on Vega 8)",
+        "n_gpu_layers": 32,
+        "threads": 8,
+        "threads_batch": 16,
+        "device": "Vulkan0"
+      }
+    ],
+    "context_tiers": [
+      {
+        "tier": "4k",
+        "prompt_tokens": 2048,
+        "max_output_tokens": 512,
+        "profile": "nano-baseline"
+      },
+      {
+        "tier": "8k",
+        "prompt_tokens": 6144,
+        "max_output_tokens": 1024,
+        "profile": "standard-dialog"
+      },
+      {
+        "tier": "32k",
+        "prompt_tokens": 28672,
+        "max_output_tokens": 2048,
+        "profile": "targeted-coding"
+      },
+      {
+        "tier": "64k",
+        "prompt_tokens": 57344,
+        "max_output_tokens": 4096,
+        "profile": "main-multi-file-agentic"
+      },
+      {
+        "tier": "128k",
+        "prompt_tokens": 114688,
+        "max_output_tokens": 4096,
+        "profile": "long-context-stress"
+      }
+    ],
+    "kv_quantizations": [
+      {
+        "format": "q4_0",
+        "bytes_per_element": 0.5,
+        "recommended_for": ["32k", "64k", "128k"]
+      },
+      {
+        "format": "q8_0",
+        "bytes_per_element": 1.0,
+        "recommended_for": ["4k", "8k", "32k"]
+      },
+      {
+        "format": "f16",
+        "bytes_per_element": 2.0,
+        "recommended_for": ["4k", "8k"]
+      }
+    ],
+    "concurrency_profiles": [
+      {
+        "slots": 1,
+        "context_per_slot": 131072,
+        "logical_budget": "128k",
+        "use_case": "single-agent-long-memory"
+      },
+      {
+        "slots": 2,
+        "context_per_slot": 65536,
+        "logical_budget": "128k",
+        "use_case": "dual-agent-specialists"
+      },
+      {
+        "slots": 4,
+        "context_per_slot": 32768,
+        "logical_budget": "128k",
+        "use_case": "four-agent-swarm"
+      }
+    ]
+  },
+  "candidate_models_under_test": [
+    {
+      "alias": "qwen36-35b-iq2",
+      "prio": "P0",
+      "arch": "qwen35moe",
+      "param_total_b": 35.0,
+      "param_active_b": 3.0,
+      "quant": "IQ2_M",
+      "filename": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ2_M.gguf",
+      "vault_size_bytes": 11659235456,
+      "role": "primary-worker-moe"
+    },
+    {
+      "alias": "qwythos-9b-q4",
+      "prio": "P0",
+      "arch": "qwen2",
+      "param_total_b": 9.0,
+      "param_active_b": 9.0,
+      "quant": "Q4_K_M",
+      "filename": "Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf",
+      "vault_size_bytes": 5887667808,
+      "role": "agent-principal-baseline"
+    },
+    {
+      "alias": "lfm25-2b-q4",
+      "prio": "P1",
+      "arch": "lfm2",
+      "param_total_b": 2.6,
+      "param_active_b": 2.6,
+      "quant": "Q4_K_M",
+      "filename": "LFM2.5-2.6B-Q4_K_M.gguf",
+      "vault_size_bytes": 1674454848,
+      "role": "ultra-fast-subagent-routing"
+    },
+    {
+      "alias": "minicpm-1b-q8",
+      "prio": "P2",
+      "arch": "minicpm",
+      "param_total_b": 1.0,
+      "param_active_b": 1.0,
+      "quant": "Q8_0",
+      "filename": "MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q8_0.gguf",
+      "vault_size_bytes": 1153529792,
+      "role": "nano-thinking-classifier"
+    }
+  ],
+  "metrics_to_capture": [
+    "prefill_tokens_per_sec",
+    "decode_tokens_per_sec",
+    "ttft_ms",
+    "ttcs_ms",
+    "peak_rss_bytes",
+    "kv_cache_bytes",
+    "tasks_per_hour",
+    "tokens_per_successful_task",
+    "wh_per_successful_task",
+    "failure_recovery_rate",
+    "speculative_alpha"
+  ]
+}
