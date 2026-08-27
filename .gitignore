@@ -3,6 +3,7 @@
 /target-*/
 crates/*/target/
 crates/*/target-*/
+/verify_cargo/target/
 rustc-ice-*.txt
 *.pdb
 *.exe
