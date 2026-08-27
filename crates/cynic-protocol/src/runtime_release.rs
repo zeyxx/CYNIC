@@ -11,6 +11,8 @@ use crate::{DeploymentEpoch, derive_deployment_epoch};
 
 pub const RUNTIME_RELEASE_DECLARATION_SCHEMA: &str = "cynic.runtime_release_declaration.v1";
 pub const RUNTIME_RELEASE_ADMISSION_SCHEMA: &str = "cynic.runtime_release_admission.v2";
+pub const RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA: &str =
+    "cynic.build.release_binary_artifact_read_back.v1";
 
 pub fn runtime_release_deployment_epoch(
     declaration: &RuntimeReleaseDeclaration,
@@ -199,7 +201,7 @@ fn release_read_back_matches_desired(
 }
 
 fn valid_release_proof_payload(payload: &serde_json::Value, source_commit: &str) -> bool {
-    if payload["schema"].as_str() != Some("cynic.build.release_binary_artifact_read_back.v1")
+    if payload["schema"].as_str() != Some(RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA)
         || payload["source_commit"].as_str() != Some(source_commit)
     {
         return false;
@@ -347,7 +349,7 @@ mod tests {
             3,
             vec!["test".to_string()],
             &serde_json::json!({
-                "schema": "cynic.build.release_binary_artifact_read_back.v1",
+                "schema": RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA,
                 "source_commit": source_commit,
                 "artifacts": {
                     "cynic": format!("sha256:{}", "1".repeat(64)),

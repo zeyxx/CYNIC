@@ -19,12 +19,18 @@
 //! - No eviction authorization lives at this layer; an apply surface must
 //!   wrap distillation behind explicit consent plus read-back proof.
 
+pub mod ingest;
 pub mod model;
 pub mod poh_anchor;
 pub mod policy;
 pub mod report;
 pub mod scan;
 pub mod types;
+
+pub use ingest::{
+    CoverageBlocker, CoverageVerdict, INGEST_SCHEMA, IngestPolicy, SourceCoverage, SourceCursor,
+    SourceFreshness, WatermarkPolicy, coverage_guard, demote_on_coverage_gap, freshness,
+};
 
 pub use model::{
     ClassTransition, MODEL_SCHEMA, ModelDrift, PatternModel, PatternState, drift, seal_model,
