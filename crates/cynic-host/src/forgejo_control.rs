@@ -1,10 +1,11 @@
 use crate::forgejo_token::{
     ForgejoTokenApiPort, ForgejoTokenAuthState, ForgejoTokenObservation, ForgejoTokenSpec,
-    LocalForgejoTokenApiAdapter, observe_forgejo_token, provision_forgejo_token,
+    LocalForgejoTokenApiAdapter,
 };
 use cynic_protocol::{
-    ForgejoDesiredState, ForgejoObservedState, ForgejoPlan, NETWORK_PATH_EVIDENCE_SCHEMA,
-    NetworkPathEvidence, SecurityEvidenceState as ForgejoEvidenceState, plan_forgejo_convergence,
+    FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_SPEC_SCHEMA, ForgejoDesiredState,
+    ForgejoObservedState, ForgejoPlan, NETWORK_PATH_EVIDENCE_SCHEMA, NetworkPathEvidence,
+    SecurityEvidenceState as ForgejoEvidenceState, plan_forgejo_convergence,
 };
 
 use crate::repo_access::{
@@ -33,7 +34,7 @@ pub fn forgejo_token_spec(
     token_path: Option<&str>,
 ) -> ForgejoTokenSpec {
     ForgejoTokenSpec {
-        schema: "cynic.forgejo_token_spec.v1".to_string(),
+        schema: FORGEJO_TOKEN_SPEC_SCHEMA.to_string(),
         principal: desired.machine_principal.clone(),
         api_url: desired
             .api_url
@@ -125,20 +126,20 @@ impl ForgejoObservationPort for RuntimeForgejoObserver {
                 remote.id, remote.api_tcp_reachability_status
             ));
         }
-        let has_token = std::fs::read_to_string("/etc/cynic/secrets/forgejo-token")
-            .map(|t| !t.trim().is_empty())
-            .unwrap_or(false)
-            || std::env::var("FORGEJO_TOKEN")
-                .map(|t| !t.trim().is_empty())
-                .unwrap_or(false);
-
-        let authenticated_state =
-            if transport_reachability == ForgejoEvidenceState::Proven && has_token {
-                evidence_refs.push("secret:forgejo-token".to_string());
-                ForgejoEvidenceState::Proven
-            } else {
-                ForgejoEvidenceState::Unknown
-            };
+        let authenticated_state = match self.token_observation() {
+            Some(observation) => {
+                if observation.api_authenticated == ForgejoTokenAuthState::Proven {
+                    evidence_refs.extend(observation.evidence_refs);
+                }
+                match observation.api_authenticated {
+                    ForgejoTokenAuthState::Proven => ForgejoEvidenceState::Proven,
+                    ForgejoTokenAuthState::Refuted => ForgejoEvidenceState::Refuted,
+                    ForgejoTokenAuthState::Absent => ForgejoEvidenceState::Absent,
+                    ForgejoTokenAuthState::Unknown => ForgejoEvidenceState::Unknown,
+                }
+            }
+            None => ForgejoEvidenceState::Unknown,
+        };
         let ssh_state = if transport_reachability == ForgejoEvidenceState::Proven {
             ForgejoEvidenceState::Proven
         } else {
@@ -196,7 +197,6 @@ pub fn current_forgejo_plan() -> Result<ForgejoPlan, String> {
 /// and projected directly by `cynic forgejo token-status`.
 pub fn current_forgejo_token_status()
 -> Result<cynic_protocol::forgejo_token::ForgejoTokenStatusReport, String> {
-    use crate::forgejo_token::observe_forgejo_token;
     let root = current_project_root().ok_or_else(|| "CYNIC project root not found".to_string())?;
     let desired = load_forgejo_desired_state(&root)?;
     let spec = forgejo_token_spec(&desired, None);
@@ -210,14 +210,10 @@ pub fn current_forgejo_token_status()
             spec.clone(),
         ),
     );
-    let needs_provision = matches!(
+    let token_action_needed = matches!(
         observation.api_authenticated,
-        ForgejoTokenAuthState::Refuted
-            | ForgejoTokenAuthState::Unknown
-            | ForgejoTokenAuthState::Absent
-    ) && observation.secret_present;
-    let token_action_needed =
-        needs_provision || observation.api_authenticated == ForgejoTokenAuthState::Absent;
+        ForgejoTokenAuthState::Absent | ForgejoTokenAuthState::Refuted
+    );
     Ok(cynic_protocol::forgejo_token::ForgejoTokenStatusReport {
         schema: cynic_protocol::forgejo_token::FORGEJO_TOKEN_STATUS_SCHEMA.to_string(),
         principal: spec.principal.clone(),
@@ -243,6 +239,26 @@ pub fn current_forgejo_token_status()
 mod tests {
     use super::*;
     use cynic_protocol::SecurityEvidenceState as ForgejoEvidenceState;
+
+    #[derive(Debug)]
+    struct FixedTokenPort(ForgejoTokenObservation);
+
+    impl ForgejoTokenApiPort for FixedTokenPort {
+        fn observe(&self, _spec: &ForgejoTokenSpec) -> ForgejoTokenObservation {
+            self.0.clone()
+        }
+
+        fn create(
+            &self,
+            _spec: &ForgejoTokenSpec,
+        ) -> Result<cynic_protocol::ForgejoTokenMetadata, String> {
+            Err("not used in observation test".to_string())
+        }
+
+        fn remove(&self, _spec: &ForgejoTokenSpec, _token_sha1: &str) -> Result<(), String> {
+            Err("not used in observation test".to_string())
+        }
+    }
 
     struct FixedObserver(ForgejoObservedState);
 
@@ -292,6 +308,39 @@ mod tests {
         let plan = build_forgejo_plan(desired, &observer);
         assert_eq!(plan.status, "ready");
         assert!(plan.actions.is_empty());
+    }
+
+    #[test]
+    fn runtime_observer_uses_injected_token_observation() {
+        let token = ForgejoTokenObservation {
+            schema: FORGEJO_TOKEN_OBSERVATION_SCHEMA.to_string(),
+            principal: "cynic-machine".to_string(),
+            path: "/redacted".to_string(),
+            secret_present: true,
+            owner_root: Some(true),
+            mode_o640: Some(true),
+            api_authenticated: ForgejoTokenAuthState::Refuted,
+            unknowns: Vec::new(),
+            evidence_refs: vec!["token-api-check".to_string()],
+        };
+        let observer = RuntimeForgejoObserver::with_token_port(
+            RepoAccessStatusReport {
+                schema: "test",
+                mutates: false,
+                profile_path: "profile.json".into(),
+                profile_exists: true,
+                canonical_project_root: None,
+                known_repos: Vec::new(),
+                sovereign_remotes: Vec::new(),
+                entries: Vec::new(),
+            },
+            Box::new(FixedTokenPort(token)),
+            ForgejoTokenSpec::default(),
+        );
+        assert_eq!(
+            observer.token_observation().unwrap().api_authenticated,
+            ForgejoTokenAuthState::Refuted
+        );
     }
 
     #[test]

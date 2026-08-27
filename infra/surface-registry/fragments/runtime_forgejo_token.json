@@ -14,7 +14,7 @@
   "domain_owner": "cynic-host::forgejo_token",
   "evidence": [
     "cynic.forgejo_token.observation.v1",
-    "cynic.forgejo_token.provision.v1"
+    "cynic.forgejo_token_provision_report.v1"
   ],
   "id": "runtime_forgejo_token",
   "layer": "l1_host_apply_boundary",

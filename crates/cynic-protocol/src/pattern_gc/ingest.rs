@@ -199,8 +199,20 @@ pub fn coverage_guard(
         return CoverageVerdict::Blocked(CoverageBlocker::StaleSource { silent_for_s });
     }
     if coverage.lines_scanned > 0 {
-        if coverage.malformed_lines * 1_000_000
-            > coverage.lines_scanned * policy.max_malformed_share_ppm
+        let malformed_scaled = coverage
+            .malformed_lines
+            .checked_mul(1_000_000)
+            .unwrap_or(u64::MAX);
+        let scanned_scaled = coverage
+            .lines_scanned
+            .checked_mul(policy.max_malformed_share_ppm)
+            .unwrap_or(u64::MAX);
+        if malformed_scaled > scanned_scaled
+            || coverage.malformed_lines.checked_mul(1_000_000).is_none()
+            || coverage
+                .lines_scanned
+                .checked_mul(policy.max_malformed_share_ppm)
+                .is_none()
         {
             return CoverageVerdict::Blocked(CoverageBlocker::MalformedShareExceeded {
                 malformed: coverage.malformed_lines,
@@ -208,7 +220,11 @@ pub fn coverage_guard(
                 max_share_ppm: policy.max_malformed_share_ppm,
             });
         }
-        if coverage.untimestamped_lines * 2 > coverage.lines_scanned {
+        if coverage
+            .untimestamped_lines
+            .checked_mul(2)
+            .map_or(true, |untimestamped| untimestamped > coverage.lines_scanned)
+        {
             return CoverageVerdict::Blocked(CoverageBlocker::UntimestampedMajority {
                 untimestamped: coverage.untimestamped_lines,
                 scanned: coverage.lines_scanned,
@@ -315,6 +331,22 @@ mod tests {
                 max_share_ppm: 50_000
             })
         );
+    }
+
+    #[test]
+    fn coverage_counter_overflow_blocks_fail_closed() {
+        let mut cov = SourceCoverage::new("overflow");
+        cov.lines_scanned = u64::MAX;
+        cov.malformed_lines = u64::MAX;
+        let verdict = coverage_guard(
+            &cov,
+            &IngestPolicy::observed_default(),
+            &SourceFreshness::Current { age_s: 1 },
+        );
+        assert!(matches!(
+            verdict,
+            CoverageVerdict::Blocked(CoverageBlocker::MalformedShareExceeded { .. })
+        ));
     }
 
     #[test]

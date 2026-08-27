@@ -34,6 +34,12 @@ pub struct AgentReviewReceipt {
 
 /// True only when the receipt proves that the proposal and its inputs were
 /// reviewed enough for the policy that owns the bounded action.
+///
+/// This existing contract validates the receipt's self-declared proposal
+/// digest, but has no caller-supplied expected digest to bind against. The
+/// workload admission boundary must perform that external binding; this
+/// function deliberately cannot claim it from the receipt alone. The
+/// malformed-digest regression below keeps non-admission fail-closed.
 pub fn admit_agent_review_receipt(
     receipt: &AgentReviewReceipt,
     human_review_required: bool,

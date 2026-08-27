@@ -208,6 +208,9 @@ fn resolve_runtime_fenced_build_runner(
     if route_node_id.trim().is_empty() {
         return Err("build_runner_route_node_id_missing".to_string());
     }
+    if route.node_id != route_node_id {
+        return Err("build_runner_route_node_id_mismatch".to_string());
+    }
     if route.state != BuildRunnerRouteState::RuntimeFenced
         || route.next_path != Some(BuildRunnerRoutePath::RuntimeDelivery)
         || !route.blockers.is_empty()
@@ -323,6 +326,10 @@ mod tests {
         assert_eq!(
             resolve_runtime_fenced_build_runner(&fenced, "cynic-builder"),
             Ok("cynic-builder".to_string())
+        );
+        assert_eq!(
+            resolve_runtime_fenced_build_runner(&fenced, "other-builder"),
+            Err("build_runner_route_node_id_mismatch".to_string())
         );
         let seed = route(
             BuildRunnerRouteState::SeedProved,
