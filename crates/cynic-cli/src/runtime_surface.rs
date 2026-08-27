@@ -420,7 +420,7 @@ pub(crate) enum RuntimeCommand {
     /// `status` (default) probes file + API validity; `create`/`rotate` mutates via --yes.
     /// The enrolled machine principal is usable only after adapter selection is proven.
     ForgejoToken {
-        #[arg(long, value_enum)]
+        #[arg(long, value_enum, default_value = "status")]
         mode: ForgejoTokenMode,
         #[arg(long)]
         json: bool,
