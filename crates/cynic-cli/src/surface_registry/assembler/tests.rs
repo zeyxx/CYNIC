@@ -58,6 +58,33 @@ fn positive_assembly_and_deterministic_output() {
 }
 
 #[test]
+fn descriptor_identity_mismatch_is_rejected_before_reading() {
+    let (manifest, _) = fixture();
+    let root = manifest.parent().unwrap();
+    let root_file = open_verified_directory(root, "repository root").unwrap();
+    let relative = Path::new("fragments/main.json");
+    let first = open_relative(&root_file, relative, "main").unwrap();
+    let first_identity = FileIdentity::from_metadata(&first.metadata().unwrap());
+
+    let replacement = root.join("fragments/replacement.json");
+    fs::write(&replacement, r#"{"id":"main","value":2}"#).unwrap();
+    fs::rename(&replacement, root.join(relative)).unwrap();
+
+    let second = open_relative(&root_file, relative, "main").unwrap();
+    let error = read_fragment(
+        FragmentDescriptor {
+            relative: relative.to_path_buf(),
+            file: second,
+            identity: first_identity,
+        },
+        "main",
+    )
+    .unwrap_err();
+    assert!(error.contains("identity mismatch"), "{error}");
+    cleanup(&manifest);
+}
+
+#[test]
 fn canonical_repository_fixture_assembles() {
     let manifest =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../infra/surface-registry/manifest.json");

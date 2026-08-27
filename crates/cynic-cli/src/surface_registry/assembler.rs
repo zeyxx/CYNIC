@@ -99,7 +99,8 @@ fn assemble_with_descriptors(
             .as_object()
             .ok_or_else(|| "manifest.surfaces entries must be objects".to_string())?;
         let id = required_string(object, "id", "manifest surface")?;
-        let path = required_path(object, id, fragments_root)?;
+        let fragment = required_path(object, id, fragments_root, root_file)?;
+        let path = fragment.relative.clone();
         if !ids.insert(id.to_string()) {
             return Err(format!("duplicate surface id in manifest: {id}"));
         }
@@ -109,14 +110,14 @@ fn assemble_with_descriptors(
                 path.display()
             ));
         }
-        let fragment = read_fragment(root_file, &path, id)?;
-        if !fragment.is_object() {
+        let fragment_value = read_fragment(fragment, id)?;
+        if !fragment_value.is_object() {
             return Err(format!("fragment {path:?} must be an object"));
         }
-        if fragment.get("id").and_then(Value::as_str) != Some(id) {
+        if fragment_value.get("id").and_then(Value::as_str) != Some(id) {
             return Err(format!("fragment id mismatch for {id}"));
         }
-        surfaces.push(fragment);
+        surfaces.push(fragment_value);
     }
 
     for entry in retired {
@@ -128,7 +129,8 @@ fn assemble_with_descriptors(
         if reason.is_empty() {
             return Err(format!("retired {id}: missing reason"));
         }
-        let path = required_path(object, id, fragments_root)?;
+        let fragment = required_path(object, id, fragments_root, root_file)?;
+        let path = fragment.relative.clone();
         if !ids.insert(id.to_string()) {
             if entries.iter().any(|entry| {
                 entry
@@ -147,11 +149,11 @@ fn assemble_with_descriptors(
                 path.display()
             ));
         }
-        let fragment = read_fragment(root_file, &path, id)?;
-        if !fragment.is_object() {
+        let fragment_value = read_fragment(fragment, id)?;
+        if !fragment_value.is_object() {
             return Err(format!("retired fragment {path:?} must be an object"));
         }
-        if fragment.get("id").and_then(Value::as_str) != Some(id) {
+        if fragment_value.get("id").and_then(Value::as_str) != Some(id) {
             return Err(format!("retired fragment id mismatch for {id}"));
         }
     }
@@ -191,7 +193,8 @@ fn required_path(
     object: &Map<String, Value>,
     id: &str,
     fragments_root: &Path,
-) -> Result<PathBuf, String> {
+    root_file: &File,
+) -> Result<FragmentDescriptor, String> {
     let value = required_string(object, "path", &format!("surface {id}"))?;
     let relative = Path::new(value);
     if relative.is_absolute()
@@ -215,9 +218,27 @@ fn required_path(
         ));
     }
     reject_symlinks(&candidate, fragments_root)?;
-    // Keep the manifest-root-relative spelling for set comparisons and for
-    // descriptor-anchored opens; never reopen a fragment through candidate.
-    Ok(relative.to_path_buf())
+    let path_identity =
+        fs::symlink_metadata(&candidate).map_err(|e| format!("fragment {id} identity: {e}"))?;
+    // Open and validate through the verified root descriptor. The returned
+    // descriptor is the authority for reading; never reopen through candidate.
+    let file = open_relative(root_file, relative, id)?;
+    let identity = file
+        .metadata()
+        .map_err(|e| format!("fragment {id} descriptor: {e}"))?;
+    if !identity.is_file() {
+        return Err(format!("fragment {id} is not a regular file"));
+    }
+    if !same_identity(&path_identity, &identity) {
+        return Err(format!(
+            "fragment {id} path/descriptor inode/device identity mismatch"
+        ));
+    }
+    Ok(FragmentDescriptor {
+        relative: relative.to_path_buf(),
+        file,
+        identity: FileIdentity::from_metadata(&identity),
+    })
 }
 
 fn reject_symlinks(path: &Path, root: &Path) -> Result<(), String> {
@@ -240,22 +261,54 @@ fn reject_symlinks(path: &Path, root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn read_fragment(root: &File, relative: &Path, id: &str) -> Result<Value, String> {
-    // The descriptor is the authority. Each component is opened relative to
-    // the previous descriptor spelling under /proc, with parents required to
-    // be directories and symlinks rejected by O_NOFOLLOW.
-    let mut file = open_relative(root, relative, id)?;
+struct FragmentDescriptor {
+    relative: PathBuf,
+    file: File,
+    identity: FileIdentity,
+}
+
+#[derive(Clone, Copy)]
+struct FileIdentity {
+    dev: u64,
+    ino: u64,
+    file_type: u32,
+}
+
+impl FileIdentity {
+    fn from_metadata(metadata: &fs::Metadata) -> Self {
+        Self {
+            dev: metadata.dev(),
+            ino: metadata.ino(),
+            file_type: metadata.mode() & libc::S_IFMT,
+        }
+    }
+}
+
+fn read_fragment(fragment: FragmentDescriptor, id: &str) -> Result<Value, String> {
+    // Check identity immediately before reading, then parse bytes from that
+    // same stable descriptor rather than reopening the manifest path.
+    let mut file = fragment.file;
     let metadata = file.metadata().map_err(|e| e.to_string())?;
+    let observed = FileIdentity::from_metadata(&metadata);
+    if observed.dev != fragment.identity.dev
+        || observed.ino != fragment.identity.ino
+        || observed.file_type != fragment.identity.file_type
+    {
+        return Err(format!(
+            "fragment {id} descriptor inode/device identity mismatch"
+        ));
+    }
     if !metadata.is_file() {
         return Err(format!(
             "fragment {} is not a regular file",
-            relative.display()
+            fragment.relative.display()
         ));
     }
     let mut text = String::new();
     file.read_to_string(&mut text)
-        .map_err(|e| format!("cannot read fragment {}: {e}", relative.display()))?;
-    serde_json::from_str(&text).map_err(|e| format!("invalid JSON in {}: {e}", relative.display()))
+        .map_err(|e| format!("cannot read fragment {}: {e}", fragment.relative.display()))?;
+    serde_json::from_str(&text)
+        .map_err(|e| format!("invalid JSON in {}: {e}", fragment.relative.display()))
 }
 
 fn open_relative(root: &File, relative: &Path, id: &str) -> Result<File, String> {
@@ -392,7 +445,9 @@ fn verify_identity(file: &File, path: &Path, label: &str) -> Result<(), String> 
 }
 
 fn same_identity(a: &fs::Metadata, b: &fs::Metadata) -> bool {
-    a.dev() == b.dev() && a.ino() == b.ino()
+    a.dev() == b.dev()
+        && a.ino() == b.ino()
+        && (a.mode() & libc::S_IFMT) == (b.mode() & libc::S_IFMT)
 }
 #[cfg(test)]
 mod tests;
