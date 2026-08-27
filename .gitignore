@@ -34,6 +34,7 @@ message.txt
 history.txt
 
 # Tool and agent local state
+.hermes/
 .claude/
 .antigravity/
 .cynic/
