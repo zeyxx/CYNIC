@@ -29,7 +29,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "infra" / "surface-registry" / "manifest.json"
 DEFAULT_OUTPUT = ROOT / "infra" / "surface-registry.json"
 EXPECTED_SCHEMA = "cynic.surface_registry.v1"
-_READ_FLAGS = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+# O_NONBLOCK is required even for the final fragment open: a manifest naming a
+# FIFO must fail at fstat rather than suspend before the regular-file check.
+_READ_FLAGS = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK
 _DIRECTORY_FLAGS = _READ_FLAGS | os.O_DIRECTORY
 
 
@@ -162,7 +164,8 @@ def read_fragment(root_fd: int, relative: Path, display_path: Path) -> Any:
     """Read an already descriptor-resolved fragment; no pathname reopen occurs."""
     fd = open_relative(root_fd, relative)
     try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
+        fragment_stat = os.fstat(fd)
+        if not stat.S_ISREG(fragment_stat.st_mode):
             fail(f"fragment {display_path} is not a regular file")
         return read_json_fd(fd, display_path)
     except BaseException:
@@ -189,10 +192,12 @@ def scan_files(dir_fd: int, relative: Path) -> set[Path]:
         except NotADirectoryError:
             child_fd = os.open(entry.name, _READ_FLAGS, dir_fd=dir_fd)
             try:
-                if stat.S_ISLNK(os.fstat(child_fd).st_mode):
+                child_stat = os.fstat(child_fd)
+                if stat.S_ISLNK(child_stat.st_mode):
                     fail(f"symlink components/files are not allowed under fragments: {entry_relative}")
-                if stat.S_ISREG(os.fstat(child_fd).st_mode):
-                    found.add(entry_relative)
+                if not stat.S_ISREG(child_stat.st_mode):
+                    fail(f"special entry under fragments: {entry_relative}")
+                found.add(entry_relative)
             finally:
                 os.close(child_fd)
         except FileNotFoundError:

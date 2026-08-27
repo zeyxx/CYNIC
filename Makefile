@@ -51,6 +51,8 @@ authority-check: secret-literal-check ## Read-only local validation of machine-r
 	@echo "==> checking 2N+2 runtime_publisher capability federation consistency"
 	@jq -e '.canonical_runtime_capabilities.runtime_publisher.authority_class == "RuntimeMachineIdentity"' infra/runtime-authority.json >/dev/null
 	@jq -e '.canonical_runtime_capabilities.runtime_publisher.federated_evidence == "cynic.network.runtime_proof.v1 (RuntimeProofBundle gate: runtime_publisher_admission)"' infra/runtime-authority.json >/dev/null
+	@scripts/test_surface_registry_assemble.py
+	@scripts/surface-registry-assemble --check
 	@jq -e '.schema == "cynic.surface_registry.v1" and (.surfaces | type == "array" and length > 0) and (([.surfaces[].id] | length) == ([.surfaces[].id] | unique | length))' infra/surface-registry/manifest.json >/dev/null
 	@while IFS=$$'\t' read -r surface_id fragment_path; do
 		if [[ "$$fragment_path" == /* || "$$fragment_path" == *..* || "$$fragment_path" == *\\* ]]; then

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -99,6 +100,25 @@ class SurfaceRegistryAssemblerSecurityTests(unittest.TestCase):
             nested.mkdir()
             (nested / "link.json").symlink_to(Path(temporary.name) / "fragments" / "main.json")
             self.assert_rejected(manifest, output, "symlink")
+
+    def test_fifo_fragment_is_rejected_without_blocking(self) -> None:
+        temporary, manifest, output = self.fixture()
+        with temporary:
+            fifo = Path(temporary.name) / "fragments" / "fragment.fifo"
+            os.mkfifo(fifo)
+            document = json.loads(manifest.read_text(encoding="utf-8"))
+            document["surfaces"][0]["path"] = "fragments/fragment.fifo"
+            manifest.write_text(json.dumps(document), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(ASSEMBLER), "--manifest", str(manifest), "--output", str(output)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("not a regular file", result.stderr)
 
     def test_duplicate_retired_ids_are_rejected(self) -> None:
         temporary, manifest, output = self.fixture()
