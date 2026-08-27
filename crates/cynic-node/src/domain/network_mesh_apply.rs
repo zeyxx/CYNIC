@@ -129,6 +129,8 @@ fn validate_ip_network(value: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use cynic_protocol::NETWORK_MESH_PLAN_SCHEMA;
+
     use super::{
         MeshBundleManifest, MeshPlanFile, MeshPlanPeerFile, MeshPlanRouteFile,
         validate_mesh_apply_bundle,
