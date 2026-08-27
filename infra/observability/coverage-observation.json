@@ -1,0 +1,140 @@
+{
+  "schema": "cynic.observability.coverage_observation.v1",
+  "observed_at": "2026-08-26T16:08:21+02:00",
+  "scope": "Current CYNIC runtime/host/node/network observability surfaces",
+  "verdict": "fragmented_one_shot_observation_without_capability_or_history_model",
+  "existing_surfaces": [
+    {
+      "surface": "cynic runtime metrics --json",
+      "owner": "cynic-host::runtime_metrics",
+      "schema": "cynic.host.runtime_metrics.v1",
+      "scope": "single host conformance report",
+      "observed_readback": {
+        "status": "below_target",
+        "known_coverage_percent": 52,
+        "maturity_percent": 30,
+        "known_metric_count": 9,
+        "unknown_metric_count": 8,
+        "total_metric_count": 17
+      },
+      "gaps": [
+        "no node, environment, network context, or fleet dimensions",
+        "no time-series retention; uptime is explicitly unknown",
+        "observability_coverage_percent uses a fixed six-item host-only denominator and returned 100 percent despite fleet blind spots"
+      ]
+    },
+    {
+      "surface": "cynic network runtime --registry infra/registry.json",
+      "owner": "cynic-node::observe and runtime_observation adapter",
+      "schemas": ["cynic.node.network_runtime_status.v1", "cynic.node_observation.v1"],
+      "scope": "single local node raw probe",
+      "capabilities_observed": ["interfaces", "routes", "namespaces", "firewall", "DNS", "WireGuard command", "systemd units", "TCP"],
+      "gaps": [
+        "command permission failure is collapsed into false/absent state; non-root wg observation reported mesh_absent while root probes proved healthy mesh",
+        "current local executable declaration had a path mismatch, so the surface cannot assert installed runtime artifact identity",
+        "no normalised per-plane/service samples, freshness budget, or retention"
+      ]
+    },
+    {
+      "surface": "transport_readback and WgReadbackObserver",
+      "owner": "cynic-protocol + cynic-host",
+      "schema": "cynic.transport_readback.v1",
+      "scope": "transport peer read-back",
+      "gaps": ["not yet retained/rolled up into a fleet time series", "not linked to execution context and network attachment"]
+    },
+    {
+      "surface": "federation membership tick",
+      "owner": "cynic-node",
+      "schema": "cynic.federation_membership_view.v1",
+      "scope": "node-local desired/observed membership transition",
+      "gaps": ["view persistence is not an observability history contract", "no fleet aggregation or sample freshness SLO"]
+    },
+    {
+      "surface": "enrollment, build, release, and proof read-backs",
+      "owner": "protocol/node/kernel",
+      "scope": "bounded transaction evidence",
+      "gaps": ["timestamps/evidence refs exist but no common metric sample envelope", "no cross-layer cardinality or outcome aggregation"]
+    }
+  ],
+  "layer_coverage": [
+    {
+      "layer": "L1_substrate",
+      "state": "partial_one_shot",
+      "evidence": ["host conformance", "node interfaces/routes/namespaces", "systemd and TCP probes"],
+      "missing": ["per-environment capability declaration", "historical availability", "privilege-aware unknown state"]
+    },
+    {
+      "layer": "L2_lifecycle_and_enrollment",
+      "state": "partial_transaction_readback",
+      "evidence": ["machine enrollment and grant evidence", "membership view"],
+      "missing": ["grant lifetime/renewal SLO samples", "fleet rollup", "failure-rate history"]
+    },
+    {
+      "layer": "L3_deterministic_gateway",
+      "state": "unknown",
+      "evidence": ["CLI commands return reports"],
+      "missing": ["command latency/outcome metric", "admission/blocked reason distribution", "artifact identity dimension"]
+    },
+    {
+      "layer": "L4_runtime_proof",
+      "state": "partial_event_evidence",
+      "evidence": ["runtime proof bundles", "transport and service probes"],
+      "missing": ["immutable sample sequence", "freshness SLO by proof type", "retention and fleet aggregation"]
+    },
+    {
+      "layer": "L5_coordination_and_ssot",
+      "state": "partial_static_audit",
+      "evidence": ["registry, source-control plans, claims contracts"],
+      "missing": ["topology projection hash telemetry", "desired-vs-observed drift rate", "signature and distribution freshness"]
+    }
+  ],
+  "false_or_unsafe_interpretations": [
+    {
+      "id": "OBS-001",
+      "severity": "high",
+      "finding": "Host-only six-surface coverage is rendered as observability coverage, causing a 100 percent result despite absent fleet/network/service coverage.",
+      "required_rule": "Coverage denominator must be declared by scope and dimensions; a host-local numerator never represents fleet coverage."
+    },
+    {
+      "id": "OBS-002",
+      "severity": "critical",
+      "finding": "Permission-denied WireGuard observation becomes mesh_absent rather than unknown_or_unobservable.",
+      "required_rule": "Probe outcome must distinguish measured failure, unavailable capability, denied authority, timeout, and unknown."
+    },
+    {
+      "id": "OBS-003",
+      "severity": "high",
+      "finding": "One-shot observations are consumed as health-like state while uptime and availability require a retained sample sequence.",
+      "required_rule": "Single sample proves only its timestamped observation; availability requires a declared window and complete sample cadence."
+    },
+    {
+      "id": "OBS-004",
+      "severity": "medium",
+      "finding": "CLI surface names are inconsistent: runtime metrics exists but runtime network does not; network runtime is separate.",
+      "required_rule": "A metric catalog must map every sample producer to one canonical read-only projection."
+    }
+  ],
+  "required_common_sample_fields": [
+    "schema",
+    "sample_id",
+    "observed_at_unix_ms",
+    "scope: host|node|fleet",
+    "node_id",
+    "execution_context",
+    "network_plane_or_none",
+    "attachment_or_none",
+    "producer_surface",
+    "metric_id",
+    "outcome: measured|failed|unknown|blocked|unobservable",
+    "value_or_null",
+    "target_or_null",
+    "freshness_deadline_unix_ms",
+    "evidence_refs",
+    "residual_unknowns"
+  ],
+  "non_goals": [
+    "do not introduce Prometheus, OpenTelemetry, or a time-series database before the typed sample and retention contracts exist",
+    "do not turn raw command stdout into a durable metric schema",
+    "do not coerce unavailable or permission-denied data into zero or failed health"
+  ]
+}

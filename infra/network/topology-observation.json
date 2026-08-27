@@ -1,0 +1,207 @@
+{
+  "schema": "cynic.network.topology_observation.v1",
+  "observed_at": "2026-08-26T16:08:21+02:00",
+  "scope": "read-only network and service inventory from cortex, Proxmox, and running CTs 101/103/105",
+  "limits": [
+    "cortex systemd D-Bus timed out; its unit states are unknown rather than inferred",
+    "direct SSH to Forgejo CT was refused; the Proxmox pct_exec path supplied its read-back",
+    "listener ownership is observed; business authority and desired status require operator review"
+  ],
+  "planes": [
+    {
+      "id": "management",
+      "cidr": "192.168.100.0/24",
+      "observed_nodes": {
+        "cynic-host-proxmox": "192.168.100.1",
+        "cynic-host-cortex": "192.168.100.2"
+      },
+      "state": "healthy"
+    },
+    {
+      "id": "synapse",
+      "cidr": "10.10.10.0/24",
+      "observed_nodes": {
+        "cynic-host-proxmox": "10.10.10.1",
+        "forgejo": "10.10.10.101",
+        "cynic-lxc-surrealdb": "10.10.10.103",
+        "cynic-builder": "10.10.10.119"
+      },
+      "state": "healthy",
+      "gaps": [
+        "10.10.10.100 is not assigned to any observed cortex interface and kernel TCP probes time out",
+        "kernel.synapse.cynic is not provided by a consistent fleet DNS source"
+      ]
+    },
+    {
+      "id": "overlay",
+      "cidr": "10.20.0.0/24",
+      "transport": "wireguard",
+      "observed_nodes": {
+        "cynic-host-proxmox": "10.20.0.1",
+        "forgejo": "10.20.0.2",
+        "cynic-host-cortex": "10.20.0.3",
+        "cynic-lxc-surrealdb": "10.20.0.4",
+        "cynic-builder": "10.20.0.5"
+      },
+      "state": "healthy",
+      "evidence": "Proxmox and each reachable peer reported all expected peer handshakes fresher than the declared 150 second watchdog stale threshold during observation."
+    },
+    {
+      "id": "upstream_lan",
+      "cidr": "192.168.0.0/24",
+      "state": "observed_unclassified",
+      "seen_on": ["cynic-host-cortex", "cynic-host-proxmox"]
+    },
+    {
+      "id": "cortex_libvirt",
+      "cidr": "192.168.122.0/24",
+      "state": "observed_non_federated",
+      "seen_on": ["cynic-host-cortex"]
+    },
+    {
+      "id": "cortex_docker",
+      "cidr": "172.17.0.0/16",
+      "state": "observed_non_federated",
+      "seen_on": ["cynic-host-cortex"]
+    },
+    {
+      "id": "third_party_overlay_candidate",
+      "addresses": ["100.74.31.10"],
+      "state": "observed_unclassified",
+      "seen_on": ["cynic-host-cortex"]
+    }
+  ],
+  "kernel_endpoint_readback": {
+    "observed_healthy_auth_required": [
+      "http://192.168.100.2:3030/health",
+      "http://10.20.0.3:3030/health"
+    ],
+    "observed_unreachable": ["http://10.10.10.100:3030/health"],
+    "listener": "0.0.0.0:3030 on cortex",
+    "security_state": "plaintext HTTP transport; application authentication rejects unauthenticated health probes with 401",
+    "classification": "degraded_security"
+  },
+  "dns_readback": {
+    "cortex": "kernel.synapse.cynic resolves from /etc/hosts to 127.0.0.1",
+    "builder": "kernel.synapse.cynic resolves from /etc/hosts to 192.168.100.2",
+    "storage": "kernel.synapse.cynic resolves from /etc/hosts to 192.168.100.2",
+    "forgejo": "kernel.synapse.cynic unresolved",
+    "proxmox": "kernel.synapse.cynic unresolved",
+    "classification": "degraded_split_horizon_hosts_file_drift"
+  },
+  "service_inventory": [
+    {
+      "owner": "cynic-host-proxmox",
+      "service": "proxmox-api",
+      "listener": "*:8006",
+      "health": "HTTPS 200 local",
+      "classification": "observed_healthy_management"
+    },
+    {
+      "owner": "cynic-host-proxmox",
+      "service": "dnsmasq",
+      "listener": "*:53",
+      "health": "active; configured as generic local-service DHCP/cache resolver",
+      "classification": "observed_infrastructure_not_fleet_dns_authority"
+    },
+    {
+      "owner": "cynic-host-proxmox",
+      "service": "nginx",
+      "listener": "*:80, *:443",
+      "health": "active",
+      "classification": "observed_gateway_candidate",
+      "gaps": ["does not route Forgejo API Host header to Forgejo; probe returned 404"]
+    },
+    {
+      "owner": "cynic-host-proxmox",
+      "service": "cynic-cloud",
+      "listener": "*:4000",
+      "health": "systemd unit active and enabled",
+      "classification": "observed_unclassified_cynic_candidate",
+      "gaps": ["not declared in the legacy registry; service contract and role need explicit ownership"]
+    },
+    {
+      "owner": "cynic-host-proxmox",
+      "service": "headscale",
+      "health": "unit inactive; HTTPS probe returned 000",
+      "classification": "degraded_candidate"
+    },
+    {
+      "owner": "forgejo",
+      "service": "forgejo",
+      "listener": "*:3000",
+      "health": "API HTTP 200 direct from CT",
+      "classification": "observed_healthy_http_only",
+      "gaps": ["declared TLS endpoint :443 absent from CT; PVE :443 is not a Forgejo API route"]
+    },
+    {
+      "owner": "cynic-lxc-surrealdb",
+      "service": "surrealdb",
+      "listener": "*:8000",
+      "health": "HTTP /health 200",
+      "classification": "observed_healthy_http_only"
+    },
+    {
+      "owner": "cynic-lxc-surrealdb",
+      "service": "runtime-artifact-store",
+      "listener": null,
+      "health": "unit inactive; local HTTPS /health 000",
+      "classification": "degraded_declared_service"
+    },
+    {
+      "owner": "cynic-lxc-surrealdb",
+      "service": "cynic-kernel-proxy",
+      "listener": "127.0.0.1:3030",
+      "health": "systemd unit active",
+      "classification": "observed_legacy_transport_bypass",
+      "gaps": ["socat forwards kernel HTTP to management plane; must be retired only after mTLS migration"]
+    },
+    {
+      "owner": "cynic-builder",
+      "service": "cynic-node",
+      "listener": null,
+      "health": "systemd auto-restart; Result=exit-code; NRestarts=857",
+      "classification": "degraded_crash_loop",
+      "blocked_by": "node-control rejects plaintext remote kernel URL"
+    },
+    {
+      "owner": "cynic-builder",
+      "service": "cynic-kernel-proxy",
+      "listener": "127.0.0.1:3030",
+      "health": "systemd unit active",
+      "classification": "observed_legacy_transport_bypass",
+      "gaps": ["socat forwards kernel HTTP to management plane; it does not supply a TLS service identity"]
+    },
+    {
+      "owner": "cynic-host-cortex",
+      "service": "cynic-kernel",
+      "listener": "*:3030",
+      "health": "HTTP auth challenge 401 on loopback, management, and WireGuard endpoint",
+      "classification": "observed_reachable_degraded_security",
+      "gaps": ["systemd unit state unknown because D-Bus timed out", "exposed on all interfaces", "no TLS"]
+    },
+    {
+      "owner": "cynic-host-cortex",
+      "service": "fleet-dnsmasq",
+      "listener": "127.0.0.1:1053",
+      "health": "process observed; serves partial synapse hosts only",
+      "classification": "degraded_partial_projection"
+    }
+  ],
+  "security_findings": [
+    {
+      "id": "NET-SEC-001",
+      "severity": "critical",
+      "surface": "local storage runtime process",
+      "finding": "A runtime credential is passed as a process command-line argument and is therefore observable to local process inspection.",
+      "required_remediation": "Move the credential to an appropriate RuntimeMachineIdentity secret reference (principal-owned file or protected environment injection); rotate it after migration; never retain its value in source, logs, or reports."
+    }
+  ],
+  "residual_unknowns": [
+    "full systemd health on cortex is unavailable through D-Bus at observation time",
+    "ownership and contract of Proxmox cynic-cloud-api listener :4000",
+    "purpose and owner of cortex third-party overlay address 100.74.31.10",
+    "whether upstream LAN is intentionally part of any bootstrap policy",
+    "which services should be canonical versus quarantined candidates"
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "schema": "cynic.source_workflow_observation.v1",
+  "observed_at": "2026-08-27T02:54:48+02:00",
+  "scope": "Read-only Git topology and currently installed source workflow surfaces.",
+  "authority": {
+    "sovereign_source": "Forgejo (remote ssot)",
+    "public_projection": "GitHub (remote origin)",
+    "rule": "GitHub is a relay/projection and must not replace Forgejo runtime/source authority."
+  },
+  "remote_observation": {
+    "ssot_main": {
+      "commit": "0ea2da9b0b3b4ca61bfc5fbb263f050fa92018c8",
+      "observed_at_commit": "2026-08-26T02:23:56+02:00"
+    },
+    "origin_main": {
+      "commit": "3c62dc24dfefa30d6a6bd0f4cb9da39d0260cc36",
+      "observed_at_commit": "2026-08-15T21:49:21+02:00"
+    },
+    "merge_base": "07964e2bd61856035d10329eba7b57cfff03ff9e",
+    "origin_only_commit_count": 19,
+    "ssot_only_commit_count": 736,
+    "shared_commit_count": 1045,
+    "relationship": "diverged_neither_main_is_ancestor",
+    "forgejo_head_count": 19,
+    "github_head_count": 4
+  },
+  "surface_observation": [
+    {
+      "surface": "cynic-host::source_sync",
+      "status": "stale_configuration",
+      "evidence": [
+        "source_sync observation hard-codes remote name forgejo while the actual sovereign remote is ssot",
+        "source_sync compares main with forgejo/main rather than the configured sovereign ref",
+        "installed cynic binary does not expose source command"
+      ]
+    },
+    {
+      "surface": "cynic source release",
+      "status": "gate_only_not_promotion",
+      "evidence": [
+        "CLI release handler runs gate only",
+        "dry_run and apply arguments are currently unused by release execution"
+      ]
+    },
+    {
+      "surface": "cynic-host::source_sync::reconcile",
+      "status": "unsafe_for_current_divergence",
+      "evidence": [
+        "large ahead count emits archive plus force-push plan without merge-base classification or protected relay manifest",
+        "current relationship is divergent, not fast-forward"
+      ]
+    }
+  ],
+  "worktree_observation": {
+    "dirty_entry_count": 57,
+    "dirty_by_root": {
+      ".hermes": 6,
+      "crates": 39,
+      "docs": 1,
+      "infra": 7,
+      "protocols": 2,
+      "verify": 1,
+      "verify_cargo": 1
+    },
+    "release_gate_implication": "blocked: existing release gate requires a clean worktree"
+  },
+  "required_workflow": {
+    "research": "Question, versioned sources, hypotheses, contradictions, measurements, and evidence references are retained before design claims.",
+    "plan": "Every non-trivial change answers Where, What, How, Why; names owner, alternatives, policy/safety risk, test, read-back, and rollback intent.",
+    "hitl": "Required for trust-boundary, secret, public, network/TLS/DNS, divergent-history, or externally mutating changes; admission binds plan digest, scope, budget, duration, and stop conditions.",
+    "execution": "Claimed or explicit human-scoped fallback, isolated worktree, tests/proofs, explicit-path commit, and external state read-back.",
+    "promotion": "Forgejo acceptance/read-back precedes GitHub relay plan; divergent relay history is integrated or explicitly archived, never force-pushed by count alone.",
+    "learning": "User corrections and failed read-backs become a typed gap, regression proof, and maintained skill/contract update."
+  },
+  "residual_unknowns": [
+    "Forgejo/GitHub branch protection and pull-request policy were not observed in this slice.",
+    "No canonical runtime artifact currently proves the source workflow CLI surface.",
+    "MCP coordination remains removed/incompatible and cannot issue mutation claims."
+  ]
+}

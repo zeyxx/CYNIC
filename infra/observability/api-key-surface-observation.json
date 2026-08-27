@@ -1,0 +1,130 @@
+{
+  "schema": "cynic.api_key_surface_observation.v1",
+  "observed_at": "2026-08-26T16:08:21+02:00",
+  "scope": "Static reference and exposure-path audit only. No secret value, secret file, environment value, process argv, or credential-bearing log was read.",
+  "verdict": "API-key and runtime-secret handling has partial typed governance but no complete inventory, posture probe, lifecycle telemetry, or SOC correlation.",
+  "canonical_governance_present": {
+    "contract": "cynic_protocol::secret_reference::{SecretClass, SecretProvider, SecretReference}",
+    "law": "references name a locator but never secret material",
+    "runtime_class": "RuntimeMachineIdentity is the only allowed steady-state class"
+  },
+  "existing_presence_surface": {
+    "owner": "cynic-host::secret_presence",
+    "schema": "cynic.runtime_secret_presence.v1",
+    "currently_covers": ["storage_runtime", "proxmox_control"],
+    "safe_fields": ["identity_id", "required_class", "present", "source", "secret_exposed", "unknowns"],
+    "coverage_gaps": [
+      "does not include kernel node-control API credential", "does not include node websocket/dog credential", "does not include CYNIC_CHAT_API_KEY or backend API credentials", "does not include Forgejo token or artifact-store credential", "does not assess ownership, mode, group, symlink policy, expiry, rotation, consumer identity, or process argument exposure", "secret_exposed is hard-coded false rather than produced by a bounded exposure observer"
+    ]
+  },
+  "reference_inventory": [
+    {
+      "identity_id": "storage_runtime",
+      "class": "RuntimeMachineIdentity",
+      "provider_forms": ["process_environment", "installed_file"],
+      "consumer": "cynic-kernel / SurrealDB",
+      "static_evidence": ["cynic-host::secret_presence::storage_runtime", "infra/systemd/cynic-kernel.service uses SURREALDB_PASS_FILE"],
+      "posture": "partially_observable"
+    },
+    {
+      "identity_id": "proxmox_control",
+      "class": "RuntimeMachineIdentity",
+      "provider_forms": ["process_environment", "installed_file"],
+      "consumer": "Proxmox control adapter",
+      "static_evidence": ["cynic-host::secret_presence::proxmox_control", "infra/registry.json credential_ref"],
+      "posture": "partially_observable"
+    },
+    {
+      "identity_id": "kernel_node_runtime_api",
+      "class": "RuntimeMachineIdentity_expected",
+      "provider_forms": ["environment_variable_name_from_config"],
+      "consumer": "cynic-node runtime supervision and kernel WebSocket",
+      "static_evidence": ["cynic-node::config::load::resolve_kernel_api_key", "cynic-node::domain::runtime_federation::RuntimeFederationConfig"],
+      "posture": "unmodeled_presence_and_exposure"
+    },
+    {
+      "identity_id": "node_dog_api",
+      "class": "RuntimeMachineIdentity_expected",
+      "provider_forms": ["optional_environment_variable_name_from_config", "inline_config_field"],
+      "consumer": "cynic-node runtime supervision",
+      "static_evidence": ["cynic-node::config::load", "cynic-node::runtime_supervision::lifecycle"],
+      "posture": "unmodeled_presence_and_exposure"
+    },
+    {
+      "identity_id": "chat_and_inference_backend_api",
+      "class": "RuntimeMachineIdentity_expected",
+      "provider_forms": ["CYNIC_CHAT_API_KEY", "CYNIC_CHAT_API_KEY_FILE", "CYNIC_BACKEND_<NAME>_API_KEY", "principal_or_installed_file"],
+      "consumer": "cynic-inference chat endpoint and OpenAI-compatible adapter",
+      "static_evidence": ["cynic-inference::application::chat_endpoint::resolve_chat_api_key", "cynic-inference::config_loader"],
+      "posture": "unmodeled_presence_and_exposure"
+    },
+    {
+      "identity_id": "forgejo_automation",
+      "class": "RuntimeMachineIdentity_expected_or_HumanAdmin_one_shot",
+      "provider_forms": ["environment_variable", "credential_helper_or_os_store_expected"],
+      "consumer": "Forgejo bootstrap/control",
+      "static_evidence": ["cynic-protocol::forgejo_token", "infra/registry.json"],
+      "posture": "reference_contract_present_but_runtime_posture_unobserved"
+    },
+    {
+      "identity_id": "artifact_store_publication",
+      "class": "RuntimeMachineIdentity",
+      "provider_forms": ["principal_owned_file"],
+      "consumer": "node release publication",
+      "static_evidence": ["cynic-node::config::ReleasePublicationConfig", "infra/verticals/release/intent.json"],
+      "posture": "reference_contract_present_but_runtime_posture_unobserved"
+    }
+  ],
+  "observed_design_risks": [
+    {
+      "id": "API-001",
+      "severity": "critical",
+      "finding": "The existing secret-presence report cannot detect exposure: secret_exposed is always false.",
+      "required_control": "Separate bounded exposure-posture observer over declared service metadata; classify argv/env/log/config exposure without emitting material."
+    },
+    {
+      "id": "API-002",
+      "severity": "high",
+      "finding": "Node runtime configuration resolves API keys into String fields, and federation runtime config retains an API key String.",
+      "required_control": "Replace broad runtime secret strings at public/internal configuration boundaries with a non-serializable secret handle or narrowly scoped authenticated-client construction; retain only SecretReference in read-backs."
+    },
+    {
+      "id": "API-003",
+      "severity": "high",
+      "finding": "API-key presence coverage covers only storage and Proxmox; node, chat, backend, Forgejo, and artifact identities are absent from the producer catalog.",
+      "required_control": "Registry-backed SecretPresenceSpec catalog with consumer, permitted provider, secret class, rotation policy, and expected ownership/mode policy."
+    },
+    {
+      "id": "API-004",
+      "severity": "high",
+      "finding": "Environment variables are accepted as operational API-key sources; process environment exposure and systemd manager visibility are not assessed per consumer.",
+      "required_control": "Per-service provider policy: environment only where explicit and bounded; file/OS credential store preference for persistent service identity; observer records provider form and permission posture only."
+    },
+    {
+      "id": "API-005",
+      "severity": "high",
+      "finding": "No expiry, rotation due, revocation state, last-successful-use, or authentication-failure telemetry exists for API-key identities.",
+      "required_control": "Secret lifecycle samples and alert rules without values: present, class-valid, provider-valid, ownership-valid, rotation_due, auth_failure_count, last_use_at, and exposure_posture."
+    },
+    {
+      "id": "API-006",
+      "severity": "critical",
+      "finding": "NET-SEC-001 already demonstrated secret material in process argv on storage, while this audit surface cannot correlate it to the owning identity or incident.",
+      "required_control": "SOC security-event producer with redaction verification, dedupe by identity/consumer/exposure channel, alert transition, rotation action requirement, and post-rotation read-back."
+    }
+  ],
+  "required_secret_lifecycle_sample_fields": [
+    "secret_reference_id", "secret_class", "consumer_service", "provider_kind", "presence_outcome", "ownership_mode_outcome", "exposure_posture", "rotation_state", "expiry_state_or_unknown", "authentication_outcome_aggregate", "observed_at_unix_ms", "freshness_deadline_unix_ms", "collector_identity", "evidence_refs", "residual_unknowns"
+  ],
+  "required_alerts": [
+    "secret_material_detected_in_process_argv", "secret_material_detected_in_versioned_config_or_report", "secret_file_permissions_or_owner_invalid", "secret_reference_missing_or_wrong_class", "credential_rotation_due_or_expired", "authentication_failure_rate_exceeded", "collector_cannot_observe_secret_posture"
+  ],
+  "safety_invariants": [
+    "No secret value, length, digest, prefix, suffix, entropy measurement, locator path, environment value, or raw argv may enter a metric, alert, incident, or evidence report.",
+    "A secret existence check is not a secret exposure check.",
+    "An exposure posture unavailable to the observer is unobservable, never safe.",
+    "Runtime steady state must not depend on HumanAdmin or MachineEnrollment material.",
+    "An alert may propose rotation/remediation but never read, print, or mutate a credential without an explicit bounded secret-rotation capability and post-action read-back."
+  ],
+  "next_lowest_layer": "Extend the canonical protocol SecretReference family with lifecycle/posture contracts; then extend cynic-host secret_presence through injected metadata-only observers. Do not add a dashboard or a CLI-owned policy table first."
+}
