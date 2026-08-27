@@ -1,39 +1,99 @@
 //! generation_parameters.rs — Granular Generation & Sampling Runtime Controls.
 //!
 //! Models first-class runtime inference parameters:
-//! - Thinking Mode / Chain-of-Thought controls (budget, enable/disable, custom delimiters).
+//! - Granular Thinking Mode & Reasoning Effort (None, Low, Medium, High, Budget, Dynamic).
+//! - Dual-phase Temperature (exploratory thinking_temperature vs deterministic output_temperature).
 //! - Sampling Dynamics (temperature, top_p, min_p, top_k, repetition/presence penalties, seed).
 //! - Constrained Decoding (Grammar GBNF, JSON Schema, stop sequences).
 
 use serde::{Deserialize, Serialize};
 
-/// Mode and budget for Chain-of-Thought / reasoning generation.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Granular reasoning effort levels for thinking models.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ThinkingMode {
-    /// Thinking enabled with optional max token budget and output stripping.
-    Enabled {
-        budget_tokens: Option<u32>,
-        strip_from_visible_output: bool,
-    },
-    /// Thinking explicitly disabled (e.g. for fast direct tool calling or low latency).
-    Disabled,
-    /// Custom thinking delimiters for non-standard architectures.
-    CustomDelimiters {
-        open_tag: String,
-        close_tag: String,
-        budget_tokens: Option<u32>,
-    },
+pub enum ReasoningEffort {
+    /// Zero reasoning tokens — direct response only.
+    None,
+    /// Light reasoning (typically 256 to 512 tokens max).
+    Low,
+    /// Balanced standard reasoning (typically 1024 to 2048 tokens).
+    Medium,
+    /// Deep reasoning for complex mathematical or architectural tasks (4096 to 8192 tokens).
+    High,
+    /// Explicit numeric token budget cap.
+    Budget(u32),
+    /// Dynamic early-exit based on internal confidence / verification triggers.
+    Dynamic,
 }
 
-impl Default for ThinkingMode {
+impl ReasoningEffort {
+    pub fn max_thinking_tokens(&self) -> Option<u32> {
+        match self {
+            Self::None => Some(0),
+            Self::Low => Some(512),
+            Self::Medium => Some(2048),
+            Self::High => Some(8192),
+            Self::Budget(b) => Some(*b),
+            Self::Dynamic => None,
+        }
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        !matches!(self, Self::None)
+    }
+}
+
+/// Advanced thinking control envelope with dual-phase temperature support.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThinkingControl {
+    /// Target reasoning effort / granularity.
+    pub effort: ReasoningEffort,
+    /// Whether to strip the internal thinking trace from the visible output.
+    pub strip_from_visible_output: bool,
+    /// Temperature used specifically during the thinking phase (typically 0.6 - 0.8 for exploration).
+    pub thinking_temperature: Option<f32>,
+    /// Custom opening and closing tags (defaults to "<thinking>" / "</thinking>").
+    pub custom_tags: Option<(String, String)>,
+}
+
+impl Default for ThinkingControl {
     fn default() -> Self {
-        Self::Enabled {
-            budget_tokens: Some(4096),
+        Self {
+            effort: ReasoningEffort::Medium,
             strip_from_visible_output: false,
+            thinking_temperature: Some(0.6),
+            custom_tags: None,
         }
     }
 }
+
+impl ThinkingControl {
+    pub fn none() -> Self {
+        Self {
+            effort: ReasoningEffort::None,
+            strip_from_visible_output: false,
+            thinking_temperature: None,
+            custom_tags: None,
+        }
+    }
+
+    pub fn with_effort(effort: ReasoningEffort) -> Self {
+        Self {
+            effort,
+            ..Default::default()
+        }
+    }
+
+    pub fn with_budget(tokens: u32) -> Self {
+        Self {
+            effort: ReasoningEffort::Budget(tokens),
+            ..Default::default()
+        }
+    }
+}
+
+/// Backward compatibility alias.
+pub type ThinkingMode = ThinkingControl;
 
 /// Granular sampling parameters for token generation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -83,18 +143,20 @@ impl Default for SamplingParameters {
 /// Complete generation envelope passed to inference runtime ports.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct GenerationParameters {
-    pub thinking: ThinkingMode,
+    pub thinking: ThinkingControl,
     pub sampling: SamplingParameters,
     pub max_output_tokens: u32,
 }
 
 impl GenerationParameters {
-    /// Preset: Deterministic reasoning & mathematical verification.
+    /// Preset: Deterministic reasoning & mathematical verification (High effort, greedy output).
     pub fn deterministic_reasoning(max_tokens: u32) -> Self {
         Self {
-            thinking: ThinkingMode::Enabled {
-                budget_tokens: Some(max_tokens),
+            thinking: ThinkingControl {
+                effort: ReasoningEffort::High,
                 strip_from_visible_output: false,
+                thinking_temperature: Some(0.4),
+                custom_tags: None,
             },
             sampling: SamplingParameters {
                 temperature: 0.0, // greedy deterministic
@@ -105,12 +167,14 @@ impl GenerationParameters {
         }
     }
 
-    /// Preset: Agentic coding & tool invocation (structured JSON, thinking enabled).
+    /// Preset: Agentic coding & tool invocation (Medium effort, structured JSON).
     pub fn agentic_coding(max_tokens: u32, schema: Option<serde_json::Value>) -> Self {
         Self {
-            thinking: ThinkingMode::Enabled {
-                budget_tokens: Some(max_tokens / 2),
+            thinking: ThinkingControl {
+                effort: ReasoningEffort::Medium,
                 strip_from_visible_output: false,
+                thinking_temperature: Some(0.5),
+                custom_tags: None,
             },
             sampling: SamplingParameters {
                 temperature: 0.2,
@@ -121,10 +185,10 @@ impl GenerationParameters {
         }
     }
 
-    /// Preset: Fast low-latency classification (no thinking, temperature 0.1).
+    /// Preset: Fast low-latency classification (No thinking, low temperature).
     pub fn fast_classification(max_tokens: u32) -> Self {
         Self {
-            thinking: ThinkingMode::Disabled,
+            thinking: ThinkingControl::none(),
             sampling: SamplingParameters {
                 temperature: 0.1,
                 top_p: Some(0.9),
@@ -140,17 +204,27 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_reasoning_effort_budgets() {
+        assert_eq!(ReasoningEffort::None.max_thinking_tokens(), Some(0));
+        assert_eq!(ReasoningEffort::Low.max_thinking_tokens(), Some(512));
+        assert_eq!(ReasoningEffort::Medium.max_thinking_tokens(), Some(2048));
+        assert_eq!(ReasoningEffort::High.max_thinking_tokens(), Some(8192));
+        assert_eq!(ReasoningEffort::Budget(1500).max_thinking_tokens(), Some(1500));
+        assert_eq!(ReasoningEffort::Dynamic.max_thinking_tokens(), None);
+    }
+
+    #[test]
     fn test_deterministic_reasoning_preset() {
         let params = GenerationParameters::deterministic_reasoning(2048);
         assert_eq!(params.sampling.temperature, 0.0);
         assert_eq!(params.max_output_tokens, 2048);
-        assert!(matches!(params.thinking, ThinkingMode::Enabled { .. }));
+        assert_eq!(params.thinking.effort, ReasoningEffort::High);
     }
 
     #[test]
     fn test_fast_classification_preset_disables_thinking() {
         let params = GenerationParameters::fast_classification(64);
-        assert_eq!(params.thinking, ThinkingMode::Disabled);
+        assert_eq!(params.thinking.effort, ReasoningEffort::None);
         assert_eq!(params.max_output_tokens, 64);
     }
 }

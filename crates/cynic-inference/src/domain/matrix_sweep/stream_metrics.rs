@@ -119,6 +119,38 @@ pub fn calculate_failure_recovery_rate(
     }
 }
 
+/// Comparative reasoning telemetry contrasting thinking vs visible token emissions.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ReasoningTelemetry {
+    pub thinking_tokens: u32,
+    pub visible_output_tokens: u32,
+    /// Ratio of thinking tokens to final answer tokens (overthinking factor).
+    pub overthinking_ratio: f32,
+    pub total_ttcs_ms: f64,
+    pub quality_pass1_score: f32,
+    /// Quality-Adjusted Tasks Per Hour: (3600000 / TTCS) * Pass@1.
+    pub quality_adjusted_tph: f64,
+}
+
+/// Calculates the overthinking ratio: thinking_tokens / visible_output_tokens.
+pub fn calculate_overthinking_ratio(thinking_tokens: u32, visible_output_tokens: u32) -> f32 {
+    if visible_output_tokens == 0 {
+        thinking_tokens as f32
+    } else {
+        thinking_tokens as f32 / visible_output_tokens as f32
+    }
+}
+
+/// Calculates Quality-Adjusted Tasks Per Hour: (3600000 / TTCS_ms) * pass1_score.
+pub fn calculate_quality_adjusted_tph(ttcs_ms: f64, pass1_score: f32) -> f64 {
+    if ttcs_ms <= 0.0 || !ttcs_ms.is_finite() {
+        return 0.0;
+    }
+    let clamped_score = (pass1_score.clamp(0.0, 1.0)) as f64;
+    let ms_per_hour = 3_600_000.0;
+    (ms_per_hour / ttcs_ms) * clamped_score
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -157,5 +189,16 @@ mod tests {
 
         let zero_failures = calculate_failure_recovery_rate(0, 0);
         assert_eq!(zero_failures, None);
+    }
+
+    #[test]
+    fn test_reasoning_telemetry_metrics() {
+        // 200 thinking tokens, 50 output tokens -> overthinking ratio = 4.0
+        let ratio = calculate_overthinking_ratio(200, 50);
+        assert_eq!(ratio, 4.0);
+
+        // TTCS = 5000ms (5s), Pass@1 = 0.90 -> 720 base tph * 0.90 = 648.0 quality-adjusted tph
+        let qa_tph = calculate_quality_adjusted_tph(5000.0, 0.90);
+        assert_eq!(qa_tph, 648.0);
     }
 }
