@@ -21,6 +21,7 @@ pub mod runtime_planner;
 
 pub mod agent_harness;
 pub mod bench_basket_launcher;
+pub mod cot_middleware;
 pub mod engine_selector;
 pub mod failure_gallery;
 pub mod hermes_runtime_service;

@@ -33,6 +33,9 @@ pub use application::model_selection::{
     AdaptiveModelSelector, EscalationAction, EscalationSignal, EscalationTier, ModelEmpiricalStats,
     resolve_escalation_action, select_model,
 };
+pub use application::cot_middleware::{
+    AlphaAnomalyStatus, CotParserState, CotStreamEvent, CotStreamParser, SpeculativeAlphaMonitor,
+};
 
 pub use adapters::inference::hermes_process_supervisor::read_hermes_api_key;
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;
