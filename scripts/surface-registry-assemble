@@ -117,6 +117,31 @@ def verify_root_fd(root_fd: int, intended_root: Path) -> None:
         )
 
 
+def verify_fd_identity(fd: int, expected: os.stat_result, label: str) -> None:
+    """Ensure an opened descriptor is the directory captured before opening."""
+    try:
+        actual = os.fstat(fd)
+    except OSError as error:
+        fail(f"cannot verify {label} descriptor identity: {error}")
+    if (actual.st_dev, actual.st_ino) != (expected.st_dev, expected.st_ino):
+        fail(
+            f"{label} descriptor inode/device identity mismatch: "
+            f"expected ({expected.st_dev}, {expected.st_ino}), "
+            f"found ({actual.st_dev}, {actual.st_ino})"
+        )
+
+
+def close_fds(*fds: int | None) -> None:
+    """Attempt every close without letting one cleanup failure skip the rest."""
+    for fd in fds:
+        if fd is None:
+            continue
+        try:
+            os.close(fd)
+        except BaseException:
+            pass
+
+
 def open_relative(root_fd: int, relative: Path, *, directory: bool = False) -> int:
     """Open a path beneath root_fd without following any component symlink."""
     current = os.dup(root_fd)
@@ -209,9 +234,13 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
     root_fd: int | None = None
     fragments_fd: int | None = None
     try:
+        root_identity = os.stat(manifest_root, follow_symlinks=False)
         root_fd = os.open(manifest_root, _DIRECTORY_FLAGS)
+        verify_fd_identity(root_fd, root_identity, "repository root")
         verify_root_fd(root_fd, manifest_root)
+        fragments_identity = os.stat(fragments_dir, follow_symlinks=False)
         fragments_fd = open_relative(root_fd, Path("fragments"), directory=True)
+        verify_fd_identity(fragments_fd, fragments_identity, "fragments directory")
         seen_ids: set[str] = set()
         active_ids: set[str] = set()
         referenced_paths: set[Path] = set()
@@ -282,10 +311,7 @@ def build_document(manifest: MutableMapping[str, Any], fragments_root: Path) -> 
 
         return {"schema": EXPECTED_SCHEMA, "surfaces": surfaces}
     finally:
-        if fragments_fd is not None:
-            os.close(fragments_fd)
-        if root_fd is not None:
-            os.close(root_fd)
+        close_fds(fragments_fd, root_fd)
 
 
 def main() -> None:

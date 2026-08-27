@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 
@@ -117,7 +118,10 @@ class SurfaceRegistryAssemblerSecurityTests(unittest.TestCase):
         with temporary:
             root = manifest.parent.resolve()
             closed: list[int] = []
-            with mock.patch.object(ASSEMBLER_MODULE.os, "open", return_value=101), mock.patch.object(
+            mismatch = SimpleNamespace(st_dev=2, st_ino=20)
+            with mock.patch.object(ASSEMBLER_MODULE.os, "fstat", return_value=mismatch), mock.patch.object(
+                ASSEMBLER_MODULE.os, "open", return_value=101
+            ), mock.patch.object(
                 ASSEMBLER_MODULE.os, "readlink", return_value="/tmp"
             ), mock.patch.object(ASSEMBLER_MODULE.os, "close", side_effect=closed.append):
                 with self.assertRaises(SystemExit):
@@ -139,7 +143,9 @@ class SurfaceRegistryAssemblerSecurityTests(unittest.TestCase):
                 except StopIteration:
                     raise PermissionError(13, "permission denied")
 
-            with mock.patch.object(ASSEMBLER_MODULE.os, "open", side_effect=open_side_effect), mock.patch.object(
+            with mock.patch.object(ASSEMBLER_MODULE.os, "fstat", return_value=ASSEMBLER_MODULE.os.stat(root)), mock.patch.object(
+                ASSEMBLER_MODULE.os, "open", side_effect=open_side_effect
+            ), mock.patch.object(
                 ASSEMBLER_MODULE.os, "readlink", return_value=str(root)
             ), mock.patch.object(ASSEMBLER_MODULE.os, "dup", return_value=202), mock.patch.object(
                 ASSEMBLER_MODULE.os, "close", side_effect=closed.append
@@ -149,6 +155,35 @@ class SurfaceRegistryAssemblerSecurityTests(unittest.TestCase):
                         json.loads(manifest.read_text(encoding="utf-8")), manifest.parent
                     )
             self.assertEqual(closed, [202, 101])
+
+    def test_fragments_identity_mismatch_closes_both_descriptors(self) -> None:
+        temporary, manifest, _ = self.fixture()
+        with temporary:
+            root = manifest.parent.resolve()
+            opened = iter([101, 102])
+            closed: list[int] = []
+
+            actual = iter([
+                ASSEMBLER_MODULE.os.stat(root),
+                SimpleNamespace(st_dev=2, st_ino=20),
+            ])
+            with mock.patch.object(ASSEMBLER_MODULE.os, "fstat", side_effect=lambda fd: next(actual)), mock.patch.object(
+                ASSEMBLER_MODULE.os, "open", side_effect=lambda *args, **kwargs: next(opened)
+            ), mock.patch.object(
+                ASSEMBLER_MODULE.os, "readlink", return_value=str(root)
+            ), mock.patch.object(ASSEMBLER_MODULE.os, "dup", return_value=202), mock.patch.object(
+                ASSEMBLER_MODULE.os, "close", side_effect=closed.append
+            ):
+                with self.assertRaises(SystemExit):
+                    ASSEMBLER_MODULE.build_document(
+                        json.loads(manifest.read_text(encoding="utf-8")), manifest.parent
+                    )
+            self.assertEqual(closed, [202, 102, 101])
+
+    def test_cleanup_attempts_root_when_fragments_close_raises(self) -> None:
+        with mock.patch.object(ASSEMBLER_MODULE.os, "close", side_effect=[OSError("first"), None]) as close:
+            ASSEMBLER_MODULE.close_fds(202, 101)
+        self.assertEqual(close.call_args_list, [mock.call(202), mock.call(101)])
 
 
 if __name__ == "__main__":
