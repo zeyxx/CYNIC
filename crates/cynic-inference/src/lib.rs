@@ -22,6 +22,11 @@ pub use domain::backend_health;
 pub use domain::backend_health::{
     Backend, BackendHealth, BackendId, DeclaredCapabilities, MeasuredCapabilities,
 };
+pub use domain::audit_geometry::{
+    GEOMETRIC_AUDIT_MATRIX_SCHEMA, GeometricMatrixPoint, ModelCognitiveCapabilityAudit,
+    ModelEconomicEvaluation, ModelEmissionDynamics, ModelMatrixCoordinate,
+    ModelSubstrateObservation, OffloadStrategy,
+};
 pub use domain::hardware_profile::MemoryBudget;
 pub use domain::inference::{InferencePhase, LatencyBreakdown};
 pub use math::tensor_geometry::AttentionType;

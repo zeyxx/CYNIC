@@ -1,3 +1,4 @@
+pub mod audit_geometry;
 pub mod backend_config;
 pub mod backend_health;
 pub mod backend_identity;
