@@ -173,6 +173,21 @@ fn fifo_is_rejected_without_blocking() {
 }
 
 #[test]
+fn manifest_fifo_is_rejected_without_blocking() {
+    let (manifest, _) = fixture();
+    fs::remove_file(&manifest).unwrap();
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&manifest)
+            .status()
+            .unwrap()
+            .success()
+    );
+    assert_err(&manifest, "manifest is not a regular file");
+    cleanup(&manifest);
+}
+
+#[test]
 fn output_symlink_is_rejected_without_touching_target() {
     let (manifest, output) = fixture();
     let target = manifest.parent().unwrap().join("protected.json");

@@ -24,6 +24,16 @@ pub(crate) fn assemble(manifest_path: &Path) -> Result<Value, String> {
         .file_name()
         .ok_or_else(|| "manifest has no file name".to_string())?;
     let manifest_file = open_relative(&root_file, Path::new(manifest_name), "manifest")?;
+    if !manifest_file
+        .metadata()
+        .map_err(|e| format!("manifest descriptor: {e}"))?
+        .is_file()
+    {
+        return Err(format!(
+            "manifest is not a regular file: {}",
+            manifest_path.display()
+        ));
+    }
     let manifest_identity =
         fs::symlink_metadata(manifest_path).map_err(|e| format!("manifest identity: {e}"))?;
     if !same_identity(
