@@ -1,3 +1,5 @@
+use cynic_protocol::BUILD_RUNNER_OBSERVATION_SCHEMA;
+
 use super::types::{FrameworkPropagationDecision, FrameworkPropagationObservation};
 
 pub(super) fn decide_framework_propagation(
@@ -80,7 +82,7 @@ fn valid_runtime_marker(marker: &serde_json::Value, expected_basket_digest: &str
 }
 
 fn valid_node_observation(observation: &serde_json::Value, node_id: &str) -> bool {
-    observation["schema"].as_str() == Some("cynic.runtime.node_observation.v1")
+    observation["schema"].as_str() == Some(BUILD_RUNNER_OBSERVATION_SCHEMA)
         && observation["status"].as_str() == Some("observed")
         && observation["node_id"].as_str() == Some(node_id)
 }
