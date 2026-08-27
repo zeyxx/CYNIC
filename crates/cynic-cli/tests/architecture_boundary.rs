@@ -1404,7 +1404,7 @@ fn host_bootstrap_e2e_emits_non_mutating_runtime_contract() {
         report
             .pointer("/runtime_plan/schema")
             .and_then(Value::as_str),
-        Some("cynic.runtime_execution_plan.v1")
+        Some(cynic_protocol::RUNTIME_EXECUTION_PLAN_SCHEMA)
     );
 }
 
