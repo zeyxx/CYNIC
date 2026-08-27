@@ -30,6 +30,8 @@ rustc-ice-*.txt
 /observations/
 /tmp/
 /infra/benchmark-results/
+/infra/runtime-checkpoints/BUILDER_ROUTE_CONVERGENCE.md
+/infra/runtime-checkpoints/builder-route-convergence-evidence.json
 state*.md
 *-state*.md
 message.txt
