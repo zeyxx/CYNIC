@@ -4,6 +4,151 @@
   "note": "weights_path is resolved at materialize time: vault_dir/<filename>. Never store absolute paths here.",
   "profiles": [
     {
+      "alias": "qwen36-35b-a3b-iq2",
+      "filename": "Qwen3.6-35B-A3B-IQ2_M.gguf",
+      "port": 8093,
+      "use_case": "p0-benchmark-moe-primary",
+      "description": "Qwen3.6-35B-A3B MoE (~35B total / 3B actif) IQ2_M — candidat principal qualité/coding/agentique pour 5700G.",
+      "quant": "IQ2_M",
+      "param_b": 35.0,
+      "param_active_b": 3.0,
+      "architecture": "qwen35moe",
+      "ctx_target": 65536,
+      "temperature": 0.2,
+      "max_tokens": 8192,
+      "timeout_secs": 300,
+      "supports_tool_use": true,
+      "thinking": {
+        "capable": true,
+        "disable_by_default": false
+      },
+      "offload_policy": {
+        "strategy": "hybrid",
+        "note": "Poids IQ2 ~10 GB en GTT/RAM; KV quantifié q4_0.",
+        "kv_quant": "q4_0",
+        "flash_attn": "on",
+        "device_flag": "Vulkan0"
+      },
+      "resource_caps": {
+        "memory_max": "22G",
+        "cpu_quota_pct": 800,
+        "parallel_slots": 2
+      },
+      "memory_estimate": {
+        "weights_mib": 10240,
+        "kv_q4_at_64k_mib": 4800,
+        "total_budget_mib": 16000
+      }
+    },
+    {
+      "alias": "gemma4-26b-a4b-iq3",
+      "filename": "Gemma-4-26B-A4B-IQ3_S.gguf",
+      "port": 8094,
+      "use_case": "p0-benchmark-moe-competitor",
+      "description": "Gemma 4 26B-A4B MoE (~26B total / 4B actif) IQ3_S — concurrent principal efficacité MoE et raisonnement.",
+      "quant": "IQ3_S",
+      "param_b": 26.0,
+      "param_active_b": 4.0,
+      "architecture": "gemma2",
+      "ctx_target": 65536,
+      "temperature": 0.3,
+      "max_tokens": 8192,
+      "timeout_secs": 300,
+      "supports_tool_use": true,
+      "thinking": {
+        "capable": true,
+        "disable_by_default": false
+      },
+      "offload_policy": {
+        "strategy": "hybrid",
+        "note": "Poids IQ3 ~11 GB; KV quantifié q4_0.",
+        "kv_quant": "q4_0",
+        "flash_attn": "on",
+        "device_flag": "Vulkan0"
+      },
+      "resource_caps": {
+        "memory_max": "22G",
+        "cpu_quota_pct": 800,
+        "parallel_slots": 2
+      },
+      "memory_estimate": {
+        "weights_mib": 11264,
+        "kv_q4_at_64k_mib": 4800,
+        "total_budget_mib": 17000
+      }
+    },
+    {
+      "alias": "nemotron-35-30b-q4",
+      "filename": "Nemotron-3.5-Lightning-30B-A3B-Q4_K_S.gguf",
+      "port": 8095,
+      "use_case": "p0-benchmark-agentic-speed",
+      "description": "Nemotron 3.5 Lightning 30B-A3B MoE (~30B total / 3B actif) Q4_K_S — vitesse et workflows agentiques.",
+      "quant": "Q4_K_S",
+      "param_b": 30.0,
+      "param_active_b": 3.0,
+      "architecture": "nemotron",
+      "ctx_target": 65536,
+      "temperature": 0.2,
+      "max_tokens": 4096,
+      "timeout_secs": 180,
+      "supports_tool_use": true,
+      "thinking": {
+        "capable": true,
+        "disable_by_default": false
+      },
+      "offload_policy": {
+        "strategy": "hybrid",
+        "kv_quant": "q4_0",
+        "flash_attn": "on",
+        "device_flag": "Vulkan0"
+      },
+      "resource_caps": {
+        "memory_max": "24G",
+        "cpu_quota_pct": 800,
+        "parallel_slots": 1
+      },
+      "memory_estimate": {
+        "weights_mib": 15360,
+        "kv_q4_at_64k_mib": 4800,
+        "total_budget_mib": 21000
+      }
+    },
+    {
+      "alias": "gpt-oss-20b-mxfp4",
+      "filename": "GPT-OSS-20B-MXFP4.gguf",
+      "port": 8096,
+      "use_case": "p0-benchmark-compact-baseline",
+      "description": "GPT-OSS-20B MoE MXFP4 — baseline MoE compacte haut débit.",
+      "quant": "MXFP4",
+      "param_b": 20.0,
+      "architecture": "gpt-oss",
+      "ctx_target": 32768,
+      "temperature": 0.3,
+      "max_tokens": 4096,
+      "timeout_secs": 180,
+      "supports_tool_use": true,
+      "thinking": {
+        "capable": false,
+        "disable_by_default": true
+      },
+      "offload_policy": {
+        "strategy": "full",
+        "kv_quant": "q4_0",
+        "flash_attn": "on",
+        "device_flag": "Vulkan0"
+      },
+      "resource_caps": {
+        "memory_max": "16G",
+        "cpu_quota_pct": 600,
+        "parallel_slots": 2
+      },
+      "memory_estimate": {
+        "weights_mib": 9216,
+        "kv_q4_at_32k_mib": 2400,
+        "total_budget_mib": 12000
+      }
+    },
+    {
       "alias": "ornith-1.5-9b-q4",
       "filename": "Ornith-1.5-9B-Q4_K_M.gguf",
       "description": "Ornith 1.5 9B dense qwen35moe fork — throughput 8.17 t/s, ctx 128K, full GPU offload (ngl99). TOOL-USE VALIDATED (dense qwen35 can tool-call; SSOT caveat 'no tool-use=qwen35 dense' REJECTED).",
