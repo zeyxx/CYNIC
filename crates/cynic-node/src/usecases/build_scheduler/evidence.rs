@@ -1,3 +1,5 @@
+use cynic_protocol::RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA;
+
 use std::{collections::BTreeMap, fs, path::Path};
 
 use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
@@ -42,7 +44,7 @@ pub(super) fn persist_success_proofs(
                 "exit_code": execution.exit_code,
             }),
             "release_binary_artifact_read_back" => serde_json::json!({
-                "schema": "cynic.build.release_binary_artifact_read_back.v1",
+                "schema": RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA,
                 "source_commit": workspace.source_commit,
                 "artifacts": release_artifacts(&workspace.workspace_root)?,
             }),

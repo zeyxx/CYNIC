@@ -1,3 +1,5 @@
+use cynic_protocol::RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA;
+
 use std::{collections::BTreeMap, time::Duration};
 
 use cynic_host::{
@@ -111,8 +113,7 @@ where
         .read(&build_proof_ref.digest)?
         .ok_or_else(|| "release_publication_build_proof_not_retained".to_string())?;
     if build_proof.digest != build_proof_ref.digest
-        || build_proof.payload["schema"].as_str()
-            != Some("cynic.build.release_binary_artifact_read_back.v1")
+        || build_proof.payload["schema"].as_str() != Some(RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA)
         || build_proof.payload["source_commit"].as_str() != Some(workspace.source_commit.as_str())
     {
         return Err("release_publication_build_proof_invalid".to_string());

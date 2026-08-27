@@ -11,7 +11,8 @@
 
 use cynic_protocol::{
     AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, BuildAgentRequest,
-    BuildAgentRequestAdmission, admit_build_agent_request, compose_build_agent_workload,
+    BuildAgentRequestAdmission, BuildRunnerRouteDecision, BuildRunnerRoutePath,
+    BuildRunnerRouteState, admit_build_agent_request, compose_build_agent_workload,
 };
 use serde::Serialize;
 
@@ -52,7 +53,8 @@ pub struct SubmissionReport {
 /// Orchestrate: admit → grant → submit.
 pub async fn orchestrate_build_submission(
     request: &BuildAgentRequest,
-    registry_path: &str,
+    route: &BuildRunnerRouteDecision,
+    route_node_id: &str,
     workspace_root: &str,
     signer: &dyn BuildWorkloadGrantSignerPort,
     submitter: &dyn BuildWorkloadSubmissionPort,
@@ -73,7 +75,7 @@ pub async fn orchestrate_build_submission(
     }
 
     // Step 2: Compose workload envelope
-    let transport = match resolve_build_runner_node_id(registry_path) {
+    let transport = match resolve_runtime_fenced_build_runner(route, route_node_id) {
         Ok(id) => id,
         Err(e) => {
             return Ok(BuildSubmissionPlan {
@@ -197,29 +199,23 @@ pub async fn orchestrate_build_submission(
     })
 }
 
-/// Resolve the build runner node id from the registry.
-fn resolve_build_runner_node_id(registry_path: &str) -> Result<String, String> {
-    let registry = cynic_host::build_runner_harness::registry::read_registry(registry_path)?;
-    let nodes = registry
-        .get("nodes")
-        .and_then(|n| n.as_array())
-        .ok_or_else(|| "registry: no nodes array".to_string())?;
-
-    let builder = nodes
-        .iter()
-        .find(|node| {
-            node.get("role")
-                .and_then(|r| r.as_str())
-                .map(|r| r == "build_runner")
-                .unwrap_or(false)
-        })
-        .ok_or_else(|| "build_runner node not found".to_string())?;
-
-    builder
-        .get("id")
-        .and_then(|s| s.as_str())
-        .map(|s| s.to_string())
-        .ok_or_else(|| "build_runner node id missing".to_string())
+/// Normal workload delivery consumes the canonical route decision. It never
+/// re-selects a Builder from a registry role declaration.
+fn resolve_runtime_fenced_build_runner(
+    route: &BuildRunnerRouteDecision,
+    route_node_id: &str,
+) -> Result<String, String> {
+    if route_node_id.trim().is_empty() {
+        return Err("build_runner_route_node_id_missing".to_string());
+    }
+    if route.state != BuildRunnerRouteState::RuntimeFenced
+        || route.next_path != Some(BuildRunnerRoutePath::RuntimeDelivery)
+        || !route.blockers.is_empty()
+        || !route.residual_unknowns.is_empty()
+    {
+        return Err("build_runner_runtime_fence_required".to_string());
+    }
+    Ok(route_node_id.to_string())
 }
 
 #[cfg(test)]
@@ -288,6 +284,21 @@ mod tests {
         }
     }
 
+    fn route(
+        state: BuildRunnerRouteState,
+        next_path: Option<BuildRunnerRoutePath>,
+    ) -> BuildRunnerRouteDecision {
+        BuildRunnerRouteDecision {
+            schema: "cynic.build_runner.route_convergence.v1".to_string(),
+            node_id: "cynic-builder".to_string(),
+            state,
+            next_path,
+            mutates: false,
+            blockers: Vec::new(),
+            residual_unknowns: Vec::new(),
+        }
+    }
+
     #[test]
     fn orchestrate_admits_valid_request() {
         let request = valid_request();
@@ -301,5 +312,40 @@ mod tests {
         request.source_commit = "short".to_string();
         let admission = admit_build_agent_request(&request);
         assert_eq!(admission.status, "blocked");
+    }
+
+    #[test]
+    fn only_runtime_fenced_delivery_resolves_a_build_runner() {
+        let fenced = route(
+            BuildRunnerRouteState::RuntimeFenced,
+            Some(BuildRunnerRoutePath::RuntimeDelivery),
+        );
+        assert_eq!(
+            resolve_runtime_fenced_build_runner(&fenced, "cynic-builder"),
+            Ok("cynic-builder".to_string())
+        );
+        let seed = route(
+            BuildRunnerRouteState::SeedProved,
+            Some(BuildRunnerRoutePath::SshSeed),
+        );
+        assert_eq!(
+            resolve_runtime_fenced_build_runner(&seed, "cynic-builder"),
+            Err("build_runner_runtime_fence_required".to_string())
+        );
+    }
+
+    #[test]
+    fn runtime_delivery_rejects_blockers_and_unknowns() {
+        let mut blocked = route(
+            BuildRunnerRouteState::RuntimeFenced,
+            Some(BuildRunnerRoutePath::RuntimeDelivery),
+        );
+        blocked
+            .residual_unknowns
+            .push("coordination_stale".to_string());
+        assert!(resolve_runtime_fenced_build_runner(&blocked, "cynic-builder").is_err());
+        blocked.residual_unknowns.clear();
+        blocked.blockers.push("route_refuted".to_string());
+        assert!(resolve_runtime_fenced_build_runner(&blocked, "cynic-builder").is_err());
     }
 }
