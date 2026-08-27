@@ -203,11 +203,11 @@ impl ForgejoTokenApiPort for HttpForgejoTokenApiAdapter {
             &scopes_csv,
             self.authorization_token.as_deref(),
         )?;
-        let mut token_value = extract_token_from_api_response(&resp)?;
+        let (mut token_value, metadata) = extract_api_token_material(&resp)?;
         let write_result = write_protected_secret(&spec.target_path, &token_value, spec.mode);
         token_value.zeroize();
         write_result?;
-        extract_token_metadata(&resp)
+        Ok(metadata)
     }
 
     fn remove(&self, _spec: &ForgejoTokenSpec, token_sha1: &str) -> Result<(), String> {
@@ -299,7 +299,7 @@ impl Default for ForgejoTokenRuntimeSpec {
     fn default() -> Self {
         Self {
             token_spec: DefaultForgejoTokenSpec::default_with_principal("cynic-cortex".to_string()),
-            adapter: Box::new(LocalForgejoTokenApiAdapter),
+            adapter: Box::new(UnavailableForgejoTokenApiAdapter),
         }
     }
 }
@@ -323,7 +323,7 @@ pub fn provision_forgejo_token(
     port: &dyn ForgejoTokenApiPort,
 ) -> ForgejoTokenProvisionReport {
     if spec.target_path != FORGEJO_TOKEN_PATH {
-        let observation = observe_forgejo_token(spec);
+        let observation = port.observe(spec);
         return ForgejoTokenProvisionReport {
             schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
             status: "blocked",
@@ -419,7 +419,7 @@ pub fn rotate_forgejo_token(
     port: &dyn ForgejoTokenApiPort,
 ) -> ForgejoTokenProvisionReport {
     if spec.target_path != FORGEJO_TOKEN_PATH {
-        let observation = observe_forgejo_token(spec);
+        let observation = port.observe(spec);
         return ForgejoTokenProvisionReport {
             schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
             status: "blocked",
@@ -435,7 +435,7 @@ pub fn rotate_forgejo_token(
     }
     let before = port.observe(spec);
     let old = match port.current_token(spec) {
-        Ok(metadata) if !metadata.sha1.is_empty() => metadata,
+        Ok(metadata) if validate_token_identity(&metadata.sha1).is_ok() => metadata,
         _ => {
             return blocked_rotation_report(
                 spec,
@@ -713,6 +713,30 @@ fn extract_token_from_api_response(resp: &serde_json::Value) -> Result<String, S
         .ok_or_else(|| "API response missing token field".to_string())
 }
 
+fn extract_api_token_material(
+    resp: &serde_json::Value,
+) -> Result<(String, ForgejoTokenMetadata), String> {
+    let mut token = extract_token_from_api_response(resp)?;
+    let metadata = match extract_token_metadata(resp) {
+        Ok(metadata) => metadata,
+        Err(error) => {
+            token.zeroize();
+            return Err(error);
+        }
+    };
+    Ok((token, metadata))
+}
+
+fn validate_token_identity(sha1: &str) -> Result<(), String> {
+    if sha1.len() != 40 {
+        return Err("Forgejo token identity must be exactly 40 hexadecimal characters".to_string());
+    }
+    if !sha1.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("Forgejo token identity must be hexadecimal".to_string());
+    }
+    Ok(())
+}
+
 fn extract_token_metadata(resp: &serde_json::Value) -> Result<ForgejoTokenMetadata, String> {
     Ok(ForgejoTokenMetadata {
         token_id: resp
@@ -902,6 +926,116 @@ mod tests {
         let error = write_protected_secret("/tmp/arbitrary-token", "secret", 0o640)
             .expect_err("arbitrary token paths must be rejected");
         assert!(error.contains("canonical path"));
+    }
+
+    #[test]
+    fn noncanonical_paths_observe_through_injected_port() {
+        #[derive(Debug)]
+        struct StubPort;
+        impl ForgejoTokenApiPort for StubPort {
+            fn observe(&self, spec: &ForgejoTokenSpec) -> ForgejoTokenObservation {
+                let mut observation = observe_forgejo_token(spec);
+                observation
+                    .unknowns
+                    .push("injected_observation".to_string());
+                observation
+            }
+            fn create(&self, _spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
+                Err("must not create".to_string())
+            }
+            fn remove(&self, _spec: &ForgejoTokenSpec, _sha1: &str) -> Result<(), String> {
+                Err("must not remove".to_string())
+            }
+        }
+
+        let spec = ForgejoTokenSpec {
+            target_path: "/tmp/noncanonical-token".to_string(),
+            ..ForgejoTokenSpec::default()
+        };
+        let provision = provision_forgejo_token(&spec, &StubPort);
+        let rotation = rotate_forgejo_token(&spec, &StubPort);
+        assert!(
+            provision
+                .before
+                .unknowns
+                .iter()
+                .any(|u| u == "injected_observation")
+        );
+        assert!(
+            rotation
+                .before
+                .unknowns
+                .iter()
+                .any(|u| u == "injected_observation")
+        );
+    }
+
+    #[test]
+    fn api_material_requires_metadata_before_secret_write() {
+        let response = serde_json::json!({"token": "raw-secret"});
+        let error = extract_api_token_material(&response).expect_err("metadata is required first");
+        assert!(error.contains("missing exact id"));
+    }
+
+    #[test]
+    fn rotation_identity_validation_rejects_placeholders_before_remove() {
+        #[derive(Debug)]
+        struct InvalidIdentityPort;
+        impl ForgejoTokenApiPort for InvalidIdentityPort {
+            fn observe(&self, spec: &ForgejoTokenSpec) -> ForgejoTokenObservation {
+                observe_forgejo_token(spec)
+            }
+            fn create(&self, _spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
+                panic!("create must not run")
+            }
+            fn remove(&self, _spec: &ForgejoTokenSpec, _sha1: &str) -> Result<(), String> {
+                panic!("remove must not run for an invalid identity")
+            }
+            fn current_token(
+                &self,
+                _spec: &ForgejoTokenSpec,
+            ) -> Result<ForgejoTokenMetadata, String> {
+                Ok(ForgejoTokenMetadata {
+                    token_id: 1,
+                    name: "cynic".to_string(),
+                    sha1: "<unavailable>".to_string(),
+                })
+            }
+        }
+
+        let spec = ForgejoTokenSpec {
+            target_path: FORGEJO_TOKEN_PATH.to_string(),
+            ..ForgejoTokenSpec::default()
+        };
+        let report = rotate_forgejo_token(&spec, &InvalidIdentityPort);
+        assert_eq!(report.status, "blocked");
+        assert!(!report.mutated);
+        assert_eq!(
+            report.unknowns[0],
+            "forgejo_token_current_metadata_unavailable"
+        );
+    }
+
+    #[test]
+    fn rotation_identity_validation_rejects_placeholders_and_non_hex() {
+        assert!(validate_token_identity("").is_err());
+        assert!(validate_token_identity("<unavailable>").is_err());
+        assert!(validate_token_identity(&"a".repeat(39)).is_err());
+        assert!(validate_token_identity(&"g".repeat(40)).is_err());
+        assert!(validate_token_identity(&"a".repeat(40)).is_ok());
+    }
+
+    #[test]
+    fn runtime_default_is_unavailable() {
+        let runtime = ForgejoTokenRuntimeSpec::default();
+        let observation = observe_forgejo_token_runtime(&runtime);
+        assert!(
+            observation
+                .unknowns
+                .iter()
+                .any(|unknown| unknown == "forgejo_token_adapter_selection_unproven")
+        );
+        assert!(runtime.adapter.create(&runtime.token_spec).is_err());
     }
 
     #[test]

@@ -51,8 +51,8 @@ pub(crate) fn execute_forgejo_token(
     };
     let spec = ForgejoTokenRuntimeSpec {
         token_spec,
-        // Local-forgejo (SSH-local Exec) adapter by default. The HTTP variant
-        // is selected automatically when the HTTPS endpoint is reachable.
+        // Adapter selection is unavailable/unproven by default; mutation must
+        // remain fail-closed until transport and credential binding are proven.
         adapter: super::forgejo_token_adapter_selector(),
     };
 
